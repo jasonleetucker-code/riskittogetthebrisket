@@ -4,6 +4,8 @@ import gzip
 import hashlib
 import json
 import sys
+import threading
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -16,8 +18,10 @@ from scripts.soak_prepared_serving import (
     launch,
     percentile,
     publication_evidence,
+    resource_observations,
     sampling_evidence,
     summarize,
+    TimedEvents,
 )
 
 
@@ -246,3 +250,27 @@ def test_remote_fault_control_preserves_runtime_none_error_contract(monkeypatch)
     assert runtime.last_error is None
     monkeypatch.setattr(runtime, "control", lambda action: {"lastError": True})
     assert runtime.last_error
+
+
+def test_resource_samples_continue_while_driver_waits(tmp_path):
+    rows, errors = [], []
+    four_samples = threading.Event()
+
+    def observe():
+        if len(rows) >= 3:
+            four_samples.set()
+        return {"seconds": time.monotonic()}
+
+    path = tmp_path / "samples.jsonl"
+    with resource_observations(path, observe, rows, errors, interval=0.01):
+        # Represents a driver thread blocked waiting on child startup/store IO.
+        assert four_samples.wait(timeout=2)
+    assert len(rows) >= 4 and not errors
+    assert len(path.read_text().splitlines()) == len(rows)
+
+
+def test_fault_events_have_elapsed_time_without_payload_content():
+    events = TimedEvents(time.monotonic())
+    events.append({"kind": "capacity_exhaustion_kept_pointer"})
+    assert events[0]["seconds"] >= 0
+    assert set(events[0]) == {"kind", "seconds"}

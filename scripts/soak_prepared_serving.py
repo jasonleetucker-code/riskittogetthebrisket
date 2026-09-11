@@ -22,6 +22,7 @@ import sys
 import threading
 import time
 from collections import Counter, OrderedDict
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -33,6 +34,79 @@ def percentile(values, fraction=0.95):
         return None
     ordered = sorted(values)
     return ordered[min(len(ordered) - 1, int((len(ordered) - 1) * fraction))]
+
+
+@contextmanager
+def prevent_automatic_sleep():
+    """Keep this Windows measurement awake, without changing saved power policy."""
+    if os.name != "nt":
+        yield
+        return
+    import ctypes
+
+    execution_state = ctypes.windll.kernel32.SetThreadExecutionState
+    execution_state.argtypes = [ctypes.c_uint]
+    execution_state.restype = ctypes.c_uint
+    if not execution_state(0x80000001):  # ES_CONTINUOUS | ES_SYSTEM_REQUIRED
+        raise OSError("Could not request temporary automatic-sleep prevention")
+    try:
+        yield
+    finally:
+        execution_state(0x80000000)
+
+
+class TimedEvents(list):
+    def __init__(self, started):
+        super().__init__()
+        self.started = started
+
+    def append(self, event):
+        super().append({**event, "seconds": round(time.monotonic() - self.started, 3)})
+
+
+@contextmanager
+def resource_observations(path, observe, rows, errors, interval=1, progress=None):
+    """Sample outside driver publication/child-start waits; never fill missed ticks."""
+    done = threading.Event()
+
+    def collect():
+        try:
+            with path.open("w", encoding="utf-8") as stream:
+                deadline = time.monotonic()
+                while not done.is_set():
+                    row = observe()
+                    rows.append(row)
+                    stream.write(json.dumps(row) + "\n")
+                    stream.flush()
+                    if len(rows) % 60 == 0:
+                        print(
+                            json.dumps(
+                                {
+                                    "seconds": row["seconds"],
+                                    "samples": len(rows),
+                                    "errors": len(errors),
+                                    **(progress() if progress else {}),
+                                }
+                            ),
+                            flush=True,
+                        )
+                    deadline += interval
+                    now = time.monotonic()
+                    if deadline < now:
+                        deadline = now + interval
+                    done.wait(max(0, deadline - now))
+        except Exception as exc:
+            errors.append(f"sampling_{type(exc).__name__}")
+
+    thread = threading.Thread(target=collect, name="soak-resources", daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        done.set()
+        thread.join(timeout=5)
+        if thread.is_alive():
+            errors.append("resource_sampler_stop_timeout")
 
 
 def disable_network(loopback_port=None):
@@ -604,9 +678,10 @@ def main(args):
     # launcher descendants), captured before any source/league workers start.
     baseline_process_count = 1 + len(psutil.Process().children(recursive=True))
 
+    started = time.monotonic()
     stop = threading.Event()
     errors = []
-    events = []
+    events = TimedEvents(started)
     latencies = {"baseline": [], "refresh": [], "postRefreshIdle": []}
     worker_active = threading.Event()
     response_counts = Counter()
@@ -614,7 +689,9 @@ def main(args):
     observed_generations = Counter()
     read_error_counts = Counter()
     audit = ResponseAudit()
-    started = time.monotonic()
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    request_file = args.output.with_suffix(".requests.jsonl")
+    request_stream = request_file.open("w", encoding="utf-8")
 
     def read_loop():
         connection = http.client.HTTPConnection("127.0.0.1", args.port, timeout=5)
@@ -650,6 +727,23 @@ def main(args):
                         response_counts[
                             f"{view}:{phase}:{request_kind}:{response.status_code}"
                         ] += 1
+                        observation = {
+                            "seconds": round(time.monotonic() - started, 3),
+                            "route": view,
+                            "phase": phase,
+                            "kind": request_kind,
+                            "status": response.status_code,
+                            "elapsedMs": elapsed,
+                        }
+                        if response.status_code not in (200, 304):
+                            try:
+                                reason = json.loads(response.body).get("error")
+                            except (ValueError, AttributeError):
+                                reason = None
+                            observation["reason"] = (
+                                "data_not_ready" if reason == "data_not_ready" else "other"
+                            )
+                        request_stream.write(json.dumps(observation) + "\n")
                         if response.status_code not in (200, 304):
                             read_error_counts[f"{view}:http_{response.status_code}"] += 1
                             continue
@@ -661,11 +755,23 @@ def main(args):
                         observed_generations[conditional[1]] += 1
                     except Exception as exc:
                         read_error_counts[f"{view}:{type(exc).__name__}"] += 1
+                        request_stream.write(
+                            json.dumps(
+                                {
+                                    "seconds": round(time.monotonic() - started, 3),
+                                    "route": view,
+                                    "kind": request_kind,
+                                    "failureType": type(exc).__name__,
+                                }
+                            )
+                            + "\n"
+                        )
                         if len(errors) < 20:
                             errors.append(f"read_{view}_{type(exc).__name__}")
                         connection.close()
                         connection = http.client.HTTPConnection("127.0.0.1", args.port, timeout=5)
         connection.close()
+        request_stream.flush()
 
     reader = threading.Thread(target=read_loop, name="soak-reads", daemon=True)
     reader.start()
@@ -789,7 +895,13 @@ def main(args):
     sample_file = args.output.with_suffix(".samples.jsonl")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     try:
-        with sample_file.open("w", encoding="utf-8") as stream:
+        with resource_observations(
+            sample_file,
+            lambda: sample(process, args.root, started, previous_cpu, args.child_ledger),
+            samples,
+            errors,
+            progress=lambda: {"httpErrors": sum(read_error_counts.values())},
+        ):
             while time.monotonic() - started < args.duration_seconds and not stop.is_set():
                 tick = time.monotonic()
                 elapsed = tick - started
@@ -850,21 +962,6 @@ def main(args):
                 if web_child.poll() is not None:
                     errors.append("fatal_web_child_exit")
                     break
-                row = sample(process, args.root, started, previous_cpu, args.child_ledger)
-                samples.append(row)
-                stream.write(json.dumps(row) + "\n")
-                stream.flush()
-                if len(samples) % 60 == 0:
-                    print(
-                        json.dumps(
-                            {
-                                "seconds": row["seconds"],
-                                "samples": len(samples),
-                                "errors": len(errors),
-                            }
-                        ),
-                        flush=True,
-                    )
                 stop.wait(max(0, 1 - (time.monotonic() - tick)))
     except Exception as exc:
         errors.append(f"driver_{type(exc).__name__}")
@@ -875,6 +972,8 @@ def main(args):
         reader.join(timeout=6)
         if reader.is_alive():
             errors.append("http_read_thread_stop_timeout")
+        else:
+            request_stream.close()
         if child is not None:
             if child.poll() is None:
                 child.terminate()
@@ -971,6 +1070,10 @@ def main(args):
     latency_file = args.output.with_suffix(".latencies.json")
     latency_file.write_text(json.dumps(read_series) + "\n", encoding="utf-8")
     report["latencyObservationsFile"] = latency_file.name
+    report["timestampedHttpObservationsFile"] = request_file.name
+    report["automaticSleepPrevention"] = (
+        "temporary Windows system request" if os.name == "nt" else "not configured"
+    )
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, indent=2), flush=True)
     return 0 if report["passed"] else 1
@@ -1030,4 +1133,5 @@ if __name__ == "__main__":
             or not 0 < parsed.quiet_seconds < parsed.duration_seconds
         ):
             parser.error("require 0 < baseline < duration and refresh > 0")
-        raise SystemExit(main(parsed))
+        with prevent_automatic_sleep():
+            raise SystemExit(main(parsed))
