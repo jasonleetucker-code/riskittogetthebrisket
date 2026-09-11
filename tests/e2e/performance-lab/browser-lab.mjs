@@ -9,6 +9,9 @@ const require = createRequire(import.meta.url);
 const { expect } = require("@playwright/test");
 const { SEL, awaitStreamSettled } = require("../helpers/journey.js");
 const origin = "http://127.0.0.1:3082";
+const frontendPort = Number(process.env.PERF_LAB_FRONTEND_PORT || 3081);
+const fixture = await (await fetch(`${origin}/__lab/control?frontendPort=${frontendPort}`)).json();
+if (fixture.privateReplay) throw new Error("Use replay-smoke.mjs for private replay; synthetic driver writes screenshots");
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM_PATH || undefined, headless: true });
 const report = { scope: "local production-build browser integration; synthetic 120-row fixture; no production latency claim", browser: await browser.version(), buildFlag: "NEXT_PUBLIC_PREPARED_READ_MODELS=1", cases: [], comparisons: {} };
 const hash = (text) => createHash("sha256").update(text).digest("hex");
@@ -18,6 +21,7 @@ let currentPage;
 const telemetryByPage = new WeakMap();
 report.telemetry = { requests: 0, successfulResponses: 0, names: [], routes: [], valid: true, referrerAbsent: true };
 report.runtime = process.version;
+report.frontendPort = frontendPort;
 report.build = process.env.NEXT_DIST_DIR || "configured production build with shell telemetry";
 
 async function open(path, viewport) {

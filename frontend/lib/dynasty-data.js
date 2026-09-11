@@ -37,6 +37,7 @@
 // returns an empty rows array) rather than silently re-computing.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { performanceLabMark, performanceLabJson } from "./performance-lab.js";
 import { preparedReadModel, READ_MODEL_URLS } from "./read-model-policy.js";
 
 const OFFENSE = new Set(["QB", "RB", "WR", "TE"]);
@@ -1587,9 +1588,11 @@ async function _fetchBaseContract(opts = {}) {
     cached && !opts.force &&
     Date.now() - cached.at < _BASE_CONTRACT_TTL_MS
   ) {
+    performanceLabMark("fetch-cache", readModel || "legacy");
     return cached.value;
   }
   if (_baseRequests.has(cacheKey)) {
+    performanceLabMark("fetch-join", readModel || "legacy");
     return _baseRequests.get(cacheKey);
   }
   const promise = _fetchBaseContractNetwork(leagueKey, view, cacheKey, readModel, _baseCacheEpoch);
@@ -1626,7 +1629,9 @@ async function _fetchBaseContractNetwork(leagueKey, view, cacheKey, readModel, e
   // navigation past the in-memory TTL.
   let res;
   try {
+    performanceLabMark("fetch-start", readModel || "legacy");
     res = await fetch(url, { cache: "no-cache" });
+    performanceLabMark("headers", readModel || "legacy");
   } catch (netErr) {
     // No status at all: the request never reached a server. That is a
     // DIFFERENT state from every HTTP failure below and used to be
@@ -1655,7 +1660,8 @@ async function _fetchBaseContractNetwork(leagueKey, view, cacheKey, readModel, e
     err.body = body;
     throw err;
   }
-  const json = await res.json();
+  const json = await performanceLabJson(res, readModel || "legacy");
+  performanceLabMark("fetch-end", readModel || "legacy");
 
   // The Next.js API route wraps the payload: { ok, source, data: <contract> }
   // The Python backend alias returns the raw contract.  Normalize both.

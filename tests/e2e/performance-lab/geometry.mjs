@@ -10,7 +10,7 @@ const { SEL, awaitStreamSettled } = require("../helpers/journey.js");
 const output = path.resolve(process.env.PERF_LAB_OUTPUT || "output/playwright");
 fs.mkdirSync(output, { recursive: true });
 const origin = "http://127.0.0.1:3082";
-await fetch(`${origin}/__lab/control?variant=prepared&detailDelay=0`);
+await fetch(`${origin}/__lab/control?variant=prepared&detailDelay=0&frontendPort=${process.env.PERF_LAB_FRONTEND_PORT || 3081}`);
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM_PATH || undefined });
 const evidence = { scope: "Synthetic rankings geometry and row-window reachability", cases: [] };
 async function geometry(page) {

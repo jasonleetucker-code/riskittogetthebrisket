@@ -73,6 +73,8 @@
  */
 "use client";
 
+import { performanceLabMark } from "@/lib/performance-lab";
+
 import React, {
   Fragment,
   useCallback,
@@ -251,6 +253,7 @@ export function DataTable({
     if (!table) return;
     const ths = Array.from(table.querySelectorAll("thead th"));
     if (ths.length === 0) return;
+    performanceLabMark("width-start", "table");
     // Measure with the freeze OFF, so we read the browser's own
     // content-driven answer rather than the widths we last imposed.
     const widths = ths.map((th) => {
@@ -262,6 +265,7 @@ export function DataTable({
       }
       return Math.round(th.getBoundingClientRect().width * 100) / 100;
     });
+    performanceLabMark("width-end", "table");
     const total = widths.reduce((sum, w) => sum + (w || 0), 0);
     if (total <= 0) return;
     setFrozen((prev) => {

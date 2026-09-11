@@ -21,7 +21,8 @@
  * readers announce the new page), aria-current on active nav.
  */
 import { usePathname } from "next/navigation";
-import { createContext, useContext, useEffect, useRef } from "react";
+import { createContext, useContext, useEffect, useRef, Profiler } from "react";
+import { PERFORMANCE_LAB_BUILD, performanceLabMark, performanceLabProfile } from "@/lib/performance-lab";
 import AppShell, { useApp } from "@/components/AppShell";
 import { useAuth } from "@/components/useAuth";
 import ScreenshotFab from "@/components/ScreenshotFab";
@@ -30,6 +31,7 @@ import TopBar from "@/components/shell/TopBar";
 import { MobileTopBar, MobileTabBar } from "@/components/shell/MobileChrome";
 import { isPublicPath } from "@/lib/public-routes";
 import WebVitalsReporter from "@/components/WebVitalsReporter";
+performanceLabMark("module");
 
 // Which destinations a logged-out visitor sees in the nav.  The
 // definition is shared with middleware.js and robots.js — see
@@ -139,8 +141,9 @@ function AppShellSearchBridge({ children }) {
 // ── Main shell wrapper ───────────────────────────────────────────────────
 export default function AppShellWrapper({ children }) {
   const auth = useAuth();
+  useEffect(() => { performanceLabMark("hydrate-commit"); }, []);
 
-  return (
+  const shell = (
     <AuthContext.Provider value={auth}>
       <WebVitalsReporter />
       <AppShell authenticated={auth.authenticated === true} capabilities={auth.features}>
@@ -148,4 +151,5 @@ export default function AppShellWrapper({ children }) {
       </AppShell>
     </AuthContext.Provider>
   );
+  return PERFORMANCE_LAB_BUILD ? <Profiler id="shell" onRender={performanceLabProfile}>{shell}</Profiler> : shell;
 }

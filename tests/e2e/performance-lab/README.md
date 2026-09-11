@@ -91,3 +91,68 @@ Detailed generated reports and screenshots remain in the output directory.
 The median-update guard removes redundant row-window state updates and passes
 the geometry and interaction checks. Its measured speed benefit remains
 unproven, and the throttled useful-state gate remains failed.
+
+## Phase 2 attribution and private replay
+
+The lab can export the existing offline canonical builder's accepted bytes:
+
+```sh
+python tests/e2e/performance-lab/export-replay.py --input <private_serving/recorded-input.json> --output-dir <private_serving/replay>
+```
+
+The output must remain under an ignored `private_serving` directory. It contains
+private payloads, the canonical player index, and raw input. Never commit or
+publish it. The script wraps the existing payload measurement's producer and
+validation; it does not introduce another projection implementation.
+Set `PERF_LAB_REPLAY` to this directory when starting `fixture-server.mjs`.
+The default fixture remains the synthetic 120-row board. Replay responses use
+exact exported raw/gzip bytes and verify the raw SHA-256 before serving.
+
+For diagnostic attribution only, build with
+`NEXT_PUBLIC_PERFORMANCE_LAB=1 NEXT_PUBLIC_PREPARED_READ_MODELS=1`
+and `next build --webpack --profile`. Run `diagnose.mjs` with
+`PERF_LAB_INSTRUMENTED=1`. This enables the opt-in collector before hydration.
+It records fixed phase/scope enums and finite timings/counts, with no URLs,
+settings, auth state, player/league IDs or payload data. Marks distinguish
+module evaluation, initial hydration commit, local settings read, auth probe,
+fetch/cache joins, response headers/body, JSON parse, shared materialization,
+publication/commit, React Profiler duration and existing table width reads.
+The diagnostic JSON path explicitly reads text then parses it, so these
+instrumented timings are attribution only, never acceptance numbers.
+
+Build acceptance candidates without the lab flag and without `--profile`.
+Do not set `PERF_LAB_INSTRUMENTED`. Run baseline Next on port 3084 and candidate
+Next on port 3081, both pointing to fixture backend 3083. The existing diagnostic
+harness accepts `PERF_LAB_SEQUENCE=3084,3081,3081,3084` for controlled A/B/B/A
+navigation order. `PERF_LAB_ROUTE=/rankings` limits the candidate comparison to
+the affected route. Every cold sample uses a fresh browser context; its warm
+sample reloads in that same context. There are no other builds/tests/soaks in
+these measured windows. Keep failed ten-second predicates null; no slower
+result becomes a passing sample through the extra diagnostic observation.
+
+`PERF_LAB_TRANSPORT=next-proxy` exercises the actual Next bridge and its decoded
+local response. `direct-gzip` routes local API calls straight to the fixture,
+simulating nginx's direct API routing and preserving the exported gzip bytes.
+It is a transport lab, not a production deployment measurement. This distinction
+matters for a 3.1MB decoded replay at 1.6Mbps. The original profile experiment
+used Node's default gzip recompression; final replay comparisons use the
+producer's exact level 5 gzip bytes. Both are labeled in Phase 2 evidence.
+
+The rejected hidden-cell candidate kept all rows, headers, td and col geometry,
+and the same sort/filter/export inputs. Only rankings opted in. Below the existing
+CSS breakpoint, body-cell child renderers for already-hidden columns were skipped;
+the matchMedia subscription restores them when the viewport widens. The shared
+CSS/token breakpoints are pinned by a test. Server and initial hydration render
+the same tree; a hydration test includes preloaded rows. No initial width or
+row-window algorithm changes are part of this candidate.
+
+The hidden-cell candidate was fully reverted after all 16 uninstrumented
+rankings samples missed the unchanged useful-state cutoff on both builds.
+Its geometry and consumer checks passed, but speed benefit was not established.
+`rejected-hidden-cell.patch` preserves the exact experiment for reproduction;
+it is not active product code. Reapply only for a deliberate lab experiment
+with `git apply --unidiff-zero tests/e2e/performance-lab/rejected-hidden-cell.patch`. `phase2-evidence.json` records the failed gate,
+stage attribution and final kept-code validation. `replay-smoke.mjs` compares
+private replay CSV hashes after the existing Show all action, filtering, source
+controls, geometry and full popup content without writing private screenshots
+or assertion text. The synthetic driver rejects private replay explicitly.
