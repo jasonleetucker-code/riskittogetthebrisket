@@ -362,7 +362,7 @@ function GamePlayerLine({ player }) {
     player.state === "not_started"
       ? `projected ${points(player.projectedRemaining) ?? "unavailable"}`
       : player.state === "in_progress"
-        ? `live ${points(player.pointsScored) ?? "0.0"}` +
+        ? `live ${points(player.pointsScored) ?? "unavailable"}` +
           (player.projectedRemaining != null
             ? ` · remaining (time-prorated) ${points(player.projectedRemaining)}`
             : " · remaining unavailable")
@@ -502,6 +502,16 @@ function NflSlateSection({ slate, team, opponent }) {
   );
 }
 
+function validMatchupPayload(body) {
+  return body !== null && typeof body === "object" && !Array.isArray(body) &&
+    typeof body.leagueKey === "string" && body.leagueKey.length > 0 &&
+    Number.isInteger(body.season) && body.season > 0 &&
+    Number.isInteger(body.week) && body.week > 0 &&
+    ["pregame", "live", "final"].includes(body.mode) &&
+    body.team !== null && typeof body.team === "object" && !Array.isArray(body.team) &&
+    typeof body.team.ownerId === "string" && body.team.ownerId.length > 0;
+}
+
 export default function GameDayPanel() {
   const [state, setState] = useState({ status: "loading", payload: null, error: null });
   const requestRef = useRef(null);
@@ -549,6 +559,16 @@ export default function GameDayPanel() {
       const body = await res.json().catch(() => ({}));
       if (controller.signal.aborted || requestRef.current !== controller) return;
       if (res.ok) {
+        if (!validMatchupPayload(body)) {
+          setState((previous) =>
+            background && previous.status === "ok" && previous.ownerKey === selectedOwnerId
+              ? { ...previous, refreshing: false, refreshError: true }
+              : { status: "error", payload: null,
+                  error: { error: "invalid_matchup", message: "The matchup response is incomplete. Please retry." },
+                  ownerKey: selectedOwnerId },
+          );
+          return;
+        }
         setState({ status: "ok", payload: body, error: null, ownerKey: selectedOwnerId });
         return;
       }

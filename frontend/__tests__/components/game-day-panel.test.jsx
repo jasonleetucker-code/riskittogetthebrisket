@@ -163,6 +163,17 @@ describe("GameDayPanel — background refresh", () => {
     await act(async () => tick());
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
   });
+  it("retains the same-owner answer with a warning after a malformed background response", async () => {
+    render(<GameDayPanel />);
+    await screen.findByText("61.5%");
+    globalThis.fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}) });
+    await act(async () => tick());
+    expect(screen.getByText("61.5%")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("last successful");
+    globalThis.fetch.mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({ error: "unauthorized" }) });
+    await act(async () => tick());
+    expect(screen.queryByText("61.5%")).not.toBeInTheDocument();
+  });
   it("labels a retained transient failure, but clears a domain refusal", async () => {
     render(<GameDayPanel />);
     await screen.findByText("61.5%");
@@ -511,6 +522,36 @@ describe("GameDayPanel — explicit ?team= wins over the switcher", () => {
     expect(screen.queryByText(/remaining estimate/)).not.toBeInTheDocument();
   });
 
+});
+
+describe("GameDayPanel — response and missing-score integrity", () => {
+  it.each([null, 0])("keeps an in-progress score %s distinct from missing evidence", async (score) => {
+    mockJson({
+      ...PRICED,
+      nflSlate: { scheduleState: "available", byeWeek: [], unattributed: [], games: [{
+        gameId: "live-game", homeTeam: "KC", awayTeam: "BUF", state: "in_progress",
+        kickoffAt: 1757260800, homeScore: null, awayScore: null,
+        players: [{ playerId: "live-player", name: "Live Scorer", side: "team",
+          state: "in_progress", pointsScored: score, projectedRemaining: null,
+          fantasyPositions: ["QB"] }],
+      }] },
+    });
+    render(<GameDayPanel />);
+    const line = await screen.findByText(/Live Scorer/);
+    expect(line).toHaveTextContent(score === null ? "live unavailable" : "live 0.0");
+  });
+
+  it.each([
+    {}, [], { ...PRICED, team: null }, { ...PRICED, season: null },
+    { ...PRICED, week: "1" }, { ...PRICED, week: 0 },
+    { ...PRICED, mode: "unknown" }, { ...PRICED, team: { ownerId: "" } },
+  ])("does not mark malformed HTTP 200 as useful", async (body) => {
+    mockJson(body);
+    const view = render(<GameDayPanel />);
+    await act(async () => { await Promise.resolve(); });
+    expect(view.container.querySelector('[data-game-day-ready="true"]')).toBeNull();
+    expect(screen.getByText("The matchup response is incomplete. Please retry.")).toBeInTheDocument();
+  });
 });
 
 describe("GameDayPanel — the NFL slate", () => {
