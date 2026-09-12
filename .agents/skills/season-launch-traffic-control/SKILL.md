@@ -1,6 +1,6 @@
 ---
 name: season-launch-traffic-control
-description: Use only for active fixed-denominator season-launch completion work: mechanical contract recounts, exact-head PR integration, deploy/production evidence harvesting, blocker routing, and truthful VERIFIED promotion. Do not use for broad product implementation or as a second feature owner.
+description: Integrate and verify an active fixed-denominator season-launch contract. Do not use for broad product implementation or as a second feature owner.
 ---
 
 # Season Launch Traffic Control

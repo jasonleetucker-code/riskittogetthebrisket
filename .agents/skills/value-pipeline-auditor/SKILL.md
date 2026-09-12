@@ -1,6 +1,6 @@
 ---
 name: value-pipeline-auditor
-description: Use when the task involves dynasty values, ranking normalization, 0-9999 calibration, source blending, rookie handling, IDP handling, canonical site values, or final value correctness.
+description: Audit or change canonical dynasty normalization, blending, calibration and value correctness. Use for value-pipeline work, not presentation-only ranking edits.
 ---
 
 # Value Pipeline Auditor
@@ -8,7 +8,10 @@ description: Use when the task involves dynasty values, ranking normalization, 0
 ## Objective
 Verify and improve the real live player value pipeline.
 
-## Mandatory Behavior
+## Scope
+Preserve the existing end-to-end checks for value/ranking changes. Acquisition incidents without a valuation change belong to scraper-ops.
+
+## Evidence
 - Trace the active value pipeline end to end.
 - Verify source ingestion, normalization, canonical transforms, weighting, blending, calibration, and final UI rendering.
 - Check that displayed site/source values match canonical transformed values where intended.
@@ -17,7 +20,9 @@ Verify and improve the real live player value pipeline.
 - Check IDP paths separately from offensive paths.
 - Flag dead helpers, stale transforms, parallel pipelines, and mismatches between comments and live behavior.
 
-## Output Format
+For authorized repairs, implement and verify the fix; for audits, report findings. Scale the following evidence to the requested scope.
+
+## Report
 1. Active pipeline map
 2. Verified flaws
 3. Rookie and IDP-specific findings

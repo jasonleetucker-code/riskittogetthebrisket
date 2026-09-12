@@ -30,8 +30,7 @@ def test_benign_main_movement_policy_is_cross_model_and_pinned():
         "docs/EXECUTION_PLAN.md",
     ):
         doc = _read(path)
-        assert "BENIGN_AUTOMATION_MOVE" in doc, path
-        assert "RELEVANT_BASE_MOVE" in doc, path
+        assert "ASSISTANT_COORDINATION.md" in doc, path
 
 
 def test_operating_system_cannot_authorize_product_scope():
@@ -79,7 +78,7 @@ def test_agent_os_has_bounded_debugging_and_routing_rules():
 
 
 def test_harness_migration_audit_is_evidence_not_authority():
-    harness = _read(".agents/skills/repo-harness-auditor/SKILL.md")
+    harness = _read(".agents/skills/repo-harness-auditor/references/model-migration.md")
     rationale = _read("docs/agent-operating-system/DESIGN_RATIONALE_2026-09-05.md")
     assert "/claude-api prompt-audit" in harness
     assert "evidence, not authority" in harness
@@ -89,7 +88,7 @@ def test_harness_migration_audit_is_evidence_not_authority():
 
 
 def test_agent_os_graphs_require_real_edges_complete_fanin_and_anchors():
-    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    doc = _read("docs/agent-operating-system/GRAPH_WORKFLOWS.md")
     assert "Graph construction rules" in doc
     assert "Fake-edge test" in doc
     assert "fan out -> reduce -> verify -> synthesize" in doc
@@ -100,7 +99,7 @@ def test_agent_os_graphs_require_real_edges_complete_fanin_and_anchors():
 
 
 def test_harness_auditor_checks_graph_topology_not_just_prompts():
-    harness = _read(".agents/skills/repo-harness-auditor/SKILL.md")
+    harness = _read(".agents/skills/repo-harness-auditor/references/graphs.md")
     rationale = _read("docs/agent-operating-system/DESIGN_RATIONALE_2026-09-05.md")
     assert "Graph-orchestration hygiene" in harness
     assert "fan-in counts expected vs received inputs" in harness
@@ -109,7 +108,7 @@ def test_harness_auditor_checks_graph_topology_not_just_prompts():
 
 
 def test_agent_os_governs_unattended_loops_without_activating_them():
-    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    doc = _read("docs/agent-operating-system/AUTONOMOUS_RUNNERS.md")
     assert "Autonomous-loop safety envelope" in doc
     assert "committed contract" in doc
     assert "local operator overrides" in doc
@@ -124,7 +123,7 @@ def test_agent_os_governs_unattended_loops_without_activating_them():
 
 
 def test_harness_auditor_checks_autonomous_runner_controls():
-    harness = _read(".agents/skills/repo-harness-auditor/SKILL.md")
+    harness = _read(".agents/skills/repo-harness-auditor/references/runtime-and-runners.md")
     rationale = _read("docs/agent-operating-system/DESIGN_RATIONALE_2026-09-05.md")
     assert "Autonomous-runner hygiene" in harness
     assert "fail-closed external halt sentinel" in harness
@@ -134,7 +133,7 @@ def test_harness_auditor_checks_autonomous_runner_controls():
 
 
 def test_graph_failures_are_routable_structured_values():
-    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    doc = _read("docs/agent-operating-system/GRAPH_WORKFLOWS.md")
     assert "Routable failure states" in doc
     assert "retryable failure" in doc
     assert "terminal failure" in doc
@@ -144,7 +143,7 @@ def test_graph_failures_are_routable_structured_values():
 
 def test_external_guidance_is_filtered_for_hype_vs_mechanism():
     doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
-    harness = _read(".agents/skills/repo-harness-auditor/SKILL.md")
+    harness = _read(".agents/skills/repo-harness-auditor/references/external-guidance.md")
     rationale = _read("docs/agent-operating-system/DESIGN_RATIONALE_2026-09-05.md")
     assert "External-guidance hygiene" in doc
     assert "adoption statistics" in doc
@@ -155,7 +154,7 @@ def test_external_guidance_is_filtered_for_hype_vs_mechanism():
 
 
 def test_agent_os_handles_async_pending_state_and_midrun_steering():
-    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    doc = _read("docs/agent-operating-system/RUNTIME_CONTROLS.md")
     assert "Runtime steering, pending work, and capability negotiation" in doc
     assert "Capability negotiation" in doc
     assert "Pending asynchronous work" in doc
@@ -167,7 +166,7 @@ def test_agent_os_handles_async_pending_state_and_midrun_steering():
 
 
 def test_harness_audits_runtime_capabilities_before_using_them():
-    harness = _read(".agents/skills/repo-harness-auditor/SKILL.md")
+    harness = _read(".agents/skills/repo-harness-auditor/references/runtime-and-runners.md")
     rationale = _read("docs/agent-operating-system/DESIGN_RATIONALE_2026-09-05.md")
     assert "Runtime-capability hygiene" in harness
     assert "pending tool calls as explicit identified state" in harness
@@ -177,7 +176,7 @@ def test_harness_audits_runtime_capabilities_before_using_them():
 
 
 def test_graph_spec_has_critical_path_transition_guards_and_quorum():
-    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    doc = _read("docs/agent-operating-system/GRAPH_WORKFLOWS.md")
     assert "Graph specification contract" in doc
     assert "`CRITICAL_PATH`" in doc
     assert "`HUMAN_GATE`" in doc
@@ -189,7 +188,7 @@ def test_graph_spec_has_critical_path_transition_guards_and_quorum():
 
 
 def test_harness_audits_graph_specs_and_guarded_transitions():
-    harness = _read(".agents/skills/repo-harness-auditor/SKILL.md")
+    harness = _read(".agents/skills/repo-harness-auditor/references/graphs.md")
     rationale = _read("docs/agent-operating-system/DESIGN_RATIONALE_2026-09-05.md")
     assert "Graph-spec and transition-guard hygiene" in harness
     assert "protected transitions are unreachable without durable approval evidence" in harness
@@ -203,7 +202,7 @@ def test_harness_audits_graph_specs_and_guarded_transitions():
 
 def test_external_content_is_evidence_not_authority():
     doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
-    harness = _read(".agents/skills/repo-harness-auditor/SKILL.md")
+    harness = _read(".agents/skills/repo-harness-auditor/references/external-guidance.md")
     rationale = _read("docs/agent-operating-system/DESIGN_RATIONALE_2026-09-05.md")
     assert "External-content trust boundary" in doc
     assert "evidence, not authority" in doc
@@ -236,11 +235,13 @@ def test_skills_use_progressive_disclosure_and_explain_skill_caused_stops():
     assert "exact file/rule" in doc
     assert "Progressive-disclosure / stop-causality hygiene" in harness
     assert "instruction/context debt" in harness
-    assert "Treat instruction debt like code debt" in harness
+    assert "Treat instruction debt like code debt" in _read(
+        ".agents/skills/repo-harness-auditor/references/model-migration.md"
+    )
 
 
 def test_agent_os_records_long_term_autonomous_steward_without_activating_it():
-    doc = _read("docs/AGENT_OPERATING_SYSTEM.md")
+    doc = _read("docs/agent-operating-system/AUTONOMOUS_RUNNERS.md")
     entry = _read("AI_INSTRUCTIONS.md")
     harness = _read(".agents/skills/repo-harness-auditor/SKILL.md")
     assert "Long-term autonomous site-steward target" in doc
@@ -249,7 +250,10 @@ def test_agent_os_records_long_term_autonomous_steward_without_activating_it():
     assert "not activation" in doc.lower()
     assert "Only for unattended/recurrent site-steward design or operation" in entry
     assert "Do not preload that long-term vision into ordinary feature sessions" in entry
-    assert "Continuous-stewardship readiness hygiene" in harness
+    assert "runtime-and-runners.md" in harness
+    assert "Continuous-stewardship readiness hygiene" in _read(
+        ".agents/skills/repo-harness-auditor/references/runtime-and-runners.md"
+    )
 
 
 def test_agent_os_prefers_existing_mechanisms_before_new_agent_machinery():

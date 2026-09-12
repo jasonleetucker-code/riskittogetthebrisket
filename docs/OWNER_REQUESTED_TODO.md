@@ -14,6 +14,13 @@ reconciliation). New owner instructions land here first and are durable the mome
 
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
+## Agent instruction simplification — 2026-09-11
+
+Owner requested applying the linked OpenAI guidance to repository instructions:
+narrow skill triggers, conditional reading, remove duplicated/stale workflow
+rules and define completion without weakening domain safeguards. Bounded record:
+`docs/agent-operating-system/HARNESS_DISCLOSURE_AUDIT_2026-09-11.md`.
+
 ## Added 2026-08-11
 
 *(Rows #829 and #830 and binding decisions 47–65 were added 2026-08-14 under this same heading.)*

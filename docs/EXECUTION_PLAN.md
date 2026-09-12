@@ -43,6 +43,13 @@ foundation once. Preserve small, reviewable PR boundaries within the combined ph
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
 
+## Bounded instruction simplification — owner directive, 2026-09-11
+
+The owner authorized auditing and simplifying agent instructions and skills,
+including relevant startup behavior and validation. The bounded scope is recorded
+in `docs/agent-operating-system/HARNESS_DISCLOSURE_AUDIT_2026-09-11.md`.
+Product methodology, value/scoring/auth behavior and production authority remain unchanged.
+
 ## Bounded Agent OS consolidation — owner directive, 2026-09-10
 
 The owner explicitly authorized one continuous local Agent OS / Site Steward

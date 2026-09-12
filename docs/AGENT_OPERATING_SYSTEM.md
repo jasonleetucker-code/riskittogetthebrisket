@@ -36,9 +36,9 @@ The planner is sequencing advice, never additional product authority.
 A material session begins by establishing **current state**, not replaying old chat history.
 
 1. Enter through `AI_INSTRUCTIONS.md` and update/read current `main`.
-2. Read this file.
+2. Read this core policy; load its linked specialist references only for their stated triggers.
 3. Read `docs/EXECUTION_PLAN.md`.
-4. If an active completion contract exists, read it before selecting work.
+4. Read the active completion contract when selecting campaign work or changing its covered scope. Unrelated bounded work still respects its authorization boundaries.
 5. Check `docs/WORK_CLAIMS.md` plus open PRs before editing overlapping files.
 6. Read only the technical/domain documents needed for the selected unit.
 7. Use `CLAUDE.md` as the legacy-named universal technical reference for **all models**, not as a substitute roadmap.
@@ -126,6 +126,12 @@ If the owner has asked for implementation or active traffic control and methodol
 - update the canonical status record only when its acceptance criterion is satisfied.
 
 Do not stop at “here is what somebody should do next” when the current role is authorized and able to perform that bounded action.
+
+### Completion and verification scope
+
+Establish the requested outcome and acceptance evidence before editing. Carry authorized work through implementation, affected validation, fixes and the required handoff. A first draft or passing helper test is not completion. Do not add a review stop unless the owner requested it or a concrete consequence boundary requires it.
+
+Run checks required for the changed path and its acceptance criteria. After they pass, broaden or repeat testing only for a new change, failure, relevant dependency movement or unresolved risk. Routine documentation edits do not require unrelated product tests. This does not waive mandatory CI, integration or production gates.
 
 ### Material new-feature engineering applicability check
 
@@ -315,111 +321,7 @@ When a machine-readable contract owns the work, prefer enforcing this result sha
 
 ### Graph construction rules
 
-Use a graph only when the work is genuinely wide. A graph buys concurrency and breadth; it does not create better judgment by itself.
-
-**Node contracts**
-- one bounded job per node;
-- explicit inputs passed in rather than assumed;
-- a fixed/validated output shape whenever another node consumes the result;
-- explicit failure/unknown states instead of free-text ambiguity.
-
-**Fake-edge test**
-For every proposed dependency, ask: *does the downstream node actually consume the upstream result, or do they share a mutable/rate-limited resource that requires ordering?* If neither is true, the edge is fake and the jobs should usually run in parallel.
-
-**Routable failure states**
-Treat failure as structured data when a graph must continue safely.
-
-- define named outcomes that downstream routing can branch on instead of relying on an agent to interpret free-form error prose;
-- distinguish at minimum success, retryable failure, terminal failure, blocked/external dependency, and unknown when those states materially change routing;
-- preserve the evidence/error payload alongside the named state;
-- route only on states the producing node is actually authorized and able to establish;
-- do not convert an exception, missing result, or timeout into success merely so the graph can continue.
-
-A graph is more resilient when a failed node can be bypassed, retried, or escalated explicitly rather than crashing the whole workflow or being silently omitted.
-
-**Graph specification contract**
-
-Before implementing a nontrivial graph, write the graph contract in structured form. At minimum declare:
-
-- `GOAL` — what must exist when the graph succeeds;
-- `INPUT_STATE` — structured state entering the graph;
-- `PARALLEL_WORK` — units proven independent enough to fan out;
-- `CRITICAL_PATH` — longest unavoidable dependency chain;
-- `VERIFIER` — who/what can reject;
-- `FAILURE_DOMAIN` — blast radius when each important node fails;
-- `HUMAN_GATE` — consequential transitions requiring human approval;
-- `FROZEN_RULES` — constraints no optimizer/agent may rewrite;
-- `OBSERVABILITY` — metrics/receipts required to understand the run;
-- `STOPPING_RULE` — explicit convergence/budget exit condition.
-
-The graph contract should be easier to audit than a collection of prompts. Prompts optimize nodes; the graph specification controls the system.
-
-**Transition contracts and approval guards**
-
-Edges are not merely arrows. A meaningful transition should identify the data/state that crosses it and, when needed, the guard that must be true before the transition is reachable.
-
-- Put machine-checkable schemas at important handoff boundaries.
-- For irreversible/consequential actions, model human approval as a **guard on the transition**, not as a conversational request inside a worker prompt.
-- If the approval record is absent, the protected transition is unreachable.
-- Do not allow a worker to rewrite, summarize away, or self-satisfy its own approval guard.
-- Keep approval evidence durable enough for later audit.
-
-**Quorum-aware fan-in**
-
-The default fan-in contract is **all required upstream results must arrive**.
-
-A graph may continue with fewer only when the graph specification explicitly defines a quorum/partial-coverage rule in advance. When quorum is allowed:
-- record expected count, received count, and missing identities;
-- preserve the coverage limitation in the downstream artifact;
-- never reinterpret silent worker loss as intentional quorum;
-- never call a partial result complete unless the contract explicitly defines that state as complete.
-
-**Critical-path and graph observability**
-
-Optimize wall-clock time by the critical path, not by raw node count.
-
-For material graphs, measure the graph rather than only reading chat transcripts. Useful metrics include:
-- critical-path latency;
-- per-node latency and failure rate;
-- retry/escalation counts;
-- verifier rejection rate;
-- expected-vs-received fan-in coverage;
-- reducer/compression ratio before synthesis;
-- tool/model cost where measurable;
-- halt/budget stop reasons.
-
-Observability should make it possible to tell whether added parallelism improved independent coverage or merely added coordination cost.
-
-**Default wide-work pattern: fan out -> reduce -> verify -> synthesize**
-- fan out only independent work;
-- reduce deterministically with ordinary code for dedupe/count/sort/schema checks where possible;
-- verify findings with an independent fresh context;
-- synthesize only what survived verification.
-
-**Verifier independence**
-A worker must not grade its own work through the same accumulated context. Give the reviewer the artifact/evidence it needs, not the worker's persuasive history. Use different lenses when useful: correctness, freshness, provenance/source reality, auth/privacy, or acceptance-contract compliance.
-
-**Hidden edges**
-Prompt independence is not enough. Two nodes are not independent if they:
-- edit the same file/branch/worktree;
-- mutate the same database/state/artifact;
-- compete for a rate-limited external API;
-- depend on the same exclusive credential/session;
-- otherwise share a resource whose concurrent use changes correctness.
-
-Treat shared-resource conflicts as real edges or isolate the workers.
-
-**Fan-in completeness and context safety**
-Every merge node must know how many upstream results it expected. Missing outputs make the merged result incomplete; never silently synthesize a partial set and call it complete. For very large fan-in, aggregate in layers while preserving provenance and coverage instead of dumping all raw outputs into one context.
-
-**Anchors**
-Graphs must terminate in evidence that agents cannot talk themselves around: tests that actually ran, exact-head CI, production probes, authoritative source data, fixed contract counts, real artifacts, or owner-approved methodology. Do not let an optimizer weaken the anchor just to make the graph green.
-
-**Cost and width controls**
-Start with a bounded fan-out, explicit caps, and measurable stop conditions. Expand only when the first scoped run proves useful. A discovery graph should have a convergence rule (for example, no new verified findings across successive rounds) plus a hard total-agent/action cap.
-
-**When not to graph**
-Prefer one agent/loop for small fixes, tightly sequential work, high-coupling edits, or early exploration where the problem shape is not yet known. If the fake-edge test finds no independent jobs, there is no useful graph to build.
+For designing, changing or reviewing a multi-agent graph, read [Graph workflows](agent-operating-system/GRAPH_WORKFLOWS.md). Ordinary single-unit edits do not load this reference.
 
 ### Retry budgets and exit conditions
 
@@ -454,31 +356,7 @@ Use capability and reasoning effort as resources, not status symbols.
 
 ### Runtime steering, pending work, and capability negotiation
 
-When the active model/runtime supports long-running or asynchronous execution, treat those capabilities as explicit orchestration primitives rather than pretending every tool call is blocking.
-
-**Capability negotiation**
-- Establish the actual runtime/model capabilities before depending on them.
-- Do not assume a capability exists merely because another model, API surface, or recent release supports it.
-- If a capability is unavailable, degrade to the simpler supported path instead of inventing a compatibility shim that changes semantics.
-
-**Pending asynchronous work**
-- Give every pending tool/subtask a stable identity and explicit state.
-- Continue only work that is genuinely independent of the pending result.
-- Rejoin the dependency by identity when the result arrives; never guess which result belongs to which call.
-- A pending result that times out, fails, or is cancelled becomes a normal routable failure state, not a silent omission.
-
-**Mid-run steering**
-- Treat a steering message as an amendment to the active goal/constraints, not automatically as a brand-new task.
-- Preserve completed work that still satisfies the amended goal.
-- Cancel or reroute only branches invalidated by the new instruction.
-- Re-run affected acceptance checks when a steering message changes the criteria for success.
-
-**Dynamic reasoning effort**
-- When the runtime supports changing reasoning effort without rebuilding the prompt/history prefix, prefer that mechanism over rewriting earlier accepted context.
-- Increase effort for a newly difficult subproblem and reduce it again for routine follow-ups when justified.
-- Record a material effort change in the run trace when it affects cost/latency or explains a routing decision.
-
-The durable rule is **preserve state, steer narrowly, and make pending dependencies explicit**. Do not copy vendor-specific API syntax into the core operating system.
+When implementing or using asynchronous tools, mid-run steering or dynamic reasoning, read [Runtime controls](agent-operating-system/RUNTIME_CONTROLS.md). Use the supported synchronous path otherwise.
 
 ### Targeted edits over gratuitous rewrites
 
@@ -499,107 +377,7 @@ Do not add infrastructure merely because an external post recommends it or a str
 
 ## 6. Autonomous-loop safety envelope
 
-The rules below apply when this repository ever owns an **unattended, recurrent, or long-lived agent runner**. They do not by themselves authorize one.
-
-A loop runner is an execution system, not a prompt. The scheduler/engine wakes the model; the model does not get to decide when it wakes itself.
-
-### Contract split
-
-Keep two layers distinct:
-
-- **committed contract** — repository-tracked permissions, forbidden actions, required verification, receipt schema, and immutable safety boundaries;
-- **local operator overrides** — machine/operator-specific settings such as tighter budgets, runtime windows, or local tool paths; ignored by git and unable to weaken committed safety boundaries.
-
-A local override may make a run *more restrictive*. It must not silently grant authority the committed contract denies.
-
-### Hard runtime limits
-
-Every unattended loop must declare and enforce, outside model prose:
-
-- wall-clock timeout;
-- maximum actions/tool calls or iterations;
-- spend/token budget when measurable;
-- maximum parallel width;
-- retry budget;
-- allowed schedule window;
-- explicit denylist for destructive or out-of-scope actions.
-
-Exhausting a budget is a truthful stop condition, not a reason to quietly enlarge the budget.
-
-### One execution gateway
-
-For a bespoke repo-owned autonomous runner, keep model invocation behind one narrow gateway/call site so:
-
-- model/provider swaps are centralized;
-- budgets/timeouts are enforceable;
-- receipts/traces capture every invocation;
-- safety/denylist checks cannot be bypassed by a second hidden call path.
-
-This rule does not require ordinary interactive Claude Code/Codex usage to route through a custom wrapper.
-
-### Run state and resumability
-
-An unattended run should externalize state rather than rely on model memory:
-
-- **append-only run receipt** — one immutable record per run/shift;
-- **append-only trace** — timestamped actions/results sufficient to reconstruct what happened;
-- **checkpoint** — minimal resumable state for the next run;
-- **budget ledger** — cumulative consumption for the current policy window.
-
-A restart resumes from the last valid checkpoint only after re-running preflight against current repo state. Never assume yesterday's branch, PR, credentials, or acceptance state is still current.
-
-### Verification and grading
-
-Use the sequence:
-
-`preflight -> act -> verify -> guard -> grade -> receipt`
-
-- **verify** should prefer executable pass/fail evidence such as exit codes, tests, schemas, exact-head CI, or production probes;
-- **guard** checks policy boundaries independently of task success;
-- **grade** is performed by an independent reviewer/context when judgment is still required;
-- **receipt** records the outcome, evidence, budgets consumed, stop reason, and next checkpoint.
-
-A run that cannot produce its required receipt is incomplete.
-
-### Emergency halt
-
-Any repo-owned unattended scheduler must have a simple external **halt sentinel / kill switch** that is checked:
-
-1. before a run starts;
-2. before consequential side effects;
-3. between bounded work units.
-
-When HALT is present or unreadable in a fail-closed configuration, scheduled autonomous work refuses to start/continue. The model cannot remove or override the halt itself unless an owner-authorized recovery procedure explicitly grants that action.
-
-### Report-only, assisted, and autonomous modes
-
-Do not blur these modes:
-
-- **report-only** — may inspect and recommend, no repository/product mutation;
-- **assisted** — may make bounded reversible changes but stops at defined approval/consequence boundaries;
-- **autonomous** — may execute the explicitly committed contract without synchronous approval.
-
-Each scheduled loop declares its mode. Upgrading a loop to a more permissive mode is a product/operations decision and requires owner authorization.
-
-### Long-term autonomous site-steward target
-
-The owner-approved long-term direction is recorded in `docs/AUTONOMOUS_SITE_STEWARD_VISION.md`.
-
-The target is a **bounded, recurrent fantasy-site steward** that can continuously discover evidence, monitor source health, research new public sources and product ideas, inspect permitted media/transcripts, detect defects/performance regressions, create challenger experiments, build prototypes, repair dependency-ready defects, and keep the site useful with minimal owner attention.
-
-This is a destination and architecture contract, **not activation** and not permission to bypass existing product/methodology/source-promotion/deploy gates. Ordinary feature sessions should not preload the vision document; read it when designing or operating unattended/recurrent stewardship.
-
-### Activation gate
-
-This section is **design policy, not activation**.
-
-Before deploying any new unattended repo-owned runner, require:
-- explicit owner authorization for its contract and mode;
-- tests proving budgets/timeouts/denylist/halt behavior;
-- a dry run;
-- receipt/trace inspection;
-- rollback/removal path;
-- confirmation it does not create a second canonical owner or bypass existing protected PR/deploy gates.
+Only for designing, changing or operating an unattended/recurrent runner, read [Autonomous runners](agent-operating-system/AUTONOMOUS_RUNNERS.md) before acting. These controls are design policy, not activation; explicit owner authorization remains required.
 
 ## 7. Correction edges and learning edges
 
