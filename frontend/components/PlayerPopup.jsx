@@ -362,43 +362,68 @@ const _POPUP_NEWS_LIMIT = 5;
 // with an empty list and a `reason` for several legitimate states
 // (stats not ingested, player unmapped, offseason), and none of those
 // are worth a box that says "no data" on every popup.
-const _realizedCache = new Map(); // sleeperId → {payload|null, fetchedAt}
+const _realizedCache = new Map(); // [leagueKey, sleeperId] → {payload|null, fetchedAt}
 const _REALIZED_TTL_MS = 30 * 60 * 1000;
+let _realizedEpoch = 0;
+if (typeof window !== "undefined") {
+  window.addEventListener("auth:changed", () => {
+    _realizedEpoch += 1;
+    _realizedCache.clear();
+  });
+}
 
-export async function _loadRealized(sleeperId) {
-  const key = String(sleeperId || "").trim();
-  if (!key) return null;
+export async function _loadRealized(sleeperId, leagueKey = "") {
+  const id = String(sleeperId || "").trim();
+  if (!id) return null;
+  const key = JSON.stringify([leagueKey || "", id]);
+  const epoch = _realizedEpoch;
   const cached = _realizedCache.get(key);
   if (cached && Date.now() - cached.fetchedAt < _REALIZED_TTL_MS) return cached.payload;
   try {
-    const res = await fetch(`/api/player/${encodeURIComponent(key)}/realized`);
-    // 503 is the feature flag being off; 401 is signed-out. Both are
-    // "nothing to show", not errors worth surfacing on a popup.
-    const payload = res.ok ? await res.json() : null;
+    const query = leagueKey ? `?leagueKey=${encodeURIComponent(leagueKey)}` : "";
+    const res = await fetch(`/api/player/${encodeURIComponent(id)}/realized${query}`);
+    // Signed-out/disabled and malformed responses remain unavailable.
+    const body = res.ok ? await res.json() : null;
+    const payload = body && typeof body === "object" && !Array.isArray(body) &&
+      (!leagueKey || !Object.hasOwn(body, "leagueKey") || body.leagueKey === leagueKey)
+      ? body : null;
+    if (epoch !== _realizedEpoch) return null;
     _realizedCache.set(key, { payload, fetchedAt: Date.now() });
     return payload;
   } catch {
-    _realizedCache.set(key, { payload: null, fetchedAt: Date.now() });
+    if (epoch === _realizedEpoch) _realizedCache.set(key, { payload: null, fetchedAt: Date.now() });
     return null;
   }
 }
 
+function realizedNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(1) : "—";
+}
+
 export function RealizedPointsSection({ row }) {
-  const [data, setData] = useState(null);
+  const { selectedLeagueKey, loading: leagueLoading } = useLeague();
+  const leagueKey = selectedLeagueKey || "";
+  const [authEpoch, setAuthEpoch] = useState(_realizedEpoch);
+  const [state, setState] = useState(null);
   const sleeperId = String(row?.raw?.playerId || row?.playerId || "").trim();
+  const identity = JSON.stringify([sleeperId, leagueKey, authEpoch]);
 
   useEffect(() => {
-    if (!sleeperId) return;
-    let active = true;
-    setData(null);
-    _loadRealized(sleeperId).then((payload) => {
-      if (active) setData(payload);
-    });
-    return () => {
-      active = false;
-    };
-  }, [sleeperId]);
+    const changed = () => setAuthEpoch(_realizedEpoch);
+    window.addEventListener("auth:changed", changed);
+    return () => window.removeEventListener("auth:changed", changed);
+  }, []);
 
+  useEffect(() => {
+    if (!sleeperId || leagueLoading) return undefined;
+    let active = true;
+    _loadRealized(sleeperId, leagueKey).then((payload) => {
+      if (active) setState({ identity, payload });
+    });
+    return () => { active = false; };
+  }, [sleeperId, leagueKey, leagueLoading, identity]);
+
+  const data = !leagueLoading && state?.identity === identity ? state.payload : null;
   const weeks = Array.isArray(data?.weeks) ? data.weeks : [];
   if (!weeks.length) return null;
 
@@ -415,18 +440,18 @@ export function RealizedPointsSection({ row }) {
         <div className={styles.ctxRow}>
           <span className={styles.ctxKey}>Total</span>
           <span className={styles.ctxVal}>
-            {Number(data.totalPoints || 0).toFixed(1)} pts
+            {realizedNumber(data.totalPoints)} pts
           </span>
           <span className={styles.ctxNote}>
             {data.weekCount} {data.weekCount === 1 ? "week" : "weeks"} ·{" "}
-            {Number(data.averagePoints || 0).toFixed(1)}/wk
+            {realizedNumber(data.averagePoints)}/wk
           </span>
         </div>
         {best && (
           <div className={styles.ctxRow}>
             <span className={styles.ctxKey}>Best</span>
             <span className={styles.ctxVal}>
-              {Number(best.fantasyPoints || 0).toFixed(1)} pts
+              {realizedNumber(best.fantasyPoints)} pts
             </span>
             <span className={styles.ctxNote}>
               {best.season} wk {best.week}
@@ -437,7 +462,7 @@ export function RealizedPointsSection({ row }) {
           <div className={styles.ctxRow}>
             <span className={styles.ctxKey}>Worst</span>
             <span className={styles.ctxVal}>
-              {Number(worst.fantasyPoints || 0).toFixed(1)} pts
+              {realizedNumber(worst.fantasyPoints)} pts
             </span>
             <span className={styles.ctxNote}>
               {worst.season} wk {worst.week}
