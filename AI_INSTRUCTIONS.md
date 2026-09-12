@@ -4,38 +4,23 @@
 
 Astra, Claude, Codex, Gemini, Grok, ChatGPT, Copilot, and any future coding agent must use the same repository-owned operating rules. Provider-specific files are adapters only and may not contain unique product, engineering, safety, or verification rules.
 
-## Read order for material work
+## Read what the task needs
 
-1. `docs/AGENT_OPERATING_SYSTEM.md` — model-neutral agent workflow, evidence, graph, review, handoff, and autonomy rules.
-2. `docs/EXECUTION_PLAN.md` — current implementation authorization and lane ownership.
-3. Any active owner-authorized completion contract.
-4. `docs/WORK_CLAIMS.md` plus live open PRs/branches before overlapping edits.
-5. `ASSISTANT_COORDINATION.md` — branch/integration mechanics.
-6. `CLAUDE.md` — **legacy filename, universal technical runbook for every model**. Its filename is historical; its technical invariants and architecture guidance are not Claude-only.
-7. Relevant architecture/ADR/domain docs and live code.
-8. For engineering-system improvements, read `docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md`.
-9. **Only for unattended/recurrent site-steward design or operation**, read `docs/AUTONOMOUS_SITE_STEWARD_VISION.md`. Do not preload that long-term vision into ordinary feature sessions.
+For material work, read the core `docs/AGENT_OPERATING_SYSTEM.md` and current authorization in `docs/EXECUTION_PLAN.md`. Before editing, check `docs/WORK_CLAIMS.md`, overlapping open PRs and the relevant branch rules in `ASSISTANT_COORDINATION.md`.
+
+- Use the active owner-authorized completion contract when selecting campaign work or changing its covered scope.
+- Use relevant sections of `CLAUDE.md`, the legacy-named universal technical runbook for every model, and trace the affected live code. Do not preload the full runbook for every edit.
+- For engineering-system improvements or a material new-feature applicability pass, use relevant sections of `docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md`.
+- **Only for unattended/recurrent site-steward design or operation**, read `docs/AUTONOMOUS_SITE_STEWARD_VISION.md`. Do not preload that long-term vision into ordinary feature sessions.
+- Load graph, runtime-control and runner references only when their Agent OS router applies. A typo or narrow documentation correction needs the applicable instructions and affected references, not every planning document.
 
 ## Durable owner-intake capture rule
 
-When the owner says anything that a reasonable product/engineering lead would interpret as **durable future work**, do not leave that intent only in chat. This includes informal wording such as “add this,” “we need to fix/change this,” “make this better,” “remember/revisit this,” “do this later,” “put this on the list,” and equivalent statements that create, refine, pause, reject, or supersede product/process work.
-
-1. Determine whether the statement is a **definite/high-confidence durable owner instruction** or only ambiguous brainstorming.
-2. For definite/high-confidence durable work, ensure it is represented in the live owner-intake ledger, `docs/OWNER_REQUESTED_TODO.md`, either directly or through an explicit compact incorporation pointer to the detailed issue/spec/addendum that carries the long-form contract.
-3. If the statement is genuinely ambiguous, preserve it for owner review without silently promoting it into binding scope.
-4. Do **not** say “added,” “saved,” “on the TODO,” or equivalent unless the durable repository intake was actually updated or an existing canonical intake entry was verified.
-5. A GitHub issue, planning document, assistant memory, or chat response by itself is **not** a substitute when the live owner-intake ledger does not point to the durable requirement.
-6. Preserve supersession: later explicit owner instructions win; older formulations remain traceable but must not survive as conflicting active requirements.
-7. **Capture is not implementation authorization.** `docs/EXECUTION_PLAN.md` remains the sole current implementation-authorization record; an intake update must not interrupt active engineering merely because a new request was captured.
-8. Astra/Steward campaign planning must be able to consume the live owner intake plus current GitHub/planning/execution evidence without needing access to the owner's chat history. The intended path is: `owner statement -> owner intake -> detailed issue/spec if needed -> canonical mapping -> execution plan when authorized -> Astra reconciliation`.
-
-The historical recovery and rationale for this rule are tracked in `docs/OWNER_TODO_RECOVERY_AUDIT_2026-09-10.md` and issue #1336.
+Record definite durable owner work in `docs/OWNER_REQUESTED_TODO.md`, directly or through a pointer to its detailed contract. Preserve ambiguous ideas for review and later supersession without turning them into binding scope. Claim “saved” only after verifying that repository record; chat, memory or an unlinked issue is insufficient. Capture is not implementation authorization: `docs/EXECUTION_PLAN.md` owns current scope. Background: `docs/OWNER_TODO_RECOVERY_AUDIT_2026-09-10.md` and issue #1336.
 
 ## Material new-feature engineering applicability check
 
-Before implementing any **material new feature or major behavior change**, perform the shared engineering-priorities applicability check in `docs/AGENT_OPERATING_SYSTEM.md` against `docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md`.
-
-This is a lightweight relevance pass, not permission to expand scope or implement all twelve priorities. Classify only the mechanisms that could materially affect the feature as `APPLY_NOW`, `ALREADY_COVERED`, `NOT_RELEVANT`, or `DEFERRED_BY_AUTHORITY`. Relevant `APPLY_NOW` items belong in the bounded feature design/tests; deferred items must stay visible rather than being silently forgotten.
+For material new features or major behavior changes, use the Agent OS section of this name. It owns the `APPLY_NOW`, `ALREADY_COVERED`, `NOT_RELEVANT` and `DEFERRED_BY_AUTHORITY` dispositions; this relevance pass does not expand scope.
 
 ## Main-movement / CI restart rule
 
@@ -57,30 +42,13 @@ For a material local agent session, run:
 Claude Code runs this through its existing SessionStart adapter. Other agents should run the same shared script when their runtime permits shell execution. If not, reproduce its read-only checks directly and run `python scripts/agent_os_receipt.py` for the Agent OS receipt.
 
 
+Carry `Agent-OS-Receipt: <AGENT_OS_LOADED_BLOB_SHA>` into material checkpoints, work-claim/PR handoffs and the final handoff as specified in the Agent OS.
+
+Startup is read-only routing, receipt and Git state. Use `bash scripts/agent_session_start.sh --diagnostics` when investigating the Python environment or source freshness; it runs the optional test collection, freshness and syntax probes. Required task/CI checks remain separate.
+
 ## Python formatting contract
 
-Do not hand-format Python to imitate Ruff from memory.
-
-The repository owns one deterministic formatter contract:
-
-`bash scripts/format_python_changes.sh`
-
-Run it after changing Python and before committing or pushing. The script:
-
-- requires the exact Ruff version pinned in `requirements-dev.txt`;
-- reads `pyproject.toml` for the canonical formatting rules;
-- formats the changed Python files;
-- then runs the same repo-wide `ruff format --check .` and `ruff check .` gates CI uses.
-
-If the script changes a file, keep the formatter output. Do not manually re-wrap it based on aesthetics, guessed line length, or another formatter's conventions.
-
-If the runtime cannot execute shell commands, inspect `pyproject.toml` and `requirements-dev.txt`, and treat CI/Ruff output as authoritative rather than guessing formatting.
-
-Carry:
-
-`Agent-OS-Receipt: <AGENT_OS_LOADED_BLOB_SHA>`
-
-into the first material checkpoint, material work-claim/PR handoff, and final handoff.
+After Python changes and before committing or pushing, run `bash scripts/format_python_changes.sh`. It uses the Ruff version pinned in `requirements-dev.txt` and rules in `pyproject.toml`, then the repo-wide CI format/lint gates. Keep formatter output; do not imitate Ruff manually. If shell execution is unavailable, use those files and CI results as authority.
 
 ## Provider adapters
 

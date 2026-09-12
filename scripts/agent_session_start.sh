@@ -6,6 +6,17 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
+DIAGNOSTICS=false
+case "${1:-}" in
+  "") ;;
+  --diagnostics) DIAGNOSTICS=true ;;
+  *) echo "Usage: bash scripts/agent_session_start.sh [--diagnostics]" >&2; exit 2 ;;
+esac
+if (( $# > 1 )); then
+  echo "Usage: bash scripts/agent_session_start.sh [--diagnostics]" >&2
+  exit 2
+fi
+
 echo "=== AGENT SESSION START ==="
 
 # 0. Agent/work router
@@ -49,7 +60,8 @@ else
 fi
 echo "=== END AGENT ROUTER ==="
 
-# 1. Test collection (fast: ~1s)
+if [[ "$DIAGNOSTICS" == true ]]; then
+# 1. Optional test collection
 # A session-start hook must be quick, so we run collection-only rather than the
 # full suite. Collection catches the failure class worth catching at startup:
 # missing dependencies and import errors (e.g. a missing httpx breaking
@@ -63,7 +75,7 @@ COLLECT_OUT=$(python -m pytest tests/ -q --co 2>&1) && COLLECT_RC=0 || COLLECT_R
 echo "$COLLECT_OUT" | tail -1
 if (( COLLECT_RC != 0 )); then
   echo "ACTION NEEDED: pytest collection failed (rc $COLLECT_RC) — likely a missing dependency or import error:"
-  echo "$COLLECT_OUT" | grep -iE "error|no module named|cannot import" | head -5
+  echo "$COLLECT_OUT" | grep -iE "error|no module named|cannot import" | head -5 || true
 fi
 
 # 2. Scrape data freshness
@@ -294,6 +306,10 @@ for key in ("ktc", "idpTradeCalc"):
     print(f"  {key}: {entry.get('count')} values, carried by {carried} of {len(players)} players")
 PY
 
+else
+  echo "  Optional diagnostics: bash scripts/agent_session_start.sh --diagnostics"
+fi
+
 # 3. Git status
 echo ""
 echo "--- Git Status ---"
@@ -304,6 +320,7 @@ if (( DIRTY > 0 )); then
   echo "  WARNING: $DIRTY uncommitted tracked changes"
 fi
 
+if [[ "$DIAGNOSTICS" == true ]]; then
 # 4. Scraper syntax
 echo ""
 echo "--- Scraper Syntax ---"
@@ -319,4 +336,6 @@ else
 fi
 
 echo ""
+fi
+
 echo "=== AGENT SESSION START COMPLETE ==="

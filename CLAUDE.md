@@ -28,10 +28,12 @@ must hold, and how to run and validate it.
 **It is NOT the authoritative product roadmap, and NOT the product-methodology
 source of truth.** Nothing here authorizes a feature.
 
-> **Mandatory startup rule for any material product, architecture, model, or
-> feature-planning work: start at [`PRODUCT_PLAN.md`](PRODUCT_PLAN.md) and
-> follow the canonical hierarchy defined in
-> [`docs/MASTER_PRODUCT_PLAN.md`](docs/MASTER_PRODUCT_PLAN.md).**
+> For product scope, architecture, model methodology or feature planning, use
+> [`PRODUCT_PLAN.md`](PRODUCT_PLAN.md) and the hierarchy in
+> [`docs/MASTER_PRODUCT_PLAN.md`](docs/MASTER_PRODUCT_PLAN.md).
+> For a bounded implementation or documentation fix, load the relevant sections
+> and current authorization through `AI_INSTRUCTIONS.md`; a full roadmap read
+> is not a prerequisite for every edit.
 
 | Question | Canonical record |
 |---|---|
