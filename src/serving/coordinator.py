@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from src.serving.artifacts import ArtifactError, ArtifactStore, Generation, _mkdir, _publish_lock
+from src.serving.artifacts import ArtifactError, ArtifactStore, Generation, _publish_lock
 from src.serving.input_manifest import InputManifest
 
 
@@ -57,7 +57,7 @@ def prepare_or_reobserve(
     if stamp.tzinfo is None:
         raise ValueError("source observation requires a qualified timestamp")
     partition = store._partition(asset, key)
-    _mkdir(partition)
+    store._directory(partition)
 
     def verify_inputs():
         if manifest.verify is not None and not manifest.verify():

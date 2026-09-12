@@ -118,9 +118,11 @@ execution as proof for changed source code.
 
 1. Render the templates using the existing `__APP_DIR__`, `__APP_USER__`,
    `__VENV_DIR__`, `__SERVICE_NAME__` substitutions and inspect them. No deploy or
-   installer is changed by this work. The worker and server must share the same
-   private `RISKIT_SERVING_DIR` and application user. Keep that root outside any
-   static HTTP mount; use a private directory/ACL.
+    installer is changed by this historical rollout step. The default private
+    layout requires the worker and server to share `RISKIT_SERVING_DIR` and its
+    application user. The later opt-in reader-group layout below instead requires
+    distinct producer/web UIDs and explicit provisioning. Keep either root
+    outside every static HTTP mount; verify its actual directory permissions.
 2. Review `python scripts/run_source_producer.py --dry-run`. This prints the
    source contract without creating files, importing the scraper or fetching.
 3. Run one source cycle. For first-generation bootstrap only, supply
@@ -359,3 +361,52 @@ pin, store and legacy configuration, restart and verify ownership/freshness. Kee
 immutable generations and receipts. Do not restore a compromised key as rollback;
 withdraw it and strictly rebuild trusted inputs. Never delete locks or run two
 unrestricted owners. All production actions retain separate authorization gates.
+
+### Opt-in reader-group filesystem layout
+
+`RISKIT_SERVING_READER_GID` enables the POSIX-only group layout. Omit it to
+retain the existing private store and root-level request markers. Use the same
+numeric reader group for web and producers; the web UID must remain distinct
+from the producer/provisioner UID. The frontend does not require store access.
+This setting does not grant or create operating-system users/groups.
+
+Provision a new store as the producer/provisioner, with an already traversable
+parent, before starting readers:
+
+```text
+RISKIT_SERVING_READER_GID=<provisioned numeric group>
+RISKIT_SERVING_DIR=<reviewed store path>
+python scripts/prune_serving_artifacts.py --apply --provision-access
+```
+
+This explicit operation provisions the root with 2750, stable shared store and
+request locks with 0660, and the `requests/` directory with 2770. Subsequent
+producer publication creates immutable directories with 2750 and immutable,
+pointer, observation, history and status files with 0640. Queue markers use 0660;
+producer claims remain in the protected root with 0640.
+Publisher/coordinator/source leases remain producer-owned. Explicit creation
+modes apply to replacements too, rather than relying on UMask alone. Existing
+incompatible permissions are rejected and never automatically widened.
+
+Readers can copy accepted generations and create bounded request markers, but
+the producer-owned root prevents them replacing accepted pointers, generation
+directories or shared-lock inodes. Private signing keys and their parent must
+remain producer-only outside this store; public pins and code must be immutable
+to the web UID. A group or environment setting alone does not prove these UID,
+parent-directory or process-environment boundaries.
+
+The source/league path units watch both legacy and opt-in marker locations.
+Enabling the group layout with a legacy root-level request still pending fails
+closed, preserving that request. Drain and account for queued obligations under
+the old owner before a reviewed offline store/permission migration; do not remove
+markers to silence the refusal. A new store has a new source lease, so stop and
+drain old ownership before bootstrap as described above. Do not switch only the
+web environment while producers retain another queue layout.
+
+The isolated `Prepared serving permissions` CI job runs actual distinct numeric
+UIDs on Linux and refuses a skipped cross-UID test. Windows mode tests are not
+permission proof. Before production activation, repeat allowed/denied access,
+new-publication adoption, queue wakeup, key isolation and child/FD recovery under
+the actual installed service identities. Shared flock participants can cause
+bounded lock timeouts by holding a lease; this availability assumption does not
+give the web signing authority.

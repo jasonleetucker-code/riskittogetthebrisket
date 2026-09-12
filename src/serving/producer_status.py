@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import stat
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,13 +40,17 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _atomic_json(root: Path, name: str, value: dict) -> None:
+def _atomic_json(root: Path, name: str, value: dict, *, store=None, queue=False) -> None:
     _mkdir(root)
     destination = root / name
     _check_path(destination)
     temporary = root / f".{name}.{uuid.uuid4().hex}.tmp"
     try:
-        _write_new(temporary, json.dumps(value, sort_keys=True, allow_nan=False).encode())
+        body = json.dumps(value, sort_keys=True, allow_nan=False).encode()
+        if store is None:
+            _write_new(temporary, body)
+        else:
+            store.write_new(temporary, body, queue=queue)
         os.replace(temporary, destination)
         _sync_directory(root)
     finally:
@@ -61,10 +66,15 @@ def _request_files(kind: str):
 
 
 def _pending_refresh(store: ArtifactStore, kind: str) -> dict | None:
-    path = store.root / _request_files(kind)[0]
+    path = store.request_root / _request_files(kind)[0]
     _check_path(path)
     try:
-        with path.open("rb") as handle:
+        descriptor = os.open(
+            path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+        )
+        with os.fdopen(descriptor, "rb") as handle:
+            if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
+                return None
             body = handle.read(4097)
         if len(body) > 4096:
             return None
@@ -100,7 +110,7 @@ def _request_refresh(store: ArtifactStore, kind: str, trigger: str) -> dict:
     ):
         raise ValueError("refresh trigger must be a short operational label")
     _mkdir(store.root)
-    with _publish_lock(store.root / _request_files(kind)[2], 2):
+    with store.request_lock(kind):
         existing = _pending_refresh(store, kind)
         if existing:
             return {**existing, "coalesced": True}
@@ -111,14 +121,14 @@ def _request_refresh(store: ArtifactStore, kind: str, trigger: str) -> dict:
             "trigger": trigger,
             "requestedAt": _now(),
         }
-        _atomic_json(store.root, _request_files(kind)[0], request)
+        _atomic_json(store.request_root, _request_files(kind)[0], request, store=store, queue=True)
         return {**request, "coalesced": False}
 
 
 def _claim_refresh(store: ArtifactStore, kind: str) -> dict | None:
     """Called only inside the source lease; preserve requests arriving afterward."""
-    with _publish_lock(store.root / _request_files(kind)[2], 2):
-        path = store.root / _request_files(kind)[0]
+    with store.request_lock(kind):
+        path = store.request_root / _request_files(kind)[0]
         _check_path(path)
         if not path.exists():
             return None
@@ -128,9 +138,9 @@ def _claim_refresh(store: ArtifactStore, kind: str) -> dict | None:
             if request
             else {"schemaVersion": 1, "outcome": "invalid_request", "claimedAt": _now()}
         )
-        _atomic_json(store.root, _request_files(kind)[1], claim)
+        _atomic_json(store.root, _request_files(kind)[1], claim, store=store)
         path.unlink()
-        _sync_directory(store.root)
+        _sync_directory(store.request_root)
         return claim
 
 
@@ -179,7 +189,7 @@ class ProducerJournal:
 
     def _save(self) -> None:
         self.state["updatedAt"] = _now()
-        _atomic_json(self.store.root, STATUS_FILE, self.state)
+        _atomic_json(self.store.root, STATUS_FILE, self.state, store=self.store)
 
     def event(self, name: str, *, level="info", message="", **meta) -> None:
         if name == "producer_started":
@@ -241,7 +251,7 @@ class ProducerJournal:
                 "sourceEvidence": result.source_evidence,
                 "canonicalInputs": self.input_manifest,
             }
-            _atomic_json(self.store.root, RECEIPT_FILE, receipt)
+            _atomic_json(self.store.root, RECEIPT_FILE, receipt, store=self.store)
             self.state["acceptedGeneration"] = self.accepted_generation
             if self.establish_ownership:
                 # The standalone cycle invokes this callback before releasing

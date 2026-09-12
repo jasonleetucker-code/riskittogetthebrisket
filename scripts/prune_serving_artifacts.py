@@ -23,11 +23,18 @@ def main(argv=None):
     parser.add_argument("--keep-hours", type=float, default=48)
     parser.add_argument("--pin", nargs=4, metavar=("ASSET", "KEY", "GENERATION", "LABEL"))
     parser.add_argument("--unpin", metavar="LABEL")
+    parser.add_argument(
+        "--provision-access",
+        action="store_true",
+        help="Create missing opt-in reader-group layout; refuses incompatible existing permissions",
+    )
     args = parser.parse_args(argv)
     if args.pin and args.unpin:
         parser.error("choose pin or unpin, not both")
     if (args.pin or args.unpin) and not args.apply:
         parser.error("pin changes require --apply")
+    if args.provision_access and (not args.apply or args.pin or args.unpin):
+        parser.error("access provisioning requires --apply and cannot change pins")
     try:
         environment = RetentionPolicy.from_environment()
         policy = RetentionPolicy(
@@ -38,6 +45,10 @@ def main(argv=None):
             else environment.min_free_bytes,
         )
         store = ArtifactStore(args.root, retention_policy=policy)
+        if args.provision_access:
+            store.provision_access()
+            print(json.dumps({"schemaVersion": 1, "status": "provisioned"}))
+            return 0
         if args.pin:
             store.pin(*args.pin)
         if args.unpin:

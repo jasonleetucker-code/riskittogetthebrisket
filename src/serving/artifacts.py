@@ -211,21 +211,27 @@ def _check_path(path: Path) -> None:
             raise UnsafeArtifactPath(f"Artifact paths may not contain filesystem links: {part}")
 
 
-def _mkdir(path: Path) -> None:
+def _mkdir(path: Path, *, mode=0o700, gid=None) -> None:
     _check_path(path)
     # Path.mkdir(parents=True) applies mode only to the final directory.
     # Make every newly created ancestor private as well.
     for part in (*reversed(path.parents), path):
         if not part.exists():
             part.mkdir(mode=0o700, exist_ok=True)
+            if part == path and gid is not None:
+                os.chown(part, -1, gid)
+                os.chmod(part, mode)
     _check_path(path)
 
 
-def _write_new(path: Path, body: bytes) -> None:
+def _write_new(path: Path, body: bytes, *, mode=0o600, gid=None) -> None:
     _check_path(path)
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
     descriptor = os.open(path, flags, 0o600)
     with os.fdopen(descriptor, "wb") as handle:
+        if gid is not None:
+            os.fchown(handle.fileno(), -1, gid)
+            os.fchmod(handle.fileno(), mode)
         handle.write(body)
         handle.flush()
         os.fsync(handle.fileno())
@@ -355,10 +361,10 @@ def _optional_json(path, default):
     return _read_json(path)[0]
 
 
-def _replace_json(path, value):
+def _replace_json(path, value, *, mode=0o600, gid=None):
     pending = path.parent / f".{path.name}-{uuid.uuid4().hex}.tmp"
     try:
-        _write_new(pending, _json_bytes(value))
+        _write_new(pending, _json_bytes(value), mode=mode, gid=gid)
         _check_path(path)
         os.replace(pending, path)
         _sync_directory(path.parent)
@@ -417,6 +423,7 @@ class ArtifactStore:
         *,
         lock_timeout: float = 30.0,
         retention_policy: RetentionPolicy | None = None,
+        reader_gid: int | None = None,
     ):
         configured = (
             root if root is not None else os.getenv("RISKIT_SERVING_DIR", "data/private_serving")
@@ -427,16 +434,101 @@ class ArtifactStore:
             raise ValueError("lock_timeout must be nonnegative")
         self.lock_timeout = lock_timeout
         self.retention_policy = retention_policy or RetentionPolicy.from_environment()
+        configured_gid = os.getenv("RISKIT_SERVING_READER_GID")
+        if reader_gid is None and configured_gid is not None:
+            if not configured_gid.isdecimal():
+                raise ValueError("RISKIT_SERVING_READER_GID must be a numeric group id")
+            reader_gid = int(configured_gid)
+        if reader_gid is not None and (
+            type(reader_gid) is not int or reader_gid < 0 or os.name != "posix"
+        ):
+            raise ValueError("Reader group access requires a nonnegative POSIX group id")
+        self.reader_gid = reader_gid
+
+    def _directory(self, path):
+        # Ancestors inside the store need traversal too; never chmod existing
+        # paths or ancestors outside this explicitly provisioned root.
+        if self.reader_gid is None:
+            _mkdir(path)
+            return
+        relative = path.relative_to(self.root)
+        current = self.root
+        self._check_group_path(current, directory=True)
+        for part in relative.parts:
+            current /= part
+            _mkdir(current, mode=0o2750, gid=self.reader_gid)
+            self._check_group_path(current, directory=True)
+
+    def write_new(self, path, body, *, queue=False):
+        _write_new(path, body, mode=0o660 if queue else 0o640, gid=self.reader_gid)
+
+    def _replace_json(self, path, value):
+        _replace_json(path, value, mode=0o640, gid=self.reader_gid)
+
+    def provision_access(self):
+        """Explicit producer/provisioner operation; never migrate existing ACLs.
+
+        Existing private stores require a reviewed offline migration. This
+        method only creates missing layout and refuses incompatible permissions.
+        """
+        if self.reader_gid is None:
+            _mkdir(self.root)
+            return
+        _mkdir(self.root, mode=0o2750, gid=self.reader_gid)
+        self._check_group_path(self.root, directory=True)
+        queue = self.root / "requests"
+        _mkdir(queue, mode=0o2770, gid=self.reader_gid)
+        self._check_group_path(queue, directory=True, writable=True)
+        for name in ("store.lock", "source-request.lock", "league-request.lock"):
+            path = self.root / name
+            if not path.exists():
+                _write_new(path, b"\0", mode=0o660, gid=self.reader_gid)
+            self._check_group_path(path, writable=True)
+
+    def _check_group_path(self, path, *, directory=False, writable=False):
+        _check_path(path)
+        info = path.stat()
+        kind_ok = stat.S_ISDIR(info.st_mode) if directory else stat.S_ISREG(info.st_mode)
+        expected = (0o2750 if directory else 0o640) | (0o020 if writable else 0)
+        if not kind_ok or info.st_gid != self.reader_gid or stat.S_IMODE(info.st_mode) != expected:
+            raise UnsafeArtifactPath("Incompatible provisioned serving permissions")
+
+    @property
+    def request_root(self):
+        if self.reader_gid is None:
+            return self.root
+        self._check_group_path(self.root, directory=True)
+        queue = self.root / "requests"
+        self._check_group_path(queue, directory=True, writable=True)
+        # Switching layouts must not abandon pre-existing queued obligations.
+        for name in ("source-refresh.request", "league-refresh.request"):
+            if (self.root / name).exists():
+                raise UnsafeArtifactPath("Legacy request requires offline queue migration")
+        return queue
+
+    def request_lock(self, kind):
+        if kind not in {"source", "league"}:
+            raise ValueError("Unknown request owner")
+        path = self.root / f"{kind}-request.lock"
+        if self.reader_gid is not None:
+            self._check_group_path(path, writable=True)
+        return _publish_lock(path, 2)
 
     @contextmanager
     def _locked(self):
         # Lock order is root store -> partition publisher. Coordinator/source
         # locks are held by callers; retention never acquires those locks.
-        _mkdir(self.root)
+        if self.reader_gid is None:
+            _mkdir(self.root)
+        else:
+            self._check_group_path(self.root, directory=True)
+            self._check_group_path(self.root / "store.lock", writable=True)
         with _publish_lock(self.root / "store.lock", self.lock_timeout):
             yield
 
     def _partition(self, asset: str, key: str) -> Path:
+        if self.reader_gid is not None and asset == "requests":
+            raise UnsafeArtifactPath("Operational queue name is reserved")
         path = self.root / _name(asset) / _name(key)
         _check_path(path)
         return path
@@ -624,10 +716,10 @@ class ArtifactStore:
         partition = self._partition(asset, key)
         contents = candidate.files
         manifest = _plain(candidate.manifest)
-        _mkdir(partition)
+        self._directory(partition)
         with _publish_lock(partition / "publisher.lock", self.lock_timeout):
             generations = partition / "generations"
-            _mkdir(generations)
+            self._directory(generations)
             target = generations / candidate.generation_id
             _check_path(target)
             pointer_path = partition / "current.json"
@@ -649,15 +741,15 @@ class ArtifactStore:
                 manifest_body = (target / "manifest.json").read_bytes()
             else:
                 temporary = generations / f".tmp-{uuid.uuid4().hex}"
-                _mkdir(temporary)
+                self._directory(temporary)
                 try:
                     for name, body in contents.items():
                         destination = temporary / "files" / name
-                        _mkdir(destination.parent)
-                        _write_new(destination, body)
+                        self._directory(destination.parent)
+                        self.write_new(destination, body)
                         _sync_directory(destination.parent)
                     manifest_body = _json_bytes(manifest)
-                    _write_new(temporary / "manifest.json", manifest_body)
+                    self.write_new(temporary / "manifest.json", manifest_body)
                     _sync_directory(temporary)
                     os.replace(temporary, target)
                     _sync_directory(generations)
@@ -691,7 +783,7 @@ class ArtifactStore:
                 entries.setdefault(candidate.generation_id, pointer["observedAt"])
             pending = partition / f".current-{uuid.uuid4().hex}.tmp"
             try:
-                _write_new(pending, _json_bytes(pointer))
+                self.write_new(pending, _json_bytes(pointer))
                 _check_path(partition / "current.json")
                 # Windows readers/virus scanners can momentarily deny rename
                 # of an open pointer. Retry the atomic replacement only; never
@@ -712,7 +804,7 @@ class ArtifactStore:
             finally:
                 pending.unlink(missing_ok=True)
             try:
-                _replace_json(accepted_path, accepted)
+                self._replace_json(accepted_path, accepted)
             except OSError:
                 # The pointer is already accepted. Missing admission evidence
                 # makes this generation protected/unknown until reobserved.
@@ -739,7 +831,7 @@ class ArtifactStore:
             if not isinstance(pins, dict) or len(pins) >= 128 and label not in pins:
                 raise CorruptArtifact("Invalid or full retention pin registry")
             pins[label] = {"asset": asset, "key": key, "generationId": generation_id}
-            _replace_json(path, state)
+            self._replace_json(path, state)
 
     def unpin(self, label: str) -> None:
         _name(label)
@@ -749,7 +841,7 @@ class ArtifactStore:
             if not isinstance(state.get("pins"), dict):
                 raise CorruptArtifact("Invalid retention pin registry")
             state["pins"].pop(label, None)
-            _replace_json(path, state)
+            self._replace_json(path, state)
 
     def read_retention_report(self) -> dict:
         """Bounded persisted diagnostics, without scanning any generation."""
@@ -780,7 +872,7 @@ class ArtifactStore:
             lastCapacityFailureAt=_now() if failure else previous.get("lastCapacityFailureAt"),
             freeBytes=shutil.disk_usage(self.root).free,
         )
-        _replace_json(self.root / "retention-report.json", report)
+        self._replace_json(self.root / "retention-report.json", report)
 
     def retention(self, *, apply=False, now=None) -> dict:
         """Plan or prune under the same lease as all reads and publications.
@@ -856,6 +948,8 @@ class ArtifactStore:
         # Only directories bearing an ArtifactStore partition marker are ours.
         for asset_path in self.root.iterdir():
             _check_path(asset_path)
+            if self.reader_gid is not None and asset_path.name == "requests":
+                continue
             if (
                 asset_path.is_symlink()
                 or getattr(asset_path, "is_junction", lambda: False)()
@@ -879,6 +973,8 @@ class ArtifactStore:
 
     def _owned_bytes(self):
         total = sum(_tree_bytes(partition) for _, _, partition in self._owned_partitions())
+        if self.reader_gid is not None:
+            total += _tree_bytes(self.request_root)
         for name in _ROOT_OWNED_FILES:
             path = self.root / name
             _check_path(path)
@@ -1287,7 +1383,7 @@ class ArtifactStore:
                             for generation, stamp in state["generations"].items()
                             if (asset, key, generation) in remaining
                         }
-                        _replace_json(path, state)
+                        self._replace_json(path, state)
                 report["bytesAfter"] = self._owned_bytes()
                 report["generationCount"] -= sum("id" in r for r in chosen)
             elif apply:

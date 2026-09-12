@@ -3,6 +3,7 @@ Description=Queued league context refresh (__SERVICE_NAME__)
 
 [Path]
 PathExists=__SERVING_DIR__/league-refresh.request
+PathExists=__SERVING_DIR__/requests/league-refresh.request
 Unit=__SERVICE_NAME__-league-serving.service
 
 [Install]
