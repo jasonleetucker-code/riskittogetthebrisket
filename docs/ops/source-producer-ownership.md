@@ -313,15 +313,15 @@ not signer/verifier isolation. Do not install a producer private key in the shar
 unit users alone: current 0700 directories and 0600 files/locks prevent a separate
 verifier from reading new artifacts and acquiring read/write store locks.
 
-Before split-user deployment, implement permission-aware creation in ArtifactStore
-and a reviewed least-privilege queue access layout in producer_status. Preserve private
+Split-user deployment uses the opt-in permission-aware creation in ArtifactStore
+and the least-privilege queue layout in producer_status described below. Preserve private
 defaults, safe path checks, atomic replacements, pending claims, stable lock inodes
 and source/league ownership. A one-time chmod, UMask/default ACL alone or read-only
 store mount is insufficient. Test new publication and replacement under actual
 service UIDs. Web must read/traverse artifacts and acquire stable locks without
 broad artifact-root rename/publication authority. Queue admission/claim must retain
-same-filesystem atomic replacement and coalescing. This prerequisite is not yet
-implemented; the deployment package must remain blocked until it is validated.
+same-filesystem atomic replacement and coalescing. Local and distinct-UID Linux CI
+checks pass; installed service-context validation remains an activation gate.
 
 Public pin and policy code require a trusted deployment owner, not web or artifact
 publisher write authority. Producer-only private credentials stay outside store,
@@ -410,3 +410,40 @@ new-publication adoption, queue wakeup, key isolation and child/FD recovery unde
 the actual installed service identities. Shared flock participants can cause
 bounded lock timeouts by holding a lease; this availability assumption does not
 give the web signing authority.
+
+### Install-only preparation with distinct principals
+
+The existing installer accepts `--prepared-units-only`. Supply existing non-root
+`PRODUCER_USER`, `WEB_USER`, `SERVING_READER_GROUP`, and reviewed absolute
+`APP_DIR`, `VENV_DIR`, `PRODUCER_ENV_FILE`, `WEB_ENV_FILE`, `SERVING_DIR`,
+`SIGNING_KEY_FILE`, and `PUBLIC_PIN_FILE` paths. Provision the opt-in store first.
+The producer and web environment files must be distinct and external to the code
+and store, as must the signing key and public pin. Keep the private credential
+out of the web environment and outside web-readable or writable paths.
+
+```text
+bash deploy/install-systemd-service.sh --prepared-units-only
+```
+
+This mode renders and verifies seven prepared worker/timer/path units, installs
+only into confirmed inactive and disabled/static (or absent) destinations, and
+runs daemon-reload. It creates no accounts, enables or starts no unit, modifies
+no web service or serving flag, and performs no ownership cutover. Managed store,
+reader-group and key/pin paths are supplied after EnvironmentFile processing by
+ExecStart's explicit environment assignments. Unknown/failed identity, access or
+unit-state probes reject installation. Successful access probes check the actual
+impersonated UID; a failed sudo command is not evidence of credential isolation.
+
+These admission checks inspect files and immediate parents. Before activation,
+verify every ancestor, service namespace, code/runtime path and environment under
+the actual installed principals; the installer does not prove those boundaries.
+Use a trusted deployment owner for code and the verification pin. Prepare the web
+principal/drop-in separately, preserving legacy mode until its rollout gate opens.
+
+Installation may fail after replacing an inactive subset. Preserve copies of the
+previous unit files before the operation; restore those copies and daemon-reload,
+or resolve the failure and rerun the reviewed install-only command. Never restart
+or enable units as an implicit recovery action. An inactive static service is a
+valid rerun destination. Active/enabled or unknown state requires a separate
+reviewed maintenance/cutover action. Numerical limits remain subject to actual
+host headroom measurements.
