@@ -18,7 +18,10 @@ from cryptography.hazmat.primitives.serialization import (
 )
 
 from src.serving import attestation
-from src.serving.artifacts import ArtifactStore, RejectedCandidate
+from src.serving.artifacts import ArtifactStore, RejectedCandidate, CorruptArtifact
+from tests.serving import test_serving_pipeline as pipeline_tests
+
+board = pipeline_tests.board
 
 
 @pytest.fixture
@@ -32,6 +35,8 @@ def store(tmp_path, monkeypatch):
     )
     monkeypatch.setenv(attestation.PUBLIC_KEY_ENV, str(public))
     monkeypatch.setenv(attestation.PRIVATE_KEY_ENV, str(private))
+    # Simulate a separately started, configured signing process in this fixture.
+    monkeypatch.setattr(attestation, "_PROCESS_RUNTIME", attestation._runtime_identity())
     return ArtifactStore(tmp_path / "store")
 
 
@@ -74,7 +79,15 @@ def strict(candidate):
 
 def certified(store, *, meta=None):
     meta = meta or metadata()
-    return attestation.certify(store, "canonical-serving", "default", files(), meta, strict)
+    # Cryptographic envelope fixture: use private signing primitives explicitly.
+    # Production issuance is tested with real serialized boards in validator_trust.
+    candidate, _ = store._candidate("canonical-serving", "default", files(), meta)
+    policy = attestation.policy_fingerprint()
+    strict(candidate)
+    certificate = attestation._signed(
+        attestation._claims(candidate, policy), attestation._private_key(store)
+    )
+    return {**candidate.files, attestation.CERTIFICATE_FILE: attestation._json_bytes(certificate)}
 
 
 def publish(store, *, meta=None):
@@ -82,20 +95,19 @@ def publish(store, *, meta=None):
     return store.publish("canonical-serving", "default", certified(store, meta=meta), meta)
 
 
-def test_exact_unsigned_candidate_is_validated_before_certification(store):
+def test_exact_unsigned_candidate_is_validated_before_certification(store, board):
+    from tests.serving.test_validator_trust import unsigned
+
     observed = []
 
     def validate(candidate):
-        strict(candidate)
         observed.append(candidate)
 
-    original = files()
-    output = attestation.certify(
-        store, "canonical-serving", "default", original, metadata(), validate
-    )
+    original, meta = unsigned(board, store)
+    output = attestation.certify(store, "canonical-serving", "default", original, meta, validate)
     assert len(observed) == 1 and dict(observed[0].files) == original
     assert attestation.CERTIFICATE_FILE not in original
-    candidate, _ = store._candidate("canonical-serving", "default", output, metadata())
+    candidate, _ = store._candidate("canonical-serving", "default", output, meta)
     claims = attestation.verify_artifact(candidate, require_observation=False)
     assert claims["validationComplete"] is True
     assert claims["unsignedGenerationId"] == observed[0].generation_id
@@ -124,7 +136,7 @@ def test_rejected_full_validation_never_mints_certificate_or_publishes(store, re
                 "index.json": json.dumps({"etag": hashlib.sha1(wrong).hexdigest()}).encode(),
             }
         )
-    with pytest.raises((RejectedCandidate, ValueError)):
+    with pytest.raises((RejectedCandidate, CorruptArtifact, ValueError)):
         attestation.certify(store, "canonical-serving", "default", original, metadata(), validate)
     assert not store.root.exists()
 
@@ -247,17 +259,21 @@ def test_signed_observation_cannot_be_replayed_onto_another_certified_generation
         attestation.verify_artifact(replace(second, observation=first.observation))
 
 
-def test_lightweight_verifier_cannot_replace_unsigned_full_validation(store):
+def test_lightweight_verifier_cannot_replace_unsigned_full_validation(store, board):
+    from tests.serving.test_validator_trust import unsigned
+
+    original, meta = unsigned(board, store)
+    accepted = store.read_current("canonical-serving", "default").generation_id
     with pytest.raises(attestation.AttestationError):
         attestation.certify(
             store,
             "canonical-serving",
             "default",
-            files(),
-            metadata(),
+            original,
+            meta,
             lambda candidate: attestation.verify_artifact(candidate, require_observation=False),
         )
-    assert not store.root.exists()
+    assert store.read_current("canonical-serving", "default").generation_id == accepted
 
 
 def test_public_only_reader_cannot_pin_an_artifact_owned_key(store, monkeypatch):
@@ -348,10 +364,10 @@ def test_projection_season_dependency_drift_refuses_signing_and_verification(
 def test_actual_semantic_dependency_content_drift_invalidates_policy(
     tmp_path, monkeypatch, dependency
 ):
-    assert dependency in attestation._POLICY_FILES
+    assert dependency in dict(attestation._policy_inventory())
     # Copy the real policy inventory; never mutate a concurrently used source.
     replica = tmp_path / "policy"
-    for name in attestation._POLICY_FILES:
+    for name in {*attestation._POLICY_FILES, dependency}:
         copied = replica / name
         copied.parent.mkdir(parents=True, exist_ok=True)
         copied.write_bytes((attestation._REPO / name).read_bytes())
@@ -425,3 +441,103 @@ def test_unsigned_default_preserves_full_validator_and_has_no_observation(tmp_pa
     assert accepted == store.read_current("canonical-serving", "default")
     with pytest.raises(attestation.AttestationError):
         attestation.verify_artifact(accepted)
+
+
+@pytest.mark.parametrize("change", ["same_mtime", "added", "deleted"])
+def test_complete_source_inventory_detects_unlisted_module_changes(tmp_path, monkeypatch, change):
+    replica = tmp_path / "policy"
+    for name in attestation._POLICY_FILES:
+        target = replica / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((attestation._REPO / name).read_bytes())
+    target = replica / "src/history/unlisted_rule.py"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(b"VALUE = 1\n")
+    monkeypatch.setattr(attestation, "_REPO", replica)
+    before = attestation._disk_policy_fingerprint()
+    if change == "same_mtime":
+        stamp = target.stat()
+        target.write_bytes(b"VALUE = 2\n")
+        os.utime(target, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+    elif change == "added":
+        target.with_name("new_rule.py").write_bytes(b"VALUE = 3\n")
+    else:
+        target.unlink()
+    assert attestation._disk_policy_fingerprint() != before
+
+
+@pytest.mark.parametrize("damage", ["missing", "directory", "unreadable_scan"])
+def test_policy_inventory_fails_closed_for_incomplete_tree(tmp_path, monkeypatch, damage):
+    replica = tmp_path / "policy"
+    for name in attestation._POLICY_FILES:
+        target = replica / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b"# policy fixture\n")
+    monkeypatch.setattr(attestation, "_REPO", replica)
+    if damage == "unreadable_scan":
+
+        def denied(*args, **kwargs):
+            kwargs["onerror"](PermissionError("test denial"))
+
+        monkeypatch.setattr(attestation.os, "walk", denied)
+    else:
+        required = replica / "server.py"
+        required.unlink()
+        if damage == "directory":
+            required.mkdir()
+    with pytest.raises(attestation.AttestationError):
+        attestation._disk_policy_fingerprint()
+
+
+def test_policy_inventory_excludes_ordinary_input_observations(tmp_path, monkeypatch):
+    replica = tmp_path / "policy"
+    for name in attestation._POLICY_FILES:
+        target = replica / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b"# policy fixture\n")
+    monkeypatch.setattr(attestation, "_REPO", replica)
+    before = attestation._disk_policy_fingerprint()
+    (replica / "src" / "observation.json").write_bytes(b'{"observedAt":1}')
+    assert attestation._disk_policy_fingerprint() == before
+
+
+def test_policy_inventory_refuses_linked_source_file(tmp_path, monkeypatch):
+    replica = tmp_path / "policy"
+    for name in attestation._POLICY_FILES:
+        target = replica / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b"# policy fixture\n")
+    outside = tmp_path / "outside.py"
+    outside.write_bytes(b"# outside\n")
+    try:
+        (replica / "src" / "linked.py").symlink_to(outside)
+    except OSError:
+        pytest.skip("Host does not permit symlink creation")
+    monkeypatch.setattr(attestation, "_REPO", replica)
+    with pytest.raises(attestation.AttestationError, match="unsafe"):
+        attestation._disk_policy_fingerprint()
+
+
+@pytest.mark.parametrize("package", ["scripts", "scripts/nested"])
+def test_script_package_initializer_same_mtime_mutation_changes_policy(
+    tmp_path, monkeypatch, package
+):
+    replica = tmp_path / "policy"
+    for name in attestation._POLICY_FILES:
+        target = replica / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(b"# fixture\n")
+    directory = replica / package
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "fetch_fixture.py").write_bytes(b"# selected acquisition module\n")
+    initializer = directory / "__init__.py"
+    initializer.write_bytes(b"VALUE = 1\n")
+    monkeypatch.setattr(attestation, "_REPO", replica)
+    before = attestation._disk_policy_fingerprint()
+    stamp = initializer.stat()
+    initializer.write_bytes(b"VALUE = 2\n")
+    os.utime(initializer, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+    assert initializer.stat().st_size == stamp.st_size
+    assert initializer.stat().st_mtime_ns == stamp.st_mtime_ns
+    assert attestation._disk_policy_fingerprint() != before
+    assert f"{package}/__init__.py" in dict(attestation._policy_inventory())

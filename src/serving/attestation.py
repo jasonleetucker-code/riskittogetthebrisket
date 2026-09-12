@@ -13,6 +13,9 @@ import binascii
 import hashlib
 import json
 import os
+import sys
+import zlib
+from importlib.metadata import version as distribution_version
 from datetime import datetime
 from pathlib import Path
 
@@ -23,48 +26,15 @@ PRIVATE_KEY_ENV = "RISKIT_SERVING_ATTESTATION_PRIVATE_KEY"
 CERTIFICATE_FILE = "validation.json"
 ATTESTED_ASSETS = frozenset({"canonical-serving", "league-serving"})
 _REPO = Path(__file__).resolve().parents[2]
+# Required entrypoints plus every source module and acquisition script below.
+# This is a conservative code closure, not runtime/effective-config certification.
 _POLICY_FILES = (
     "server.py",
+    "Dynasty Scraper.py",
+    "scripts/run_source_producer.py",
+    "scripts/refresh_league_serving.py",
+    "scripts/refresh_prepared_news.py",
     "src/serving/__init__.py",
-    "src/serving/attestation.py",
-    "src/serving/artifacts.py",
-    "src/serving/runtime.py",
-    "src/serving/serialization.py",
-    "src/serving/league_views.py",
-    "src/serving/builder.py",
-    "src/serving/projections.py",
-    "src/serving/coordinator.py",
-    "src/serving/input_manifest.py",
-    "src/api/compact_view.py",
-    "src/api/data_contract.py",
-    "src/api/sleeper_overlay.py",
-    "src/api/league_registry.py",
-    "src/bdvm/actuals.py",
-    "src/data_models/contracts.py",
-    "src/league_comparison/sleeper_scoring.py",
-    "src/ros/lineup.py",
-    "src/canonical/player_valuation.py",
-    "src/canonical/tail_policy.py",
-    "src/api/confidence.py",
-    "src/picks/site_pick_map.py",
-    "src/identity/picks.py",
-    "src/utils/name_clean.py",
-    "src/canonical/idp_backbone.py",
-    "src/canonical/rank_coordinates.py",
-    "src/bridges/assess.py",
-    "src/bridges/states.py",
-    "src/bridges/ladder.py",
-    "src/bridges/registry.py",
-    "src/bridges/descriptor.py",
-    "src/utils/config_loader.py",
-    "src/sources/acquisition_state.py",
-    "src/identity/resolution.py",
-    "src/identity/name_primitives.py",
-    "src/sources/ktc_value_sources.py",
-    "src/api/feature_flags.py",
-    "src/league_intel/te_premium.py",
-    "src/model_registry/__init__.py",
-    "src/model_registry/versioning.py",
 )
 _VOLATILE = frozenset({"generatedAt", "sourceAsOf", "observedAt"})
 
@@ -80,18 +50,50 @@ def enabled() -> bool:
     return public
 
 
+def _policy_inventory():
+    """Enumerate anew: additions/deletions and same-mtime edits are policy drift."""
+    root = _REPO.resolve(strict=True)
+    names = set(_POLICY_FILES)
+    for directory in (root / "src", root / "scripts"):
+        if directory.is_symlink() or directory.is_junction() or not directory.is_dir():
+            raise AttestationError("Validation policy directory is unavailable")
+        for parent, dirs, files in os.walk(directory, followlinks=False, onerror=_walk_error):
+            for name in dirs:
+                if (Path(parent) / name).is_symlink() or (Path(parent) / name).is_junction():
+                    raise AttestationError("Validation policy contains a linked directory")
+            for name in files:
+                if name.endswith(".py") and (
+                    directory.name == "src" or name.startswith("fetch_") or name == "__init__.py"
+                ):
+                    names.add((Path(parent) / name).relative_to(root).as_posix())
+    for name in sorted(names):
+        path = root / name
+        if path.is_symlink() or not path.is_file() or not path.resolve().is_relative_to(root):
+            raise AttestationError("Validation policy file is unavailable or unsafe")
+        yield name, path
+
+
+def _walk_error(error):
+    raise error
+
+
 def _disk_policy_fingerprint() -> str:
     try:
-        files = {
-            name: hashlib.sha256((_REPO / name).read_bytes()).hexdigest() for name in _POLICY_FILES
-        }
+        files = {}
+        for name, path in _policy_inventory():
+            with path.open("rb") as stream:
+                files[name] = hashlib.file_digest(stream, "sha256").hexdigest()
     except OSError as exc:
         raise AttestationError("Validation policy implementation is unavailable") from exc
-    return hashlib.sha256(_json_bytes({"version": 1, "files": files})).hexdigest()
+    return hashlib.sha256(_json_bytes({"version": 2, "files": files})).hexdigest()
 
 
 def policy_fingerprint() -> str:
     """Refuse in-place code drift from the policy pinned at package startup."""
+    if enabled() and _PROCESS_RUNTIME is None:
+        raise AttestationError("Attestation was not enabled at startup; restart the process")
+    if _PROCESS_RUNTIME is not None and _runtime_identity() != _PROCESS_RUNTIME:
+        raise AttestationError("Validator runtime changed; restart the process")
     if _disk_policy_fingerprint() != _PROCESS_POLICY:
         raise AttestationError("Validation policy changed on disk; restart the process")
     return _PROCESS_POLICY
@@ -202,6 +204,62 @@ def _immutable_metadata(manifest):
     }
 
 
+def _runtime_identity():
+    """Observed validator runtime versions; not exhaustive native artifact provenance."""
+    try:
+        return {
+            "scope": "serialized-validator-runtime-versions-v1",
+            "implementation": sys.implementation.name,
+            "version": sys.version,
+            "cacheTag": sys.implementation.cache_tag,
+            "platform": sys.platform,
+            "zlib": zlib.ZLIB_RUNTIME_VERSION,
+            "distributions": {
+                name: distribution_version(name)
+                for name in ("pydantic", "pydantic_core", "cryptography")
+            },
+        }
+    except Exception as exc:
+        raise AttestationError("Validator runtime identity unavailable") from exc
+
+
+def _validation_context(asset, metadata):
+    if asset not in ATTESTED_ASSETS:
+        raise AttestationError("Unsupported serialized validation owner")
+    return {
+        "modelVersion": metadata.get("modelVersion"),
+        "configHash": metadata.get("configHash"),
+        "leagueBinding": _plain(metadata.get("leagueBinding"))
+        if asset == "league-serving"
+        else None,
+    }
+
+
+def _validate_serialized(candidate, board, cfg):
+    if candidate.asset == "canonical-serving":
+        from src.serving.serialization import validate_serialized_artifact
+
+        validate_serialized_artifact(candidate)
+    elif candidate.asset == "league-serving":
+        from src.serving.league_views import validate_serialized_artifact
+
+        validate_serialized_artifact(candidate, board, cfg)
+    else:
+        raise AttestationError("Unsupported serialized validation owner")
+
+
+def _current_context(candidate, board, cfg):
+    context = _validation_context(candidate.asset, candidate.manifest)
+    if candidate.asset == "league-serving":
+        from src.serving.league_views import _binding
+
+        if board is None or cfg is None:
+            raise AttestationError("League certification requires explicit context")
+        if _binding(board, cfg) != context["leagueBinding"]:
+            raise AttestationError("League effective configuration changed during certification")
+    return context
+
+
 def _claims(candidate, policy):
     inventory = _inventory(candidate.files)
     metadata = _immutable_metadata(candidate.manifest)
@@ -209,6 +267,11 @@ def _claims(candidate, policy):
         "schemaVersion": 1,
         "purpose": "serving-artifact",
         "validationComplete": True,
+        "validationScope": "serialized-projection-semantics-v2",
+        "rawBuildProvenanceComplete": False,
+        "validatorId": candidate.asset + ":strict-serialized-v2",
+        "validationContext": _validation_context(candidate.asset, metadata),
+        "runtimeIdentity": _runtime_identity(),
         "policyFingerprint": policy,
         "asset": candidate.asset,
         "key": candidate.key,
@@ -218,17 +281,22 @@ def _claims(candidate, policy):
     }
 
 
-def certify(store, asset, key, files, metadata, validator):
+def certify(store, asset, key, files, metadata, validator=None, *, board=None, cfg=None):
     """Validate exact unsigned bytes before certifying; never certify a boolean alone."""
     if not enabled():
         return dict(files)
-    if not callable(validator):
+    if validator is not None and not callable(validator):
         raise AttestationError("Certification requires the full serialized validator")
     unsigned = {name: body for name, body in files.items() if name != CERTIFICATE_FILE}
     candidate, _ = store._candidate(asset, key, unsigned, metadata)
     policy = policy_fingerprint()
-    if validator(candidate) is False:
+    context = _current_context(candidate, board, cfg)
+    runtime = _runtime_identity()
+    _validate_serialized(candidate, board, cfg)
+    if validator is not None and validator(candidate) is False:
         raise RejectedCandidate("Full validation rejected certification")
+    if context != _current_context(candidate, board, cfg) or runtime != _runtime_identity():
+        raise AttestationError("Validation context/runtime changed during certification")
     if policy != policy_fingerprint():
         raise AttestationError("Validation implementation changed during certification")
     certificate = _signed(_claims(candidate, policy), _private_key(store))
@@ -334,4 +402,5 @@ def verify_observation(artifact, *, policy=None):
 
 # src.serving.__init__ imports this before builder/serialization/league modules.
 # A long-lived producer may not relabel already imported code after deployment.
+_PROCESS_RUNTIME = _runtime_identity() if enabled() else None
 _PROCESS_POLICY = _disk_policy_fingerprint()

@@ -386,6 +386,28 @@ def load_web_league_views(artifact, board, cfg):
     return _load_final_variants(artifact, index, lightweight=True)
 
 
+def validate_serialized_artifact(artifact, board, cfg):
+    """Issuer-owned strict final representation validation against live context."""
+    from src.serving.serialization import validate_generation
+
+    if board is None or cfg is None:
+        raise CorruptArtifact("league certification requires canonical board/configuration")
+    validate_generation(board)
+    binding = _binding(board, cfg)
+    index = _final_index(artifact)
+    if index["binding"] != binding or not _attested_compatible(board, cfg):
+        raise CorruptArtifact("league certification context differs")
+    loaded = _load_final_variants(artifact, index, lightweight=False)
+    context = loaded.views["trade"].payload.get("sleeper") or {}
+    expected = hashlib.sha256(json_bytes(context.get("scoringSettings"))).hexdigest()
+    if artifact.manifest.get("configHash") != expected:
+        raise CorruptArtifact("league serialized scoring identity differs")
+    _validate_final_bundle(loaded, board, cfg)
+    if _binding(board, cfg) != binding:
+        raise CorruptArtifact("league effective configuration changed during validation")
+    return loaded
+
+
 def _publish_final_variants(bundle, store, *, input_generations, board, cfg):
     from src.serving.attestation import certify, verify_artifact
 
@@ -447,20 +469,7 @@ def _publish_final_variants(bundle, store, *, input_generations, board, cfg):
         "leagueBinding": binding,
     }
 
-    def validate(artifact):
-        loaded_index = _final_index(artifact)
-        if loaded_index["binding"] != binding:
-            raise CorruptArtifact("final league configuration changed during preparation")
-        if (
-            artifact.manifest.get("configHash") != metadata["configHash"]
-            or dict(artifact.manifest.get("inputGenerations", {})) != metadata["inputGenerations"]
-        ):
-            raise CorruptArtifact("final league input/configuration identity differs")
-        loaded = _load_final_variants(artifact, loaded_index, lightweight=False)
-        _validate_final_bundle(loaded, board, cfg)
-        return loaded
-
-    files = certify(store, ASSET, cfg.key, files, metadata, validator=validate)
+    files = certify(store, ASSET, cfg.key, files, metadata, board=board, cfg=cfg)
     return store.publish(
         ASSET,
         cfg.key,

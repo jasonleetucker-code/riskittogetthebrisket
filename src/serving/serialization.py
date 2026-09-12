@@ -167,6 +167,22 @@ def load_web_generation(artifact: Generation) -> ServingGeneration:
         raise CorruptArtifact("invalid certified canonical bundle") from exc
 
 
+def validate_serialized_artifact(artifact: Generation) -> ServingGeneration:
+    """Issuer-owned projection/byte validation, not raw valuation recomputation."""
+    if artifact.asset != ASSET or artifact.key != KEY:
+        raise CorruptArtifact("unsupported canonical serving partition")
+    loaded = load_generation(artifact)
+    expected = hashlib.sha256(
+        json_bytes((loaded.contract.get("sleeper") or {}).get("scoringSettings"))
+    ).hexdigest()
+    if (
+        artifact.manifest.get("modelVersion") != MODEL_VERSION
+        or artifact.manifest.get("configHash") != expected
+    ):
+        raise CorruptArtifact("canonical serialized configuration identity differs")
+    return loaded
+
+
 def publish_generation(
     candidate: ServingGeneration,
     *,
@@ -205,7 +221,7 @@ def publish_generation(
         or None,
     }
     store = store or ArtifactStore()
-    files = certify(store, ASSET, KEY, files, metadata, load_generation)
+    files = certify(store, ASSET, KEY, files, metadata)
     return store.publish(
         ASSET,
         KEY,

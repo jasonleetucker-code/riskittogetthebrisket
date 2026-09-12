@@ -44,6 +44,8 @@ def signed_store(tmp_path, monkeypatch):
     )
     monkeypatch.setenv(attestation.PRIVATE_KEY_ENV, str(private))
     monkeypatch.setenv(attestation.PUBLIC_KEY_ENV, str(public))
+    # Simulate a separately started, configured signing process in this fixture.
+    monkeypatch.setattr(attestation, "_PROCESS_RUNTIME", attestation._runtime_identity())
     return ArtifactStore(tmp_path / "store")
 
 

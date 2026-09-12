@@ -11,6 +11,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from tests.serving import test_serving_pipeline
+from src.serving import attestation
 from src.serving.artifacts import ArtifactStore, CorruptArtifact
 from src.serving.builder import prepare_payload
 from src.serving.runtime import PreparedBytes
@@ -38,6 +39,8 @@ def signing(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("RISKIT_SERVING_ATTESTATION_PRIVATE_KEY", str(private))
     monkeypatch.setenv("RISKIT_SERVING_ATTESTATION_PUBLIC_KEY", str(public))
+    # Simulate a separately started, configured signing process in this fixture.
+    monkeypatch.setattr(attestation, "_PROCESS_RUNTIME", attestation._runtime_identity())
     return key
 
 
