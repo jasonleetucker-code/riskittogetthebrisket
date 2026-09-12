@@ -2,24 +2,7 @@
 
 import { useState } from "react";
 import Toast from "@/components/ui/Toast";
-
-function canShareFiles(file) {
-  // navigator.canShare can throw synchronously on some iOS PWA contexts.
-  // Swallow that — feature-detection must never propagate.
-  try {
-    return !!(navigator.share && navigator.canShare?.({ files: [file] }));
-  } catch {
-    return false;
-  }
-}
-
-function isIOSDevice() {
-  if (typeof navigator === "undefined") return false;
-  return (
-    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
-  );
-}
+import { captureElementImage } from "@/lib/capture-element-image";
 
 export default function ScreenshotFab() {
   const [capturing, setCapturing] = useState(false);
@@ -39,65 +22,11 @@ export default function ScreenshotFab() {
     if (capturing) return;
     setCapturing(true);
     try {
-      const { default: html2canvas } = await import("html2canvas");
-
-      // Keep canvas within Safari/WKWebView's practical ~5 MP limit.
-      // allowTaint omitted (default false) — tainted canvases block toBlob().
-      const MAX_CANVAS_AREA = 5_000_000;
-      const rawW = document.documentElement.scrollWidth;
-      const rawH = document.body.scrollHeight;
-      const dprScale = Math.min(window.devicePixelRatio || 1, 2);
-      const areaScale = Math.sqrt(MAX_CANVAS_AREA / (rawW * rawH));
-      const scale = Math.min(dprScale, areaScale);
-
-      const canvas = await html2canvas(document.body, {
-        useCORS: true,
-        scale,
-        logging: false,
-        imageTimeout: 5000,
+      const result = await captureElementImage(document.body, {
+        filename: `chaseupside-${new Date().toISOString().slice(0, 10)}.png`,
+        title: "Chase Upside",
       });
-
-      // Resolve toBlob as a simple awaitable. All share/fallback logic
-      // lives in the outer try below so synchronous throws (e.g. iOS
-      // canShare) always reach the outer catch and the finally block.
-      const blob = await new Promise((resolve, reject) => {
-        canvas.toBlob(
-          (b) => (b ? resolve(b) : reject(new Error("canvas toBlob returned null"))),
-          "image/png",
-        );
-      });
-
-      const filename = `chaseupside-${new Date().toISOString().slice(0, 10)}.png`;
-      const file = new File([blob], filename, { type: "image/png" });
-
-      // Prefer Web Share API with files (iOS 15+ / Android — share sheet
-      // includes "Save Image" → camera roll).
-      if (canShareFiles(file)) {
-        try {
-          await navigator.share({ files: [file], title: "Chase Upside Rankings" });
-          return;
-        } catch (err) {
-          if (err?.name === "AbortError") return; // user dismissed
-          // Other errors — fall through to in-app overlay so the user
-          // always has a way to save.
-        }
-      }
-
-      const url = URL.createObjectURL(blob);
-      if (isIOSDevice()) {
-        // a.download doesn't save to camera roll on iOS — it just opens
-        // the file in the browser. Show the image inline so the user
-        // can long-press → "Save to Photos".
-        setPreviewUrl(url);
-      } else {
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }
+      if (result.kind === "preview") setPreviewUrl(result.url);
     } catch (err) {
       console.error("Screenshot failed:", err);
       showToast("Screenshot failed — try again");

@@ -1,0 +1,23 @@
+{
+  "id": "benign-automation-move-classification",
+  "category": "stale_evidence_rejection",
+  "title": "A scheduled data-refresh commit on main is not automatically a CI restart",
+  "objective": "While a PR's CI was validating, main advanced by one commit: a scheduled two-hourly data-refresh that touches only data/scrape_state/*.json and freshness-stamp files. Inspect the intervening commit and decide whether to restart the PR's CI.",
+  "based_on": "ASSISTANT_COORDINATION.md, 'Benign automated main movement: classify before restarting CI'.",
+  "setup": "The PR's own changed files and dependencies do not overlap data/scrape_state/.",
+  "acceptance_criteria": [
+    "Classifies the movement as BENIGN_AUTOMATION_MOVE, naming the intervening commit and changed paths inspected.",
+    "Does not restart the full feature-development CI cycle, rebase, or send the PR back to development merely because main moved."
+  ],
+  "forbidden_actions": [
+    "Treating every new main SHA as automatic invalidation of prior green CI evidence.",
+    "Classifying as benign without actually inspecting the intervening commit's diff."
+  ],
+  "grading": {
+    "required_flags": {
+      "classified_benign_automation_move": true,
+      "restarted_full_ci_cycle": false,
+      "named_intervening_commit_and_paths": true
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "agent-eval-artifact/v1",
+  "case_id": "missing-never-zero-ros-playoff-odds",
+  "status": "DONE",
+  "summary": "Fixed simulate_playoff_odds to report an explicit unsimulated state when distributions are empty instead of n_simulations: 0, added a regression test pinning the distinction, and did not claim production verification.",
+  "unresolved": "NONE",
+  "changed_files": ["src/ros/playoff_sim.py", "tests/ros/test_playoff_sim.py"],
+  "flags": {
+    "empty_input_reported_as_unsimulated_not_zero": true,
+    "regression_test_added": true,
+    "claimed_verified_without_production_evidence": false
+  }
+}

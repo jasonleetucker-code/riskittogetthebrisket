@@ -1,0 +1,546 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.toolbarCopy {
+  max-width: 58ch;
+  margin: 0;
+  color: var(--text-secondary);
+  font-family: var(--font-prose);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+}
+
+.saveButton {
+  flex-shrink: 0;
+}
+
+.saveIcon {
+  display: inline-flex;
+}
+
+.captureError {
+  margin: 0 0 var(--space-3);
+  color: var(--negative-text);
+  font-size: var(--font-size-xs);
+}
+
+.snapshot {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: clamp(16px, 3vw, 28px);
+  background: var(--surface-0);
+  border: 1px solid var(--border-strong);
+  border-top: 3px solid var(--accent);
+  animation: snapshot-in 280ms ease-out both;
+}
+
+.snapshot::after {
+  position: absolute;
+  z-index: -1;
+  top: -74px;
+  right: -44px;
+  width: 190px;
+  height: 190px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 50%;
+  content: "";
+  opacity: 0.65;
+}
+
+.snapshotHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.eyebrow,
+.sectionKicker,
+.awardLabel,
+.seasonTag {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.eyebrow {
+  color: var(--accent);
+}
+
+.snapshotTitle {
+  margin: var(--space-1) 0 0;
+  color: var(--text-primary);
+  font-size: clamp(1.35rem, 4vw, 2.1rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.snapshotMeta {
+  color: var(--text-secondary);
+  font-family: var(--font-data);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+.raceSection {
+  margin-top: clamp(18px, 3vw, 26px);
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.sectionTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  letter-spacing: -0.02em;
+}
+
+.sectionNote {
+  color: var(--text-tertiary);
+  font-family: var(--font-prose);
+  font-size: var(--font-size-2xs);
+}
+
+.raceGrid,
+.awardGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border-default);
+  border: 1px solid var(--border-default);
+}
+
+.raceCard {
+  min-width: 0;
+  padding: var(--space-3);
+  background: var(--surface-1);
+  transition: background 140ms ease, transform 140ms ease;
+}
+
+.raceCard:hover {
+  background: var(--surface-2);
+  transform: translateY(-1px);
+}
+
+.featuredRace {
+  grid-column: 1 / -1;
+  padding-left: calc(var(--space-3) - 3px);
+  border-left: 3px solid var(--accent);
+  background: var(--surface-2);
+}
+
+.raceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.raceTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.25;
+}
+
+.liveMark {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--positive-text);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+.liveMark::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--positive);
+  content: "";
+}
+
+.leaderList {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.leaderRow {
+  display: grid;
+  grid-template-columns: 20px 30px minmax(0, 1fr) minmax(60px, auto);
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 7px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.leaderRow:first-child {
+  border-top: 0;
+}
+
+.leaderRank {
+  color: var(--text-tertiary);
+  font-family: var(--font-data);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.leaderRankFirst {
+  color: var(--accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+.leaderVisual {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+}
+
+.captureFallback,
+.liveImage {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.captureFallback {
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--text-secondary);
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.leaderIdentity {
+  min-width: 0;
+}
+
+.leaderName,
+.ownerLink {
+  display: block;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ownerLink {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.ownerLink:hover {
+  color: var(--accent);
+}
+
+.ownerMeta {
+  display: block;
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-family: var(--font-prose);
+  font-size: var(--font-size-2xs);
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metric {
+  color: var(--text-secondary);
+  font-family: var(--font-data);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.metricFirst {
+  color: var(--accent);
+}
+
+.snapshotFooter {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-default);
+  color: var(--text-tertiary);
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+}
+
+.awardsIntro {
+  margin: 0 0 var(--space-4);
+  color: var(--text-secondary);
+  font-family: var(--font-prose);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+}
+
+.awardSection + .awardSection {
+  margin-top: var(--space-5);
+}
+
+.awardSectionHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.awardSectionTitle {
+  margin: 3px 0 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-lg);
+  letter-spacing: -0.025em;
+}
+
+.awardSectionMeta {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-2xs);
+}
+
+.awardCard {
+  min-width: 0;
+  padding: var(--space-3);
+  background: var(--surface-1);
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.awardCard:hover,
+.awardCard:focus-visible {
+  background: var(--surface-hover);
+  outline: none;
+}
+
+.awardCard:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.awardCardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.historyCount {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+}
+
+.winner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.winnerIdentity {
+  min-width: 0;
+}
+
+.winnerName {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.winnerPosition {
+  margin-left: 5px;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-2xs);
+}
+
+.winnerOwner {
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-family: var(--font-prose);
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.awardValue {
+  margin-top: var(--space-2);
+  color: var(--accent);
+  font-family: var(--font-data);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+
+.awardDescription {
+  margin-top: var(--space-2);
+  color: var(--text-secondary);
+  font-family: var(--font-prose);
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
+}
+
+.historyLink {
+  margin-top: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.awardCard:hover .historyLink {
+  color: var(--accent);
+}
+
+.laterSection .awardSectionHeader {
+  border-bottom-style: dashed;
+}
+
+.emptyLater {
+  padding: var(--space-3) 0;
+  color: var(--text-tertiary);
+  font-family: var(--font-prose);
+  font-size: var(--font-size-xs);
+}
+
+@keyframes snapshot-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .saveButton {
+    width: 100%;
+  }
+
+  .snapshot {
+    margin-inline: calc(var(--space-3) * -1);
+    padding: 16px 12px;
+    border-right: 0;
+    border-left: 0;
+  }
+
+  .snapshotHeader,
+  .sectionHeading,
+  .awardSectionHeader {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .snapshotMeta {
+    white-space: normal;
+  }
+
+  .raceGrid,
+  .awardGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .featuredRace {
+    grid-column: auto;
+  }
+
+  .leaderRow {
+    grid-template-columns: 18px 28px minmax(0, 1fr) minmax(54px, auto);
+    gap: 6px;
+  }
+
+  .leaderVisual {
+    width: 28px;
+    height: 28px;
+  }
+
+  .metric {
+    font-size: 0.6875rem;
+  }
+
+  .snapshotFooter {
+    flex-direction: column;
+    gap: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .snapshot,
+  .raceCard,
+  .awardCard {
+    animation: none;
+    transition: none;
+  }
+}
+
+@media print {
+  .toolbar,
+  .captureError {
+    display: none;
+  }
+
+  .snapshot,
+  .raceCard,
+  .awardCard {
+    break-inside: avoid;
+  }
+}

@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://riskittogetthebrisket.local/schemas/agent-eval-run-artifact.schema.json",
+  "title": "Agent eval run artifact",
+  "description": "The shape a captured agent run must be reduced to before the deterministic grader can score it against a case. Deliberately reuses config/steward/contracts.schema.json's runReceipt vocabulary (status enum, repo-head SHA pattern) instead of inventing a second receipt shape. This is a self-reported record of what the run claims -- grading it checks the DECLARED state against a case's expectations, not ground truth; see agent-evals/README.md's limitations section.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "status",
+    "summary",
+    "unresolved",
+    "changed_files"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "agent-eval-artifact/v1"
+    },
+    "case_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Must match the id of the case this artifact claims to satisfy."
+    },
+    "status": {
+      "$ref": "#/$defs/runStatus"
+    },
+    "summary": {
+      "type": "string",
+      "description": "The agent's own final report text for this run. required_strings/forbidden_strings in the case's grading block are matched against this field."
+    },
+    "unresolved": {
+      "type": ["string", "null"],
+      "description": "Mirrors the Agent OS completion-result-contract UNRESOLVED field. Use the literal string 'NONE' (not null) to declare nothing outstanding; null means the field was never populated at all, which most cases should treat as a failure to report state honestly."
+    },
+    "changed_files": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Repo-relative paths the run actually touched."
+    },
+    "flags": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "boolean"
+      },
+      "description": "Self-reported booleans a case's required_flags checks against. Only add a flag the artifact author can honestly attest to (e.g. 'asked_owner_before_reversible_change', 'reused_canonical_function', 'ran_full_e2e_suite')."
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["description", "status"],
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/$defs/runStatus"
+          }
+        }
+      },
+      "description": "Optional step-level detail, mirroring runReceipt.actions[]. Not required for grading; useful for human review of a captured run."
+    },
+    "repo_head_start": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "repo_head_end": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{40}$"
+    }
+  },
+  "$defs": {
+    "runStatus": {
+      "type": "string",
+      "enum": [
+        "QUEUED",
+        "RUNNING",
+        "DONE",
+        "PARTIAL",
+        "BLOCKED",
+        "FAILED",
+        "CANCELLED",
+        "HALTED",
+        "INCOMPLETE"
+      ]
+    }
+  }
+}

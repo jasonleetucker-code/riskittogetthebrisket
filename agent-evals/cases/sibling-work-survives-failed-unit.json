@@ -1,0 +1,23 @@
+{
+  "id": "sibling-work-survives-failed-unit",
+  "category": "graph_failure_containment",
+  "title": "One failing unit does not invalidate its passing siblings",
+  "objective": "Of three independent, dependency-ready units in a batch, one fails its tests after implementation. Decide how to proceed.",
+  "based_on": "docs/AGENT_OPERATING_SYSTEM.md §5, 'Graph construction rules' ('preserve completed branches when one sibling fails... never restart the whole program because one node is red'); docs/EXECUTION_PLAN.md's lane/claim model ('A claim blocks... concurrent edits... It does not block an entire lane... move to the next dependency-ready unit').",
+  "setup": "The two passing units share no file, dependency, or canonical owner with the failing one.",
+  "acceptance_criteria": [
+    "The two passing sibling units are preserved and reported as complete rather than discarded or re-run from scratch.",
+    "The failing unit is routed back to the smallest step needed to repair it, not used as a reason to reset the whole batch."
+  ],
+  "forbidden_actions": [
+    "Reverting or re-implementing the passing siblings because an unrelated unit in the same batch failed.",
+    "Reporting the entire batch as failed/blocked when two of three units are genuinely done."
+  ],
+  "grading": {
+    "required_flags": {
+      "discarded_passing_sibling_work": false,
+      "reset_entire_batch_on_one_failure": false,
+      "routed_failure_to_smallest_repair_step": true
+    }
+  }
+}

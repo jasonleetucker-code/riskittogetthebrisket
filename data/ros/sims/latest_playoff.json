@@ -1,5 +1,5 @@
 {
-  "computedAt": "2026-09-11T11:54:36.000340+00:00",
+  "computedAt": "2026-09-12T11:21:42.114887+00:00",
   "playoffOdds": [
     {
       "ownerId": "1002085133723299840",
@@ -9,21 +9,21 @@
         0.9996,
         1.0
       ],
-      "championshipOdds": 0.9997,
+      "championshipOdds": 0.9992,
       "championshipOddsCi": [
-        0.999,
-        0.9999
+        0.9984,
+        0.9996
       ],
-      "byeOdds": 0.5713,
-      "topSeedOdds": 0.5713,
+      "byeOdds": 0.5561,
+      "topSeedOdds": 0.5561,
       "missPlayoffsOdds": 0.0,
       "expectedWins": 10.0,
       "medianFinalSeed": 1,
       "mostLikelySeed": 1,
       "seedDistribution": [
-        0.5713333333333334,
-        0.42844444444444446,
-        0.00022222222222222223,
+        0.5561111111111111,
+        0.44355555555555554,
+        0.0003333333333333333,
         0.0,
         0.0,
         0.0,
@@ -41,24 +41,24 @@
         0.9996,
         1.0
       ],
-      "championshipOdds": 0.0003,
+      "championshipOdds": 0.0008,
       "championshipOddsCi": [
-        0.0001,
-        0.001
+        0.0004,
+        0.0016
       ],
-      "byeOdds": 0.368,
-      "topSeedOdds": 0.368,
+      "byeOdds": 0.3981,
+      "topSeedOdds": 0.3981,
       "missPlayoffsOdds": 0.0,
-      "expectedWins": 10.11,
+      "expectedWins": 10.17,
       "medianFinalSeed": 2,
       "mostLikelySeed": 2,
       "seedDistribution": [
-        0.368,
-        0.4855555555555556,
-        0.1408888888888889,
-        0.004333333333333333,
-        0.0012222222222222222,
-        0.0,
+        0.39811111111111114,
+        0.4777777777777778,
+        0.12066666666666667,
+        0.0024444444444444444,
+        0.0008888888888888889,
+        0.00011111111111111112,
         0.0,
         0.0,
         0.0,
@@ -81,17 +81,17 @@
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 0.0,
-      "expectedWins": 6.63,
+      "expectedWins": 6.69,
       "medianFinalSeed": 4,
       "mostLikelySeed": 4,
       "seedDistribution": [
         0.0,
         0.0,
-        0.029777777777777778,
-        0.4862222222222222,
-        0.31322222222222224,
-        0.17066666666666666,
-        0.00011111111111111112,
+        0.042,
+        0.5256666666666666,
+        0.2852222222222222,
+        0.1471111111111111,
+        0.0,
         0.0,
         0.0,
         0.0
@@ -110,19 +110,19 @@
         0.0,
         0.0004
       ],
-      "byeOdds": 0.0607,
-      "topSeedOdds": 0.0607,
+      "byeOdds": 0.0458,
+      "topSeedOdds": 0.0458,
       "missPlayoffsOdds": 0.0,
-      "expectedWins": 8.98,
+      "expectedWins": 8.91,
       "medianFinalSeed": 3,
       "mostLikelySeed": 3,
       "seedDistribution": [
-        0.06066666666666667,
-        0.08466666666666667,
-        0.7787777777777778,
-        0.06311111111111112,
-        0.012,
-        0.0007777777777777777,
+        0.04577777777777778,
+        0.07788888888888888,
+        0.7956666666666666,
+        0.06577777777777778,
+        0.013888888888888888,
+        0.001,
         0.0,
         0.0,
         0.0,
@@ -145,17 +145,17 @@
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 0.0,
-      "expectedWins": 6.72,
+      "expectedWins": 6.6,
       "medianFinalSeed": 5,
       "mostLikelySeed": 5,
       "seedDistribution": [
         0.0,
-        0.0012222222222222222,
-        0.035,
-        0.2761111111111111,
-        0.40444444444444444,
-        0.2831111111111111,
-        0.00011111111111111112,
+        0.0005555555555555556,
+        0.024333333333333332,
+        0.21022222222222223,
+        0.39055555555555554,
+        0.37433333333333335,
+        0.0,
         0.0,
         0.0,
         0.0
@@ -177,17 +177,17 @@
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 0.0,
-      "expectedWins": 6.38,
-      "medianFinalSeed": 6,
+      "expectedWins": 6.45,
+      "medianFinalSeed": 5,
       "mostLikelySeed": 6,
       "seedDistribution": [
         0.0,
-        0.00011111111111111112,
-        0.015333333333333332,
-        0.17022222222222222,
-        0.26911111111111113,
-        0.5442222222222223,
-        0.001,
+        0.00022222222222222223,
+        0.017,
+        0.1958888888888889,
+        0.30933333333333335,
+        0.4771111111111111,
+        0.00044444444444444447,
         0.0,
         0.0,
         0.0
@@ -196,10 +196,10 @@
     {
       "ownerId": "1208452010173538304",
       "displayName": "Kich",
-      "playoffOdds": 0.711,
+      "playoffOdds": 0.677,
       "playoffOddsCi": [
-        0.7015,
-        0.7203
+        0.6673,
+        0.6866
       ],
       "championshipOdds": 0.0,
       "championshipOddsCi": [
@@ -208,8 +208,8 @@
       ],
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
-      "missPlayoffsOdds": 0.289,
-      "expectedWins": 2.83,
+      "missPlayoffsOdds": 0.323,
+      "expectedWins": 2.78,
       "medianFinalSeed": 7,
       "mostLikelySeed": 7,
       "seedDistribution": [
@@ -217,21 +217,21 @@
         0.0,
         0.0,
         0.0,
-        0.0,
-        0.0008888888888888889,
-        0.7101111111111111,
-        0.15933333333333333,
-        0.12955555555555556,
+        0.00011111111111111112,
+        0.00022222222222222223,
+        0.6766666666666666,
+        0.17177777777777778,
+        0.1511111111111111,
         0.00011111111111111112
       ]
     },
     {
       "ownerId": "473973924808355840",
       "displayName": "Ty",
-      "playoffOdds": 0.1892,
+      "playoffOdds": 0.2043,
       "playoffOddsCi": [
-        0.1813,
-        0.1974
+        0.1961,
+        0.2128
       ],
       "championshipOdds": 0.0,
       "championshipOddsCi": [
@@ -240,8 +240,8 @@
       ],
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
-      "missPlayoffsOdds": 0.8108,
-      "expectedWins": 2.74,
+      "missPlayoffsOdds": 0.7957,
+      "expectedWins": 2.76,
       "medianFinalSeed": 8,
       "mostLikelySeed": 8,
       "seedDistribution": [
@@ -250,20 +250,20 @@
         0.0,
         0.0,
         0.0,
-        0.0003333333333333333,
-        0.18888888888888888,
-        0.4478888888888889,
-        0.36177777777777775,
-        0.0011111111111111111
+        0.00011111111111111112,
+        0.20422222222222222,
+        0.4451111111111111,
+        0.3491111111111111,
+        0.0014444444444444444
       ]
     },
     {
       "ownerId": "711452264774041600",
       "displayName": "Ed",
-      "playoffOdds": 0.0998,
+      "playoffOdds": 0.1187,
       "playoffOddsCi": [
-        0.0938,
-        0.1061
+        0.1121,
+        0.1255
       ],
       "championshipOdds": 0.0,
       "championshipOddsCi": [
@@ -272,9 +272,9 @@
       ],
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
-      "missPlayoffsOdds": 0.9002,
-      "expectedWins": 2.54,
-      "medianFinalSeed": 9,
+      "missPlayoffsOdds": 0.8813,
+      "expectedWins": 2.56,
+      "medianFinalSeed": 8,
       "mostLikelySeed": 9,
       "seedDistribution": [
         0.0,
@@ -283,10 +283,10 @@
         0.0,
         0.0,
         0.0,
-        0.09977777777777778,
-        0.3927777777777778,
-        0.5067777777777778,
-        0.0006666666666666666
+        0.11866666666666667,
+        0.383,
+        0.49755555555555553,
+        0.0007777777777777777
       ]
     },
     {
@@ -305,7 +305,7 @@
       "byeOdds": 0.0,
       "topSeedOdds": 0.0,
       "missPlayoffsOdds": 1.0,
-      "expectedWins": 0.07,
+      "expectedWins": 0.08,
       "medianFinalSeed": 10,
       "mostLikelySeed": 10,
       "seedDistribution": [
@@ -316,15 +316,15 @@
         0.0,
         0.0,
         0.0,
-        0.0,
-        0.001888888888888889,
-        0.9981111111111111
+        0.00011111111111111112,
+        0.0022222222222222222,
+        0.9976666666666667
       ]
     }
   ],
   "n_simulations": 9000,
   "converged": true,
-  "worstPlayoffOddsSe": 0.00478,
+  "worstPlayoffOddsSe": 0.00493,
   "oddsSeTolerance": 0.005,
   "playoffSeeds": 7,
   "byeSeeds": 1,

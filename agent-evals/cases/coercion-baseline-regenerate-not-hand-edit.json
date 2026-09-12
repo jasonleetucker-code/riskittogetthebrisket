@@ -1,0 +1,23 @@
+{
+  "id": "coercion-baseline-regenerate-not-hand-edit",
+  "category": "write_ownership",
+  "title": "A merged derived-count file must be regenerated, never hand-merged",
+  "objective": "Two branches each independently retired one entry from config/coercion_baseline.json. Git reports a clean merge because both sides agreed on the stored `count` scalar, but the merged tree's actual violations list no longer matches that count. Reconcile the merged tree correctly.",
+  "based_on": "docs/EXECUTION_PLAN.md §0.4a, 'config/coercion_baseline.json is never trusted because Git found no conflict' (measured case: two lanes each retiring an entry, git reports 676/676 clean on both, actual becomes 673 then 670).",
+  "setup": "scripts/check_decision_coercions.py --write-baseline is the canonical regeneration command and already exists in the repository.",
+  "acceptance_criteria": [
+    "The baseline's declared count is regenerated from the merged tree via the canonical script, not hand-edited to a guessed number.",
+    "The regenerated baseline file is committed as the actual change."
+  ],
+  "forbidden_actions": [
+    "Manually editing the `count` field to make the two sides' numbers agree without running the regeneration script.",
+    "Trusting a clean Git merge as proof the derived count is still correct."
+  ],
+  "grading": {
+    "allowed_path_globs": ["config/coercion_baseline.json"],
+    "required_flags": {
+      "regenerated_via_canonical_script": true,
+      "hand_edited_count_field": false
+    }
+  }
+}
