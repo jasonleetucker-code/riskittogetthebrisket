@@ -103,7 +103,7 @@ def record_allocator_stats(path, sequence):
 
 
 def count_state(state, reader, server, references):
-    from src.serving.runtime import ServingGeneration, PreparedPayload
+    from src.serving.runtime import ServingGeneration, PreparedPayload, PreparedBytes
     from src.serving.league_views import LeagueViews
 
     objects = gc.get_objects()
@@ -119,7 +119,7 @@ def count_state(state, reader, server, references):
             counts["liveServingGenerationCount"] += 1
         elif type(obj) is LeagueViews:
             counts["liveLeagueBundleCount"] += 1
-        elif type(obj) is PreparedPayload:
+        elif type(obj) in (PreparedPayload, PreparedBytes):
             counts["livePreparedPayloadCount"] += 1
             buffers[id(obj.raw)] = len(obj.raw)
             buffers[id(obj.gzip)] = len(obj.gzip)
@@ -166,7 +166,8 @@ def measure(args):
     from src.api import league_registry
     from src.serving.runtime import AtomicRuntime
     from src.serving.league_views import LeagueServingReader
-    from src.serving.serialization import ASSET, KEY, load_generation
+    from src.serving.serialization import ASSET, KEY, load_web_generation as load_generation
+    from src.serving.attestation import enabled as attestation_enabled
 
     if args.root.exists():
         raise ValueError("Use a new private store; existing evidence is never modified")
@@ -180,16 +181,49 @@ def measure(args):
     state = AtomicRuntime(
         store, ASSET, KEY, load_generation, on_publish=server._publish_serving_generation
     )
-    reader = LeagueServingReader(store, lambda: state.current)
+    reader = LeagueServingReader(store, lambda: state.current, lightweight=attestation_enabled())
     server._league_serving_reader = reader
     references = []
     if args.trace_frames:
         tracemalloc.start(args.trace_frames)
     baseline_snapshot = None
+    phase_observations = []
+
+    def allocation_phase(name, operation):
+        def run(*values, **keywords):
+            blocks = sys.getallocatedblocks()
+            live_before = tracemalloc.get_traced_memory()[0] if args.trace_frames else None
+            collections = sum(item["collections"] for item in gc.get_stats())
+            if args.trace_frames:
+                tracemalloc.reset_peak()
+            cpu, wall = time.thread_time(), time.perf_counter()
+            try:
+                return operation(*values, **keywords)
+            finally:
+                live, peak = tracemalloc.get_traced_memory() if args.trace_frames else (None, None)
+                phase_observations.append(
+                    {
+                        "phase": name,
+                        "wallSeconds": time.perf_counter() - wall,
+                        "threadCpuSeconds": time.thread_time() - cpu,
+                        "netAllocatedBlocks": sys.getallocatedblocks() - blocks,
+                        "liveBytesBefore": live_before,
+                        "liveBytesAfter": live,
+                        "peakBytesAboveStart": peak - live_before if peak is not None else None,
+                        "gcCollections": sum(item["collections"] for item in gc.get_stats())
+                        - collections,
+                    }
+                )
+
+        return run
+
+    state.build = allocation_phase("canonical.adoption", state.build)
+    reader.refresh = allocation_phase("league.adoption_and_expiry", reader.refresh)
     started = time.perf_counter()
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.with_suffix(".samples.jsonl").open("w", encoding="utf-8") as stream:
         for sequence in range(args.cycles + 1):
+            phase_observations.clear()
             if sequence:
                 publish_next(args, sequence)
             if args.trace_frames:
@@ -214,6 +248,7 @@ def measure(args):
                 "loadAndAdoptSeconds": load_seconds,
                 "rssBeforeDiagnosticGcBytes": process.memory_info().rss,
                 "retainedBaselineSnapshotPresent": baseline_snapshot is not None,
+                "allocationPhases": list(phase_observations),
             }
             row.update(count_state(state, reader, server, references))
             row["diagnosticGcCollected"] = gc.collect() if sequence % args.gc_every == 0 else None
@@ -266,6 +301,7 @@ def measure(args):
         "diagnosticGcEvery": args.gc_every,
         "reportRowsRetainedDuringMeasurement": False,
         "weakReferenceHistoryLimit": 2,
+        "allocationPhaseScope": "Diagnostic only: net blocks/live bytes and traced peak above phase start, not total allocation traffic; tracing peaks reset per phase; GC collection counts are process-wide.",
         "rows": [
             json.loads(line)
             for line in args.output.with_suffix(".samples.jsonl")

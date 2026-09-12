@@ -148,10 +148,13 @@ class Generation:
     key: str
     manifest: Mapping[str, Any]
     files: Mapping[str, bytes]
+    observation: Mapping[str, Any] | None = None
+    manifest_sha256: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "manifest", _freeze(self.manifest))
         object.__setattr__(self, "files", MappingProxyType(dict(self.files)))
+        object.__setattr__(self, "observation", _freeze(self.observation))
 
     @property
     def generation_id(self) -> str:
@@ -487,7 +490,7 @@ class ArtifactStore:
             if len(content) != description["size"] or _digest(content) != description["sha256"]:
                 raise CorruptArtifact(f"File checksum mismatch: {name}")
             files[name] = content
-        return Generation(asset, key, manifest, files)
+        return Generation(asset, key, manifest, files, manifest_sha256=_digest(body))
 
     def read_current(self, asset: str, key: str) -> Generation:
         with self._locked():
@@ -508,7 +511,17 @@ class ArtifactStore:
         manifest = dict(result.manifest)
         manifest["sourceAsOf"] = current.get("sourceAsOf")
         manifest["observedAt"] = current.get("observedAt")
-        return Generation(asset, key, manifest, result.files)
+        exposed = Generation(
+            asset, key, manifest, result.files, current.get("observation"), result.manifest_sha256
+        )
+        from src.serving import attestation
+
+        if attestation.enabled() and (
+            asset in attestation.ATTESTED_ASSETS or attestation.CERTIFICATE_FILE in result.files
+        ):
+            attestation.validate_key_locations(self)
+            attestation.verify_observation(exposed)
+        return exposed
 
     def publish(
         self,
@@ -525,18 +538,31 @@ class ArtifactStore:
         Re-publishing an existing identity verifies its stored checksums first.
         """
         candidate, meta = self._candidate(asset, key, files, metadata)
+        from src.serving import attestation
+
+        sign_observation = None
+        if attestation.enabled() and (
+            asset in attestation.ATTESTED_ASSETS or attestation.CERTIFICATE_FILE in candidate.files
+        ):
+            attestation.verify_artifact(candidate, require_observation=False)
+            sign_observation = attestation.observation_signer(
+                self, source_as_of=meta.get("sourceAsOf")
+            )
         # Domain validation may read other accepted assets. It operates only on
         # the immutable candidate, before acquisition of the nonrecursive lease.
         if validator is not None and validator(candidate) is False:
             raise RejectedCandidate(f"Validation rejected {asset}/{key}")
         with self._locked():
             report = self._retention_unlocked(apply=True, candidate=candidate)
+            if report["candidateDependencyBlocked"]:
+                self._save_retention_report(report)
+                raise RejectedCandidate("Candidate artifact dependencies could not be verified")
             if report["capacityBlocked"]:
                 self._save_retention_report(report, failure=True)
                 raise RetentionCapacityError(
                     "Protected artifacts or free-space reserve prevent publication"
                 )
-            result = self._publish_unlocked(candidate, meta)
+            result = self._publish_unlocked(candidate, meta, sign_observation=sign_observation)
             try:
                 report["bytesAfter"] = self._owned_bytes()
                 if report["generationCount"] is not None:
@@ -588,10 +614,12 @@ class ArtifactStore:
             },
         }
         manifest["generationId"] = _identity(manifest)
-        candidate = Generation(asset, key, manifest, contents)
+        candidate = Generation(
+            asset, key, manifest, contents, manifest_sha256=_digest(_json_bytes(manifest))
+        )
         return candidate, meta
 
-    def _publish_unlocked(self, candidate, meta):
+    def _publish_unlocked(self, candidate, meta, *, sign_observation=None):
         asset, key = candidate.asset, candidate.key
         partition = self._partition(asset, key)
         contents = candidate.files
@@ -609,9 +637,13 @@ class ArtifactStore:
                 active_pointer = {}
             if target.exists():
                 # Never repair/overwrite an immutable generation silently.
+                # A freshly verified producer may replace a corrupt signed
+                # observation; verify immutable content without trusting the
+                # old freshness pointer it is authorized to replace.
                 candidate = (
                     self._read_current_unlocked(asset, key)
-                    if active_pointer.get("generationId") == candidate.generation_id
+                    if sign_observation is None
+                    and active_pointer.get("generationId") == candidate.generation_id
                     else self._read_generation(asset, key, candidate.generation_id)
                 )
                 manifest_body = (target / "manifest.json").read_bytes()
@@ -641,6 +673,8 @@ class ArtifactStore:
                 "sourceAsOf": meta.get("sourceAsOf"),
                 "observedAt": _now(),
             }
+            if sign_observation is not None:
+                pointer["observation"] = sign_observation(asset, key, pointer)
             # Validate history before selecting the pointer. Admission is
             # recorded only after successful selection: failed candidates must
             # never displace accepted generations from the three-generation
@@ -685,7 +719,14 @@ class ArtifactStore:
                 pass
             exposed = dict(candidate.manifest)
             exposed.update(sourceAsOf=pointer["sourceAsOf"], observedAt=pointer["observedAt"])
-            return Generation(asset, key, exposed, candidate.files)
+            return Generation(
+                asset,
+                key,
+                exposed,
+                candidate.files,
+                pointer.get("observation"),
+                _digest(manifest_body),
+            )
 
     def pin(self, asset: str, key: str, generation_id: str, label: str) -> None:
         """Keep an explicitly selected rollback generation until unpinned."""
@@ -849,8 +890,9 @@ class ArtifactStore:
                     pass
         return total
 
-    def _inventory(self, now):
+    def _inventory(self, now, *, replacing=None):
         records, current, staging = {}, set(), []
+        replacement_history_uncertain = False
         for asset, key, partition in self._owned_partitions():
             accepted = _optional_json(
                 partition / "accepted.json", {"schemaVersion": 1, "generations": {}}
@@ -878,25 +920,81 @@ class ArtifactStore:
                         continue
                     if not _DIGEST.fullmatch(directory.name):
                         raise CorruptArtifact("Unexpected generation directory")
-                    record = self._inspect_generation(asset, key, directory, accepted)
+                    try:
+                        record = self._inspect_generation(asset, key, directory, accepted)
+                    except (CorruptArtifact, OSError):
+                        if (asset, key) != replacing:
+                            raise
+                        # Preserve a corrupt predecessor, never overwrite it.
+                        # Retain its verified manifest identity/aliases so a
+                        # dependent candidate cannot resolve around bad bytes.
+                        if (directory / "manifest.json").stat().st_size > 16 * 1024**2:
+                            raise CorruptArtifact("Artifact manifest exceeds retention bound")
+                        manifest, body = _read_json(directory / "manifest.json")
+                        ident = (asset, key, directory.name)
+                        if (
+                            manifest.get("asset"),
+                            manifest.get("key"),
+                            manifest.get("generationId"),
+                        ) != ident or _identity(manifest) != directory.name:
+                            raise CorruptArtifact("Invalid replacement history identity")
+                        entries = manifest.get("files")
+                        if (
+                            not isinstance(entries, dict)
+                            or not entries
+                            or any(
+                                not isinstance(entry, dict)
+                                or type(entry.get("size")) is not int
+                                or entry["size"] < 0
+                                or not isinstance(entry.get("sha256"), str)
+                                or not _DIGEST.fullmatch(entry["sha256"])
+                                for entry in entries.values()
+                            )
+                        ):
+                            raise CorruptArtifact("Invalid replacement history file inventory")
+                        for name in entries:
+                            _file_name(name)
+                        record = {
+                            "id": ident,
+                            "manifest": manifest,
+                            "files": {},
+                            "size": _tree_bytes(directory),
+                            "time": None,
+                            "path": directory,
+                            "manifestHash": _digest(body),
+                            "unverified": True,
+                            "unknownLogicalIdentity": asset == "canonical-serving",
+                        }
+                        replacement_history_uncertain = True
                     records[record["id"]] = record
                     if len(records) > 10000:
                         raise CorruptArtifact("Retention inventory exceeds generation bound")
-            pointer = _optional_json(partition / "current.json", None)
-            if pointer is not None:
-                ident = (asset, key, pointer.get("generationId"))
-                if ident not in records or records[ident]["manifestHash"] != pointer.get(
-                    "manifestSha256"
-                ):
-                    raise CorruptArtifact("Current pointer does not identify a verified generation")
-                current.add(ident)
-        return records, current, staging
+            try:
+                pointer = _optional_json(partition / "current.json", None)
+                if pointer is not None:
+                    ident = (asset, key, pointer.get("generationId"))
+                    if ident not in records or records[ident]["manifestHash"] != pointer.get(
+                        "manifestSha256"
+                    ):
+                        raise CorruptArtifact(
+                            "Current pointer does not identify a verified generation"
+                        )
+                    current.add(ident)
+            except CorruptArtifact:
+                if (asset, key) != replacing:
+                    raise
+                # Only its own pointer is replaceable. Unverified historical
+                # bytes remain explicit; uncertainty always forbids pruning.
+                replacement_history_uncertain = True
+        return records, current, staging, replacement_history_uncertain
 
-    def _dependencies(self, records):
+    def _dependencies(self, records, *, roots=None):
         physical = {ident[2]: ident for ident in records}
         aliases = {}
         refs = {ident: set() for ident in records}
         for ident, record in records.items():
+            if record.get("unknownLogicalIdentity"):
+                raise CorruptArtifact("Corrupt canonical history has an unknown logical identity")
             manifest = record["manifest"]
             logical = manifest.get("logicalGeneration")
             if ident[0] == "canonical-serving" and "index.json" in record["files"]:
@@ -924,8 +1022,16 @@ class ArtifactStore:
                 raise CorruptArtifact("Missing protected artifact dependency")
             return targets
 
-        for ident, record in records.items():
-            manifest = record["manifest"]
+        pending = list(records if roots is None else roots)
+        visited = set()
+        while pending:
+            ident = pending.pop()
+            if ident in visited:
+                continue
+            visited.add(ident)
+            if records[ident].get("unverified"):
+                raise CorruptArtifact("Artifact dependency has unverified immutable bytes")
+            manifest = records[ident]["manifest"]
             inputs = manifest.get("inputGenerations")
             if not isinstance(inputs, Mapping):
                 raise CorruptArtifact("Invalid artifact input versions")
@@ -949,12 +1055,16 @@ class ArtifactStore:
                     raise CorruptArtifact("Missing declared artifact reference")
                 refs[ident].add(target)
             if ident[0] == "source-ownership":
-                receipt = json.loads(record["files"].get("receipt.json", b"null"))
+                receipt = json.loads(records[ident]["files"].get("receipt.json", b"null"))
                 if not isinstance(receipt, dict) or not isinstance(
                     receipt.get("acceptedGeneration"), str
                 ):
                     raise CorruptArtifact("Invalid ownership proof reference")
                 refs[ident].update(resolve(receipt["acceptedGeneration"], required=True))
+            if roots is not None:
+                pending.extend(refs[ident] - visited)
+        if roots is not None:
+            return refs, set()
         protected = set()
         pins = _optional_json(
             self.root / "retention-pins.json", {"schemaVersion": 1, "pins": {}}
@@ -1001,6 +1111,25 @@ class ArtifactStore:
             if candidate_new
             else 0
         ) + (4096 if candidate else 0)
+        # Uncertain inventory must not admit a dependent candidate. Standalone
+        # repairs may still publish without pruning corrupt unrelated history.
+        inputs = candidate.manifest.get("inputGenerations") if candidate else {}
+        declared = candidate.manifest.get("artifactReferences", []) if candidate else []
+        requires_dependencies = bool(
+            candidate
+            and (
+                not isinstance(inputs, Mapping)
+                or any(
+                    name in {"board", "canonicalBoard", "acceptedGeneration", "artifactGeneration"}
+                    or (candidate.asset == "news-serving" and name == "canonical")
+                    for name in inputs
+                )
+                or not isinstance(declared, (list, tuple))
+                or declared
+                or candidate.asset == "source-ownership"
+            )
+        )
+        candidate_dependencies_pending = requires_dependencies
         report = {
             "schemaVersion": 1,
             "status": "ok",
@@ -1021,10 +1150,13 @@ class ArtifactStore:
             "shortenedRollbackWindow": False,
             "blocked": False,
             "capacityBlocked": False,
+            "candidateDependencyBlocked": False,
             "candidateIsNew": candidate_new,
         }
         try:
-            records, hard, staging = self._inventory(timestamp)
+            records, hard, staging, replacement_history_uncertain = self._inventory(
+                timestamp, replacing=candidate_id[:2] if candidate_id else None
+            )
             report["generationCount"] = len(records)
             if candidate_new:
                 records[candidate_id] = {
@@ -1037,6 +1169,11 @@ class ArtifactStore:
                 }
             if candidate_id:
                 hard.add(candidate_id)
+                if requires_dependencies:
+                    self._dependencies(records, roots=[candidate_id])
+                    candidate_dependencies_pending = False
+            if replacement_history_uncertain:
+                raise CorruptArtifact("Replacement history is uncertain; pruning refused")
             dependencies, pins = self._dependencies(records)
             hard.update(pins)
             partitions = {}
@@ -1160,6 +1297,7 @@ class ArtifactStore:
             # Corrupt/ambiguous evidence authorizes no deletions. A publisher
             # may still repair data if it fits without relying on any pruning.
             report.update(status="blocked", blocked=True, error=type(exc).__name__)
+            report["candidateDependencyBlocked"] = candidate_dependencies_pending
             report["generationCount"] = None
             report["projectedBytes"] = self._owned_bytes() + pending
             report["bytesAfter"] = self._owned_bytes()

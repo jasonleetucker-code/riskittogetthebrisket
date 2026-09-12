@@ -8,6 +8,7 @@ import json
 import re
 import threading
 import weakref
+from contextlib import contextmanager
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -360,6 +361,7 @@ def test_all_prepared_routes_keep_a_during_b_publication_and_reader_load(
     cfgs, store, runtime, reader = coherent_reader(tmp_path, board, monkeypatch)
     candidate = next_board(board)
     captured_a = reader.capture("main")
+    publish_generation(candidate, store=store)
     runtime.publish(candidate)
     # Missing B league publication must not rebuild eight views in the web.
     monkeypatch.setattr(
@@ -403,6 +405,7 @@ def test_partial_league_failure_does_not_hold_back_healthy_league(tmp_path, boar
     configs = [SimpleNamespace(key=key, scoring_profile="same") for key in ("main", "twin")]
     configs, store, runtime, reader = coherent_reader(tmp_path, board, monkeypatch, configs)
     candidate = next_board(board)
+    publish_generation(candidate, store=store)
     runtime.publish(candidate)
     league_views.publish_league_views(
         prepare_league_views(candidate, configs[0]), store, board=candidate, cfg=configs[0]
@@ -481,6 +484,7 @@ def test_replaced_board_reference_is_released_after_request_capture(tmp_path, bo
     cfgs, store, runtime, reader = coherent_reader(tmp_path, original, monkeypatch)
     captured = reader.capture("main")
     candidate = next_board(original)
+    publish_generation(candidate, store=store)
     runtime.publish(candidate)
     league_views.publish_league_views(
         prepare_league_views(candidate, cfgs[0]), store, board=candidate, cfg=cfgs[0]
@@ -651,6 +655,111 @@ def test_prepared_news_route_does_no_provider_or_contract_scan(tmp_path, monkeyp
     assert asyncio.run(server.get_news(request)).status_code == 200
     reader._current = None
     assert asyncio.run(server.get_news(request)).status_code == 503
+
+
+@pytest.mark.parametrize("blocked_lock", ["league-request.lock", "store.lock"])
+def test_league_refresh_post_admission_timeout_propagates(
+    tmp_path, board, monkeypatch, blocked_lock
+):
+    from src.serving.artifacts import PublishLockTimeout, _publish_lock
+    from src.serving.producer_status import pending_league_refresh, request_league_refresh
+
+    store = ArtifactStore(tmp_path, lock_timeout=0)
+    accepted = publish_generation(board, store=store)
+    cfg = SimpleNamespace(key="main", scoring_profile="same")
+    bundle = prepare_league_views(board, cfg)
+    accepted_league = league_views.publish_league_views(bundle, store, board=board, cfg=cfg)
+    request = request_league_refresh(store, "test")
+    monkeypatch.setattr(
+        league_views.league_registry, "active_leagues", lambda: pytest.fail("provider loop entered")
+    )
+
+    with _publish_lock(tmp_path / blocked_lock, 0):
+        with pytest.raises(PublishLockTimeout) as failure:
+            league_views.refresh_league_serving(store)
+    assert failure.value.args == (str(tmp_path / blocked_lock),)
+    pending = pending_league_refresh(store)
+    if blocked_lock == "league-request.lock":
+        assert pending["requestId"] == request["requestId"]
+    else:
+        assert pending is None  # The admitted worker claimed before its board read failed.
+    with _publish_lock(tmp_path / "league-producer.lock", 0):
+        pass  # Both post-admission failure paths released the outer lease.
+    assert store.read_current(ASSET, KEY).generation_id == accepted.generation_id
+    assert (
+        store.read_current(league_views.ASSET, cfg.key).generation_id
+        == accepted_league.generation_id
+    )
+
+
+def test_league_refresh_outer_admission_busy_preserves_request(tmp_path, monkeypatch):
+    from src.serving.artifacts import _publish_lock
+    from src.serving.producer_status import pending_league_refresh, request_league_refresh
+
+    store = ArtifactStore(tmp_path)
+    request = request_league_refresh(store, "test")
+    monkeypatch.setattr(
+        league_views, "_refresh_league_serving", lambda store: pytest.fail("refresh admitted")
+    )
+    with _publish_lock(tmp_path / "league-producer.lock", 0):
+        assert league_views.refresh_league_serving(store) == {
+            "outcome": "busy",
+            "published": [],
+            "reobserved": [],
+            "failed": [],
+            "boardGeneration": None,
+        }
+    assert pending_league_refresh(store)["requestId"] == request["requestId"]
+
+
+def test_league_refresh_admission_permission_error_is_not_busy(tmp_path, monkeypatch):
+    from src.serving import artifacts
+    from src.serving.producer_status import pending_league_refresh, request_league_refresh
+
+    store = ArtifactStore(tmp_path)
+    request = request_league_refresh(store, "test")
+
+    @contextmanager
+    def denied(path, timeout):
+        assert path == tmp_path / "league-producer.lock"
+        raise PermissionError(13, "denied")
+        yield
+
+    monkeypatch.setattr(artifacts, "_publish_lock", denied)
+    with pytest.raises(PermissionError):
+        league_views.refresh_league_serving(store)
+    assert pending_league_refresh(store)["requestId"] == request["requestId"]
+
+
+def test_league_refresh_provider_timeout_retains_accepted_outputs(tmp_path, board, monkeypatch):
+    from src.serving.artifacts import PublishLockTimeout
+    from src.serving.producer_status import pending_league_refresh, request_league_refresh
+
+    store = ArtifactStore(tmp_path)
+    accepted = publish_generation(board, store=store)
+    cfg = SimpleNamespace(key="main", scoring_profile="same", sleeper_league_id="fixture")
+    bundle = prepare_league_views(board, cfg)
+    accepted_league = league_views.publish_league_views(bundle, store, board=board, cfg=cfg)
+    request_league_refresh(store, "test")
+    monkeypatch.setattr(league_views.league_registry, "active_leagues", lambda: [cfg])
+    monkeypatch.setattr(league_views.league_registry, "refresh_scoring_snapshot", lambda cfg: None)
+
+    def failed_provider(**kwargs):
+        raise PublishLockTimeout("provider-stage")
+
+    monkeypatch.setattr(league_views.sleeper_overlay, "fetch_sleeper_overlay", failed_provider)
+    assert league_views.refresh_league_serving(store) == {
+        "published": [],
+        "reobserved": [],
+        "failed": ["main"],
+        "boardGeneration": board.generation_id,
+    }
+    assert pending_league_refresh(store) is None
+    assert store.read_current(ASSET, KEY).generation_id == accepted.generation_id
+    assert (
+        store.read_current(league_views.ASSET, cfg.key).generation_id
+        == accepted_league.generation_id
+    )
 
 
 def test_live_league_refresh_reobserves_without_rebuilding_and_invalidates_roster(
@@ -825,6 +934,7 @@ def test_league_reader_clears_recovered_error(tmp_path, board, monkeypatch):
 
     cfg = SimpleNamespace(key="main", scoring_profile="same")
     store = ArtifactStore(tmp_path)
+    publish_generation(board, store=store)
     reader = league_views.LeagueServingReader(store, lambda: board)
     monkeypatch.setattr(league_views.league_registry, "active_leagues", lambda: [cfg])
     reader.refresh()

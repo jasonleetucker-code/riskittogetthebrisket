@@ -11,6 +11,7 @@ from scripts.soak_observation import (
     ReloadActivity,
     code_provenance,
     maximum_observation_gap,
+    observation_duration_summary,
     quiet_observations_ready,
     serving_drain_status,
     valid_durations,
@@ -142,6 +143,9 @@ def test_code_provenance_detects_same_size_helper_and_product_rewrites(tmp_path)
         "src/serving/league_views.py",
         "src/serving/runtime.py",
         "src/serving/artifacts.py",
+        "src/serving/attestation.py",
+        "src/serving/__init__.py",
+        "src/serving/coordinator.py",
         "src/serving/builder.py",
         "src/serving/projections.py",
         "scripts/serving_lab_spans.py",
@@ -207,3 +211,165 @@ def test_drain_requires_existing_caught_up_pointers_and_no_pending_work(conditio
         activity,
         lambda: condition == "queued_request",
     )["ready"]
+
+
+def duration_summary(rows, **overrides):
+    options = {
+        "requested_exercise_seconds": 300,
+        "elapsed_observation_seconds": 450,
+        "requested_quiet_seconds": 125,
+        "quiet_report": {"verified": True, "verifiedQuietSeconds": 125},
+        "last_http_completion_seconds": 449.25,
+    }
+    options.update(overrides)
+    return observation_duration_summary(rows, **options)
+
+
+def acquisition(start, end):
+    return {"observationStartedSeconds": start, "observationFinishedSeconds": end}
+
+
+def test_duration_summary_separates_requested_elapsed_observed_and_quiet():
+    report = duration_summary([acquisition(0, 0.1), acquisition(449, 449.2)])
+    assert report["requestedExerciseSeconds"] == report["cappedElapsedExerciseSeconds"] == 300
+    assert report["elapsedObservationSeconds"] == 450
+    assert report["resourceObservationTimingState"] == "available"
+    assert report["resourceObservationFirstStartSeconds"] == 0
+    assert report["resourceObservationLastStartSeconds"] == 449
+    assert report["resourceObservationLastEndSeconds"] == 449.2
+    assert report["resourceObservationSpanSeconds"] == 449.2
+    assert report["resourceObservationTerminalGapSeconds"] == pytest.approx(0.8)
+    assert report["lastHttpCompletionSeconds"] == 449.25
+    assert report["requestedQuietSeconds"] == report["verifiedQuietSeconds"] == 125
+    assert "may contain gaps" in report["observationDurationInterpretation"]
+    assert "not observed continuous serving" in report["servingExerciseSecondsMeaning"]
+    assert not {"passed", "checks", "full60MinuteSoak", "servingExerciseSeconds"} & report.keys()
+
+
+def test_interrupted_full_run_never_describes_capped_elapsed_as_observed_hour():
+    report = duration_summary(
+        [acquisition(0, 0.125), acquisition(2999, 2999.719)],
+        requested_exercise_seconds=3600,
+        elapsed_observation_seconds=5657.719,
+        quiet_report={"verified": False, "verifiedQuietSeconds": 0},
+        last_http_completion_seconds=3000.016,
+    )
+    assert report["cappedElapsedExerciseSeconds"] == 3600
+    assert report["elapsedObservationSeconds"] == 5657.719
+    assert report["resourceObservationSpanSeconds"] == 2999.719
+    assert report["resourceObservationLastStartSeconds"] == 2999
+    assert report["resourceObservationTerminalGapSeconds"] == pytest.approx(2658)
+    assert report["lastHttpCompletionSeconds"] == 3000.016
+    assert report["verifiedQuietSeconds"] == 0
+
+
+def test_internal_suspension_span_does_not_change_gap_or_quiet_gates():
+    rows = [acquisition(0, 0.1), acquisition(100, 100.1), acquisition(400, 400.1)]
+    before = maximum_observation_gap(rows, 401)
+    report = duration_summary(
+        rows,
+        elapsed_observation_seconds=401,
+        quiet_report={"verified": False, "verifiedQuietSeconds": 125},
+    )
+    assert report["resourceObservationSpanSeconds"] == 400.1
+    assert report["verifiedQuietSeconds"] == 0
+    assert maximum_observation_gap(rows, 401) == before == 300
+
+
+def test_missing_resource_or_http_observations_stay_unavailable():
+    report = duration_summary([], last_http_completion_seconds=None)
+    assert report["resourceObservationTimingState"] == "missing"
+    for key in (
+        "resourceObservationFirstStartSeconds",
+        "resourceObservationLastStartSeconds",
+        "resourceObservationLastEndSeconds",
+        "resourceObservationSpanSeconds",
+        "resourceObservationTerminalGapSeconds",
+        "lastHttpCompletionSeconds",
+    ):
+        assert report[key] is None
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        [{}],
+        [None],
+        [acquisition(float("nan"), 1)],
+        [acquisition(0, float("inf"))],
+        [acquisition(True, 1)],
+        [acquisition(-1, 1)],
+        [acquisition(2, 1)],
+        [acquisition(0, 451)],
+        [acquisition(2, 3), acquisition(1, 2)],
+        [acquisition(0, 2), acquisition(1, 3)],
+    ],
+)
+def test_invalid_acquisition_bounds_are_not_silently_filtered(rows):
+    report = duration_summary(rows)
+    assert report["resourceObservationTimingState"] == "invalid"
+    assert report["resourceObservationSpanSeconds"] is None
+    assert report["resourceObservationTerminalGapSeconds"] is None
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -1, True, "300"])
+def test_invalid_http_completion_stays_unavailable(value):
+    assert (
+        duration_summary([], last_http_completion_seconds=value)["lastHttpCompletionSeconds"]
+        is None
+    )
+
+
+def test_post_cleanup_row_cannot_extend_selected_observation_boundaries():
+    rows = [acquisition(0, 0.1), acquisition(449, 449.2)]
+    observation_count = len(rows)
+    rows.append(acquisition(452, 452.1))
+    report = duration_summary(rows[:observation_count])
+    assert report["resourceObservationLastEndSeconds"] == 449.2
+    assert report["elapsedObservationSeconds"] == 450
+    assert duration_summary(rows)["resourceObservationTimingState"] == "invalid"
+
+
+def test_http_completion_after_observation_stop_keeps_its_actual_boundary():
+    # An in-flight response may finish while the driver joins its read thread.
+    report = duration_summary([], last_http_completion_seconds=450.25)
+    assert report["lastHttpCompletionSeconds"] == 450.25
+    assert report["elapsedObservationSeconds"] == 450
+
+
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        ("requested_exercise_seconds", 0),
+        ("requested_exercise_seconds", float("inf")),
+        ("requested_quiet_seconds", -1),
+        ("requested_quiet_seconds", True),
+        ("elapsed_observation_seconds", float("nan")),
+        ("elapsed_observation_seconds", -1),
+    ],
+)
+def test_invalid_requested_or_elapsed_duration_is_rejected(key, value):
+    with pytest.raises(ValueError, match=key):
+        duration_summary([], **{key: value})
+
+
+def test_zero_elapsed_does_not_fabricate_an_observation():
+    report = duration_summary([], elapsed_observation_seconds=0)
+    assert report["elapsedObservationSeconds"] == report["cappedElapsedExerciseSeconds"] == 0
+    assert report["resourceObservationSpanSeconds"] is None
+
+
+def test_suspension_during_quiet_requires_a_fresh_complete_tail():
+    protocol = QuietRecovery(300, 125)
+    step(protocol, 300)
+    step(protocol, 419)
+    rows = [{"observationStartedSeconds": 419, "resourceObservationComplete": True}]
+    complete = quiet_observations_ready(rows, len(rows), 600)
+    assert not complete
+    assert step(protocol, 600, complete=complete) == "drain_reloads"
+    assert protocol.report()["verifiedQuietSeconds"] == 0
+    assert step(protocol, 601) == "quiet"
+    assert step(protocol, 725) == "quiet"
+    assert step(protocol, 726) == "done"
+    assert protocol.report()["verifiedQuietSeconds"] == 125
+    assert protocol.report()["quietResetCount"] == 1

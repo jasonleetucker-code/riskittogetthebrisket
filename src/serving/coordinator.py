@@ -40,12 +40,16 @@ def prepare_or_reobserve(
     publish: Callable[[Any, dict[str, str]], Generation],
     validate: Callable[[Generation], Any],
     source_as_of: str,
+    reobserve: Callable[[Generation, dict[str, str], str], Generation] | None = None,
 ) -> BuildResult:
     """Skip computation only for complete, equal, validated accepted inputs.
 
     ``publish`` must pass the supplied input_generations to the existing atomic
     publisher and its domain validator. No independent accepted-fingerprint file
-    exists, so a failed build cannot poison later rebuild planning.
+    exists, so a failed build cannot poison later rebuild planning. A domain
+    whose immutable response contains its observation timestamp can supply
+    ``reobserve`` to restamp/revalidate bytes in the producer without rebuilding
+    its expensive semantic inputs. The default pointer-only path is unchanged.
     """
     if manifest.asset != asset:
         raise ValueError("input manifest belongs to another asset")
@@ -74,6 +78,11 @@ def prepare_or_reobserve(
             and dict(current.manifest.get("inputGenerations", {})) == expected
         ):
             verify_inputs()
+            if reobserve is not None:
+                artifact = reobserve(current, expected, source_as_of)
+                if dict(artifact.manifest.get("inputGenerations", {})) != expected:
+                    raise ValueError("reobserver did not record the supplied input manifest")
+                return BuildResult(artifact, False, "unchanged complete inputs")
             metadata = {
                 name: _plain(value)
                 for name, value in current.manifest.items()

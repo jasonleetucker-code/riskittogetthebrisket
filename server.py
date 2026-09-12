@@ -59,6 +59,10 @@ try:
 except ImportError:  # pragma: no cover — optional dep; chat endpoint degrades gracefully
     anthropic = None
 
+# Pin the serving validation policy before importing any semantic owner. An
+# in-place deployment during startup must not label old imported code as new.
+from src.serving import attestation as _serving_attestation
+
 from src.api.data_contract import (
     CONTRACT_VERSION as API_DATA_CONTRACT_VERSION,
     build_api_data_contract,
@@ -2737,13 +2741,13 @@ async def lifespan(app: FastAPI):
     if mode == "prepared":
         from src.serving.producer_status import enforce_source_ownership
         from src.serving.runtime import AtomicRuntime
-        from src.serving.serialization import ASSET, KEY, load_generation
+        from src.serving.serialization import ASSET, KEY, load_web_generation
 
         # Refuse unsafe cutover rather than silently starting another full
         # publisher. The first healthy standalone cycle proves source parity.
         await run_in_threadpool(enforce_source_ownership, store)
         _serving_runtime = AtomicRuntime(
-            store, ASSET, KEY, load_generation, on_publish=_publish_serving_generation
+            store, ASSET, KEY, load_web_generation, on_publish=_publish_serving_generation
         )
         await run_in_threadpool(_serving_runtime.reload_if_changed)
         if _serving_runtime.current is None:
@@ -2755,7 +2759,11 @@ async def lifespan(app: FastAPI):
         _prime_latest_payload(latest_data)
         latest_data = _recover_startup_contract_from_checkout(latest_data)
     if mode != "legacy":
-        _league_serving_reader = LeagueServingReader(store, lambda: latest_serving_generation)
+        _league_serving_reader = LeagueServingReader(
+            store,
+            lambda: latest_serving_generation,
+            lightweight=mode == "prepared" and _serving_attestation.enabled(),
+        )
         # Prime a coherent capture before lifespan accepts prepared requests.
         # Failure propagates; startup cannot expose an empty reader by accident.
         await run_in_threadpool(_league_serving_reader.refresh)
@@ -15011,7 +15019,7 @@ def _serve_prepared_bytes(request, prepared, generation):
         "Vary": "Accept-Encoding",
         "ETag": prepared.etag,
         "X-Data-Generation": generation,
-        "X-Payload-View": prepared.payload.get("payloadView", "prepared"),
+        "X-Payload-View": prepared.payload_view,
     }
     if request.headers.get("if-none-match", "").strip('"') == prepared.etag:
         return Response(status_code=304, headers=headers)
@@ -15088,7 +15096,7 @@ async def get_prepared_player(player_id: str, request: Request):
     # A single selected row is bounded; the universe index was built upstream.
     # The response carries no league roster block and cannot mix generations.
     metadata = (
-        captured[1].views["catalog"].payload.get("meta")
+        captured[1].views["catalog"].metadata
         if captured is not None
         else generation.contract.get("meta")
     ) or {}

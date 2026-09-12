@@ -22,6 +22,8 @@ from src.news.prepared import (
 )
 from src.news.service import NewsService
 from src.serving.artifacts import ArtifactStore
+from src.serving.builder import prepare_generation
+from src.serving.serialization import publish_generation
 
 NOW = 1_789_056_000.0
 
@@ -64,6 +66,18 @@ class Provider:
 def setup(tmp_path):
     now = [NOW]
     store = ArtifactStore(tmp_path / "private")
+    contract = {
+        "contractVersion": "test",
+        "scrapeTimestamp": stamp(),
+        "playerCount": 1,
+        "playersArray": [
+            {"playerId": "one", "displayName": "Player One", "position": "WR", "team": "GB"}
+        ],
+        "players": {},
+        "sleeper": {"scoringSettings": {"rec": 1}, "teams": []},
+    }
+    board = prepare_generation(contract, {"players": {}}, {"producedAt": stamp()}, {"ok": True})
+    publish_generation(board, store=store)
     provider = Provider()
     service = NewsService([provider], clock=lambda: now[0], cache_ttl_s=1)
     return now, store, provider, service
@@ -75,7 +89,7 @@ def publish(store, service, **kwargs):
         service,
         player_names=["Player One", "CJ Allen"],
         player_meta={"Player One": {"position": "WR", "team": "GB"}},
-        input_generation="board1",
+        input_generation=store.read_current("canonical-serving", "default").generation_id,
         **kwargs,
     )
 
@@ -416,12 +430,6 @@ def test_watch_worker_reuses_providers_between_cycles(setup, monkeypatch):
     from scripts import refresh_prepared_news as cli
 
     _, store, provider, service = setup
-    store.publish(
-        "canonical-serving",
-        "default",
-        {"views/full.json": json.dumps({"playersArray": [{"name": "Player One"}]}).encode()},
-        {"modelVersion": "test", "inputGenerations": {}, "configHash": "test"},
-    )
     monkeypatch.setattr(cli, "ArtifactStore", lambda _root: store)
     constructed = []
 

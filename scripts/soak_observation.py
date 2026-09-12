@@ -8,6 +8,7 @@ import json
 import math
 import threading
 import time
+from collections.abc import Mapping
 from contextlib import contextmanager
 
 
@@ -25,6 +26,9 @@ def code_provenance(root, *, diagnostic_spans=False):
         "src/serving/league_views.py",
         "src/serving/runtime.py",
         "src/serving/artifacts.py",
+        "src/serving/attestation.py",
+        "src/serving/__init__.py",
+        "src/serving/coordinator.py",
         "src/serving/builder.py",
         "src/serving/projections.py",
     ]
@@ -45,6 +49,88 @@ def maximum_observation_gap(rows, observation_seconds):
     """Full precision acquisition starts and boundaries, never rounded display time."""
     timestamps = [0, *(row["observationStartedSeconds"] for row in rows), observation_seconds]
     return max((right - left for left, right in zip(timestamps, timestamps[1:])), default=None)
+
+
+def observation_duration_summary(
+    rows,
+    *,
+    requested_exercise_seconds,
+    elapsed_observation_seconds,
+    requested_quiet_seconds,
+    quiet_report,
+    last_http_completion_seconds=None,
+):
+    """Describe recorded boundaries, not acceptance or continuous serving time.
+
+    ``rows`` must be the resource observations captured before cleanup. Their
+    enclosing span may contain gaps; the existing sampling and quiet gates
+    remain the authority for coverage and recovery.
+    """
+
+    def valid_seconds(value):
+        return (
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and math.isfinite(value)
+            and value >= 0
+        )
+
+    for name, value in (
+        ("requested_exercise_seconds", requested_exercise_seconds),
+        ("elapsed_observation_seconds", elapsed_observation_seconds),
+        ("requested_quiet_seconds", requested_quiet_seconds),
+    ):
+        if not valid_seconds(value) or (name != "elapsed_observation_seconds" and value == 0):
+            raise ValueError(
+                f"{name} must be finite and {'nonnegative' if name == 'elapsed_observation_seconds' else 'positive'}"
+            )
+
+    boundaries = [
+        (row.get("observationStartedSeconds"), row.get("observationFinishedSeconds"))
+        if isinstance(row, Mapping)
+        else (None, None)
+        for row in rows
+    ]
+    valid_boundaries = all(
+        valid_seconds(start) and valid_seconds(end) and start <= end <= elapsed_observation_seconds
+        for start, end in boundaries
+    ) and all(right[0] >= left[1] for left, right in zip(boundaries, boundaries[1:]))
+    timing_state = "missing" if not boundaries else "available" if valid_boundaries else "invalid"
+    first_start = boundaries[0][0] if timing_state == "available" else None
+    last_start, last_end = boundaries[-1] if timing_state == "available" else (None, None)
+    quiet_duration = (
+        quiet_report.get("verifiedQuietSeconds") if isinstance(quiet_report, Mapping) else None
+    )
+    verified_quiet = (
+        quiet_duration
+        if isinstance(quiet_report, Mapping)
+        and quiet_report.get("verified") is True
+        and valid_seconds(quiet_duration)
+        and quiet_duration >= requested_quiet_seconds
+        else 0
+    )
+    return {
+        "requestedExerciseSeconds": requested_exercise_seconds,
+        "elapsedObservationSeconds": elapsed_observation_seconds,
+        "cappedElapsedExerciseSeconds": min(
+            requested_exercise_seconds, elapsed_observation_seconds
+        ),
+        "servingExerciseSecondsMeaning": "Legacy field is capped elapsed time, not observed continuous serving.",
+        "resourceObservationTimingState": timing_state,
+        "resourceObservationFirstStartSeconds": first_start,
+        "resourceObservationLastStartSeconds": last_start,
+        "resourceObservationLastEndSeconds": last_end,
+        "resourceObservationSpanSeconds": last_end - first_start if last_end is not None else None,
+        "resourceObservationTerminalGapSeconds": elapsed_observation_seconds - last_end
+        if last_end is not None
+        else None,
+        "lastHttpCompletionSeconds": last_http_completion_seconds
+        if valid_seconds(last_http_completion_seconds)
+        else None,
+        "requestedQuietSeconds": requested_quiet_seconds,
+        "verifiedQuietSeconds": verified_quiet,
+        "observationDurationInterpretation": "Resource spans may contain gaps. No continuous serving duration is inferred; cleanup observations are excluded by the caller.",
+    }
 
 
 def quiet_observations_ready(rows, first_new, now):

@@ -8,11 +8,12 @@ The producer is explicit; importing this module performs no provider work.
 from __future__ import annotations
 
 import copy
+import gzip
 import hashlib
 import json
 import logging
 import threading
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, is_dataclass, replace
 from datetime import datetime, timezone
 from types import MappingProxyType
 
@@ -23,12 +24,13 @@ from src.league_comparison.sleeper_scoring import scoring_fingerprint
 from src.serving.artifacts import ArtifactError, ArtifactStore, CorruptArtifact
 from src.serving.builder import json_bytes, prepare_payload
 from src.serving.projections import MODEL_VERSION, ReadModelEnvelope
-from src.serving.runtime import PreparedPayload
+from src.serving.runtime import PreparedBytes, PreparedPayload
 
 log = logging.getLogger(__name__)
 ASSET = "league-serving"
 VIEWS = ("rankings", "trade", "catalog", "full", "array", "compact", "runtime", "startup")
 ROSTER_STALE_CEILING_SECONDS = 30 * 60
+STATES = ("ready", "stale", "unknown")
 
 
 @dataclass(frozen=True)
@@ -36,9 +38,21 @@ class LeagueViews:
     board_generation: str
     league_key: str
     views: dict
+    variants: dict | None = None
+    binding: dict | None = None
 
     def __post_init__(self):
         object.__setattr__(self, "views", MappingProxyType(dict(self.views)))
+        if self.binding is not None:
+            object.__setattr__(self, "binding", MappingProxyType(dict(self.binding)))
+        if self.variants is not None:
+            object.__setattr__(
+                self,
+                "variants",
+                MappingProxyType(
+                    {state: MappingProxyType(dict(views)) for state, views in self.variants.items()}
+                ),
+            )
 
 
 def compatible(board, cfg) -> bool:
@@ -195,9 +209,302 @@ def validate_league_views(bundle: LeagueViews, board, cfg) -> None:
             raise CorruptArtifact("league view differs from its canonical projection")
 
 
+def _binding(board, cfg):
+    """Small factual/configuration identity, shared by producer and reader."""
+    from src.serving.input_manifest import content_identity
+
+    configuration = asdict(cfg) if is_dataclass(cfg) else vars(cfg)
+    return {
+        "boardGeneration": board.generation_id,
+        "leagueKey": cfg.key,
+        "scoringProfile": cfg.scoring_profile,
+        "boardScoring": scoring_fingerprint(
+            (board.contract.get("sleeper") or {}).get("scoringSettings")
+        ),
+        "requestedScoring": league_registry.scoring_fingerprint_for_league(cfg),
+        "leagueConfiguration": content_identity(configuration),
+        "registryLineupSettings": content_identity(
+            league_registry.get_league_roster_settings(cfg.key)
+        ),
+    }
+
+
+def _attested_compatible(board, cfg):
+    # Keep the loaded-league policy for missing registry evidence, but a known
+    # changed factual card must not authorize old values even for the same key.
+    loaded = scoring_fingerprint((board.contract.get("sleeper") or {}).get("scoringSettings"))
+    requested = league_registry.scoring_fingerprint_for_league(cfg)
+    return compatible(board, cfg) and not (requested and loaded != requested)
+
+
+def _expired_views(views, state):
+    return {
+        name: prepare_payload(
+            {
+                **view.payload,
+                "sleeper": None,
+                "meta": {
+                    **view.payload["meta"],
+                    "sleeperDataReady": False,
+                    "leagueFreshnessState": state,
+                },
+            }
+        )
+        for name, view in views.items()
+    }
+
+
+def _final_variants(bundle):
+    ready = bundle.variants["ready"] if bundle.variants is not None else bundle.views
+    variants = {"ready": ready}
+    for state in ("stale", "unknown"):
+        variants[state] = _expired_views(ready, state)
+    return replace(bundle, views=ready, variants=variants)
+
+
+def _parse_final_index(artifact):
+    index = json.loads(artifact.files["index.json"])
+    if (
+        artifact.asset != ASSET
+        or index.get("schemaVersion") != 2
+        or artifact.manifest.get("modelVersion") != MODEL_VERSION
+        or index.get("leagueKey") != artifact.key
+        or set(index.get("variants", {})) != set(STATES)
+        or artifact.manifest.get("inputGenerations", {}).get("board")
+        != index.get("boardGeneration")
+        or index.get("binding") != dict(artifact.manifest.get("leagueBinding", {}))
+        or index.get("binding", {}).get("boardGeneration") != index.get("boardGeneration")
+        or index.get("binding", {}).get("leagueKey") != index.get("leagueKey")
+    ):
+        raise CorruptArtifact("invalid final league serving index")
+    expected_files = {"index.json"}
+    for state in STATES:
+        if set(index["variants"][state]) != set(VIEWS):
+            raise CorruptArtifact("incomplete final league variants")
+        for name in VIEWS:
+            expected_files.add(f"{state}/{name}.gz")
+            if state == "ready":
+                expected_files.add(f"{state}/{name}.json")
+            entry = index["variants"][state][name]
+            meta = entry.get("metadata") or {}
+            if (
+                set(entry) != {"etag", "metadata"}
+                or meta.get("readModelGeneration") != index["boardGeneration"]
+                or meta.get("leagueKey") != index["leagueKey"]
+                or meta.get("scoringProfile") != index["binding"].get("scoringProfile")
+                or meta.get("leagueSourceAsOf") != artifact.manifest.get("sourceAsOf")
+                or (
+                    state != "ready"
+                    and (
+                        meta.get("sleeperDataReady") is not False
+                        or meta.get("leagueFreshnessState") != state
+                    )
+                )
+            ):
+                raise CorruptArtifact("incoherent final league metadata")
+    if set(artifact.files) - {"validation.json"} != expected_files:
+        raise CorruptArtifact("unexpected final league inventory")
+    return index
+
+
+def _final_index(artifact):
+    try:
+        return _parse_final_index(artifact)
+    except (ValueError, TypeError, KeyError, AttributeError) as exc:
+        raise CorruptArtifact("invalid final league serving index") from exc
+
+
+def _validate_final_bundle(bundle, board, cfg):
+    """Producer proof covers both canonical semantics and exact expiry behavior."""
+    if bundle.binding != _binding(board, cfg) or not _attested_compatible(board, cfg):
+        raise CorruptArtifact("final league binding does not match current board/configuration")
+    for views in bundle.variants.values():
+        validate_league_views(replace(bundle, views=views), board, cfg)
+    ready_meta = bundle.variants["ready"]["trade"].metadata
+    for view in bundle.variants["ready"].values():
+        if any(
+            view.metadata.get(key) != ready_meta.get(key)
+            for key in ("sleeperDataReady", "sleeperSource", "sleeperLoadedLeagueKey")
+        ):
+            raise CorruptArtifact("incoherent ready league metadata")
+    for state in ("stale", "unknown"):
+        for name in VIEWS:
+            ready = bundle.variants["ready"][name].payload
+            expected = {
+                **ready,
+                "sleeper": None,
+                "meta": {
+                    **ready["meta"],
+                    "sleeperDataReady": False,
+                    "leagueFreshnessState": state,
+                },
+            }
+            if json_bytes(bundle.variants[state][name].payload) != json_bytes(expected):
+                raise CorruptArtifact("expired league variant differs from ready transformation")
+
+
+def _load_final_variants(artifact, index, *, lightweight):
+    """Decode only the small index in web; semantic decoding belongs to producer."""
+    variants = {}
+    for state in STATES:
+        views = {}
+        for name in VIEWS:
+            entry = index["variants"][state][name]
+            gz = artifact.files[f"{state}/{name}.gz"]
+            raw = (
+                artifact.files[f"{state}/{name}.json"] if state == "ready" else gzip.decompress(gz)
+            )
+            if lightweight:
+                views[name] = PreparedBytes(raw, gz, entry["etag"], name, entry["metadata"])
+                continue
+            payload = json.loads(raw)
+            if name in {"rankings", "trade", "catalog"}:
+                ReadModelEnvelope.model_validate(payload)
+            if (
+                hashlib.sha1(raw).hexdigest() != entry["etag"]
+                or payload.get("meta") != entry["metadata"]
+                or payload.get("payloadView") != name
+                or (state == "ready" and gzip.decompress(gz) != raw)
+                or (state != "ready" and payload.get("sleeper") is not None)
+            ):
+                raise CorruptArtifact("incoherent final league representation")
+            views[name] = PreparedPayload(payload, raw, gz, entry["etag"])
+        variants[state] = views
+    return LeagueViews(
+        index["boardGeneration"], index["leagueKey"], variants["ready"], variants, index["binding"]
+    )
+
+
+def load_web_league_views(artifact, board, cfg):
+    """Verify an exact producer certificate before accepting byte-only views."""
+    from src.serving.attestation import verify_artifact
+
+    verify_artifact(artifact)
+    index = _final_index(artifact)
+    if index["binding"] != _binding(board, cfg) or not _attested_compatible(board, cfg):
+        raise CorruptArtifact("final league binding does not match current board/configuration")
+    return _load_final_variants(artifact, index, lightweight=True)
+
+
+def _publish_final_variants(bundle, store, *, input_generations, board, cfg):
+    from src.serving.attestation import certify, verify_artifact
+
+    if board is None or cfg is None:
+        raise ValueError("attested league publication requires its canonical board/configuration")
+    if not _attested_compatible(board, cfg):
+        raise CorruptArtifact("league scoring changed since the canonical build")
+    as_of = bundle.views["trade"].metadata.get("leagueSourceAsOf")
+    try:
+        if datetime.fromisoformat(str(as_of).replace("Z", "+00:00")).tzinfo is None:
+            raise ValueError("unqualified source age")
+    except (TypeError, ValueError):
+        # Malformed/missing age remains unknown. Never sign it as a known fresh
+        # observation; readiness selection will choose the unknown variant.
+        if as_of is not None:
+            context = bundle.views["trade"].payload.get("sleeper")
+            if isinstance(context, dict) and "overlayFetchedAt" in context:
+                context = {**context, "overlayFetchedAt": None}
+            bundle = replace(
+                bundle,
+                views={
+                    name: prepare_payload(
+                        {
+                            **view.payload,
+                            "sleeper": context,
+                            "meta": {**view.metadata, "leagueSourceAsOf": None},
+                        }
+                    )
+                    for name, view in bundle.views.items()
+                },
+                variants=None,
+            )
+    bundle = _final_variants(bundle)
+    binding = _binding(board, cfg)
+    index = {
+        "schemaVersion": 2,
+        "boardGeneration": bundle.board_generation,
+        "leagueKey": bundle.league_key,
+        "binding": binding,
+        "variants": {
+            state: {
+                name: {"etag": view.etag, "metadata": view.metadata} for name, view in views.items()
+            }
+            for state, views in bundle.variants.items()
+        },
+    }
+    files = {"index.json": json_bytes(index)}
+    for state, views in bundle.variants.items():
+        for name, view in views.items():
+            files[f"{state}/{name}.gz"] = view.gzip
+            if state == "ready":
+                files[f"{state}/{name}.json"] = view.raw
+    context = bundle.views["trade"].payload.get("sleeper") or {}
+    metadata = {
+        "modelVersion": MODEL_VERSION,
+        "inputGenerations": input_generations or {"board": bundle.board_generation},
+        "configHash": hashlib.sha256(json_bytes(context.get("scoringSettings"))).hexdigest(),
+        "sourceAsOf": bundle.views["trade"].metadata.get("leagueSourceAsOf"),
+        "leagueBinding": binding,
+    }
+
+    def validate(artifact):
+        loaded_index = _final_index(artifact)
+        if loaded_index["binding"] != binding:
+            raise CorruptArtifact("final league configuration changed during preparation")
+        if (
+            artifact.manifest.get("configHash") != metadata["configHash"]
+            or dict(artifact.manifest.get("inputGenerations", {})) != metadata["inputGenerations"]
+        ):
+            raise CorruptArtifact("final league input/configuration identity differs")
+        loaded = _load_final_variants(artifact, loaded_index, lightweight=False)
+        _validate_final_bundle(loaded, board, cfg)
+        return loaded
+
+    files = certify(store, ASSET, cfg.key, files, metadata, validator=validate)
+    return store.publish(
+        ASSET,
+        cfg.key,
+        files,
+        metadata,
+        validator=lambda artifact: verify_artifact(artifact, require_observation=False),
+    )
+
+
+def reobserve_league_views(artifact, store, *, board, cfg, input_generations, source_as_of):
+    """Restamp final producer bytes without rerunning roster/lineup construction."""
+    loaded = load_league_views(artifact)
+    ready = loaded.variants["ready"] if loaded.variants is not None else loaded.views
+    context = ready["trade"].payload.get("sleeper")
+    if isinstance(context, dict) and "overlayFetchedAt" in context:
+        context = {**context, "overlayFetchedAt": source_as_of}
+    views = {
+        name: prepare_payload(
+            {
+                **view.payload,
+                "sleeper": context,
+                "meta": {**view.metadata, "leagueSourceAsOf": source_as_of},
+            }
+        )
+        for name, view in ready.items()
+    }
+    return publish_league_views(
+        LeagueViews(board.generation_id, cfg.key, views),
+        store,
+        input_generations=input_generations,
+        board=board,
+        cfg=cfg,
+    )
+
+
 def publish_league_views(
     bundle: LeagueViews, store: ArtifactStore, *, input_generations=None, board=None, cfg=None
 ):
+    from src.serving.attestation import enabled
+
+    if enabled():
+        return _publish_final_variants(
+            bundle, store, input_generations=input_generations, board=board, cfg=cfg
+        )
     if board is not None:
         validate_league_views(bundle, board, cfg)
 
@@ -231,9 +538,9 @@ def publish_league_views(
 
 
 def load_league_views(artifact) -> LeagueViews:
-    import gzip
-
     index = json.loads(artifact.files["index.json"])
+    if index.get("schemaVersion") == 2:
+        return _load_final_variants(artifact, _final_index(artifact), lightweight=False)
     if index.get("schemaVersion") != 1 or index.get("leagueKey") != artifact.key:
         raise CorruptArtifact("invalid league serving index")
     views = {}
@@ -264,11 +571,22 @@ def load_league_views(artifact) -> LeagueViews:
     return LeagueViews(index["boardGeneration"], index["leagueKey"], views)
 
 
-def expire_context(bundle: LeagueViews, *, now=None) -> LeagueViews:
-    """Age is source age, never process load time; missing age is unknown."""
-    meta = bundle.views["trade"].payload.get("meta") or {}
+def _validate_accepted_league(artifact, board, cfg):
+    """Producer no-op eligibility still proves every accepted final variant."""
+    from src.serving.attestation import enabled, verify_artifact
+
+    if enabled():
+        verify_artifact(artifact)
+    loaded = load_league_views(artifact)
+    if loaded.variants is not None:
+        _validate_final_bundle(loaded, board, cfg)
+    else:
+        validate_league_views(loaded, board, cfg)
+
+
+def _freshness_state(meta, *, now=None):
     if not meta.get("sleeperDataReady"):
-        return bundle
+        return "ready"
     as_of = meta.get("leagueSourceAsOf")
     try:
         stamp = datetime.fromisoformat(str(as_of).replace("Z", "+00:00"))
@@ -276,23 +594,56 @@ def expire_context(bundle: LeagueViews, *, now=None) -> LeagueViews:
             raise ValueError("unqualified source timestamp")
         age = ((now or datetime.now(timezone.utc)) - stamp).total_seconds()
         if -300 <= age <= ROSTER_STALE_CEILING_SECONDS:
-            return bundle
+            return "ready"
         state = "stale" if age >= 0 else "unknown"
     except (TypeError, ValueError):
         state = "unknown"
-    views = {}
-    for name, view in bundle.views.items():
-        payload = {
-            **view.payload,
-            "sleeper": None,
-            "meta": {
-                **view.payload["meta"],
-                "sleeperDataReady": False,
-                "leagueFreshnessState": state,
+    return state
+
+
+def expire_context(bundle: LeagueViews, *, now=None) -> LeagueViews:
+    """Age is source age; attested expiry only selects existing representations."""
+    ready = bundle.variants["ready"] if bundle.variants is not None else bundle.views
+    state = _freshness_state(ready["trade"].metadata, now=now)
+    if bundle.variants is not None:
+        selected = bundle.variants[state]
+        if all(bundle.views[name] is selected[name] for name in VIEWS):
+            return bundle
+        return replace(bundle, views=selected)
+    if state == "ready":
+        return bundle
+    return LeagueViews(bundle.board_generation, bundle.league_key, _expired_views(ready, state))
+
+
+def _cold_bundle(board, cfg, *, lightweight):
+    # A lightweight canonical board has byte-only read models. Project from the
+    # full canonical contract explicitly for this cold, artifact-free fallback;
+    # a missing decoded projection is never treated as an empty player universe.
+    semantic = board
+    if any(not hasattr(board.views[name], "payload") for name in VIEWS):
+        from src.serving.builder import project_contract_views
+
+        semantic = replace(
+            board,
+            views={
+                name: prepare_payload(payload)
+                for name, payload in project_contract_views(
+                    board.contract, board.generation_id
+                ).items()
             },
+        )
+    bundle = prepare_league_views(semantic, cfg)
+    if not lightweight:
+        return bundle
+    bundle = _final_variants(bundle)
+    variants = {
+        state: {
+            name: PreparedBytes(view.raw, view.gzip, view.etag, name, view.metadata)
+            for name, view in views.items()
         }
-        views[name] = prepare_payload(payload)
-    return LeagueViews(bundle.board_generation, bundle.league_key, views)
+        for state, views in bundle.variants.items()
+    }
+    return replace(bundle, views=variants["ready"], variants=variants, binding=_binding(board, cfg))
 
 
 def refresh_league_serving(store=None, *, lease_wait_seconds=0) -> dict:
@@ -302,11 +653,15 @@ def refresh_league_serving(store=None, *, lease_wait_seconds=0) -> dict:
 
     store = store or ArtifactStore()
     _mkdir(store.root)
+    admitted = False
     try:
         with _publish_lock(store.root / "league-producer.lock", lease_wait_seconds):
+            admitted = True
             claim_league_refresh(store)
             return _refresh_league_serving(store)
     except PublishLockTimeout:
+        if admitted:
+            raise  # Claim/storage timeouts after admission are refresh failures.
         return {
             "outcome": "busy",
             "published": [],
@@ -321,6 +676,7 @@ def _refresh_league_serving(store) -> dict:
     from src.serving.serialization import ASSET as BOARD_ASSET, KEY, load_generation
     from src.serving.coordinator import prepare_or_reobserve
     from src.serving.input_manifest import league_input_manifest
+    from src.serving.attestation import enabled
 
     store = store or ArtifactStore()
     board = load_generation(store.read_current(BOARD_ASSET, KEY))
@@ -360,10 +716,20 @@ def _refresh_league_serving(store) -> dict:
                     publish=lambda bundle, inputs: publish_league_views(
                         bundle, store, input_generations=inputs, board=board, cfg=cfg
                     ),
-                    validate=lambda artifact: validate_league_views(
-                        load_league_views(artifact), board, cfg
-                    ),
+                    validate=lambda artifact: _validate_accepted_league(artifact, board, cfg),
                     source_as_of=overlay.get("overlayFetchedAt"),
+                    reobserve=(
+                        lambda artifact, inputs, stamp: reobserve_league_views(
+                            artifact,
+                            store,
+                            board=board,
+                            cfg=cfg,
+                            input_generations=inputs,
+                            source_as_of=stamp,
+                        )
+                    )
+                    if enabled()
+                    else None,
                 )
                 report["published"].append(cfg.key)
                 if not result.rebuilt:
@@ -377,8 +743,9 @@ def _refresh_league_serving(store) -> dict:
 class LeagueServingReader:
     """Publish each league's bound board and views together, off-request."""
 
-    def __init__(self, store, get_board):
+    def __init__(self, store, get_board, *, lightweight=False):
         self.store, self.get_board = store, get_board
+        self.lightweight = lightweight
         self._current = {}
         self._versions = {}
         self._refresh_lock = threading.Lock()
@@ -428,9 +795,15 @@ class LeagueServingReader:
         captures = {}
         versions = {}
         for cfg in league_registry.active_leagues():
-            if not compatible(board, cfg):
+            if not (
+                _attested_compatible(board, cfg) if self.lightweight else compatible(board, cfg)
+            ):
                 continue
             held = old.get(cfg.key)
+            if self.lightweight and held is not None and held[1].binding != _binding(held[0], cfg):
+                # A last-known-good board cannot authorize an old scoring or
+                # league configuration after that configuration changes.
+                held = None
             if held is not None:
                 captures[cfg.key] = held
                 if cfg.key in self._versions:
@@ -444,10 +817,19 @@ class LeagueServingReader:
                 ):
                     captures[cfg.key] = (board, held[1])
                     continue
-                bundle = load_league_views(self.store.read_current(ASSET, cfg.key))
+                artifact = self.store.read_current(ASSET, cfg.key)
+                bundle = (
+                    load_web_league_views(artifact, board, cfg)
+                    if self.lightweight
+                    else load_league_views(artifact)
+                )
                 if bundle.board_generation != board.generation_id:
                     raise CorruptArtifact("league bundle belongs to an older board")
-                validate_league_views(bundle, board, cfg)
+                if not self.lightweight:
+                    if bundle.variants is not None:
+                        _validate_final_bundle(bundle, board, cfg)
+                    else:
+                        validate_league_views(bundle, board, cfg)
                 captures[cfg.key] = (board, expire_context(bundle))
                 versions[cfg.key] = version
             except (ArtifactError, ValueError, KeyError, OSError) as exc:
@@ -462,7 +844,10 @@ class LeagueServingReader:
                     # Explicit board-as-of context for its own league, and
                     # unavailable context for another compatible league. No
                     # provider fetch is hidden behind this fallback.
-                    captures[cfg.key] = (board, expire_context(prepare_league_views(board, cfg)))
+                    captures[cfg.key] = (
+                        board,
+                        expire_context(_cold_bundle(board, cfg, lightweight=self.lightweight)),
+                    )
         if self.get_board() is board and not self._stop.is_set():
             self._current = captures
             self._versions = versions

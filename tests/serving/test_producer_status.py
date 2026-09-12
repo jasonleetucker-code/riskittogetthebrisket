@@ -8,7 +8,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.serving.artifacts import ArtifactStore, PublishLockTimeout, _publish_lock
+from src.serving.artifacts import (
+    ArtifactStore,
+    PublishLockTimeout,
+    RejectedCandidate,
+    _publish_lock,
+)
 from src.serving.producer import (
     MIRROR_FILES,
     SUPPLEMENTAL_SOURCES,
@@ -285,17 +290,22 @@ def _replace_proof(store, change, *, model_version=OWNERSHIP_MODEL):
     proof = store.read_current(OWNERSHIP_ASSET, OWNERSHIP_KEY)
     payload = json.loads(proof.files["receipt.json"])
     change(payload)
-    return store.publish(
-        OWNERSHIP_ASSET,
-        OWNERSHIP_KEY,
-        {"receipt.json": json.dumps(payload).encode()},
-        {
-            "modelVersion": model_version,
-            "inputGenerations": {"sourceCycle": source_parity_hash()},
-            "configHash": source_parity_hash(),
-            "sourceAsOf": payload["sourceProducedAt"],
-        },
-    )
+    files = {"receipt.json": json.dumps(payload).encode()}
+    metadata = {
+        "modelVersion": model_version,
+        "inputGenerations": {"sourceCycle": source_parity_hash()},
+        "configHash": source_parity_hash(),
+        "sourceAsOf": payload["sourceProducedAt"],
+    }
+    if payload.get("acceptedGeneration") == "unverified":
+        # Admission rejects this now; seed only the explicitly historical bad
+        # state to retain the independent downstream ownership-reader test.
+        with pytest.raises(RejectedCandidate):
+            store.publish(OWNERSHIP_ASSET, OWNERSHIP_KEY, files, metadata)
+        candidate, meta = store._candidate(OWNERSHIP_ASSET, OWNERSHIP_KEY, files, metadata)
+        with store._locked():
+            return store._publish_unlocked(candidate, meta)
+    return store.publish(OWNERSHIP_ASSET, OWNERSHIP_KEY, files, metadata)
 
 
 @pytest.mark.parametrize(
@@ -396,6 +406,9 @@ def test_healthy_current_receipt_can_repair_corrupt_immutable_proof(receipt):
     after = store.read_current(OWNERSHIP_ASSET, OWNERSHIP_KEY)
     assert after.generation_id != before.generation_id
     assert path.read_bytes() == b"{}", "renewal must not rewrite an immutable generation"
+    report = store.read_retention_report()
+    assert report["blocked"] and report["deletedCount"] == 0
+    assert not report["candidateDependencyBlocked"]
 
 
 def test_durable_ownership_does_not_replace_current_board_validation(receipt, monkeypatch):

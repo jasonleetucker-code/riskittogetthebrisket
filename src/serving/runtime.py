@@ -26,6 +26,28 @@ class PreparedPayload:
     gzip: bytes
     etag: str
 
+    @property
+    def payload_view(self):
+        return self.payload.get("payloadView", "prepared")
+
+    @property
+    def metadata(self):
+        return self.payload.get("meta") or {}
+
+
+@dataclass(frozen=True)
+class PreparedBytes:
+    """Producer-certified representation without a duplicate decoded graph."""
+
+    raw: bytes
+    gzip: bytes
+    etag: str
+    payload_view: str
+    metadata: Mapping[str, Any]
+
+    def __post_init__(self):
+        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
+
 
 @dataclass(frozen=True)
 class ServingGeneration:
@@ -35,7 +57,7 @@ class ServingGeneration:
     source: dict[str, Any]
     health: dict[str, Any]
     coverage: dict[str, Any]
-    views: Mapping[str, PreparedPayload]
+    views: Mapping[str, PreparedPayload | PreparedBytes]
     indexes: Mapping[str, Mapping] = field(default_factory=dict)
     artifact_generation_id: str | None = None
 

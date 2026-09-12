@@ -18,6 +18,7 @@ from src.serving.artifacts import (
     ArtifactStore,
     RetentionCapacityError,
     RetentionPolicy,
+    RejectedCandidate,
     UnsafeArtifactPath,
 )
 
@@ -29,6 +30,224 @@ def store(tmp_path):
 
 def metadata(**extra):
     return {"modelVersion": "test", "inputGenerations": {}, "configHash": "test", **extra}
+
+
+@pytest.mark.parametrize("dependency", ["board", "explicit", "news"])
+def test_candidate_missing_dependency_rejects_before_pointer_change_or_prune(store, dependency):
+    asset = "news-serving" if dependency == "news" else "dependent"
+    old = store.publish(asset, "main", {"value": b"old"}, metadata())
+    pointer = store.root / asset / "main/current.json"
+    before = pointer.read_bytes()
+    extra = {"inputGenerations": {"canonical" if dependency == "news" else "board": "f" * 64}}
+    if dependency == "explicit":
+        extra = {
+            "artifactReferences": [{"asset": "board", "key": "main", "generationId": "f" * 64}]
+        }
+    with pytest.raises(RejectedCandidate):
+        store.publish(asset, "main", {"value": b"new"}, metadata(**extra))
+    assert pointer.read_bytes() == before
+    assert store.read_current(asset, "main") == old
+    report = store.read_retention_report()
+    assert report["candidateDependencyBlocked"] and report["deletedCount"] == 0
+    assert not report["capacityBlocked"]
+
+
+@pytest.mark.parametrize("failure", ["ambiguous", "transitive", "corrupt", "unrelated_corrupt"])
+def test_candidate_dependency_closure_fails_closed(store, failure):
+    old = store.publish("dependent", "main", {"value": b"old"}, metadata())
+    parent = store.publish("board", "main", {"value": b"parent"}, metadata())
+    version = parent.generation_id
+    if failure == "ambiguous":
+        version = "a" * 64
+        for key in ("one", "two"):
+            store.publish(
+                "board", key, {"value": key.encode()}, metadata(logicalGeneration=version)
+            )
+    elif failure == "transitive":
+        # Represent an older accepted artifact created before admission validation.
+        candidate, meta = store._candidate(
+            "board", "legacy", {"value": b"legacy"}, metadata(inputGenerations={"board": "f" * 64})
+        )
+        with store._locked():
+            parent = store._publish_unlocked(candidate, meta)
+        version = parent.generation_id
+    elif failure == "corrupt":
+        (directory(store, parent) / "files/value").write_bytes(b"corrupt")
+    else:
+        unrelated = store.publish("other", "main", {"value": b"old"}, metadata())
+        (directory(store, unrelated) / "files/value").write_bytes(b"corrupt")
+        version = "f" * 64
+    pointer = store.root / "dependent/main/current.json"
+    before = pointer.read_bytes()
+    with pytest.raises(RejectedCandidate):
+        store.publish(
+            "dependent", "main", {"value": b"new"}, metadata(inputGenerations={"board": version})
+        )
+    assert pointer.read_bytes() == before
+    assert store.read_current("dependent", "main") == old
+    report = store.read_retention_report()
+    assert report["candidateDependencyBlocked"] and report["deletedCount"] == 0
+
+
+def test_news_publisher_rejects_captured_parent_pruned_during_provider_work(store):
+    from src.news.prepared import refresh_prepared_news
+    from src.news.service import NewsService
+
+    class Provider:
+        name = "fixture"
+        label = "Fixture"
+
+        def fetch(self, **kwargs):
+            return []
+
+    now = [datetime.now(timezone.utc).timestamp()]
+    service = NewsService([Provider()], clock=lambda: now[0], cache_ttl_s=1)
+
+    def board(value):
+        return store.publish("canonical-serving", "default", {"fixture": value}, metadata())
+
+    def news(parent):
+        return refresh_prepared_news(
+            store, service, player_names=[], player_meta={}, input_generation=parent.generation_id
+        )
+
+    old = news(board(b"initial"))
+    captured = board(b"captured")
+    for value in (b"next1", b"next2", b"next3", b"next4"):
+        board(value)
+    store.retention(apply=True, now=datetime.now(timezone.utc) + timedelta(hours=72))
+    assert not directory(store, captured).exists()
+    pointer = store.root / "news-serving/public/current.json"
+    before = pointer.read_bytes()
+    now[0] += 5
+    with pytest.raises(RejectedCandidate):
+        news(captured)
+    assert pointer.read_bytes() == before
+    assert store.read_current("news-serving", "public") == old
+    assert store.read_retention_report()["candidateDependencyBlocked"]
+
+
+@pytest.mark.parametrize("parent_state", ["valid", "missing", "corrupt_pointer", "corrupt_bytes"])
+def test_dependent_repair_can_replace_only_its_own_bad_pointer(store, parent_state):
+    parent = store.publish("board", "main", {"value": b"parent"}, metadata())
+    old = store.publish(
+        "dependent",
+        "main",
+        {"value": b"old"},
+        metadata(inputGenerations={"board": parent.generation_id}),
+    )
+    pointer = store.root / "dependent/main/current.json"
+    pointer.write_text("bad JSON", encoding="utf-8")
+    version = parent.generation_id
+    if parent_state == "missing":
+        version = "f" * 64
+    elif parent_state == "corrupt_pointer":
+        (store.root / "board/main/current.json").write_text("bad JSON", encoding="utf-8")
+    elif parent_state == "corrupt_bytes":
+        (directory(store, parent) / "files/value").write_bytes(b"bad")
+    before = pointer.read_bytes()
+    if parent_state == "valid":
+        new = store.publish(
+            "dependent",
+            "main",
+            {"value": b"new"},
+            metadata(inputGenerations={"board": version}),
+        )
+        assert store.read_current("dependent", "main") == new
+        assert pointer.read_bytes() != before
+    else:
+        with pytest.raises(RejectedCandidate):
+            store.publish(
+                "dependent",
+                "main",
+                {"value": b"new"},
+                metadata(inputGenerations={"board": version}),
+            )
+        assert pointer.read_bytes() == before
+    report = store.read_retention_report()
+    assert report["blocked"] and report["deletedCount"] == 0
+    assert report["candidateDependencyBlocked"] is (parent_state != "valid")
+    assert directory(store, old).exists() and directory(store, parent).exists()
+
+
+@pytest.mark.parametrize(
+    "case", ["valid", "physical", "alias", "transitive", "manifest", "capacity"]
+)
+def test_replacement_quarantine_never_hides_required_dependency(store, case):
+    alias = "a" * 64
+    parent = store.publish("board", "main", {"value": b"parent"}, metadata(logicalGeneration=alias))
+    old = store.publish(
+        "dependent",
+        "main",
+        {"value": b"old"},
+        metadata(inputGenerations={"board": parent.generation_id}, logicalGeneration=alias),
+    )
+    middle = store.publish(
+        "middle",
+        "main",
+        {"value": b"middle"},
+        metadata(inputGenerations={"board": old.generation_id}),
+    )
+    old_path = directory(store, old)
+    (old_path / "files/value").write_bytes(b"bad")
+    if case == "manifest":
+        (old_path / "manifest.json").write_text('{"schemaVersion":1}', encoding="utf-8")
+    pointer = store.root / "dependent/main/current.json"
+    before = pointer.read_bytes()
+    version = {
+        "physical": old.generation_id,
+        "alias": alias,
+        "transitive": middle.generation_id,
+    }.get(case, parent.generation_id)
+    publisher = (
+        store
+        if case != "capacity"
+        else ArtifactStore(
+            store.root, retention_policy=RetentionPolicy(max_bytes=1, min_free_bytes=0)
+        )
+    )
+    if case == "valid":
+        accepted = publisher.publish(
+            "dependent", "main", {"value": b"new"}, metadata(inputGenerations={"board": version})
+        )
+        assert store.read_current("dependent", "main") == accepted
+    else:
+        error = RetentionCapacityError if case == "capacity" else RejectedCandidate
+        with pytest.raises(error):
+            publisher.publish(
+                "dependent",
+                "main",
+                {"value": b"new"},
+                metadata(inputGenerations={"board": version}),
+            )
+        assert pointer.read_bytes() == before
+    report = store.read_retention_report()
+    assert report["blocked"] and report["deletedCount"] == 0
+    assert (old_path / "files/value").read_bytes() == b"bad"
+    assert directory(store, parent).exists() and directory(store, middle).exists()
+
+
+def test_unknown_quarantined_canonical_alias_refuses_dependent_repair(store):
+    parent = store.publish("board", "main", {"value": b"parent"}, metadata())
+    old = store.publish(
+        "canonical-serving",
+        "default",
+        {"index.json": b'{"generation":"' + b"a" * 64 + b'"}'},
+        metadata(),
+    )
+    (directory(store, old) / "files/index.json").write_bytes(b"{}")
+    pointer = store.root / "canonical-serving/default/current.json"
+    before = pointer.read_bytes()
+    with pytest.raises(RejectedCandidate):
+        store.publish(
+            "canonical-serving",
+            "default",
+            {"value": b"new"},
+            metadata(inputGenerations={"board": parent.generation_id}),
+        )
+    assert pointer.read_bytes() == before
+    report = store.read_retention_report()
+    assert report["candidateDependencyBlocked"] and report["deletedCount"] == 0
 
 
 def publish_many(store, monkeypatch, count=6, *, asset="board", key="main", size=1000):
@@ -241,9 +460,16 @@ def test_ambiguous_logical_dependency_fails_closed_without_deletion(store, monke
             {"index.json": json.dumps({"generation": logical}).encode()},
             metadata(configHash=str(version)),
         )
-    store.publish(
+    with pytest.raises(RejectedCandidate):
+        store.publish(
+            "league", "main", {"value": b"league"}, metadata(inputGenerations={"board": logical})
+        )
+    # Historical invalid state still prevents maintenance deletion.
+    candidate, meta = store._candidate(
         "league", "main", {"value": b"league"}, metadata(inputGenerations={"board": logical})
     )
+    with store._locked():
+        store._publish_unlocked(candidate, meta)
     report = store.retention(apply=True, now=future)
     assert report["blocked"] and report["deletedCount"] == 0
     assert all(directory(store, item).exists() for item in generations)

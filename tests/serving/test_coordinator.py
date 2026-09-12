@@ -3,8 +3,10 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 
 from src.serving.artifacts import ArtifactStore
+from src.serving.builder import prepare_generation
 from src.serving.coordinator import InputChanged, prepare_or_reobserve
 from src.serving.input_manifest import InputManifest
+from src.serving.serialization import publish_generation
 
 OLD = "2026-09-10T12:00:00+00:00"
 NEW = "2026-09-10T12:10:00+00:00"
@@ -13,7 +15,16 @@ NEW = "2026-09-10T12:10:00+00:00"
 def execute(
     store, calls, *, identity="same", complete=True, source=OLD, failing=False, verify=None
 ):
-    manifest = InputManifest("league-serving", {"board": identity}, complete, verify=verify)
+    board = prepare_generation(
+        {"playersArray": [{"playerId": identity, "displayName": identity, "position": "WR"}]},
+        {},
+        {"producedAt": OLD},
+        {"ok": True},
+    )
+    publish_generation(board, store=store)
+    manifest = InputManifest(
+        "league-serving", {"board": board.generation_id}, complete, verify=verify
+    )
 
     def build():
         calls.append("build")
@@ -115,7 +126,9 @@ def test_mutated_inputs_cannot_reobserve_pointer(tmp_path):
 def test_matching_fingerprint_cannot_bypass_domain_validation(tmp_path):
     store, calls = ArtifactStore(tmp_path), []
     first = execute(store, calls)
-    manifest = InputManifest("league-serving", {"board": "same"}, True)
+    manifest = InputManifest(
+        "league-serving", {"board": first.artifact.manifest["inputGenerations"]["board"]}, True
+    )
     builds = []
 
     def publish(_candidate, _inputs):
