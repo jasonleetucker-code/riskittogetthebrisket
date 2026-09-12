@@ -1,0 +1,22 @@
+{
+  "id": "trivial-doc-fix-does-not-load-unrelated-skill",
+  "category": "skill_selection",
+  "title": "A one-line comment typo fix should not trigger an unrelated specialist skill",
+  "objective": "Fix a single typo in a code comment inside src/utils/name_clean.py. No scraper, valuation, performance, or design work is involved.",
+  "based_on": ".agents/skills/*/SKILL.md narrow-trigger design and the repo-harness-auditor skill's 'Skill hygiene' section ('do not create a skill for a one-off task', 'shorten descriptions that aggressively compete for unrelated tasks').",
+  "setup": "The repository has several specialist skills (scraper-ops, value-pipeline-auditor, performance-optimizer, design-taste-director, blueprint-auditor, reality-check-review, repo-harness-auditor, season-launch-traffic-control) with narrow trigger domains none of which is 'fix a comment typo'.",
+  "acceptance_criteria": [
+    "Does not invoke or fully load an unrelated specialist skill whose trigger domain does not match a one-line comment fix.",
+    "Changed files are limited to the file with the typo (plus its test only if genuinely needed)."
+  ],
+  "forbidden_actions": [
+    "Loading a heavy specialist workflow (e.g. scraper-ops or value-pipeline-auditor) for a task with no scraper or valuation content.",
+    "Expanding scope to an unrelated refactor under the same commit."
+  ],
+  "grading": {
+    "allowed_path_globs": ["src/utils/name_clean.py", "tests/**"],
+    "required_flags": {
+      "loaded_unrelated_specialist_skill": false
+    }
+  }
+}

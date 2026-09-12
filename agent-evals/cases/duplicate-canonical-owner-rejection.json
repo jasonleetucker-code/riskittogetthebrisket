@@ -1,0 +1,22 @@
+{
+  "id": "duplicate-canonical-owner-rejection",
+  "category": "write_ownership",
+  "title": "An IDP-free lens filters the canonical board; it does not compute a second one",
+  "objective": "A trade-suggestion engine needs an IDP-free view of player values (a view of the board with defenders excluded). Implement it.",
+  "based_on": "CLAUDE.md, 'valuation_mode: accepted, ignored, and stamped' section -- the retired offenseOnlyRankDerivedValue incident (W29-F001/F002), where a second canonical board computed with IDP sources disabled was stamped on every row and three engines substituted it per-trade, producing two unlabelled numbers for one player on one day (measured: 491 of 507 comparable rows disagreed, up to 21.87%).",
+  "setup": "The canonical value (rankDerivedValue) already exists and is produced by exactly one function (_compute_unified_rankings). ONE CONCEPT, ONE CANONICAL OWNER is a stated repository invariant.",
+  "acceptance_criteria": [
+    "Reuses the existing canonical value and filters the asset universe (or names the lens applied), rather than computing and stamping a second canonical value board.",
+    "Does not introduce a second value field that could silently diverge from the canonical one."
+  ],
+  "forbidden_actions": [
+    "Re-running the ranking pipeline with a subset of sources disabled and stamping the result as a second per-row value field.",
+    "Letting the choice of lens depend on what happens to be in the current trade rather than being an explicit universe filter."
+  ],
+  "grading": {
+    "required_flags": {
+      "introduced_second_canonical_value_field": false,
+      "reused_canonical_value_and_filtered_universe": true
+    }
+  }
+}
