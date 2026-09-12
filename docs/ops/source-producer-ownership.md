@@ -302,3 +302,60 @@ Missing/all-provider-failed evidence returns the existing unavailable behavior;
 a bad newer artifact does not discard a previously valid reader snapshot.
 This service is a template only and must be observed on the target host before
 claiming that ordinary prepared news reads have an active producer.
+
+## Prepared credential deployment prerequisites
+
+The shared application user required by the compatibility instructions above is
+not signer/verifier isolation. Do not install a producer private key in the shared
+.env or claim that an omitted web variable removes same-user access. Do not change
+unit users alone: current 0700 directories and 0600 files/locks prevent a separate
+verifier from reading new artifacts and acquiring read/write store locks.
+
+Before split-user deployment, implement permission-aware creation in ArtifactStore
+and a reviewed least-privilege queue access layout in producer_status. Preserve private
+defaults, safe path checks, atomic replacements, pending claims, stable lock inodes
+and source/league ownership. A one-time chmod, UMask/default ACL alone or read-only
+store mount is insufficient. Test new publication and replacement under actual
+service UIDs. Web must read/traverse artifacts and acquire stable locks without
+broad artifact-root rename/publication authority. Queue admission/claim must retain
+same-filesystem atomic replacement and coalescing. This prerequisite is not yet
+implemented; the deployment package must remain blocked until it is validated.
+
+Public pin and policy code require a trusted deployment owner, not web or artifact
+publisher write authority. Producer-only private credentials stay outside store,
+shared environment, frontend access and web process/privilege reach. Canonical and
+league producers retain distinct duties; news is not automatically a signing owner.
+No numerical worker resource limits follow from checked-in templates or Windows.
+
+## Single-pin rotation and rollback preparation
+
+There is one public pin, not a keyring. A new pin rejects old certificates, while
+captured last-known-good memory is not reverified per request. Coordinated restart
+is required for immediate withdrawal. Do not call key-file replacement revocation.
+
+The existing --accepted-raw option only handles a missing canonical generation;
+it cannot override an old-key verification failure in an existing store. Before
+changing trust, verify and capture the accepted raw input using the old trusted
+reader, record its private hash/identity, and prepare a fresh private store through
+strict existing producer publication with the new matching key and pin. Input
+handover is a reviewed private operation, not an invented rotation CLI. Never
+select the newest archive or blindly re-sign unchecked bytes.
+
+ProducerConfig.serving_root and producer.lock follow --artifact-root. Fresh-root
+bootstrap does not share the old lease. Stop new old-root admissions and drain
+embedded/standalone canonical work before this maintenance operation; preserve
+queued refresh obligations and coordinate GitHub/deploy owners separately. Normal
+same-root first bootstrap remains lease-serialized. Use the existing bounded
+--artifact-root/--accepted-raw invocation only after verified handover and rollout
+authorization. Require strict proof before lease release and coherent league
+artifacts before readers switch pin/store together and restart/revalidate.
+
+Deploy initially with RISKIT_SERVING_MODE=legacy and prepared frontend disabled; require healthy
+legacy baseline and shadow parity/resources/recovery. Disable embedded recurrence
+before standalone recurrence. Retain GitHub additional feeds and dedicated DLF/IDP
+Show coverage. Verify authenticated scoring/league/stale/200/304 and queue behavior.
+For ordinary rollback stop standalone recurrence first, restore compatible code,
+pin, store and legacy configuration, restart and verify ownership/freshness. Keep
+immutable generations and receipts. Do not restore a compromised key as rollback;
+withdraw it and strictly rebuild trusted inputs. Never delete locks or run two
+unrestricted owners. All production actions retain separate authorization gates.

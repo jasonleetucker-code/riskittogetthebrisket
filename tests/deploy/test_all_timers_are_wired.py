@@ -184,6 +184,17 @@ def test_every_service_execstart_points_at_a_file_that_exists() -> None:
     assert not missing, f"ExecStart targets that do not exist: {missing}"
 
 
+def test_feed_timer_dependencies_follow_rendered_prefix() -> None:
+    """A custom installation must not require another installation's feed unit."""
+    for prefix in ("dynasty", "brisket"):
+        for stem in ("dlf-fetch", "idpshow-fetch"):
+            template = _SYSTEMD / f"dynasty-{stem}.timer.template"
+            # The existing installer substitutes this token for both feed timers.
+            rendered = template.read_text(encoding="utf-8").replace("__SERVICE_NAME__", prefix)
+            dependencies = re.findall(r"^Requires=(.+)$", rendered, re.M)
+            assert dependencies == [f"{prefix}-{stem}.service"]
+
+
 def test_every_timer_resolves_to_a_service_that_ships() -> None:
     """A timer whose target does not exist fires into nothing.
 
