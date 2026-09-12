@@ -1,0 +1,255 @@
+{
+  "scope": "local production-build browser integration; synthetic 120-row fixture; no production latency claim",
+  "browser": "152.0.7977.64",
+  "buildFlag": "NEXT_PUBLIC_PREPARED_READ_MODELS=1",
+  "cases": [
+    {
+      "route": "/rankings",
+      "viewport": "desktop",
+      "variant": "full",
+      "passed": true,
+      "csvRows": 120,
+      "csvSha256": "84b9e571df6d7a2a27ad1e438a9ab3f01f0377eb83b88f10d13dbc4cc0e997f7",
+      "filtering": true,
+      "sourceVisibilityDoesNotChangeExport": true,
+      "fullSourceAudit": true,
+      "popup": true,
+      "globalSearchOwnUniverse": true,
+      "forbiddenFullReads": 0,
+      "errors": 0,
+      "metrics": {
+        "usefulObservationMs": 1443,
+        "documentCount": 1,
+        "preparedResponses": [
+          {
+            "endpoint": "/api/read-models/rankings",
+            "encodedBytes": 309571,
+            "decodedBytes": 309571,
+            "transferBytes": 309871,
+            "responseMs": 302
+          }
+        ],
+        "ttfbMs": 227
+      }
+    },
+    {
+      "route": "/rankings",
+      "viewport": "desktop",
+      "variant": "prepared",
+      "passed": true,
+      "csvRows": 120,
+      "csvSha256": "84b9e571df6d7a2a27ad1e438a9ab3f01f0377eb83b88f10d13dbc4cc0e997f7",
+      "filtering": true,
+      "sourceVisibilityDoesNotChangeExport": true,
+      "fullSourceAudit": true,
+      "popup": true,
+      "globalSearchOwnUniverse": true,
+      "forbiddenFullReads": 0,
+      "errors": 0,
+      "metrics": {
+        "usefulObservationMs": 698,
+        "documentCount": 1,
+        "preparedResponses": [
+          {
+            "endpoint": "/api/read-models/rankings",
+            "encodedBytes": 120291,
+            "decodedBytes": 120291,
+            "transferBytes": 120591,
+            "responseMs": 25
+          }
+        ],
+        "ttfbMs": 9
+      }
+    },
+    {
+      "route": "/trade",
+      "viewport": "desktop",
+      "variant": "full",
+      "passed": true,
+      "picker": true,
+      "csv": true,
+      "csvSha256": "ec07071abf4efe4510ff6affe1321866460fbf8ef439c77b7a2d6a82c1fbc2af",
+      "popupFullSourceBody": true,
+      "forbiddenFullReads": 0,
+      "errors": 0,
+      "metrics": {
+        "usefulObservationMs": 472,
+        "documentCount": 1,
+        "preparedResponses": [
+          {
+            "endpoint": "/api/read-models/trade/context",
+            "encodedBytes": 309571,
+            "decodedBytes": 309571,
+            "transferBytes": 309871,
+            "responseMs": 105
+          }
+        ],
+        "ttfbMs": 10
+      }
+    },
+    {
+      "route": "/trade",
+      "viewport": "desktop",
+      "variant": "prepared",
+      "passed": true,
+      "picker": true,
+      "csv": true,
+      "csvSha256": "ec07071abf4efe4510ff6affe1321866460fbf8ef439c77b7a2d6a82c1fbc2af",
+      "popupFullSourceBody": true,
+      "forbiddenFullReads": 0,
+      "errors": 0,
+      "metrics": {
+        "usefulObservationMs": 457,
+        "documentCount": 1,
+        "preparedResponses": [
+          {
+            "endpoint": "/api/read-models/trade/context",
+            "encodedBytes": 120291,
+            "decodedBytes": 120291,
+            "transferBytes": 120591,
+            "responseMs": 21
+          }
+        ],
+        "ttfbMs": 9
+      }
+    },
+    {
+      "route": "/rankings",
+      "viewport": "mobile",
+      "variant": "full",
+      "passed": true,
+      "csvRows": 120,
+      "csvSha256": "84b9e571df6d7a2a27ad1e438a9ab3f01f0377eb83b88f10d13dbc4cc0e997f7",
+      "filtering": true,
+      "sourceVisibilityDoesNotChangeExport": true,
+      "fullSourceAudit": true,
+      "popup": true,
+      "globalSearchOwnUniverse": true,
+      "forbiddenFullReads": 0,
+      "errors": 0,
+      "metrics": {
+        "usefulObservationMs": 662,
+        "documentCount": 1,
+        "preparedResponses": [
+          {
+            "endpoint": "/api/read-models/rankings",
+            "encodedBytes": 309571,
+            "decodedBytes": 309571,
+            "transferBytes": 309871,
+            "responseMs": 22
+          }
+        ],
+        "ttfbMs": 8
+      }
+    },
+    {
+      "route": "/rankings",
+      "viewport": "mobile",
+      "variant": "prepared",
+      "passed": true,
+      "csvRows": 120,
+      "csvSha256": "84b9e571df6d7a2a27ad1e438a9ab3f01f0377eb83b88f10d13dbc4cc0e997f7",
+      "filtering": true,
+      "sourceVisibilityDoesNotChangeExport": true,
+      "fullSourceAudit": true,
+      "popup": true,
+      "globalSearchOwnUniverse": true,
+      "forbiddenFullReads": 0,
+      "errors": 0,
+      "metrics": {
+        "usefulObservationMs": 671,
+        "documentCount": 1,
+        "preparedResponses": [
+          {
+            "endpoint": "/api/read-models/rankings",
+            "encodedBytes": 120291,
+            "decodedBytes": 120291,
+            "transferBytes": 120591,
+            "responseMs": 19
+          }
+        ],
+        "ttfbMs": 12
+      }
+    },
+    {
+      "route": "/trade",
+      "viewport": "mobile",
+      "variant": "full",
+      "passed": true,
+      "picker": true,
+      "csv": true,
+      "csvSha256": "ec07071abf4efe4510ff6affe1321866460fbf8ef439c77b7a2d6a82c1fbc2af",
+      "popupFullSourceBody": true,
+      "forbiddenFullReads": 0,
+      "errors": 0,
+      "metrics": {
+        "usefulObservationMs": 478,
+        "documentCount": 1,
+        "preparedResponses": [
+          {
+            "endpoint": "/api/read-models/trade/context",
+            "encodedBytes": 309571,
+            "decodedBytes": 309571,
+            "transferBytes": 309871,
+            "responseMs": 27
+          }
+        ],
+        "ttfbMs": 7
+      }
+    },
+    {
+      "route": "/trade",
+      "viewport": "mobile",
+      "variant": "prepared",
+      "passed": true,
+      "picker": true,
+      "csv": true,
+      "csvSha256": "ec07071abf4efe4510ff6affe1321866460fbf8ef439c77b7a2d6a82c1fbc2af",
+      "popupFullSourceBody": true,
+      "forbiddenFullReads": 0,
+      "errors": 0,
+      "metrics": {
+        "usefulObservationMs": 443,
+        "documentCount": 1,
+        "preparedResponses": [
+          {
+            "endpoint": "/api/read-models/trade/context",
+            "encodedBytes": 120291,
+            "decodedBytes": 120291,
+            "transferBytes": 120591,
+            "responseMs": 16
+          }
+        ],
+        "ttfbMs": 8
+      }
+    },
+    {
+      "route": "/league-comparison",
+      "passed": true,
+      "zeroInitialGlobalReads": true,
+      "firstIntentCatalogRequests": 1,
+      "fullPopup": true,
+      "errors": 0
+    }
+  ],
+  "comparisons": {},
+  "telemetry": {
+    "requests": 27,
+    "successfulResponses": 27,
+    "names": [
+      "TTFB",
+      "FCP",
+      "LCP"
+    ],
+    "routes": [
+      "/rankings",
+      "/trade",
+      "/league-comparison"
+    ],
+    "valid": true,
+    "referrerAbsent": true
+  },
+  "runtime": "v20.20.2",
+  "build": ".next.performance-final-shell with WebVitalsReporter in AppShellWrapper",
+  "passed": true
+}

@@ -187,7 +187,10 @@ describe("a failure must not render as an absence", () => {
       path.join(ROOT, "components", "AppShell.jsx"),
       "utf8",
     );
-    expect(shell).toMatch(/const\s*\{[^}]*\bfailure\b[^}]*\}\s*=\s*useDynastyData\(\)/s);
+    expect(shell).toMatch(/const\s*\{[^}]*\bfailure\b[^}]*\}\s*=\s*useDynastyData\([^)]*\)/s);
+    // Route-specific representations still pass classified failures and retry
+    // from the private data hook into the shared context-owning shell.
+    expect(shell).toMatch(/<InnerAppShell\b[^>]*failure=\{failure\}[^>]*retry=\{retry\}/s);
     const ctxValue = shell.slice(shell.indexOf("<AppContext.Provider"));
     expect(ctxValue).toMatch(/\bfailure,/);
     expect(ctxValue).toMatch(/\bretry,/);

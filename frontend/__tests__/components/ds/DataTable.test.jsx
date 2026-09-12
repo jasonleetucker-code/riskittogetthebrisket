@@ -5,7 +5,7 @@
  */
 import { describe, expect, it, vi } from "vitest";
 import React from "react";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DataTable, sortRows } from "@/components/ds";
 
@@ -507,5 +507,66 @@ describe("DataTable structure & interaction", () => {
     });
     // controlled: parent didn't update, order unchanged
     expect(bodyCellText(0)).toEqual(["Bijan", "Chase", "Jefferson"]);
+  });
+});
+
+// Controlled geometry tests observer lifecycle, not browser layout fidelity.
+describe("DataTable width observer lifecycle", () => {
+  it.each([false, true])("observes the replacement wrapper after empty rows (initial rows: %s)", (initialRows) => {
+    const observers = [];
+    const frames = new Map();
+    let frameId = 0;
+    let width = 300;
+    let cellWidth = 100;
+    vi.stubGlobal("ResizeObserver", class {
+      constructor(callback) { this.callback = callback; this.observe = vi.fn(); this.disconnect = vi.fn(); observers.push(this); }
+    });
+    vi.stubGlobal("requestAnimationFrame", (callback) => { frames.set(++frameId, callback); return frameId; });
+    vi.stubGlobal("cancelAnimationFrame", (id) => frames.delete(id));
+    vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue([{}]);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
+      return { width: this.tagName === "TH" ? cellWidth : width, top: 0, bottom: 0, height: 0 };
+    });
+    const view = (rows) => <DataTable caption="resize lifecycle" columns={COLUMNS} rows={rows} freezeColumnWidths emptyState={<p>Empty</p>} />;
+    const rendered = render(view(initialRows ? ROWS : []));
+    try {
+      let oldObserver;
+      let oldWrapper;
+      if (initialRows) {
+        oldObserver = observers.at(-1);
+        oldWrapper = screen.getByRole("table").parentElement;
+        expect(screen.getByRole("table").style.minWidth).toBe("300px");
+        rendered.rerender(view([]));
+        expect(oldObserver.disconnect).toHaveBeenCalledOnce();
+        cellWidth = 120;
+      }
+      rendered.rerender(view(ROWS));
+      const table = screen.getByRole("table");
+      const observer = observers.at(-1);
+      expect(observer).toBeDefined();
+      expect(observer.observe).toHaveBeenCalledWith(table.parentElement);
+      if (oldWrapper) expect(table.parentElement).not.toBe(oldWrapper);
+      expect(table.style.minWidth).toBe(`${cellWidth * 3}px`);
+      width = 500;
+      cellWidth = 150;
+      act(() => {
+        observer.callback();
+        for (const callback of [...frames.values()]) callback();
+        frames.clear();
+      });
+      expect(table.style.minWidth).toBe("450px");
+      expect(bodyCellText(0)).toEqual(["Chase", "Jefferson", "Bijan"]);
+      width = 600;
+      observer.callback();
+      const pendingResize = frameId;
+      expect(frames.has(pendingResize)).toBe(true);
+      rendered.unmount();
+      expect(observer.disconnect).toHaveBeenCalledOnce();
+      expect(frames.has(pendingResize)).toBe(false);
+    } finally {
+      rendered.unmount();
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    }
   });
 });

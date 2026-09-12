@@ -238,7 +238,150 @@ install_simple_timer() {
   fi
 }
 
+require_prepared_access() {
+  local principal="$1" expected_uid="$2" mode="$3" path="$4" expected="$5" status=0
+  # Reserved helper results distinguish a completed access decision from sudo,
+  # shell or impersonation failure. Never interpret an invocation failure as
+  # evidence that a credential is protected.
+  sudo -n -u "${principal}" /bin/sh -c '
+    actual_uid=$(/usr/bin/id -u) || exit 12
+    [ "$actual_uid" = "$1" ] || exit 12
+    case "$2" in -r|-w) ;; *) exit 12 ;; esac
+    if test "$2" "$3"; then exit 10; else exit 11; fi
+  ' prepared-access "${expected_uid}" "${mode}" "${path}" || status=$?
+  if [[ ( "${expected}" == allowed && "${status}" == 10 ) ||
+        ( "${expected}" == denied && "${status}" == 11 ) ]]; then
+    return 0
+  fi
+  error "Prepared principal access requirement failed or could not be verified"
+  return 1
+}
+
+install_prepared_units_only() {
+  # A separate install-only entry into this existing installer. No legacy web
+  # unit, runtime flag, timer enablement or source ownership changes here.
+  local required value producer_uid web_uid producer_group reader_gid file_owner
+  local env_file web_env key_file pin_file store_path app_path name kind tmp_dir unit
+  local unit_state field state_value load_state active_state file_state seen
+  for required in PRODUCER_USER WEB_USER SERVING_READER_GROUP PRODUCER_ENV_FILE WEB_ENV_FILE SERVING_DIR SIGNING_KEY_FILE PUBLIC_PIN_FILE; do
+    value="${!required:-}"
+    [[ -n "${value}" ]] || { error "Prepared installation requires ${required}"; return 1; }
+  done
+  for value in "${PRODUCER_USER}" "${WEB_USER}" "${SERVING_READER_GROUP}" "${SERVICE_NAME}"; do
+    [[ "${value}" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]*$ ]] || { error "Unsafe prepared unit identity"; return 1; }
+  done
+  require_command getent
+  require_command realpath
+  require_command systemd-analyze
+  [[ -x /usr/bin/env ]] || { error "Prepared command requires /usr/bin/env"; return 1; }
+  producer_uid="$(id -u "${PRODUCER_USER}")" || return 1
+  web_uid="$(id -u "${WEB_USER}")" || return 1
+  producer_group="$(id -g "${PRODUCER_USER}")" || return 1
+  reader_gid="$(getent group "${SERVING_READER_GROUP}" | cut -d: -f3)"
+  [[ "${reader_gid}" =~ ^[0-9]+$ && "${reader_gid}" != 0 && "${producer_group}" != 0 && "${producer_uid}" != "${web_uid}" && "${producer_uid}" != 0 && "${web_uid}" != 0 ]] || {
+    error "Prepared installation requires distinct non-root principals and an existing reader group"; return 1;
+  }
+  for value in "${APP_DIR}" "${VENV_DIR}" "${PRODUCER_ENV_FILE}" "${WEB_ENV_FILE}" "${SERVING_DIR}" "${SIGNING_KEY_FILE}" "${PUBLIC_PIN_FILE}"; do
+    [[ "${value}" =~ ^/[a-zA-Z0-9_./-]+$ ]] || { error "Prepared paths must be absolute and contain only safe unit-path characters"; return 1; }
+  done
+  app_path="$(realpath -e "${APP_DIR}")" || return 1
+  store_path="$(realpath -e "${SERVING_DIR}")" || return 1
+  env_file="$(realpath -e "${PRODUCER_ENV_FILE}")" || return 1
+  web_env="$(realpath -e "${WEB_ENV_FILE}")" || return 1
+  key_file="$(realpath -e "${SIGNING_KEY_FILE}")" || return 1
+  pin_file="$(realpath -e "${PUBLIC_PIN_FILE}")" || return 1
+  for value in "${app_path}" "${store_path}" "${env_file}" "${web_env}" "${key_file}" "${pin_file}"; do
+    [[ "${value}" =~ ^/[a-zA-Z0-9_./-]+$ ]] || { error "Resolved prepared paths contain unsafe unit-path characters"; return 1; }
+  done
+  [[ "${env_file}" != "${web_env}" && "${key_file}" != "${pin_file}" ]] || { error "Producer/web environments and key/pin must be distinct"; return 1; }
+  for value in "${env_file}" "${web_env}" "${key_file}" "${pin_file}"; do
+    [[ -f "${value}" && "${value}" != "${app_path}"/* && "${value}" != "${store_path}"/* ]] || {
+      error "Credential/config files must be external regular files"; return 1;
+    }
+  done
+  for value in "${env_file}" "${key_file}" "${pin_file}"; do
+    file_owner="$(stat -c %u "${value}")" || return 1
+    [[ "${file_owner}" == 0 || "${file_owner}" == "${producer_uid}" ]] || {
+      error "Producer authority files require root or producer ownership"; return 1;
+    }
+  done
+  resolve_and_validate_sudo_binaries
+  for value in "${env_file}" "${key_file}" "${pin_file}"; do
+    require_prepared_access "${PRODUCER_USER}" "${producer_uid}" -r "${value}" allowed || return 1
+  done
+  # ExecStart uses /usr/bin/env assignments after EnvironmentFile processing,
+  # so managed layout/trust paths cannot be overridden by that file.
+  for value in "${env_file}" "${key_file}"; do
+    require_prepared_access "${WEB_USER}" "${web_uid}" -r "${value}" denied || return 1
+  done
+  for value in "${env_file}" "${key_file}" "${pin_file}"; do
+    require_prepared_access "${WEB_USER}" "${web_uid}" -w "${value}" denied || return 1
+    require_prepared_access "${WEB_USER}" "${web_uid}" -w "$(dirname "${value}")" denied || return 1
+  done
+  require_prepared_access "${WEB_USER}" "${web_uid}" -r "${web_env}" allowed || return 1
+  require_prepared_access "${WEB_USER}" "${web_uid}" -r "${pin_file}" allowed || return 1
+  # These admission checks do not prove all ancestor ACLs or systemd namespaces;
+  # activation still requires the complete installed-principal verification.
+  local -a units=(source-producer.service source-producer.timer source-producer.path league-serving.service league-serving.timer league-serving.path prepared-news.service)
+  # Replacing an active/enabled owner's unit is a separate rollout action.
+  for unit in "${units[@]}"; do
+    unit_state="$(sudo -n "${SYSTEMCTL_BIN}" show "${SERVICE_NAME}-${unit}" --property=LoadState,ActiveState,UnitFileState --no-pager)" || {
+      error "Prepared unit state could not be verified"; return 1;
+    }
+    load_state= active_state= file_state= seen="|"
+    while IFS='=' read -r field state_value; do
+      [[ "${seen}" != *"|${field}|"* ]] || { error "Duplicate prepared unit state"; return 1; }
+      seen="${seen}${field}|"
+      case "${field}" in
+        LoadState) load_state="${state_value}";;
+        ActiveState) active_state="${state_value}";;
+        UnitFileState) file_state="${state_value}";;
+        *) error "Unknown prepared unit state"; return 1;;
+      esac
+    done <<< "${unit_state}"
+    [[ "${seen}" == *'|LoadState|'* && "${seen}" == *'|ActiveState|'* && "${seen}" == *'|UnitFileState|'* ]] || {
+      error "Incomplete prepared unit state"; return 1;
+    }
+    if [[ "${active_state}" != inactive ]] ||
+       ! { [[ "${load_state}" == not-found && -z "${file_state}" ]] ||
+           [[ "${load_state}" == loaded && ( "${file_state}" == static || "${file_state}" == disabled ) ]]; }; then
+      error "Prepared unit is active, enabled or has an unsupported state; use the reviewed rollout procedure"; return 1
+    fi
+  done
+  tmp_dir="$(mktemp -d)" || return 1
+  for unit in "${units[@]}"; do
+    sed \
+      -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
+      -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
+      -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
+      -e "s/__PRODUCER_USER__/$(escape_sed_replacement "${PRODUCER_USER}")/g" \
+      -e "s/__PRODUCER_GROUP__/${producer_group}/g" \
+      -e "s/__SERVING_READER_GROUP__/$(escape_sed_replacement "${SERVING_READER_GROUP}")/g" \
+      -e "s/__SERVING_READER_GID__/${reader_gid}/g" \
+      -e "s/__PRODUCER_ENV_FILE__/$(escape_sed_replacement "${env_file}")/g" \
+      -e "s/__SERVING_DIR__/$(escape_sed_replacement "${store_path}")/g" \
+      -e "s/__SIGNING_KEY_FILE__/$(escape_sed_replacement "${key_file}")/g" \
+      -e "s/__PUBLIC_PIN_FILE__/$(escape_sed_replacement "${pin_file}")/g" \
+      "${APP_DIR}/deploy/systemd/dynasty-${unit}.template" > "${tmp_dir}/${SERVICE_NAME}-${unit}" || { rm -rf -- "${tmp_dir}"; return 1; }
+    if grep -Eq '__[A-Z_]+__' "${tmp_dir}/${SERVICE_NAME}-${unit}"; then
+      error "Unresolved prepared template token"; rm -rf -- "${tmp_dir}"; return 1
+    fi
+  done
+  systemd-analyze verify "${tmp_dir}"/* || { rm -rf -- "${tmp_dir}"; return 1; }
+  for unit in "${units[@]}"; do
+    sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_dir}/${SERVICE_NAME}-${unit}" "/etc/systemd/system/${SERVICE_NAME}-${unit}" || { rm -rf -- "${tmp_dir}"; return 1; }
+  done
+  rm -rf -- "${tmp_dir}"
+  sudo -n "${SYSTEMCTL_BIN}" daemon-reload
+  log "Prepared units installed only; web environment, activation and ownership cutover unchanged."
+}
+
 main() {
+  if [[ "${1:-}" == "--prepared-units-only" ]]; then
+    [[ "$#" == 1 ]] || { error "Prepared install-only mode takes no extra arguments"; return 1; }
+    install_prepared_units_only
+    return
+  fi
   local force_install force_install_on unit_path tmp_unit
   local frontend_template frontend_name frontend_unit_path tmp_frontend
   local backend_needs_install=false

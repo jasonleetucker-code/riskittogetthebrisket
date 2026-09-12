@@ -1,5 +1,7 @@
 "use client";
 
+import { performanceLabMark } from "@/lib/performance-lab";
+
 import { useCallback, useSyncExternalStore } from "react";
 import { SETTINGS_KEY } from "@/lib/trade-logic";
 
@@ -192,6 +194,7 @@ export const SETTINGS_DEFAULTS = {
 
 // ── localStorage helpers ────────────────────────────────────────────────
 function readSettings() {
+  performanceLabMark("read-start", "settings");
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) {
@@ -229,6 +232,7 @@ function readSettings() {
       return merged;
     }
   } catch { /* ignore */ }
+  finally { performanceLabMark("read-end", "settings"); }
   return { ...SETTINGS_DEFAULTS };
 }
 

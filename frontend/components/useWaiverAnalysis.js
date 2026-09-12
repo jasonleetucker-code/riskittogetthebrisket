@@ -97,10 +97,14 @@ export function useWaiverAnalysis({
   // page because an optional column couldn't load is a worse outcome
   // than a blank column.
   const leagueKey = selectedLeague?.key || "";
-  const faabRemaining = Number.isFinite(Number(selectedTeam?.faabRemaining))
-    ? Number(selectedTeam.faabRemaining)
+  const rawBalance = selectedTeam?.faabRemaining;
+  const numericBalance = typeof rawBalance === "number" ||
+    (typeof rawBalance === "string" && rawBalance.trim() !== "");
+  const faabRemaining = numericBalance && Number.isFinite(Number(rawBalance))
+    ? Number(rawBalance)
     : null;
   const bidsEnabled = Boolean(selectedTeam) && !leagueMismatch;
+  const bidIdentity = JSON.stringify([bidsEnabled, leagueKey, selectedTeam?.ownerId || null, faabRemaining]);
   const [bidPayload, setBidPayload] = useState(null);
 
   useEffect(() => {
@@ -145,7 +149,9 @@ export function useWaiverAnalysis({
         }
         const json = await res.json();
         if (cancelled) return;
-        setBidPayload(json && typeof json === "object" ? json : null);
+        const valid = json && typeof json === "object" && !Array.isArray(json) &&
+          (!leagueKey || !Object.hasOwn(json, "leagueKey") || json.leagueKey === leagueKey);
+        setBidPayload(valid ? { identity: bidIdentity, payload: json } : null);
       } catch {
         // Includes AbortError on unmount/league switch.  Nothing to
         // report: the column simply doesn't appear.
@@ -160,9 +166,11 @@ export function useWaiverAnalysis({
     // via bidsEnabled: switching between two already-selected teams
     // keeps bidsEnabled === true, so without this the bids for the
     // PREVIOUS team would silently stay on screen under the new one.
-  }, [bidsEnabled, leagueKey, faabRemaining, selectedTeam?.ownerId]);
+  }, [bidsEnabled, leagueKey, faabRemaining, selectedTeam?.ownerId, bidIdentity]);
 
-  const faabIndex = useMemo(() => buildWaiverBidIndex(bidPayload), [bidPayload]);
+  const faabIndex = useMemo(() => buildWaiverBidIndex(
+    bidsEnabled && bidPayload?.identity === bidIdentity ? bidPayload.payload : null,
+  ), [bidPayload, bidsEnabled, bidIdentity]);
 
   return {
     analysis,

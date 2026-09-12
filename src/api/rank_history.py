@@ -279,6 +279,17 @@ def _read_lines(path: Path) -> list[dict[str, Any]]:
     return out
 
 
+def _snapshot_entry(contract: dict[str, Any], date: str) -> dict[str, Any] | None:
+    ranks = _extract_ranks(contract)
+    if not ranks:
+        return None
+    values = _extract_values(contract)
+    entry: dict[str, Any] = {"date": date, "ranks": ranks}
+    if values:
+        entry["values"] = values
+    return entry
+
+
 def append_snapshot(
     contract: dict[str, Any],
     *,
@@ -300,16 +311,10 @@ def append_snapshot(
     fallback so retro grading lands on the canonical pipeline scale.
     """
     path = path or HISTORY_PATH
-    ranks = _extract_ranks(contract)
-    if not ranks:
-        return False
-
-    values = _extract_values(contract)
-
     date = date or _today_utc()
-    entry: dict[str, Any] = {"date": date, "ranks": ranks}
-    if values:
-        entry["values"] = values
+    entry = _snapshot_entry(contract, date)
+    if entry is None:
+        return False
 
     path.parent.mkdir(parents=True, exist_ok=True)
     existing = _read_lines(path)
@@ -336,6 +341,7 @@ def load_history(
     days: int = DEFAULT_HISTORY_WINDOW_DAYS,
     *,
     path: Path | None = None,
+    pending_contract: dict[str, Any] | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """Return the last ``days`` snapshots flipped into per-player series.
 
@@ -362,6 +368,11 @@ def load_history(
     """
     path = path or HISTORY_PATH
     entries = _read_lines(path)
+    if pending_contract is not None:
+        pending = _snapshot_entry(pending_contract, _today_utc())
+        if pending is not None:
+            entries = [entry for entry in entries if entry.get("date") != pending["date"]]
+            entries.append(pending)
     if not entries:
         return {}
     entries.sort(key=lambda e: e.get("date") or "")
@@ -469,6 +480,7 @@ def stamp_contract_with_history(
     *,
     days: int = DEFAULT_HISTORY_WINDOW_DAYS,
     path: Path | None = None,
+    include_current: bool = False,
 ) -> int:
     """Mutate the contract so each player row carries ``rankHistory``.
 
@@ -485,7 +497,9 @@ def stamp_contract_with_history(
     (counted once per underlying player — if both the array and the
     legacy dict carry the same entity, it counts once).
     """
-    history = load_history(days=days, path=path)
+    history = load_history(
+        days=days, path=path, pending_contract=contract if include_current else None
+    )
     if not history:
         return 0
 

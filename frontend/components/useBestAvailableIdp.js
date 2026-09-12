@@ -17,18 +17,17 @@ import { useEffect, useState } from "react";
  * reflects its rank across the whole cross-position IDP population.
  */
 export function useBestAvailableIdp({ leagueKey, enabled = true } = {}) {
-  const [payload, setPayload] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const identity = JSON.stringify([leagueKey || "", enabled]);
+  const [state, setState] = useState({ identity: null, payload: null, loading: false });
 
   useEffect(() => {
     if (!enabled) {
-      setPayload(null);
-      setLoading(false);
+      setState({ identity, payload: null, loading: false });
       return undefined;
     }
     let cancelled = false;
     const ctl = new AbortController();
-    setLoading(true);
+    setState((previous) => ({ identity, payload: previous.identity === identity ? previous.payload : null, loading: true }));
     (async () => {
       try {
         const res = await fetch("/api/waiver/best-available-idp", {
@@ -39,24 +38,27 @@ export function useBestAvailableIdp({ leagueKey, enabled = true } = {}) {
         });
         if (cancelled) return;
         if (!res.ok) {
-          setPayload(null);
+          setState({ identity, payload: null, loading: false });
           return;
         }
         const json = await res.json();
         if (cancelled) return;
-        setPayload(json && typeof json === "object" ? json : null);
+        const valid = json && typeof json === "object" && !Array.isArray(json) &&
+          (!leagueKey || !Object.hasOwn(json, "leagueKey") || json.leagueKey === leagueKey);
+        setState({ identity, payload: valid ? json : null, loading: false });
       } catch {
         // Includes AbortError on unmount/league switch.
-        if (!cancelled) setPayload(null);
-      } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setState({ identity, payload: null, loading: false });
       }
     })();
     return () => {
       cancelled = true;
       ctl.abort();
     };
-  }, [enabled, leagueKey]);
+  }, [enabled, leagueKey, identity]);
 
-  return { payload, loading };
+  return {
+    payload: enabled && state.identity === identity ? state.payload : null,
+    loading: enabled && (state.identity !== identity || state.loading),
+  };
 }

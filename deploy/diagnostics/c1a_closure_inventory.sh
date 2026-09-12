@@ -49,6 +49,74 @@ SERVICE_NAME="${SERVICE_NAME:-dynasty}"
 LIB_DIR="${RISKIT_PRIV_LIB_DIR:-/usr/local/lib/riskit}"
 JOURNAL_LINES="${JOURNAL_LINES:-40}"
 
+# This branch deliberately precedes every legacy output/helper invocation.
+# It is a single metadata snapshot, not resource/credential acceptance.
+case "${INVENTORY_SCOPE:-closure}" in
+performance-safe)
+    [[ "${SERVICE_NAME}" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$ ]] || { echo 'inventory_error=invalid_service'; exit 1; }
+    [[ "${APP_DIR}" =~ ^/[a-zA-Z0-9_./-]+$ && "/${APP_DIR}/" != *'/../'* && -d "${APP_DIR}" ]] || { echo 'inventory_error=invalid_app'; exit 1; }
+    safe_number() {
+        local label="$1" value="$2"
+        if [[ "${value}" =~ ^[0-9]{1,24}$ || "${value}" == infinity ]]; then
+            printf '%s=%s\n' "${label}" "${value}"
+        else
+            printf '%s=unavailable\n' "${label}"
+        fi
+    }
+    printf 'scope=performance-safe\n'
+    printf 'timestamp=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    revision="$(git -C "${APP_DIR}" rev-parse --verify HEAD 2>/dev/null || true)"
+    if [[ "${revision}" =~ ^[a-fA-F0-9]{40}$ ]]; then printf 'revision=%s\n' "${revision}"; else echo 'revision=unavailable'; fi
+    for metric in MemTotal MemAvailable; do
+        safe_number "host.${metric}KiB" "$(awk -v key="${metric}:" '$1==key {print $2}' /proc/meminfo 2>/dev/null || true)"
+    done
+    safe_number host.logicalCPUs "$(getconf _NPROCESSORS_ONLN 2>/dev/null || true)"
+    safe_number host.fileMax "$(cat /proc/sys/fs/file-max 2>/dev/null || true)"
+    # Fixed role paths only. stat reports numbers, never target paths/content.
+    for role in app store; do
+        target="${APP_DIR}"
+        [[ "${role}" != store ]] || target="${APP_DIR}/data/private_serving"
+        if [[ -e "${target}" ]]; then
+            for spec in 'owner:%u' 'group:%g' 'mode:%a'; do
+                safe_number "${role}.${spec%%:*}" "$(stat -c "${spec#*:}" -- "${target}" 2>/dev/null || true)"
+            done
+            for spec in 'blockSize:%S' 'blocks:%b' 'availableBlocks:%a'; do
+                safe_number "${role}.${spec%%:*}" "$(stat -f -c "${spec#*:}" -- "${target}" 2>/dev/null || true)"
+            done
+        else
+            printf '%s.state=absent_or_inaccessible\n' "${role}"
+        fi
+    done
+    for suffix in '.service' '-frontend.service' '-source-producer.service' '-source-producer.timer' '-source-producer.path' '-league-serving.service' '-league-serving.timer' '-league-serving.path' '-prepared-news.service' '-dlf-fetch.service' '-dlf-fetch.timer' '-idpshow-fetch.service' '-idpshow-fetch.timer' 'nginx.service'; do
+        unit="${SERVICE_NAME}${suffix}"
+        [[ "${suffix}" != nginx.service ]] || unit=nginx.service
+        for property in LoadState ActiveState SubState UnitFileState MainPID User Group MemoryCurrent MemoryPeak MemoryHigh MemoryMax TasksCurrent TasksMax LimitNOFILE CPUUsageNSec ExecMainStatus NRestarts; do
+            if value="$(systemctl show "${unit}" --property="${property}" --value 2>/dev/null)"; then
+                case "${property}" in
+                    LoadState) pattern='^(loaded|not-found|masked|error|bad-setting|merged|stub)$' ;;
+                    ActiveState) pattern='^(active|inactive|failed|activating|deactivating|reloading|maintenance|refreshing)$' ;;
+                    SubState) pattern='^(running|dead|exited|waiting|listening|failed|auto-restart|start|stop|start-pre|start-post|stop-sigterm|stop-post)$' ;;
+                    UnitFileState) pattern='^(enabled|disabled|static|masked|indirect|generated|transient|alias|enabled-runtime|masked-runtime|linked|linked-runtime)$' ;;
+                    User|Group) pattern='^[a-zA-Z0-9_][a-zA-Z0-9_-]{0,63}$' ;;
+                    *) pattern='^([0-9]{1,24}|infinity)$' ;;
+                esac
+                if [[ "${value}" =~ ${pattern} ]]; then
+                    printf 'unit.%s.%s=%s\n' "${unit}" "${property}" "${value}"
+                else
+                    printf 'unit.%s.%s=unavailable\n' "${unit}" "${property}"
+                fi
+            else
+                printf 'unit.%s.%s=probe_failed\n' "${unit}" "${property}"
+            fi
+        done
+    done
+    echo 'limits=snapshot_only;assumed_default_store_path;actual_store_configuration_unverified;no_process_fd_recovery;no_credential_separation_proof'
+    exit 0
+    ;;
+closure) ;;
+*) echo 'inventory_error=invalid_scope'; exit 1 ;;
+esac
+
 say() { printf '[c1a-inventory] %s\n' "$*"; }
 hdr() { printf '\n[c1a-inventory] ══ %s ══\n' "$*"; }
 kv() { printf '[c1a-inventory]   %-34s %s\n' "$1" "$2"; }

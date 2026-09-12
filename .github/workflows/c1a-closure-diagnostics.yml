@@ -36,6 +36,14 @@ name: C1A closure inventory (read-only)
 on:
   workflow_dispatch:
     inputs:
+      scope:
+        description: "Inventory scope; performance-safe omits journals and arbitrary unit text"
+        required: true
+        default: closure
+        type: choice
+        options:
+          - closure
+          - performance-safe
       journal_lines:
         description: "How many journal lines to tail per unit"
         required: false
@@ -85,6 +93,7 @@ jobs:
           APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
           SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
           JOURNAL_LINES: ${{ inputs.journal_lines }}
+          INVENTORY_SCOPE: ${{ inputs.scope || 'closure' }}
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -97,5 +106,5 @@ jobs:
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -o ConnectTimeout=15 -o ServerAliveInterval=15 \
             -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "APP_DIR=$(printf %q "$APP_DIR") SERVICE_NAME=$(printf %q "$SERVICE_NAME") JOURNAL_LINES=$(printf %q "$JOURNAL_LINES") bash -s" \
+            "APP_DIR=$(printf %q "$APP_DIR") SERVICE_NAME=$(printf %q "$SERVICE_NAME") JOURNAL_LINES=$(printf %q "$JOURNAL_LINES") INVENTORY_SCOPE=$(printf %q "$INVENTORY_SCOPE") bash -s" \
             < deploy/diagnostics/c1a_closure_inventory.sh

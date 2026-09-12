@@ -141,6 +141,7 @@ from src.roster_intel.engine import RosterIntel, analyze_roster
 from src.roster_intel.marginal import optimal_score, to_roster_players
 from src.ros.lineup import RosterPlayer, load_league_starter_slots
 from src.ros.team_strength import load_or_compute_team_strength
+from src.utils.singleflight import SingleFlight
 
 __all__ = [
     "FIELD_POLICY",
@@ -563,6 +564,7 @@ def build_league_bundle(inputs: LeagueInputs) -> LeagueBundle:
 # in server.py.
 
 _CACHE_LOCK = threading.Lock()
+_BUNDLE_FLIGHTS = SingleFlight()
 _BUNDLE_CACHE: dict[str, tuple[str, LeagueBundle]] = {}
 _TEAM_CACHE: "OrderedDict[str, tuple[str, dict[str, Any]]]" = OrderedDict()
 
@@ -602,20 +604,27 @@ def get_league_bundle(
         if cached is not None and cached[0] == inputs.source_stamp:
             return cached[1], True
 
-    # The lock is NOT held across the build.  Two concurrent cold
-    # requests for the same league will each solve it and the second
-    # write wins — a wasted 1.35 s, never a wrong answer, since the
-    # build is a pure function of ``inputs``.  Holding the lock instead
-    # would serialise every gameplan request in the process, including
-    # requests for other leagues, behind one solve.
-    bundle = build_league_bundle(inputs)
-    with _CACHE_LOCK:
-        _BUNDLE_CACHE[league_key] = (inputs.source_stamp, bundle)
-        # Team payloads derived from a superseded bundle are stale by
-        # construction; drop them with it.
-        for key in [k for k in _TEAM_CACHE if k.startswith(f"{league_key}\x00")]:
-            _TEAM_CACHE.pop(key, None)
-    return bundle, False
+    cache_hit = False
+
+    def compute():
+        nonlocal cache_hit
+        with _CACHE_LOCK:
+            cached = _BUNDLE_CACHE.get(league_key)
+            if cached is not None and cached[0] == inputs.source_stamp:
+                cache_hit = True
+                return cached[1]
+        bundle = build_league_bundle(inputs)
+        with _CACHE_LOCK:
+            _BUNDLE_CACHE[league_key] = (inputs.source_stamp, bundle)
+            # Team payloads derived from a superseded bundle are stale.
+            for key in [k for k in _TEAM_CACHE if k.startswith(f"{league_key}\x00")]:
+                _TEAM_CACHE.pop(key, None)
+        return bundle
+
+    # Waiters share only identical league/input work. No process-wide lock is
+    # held while solving, so another league or generation can proceed.
+    bundle, shared = _BUNDLE_FLIGHTS.run((league_key, inputs.source_stamp), compute)
+    return bundle, shared or cache_hit
 
 
 # ── Candidate assembly ───────────────────────────────────────────────

@@ -93,6 +93,7 @@ const MATERIALIZED_FIELDS = [
   "rankDerivedValue",
   "rankHistory",
   "rawSourceValues",
+  "readModelKey", // prepared detail identity; absent in both legacy views
   "rookie",
   "softFallbackCount",
   "sourceCount",

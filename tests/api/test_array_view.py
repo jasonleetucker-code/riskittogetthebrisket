@@ -28,6 +28,8 @@ from fastapi.testclient import TestClient
 import server
 from src.api import league_registry
 
+pytestmark = pytest.mark.usefixtures("isolated_legacy_serving_startup")
+
 
 @pytest.fixture
 def array_env(tmp_path, monkeypatch):
@@ -86,6 +88,7 @@ def _install_views(monkeypatch):
     array_raw = json.dumps(array_payload, ensure_ascii=False, separators=(",", ":")).encode()
 
     monkeypatch.setattr(server, "latest_data", {"players": {}})
+    monkeypatch.setattr(server, "latest_serving_generation", None)
     monkeypatch.setattr(server, "latest_contract_data", full_payload)
     monkeypatch.setattr(server, "latest_data_bytes", full_raw)
     monkeypatch.setattr(server, "latest_data_gzip_bytes", _gzip.compress(full_raw))

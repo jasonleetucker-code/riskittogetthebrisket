@@ -1,0 +1,390 @@
+{
+  "checks": {
+    "noIncorrectResponsesOrUnexpectedFailures": false,
+    "preparedEndpointP95Below75ms": true,
+    "refreshDegradationAtMost20Percent": false,
+    "rssGrowthBound": false,
+    "handlesReturnNearBaseline": false,
+    "noRemainingObservedChildren": true,
+    "diskWithinBudget": true,
+    "faultScenariosObserved": true,
+    "changedAndUnchangedRefreshObserved": true,
+    "requiredHttpReadSeriesObserved": true,
+    "eachHttpReadSeriesP95Below75ms": false,
+    "eachRefreshReadSeriesWithin20Percent": false,
+    "changedPublicationsObservedByHttp": true,
+    "harnessUnchangedDuringRun": true,
+    "observationCoverageAtLeast99Percent": false,
+    "observationSampleGapsAtMost2Seconds": false
+  },
+  "passed": false,
+  "durationSeconds": 16549.187,
+  "baselineSeconds": 600.0,
+  "sampleCount": 1463,
+  "sampleIntervalTargetSeconds": 1,
+  "maxSampleGapSeconds": 14762.625000000002,
+  "descriptorKind": "Windows handles",
+  "latencyScope": "loopback HTTP through real app middleware, synthetic auth session, prepared rankings/trade endpoints and LeagueServingReader; fixed fixture league selection; excludes response audit",
+  "readCounts": {
+    "baseline": 63360,
+    "refresh": 38311,
+    "postRefreshIdle": 364
+  },
+  "p95Milliseconds": {
+    "baseline": 16.286599915474653,
+    "refresh": 31.006900127977133,
+    "postRefreshIdle": 44.867100194096565
+  },
+  "observedChildren": {
+    "observedCount": 123,
+    "remainingCount": 0,
+    "reparentedCount": 0,
+    "unknownCount": 0
+  },
+  "rssBaselineBytes": 552873984,
+  "rssFinalBytes": null,
+  "peakProcessTreeRssBytes": 1700802560,
+  "handlesBaseline": 608,
+  "handlesFinal": null,
+  "maxProcesses": 10,
+  "budgetBytes": 536870912,
+  "diskFinalBytes": 526914633,
+  "errors": [
+    "read_rankings_ConnectionAbortedError",
+    "worker_exit_1",
+    "read_rankings_TimeoutError",
+    "unexpected_read_failures"
+  ],
+  "events": [
+    {
+      "kind": "rejected_candidate_kept_pointer"
+    },
+    {
+      "kind": "corrupt_disk_generation_retained_memory"
+    },
+    {
+      "kind": "reader_recovered_and_restarted"
+    },
+    {
+      "kind": "capacity_exhaustion_kept_pointer"
+    },
+    {
+      "kind": "terminated_worker_lease_reacquired_with_queued_requests"
+    },
+    {
+      "kind": "restarted_worker_acknowledged_preserved_requests",
+      "workerKind": "unchanged",
+      "exitCode": 0
+    },
+    {
+      "kind": "league_refresh",
+      "exitCode": 0
+    },
+    {
+      "kind": "refresh",
+      "sequence": 1,
+      "exitCode": 0,
+      "workerKind": "changed",
+      "publishedGeneration": "5f4dae980845fdeb9852f6cd86aed29eb3616a40dd4c1ae1158d06726bdea943"
+    },
+    {
+      "kind": "league_refresh",
+      "exitCode": 0
+    },
+    {
+      "kind": "refresh",
+      "sequence": 2,
+      "exitCode": 0,
+      "workerKind": "changed",
+      "publishedGeneration": "0be40e2ed1035c523de21fbfb312177645dd42da16b5d375bb227fbbe8526473"
+    },
+    {
+      "kind": "league_refresh",
+      "exitCode": 0
+    },
+    {
+      "kind": "refresh",
+      "sequence": 3,
+      "exitCode": 0,
+      "workerKind": "unchanged",
+      "publishedGeneration": "0be40e2ed1035c523de21fbfb312177645dd42da16b5d375bb227fbbe8526473"
+    },
+    {
+      "kind": "league_refresh",
+      "exitCode": 0
+    },
+    {
+      "kind": "refresh",
+      "sequence": 4,
+      "exitCode": 0,
+      "workerKind": "changed",
+      "publishedGeneration": "567673993fdd72179620b577572ae3e89018a1297bb234cdcd5cbe0120c24a1f"
+    },
+    {
+      "kind": "league_refresh",
+      "exitCode": 0
+    },
+    {
+      "kind": "refresh",
+      "sequence": 5,
+      "exitCode": 0,
+      "workerKind": "changed",
+      "publishedGeneration": "02a6eb9e4892711387f5e7d3649124b6cff8749edd68b25054723261ca002f6e"
+    },
+    {
+      "kind": "league_refresh",
+      "exitCode": 0
+    },
+    {
+      "kind": "refresh",
+      "sequence": 6,
+      "exitCode": 0,
+      "workerKind": "unchanged",
+      "publishedGeneration": "02a6eb9e4892711387f5e7d3649124b6cff8749edd68b25054723261ca002f6e"
+    },
+    {
+      "kind": "league_refresh",
+      "exitCode": 0
+    },
+    {
+      "kind": "refresh",
+      "sequence": 7,
+      "exitCode": 0,
+      "workerKind": "changed",
+      "publishedGeneration": "cb047409ffa32662d7908542504e9d107a90e767a0bdf49f333b84fc534439f5"
+    },
+    {
+      "kind": "league_refresh",
+      "exitCode": 0
+    },
+    {
+      "kind": "refresh",
+      "sequence": 8,
+      "exitCode": 0,
+      "workerKind": "changed",
+      "publishedGeneration": "ab4fe6fa4509c8d4f958fdd56fc1c5c4f468a3ab3270a4c52ca546df2299ba71"
+    },
+    {
+      "kind": "league_refresh",
+      "exitCode": 0
+    },
+    {
+      "kind": "refresh",
+      "sequence": 9,
+      "exitCode": 0,
+      "workerKind": "unchanged",
+      "publishedGeneration": "ab4fe6fa4509c8d4f958fdd56fc1c5c4f468a3ab3270a4c52ca546df2299ba71"
+    },
+    {
+      "kind": "league_refresh",
+      "exitCode": 0
+    },
+    {
+      "kind": "refresh",
+      "sequence": 10,
+      "exitCode": 0,
+      "workerKind": "changed",
+      "publishedGeneration": "61ec4f7da6a5013d18b65a22d0e3577bd82706902049e292a8de55cdec2a4231"
+    },
+    {
+      "kind": "league_refresh",
+      "exitCode": 0
+    },
+    {
+      "kind": "refresh",
+      "sequence": 11,
+      "exitCode": 0,
+      "workerKind": "changed",
+      "publishedGeneration": "dccf1633e2453f29e9b534eb5c70bd21163a6c21491f31dadd5e8077af6e6aaa"
+    },
+    {
+      "kind": "league_refresh",
+      "exitCode": 0
+    },
+    {
+      "kind": "refresh",
+      "sequence": 12,
+      "exitCode": 0,
+      "workerKind": "unchanged",
+      "publishedGeneration": "dccf1633e2453f29e9b534eb5c70bd21163a6c21491f31dadd5e8077af6e6aaa"
+    },
+    {
+      "kind": "league_refresh",
+      "exitCode": 0
+    },
+    {
+      "kind": "refresh",
+      "sequence": 13,
+      "exitCode": 0,
+      "workerKind": "changed",
+      "publishedGeneration": "d4538f94834d363d9eb9e6524cdeea90054628219b4fca62b0fd363137e8bdc1"
+    },
+    {
+      "kind": "league_refresh",
+      "exitCode": 0
+    },
+    {
+      "kind": "refresh",
+      "sequence": 14,
+      "exitCode": 0,
+      "workerKind": "changed",
+      "publishedGeneration": "c295a5dbe4097ac32242409d3db4c3fb8e6491099e5452350c1ac214f410316b"
+    },
+    {
+      "kind": "league_refresh",
+      "exitCode": 0
+    },
+    {
+      "kind": "refresh",
+      "sequence": 15,
+      "exitCode": 0,
+      "workerKind": "unchanged",
+      "publishedGeneration": "c295a5dbe4097ac32242409d3db4c3fb8e6491099e5452350c1ac214f410316b"
+    },
+    {
+      "kind": "league_refresh",
+      "exitCode": 0
+    },
+    {
+      "kind": "refresh",
+      "sequence": 16,
+      "exitCode": 0,
+      "workerKind": "changed",
+      "publishedGeneration": "13ff1029393674d3846124ea49a780c5a4a07e1558631a26ffe48cb40bd21daa"
+    },
+    {
+      "kind": "league_refresh",
+      "exitCode": 0
+    },
+    {
+      "kind": "refresh",
+      "sequence": 17,
+      "exitCode": 0,
+      "workerKind": "changed",
+      "publishedGeneration": "b25a6ff87dfdc62f5e4b817c83a8900a2abebae21fe3ed91647f1226f06b89a7"
+    },
+    {
+      "kind": "refresh",
+      "sequence": 18,
+      "exitCode": 1,
+      "workerKind": "unchanged",
+      "publishedGeneration": null
+    },
+    {
+      "kind": "league_refresh",
+      "exitCode": 0
+    }
+  ],
+  "limitations": [
+    "Private recorded board replay; no external providers",
+    "No deployed API or Linux/systemd proof",
+    "Separate loopback web child uses fixture lifespan and auth session; login, session persistence and external network latency are excluded",
+    "Changed input uses a non-value metadata revision; canonical values remain fixed",
+    "CPU seconds include currently live processes; completed child totals are unavailable",
+    "PID/create-time ledger detects surviving observed descendants after reparenting; unobserved short-lived descendants and real scraper/browser cleanup are unproven"
+  ],
+  "responseCounts": {
+    "rankings:baseline:unconditional:200": 15840,
+    "rankings:baseline:conditional:304": 15840,
+    "trade:baseline:unconditional:200": 15840,
+    "trade:baseline:conditional:304": 15840,
+    "rankings:postRefreshIdle:unconditional:200": 90,
+    "rankings:postRefreshIdle:conditional:304": 91,
+    "trade:postRefreshIdle:unconditional:200": 90,
+    "trade:postRefreshIdle:conditional:304": 93,
+    "trade:refresh:conditional:304": 9575,
+    "rankings:refresh:conditional:304": 9576,
+    "trade:refresh:unconditional:200": 9581,
+    "rankings:refresh:unconditional:200": 9579,
+    "rankings:refresh:unconditional:503": 1733,
+    "trade:refresh:unconditional:503": 1732,
+    "trade:refresh:conditional:503": 3,
+    "rankings:refresh:conditional:503": 1
+  },
+  "p95MillisecondsByReadSeries": {
+    "rankings:baseline:unconditional:200": 16.459299717098475,
+    "rankings:baseline:conditional:304": 4.747400060296059,
+    "trade:baseline:unconditional:200": 23.88879982754588,
+    "trade:baseline:conditional:304": 4.765599966049194,
+    "rankings:postRefreshIdle:unconditional:200": 180.31860003247857,
+    "rankings:postRefreshIdle:conditional:304": 18.513699993491173,
+    "trade:postRefreshIdle:unconditional:200": 27.426800224930048,
+    "trade:postRefreshIdle:conditional:304": 15.054999850690365,
+    "trade:refresh:conditional:304": 9.298699907958508,
+    "rankings:refresh:conditional:304": 7.383399643003941,
+    "trade:refresh:unconditional:200": 28.410700149834156,
+    "rankings:refresh:unconditional:200": 106.25129984691739
+  },
+  "baselineComparisons": {
+    "trade:refresh:conditional:304": "trade:baseline:conditional:304",
+    "rankings:refresh:conditional:304": "rankings:baseline:conditional:304",
+    "trade:refresh:unconditional:200": "trade:baseline:unconditional:200",
+    "rankings:refresh:unconditional:200": "rankings:baseline:unconditional:200"
+  },
+  "observedHttpGenerations": {
+    "7c36b88688011bb7a8a26edb31182a57b76107ab2e29c6ca3422e8472f114361": 67016,
+    "5f4dae980845fdeb9852f6cd86aed29eb3616a40dd4c1ae1158d06726bdea943": 1679,
+    "0be40e2ed1035c523de21fbfb312177645dd42da16b5d375bb227fbbe8526473": 3877,
+    "567673993fdd72179620b577572ae3e89018a1297bb234cdcd5cbe0120c24a1f": 1426,
+    "02a6eb9e4892711387f5e7d3649124b6cff8749edd68b25054723261ca002f6e": 4181,
+    "cb047409ffa32662d7908542504e9d107a90e767a0bdf49f333b84fc534439f5": 2324,
+    "ab4fe6fa4509c8d4f958fdd56fc1c5c4f468a3ab3270a4c52ca546df2299ba71": 4608,
+    "61ec4f7da6a5013d18b65a22d0e3577bd82706902049e292a8de55cdec2a4231": 1924,
+    "dccf1633e2453f29e9b534eb5c70bd21163a6c21491f31dadd5e8077af6e6aaa": 5091,
+    "d4538f94834d363d9eb9e6524cdeea90054628219b4fca62b0fd363137e8bdc1": 1868,
+    "c295a5dbe4097ac32242409d3db4c3fb8e6491099e5452350c1ac214f410316b": 4644,
+    "13ff1029393674d3846124ea49a780c5a4a07e1558631a26ffe48cb40bd21daa": 1912,
+    "b25a6ff87dfdc62f5e4b817c83a8900a2abebae21fe3ed91647f1226f06b89a7": 1485
+  },
+  "readErrorCounts": {
+    "rankings:http_503": 1734,
+    "trade:http_503": 1735,
+    "rankings:ConnectionAbortedError": 1,
+    "rankings:TimeoutError": 1
+  },
+  "responseAuditCacheMisses": 26,
+  "responseAuditCacheLimit": 64,
+  "idleProcessCount": 4,
+  "inputSha256": "7c36b88688011bb7a8a26edb31182a57b76107ab2e29c6ca3422e8472f114361",
+  "rawInputSha256": "9133cbee209b6e8b220f38f780871a033d94a8ea7e0f5d167cb0605378439d32",
+  "harnessSha256": "1fdddf5766cc4af740a1cac9bd9e8927a6bfbb9e86d0566775ad3dc4596c81d4",
+  "environment": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.10",
+    "psutil": "7.2.2",
+    "hostMemoryBytes": 33821810688,
+    "logicalCpus": 22
+  },
+  "retention": {
+    "schemaVersion": 1,
+    "status": "ok",
+    "dryRun": true,
+    "bytesBefore": 526914623,
+    "bytesAfter": 526914623,
+    "projectedBytes": 526914623,
+    "budgetBytes": 536870912,
+    "minFreeBytes": 524288000,
+    "freeBytes": 238107234304,
+    "generationCount": 10,
+    "protectedCount": 6,
+    "deletedCount": 0,
+    "plannedDeleteCount": 0,
+    "reclaimedBytes": 0,
+    "oldestRetainedAt": "2026-09-11T01:56:38.187218+00:00",
+    "unknownAcceptanceCount": 0,
+    "shortenedRollbackWindow": false,
+    "blocked": false,
+    "capacityBlocked": false
+  },
+  "readObservationSeconds": 16544.703000000212,
+  "observedSampleCountBeforeCleanup": 1462,
+  "maxObservationSampleGapSeconds": 313.8130000000001,
+  "sampleCoverageFraction": 0.0883666512478333,
+  "samplingRequirements": {
+    "minimumCoverageFraction": 0.99,
+    "maximumGapSeconds": 2
+  },
+  "quietSeconds": 125.0,
+  "full60MinuteSoak": false,
+  "latencyObservationsFile": "soak-full-01-report.latencies.json"
+}

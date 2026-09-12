@@ -712,6 +712,12 @@ ensure_systemd_service() {
     # install-systemd-service.sh. Without this they would read as
     # permanently missing and run the installer on every deploy.
     case "${timer_unit}" in
+      "${SERVICE_NAME}-source-producer.timer" | "${SERVICE_NAME}-league-serving.timer")
+        # These workers are staged behind an explicit source-ownership cutover.
+        # The installer intentionally does not own or enable them. Probing them
+        # as mandatory would report them missing on every legacy-mode deploy.
+        continue
+        ;;
       *-signal-alerts.timer | *-custom-alerts.timer)
         if [[ ! -f "${APP_DIR}/.env" ]] ||
           ! grep -Eq '^[[:space:]]*SIGNAL_ALERT_CRON_TOKEN=.+$' "${APP_DIR}/.env"; then

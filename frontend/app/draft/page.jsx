@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/app/AppShellWrapper";
 import { useApp } from "@/components/AppShell";
 import { useLeague } from "@/components/useLeague";
+import { createDraftCapitalLoader, draftTeamsFromContract } from "@/lib/draft-feed";
 
 import {
   buildTeamIndexLookup,
@@ -3450,13 +3451,17 @@ export default function DraftDashboardPage() {
   // /api/draft-capital and its own workspace, but the player values it
   // shows alongside come from the same contract every other page reads,
   // so the same lens applies and the same silence applied here too.
-  const { rawData } = useApp();
+  const { rawData, loading: contractLoading } = useApp();
   // League-scoped draft workspace — a draft-in-progress lives per
   // league, keyed by ``DRAFT_STORAGE_KEY__<leagueKey>``.  Switching
   // leagues mid-draft doesn't destroy the prior league's board.
   // Falls back to the legacy unsuffixed key when no league is
   // resolved yet (cold boot) so pre-migration state still hydrates.
   const { selectedLeagueKey } = useLeague();
+  const activeLeagueRef = useRef(selectedLeagueKey);
+  activeLeagueRef.current = selectedLeagueKey;
+  const capitalLoaderRef = useRef(null);
+  if (!capitalLoaderRef.current) capitalLoaderRef.current = createDraftCapitalLoader();
   const draftStorageKey = useMemo(
     () =>
       selectedLeagueKey
@@ -3637,17 +3642,13 @@ export default function DraftDashboardPage() {
   // pool matches what the workspace holds.
   const autoSyncKeyRef = useRef("");
   useEffect(() => {
-    if (!hydrated || autoSyncKeyRef.current === draftStorageKey) return;
+    if (!hydrated || authenticated !== true || !selectedLeagueKey || autoSyncKeyRef.current === draftStorageKey) return;
     autoSyncKeyRef.current = draftStorageKey;
     let cancelled = false;
     (async () => {
       try {
-        const capitalRes = await fetch("/api/draft-capital", {
-          cache: "no-store",
-        });
-        if (!capitalRes.ok) return;
+        const capitalData = await capitalLoaderRef.current(selectedLeagueKey);
         if (cancelled) return;
-        const capitalData = await capitalRes.json();
         const picks = Array.isArray(capitalData?.picks)
           ? capitalData.picks
           : [];
@@ -3732,7 +3733,7 @@ export default function DraftDashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [hydrated, draftStorageKey]);
+  }, [hydrated, draftStorageKey, authenticated, selectedLeagueKey]);
 
   const stats = useMemo(() => computeDraftStats(workspace), [workspace]);
   // Retrospective inflation trajectory — O(N²) in pick count, but
@@ -3901,13 +3902,8 @@ export default function DraftDashboardPage() {
         // per-team auction budgets come from the right Sleeper
         // league.  Backend validates + 503s with a clean error
         // when the requested league's data isn't loaded.
-        const url = selectedLeagueKey
-          ? `/api/draft-capital?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
-          : "/api/draft-capital";
-        const res = await fetch(url, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (data?.error) throw new Error(data.error);
+        const data = await capitalLoaderRef.current(selectedLeagueKey);
+        if (activeLeagueRef.current !== selectedLeagueKey) return;
         const teamTotals = Array.isArray(data?.teamTotals)
           ? data.teamTotals
           : [];
@@ -3955,6 +3951,7 @@ export default function DraftDashboardPage() {
           },
         }));
       } catch (err) {
+        if (activeLeagueRef.current !== selectedLeagueKey) return;
         setCapitalStatus((s) => ({
           ...s,
           loading: false,
@@ -3971,42 +3968,21 @@ export default function DraftDashboardPage() {
   // rows snap to the latest feed.  "Load from Draft Capital" still
   // exists for a hard reset that overwrites every row.
   useEffect(() => {
-    if (!hydrated || authenticated !== true) return;
+    if (!hydrated || authenticated !== true || !selectedLeagueKey) return;
     fetchDraftCapital({ quiet: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, authenticated]);
+  }, [hydrated, authenticated, selectedLeagueKey, fetchDraftCapital]);
 
-  // Auto-fetch the Sleeper teams list on mount.  Independent of the
-  // manual "Sync rookies" path (which also reads /api/data) so the
-  // live-sync hook can resolve picks to workspace team idx as soon
-  // as the toggle flips on — no extra click required.  Each live pick
-  // also arrives pre-stamped with ``playerName`` server-side, so we
-  // don't need playersArray here.
+  // The shell already fetches this league's contract. Reuse its team
+  // map rather than downloading the full contract again for one block.
+  // A pending/mismatched league stays null so live sync waits to resolve
+  // picks instead of treating an absent team map as an empty ready map.
   useEffect(() => {
-    if (!hydrated || authenticated !== true) return;
-    // Reset to null at the start of every league-key fetch.  The
-    // live-sync handler keys its readiness gate off "sleeperTeams !==
-    // null", so leaving the old league's array in state during a
-    // switch would treat the new league's incoming picks as if the
-    // team map were ready (against stale data) and silently drop
-    // them.
-    setSleeperTeams(null);
-    let cancelled = false;
-    const url = selectedLeagueKey
-      ? `/api/data?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
-      : "/api/data";
-    fetch(url, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (cancelled || !data) return;
-        const teams = data?.sleeper?.teams || [];
-        setSleeperTeams(teams);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [hydrated, authenticated, selectedLeagueKey]);
+    setSleeperTeams(
+      hydrated && authenticated === true
+        ? draftTeamsFromContract(rawData, selectedLeagueKey, contractLoading)
+        : null,
+    );
+  }, [hydrated, authenticated, selectedLeagueKey, rawData, contractLoading]);
 
   const onSettings = useCallback(
     (patch) => setWorkspace((ws) => updateSettings(ws, patch)),
@@ -4264,25 +4240,23 @@ export default function DraftDashboardPage() {
       // sleeper block and 503s cleanly when the requested league
       // isn't loaded yet.
       const url = selectedLeagueKey
-        ? `/api/data?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
-        : "/api/data";
+        ? `/api/data?view=array&leagueKey=${encodeURIComponent(selectedLeagueKey)}`
+        : "/api/data?view=array";
       // Fetch /api/data and /api/draft-capital in parallel — the
       // draft-capital response carries per-slot dollar values from
       // the workbook, which we use as each rookie's preDraft (the
       // consensus 1.01 rookie inherits pick 1.01's dollar value, etc.)
       // instead of rescaling raw blended values across the top 72.
-      const [res, capitalRes] = await Promise.all([
+      const [res, capitalData] = await Promise.all([
         fetch(url, { cache: "no-store" }),
-        fetch("/api/draft-capital", { cache: "no-store" }).catch(() => null),
+        capitalLoaderRef.current(selectedLeagueKey).catch(() => null),
       ]);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      // capitalRes can be null (network failure) or a non-ok response
-      // — fall back to the rescale path in either case so sync still
-      // works when the workbook isn't available.
-      const capitalData =
-        capitalRes && capitalRes.ok ? await capitalRes.json() : null;
-      // Prefer the contract's ``playersArray`` (full view).  Fall
+      if (activeLeagueRef.current !== selectedLeagueKey) return;
+      setSleeperTeams(draftTeamsFromContract(data, selectedLeagueKey));
+      // A failed capital request falls back to the existing rescale path.
+      // Prefer the contract's ``playersArray`` (array view). Fall
       // back to the legacy ``players`` dict — the runtime view
       // (``view=app``) strips playersArray but keeps the dict, and
       // some deploy paths cache that view as the default.  Both
@@ -4570,43 +4544,22 @@ export default function DraftDashboardPage() {
   }, [syncPreview]);
 
   // Roster gap: whenever selectedTeamIdx (from fetchDraftCapital
-  // metadata) and sleeperTeams are resolved, capture the user's
-  // current NFL roster so ``computeRosterBreakdown`` has data to
-  // work with.  Wired to the same /api/data fetch as the sync
-  // feature — no extra network call needed.
+  // metadata) and sleeperTeams are resolved, derive the user's roster
+  // from the same snapshot. A workspace edit needs no network request.
   useEffect(() => {
-    if (!allPlayersArray) return;
+    if (!allPlayersArray || !sleeperTeams) {
+      setRosterPlayers(null);
+      return;
+    }
     const myTeamIdx = workspace?.settings?.myTeamIdx ?? 0;
     const myTeamName = workspace?.teams?.[myTeamIdx]?.name || "";
-    // Sleeper teams are under the cached /api/data response
-    // (rawData.sleeper.teams in other pages) but here we pull the
-    // latest fetched snapshot's sleeper section via the
-    // playersArray fetch side-effect.  Defer to the user's
-    // currently selected team identity by NAME.
-    try {
-      const url = selectedLeagueKey
-        ? `/api/data?leagueKey=${encodeURIComponent(selectedLeagueKey)}`
-        : "/api/data";
-      fetch(url, { cache: "force-cache" })
-        .then((r) => r.json())
-        .then((data) => {
-          const teams = data?.sleeper?.teams || [];
-          // Capture the full Sleeper teams list so the live-draft
-          // sync hook can resolve ``picked_by`` (Sleeper user_id) to
-          // a workspace team idx by name match.
-          setSleeperTeams(teams);
-          const mine = teams.find(
-            (t) =>
-              String(t.name || "").toLowerCase() === myTeamName.toLowerCase(),
-          );
-          if (mine) setRosterPlayers(mine.players || []);
-        })
-        .catch(() => {});
-    } catch {
-      /* ignore */
-    }
+    const mine = sleeperTeams.find(
+      (t) => String(t.name || "").toLowerCase() === myTeamName.toLowerCase(),
+    );
+    setRosterPlayers(mine ? mine.players || [] : null);
   }, [
     allPlayersArray,
+    sleeperTeams,
     workspace?.settings?.myTeamIdx,
     workspace?.teams,
     selectedLeagueKey,

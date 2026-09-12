@@ -1,6 +1,6 @@
 [Unit]
 Description=Trigger DLF rankings refresh every 2 hours
-Requires=dynasty-dlf-fetch.service
+Requires=__SERVICE_NAME__-dlf-fetch.service
 
 [Timer]
 # Every 2 hours at minute 27 UTC.  Offset by 15 minutes from the

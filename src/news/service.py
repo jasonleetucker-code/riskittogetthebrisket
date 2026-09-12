@@ -35,7 +35,7 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Any, Iterable, List, Mapping, Optional, Sequence
 
-from .base import NewsItem, NewsProvider
+from .base import NewsItem, NewsProvider, ProviderFetchDiagnostics
 from .digest import build_player_digests
 from .providers import available_provider_names, build_provider
 
@@ -83,6 +83,9 @@ class ProviderRunResult:
     ok: bool = True
     error: Optional[str] = None
     elapsed_ms: int = 0
+    attempted_count: Optional[int] = None
+    failed_count: Optional[int] = None
+    retained: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         out = {
@@ -94,6 +97,10 @@ class ProviderRunResult:
         }
         if self.error:
             out["error"] = self.error
+        if self.attempted_count is not None:
+            out["attemptedCount"] = self.attempted_count
+            out["failedCount"] = self.failed_count
+            out["retained"] = self.retained
         return out
 
 
@@ -106,6 +113,10 @@ class AggregatedNews:
     provider_runs: List[ProviderRunResult] = field(default_factory=list)
     generated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     cache_hit: bool = False
+    retained: bool = False
+    last_attempt_at: Optional[str] = None
+    last_success_at: Optional[str] = None
+    stale: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -114,6 +125,10 @@ class AggregatedNews:
             "providerRuns": [r.to_dict() for r in self.provider_runs],
             "generatedAt": self.generated_at,
             "cacheHit": self.cache_hit,
+            "retained": self.retained,
+            "lastAttemptAt": self.last_attempt_at,
+            "lastSuccessAt": self.last_success_at,
+            "stale": self.stale,
             "count": len(self.items),
             # One combined entry per player with multiple recent
             # stories (see src/news/digest.py — including the LLM
@@ -245,6 +260,24 @@ def _filter_by_team_names(
     return out
 
 
+def project_news(
+    base: AggregatedNews,
+    team_names: Iterable[str] = (),
+    *,
+    now_epoch: float,
+    total_limit: int = DEFAULT_TOTAL_LIMIT,
+    cache_hit: bool = True,
+) -> AggregatedNews:
+    """Project the same retained snapshot for HTTP, terminal and prepared readers.
+
+    Re-evaluate the hard cutoff on every read: a stopped producer must never
+    keep an old headline alive just because its artifact pointer did not move.
+    """
+    items = _drop_stale_items(base.items, now_epoch=now_epoch)
+    items = _filter_by_team_names(items, team_names)
+    return replace(base, items=items[:total_limit], cache_hit=cache_hit)
+
+
 class NewsService:
     """Aggregator with TTL cache and per-provider fault isolation."""
 
@@ -338,27 +371,10 @@ class NewsService:
             refresh.wait(timeout=_REFRESH_WAIT_TIMEOUT_S)
 
         try:
-            items, runs = self._fetch_all(known_names)
-            # Hard 7-day freshness cutoff — applied at aggregation so
-            # every downstream surface inherits it.  The cache TTL
-            # (≤180s) is far below the cutoff granularity, so cached
-            # entries can't meaningfully age past it between misses.
-            items = _drop_stale_items(items, now_epoch=self._clock())
-            items = _dedupe(items)
-            items = _sort_items(items)
-            # Stamp position/team identity discriminators onto
-            # mentions before caching, so every consumer of the
-            # cached aggregate (route + terminal) sees enriched
-            # payloads regardless of which caller warmed the cache.
-            items = _enrich_player_mentions(items, player_meta)
-
-            providers_used = [r.name for r in runs if r.ok and r.count > 0]
-            base = AggregatedNews(
-                items=items,
-                providers_used=providers_used,
-                provider_runs=runs,
-                generated_at=datetime.now(timezone.utc).isoformat(),
-                cache_hit=False,
+            base = self.refresh_snapshot(
+                player_names=known_names,
+                player_meta=player_meta,
+                previous=cached[1] if cached else None,
             )
 
             # All-failed aggregates get the short failure TTL so
@@ -366,7 +382,7 @@ class NewsService:
             # anything with at least one healthy provider (including
             # a legit empty feed from zero configured providers)
             # keeps the normal TTL.
-            all_failed = bool(runs) and not any(r.ok for r in runs)
+            all_failed = bool(base.provider_runs) and not any(r.ok for r in base.provider_runs)
             ttl = min(self._ttl, FAILURE_CACHE_TTL_S) if all_failed else self._ttl
 
             now = self._clock()
@@ -393,6 +409,51 @@ class NewsService:
 
         return self._project(base, team_filter, cache_hit=False)
 
+    def refresh_snapshot(
+        self,
+        *,
+        player_names: Optional[Iterable[str]] = None,
+        player_meta: Optional[Mapping[str, Mapping[str, Any]]] = None,
+        previous: Optional[AggregatedNews] = None,
+    ) -> AggregatedNews:
+        """Fetch one unfiltered snapshot, retaining failed providers' valid items.
+
+        A successful empty feed replaces that provider's old items. Failed runs
+        retain their failure diagnostics, even when previous items remain usable;
+        this preserves the route's all-provider-failure 503 distinction.
+        """
+        items, runs = self._fetch_all(sorted({n for n in (player_names or []) if n}))
+        failed = {run.name for run in runs if not run.ok}
+        retained = [item for item in previous.items if item.provider in failed] if previous else []
+        now = self._clock()
+        retained = _drop_stale_items(retained, now_epoch=now)
+        items = _sort_items(_dedupe(_drop_stale_items(items + retained, now_epoch=now)))
+        items = _enrich_player_mentions(items, player_meta)
+        attempted_at = datetime.fromtimestamp(now, tz=timezone.utc).isoformat()
+        all_failed = bool(runs) and not any(run.ok for run in runs)
+        observed_success = any(
+            run.ok
+            and (
+                run.attempted_count is None
+                or (run.failed_count is not None and run.attempted_count > run.failed_count)
+            )
+            for run in runs
+        )
+        return AggregatedNews(
+            items=items,
+            providers_used=[run.name for run in runs if run.ok and run.count > 0],
+            provider_runs=runs,
+            generated_at=previous.generated_at
+            if not observed_success and previous
+            else attempted_at,
+            retained=bool(retained) or any(run.retained for run in runs),
+            last_attempt_at=attempted_at,
+            last_success_at=(
+                attempted_at if observed_success else previous.last_success_at if previous else None
+            ),
+            stale=all_failed,
+        )
+
     def _project(
         self,
         base: AggregatedNews,
@@ -405,14 +466,11 @@ class NewsService:
         never mutated.  The cap runs AFTER the filter (matching the
         pre-cache-restructure order) so a narrow team filter can
         still surface items beyond the unfiltered top slice."""
-        items = list(base.items)
-        if team_filter:
-            items = _filter_by_team_names(items, team_filter)
-        return AggregatedNews(
-            items=items[: self._total_limit],
-            providers_used=base.providers_used,
-            provider_runs=base.provider_runs,
-            generated_at=base.generated_at,
+        return project_news(
+            base,
+            team_filter,
+            now_epoch=self._clock(),
+            total_limit=self._total_limit,
             cache_hit=cache_hit,
         )
 
@@ -442,8 +500,8 @@ class NewsService:
                     player_names=known_names,
                     limit=self._limit_per_provider,
                 )
-                if not isinstance(items, list):
-                    items = list(items or [])
+                if not isinstance(items, list) or not all(isinstance(it, NewsItem) for it in items):
+                    raise TypeError("provider must return a list of NewsItem")
                 run.count = len(items)
                 items_out = items
             except Exception as exc:  # defensive — providers
@@ -454,6 +512,14 @@ class NewsService:
                 run.error = f"{type(exc).__name__}: {exc}"
             finally:
                 run.elapsed_ms = int((time.monotonic() - started) * 1000)
+                diagnostics = getattr(provider, "last_fetch_diagnostics", None)
+                if isinstance(diagnostics, ProviderFetchDiagnostics):
+                    run.attempted_count = diagnostics.attempted
+                    run.failed_count = diagnostics.failed
+                    run.retained = diagnostics.retained
+                    if diagnostics.error:
+                        run.ok = False
+                        run.error = run.error or diagnostics.error
             return items_out, run
 
         providers = list(self._providers)

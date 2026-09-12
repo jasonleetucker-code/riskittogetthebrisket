@@ -53,7 +53,11 @@
  * USAGE
  *   E2E_TEST_SECRET=... node scripts/measure-route-baselines.mjs \
  *     [--runs 5] [--viewport desktop|mobile|both] [--routes /a,/b] \
- *     [--json out.json]
+ *     [--cpu 4] [--network 4g] [--player-id ID] [--json out.json]
+ *
+ * Reports LCP/INP/CLS from Next's pinned web-vitals implementation within
+ * the declared lab observation window; INP stays null without a qualifying
+ * interaction. Full-suite runs require a player ID for the detail route.
  *
  * Needs the PRODUCTION build running on :3000 and the backend on :8000
  * (a `next dev` first-compile number is meaningless here), plus
@@ -63,6 +67,7 @@
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import { chromium } from "playwright";
+import { hasUsefulElement, summarise, validateRunOptions, buildMetricsInitScript } from "./route-baseline-support.mjs";
 
 const require = createRequire(import.meta.url);
 // One owner for "what marks this route ready" — the e2e suite's table.
@@ -78,14 +83,21 @@ const SECRET = process.env.E2E_TEST_SECRET || "";
 // so a later reader can tell a real readiness signal from a shell that
 // happens to contain a div.
 const ROUTES = [
-  { path: "/rankings", ready: SEL.boardRow, note: "a board row — the player table has data" },
-  { path: "/trade", ready: SEL.tradeControls, note: "the trade control bar" },
+  { path: "/rankings", ready: SEL.boardRow, note: "a visible data row — no skeleton, spacer or staged streaming copy", interaction: '[aria-label="Search the board"]' },
+  { path: "/trade", ready: SEL.tradeControls, note: "the loaded trade control bar", interaction: ".trade-side-search-input" },
   { path: "/league", ready: "main .card, .league-page .card", note: "the first league card" },
   { path: "/market/sharp-tracker", ready: "main table tbody tr", note: "a tracker table row" },
   { path: "/market/sharp-roster-percentage", ready: "main table tbody tr", note: "a roster-percentage row" },
   { path: "/waivers", ready: SEL.waiverBidDesk, note: "the FAAB bid desk" },
   { path: "/trades", ready: SEL.tradeLedgerEntry, note: "a ledger entry" },
-  { path: "/", ready: SEL.dashboardStats, note: "the team aggregates block" },
+  { path: "/", ready: SEL.dashboardUsefulStats, note: "resolved team with settled aggregate inputs and a finite displayed value; selection/unavailable is not useful" },
+  { path: "/draft", ready: SEL.draftBoardRow, note: "a loaded draft board row" },
+  { path: "/rosters", ready: ".roster-portfolio-table tbody tr", note: "a roster portfolio row" },
+  { path: "/bdvm", ready: 'main [role="tabpanel"] table tbody tr', note: "a fundamental values row" },
+  { path: "/game-day", ready: '[data-game-day-ready="true"]', note: "a successfully loaded matchup" },
+  { path: "/league-comparison", ready: 'main .card .btn.active', note: "loaded comparison method controls" },
+  { path: "/players/compare", ready: 'main input[type="search"]', note: "player comparison search after its catalog loads" },
+  { path: "/players/[playerId]", ready: 'main [role="tabpanel"]', note: "a loaded player overview; requires --player-id" },
 ];
 
 const VIEWPORTS = {
@@ -94,7 +106,7 @@ const VIEWPORTS = {
 };
 
 function parseArgs(argv) {
-  const out = { runs: 5, viewport: "both", routes: null, json: null, timeout: 45_000 };
+  const out = { runs: 5, viewport: "both", routes: null, json: null, timeout: 45_000, cpu: 1, network: "none", playerId: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--runs") out.runs = Number(argv[++i]);
@@ -102,16 +114,12 @@ function parseArgs(argv) {
     else if (a === "--routes") out.routes = argv[++i].split(",").map((s) => s.trim());
     else if (a === "--json") out.json = argv[++i];
     else if (a === "--timeout") out.timeout = Number(argv[++i]);
+    else if (a === "--cpu") out.cpu = Number(argv[++i]);
+    else if (a === "--network") out.network = argv[++i];
+    else if (a === "--player-id") out.playerId = argv[++i];
+    else throw new Error(`Unknown argument: ${a}`);
   }
   return out;
-}
-
-/** p-th percentile by nearest-rank; null for an empty sample rather than 0. */
-function pct(values, p) {
-  const xs = values.filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
-  if (!xs.length) return null;
-  const rank = Math.max(1, Math.ceil((p / 100) * xs.length));
-  return Math.round(xs[rank - 1]);
 }
 
 /**
@@ -125,12 +133,12 @@ async function measureOnce(page, route, timeoutMs) {
   let readyReason = null;
   let usefulMs = null;
   try {
-    await page.goto(`${PAGE_ORIGIN}${route.path}`, {
+    await page.goto(`${PAGE_ORIGIN}${route.urlPath || route.path}`, {
       waitUntil: "commit",
       timeout: timeoutMs,
     });
     try {
-      await page.locator(route.ready).first().waitFor({ state: "attached", timeout: timeoutMs });
+      await page.waitForFunction(hasUsefulElement, route.ready, { timeout: timeoutMs });
       usefulMs = await page.evaluate(() => performance.now());
     } catch {
       readyReason = `readiness marker never appeared within ${timeoutMs}ms`;
@@ -142,6 +150,24 @@ async function measureOnce(page, route, timeoutMs) {
     return { error: err?.message || String(err) };
   }
 
+  let interactionMs = null;
+  let interactionError = null;
+  if (usefulMs != null && route.interaction) {
+    try {
+      const input = page.locator(`${route.interaction}:visible`).first();
+      const start = await page.evaluate(() => performance.now());
+      await input.pressSequentially("a");
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      interactionMs = Math.round((await page.evaluate(() => performance.now())) - start);
+      await input.press("Backspace");
+    } catch (error) {
+      interactionError = error?.message || String(error);
+    }
+  }
+
+  // Capture only observed metrics within this declared lab window. Headless
+  // Chromium does not reliably hide a page when another tab is foregrounded;
+  // do not simulate visibility events or invent an unreported zero CLS.
   const nav = await page.evaluate(() => {
     const n = performance.getEntriesByType("navigation")[0];
     const fcp = performance
@@ -164,39 +190,41 @@ async function measureOnce(page, route, timeoutMs) {
     return {
       encodedBytes: encoded || null,
       decodedBytes: decoded || null,
+      // transferSize includes headers and reflects HTTP-cache reuse;
+      // encodedBodySize alone also counts cached response bodies.
+      transferBytes: resources.reduce((a, r) => a + (r.transferSize || 0), 0) + (n?.transferSize || 0),
       requestCount: resources.length,
       ttfbMs: n ? Math.round(n.responseStart) : null,
       fcpMs: fcp ? Math.round(fcp.startTime) : null,
       domContentLoadedMs: n ? Math.round(n.domContentLoadedEventEnd) : null,
       loadMs: n && n.loadEventEnd > 0 ? Math.round(n.loadEventEnd) : null,
       domNodes: document.getElementsByTagName("*").length,
-      finalUrl: location.pathname,
+      finalPath: location.pathname,
+      // Final observed state only, not an unavailable-onset timestamp or success.
+      homeStateAtObservation: location.pathname === "/"
+        ? document.querySelector('[aria-label="Team command bar"]')?.getAttribute("data-home-state") || null
+        : null,
+      lcpMs: window.__routeBaselineVitals?.LCP ?? null,
+      inpMs: window.__routeBaselineVitals?.INP ?? null,
+      cls: window.__routeBaselineVitals?.CLS ?? null,
+      longTaskMs: window.__routeBaselineLongTasks?.duration ?? null,
+      longTaskCount: window.__routeBaselineLongTasks?.count ?? null,
+      instrumentationError: window.__routeBaselineInitError || (!window.__routeBaselineMetricsReady ? "vitals_not_initialized" : null),
     };
   });
 
   return {
     ...nav,
-    usefulMs: usefulMs == null ? null : Math.round(usefulMs),
+    // Redirection to login must never become a successful fast sample.
+    usefulMs: usefulMs == null || nav.finalPath !== (route.urlPath || route.path) ? null : Math.round(usefulMs),
     readyReason,
+    interactionMs,
+    interactionError,
   };
 }
 
-function summarise(samples) {
-  const keys = ["ttfbMs", "fcpMs", "usefulMs", "domContentLoadedMs", "loadMs", "encodedBytes", "decodedBytes", "requestCount", "domNodes"];
-  const out = {};
-  for (const k of keys) {
-    const vals = samples.map((s) => s?.[k]).filter((v) => Number.isFinite(v));
-    out[k] = { p50: pct(vals, 50), p95: pct(vals, 95), n: vals.length };
-  }
-  // How many runs produced NO useful state. Reported rather than
-  // averaged away: three good runs and two blank frames is not the same
-  // page as five good runs, and a percentile over the survivors hides it.
-  out.usefulMissing = samples.filter((s) => s && s.usefulMs == null).length;
-  out.errors = samples.filter((s) => s?.error).length;
-  return out;
-}
-
 const args = parseArgs(process.argv.slice(2));
+validateRunOptions(args, ROUTES.map((route) => route.path));
 if (!SECRET) {
   console.error("E2E_TEST_SECRET is unset. Private routes would redirect to /login,");
   console.error("and this would report the login page's numbers under their names.");
@@ -206,6 +234,11 @@ if (!SECRET) {
 const routes = args.routes
   ? ROUTES.filter((r) => args.routes.includes(r.path))
   : ROUTES;
+for (const route of routes) {
+  if (route.path === "/players/[playerId]" && args.playerId) {
+    route.urlPath = `/players/${encodeURIComponent(args.playerId)}`;
+  }
+}
 const viewports =
   args.viewport === "both" ? ["desktop", "mobile"] : [args.viewport];
 
@@ -214,10 +247,25 @@ const browser = await chromium.launch({
   args: ["--no-sandbox"],
 });
 
-const report = { measuredAt: new Date().toISOString(), runs: args.runs, routes: {} };
+const report = {
+  measuredAt: new Date().toISOString(), runs: args.runs,
+  cpuThrottle: args.cpu, network: args.network,
+  coldMeaning: "fresh browser context; backend caches are not reset",
+  warmMeaning: "second full navigation in the same browser context",
+  metricWindow: "navigation through useful state/load and declared interaction; unreported metrics stay null; CWV are lab-window observations, not finalized document metrics or field p75",
+  routes: {},
+};
+// Reuse Next's pinned web-vitals implementation so CLS session windows
+// and INP are not approximated by a second home-grown metric engine.
+const vitalsCode = fs.readFileSync(require.resolve("next/dist/compiled/web-vitals"), "utf8");
+const initMetrics = buildMetricsInitScript(vitalsCode);
 
 for (const vp of viewports) {
   for (const route of routes) {
+    if (route.path === "/players/[playerId]" && !route.urlPath) {
+      report.routes[`${vp} ${route.path}`] = { path: route.path, viewport: vp, unavailable: "--player-id was not supplied", cold: summarise([{}]), warm: summarise([{}]) };
+      continue;
+    }
     const cold = [];
     const warm = [];
     for (let i = 0; i < args.runs; i++) {
@@ -230,6 +278,7 @@ for (const vp of viewports) {
         isMobile: vp === "mobile",
         hasTouch: vp === "mobile",
       });
+      await ctx.addInitScript({ content: initMetrics });
       const sess = await ctx.request.post(`${API}/api/test/create-session`, {
         headers: { Authorization: `Bearer ${SECRET}` },
         timeout: 60_000,
@@ -237,9 +286,20 @@ for (const vp of viewports) {
       if (!sess.ok()) {
         console.error(`could not mint session: ${sess.status()}`);
         await ctx.close();
+        cold.push({ error: `session setup failed: ${sess.status()}` });
+        warm.push({ error: `session setup failed: ${sess.status()}` });
         continue;
       }
       const page = await ctx.newPage();
+      const cdp = await ctx.newCDPSession(page);
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: args.cpu });
+      if (args.network === "4g") {
+        await cdp.send("Network.enable");
+        await cdp.send("Network.emulateNetworkConditions", {
+          offline: false, latency: 150, downloadThroughput: 1_600_000 / 8,
+          uploadThroughput: 750_000 / 8, connectionType: "cellular4g",
+        });
+      }
       cold.push(await measureOnce(page, route, args.timeout));
       warm.push(await measureOnce(page, route, args.timeout));
       await ctx.close();
@@ -250,6 +310,7 @@ for (const vp of viewports) {
       path: route.path,
       readySelector: route.ready,
       readyMeans: route.note,
+      interaction: route.interaction ? "type and clear one character in search" : null,
       cold: summarise(cold),
       warm: summarise(warm),
     };
@@ -286,9 +347,19 @@ for (const [key, r] of Object.entries(report.routes)) {
     OVER.push(`${key}: warm p95 useful ${r.warm.usefulMs.p95}ms > 1000ms (standard §2.2)`);
   }
 }
+const missing = Object.values(report.routes).reduce((sum, route) => sum + route.cold.usefulMissing + route.warm.usefulMissing, 0);
+const instrumentationErrors = Object.values(report.routes).reduce((sum, route) => sum + route.cold.instrumentationErrors + route.warm.instrumentationErrors, 0);
 if (OVER.length) {
   console.log(`\n${OVER.length} measurement(s) over the standard's target:`);
   for (const line of OVER) console.log(`  ${line}`);
-} else {
+} else if (!missing && !instrumentationErrors) {
   console.log("\nAll measured routes inside the standard's targets.");
+}
+if (missing) {
+  console.error(`\n${missing} sample(s) had no useful state; incomplete baseline, not a performance pass.`);
+  process.exitCode = 1;
+}
+if (instrumentationErrors) {
+  console.error(`\n${instrumentationErrors} sample(s) had failed metric instrumentation; incomplete baseline.`);
+  process.exitCode = 1;
 }

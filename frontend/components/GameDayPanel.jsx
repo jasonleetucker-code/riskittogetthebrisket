@@ -20,7 +20,7 @@
  * A missing projection never becomes 50% or zero.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { LoadingState, NflTeamLogo } from "@/components/ui";
 import { EmptyState, FailureState, Panel } from "@/components/ds";
@@ -362,7 +362,7 @@ function GamePlayerLine({ player }) {
     player.state === "not_started"
       ? `projected ${points(player.projectedRemaining) ?? "unavailable"}`
       : player.state === "in_progress"
-        ? `live ${points(player.pointsScored) ?? "0.0"}` +
+        ? `live ${points(player.pointsScored) ?? "unavailable"}` +
           (player.projectedRemaining != null
             ? ` · remaining (time-prorated) ${points(player.projectedRemaining)}`
             : " · remaining unavailable")
@@ -502,8 +502,19 @@ function NflSlateSection({ slate, team, opponent }) {
   );
 }
 
+function validMatchupPayload(body) {
+  return body !== null && typeof body === "object" && !Array.isArray(body) &&
+    typeof body.leagueKey === "string" && body.leagueKey.length > 0 &&
+    Number.isInteger(body.season) && body.season > 0 &&
+    Number.isInteger(body.week) && body.week > 0 &&
+    ["pregame", "live", "final"].includes(body.mode) &&
+    body.team !== null && typeof body.team === "object" && !Array.isArray(body.team) &&
+    typeof body.team.ownerId === "string" && body.team.ownerId.length > 0;
+}
+
 export default function GameDayPanel() {
   const [state, setState] = useState({ status: "loading", payload: null, error: null });
+  const requestRef = useRef(null);
 
   // SELECTED-TEAM CONTEXT (W1-25). `useUserState().selectedTeam` is the
   // switcher's own answer and the same one /rosters and /phases read.
@@ -530,31 +541,75 @@ export default function GameDayPanel() {
     urlOwnerId ||
     (userState?.selectedTeam?.ownerId ? String(userState.selectedTeam.ownerId) : "");
 
-  const load = useCallback(async () => {
-    setState({ status: "loading", payload: null, error: null });
+  const load = useCallback(async ({ background = false } = {}) => {
+    // Polls never overlap. Manual retry and team changes supersede an old
+    // request; its response cannot publish into the new team's panel.
+    if (background && requestRef.current) return;
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
+    setState((previous) =>
+      background && previous.status === "ok" && previous.ownerKey === selectedOwnerId
+        ? { ...previous, refreshing: true, refreshError: false }
+        : { status: "loading", payload: null, error: null, ownerKey: selectedOwnerId },
+    );
     try {
       const qs = selectedOwnerId ? `?team=${encodeURIComponent(selectedOwnerId)}` : "";
-      const res = await fetch(`/api/matchup/intel${qs}`, { cache: "no-store" });
+      const res = await fetch(`/api/matchup/intel${qs}`, { cache: "no-store", signal: controller.signal });
       const body = await res.json().catch(() => ({}));
+      if (controller.signal.aborted || requestRef.current !== controller) return;
       if (res.ok) {
-        setState({ status: "ok", payload: body, error: null });
+        if (!validMatchupPayload(body)) {
+          setState((previous) =>
+            background && previous.status === "ok" && previous.ownerKey === selectedOwnerId
+              ? { ...previous, refreshing: false, refreshError: true }
+              : { status: "error", payload: null,
+                  error: { error: "invalid_matchup", message: "The matchup response is incomplete. Please retry." },
+                  ownerKey: selectedOwnerId },
+          );
+          return;
+        }
+        setState({ status: "ok", payload: body, error: null, ownerKey: selectedOwnerId });
         return;
       }
       // The error CODE is the state. Collapsing 409 into a generic failure
       // is what would make "the games have started" look like a bug.
-      setState({ status: "error", payload: null, error: { httpStatus: res.status, ...body } });
+      // Explicit domain/auth refusals replace the old answer. A transient
+      // server failure may retain it only with a visible freshness warning.
+      const transient = res.status >= 500 && body.error !== "clock_unavailable";
+      setState((previous) =>
+        background && transient && previous.status === "ok"
+          ? { ...previous, refreshing: false, refreshError: true }
+          : { status: "error", payload: null, error: { httpStatus: res.status, ...body }, ownerKey: selectedOwnerId },
+      );
     } catch (err) {
-      setState({ status: "error", payload: null, error: { error: "network", detail: String(err) } });
+      if (controller.signal.aborted || requestRef.current !== controller) return;
+      setState((previous) =>
+        background && previous.status === "ok"
+          ? { ...previous, refreshing: false, refreshError: true }
+          : { status: "error", payload: null, error: { error: "network", detail: String(err) }, ownerKey: selectedOwnerId },
+      );
+    } finally {
+      if (requestRef.current === controller) requestRef.current = null;
     }
   }, [selectedOwnerId]);
 
   useEffect(() => {
-    load();
-    const timer = setInterval(load, 60000);
-    return () => clearInterval(timer);
+    if (!document.hidden) load();
+    const refreshVisible = () => {
+      if (!document.hidden) load({ background: true });
+    };
+    const timer = setInterval(refreshVisible, 60000);
+    document.addEventListener("visibilitychange", refreshVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshVisible);
+      requestRef.current?.abort();
+      requestRef.current = null;
+    };
   }, [load]);
 
-  if (state.status === "loading") {
+  if (state.status === "loading" || state.ownerKey !== selectedOwnerId) {
     return <LoadingState message="Loading this week's matchup..." />;
   }
 
@@ -627,7 +682,10 @@ export default function GameDayPanel() {
       : "Win probability from the canonical league-week simulation. Private — not shown on the public league page.";
 
   return (
-    <div>
+    <div aria-busy={state.refreshing || undefined} data-game-day-ready="true">
+      {state.refreshError && (
+        <p role="status">Refresh unavailable. Showing the last successful matchup update.</p>
+      )}
       <Card
         title={`Week ${p.week} · ${p.season}`}
         subtitle={subtitle}

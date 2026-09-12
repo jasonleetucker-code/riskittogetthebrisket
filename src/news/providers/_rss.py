@@ -174,6 +174,8 @@ def fetch_rss_items(
     """
     raw = fetcher(feed_url)
     root = ET.fromstring(raw)
+    if root.tag != "rss":
+        raise ValueError("RSS response is not an RSS feed")
 
     channel = root.find("channel")
     items_el = channel.findall("item") if channel is not None else root.findall("item")

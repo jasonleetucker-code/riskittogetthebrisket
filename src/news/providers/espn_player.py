@@ -33,7 +33,14 @@ import time
 from datetime import datetime
 from typing import Any, Callable, List, Optional
 
-from ..base import NewsItem, NewsProvider, PlayerMention, stable_id, to_iso_utc
+from ..base import (
+    NewsItem,
+    NewsProvider,
+    PlayerMention,
+    ProviderFetchDiagnostics,
+    stable_id,
+    to_iso_utc,
+)
 from ._rss import classify, clean_text, default_http_fetcher
 
 log = logging.getLogger(__name__)
@@ -94,14 +101,18 @@ class EspnPlayerNewsProvider(NewsProvider):
         # the round-robin ordering so persistent failers can't starve
         # the budget — see ``_staleness`` in ``fetch``.
         self._last_attempt: dict[str, float] = {}
+        self.last_fetch_diagnostics = ProviderFetchDiagnostics(0, 0)
 
     def _default_fetcher(self, url: str) -> bytes:
         return default_http_fetcher(url, timeout=self.timeout_s, user_agent=self.user_agent)
 
     # ── fetch ───────────────────────────────────────────────────
     def fetch(self, *, player_names=None, limit: int = 50) -> List[NewsItem]:
+        self.last_fetch_diagnostics = ProviderFetchDiagnostics(0, 0)
         targets = self._valid_targets()
         if not targets:
+            if self.last_fetch_diagnostics.error is None:
+                self.last_fetch_diagnostics = ProviderFetchDiagnostics(0, 0, error="no_targets")
             return []
 
         now = self._clock()
@@ -120,6 +131,7 @@ class EspnPlayerNewsProvider(NewsProvider):
         budget = self._max_requests
         attempted = 0
         failed = 0
+        failed_ids: set[str] = set()
         last_error: Optional[Exception] = None
         for target in sorted(targets, key=_staleness):
             espn_id = str(target["espnId"])
@@ -138,24 +150,28 @@ class EspnPlayerNewsProvider(NewsProvider):
                 self._player_cache[espn_id] = (now, items)
             except Exception as exc:  # noqa: BLE001 — per-player isolation
                 failed += 1
+                failed_ids.add(espn_id)
                 last_error = exc
                 log.warning("espn_player fetch failed for %s: %s", espn_id, exc)
                 # Keep any stale entry rather than overwriting with
                 # nothing; it refreshes on a later cycle.
-
-        # Total-failure signal: every attempted request failed AND the
-        # cache has nothing to serve.  Raising here lets the service's
-        # per-provider isolation mark the run down (and the route's
-        # all_providers_failed detection work) instead of masquerading
-        # as a healthy-but-quiet feed.
-        if attempted > 0 and failed == attempted and not self._player_cache:
-            raise last_error if last_error else RuntimeError("espn_player: all requests failed")
 
         out: List[NewsItem] = []
         target_ids = {str(t["espnId"]) for t in targets}
         for espn_id, (_ts, items) in self._player_cache.items():
             if espn_id in target_ids:
                 out.extend(items)
+        all_failed = attempted > 0 and failed == attempted
+        self.last_fetch_diagnostics = ProviderFetchDiagnostics(
+            attempted,
+            failed,
+            retained=any(self._player_cache.get(ident, (0, []))[1] for ident in failed_ids),
+            error="all_target_requests_failed" if all_failed else None,
+        )
+        # Cached items remain usable, but diagnostics tell the aggregator that
+        # no upstream attempt succeeded. A warm cache must not mint freshness.
+        if all_failed and not out:
+            raise last_error if last_error else RuntimeError("espn_player: all requests failed")
         out.sort(key=lambda it: it.ts, reverse=True)
         return out[: max(1, int(limit))]
 
@@ -165,6 +181,9 @@ class EspnPlayerNewsProvider(NewsProvider):
             raw_targets = self._targets_supplier() or []
         except Exception as exc:  # noqa: BLE001 — supplier reads live state
             log.warning("espn_player targets supplier failed: %s", exc)
+            self.last_fetch_diagnostics = ProviderFetchDiagnostics(
+                0, 0, error="targets_unavailable"
+            )
             return []
         out: List[dict[str, Any]] = []
         seen: set[str] = set()
@@ -192,7 +211,7 @@ class EspnPlayerNewsProvider(NewsProvider):
         payload = json.loads(raw)
         feed = payload.get("feed") if isinstance(payload, dict) else None
         if not isinstance(feed, list):
-            return []
+            raise ValueError("ESPN player response has no valid feed")
         out: List[NewsItem] = []
         for entry in feed[: self._per_player_limit]:
             if not isinstance(entry, dict):

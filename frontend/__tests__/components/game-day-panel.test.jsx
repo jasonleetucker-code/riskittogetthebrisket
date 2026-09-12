@@ -12,7 +12,7 @@
  * And the one number that must never appear: a 50% for a week nothing
  * priced.
  */
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import GameDayPanel from "@/components/GameDayPanel";
@@ -122,6 +122,84 @@ function mockJson(body, { ok = true, status = 200 } = {}) {
     Promise.resolve({ ok, status, json: () => Promise.resolve(body) }),
   );
 }
+
+describe("GameDayPanel — background refresh", () => {
+  let tick;
+  let hidden;
+  beforeEach(() => {
+    hidden = false;
+    mockUserState.state = { selectedTeam: null };
+    mockSearchParams.value = new Map();
+    vi.spyOn(document, "hidden", "get").mockImplementation(() => hidden);
+    const realSetInterval = globalThis.setInterval;
+    vi.spyOn(globalThis, "setInterval").mockImplementation((callback, delay, ...args) => {
+      if (delay === 60000) { tick = callback; return 123; }
+      return realSetInterval(callback, delay, ...args);
+    });
+    mockJson(PRICED);
+  });
+  it("keeps the successful answer while a slow poll runs and prevents overlapping polls", async () => {
+    render(<GameDayPanel />);
+    await screen.findByText("61.5%");
+    let finish;
+    globalThis.fetch.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    await act(async () => tick());
+    expect(screen.getByText("61.5%")).toBeInTheDocument();
+    expect(screen.queryByText("Loading this week's matchup...")).not.toBeInTheDocument();
+    await act(async () => tick());
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    await act(async () => finish({ ok: true, json: async () => PRICED }));
+    expect(screen.getByText("61.5%")).toBeInTheDocument();
+  });
+  it("pauses hidden-tab requests and refreshes when the tab becomes visible", async () => {
+    hidden = true;
+    render(<GameDayPanel />);
+    await act(async () => tick());
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    hidden = false;
+    await act(async () => document.dispatchEvent(new Event("visibilitychange")));
+    await screen.findByText("61.5%");
+    hidden = true;
+    await act(async () => tick());
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+  });
+  it("retains the same-owner answer with a warning after a malformed background response", async () => {
+    render(<GameDayPanel />);
+    await screen.findByText("61.5%");
+    globalThis.fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}) });
+    await act(async () => tick());
+    expect(screen.getByText("61.5%")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("last successful");
+    globalThis.fetch.mockResolvedValueOnce({ ok: false, status: 401, json: async () => ({ error: "unauthorized" }) });
+    await act(async () => tick());
+    expect(screen.queryByText("61.5%")).not.toBeInTheDocument();
+  });
+  it("labels a retained transient failure, but clears a domain refusal", async () => {
+    render(<GameDayPanel />);
+    await screen.findByText("61.5%");
+    globalThis.fetch.mockResolvedValueOnce({ ok: false, status: 503, json: async () => ({ error: "temporarily_unavailable" }) });
+    await act(async () => tick());
+    expect(screen.getByText("61.5%")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("last successful");
+    globalThis.fetch.mockResolvedValueOnce({ ok: false, status: 409, json: async () => ({ error: "week_in_progress" }) });
+    await act(async () => tick());
+    expect(screen.queryByText("61.5%")).not.toBeInTheDocument();
+    expect(screen.getByText("This week has already started")).toBeInTheDocument();
+  });
+  it("rejects a previous team's late response even when a transport ignores abort", async () => {
+    let finishOld;
+    globalThis.fetch.mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve; }));
+    const view = render(<GameDayPanel />);
+    mockUserState.state = { selectedTeam: { ownerId: "new-team" } };
+    globalThis.fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ ...PRICED, week: 2 }) });
+    view.rerender(<GameDayPanel />);
+    await screen.findByText("Week 2 · 2026");
+    await act(async () => finishOld({ ok: true, json: async () => PRICED }));
+    expect(screen.queryByText("Week 1 · 2026")).not.toBeInTheDocument();
+    expect(screen.getByText("Week 2 · 2026")).toBeInTheDocument();
+    mockUserState.state = { selectedTeam: null };
+  });
+});
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -444,6 +522,36 @@ describe("GameDayPanel — explicit ?team= wins over the switcher", () => {
     expect(screen.queryByText(/remaining estimate/)).not.toBeInTheDocument();
   });
 
+});
+
+describe("GameDayPanel — response and missing-score integrity", () => {
+  it.each([null, 0])("keeps an in-progress score %s distinct from missing evidence", async (score) => {
+    mockJson({
+      ...PRICED,
+      nflSlate: { scheduleState: "available", byeWeek: [], unattributed: [], games: [{
+        gameId: "live-game", homeTeam: "KC", awayTeam: "BUF", state: "in_progress",
+        kickoffAt: 1757260800, homeScore: null, awayScore: null,
+        players: [{ playerId: "live-player", name: "Live Scorer", side: "team",
+          state: "in_progress", pointsScored: score, projectedRemaining: null,
+          fantasyPositions: ["QB"] }],
+      }] },
+    });
+    render(<GameDayPanel />);
+    const line = await screen.findByText(/Live Scorer/);
+    expect(line).toHaveTextContent(score === null ? "live unavailable" : "live 0.0");
+  });
+
+  it.each([
+    {}, [], { ...PRICED, team: null }, { ...PRICED, season: null },
+    { ...PRICED, week: "1" }, { ...PRICED, week: 0 },
+    { ...PRICED, mode: "unknown" }, { ...PRICED, team: { ownerId: "" } },
+  ])("does not mark malformed HTTP 200 as useful", async (body) => {
+    mockJson(body);
+    const view = render(<GameDayPanel />);
+    await act(async () => { await Promise.resolve(); });
+    expect(view.container.querySelector('[data-game-day-ready="true"]')).toBeNull();
+    expect(screen.getByText("The matchup response is incomplete. Please retry.")).toBeInTheDocument();
+  });
 });
 
 describe("GameDayPanel — the NFL slate", () => {

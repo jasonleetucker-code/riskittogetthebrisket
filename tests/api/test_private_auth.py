@@ -17,12 +17,19 @@ from fastapi.testclient import TestClient
 
 import server
 
+pytestmark = pytest.mark.usefixtures("isolated_legacy_serving_startup")
+
 
 # ── Middleware gate: unauthenticated /api/* is 401 ─────────────────
 
 
 PRIVATE_API_PATHS = [
     "/api/data",
+    "/api/read-models/rankings",
+    "/api/read-models/trade/context",
+    "/api/read-models/players/catalog",
+    "/api/read-models/players/synthetic-player",
+    "/api/performance",
     "/api/data/rank-history",
     "/api/data/player-source-history",
     "/api/terminal",

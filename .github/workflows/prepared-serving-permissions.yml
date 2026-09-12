@@ -1,0 +1,46 @@
+name: Prepared serving permissions
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'scripts/prune_serving_artifacts.py'
+      - 'tests/serving/test_store_permissions.py'
+      - 'tests/serving/test_store_cross_uid.py'
+      - '.github/workflows/prepared-serving-permissions.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cross-uid:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated test dependency
+        run: python -m pip install 'pytest~=9.0.0'
+      - name: Exercise actual distinct POSIX identities
+        run: |
+          sudo "$(command -v python)" -m pytest \
+            tests/serving/test_store_permissions.py \
+            tests/serving/test_store_cross_uid.py \
+            -q --junitxml=permission-results.xml
+      - name: Refuse skipped cross-UID evidence
+        run: |
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          cases = ET.parse('permission-results.xml').findall('.//testcase')
+          actual = [case for case in cases if case.get('name') == 'test_distinct_uid_publication_queue_and_credential_boundary']
+          assert len(actual) == 1, 'Cross-UID test missing'
+          assert not any(actual[0].find(tag) is not None for tag in ('skipped', 'failure', 'error')), 'Cross-UID validation did not pass'
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: prepared-serving-permission-results
+          path: permission-results.xml

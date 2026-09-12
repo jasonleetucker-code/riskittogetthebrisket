@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useDynastyData } from "@/components/useDynastyData";
+import { performanceLabMark } from "@/lib/performance-lab";
 import {
   VALUE_MODES,
   STORAGE_KEY,
@@ -68,6 +69,7 @@ import {
 } from "./trade-sections";
 import { withValuationMode } from "@/lib/valuation-mode";
 import styles from "./trade.module.css";
+performanceLabMark("module", "trade", {}, "trade-page");
 
 // ── /trade — the trading terminal ─────────────────────────────────────
 //
@@ -101,7 +103,7 @@ const TradeDeltaHistogram = dyn(() => import("@/components/graphs/TradeDeltaHist
 const MultiTradeFlow = dyn(() => import("@/components/graphs/MultiTradeFlow"));
 
 export default function TradePage() {
-  const { loading, error, rows, rawData } = useDynastyData();
+  const { loading, error, rows, rawData } = useDynastyData({ readModel: "trade", consumer: "trade-page" });
   const {
     settings,
     hydrated: settingsHydrated,

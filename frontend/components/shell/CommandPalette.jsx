@@ -56,6 +56,9 @@ function matchNavTargets(query, capabilities) {
 
 export default function CommandPalette({
   rows = [],
+  loading = false,
+  error = "",
+  onRetry,
   teamByPlayer = null,
   capabilities = null,
   isOpen,
@@ -176,6 +179,10 @@ export default function CommandPalette({
         />
       </div>
 
+      {(loading || error) && <div className="shell-palette-empty" role="status">
+        {error || "Loading players…"}
+        {error && onRetry && <button type="button" onClick={onRetry}>Try again</button>}
+      </div>}
       <div
         ref={listRef}
         id={listboxId}
@@ -250,7 +257,7 @@ export default function CommandPalette({
           );
         })}
 
-        {q.length > 0 && options.length === 0 && (
+        {!loading && !error && q.length > 0 && options.length === 0 && (
           <div className="shell-palette-empty">
             No results for &ldquo;{query}&rdquo;
           </div>
