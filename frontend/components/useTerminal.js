@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSettings } from "@/components/useSettings";
 import { applyValuationModeParam } from "@/lib/valuation-mode";
 
@@ -32,7 +32,8 @@ import { applyValuationModeParam } from "@/lib/valuation-mode";
 
 const TTL_MS = 30_000;
 const cache = new Map(); // key → { result, expires }
-const inflight = new Map(); // key → Promise
+const inflight = new Map(); // key → shared request with subscriber ownership
+let cacheEpoch = 0;
 const LEAGUE_LOCAL_KEY = "next_active_league_v1";
 
 // Read the active league key from localStorage.  ``useLeague`` writes
@@ -49,34 +50,39 @@ function readActiveLeagueKey() {
   }
 }
 
-function cacheKey({ ownerId, name, windowDays, leagueKey, valuationMode }) {
-  // ``valuationMode`` is IN the key. Without it, switching the board
-  // re-serves the cached market payload for the full TTL, which looks
-  // exactly like the toggle not working.
-  return `${leagueKey || "_"}::${ownerId || "_"}::${name || "_"}::${
-    windowDays || 30
-  }::${valuationMode || "market"}`;
-}
-
-async function fetchTerminal({ ownerId, name, windowDays, signal }) {
+function fetchTerminal({ ownerId, name, windowDays }) {
   const leagueKey = readActiveLeagueKey();
   const params = new URLSearchParams();
-  const valuationMode = applyValuationModeParam(params);
-  const key = cacheKey({ ownerId, name, windowDays, leagueKey, valuationMode });
-  const now = Date.now();
-  const cached = cache.get(key);
-  if (cached && cached.expires > now) return cached.result;
-  if (inflight.has(key)) return inflight.get(key);
-
+  applyValuationModeParam(params);
   if (ownerId) params.set("team", ownerId);
   if (name) params.set("teamName", name);
   if (windowDays) params.set("windowDays", String(windowDays));
   if (leagueKey) params.set("leagueKey", leagueKey);
+  // The exact effective query is the identity: absence is not a literal
+  // underscore and delimiters inside a team name cannot join fields.
+  const key = JSON.stringify([...params.entries()]);
+  const now = Date.now();
+  const cached = cache.get(key);
+  if (cached && cached.expires > now) return { promise: Promise.resolve(cached.result), release() {} };
+  function subscribe(entry) {
+    entry.subscribers += 1;
+    return { promise: entry.promise, release() {
+      entry.subscribers -= 1;
+      if (entry.subscribers === 0 && inflight.get(key) === entry) {
+        inflight.delete(key);
+        entry.controller.abort();
+      }
+    } };
+  }
+  if (inflight.has(key)) return subscribe(inflight.get(key));
+
   const url = `/api/terminal?${params.toString()}`;
 
-  const promise = fetch(url, {
+  const epoch = cacheEpoch;
+  const entry = { subscribers: 0, controller: new AbortController(), promise: null };
+  entry.promise = fetch(url, {
     credentials: "same-origin",
-    signal,
+    signal: entry.controller.signal,
     headers: { "Cache-Control": "no-store" },
   })
     .then(async (res) => {
@@ -84,21 +90,30 @@ async function fetchTerminal({ ownerId, name, windowDays, signal }) {
         throw new Error(`terminal ${res.status}`);
       }
       const data = await res.json();
-      cache.set(key, { result: data, expires: Date.now() + TTL_MS });
-      inflight.delete(key);
+      if (epoch === cacheEpoch && inflight.get(key) === entry) cache.set(key, { result: data, expires: Date.now() + TTL_MS });
+      if (inflight.get(key) === entry) inflight.delete(key);
       return data;
     })
     .catch((err) => {
-      inflight.delete(key);
+      if (inflight.get(key) === entry) inflight.delete(key);
       throw err;
     });
-  inflight.set(key, promise);
-  return promise;
+  inflight.set(key, entry);
+  return subscribe(entry);
 }
 
 export function invalidateTerminalCache() {
+  cacheEpoch += 1;
   cache.clear();
+  for (const entry of inflight.values()) entry.controller.abort();
   inflight.clear();
+}
+
+// Invalidate once per event, including when no terminal panel is mounted.
+// Per-subscriber invalidation would discard another subscriber's new flight.
+if (typeof window !== "undefined") {
+  window.addEventListener("league:changed", invalidateTerminalCache);
+  window.addEventListener("auth:changed", invalidateTerminalCache);
 }
 
 /**
@@ -123,23 +138,19 @@ export function useTerminal({ ownerId = "", teamName = "", windowDays = 30, skip
   // showing the previous board until some other input changed.
   const { settings } = useSettings();
   const valuationMode = settings?.valuationMode || "market";
-  const mounted = useRef(true);
-
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
+  const identity = JSON.stringify([ownerId, teamName, windowDays, leagueRefreshKey, valuationMode, skip, cacheEpoch]);
 
   useEffect(() => {
     function onLeagueChanged() {
-      invalidateTerminalCache();
       setLeagueRefreshKey((v) => v + 1);
     }
     if (typeof window === "undefined") return undefined;
     window.addEventListener("league:changed", onLeagueChanged);
-    return () => window.removeEventListener("league:changed", onLeagueChanged);
+    window.addEventListener("auth:changed", onLeagueChanged);
+    return () => {
+      window.removeEventListener("league:changed", onLeagueChanged);
+      window.removeEventListener("auth:changed", onLeagueChanged);
+    };
   }, []);
 
   useEffect(() => {
@@ -149,30 +160,34 @@ export function useTerminal({ ownerId = "", teamName = "", windowDays = 30, skip
     // contract loaded and a second fetch once the team resolved —
     // two /api/terminal builds per page view, one of them discarded.
     if (skip) return undefined;
-    const controller = new AbortController();
-    setState((prev) => ({ ...prev, loading: true, error: null }));
-    fetchTerminal({ ownerId, name: teamName, windowDays, signal: controller.signal })
+    let active = true;
+    const epoch = cacheEpoch;
+    setState({ identity, loading: true, error: null, payload: null });
+    const subscription = fetchTerminal({ ownerId, name: teamName, windowDays });
+    subscription.promise
       .then((payload) => {
-        if (!mounted.current) return;
-        setState({ loading: false, error: null, payload });
+        if (!active || epoch !== cacheEpoch) return;
+        setState({ identity, loading: false, error: null, payload });
       })
       .catch((err) => {
         if (err?.name === "AbortError") return;
-        if (!mounted.current) return;
+        if (!active || epoch !== cacheEpoch) return;
         setState({
+          identity,
           loading: false,
           error: err?.message || "terminal_fetch_failed",
           payload: null,
         });
       });
-    return () => controller.abort();
-  }, [ownerId, teamName, windowDays, leagueRefreshKey, valuationMode, skip]);
+    return () => { active = false; subscription.release(); };
+  }, [ownerId, teamName, windowDays, identity, skip]);
 
   const value = useMemo(() => {
-    const p = state.payload || {};
+    const current = !skip && state.identity === identity;
+    const p = current ? state.payload || {} : {};
     return {
-      loading: state.loading,
-      error: state.error,
+      loading: current ? state.loading : true,
+      error: current ? state.error : null,
       authenticated: !!p.authenticated,
       stale: !!p.stale,
       staleAs: p.staleAs || null,
@@ -189,6 +204,6 @@ export function useTerminal({ ownerId = "", teamName = "", windowDays = 30, skip
       generatedAt: p.generatedAt || null,
       windowDays,
     };
-  }, [state, windowDays]);
+  }, [state, windowDays, identity, skip]);
   return value;
 }

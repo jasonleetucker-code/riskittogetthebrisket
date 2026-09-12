@@ -245,6 +245,7 @@ export function DataTable({
   // and then freeze exactly those. The frozen table is by construction
   // the same geometry the user sees today, at whatever breakpoint they
   // are at, and re-measures when the viewport changes.
+  const hasRows = Boolean(rows?.length);
   const tableRef = useRef(null);
   const [frozen, setFrozen] = useState(null);
 
@@ -295,6 +296,11 @@ export function DataTable({
   // `measure()` is idempotent — it self-terminates on the guard below.
   useIsomorphicLayoutEffect(() => {
     if (!freezeColumnWidths) return;
+    // Empty state removes the table; its replacement needs fresh geometry.
+    if (!hasRows) {
+      if (frozen) setFrozen(null);
+      return;
+    }
     if (frozen) return;
     measure();
   });
@@ -326,7 +332,7 @@ export function DataTable({
       cancelAnimationFrame(raf);
       ro.disconnect();
     };
-  }, [freezeColumnWidths]);
+  }, [freezeColumnWidths, hasRows]);
 
   // Columns changing (the board's source toggles add/remove columns)
   // invalidates the measurement for the same reason a resize does.

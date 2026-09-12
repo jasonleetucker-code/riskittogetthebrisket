@@ -11,6 +11,7 @@ import {
 } from "react";
 import dynamic from "next/dynamic";
 import { useDynastyData } from "@/components/useDynastyData";
+import { performanceLabMark } from "@/lib/performance-lab";
 import {
   resolvedRank,
   RANKING_SOURCES,
@@ -97,6 +98,7 @@ import {
   SourceAuditPanel,
 } from "./board-sections";
 import styles from "./board.module.css";
+performanceLabMark("module", "rankings", {}, "rankings-page");
 
 // Methodology charts: rendered only when `showMethodology` is true, and
 // that state starts false — so on every page load this was ~18 KB of
@@ -274,7 +276,7 @@ function CustomMixBadge({ rankingsOverride }) {
 // ── Main component ───────────────────────────────────────────────────
 
 export default function RankingsPage() {
-  const { loading, error, failure, rows, rawData, retry } = useDynastyData({ readModel: "rankings" });
+  const { loading, error, failure, rows, rawData, retry } = useDynastyData({ readModel: "rankings", consumer: "rankings-page" });
   const {
     settings,
     update: updateSetting,

@@ -3,7 +3,7 @@ import { streamWithUpstreamIdleAbort } from "@/lib/upstream-stream";
 // Next-fronted dev/E2E bridge. Production nginx sends /api/* to FastAPI.
 const origin = new URL(process.env.BACKEND_API_URL || "http://127.0.0.1:8000").origin;
 const allowed = /^(?:rankings|trade\/context|players\/catalog|players\/[A-Za-z0-9_-]{1,128})$/;
-const responseHeaders = ["content-type", "etag", "vary", "www-authenticate", "retry-after", "server-timing", "x-request-id", "x-payload-view", "x-read-model-generation"];
+const responseHeaders = ["content-type", "etag", "vary", "www-authenticate", "retry-after", "server-timing", "x-request-id", "x-payload-view", "x-read-model-generation", "x-data-generation"];
 
 export async function GET(request, context) {
   const { path = [] } = await context.params;

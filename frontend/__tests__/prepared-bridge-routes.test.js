@@ -10,6 +10,18 @@ beforeEach(() => vi.stubGlobal("fetch", vi.fn(async () => response())));
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe("prepared private GET bridge", () => {
+  it.each([["rankings", 200], ["trade/context", 200], ["players/catalog", 200], ["players/opaque-key", 200], ["rankings", 304], ["players/opaque-key", 304]])("preserves the actual backend generation header for %s status %s", async (path, status) => {
+    fetch.mockResolvedValue(response(status, { "x-data-generation": "canonical-b", "x-payload-view": "rankings", etag: '"body-b"', "content-encoding": "gzip", "content-length": "100", "set-cookie": "private=secret", "x-private-owner": "secret" }));
+    const result = await GET(request(`/api/read-models/${path}?generation=canonical-b`), context(path));
+    expect(result.status).toBe(status);
+    expect(result.headers.get("x-data-generation")).toBe("canonical-b");
+    expect(result.headers.get("etag")).toBe('"body-b"');
+    expect(result.headers.get("x-payload-view")).toBe("rankings");
+    expect(result.headers.get("cache-control")).toBe("private, no-cache");
+    for (const name of ["content-encoding", "content-length", "set-cookie", "x-private-owner"]) expect(result.headers.get(name)).toBeNull();
+    expect(await result.text()).toBe(status === 304 ? "" : '{"ok":true}');
+  });
+
   it.each(["rankings", "trade/context", "players/catalog", "players/opaque-key", "players/1234"])("forwards allowed %s with cookie, scope, generation and revalidation", async (path) => {
     const result = await GET(request(`/api/read-models/${path}?leagueKey=lab&generation=gen-a&ignored=secret`, { headers: { cookie: "jason_session=lab", "if-none-match": '"gen-a"', "x-request-id": "lab-id", traceparent: "00-abc-def-01", referer: "https://private.invalid/?owner=secret" } }), context(path));
     expect(result.status).toBe(200); expect(await result.json()).toEqual({ ok: true });

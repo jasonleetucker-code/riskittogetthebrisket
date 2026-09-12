@@ -90,7 +90,7 @@ const ROUTES = [
   { path: "/market/sharp-roster-percentage", ready: "main table tbody tr", note: "a roster-percentage row" },
   { path: "/waivers", ready: SEL.waiverBidDesk, note: "the FAAB bid desk" },
   { path: "/trades", ready: SEL.tradeLedgerEntry, note: "a ledger entry" },
-  { path: "/", ready: SEL.dashboardStats, note: "the team aggregates block" },
+  { path: "/", ready: SEL.dashboardUsefulStats, note: "resolved team with settled aggregate inputs and a finite displayed value; selection/unavailable is not useful" },
   { path: "/draft", ready: SEL.draftBoardRow, note: "a loaded draft board row" },
   { path: "/rosters", ready: ".roster-portfolio-table tbody tr", note: "a roster portfolio row" },
   { path: "/bdvm", ready: 'main [role="tabpanel"] table tbody tr', note: "a fundamental values row" },
@@ -200,6 +200,10 @@ async function measureOnce(page, route, timeoutMs) {
       loadMs: n && n.loadEventEnd > 0 ? Math.round(n.loadEventEnd) : null,
       domNodes: document.getElementsByTagName("*").length,
       finalPath: location.pathname,
+      // Final observed state only, not an unavailable-onset timestamp or success.
+      homeStateAtObservation: location.pathname === "/"
+        ? document.querySelector('[aria-label="Team command bar"]')?.getAttribute("data-home-state") || null
+        : null,
       lcpMs: window.__routeBaselineVitals?.LCP ?? null,
       inpMs: window.__routeBaselineVitals?.INP ?? null,
       cls: window.__routeBaselineVitals?.CLS ?? null,

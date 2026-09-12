@@ -31,7 +31,7 @@ import TopBar from "@/components/shell/TopBar";
 import { MobileTopBar, MobileTabBar } from "@/components/shell/MobileChrome";
 import { isPublicPath } from "@/lib/public-routes";
 import WebVitalsReporter from "@/components/WebVitalsReporter";
-performanceLabMark("module");
+performanceLabMark("module", "shell", {}, "shell");
 
 // Which destinations a logged-out visitor sees in the nav.  The
 // definition is shared with middleware.js and robots.js — see
@@ -141,7 +141,7 @@ function AppShellSearchBridge({ children }) {
 // ── Main shell wrapper ───────────────────────────────────────────────────
 export default function AppShellWrapper({ children }) {
   const auth = useAuth();
-  useEffect(() => { performanceLabMark("hydrate-commit"); }, []);
+  useEffect(() => { performanceLabMark("hydrate-commit", "shell", {}, "shell"); }, []);
 
   const shell = (
     <AuthContext.Provider value={auth}>

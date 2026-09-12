@@ -180,6 +180,7 @@ const SEL = {
   // .panel--* hook class.
   dashboardCommandBar: '[aria-label="Team command bar"]',
   dashboardStats: '[aria-label="Team aggregates"]',
+  dashboardUsefulStats: '[data-home-state="ready"] [aria-label="Team aggregates"]',
   dashboardPanel: ".ds-panel",
   dashboardSignalCard:
     '[aria-label^="Sell signal"], [aria-label^="Buy signal"]',

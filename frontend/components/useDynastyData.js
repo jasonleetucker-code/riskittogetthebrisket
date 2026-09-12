@@ -27,21 +27,23 @@ import {
 // its rows with it.
 const _rowsByContract = new WeakMap();
 
-function buildRowsShared(rawData, scope) {
+function buildRowsShared(rawData, scope, consumer) {
   if (!rawData || typeof rawData !== "object") return buildRows(rawData || {});
   const hit = _rowsByContract.get(rawData);
   if (hit) {
-    performanceLabMark("materialize-cache", scope);
+    performanceLabMark("materialize-cache", scope, {}, consumer);
     return hit;
   }
-  performanceLabMark("materialize-start", scope);
+  performanceLabMark("materialize-start", scope, {}, consumer);
   const rows = buildRows(rawData);
-  performanceLabMark("materialize-end", scope, { rows: rows.length });
+  performanceLabMark("materialize-end", scope, { rows: rows.length }, consumer);
   _rowsByContract.set(rawData, rows);
   return rows;
 }
 
-export function useDynastyData({ readModel: requestedReadModel = null, enabled = true } = {}) {
+export function useDynastyData({ readModel: requestedReadModel = null, enabled = true, consumer = "shared" } = {}) {
+  // Fixed caller label for opt-in diagnostics only. It is deliberately absent
+  // from request identities and fetch/effect dependencies; it cannot refetch data.
   const readModel = preparedReadModel(requestedReadModel);
   // Read user-level source overrides from settings so per-source
   // toggles and weight sliders actually affect the rendered board.
@@ -135,7 +137,7 @@ export function useDynastyData({ readModel: requestedReadModel = null, enabled =
   // joins this in-flight request instead of starting from zero.
   useEffect(() => {
     if (enabled) {
-      performanceLabMark("prefetch", readModel || "legacy");
+      performanceLabMark("prefetch", readModel || "legacy", {}, consumer);
       prefetchBaseContract({ readModel });
     }
   }, [enabled, readModel, leagueRefreshKey]);
@@ -155,7 +157,7 @@ export function useDynastyData({ readModel: requestedReadModel = null, enabled =
     // keeps showing its skeleton rather than an empty board; the delay
     // is one commit, not a network round trip.
     if (!enabled || !settingsHydrated) return undefined;
-    performanceLabMark("gate-ready", readModel || "legacy");
+    performanceLabMark("gate-ready", readModel || "legacy", {}, consumer);
     async function run() {
       try {
         setLoading(true);
@@ -171,7 +173,7 @@ export function useDynastyData({ readModel: requestedReadModel = null, enabled =
         if (!active) return;
 
         const data = payload?.data || null;
-        performanceLabMark("publish", readModel || "legacy");
+        performanceLabMark("publish", readModel || "legacy", {}, consumer);
         setRawData(data);
         setLoadedIdentity(identity);
         setSource(String(payload?.source || ""));
@@ -259,7 +261,7 @@ export function useDynastyData({ readModel: requestedReadModel = null, enabled =
 
   const rows = useMemo(() => {
     try {
-      return buildRowsShared(visibleData, readModel || "legacy");
+      return buildRowsShared(visibleData, readModel || "legacy", consumer);
     } catch (e) {
       console.error("[useDynastyData] buildRows crashed:", e);
       return [];
@@ -268,7 +270,7 @@ export function useDynastyData({ readModel: requestedReadModel = null, enabled =
     // already baked into ``rawData`` by ``fetchDynastyData`` above.
   }, [visibleData, readModel]);
   useEffect(() => {
-    if (visibleData) performanceLabMark("commit", readModel || "legacy", { rows: rows.length });
+    if (visibleData) performanceLabMark("commit", readModel || "legacy", { rows: rows.length }, consumer);
   }, [visibleData, rows, readModel]);
   const siteKeys = useMemo(() => {
     try {

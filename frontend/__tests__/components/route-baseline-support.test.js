@@ -1,7 +1,63 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import React from "react";
+import { cleanup, render } from "@testing-library/react";
+import TeamCommandHeader from "@/components/terminal/TeamCommandHeader";
 import { hasUsefulElement, summarise, validateRunOptions, buildMetricsInitScript } from "../../scripts/route-baseline-support.mjs";
 
-afterEach(() => { document.body.innerHTML = ""; vi.restoreAllMocks(); });
+const home = vi.hoisted(() => ({ team: {}, terminal: {}, history: {} }));
+vi.mock("@/components/AppShell", () => ({ useApp: () => ({ rows: [] }) }));
+vi.mock("@/components/useTeam", () => ({ useTeam: () => home.team }));
+vi.mock("@/components/useLeague", () => ({ useLeague: () => ({ leagues: [] }) }));
+vi.mock("@/components/useTerminal", () => ({ useTerminal: () => home.terminal }));
+vi.mock("@/components/useRankHistory", () => ({ useRankHistory: () => home.history }));
+vi.mock("@/components/terminal/TeamValueChart", () => ({ default: () => null }));
+
+afterEach(() => { cleanup(); document.body.innerHTML = ""; vi.restoreAllMocks(); });
+
+describe("home aggregate readiness", () => {
+  it.each([
+    [true, true, true, null, "loading"],
+    [false, true, false, null, "loading"],
+    [false, false, true, 100, "loading"],
+    [false, false, false, 100, "ready"],
+    [false, false, false, 0, "ready"],
+    [false, false, false, null, "unavailable"],
+  ])("distinguishes team/terminal/history %s/%s/%s with value %s", (teamLoading, terminalLoading, historyLoading, value, state) => {
+    home.team = { loading: teamLoading, privateDataEnabled: true, selectedTeam: teamLoading ? null : { name: "My team", ownerId: "1", players: [] } };
+    home.terminal = { loading: terminalLoading, teamAggregates: value == null ? null : { totalValue: value } };
+    home.history = { loading: historyLoading, history: null };
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ width: 100, height: 30 });
+    render(React.createElement(TeamCommandHeader));
+    // The old selector accepts the real mounted loading/placeholder tiles.
+    expect(hasUsefulElement('[aria-label="Team aggregates"]')).toBe(true);
+    expect(document.querySelector('[aria-label="Team command bar"]').dataset.homeState).toBe(state);
+    expect(hasUsefulElement('[data-home-state="ready"] [aria-label="Team aggregates"]')).toBe(state === "ready");
+  });
+  it.each([
+    [{ needsSelection: true }, "needs-selection"],
+    [{ leagueMismatch: true }, "unavailable"],
+    [{ privateDataEnabled: false }, "unavailable"],
+    [{ selectedTeam: null }, "unavailable"],
+  ])("does not accept unresolved team scope %j", (overrides, state) => {
+    home.team = { loading: false, privateDataEnabled: true, selectedTeam: { name: "My team", players: [] }, ...overrides };
+    home.terminal = { loading: false, teamAggregates: { totalValue: 100 } };
+    home.history = { loading: false, history: null };
+    render(React.createElement(TeamCommandHeader));
+    expect(document.querySelector('[aria-label="Team command bar"]').dataset.homeState).toBe(state);
+  });
+  it("preserves a displayed last-good value during refresh without counting unsettled inputs as initial usefulness", () => {
+    home.team = { loading: false, privateDataEnabled: true, selectedTeam: { name: "My team", players: [] } };
+    home.terminal = { loading: true, teamAggregates: { totalValue: 1234 } };
+    home.history = { loading: false, history: null };
+    const view = render(React.createElement(TeamCommandHeader));
+    expect(view.getByText("1,234")).toBeTruthy();
+    expect(document.querySelector('[data-home-state="loading"]')).toBeTruthy();
+    home.terminal = { ...home.terminal, loading: false };
+    view.rerender(React.createElement(TeamCommandHeader));
+    expect(view.getByText("1,234")).toBeTruthy();
+    expect(document.querySelector('[data-home-state="ready"]')).toBeTruthy();
+  });
+});
 
 describe("route baseline validity", () => {
   it("rejects hidden streaming copies, loading skeletons, empty spacers, and zero geometry", () => {

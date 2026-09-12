@@ -72,7 +72,12 @@ try {
           group.requests++; group.encodedBytes += r.encodedBytes; group.decodedBytes += r.decodedBytes; group.transferBytes += r.transferBytes; group.lastEndMs = Math.max(group.lastEndMs, r.endMs);
         }
         const nav = performance.getEntriesByType("navigation")[0];
-        return { observedUntilMs: performance.now(), stages: window.__CHASE_PERFORMANCE_LAB?.events || [], domElements: document.querySelectorAll("*").length, groups, apiWaterfall: resources.filter((r) => r.resource.startsWith("/api/")), slowestResources: resources.toSorted((a, b) => b.durationMs - a.durationMs).slice(0, 12), longTasks: window.__labLongTasks, vitals: window.__routeBaselineVitals, metricInitError: window.__routeBaselineInitError || null, markerCandidates: [...document.querySelectorAll(ready)].slice(0, 3).map((el) => ({ width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height, hiddenAncestor: Boolean(el.closest('[hidden], [aria-hidden="true"], [aria-busy="true"]')), skeleton: Boolean(el.querySelector('[class*="skeleton"], [role="progressbar"]')), hasText: Boolean(el.textContent?.trim()) })), navigation: { ttfbMs: nav.responseStart, dclMs: nav.domContentLoadedEventEnd, loadMs: nav.loadEventEnd || null } };
+        const stageCollector = window.__CHASE_PERFORMANCE_LAB;
+        const stageLoss = Object.fromEntries(["droppedEvents", "invalidEvents", "invalidFields"].map((key) => {
+          const value = stageCollector?.[key];
+          return [key, value === undefined ? 0 : Number.isSafeInteger(value) && value >= 0 ? value : null];
+        }));
+        return { observedUntilMs: performance.now(), stages: stageCollector?.events || [], stageLoss, domElements: document.querySelectorAll("*").length, groups, apiWaterfall: resources.filter((r) => r.resource.startsWith("/api/")), slowestResources: resources.toSorted((a, b) => b.durationMs - a.durationMs).slice(0, 12), longTasks: window.__labLongTasks, vitals: window.__routeBaselineVitals, metricInitError: window.__routeBaselineInitError || null, markerCandidates: [...document.querySelectorAll(ready)].slice(0, 3).map((el) => ({ width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height, hiddenAncestor: Boolean(el.closest('[hidden], [aria-hidden="true"], [aria-busy="true"]')), skeleton: Boolean(el.querySelector('[class*="skeleton"], [role="progressbar"]')), hasText: Boolean(el.textContent?.trim()) })), navigation: { ttfbMs: nav.responseStart, dclMs: nav.domContentLoadedEventEnd, loadMs: nav.loadEventEnd || null } };
       }, route.ready);
       const after = Object.fromEntries((await cdp.send("Performance.getMetrics")).metrics.map((m) => [m.name, m.value]));
       // Chrome resets these duration counters on navigation; subtracting the
