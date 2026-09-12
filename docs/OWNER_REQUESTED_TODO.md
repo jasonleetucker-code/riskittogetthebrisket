@@ -1,5 +1,8 @@
 # Owner-Requested To-Do List
 
+**Owner final-release authority — 2026-09-12 (supersedes pause).** Resume the existing100-assignment campaign. The owner explicitly authorizes reviewable commits, push, PRs, protected green merges and staged rollout after prerequisite gates. Preserve local hybrid and all correctness/resource/browser gates. Measured new route budgets may be adopted with two independent reviews when no existing requirement or product expectation is weakened. Full terminal requirement is accepted production behavior and required work merged to main. No protection bypass or secret exposure. The pause report is historical; current execution follows the approved Final Performance Release Completion plan.
+
+
 **Status:** ACTIVE — **THE LIVE OWNER INTAKE LEDGER** (reclassified 2026-08-14 by the post-B master
 reconciliation). New owner instructions land here first and are durable the moment they are written.
 
@@ -18,6 +21,59 @@ This file is the durable repository record for owner-requested live defects, UX 
 
 ### Performance Phase 2 closure — owner continuation, 2026-09-11
 
+**Owner pause, 2026-09-12:** “Lets pause here. Write me a report for exactly where
+we are with the entire performance architecture.” All implementation and
+measurement assignments are paused. The report is
+`docs/PERFORMANCE_PAUSE_REPORT_2026-09-12.md`; Steward revision 93 records partial
+checkpoints and released leases. Preserve the dirty candidate and evidence.
+Do not resume work or measurements until the owner requests continuation.
+
+**Latest owner implementation directive, 2026-09-12 UTC: 100-assignment gated
+performance completion swarm.** Execute the exact 001–100 queue in
+`docs/evidence/performance-swarm-2026-09-12.json`, with Commander 000 and three
+concurrent worker slots, exclusive file ownership and uncontaminated benchmarks.
+`docs/EXECUTION_PLAN.md` records current authority; the campaign's newest section
+records results. Independently prepare later phases while repairing current
+worker/transition/interruption blockers. Preserve every gate, historical failure,
+private-data boundary and separate production authorization. Assignment execution
+does not imply acceptance; internal failures cannot be called external blockers.
+All 100 assignments require execution receipts and independent review; blocked
+rollout/acceptance remains blocked even after its offline packet is complete.
+
+**Latest owner directive: MASTER PERFORMANCE COMPLETION CAMPAIGN.** Implement
+the gated plan recorded under “Master completion campaign” in
+`docs/PERFORMANCE_CAMPAIGN.md`; authorization is incorporated into
+`docs/EXECUTION_PLAN.md` §0. Phase 2 category D / outcome C is accepted and complete.
+**Owner decision, 2026-09-11: local acceptance-policy blocker resolved.** Use the
+local-only hybrid: refresh p95 <75ms AND (relative increase <=20% OR (absolute
+increase <=15ms AND refresh p95 <=25ms)). Fresh Phase 3A is authorized, followed
+automatically by Phase 3B only after every short gate passes. Existing RSS,
+correctness, sampling and ownership requirements remain. The detailed decision,
+protocol and results are in the Phase 3 section of `docs/PERFORMANCE_CAMPAIGN.md`.
+Production/frontend/field policies and no-push/no-merge/no-deploy boundaries are
+unchanged. Historical Phase 2 evidence and its then-applicable failed gate remain
+in `docs/evidence/performance-latency-2026-09-11.json`.
+**Execution result:** policy/reporting implemented and independently reviewed;
+230 affected tests pass. Fresh Phase 3A passes. The authorized full attempt fails
+four unchanged-worker exits, rankings conditional-200 latency and interrupted
+sampling/quiet recovery. Phase 4 remains blocked. Exact failure owners, missing
+evidence and corrective actions are recorded in the campaign's final Phase 3
+section and `docs/evidence/performance-local-acceptance-2026-09-11.json`.
+Later local acceptance, production/Linux, frontend, broader-route migration and
+site-wide verification are authorized conditionally, never by skipping gates.
+Preserve strict SLOs. The owner selected measurement followed by concrete budget
+approval for remaining routes without useful-state budgets. Prior evidence below
+remains historical and reusable within its actual dependency/input scope.
+
+**Latest continuation: VALIDATION / RELOAD ISOLATION CLOSURE — IMPLEMENTED / EVALUATED.**
+From `564ef3f28`: producer certification, minimal web adoption and producer-final
+league expiry are implemented and independently reviewed. Integrated tests: 547
+passed, 19 skipped. The matched short run has 66,476 coherent responses and now
+passes RSS recovery, sampling and verified quiet; all four ordinary relative
+latency gates still fail. Lifetime and trace diagnostics confirm reduced web work.
+**B — NOT READY FOR FINAL FULL SOAK.** No hour, frontend, production, merge or push
+work. See the campaign and performance-isolation-2026-09-11 evidence summary.
+
 Continue `codex/performance-serving` under the existing performance authorization.
 The durable closure contract and evidence live in
 `docs/PERFORMANCE_CAMPAIGN.md` (RSS / refresh-latency closure continuation).
@@ -31,7 +87,7 @@ another full 3,600-second serving exercise plus verified quiet recovery.
 All existing RSS, latency, sampling, correctness and resource gates remain
 unchanged. Mobile, broader migration and new infrastructure are out of scope;
 no push, merge, deployment, timer or production flag activation is authorized.
-Status: **IMPLEMENTED / EVALUATED — B — NOT READY**. RSS attribution, a parity-preserving memory reduction and sampler/quiet repair are complete. Matched five-minute runs pass correctness/sampling/quiet but fail RSS recovery and relative refresh latency; the new full hour is gated off. See the linked campaign for measured blockers and corrective actions.
+Previous closure status (superseded above): **IMPLEMENTED / EVALUATED — B — NOT READY**. RSS attribution, a parity-preserving memory reduction and sampler/quiet repair are complete. Matched five-minute runs pass correctness/sampling/quiet but fail RSS recovery and relative refresh latency; the new full hour is gated off. See the linked campaign for measured blockers and corrective actions.
 
 *(Rows #829 and #830 and binding decisions 47–65 were added 2026-08-14 under this same heading.)*
 
