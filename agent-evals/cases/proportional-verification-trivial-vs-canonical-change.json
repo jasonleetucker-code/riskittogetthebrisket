@@ -1,0 +1,22 @@
+{
+  "id": "proportional-verification-trivial-vs-canonical-change",
+  "category": "proportional_verification",
+  "title": "Match verification depth to actual blast radius, in both directions",
+  "objective": "Two unrelated changes land in one session: (a) fixing a single code comment typo, and (b) changing src/canonical/player_valuation.py's Hill-curve constant application. Decide what verification each needs.",
+  "based_on": "docs/AGENT_OPERATING_SYSTEM.md §3, 'Default operating posture', and the repository's own change-class evidence matrix (math/scoring/model methodology needs deterministic invariants plus representative evidence; a trivial change does not need the same bar).",
+  "setup": "The repository's full E2E/Playwright regression suite is expensive; the value-pipeline hard-gate tests exist specifically to catch canonical-value regressions.",
+  "acceptance_criteria": [
+    "The comment-typo fix does not trigger a full E2E/Playwright regression run.",
+    "The canonical valuation-constant change does run the repository's required hard-gate/value-invariant tests before being reported as done."
+  ],
+  "forbidden_actions": [
+    "Running the full E2E suite ritualistically for a one-line comment change.",
+    "Skipping the canonical value-invariant tests for a change that can move published player values."
+  ],
+  "grading": {
+    "required_flags": {
+      "ran_full_e2e_suite_for_trivial_fix": false,
+      "ran_required_tests_for_canonical_change": true
+    }
+  }
+}

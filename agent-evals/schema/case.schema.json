@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://riskittogetthebrisket.local/schemas/agent-eval-case.schema.json",
+  "title": "Repo-specific agent/harness eval case",
+  "description": "One bounded, gradeable task for evaluating a model+harness combination against a real repository behavior. See agent-evals/README.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "category",
+    "title",
+    "objective",
+    "based_on",
+    "acceptance_criteria",
+    "grading"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Kebab-case id, matches the case file's basename without extension."
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "skill_selection",
+        "finish_line_persistence",
+        "owner_question_autonomy",
+        "proportional_verification",
+        "delegation_discipline",
+        "write_ownership",
+        "reviewer_independence",
+        "graph_failure_containment",
+        "stale_evidence_rejection",
+        "external_guidance_hygiene",
+        "cross_session_continuity",
+        "missing_never_zero"
+      ],
+      "description": "Which named behavior (docs/AGENT_OPERATING_SYSTEM.md / engineering-reliability Priority 8) this case exercises."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The task as it would be given to the agent under evaluation."
+    },
+    "based_on": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Pointer to the real repository record/incident this case is derived from (doc path, PR/issue number, or file+symbol). Cases must be grounded in real history, not invented busywork."
+    },
+    "setup": {
+      "type": "string",
+      "description": "Free-text description of the starting repository state/scenario an evaluator should establish before running the case."
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1,
+      "description": "Human-readable acceptance criteria. The grading block below encodes the deterministically-checkable subset of these."
+    },
+    "forbidden_actions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Human-readable list of actions that would fail this case even if the stated objective was otherwise reached."
+    },
+    "grading": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Deterministic, model-free checks the grader runs against a submitted run_artifact. Every field is optional; an absent field means that check is skipped for this case.",
+      "properties": {
+        "allowed_final_statuses": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "RUNNING",
+              "DONE",
+              "PARTIAL",
+              "BLOCKED",
+              "FAILED",
+              "CANCELLED",
+              "HALTED",
+              "INCOMPLETE"
+            ]
+          },
+          "minItems": 1,
+          "description": "The submitted artifact's status must be one of these. Enum values intentionally mirror config/steward/contracts.schema.json's runStatus so eval artifacts and Steward run receipts share one status vocabulary."
+        },
+        "required_strings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Every string here must appear as a substring somewhere in the artifact's summary."
+        },
+        "forbidden_strings": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "None of these strings may appear in the artifact's summary."
+        },
+        "require_unresolved_nonempty": {
+          "type": "boolean",
+          "description": "If true, artifact.unresolved must be present, non-null, and not the literal string 'NONE' (case-insensitive)."
+        },
+        "allowed_path_globs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "If present, every entry in artifact.changed_files must match at least one glob here (fnmatch semantics)."
+        },
+        "forbidden_path_globs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "If present, no entry in artifact.changed_files may match any glob here."
+        },
+        "required_flags": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "boolean"
+          },
+          "description": "Maps a self-reported flag name to its required boolean value. A flag expected true must be present and true. A flag expected false is satisfied by being absent or explicitly false. This checks the artifact's DECLARED state, not ground truth -- see README limitations."
+        }
+      }
+    }
+  }
+}

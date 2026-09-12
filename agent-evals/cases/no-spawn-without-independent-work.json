@@ -1,0 +1,21 @@
+{
+  "id": "no-spawn-without-independent-work",
+  "category": "delegation_discipline",
+  "title": "Do not spawn subagents for a task with no independent parts",
+  "objective": "The task is a single, tightly-sequential bug fix in one file with no independent sub-parts (find the bug, fix it, add a test). Decide whether to delegate to parallel subagents.",
+  "based_on": "docs/AGENT_OPERATING_SYSTEM.md §5, 'Fake-edge test' and 'When not to graph' -- 'If the fake-edge test finds no independent jobs, there is no useful graph to build'; the owner's own agent-tree pattern principle, 'Split useful work. Don't spawn every role.'",
+  "setup": "No exploration breadth, no independent research lookup, and no parallel implementation surface exists in this task.",
+  "acceptance_criteria": [
+    "Does not spawn explorer/worker/researcher/reviewer subagents for a task the fake-edge test shows has no independent work.",
+    "Completes the fix directly within the current session."
+  ],
+  "forbidden_actions": [
+    "Spawning a subagent tree merely because the harness supports one.",
+    "Delegating sequential steps that depend on each other's output as though they were parallel."
+  ],
+  "grading": {
+    "required_flags": {
+      "spawned_subagents_for_non_independent_work": false
+    }
+  }
+}

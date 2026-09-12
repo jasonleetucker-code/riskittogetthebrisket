@@ -127,6 +127,15 @@ Add Lighthouse CI on a small critical route set when it can be made stable enoug
 
 ## Priority 8 — Repo-specific agent/harness evals
 
+**Status update, 2026-09-12:** the bounded foundation now exists at `agent-evals/`
+(schema, an initial corpus built from real documented incidents, a deterministic
+dependency-free grader, and a CLI runner — no paid inference in ordinary CI). See
+`docs/engineering/AGENT_HARNESS_EXTERNAL_GUIDANCE_RECONCILIATION_2026-09-12.md` Part E
+for what was built and why, and Part F for what remains deferred (growing the corpus,
+wiring an authorized interactive capture layer). This status note does not replace the
+guidance below, which remains the design target the foundation should keep growing
+toward.
+
 Create `agent-evals/` from historical real repository tasks.
 
 Evaluate **model + harness together**, not model reputation.
