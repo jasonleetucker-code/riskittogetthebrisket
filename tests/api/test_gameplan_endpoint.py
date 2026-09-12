@@ -38,6 +38,12 @@ import server
 from src.api import gameplan, league_registry
 from tests.api.scoring_fixture import SCORING_CARD, install_scoring_snapshots
 
+# These handler fixtures install their own contracts and scoring snapshots.
+# Real startup can otherwise leave an overlay-warm daemon using this temporary
+# registry after teardown, contaminating the next suite's scoring-card calls.
+# Independent startup/lifecycle suites continue to exercise the real warm path.
+pytestmark = pytest.mark.usefixtures("isolated_legacy_serving_startup")
+
 # ── Fixture league ───────────────────────────────────────────────────
 # 4 teams x 14 players over 7 starter slots.  Three properties are
 # deliberate, and a fixture missing any of them passes the tests
