@@ -11,6 +11,7 @@ from __future__ import annotations
 import copy
 import unittest
 import contextlib
+from unittest import mock
 
 from src.public_league import awards
 from src.public_league.awards import (
@@ -52,6 +53,25 @@ from tests.public_league.fixtures import build_test_snapshot
 # other award.  This null context keeps the historical call sites
 # readable without rewriting each one.
 _NO_CUTOFF = contextlib.nullcontext()
+
+
+def _lenient_replacement_baseline():
+    """Bypass the require_full_band=True thin-sample gate for tests that
+    are checking something else entirely (VORP is never negative, a
+    position filter holds) and use a toy 4-team fixture nowhere near the
+    real 12-team league's fixed starter-slot counts. Population-vs-band
+    sufficiency has its own dedicated tests
+    (``ThinSamplePositionExclusionTests``); this just restores the old
+    single-worst-player fallback so these orthogonal tests still have
+    VORP rows to examine.
+    """
+    original = awards._replacement_per_game_for_position
+
+    def _lenient(rows, slots, **_ignored_kwargs):
+        return original(rows, slots, require_full_band=False)
+
+    return mock.patch.object(awards, "_replacement_per_game_for_position", side_effect=_lenient)
+
 
 _REMOVED_KEYS = {
     "chaos_agent",
@@ -411,7 +431,8 @@ class OffDefMvpTests(unittest.TestCase):
         cls.snapshot = _with_player_points(build_test_snapshot())
 
     def test_off_mvp_only_offensive_positions(self):
-        rows = _offensive_mvp_rows(self.snapshot, self.snapshot.seasons[0])
+        with _lenient_replacement_baseline():
+            rows = _offensive_mvp_rows(self.snapshot, self.snapshot.seasons[0])
         self.assertTrue(rows)
         for r in rows:
             self.assertIn(r["position"], _OFF_ROY_POSITIONS)
@@ -519,7 +540,8 @@ class VorpFloorAndSlotsTests(unittest.TestCase):
         cls.snapshot = _with_player_points(build_test_snapshot())
 
     def test_no_negative_vorp_regular_season(self) -> None:
-        rows = _vorp_rows(self.snapshot, self.snapshot.seasons[0], regular_season_only=True)
+        with _lenient_replacement_baseline():
+            rows = _vorp_rows(self.snapshot, self.snapshot.seasons[0], regular_season_only=True)
         self.assertTrue(rows)
         for r in rows:
             self.assertGreaterEqual(r["vorp"], 0.0)
@@ -554,6 +576,68 @@ class VorpFloorAndSlotsTests(unittest.TestCase):
         slots = _vorp_starter_slots({"RB": rb, "WR": wr})
         self.assertEqual(slots["RB"], 10)
         self.assertEqual(slots["WR"], 5)
+
+
+class ThinSamplePositionExclusionTests(unittest.TestCase):
+    """``_vorp_rows`` (League/Off/Def MVP + ROY) must exclude a position
+    whose replacement baseline is undefined rather than default it, while
+    Playoff MVP — whose population is one team's own playoff roster,
+    structurally small independent of season progress — keeps the
+    original lenient fallback.
+
+    The toy 4-team fixture can't exercise the exclusion directly: every
+    position in it is "thin" relative to the real 12-team fixed slot
+    table (``_VORP_FIXED_STARTER_SLOTS``), which is exactly why
+    ``_lenient_replacement_baseline`` exists for the orthogonal tests
+    above. Here the exclusion itself is what's under test, so it's driven
+    through a controlled monkeypatch instead of hand-building 40+ distinct
+    players.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.snapshot = _with_player_points(build_test_snapshot())
+
+    def test_vorp_rows_excludes_a_position_with_no_baseline(self) -> None:
+        original = awards._replacement_per_game_for_position
+
+        def _only_lb_is_undefined(rows, slots, **_kwargs):
+            if rows and rows[0].get("position") == "LB":
+                return None
+            return original(rows, slots, require_full_band=False)
+
+        with mock.patch.object(
+            awards, "_replacement_per_game_for_position", side_effect=_only_lb_is_undefined
+        ):
+            rows = _vorp_rows(self.snapshot, self.snapshot.seasons[0], regular_season_only=True)
+
+        self.assertTrue(rows, "other positions should still produce VORP rows")
+        self.assertFalse(
+            any(r["position"] == "LB" for r in rows),
+            "a position with an undefined replacement baseline must be excluded, not defaulted",
+        )
+
+    def test_playoff_mvp_never_requests_the_strict_gate(self) -> None:
+        """The deliberate carve-out documented in ``_playoff_mvp_player_rows``:
+        its population is one team's own playoff roster, always small
+        regardless of season progress, so it must keep the lenient
+        single-worst-player fallback rather than the full-band gate."""
+        original = awards._replacement_per_game_for_position
+        calls: list[dict] = []
+
+        def _spy(rows, slots, **kwargs):
+            calls.append(kwargs)
+            return original(rows, slots, **kwargs)
+
+        with mock.patch.object(awards, "_replacement_per_game_for_position", side_effect=_spy):
+            _playoff_mvp_player_rows(self.snapshot, self.snapshot.seasons[0])
+
+        self.assertTrue(calls, "the playoff MVP path never touched the replacement helper")
+        for kwargs in calls:
+            self.assertFalse(
+                kwargs.get("require_full_band", False),
+                "playoff MVP must not request the strict full-band gate",
+            )
 
 
 class TopNflTeamTests(unittest.TestCase):
