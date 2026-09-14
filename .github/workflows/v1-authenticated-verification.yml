@@ -180,8 +180,12 @@ jobs:
         shell: bash
         env:
           PASS_HOURS: ${{ inputs.pass_hours || '2' }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
         run: |
           set -Eeuo pipefail
+          set +e
           BODY=$(python3 - "$ORIGIN" "$RUNNER_TEMP/guest_pass_token" <<'PYEOF'
           import json
           import sys
@@ -205,6 +209,45 @@ jobs:
                             "expiresAtEpoch": body.get("expiresAtEpoch"), "cookie": cookie}))
           PYEOF
           )
+          LOGIN_RC=$?
+          set -e
+
+          if [ "$LOGIN_RC" -ne 0 ]; then
+            echo "::error title=Production auth path failed::real /api/auth/login failed with exit ${LOGIN_RC}; collecting bounded non-secret diagnostics before preserving the failure"
+            echo "Public-path diagnostics (status + latency only):"
+            for endpoint in /api/health /api/status /api/public/league; do
+              rc=0
+              result=$(curl --silent --show-error --output /dev/null --max-time 10 \
+                --write-out "HTTP=%{http_code} total=%{time_total}s" \
+                "${ORIGIN}${endpoint}") || rc=$?
+              echo "runner ${endpoint}: ${result:-HTTP=000} curl_rc=${rc}"
+            done
+
+            echo "On-box backend diagnostics (no request bodies, tokens, or journal payloads):"
+            ssh -i "$HOME/.ssh/id_ed25519" \
+              -o BatchMode=yes -o StrictHostKeyChecking=yes \
+              -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+              -o ConnectTimeout=15 \
+              -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+              "SERVICE_NAME=$(printf %q "$SERVICE_NAME") bash -s" <<'REMOTE' || true
+            set +e
+            date -u '+[on-box] utc=%Y-%m-%dT%H:%M:%SZ'
+            for endpoint in /api/health /api/status /api/public/league; do
+              result=$(curl --silent --show-error --output /dev/null --max-time 10 \
+                --write-out 'HTTP=%{http_code} total=%{time_total}s' \
+                "http://127.0.0.1:8000${endpoint}")
+              rc=$?
+              echo "[on-box] ${endpoint}: ${result:-HTTP=000} curl_rc=${rc}"
+            done
+            echo "[on-box] systemd state:"
+            sudo -n systemctl is-active "$SERVICE_NAME" || true
+            sudo -n systemctl show "$SERVICE_NAME" --no-pager \
+              -p ActiveState -p SubState -p MainPID -p NRestarts \
+              -p ExecMainStatus -p MemoryCurrent -p TasksCurrent || true
+            REMOTE
+            exit "$LOGIN_RC"
+          fi
+
           COOKIE=$(printf '%s' "$BODY" | python3 -c 'import json,sys; print(json.load(sys.stdin)["cookie"])')
           if [ -z "$COOKIE" ]; then
             echo "::error::login returned no jason_session cookie"
