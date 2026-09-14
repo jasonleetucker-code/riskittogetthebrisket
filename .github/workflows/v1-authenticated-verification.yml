@@ -220,7 +220,7 @@ jobs:
               result=$(curl --silent --show-error --output /dev/null --max-time 10 \
                 --write-out "HTTP=%{http_code} total=%{time_total}s" \
                 "${ORIGIN}${endpoint}") || rc=$?
-              echo "runner ${endpoint}: ${result:-HTTP=000} curl_exit=${rc}"
+              echo "runner ${endpoint}: ${result:-HTTP=000} curl_rc=${rc}"
             done
 
             echo "On-box backend diagnostics (no request bodies, tokens, or journal payloads):"
@@ -237,7 +237,7 @@ jobs:
                 --write-out 'HTTP=%{http_code} total=%{time_total}s' \
                 "http://127.0.0.1:8000${endpoint}")
               rc=$?
-              echo "[on-box] ${endpoint}: ${result:-HTTP=000} curl_exit=${rc}"
+              echo "[on-box] ${endpoint}: ${result:-HTTP=000} curl_rc=${rc}"
             done
             echo "[on-box] systemd state:"
             sudo -n systemctl is-active "$SERVICE_NAME" || true
