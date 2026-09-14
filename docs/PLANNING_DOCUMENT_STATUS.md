@@ -113,6 +113,13 @@ intent in the repository and win over anything older they contradict.
 - `docs/faab-model.md`, `docs/FAAB_MARKET_SIGNAL_NORMALIZATION_2026-08-14.md` — **binding, issue #830, decisions 56–65**
 - `docs/faab-live-opportunity-model.md` — **binding, extends the two above with the Live Waiver Opportunity layer and the `/suggestions`-vs-`/faab-recommend` unification; does not supersede either**
 - `docs/perfect-draft.md`
+- `docs/OWNER_FEATURE_ADDENDUM_2026-09-13_LIVE_ROOKIE_AUCTION_PERFECT_DRAFT.md` — **binding future
+  specification, owner directive 2026-09-13.** Live rookie-auction dynamic bid tracking, shared-budget
+  reconciliation (`F = B − S − C`), the target/strategic/legal price-ceiling separation, the
+  decision-advantage function `Delta(p, price) = V_win − V_pass`, and required future acceptance
+  tests. Extends `docs/perfect-draft.md` and ADR-009/010/011 in
+  `docs/roster-trade-intelligence/DECISIONS.md` without amending them; consolidates existing defect
+  row 3.7 / W10-F001. PLANNED — manifest `C7-DRAFT-03`; authorizes no implementation
 
 ### Roster intelligence
 - `docs/OWNER_FEATURE_ADDENDUM_2026-08-18_FLEX_STARTER_ASSIGNMENT.md` — **binding, issue #899, owner decision

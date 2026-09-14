@@ -607,3 +607,16 @@ fixed.
 **Status:** accepted 2026-07-30. Flag `perfect_draft` (LIVE, default on);
 rollback `RISKIT_FEATURE_PERFECT_DRAFT=0` **and restart** — flag reads are
 cached per process.
+
+---
+
+## Planned, not yet an ADR: Live Rookie Auction extension
+
+**Status: NOT ACCEPTED. Specification only, no implementation decision made.**
+`docs/OWNER_FEATURE_ADDENDUM_2026-09-13_LIVE_ROOKIE_AUCTION_PERFECT_DRAFT.md`
+records the owner's binding requirements for a future dynamic bid-tracking,
+shared-budget-reconciliation and price-sensitivity extension of Perfect Draft
+(manifest `C7-DRAFT-03`). It extends ADR-009/010/011 without amending them.
+When implementation is authorized (`docs/EXECUTION_PLAN.md`) and a real
+architecture decision is made, record it as ADR-012 here — do not backfill an
+"accepted" status onto this entry before that happens.

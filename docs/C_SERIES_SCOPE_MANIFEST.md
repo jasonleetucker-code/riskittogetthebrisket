@@ -32,8 +32,8 @@ Neither audit's headline number survives contact with that census. One reported 
 population by a factor of six** — because the first counted a *sample* of source entries rather than enumerating
 them, and neither unioned `UNIMPLEMENTED_BACKLOG.md`, `docs/status/*`, or `docs/ROADMAP-competitor-parity.md`.
 
-<!-- MANIFEST-ROW-COUNT: 163 -->
-This manifest carries **163 rows** — 142 C-phase rows, 14 completed foundations and 7 explicit out-of-scope rows,
+<!-- MANIFEST-ROW-COUNT: 164 -->
+This manifest carries **164 rows** — 143 C-phase rows, 14 completed foundations and 7 explicit out-of-scope rows,
 with 3 of them aggregates that enumerate their members inline (`C7-CE-01` names 16 CE surfaces; `C10-CLOSE-*`
 and `C1-RET-*` are individually listed). Rows are at *capability* grain: where a source enumerates many small members
 of one capability — the 104-ledger's calculator-workflow tier is the main case — the row **names its members
@@ -340,6 +340,7 @@ in production rather than merely deployed.*
 | `C7-WAIV-01` | Perfect Waivers | *(new)* | ABSENT — today a greedy client slate | One optimizer over availability, dropability, need, protection, market evidence; **the correct answer is the matching problem** | IMPLEMENT | `C2-DROP-01`, `C4-FAAB-01`, `C3-CON-01` | inventory 3.3/3.4 | P1 | decide | — | matching test |
 | `C7-DRAFT-01` | Perfect Draft | `src/draft/` | COMPLETE for declared scope | Becomes a consumer of canonical pick identity/valuation; backtest unblocked when a pre-draft snapshot exists | CONSOLIDATE | `C1-PICK-01` | `docs/perfect-draft.md` | P1 | decide | — | parity |
 | `C7-DRAFT-02` | Pre-auction immutable snapshot | `C1-HIST-01` | PARTIAL — `--record-snapshot` exists, must be run before an auction | Captured automatically | IMPLEMENT | `C1-HIST-01` | appendix C1 | P3 | decide | `RET` | snapshot exists |
+| `C7-DRAFT-03` | Live Rookie Auction — dynamic bid tracking, roster-aware budget optimization, price sensitivity | `src/draft/` + new live-bid/state layer | ABSENT — owner directive 2026-09-13, specification only | Live states (available/leading/outbid/won/hypothetical); one shared budget `F = B − S − C` reconciled across all active auctions; target/strategic/legal price ceilings kept distinct; joint acquire+drop reoptimization on every meaningful change; required Mendoza-style what-if acceptance scenario (`Delta(p, price) = V_win − V_pass`); honest solver-status labeling. Never a fixed acquisition count. Consolidates row 3.7 / W10-F001 | IMPLEMENT | `C7-DRAFT-01`, `C1-PICK-01`, `C2-DROP-01`, `C2-REPL-01` | `docs/OWNER_FEATURE_ADDENDUM_2026-09-13_LIVE_ROOKIE_AUCTION_PERFECT_DRAFT.md` | P1 | decide | — | acceptance tests §13 of the addendum (20 scenarios) |
 | `C7-ALERT-01` | Edge Alerts | `C6-SIG-01` | ABSENT | Materiality threshold, dedupe/cooldown, freshness, actionability | IMPLEMENT | `C6-SIG-01` | `docs/AI_FRONT_OFFICE_INTELLIGENCE_SPEC.md` §4 | P1 | decide | — | anti-spam test |
 | `C7-AI-01` | Ask Brisket | `C6-ANA-01` + canonical services | ABSENT as a product; **orphan code exists** (`src/api/chat.py`) with no planning record | Retrieval/orchestration over canonical evidence; the model never recomputes a canonical quantity | IMPLEMENT | `C7-DESK-01` | `docs/AI_FRONT_OFFICE_INTELLIGENCE_SPEC.md` §2 | P1 | decide | `OD-03` | grounding test |
 | `C7-AI-02` | Roster Path Optimizer | canonical services | ABSENT | Sequences of actions toward an explicit objective; consumes existing owners | IMPLEMENT | `C7-DESK-01`, `C5-PLAY-01` | spec §3 | P1 | decide | — | acceptance |
@@ -463,8 +464,8 @@ kind**. Those gate the *ingestion*, which is already live and long-standing — 
 | Combined raw population | ≈1,182 |
 | Distinct capability identities after de-duplication | ≈357 |
 | Binding constraint / methodology / validation units (not capabilities) | ≈425 |
-| **Manifest rows** | **163** (142 C-phase · 14 completed foundations · 7 out-of-scope; 3 of the 142 are aggregates that enumerate their members inline) |
-| Rows carrying a phase, a disposition and completion evidence | 157 |
+| **Manifest rows** | **164** (143 C-phase · 14 completed foundations · 7 out-of-scope; 3 of the 143 are aggregates that enumerate their members inline) |
+| Rows carrying a phase, a disposition and completion evidence | 158 |
 | **Unmapped** | **0** |
 | Duplicate clusters resolved | 4 (CE namespace · ledger 102–104 ≡ #835 · Best Trade dual record · Trade Trees dual identity) |
 | Explicitly superseded owner rules | 6 (2028/2029 unpriced posture · player-MVP eligibility gate · `unified_signal_engine` ownership claim · Best Trade `no draft picks` · Best Trade exact-equal-player-count · **fixed meaningful-core positional caps, superseded by #839's `ceil(1.5 × real starter demand)`** — see `docs/C_SERIES_DIRECTIVE_RECONCILIATION_2026-08-17.md` §4.1) |
