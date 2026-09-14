@@ -76,8 +76,42 @@ jobs:
     timeout-minutes: 45
     environment: production
     steps:
-      - name: Checkout
+      - name: Resolve verification source SHA
+        id: source
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+          DISPATCH_SHA: ${{ github.sha }}
+        run: |
+          set -Eeuo pipefail
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            SOURCE_SHA="$DEPLOY_SHA"
+          else
+            SOURCE_SHA="$DISPATCH_SHA"
+          fi
+          if [ -z "$SOURCE_SHA" ]; then
+            echo "::error::verification source SHA is empty"
+            exit 1
+          fi
+          echo "sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+          echo "Verification source SHA: $SOURCE_SHA"
+
+      - name: Checkout exact verification source
         uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.source.outputs.sha }}
+
+      - name: Verify checkout identity
+        shell: bash
+        env:
+          EXPECTED_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          set -Eeuo pipefail
+          ACTUAL_SHA=$(git rev-parse HEAD)
+          echo "Expected verification source: $EXPECTED_SHA"
+          echo "Checked-out verification source: $ACTUAL_SHA"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
 
       - name: Resolve production origin
         shell: bash
