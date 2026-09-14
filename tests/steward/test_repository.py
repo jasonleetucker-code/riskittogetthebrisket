@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_real_repo_inventory_retains_manifest_and_phase_provenance():
     result = inventory(ROOT)
-    assert result["manifest_rows"] == 163
+    assert result["manifest_rows"] == 164
     assert result["launch"]["total"] == 30
     phases = phase_tasks(ROOT, result)
     assert len(phases) == 10
