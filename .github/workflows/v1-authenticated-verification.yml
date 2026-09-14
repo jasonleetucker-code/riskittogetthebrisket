@@ -244,7 +244,7 @@ jobs:
             sudo -n systemctl show "$SERVICE_NAME" --no-pager \
               -p ActiveState -p SubState -p MainPID -p NRestarts \
               -p ExecMainStatus -p MemoryCurrent -p TasksCurrent || true
-            REMOTE
+          REMOTE
             exit "$LOGIN_RC"
           fi
 
