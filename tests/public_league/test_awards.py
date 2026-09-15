@@ -938,6 +938,42 @@ class AwaitingEvidenceTests(unittest.TestCase):
             )
         )
 
+    def test_absent_metric_is_not_evidence_and_is_not_read_as_zero(self) -> None:
+        # The case the original `float(x or 0.0)` hid: a row whose metric
+        # key is missing entirely. Coercing it to 0.0 would classify a
+        # MISSING measurement as a MEASURED zero — the exact conflation
+        # this award state exists to prevent — and would also mask a real
+        # upstream shape change behind a plausible-looking verdict.
+        rows = [{"ownerId": "owner-0", "displayName": "Owner 0"}]  # no key at all
+        award = awards._award_from_row(
+            self.snapshot,
+            self.season,
+            rows,
+            "waiver_king",
+            "Waiver King",
+            lambda r: {"pointsGained": r.get("pointsGained")},
+            evidence=self._HAS_GAIN,
+        )
+        self.assertTrue(award["awaitingEvidence"])
+        self.assertEqual(award["ownerId"], "")
+
+        self.assertFalse(awards._is_nonzero_number(None))
+        self.assertFalse(awards._is_positive_number(None))
+
+    def test_non_numeric_and_non_finite_metrics_are_not_evidence(self) -> None:
+        for bad in ("", "abc", float("nan"), float("inf"), float("-inf"), True, False):
+            self.assertFalse(awards._is_nonzero_number(bad), f"{bad!r} read as evidence")
+            self.assertFalse(awards._is_positive_number(bad), f"{bad!r} read as positive")
+
+    def test_predicates_separate_nonzero_from_positive(self) -> None:
+        # A negative gain is real evidence (a ranking exists) but is not
+        # positive — the two predicates must not be interchangeable.
+        self.assertTrue(awards._is_nonzero_number(-4.2))
+        self.assertFalse(awards._is_positive_number(-4.2))
+        self.assertFalse(awards._is_nonzero_number(0.0))
+        self.assertTrue(awards._is_nonzero_number(0.01))
+        self.assertTrue(awards._is_positive_number(0.01))
+
     def test_every_awaiting_reason_is_reachable_and_described(self) -> None:
         for key, reason in awards.AWARD_AWAITING_REASONS.items():
             self.assertIn(key, AWARD_DESCRIPTIONS, f"{key} has no description")

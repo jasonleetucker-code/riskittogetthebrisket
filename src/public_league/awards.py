@@ -37,6 +37,7 @@ Award catalog:
 
 from __future__ import annotations
 
+import math
 from collections import defaultdict
 from typing import Any
 
@@ -1736,6 +1737,42 @@ def _rivalry_of_the_year(
 
 
 # ── assembly helpers ────────────────────────────────────────────────────────
+def _is_nonzero_number(value: Any) -> bool:
+    """True only for a real, finite, NONZERO number.
+
+    ``None`` is deliberately NOT coerced to 0.0. A missing measurement
+    and a measured zero are different facts, and keeping them apart is
+    the entire point of the awaiting-evidence rule below — so the line
+    that DECIDES whether evidence exists must not be the one place that
+    collapses them. Neither counts as evidence; they just get there by
+    different routes, and only one of them is a number.
+
+    Rejects ``bool`` because ``True`` is numerically 1 and a flag is
+    never a measurement.
+    """
+    if value is None or isinstance(value, bool):
+        return False
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(number) and number != 0.0
+
+
+def _is_positive_number(value: Any) -> bool:
+    """True only for a real, finite number strictly greater than zero.
+
+    Same non-coercion rule as :func:`_is_nonzero_number`.
+    """
+    if value is None or isinstance(value, bool):
+        return False
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(number) and number > 0.0
+
+
 def _awaiting_award(key: str, label: str) -> dict[str, Any]:
     """An award with candidates but no deciding evidence yet.
 
@@ -1833,10 +1870,10 @@ def _activity_awards_for_season(
             "trader_of_the_year",
             "Trader of the Year",
             lambda r: {"pointsGained": r["pointsGained"], "trades": r["tradeCount"]},
-            evidence=lambda r: float(r.get("pointsGained") or 0.0) != 0.0,
+            evidence=lambda r: _is_nonzero_number(r.get("pointsGained")),
         )
     )
-    if best_trade is not None and float(best_trade[0] or 0.0) == 0.0:
+    if best_trade is not None and not _is_nonzero_number(best_trade[0]):
         # Trades were made, but no week has been scored since any of
         # them — every candidate's gain is exactly 0.0, so there is no
         # "best" to pick out.
@@ -1878,7 +1915,7 @@ def _activity_awards_for_season(
                 "pointsGained": r["pointsGained"],
                 "adds": r.get("usefulAdds", 0),
             },
-            evidence=lambda r: float(r.get("pointsGained") or 0.0) != 0.0,
+            evidence=lambda r: _is_nonzero_number(r.get("pointsGained")),
         )
     )
     _add(
@@ -1911,7 +1948,7 @@ def _activity_awards_for_season(
     )
     # Playoff MVP — VORP-based player award (replaces the prior team-points version).
     playoff_mvp_rows = _playoff_mvp_player_rows(snapshot, season)
-    if playoff_mvp_rows and float(playoff_mvp_rows[0].get("vorp") or 0.0) <= 0.0:
+    if playoff_mvp_rows and not _is_positive_number(playoff_mvp_rows[0].get("vorp")):
         # VORP floors at 0, so an all-zero board means no starter on the
         # championship roster cleared replacement — there is no standout
         # to name, and naming the first-sorted one invents a result.
@@ -2260,7 +2297,7 @@ def _current_season_races(
             "Trader of the Year",
             trader_rows,
             lambda r: {"pointsGained": r["pointsGained"], "trades": r["tradeCount"]},
-            evidence=lambda r: float(r.get("pointsGained") or 0.0) != 0.0,
+            evidence=lambda r: _is_nonzero_number(r.get("pointsGained")),
         )
     )
     _add(
@@ -2273,7 +2310,7 @@ def _current_season_races(
                 "pointsGained": r["pointsGained"],
                 "adds": r.get("usefulAdds", 0),
             },
-            evidence=lambda r: float(r.get("pointsGained") or 0.0) != 0.0,
+            evidence=lambda r: _is_nonzero_number(r.get("pointsGained")),
         )
     )
     _add(
@@ -2304,7 +2341,7 @@ def _current_season_races(
     )
     # Same rule the ROY races use: a zero-VORP board is no race at all.
     playoff_mvp_rows = [
-        r for r in _playoff_mvp_player_rows(snapshot, season) if float(r.get("vorp") or 0.0) > 0.0
+        r for r in _playoff_mvp_player_rows(snapshot, season) if _is_positive_number(r.get("vorp"))
     ]
     if playoff_mvp_rows:
         race = {
