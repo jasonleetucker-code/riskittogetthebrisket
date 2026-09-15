@@ -263,6 +263,49 @@ describe("GameDayPanel — selected-team context (W1-25)", () => {
   });
 });
 
+describe("GameDayPanel — explicit week/season (W1-28)", () => {
+  afterEach(() => {
+    mockSearchParams.value = new Map();
+  });
+
+  it("forwards an explicit week and season so a completed week stays reachable", async () => {
+    // Without this the page can only ever show whichever week the HOST is
+    // on, which makes a completed week's FINAL state unreachable through
+    // the UI the moment the host rolls forward.
+    mockSearchParams.value = new Map([
+      ["week", "1"],
+      ["season", "2026"],
+    ]);
+    mockJson(PRICED);
+    render(<GameDayPanel />);
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
+    const [url] = globalThis.fetch.mock.calls[0];
+    expect(url).toContain("week=1");
+    expect(url).toContain("season=2026");
+  });
+
+  it("omits both when absent, leaving the host's clock to decide", async () => {
+    mockSearchParams.value = new Map();
+    mockJson(PRICED);
+    render(<GameDayPanel />);
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
+    const [url] = globalThis.fetch.mock.calls[0];
+    expect(url).toBe("/api/matchup/intel");
+  });
+
+  it("combines an explicit week with the selected team", async () => {
+    mockSearchParams.value = new Map([["week", "1"]]);
+    mockUserState.state = { selectedTeam: { ownerId: "own-A" } };
+    mockJson(PRICED);
+    render(<GameDayPanel />);
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
+    const [url] = globalThis.fetch.mock.calls[0];
+    expect(url).toContain("team=own-A");
+    expect(url).toContain("week=1");
+    mockUserState.state = { selectedTeam: null };
+  });
+});
+
 describe("GameDayPanel — joint weekly outcomes (spec §8)", () => {
   it("renders the four mutually exclusive outcomes", async () => {
     mockJson(PRICED);

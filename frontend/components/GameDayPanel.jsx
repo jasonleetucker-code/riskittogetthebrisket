@@ -530,10 +530,34 @@ export default function GameDayPanel() {
     urlOwnerId ||
     (userState?.selectedTeam?.ownerId ? String(userState.selectedTeam.ownerId) : "");
 
+  // `week` / `season` for exactly the reason `team` exists above, and with
+  // the same precedence: the endpoint has always accepted them (both are
+  // documented optional, falling back to the HOST's clock) while the page
+  // did not, so the page could only ever show whichever week the host is
+  // currently on.
+  //
+  // That made one state structurally unobservable. Once the host rolls to
+  // the next week, the completed week's FINAL Game Day — final score, final
+  // optimal lineup, result, recap linkage — exists in the endpoint and can
+  // no longer be reached through the UI by anyone, owner or verifier. It is
+  // not a stale view: the host says week 1 is over, and week 1's result is
+  // a fact that does not expire.
+  //
+  // Forwarded verbatim rather than validated here, because the endpoint's
+  // `_int_param` already treats an unparseable value as ABSENT and falls
+  // back to the host clock. Re-deciding that in the client is how the page
+  // and the endpoint start disagreeing about which week is being shown.
+  const urlWeek = String(searchParams?.get("week") || "").trim();
+  const urlSeason = String(searchParams?.get("season") || "").trim();
+
   const load = useCallback(async () => {
     setState({ status: "loading", payload: null, error: null });
     try {
-      const qs = selectedOwnerId ? `?team=${encodeURIComponent(selectedOwnerId)}` : "";
+      const params = new URLSearchParams();
+      if (selectedOwnerId) params.set("team", selectedOwnerId);
+      if (urlWeek) params.set("week", urlWeek);
+      if (urlSeason) params.set("season", urlSeason);
+      const qs = params.toString() ? `?${params.toString()}` : "";
       const res = await fetch(`/api/matchup/intel${qs}`, { cache: "no-store" });
       const body = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -546,7 +570,7 @@ export default function GameDayPanel() {
     } catch (err) {
       setState({ status: "error", payload: null, error: { error: "network", detail: String(err) } });
     }
-  }, [selectedOwnerId]);
+  }, [selectedOwnerId, urlWeek, urlSeason]);
 
   useEffect(() => {
     load();
