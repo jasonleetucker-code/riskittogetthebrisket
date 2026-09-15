@@ -223,8 +223,34 @@ function LeaderRow({ awardKey, leader, managers, onNavigate, compact = false }) 
   );
 }
 
+// Copy for an award the backend reports as undecided. Per-reason, because
+// "nothing has been scored since those trades yet" and "nobody cleared
+// replacement" are different facts and must not collapse into one vague
+// line. Unknown codes fall back to a truthful generic.
+const AWAITING_COPY = {
+  no_scored_week_since_any_trade: "No scored week since any trade yet",
+  no_scored_week_since_any_add: "No scored week since any add yet",
+  no_value_above_replacement: "No starter finished above replacement",
+  no_qualifying_evidence: "No qualifying result yet",
+};
+
+function awaitingCopy(reason) {
+  return AWAITING_COPY[reason] || AWAITING_COPY.no_qualifying_evidence;
+}
+
 function AwardWinner({ a, managers, size = 24 }) {
   const isPlayer = PLAYER_AWARD_KEYS.has(a.key) && a.value?.playerId;
+  if (a.awaitingEvidence) {
+    return (
+      <div className={styles.winner}>
+        <span />
+        <div className={styles.winnerIdentity}>
+          <div className={styles.winnerName}>Not yet awarded</div>
+          <div className={styles.winnerOwner}>{awaitingCopy(a.awaitingReason)}</div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className={styles.winner}>
       {isPlayer ? (
@@ -438,18 +464,22 @@ function RaceCard({ race, managers, onNavigate, featured = false }) {
         <h4 className={styles.raceTitle}>{race.label}</h4>
         {featured && <span className={styles.liveMark}>Live</span>}
       </div>
-      <ol className={styles.leaderList}>
-        {race.leaders.slice(0, 3).map((leader) => (
-          <LeaderRow
-            key={leader.ownerId || leader.value?.playerId || `${race.key}-${leader.rank}`}
-            awardKey={race.key}
-            leader={leader}
-            managers={managers}
-            onNavigate={onNavigate}
-            compact
-          />
-        ))}
-      </ol>
+      {race.awaitingEvidence ? (
+        <p className={styles.raceAwaiting}>{awaitingCopy(race.awaitingReason)}</p>
+      ) : (
+        <ol className={styles.leaderList}>
+          {race.leaders.slice(0, 3).map((leader) => (
+            <LeaderRow
+              key={leader.ownerId || leader.value?.playerId || `${race.key}-${leader.rank}`}
+              awardKey={race.key}
+              leader={leader}
+              managers={managers}
+              onNavigate={onNavigate}
+              compact
+            />
+          ))}
+        </ol>
+      )}
     </article>
   );
 }
