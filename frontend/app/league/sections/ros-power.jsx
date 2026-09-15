@@ -197,8 +197,16 @@ const CURRENT_WEEK_KEY = "__current";
 // ``powerScore`` (a results-only week can itself be unrankable) are
 // filtered out of each line rather than plotted as 0.
 function PowerChart({ series, highlightOwnerId = null }) {
-  const { lines, xMax } = useMemo(() => {
-    if (!series || !series.length) return { lines: [], xMax: 0 };
+  // trend.seriesByOwner chains every tracked season's played weeks onto one
+  // sequential axis (see power_v2.py's week_states loop over seasons_sorted),
+  // so a 3-season history can show most of its visible swings from COMPLETED
+  // past seasons while the current season has only just started. Without a
+  // season boundary a reader has no way to tell "that dramatic movement was
+  // 2024" from "that's this week" — exactly what produced the "the score
+  // moved but the rankings didn't" confusion this fixes. Boundaries are
+  // display-only: they never change xMax, the line geometry, or the data.
+  const { lines, xMax, seasonBoundaries } = useMemo(() => {
+    if (!series || !series.length) return { lines: [], xMax: 0, seasonBoundaries: [] };
     const allKeys = new Map(); // "season:week" → order
     const sortedSeries = series.map((s) => ({
       ...s,
@@ -225,6 +233,16 @@ function PowerChart({ series, highlightOwnerId = null }) {
     });
     ordered.forEach((k, i) => allKeys.set(k, i));
 
+    const seasonBoundaries = [];
+    let lastSeason = null;
+    ordered.forEach((k, i) => {
+      const season = k.split(":")[0];
+      if (season !== lastSeason) {
+        seasonBoundaries.push({ x: i, season });
+        lastSeason = season;
+      }
+    });
+
     const lines = sortedSeries.map((s) => ({
       ownerId: s.ownerId,
       displayName: s.displayName,
@@ -238,7 +256,7 @@ function PowerChart({ series, highlightOwnerId = null }) {
           rank: p.rank,
         })),
     }));
-    return { lines, xMax: ordered.length - 1 };
+    return { lines, xMax: ordered.length - 1, seasonBoundaries };
   }, [series]);
 
   if (!lines.length || xMax < 1) return null;
@@ -296,6 +314,31 @@ function PowerChart({ series, highlightOwnerId = null }) {
               fontFamily="var(--mono)"
             >
               {v}
+            </text>
+          </g>
+        ))}
+        {seasonBoundaries.map((b) => (
+          <g key={`season-${b.season}`}>
+            {b.x > 0 && (
+              <line
+                x1={px(b.x)}
+                x2={px(b.x)}
+                y1={padT}
+                y2={padT + plotH}
+                stroke="var(--border-bright)"
+                strokeDasharray="2 4"
+                opacity={0.6}
+              />
+            )}
+            <text
+              x={px(b.x) + (b.x > 0 ? 4 : 0)}
+              y={padT + 9}
+              fontSize={9}
+              textAnchor="start"
+              fill="var(--subtext)"
+              fontFamily="var(--mono)"
+            >
+              {b.season}
             </text>
           </g>
         ))}
