@@ -870,8 +870,15 @@ def _starter_scoring_walk(
     (older Sleeper seasons sometimes omit them).  Position is resolved
     via ``snapshot.player_position`` so IDP-eligible players collapse
     into DL/LB/DB.
+
+    Only walks ``metrics.scored_weeks`` — Sleeper stamps ``matchup_id``
+    for the whole season's schedule at draft time and echoes each
+    roster's CURRENT starting lineup into ``starters``/``players_points``
+    for every future week (at a stubbed 0.0), so a week's mere presence
+    in ``matchups_by_week`` does not mean it was actually played.  See
+    ``metrics.scored_weeks`` for the full rationale.
     """
-    for week in sorted(season.matchups_by_week.keys()):
+    for week in metrics.scored_weeks(season.matchups_by_week):
         is_playoff = week >= season.playoff_week_start
         if regular_season_only and is_playoff:
             continue
@@ -1161,9 +1168,23 @@ def _player_all_rostered_totals(
     ``player_journey.py``'s "Sleeper fills all three in production"), so
     this walks that full map rather than ``_starter_scoring_walk``'s
     starters-only subset.
+
+    Only walks ``metrics.scored_weeks`` (see that function and
+    ``_starter_scoring_walk`` above) — without this gate, every future
+    week's full-roster ``players_points`` stub (0.0 for all 58 rostered
+    players, not just starters) inflates ``games`` for nearly the whole
+    league's player pool, which deflates ``replacement_per_game``'s
+    per-game rate for virtually every position.  ``games`` therefore
+    means: the number of the season's ACTUALLY-SCORED weeks in which
+    this player had a ``players_points`` entry on some roster (bench
+    included).  A bye/inactive/rostered zero-point week in an
+    actually-scored week still counts — that is a real, legitimate 0,
+    not a phantom one.  A player added/dropped mid-season only
+    accumulates games from weeks they were actually rostered, since
+    they only appear in ``players_points`` for those weeks.
     """
     out: dict[str, dict[str, Any]] = {}
-    for week in sorted(season.matchups_by_week.keys()):
+    for week in metrics.scored_weeks(season.matchups_by_week):
         is_playoff = week >= season.playoff_week_start
         if regular_season_only and is_playoff:
             continue
@@ -1207,6 +1228,7 @@ def _top_player_per_position_scores(
     by ``starterPoints``.  Up to top 3 per position.
     """
     totals = _player_starter_totals(snapshot, season, regular_season_only=regular_season_only)
+    as_of_week = _as_of_week(season)
     grouped: dict[str, list[dict[str, Any]]] = {pos: [] for pos in _PLAYER_AWARD_POSITIONS}
     for pid, rec in totals.items():
         pos = rec["position"]
@@ -1221,6 +1243,7 @@ def _top_player_per_position_scores(
                 "position": pos,
                 "starterPoints": rec["starterPoints"],
                 "gamesStarted": rec["gamesStarted"],
+                "asOfWeek": as_of_week,
                 "ownerId": owner_id,
                 "displayName": metrics.display_name_for(snapshot, owner_id) if owner_id else "",
             }
@@ -1247,28 +1270,69 @@ def _replacement_per_game_for_position(
 
 
 # Replacement-level starter depth per position (the cutoff index whose
-# next-5 band defines replacement value).  Fixed by league convention;
-# RB/WR are derived dynamically from the top-84 RB+WR (flex) pool so
-# they stay current with how the position split actually plays out.
+# next-5 band defines replacement value).
+#
+# QB/TE are hand-set award-convention constants, deliberately NOT
+# derived from `src.scoring.replacement_level.starter_slot_counts`'s
+# dynamic even-split: measured live against this league's real roster
+# settings, the dynamic split diverges substantially at QB (15 vs 24
+# here) and TE (35 vs 24) — CLAUDE.md's lineup-owner section documents
+# the even-split approximation as ~40% wrong at QB specifically (SFLEX
+# usually goes to a QB, not 1-in-4).  Swapping these in would silently
+# change award outcomes via a less-accurate formula, which is a
+# different concern from this module's own convention.
+#
+# K/DL/LB/DB are NOT award-convention choices — they are meant to equal
+# this league's actual dedicated slot count at each position (no FLEX
+# sharing), which `starter_slot_counts` already computes correctly from
+# the league's real `roster_positions`/team count.  Hard-coding them
+# here duplicated that source of truth with no protection against
+# drift if roster settings ever change, so they are derived below
+# instead (verified byte-identical to the prior hard-coded values for
+# this league's current settings: K 12, DL 36, LB 36, DB 36).
 _VORP_FIXED_STARTER_SLOTS: dict[str, int] = {
     "QB": 24,
     "TE": 24,
-    "K": 12,
-    "DL": 36,
-    "LB": 36,
-    "DB": 36,
 }
+_VORP_DYNAMIC_SLOT_POSITIONS = ("K", "DL", "LB", "DB")
 _FLEX_RBWR_POOL = 84  # top 84 RB+WR by starter points (TEs excluded)
 
+#: Bumped whenever the VORP formula or its week-eligibility gating
+#: changes, so a stale cached payload (see server.py's public-contract
+#: byte cache) can never silently outlive a correctness fix.
+_VORP_CALC_VERSION = "2026-09-15-scored-week-gate"
 
-def _vorp_starter_slots(grouped: dict[str, list[dict[str, Any]]]) -> dict[str, int]:
+
+def _dynamic_starter_slots(season: SeasonSnapshot) -> dict[str, int]:
+    """K/DL/LB/DB dedicated slot counts from the league's real settings.
+
+    Falls back to the historical hard-coded values when the season
+    carries no usable roster settings (older seasons, test fixtures)
+    so behaviour there is unchanged.
+    """
+    from src.scoring.replacement_level import starter_slot_counts
+
+    roster_positions = (season.league or {}).get("roster_positions")
+    num_teams = season.num_teams
+    if not roster_positions or not num_teams:
+        return {"K": 12, "DL": 36, "LB": 36, "DB": 36}
+    counts = starter_slot_counts(roster_positions, num_teams)
+    return {pos: counts.get(pos, 0) for pos in _VORP_DYNAMIC_SLOT_POSITIONS}
+
+
+def _vorp_starter_slots(
+    grouped: dict[str, list[dict[str, Any]]],
+    season: SeasonSnapshot,
+) -> dict[str, int]:
     """Replacement-cutoff slot count per position.
 
-    Fixed for QB/TE/K/DL/LB/DB; RB and WR are split out of the top-84
-    RB+WR pool (ranked by starter points) so the flex baseline tracks
-    the real RB/WR balance each season.
+    Hand-set for QB/TE; derived from the league's real roster settings
+    for K/DL/LB/DB; RB and WR are split out of the top-84 RB+WR pool
+    (ranked by starter points) so the flex baseline tracks the real
+    RB/WR balance each season.
     """
     slots = dict(_VORP_FIXED_STARTER_SLOTS)
+    slots.update(_dynamic_starter_slots(season))
     pool = sorted(
         (grouped.get("RB") or []) + (grouped.get("WR") or []),
         key=lambda r: -float(r.get("starterPoints") or 0.0),
@@ -1276,6 +1340,17 @@ def _vorp_starter_slots(grouped: dict[str, list[dict[str, Any]]]) -> dict[str, i
     slots["RB"] = sum(1 for r in pool if r.get("position") == "RB")
     slots["WR"] = sum(1 for r in pool if r.get("position") == "WR")
     return slots
+
+
+def _as_of_week(season: SeasonSnapshot) -> int:
+    """The last actually-scored week backing an awards calculation.
+
+    Shared by every VORP/starter-points award builder so MVP, ROY,
+    Playoff MVP and Top Position races are always stamped from the same
+    as-of boundary, whatever subset of weeks each one filters to.
+    """
+    weeks = metrics.scored_weeks(season.matchups_by_week)
+    return max(weeks) if weeks else 0
 
 
 def _vorp_rows(
@@ -1326,7 +1401,8 @@ def _vorp_rows(
         if pos:
             replacement_pool[pos].append(rec)
 
-    starter_slots = _vorp_starter_slots(grouped)
+    starter_slots = _vorp_starter_slots(grouped, season)
+    as_of_week = _as_of_week(season)
     out: list[dict[str, Any]] = []
     for pos, rows in grouped.items():
         slots = starter_slots.get(pos, 0)
@@ -1341,7 +1417,13 @@ def _vorp_rows(
             games = r["gamesStarted"] or 1
             replacement_total = replacement_per_game * games
             # Never award negative VORP — a sub-replacement player is
-            # floored at 0 rather than shown below value.
+            # floored at 0 rather than shown below value.  Replacement
+            # PPG can be negative (a genuinely bad band below the
+            # cutoff), so this floor is the only clamp: VORP can
+            # legitimately exceed raw starterPoints when it is.  That is
+            # intended, pre-existing semantics (a thin position's
+            # replacement talent is worse than doing nothing) and is not
+            # changed here.
             vorp = max(0.0, r["starterPoints"] - replacement_total)
             owner_id = r["lastOwnerId"]
             out.append(
@@ -1354,6 +1436,9 @@ def _vorp_rows(
                     "gamesStarted": r["gamesStarted"],
                     "vorp": round(vorp, 2),
                     "replacementPerGame": round(replacement_per_game, 2),
+                    "replacementTotal": round(replacement_total, 2),
+                    "asOfWeek": as_of_week,
+                    "calcVersion": _VORP_CALC_VERSION,
                     "ownerId": owner_id,
                     "displayName": metrics.display_name_for(snapshot, owner_id) if owner_id else "",
                 }
@@ -1535,7 +1620,8 @@ def _playoff_mvp_player_rows(
         if pos:
             replacement_pool[pos].append(rec)
 
-    starter_slots = _vorp_starter_slots(grouped)
+    starter_slots = _vorp_starter_slots(grouped, season)
+    as_of_week = _as_of_week(season)
     out: list[dict[str, Any]] = []
     for pos, rows in grouped.items():
         slots = starter_slots.get(pos, 0)
@@ -1545,7 +1631,8 @@ def _playoff_mvp_player_rows(
         replacement_per_game = _replacement_per_game_for_position(pool_rows, slots)
         for r in rows:
             games = r["gamesStarted"] or 1
-            vorp = max(0.0, r["starterPoints"] - replacement_per_game * games)
+            replacement_total = replacement_per_game * games
+            vorp = max(0.0, r["starterPoints"] - replacement_total)
             owner_id = r["lastOwnerId"]
             out.append(
                 {
@@ -1556,6 +1643,10 @@ def _playoff_mvp_player_rows(
                     "starterPoints": round(r["starterPoints"], 2),
                     "gamesStarted": r["gamesStarted"],
                     "vorp": round(vorp, 2),
+                    "replacementPerGame": round(replacement_per_game, 2),
+                    "replacementTotal": round(replacement_total, 2),
+                    "asOfWeek": as_of_week,
+                    "calcVersion": _VORP_CALC_VERSION,
                     "ownerId": owner_id,
                     "displayName": metrics.display_name_for(snapshot, owner_id) if owner_id else "",
                 }
@@ -1846,6 +1937,9 @@ def _activity_awards_for_season(
                     "vorp": winner["vorp"],
                     "starterPoints": winner["starterPoints"],
                     "gamesStarted": winner["gamesStarted"],
+                    "replacementPerGame": winner.get("replacementPerGame"),
+                    "replacementTotal": winner.get("replacementTotal"),
+                    "asOfWeek": winner.get("asOfWeek"),
                 },
             }
         )
@@ -1950,6 +2044,7 @@ def _activity_awards_for_season(
                     "position": winner["position"],
                     "starterPoints": winner["starterPoints"],
                     "gamesStarted": winner["gamesStarted"],
+                    "asOfWeek": winner.get("asOfWeek"),
                 },
             }
         )
@@ -1977,6 +2072,9 @@ def _activity_awards_for_season(
                     "vorp": winner["vorp"],
                     "starterPoints": winner["starterPoints"],
                     "gamesStarted": winner["gamesStarted"],
+                    "replacementPerGame": winner.get("replacementPerGame"),
+                    "replacementTotal": winner.get("replacementTotal"),
+                    "asOfWeek": winner.get("asOfWeek"),
                 },
             }
         )
@@ -2009,6 +2107,9 @@ def _activity_awards_for_season(
                     "vorp": w["vorp"],
                     "starterPoints": w["starterPoints"],
                     "gamesStarted": w["gamesStarted"],
+                    "replacementPerGame": w.get("replacementPerGame"),
+                    "replacementTotal": w.get("replacementTotal"),
+                    "asOfWeek": w.get("asOfWeek"),
                 },
             }
         )
@@ -2224,6 +2325,10 @@ def _current_season_races(
                         "position": r["position"],
                         "vorp": r["vorp"],
                         "starterPoints": r["starterPoints"],
+                        "gamesStarted": r["gamesStarted"],
+                        "replacementPerGame": r.get("replacementPerGame"),
+                        "replacementTotal": r.get("replacementTotal"),
+                        "asOfWeek": r.get("asOfWeek"),
                     },
                 }
                 for i, r in enumerate(playoff_mvp_rows[:5])
@@ -2335,6 +2440,7 @@ def _current_season_races(
                         "position": r["position"],
                         "starterPoints": r["starterPoints"],
                         "gamesStarted": r["gamesStarted"],
+                        "asOfWeek": r.get("asOfWeek"),
                     },
                 }
                 for i, r in enumerate(rows[:5])
@@ -2362,6 +2468,9 @@ def _current_season_races(
                         "vorp": r["vorp"],
                         "starterPoints": r["starterPoints"],
                         "gamesStarted": r["gamesStarted"],
+                        "replacementPerGame": r.get("replacementPerGame"),
+                        "replacementTotal": r.get("replacementTotal"),
+                        "asOfWeek": r.get("asOfWeek"),
                     },
                 }
                 for i, r in enumerate(mvp_rows[:5])
@@ -2391,6 +2500,9 @@ def _current_season_races(
                         "vorp": r["vorp"],
                         "starterPoints": r["starterPoints"],
                         "gamesStarted": r["gamesStarted"],
+                        "replacementPerGame": r.get("replacementPerGame"),
+                        "replacementTotal": r.get("replacementTotal"),
+                        "asOfWeek": r.get("asOfWeek"),
                     },
                 }
                 for i, r in enumerate(rows[:5])
@@ -2554,4 +2666,5 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         "upcomingSeason": upcoming,
         "hottestRace": hottest,
         "descriptions": AWARD_DESCRIPTIONS,
+        "vorpCalcVersion": _VORP_CALC_VERSION,
     }

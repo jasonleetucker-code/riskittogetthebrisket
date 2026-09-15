@@ -10803,10 +10803,18 @@ _PUBLIC_CONTRACT_BYTES_MAX = 4
 
 
 def _public_contract_cache_key(snapshot):
+    from src.public_league.awards import _VORP_CALC_VERSION
+
     return (
         getattr(snapshot, "root_league_id", ""),
         getattr(snapshot, "generated_at", ""),
         latest_data_etag,
+        # A code deploy that changes the VORP formula/week-eligibility
+        # gate must invalidate any bytes memoized under the OLD code,
+        # even when the underlying snapshot's generated_at hasn't
+        # refreshed yet — otherwise a stale pre-fix payload can survive
+        # a deploy indefinitely.
+        _VORP_CALC_VERSION,
     )
 
 

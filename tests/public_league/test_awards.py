@@ -530,7 +530,11 @@ class VorpFloorAndSlotsTests(unittest.TestCase):
             self.assertGreaterEqual(r["vorp"], 0.0)
 
     def test_fixed_slots_exact(self) -> None:
-        slots = _vorp_starter_slots({})
+        # Fixture seasons carry no `roster_positions`, so K/DL/LB/DB fall
+        # back to their historical hard-coded values (see
+        # `_dynamic_starter_slots`) — this pins that fallback stays
+        # byte-identical to the pre-migration constants.
+        slots = _vorp_starter_slots({}, self.snapshot.seasons[0])
         self.assertEqual(slots["QB"], 24)
         self.assertEqual(slots["TE"], 24)
         self.assertEqual(slots["K"], 12)
@@ -539,10 +543,66 @@ class VorpFloorAndSlotsTests(unittest.TestCase):
         self.assertEqual(slots["DB"], 36)
         self.assertEqual(_VORP_FIXED_STARTER_SLOTS["QB"], 24)
 
+    def test_dynamic_slots_match_real_12team_league(self) -> None:
+        """K/DL/LB/DB derive from the league's real roster settings and
+        stay byte-identical to the historical hard-coded values for this
+        production league's actual shape (12 teams; 1 QB, 2 RB, 3 WR,
+        2 TE, 2 FLEX, 1 SUPER_FLEX, 1 K, 3 DL, 3 LB, 3 DB) — verified
+        live against production Sleeper league 1312006700437352448
+        during the phantom-week investigation.  QB/TE stay hand-set:
+        the dynamic even-split diverges substantially there (measured
+        QB 15 vs 24, TE 35 vs 24) and CLAUDE.md documents that split as
+        ~40% inaccurate specifically at QB.
+        """
+        import dataclasses
+
+        roster_positions = (
+            ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "TE", "FLEX", "FLEX", "SUPER_FLEX", "K"]
+            + ["DL", "DL", "DL", "LB", "LB", "LB", "DB", "DB", "DB"]
+            + ["BN"] * 37
+        )
+        real_season = dataclasses.replace(
+            self.snapshot.seasons[0],
+            league={
+                **self.snapshot.seasons[0].league,
+                "roster_positions": roster_positions,
+                "total_rosters": 12,
+            },
+        )
+        slots = _vorp_starter_slots({}, real_season)
+        self.assertEqual(slots["K"], 12)
+        self.assertEqual(slots["DL"], 36)
+        self.assertEqual(slots["LB"], 36)
+        self.assertEqual(slots["DB"], 36)
+        # QB/TE remain the hand-set award convention, untouched by the
+        # league's real (dynamic-even-split) numbers.
+        self.assertEqual(slots["QB"], 24)
+        self.assertEqual(slots["TE"], 24)
+
+    def test_dynamic_slots_fall_back_without_roster_positions(self) -> None:
+        """A season with no usable roster settings (older seasons, thin
+        fixtures) keeps the historical hard-coded K/DL/LB/DB values
+        rather than raising or returning zero slots."""
+        import dataclasses
+
+        bare_season = dataclasses.replace(
+            self.snapshot.seasons[0],
+            league={
+                **self.snapshot.seasons[0].league,
+                "roster_positions": None,
+                "total_rosters": 0,
+            },
+        )
+        slots = _vorp_starter_slots({}, bare_season)
+        self.assertEqual(slots["K"], 12)
+        self.assertEqual(slots["DL"], 36)
+        self.assertEqual(slots["LB"], 36)
+        self.assertEqual(slots["DB"], 36)
+
     def test_rbwr_split_from_top_84(self) -> None:
         rb = [{"position": "RB", "starterPoints": float(200 - i)} for i in range(60)]
         wr = [{"position": "WR", "starterPoints": float(150 - i)} for i in range(60)]
-        slots = _vorp_starter_slots({"RB": rb, "WR": wr})
+        slots = _vorp_starter_slots({"RB": rb, "WR": wr}, self.snapshot.seasons[0])
         # 120 RB+WR total → top 84 by points splits into RB+WR == 84.
         self.assertEqual(slots["RB"] + slots["WR"], _FLEX_RBWR_POOL)
         self.assertGreater(slots["RB"], 0)
@@ -551,7 +611,7 @@ class VorpFloorAndSlotsTests(unittest.TestCase):
     def test_rbwr_split_smaller_than_pool(self) -> None:
         rb = [{"position": "RB", "starterPoints": 50.0} for _ in range(10)]
         wr = [{"position": "WR", "starterPoints": 40.0} for _ in range(5)]
-        slots = _vorp_starter_slots({"RB": rb, "WR": wr})
+        slots = _vorp_starter_slots({"RB": rb, "WR": wr}, self.snapshot.seasons[0])
         self.assertEqual(slots["RB"], 10)
         self.assertEqual(slots["WR"], 5)
 

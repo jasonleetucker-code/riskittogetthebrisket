@@ -57,6 +57,13 @@ def _build_snapshot_with_full_dl_pool(bench_count: int) -> tuple:
         1: [
             {
                 "roster_id": 1,
+                "matchup_id": 1,
+                # A real Sleeper matchup entry always carries its own
+                # roster-week total on "points" — the scored-week gate
+                # (src/public_league/metrics.py::scored_weeks) reads
+                # THIS field, not players_points, to decide whether a
+                # week actually happened.
+                "points": sum(players_points.values()),
                 "starters": starters,
                 "players_points": players_points,
             }

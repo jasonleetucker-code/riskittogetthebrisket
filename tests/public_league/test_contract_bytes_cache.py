@@ -111,6 +111,30 @@ class PublicContractBytesCacheTests(unittest.TestCase):
         self.assertEqual(r2.status_code, 200)
         self.assertEqual(calls["n"], 1, "a new private-contract generation must rebuild (grades)")
 
+    def test_vorp_calc_version_is_part_of_the_key(self) -> None:
+        """A deploy that changes the VORP formula/week-gate must bust the
+        aggregate-contract byte cache even when the snapshot's
+        ``generated_at`` hasn't refreshed, so a stale pre-fix Awards
+        payload can never survive a deploy indefinitely."""
+        from src.public_league import awards as awards_module
+
+        r1 = self.client.get("/api/public/league")
+        self.assertEqual(r1.status_code, 200)
+        calls, counting = self._count_builds()
+        real = self.server.build_public_contract
+        old_version = awards_module._VORP_CALC_VERSION
+        self.server.build_public_contract = counting
+        awards_module._VORP_CALC_VERSION = "test-bumped-version"
+        try:
+            r2 = self.client.get("/api/public/league")
+        finally:
+            self.server.build_public_contract = real
+            awards_module._VORP_CALC_VERSION = old_version
+        self.assertEqual(r2.status_code, 200)
+        self.assertEqual(
+            calls["n"], 1, "a bumped VORP calc version must rebuild, not serve stale bytes"
+        )
+
     def test_memoized_bytes_match_an_uncached_build(self) -> None:
         import json
 
