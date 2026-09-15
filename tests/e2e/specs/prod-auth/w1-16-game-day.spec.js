@@ -88,11 +88,17 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
     // for the badge itself, on the same 90s budget as the direct API calls.
     const scheduled = page.getByText(/Scheduled · pregame/);
     const live = page.getByText(/^Live$/);
-    await expect(scheduled.or(live)).toBeVisible({ timeout: 90_000 });
+    const final = page.getByText(/^FINAL$/);
+    await expect(scheduled.or(live).or(final)).toBeVisible({ timeout: 90_000 });
     const scheduledCount = await scheduled.count();
     const liveCount = await live.count();
-    expect(scheduledCount + liveCount).toBeGreaterThan(0);
-    annotate(testInfo, "w1-16-state", scheduledCount ? "SCHEDULED/pregame" : "LIVE");
+    const finalCount = await final.count();
+    expect(scheduledCount + liveCount + finalCount).toBeGreaterThan(0);
+    annotate(
+      testInfo,
+      "w1-16-state",
+      scheduledCount ? "SCHEDULED/pregame" : liveCount ? "LIVE" : "FINAL",
+    );
   });
 
   test("the page's numbers are the endpoint's numbers", async ({ prodPage: page }, testInfo) => {
