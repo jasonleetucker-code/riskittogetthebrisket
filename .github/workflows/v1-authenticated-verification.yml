@@ -328,6 +328,37 @@ jobs:
           echo "browser_exit=$rc" >> "$GITHUB_OUTPUT"
           echo "Browser suite exit: $rc"
 
+      - name: Capture backend traceback context (diagnostic only, read-only)
+        # W1-28 root-cause aid: the global exception handler
+        # (src/api/error_responses.py) logs every unhandled exception's
+        # full traceback + request id/path through the standard logger,
+        # which systemd/journald retains for the `dynasty` unit. This
+        # step reads that journal (never mutates anything) so a 500
+        # observed by the suites above can be root-caused from the same
+        # run's evidence instead of a second, separate SSH session.
+        # Temporary: remove once the FINAL-state matchup-intel defect
+        # (W1-28) is closed and no longer needs this aid.
+        if: ${{ always() }}
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "SERVICE_NAME=$(printf %q "$SERVICE_NAME") bash -s" <<'REMOTE' > backend-traceback.txt || true
+          set +e
+          date -u '+[on-box] utc=%Y-%m-%dT%H:%M:%SZ'
+          journalctl -u "$SERVICE_NAME" --since "-30 minutes" --no-pager | \
+            grep -B5 -A60 "Traceback (most recent call last)" | tail -600
+          REMOTE
+          echo "Captured $(wc -l < backend-traceback.txt) lines to backend-traceback.txt"
+
       - name: Revoke the pass (always)
         if: ${{ always() && steps.mint.outputs.pass_id != '' }}
         env:
@@ -401,6 +432,7 @@ jobs:
             v1-auth-report.json
             lane4-remote.txt
             prod-auth-browser.txt
+            backend-traceback.txt
             tests/e2e/prod-auth-results.json
             tests/e2e/test-results-prod-auth/
           if-no-files-found: warn
