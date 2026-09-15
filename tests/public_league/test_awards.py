@@ -821,5 +821,131 @@ class AwardsLiveRaceTests(unittest.TestCase):
         self.assertEqual(row["finalists"], race_by_key)
 
 
+class AwaitingEvidenceTests(unittest.TestCase):
+    """An award whose whole field is tied at zero has no winner.
+
+    Trade and waiver value only counts points scored in weeks AFTER the
+    transaction, so early in a season every manager sits at +0.0 and
+    ``pool[0]`` is just whoever sorted first. Crowning that produced a
+    Waiver King with zero useful adds and a Trader of the Year at +0.0
+    across nine trades on the live 2026 board.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.snapshot = _with_player_points(build_test_snapshot())
+        cls.season = cls.snapshot.seasons[0]
+
+    @staticmethod
+    def _rows(*gains):
+        return [
+            {"ownerId": f"owner-{i}", "displayName": f"Owner {i}", "pointsGained": g}
+            for i, g in enumerate(gains)
+        ]
+
+    _HAS_GAIN = staticmethod(lambda r: float(r.get("pointsGained") or 0.0) != 0.0)
+
+    def test_all_zero_field_names_nobody(self) -> None:
+        award = awards._award_from_row(
+            self.snapshot,
+            self.season,
+            self._rows(0.0, 0.0, 0.0),
+            "waiver_king",
+            "Waiver King",
+            lambda r: {"pointsGained": r["pointsGained"]},
+            evidence=self._HAS_GAIN,
+        )
+        self.assertIsNotNone(award)
+        self.assertTrue(award["awaitingEvidence"])
+        self.assertEqual(award["awaitingReason"], "no_scored_week_since_any_add")
+        # The whole point: no winner is claimed anywhere in the payload.
+        self.assertEqual(award["ownerId"], "")
+        self.assertEqual(award["displayName"], "")
+        self.assertEqual(award["teamName"], "")
+        self.assertIsNone(award["value"])
+
+    def test_one_nonzero_candidate_still_crowns_a_winner(self) -> None:
+        award = awards._award_from_row(
+            self.snapshot,
+            self.season,
+            self._rows(12.5, 0.0, 0.0),
+            "waiver_king",
+            "Waiver King",
+            lambda r: {"pointsGained": r["pointsGained"]},
+            evidence=self._HAS_GAIN,
+        )
+        self.assertNotIn("awaitingEvidence", award)
+        self.assertEqual(award["ownerId"], "owner-0")
+        self.assertEqual(award["value"]["pointsGained"], 12.5)
+
+    def test_negative_gain_is_evidence_not_absence(self) -> None:
+        # A league whose traders all LOST points has a real ranking —
+        # "worst" is still decided. Only an all-exactly-zero field is
+        # undecided.
+        award = awards._award_from_row(
+            self.snapshot,
+            self.season,
+            self._rows(-3.0, -9.0),
+            "trader_of_the_year",
+            "Trader of the Year",
+            lambda r: {"pointsGained": r["pointsGained"]},
+            evidence=self._HAS_GAIN,
+        )
+        self.assertNotIn("awaitingEvidence", award)
+        self.assertEqual(award["ownerId"], "owner-0")
+
+    def test_race_reports_awaiting_with_no_leaders(self) -> None:
+        race = awards._build_race(
+            self.snapshot,
+            "trader_of_the_year",
+            "Trader of the Year",
+            self._rows(0.0, 0.0),
+            lambda r: {"pointsGained": r["pointsGained"]},
+            evidence=self._HAS_GAIN,
+        )
+        self.assertTrue(race["awaitingEvidence"])
+        self.assertEqual(race["awaitingReason"], "no_scored_week_since_any_trade")
+        self.assertEqual(race["leaders"], [])
+        # A race carries no winner fields at all, awaiting or not.
+        self.assertNotIn("ownerId", race)
+        self.assertNotIn("value", race)
+
+    def test_race_with_evidence_is_unchanged(self) -> None:
+        race = awards._build_race(
+            self.snapshot,
+            "trader_of_the_year",
+            "Trader of the Year",
+            self._rows(8.0, 0.0),
+            lambda r: {"pointsGained": r["pointsGained"]},
+            evidence=self._HAS_GAIN,
+        )
+        self.assertNotIn("awaitingEvidence", race)
+        self.assertEqual(race["leaders"][0]["ownerId"], "owner-0")
+
+    def test_no_candidates_at_all_still_omits_rather_than_awaits(self) -> None:
+        # Unchanged behaviour: no trades were ever made, so there is no
+        # award to describe — distinct from trades existing with nothing
+        # scored since.
+        self.assertIsNone(
+            awards._award_from_row(
+                self.snapshot,
+                self.season,
+                [],
+                "trader_of_the_year",
+                "Trader of the Year",
+                lambda r: {"pointsGained": r["pointsGained"]},
+                evidence=self._HAS_GAIN,
+            )
+        )
+
+    def test_every_awaiting_reason_is_reachable_and_described(self) -> None:
+        for key, reason in awards.AWARD_AWAITING_REASONS.items():
+            self.assertIn(key, AWARD_DESCRIPTIONS, f"{key} has no description")
+            self.assertTrue(reason, f"{key} has an empty reason code")
+            built = awards._awaiting_award(key, "label")
+            self.assertEqual(built["awaitingReason"], reason)
+            self.assertIsNone(built["value"])
+
+
 if __name__ == "__main__":
     unittest.main()

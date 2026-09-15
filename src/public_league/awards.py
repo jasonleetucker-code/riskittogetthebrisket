@@ -2304,9 +2304,7 @@ def _current_season_races(
     )
     # Same rule the ROY races use: a zero-VORP board is no race at all.
     playoff_mvp_rows = [
-        r
-        for r in _playoff_mvp_player_rows(snapshot, season)
-        if float(r.get("vorp") or 0.0) > 0.0
+        r for r in _playoff_mvp_player_rows(snapshot, season) if float(r.get("vorp") or 0.0) > 0.0
     ]
     if playoff_mvp_rows:
         race = {
