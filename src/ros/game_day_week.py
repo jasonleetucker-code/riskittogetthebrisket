@@ -580,21 +580,24 @@ def resolve_scoring_week(
         host_scores[team.team_id] = _finite_points(matchup.get("points")) if begun else None
         players = []
         for p in team.players:
-            meta = players_meta.get(p.player_id) or {}
+            meta_record = (
+                players_meta.get(p.player_id) if isinstance(players_meta, Mapping) else None
+            )
+            metadata_present = isinstance(meta_record, Mapping)
+            meta = meta_record if metadata_present else {}
             raw_team = str(meta.get("team") or "").upper()
-            # A player with NO team on file (a true free agent/unrostered
-            # dynasty stash) is a definitive fact he has no game this week
-            # — not missing evidence for a team that HAS a scheduled game.
-            # Conflating the two used to hold `final` false league-wide for
-            # as long as any roster carried one such player, which in a
-            # real dynasty league is permanent. Distinct from `unknown`
-            # (a team with no evidence either way), which still blocks
-            # `final` below. Gated on `evidence` itself being non-empty:
-            # when the schedule feed produced NOTHING, an absent team
-            # means "we cannot resolve anyone right now", not "he is
-            # definitely out" — the same conservative default every
-            # other player in that situation gets.
-            no_team_on_file = not raw_team and bool(evidence)
+            # A player with a PRESENT metadata record but NO team on file
+            # (a true free agent/unrostered dynasty stash) is a definitive
+            # fact he has no game this week. A completely missing metadata
+            # row is different: it is unknown evidence and must never be
+            # coerced to inactive/zero merely because other schedule
+            # evidence exists.
+            #
+            # Gated on `evidence` itself being non-empty: when the schedule
+            # feed produced NOTHING, an absent team means "we cannot resolve
+            # anyone right now", not "he is definitely out" — the same
+            # conservative default every other player gets.
+            no_team_on_file = metadata_present and not raw_team and bool(evidence)
             game = evidence.get(raw_team) if raw_team else None
             if no_team_on_file:
                 state = "inactive" if begun else "not_started"
