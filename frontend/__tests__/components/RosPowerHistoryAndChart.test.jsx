@@ -171,14 +171,21 @@ describe("RosPowerSection — week history and chart (V1-52 retirement)", () => 
     expect(within(table).getByText("88.5")).toBeTruthy();
   });
 
-  it("the week selector renders every trend week plus 'Most recent'", async () => {
+  it("the week selector renders every trend week plus 'Most recent', labelling which are diagnostic", async () => {
+    // Every past week in this list is the results-only RECONSTRUCTION, not a
+    // published canonical ranking, so the option says so before the reader
+    // commits to it. "Most recent" is the only canonical entry.
     const RosPowerSection = await renderFresh();
     render(<RosPowerSection />);
     await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
 
     const select = screen.getByRole("combobox");
     const optionLabels = Array.from(select.querySelectorAll("option")).map((o) => o.textContent);
-    expect(optionLabels).toEqual(["Most recent", "2025 Wk 2", "2025 Wk 1"]);
+    expect(optionLabels).toEqual([
+      "Most recent (canonical)",
+      "2025 Wk 2 · diagnostic",
+      "2025 Wk 1 · diagnostic",
+    ]);
   });
 
   it("selecting a historical week shows that week's own scores, not the headline's", async () => {

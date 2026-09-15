@@ -111,15 +111,26 @@ function rankDelta(priorRank, currentRank) {
 }
 
 // Delta for one specific historical week in ``trend.weeks``, against the
-// nearest PRECEDING week that lists the same owner (an owner can be
-// absent from a week — e.g. joined the league later). Same underlying
-// diagnostic quantity generalized to any historical week the reader picks.
- // Nothing new is computed; every rank is already published on trend.weeks.
+// nearest PRECEDING week IN THE SAME SEASON that lists the same owner (an
+// owner can be absent from a week — e.g. joined the league later). Same
+// underlying diagnostic quantity generalized to any historical week the
+// reader picks. Nothing new is computed; every rank is already on trend.weeks.
+//
+// The season guard is load-bearing. ``trend.weeks`` chains every tracked
+// season onto one sequential list (power_v2.py's ``week_states`` loops over
+// ``seasons_sorted``), so without it the first week of a season compares
+// against the LAST week of the previous season — a different league state,
+// a different roster set, and in the results-only lens a standings-derived
+// ranking. That is what produced movement nobody could reconcile against the
+// published baseline. A season's first week has no in-season predecessor, so
+// the honest answer is ``null``, not a number borrowed from last year.
 function weekDelta(weeks, weekIndex, ownerId) {
   if (weekIndex <= 0) return null;
-  const currentRow = (weeks[weekIndex]?.rankings || []).find((r) => r.ownerId === ownerId);
+  const currentWeek = weeks[weekIndex];
+  const currentRow = (currentWeek?.rankings || []).find((r) => r.ownerId === ownerId);
   if (!currentRow) return null;
   for (let i = weekIndex - 1; i >= 0; i--) {
+    if (String(weeks[i]?.season) !== String(currentWeek?.season)) return null;
     const priorRow = (weeks[i]?.rankings || []).find((r) => r.ownerId === ownerId);
     if (priorRow) return rankDelta(priorRow.rank, currentRow.rank);
   }
@@ -184,6 +195,30 @@ const COMPONENT_LABELS = {
   team_vorp: "Realized lineup VORP/PAR",
   wl_record: "Official record",
 };
+
+// Compact labels for the per-row composition line. Deliberately shorter than
+// COMPONENT_LABELS: this renders inline under every owner, not in an expanded
+// panel, so it has to survive a phone width.
+const COMPONENT_RANK_LABELS = {
+  team_ros_strength: "ROS",
+  all_play: "All-play",
+  recent: "Last 4",
+  team_vorp: "VORP",
+  wl_record: "Record",
+};
+
+// Sub-ranks come from the backend (`power_v2._attach_component_ranks`) and are
+// rendered verbatim. Computing them here would be a frontend ranking engine
+// over a league-wide population, which CLAUDE.md forbids. An absent key means
+// the component was UNMEASURED that week and is simply not shown — never
+// rendered as a worst-place finish.
+function composition(row) {
+  const ranks = row.componentRanks || {};
+  return Object.keys(COMPONENT_RANK_LABELS)
+    .filter((key) => ranks[key] != null)
+    .map((key) => `${COMPONENT_RANK_LABELS[key]} #${ranks[key]}`)
+    .join(" · ");
+}
 
 const CURRENT_WEEK_KEY = "__current";
 
@@ -608,14 +643,6 @@ export default function RosPowerSection({ managers } = {}) {
   const forwardPct = Math.round(Number(blend.forwardWeight || 0) * 100);
   const resultsPct = Math.round(Number(blend.resultsWeight || 0) * 100);
 
-  // Render the formula from the weights actually applied. Missing canonical
-  // inputs (for example realized weekly VORP before its owner is ready) never
-  // appear as fabricated zero-weight evidence. Order by weight descending.
-  const formulaParts = Object.entries(effectiveWeights)
-    .filter(([, w]) => Number(w) > 0)
-    .sort((a, b) => Number(b[1]) - Number(a[1]))
-    .map(([key, w]) => `${COMPONENT_LABELS[key] || key} (${Math.round(Number(w) * 100)}%)`);
-
   // "Most recent" shows the currently-selected lens's headline ranking —
   // consistent with the table above it. Any specific historical week
   // shows ``trend.weeks``, which is ALWAYS results-only by construction
@@ -631,11 +658,41 @@ export default function RosPowerSection({ managers } = {}) {
   const displayedRankings = viewingHistory
     ? trendWeeks[selectedWeekIndex]?.rankings || []
     : rankings;
+
+  // The weights that produced THE WEEK ON SCREEN. A historical week is scored
+  // with its own renormalized vector (no ROS, so the results components absorb
+  // its mass), and showing the current week's blend beside those rows would
+  // describe a calculation that did not produce them.
+  const displayedEffectiveWeights = viewingHistory
+    ? trendWeeks[selectedWeekIndex]?.effectiveWeights || {}
+    : effectiveWeights;
   const displayedWeightsBase = viewingHistory ? {} : effectiveWeights;
+
+  // Render the formula from the weights actually applied. Missing canonical
+  // inputs (for example realized weekly VORP before its owner is ready) never
+  // appear as fabricated zero-weight evidence. Order by weight descending.
+  const formulaParts = Object.entries(displayedEffectiveWeights)
+    .filter(([, w]) => Number(w) > 0)
+    .sort((a, b) => Number(b[1]) - Number(a[1]))
+    .map(([key, w]) => `${COMPONENT_LABELS[key] || key} (${Math.round(Number(w) * 100)}%)`);
+
+  // A results-only reconstruction must never be served under the plain
+  // canonical heading. The two answer different questions — the canonical
+  // blend is 40% forward-looking roster strength, the reconstruction has none
+  // of it and renormalizes onto results — and at week 1 the reconstruction is
+  // close to a single-week points sort. Rendering that as "2026 Wk 1 Power
+  // Rankings" is what made it read as a standings table.
+  const historyTitle = viewingHistory
+    ? `Power Rankings — diagnostic (results-only), ${trendWeeks[selectedWeekIndex]?.season} Wk ${trendWeeks[selectedWeekIndex]?.week}`
+    : "Power Rankings";
+  const historySubtitle = viewingHistory
+    ? trend?.note ||
+      "Reconstructed from results alone. Canonical ROS strength was never snapshotted for past weeks, so it is not back-filled — this is not the published canonical ranking for that week."
+    : undefined;
 
   return (
     <section>
-      <Card title="Power Rankings">
+      <Card title={historyTitle} subtitle={historySubtitle}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           {lensToggle}
           {lens === LENS_CANONICAL ? (
@@ -670,14 +727,23 @@ export default function RosPowerSection({ managers } = {}) {
         ) : null}
 
         <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginBottom: 10 }}>
-          {lens === LENS_CANONICAL ? (
+          {/* The blend summary describes the CANONICAL calculation, so it is
+              suppressed while a diagnostic week is on screen — that week has no
+              forward-looking mass at all, and printing "40% forward-looking"
+              above rows computed without it is the same conflation this view
+              split exists to end. */}
+          {viewingHistory ? (
+            <span style={{ color: "var(--amber)" }}>
+              Diagnostic results-only reconstruction — not the canonical ranking.{" "}
+            </span>
+          ) : lens === LENS_CANONICAL ? (
             <span style={{ color: "var(--cyan)" }}>
               Canonical blend: {forwardPct}% forward-looking strength + {resultsPct}% results.{" "}
             </span>
           ) : (
             <span style={{ color: "var(--subtext)" }}>Diagnostic results-only view.{" "}</span>
           )}
-          {preseason && lens === LENS_CANONICAL ? (
+          {preseason && lens === LENS_CANONICAL && !viewingHistory ? (
             <span>Preseason uses only legitimate forward-looking evidence.{" "}</span>
           ) : null}
           {formulaParts.join(" + ")}
@@ -696,17 +762,22 @@ export default function RosPowerSection({ managers } = {}) {
               onChange={(e) => setSelectedWeekKey(e.target.value)}
               style={{ minWidth: 180, fontSize: "0.78rem" }}
             >
-              <option value={CURRENT_WEEK_KEY}>Most recent</option>
+              <option value={CURRENT_WEEK_KEY}>Most recent (canonical)</option>
+              {/* Every past week in this list is the results-only
+                  reconstruction, so each option says so. A reader choosing a
+                  past week should know before they read the numbers, not
+                  after. */}
               {[...trendWeeks].reverse().map((w) => (
                 <option key={`${w.season}:${w.week}`} value={`${w.season}:${w.week}`}>
-                  {w.season} Wk {w.week}
+                  {w.season} Wk {w.week} · diagnostic
                 </option>
               ))}
             </select>
             {viewingHistory && (
               <div style={{ fontSize: "0.68rem", color: "var(--subtext)", marginTop: 4 }}>
-                {trend?.note ||
-                  "Historical weeks show the results-only view — forward-looking roster strength has no per-week history."}
+                Movement compares against the previous week of this season only. A
+                season&apos;s first week has no in-season predecessor, so it shows no
+                movement rather than a comparison with last season.
               </div>
             )}
           </div>
@@ -834,6 +905,14 @@ function RankingRow({ row, managers, weights, expanded, onToggle, trendDeltaValu
               </div>
               {row.teamName && (
                 <div style={{ fontSize: "0.64rem", color: "var(--subtext)" }}>{row.teamName}</div>
+              )}
+              {composition(row) && (
+                <div
+                  style={{ fontSize: "0.62rem", color: "var(--subtext)", fontFamily: "var(--mono)" }}
+                  title="Where this team ranks on each weighted component"
+                >
+                  {composition(row)}
+                </div>
               )}
             </span>
           </span>

@@ -462,6 +462,14 @@ def _score_state(
                 if suppressed_results or recent_value is None
                 else _percentile(recent_values, recent_value)
             ),
+            # TODO(power-vorp): the canonical weekly realized VORP/PAR feed
+            # does not exist yet, so this component is unavailable rather than
+            # zero. `_effective_weight_vector` redistributes its 15% across the
+            # components that ARE measurable — deliberate interim behavior, not
+            # a bug: scoring a team at 0 for a quantity nobody measured would
+            # punish every team equally and still be a fabricated number. This
+            # is the one open dependency of the Power blend. When the feed
+            # lands, populate this key; the weighting needs no change.
             "team_vorp": None,
             "wl_record": None if suppressed_results else i["wl_record"],
             # Display-only diagnostics. None of these keys appears in WEIGHTS.
@@ -541,7 +549,51 @@ def _score_state(
     for row in refused:
         row["rank"] = None
 
+    _attach_component_ranks(scored_rows + refused, active_weights)
+
     return scored_rows + refused, missing_inputs, active_weights, blend
+
+
+def _attach_component_ranks(
+    rows: list[dict[str, Any]],
+    active_weights: dict[str, float],
+) -> None:
+    """Stamp each row's per-component rank across the league, in place.
+
+    The reader's question about a Power rank is "which of these five things put
+    me here?", and a raw percentile does not answer it — #1 of 12 and #9 of 12
+    can sit a few points apart. So publish the sub-rank alongside.
+
+    Derived in the BACKEND on purpose. These are ordinals over a population,
+    which is the thing ``CLAUDE.md`` forbids the frontend to compute; the page
+    stays a materializer. Only keys that carry weight are ranked — a display
+    diagnostic like ``ppg`` is not part of "what put me here".
+
+    A ``None`` component is UNRANKED (absent from the map), never sorted to
+    last: a team with no measurement is not the worst team at it.
+    """
+    for key in active_weights:
+        measured = [
+            (row, float(row["components"][key]))
+            for row in rows
+            if (row.get("components") or {}).get(key) is not None
+        ]
+        if not measured:
+            continue
+        # Higher component percentile is better, so descending. Same standard
+        # competition ranking the overall rank uses (1, 1, 3), with ownerId as
+        # the deterministic in-group tiebreak only.
+        measured.sort(key=lambda item: (-item[1], str(item[0].get("ownerId"))))
+        prior_value: float | None = None
+        prior_rank: int | None = None
+        for position, (row, value) in enumerate(measured, start=1):
+            if prior_value is not None and value == prior_value:
+                rank = prior_rank
+            else:
+                rank = position
+                prior_rank = position
+                prior_value = value
+            row.setdefault("componentRanks", {})[key] = rank
 
 
 #: One canonical public answer plus one diagnostic retrospective lens.
@@ -802,7 +854,11 @@ def build_section(
             if league_key:
                 # The detailed table may be live, but its comparison anchor is
                 # always a published week — never another same-week recalculation.
-                if as_of_week > 0:
+                # ``>= 0`` so a published PRESEASON (week 0) ranking is found
+                # and served like any other official week. Movement itself is
+                # still correctly ``None`` there — week 0 has no predecessor,
+                # which ``movement_against_previous`` decides, not this guard.
+                if as_of_week >= 0:
                     movement = power_snapshots.movement_against_previous(
                         league_key=league_key,
                         season=as_of_season,

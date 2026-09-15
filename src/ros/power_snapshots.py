@@ -33,8 +33,13 @@ def _safe_part(value: str) -> str:
 
 
 def snapshot_path(league_key: str, season: str | int, week: int) -> Path:
-    if int(week) < 1:
-        raise ValueError("weekly Power snapshots require week >= 1")
+    # Week 0 is the PRESEASON publication. It is a real, publishable ranking —
+    # the canonical blend answers before any game is scored — and it is the only
+    # thing that can give Week 1 a legitimate movement baseline. Without it
+    # Week 1 has nothing to move against, and the honest answer there is "no
+    # movement", never a number borrowed from a different season.
+    if int(week) < 0:
+        raise ValueError("Power snapshots require week >= 0 (0 = preseason)")
     return (
         ROS_DATA_DIR
         / "power_snapshots"
@@ -108,8 +113,15 @@ def movement_against_previous(
     week: int,
     rankings: list[dict[str, Any]],
 ) -> dict[str, dict[str, Any]]:
-    """Movement against exactly Week N-1, never a loose latest snapshot."""
-    if int(week) <= 1:
+    """Movement against exactly Week N-1, never a loose latest snapshot.
+
+    The lookup is scoped to ``season``, so it can never reach across a season
+    boundary into last year's ranking. Week 0 (preseason) is the first
+    publishable week and therefore has no predecessor; Week 1 looks up Week 0
+    and finds nothing unless a preseason ranking was actually published, which
+    yields ``None`` — an honest "no baseline", not a fabricated flat.
+    """
+    if int(week) <= 0:
         return {
             str(row.get("ownerId") or ""): {
                 "previousOfficialRank": None,
@@ -176,6 +188,10 @@ def _public_ranking_row(row: dict[str, Any], movement: dict[str, Any]) -> dict[s
                 "wl_record",
             )
         },
+        # Frozen with the week, like every other number here. A sub-rank is an
+        # ordinal over the league AS IT WAS that week, so recomputing it later
+        # against a changed roster would silently restate a published week.
+        "componentRanks": dict(row.get("componentRanks") or {}),
     }
 
 
@@ -193,7 +209,7 @@ def record_snapshot(
     """
     season = section.get("asOfSeason")
     week = section.get("asOfWeek")
-    if season in (None, "") or not isinstance(week, int) or week < 1:
+    if season in (None, "") or not isinstance(week, int) or week < 0:
         raise ValueError("Power section must identify a scored season/week before publication")
     rankings = section.get("currentRanking") or []
     if not rankings or any(row.get("rank") is None for row in rankings):
@@ -215,6 +231,10 @@ def record_snapshot(
         "leagueKey": str(league_key),
         "season": str(season),
         "week": int(week),
+        # Week 0 is a preseason publication: a canonical ranking with no games
+        # behind it. Stamped so a consumer never has to infer it from the week
+        # number, and so a share card can say which kind of week it is.
+        "preseason": int(week) == 0,
         "finalizedAt": published_at,
         "methodologyVersion": section.get("methodologyVersion"),
         "scoringConfigFingerprint": str(scoring_fingerprint),
