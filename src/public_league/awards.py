@@ -1116,6 +1116,57 @@ def _player_starter_totals(
     return out
 
 
+def _player_all_rostered_totals(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    *,
+    regular_season_only: bool = True,
+) -> dict[str, dict[str, Any]]:
+    """Aggregate points per player across every scored week, starter OR
+    bench — the population VORP's replacement-level baseline needs.
+
+    ``replacement_per_game`` (``src/scoring/replacement_level.py``) defines
+    replacement as the band of players ranked just *below* the league's
+    starter cutoff — "the next eligible body, not the worst rostered
+    backup." That band cannot exist in a starter-only pool: a league with
+    N starter slots at a position can never have MORE than N distinct
+    started players in a single week, so a starter-only population is
+    capped at (or below) the exact cutoff being used to slice it, and
+    ``replacement_per_game`` silently falls back to the single worst
+    starter's per-game rate — sometimes negative — instead of a real
+    replacement level. Sleeper's matchup ``players_points`` carries every
+    ROSTERED player's score each week, started or not (see
+    ``player_journey.py``'s "Sleeper fills all three in production"), so
+    this walks that full map rather than ``_starter_scoring_walk``'s
+    starters-only subset.
+    """
+    out: dict[str, dict[str, Any]] = {}
+    for week in sorted(season.matchups_by_week.keys()):
+        is_playoff = week >= season.playoff_week_start
+        if regular_season_only and is_playoff:
+            continue
+        for entry in season.matchups_by_week[week]:
+            pp = entry.get("players_points")
+            if not isinstance(pp, dict):
+                continue
+            for pid, raw in pp.items():
+                try:
+                    pts = float(raw or 0.0)
+                except (TypeError, ValueError):
+                    continue
+                pos = snapshot.player_position(pid)
+                rec = out.setdefault(
+                    pid, {"playerId": pid, "position": pos, "points": 0.0, "games": 0}
+                )
+                rec["points"] += pts
+                rec["games"] += 1
+                if pos and not rec["position"]:
+                    rec["position"] = pos
+    for rec in out.values():
+        rec["points"] = round(rec["points"], 2)
+    return out
+
+
 def _nfl_team_for(snapshot: PublicLeagueSnapshot, pid: str) -> str:
     """Return the NFL team abbreviation for a Sleeper player id, or ""."""
     nfl_player = snapshot.nfl_players.get(str(pid)) or {}
@@ -1238,16 +1289,32 @@ def _vorp_rows(
             }
         )
 
+    # The replacement band is "the next eligible body" just below the
+    # starter cutoff, which cannot exist inside a starter-only pool (see
+    # `_player_all_rostered_totals`) — feed the position's full rostered
+    # population (bench included) instead, falling back to the
+    # starter-only rows when no broader data is available (older seasons,
+    # test fixtures) so behaviour there is unchanged.
+    all_rostered = _player_all_rostered_totals(
+        snapshot, season, regular_season_only=regular_season_only
+    )
+    replacement_pool: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for rec in all_rostered.values():
+        pos = rec["position"]
+        if pos:
+            replacement_pool[pos].append(rec)
+
     starter_slots = _vorp_starter_slots(grouped)
     out: list[dict[str, Any]] = []
     for pos, rows in grouped.items():
         slots = starter_slots.get(pos, 0)
+        pool_rows = replacement_pool.get(pos) or rows
         if slots <= 0:
             # No dedicated slot for this position; treat as a thin
             # baseline so a single-game cameo doesn't outshine real
             # full-season starters.
-            slots = max(1, len(rows) // 2)
-        replacement_per_game = _replacement_per_game_for_position(rows, slots)
+            slots = max(1, len(pool_rows) // 2)
+        replacement_per_game = _replacement_per_game_for_position(pool_rows, slots)
         for r in rows:
             games = r["gamesStarted"] or 1
             replacement_total = replacement_per_game * games
@@ -1432,13 +1499,28 @@ def _playoff_mvp_player_rows(
             continue
         grouped[pos].append(rec)
 
+    # Same population fix as `_vorp_rows`: the champion's own playoff
+    # starters are far too narrow a pool to ever have anyone "just below
+    # the cutoff" (see `_player_all_rostered_totals`). Use the whole
+    # league's full-season rostered pool as the replacement reference —
+    # more stable than trying to isolate a playoff-only bench sample —
+    # while the championship-roster playoff totals above remain the
+    # numerator.
+    all_rostered = _player_all_rostered_totals(snapshot, season, regular_season_only=False)
+    replacement_pool: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for rec in all_rostered.values():
+        pos = rec["position"]
+        if pos:
+            replacement_pool[pos].append(rec)
+
     starter_slots = _vorp_starter_slots(grouped)
     out: list[dict[str, Any]] = []
     for pos, rows in grouped.items():
         slots = starter_slots.get(pos, 0)
+        pool_rows = replacement_pool.get(pos) or rows
         if slots <= 0:
-            slots = max(1, len(rows) // 2)
-        replacement_per_game = _replacement_per_game_for_position(rows, slots)
+            slots = max(1, len(pool_rows) // 2)
+        replacement_per_game = _replacement_per_game_for_position(pool_rows, slots)
         for r in rows:
             games = r["gamesStarted"] or 1
             vorp = max(0.0, r["starterPoints"] - replacement_per_game * games)
