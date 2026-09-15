@@ -580,7 +580,9 @@ def resolve_scoring_week(
         host_scores[team.team_id] = _finite_points(matchup.get("points")) if begun else None
         players = []
         for p in team.players:
-            meta_record = players_meta.get(p.player_id) if isinstance(players_meta, Mapping) else None
+            meta_record = (
+                players_meta.get(p.player_id) if isinstance(players_meta, Mapping) else None
+            )
             metadata_present = isinstance(meta_record, Mapping)
             meta = meta_record if metadata_present else {}
             raw_team = str(meta.get("team") or "").upper()
