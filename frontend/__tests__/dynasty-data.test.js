@@ -32,6 +32,45 @@ function withStamps(player, rank, value) {
   };
 }
 
+describe("backend confidence missing/zero identity", () => {
+  const cases = [
+    ["explicit null", null, null, null],
+    ["absent", undefined, undefined, null],
+    ["real zero", 0, 0.8, 0],
+    ["numeric zero string", "0", 0.8, 0],
+    ["numeric compatibility", "0.25", 0.8, 0.25],
+    ["null primary falls back to alias", null, 0.4, 0.4],
+    ["primary takes precedence", 0.2, 0.8, 0.2],
+    ["nonfinite primary does not choose alias", Infinity, 0.8, null],
+  ];
+  for (const shape of ["full-array", "prepared-array", "legacy-dict"]) {
+    it.each(cases)(`${shape}: %s`, (_label, primary, alias, expected) => {
+      const player = withStamps({
+        name: "Rookie Defender", displayName: "Rookie Defender", position: "EDGE",
+        rookie: true, values: { displayValue: 4200 },
+        canonicalSiteValues: { ktc: 0 }, sourceRanks: { ktc: 17 },
+        sourceRankMeta: { ktc: { valueContribution: 0, originalRank: 2 } },
+        marketBreadthAgreementIndex: primary, marketConfidence: alias,
+      }, 1, 4200);
+      const data = shape === "legacy-dict" ? {
+        players: { "Rookie Defender": {
+          ...player, _canonicalConsensusRank: 1, _canonicalSiteValues: player.canonicalSiteValues,
+          _sourceRanks: player.sourceRanks, _sourceRankMeta: player.sourceRankMeta,
+          _marketBreadthAgreementIndex: primary, _marketConfidence: alias,
+        } },
+      } : { playersArray: [player], ...(shape === "prepared-array" ? { schemaVersion: 1, payloadView: "rankings" } : {}) };
+      const [row] = buildRows(data);
+      expect(row.confidence).toBe(expected);
+      expect(row.rankDerivedValue).toBe(4200);
+      expect(row.canonicalConsensusRank).toBe(1);
+      expect(row.pos).toBe("DL");
+      expect(row.rookie).toBe(true);
+      expect(row.canonicalSites.ktc).toBe(0);
+      expect(row.sourceRankMeta.ktc.originalRank).toBe(2);
+    });
+  }
+});
+
 // ── normalizePlayerName — REMOVED ────────────────────────────────────
 //
 // `lib/dynasty-data.js` used to export a `normalizePlayerName` whose

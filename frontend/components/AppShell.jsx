@@ -4,6 +4,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { usePathname } from "next/navigation";
 import { useDynastyData } from "@/components/useDynastyData";
 import { buildTeamByPlayer } from "@/lib/waiver-logic";
+import { readModelForRoute, usesIntentCatalog } from "@/lib/read-model-policy";
+import { usePreparedPlayerDetail } from "@/components/usePreparedPlayerDetail";
+import { Drawer } from "@/components/ds/Dialog";
 // Both live in the ROOT LAYOUT, so a static import puts them in the
 // chunk set every one of ~90 routes downloads and parses — 69 KB of it,
 // measured. Neither is reachable until the user acts: PlayerPopup needs
@@ -197,8 +200,11 @@ export default function AppShell({ children, authenticated = false, capabilities
   const privateDataEnabled =
     !isPublicOnlyRoute(pathname) && !isNoPlayerDataRoute(pathname);
 
+  if (usesIntentCatalog(pathname)) {
+    return <CatalogAppShell authenticated={authenticated} capabilities={capabilities}>{children}</CatalogAppShell>;
+  }
   return privateDataEnabled ? (
-    <PrivateAppShell authenticated={authenticated} capabilities={capabilities}>
+    <PrivateAppShell readModel={readModelForRoute(pathname)} authenticated={authenticated} capabilities={capabilities}>
       {children}
     </PrivateAppShell>
   ) : (
@@ -208,9 +214,9 @@ export default function AppShell({ children, authenticated = false, capabilities
   );
 }
 
-function PrivateAppShell({ children, authenticated, capabilities }) {
+function PrivateAppShell({ children, authenticated, capabilities, readModel }) {
   const { loading, error, failure, retry, rows, siteKeys, rawData } =
-    useDynastyData();
+    useDynastyData({ readModel });
   return (
     <InnerAppShell
       loading={loading}
@@ -227,6 +233,16 @@ function PrivateAppShell({ children, authenticated, capabilities }) {
       {children}
     </InnerAppShell>
   );
+}
+
+// These routes have independent endpoint consumers. Their only board consumer
+// is search, so prepare its catalog when the user first opens the palette.
+function CatalogAppShell({ children, authenticated, capabilities }) {
+  const [requested, setRequested] = useState(false);
+  const data = useDynastyData({ readModel: "catalog", enabled: requested && authenticated });
+  const requestSearch = useCallback(() => setRequested(true), []);
+  return <InnerAppShell {...data} privateDataEnabled={true} authenticated={authenticated}
+    capabilities={capabilities} onSearchIntent={requestSearch}>{children}</InnerAppShell>;
 }
 
 // Serves BOTH reasons above: the public /league subtree, where hydrating
@@ -256,13 +272,31 @@ function NoPlayerDataAppShell({ children, authenticated, capabilities }) {
   );
 }
 
-function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData, privateDataEnabled, authenticated, capabilities, children }) {
+function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData, privateDataEnabled, authenticated, capabilities, children, onSearchIntent }) {
   // Player search requires an authenticated session.  Search against
   // the private contract leaks ranking data and private identifiers
   // to logged-out visitors on otherwise-public surfaces.
   const searchEnabled = privateDataEnabled && authenticated;
   // Player popup state
   const [popupRow, setPopupRow] = useState(null);
+  // Re-resolve by stable identity after a settings, league or generation reload.
+  // A request for an older board can never publish a partial player popup.
+  const currentPopupRow = useMemo(() => {
+    if (!popupRow?.readModelKey) return popupRow;
+    return rows.find((row) => row.readModelKey === popupRow.readModelKey) || null;
+  }, [popupRow, rows]);
+  const popupDetail = usePreparedPlayerDetail(currentPopupRow, rawData);
+  const popupMissing = popupRow?.readModelKey && !loading && rawData && !currentPopupRow;
+  const popupError = popupDetail.error || (popupMissing ? "This player is no longer on the current board." : error);
+  useEffect(() => {
+    const close = () => { setPopupRow(null); setSearchOpen(false); };
+    window.addEventListener("league:changed", close);
+    window.addEventListener("auth:changed", close);
+    return () => {
+      window.removeEventListener("league:changed", close);
+      window.removeEventListener("auth:changed", close);
+    };
+  }, []);
 
   // Global search state
   const [searchOpen, setSearchOpen] = useState(false);
@@ -325,8 +359,9 @@ function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData
 
   const openSearch = useCallback(() => {
     if (!searchEnabled) return;
+    onSearchIntent?.();
     setSearchOpen(true);
-  }, [searchEnabled]);
+  }, [searchEnabled, onSearchIntent]);
 
   // League-scoped ownership index for the command palette's owner: tokens.
   // Rows are scoring-profile-scoped and never carry the owner; the
@@ -343,19 +378,19 @@ function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData
     function onKeyDown(e) {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        setSearchOpen(true);
+        openSearch();
         return;
       }
       const tag = e.target?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
-        setSearchOpen(true);
+        openSearch();
       }
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [searchEnabled]);
+  }, [searchEnabled, openSearch]);
 
   return (
     <AppContext.Provider
@@ -409,9 +444,15 @@ function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData
           component is null until its chunk lands. That gap is a frame or
           two on a warm connection and is invisible — the drawer animating
           in is the feedback either way. */}
-      {privateDataEnabled && popupRow && PlayerPopup && (
+      {privateDataEnabled && popupRow && (!popupDetail.row || popupDetail.loading || popupDetail.error) && (
+        <Drawer open onClose={() => setPopupRow(null)} title={popupRow.name} closeLabel="Close player details">
+          <p role="status">{popupError || "Loading player details…"}</p>
+          {!popupMissing && popupError && <button type="button" onClick={error ? retry : popupDetail.retry}>Try again</button>}
+        </Drawer>
+      )}
+      {privateDataEnabled && popupRow && popupDetail.row && !popupDetail.loading && !popupDetail.error && PlayerPopup && (
         <PlayerPopup
-          row={popupRow}
+          row={popupDetail.row}
           siteKeys={siteKeys}
           onClose={() => setPopupRow(null)}
           onAddToTrade={addToTradeRef.current ? handleAddToTrade : null}
@@ -421,6 +462,9 @@ function InnerAppShell({ loading, error, failure, retry, rows, siteKeys, rawData
       {searchEnabled && searchOpen && CommandPalette && (
         <CommandPalette
           rows={rows}
+          loading={loading}
+          error={error}
+          onRetry={retry}
           teamByPlayer={teamByPlayer}
           // Nav offers in the palette obey the same capability gate as
           // the menus — hiding an entry from the drawer while ⌘K still

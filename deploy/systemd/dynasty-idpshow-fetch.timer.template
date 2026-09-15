@@ -1,6 +1,6 @@
 [Unit]
 Description=Trigger IDP Show rankings refresh every 2 hours
-Requires=dynasty-idpshow-fetch.service
+Requires=__SERVICE_NAME__-idpshow-fetch.service
 
 [Timer]
 # Every 2 hours at minute 32 UTC.  Offset 5 min from DLF (minute 27)

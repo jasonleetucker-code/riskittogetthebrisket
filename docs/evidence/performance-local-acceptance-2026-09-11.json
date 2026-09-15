@@ -1,0 +1,2767 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-09-11",
+  "scope": "Phase 3 local-only prepared backend acceptance",
+  "phase2Disposition": {
+    "category": "D",
+    "outcome": "C",
+    "acceptedByOwner": true,
+    "policyBlockerResolved": true,
+    "historicalEvidencePreserved": "performance-latency-2026-09-11.json"
+  },
+  "policy": {
+    "selected": "local-prepared-hybrid-v1",
+    "defaultOtherInvocations": "legacy-relative-v1",
+    "rule": "refresh p95 < 75ms AND (relative degradation <=20% OR (absolute increase <=15ms AND refresh p95 <=25ms))",
+    "missingInvalid": "fail closed",
+    "zeroBaseline": "relative unavailable; absolute branch evaluable",
+    "legacyFields": "informational under selected hybrid; no silent veto",
+    "productionBrowserOtherBudgetsChanged": false
+  },
+  "startProvenance": {
+    "candidateHead": "564ef3f28dc90904e0e1542adc53f2b4eb59c7ee",
+    "branch": "codex/performance-serving",
+    "fetchedMain": "d243a1f7f1edfe85048f8fd10831adb41e54fb79",
+    "lastReconciledMain": "86d20e6cae3f75b6c5d58a084882f4115e3e6e19",
+    "commits": [
+      {
+        "sha": "802752c6f8c528b19df084605c1a1b2a1d4b1ccd",
+        "classification": "RELEVANT_BASE_MOVE for integration; fixed replay unaffected",
+        "changedPaths": [
+          "data/scrape_state/draftSharksIdp_last_success",
+          "data/scrape_state/draftSharksRos_last_success",
+          "data/scrape_state/draftSharks_last_success",
+          "data/scrape_state/dynastyDaddySf_last_success",
+          "data/scrape_state/dynastyDaddy_last_success",
+          "data/scrape_state/dynastyNerdsSfTep_last_success",
+          "data/scrape_state/fantasyCalc_last_success",
+          "data/scrape_state/fantasyNavigatorSf_last_success",
+          "data/scrape_state/fantasyProsFitzmaurice_last_success",
+          "data/scrape_state/fantasyProsIdp_last_success",
+          "data/scrape_state/fantasyProsSf_last_success",
+          "data/scrape_state/flockFantasyRookies_last_success",
+          "data/scrape_state/flockFantasySfRookies_last_success",
+          "data/scrape_state/flockFantasySf_last_success",
+          "data/scrape_state/flockFantasy_last_success",
+          "data/scrape_state/identity_dual_read.json",
+          "data/scrape_state/idpTradeCalc_last_success",
+          "data/scrape_state/ktcCrowdSfTep_last_success",
+          "data/scrape_state/ktcCrowdTradesSfTep_last_success",
+          "data/scrape_state/ktcSfTep_last_success",
+          "data/scrape_state/ktcTradesSfTep_last_success",
+          "data/scrape_state/ktc_last_success",
+          "data/scrape_state/ktc_value_sources.json",
+          "data/scrape_state/otcffbSf_last_success",
+          "data/scrape_state/pfkDynasty_last_success",
+          "data/scrape_state/sleeper_last_success",
+          "data/scrape_state/yahooBoone_last_success"
+        ]
+      },
+      {
+        "sha": "2a18436e342c43705fc7baa258c39407ff65ba0f",
+        "classification": "RELEVANT_BASE_MOVE for integration; fixed replay unaffected",
+        "changedPaths": [
+          "CSVs/Draft Data.xlsx",
+          "CSVs/dynasty_full.csv",
+          "CSVs/dynasty_values.csv",
+          "CSVs/site_raw/draftSharksRosSf.csv",
+          "CSVs/site_raw/draftSharksSf.csv",
+          "CSVs/site_raw/dynastyDaddySf.csv",
+          "CSVs/site_raw/fantasyCalc.csv",
+          "CSVs/site_raw/fantasyProsSf.csv",
+          "CSVs/site_raw/ktc.csv",
+          "CSVs/site_raw/ktcCrowdSfTep.csv",
+          "CSVs/site_raw/ktcCrowdTradesSfTep.csv",
+          "CSVs/site_raw/ktcSfTep.csv",
+          "CSVs/site_raw/ktcTradesSfTep.csv",
+          "data/player_map/team_map_last_good.json",
+          "data/ros/aggregate/history/2026-09-11T21-24-15.364749+00-00.json",
+          "data/ros/aggregate/latest.json",
+          "data/ros/runs/draftSharksRosSf__2026-09-11T21-24-13.942033+00-00.json",
+          "data/ros/runs/fantasyProsRosIdp__2026-09-11T21-24-14.137526+00-00.json",
+          "data/ros/runs/fantasyProsRosOverall__2026-09-11T21-24-14.274040+00-00.json",
+          "data/ros/runs/fantasyProsRosSf__2026-09-11T21-24-13.919461+00-00.json",
+          "data/ros/runs/ffc2qbAdp__2026-09-11T21-24-15.048758+00-00.json",
+          "data/ros/runs/index.json",
+          "data/ros/sims/dynasty_new_championship.json",
+          "data/ros/sims/dynasty_new_playoff.json",
+          "data/ros/sims/latest_championship.json",
+          "data/ros/sims/latest_playoff.json",
+          "data/ros/sources/draftSharksRosSf.csv",
+          "data/ros/sources/fantasyProsRosSf.csv",
+          "data/sleeper_last_good.json",
+          "exports/archive/dynasty_export_20260911_212200.zip",
+          "exports/dynasty_export_latest.zip",
+          "exports/latest/dynasty_data.js",
+          "exports/latest/dynasty_data_2026-09-11.json",
+          "exports/latest/dynasty_full.csv",
+          "exports/latest/dynasty_values.csv",
+          "exports/latest/manifest.json",
+          "exports/latest/site_raw/draftSharksRosSf.csv",
+          "exports/latest/site_raw/draftSharksSf.csv",
+          "exports/latest/site_raw/ktc.csv",
+          "exports/latest/site_raw/ktcCrowdSfTep.csv",
+          "exports/latest/site_raw/ktcCrowdTradesSfTep.csv",
+          "exports/latest/site_raw/ktcSfTep.csv",
+          "exports/latest/site_raw/ktcTradesSfTep.csv"
+        ]
+      },
+      {
+        "sha": "d243a1f7f1edfe85048f8fd10831adb41e54fb79",
+        "classification": "RELEVANT_BASE_MOVE for integration; fixed replay unaffected",
+        "changedPaths": [
+          "config/model_registry/hill_autopilot_runs.jsonl",
+          "config/model_registry/hill_scope_masters.json"
+        ]
+      }
+    ],
+    "merged": false,
+    "inputSha256": "7c36b88688011bb7a8a26edb31182a57b76107ab2e29c6ca3422e8472f114361",
+    "rawInputSha256": "9133cbee209b6e8b220f38f780871a033d94a8ea7e0f5d167cb0605378439d32",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.12.10",
+    "ramBytes": 33821810688,
+    "availableMemoryBytesBeforeRun": 14705602560,
+    "diskFreeBytesBeforeRun": 225824239616,
+    "ownerPolicy": "local-prepared-hybrid-v1",
+    "noProductionChangesAuthorized": true,
+    "frozenCodeProvenance": {
+      "server.py": "5b30222413f456c0981ed490b099e5ba9162f1b8f3fed35a478f25d229d59e5b",
+      "scripts/soak_prepared_serving.py": "762beb0a9ea1d4c0a465fa5aeeb1a8f1a42055be54c06440dda9ad8dccfa494d",
+      "scripts/soak_observation.py": "30b412e7432856d675439b6f3cce2a04b4db8fb963a8f023ee57047e5ae88bde",
+      "src/serving/serialization.py": "903b4b540ef734cdffc0ec51ceab77d5e66343b182bfbe9f2c85c707eb267b64",
+      "src/serving/league_views.py": "9998a0cc28663d9961eccd807eec1f3c297bc52e4f159af0934fafc0be3b19c6",
+      "src/serving/runtime.py": "467d165cc613de9f7b81c79ae00f0f49088a1230a162d84dbbb4dfdc15ee9796",
+      "src/serving/artifacts.py": "b358a0d8761b254358c46d3974ca3fc629f7270fda029ff681b454a5e6dd6039",
+      "src/serving/attestation.py": "e640c2b504aa17ecb262d734fc36e28785b5131b76b700721a922b96cf6bf4bc",
+      "src/serving/__init__.py": "577950e4a7bfa082ef861805ae992c462bfb40d9ebdf580aede50a753438bd2d",
+      "src/serving/coordinator.py": "fa599458a12d9fdb53ebeee07d7d38c3d0e7eb7429a25ccb8c7d80288626909e",
+      "src/serving/builder.py": "b0ff127ed2f1502b7cb764b2a9a1b1ad703eb154d1ef3700d4fac4045553c5b2",
+      "src/serving/projections.py": "62cc0f20bc07ad6843d697a93482f11c6b801dea835ec6827e0d41745ff829c8"
+    },
+    "validation": {
+      "focusedPassed": 230,
+      "seconds": 7.39,
+      "formatterLint": "Ruff0.6.9/1478 files green",
+      "independentReview": "approved after invalid-observation handling fix",
+      "testCountsOverlap": true
+    },
+    "testSha256": "bb839bf2e4c0d2f524b8b9290f6a067ee7542c1f52009046aff2ce1fd3a1df3b"
+  },
+  "finalReconciliation": {
+    "candidateHead": "564ef3f28dc90904e0e1542adc53f2b4eb59c7ee",
+    "fetchedMain": "4033052cf9bc48b3c8ec5ff160205d995165ef6f",
+    "lastReconciledMain": "86d20e6cae3f75b6c5d58a084882f4115e3e6e19",
+    "merged": false,
+    "additionalCommit": {
+      "sha": "4033052cf9bc48b3c8ec5ff160205d995165ef6f",
+      "classification": "BENIGN_AUTOMATION_MOVE for fixed-input comparison",
+      "changedPaths": [
+        "data/scrape_state/idpShowCombined_last_status.json",
+        "data/scrape_state/idpShowCombined_last_success",
+        "data/scrape_state/idpShow_last_status.json",
+        "data/scrape_state/idpShow_last_success"
+      ],
+      "evidence": "Four IDP observation/success timestamps only; row counts, successful status and payload unchanged. No implementation/dependency change."
+    },
+    "integrationStillRequiresRelevantEarlierMovement": true
+  },
+  "validation": {
+    "affectedLabTests": {
+      "passed": 230,
+      "seconds": 7.39,
+      "files": [
+        "tests/serving/test_lab_spans.py",
+        "tests/serving/test_latency_diagnostics.py",
+        "tests/serving/test_soak_observation.py",
+        "tests/serving/test_soak_report.py"
+      ]
+    },
+    "formatterLint": "Ruff 0.6.9 repository contract passed; 1478 files",
+    "coercion": "No new/stale debt in touched files; eight unrelated main differences retained",
+    "planningIntegrity": "Passed before runs and after final evidence update; whitespace, artifact/report equality, private artifact hashes and privacy checks passed",
+    "independentReview": "Implementation/default-policy/boundaries/privacy approved; separate raw 3A pass and 3B failure audit",
+    "overlappingCountsNotSummed": true,
+    "concurrentBuildsTestsOtherMeasurements": false,
+    "retainedProductEvidence": "Prior 547 passed /19 skipped /1 warning /5 passing subtests; ten product hashes unchanged; not rerun",
+    "retainedFrontendEvidence": "Prior suite/build/bundle/parity retained; slowed-mobile failure remains; no frontend change or new browser run"
+  },
+  "runs": {
+    "phase3-short-01": {
+      "passed": true,
+      "checks": {
+        "noIncorrectResponsesOrUnexpectedFailures": true,
+        "pooledLatencyObservationsValid": true,
+        "preparedEndpointP95Below75ms": true,
+        "refreshLatencyPolicyPass": true,
+        "rssGrowthBound": true,
+        "handlesReturnNearBaseline": true,
+        "noRemainingObservedChildren": true,
+        "diskWithinBudget": true,
+        "faultScenariosObserved": true,
+        "changedAndUnchangedRefreshObserved": true,
+        "httpLatencyObservationsValid": true,
+        "requiredHttpReadSeriesObserved": true,
+        "eachHttpReadSeriesP95Below75ms": true,
+        "eachRefreshReadSeriesPassLatencyPolicy": true,
+        "changedPublicationsObservedByHttp": true,
+        "harnessUnchangedDuringRun": true,
+        "productAndHelperCodeUnchangedDuringRun": true,
+        "verifiedWorkerAndReloadFreeQuietRecovery": true,
+        "completeResourceCoverageAtLeast99Percent": true,
+        "observationCoverageAtLeast99Percent": true,
+        "observationSampleGapsAtMost2Seconds": true,
+        "uninstrumentedAcceptance": true
+      },
+      "latencyPolicy": "local-prepared-hybrid-v1",
+      "baselineSeconds": 60.0,
+      "quietSeconds": 125.0,
+      "diagnosticSpansEnabled": false,
+      "codeProvenance": {
+        "startup": {
+          "server.py": "5b30222413f456c0981ed490b099e5ba9162f1b8f3fed35a478f25d229d59e5b",
+          "scripts/soak_prepared_serving.py": "762beb0a9ea1d4c0a465fa5aeeb1a8f1a42055be54c06440dda9ad8dccfa494d",
+          "scripts/soak_observation.py": "30b412e7432856d675439b6f3cce2a04b4db8fb963a8f023ee57047e5ae88bde",
+          "src/serving/serialization.py": "903b4b540ef734cdffc0ec51ceab77d5e66343b182bfbe9f2c85c707eb267b64",
+          "src/serving/league_views.py": "9998a0cc28663d9961eccd807eec1f3c297bc52e4f159af0934fafc0be3b19c6",
+          "src/serving/runtime.py": "467d165cc613de9f7b81c79ae00f0f49088a1230a162d84dbbb4dfdc15ee9796",
+          "src/serving/artifacts.py": "b358a0d8761b254358c46d3974ca3fc629f7270fda029ff681b454a5e6dd6039",
+          "src/serving/attestation.py": "e640c2b504aa17ecb262d734fc36e28785b5131b76b700721a922b96cf6bf4bc",
+          "src/serving/__init__.py": "577950e4a7bfa082ef861805ae992c462bfb40d9ebdf580aede50a753438bd2d",
+          "src/serving/coordinator.py": "fa599458a12d9fdb53ebeee07d7d38c3d0e7eb7429a25ccb8c7d80288626909e",
+          "src/serving/builder.py": "b0ff127ed2f1502b7cb764b2a9a1b1ad703eb154d1ef3700d4fac4045553c5b2",
+          "src/serving/projections.py": "62cc0f20bc07ad6843d697a93482f11c6b801dea835ec6827e0d41745ff829c8"
+        },
+        "end": {
+          "server.py": "5b30222413f456c0981ed490b099e5ba9162f1b8f3fed35a478f25d229d59e5b",
+          "scripts/soak_prepared_serving.py": "762beb0a9ea1d4c0a465fa5aeeb1a8f1a42055be54c06440dda9ad8dccfa494d",
+          "scripts/soak_observation.py": "30b412e7432856d675439b6f3cce2a04b4db8fb963a8f023ee57047e5ae88bde",
+          "src/serving/serialization.py": "903b4b540ef734cdffc0ec51ceab77d5e66343b182bfbe9f2c85c707eb267b64",
+          "src/serving/league_views.py": "9998a0cc28663d9961eccd807eec1f3c297bc52e4f159af0934fafc0be3b19c6",
+          "src/serving/runtime.py": "467d165cc613de9f7b81c79ae00f0f49088a1230a162d84dbbb4dfdc15ee9796",
+          "src/serving/artifacts.py": "b358a0d8761b254358c46d3974ca3fc629f7270fda029ff681b454a5e6dd6039",
+          "src/serving/attestation.py": "e640c2b504aa17ecb262d734fc36e28785b5131b76b700721a922b96cf6bf4bc",
+          "src/serving/__init__.py": "577950e4a7bfa082ef861805ae992c462bfb40d9ebdf580aede50a753438bd2d",
+          "src/serving/coordinator.py": "fa599458a12d9fdb53ebeee07d7d38c3d0e7eb7429a25ccb8c7d80288626909e",
+          "src/serving/builder.py": "b0ff127ed2f1502b7cb764b2a9a1b1ad703eb154d1ef3700d4fac4045553c5b2",
+          "src/serving/projections.py": "62cc0f20bc07ad6843d697a93482f11c6b801dea835ec6827e0d41745ff829c8"
+        }
+      },
+      "inputSha256": "7c36b88688011bb7a8a26edb31182a57b76107ab2e29c6ca3422e8472f114361",
+      "rawInputSha256": "9133cbee209b6e8b220f38f780871a033d94a8ea7e0f5d167cb0605378439d32",
+      "harnessSha256": "762beb0a9ea1d4c0a465fa5aeeb1a8f1a42055be54c06440dda9ad8dccfa494d",
+      "environment": {
+        "platform": "Windows-11-10.0.26200-SP0",
+        "python": "3.12.10",
+        "psutil": "7.2.2",
+        "hostMemoryBytes": 33821810688,
+        "logicalCpus": 22
+      },
+      "automaticSleepPrevention": "temporary Windows system request",
+      "durationSeconds": 450.172,
+      "readObservationSeconds": 449.29699999978766,
+      "servingExerciseSeconds": 300.0,
+      "full60MinuteSoak": false,
+      "quietRecovery": {
+        "phase": "done",
+        "exerciseRequiredSeconds": 300.0,
+        "admissionClosedAtSeconds": 301.0,
+        "quietStartSeconds": 324.21799999987707,
+        "quietEndSeconds": 449.29699999978766,
+        "verifiedQuietSeconds": 125.0789999999106,
+        "quietResetCount": 0,
+        "verified": true
+      },
+      "sampleCount": 451,
+      "observedSampleCountBeforeCleanup": 450,
+      "completeResourceSampleCount": 450,
+      "sampleCoverageFraction": 1,
+      "completeResourceCoverageFraction": 1,
+      "maxObservationSampleGapSeconds": 1.1090000001713634,
+      "maxSampleGapSeconds": 2.078000000000003,
+      "samplingRequirements": {
+        "minimumCoverageFraction": 0.99,
+        "maximumGapSeconds": 2
+      },
+      "samplerTiming": {
+        "scope": "Inclusive wall/thread CPU stage clocks; driver process CPU overlaps request/audit work; completed timings serialized after observation",
+        "observationCount": 450,
+        "missedTicks": 0,
+        "maxLateBySeconds": 0.14100000029429793,
+        "stageMaxWallMs": {
+          "disk": 1023.9995,
+          "flush": 19.7167,
+          "hostCpu": 2.0787,
+          "iteration": 1111.0414,
+          "ledger": 0.3192,
+          "member": 2.2612,
+          "memberCpu": 0.47529999999999994,
+          "memberHandles": 0.3285,
+          "memberMemory": 0.6728,
+          "observe": 1110.9181,
+          "progress": 0.3459,
+          "schedule": 0.0967,
+          "tree": 38.0835,
+          "webTree": 47.5679,
+          "write": 0.1724
+        }
+      },
+      "descriptorKind": "Windows handles",
+      "readCounts": {
+        "baseline": 5896,
+        "refresh": 28509,
+        "postRefreshIdle": 14887
+      },
+      "readErrorCounts": {},
+      "responseCounts": {
+        "rankings:baseline:unconditional:200": 1474,
+        "rankings:baseline:conditional:304": 1474,
+        "trade:baseline:unconditional:200": 1474,
+        "trade:baseline:conditional:304": 1474,
+        "rankings:postRefreshIdle:unconditional:200": 3722,
+        "rankings:postRefreshIdle:conditional:304": 3721,
+        "trade:postRefreshIdle:unconditional:200": 3720,
+        "trade:postRefreshIdle:conditional:304": 3724,
+        "trade:refresh:conditional:304": 7124,
+        "rankings:refresh:unconditional:200": 7127,
+        "rankings:refresh:conditional:304": 7128,
+        "trade:refresh:unconditional:200": 7129,
+        "trade:refresh:conditional:200": 1
+      },
+      "p95Milliseconds": {
+        "baseline": 17.87109998986125,
+        "refresh": 6.443199701607227,
+        "postRefreshIdle": 4.955999553203583
+      },
+      "p95MillisecondsByReadSeries": {
+        "rankings:baseline:unconditional:200": 17.01360009610653,
+        "rankings:baseline:conditional:304": 5.200199782848358,
+        "trade:baseline:unconditional:200": 25.546899996697903,
+        "trade:baseline:conditional:304": 5.2143000066280365,
+        "rankings:postRefreshIdle:unconditional:200": 16.286199912428856,
+        "rankings:postRefreshIdle:conditional:304": 3.6100000143051147,
+        "trade:postRefreshIdle:unconditional:200": 11.885299813002348,
+        "trade:postRefreshIdle:conditional:304": 3.2989000901579857,
+        "trade:refresh:conditional:304": 4.712299909442663,
+        "rankings:refresh:unconditional:200": 16.412099823355675,
+        "rankings:refresh:conditional:304": 4.866099916398525,
+        "trade:refresh:unconditional:200": 22.313399706035852,
+        "trade:refresh:conditional:200": 28.86849967762828
+      },
+      "p99MillisecondsByReadSeries": {
+        "rankings:baseline:unconditional:200": 43.341600336134434,
+        "rankings:baseline:conditional:304": 5.732799880206585,
+        "trade:baseline:unconditional:200": 28.34040019661188,
+        "trade:baseline:conditional:304": 5.98829984664917,
+        "rankings:postRefreshIdle:unconditional:200": 31.205199658870697,
+        "rankings:postRefreshIdle:conditional:304": 4.778699949383736,
+        "trade:postRefreshIdle:unconditional:200": 27.070399839431047,
+        "trade:postRefreshIdle:conditional:304": 4.394799936562777,
+        "trade:refresh:conditional:304": 5.7450998574495316,
+        "rankings:refresh:unconditional:200": 32.45409997180104,
+        "rankings:refresh:conditional:304": 5.748800002038479,
+        "trade:refresh:unconditional:200": 26.89300011843443,
+        "trade:refresh:conditional:200": 28.86849967762828
+      },
+      "p99SufficientByReadSeries": {
+        "rankings:baseline:unconditional:200": true,
+        "rankings:baseline:conditional:304": true,
+        "trade:baseline:unconditional:200": true,
+        "trade:baseline:conditional:304": true,
+        "rankings:postRefreshIdle:unconditional:200": true,
+        "rankings:postRefreshIdle:conditional:304": true,
+        "trade:postRefreshIdle:unconditional:200": true,
+        "trade:postRefreshIdle:conditional:304": true,
+        "trade:refresh:conditional:304": true,
+        "rankings:refresh:unconditional:200": true,
+        "rankings:refresh:conditional:304": true,
+        "trade:refresh:unconditional:200": true,
+        "trade:refresh:conditional:200": false
+      },
+      "sampleCountsByReadSeries": {
+        "rankings:baseline:unconditional:200": 1474,
+        "rankings:baseline:conditional:304": 1474,
+        "trade:baseline:unconditional:200": 1474,
+        "trade:baseline:conditional:304": 1474,
+        "rankings:postRefreshIdle:unconditional:200": 3722,
+        "rankings:postRefreshIdle:conditional:304": 3721,
+        "trade:postRefreshIdle:unconditional:200": 3720,
+        "trade:postRefreshIdle:conditional:304": 3724,
+        "trade:refresh:conditional:304": 7124,
+        "rankings:refresh:unconditional:200": 7127,
+        "rankings:refresh:conditional:304": 7128,
+        "trade:refresh:unconditional:200": 7129,
+        "trade:refresh:conditional:200": 1
+      },
+      "invalidLatencyObservationCounts": {
+        "baseline": 0,
+        "refresh": 0,
+        "postRefreshIdle": 0
+      },
+      "invalidLatencyObservationCountsByReadSeries": {
+        "rankings:baseline:unconditional:200": 0,
+        "rankings:baseline:conditional:304": 0,
+        "trade:baseline:unconditional:200": 0,
+        "trade:baseline:conditional:304": 0,
+        "rankings:postRefreshIdle:unconditional:200": 0,
+        "rankings:postRefreshIdle:conditional:304": 0,
+        "trade:postRefreshIdle:unconditional:200": 0,
+        "trade:postRefreshIdle:conditional:304": 0,
+        "trade:refresh:conditional:304": 0,
+        "rankings:refresh:unconditional:200": 0,
+        "rankings:refresh:conditional:304": 0,
+        "trade:refresh:unconditional:200": 0,
+        "trade:refresh:conditional:200": 0
+      },
+      "pooledRefreshLatencyEvaluation": {
+        "policy": "local-prepared-hybrid-v1",
+        "observationsValid": true,
+        "baselineMilliseconds": 17.87109998986125,
+        "refreshMilliseconds": 6.443199701607227,
+        "absoluteMilliseconds": -11.427900288254023,
+        "relativePercent": -63.94626125273416,
+        "absoluteCeilingPass": true,
+        "relativeBranchPass": true,
+        "absoluteBranchPass": true,
+        "legacyRelativePass": true,
+        "passed": true
+      },
+      "refreshLatencyEvaluations": {
+        "trade:refresh:conditional:304": {
+          "policy": "local-prepared-hybrid-v1",
+          "observationsValid": true,
+          "baselineMilliseconds": 5.2143000066280365,
+          "refreshMilliseconds": 4.712299909442663,
+          "absoluteMilliseconds": -0.5020000971853733,
+          "relativePercent": -9.62737273550175,
+          "absoluteCeilingPass": true,
+          "relativeBranchPass": true,
+          "absoluteBranchPass": true,
+          "legacyRelativePass": true,
+          "passed": true
+        },
+        "rankings:refresh:unconditional:200": {
+          "policy": "local-prepared-hybrid-v1",
+          "observationsValid": true,
+          "baselineMilliseconds": 17.01360009610653,
+          "refreshMilliseconds": 16.412099823355675,
+          "absoluteMilliseconds": -0.6015002727508545,
+          "relativePercent": -3.535408551706254,
+          "absoluteCeilingPass": true,
+          "relativeBranchPass": true,
+          "absoluteBranchPass": true,
+          "legacyRelativePass": true,
+          "passed": true
+        },
+        "rankings:refresh:conditional:304": {
+          "policy": "local-prepared-hybrid-v1",
+          "observationsValid": true,
+          "baselineMilliseconds": 5.200199782848358,
+          "refreshMilliseconds": 4.866099916398525,
+          "absoluteMilliseconds": -0.3340998664498329,
+          "relativePercent": -6.424750594232609,
+          "absoluteCeilingPass": true,
+          "relativeBranchPass": true,
+          "absoluteBranchPass": true,
+          "legacyRelativePass": true,
+          "passed": true
+        },
+        "trade:refresh:unconditional:200": {
+          "policy": "local-prepared-hybrid-v1",
+          "observationsValid": true,
+          "baselineMilliseconds": 25.546899996697903,
+          "refreshMilliseconds": 22.313399706035852,
+          "absoluteMilliseconds": -3.2335002906620502,
+          "relativePercent": -12.657114135491977,
+          "absoluteCeilingPass": true,
+          "relativeBranchPass": true,
+          "absoluteBranchPass": true,
+          "legacyRelativePass": true,
+          "passed": true
+        },
+        "trade:refresh:conditional:200": {
+          "policy": "local-prepared-hybrid-v1",
+          "observationsValid": true,
+          "baselineMilliseconds": 25.546899996697903,
+          "refreshMilliseconds": 28.86849967762828,
+          "absoluteMilliseconds": 3.321599680930376,
+          "relativePercent": 13.00196768046109,
+          "absoluteCeilingPass": true,
+          "relativeBranchPass": true,
+          "absoluteBranchPass": false,
+          "legacyRelativePass": true,
+          "passed": true
+        }
+      },
+      "refreshP95Deltas": {
+        "trade:refresh:conditional:304": {
+          "baselineMilliseconds": 5.2143000066280365,
+          "refreshMilliseconds": 4.712299909442663,
+          "absoluteMilliseconds": -0.5020000971853733,
+          "relativePercent": -9.62737273550175
+        },
+        "rankings:refresh:unconditional:200": {
+          "baselineMilliseconds": 17.01360009610653,
+          "refreshMilliseconds": 16.412099823355675,
+          "absoluteMilliseconds": -0.6015002727508545,
+          "relativePercent": -3.535408551706254
+        },
+        "rankings:refresh:conditional:304": {
+          "baselineMilliseconds": 5.200199782848358,
+          "refreshMilliseconds": 4.866099916398525,
+          "absoluteMilliseconds": -0.3340998664498329,
+          "relativePercent": -6.424750594232609
+        },
+        "trade:refresh:unconditional:200": {
+          "baselineMilliseconds": 25.546899996697903,
+          "refreshMilliseconds": 22.313399706035852,
+          "absoluteMilliseconds": -3.2335002906620502,
+          "relativePercent": -12.657114135491977
+        },
+        "trade:refresh:conditional:200": {
+          "baselineMilliseconds": 25.546899996697903,
+          "refreshMilliseconds": 28.86849967762828,
+          "absoluteMilliseconds": 3.321599680930376,
+          "relativePercent": 13.00196768046109
+        }
+      },
+      "baselineComparisons": {
+        "trade:refresh:conditional:304": "trade:baseline:conditional:304",
+        "rankings:refresh:unconditional:200": "rankings:baseline:unconditional:200",
+        "rankings:refresh:conditional:304": "rankings:baseline:conditional:304",
+        "trade:refresh:unconditional:200": "trade:baseline:unconditional:200",
+        "trade:refresh:conditional:200": "trade:baseline:unconditional:200"
+      },
+      "legacyLatencyChecks": {
+        "refreshDegradationAtMost20Percent": true,
+        "eachRefreshReadSeriesWithin20Percent": true
+      },
+      "rssBaselineBytes": 482064384.0,
+      "rssFinalBytes": 548564992,
+      "handlesBaseline": 652.0,
+      "handlesFinal": 657,
+      "resourceOwnership": {
+        "scope": "Attribution only; aggregate RSS/handle gates remain unchanged",
+        "webMissingObservationCount": 0,
+        "baseline": {
+          "driverRssBytes": 94806016.0,
+          "webRssBytes": 387258368.0,
+          "driverDescriptorCount": 261.0,
+          "webDescriptorCount": 391.0
+        },
+        "final": {
+          "driverRssBytes": 111157248,
+          "webRssBytes": 437342208,
+          "driverDescriptorCount": 261,
+          "webDescriptorCount": 396
+        }
+      },
+      "peakProcessTreeRssBytes": 1830502400,
+      "maxProcesses": 10,
+      "observedChildren": {
+        "observedCount": 39,
+        "remainingCount": 0,
+        "reparentedCount": 0,
+        "unknownCount": 0
+      },
+      "idleProcessCount": 4,
+      "budgetBytes": 536870912,
+      "diskFinalBytes": 511311784,
+      "retention": {
+        "schemaVersion": 1,
+        "status": "ok",
+        "dryRun": true,
+        "bytesBefore": 511311774,
+        "bytesAfter": 511311774,
+        "projectedBytes": 511311774,
+        "budgetBytes": 536870912,
+        "minFreeBytes": 524288000,
+        "freeBytes": 225046986752,
+        "generationCount": 9,
+        "protectedCount": 6,
+        "deletedCount": 0,
+        "plannedDeleteCount": 0,
+        "reclaimedBytes": 0,
+        "oldestRetainedAt": "2026-09-11T21:53:24.248899+00:00",
+        "unknownAcceptanceCount": 0,
+        "shortenedRollbackWindow": false,
+        "blocked": false,
+        "capacityBlocked": false
+      },
+      "errors": [],
+      "limitations": [
+        "Private recorded board replay; no external providers",
+        "No deployed API or Linux/systemd proof",
+        "Separate loopback web child uses fixture lifespan and auth session; login, session persistence and external network latency are excluded",
+        "Changed input uses a non-value metadata revision; canonical values remain fixed",
+        "CPU seconds include currently live processes; completed child totals are unavailable",
+        "PID/create-time ledger detects surviving observed descendants after reparenting; unobserved short-lived descendants and real scraper/browser cleanup are unproven"
+      ],
+      "latencyScope": "loopback HTTP through real app middleware, synthetic auth session, prepared rankings/trade endpoints and LeagueServingReader; fixed fixture league selection; excludes response audit",
+      "webAdoptionMode": "producer-attested",
+      "artifactSha256": {
+        "phase3-short-01-report.json": "f20eb1e2dc282123265463bc3355e7eee14100e444cb685de41e69e9d594b28c",
+        "phase3-short-01-report.requests.jsonl": "8516e6c7f555a0a5338b3f02200dab7d86f423340017df7297d3268587848609",
+        "phase3-short-01-report.samples.jsonl": "e88cef3d02f755e7f779c43da2420d3d2c626d67e66a44194b46e8b9b757d198",
+        "phase3-short-01-report.latencies.json": "2a35d8b3c21622943a8b633f0bf7f7eb65e8a068c6578147caa20a5161678b86",
+        "phase3-short-01-report.sampler.jsonl": "2a63a655bf439391e7ab782e04248361f43596ee3b4b58c1ffce9048165ab8f2",
+        "phase3-short-01-report.quiet.jsonl": "52373b3885a064fd9ae1f43d8b89ae38ef75bb78edfd1f3a9e07ec62aafb636e"
+      },
+      "protocol": {
+        "exerciseSeconds": 300,
+        "baselineSeconds": 60.0,
+        "refreshSeconds": 30,
+        "quietRequiredSeconds": 125,
+        "order": "original",
+        "pacing": "original stop.wait(0.01)",
+        "diagnostics": false,
+        "newPrivateStore": true
+      },
+      "resourceDistributions": {
+        "allObserved": {
+          "sampleCount": 450,
+          "incompleteCount": 0,
+          "metrics": {
+            "rssBytes": {
+              "availableCount": 450,
+              "missingCount": 0,
+              "median": 882575360.0,
+              "p95": 1743527936,
+              "maximum": 1830502400
+            },
+            "webRssBytes": {
+              "availableCount": 450,
+              "missingCount": 0,
+              "median": 437342208.0,
+              "p95": 522768384,
+              "maximum": 587784192
+            },
+            "driverRssBytes": {
+              "availableCount": 450,
+              "missingCount": 0,
+              "median": 111157248.0,
+              "p95": 165781504,
+              "maximum": 201244672
+            },
+            "processCount": {
+              "availableCount": 450,
+              "missingCount": 0,
+              "median": 7.0,
+              "p95": 10,
+              "maximum": 10
+            },
+            "descriptorCount": {
+              "availableCount": 450,
+              "missingCount": 0,
+              "median": 996.0,
+              "p95": 1327,
+              "maximum": 1331
+            },
+            "webDescriptorCount": {
+              "availableCount": 450,
+              "missingCount": 0,
+              "median": 397.0,
+              "p95": 397,
+              "maximum": 399
+            },
+            "driverDescriptorCount": {
+              "availableCount": 450,
+              "missingCount": 0,
+              "median": 267.0,
+              "p95": 280,
+              "maximum": 281
+            },
+            "diskBytes": {
+              "availableCount": 450,
+              "missingCount": 0,
+              "median": 343673152.0,
+              "p95": 511311784,
+              "maximum": 511311784
+            },
+            "hostCpuPercent": {
+              "availableCount": 450,
+              "missingCount": 0,
+              "median": 29.4,
+              "p95": 38.8,
+              "maximum": 50.3
+            },
+            "cpuSecondsSincePreviousSample": {
+              "availableCount": 450,
+              "missingCount": 0,
+              "median": 1.3359375,
+              "p95": 2.4375,
+              "maximum": 3.0
+            },
+            "driverCpuSecondsSincePreviousSample": {
+              "availableCount": 450,
+              "missingCount": 0,
+              "median": 0.15625,
+              "p95": 0.25,
+              "maximum": 1.078125
+            },
+            "webCpuSecondsSincePreviousSample": {
+              "availableCount": 450,
+              "missingCount": 0,
+              "median": 0.390625,
+              "p95": 0.734375,
+              "maximum": 1.0625
+            }
+          }
+        },
+        "warmedBaseline": {
+          "sampleCount": 30,
+          "incompleteCount": 0,
+          "metrics": {
+            "rssBytes": {
+              "availableCount": 30,
+              "missingCount": 0,
+              "median": 482064384.0,
+              "p95": 482328576,
+              "maximum": 482373632
+            },
+            "webRssBytes": {
+              "availableCount": 30,
+              "missingCount": 0,
+              "median": 387258368.0,
+              "p95": 387403776,
+              "maximum": 387440640
+            },
+            "driverRssBytes": {
+              "availableCount": 30,
+              "missingCount": 0,
+              "median": 94806016.0,
+              "p95": 94924800,
+              "maximum": 94932992
+            },
+            "processCount": {
+              "availableCount": 30,
+              "missingCount": 0,
+              "median": 4.0,
+              "p95": 4,
+              "maximum": 4
+            },
+            "descriptorCount": {
+              "availableCount": 30,
+              "missingCount": 0,
+              "median": 652.0,
+              "p95": 652,
+              "maximum": 652
+            },
+            "webDescriptorCount": {
+              "availableCount": 30,
+              "missingCount": 0,
+              "median": 391.0,
+              "p95": 391,
+              "maximum": 391
+            },
+            "driverDescriptorCount": {
+              "availableCount": 30,
+              "missingCount": 0,
+              "median": 261.0,
+              "p95": 261,
+              "maximum": 261
+            },
+            "diskBytes": {
+              "availableCount": 30,
+              "missingCount": 0,
+              "median": 114558262.0,
+              "p95": 114558262,
+              "maximum": 114558262
+            },
+            "hostCpuPercent": {
+              "availableCount": 30,
+              "missingCount": 0,
+              "median": 18.55,
+              "p95": 20.8,
+              "maximum": 21.7
+            },
+            "cpuSecondsSincePreviousSample": {
+              "availableCount": 30,
+              "missingCount": 0,
+              "median": 0.640625,
+              "p95": 0.75,
+              "maximum": 0.796875
+            },
+            "driverCpuSecondsSincePreviousSample": {
+              "availableCount": 30,
+              "missingCount": 0,
+              "median": 0.171875,
+              "p95": 0.21875,
+              "maximum": 0.25
+            },
+            "webCpuSecondsSincePreviousSample": {
+              "availableCount": 30,
+              "missingCount": 0,
+              "median": 0.46875,
+              "p95": 0.5625,
+              "maximum": 0.609375
+            }
+          }
+        },
+        "refreshExerciseObserved": {
+          "sampleCount": 240,
+          "incompleteCount": 0,
+          "metrics": {
+            "rssBytes": {
+              "availableCount": 240,
+              "missingCount": 0,
+              "median": 1241675776.0,
+              "p95": 1759694848,
+              "maximum": 1830502400
+            },
+            "webRssBytes": {
+              "availableCount": 240,
+              "missingCount": 0,
+              "median": 429793280.0,
+              "p95": 569122816,
+              "maximum": 587784192
+            },
+            "driverRssBytes": {
+              "availableCount": 240,
+              "missingCount": 0,
+              "median": 112349184.0,
+              "p95": 165806080,
+              "maximum": 201244672
+            },
+            "processCount": {
+              "availableCount": 240,
+              "missingCount": 0,
+              "median": 7.0,
+              "p95": 10,
+              "maximum": 10
+            },
+            "descriptorCount": {
+              "availableCount": 240,
+              "missingCount": 0,
+              "median": 1004.0,
+              "p95": 1327,
+              "maximum": 1331
+            },
+            "webDescriptorCount": {
+              "availableCount": 240,
+              "missingCount": 0,
+              "median": 397.0,
+              "p95": 398,
+              "maximum": 399
+            },
+            "driverDescriptorCount": {
+              "availableCount": 240,
+              "missingCount": 0,
+              "median": 274.0,
+              "p95": 281,
+              "maximum": 281
+            },
+            "diskBytes": {
+              "availableCount": 240,
+              "missingCount": 0,
+              "median": 282196536.0,
+              "p95": 458230347,
+              "maximum": 511311528
+            },
+            "hostCpuPercent": {
+              "availableCount": 240,
+              "missingCount": 0,
+              "median": 31.5,
+              "p95": 40.1,
+              "maximum": 50.3
+            },
+            "cpuSecondsSincePreviousSample": {
+              "availableCount": 240,
+              "missingCount": 0,
+              "median": 1.5625,
+              "p95": 2.546875,
+              "maximum": 3.0
+            },
+            "driverCpuSecondsSincePreviousSample": {
+              "availableCount": 240,
+              "missingCount": 0,
+              "median": 0.15625,
+              "p95": 0.265625,
+              "maximum": 1.078125
+            },
+            "webCpuSecondsSincePreviousSample": {
+              "availableCount": 240,
+              "missingCount": 0,
+              "median": 0.40625,
+              "p95": 0.796875,
+              "maximum": 1.0625
+            }
+          }
+        },
+        "verifiedQuiet": {
+          "sampleCount": 125,
+          "incompleteCount": 0,
+          "metrics": {
+            "rssBytes": {
+              "availableCount": 125,
+              "missingCount": 0,
+              "median": 548564992,
+              "p95": 548802560,
+              "maximum": 548864000
+            },
+            "webRssBytes": {
+              "availableCount": 125,
+              "missingCount": 0,
+              "median": 437342208,
+              "p95": 437436416,
+              "maximum": 437436416
+            },
+            "driverRssBytes": {
+              "availableCount": 125,
+              "missingCount": 0,
+              "median": 111157248,
+              "p95": 111460352,
+              "maximum": 111460352
+            },
+            "processCount": {
+              "availableCount": 125,
+              "missingCount": 0,
+              "median": 4,
+              "p95": 4,
+              "maximum": 4
+            },
+            "descriptorCount": {
+              "availableCount": 125,
+              "missingCount": 0,
+              "median": 657,
+              "p95": 657,
+              "maximum": 659
+            },
+            "webDescriptorCount": {
+              "availableCount": 125,
+              "missingCount": 0,
+              "median": 396,
+              "p95": 396,
+              "maximum": 397
+            },
+            "driverDescriptorCount": {
+              "availableCount": 125,
+              "missingCount": 0,
+              "median": 261,
+              "p95": 261,
+              "maximum": 262
+            },
+            "diskBytes": {
+              "availableCount": 125,
+              "missingCount": 0,
+              "median": 511311784,
+              "p95": 511311784,
+              "maximum": 511311784
+            },
+            "hostCpuPercent": {
+              "availableCount": 125,
+              "missingCount": 0,
+              "median": 29.4,
+              "p95": 35.1,
+              "maximum": 42.4
+            },
+            "cpuSecondsSincePreviousSample": {
+              "availableCount": 125,
+              "missingCount": 0,
+              "median": 0.53125,
+              "p95": 0.625,
+              "maximum": 0.703125
+            },
+            "driverCpuSecondsSincePreviousSample": {
+              "availableCount": 125,
+              "missingCount": 0,
+              "median": 0.171875,
+              "p95": 0.234375,
+              "maximum": 0.265625
+            },
+            "webCpuSecondsSincePreviousSample": {
+              "availableCount": 125,
+              "missingCount": 0,
+              "median": 0.34375,
+              "p95": 0.4375,
+              "maximum": 0.453125
+            }
+          }
+        }
+      },
+      "resourceDistributionLimits": "Descriptive observed samples only; gates use original report medians. CPU deltas omit unobserved completed-child CPU. No values inferred across gaps or for absent quiet.",
+      "httpObservationAudit": {
+        "requestCount": 49292,
+        "lastRecordedCompletionSeconds": 449.281,
+        "conditionalChangedGeneration200": [
+          {
+            "seconds": 197.781,
+            "route": "trade",
+            "phase": "refresh",
+            "kind": "conditional",
+            "status": 200,
+            "elapsedMs": 28.86849967762828
+          }
+        ],
+        "completionTimestampPrecision": "Existing rounded completion labels; not packet-arrival clocks",
+        "observedGenerationCount": 5
+      },
+      "resourceObservationAudit": {
+        "lastAcquisitionStartSeconds": 449.030999999959,
+        "lastAcquisitionEndSeconds": 449.09299999987707,
+        "internalAcquisitionMaxGapSeconds": 1.1090000001713634,
+        "incompleteObservations": []
+      },
+      "events": [
+        {
+          "kind": "rejected_candidate_kept_pointer",
+          "seconds": 61.078
+        },
+        {
+          "kind": "corrupt_disk_generation_retained_memory",
+          "seconds": 61.328
+        },
+        {
+          "kind": "reader_recovered_and_restarted",
+          "seconds": 62.547
+        },
+        {
+          "kind": "capacity_exhaustion_kept_pointer",
+          "seconds": 66.531
+        },
+        {
+          "kind": "terminated_worker_lease_reacquired_with_queued_requests",
+          "seconds": 67.922
+        },
+        {
+          "kind": "restarted_worker_acknowledged_preserved_requests",
+          "workerKind": "unchanged",
+          "exitCode": 0,
+          "seconds": 100.156
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 130.297
+        },
+        {
+          "kind": "refresh",
+          "sequence": 1,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 156.234
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 177.734
+        },
+        {
+          "kind": "refresh",
+          "sequence": 2,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 197.547
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 218.187
+        },
+        {
+          "kind": "refresh",
+          "sequence": 3,
+          "exitCode": 0,
+          "workerKind": "unchanged",
+          "seconds": 236.531
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 257.593
+        },
+        {
+          "kind": "refresh",
+          "sequence": 4,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 278.515
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 299.968
+        },
+        {
+          "kind": "recovery_phase",
+          "seconds": 301.0
+        },
+        {
+          "kind": "refresh",
+          "sequence": 5,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 320.297
+        },
+        {
+          "kind": "recovery_phase",
+          "seconds": 320.343
+        },
+        {
+          "kind": "recovery_phase",
+          "seconds": 324.218
+        },
+        {
+          "kind": "recovery_phase",
+          "seconds": 449.297
+        }
+      ],
+      "completedSourceCycleCounts": {
+        "changed:exit0": 4,
+        "unchanged:exit0": 1
+      },
+      "leagueCycleExitCounts": {
+        "0": 5
+      },
+      "failedGateNames": [],
+      "p99Interpretation": "Only series with p99SufficientByReadSeries=true have at least 1000 valid observations; other raw p99s remain insufficient, not acceptance passes."
+    },
+    "phase3-full-01": {
+      "passed": false,
+      "checks": {
+        "noIncorrectResponsesOrUnexpectedFailures": false,
+        "pooledLatencyObservationsValid": true,
+        "preparedEndpointP95Below75ms": true,
+        "refreshLatencyPolicyPass": true,
+        "rssGrowthBound": false,
+        "handlesReturnNearBaseline": false,
+        "noRemainingObservedChildren": true,
+        "diskWithinBudget": true,
+        "faultScenariosObserved": true,
+        "changedAndUnchangedRefreshObserved": true,
+        "httpLatencyObservationsValid": true,
+        "requiredHttpReadSeriesObserved": true,
+        "eachHttpReadSeriesP95Below75ms": true,
+        "eachRefreshReadSeriesPassLatencyPolicy": false,
+        "changedPublicationsObservedByHttp": true,
+        "harnessUnchangedDuringRun": true,
+        "productAndHelperCodeUnchangedDuringRun": true,
+        "verifiedWorkerAndReloadFreeQuietRecovery": false,
+        "completeResourceCoverageAtLeast99Percent": false,
+        "observationCoverageAtLeast99Percent": false,
+        "observationSampleGapsAtMost2Seconds": false,
+        "uninstrumentedAcceptance": true
+      },
+      "latencyPolicy": "local-prepared-hybrid-v1",
+      "baselineSeconds": 600.0,
+      "quietSeconds": 125.0,
+      "diagnosticSpansEnabled": false,
+      "codeProvenance": {
+        "startup": {
+          "server.py": "5b30222413f456c0981ed490b099e5ba9162f1b8f3fed35a478f25d229d59e5b",
+          "scripts/soak_prepared_serving.py": "762beb0a9ea1d4c0a465fa5aeeb1a8f1a42055be54c06440dda9ad8dccfa494d",
+          "scripts/soak_observation.py": "30b412e7432856d675439b6f3cce2a04b4db8fb963a8f023ee57047e5ae88bde",
+          "src/serving/serialization.py": "903b4b540ef734cdffc0ec51ceab77d5e66343b182bfbe9f2c85c707eb267b64",
+          "src/serving/league_views.py": "9998a0cc28663d9961eccd807eec1f3c297bc52e4f159af0934fafc0be3b19c6",
+          "src/serving/runtime.py": "467d165cc613de9f7b81c79ae00f0f49088a1230a162d84dbbb4dfdc15ee9796",
+          "src/serving/artifacts.py": "b358a0d8761b254358c46d3974ca3fc629f7270fda029ff681b454a5e6dd6039",
+          "src/serving/attestation.py": "e640c2b504aa17ecb262d734fc36e28785b5131b76b700721a922b96cf6bf4bc",
+          "src/serving/__init__.py": "577950e4a7bfa082ef861805ae992c462bfb40d9ebdf580aede50a753438bd2d",
+          "src/serving/coordinator.py": "fa599458a12d9fdb53ebeee07d7d38c3d0e7eb7429a25ccb8c7d80288626909e",
+          "src/serving/builder.py": "b0ff127ed2f1502b7cb764b2a9a1b1ad703eb154d1ef3700d4fac4045553c5b2",
+          "src/serving/projections.py": "62cc0f20bc07ad6843d697a93482f11c6b801dea835ec6827e0d41745ff829c8"
+        },
+        "end": {
+          "server.py": "5b30222413f456c0981ed490b099e5ba9162f1b8f3fed35a478f25d229d59e5b",
+          "scripts/soak_prepared_serving.py": "762beb0a9ea1d4c0a465fa5aeeb1a8f1a42055be54c06440dda9ad8dccfa494d",
+          "scripts/soak_observation.py": "30b412e7432856d675439b6f3cce2a04b4db8fb963a8f023ee57047e5ae88bde",
+          "src/serving/serialization.py": "903b4b540ef734cdffc0ec51ceab77d5e66343b182bfbe9f2c85c707eb267b64",
+          "src/serving/league_views.py": "9998a0cc28663d9961eccd807eec1f3c297bc52e4f159af0934fafc0be3b19c6",
+          "src/serving/runtime.py": "467d165cc613de9f7b81c79ae00f0f49088a1230a162d84dbbb4dfdc15ee9796",
+          "src/serving/artifacts.py": "b358a0d8761b254358c46d3974ca3fc629f7270fda029ff681b454a5e6dd6039",
+          "src/serving/attestation.py": "e640c2b504aa17ecb262d734fc36e28785b5131b76b700721a922b96cf6bf4bc",
+          "src/serving/__init__.py": "577950e4a7bfa082ef861805ae992c462bfb40d9ebdf580aede50a753438bd2d",
+          "src/serving/coordinator.py": "fa599458a12d9fdb53ebeee07d7d38c3d0e7eb7429a25ccb8c7d80288626909e",
+          "src/serving/builder.py": "b0ff127ed2f1502b7cb764b2a9a1b1ad703eb154d1ef3700d4fac4045553c5b2",
+          "src/serving/projections.py": "62cc0f20bc07ad6843d697a93482f11c6b801dea835ec6827e0d41745ff829c8"
+        }
+      },
+      "inputSha256": "7c36b88688011bb7a8a26edb31182a57b76107ab2e29c6ca3422e8472f114361",
+      "rawInputSha256": "9133cbee209b6e8b220f38f780871a033d94a8ea7e0f5d167cb0605378439d32",
+      "harnessSha256": "762beb0a9ea1d4c0a465fa5aeeb1a8f1a42055be54c06440dda9ad8dccfa494d",
+      "environment": {
+        "platform": "Windows-11-10.0.26200-SP0",
+        "python": "3.12.10",
+        "psutil": "7.2.2",
+        "hostMemoryBytes": 33821810688,
+        "logicalCpus": 22
+      },
+      "automaticSleepPrevention": "temporary Windows system request",
+      "durationSeconds": 5659.719,
+      "readObservationSeconds": 5657.719000000041,
+      "servingExerciseSeconds": 3600.0,
+      "full60MinuteSoak": false,
+      "quietRecovery": {
+        "phase": "drain_workers",
+        "exerciseRequiredSeconds": 3600.0,
+        "admissionClosedAtSeconds": 5657.452999999747,
+        "quietStartSeconds": null,
+        "quietEndSeconds": null,
+        "verifiedQuietSeconds": 0,
+        "quietResetCount": 0,
+        "verified": false
+      },
+      "sampleCount": 3001,
+      "observedSampleCountBeforeCleanup": 3000,
+      "completeResourceSampleCount": 2998,
+      "sampleCoverageFraction": 0.5302490279209657,
+      "completeResourceCoverageFraction": 0.5298955285690184,
+      "maxObservationSampleGapSeconds": 2658.719000000041,
+      "maxSampleGapSeconds": 2660.0,
+      "samplingRequirements": {
+        "minimumCoverageFraction": 0.99,
+        "maximumGapSeconds": 2
+      },
+      "samplerTiming": {
+        "scope": "Inclusive wall/thread CPU stage clocks; driver process CPU overlaps request/audit work; completed timings serialized after observation",
+        "observationCount": 3000,
+        "missedTicks": 2657,
+        "maxLateBySeconds": 0.1880000000819564,
+        "stageMaxWallMs": {
+          "disk": 12765.9164,
+          "flush": 2657985.242,
+          "hostCpu": 10.0893,
+          "iteration": 2670815.5661,
+          "ledger": 0.4856,
+          "member": 4.2131,
+          "memberCpu": 1.6458,
+          "memberHandles": 1.2444,
+          "memberMemory": 3.9133999999999998,
+          "observe": 12829.9658,
+          "progress": 0.2699,
+          "schedule": 0.4181,
+          "tree": 90.005,
+          "webTree": 75.4772,
+          "write": 1.2425
+        }
+      },
+      "descriptorKind": "Windows handles",
+      "readCounts": {
+        "baseline": 66506,
+        "refresh": 257520,
+        "postRefreshIdle": 290
+      },
+      "readErrorCounts": {},
+      "responseCounts": {
+        "rankings:baseline:unconditional:200": 16627,
+        "rankings:baseline:conditional:304": 16627,
+        "trade:baseline:unconditional:200": 16626,
+        "trade:baseline:conditional:304": 16626,
+        "trade:postRefreshIdle:unconditional:200": 73,
+        "trade:postRefreshIdle:conditional:304": 73,
+        "rankings:postRefreshIdle:unconditional:200": 71,
+        "rankings:postRefreshIdle:conditional:304": 73,
+        "rankings:refresh:unconditional:200": 64381,
+        "rankings:refresh:conditional:304": 64371,
+        "trade:refresh:unconditional:200": 64380,
+        "trade:refresh:conditional:304": 64377,
+        "trade:refresh:conditional:200": 3,
+        "rankings:refresh:conditional:200": 8
+      },
+      "p95Milliseconds": {
+        "baseline": 6.12789997830987,
+        "refresh": 9.829400107264519,
+        "postRefreshIdle": 26.513199787586927
+      },
+      "p95MillisecondsByReadSeries": {
+        "rankings:baseline:unconditional:200": 16.429599840193987,
+        "rankings:baseline:conditional:304": 4.553599748760462,
+        "trade:baseline:unconditional:200": 20.914700347930193,
+        "trade:baseline:conditional:304": 4.273099824786186,
+        "trade:postRefreshIdle:unconditional:200": 8.559400215744972,
+        "trade:postRefreshIdle:conditional:304": 3.738200291991234,
+        "rankings:postRefreshIdle:unconditional:200": 42.86300018429756,
+        "rankings:postRefreshIdle:conditional:304": 4.765199963003397,
+        "rankings:refresh:unconditional:200": 16.58299984410405,
+        "rankings:refresh:conditional:304": 4.796700086444616,
+        "trade:refresh:unconditional:200": 22.58710004389286,
+        "trade:refresh:conditional:304": 4.566200077533722,
+        "trade:refresh:conditional:200": 3.3984999172389507,
+        "rankings:refresh:conditional:200": 52.82670026645064
+      },
+      "p99MillisecondsByReadSeries": {
+        "rankings:baseline:unconditional:200": 52.2278998978436,
+        "rankings:baseline:conditional:304": 5.504699889570475,
+        "trade:baseline:unconditional:200": 26.777399703860283,
+        "trade:baseline:conditional:304": 5.278400145471096,
+        "trade:postRefreshIdle:unconditional:200": 81.69050002470613,
+        "trade:postRefreshIdle:conditional:304": 34.16409995406866,
+        "rankings:postRefreshIdle:unconditional:200": 73.28929984942079,
+        "rankings:postRefreshIdle:conditional:304": 91.85760002583265,
+        "rankings:refresh:unconditional:200": 54.08879974856973,
+        "rankings:refresh:conditional:304": 6.80080009624362,
+        "trade:refresh:unconditional:200": 26.98760014027357,
+        "trade:refresh:conditional:304": 5.917700007557869,
+        "trade:refresh:conditional:200": 3.3984999172389507,
+        "rankings:refresh:conditional:200": 52.82670026645064
+      },
+      "p99SufficientByReadSeries": {
+        "rankings:baseline:unconditional:200": true,
+        "rankings:baseline:conditional:304": true,
+        "trade:baseline:unconditional:200": true,
+        "trade:baseline:conditional:304": true,
+        "trade:postRefreshIdle:unconditional:200": false,
+        "trade:postRefreshIdle:conditional:304": false,
+        "rankings:postRefreshIdle:unconditional:200": false,
+        "rankings:postRefreshIdle:conditional:304": false,
+        "rankings:refresh:unconditional:200": true,
+        "rankings:refresh:conditional:304": true,
+        "trade:refresh:unconditional:200": true,
+        "trade:refresh:conditional:304": true,
+        "trade:refresh:conditional:200": false,
+        "rankings:refresh:conditional:200": false
+      },
+      "sampleCountsByReadSeries": {
+        "rankings:baseline:unconditional:200": 16627,
+        "rankings:baseline:conditional:304": 16627,
+        "trade:baseline:unconditional:200": 16626,
+        "trade:baseline:conditional:304": 16626,
+        "trade:postRefreshIdle:unconditional:200": 73,
+        "trade:postRefreshIdle:conditional:304": 73,
+        "rankings:postRefreshIdle:unconditional:200": 71,
+        "rankings:postRefreshIdle:conditional:304": 73,
+        "rankings:refresh:unconditional:200": 64381,
+        "rankings:refresh:conditional:304": 64371,
+        "trade:refresh:unconditional:200": 64380,
+        "trade:refresh:conditional:304": 64377,
+        "trade:refresh:conditional:200": 3,
+        "rankings:refresh:conditional:200": 8
+      },
+      "invalidLatencyObservationCounts": {
+        "baseline": 0,
+        "refresh": 0,
+        "postRefreshIdle": 0
+      },
+      "invalidLatencyObservationCountsByReadSeries": {
+        "rankings:baseline:unconditional:200": 0,
+        "rankings:baseline:conditional:304": 0,
+        "trade:baseline:unconditional:200": 0,
+        "trade:baseline:conditional:304": 0,
+        "trade:postRefreshIdle:unconditional:200": 0,
+        "trade:postRefreshIdle:conditional:304": 0,
+        "rankings:postRefreshIdle:unconditional:200": 0,
+        "rankings:postRefreshIdle:conditional:304": 0,
+        "rankings:refresh:unconditional:200": 0,
+        "rankings:refresh:conditional:304": 0,
+        "trade:refresh:unconditional:200": 0,
+        "trade:refresh:conditional:304": 0,
+        "trade:refresh:conditional:200": 0,
+        "rankings:refresh:conditional:200": 0
+      },
+      "pooledRefreshLatencyEvaluation": {
+        "policy": "local-prepared-hybrid-v1",
+        "observationsValid": true,
+        "baselineMilliseconds": 6.12789997830987,
+        "refreshMilliseconds": 9.829400107264519,
+        "absoluteMilliseconds": 3.701500128954649,
+        "relativePercent": 60.40405590914288,
+        "absoluteCeilingPass": true,
+        "relativeBranchPass": false,
+        "absoluteBranchPass": true,
+        "legacyRelativePass": false,
+        "passed": true
+      },
+      "refreshLatencyEvaluations": {
+        "rankings:refresh:unconditional:200": {
+          "policy": "local-prepared-hybrid-v1",
+          "observationsValid": true,
+          "baselineMilliseconds": 16.429599840193987,
+          "refreshMilliseconds": 16.58299984410405,
+          "absoluteMilliseconds": 0.1534000039100647,
+          "relativePercent": 0.9336807067861885,
+          "absoluteCeilingPass": true,
+          "relativeBranchPass": true,
+          "absoluteBranchPass": true,
+          "legacyRelativePass": true,
+          "passed": true
+        },
+        "rankings:refresh:conditional:304": {
+          "policy": "local-prepared-hybrid-v1",
+          "observationsValid": true,
+          "baselineMilliseconds": 4.553599748760462,
+          "refreshMilliseconds": 4.796700086444616,
+          "absoluteMilliseconds": 0.2431003376841545,
+          "relativePercent": 5.338640879676104,
+          "absoluteCeilingPass": true,
+          "relativeBranchPass": true,
+          "absoluteBranchPass": true,
+          "legacyRelativePass": true,
+          "passed": true
+        },
+        "trade:refresh:unconditional:200": {
+          "policy": "local-prepared-hybrid-v1",
+          "observationsValid": true,
+          "baselineMilliseconds": 20.914700347930193,
+          "refreshMilliseconds": 22.58710004389286,
+          "absoluteMilliseconds": 1.6723996959626675,
+          "relativePercent": 7.9962881042576095,
+          "absoluteCeilingPass": true,
+          "relativeBranchPass": true,
+          "absoluteBranchPass": true,
+          "legacyRelativePass": true,
+          "passed": true
+        },
+        "trade:refresh:conditional:304": {
+          "policy": "local-prepared-hybrid-v1",
+          "observationsValid": true,
+          "baselineMilliseconds": 4.273099824786186,
+          "refreshMilliseconds": 4.566200077533722,
+          "absoluteMilliseconds": 0.2931002527475357,
+          "relativePercent": 6.859195075373692,
+          "absoluteCeilingPass": true,
+          "relativeBranchPass": true,
+          "absoluteBranchPass": true,
+          "legacyRelativePass": true,
+          "passed": true
+        },
+        "trade:refresh:conditional:200": {
+          "policy": "local-prepared-hybrid-v1",
+          "observationsValid": true,
+          "baselineMilliseconds": 20.914700347930193,
+          "refreshMilliseconds": 3.3984999172389507,
+          "absoluteMilliseconds": -17.516200430691242,
+          "relativePercent": -83.75066407501612,
+          "absoluteCeilingPass": true,
+          "relativeBranchPass": true,
+          "absoluteBranchPass": true,
+          "legacyRelativePass": true,
+          "passed": true
+        },
+        "rankings:refresh:conditional:200": {
+          "policy": "local-prepared-hybrid-v1",
+          "observationsValid": true,
+          "baselineMilliseconds": 16.429599840193987,
+          "refreshMilliseconds": 52.82670026645064,
+          "absoluteMilliseconds": 36.39710042625666,
+          "relativePercent": 221.53370003092485,
+          "absoluteCeilingPass": true,
+          "relativeBranchPass": false,
+          "absoluteBranchPass": false,
+          "legacyRelativePass": false,
+          "passed": false
+        }
+      },
+      "refreshP95Deltas": {
+        "rankings:refresh:unconditional:200": {
+          "baselineMilliseconds": 16.429599840193987,
+          "refreshMilliseconds": 16.58299984410405,
+          "absoluteMilliseconds": 0.1534000039100647,
+          "relativePercent": 0.9336807067861885
+        },
+        "rankings:refresh:conditional:304": {
+          "baselineMilliseconds": 4.553599748760462,
+          "refreshMilliseconds": 4.796700086444616,
+          "absoluteMilliseconds": 0.2431003376841545,
+          "relativePercent": 5.338640879676104
+        },
+        "trade:refresh:unconditional:200": {
+          "baselineMilliseconds": 20.914700347930193,
+          "refreshMilliseconds": 22.58710004389286,
+          "absoluteMilliseconds": 1.6723996959626675,
+          "relativePercent": 7.9962881042576095
+        },
+        "trade:refresh:conditional:304": {
+          "baselineMilliseconds": 4.273099824786186,
+          "refreshMilliseconds": 4.566200077533722,
+          "absoluteMilliseconds": 0.2931002527475357,
+          "relativePercent": 6.859195075373692
+        },
+        "trade:refresh:conditional:200": {
+          "baselineMilliseconds": 20.914700347930193,
+          "refreshMilliseconds": 3.3984999172389507,
+          "absoluteMilliseconds": -17.516200430691242,
+          "relativePercent": -83.75066407501612
+        },
+        "rankings:refresh:conditional:200": {
+          "baselineMilliseconds": 16.429599840193987,
+          "refreshMilliseconds": 52.82670026645064,
+          "absoluteMilliseconds": 36.39710042625666,
+          "relativePercent": 221.53370003092485
+        }
+      },
+      "baselineComparisons": {
+        "rankings:refresh:unconditional:200": "rankings:baseline:unconditional:200",
+        "rankings:refresh:conditional:304": "rankings:baseline:conditional:304",
+        "trade:refresh:unconditional:200": "trade:baseline:unconditional:200",
+        "trade:refresh:conditional:304": "trade:baseline:conditional:304",
+        "trade:refresh:conditional:200": "trade:baseline:unconditional:200",
+        "rankings:refresh:conditional:200": "rankings:baseline:unconditional:200"
+      },
+      "legacyLatencyChecks": {
+        "refreshDegradationAtMost20Percent": false,
+        "eachRefreshReadSeriesWithin20Percent": false
+      },
+      "rssBaselineBytes": 486948864.0,
+      "rssFinalBytes": null,
+      "handlesBaseline": 645.0,
+      "handlesFinal": null,
+      "resourceOwnership": {
+        "scope": "Attribution only; aggregate RSS/handle gates remain unchanged",
+        "webMissingObservationCount": 0,
+        "baseline": {
+          "driverRssBytes": 97574912.0,
+          "webRssBytes": 389402624.0,
+          "driverDescriptorCount": 255.0,
+          "webDescriptorCount": 390.0
+        },
+        "final": {
+          "driverRssBytes": null,
+          "webRssBytes": null,
+          "driverDescriptorCount": null,
+          "webDescriptorCount": null
+        }
+      },
+      "peakProcessTreeRssBytes": 1864503296,
+      "maxProcesses": 10,
+      "observedChildren": {
+        "observedCount": 291,
+        "remainingCount": 0,
+        "reparentedCount": 0,
+        "unknownCount": 0
+      },
+      "idleProcessCount": 4,
+      "budgetBytes": 536870912,
+      "diskFinalBytes": 511312467,
+      "retention": {
+        "schemaVersion": 1,
+        "status": "ok",
+        "dryRun": true,
+        "bytesBefore": 511312457,
+        "bytesAfter": 511312457,
+        "projectedBytes": 511312457,
+        "budgetBytes": 536870912,
+        "minFreeBytes": 524288000,
+        "freeBytes": 224832294912,
+        "generationCount": 9,
+        "protectedCount": 7,
+        "deletedCount": 0,
+        "plannedDeleteCount": 0,
+        "reclaimedBytes": 0,
+        "oldestRetainedAt": "2026-09-11T22:49:18.596380+00:00",
+        "unknownAcceptanceCount": 0,
+        "shortenedRollbackWindow": false,
+        "blocked": false,
+        "capacityBlocked": false
+      },
+      "errors": [
+        "worker_exit_1",
+        "worker_exit_1",
+        "worker_exit_1",
+        "worker_exit_1",
+        "quiet_drain_timeout"
+      ],
+      "limitations": [
+        "Private recorded board replay; no external providers",
+        "No deployed API or Linux/systemd proof",
+        "Separate loopback web child uses fixture lifespan and auth session; login, session persistence and external network latency are excluded",
+        "Changed input uses a non-value metadata revision; canonical values remain fixed",
+        "CPU seconds include currently live processes; completed child totals are unavailable",
+        "PID/create-time ledger detects surviving observed descendants after reparenting; unobserved short-lived descendants and real scraper/browser cleanup are unproven"
+      ],
+      "latencyScope": "loopback HTTP through real app middleware, synthetic auth session, prepared rankings/trade endpoints and LeagueServingReader; fixed fixture league selection; excludes response audit",
+      "webAdoptionMode": "producer-attested",
+      "artifactSha256": {
+        "phase3-full-01-report.json": "6bc4e260451b94ad6f4a3181c0cd4c312eba49712657d0fead3d9313892885d2",
+        "phase3-full-01-report.requests.jsonl": "a4edc320becfa00f50f584abb0e95b61e038d42f36b23ebb4091f1e270992e90",
+        "phase3-full-01-report.samples.jsonl": "ec53054543c885ba090d700f035a2a21359fa34acb4b31772034e812f201bcdd",
+        "phase3-full-01-report.latencies.json": "c25f7c6544c213eaf66cd73e86d3d9954f85ca42dc45da47aa56a5aa47e8bf03",
+        "phase3-full-01-report.sampler.jsonl": "406d564a0aa6fbdeb78db585ba8aec4d550450f808b04d468d22344e6097f72d",
+        "phase3-full-01-report.quiet.jsonl": "8975207b2b921172a4d83fe13122924f19abc11794c81d701bf534d2bf96e26f"
+      },
+      "protocol": {
+        "exerciseSeconds": 3600,
+        "baselineSeconds": 600.0,
+        "refreshSeconds": 30,
+        "quietRequiredSeconds": 125,
+        "order": "original",
+        "pacing": "original stop.wait(0.01)",
+        "diagnostics": false,
+        "newPrivateStore": true
+      },
+      "resourceDistributions": {
+        "allObserved": {
+          "sampleCount": 3000,
+          "incompleteCount": 2,
+          "metrics": {
+            "rssBytes": {
+              "availableCount": 3000,
+              "missingCount": 0,
+              "median": 1172363264.0,
+              "p95": 1759653888,
+              "maximum": 1864503296
+            },
+            "webRssBytes": {
+              "availableCount": 3000,
+              "missingCount": 0,
+              "median": 471259136.0,
+              "p95": 555286528,
+              "maximum": 664694784
+            },
+            "driverRssBytes": {
+              "availableCount": 3000,
+              "missingCount": 0,
+              "median": 116559872.0,
+              "p95": 119304192,
+              "maximum": 196661248
+            },
+            "processCount": {
+              "availableCount": 3000,
+              "missingCount": 0,
+              "median": 7.0,
+              "p95": 10,
+              "maximum": 10
+            },
+            "descriptorCount": {
+              "availableCount": 3000,
+              "missingCount": 0,
+              "median": 996.0,
+              "p95": 1325,
+              "maximum": 1330
+            },
+            "webDescriptorCount": {
+              "availableCount": 3000,
+              "missingCount": 0,
+              "median": 396.0,
+              "p95": 397,
+              "maximum": 400
+            },
+            "driverDescriptorCount": {
+              "availableCount": 3000,
+              "missingCount": 0,
+              "median": 266.0,
+              "p95": 273,
+              "maximum": 276
+            },
+            "diskBytes": {
+              "availableCount": 3000,
+              "missingCount": 0,
+              "median": 511312446.0,
+              "p95": 511312530,
+              "maximum": 511313252
+            },
+            "hostCpuPercent": {
+              "availableCount": 3000,
+              "missingCount": 0,
+              "median": 20.3,
+              "p95": 30.3,
+              "maximum": 100.0
+            },
+            "cpuSecondsSincePreviousSample": {
+              "availableCount": 3000,
+              "missingCount": 0,
+              "median": 1.5625,
+              "p95": 2.578125,
+              "maximum": 3.203125
+            },
+            "driverCpuSecondsSincePreviousSample": {
+              "availableCount": 3000,
+              "missingCount": 0,
+              "median": 0.203125,
+              "p95": 0.28125,
+              "maximum": 1.0
+            },
+            "webCpuSecondsSincePreviousSample": {
+              "availableCount": 3000,
+              "missingCount": 0,
+              "median": 0.390625,
+              "p95": 0.765625,
+              "maximum": 1.140625
+            }
+          }
+        },
+        "warmedBaseline": {
+          "sampleCount": 300,
+          "incompleteCount": 0,
+          "metrics": {
+            "rssBytes": {
+              "availableCount": 300,
+              "missingCount": 0,
+              "median": 486948864.0,
+              "p95": 488181760,
+              "maximum": 488288256
+            },
+            "webRssBytes": {
+              "availableCount": 300,
+              "missingCount": 0,
+              "median": 389402624.0,
+              "p95": 389439488,
+              "maximum": 389492736
+            },
+            "driverRssBytes": {
+              "availableCount": 300,
+              "missingCount": 0,
+              "median": 97574912.0,
+              "p95": 98779136,
+              "maximum": 98795520
+            },
+            "processCount": {
+              "availableCount": 300,
+              "missingCount": 0,
+              "median": 4.0,
+              "p95": 4,
+              "maximum": 4
+            },
+            "descriptorCount": {
+              "availableCount": 300,
+              "missingCount": 0,
+              "median": 645.0,
+              "p95": 645,
+              "maximum": 647
+            },
+            "webDescriptorCount": {
+              "availableCount": 300,
+              "missingCount": 0,
+              "median": 390.0,
+              "p95": 390,
+              "maximum": 392
+            },
+            "driverDescriptorCount": {
+              "availableCount": 300,
+              "missingCount": 0,
+              "median": 255.0,
+              "p95": 255,
+              "maximum": 255
+            },
+            "diskBytes": {
+              "availableCount": 300,
+              "missingCount": 0,
+              "median": 114558262.0,
+              "p95": 114558262,
+              "maximum": 114558262
+            },
+            "hostCpuPercent": {
+              "availableCount": 300,
+              "missingCount": 0,
+              "median": 17.35,
+              "p95": 23.3,
+              "maximum": 28.8
+            },
+            "cpuSecondsSincePreviousSample": {
+              "availableCount": 300,
+              "missingCount": 0,
+              "median": 0.484375,
+              "p95": 0.625,
+              "maximum": 0.703125
+            },
+            "driverCpuSecondsSincePreviousSample": {
+              "availableCount": 300,
+              "missingCount": 0,
+              "median": 0.15625,
+              "p95": 0.234375,
+              "maximum": 0.28125
+            },
+            "webCpuSecondsSincePreviousSample": {
+              "availableCount": 300,
+              "missingCount": 0,
+              "median": 0.328125,
+              "p95": 0.4375,
+              "maximum": 0.484375
+            }
+          }
+        },
+        "refreshExerciseObserved": {
+          "sampleCount": 2400,
+          "incompleteCount": 2,
+          "metrics": {
+            "rssBytes": {
+              "availableCount": 2400,
+              "missingCount": 0,
+              "median": 1265176576.0,
+              "p95": 1765429248,
+              "maximum": 1864503296
+            },
+            "webRssBytes": {
+              "availableCount": 2400,
+              "missingCount": 0,
+              "median": 520744960.0,
+              "p95": 574390272,
+              "maximum": 664694784
+            },
+            "driverRssBytes": {
+              "availableCount": 2400,
+              "missingCount": 0,
+              "median": 117137408.0,
+              "p95": 119320576,
+              "maximum": 196661248
+            },
+            "processCount": {
+              "availableCount": 2400,
+              "missingCount": 0,
+              "median": 10.0,
+              "p95": 10,
+              "maximum": 10
+            },
+            "descriptorCount": {
+              "availableCount": 2400,
+              "missingCount": 0,
+              "median": 1285.5,
+              "p95": 1325,
+              "maximum": 1330
+            },
+            "webDescriptorCount": {
+              "availableCount": 2400,
+              "missingCount": 0,
+              "median": 396.0,
+              "p95": 397,
+              "maximum": 400
+            },
+            "driverDescriptorCount": {
+              "availableCount": 2400,
+              "missingCount": 0,
+              "median": 272.0,
+              "p95": 273,
+              "maximum": 276
+            },
+            "diskBytes": {
+              "availableCount": 2400,
+              "missingCount": 0,
+              "median": 511312474.0,
+              "p95": 511312531,
+              "maximum": 511313252
+            },
+            "hostCpuPercent": {
+              "availableCount": 2400,
+              "missingCount": 0,
+              "median": 21.0,
+              "p95": 30.9,
+              "maximum": 96.7
+            },
+            "cpuSecondsSincePreviousSample": {
+              "availableCount": 2400,
+              "missingCount": 0,
+              "median": 1.625,
+              "p95": 2.609375,
+              "maximum": 3.203125
+            },
+            "driverCpuSecondsSincePreviousSample": {
+              "availableCount": 2400,
+              "missingCount": 0,
+              "median": 0.203125,
+              "p95": 0.296875,
+              "maximum": 1.0
+            },
+            "webCpuSecondsSincePreviousSample": {
+              "availableCount": 2400,
+              "missingCount": 0,
+              "median": 0.40625,
+              "p95": 0.78125,
+              "maximum": 1.140625
+            }
+          }
+        },
+        "verifiedQuiet": {
+          "sampleCount": 0,
+          "incompleteCount": 0,
+          "metrics": {
+            "rssBytes": {
+              "availableCount": 0,
+              "missingCount": 0,
+              "median": null,
+              "p95": null,
+              "maximum": null
+            },
+            "webRssBytes": {
+              "availableCount": 0,
+              "missingCount": 0,
+              "median": null,
+              "p95": null,
+              "maximum": null
+            },
+            "driverRssBytes": {
+              "availableCount": 0,
+              "missingCount": 0,
+              "median": null,
+              "p95": null,
+              "maximum": null
+            },
+            "processCount": {
+              "availableCount": 0,
+              "missingCount": 0,
+              "median": null,
+              "p95": null,
+              "maximum": null
+            },
+            "descriptorCount": {
+              "availableCount": 0,
+              "missingCount": 0,
+              "median": null,
+              "p95": null,
+              "maximum": null
+            },
+            "webDescriptorCount": {
+              "availableCount": 0,
+              "missingCount": 0,
+              "median": null,
+              "p95": null,
+              "maximum": null
+            },
+            "driverDescriptorCount": {
+              "availableCount": 0,
+              "missingCount": 0,
+              "median": null,
+              "p95": null,
+              "maximum": null
+            },
+            "diskBytes": {
+              "availableCount": 0,
+              "missingCount": 0,
+              "median": null,
+              "p95": null,
+              "maximum": null
+            },
+            "hostCpuPercent": {
+              "availableCount": 0,
+              "missingCount": 0,
+              "median": null,
+              "p95": null,
+              "maximum": null
+            },
+            "cpuSecondsSincePreviousSample": {
+              "availableCount": 0,
+              "missingCount": 0,
+              "median": null,
+              "p95": null,
+              "maximum": null
+            },
+            "driverCpuSecondsSincePreviousSample": {
+              "availableCount": 0,
+              "missingCount": 0,
+              "median": null,
+              "p95": null,
+              "maximum": null
+            },
+            "webCpuSecondsSincePreviousSample": {
+              "availableCount": 0,
+              "missingCount": 0,
+              "median": null,
+              "p95": null,
+              "maximum": null
+            }
+          }
+        }
+      },
+      "resourceDistributionLimits": "Descriptive observed samples only; gates use original report medians. CPU deltas omit unobserved completed-child CPU. No values inferred across gaps or for absent quiet.",
+      "httpObservationAudit": {
+        "requestCount": 324316,
+        "lastRecordedCompletionSeconds": 3000.016,
+        "conditionalChangedGeneration200": [
+          {
+            "seconds": 665.391,
+            "route": "trade",
+            "phase": "refresh",
+            "kind": "conditional",
+            "status": 200,
+            "elapsedMs": 3.1717997044324875
+          },
+          {
+            "seconds": 1025.906,
+            "route": "trade",
+            "phase": "refresh",
+            "kind": "conditional",
+            "status": 200,
+            "elapsedMs": 28.058600146323442
+          },
+          {
+            "seconds": 1227.438,
+            "route": "rankings",
+            "phase": "refresh",
+            "kind": "conditional",
+            "status": 200,
+            "elapsedMs": 38.88719994574785
+          },
+          {
+            "seconds": 1268.547,
+            "route": "rankings",
+            "phase": "refresh",
+            "kind": "conditional",
+            "status": 200,
+            "elapsedMs": 2.209300175309181
+          },
+          {
+            "seconds": 1575.906,
+            "route": "rankings",
+            "phase": "refresh",
+            "kind": "conditional",
+            "status": 200,
+            "elapsedMs": 52.82670026645064
+          },
+          {
+            "seconds": 1748.953,
+            "route": "rankings",
+            "phase": "refresh",
+            "kind": "conditional",
+            "status": 200,
+            "elapsedMs": 53.35199972614646
+          },
+          {
+            "seconds": 2019.297,
+            "route": "rankings",
+            "phase": "refresh",
+            "kind": "conditional",
+            "status": 200,
+            "elapsedMs": 48.626400064677
+          },
+          {
+            "seconds": 2071.688,
+            "route": "trade",
+            "phase": "refresh",
+            "kind": "conditional",
+            "status": 200,
+            "elapsedMs": 3.3984999172389507
+          },
+          {
+            "seconds": 2344.547,
+            "route": "rankings",
+            "phase": "refresh",
+            "kind": "conditional",
+            "status": 200,
+            "elapsedMs": 3.2212003134191036
+          },
+          {
+            "seconds": 2403.235,
+            "route": "rankings",
+            "phase": "refresh",
+            "kind": "conditional",
+            "status": 200,
+            "elapsedMs": 6.712399888783693
+          },
+          {
+            "seconds": 2959.75,
+            "route": "rankings",
+            "phase": "refresh",
+            "kind": "conditional",
+            "status": 200,
+            "elapsedMs": 3.4862998872995377
+          }
+        ],
+        "completionTimestampPrecision": "Existing rounded completion labels; not packet-arrival clocks",
+        "observedGenerationCount": 32
+      },
+      "resourceObservationAudit": {
+        "lastAcquisitionStartSeconds": 2999.0,
+        "lastAcquisitionEndSeconds": 2999.719000000041,
+        "internalAcquisitionMaxGapSeconds": 1.1720000002533197,
+        "incompleteObservations": [
+          {
+            "observationStartedSeconds": 1458.0,
+            "observationFinishedSeconds": 1458.155999999959,
+            "unknownProcessObservationCount": 3,
+            "webResourceObservationComplete": true
+          },
+          {
+            "observationStartedSeconds": 1911.0,
+            "observationFinishedSeconds": 1911.125,
+            "unknownProcessObservationCount": 3,
+            "webResourceObservationComplete": true
+          }
+        ]
+      },
+      "events": [
+        {
+          "kind": "rejected_candidate_kept_pointer",
+          "seconds": 600.656
+        },
+        {
+          "kind": "corrupt_disk_generation_retained_memory",
+          "seconds": 600.86
+        },
+        {
+          "kind": "reader_recovered_and_restarted",
+          "seconds": 601.86
+        },
+        {
+          "kind": "capacity_exhaustion_kept_pointer",
+          "seconds": 604.516
+        },
+        {
+          "kind": "terminated_worker_lease_reacquired_with_queued_requests",
+          "seconds": 605.36
+        },
+        {
+          "kind": "restarted_worker_acknowledged_preserved_requests",
+          "workerKind": "unchanged",
+          "exitCode": 0,
+          "seconds": 627.297
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 646.86
+        },
+        {
+          "kind": "refresh",
+          "sequence": 1,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 665.235
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 685.281
+        },
+        {
+          "kind": "refresh",
+          "sequence": 2,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 704.344
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 723.672
+        },
+        {
+          "kind": "refresh",
+          "sequence": 3,
+          "exitCode": 0,
+          "workerKind": "unchanged",
+          "seconds": 743.094
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 763.11
+        },
+        {
+          "kind": "refresh",
+          "sequence": 4,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 786.313
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 817.735
+        },
+        {
+          "kind": "refresh",
+          "sequence": 5,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 846.235
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 875.578
+        },
+        {
+          "kind": "refresh",
+          "sequence": 6,
+          "exitCode": 0,
+          "workerKind": "unchanged",
+          "seconds": 903.156
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 935.156
+        },
+        {
+          "kind": "refresh",
+          "sequence": 7,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 965.219
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 996.766
+        },
+        {
+          "kind": "refresh",
+          "sequence": 8,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 1025.5
+        },
+        {
+          "kind": "refresh",
+          "sequence": 9,
+          "exitCode": 1,
+          "workerKind": "unchanged",
+          "seconds": 1054.453
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 1056.453
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 1082.719
+        },
+        {
+          "kind": "refresh",
+          "sequence": 10,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 1103.141
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 1123.188
+        },
+        {
+          "kind": "refresh",
+          "sequence": 11,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 1144.094
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 1164.625
+        },
+        {
+          "kind": "refresh",
+          "sequence": 12,
+          "exitCode": 0,
+          "workerKind": "unchanged",
+          "seconds": 1184.985
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 1206.078
+        },
+        {
+          "kind": "refresh",
+          "sequence": 13,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 1227.235
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 1247.5
+        },
+        {
+          "kind": "refresh",
+          "sequence": 14,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 1268.281
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 1288.875
+        },
+        {
+          "kind": "refresh",
+          "sequence": 15,
+          "exitCode": 0,
+          "workerKind": "unchanged",
+          "seconds": 1308.438
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 1335.297
+        },
+        {
+          "kind": "refresh",
+          "sequence": 16,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 1366.203
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 1396.922
+        },
+        {
+          "kind": "refresh",
+          "sequence": 17,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 1429.313
+        },
+        {
+          "kind": "refresh",
+          "sequence": 18,
+          "exitCode": 1,
+          "workerKind": "unchanged",
+          "seconds": 1458.61
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 1459.625
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 1488.891
+        },
+        {
+          "kind": "refresh",
+          "sequence": 19,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 1517.328
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 1546.688
+        },
+        {
+          "kind": "refresh",
+          "sequence": 20,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 1575.485
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 1604.219
+        },
+        {
+          "kind": "refresh",
+          "sequence": 21,
+          "exitCode": 0,
+          "workerKind": "unchanged",
+          "seconds": 1633.641
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 1664.625
+        },
+        {
+          "kind": "refresh",
+          "sequence": 22,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 1693.594
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 1722.078
+        },
+        {
+          "kind": "refresh",
+          "sequence": 23,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 1748.594
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 1776.594
+        },
+        {
+          "kind": "refresh",
+          "sequence": 24,
+          "exitCode": 0,
+          "workerKind": "unchanged",
+          "seconds": 1802.281
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 1830.125
+        },
+        {
+          "kind": "refresh",
+          "sequence": 25,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 1857.172
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 1884.703
+        },
+        {
+          "kind": "refresh",
+          "sequence": 26,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 1912.219
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 1938.188
+        },
+        {
+          "kind": "refresh",
+          "sequence": 27,
+          "exitCode": 0,
+          "workerKind": "unchanged",
+          "seconds": 1964.641
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 1991.703
+        },
+        {
+          "kind": "refresh",
+          "sequence": 28,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 2018.906
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 2044.313
+        },
+        {
+          "kind": "refresh",
+          "sequence": 29,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 2071.36
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 2096.86
+        },
+        {
+          "kind": "refresh",
+          "sequence": 30,
+          "exitCode": 0,
+          "workerKind": "unchanged",
+          "seconds": 2122.328
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 2149.375
+        },
+        {
+          "kind": "refresh",
+          "sequence": 31,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 2177.375
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 2205.844
+        },
+        {
+          "kind": "refresh",
+          "sequence": 32,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 2233.547
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 2262.344
+        },
+        {
+          "kind": "refresh",
+          "sequence": 33,
+          "exitCode": 0,
+          "workerKind": "unchanged",
+          "seconds": 2287.813
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 2316.891
+        },
+        {
+          "kind": "refresh",
+          "sequence": 34,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 2344.375
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 2374.438
+        },
+        {
+          "kind": "refresh",
+          "sequence": 35,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 2402.844
+        },
+        {
+          "kind": "refresh",
+          "sequence": 36,
+          "exitCode": 1,
+          "workerKind": "unchanged",
+          "seconds": 2432.906
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 2432.906
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 2462.219
+        },
+        {
+          "kind": "refresh",
+          "sequence": 37,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 2491.594
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 2518.922
+        },
+        {
+          "kind": "refresh",
+          "sequence": 38,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 2546.469
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 2572.516
+        },
+        {
+          "kind": "refresh",
+          "sequence": 39,
+          "exitCode": 0,
+          "workerKind": "unchanged",
+          "seconds": 2600.985
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 2629.078
+        },
+        {
+          "kind": "refresh",
+          "sequence": 40,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 2656.563
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 2683.531
+        },
+        {
+          "kind": "refresh",
+          "sequence": 41,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 2710.328
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 2736.11
+        },
+        {
+          "kind": "refresh",
+          "sequence": 42,
+          "exitCode": 0,
+          "workerKind": "unchanged",
+          "seconds": 2764.531
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 2794.641
+        },
+        {
+          "kind": "refresh",
+          "sequence": 43,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 2823.172
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 2849.11
+        },
+        {
+          "kind": "refresh",
+          "sequence": 44,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 2876.313
+        },
+        {
+          "kind": "refresh",
+          "sequence": 45,
+          "exitCode": 1,
+          "workerKind": "unchanged",
+          "seconds": 2904.672
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 2905.688
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 2932.953
+        },
+        {
+          "kind": "refresh",
+          "sequence": 46,
+          "exitCode": 0,
+          "workerKind": "changed",
+          "seconds": 2959.438
+        },
+        {
+          "kind": "league_refresh",
+          "exitCode": 0,
+          "seconds": 2986.516
+        },
+        {
+          "kind": "recovery_phase",
+          "seconds": 5657.453
+        }
+      ],
+      "completedSourceCycleCounts": {
+        "changed:exit0": 31,
+        "unchanged:exit0": 11,
+        "unchanged:exit1": 4
+      },
+      "leagueCycleExitCounts": {
+        "0": 47
+      },
+      "failedGateNames": [
+        "noIncorrectResponsesOrUnexpectedFailures",
+        "rssGrowthBound",
+        "handlesReturnNearBaseline",
+        "eachRefreshReadSeriesPassLatencyPolicy",
+        "verifiedWorkerAndReloadFreeQuietRecovery",
+        "completeResourceCoverageAtLeast99Percent",
+        "observationCoverageAtLeast99Percent",
+        "observationSampleGapsAtMost2Seconds"
+      ],
+      "p99Interpretation": "Only series with p99SufficientByReadSeries=true have at least 1000 valid observations; other raw p99s remain insufficient, not acceptance passes."
+    }
+  },
+  "fullRunDisposition": {
+    "status": "FAILED_AND_INTERRUPTED",
+    "localBackendAcceptancePass": false,
+    "observedContinuousHour": false,
+    "durationCaveat": "servingExerciseSeconds=3600 is min(elapsed,configured), not proof of a continuously observed hour; raw HTTP ends at 3000.016s and full60MinuteSoak=false.",
+    "quietResourceCaveat": "Zero verified quiet; final RSS/handles are unavailable, not demonstrated sustained growth or leakage.",
+    "hostEvidence": {
+      "source": "Read-only Windows System log / Microsoft-Windows-Kernel-Power",
+      "events": [
+        {
+          "utc": "2026-09-11T22:32:41.4528835Z",
+          "eventId": 506,
+          "reason": "Entering Modern Standby; Idle Timeout"
+        },
+        {
+          "utc": "2026-09-11T22:51:05.3480936Z",
+          "eventId": 507,
+          "reason": "Exiting Modern Standby; Reason 53"
+        },
+        {
+          "utc": "2026-09-11T22:51:05.3490253Z",
+          "eventId": 506,
+          "reason": "Entering Modern Standby; Reason 53"
+        },
+        {
+          "utc": "2026-09-11T22:54:38.5121430Z",
+          "eventId": 507,
+          "reason": "Exiting Modern Standby; Sleep, Hibernate, or Shutdown"
+        },
+        {
+          "utc": "2026-09-11T22:54:44.5846977Z",
+          "eventId": 42,
+          "reason": "Entering sleep; Battery"
+        },
+        {
+          "utc": "2026-09-11T22:54:48.8146368Z",
+          "eventId": 107,
+          "reason": "System has resumed from sleep"
+        },
+        {
+          "utc": "2026-09-11T23:39:04.8935407Z",
+          "eventId": 506,
+          "reason": "Entering Modern Standby; Sleep, Hibernate, or Shutdown"
+        },
+        {
+          "utc": "2026-09-11T23:39:05.0632975Z",
+          "eventId": 507,
+          "reason": "Exiting Modern Standby; Resume from Hibernate"
+        }
+      ],
+      "interpretation": "Observed battery sleep and hibernate resume overlap the terminal measurement interruption. The exact contribution of each power transition to the blocked flush is not independently timed. No OS/power/network configuration was changed.",
+      "toolInterruption": "Code-mode host generation became stale; reattached original exec session and collected its exit1 report without restart or duplicate launch."
+    },
+    "blockers": [
+      {
+        "id": "worker-exits",
+        "ownerPaths": [
+          "scripts/soak_prepared_serving.py:worker",
+          "scripts/soak_prepared_serving.py:league_worker",
+          "scripts/soak_prepared_serving.py:launch",
+          "scripts/soak_prepared_serving.py:main child completion"
+        ],
+        "observed": "Four unchanged source cycles exited1 before the terminal gap; all paired league cycles succeeded.",
+        "hypothesis": "20s fixture league-lease timeout while overlapping independent league work. Production treats lease contention as busy follow-up. Historical exception/stage is unproven.",
+        "missingEvidence": "Nonweb stderr was piped, then communicate() return discarded. No saved traceback or failing-stage identity.",
+        "correctiveAction": "Retain bounded private worker stage/exception evidence, then reproduce unchanged+league overlap in a fresh replay store. Only if confirmed, align fixture follow-up busy handling with the production owner and preserve adoption/queued-work/quiet checks."
+      },
+      {
+        "id": "conditional-rankings-latency",
+        "ownerPaths": [
+          "scripts/soak_prepared_serving.py:main/read_loop -> http_response and conditional response series",
+          "scripts/serving_lab_spans.py",
+          "server.py:prepared rankings read path"
+        ],
+        "observed": "8 conditional changed-generation rankings200 observations; p95 52.826700266ms vs normal-body baseline16.429599840ms. Both hybrid secondary branches fail before terminal gap; pooled pass does not override.",
+        "missingEvidence": "Uninstrumented run has no handler/transport stage timing for these generation-transition responses; exact latency owner unresolved.",
+        "correctiveAction": "Use existing opt-in lab spans and the same replay to attribute generation-transition200s during overlap, with a discriminating control. Preserve sparse failure, original baseline/percentile/SLO; no speculative product fix."
+      },
+      {
+        "id": "interrupted-observation-and-recovery",
+        "ownerPaths": [
+          "scripts/soak_prepared_serving.py:resource_observations",
+          "scripts/soak_prepared_serving.py:prevent_automatic_sleep",
+          "scripts/soak_observation.py:QuietRecovery",
+          "Windows execution host"
+        ],
+        "observed": "Complete coverage0.5298955; terminal acquisition gap2658.719s; quiet drain timeout; verified quiet0. Two incomplete observations predate terminal gap.",
+        "missingEvidence": "Continuous3600s exercise and final drained RSS/handle recovery unavailable.",
+        "correctiveAction": "After worker/transition attribution and affected checks, freeze again; use a reliably powered uninterrupted host and rerun the original short gate, then full only if short passes. Preserve sampling/quiet criteria and do not count missing time as exercise."
+      }
+    ]
+  },
+  "nextPermittedAction": "Bounded local failure attribution/correction; revalidate changed dependencies. Phase4 remains blocked by failed Phase3B; no hour repetition before resolving demonstrated failures.",
+  "noProductionMutations": true,
+  "preparedFrontendDisabled": true,
+  "finalVerdict": "PERFORMANCE MODERNIZATION INCOMPLETE \u2014 REMAINING BLOCKERS: failed full acceptance (source-worker exits, conditional rankings latency, interrupted sampling and unverified quiet recovery); Linux/production validation and authorized rollout; mobile usefulness; remaining-route budgets/migration and field/site-wide verification.",
+  "privacy": "Aggregated lab metrics, hashes and sanitized allowlisted events only. Private replay, signing keys, raw artifacts and identities are not embedded.",
+  "agentOsReceipt": "af1d50a577c96fd9eed9f934a902a9469f8b69bc"
+}

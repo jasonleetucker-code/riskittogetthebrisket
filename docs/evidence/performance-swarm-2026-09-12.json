@@ -1,0 +1,3296 @@
+{
+  "storeRevision": 94,
+  "agentOSReceipt": "af1d50a577c96fd9eed9f934a902a9469f8b69bc",
+  "assignments": [
+    {
+      "agent_id": "001",
+      "assignment": "Dependency graph, dispatch queue and acknowledged notices",
+      "attempts": [
+        {
+          "attempt": 1,
+          "dispatchedAt": "2026-09-12T01:16:50.881Z",
+          "inputRevision": 8,
+          "runtimeAgentId": "/root/frontend_paths"
+        }
+      ],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Initial manifest",
+      "evidence": [
+        "steward:swarm-001-execution-full-packet-1",
+        ".agent-runtime/performance-swarm/packets/001-attempt1.json"
+      ],
+      "files_owned": [],
+      "findings": [
+        "All100 missions preserved; reviewer and deliverable metadata reconciled; increment graph separates preparation, execution, review and acceptance."
+      ],
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "095"
+      ],
+      "squad": "command",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "002",
+      "assignment": "Dirty candidate file ownership and isolated patch boundaries",
+      "attempts": [
+        {
+          "attempt": 1,
+          "dispatchedAt": "2026-09-12T01:19:31.276Z",
+          "inputRevision": 9,
+          "runtimeAgentId": "/root/data_jobs",
+          "scope": "exclusive ownership map and integration boundaries"
+        }
+      ],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Initial manifest",
+      "evidence": [
+        "steward:swarm-002-execution-full-packet-1",
+        ".agent-runtime/performance-swarm/packets/002-attempt1.json"
+      ],
+      "files_owned": [],
+      "findings": [
+        "29 dirty paths mapped exactly once in nine ownership groups. HEAD-only worktree would omit candidate changes."
+      ],
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "096",
+        "095"
+      ],
+      "squad": "command",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "003",
+      "assignment": "Evidence provenance, hashes and exclusive host reservations",
+      "attempts": [
+        {
+          "attempt": 1,
+          "dispatchedAt": "2026-09-12T01:42:09.208Z",
+          "inputRevision": 16,
+          "runtimeAgentId": "/root/audit_challenge",
+          "scope": "evidence provenance and host-process/reservation classification"
+        }
+      ],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Initial manifest",
+      "evidence": [
+        "steward:swarm-003-execution-full-packet-1",
+        ".agent-runtime/performance-swarm/packets/003-attempt1.json"
+      ],
+      "files_owned": [],
+      "findings": [
+        "Current previously unclassified21 processes verified as Codex packaged runtimes by executable and ancestry; not retrospectivePID proof. No competing measured jobs found; final098 recheck remains."
+      ],
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "089"
+      ],
+      "squad": "command",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "004",
+      "assignment": "Fetch and classify main movement; affected dependency validation",
+      "attempts": [
+        {
+          "attempt": 1,
+          "dispatchedAt": "2026-09-12T01:13:14.301Z",
+          "inputRevision": 6,
+          "runtimeAgentId": "/root/audit_challenge",
+          "scope": "read-only four-commit main movement classification"
+        }
+      ],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Repository integration rules",
+      "dispatch": {
+        "attempt": 2,
+        "inputRevision": 51,
+        "runtimeAgentId": "/root/main_reconciliation",
+        "startedAt": "2026-09-12T07:15:23.177Z"
+      },
+      "evidence": [
+        "steward:swarm-004-execution-full-packet-1",
+        ".agent-runtime/performance-swarm/packets/004-attempt1.json"
+      ],
+      "files_owned": [
+        "C:\\Users\\jason\\.codex\\visualizations\\2026\\09\\10\\01a08cd0-89d8-7191-be6e-d3d7859d6986\\chase-performance/.agent-runtime/performance-swarm/packets/004-attempt3.json"
+      ],
+      "findings": [
+        "Four commits integration-relevant; no product paths changed; ten application and two fixed replay hashes unchanged."
+      ],
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "096"
+      ],
+      "squad": "command",
+      "status": "ACTIVE",
+      "tests": []
+    },
+    {
+      "agent_id": "005",
+      "assignment": "Phase entry, success and authorization gate ledger",
+      "attempts": [
+        {
+          "attempt": 1,
+          "dispatchedAt": "2026-09-12T02:04:23.336Z",
+          "inputRevision": 23,
+          "runtimeAgentId": "/root/data_jobs",
+          "scope": "Phase entry, success, authority and immediate release gate ledger; evidence preparation only"
+        }
+      ],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Owner records",
+      "evidence": [
+        "steward:swarm-005-execution-full-packet-1",
+        ".agent-runtime/performance-swarm/packets/005-attempt1.json"
+      ],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "095"
+      ],
+      "squad": "command",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "006",
+      "assignment": "Worker completion trace, bounded record specification and failure taxonomy",
+      "attempts": [
+        {
+          "attempt": 1,
+          "dispatchedAt": "2026-09-12T00:55:40.233Z",
+          "inputRevision": "564ef3f28 + preserved dirty candidate",
+          "runtimeAgentId": "/root/data_jobs",
+          "scope": "initial read-only milestone",
+          "status": "ACTIVE"
+        }
+      ],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Driver/full-attempt evidence",
+      "evidence": [
+        "swarm-006-attempt1"
+      ],
+      "files_owned": [],
+      "findings": [
+        "Source publication may succeed before nested league failure; parent exit1 publishedGeneration=null cannot identify failed stage.",
+        "Nonweb stderr PIPE output is discarded by communicate; web DEVNULL deliberate.",
+        "Lab league admission20s differs from production follow-up admission0/busy; timeout remains hypothesis."
+      ],
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "091"
+      ],
+      "squad": "failure_closure",
+      "status": "READY_FOR_REVIEW",
+      "tests": [
+        "read-only live-path trace; no tests executed"
+      ]
+    },
+    {
+      "agent_id": "007",
+      "assignment": "Fresh-store unchanged-source league-lease reproduction",
+      "attempts": [
+        {
+          "attempt": 1,
+          "dispatchedAt": "2026-09-12T01:09:14.626Z",
+          "runtimeAgentId": "/root/data_jobs",
+          "scope": "prepare scoped existing-worker invocation; measurement waits018"
+        }
+      ],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "006"
+      ],
+      "dependency_contract": "006; exclusive experiment slot",
+      "evidence": [
+        "steward:swarm-007-execution-full-packet-1",
+        ".agent-runtime/performance-swarm/packets/007-attempt1.json"
+      ],
+      "files_owned": [],
+      "findings": [
+        "Controlled league-admission PublishLockTimeout reproduced after canonical acceptance; uncontended control/released league recovery pass; historical exception remains unknown."
+      ],
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "091"
+      ],
+      "squad": "failure_closure",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "008",
+      "assignment": "Independent worker-contention reproduction and adoption verification",
+      "attempts": [
+        {
+          "attempt": 1,
+          "dispatchedAt": "2026-09-12T01:19:31.276Z",
+          "inputRevision": 9,
+          "runtimeAgentId": "/root/audit_challenge",
+          "scope": "independent fresh-store reproduction"
+        }
+      ],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "007"
+      ],
+      "dependency_contract": "007 procedure; independent runtime and separate store",
+      "evidence": [
+        "steward:swarm-008-execution-full-packet-1",
+        ".agent-runtime/performance-swarm/packets/008-attempt1.json"
+      ],
+      "files_owned": [],
+      "findings": [
+        "Independent reproduction corroborates canonical acceptance before league admission timeout; seventeen checks pass, no remaining observed children."
+      ],
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "091"
+      ],
+      "squad": "failure_closure",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "009",
+      "assignment": "Production versus fixture busy/failure and queued-work semantics",
+      "attempts": [
+        {
+          "attempt": 1,
+          "dispatchedAt": "2026-09-12T01:03:59.685Z",
+          "runtimeAgentId": "/root/audit_challenge",
+          "scope": "production/fixture admission and queue audit"
+        }
+      ],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Producer and refresh paths",
+      "evidence": [
+        "steward:swarm-009-execution-full-packet-1",
+        ".agent-runtime/performance-swarm/packets/009-attempt1.json"
+      ],
+      "files_owned": [],
+      "findings": [
+        "Production broad PublishLockTimeout catch can label post-admission errors busy; fixture correction must narrow admission boundary.",
+        "Successful companion league worker can leave newer canonical generation unprepared; explicit latest-generation retry/adoption is required. Historical exceptions remain unknown."
+      ],
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "091"
+      ],
+      "squad": "failure_closure",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "010",
+      "assignment": "Implement bounded worker capture, demonstrated fixture fix and diagnostic driver plumbing",
+      "attempts": [
+        {
+          "attempt": 1,
+          "evidence": "steward:swarm-010-execution-full-packet-1",
+          "runtimeAgentId": "/root/data_jobs",
+          "scope": "Initial capture/diagnostic milestone"
+        },
+        {
+          "attempt": 2,
+          "evidence": "steward:swarm-010-execution-full-packet-2",
+          "runtimeAgentId": "/root/data_jobs",
+          "scope": "Stale body/304 and primary cleanup correction;215 test pass snapshot953d, additional reviewer failures preserved"
+        },
+        {
+          "attempt": 3,
+          "dispatchedAt": "2026-09-12T01:59:00.456Z",
+          "inputRevision": 21,
+          "runtimeAgentId": "/root/data_jobs",
+          "scope": "Remaining documented stream/collector/connection close failures, web nonzero exit and diagnostic pair pacing"
+        }
+      ],
+      "blocker": null,
+      "change_candidate": {
+        "captureMilestoneSHA256": "e65cd62e217db5e8c38606e7f0b751438e82e02a34dc568359bb9b40819543a5"
+      },
+      "dependencies": [
+        "006",
+        "007",
+        "008",
+        "009",
+        "012",
+        "014",
+        "016"
+      ],
+      "dependency_contract": "006-009;012-017 delivery increments",
+      "dispatch": {
+        "attempt": 7,
+        "inputRevision": 49,
+        "runtimeAgentId": "/root/data_jobs",
+        "scope": "Fix demonstrated publication_evidence event-domain collision only; tests owned by018/021, historical smoke immutable.",
+        "startedAt": "2026-09-12T02:54:44.479Z"
+      },
+      "evidence": [
+        "steward:swarm-010-execution-full-packet-7"
+      ],
+      "files_owned": [],
+      "findings": "Reporting-only kind=refresh filter implemented at38a09c; regression/review pending.",
+      "integration_state": "APPROVED",
+      "reviewer": [
+        "089",
+        "091"
+      ],
+      "squad": "failure_closure",
+      "status": "APPROVED",
+      "tests": [
+        {
+          "command": "pytest tests/serving/test_soak_report.py -q",
+          "passed": 95,
+          "repeatCount": 2,
+          "scope": "before final lifecycle hardening; overlapping runs not summed"
+        }
+      ]
+    },
+    {
+      "agent_id": "011",
+      "assignment": "Deferred league follow-up, markers, canonical acceptance and drain invariants",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "009",
+        "010"
+      ],
+      "dependency_contract": "009-010",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 46,
+        "runtimeAgentId": "/root",
+        "scope": "Independent source/evidence verification of deferred work, marker preservation and actual canonical/league drain; actual smoke observations appended only after reservation ends.",
+        "startedAt": "2026-09-12T02:50:59.179Z"
+      },
+      "evidence": [
+        "steward:swarm-011-execution-full-packet-1"
+      ],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "090",
+        "091"
+      ],
+      "squad": "failure_closure",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "012",
+      "assignment": "Natural conditional-200 transition analysis and owner classification",
+      "attempts": [
+        {
+          "attempt": 1,
+          "dispatchedAt": "2026-09-12T00:55:40.233Z",
+          "inputRevision": "564ef3f28 + preserved dirty candidate",
+          "runtimeAgentId": "/root/frontend_paths",
+          "scope": "initial read-only milestone",
+          "status": "ACTIVE"
+        }
+      ],
+      "blocker": {
+        "requires": "010/014 diagnostics before natural experiments",
+        "type": "internal_dependency"
+      },
+      "change_candidate": null,
+      "dependencies": [
+        "014:instrumentation"
+      ],
+      "dependency_contract": "Existing raw evidence;014 implementation (012 supplies requirements first)",
+      "dispatch": {
+        "attempt": 2,
+        "inputRevision": 42,
+        "runtimeAgentId": "/root/frontend_paths",
+        "scope": "Prepare and execute bounded offline timeline audit of released plumbing smoke; no competing benchmark or heavy analysis during measurement.",
+        "startedAt": "2026-09-12 02:42:22 UTC"
+      },
+      "evidence": [
+        "steward:swarm-012-execution-full-packet-2"
+      ],
+      "files_owned": [],
+      "findings": [
+        "Official conditional pairs use preceding unconditional ETag; prior persisted rows cannot identify canonical versus same-board representation change.",
+        "Timeline-only filter omits adoption; reload methods may swallow errors, so failed=false is not adoption proof.",
+        "Natural diagnostic phase misses worker-active-at-start; closing clock exchange absent."
+      ],
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "089"
+      ],
+      "squad": "failure_closure",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "013",
+      "assignment": "Stale-ETag versus identical unconditional-body discriminating controls",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "012:design",
+        "010"
+      ],
+      "dependency_contract": "012;010;exclusive slot",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "089"
+      ],
+      "squad": "failure_closure",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "014",
+      "assignment": "Implement adoption, ETag, final-send correlation and bounded span collection",
+      "attempts": [
+        {
+          "attempt": 1,
+          "runtimeAgentId": "/root/frontend_paths",
+          "scope": "Adoption spans and49 tests; historical implementation receipt preserved"
+        },
+        {
+          "attempt": 2,
+          "dispatchedAt": "2026-09-12T02:02:19.000Z",
+          "inputRevision": 22,
+          "runtimeAgentId": "/root/frontend_paths",
+          "scope": "Explicit asynchronous writer failure and final collection completeness;089 veto correction"
+        }
+      ],
+      "blocker": null,
+      "change_candidate": {
+        "scriptSHA256": "092fcf7be3318a9177e0b0cd42179fe02c3a5bdaab8551c2528aa94db6c22397",
+        "testSHA256": "98ff21b0cc9c3305a8afd79713aa79bf4d495c379e0890f1953df1a2054c57d1"
+      },
+      "dependencies": [
+        "012:requirements"
+      ],
+      "dependency_contract": "012 requirements before experiment",
+      "evidence": [
+        "steward:swarm-014-execution-full-packet-2"
+      ],
+      "files_owned": [],
+      "findings": "014 writer correction independently reviewed by089;424 integrated lab test result includes62 span cases. No timing acceptance.",
+      "integration_state": "APPROVED",
+      "reviewer": [
+        "089"
+      ],
+      "squad": "failure_closure",
+      "status": "APPROVED",
+      "tests": [
+        {
+          "command": "pytest tests/serving/test_lab_spans.py -q",
+          "passed": 49,
+          "seconds": 0.77
+        },
+        {
+          "command": "Ruff0.6.9 scoped format/lint + whitespace",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "agent_id": "015",
+      "assignment": "Existing ASGI/receive controls for unresolved intervals",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "012",
+        "013",
+        "014"
+      ],
+      "dependency_contract": "012-014 findings;exclusive slot",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "089"
+      ],
+      "squad": "failure_closure",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "016",
+      "assignment": "Implement observed-exercise, interruption and continuous-quiet accounting",
+      "attempts": [
+        {
+          "attempt": 1,
+          "dispatchedAt": "2026-09-12T00:55:40.233Z",
+          "inputRevision": "564ef3f28 + preserved dirty candidate",
+          "runtimeAgentId": "/root/audit_challenge",
+          "scope": "initial read-only milestone",
+          "status": "ACTIVE"
+        }
+      ],
+      "blocker": null,
+      "change_candidate": {
+        "helperSHA256": "78c2df17c83648278d550edf7d86e2058aeb56b64682b560ab96e0e537ed9d0f",
+        "testSHA256": "937fdb23149540db4a1be35a0340b9eaed54516111bf77f56d6446b128f08d63"
+      },
+      "dependencies": [],
+      "dependency_contract": "Raw samples/power events",
+      "evidence": [
+        "steward:swarm-016-independent-root-review-1",
+        ".agent-runtime/performance-swarm/packets/089-root-016-review.json"
+      ],
+      "files_owned": [],
+      "findings": "Independent root scoped review and64 existing tests PASS; final integration pending.",
+      "integration_state": "APPROVED",
+      "reviewer": [
+        "089"
+      ],
+      "squad": "failure_closure",
+      "status": "APPROVED",
+      "tests": [
+        {
+          "command": "python -m pytest tests/serving/test_soak_observation.py -q",
+          "result": "64 passed",
+          "seconds": 0.22
+        },
+        {
+          "command": "pinned Ruff0.6.9 leased-file format/lint + git diff --check",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "agent_id": "017",
+      "assignment": "Power, host exclusion and sampler release qualification",
+      "attempts": [
+        {
+          "attempt": 1,
+          "dispatchedAt": "2026-09-12T01:32:57.077Z",
+          "inputRevision": 14,
+          "runtimeAgentId": "/root/audit_challenge",
+          "scope": "Windows host suitability and release checklist"
+        }
+      ],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "016"
+      ],
+      "dependency_contract": "016",
+      "evidence": [
+        "steward:swarm-017-execution-full-packet-1",
+        ".agent-runtime/performance-swarm/packets/017-attempt1.json"
+      ],
+      "files_owned": [],
+      "findings": [
+        "AC online92%;22CPUs;14.1GBfreeRAM;229.8GBfreefilesystem; scopedawakeacquired/released.21otherPython/Nodeprocessesneedclassification before098; no measurementrelease."
+      ],
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "089"
+      ],
+      "squad": "failure_closure",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "018",
+      "assignment": "Worker and diagnostic regression cases",
+      "attempts": [
+        {
+          "attempt": 1,
+          "dispatchedAt": "2026-09-12T01:09:14.626Z",
+          "runtimeAgentId": "/root/frontend_paths",
+          "scope": "independent worker capture regressions"
+        }
+      ],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "010",
+        "014",
+        "016"
+      ],
+      "dependency_contract": "010;014;016",
+      "evidence": [
+        "steward:swarm-018-execution-full-packet-4"
+      ],
+      "files_owned": [],
+      "findings": "425 labtests pass10.47s on finalbb8a6b8e; earlier negative/intermediate results retained. Testsfrozen.",
+      "integration_state": "APPROVED",
+      "reviewer": [
+        "089",
+        "091"
+      ],
+      "squad": "failure_closure",
+      "status": "APPROVED",
+      "tests": [
+        {
+          "limitations": "protocol/cleanup; not performance attribution",
+          "passed": 67,
+          "seconds": 0.76,
+          "selection": "tests/serving/test_soak_workers.py"
+        }
+      ]
+    },
+    {
+      "agent_id": "019",
+      "assignment": "Worker/timeline privacy, bounds and observer overhead review",
+      "attempts": [
+        {
+          "attempt": 1,
+          "dispatchedAt": "2026-09-12T02:05:48.139Z",
+          "inputRevision": 24,
+          "runtimeAgentId": "/root/audit_challenge",
+          "scope": "Worker and timeline privacy/bounds audit; no self-approval of016"
+        }
+      ],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "006",
+        "010",
+        "014"
+      ],
+      "dependency_contract": "006;010;014",
+      "evidence": [
+        "steward:swarm-019-execution-full-packet-1"
+      ],
+      "files_owned": [],
+      "findings": "Privacy review VETO two raw diagnostic header fields;010 correction active;092 independent review pending.",
+      "integration_state": "REJECTED",
+      "reviewer": [
+        "092"
+      ],
+      "squad": "failure_closure",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "020",
+      "assignment": "Demonstrated shared backend corrections; no speculative optimization",
+      "attempts": [
+        {
+          "attempt": 1,
+          "dispatchedAt": "2026-09-12T01:26:11.358Z",
+          "inputRevision": 12,
+          "runtimeAgentId": "/root/audit_challenge",
+          "scope": "prove and narrowly correct production post-admission timeout misclassification"
+        }
+      ],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "demonstrated_product_owner"
+      ],
+      "dependency_contract": "Proven product owner;exclusive file leases",
+      "dispatch": {
+        "attempt": 4,
+        "inputRevision": 62,
+        "runtimeAgentId": "/root/retention_reproduction",
+        "scope": "Repair demonstrated healthy replacement ownership proof blocked by old corrupt immutable proof, no pruning or trust weakening",
+        "startedAt": "2026-09-12T07:55:52.7104655Z"
+      },
+      "evidence": [
+        "steward:swarm-020-execution-full-packet-1",
+        ".agent-runtime/performance-swarm/packets/020-attempt1.json"
+      ],
+      "files_owned": [],
+      "findings": [
+        "Own-pointer healthy dependent recovery repaired; 71 passed1skip. Parent integrity and pruning refusal retained. Two reviews pending."
+      ],
+      "integration_state": "Two reviews approved final76b6e104; fresh integrated underway",
+      "reviewer": [
+        "092",
+        "000"
+      ],
+      "reviews": [
+        {
+          "assignment": "090",
+          "evidence": "steward:swarm-090-execution-full-packet-1",
+          "runtimeAgentId": "/root/frontend_paths",
+          "scope": "four-line production admission fix",
+          "verdict": "PASS"
+        },
+        {
+          "assignment": "091",
+          "evidence": "steward:swarm-091-execution-full-packet-1",
+          "runtimeAgentId": "/root/data_jobs",
+          "scope": "four-line production admission fix",
+          "verdict": "PASS"
+        }
+      ],
+      "squad": "failure_closure",
+      "status": "APPROVED",
+      "tests": [
+        {
+          "deselected": 54,
+          "passed": 13,
+          "seconds": 10.07,
+          "selection": "focused pipeline and source-followup"
+        }
+      ]
+    },
+    {
+      "agent_id": "021",
+      "assignment": "Exact hybrid policy, invalid observations and default compatibility tests",
+      "attempts": [
+        {
+          "attempt": 1,
+          "dispatchedAt": "2026-09-12T01:27:46.640Z",
+          "inputRevision": 13,
+          "runtimeAgentId": "/root/frontend_paths",
+          "scope": "hybrid/default-policy regression audit"
+        }
+      ],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Existing evaluator",
+      "dispatch": {
+        "attempt": 2,
+        "inputRevision": 51,
+        "runtimeAgentId": "/root/report_regression",
+        "startedAt": "2026-09-12T07:15:23.175Z"
+      },
+      "evidence": [
+        "steward:swarm-021-execution-full-packet-1",
+        ".agent-runtime/performance-swarm/packets/021-attempt1.json"
+      ],
+      "files_owned": [],
+      "findings": "Root independently read actual event-schema fixtures/strict negative assertions and unchanged driver policy;102author-run reporttests pass, no rerunclaim.",
+      "integration_state": "APPROVED",
+      "reviewer": [
+        "089"
+      ],
+      "reviews": [
+        {
+          "assignment": "089",
+          "evidence": "steward:swarm-089-execution-full-packet-1",
+          "runtimeAgentId": "/root/audit_challenge",
+          "scope": "Exact hybrid evaluator and informational old rule; independent source/test inspection, no new test execution",
+          "verdict": "PASS"
+        }
+      ],
+      "squad": "backend_acceptance",
+      "status": "APPROVED",
+      "tests": [
+        {
+          "passed": 97,
+          "seconds": 0.64,
+          "selection": "tests/serving/test_soak_report.py"
+        }
+      ]
+    },
+    {
+      "agent_id": "022",
+      "assignment": "Official short-protocol release packet",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "005",
+        "010",
+        "016",
+        "021"
+      ],
+      "dependency_contract": "005;010;016;021",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 30,
+        "runtimeAgentId": "/root",
+        "scope": "Official short release packet preparation; no measurement until098 release.",
+        "startedAt": "2026-09-12 02:20:13 UTC"
+      },
+      "evidence": [
+        "steward:swarm-022-execution-full-packet-1"
+      ],
+      "files_owned": [],
+      "findings": "Officialshort argv/liveprotocol/gates prepared. Executionrelease remains withheld for unresolvedinternaldependencies.",
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "089"
+      ],
+      "squad": "backend_acceptance",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "023",
+      "assignment": "Official full-protocol and interruption-proof release packet",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "005",
+        "016",
+        "021"
+      ],
+      "dependency_contract": "005;016;021",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 32,
+        "runtimeAgentId": "/root/data_jobs",
+        "startedAt": "2026-09-12 02:21:33 UTC"
+      },
+      "evidence": [
+        "steward:swarm-023-execution-full-packet-1"
+      ],
+      "files_owned": [],
+      "findings": "Fullprotocol prepared, noexecutionrelease; requiresfreshshortPASS.",
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "089"
+      ],
+      "squad": "backend_acceptance",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "024",
+      "assignment": "RSS ownership, allowance and verified-quiet recovery verification",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Observation/report paths",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 40,
+        "runtimeAgentId": "/root/data_jobs",
+        "scope": "RSS ownership and unchanged recovery-gate verification, source/evidence only during imminent experiment.",
+        "startedAt": "2026-09-12 02:39:10 UTC"
+      },
+      "evidence": [
+        "steward:swarm-024-execution-full-packet-1"
+      ],
+      "files_owned": [],
+      "findings": "RSS ownership/allowance/quiet audit complete; 608256-byte historical short margin. Selector completeness is a bounded regression target, no false pass demonstrated.",
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "089"
+      ],
+      "squad": "backend_acceptance",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "025",
+      "assignment": "Handles, process identities, descendants and cleanup verification",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Worker/observer paths",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 43,
+        "runtimeAgentId": "/root/data_jobs",
+        "scope": "Read-only process/handle/cleanup live-path and regression evidence audit; no tests or measurements during reservation.",
+        "startedAt": "2026-09-12T02:47:03.594Z"
+      },
+      "evidence": [
+        "steward:swarm-025-execution-full-packet-1"
+      ],
+      "files_owned": [],
+      "findings": "Process identity/descendant/handle/cleanup source audit complete; missing quiet remains failure; no new resource or Linux proof.",
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "089"
+      ],
+      "squad": "backend_acceptance",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "026",
+      "assignment": "Retention, protected dependencies, concurrency and capacity regression lane",
+      "attempts": [],
+      "blocker": "Live prepared-news dangling canonical dependency publication reproduced; correction020 pending.",
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Existing ArtifactStore",
+      "dispatch": {
+        "attempt": 2,
+        "inputRevision": 51,
+        "priorAttempt": "Interrupted before evidence packet; do not count completed",
+        "resumed": true,
+        "runtimeAgentId": "/root/retention_reproduction",
+        "startedAt": "2026-09-12T07:15:23.177Z"
+      },
+      "evidence": [
+        "steward:swarm-026-execution-full-packet-1"
+      ],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "092"
+      ],
+      "squad": "backend_acceptance",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "027",
+      "assignment": "Generation adoption, coherent captures and factual scoring verification",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Retained product candidate",
+      "dispatch": {
+        "attempt": 2,
+        "inputRevision": 62,
+        "runtimeAgentId": "/root/report_regression",
+        "scope": "Wire actual canonical fixture parents without altering correctness assertions; rerun integrated once020 freezes",
+        "startedAt": "2026-09-12T07:55:52.7105739Z"
+      },
+      "evidence": [],
+      "files_owned": [],
+      "findings": [
+        "570 passed19skipped1warning5passing subtests;40 frozen hashes match. Focused79pass overlaps. Real canonical parents wired; all existing assertions/timing retained."
+      ],
+      "integration_state": "Current affected backend validation PASS",
+      "reviewer": [
+        "000"
+      ],
+      "squad": "backend_acceptance",
+      "status": "APPROVED",
+      "tests": []
+    },
+    {
+      "agent_id": "028",
+      "assignment": "Affected auth, response, override, stale, corruption and restart validation",
+      "attempts": [],
+      "blocker": "020 candidate own-pointer recovery regression; frozen rerun required",
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Retained product candidate",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 54,
+        "runtimeAgentId": "/root/report_regression",
+        "scope": "Repair existing prepared-news fixtures to publish real required canonical fixture parents, preserve assertions, run affected news/API boundary validation.",
+        "startedAt": "2026-09-12T07:27:36.664Z"
+      },
+      "evidence": [],
+      "files_owned": [],
+      "findings": [
+        "Real canonical fixture wired. News 22 passed/1 recovery failure; API privacy 47 passed. Recovery defect routed to020; no assertions weakened."
+      ],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090",
+        "092"
+      ],
+      "squad": "backend_acceptance",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "029",
+      "assignment": "Execute and independently reconcile fresh official short acceptance",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "007-028:applicable_resolved",
+        "098:short_release"
+      ],
+      "dependency_contract": "007-028 resolved;098 release;exclusive host",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "089"
+      ],
+      "squad": "backend_acceptance",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "030",
+      "assignment": "Execute and independently reconcile full acceptance only after short PASS",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "029:PASS",
+        "098:full_release"
+      ],
+      "dependency_contract": "029 PASS;098 release;exclusive host",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "089"
+      ],
+      "squad": "backend_acceptance",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "031",
+      "assignment": "Inspect authorized SSH and diagnostic-workflow access paths",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Read-only configuration/workflow review",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 27,
+        "runtimeAgentId": "/root",
+        "scope": "Read-only workflow/access discovery while three specialists finish local corrections; no workflow dispatch/SSH mutation/deploy.",
+        "startedAt": "2026-09-12 02:16:39 UTC"
+      },
+      "evidence": [
+        "steward:swarm-031-execution-full-packet-1"
+      ],
+      "files_owned": [],
+      "findings": "LocalSSH auth refused; GitHub diagnostics available historically; queued deployment shares FD concurrency. Alternate read-only path remains available to investigate.",
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "095"
+      ],
+      "squad": "production_linux",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "032",
+      "assignment": "Deployment rendering, installer and mandatory/opt-in unit audit",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Checked-in deployment paths",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 44,
+        "runtimeAgentId": "/root/audit_challenge",
+        "scope": "Read-only deployment rendering/installers: mandatory/opt-in unit map and static installation checks; no tests/builds during measured host reservation.",
+        "startedAt": "2026-09-12T02:47:52.819Z"
+      },
+      "evidence": [
+        "steward:swarm-032-execution-full-packet-1"
+      ],
+      "files_owned": [],
+      "findings": "26-timer installer/deploy map prepared; conditional DLF/IDP Show/FFPC presence-check mismatch identified, actual units unobserved.",
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "091"
+      ],
+      "squad": "production_linux",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "033",
+      "assignment": "Source, league, news, embedded and GitHub feed ownership matrix",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Producer/scraper/workflows",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 52,
+        "runtimeAgentId": "/root/main_reconciliation",
+        "startedAt": "2026-09-12T07:19:49.495Z"
+      },
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "091"
+      ],
+      "squad": "production_linux",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "034",
+      "assignment": "Inspect actual deployed revision, host and runtime identity",
+      "attempts": [],
+      "blocker": "Actual candidate and installed service-context evidence unavailable",
+      "change_candidate": null,
+      "dependencies": [
+        "031:authorized_access"
+      ],
+      "dependency_contract": "031;authorized host access",
+      "dispatch": {
+        "attempt": 2,
+        "inputRevision": 54,
+        "runtimeAgentId": "/root/main_reconciliation",
+        "scope": "Preserve sanitized actual existing deployment-log evidence and explicit missing hostmeasurements, no remoteexecution.",
+        "startedAt": "2026-09-12T07:27:36.664Z"
+      },
+      "evidence": [],
+      "files_owned": [],
+      "findings": [
+        "Supplement sealed; successful remote main deploy is not candidate proof; numeric host capacity/FD/runtime evidence remains unavailable."
+      ],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "095"
+      ],
+      "squad": "production_linux",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "035",
+      "assignment": "Inspect installed services, timers, paths and cadence",
+      "attempts": [],
+      "blocker": "Working authorized read-only host observation required; local SSH refuses authentication and current diagnostic paths have recorded queue/privacy restrictions",
+      "change_candidate": null,
+      "dependencies": [
+        "033",
+        "034"
+      ],
+      "dependency_contract": "033-034",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 59,
+        "runtimeAgentId": "/root/main_reconciliation",
+        "scope": "Installed unit census preparation and precise unavailable actual-state evidence; read-only source/log evidence only",
+        "startedAt": "2026-09-12T07:48:51.5324111Z"
+      },
+      "evidence": [],
+      "files_owned": [],
+      "findings": [
+        "Offline census/rendered unit and cadence plan prepared; conditional DLF/IDPShow nondefault prefix mismatch routed039. Actual installed census not executed."
+      ],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "091"
+      ],
+      "squad": "production_linux",
+      "status": "BLOCKED",
+      "tests": []
+    },
+    {
+      "agent_id": "036",
+      "assignment": "Measure combined host/cgroup capacity and resource headroom",
+      "attempts": [],
+      "blocker": "Actual authorized host capacity/cgroup observations unavailable",
+      "change_candidate": null,
+      "dependencies": [
+        "034",
+        "035"
+      ],
+      "dependency_contract": "034-035",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 60,
+        "runtimeAgentId": "/root/main_reconciliation",
+        "scope": "Capacity/cgroup/headroom measurement preparation with exact unavailable host fields, no invented limits",
+        "startedAt": "2026-09-12T07:51:33.5925683Z"
+      },
+      "evidence": [],
+      "files_owned": [],
+      "findings": [
+        "Host/cgroup measurement plan prepared; no numerical limits or actual capacity inferred"
+      ],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "089"
+      ],
+      "squad": "production_linux",
+      "status": "BLOCKED",
+      "tests": []
+    },
+    {
+      "agent_id": "037",
+      "assignment": "Observe Linux descriptors and child recovery through natural cycles",
+      "attempts": [],
+      "blocker": "Authorized actual Linux FD/limits/natural-cycle recovery observations unavailable",
+      "change_candidate": null,
+      "dependencies": [
+        "035",
+        "036"
+      ],
+      "dependency_contract": "035-036",
+      "dispatch": {
+        "attempt": 2,
+        "inputRevision": 64,
+        "runtimeAgentId": "/root/main_reconciliation",
+        "scope": "Correct unexecuted Linux observation command draft failclosed completeness and full identity bracket",
+        "startedAt": "2026-09-12T08:05:28.8459481Z"
+      },
+      "evidence": [],
+      "files_owned": [],
+      "findings": [
+        "Corrected numeric FD/PID-starttime command draft ASTvalidated; missinglimits force incomplete; no Linuxexecution. Prior commanddraftrejected retained."
+      ],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "089"
+      ],
+      "squad": "production_linux",
+      "status": "BLOCKED",
+      "tests": []
+    },
+    {
+      "agent_id": "038",
+      "assignment": "Inspect filesystem/store capacity, retention and protected dependencies",
+      "attempts": [],
+      "blocker": "Actual authorized host filesystem/store observations unavailable",
+      "change_candidate": null,
+      "dependencies": [
+        "034",
+        "036"
+      ],
+      "dependency_contract": "034;036",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 65,
+        "runtimeAgentId": "/root/main_reconciliation",
+        "scope": "Production filesystem/store budget/reserve/protected dependency inspection preparation, no production writes",
+        "startedAt": "2026-09-12T08:07:43.4331390Z"
+      },
+      "evidence": [],
+      "files_owned": [],
+      "findings": [
+        "Offline bounded inventory plan prepared; existing dry-run acquires/create-writes lock, cachedread only cannot prove currentgraph."
+      ],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "092"
+      ],
+      "squad": "production_linux",
+      "status": "BLOCKED",
+      "tests": []
+    },
+    {
+      "agent_id": "039",
+      "assignment": "Prepare reviewed deployment, signer layout and rollback package",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "032-038",
+        "046",
+        "051",
+        "052"
+      ],
+      "dependency_contract": "032-038;046;051-052",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 68,
+        "runtimeAgentId": "/root/main_reconciliation",
+        "scope": "Reviewable offline deployment/credential/rollback package; no installed changes or numericalunmeasuredlimits",
+        "startedAt": "2026-09-12T08:17:50.7453784Z"
+      },
+      "evidence": [],
+      "files_owned": [],
+      "findings": "Scoped token/runbook correction approved;19 independenttests pass. Full permissions/deployment remain incomplete.",
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "091",
+        "092"
+      ],
+      "squad": "production_linux",
+      "status": "APPROVED",
+      "tests": []
+    },
+    {
+      "agent_id": "040",
+      "assignment": "Authorized legacy deployment and healthy baseline",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "030:PASS",
+        "039",
+        "rollout_authorization"
+      ],
+      "dependency_contract": "Local acceptance;039;separate rollout authorization",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "091",
+        "095"
+      ],
+      "squad": "production_linux",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "041",
+      "assignment": "Authorized shadow parity/resources and bounded lease-protected bootstrap proof",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "040:healthy",
+        "033",
+        "053",
+        "shadow_authorization"
+      ],
+      "dependency_contract": "040 healthy;033;053;authorized shadow",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090",
+        "091"
+      ],
+      "squad": "production_linux",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "042",
+      "assignment": "Authorized ownership cutover and prepared backend activation",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "041:shadow_PASS",
+        "cutover_authorization"
+      ],
+      "dependency_contract": "Shadow checks pass;041;separate cutover authorization",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "091",
+        "092"
+      ],
+      "squad": "production_linux",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "043",
+      "assignment": "Real authenticated deployed 200/304, scoring, stale, rejection and outage checks",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "042"
+      ],
+      "dependency_contract": "042;isolated canary faults only",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090"
+      ],
+      "squad": "production_linux",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "044",
+      "assignment": "Authorized recovery and rollback rehearsal",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "043",
+        "maintenance_authorization"
+      ],
+      "dependency_contract": "Reviewed procedure;maintenance authority",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "091",
+        "092"
+      ],
+      "squad": "production_linux",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "045",
+      "assignment": "Production backend readiness decision with exact evidence gaps",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "031-044",
+        "046-053"
+      ],
+      "dependency_contract": "Required031-044 and046-053",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "095"
+      ],
+      "squad": "production_linux",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "046",
+      "assignment": "Signer/web principals, credential and artifact access design",
+      "attempts": [],
+      "blocker": "Production separation requires explicit shared store/lock/queue access design; templates0600/0700 cannot simply change serviceusers.",
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Attestation and unit templates",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 53,
+        "runtimeAgentId": "/root/report_regression",
+        "scope": "Producer/web principal/credential and lock/read-access design source audit; no keycontents/deployment. Prepare independent020review afterward.",
+        "startedAt": "2026-09-12T07:23:34.172Z"
+      },
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "092"
+      ],
+      "squad": "security",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "047",
+      "assignment": "Adversarial certification tests and demonstrated trust fixes",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "046"
+      ],
+      "dependency_contract": "046;exclusive leases",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 57,
+        "runtimeAgentId": "/root/retention_reproduction",
+        "scope": "Reproduce direct scoring-code fingerprint omission identified048; smallest proven trust fix and adversarial regression. Wait092 tests finish before policy mutation.",
+        "startedAt": "2026-09-12T07:41:54.1156610Z"
+      },
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "Reviewed, integrated validation underway",
+      "reviewer": [
+        "092",
+        "000"
+      ],
+      "squad": "security",
+      "status": "APPROVED",
+      "tests": []
+    },
+    {
+      "agent_id": "048",
+      "assignment": "Code-policy fingerprint and semantic dependency completeness audit",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Attestation/input owners",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 56,
+        "runtimeAgentId": "/root/report_regression",
+        "scope": "Read-only policy fingerprint and semantic dependency audit; no benchmark or shared edits",
+        "startedAt": "2026-09-12T07:38:01.1398467Z"
+      },
+      "evidence": [],
+      "files_owned": [],
+      "findings": [
+        "Direct scoring-season validator file absent policy; routed047. Upstream provenance omissions separately qualified."
+      ],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "092"
+      ],
+      "squad": "security",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "049",
+      "assignment": "Signed observation renewal, replay, identity and freshness recovery verification",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "047",
+        "048"
+      ],
+      "dependency_contract": "047-048",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 59,
+        "runtimeAgentId": "/root/retention_reproduction",
+        "scope": "Signed observation renewal/replay/recovery and acceptance age audit, no shared edits",
+        "startedAt": "2026-09-12T07:48:51.5324777Z"
+      },
+      "evidence": [],
+      "files_owned": [],
+      "findings": [
+        "Signed observation/renewal/replay/age/LKG paths traced. Same-generation historical replay and rotation limits explicit; no complete anti-replay or deployed proof claim."
+      ],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "092"
+      ],
+      "squad": "security",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "050",
+      "assignment": "API authorization and cache-partition adversarial verification",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Prepared handlers/bridges",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 61,
+        "runtimeAgentId": "/root/retention_reproduction",
+        "scope": "Prepared API and bridge auth/cache/league isolation challenge, no shared edits",
+        "startedAt": "2026-09-12T07:52:25.0127191Z"
+      },
+      "evidence": [],
+      "files_owned": [],
+      "findings": [
+        "No demonstrated auth leak. Next bridge omits actual X-Data-Generation header; forwarded different name. Routed064, body canonical identity remains authoritative."
+      ],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090"
+      ],
+      "squad": "security",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "051",
+      "assignment": "Filesystem paths, ACLs, markers, retention security and log privacy",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "026"
+      ],
+      "dependency_contract": "Store/status paths;026",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 63,
+        "runtimeAgentId": "/root/retention_reproduction",
+        "scope": "Paths/ACL/markers/logs/protected retention security audit; no shared edits",
+        "startedAt": "2026-09-12T08:02:47.0446126Z"
+      },
+      "evidence": [],
+      "files_owned": [],
+      "findings": [
+        "Path/ACL/queue/privacy preparation traced; explicit0700/0600 and rwlocks incompatible with naive splitUID/read-onlymount. Actual serviceUID proof deferred053."
+      ],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "092"
+      ],
+      "squad": "security",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "052",
+      "assignment": "Key provisioning, rotation, recertification and revocation procedure",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "046",
+        "049",
+        "051"
+      ],
+      "dependency_contract": "046;049;051",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 64,
+        "runtimeAgentId": "/root/retention_reproduction",
+        "scope": "Key provisioning/rotation/re-certification/revocation operational procedure without production mutation",
+        "startedAt": "2026-09-12T08:05:28.8460153Z"
+      },
+      "evidence": [],
+      "files_owned": [],
+      "findings": [
+        "Single-pin provisioning/rotation/recertification/restart revocation and rollback procedure prepared. No multi-key feature assumed. Exact producer input handover/permission package remains039 prerequisite."
+      ],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "092"
+      ],
+      "squad": "security",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "053",
+      "assignment": "Actual service-context signing-authority separation verification",
+      "attempts": [],
+      "blocker": "Production service-context access and reviewed039permissionlayout required",
+      "change_candidate": null,
+      "dependencies": [
+        "034-038",
+        "046-052",
+        "authorized_access"
+      ],
+      "dependency_contract": "Authorized host access;034-038;046-052",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 66,
+        "runtimeAgentId": "/root/retention_reproduction",
+        "scope": "Actual service-context signing permission proof preparation and minimal unavailable observations",
+        "startedAt": "2026-09-12T08:09:07.0674158Z"
+      },
+      "evidence": [],
+      "files_owned": [],
+      "findings": [
+        "Actual service-context signing/access probes prepared; no UID/ACL/publication/rotation proof executed."
+      ],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "092"
+      ],
+      "squad": "security",
+      "status": "BLOCKED",
+      "tests": []
+    },
+    {
+      "agent_id": "054",
+      "assignment": "Browser stage attribution and explicit missing-gap ledger",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Existing lab;bothfixtures;exclusive measurements",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "089"
+      ],
+      "squad": "frontend_mobile",
+      "status": "APPROVED",
+      "tests": []
+    },
+    {
+      "agent_id": "055",
+      "assignment": "Measured shell/auth/settings admission corrections",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "054:findings"
+      ],
+      "dependency_contract": "054 measured findings",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "093",
+        "050"
+      ],
+      "squad": "frontend_mobile",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "056",
+      "assignment": "Measured shared data hook and materializer corrections",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "054:findings",
+        "057"
+      ],
+      "dependency_contract": "054;057",
+      "evidence": [],
+      "files_owned": [],
+      "findings": "Terminal identity correction approved; next bounded missing/null materializer invariant reproduction.",
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090",
+        "093"
+      ],
+      "squad": "frontend_mobile",
+      "status": "APPROVED",
+      "tests": []
+    },
+    {
+      "agent_id": "057",
+      "assignment": "Full/prepared row, metadata, history and export consumer parity census",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Fixtures/projections/current consumers",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090"
+      ],
+      "squad": "frontend_mobile",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "058",
+      "assignment": "Measured shared table/windowing correction with complete row and geometry parity",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "054:findings",
+        "057"
+      ],
+      "dependency_contract": "054;057",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "093",
+        "090"
+      ],
+      "squad": "frontend_mobile",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "059",
+      "assignment": "Measured rankings-local rendering/filter/style correction",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "056",
+        "058",
+        "062"
+      ],
+      "dependency_contract": "Relevant056-058;062 findings",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "093"
+      ],
+      "squad": "frontend_mobile",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "060",
+      "assignment": "Measured trade-local rendering/preparation correction",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "056",
+        "057"
+      ],
+      "dependency_contract": "056-057",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090",
+        "093"
+      ],
+      "squad": "frontend_mobile",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "061",
+      "assignment": "Pinned selected-player detail/popup, cache and recovery correctness",
+      "attempts": [],
+      "blocker": "Owner requested pause; reproduction/correction/review not executed",
+      "change_candidate": null,
+      "dependencies": [
+        "056",
+        "057"
+      ],
+      "dependency_contract": "056-057;bridgecontract",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090",
+        "050"
+      ],
+      "squad": "frontend_mobile",
+      "status": "BLOCKED",
+      "tests": []
+    },
+    {
+      "agent_id": "062",
+      "assignment": "Efficient complete source disclosure and audit behavior",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "057",
+        "061"
+      ],
+      "dependency_contract": "057;061",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090",
+        "093"
+      ],
+      "squad": "frontend_mobile",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "063",
+      "assignment": "AppShell representation, intent catalog and palette admission",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "056",
+        "061"
+      ],
+      "dependency_contract": "056;061",
+      "evidence": [],
+      "files_owned": [
+        "C:\\Users\\jason\\.codex\\visualizations\\2026\\09\\10\\01a08cd0-89d8-7191-be6e-d3d7859d6986\\chase-performance/.agent-runtime/performance-swarm/packets/063-attempt2.json"
+      ],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "093",
+        "050"
+      ],
+      "squad": "frontend_mobile",
+      "status": "ACTIVE",
+      "tests": []
+    },
+    {
+      "agent_id": "064",
+      "assignment": "Prepared Next bridge scope, conditional, stream and error correctness",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Backend contracts",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 68,
+        "runtimeAgentId": "/root/retention_reproduction",
+        "scope": "Reproduce and fix exact preparedbridge generation-header discrepancy, preserveprotocol/privacy/defaultoff",
+        "startedAt": "2026-09-12T08:17:50.7454131Z"
+      },
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "050",
+        "093"
+      ],
+      "squad": "frontend_mobile",
+      "status": "APPROVED",
+      "tests": []
+    },
+    {
+      "agent_id": "065",
+      "assignment": "Measured mobile chrome, keyboard, safe-area and sticky geometry correction",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "054:findings"
+      ],
+      "dependency_contract": "054 measured evidence",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "093"
+      ],
+      "squad": "frontend_mobile",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "066",
+      "assignment": "Mobile interaction, geometry, scrolling and final-row regressions",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "058-065"
+      ],
+      "dependency_contract": "058-065",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "093"
+      ],
+      "squad": "frontend_mobile",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "067",
+      "assignment": "Privacy-safe Web Vitals document attribution and missing metrics",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Existing telemetry contract",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "050",
+        "089"
+      ],
+      "squad": "frontend_mobile",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "068",
+      "assignment": "Integrated rankings/trade build, bundles, semantics, useful-state and activation packet",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "054-067",
+        "045:READY_for_acceptance",
+        "frontend_activation_authorization"
+      ],
+      "dependency_contract": "054-067;production backendREADY foracceptance/activation",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "089",
+        "093"
+      ],
+      "squad": "frontend_mobile",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "069",
+      "assignment": "Home/terminal dependency census, measurements and gated migration",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "measurement_slot",
+        "068:COMPLETE_for_migration",
+        "approved_budget_for_acceptance"
+      ],
+      "dependency_contract": "Route census;sharedchanges coordinated",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090",
+        "094"
+      ],
+      "squad": "remaining_routes",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "070",
+      "assignment": "Draft board/capital/live-sync census, measurements and gated migration",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "measurement_slot",
+        "068:COMPLETE_for_migration",
+        "approved_budget_for_acceptance"
+      ],
+      "dependency_contract": "Draft path;056",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090",
+        "094"
+      ],
+      "squad": "remaining_routes",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "071",
+      "assignment": "Waiver/FAAB/IDP census, measurements and gated migration",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "measurement_slot",
+        "068:COMPLETE_for_migration",
+        "approved_budget_for_acceptance"
+      ],
+      "dependency_contract": "Waiver consumers",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090",
+        "094"
+      ],
+      "squad": "remaining_routes",
+      "status": "APPROVED",
+      "tests": []
+    },
+    {
+      "agent_id": "072",
+      "assignment": "Roster/intelligence census, measurements and gated migration",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "measurement_slot",
+        "068:COMPLETE_for_migration",
+        "approved_budget_for_acceptance"
+      ],
+      "dependency_contract": "Roster consumers",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090",
+        "094"
+      ],
+      "squad": "remaining_routes",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "073",
+      "assignment": "BDVM tab census, measurements and gated migration",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "measurement_slot",
+        "068:COMPLETE_for_migration",
+        "approved_budget_for_acceptance"
+      ],
+      "dependency_contract": "BDVM consumers;063",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090",
+        "094"
+      ],
+      "squad": "remaining_routes",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "074",
+      "assignment": "Public league section SSR/lazy-tab census, measurements and gated migration",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "measurement_slot",
+        "068:COMPLETE_for_migration",
+        "approved_budget_for_acceptance"
+      ],
+      "dependency_contract": "Existing public architecture",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "050",
+        "094"
+      ],
+      "squad": "remaining_routes",
+      "status": "APPROVED",
+      "tests": []
+    },
+    {
+      "agent_id": "075",
+      "assignment": "Public entity/article template census, measurements and gated migration",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "measurement_slot",
+        "068:COMPLETE_for_migration",
+        "approved_budget_for_acceptance"
+      ],
+      "dependency_contract": "074 conventions",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "050",
+        "094"
+      ],
+      "squad": "remaining_routes",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "076",
+      "assignment": "Private player profile/detail census, measurements and gated migration",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "measurement_slot",
+        "068:COMPLETE_for_migration",
+        "approved_budget_for_acceptance"
+      ],
+      "dependency_contract": "057;061;063",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090",
+        "094"
+      ],
+      "squad": "remaining_routes",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "077",
+      "assignment": "Player comparison census, measurements and gated migration",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "measurement_slot",
+        "068:COMPLETE_for_migration",
+        "approved_budget_for_acceptance"
+      ],
+      "dependency_contract": "057;061",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090",
+        "094"
+      ],
+      "squad": "remaining_routes",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "078",
+      "assignment": "Game Day/matchup polling/readiness census, measurements and gated migration",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "measurement_slot",
+        "068:COMPLETE_for_migration",
+        "approved_budget_for_acceptance"
+      ],
+      "dependency_contract": "GameDay path;063",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090",
+        "094"
+      ],
+      "squad": "remaining_routes",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "079",
+      "assignment": "League comparison initial/refresh census, measurements and gated migration",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "measurement_slot",
+        "068:COMPLETE_for_migration",
+        "approved_budget_for_acceptance"
+      ],
+      "dependency_contract": "Comparison path;063",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090",
+        "094"
+      ],
+      "squad": "remaining_routes",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "080",
+      "assignment": "Trade ledger/history/grading census, measurements and gated migration",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "measurement_slot",
+        "068:COMPLETE_for_migration",
+        "approved_budget_for_acceptance"
+      ],
+      "dependency_contract": "History consumers;056-057",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090",
+        "094"
+      ],
+      "squad": "remaining_routes",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "081",
+      "assignment": "News/public activity/shared-hook census, measurements and gated migration",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "measurement_slot",
+        "068:COMPLETE_for_migration",
+        "approved_budget_for_acceptance"
+      ],
+      "dependency_contract": "News owners;069 coordination",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "091",
+        "094"
+      ],
+      "squad": "remaining_routes",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "082",
+      "assignment": "Sharp tracker/roster/people census, measurements and gated migration",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "measurement_slot",
+        "068:COMPLETE_for_migration",
+        "approved_budget_for_acceptance"
+      ],
+      "dependency_contract": "Existing Sharp contracts",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090",
+        "094"
+      ],
+      "squad": "remaining_routes",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "083",
+      "assignment": "Edge/angle/arbitrage/consensus/finder census, measurements and gated migration",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "measurement_slot",
+        "068:COMPLETE_for_migration",
+        "approved_budget_for_acceptance"
+      ],
+      "dependency_contract": "Existing decision-tool consumers",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090",
+        "094"
+      ],
+      "squad": "remaining_routes",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "084",
+      "assignment": "Route readiness coverage and measured warm/cold/prefetched budget proposals",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "069-083:census"
+      ],
+      "dependency_contract": "069-083 censuses",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "089",
+        "094"
+      ],
+      "squad": "budgets",
+      "status": "APPROVED",
+      "tests": []
+    },
+    {
+      "agent_id": "085",
+      "assignment": "API/provider/query/raw-gzip measurements and route budget proposals",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "069-083:measurement"
+      ],
+      "dependency_contract": "Route measurements;producerbytes",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "090",
+        "094"
+      ],
+      "squad": "budgets",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "086",
+      "assignment": "Preserve 14 bundle gates and separately quantify shared first-load transfer",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Production builds;routeinventory",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "089",
+        "094"
+      ],
+      "squad": "budgets",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "087",
+      "assignment": "Mobile/desktop interactions, parsing, DOM/layout and rendering budget evidence",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "054",
+        "066",
+        "route_measurements"
+      ],
+      "dependency_contract": "054;066;routeobservations",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "089",
+        "093"
+      ],
+      "squad": "budgets",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "088",
+      "assignment": "Owner budget decisions and approved CI/coverage integration",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "084-087",
+        "owner_budget_approval"
+      ],
+      "dependency_contract": "084-087;owner-approved budgets",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "094",
+        "095"
+      ],
+      "squad": "budgets",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "089",
+      "assignment": "Independent measurement, protocol, sparse-series, clock and recovery challenge",
+      "attempts": [
+        {
+          "attempt": 1,
+          "dispatchedAt": "2026-09-12T01:50:57.59Z",
+          "inputRevision": 18,
+          "runtimeAgentId": "/root/audit_challenge",
+          "scope": "Independent014 spans,021 policy,010 driver review; excludes own016/017/003; subsequent measurement increments remain"
+        }
+      ],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Measurement packets",
+      "dispatch": {
+        "attempt": 5,
+        "inputRevision": 67,
+        "runtimeAgentId": "/root/report_regression",
+        "scope": "Independent exact900 natural invocation/code-config freeze and freshhost release review",
+        "startedAt": "2026-09-12T08:13:50.4653892Z"
+      },
+      "evidence": [
+        "steward:swarm-089-execution-full-packet-4"
+      ],
+      "files_owned": [],
+      "findings": [
+        "Invocation90filefreeze valid; release refused forACoffline82percent withunknownremainingtime."
+      ],
+      "integration_state": "APPROVED",
+      "reviewer": [
+        "094"
+      ],
+      "squad": "adversarial",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "090",
+      "assignment": "Independent capture/scoring/stale/override/canonical parity challenge",
+      "attempts": [
+        {
+          "attempt": 1,
+          "dispatchedAt": "2026-09-12T01:36:29.626Z",
+          "inputRevision": 15,
+          "runtimeAgentId": "/root/frontend_paths",
+          "scope": "independent review of020 admission correction and affected source follow-up"
+        }
+      ],
+      "blocker": {
+        "requires": "review later serving/route candidates when delivered; current020reviewincrementcomplete",
+        "type": "future_dependency"
+      },
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Serving/route candidates",
+      "dispatch": {
+        "attempt": 2,
+        "inputRevision": 52,
+        "runtimeAgentId": "/root/report_regression",
+        "scope": "Independent010 reporting source and011 deferredadoption evidence review; excludes own021testapproval.",
+        "startedAt": "2026-09-12T07:19:49.495Z"
+      },
+      "evidence": [
+        "steward:swarm-090-execution-full-packet-1",
+        ".agent-runtime/performance-swarm/packets/090-attempt1.json"
+      ],
+      "files_owned": [],
+      "findings": [
+        "020 independent scopedreviewPASS; sixfocusedtestspass; no othernewproductchanges."
+      ],
+      "integration_state": "APPROVED",
+      "reviewer": [
+        "092"
+      ],
+      "squad": "adversarial",
+      "status": "APPROVED",
+      "tests": []
+    },
+    {
+      "agent_id": "091",
+      "assignment": "Independent producer ownership/contention/queue/freshness challenge",
+      "attempts": [
+        {
+          "attempt": 1,
+          "dispatchedAt": "2026-09-12T01:45:54.759Z",
+          "inputRevision": 17,
+          "runtimeAgentId": "/root/data_jobs",
+          "scope": "Independent020 product lease-admission correction review; author excluded from own010 review"
+        }
+      ],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Producer/rollout evidence",
+      "dispatch": {
+        "attempt": 3,
+        "inputRevision": 41,
+        "runtimeAgentId": "/root/frontend_paths",
+        "scope": "Independent010 final close guard source re-review; excludes approving authored018 tests.",
+        "startedAt": "2026-09-12 02:39:43 UTC"
+      },
+      "evidence": [
+        "steward:swarm-091-execution-full-packet-3"
+      ],
+      "files_owned": [],
+      "findings": "Independent010 close guard source PASS; inverse exact-file hash proves only the guard differs from reviewed40f955. Broader producer review remains open.",
+      "integration_state": "APPROVED",
+      "reviewer": [
+        "093"
+      ],
+      "squad": "adversarial",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "092",
+      "assignment": "Independent trust/tampering/retention/lock/capacity challenge",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Artifact/security evidence",
+      "dispatch": {
+        "attempt": 4,
+        "inputRevision": 62,
+        "runtimeAgentId": "/root/main_reconciliation",
+        "scope": "Independent challenge020 own immutable proof recovery, no code edits",
+        "startedAt": "2026-09-12T07:55:52.7106497Z"
+      },
+      "evidence": [
+        "steward:swarm-092-execution-full-packet-1"
+      ],
+      "files_owned": [],
+      "findings": [
+        "Scoped020 and047 independent reviews PASS; full trust/production evidence remains future scope"
+      ],
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "090"
+      ],
+      "squad": "adversarial",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "093",
+      "assignment": "Independent browser predicate/semantic/geometry/privacy challenge",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Frontend candidate/evidence",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 68,
+        "runtimeAgentId": "/root/report_regression",
+        "scope": "Independent064 bridge parity/privacy review and currentbrowsergate obligations, no activation",
+        "startedAt": "2026-09-12T08:17:50.7454232Z"
+      },
+      "evidence": [],
+      "files_owned": [
+        "C:\\Users\\jason\\.codex\\visualizations\\2026\\09\\10\\01a08cd0-89d8-7191-be6e-d3d7859d6986\\chase-performance/.agent-runtime/performance-swarm/packets/093-attempt6.json"
+      ],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "091"
+      ],
+      "squad": "adversarial",
+      "status": "ACTIVE",
+      "tests": []
+    },
+    {
+      "agent_id": "094",
+      "assignment": "Independent route denominator, comparisons and budget authority challenge",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [],
+      "dependency_contract": "Route/budget evidence",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "089"
+      ],
+      "squad": "adversarial",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "095",
+      "assignment": "Independent final authority, provenance and 100-assignment accounting audit",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "001-094:evidence",
+        "096-099",
+        "100:draft"
+      ],
+      "dependency_contract": "001-094;096-099;100 DRAFT (not final publication)",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 34,
+        "runtimeAgentId": "/root/data_jobs",
+        "scope": "Authority/independence pre-release review only; final100audit later",
+        "startedAt": "2026-09-12 02:27:12 UTC"
+      },
+      "evidence": [
+        "steward:swarm-095-execution-full-packet-1"
+      ],
+      "files_owned": [],
+      "findings": "Plumbing scope authorized conditionally; no execution release while internal review defects remain. Full100 accounting and later authority audits pending.",
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "000"
+      ],
+      "squad": "adversarial",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "096",
+      "assignment": "Classified main and approved patch integration order",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "002",
+        "004"
+      ],
+      "dependency_contract": "002;004;approved patches",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "095"
+      ],
+      "squad": "integration",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "097",
+      "assignment": "Assemble reviewed candidate and run relevant integrated validation",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "approved_changes",
+        "096"
+      ],
+      "dependency_contract": "Approvedchanges;096",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 32,
+        "runtimeAgentId": "/root",
+        "scope": "Affected integrated backend and static checks on frozenproductdriver; labtestfiles separately018-owned",
+        "startedAt": "2026-09-12 02:21:33 UTC"
+      },
+      "evidence": [
+        "steward:swarm-097-execution-full-packet-1"
+      ],
+      "files_owned": [],
+      "findings": "Affected checks resolved; failed broader run preserved separately from5 exactUTF8passes. No source edits;078formatterfilesunchanged.",
+      "integration_state": "READY_FOR_REVIEW",
+      "reviewer": [
+        "relevant089-094"
+      ],
+      "squad": "integration",
+      "status": "READY_FOR_REVIEW",
+      "tests": []
+    },
+    {
+      "agent_id": "098",
+      "assignment": "Release diagnostic, short, full and browser measurements with freeze receipts",
+      "attempts": [],
+      "blocker": "Host AC offline; priorbattery-triggeredhibernate means reliablepower unproved. Owner asked toconnectAC. No longmeasurementstarted.",
+      "change_candidate": null,
+      "dependencies": [
+        "reviewed_candidate",
+        "host_available"
+      ],
+      "dependency_contract": "Reviewedcandidate;prescribedprotocol",
+      "dispatch": {
+        "attempt": 1,
+        "inputRevision": 35,
+        "runtimeAgentId": "/root",
+        "scope": "Prepare and conditionally release one bounded plumbing smoke after reviews and fresh host qualification.",
+        "startedAt": "2026-09-12 02:28:39 UTC"
+      },
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "ACTIVE",
+      "reviewer": [
+        "089",
+        "095"
+      ],
+      "squad": "integration",
+      "status": "BLOCKED",
+      "tests": []
+    },
+    {
+      "agent_id": "099",
+      "assignment": "Operational readiness, rollback and precise external requirement packet",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "production_security_evidence"
+      ],
+      "dependency_contract": "Localgates;production/securitywork",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "091",
+        "092",
+        "095"
+      ],
+      "squad": "integration",
+      "status": "QUEUED",
+      "tests": []
+    },
+    {
+      "agent_id": "100",
+      "assignment": "Final architecture, route/resources/field matrices, regression and 100-assignment disposition",
+      "attempts": [],
+      "blocker": null,
+      "change_candidate": null,
+      "dependencies": [
+        "all_receipts",
+        "095:resolved_audit"
+      ],
+      "dependency_contract": "Allreceipts;reviewedevidence;produceDRAFT before095 then finalafteraudit",
+      "evidence": [],
+      "files_owned": [],
+      "findings": [],
+      "integration_state": "QUEUED",
+      "reviewer": [
+        "095",
+        "000"
+      ],
+      "squad": "integration",
+      "status": "QUEUED",
+      "tests": []
+    }
+  ],
+  "authority": {
+    "deployment": false,
+    "frontendActivation": false,
+    "latencyPolicy": "local-prepared-hybrid-v1",
+    "merge": false,
+    "phase3a": "historical PASS; fresh required after changes",
+    "phase3b": "historical FAILED/INTERRUPTED",
+    "productionFlags": false,
+    "push": false,
+    "scope": "Owner-approved 100-assignment gated performance completion plan",
+    "workAhead": true
+  },
+  "candidateHead": "564ef3f28dc90904e0e1542adc53f2b4eb59c7ee",
+  "commandReview": {
+    "completedAt": "2026-09-12 02:15:12 UTC",
+    "filesOwned": [],
+    "reviewerRuntime": "/root",
+    "scope": "016 independent supplement",
+    "verdict": "PASS scoped helper; final integration pending"
+  },
+  "commander": "000",
+  "commonContract": {
+    "completion": "Assignment completion is not acceptance; gated work remains BLOCKED if its evidence or authority is missing",
+    "inputs": [
+      "frozen candidate manifest",
+      "relevant live source",
+      "existing evidence",
+      "named upstream deliverables"
+    ],
+    "outputs": [
+      "numbered evidence packet",
+      "demonstrated owner or unresolved finding",
+      "change or no-change disposition",
+      "commands/tests/results",
+      "limitations",
+      "dependency notices"
+    ],
+    "ownership": "Root-only board/docs; exact exclusive absolute file leases before edits",
+    "privacy": "No credentials, identities, payloads, arbitrary stderr or private raw traces in public evidence",
+    "validation": "Trace live path, preserve thresholds and missing observations; independent review"
+  },
+  "criticalPath": [
+    "010 diagnostic-control and cleanup corrections",
+    "018 regressions;089/091 independent approval",
+    "097 affected integration and098 host/code/input release",
+    "012 natural on/off/on and013 stale controls with attribution",
+    "029 fresh short;030 full only after every short gate"
+  ],
+  "currentBlocker": "AC offline at08:24UTC,80% battery, runtime unknown. Long measurements withheld; offline work continues.",
+  "currentCriticalPath": "Reliable AC power -> fresh host release ->900 on/off/on transitions and stale controls -> officialshort ->full only ifeverygatepasses. Backend integrated570pass; no new acceptance run yet.",
+  "dependencyIncrements": [
+    {
+      "assignments": [
+        "006",
+        "007",
+        "008",
+        "010",
+        "018"
+      ],
+      "repair": "Keep all mission strings. Model006:requirements ->010:capture ->018:capture_PASS ->007 ->008 ->010:fix ->018:fix_regressions. The board010 broad incoming references are increment dependencies, not a cycle requiring010 wholly complete before007."
+    },
+    {
+      "assignments": [
+        "010",
+        "012",
+        "013",
+        "014",
+        "015",
+        "016",
+        "017",
+        "018"
+      ],
+      "repair": "Record012:requirements ->014:implementation;012/013/015 designs plus014/016 APIs and017 release requirements ->010:diagnostic_integration ->018:diagnostic_tests -> reviews ->098:release ->012:natural/013:paired.012 full remains blocked until execution; do not mark requirements as full classification."
+    },
+    {
+      "assignments": [
+        "003",
+        "007",
+        "008",
+        "017",
+        "098"
+      ],
+      "repair": "Use explicit reservationState, admittedAt and releasedAt with exact hashes/protocol/runtime. Revision9 admission used releasedAt ambiguously; revision10 clears reservation while008 is only dispatched. Root must record a new reservation before008 actually executes. No inference that shared host is available to other agents."
+    },
+    {
+      "assignments": [
+        "010",
+        "014",
+        "016",
+        "018"
+      ],
+      "repair": "Link010 capture hash/implementation receipt plus018 capture-test evidence; retain014/016 embedded receipts as implementation evidence with independent review pending. Add later integration/fix milestones rather than falsely resetting or declaring full completion."
+    },
+    {
+      "assignments": [
+        "018"
+      ],
+      "repair": "Board reviewer list089+091 is correct. Preserve immutable018 packet with original reviewer089; append a superseding review-routing addendum to root ledger requiring both089 and091. No rewriting historical evidence."
+    },
+    {
+      "assignments": [
+        "006",
+        "012",
+        "016"
+      ],
+      "repair": "Nested attempt.status ACTIVE refers to old initial scopes while assignment state has advanced. Add milestoneFinishedAt/evidenceRef and scopeDisposition using existing receipts; do not rewrite dispatch history or infer whole-assignment completion."
+    },
+    {
+      "assignments": [
+        "001",
+        "006",
+        "007",
+        "012",
+        "014",
+        "016"
+      ],
+      "repair": "Keep historical inputRevision fields. Add numeric inputBoardRevision, leaseRevision and separate candidateManifest/head fields prospectively;001 dispatch input8 and lease9 are different valid events. Record unknown missing revisions explicitly, not guessed values."
+    },
+    {
+      "assignments": [
+        "022",
+        "023",
+        "024",
+        "025",
+        "029",
+        "030"
+      ],
+      "repair": "Protocol/spec/test preparation may precede execution; evidence reconciliation follows the actual run.029 short execution requires applicable closure and release;030 requires every fresh029 gate. Missing recovery/sample/child evidence cannot be filled by release paperwork."
+    },
+    {
+      "assignments": [
+        "054",
+        "068",
+        "069",
+        "070",
+        "071",
+        "072",
+        "073",
+        "074",
+        "075",
+        "076",
+        "077",
+        "078",
+        "079",
+        "080",
+        "081",
+        "082",
+        "083",
+        "084",
+        "085",
+        "087",
+        "088"
+      ],
+      "repair": "Separate work-ahead census/design/implementation/baseline evidence from migration acceptance and activation. Route baselines feed084/085/087; owner-approved088 budgets gate acceptance rather than baseline collection.068 local preparation can advance; production backendREADY and separate frontend authorization gate acceptance/activation. Remaining-route migration retains068 completion and approved-budget gates; no direct blanket acceptance from a census."
+    },
+    {
+      "assignments": [
+        "020",
+        "097"
+      ],
+      "repair": "Preserve approved dynamic reviewer contracts rather than inventing fixed reviewers:020 requires090 plus relevant independent second reviewer;097 uses relevant089-094. Root records exact identities per retained diff before review/release."
+    },
+    {
+      "assignments": [
+        "089",
+        "090",
+        "091",
+        "092",
+        "093",
+        "094",
+        "095",
+        "100"
+      ],
+      "repair": "Review assignments operate incrementally on packets; mutual reviewer labels are not execution dependency edges.095 incremental review can examine001 now;095 final audit requires100:DRAFT, while100:final follows095 resolved audit. Distinct assignment numbers alone do not make the same author runtime independent."
+    }
+  ],
+  "dispatchQueue": [
+    {
+      "currentDisposition": "Execution receipt now available at revision10; route to independent091 while preserving historical-cause limitation.",
+      "increment": "007:controlled_reproduction",
+      "priority": 1,
+      "requires": [
+        "006:requirements",
+        "010:capture",
+        "018:capture_regression_PASS",
+        "003/017/098:exclusive_slot"
+      ]
+    },
+    {
+      "increment": "008:independent_reproduction",
+      "output": "Independent observed stage/outcome, uncontended control, release/recovery, identity/adoption and cleanup evidence. No timing acceptance claim.",
+      "priority": 2,
+      "requires": [
+        "007:procedure_and_frozen_inputs",
+        "independent_runtime",
+        "separate_fresh_store",
+        "exclusive_host"
+      ]
+    },
+    {
+      "increment": "010:demonstrated_fixture_fix_and_011_followup",
+      "output": "Only demonstrated fixture admission/follow-up correction; canonical acceptance separate from league outcome; post-admission errors remain failures; current canonical eventually consumed or drain fails. If owner is unresolved, leave blocked rather than speculate.",
+      "priority": 3,
+      "requires": [
+        "007:observed_result",
+        "008:independent_observed_result",
+        "009:narrow_boundary",
+        "exclusive_file_lease"
+      ]
+    },
+    {
+      "increment": "010:diagnostic_plumbing",
+      "output": "Wire opt-in adoption/phase/identity/end-clock/duration controls without changing official sampling, labels, predicates or default diagnostics-off behavior.",
+      "priority": 4,
+      "requires": [
+        "012:requirements",
+        "013:control_design",
+        "014:collector_API",
+        "015:applicable_control_design",
+        "016:duration_API",
+        "017:release_requirements"
+      ]
+    },
+    {
+      "increment": "018:changed_fixture_and_diagnostic_regressions",
+      "output": "Focused tests of exact retained diff, ordinary failures, queue/adoption invariants, opt-in/default-off behavior, correlation/loss/privacy; add integrated validation as relevant. Existing capture67 is retained but not substituted.",
+      "priority": 5,
+      "requires": [
+        "010:retained_fix_and_driver_integration",
+        "014:retained_collector",
+        "016:retained_observation"
+      ]
+    },
+    {
+      "increment": "089_and_091_review_then_019/092_and_097",
+      "output": "Independent measurement/producer review, privacy/bounds observer review by092, relevant integrated checks; self-review prohibited. Resolve rejection before measurement release.",
+      "priority": 6,
+      "requires": [
+        "006-018:applicable_packets",
+        "018:regression_results",
+        "002:ownership",
+        "004/096:classified_integration"
+      ]
+    },
+    {
+      "increment": "098:diagnostic_release_then_012_natural_and_013_paired_controls",
+      "output": "Exact900-second collector on/off/on natural protocol and prescribed stale-A/current-B paired controls; attribute only measured ownership and preserve unknown gaps.015 runs only applicable discriminating controls, not an indefinite experiment loop.",
+      "priority": 7,
+      "requires": [
+        "reviewed_frozen_candidate",
+        "003:provenance",
+        "017:power_and_host_qualification",
+        "exclusive_host"
+      ]
+    },
+    {
+      "increment": "020:conditional_product_correction_and_revalidation",
+      "output": "If diagnostics prove a product defect, bounded correction and affected tests/review/refreeze; otherwise explicit no-change or unresolved disposition. Fresh acceptance uses final retained candidate.",
+      "priority": 8,
+      "requires": [
+        "demonstrated_product_owner_if_any",
+        "exclusive_file_lease",
+        "090_and_relevant_second_review"
+      ]
+    },
+    {
+      "increment": "022/023_release_packets_and_029:fresh_short",
+      "output": "Fresh300-second uninstrumented official short; all gates must pass. Interrupted or missing evidence remains failed/blocked.",
+      "priority": 9,
+      "requires": [
+        "007-028:applicable_resolved",
+        "021:unchanged_policy_tests",
+        "097:relevant_integrated_PASS",
+        "098:short_release",
+        "exclusive_host"
+      ]
+    },
+    {
+      "increment": "030:fresh_full",
+      "output": "Fresh3600-second uninstrumented official full with continuous125-second verified quiet. No full dispatch based merely on short process exit or pooled latency.",
+      "priority": 10,
+      "requires": [
+        "029:EVERY_FRESH_SHORT_GATE_PASS",
+        "098:full_release",
+        "exclusive_host"
+      ]
+    }
+  ],
+  "executionPause": null,
+  "fetchedMain": "82cda32fda23198a266f992b249141b8d8d8587d",
+  "hostReservation": null,
+  "lastHostRelease": {
+    "assignment": "098",
+    "attempt": 1,
+    "completedAt": "2026-09-12T02:52:20.6773861Z",
+    "observedChildren": 52,
+    "releasedAt": "2026-09-12T02:53:17.030Z",
+    "remainingChildren": 0,
+    "scope": "Plumbing invocation ended and cleanup verified; evidence analysis pending. Adoption gate false, no900-run release.",
+    "unknownChildren": 0,
+    "webExitCode": 0
+  },
+  "lastReconciledMain": "86d20e6cae3f75b6c5d58a084882f4115e3e6e19",
+  "maxConcurrentIncludingRoot": 4,
+  "name": "performance-swarm",
+  "notices": [
+    {
+      "acknowledgedAt": "2026-09-12T01:17:16Z",
+      "acknowledgedBy": "/root/data_jobs",
+      "blocking": true,
+      "commandAcknowledgedAt": "2026-09-12T01:27:46.640Z",
+      "commandAcknowledgedBy": "000",
+      "commandDisposition": "Received; downstream work remains scoped and gated.",
+      "evidence": "packets/009-attempt1.json; board revision10 notices[0]",
+      "from": "009",
+      "id": "009-to-010-admission-and-adoption",
+      "requiredDeliverable": "Narrow pre-admission busy boundary plus bounded final latest-canonical follow-up; preserve post-admission failures.",
+      "state": "ACKNOWLEDGED_EXISTING_REVISION10",
+      "to": [
+        "010",
+        "011"
+      ],
+      "type": "DEPENDENCY NOTICE"
+    },
+    {
+      "acknowledgedAt": null,
+      "acknowledgedBy": null,
+      "blocking": true,
+      "commandAcknowledgedAt": "2026-09-12T01:27:46.640Z",
+      "commandAcknowledgedBy": "000",
+      "commandDisposition": "008 reserved atrevision11, completed/releasedbefore13; historical releasedAt in9/11 means permission to start, not finish. Future reservations use admittedAt.",
+      "from": "001",
+      "id": "001-host-release-metadata",
+      "requiredDeliverable": "Explicit008 experiment reservation before execution, followed by cleanup/release receipt; revision10 null reservation is not permission for parallel host work.",
+      "state": "PROPOSED_ACKNOWLEDGMENT_PENDING",
+      "to": [
+        "000",
+        "003",
+        "098"
+      ],
+      "type": "DEPENDENCY NOTICE"
+    },
+    {
+      "acknowledgedAt": null,
+      "acknowledgedBy": null,
+      "blocking": true,
+      "commandAcknowledgedAt": "2026-09-12T01:27:46.640Z",
+      "commandAcknowledgedBy": "000",
+      "commandDisposition": "Received; downstream work remains scoped and gated.",
+      "from": "001",
+      "id": "001-capture-versus-integration-milestones",
+      "requiredDeliverable": "Link existing010 capture and01867-test milestone; separately finish/review fixture correction and014/016 driver diagnostic integration with new relevant regressions.",
+      "state": "PROPOSED_ACKNOWLEDGMENT_PENDING",
+      "to": [
+        "010",
+        "018",
+        "089",
+        "091"
+      ],
+      "type": "DEPENDENCY NOTICE"
+    },
+    {
+      "acknowledgedAt": null,
+      "acknowledgedBy": null,
+      "blocking": true,
+      "commandAcknowledgedAt": "2026-09-12T01:27:46.640Z",
+      "commandAcknowledgedBy": "000",
+      "commandDisposition": "Appliedreviewer/deliverycontractmetadata inrevision14;missions and otherstatepreserved.",
+      "from": "001",
+      "id": "001-exact-approved-metadata",
+      "requiredDeliverable": "Apply exact per-assignment reviewer and deliveryContract mapping in approvedDeliveryGraph; preserve100 immutable missions and existing statuses/evidence.004 reviewer096 and018089+091 already correct.",
+      "state": "PROPOSED_ACKNOWLEDGMENT_PENDING",
+      "to": [
+        "000",
+        "095"
+      ],
+      "type": "DEPENDENCY NOTICE"
+    },
+    {
+      "acknowledgedAt": null,
+      "acknowledgedBy": null,
+      "blocking": true,
+      "commandAcknowledgedAt": "2026-09-12T01:27:46.640Z",
+      "commandAcknowledgedBy": "000",
+      "commandDisposition": "Received; downstream work remains scoped and gated.",
+      "from": "001",
+      "id": "001-diagnostic-before-acceptance",
+      "requiredDeliverable": "Reviewed plumbing and unchanged900on/off/on plus3B-generation paired controls before fresh short; full only after every fresh short gate. Preserve failures, unknown gaps and continuous quiet evidence.",
+      "state": "PROPOSED_ACKNOWLEDGMENT_PENDING",
+      "to": [
+        "012",
+        "013",
+        "017",
+        "022",
+        "023",
+        "029",
+        "030",
+        "098"
+      ],
+      "type": "DEPENDENCY NOTICE"
+    },
+    {
+      "acknowledgedAt": null,
+      "acknowledgedBy": null,
+      "blocking": true,
+      "commandAcknowledgedAt": "2026-09-12T01:27:46.640Z",
+      "commandAcknowledgedBy": "000",
+      "commandDisposition": "Received; downstream work remains scoped and gated.",
+      "from": "001",
+      "id": "001-preparation-versus-activation",
+      "requiredDeliverable": "Record phase-qualified preparation, baseline, acceptance and activation gates so work ahead proceeds without claiming production or migration acceptance.088 budget approval remains an owner action.",
+      "state": "PROPOSED_ACKNOWLEDGMENT_PENDING",
+      "to": [
+        "005",
+        "045",
+        "068",
+        "069-088",
+        "095"
+      ],
+      "type": "DEPENDENCY NOTICE"
+    }
+  ],
+  "requiredAssignments": 100,
+  "resumption": {
+    "at": "2026-09-12T07:15:23.177Z",
+    "authority": "Owner: Finish it; existing100-assignment scope and restrictions persist",
+    "limits": "Prior runtime data_jobs exited with usage limit; no remaining prior agents or measurement jobs assumed. Fresh runtime agents assigned distinct leases."
+  },
+  "schema": 1,
+  "startedAt": "2026-09-12T00:55:40.218Z",
+  "updatedAt": "2026-09-12T12:05:14.790439+00:00",
+  "releaseAuthority": "**Owner final-release authority \u2014 2026-09-12 (supersedes pause).** Resume the existing100-assignment campaign. The owner explicitly authorizes reviewable commits, push, PRs, protected green merges and staged rollout after prerequisite gates. Preserve local hybrid and all correctness/resource/browser gates. Measured new route budgets may be adopted with two independent reviews when no existing requirement or product expectation is weakened. Full terminal requirement is accepted production behavior and required work merged to main. No protection bypass or secret exposure. The pause report is historical; current execution follows the approved Final Performance Release Completion plan."
+}

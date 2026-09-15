@@ -1,5 +1,7 @@
 "use client";
 
+import { performanceLabMark } from "@/lib/performance-lab";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 
 const AUTH_CHECK_KEY = "next_auth_checked_v1";
@@ -98,6 +100,7 @@ export function useAuth() {
      * timeout), not an answer about this user.
      */
     async function probe() {
+      performanceLabMark("probe-start", "auth");
       const cached = readAuthCache();
       try {
         const ctl = new AbortController();
@@ -121,6 +124,7 @@ export function useAuth() {
         }
 
         const data = await res.json();
+        performanceLabMark("probe-end", "auth");
         if (!active) return;
         const authed = !!data.authenticated;
         // Authoritative: stop retrying and commit, in both directions.

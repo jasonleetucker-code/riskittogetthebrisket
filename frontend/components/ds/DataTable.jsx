@@ -73,6 +73,8 @@
  */
 "use client";
 
+import { performanceLabMark } from "@/lib/performance-lab";
+
 import React, {
   Fragment,
   useCallback,
@@ -243,6 +245,7 @@ export function DataTable({
   // and then freeze exactly those. The frozen table is by construction
   // the same geometry the user sees today, at whatever breakpoint they
   // are at, and re-measures when the viewport changes.
+  const hasRows = Boolean(rows?.length);
   const tableRef = useRef(null);
   const [frozen, setFrozen] = useState(null);
 
@@ -251,6 +254,7 @@ export function DataTable({
     if (!table) return;
     const ths = Array.from(table.querySelectorAll("thead th"));
     if (ths.length === 0) return;
+    performanceLabMark("width-start", "table");
     // Measure with the freeze OFF, so we read the browser's own
     // content-driven answer rather than the widths we last imposed.
     const widths = ths.map((th) => {
@@ -262,6 +266,7 @@ export function DataTable({
       }
       return Math.round(th.getBoundingClientRect().width * 100) / 100;
     });
+    performanceLabMark("width-end", "table");
     const total = widths.reduce((sum, w) => sum + (w || 0), 0);
     if (total <= 0) return;
     setFrozen((prev) => {
@@ -291,6 +296,11 @@ export function DataTable({
   // `measure()` is idempotent — it self-terminates on the guard below.
   useIsomorphicLayoutEffect(() => {
     if (!freezeColumnWidths) return;
+    // Empty state removes the table; its replacement needs fresh geometry.
+    if (!hasRows) {
+      if (frozen) setFrozen(null);
+      return;
+    }
     if (frozen) return;
     measure();
   });
@@ -322,7 +332,7 @@ export function DataTable({
       cancelAnimationFrame(raf);
       ro.disconnect();
     };
-  }, [freezeColumnWidths]);
+  }, [freezeColumnWidths, hasRows]);
 
   // Columns changing (the board's source toggles add/remove columns)
   // invalidates the measurement for the same reason a resize does.

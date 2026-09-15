@@ -25,13 +25,13 @@ export async function POST(request) {
     body = null;
   }
 
-  // Forward the ``view`` query parameter so the frontend can opt in
-  // to the compact ``view=delta`` response shape.  Everything else
-  // is dropped on the floor — the backend ignores unknown params.
+  // Preserve the representation, accepted generation, and league scope.
   const incomingUrl = new URL(request.url);
   const forwardedUrl = new URL(OVERRIDES_URL);
-  const view = incomingUrl.searchParams.get("view");
-  if (view) forwardedUrl.searchParams.set("view", view);
+  for (const key of ["view", "generation", "leagueKey"]) {
+    const value = incomingUrl.searchParams.get(key);
+    if (value) forwardedUrl.searchParams.set(key, value);
+  }
 
   const ctl = new AbortController();
   // Override responses rebuild the full canonical contract (~2-5MB
@@ -44,6 +44,10 @@ export async function POST(request) {
     const cookie = request.headers.get("cookie") || "";
     const headers = { "Content-Type": "application/json" };
     if (cookie) headers.Cookie = cookie;
+    for (const name of ["traceparent", "x-request-id"]) {
+      const value = request.headers.get(name);
+      if (value) headers[name] = value;
+    }
     const res = await fetch(forwardedUrl.toString(), {
       method: "POST",
       headers,
@@ -72,7 +76,7 @@ export async function POST(request) {
   } catch (err) {
     return NextResponse.json(
       { error: "Rankings override service unavailable", detail: err?.message },
-      { status: 503 },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
     );
   } finally {
     clearTimeout(timer);

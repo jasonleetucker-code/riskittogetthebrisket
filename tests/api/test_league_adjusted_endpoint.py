@@ -45,6 +45,7 @@ from __future__ import annotations
 import copy
 import json
 
+import pytest
 from fastapi.testclient import TestClient
 
 import server
@@ -52,6 +53,8 @@ from src.api import gameplan, league_registry
 from tests.api.scoring_fixture import SCORING_CARD
 from tests.api.test_gameplan_endpoint import _roster
 from tests.api.test_gameplan_endpoint import league  # noqa: F401 — pytest fixture
+
+pytestmark = pytest.mark.usefixtures("isolated_legacy_serving_startup")
 
 # ``league`` is re-exported into this module's namespace on purpose; that
 # is how pytest resolves an imported fixture.
@@ -146,6 +149,7 @@ def _install_contract(
         # served for any OTHER league, which several tests here do.
         "sleeper": {"teams": [], "scoringSettings": dict(SCORING_CARD)},
     }
+    monkeypatch.setattr(server, "latest_serving_generation", None)
     monkeypatch.setattr(server, "latest_contract_data", stub)
     return stub
 

@@ -1,0 +1,1495 @@
+{
+  "schemaVersion": 1,
+  "scope": "Local fixed-replay validation/reload isolation; not deployed evidence",
+  "status": "B \u2014 NOT READY FOR FINAL FULL SOAK",
+  "startingCandidate": "564ef3f28dc90904e0e1542adc53f2b4eb59c7ee",
+  "fetchedMain": "f864564e2fc3b3145f576a1d8a3ec2a9eefca238",
+  "baseline": {
+    "reportSha256": "e09bca935293a2d4b261764227258780ef54785fa0fcc326947f9aaf34376a63",
+    "inputSha256": "7c36b88688011bb7a8a26edb31182a57b76107ab2e29c6ca3422e8472f114361",
+    "rawInputSha256": "9133cbee209b6e8b220f38f780871a033d94a8ea7e0f5d167cb0605378439d32",
+    "checks": {
+      "noIncorrectResponsesOrUnexpectedFailures": true,
+      "preparedEndpointP95Below75ms": true,
+      "refreshDegradationAtMost20Percent": false,
+      "rssGrowthBound": false,
+      "handlesReturnNearBaseline": true,
+      "noRemainingObservedChildren": true,
+      "diskWithinBudget": true,
+      "faultScenariosObserved": true,
+      "changedAndUnchangedRefreshObserved": true,
+      "requiredHttpReadSeriesObserved": true,
+      "eachHttpReadSeriesP95Below75ms": true,
+      "eachRefreshReadSeriesWithin20Percent": false,
+      "changedPublicationsObservedByHttp": true,
+      "harnessUnchangedDuringRun": true,
+      "productAndHelperCodeUnchangedDuringRun": true,
+      "verifiedWorkerAndReloadFreeQuietRecovery": true,
+      "completeResourceCoverageAtLeast99Percent": true,
+      "observationCoverageAtLeast99Percent": true,
+      "observationSampleGapsAtMost2Seconds": true,
+      "uninstrumentedAcceptance": true
+    },
+    "durationSeconds": 432.625,
+    "quietRecovery": {
+      "phase": "done",
+      "exerciseRequiredSeconds": 300.0,
+      "admissionClosedAtSeconds": 300.344000000041,
+      "quietStartSeconds": 311.4529999997467,
+      "quietEndSeconds": 431.51599999982864,
+      "verifiedQuietSeconds": 120.06300000008196,
+      "quietResetCount": 0,
+      "verified": true
+    },
+    "resourceOwnership": {
+      "scope": "Attribution only; aggregate RSS/handle gates remain unchanged",
+      "webMissingObservationCount": 0,
+      "baseline": {
+        "driverRssBytes": 76984320.0,
+        "webRssBytes": 398073856.0,
+        "driverDescriptorCount": 246.0,
+        "webDescriptorCount": 378.0
+      },
+      "final": {
+        "driverRssBytes": 87322624.0,
+        "webRssBytes": 547446784.0,
+        "driverDescriptorCount": 247.0,
+        "webDescriptorCount": 383.0
+      }
+    },
+    "rssBaselineBytes": 475049984.0,
+    "rssFinalBytes": 634757120.0,
+    "p95MillisecondsByReadSeries": {
+      "rankings:baseline:unconditional:200": 3.4524002112448215,
+      "rankings:baseline:conditional:304": 2.0619998686015606,
+      "trade:baseline:unconditional:200": 2.3425999097526073,
+      "trade:baseline:conditional:304": 2.0133000798523426,
+      "rankings:postRefreshIdle:unconditional:200": 15.624700114130974,
+      "rankings:postRefreshIdle:conditional:304": 2.138500101864338,
+      "trade:postRefreshIdle:unconditional:200": 2.662200015038252,
+      "trade:postRefreshIdle:conditional:304": 2.1521998569369316,
+      "rankings:refresh:unconditional:200": 61.07080029323697,
+      "rankings:refresh:conditional:304": 3.328399732708931,
+      "trade:refresh:unconditional:200": 7.048400118947029,
+      "trade:refresh:conditional:304": 3.221800085157156,
+      "rankings:postRefreshIdle:conditional:200": 55.18410028889775,
+      "rankings:refresh:conditional:200": 64.31840034201741
+    },
+    "sampleCount": 433,
+    "completeResourceCoverageFraction": 0.9964868046611731,
+    "maxSampleGapSeconds": 1.5779999999999745,
+    "readCounts": {
+      "baseline": 9168,
+      "refresh": 16328,
+      "postRefreshIdle": 27416
+    },
+    "observedChildren": {
+      "observedCount": 57,
+      "remainingCount": 0,
+      "reparentedCount": 0,
+      "unknownCount": 0
+    },
+    "diskFinalBytes": 526914542,
+    "codeProvenance": {
+      "startup": {
+        "server.py": "32dd3b75feafda05e5ebf553069eb62d208e23302fc97d04b359379a1fb5895f",
+        "scripts/soak_prepared_serving.py": "4efcb00109df950cf7fd4af080ffe3db346bf86484a686066a759ffbfbd9c6ca",
+        "scripts/soak_observation.py": "6d84fa5d396ebe98da0eb957a799e08e63fd03eb4c657d98c8322cf1be9f22b1",
+        "src/serving/serialization.py": "c15b46c58a545d5e5f9b23aaed024b992c23e4595e6800a53aa96a4c22f95c52",
+        "src/serving/league_views.py": "ee3db6382bc679a3330617cb7e60c76f295529a4e2084e0f162caf37d1eba046",
+        "src/serving/runtime.py": "0ac548afb6939c8dd69b004fe33d4bef3123d079875492b34461c8d2d3a57ab3",
+        "src/serving/artifacts.py": "3e26f1bf1172de107e4eef9a2c8df0d4c1262d7428519171f9649af110ad057c",
+        "src/serving/builder.py": "b0ff127ed2f1502b7cb764b2a9a1b1ad703eb154d1ef3700d4fac4045553c5b2",
+        "src/serving/projections.py": "62cc0f20bc07ad6843d697a93482f11c6b801dea835ec6827e0d41745ff829c8"
+      },
+      "end": {
+        "server.py": "32dd3b75feafda05e5ebf553069eb62d208e23302fc97d04b359379a1fb5895f",
+        "scripts/soak_prepared_serving.py": "4efcb00109df950cf7fd4af080ffe3db346bf86484a686066a759ffbfbd9c6ca",
+        "scripts/soak_observation.py": "6d84fa5d396ebe98da0eb957a799e08e63fd03eb4c657d98c8322cf1be9f22b1",
+        "src/serving/serialization.py": "c15b46c58a545d5e5f9b23aaed024b992c23e4595e6800a53aa96a4c22f95c52",
+        "src/serving/league_views.py": "ee3db6382bc679a3330617cb7e60c76f295529a4e2084e0f162caf37d1eba046",
+        "src/serving/runtime.py": "0ac548afb6939c8dd69b004fe33d4bef3123d079875492b34461c8d2d3a57ab3",
+        "src/serving/artifacts.py": "3e26f1bf1172de107e4eef9a2c8df0d4c1262d7428519171f9649af110ad057c",
+        "src/serving/builder.py": "b0ff127ed2f1502b7cb764b2a9a1b1ad703eb154d1ef3700d4fac4045553c5b2",
+        "src/serving/projections.py": "62cc0f20bc07ad6843d697a93482f11c6b801dea835ec6827e0d41745ff829c8"
+      }
+    }
+  },
+  "candidate": {
+    "reportSha256": "6543c5d6ec61e4f2f75a3be402f334e84ade4c6ff36a5e78300cd209ade2c0c7",
+    "inputSha256": "7c36b88688011bb7a8a26edb31182a57b76107ab2e29c6ca3422e8472f114361",
+    "rawInputSha256": "9133cbee209b6e8b220f38f780871a033d94a8ea7e0f5d167cb0605378439d32",
+    "checks": {
+      "noIncorrectResponsesOrUnexpectedFailures": true,
+      "preparedEndpointP95Below75ms": true,
+      "refreshDegradationAtMost20Percent": false,
+      "rssGrowthBound": true,
+      "handlesReturnNearBaseline": true,
+      "noRemainingObservedChildren": true,
+      "diskWithinBudget": true,
+      "faultScenariosObserved": true,
+      "changedAndUnchangedRefreshObserved": true,
+      "requiredHttpReadSeriesObserved": true,
+      "eachHttpReadSeriesP95Below75ms": true,
+      "eachRefreshReadSeriesWithin20Percent": false,
+      "changedPublicationsObservedByHttp": true,
+      "harnessUnchangedDuringRun": true,
+      "productAndHelperCodeUnchangedDuringRun": true,
+      "verifiedWorkerAndReloadFreeQuietRecovery": true,
+      "completeResourceCoverageAtLeast99Percent": true,
+      "observationCoverageAtLeast99Percent": true,
+      "observationSampleGapsAtMost2Seconds": true,
+      "uninstrumentedAcceptance": true
+    },
+    "durationSeconds": 448.063,
+    "quietRecovery": {
+      "phase": "done",
+      "exerciseRequiredSeconds": 300.0,
+      "admissionClosedAtSeconds": 300.2349999998696,
+      "quietStartSeconds": 326.5,
+      "quietEndSeconds": 447.40700000012293,
+      "verifiedQuietSeconds": 120.90700000012293,
+      "quietResetCount": 0,
+      "verified": true
+    },
+    "resourceOwnership": {
+      "scope": "Attribution only; aggregate RSS/handle gates remain unchanged",
+      "webMissingObservationCount": 0,
+      "baseline": {
+        "driverRssBytes": 87306240.0,
+        "webRssBytes": 384528384.0,
+        "driverDescriptorCount": 261.0,
+        "webDescriptorCount": 391.0
+      },
+      "final": {
+        "driverRssBytes": 100483072,
+        "webRssBytes": 435159040,
+        "driverDescriptorCount": 261,
+        "webDescriptorCount": 396
+      }
+    },
+    "rssBaselineBytes": 471822336.0,
+    "rssFinalBytes": 535769088,
+    "peakProcessTreeRssBytes": 1804288000,
+    "p95MillisecondsByReadSeries": {
+      "rankings:baseline:unconditional:200": 3.050500061362982,
+      "rankings:baseline:conditional:304": 1.67859997600317,
+      "trade:baseline:unconditional:200": 1.707300078123808,
+      "trade:baseline:conditional:304": 1.4423998072743416,
+      "rankings:postRefreshIdle:unconditional:200": 14.688999857753515,
+      "rankings:postRefreshIdle:conditional:304": 1.9358000718057156,
+      "trade:postRefreshIdle:unconditional:200": 2.2154003381729126,
+      "trade:postRefreshIdle:conditional:304": 1.8978998996317387,
+      "rankings:refresh:unconditional:200": 16.11330034211278,
+      "rankings:refresh:conditional:304": 2.4916999973356724,
+      "trade:refresh:unconditional:200": 2.972099930047989,
+      "trade:refresh:conditional:304": 2.346400171518326,
+      "rankings:refresh:conditional:200": 1.8236003816127777
+    },
+    "p99MillisecondsByReadSeries": {
+      "rankings:baseline:unconditional:200": 16.370300203561783,
+      "rankings:baseline:conditional:304": 2.0281998440623283,
+      "trade:baseline:unconditional:200": 12.669499963521957,
+      "trade:baseline:conditional:304": 1.839000266045332,
+      "rankings:postRefreshIdle:unconditional:200": 18.136400263756514,
+      "rankings:postRefreshIdle:conditional:304": 2.7506002224981785,
+      "trade:postRefreshIdle:unconditional:200": 12.546299956738949,
+      "trade:postRefreshIdle:conditional:304": 2.734200097620487,
+      "rankings:refresh:unconditional:200": 21.259599830955267,
+      "rankings:refresh:conditional:304": 3.3631999976933002,
+      "trade:refresh:unconditional:200": 12.752600014209747,
+      "trade:refresh:conditional:304": 3.0029998160898685,
+      "rankings:refresh:conditional:200": 1.8236003816127777
+    },
+    "refreshP95Deltas": {
+      "rankings:refresh:unconditional:200": {
+        "baselineMilliseconds": 3.050500061362982,
+        "refreshMilliseconds": 16.11330034211278,
+        "absoluteMilliseconds": 13.062800280749798,
+        "relativePercent": 428.2183254542621
+      },
+      "rankings:refresh:conditional:304": {
+        "baselineMilliseconds": 1.67859997600317,
+        "refreshMilliseconds": 2.4916999973356724,
+        "absoluteMilliseconds": 0.8131000213325024,
+        "relativePercent": 48.43917746672044
+      },
+      "trade:refresh:unconditional:200": {
+        "baselineMilliseconds": 1.707300078123808,
+        "refreshMilliseconds": 2.972099930047989,
+        "absoluteMilliseconds": 1.264799851924181,
+        "relativePercent": 74.08187161299138
+      },
+      "trade:refresh:conditional:304": {
+        "baselineMilliseconds": 1.4423998072743416,
+        "refreshMilliseconds": 2.346400171518326,
+        "absoluteMilliseconds": 0.9040003642439842,
+        "relativePercent": 62.67335586741694
+      },
+      "rankings:refresh:conditional:200": {
+        "baselineMilliseconds": 3.050500061362982,
+        "refreshMilliseconds": 1.8236003816127777,
+        "absoluteMilliseconds": -1.226899679750204,
+        "relativePercent": -40.21962481790668
+      }
+    },
+    "sampleCountsByReadSeries": {
+      "rankings:baseline:unconditional:200": 2628,
+      "rankings:baseline:conditional:304": 2628,
+      "trade:baseline:unconditional:200": 2628,
+      "trade:baseline:conditional:304": 2628,
+      "rankings:postRefreshIdle:unconditional:200": 5377,
+      "rankings:postRefreshIdle:conditional:304": 5373,
+      "trade:postRefreshIdle:unconditional:200": 5373,
+      "trade:postRefreshIdle:conditional:304": 5376,
+      "rankings:refresh:unconditional:200": 8614,
+      "rankings:refresh:conditional:304": 8617,
+      "trade:refresh:unconditional:200": 8618,
+      "trade:refresh:conditional:304": 8615,
+      "rankings:refresh:conditional:200": 1
+    },
+    "sampleCount": 449,
+    "completeResourceCoverageFraction": 0.9990903137409052,
+    "maxSampleGapSeconds": 1.046999999999997,
+    "readCounts": {
+      "baseline": 10512,
+      "refresh": 34465,
+      "postRefreshIdle": 21499
+    },
+    "observedChildren": {
+      "observedCount": 57,
+      "remainingCount": 0,
+      "reparentedCount": 0,
+      "unknownCount": 0
+    },
+    "retention": {
+      "schemaVersion": 1,
+      "status": "ok",
+      "dryRun": true,
+      "bytesBefore": 511312207,
+      "bytesAfter": 511312207,
+      "projectedBytes": 511312207,
+      "budgetBytes": 536870912,
+      "minFreeBytes": 524288000,
+      "freeBytes": 233321586688,
+      "generationCount": 9,
+      "protectedCount": 6,
+      "deletedCount": 0,
+      "plannedDeleteCount": 0,
+      "reclaimedBytes": 0,
+      "oldestRetainedAt": "2026-09-11T13:06:13.079974-04:00",
+      "unknownAcceptanceCount": 0,
+      "shortenedRollbackWindow": false,
+      "blocked": false,
+      "capacityBlocked": false
+    },
+    "diskFinalBytes": 511312217,
+    "codeProvenance": {
+      "startup": {
+        "server.py": "5b30222413f456c0981ed490b099e5ba9162f1b8f3fed35a478f25d229d59e5b",
+        "scripts/soak_prepared_serving.py": "dbd35864130f8f6816d05919229c3eb3549372bb1500f499bf7fbe90028cf6c6",
+        "scripts/soak_observation.py": "30b412e7432856d675439b6f3cce2a04b4db8fb963a8f023ee57047e5ae88bde",
+        "src/serving/serialization.py": "903b4b540ef734cdffc0ec51ceab77d5e66343b182bfbe9f2c85c707eb267b64",
+        "src/serving/league_views.py": "9998a0cc28663d9961eccd807eec1f3c297bc52e4f159af0934fafc0be3b19c6",
+        "src/serving/runtime.py": "467d165cc613de9f7b81c79ae00f0f49088a1230a162d84dbbb4dfdc15ee9796",
+        "src/serving/artifacts.py": "b358a0d8761b254358c46d3974ca3fc629f7270fda029ff681b454a5e6dd6039",
+        "src/serving/attestation.py": "e640c2b504aa17ecb262d734fc36e28785b5131b76b700721a922b96cf6bf4bc",
+        "src/serving/__init__.py": "577950e4a7bfa082ef861805ae992c462bfb40d9ebdf580aede50a753438bd2d",
+        "src/serving/coordinator.py": "fa599458a12d9fdb53ebeee07d7d38c3d0e7eb7429a25ccb8c7d80288626909e",
+        "src/serving/builder.py": "b0ff127ed2f1502b7cb764b2a9a1b1ad703eb154d1ef3700d4fac4045553c5b2",
+        "src/serving/projections.py": "62cc0f20bc07ad6843d697a93482f11c6b801dea835ec6827e0d41745ff829c8"
+      },
+      "end": {
+        "server.py": "5b30222413f456c0981ed490b099e5ba9162f1b8f3fed35a478f25d229d59e5b",
+        "scripts/soak_prepared_serving.py": "dbd35864130f8f6816d05919229c3eb3549372bb1500f499bf7fbe90028cf6c6",
+        "scripts/soak_observation.py": "30b412e7432856d675439b6f3cce2a04b4db8fb963a8f023ee57047e5ae88bde",
+        "src/serving/serialization.py": "903b4b540ef734cdffc0ec51ceab77d5e66343b182bfbe9f2c85c707eb267b64",
+        "src/serving/league_views.py": "9998a0cc28663d9961eccd807eec1f3c297bc52e4f159af0934fafc0be3b19c6",
+        "src/serving/runtime.py": "467d165cc613de9f7b81c79ae00f0f49088a1230a162d84dbbb4dfdc15ee9796",
+        "src/serving/artifacts.py": "b358a0d8761b254358c46d3974ca3fc629f7270fda029ff681b454a5e6dd6039",
+        "src/serving/attestation.py": "e640c2b504aa17ecb262d734fc36e28785b5131b76b700721a922b96cf6bf4bc",
+        "src/serving/__init__.py": "577950e4a7bfa082ef861805ae992c462bfb40d9ebdf580aede50a753438bd2d",
+        "src/serving/coordinator.py": "fa599458a12d9fdb53ebeee07d7d38c3d0e7eb7429a25ccb8c7d80288626909e",
+        "src/serving/builder.py": "b0ff127ed2f1502b7cb764b2a9a1b1ad703eb154d1ef3700d4fac4045553c5b2",
+        "src/serving/projections.py": "62cc0f20bc07ad6843d697a93482f11c6b801dea835ec6827e0d41745ff829c8"
+      }
+    },
+    "environment": {
+      "platform": "Windows-11-10.0.26200-SP0",
+      "python": "3.12.10",
+      "psutil": "7.2.2",
+      "hostMemoryBytes": 33821810688,
+      "logicalCpus": 22
+    }
+  },
+  "diagnostics": {
+    "baseline": {
+      "traceSha256": "05cca608056c4ad4d36fc4e17f0d179a5460c8d1031a677630fae6ee1f88bc5e",
+      "collection": [
+        {
+          "event": "collection",
+          "emitted": 214485,
+          "dropped": 1260,
+          "scope": "diagnostic_only"
+        }
+      ],
+      "eventLoopDelayMs": {
+        "count": 4458,
+        "median": 0.0,
+        "p95": 13.9366,
+        "p99": 100.1698,
+        "max": 521.7662
+      },
+      "stages": {
+        "canonical.web_load": {
+          "wallMs": {
+            "count": 5,
+            "median": 1292.9763,
+            "p95": 1435.2117,
+            "p99": 1435.2117,
+            "max": 1960.0304
+          },
+          "threadCpuMs": {
+            "count": 5,
+            "median": 1203.125,
+            "p95": 1234.375,
+            "p99": 1234.375,
+            "max": 1515.625
+          }
+        },
+        "canonical.load": {
+          "wallMs": {
+            "count": 5,
+            "median": 1292.9521,
+            "p95": 1435.1896,
+            "p99": 1435.1896,
+            "max": 1959.9824
+          },
+          "threadCpuMs": {
+            "count": 5,
+            "median": 1203.125,
+            "p95": 1234.375,
+            "p99": 1234.375,
+            "max": 1515.625
+          }
+        },
+        "canonical.validate": {
+          "wallMs": {
+            "count": 5,
+            "median": 700.0338,
+            "p95": 901.2855,
+            "p99": 901.2855,
+            "max": 955.279
+          },
+          "threadCpuMs": {
+            "count": 5,
+            "median": 656.25,
+            "p95": 687.5,
+            "p99": 687.5,
+            "max": 718.75
+          }
+        },
+        "canonical.projections": {
+          "wallMs": {
+            "count": 5,
+            "median": 434.9232,
+            "p95": 478.7799,
+            "p99": 478.7799,
+            "max": 749.3552
+          },
+          "threadCpuMs": {
+            "count": 5,
+            "median": 359.375,
+            "p95": 437.5,
+            "p99": 437.5,
+            "max": 609.375
+          }
+        },
+        "league.web_load": {
+          "wallMs": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "threadCpuMs": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        },
+        "league.load": {
+          "wallMs": {
+            "count": 7,
+            "median": 676.2518,
+            "p95": 1017.397,
+            "p99": 1017.397,
+            "max": 1080.1229
+          },
+          "threadCpuMs": {
+            "count": 7,
+            "median": 640.625,
+            "p95": 765.625,
+            "p99": 765.625,
+            "max": 828.125
+          }
+        },
+        "league.validate": {
+          "wallMs": {
+            "count": 7,
+            "median": 928.7842,
+            "p95": 1036.3034,
+            "p99": 1036.3034,
+            "max": 1257.2346
+          },
+          "threadCpuMs": {
+            "count": 7,
+            "median": 921.875,
+            "p95": 968.75,
+            "p99": 968.75,
+            "max": 1031.25
+          }
+        },
+        "league.expire": {
+          "wallMs": {
+            "count": 114,
+            "median": 0.00945,
+            "p95": 821.1594,
+            "p99": 1179.5306,
+            "max": 2061.8159
+          },
+          "threadCpuMs": {
+            "count": 114,
+            "median": 0.0,
+            "p95": 812.5,
+            "p99": 1000.0,
+            "max": 1015.625
+          }
+        },
+        "payload.prepare": {
+          "wallMs": {
+            "count": 56,
+            "median": 127.51535,
+            "p95": 420.9142,
+            "p99": 433.5671,
+            "max": 512.7507
+          },
+          "threadCpuMs": {
+            "count": 56,
+            "median": 109.375,
+            "p95": 281.25,
+            "p99": 281.25,
+            "max": 296.875
+          }
+        },
+        "endpoint.capture": {
+          "wallMs": {
+            "count": 30883,
+            "median": 0.0016,
+            "p95": 0.0028,
+            "p99": 0.0041,
+            "max": 0.0537
+          },
+          "threadCpuMs": {
+            "count": 30883,
+            "median": 0.0,
+            "p95": 0.0,
+            "p99": 0.0,
+            "max": 15.625
+          }
+        },
+        "endpoint.dispatch": {
+          "wallMs": {
+            "count": 30763,
+            "median": 0.0536,
+            "p95": 0.18,
+            "p99": 0.2953,
+            "max": 195.989
+          },
+          "threadCpuMs": {
+            "count": 30763,
+            "median": 0.0,
+            "p95": 0.0,
+            "p99": 0.0,
+            "max": 187.5
+          }
+        },
+        "endpoint.etag_and_bytes": {
+          "wallMs": {
+            "count": 30763,
+            "median": 0.0137,
+            "p95": 0.0255,
+            "p99": 0.0427,
+            "max": 73.6157
+          },
+          "threadCpuMs": {
+            "count": 30763,
+            "median": 0.0,
+            "p95": 0.0,
+            "p99": 0.0,
+            "max": 78.125
+          }
+        },
+        "canonical.swap": {
+          "wallMs": {
+            "count": 5,
+            "median": 0.0138,
+            "p95": 0.014,
+            "p99": 0.014,
+            "max": 0.0168
+          },
+          "threadCpuMs": {
+            "count": 5,
+            "median": 0.0,
+            "p95": 0.0,
+            "p99": 0.0,
+            "max": 0.0
+          }
+        }
+      },
+      "gcPauseMs": {
+        "count": 8028,
+        "median": 0.1031,
+        "p95": 0.3164,
+        "p99": 1.5528,
+        "max": 335.4163
+      },
+      "gcByGeneration": {
+        "0": 7348,
+        "1": 668,
+        "2": 12
+      },
+      "serverRequestMs": {
+        "count": 30763,
+        "median": 0.8367,
+        "p95": 1.4801,
+        "p99": 1.9686,
+        "max": 337.13
+      },
+      "requestFields": [
+        "endNs",
+        "event",
+        "requestId",
+        "route",
+        "startNs"
+      ],
+      "loopDelaysOver20ms": {
+        "count": 150,
+        "overlapBackgroundWork": 140
+      },
+      "successfulStages": {
+        "canonical.web_load": {
+          "successfulCount": 5,
+          "medianWallMs": 1292.9763,
+          "medianThreadCpuMs": 1203.125
+        },
+        "league.load": {
+          "successfulCount": 7,
+          "medianWallMs": 676.2518,
+          "medianThreadCpuMs": 640.625
+        },
+        "league.web_load": {
+          "successfulCount": 0,
+          "medianWallMs": null,
+          "medianThreadCpuMs": null
+        },
+        "league.validate": {
+          "successfulCount": 7,
+          "medianWallMs": 928.7842,
+          "medianThreadCpuMs": 921.875
+        }
+      }
+    },
+    "candidate": {
+      "traceSha256": "90462c6f6893e08c65940fe12d604b73cd360bccc7d2093b5476b252438dcf23",
+      "collection": [
+        {
+          "event": "collection",
+          "emitted": 225937,
+          "dropped": 0,
+          "scope": "diagnostic_only"
+        }
+      ],
+      "eventLoopDelayMs": {
+        "count": 4845,
+        "median": 0.0,
+        "p95": 13.1819,
+        "p99": 14.1056,
+        "max": 169.32
+      },
+      "stages": {
+        "canonical.web_load": {
+          "wallMs": {
+            "count": 5,
+            "median": 340.0189,
+            "p95": 451.5125,
+            "p99": 451.5125,
+            "max": 480.7369
+          },
+          "threadCpuMs": {
+            "count": 5,
+            "median": 343.75,
+            "p95": 437.5,
+            "p99": 437.5,
+            "max": 468.75
+          }
+        },
+        "canonical.load": {
+          "wallMs": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "threadCpuMs": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        },
+        "canonical.validate": {
+          "wallMs": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "threadCpuMs": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        },
+        "canonical.projections": {
+          "wallMs": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "threadCpuMs": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        },
+        "league.web_load": {
+          "wallMs": {
+            "count": 18,
+            "median": 53.837199999999996,
+            "p95": 245.6117,
+            "p99": 245.6117,
+            "max": 270.3048
+          },
+          "threadCpuMs": {
+            "count": 18,
+            "median": 46.875,
+            "p95": 234.375,
+            "p99": 234.375,
+            "max": 234.375
+          }
+        },
+        "league.load": {
+          "wallMs": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "threadCpuMs": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        },
+        "league.validate": {
+          "wallMs": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "threadCpuMs": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        },
+        "league.expire": {
+          "wallMs": {
+            "count": 126,
+            "median": 0.032049999999999995,
+            "p95": 0.0482,
+            "p99": 0.0577,
+            "max": 0.0657
+          },
+          "threadCpuMs": {
+            "count": 126,
+            "median": 0.0,
+            "p95": 0.0,
+            "p99": 0.0,
+            "max": 0.0
+          }
+        },
+        "payload.prepare": {
+          "wallMs": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          },
+          "threadCpuMs": {
+            "count": 0,
+            "median": null,
+            "p95": null,
+            "p99": null,
+            "max": null
+          }
+        },
+        "endpoint.capture": {
+          "wallMs": {
+            "count": 34129,
+            "median": 0.0016,
+            "p95": 0.0028,
+            "p99": 0.0044,
+            "max": 0.0713
+          },
+          "threadCpuMs": {
+            "count": 34129,
+            "median": 0.0,
+            "p95": 0.0,
+            "p99": 0.0,
+            "max": 15.625
+          }
+        },
+        "endpoint.dispatch": {
+          "wallMs": {
+            "count": 34008,
+            "median": 0.0546,
+            "p95": 0.1838,
+            "p99": 0.3195,
+            "max": 144.3438
+          },
+          "threadCpuMs": {
+            "count": 34008,
+            "median": 0.0,
+            "p95": 0.0,
+            "p99": 0.0,
+            "max": 156.25
+          }
+        },
+        "endpoint.etag_and_bytes": {
+          "wallMs": {
+            "count": 34008,
+            "median": 0.0133,
+            "p95": 0.0249,
+            "p99": 0.0411,
+            "max": 0.6555
+          },
+          "threadCpuMs": {
+            "count": 34008,
+            "median": 0.0,
+            "p95": 0.0,
+            "p99": 0.0,
+            "max": 15.625
+          }
+        },
+        "canonical.swap": {
+          "wallMs": {
+            "count": 5,
+            "median": 0.013,
+            "p95": 0.0139,
+            "p99": 0.0139,
+            "max": 0.0149
+          },
+          "threadCpuMs": {
+            "count": 5,
+            "median": 0.0,
+            "p95": 0.0,
+            "p99": 0.0,
+            "max": 0.0
+          }
+        }
+      },
+      "gcPauseMs": {
+        "count": 8279,
+        "median": 0.1026,
+        "p95": 0.2901,
+        "p99": 0.4065,
+        "max": 144.2213
+      },
+      "gcByGeneration": {
+        "0": 7579,
+        "1": 689,
+        "2": 11
+      },
+      "serverRequestMs": {
+        "count": 34008,
+        "median": 0.84465,
+        "p95": 1.5195,
+        "p99": 2.0179,
+        "max": 145.4088
+      },
+      "requestFields": [
+        "endNs",
+        "event",
+        "requestId",
+        "route",
+        "startNs"
+      ],
+      "loopDelaysOver20ms": {
+        "count": 29,
+        "overlapBackgroundWork": 12
+      },
+      "successfulStages": {
+        "canonical.web_load": {
+          "successfulCount": 5,
+          "medianWallMs": 340.0189,
+          "medianThreadCpuMs": 343.75
+        },
+        "league.load": {
+          "successfulCount": 0,
+          "medianWallMs": null,
+          "medianThreadCpuMs": null
+        },
+        "league.web_load": {
+          "successfulCount": 5,
+          "medianWallMs": 240.281,
+          "medianThreadCpuMs": 218.75
+        },
+        "league.validate": {
+          "successfulCount": 0,
+          "medianWallMs": null,
+          "medianThreadCpuMs": null
+        }
+      }
+    }
+  },
+  "lifetime": {
+    "lifetime": {
+      "reportSha256": "f71f7ba21733112ee0e9e686dba620fee4023e19e175e1cd1c1e50d6c12580d8",
+      "scope": "Diagnostic, not acceptance timing: optional tracemalloc/snapshots, object enumeration, allocator counters and periodic explicit GC perturb RSS and CPU. Producers are separate processes; no providers/browser/HTTP.",
+      "inputSha256": "7c36b88688011bb7a8a26edb31182a57b76107ab2e29c6ca3422e8472f114361",
+      "cycles": 12,
+      "first": {
+        "sequence": 0,
+        "seconds": 1.2323330999352038,
+        "loadAndAdoptSeconds": 1.231889700051397,
+        "rssBeforeDiagnosticGcBytes": 365608960,
+        "retainedBaselineSnapshotPresent": false,
+        "allocationPhases": [
+          {
+            "phase": "canonical.adoption",
+            "wallSeconds": 0.382665999699384,
+            "threadCpuSeconds": 0.390625,
+            "netAllocatedBlocks": 1104246,
+            "liveBytesBefore": null,
+            "liveBytesAfter": null,
+            "peakBytesAboveStart": null,
+            "gcCollections": 4
+          },
+          {
+            "phase": "league.adoption_and_expiry",
+            "wallSeconds": 0.7163177998736501,
+            "threadCpuSeconds": 0.4375,
+            "netAllocatedBlocks": 1349,
+            "liveBytesBefore": null,
+            "liveBytesAfter": null,
+            "peakBytesAboveStart": null,
+            "gcCollections": 0
+          }
+        ],
+        "gcTrackedObjects": 196570,
+        "liveServingGenerationCount": 1,
+        "liveLeagueBundleCount": 1,
+        "livePreparedPayloadCount": 32,
+        "serializedBufferCount": 64,
+        "serializedBufferBytes": 204975194,
+        "rootCanonicalObjectCount": 1,
+        "rootGenerationCount": 1,
+        "acceptedLeaguePairCount": 1,
+        "supersededCanonicalWeakRefsAlive": 0,
+        "runtimeVersionSlots": 1,
+        "leagueVersionSlots": 1,
+        "overrideCacheEntries": 0,
+        "draftCacheEntries": 0,
+        "legacyCacheEntries": {
+          "_OVERLAY_RESPONSE_CACHE": 0,
+          "_PUBLIC_CONTRACT_BYTES_CACHE": 0,
+          "_OVERRIDES_RESPONSE_CACHE": 0,
+          "_DRAFT_CAPITAL_CACHE": 0
+        },
+        "legacyNameIndexEntries": 0,
+        "currentPlayerIndexEntries": 1093,
+        "legacyAliasesMatchCurrent": true,
+        "diagnosticGcCollected": 0,
+        "rssAfterDiagnosticGcBytes": 366587904,
+        "tracemallocCurrentBytes": null,
+        "tracemallocPeakBytes": null,
+        "tracemallocBookkeepingBytes": null,
+        "topAllocationDeltasFromInitial": [],
+        "allocatorStatsRecorded": true
+      },
+      "last": {
+        "sequence": 12,
+        "seconds": 316.0031936997548,
+        "loadAndAdoptSeconds": 1.578654299955815,
+        "rssBeforeDiagnosticGcBytes": 418758656,
+        "retainedBaselineSnapshotPresent": false,
+        "allocationPhases": [
+          {
+            "phase": "canonical.adoption",
+            "wallSeconds": 0.6454260000027716,
+            "threadCpuSeconds": 0.609375,
+            "netAllocatedBlocks": 1103984,
+            "liveBytesBefore": null,
+            "liveBytesAfter": null,
+            "peakBytesAboveStart": null,
+            "gcCollections": 4
+          },
+          {
+            "phase": "league.adoption_and_expiry",
+            "wallSeconds": 0.7019075998105109,
+            "threadCpuSeconds": 0.4375,
+            "netAllocatedBlocks": -1104036,
+            "liveBytesBefore": null,
+            "liveBytesAfter": null,
+            "peakBytesAboveStart": null,
+            "gcCollections": 0
+          }
+        ],
+        "gcTrackedObjects": 196269,
+        "liveServingGenerationCount": 1,
+        "liveLeagueBundleCount": 1,
+        "livePreparedPayloadCount": 32,
+        "serializedBufferCount": 64,
+        "serializedBufferBytes": 204976163,
+        "rootCanonicalObjectCount": 1,
+        "rootGenerationCount": 1,
+        "acceptedLeaguePairCount": 1,
+        "supersededCanonicalWeakRefsAlive": 0,
+        "runtimeVersionSlots": 1,
+        "leagueVersionSlots": 1,
+        "overrideCacheEntries": 0,
+        "draftCacheEntries": 0,
+        "legacyCacheEntries": {
+          "_OVERLAY_RESPONSE_CACHE": 0,
+          "_PUBLIC_CONTRACT_BYTES_CACHE": 0,
+          "_OVERRIDES_RESPONSE_CACHE": 0,
+          "_DRAFT_CAPITAL_CACHE": 0
+        },
+        "legacyNameIndexEntries": 0,
+        "currentPlayerIndexEntries": 1093,
+        "legacyAliasesMatchCurrent": true,
+        "diagnosticGcCollected": null,
+        "rssAfterDiagnosticGcBytes": 424824832,
+        "tracemallocCurrentBytes": null,
+        "tracemallocPeakBytes": null,
+        "tracemallocBookkeepingBytes": null,
+        "topAllocationDeltasFromInitial": [],
+        "allocatorStatsRecorded": true
+      },
+      "arenaSamples": [
+        {
+          "sequence": 0,
+          "highwater": 103,
+          "current": 103,
+          "liveBlockBytes": 106459184
+        },
+        {
+          "sequence": 1,
+          "highwater": 173,
+          "current": 114,
+          "liveBlockBytes": 106488176
+        },
+        {
+          "sequence": 2,
+          "highwater": 173,
+          "current": 113,
+          "liveBlockBytes": 106488800
+        },
+        {
+          "sequence": 3,
+          "highwater": 173,
+          "current": 122,
+          "liveBlockBytes": 106489408
+        },
+        {
+          "sequence": 4,
+          "highwater": 173,
+          "current": 122,
+          "liveBlockBytes": 106489936
+        },
+        {
+          "sequence": 5,
+          "highwater": 173,
+          "current": 132,
+          "liveBlockBytes": 106490480
+        },
+        {
+          "sequence": 6,
+          "highwater": 173,
+          "current": 132,
+          "liveBlockBytes": 106491232
+        },
+        {
+          "sequence": 7,
+          "highwater": 173,
+          "current": 141,
+          "liveBlockBytes": 106491984
+        },
+        {
+          "sequence": 8,
+          "highwater": 173,
+          "current": 140,
+          "liveBlockBytes": 106492656
+        },
+        {
+          "sequence": 9,
+          "highwater": 173,
+          "current": 147,
+          "liveBlockBytes": 106493264
+        },
+        {
+          "sequence": 10,
+          "highwater": 173,
+          "current": 146,
+          "liveBlockBytes": 106493680
+        },
+        {
+          "sequence": 11,
+          "highwater": 173,
+          "current": 152,
+          "liveBlockBytes": 106494416
+        },
+        {
+          "sequence": 12,
+          "highwater": 173,
+          "current": 150,
+          "liveBlockBytes": 106494960
+        }
+      ],
+      "allSupersededWeakRefsZero": true
+    },
+    "allocation": {
+      "reportSha256": "5092a157fdf875424a3c3ff222b28fc559f4995ee16257b7413246214df81d3b",
+      "scope": "Diagnostic, not acceptance timing: optional tracemalloc/snapshots, object enumeration, allocator counters and periodic explicit GC perturb RSS and CPU. Producers are separate processes; no providers/browser/HTTP.",
+      "inputSha256": "7c36b88688011bb7a8a26edb31182a57b76107ab2e29c6ca3422e8472f114361",
+      "cycles": 6,
+      "first": {
+        "sequence": 0,
+        "seconds": 4.573136900085956,
+        "loadAndAdoptSeconds": 4.571103499736637,
+        "rssBeforeDiagnosticGcBytes": 490287104,
+        "retainedBaselineSnapshotPresent": false,
+        "allocationPhases": [
+          {
+            "phase": "canonical.adoption",
+            "wallSeconds": 3.5961513998918235,
+            "threadCpuSeconds": 3.5625,
+            "netAllocatedBlocks": 1104250,
+            "liveBytesBefore": 54347100,
+            "liveBytesAfter": 127119337,
+            "peakBytesAboveStart": 82372185,
+            "gcCollections": 4
+          },
+          {
+            "phase": "league.adoption_and_expiry",
+            "wallSeconds": 0.72316600009799,
+            "threadCpuSeconds": 0.453125,
+            "netAllocatedBlocks": 1349,
+            "liveBytesBefore": 126414992,
+            "liveBytesAfter": 279142495,
+            "peakBytesAboveStart": 167368053,
+            "gcCollections": 0
+          }
+        ],
+        "gcTrackedObjects": 196570,
+        "liveServingGenerationCount": 1,
+        "liveLeagueBundleCount": 1,
+        "livePreparedPayloadCount": 32,
+        "serializedBufferCount": 64,
+        "serializedBufferBytes": 204975194,
+        "rootCanonicalObjectCount": 1,
+        "rootGenerationCount": 1,
+        "acceptedLeaguePairCount": 1,
+        "supersededCanonicalWeakRefsAlive": 0,
+        "runtimeVersionSlots": 1,
+        "leagueVersionSlots": 1,
+        "overrideCacheEntries": 0,
+        "draftCacheEntries": 0,
+        "legacyCacheEntries": {
+          "_OVERLAY_RESPONSE_CACHE": 0,
+          "_PUBLIC_CONTRACT_BYTES_CACHE": 0,
+          "_OVERRIDES_RESPONSE_CACHE": 0,
+          "_DRAFT_CAPITAL_CACHE": 0
+        },
+        "legacyNameIndexEntries": 0,
+        "currentPlayerIndexEntries": 1093,
+        "legacyAliasesMatchCurrent": true,
+        "diagnosticGcCollected": 0,
+        "rssAfterDiagnosticGcBytes": 490315776,
+        "tracemallocCurrentBytes": 279118725,
+        "tracemallocPeakBytes": 293783045,
+        "tracemallocBookkeepingBytes": 69598320,
+        "topAllocationDeltasFromInitial": [
+          {
+            "bytesDelta": 0,
+            "countDelta": 0,
+            "traceback": [
+              "src/serving/artifacts.py:508",
+              "src/serving/artifacts.py:487",
+              "pathlib.py:1020"
+            ]
+          },
+          {
+            "bytesDelta": 0,
+            "countDelta": 0,
+            "traceback": [
+              "src/serving/league_views.py:386",
+              "src/serving/league_views.py:355",
+              "gzip.py:649"
+            ]
+          },
+          {
+            "bytesDelta": 0,
+            "countDelta": 0,
+            "traceback": [
+              "__init__.py:346",
+              "decoder.py:338",
+              "decoder.py:354"
+            ]
+          },
+          {
+            "bytesDelta": 0,
+            "countDelta": 0,
+            "traceback": [
+              "<frozen importlib._bootstrap>:935",
+              "<frozen importlib._bootstrap_external>:1301",
+              "<frozen importlib._bootstrap>:488"
+            ]
+          },
+          {
+            "bytesDelta": 0,
+            "countDelta": 0,
+            "traceback": [
+              "<frozen importlib._bootstrap_external>:995",
+              "<frozen importlib._bootstrap_external>:1128",
+              "<frozen importlib._bootstrap_external>:757"
+            ]
+          },
+          {
+            "bytesDelta": 0,
+            "countDelta": 0,
+            "traceback": [
+              "<frozen importlib._bootstrap>:813",
+              "<frozen importlib._bootstrap_external>:1293",
+              "<frozen importlib._bootstrap>:488"
+            ]
+          },
+          {
+            "bytesDelta": 0,
+            "countDelta": 0,
+            "traceback": [
+              "src/serving/runtime.py:158",
+              "scripts/diagnose_serving_lifetime.py:201",
+              "src/serving/serialization.py:162"
+            ]
+          },
+          {
+            "bytesDelta": 0,
+            "countDelta": 0,
+            "traceback": [
+              "<frozen abc>:123",
+              "<frozen abc>:123",
+              "<frozen abc>:123"
+            ]
+          },
+          {
+            "bytesDelta": 0,
+            "countDelta": 0,
+            "traceback": [
+              "<frozen importlib._bootstrap_external>:1506",
+              "<frozen importlib._bootstrap_external>:1609",
+              "<frozen importlib._bootstrap_external>:1677"
+            ]
+          },
+          {
+            "bytesDelta": 0,
+            "countDelta": 0,
+            "traceback": [
+              "scripts/diagnose_serving_lifetime.py:333",
+              "scripts/diagnose_serving_lifetime.py:224",
+              "pathlib.py:1013"
+            ]
+          }
+        ],
+        "allocatorStatsRecorded": true
+      },
+      "last": {
+        "sequence": 6,
+        "seconds": 237.68426469992846,
+        "loadAndAdoptSeconds": 3.880977699998766,
+        "rssBeforeDiagnosticGcBytes": 670650368,
+        "retainedBaselineSnapshotPresent": true,
+        "allocationPhases": [
+          {
+            "phase": "canonical.adoption",
+            "wallSeconds": 2.971281399950385,
+            "threadCpuSeconds": 2.953125,
+            "netAllocatedBlocks": 1104009,
+            "liveBytesBefore": 334397687,
+            "liveBytesAfter": 407139934,
+            "peakBytesAboveStart": 82344273,
+            "gcCollections": 4
+          },
+          {
+            "phase": "league.adoption_and_expiry",
+            "wallSeconds": 0.7664382001385093,
+            "threadCpuSeconds": 0.578125,
+            "netAllocatedBlocks": -1104032,
+            "liveBytesBefore": 406435241,
+            "liveBytesAfter": 281312793,
+            "peakBytesAboveStart": 167276981,
+            "gcCollections": 0
+          }
+        ],
+        "gcTrackedObjects": 200628,
+        "liveServingGenerationCount": 1,
+        "liveLeagueBundleCount": 1,
+        "livePreparedPayloadCount": 32,
+        "serializedBufferCount": 64,
+        "serializedBufferBytes": 204976109,
+        "rootCanonicalObjectCount": 1,
+        "rootGenerationCount": 1,
+        "acceptedLeaguePairCount": 1,
+        "supersededCanonicalWeakRefsAlive": 0,
+        "runtimeVersionSlots": 1,
+        "leagueVersionSlots": 1,
+        "overrideCacheEntries": 0,
+        "draftCacheEntries": 0,
+        "legacyCacheEntries": {
+          "_OVERLAY_RESPONSE_CACHE": 0,
+          "_PUBLIC_CONTRACT_BYTES_CACHE": 0,
+          "_OVERRIDES_RESPONSE_CACHE": 0,
+          "_DRAFT_CAPITAL_CACHE": 0
+        },
+        "legacyNameIndexEntries": 0,
+        "currentPlayerIndexEntries": 1093,
+        "legacyAliasesMatchCurrent": true,
+        "diagnosticGcCollected": null,
+        "rssAfterDiagnosticGcBytes": 678559744,
+        "tracemallocCurrentBytes": 281306611,
+        "tracemallocPeakBytes": 573712222,
+        "tracemallocBookkeepingBytes": 103291984,
+        "topAllocationDeltasFromInitial": [
+          {
+            "bytesDelta": 1922544,
+            "countDelta": 5,
+            "traceback": [
+              "pathlib.py:557",
+              "pathlib.py:415",
+              "pathlib.py:404"
+            ]
+          },
+          {
+            "bytesDelta": 109280,
+            "countDelta": 1366,
+            "traceback": [
+              "scripts/diagnose_serving_lifetime.py:273",
+              "tracemalloc.py:547",
+              "tracemalloc.py:115"
+            ]
+          },
+          {
+            "bytesDelta": 83784,
+            "countDelta": 1311,
+            "traceback": [
+              "tracemalloc.py:545",
+              "tracemalloc.py:498",
+              "tracemalloc.py:193"
+            ]
+          },
+          {
+            "bytesDelta": 45336,
+            "countDelta": 710,
+            "traceback": [
+              "tracemalloc.py:544",
+              "tracemalloc.py:498",
+              "tracemalloc.py:193"
+            ]
+          },
+          {
+            "bytesDelta": 7631,
+            "countDelta": 185,
+            "traceback": [
+              "__init__.py:346",
+              "decoder.py:338",
+              "decoder.py:354"
+            ]
+          },
+          {
+            "bytesDelta": 4680,
+            "countDelta": 39,
+            "traceback": [
+              "src/serving/attestation.py:298",
+              "src/serving/artifacts.py:343",
+              "src/serving/artifacts.py:343"
+            ]
+          },
+          {
+            "bytesDelta": 3360,
+            "countDelta": 28,
+            "traceback": [
+              "src/serving/artifacts.py:139",
+              "src/serving/artifacts.py:139",
+              "src/serving/artifacts.py:139"
+            ]
+          },
+          {
+            "bytesDelta": 2360,
+            "countDelta": 29,
+            "traceback": [
+              "src/serving/artifacts.py:343",
+              "src/serving/artifacts.py:343",
+              "src/serving/artifacts.py:343"
+            ]
+          },
+          {
+            "bytesDelta": -1968,
+            "countDelta": 0,
+            "traceback": [
+              "src/serving/league_views.py:818",
+              "src/serving/league_views.py:386",
+              "src/serving/league_views.py:358"
+            ]
+          },
+          {
+            "bytesDelta": 1792,
+            "countDelta": 35,
+            "traceback": [
+              "subprocess.py:548",
+              "subprocess.py:1026",
+              "subprocess.py:1538"
+            ]
+          }
+        ],
+        "allocatorStatsRecorded": true
+      },
+      "arenaSamples": [
+        {
+          "sequence": 0,
+          "highwater": null,
+          "current": null,
+          "liveBlockBytes": null
+        },
+        {
+          "sequence": 1,
+          "highwater": null,
+          "current": null,
+          "liveBlockBytes": null
+        },
+        {
+          "sequence": 2,
+          "highwater": null,
+          "current": null,
+          "liveBlockBytes": null
+        },
+        {
+          "sequence": 3,
+          "highwater": null,
+          "current": null,
+          "liveBlockBytes": null
+        },
+        {
+          "sequence": 4,
+          "highwater": null,
+          "current": null,
+          "liveBlockBytes": null
+        },
+        {
+          "sequence": 5,
+          "highwater": null,
+          "current": null,
+          "liveBlockBytes": null
+        },
+        {
+          "sequence": 6,
+          "highwater": null,
+          "current": null,
+          "liveBlockBytes": null
+        }
+      ],
+      "allSupersededWeakRefsZero": true
+    }
+  },
+  "quietReconstruction": {
+    "scope": "Saved finish-minus-duration spans; 16.125ms edge guard, no gate changes; start/end QPC not saved",
+    "ordinaryCounts": 4857,
+    "p95Ms": {
+      "rankings200": 12.7207003534,
+      "rankings304": 1.9557997584,
+      "trade200": 2.2438997403,
+      "trade304": 1.9124001265
+    },
+    "p99Ms": {
+      "rankings200": 17.8728001192,
+      "rankings304": 2.778199967,
+      "trade200": 12.4193001539,
+      "trade304": 2.741899807
+    }
+  },
+  "validation": {
+    "integrated": {
+      "passed": 547,
+      "skipped": 19,
+      "warnings": 1,
+      "passingSubtests": 5,
+      "seconds": 174.06
+    },
+    "harness": {
+      "passed": 57,
+      "seconds": 0.3
+    },
+    "formatterLint": "1477 files; Ruff0.6.9 green",
+    "coercions": "green in touched files",
+    "independentReview": "green after recorded fixes",
+    "countsOverlap": true
+  },
+  "disposition": {
+    "retained": "Reduced web adoption work and memory; combined producer peak increased",
+    "remainingGate": "All four ordinary relative refresh latency series fail unchanged 20% threshold",
+    "processDecision": "Additional decoder/IPC infrastructure not justified by current residual attribution",
+    "nextAction": "Diagnostic-only pacing/wakeup/body-send/receipt attribution in existing lab, then unchanged short acceptance",
+    "fullSoakRun": false,
+    "productionIsolationVerified": false,
+    "thresholdsChanged": false,
+    "frontendChanged": false,
+    "pushedMergedDeployed": false
+  },
+  "finalVerification": {
+    "acceptanceCodeHashesMatchWorkingFiles": true,
+    "matchedReplayInputs": true,
+    "baselineCandidateReportHashesMatch": true,
+    "privateReplayAndKeysExcludedFromVersionControl": true
+  }
+}

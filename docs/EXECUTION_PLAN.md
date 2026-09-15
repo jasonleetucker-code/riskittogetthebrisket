@@ -1,5 +1,8 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+**Owner final-release authority — 2026-09-12 (supersedes pause).** Resume the existing100-assignment campaign. The owner explicitly authorizes reviewable commits, push, PRs, protected green merges and staged rollout after prerequisite gates. Preserve local hybrid and all correctness/resource/browser gates. Measured new route budgets may be adopted with two independent reviews when no existing requirement or product expectation is weakened. Full terminal requirement is accepted production behavior and required work merged to main. No protection bypass or secret exposure. The pause report is historical; current execution follows the approved Final Performance Release Completion plan.
+
+
 **Status:** CANONICAL SEQUENCING / AUTHORIZATION RECORD
 **Last reconciled:** 2026-08-20 (owner directive: **FIRST PREMIUM SPORTS INTELLIGENCE PRODUCTION MIGRATION AUTHORIZED** — PSI foundation, shell, Rankings and Player File reference routes; execution timing only, V1 denominator unchanged — §0). Also 2026-08-20 (owner directive: **POST-V1 C-SERIES MASS-BUILD CAMPAIGN AUTHORIZED** — five isolated lanes, Claude 9-13, execution timing only; V1 classification and denominator unchanged — §0). Previously 2026-08-18 (owner directive: **V1 COMPLETION SPRINT AUTHORIZED**, six parallel lanes, superseding the 2026-08-17 feature freeze for V1-required work only — §0)
 **Companion:** `docs/MASTER_PRODUCT_PLAN.md` · `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`
@@ -42,6 +45,71 @@ foundation once. Preserve small, reviewable PR boundaries within the combined ph
 ---
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
+
+## Performance modernization — owner directive, 2026-09-10
+
+**Execution paused by owner, 2026-09-12.** The owner requested a consolidated
+architecture/status report and a pause. No campaign implementation, tests or
+measurements continue after this checkpoint without a new owner request.
+`docs/PERFORMANCE_PAUSE_REPORT_2026-09-12.md` and Steward revision 93 preserve
+the exact outstanding work. This pause supersedes automatic progression below;
+it does not waive any gate or grant production authority.
+
+**Owner-approved 100-assignment execution — 2026-09-12 UTC.** The current unit is Phase 3B failure
+closure within the gated performance completion campaign. Exactly 100 numbered
+assignments, 001–100, are queued under Commander 000 using three worker slots.
+The authoritative internal board is the existing local Steward store's
+`performance-swarm` record; its sanitized revision is published at
+`docs/evidence/performance-swarm-2026-09-12.json`. Root alone owns campaign records.
+The owner now permits independent Phase 4 preparation, authorized read-only host
+inspection, Phase 5 investigation/isolated candidates, Phase 6 measurement and
+Phase 7 regression preparation before upstream acceptance. This supersedes earlier
+preparation-only sequencing exclusions, not activation or acceptance gates.
+Close worker failures, conditional-200 attribution and interruption reporting;
+freeze and validate before fresh short, then full only if every short gate passes.
+The existing local hybrid policy, RSS/handle/retention/sampling gates, production
+SLOs and frontend useful-state limits remain unchanged. No push, merge, deployment,
+unit/timer installation or production/frontend flag activation is authorized.
+New route budgets require measurements and owner approval. See the latest campaign
+section for execution receipts, file leases and honest progress counts.
+Agent-OS-Receipt: af1d50a577c96fd9eed9f934a902a9469f8b69bc.
+
+**Expanded owner authorization, 2026-09-11: gated performance completion.**
+Continue the existing uncommitted `codex/performance-serving` candidate through
+the phase ledger in `docs/PERFORMANCE_CAMPAIGN.md` (Master completion campaign).
+Phase 2 final latency attribution is accepted and complete (category D / outcome C).
+**Owner policy decision, 2026-09-11:** for this local prepared-backend campaign,
+refresh p95 must be <75ms AND (relative increase <=20% OR (absolute increase
+<=15ms AND refresh p95 <=25ms)). Production/frontend/field policies are unchanged.
+The local policy blocker is resolved. Phase 3A is authorized: fresh uninstrumented
+300s exercise / 60s baseline / 30s refresh / drain / 125s verified quiet, with all
+existing correctness/resource/sampling gates. Only if every gate passes, proceed
+automatically to Phase 3B: fresh 3600s exercise / 600s baseline / 30s refresh,
+complete drain and 125s verified quiet. A full pass yields LOCAL BACKEND ACCEPTANCE
+PASS and permits Phase 4 read-only inspection under existing access authority.
+**Observed execution:** fresh Phase 3A passed; the consequent Phase 3B attempt
+failed worker/conditional-response latency gates and was interrupted before
+verified hour/quiet recovery. Phase 4 is not open. The next permitted work is
+bounded local failure attribution/correction and affected revalidation, retaining
+the approved thresholds and fresh short-before-full gate. See the campaign's
+final Phase 3 section and `docs/evidence/performance-local-acceptance-2026-09-11.json`.
+Historical reports retain their original policy/results. Later work remains conditional: local
+short/full acceptance, actual Linux/production shadow/backend validation,
+rankings/trade browser acceptance, measured remaining-route migration, then
+site-wide field/regression verification. No gate, SLO, canonical answer or
+production authority is waived. Existing no-push/no-merge/no-deploy restriction
+remains until applicable reviewed rollout authorization. No hour in Phase 2.
+Routes lacking budgets require measured proposals and owner approval before
+migration acceptance. This supersedes the earlier exclusion of broader routes
+only after the preceding campaign gates pass; it does not authorize jumping ahead.
+
+The owner approved implementation of the audited performance modernization plan:
+measurement, isolated request/payload fixes, separated generation producers,
+prepared rankings/trade read models, and dependency-aware refresh. Rankings and
+trade lead the route migration. `docs/PERFORMANCE_CAMPAIGN.md` records the bounded
+implementation and evidence. Preserve canonical math, scoring/league separation,
+source coverage, privacy and existing protected deployment gates. This does not
+change the Week 1 denominator or mark production acceptance complete.
 
 ## Bounded Agent OS consolidation — owner directive, 2026-09-10
 

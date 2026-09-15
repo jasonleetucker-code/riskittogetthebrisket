@@ -36,6 +36,8 @@ from tests.api.scoring_fixture import (
 
 _install_scoring_snapshots = install_scoring_snapshots
 
+pytestmark = pytest.mark.usefixtures("isolated_legacy_serving_startup")
+
 
 @pytest.fixture
 def two_league_registry(tmp_path, monkeypatch):
@@ -135,6 +137,7 @@ def _install_contract_for_league(monkeypatch, league_key: str, *, scoring=SCORIN
         "playersArray": [{"name": "Stub"}],
         "sleeper": sleeper,
     }
+    monkeypatch.setattr(server, "latest_serving_generation", None)
     monkeypatch.setattr(server, "latest_contract_data", stub)
     return stub
 

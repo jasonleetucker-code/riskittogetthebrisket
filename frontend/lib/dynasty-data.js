@@ -37,6 +37,9 @@
 // returns an empty rows array) rather than silently re-computing.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { performanceLabMark, performanceLabJson } from "./performance-lab.js";
+import { preparedReadModel, READ_MODEL_URLS } from "./read-model-policy.js";
+
 const OFFENSE = new Set(["QB", "RB", "WR", "TE"]);
 const IDP = new Set(["DL", "DE", "DT", "LB", "DB", "CB", "S", "EDGE"]);
 // Positions that may never enter the ranked board or user-facing surfaces.
@@ -980,6 +983,14 @@ export function tepNativeMultiplierIsCustomized(tepNativeMultiplier) {
 // logs was a bug signal, not a safety net.  An empty-with-error
 // board is strictly better than a quietly-wrong one.
 
+function _confidenceNumberOrNull(value) {
+  // Preserve an absent measurement before Number(null) can turn it into zero.
+  // Alias precedence is chosen by the caller; numeric compatibility is unchanged.
+  if (value == null) return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 function _materializePlayerArrayRow(player) {
   if (!player || typeof player !== "object") return null;
   const name = String(player.displayName || player.canonicalName || "").trim();
@@ -1041,6 +1052,7 @@ function _materializePlayerArrayRow(player) {
     // keep in lockstep with the legacy materializer + override
     // synthesis).
     playerId: String(player.playerId || player._sleeperId || "").trim() || null,
+    readModelKey: player.readModelKey || null,
     pos: pos || "?",
     team: String(player.team || ""),
     age: Number(player.age) || null,
@@ -1071,11 +1083,9 @@ function _materializePlayerArrayRow(player) {
     // C1-U5: prefer the honest name, fall back to the deprecated alias so a
     // bundle can serve an old payload and vice versa during a rolling deploy.
     // The null-not-zero rule below is unchanged (audit N2).
-    confidence: Number.isFinite(
-      Number(player.marketBreadthAgreementIndex ?? player.marketConfidence),
-    )
-      ? Number(player.marketBreadthAgreementIndex ?? player.marketConfidence)
-      : null,
+    confidence: _confidenceNumberOrNull(
+      player.marketBreadthAgreementIndex ?? player.marketConfidence,
+    ),
     marketLabel: "",
     canonicalSites,
     rawSourceValues,
@@ -1194,6 +1204,25 @@ function _materializePlayerArrayRow(player) {
   };
 }
 
+// Detail receives the canonical player from the pinned board generation. Apply
+// the currently displayed raw row last so settings/delta values stay identical.
+// Keep the board's presentation rank: a single-player materialization must not
+// assign it a new rank or reject intentionally unranked draft picks.
+export function materializePlayerDetail(row, player) {
+  const raw = { ...player, ...row.raw };
+  if (row.raw?.sourceRankMeta && typeof row.raw.sourceRankMeta === "object") {
+    // The prepared row carries only display metadata. Restore each source's
+    // diagnostics without overwriting current delta values or resurrecting a
+    // source that the current board removed.
+    raw.sourceRankMeta = Object.fromEntries(Object.entries(row.raw.sourceRankMeta).map(([key, meta]) => [key,
+      meta && typeof meta === "object" ? { ...player.sourceRankMeta?.[key], ...meta } : meta,
+    ]));
+  }
+  const detail = _materializePlayerArrayRow(raw);
+  if (!detail) throw new Error("Player details are unavailable.");
+  return { ...row, ...detail, rank: row.rank, raw };
+}
+
 function _materializeLegacyDictRow(name, player, posMap) {
   if (!player || typeof player !== "object") return null;
   const isPick =
@@ -1264,11 +1293,9 @@ function _materializeLegacyDictRow(name, player, posMap) {
     // keeps absent as null rather than 0. (That rule was retired
     // 2026-07-30; reading the real field is still correct.)
     // C1-U5: same lockstep as the playersArray materializer above.
-    confidence: Number.isFinite(
-      Number(player._marketBreadthAgreementIndex ?? player._marketConfidence),
-    )
-      ? Number(player._marketBreadthAgreementIndex ?? player._marketConfidence)
-      : null,
+    confidence: _confidenceNumberOrNull(
+      player._marketBreadthAgreementIndex ?? player._marketConfidence,
+    ),
     marketLabel: String(player._marketReliabilityLabel || ""),
     canonicalSites,
     rawSourceValues,
@@ -1485,9 +1512,13 @@ const DEFAULT_DATA_URL = "/api/dynasty-data";
 // when the specific league's roster data isn't loaded yet).
 const _BASE_CONTRACT_TTL_MS = 30_000;
 let _cachedBaseContract = null;
-let _cachedBaseContractKey = "";
 let _cachedBaseContractAt = 0;
-let _inflightBaseContract = null; // { key, promise }
+// Separate representations can overlap during navigation. Keep their promises
+// and payloads keyed by league + representation; a rankings projection must
+// never satisfy a legacy full-contract read from another page.
+const _baseContracts = new Map();
+const _baseRequests = new Map();
+let _baseCacheEpoch = 0;
 
 // Memo of the final merged override result (base + delta).  Keyed on
 // the POST body + league + the base contract's object identity, so a
@@ -1517,10 +1548,11 @@ function _readActiveLeagueKey() {
  * result, in-flight markers).  Called on league switch (``useLeague``),
  * on ``auth:changed``, and from tests. */
 export function _resetBaseContractCache() {
+  _baseCacheEpoch += 1;
+  _baseContracts.clear();
+  _baseRequests.clear();
   _cachedBaseContract = null;
-  _cachedBaseContractKey = "";
   _cachedBaseContractAt = 0;
-  _inflightBaseContract = null;
   _cachedOverrideResult = null;
   _inflightOverrideResult = null;
 }
@@ -1533,8 +1565,9 @@ if (typeof window !== "undefined") {
   window.addEventListener("auth:changed", _resetBaseContractCache);
 }
 
-async function _fetchBaseContract() {
+async function _fetchBaseContract(opts = {}) {
   const leagueKey = _readActiveLeagueKey();
+  const readModel = preparedReadModel(opts.readModel);
   // Mobile / slow-network callers get the compact view, desktop the
   // array view.  Both carry the SAME board: compact prunes only fields
   // no consumer reads (pinned in
@@ -1546,34 +1579,36 @@ async function _fetchBaseContract() {
   // this module stays SSR-safe.
   let view = null;
   try {
-    const dp = await import("./device-profile.js");
-    view = dp.preferredDataView?.() || null;
+    if (!readModel) {
+      const dp = await import("./device-profile.js");
+      view = dp.preferredDataView?.() || null;
+    }
   } catch {
     // device-profile is advisory only; absence just keeps old default.
   }
-  const cacheKey = `${leagueKey}|${view || ""}`;
+  const cacheKey = `${leagueKey}|${readModel || view || ""}`;
+  const cached = _baseContracts.get(cacheKey);
   if (
-    _cachedBaseContract &&
-    _cachedBaseContractKey === cacheKey &&
-    Date.now() - _cachedBaseContractAt < _BASE_CONTRACT_TTL_MS
+    cached && !opts.force &&
+    Date.now() - cached.at < _BASE_CONTRACT_TTL_MS
   ) {
-    return _cachedBaseContract;
+    performanceLabMark("fetch-cache", readModel || "legacy");
+    return cached.value;
   }
-  if (_inflightBaseContract && _inflightBaseContract.key === cacheKey) {
-    return _inflightBaseContract.promise;
+  if (_baseRequests.has(cacheKey)) {
+    performanceLabMark("fetch-join", readModel || "legacy");
+    return _baseRequests.get(cacheKey);
   }
-  const promise = _fetchBaseContractNetwork(leagueKey, view, cacheKey);
-  _inflightBaseContract = { key: cacheKey, promise };
+  const promise = _fetchBaseContractNetwork(leagueKey, view, cacheKey, readModel, _baseCacheEpoch);
+  _baseRequests.set(cacheKey, promise);
   try {
     return await promise;
   } finally {
-    if (_inflightBaseContract && _inflightBaseContract.promise === promise) {
-      _inflightBaseContract = null;
-    }
+    if (_baseRequests.get(cacheKey) === promise) _baseRequests.delete(cacheKey);
   }
 }
 
-async function _fetchBaseContractNetwork(leagueKey, view, cacheKey) {
+async function _fetchBaseContractNetwork(leagueKey, view, cacheKey, readModel, epoch) {
   // Append leagueKey so the server can stamp ``meta.leagueKey`` and
   // ``meta.sleeperDataReady`` correctly on the response.  When the
   // active league shares the scoring profile with the loaded
@@ -1584,7 +1619,8 @@ async function _fetchBaseContractNetwork(leagueKey, view, cacheKey) {
   if (leagueKey) params.set("leagueKey", leagueKey);
   if (view && view !== "delta") params.set("view", view);
   const qs = params.toString();
-  const url = qs ? `${DEFAULT_DATA_URL}?${qs}` : DEFAULT_DATA_URL;
+  const endpoint = READ_MODEL_URLS[readModel] || DEFAULT_DATA_URL;
+  const url = qs ? `${endpoint}?${qs}` : endpoint;
   // ``no-cache`` (not ``no-store``): the browser may STORE the response
   // but must REVALIDATE before every reuse.  The backend serves this
   // contract with ``Cache-Control: private, max-age=30,
@@ -1597,7 +1633,9 @@ async function _fetchBaseContractNetwork(leagueKey, view, cacheKey) {
   // navigation past the in-memory TTL.
   let res;
   try {
+    performanceLabMark("fetch-start", readModel || "legacy");
     res = await fetch(url, { cache: "no-cache" });
+    performanceLabMark("headers", readModel || "legacy");
   } catch (netErr) {
     // No status at all: the request never reached a server. That is a
     // DIFFERENT state from every HTTP failure below and used to be
@@ -1626,7 +1664,8 @@ async function _fetchBaseContractNetwork(leagueKey, view, cacheKey) {
     err.body = body;
     throw err;
   }
-  const json = await res.json();
+  const json = await performanceLabJson(res, readModel || "legacy");
+  performanceLabMark("fetch-end", readModel || "legacy");
 
   // The Next.js API route wraps the payload: { ok, source, data: <contract> }
   // The Python backend alias returns the raw contract.  Normalize both.
@@ -1649,10 +1688,17 @@ async function _fetchBaseContractNetwork(leagueKey, view, cacheKey) {
   } else {
     wrapped = json;
   }
-  if (wrapped && wrapped.data) {
+  if (readModel && (wrapped?.data?.schemaVersion !== 1 || !wrapped?.data?.meta?.readModelGeneration)) {
+    const err = new Error("Prepared player data is unavailable. Retry the board.");
+    err.status = 503;
+    err.body = { error: "read_model_invalid" };
+    throw err;
+  }
+  if (wrapped && wrapped.data && epoch === _baseCacheEpoch) {
     _cachedBaseContract = wrapped;
-    _cachedBaseContractKey = cacheKey;
     _cachedBaseContractAt = Date.now();
+    _baseContracts.set(cacheKey, { value: wrapped, at: _cachedBaseContractAt });
+    if (_baseContracts.size > 8) _baseContracts.delete(_baseContracts.keys().next().value);
   }
   return wrapped;
 }
@@ -2161,7 +2207,7 @@ export async function fetchDynastyData(opts = {}) {
   // Sleeper league ``bonus_rec_te`` and bake it into the blend for
   // us, so the frontend doesn't need to POST anything.
   if (!customized) {
-    const base = await _fetchBaseContract();
+    const base = await _fetchBaseContract(opts);
     if (!leagueAdjusted) return base;
     const overlay = await _fetchValuationOverlay();
     // A failed overlay fetch degrades to the market board. Half a
@@ -2225,9 +2271,9 @@ export async function fetchDynastyData(opts = {}) {
   // generation or league switch yields a different reference) and the
   // shared 30s TTL.  Only successful merges are cached — a
   // fallback-to-base result must stay retryable.
-  const overrideKey = `${JSON.stringify(body)}|${_readActiveLeagueKey()}`;
+  const overrideKey = `${JSON.stringify(body)}|${_readActiveLeagueKey()}|${preparedReadModel(opts.readModel) || "default"}`;
   if (
-    _cachedOverrideResult &&
+    !opts.force && _cachedOverrideResult &&
     _cachedOverrideResult.key === overrideKey &&
     _cachedOverrideResult.base === _cachedBaseContract &&
     _cachedBaseContract &&
@@ -2244,10 +2290,17 @@ export async function fetchDynastyData(opts = {}) {
   // run serially, putting a full extra round-trip on the critical
   // path of every first page view.
   const promise = _postOverridesAndMerge(
-    _fetchBaseContract(),
+    _fetchBaseContract(opts),
     body,
     overrideKey,
-  );
+    preparedReadModel(opts.readModel),
+  ).catch((error) => {
+    if (error?.body?.error === "generation_changed" && !opts._generationRetried) {
+      _resetBaseContractCache();
+      return fetchDynastyData({ ...opts, _generationRetried: true });
+    }
+    throw error;
+  });
   _inflightOverrideResult = { key: overrideKey, promise };
   try {
     return await promise;
@@ -2261,14 +2314,23 @@ export async function fetchDynastyData(opts = {}) {
   }
 }
 
-async function _postOverridesAndMerge(basePromise, body, overrideKey) {
+async function _postOverridesAndMerge(basePromise, body, overrideKey, readModel) {
+  const epoch = _baseCacheEpoch;
+  // Prepared overrides pin the accepted board generation. Legacy requests
+  // retain their concurrent base/POST path. Catalog search has no overrides.
+  const preparedBase = readModel ? await basePromise : null;
+  if (readModel === "catalog") return preparedBase;
+  const generation = preparedBase?.data?.meta?.readModelGeneration;
+  const query = new URLSearchParams({ view: readModel ? "board" : "delta" });
+  if (generation) query.set("generation", generation);
+  if (preparedBase?.data?.meta?.leagueKey) query.set("leagueKey", preparedBase.data.meta.leagueKey);
   // Kick the POST off immediately (it never needed the base payload)
   // and hold its failure in-band so the two error semantics stay
   // exactly what they were on the serial path:
   //   * base fetch failure → THROWS out of fetchDynastyData (the page
   //     shows its error state);
   //   * overrides POST failure → falls back to the base contract.
-  const postPromise = fetch(`${RANKINGS_OVERRIDES_URL}?view=delta`, {
+  const postPromise = fetch(`${RANKINGS_OVERRIDES_URL}?${query}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -2287,13 +2349,19 @@ async function _postOverridesAndMerge(basePromise, body, overrideKey) {
     const overrideRes = await postPromise;
     if (overrideRes && overrideRes.ok) {
       const deltaPayload = await overrideRes.json();
+      if (readModel && deltaPayload?.meta?.readModelGeneration !== generation) {
+        const error = new Error("The board changed while applying settings. Please retry.");
+        error.status = 409;
+        error.body = { error: "generation_changed" };
+        throw error;
+      }
       if (
         deltaPayload &&
         deltaPayload.mode === "delta" &&
         deltaPayload.rankingsDelta
       ) {
         const merged = mergeRankingsDelta(base, deltaPayload);
-        _cachedOverrideResult = {
+        if (epoch === _baseCacheEpoch) _cachedOverrideResult = {
           key: overrideKey,
           base,
           at: Date.now(),
@@ -2309,7 +2377,7 @@ async function _postOverridesAndMerge(basePromise, body, overrideKey) {
           source: "backend:override",
           data: deltaPayload,
         };
-        _cachedOverrideResult = {
+        if (epoch === _baseCacheEpoch) _cachedOverrideResult = {
           key: overrideKey,
           base,
           at: Date.now(),
@@ -2317,6 +2385,11 @@ async function _postOverridesAndMerge(basePromise, body, overrideKey) {
         };
         return passthrough;
       }
+    } else if (readModel && overrideRes && [401, 403, 409].includes(overrideRes.status)) {
+      const error = new Error("Player settings could not load. Please retry.");
+      error.status = overrideRes.status;
+      error.body = await overrideRes.json();
+      throw error;
     } else if (overrideRes && typeof console !== "undefined" && console.warn) {
       console.warn(
         `[dynasty-data] /api/rankings/overrides returned ${overrideRes.status}; ` +
@@ -2324,6 +2397,7 @@ async function _postOverridesAndMerge(basePromise, body, overrideKey) {
       );
     }
   } catch (err) {
+    if (readModel && [401, 403, 409].includes(err?.status)) throw err;
     if (typeof console !== "undefined" && console.warn) {
       console.warn(
         "[dynasty-data] /api/rankings/overrides response handling failed:",
@@ -2348,9 +2422,9 @@ async function _postOverridesAndMerge(basePromise, body, overrideKey) {
  * (or the fresh cache) instead of the network.  Errors are swallowed:
  * this is purely advisory warming, and the real fetch surfaces them.
  */
-export function prefetchBaseContract() {
+export function prefetchBaseContract(opts = {}) {
   try {
-    const p = _fetchBaseContract();
+    const p = _fetchBaseContract(opts);
     if (p && typeof p.catch === "function") p.catch(() => {});
     return p;
   } catch {

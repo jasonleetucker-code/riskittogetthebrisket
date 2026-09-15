@@ -1,0 +1,27 @@
+[Unit]
+Description=Standalone source and canonical serving producer (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+# Opt-in template. Bootstrap and the source-parity cutover gate are documented in
+# docs/ops/source-producer-ownership.md. Installation does not authorize cutover.
+
+[Service]
+Type=oneshot
+User=__PRODUCER_USER__
+Group=__PRODUCER_GROUP__
+SupplementaryGroups=__SERVING_READER_GROUP__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=__PRODUCER_ENV_FILE__
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/env RISKIT_SERVING_DIR=__SERVING_DIR__ RISKIT_SERVING_READER_GID=__SERVING_READER_GID__ RISKIT_SERVING_ATTESTATION_PRIVATE_KEY=__SIGNING_KEY_FILE__ RISKIT_SERVING_ATTESTATION_PUBLIC_KEY=__PUBLIC_PIN_FILE__ __VENV_DIR__/bin/python __APP_DIR__/scripts/run_source_producer.py --lease-wait-seconds 9000
+# Exit 3 means another source owner holds the shared OS lease; it is not a
+# completed refresh and does not write a successful cutover receipt.
+SuccessExitStatus=3
+TimeoutStartSec=18000
+TimeoutStopSec=30
+KillMode=control-group
+Nice=10
+IOSchedulingClass=idle
+UMask=0077
+StandardOutput=journal
+StandardError=journal

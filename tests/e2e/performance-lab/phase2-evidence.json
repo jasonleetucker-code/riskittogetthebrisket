@@ -1,0 +1,965 @@
+{
+  "scope": "Phase2 local mobile attribution and bounded candidate; no production latency claim",
+  "baseCommit": "5445a62dc886774e3972814d5bb44adfad89ccaf",
+  "runtime": "Node20.20.2",
+  "browser": "Chrome152.0.7977.64",
+  "throttle": {
+    "cpu": 4,
+    "latencyMs": 150,
+    "downloadBitsPerSecond": 1600000,
+    "uploadBitsPerSecond": 750000
+  },
+  "readinessTimeoutMs": 10000,
+  "discardedWindow": "First synthetic profile overlapped another agent test run; excluded. Synthetic profile repeated after00:43:20UTC all-clear.",
+  "diagnostics": [
+    {
+      "fixture": "synthetic120",
+      "transport": "next-proxy",
+      "profileBuild": true,
+      "acceptance": false,
+      "gzip": "Node fixture default",
+      "samples": [
+        {
+          "route": "/rankings",
+          "state": "cold",
+          "usefulMs": null,
+          "moduleMs": 3592.4000000953674,
+          "hydrationCommitMs": 6640.60000038147,
+          "settingsReadMs": 5.3,
+          "fetchStartMs": 6585.400000095367,
+          "bodyCompleteMs": 8679.800000190735,
+          "jsonParseMs": 3.7,
+          "materializeMs": 57.7,
+          "firstTableWidthReadMs": 15071,
+          "tableWidthReadMs": 11.5,
+          "maximumReactRenderMs": 2035.3000040054321,
+          "cpuMs": {
+            "ScriptDuration": 9484.771999999999,
+            "LayoutDuration": 2109.481,
+            "RecalcStyleDuration": 1510.317,
+            "TaskDuration": 20693.764000000003
+          },
+          "pageErrors": []
+        },
+        {
+          "route": "/rankings",
+          "state": "warm",
+          "usefulMs": null,
+          "moduleMs": 1578.8000001907349,
+          "hydrationCommitMs": 3347.300000190735,
+          "settingsReadMs": 0.4,
+          "fetchStartMs": 3308.300000190735,
+          "bodyCompleteMs": 5840,
+          "jsonParseMs": 2.5,
+          "materializeMs": 70.0,
+          "firstTableWidthReadMs": 14741.599999904633,
+          "tableWidthReadMs": 12.0,
+          "maximumReactRenderMs": 1739.3999972343445,
+          "cpuMs": {
+            "ScriptDuration": 7467.186,
+            "LayoutDuration": 1566.5690000000002,
+            "RecalcStyleDuration": 1883.121,
+            "TaskDuration": 20667.788
+          },
+          "pageErrors": []
+        },
+        {
+          "route": "/trade",
+          "state": "cold",
+          "usefulMs": 9077.10000038147,
+          "moduleMs": 3966.300000190735,
+          "hydrationCommitMs": 6385.300000190735,
+          "settingsReadMs": 6.5,
+          "fetchStartMs": 6323,
+          "bodyCompleteMs": 7517.400000095367,
+          "jsonParseMs": 3.2,
+          "materializeMs": 29.1,
+          "firstTableWidthReadMs": null,
+          "tableWidthReadMs": null,
+          "maximumReactRenderMs": 501.39999866485596,
+          "cpuMs": {
+            "ScriptDuration": 3888.775,
+            "LayoutDuration": 1456.3129999999999,
+            "RecalcStyleDuration": 631.158,
+            "TaskDuration": 8838.761
+          },
+          "pageErrors": []
+        },
+        {
+          "route": "/trade",
+          "state": "warm",
+          "usefulMs": 7142.699999809265,
+          "moduleMs": 1452.4000000953674,
+          "hydrationCommitMs": 2739.5999999046326,
+          "settingsReadMs": 0.8,
+          "fetchStartMs": 2708.699999809265,
+          "bodyCompleteMs": 5613,
+          "jsonParseMs": 6.2,
+          "materializeMs": 13.6,
+          "firstTableWidthReadMs": null,
+          "tableWidthReadMs": null,
+          "maximumReactRenderMs": 261.7999997138977,
+          "cpuMs": {
+            "ScriptDuration": 3025.585,
+            "LayoutDuration": 464.481,
+            "RecalcStyleDuration": 530.443,
+            "TaskDuration": 7055.844999999999
+          },
+          "pageErrors": []
+        }
+      ]
+    },
+    {
+      "fixture": "private1093",
+      "transport": "direct-gzip",
+      "profileBuild": true,
+      "acceptance": false,
+      "gzip": "Node level6 diagnostic recompression; final comparisons use exact producer bytes",
+      "samples": [
+        {
+          "route": "/rankings",
+          "state": "cold",
+          "usefulMs": null,
+          "moduleMs": 3910.5,
+          "hydrationCommitMs": 8382.699999809265,
+          "settingsReadMs": 4.5,
+          "fetchStartMs": 8342.300000190735,
+          "bodyCompleteMs": 11806.800000190735,
+          "jsonParseMs": 384.2,
+          "materializeMs": 217.4,
+          "firstTableWidthReadMs": 18851.300000190735,
+          "tableWidthReadMs": 5.6,
+          "maximumReactRenderMs": 2572.6999974250793,
+          "cpuMs": {
+            "ScriptDuration": 10272.209,
+            "LayoutDuration": 2493.616,
+            "RecalcStyleDuration": 2126.007,
+            "TaskDuration": 22368.628
+          },
+          "pageErrors": []
+        },
+        {
+          "route": "/rankings",
+          "state": "warm",
+          "usefulMs": null,
+          "moduleMs": 1458.5999999046326,
+          "hydrationCommitMs": 3950.4000000953674,
+          "settingsReadMs": 9.5,
+          "fetchStartMs": 3849.800000190735,
+          "bodyCompleteMs": 6985.099999904633,
+          "jsonParseMs": 294.9,
+          "materializeMs": 120.9,
+          "firstTableWidthReadMs": 12049.300000190735,
+          "tableWidthReadMs": 0.9,
+          "maximumReactRenderMs": 1413.0000004768372,
+          "cpuMs": {
+            "ScriptDuration": 6505.748,
+            "LayoutDuration": 1727.196,
+            "RecalcStyleDuration": 1444.213,
+            "TaskDuration": 14991.171
+          },
+          "pageErrors": []
+        },
+        {
+          "route": "/trade",
+          "state": "cold",
+          "usefulMs": null,
+          "moduleMs": 3600.2999997138977,
+          "hydrationCommitMs": 6765.299999713898,
+          "settingsReadMs": 4.7,
+          "fetchStartMs": 6721.5,
+          "bodyCompleteMs": 9521.799999713898,
+          "jsonParseMs": 251.8,
+          "materializeMs": 138.1,
+          "firstTableWidthReadMs": null,
+          "tableWidthReadMs": null,
+          "maximumReactRenderMs": 596.9000010490417,
+          "cpuMs": {
+            "ScriptDuration": 4526.356,
+            "LayoutDuration": 1154.345,
+            "RecalcStyleDuration": 713.5310000000001,
+            "TaskDuration": 11069.346
+          },
+          "pageErrors": []
+        },
+        {
+          "route": "/trade",
+          "state": "warm",
+          "usefulMs": 6204.699999809265,
+          "moduleMs": 1573.9000000953674,
+          "hydrationCommitMs": 2690.800000190735,
+          "settingsReadMs": 0.7,
+          "fetchStartMs": 2659.5999999046326,
+          "bodyCompleteMs": 5004.900000095367,
+          "jsonParseMs": 316.4,
+          "materializeMs": 61.4,
+          "firstTableWidthReadMs": null,
+          "tableWidthReadMs": null,
+          "maximumReactRenderMs": 159.39999961853027,
+          "cpuMs": {
+            "ScriptDuration": 1739.709,
+            "LayoutDuration": 379.75199999999995,
+            "RecalcStyleDuration": 485.836,
+            "TaskDuration": 6020.472
+          },
+          "pageErrors": []
+        }
+      ]
+    }
+  ],
+  "candidate": "Rankings-only opt-in: skip children of already CSS-hidden body cells; retain td/header/col, full rows and canonical sort/filter/export; restore content via exact media breakpoint.",
+  "attribution": "Local settings read is negligible. Synthetic parse/materialization is small. Private3.1MB parse is252\u2013384ms and materialization62\u2013217ms; substantial cold module/hydration-to-fetch delay and initial table React work remain. Width-read callback itself is1\u201312ms, so replacing measured column geometry is not justified.",
+  "validation": {
+    "profileBuild": "passed --webpack --profile, labflag1",
+    "candidateBuild": "passed --webpack, labflagunset/no collector, preparedflag1",
+    "targetedTests": {
+      "files": 8,
+      "passed": 69
+    },
+    "comparison": [
+      {
+        "fixture": {
+          "rows": 120,
+          "privateReplay": false,
+          "transport": "next-proxy"
+        },
+        "startedAt": "2026-09-11T00:57:20.605Z",
+        "completedAt": "2026-09-11T00:58:56.280Z",
+        "sequence": [
+          3084,
+          3081,
+          3081,
+          3084
+        ],
+        "instrumented": false,
+        "samples": [
+          {
+            "leg": 0,
+            "build": "baseline",
+            "route": "/rankings",
+            "state": "cold",
+            "usefulMs": null,
+            "observedUntilMs": 10528.900000095367,
+            "domElements": 312,
+            "cpuMs": {
+              "ScriptDuration": 3753.9790000000003,
+              "LayoutDuration": 1339.961,
+              "RecalcStyleDuration": 992.323,
+              "TaskDuration": 9923.927000000001
+            },
+            "pageErrors": [],
+            "apiBytes": {
+              "requests": 7,
+              "encodedBytes": 120765,
+              "decodedBytes": 120745,
+              "transferBytes": 122865,
+              "lastEndMs": 7384.800000190735
+            }
+          },
+          {
+            "leg": 0,
+            "build": "baseline",
+            "route": "/rankings",
+            "state": "warm",
+            "usefulMs": null,
+            "observedUntilMs": 10213.199999809265,
+            "domElements": 312,
+            "cpuMs": {
+              "ScriptDuration": 3070.463,
+              "LayoutDuration": 488.678,
+              "RecalcStyleDuration": 815.893,
+              "TaskDuration": 9879.55
+            },
+            "pageErrors": [],
+            "apiBytes": {
+              "requests": 7,
+              "encodedBytes": 120748,
+              "decodedBytes": 120745,
+              "transferBytes": 652,
+              "lastEndMs": 3824.0999999046326
+            }
+          },
+          {
+            "leg": 1,
+            "build": "rejected-candidate",
+            "route": "/rankings",
+            "state": "cold",
+            "usefulMs": null,
+            "observedUntilMs": 12700.099999904633,
+            "domElements": 311,
+            "cpuMs": {
+              "ScriptDuration": 4049.9700000000003,
+              "LayoutDuration": 1613.597,
+              "RecalcStyleDuration": 1555.279,
+              "TaskDuration": 12070.376
+            },
+            "pageErrors": [],
+            "apiBytes": {
+              "requests": 7,
+              "encodedBytes": 120765,
+              "decodedBytes": 120745,
+              "transferBytes": 122865,
+              "lastEndMs": 8977.300000190735
+            }
+          },
+          {
+            "leg": 1,
+            "build": "rejected-candidate",
+            "route": "/rankings",
+            "state": "warm",
+            "usefulMs": null,
+            "observedUntilMs": 10445.099999904633,
+            "domElements": 313,
+            "cpuMs": {
+              "ScriptDuration": 2359.598,
+              "LayoutDuration": 619.6800000000001,
+              "RecalcStyleDuration": 1298.543,
+              "TaskDuration": 10092.143
+            },
+            "pageErrors": [],
+            "apiBytes": {
+              "requests": 7,
+              "encodedBytes": 120748,
+              "decodedBytes": 120745,
+              "transferBytes": 652,
+              "lastEndMs": 4716.400000095367
+            }
+          },
+          {
+            "leg": 2,
+            "build": "rejected-candidate",
+            "route": "/rankings",
+            "state": "cold",
+            "usefulMs": null,
+            "observedUntilMs": 10811,
+            "domElements": 308,
+            "cpuMs": {
+              "ScriptDuration": 4289.388,
+              "LayoutDuration": 1457.44,
+              "RecalcStyleDuration": 902.827,
+              "TaskDuration": 10384.522
+            },
+            "pageErrors": [],
+            "apiBytes": {
+              "requests": 7,
+              "encodedBytes": 120765,
+              "decodedBytes": 120745,
+              "transferBytes": 122865,
+              "lastEndMs": 7117.199999809265
+            }
+          },
+          {
+            "leg": 2,
+            "build": "rejected-candidate",
+            "route": "/rankings",
+            "state": "warm",
+            "usefulMs": null,
+            "observedUntilMs": 14955,
+            "domElements": 1479,
+            "cpuMs": {
+              "ScriptDuration": 5605.973,
+              "LayoutDuration": 1621.61,
+              "RecalcStyleDuration": 1216.981,
+              "TaskDuration": 14388.075
+            },
+            "pageErrors": [],
+            "apiBytes": {
+              "requests": 7,
+              "encodedBytes": 120748,
+              "decodedBytes": 120745,
+              "transferBytes": 652,
+              "lastEndMs": 4586
+            }
+          },
+          {
+            "leg": 3,
+            "build": "baseline",
+            "route": "/rankings",
+            "state": "cold",
+            "usefulMs": null,
+            "observedUntilMs": 12284.199999809265,
+            "domElements": 312,
+            "cpuMs": {
+              "ScriptDuration": 4599.346,
+              "LayoutDuration": 1665.781,
+              "RecalcStyleDuration": 1220.61,
+              "TaskDuration": 11857.886
+            },
+            "pageErrors": [],
+            "apiBytes": {
+              "requests": 7,
+              "encodedBytes": 120765,
+              "decodedBytes": 120745,
+              "transferBytes": 122865,
+              "lastEndMs": 8765.199999809265
+            }
+          },
+          {
+            "leg": 3,
+            "build": "baseline",
+            "route": "/rankings",
+            "state": "warm",
+            "usefulMs": null,
+            "observedUntilMs": 10385.300000190735,
+            "domElements": 312,
+            "cpuMs": {
+              "ScriptDuration": 2606.779,
+              "LayoutDuration": 508.607,
+              "RecalcStyleDuration": 1175.471,
+              "TaskDuration": 9930.75
+            },
+            "pageErrors": [],
+            "apiBytes": {
+              "requests": 7,
+              "encodedBytes": 120748,
+              "decodedBytes": 120745,
+              "transferBytes": 652,
+              "lastEndMs": 4888.800000190735
+            }
+          }
+        ]
+      },
+      {
+        "fixture": {
+          "rows": 1093,
+          "privateReplay": true,
+          "transport": "direct-gzip"
+        },
+        "startedAt": "2026-09-11T01:01:31.271Z",
+        "completedAt": "2026-09-11T01:03:31.379Z",
+        "sequence": [
+          3084,
+          3081,
+          3081,
+          3084
+        ],
+        "instrumented": false,
+        "samples": [
+          {
+            "leg": 0,
+            "build": "baseline",
+            "route": "/rankings",
+            "state": "cold",
+            "usefulMs": null,
+            "observedUntilMs": 13052.199999809265,
+            "domElements": 283,
+            "cpuMs": {
+              "ScriptDuration": 3820.529,
+              "LayoutDuration": 1288.724,
+              "RecalcStyleDuration": 1474.749,
+              "TaskDuration": 12642.151
+            },
+            "pageErrors": [],
+            "apiBytes": {
+              "requests": 9,
+              "encodedBytes": 406285,
+              "decodedBytes": 3105450,
+              "transferBytes": 408985,
+              "lastEndMs": 10022.800000190735
+            }
+          },
+          {
+            "leg": 0,
+            "build": "baseline",
+            "route": "/rankings",
+            "state": "warm",
+            "usefulMs": null,
+            "observedUntilMs": 19189.5,
+            "domElements": 1319,
+            "cpuMs": {
+              "ScriptDuration": 4810.815,
+              "LayoutDuration": 6451.574,
+              "RecalcStyleDuration": 1659.346,
+              "TaskDuration": 18267.091
+            },
+            "pageErrors": [],
+            "apiBytes": {
+              "requests": 9,
+              "encodedBytes": 3105513,
+              "decodedBytes": 3105450,
+              "transferBytes": 1262,
+              "lastEndMs": 3820.2999997138977
+            }
+          },
+          {
+            "leg": 1,
+            "build": "rejected-candidate",
+            "route": "/rankings",
+            "state": "cold",
+            "usefulMs": null,
+            "observedUntilMs": 10693.699999809265,
+            "domElements": 255,
+            "cpuMs": {
+              "ScriptDuration": 2761.203,
+              "LayoutDuration": 908.7610000000001,
+              "RecalcStyleDuration": 1152.243,
+              "TaskDuration": 10306.283000000001
+            },
+            "pageErrors": [],
+            "apiBytes": {
+              "requests": 9,
+              "encodedBytes": 406285,
+              "decodedBytes": 3105450,
+              "transferBytes": 408985,
+              "lastEndMs": 9397.599999904633
+            }
+          },
+          {
+            "leg": 1,
+            "build": "rejected-candidate",
+            "route": "/rankings",
+            "state": "warm",
+            "usefulMs": null,
+            "observedUntilMs": 17957.199999809265,
+            "domElements": 1160,
+            "cpuMs": {
+              "ScriptDuration": 5436.073,
+              "LayoutDuration": 5690.525,
+              "RecalcStyleDuration": 1267.864,
+              "TaskDuration": 17195.506999999998
+            },
+            "pageErrors": [],
+            "apiBytes": {
+              "requests": 9,
+              "encodedBytes": 3105513,
+              "decodedBytes": 3105450,
+              "transferBytes": 1262,
+              "lastEndMs": 3090.4000000953674
+            }
+          },
+          {
+            "leg": 2,
+            "build": "rejected-candidate",
+            "route": "/rankings",
+            "state": "cold",
+            "usefulMs": null,
+            "observedUntilMs": 11640.599999904633,
+            "domElements": 280,
+            "cpuMs": {
+              "ScriptDuration": 3582.018,
+              "LayoutDuration": 1010.9060000000001,
+              "RecalcStyleDuration": 1323.386,
+              "TaskDuration": 11156.886999999999
+            },
+            "pageErrors": [],
+            "apiBytes": {
+              "requests": 9,
+              "encodedBytes": 406285,
+              "decodedBytes": 3105450,
+              "transferBytes": 408985,
+              "lastEndMs": 9407.099999904633
+            }
+          },
+          {
+            "leg": 2,
+            "build": "rejected-candidate",
+            "route": "/rankings",
+            "state": "warm",
+            "usefulMs": null,
+            "observedUntilMs": 20979.699999809265,
+            "domElements": 1160,
+            "cpuMs": {
+              "ScriptDuration": 5041.834,
+              "LayoutDuration": 7676.978,
+              "RecalcStyleDuration": 1777.204,
+              "TaskDuration": 20173.171
+            },
+            "pageErrors": [],
+            "apiBytes": {
+              "requests": 9,
+              "encodedBytes": 3105513,
+              "decodedBytes": 3105450,
+              "transferBytes": 1262,
+              "lastEndMs": 4196.89999961853
+            }
+          },
+          {
+            "leg": 3,
+            "build": "baseline",
+            "route": "/rankings",
+            "state": "cold",
+            "usefulMs": null,
+            "observedUntilMs": 12417.300000190735,
+            "domElements": 283,
+            "cpuMs": {
+              "ScriptDuration": 4212.009,
+              "LayoutDuration": 1199.6979999999999,
+              "RecalcStyleDuration": 1293.2140000000002,
+              "TaskDuration": 11903.232
+            },
+            "pageErrors": [],
+            "apiBytes": {
+              "requests": 9,
+              "encodedBytes": 406285,
+              "decodedBytes": 3105450,
+              "transferBytes": 408985,
+              "lastEndMs": 10099.60000038147
+            }
+          },
+          {
+            "leg": 3,
+            "build": "baseline",
+            "route": "/rankings",
+            "state": "warm",
+            "usefulMs": null,
+            "observedUntilMs": 10275.300000190735,
+            "domElements": 283,
+            "cpuMs": {
+              "ScriptDuration": 3372.7749999999996,
+              "LayoutDuration": 431.226,
+              "RecalcStyleDuration": 993.7850000000001,
+              "TaskDuration": 9683.623000000001
+            },
+            "pageErrors": [],
+            "apiBytes": {
+              "requests": 9,
+              "encodedBytes": 3105513,
+              "decodedBytes": 3105450,
+              "transferBytes": 1262,
+              "lastEndMs": 4604.599999904633
+            }
+          }
+        ]
+      }
+    ],
+    "finalBuild": "Node20.20.2 next build --webpack, NEXT_PUBLIC_PREPARED_READ_MODELS=1,NEXT_PUBLIC_PERFORMANCE_LAB=0,NEXT_DIST_DIR=.next.performance-phase2-final: PASS",
+    "bundleBudgets": {
+      "passed": 14,
+      "total": 14,
+      "changed": false,
+      "moreKB": 2.9
+    },
+    "fullFrontendTests": {
+      "files": 175,
+      "passed": 2519,
+      "durationSeconds": 143.87,
+      "maxWorkers": 2,
+      "runtime": "Node20.20.2"
+    },
+    "pythonFormatting": "scripts/format_python_changes.sh tests/e2e/performance-lab/export-replay.py: GREEN Ruff0.6.9",
+    "privateCorrectness": {
+      "scope": "Private replay browser correctness only; no production data values retained",
+      "cases": [
+        {
+          "viewport": "mobile",
+          "frontendPort": 3084,
+          "passed": true,
+          "initial": {
+            "sha256": "9842631c6c60c04b0287d34bbd39cb6c4fdcb3836c8ac37f7e5f2cf7fa5a0146",
+            "lines": 944
+          },
+          "filtered": {
+            "sha256": "44811151ee36dca32b86abceba00e40b6964a8fc5deaabd10d2ea48af203edd0",
+            "lines": 70
+          },
+          "initialGeometry": {
+            "widths": [
+              36.15625,
+              0,
+              285.65625,
+              77.328125,
+              97.296875,
+              68.125,
+              0,
+              0,
+              0,
+              0
+            ],
+            "tableWidth": 564.609375
+          },
+          "sourceColumns": 31,
+          "fullPopup": true,
+          "errors": 0,
+          "forbiddenFullReads": 0
+        },
+        {
+          "viewport": "mobile",
+          "frontendPort": 3081,
+          "passed": true,
+          "initial": {
+            "sha256": "9842631c6c60c04b0287d34bbd39cb6c4fdcb3836c8ac37f7e5f2cf7fa5a0146",
+            "lines": 944
+          },
+          "filtered": {
+            "sha256": "44811151ee36dca32b86abceba00e40b6964a8fc5deaabd10d2ea48af203edd0",
+            "lines": 70
+          },
+          "initialGeometry": {
+            "widths": [
+              36.15625,
+              0,
+              285.65625,
+              77.328125,
+              97.296875,
+              68.125,
+              0,
+              0,
+              0,
+              0
+            ],
+            "tableWidth": 564.609375
+          },
+          "sourceColumns": 31,
+          "fullPopup": true,
+          "errors": 0,
+          "forbiddenFullReads": 0
+        },
+        {
+          "viewport": "desktop",
+          "frontendPort": 3084,
+          "passed": true,
+          "initial": {
+            "sha256": "9842631c6c60c04b0287d34bbd39cb6c4fdcb3836c8ac37f7e5f2cf7fa5a0146",
+            "lines": 944
+          },
+          "filtered": {
+            "sha256": "44811151ee36dca32b86abceba00e40b6964a8fc5deaabd10d2ea48af203edd0",
+            "lines": 70
+          },
+          "initialGeometry": {
+            "widths": [
+              56,
+              90,
+              337.71875,
+              77.328125,
+              97.296875,
+              80.40625,
+              93.90625,
+              119.71875,
+              120,
+              205.625
+            ],
+            "tableWidth": 1278
+          },
+          "sourceColumns": 31,
+          "fullPopup": true,
+          "errors": 0,
+          "forbiddenFullReads": 0
+        },
+        {
+          "viewport": "desktop",
+          "frontendPort": 3081,
+          "passed": true,
+          "initial": {
+            "sha256": "9842631c6c60c04b0287d34bbd39cb6c4fdcb3836c8ac37f7e5f2cf7fa5a0146",
+            "lines": 944
+          },
+          "filtered": {
+            "sha256": "44811151ee36dca32b86abceba00e40b6964a8fc5deaabd10d2ea48af203edd0",
+            "lines": 70
+          },
+          "initialGeometry": {
+            "widths": [
+              56,
+              90,
+              337.71875,
+              77.328125,
+              97.296875,
+              80.40625,
+              93.90625,
+              119.71875,
+              120,
+              205.625
+            ],
+            "tableWidth": 1278
+          },
+          "sourceColumns": 31,
+          "fullPopup": true,
+          "errors": 0,
+          "forbiddenFullReads": 0
+        }
+      ],
+      "passed": true
+    },
+    "candidateGeometry": {
+      "scope": "Synthetic rankings geometry and row-window reachability",
+      "cases": [
+        {
+          "viewport": "desktop",
+          "passed": true,
+          "initial": {
+            "widths": [
+              62.796875,
+              90,
+              381.765625,
+              64.265625,
+              97.296875,
+              79.515625,
+              93.90625,
+              118.40625,
+              120,
+              170.046875
+            ],
+            "tableWidth": 1278,
+            "scrollWidth": 1278,
+            "wrapWidth": 1278,
+            "mountedRows": 32,
+            "trueRowCount": 121,
+            "maxRowIndex": 33
+          },
+          "bottom": {
+            "widths": [
+              62.796875,
+              90,
+              381.765625,
+              64.265625,
+              97.296875,
+              79.515625,
+              93.90625,
+              118.40625,
+              120,
+              170.046875
+            ],
+            "tableWidth": 1278,
+            "scrollWidth": 1278,
+            "wrapWidth": 1278,
+            "mountedRows": 30,
+            "trueRowCount": 121,
+            "maxRowIndex": 121
+          },
+          "horizontalScrollLeft": 0,
+          "restored": {
+            "widths": [
+              62.796875,
+              90,
+              381.765625,
+              64.265625,
+              97.296875,
+              79.515625,
+              93.90625,
+              118.40625,
+              120,
+              170.046875
+            ],
+            "tableWidth": 1278,
+            "scrollWidth": 1278,
+            "wrapWidth": 1278,
+            "mountedRows": 32,
+            "trueRowCount": 121,
+            "maxRowIndex": 33
+          }
+        },
+        {
+          "viewport": "mobile",
+          "passed": true,
+          "initial": {
+            "widths": [
+              61.375,
+              0,
+              331.90625,
+              64.265625,
+              97.296875,
+              68.125,
+              0,
+              0,
+              0,
+              0
+            ],
+            "tableWidth": 623,
+            "scrollWidth": 623,
+            "wrapWidth": 376,
+            "mountedRows": 31,
+            "trueRowCount": 121,
+            "maxRowIndex": 32
+          },
+          "bottom": {
+            "widths": [
+              61.375,
+              0,
+              331.90625,
+              64.265625,
+              97.296875,
+              68.125,
+              0,
+              0,
+              0,
+              0
+            ],
+            "tableWidth": 623,
+            "scrollWidth": 623,
+            "wrapWidth": 376,
+            "mountedRows": 28,
+            "trueRowCount": 121,
+            "maxRowIndex": 121
+          },
+          "horizontalScrollLeft": 247,
+          "restored": {
+            "widths": [
+              61.375,
+              0,
+              331.90625,
+              64.265625,
+              97.296875,
+              68.125,
+              0,
+              0,
+              0,
+              0
+            ],
+            "tableWidth": 623,
+            "scrollWidth": 623,
+            "wrapWidth": 376,
+            "mountedRows": 31,
+            "trueRowCount": 121,
+            "maxRowIndex": 32
+          }
+        }
+      ],
+      "passed": true
+    },
+    "candidateBrowser": {
+      "passed": true,
+      "cases": 9,
+      "telemetry": {
+        "requests": 27,
+        "successfulResponses": 27,
+        "names": [
+          "TTFB",
+          "FCP",
+          "LCP"
+        ],
+        "routes": [
+          "/rankings",
+          "/trade",
+          "/league-comparison"
+        ],
+        "valid": true,
+        "referrerAbsent": true
+      }
+    },
+    "finalBrowser": {
+      "build": ".next.performance-phase2-final",
+      "runtime": "v20.20.2",
+      "passed": true,
+      "cases": 9,
+      "telemetry": {
+        "requests": 27,
+        "successfulResponses": 27,
+        "names": [
+          "TTFB",
+          "FCP",
+          "LCP"
+        ],
+        "routes": [
+          "/rankings",
+          "/trade",
+          "/league-comparison"
+        ],
+        "valid": true,
+        "referrerAbsent": true
+      },
+      "pageErrors": 0
+    },
+    "serversStopped": true
+  },
+  "decision": "REJECTED and fully reverted hidden-cell hook/prop/tests: all16 uninstrumented rankings samples missed unchanged10s useful predicate, with no repeatable useful-state benefit. Retain only opt-in attribution and replay tooling. No second candidate or latency claim. Frontend rollout remains gated.",
+  "remainingOwner": "Cold route module/hydration-to-fetch delay and initial rankings table React/DOM/layout work. Profiler render durations exclude DOM commit cost; table width callback itself is small. Further attribution should inspect existing initial row ref offsetTop reads before changing width/windowing semantics.",
+  "limitations": [
+    "Local production-build replay only; no production latency or field percentile claim.",
+    "Diagnostic profile build and explicit text+JSON parsing are observation-only; acceptance builds had profiling off and no collector.",
+    "Private diagnostic gzip used Node default recompression; final A/B/B/A used exact validated producer raw/gzip bytes.",
+    "Private correctness fixture initially failed full-CSV assumption (requires existing Show all) and detail league identity (synthetic lab metadata); both fixture issues fixed without changing product checks.",
+    "Browser ResourceTiming encoded bytes on warm cache hits may describe decoded cached body; transfer bytes expose304/cache behavior.",
+    "No useful-state gate, payload budget, row limit, geometry rule, canonical value, sorting, filtering or export behavior was loosened."
+  ]
+}

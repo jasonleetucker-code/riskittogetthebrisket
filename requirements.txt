@@ -48,11 +48,13 @@ curl_cffi~=0.15.0
 beautifulsoup4~=4.15.0
 
 # Web Push (PWA notifications).  ``pywebpush`` handles the VAPID
-# signing + RFC8291 payload encryption; ``cryptography`` is already
-# pulled in transitively.  Used by ``src/api/push_delivery.py`` to
+# signing + RFC8291 payload encryption. Used by ``src/api/push_delivery.py`` to
 # fan out the daily signal-alerts digest + custom alert hits to
 # subscribed devices.
 pywebpush~=2.0
+
+# Direct Ed25519 dependency for opt-in producer validation attestations.
+cryptography~=49.0
 
 # tzdata: required on Windows ONLY, and load-bearing there.
 #

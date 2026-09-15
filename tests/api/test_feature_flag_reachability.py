@@ -34,6 +34,7 @@ against reality, so the claim was moved somewhere that can be.
 from __future__ import annotations
 
 import ast
+from functools import lru_cache
 from pathlib import Path
 
 import pytest
@@ -118,6 +119,7 @@ def _src_imports(path: Path) -> set[str]:
     return found
 
 
+@lru_cache(maxsize=1)
 def _reachable_from_server() -> set[str]:
     """Transitive closure of ``src.*`` modules imported from server.py."""
     seen: set[str] = set()
@@ -134,6 +136,7 @@ def _reachable_from_server() -> set[str]:
     return seen
 
 
+@lru_cache(maxsize=1)
 def _gate_sites() -> dict[str, set[str]]:
     """``{flag: {repo-relative file with an is_enabled call}}``.
 
@@ -164,7 +167,7 @@ def _gate_sites() -> dict[str, set[str]]:
                 continue
             arg = node.args[0]
             if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                sites.setdefault(arg.value, set()).add(str(path.relative_to(REPO_ROOT)))
+                sites.setdefault(arg.value, set()).add(path.relative_to(REPO_ROOT).as_posix())
     return sites
 
 

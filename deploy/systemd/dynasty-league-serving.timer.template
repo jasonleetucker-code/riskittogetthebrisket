@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh prepared league views every ten minutes (__SERVICE_NAME__)
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+AccuracySec=30s
+Unit=__SERVICE_NAME__-league-serving.service
+
+[Install]
+WantedBy=timers.target

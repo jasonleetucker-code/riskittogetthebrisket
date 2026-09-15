@@ -265,6 +265,8 @@ export function useRowWindow({
       burst.current = new Map();
       if (!kinds || entries.size < 2) return;
 
+      const buckets = ["plain", "before", "after"];
+      const previousMedians = buckets.map((key) => median(samples.current[key]));
       const seen = [...entries.keys()].sort((a, b) => a - b);
       let added = false;
       for (let k = 0; k + 1 < seen.length; k += 1) {
@@ -289,7 +291,12 @@ export function useRowWindow({
         if (arr.length > MAX_SAMPLES) arr.shift();
         added = true;
       }
-      if (added) setMeasureEpoch((n) => n + 1);
+      // Geometry depends only on these medians. Publishing identical
+      // measurements rerenders the table, reattaches its row refs, and
+      // schedules another identical measurement on the next frame.
+      if (added && buckets.some((key, i) => median(samples.current[key]) !== previousMedians[i])) {
+        setMeasureEpoch((n) => n + 1);
+      }
     });
   }, []);
 

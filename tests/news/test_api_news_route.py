@@ -131,14 +131,11 @@ def test_api_news_limit_caps_response(client):
 
 
 def test_espn_target_limit_is_the_provider_default():
-    """Single source of truth: server.py imports the espn_player
-    provider's DEFAULT_MAX_TARGETS as _ESPN_NEWS_TARGET_LIMIT, so the
-    supplier's emission cap and the provider's _valid_targets
-    truncation can never drift apart (Codex P2 — a local 150 vs the
-    provider's old default 100 silently discarded targets 101-150)."""
+    """The shared context supplier uses the provider's exact coverage limit."""
+    from src.news import context
     from src.news.providers.espn_player import DEFAULT_MAX_TARGETS
 
-    assert server._ESPN_NEWS_TARGET_LIMIT == DEFAULT_MAX_TARGETS
+    assert context.DEFAULT_MAX_TARGETS == DEFAULT_MAX_TARGETS
 
 
 def test_api_news_returns_503_when_all_providers_fail(client):

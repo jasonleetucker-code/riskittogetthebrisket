@@ -203,9 +203,16 @@ export default function TeamCommandHeader() {
 
   const chartReady = Boolean(selectedTeam?.players?.length);
   const valueLoading = totalValue == null && (historyLoading || terminalLoading);
+  // Measurement only: mounted identity/placeholder tiles are not loaded aggregates.
+  // History also supplies the displayed fallback deltas, so wait for it to settle.
+  const homeState = teamLoading ? "loading"
+    : needsSelection ? "needs-selection"
+      : leagueMismatch || !privateDataEnabled || !selectedTeam?.name ? "unavailable"
+        : terminalLoading || historyLoading ? "loading"
+          : Number.isFinite(totalValue) ? "ready" : "unavailable";
 
   return (
-    <section aria-label="Team command bar">
+    <section aria-label="Team command bar" data-home-state={homeState}>
       <PageHeader eyebrow={eyebrow} title={teamName} />
       <div className={styles.commandStats} aria-label="Team aggregates">
         <StatTile

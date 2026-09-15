@@ -33,6 +33,8 @@ import server
 from src.api import league_registry
 from tests.api.test_source_overrides import _fixture_raw_payload
 
+pytestmark = pytest.mark.usefixtures("isolated_legacy_serving_startup")
+
 
 @pytest.fixture
 def overrides_env(tmp_path, monkeypatch):
@@ -80,6 +82,7 @@ def _install_data(monkeypatch, etag: str = "etag-gen-1"):
     the registry's ``main`` league.  Must run inside the TestClient
     context (same rationale as test_league_routing)."""
     monkeypatch.setattr(server, "latest_data", _fixture_raw_payload())
+    monkeypatch.setattr(server, "latest_serving_generation", None)
     monkeypatch.setattr(
         server,
         "latest_contract_data",

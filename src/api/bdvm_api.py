@@ -7,9 +7,9 @@ build, league, param set, snapshot, surplus mode) so repeat requests
 are free until the board or the projections change.
 
 Player context (nflverse id map + career loads) and the season schedule
-are fetched lazily, cached per season in-process, and degrade to None —
-a network failure narrows the output (no ROS block, contract-only ages)
-instead of breaking the board.
+are loaded from local artifacts and cached by their file generations.
+Missing inputs preserve the existing neutral-prior degradation. Scored
+actuals also key on scoring rules and the local weekly/PBP generations.
 
 READ-ONLY with respect to the live contract: BDVM never mutates
 ``latest_contract_data`` and never writes into ``rankDerivedValue``.
@@ -17,9 +17,11 @@ READ-ONLY with respect to the live contract: BDVM never mutates
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 from collections import OrderedDict
+from pathlib import Path
 from typing import Any, Mapping
 
 from src.api import league_registry as _league_registry
@@ -28,6 +30,7 @@ from src.bdvm.params import ParamSet, load_param_set
 from src.bdvm.projections import latest_snapshot_path
 from src.bdvm.roster import analyze_rosters, scan_double_positive_trades
 from src.bdvm.service import run_valuation
+from src.utils.singleflight import SingleFlight
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,14 +43,87 @@ _lock = threading.Lock()
 _VALUES_CACHE_MAX = 4
 _values_cache: OrderedDict[tuple, dict[str, Any]] = OrderedDict()
 
+_values_flights = SingleFlight()
+_aux_flights = SingleFlight()
 _aux_lock = threading.Lock()
-_context_cache: dict[int, Mapping[str, Any]] = {}
-_schedule_cache: dict[int, Mapping[str, Any] | None] = {}
-# In-season actuals change WEEKLY, so unlike context/schedule this
-# cache keys on (season, UTC day) — a failed or preseason-empty fetch
-# is retried the next day, and the day rides the ingest layer's 24h
-# disk TTL underneath.
-_actuals_cache: dict[tuple[int, str], tuple[int | None, Mapping[str, Any]]] = {}
+_AUX_CACHE_MAX = 16
+_context_cache: OrderedDict[tuple, Mapping[str, Any]] = OrderedDict()
+_schedule_cache: OrderedDict[tuple, Mapping[str, Any] | None] = OrderedDict()
+_actuals_cache: OrderedDict[tuple, tuple[int | None, Mapping[str, Any]]] = OrderedDict()
+
+
+def _file_generation(path: Path | None) -> tuple:
+    """Cheap local identity, including atomic replacement at the same path."""
+    if path is None:
+        return (None,)
+    try:
+        stat = path.stat()
+        return (str(path), stat.st_mtime_ns, stat.st_ctime_ns, stat.st_size, stat.st_ino)
+    except OSError:
+        return (str(path), None)
+
+
+def _nfl_generation(feed: str, season: int) -> tuple:
+    # Acquisition owns key/path naming. Include both files: the reader requires
+    # the metadata sidecar, and a refresh can replace it independently.
+    from src.nfl_data import cache, ingest  # noqa: PLC0415
+
+    paths = cache._entry_paths(cache._default_cache_dir(), ingest.cache_key(feed, [season]))
+    return tuple(_file_generation(path) for path in paths)
+
+
+def _context_generation(season: int) -> tuple:
+    from src.bdvm.context_store import snapshot_path  # noqa: PLC0415
+
+    return _file_generation(snapshot_path(season))
+
+
+def _scoring_key(contract: Mapping[str, Any]) -> tuple:
+    from src.league_comparison.sleeper_scoring import scoring_fingerprint  # noqa: PLC0415
+
+    scoring = (contract.get("sleeper") or {}).get("scoringSettings") or {}
+    # Keep the exact card too: compatibility normalization intentionally ignores
+    # nonnumeric values, while the scoring engine may accept numeric strings.
+    # Sharing must never introduce an equivalence the scorer did not promise.
+    return scoring_fingerprint(scoring), json.dumps(scoring, sort_keys=True, default=str)
+
+
+def _actuals_key(contract: Mapping[str, Any]) -> tuple | None:
+    from src.bdvm.actuals import current_nfl_season  # noqa: PLC0415
+    from src.nfl_data.pbp_weekly import pbp_weekly_path  # noqa: PLC0415
+
+    season = current_nfl_season()
+    if season is None:
+        return None
+    return (
+        season,
+        _today(),
+        _scoring_key(contract),
+        _nfl_generation("weekly_stats", season),
+        _file_generation(pbp_weekly_path(season)),
+    )
+
+
+def _cached_aux(cache: OrderedDict, key: tuple, build):
+    with _aux_lock:
+        if key in cache:
+            cache.move_to_end(key)
+            return cache[key]
+
+    def compute():
+        with _aux_lock:
+            if key in cache:
+                cache.move_to_end(key)
+                return cache[key]
+        result = build()
+        with _aux_lock:
+            cache[key] = result
+            cache.move_to_end(key)
+            while len(cache) > _AUX_CACHE_MAX:
+                cache.popitem(last=False)
+        return result
+
+    return _aux_flights.run((id(cache), key), compute)[0]
 
 
 def _registry_settings_for(league_key: str) -> tuple[Mapping[str, Any] | None, bool, str]:
@@ -61,51 +137,41 @@ def _registry_settings_for(league_key: str) -> tuple[Mapping[str, Any] | None, b
 
 
 def _context_for(season: int) -> Mapping[str, Any]:
-    with _aux_lock:
-        if season in _context_cache:
-            return _context_cache[season]
-    try:
-        from src.bdvm.context_store import load_snapshot  # noqa: PLC0415
+    key = (season, _context_generation(season))
 
-        # REQUEST PATH: LOAD a materialised snapshot; never fetch, never
-        # build.  Building it here is six seasons of weekly stats plus six
-        # of snap counts — 9.0s of GIL-bound parsing off a 369 MB cache
-        # entry even when nothing is downloaded — which is what starved
-        # /api/data past the Next bridge's 4s idle timeout.  The snapshot
-        # is 6.2 MB and rehydrates in 0.20s.  ``scripts/refresh_bdvm_inputs.py``
-        # writes it; None means it has not, and the engine then runs on the
-        # same neutral priors it has always used when the context was
-        # unavailable.
-        ctx = load_snapshot(season)
-    except Exception as exc:  # noqa: BLE001
-        _LOGGER.warning("bdvm: context unavailable: %s", exc)
-        ctx = None
-    if ctx is None:
-        _LOGGER.warning(
-            "bdvm: no materialised player context for %s — running on neutral "
-            "priors; run scripts/refresh_bdvm_inputs.py",
-            season,
-        )
-        ctx = {}
-    with _aux_lock:
-        _context_cache[season] = ctx
-    return ctx
+    def load():
+        try:
+            from src.bdvm.context_store import load_snapshot  # noqa: PLC0415
+
+            # Never reconstruct the multi-season context in the request process.
+            ctx = load_snapshot(season)
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.warning("bdvm: context unavailable: %s", exc)
+            ctx = None
+        if ctx is None:
+            _LOGGER.warning(
+                "bdvm: no materialised player context for %s — running on neutral "
+                "priors; run scripts/refresh_bdvm_inputs.py",
+                season,
+            )
+        return ctx if ctx is not None else {}
+
+    return _cached_aux(_context_cache, key, load)
 
 
 def _schedule_for(season: int) -> Mapping[str, Any] | None:
-    with _aux_lock:
-        if season in _schedule_cache:
-            return _schedule_cache[season]
-    try:
-        from src.bdvm.schedule import fetch_team_weeks  # noqa: PLC0415
+    key = (season, _nfl_generation("schedules", season))
 
-        sched = fetch_team_weeks(season, cache_only=True) or None
-    except Exception as exc:  # noqa: BLE001
-        _LOGGER.warning("bdvm: schedule unavailable: %s", exc)
-        sched = None
-    with _aux_lock:
-        _schedule_cache[season] = sched
-    return sched
+    def load():
+        try:
+            from src.bdvm.schedule import fetch_team_weeks  # noqa: PLC0415
+
+            return fetch_team_weeks(season, cache_only=True) or None
+        except Exception as exc:  # noqa: BLE001
+            _LOGGER.warning("bdvm: schedule unavailable: %s", exc)
+            return None
+
+    return _cached_aux(_schedule_cache, key, load)
 
 
 def _events_fingerprint(season: int) -> tuple[int, int] | None:
@@ -134,56 +200,30 @@ def _today() -> str:
 
 
 def _actuals_for(contract: Mapping[str, Any]) -> tuple[int | None, Mapping[str, Any]]:
-    """In-progress-season weekly actuals, cached per (season, UTC day).
+    """Score local actuals once per scoring card, day and weekly/PBP generation.
 
-    The season is the CALENDAR NFL season (``current_nfl_season``),
-    never the contract's ``currentDraftYear`` — the draft year points
-    one season ahead for the entire Sept–Jan window, which would make
-    the posterior structurally unreachable in production.
-
-    A fetch that RAISES is returned but NOT memoized: a transient
-    nflverse/network blip on the day's first request must not pin the
-    board to preseason values until midnight.  (An empty SUCCESS is
-    cached for the day — that's the honest preseason/early-window
-    signal.)
+    Calendar NFL season, never rookie draft year. Empty successful reads stay
+    cached until the artifact or day changes; failed reads are retried. No
+    request-path acquisition is allowed.
     """
-    from src.bdvm.actuals import current_nfl_season  # noqa: PLC0415
-
-    nfl_season = current_nfl_season()
-    if nfl_season is None:
+    key = _actuals_key(contract)
+    if key is None:
         return (None, {})
-    cache_key = (nfl_season, _today())
-    with _aux_lock:
-        if cache_key in _actuals_cache:
-            return _actuals_cache[cache_key]
-    try:
+
+    def load():
         from src.bdvm.actuals import fetch_current_season_actuals  # noqa: PLC0415
         from src.utils.name_clean import normalize_player_name  # noqa: PLC0415
 
         scoring = (contract.get("sleeper") or {}).get("scoringSettings") or {}
-        result = fetch_current_season_actuals(
-            scoring,
-            name_normalizer=normalize_player_name,
-            season=nfl_season,
-            cache_only=True,
+        return fetch_current_season_actuals(
+            scoring, name_normalizer=normalize_player_name, season=key[0], cache_only=True
         )
-    # MEASURED RESIDUAL, named rather than left to be discovered: this is the
-    # one heavy read still on the request path.  It is a SINGLE season's
-    # weekly rows — 63.7 MB, 0.78s to read plus 0.87s to score, 1.65s total
-    # on 2025 — memoized per (season, UTC day) per process, and inert outside
-    # the Sept-Jan window.  Not a download, not a multi-season ingest, and
-    # comfortably inside the 4s inter-chunk budget, so it is left alone here.
-    # Materialising SCORED actuals the way the player context now is would
-    # remove it; that is a separate unit because scoring is involved.
+
+    try:
+        return _cached_aux(_actuals_cache, key, load)
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning("bdvm: in-season actuals unavailable (not cached, will retry): %s", exc)
         return (None, {})
-    with _aux_lock:
-        # Drop stale day entries so the cache never grows unbounded.
-        for old_key in [k for k in _actuals_cache if k[1] != cache_key[1]]:
-            _actuals_cache.pop(old_key, None)
-        _actuals_cache[cache_key] = result
-    return result
 
 
 # Operational states for the cache-only auxiliary inputs.  Deliberately
@@ -290,23 +330,24 @@ def get_bdvm_values(
     # cache and enrich one season while valuing another.
     season = nfl_projection_season()
     snapshot = latest_snapshot_path(season)
-    # Without a projection snapshot ``run_valuation`` can price nothing and
-    # returns its "no snapshot" status, so the nflverse actuals fetch below
-    # — the better part of a minute on a cold cache — buys nothing at all.
-    # Ask whether the answer is reachable before paying for an input to it.
-    actuals = _actuals_for(contract) if snapshot else (None, {})
+    # Fingerprint only the small source/config identities, once per request,
+    # before entering any per-player work. Missing→present is a generation change.
+    actuals_key = _actuals_key(contract) if snapshot else None
+    roster_settings, idp_enabled, scoring_profile = _registry_settings_for(league_key)
     key = (
         id(contract),
         contract.get("generatedAt"),
         league_key,
         params.param_set_id,
-        str(snapshot) if snapshot else None,
+        _file_generation(snapshot),
         surplus_mode,
-        # In-season freshness: a new observed week (or day rollover
-        # after one) must recompute; events-file edits are covered by
-        # the fingerprint.
-        actuals[0],
-        _today() if actuals[0] is not None else None,
+        _scoring_key(contract),
+        json.dumps(roster_settings, sort_keys=True, default=str),
+        idp_enabled,
+        scoring_profile,
+        actuals_key,
+        _context_generation(season),
+        _nfl_generation("schedules", season),
         _events_fingerprint(season),
     )
     with _lock:
@@ -315,34 +356,47 @@ def get_bdvm_values(
             _values_cache.move_to_end(key)
             return cached
 
-    roster_settings, idp_enabled, scoring_profile = _registry_settings_for(league_key)
-    context = _context_for(season)
-    schedule_weeks = _schedule_for(season)
-    payload = run_valuation(
-        contract,
-        league_key=league_key,
-        params=params,
-        registry_roster_settings=roster_settings,
-        idp_enabled=idp_enabled,
-        scoring_profile=scoring_profile,
-        surplus_mode=surplus_mode,
-        context=context,
-        schedule_weeks=schedule_weeks,
-        actuals=actuals,
-    )
-    # Operational metadata only — never a methodology input.  Stamped
-    # here rather than inside ``run_valuation`` so the engine's inputs and
-    # its arithmetic are untouched by this repair: for identical
-    # materialised inputs the payload is byte-equivalent apart from this
-    # block.
-    if isinstance(payload, dict) and isinstance(payload.get("meta"), dict):
-        payload["meta"]["auxiliaryInputs"] = _auxiliary_input_report(season, actuals[0])
-    with _lock:
-        _values_cache[key] = payload
-        _values_cache.move_to_end(key)
-        while len(_values_cache) > _VALUES_CACHE_MAX:
-            _values_cache.popitem(last=False)
-    return payload
+    def compute():
+        with _lock:
+            cached = _values_cache.get(key)
+            if cached is not None:
+                _values_cache.move_to_end(key)
+                return cached
+        # No snapshot means no reachable answer; do not parse/score actuals.
+        actuals = _actuals_for(contract) if snapshot else (None, {})
+        context = _context_for(season)
+        schedule_weeks = _schedule_for(season)
+        payload = run_valuation(
+            contract,
+            league_key=league_key,
+            params=params,
+            registry_roster_settings=roster_settings,
+            idp_enabled=idp_enabled,
+            scoring_profile=scoring_profile,
+            surplus_mode=surplus_mode,
+            context=context,
+            schedule_weeks=schedule_weeks,
+            actuals=actuals,
+        )
+        if isinstance(payload, dict) and isinstance(payload.get("meta"), dict):
+            payload["meta"]["auxiliaryInputs"] = _auxiliary_input_report(
+                season, actuals_key[0] if actuals_key is not None else None
+            )
+        with _lock:
+            # A failed actuals read was deliberately not memoized. Do not pin
+            # its degraded valuation either; the next request must retry it.
+            actuals_ready = actuals_key is None or actuals[0] is not None
+            if not actuals_ready:
+                with _aux_lock:
+                    actuals_ready = actuals_key in _actuals_cache
+            if actuals_ready:
+                _values_cache[key] = payload
+                _values_cache.move_to_end(key)
+                while len(_values_cache) > _VALUES_CACHE_MAX:
+                    _values_cache.popitem(last=False)
+        return payload
+
+    return _values_flights.run(key, compute)[0]
 
 
 def get_bdvm_roster(

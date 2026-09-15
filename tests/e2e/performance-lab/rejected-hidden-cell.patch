@@ -1,0 +1,125 @@
+--- a/frontend/app/rankings/page.jsx
++++ b/frontend/app/rankings/page.jsx
+@@ -1982,0 +1983 @@
++              deferHiddenCellContent
+--- a/frontend/components/ds/DataTable.jsx
++++ b/frontend/components/ds/DataTable.jsx
+@@ -89,0 +90 @@
++import { useHiddenColumnMask, isColumnHidden } from "./useHiddenColumnMask";
+@@ -182,0 +184 @@
++  deferHiddenCellContent = false,
+@@ -183,0 +186 @@
++  const hiddenColumnMask = useHiddenColumnMask(deferHiddenCellContent);
+@@ -577 +580 @@
+-                      {col.render ? col.render(row, i) : acc(row)}
++                      {isColumnHidden(hiddenColumnMask, col.hideBelow) ? null : col.render ? col.render(row, i) : acc(row)}
+--- /dev/null
++++ b/frontend/components/ds/useHiddenColumnMask.js
+@@ -0,0 +1,29 @@
++"use client";
++
++import { useSyncExternalStore } from "react";
++
++// Match the existing DataTable CSS owner exactly (app/ds.css + tokens.css).
++// Keep th/td/col geometry intact; only hidden body-cell children are deferred.
++export const COLUMN_MEDIA = { sm: "(width < 480px)", md: "(width < 768px)", lg: "(width < 1024px)" };
++const keys = Object.keys(COLUMN_MEDIA);
++const serverSnapshot = () => 0;
++const noSubscribe = () => () => {};
++function snapshot() {
++  if (typeof window === "undefined" || !window.matchMedia) return 0;
++  return keys.reduce((mask, key, index) => mask | (window.matchMedia(COLUMN_MEDIA[key]).matches ? 1 << index : 0), 0);
++}
++function subscribe(changed) {
++  if (!window.matchMedia) return () => {};
++  const queries = keys.map((key) => window.matchMedia(COLUMN_MEDIA[key]));
++  for (const query of queries) query.addEventListener("change", changed);
++  return () => { for (const query of queries) query.removeEventListener("change", changed); };
++}
++export function useHiddenColumnMask(enabled) {
++  // The server and hydration pass render the same children. The real snapshot
++  // is available before a post-hydration contract can publish cached rows.
++  return useSyncExternalStore(enabled ? subscribe : noSubscribe, enabled ? snapshot : serverSnapshot, serverSnapshot);
++}
++export function isColumnHidden(mask, hideBelow) {
++  const index = keys.indexOf(hideBelow);
++  return index >= 0 && Boolean(mask & (1 << index));
++}
+--- /dev/null
++++ b/frontend/__tests__/components/ds/HiddenCellContent.test.jsx
+@@ -0,0 +1,58 @@
++import { afterEach, describe, expect, it, vi } from "vitest";
++import React from "react";
++import { act, render, screen, within } from "@testing-library/react";
++import { renderToString } from "react-dom/server";
++import { hydrateRoot } from "react-dom/client";
++import { DataTable } from "@/components/ds/DataTable";
++
++function viewport(initialWidth) {
++  let width = initialWidth;
++  const listeners = new Set();
++  vi.stubGlobal("matchMedia", (query) => ({
++    get matches() { return width < Number(query.match(/\d+/)[0]); },
++    addEventListener(_event, cb) { listeners.add(cb); },
++    removeEventListener(_event, cb) { listeners.delete(cb); },
++  }));
++  return (next) => act(() => { width = next; for (const cb of listeners) cb(); });
++}
++afterEach(() => vi.unstubAllGlobals());
++const rows = [{ id: 1, name: "A", value: 3 }, { id: 2, name: "B", value: 5 }];
++function columns(hiddenRender) { return [{ key: "name", header: "Player" }, { key: "value", header: "Value", numeric: true, sortable: true, hideBelow: "md", render: hiddenRender }]; }
++
++describe("opt-in hidden cell content", () => {
++  it("skips hidden children for newly published rows, preserves cells, and restores every value on resize", () => {
++    const resize = viewport(390);
++    const child = vi.fn((row) => <span>{row.value}</span>);
++    const props = { columns: columns(child), caption: "board", deferHiddenCellContent: true };
++    const view = render(<DataTable {...props} rows={[]} />);
++    view.rerender(<DataTable {...props} rows={rows} />);
++    expect(child).not.toHaveBeenCalled();
++    expect(screen.getAllByRole("cell")).toHaveLength(4);
++    expect(screen.getAllByRole("columnheader")).toHaveLength(2);
++    resize(768);
++    expect(screen.getAllByRole("cell").map((cell) => cell.textContent)).toEqual(["A", "3", "B", "5"]);
++    resize(767.5);
++    expect(screen.getAllByRole("cell").map((cell) => cell.textContent)).toEqual(["A", "", "B", ""]);
++  });
++  it("keeps opt-out tables unchanged and sorts the canonical hidden values", () => {
++    viewport(390);
++    const child = vi.fn((row) => row.value);
++    const view = render(<DataTable caption="board" rows={rows} columns={columns(child)} />);
++    expect(child).toHaveBeenCalledTimes(2);
++    view.rerender(<DataTable caption="board" rows={rows} columns={columns(child)} deferHiddenCellContent defaultSort={{ key: "value", direction: "desc" }} sort={{ key: "value", direction: "desc" }} />);
++    expect(screen.getAllByRole("row").slice(1).map((row) => within(row).getAllByRole("cell")[0].textContent)).toEqual(["B", "A"]);
++  });
++  it("hydrates preloaded rows consistently before applying the real media snapshot", async () => {
++    viewport(390);
++    const element = <DataTable caption="board" rows={rows} columns={columns((row) => row.value)} deferHiddenCellContent />;
++    const container = document.createElement("div");
++    container.innerHTML = renderToString(element);
++    expect(container.querySelector('[data-col="value"]').textContent).toBe("3");
++    const errors = [];
++    let root;
++    await act(async () => { root = hydrateRoot(container, element, { onRecoverableError: (error) => errors.push(error) }); });
++    expect(errors).toEqual([]);
++    expect([...container.querySelectorAll('[data-col="value"]')].map((cell) => cell.textContent)).toEqual(["", ""]);
++    await act(async () => root.unmount());
++  });
++});
+--- /dev/null
++++ b/frontend/__tests__/hidden-column-breakpoints.test.js
+@@ -0,0 +1,14 @@
++import { expect, it } from "vitest";
++import fs from "node:fs";
++import path from "node:path";
++
++it("keeps media subscriptions identical to the existing DataTable CSS and token breakpoints", () => {
++  const helper = fs.readFileSync(path.resolve("components/ds/useHiddenColumnMask.js"), "utf8");
++  const css = fs.readFileSync(path.resolve("app/ds.css"), "utf8");
++  const tokens = fs.readFileSync(path.resolve("app/tokens.css"), "utf8");
++  for (const [key, width] of Object.entries({ sm: 480, md: 768, lg: 1024 })) {
++    expect(helper).toContain(`${key}: "(width < ${width}px)"`);
++    expect(css).toMatch(new RegExp(`@media \\(width < ${width}px\\)\\s*\\{\\s*\\.ds-table \\.ds-col-hide-${key}`));
++    expect(tokens).toContain(`--breakpoint-${key}: ${width}px`);
++  }
++});

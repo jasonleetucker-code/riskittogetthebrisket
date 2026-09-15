@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ast
 import json
 from pathlib import Path
 
@@ -10,32 +9,14 @@ import server as srv
 
 from scripts import verify_live_source_coverage as live_cov
 from src.sources.ktc_value_sources import KTC_SOURCE_FILE_KEYS
+from src.serving.producer import MIRROR_FILES, promotion_reason
 
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def _server_scraper_owned_mirror_files() -> set[str]:
-    tree = ast.parse((ROOT / "server.py").read_text(encoding="utf-8"))
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Assign):
-            continue
-        if not any(
-            isinstance(target, ast.Name) and target.id == "scraper_owned_site_raw"
-            for target in node.targets
-        ):
-            continue
-        assert isinstance(node.value, (ast.Tuple, ast.List))
-        return {
-            value.value
-            for value in node.value.elts
-            if isinstance(value, ast.Constant) and isinstance(value.value, str)
-        }
-    raise AssertionError("server.py has no scraper_owned_site_raw mirror declaration")
-
-
 def test_post_scrape_mirror_includes_complete_ktc_three_source_family() -> None:
-    mirrored = _server_scraper_owned_mirror_files()
+    mirrored = set(MIRROR_FILES)
     expected = {
         "ktc.csv",
         "ktcSfTep.csv",
@@ -175,10 +156,13 @@ def test_startup_keeps_runtime_cache_when_population_is_not_collapsed(
 
 
 def test_scrape_promotion_has_relative_population_collapse_guard() -> None:
-    text = (ROOT / "server.py").read_text(encoding="utf-8")
-    assert "population_collapsed" in text
-    assert "player_retention < SCRAPE_PLAYER_RETENTION_FLOOR" in text
-    assert "PLAYER POPULATION COLLAPSE" in text
+    previous = {"players": {str(i): {} for i in range(100)}}
+    collapsed = {"players": {str(i): {} for i in range(74)}}
+    assert "PLAYER POPULATION COLLAPSE" in promotion_reason(
+        collapsed, previous, srv.SCRAPE_PLAYER_RETENTION_FLOOR
+    )
+    allowed = {"players": {str(i): {} for i in range(75)}}
+    assert promotion_reason(allowed, previous, srv.SCRAPE_PLAYER_RETENTION_FLOOR) == ""
 
 
 def _write_marked_payload(path: Path, marker: str, player_count: int = 100) -> None:

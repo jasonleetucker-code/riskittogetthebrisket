@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useAuthContext } from "@/app/AppShellWrapper";
 import { useDynastyData } from "@/components/useDynastyData";
 import { useUserState } from "@/components/useUserState";
 import {
@@ -23,9 +24,37 @@ function fmtDelta(v) {
 }
 
 export default function RosterComparePanel({ ownerId }) {
+  const { authenticated } = useAuthContext();
+  if (authenticated !== true) return null;
+  return <RosterCompareIntent key={ownerId} ownerId={ownerId} />;
+}
+
+function RosterCompareIntent({ ownerId }) {
+  const [open, setOpen] = useState(false);
+  if (!open) {
+    return (
+      <button className="button" onClick={() => setOpen(true)} style={{ fontSize: "0.78rem" }}>
+        Compare to my roster
+      </button>
+    );
+  }
+  return (
+    <div>
+      <button
+        className="button"
+        onClick={() => setOpen(false)}
+        style={{ fontSize: "0.7rem", padding: "2px 8px" }}
+      >
+        Hide
+      </button>
+      <RosterComparison ownerId={ownerId} />
+    </div>
+  );
+}
+
+function RosterComparison({ ownerId }) {
   const { rows, rawData, loading } = useDynastyData();
   const { state: userState } = useUserState();
-  const [open, setOpen] = useState(false);
 
   const myOwnerId = userState?.selectedTeam?.ownerId
     ? String(userState.selectedTeam.ownerId)
@@ -86,14 +115,6 @@ export default function RosterComparePanel({ ownerId }) {
     );
   }
 
-  if (!open) {
-    return (
-      <button className="button" onClick={() => setOpen(true)} style={{ fontSize: "0.78rem" }}>
-        Compare to my roster
-      </button>
-    );
-  }
-
   const grandDelta = compare.meGrand - compare.themGrand;
   const grandColor = grandDelta > 0 ? "var(--green)" : grandDelta < 0 ? "var(--red)" : "var(--text)";
 
@@ -101,13 +122,6 @@ export default function RosterComparePanel({ ownerId }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <strong style={{ fontSize: "0.84rem" }}>Roster comparison</strong>
-        <button
-          className="button"
-          onClick={() => setOpen(false)}
-          style={{ fontSize: "0.7rem", padding: "2px 8px" }}
-        >
-          Hide
-        </button>
         <span className="muted" style={{ fontSize: "0.7rem" }}>
           (consensus value totals, by position family)
         </span>

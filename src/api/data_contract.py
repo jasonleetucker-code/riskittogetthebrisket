@@ -12514,6 +12514,15 @@ def build_rankings_delta_payload(
     # real factor set, 12,471 at the cap).  See
     # ``tests/api/test_canonical_value_scale_contract.py``.
 
+    return project_rankings_delta(full)
+
+
+def project_rankings_delta(full: dict[str, Any]) -> dict[str, Any]:
+    """Select the existing delta fields from an accepted canonical generation.
+
+    This is a projection only: prepared serving reuses it without rebuilding
+    ranks or reopening provider/filesystem inputs in an ordinary request.
+    """
     delta_players: list[dict[str, Any]] = []
     active_ids: list[str] = []
     for row in full.get("playersArray") or []:

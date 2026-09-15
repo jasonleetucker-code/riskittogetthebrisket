@@ -183,7 +183,7 @@ class SleeperTrendingProvider(NewsProvider):
             log.warning("sleeper trending fetch (%s) failed: %s", path, exc)
             return False, []
         if not isinstance(data, list):
-            return True, []
+            return False, []
         return True, [row for row in data if isinstance(row, dict)]
 
     # ── normalization ───────────────────────────────────────────
