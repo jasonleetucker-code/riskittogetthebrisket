@@ -1160,17 +1160,21 @@ def _top_player_per_position_scores(
 def _replacement_per_game_for_position(
     rows: list[dict[str, Any]],
     starter_slots: int,
-) -> float:
+    *,
+    require_full_band: bool = False,
+) -> float | None:
     """Replacement-level points-per-game at a position.
 
     Thin shim around :func:`src.scoring.replacement_level.replacement_per_game`
     that lets the awards path keep using its dict shape (``starterPoints``,
     ``gamesStarted``) without restructuring callers.  See the shared
-    module for the algorithm.
+    module for the algorithm and what ``require_full_band`` means.
     """
     from src.scoring.replacement_level import replacement_per_game
 
-    return replacement_per_game(rows or [], starter_slots, band_size=5)
+    return replacement_per_game(
+        rows or [], starter_slots, band_size=5, require_full_band=require_full_band
+    )
 
 
 # Replacement-level starter depth per position (the cutoff index whose
@@ -1216,6 +1220,16 @@ def _vorp_rows(
     Replacement-level baseline is per-position (per-game), so injured
     starters who scored a lot per game still rate fairly against
     healthier-but-thinner peers.
+
+    A position whose distinct-starter count hasn't yet reached its
+    replacement band (``starter_slots + band``) is EXCLUDED from the
+    output entirely rather than assigned a VORP built from a
+    single-game outlier — see
+    :func:`src.scoring.replacement_level.replacement_per_game`. This
+    matters most early in a season, before byes/injuries/streaming have
+    forced enough distinct players through a position for "replacement
+    level" to mean anything. League/Off/Def MVP and ROY all read this
+    function, so the exclusion applies to all of them uniformly.
     """
     totals = _player_starter_totals(snapshot, season, regular_season_only=regular_season_only)
     if not totals:
@@ -1247,7 +1261,15 @@ def _vorp_rows(
             # baseline so a single-game cameo doesn't outshine real
             # full-season starters.
             slots = max(1, len(rows) // 2)
-        replacement_per_game = _replacement_per_game_for_position(rows, slots)
+        replacement_per_game = _replacement_per_game_for_position(
+            rows, slots, require_full_band=True
+        )
+        if replacement_per_game is None:
+            # Not enough distinct starters at this position yet for a
+            # real replacement-level baseline — exclude the whole
+            # position rather than manufacture VORP from a degenerate
+            # single-player estimate.
+            continue
         for r in rows:
             games = r["gamesStarted"] or 1
             replacement_total = replacement_per_game * games
@@ -1438,6 +1460,12 @@ def _playoff_mvp_player_rows(
         slots = starter_slots.get(pos, 0)
         if slots <= 0:
             slots = max(1, len(rows) // 2)
+        # Deliberately NOT require_full_band=True here, unlike _vorp_rows.
+        # `grouped` above is already restricted to one team's own playoff
+        # starters, so its population is structurally small (a handful of
+        # players over 2-3 playoff weeks) independent of how much of the
+        # regular season has been played — a full-band requirement would
+        # exclude nearly every position, always, not just early on.
         replacement_per_game = _replacement_per_game_for_position(rows, slots)
         for r in rows:
             games = r["gamesStarted"] or 1

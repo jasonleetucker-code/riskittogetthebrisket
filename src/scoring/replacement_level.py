@@ -122,7 +122,8 @@ def replacement_per_game(
     starter_slots: int,
     *,
     band_size: int = 5,
-) -> float:
+    require_full_band: bool = False,
+) -> float | None:
     """Replacement-level points-per-game at a single position.
 
     Defined as the mean per-game pace of the ``band_size`` players
@@ -136,8 +137,26 @@ def replacement_per_game(
       who scored 80 points in 6 games doesn't anchor the baseline
       below replacement.
 
-    Falls back to the worst player's per-game line if the position
-    has fewer rostered players than ``starter_slots + band_size``.
+    By default (``require_full_band=False``), falls back to the worst
+    player's per-game line if the position has fewer rostered players
+    than ``starter_slots + band_size``. That fallback is only sound for
+    a position that is *permanently* shallow (e.g. Kicker, where the
+    NFL only fields ~32 of them all season) — it is unsound for a
+    position that is merely *early in the season*, where the number of
+    DISTINCT players who have started at all still has to grow via
+    byes/injuries/streaming, and the "worst" player in a 1-2-week
+    sample is often a single emergency one-game fill-in whose per-game
+    rate is pure noise. Anchoring the whole position's replacement
+    level on that one game manufactures a false baseline (a real
+    performer then looks like he has an enormous surplus over
+    replacement, when in fact nobody has established what replacement
+    even is yet).
+
+    Pass ``require_full_band=True`` for a caller that wants an honest
+    "not enough data yet" instead: this returns ``None`` unless the
+    full ``band_size`` band is populated, so the caller can exclude the
+    position rather than publish a number built from a single
+    low-sample outlier.
 
     Accepts either ``PlayerSeasonRow`` or plain dicts (the awards
     path uses dicts; new callers should use the dataclass).
@@ -161,10 +180,14 @@ def replacement_per_game(
             continue
         per_game.append(p / g)
     if not per_game:
-        return 0.0
+        return None if require_full_band else 0.0
     per_game.sort(reverse=True)
     cutoff = max(0, int(starter_slots))
     band = per_game[cutoff : cutoff + max(1, band_size)]
+    if require_full_band:
+        if len(band) < max(1, band_size):
+            return None
+        return sum(band) / len(band)
     if not band:
         return per_game[-1]
     return sum(band) / len(band)
