@@ -188,6 +188,16 @@
   list-style: none;
 }
 
+/* A race with no deciding evidence yet: explain the blank rather than
+   render an empty leaderboard, which reads as a loading failure. */
+.raceAwaiting {
+  margin: 0;
+  padding: var(--space-2) 0;
+  color: var(--text-tertiary);
+  font-family: var(--font-prose);
+  font-size: var(--font-size-xs);
+}
+
 .leaderRow {
   display: grid;
   grid-template-columns: 20px 30px minmax(0, 1fr) minmax(60px, auto);

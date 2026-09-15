@@ -37,6 +37,7 @@ Award catalog:
 
 from __future__ import annotations
 
+import math
 from collections import defaultdict
 from typing import Any
 
@@ -81,6 +82,28 @@ AWARD_DESCRIPTIONS: dict[str, str] = {
     "top_dl": "The league's top defensive lineman.",
     "top_lb": "The league's top linebacker.",
     "top_db": "The league's top defensive back.",
+}
+
+
+# An award whose deciding metric is zero for EVERY candidate has no
+# winner to report.  The ranking is a tie at nothing, so ``pool[0]`` is
+# then just whoever happened to sort first — which is how a Waiver King
+# with zero useful adds, or a Trader of the Year at +0.0 across nine
+# trades, ends up crowned.  Trade and waiver value only counts points
+# scored in weeks AFTER the transaction, so early in a season every
+# manager legitimately sits at 0.0 and the field is genuinely undecided.
+#
+# MISSING IS NEVER ZERO applies to this surface exactly as it does to a
+# value: "no qualifying evidence yet" and "won it" must not render the
+# same.  These awards therefore report an explicit awaiting state rather
+# than a fabricated winner.  Reason codes are per-award because the
+# honest sentence differs — a season still in flight is a different
+# statement from a finished one where nobody cleared replacement.
+AWARD_AWAITING_REASONS: dict[str, str] = {
+    "trader_of_the_year": "no_scored_week_since_any_trade",
+    "best_trade_of_the_year": "no_scored_week_since_any_trade",
+    "waiver_king": "no_scored_week_since_any_add",
+    "playoff_mvp": "no_value_above_replacement",
 }
 
 
@@ -1714,6 +1737,63 @@ def _rivalry_of_the_year(
 
 
 # ── assembly helpers ────────────────────────────────────────────────────────
+def _is_nonzero_number(value: Any) -> bool:
+    """True only for a real, finite, NONZERO number.
+
+    ``None`` is deliberately NOT coerced to 0.0. A missing measurement
+    and a measured zero are different facts, and keeping them apart is
+    the entire point of the awaiting-evidence rule below — so the line
+    that DECIDES whether evidence exists must not be the one place that
+    collapses them. Neither counts as evidence; they just get there by
+    different routes, and only one of them is a number.
+
+    Rejects ``bool`` because ``True`` is numerically 1 and a flag is
+    never a measurement.
+    """
+    if value is None or isinstance(value, bool):
+        return False
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(number) and number != 0.0
+
+
+def _is_positive_number(value: Any) -> bool:
+    """True only for a real, finite number strictly greater than zero.
+
+    Same non-coercion rule as :func:`_is_nonzero_number`.
+    """
+    if value is None or isinstance(value, bool):
+        return False
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(number) and number > 0.0
+
+
+def _awaiting_award(key: str, label: str) -> dict[str, Any]:
+    """An award with candidates but no deciding evidence yet.
+
+    Carries no winner at all — ``ownerId``/``displayName`` stay empty and
+    ``value`` is ``None`` — so no consumer can mistake it for a result.
+    ``awaitingEvidence`` is stamped only on this shape; its ABSENCE on a
+    normal award is unambiguous because that award names a winner.
+    """
+    return {
+        "key": key,
+        "label": label,
+        "description": AWARD_DESCRIPTIONS.get(key, ""),
+        "ownerId": "",
+        "displayName": "",
+        "teamName": "",
+        "value": None,
+        "awaitingEvidence": True,
+        "awaitingReason": AWARD_AWAITING_REASONS.get(key, "no_qualifying_evidence"),
+    }
+
+
 def _award_from_row(
     snapshot: PublicLeagueSnapshot,
     season: SeasonSnapshot,
@@ -1722,7 +1802,15 @@ def _award_from_row(
     label: str,
     value_builder,
     eligible_only: bool = False,
+    evidence=None,
 ) -> dict[str, Any] | None:
+    """Crown ``rows[0]`` — unless nothing in the pool has evidence.
+
+    ``evidence`` is an optional predicate over a candidate row. When it
+    is supplied and NO candidate satisfies it, the whole field is tied at
+    nothing and the award reports its awaiting state instead of naming
+    whichever row sorted first.
+    """
     if not rows:
         return None
     pool = rows
@@ -1730,6 +1818,8 @@ def _award_from_row(
         pool = [r for r in rows if r.get("eligible") is True]
     if not pool:
         return None
+    if evidence is not None and not any(evidence(r) for r in pool):
+        return _awaiting_award(key, label)
     winner = pool[0]
     owner_id = winner["ownerId"]
     rid = _roster_id_for_owner(season, owner_id)
@@ -1780,9 +1870,15 @@ def _activity_awards_for_season(
             "trader_of_the_year",
             "Trader of the Year",
             lambda r: {"pointsGained": r["pointsGained"], "trades": r["tradeCount"]},
+            evidence=lambda r: _is_nonzero_number(r.get("pointsGained")),
         )
     )
-    if best_trade is not None:
+    if best_trade is not None and not _is_nonzero_number(best_trade[0]):
+        # Trades were made, but no week has been scored since any of
+        # them — every candidate's gain is exactly 0.0, so there is no
+        # "best" to pick out.
+        _add(_awaiting_award("best_trade_of_the_year", "Best Trade of the Year"))
+    elif best_trade is not None:
         gain, owner_id, payload, best_tx = best_trade
         rid = _roster_id_for_owner(season, owner_id)
         # Reuse the activity-section trade normalizer so the public
@@ -1819,6 +1915,7 @@ def _activity_awards_for_season(
                 "pointsGained": r["pointsGained"],
                 "adds": r.get("usefulAdds", 0),
             },
+            evidence=lambda r: _is_nonzero_number(r.get("pointsGained")),
         )
     )
     _add(
@@ -1851,7 +1948,12 @@ def _activity_awards_for_season(
     )
     # Playoff MVP — VORP-based player award (replaces the prior team-points version).
     playoff_mvp_rows = _playoff_mvp_player_rows(snapshot, season)
-    if playoff_mvp_rows:
+    if playoff_mvp_rows and not _is_positive_number(playoff_mvp_rows[0].get("vorp")):
+        # VORP floors at 0, so an all-zero board means no starter on the
+        # championship roster cleared replacement — there is no standout
+        # to name, and naming the first-sorted one invents a result.
+        _add(_awaiting_award("playoff_mvp", "Playoff MVP"))
+    elif playoff_mvp_rows:
         winner = playoff_mvp_rows[0]
         rid = _roster_id_for_owner(season, winner["ownerId"])
         awards.append(
@@ -2132,12 +2234,27 @@ def _build_race(
     *,
     eligible_only: bool = False,
     top_n: int = 3,
+    evidence=None,
 ) -> dict[str, Any] | None:
+    """A top-N leaderboard — unless nothing in the pool has evidence.
+
+    Same rule as :func:`_award_from_row`: a board where every candidate
+    sits at zero is an arbitrary ordering, not a race, so it reports its
+    awaiting state (no leaders) rather than ranking a tie.
+    """
     pool = rows
     if eligible_only:
         pool = [r for r in rows if r.get("eligible") is True]
     if not pool:
         return None
+    if evidence is not None and not any(evidence(r) for r in pool):
+        race = _awaiting_award(key, label)
+        race.pop("ownerId", None)
+        race.pop("displayName", None)
+        race.pop("teamName", None)
+        race.pop("value", None)
+        race["leaders"] = []
+        return race
     leaders = []
     for i, row in enumerate(pool[:top_n]):
         leaders.append(
@@ -2180,6 +2297,7 @@ def _current_season_races(
             "Trader of the Year",
             trader_rows,
             lambda r: {"pointsGained": r["pointsGained"], "trades": r["tradeCount"]},
+            evidence=lambda r: _is_nonzero_number(r.get("pointsGained")),
         )
     )
     _add(
@@ -2192,6 +2310,7 @@ def _current_season_races(
                 "pointsGained": r["pointsGained"],
                 "adds": r.get("usefulAdds", 0),
             },
+            evidence=lambda r: _is_nonzero_number(r.get("pointsGained")),
         )
     )
     _add(
@@ -2220,7 +2339,10 @@ def _current_season_races(
             },
         )
     )
-    playoff_mvp_rows = _playoff_mvp_player_rows(snapshot, season)
+    # Same rule the ROY races use: a zero-VORP board is no race at all.
+    playoff_mvp_rows = [
+        r for r in _playoff_mvp_player_rows(snapshot, season) if _is_positive_number(r.get("vorp"))
+    ]
     if playoff_mvp_rows:
         race = {
             "key": "playoff_mvp",
