@@ -97,7 +97,7 @@ def test_cli_new_process_reports_actual_head(tmp_path):
     result = json.loads(output)
     assert len(result["head"]) == 40
     assert result["remote_observed_at"] is None
-    assert result["manifest_rows"] == 163
+    assert result["manifest_rows"] == 164
     assert all(route["status"] == "BLOCKED" for route in result["routing"])
 
 

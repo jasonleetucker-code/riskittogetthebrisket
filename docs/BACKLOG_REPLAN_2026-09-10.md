@@ -225,7 +225,12 @@ via **#1313 (merged)** — the earlier draft #1217 that some issue text still re
 closed unmerged and superseded. #738's five handoff items (seed bid history, timer
 `Requires=` misuse, nonzero-only-median artifact, missing dev bridge route, one valuation
 disagreement) remain open follow-ups from the earlier FAAB redesign, independent of
-Stage 1.
+Stage 1. **Adjacent, not the same budget:** the rookie-auction dollar pool
+(`src/draft/`, `docs/perfect-draft.md`) is a separate, non-FAAB budget with its own
+$1,200/72-pick economics; owner directive 2026-09-13 specifies (does not yet authorize)
+a live-auction extension of Perfect Draft — see the Phase 6 table row below and
+`docs/OWNER_FEATURE_ADDENDUM_2026-09-13_LIVE_ROOKIE_AUCTION_PERFECT_DRAFT.md`. Do not
+merge rookie-auction dollars into the FAAB model or vice versa.
 
 ### 2.7 Reporting/Storytelling Platform
 PR #1295 (merged) built the canonical blended Power Rankings + a weekly share card, but
@@ -379,6 +384,7 @@ NEEDS-OWNER-DECISION.
 | #1157 | Roster-percentage production timeout | Confirmed `build_board()` >60s in prod | REAL-REMAINING, correctness-adjacent perf bug | `src/sharp/roster_percentage.py` |
 | #830 | Extend FAAB market layer (Sleeper heat + Sharp bids) | Not built; large mature FAAB layer exists to extend | REAL-REMAINING | `src/trade/faab_engine.py` family |
 | #738 | FAAB redesign handoff (5 items) | Independent of Stage-1 shadow logging (#1313, merged) | REAL-REMAINING (small items) | FAAB layer |
+| — | Live Rookie Auction — dynamic Perfect Draft, bid tracking, shared-budget optimization, price sensitivity (owner directive 2026-09-13) | Not built; extends the mature, declared-complete static optimizer in `src/draft/` + `frontend/lib/perfect-draft.js` (`docs/perfect-draft.md`). Full spec: `docs/OWNER_FEATURE_ADDENDUM_2026-09-13_LIVE_ROOKIE_AUCTION_PERFECT_DRAFT.md` | REAL-REMAINING (large; new declared scope, not authorized to begin — see `docs/EXECUTION_PLAN.md`). Consolidates W10-F001/row 3.7 rather than tracking it separately | `src/draft/` (extend); manifest `C7-DRAFT-03` |
 
 ### 4.8 Phase 7 — Reporting/Storytelling Platform
 

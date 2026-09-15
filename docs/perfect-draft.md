@@ -584,3 +584,35 @@ context together, because a recommendation can only be scored against the state
 it was made from — and the roster context stops being recoverable the moment
 the first pick lands. Run it **before** the auction. That is the missing step,
 and it is the only one code can fix.
+
+---
+
+## 11. Planned: Live Rookie Auction — dynamic bid tracking, joint optimization, price sensitivity
+
+**Status: PLANNED. Not implemented.** Everything above this section describes the
+shipped, declared scope of Perfect Draft (`C7-DRAFT-01`, COMPLETE) — a
+pre-auction/static optimizer that reruns as completed picks are recorded, per
+§8. It does not track in-progress bids, leading/outbid states, or live
+what-if price sensitivity against a shared multi-auction budget.
+
+The full binding specification for that extension is
+`docs/OWNER_FEATURE_ADDENDUM_2026-09-13_LIVE_ROOKIE_AUCTION_PERFECT_DRAFT.md`
+(manifest row `C7-DRAFT-03`, execution unit `C7-U12`). It extends, and does not
+replace, everything in this file and in ADR-009/010/011: the no-fixed-slot-count
+rule, the surplus/ECC-over-replacement math, the cardinality-decomposed
+knapsack, and the client-solve/server-roster-context split all carry forward
+unchanged.
+
+Two points worth surfacing here since they correct assumptions this file's
+history could otherwise suggest:
+
+- **Simultaneous active auctions: ~12, not ~20**, and configurable — no prior
+  version of this file stated a concurrency assumption at all, so this is a
+  newly recorded parameter, not a correction to text that lived here.
+- **Existing defect row 3.7 / W10-F001** ("draft bid respects remaining
+  budget — stop telling a manager with $4 left to 'win at $37'") is
+  consolidated into the addendum's §5/§7 legal-maximum-bid machinery rather
+  than tracked as a separate patch.
+
+Do not begin implementation from this pointer alone — `docs/EXECUTION_PLAN.md`
+is the only record that can authorize it, and it has not been amended.
