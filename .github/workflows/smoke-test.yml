@@ -145,13 +145,45 @@ jobs:
           PASS=0
           FAIL=0
 
+          # Same scrape-blocking window the post-deploy smoke test hits, and
+          # the same fix: server.py starts a scrape 3s after every boot and
+          # again on the 2-hourly schedule, and its browser-launch phase blocks
+          # the process — so this daily probe reddens whenever it happens to
+          # land in one. Measured on the live box 2026-09-16: 144s of 000/502
+          # before recovery, and run 35090402976 (11:27Z) failed /api/health,
+          # /api/status and /api/data together for exactly that reason.
+          #
+          # ``scripts/scrape_activity.py`` is the one owner of "is a scrape
+          # blocking the box"; the deploy smoke test and
+          # ``verify_live_source_coverage.py`` consume the same predicate.
+          # A wrong status code is never waited on — only unreachability, and
+          # only while the window is unspent.
+          SCRAPE_WAIT_ROUNDS=20
+          SCRAPE_WAIT_SLEEP=15
+
+          _probe_once() {
+            curl --silent --show-error --output /dev/null \
+              --write-out '%{http_code}' --max-time 30 "$1" || echo "000"
+          }
+
           check_endpoint() {
             local path="$1"
             local expect_code="${2:-200}"
             local full_url="${URL}${path}"
-            local code
-            code=$(curl --silent --show-error --output /dev/null \
-              --write-out '%{http_code}' --max-time 30 "${full_url}" || echo "000")
+            local code round rc
+            code=$(_probe_once "${full_url}")
+
+            for (( round = 1; round <= SCRAPE_WAIT_ROUNDS; round++ )); do
+              [[ "${code}" == "${expect_code}" ]] && break
+              python3 scripts/scrape_activity.py --check-code "${code}" || break
+              rc=0
+              python3 scripts/scrape_activity.py "${URL}" || rc=$?
+              [[ "${rc}" -eq 1 ]] && break
+              echo "  ${path} -> ${code}; waiting ${SCRAPE_WAIT_SLEEP}s (round ${round}/${SCRAPE_WAIT_ROUNDS})"
+              sleep "${SCRAPE_WAIT_SLEEP}"
+              code=$(_probe_once "${full_url}")
+            done
+
             if [[ "${code}" == "${expect_code}" ]]; then
               echo "PASS: ${path} -> ${code}"
               PASS=$((PASS + 1))

@@ -49,6 +49,7 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from scripts.scrape_activity import recovering_scrape as _recovering_scrape  # noqa: E402
 from scripts.watchdog_contract_coverage import evaluate_coverage_map  # noqa: E402
 from scripts.watchdog_freshness import _read_freshness  # noqa: E402
 from src.api.source_health_alerts import load_thresholds  # noqa: E402
@@ -115,11 +116,6 @@ def _coverage_result(status: dict):
     freshness = _read_freshness()
     thresholds = load_thresholds()
     return evaluate_coverage_map(cov_int, freshness, thresholds)
-
-
-def _recovering_scrape(status: dict) -> bool:
-    """True only for an active scrape that still has a chance to republish."""
-    return bool(status.get("running")) and not bool(status.get("stalled") or status.get("hung"))
 
 
 def _print_coverage_failure(violations) -> None:
