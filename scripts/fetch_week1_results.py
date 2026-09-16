@@ -100,9 +100,15 @@ def fetch_league_data(league_id: str) -> None:
 
         print(f"Matchup {mid}:")
         print(f"  {manager_a}: {score_a} points")
-        print(f"    Roster: {roster_a.get('players', [])[:5]}..." if roster_a.get('players') else "    Roster: (no data)")
+        if roster_a.get("players"):
+            print(f"    Roster: {roster_a.get('players', [])[:5]}...")
+        else:
+            print("    Roster: (no data)")
         print(f"  {manager_b}: {score_b} points")
-        print(f"    Roster: {roster_b.get('players', [])[:5]}..." if roster_b.get('players') else "    Roster: (no data)")
+        if roster_b.get("players"):
+            print(f"    Roster: {roster_b.get('players', [])[:5]}...")
+        else:
+            print("    Roster: (no data)")
         print()
 
     # Also display team-by-team breakdown with player details
