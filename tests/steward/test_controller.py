@@ -27,7 +27,12 @@ def contract(run_id: str = "phase1-test") -> dict:
         "autonomy_class": "A_REPORT_ONLY",
         "goal": "Produce a deterministic report-only Steward observation.",
         "allowed_actions": ["observe", "report"],
-        "denied_actions": ["repo_write", "product_write", "production_write", "paid_api"],
+        "denied_actions": [
+            "repo_write",
+            "product_write",
+            "production_write",
+            "paid_api",
+        ],
         "budget": {
             "wall_clock_seconds": 60,
             "max_actions": 1,
@@ -46,25 +51,37 @@ def init_repo(tmp_path: Path) -> Path:
     (repo / "config" / "steward").mkdir(parents=True)
     (repo / "docs" / "season-launch").mkdir(parents=True)
     (repo / "config" / "steward" / "contracts.schema.json").write_text(
-        SCHEMA.read_text(encoding="utf-8"), encoding="utf-8"
+        SCHEMA.read_text(encoding="utf-8"),
+        encoding="utf-8",
     )
     rows = "\n".join(
         f"| W1-{number:02d} | Test | Acceptance {number} | VERIFIED |"
         for number in range(1, 31)
     )
     (repo / "docs" / "season-launch" / "WEEK_1_LAUNCH_CONTRACT.md").write_text(
-        rows + "\n", encoding="utf-8"
+        rows + "\n",
+        encoding="utf-8",
     )
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
-    subprocess.run(["git", "-C", str(repo), "config", "user.email", "steward@test.invalid"], check=True)
-    subprocess.run(["git", "-C", str(repo), "config", "user.name", "Steward Test"], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "config", "user.email", "steward@test.invalid"],
+        check=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(repo), "config", "user.name", "Steward Test"],
+        check=True,
+    )
     subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
-    subprocess.run(["git", "-C", str(repo), "commit", "-qm", "fixture"], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-qm", "fixture"],
+        check=True,
+    )
     return repo
 
 
 def test_canonical_week1_is_literal_30_of_30():
-    assert mechanically_count_week1(Path("docs/season-launch/WEEK_1_LAUNCH_CONTRACT.md")) == (30, 30)
+    launch = Path("docs/season-launch/WEEK_1_LAUNCH_CONTRACT.md")
+    assert mechanically_count_week1(launch) == (30, 30)
 
 
 def test_contract_validation_rejects_paid_phase1_budget():
@@ -94,7 +111,10 @@ def test_controller_records_done_receipt_and_zero_cost(tmp_path: Path):
         "product": False,
         "production": False,
     }
-    assert result.receipt["preflight"]["week1"] == {"rows": 30, "verified": 30}
+    assert result.receipt["preflight"]["week1"] == {
+        "rows": 30,
+        "verified": 30,
+    }
     receipt_files = list((runtime / "receipts").glob("*.jsonl"))
     assert len(receipt_files) == 1
     lines = receipt_files[0].read_text(encoding="utf-8").splitlines()
@@ -118,7 +138,7 @@ def test_halt_is_fail_closed_and_receipted(tmp_path: Path):
     assert result.receipt["blockers"] == ["HALT sentinel present before run"]
 
 
-def test_idempotency_returns_original_without_appending_second_receipt(tmp_path: Path):
+def test_idempotency_returns_original_without_second_receipt(tmp_path: Path):
     repo = init_repo(tmp_path)
     runtime = tmp_path / "private-runtime"
     with Phase1Controller(repo, runtime) as controller:
@@ -136,12 +156,16 @@ def test_idempotency_returns_original_without_appending_second_receipt(tmp_path:
 def test_incomplete_week1_blocks_and_is_receipted(tmp_path: Path):
     repo = init_repo(tmp_path)
     launch = repo / "docs" / "season-launch" / "WEEK_1_LAUNCH_CONTRACT.md"
+    current = launch.read_text(encoding="utf-8")
     launch.write_text(
-        launch.read_text(encoding="utf-8").replace("| VERIFIED |", "| NOT STARTED |", 1),
+        current.replace("| VERIFIED |", "| NOT STARTED |", 1),
         encoding="utf-8",
     )
-    subprocess.run(["git", "-C", str(repo), "add", str(launch)], check=True)
-    subprocess.run(["git", "-C", str(repo), "commit", "-qm", "incomplete gate"], check=True)
+    subprocess.run(["git", "-C", str(repo), "add", "."], check=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-qm", "incomplete gate"],
+        check=True,
+    )
 
     with Phase1Controller(repo, tmp_path / "runtime") as controller:
         result = controller.run(contract("blocked-run"))
