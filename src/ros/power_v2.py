@@ -847,9 +847,7 @@ def build_section(
             wins = sum(1 for outcome in outcomes if outcome >= 0.75)
             losses = sum(1 for outcome in outcomes if outcome <= 0.25)
             ties = len(outcomes) - wins - losses
-            row["record"] = (
-                f"{wins}-{losses}-{ties}" if ties else f"{wins}-{losses}"
-            )
+            row["record"] = f"{wins}-{losses}-{ties}" if ties else f"{wins}-{losses}"
             row["recordSource"] = "matchups_as_of_week"
             row["recordGames"] = len(outcomes)
 
