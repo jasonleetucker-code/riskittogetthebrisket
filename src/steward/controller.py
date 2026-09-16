@@ -1,10 +1,9 @@
 """Fail-closed report-only controller for Site Steward Phase 1.
 
-This module deliberately owns no scheduler and performs no repository, product,
-or production mutation.  It validates the committed run-contract shape, enforces
-the owner-authorized zero-spend boundary, checks the external HALT sentinel and
-Week 1 launch gate, records idempotency in the existing private SQLite store,
-and appends an audit receipt to private JSONL.
+The controller owns no scheduler and performs no repository, product, or
+production mutation. It validates the committed run contract, enforces the
+owner-authorized zero-spend boundary, checks HALT and the Week 1 launch gate,
+records idempotency in private SQLite, and appends private JSONL receipts.
 """
 
 from __future__ import annotations
@@ -29,7 +28,7 @@ _SHA = re.compile(r"^[0-9a-f]{40}$")
 
 
 class ContractError(ValueError):
-    """The supplied run contract does not satisfy the committed schema/policy."""
+    """The supplied run contract does not satisfy committed schema/policy."""
 
 
 @dataclass(frozen=True)
@@ -45,7 +44,9 @@ def _utc_now() -> str:
 
 def _git(repo: Path, *args: str) -> str:
     return subprocess.check_output(
-        ["git", "-C", str(repo), *args], text=True, encoding="utf-8"
+        ["git", "-C", str(repo), *args],
+        text=True,
+        encoding="utf-8",
     ).strip()
 
 
@@ -54,8 +55,6 @@ def _ensure_private_dir(path: Path) -> None:
     try:
         path.chmod(0o700)
     except OSError:
-        # Some test/host filesystems do not implement POSIX modes. The runtime
-        # still keeps the path outside the repository's public artifact flow.
         pass
 
 
@@ -82,13 +81,7 @@ def _iso_datetime(value: object) -> bool:
 
 
 def validate_run_contract(contract: dict[str, Any], schema_path: Path) -> None:
-    """Validate the Phase-1 run contract against the committed schema subset.
-
-    The repository intentionally has no JSON-schema runtime dependency.  This
-    validator reads the canonical schema and deterministically enforces the
-    complete ``autonomousRunContract`` object used by Phase 1, including its
-    referenced budget definition and report-only composition rule.
-    """
+    """Validate the complete Phase-1 run-contract object from the canonical schema."""
 
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     definitions = schema.get("$defs", {})
@@ -99,59 +92,105 @@ def validate_run_contract(contract: dict[str, Any], schema_path: Path) -> None:
 
     required = set(run_schema.get("required", []))
     properties = run_schema.get("properties", {})
-    _require(required <= contract.keys(), f"missing run-contract fields: {sorted(required - contract.keys())}")
+    missing = required - contract.keys()
     unknown = set(contract) - set(properties)
+    _require(not missing, f"missing run-contract fields: {sorted(missing)}")
     _require(not unknown, f"unknown run-contract fields: {sorted(unknown)}")
 
-    _require(contract.get("schema_version") == "steward-run/v1", "unsupported run schema")
-    _require(isinstance(contract.get("run_id"), str) and bool(contract["run_id"]), "run_id is required")
-    _require(isinstance(contract.get("goal"), str) and bool(contract["goal"]), "goal is required")
+    _require(
+        contract.get("schema_version") == "steward-run/v1",
+        "unsupported run schema",
+    )
+    _require(
+        isinstance(contract.get("run_id"), str) and bool(contract["run_id"]),
+        "run_id is required",
+    )
+    _require(
+        isinstance(contract.get("goal"), str) and bool(contract["goal"]),
+        "goal is required",
+    )
 
     lanes = set(properties["lane"]["enum"])
-    _require(contract.get("lane") in lanes, "lane is not allowed by the canonical schema")
     modes = set(definitions["runMode"]["enum"])
     autonomy = set(definitions["autonomyClass"]["enum"])
-    _require(contract.get("mode") in modes, "mode is not allowed by the canonical schema")
+    _require(
+        contract.get("lane") in lanes,
+        "lane is not allowed by the canonical schema",
+    )
+    _require(
+        contract.get("mode") in modes,
+        "mode is not allowed by the canonical schema",
+    )
     _require(
         contract.get("autonomy_class") in autonomy,
         "autonomy_class is not allowed by the canonical schema",
     )
 
-    for field in ("allowed_actions", "denied_actions", "allowed_paths", "allowed_domains"):
+    array_fields = (
+        "allowed_actions",
+        "denied_actions",
+        "allowed_paths",
+        "allowed_domains",
+    )
+    for field in array_fields:
         if field not in contract:
             continue
         value = contract[field]
         _require(isinstance(value, list), f"{field} must be an array")
-        _require(all(isinstance(item, str) for item in value), f"{field} must contain strings")
-        _require(len(value) == len(set(value)), f"{field} must contain unique items")
+        _require(
+            all(isinstance(item, str) for item in value),
+            f"{field} must contain strings",
+        )
+        _require(
+            len(value) == len(set(value)),
+            f"{field} must contain unique items",
+        )
 
     budget = contract.get("budget")
     _require(isinstance(budget, dict), "budget must be an object")
     budget_required = set(budget_schema.get("required", []))
     budget_properties = budget_schema.get("properties", {})
-    _require(budget_required <= budget.keys(), f"missing budget fields: {sorted(budget_required - budget.keys())}")
+    budget_missing = budget_required - budget.keys()
     budget_unknown = set(budget) - set(budget_properties)
+    _require(not budget_missing, f"missing budget fields: {sorted(budget_missing)}")
     _require(not budget_unknown, f"unknown budget fields: {sorted(budget_unknown)}")
+
     for field, spec in budget_properties.items():
         value = budget[field]
         if spec.get("type") == "integer":
             _require(type(value) is int, f"budget.{field} must be an integer")
         elif spec.get("type") == "number":
-            _require(type(value) in (int, float), f"budget.{field} must be numeric")
+            _require(
+                type(value) in (int, float),
+                f"budget.{field} must be numeric",
+            )
         minimum = spec.get("minimum")
         if minimum is not None:
             _require(value >= minimum, f"budget.{field} is below its minimum")
 
     _require(
-        isinstance(contract.get("halt_sentinel"), str) and bool(contract["halt_sentinel"]),
+        isinstance(contract.get("halt_sentinel"), str)
+        and bool(contract["halt_sentinel"]),
         "halt_sentinel is required",
     )
-    _require(_iso_datetime(contract.get("created_at")), "created_at must be an ISO date-time")
+    _require(
+        _iso_datetime(contract.get("created_at")),
+        "created_at must be an ISO date-time",
+    )
 
     if contract["autonomy_class"] == "A_REPORT_ONLY":
-        _require(contract["mode"] == "report_only", "Class A must use report_only mode")
-    if contract["autonomy_class"] in {"C_PREAUTHORIZED_INTEGRATION", "D_CONSEQUENTIAL"}:
-        _require(bool(contract.get("owner_authorization_ref")), "Class C/D requires owner authorization")
+        _require(
+            contract["mode"] == "report_only",
+            "Class A must use report_only mode",
+        )
+    if contract["autonomy_class"] in {
+        "C_PREAUTHORIZED_INTEGRATION",
+        "D_CONSEQUENTIAL",
+    }:
+        _require(
+            bool(contract.get("owner_authorization_ref")),
+            "Class C/D requires owner authorization",
+        )
     if contract["autonomy_class"] == "D_CONSEQUENTIAL":
         _require(contract["mode"] == "assisted", "Class D must use assisted mode")
 
@@ -166,7 +205,8 @@ def mechanically_count_week1(contract_path: Path) -> tuple[int, int]:
             rows.append((match.group(1), match.group(2).strip()))
     ids = [row_id for row_id, _ in rows]
     if len(rows) != 30 or len(set(ids)) != 30:
-        raise RuntimeError(f"Week 1 denominator drift: expected 30 literal rows, found {len(rows)}")
+        message = f"Week 1 denominator drift: expected 30 literal rows, found {len(rows)}"
+        raise RuntimeError(message)
     return len(rows), sum(status == "VERIFIED" for _, status in rows)
 
 
@@ -203,15 +243,25 @@ class Phase1Controller:
         return self.repo / configured
 
     def _preflight(self, contract: dict[str, Any]) -> dict[str, Any]:
-        _require(contract["autonomy_class"] == _PHASE1_AUTONOMY, "Phase 1 permits Class A only")
-        _require(contract["mode"] == _PHASE1_MODE, "Phase 1 permits report_only mode only")
-        _require(float(contract["budget"]["max_usd"]) == 0.0, "Phase 1 max_usd must remain exactly 0")
+        _require(
+            contract["autonomy_class"] == _PHASE1_AUTONOMY,
+            "Phase 1 permits Class A only",
+        )
+        _require(
+            contract["mode"] == _PHASE1_MODE,
+            "Phase 1 permits report_only mode only",
+        )
+        _require(
+            float(contract["budget"]["max_usd"]) == 0.0,
+            "Phase 1 max_usd must remain exactly 0",
+        )
 
         rows, verified = mechanically_count_week1(
             self.repo / "docs" / "season-launch" / "WEEK_1_LAUNCH_CONTRACT.md"
         )
         if verified != rows:
-            raise RuntimeError(f"Week 1 launch gate is incomplete: {verified}/{rows} VERIFIED")
+            message = f"Week 1 launch gate is incomplete: {verified}/{rows} VERIFIED"
+            raise RuntimeError(message)
 
         head = _git(self.repo, "rev-parse", "HEAD")
         if not _SHA.fullmatch(head):
@@ -232,7 +282,9 @@ class Phase1Controller:
         path = self.receipt_dir / f"{day}.jsonl"
         fd = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
         try:
-            line = (json.dumps(receipt, sort_keys=True, allow_nan=False) + "\n").encode()
+            line = (
+                json.dumps(receipt, sort_keys=True, allow_nan=False) + "\n"
+            ).encode()
             os.write(fd, line)
             os.fsync(fd)
         finally:
@@ -248,11 +300,7 @@ class Phase1Controller:
         self._append_receipt(receipt)
 
     def run(self, contract: dict[str, Any]) -> ControllerResult:
-        """Perform one bounded report-only run and persist its audit receipt.
-
-        Phase 1 intentionally stops at observation: this method does not call a
-        model, network service, repository write, deploy surface, or product API.
-        """
+        """Perform one bounded report-only run and persist its audit receipt."""
 
         schema_path = self.repo / "config" / "steward" / "contracts.schema.json"
         validate_run_contract(contract, schema_path)
@@ -260,7 +308,11 @@ class Phase1Controller:
         state_name = _RUN_STATE_PREFIX + run_id
         _, previous = self.store.read(state_name)
         if previous is not None:
-            return ControllerResult(status="DUPLICATE", receipt=previous, duplicate=True)
+            return ControllerResult(
+                status="DUPLICATE",
+                receipt=previous,
+                duplicate=True,
+            )
 
         started_at = _utc_now()
         status = "DONE"
@@ -290,7 +342,11 @@ class Phase1Controller:
             "blockers": blockers,
             "actions": [],
             "cost": {"usd": 0.0},
-            "mutation": {"repository": False, "product": False, "production": False},
+            "mutation": {
+                "repository": False,
+                "product": False,
+                "production": False,
+            },
         }
         self._record(receipt)
         return ControllerResult(status=status, receipt=receipt)
