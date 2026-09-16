@@ -844,6 +844,7 @@ def build_section(
     # from the same week.
     official_snapshot = None
     share_snapshot = None
+    official_history: list[dict[str, Any]] = []
     league_key = None
     if not results_only and as_of_season:
         try:
@@ -878,6 +879,26 @@ def build_section(
                     league_key,
                     season=as_of_season,
                 )
+                # Published weeks only, and only this season's. This is the
+                # canonical rank history: every point is a week that was
+                # actually published, so the chart cannot disagree with the
+                # arrows on the share card. Nothing is reconstructed.
+                official_history = [
+                    {
+                        "week": snap.get("week"),
+                        "preseason": bool(snap.get("preseason")),
+                        "rankSource": power_snapshots.rank_source(snap),
+                        "ranking": [
+                            {
+                                "ownerId": r.get("ownerId"),
+                                "rank": r.get("rank"),
+                                "powerScore": r.get("powerScore"),
+                            }
+                            for r in (snap.get("ranking") or [])
+                        ],
+                    }
+                    for snap in power_snapshots.season_snapshots(league_key, as_of_season)
+                ]
         except Exception as exc:  # noqa: BLE001
             LOG.warning("[power_v2] weekly movement unavailable: %s", exc)
 
@@ -966,4 +987,5 @@ def build_section(
         "scoringConfigFingerprint": scoring_fingerprint,
         "officialSnapshot": official_snapshot,
         "shareSnapshot": share_snapshot,
+        "officialHistory": official_history,
     }

@@ -9,7 +9,7 @@
 **Status:** OWNER-APPROVED ROADMAP FEATURE / CONSOLIDATION  
 **Owner direction captured:** 2026-08-12  
 **Product family:** Public League Experience + Upside Report + ROS Intelligence + Awards/History  
-**Implementation status:** Canonical implementation active in `src/ros/power_v2.py` (2026-09-08 branch/PR #1295). The legacy `src/public_league/power.py` engine is retired. `results_only` remains a diagnostic lens inside the same engine; the old `forward_looking` query value is compatibility-only and resolves to the canonical blend. Official weekly history is owned by `src/ros/power_snapshots.py`.
+**Implementation status:** Canonical implementation active in `src/ros/power_v2.py` (2026-09-08 branch/PR #1295). The legacy `src/public_league/power.py` engine is retired. `results_only` remains a diagnostic lens inside the same engine; the old `forward_looking` query value is compatibility-only and resolves to the canonical blend. Official weekly history is owned by `src/ros/power_snapshots.py`. **2026-09-16 (owner directive):** the `/league` Power page serves ONE ranking — the lens toggle, the diagnostic week selector and the results-only trend chart are removed from the page (§10), and the rank-history chart reads the official publications. Owner-attested baseline weeks and the single sanctioned movement restatement are defined in §9. The blend itself is unchanged.
 
 ---
 
@@ -208,9 +208,77 @@ Therefore rank 5 → rank 2 is `+3` / ▲3; rank 1 → rank 4 is `-3` / ▼3. We
 
 For every team preserve the public-safe facts needed to reproduce the published weekly view: rank, Power Index, prior rank/delta, prior Power Index/delta, sanitized component values, official record, PPG/recent display facts, season all-play, public-safe ROS percentile, methodology version, scoring fingerprint and finalized timestamp.
 
-Historical official snapshots never silently change when today's model/data changes. The results-only chart may reconstruct retrospective results because those inputs are historical; it is explicitly labeled diagnostic and never back-fills today's ROS strength into past weeks.
+Historical official snapshots never silently change when today's model/data changes.
+
+### Owner-attested baseline weeks (2026-09-16)
+
+A week whose publication was missed cannot be recomputed later: the ROS strength
+that produced it has moved on, and back-dating today's value into that week is
+forbidden above. What *is* recoverable is the ORDER the site displayed, when the
+owner attests to it from the published card.
+
+`power_snapshots.record_attested_snapshot` publishes exactly that, and nothing
+more:
+
+- rows carry rank, owner and team name. `powerScore` is `null`, every component
+  is `null`, and `componentRanks` is empty — the attestation records where the
+  teams stood, not what the engine scored them, and a missing score stays
+  missing rather than being interpolated from a neighbouring week;
+- `scoringConfigFingerprint` is `null`, because we did not run the scoring
+  configuration and may not claim to know it;
+- the snapshot is stamped `rankSource: "owner_attested_published_card"`.
+  Engine publications are stamped `rankSource: "canonical_engine"`; a snapshot
+  written before that field existed carries no key, and absent means engine;
+- create-once applies unchanged — an attested week can never overwrite a
+  published one;
+- the hand-authored input lives in `config/power/attested/` and is applied by
+  `scripts/publish_power_week_zero.py`, which resolves display names to owner
+  ids against an already-published week and refuses any name that does not
+  match exactly one owner.
+
+Publishing a baseline changes what its SUCCESSOR can know about itself. A week
+published while its predecessor was missing froze `priorRank`/`rankDelta` as
+`null`, and that `null` stops being true the moment the predecessor exists.
+`power_snapshots.restate_movement` is the only sanctioned edit to a published
+week, and it is narrow by construction: movement is recomputed from the two
+frozen snapshots alone, a `null` may become a number but a number may never
+become a *different* number, every other field is compared key by key and the
+write is refused if any of them would move, and the change is recorded in a
+`restatements` audit entry rather than applied silently. Re-running is a no-op.
+
+Applied once, to 2026: `dynasty_main` Week 0 was published from the owner's
+screenshot on 2026-09-16 and Week 1's movement restated against it (Collin and
+Ed up one, Jason and Ty down one, eight unchanged). `dynasty_new` has no
+attested baseline, so its Week 1 card correctly reads NEW and its first real
+movement arrives with Week 2.
+
+The results-only chart may reconstruct retrospective results because those
+inputs are historical; it is explicitly labeled diagnostic, never back-fills
+today's ROS strength into past weeks, and since 2026-09-16 it is not rendered on
+the Power page at all (see §10).
 
 ## 10. UI / UX
+
+### One ranking on the page (owner directive, 2026-09-16)
+
+The page serves the canonical ranking and nothing else. The `Canonical` /
+`Results only` lens toggle, the week dropdown of `· diagnostic` results-only
+reconstructions, and the results-only "Power score over time" chart are all
+**removed from `/league` → Power**. Three orderings on one page is what made a
+diagnostic read as a competing answer, and left the share card able to disagree
+with the surface it sat on.
+
+`lens=results_only` survives in the ENGINE as the analytical diagnostic §3
+retains, reachable at `/api/public/league/rosPower?lens=results_only`. It is not
+something the page offers.
+
+The rank-history chart now reads `officialHistory` — the immutable weekly
+publications for the current season, projected to `{week, preseason, rankSource,
+ranking:[{ownerId, rank, powerScore}]}`. It plots RANK rather than Power Index,
+because an attested baseline week carries an order and no score, and plotting
+the score would silently drop the baseline off the chart. Fewer than two
+published weeks renders an explicit "history begins once a second week is
+published" state, never a one-point chart.
 
 ### Dedicated Power Rankings page
 
@@ -259,6 +327,17 @@ Example share treatment:
 `3. Roy ▼1`
 
 The share card deliberately omits Power score, record, formulas, projections and explanatory analytics; those remain on the detailed Power page.
+
+Two distinctions the card must preserve, because a screenshot carries no
+tooltip:
+
+- **"did not move" is not "nothing to compare with."** A row with a prior rank
+  and a zero delta shows `—`; a row with no prior rank at all shows `NEW`. The
+  test is per ROW, not per card, so a manager who joined after the baseline week
+  reads NEW while everyone around them shows real arrows.
+- **the card names the week the arrows are measured against** (`vs preseason`,
+  `vs Week 3`), taken from the published history rather than inferred from the
+  week number — a league whose baseline was never published must not claim one.
 
 A major movement should have a factual reason such as a huge recent all-play week, injury-driven ROS change, or several weeks of sustained above-replacement production.
 
