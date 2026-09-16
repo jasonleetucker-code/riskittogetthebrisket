@@ -2869,6 +2869,32 @@ def _load_json_file(path: Path | None) -> dict | None:
         return None
 
 
+def _import_scraper_module():
+    """Blocking: executes Dynasty Scraper.py's module top level.
+
+    ``spec.loader.exec_module`` runs that file's ENTIRE top-level code as an
+    import side effect, and (guarded by ``if SLEEPER_LEAGUE_ID:``) that
+    includes a call to ``fetch_sleeper_rosters`` — a plain ``def``, not
+    async, that makes up to ~90 sequential blocking ``requests.get`` calls
+    (bootstrap/roster/draft calls, then per season x per week transaction
+    fetches; ``Dynasty Scraper.py:763,1310-1320``). Measured live
+    2026-09-16: this is the dominant cost of a ~144s window during which
+    the event loop — and therefore every other request, login included —
+    went unserved, because this call used to run directly on the loop
+    thread with no ``await`` and no ``run_in_threadpool``.
+
+    Call only via ``run_in_threadpool``; never await this directly on the
+    event loop.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("Dynasty_Scraper", str(SCRAPER_PATH))
+    scraper_module = importlib.util.module_from_spec(spec)
+    sys.modules["Dynasty_Scraper"] = scraper_module
+    spec.loader.exec_module(scraper_module)
+    return scraper_module
+
+
 async def run_scraper(trigger: str = "manual") -> dict | None:
     """
     Import and run the scraper, returning the dashboard JSON dict.
@@ -2902,13 +2928,11 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             )
 
             # Import the scraper module from its exact file path
-            # (importlib handles spaces in directory names that normal import can't)
-            import importlib.util
-
-            spec = importlib.util.spec_from_file_location("Dynasty_Scraper", str(SCRAPER_PATH))
-            scraper = importlib.util.module_from_spec(spec)
-            sys.modules["Dynasty_Scraper"] = scraper
-            spec.loader.exec_module(scraper)
+            # (importlib handles spaces in directory names that normal import can't).
+            # Offloaded to the threadpool — see _import_scraper_module's
+            # docstring for why: this used to freeze the event loop for the
+            # whole scrape's bootstrap phase.
+            scraper = await run_in_threadpool(_import_scraper_module)
 
             # Override SCRIPT_DIR so output goes to our data/ folder
             scraper.SCRIPT_DIR = str(DATA_DIR)
@@ -2979,13 +3003,15 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             # Refresh Dynasty Nerds SF-TEP rankings.  The DN board is
             # inlined in the page HTML as a ``window.DR_DATA`` JS
             # constant — no Playwright required — so we run the plain
-            # ``scripts/fetch_dynasty_nerds.py`` helper inline on every
-            # scheduled scrape cycle.  Failure is logged and ignored so
-            # a transient network error cannot fail the entire scrape.
+            # ``scripts/fetch_dynasty_nerds.py`` helper (off the event
+            # loop, via run_in_threadpool — it's synchronous requests.get
+            # code) on every scheduled scrape cycle.  Failure is logged
+            # and ignored so a transient network error cannot fail the
+            # entire scrape.
             try:
                 from scripts import fetch_dynasty_nerds as _dn_fetch
 
-                rc = _dn_fetch.main(["--mirror-data-dir"])
+                rc = await run_in_threadpool(_dn_fetch.main, ["--mirror-data-dir"])
                 if rc == 2:
                     # Schema / row-count regression — surface loudly as
                     # a structured scrape event so /api/status shows the
@@ -3020,7 +3046,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             try:
                 from scripts import fetch_fantasypros_offense as _fpoff_fetch
 
-                rc = _fpoff_fetch.main(["--mirror-data-dir"])
+                rc = await run_in_threadpool(_fpoff_fetch.main, ["--mirror-data-dir"])
                 if rc == 2:
                     _record_scrape_event(
                         "fantasypros_offense_schema_regression",
@@ -3055,7 +3081,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             try:
                 from scripts import fetch_fantasypros_idp as _fp_fetch
 
-                rc = _fp_fetch.main(["--mirror-data-dir"])
+                rc = await run_in_threadpool(_fp_fetch.main, ["--mirror-data-dir"])
                 if rc == 2:
                     _record_scrape_event(
                         "fantasypros_idp_schema_regression",
@@ -3092,7 +3118,7 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                 try:
                     from scripts import fetch_idpshow as _idpshow_fetch
 
-                    rc = _idpshow_fetch.main([])
+                    rc = await run_in_threadpool(_idpshow_fetch.main, [])
                     if rc != 0:
                         _record_scrape_event(
                             "idpshow_fetch_failed",
