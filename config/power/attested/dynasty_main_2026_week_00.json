@@ -1,0 +1,75 @@
+{
+  "_comment": "Transcribed from the owner's screenshot of the published preseason League Power Rankings share card for Risk It To Get The Brisket. Team names are as they read on that card; several managers have renamed since. This file is the ATTESTATION INPUT \u2014 hand-authored evidence, not an engine output and not a published snapshot. scripts/publish_power_week_zero.py turns it into data/ros/power_snapshots/dynasty_main/2026/week_00.json. See docs/CANONICAL_WEEKLY_POWER_RANKINGS_SPEC.md section 9.",
+  "leagueKey": "dynasty_main",
+  "season": "2026",
+  "week": 0,
+  "attestation": {
+    "source": "owner screenshot of the published preseason Power Rankings share card",
+    "attestedBy": "site owner",
+    "attestedAt": "2026-09-16",
+    "note": "The order the site displayed before 2026 Week 1 was scored. No Power score was recoverable from the card, and none is invented."
+  },
+  "methodologyVersion": "canonical-power-2026.09-v1",
+  "rows": [
+    {
+      "rank": 1,
+      "displayName": "Brent",
+      "teamName": "Step Burrow Im Stuck"
+    },
+    {
+      "rank": 2,
+      "displayName": "Joey",
+      "teamName": "Brent's Back Up Team"
+    },
+    {
+      "rank": 3,
+      "displayName": "Eric",
+      "teamName": "Pop Trunk"
+    },
+    {
+      "rank": 4,
+      "displayName": "Jason",
+      "teamName": "Medical Murrayjuana"
+    },
+    {
+      "rank": 5,
+      "displayName": "Collin",
+      "teamName": "CollinFoz"
+    },
+    {
+      "rank": 6,
+      "displayName": "MaKayla",
+      "teamName": "Rage Against The Achane"
+    },
+    {
+      "rank": 7,
+      "displayName": "Kich",
+      "teamName": "killaKich00"
+    },
+    {
+      "rank": 8,
+      "displayName": "Blaine",
+      "teamName": "ughb"
+    },
+    {
+      "rank": 9,
+      "displayName": "Ty",
+      "teamName": "TyBWell"
+    },
+    {
+      "rank": 10,
+      "displayName": "Ed",
+      "teamName": "JasonTuckerFanClub"
+    },
+    {
+      "rank": 11,
+      "displayName": "jstuedle",
+      "teamName": "jstuedle"
+    },
+    {
+      "rank": 12,
+      "displayName": "Roy",
+      "teamName": "Chargers Team Doctor"
+    }
+  ]
+}

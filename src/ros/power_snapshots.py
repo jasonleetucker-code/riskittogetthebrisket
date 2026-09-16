@@ -24,6 +24,12 @@ from src.ros import ROS_DATA_DIR
 
 SCHEMA_VERSION = 1
 
+# What produced the ranking rows in a snapshot.  A snapshot written before this
+# field existed has no ``rankSource`` key at all; absent means ENGINE, because
+# that was the only publisher then.
+RANK_SOURCE_ENGINE = "canonical_engine"
+RANK_SOURCE_ATTESTED = "owner_attested_published_card"
+
 
 def _safe_part(value: str) -> str:
     safe = "".join(c for c in str(value or "") if c.isalnum() or c in {"_", "-"})
@@ -93,6 +99,41 @@ def latest_snapshot(
     return payload if isinstance(payload, dict) else None
 
 
+def season_snapshots(league_key: str, season: str | int) -> list[dict[str, Any]]:
+    """Every published week of one season, ordered by week ascending.
+
+    Scoped to ``season`` so a history view can never chain last year's ranking
+    onto this year's. Unreadable files are skipped rather than failing the whole
+    read: one corrupt week must not erase the season's history.
+    """
+    root = ROS_DATA_DIR / "power_snapshots" / _safe_part(league_key) / _safe_part(str(season))
+    if not root.is_dir():
+        return []
+    out: list[tuple[int, dict[str, Any]]] = []
+    for path in root.glob("week_*.json"):
+        try:
+            week_num = int(path.stem.split("_", 1)[1])
+        except (ValueError, IndexError):
+            continue
+        try:
+            payload = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(payload, dict):
+            out.append((week_num, payload))
+    return [payload for _, payload in sorted(out, key=lambda item: item[0])]
+
+
+def rank_source(snapshot: dict[str, Any] | None) -> str:
+    """What produced a snapshot's rows.
+
+    A snapshot published before ``rankSource`` existed carries no such key, and
+    the only publisher then was the canonical engine — so absent is ENGINE, not
+    unknown.
+    """
+    return str((snapshot or {}).get("rankSource") or RANK_SOURCE_ENGINE)
+
+
 def scoring_config_fingerprint(snapshot: Any) -> str:
     """Stable fingerprint of current season scoring and roster configuration."""
     current = getattr(snapshot, "current_season", None)
@@ -158,6 +199,61 @@ def movement_against_previous(
             ),
         }
     return out
+
+
+def _write_temp_payload(path: Path, payload: dict[str, Any]) -> str:
+    """Serialize ``payload`` completely off-path and fsync it.
+
+    Returns the temp file's name.  Callers decide how it becomes visible; this
+    function only guarantees that what lands on disk is whole.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    return tmp_name
+
+
+def _publish_create_once(path: Path, payload: dict[str, Any]) -> bool:
+    """Publish ``payload`` at ``path`` only if nothing is published there yet.
+
+    The atomic hard-link is what makes create-once a property of the filesystem
+    rather than of caller discipline: it fails if another publisher already won
+    the week.  Returns whether this call created the snapshot.
+    """
+    tmp_name = _write_temp_payload(path, payload)
+    try:
+        try:
+            os.link(tmp_name, path)
+        except FileExistsError:
+            return False
+        return True
+    finally:
+        try:
+            os.unlink(tmp_name)
+        except FileNotFoundError:
+            pass
+
+
+def _publish_replace(path: Path, payload: dict[str, Any]) -> None:
+    """Replace an existing publication atomically.
+
+    Deliberately narrow: :func:`restate_movement` is the ONLY caller, and it
+    proves field-by-field that nothing but movement changed before calling here.
+    Everything else publishes through :func:`_publish_create_once`.
+    """
+    tmp_name = _write_temp_payload(path, payload)
+    try:
+        os.replace(tmp_name, path)
+    except BaseException:
+        try:
+            os.unlink(tmp_name)
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def _public_ranking_row(row: dict[str, Any], movement: dict[str, Any]) -> dict[str, Any]:
@@ -236,6 +332,7 @@ def record_snapshot(
         # number, and so a share card can say which kind of week it is.
         "preseason": int(week) == 0,
         "finalizedAt": published_at,
+        "rankSource": RANK_SOURCE_ENGINE,
         "methodologyVersion": section.get("methodologyVersion"),
         "scoringConfigFingerprint": str(scoring_fingerprint),
         "blend": section.get("blend") or {},
@@ -249,30 +346,229 @@ def record_snapshot(
             for row in rankings
         ],
     }
-    path.parent.mkdir(parents=True, exist_ok=True)
+    return path, _publish_create_once(path, payload)
 
-    # Write completely off-path, fsync it, then publish with an atomic
-    # hard-link that fails if another publisher already won the week. This
-    # preserves both invariants at once: readers never observe partial JSON,
-    # and an existing official snapshot is never overwritten.
-    fd, tmp_name = tempfile.mkstemp(
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-        dir=path.parent,
+
+_MOVEMENT_FIELDS: tuple[str, ...] = (
+    "priorRank",
+    "rankDelta",
+    "priorPowerScore",
+    "powerScoreDelta",
+)
+
+_COMPONENT_KEYS: tuple[str, ...] = (
+    "team_ros_strength",
+    "all_play",
+    "recent",
+    "team_vorp",
+    "wl_record",
+)
+
+
+def _attested_ranking_row(row: dict[str, Any], movement: dict[str, Any]) -> dict[str, Any]:
+    """An attested row carries an ORDER and nothing else.
+
+    Every quantity the engine would have computed is ``None``, not 0 and not a
+    value recovered from a later week. A reader that asks this row for a Power
+    score gets "unavailable", which is the truth: the attestation records where
+    the teams stood, not what the engine scored them.
+    """
+    return {
+        "ownerId": str(row.get("ownerId")),
+        "displayName": row.get("displayName"),
+        "teamName": row.get("teamName"),
+        "rank": int(row["rank"]),
+        "powerScore": None,
+        "priorRank": movement.get("previousOfficialRank"),
+        "rankDelta": movement.get("weekRankDelta"),
+        "priorPowerScore": movement.get("previousOfficialPowerScore"),
+        "powerScoreDelta": movement.get("powerScoreDelta"),
+        "record": None,
+        "pointsPerGame": None,
+        "recentAvg": None,
+        "allPlay": None,
+        "rosStrengthPercentile": None,
+        "teamVorp": None,
+        "components": dict.fromkeys(_COMPONENT_KEYS),
+        "componentRanks": {},
+    }
+
+
+def record_attested_snapshot(
+    *,
+    league_key: str,
+    season: str | int,
+    week: int,
+    rows: list[dict[str, Any]],
+    attestation: dict[str, Any],
+    methodology_version: str | None = None,
+    finalized_at: str | None = None,
+) -> tuple[Path, bool]:
+    """Publish a ranking the OWNER attests the site displayed, not one we scored.
+
+    This exists for exactly one situation: a week whose publication was missed,
+    where the ranking itself is not recoverable because the inputs that produced
+    it have since moved on. The spec forbids back-dating today's ROS strength
+    into an older week, and this does not do that — it records the order that
+    was actually published, stamped ``rankSource: owner_attested_published_card``
+    and carrying no Power score at all, so nothing downstream can mistake it for
+    an engine output or reconstruct a score from it.
+
+    Create-once applies exactly as it does to an engine publication.
+    """
+    if not rows:
+        raise ValueError("cannot publish an empty attested Power snapshot")
+
+    ranks: list[int] = []
+    owner_ids: set[str] = set()
+    for row in rows:
+        owner_id = str(row.get("ownerId") or "")
+        rank = row.get("rank")
+        if not owner_id:
+            raise ValueError("every attested row must name an ownerId")
+        if owner_id in owner_ids:
+            raise ValueError(f"attested rows repeat ownerId {owner_id}")
+        owner_ids.add(owner_id)
+        if not isinstance(rank, int) or isinstance(rank, bool):
+            raise ValueError(f"attested row for {owner_id} has a non-integer rank")
+        ranks.append(rank)
+
+    # A screenshot is transcribed by hand, so the ranks are checked for exactly
+    # the errors a hand transcription makes: a skipped position or a duplicated
+    # one. A published card is 1..N with no gaps and no ties.
+    if sorted(ranks) != list(range(1, len(ranks) + 1)):
+        raise ValueError(
+            f"attested ranks must be a complete 1..{len(ranks)} sequence, got {sorted(ranks)}"
+        )
+    if not attestation:
+        raise ValueError("an attested snapshot must say where its ranking came from")
+
+    path = snapshot_path(league_key, season, week)
+    if path.exists():
+        return path, False
+
+    ordered = sorted(rows, key=lambda row: int(row["rank"]))
+    movement = movement_against_previous(
+        league_key=league_key,
+        season=season,
+        week=int(week),
+        rankings=[{"ownerId": row["ownerId"], "rank": row["rank"]} for row in ordered],
     )
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, indent=2, sort_keys=True)
-            handle.write("\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        try:
-            os.link(tmp_name, path)
-        except FileExistsError:
-            return path, False
-        return path, True
-    finally:
-        try:
-            os.unlink(tmp_name)
-        except FileNotFoundError:
-            pass
+    payload = {
+        "schemaVersion": SCHEMA_VERSION,
+        "leagueKey": str(league_key),
+        "season": str(season),
+        "week": int(week),
+        "preseason": int(week) == 0,
+        "finalizedAt": finalized_at or datetime.now(timezone.utc).isoformat(),
+        "rankSource": RANK_SOURCE_ATTESTED,
+        "attestation": dict(attestation),
+        "methodologyVersion": methodology_version,
+        # We did not recompute this ranking, so we cannot claim to know the
+        # scoring configuration that produced it. Unknown, never a fingerprint
+        # copied from a different week.
+        "scoringConfigFingerprint": None,
+        "blend": {},
+        "weights": {},
+        "effectiveWeights": {},
+        "ranking": [
+            _attested_ranking_row(row, movement.get(str(row["ownerId"])) or {}) for row in ordered
+        ],
+    }
+    return path, _publish_create_once(path, payload)
+
+
+def restate_movement(
+    *,
+    league_key: str,
+    season: str | int,
+    week: int,
+    reason: str,
+) -> tuple[Path, bool]:
+    """Fill in movement a published week could not know at publication time.
+
+    Create-once protects a published RANKING. It cannot protect a comparison
+    with a week that did not exist yet: a snapshot published while its
+    predecessor was missing froze ``priorRank``/``rankDelta`` as ``None``, and
+    that ``None`` stops being true the moment the predecessor is published.
+
+    So this is deliberately not a general edit path:
+
+    * movement is recomputed from the two FROZEN snapshots only — never from
+      today's engine, today's roster or today's ROS data;
+    * a ``None`` may become a number, and a number may stay itself. A number may
+      never become a DIFFERENT number, so a published arrow cannot be rewritten;
+    * every other field is compared key by key and the write is refused if any
+      of them would move;
+    * the change is recorded in ``restatements`` rather than applied silently.
+
+    Returns whether anything was written. Re-running is a no-op.
+    """
+    path = snapshot_path(league_key, season, week)
+    snapshot = load_snapshot(league_key, season, week)
+    if snapshot is None:
+        raise ValueError(f"no published snapshot at {path}")
+    rows = snapshot.get("ranking") or []
+    if not rows:
+        raise ValueError(f"published snapshot at {path} has no ranking rows")
+
+    movement = movement_against_previous(
+        league_key=league_key,
+        season=season,
+        week=int(week),
+        rankings=rows,
+    )
+
+    changed: list[dict[str, Any]] = []
+    new_rows: list[dict[str, Any]] = []
+    for row in rows:
+        owner_id = str(row.get("ownerId") or "")
+        computed = movement.get(owner_id) or {}
+        updated = dict(row)
+        updated["priorRank"] = computed.get("previousOfficialRank")
+        updated["rankDelta"] = computed.get("weekRankDelta")
+        updated["priorPowerScore"] = computed.get("previousOfficialPowerScore")
+        updated["powerScoreDelta"] = computed.get("powerScoreDelta")
+
+        if set(updated) != set(row):
+            raise ValueError(f"restatement would change the row shape for owner {owner_id}")
+        for key in row:
+            if key in _MOVEMENT_FIELDS:
+                before, after = row.get(key), updated.get(key)
+                if before is not None and before != after:
+                    raise ValueError(
+                        f"refusing to rewrite published movement for owner {owner_id}: "
+                        f"{key} {before!r} -> {after!r}"
+                    )
+                continue
+            if row.get(key) != updated.get(key):
+                raise ValueError(
+                    f"restatement may only touch movement, but {key} would change "
+                    f"for owner {owner_id}"
+                )
+
+        row_delta = {
+            key: {"from": row.get(key), "to": updated.get(key)}
+            for key in _MOVEMENT_FIELDS
+            if row.get(key) != updated.get(key)
+        }
+        if row_delta:
+            changed.append({"ownerId": owner_id, "fields": row_delta})
+        new_rows.append(updated)
+
+    if not changed:
+        return path, False
+
+    payload = dict(snapshot)
+    payload["ranking"] = new_rows
+    payload["restatements"] = [
+        *(snapshot.get("restatements") or []),
+        {
+            "at": datetime.now(timezone.utc).isoformat(),
+            "reason": str(reason),
+            "fields": list(_MOVEMENT_FIELDS),
+            "changed": changed,
+        },
+    ]
+    _publish_replace(path, payload)
+    return path, True
