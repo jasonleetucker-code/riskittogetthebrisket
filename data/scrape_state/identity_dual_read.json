@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-09-16T00:52:25.902567+00:00",
+ "generatedAt": "2026-09-16T07:58:12.782874+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 1966,
+ "calls": 1976,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 1944,
- "v2WouldChange": 22,
+ "v2Same": 1953,
+ "v2WouldChange": 23,
  "v2Examples": [
   {
    "name": "Bam Knight",
@@ -51,6 +51,14 @@
    "engineV2": null,
    "v2Method": "exact_clean:name",
    "v2Reason": "ambiguous"
+  },
+  {
+   "name": "Frank Gore",
+   "pos": "",
+   "served": "232",
+   "engineV2": "11573",
+   "v2Method": "exact_clean:name_teamed",
+   "v2Reason": null
   },
   {
    "name": "J.T. Tuimoloau",
