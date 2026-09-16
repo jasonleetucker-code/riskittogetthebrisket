@@ -36,7 +36,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 35,,Terrel Bernard,LB,18.12,7,27.3,168,349,547,901,,14
 36,,Foyesade Oluokun,LB,10.11,7,31.1,206,356,522,744,,13
 37,,Roquan Smith,LB,8.06,13,29.4,187,349,530,805,,13
-38,,Kyle Hamilton,DB,9.11,13,25.4,186,365,579,1001,,13
+38,,Kyle Hamilton,DB,9.11,13,25.5,186,365,579,1001,,13
 39,,Xavier Watts,DB,14.12,11,24.8,157,363,587,1059,,13
 40,,Demetrius Knight Jr.,LB,17.03,6,26.1,153,338,535,911,,13
 41,,Kamari Lassiter,DB,18.07,8,23.6,159,364,586,1036,,12
@@ -58,7 +58,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 57,,Malaki Starks,DB,16.03,13,22.8,112,336,551,1046,,9
 58,,Cody Barton,LB,28.09,9,29.8,137,316,481,730,,9
 59,,Frankie Luvu,LB,23.12,7,29.9,158,307,460,681,,9
-60,,Antoine Winfield Jr.,DB,18.08,10,28,194,318,505,872,,9
+60,,Antoine Winfield Jr.,DB,18.08,10,28.1,194,318,505,872,,9
 61,,Riley Moss,DB,29.12,10,26.5,186,326,513,870,,9
 62,,Maxwell Hairston,DB,39.11,7,23.1,138,333,535,946,,9
 63,,Brian Burns,DL,10.03,8,28.3,165,390,560,784,,9
@@ -99,7 +99,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 98,,Mansoor Delane,DB,20.06,5,22.8,113,301,488,881,,5
 99,,Azeez Al-Shaair,LB,19.10,8,29.1,149,257,390,593,,5
 100,,Jeffery Simmons,DL,15.01,9,29.1,140,297,440,613,,5
-101,,Trevon Moehrig,DB,15.07,5,27.2,167,293,456,737,,5
+101,,Trevon Moehrig,DB,15.07,5,27.3,167,293,456,737,,5
 102,,Josh Hines-Allen,DL,14.08,7,29.2,153,301,405,565,,5
 103,,Calen Bullock,DB,27.12,8,23.3,112,292,479,893,,5
 104,,Byron Young,DL,12.03,11,28.5,153,263,378,529,,5
@@ -204,7 +204,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 203,,DaRon Bland,DB,43.11,14,27.2,162,236,374,615,,-0
 204,,Nolan Smith,DL,30.08,10,25.6,93,191,320,525,,-0
 205,,Tommy Togiai,DL,51.12,8,26.9,88,171,265,402,,-0
-206,,Kendal Daniels,LB,75.06,11,23.7,65,195,322,604,,-0
+206,,Kendal Daniels,LB,75.06,11,23.8,65,195,322,604,,-0
 207,,Marlon Humphrey,DB,69.08,13,30.2,161,255,380,539,,-1
 208,,Reed Blankenship,DB,25.01,8,27.5,150,244,382,619,,-1
 209,,Chris Jones,DL,28.08,5,32.2,113,175,227,336,,-1
@@ -241,7 +241,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 240,,Quincy Riley,DB,79.06,8,25.3,151,227,359,628,,-1
 241,,DJ Turner II,DB,94.06,6,25.8,143,233,361,624,,-1
 242,,Harold Landry,DL,23.11,11,30.3,118,205,267,386,,-2
-243,,Cashius Howell,DL,23.05,6,23.3,57,139,231,435,,-2
+243,,Cashius Howell,DL,23.05,6,23.4,57,139,231,435,,-2
 244,,Bradley Chubb,DL,21.07,7,30.2,141,193,250,362,,-2
 245,,John Franklin-Myers,DL,62.12,9,29.9,96,153,199,288,,-2
 246,,Daron Payne,DL,34.07,7,29.3,84,149,220,307,,-2
@@ -252,7 +252,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 251,,Wade Woodaz,LB,75.05,8,22.6,48,180,305,589,,-2
 252,,Kayden McDonald,DL,28.01,8,21.5,28,139,234,470,,-2
 253,,Ahmad Gardner,DB,48.03,13,25,131,230,362,631,,-2
-254,,Jonathan Allen,DL,69.12,6,31.6,87,144,190,267,,-2
+254,,Jonathan Allen,DL,69.12,6,31.7,87,144,190,267,,-2
 255,,R Mason Thomas,DL,29.06,5,22,46,127,209,410,,-2
 256,,Keyron Crawford,DL,76.01,13,22.8,0,142,241,460,,-2
 257,,Amani Hooker,DB,33.05,9,28.3,146,232,359,551,,-2
@@ -311,7 +311,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 310,,Bryan Cook,DB,47.11,6,27,129,208,325,526,,-5
 311,,Ja'Quan McMillian,DB,42.01,10,26.3,102,217,334,564,,-5
 312,,DeMarcus Lawrence,DL,73.10,11,34.3,96,59,78,139,,-5
-313,,Jarran Reed,DL,36.08,11,33.7,68,73,92,138,,-5
+313,,Jarran Reed,DL,36.08,11,33.8,68,73,92,138,,-5
 314,,Alex Anzalone,LB,21.05,10,31.9,150,134,191,266,,-5
 315,,Javon Hargrave,DL,71.05,11,33.6,68,68,85,128,,-5
 316,,Deommodore Lenoir,DB,50.10,8,26.9,114,206,319,526,,-5
@@ -392,7 +392,7 @@ Rank,Team,Player,Fantasy Position,ADP,Bye,Age,1yr. Proj,3yr. Proj,5yr. Proj,10yr
 391,,Nohl Williams,DB,79.11,5,23.9,132,0,0,0,,-24
 392,,Colton Hood,DB,31.03,8,21.5,104,0,0,0,,-25
 393,,Marcus Epps,DB,59.04,10,30.6,98,0,0,0,,-25
-394,,Jermod McCoy,DB,22.09,13,21,38,25,32,44,,-25
+394,,Jermod McCoy,DB,22.09,13,21.1,38,25,32,44,,-25
 395,,Carrington Valentine,DB,34.01,11,25,42,0,0,0,,-27
 396,,Deonte Banks,DB,94.10,8,25.5,28,0,0,0,,-27
 397,,Darien Porter,DB,35.12,13,25.7,8,0,0,0,,-28
