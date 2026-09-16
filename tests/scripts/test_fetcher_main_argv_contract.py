@@ -102,7 +102,16 @@ def test_server_passes_a_list_literal(module_name: str) -> None:
         src,
     )
     assert alias, f"server.py no longer imports scripts.{module_name}"
-    call = re.search(rf"{re.escape(alias.group(1))}\.main\(\s*\[", src)
+    name = re.escape(alias.group(1))
+    # Two compliant call shapes: a direct call (`alias.main([...])`) or the
+    # call offloaded onto the threadpool (`run_in_threadpool(alias.main,
+    # [...])`, where `.main` is passed as a bare function reference). Both
+    # pass an explicit list literal straight to main(); only the second
+    # never writes `.main(`.
+    call = re.search(
+        rf"{name}\.main\(\s*\[" rf"|run_in_threadpool\(\s*{name}\.main\s*,\s*\[",
+        src,
+    )
     assert call, (
         f"server.py calls {alias.group(1)}.main() without a list literal. "
         "Pass an explicit argv list so the fetcher does not parse the "
