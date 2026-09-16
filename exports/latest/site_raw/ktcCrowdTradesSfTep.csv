@@ -1,16 +1,16 @@
 name,value,rank,player_id,position
-2026 Early 1st,5749.0,,1527,RDP
-2026 Early 2nd,3293.0,,1530,RDP
-2026 Early 3rd,2387.0,,1533,RDP
-2026 Early 4th,1763.0,,1536,RDP
-2026 Late 1st,4026.0,,1529,RDP
-2026 Late 2nd,2756.0,,1532,RDP
-2026 Late 3rd,2062.0,,1535,RDP
-2026 Late 4th,1498.0,,1538,RDP
-2026 Mid 1st,4749.0,,1528,RDP
-2026 Mid 2nd,3034.0,,1531,RDP
-2026 Mid 3rd,2261.0,,1534,RDP
-2026 Mid 4th,1672.0,,1537,RDP
+2026 Early 1st,5750.0,,1527,RDP
+2026 Early 2nd,3296.0,,1530,RDP
+2026 Early 3rd,2385.0,,1533,RDP
+2026 Early 4th,1764.0,,1536,RDP
+2026 Late 1st,4024.0,,1529,RDP
+2026 Late 2nd,2757.0,,1532,RDP
+2026 Late 3rd,2061.0,,1535,RDP
+2026 Late 4th,1501.0,,1538,RDP
+2026 Mid 1st,4752.0,,1528,RDP
+2026 Mid 2nd,3032.0,,1531,RDP
+2026 Mid 3rd,2262.0,,1534,RDP
+2026 Mid 4th,1670.0,,1537,RDP
 2026 Pick 1.01,7381.0,,2076,RDP
 2026 Pick 1.02,6085.0,,2077,RDP
 2026 Pick 1.03,5587.0,,2078,RDP
@@ -60,442 +60,442 @@ name,value,rank,player_id,position
 2026 Pick 4.11,1459.0,,2122,RDP
 2026 Pick 4.12,1434.0,,2123,RDP
 2027 Early 1st,6527.0,,1702,RDP
-2027 Early 2nd,3580.0,,1705,RDP
+2027 Early 2nd,3578.0,,1705,RDP
 2027 Early 3rd,2415.0,,1708,RDP
-2027 Early 4th,1843.0,,1711,RDP
+2027 Early 4th,1845.0,,1711,RDP
 2027 Late 1st,4658.0,,1704,RDP
 2027 Late 2nd,2998.0,,1707,RDP
-2027 Late 3rd,2180.0,,1710,RDP
-2027 Late 4th,1640.0,,1713,RDP
-2027 Mid 1st,5185.0,,1703,RDP
-2027 Mid 2nd,3187.0,,1706,RDP
-2027 Mid 3rd,2314.0,,1709,RDP
-2027 Mid 4th,1767.0,,1712,RDP
-2028 Early 1st,5054.0,,1882,RDP
+2027 Late 3rd,2177.0,,1710,RDP
+2027 Late 4th,1636.0,,1713,RDP
+2027 Mid 1st,5183.0,,1703,RDP
+2027 Mid 2nd,3188.0,,1706,RDP
+2027 Mid 3rd,2311.0,,1709,RDP
+2027 Mid 4th,1769.0,,1712,RDP
+2028 Early 1st,5068.0,,1882,RDP
 2028 Early 2nd,3112.0,,1885,RDP
-2028 Early 3rd,2195.0,,1888,RDP
+2028 Early 3rd,2192.0,,1888,RDP
 2028 Early 4th,1788.0,,1891,RDP
-2028 Late 1st,3958.0,,1884,RDP
+2028 Late 1st,3956.0,,1884,RDP
 2028 Late 2nd,2609.0,,1887,RDP
-2028 Late 3rd,1969.0,,1890,RDP
-2028 Late 4th,1464.0,,1893,RDP
-2028 Mid 1st,4380.0,,1883,RDP
-2028 Mid 2nd,2889.0,,1886,RDP
-2028 Mid 3rd,2150.0,,1889,RDP
+2028 Late 3rd,1970.0,,1890,RDP
+2028 Late 4th,1470.0,,1893,RDP
+2028 Mid 1st,4375.0,,1883,RDP
+2028 Mid 2nd,2887.0,,1886,RDP
+2028 Mid 3rd,2145.0,,1889,RDP
 2028 Mid 4th,1577.0,,1892,RDP
-A.J. Brown,5231.0,56.0,217,WR
-Aaron Jones,2221.0,229.0,301,RB
-Aaron Rodgers,2131.0,241.0,235,QB
+A.J. Brown,5229.0,56.0,217,WR
+Aaron Jones,2223.0,229.0,301,RB
+Aaron Rodgers,2129.0,241.0,235,QB
 Adam Randall,1943.0,267.0,2026,RB
-Adonai Mitchell,2437.0,208.0,1597,WR
-AJ Barner,3476.0,111.0,1629,TE
-Alec Pierce,3630.0,106.0,1285,WR
-Alvin Kamara,1958.0,264.0,282,RB
-Amon-Ra St. Brown,7962.0,10.0,1010,WR
+Adonai Mitchell,2435.0,209.0,1597,WR
+AJ Barner,3477.0,111.0,1629,TE
+Alec Pierce,3631.0,106.0,1285,WR
+Alvin Kamara,1952.0,264.0,282,RB
+Amon-Ra St. Brown,7958.0,10.0,1010,WR
 Andrei Iosivas,1606.0,334.0,1422,WR
 Anthony Richardson,2075.0,247.0,1405,QB
-Antonio Williams,2776.0,169.0,1974,WR
-Arian Smith,986.0,454.0,1815,WR
-Ashton Jeanty,7221.0,16.0,1742,RB
-Audric Estime,1540.0,348.0,1566,RB
-Baker Mayfield,4654.0,74.0,215,QB
-Bam Knight,1108.0,418.0,1186,RB
-Barion Brown,1448.0,366.0,2003,WR
+Antonio Williams,2779.0,169.0,1974,WR
+Arian Smith,987.0,454.0,1815,WR
+Ashton Jeanty,7226.0,16.0,1742,RB
+Audric Estime,1541.0,348.0,1566,RB
+Baker Mayfield,4653.0,74.0,215,QB
+Bam Knight,1109.0,418.0,1186,RB
+Barion Brown,1446.0,366.0,2003,WR
 Ben Sinnott,2288.0,223.0,1615,TE
 Bhayshul Tuten,4324.0,84.0,1752,RB
-Bijan Robinson,9568.0,2.0,1414,RB
-Blake Corum,3445.0,116.0,1564,RB
-Bo Nix,6030.0,34.0,1553,QB
-Braelon Allen,2499.0,200.0,1567,RB
-Brandon Aiyuk,1475.0,363.0,538,WR
+Bijan Robinson,9571.0,2.0,1414,RB
+Blake Corum,3448.0,116.0,1564,RB
+Bo Nix,6027.0,34.0,1553,QB
+Braelon Allen,2502.0,200.0,1567,RB
+Brandon Aiyuk,1473.0,363.0,538,WR
 Brashard Smith,1724.0,317.0,1749,RB
-Breece Hall,5371.0,51.0,1224,RB
-Brenen Thompson,1467.0,364.0,1991,WR
+Breece Hall,5370.0,51.0,1224,RB
+Brenen Thompson,1468.0,364.0,1991,WR
 Brenton Strange,3634.0,105.0,1461,TE
-Brevin Jordan,1551.0,344.0,1052,TE
-Brian Robinson,2258.0,226.0,1232,RB
-Brian Thomas Jr.,4377.0,83.0,1589,WR
-Brock Bowers,9457.0,4.0,1612,TE
+Brevin Jordan,1550.0,344.0,1052,TE
+Brian Robinson,2257.0,226.0,1232,RB
+Brian Thomas Jr.,4376.0,83.0,1589,WR
+Brock Bowers,9450.0,4.0,1612,TE
 Brock Purdy,5719.0,41.0,1214,QB
-Bryce Lance,1801.0,294.0,1981,WR
-Bryce Young,3902.0,94.0,1456,QB
-Bucky Irving,4668.0,73.0,1569,RB
-C.J. Stroud,4556.0,79.0,1403,QB
-Cade Klubnik,2088.0,245.0,1929,QB
-Cade Otton,2904.0,159.0,1261,TE
-Cade Stover,1969.0,263.0,1613,TE
-Caleb Douglas,2655.0,181.0,2016,WR
-Caleb Williams,7677.0,12.0,1550,QB
+Bryce Lance,1800.0,294.0,1981,WR
+Bryce Young,3903.0,94.0,1456,QB
+Bucky Irving,4671.0,73.0,1569,RB
+C.J. Stroud,4562.0,79.0,1403,QB
+Cade Klubnik,2086.0,245.0,1929,QB
+Cade Otton,2905.0,159.0,1261,TE
+Cade Stover,1968.0,263.0,1613,TE
+Caleb Douglas,2656.0,181.0,2016,WR
+Caleb Williams,7685.0,12.0,1550,QB
 Calvin Austin III,1341.0,380.0,1262,WR
 Calvin Ridley,1702.0,321.0,293,WR
-Cam Skattebo,4709.0,72.0,1745,RB
-Cam Ward,4590.0,77.0,1730,QB
-Carnell Tate,5343.0,53.0,1959,WR
-Carson Beck,2794.0,165.0,1928,QB
-Carson Wentz,1110.0,417.0,258,QB
+Cam Skattebo,4715.0,71.0,1745,RB
+Cam Ward,4592.0,77.0,1730,QB
+Carnell Tate,5335.0,53.0,1959,WR
+Carson Beck,2793.0,166.0,1928,QB
+Carson Wentz,1111.0,417.0,258,QB
 Cedric Tillman,1548.0,346.0,1444,WR
-CeeDee Lamb,7069.0,20.0,546,WR
-Charlie Kolar,1943.0,268.0,1254,TE
-Chase Brown,5858.0,38.0,1396,RB
-Chigoziem Okonkwo,3456.0,115.0,1320,TE
+CeeDee Lamb,7067.0,20.0,546,WR
+Charlie Kolar,1940.0,268.0,1254,TE
+Chase Brown,5855.0,38.0,1396,RB
+Chigoziem Okonkwo,3452.0,115.0,1320,TE
 Chimere Dike,2005.0,257.0,1814,WR
-Chris Bell,3083.0,141.0,1968,WR
+Chris Bell,3085.0,141.0,1968,WR
 Chris Brazzell II,2162.0,236.0,1971,WR
-Chris Brooks,1658.0,325.0,1490,RB
+Chris Brooks,1659.0,325.0,1490,RB
 Chris Godwin,3065.0,147.0,299,WR
-Chris Olave,5793.0,40.0,1271,WR
+Chris Olave,5792.0,40.0,1271,WR
 Chris Rodriguez,2565.0,191.0,1389,RB
-Christian Kirk,1771.0,313.0,221,WR
-Christian McCaffrey,5680.0,43.0,283,RB
-Christian Watson,4106.0,90.0,1248,WR
-Chuba Hubbard,3157.0,134.0,1014,RB
+Christian Kirk,1771.0,312.0,221,WR
+Christian McCaffrey,5679.0,43.0,283,RB
+Christian Watson,4112.0,90.0,1248,WR
+Chuba Hubbard,3160.0,134.0,1014,RB
 CJ Daniels,1072.0,430.0,1966,WR
-Colbie Young,1054.0,438.0,2004,WR
-Colby Parkinson,2589.0,188.0,565,TE
-Cole Kmet,2625.0,184.0,569,TE
-Colston Loveland,7763.0,11.0,1804,TE
-Cooper Kupp,1721.0,318.0,310,WR
-Courtland Sutton,2964.0,152.0,226,WR
-Cyrus Allen,2652.0,182.0,1980,WR
-D'Andre Swift,4236.0,86.0,639,RB
-D.J. Moore,3966.0,92.0,304,WR
-Dak Prescott,5204.0,57.0,371,QB
-Dallas Goedert,3444.0,117.0,382,TE
+Colbie Young,1051.0,439.0,2004,WR
+Colby Parkinson,2593.0,187.0,565,TE
+Cole Kmet,2628.0,183.0,569,TE
+Colston Loveland,7762.0,11.0,1804,TE
+Cooper Kupp,1720.0,319.0,310,WR
+Courtland Sutton,2961.0,152.0,226,WR
+Cyrus Allen,2651.0,182.0,1980,WR
+D'Andre Swift,4238.0,86.0,639,RB
+D.J. Moore,3972.0,92.0,304,WR
+Dak Prescott,5206.0,57.0,371,QB
+Dallas Goedert,3445.0,117.0,382,TE
 Dalton Kincaid,4201.0,88.0,1428,TE
-Dalton Schultz,3060.0,149.0,487,TE
+Dalton Schultz,3058.0,149.0,487,TE
 Dameon Pierce,984.0,455.0,1207,RB
 Damien Martinez,1118.0,415.0,1754,RB
-Daniel Bellinger,2004.0,258.0,1322,TE
-Daniel Jones,3773.0,98.0,87,QB
-Darius Slayton,1274.0,390.0,77,WR
-Darnell Mooney,1854.0,283.0,911,WR
-Darnell Washington,2508.0,199.0,1431,TE
-Darren Waller,1870.0,279.0,349,TE
+Daniel Bellinger,2005.0,258.0,1322,TE
+Daniel Jones,3764.0,98.0,87,QB
+Darius Slayton,1272.0,391.0,77,WR
+Darnell Mooney,1852.0,283.0,911,WR
+Darnell Washington,2506.0,199.0,1431,TE
+Darren Waller,1869.0,280.0,349,TE
 Davante Adams,3465.0,112.0,277,WR
-David Bell,933.0,477.0,1275,WR
-David Montgomery,3728.0,101.0,288,RB
-David Njoku,2741.0,171.0,252,TE
+David Bell,935.0,476.0,1275,WR
+David Montgomery,3732.0,100.0,288,RB
+David Njoku,2741.0,172.0,252,TE
 Davis Allen,1536.0,350.0,1434,TE
-Davis Mills,1326.0,382.0,1029,QB
-Dawson Knox,2382.0,213.0,88,TE
-De'Von Achane,6894.0,23.0,1398,RB
-De'Zhaun Stribling,3798.0,96.0,1976,WR
-Deebo Samuel,2437.0,209.0,383,WR
+Davis Mills,1327.0,382.0,1029,QB
+Dawson Knox,2385.0,213.0,88,TE
+De'Von Achane,6891.0,23.0,1398,RB
+De'Zhaun Stribling,3797.0,96.0,1976,WR
+Deebo Samuel,2439.0,207.0,383,WR
 Deion Burks,1209.0,402.0,1972,WR
-Demario Douglas,1988.0,259.0,1468,WR
+Demario Douglas,1989.0,259.0,1468,WR
 Demond Claiborne,2211.0,231.0,1943,RB
-Denzel Boston,3443.0,118.0,1962,WR
+Denzel Boston,3439.0,118.0,1962,WR
 Derrick Henry,4579.0,78.0,296,RB
-Deshaun Watson,1953.0,265.0,261,QB
-Devaughn Vele,1894.0,275.0,1643,WR
-Devin Neal,1609.0,332.0,1746,RB
+Deshaun Watson,1950.0,265.0,261,QB
+Devaughn Vele,1892.0,276.0,1643,WR
+Devin Neal,1607.0,333.0,1746,RB
 Devin Singletary,1301.0,385.0,238,RB
-DeVonta Smith,5419.0,48.0,1005,WR
-Devontez Walker,1329.0,381.0,1592,WR
-Dillon Gabriel,1301.0,386.0,1737,QB
-DJ Giddens,1809.0,289.0,1760,RB
-DK Metcalf,3307.0,125.0,224,WR
-Dont'e Thornton,1803.0,293.0,1787,WR
+DeVonta Smith,5416.0,48.0,1005,WR
+Devontez Walker,1331.0,381.0,1592,WR
+Dillon Gabriel,1299.0,387.0,1737,QB
+DJ Giddens,1807.0,290.0,1760,RB
+DK Metcalf,3305.0,125.0,224,WR
+Dont'e Thornton,1806.0,291.0,1787,WR
 Dontayvion Wicks,2450.0,205.0,1448,WR
-Drake London,6566.0,27.0,1268,WR
-Drake Maye,8260.0,9.0,1551,QB
-Drew Allar,2514.0,198.0,1930,QB
-Drew Lock,1412.0,370.0,33,QB
+Drake London,6562.0,27.0,1268,WR
+Drake Maye,8262.0,9.0,1551,QB
+Drew Allar,2510.0,198.0,1930,QB
+Drew Lock,1414.0,369.0,33,QB
 Dyami Brown,1321.0,383.0,1069,WR
-Dylan Sampson,2488.0,203.0,1747,RB
+Dylan Sampson,2487.0,203.0,1747,RB
 Efton Chism,1245.0,395.0,1838,WR
 Eli Heidenreich,1548.0,345.0,2036,RB
 Eli Raridon,3096.0,139.0,2018,TE
-Eli Stowers,3750.0,99.0,2006,TE
+Eli Stowers,3751.0,99.0,2006,TE
 Elic Ayomanor,2158.0,237.0,1773,WR
-Elijah Arroyo,2913.0,156.0,1808,TE
+Elijah Arroyo,2915.0,156.0,1808,TE
 Elijah Higgins,1773.0,311.0,1469,TE
 Elijah Moore,1241.0,396.0,1012,WR
 Elijah Sarratt,2345.0,217.0,1967,WR
-Emanuel Wilson,1715.0,320.0,1515,RB
-Emari Demercado,1297.0,387.0,1481,RB
-Emeka Egbuka,5942.0,36.0,1781,WR
-Emmett Johnson,2728.0,173.0,1936,RB
+Emanuel Wilson,1719.0,320.0,1515,RB
+Emari Demercado,1300.0,386.0,1481,RB
+Emeka Egbuka,5943.0,36.0,1781,WR
+Emmett Johnson,2732.0,173.0,1936,RB
 Erick All,2071.0,248.0,1616,TE
-Evan Engram,2497.0,201.0,229,TE
-Fernando Mendoza,5256.0,54.0,1924,QB
-Gabriel Davis,1114.0,416.0,533,WR
-Gardner Minshew,1065.0,436.0,47,QB
-Garrett Nussmeier,1596.0,335.0,1927,QB
-Garrett Wilson,5582.0,45.0,1270,WR
-Geno Smith,2374.0,214.0,671,QB
+Evan Engram,2498.0,201.0,229,TE
+Fernando Mendoza,5253.0,55.0,1924,QB
+Gabriel Davis,1111.0,416.0,533,WR
+Gardner Minshew,1066.0,436.0,47,QB
+Garrett Nussmeier,1595.0,336.0,1927,QB
+Garrett Wilson,5579.0,45.0,1270,WR
+Geno Smith,2375.0,214.0,671,QB
 George Holani,1816.0,288.0,1579,RB
 George Kittle,4175.0,89.0,298,TE
-George Pickens,6181.0,30.0,1279,WR
-Germie Bernard,2723.0,174.0,1965,WR
+George Pickens,6182.0,30.0,1279,WR
+Germie Bernard,2721.0,174.0,1965,WR
 Greg Dortch,1191.0,406.0,10,WR
-Greg Dulcich,2909.0,158.0,1256,TE
-Gunnar Helm,3119.0,138.0,1805,TE
+Greg Dulcich,2910.0,158.0,1256,TE
+Gunnar Helm,3118.0,138.0,1805,TE
 Harold Fannin,5687.0,42.0,1803,TE
-Hunter Henry,3069.0,146.0,212,TE
+Hunter Henry,3073.0,146.0,212,TE
 Isaac Guerendo,1375.0,376.0,1626,RB
-Isaac TeSlaa,2272.0,224.0,1813,WR
-Isaiah Bond,1877.0,278.0,1776,WR
+Isaac TeSlaa,2275.0,224.0,1813,WR
+Isaiah Bond,1876.0,278.0,1776,WR
 Isaiah Davis,1794.0,297.0,1635,RB
-Isaiah Likely,4294.0,85.0,1257,TE
+Isaiah Likely,4295.0,85.0,1257,TE
 Isiah Pacheco,2019.0,253.0,1266,RB
 Israel Abanikanda,991.0,449.0,1383,RB
-J'Mari Taylor,1003.0,445.0,1949,RB
-J.J. McCarthy,2231.0,228.0,1555,QB
-J.K. Dobbins,2935.0,155.0,636,RB
-Ja'Kobi Lane,3086.0,140.0,1979,WR
+J'Mari Taylor,1004.0,445.0,1949,RB
+J.J. McCarthy,2224.0,228.0,1555,QB
+J.K. Dobbins,2937.0,155.0,636,RB
+Ja'Kobi Lane,3084.0,142.0,1979,WR
 Ja'Marr Chase,9408.0,5.0,1004,WR
-Ja'Tavion Sanders,2529.0,196.0,1614,TE
-Jack Bech,2122.0,243.0,1778,WR
-Jack Endries,1524.0,354.0,2007,TE
+Ja'Tavion Sanders,2531.0,196.0,1614,TE
+Jack Bech,2120.0,243.0,1778,WR
+Jack Endries,1521.0,354.0,2007,TE
 Jack Strand,1492.0,358.0,2065,QB
-Jacob Cowing,1166.0,410.0,1611,WR
+Jacob Cowing,1167.0,410.0,1611,WR
 Jacob Saylors,990.0,450.0,1681,RB
-Jacoby Brissett,2552.0,194.0,20,QB
-Jacory Croskey-Merritt,3145.0,137.0,1832,RB
-Jadarian Price,5186.0,58.0,1935,RB
-Jahan Dotson,1699.0,322.0,1272,WR
-Jahdae Walker,822.0,501.0,1904,WR
+Jacoby Brissett,2555.0,193.0,20,QB
+Jacory Croskey-Merritt,3146.0,137.0,1832,RB
+Jadarian Price,5193.0,58.0,1935,RB
+Jahan Dotson,1695.0,322.0,1272,WR
+Jahdae Walker,825.0,501.0,1904,WR
 Jahmyr Gibbs,9616.0,1.0,1415,RB
-Jake Ferguson,3895.0,95.0,1258,TE
-Jake Tonges,2587.0,189.0,1356,TE
-Jakobi Meyers,2703.0,175.0,13,WR
+Jake Ferguson,3898.0,95.0,1258,TE
+Jake Tonges,2588.0,189.0,1356,TE
+Jakobi Meyers,2702.0,175.0,13,WR
 Jaleel McLaughlin,1293.0,388.0,1486,RB
-Jalen Coker,3228.0,130.0,1653,WR
-Jalen Hurts,6190.0,29.0,595,QB
-Jalen McMillan,2670.0,178.0,1599,WR
-Jalen Milroe,2092.0,244.0,1733,QB
-Jalen Nailor,2327.0,220.0,1245,WR
+Jalen Coker,3233.0,130.0,1653,WR
+Jalen Hurts,6188.0,29.0,595,QB
+Jalen McMillan,2669.0,178.0,1599,WR
+Jalen Milroe,2093.0,244.0,1733,QB
+Jalen Nailor,2324.0,220.0,1245,WR
 Jalen Royals,1767.0,314.0,1786,WR
-Jalen Tolbert,1665.0,324.0,1247,WR
-Jalin Hyatt,1202.0,404.0,1399,WR
-Jalon Daniels,1537.0,349.0,1931,QB
+Jalen Tolbert,1660.0,324.0,1247,WR
+Jalin Hyatt,1204.0,403.0,1399,WR
+Jalon Daniels,1540.0,349.0,1931,QB
 Jameis Winston,1432.0,367.0,413,QB
 James Conner,1590.0,337.0,268,RB
-James Cook,6578.0,26.0,1231,RB
-Jameson Williams,4729.0,70.0,1273,WR
-Jared Goff,4742.0,69.0,388,QB
+James Cook,6577.0,26.0,1231,RB
+Jameson Williams,4725.0,70.0,1273,WR
+Jared Goff,4743.0,69.0,388,QB
 Jared Wiley,1581.0,338.0,1619,TE
 Jarquez Hunter,1546.0,347.0,1764,RB
-Jauan Jennings,2167.0,234.0,576,WR
+Jauan Jennings,2169.0,234.0,576,WR
 Javon Baker,1023.0,444.0,1608,WR
 Javonte Williams,4920.0,65.0,1033,RB
-Jaxon Smith-Njigba,8896.0,6.0,1437,WR
-Jaxson Dart,5991.0,35.0,1732,QB
-Jayden Daniels,7141.0,19.0,1552,QB
-Jayden Higgins,2939.0,153.0,1783,WR
-Jayden Reed,3191.0,133.0,1419,WR
+Jaxon Smith-Njigba,8895.0,6.0,1437,WR
+Jaxson Dart,5999.0,35.0,1732,QB
+Jayden Daniels,7144.0,19.0,1552,QB
+Jayden Higgins,2938.0,154.0,1783,WR
+Jayden Reed,3190.0,133.0,1419,WR
 Jaydon Blue,1640.0,328.0,1769,RB
-Jaylen Waddle,5065.0,60.0,1007,WR
-Jaylen Warren,3351.0,124.0,1201,RB
-Jaylen Wright,2077.0,246.0,1581,RB
-Jaylin Lane,1861.0,282.0,1816,WR
-Jaylin Noel,2336.0,218.0,1780,WR
-Jeremiyah Love,7210.0,17.0,1934,RB
+Jaylen Waddle,5064.0,60.0,1007,WR
+Jaylen Warren,3350.0,124.0,1201,RB
+Jaylen Wright,2080.0,246.0,1581,RB
+Jaylin Lane,1861.0,281.0,1816,WR
+Jaylin Noel,2337.0,218.0,1780,WR
+Jeremiyah Love,7206.0,17.0,1934,RB
 Jerry Jeudy,2156.0,238.0,545,WR
-Jimmy Horn,1498.0,356.0,1824,WR
-Joe Burrow,7197.0,18.0,601,QB
-Joe Milton,1634.0,329.0,1556,QB
-John Metchie,1480.0,361.0,1276,WR
+Jimmy Horn,1496.0,357.0,1824,WR
+Joe Burrow,7200.0,18.0,601,QB
+Joe Milton,1631.0,329.0,1556,QB
+John Metchie,1480.0,362.0,1276,WR
 Jonah Coleman,3250.0,127.0,1939,RB
-Jonathan Mingo,1119.0,414.0,1450,WR
-Jonathan Taylor,6589.0,25.0,634,RB
-Jonathon Brooks,3504.0,110.0,1568,RB
-Jordan Addison,3650.0,104.0,1420,WR
-Jordan James,2040.0,249.0,1755,RB
-Jordan Love,5366.0,52.0,596,QB
-Jordan Mason,2973.0,151.0,1330,RB
+Jonathan Mingo,1121.0,414.0,1450,WR
+Jonathan Taylor,6590.0,25.0,634,RB
+Jonathon Brooks,3503.0,110.0,1568,RB
+Jordan Addison,3652.0,104.0,1420,WR
+Jordan James,2039.0,249.0,1755,RB
+Jordan Love,5365.0,52.0,596,QB
+Jordan Mason,2976.0,151.0,1330,RB
 Jordan Watkins,1146.0,413.0,1817,WR
 Jordan Whittington,1462.0,365.0,1604,WR
 Jordyn Tyson,4762.0,68.0,1960,WR
-Josh Allen,9524.0,3.0,365,QB
+Josh Allen,9526.0,3.0,365,QB
 Josh Downs,3382.0,121.0,1440,WR
-Josh Jacobs,3151.0,136.0,303,RB
-Joshua Palmer,1569.0,340.0,1065,WR
-Justice Hill,1530.0,353.0,368,RB
+Josh Jacobs,3148.0,136.0,303,RB
+Joshua Palmer,1570.0,340.0,1065,WR
+Justice Hill,1529.0,353.0,368,RB
 Justin Fields,1823.0,286.0,1015,QB
-Justin Herbert,6816.0,24.0,599,QB
-Justin Jefferson,7419.0,14.0,542,WR
-Justin Joly,2271.0,225.0,2010,TE
+Justin Herbert,6808.0,24.0,599,QB
+Justin Jefferson,7423.0,14.0,542,WR
+Justin Joly,2268.0,225.0,2010,TE
 Juwan Johnson,3396.0,119.0,575,TE
-Kaelon Black,2938.0,154.0,1947,RB
-Kaleb Johnson,2388.0,212.0,1748,RB
-Kalel Mullings,1088.0,424.0,1750,RB
-Kameron Johnson,1224.0,398.0,1701,WR
-KaVontae Turpin,1107.0,419.0,1336,WR
-Kayshon Boutte,2558.0,192.0,1446,WR
-Kaytron Allen,2328.0,219.0,1940,RB
-KC Concepcion,4420.0,82.0,1963,WR
-KeAndre Lambert-Smith,1431.0,368.0,1818,WR
-Keaton Mitchell,2518.0,197.0,1393,RB
-Keenan Allen,1775.0,309.0,265,WR
-Kendre Miller,1865.0,280.0,1386,RB
+Kaelon Black,2941.0,153.0,1947,RB
+Kaleb Johnson,2385.0,212.0,1748,RB
+Kalel Mullings,1087.0,425.0,1750,RB
+Kameron Johnson,1226.0,398.0,1701,WR
+KaVontae Turpin,1105.0,419.0,1336,WR
+Kayshon Boutte,2557.0,192.0,1446,WR
+Kaytron Allen,2331.0,219.0,1940,RB
+KC Concepcion,4417.0,82.0,1963,WR
+KeAndre Lambert-Smith,1430.0,368.0,1818,WR
+Keaton Mitchell,2516.0,197.0,1393,RB
+Keenan Allen,1776.0,309.0,265,WR
+Kendre Miller,1869.0,279.0,1386,RB
 Kendrick Bourne,1343.0,379.0,153,WR
-Kenneth Gainwell,2855.0,163.0,1032,RB
-Kenneth Walker III,5833.0,39.0,1227,RB
-Kenny Pickett,1070.0,432.0,1208,QB
-Kenyon Sadiq,4597.0,76.0,2005,TE
-Keon Coleman,2194.0,232.0,1588,WR
-Kevin Coleman,1842.0,285.0,1990,WR
-Khalil Shakir,2692.0,177.0,1278,WR
-Kimani Vidal,2033.0,250.0,1636,RB
+Kenneth Gainwell,2852.0,163.0,1032,RB
+Kenneth Walker III,5832.0,39.0,1227,RB
+Kenny Pickett,1071.0,432.0,1208,QB
+Kenyon Sadiq,4603.0,76.0,2005,TE
+Keon Coleman,2196.0,232.0,1588,WR
+Kevin Coleman,1843.0,285.0,1990,WR
+Khalil Shakir,2689.0,177.0,1278,WR
+Kimani Vidal,2035.0,250.0,1636,RB
 Kirk Cousins,2123.0,242.0,396,QB
-Konata Mumpfield,1317.0,384.0,1830,WR
-Kyle Monangai,3217.0,132.0,1766,RB
-Kyle Pitts,5250.0,55.0,1051,TE
-Kyle Williams,2138.0,240.0,1812,WR
-Kyler Murray,4076.0,91.0,379,QB
-Kyren Williams,4967.0,64.0,1226,RB
-Ladd McConkey,5637.0,44.0,1598,WR
+Konata Mumpfield,1320.0,384.0,1830,WR
+Kyle Monangai,3215.0,132.0,1766,RB
+Kyle Pitts,5253.0,54.0,1051,TE
+Kyle Williams,2135.0,240.0,1812,WR
+Kyler Murray,4075.0,91.0,379,QB
+Kyren Williams,4968.0,64.0,1226,RB
+Ladd McConkey,5639.0,44.0,1598,WR
 Lamar Jackson,7571.0,13.0,372,QB
-Le'Veon Moss,921.0,480.0,1941,RB
+Le'Veon Moss,920.0,480.0,1941,RB
 LeQuint Allen,1926.0,269.0,1761,RB
-Luke McCaffrey,1559.0,341.0,1606,WR
-Luke Musgrave,2371.0,215.0,1430,TE
+Luke McCaffrey,1561.0,341.0,1606,WR
+Luke Musgrave,2370.0,215.0,1430,TE
 Luke Schoonmaker,1788.0,302.0,1382,TE
-Luther Burden,5427.0,47.0,1770,WR
+Luther Burden,5425.0,47.0,1770,WR
 Mac Jones,2324.0,221.0,1018,QB
 Mack Hollins,1158.0,412.0,767,WR
-Makai Lemon,4504.0,81.0,1961,WR
-Malachi Corley,1213.0,401.0,1607,WR
+Makai Lemon,4502.0,81.0,1961,WR
+Malachi Corley,1213.0,400.0,1607,WR
 Malachi Fields,2912.0,157.0,1973,WR
 Malik Benson,1382.0,375.0,2040,WR
-Malik Davis,1862.0,281.0,1197,RB
-Malik Nabers,7275.0,15.0,1586,WR
+Malik Davis,1861.0,282.0,1197,RB
+Malik Nabers,7277.0,15.0,1586,WR
 Malik Washington,2481.0,204.0,1623,WR
 Malik Willis,3773.0,97.0,1210,QB
-Marcus Mariota,1254.0,394.0,23,QB
-Mark Andrews,3510.0,109.0,366,TE
-Marlin Klein,1657.0,326.0,2015,TE
-Marquise Brown,1487.0,359.0,311,WR
-MarShawn Lloyd,3083.0,142.0,1575,RB
-Marvin Harrison Jr.,4721.0,71.0,1585,WR
-Marvin Mims,1987.0,260.0,1442,WR
-Mason Taylor,2870.0,160.0,1806,TE
-Mason Tipton,967.0,464.0,1686,WR
+Marcus Mariota,1255.0,394.0,23,QB
+Mark Andrews,3509.0,109.0,366,TE
+Marlin Klein,1656.0,326.0,2015,TE
+Marquise Brown,1485.0,359.0,311,WR
+MarShawn Lloyd,3082.0,143.0,1575,RB
+Marvin Harrison Jr.,4709.0,72.0,1585,WR
+Marvin Mims,1989.0,260.0,1442,WR
+Mason Taylor,2869.0,161.0,1806,TE
+Mason Tipton,965.0,464.0,1686,WR
 Matthew Golden,3596.0,108.0,1775,WR
-Matthew Hibner,1772.0,312.0,2020,TE
+Matthew Hibner,1771.0,313.0,2020,TE
 Matthew Stafford,3904.0,93.0,356,QB
-Max Klare,2868.0,161.0,2009,TE
-Michael Mayer,3082.0,143.0,1427,TE
-Michael Penix Jr.,2785.0,168.0,1554,QB
-Michael Pittman,3154.0,135.0,536,WR
-Michael Trigg,1903.0,274.0,2008,TE
-Michael Wilson,3721.0,102.0,1421,WR
-Mike Evans,3220.0,131.0,275,WR
-Mike Gesicki,2032.0,251.0,330,TE
-Mike Washington Jr.,3072.0,145.0,1944,RB
+Max Klare,2870.0,160.0,2009,TE
+Michael Mayer,3087.0,140.0,1427,TE
+Michael Penix Jr.,2783.0,168.0,1554,QB
+Michael Pittman,3151.0,135.0,536,WR
+Michael Trigg,1900.0,274.0,2008,TE
+Michael Wilson,3715.0,102.0,1421,WR
+Mike Evans,3222.0,131.0,275,WR
+Mike Gesicki,2031.0,251.0,330,TE
+Mike Washington Jr.,3074.0,144.0,1944,RB
 Mitchell Evans,1766.0,315.0,1809,TE
-Najee Harris,1846.0,284.0,1031,RB
+Najee Harris,1852.0,284.0,1031,RB
 Nicholas Singleton,2695.0,176.0,1938,RB
 Nick Westbrook-Ikhine,956.0,470.0,950,WR
 Nico Collins,5867.0,37.0,1040,WR
-Noah Fant,2013.0,255.0,243,TE
-Noah Gray,2149.0,239.0,1059,TE
+Noah Fant,2016.0,255.0,243,TE
+Noah Gray,2153.0,239.0,1059,TE
 Olamide Zaccheaus,1262.0,392.0,609,WR
-Ollie Gordon,2012.0,256.0,1759,RB
-Omar Cooper Jr.,3240.0,128.0,1964,WR
-Omarion Hampton,6933.0,22.0,1744,RB
-Oronde Gadsden,3599.0,107.0,1799,TE
-Oscar Delp,2592.0,187.0,2013,TE
-Parker Washington,4600.0,75.0,1445,WR
+Ollie Gordon,2013.0,256.0,1759,RB
+Omar Cooper Jr.,3237.0,128.0,1964,WR
+Omarion Hampton,6928.0,22.0,1744,RB
+Oronde Gadsden,3602.0,107.0,1799,TE
+Oscar Delp,2592.0,188.0,2013,TE
+Parker Washington,4606.0,75.0,1445,WR
 Pat Bryant,2613.0,185.0,1782,WR
 Pat Freiermuth,2850.0,164.0,1053,TE
-Patrick Mahomes,6034.0,33.0,272,QB
-Puka Nacua,8306.0,8.0,1426,WR
-Quentin Johnston,3464.0,113.0,1441,WR
-Quinn Ewers,1620.0,331.0,1734,QB
-Quinshon Judkins,5160.0,59.0,1751,RB
-Rachaad White,2667.0,179.0,1180,RB
+Patrick Mahomes,6033.0,33.0,272,QB
+Puka Nacua,8301.0,8.0,1426,WR
+Quentin Johnston,3462.0,113.0,1441,WR
+Quinn Ewers,1621.0,331.0,1734,QB
+Quinshon Judkins,5157.0,59.0,1751,RB
+Rachaad White,2664.0,179.0,1180,RB
 Raheim Sanders,1345.0,378.0,1762,RB
-Rashee Rice,5033.0,62.0,1447,WR
-Rasheen Ali,1163.0,411.0,1631,RB
-Rashid Shaheed,2582.0,190.0,1360,WR
-Rashod Bateman,1974.0,262.0,1070,WR
-Ray Davis,1982.0,261.0,1574,RB
-Rhamondre Stevenson,3379.0,122.0,1036,RB
-Ricky Pearsall,2550.0,195.0,1593,WR
-Rico Dowdle,3073.0,144.0,555,RB
-Riley Leonard,1577.0,339.0,1735,QB
-RJ Harvey,3389.0,120.0,1768,RB
-Roman Wilson,1716.0,319.0,1600,WR
-Rome Odunze,5020.0,63.0,1587,WR
+Rashee Rice,5031.0,62.0,1447,WR
+Rasheen Ali,1162.0,411.0,1631,RB
+Rashid Shaheed,2583.0,190.0,1360,WR
+Rashod Bateman,1973.0,262.0,1070,WR
+Ray Davis,1979.0,261.0,1574,RB
+Rhamondre Stevenson,3377.0,122.0,1036,RB
+Ricky Pearsall,2549.0,195.0,1593,WR
+Rico Dowdle,3073.0,145.0,555,RB
+Riley Leonard,1573.0,339.0,1735,QB
+RJ Harvey,3391.0,120.0,1768,RB
+Roman Wilson,1722.0,318.0,1600,WR
+Rome Odunze,5023.0,63.0,1587,WR
 Romeo Doubs,2864.0,162.0,1238,WR
-Roschon Johnson,1625.0,330.0,1390,RB
+Roschon Johnson,1622.0,330.0,1390,RB
 Ryan Flournoy,2021.0,252.0,1642,WR
 Sam Darnold,4231.0,87.0,331,QB
-Sam Howell,1055.0,437.0,1209,QB
-Sam LaPorta,5505.0,46.0,1429,TE
-Sam Roush,1391.0,373.0,2011,TE
-Samaje Perine,975.0,461.0,785,RB
+Sam Howell,1053.0,438.0,1209,QB
+Sam LaPorta,5503.0,46.0,1429,TE
+Sam Roush,1393.0,373.0,2011,TE
+Samaje Perine,976.0,461.0,785,RB
 Saquon Barkley,5393.0,49.0,1,RB
-Savion Williams,1607.0,333.0,1796,WR
-Sean Tucker,2015.0,254.0,1400,RB
-Seth McGowan,1697.0,323.0,1937,RB
-Shedeur Sanders,2441.0,207.0,1731,QB
+Savion Williams,1607.0,332.0,1796,WR
+Sean Tucker,2016.0,254.0,1400,RB
+Seth McGowan,1694.0,323.0,1937,RB
+Shedeur Sanders,2439.0,208.0,1731,QB
 Sione Vaki,1071.0,431.0,1627,RB
-Skyler Bell,2245.0,227.0,1970,WR
+Skyler Bell,2244.0,227.0,1970,WR
 Skyy Moore,949.0,473.0,1283,WR
-Spencer Rattler,1521.0,355.0,1557,QB
-Stefon Diggs,2658.0,180.0,262,WR
+Spencer Rattler,1520.0,355.0,1557,QB
+Stefon Diggs,2663.0,180.0,262,WR
 T.J. Hockenson,3283.0,126.0,247,TE
-Tahj Brooks,1594.0,336.0,1758,RB
+Tahj Brooks,1595.0,335.0,1758,RB
 Tai Felton,1348.0,377.0,1797,WR
 Tank Bigsby,2434.0,210.0,1401,RB
 Tank Dell,2349.0,216.0,1438,WR
-Tanner Koziol,1532.0,352.0,2022,TE
-Tanner McKee,1215.0,400.0,1218,QB
-Taylen Green,1386.0,374.0,2029,QB
-Ted Hurst,2556.0,193.0,1982,WR
-Tee Higgins,5034.0,61.0,543,WR
-Terrance Ferguson,3735.0,100.0,1807,TE
-Terry McLaurin,3459.0,114.0,328,WR
-Tetairoa McMillan,6067.0,31.0,1771,WR
-Tez Johnson,1914.0,272.0,1779,WR
-Theo Johnson,2625.0,183.0,1620,TE
+Tanner Koziol,1534.0,352.0,2022,TE
+Tanner McKee,1211.0,401.0,1218,QB
+Taylen Green,1385.0,374.0,2029,QB
+Ted Hurst,2551.0,194.0,1982,WR
+Tee Higgins,5037.0,61.0,543,WR
+Terrance Ferguson,3731.0,101.0,1807,TE
+Terry McLaurin,3460.0,114.0,328,WR
+Tetairoa McMillan,6066.0,31.0,1771,WR
+Tez Johnson,1918.0,271.0,1779,WR
+Theo Johnson,2622.0,184.0,1620,TE
 Tommy Tremble,1926.0,270.0,1054,TE
-Tony Pollard,2793.0,166.0,344,RB
-Tory Horton,2182.0,233.0,1798,WR
-Travis Etienne,4524.0,80.0,1030,RB
+Tony Pollard,2793.0,165.0,344,RB
+Tory Horton,2184.0,233.0,1798,WR
+Travis Etienne,4523.0,80.0,1030,RB
 Travis Hunter,2790.0,167.0,1774,WR
 Travis Kelce,3370.0,123.0,264,TE
-Tre Harris,2492.0,202.0,1772,WR
-Tre Tucker,2445.0,206.0,1460,WR
-TreVeyon Henderson,4792.0,67.0,1743,RB
-Trevor Etienne,1914.0,273.0,1756,RB
-Trevor Lawrence,6381.0,28.0,1094,QB
-Trey Benson,1808.0,290.0,1565,RB
+Tre Harris,2490.0,202.0,1772,WR
+Tre Tucker,2448.0,206.0,1460,WR
+TreVeyon Henderson,4783.0,67.0,1743,RB
+Trevor Etienne,1913.0,273.0,1756,RB
+Trevor Lawrence,6386.0,28.0,1094,QB
+Trey Benson,1809.0,289.0,1565,RB
 Trey Lance,1066.0,435.0,1017,QB
-Trey McBride,8734.0,7.0,1253,TE
-Trey Palmer,1202.0,403.0,1452,WR
-Treylon Burks,1498.0,357.0,1269,WR
-Troy Franklin,2162.0,235.0,1590,WR
-Tua Tagovailoa,2323.0,222.0,600,QB
-Tucker Kraft,6057.0,32.0,1418,TE
-Tutu Atwell,1556.0,342.0,1078,WR
+Trey McBride,8731.0,7.0,1253,TE
+Trey Palmer,1202.0,404.0,1452,WR
+Treylon Burks,1498.0,356.0,1269,WR
+Troy Franklin,2164.0,235.0,1590,WR
+Tua Tagovailoa,2322.0,222.0,600,QB
+Tucker Kraft,6063.0,32.0,1418,TE
+Tutu Atwell,1555.0,342.0,1078,WR
 Ty Johnson,1291.0,389.0,6,RB
-Ty Simpson,3679.0,103.0,1925,QB
-Tyjae Spears,2423.0,211.0,1417,RB
-Tyler Allgeier,2740.0,172.0,1228,RB
+Ty Simpson,3680.0,103.0,1925,QB
+Tyjae Spears,2424.0,211.0,1417,RB
+Tyler Allgeier,2741.0,171.0,1228,RB
 Tyler Badie,980.0,457.0,1206,RB
 Tyler Goodson,1032.0,442.0,1189,RB
 Tyler Higbee,1948.0,266.0,159,TE
-Tyler Huntley,1232.0,397.0,618,QB
-Tyler Shough,4831.0,66.0,1739,QB
+Tyler Huntley,1230.0,397.0,618,QB
+Tyler Shough,4837.0,66.0,1739,QB
 Tyler Warren,7063.0,21.0,1802,TE
-Tyquan Thornton,1756.0,316.0,1246,WR
+Tyquan Thornton,1757.0,316.0,1246,WR
 Tyreek Hill,1484.0,360.0,286,WR
-Tyrone Tracy,2221.0,230.0,1632,RB
-Tyson Bagent,1477.0,362.0,1478,QB
-Wan'Dale Robinson,3232.0,129.0,1274,WR
-Will Howard,1805.0,291.0,1736,QB
-Will Shipley,1551.0,343.0,1572,RB
-Woody Marks,2756.0,170.0,1753,RB
-Xavier Hutchinson,1883.0,277.0,1454,WR
+Tyrone Tracy,2219.0,230.0,1632,RB
+Tyson Bagent,1482.0,361.0,1478,QB
+Wan'Dale Robinson,3234.0,129.0,1274,WR
+Will Howard,1804.0,292.0,1736,QB
+Will Shipley,1553.0,343.0,1572,RB
+Woody Marks,2761.0,170.0,1753,RB
+Xavier Hutchinson,1880.0,277.0,1454,WR
 Xavier Legette,1795.0,296.0,1610,WR
-Xavier Restrepo,1259.0,393.0,1777,WR
-Xavier Worthy,3045.0,150.0,1591,WR
+Xavier Restrepo,1260.0,393.0,1777,WR
+Xavier Worthy,3046.0,150.0,1591,WR
 Zach Charbonnet,3061.0,148.0,1384,RB
 Zachariah Branch,2607.0,186.0,1969,WR
-Zavion Thomas,1917.0,271.0,1983,WR
-Zay Flowers,5372.0,50.0,1443,WR
+Zavion Thomas,1917.0,272.0,1983,WR
+Zay Flowers,5377.0,50.0,1443,WR
