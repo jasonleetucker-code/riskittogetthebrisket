@@ -1,0 +1,76 @@
+name: Fast Gate (L0)
+
+# Tiered-validation L0, run in CI as a backstop — see docs/AGENT_OPERATING_SYSTEM.md
+# §3 "Tiered validation workflow — L0 through L3". The canonical, fastest L0 loop
+# is local (`bash scripts/tiered_validate.sh l0`, seconds, no CI queue wait); this
+# workflow exists for the case an agent pushes without having run it locally, so a
+# formatting/lint/syntax regression is visible within a couple of minutes on every
+# push to a dev branch instead of only at the next full PR Validation run.
+#
+# Deliberately NOT a required check and NOT a substitute for pr-validation.yml
+# (L2) or release-candidate.yml/deploy.yml (L3) — it only proves the changed
+# files are syntactically/stylistically sound, nothing about behavior.
+
+on:
+  push:
+    branches:
+      - 'claude/**'
+      - 'codex/**'
+    paths:
+      - '**.py'
+      - 'Dynasty Scraper.py'
+
+concurrency:
+  group: fast-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  l0:
+    name: L0 Fast Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Ruff only (L0 needs no runtime deps)
+        # Deliberately not `pip install -r requirements-dev.txt` — that
+        # pulls in fastapi/playwright/etc. for a runtime import gate this
+        # workflow does not run. L0 is formatting/lint/syntax only, and
+        # installing just Ruff keeps this step under a few seconds.
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --upgrade pip
+          pip install ruff==0.6.9
+
+      - name: Format + lint changed Python files
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch origin main --depth=200 || true
+          bash scripts/format_python_changes.sh
+
+      - name: Syntax-compile changed Python files
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mapfile -t files < <(python scripts/ci_change_scope.py --base origin/main --paths-only | grep -E '\.py$' || true)
+          if ((${#files[@]} > 0)); then
+            echo "Compiling ${#files[@]} changed file(s):"
+            printf '  %s\n' "${files[@]}"
+            python -m py_compile "${files[@]}"
+          else
+            echo "No changed Python files to compile."
+          fi

@@ -162,6 +162,138 @@ For work that spans many tool calls or meaningful checkpoints, keep the owner/op
 - do not repeat the same status or dump low-level tool chatter;
 - continue working after the update unless an actual owner decision is required.
 
+### Tiered validation workflow — L0 through L3 (fast development, deliberate deployment)
+
+**Status: canonical, permanent, binding on every model/agent (Claude, Codex, Astra,
+Gemini, ChatGPT/Copilot, and any future coding agent).** This is the repository's
+answer to "how fast should I validate, and when." It does not weaken final
+production acceptance — see the L3 section below, which is unchanged and strict —
+it changes how much validation runs **before** that point, and how often.
+
+**The principle:** test cheaply and continuously, validate comprehensively at
+integration boundaries, deploy deliberately. A tiny edit does not need to survive
+the full PR → CI → deploy → production-verification cycle before the next tiny
+edit can start. A production release does need to survive all of it, every time,
+with nothing weakened.
+
+There are four levels. Each is additive to the ones below it — running L1 does not
+replace L0, running L2 does not replace L1, and L3 never shrinks because L0-L2
+passed.
+
+| Level | Target latency | Answers | Where it runs |
+|---|---|---|---|
+| **L0 — Immediate** | seconds | Is this syntactically and stylistically correct? | Locally, continuously, via `bash scripts/tiered_validate.sh l0` |
+| **L1 — Subsystem** | ~1-3 minutes | Does the subsystem I just touched still behave? | Locally, after a logical chunk, via `bash scripts/tiered_validate.sh l1` |
+| **L2 — Integration/PR** | full CI budget | Is this coherent development phase safe to merge? | `.github/workflows/pr-validation.yml`, once per integration PR |
+| **L3 — Production candidate** | full CI + deploy budget | Is this exact tree safe to run in production? | `.github/workflows/release-candidate.yml` + `.github/workflows/deploy.yml`, unchanged and strict |
+
+**L0 — Immediate validation.** Formatting, linting, syntax, type-checking of
+affected code, compilation of affected code, directly relevant unit tests, tiny
+smoke tests. Run this continuously while editing — after nearly every change, not
+just before a commit. `bash scripts/tiered_validate.sh l0` runs
+`scripts/format_python_changes.sh` (ruff format + ruff check, repo-wide) plus a
+`py_compile` pass over the exact changed files. It costs seconds and has no excuse
+not to run.
+
+**L1 — Subsystem validation.** After a meaningful logical chunk (not after every
+line), run the tests that own the area you touched: Game Day changes get Game Day
+tests, rankings/valuation changes get `tests/canonical` + `tests/bdvm` +
+`tests/api`, the trade analyzer gets `tests/trade`, Sleeper/scraper ingestion gets
+`tests/adapters`, database/schema changes get `tests/identity` + `tests/history`,
+frontend changes get the relevant vitest files, Python analytics changes get their
+own `tests/<subsystem>` directory. `bash scripts/tiered_validate.sh l1` derives
+this mapping automatically from the diff (via `scripts/ci_change_scope.py`) so
+nobody has to remember which `tests/` directory owns which `src/` directory.
+Target ~1-3 minutes; if a subsystem's suite is slower than that, narrow the
+invocation (`pytest tests/<dir>/test_specific_file.py`) rather than skipping L1
+altogether.
+
+**L2 — Integration/PR validation.** Run once a coherent development phase is
+complete — broader CI, full build validation, integration tests, cross-system
+regressions, important invariants, dependency checks, security/static analysis
+where applicable. This is `.github/workflows/pr-validation.yml`. As of this
+policy it is **path-aware**: a "Detect changed systems" step
+(`scripts/ci_change_scope.py`, the single owner both this workflow and
+`scripts/tiered_validate.sh` call — never re-implement path matching a second
+time) decides whether the diff touches backend code, frontend code, or a
+high-risk shared dependency, and the two expensive blocks (the full backend
+pytest suite; the frontend install + vitest + Next build) run only when their
+domain — or anything high-risk — is actually touched. Formatting, linting,
+governance/planning gates, the runtime import gate and the API contract check
+stay unconditional: they are cheap and are cross-cutting safety nets, not
+per-domain suites that should ever be skipped. Any change-detection failure
+defaults to running everything — this mechanism can only ever widen validation
+on its own error, never narrow it. **Related work should generally land as ONE
+integration PR** covering a coherent development phase, not one PR per tiny
+edit — see "Development operating model" below for how this reconciles with
+`ASSISTANT_COORDINATION.md`'s branch rules.
+
+**L3 — Production candidate validation. This remains strict and is NOT weakened
+by this policy.** Complete required production CI, production build, production
+deployment checks, live-data checks where required, canonical
+methodology/invariant checks, smoke testing, production verification, and any
+active owner-authorized completion-contract gates (e.g. a Week-1-Launch-Contract
+style gate, while one is active and incomplete). This is
+`.github/workflows/release-candidate.yml` (the HEAD-FREEZE gate — see
+`CLAUDE.md`'s "Release discipline — HEAD FREEZE" and "CI has two lanes" sections,
+which this policy does not replace, only names in the L0-L3 vocabulary) and
+`.github/workflows/deploy.yml`. Neither file gained any path-awareness or
+skip logic under this policy — every step in both runs unconditionally, every
+time, exactly as before. Existing owner-approved production acceptance
+contracts remain authoritative and are not superseded by the existence of this
+faster development workflow.
+
+**Development operating model.** The default loop is no longer:
+
+```text
+tiny edit -> PR -> full CI -> merge -> production deployment -> production
+verification -> next tiny edit
+```
+
+It is:
+
+```text
+feature/integration branch
+  -> multiple related incremental changes, L0 continuously, L1 after each chunk
+  -> one integration checkpoint
+  -> one meaningful PR (L2)
+  -> merge
+  -> production candidate (L3, HEAD FREEZE per CLAUDE.md)
+  -> production
+```
+
+Combine related TODOs into one coherent development phase on one branch when
+doing so is technically sensible, and open one integration PR for that phase
+rather than a PR per tiny change. Keep commits inside that branch reasonably
+small and individually understandable — so a regression can still be bisected
+and reverted — but do not manufacture one giant unstructured commit merely to
+avoid triggering CI. This reconciles the apparent tension with
+`ASSISTANT_COORDINATION.md`'s "merge one task at a time... do not hold it for a
+batch": that rule's actual target, per its own cited incident, was **stale,
+divergent branches holding unrelated work for an indefinite batch**, not a
+single branch's own sequence of related incremental commits landing together.
+"One task" now means one coherent development phase; keep opening that PR
+promptly once the phase's L1 checks are green, and do not hoard multiple
+unrelated phases on one branch.
+
+**High-risk escalation is automatic, not a judgment call to skip.** A change
+touching authentication/security, database migrations, destructive data
+operations, canonical rankings/valuation math, shared core libraries/adapters,
+infrastructure, production deployment configuration, a dependency/framework
+upgrade, or a canonical data pipeline is never treated as low-risk to save time.
+`scripts/ci_change_scope.py`'s `high_risk` classification mechanically forces
+both the backend and frontend L2 suites regardless of which literal paths
+changed; this is the CI-path-awareness enforcement of the broader invariant
+already stated in §11 below. When in doubt about whether something is
+high-risk, treat it as high-risk.
+
+**What this policy does not authorize:** skipping a failing L2/L3 check, disabling
+a production gate, force-merging broken work, removing regression coverage,
+silently narrowing a downstream dependency check, deploying known-broken code,
+or reclassifying genuinely high-risk work as low-risk. The goal is eliminating
+*unnecessary repeated* validation during development, not reducing total
+validation.
+
 ### Do not improvise product methodology
 
 Stop the affected item when completion requires a genuine owner/methodology decision. Surface the **smallest exact decision** needed and continue unrelated dependency-ready work.

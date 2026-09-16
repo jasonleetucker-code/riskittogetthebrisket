@@ -80,6 +80,10 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
 
       - name: Install dependencies
         shell: bash
@@ -91,6 +95,35 @@ jobs:
           # (runtime-only) walking the same dependency graph.  No
           # ad-hoc ``pip install pytest`` calls sprinkled elsewhere.
           pip install -r requirements-dev.txt
+
+      - name: Detect changed systems (tiered-validation path-awareness)
+        # Single owner: scripts/ci_change_scope.py. See
+        # docs/AGENT_OPERATING_SYSTEM.md §3 "Tiered validation workflow —
+        # L0 through L3". This step decides which of the two EXPENSIVE
+        # blocks below (the full backend pytest suite, the frontend
+        # install+vitest+build) are relevant to this diff so a
+        # single-domain PR (frontend-only CSS tweak, backend-only script
+        # fix) does not pay for both every time.
+        #
+        # Deliberately does NOT skip anything else in this job: format,
+        # lint, governance/planning gates, the runtime import gate and the
+        # API contract check all stay unconditional because they are cheap
+        # (seconds) and are cross-cutting safety nets, not per-domain
+        # suites. A high-risk change (workflow files, dependency
+        # manifests, canonical valuation/identity/history owners, shared
+        # adapters — see the module docstring for the exact list) forces
+        # BOTH blocks on regardless of which paths literally changed, so a
+        # shared-dependency change can never silently narrow validation.
+        #
+        # Fails safe: any detection error defaults every flag to "true"
+        # (run everything) rather than "false" — this step can only ever
+        # ADD validation, never remove it, on its own failure.
+        id: scope
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch origin main --depth=200 || true
+          python scripts/ci_change_scope.py --base origin/main --head HEAD --github-output
 
       - name: Validate dependency graph (pip check)
         shell: bash
@@ -230,6 +263,12 @@ jobs:
           print("Runtime import gate passed.")
           PY
       - name: Run unit tests (hard gate — pure logic)
+        # Path-aware (tiered-validation L2): skipped only when this diff
+        # touches neither backend/tooling code nor a high-risk shared
+        # dependency (see the "Detect changed systems" step above). A
+        # frontend-only PR does not pay for the full backend suite; a
+        # backend or high-risk PR always does.
+        if: ${{ steps.scope.outputs.python == 'true' }}
         shell: bash
         env:
           ALLOW_DEFAULT_LOGIN_DEV: "1"
@@ -259,7 +298,7 @@ jobs:
         # advisory signal; the deploy-time #451 served-board gate +
         # the static test_source_floor_invariant hard gate remain the
         # real guards against genuine source degradation.
-        if: ${{ always() }}
+        if: ${{ always() && steps.scope.outputs.python == 'true' }}
         continue-on-error: true
         shell: bash
         env:
@@ -344,11 +383,19 @@ jobs:
       # output even on success, while the check step's exit code is
       # what determines the gate.
       - name: Set up Node.js
+        # Path-aware (tiered-validation L2): skipped when this diff
+        # touches neither frontend/ nor a high-risk shared dependency (see
+        # the "Detect changed systems" step above). A backend-only PR does
+        # not pay for npm install + vitest + the Next.js build.
+        if: ${{ steps.scope.outputs.frontend == 'true' }}
         uses: actions/setup-node@v7
         with:
           node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
+        if: ${{ steps.scope.outputs.frontend == 'true' }}
         shell: bash
         working-directory: frontend
         run: |
@@ -372,6 +419,7 @@ jobs:
       # Placed BEFORE the build: unit failures should surface in seconds
       # rather than after a full Next.js compile.
       - name: Frontend unit tests (vitest)
+        if: ${{ steps.scope.outputs.frontend == 'true' }}
         shell: bash
         working-directory: frontend
         run: |
@@ -379,6 +427,7 @@ jobs:
           npm test
 
       - name: Frontend build + bundle-size budget
+        if: ${{ steps.scope.outputs.frontend == 'true' }}
         shell: bash
         working-directory: frontend
         run: |

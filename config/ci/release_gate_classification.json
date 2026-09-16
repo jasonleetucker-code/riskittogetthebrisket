@@ -311,6 +311,21 @@
     "e2e.yml::e2e::Warm lazy backend caches, then prove the data path serves": {
       "category": "blocking"
     },
+    "fast-gate.yml::l0::Checkout": {
+      "category": "blocking"
+    },
+    "fast-gate.yml::l0::Format + lint changed Python files": {
+      "category": "blocking"
+    },
+    "fast-gate.yml::l0::Install Ruff only (L0 needs no runtime deps)": {
+      "category": "blocking"
+    },
+    "fast-gate.yml::l0::Set up Python": {
+      "category": "blocking"
+    },
+    "fast-gate.yml::l0::Syntax-compile changed Python files": {
+      "category": "blocking"
+    },
     "fd-diagnostics.yml::inventory::Checkout": {
       "category": "blocking"
     },
@@ -390,6 +405,9 @@
       "category": "blocking"
     },
     "pr-validation.yml::validate::Deploy script syntax gate": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Detect changed systems (tiered-validation path-awareness)": {
       "category": "blocking"
     },
     "pr-validation.yml::validate::Frontend build + bundle-size budget": {
