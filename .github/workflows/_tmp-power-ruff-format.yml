@@ -1,0 +1,41 @@
+name: Temporary Power Ruff Format
+
+on:
+  push:
+    branches:
+      - fix/power-week-integrity-and-card-parity
+    paths:
+      - .github/workflows/_tmp-power-ruff-format.yml
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: fix/power-week-integrity-and-card-parity
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Format changed Python
+        run: |
+          set -Eeuo pipefail
+          python -m pip install --disable-pip-version-check ruff==0.6.9
+          python -m ruff format src/ros/power_v2.py src/ros/power_snapshots.py tests/ros/test_power_week_integrity.py
+          python -m ruff check src/ros/power_v2.py src/ros/power_snapshots.py tests/ros/test_power_week_integrity.py
+      - name: Commit formatting
+        run: |
+          set -Eeuo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/ros/power_v2.py src/ros/power_snapshots.py tests/ros/test_power_week_integrity.py
+          if git diff --cached --quiet; then
+            echo "Already formatted"
+            exit 0
+          fi
+          git commit -m "style(power): apply canonical Ruff formatting"
+          git push origin HEAD:fix/power-week-integrity-and-card-parity
