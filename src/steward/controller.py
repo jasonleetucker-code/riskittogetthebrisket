@@ -169,8 +169,7 @@ def validate_run_contract(contract: dict[str, Any], schema_path: Path) -> None:
             _require(value >= minimum, f"budget.{field} is below its minimum")
 
     _require(
-        isinstance(contract.get("halt_sentinel"), str)
-        and bool(contract["halt_sentinel"]),
+        isinstance(contract.get("halt_sentinel"), str) and bool(contract["halt_sentinel"]),
         "halt_sentinel is required",
     )
     _require(
@@ -282,9 +281,7 @@ class Phase1Controller:
         path = self.receipt_dir / f"{day}.jsonl"
         fd = os.open(path, os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o600)
         try:
-            line = (
-                json.dumps(receipt, sort_keys=True, allow_nan=False) + "\n"
-            ).encode()
+            line = (json.dumps(receipt, sort_keys=True, allow_nan=False) + "\n").encode()
             os.write(fd, line)
             os.fsync(fd)
         finally:
