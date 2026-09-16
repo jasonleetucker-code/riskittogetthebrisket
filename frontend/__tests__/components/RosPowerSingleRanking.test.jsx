@@ -1,0 +1,335 @@
+/**
+ * The Power tab publishes ONE ranking.
+ *
+ * It used to carry three at once: a Canonical / Results-only lens toggle, a
+ * week dropdown of results-only reconstructions (labelled "· diagnostic", and
+ * reaching back into previous seasons), and a "Power score over time" chart
+ * built from that same reconstruction. Three surfaces, three orderings, one
+ * page — and the share card next to them could disagree with all of them.
+ *
+ * The diagnostic lens still exists in the ENGINE (``?lens=results_only``, spec
+ * section 3). It is not a thing this page offers, so these tests assert its
+ * absence structurally rather than trusting that nobody re-adds the button.
+ *
+ * Movement is backend-owned throughout: the table reads ``weekRankDelta`` and
+ * the share card reads the frozen ``rankDelta`` off the immutable snapshot.
+ * There is no rank arithmetic in the component to test, and that is the point.
+ */
+
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+
+vi.mock("@/components/ui", () => ({
+  LoadingState: ({ message }) => <div>{message}</div>,
+  EmptyState: ({ title, message }) => (
+    <div>
+      <h3>{title}</h3>
+      <p>{message}</p>
+    </div>
+  ),
+}));
+
+vi.mock("../../app/league/shared-server.jsx", () => ({
+  Card: ({ title, subtitle, children }) => (
+    <section>
+      {title ? <h2>{title}</h2> : null}
+      {subtitle ? <p>{subtitle}</p> : null}
+      {children}
+    </section>
+  ),
+}));
+
+async function renderFresh() {
+  // The component caches its fetch at module scope, so every test needs a
+  // fresh module instance or the second one asserts against the first's data.
+  vi.resetModules();
+  const mod = await import("../../app/league/sections/ros-power.jsx");
+  return mod.default;
+}
+
+function serve(body) {
+  const calls = [];
+  global.fetch = vi.fn((url) => {
+    calls.push(String(url));
+    return Promise.resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve(String(url).includes("playoffOdds") ? { owners: [] } : body),
+    });
+  });
+  return calls;
+}
+
+/** A published week, in the shape ``power_snapshots`` freezes it. */
+function snapshotWeek(week, rows, { preseason = false } = {}) {
+  return {
+    season: "2026",
+    week,
+    preseason,
+    ranking: rows.map((row) => ({
+      ownerId: row.ownerId,
+      displayName: row.displayName,
+      teamName: row.teamName,
+      rank: row.rank,
+      powerScore: row.powerScore ?? null,
+      priorRank: row.priorRank ?? null,
+      rankDelta: row.rankDelta ?? null,
+    })),
+  };
+}
+
+function payload({ ranking, shareSnapshot = null, officialHistory = [] }) {
+  return {
+    currentRanking: ranking,
+    unrankable: null,
+    lens: "canonical",
+    weights: { team_ros_strength: 0.4, all_play: 0.2 },
+    effectiveWeights: { team_ros_strength: 0.75, all_play: 0.25 },
+    blend: { forwardWeight: 0.75, resultsWeight: 0.25 },
+    missingInputs: ["team_vorp"],
+    rosTeamStrengthAvailable: true,
+    preseason: false,
+    asOfSeason: "2026",
+    asOfWeek: shareSnapshot?.week ?? 1,
+    shareSnapshot,
+    officialSnapshot: shareSnapshot,
+    officialHistory,
+    // Still on the payload for the engine's diagnostic lens. The page must
+    // not render it.
+    trend: {
+      lens: "results_only",
+      weeks: [
+        { season: "2025", week: 12, rankings: [], effectiveWeights: {}, blend: {} },
+        { season: "2026", week: 1, rankings: [], effectiveWeights: {}, blend: {} },
+      ],
+      seriesByOwner: {
+        o1: [
+          { season: "2025", week: 12, powerScore: 70, rank: 4 },
+          { season: "2026", week: 1, powerScore: 80, rank: 1 },
+        ],
+      },
+    },
+  };
+}
+
+const ROWS = [
+  { ownerId: "o1", displayName: "Alice", teamName: "A Team", rank: 1, powerScore: 92.1 },
+  { ownerId: "o2", displayName: "Bob", teamName: "B Team", rank: 2, powerScore: 80.4 },
+  { ownerId: "o3", displayName: "Cass", teamName: "C Team", rank: 3, powerScore: 64.0 },
+];
+
+describe("RosPowerSection — one ranking", () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  it("fetches the one ranking with no lens parameter, and offers no way to pick another", async () => {
+    const calls = serve(payload({ ranking: ROWS }));
+    const RosPowerSection = await renderFresh();
+    render(<RosPowerSection />);
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
+
+    expect(calls.filter((u) => u.includes("rosPower"))).toEqual([
+      "/api/public/league/rosPower",
+    ]);
+    expect(calls.some((u) => u.includes("lens="))).toBe(false);
+
+    expect(screen.queryByRole("button", { name: /results only/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^canonical$/i })).toBeNull();
+    // The week dropdown was the other way to reach a second ordering.
+    expect(screen.queryByRole("combobox")).toBeNull();
+  });
+
+  it("never renders the results-only reconstruction, even though the payload still carries it", async () => {
+    serve(payload({ ranking: ROWS }));
+    const RosPowerSection = await renderFresh();
+    const { container } = render(<RosPowerSection />);
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
+
+    expect(container.textContent).not.toContain("diagnostic");
+    expect(container.textContent).not.toContain("Results only");
+    expect(container.textContent).not.toContain("results-only");
+    // 2025 weeks were reachable from the old dropdown; nothing on the page
+    // may reach a previous season now.
+    expect(container.textContent).not.toContain("2025");
+  });
+
+  it("states the blend it actually applied, naming the missing input", async () => {
+    serve(payload({ ranking: ROWS }));
+    const RosPowerSection = await renderFresh();
+    const { container } = render(<RosPowerSection />);
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
+
+    expect(container.textContent).toContain(
+      "Blend: 75% forward-looking strength + 25% results",
+    );
+    expect(container.textContent).toContain("Forward-looking ROS strength (75%)");
+    // Missing is reported, never rendered as a zero-weight component.
+    expect(container.textContent).toContain("Missing inputs: team_vorp");
+    expect(container.textContent).not.toContain("Realized lineup VORP/PAR (0%)");
+  });
+
+  it("shows table movement from the backend's official comparison", async () => {
+    const ranking = [
+      { ...ROWS[0], weekRankDelta: 1 },
+      { ...ROWS[1], weekRankDelta: -1 },
+      { ...ROWS[2], weekRankDelta: 0 },
+    ];
+    serve(payload({ ranking }));
+    const RosPowerSection = await renderFresh();
+    const { container } = render(<RosPowerSection />);
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
+
+    expect(container.textContent).toContain("▲ 1");
+    expect(container.textContent).toContain("▼ 1");
+    // A zero delta is "did not move" (•), never a missing comparison.
+    expect(container.textContent).toContain("•");
+  });
+});
+
+describe("LeaguePowerShareCard — movement since last week", () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  const WEEK_ZERO = snapshotWeek(
+    0,
+    [
+      { ownerId: "o1", displayName: "Alice", teamName: "A Team", rank: 1 },
+      { ownerId: "o2", displayName: "Bob", teamName: "B Team", rank: 3 },
+      { ownerId: "o3", displayName: "Cass", teamName: "C Team", rank: 2 },
+    ],
+    { preseason: true },
+  );
+
+  const WEEK_ONE = snapshotWeek(1, [
+    { ...ROWS[0], priorRank: 1, rankDelta: 0 },
+    { ...ROWS[1], priorRank: 3, rankDelta: 1 },
+    { ...ROWS[2], priorRank: 2, rankDelta: -1 },
+  ]);
+
+  async function openCard(body) {
+    serve(body);
+    const RosPowerSection = await renderFresh();
+    render(<RosPowerSection />);
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByRole("button", { name: /share rankings/i }));
+    return screen.findByTestId("league-power-share-card");
+  }
+
+  it("renders the frozen movement from the published snapshot", async () => {
+    const card = await openCard(
+      payload({
+        ranking: ROWS,
+        shareSnapshot: WEEK_ONE,
+        officialHistory: [WEEK_ZERO, WEEK_ONE],
+      }),
+    );
+
+    expect(card.textContent).toContain("League Power Rankings");
+    expect(card.textContent).toContain("Week 1");
+    expect(card.textContent).toContain("Official");
+    expect(card.textContent).toContain("▲ 1"); // Bob, 3 -> 2
+    expect(card.textContent).toContain("▼ 1"); // Cass, 2 -> 3
+    // Alice held her rank: that is a dash, not a NEW and not a zero.
+    expect(card.textContent).not.toContain("NEW");
+
+    // Spec section 10: rank + owner/team + movement, nothing else.
+    expect(card.textContent).not.toContain("92.1");
+    expect(card.textContent).not.toContain("Blend");
+    expect(card.textContent).not.toContain("Missing inputs");
+  });
+
+  it("names the week the arrows are measured against", async () => {
+    const card = await openCard(
+      payload({
+        ranking: ROWS,
+        shareSnapshot: WEEK_ONE,
+        officialHistory: [WEEK_ZERO, WEEK_ONE],
+      }),
+    );
+    expect(card.textContent).toContain("vs preseason");
+  });
+
+  it("claims no baseline when the previous week was never published", async () => {
+    const orphan = snapshotWeek(1, [
+      { ...ROWS[0], priorRank: null, rankDelta: null },
+      { ...ROWS[1], priorRank: null, rankDelta: null },
+      { ...ROWS[2], priorRank: null, rankDelta: null },
+    ]);
+    const card = await openCard(
+      payload({ ranking: ROWS, shareSnapshot: orphan, officialHistory: [orphan] }),
+    );
+
+    // Every row is NEW, and the header does not invent a comparison week.
+    expect(card.textContent.match(/NEW/g)).toHaveLength(3);
+    expect(card.textContent).not.toContain("vs ");
+    expect(card.textContent).not.toContain("▲");
+    expect(card.textContent).not.toContain("▼");
+  });
+
+  it("marks only the rows that genuinely have no baseline as NEW", async () => {
+    // A manager who joined after the baseline week: no prior rank for them,
+    // real movement for everyone else. Per-row, never per-card.
+    const mixed = snapshotWeek(1, [
+      { ...ROWS[0], priorRank: 2, rankDelta: 1 },
+      { ...ROWS[1], priorRank: 1, rankDelta: -1 },
+      { ...ROWS[2], priorRank: null, rankDelta: null },
+    ]);
+    const card = await openCard(
+      payload({ ranking: ROWS, shareSnapshot: mixed, officialHistory: [WEEK_ZERO, mixed] }),
+    );
+
+    expect(card.textContent.match(/NEW/g)).toHaveLength(1);
+    expect(card.textContent).toContain("▲ 1");
+    expect(card.textContent).toContain("▼ 1");
+  });
+});
+
+describe("Rank history", () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  it("plots the published weeks, including a baseline week that carries no score", async () => {
+    const weekZero = snapshotWeek(
+      0,
+      [
+        { ownerId: "o1", displayName: "Alice", rank: 1 },
+        { ownerId: "o2", displayName: "Bob", rank: 2 },
+      ],
+      { preseason: true },
+    );
+    const weekOne = snapshotWeek(1, [
+      { ownerId: "o1", displayName: "Alice", rank: 2, powerScore: 80 },
+      { ownerId: "o2", displayName: "Bob", rank: 1, powerScore: 85 },
+    ]);
+    serve(payload({ ranking: ROWS, officialHistory: [weekZero, weekOne] }));
+    const RosPowerSection = await renderFresh();
+    const { container } = render(<RosPowerSection />);
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
+
+    const svg = container.querySelector('svg[aria-label="Published rank by week per manager"]');
+    expect(svg).toBeTruthy();
+    // Two lines: the score-less baseline week is a point on both of them.
+    expect(svg.querySelectorAll("path").length).toBe(2);
+    expect(svg.textContent).toContain("Pre");
+    expect(svg.textContent).toContain("Wk 1");
+  });
+
+  it("says history has not started rather than drawing a one-point chart", async () => {
+    serve(
+      payload({
+        ranking: ROWS,
+        officialHistory: [snapshotWeek(1, [{ ownerId: "o1", displayName: "Alice", rank: 1 }])],
+      }),
+    );
+    const RosPowerSection = await renderFresh();
+    const { container } = render(<RosPowerSection />);
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
+
+    expect(container.textContent).toContain(
+      "Rank history begins once a second week is published",
+    );
+    expect(
+      container.querySelector('svg[aria-label="Published rank by week per manager"]'),
+    ).toBeNull();
+  });
+});

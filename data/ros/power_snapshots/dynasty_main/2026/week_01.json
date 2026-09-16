@@ -32,9 +32,9 @@
       "powerScore": 92.06,
       "powerScoreDelta": null,
       "priorPowerScore": null,
-      "priorRank": null,
+      "priorRank": 1,
       "rank": 1,
-      "rankDelta": null,
+      "rankDelta": 0,
       "recentAvg": 453.37,
       "record": "1-1",
       "rosStrengthPercentile": 0.9583,
@@ -56,9 +56,9 @@
       "powerScore": 86.87,
       "powerScoreDelta": null,
       "priorPowerScore": null,
-      "priorRank": null,
+      "priorRank": 2,
       "rank": 2,
-      "rankDelta": null,
+      "rankDelta": 0,
       "recentAvg": 452.3,
       "record": "2-0",
       "rosStrengthPercentile": 0.875,
@@ -80,9 +80,9 @@
       "powerScore": 84.01,
       "powerScoreDelta": null,
       "priorPowerScore": null,
-      "priorRank": null,
+      "priorRank": 3,
       "rank": 3,
-      "rankDelta": null,
+      "rankDelta": 0,
       "recentAvg": 473.3,
       "record": "2-0",
       "rosStrengthPercentile": 0.7917,
@@ -104,9 +104,9 @@
       "powerScore": 66.49,
       "powerScoreDelta": null,
       "priorPowerScore": null,
-      "priorRank": null,
+      "priorRank": 5,
       "rank": 4,
-      "rankDelta": null,
+      "rankDelta": 1,
       "recentAvg": 363.78,
       "record": "1-1",
       "rosStrengthPercentile": 0.7083,
@@ -128,9 +128,9 @@
       "powerScore": 66.4,
       "powerScoreDelta": null,
       "priorPowerScore": null,
-      "priorRank": null,
+      "priorRank": 4,
       "rank": 5,
-      "rankDelta": null,
+      "rankDelta": -1,
       "recentAvg": 403.13,
       "record": "2-0",
       "rosStrengthPercentile": 0.625,
@@ -152,9 +152,9 @@
       "powerScore": 58.44,
       "powerScoreDelta": null,
       "priorPowerScore": null,
-      "priorRank": null,
+      "priorRank": 6,
       "rank": 6,
-      "rankDelta": null,
+      "rankDelta": 0,
       "recentAvg": 391.32,
       "record": "2-0",
       "rosStrengthPercentile": 0.5417,
@@ -176,9 +176,9 @@
       "powerScore": 39.86,
       "powerScoreDelta": null,
       "priorPowerScore": null,
-      "priorRank": null,
+      "priorRank": 7,
       "rank": 7,
-      "rankDelta": null,
+      "rankDelta": 0,
       "recentAvg": 310.37,
       "record": "0-2",
       "rosStrengthPercentile": 0.4583,
@@ -200,9 +200,9 @@
       "powerScore": 34.67,
       "powerScoreDelta": null,
       "priorPowerScore": null,
-      "priorRank": null,
+      "priorRank": 8,
       "rank": 8,
-      "rankDelta": null,
+      "rankDelta": 0,
       "recentAvg": 303.97,
       "record": "1-1",
       "rosStrengthPercentile": 0.375,
@@ -224,9 +224,9 @@
       "powerScore": 25.55,
       "powerScoreDelta": null,
       "priorPowerScore": null,
-      "priorRank": null,
+      "priorRank": 10,
       "rank": 9,
-      "rankDelta": null,
+      "rankDelta": 1,
       "recentAvg": 312.87,
       "record": "1-1",
       "rosStrengthPercentile": 0.2083,
@@ -248,9 +248,9 @@
       "powerScore": 23.94,
       "powerScoreDelta": null,
       "priorPowerScore": null,
-      "priorRank": null,
+      "priorRank": 9,
       "rank": 10,
-      "rankDelta": null,
+      "rankDelta": -1,
       "recentAvg": 279.96,
       "record": "0-2",
       "rosStrengthPercentile": 0.2917,
@@ -272,9 +272,9 @@
       "powerScore": 18.23,
       "powerScoreDelta": null,
       "priorPowerScore": null,
-      "priorRank": null,
+      "priorRank": 11,
       "rank": 11,
-      "rankDelta": null,
+      "rankDelta": 0,
       "recentAvg": 319.11,
       "record": "0-2",
       "rosStrengthPercentile": 0.125,
@@ -296,14 +296,184 @@
       "powerScore": 3.47,
       "powerScoreDelta": null,
       "priorPowerScore": null,
-      "priorRank": null,
+      "priorRank": 12,
       "rank": 12,
-      "rankDelta": null,
+      "rankDelta": 0,
       "recentAvg": 274.7,
       "record": "0-2",
       "rosStrengthPercentile": 0.0417,
       "teamName": "Chargers Team Doctor",
       "teamVorp": null
+    }
+  ],
+  "restatements": [
+    {
+      "at": "2026-09-16T01:25:58.282816+00:00",
+      "changed": [
+        {
+          "fields": {
+            "priorRank": {
+              "from": null,
+              "to": 1
+            },
+            "rankDelta": {
+              "from": null,
+              "to": 0
+            }
+          },
+          "ownerId": "1002085133723299840"
+        },
+        {
+          "fields": {
+            "priorRank": {
+              "from": null,
+              "to": 2
+            },
+            "rankDelta": {
+              "from": null,
+              "to": 0
+            }
+          },
+          "ownerId": "1012114412049731584"
+        },
+        {
+          "fields": {
+            "priorRank": {
+              "from": null,
+              "to": 3
+            },
+            "rankDelta": {
+              "from": null,
+              "to": 0
+            }
+          },
+          "ownerId": "609821340567941120"
+        },
+        {
+          "fields": {
+            "priorRank": {
+              "from": null,
+              "to": 5
+            },
+            "rankDelta": {
+              "from": null,
+              "to": 1
+            }
+          },
+          "ownerId": "831633191830933504"
+        },
+        {
+          "fields": {
+            "priorRank": {
+              "from": null,
+              "to": 4
+            },
+            "rankDelta": {
+              "from": null,
+              "to": -1
+            }
+          },
+          "ownerId": "468418790212759552"
+        },
+        {
+          "fields": {
+            "priorRank": {
+              "from": null,
+              "to": 6
+            },
+            "rankDelta": {
+              "from": null,
+              "to": 0
+            }
+          },
+          "ownerId": "714912789268865024"
+        },
+        {
+          "fields": {
+            "priorRank": {
+              "from": null,
+              "to": 7
+            },
+            "rankDelta": {
+              "from": null,
+              "to": 0
+            }
+          },
+          "ownerId": "1208452010173538304"
+        },
+        {
+          "fields": {
+            "priorRank": {
+              "from": null,
+              "to": 8
+            },
+            "rankDelta": {
+              "from": null,
+              "to": 0
+            }
+          },
+          "ownerId": "1303549304882892800"
+        },
+        {
+          "fields": {
+            "priorRank": {
+              "from": null,
+              "to": 10
+            },
+            "rankDelta": {
+              "from": null,
+              "to": 1
+            }
+          },
+          "ownerId": "711452264774041600"
+        },
+        {
+          "fields": {
+            "priorRank": {
+              "from": null,
+              "to": 9
+            },
+            "rankDelta": {
+              "from": null,
+              "to": -1
+            }
+          },
+          "ownerId": "473973924808355840"
+        },
+        {
+          "fields": {
+            "priorRank": {
+              "from": null,
+              "to": 11
+            },
+            "rankDelta": {
+              "from": null,
+              "to": 0
+            }
+          },
+          "ownerId": "712035316776669184"
+        },
+        {
+          "fields": {
+            "priorRank": {
+              "from": null,
+              "to": 12
+            },
+            "rankDelta": {
+              "from": null,
+              "to": 0
+            }
+          },
+          "ownerId": "472206636534984704"
+        }
+      ],
+      "fields": [
+        "priorRank",
+        "rankDelta",
+        "priorPowerScore",
+        "powerScoreDelta"
+      ],
+      "reason": "owner_authorized_week_00_backfill"
     }
   ],
   "schemaVersion": 1,
