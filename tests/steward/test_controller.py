@@ -55,8 +55,7 @@ def init_repo(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     rows = "\n".join(
-        f"| W1-{number:02d} | Test | Acceptance {number} | VERIFIED |"
-        for number in range(1, 31)
+        f"| W1-{number:02d} | Test | Acceptance {number} | VERIFIED |" for number in range(1, 31)
     )
     (repo / "docs" / "season-launch" / "WEEK_1_LAUNCH_CONTRACT.md").write_text(
         rows + "\n",
