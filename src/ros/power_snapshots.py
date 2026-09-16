@@ -269,6 +269,8 @@ def _public_ranking_row(row: dict[str, Any], movement: dict[str, Any]) -> dict[s
         "priorPowerScore": movement.get("previousOfficialPowerScore"),
         "powerScoreDelta": movement.get("powerScoreDelta"),
         "record": row.get("record"),
+        "recordGames": row.get("recordGames"),
+        "recordSource": row.get("recordSource"),
         "pointsPerGame": components.get("pointsPerGame"),
         "recentAvg": components.get("recentAvg"),
         "allPlay": components.get("all_play"),
@@ -289,6 +291,58 @@ def _public_ranking_row(row: dict[str, Any], movement: dict[str, Any]) -> dict[s
         # against a changed roster would silently restate a published week.
         "componentRanks": dict(row.get("componentRanks") or {}),
     }
+
+
+def _validate_engine_publication_integrity(
+    section: dict[str, Any], rankings: list[dict[str, Any]]
+) -> None:
+    """Refuse an official week whose inputs describe different horizons.
+
+    The canonical engine publishes ``blend.scoredGames`` and, for every row,
+    ``recordGames``. Both must equal ``asOfWeek``. This makes the invariant a
+    write-boundary rule instead of relying on every upstream caller to remember
+    it. Older synthetic/legacy payloads that predate the audit fields are left
+    readable; current power_v2 output always supplies them.
+    """
+
+    week = section.get("asOfWeek")
+    if not isinstance(week, int) or isinstance(week, bool) or week < 0:
+        return
+
+    blend = section.get("blend") or {}
+    scored_games = blend.get("scoredGames")
+    if scored_games is not None:
+        try:
+            scored_games_int = int(scored_games)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Power publication scoredGames must be an integer") from exc
+        if scored_games_int != week:
+            raise ValueError(
+                f"Power publication horizon mismatch: asOfWeek={week} but "
+                f"blend.scoredGames={scored_games_int}"
+            )
+
+    for row in rankings:
+        record_games = row.get("recordGames")
+        record_source = row.get("recordSource")
+        if record_source in {"sleeper_as_of_week", "matchups_as_of_week"} and record_games is None:
+            raise ValueError(
+                f"Power publication row {row.get('ownerId')!r} has an as-of-week "
+                "record source but no recordGames audit field"
+            )
+        if record_games is None:
+            continue
+        try:
+            record_games_int = int(record_games)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Power publication row {row.get('ownerId')!r} recordGames must be an integer"
+            ) from exc
+        if record_games_int != week:
+            raise ValueError(
+                f"Power publication record horizon mismatch for {row.get('ownerId')!r}: "
+                f"asOfWeek={week}, recordGames={record_games_int}"
+            )
 
 
 def record_snapshot(
@@ -314,6 +368,8 @@ def record_snapshot(
     path = snapshot_path(league_key, season, week)
     if path.exists():
         return path, False
+
+    _validate_engine_publication_integrity(section, rankings)
 
     movement = movement_against_previous(
         league_key=league_key,
@@ -384,6 +440,8 @@ def _attested_ranking_row(row: dict[str, Any], movement: dict[str, Any]) -> dict
         "priorPowerScore": movement.get("previousOfficialPowerScore"),
         "powerScoreDelta": movement.get("powerScoreDelta"),
         "record": None,
+        "recordGames": None,
+        "recordSource": None,
         "pointsPerGame": None,
         "recentAvg": None,
         "allPlay": None,
