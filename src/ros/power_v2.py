@@ -171,29 +171,38 @@ def _percentile(values: list[float], target: float) -> float:
 
 def _load_team_strength_rows(
     snapshot: PublicLeagueSnapshot | None = None,
+    league_key: str | None = None,
 ) -> list[dict[str, Any]]:
     """Team-strength rows for the current league.
 
     Delegates to ``team_strength.load_or_compute_team_strength``, which
-    reads the persisted ``data/ros/team_strength/latest.json`` when
-    present and otherwise computes it LIVE from ``snapshot`` (no network)
-    or, failing that, from a cached Sleeper overlay fetch — closing the
-    single point of failure where this component went dark for a full
-    refresh cycle whenever the scheduled scrape's write step hadn't run.
-    Returns [] only when every tier is genuinely unable to answer.
+    reads the persisted ``data/ros/team_strength/<leagueKey>.json`` when
+    present and fresh, and otherwise computes it LIVE from ``snapshot``
+    (no network) or, failing that, from a cached Sleeper overlay fetch —
+    closing the single point of failure where this component went dark
+    for a full refresh cycle whenever the scheduled scrape's write step
+    hadn't run.  Returns [] only when every tier is genuinely unable to
+    answer.
+
+    ``league_key`` is required for correctness on a non-default league:
+    without it, every league collapses onto the SAME persisted snapshot
+    file (``_team_strength_path(None)``), so a caller with a snapshot in
+    scope must resolve and pass its own key rather than rely on this
+    function to guess one.
     """
     from src.ros.team_strength import load_or_compute_team_strength  # noqa: PLC0415
 
-    return load_or_compute_team_strength(snapshot=snapshot) or []
+    return load_or_compute_team_strength(league_key, snapshot=snapshot) or []
 
 
 def _load_team_strength_percentiles(
     snapshot: PublicLeagueSnapshot | None = None,
+    league_key: str | None = None,
 ) -> dict[str, float]:
     """Convert team-strength composite to a percentile per ownerId.
     Empty dict when no snapshot — caller renormalises weights.
     """
-    rows = _load_team_strength_rows(snapshot)
+    rows = _load_team_strength_rows(snapshot, league_key)
     scores: list[tuple[str, float]] = []
     for r in rows:
         oid = str(r.get("ownerId") or "")
@@ -629,7 +638,23 @@ def build_section(
 
     registry = snapshot.managers
     seasons_sorted = sorted(snapshot.seasons, key=lambda s: luck._season_sort_key(s.season))
-    team_strength_rows = [] if results_only else _load_team_strength_rows(snapshot)
+    # Resolved independently of the LATER `league_key` resolution below
+    # (which is gated on `not results_only and as_of_season` for the
+    # movement/snapshot-history lookup and must keep that exact gating
+    # untouched): team-strength rows are roster-derived and therefore
+    # leagueKey-scoped by this platform's own invariant, and this needs
+    # the key unconditionally whenever `results_only` is False, before
+    # `as_of_season` even exists.  Resolving no key here silently
+    # collapsed every league's Power Rankings onto ONE shared
+    # `team_strength/latest.json` file.
+    team_strength_league_key = None
+    if not results_only:
+        from src.ros.team_strength import resolve_snapshot_league_key  # noqa: PLC0415
+
+        team_strength_league_key = resolve_snapshot_league_key(snapshot)
+    team_strength_rows = (
+        [] if results_only else _load_team_strength_rows(snapshot, team_strength_league_key)
+    )
     preseason = _is_preseason(snapshot)
 
     if (
@@ -784,7 +809,9 @@ def build_section(
                     else f"{rec['wins']}-{rec['losses']}"
                 )
 
-    ros_pct = {} if results_only else _load_team_strength_percentiles(snapshot)
+    ros_pct = (
+        {} if results_only else _load_team_strength_percentiles(snapshot, team_strength_league_key)
+    )
     ros_available = bool(ros_pct)
     final_state = {
         "career": season_state,
