@@ -3325,7 +3325,17 @@ async def run(progress_callback=None):
             # ── Browser sites ──
             active_browser = [(s, fn) for s, fn in browser_order if SITES.get(s)]
             if active_browser:
-                browser = await pw.chromium.launch(headless=True, proxy=_PLAYWRIGHT_PROXY)
+                # --disable-dev-shm-usage / --disable-gpu: mitigate the OOM
+                # risk server.py:104-110 already documents — this whole
+                # process shares one systemd MemoryMax cgroup, so an
+                # unbounded Chromium spike (e.g. rendering KTC's heavy SPA
+                # on a host with a small /dev/shm) can OOM-kill the entire
+                # server, not just the browser. No GPU exists on the VPS.
+                browser = await pw.chromium.launch(
+                    headless=True,
+                    proxy=_PLAYWRIGHT_PROXY,
+                    args=["--disable-dev-shm-usage", "--disable-gpu"],
+                )
                 context = await browser.new_context(
                     user_agent=(
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
