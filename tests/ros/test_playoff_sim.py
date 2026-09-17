@@ -157,11 +157,18 @@ class TestRosterLoaderFeedsTheOptimizerProperly(unittest.TestCase):
 
     def _load(self, rows):
         import json
+        import time
         from pathlib import Path
+        from types import SimpleNamespace
 
         with (
             patch.object(Path, "exists", return_value=True),
             patch.object(Path, "read_text", return_value=json.dumps(rows)),
+            # The persisted-snapshot fast path checks the file's own
+            # mtime for freshness (team_strength._persisted_snapshot_is_fresh);
+            # a simulated persisted file needs a simulated fresh mtime too,
+            # or the loader falls through past this fixture entirely.
+            patch.object(Path, "stat", return_value=SimpleNamespace(st_mtime=time.time())),
         ):
             return playoff_sim._load_team_rosters()
 
@@ -229,6 +236,42 @@ class TestRosterLoaderFeedsTheOptimizerProperly(unittest.TestCase):
             statistics.fmean(without_fp),
             "multi-position eligibility must raise the best-ball ceiling",
         )
+
+
+class TestSimulatePlayoffOddsThreadsLeagueKeyToTeamStrength(unittest.TestCase):
+    """Before this fix, every one of the three team-strength readers in
+    this module (``_load_team_depth_ratios``, ``_load_team_rosters``,
+    ``_load_ros_strength_map``) was called bare, with no league scope at
+    all — so every league's playoff sim read/wrote the SAME persisted
+    ``team_strength/latest.json`` file.  Uses the cheapest reachable call
+    site: a snapshot with no current season resolves no playoff bracket,
+    which returns early via the single-line
+    ``bool(_load_ros_strength_map(league_key))`` -- no full Monte Carlo
+    setup required to reach the call this pins.
+    """
+
+    def test_resolved_league_key_reaches_the_ros_strength_map(self):
+        from types import SimpleNamespace
+
+        snapshot = SimpleNamespace(root_league_id="sleeper-league-xyz", current_season=None)
+
+        recorded: list = []
+
+        def spy(league_key=None):
+            recorded.append(league_key)
+            return {}
+
+        with (
+            patch.object(playoff_sim, "_load_ros_strength_map", spy),
+            patch(
+                "src.api.league_registry.league_key_for_sleeper_id",
+                return_value="resolved_league_key",
+            ),
+        ):
+            out = playoff_sim.simulate_playoff_odds(snapshot)
+
+        self.assertIn("unsimulable", out)  # confirms the early-return path fired
+        self.assertEqual(recorded, ["resolved_league_key"])
 
 
 if __name__ == "__main__":

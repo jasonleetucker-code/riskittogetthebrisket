@@ -255,6 +255,74 @@ class TestLoadOrComputeTeamStrengthPrecedence(unittest.TestCase):
                     self.fail("load_or_compute_team_strength must never raise")
         self.assertEqual(rows, [])
 
+    def test_stale_persisted_file_is_not_trusted(self):
+        """A persisted snapshot older than the freshness budget must not
+        be served -- it must fall through exactly as if the file were
+        missing.  Confirmed via ``test_returns_empty_list_when_every_tier_fails``'s
+        own registry-mocking pattern (every fallback tier also fails),
+        so a non-empty result would only be explainable by the stale
+        file having been trusted.
+        """
+        import os
+        import time
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_root = Path(tmp)
+            target = tmp_root / "team_strength" / "latest.json"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps([{"ownerId": "stale-owner", "teamRosStrength": 99.0}]))
+            # 7 hours old -- past the 6-hour freshness budget.
+            stale_time = time.time() - 7 * 3600
+            os.utime(target, (stale_time, stale_time))
+            with (
+                patch.object(team_strength, "ROS_DATA_DIR", tmp_root),
+                patch.object(league_registry, "get_default_league", return_value=None),
+                patch.object(league_registry, "get_league_by_key", return_value=None),
+            ):
+                rows = team_strength.load_or_compute_team_strength()
+        self.assertEqual(rows, [])
+
+    def test_fresh_persisted_file_within_budget_is_still_trusted(self):
+        """The staleness guard must not be so aggressive it rejects a
+        file the scheduled refresh legitimately just wrote."""
+        import os
+        import time
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_root = Path(tmp)
+            target = tmp_root / "team_strength" / "latest.json"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps([{"ownerId": "fresh-owner", "teamRosStrength": 88.0}]))
+            # 1 hour old -- comfortably within the 6-hour budget.
+            fresh_time = time.time() - 1 * 3600
+            os.utime(target, (fresh_time, fresh_time))
+            with patch.object(team_strength, "ROS_DATA_DIR", tmp_root):
+                rows = team_strength.load_or_compute_team_strength()
+        self.assertEqual(rows, [{"ownerId": "fresh-owner", "teamRosStrength": 88.0}])
+
+    def test_two_leagues_do_not_collide_on_one_persisted_file(self):
+        """Before this fix, every caller of ``load_or_compute_team_strength``
+        with no ``league_key`` (which was most of them) read/wrote the
+        SAME default-league path regardless of which league was actually
+        being computed.  Two distinct league keys must resolve to two
+        distinct files."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_root = Path(tmp)
+            with patch.object(team_strength, "ROS_DATA_DIR", tmp_root):
+                team_strength.write_team_strength_snapshot(
+                    [{"ownerId": "league-a-owner", "teamRosStrength": 10.0}],
+                    league_key="league_a",
+                )
+                team_strength.write_team_strength_snapshot(
+                    [{"ownerId": "league-b-owner", "teamRosStrength": 20.0}],
+                    league_key="league_b",
+                )
+                rows_a = team_strength.load_or_compute_team_strength("league_a")
+                rows_b = team_strength.load_or_compute_team_strength("league_b")
+        self.assertEqual(rows_a, [{"ownerId": "league-a-owner", "teamRosStrength": 10.0}])
+        self.assertEqual(rows_b, [{"ownerId": "league-b-owner", "teamRosStrength": 20.0}])
+        self.assertNotEqual(rows_a, rows_b)
+
     def test_persist_writes_atomically_and_is_readable_on_the_next_call(self):
         rosters = [{"owner_id": "alpha", "roster_id": 1}]
         snapshot = _make_snapshot(rosters=rosters)

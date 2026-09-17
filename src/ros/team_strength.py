@@ -472,6 +472,61 @@ def compute_team_strength_live(
 _LIVE_COMPUTE_TTL_SECONDS = 120.0
 _live_compute_cache: dict[str | None, tuple[float, list[dict[str, Any]]]] = {}
 
+# How old the PERSISTED snapshot file may be before the fast path in
+# `load_or_compute_team_strength` stops trusting it and falls through to
+# a live compute.  2 (this module's own scheduled-refresh cadence,
+# `python -m src.ros.scrape` on `scheduled-refresh.yml`'s "42 */2 * * *")
+# * 3 -- the same formula and the same resulting constant this repo
+# already uses for the analogous "is a cross-cycle persisted artifact
+# still current" question (`data_contract._SOURCE_MAX_AGE_HOURS`'s
+# default, `league_registry.py`'s scoring-snapshot rule).  Not a new
+# number invented for this file.
+#
+# Measured from the file's own mtime, not an embedded field: these
+# snapshots are untracked (`scheduled-refresh.yml` explicitly
+# `git reset`s them out of the data-refresh commit) and untouched by
+# `deploy.sh`'s `git reset --hard` (which only overwrites TRACKED
+# files), so mtime reliably reflects when this box last actually wrote
+# the file -- unlike a deploy timestamp, which would make every
+# snapshot look freshly written on every deploy regardless of content.
+_TEAM_STRENGTH_SNAPSHOT_MAX_AGE_HOURS = 6.0
+
+
+def resolve_snapshot_league_key(snapshot: "PublicLeagueSnapshot | None") -> str | None:
+    """Resolve a registry ``leagueKey`` from a snapshot's ``root_league_id``.
+
+    Shared by every ``src/ros/*`` consumer of ``team_ros_strength`` that
+    holds a snapshot but not yet a resolved key, so each one does not
+    reimplement the same failure-isolated registry lookup.  Returns
+    ``None`` on any resolution failure (unknown id, unreadable registry)
+    rather than raising -- callers must fail closed to the default-league
+    path, never guess a wrong league's key.
+    """
+    try:
+        from src.api.league_registry import league_key_for_sleeper_id  # noqa: PLC0415
+
+        root_id = getattr(snapshot, "root_league_id", None)
+        return league_key_for_sleeper_id(root_id)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _persisted_snapshot_is_fresh(league_key: str | None) -> bool:
+    """Whether the persisted snapshot for ``league_key`` is within budget.
+
+    Deliberately NOT folded into ``load_team_strength_snapshot`` itself:
+    ``src/ros/api.py``'s ``/tools/ros-data-health`` endpoint calls that
+    function directly, on purpose, to diagnose the PERSISTED artifact's
+    OWN freshness -- gating it here would make that diagnostic report
+    green on exactly the failure it exists to detect.
+    """
+    target = _team_strength_path(league_key)
+    try:
+        age_hours = (time.time() - target.stat().st_mtime) / 3600.0
+    except OSError:
+        return False
+    return age_hours <= _TEAM_STRENGTH_SNAPSHOT_MAX_AGE_HOURS
+
 
 def load_or_compute_team_strength(
     league_key: str | None = None,
@@ -481,7 +536,7 @@ def load_or_compute_team_strength(
 ) -> list[dict[str, Any]]:
     """THE read-side entry point for ``team_ros_strength``.
 
-    Order: the persisted snapshot file (fast path, unchanged behavior)
+    Order: the persisted snapshot file, ONLY when fresh (fast path)
     → compute live from ``snapshot`` when one was supplied (no network,
     always attempted fresh, never cached — it's free) → compute live from
     the Sleeper overlay (network, TTL-cached).
@@ -496,7 +551,7 @@ def load_or_compute_team_strength(
     every tier is genuinely unable to answer.
     """
     persisted = load_team_strength_snapshot(league_key)
-    if persisted:
+    if persisted and _persisted_snapshot_is_fresh(league_key):
         return persisted
 
     if snapshot is not None:

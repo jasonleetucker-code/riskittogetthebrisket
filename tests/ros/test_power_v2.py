@@ -557,5 +557,67 @@ class TestComponentRanks(unittest.TestCase):
             self.assertNotIn("team_vorp", row["componentRanks"])
 
 
+class TestBuildSectionThreadsLeagueKeyToTeamStrength(unittest.TestCase):
+    """Before this fix, ``build_section`` resolved a ``league_key`` from
+    the snapshot but never passed it to the team-strength loader, so
+    every league's Power Rankings read/wrote the SAME persisted
+    ``team_strength/latest.json`` file regardless of which league was
+    actually being ranked.  Pins the call-site plumbing directly rather
+    than the (already-correct) namespacing primitive underneath it.
+    """
+
+    def test_resolved_league_key_reaches_the_team_strength_loader(self):
+        rosters = [{"roster_id": i, "owner_id": f"o{i}"} for i in (1, 2)]
+        matchups = {
+            1: [
+                {"roster_id": 1, "matchup_id": 1, "points": 100.0},
+                {"roster_id": 2, "matchup_id": 1, "points": 90.0},
+            ]
+        }
+        snapshot = _make_snapshot(rosters, matchups)
+        snapshot.root_league_id = "sleeper-league-xyz"
+
+        recorded: list[tuple] = []
+
+        def spy(league_key=None, *, snapshot=None, persist=True):
+            recorded.append((league_key, snapshot))
+            return []
+
+        with (
+            patch.object(team_strength, "load_or_compute_team_strength", spy),
+            patch(
+                "src.api.league_registry.league_key_for_sleeper_id",
+                return_value="resolved_league_key",
+            ),
+        ):
+            power_v2.build_section(snapshot)
+
+        self.assertTrue(recorded, "team-strength loader was never called")
+        for league_key, _snap in recorded:
+            self.assertEqual(league_key, "resolved_league_key")
+
+    def test_results_only_lens_never_resolves_or_calls_it(self):
+        """The existing ``test_results_only_never_reads_team_strength``
+        (test_power_lenses.py) already pins that results-only never
+        reads team strength; this pins the SAME property from the
+        league_key-resolution side, so a future change cannot
+        reintroduce the read via the new resolution path alone."""
+        rosters = [{"roster_id": i, "owner_id": f"o{i}"} for i in (1, 2)]
+        matchups = {
+            1: [
+                {"roster_id": 1, "matchup_id": 1, "points": 100.0},
+                {"roster_id": 2, "matchup_id": 1, "points": 90.0},
+            ]
+        }
+        snapshot = _make_snapshot(rosters, matchups)
+        snapshot.root_league_id = "sleeper-league-xyz"
+
+        def boom(*args, **kwargs):
+            raise AssertionError("results-only lens resolved a league key")
+
+        with patch("src.api.league_registry.league_key_for_sleeper_id", boom):
+            power_v2.build_section(snapshot, lens=power_v2.LENS_RESULTS_ONLY)
+
+
 if __name__ == "__main__":
     unittest.main()

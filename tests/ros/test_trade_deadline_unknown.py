@@ -14,7 +14,10 @@ ranked **#1 in the league** on ROS strength.
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
+from src.ros import trade_deadline
 from src.ros.trade_deadline import build_team_directions
 
 _SELL_VERBS = ("Seller", "Sell")
@@ -121,6 +124,34 @@ class TestAbsentManagerGetsNoRecommendation(unittest.TestCase):
                 self.assertIsNone(row["playoffOdds"])
                 for verb in _SELL_VERBS:
                     self.assertNotIn(verb, row["label"])
+
+
+class TestBuildSectionThreadsLeagueKeyToTeamStrength(unittest.TestCase):
+    """``build_section`` used to discard ``snapshot`` entirely
+    (``_ = snapshot``) and never resolve a league key at all, so
+    ``build_team_directions``'s internal team-strength fallback always
+    read the DEFAULT league's persisted file regardless of which league
+    this section was being built for."""
+
+    def test_resolved_league_key_reaches_build_team_directions(self):
+        snapshot = SimpleNamespace(root_league_id="sleeper-league-xyz")
+
+        recorded: list = []
+
+        def spy(*, league_key=None, **kwargs):
+            recorded.append(league_key)
+            return []
+
+        with (
+            patch.object(trade_deadline, "build_team_directions", spy),
+            patch(
+                "src.api.league_registry.league_key_for_sleeper_id",
+                return_value="resolved_league_key",
+            ),
+        ):
+            trade_deadline.build_section(snapshot)
+
+        self.assertEqual(recorded, ["resolved_league_key"])
 
 
 if __name__ == "__main__":

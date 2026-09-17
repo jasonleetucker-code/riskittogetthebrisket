@@ -176,7 +176,7 @@ def _wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, fl
     return (max(0.0, center - margin), min(1.0, center + margin))
 
 
-def _load_team_depth_ratios() -> dict[str, float]:
+def _load_team_depth_ratios(league_key: str | None = None) -> dict[str, float]:
     """Per-owner bench/starter score ratio from team-strength snapshot.
 
     Returns {} when the snapshot is missing — caller falls back to the
@@ -186,7 +186,7 @@ def _load_team_depth_ratios() -> dict[str, float]:
     """
     from src.ros.team_strength import load_or_compute_team_strength  # noqa: PLC0415
 
-    rows = load_or_compute_team_strength()
+    rows = load_or_compute_team_strength(league_key)
     out: dict[str, float] = {}
     for r in rows or []:
         oid = str(r.get("ownerId") or "")
@@ -227,7 +227,7 @@ class _TeamDist:
     pf_to_date: float
 
 
-def _load_team_rosters() -> dict[str, dict[str, Any]]:
+def _load_team_rosters(league_key: str | None = None) -> dict[str, dict[str, Any]]:
     """Per-owner roster from the team-strength snapshot.
 
     Returns ``{ownerId: {"starters": [...], "bench": [...]}}``.  Each
@@ -268,7 +268,7 @@ def _load_team_rosters() -> dict[str, dict[str, Any]]:
     """
     from src.ros.team_strength import load_or_compute_team_strength  # noqa: PLC0415
 
-    rows = load_or_compute_team_strength()
+    rows = load_or_compute_team_strength(league_key)
     out: dict[str, dict[str, Any]] = {}
     for r in rows or []:
         oid = str(r.get("ownerId") or "")
@@ -407,10 +407,10 @@ def _bestball_presim(
     return out
 
 
-def _load_ros_strength_map() -> dict[str, float]:
+def _load_ros_strength_map(league_key: str | None = None) -> dict[str, float]:
     from src.ros.team_strength import load_or_compute_team_strength  # noqa: PLC0415
 
-    rows = load_or_compute_team_strength()
+    rows = load_or_compute_team_strength(league_key)
     return {
         str(r.get("ownerId") or ""): float(r.get("teamRosStrength") or 0.0)
         for r in rows or []
@@ -431,6 +431,7 @@ def _build_team_distributions(
     snapshot: PublicLeagueSnapshot,
     ros_strength_map: dict[str, float],
     *,
+    league_key: str | None = None,
     best_ball: bool = False,
     points_model: PointsModel | None = None,
 ) -> tuple[dict[str, _TeamDist], dict[str, float]]:
@@ -461,7 +462,7 @@ def _build_team_distributions(
     if ros_sd <= 0:
         ros_sd = 1.0
 
-    depth_ratios = _load_team_depth_ratios()
+    depth_ratios = _load_team_depth_ratios(league_key)
 
     # Best-ball pre-sim: when enabled, draw per-player weekly scores +
     # run greedy lineup optimization K=200 times per team to derive a
@@ -473,7 +474,7 @@ def _build_team_distributions(
     # and the empirical/blended path runs unchanged.
     bestball_dists: dict[str, tuple[float, float]] = {}
     if best_ball:
-        rosters = _load_team_rosters()
+        rosters = _load_team_rosters(league_key)
         starter_slots = _load_starter_slots()
         if rosters and starter_slots:
             presim_rng = random.Random(20260428)  # deterministic per league
@@ -694,6 +695,14 @@ def simulate_playoff_odds(
     if best_ball is None:
         best_ball = _league_best_ball()
     model = points_model or load_points_model()
+    # Team-strength rows are roster-derived and therefore leagueKey-scoped
+    # (see team_strength.resolve_snapshot_league_key's docstring); without
+    # this, every league's playoff sim read/wrote the SAME persisted
+    # `team_strength/latest.json` regardless of which league was being
+    # simulated.
+    from src.ros.team_strength import resolve_snapshot_league_key  # noqa: PLC0415
+
+    league_key = resolve_snapshot_league_key(snapshot)
 
     # ``n_simulations`` pins an exact count (used by the trade-delta path
     # so both arms draw identically); otherwise the loop is adaptive.
@@ -710,7 +719,7 @@ def simulate_playoff_odds(
             "n_simulations": 0,
             "playoffSeeds": None,
             "byeSeeds": None,
-            "rosStrengthAvailable": bool(_load_ros_strength_map()),
+            "rosStrengthAvailable": bool(_load_ros_strength_map(league_key)),
             "bestBallVarianceMode": "depth_aware" if best_ball else "off",
             "pointsModelSource": model.source,
             "playoffStructure": structure.to_dict(),
@@ -725,15 +734,15 @@ def simulate_playoff_odds(
             },
         }
 
-    ros_map = _load_ros_strength_map()
+    ros_map = _load_ros_strength_map(league_key)
     pf_by_owner: dict[str, float]
     if distributions is None:
         distributions, pf_by_owner = _build_team_distributions(
-            snapshot, ros_map, best_ball=best_ball, points_model=model
+            snapshot, ros_map, league_key=league_key, best_ball=best_ball, points_model=model
         )
     else:
         _, pf_by_owner = _build_team_distributions(
-            snapshot, ros_map, best_ball=best_ball, points_model=model
+            snapshot, ros_map, league_key=league_key, best_ball=best_ball, points_model=model
         )
     if not distributions:
         # No scored weeks exist for this league yet, so there is no
@@ -1085,7 +1094,12 @@ def simulate_trade_impact(
     if best_ball is None:
         best_ball = _league_best_ball()
     model = points_model or load_points_model()
-    ros_map = _load_ros_strength_map()
+    # Team-strength rows are roster-derived and therefore leagueKey-scoped
+    # (see team_strength.resolve_snapshot_league_key's docstring).
+    from src.ros.team_strength import resolve_snapshot_league_key  # noqa: PLC0415
+
+    league_key = resolve_snapshot_league_key(snapshot)
+    ros_map = _load_ros_strength_map(league_key)
 
     # Resolve ONCE and pass to both arms explicitly (V1-51).  Letting each
     # arm resolve independently would be equivalent today and is exactly
@@ -1124,7 +1138,7 @@ def simulate_trade_impact(
         }
 
     base_dists, _ = _build_team_distributions(
-        snapshot, ros_map, best_ball=best_ball, points_model=model
+        snapshot, ros_map, league_key=league_key, best_ball=best_ball, points_model=model
     )
     if not base_dists:
         return {

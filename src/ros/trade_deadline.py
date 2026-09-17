@@ -52,6 +52,7 @@ def _load_championship_map() -> dict[str, dict[str, float]]:
 
 def build_team_directions(
     *,
+    league_key: str | None = None,
     teams: list[dict[str, Any]] | None = None,
     playoff_odds_map: dict[str, dict[str, float]] | None = None,
     championship_map: dict[str, dict[str, float]] | None = None,
@@ -67,7 +68,7 @@ def build_team_directions(
     champs = championship_map or _load_championship_map()
     strengths = team_strength_map or {}
     if not strengths:
-        snap = load_or_compute_team_strength() or []
+        snap = load_or_compute_team_strength(league_key) or []
         strengths = {str(r.get("ownerId") or ""): r for r in snap if r.get("ownerId")}
 
     owner_ids = sorted(set(playoffs) | set(champs) | set(strengths))
@@ -208,7 +209,19 @@ def _unmeasurable_team(
 
 def build_section(snapshot: Any) -> dict[str, Any]:
     """Lazy-section builder for /api/public/league/rosTradeDeadline."""
-    _ = snapshot  # roster ages come from team_strength snapshot directly
+    # Team-strength rows are roster-derived and therefore leagueKey-scoped
+    # (see team_strength.resolve_snapshot_league_key's docstring) — this
+    # used to discard `snapshot` entirely and read whichever league's
+    # persisted team-strength file happened to be the DEFAULT one,
+    # regardless of which league this section was being built for.
+    #
+    # NOTE: `_load_playoff_odds_map` / `_load_championship_map` above have
+    # the same class of gap (hardcoded to `data/ros/sims/latest_*.json`
+    # with no per-league path at all) — out of scope here; named as a
+    # follow-on, not fixed speculatively alongside an unrelated read path.
+    from src.ros.team_strength import resolve_snapshot_league_key  # noqa: PLC0415
+
+    league_key = resolve_snapshot_league_key(snapshot)
     return {
-        "teams": build_team_directions(),
+        "teams": build_team_directions(league_key=league_key),
     }
