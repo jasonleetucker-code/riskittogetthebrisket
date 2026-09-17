@@ -63,10 +63,20 @@ capability being approved in the long-term plan.
 - Claude work goes on `claude/<task-name>`.
 - Do not let multiple assistants edit the same branch at the same time.
 - Push branches early so the other assistant can inspect or build on the work.
-- Merge one task at a time back to `main`. Open the PR when the work is ready;
-  do not hold it for a batch. (`docs/ORCHESTRATION.md` §2 says the opposite —
+- Merge one coherent development phase at a time back to `main`; open its PR
+  once that phase's fast-loop checks are green, and do not hold it to build a
+  batch of unrelated work. (`docs/ORCHESTRATION.md` §2 says the opposite —
   that policy expired 2026-08-01. Measured: 37 merges landed on 2026-08-04
   alone, against the "~13 merges/day" it claimed to have retired.)
+  **Reconciled with the tiered validation workflow** (see
+  `docs/AGENT_OPERATING_SYSTEM.md` §3, "Tiered validation workflow — L0
+  through L3"): "one task" means one coherent development phase — several
+  related incremental commits on one branch, each covered by continuous L0
+  and per-chunk L1 checks — landing as **one** integration PR (L2), not a
+  separate PR per tiny edit within that phase. It still means exactly what
+  it always meant against the incident that motivated it: do not hoard
+  several *unrelated* phases on one long-lived branch, and do not delay
+  opening the PR for a phase that is actually ready.
 
 ## Main-Movement and Integration Queue Policy
 
