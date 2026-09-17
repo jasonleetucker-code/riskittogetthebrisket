@@ -683,6 +683,12 @@
     "scoring-snapshot-diagnostics.yml::inventory::Configure production SSH": {
       "category": "blocking"
     },
+    "scrape-telemetry-diagnostics.yml::fetch-telemetry::Configure production SSH": {
+      "category": "blocking"
+    },
+    "scrape-telemetry-diagnostics.yml::fetch-telemetry::Fetch scrape telemetry from production": {
+      "category": "blocking"
+    },
     "sharp-records-bootstrap.yml::bootstrap::Configure production SSH": {
       "category": "blocking"
     },
