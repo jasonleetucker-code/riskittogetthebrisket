@@ -107,6 +107,10 @@ SCRAPE_PLAYER_RETENTION_FLOOR = 0.75
 # A single scrape_run_lock guarantees that once the scrape coroutine has
 # exited, any surviving Chromium WE spawned is orphaned, so the finalize
 # path SIGKILLs Chromium descendants of this process.  Set "0" to disable.
+# This reaper only cleans up AFTER a crash/timeout; the launch itself
+# (Dynasty Scraper.py, pw.chromium.launch) carries --disable-dev-shm-usage
+# / --disable-gpu to reduce the odds of the mid-scrape RSS spike that
+# crosses the systemd MemoryMax cgroup and OOM-kills this whole process.
 SCRAPE_REAP_ORPHAN_BROWSERS = os.getenv("SCRAPE_REAP_ORPHAN_BROWSERS", "1") != "0"
 # /api/trade/simulate-mc is a pure-Python Monte Carlo (no numpy) run
 # twice for A→B/B→A symmetrization.  On this box: 50k≈0.9s, 200k≈3.9s.
