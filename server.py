@@ -19,6 +19,7 @@ import math
 import os
 import sys
 import signal
+import subprocess
 import threading
 import time
 import logging
@@ -90,6 +91,8 @@ from src.api import sleeper_overlay as _sleeper_overlay
 from src.news import NewsService, build_default_service
 from src.news import custom_alerts as _custom_alerts
 from src.news.providers.espn_player import DEFAULT_MAX_TARGETS as _ESPN_NEWS_TARGET_LIMIT
+from src.diagnostics import proc_probe as _proc_probe
+from src.diagnostics import scrape_telemetry as _scrape_telemetry
 
 # ── CONFIG ──────────────────────────────────────────────────────────────
 SCRAPE_INTERVAL_HOURS = 2
@@ -983,6 +986,22 @@ def _record_scrape_event(event: str, level: str = "info", message: str = "", **m
     scrape_status.setdefault("run_events", []).append(payload)
     _trim_run_events()
 
+    # Durable mirror.  scrape_status (including run_events above) lives
+    # only in memory, so an OOM-kill or a wedge loses the entire record of
+    # what the scrape was doing — precisely when it matters most.  This is
+    # the one funnel every server-side phase AND every scraper
+    # progress_callback already flows through, so one write here captures
+    # the whole stream without a second event vocabulary.
+    _scrape_telemetry.record(
+        event,
+        level=level,
+        message=message,
+        worker_id=scrape_status.get("worker_id"),
+        step=scrape_status.get("current_step"),
+        source=scrape_status.get("current_source"),
+        **({"meta": meta} if meta else {}),
+    )
+
     log_line = f"[Scrape] {event}"
     if message:
         log_line += f" — {message}"
@@ -1100,6 +1119,14 @@ def _update_scrape_progress(
     scrape_status["stalled"] = False
     _touch_scrape_heartbeat()
     _sync_scrape_alias_fields()
+    # Hand the current phase to the detached sampler, which cannot see
+    # this process's memory and would otherwise stamp every resource
+    # sample "unknown phase" — making the samples far harder to read.
+    _scrape_telemetry.set_phase(
+        str(scrape_status.get("current_step") or ""),
+        source=scrape_status.get("current_source"),
+        worker_id=scrape_status.get("worker_id"),
+    )
     if event:
         _record_scrape_event(event, level=level, message=message or "", **(meta or {}))
 
@@ -1335,62 +1362,14 @@ def _scrape_success_rate_24h() -> dict:
     }
 
 
-def _looks_like_playwright_chromium(cmdline: str) -> bool:
-    """True for a Playwright-spawned headless Chromium command line.
-
-    Deliberately conservative: requires BOTH a chromium binary token
-    AND an automation/headless marker, so it can't match an unrelated
-    process even before the descendant-scoping guard.
-    """
-    c = cmdline.lower()
-    if "chrome" not in c and "chromium" not in c:
-        return False
-    return (
-        "--headless" in c
-        or "--remote-debugging-" in c
-        or "--remote-debugging-pipe" in c
-        or "/ms-playwright/" in c
-        or "playwright" in c
-    )
-
-
-def _collect_descendant_pids(root_pid: int) -> set[int]:
-    """All transitive child PIDs of ``root_pid`` via /proc (Linux only).
-
-    Uses the ppid field of /proc/<pid>/stat (field after the comm
-    parenthesis) — no kernel CONFIG_PROC_CHILDREN dependency.
-    """
-    children: dict[int, list[int]] = {}
-    try:
-        entries = os.listdir("/proc")
-    except OSError:
-        return set()
-    for entry in entries:
-        if not entry.isdigit():
-            continue
-        try:
-            with open(f"/proc/{entry}/stat", "rb") as fh:
-                data = fh.read().decode("latin-1")
-        except OSError:
-            continue
-        rparen = data.rfind(")")
-        if rparen == -1:
-            continue
-        fields = data[rparen + 2 :].split()
-        try:
-            ppid = int(fields[1])  # fields[0]=state, fields[1]=ppid
-        except (IndexError, ValueError):
-            continue
-        children.setdefault(ppid, []).append(int(entry))
-    out: set[int] = set()
-    stack = [root_pid]
-    while stack:
-        p = stack.pop()
-        for child in children.get(p, ()):
-            if child not in out:
-                out.add(child)
-                stack.append(child)
-    return out
+# These two /proc primitives moved to src/diagnostics/proc_probe.py so the
+# detached resource sampler can share them verbatim.  The sampler's whole
+# job is to keep running after THIS process is killed, so it can never
+# import server.py; without a shared owner there would be two copies of
+# the descendant walk, drifting apart.  Same adapter arrangement
+# src/identity/name_primitives.py already has with "Dynasty Scraper.py".
+_looks_like_playwright_chromium = _proc_probe.looks_like_playwright_chromium
+_collect_descendant_pids = _proc_probe.collect_descendant_pids
 
 
 def _reap_orphan_browsers(root_pid: int | None = None, match=None) -> int:
@@ -1424,10 +1403,68 @@ def _reap_orphan_browsers(root_pid: int | None = None, match=None) -> int:
         return 0
 
 
+_scrape_sampler_proc = None
+
+
+def _start_resource_sampler(worker_id: str) -> None:
+    """Spawn the detached out-of-process resource sampler.
+
+    Detached (``start_new_session``) so it is not tied to this process's
+    session, and pointed at our PID so it can walk our tree and notice the
+    exact sample in which we die.  Best-effort: a sampler that fails to
+    start must never stop a scrape.
+    """
+    global _scrape_sampler_proc
+    if not _scrape_telemetry.enabled():
+        return
+    try:
+        script = BASE_DIR / "scripts" / "scrape_resource_sampler.py"
+        if not script.exists():
+            return
+        _scrape_sampler_proc = subprocess.Popen(  # noqa: S603
+            [
+                sys.executable,
+                str(script),
+                "--target-pid",
+                str(os.getpid()),
+                "--run-id",
+                worker_id,
+            ],
+            cwd=str(BASE_DIR),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        log.info("[Scrape] resource sampler started (pid=%s)", _scrape_sampler_proc.pid)
+    except Exception as exc:  # noqa: BLE001 — monitoring helper must never raise
+        log.warning("resource sampler failed to start: %s", exc)
+        _scrape_sampler_proc = None
+
+
+def _stop_resource_sampler() -> None:
+    """Terminate the sampler at scrape end.  Never raises.
+
+    The sampler also self-terminates on its own duration cap and on the
+    target PID vanishing, so this is the tidy path, not the only one.
+    """
+    global _scrape_sampler_proc
+    proc = _scrape_sampler_proc
+    _scrape_sampler_proc = None
+    if proc is None:
+        return
+    try:
+        if proc.poll() is None:
+            proc.terminate()
+    except Exception:  # noqa: BLE001 — monitoring helper must never raise
+        pass
+
+
 def _finalize_scrape_run(worker_id: str) -> None:
     # Guaranteed cleanup path (always called in run_scraper finally).
     if scrape_status.get("worker_id") != worker_id:
         return
+    _stop_resource_sampler()
     if SCRAPE_REAP_ORPHAN_BROWSERS:
         reaped = _reap_orphan_browsers()
         if reaped:
@@ -2920,6 +2957,13 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
         log.info("=" * 60)
         log.info("SCRAPE STARTING")
         log.info("=" * 60)
+        _scrape_telemetry.record(
+            "scrape_start_marker",
+            worker_id=worker_id,
+            trigger=trigger,
+            server_pid=os.getpid(),
+        )
+        _start_resource_sampler(worker_id)
 
         try:
             _update_scrape_progress(
@@ -13577,6 +13621,54 @@ async def post_admin_nfl_data_flush(request: Request):
         deleted,
     )
     return JSONResponse(content={"ok": True, "evicted": deleted})
+
+
+@app.get("/api/admin/scrape-telemetry")
+async def get_admin_scrape_telemetry(request: Request, limit: int = 400):
+    """Read back the durable scrape telemetry written on this box.
+
+    Exists because the telemetry is deliberately UNTRACKED and local:
+    ``data/diagnostics/`` is in no workflow's ``git add -f`` list, so it
+    never reaches the repo (and cannot be clobbered by a deploy's
+    ``git reset --hard``).  That is correct for preserving evidence, but
+    it also means the only way to read it off the box is over HTTP or a
+    shell.
+
+    Admin-gated on purpose: process IDs, RSS figures and cgroup limits
+    are operational internals that help an attacker time a resource
+    attack.  They are not league data, but they are not public either.
+    """
+    session_or_err = _require_admin_session(request)
+    if isinstance(session_or_err, JSONResponse):
+        return session_or_err
+
+    capped = max(1, min(int(limit or 400), 5000))
+    events = _scrape_telemetry.tail_jsonl(_scrape_telemetry.EVENTS_PATH, capped)
+    samples = _scrape_telemetry.tail_jsonl(_scrape_telemetry.SAMPLES_PATH, capped)
+
+    def _describe(path) -> dict:
+        try:
+            stat = path.stat()
+            return {"path": str(path), "exists": True, "size_bytes": stat.st_size}
+        except OSError:
+            return {"path": str(path), "exists": False, "size_bytes": 0}
+
+    return JSONResponse(
+        content={
+            "enabled": _scrape_telemetry.enabled(),
+            "limit": capped,
+            "serverPid": os.getpid(),
+            "currentPhase": _scrape_telemetry.read_phase(),
+            "files": {
+                "events": _describe(_scrape_telemetry.EVENTS_PATH),
+                "samples": _describe(_scrape_telemetry.SAMPLES_PATH),
+            },
+            "eventCount": len(events),
+            "sampleCount": len(samples),
+            "events": events,
+            "samples": samples,
+        }
+    )
 
 
 @app.post("/api/admin/sessions/force-logout-all")
