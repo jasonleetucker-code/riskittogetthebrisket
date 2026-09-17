@@ -1,0 +1,119 @@
+name: Scrape Telemetry Diagnostics (read-only)
+
+# Retrieves the #1388 diagnostic telemetry (data/diagnostics/) from
+# production over the same SSH mechanism already granted to
+# deploy.yml, fd-diagnostics.yml and temporal-ledger-diagnostics.yml.
+#
+# Why a workflow rather than an application endpoint: the scrape
+# telemetry exists specifically because /api/admin/scrape-telemetry
+# depends on the dynasty process being alive to answer it, and the
+# whole point of the KTC-outage investigation is that the process may
+# be dead or unresponsive during the exact window that matters. The
+# admin HTTP endpoint (server.py) stays admin-gated for ordinary use —
+# this workflow reads the same underlying files a different way, over
+# a channel that does not depend on the application process at all.
+#
+# It does NOT mint an admin session and does NOT touch application
+# auth. It is a plain SSH file read, same posture as
+# temporal-ledger-diagnostics.yml (its closest template): no restart,
+# no deploy, no checkout of the app tree, no scraper/browser work
+# triggered, nothing written.
+
+on:
+  workflow_dispatch:
+    inputs:
+      event_lines:
+        description: "Tail size for scrape_events.jsonl"
+        required: false
+        default: "1000"
+        type: string
+      sample_lines:
+        description: "Tail size for scrape_samples.jsonl"
+        required: false
+        default: "2000"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never overlap with a deploy, same posture as every other
+  # read-only *-diagnostics.yml workflow.
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  fetch-telemetry:
+    name: Fetch scrape telemetry
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Fetch scrape telemetry from production
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          EVENT_LINES: ${{ inputs.event_lines || '1000' }}
+          SAMPLE_LINES: ${{ inputs.sample_lines || '2000' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          # The remote command's exit status is this step's exit
+          # status. Exit 2 = the diagnostics directory doesn't exist on
+          # this box yet -- a real answer (deploy hasn't landed, or the
+          # kill switch RISKIT_SCRAPE_TELEMETRY=0 is set), surfaced as
+          # a failure so nobody reads silence as "nothing happened."
+          ssh -i "$HOME/.ssh/id_ed25519" \
+            -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "APP_DIR=$(printf %q "$APP_DIR") EVENT_LINES=$(printf %q "$EVENT_LINES") SAMPLE_LINES=$(printf %q "$SAMPLE_LINES") bash -s" <<'REMOTE'
+          set -Eeuo pipefail
+          DIAG_DIR="$APP_DIR/data/diagnostics"
+          if [ ! -d "$DIAG_DIR" ]; then
+            echo "::error title=No diagnostics directory::$DIAG_DIR does not exist. Telemetry has not been written on this box (deploy not yet landed, no scrape has run since, or RISKIT_SCRAPE_TELEMETRY=0)." >&2
+            exit 2
+          fi
+
+          echo "=== scrape_phase.json (current/last known phase) ==="
+          if [ -f "$DIAG_DIR/scrape_phase.json" ]; then
+            cat "$DIAG_DIR/scrape_phase.json"
+            echo
+          else
+            echo "(not present)"
+          fi
+
+          echo
+          echo "=== scrape_events.jsonl (last $EVENT_LINES lines) ==="
+          if [ -f "$DIAG_DIR/scrape_events.jsonl" ]; then
+            tail -n "$EVENT_LINES" "$DIAG_DIR/scrape_events.jsonl"
+          else
+            echo "(not present)"
+          fi
+
+          echo
+          echo "=== scrape_samples.jsonl (last $SAMPLE_LINES lines) ==="
+          if [ -f "$DIAG_DIR/scrape_samples.jsonl" ]; then
+            tail -n "$SAMPLE_LINES" "$DIAG_DIR/scrape_samples.jsonl"
+          else
+            echo "(not present)"
+          fi
+          REMOTE
