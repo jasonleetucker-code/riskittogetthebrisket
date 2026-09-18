@@ -1,5 +1,5 @@
 name: KTC diagnostic evidence harvest
-# Temporary branch only; never merge. Reads an existing completed Actions log.
+# Temporary helper branch only; never merge. Reads completed Actions logs.
 # No SSH, production credentials, code mutation, restart, or scrape trigger.
 on:
   push:
@@ -14,36 +14,37 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: jasonleetucker-code/riskittogetthebrisket
+      JOB_IDS: '105586511341'
+      EVIDENCE_LABEL: fresh-pre-deploy-baseline
     steps:
-      - name: Retrieve completed read-only diagnostic job
+      - name: Retrieve completed jobs with original masked logs
         shell: bash
         run: |
           set -Eeuo pipefail
-          mkdir -p /tmp/ktc-diagnostic-evidence
-          # The destination is a file, not a terminal. Strip ANSI before parsing.
-          gh api --allow-escape-sequences repos/$GH_REPO/actions/jobs/105469737755/logs > /tmp/ktc-diagnostic-evidence/baseline-job.log
+          mkdir -p /tmp/ktc-harvest
+          for job in $JOB_IDS; do
+            [[ "$job" =~ ^[0-9]+$ ]]
+            gh api "repos/$GH_REPO/actions/jobs/$job" > "/tmp/ktc-harvest/job-$job.json"
+            test "$(jq -r .status "/tmp/ktc-harvest/job-$job.json")" = completed
+            gh api --allow-escape-sequences "repos/$GH_REPO/actions/jobs/$job/logs" > "/tmp/ktc-harvest/job-$job.log"
+          done
           python3 - <<'PY'
-          import json,re
-          from collections import Counter
+          import hashlib,json,os,re
           from pathlib import Path
-          root=Path('/tmp/ktc-diagnostic-evidence')
+          root=Path('/tmp/ktc-harvest')
           records=[]
-          for line in (root/'baseline-job.log').read_text().splitlines():
-              line=re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]','',line)
-              pos=line.find('{')
-              if pos<0: continue
-              try: record=json.loads(line[pos:])
-              except json.JSONDecodeError: continue
-              if isinstance(record,dict): records.append(record)
-          if not records: raise RuntimeError('No diagnostic JSON records retrieved')
-          (root/'baseline-records.jsonl').write_text(''.join(json.dumps(row)+'\n' for row in records))
-          summary={'source_job_id':105469737755,'records':len(records),'record_shapes':dict(Counter(','.join(sorted(row)) for row in records)),'production_revision':'NOT ESTABLISHED BY THIS DIAGNOSTIC','scope':'Pre-deploy baseline; no repair code deployed'}
-          (root/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
+          for path in sorted(root.glob('job-*.json')):
+              job=json.loads(path.read_text())
+              log=path.with_suffix('.log')
+              records.append({'job_id':job['id'],'run_id':job['run_id'],'name':job['name'],'status':job['status'],'conclusion':job['conclusion'],'head_sha':job.get('head_sha'),'started_at':job.get('started_at'),'completed_at':job.get('completed_at'),'log_sha256':hashlib.sha256(log.read_bytes()).hexdigest(),'log_bytes':log.stat().st_size})
+          summary={'label':os.environ['EVIDENCE_LABEL'],'jobs':records,'notice':'Original secret masking is retained. Masked numeric fields can make telemetry JSON invalid; do not silently discard those samples or reconstruct masked digits. Parse masked numeric fields as unknown. No production revision or incident resolution is inferred from workflow success.'}
+          (root/'manifest.json').write_text(json.dumps(summary,indent=2)+'\n')
           print(json.dumps(summary,indent=2))
           PY
-      - uses: actions/upload-artifact@v4
+      - name: Preserve all retrieved evidence
         if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: ktc-baseline-diagnostic-evidence
-          path: /tmp/ktc-diagnostic-evidence/
+          name: ktc-job-evidence
+          path: /tmp/ktc-harvest/
           retention-days: 14
