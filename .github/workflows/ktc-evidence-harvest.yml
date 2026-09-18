@@ -1,0 +1,47 @@
+name: KTC diagnostic evidence harvest
+# Temporary branch only; never merge. Reads an existing completed Actions log.
+# No SSH, production credentials, code mutation, restart, or scrape trigger.
+on:
+  push:
+    branches: ['codex/ktc-evidence-harvest']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: jasonleetucker-code/riskittogetthebrisket
+    steps:
+      - name: Retrieve completed read-only diagnostic job
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/ktc-diagnostic-evidence
+          gh api repos/$GH_REPO/actions/jobs/105469737755/logs > /tmp/ktc-diagnostic-evidence/baseline-job.log
+          python3 - <<'PY'
+          import json
+          from collections import Counter
+          from pathlib import Path
+          root=Path('/tmp/ktc-diagnostic-evidence')
+          records=[]
+          for line in (root/'baseline-job.log').read_text().splitlines():
+              pos=line.find('{')
+              if pos<0: continue
+              try: record=json.loads(line[pos:])
+              except json.JSONDecodeError: continue
+              if isinstance(record,dict): records.append(record)
+          if not records: raise RuntimeError('No diagnostic JSON records retrieved')
+          (root/'baseline-records.jsonl').write_text(''.join(json.dumps(row)+'\n' for row in records))
+          summary={'source_job_id':105469737755,'records':len(records),'record_shapes':dict(Counter(','.join(sorted(row)) for row in records)),'production_revision':'NOT ESTABLISHED BY THIS DIAGNOSTIC','scope':'Pre-deploy baseline; no repair code deployed'}
+          (root/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
+          print(json.dumps(summary,indent=2))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ktc-baseline-diagnostic-evidence
+          path: /tmp/ktc-diagnostic-evidence/
+          retention-days: 14
