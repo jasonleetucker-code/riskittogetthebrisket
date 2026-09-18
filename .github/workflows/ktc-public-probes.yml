@@ -1,0 +1,77 @@
+name: KTC public availability probes
+# Helper branch only; never merge. No SSH, credentials, account login,
+# production writes, restarts, scrape triggers or deployment actions.
+on:
+  push:
+    branches: ['codex/ktc-public-probes']
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ORIGIN: https://chaseupside.com
+      SAMPLE_COUNT: '3'
+      SAMPLE_INTERVAL: '10'
+      EVIDENCE_LABEL: pre-deploy-baseline
+    steps:
+      - name: Public endpoint responsiveness (no credentials)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/ktc-public-probes
+          python3 -u - <<'PY'
+          import json, os, time, urllib.request, urllib.error
+          from datetime import datetime, timezone
+          from pathlib import Path
+          root = Path('/tmp/ktc-public-probes')
+          selected = {'status','scrape_running','scrapeRunning','current_step','currentStep','current_source','currentSource','worker_id','phase','source','started_at','duration_sec','git_sha','gitSha','build_sha','buildSha','commit','commit_sha','revision','deployed_sha'}
+          def fields(value, path=''):
+              out = {}
+              if isinstance(value, dict):
+                  for key, item in value.items():
+                      where = f'{path}.{key}' if path else key
+                      if key in selected and (item is None or isinstance(item, (str,int,float,bool))): out[where] = item if not isinstance(item,str) else item[:240]
+                      elif isinstance(item, dict): out.update(fields(item,where))
+              return out
+          rows = []
+          count = int(os.environ['SAMPLE_COUNT'])
+          assert 1 <= count <= 100
+          for iteration in range(count):
+              cycle = time.monotonic()
+              for method, path in [('GET','/api/health'),('GET','/api/status'),('POST','/api/auth/login')]:
+                  row = {'at':datetime.now(timezone.utc).isoformat(),'iteration':iteration,'method':method,'path':path,'label':os.environ['EVIDENCE_LABEL']}
+                  body = b'{}' if method == 'POST' else None
+                  request = urllib.request.Request(os.environ['ORIGIN']+path, data=body, method=method, headers={'Cache-Control':'no-cache','Content-Type':'application/json','User-Agent':'KTC-repair-readonly-verifier'})
+                  started = time.monotonic()
+                  try:
+                      try: response = urllib.request.urlopen(request,timeout=8)
+                      except urllib.error.HTTPError as error: response = error
+                      with response:
+                          row['http_status'] = response.code
+                          raw = response.read(1048576)
+                      try:
+                          payload = json.loads(raw)
+                          row['root_keys'] = sorted(payload) if isinstance(payload,dict) else []
+                          row['fields'] = fields(payload)
+                      except (ValueError,UnicodeDecodeError): row['json'] = False
+                  except (OSError,ValueError) as error:
+                      row['http_status'] = None
+                      row['transport_error'] = type(error).__name__
+                  row['seconds'] = round(time.monotonic()-started,3)
+                  rows.append(row)
+                  with (root/'probes.jsonl').open('a') as handle: handle.write(json.dumps(row)+'\n')
+                  print(json.dumps(row), flush=True)
+              if iteration+1<count: time.sleep(max(0,int(os.environ['SAMPLE_INTERVAL'])-(time.monotonic()-cycle)))
+          summary = {'label':os.environ['EVIDENCE_LABEL'],'requests':len(rows),'transport_failures':sum(row['http_status'] is None for row in rows),'max_seconds':max(row['seconds'] for row in rows),'notice':'POST sends an empty body and checks unauthenticated validation responsiveness only; not a successful login test. No raw response bodies or cookies are retained.'}
+          (root/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
+          print(json.dumps(summary),flush=True)
+          PY
+      - name: Preserve observations including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ktc-public-probes
+          path: /tmp/ktc-public-probes/
+          retention-days: 14
