@@ -1,26 +1,65 @@
 name: KTC public availability probes
-# Helper branch only; never merge. No SSH, credentials, account login,
-# production writes, restarts, scrape triggers or deployment actions.
+# Helper branch only; never merge. Read-only Actions metadata and public HTTP.
+# No SSH, account credentials, production writes, restart, scrape or deploy trigger.
 on:
   push:
     branches: ['codex/ktc-public-probes']
 permissions:
   contents: read
+  actions: read
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 65
     env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: jasonleetucker-code/riskittogetthebrisket
+      DEPLOY_RUN_ID: '35343585208'
+      EXPECTED_DEPLOY_SHA: 4e5c7a4c72f20dcf87c63aac74eaa6ff90045be5
       ORIGIN: https://chaseupside.com
-      SAMPLE_COUNT: '1'
+      SAMPLE_COUNT: '90'
       SAMPLE_INTERVAL: '10'
-      EVIDENCE_LABEL: pre-deploy-source-metadata
+      EVIDENCE_LABEL: pinned-deploy-and-first-scrape
     steps:
-      - name: Public endpoint responsiveness and source metadata (no credentials)
+      - name: Observe existing pinned deploy until remote phase (read-only)
         shell: bash
         run: |
           set -Eeuo pipefail
           mkdir -p /tmp/ktc-public-probes
+          python3 -u - <<'PY'
+          import json, os, time, urllib.request
+          from datetime import datetime, timezone
+          from pathlib import Path
+          root = Path('/tmp/ktc-public-probes')
+          base = 'https://api.github.com/repos/'+os.environ['GH_REPO']+'/actions/runs/'+os.environ['DEPLOY_RUN_ID']
+          def read(path):
+              request = urllib.request.Request(path, headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','User-Agent':'KTC-pinned-deploy-observer'})
+              with urllib.request.urlopen(request,timeout=20) as response: return json.load(response)
+          deadline = time.monotonic()+2700
+          previous = None
+          while time.monotonic()<deadline:
+              run = read(base)
+              assert run['head_sha']==os.environ['EXPECTED_DEPLOY_SHA'], 'Wrong deploy revision'
+              assert run['head_branch']=='main' and run['path']=='.github/workflows/deploy.yml', 'Not normal main deploy'
+              jobs = read(base+'/jobs?per_page=100')['jobs']
+              observation = {'at':datetime.now(timezone.utc).isoformat(),'run_id':run['id'],'head_sha':run['head_sha'],'status':run['status'],'conclusion':run['conclusion'],'jobs':[{'id':j['id'],'name':j['name'],'status':j['status'],'conclusion':j['conclusion'],'steps':j.get('steps',[])} for j in jobs]}
+              (root/'deploy-observation.json').write_text(json.dumps(observation,indent=2)+'\n')
+              state = [(j['name'],j['status'],j['conclusion']) for j in jobs]
+              if state != previous:
+                  print(json.dumps({'at':observation['at'],'deploy_state':state}),flush=True)
+                  previous = state
+              remote = [s for j in jobs for s in j.get('steps',[]) if s['name']=='Run remote deploy script']
+              if remote and remote[0]['status'] in {'in_progress','completed'}:
+                  print('Remote deployment phase observed for the pinned revision; starting bounded public probes.',flush=True)
+                  break
+              if run['status']=='completed': raise RuntimeError('Deploy ended before its remote step: '+str(run['conclusion']))
+              time.sleep(15)
+          else: raise TimeoutError('Remote deployment phase not observed within 45 minutes')
+          PY
+      - name: Public endpoint responsiveness and source metadata (no credentials)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
           python3 -u - <<'PY'
           import json, os, time, urllib.request, urllib.error
           from datetime import datetime, timezone
@@ -41,12 +80,9 @@ jobs:
           for iteration in range(count):
               cycle = time.monotonic()
               for method, path in [('GET','/api/health'),('GET','/api/status'),('POST','/api/auth/login')]:
-                  # At most three unauthenticated rejection probes per run.
-                  # Do not create a stream of failed login attempts.
                   if method == 'POST' and iteration not in {0,count//2,count-1}: continue
                   row = {'at':datetime.now(timezone.utc).isoformat(),'iteration':iteration,'method':method,'path':path,'label':os.environ['EVIDENCE_LABEL']}
-                  body = b'{}' if method == 'POST' else None
-                  request = urllib.request.Request(os.environ['ORIGIN']+path, data=body, method=method, headers={'Cache-Control':'no-cache','Content-Type':'application/json','User-Agent':'KTC-repair-readonly-verifier'})
+                  request = urllib.request.Request(os.environ['ORIGIN']+path, data=b'{}' if method=='POST' else None, method=method, headers={'Cache-Control':'no-cache','Content-Type':'application/json','User-Agent':'KTC-repair-readonly-verifier'})
                   started = time.monotonic()
                   try:
                       try: response = urllib.request.urlopen(request,timeout=8)
@@ -58,8 +94,7 @@ jobs:
                           payload = json.loads(raw)
                           row['root_keys'] = sorted(payload) if isinstance(payload,dict) else []
                           row['fields'] = fields(payload)
-                          if isinstance(payload,dict):
-                              row['metadata_shape'] = {key:sorted(payload[key]) for key in ['data_runtime','served_source_coverage','source_health'] if isinstance(payload.get(key),dict)}
+                          if isinstance(payload,dict): row['metadata_shape'] = {key:sorted(payload[key]) for key in ['data_runtime','served_source_coverage','source_health'] if isinstance(payload.get(key),dict)}
                       except (ValueError,UnicodeDecodeError): row['json'] = False
                   except (OSError,ValueError) as error:
                       row['http_status'] = None
@@ -69,7 +104,7 @@ jobs:
                   with (root/'probes.jsonl').open('a') as handle: handle.write(json.dumps(row)+'\n')
                   print(json.dumps(row), flush=True)
               if iteration+1<count: time.sleep(max(0,int(os.environ['SAMPLE_INTERVAL'])-(time.monotonic()-cycle)))
-          summary = {'label':os.environ['EVIDENCE_LABEL'],'requests':len(rows),'transport_failures':sum(row['http_status'] is None for row in rows),'max_seconds':max(row['seconds'] for row in rows),'notice':'POST sends an empty body and checks unauthenticated validation responsiveness only; not a successful login test. At most three POST requests. No raw response bodies or cookies are retained.'}
+          summary = {'label':os.environ['EVIDENCE_LABEL'],'expected_deploy_sha':os.environ['EXPECTED_DEPLOY_SHA'],'requests':len(rows),'transport_failures':sum(row['http_status'] is None for row in rows),'max_seconds':max(row['seconds'] for row in rows),'notice':'Window begins during remote deploy and may include old code/build/restart. Correlate with actual deploy completion and scrape telemetry before attributing behavior. At most three empty-body POST rejection probes, not successful login tests. No cookies or raw response bodies retained.'}
           (root/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
           print(json.dumps(summary),flush=True)
           PY
