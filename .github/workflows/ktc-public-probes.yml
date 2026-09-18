@@ -12,11 +12,11 @@ jobs:
     timeout-minutes: 30
     env:
       ORIGIN: https://chaseupside.com
-      SAMPLE_COUNT: '3'
+      SAMPLE_COUNT: '1'
       SAMPLE_INTERVAL: '10'
-      EVIDENCE_LABEL: pre-deploy-baseline
+      EVIDENCE_LABEL: pre-deploy-source-metadata
     steps:
-      - name: Public endpoint responsiveness (no credentials)
+      - name: Public endpoint responsiveness and source metadata (no credentials)
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -26,13 +26,13 @@ jobs:
           from datetime import datetime, timezone
           from pathlib import Path
           root = Path('/tmp/ktc-public-probes')
-          selected = {'status','scrape_running','scrapeRunning','current_step','currentStep','current_source','currentSource','worker_id','phase','source','started_at','duration_sec','git_sha','gitSha','build_sha','buildSha','commit','commit_sha','revision','deployed_sha'}
+          selected = {'status','scrape_running','scrapeRunning','current_step','currentStep','current_source','currentSource','worker_id','phase','source','sourceKey','source_key','started_at','finished_at','last_scrape','last_success_at','last_success','duration_sec','git_sha','gitSha','gitHead','build_sha','buildSha','commit','commit_sha','revision','deployed_sha','rowCount','row_count','pricedCount','priced_count','rows','count','total','capturedAt','contentHash','valueSource','is_running','running','stalled','hung'}
           def fields(value, path=''):
               out = {}
               if isinstance(value, dict):
                   for key, item in value.items():
                       where = f'{path}.{key}' if path else key
-                      if key in selected and (item is None or isinstance(item, (str,int,float,bool))): out[where] = item if not isinstance(item,str) else item[:240]
+                      if (key in selected or 'ktc' in key.lower()) and (item is None or isinstance(item, (str,int,float,bool))): out[where] = item if not isinstance(item,str) else item[:240]
                       elif isinstance(item, dict): out.update(fields(item,where))
               return out
           rows = []
@@ -41,6 +41,9 @@ jobs:
           for iteration in range(count):
               cycle = time.monotonic()
               for method, path in [('GET','/api/health'),('GET','/api/status'),('POST','/api/auth/login')]:
+                  # At most three unauthenticated rejection probes per run.
+                  # Do not create a stream of failed login attempts.
+                  if method == 'POST' and iteration not in {0,count//2,count-1}: continue
                   row = {'at':datetime.now(timezone.utc).isoformat(),'iteration':iteration,'method':method,'path':path,'label':os.environ['EVIDENCE_LABEL']}
                   body = b'{}' if method == 'POST' else None
                   request = urllib.request.Request(os.environ['ORIGIN']+path, data=body, method=method, headers={'Cache-Control':'no-cache','Content-Type':'application/json','User-Agent':'KTC-repair-readonly-verifier'})
@@ -55,6 +58,8 @@ jobs:
                           payload = json.loads(raw)
                           row['root_keys'] = sorted(payload) if isinstance(payload,dict) else []
                           row['fields'] = fields(payload)
+                          if isinstance(payload,dict):
+                              row['metadata_shape'] = {key:sorted(payload[key]) for key in ['data_runtime','served_source_coverage','source_health'] if isinstance(payload.get(key),dict)}
                       except (ValueError,UnicodeDecodeError): row['json'] = False
                   except (OSError,ValueError) as error:
                       row['http_status'] = None
@@ -64,7 +69,7 @@ jobs:
                   with (root/'probes.jsonl').open('a') as handle: handle.write(json.dumps(row)+'\n')
                   print(json.dumps(row), flush=True)
               if iteration+1<count: time.sleep(max(0,int(os.environ['SAMPLE_INTERVAL'])-(time.monotonic()-cycle)))
-          summary = {'label':os.environ['EVIDENCE_LABEL'],'requests':len(rows),'transport_failures':sum(row['http_status'] is None for row in rows),'max_seconds':max(row['seconds'] for row in rows),'notice':'POST sends an empty body and checks unauthenticated validation responsiveness only; not a successful login test. No raw response bodies or cookies are retained.'}
+          summary = {'label':os.environ['EVIDENCE_LABEL'],'requests':len(rows),'transport_failures':sum(row['http_status'] is None for row in rows),'max_seconds':max(row['seconds'] for row in rows),'notice':'POST sends an empty body and checks unauthenticated validation responsiveness only; not a successful login test. At most three POST requests. No raw response bodies or cookies are retained.'}
           (root/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
           print(json.dumps(summary),flush=True)
           PY
