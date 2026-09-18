@@ -1,5 +1,5 @@
 name: KTC diagnostic evidence harvest
-# Temporary helper branch only; never merge. Reads logs and tests untouched base.
+# Temporary helper branch only; never merge. Reads completed Actions logs.
 # No SSH, production credentials, code mutation, restart, or scrape trigger.
 on:
   push:
@@ -10,59 +10,41 @@ permissions:
 jobs:
   harvest:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: jasonleetucker-code/riskittogetthebrisket
-      ALLOW_DEFAULT_LOGIN_DEV: '1'
-      UPTIME_CHECK_ENABLED: '0'
-      PYTHONPATH: .
+      JOB_IDS: '105583893736 105583925591'
+      EVIDENCE_LABEL: exact-tree-pr-and-release-gates
     steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: 3314929b9cc0930361d6153cb47b77250434602a
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.12'
-          cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            requirements-dev.txt
-      - name: Install canonical dependencies
-        run: pip install -r requirements-dev.txt
-      - name: Preserve completed PR evidence
+      - name: Retrieve completed jobs with original masked logs
         shell: bash
         run: |
           set -Eeuo pipefail
           mkdir -p /tmp/ktc-harvest
-          gh api "repos/$GH_REPO/actions/jobs/105583893736" > /tmp/ktc-harvest/pr-job.json
-          test "$(jq -r .status /tmp/ktc-harvest/pr-job.json)" = completed
-          gh api --allow-escape-sequences "repos/$GH_REPO/actions/jobs/105583893736/logs" > /tmp/ktc-harvest/pr-job.log
-          git rev-parse HEAD | tee /tmp/ktc-harvest/base-head.txt
-          test "$(git rev-parse HEAD)" = 3314929b9cc0930361d6153cb47b77250434602a
-          test "$(git hash-object src/sources/ktc_value_sources.py)" = 23a32169f9340ca56936e99ab04529057ba0cd6c
-          test -z "$(git status --porcelain)"
-      - name: Reproduce advisory failure on untouched base (no assertion changes)
-        shell: bash
-        run: |
-          set -uo pipefail
-          set +e
-          python -m pytest tests/api/test_fantasypros_idp_integration.py::TestFantasyProsIdpEnrichment::test_no_combined_player_loses_direct_rank -q --tb=short -m livedata 2>&1 | tee /tmp/ktc-harvest/base-advisory.txt
-          rc=${PIPESTATUS[0]}
-          printf '%s\n' "$rc" > /tmp/ktc-harvest/base-advisory-exit.txt
-          # This is a negative reproduction, not a green-test claim.
-          if test "$rc" = 1 && grep -q '578 != 77' /tmp/ktc-harvest/base-advisory.txt && grep -q 'Byron Murphy II: combined-board player lost direct rank' /tmp/ktc-harvest/base-advisory.txt; then
-            echo 'CONFIRMED: identical advisory IDP failure on untouched base; not caused by the KTC projection.' | tee /tmp/ktc-harvest/base-advisory-disposition.txt
-          else
-            echo 'NOT CONFIRMED: base did not reproduce the exact advisory signature. Inspect logs; do not label pre-existing from this run.' | tee /tmp/ktc-harvest/base-advisory-disposition.txt
-            exit 1
-          fi
-      - name: Preserve all evidence including failed reproductions
+          for job in $JOB_IDS; do
+            [[ "$job" =~ ^[0-9]+$ ]]
+            gh api "repos/$GH_REPO/actions/jobs/$job" > "/tmp/ktc-harvest/job-$job.json"
+            test "$(jq -r .status "/tmp/ktc-harvest/job-$job.json")" = completed
+            gh api --allow-escape-sequences "repos/$GH_REPO/actions/jobs/$job/logs" > "/tmp/ktc-harvest/job-$job.log"
+          done
+          python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          root=Path('/tmp/ktc-harvest')
+          records=[]
+          for path in sorted(root.glob('job-*.json')):
+              job=json.loads(path.read_text())
+              log=path.with_suffix('.log')
+              records.append({'job_id':job['id'],'run_id':job['run_id'],'name':job['name'],'status':job['status'],'conclusion':job['conclusion'],'head_sha':job.get('head_sha'),'started_at':job.get('started_at'),'completed_at':job.get('completed_at'),'log_sha256':hashlib.sha256(log.read_bytes()).hexdigest(),'log_bytes':log.stat().st_size})
+          summary={'label':os.environ['EVIDENCE_LABEL'],'jobs':records,'notice':'Original secret masking is retained. Masked numeric fields are unknown; do not reconstruct masked digits. Inspect raw test outcomes: continue-on-error advisory steps may report success despite underlying failures. No production revision or incident resolution is inferred from workflow success.'}
+          (root/'manifest.json').write_text(json.dumps(summary,indent=2)+'\n')
+          print(json.dumps(summary,indent=2))
+          PY
+      - name: Preserve all retrieved evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ktc-advisory-baseline-evidence
+          name: ktc-job-evidence
           path: /tmp/ktc-harvest/
           retention-days: 14
