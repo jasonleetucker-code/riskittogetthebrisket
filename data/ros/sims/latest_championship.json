@@ -1,44 +1,44 @@
 {
-  "computedAt": "2026-09-18T17:59:12.187159+00:00",
+  "computedAt": "2026-09-18T21:21:12.703745+00:00",
   "championshipOdds": [
     {
       "ownerId": "1002085133723299840",
       "displayName": "Brent",
-      "championshipOdds": 0.9957,
-      "finalsOdds": 0.9991,
+      "championshipOdds": 0.9961,
+      "finalsOdds": 0.999,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
-      "expectedFinish": 1.01,
+      "expectedFinish": 1.0,
       "contenderTier": "Favorite"
     },
     {
       "ownerId": "468418790212759552",
       "displayName": "Jason",
-      "championshipOdds": 0.0033,
-      "finalsOdds": 0.5767,
-      "semifinalOdds": 0.9601,
+      "championshipOdds": 0.003,
+      "finalsOdds": 0.4934,
+      "semifinalOdds": 0.9437,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.55,
-      "contenderTier": "Dangerous Playoff Team"
-    },
-    {
-      "ownerId": "1012114412049731584",
-      "displayName": "Joey",
-      "championshipOdds": 0.0005,
-      "finalsOdds": 0.0524,
-      "semifinalOdds": 0.7117,
-      "playoffOdds": 1.0,
-      "expectedFinish": 4.03,
+      "expectedFinish": 2.68,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "609821340567941120",
       "displayName": "Eric",
-      "championshipOdds": 0.0005,
-      "finalsOdds": 0.36,
-      "semifinalOdds": 0.9467,
+      "championshipOdds": 0.0006,
+      "finalsOdds": 0.4376,
+      "semifinalOdds": 0.9724,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.8,
+      "expectedFinish": 2.65,
+      "contenderTier": "Dangerous Playoff Team"
+    },
+    {
+      "ownerId": "1012114412049731584",
+      "displayName": "Joey",
+      "championshipOdds": 0.0003,
+      "finalsOdds": 0.0596,
+      "semifinalOdds": 0.7444,
+      "playoffOdds": 1.0,
+      "expectedFinish": 3.89,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
@@ -47,8 +47,8 @@
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
-      "playoffOdds": 0.1372,
-      "expectedFinish": 8.36,
+      "playoffOdds": 0.2544,
+      "expectedFinish": 7.82,
       "contenderTier": "Long Shot"
     },
     {
@@ -57,9 +57,9 @@
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
-      "playoffOdds": 0.0888,
-      "expectedFinish": 8.53,
-      "contenderTier": "Rebuilder / Seller"
+      "playoffOdds": 0.13,
+      "expectedFinish": 8.35,
+      "contenderTier": "Long Shot"
     },
     {
       "ownerId": "472206636534984704",
@@ -76,10 +76,10 @@
       "displayName": "Ty",
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
-      "semifinalOdds": 0.0011,
-      "playoffOdds": 0.6949,
-      "expectedFinish": 6.11,
-      "contenderTier": "Dangerous Playoff Team"
+      "semifinalOdds": 0.0,
+      "playoffOdds": 0.4571,
+      "expectedFinish": 7.09,
+      "contenderTier": "Fringe Playoff Team"
     },
     {
       "ownerId": "711452264774041600",
@@ -87,9 +87,9 @@
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
-      "playoffOdds": 0.0791,
-      "expectedFinish": 9.0,
-      "contenderTier": "Rebuilder / Seller"
+      "playoffOdds": 0.1585,
+      "expectedFinish": 8.74,
+      "contenderTier": "Long Shot"
     },
     {
       "ownerId": "712035316776669184",
@@ -105,18 +105,18 @@
       "ownerId": "714912789268865024",
       "displayName": "MaKayla",
       "championshipOdds": 0.0,
-      "finalsOdds": 0.0065,
-      "semifinalOdds": 0.2725,
+      "finalsOdds": 0.0052,
+      "semifinalOdds": 0.2274,
       "playoffOdds": 1.0,
-      "expectedFinish": 5.85,
+      "expectedFinish": 6.0,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "831633191830933504",
       "displayName": "Collin",
       "championshipOdds": 0.0,
-      "finalsOdds": 0.0053,
-      "semifinalOdds": 0.1079,
+      "finalsOdds": 0.0052,
+      "semifinalOdds": 0.1121,
       "playoffOdds": 1.0,
       "expectedFinish": 5.77,
       "contenderTier": "Dangerous Playoff Team"
