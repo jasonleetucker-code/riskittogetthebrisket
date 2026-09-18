@@ -1,0 +1,94 @@
+name: KTC isolated browser laboratory
+# Temporary branch-only experiment. No production access, writes or credentials.
+on:
+  push:
+    branches: ['codex/ktc-capture-lab']
+permissions:
+  contents: read
+jobs:
+  laboratory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EVIDENCE: /tmp/ktc-lab-evidence
+      BUNDLE: /tmp/ktc-lab-bundle
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: f01839f7d8dcb389be1b003bda48540e434236fa
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - name: Retrieve exact staged repair
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          mkdir -p "$EVIDENCE" "$BUNDLE"
+          gh api repos/jasonleetucker-code/riskittogetthebrisket/git/blobs/8aeed8d793dc5225996493bc76b18d9168c375c1 > /tmp/ktc-lab-package.json
+          python - <<'PY'
+          import base64,hashlib,io,json,os,zipfile
+          from pathlib import Path
+          data=base64.b64decode(json.loads(Path('/tmp/ktc-lab-package.json').read_text())['content'])
+          assert hashlib.sha256(data).hexdigest()=='4f61fbaad7a86bb6c6d83d9a07f252a77328bba208305c6b1f51a08f9b205f27'
+          with zipfile.ZipFile(io.BytesIO(data)) as z:
+              assert set(z.namelist())=={'candidate.patch','prepare.py','freeze.py','probe.py','verify_mutations.py'}
+              for name in z.namelist(): Path(os.environ['BUNDLE'],name).write_bytes(z.read(name))
+          PY
+          git apply --check "$BUNDLE/candidate.patch"
+          git apply "$BUNDLE/candidate.patch"
+      - name: Install repository dependencies and real Chromium
+        run: |
+          set -Eeuo pipefail
+          pip install -r requirements-dev.txt
+          python -m playwright install --with-deps chromium
+      - name: Real Playwright transport and all-mode parity (synthetic board)
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY' 2>&1 | tee "$EVIDENCE/chromium-parity.txt"
+          import asyncio,importlib.util,json,time
+          from playwright.async_api import async_playwright
+          from src.sources import ktc_value_sources as ktc
+          spec=importlib.util.spec_from_file_location('ktc_fixture','tests/sources/test_ktc_value_source_projection.py')
+          fixture=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(fixture)
+          async def check():
+              async with async_playwright() as pw:
+                  browser=await pw.chromium.launch(headless=True)
+                  try:
+                      for lookup in ['lexical','window']:
+                          page=await browser.new_page()
+                          await page.set_content('<select><option value="1">Crowdsourced</option><option value="3">Tradesourced</option><option value="2">Crowd+Trades</option></select>')
+                          rows=fixture._edge_board()
+                          for row in rows:
+                              if isinstance(row,dict): row['unusedHistory']='x'*8192
+                          prefix='const playersArray = ' if lookup=='lexical' else 'window.playersArray = '
+                          await page.add_script_tag(content=prefix+json.dumps(rows)+';')
+                          t=time.monotonic()
+                          captures=await ktc.capture_all_value_sources(page)
+                          for source in ktc.KTC_VALUE_SOURCES:
+                              expected=ktc.observations_from_players_array(rows,source)
+                              assert captures[source].rows==expected
+                              assert captures[source].content_hash==ktc._content_hash(expected)
+                          print(f'PASS real Chromium {lookup}: all three modes and edge-case parser/hash parity in {time.monotonic()-t:.3f}s')
+                          await page.close()
+                  finally: await browser.close()
+          asyncio.run(check())
+          PY
+      - name: Read-only public-page comparison (not production telemetry)
+        continue-on-error: true
+        run: |
+          set -Eeuo pipefail
+          timeout --kill-after=10s 150s python -u "$BUNDLE/probe.py" 2>&1 | tee "$EVIDENCE/public-probe.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ktc-browser-laboratory
+          path: /tmp/ktc-lab-evidence/
+          retention-days: 14
