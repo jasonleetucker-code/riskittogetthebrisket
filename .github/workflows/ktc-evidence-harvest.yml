@@ -14,8 +14,8 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: jasonleetucker-code/riskittogetthebrisket
-      JOB_IDS: '105583893736 105583925591'
-      EVIDENCE_LABEL: exact-tree-pr-and-release-gates
+      JOB_IDS: '105594858796 105605327150'
+      EVIDENCE_LABEL: completed-production-deployment
     steps:
       - name: Retrieve completed jobs with original masked logs
         shell: bash
@@ -37,7 +37,7 @@ jobs:
               job=json.loads(path.read_text())
               log=path.with_suffix('.log')
               records.append({'job_id':job['id'],'run_id':job['run_id'],'name':job['name'],'status':job['status'],'conclusion':job['conclusion'],'head_sha':job.get('head_sha'),'started_at':job.get('started_at'),'completed_at':job.get('completed_at'),'log_sha256':hashlib.sha256(log.read_bytes()).hexdigest(),'log_bytes':log.stat().st_size})
-          summary={'label':os.environ['EVIDENCE_LABEL'],'jobs':records,'notice':'Original secret masking is retained. Masked numeric fields are unknown; do not reconstruct masked digits. Inspect raw test outcomes: continue-on-error advisory steps may report success despite underlying failures. No production revision or incident resolution is inferred from workflow success.'}
+          summary={'label':os.environ['EVIDENCE_LABEL'],'jobs':records,'notice':'Original secret masking is retained. Masked numeric fields are unknown; do not reconstruct masked digits. Inspect raw test outcomes: continue-on-error advisory steps may report success despite underlying failures. No incident resolution is inferred from workflow success alone.'}
           (root/'manifest.json').write_text(json.dumps(summary,indent=2)+'\n')
           print(json.dumps(summary,indent=2))
           PY
