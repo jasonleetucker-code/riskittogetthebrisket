@@ -403,3 +403,8 @@ it differs from 72, the manual-vs-imported reconciliation-conflict rule, the aut
 bar for Phase F probability modeling, and the platform's exact bid-increment/proxy rules all remain
 open. See `docs/OWNER_FEATURE_ADDENDUM_2026-09-13_LIVE_ROOKIE_AUCTION_PERFECT_DRAFT.md` §15 for the
 full list; none of these are answered by invention here.
+
+
+### KTC scrape memory-pressure repair — owner directive 2026-09-17
+
+Continue the open KTC outage repair under issue #1391 and the matching work claim. Use the #1388/#1389 telemetry plus inspection of the actual capture code; preserve all three native source modes and coverage/provenance guards. No MemoryMax/MemoryHigh/systemd changes. Run the full non-livedata suite, pinned formatting contract and sabotage verification before publishing the repair branch; then exact-head PR CI/review, normal merge/deploy and real-cycle production verification. The prior event-loop offload fixed a separate defect but did not eliminate this outage; the launch-flag attempt did not eliminate it either. Do not claim production resolution from unit tests or CI alone.

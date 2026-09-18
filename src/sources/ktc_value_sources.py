@@ -326,14 +326,46 @@ async def select_value_source(page: Any, source: str) -> dict[str, str]:
 
 
 async def selected_players_array(page: Any) -> list[dict[str, Any]]:
-    """Read the current selected-source value board from the public page."""
+    """Transfer only fields consumed by the source-native observation parser.
+
+    Returning the whole playersArray makes Playwright serialize unrelated
+    nested data across the browser/driver/Python boundary. Project in-page,
+    once, without changing source selection or the Python parsing rules.
+    """
     rows = await page.evaluate(
         """() => {
+          const isRecord = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+          const fields = ['value', 'rank', 'blendValue', 'blendRank', 'vftValue', 'vftRank'];
+          const selectFields = v => {
+            if (!isRecord(v)) return v;
+            const result = {};
+            for (const key of fields) {
+              const metric = v[key];
+              const inner = key === 'rank' || key.endsWith('Rank') ? 'rank' : 'value';
+              result[key] = isRecord(metric) ? { [inner]: metric[inner] } : metric;
+            }
+            return result;
+          };
+          let players = [];
           if (typeof playersArray !== 'undefined' && Array.isArray(playersArray)) {
-            return playersArray;
+            players = playersArray;
+          } else if (Array.isArray(window.playersArray)) {
+            players = window.playersArray;
           }
-          if (Array.isArray(window.playersArray)) return window.playersArray;
-          return [];
+          return players.map(p => {
+            // The Python parser already ignores non-record player entries.
+            if (!isRecord(p)) return null;
+            const sf = isRecord(p.superflexValues) ? p.superflexValues : {};
+            return {
+              playerID: p.playerID,
+              playerName: p.playerName,
+              name: p.name,
+              position: p.position,
+              superflexValues: { ...selectFields(sf), tepp: selectFields(sf.tepp) },
+              // Keep null-only SF-to-top-level fallback in the Python owner.
+              tepp: selectFields(p.tepp)
+            };
+          });
         }"""
     )
     if not isinstance(rows, list) or len(rows) < 100:
