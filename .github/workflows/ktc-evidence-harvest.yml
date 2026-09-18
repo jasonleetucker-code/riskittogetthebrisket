@@ -20,14 +20,16 @@ jobs:
         run: |
           set -Eeuo pipefail
           mkdir -p /tmp/ktc-diagnostic-evidence
-          gh api repos/$GH_REPO/actions/jobs/105469737755/logs > /tmp/ktc-diagnostic-evidence/baseline-job.log
+          # The destination is a file, not a terminal. Strip ANSI before parsing.
+          gh api --allow-escape-sequences repos/$GH_REPO/actions/jobs/105469737755/logs > /tmp/ktc-diagnostic-evidence/baseline-job.log
           python3 - <<'PY'
-          import json
+          import json,re
           from collections import Counter
           from pathlib import Path
           root=Path('/tmp/ktc-diagnostic-evidence')
           records=[]
           for line in (root/'baseline-job.log').read_text().splitlines():
+              line=re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]','',line)
               pos=line.find('{')
               if pos<0: continue
               try: record=json.loads(line[pos:])
