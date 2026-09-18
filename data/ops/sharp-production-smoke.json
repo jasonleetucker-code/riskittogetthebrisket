@@ -3,17 +3,17 @@
   "credentialRegression": false,
   "ffpcMarket": {},
   "lastError": {
-    "attempt": 1,
+    "attempt": 2,
     "message": "401 from https://chaseupside.com/api/sharp/cohort",
     "type": "Unauthenticated"
   },
   "lastMeasuredOn": null,
-  "lastObservedAt": "2026-09-17T21:25:24.878271+00:00",
-  "lastObservedOn": "2026-09-17",
+  "lastObservedAt": "2026-09-18T12:15:34.894635+00:00",
+  "lastObservedOn": "2026-09-18",
   "lastRun": {
-    "attempts": 1,
+    "attempts": 2,
     "deployConclusion": "pending",
-    "deployHeadSha": "b83105228d9ce588712aa2c3012b191790be7d49",
+    "deployHeadSha": "4e5c7a4c72f20dcf87c63aac74eaa6ff90045be5",
     "deployRunId": "",
     "event": "push"
   },
