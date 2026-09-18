@@ -48,18 +48,17 @@ jobs:
         shell: bash
         run: |
           set -uo pipefail
+          set +e
           python -m pytest tests/api/test_fantasypros_idp_integration.py::TestFantasyProsIdpEnrichment::test_no_combined_player_loses_direct_rank -q --tb=short -m livedata 2>&1 | tee /tmp/ktc-harvest/base-advisory.txt
           rc=${PIPESTATUS[0]}
           printf '%s\n' "$rc" > /tmp/ktc-harvest/base-advisory-exit.txt
           # This is a negative reproduction, not a green-test claim.
-          test "$rc" = 1 && grep -q '578 != 77' /tmp/ktc-harvest/base-advisory.txt && grep -q 'Byron Murphy II: combined-board player lost direct rank' /tmp/ktc-harvest/base-advisory.txt
-          match=$?
-          if [ "$match" -eq 0 ]; then
+          if test "$rc" = 1 && grep -q '578 != 77' /tmp/ktc-harvest/base-advisory.txt && grep -q 'Byron Murphy II: combined-board player lost direct rank' /tmp/ktc-harvest/base-advisory.txt; then
             echo 'CONFIRMED: identical advisory IDP failure on untouched base; not caused by the KTC projection.' | tee /tmp/ktc-harvest/base-advisory-disposition.txt
           else
             echo 'NOT CONFIRMED: base did not reproduce the exact advisory signature. Inspect logs; do not label pre-existing from this run.' | tee /tmp/ktc-harvest/base-advisory-disposition.txt
+            exit 1
           fi
-          exit "$match"
       - name: Preserve all evidence including failed reproductions
         if: always()
         uses: actions/upload-artifact@v4
