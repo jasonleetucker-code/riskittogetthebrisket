@@ -14,8 +14,8 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: jasonleetucker-code/riskittogetthebrisket
-      JOB_IDS: '105586511341'
-      EVIDENCE_LABEL: fresh-pre-deploy-baseline
+      JOB_IDS: '105583893736'
+      EVIDENCE_LABEL: exact-head-pr-validation
     steps:
       - name: Retrieve completed jobs with original masked logs
         shell: bash
