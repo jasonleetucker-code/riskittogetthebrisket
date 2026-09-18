@@ -1,0 +1,42 @@
+name: KTC frozen release dispatch
+# Temporary helper branch only. Never merge. This dispatches the EXISTING
+# unchanged release-candidate workflow; it cannot merge or deploy anything.
+on:
+  push:
+    branches: ['codex/ktc-release-dispatch']
+permissions:
+  contents: read
+  actions: write
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: jasonleetucker-code/riskittogetthebrisket
+      EXPECTED_HEAD: 08e65e524cc5d840ccdfc9ed1de813779743c44b
+      EXPECTED_BASE: 3314929b9cc0930361d6153cb47b77250434602a
+    steps:
+      - name: Verify exact PR and base, then dispatch normal release gate
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/ktc-release-dispatch
+          gh api "repos/$GH_REPO/pulls/1394" > /tmp/ktc-release-dispatch/pr.json
+          test "$(jq -r .head.sha /tmp/ktc-release-dispatch/pr.json)" = "$EXPECTED_HEAD"
+          test "$(jq -r .base.sha /tmp/ktc-release-dispatch/pr.json)" = "$EXPECTED_BASE"
+          test "$(jq -r .state /tmp/ktc-release-dispatch/pr.json)" = open
+          gh api "repos/$GH_REPO/compare/f01839f7d8dcb389be1b003bda48540e434236fa...$EXPECTED_BASE" --jq '{status,total_commits,commits:[.commits[]|{sha,author:.commit.author.name,message:.commit.message}],files:[.files[].filename]}' > /tmp/ktc-release-dispatch/main-movement.json
+          gh api "repos/$GH_REPO/compare/$EXPECTED_BASE...$EXPECTED_HEAD" --jq '{status,total_commits,merge_base:.merge_base_commit.sha,files:[.files[].filename]}' > /tmp/ktc-release-dispatch/candidate-scope.json
+          test "$(jq -r .merge_base /tmp/ktc-release-dispatch/candidate-scope.json)" = "$EXPECTED_BASE"
+          jq -e '.files|sort == (["docs/OWNER_REQUESTED_TODO.md","docs/WORK_CLAIMS.md","src/sources/ktc_value_sources.py","tests/sources/test_ktc_value_source_projection.py"]|sort)' /tmp/ktc-release-dispatch/candidate-scope.json
+          gh api --method POST "repos/$GH_REPO/actions/workflows/release-candidate.yml/dispatches" -f ref=main -f "inputs[head_ref]=$EXPECTED_HEAD" -f 'inputs[base_ref]=main'
+          printf 'Dispatched existing release-candidate.yml for exact head %s against main %s. No merge or deployment performed.\n' "$EXPECTED_HEAD" "$EXPECTED_BASE" | tee /tmp/ktc-release-dispatch/result.txt
+          cat /tmp/ktc-release-dispatch/result.txt >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain dispatch and main-movement evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ktc-release-dispatch-evidence
+          path: /tmp/ktc-release-dispatch/
+          retention-days: 14
