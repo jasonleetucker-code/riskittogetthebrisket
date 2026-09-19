@@ -90,10 +90,33 @@ _EMPTY_CAREER: dict[str, float | int] = {
 }
 
 
+def _scored_game_span(state: dict[str, Any]) -> tuple[int, int]:
+    """``(shared, maximum)`` current-season games across scored owners.
+
+    Owners with no rows at all are excluded rather than dragging the shared
+    count to zero — they have not played, which is a different statement
+    from the league having no evidence.
+    """
+    season_state = state.get("career") or {}
+    counts = [int(v.get("games", 0)) for v in season_state.values()]
+    counts = [c for c in counts if c > 0]
+    if not counts:
+        return 0, 0
+    return min(counts), max(counts)
+
+
 def _scored_game_count(state: dict[str, Any]) -> int:
-    """Maximum current-season games represented by an as-of state."""
-    career = state.get("career") or {}
-    return max((int(v.get("games", 0)) for v in career.values()), default=0)
+    """Games EVERY scored owner has played — the league's SHARED evidence.
+
+    Deliberately the minimum, not the maximum.  The results-evidence ramp
+    asks "how much has this league actually played", and the maximum
+    answers it with the luckiest team's total: when denominators diverged
+    it claimed more evidence than any shared week supported.  With the
+    completed-week gate in ``metrics.final_regular_season_weeks`` they no
+    longer diverge, so this is an identity on healthy data and an honest
+    floor on unhealthy data.
+    """
+    return _scored_game_span(state)[0]
 
 
 def _results_evidence(scored_games: int) -> float:
@@ -110,6 +133,7 @@ def _effective_weight_vector(
     available_results: set[str],
     preseason: bool,
     results_only: bool,
+    scored_games_max: int | None = None,
 ) -> tuple[dict[str, float], dict[str, float]]:
     """Return the actual component weights plus blend metadata.
 
@@ -146,11 +170,22 @@ def _effective_weight_vector(
         for key in result_keys:
             applied[key] = results_mass * (WEIGHTS[key] / result_base)
 
+    # Preseason suppresses observed results, so publishing last season's
+    # game count beside ``resultsEvidence: 0.0`` states a number that is not
+    # true of the season being described.
+    suppressed = preseason and not results_only
+    games_shared = 0 if suppressed else int(scored_games)
+    games_max = games_shared if scored_games_max is None or suppressed else int(scored_games_max)
+
     blend = {
         "forwardWeight": round(forward_mass, 6),
         "resultsWeight": round(results_mass, 6),
         "resultsEvidence": round(evidence, 6),
-        "scoredGames": int(scored_games),
+        "scoredGames": games_shared,
+        # A denominator that diverges across teams is the defect this whole
+        # gate exists to prevent. Publish it rather than let it be silent.
+        "scoredGamesMax": games_max,
+        "scoredGamesDiverged": bool(games_max != games_shared),
         "targetForwardWeight": WEIGHTS["team_ros_strength"],
         "targetResultsWeight": sum(WEIGHTS[k] for k in RESULT_COMPONENTS),
     }
@@ -407,6 +442,8 @@ def _score_state(
         luck_delta = (float(s.get("wins", 0.0)) - expected_total) / games if games else 0.0
         luck_score = max(0.0, min(1.0, 0.5 - luck_delta))
         inputs[oid] = {
+            "games_used": games,
+            "recent_games_used": len(rb),
             "ppg": ppg,
             "recent": recent,
             "wl_record": wl,
@@ -446,9 +483,17 @@ def _score_state(
         "team_vorp (canonical weekly realized VORP/PAR unavailable; not substituted)"
     )
 
-    scored_games = _scored_game_count(state)
+    scored_games, scored_games_max = _scored_game_span(state)
+    if scored_games_max != scored_games:
+        LOG.warning(
+            "[power_v2] scored-game denominators diverge across owners "
+            "(shared=%s, max=%s) — averages are not comparable across rows",
+            scored_games,
+            scored_games_max,
+        )
     active_weights, blend = _effective_weight_vector(
         scored_games=scored_games,
+        scored_games_max=scored_games_max,
         ros_available=ros_available,
         available_results=available_results,
         preseason=preseason,
@@ -459,6 +504,16 @@ def _score_state(
     # results. Results-only keeps them because retrospective performance is
     # the explicit subject of that diagnostic lens.
     suppressed_results = preseason and not results_only
+
+    def _row_denominators(oid: str) -> dict[str, int]:
+        """Per-row game counts, so an average can never hide its divisor."""
+        if suppressed_results:
+            return {"gamesUsed": 0, "recentGamesUsed": 0}
+        i = inputs[oid]
+        return {
+            "gamesUsed": int(i["games_used"] or 0),
+            "recentGamesUsed": int(i["recent_games_used"] or 0),
+        }
 
     def _component_map(oid: str) -> dict[str, float | None]:
         i = inputs[oid]
@@ -482,11 +537,21 @@ def _score_state(
             "team_vorp": None,
             "wl_record": None if suppressed_results else i["wl_record"],
             # Display-only diagnostics. None of these keys appears in WEIGHTS.
-            "ppg": (None if i["ppg"] is None else _percentile(ppg_values, i["ppg"])),
+            "ppg": (
+                None
+                if suppressed_results or i["ppg"] is None
+                else _percentile(ppg_values, i["ppg"])
+            ),
             "streak": None if suppressed_results else i["streak"],
             "luck_regression": None if suppressed_results else i["luck_regression"],
-            "pointsPerGame": i["ppg"],
-            "recentAvg": recent_value,
+            # These three carried no suppression guard, unlike their
+            # neighbours above. The ``continue`` in the state builder fires
+            # BEFORE the per-season resets, so in a true preseason the state
+            # still holds the last season that had data — and last season's
+            # PPG was published in a column labelled neither "last season"
+            # nor anything else.
+            "pointsPerGame": None if suppressed_results else i["ppg"],
+            "recentAvg": None if suppressed_results else recent_value,
         }
 
     if not active_weights:
@@ -499,6 +564,7 @@ def _score_state(
                     "displayName": _metrics.display_name_for(snapshot, oid),
                     "powerScore": None,
                     "rank": None,
+                    **_row_denominators(oid),
                     "components": {
                         k: (None if v is None else round(float(v), 4))
                         for k, v in components.items()
@@ -529,6 +595,7 @@ def _score_state(
                 "ownerId": oid,
                 "displayName": _metrics.display_name_for(snapshot, oid),
                 "powerScore": score,
+                **_row_denominators(oid),
                 "components": {
                     k: (None if v is None else round(float(v), 4)) for k, v in components.items()
                 },
@@ -700,11 +767,18 @@ def build_section(
     expected_share_total: dict[str, float] = defaultdict(float)
     week_states: list[tuple[str, int, dict[str, Any]]] = []
     scored_week_by_season: dict[str, int] = {}
+    # Reassigned per scored season, so these end up describing the newest
+    # season that produced scores — the same one ``final_state`` describes.
+    counted_weeks: list[int] = []
+    partial_weeks: list[dict[str, Any]] = []
 
     for season in seasons_sorted:
         week_scores = luck._season_weekly_scores(season, registry)
         if not week_scores:
             continue
+
+        counted_weeks = sorted(week_scores.keys())
+        partial_weeks = []
 
         season_state = defaultdict(lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0})
         last_season_recent = defaultdict(list)
@@ -719,6 +793,26 @@ def build_section(
             actuals, _ = luck._actual_week_results(season, wk, registry)
             all_play = luck._all_play_week(scores)
             scored_week_by_season[str(season.season)] = int(wk)
+
+            # The completed-week gate cannot close an odd/bye/unresolved-owner
+            # shortfall inside a week it admitted. Say so out loud instead of
+            # letting one short week quietly shrink somebody's denominator.
+            expected_rosters = int(season.num_teams or 0)
+            if expected_rosters and len(scores) != expected_rosters:
+                partial_weeks.append(
+                    {
+                        "week": int(wk),
+                        "observed": len(scores),
+                        "expected": expected_rosters,
+                    }
+                )
+                LOG.warning(
+                    "[power_v2] %s week %s counted %s scored owners, expected %s",
+                    season.season,
+                    wk,
+                    len(scores),
+                    expected_rosters,
+                )
 
             for oid, pts in scores:
                 actual_share = actuals.get(oid, 0.0)
@@ -1005,6 +1099,9 @@ def build_section(
         "weights": dict(WEIGHTS),
         "effectiveWeights": dict(active_weights),
         "blend": dict(blend),
+        # The exact weeks behind every average on this payload.
+        "countedWeeks": list(counted_weeks),
+        "partialWeeks": [dict(w) for w in partial_weeks],
         "missingInputs": sorted(missing_inputs),
         "rosTeamStrengthAvailable": ros_available,
         "preseason": preseason,
