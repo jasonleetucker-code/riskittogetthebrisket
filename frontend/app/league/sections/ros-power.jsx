@@ -116,6 +116,27 @@ function fmtRaw(v) {
   return Number(v).toFixed(1);
 }
 
+function recordGameCount(record) {
+  if (typeof record !== "string") return null;
+  const parts = record.split("-").map((part) => Number(part));
+  if (parts.length < 2 || parts.some((part) => !Number.isFinite(part))) return null;
+  return parts.reduce((sum, part) => sum + part, 0);
+}
+
+function hasSnapshotIntegrityMismatch(snapshot) {
+  if (!snapshot || snapshot.week == null) return false;
+  const week = Number(snapshot.week);
+  if (!Number.isFinite(week) || week < 0) return false;
+  const scoredGames = Number(snapshot?.blend?.scoredGames);
+  if (Number.isFinite(scoredGames) && scoredGames !== week) return true;
+  return (snapshot.ranking || []).some((row) => {
+    const explicit = Number(row?.recordGames);
+    if (row?.recordGames != null && Number.isFinite(explicit)) return explicit !== week;
+    const parsed = recordGameCount(row?.record);
+    return parsed != null && parsed !== week;
+  });
+}
+
 function ComponentBar({ label, value, weight }) {
   if (!weight) return null;
   const pct = Math.max(0, Math.min(1, Number(value || 0)));
@@ -363,6 +384,7 @@ function LeaguePowerShareCard({ data, rankings, managers }) {
   const week = official?.week ?? data?.asOfWeek ?? null;
   const season = official?.season ?? data?.asOfSeason ?? null;
   const isOfficial = !!official;
+  const integrityWarning = hasSnapshotIntegrityMismatch(official);
 
   // Name the week the arrows are measured against, so "no movement" and
   // "no baseline to move against" cannot read the same on a screenshot.
@@ -391,9 +413,11 @@ function LeaguePowerShareCard({ data, rankings, managers }) {
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", marginBottom: 8 }}>
         <div>
-          <div style={{ fontSize: "1rem", fontWeight: 900, letterSpacing: "0.02em" }}>League Power Rankings</div>
+          <div style={{ fontSize: "1rem", fontWeight: 900, letterSpacing: "0.02em" }}>
+            {isOfficial ? "Official League Power Rankings" : "League Power Rankings"}
+          </div>
           <div style={{ fontSize: "0.68rem", color: "var(--subtext)" }}>
-            {season ? season : "Current season"}{week ? ` · Week ${week}` : ""}{isOfficial ? " · Official" : " · Current"}
+            {season ? season : "Current season"}{week ? ` · Week ${week}` : ""}{isOfficial ? " · Frozen weekly publication" : " · Current"}
             {baselineLabel ? ` · ${baselineLabel}` : ""}
           </div>
         </div>
@@ -401,6 +425,22 @@ function LeaguePowerShareCard({ data, rankings, managers }) {
           Risk It To Get The Brisket
         </div>
       </div>
+
+      {integrityWarning ? (
+        <div
+          style={{
+            margin: "0 0 8px",
+            padding: "6px 8px",
+            border: "1px solid var(--amber)",
+            borderRadius: 6,
+            color: "var(--amber)",
+            fontSize: "0.64rem",
+          }}
+        >
+          Archive integrity warning: this older frozen card contains record data from a different week.
+          It is preserved for audit and never overrides the live ranking.
+        </div>
+      ) : null}
 
       <div style={{ display: "grid", gap: 2 }}>
         {rows.map((row, index) => {
@@ -551,6 +591,12 @@ export default function RosPowerSection({ managers } = {}) {
   const blend = data.blend || {};
   const forwardPct = Math.round(Number(blend.forwardWeight || 0) * 100);
   const resultsPct = Math.round(Number(blend.resultsWeight || 0) * 100);
+  const latestOfficial = data?.shareSnapshot || data?.officialSnapshot || null;
+  const liveWeek = data?.asOfWeek ?? null;
+  const officialWeek = latestOfficial?.week ?? null;
+  const officialBehind =
+    liveWeek != null && officialWeek != null && Number(officialWeek) < Number(liveWeek);
+  const officialIntegrityWarning = hasSnapshotIntegrityMismatch(latestOfficial);
 
   // Render the formula from the weights actually applied. Missing canonical
   // inputs (for example realized weekly VORP before its owner is ready) never
@@ -563,6 +609,39 @@ export default function RosPowerSection({ managers } = {}) {
   return (
     <section>
       <Card title="Power Rankings">
+        <div
+          data-testid="power-ranking-status"
+          style={{
+            marginBottom: 10,
+            padding: "7px 9px",
+            border: "1px solid var(--border-bright, var(--border))",
+            borderRadius: 7,
+            fontSize: "0.68rem",
+            color: "var(--subtext)",
+          }}
+        >
+          <div style={{ fontWeight: 800, color: "var(--cyan)" }}>
+            LIVE RANKINGS{liveWeek != null ? ` · through Week ${liveWeek}` : ""}
+          </div>
+          {officialWeek != null ? (
+            <div>
+              Latest official share card: Week {officialWeek}. Official cards are frozen at publication.
+            </div>
+          ) : (
+            <div>No official weekly share card has been published yet.</div>
+          )}
+          {officialBehind ? (
+            <div style={{ color: "var(--amber)" }}>
+              The live table is newer than the latest official card, so their order can differ until the next publication.
+            </div>
+          ) : null}
+          {officialIntegrityWarning ? (
+            <div style={{ color: "var(--amber)" }}>
+              Archive integrity warning: the latest older card contains a record/week mismatch from the retired publication path.
+            </div>
+          ) : null}
+        </div>
+
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <button
             type="button"
@@ -580,7 +659,11 @@ export default function RosPowerSection({ managers } = {}) {
               fontWeight: 700,
             }}
           >
-            {shareOpen ? "Hide Share Card" : "Share Rankings"}
+            {shareOpen
+              ? "Hide Share Card"
+              : officialWeek != null
+                ? `Share Official Week ${officialWeek}`
+                : "Share Current Rankings"}
           </button>
         </div>
 
@@ -588,7 +671,7 @@ export default function RosPowerSection({ managers } = {}) {
           <div id="league-power-share-card">
             <LeaguePowerShareCard data={data} rankings={rankings} managers={managers} />
             <div style={{ textAlign: "center", fontSize: "0.66rem", color: "var(--subtext)", margin: "-6px 0 10px" }}>
-              Sized to fit all 12 teams in one phone screenshot. Official weekly cards stay frozen after publication.
+              Sized to fit all 12 teams in one phone screenshot. Official weekly cards stay frozen after publication; the live table may move between publications.
             </div>
           </div>
         ) : null}

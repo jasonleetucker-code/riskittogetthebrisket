@@ -7,7 +7,7 @@ results targets:
     0.20 season-to-date all-play
     0.15 recent four-game form
     0.15 canonical weekly realized VORP/PAR (currently unavailable)
-    0.10 official current-season record
+    0.10 as-of-week current-season record
 
 Observed-results evidence enters smoothly as games are scored. Missing
 inputs stay missing and the available weights renormalize without inventing
@@ -783,11 +783,20 @@ def build_section(
             "officialSnapshot": None,
         }
 
-    # Sleeper's roster settings are the authoritative current competitive
-    # record for the headline. Trend points cannot use today's roster settings
-    # retroactively, so they fall back to matchup-derived as-of records.
+    # Sleeper's roster settings are useful only when they describe the SAME
+    # scored-week horizon as the matchup-derived state below. Sleeper can roll
+    # roster settings forward before our weekly matchup ingest has caught up;
+    # accepting that newer record would mix Week N+1 W/L with Week N all-play,
+    # recent form, and evidence weights. That exact mixed-vintage state escaped
+    # into the 2026 Week 1 publication (scoredGames=1 with 2-game records).
+    #
+    # Per owner, trust Sleeper only when its game count matches the number of
+    # scored fantasy matchups represented by ``season_state``. Otherwise the
+    # matchup-derived record is the authoritative as-of-week answer.
     official_record_scores: dict[str, float] = {}
     official_record_strings: dict[str, str] = {}
+    official_record_games: dict[str, int] = {}
+    record_horizon_mismatches: list[tuple[str, int, int]] = []
     current_season = snapshot.current_season
     if current_season is not None:
         for roster in current_season.rosters or []:
@@ -798,16 +807,28 @@ def build_section(
             if not oid:
                 continue
             rec = _metrics.regular_season_settings_record(roster)
-            games = int(rec["wins"]) + int(rec["losses"]) + int(rec["ties"])
-            if games:
+            sleeper_games = int(rec["wins"]) + int(rec["losses"]) + int(rec["ties"])
+            scored_games = int(season_state.get(oid, _EMPTY_CAREER).get("games", 0))
+            if sleeper_games and sleeper_games == scored_games:
                 official_record_scores[oid] = (
                     float(rec["wins"]) + 0.5 * float(rec["ties"])
-                ) / games
+                ) / sleeper_games
                 official_record_strings[oid] = (
                     f"{rec['wins']}-{rec['losses']}-{rec['ties']}"
                     if rec["ties"]
                     else f"{rec['wins']}-{rec['losses']}"
                 )
+                official_record_games[oid] = sleeper_games
+            elif sleeper_games != scored_games:
+                record_horizon_mismatches.append((oid, sleeper_games, scored_games))
+
+    if record_horizon_mismatches:
+        LOG.warning(
+            "[power_v2] ignoring %d Sleeper record(s) newer/older than the "
+            "matchup-derived Power horizon: %s",
+            len(record_horizon_mismatches),
+            record_horizon_mismatches,
+        )
 
     ros_pct = (
         {} if results_only else _load_team_strength_percentiles(snapshot, team_strength_league_key)
@@ -846,13 +867,16 @@ def build_section(
         )
         if row["ownerId"] in official_record_strings:
             row["record"] = official_record_strings[row["ownerId"]]
-            row["recordSource"] = "sleeper"
+            row["recordSource"] = "sleeper_as_of_week"
+            row["recordGames"] = official_record_games[row["ownerId"]]
         else:
-            current = season_state.get(row["ownerId"], _EMPTY_CAREER)
-            wins = round(float(current.get("wins", 0.0)))
-            games = int(current.get("games", 0))
-            row["record"] = f"{wins}-{games - wins}" if games else "0-0"
-            row["recordSource"] = "matchups"
+            outcomes = list(season_outcomes.get(row["ownerId"], []))
+            wins = sum(1 for outcome in outcomes if outcome >= 0.75)
+            losses = sum(1 for outcome in outcomes if outcome <= 0.25)
+            ties = len(outcomes) - wins - losses
+            row["record"] = f"{wins}-{losses}-{ties}" if ties else f"{wins}-{losses}"
+            row["recordSource"] = "matchups_as_of_week"
+            row["recordGames"] = len(outcomes)
 
     current_season_label = (
         str(current_season.season)
