@@ -43,6 +43,7 @@ import time
 import datetime
 import math
 import shutil
+import subprocess
 import zipfile
 import bisect
 from urllib.parse import urlparse
@@ -1873,6 +1874,53 @@ async def scrape_ktc(page, players):
             **fields,
         )
 
+    def _start_capture_availability_prober(capture_id: str) -> None:
+        """Launch a bounded public-path probe burst without touching scrape flow."""
+        try:
+            probe_url = (
+                os.getenv("RISKIT_CAPTURE_PROBE_URL")
+                or f"{os.getenv('PUBLIC_URL', '').rstrip('/')}/api/health"
+            )
+            if not probe_url.startswith("https://"):
+                _telemetry.record(
+                    "capture_probe_start_failed",
+                    capture_id=capture_id,
+                    error="missing_or_non_https_public_probe_url",
+                    configured_url=probe_url or None,
+                )
+                return
+            script = os.path.join(_SCRIPT_DIR, "scripts", "capture_availability_prober.py")
+            if not os.path.isfile(script):
+                _telemetry.record(
+                    "capture_probe_start_failed",
+                    capture_id=capture_id,
+                    error="capture_availability_prober_missing",
+                )
+                return
+            subprocess.Popen(  # noqa: S603 - fixed local script and arguments
+                [
+                    sys.executable,
+                    script,
+                    "--capture-id",
+                    capture_id,
+                    "--target-pid",
+                    str(os.getpid()),
+                    "--probe-url",
+                    probe_url,
+                ],
+                cwd=_SCRIPT_DIR,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except Exception as exc:  # noqa: BLE001 - instrumentation must never fail a scrape
+            _telemetry.record(
+                "capture_probe_start_failed",
+                capture_id=capture_id,
+                error=f"{type(exc).__name__}: {exc}",
+            )
+
     _ktc_mark("start")
     results = {p: None for p in players}
     cached = get_cached("KTC")
@@ -2340,19 +2388,46 @@ async def scrape_ktc(page, players):
         # Value Source control.  If that semantic proof fails, preserve the
         # previous good board instead of silently accepting whichever default
         # KTC happened to render.
-        _ktc_mark("value_source_capture_start")
+        # This phase is intentionally exact: the detached prober starts after
+        # this real event and stops when the phase changes below.  It is not a
+        # substitute for the event stream; the capture ID makes every public
+        # probe joinable to this one start/done interval.
+        _capture_id = f"capture-{os.getpid()}-{time.time_ns()}"
+        _phase_before_capture = _telemetry.read_phase()
+        _telemetry.set_phase(
+            "value_source_capture",
+            source="KTC",
+            worker_id=_phase_before_capture.get("worker_id"),
+            capture_id=_capture_id,
+        )
+        _ktc_mark("value_source_capture_start", capture_id=_capture_id)
+        _start_capture_availability_prober(_capture_id)
         try:
             _captures = await capture_all_value_sources(page)
-            _ktc_mark("value_source_capture_done", captures=len(_captures or {}))
+            _ktc_mark(
+                "value_source_capture_done",
+                capture_id=_capture_id,
+                captures=len(_captures or {}),
+            )
         except KtcValueSourceError as exc:
             _KTC_BLOCKER = f"value_source_semantics:{exc}"
-            _ktc_mark("value_source_capture_failed", error=str(exc))
+            _ktc_mark(
+                "value_source_capture_failed", capture_id=_capture_id, error=str(exc)
+            )
             print(
                 f"  [KTC] three-source semantic capture failed — {exc}; "
                 "preserving last-good KTC files",
                 flush=True,
             )
             return results
+        finally:
+            # The prober reads this atomically and stops immediately after the
+            # capture window.  A failed write is deliberately non-fatal.
+            _telemetry.set_phase(
+                "source_start",
+                source="KTC",
+                worker_id=_phase_before_capture.get("worker_id"),
+            )
 
         _KTC_VALUE_SOURCE_CAPTURES.clear()
         _KTC_VALUE_SOURCE_CAPTURES.update(_captures)
