@@ -11,7 +11,9 @@ import pytest
 
 from src.diagnostics import scrape_telemetry as telemetry
 
-SCRIPT = (\n    Path(__file__).resolve().parents[2] / "scripts" / "capture_availability_prober.py"\n)
+SCRIPT = (
+    Path(__file__).resolve().parents[2] / "scripts" / "capture_availability_prober.py"
+)
 
 
 @pytest.fixture
@@ -38,7 +40,9 @@ def test_http_5xx_is_recorded_as_the_original_result(prober, monkeypatch):
             assert timeout == 2
             raise HTTPError("https://example.test/api/health", 503, "unavailable", {}, None)
 
-    monkeypatch.setattr(\n        prober.urllib.request, "build_opener", lambda *_args: FailingOpener()\n    )
+    monkeypatch.setattr(
+        prober.urllib.request, "build_opener", lambda *_args: FailingOpener()
+    )
     result = prober.probe_once("https://example.test/api/health", 2)
 
     assert result["http_status"] == 503
