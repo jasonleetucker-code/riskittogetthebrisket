@@ -72,16 +72,130 @@ def scored_weeks(matchups_by_week: dict[int, list[dict[str, Any]]]) -> list[int]
     in-progress week-2 season all carry populated ``matchup_id`` and a
     full ``players_points`` stub, entirely at 0.0).
 
-    Sleeper scores every roster in a league-week simultaneously, so a
-    week is either fully real or fully a placeholder — a single
-    per-entry ``is_scored`` check is sufficient, and this is the ONE
-    canonical place that decides it for weekly aggregation (VORP,
-    starter totals, replacement-pool totals).  Do not re-derive this
-    elsewhere; call this.
+    What this does NOT tell you is whether a week has FINISHED scoring.
+    An earlier version of this docstring claimed "Sleeper scores every
+    roster in a league-week simultaneously, so a week is either fully
+    real or fully a placeholder".  That is false, and it is measurable:
+    on 2026-09-19, mid-week-2 of ``dynasty_main``, the week carried 12
+    entries of which 8 had live Thursday-night scores and 4 sat at a
+    literal ``0.0`` because those rosters had nobody playing Thursday.
+    A per-entry check reads that week as partly real, which is how an
+    in-progress week came to be averaged in as a completed game.
+
+    So: this answers "has anything been scored", which is the right
+    question for "does this week exist yet".  For AGGREGATION over
+    completed weeks — averages, per-game rates, form windows — call
+    ``final_regular_season_weeks`` instead.  This remains the ONE
+    canonical place deciding the former; do not re-derive it elsewhere.
+
+    Known follow-up: ``awards.py`` builds VORP, starter totals and
+    replacement pools on this helper, so those figures still drift
+    while a week is in progress.  Tracked separately — changing this
+    function's behaviour would move award outputs.
     """
     return sorted(
         wk for wk, entries in matchups_by_week.items() if any(is_scored(e) for e in entries)
     )
+
+
+def last_scored_week(season: SeasonSnapshot) -> int | None:
+    """Sleeper's own answer to "which week have you finished scoring?".
+
+    Reads ``league.settings.last_scored_leg`` — the host's statement, not
+    our inference.  Deliberately tri-state, mirroring
+    ``game_day_sim.LeagueRules.median_enabled``:
+
+    * an ``int`` — including ``0``, which is the real answer "nothing is
+      final yet", not an absence;
+    * ``None`` when the key is missing or unparseable, meaning UNVERIFIED.
+
+    ``None`` must never be read as "nothing is scored".  Callers pair it
+    with an independent completeness proof — see
+    ``final_regular_season_weeks``.
+    """
+    settings = season.league.get("settings") or {}
+    raw = settings.get("last_scored_leg")
+    if raw is None or isinstance(raw, bool):
+        return None
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return value if value >= 0 else None
+
+
+def week_is_fully_scored(
+    entries: list[dict[str, Any]],
+    expected_rosters: int | None = None,
+) -> bool:
+    """True when the week looks finished on the DATA alone.
+
+    Two conditions, each closing a different way a live week leaks in:
+
+    * **every entry is scored.**  Rejects an in-progress week, whose
+      not-yet-played rosters sit at a literal ``0.0``, and equally rejects
+      Sleeper's fully-stubbed future weeks (see ``scored_weeks``).
+    * **the entry count matches the league's roster count**, when known.
+      Rejects a week Sleeper answered only partially — 8 rows of 12 would
+      otherwise pass the first test and reinstate divergent denominators.
+
+    Deliberately NOT a pairing check.  A roster can be scored but unpaired
+    (bye, odd team count, malformed matchup row) and the week is still
+    finished; ``luck.py`` already handles that owner correctly, keeping
+    them in the all-play pool while charging them no record.  Requiring
+    pairs here would withhold a complete week, and would reject any
+    caller whose rows carry no ``matchup_id``.
+
+    The accepted residual: a roster that genuinely scored ``0.0`` in a
+    finished week fails this proof, so that week is admitted only by the
+    host clock in ``final_regular_season_weeks``.  Withholding a real week
+    for one refresh cycle is the safe direction; admitting a live one is
+    not.
+    """
+    if not entries:
+        return False
+    if expected_rosters and len(entries) != expected_rosters:
+        return False
+    return all(is_scored(e) for e in entries)
+
+
+def final_regular_season_weeks(season: SeasonSnapshot) -> list[int]:
+    """Regular-season weeks whose scoring is FINISHED.
+
+    This is the unit of aggregation for anything measured per game — PPG,
+    recent form, all-play, luck.  An in-progress week must contribute to
+    none of them: counting a Thursday-night sliver as a completed game is
+    what made one team's average divide by 2 while another's divided by 1
+    (PRIOR-A03-F03).
+
+    A week qualifies on EITHER of two independent proofs, because each
+    covers the other's failure mode:
+
+    * **host clock** — ``wk <= last_scored_week(season)``.  This is the
+      only proof that can admit a week in which a roster genuinely scored
+      ``0.0``, since per-entry inspection cannot tell that apart from
+      "hasn't played yet" (measured: the four zero rosters in live week 2
+      carried a literal ``0.0``, not ``null``).
+    * **data completeness** — every roster reporting a real score, in the
+      expected number of rows (``week_is_fully_scored``).  This admits a
+      genuinely finished week when the host clock lags a refresh cycle.
+
+    An in-progress week fails both, which is the point.  Both failing is
+    also why the return is a WITHHOLDING rather than a guess: an
+    unverifiable week is simply absent, never assumed complete.
+    """
+    horizon = last_scored_week(season)
+    out: list[int] = []
+    for wk in season.regular_season_weeks:
+        if horizon is not None and wk <= horizon:
+            out.append(wk)
+            continue
+        if week_is_fully_scored(
+            season.matchups_by_week.get(wk) or [],
+            expected_rosters=season.num_teams or None,
+        ):
+            out.append(wk)
+    return out
 
 
 def resolve_owner(
@@ -171,16 +285,6 @@ def top_seed(standings: list[dict[str, Any]]) -> dict[str, Any] | None:
 
 
 # ── Pre-week standings reconstruction ─────────────────────────────────────
-def _reg_season_weeks_actual(season: SeasonSnapshot) -> list[int]:
-    """Regular-season weeks that actually have any scored games."""
-    weeks = []
-    for wk in season.regular_season_weeks:
-        entries = season.matchups_by_week.get(wk) or []
-        if any(is_scored(e) for e in entries):
-            weeks.append(wk)
-    return sorted(weeks)
-
-
 def pre_week_standings(
     season: SeasonSnapshot,
     registry: ManagerRegistry,

@@ -81,14 +81,35 @@ def _season_weekly_scores(
     season: SeasonSnapshot,
     registry: ManagerRegistry,
 ) -> dict[int, list[tuple[str, float]]]:
-    """Return ``{week: [(owner_id, points), ...]}`` for every scored
+    """Return ``{week: [(owner_id, points), ...]}`` for every COMPLETED
     regular-season week.  Entries that can't be resolved to an owner are skipped.
+
+    Two distinctions are load-bearing here, and getting either wrong is a
+    measured defect rather than a hypothetical one.
+
+    **An in-progress week contributes to nobody.**  The week gate is
+    ``metrics.final_regular_season_weeks``, not ``season.regular_season_weeks``.
+    This function feeds per-game aggregation in two places — the Luck section
+    and ``ros.power_v2`` — so admitting a live week made a Thursday-night
+    sliver count as a completed game.  Measured on 2026-09-19: live week 2
+    held 8 partial scores and 4 rosters at ``0.0``, so eight teams' PPG was
+    divided by 2 and four by 1, inside one table (PRIOR-A03-F03).
+
+    **Inside a counted week, ``0.0`` is an observation and an absent row is
+    missing.**  The per-entry test is therefore ``points is None``, not
+    ``is_scored`` (``points > 0``).  A roster that genuinely scored nothing in
+    a finished week played that game; dropping it would shrink that one team's
+    denominator again, in the direction that hides the defect.  MISSING IS
+    NEVER ZERO must not become "zero is never real".
+
+    ``_actual_week_results`` inherits the gate for free: both callers iterate
+    only the weeks this function returned.
     """
     out: dict[int, list[tuple[str, float]]] = {}
-    for wk in season.regular_season_weeks:
+    for wk in metrics.final_regular_season_weeks(season):
         rows: list[tuple[str, float]] = []
         for entry in season.matchups_by_week.get(wk) or []:
-            if not metrics.is_scored(entry):
+            if entry.get("points") is None:
                 continue
             owner_id = metrics.resolve_owner(registry, season.league_id, entry.get("roster_id"))
             if not owner_id:
