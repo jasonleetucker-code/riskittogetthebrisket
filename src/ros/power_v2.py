@@ -82,7 +82,15 @@ _MIN_SCORED_GAMES: dict[str, int] = {}
 
 METHODOLOGY_VERSION = "canonical-power-2026.09-v1"
 
-_EMPTY_CAREER: dict[str, float | int] = {
+#: Zero state for ONE season. Named for what it holds: this and the
+#: ``state["season"]`` key it backs were called ``_EMPTY_CAREER`` /
+#: ``state["career"]`` while holding season-scoped state, and that name has
+#: already cost one shipped defect — see
+#: ``tests/ros/test_power_v2_headline_fields.py``, where ``record`` read the
+#: key believing it was the cross-season accumulator. The genuine
+#: cross-season accumulator is ``career_state``, which is used only for
+#: owner enumeration and never reaches ``_score_state``.
+_EMPTY_SEASON_STATE: dict[str, float | int] = {
     "points": 0.0,
     "games": 0,
     "wins": 0.0,
@@ -97,7 +105,7 @@ def _scored_game_span(state: dict[str, Any]) -> tuple[int, int]:
     count to zero — they have not played, which is a different statement
     from the league having no evidence.
     """
-    season_state = state.get("career") or {}
+    season_state = state.get("season") or {}
     counts = [int(v.get("games", 0)) for v in season_state.values()]
     counts = [c for c in counts if c > 0]
     if not counts:
@@ -427,7 +435,7 @@ def _score_state(
 
     inputs: dict[str, dict[str, float | None]] = {}
     for oid in owner_ids:
-        s = state["career"].get(oid, _EMPTY_CAREER)
+        s = state["season"].get(oid, _EMPTY_SEASON_STATE)
         games = int(s.get("games", 0))
         points = float(s.get("points", 0.0))
         ppg = points / games if games else None
@@ -760,7 +768,7 @@ def build_section(
     season_state: dict[str, dict[str, float | int]] = defaultdict(
         lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0}
     )
-    last_season_recent: dict[str, list[float]] = defaultdict(list)
+    recent_window: dict[str, list[float]] = defaultdict(list)
     last_season_allplay_share: dict[str, float] = {}
     allplay_share_total: dict[str, float] = defaultdict(float)
     season_outcomes: dict[str, list[float]] = defaultdict(list)
@@ -781,7 +789,7 @@ def build_section(
         partial_weeks = []
 
         season_state = defaultdict(lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0})
-        last_season_recent = defaultdict(list)
+        recent_window = defaultdict(list)
         last_season_allplay_share = {}
         allplay_share_total = defaultdict(float)
         season_outcomes = defaultdict(list)
@@ -834,7 +842,7 @@ def build_section(
                 recent.append(pts)
                 if len(recent) > _RECENT_WINDOW:
                     recent.pop(0)
-                last_season_recent[oid] = list(recent)
+                recent_window[oid] = list(recent)
 
                 expected_share = float((all_play.get(oid) or {}).get("expectedShare", 0.0))
                 allplay_share_total[oid] += expected_share
@@ -851,8 +859,8 @@ def build_section(
                     str(season.season),
                     int(wk),
                     {
-                        "career": {o: dict(v) for o, v in season_state.items()},
-                        "recent": {o: list(v) for o, v in last_season_recent.items()},
+                        "season": {o: dict(v) for o, v in season_state.items()},
+                        "recent": {o: list(v) for o, v in recent_window.items()},
                         "allplay": dict(last_season_allplay_share),
                         "expected": dict(expected_share_total),
                         "outcomes": {o: list(v) for o, v in season_outcomes.items()},
@@ -908,8 +916,8 @@ def build_section(
     )
     ros_available = bool(ros_pct)
     final_state = {
-        "career": season_state,
-        "recent": last_season_recent,
+        "season": season_state,
+        "recent": recent_window,
         "allplay": last_season_allplay_share,
         "expected": expected_share_total,
         "outcomes": season_outcomes,
@@ -942,7 +950,7 @@ def build_section(
             row["record"] = official_record_strings[row["ownerId"]]
             row["recordSource"] = "sleeper"
         else:
-            current = season_state.get(row["ownerId"], _EMPTY_CAREER)
+            current = season_state.get(row["ownerId"], _EMPTY_SEASON_STATE)
             wins = round(float(current.get("wins", 0.0)))
             games = int(current.get("games", 0))
             row["record"] = f"{wins}-{games - wins}" if games else "0-0"
