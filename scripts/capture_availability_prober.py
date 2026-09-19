@@ -86,7 +86,7 @@ def _resource_snapshot(target_pid: int) -> dict[str, object]:
     """Best-effort resource fields tied to the same probe timestamp."""
     try:
         tree = proc_probe.sample_process_tree(target_pid)
-        cgroup = proc_probe.resolve_cgroup_dir(target_pid if tree.get("pid_alive") else os.getpid())
+        cgroup = proc_probe.resolve_cgroup_dir(\n            target_pid if tree.get("pid_alive") else os.getpid()\n        )
         out: dict[str, object] = {
             "target_pid": target_pid,
             "target_alive": tree.get("pid_alive"),
@@ -107,7 +107,7 @@ def _resource_snapshot(target_pid: int) -> dict[str, object]:
             out["memory_headroom_pct"] = round(100 * (maximum - current) / maximum, 2)
         return out
     except Exception as exc:  # noqa: BLE001 - probe evidence must still be written
-        return {"target_pid": target_pid, "resource_error": f"{type(exc).__name__}: {exc}"}
+        return {\n            "target_pid": target_pid,\n            "resource_error": f"{type(exc).__name__}: {exc}",\n        }
 
 
 def run(
