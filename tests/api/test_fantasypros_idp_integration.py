@@ -13,6 +13,8 @@ import os
 import unittest
 from pathlib import Path
 
+import pytest
+
 from src.api.data_contract import (
     _IDP_SIGNAL_KEYS,
     _RANKING_SOURCES,
@@ -24,6 +26,92 @@ from src.canonical.idp_backbone import SOURCE_SCOPE_OVERALL_IDP
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FP_CSV = REPO_ROOT / "CSVs" / "site_raw" / "fantasyProsIdp.csv"
 LIVE_API_JSON = REPO_ROOT / "tests" / "api" / "_live_api_fixture.json"
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("aliases", [False, True])
+def test_fp_metadata_keeps_same_name_idp_families_separate(tmp_path, monkeypatch, reverse, aliases):
+    from src.api import data_contract as dc
+
+    source = [
+        ["Byron Murphy II", 116, 116, "direct_combined", "DL", 2627, "Byron Murphy II", "DT"],
+        [
+            "Byron Murphy Jr.",
+            74,
+            162,
+            "anchored_from_individual",
+            "DB",
+            1975,
+            "Byron Murphy Jr.",
+            "CB",
+        ],
+    ]
+    path = tmp_path / "fp.csv"
+    with path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.writer(stream)
+        writer.writerow(
+            [
+                "name",
+                "originalRank",
+                "effectiveRank",
+                "derivationMethod",
+                "family",
+                "normalizedValue",
+                "matchedSourceName",
+                "position",
+            ]
+        )
+        writer.writerows(reversed(source) if reverse else source)
+    monkeypatch.setattr(
+        dc, "_SOURCE_CSV_PATHS", {"fantasyProsIdp": {"path": "fp.csv", "signal": "rank"}}
+    )
+    rows = [
+        {
+            "canonicalName": "Byron Murphy" if aliases else source[0][0],
+            "position": "DT",
+            "canonicalSiteValues": {"fantasyProsIdp": 2627},
+        },
+        {
+            "canonicalName": "Byron Murphy" if aliases else source[1][0],
+            "position": "CB",
+            "canonicalSiteValues": {"fantasyProsIdp": 1975},
+        },
+    ]
+    dc._enrich_from_source_csvs(rows, csv_root=tmp_path)
+    assert [
+        (
+            r["fantasyProsIdpOriginalRank"],
+            r["fantasyProsIdpEffectiveRank"],
+            r["fantasyProsIdpFamily"],
+        )
+        for r in rows
+    ] == [(116, 116, "DL"), (74, 162, "DB")]
+    assert [r["canonicalSiteValues"]["fantasyProsIdp"] for r in rows] == [2627, 1975]
+
+
+@pytest.mark.parametrize("position", ["DB", None])
+def test_fp_metadata_withholds_ambiguous_normalized_identity(tmp_path, monkeypatch, position):
+    from src.api import data_contract as dc
+
+    path = tmp_path / "fp.csv"
+    path.write_text(
+        "name,originalRank,effectiveRank,derivationMethod,family,normalizedValue,position\n"
+        "Byron Murphy II,116,116,direct_combined,DB,2627,CB\n"
+        "Byron Murphy Jr.,74,162,anchored_from_individual,DB,1975,CB\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        dc, "_SOURCE_CSV_PATHS", {"fantasyProsIdp": {"path": "fp.csv", "signal": "rank"}}
+    )
+    for _ in range(2):  # Both fresh parse and cached candidates preserve ambiguity.
+        row = {
+            "canonicalName": "Byron Murphy",
+            "position": position,
+            "canonicalSiteValues": {"fantasyProsIdp": 1975},
+        }
+        dc._enrich_from_source_csvs([row], csv_root=tmp_path)
+        assert "fantasyProsIdpEffectiveRank" not in row
+        assert row["canonicalSiteValues"]["fantasyProsIdp"] == 1975
 
 
 def _fp_csv_rows() -> list[dict[str, str]]:

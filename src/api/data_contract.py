@@ -4317,7 +4317,7 @@ _LAST_CONTRACT_JOIN_SUMMARY: dict | None = None
 # vote count per source.  ``None`` before any board is built.
 _LAST_CROSS_POSITION_BRIDGE_SUMMARY: dict | None = None
 
-_FP_META_CSV_CACHE: dict[str, tuple[float, dict[str, dict[str, Any]]]] = {}
+_FP_META_CSV_CACHE: dict[str, tuple[float, dict[str, list[tuple[str, dict[str, Any]]]]]] = {}
 
 
 def _parse_source_csv_cached(
@@ -4519,7 +4519,7 @@ def _parse_source_csv_cached(
     return csv_lookup, schema_err
 
 
-def _parse_fp_meta_csv_cached(fp_path: Path) -> dict[str, dict[str, Any]]:
+def _parse_fp_meta_csv_cached(fp_path: Path) -> dict[str, list[tuple[str, dict[str, Any]]]]:
     """Parse FantasyPros IDP metadata CSV with mtime-keyed caching."""
     import csv as _csv  # noqa: PLC0415
 
@@ -4532,7 +4532,7 @@ def _parse_fp_meta_csv_cached(fp_path: Path) -> dict[str, dict[str, Any]]:
     if cached and cached[0] == current_mtime:
         return cached[1]
 
-    fp_meta_lookup: dict[str, dict[str, Any]] = {}
+    fp_meta_lookup: dict[str, list[tuple[str, dict[str, Any]]]] = {}
     with fp_path.open("r", encoding="utf-8-sig") as f:
         for row_csv in _csv.DictReader(f):
             nm = str(row_csv.get("name") or "").strip()
@@ -4553,7 +4553,7 @@ def _parse_fp_meta_csv_cached(fp_path: Path) -> dict[str, dict[str, Any]]:
                 norm_v = int(float(row_csv.get("normalizedValue") or 0))
             except (TypeError, ValueError):
                 norm_v = 0
-            fp_meta_lookup[key] = {
+            metadata = {
                 "fantasyProsIdpOriginalRank": orig_r,
                 "fantasyProsIdpEffectiveRank": eff_r,
                 "fantasyProsIdpDerivationMethod": str(
@@ -4565,6 +4565,9 @@ def _parse_fp_meta_csv_cached(fp_path: Path) -> dict[str, dict[str, Any]]:
                     row_csv.get("matchedSourceName") or nm
                 ).strip(),
             }
+            # Suffix normalization can join distinct IDP players (Murphy II/Jr).
+            # Preserve candidates rather than letting CSV order pick a person.
+            fp_meta_lookup.setdefault(key, []).append((nm, metadata))
     _FP_META_CSV_CACHE[cache_key] = (current_mtime, fp_meta_lookup)
     return fp_meta_lookup
 
@@ -4935,9 +4938,25 @@ def _enrich_from_source_csvs(
                     key = _canonical_match_key(nm)
                     if not key:
                         continue
-                    meta = fp_meta_lookup.get(key)
-                    if meta is None:
+                    from src.utils.name_clean import normalize_position_family  # noqa: PLC0415
+
+                    candidates = fp_meta_lookup.get(key, [])
+                    family = normalize_position_family(row.get("position"))
+                    if family:
+                        candidates = [
+                            (name, metadata)
+                            for name, metadata in candidates
+                            if normalize_position_family(metadata["fantasyProsIdpFamily"]) == family
+                        ]
+                    exact = [
+                        (name, metadata)
+                        for name, metadata in candidates
+                        if name.casefold() == nm.strip().casefold()
+                    ]
+                    candidates = exact or candidates
+                    if len(candidates) != 1:
                         continue
+                    meta = candidates[0][1]
                     # Only stamp FP metadata on rows that actually
                     # received a FantasyPros enrichment value — the
                     # generic loop above already validated the
