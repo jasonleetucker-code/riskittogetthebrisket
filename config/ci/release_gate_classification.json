@@ -377,6 +377,24 @@
     "lane4-onbox-verification.yml::lane4-onbox::Upload the report": {
       "category": "blocking"
     },
+    "prepared-serving-permissions.yml::cross-uid::Exercise actual distinct POSIX identities": {
+      "category": "blocking"
+    },
+    "prepared-serving-permissions.yml::cross-uid::Install isolated test dependency": {
+      "category": "blocking"
+    },
+    "prepared-serving-permissions.yml::cross-uid::Refuse skipped cross-UID evidence": {
+      "category": "blocking"
+    },
+    "prepared-serving-permissions.yml::cross-uid::step_0": {
+      "category": "blocking"
+    },
+    "prepared-serving-permissions.yml::cross-uid::step_1": {
+      "category": "blocking"
+    },
+    "prepared-serving-permissions.yml::cross-uid::step_5": {
+      "category": "blocking"
+    },
     "pr-validation.yml::validate::API data contract check (structural lane \u2014 blocking)": {
       "category": "blocking"
     },
