@@ -1749,6 +1749,9 @@ def stale_control_fixture(
     unknown=0,
     web_exit_code=0,
     collector="off",
+    idle_closed=False,
+    fail_exchange=None,
+    failure_type="RemoteDisconnected",
 ):
     from src.serving import producer_status
 
@@ -1764,7 +1767,9 @@ def stale_control_fixture(
         if close_fails:
             raise OSError(PRIVATE)
 
-    connection = SimpleNamespace(close=close)
+    def connect(port, sequence):
+        return SimpleNamespace(close=close, sequence=sequence, generation=generation[0])
+
     monkeypatch.setattr(
         lab.threading,
         "Event",
@@ -1772,7 +1777,7 @@ def stale_control_fixture(
             wait=lambda seconds: exchanges.append({"pacingSeconds": seconds}) or False
         ),
     )
-    monkeypatch.setattr(lab, "DiagnosticConnection", lambda *a: connection)
+    monkeypatch.setattr(lab, "DiagnosticConnection", connect)
     monkeypatch.setattr(lab, "store_for", lambda *a: SimpleNamespace(root=tmp_path / "store"))
     monkeypatch.setattr(lab, "code_provenance", lambda *a, **k: {})
     monkeypatch.setattr(
@@ -1806,6 +1811,20 @@ def stale_control_fixture(
     def exchange(connection, path, *, etag=None, **kwargs):
         if fail_first:
             raise TimeoutError(PRIVATE)
+        seen = sum("status" in item for item in exchanges)
+        if (idle_closed and connection.generation != generation[0]) or seen == fail_exchange:
+            raise lab.DiagnosticRequestFailure(
+                {
+                    "requestStartNs": 100,
+                    "failureObservedNs": 200,
+                    "connectionSequence": connection.sequence,
+                    "private": PRIVATE,
+                    "status": -1,
+                    "bodyBytes": 1.5,
+                    "connectStartNs": True,
+                },
+                failure_type,
+            )
         view = "trade" if path.endswith("context") else "rankings"
         candidate = response(view, f"{generation[0]:064x}")
         current_conditional = etag == candidate.headers["etag"]
@@ -1830,6 +1849,7 @@ def stale_control_fixture(
                 "requested": etag,
                 "status": item.status_code,
                 "bodyBytes": len(item.body),
+                "connectionSequence": connection.sequence,
             }
         )
         return item, {"requestStartNs": 100, "bodyCompleteNs": 200}
@@ -1879,6 +1899,106 @@ def stale_control_fixture(
     )
     result = lab.diagnostic_stale_etag_run(options, state, web, PRIVATE, raw, {})
     return result, json.loads(options.output.read_text()), exchanges, clocks, queued
+
+
+def test_stale_control_retires_idle_connection_before_publication(monkeypatch, tmp_path):
+    result, report, exchanges, _, _ = stale_control_fixture(monkeypatch, tmp_path, idle_closed=True)
+    assert result == 0
+    assert len(report["rows"]) == 120
+    for revision in range(4):
+        requests = [item for item in exchanges if item.get("revision") == revision]
+        assert {item["connectionSequence"] for item in requests} == {revision + 1}
+    assert sum(item.get("closed", False) for item in exchanges) == 4
+
+
+@pytest.mark.parametrize(
+    "failed_exchange,stage",
+    [(0, "initial_seed"), (2, "current_seed"), (3, "current_304"), (6, "pair")],
+)
+def test_stale_control_failure_preserves_safe_details_without_retry(
+    monkeypatch, tmp_path, failed_exchange, stage
+):
+    result, report, exchanges, _, _ = stale_control_fixture(
+        monkeypatch, tmp_path, fail_exchange=failed_exchange
+    )
+    assert result == 1 and not report["diagnosticComplete"]
+    assert sum("status" in item for item in exchanges) == failed_exchange
+    assert report["requestFailure"] == {
+        "stage": stage,
+        "route": "rankings",
+        "revision": int(failed_exchange > 0),
+        "failureType": "RemoteDisconnected",
+        "cycle": 0 if stage == "pair" else None,
+        "pairSlot": 0 if stage == "pair" else None,
+        "kind": "unconditional" if stage == "pair" else None,
+        "marks": {
+            "requestStartNs": 100,
+            "failureObservedNs": 200,
+            "connectionSequence": 1 + int(failed_exchange > 0),
+        },
+    }
+    assert PRIVATE not in json.dumps(report)
+
+
+def test_stale_control_unknown_failure_type_is_not_private_output(monkeypatch, tmp_path):
+    result, report, _, _, _ = stale_control_fixture(
+        monkeypatch, tmp_path, fail_exchange=2, failure_type=PRIVATE
+    )
+    assert result == 1 and report["requestFailure"]["failureType"] == "other"
+    assert PRIVATE not in json.dumps(report)
+
+
+def test_real_idle_peer_close_requires_a_new_seed_connection():
+    # Real HTTP client, deterministic server-side idle expiry. No latency claim.
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(2)
+    listener.settimeout(3)
+    expired = threading.Event()
+    errors = []
+
+    def serve():
+        try:
+            for index in range(2):
+                peer, _ = listener.accept()
+                with peer:
+                    peer.settimeout(2)
+                    data = b""
+                    while b"\r\n\r\n" not in data:
+                        chunk = peer.recv(4096)
+                        if not chunk:
+                            raise EOFError("request closed")
+                        data += chunk
+                    peer.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}")
+                    if index == 0:
+                        peer.shutdown(socket.SHUT_WR)
+                expired.set()
+        except Exception as exc:
+            errors.append(type(exc).__name__)
+
+    thread = threading.Thread(target=serve, daemon=True)
+    thread.start()
+    first = lab.DiagnosticConnection(listener.getsockname()[1], 1)
+    second = lab.DiagnosticConnection(listener.getsockname()[1], 2)
+    try:
+        lab.diagnostic_response(first, "/api/read-models/rankings")
+        assert expired.wait(2)
+        with pytest.raises(lab.DiagnosticRequestFailure) as failure:
+            lab.diagnostic_response(first, "/api/read-models/rankings")
+        assert failure.value.failure_type in {
+            "RemoteDisconnected",
+            "ConnectionResetError",
+            "ConnectionAbortedError",
+            "BrokenPipeError",
+        }
+        result, marks = lab.diagnostic_response(second, "/api/read-models/rankings")
+        assert result.body == b"{}" and marks["connectionSequence"] == 2
+    finally:
+        first.close()
+        second.close()
+        listener.close()
+        thread.join(3)
+    assert not thread.is_alive() and not errors
 
 
 def test_stale_etag_control_requires_current_b_304_with_no_body(monkeypatch, tmp_path):

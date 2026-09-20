@@ -2228,6 +2228,9 @@ def diagnostic_stale_etag_run(args, state, web_child, fixture_league_key, raw_pa
     previous = {}
     current_conditionals = []
     pacing = threading.Event()
+    request_failure = None
+    request_stage, request_route, revision = "initial_seed", "rankings", 0
+    request_cycle = request_slot = request_kind = None
 
     def wire_evidence(response):
         # Only fixed enums, hashes and numeric sizes leave the private response.
@@ -2252,9 +2255,16 @@ def diagnostic_stale_etag_run(args, state, web_child, fixture_league_key, raw_pa
     try:
         clock_start = exchange_clocks(state)
         for view, path in controls:
+            request_route = view
             response, _ = diagnostic_response(connection, path)
             previous[view] = audit.check(response, view, fixture_league_key)
         for revision in range(1, 4):
+            request_cycle = request_slot = request_kind = None
+            # Publication can outlive the server's idle keep-alive. Retire only
+            # between publications; the untimed B seed establishes the socket
+            # reused by every measured pair. Never retry a failed pair.
+            connection.close()
+            connection = None
             request_source_refresh(store, "stale_etag_control")
             request_league_refresh(store, "stale_etag_control")
             child = launch(args, "changed", revision)
@@ -2270,13 +2280,16 @@ def diagnostic_stale_etag_run(args, state, web_child, fixture_league_key, raw_pa
                 if time.monotonic() >= deadline:
                     raise TimeoutError("stale_etag_adoption_timeout")
                 time.sleep(0.1)
+            connection = DiagnosticConnection(args.port, revision + 1)
             current, current_wire = {}, {}
             for view, path in controls:
+                request_stage, request_route = "current_seed", view
                 response, _ = diagnostic_response(connection, path)
                 current[view] = audit.check(response, view, fixture_league_key)
                 current_wire[view] = wire_evidence(response)
                 if current[view][1] == previous[view][1] or current[view][0] == previous[view][0]:
                     raise AssertionError("stale_etag_requires_changed_identity")
+                request_stage = "current_304"
                 conditional, marks = diagnostic_response(connection, path, etag=current[view][0])
                 observed = audit.check(conditional, view, fixture_league_key, current[view])
                 if conditional.status_code != 304 or conditional.body or observed != current[view]:
@@ -2304,6 +2317,8 @@ def diagnostic_stale_etag_run(args, state, web_child, fixture_league_key, raw_pa
                         else ("staleConditional", "unconditional")
                     )
                     for pair_slot, kind in enumerate(kinds):
+                        request_stage, request_route = "pair", view
+                        request_cycle, request_slot, request_kind = cycle, pair_slot, kind
                         expected = previous[view] if kind == "staleConditional" else None
                         response, marks = diagnostic_response(
                             connection, path, etag=expected[0] if expected else None
@@ -2337,9 +2352,50 @@ def diagnostic_stale_etag_run(args, state, web_child, fixture_league_key, raw_pa
         clock_end = exchange_clocks(state)
     except Exception as exc:
         errors.append(type(exc).__name__)
+        if isinstance(exc, DiagnosticRequestFailure):
+            allowed_types = {
+                "RemoteDisconnected",
+                "ConnectionResetError",
+                "ConnectionAbortedError",
+                "BrokenPipeError",
+                "TimeoutError",
+                "OSError",
+                "IncompleteRead",
+                "BadStatusLine",
+                "CannotSendRequest",
+                "ResponseNotReady",
+            }
+            allowed_marks = {
+                "requestStartNs",
+                "writeCompleteNs",
+                "headersAvailableNs",
+                "bodyCompleteNs",
+                "failureObservedNs",
+                "connectStartNs",
+                "connectEndNs",
+                "connectionSequence",
+                "connectionEstablishment",
+                "status",
+                "bodyBytes",
+            }
+            request_failure = {
+                "stage": request_stage,
+                "route": request_route,
+                "revision": revision,
+                "failureType": exc.failure_type if exc.failure_type in allowed_types else "other",
+                "cycle": request_cycle,
+                "pairSlot": request_slot,
+                "kind": request_kind,
+                "marks": {
+                    key: value
+                    for key, value in exc.marks.items()
+                    if key in allowed_marks and type(value) is int and value >= 0
+                },
+            }
     finally:
         try:
-            connection.close()
+            if connection is not None:
+                connection.close()
         except Exception as exc:
             errors.append(f"connection_close_{type(exc).__name__}")
         if child is not None:
@@ -2398,6 +2454,8 @@ def diagnostic_stale_etag_run(args, state, web_child, fixture_league_key, raw_pa
     report = {
         "diagnosticCase": "stale-etag",
         "acceptanceClaim": False,
+        "requestFailure": request_failure,
+        "connectionPolicy": "retire before publication; untimed current-B seed; reuse all pairs without retry",
         "diagnosticComplete": all(checks.values()),
         "checks": checks,
         "errors": errors,
