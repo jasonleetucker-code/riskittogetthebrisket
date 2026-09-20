@@ -11638,9 +11638,11 @@ def build_api_data_contract(
         base["maxValues"] = max_values
 
     sleeper = base.get("sleeper")
-    if not isinstance(sleeper, dict):
-        sleeper = {}
-        base["sleeper"] = sleeper
+    # The accepted raw generation remains read-only. Normalizing positions
+    # and stamping derived teams below belong to this contract's mapping.
+    # Team rows are separately copied by stamp_optimal_lineups.
+    sleeper = dict(sleeper) if isinstance(sleeper, dict) else {}
+    base["sleeper"] = sleeper
 
     pos_map = sleeper.get("positions")
     if not isinstance(pos_map, dict):

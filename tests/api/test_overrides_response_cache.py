@@ -25,6 +25,8 @@ Pinned here:
 from __future__ import annotations
 
 import json
+import copy
+import hashlib
 
 import pytest
 from fastapi.testclient import TestClient
@@ -32,6 +34,7 @@ from fastapi.testclient import TestClient
 import server
 from src.api import league_registry
 from tests.api.test_source_overrides import _fixture_raw_payload
+from tests.api.test_league_routing import SCORING_CARD, shared_scoring_registry  # noqa: F401
 
 pytestmark = pytest.mark.usefixtures("isolated_legacy_serving_startup")
 
@@ -225,3 +228,125 @@ def test_withdrawn_source_toggle_bodies_share_one_slot(overrides_env, monkeypatc
         "a second full rebuild means the key is reading the raw body"
     )
     assert r1.content == r2.content
+
+
+@pytest.mark.parametrize("view", ["full", "delta"])
+@pytest.mark.parametrize("positions_present", [True, False])
+def test_uncached_override_preserves_captured_generation_raw(
+    overrides_env, monkeypatch, view, positions_present
+):
+    """The real builder may stamp its output, never the accepted input graph."""
+    from src.serving.runtime import PreparedPayload, ServingGeneration
+
+    raw = _fixture_raw_payload()
+    raw["sleeper"]["teams"] = [
+        {"ownerId": "fixture-owner", "players": ["Josh Allen", "Unknown Fixture Player"]}
+    ]
+    raw["sleeper"]["rosterPositions"] = ["QB"]
+    if not positions_present:
+        raw["sleeper"].pop("positions")
+    before = copy.deepcopy(raw)
+
+    def raw_hash(payload):
+        return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+
+    before_hash = raw_hash(raw)
+    contract = {"meta": {"leagueKey": "main"}, "sleeper": copy.deepcopy(raw["sleeper"])}
+    contract_before = copy.deepcopy(contract)
+    generation = ServingGeneration(
+        generation_id="fixture-generation",
+        contract=contract,
+        raw=raw,
+        source={},
+        health={},
+        coverage={},
+        views={"full": PreparedPayload(contract, b"{}", b"", "fixture-etag")},
+    )
+    with TestClient(server.app, raise_server_exceptions=True) as client:
+        monkeypatch.setattr(server, "latest_serving_generation", generation)
+        assert not server._OVERRIDES_RESPONSE_CACHE
+        response = client.post(
+            f"/api/rankings/overrides?view={view}&leagueKey=main&generation=fixture-generation",
+            json=STOCK_BODY,
+        )
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload["meta"]["leagueKey"] == "main"
+        assert (
+            payload["meta"]["scoringProfile"]
+            == league_registry.get_league_by_key("main").scoring_profile
+        )
+        assert payload["meta"]["sleeperDataReady"] is True
+        assert payload["meta"]["valuationMode"] == "market"
+        assert payload["playersArray"] if view == "full" else payload["rankingsDelta"]["players"]
+        assert server.latest_serving_generation is generation
+        assert generation.generation_id == "fixture-generation"
+        assert server._OVERRIDES_RESPONSE_CACHE, "request must exercise an uncached build"
+        if view == "full":
+            lineup = payload["sleeper"]["teams"][0]["optimalLineup"]
+            assert lineup["available"] is True
+            assert "Unknown Fixture Player" in lineup["unpriced"]
+            if positions_present:
+                assert lineup["starters"] == ["Josh Allen"]
+        assert generation.contract == contract_before
+        mutations = {
+            "serialized_hash": raw_hash(generation.raw) != before_hash,
+            "teams": generation.raw["sleeper"]["teams"] != before["sleeper"]["teams"],
+            "positions": generation.raw["sleeper"].get("positions")
+            != before["sleeper"].get("positions"),
+        }
+        assert not any(mutations.values()), mutations
+        assert generation.raw["sleeper"]["teams"] == before["sleeper"]["teams"]
+        assert generation.raw["sleeper"].get("positions") == before["sleeper"].get("positions")
+
+
+@pytest.mark.parametrize("sleeper_state", ["missing", "null", "invalid"])
+def test_override_builder_preserves_missing_sleeper_compatibility(sleeper_state):
+    raw = _fixture_raw_payload()
+    if sleeper_state == "missing":
+        raw.pop("sleeper")
+    else:
+        raw["sleeper"] = None if sleeper_state == "null" else []
+    before = copy.deepcopy(raw)
+    result = server.build_api_data_contract(raw, tep_multiplier=1.15)
+    assert result["playersArray"]
+    assert result["sleeper"]["positions"] == {}
+    assert raw == before
+
+
+@pytest.mark.usefixtures("shared_scoring_registry")
+def test_cross_league_override_scrubs_response_without_mutating_raw(monkeypatch):
+    """Equal factual scoring permits values, never the loaded league's roster."""
+    raw = _fixture_raw_payload()
+    raw["sleeper"].update(
+        teams=[{"ownerId": "fixture-owner", "players": ["Josh Allen"]}],
+        rosterPositions=["QB"],
+        scoringSettings=dict(SCORING_CARD),
+    )
+    before = copy.deepcopy(raw)
+    server._OVERRIDES_RESPONSE_CACHE.clear()
+    server._OVERRIDES_ENCODE_LOCKS.clear()
+    try:
+        with TestClient(server.app, raise_server_exceptions=True) as client:
+            monkeypatch.setattr(server, "latest_serving_generation", None)
+            monkeypatch.setattr(server, "latest_data", raw)
+            monkeypatch.setattr(server, "latest_data_etag", "cross-league-fixture")
+            monkeypatch.setattr(
+                server,
+                "latest_contract_data",
+                {"meta": {"leagueKey": "main"}, "sleeper": copy.deepcopy(raw["sleeper"])},
+            )
+            response = client.post(
+                "/api/rankings/overrides?view=full&leagueKey=twin", json=STOCK_BODY
+            )
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert payload["playersArray"]
+        assert payload["sleeper"] is None
+        assert payload["meta"]["leagueKey"] == "twin"
+        assert payload["meta"]["sleeperDataReady"] is False
+        assert payload["meta"]["sleeperLoadedLeagueKey"] == "main"
+        assert raw == before
+    finally:
+        server._OVERRIDES_RESPONSE_CACHE.clear()
+        server._OVERRIDES_ENCODE_LOCKS.clear()
