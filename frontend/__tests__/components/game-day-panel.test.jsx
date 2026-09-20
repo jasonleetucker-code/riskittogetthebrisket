@@ -186,6 +186,55 @@ describe("GameDayPanel — background refresh", () => {
     expect(screen.queryByText("61.5%")).not.toBeInTheDocument();
     expect(screen.getByText("This week has already started")).toBeInTheDocument();
   });
+  it.each([['week', '2'], ['season', '2027']])("rejects an obsolete %s response even if abort is ignored", async (field, value) => {
+    let finishOld;
+    globalThis.fetch.mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve; }));
+    const view = render(<GameDayPanel />);
+    const oldSignal = globalThis.fetch.mock.calls[0][1].signal;
+    mockSearchParams.value = new Map([[field, value]]);
+    const next = { ...PRICED, [field]: Number(value) };
+    globalThis.fetch.mockResolvedValueOnce({ ok: true, json: async () => next });
+    view.rerender(<GameDayPanel />);
+    await screen.findByText(`Week ${next.week} · ${next.season}`);
+    expect(oldSignal.aborted).toBe(true);
+    await act(async () => finishOld({ ok: true, json: async () => PRICED }));
+    expect(screen.queryByText("Week 1 · 2026")).not.toBeInTheDocument();
+    expect(screen.getByText(`Week ${next.week} · ${next.season}`)).toBeInTheDocument();
+    expect(globalThis.fetch.mock.calls[1][0]).toContain(`${field}=${value}`);
+    view.unmount();
+  });
+
+  it.each(['http', 'malformed', 'network'])("never retains the prior week after a hidden context change and %s failure", async (failure) => {
+    const view = render(<GameDayPanel />);
+    await screen.findByText("Week 1 · 2026");
+    hidden = true;
+    mockSearchParams.value = new Map([['week', '2']]);
+    view.rerender(<GameDayPanel />);
+    expect(screen.queryByText("Week 1 · 2026")).not.toBeInTheDocument();
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    if (failure === 'network') globalThis.fetch.mockRejectedValueOnce(new Error('offline'));
+    else globalThis.fetch.mockResolvedValueOnce({
+      ok: failure === 'malformed', status: failure === 'malformed' ? 200 : 503,
+      json: async () => failure === 'malformed' ? {} : { error: 'temporarily_unavailable' },
+    });
+    hidden = false;
+    await act(async () => document.dispatchEvent(new Event('visibilitychange')));
+    expect(globalThis.fetch.mock.calls[1][0]).toContain('week=2');
+    expect(screen.queryByText("Week 1 · 2026")).not.toBeInTheDocument();
+    expect(view.container.querySelector('[data-game-day-ready="true"]')).toBeNull();
+  });
+
+  it("aborts the active request on unmount and rejects its late completion", async () => {
+    let finish;
+    globalThis.fetch.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const view = render(<GameDayPanel />);
+    const signal = globalThis.fetch.mock.calls[0][1].signal;
+    view.unmount();
+    expect(signal.aborted).toBe(true);
+    await act(async () => finish({ ok: true, json: async () => PRICED }));
+    expect(view.container).toBeEmptyDOMElement();
+  });
+
   it("rejects a previous team's late response even when a transport ignores abort", async () => {
     let finishOld;
     globalThis.fetch.mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve; }));
@@ -203,6 +252,8 @@ describe("GameDayPanel — background refresh", () => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  mockSearchParams.value = new Map();
+  mockUserState.state = { selectedTeam: null };
 });
 
 describe("GameDayPanel — the answer", () => {
@@ -338,6 +389,49 @@ describe("GameDayPanel — selected-team context (W1-25)", () => {
     await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
     const [url] = globalThis.fetch.mock.calls[0];
     expect(url).toBe("/api/matchup/intel");
+  });
+});
+
+describe("GameDayPanel — explicit week/season (W1-28)", () => {
+  afterEach(() => {
+    mockSearchParams.value = new Map();
+  });
+
+  it("forwards an explicit week and season so a completed week stays reachable", async () => {
+    // Without this the page can only ever show whichever week the HOST is
+    // on, which makes a completed week's FINAL state unreachable through
+    // the UI the moment the host rolls forward.
+    mockSearchParams.value = new Map([
+      ["week", "1"],
+      ["season", "2026"],
+    ]);
+    mockJson(PRICED);
+    render(<GameDayPanel />);
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
+    const [url] = globalThis.fetch.mock.calls[0];
+    expect(url).toContain("week=1");
+    expect(url).toContain("season=2026");
+  });
+
+  it("omits both when absent, leaving the host's clock to decide", async () => {
+    mockSearchParams.value = new Map();
+    mockJson(PRICED);
+    render(<GameDayPanel />);
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
+    const [url] = globalThis.fetch.mock.calls[0];
+    expect(url).toBe("/api/matchup/intel");
+  });
+
+  it("combines an explicit week with the selected team", async () => {
+    mockSearchParams.value = new Map([["week", "1"]]);
+    mockUserState.state = { selectedTeam: { ownerId: "own-A" } };
+    mockJson(PRICED);
+    render(<GameDayPanel />);
+    await waitFor(() => expect(globalThis.fetch).toHaveBeenCalled());
+    const [url] = globalThis.fetch.mock.calls[0];
+    expect(url).toContain("team=own-A");
+    expect(url).toContain("week=1");
+    mockUserState.state = { selectedTeam: null };
   });
 });
 

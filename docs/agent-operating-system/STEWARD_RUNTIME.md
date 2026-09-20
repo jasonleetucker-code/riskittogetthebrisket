@@ -6,12 +6,29 @@ Steward architecture; it is not another product roadmap or an unattended runner.
 
 ## Authority and Entry
 
-The owner's 2026-09-10 Astra consolidation directive authorizes this local
-implementation and normal repository integration. It supersedes the earlier
-sequencing deferral for this Agent OS work only. The Week 1 contract still
-requires literal 30/30; product work follows `docs/EXECUTION_PLAN.md`.
-No model/API dispatcher, scheduler, merge executor, source activator, or paid
-inference loop is installed. Recommendations never grant action authority.
+The owner's 2026-09-10 Astra consolidation directive already authorizes this
+bounded local report-only implementation and normal protected repository
+integration in `docs/EXECUTION_PLAN.md` §0. The owner's earlier 2026-09-08
+Site Steward directive separately conditioned Phase 1 activation on every row
+of `docs/season-launch/WEEK_1_LAUNCH_CONTRACT.md` being literally `VERIFIED`.
+That condition is now satisfied on `main`: PR #1375 merged the canonical launch
+contract at 30/30 VERIFIED, and the live contract mechanically recounts
+30 VERIFIED / 0 incomplete rows.
+
+Accordingly, Phase 1 may now proceed only inside the report-only boundary in
+`docs/autonomy/SITE_STEWARD_ARCHITECTURE_2026-09-08.md`, reusing the controller,
+private SQLite state, receipts, budgets, HALT/idempotency/preflight and
+moving-main protections that already exist on `main`. This activation does not
+authorize a second controller/store, paid or usage-billed AI/search/transcription/
+computer-use services, production or product-truth mutation, source activation,
+model/math promotion, autonomous merge/deploy, or weakening normal repository
+authority and gates. Zero-extra-cost infrastructure remains the default.
+
+The sequence is binding: reconcile this authority first; then implement only
+the dependency-ready Phase 1 delta that current-main inspection proves is
+missing. Do not treat the historical `DEFERRED_BY_AUTHORITY` wording from the
+pre-30/30 architecture record as a continuing block after this reconciliation.
+Recommendations never grant action authority.
 
 Run from the designated working copy after fetching current origin/main:
 

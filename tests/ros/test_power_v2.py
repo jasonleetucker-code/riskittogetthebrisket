@@ -495,5 +495,129 @@ class TestBuildSectionPreseason(unittest.TestCase):
             self.assertNotIn(component, section["missingInputs"])
 
 
+class TestComponentRanks(unittest.TestCase):
+    """Per-component sub-ranks, derived in the backend.
+
+    They answer "which of these five things put me here?", which a raw
+    percentile does not: #1 of 12 and #9 of 12 can sit a few points apart.
+    Derived here rather than in the page because they are ordinals over a
+    population, which CLAUDE.md forbids the frontend to compute.
+    """
+
+    def _rows(self, values):
+        return [
+            {"ownerId": oid, "components": {"all_play": v}, "rank": i + 1}
+            for i, (oid, v) in enumerate(values.items())
+        ]
+
+    def test_higher_percentile_ranks_first(self):
+        rows = self._rows({"a": 0.9, "b": 0.5, "c": 0.7})
+        power_v2._attach_component_ranks(rows, {"all_play": 0.2})
+        got = {r["ownerId"]: r["componentRanks"]["all_play"] for r in rows}
+        self.assertEqual(got, {"a": 1, "c": 2, "b": 3})
+
+    def test_ties_share_a_rank_and_skip_the_next(self):
+        # Standard competition ranking (1, 1, 3) — the same convention the
+        # overall Power rank already uses.
+        rows = self._rows({"a": 0.9, "b": 0.9, "c": 0.4})
+        power_v2._attach_component_ranks(rows, {"all_play": 0.2})
+        got = {r["ownerId"]: r["componentRanks"]["all_play"] for r in rows}
+        self.assertEqual(got, {"a": 1, "b": 1, "c": 3})
+
+    def test_missing_component_is_unranked_not_last(self):
+        # A team nobody measured is not the worst team at it. MISSING IS NEVER
+        # ZERO applied to an ordinal: the key is simply absent.
+        rows = self._rows({"a": 0.9, "b": None, "c": 0.4})
+        power_v2._attach_component_ranks(rows, {"all_play": 0.2})
+        by_owner = {r["ownerId"]: r for r in rows}
+        self.assertEqual(by_owner["a"]["componentRanks"]["all_play"], 1)
+        self.assertEqual(by_owner["c"]["componentRanks"]["all_play"], 2)
+        self.assertNotIn("componentRanks", by_owner["b"])
+
+    def test_unweighted_components_are_not_ranked(self):
+        # ``ppg`` is a display diagnostic and carries no weight, so it is not
+        # part of "what put me here" and must not be presented as if it were.
+        rows = [
+            {"ownerId": "a", "components": {"all_play": 0.9, "ppg": 0.1}},
+            {"ownerId": "b", "components": {"all_play": 0.4, "ppg": 0.9}},
+        ]
+        power_v2._attach_component_ranks(rows, {"all_play": 0.2})
+        for row in rows:
+            self.assertIn("all_play", row["componentRanks"])
+            self.assertNotIn("ppg", row["componentRanks"])
+
+    def test_team_vorp_is_absent_while_its_feed_is_unavailable(self):
+        # The open dependency: no realized VORP/PAR feed exists, so every row
+        # is None and the component yields no ranks at all.
+        rows = self._rows({"a": 0.9, "b": 0.4})
+        for row in rows:
+            row["components"]["team_vorp"] = None
+        power_v2._attach_component_ranks(rows, {"all_play": 0.2, "team_vorp": 0.15})
+        for row in rows:
+            self.assertNotIn("team_vorp", row["componentRanks"])
+
+
+class TestBuildSectionThreadsLeagueKeyToTeamStrength(unittest.TestCase):
+    """Before this fix, ``build_section`` resolved a ``league_key`` from
+    the snapshot but never passed it to the team-strength loader, so
+    every league's Power Rankings read/wrote the SAME persisted
+    ``team_strength/latest.json`` file regardless of which league was
+    actually being ranked.  Pins the call-site plumbing directly rather
+    than the (already-correct) namespacing primitive underneath it.
+    """
+
+    def test_resolved_league_key_reaches_the_team_strength_loader(self):
+        rosters = [{"roster_id": i, "owner_id": f"o{i}"} for i in (1, 2)]
+        matchups = {
+            1: [
+                {"roster_id": 1, "matchup_id": 1, "points": 100.0},
+                {"roster_id": 2, "matchup_id": 1, "points": 90.0},
+            ]
+        }
+        snapshot = _make_snapshot(rosters, matchups)
+        snapshot.root_league_id = "sleeper-league-xyz"
+
+        recorded: list[tuple] = []
+
+        def spy(league_key=None, *, snapshot=None, persist=True):
+            recorded.append((league_key, snapshot))
+            return []
+
+        with (
+            patch.object(team_strength, "load_or_compute_team_strength", spy),
+            patch(
+                "src.api.league_registry.league_key_for_sleeper_id",
+                return_value="resolved_league_key",
+            ),
+        ):
+            power_v2.build_section(snapshot)
+
+        self.assertTrue(recorded, "team-strength loader was never called")
+        for league_key, _snap in recorded:
+            self.assertEqual(league_key, "resolved_league_key")
+
+    def test_results_only_lens_never_resolves_or_calls_it(self):
+        """The existing ``test_results_only_never_reads_team_strength``
+        (test_power_lenses.py) already pins that results-only never
+        reads team strength; this pins the SAME property from the
+        league_key-resolution side, so a future change cannot
+        reintroduce the read via the new resolution path alone."""
+        rosters = [{"roster_id": i, "owner_id": f"o{i}"} for i in (1, 2)]
+        matchups = {
+            1: [
+                {"roster_id": 1, "matchup_id": 1, "points": 100.0},
+                {"roster_id": 2, "matchup_id": 1, "points": 90.0},
+            ]
+        }
+        snapshot = _make_snapshot(rosters, matchups)
+        snapshot.root_league_id = "sleeper-league-xyz"
+
+        def boom(*args, **kwargs):
+            raise AssertionError("results-only lens resolved a league key")
+
+        with patch("src.api.league_registry.league_key_for_sleeper_id", boom):
+            power_v2.build_section(snapshot, lens=power_v2.LENS_RESULTS_ONLY)
+
+
 if __name__ == "__main__":
     unittest.main()

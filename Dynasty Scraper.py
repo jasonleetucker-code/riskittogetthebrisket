@@ -98,6 +98,12 @@ from src.identity.name_primitives import similarity as _identity_similarity  # n
 # the name primitives above.
 from src.identity import picks as _pick_identity  # noqa: E402
 
+# Durable diagnostic telemetry.  scrape_ktc() is module-level and has no
+# access to run()'s _phase closure, so KTC's internal sub-steps can only
+# be timed by writing to this owner directly.  Every call is best-effort
+# and never raises — see src/diagnostics/scrape_telemetry.py.
+from src.diagnostics import scrape_telemetry as _telemetry  # noqa: E402
+
 try:
     from src.scoring import (
         build_default_baseline_config,
@@ -1853,6 +1859,21 @@ def _ktc_extract_tep(item):
 
 @retry(max_attempts=3, delay=2, exceptions=(requests.RequestException,))
 async def scrape_ktc(page, players):
+    # KTC is the phase every observed production outage has happened in,
+    # and until now it was a single opaque `source_start` event lasting
+    # minutes.  These markers time each sub-step so the telemetry can say
+    # WHICH operation the box died during, not merely that it was "in KTC".
+    _ktc_t0 = time.time()
+
+    def _ktc_mark(step: str, **fields):
+        _telemetry.record(
+            "ktc_step",
+            step=step,
+            since_ktc_start_s=round(time.time() - _ktc_t0, 3),
+            **fields,
+        )
+
+    _ktc_mark("start")
     results = {p: None for p in players}
     cached = get_cached("KTC")
     if cached:
@@ -1860,6 +1881,7 @@ async def scrape_ktc(page, players):
         cached_tep = get_cached("KTC_TEP")
         if cached_tep:
             FULL_DATA["KTC_TEP"] = dict(cached_tep)
+        _ktc_mark("cache_hit", cached_rows=len(cached))
         return results
     tep_name_map = {}
     try:
@@ -1911,7 +1933,9 @@ async def scrape_ktc(page, players):
 
         page.on("response", handle_response)
 
+        _ktc_mark("goto_start", url=url)
         goto_result = await safe_goto(page, url, "KTC", wait_ms=5000)
+        _ktc_mark("goto_done", ok=bool(goto_result))
         if not goto_result:
             blocker = getattr(goto_result, "blocker", None) or "unknown"
             status = getattr(goto_result, "status", None)
@@ -1919,21 +1943,29 @@ async def scrape_ktc(page, players):
             # Store blocker for source-level reporting
             global _KTC_BLOCKER
             _KTC_BLOCKER = blocker
+            _ktc_mark("goto_failed", blocker=blocker, status=status)
             return results
 
+        _ktc_mark("wait_selector_start")
         try:
             await page.wait_for_selector(".one-player, [class*='player']", timeout=10000)
+            _ktc_mark("wait_selector_done", found=True)
         except Exception:
-            pass
+            _ktc_mark("wait_selector_done", found=False)
 
         # Wait for API data or timeout
+        _ktc_mark("wait_api_intercept_start")
         try:
             await asyncio.wait_for(api_received.wait(), timeout=8.0)
+            _ktc_mark("wait_api_intercept_done", intercepted=True)
         except asyncio.TimeoutError:
+            _ktc_mark("wait_api_intercept_done", intercepted=False)
             if DEBUG:
                 print("  [KTC] API intercept timed out")
 
+        _ktc_mark("settle_wait_start", ms=3000)
         await page.wait_for_timeout(3000)
+        _ktc_mark("settle_wait_done")
 
         name_map = {}
 
@@ -2016,6 +2048,7 @@ async def scrape_ktc(page, players):
             # KTC renders values in the DOM after client JS runs.  The
             # JS payload returns ``{name: {value, tep}}`` so the Python
             # side can split base SF and TE++ into separate maps.
+            _ktc_mark("dom_evaluate_start")
             dom_data = await page.evaluate("""() => {
                 const results = {};
                 const tepKeys = ['tepp','teppValue','tepp_value','tep2','tep2Value','tep2_value','tepLevel2','tepValueLevel2'];
@@ -2084,6 +2117,7 @@ async def scrape_ktc(page, players):
                 }
                 return results;
             }""")
+            _ktc_mark("dom_evaluate_done", rows=len(dom_data or {}))
 
             if dom_data and len(dom_data) > 10:
                 for nm, payload in dom_data.items():
@@ -2115,7 +2149,9 @@ async def scrape_ktc(page, players):
         # it when the primary scrape had already failed.
         content = ""
         if not name_map:
+            _ktc_mark("page_content_start")
             content = await page.content()
+            _ktc_mark("page_content_done", bytes=len(content))
 
             # Try inline playersArray (current KTC format as of 2026-03)
             pa_match = re.search(
@@ -2304,10 +2340,13 @@ async def scrape_ktc(page, players):
         # Value Source control.  If that semantic proof fails, preserve the
         # previous good board instead of silently accepting whichever default
         # KTC happened to render.
+        _ktc_mark("value_source_capture_start")
         try:
             _captures = await capture_all_value_sources(page)
+            _ktc_mark("value_source_capture_done", captures=len(_captures or {}))
         except KtcValueSourceError as exc:
             _KTC_BLOCKER = f"value_source_semantics:{exc}"
+            _ktc_mark("value_source_capture_failed", error=str(exc))
             print(
                 f"  [KTC] three-source semantic capture failed — {exc}; "
                 "preserving last-good KTC files",
@@ -2368,7 +2407,12 @@ async def scrape_ktc(page, players):
             )
 
     except Exception as e:
+        _ktc_mark("exception", error=f"{type(e).__name__}: {e}")
         print(f"  [KTC error] {e}")
+    _ktc_mark(
+        "complete",
+        mapped_values=sum(1 for v in results.values() if isinstance(v, (int, float)) and v > 0),
+    )
     return results
 
 
@@ -3325,7 +3369,24 @@ async def run(progress_callback=None):
             # ── Browser sites ──
             active_browser = [(s, fn) for s, fn in browser_order if SITES.get(s)]
             if active_browser:
-                browser = await pw.chromium.launch(headless=True, proxy=_PLAYWRIGHT_PROXY)
+                # --disable-dev-shm-usage / --disable-gpu: mitigate the OOM
+                # risk server.py:104-110 already documents — this whole
+                # process shares one systemd MemoryMax cgroup, so an
+                # unbounded Chromium spike (e.g. rendering KTC's heavy SPA
+                # on a host with a small /dev/shm) can OOM-kill the entire
+                # server, not just the browser. No GPU exists on the VPS.
+                _telemetry.record("chromium_launch_start", sites=[s for s, _ in active_browser])
+                _browser_launch_t0 = time.time()
+                browser = await pw.chromium.launch(
+                    headless=True,
+                    proxy=_PLAYWRIGHT_PROXY,
+                    args=["--disable-dev-shm-usage", "--disable-gpu"],
+                )
+                _telemetry.record(
+                    "chromium_launch_done",
+                    duration_s=round(time.time() - _browser_launch_t0, 3),
+                )
+                print(f"  [telemetry] chromium launched in {time.time() - _browser_launch_t0:.2f}s")
                 context = await browser.new_context(
                     user_agent=(
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -3416,7 +3477,12 @@ async def run(progress_callback=None):
                     finally:
                         await page.close()
 
+                _telemetry.record("chromium_close_start")
                 await browser.close()
+                _telemetry.record(
+                    "chromium_closed",
+                    browser_lifetime_s=round(time.time() - _browser_launch_t0, 3),
+                )
 
     def _count_site_values_from_results(site_name):
         if site_name == "DLF_LocalCSV":

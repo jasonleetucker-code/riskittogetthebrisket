@@ -6,6 +6,7 @@ import asyncio
 import ast
 import json
 import sys
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -13,6 +14,7 @@ import pytest
 
 from src.serving import producer
 from src.serving.artifacts import _publish_lock
+from src.serving.artifacts import PublishLockTimeout
 
 
 def raw(count=4, **changes):
@@ -337,3 +339,55 @@ def test_dry_run_only_prints_plan_without_creating_store(tmp_path, capsys):
     assert not root.exists()
     output = json.loads(capsys.readouterr().out)
     assert output["sourceParity"] == producer.source_parity_contract()
+
+
+@pytest.mark.parametrize(
+    "stage", ["_load_scraper", "_mirror_source_csvs", "_run_supplemental_sources"]
+)
+@pytest.mark.parametrize("worker_fails", [False, True])
+def test_cancelled_source_keeps_lease_until_blocking_worker_finishes(
+    cycle, monkeypatch, stage, worker_fails
+):
+    started, release, finished = threading.Event(), threading.Event(), threading.Event()
+    original = getattr(producer, stage)
+
+    def blocked(*args):
+        started.set()
+        try:
+            assert release.wait(timeout=5), "test worker was not released"
+            if worker_fails:
+                raise RuntimeError("controlled source failure")
+            return original(*args)
+        finally:
+            finished.set()
+
+    monkeypatch.setattr(producer, stage, blocked)
+
+    async def scenario():
+        task = asyncio.create_task(
+            producer.run_source_cycle(cycle.config, raw(), publish=cycle.publish)
+        )
+        try:
+            assert await asyncio.to_thread(started.wait, 3)
+            for _ in range(2):
+                task.cancel()
+                await asyncio.sleep(0.01)
+                assert not task.done()
+                assert not finished.is_set()
+                with pytest.raises(PublishLockTimeout):
+                    with _publish_lock(cycle.config.serving_root / "producer.lock", 0):
+                        pytest.fail("source lease released while synchronous writes remain")
+            assert "publish" not in cycle.calls
+        finally:
+            release.set()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+        assert finished.is_set()
+        with _publish_lock(cycle.config.serving_root / "producer.lock", 0):
+            pass
+        assert "publish" not in cycle.calls
+        monkeypatch.setattr(producer, stage, original)
+        recovered = await producer.run_source_cycle(cycle.config, raw(), publish=cycle.publish)
+        assert recovered.outcome == "success"
+
+    asyncio.run(scenario())

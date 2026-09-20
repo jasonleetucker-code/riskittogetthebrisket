@@ -59,6 +59,31 @@ def is_scored(entry: dict[str, Any]) -> bool:
     return matchup_points(entry) > 0
 
 
+def scored_weeks(matchups_by_week: dict[int, list[dict[str, Any]]]) -> list[int]:
+    """Weeks that have at least one real (non-placeholder) scored entry.
+
+    Sleeper pre-generates ``matchup_id`` for the WHOLE season's schedule
+    at draft time and stubs ``players_points``/``starters`` for every
+    future week too — a frozen echo of the roster's *current* starting
+    lineup at ``0.0`` for every rostered player, not just starters, not
+    that week's actual (not-yet-decided) lineup.  So ``matchup_id`` or
+    ``starters`` presence alone cannot tell a played week from a merely
+    scheduled one (confirmed live, 2026-09-15: weeks 2-18 of an
+    in-progress week-2 season all carry populated ``matchup_id`` and a
+    full ``players_points`` stub, entirely at 0.0).
+
+    Sleeper scores every roster in a league-week simultaneously, so a
+    week is either fully real or fully a placeholder — a single
+    per-entry ``is_scored`` check is sufficient, and this is the ONE
+    canonical place that decides it for weekly aggregation (VORP,
+    starter totals, replacement-pool totals).  Do not re-derive this
+    elsewhere; call this.
+    """
+    return sorted(
+        wk for wk, entries in matchups_by_week.items() if any(is_scored(e) for e in entries)
+    )
+
+
 def resolve_owner(
     registry: ManagerRegistry,
     league_id: str,

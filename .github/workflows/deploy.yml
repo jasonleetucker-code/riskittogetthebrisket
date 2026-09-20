@@ -60,6 +60,10 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
 
       - name: Install dependencies (requirements-dev.txt)
         shell: bash
@@ -665,6 +669,42 @@ jobs:
           PASS=0
           FAIL=0
 
+          # The deploy restarts the service, and server.py's startup path
+          # launches a scrape three seconds after boot (``initial_scrape``).
+          # Its browser-launch phase BLOCKS the process, so there is a window
+          # in which the box is alive but answers nothing — measured on run
+          # 35092313919, where /api/public/league returned 200 to the warm
+          # loop at 12:22:01 and then timed out at 12:22:38, and /api/health
+          # reported ``scrape_running: true, current_step: "browser"``
+          # throughout.
+          #
+          # That window is a known bounded recovery state, not a fault:
+          # ``verify_live_source_coverage.py`` has waited it out since the
+          # 2026-09-09 rollback incident. This reuses that script's predicate
+          # through its one owner, ``scripts/scrape_activity.py``, rather than
+          # growing a second answer here.
+          #
+          # NOT A WEAKENED GATE. Only a transport-level failure is ever
+          # attributable to a scrape, and only while the server itself reports
+          # an active NON-STALLED scrape:
+          #   * a wrong status code (an auth gate answering 200 where 401 is
+          #     required) is a correctness statement and fails on the spot;
+          #   * a stalled or hung scrape fails on the spot;
+          #   * "cannot tell" (status unreadable) is not a yes — one grace
+          #     re-probe only, then the real code is reported;
+          #   * the wait is bounded and every round is printed.
+          SCRAPE_WAIT_ROUNDS=20
+          SCRAPE_WAIT_SLEEP=15
+
+          _probe_once() {
+            # --globoff stops curl from treating literal [ and ] in URLs
+            # as glob ranges — required for Next.js dynamic-route chunk
+            # filenames like "app/api/public/league/[section]/route-*.js"
+            # which preserve the brackets on disk.
+            curl --silent --show-error --globoff --output /dev/null \
+              --write-out '%{http_code}' --max-time 30 "$1" || echo "000"
+          }
+
           check_endpoint() {
             local path="$1"
             # Accepts a REGEX of tolerated codes, not a single literal.
@@ -673,13 +713,36 @@ jobs:
             # a deploy failure.
             local expect_code="${2:-200}"
             local full_url="${URL}${path}"
-            local code
-            # --globoff stops curl from treating literal [ and ] in URLs
-            # as glob ranges — required for Next.js dynamic-route chunk
-            # filenames like "app/api/public/league/[section]/route-*.js"
-            # which preserve the brackets on disk.
-            code=$(curl --silent --show-error --globoff --output /dev/null \
-              --write-out '%{http_code}' --max-time 30 "${full_url}" || echo "000")
+            local code round rc
+            code=$(_probe_once "${full_url}")
+
+            for (( round = 1; round <= SCRAPE_WAIT_ROUNDS; round++ )); do
+              # Matched the contract? Done — never wait on a passing probe.
+              [[ "${code}" =~ ^(${expect_code})$ ]] && break
+              # Answered, just not what we require? That is a real failure.
+              python3 scripts/scrape_activity.py --check-code "${code}" || break
+              # Transport failure: ask the server whether a scrape explains it.
+              # Only a server that ANSWERS and says no scrape is running ends
+              # the wait. An unreadable /api/status (exit 2) keeps waiting and
+              # consumes a round, per the 2026-09-09 finding that a fully
+              # blocked box is stronger evidence of an active blocking scrape
+              # than a slow-but-responsive one, not weaker — the blocking
+              # phase swallows /api/status too. Waiting only delays the
+              # verdict; the real code is still reported and still fails once
+              # the bounded window is spent.
+              # ``|| rc=$?`` rather than ``; rc=$?`` — this step runs under
+              # ``set -Eeuo pipefail``, where an unprotected non-zero exit
+              # kills the whole smoke test instead of being classified.
+              rc=0
+              python3 scripts/scrape_activity.py "${URL}" || rc=$?
+              if [[ "${rc}" -eq 1 ]]; then
+                break   # server answered: no active scrape — this is a real fault
+              fi
+              echo "  ${path} -> ${code}; waiting ${SCRAPE_WAIT_SLEEP}s (round ${round}/${SCRAPE_WAIT_ROUNDS})"
+              sleep "${SCRAPE_WAIT_SLEEP}"
+              code=$(_probe_once "${full_url}")
+            done
+
             if [[ "${code}" =~ ^(${expect_code})$ ]]; then
               echo "PASS: ${path} -> ${code}"
               PASS=$((PASS + 1))

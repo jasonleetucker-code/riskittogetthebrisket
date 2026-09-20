@@ -244,6 +244,20 @@ Dynasty fantasy football valuation and trade calculator platform. Ingests extern
 
 ### Testing & Validation
 
+**Canonical workflow: tiered validation (L0-L3).** Before running the full
+suite for every small edit, read `docs/AGENT_OPERATING_SYSTEM.md` §3 "Tiered
+validation workflow — L0 through L3." In short: `bash scripts/tiered_validate.sh
+l0` (seconds — format/lint/syntax on changed files) continuously while editing,
+`bash scripts/tiered_validate.sh l1` (~1-3 min — subsystem-targeted tests,
+derived automatically from the diff via `scripts/ci_change_scope.py`) after a
+logical chunk, then one integration PR per coherent development phase, which
+`.github/workflows/pr-validation.yml` validates as L2 — now path-aware, so a
+single-domain change (frontend-only, backend-only) does not pay for both the
+full backend suite and the full frontend suite every time; a high-risk change
+(see `scripts/ci_change_scope.py`) always gets both regardless. L3
+(`release-candidate.yml` + `deploy.yml`, i.e. the "CI has two lanes" and
+"Release discipline — HEAD FREEZE" sections below) is unchanged and strict.
+
 ```bash
 # Python tests (primary test suite)
 python -m pytest tests/ -q
@@ -2287,6 +2301,14 @@ Single source of truth: `POSITION_ALIASES` in `src/utils/name_clean.py`. All mod
 Production runs on a VPS (currently Contabo; the deploy target is the `DEPLOY_HOST` secret, not hardcoded anywhere) with nginx reverse proxy, systemd service, and Let's Encrypt SSL. See `deploy/` directory.
 
 ### CI has two lanes, and confusing them is a defect (2026-08-16)
+
+> In the tiered-validation vocabulary (`docs/AGENT_OPERATING_SYSTEM.md` §3):
+> `pr-validation.yml` is **L2**, now path-aware (skips the backend or frontend
+> suite when neither it nor anything high-risk changed, per
+> `scripts/ci_change_scope.py`); `release-candidate.yml` + `deploy.yml` are
+> **L3** and remain fully unconditional. This section's structural/full lane
+> split is orthogonal to that path-awareness — it is about which FAILURES
+> block, not which STEPS run.
 
 **Deterministic code correctness and external source health are different
 questions and are asked in different places.** They were not, and one KTC scrape

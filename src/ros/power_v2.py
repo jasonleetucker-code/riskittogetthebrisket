@@ -171,29 +171,38 @@ def _percentile(values: list[float], target: float) -> float:
 
 def _load_team_strength_rows(
     snapshot: PublicLeagueSnapshot | None = None,
+    league_key: str | None = None,
 ) -> list[dict[str, Any]]:
     """Team-strength rows for the current league.
 
     Delegates to ``team_strength.load_or_compute_team_strength``, which
-    reads the persisted ``data/ros/team_strength/latest.json`` when
-    present and otherwise computes it LIVE from ``snapshot`` (no network)
-    or, failing that, from a cached Sleeper overlay fetch — closing the
-    single point of failure where this component went dark for a full
-    refresh cycle whenever the scheduled scrape's write step hadn't run.
-    Returns [] only when every tier is genuinely unable to answer.
+    reads the persisted ``data/ros/team_strength/<leagueKey>.json`` when
+    present and fresh, and otherwise computes it LIVE from ``snapshot``
+    (no network) or, failing that, from a cached Sleeper overlay fetch —
+    closing the single point of failure where this component went dark
+    for a full refresh cycle whenever the scheduled scrape's write step
+    hadn't run.  Returns [] only when every tier is genuinely unable to
+    answer.
+
+    ``league_key`` is required for correctness on a non-default league:
+    without it, every league collapses onto the SAME persisted snapshot
+    file (``_team_strength_path(None)``), so a caller with a snapshot in
+    scope must resolve and pass its own key rather than rely on this
+    function to guess one.
     """
     from src.ros.team_strength import load_or_compute_team_strength  # noqa: PLC0415
 
-    return load_or_compute_team_strength(snapshot=snapshot) or []
+    return load_or_compute_team_strength(league_key, snapshot=snapshot) or []
 
 
 def _load_team_strength_percentiles(
     snapshot: PublicLeagueSnapshot | None = None,
+    league_key: str | None = None,
 ) -> dict[str, float]:
     """Convert team-strength composite to a percentile per ownerId.
     Empty dict when no snapshot — caller renormalises weights.
     """
-    rows = _load_team_strength_rows(snapshot)
+    rows = _load_team_strength_rows(snapshot, league_key)
     scores: list[tuple[str, float]] = []
     for r in rows:
         oid = str(r.get("ownerId") or "")
@@ -462,6 +471,14 @@ def _score_state(
                 if suppressed_results or recent_value is None
                 else _percentile(recent_values, recent_value)
             ),
+            # TODO(power-vorp): the canonical weekly realized VORP/PAR feed
+            # does not exist yet, so this component is unavailable rather than
+            # zero. `_effective_weight_vector` redistributes its 15% across the
+            # components that ARE measurable — deliberate interim behavior, not
+            # a bug: scoring a team at 0 for a quantity nobody measured would
+            # punish every team equally and still be a fabricated number. This
+            # is the one open dependency of the Power blend. When the feed
+            # lands, populate this key; the weighting needs no change.
             "team_vorp": None,
             "wl_record": None if suppressed_results else i["wl_record"],
             # Display-only diagnostics. None of these keys appears in WEIGHTS.
@@ -541,7 +558,51 @@ def _score_state(
     for row in refused:
         row["rank"] = None
 
+    _attach_component_ranks(scored_rows + refused, active_weights)
+
     return scored_rows + refused, missing_inputs, active_weights, blend
+
+
+def _attach_component_ranks(
+    rows: list[dict[str, Any]],
+    active_weights: dict[str, float],
+) -> None:
+    """Stamp each row's per-component rank across the league, in place.
+
+    The reader's question about a Power rank is "which of these five things put
+    me here?", and a raw percentile does not answer it — #1 of 12 and #9 of 12
+    can sit a few points apart. So publish the sub-rank alongside.
+
+    Derived in the BACKEND on purpose. These are ordinals over a population,
+    which is the thing ``CLAUDE.md`` forbids the frontend to compute; the page
+    stays a materializer. Only keys that carry weight are ranked — a display
+    diagnostic like ``ppg`` is not part of "what put me here".
+
+    A ``None`` component is UNRANKED (absent from the map), never sorted to
+    last: a team with no measurement is not the worst team at it.
+    """
+    for key in active_weights:
+        measured = [
+            (row, float(row["components"][key]))
+            for row in rows
+            if (row.get("components") or {}).get(key) is not None
+        ]
+        if not measured:
+            continue
+        # Higher component percentile is better, so descending. Same standard
+        # competition ranking the overall rank uses (1, 1, 3), with ownerId as
+        # the deterministic in-group tiebreak only.
+        measured.sort(key=lambda item: (-item[1], str(item[0].get("ownerId"))))
+        prior_value: float | None = None
+        prior_rank: int | None = None
+        for position, (row, value) in enumerate(measured, start=1):
+            if prior_value is not None and value == prior_value:
+                rank = prior_rank
+            else:
+                rank = position
+                prior_rank = position
+                prior_value = value
+            row.setdefault("componentRanks", {})[key] = rank
 
 
 #: One canonical public answer plus one diagnostic retrospective lens.
@@ -577,7 +638,23 @@ def build_section(
 
     registry = snapshot.managers
     seasons_sorted = sorted(snapshot.seasons, key=lambda s: luck._season_sort_key(s.season))
-    team_strength_rows = [] if results_only else _load_team_strength_rows(snapshot)
+    # Resolved independently of the LATER `league_key` resolution below
+    # (which is gated on `not results_only and as_of_season` for the
+    # movement/snapshot-history lookup and must keep that exact gating
+    # untouched): team-strength rows are roster-derived and therefore
+    # leagueKey-scoped by this platform's own invariant, and this needs
+    # the key unconditionally whenever `results_only` is False, before
+    # `as_of_season` even exists.  Resolving no key here silently
+    # collapsed every league's Power Rankings onto ONE shared
+    # `team_strength/latest.json` file.
+    team_strength_league_key = None
+    if not results_only:
+        from src.ros.team_strength import resolve_snapshot_league_key  # noqa: PLC0415
+
+        team_strength_league_key = resolve_snapshot_league_key(snapshot)
+    team_strength_rows = (
+        [] if results_only else _load_team_strength_rows(snapshot, team_strength_league_key)
+    )
     preseason = _is_preseason(snapshot)
 
     if (
@@ -732,7 +809,9 @@ def build_section(
                     else f"{rec['wins']}-{rec['losses']}"
                 )
 
-    ros_pct = {} if results_only else _load_team_strength_percentiles(snapshot)
+    ros_pct = (
+        {} if results_only else _load_team_strength_percentiles(snapshot, team_strength_league_key)
+    )
     ros_available = bool(ros_pct)
     final_state = {
         "career": season_state,
@@ -792,6 +871,7 @@ def build_section(
     # from the same week.
     official_snapshot = None
     share_snapshot = None
+    official_history: list[dict[str, Any]] = []
     league_key = None
     if not results_only and as_of_season:
         try:
@@ -802,7 +882,11 @@ def build_section(
             if league_key:
                 # The detailed table may be live, but its comparison anchor is
                 # always a published week — never another same-week recalculation.
-                if as_of_week > 0:
+                # ``>= 0`` so a published PRESEASON (week 0) ranking is found
+                # and served like any other official week. Movement itself is
+                # still correctly ``None`` there — week 0 has no predecessor,
+                # which ``movement_against_previous`` decides, not this guard.
+                if as_of_week >= 0:
                     movement = power_snapshots.movement_against_previous(
                         league_key=league_key,
                         season=as_of_season,
@@ -822,6 +906,26 @@ def build_section(
                     league_key,
                     season=as_of_season,
                 )
+                # Published weeks only, and only this season's. This is the
+                # canonical rank history: every point is a week that was
+                # actually published, so the chart cannot disagree with the
+                # arrows on the share card. Nothing is reconstructed.
+                official_history = [
+                    {
+                        "week": snap.get("week"),
+                        "preseason": bool(snap.get("preseason")),
+                        "rankSource": power_snapshots.rank_source(snap),
+                        "ranking": [
+                            {
+                                "ownerId": r.get("ownerId"),
+                                "rank": r.get("rank"),
+                                "powerScore": r.get("powerScore"),
+                            }
+                            for r in (snap.get("ranking") or [])
+                        ],
+                    }
+                    for snap in power_snapshots.season_snapshots(league_key, as_of_season)
+                ]
         except Exception as exc:  # noqa: BLE001
             LOG.warning("[power_v2] weekly movement unavailable: %s", exc)
 
@@ -910,4 +1014,5 @@ def build_section(
         "scoringConfigFingerprint": scoring_fingerprint,
         "officialSnapshot": official_snapshot,
         "shareSnapshot": share_snapshot,
+        "officialHistory": official_history,
     }

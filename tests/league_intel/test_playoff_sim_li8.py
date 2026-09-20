@@ -224,7 +224,7 @@ class TestSimulateTradeImpact:
         """Inject distributions + a trivial schedule; no snapshot I/O."""
         owners = {f"o{i}": 100.0 for i in range(1, 9)}
         base = _dists(owners)
-        monkeypatch.setattr(playoff_sim, "_load_ros_strength_map", lambda: {})
+        monkeypatch.setattr(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {})
         monkeypatch.setattr(
             playoff_sim,
             "_build_team_distributions",

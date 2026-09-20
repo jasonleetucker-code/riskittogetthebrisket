@@ -69,21 +69,27 @@ The denominator is frozen at 30 for this launch tranche. Do not add/remove rows 
 | W1-25 | Game Day UI | Canonical Game Day route/section and navigation shell are integrated into the existing site design and selected-team context. | VERIFIED |
 | W1-26 | Game Day UI | SCHEDULED/PREGAME state is production-usable: matchup, projected state, headline probabilities when available, drivers, freshness, and archive timestamp. | VERIFIED |
 | W1-27 | Game Day UI | LIVE state is production-usable and updates actual scoring, best-ball state, remaining players, swing context, and probabilities truthfully. | VERIFIED |
-| W1-28 | Game Day UI | FINAL state is production-usable and preserves final optimal lineup/results plus clean transition/linkage to the canonical recap system. | IMPLEMENTED_UNVERIFIED |
+| W1-28 | Game Day UI | FINAL state is production-usable and preserves final optimal lineup/results plus clean transition/linkage to the canonical recap system. | VERIFIED |
 | W1-29 | Launch verification | Final Week 1 candidate passes the required backend, frontend, contract/invariant, lint/build, audit, and E2E exact-head gates. | VERIFIED |
-| W1-30 | Launch verification | Final Week 1 launch tree is deployed and production-verified for archive capture, all six pregames, private owner experience, and Game Day scheduled/live/final behavior as temporally applicable. | NOT STARTED |
+| W1-30 | Launch verification | Final Week 1 launch tree is deployed and production-verified for archive capture, all six pregames, private owner experience, and Game Day scheduled/live/final behavior as temporally applicable. | VERIFIED |
 
 ## Mechanical tally
 
-*Recounted 2026-09-11 after authentic production LIVE evidence (W1-27).*
+*Recounted 2026-09-15 after authentic production FINAL evidence and final launch-tree reconciliation.*
 
-- VERIFIED: 28
-- IMPLEMENTED_UNVERIFIED: 1
+- VERIFIED: 30
+- IMPLEMENTED_UNVERIFIED: 0
 - IN PROGRESS: 0
-- NOT STARTED: 1
+- NOT STARTED: 0
 - BLOCKED: 0
 - DENOMINATOR: 30
-- COMPLETION: **28/30 = 93.3%**
+- COMPLETION: **30/30 = 100.0%**
+
+### Row movements, 2026-09-15 (W1-28 / W1-30 closeout)
+
+- **W1-28 → VERIFIED.** The last code blocker was the historical-week reachability repair in #1373, merged as `8820a488843ddf265076114caaecec8452d2da84`. Exact production deploy run [`35007700257`](https://github.com/jasonleetucker-code/riskittogetthebrisket/actions/runs/35007700257) completed `success` against that merge SHA. Fresh authenticated production verification run [`35015317637`](https://github.com/jasonleetucker-code/riskittogetthebrisket/actions/runs/35015317637), attempt 2, then exercised the completed-week path with the current verifier lineage (`36f8dd5a6baf9722ec1ea41e86d5c7f5ba90793a`). Its dedicated `W1-28: the most recent COMPLETED week reaches FINAL and links its recap` test passed on both `prod-desktop` and `prod-mobile`. The test does not infer FINAL from the calendar: it asks the production endpoint for the host's most recent completed week and requires HTTP 200, the requested `season`/`week`, `mode: final`, rendered `FINAL`, `Final score`, `Final optimal lineup`, a factual result when present, no `Remaining-week probabilities`, the canonical `/league/articles/{season}/{week}` recap URL, and an actual HTTP-200 response from that recap link. With the host on Week 2, that historical completed-week request is 2026 Week 1, so this is literal post-slate production evidence rather than a synthetic substitute. The acceptance text is satisfied without weakening a timeout, assertion, state rule, lineup owner, scoring owner, or recap owner.
+
+- **W1-30 → VERIFIED.** The row is a launch-tree integration proof, so it is closed from the canonical production evidence for each named part, not from the aggregate badge of unrelated health checks. The final W1-28 repair tree is deployed by run `35007700257`; archive capture/retention is already production-proven by W1-03/W1-04; all six Week 1 matchups and narratives plus their production surface are proven by W1-10/W1-11/W1-12; the authenticated private owner experience is production-proven by W1-14/W1-15/W1-16; Game Day SCHEDULED/PREGAME is W1-26, genuine Week-1 LIVE is W1-27, and completed-week FINAL is now W1-28. The contract's 2026-09-10 clock correction explicitly says `W1-30 follows once both are real`; both LIVE and FINAL are now real production observations. Attempt 2 of run `35015317637` also re-ran the Week-1/Game-Day production specs on the repaired lineage: the W1 tests, including the historical FINAL path, passed where temporally applicable. Its overall browser sweep reported 79 passed / 25 skipped / 2 failed; the two unexpected failures were the same out-of-scope V1-123 production-health defects already recorded by this contract's row-specific evidence precedent — Sharp roster percentage (`#1157`, desktop timeout) and Team Strength (`#1340`, mobile unavailable/loading state). Neither maps to a Week 1 row or touches archive capture, public pregames, the private owner surface, Game Day scoring/lineup/probability semantics, or FINAL recap linkage. As with the existing W1-12/W1-14/W1-15/W1-16/W1-25/W1-26 and W1-27 promotions, the badge is read through to the literal row evidence rather than treating unrelated failures as evidence against this row. No criterion is weakened and no synthetic evidence is substituted. Agent-OS-Receipt: `af1d50a577c96fd9eed9f934a902a9469f8b69bc`.
 
 ### Row movements, 2026-09-09 (W1-03)
 

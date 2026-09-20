@@ -1,5 +1,5 @@
 {
-  "storeRevision": 126,
+  "storeRevision": 140,
   "agentOSReceipt": "af1d50a577c96fd9eed9f934a902a9469f8b69bc",
   "assignments": [
     {
@@ -718,7 +718,7 @@
         ".agent-runtime/performance-swarm/packets/020-attempt1.json"
       ],
       "files_owned": [],
-      "findings": "Identity collision corrected;29passed3skipped; independentreviewpending; formatter1489files/lint/coercionpass.",
+      "findings": "d13bd40e5metadataidentityfix;author/root/independentreview29passed3skippedeach(notadditive).",
       "integration_state": "Two reviews approved final76b6e104; fresh integrated underway",
       "reviewer": [
         "092",
@@ -741,7 +741,7 @@
         }
       ],
       "squad": "failure_closure",
-      "status": "READY_FOR_REVIEW",
+      "status": "INTEGRATED",
       "tests": [
         {
           "deselected": 54,
@@ -968,13 +968,9 @@
       },
       "evidence": [],
       "files_owned": [],
-      "findings": [
-        "570 passed19skipped1warning5passing subtests;40 frozen hashes match. Focused79pass overlaps. Real canonical parents wired; all existing assertions/timing retained."
-      ],
+      "findings": "Fresh integrated757passed38skipped1warning5subtests263.10s,918fingerprintsunchanged. Separate lab494pass; failed priorattempt retained. Notperformanceacceptance.",
       "integration_state": "Current affected backend validation PASS",
-      "reviewer": [
-        "000"
-      ],
+      "reviewer": "000 and 027-attempt5",
       "squad": "backend_acceptance",
       "status": "APPROVED",
       "tests": []
@@ -1069,13 +1065,11 @@
         "steward:swarm-031-execution-full-packet-1"
       ],
       "files_owned": [],
-      "findings": "LocalSSH auth refused; GitHub diagnostics available historically; queued deployment shares FD concurrency. Alternate read-only path remains available to investigate.",
+      "findings": "Bounded DLF metadata probe approved after startup stdout/stderr privacy and legacy schema fixes.22author tests+9independent selected pass; actual production dispatch still pending.",
       "integration_state": "READY_FOR_REVIEW",
-      "reviewer": [
-        "095"
-      ],
+      "reviewer": "000 and 095-attempt4",
       "squad": "production_linux",
-      "status": "INTEGRATED",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -1972,7 +1966,7 @@
       "dependency_contract": "058-065",
       "evidence": [],
       "files_owned": [],
-      "findings": [],
+      "findings": "Fresh066attempt6:9/9synthetic,2/2geometry,4/4privatesemantics,27/27privacy;572hashesunchanged;ownedserversstopped; noUXtimingacceptance.",
       "integration_state": "QUEUED",
       "reviewer": [
         "093"
@@ -2014,15 +2008,18 @@
       ],
       "dependency_contract": "054-067;production backendREADY foracceptance/activation",
       "evidence": [],
-      "files_owned": [],
-      "findings": [],
+      "files_owned": [
+        "C:\\Users\\jason\\.codex\\visualizations\\2026\\09\\10\\01a08cd0-89d8-7191-be6e-d3d7859d6986\\chase-performance\\tests\\e2e\\performance-lab\\replay-smoke.mjs",
+        "C:\\Users\\jason\\.codex\\visualizations\\2026\\09\\10\\01a08cd0-89d8-7191-be6e-d3d7859d6986\\chase-performance\\frontend\\__tests__\\private-replay-protocol.test.js"
+      ],
+      "findings": "Close independently observed private full/prepared rankings/trade semantic parity coverage using existing runner; no new product API or screenshot/private payload persistence.",
       "integration_state": "QUEUED",
       "reviewer": [
         "089",
         "093"
       ],
       "squad": "frontend_mobile",
-      "status": "QUEUED",
+      "status": "ACTIVE",
       "tests": []
     },
     {
@@ -2255,14 +2252,14 @@
       "dependency_contract": "GameDay path;063",
       "evidence": [],
       "files_owned": [],
-      "findings": [],
+      "findings": "Rootmergecontextidentitypatch58testsPASS; independent093-attempt12approved58tests; includedfullfrontend2648PASS; buildpending.",
       "integration_state": "QUEUED",
       "reviewer": [
         "090",
         "094"
       ],
       "squad": "remaining_routes",
-      "status": "APPROVED",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -2523,13 +2520,13 @@
         "steward:swarm-089-execution-full-packet-4"
       ],
       "files_owned": [],
-      "findings": "Run2 independent raw review complete:173768 responses,82ordinary receipts,18/18adoption,zero unexpectedfailures; RSS+100311040,rankingsconditional200hybridfail. Packet089-attempt13. Independent FantasyProsreview continues.",
+      "findings": "Run2analysis089-attempt13complete; additionalmetadatareview090-attempt13approved.",
       "integration_state": "APPROVED",
       "reviewer": [
         "094"
       ],
       "squad": "adversarial",
-      "status": "ACTIVE",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -2728,13 +2725,11 @@
       "dependency_contract": "002;004;approved patches",
       "evidence": [],
       "files_owned": [],
-      "findings": [],
+      "findings": "Exact argv/live producer assertions reviewed;28 focused tests pass. Await fresh integrated result.",
       "integration_state": "QUEUED",
-      "reviewer": [
-        "095"
-      ],
+      "reviewer": "000",
       "squad": "integration",
-      "status": "QUEUED",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -2758,16 +2753,14 @@
       "evidence": [
         "steward:swarm-097-execution-full-packet-1"
       ],
-      "files_owned": [
-        "C:\\Users\\jason\\.codex\\visualizations\\2026\\09\\10\\01a08cd0-89d8-7191-be6e-d3d7859d6986\\chase-performance\\config\\ci\\release_gate_classification.json"
-      ],
-      "findings": "Affected checks resolved; failed broader run preserved separately from5 exactUTF8passes. No source edits;078formatterfilesunchanged.",
+      "files_owned": [],
+      "findings": "Freshfrontend2648tests179filesPASS;Node20build14budgetsPASS;572fingerprintsunchanged. Backendintegrationpending.",
       "integration_state": "READY_FOR_REVIEW",
       "reviewer": [
         "relevant089-094"
       ],
       "squad": "integration",
-      "status": "ACTIVE",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -3275,10 +3268,13 @@
     }
   ],
   "productionReadOnlyProbe": {
-    "run": 35511439229,
-    "state": "dispatched",
     "deployedOrRestarted": false,
-    "scope": "performance-safe metadata only"
+    "deployedRevision": "fdf6f4bae12db93b7d2a5c1eedb49720de009aec",
+    "limitations": "Metadata snapshot only; sevenpreparedunitsnotfound;DLFfailedexit1;maskedfieldsunknown;FD/credential/headroomacceptanceabsent",
+    "run": 35511439229,
+    "safeOutputSha256": "7ceca7a25ba08d9f07218bc7012394e7d52b115705743e07b017e9a55c064c67",
+    "snapshotAt": "2026-09-20T12:43:53Z",
+    "state": "SUCCESS"
   },
   "pushedHead": "fcf856be65b3c0d2084674d7a87c13025049c607",
   "reconciliationNote": "a134910a2 preserves both work-claim sides; raw cached whitespace check reports upstream CSV CRLF; not a passing check and source data not rewritten",
@@ -3291,5 +3287,5 @@
   },
   "schema": 1,
   "startedAt": "2026-09-12T00:55:40.218Z",
-  "updatedAt": "2026-09-20T12:43:52.680538+00:00"
+  "updatedAt": "2026-09-20T13:17:29.160156+00:00"
 }

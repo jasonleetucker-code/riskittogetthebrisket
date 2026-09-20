@@ -88,11 +88,17 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
     // for the badge itself, on the same 90s budget as the direct API calls.
     const scheduled = page.getByText(/Scheduled · pregame/);
     const live = page.getByText(/^Live$/);
-    await expect(scheduled.or(live)).toBeVisible({ timeout: 90_000 });
+    const final = page.getByText(/^FINAL$/);
+    await expect(scheduled.or(live).or(final)).toBeVisible({ timeout: 90_000 });
     const scheduledCount = await scheduled.count();
     const liveCount = await live.count();
-    expect(scheduledCount + liveCount).toBeGreaterThan(0);
-    annotate(testInfo, "w1-16-state", scheduledCount ? "SCHEDULED/pregame" : "LIVE");
+    const finalCount = await final.count();
+    expect(scheduledCount + liveCount + finalCount).toBeGreaterThan(0);
+    annotate(
+      testInfo,
+      "w1-16-state",
+      scheduledCount ? "SCHEDULED/pregame" : liveCount ? "LIVE" : "FINAL",
+    );
   });
 
   test("the page's numbers are the endpoint's numbers", async ({ prodPage: page }, testInfo) => {
@@ -236,6 +242,89 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
       expect(text).not.toContain("Remaining-week probabilities");
       annotate(testInfo, "w1-27-branch", `live — ${body.probabilityState}`);
     }
+  });
+
+  test("W1-28: the most recent COMPLETED week reaches FINAL and links its recap", async ({
+    prodPage: page,
+  }, testInfo) => {
+    // W1-28's acceptance is a FINAL Game Day. The test above already asserts
+    // that contract — but it can only reach the branch while the host's
+    // CURRENT week is itself final, and that window closes the moment the
+    // host rolls forward. On 2026-09-15 it had closed: production answered
+    // `2026 week 2` / `pregame` (run 76 annotations), so the FINAL branch was
+    // unreachable and the row had become structurally unprovable even though
+    // Week 1 was complete and correct.
+    //
+    // A completed week does not stop being a fact, so ask for one explicitly.
+    // `host - 1` is the repo's existing no-back-fill convention (the same one
+    // power snapshots use) rather than a hardcoded Week 1, so this keeps
+    // proving the FINAL contract every week of the season instead of being a
+    // one-off Week 1 instrument.
+    const team = await resolveTeam(page);
+    const current = await getJson(page, `/api/matchup/intel?team=${encodeURIComponent(team)}`, {
+      timeoutMs: 90_000,
+    });
+    expect(current.status, "the endpoint must answer for the current week").toBe(200);
+    const season = Number(current.body.season);
+    const hostWeek = Number(current.body.week);
+    annotate(testInfo, "w1-28-host-clock", `${season} week ${hostWeek}`);
+
+    if (!Number.isFinite(hostWeek) || hostWeek < 2) {
+      // No completed week exists yet. Absent is not a verdict: skip, so the
+      // report reads "proved nothing" rather than a green that proved no
+      // FINAL state at all.
+      annotate(testInfo, "w1-28-branch", "no completed week yet — nothing to prove");
+      test.skip(true, "the host is on week 1; no completed week exists yet");
+      return;
+    }
+
+    const week = hostWeek - 1;
+    const q = `?team=${encodeURIComponent(team)}&season=${season}&week=${week}`;
+    const { status, body } = await getJson(page, `/api/matchup/intel${q}`, { timeoutMs: 90_000 });
+    annotate(testInfo, "w1-28-requested", `${season} week ${week}`);
+    expect(status).toBe(200);
+    // The endpoint answered about the week that was ASKED for, not the host's.
+    expect(body.season).toBe(season);
+    expect(body.week).toBe(week);
+    // A week the host has already left is final. Anything else here is a real
+    // defect, not a state to tolerate.
+    expect(body.mode, "a completed week must resolve final").toBe("final");
+    annotate(testInfo, "w1-28-mode", String(body.mode));
+
+    await page.goto(prodUrl(`/game-day${q}`), { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { name: "Game Day" })).toBeVisible({ timeout: 60_000 });
+    // Same positive-evidence wait the sibling test uses: the panel's own
+    // client fetch is a separate round trip from the SSR heading.
+    await page.waitForFunction(
+      (teamName) => document.body.innerText.includes(teamName),
+      body.team.displayName,
+      { timeout: 90_000 },
+    );
+    const text = await page.locator("body").innerText();
+
+    // "production-usable": the page renders the completed week as FINAL.
+    await expect(page.getByText(/^FINAL$/)).toBeVisible({ timeout: 60_000 });
+    expect(text).toContain(body.team.displayName);
+    // "preserves final optimal lineup/results".
+    expect(text).toContain("Final score");
+    expect(text).toContain("Final optimal lineup");
+    // A final result is a fact, not a forecast distribution.
+    expect(text).not.toContain("Remaining-week probabilities");
+    if (body.team?.result) {
+      expect(text).toContain(body.team.result);
+      annotate(testInfo, "w1-28-result", String(body.team.result));
+    } else {
+      annotate(testInfo, "w1-28-result", "not resolvable for this side");
+    }
+
+    // "clean transition/linkage to the canonical recap system" — the link is
+    // stamped, rendered, and actually resolves. A link that 404s is not
+    // linkage.
+    expect(body.recapUrl).toBe(`/league/articles/${season}/${week}`);
+    expect(text).toContain("articles and recap");
+    const recap = await page.request.get(prodUrl(body.recapUrl));
+    expect(recap.status(), "the recap the page links to must exist").toBe(200);
+    annotate(testInfo, "w1-28-recap", `${body.recapUrl} -> HTTP ${recap.status()}`);
   });
 
   test("provenance travels with the numbers", async ({ prodPage: page }, testInfo) => {

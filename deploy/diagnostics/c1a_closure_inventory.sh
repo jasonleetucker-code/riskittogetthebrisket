@@ -90,14 +90,20 @@ performance-safe)
     for suffix in '.service' '-frontend.service' '-source-producer.service' '-source-producer.timer' '-source-producer.path' '-league-serving.service' '-league-serving.timer' '-league-serving.path' '-prepared-news.service' '-dlf-fetch.service' '-dlf-fetch.timer' '-idpshow-fetch.service' '-idpshow-fetch.timer' 'nginx.service'; do
         unit="${SERVICE_NAME}${suffix}"
         [[ "${suffix}" != nginx.service ]] || unit=nginx.service
-        for property in LoadState ActiveState SubState UnitFileState MainPID User Group MemoryCurrent MemoryPeak MemoryHigh MemoryMax TasksCurrent TasksMax LimitNOFILE CPUUsageNSec ExecMainStatus NRestarts; do
-            if value="$(systemctl show "${unit}" --property="${property}" --value 2>/dev/null)"; then
+        properties='LoadState ActiveState SubState UnitFileState MainPID User Group MemoryCurrent MemoryPeak MemoryHigh MemoryMax TasksCurrent TasksMax LimitNOFILE CPUUsageNSec ExecMainStatus NRestarts'
+        if [[ "${suffix}" == '-dlf-fetch.service' ]]; then
+            properties+=' Result ExecMainCode ExecMainStartTimestamp ExecMainExitTimestamp ExecMainStartTimestampMonotonic ExecMainExitTimestampMonotonic'
+        fi
+        for property in ${properties}; do
+            if value="$(LC_ALL=C TZ=UTC systemctl show "${unit}" --property="${property}" --value 2>/dev/null)"; then
                 case "${property}" in
                     LoadState) pattern='^(loaded|not-found|masked|error|bad-setting|merged|stub)$' ;;
                     ActiveState) pattern='^(active|inactive|failed|activating|deactivating|reloading|maintenance|refreshing)$' ;;
                     SubState) pattern='^(running|dead|exited|waiting|listening|failed|auto-restart|start|stop|start-pre|start-post|stop-sigterm|stop-post)$' ;;
                     UnitFileState) pattern='^(enabled|disabled|static|masked|indirect|generated|transient|alias|enabled-runtime|masked-runtime|linked|linked-runtime)$' ;;
                     User|Group) pattern='^[a-zA-Z0-9_][a-zA-Z0-9_-]{0,63}$' ;;
+                    Result) pattern='^(success|resources|timeout|exit-code|signal|core-dump|watchdog|start-limit-hit|protocol|exec-condition|oom-kill)$' ;;
+                    ExecMainStartTimestamp|ExecMainExitTimestamp) pattern='^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2} UTC$' ;;
                     *) pattern='^([0-9]{1,24}|infinity)$' ;;
                 esac
                 if [[ "${value}" =~ ${pattern} ]]; then
@@ -110,6 +116,116 @@ performance-safe)
             fi
         done
     done
+    # Fixed public source outputs only, never environment/session/key material.
+    # Monotonic unit timestamps above are boot-relative, not UTC epochs.
+    if command -v python3 >/dev/null 2>&1 && command -v timeout >/dev/null 2>&1; then
+        if dlf_output=$( { timeout -k 1s 15s python3 - "${APP_DIR}" <<'DLF_METADATA_PY'
+import csv
+import hashlib
+import io
+import os
+from pathlib import Path
+import re
+import stat
+import sys
+
+BOARDS = ("dlfSf", "dlfIdp", "dlfRookieSf", "dlfRookieIdp")
+
+def read_bounded(root, relative, maximum):
+    path = root
+    try:
+        if root.resolve() != root.absolute():
+            return "unsafe_path", None, None
+        for part in relative.parts:
+            path = path / part
+            if path.is_symlink():
+                return "unsafe_path", None, None
+        mode = path.lstat().st_mode
+        if not stat.S_ISREG(mode):
+            return "not_regular", None, None
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+        with os.fdopen(os.open(path, flags), "rb") as stream:
+            before = os.fstat(stream.fileno())
+            if not stat.S_ISREG(before.st_mode):
+                return "not_regular", None, None
+            if before.st_size > maximum:
+                return "oversize", None, None
+            data = stream.read(maximum + 1)
+            after = os.fstat(stream.fileno())
+        if len(data) > maximum:
+            return "oversize", None, None
+        if (before.st_ino, before.st_size, before.st_mtime_ns) != (after.st_ino, after.st_size, after.st_mtime_ns):
+            return "changed_during_read", None, None
+        return "read", data, after
+    except FileNotFoundError:
+        return "missing", None, None
+    except PermissionError:
+        return "inaccessible", None, None
+    except OSError:
+        return "probe_failed", None, None
+
+print("dlf.dedicated_path=assumed_default")
+for role, root in (("live", Path(sys.argv[1])), ("dedicated", Path("/var/lib/dlf-fetch/repo"))):
+    for board in BOARDS:
+        label = "dlf." + role + "." + board
+        state, data, info = read_bounded(root, Path("CSVs/site_raw") / (board + ".csv"), 2097152)
+        print(label + ".state=" + state)
+        if data is None:
+            continue
+        print(label + ".bytes=" + str(len(data)))
+        print(label + ".sha256=" + hashlib.sha256(data).hexdigest())
+        print(label + ".mtimeNs=" + str(max(0, info.st_mtime_ns)))
+        try:
+            reader = csv.reader(io.StringIO(data.decode("utf-8-sig")), strict=True)
+            header = next(reader, [])
+            rows = 0
+            for row in reader:
+                if row:
+                    rows += 1
+                if rows > 10000:
+                    raise ValueError()
+            print(label + ".matchesCurrentWriterSchema=" + str(int(header == ["name", "rank", "value"])))
+            print(label + ".rows=" + str(rows))
+        except (UnicodeError, csv.Error, ValueError):
+            print(label + ".csvState=invalid_or_over_limit")
+    for key in ("dlf",) + BOARDS:
+        label = "dlf." + role + "." + key
+        state, data, _ = read_bounded(root, Path("data/scrape_state") / (key + "_last_success"), 64)
+        if data is not None:
+            value = data.strip()
+            if re.fullmatch(rb"[0-9]{10,12}", value):
+                print(label + ".lastSuccessEpoch=" + value.decode("ascii"))
+                continue
+            state = "invalid_epoch"
+        print(label + ".stampState=" + state)
+DLF_METADATA_PY
+        } 2>/dev/null | head -c 8193); then
+            dlf_valid=1
+            [[ ${#dlf_output} -le 8192 && -n "$dlf_output" ]] || dlf_valid=0
+            while IFS= read -r line; do
+                if [[ "$line" == 'dlf.dedicated_path=assumed_default' ]]; then
+                    continue
+                fi
+                if [[ ! "$line" =~ ^dlf\.(live|dedicated)\.(dlf|dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp)\.(state|stampState)=(read|unsafe_path|not_regular|oversize|changed_during_read|missing|inaccessible|probe_failed|invalid_epoch)$ &&
+                      ! "$line" =~ ^dlf\.(live|dedicated)\.(dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp)\.(bytes|mtimeNs|rows)=[0-9]{1,20}$ &&
+                      ! "$line" =~ ^dlf\.(live|dedicated)\.(dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp)\.matchesCurrentWriterSchema=[01]$ &&
+                      ! "$line" =~ ^dlf\.(live|dedicated)\.(dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp)\.sha256=[0-9a-f]{64}$ &&
+                      ! "$line" =~ ^dlf\.(live|dedicated)\.(dlf|dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp)\.lastSuccessEpoch=[0-9]{10,12}$ &&
+                      ! "$line" =~ ^dlf\.(live|dedicated)\.(dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp)\.csvState=invalid_or_over_limit$ ]]; then
+                    dlf_valid=0
+                fi
+            done <<< "$dlf_output"
+            if [[ "$dlf_valid" == 1 ]]; then
+                printf '%s\n' "$dlf_output"
+            else
+                echo 'dlf.metadata=probe_failed'
+            fi
+        else
+            echo 'dlf.metadata=probe_failed'
+        fi
+    else
+        echo 'dlf.metadata=python_or_timeout_unavailable'
+    fi
     echo 'limits=snapshot_only;assumed_default_store_path;actual_store_configuration_unverified;no_process_fd_recovery;no_credential_separation_proof'
     exit 0
     ;;

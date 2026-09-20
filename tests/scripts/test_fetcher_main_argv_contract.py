@@ -1,4 +1,4 @@
-"""Every fetcher ``server.py`` calls in-scrape must accept ``argv``.
+"""Every fetcher the delegated server source cycle calls must accept ``argv``.
 
 ``server.py``'s scrape path refreshes four sources by importing the
 fetcher module and calling ``main([...])`` with an explicit argument
@@ -22,7 +22,7 @@ insufficient:
 
 1. every fetcher's ``main`` accepts a positional ``argv`` — otherwise
    the call raises; and
-2. ``server.py`` passes a list literal to each — otherwise ``main``
+2. the live ``src.serving.producer`` owner passes a list literal to each — otherwise ``main``
    falls through to ``parse_args(None)``, which reads the *server's*
    ``sys.argv`` under uvicorn and exits on unrecognised flags.
 
@@ -32,6 +32,7 @@ break (2), which is why both are asserted.
 
 from __future__ import annotations
 
+import ast
 import importlib
 import inspect
 import re
@@ -41,8 +42,9 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SERVER_PY = REPO_ROOT / "server.py"
+PRODUCER_PY = REPO_ROOT / "src/serving/producer.py"
 
-# Module name -> the argv list server.py passes it.
+# Module name -> the explicit argv list the delegated source owner passes.
 FETCHERS: dict[str, str] = {
     "fetch_dynasty_nerds": '["--mirror-data-dir"]',
     "fetch_fantasypros_offense": '["--mirror-data-dir"]',
@@ -88,23 +90,58 @@ def test_argv_is_threaded_into_parse_args(module_name: str) -> None:
     )
 
 
-@pytest.mark.parametrize("module_name", sorted(FETCHERS))
-def test_server_passes_a_list_literal(module_name: str) -> None:
-    """The call site must keep passing an explicit list.
+def test_server_delegates_to_the_source_owner() -> None:
+    tree = ast.parse(SERVER_PY.read_text(encoding="utf-8"))
+    entry = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.AsyncFunctionDef) and node.name == "run_scraper"
+    )
+    assert any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "src.serving.producer"
+        and any(alias.name == "run_source_cycle" for alias in node.names)
+        for node in ast.walk(entry)
+    )
+    assert any(
+        isinstance(node, ast.Await)
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id == "run_source_cycle"
+        for node in ast.walk(entry)
+    )
 
-    A future edit to ``main()`` alone cannot restore correctness if the
-    caller stops passing argv, so the contract is pinned from both ends.
-    """
-    src = SERVER_PY.read_text(encoding="utf-8")
-    # server.py imports these as `from scripts import X as _alias`.
-    alias = re.search(
-        rf"from scripts import {re.escape(module_name)} as (\w+)",
-        src,
+
+@pytest.mark.parametrize("module_name", sorted(FETCHERS))
+def test_source_owner_passes_the_expected_list_literal(module_name: str) -> None:
+    """Pin the live delegated caller, retaining explicit arguments and mirror policy."""
+    tree = ast.parse(PRODUCER_PY.read_text(encoding="utf-8"))
+    owner = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "_run_supplemental_sources"
     )
-    assert alias, f"server.py no longer imports scripts.{module_name}"
-    call = re.search(rf"{re.escape(alias.group(1))}\.main\(\s*\[", src)
-    assert call, (
-        f"server.py calls {alias.group(1)}.main() without a list literal. "
-        "Pass an explicit argv list so the fetcher does not parse the "
-        "server's sys.argv."
-    )
+    aliases = [
+        alias.asname or alias.name
+        for node in ast.walk(owner)
+        if isinstance(node, ast.ImportFrom) and node.module == "scripts"
+        for alias in node.names
+        if alias.name == module_name
+    ]
+    assert len(aliases) == 1, f"Source owner must import scripts.{module_name}"
+    calls = [
+        node
+        for node in ast.walk(owner)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "main"
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == aliases[0]
+    ]
+    assert len(calls) == 1, f"Source owner must invoke {module_name}.main exactly once"
+    call = calls[0]
+    assert len(call.args) == 1 and isinstance(
+        call.args[0], ast.List
+    ), "Explicit argv list required; never inherit server sys.argv"
+    assert ast.literal_eval(call.args[0]) == ast.literal_eval(FETCHERS[module_name])
+    assert not call.keywords

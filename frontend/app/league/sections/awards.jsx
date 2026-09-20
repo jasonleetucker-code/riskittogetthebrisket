@@ -71,6 +71,21 @@ const MANAGER_AWARD_ORDER = [
 ];
 
 const POSTSEASON_AWARD_KEYS = new Set(["playoff_mvp"]);
+
+// Award keys whose ``value`` carries VORP diagnostics
+// (replacementPerGame/replacementTotal/asOfWeek) — everything computed
+// through src/public_league/awards.py::_vorp_rows.  Used to build the
+// hover breakdown so "why is this VORP number what it is" never has to
+// be inferred from a separate Top Position card.
+const VORP_AWARD_KEYS = new Set([
+  "league_mvp",
+  "off_mvp",
+  "def_mvp",
+  "off_roy",
+  "def_roy",
+  "playoff_mvp",
+]);
+
 function ordered(items, order) {
   const position = new Map(order.map((key, index) => [key, index]));
   return [...items].sort(
@@ -118,7 +133,7 @@ function raceMetric(awardKey, value = {}) {
     case "top_dl":
     case "top_lb":
     case "top_db":
-      return `${fmtPoints(value.starterPoints)} pts`;
+      return `${fmtPoints(value.starterPoints)} starter pts`;
     case "manager_of_the_year":
       return `${fmtNumber(value.compositeScore, 3)} score`;
     case "top_offense":
@@ -141,6 +156,33 @@ function raceMetric(awardKey, value = {}) {
     default:
       return renderAwardValue(awardKey, value);
   }
+}
+
+// Native-tooltip breakdown for a VORP leader: raw starter points, the
+// replacement deduction actually charged, and the games×rate that
+// produced it — so a user never has to infer the arithmetic from two
+// unrelated award cards.  Returns undefined (no title attribute) when
+// the payload lacks the diagnostic fields, e.g. an older cached
+// contract from before this fix shipped.
+function raceTooltip(awardKey, value = {}) {
+  if (!VORP_AWARD_KEYS.has(awardKey)) return undefined;
+  const { starterPoints, replacementPerGame, replacementTotal, gamesStarted, vorp, position } =
+    value;
+  if (
+    starterPoints == null ||
+    replacementPerGame == null ||
+    replacementTotal == null ||
+    gamesStarted == null ||
+    vorp == null
+  ) {
+    return undefined;
+  }
+  const starts = `${gamesStarted} ${gamesStarted === 1 ? "start" : "starts"}`;
+  return (
+    `${fmtPoints(starterPoints)} starter pts − ${fmtPoints(replacementTotal)} replacement pts` +
+    ` = ${fmtPoints(vorp)} VORP · ${starts} × ${fmtPoints(replacementPerGame)}` +
+    `${position ? ` ${position}` : ""} replacement PPG`
+  );
 }
 
 function initialsFor(value) {
@@ -185,8 +227,9 @@ function LeaderRow({ awardKey, leader, managers, onNavigate, compact = false }) 
   const isPlayer = PLAYER_AWARD_KEYS.has(awardKey);
   const playerName = leader.value?.playerName;
   const identity = isPlayer && playerName ? playerName : leader.displayName;
+  const tooltip = raceTooltip(awardKey, leader.value);
   return (
-    <li className={styles.leaderRow}>
+    <li className={styles.leaderRow} title={tooltip}>
       <span
         className={`${styles.leaderRank} ${leader.rank === 1 ? styles.leaderRankFirst : ""}`}
       >
@@ -223,8 +266,34 @@ function LeaderRow({ awardKey, leader, managers, onNavigate, compact = false }) 
   );
 }
 
+// Copy for an award the backend reports as undecided. Per-reason, because
+// "nothing has been scored since those trades yet" and "nobody cleared
+// replacement" are different facts and must not collapse into one vague
+// line. Unknown codes fall back to a truthful generic.
+const AWAITING_COPY = {
+  no_scored_week_since_any_trade: "No scored week since any trade yet",
+  no_scored_week_since_any_add: "No scored week since any add yet",
+  no_value_above_replacement: "No starter finished above replacement",
+  no_qualifying_evidence: "No qualifying result yet",
+};
+
+function awaitingCopy(reason) {
+  return AWAITING_COPY[reason] || AWAITING_COPY.no_qualifying_evidence;
+}
+
 function AwardWinner({ a, managers, size = 24 }) {
   const isPlayer = PLAYER_AWARD_KEYS.has(a.key) && a.value?.playerId;
+  if (a.awaitingEvidence) {
+    return (
+      <div className={styles.winner}>
+        <span />
+        <div className={styles.winnerIdentity}>
+          <div className={styles.winnerName}>Not yet awarded</div>
+          <div className={styles.winnerOwner}>{awaitingCopy(a.awaitingReason)}</div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className={styles.winner}>
       {isPlayer ? (
@@ -438,18 +507,22 @@ function RaceCard({ race, managers, onNavigate, featured = false }) {
         <h4 className={styles.raceTitle}>{race.label}</h4>
         {featured && <span className={styles.liveMark}>Live</span>}
       </div>
-      <ol className={styles.leaderList}>
-        {race.leaders.slice(0, 3).map((leader) => (
-          <LeaderRow
-            key={leader.ownerId || leader.value?.playerId || `${race.key}-${leader.rank}`}
-            awardKey={race.key}
-            leader={leader}
-            managers={managers}
-            onNavigate={onNavigate}
-            compact
-          />
-        ))}
-      </ol>
+      {race.awaitingEvidence ? (
+        <p className={styles.raceAwaiting}>{awaitingCopy(race.awaitingReason)}</p>
+      ) : (
+        <ol className={styles.leaderList}>
+          {race.leaders.slice(0, 3).map((leader) => (
+            <LeaderRow
+              key={leader.ownerId || leader.value?.playerId || `${race.key}-${leader.rank}`}
+              awardKey={race.key}
+              leader={leader}
+              managers={managers}
+              onNavigate={onNavigate}
+              compact
+            />
+          ))}
+        </ol>
+      )}
     </article>
   );
 }

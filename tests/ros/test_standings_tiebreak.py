@@ -97,7 +97,7 @@ def _run(engine: str, names: list[str], *, playoff_teams: int = 2, sims: int = 2
     with (
         mock.patch.object(playoff_sim, "_current_record", lambda *a, **k: {o: {} for o in names}),
         mock.patch.object(playoff_sim, "_remaining_schedule", lambda *a, **k: schedule),
-        mock.patch.object(playoff_sim, "_load_ros_strength_map", lambda: {}),
+        mock.patch.object(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {}),
         mock.patch.object(playoff_sim, "_league_best_ball", lambda: False),
         mock.patch.object(
             playoff_sim,

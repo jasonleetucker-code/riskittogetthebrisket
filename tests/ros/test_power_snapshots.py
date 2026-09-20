@@ -218,3 +218,164 @@ def test_publisher_rejects_missing_matchup_pair():
     snapshot = _publisher_snapshot()
     snapshot.current_season.matchups_by_week[1] = snapshot.current_season.matchups_by_week[1][:-1]
     assert not scrape._power_week_is_complete(snapshot, "2026", 1)
+
+
+# --- Week 0 (preseason) publication + movement baseline ------------------
+#
+# Movement is "change since the previous OFFICIAL publication". Before Week 0
+# was publishable there was no legitimate baseline for Week 1 at all, and the
+# UI filled the gap by walking a results-only reconstruction that chains every
+# tracked season together — so a season's first week compared against LAST
+# season's standings-derived ranking and produced movement nobody could
+# reconcile. These pin the supported path instead.
+
+#: The owner-supplied acceptance scenario. Last official publication (a
+#: preseason Week 0) and the first scored week that follows it.
+_WK0_RANKS = {
+    "brent": 1,
+    "joey": 2,
+    "eric": 3,
+    "jason": 4,
+    "collin": 5,
+    "makayla": 6,
+    "kich": 7,
+    "blaine": 8,
+    "ed": 9,
+    "ty": 10,
+    "jstuedle": 11,
+    "roy": 12,
+}
+
+_WK1_RANKS = {
+    "eric": 1,
+    "joey": 2,
+    "jason": 3,
+    "makayla": 4,
+    "brent": 5,
+    "ed": 6,
+    "collin": 7,
+    "blaine": 8,
+    "jstuedle": 9,
+    "kich": 10,
+    "ty": 11,
+    "roy": 12,
+}
+
+#: Positive = moved up. Exactly ``previous rank - new rank`` for every owner.
+_EXPECTED_MOVEMENT = {
+    "eric": 2,
+    "joey": 0,
+    "jason": 1,
+    "makayla": 2,
+    "brent": -4,
+    "ed": 3,
+    "collin": -2,
+    "blaine": 0,
+    "jstuedle": 2,
+    "kich": -3,
+    "ty": -1,
+    "roy": 0,
+}
+
+
+def test_preseason_week_zero_is_publishable(tmp_path, monkeypatch):
+    monkeypatch.setattr(power_snapshots, "ROS_DATA_DIR", tmp_path)
+    path, created = power_snapshots.record_snapshot(
+        league_key="main",
+        section=_section(week=0, ranks=_WK0_RANKS),
+        scoring_fingerprint="abc",
+        finalized_at="2026-09-01T00:00:00+00:00",
+    )
+    assert created
+    assert path.name == "week_00.json"
+    payload = json.loads(path.read_text())
+    assert payload["week"] == 0
+    # Self-describing: a consumer never has to infer "preseason" from the number.
+    assert payload["preseason"] is True
+    # Week 0 is the FIRST publishable week, so it has no predecessor of its own.
+    assert all(row["rankDelta"] is None for row in payload["ranking"])
+
+
+def test_week_one_movement_is_measured_against_the_published_week_zero(tmp_path, monkeypatch):
+    """The owner's 12-team acceptance scenario, exactly."""
+    monkeypatch.setattr(power_snapshots, "ROS_DATA_DIR", tmp_path)
+    power_snapshots.record_snapshot(
+        league_key="main",
+        section=_section(week=0, ranks=_WK0_RANKS),
+        scoring_fingerprint="abc",
+        finalized_at="2026-09-01T00:00:00+00:00",
+    )
+    path, _ = power_snapshots.record_snapshot(
+        league_key="main",
+        section=_section(week=1, ranks=_WK1_RANKS),
+        scoring_fingerprint="abc",
+        finalized_at="2026-09-09T00:00:00+00:00",
+    )
+    rows = {row["ownerId"]: row for row in json.loads(path.read_text())["ranking"]}
+    assert {oid: rows[oid]["rankDelta"] for oid in _EXPECTED_MOVEMENT} == _EXPECTED_MOVEMENT
+    # And the baseline each arrow was measured against is published with it,
+    # so the number is auditable rather than merely asserted.
+    assert {oid: rows[oid]["priorRank"] for oid in _WK0_RANKS} == _WK0_RANKS
+
+
+def test_week_one_movement_never_reflects_the_results_only_reconstruction(tmp_path, monkeypatch):
+    """The specific wrong answer this work exists to stop.
+
+    The results-only diagnostic ranked a DIFFERENT population in a different
+    order (ten owners, standings-shaped). If it ever reached the movement
+    computation it would produce arrows like Eric +8 instead of +2. Movement
+    reads published snapshots only, so the reconstruction cannot touch it.
+    """
+    monkeypatch.setattr(power_snapshots, "ROS_DATA_DIR", tmp_path)
+    results_only_week_1 = {
+        "brent": 1,
+        "joey": 2,
+        "ed": 3,
+        "kich": 4,
+        "makayla": 5,
+        "ty": 6,
+        "collin": 7,
+        "roy": 8,
+        "eric": 9,
+        "jason": 10,
+    }
+    power_snapshots.record_snapshot(
+        league_key="main",
+        section=_section(week=0, ranks=_WK0_RANKS),
+        scoring_fingerprint="abc",
+        finalized_at="2026-09-01T00:00:00+00:00",
+    )
+    path, _ = power_snapshots.record_snapshot(
+        league_key="main",
+        section=_section(week=1, ranks=_WK1_RANKS),
+        scoring_fingerprint="abc",
+        finalized_at="2026-09-09T00:00:00+00:00",
+    )
+    rows = {row["ownerId"]: row for row in json.loads(path.read_text())["ranking"]}
+    # Eric is the sharpest discriminator: +2 against the published Week 0,
+    # but +8 if the results-only series had been the baseline.
+    assert rows["eric"]["rankDelta"] == 2
+    assert rows["eric"]["rankDelta"] != _WK1_RANKS["eric"] - results_only_week_1["eric"]
+    assert rows["eric"]["priorRank"] == _WK0_RANKS["eric"]
+
+
+def test_movement_never_crosses_a_season_boundary(tmp_path, monkeypatch):
+    """A new season's Week 0 does not compare against last season's finale."""
+    monkeypatch.setattr(power_snapshots, "ROS_DATA_DIR", tmp_path)
+    prior = _section(week=14, ranks={"a": 1, "b": 2})
+    prior["asOfSeason"] = "2025"
+    power_snapshots.record_snapshot(
+        league_key="main",
+        section=prior,
+        scoring_fingerprint="abc",
+        finalized_at="2025-12-20T00:00:00+00:00",
+    )
+    path, _ = power_snapshots.record_snapshot(
+        league_key="main",
+        section=_section(week=0, ranks={"a": 2, "b": 1}),
+        scoring_fingerprint="abc",
+        finalized_at="2026-09-01T00:00:00+00:00",
+    )
+    payload = json.loads(path.read_text())
+    assert payload["season"] == "2026"
+    assert all(row["rankDelta"] is None for row in payload["ranking"])

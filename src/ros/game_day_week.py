@@ -580,11 +580,31 @@ def resolve_scoring_week(
         host_scores[team.team_id] = _finite_points(matchup.get("points")) if begun else None
         players = []
         for p in team.players:
-            meta = players_meta.get(p.player_id) or {}
-            game = evidence.get(str(meta.get("team") or "").upper())
-            state = game.state if game else ("unknown" if begun else "not_started")
+            meta_record = (
+                players_meta.get(p.player_id) if isinstance(players_meta, Mapping) else None
+            )
+            metadata_present = isinstance(meta_record, Mapping)
+            meta = meta_record if metadata_present else {}
+            raw_team = str(meta.get("team") or "").upper()
+            # A player with a PRESENT metadata record but NO team on file
+            # (a true free agent/unrostered dynasty stash) is a definitive
+            # fact he has no game this week. A completely missing metadata
+            # row is different: it is unknown evidence and must never be
+            # coerced to inactive/zero merely because other schedule
+            # evidence exists.
+            #
+            # Gated on `evidence` itself being non-empty: when the schedule
+            # feed produced NOTHING, an absent team means "we cannot resolve
+            # anyone right now", not "he is definitely out" — the same
+            # conservative default every other player gets.
+            no_team_on_file = metadata_present and not raw_team and bool(evidence)
+            game = evidence.get(raw_team) if raw_team else None
+            if no_team_on_file:
+                state = "inactive" if begun else "not_started"
+            else:
+                state = game.state if game else ("unknown" if begun else "not_started")
             actual = _finite_points(score_map.get(p.player_id)) if begun else 0.0
-            if state == "not_started":
+            if state == "not_started" or no_team_on_file:
                 actual = 0.0
             # Out is host-declared unavailability, unlike Doubtful or
             # Questionable. Do not override a recorded completed score.
@@ -612,11 +632,24 @@ def resolve_scoring_week(
                 # A nonzero score alone cannot tell live from completed.
                 final = False
             if state == "completed" and actual is None:
-                final = False
+                # Sleeper's per-player score map omits an entry for a
+                # player it attributed no stats to, rather than stamping
+                # an explicit 0.0 — but his roster's own `points` total
+                # (read above from the host directly) already includes
+                # that zero contribution. 0.0 here is the evidenced fact
+                # this now-finished game produced, not a guess standing
+                # in for missing evidence.
+                actual = 0.0
             players.append(
                 replace(p, state=state, points_scored=actual, projected_remaining=remaining)
             )
-        starters = tuple(str(pid) for pid in matchup.get("starters", ()) if pid and str(pid) != "0")
+        # `.get(..., ())` only guards a MISSING key — Sleeper's live matchup
+        # payload can carry an explicit `"starters": null` (observed on a
+        # best-ball league, where declared starters do not apply), which
+        # `.get` still hands back verbatim and crashes the iteration below.
+        starters = tuple(
+            str(pid) for pid in (matchup.get("starters") or ()) if pid and str(pid) != "0"
+        )
         teams.append(replace(team, players=tuple(players), declared_starters=starters))
         opponents.setdefault(team.team_id, None)
         unpriced[team.team_id] = tuple(

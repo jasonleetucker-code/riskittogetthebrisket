@@ -37,7 +37,7 @@ def test_default_is_canonical_not_forward_looking_label(monkeypatch):
     monkeypatch.setattr(
         power_v2,
         "_load_team_strength_percentiles",
-        lambda snapshot=None: {"o1": 0.9, "o2": 0.7, "o3": 0.3, "o4": 0.1},
+        lambda snapshot=None, league_key=None: {"o1": 0.9, "o2": 0.7, "o3": 0.3, "o4": 0.1},
     )
     out = power_v2.build_section(_scored_snapshot())
     assert out["lens"] == power_v2.LENS_CANONICAL
@@ -48,7 +48,7 @@ def test_legacy_forward_query_is_only_a_compatibility_alias(monkeypatch):
     monkeypatch.setattr(
         power_v2,
         "_load_team_strength_percentiles",
-        lambda snapshot=None: {"o1": 0.9, "o2": 0.7, "o3": 0.3, "o4": 0.1},
+        lambda snapshot=None, league_key=None: {"o1": 0.9, "o2": 0.7, "o3": 0.3, "o4": 0.1},
     )
     canonical = power_v2.build_section(_scored_snapshot(), lens=power_v2.LENS_CANONICAL)
     legacy = power_v2.build_section(_scored_snapshot(), lens=power_v2.LENS_FORWARD_LOOKING)
@@ -75,7 +75,9 @@ def test_results_only_never_reads_team_strength(monkeypatch):
 
 
 def test_missing_vorp_keeps_results_component_ratios(monkeypatch):
-    monkeypatch.setattr(power_v2, "_load_team_strength_percentiles", lambda snapshot=None: {})
+    monkeypatch.setattr(
+        power_v2, "_load_team_strength_percentiles", lambda snapshot=None, league_key=None: {}
+    )
     out = power_v2.build_section(_scored_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
     applied = out["effectiveWeights"]
 
@@ -88,7 +90,7 @@ def test_canonical_blends_ros_and_results_after_games(monkeypatch):
     monkeypatch.setattr(
         power_v2,
         "_load_team_strength_percentiles",
-        lambda snapshot=None: {"o1": 0.9, "o2": 0.7, "o3": 0.3, "o4": 0.1},
+        lambda snapshot=None, league_key=None: {"o1": 0.9, "o2": 0.7, "o3": 0.3, "o4": 0.1},
     )
     out = power_v2.build_section(_scored_snapshot(4), lens=power_v2.LENS_CANONICAL)
 
@@ -103,7 +105,7 @@ def test_trend_remains_results_only_and_never_backfills_current_ros(monkeypatch)
     monkeypatch.setattr(
         power_v2,
         "_load_team_strength_percentiles",
-        lambda snapshot=None: {"o1": 0.99, "o2": 0.7, "o3": 0.2, "o4": 0.1},
+        lambda snapshot=None, league_key=None: {"o1": 0.99, "o2": 0.7, "o3": 0.2, "o4": 0.1},
     )
     out = power_v2.build_section(_scored_snapshot(4), lens=power_v2.LENS_CANONICAL)
 
@@ -116,7 +118,9 @@ def test_trend_remains_results_only_and_never_backfills_current_ros(monkeypatch)
 
 
 def test_each_trend_point_is_as_of_that_week(monkeypatch):
-    monkeypatch.setattr(power_v2, "_load_team_strength_percentiles", lambda snapshot=None: {})
+    monkeypatch.setattr(
+        power_v2, "_load_team_strength_percentiles", lambda snapshot=None, league_key=None: {}
+    )
     full = power_v2.build_section(_scored_snapshot(4), lens=power_v2.LENS_RESULTS_ONLY)
 
     for week_number in (1, 2, 3, 4):
@@ -131,7 +135,9 @@ def test_each_trend_point_is_as_of_that_week(monkeypatch):
 
 
 def test_exact_score_ties_share_standard_competition_rank(monkeypatch):
-    monkeypatch.setattr(power_v2, "_load_team_strength_percentiles", lambda snapshot=None: {})
+    monkeypatch.setattr(
+        power_v2, "_load_team_strength_percentiles", lambda snapshot=None, league_key=None: {}
+    )
     rosters = [{"roster_id": i, "owner_id": f"o{i}"} for i in (1, 2, 3, 4)]
     matchups = {
         wk: [

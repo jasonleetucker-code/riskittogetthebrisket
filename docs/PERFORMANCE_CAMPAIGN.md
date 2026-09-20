@@ -2288,3 +2288,87 @@ No campaign production deployment, activation or merge occurred.
 At resumed host preflight, battery power was reported at 34%; long measurements
 are withheld pending reliable external power. Tests, reconciliation and isolated
 correctness work continue. No persistent power setting is changed.
+
+### Reconciliation and validation in progress — 2026-09-20
+
+Main c237a3c24ff74cfd0c6c7fd2854d22b0b8126384 adds 294 commits / 502 paths
+since the last reconciled checkpoint. The full commit/path ledger is retained
+in Steward receipt 004-attempt4. This includes serving, source, frontend and CI
+changes and is RELEVANT_BASE_MOVE. Local reconciliation is in progress, not a
+completed merge or production release. Fixed historical replay observations remain
+recorded; changed serving/policy dependencies require new certification and a new
+measurement freeze.
+
+Commit 2ccd5ab3c classifies all six distinct-UID workflow steps as blocking.
+Four targeted classification checks passed before integration; after retaining
+upstream tiered-CI additions, the combined classification/scope selection passed
+11 tests. Commit d13bd40e5 corrects the demonstrated FantasyPros metadata collision:
+Byron Murphy II and Byron Murphy Jr. no longer overwrite each other's metadata
+under a suffix-normalized key. Position-family-compatible candidates, exact-name
+preference and unambiguous fallback retain the existing value/rank calculation.
+Author, root and independent reviewer each passed 29 tests with three skips;
+these overlapping runs are not summed. Ruff 0.6.9 checked 1,489 files; lint,
+coercion and planning checks passed at that pre-merge checkpoint.
+
+Game Day combines upstream explicit week/season forwarding with campaign
+cancellation and last-good behavior. Request identity includes team, week and
+season, including hidden-tab transitions. Root and independent review each
+passed 58 focused tests. Fresh full frontend validation passed 179 files / 2,648
+tests (23.28s), Node 20.20.2 production build and all 14 unchanged bundle budgets.
+Build 5deroXTrlWmNo1zcGXlVo uses the prepared opt-in locally; all 572 captured
+frontend fingerprints matched after validation. This is not frontend activation
+or useful-state acceptance. Browser semantic/privacy/geometry checks are underway.
+
+Read-only production inventory run 35511439229 succeeded at 12:43:53 UTC. Actual
+revision fdf6f4bae12db93b7d2a5c1eedb49720de009aec is an existing main data refresh,
+not this candidate. Four CPUs, 8,131,784 KiB RAM, 6,271,276 KiB available memory;
+web cgroup MemoryCurrent 741,384,192 bytes, frontend 66,158,592 bytes. These are
+point-in-time cgroup measurements, not process RSS or combined sustained headroom.
+Web/frontend/nginx are active. Seven prepared service/timer/path units are not
+found. DLF service remains failed with exit 1 and its timer active; failure stage
+is still unknown. Masked MemoryMax and other masked values remain unknown.
+No deployment, service mutation or flag change occurred. The local host now
+reports external power; every measurement still requires a fresh preflight.
+
+Fresh browser correctness completed: nine synthetic journeys, two desktop/mobile
+geometry cases and four private replay cases passed, with zero page errors and
+forbidden global-contract reads. The private checks preserve 943 eligible CSV
+rows, 69 filtered QB rows and 31 source columns. All 27 allowed telemetry posts
+succeeded; INP/CLS remain unobserved. These runs overlapped backend validation,
+so their timing fields are not performance acceptance. Private direct-gzip checks
+also do not establish a new full-shaped-versus-prepared transport comparison.
+
+The first composed backend selection completed with nine failures, 752 passes,
+33 skips, one warning and five passing subtests. Five failures require actual
+Linux `/proc`; four assert scraper imports at their former server location.
+The live server now delegates to the existing producer. Corrections retain all
+fetcher argument assertions and actual Linux checks; only five real-kernel tests
+are platform-scoped. Synthetic parsing and unavailable/dead-process tests remain
+active on Windows. The original failed run remains evidence. The separate lab
+selection passed 494 tests; overlapping counts are not summed.
+
+Backend reconciliation independently preserves upstream telemetry and scraper
+responsiveness while retaining one source producer. Cancellation drains an
+already-running thread before releasing its source lease, including publication;
+it is not a bounded-shutdown guarantee. Author and root each passed 53 focused
+tests, with independent review recorded in 091-attempt8. Integrated revalidation
+remains required before the merge commit and measurement release.
+
+The fresh corrected integrated selection subsequently passed **757 tests, with
+38 skips, one warning and five passing subtests in 263.10s**. The five additional
+skips are the explicitly Linux-only live-kernel checks, which remain required in
+Ubuntu PR validation. The original failed selection above is not relabeled.
+Repository Ruff 0.6.9 formatting/lint passed for 1,511 Python files; coercion and
+planning integrity passed. Main re-fetch remains c237a3c24ff74cfd0c6c7fd2854d22b0b8126384.
+
+The DLF read-only metadata extension passed 22 tests with two local capability
+skips, plus nine independently selected checks. It emits bounded fixed metadata
+only, suppresses interpreter startup output and labels legacy CSV headers without
+declaring them invalid. The earlier privacy-review rejection is preserved. Actual
+DLF failure attribution still requires execution against production; no cause is
+inferred from exit 1 alone.
+
+Independent browser evidence review confirmed the synthetic full/prepared checks,
+but found that the private runner only compared prepared rankings through direct
+gzip transport. Private full/prepared and trade coverage is being added to that
+existing runner before final measurement release. No new application API is added.

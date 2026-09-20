@@ -36,12 +36,23 @@ def test_brief_save_compiles_retrievable_knowledge_and_retains_partial(tmp_path,
     state.close()
 
 
-def test_launch_checkpoint_cannot_skip_literal_rows(tmp_path):
+def test_launch_checkpoint_cannot_skip_literal_rows(tmp_path, monkeypatch):
+    import src.steward.__main__ as cli
+
+    real_inventory = cli.inventory
+
+    def incomplete_inventory(repo):
+        inv = real_inventory(repo)
+        inv["launch"] = dict(inv["launch"])
+        inv["launch"]["complete"] = False
+        return inv
+
+    monkeypatch.setattr(cli, "inventory", incomplete_inventory)
     path = tmp_path / "state.db"
     update = tmp_path / "update.json"
     update.write_text(json.dumps({"task_states": {"P0": {"state": "SUPERSEDED"}}}))
     with pytest.raises(ValueError, match="literal launch"):
-        main(
+        cli.main(
             [
                 "--repo",
                 str(ROOT),
@@ -97,7 +108,7 @@ def test_cli_new_process_reports_actual_head(tmp_path):
     result = json.loads(output)
     assert len(result["head"]) == 40
     assert result["remote_observed_at"] is None
-    assert result["manifest_rows"] == 163
+    assert result["manifest_rows"] == 164
     assert all(route["status"] == "BLOCKED" for route in result["routing"])
 
 

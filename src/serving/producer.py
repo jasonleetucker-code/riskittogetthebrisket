@@ -22,6 +22,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from starlette.concurrency import run_in_threadpool
+
 from src.serving.artifacts import ArtifactStore, PublishLockTimeout, _mkdir, _publish_lock
 from src.serving.producer_status import source_receipt_ready as source_receipt_ready
 
@@ -106,6 +108,32 @@ class ProducerResult:
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+async def _run_blocking(function, *args, **kwargs):
+    """Keep the source lease until synchronous writes finish, even on cancellation.
+
+    Cancelling an asyncio waiter cannot stop its OS thread. Shield the worker
+    task and drain it before propagating cancellation, so another publisher
+    cannot enter while a cancelled source call is still writing its files.
+    """
+    worker = asyncio.create_task(run_in_threadpool(function, *args, **kwargs))
+    cancelled = False
+    while True:
+        try:
+            result = await asyncio.shield(worker)
+            break
+        except asyncio.CancelledError:
+            if worker.cancelled():
+                raise
+            cancelled = True
+        except Exception:
+            if cancelled:
+                raise asyncio.CancelledError from None
+            raise
+    if cancelled:
+        raise asyncio.CancelledError
+    return result
 
 
 def _load_scraper(config: ProducerConfig):
@@ -472,7 +500,7 @@ async def run_source_cycle(
                 if callable(previous_raw):
                     previous_raw = previous_raw()
                 phase("bootstrap", "import_scraper", 1, "Importing scraper module")
-                scraper = _load_scraper(config)
+                scraper = await _run_blocking(_load_scraper, config)
                 phase("scrape", "Dynasty Scraper.py", 2, "Executing scraper.run()")
                 result = await asyncio.wait_for(
                     scraper.run(progress_callback=on_progress), timeout=config.timeout_seconds
@@ -488,10 +516,10 @@ async def run_source_cycle(
                 if not result or not result.get("players"):
                     raise RuntimeError("Scraper returned empty result")
                 try:
-                    evidence["mirrors"] = _mirror_source_csvs(config)
+                    evidence["mirrors"] = await _run_blocking(_mirror_source_csvs, config)
                 except Exception as exc:  # noqa: BLE001
                     emit("source_csv_mirror_failed", level="warning", message=str(exc))
-                _run_supplemental_sources(config, emit)
+                await _run_blocking(_run_supplemental_sources, config, emit)
                 counts = {
                     "player_count": len(result.get("players") or {}),
                     "site_count": len(

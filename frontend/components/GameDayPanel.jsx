@@ -541,6 +541,11 @@ export default function GameDayPanel() {
     urlOwnerId ||
     (userState?.selectedTeam?.ownerId ? String(userState.selectedTeam.ownerId) : "");
 
+  // Forward explicit context to the canonical resolver; it owns validation.
+  const urlWeek = String(searchParams?.get("week") || "").trim();
+  const urlSeason = String(searchParams?.get("season") || "").trim();
+  const requestKey = JSON.stringify([selectedOwnerId, urlWeek, urlSeason]);
+
   const load = useCallback(async ({ background = false } = {}) => {
     // Polls never overlap. Manual retry and team changes supersede an old
     // request; its response cannot publish into the new team's panel.
@@ -549,27 +554,31 @@ export default function GameDayPanel() {
     const controller = new AbortController();
     requestRef.current = controller;
     setState((previous) =>
-      background && previous.status === "ok" && previous.ownerKey === selectedOwnerId
+      background && previous.status === "ok" && previous.requestKey === requestKey
         ? { ...previous, refreshing: true, refreshError: false }
-        : { status: "loading", payload: null, error: null, ownerKey: selectedOwnerId },
+        : { status: "loading", payload: null, error: null, requestKey },
     );
     try {
-      const qs = selectedOwnerId ? `?team=${encodeURIComponent(selectedOwnerId)}` : "";
+      const params = new URLSearchParams();
+      if (selectedOwnerId) params.set("team", selectedOwnerId);
+      if (urlWeek) params.set("week", urlWeek);
+      if (urlSeason) params.set("season", urlSeason);
+      const qs = params.toString() ? `?${params.toString()}` : "";
       const res = await fetch(`/api/matchup/intel${qs}`, { cache: "no-store", signal: controller.signal });
       const body = await res.json().catch(() => ({}));
       if (controller.signal.aborted || requestRef.current !== controller) return;
       if (res.ok) {
         if (!validMatchupPayload(body)) {
           setState((previous) =>
-            background && previous.status === "ok" && previous.ownerKey === selectedOwnerId
+            background && previous.status === "ok" && previous.requestKey === requestKey
               ? { ...previous, refreshing: false, refreshError: true }
               : { status: "error", payload: null,
                   error: { error: "invalid_matchup", message: "The matchup response is incomplete. Please retry." },
-                  ownerKey: selectedOwnerId },
+                  requestKey },
           );
           return;
         }
-        setState({ status: "ok", payload: body, error: null, ownerKey: selectedOwnerId });
+        setState({ status: "ok", payload: body, error: null, requestKey });
         return;
       }
       // The error CODE is the state. Collapsing 409 into a generic failure
@@ -578,21 +587,21 @@ export default function GameDayPanel() {
       // server failure may retain it only with a visible freshness warning.
       const transient = res.status >= 500 && body.error !== "clock_unavailable";
       setState((previous) =>
-        background && transient && previous.status === "ok"
+        background && transient && previous.status === "ok" && previous.requestKey === requestKey
           ? { ...previous, refreshing: false, refreshError: true }
-          : { status: "error", payload: null, error: { httpStatus: res.status, ...body }, ownerKey: selectedOwnerId },
+          : { status: "error", payload: null, error: { httpStatus: res.status, ...body }, requestKey },
       );
     } catch (err) {
       if (controller.signal.aborted || requestRef.current !== controller) return;
       setState((previous) =>
-        background && previous.status === "ok"
+        background && previous.status === "ok" && previous.requestKey === requestKey
           ? { ...previous, refreshing: false, refreshError: true }
-          : { status: "error", payload: null, error: { error: "network", detail: String(err) }, ownerKey: selectedOwnerId },
+          : { status: "error", payload: null, error: { error: "network", detail: String(err) }, requestKey },
       );
     } finally {
       if (requestRef.current === controller) requestRef.current = null;
     }
-  }, [selectedOwnerId]);
+  }, [selectedOwnerId, urlWeek, urlSeason, requestKey]);
 
   useEffect(() => {
     if (!document.hidden) load();
@@ -609,7 +618,7 @@ export default function GameDayPanel() {
     };
   }, [load]);
 
-  if (state.status === "loading" || state.ownerKey !== selectedOwnerId) {
+  if (state.status === "loading" || state.requestKey !== requestKey) {
     return <LoadingState message="Loading this week's matchup..." />;
   }
 

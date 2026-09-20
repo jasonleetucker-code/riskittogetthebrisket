@@ -20,26 +20,20 @@ import PlayoffOddsChart from "@/components/graphs/PlayoffOddsChart";
 // Same pattern + 30-min TTL that the retired power.jsx used for playoff
 // odds.
 //
-// One league-facing canonical answer plus a results-only diagnostic.
-// The backend still accepts "forward_looking" as a compatibility alias,
-// but the UI no longer presents it as a competing Power Ranking.
+// ONE league-facing ranking. The engine still accepts ``?lens=results_only``
+// as an analytical diagnostic (spec section 3), and ``forward_looking`` as a
+// compatibility alias, but this page does not present either as a competing
+// Power Ranking — so there is one cache, not one per lens.
 const CACHE_TTL_MS = 30 * 60 * 1000;
-export const LENS_CANONICAL = "canonical";
-export const LENS_FORWARD_LOOKING = "forward_looking";
-export const LENS_RESULTS_ONLY = "results_only";
-const _caches = {
-  [LENS_CANONICAL]: { data: null, error: null, inflight: null, fetchedAt: 0 },
-  [LENS_RESULTS_ONLY]: { data: null, error: null, inflight: null, fetchedAt: 0 },
-};
+const _cache = { data: null, error: null, inflight: null, fetchedAt: 0 };
 
-async function _fetchRosPower(lens) {
-  const cache = _caches[lens] || _caches[LENS_CANONICAL];
+async function _fetchRosPower() {
+  const cache = _cache;
   const fresh = cache.data && Date.now() - cache.fetchedAt < CACHE_TTL_MS;
   if (fresh) return { data: cache.data, error: null };
   if (cache.inflight) return cache.inflight;
 
-  const qs = lens && lens !== LENS_CANONICAL ? `?lens=${encodeURIComponent(lens)}` : "";
-  const promise = fetch(`/api/public/league/rosPower${qs}`)
+  const promise = fetch("/api/public/league/rosPower")
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`${r.status}`))))
     .then((payload) => {
       const body = payload?.data || payload?.section || payload;
@@ -101,31 +95,12 @@ async function _fetchOddsOnce() {
   return promise;
 }
 
-// Rank delta between two already-computed rank values. Historical selector
-// rows use the diagnostic results-only series; the live canonical table gets
-// its movement directly from immutable official snapshots. ``null`` for
-// either input propagates to ``null`` — missing history is not "flat".
-function rankDelta(priorRank, currentRank) {
-  if (priorRank == null || currentRank == null) return null;
-  return priorRank - currentRank; // positive = moved up (lower rank number)
-}
-
-// Delta for one specific historical week in ``trend.weeks``, against the
-// nearest PRECEDING week that lists the same owner (an owner can be
-// absent from a week — e.g. joined the league later). Same underlying
-// diagnostic quantity generalized to any historical week the reader picks.
- // Nothing new is computed; every rank is already published on trend.weeks.
-function weekDelta(weeks, weekIndex, ownerId) {
-  if (weekIndex <= 0) return null;
-  const currentRow = (weeks[weekIndex]?.rankings || []).find((r) => r.ownerId === ownerId);
-  if (!currentRow) return null;
-  for (let i = weekIndex - 1; i >= 0; i--) {
-    const priorRow = (weeks[i]?.rankings || []).find((r) => r.ownerId === ownerId);
-    if (priorRow) return rankDelta(priorRow.rank, currentRow.rank);
-  }
-  return null;
-}
-
+// Movement is BACKEND-OWNED. ``row.weekRankDelta`` is computed by
+// ``power_snapshots.movement_against_previous`` against exactly week N-1's
+// immutable publication, and the share card reads the frozen ``rankDelta`` off
+// the snapshot itself. This file deliberately has no rank-delta arithmetic:
+// a second definition of "how far did they move" is how the page ended up
+// disagreeing with the card it was next to.
 function fmtScore(v) {
   if (v == null || !Number.isFinite(Number(v))) return "—";
   return Number(v).toFixed(1);
@@ -185,75 +160,95 @@ const COMPONENT_LABELS = {
   wl_record: "Official record",
 };
 
-const CURRENT_WEEK_KEY = "__current";
+// Compact labels for the per-row composition line. Deliberately shorter than
+// COMPONENT_LABELS: this renders inline under every owner, not in an expanded
+// panel, so it has to survive a phone width.
+const COMPONENT_RANK_LABELS = {
+  team_ros_strength: "ROS",
+  all_play: "All-play",
+  recent: "Last 4",
+  team_vorp: "VORP",
+  wl_record: "Record",
+};
 
-// ── Power trail chart ────────────────────────────────────────────────────
-// Ported from the retired power.jsx unchanged in shape -- reads
-// ``trend.seriesByOwner`` (``{season, week, powerScore, rank}[]`` per
-// owner), the canonical engine's own already-published time series.
-// No computation happens here beyond building one shared chronological
-// axis across owners, exactly what the retired chart did with its own
-// ``seriesByOwner``. Unlike the retired chart, points with a ``null``
-// ``powerScore`` (a results-only week can itself be unrankable) are
-// filtered out of each line rather than plotted as 0.
-function PowerChart({ series, highlightOwnerId = null }) {
-  const { lines, xMax } = useMemo(() => {
-    if (!series || !series.length) return { lines: [], xMax: 0 };
-    const allKeys = new Map(); // "season:week" → order
-    const sortedSeries = series.map((s) => ({
-      ...s,
-      points: [...s.points].sort((a, b) => {
-        if (a.season !== b.season) return Number(a.season) - Number(b.season);
-        return a.week - b.week;
-      }),
-    }));
-    const ordered = [];
-    for (const s of sortedSeries) {
-      for (const p of s.points) {
-        const k = `${p.season}:${p.week}`;
-        if (!allKeys.has(k)) {
-          allKeys.set(k, ordered.length);
-          ordered.push(k);
-        }
+// Sub-ranks come from the backend (`power_v2._attach_component_ranks`) and are
+// rendered verbatim. Computing them here would be a frontend ranking engine
+// over a league-wide population, which CLAUDE.md forbids. An absent key means
+// the component was UNMEASURED that week and is simply not shown — never
+// rendered as a worst-place finish.
+function composition(row) {
+  const ranks = row.componentRanks || {};
+  return Object.keys(COMPONENT_RANK_LABELS)
+    .filter((key) => ranks[key] != null)
+    .map((key) => `${COMPONENT_RANK_LABELS[key]} #${ranks[key]}`)
+    .join(" · ");
+}
+
+// ── Rank history chart ──────────────────────────────────────────────────
+// Reads ``officialHistory`` — the immutable weekly publications, and nothing
+// else. Every point is a week that was actually published, so this chart and
+// the arrows on the share card can never disagree.
+//
+// It plots RANK, not Power score, for a reason: an owner-attested baseline week
+// records the order the site published and carries no Power score at all
+// (``rankSource: owner_attested_published_card``). Rank is the quantity every
+// published week has. Plotting the score instead would silently drop the
+// baseline off the left edge of the chart.
+//
+// The old chart read ``trend.seriesByOwner`` — the results-only reconstruction
+// chained across every tracked season. That is a different ranking from the one
+// the page publishes, and rendering it beside the canonical table is what made
+// the page look like it had three answers. It is gone from this page; the
+// diagnostic lens still exists in the engine (``?lens=results_only``).
+function RankHistoryChart({ history, managers, highlightOwnerId = null }) {
+  const { lines, weeks, maxRank } = useMemo(() => {
+    const ordered = [...(history || [])]
+      .filter((w) => Number.isFinite(Number(w?.week)))
+      .sort((a, b) => Number(a.week) - Number(b.week));
+    const byOwner = new Map();
+    let maxRank = 0;
+    ordered.forEach((week, x) => {
+      for (const row of week.ranking || []) {
+        if (row?.ownerId == null || row?.rank == null) continue;
+        const rank = Number(row.rank);
+        if (!Number.isFinite(rank)) continue;
+        maxRank = Math.max(maxRank, rank);
+        const key = String(row.ownerId);
+        if (!byOwner.has(key)) byOwner.set(key, []);
+        byOwner.get(key).push({ x, y: rank, week: week.week });
       }
-    }
-    ordered.sort((a, b) => {
-      const [sa, wa] = a.split(":");
-      const [sb, wb] = b.split(":");
-      if (sa !== sb) return Number(sa) - Number(sb);
-      return Number(wa) - Number(wb);
     });
-    ordered.forEach((k, i) => allKeys.set(k, i));
+    return {
+      lines: [...byOwner.entries()].map(([ownerId, points]) => ({ ownerId, points })),
+      weeks: ordered,
+      maxRank,
+    };
+  }, [history]);
 
-    const lines = sortedSeries.map((s) => ({
-      ownerId: s.ownerId,
-      displayName: s.displayName,
-      points: s.points
-        .filter((p) => p.powerScore != null)
-        .map((p) => ({
-          x: allKeys.get(`${p.season}:${p.week}`),
-          y: p.powerScore,
-          season: p.season,
-          week: p.week,
-          rank: p.rank,
-        })),
-    }));
-    return { lines, xMax: ordered.length - 1 };
-  }, [series]);
-
-  if (!lines.length || xMax < 1) return null;
+  // One published week is a dot, not a history. Say so rather than rendering a
+  // chart with nothing to compare against.
+  if (weeks.length < 2 || !lines.length || maxRank < 1) {
+    return (
+      <div style={{ fontSize: "0.72rem", color: "var(--subtext)", padding: "6px 2px" }}>
+        Rank history begins once a second week is published.
+      </div>
+    );
+  }
 
   const W = 640;
   const H = 260;
-  const padL = 38;
+  const padL = 30;
   const padR = 80;
   const padT = 16;
   const padB = 24;
   const plotW = W - padL - padR;
   const plotH = H - padT - padB;
+  const xMax = weeks.length - 1;
 
   const px = (x) => padL + (x / xMax) * plotW;
-  const py = (y) => padT + (1 - y / 100) * plotH;
+  // Rank 1 sits at the TOP. The axis is inverted relative to a score axis,
+  // which is the whole point: up on this chart means up in the rankings.
+  const py = (rank) => padT + ((rank - 1) / Math.max(1, maxRank - 1)) * plotH;
 
   function colorFor(ownerId) {
     const palette = [
@@ -267,6 +262,8 @@ function PowerChart({ series, highlightOwnerId = null }) {
     return palette[h % palette.length];
   }
 
+  const rankTicks = [1, ...(maxRank > 2 ? [Math.round((maxRank + 1) / 2)] : []), maxRank];
+
   return (
     <div style={{ overflowX: "auto" }}>
       <svg
@@ -274,30 +271,43 @@ function PowerChart({ series, highlightOwnerId = null }) {
         width="100%"
         height={H}
         style={{ maxWidth: W, display: "block", margin: "0 auto" }}
-        aria-label="Power score across weeks per manager"
+        aria-label="Published rank by week per manager"
       >
-        {[0, 25, 50, 75, 100].map((v) => (
-          <g key={v}>
+        {rankTicks.map((r) => (
+          <g key={r}>
             <line
               x1={padL}
               x2={W - padR}
-              y1={py(v)}
-              y2={py(v)}
-              stroke={v === 50 ? "var(--border-bright)" : "var(--border)"}
-              strokeDasharray={v === 50 ? "" : "3 3"}
-              opacity={v === 50 ? 0.8 : 0.5}
+              y1={py(r)}
+              y2={py(r)}
+              stroke="var(--border)"
+              strokeDasharray="3 3"
+              opacity={0.5}
             />
             <text
               x={padL - 6}
-              y={py(v) + 3}
+              y={py(r) + 3}
               fontSize={9}
               textAnchor="end"
               fill="var(--subtext)"
               fontFamily="var(--mono)"
             >
-              {v}
+              {r}
             </text>
           </g>
+        ))}
+        {weeks.map((w, x) => (
+          <text
+            key={`wk-${w.week}`}
+            x={px(x)}
+            y={H - 12}
+            fontSize={9}
+            textAnchor="middle"
+            fill="var(--subtext)"
+            fontFamily="var(--mono)"
+          >
+            {w.preseason ? "Pre" : `Wk ${w.week}`}
+          </text>
         ))}
         {lines.map((line) => {
           const isHighlighted = highlightOwnerId && line.ownerId === highlightOwnerId;
@@ -305,30 +315,29 @@ function PowerChart({ series, highlightOwnerId = null }) {
           const d = line.points
             .map((p, i) => `${i === 0 ? "M" : "L"} ${px(p.x)} ${py(p.y)}`)
             .join(" ");
+          const last = line.points[line.points.length - 1];
+          const label = managers ? nameFor(managers, line.ownerId) : line.ownerId;
           return (
             <g key={line.ownerId} opacity={highlightOwnerId && !isHighlighted ? 0.25 : 1.0}>
               <path d={d} fill="none" stroke={color} strokeWidth={isHighlighted ? 2.4 : 1.4} />
-              {line.points.length > 0 && (() => {
-                const last = line.points[line.points.length - 1];
-                return (
-                  <>
-                    <circle cx={px(last.x)} cy={py(last.y)} r={3} fill={color} />
-                    <text x={px(last.x) + 6} y={py(last.y) + 3} fontSize={9} fill={color} fontFamily="var(--mono)">
-                      {(line.displayName || line.ownerId).slice(0, 12)}
-                    </text>
-                  </>
-                );
-              })()}
+              <circle cx={px(last.x)} cy={py(last.y)} r={3} fill={color} />
+              <text
+                x={px(last.x) + 6}
+                y={py(last.y) + 3}
+                fontSize={9}
+                fill={color}
+                fontFamily="var(--mono)"
+              >
+                {String(label || line.ownerId).slice(0, 12)}
+              </text>
             </g>
           );
         })}
-        <text x={padL + plotW / 2} y={H - 4} fontSize={9} textAnchor="middle" fill="var(--subtext)">
-          Weeks played (chronological)
-        </text>
       </svg>
     </div>
   );
 }
+
 
 function MovementMark({ value, emptyLabel = "—" }) {
   if (value == null) return <span style={{ color: "var(--subtext)" }}>{emptyLabel}</span>;
@@ -355,6 +364,17 @@ function LeaguePowerShareCard({ data, rankings, managers }) {
   const season = official?.season ?? data?.asOfSeason ?? null;
   const isOfficial = !!official;
 
+  // Name the week the arrows are measured against, so "no movement" and
+  // "no baseline to move against" cannot read the same on a screenshot.
+  // Taken from the published history, never inferred from the week number:
+  // a league whose baseline was never published must not claim one.
+  const baseline = (data?.officialHistory || [])
+    .filter((w) => week != null && Number(w?.week) === Number(week) - 1)
+    .at(0);
+  const baselineLabel = baseline
+    ? `vs ${baseline.preseason ? "preseason" : `Week ${baseline.week}`}`
+    : null;
+
   return (
     <div
       data-testid="league-power-share-card"
@@ -374,6 +394,7 @@ function LeaguePowerShareCard({ data, rankings, managers }) {
           <div style={{ fontSize: "1rem", fontWeight: 900, letterSpacing: "0.02em" }}>League Power Rankings</div>
           <div style={{ fontSize: "0.68rem", color: "var(--subtext)" }}>
             {season ? season : "Current season"}{week ? ` · Week ${week}` : ""}{isOfficial ? " · Official" : " · Current"}
+            {baselineLabel ? ` · ${baselineLabel}` : ""}
           </div>
         </div>
         <div style={{ fontSize: "0.62rem", color: "var(--subtext)", textAlign: "right" }}>
@@ -413,7 +434,7 @@ function LeaguePowerShareCard({ data, rankings, managers }) {
                 ) : null}
               </div>
               <div style={{ textAlign: "right", fontSize: "0.74rem" }}>
-                <MovementMark value={movement} emptyLabel={week && Number(week) <= 1 ? "NEW" : "—"} />
+                <MovementMark value={movement} emptyLabel={row.priorRank == null ? "NEW" : "—"} />
               </div>
             </div>
           );
@@ -424,12 +445,10 @@ function LeaguePowerShareCard({ data, rankings, managers }) {
 }
 
 export default function RosPowerSection({ managers } = {}) {
-  const [lens, setLens] = useState(LENS_CANONICAL);
-  const [data, setData] = useState(() => _caches[LENS_CANONICAL].data);
-  const [error, setError] = useState(_caches[LENS_CANONICAL].error);
-  const [loading, setLoading] = useState(!_caches[LENS_CANONICAL].data);
+  const [data, setData] = useState(() => _cache.data);
+  const [error, setError] = useState(_cache.error);
+  const [loading, setLoading] = useState(!_cache.data);
   const [expanded, setExpanded] = useState(null);
-  const [selectedWeekKey, setSelectedWeekKey] = useState(CURRENT_WEEK_KEY);
   const [hoverOwnerId, setHoverOwnerId] = useState(null);
   const [oddsData, setOddsData] = useState(() => _oddsCache.data);
   const [oddsError, setOddsError] = useState(() => _oddsCache.error);
@@ -437,8 +456,8 @@ export default function RosPowerSection({ managers } = {}) {
 
   useEffect(() => {
     let active = true;
-    setLoading(!_caches[lens]?.data);
-    _fetchRosPower(lens).then(({ data: d, error: e }) => {
+    setLoading(!_cache.data);
+    _fetchRosPower().then(({ data: d, error: e }) => {
       if (!active) return;
       setData(d);
       setError(e);
@@ -447,7 +466,7 @@ export default function RosPowerSection({ managers } = {}) {
     return () => {
       active = false;
     };
-  }, [lens]);
+  }, []);
 
   // Playoff odds, ported unchanged from the retired power.jsx: fetch
   // once and cache at module scope so repeated Power-tab mounts within
@@ -464,35 +483,6 @@ export default function RosPowerSection({ managers } = {}) {
       cancelled = true;
     };
   }, []);
-
-  const lensToggle = (
-    <div style={{ display: "flex", gap: 4, marginBottom: 8, fontSize: "0.72rem" }}>
-      {[
-        { key: LENS_CANONICAL, label: "Canonical" },
-        { key: LENS_RESULTS_ONLY, label: "Results only" },
-      ].map((opt) => (
-        <button
-          key={opt.key}
-          type="button"
-          onClick={() => {
-            setLens(opt.key);
-            if (opt.key !== LENS_CANONICAL) setShareOpen(false);
-          }}
-          aria-pressed={lens === opt.key}
-          style={{
-            padding: "3px 10px",
-            borderRadius: 4,
-            border: "1px solid var(--subtext)",
-            background: lens === opt.key ? "var(--cyan)" : "transparent",
-            color: lens === opt.key ? "#000" : "var(--subtext)",
-            cursor: "pointer",
-          }}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  );
 
   if (loading && !data) {
     return <LoadingState message="Loading ROS power rankings..." />;
@@ -513,14 +503,13 @@ export default function RosPowerSection({ managers } = {}) {
   //
   // Rendering that as an empty table, or as a column of "—", would let
   // the reader assume the data is still loading and will arrive. It is
-  // not loading: for the results-only lens in the offseason this state
-  // is structural and persists until the season starts. Say which one
-  // it is, and show the reason the backend gave.
+  // not loading: in the preseason, with no forward-looking input yet,
+  // this state is structural and persists until the season starts. Say
+  // which one it is, and show the reason the backend gave.
   const unrankable = data?.unrankable;
   if (unrankable) {
     return (
       <Card title="Power Rankings">
-        {lensToggle}
         <EmptyState
           title="Not enough to rank on"
           message={
@@ -545,7 +534,6 @@ export default function RosPowerSection({ managers } = {}) {
   if (!rankings.length) {
     return (
       <Card>
-        {lensToggle}
         <EmptyState
           title="Power rankings not ready"
           message="The league snapshot or ROS roster-strength data is missing. Once the next scheduled scrape lands, this view will populate."
@@ -559,8 +547,7 @@ export default function RosPowerSection({ managers } = {}) {
   const missing = data.missingInputs || [];
   const rosAvailable = !!data.rosTeamStrengthAvailable;
   const preseason = !!data.preseason;
-  const trend = data.trend || null;
-  const trendWeeks = trend?.weeks || [];
+  const officialHistory = data.officialHistory || [];
   const blend = data.blend || {};
   const forwardPct = Math.round(Number(blend.forwardWeight || 0) * 100);
   const resultsPct = Math.round(Number(blend.resultsWeight || 0) * 100);
@@ -573,51 +560,31 @@ export default function RosPowerSection({ managers } = {}) {
     .sort((a, b) => Number(b[1]) - Number(a[1]))
     .map(([key, w]) => `${COMPONENT_LABELS[key] || key} (${Math.round(Number(w) * 100)}%)`);
 
-  // "Most recent" shows the currently-selected lens's headline ranking —
-  // consistent with the table above it. Any specific historical week
-  // shows ``trend.weeks``, which is ALWAYS results-only by construction
-  // (team ROS strength has no per-week history to look back at — see
-  // the backend's own comment). Labeled rather than silently switched,
-  // so a reader who picks a past week is told which quantity they're
-  // looking at.
-  const selectedWeekIndex =
-    selectedWeekKey === CURRENT_WEEK_KEY
-      ? -1
-      : trendWeeks.findIndex((w) => `${w.season}:${w.week}` === selectedWeekKey);
-  const viewingHistory = selectedWeekIndex >= 0;
-  const displayedRankings = viewingHistory
-    ? trendWeeks[selectedWeekIndex]?.rankings || []
-    : rankings;
-  const displayedWeightsBase = viewingHistory ? {} : effectiveWeights;
-
   return (
     <section>
       <Card title="Power Rankings">
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          {lensToggle}
-          {lens === LENS_CANONICAL ? (
-            <button
-              type="button"
-              onClick={() => setShareOpen((open) => !open)}
-              aria-expanded={shareOpen}
-              aria-controls="league-power-share-card"
-              style={{
-                padding: "5px 11px",
-                borderRadius: 6,
-                border: "1px solid var(--border-bright, var(--subtext))",
-                background: shareOpen ? "var(--cyan)" : "transparent",
-                color: shareOpen ? "#000" : "var(--text)",
-                cursor: "pointer",
-                fontSize: "0.72rem",
-                fontWeight: 700,
-              }}
-            >
-              {shareOpen ? "Hide Share Card" : "Share Rankings"}
-            </button>
-          ) : null}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <button
+            type="button"
+            onClick={() => setShareOpen((open) => !open)}
+            aria-expanded={shareOpen}
+            aria-controls="league-power-share-card"
+            style={{
+              padding: "5px 11px",
+              borderRadius: 6,
+              border: "1px solid var(--border-bright, var(--subtext))",
+              background: shareOpen ? "var(--cyan)" : "transparent",
+              color: shareOpen ? "#000" : "var(--text)",
+              cursor: "pointer",
+              fontSize: "0.72rem",
+              fontWeight: 700,
+            }}
+          >
+            {shareOpen ? "Hide Share Card" : "Share Rankings"}
+          </button>
         </div>
 
-        {shareOpen && lens === LENS_CANONICAL ? (
+        {shareOpen ? (
           <div id="league-power-share-card">
             <LeaguePowerShareCard data={data} rankings={rankings} managers={managers} />
             <div style={{ textAlign: "center", fontSize: "0.66rem", color: "var(--subtext)", margin: "-6px 0 10px" }}>
@@ -627,14 +594,10 @@ export default function RosPowerSection({ managers } = {}) {
         ) : null}
 
         <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginBottom: 10 }}>
-          {lens === LENS_CANONICAL ? (
-            <span style={{ color: "var(--cyan)" }}>
-              Canonical blend: {forwardPct}% forward-looking strength + {resultsPct}% results.{" "}
-            </span>
-          ) : (
-            <span style={{ color: "var(--subtext)" }}>Diagnostic results-only view.{" "}</span>
-          )}
-          {preseason && lens === LENS_CANONICAL ? (
+          <span style={{ color: "var(--cyan)" }}>
+            Blend: {forwardPct}% forward-looking strength + {resultsPct}% results.{" "}
+          </span>
+          {preseason ? (
             <span>Preseason uses only legitimate forward-looking evidence.{" "}</span>
           ) : null}
           {formulaParts.join(" + ")}
@@ -644,30 +607,6 @@ export default function RosPowerSection({ managers } = {}) {
           )}
           {!preseason && missing.length > 0 && <span> Missing inputs: {missing.join(", ")}.</span>}
         </div>
-
-        {trendWeeks.length > 0 && (
-          <div style={{ marginBottom: 10 }}>
-            <select
-              className="input"
-              value={selectedWeekKey}
-              onChange={(e) => setSelectedWeekKey(e.target.value)}
-              style={{ minWidth: 180, fontSize: "0.78rem" }}
-            >
-              <option value={CURRENT_WEEK_KEY}>Most recent</option>
-              {[...trendWeeks].reverse().map((w) => (
-                <option key={`${w.season}:${w.week}`} value={`${w.season}:${w.week}`}>
-                  {w.season} Wk {w.week}
-                </option>
-              ))}
-            </select>
-            {viewingHistory && (
-              <div style={{ fontSize: "0.68rem", color: "var(--subtext)", marginTop: 4 }}>
-                {trend?.note ||
-                  "Historical weeks show the results-only view — forward-looking roster strength has no per-week history."}
-              </div>
-            )}
-          </div>
-        )}
 
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.84rem" }}>
           <thead>
@@ -681,50 +620,40 @@ export default function RosPowerSection({ managers } = {}) {
               <th style={{ textAlign: "right", padding: "4px 8px" }}>Record</th>
               <th
                 style={{ textAlign: "right", padding: "4px 8px" }}
-                title={viewingHistory ? "Results-only historical change" : "Current canonical rank vs. the previous official weekly snapshot"}
+                title="Current rank vs. the previous official weekly snapshot"
               >
                 Move
               </th>
             </tr>
           </thead>
           <tbody>
-            {displayedRankings.map((row, i) => (
+            {rankings.map((row, i) => (
               <RankingRow
                 key={row.ownerId || i}
                 row={row}
                 managers={managers}
-                weights={row.weightsApplied || displayedWeightsBase}
-                expanded={expanded === `${selectedWeekKey}:${i}`}
-                onToggle={() => setExpanded(expanded === `${selectedWeekKey}:${i}` ? null : `${selectedWeekKey}:${i}`)}
+                weights={row.weightsApplied || effectiveWeights}
+                expanded={expanded === i}
+                onToggle={() => setExpanded(expanded === i ? null : i)}
                 onHover={setHoverOwnerId}
                 hovered={hoverOwnerId === row.ownerId}
-                trendDeltaValue={
-                  viewingHistory
-                    ? weekDelta(trendWeeks, selectedWeekIndex, row.ownerId)
-                    : row.weekRankDelta
-                }
+                trendDeltaValue={row.weekRankDelta}
               />
             ))}
           </tbody>
         </table>
       </Card>
 
-      {trend?.seriesByOwner && (
-        <Card
-          title="Power score over time"
-          subtitle="Diagnostic results-only history. Official canonical week-to-week movement is frozen in the weekly share snapshots."
-        >
-          <PowerChart
-            series={Object.entries(trend.seriesByOwner).map(([ownerId, points]) => ({
-              ownerId,
-              displayName:
-                rankings.find((r) => r.ownerId === ownerId)?.displayName || ownerId,
-              points,
-            }))}
-            highlightOwnerId={hoverOwnerId}
-          />
-        </Card>
-      )}
+      <Card
+        title="Rank history"
+        subtitle="Official published weeks only. Each point is a week that was actually published, so this agrees with the share card by construction."
+      >
+        <RankHistoryChart
+          history={officialHistory}
+          managers={managers}
+          highlightOwnerId={hoverOwnerId}
+        />
+      </Card>
 
       {oddsData && Array.isArray(oddsData.owners) && oddsData.owners.length > 0 ? (
         <Card
@@ -791,6 +720,14 @@ function RankingRow({ row, managers, weights, expanded, onToggle, trendDeltaValu
               </div>
               {row.teamName && (
                 <div style={{ fontSize: "0.64rem", color: "var(--subtext)" }}>{row.teamName}</div>
+              )}
+              {composition(row) && (
+                <div
+                  style={{ fontSize: "0.62rem", color: "var(--subtext)", fontFamily: "var(--mono)" }}
+                  title="Where this team ranks on each weighted component"
+                >
+                  {composition(row)}
+                </div>
               )}
             </span>
           </span>

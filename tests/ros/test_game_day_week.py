@@ -411,6 +411,162 @@ def test_final_resolution_and_lineup_use_only_observed_points():
     assert all(p.projected_remaining == 0.0 for p in result.week.teams[0].players)
 
 
+def test_null_starters_from_host_does_not_crash_resolution():
+    """Sleeper's live matchup payload can carry an explicit
+    ``"starters": null`` (observed on a real best-ball league, where
+    declared starters do not apply) rather than omitting the key --
+    ``.get(key, default)`` alone does not guard against that, and it
+    crashed the whole endpoint in production against real Week 1 data
+    (2026-09-15, ``TypeError: 'NoneType' object is not iterable``)."""
+    from src.ros.game_day_week import GameEvidence, resolve_scoring_week
+
+    players = {"p1": dict(META["p1"], team="SEA"), "p2": dict(META["p2"], team="MIN")}
+    roster = dict(_rosters()[0], players=["p1", "p2"], reserve=[], taxi=[])
+    matchups = [
+        {
+            "roster_id": 1,
+            "matchup_id": 1,
+            "points": 20.0,
+            "starters": None,
+            "players_points": {"p1": 20.0},
+        }
+    ]
+    result = resolve_scoring_week(
+        league_key="fixture",
+        league_payload={"settings": {"best_ball": 1, "num_teams": 1}},
+        rosters=[roster],
+        matchups=matchups,
+        players_meta=players,
+        starter_slots=("QB", "RB"),
+        estimates={},
+        estimate_source=None,
+        game_evidence={
+            "SEA": GameEvidence("completed", "fixture-final", 200.0),
+            "MIN": GameEvidence("completed", "fixture-final", 200.0),
+        },
+        now=201.0,
+    )
+    assert result.week.teams[0].declared_starters == ()
+
+
+def test_team_less_rostered_player_does_not_block_final_when_evidence_exists():
+    """A rostered player with NO current NFL team (a real, common dynasty
+    condition -- a stashed free agent) is a definitive fact he has no
+    game this week, not missing evidence for a team that has one. It
+    must not hold ``final`` false for the whole league forever (measured
+    on real production rosters, 2026-09-15: every team in a real 12-team
+    league was permanently stuck on ``live`` because of exactly this)."""
+    from src.ros.game_day_week import GameEvidence, resolve_scoring_week
+
+    players = {
+        "p1": dict(META["p1"], team="SEA"),
+        "p2": dict(META["p2"]),  # no "team" key at all -- a free agent
+        "p4": dict(META["p4"], team="MIN"),
+    }
+    rosters = [
+        {"roster_id": 1, "players": ["p1", "p2"], "taxi": [], "reserve": []},
+        {"roster_id": 2, "players": ["p4"], "taxi": [], "reserve": []},
+    ]
+    matchups = [
+        {"roster_id": 1, "matchup_id": 1, "points": 20.0, "players_points": {"p1": 20.0}},
+        {"roster_id": 2, "matchup_id": 1, "points": 10.0, "players_points": {"p4": 10.0}},
+    ]
+    result = resolve_scoring_week(
+        league_key="fixture",
+        league_payload={"settings": {"best_ball": 1, "num_teams": 2}},
+        rosters=rosters,
+        matchups=matchups,
+        players_meta=players,
+        starter_slots=("QB", "RB"),
+        estimates={},
+        estimate_source=None,
+        game_evidence={
+            "SEA": GameEvidence("completed", "fixture-final", 200.0),
+            "MIN": GameEvidence("completed", "fixture-final", 200.0),
+        },
+        now=201.0,
+    )
+    assert result.mode == "final"
+    team_one = result.week.teams[0]
+    p2 = next(p for p in team_one.players if p.player_id == "p2")
+    assert p2.state == "inactive"
+    assert p2.points_scored == 0.0
+    assert p2.projected_remaining == 0.0
+
+
+def test_team_less_player_still_blocks_when_schedule_evidence_is_entirely_absent():
+    """The no-team inference above is gated on the schedule feed actually
+    having produced something. When ``evidence`` is empty outright, an
+    absent team means "nothing is resolvable right now" for EVERY
+    player, team-having or not -- the same conservative default, never
+    a promoted certainty for the ones missing a team specifically."""
+    from src.ros.game_day_week import resolve_scoring_week
+
+    players = {"p1": dict(META["p1"]), "p4": dict(META["p4"])}
+    rosters = [
+        {"roster_id": 1, "players": ["p1"], "taxi": [], "reserve": []},
+        {"roster_id": 2, "players": ["p4"], "taxi": [], "reserve": []},
+    ]
+    matchups = [
+        {"roster_id": 1, "matchup_id": 1, "points": 20.0, "players_points": {"p1": 20.0}},
+        {"roster_id": 2, "matchup_id": 1, "points": 0.0, "players_points": {}},
+    ]
+    result = resolve_scoring_week(
+        league_key="fixture",
+        league_payload={"settings": {"best_ball": 1, "num_teams": 2}},
+        rosters=rosters,
+        matchups=matchups,
+        players_meta=players,
+        starter_slots=("QB", "RB"),
+        estimates={},
+        estimate_source=None,
+        game_evidence={},
+        now=201.0,
+    )
+    assert result.mode == "live"
+    p1 = next(p for p in result.week.teams[0].players if p.player_id == "p1")
+    assert p1.state == "unknown"
+    assert p1.projected_remaining is None
+
+
+def test_completed_game_with_no_score_entry_reaches_final():
+    """Sleeper's per-player score map omits an entry for a player it
+    attributed zero stats to, rather than stamping an explicit 0.0 --
+    but the team's own ``points`` total already includes that zero
+    contribution, so it must not read as missing evidence and hold
+    ``final`` false forever (measured on real production rosters,
+    2026-09-15)."""
+    from src.ros.game_day_week import GameEvidence, resolve_scoring_week
+
+    players = {"p1": dict(META["p1"], team="SEA"), "p2": dict(META["p2"], team="SEA")}
+    roster = dict(_rosters()[0], players=["p1", "p2"], reserve=[], taxi=[])
+    matchups = [
+        {
+            "roster_id": 1,
+            "matchup_id": 1,
+            "points": 20.0,
+            # p2's completed game produced no stat line at all -- absent,
+            # never an explicit 0.0, from the host.
+            "players_points": {"p1": 20.0},
+        }
+    ]
+    result = resolve_scoring_week(
+        league_key="fixture",
+        league_payload={"settings": {"best_ball": 1, "num_teams": 1}},
+        rosters=[roster],
+        matchups=matchups,
+        players_meta=players,
+        starter_slots=("QB", "RB"),
+        estimates={},
+        estimate_source=None,
+        game_evidence={"SEA": GameEvidence("completed", "fixture-final", 200.0)},
+        now=201.0,
+    )
+    assert result.mode == "final"
+    p2 = next(p for p in result.week.teams[0].players if p.player_id == "p2")
+    assert p2.points_scored == 0.0
+
+
 def test_schedule_past_kickoff_without_result_is_unknown_not_live():
     from src.ros.game_day_week import schedule_game_evidence
 
