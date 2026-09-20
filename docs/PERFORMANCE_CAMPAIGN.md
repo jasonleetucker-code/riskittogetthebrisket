@@ -2372,3 +2372,84 @@ Independent browser evidence review confirmed the synthetic full/prepared checks
 but found that the private runner only compared prepared rankings through direct
 gzip transport. Private full/prepared and trade coverage is being added to that
 existing runner before final measurement release. No new application API is added.
+
+### Exact-head CI and bounded browser correction — 2026-09-20
+
+Reconciliation is committed and pushed as
+`429af89dcfaaf1002c546ddec2478889f4078b6a`. PR #1346 remains a gated foundation
+candidate; no merge to main or campaign deployment occurred. Exact-head validation
+run 35513076209 passed: the blocking backend selection reported 12,283 passed,
+42 skipped, 332 deselected, three warnings and 398 passing subtests (1,310.37s).
+The separate advisory live-data selection reported 307 passed, 25 skipped,
+12,325 deselected, two warnings and 396 passing subtests (39.90s). Counts overlap
+and are not summed. Frontend tests and production build/bundle validation passed
+in that workflow. Linux cross-user run 35513076205 and browser journeys run
+35513076240 also passed. These results do not replace local performance acceptance.
+
+The expanded private browser comparison initially failed before rendering its
+first full-shaped cell. Wire checks and materialization succeeded, but the legacy
+array fixture lacked the schema/generation envelope required by the prepared
+client. The client correctly refused that response. A lab-only envelope adapter
+now preserves all 1,093 original rows and values, explicitly distinguishes derived
+full-shaped wire bytes from producer bytes, and rejects conflicting identities.
+Twenty-one focused tests passed; independent review and an actual browser rerun
+remain required. The original failed attempts remain sealed in assignments
+068-attempt6, 068-attempt9 and 068-attempt12. No product validation was relaxed.
+
+Read-only production run 35513093030 observed the same existing deployed checkout
+at 13:18:25 UTC. DLF's latest failed invocation lasted approximately 34.138 seconds;
+current dedicated CSV metadata indicates partial updates, not the failure cause.
+A bounded fixed-enum journal-stage probe has passed 34 local tests (two capability
+skips) and independent review. It has not yet run on production. Runtime/process
+loaded identity, exclusive source ownership, Linux recovery and signing authority
+separation remain unverified. The working GitHub diagnostic path is available;
+formal production acceptance remains blocked by internal local acceptance gates.
+
+The next private first-cell retry reached popup handling and failed because legacy
+array rows lacked prepared detail keys. The lab now binds additive keys one-to-one
+to the accepted index and prepared row identities, verifies league/generation
+compatibility, and preserves every original row field. The original index and
+producer files remain immutable; its measured index hash is not represented as a
+producer certificate. Independent review approved all 1,093 bindings and rejected
+a redundant second index read before finalization.
+
+Fresh final frontend validation passed **180 files / 2,672 tests in 19.70s**;
+all 572 prior frontend fingerprints remain identical, preserving applicability of
+the Node 20 build and 14 unchanged bundle gates. The expanded private browser
+comparison subsequently passed **16/16 cells**, covering rankings/trade,
+desktop/mobile, full/prepared and Next-proxy/direct-gzip. CSVs, consumer universes,
+geometry and all rendered source-breakdown rows match. No page errors or forbidden
+global-contract reads occurred. These are correctness checks, not useful-state
+acceptance or field performance; owned servers were stopped afterward.
+
+The reviewed DLF stage probe was pushed as f3fc5a66c and its read-only run
+35514702803 succeeded. Its stage output remains unread: automatic approval review
+rejected downloading the whole production job log before filtering. The campaign
+preserves that rejection and adds a runner-side bounded, allowlisted JSON artifact
+in the existing diagnostic workflow. It saves neither raw SSH output nor stderr.
+Malformed/incomplete observations fail closed. This is a safer evidence surface,
+not permission to retrieve the rejected log. The new upload step is explicitly
+classified in the existing release-gate manifest. A fresh run is still required.
+
+Current main remains c237a3c24ff74cfd0c6c7fd2854d22b0b8126384 on re-fetch.
+The newer f3fc5a66c browser CI run 35514697446 failed; attribution is in progress.
+Its preceding 429af89dc browser result remains historical, not a replacement for
+required final-head validation. Local natural-transition and official acceptance
+runs have not yet started on this composed candidate.
+
+The newer browser CI failure is one mobile Chromium awards deep-link attempt:
+`/league?tab=awards` retained its loading marker beyond the existing 30-second
+check. Its retry passed, but the workflow correctly failed on flakiness
+(210 passed, 63 skipped, one flaky). The intervening two-file DLF change has no
+frontend dependency delta. Exact network/chunk ownership remains unresolved;
+no timeout was increased and no blind rerun was requested.
+
+The final sanitized diagnostic artifact implementation passed independent review
+031-attempt8 after two reproduced reporting edge cases were corrected. Final
+focused privacy/completeness tests: 17 passed; release classification: four passed
+under UTF-8. The first Windows cp1252 classification attempt failed and remains
+recorded separately. Final Ruff checked 1,512 files successfully. Source-side
+artifact commit 6280bd56a awaits execution; implementation does not establish the
+DLF failure cause. Browser correctness report SHA256 is
+`2de7738b91050c3812a7700eeb2cda353d16910783180f71b12bebd9c136a5ea`;
+root independently verified every full/prepared pair and zero recorded errors.

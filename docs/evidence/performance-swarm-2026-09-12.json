@@ -1,5 +1,5 @@
 {
-  "storeRevision": 140,
+  "storeRevision": 161,
   "agentOSReceipt": "af1d50a577c96fd9eed9f934a902a9469f8b69bc",
   "assignments": [
     {
@@ -528,13 +528,13 @@
       "dependency_contract": "012-014 findings;exclusive slot",
       "evidence": [],
       "files_owned": [],
-      "findings": [],
+      "findings": "015attempt1 existingASGI/receive discriminating-control decisiontree prepared; no new attribution/measurement. Execute only iffreshjoined evidence requires.",
       "integration_state": "QUEUED",
       "reviewer": [
         "089"
       ],
       "squad": "failure_closure",
-      "status": "QUEUED",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -885,7 +885,7 @@
         "steward:swarm-024-execution-full-packet-1"
       ],
       "files_owned": [],
-      "findings": "RSS ownership/allowance/quiet audit complete; 608256-byte historical short margin. Selector completeness is a bounded regression target, no false pass demonstrated.",
+      "findings": "024attempt4 independent live-reference audit finds no demonstrated unbounded webgeneration history; cumulativedriver latencylistsconfirmed but cannotresolvehistoricalwebRSS. Freshmeasurement/conditionalallocationdiagnosis pending.",
       "integration_state": "READY_FOR_REVIEW",
       "reviewer": [
         "089"
@@ -1065,11 +1065,11 @@
         "steward:swarm-031-execution-full-packet-1"
       ],
       "files_owned": [],
-      "findings": "Bounded DLF metadata probe approved after startup stdout/stderr privacy and legacy schema fixes.22author tests+9independent selected pass; actual production dispatch still pending.",
+      "findings": "0318 finalindependentreviewapproves03110 source-sideartifact only;17privacytests+4classificationPASS. Earliermalformedstatefailures preserved. Freshsanitizedproductionartifactpending.",
       "integration_state": "READY_FOR_REVIEW",
-      "reviewer": "000 and 095-attempt4",
+      "reviewer": "000 and095-attempt7",
       "squad": "production_linux",
-      "status": "READY_FOR_REVIEW",
+      "status": "APPROVED",
       "tests": []
     },
     {
@@ -1144,9 +1144,7 @@
       },
       "evidence": [],
       "files_owned": [],
-      "findings": [
-        "Supplement sealed; successful remote main deploy is not candidate proof; numeric host capacity/FD/runtime evidence remains unavailable."
-      ],
+      "findings": "034attempt4 verifies deployed checkout fdf6f4b in two dated snapshots. Loaded process/runtime identity remains unavailable; formal Phase4 blocked internally by local acceptance.",
       "integration_state": "QUEUED",
       "reviewer": [
         "095"
@@ -1175,9 +1173,7 @@
       },
       "evidence": [],
       "files_owned": [],
-      "findings": [
-        "Offline census/rendered unit and cadence plan prepared; conditional DLF/IDPShow nondefault prefix mismatch routed039. Actual installed census not executed."
-      ],
+      "findings": "035attempt3 fixed-role census observed seven prepared units absent; web/frontend/nginx active; DLF failed. Exclusive source ownership, flags, FDs and signer separation remain unverified.",
       "integration_state": "QUEUED",
       "reviewer": [
         "091"
@@ -1325,14 +1321,14 @@
       "dependency_contract": "Local acceptance;039;separate rollout authorization",
       "evidence": [],
       "files_owned": [],
-      "findings": [],
+      "findings": "040attempt1 mergedidentity/legacy/defaultoff release preparation sealed; workflow allows degraded health so doesnotestablish healthy data. Formal rollout awaits localgate.",
       "integration_state": "QUEUED",
       "reviewer": [
         "091",
         "095"
       ],
       "squad": "production_linux",
-      "status": "QUEUED",
+      "status": "BLOCKED",
       "tests": []
     },
     {
@@ -1373,14 +1369,14 @@
       "dependency_contract": "Shadow checks pass;041;separate cutover authorization",
       "evidence": [],
       "files_owned": [],
-      "findings": [],
+      "findings": "042attempt1 singleowner bootstrap/drain/activation/rollback preparation sealed; requires actual foundation/shadow/trust/resources and local acceptance.",
       "integration_state": "QUEUED",
       "reviewer": [
         "091",
         "092"
       ],
       "squad": "production_linux",
-      "status": "QUEUED",
+      "status": "BLOCKED",
       "tests": []
     },
     {
@@ -1440,13 +1436,13 @@
       "dependency_contract": "Required031-044 and046-053",
       "evidence": [],
       "files_owned": [],
-      "findings": [],
+      "findings": "045attempt1 readiness preparation sealed. GitHub access works; local acceptance and actual deployed ownership/trust/recovery/canary evidence missing.",
       "integration_state": "QUEUED",
       "reviewer": [
         "095"
       ],
       "squad": "production_linux",
-      "status": "QUEUED",
+      "status": "BLOCKED",
       "tests": []
     },
     {
@@ -2008,18 +2004,15 @@
       ],
       "dependency_contract": "054-067;production backendREADY foracceptance/activation",
       "evidence": [],
-      "files_owned": [
-        "C:\\Users\\jason\\.codex\\visualizations\\2026\\09\\10\\01a08cd0-89d8-7191-be6e-d3d7859d6986\\chase-performance\\tests\\e2e\\performance-lab\\replay-smoke.mjs",
-        "C:\\Users\\jason\\.codex\\visualizations\\2026\\09\\10\\01a08cd0-89d8-7191-be6e-d3d7859d6986\\chase-performance\\frontend\\__tests__\\private-replay-protocol.test.js"
-      ],
-      "findings": "Close independently observed private full/prepared rankings/trade semantic parity coverage using existing runner; no new product API or screenshot/private payload persistence.",
+      "files_owned": [],
+      "findings": "06821 full16privatecorrectnessPASS, rootindependentlyverifiedeightfull/preparedpairs/reporthash.2672testsPASS; localNode20build/bundlefingerprintsunchanged. Useful-state/productionactivation stillgated.",
       "integration_state": "QUEUED",
       "reviewer": [
         "089",
         "093"
       ],
       "squad": "frontend_mobile",
-      "status": "ACTIVE",
+      "status": "APPROVED",
       "tests": []
     },
     {
@@ -2725,11 +2718,11 @@
       "dependency_contract": "002;004;approved patches",
       "evidence": [],
       "files_owned": [],
-      "findings": "Exact argv/live producer assertions reviewed;28 focused tests pass. Await fresh integrated result.",
+      "findings": "Main c237a3 reconciled in local merge429af89dcfaaf1002c546ddec2478889f4078b6a and pushed to draftPR1346. ExactheadCI running; no main merge or deployment.",
       "integration_state": "QUEUED",
       "reviewer": "000",
       "squad": "integration",
-      "status": "READY_FOR_REVIEW",
+      "status": "INTEGRATED",
       "tests": []
     },
     {
@@ -2852,7 +2845,7 @@
     "scope": "Owner-approved 100-assignment gated performance completion plan",
     "workAhead": true
   },
-  "candidateHead": "a134910a2f8a600144a9a147e10bb6469fa3bab9",
+  "candidateHead": "16109f3724ab3859b33314bcef2ca70ab14bc7e2",
   "commandReview": {
     "completedAt": "2026-09-12 02:15:12 UTC",
     "filesOwned": [],
@@ -3128,6 +3121,12 @@
       ]
     }
   ],
+  "exactHeadValidation": {
+    "conclusion": "success",
+    "observedAt": "2026-09-20T13:46:45.3117480Z",
+    "run": 35513076209,
+    "sha": "429af89dcfaaf1002c546ddec2478889f4078b6a"
+  },
   "executionPause": null,
   "executionStatus": "RESUMED 2026-09-20 under terminal completion authority; no measurement running",
   "fetchedMain": "82cda32fda23198a266f992b249141b8d8d8587d",
@@ -3146,7 +3145,8 @@
     "unknownChildren": 0,
     "webExitCode": 0
   },
-  "lastReconciledMain": "82cda32fda23198a266f992b249141b8d8d8587d",
+  "lastReconciledMain": "c237a3c24ff74cfd0c6c7fd2854d22b0b8126384",
+  "latestReadOnlyRun": 35514702803,
   "maxConcurrentIncludingRoot": 4,
   "measurementReservation": null,
   "name": "performance-swarm",
@@ -3287,5 +3287,5 @@
   },
   "schema": 1,
   "startedAt": "2026-09-12T00:55:40.218Z",
-  "updatedAt": "2026-09-20T13:17:29.160156+00:00"
+  "updatedAt": "2026-09-20T14:10:19.112355+00:00"
 }
