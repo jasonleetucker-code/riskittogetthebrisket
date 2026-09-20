@@ -1,5 +1,5 @@
 {
-  "storeRevision": 94,
+  "storeRevision": 125,
   "agentOSReceipt": "af1d50a577c96fd9eed9f934a902a9469f8b69bc",
   "assignments": [
     {
@@ -124,18 +124,14 @@
         "steward:swarm-004-execution-full-packet-1",
         ".agent-runtime/performance-swarm/packets/004-attempt1.json"
       ],
-      "files_owned": [
-        "C:\\Users\\jason\\.codex\\visualizations\\2026\\09\\10\\01a08cd0-89d8-7191-be6e-d3d7859d6986\\chase-performance/.agent-runtime/performance-swarm/packets/004-attempt3.json"
-      ],
-      "findings": [
-        "Four commits integration-relevant; no product paths changed; ten application and two fixed replay hashes unchanged."
-      ],
+      "files_owned": [],
+      "findings": "Mainc237a3c24:294commits502pathsrelevant; server/GameDay/WORK_CLAIMSconflicts. RootCIclassification independentlyapproved. Reconciliation pending.",
       "integration_state": "READY_FOR_REVIEW",
       "reviewer": [
         "096"
       ],
       "squad": "command",
-      "status": "ACTIVE",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -466,7 +462,7 @@
         "089"
       ],
       "squad": "failure_closure",
-      "status": "QUEUED",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -721,10 +717,11 @@
         "steward:swarm-020-execution-full-packet-1",
         ".agent-runtime/performance-swarm/packets/020-attempt1.json"
       ],
-      "files_owned": [],
-      "findings": [
-        "Own-pointer healthy dependent recovery repaired; 71 passed1skip. Parent integrity and pruning refusal retained. Two reviews pending."
+      "files_owned": [
+        "C:\\Users\\jason\\.codex\\visualizations\\2026\\09\\10\\01a08cd0-89d8-7191-be6e-d3d7859d6986\\chase-performance\\src\\api\\data_contract.py",
+        "C:\\Users\\jason\\.codex\\visualizations\\2026\\09\\10\\01a08cd0-89d8-7191-be6e-d3d7859d6986\\chase-performance\\tests\\api\\test_fantasypros_idp_integration.py"
       ],
+      "findings": "090 demonstrated suffix-normalized metadata collision; exclusive bounded correction owned by retention_reproduction runtime; independent review required.",
       "integration_state": "Two reviews approved final76b6e104; fresh integrated underway",
       "reviewer": [
         "092",
@@ -747,7 +744,7 @@
         }
       ],
       "squad": "failure_closure",
-      "status": "APPROVED",
+      "status": "ACTIVE",
       "tests": [
         {
           "deselected": 54,
@@ -1002,16 +999,14 @@
       },
       "evidence": [],
       "files_owned": [],
-      "findings": [
-        "Real canonical fixture wired. News 22 passed/1 recovery failure; API privacy 47 passed. Recovery defect routed to020; no assertions weakened."
-      ],
+      "findings": "Synchronized5call warm-daemon reproduction; fixture-only isolation preserves4calls; independent46pass; pushed950ef7db3",
       "integration_state": "QUEUED",
       "reviewer": [
         "090",
         "092"
       ],
       "squad": "backend_acceptance",
-      "status": "READY_FOR_REVIEW",
+      "status": "INTEGRATED",
       "tests": []
     },
     {
@@ -1062,7 +1057,7 @@
       "agent_id": "031",
       "assignment": "Inspect authorized SSH and diagnostic-workflow access paths",
       "attempts": [],
-      "blocker": null,
+      "blocker": "Actualread-onlyGitHubSSHdispatch/accessresultpending",
       "change_candidate": null,
       "dependencies": [],
       "dependency_contract": "Read-only configuration/workflow review",
@@ -1083,7 +1078,7 @@
         "095"
       ],
       "squad": "production_linux",
-      "status": "READY_FOR_REVIEW",
+      "status": "INTEGRATED",
       "tests": []
     },
     {
@@ -1130,7 +1125,7 @@
       },
       "evidence": [],
       "files_owned": [],
-      "findings": [],
+      "findings": "DLFfailedserviceexitobserved, trigger\u2192validatedoutput\u2192publishpathtraced; exactfailurestage/freshnessunknown",
       "integration_state": "READY_FOR_REVIEW",
       "reviewer": [
         "091"
@@ -1143,7 +1138,7 @@
       "agent_id": "034",
       "assignment": "Inspect actual deployed revision, host and runtime identity",
       "attempts": [],
-      "blocker": "Actual candidate and installed service-context evidence unavailable",
+      "blocker": "ExactdeployedSHA/UIDmasked; nextsafeidentityprobe required",
       "change_candidate": null,
       "dependencies": [
         "031:authorized_access"
@@ -1166,14 +1161,14 @@
         "095"
       ],
       "squad": "production_linux",
-      "status": "READY_FOR_REVIEW",
+      "status": "BLOCKED",
       "tests": []
     },
     {
       "agent_id": "035",
       "assignment": "Inspect installed services, timers, paths and cadence",
       "attempts": [],
-      "blocker": "Working authorized read-only host observation required; local SSH refuses authentication and current diagnostic paths have recorded queue/privacy restrictions",
+      "blocker": "Fixedunitlistsnapshotnotcompleteownershipcensus; DLFfailurestageunattributed",
       "change_candidate": null,
       "dependencies": [
         "033",
@@ -1204,7 +1199,7 @@
       "agent_id": "036",
       "assignment": "Measure combined host/cgroup capacity and resource headroom",
       "attempts": [],
-      "blocker": "Actual authorized host capacity/cgroup observations unavailable",
+      "blocker": "Singlehost/cgroupcountersnapshotnotcombinedpeak/sustainedheadroom",
       "change_candidate": null,
       "dependencies": [
         "034",
@@ -1297,7 +1292,7 @@
       "agent_id": "039",
       "assignment": "Prepare reviewed deployment, signer layout and rollback package",
       "attempts": [],
-      "blocker": null,
+      "blocker": "Installed production identity/ancestry/service-context validation remains gated",
       "change_candidate": null,
       "dependencies": [
         "032-038",
@@ -1322,7 +1317,7 @@
         "092"
       ],
       "squad": "production_linux",
-      "status": "APPROVED",
+      "status": "INTEGRATED",
       "tests": []
     },
     {
@@ -1543,7 +1538,7 @@
         "092"
       ],
       "squad": "security",
-      "status": "READY_FOR_REVIEW",
+      "status": "APPROVED",
       "tests": []
     },
     {
@@ -1767,7 +1762,7 @@
       "agent_id": "057",
       "assignment": "Full/prepared row, metadata, history and export consumer parity census",
       "attempts": [],
-      "blocker": null,
+      "blocker": "Exact-head browser CI pending",
       "change_candidate": null,
       "dependencies": [],
       "dependency_contract": "Fixtures/projections/current consumers",
@@ -1779,7 +1774,7 @@
         "090"
       ],
       "squad": "frontend_mobile",
-      "status": "READY_FOR_REVIEW",
+      "status": "INTEGRATED",
       "tests": []
     },
     {
@@ -1802,7 +1797,7 @@
         "090"
       ],
       "squad": "frontend_mobile",
-      "status": "READY_FOR_REVIEW",
+      "status": "APPROVED",
       "tests": []
     },
     {
@@ -1855,7 +1850,7 @@
       "agent_id": "061",
       "assignment": "Pinned selected-player detail/popup, cache and recovery correctness",
       "attempts": [],
-      "blocker": "Owner requested pause; reproduction/correction/review not executed",
+      "blocker": null,
       "change_candidate": null,
       "dependencies": [
         "056",
@@ -1871,7 +1866,7 @@
         "050"
       ],
       "squad": "frontend_mobile",
-      "status": "BLOCKED",
+      "status": "APPROVED",
       "tests": []
     },
     {
@@ -1894,7 +1889,7 @@
         "093"
       ],
       "squad": "frontend_mobile",
-      "status": "QUEUED",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -1909,9 +1904,7 @@
       ],
       "dependency_contract": "056;061",
       "evidence": [],
-      "files_owned": [
-        "C:\\Users\\jason\\.codex\\visualizations\\2026\\09\\10\\01a08cd0-89d8-7191-be6e-d3d7859d6986\\chase-performance/.agent-runtime/performance-swarm/packets/063-attempt2.json"
-      ],
+      "files_owned": [],
       "findings": [],
       "integration_state": "QUEUED",
       "reviewer": [
@@ -1919,7 +1912,7 @@
         "050"
       ],
       "squad": "frontend_mobile",
-      "status": "ACTIVE",
+      "status": "APPROVED",
       "tests": []
     },
     {
@@ -1988,7 +1981,7 @@
         "093"
       ],
       "squad": "frontend_mobile",
-      "status": "QUEUED",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -2008,7 +2001,7 @@
         "089"
       ],
       "squad": "frontend_mobile",
-      "status": "QUEUED",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -2231,7 +2224,7 @@
       "agent_id": "077",
       "assignment": "Player comparison census, measurements and gated migration",
       "attempts": [],
-      "blocker": null,
+      "blocker": "Route measurements/migration gated",
       "change_candidate": null,
       "dependencies": [
         "measurement_slot",
@@ -2241,14 +2234,14 @@
       "dependency_contract": "057;061",
       "evidence": [],
       "files_owned": [],
-      "findings": [],
+      "findings": "Full legacy dependency; unpriced zero/verdict and selected-pair readiness risks need post-reservation reproduction",
       "integration_state": "QUEUED",
       "reviewer": [
         "090",
         "094"
       ],
       "squad": "remaining_routes",
-      "status": "QUEUED",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -2272,14 +2265,14 @@
         "094"
       ],
       "squad": "remaining_routes",
-      "status": "QUEUED",
+      "status": "APPROVED",
       "tests": []
     },
     {
       "agent_id": "079",
       "assignment": "League comparison initial/refresh census, measurements and gated migration",
       "attempts": [],
-      "blocker": null,
+      "blocker": "Route measurements/migration gated",
       "change_candidate": null,
       "dependencies": [
         "measurement_slot",
@@ -2289,14 +2282,14 @@
       "dependency_contract": "Comparison path;063",
       "evidence": [],
       "files_owned": [],
-      "findings": [],
+      "findings": "Effective sample_sizes affects output but absent cache identity; source-proven risk requires targeted reproduction",
       "integration_state": "QUEUED",
       "reviewer": [
         "090",
         "094"
       ],
       "squad": "remaining_routes",
-      "status": "QUEUED",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -2313,14 +2306,14 @@
       "dependency_contract": "History consumers;056-057",
       "evidence": [],
       "files_owned": [],
-      "findings": [],
+      "findings": "History analysis lacks trade id and retrospective map uses undefined key; current incomplete coverage and180/365day mismatch require reproduction",
       "integration_state": "QUEUED",
       "reviewer": [
         "090",
         "094"
       ],
       "squad": "remaining_routes",
-      "status": "QUEUED",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -2337,14 +2330,14 @@
       "dependency_contract": "News owners;069 coordination",
       "evidence": [],
       "files_owned": [],
-      "findings": [],
+      "findings": "Raw news singleflight exists; successful TTL does not poll, freshness metadata dropped and malformed200 risks need reproduction",
       "integration_state": "QUEUED",
       "reviewer": [
         "091",
         "094"
       ],
       "squad": "remaining_routes",
-      "status": "QUEUED",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -2361,14 +2354,14 @@
       "dependency_contract": "Existing Sharp contracts",
       "evidence": [],
       "files_owned": [],
-      "findings": [],
+      "findings": "People filter trackable/review absent backendallowlist; filter response races and hidden errors require regression",
       "integration_state": "QUEUED",
       "reviewer": [
         "090",
         "094"
       ],
       "squad": "remaining_routes",
-      "status": "QUEUED",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -2385,14 +2378,14 @@
       "dependency_contract": "Existing decision-tool consumers",
       "evidence": [],
       "files_owned": [],
-      "findings": [],
+      "findings": "Full-board tool dependencies and obsolete search response risks source-censused; no measured acceptance",
       "integration_state": "QUEUED",
       "reviewer": [
         "090",
         "094"
       ],
       "squad": "remaining_routes",
-      "status": "QUEUED",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -2436,7 +2429,7 @@
         "094"
       ],
       "squad": "budgets",
-      "status": "QUEUED",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -2456,7 +2449,7 @@
         "094"
       ],
       "squad": "budgets",
-      "status": "QUEUED",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -2518,7 +2511,7 @@
           "scope": "Independent014 spans,021 policy,010 driver review; excludes own016/017/003; subsequent measurement increments remain"
         }
       ],
-      "blocker": null,
+      "blocker": "Remainingnatural/stalecontrols requiredforattribution",
       "change_candidate": null,
       "dependencies": [],
       "dependency_contract": "Measurement packets",
@@ -2533,15 +2526,13 @@
         "steward:swarm-089-execution-full-packet-4"
       ],
       "files_owned": [],
-      "findings": [
-        "Invocation90filefreeze valid; release refused forACoffline82percent withunknownremainingtime."
-      ],
+      "findings": "Run2 independent raw review complete:173768 responses,82ordinary receipts,18/18adoption,zero unexpectedfailures; RSS+100311040,rankingsconditional200hybridfail. Packet089-attempt13. Independent FantasyProsreview continues.",
       "integration_state": "APPROVED",
       "reviewer": [
         "094"
       ],
       "squad": "adversarial",
-      "status": "READY_FOR_REVIEW",
+      "status": "ACTIVE",
       "tests": []
     },
     {
@@ -2583,7 +2574,7 @@
         "092"
       ],
       "squad": "adversarial",
-      "status": "APPROVED",
+      "status": "ACTIVE",
       "tests": []
     },
     {
@@ -2619,7 +2610,7 @@
         "093"
       ],
       "squad": "adversarial",
-      "status": "READY_FOR_REVIEW",
+      "status": "APPROVED",
       "tests": []
     },
     {
@@ -2649,7 +2640,7 @@
         "090"
       ],
       "squad": "adversarial",
-      "status": "READY_FOR_REVIEW",
+      "status": "APPROVED",
       "tests": []
     },
     {
@@ -2668,16 +2659,14 @@
         "startedAt": "2026-09-12T08:17:50.7454232Z"
       },
       "evidence": [],
-      "files_owned": [
-        "C:\\Users\\jason\\.codex\\visualizations\\2026\\09\\10\\01a08cd0-89d8-7191-be6e-d3d7859d6986\\chase-performance/.agent-runtime/performance-swarm/packets/093-attempt6.json"
-      ],
+      "files_owned": [],
       "findings": [],
       "integration_state": "QUEUED",
       "reviewer": [
         "091"
       ],
       "squad": "adversarial",
-      "status": "ACTIVE",
+      "status": "APPROVED",
       "tests": []
     },
     {
@@ -2696,7 +2685,7 @@
         "089"
       ],
       "squad": "adversarial",
-      "status": "QUEUED",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -2774,21 +2763,23 @@
       "evidence": [
         "steward:swarm-097-execution-full-packet-1"
       ],
-      "files_owned": [],
+      "files_owned": [
+        "C:\\Users\\jason\\.codex\\visualizations\\2026\\09\\10\\01a08cd0-89d8-7191-be6e-d3d7859d6986\\chase-performance\\config\\ci\\release_gate_classification.json"
+      ],
       "findings": "Affected checks resolved; failed broader run preserved separately from5 exactUTF8passes. No source edits;078formatterfilesunchanged.",
       "integration_state": "READY_FOR_REVIEW",
       "reviewer": [
         "relevant089-094"
       ],
       "squad": "integration",
-      "status": "READY_FOR_REVIEW",
+      "status": "ACTIVE",
       "tests": []
     },
     {
       "agent_id": "098",
       "assignment": "Release diagnostic, short, full and browser measurements with freeze receipts",
       "attempts": [],
-      "blocker": "Host AC offline; priorbattery-triggeredhibernate means reliablepower unproved. Owner asked toconnectAC. No longmeasurementstarted.",
+      "blocker": null,
       "change_candidate": null,
       "dependencies": [
         "reviewed_candidate",
@@ -2804,21 +2795,21 @@
       },
       "evidence": [],
       "files_owned": [],
-      "findings": [],
+      "findings": "Second natural run completed 2026-09-12; report preserved; retrospective independent review active; no measurement reservation active.",
       "integration_state": "ACTIVE",
       "reviewer": [
         "089",
         "095"
       ],
       "squad": "integration",
-      "status": "BLOCKED",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
       "agent_id": "099",
       "assignment": "Operational readiness, rollback and precise external requirement packet",
       "attempts": [],
-      "blocker": null,
+      "blocker": "Actual production access observations and local acceptance/staged rollout",
       "change_candidate": null,
       "dependencies": [
         "production_security_evidence"
@@ -2826,7 +2817,7 @@
       "dependency_contract": "Localgates;production/securitywork",
       "evidence": [],
       "files_owned": [],
-      "findings": [],
+      "findings": "Offline web-dropin/permissions/rollback packet prepared; actual host identity and authority boundaries unverified",
       "integration_state": "QUEUED",
       "reviewer": [
         "091",
@@ -2834,7 +2825,7 @@
         "095"
       ],
       "squad": "integration",
-      "status": "QUEUED",
+      "status": "BLOCKED",
       "tests": []
     },
     {
@@ -2873,7 +2864,7 @@
     "scope": "Owner-approved 100-assignment gated performance completion plan",
     "workAhead": true
   },
-  "candidateHead": "564ef3f28dc90904e0e1542adc53f2b4eb59c7ee",
+  "candidateHead": "a134910a2f8a600144a9a147e10bb6469fa3bab9",
   "commandReview": {
     "completedAt": "2026-09-12 02:15:12 UTC",
     "filesOwned": [],
@@ -2910,7 +2901,7 @@
     "029 fresh short;030 full only after every short gate"
   ],
   "currentBlocker": "AC offline at08:24UTC,80% battery, runtime unknown. Long measurements withheld; offline work continues.",
-  "currentCriticalPath": "Reliable AC power -> fresh host release ->900 on/off/on transitions and stale controls -> officialshort ->full only ifeverygatepasses. Backend integrated570pass; no new acceptance run yet.",
+  "currentCriticalPath": "Certification dependency correction and independent permission review before backend freeze; Linux cross-UID evidence pending.",
   "dependencyIncrements": [
     {
       "assignments": [
@@ -3150,7 +3141,11 @@
     }
   ],
   "executionPause": null,
+  "executionStatus": "RESUMED 2026-09-20 under terminal completion authority; no measurement running",
   "fetchedMain": "82cda32fda23198a266f992b249141b8d8d8587d",
+  "foundationPr": "https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/1346",
+  "foundationPrHead": "fd1c4f83803e353efc6428b031d3ea435c8684da",
+  "foundationPrState": "DRAFT; merge/rollout blocked by final local acceptance and reviews",
   "hostReservation": null,
   "lastHostRelease": {
     "assignment": "098",
@@ -3163,8 +3158,9 @@
     "unknownChildren": 0,
     "webExitCode": 0
   },
-  "lastReconciledMain": "86d20e6cae3f75b6c5d58a084882f4115e3e6e19",
+  "lastReconciledMain": "82cda32fda23198a266f992b249141b8d8d8587d",
   "maxConcurrentIncludingRoot": 4,
+  "measurementReservation": null,
   "name": "performance-swarm",
   "notices": [
     {
@@ -3283,6 +3279,24 @@
       "type": "DEPENDENCY NOTICE"
     }
   ],
+  "productionReadOnlyProbe": {
+    "accessAvailable": true,
+    "mutations": false,
+    "runId": 34697668818,
+    "state": "SUCCESS_SNAPSHOT_ONLY",
+    "unverified": [
+      "Exactdeployedidentity",
+      "actualstorepath",
+      "combinedheadroom",
+      "FDrecovery",
+      "credentials",
+      "fullownership",
+      "candidateacceptance"
+    ]
+  },
+  "pushedHead": "fcf856be65b3c0d2084674d7a87c13025049c607",
+  "reconciliationNote": "a134910a2 preserves both work-claim sides; raw cached whitespace check reports upstream CSV CRLF; not a passing check and source data not rewritten",
+  "releaseAuthority": "**Owner final-release authority \u2014 2026-09-12 (supersedes pause).** Resume the existing100-assignment campaign. The owner explicitly authorizes reviewable commits, push, PRs, protected green merges and staged rollout after prerequisite gates. Preserve local hybrid and all correctness/resource/browser gates. Measured new route budgets may be adopted with two independent reviews when no existing requirement or product expectation is weakened. Full terminal requirement is accepted production behavior and required work merged to main. No protection bypass or secret exposure. The pause report is historical; current execution follows the approved Final Performance Release Completion plan.",
   "requiredAssignments": 100,
   "resumption": {
     "at": "2026-09-12T07:15:23.177Z",
@@ -3291,6 +3305,5 @@
   },
   "schema": 1,
   "startedAt": "2026-09-12T00:55:40.218Z",
-  "updatedAt": "2026-09-12T12:05:14.790439+00:00",
-  "releaseAuthority": "**Owner final-release authority \u2014 2026-09-12 (supersedes pause).** Resume the existing100-assignment campaign. The owner explicitly authorizes reviewable commits, push, PRs, protected green merges and staged rollout after prerequisite gates. Preserve local hybrid and all correctness/resource/browser gates. Measured new route budgets may be adopted with two independent reviews when no existing requirement or product expectation is weakened. Full terminal requirement is accepted production behavior and required work merged to main. No protection bypass or secret exposure. The pause report is historical; current execution follows the approved Final Performance Release Completion plan."
+  "updatedAt": "2026-09-20T12:40:23.055578+00:00"
 }

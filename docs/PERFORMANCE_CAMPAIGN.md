@@ -12,7 +12,40 @@ Agent-OS-Receipt: af1d50a577c96fd9eed9f934a902a9469f8b69bc
 
 ## Contract and status
 
-**Owner pause — 2026-09-12, approximately 11:36 UTC.** Implementation and
+**Final release continuation — 2026-09-12, 12:45 UTC checkpoint.** Execution is
+active. Local commits preserve the candidate, reconciled with main `82cda32fd`
+at `a134910a2`; reviewed league/request and public intent corrections are now
+`29f107df4`. No push, PR, main merge or deployment has occurred. Latest fetched
+main `c954b410766482c7306046be99fb35a20c73ddb9` changes only four IDP observation
+timestamps; values, counts and source code are identical. This is
+BENIGN_AUTOMATION_MOVE for the fixed private replay, not proof of live freshness.
+
+Fresh Node20 validation on the preceding frontend freeze passed **180 files /
+2,635 tests**, production build and **14/14 unchanged bundle budgets**. Synthetic
+browser checks passed **9/9 cases**, exact full/prepared CSV parity, desktop/mobile
+geometry and final-row reachability, and **26/26 privacy-valid telemetry posts**.
+All 573 frontend hashes match after correcting a literal-path verification error;
+the false bracket-path drift receipt remains immutable with a separate correction.
+These are semantic/build results, not useful-state acceptance. Private 1,093-player
+semantic repetition is pending. Game Day investigation has since reproduced
+malformed-response readiness and missing-score presentation defects; correcting
+them requires affected frontend revalidation.
+
+The opt-in producer/verifier filesystem and queue policy has two independent
+source approvals. Its affected Windows selection passed **99 tests, 15 skipped**;
+Linux cross-UID enforcement and installed principals remain unverified. The Linux
+CI test/workflow has a separate independent review. Certification review found
+and corrected an omitted executed package initializer. Trusted validator dispatch,
+runtime and effective validation context remain open before backend freeze.
+Historical full-soak failures and thresholds are unchanged. No fresh official
+short/full or prescribed 900-second transition exercise has started.
+
+The host now reports AC power and 100% charge; each measurement still requires a
+fresh uninterrupted-host preflight. The authoritative assignment state is the
+revisioned [Steward export](evidence/performance-swarm-2026-09-12.json).
+Preparation and review approval do not establish production readiness.
+
+**Historical owner pause — 2026-09-12, approximately 11:36 UTC (superseded).** Implementation and
 measurements are paused; all three working agents have stopped. The consolidated
 [architecture and acceptance checkpoint](PERFORMANCE_PAUSE_REPORT_2026-09-12.md)
 records the latest retained fixes, 570-test integrated backend result, pending
@@ -2171,3 +2204,87 @@ rotation or production change has been applied. Actual Linux access and rollout
 remain separate gates. Mission board revision 70 retains exactly 100 assignments
 and distinguishes queued work, completed preparation, independent review and
 blocked acceptance.
+
+### Final release continuation — 2026-09-12 13:15 UTC
+
+Owner-authorized foundation draft PR [1346](https://github.com/jasonleetucker-code/riskittogetthebrisket/pull/1346) is open on `codex/performance-serving`. It is not merge-ready and no production rollout has occurred. Head `fcf856be6` passed the Linux prepared-permissions job: 15 passed, one Windows-only skip, including the real distinct-UID permission/queue/lock scenario. This is Linux CI evidence, not installed-production evidence.
+
+The same head's browser journeys completed with 210 passed, 63 skipped and one failed materializer-field coverage guard (`readModelKey`). The failure remains open while its owner expands the parity coverage; no test exclusion or acceptance waiver is authorized. The installer independently remains under correction for ambiguous permission/status probes and inactive static-unit rerun handling.
+
+Fresh validation of the reviewed local trust correction: affected backend selection 601 passed, 30 skipped, one warning and five passing subtests (209.74s); separate lab regressions 494 passed (7.43s). Counts overlap and are not summed. The trust correction is committed as `f7de85876`; its two independent reviews approve the scoped serialized-validation boundary. Canonical raw-input completeness remains false and no-op remains disabled. Changed certification policy requires new certification and restart/revalidation.
+
+Fresh frontend validation: 180 files / 2,646 tests passed; Node 20 production build and all 14 unchanged bundle budgets passed. The build's synthetic browser smoke passed 9/9 with 25/25 privacy-valid telemetry observations. The separately recorded private replay semantic checks passed 4/4; neither result constitutes useful-state performance acceptance. Game Day's reviewed missing-versus-zero and last-good refresh correction is committed as `9cc8fd2fc`.
+
+Steward revision 111 preserves all 100 IDs and immutable test/review receipts. The 900-second transition sequence and official short/full acceptance have not started on this revised candidate. A fresh 543-file policy/runtime/replay manifest is prepared; host process clearance and exclusive measurement release remain pending. Production, mobile useful-state and remaining-route/site-wide acceptance remain gated.
+
+### First prescribed natural-transition diagnostic — 2026-09-12 13:39 UTC
+
+The first collector-on run completed the prescribed 900-second exercise and126
+continuous verified quiet seconds. All543 frozen policy/runtime/replay files
+matched before/after. It recorded132,988 responses and no HTTP/worker/audit errors;
+complete sampling was99.893382%, maximum acquisition-start gap1.031s. Driver and
+server collectors closed completely with zero dropped events. Native transport
+observation remained off. Immutable receipt098-attempt5 carries report hash and
+per-series results.
+
+This is **diagnostic evidence, not acceptance**. RSS recovery and trade
+conditional changed-generation200 latency checks failed, in addition to the
+expected uninstrumentedAcceptance=false. Trade conditional200 p95 was26.8717ms
+versus2.2742ms baseline; its relative and absolute secondary branches both fail.
+There were only two conditional200 observations across routes, so their p99s and
+repeated owner attribution remain insufficient. Both remaining natural runs and
+stale-ETag controls are still required. Preliminary analyzer results are withheld
+from final attribution until malformed-input safeguards and independent review
+are complete. Rejected analyzer attempts8/10 remain preserved.
+
+The host was released between runs for a demonstrated CI fixture correction.
+Current-head browser journeys and Linux permissions had passed, while main CI
+stopped with1,113 passes on an extra scoring fetch. A synchronized reproduction
+identified the preceding gameplan handler suite's escaped overlay-warm daemon.
+Commit950ef7db3 opts only that handler module into the existing isolated startup
+fixture; exact four-call assertions and real startup suites remain unchanged.
+Author and independent ordered handler/resolver/real-startup selections each
+passed46 tests. The commit is pushed; fresh exact-head CI is pending.
+
+Source-only remaining-route censuses and production-access preparation continued
+during measurement. Their unmeasured costs remain null and identified correctness
+risks await dedicated regressions. A metadata-only option in the existing GitHub
+SSH diagnostics is under review; no production probe, deployment, merge, flag
+activation or acceptance declaration has occurred. Steward revision117 retains
+all100 assignments and their rejected, prepared and unfinished work.
+
+**Owner execution resumed — 2026-09-20.** The terminal completion directive authorizes continuous correction, protected merges and staged production acceptance under all existing gates. Intermediate milestones are not stopping points; only genuinely unavailable external dependencies may remain after independent work completes. Commander 000 retains the existing 100 IDs and sole Steward/campaign ownership. Current PR #1346 CI, integration and local acceptance failures remain open; historical results are preserved. See docs/PERFORMANCE_CAMPAIGN.md for the evidence ledger. Agent-OS-Receipt: af1d50a577c96fd9eed9f934a902a9469f8b69bc.
+
+
+### Resumed execution checkpoint — 2026-09-20
+
+This is the latest disposition; preceding checkpoints remain historical. PR #1346
+is draft at fd1c4f838. Browser journeys and cross-UID Linux checks passed, but
+Validate PR failed on missing workflow classifications and a reproduced
+FantasyPros IDP metadata identity collision. Neither failure is waived. Main has
+advanced through product, input and CI changes; affected reconciliation is active.
+
+The second prescribed natural-transition diagnostic completed on September 12,
+not during the later pause: 900 seconds exercise, 125.985 seconds verified quiet,
+99.965562% complete resource coverage, maximum acquisition-start gap 1.031s.
+Report SHA256: 2ba7bf0136811329e8cb9799de0e3c156208e23086d7bc453d71368a212f1b4c.
+Aggregate RSS grew 100,311,040 bytes (482,775,040 to 583,086,080), failing the
+unchanged allowance. Rankings conditional changed-generation 200 p95 was
+29.9699ms against 13.3795ms baseline, failing both hybrid secondary branches
+(six refresh observations; p99 insufficient). Collector-off still includes driver
+and lab instrumentation, so this does not alone prove product-only memory growth.
+No unexpected worker/HTTP/coherence failure was reported. Independent raw-evidence
+review remains separate from these report observations. Third natural control,
+stale-ETag controls and fresh official short/full acceptance remain outstanding.
+
+The existing GitHub SSH diagnostic path was successfully exercised read-only in
+run 34697668818 on September 12. The snapshot reported four CPUs, 8,131,784 KiB
+RAM, active web/frontend/nginx and seven probed prepared units not installed.
+A DLF service reported failure; its cause and current state are unproven. Masked
+identity/configuration fields remain unknown. Actual credential separation,
+complete ownership, FD recovery and sustained headroom are not established.
+No campaign production deployment, activation or merge occurred.
+
+At resumed host preflight, battery power was reported at 34%; long measurements
+are withheld pending reliable external power. Tests, reconciliation and isolated
+correctness work continue. No persistent power setting is changed.

@@ -236,3 +236,5 @@ in one large file collide on paths and not on meaning.
   report.
 - A session that never fetches sees stale branches. The branch scan is only
   as current as your last `git fetch`.
+
+**Owner execution resumed — 2026-09-20.** The terminal completion directive authorizes continuous correction, protected merges and staged production acceptance under all existing gates. Intermediate milestones are not stopping points; only genuinely unavailable external dependencies may remain after independent work completes. Commander 000 retains the existing 100 IDs and sole Steward/campaign ownership. Current PR #1346 CI, integration and local acceptance failures remain open; historical results are preserved. See docs/PERFORMANCE_CAMPAIGN.md for the evidence ledger. Agent-OS-Receipt: af1d50a577c96fd9eed9f934a902a9469f8b69bc.

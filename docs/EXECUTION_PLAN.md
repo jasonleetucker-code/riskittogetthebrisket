@@ -1315,3 +1315,5 @@ Under the continuous campaign this runs **at every unit boundary**, not only at 
 7. when a later section contradicts §0, **mark it superseded in place with the date and the
    reason** rather than deleting it. §2's C1-U6 STOP is the worked example: the closure it records
    is still true, only its forward-looking clause was discharged.
+
+**Owner execution resumed — 2026-09-20.** The terminal completion directive authorizes continuous correction, protected merges and staged production acceptance under all existing gates. Intermediate milestones are not stopping points; only genuinely unavailable external dependencies may remain after independent work completes. Commander 000 retains the existing 100 IDs and sole Steward/campaign ownership. Current PR #1346 CI, integration and local acceptance failures remain open; historical results are preserved. See docs/PERFORMANCE_CAMPAIGN.md for the evidence ledger. Agent-OS-Receipt: af1d50a577c96fd9eed9f934a902a9469f8b69bc.
