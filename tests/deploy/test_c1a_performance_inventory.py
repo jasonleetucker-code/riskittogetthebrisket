@@ -396,3 +396,194 @@ def test_python_wrapper_bounds_and_approved_output(mode):
         assert "dlf.metadata=probe_failed" in result.stdout
     source = SCRIPT.read_text()
     assert "timeout -k 1s 15s python3" in source and "head -c 8193" in source
+
+
+def artifact_namespace():
+    import runpy
+
+    return runpy.run_path(str(ROOT / "deploy/diagnostics/c1a_safe_artifact.py"))
+
+
+def artifact_payload(namespace):
+    return (
+        "scope=performance-safe\nunit.dynasty.service.User=PRIVATE_USER\n"
+        "dlf.live.dlfSf.rows=123\ndlf.dedicated_path=assumed_default\n"
+        "dlf.journal.state=classified\ndlf.journal.unclassified=0\n"
+        "dlf.journal.event0.timestampUs=1789907256000000\n"
+        "dlf.journal.event0.board=dlfSf\ndlf.journal.event0.stage=fetch_failed\n"
+        "limits=" + namespace["LIMITS"] + "\n"
+    ).encode()
+
+
+def test_safe_artifact_only_publishes_allowlisted_fields():
+    ns = artifact_namespace()
+    result = ns["validate"](artifact_payload(ns))
+    assert result["dlf.journal.event0.stage"] == "fetch_failed"
+    assert "PRIVATE" not in json.dumps(result)
+    assert all(key.startswith(("dlf.journal.", "dlf.identity.")) for key in result)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "noise",
+        "oversize",
+        "truncated",
+        "duplicate",
+        "missing_stage",
+        "invalid_stage",
+        "wrong_scope",
+    ],
+)
+def test_safe_artifact_refuses_incomplete_or_noisy_output(mutation):
+    ns = artifact_namespace()
+    raw = artifact_payload(ns)
+    if mutation == "noise":
+        raw += b"SECRET arbitrary raw stderr\n"
+    elif mutation == "oversize":
+        raw += b"x" * ns["LIMIT"]
+    elif mutation == "truncated":
+        raw = raw[:-1]
+    elif mutation == "duplicate":
+        raw += b"dlf.journal.state=classified\n"
+    elif mutation == "missing_stage":
+        raw = raw.replace(b"dlf.journal.event0.stage=fetch_failed\n", b"")
+    elif mutation == "invalid_stage":
+        raw = raw.replace(b"stage=fetch_failed", b"stage=SECRET")
+    else:
+        raw = raw.replace(b"scope=performance-safe", b"scope=closure")
+    with pytest.raises((ValueError, UnicodeError)):
+        ns["validate"](raw)
+
+
+def test_safe_artifact_failed_child_suppresses_stdout_stderr(tmp_path):
+    script = tmp_path / "stdin.sh"
+    script.write_text("")
+    out = tmp_path / "artifact.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "deploy/diagnostics/c1a_safe_artifact.py"),
+            "--script",
+            str(script),
+            "--output",
+            str(out),
+            "--",
+            sys.executable,
+            "-c",
+            "import sys;print('SECRET');print('SECRET',file=sys.stderr);sys.exit(17)",
+        ],
+        capture_output=True,
+    )
+    assert result.returncode == 1
+    assert result.stdout == result.stderr == b""
+    payload = json.loads(out.read_text())
+    assert payload["collection"] == "failed"
+    assert "SECRET" not in out.read_text()
+    assert "fields" not in payload
+
+
+def test_safe_artifact_timeout_and_oversize_cleanup(tmp_path):
+    ns = artifact_namespace()
+    script = tmp_path / "stdin.sh"
+    script.write_text("")
+    for code in ["import time;time.sleep(10)", "print('x'*100000)"]:
+        with pytest.raises((ValueError, subprocess.TimeoutExpired)):
+            ns["capture"]([sys.executable, "-c", code], script, timeout=0.1)
+
+
+def test_safe_artifact_workflow_scope_and_blocking_upload():
+    source = (ROOT / ".github/workflows/c1a-closure-diagnostics.yml").read_text()
+    assert 'if [[ "$INVENTORY_SCOPE" == performance-safe ]]' in source
+    assert "c1a_safe_artifact.py" in source
+    assert "always() && inputs.scope == 'performance-safe'" in source
+    assert "path: ${{ runner.temp }}/c1a-performance-safe.json" in source
+    assert "if-no-files-found: error" in source
+    assert "retention-days: 3" in source
+    entries = json.loads((ROOT / "config/ci/release_gate_classification.json").read_text())[
+        "entries"
+    ]
+    assert (
+        entries["c1a-closure-diagnostics.yml::inventory::Upload sanitized performance inventory"][
+            "category"
+        ]
+        == "blocking"
+    )
+
+
+def test_safe_artifact_success_ignores_child_stderr(tmp_path):
+    ns = artifact_namespace()
+    script = tmp_path / "stdin.sh"
+    script.write_text("")
+    raw = artifact_payload(ns)
+    fields = ns["capture"](
+        [
+            sys.executable,
+            "-c",
+            "import sys;sys.stdout.buffer.write(" + repr(raw) + ");print('SECRET',file=sys.stderr)",
+        ],
+        script,
+    )
+    assert fields["dlf.journal.state"] == "classified"
+    assert "SECRET" not in json.dumps(fields)
+
+
+def test_safe_artifact_unavailable_journal_is_not_success(tmp_path):
+    ns = artifact_namespace()
+    script = tmp_path / "stdin.sh"
+    script.write_text("")
+    out = tmp_path / "artifact.json"
+    raw = (
+        "scope=performance-safe\ndlf.journal.state=unavailable\nlimits=" + ns["LIMITS"] + "\n"
+    ).encode()
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "deploy/diagnostics/c1a_safe_artifact.py"),
+            "--script",
+            str(script),
+            "--output",
+            str(out),
+            "--",
+            sys.executable,
+            "-c",
+            "import sys;sys.stdout.buffer.write(" + repr(raw) + ")",
+        ],
+        capture_output=True,
+    )
+    assert result.returncode == 1
+    assert result.stdout == result.stderr == b""
+    assert json.loads(out.read_text())["collection"] == "incomplete"
+
+
+@pytest.mark.parametrize("case", ["missing_count", "empty_nonzero", "empty_event"])
+def test_safe_artifact_requires_complete_journal_record(case):
+    ns = artifact_namespace()
+    raw = artifact_payload(ns)
+    if case == "missing_count":
+        raw = raw.replace(b"dlf.journal.unclassified=0\n", b"")
+    elif case == "empty_nonzero":
+        raw = (
+            "scope=performance-safe\ndlf.journal.state=empty\ndlf.journal.unclassified=1\nlimits="
+            + ns["LIMITS"]
+            + "\n"
+        ).encode()
+    else:
+        raw = raw.replace(b"state=classified", b"state=empty")
+    with pytest.raises(ValueError):
+        ns["validate"](raw)
+
+
+def test_safe_artifact_classified_requires_observed_row():
+    ns = artifact_namespace()
+    raw = (
+        "scope=performance-safe\ndlf.journal.state=classified\ndlf.journal.unclassified=0\nlimits="
+        + ns["LIMITS"]
+        + "\n"
+    ).encode()
+    with pytest.raises(ValueError):
+        ns["validate"](raw)
+    empty = raw.replace(b"state=classified", b"state=empty")
+    assert ns["validate"](empty)["dlf.journal.state"] == "empty"
+    unknown = raw.replace(b"unclassified=0", b"unclassified=1")
+    assert ns["validate"](unknown)["dlf.journal.state"] == "classified"

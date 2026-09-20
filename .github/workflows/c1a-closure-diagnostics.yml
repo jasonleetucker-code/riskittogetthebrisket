@@ -101,10 +101,31 @@ jobs:
           # exits non-zero only when the inventory itself could not run;
           # a defect it FINDS is reported, not raised, because the point
           # is to read the report.
-          ssh -i "$HOME/.ssh/id_ed25519" \
-            -o BatchMode=yes -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
-            -o ConnectTimeout=15 -o ServerAliveInterval=15 \
-            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "APP_DIR=$(printf %q "$APP_DIR") SERVICE_NAME=$(printf %q "$SERVICE_NAME") JOURNAL_LINES=$(printf %q "$JOURNAL_LINES") INVENTORY_SCOPE=$(printf %q "$INVENTORY_SCOPE") bash -s" \
-            < deploy/diagnostics/c1a_closure_inventory.sh
+          if [[ "$INVENTORY_SCOPE" == performance-safe ]]; then
+            python3 deploy/diagnostics/c1a_safe_artifact.py \
+              --output "$RUNNER_TEMP/c1a-performance-safe.json" \
+              --script deploy/diagnostics/c1a_closure_inventory.sh -- \
+              ssh -i "$HOME/.ssh/id_ed25519" \
+              -o BatchMode=yes -o StrictHostKeyChecking=yes \
+              -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+              -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+              -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+              "APP_DIR=$(printf %q "$APP_DIR") SERVICE_NAME=$(printf %q "$SERVICE_NAME") JOURNAL_LINES=$(printf %q "$JOURNAL_LINES") INVENTORY_SCOPE=performance-safe bash -s"
+          else
+            ssh -i "$HOME/.ssh/id_ed25519" \
+              -o BatchMode=yes -o StrictHostKeyChecking=yes \
+              -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+              -o ConnectTimeout=15 -o ServerAliveInterval=15 \
+              -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+              "APP_DIR=$(printf %q "$APP_DIR") SERVICE_NAME=$(printf %q "$SERVICE_NAME") JOURNAL_LINES=$(printf %q "$JOURNAL_LINES") INVENTORY_SCOPE=$(printf %q "$INVENTORY_SCOPE") bash -s" \
+              < deploy/diagnostics/c1a_closure_inventory.sh
+          fi
+
+      - name: Upload sanitized performance inventory
+        if: ${{ always() && inputs.scope == 'performance-safe' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: c1a-performance-safe-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/c1a-performance-safe.json
+          if-no-files-found: error
+          retention-days: 3

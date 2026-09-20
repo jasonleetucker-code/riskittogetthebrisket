@@ -77,6 +77,9 @@
     "c1a-closure-diagnostics.yml::inventory::Checkout": {
       "category": "blocking"
     },
+    "c1a-closure-diagnostics.yml::inventory::Upload sanitized performance inventory": {
+      "category": "blocking"
+    },
     "c1a-closure-diagnostics.yml::inventory::Collect the inventory from production": {
       "category": "blocking"
     },
