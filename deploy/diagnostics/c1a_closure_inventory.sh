@@ -278,6 +278,7 @@ def classify(raw, invocation):
         if not isinstance(message, str) or not isinstance(timestamp, str) or not re.fullmatch(r"[0-9]{1,20}", timestamp):
             raise ValueError("shape")
         stage = None
+        numeric = {}
         board = "all"
         match = re.match(r"^\[DLF\] (dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp)(?::| )", message)
         if match:
@@ -288,12 +289,17 @@ def classify(raw, invocation):
                 (r"^ re-auth failed: ", "reauth_failed"),
                 (r"^ still preview after re-auth", "persistent_preview"),
                 (r"^ parsed only [0-9]+ rows", "row_floor"),
-                (r"^ native Value coverage [0-9]+/[0-9]+", "native_value_floor"),
                 (r"^ got non-member preview", "preview_reauth"),
             ):
                 if re.match(pattern, tail):
                     stage = label
                     break
+        coverage = re.fullmatch(r"\[DLF\] dlfSf: native Value coverage ([0-9]{1,6})/([0-9]{1,6}) is below required floor ([0-9]{1,6}); semantic/parser degradation\. Preserving last-good CSV, NOT overwriting CSVs/site_raw/dlfSf\.csv\.", message)
+        if coverage:
+            native, rows, floor = map(int, coverage.groups())
+            if native <= rows and 0 < floor and native < floor:
+                board, stage = "dlfSf", "native_value_floor"
+                numeric = {"nativeCount": native, "parsedRows": rows, "requiredFloor": floor}
         if message.startswith("[DLF] login failed: "):
             stage = "login_failed"
         empty = re.fullmatch(r"\[DLF\] WARN: no rows extracted for (dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp)", message)
@@ -306,8 +312,21 @@ def classify(raw, invocation):
         if stage is None:
             unknown += 1
         else:
-            result.append((timestamp, board, stage))
+            result.append((timestamp, board, stage, numeric))
     return result, unknown
+
+def execution_shape(execution, expected):
+    if execution is None:
+        return "unavailable"
+    # Fixed executable/argv equality only; metadata never leaves this process.
+    suffix = r" ; ignore_errors=(?:yes|no) ; start_time=\[[^\]\r\n]*\] ; stop_time=\[[^\]\r\n]*\] ; pid=[0-9]+ ; code=[A-Za-z_]+ ; status=[0-9]+ \}"
+    for executable, argv, shape in (
+        (expected, expected, "expected_direct"),
+        ("/bin/bash", "/bin/bash " + expected, "expected_bash_wrapper"),
+    ):
+        if re.fullmatch(r"\{ path=" + re.escape(executable) + r" ; argv\[\]=" + re.escape(argv) + suffix, execution):
+            return shape
+    return "other_or_unverified"
 
 def main():
     app, unit = sys.argv[1:]
@@ -315,11 +334,8 @@ def main():
     try:
         execution = bounded(["systemctl", "show", unit, "--property=ExecStart", "--value"], 8192).strip()
     except Exception:
-        execution = ""
-    # Recognize only systemd's single-command representation with no arguments.
-    # Any other representation is unknown, never permission to inspect its path.
-    match = re.fullmatch(r"\{ path=" + re.escape(expected) + r" ; argv\[\]=" + re.escape(expected) + r" ; ignore_errors=(?:yes|no) ; start_time=\[[^\]\r\n]*\] ; stop_time=\[[^\]\r\n]*\] ; pid=[0-9]+ ; code=[A-Za-z_]+ ; status=[0-9]+ \}", execution)
-    print("dlf.identity.wrapperCommand=" + ("expected_single_command" if match else "unverified"))
+        execution = None
+    print("dlf.identity.wrapperCommand=" + execution_shape(execution, expected))
     for role, path in (("wrapper", Path(expected)), ("defaultFetcher", Path("/var/lib/dlf-fetch/repo/scripts/fetch_dlf.py"))):
         try:
             if path.resolve() != path.absolute() or any(parent.is_symlink() for parent in path.parents):
@@ -350,10 +366,12 @@ def main():
         raise ValueError("changed_invocation")
     print("dlf.journal.state=" + ("classified" if raw else "empty"))
     print("dlf.journal.unclassified=" + str(unknown))
-    for index, (timestamp, board, stage) in enumerate(events):
+    for index, (timestamp, board, stage, numeric) in enumerate(events):
         print(f"dlf.journal.event{index}.timestampUs={timestamp}")
         print(f"dlf.journal.event{index}.board={board}")
         print(f"dlf.journal.event{index}.stage={stage}")
+        for key, value in numeric.items():
+            print(f"dlf.journal.event{index}.{key}={value}")
 
 if __name__ == "__main__":
     try:
@@ -370,7 +388,8 @@ DLF_JOURNAL_PY
                       ! "$line" =~ ^dlf\.journal\.event[0-9]{1,3}\.timestampUs=[0-9]{1,20}$ &&
                       ! "$line" =~ ^dlf\.journal\.event[0-9]{1,3}\.board=(all|dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp)$ &&
                       ! "$line" =~ ^dlf\.journal\.event[0-9]{1,3}\.stage=(fetch_failed|reauth_failed|persistent_preview|row_floor|native_value_floor|preview_reauth|login_failed|empty_rows|wrote|wrapper_fetch_nonzero)$ &&
-                      ! "$line" =~ ^dlf\.identity\.wrapperCommand=(expected_single_command|unverified)$ &&
+                      ! "$line" =~ ^dlf\.journal\.event[0-9]{1,3}\.(nativeCount|parsedRows|requiredFloor)=[0-9]{1,6}$ &&
+                      ! "$line" =~ ^dlf\.identity\.wrapperCommand=(expected_direct|expected_bash_wrapper|other_or_unverified|unavailable)$ &&
                       ! "$line" =~ ^dlf\.identity\.(wrapper|defaultFetcher)Sha256=[0-9a-f]{64}$ &&
                       ! "$line" =~ ^dlf\.identity\.(wrapper|defaultFetcher)State=unavailable$ &&
                       ! "$line" =~ ^dlf\.identity\.defaultRevision=([0-9a-f]{40}|unavailable)$ ]]; then

@@ -47,11 +47,10 @@ def test_journal_fixed_markers_suppress_exception_and_unmatched_secrets():
     events, unknown = classify(raw, "a" * 32)
     assert [event[2] for event in events] == [
         "fetch_failed",
-        "native_value_floor",
         "wrote",
         "login_failed",
     ]
-    assert unknown == 1
+    assert unknown == 2
     assert "SECRET" not in repr((events, unknown))
 
 
@@ -171,7 +170,8 @@ def test_optional_identity_failure_does_not_hide_valid_journal(
     output = capsys.readouterr().out
     if failed_probe == "git":
         assert "dlf.identity.defaultRevision=unavailable" in output
-    assert "dlf.identity.wrapperCommand=unverified" in output
+    shape = "unavailable" if failed_probe == "ExecStart" else "other_or_unverified"
+    assert "dlf.identity.wrapperCommand=" + shape in output
     assert "dlf.journal.state=classified" in output
     assert "dlf.journal.event0.stage=fetch_failed" in output
     assert "SECRET" not in output
@@ -402,6 +402,119 @@ def artifact_namespace():
     import runpy
 
     return runpy.run_path(str(ROOT / "deploy/diagnostics/c1a_safe_artifact.py"))
+
+
+def native_marker(count="0", rows="300", floor="240"):
+    return (
+        f"[DLF] dlfSf: native Value coverage {count}/{rows} "
+        f"is below required floor {floor}; semantic/parser degradation. "
+        "Preserving last-good CSV, NOT overwriting CSVs/site_raw/dlfSf.csv."
+    )
+
+
+@pytest.mark.parametrize("count", ["0", "239"])
+def test_exact_native_coverage_retains_bounded_numbers(count):
+    events, unknown = journal_namespace()["classify"](journal_row(native_marker(count)), "a" * 32)
+    assert unknown == 0
+    assert events[0][3] == {"nativeCount": int(count), "parsedRows": 300, "requiredFloor": 240}
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        native_marker("301"),
+        native_marker("240"),
+        native_marker("-1"),
+        native_marker("1e2"),
+        native_marker("1.0"),
+        native_marker("9999999999"),
+        native_marker(floor="0"),
+        native_marker() + " SECRET",
+        native_marker().replace("dlfSf", "dlfIdp"),
+    ],
+)
+def test_invalid_native_marker_never_becomes_numeric_evidence(message):
+    events, unknown = journal_namespace()["classify"](journal_row(message), "a" * 32)
+    assert events == [] and unknown == 1
+
+
+def execution_struct(path, argv):
+    return (
+        f"{{ path={path} ; argv[]={argv} ; ignore_errors=no ; start_time=[] ; "
+        "stop_time=[] ; pid=0 ; code=exited ; status=0 }"
+    )
+
+
+@pytest.mark.parametrize(
+    "path,argv,expected",
+    [
+        (
+            "/app/deploy/dlf_fetch_and_push.sh",
+            "/app/deploy/dlf_fetch_and_push.sh",
+            "expected_direct",
+        ),
+        ("/bin/bash", "/bin/bash /app/deploy/dlf_fetch_and_push.sh", "expected_bash_wrapper"),
+        ("/bin/bash", "/bin/bash -c /app/deploy/dlf_fetch_and_push.sh", "other_or_unverified"),
+        ("/bin/bash", "/bin/bash /app/deploy/dlf_fetch_and_push.sh SECRET", "other_or_unverified"),
+        ("/bin/bash", "/bin/bash /app/deploy/dlf_fetch_and_push.sh; SECRET", "other_or_unverified"),
+        ("/bin/bash", "/bin/bash /app/deploy/dlf_fetch_and_push.sh.extra", "other_or_unverified"),
+        ("/usr/bin/bash", "/usr/bin/bash /app/deploy/dlf_fetch_and_push.sh", "other_or_unverified"),
+    ],
+)
+def test_wrapper_shape_requires_exact_fixed_command(path, argv, expected):
+    assert (
+        journal_namespace()["execution_shape"](
+            execution_struct(path, argv), "/app/deploy/dlf_fetch_and_push.sh"
+        )
+        == expected
+    )
+
+
+@pytest.mark.parametrize("change", ["missing", "wrong_stage", "contradiction", "floor", "oversize"])
+def test_artifact_rejects_inconsistent_numeric_groups(change):
+    ns = artifact_namespace()
+    raw = artifact_payload(ns).replace(b"stage=fetch_failed", b"stage=native_value_floor")
+    fields = {"nativeCount": "0", "parsedRows": "300", "requiredFloor": "240"}
+    if change == "missing":
+        fields.pop("parsedRows")
+    if change == "wrong_stage":
+        raw = raw.replace(b"stage=native_value_floor", b"stage=wrote")
+    if change == "contradiction":
+        fields["nativeCount"] = "301"
+    if change == "floor":
+        fields["requiredFloor"] = "0"
+    if change == "oversize":
+        fields["parsedRows"] = "9999999999"
+    raw += "".join(f"dlf.journal.event0.{key}={value}\n" for key, value in fields.items()).encode()
+    with pytest.raises(ValueError):
+        ns["validate"](raw)
+
+
+def test_numeric_emitter_and_runner_allowlists_agree(monkeypatch, capsys, tmp_path):
+    remote = journal_namespace()
+
+    def bounded(args, limit=65536):
+        if args[0] == "git":
+            return "1" * 40
+        if "--property=ExecStart" in args:
+            return execution_struct(
+                "/bin/bash", "/bin/bash " + str(tmp_path / "deploy/dlf_fetch_and_push.sh")
+            )
+        if args[0] == "journalctl":
+            return journal_row(native_marker("239"))
+        return "a" * 32
+
+    remote["bounded"] = bounded
+    monkeypatch.setattr(sys, "argv", ["probe", str(tmp_path), "unit.service"])
+    remote["main"]()
+    output = capsys.readouterr().out
+    ns = artifact_namespace()
+    raw = ("scope=performance-safe\n" + output + "limits=" + ns["LIMITS"] + "\n").encode()
+    result = ns["validate"](raw)
+    assert result["dlf.journal.event0.nativeCount"] == "239"
+    assert result["dlf.journal.event0.requiredFloor"] == "240"
+    assert result["dlf.identity.wrapperCommand"] == "expected_bash_wrapper"
+    assert "MESSAGE" not in output and str(tmp_path) not in output
 
 
 def artifact_payload(namespace):

@@ -16,7 +16,8 @@ PATTERNS = (
     r"dlf\.journal\.event[0-9]{1,3}\.timestampUs=[0-9]{1,20}",
     r"dlf\.journal\.event[0-9]{1,3}\.board=(all|dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp)",
     r"dlf\.journal\.event[0-9]{1,3}\.stage=(fetch_failed|reauth_failed|persistent_preview|row_floor|native_value_floor|preview_reauth|login_failed|empty_rows|wrote|wrapper_fetch_nonzero)",
-    r"dlf\.identity\.wrapperCommand=(expected_single_command|unverified)",
+    r"dlf\.journal\.event[0-9]{1,3}\.(nativeCount|parsedRows|requiredFloor)=[0-9]{1,6}",
+    r"dlf\.identity\.wrapperCommand=(expected_direct|expected_bash_wrapper|other_or_unverified|unavailable)",
     r"dlf\.identity\.(wrapper|defaultFetcher)Sha256=[0-9a-f]{64}",
     r"dlf\.identity\.(wrapper|defaultFetcher)State=unavailable",
     r"dlf\.identity\.defaultRevision=([0-9a-f]{40}|unavailable)",
@@ -59,15 +60,32 @@ def validate(raw):
         raise ValueError("inconsistent")
     events = {}
     for key, value in selected.items():
-        match = re.fullmatch(r"dlf.journal.event([0-9]+)\.(timestampUs|board|stage)", key)
+        match = re.fullmatch(
+            r"dlf.journal.event([0-9]+)\.(timestampUs|board|stage|nativeCount|parsedRows|requiredFloor)",
+            key,
+        )
         if match:
             events.setdefault(int(match[1]), set()).add(match[2])
     if events and (
-        sorted(events) != list(range(len(events)))
-        or any(v != {"timestampUs", "board", "stage"} for v in events.values())
-        or selected["dlf.journal.state"] != "classified"
+        sorted(events) != list(range(len(events))) or selected["dlf.journal.state"] != "classified"
     ):
         raise ValueError("incomplete")
+    for index, fields in events.items():
+        prefix = f"dlf.journal.event{index}."
+        base = {"timestampUs", "board", "stage"}
+        numeric = {"nativeCount", "parsedRows", "requiredFloor"}
+        coverage = selected.get(prefix + "stage") == "native_value_floor"
+        if fields != (base | numeric if coverage else base):
+            raise ValueError("incomplete")
+        if coverage:
+            native, rows, floor = (
+                int(selected[prefix + key])
+                for key in ("nativeCount", "parsedRows", "requiredFloor")
+            )
+            if selected[prefix + "board"] != "dlfSf" or not (
+                native <= rows and 0 < floor and native < floor
+            ):
+                raise ValueError("inconsistent")
     if state == "classified" and not events and int(count) == 0:
         raise ValueError("inconsistent")
     return selected
