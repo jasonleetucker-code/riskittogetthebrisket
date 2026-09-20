@@ -1,6 +1,7 @@
 """Execute the safe branch with command sentinels; never access a remote host."""
 
 import os
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -11,6 +12,169 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "deploy/diagnostics/c1a_closure_inventory.sh"
+
+
+def journal_namespace():
+    script = SCRIPT.read_text(encoding="utf-8")
+    code = script.split("<<'DLF_JOURNAL_PY'\n", 1)[1].split("\nDLF_JOURNAL_PY", 1)[0]
+    namespace = {"__name__": "safe_probe_test"}
+    exec(compile(code, "safe_probe", "exec"), namespace)
+    return namespace
+
+
+def journal_row(message, invocation="a" * 32):
+    return json.dumps(
+        {
+            "MESSAGE": message,
+            "_SYSTEMD_INVOCATION_ID": invocation,
+            "__REALTIME_TIMESTAMP": "1789907256000000",
+        }
+    )
+
+
+def test_journal_fixed_markers_suppress_exception_and_unmatched_secrets():
+    classify = journal_namespace()["classify"]
+    raw = "\n".join(
+        journal_row(message)
+        for message in [
+            "[DLF] dlfSf fetch failed: https://SECRET/?cookie=SECRET",
+            "[DLF] dlfIdp: native Value coverage 0/175 SECRET",
+            "[DLF] wrote 56 rows → CSVs/site_raw/dlfRookieSf.csv",
+            "[DLF] login failed: <html>SECRET password</html>",
+            "SECRET arbitrary unmatched content",
+        ]
+    )
+    events, unknown = classify(raw, "a" * 32)
+    assert [event[2] for event in events] == [
+        "fetch_failed",
+        "native_value_floor",
+        "wrote",
+        "login_failed",
+    ]
+    assert unknown == 1
+    assert "SECRET" not in repr((events, unknown))
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "{SECRET",
+        journal_row("SECRET", "b" * 32),
+        json.dumps({"MESSAGE": ["SECRET"]}),
+        journal_row("SECRET" * 2000),
+        "\n".join(journal_row("SECRET") for _ in range(200)),
+    ],
+)
+def test_journal_malformed_wrong_invocation_and_truncation_fail_closed(raw):
+    with pytest.raises((ValueError, TypeError)):
+        journal_namespace()["classify"](raw, "a" * 32)
+
+
+def test_journal_bounded_command_refuses_overflow():
+    with pytest.raises(ValueError, match="overflow"):
+        journal_namespace()["bounded"]([sys.executable, "-c", "print('SECRET'*100)"], 20)
+
+
+def test_journal_closed_stdout_live_child_is_cleaned(monkeypatch):
+    namespace = journal_namespace()
+    original = subprocess.Popen
+    children = []
+
+    def capture(*args, **kwargs):
+        child = original(*args, **kwargs)
+        children.append(child)
+        return child
+
+    monkeypatch.setattr(subprocess, "Popen", capture)
+    # Windows may retain another inherited pipe handle after os.close(1),
+    # selecting the read timeout instead of the post-EOF wait timeout.
+    with pytest.raises((subprocess.TimeoutExpired, ValueError)):
+        namespace["bounded"]([sys.executable, "-c", "import os,time; os.close(1); time.sleep(30)"])
+    assert len(children) == 1
+    assert children[0].poll() is not None
+
+
+def test_journal_post_eof_wait_timeout_always_kills(monkeypatch):
+    import io
+
+    class Child:
+        stdout = io.BytesIO(b"")
+        killed = False
+
+        def poll(self):
+            return -1 if self.killed else None
+
+        def wait(self, timeout):
+            if not self.killed:
+                raise subprocess.TimeoutExpired("private", timeout)
+            return -1
+
+        def kill(self):
+            self.killed = True
+
+    child = Child()
+    monkeypatch.setattr(subprocess, "Popen", lambda *args, **kwargs: child)
+    with pytest.raises(subprocess.TimeoutExpired):
+        journal_namespace()["bounded"](["private"])
+    assert child.killed
+    assert child.stdout.closed
+
+
+def test_journal_invocation_change_emits_no_events(monkeypatch, capsys, tmp_path):
+    namespace = journal_namespace()
+    calls = []
+
+    def fake(args, limit=65536):
+        calls.append(args)
+        if args[0] == "git":
+            return "1" * 40
+        if "--property=ExecStart" in args:
+            return "SECRET unrecognized execution"
+        if args[0] == "journalctl":
+            return journal_row("[DLF] login failed: SECRET")
+        return ("a" if sum("--property=InvocationID" in call for call in calls) == 1 else "b") * 32
+
+    namespace["bounded"] = fake
+    monkeypatch.setattr(sys, "argv", ["probe", str(tmp_path), "unit.service"])
+    with pytest.raises(ValueError, match="changed_invocation"):
+        namespace["main"]()
+    output = capsys.readouterr().out
+    assert "SECRET" not in output
+    assert "dlf.journal.event" not in output
+    journal = next(call for call in calls if call[0] == "journalctl")
+    assert "_SYSTEMD_INVOCATION_ID=" + "a" * 32 in journal
+    assert "-n" in journal and "200" in journal
+
+
+@pytest.mark.parametrize("failed_probe", ["git", "ExecStart"])
+def test_optional_identity_failure_does_not_hide_valid_journal(
+    monkeypatch, capsys, tmp_path, failed_probe
+):
+    namespace = journal_namespace()
+
+    def fake(args, limit=65536):
+        if args[0] == "git":
+            if failed_probe == "git":
+                raise ValueError("SECRET git failure")
+            return "1" * 40
+        if "--property=ExecStart" in args:
+            if failed_probe == "ExecStart":
+                raise ValueError("SECRET ExecStart failure")
+            return "SECRET unrecognized command"
+        if args[0] == "journalctl":
+            return journal_row("[DLF] dlfSf fetch failed: SECRET")
+        return "a" * 32
+
+    namespace["bounded"] = fake
+    monkeypatch.setattr(sys, "argv", ["probe", str(tmp_path), "unit.service"])
+    namespace["main"]()
+    output = capsys.readouterr().out
+    if failed_probe == "git":
+        assert "dlf.identity.defaultRevision=unavailable" in output
+    assert "dlf.identity.wrapperCommand=unverified" in output
+    assert "dlf.journal.state=classified" in output
+    assert "dlf.journal.event0.stage=fetch_failed" in output
+    assert "SECRET" not in output
 
 
 def dlf_metadata(app):

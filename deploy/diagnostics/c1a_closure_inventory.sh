@@ -226,6 +226,164 @@ DLF_METADATA_PY
     else
         echo 'dlf.metadata=python_or_timeout_unavailable'
     fi
+    # Invocation-scoped journal classification. Raw messages never leave Python.
+    if command -v python3 >/dev/null 2>&1 && command -v timeout >/dev/null 2>&1; then
+        if journal_output=$( { timeout -k 1s 25s python3 - "${APP_DIR}" "${SERVICE_NAME}-dlf-fetch.service" <<'DLF_JOURNAL_PY'
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import subprocess
+import sys
+import threading
+
+def bounded(args, limit=65536):
+    child = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    chunks = []
+    reader = threading.Thread(target=lambda: chunks.append(child.stdout.read(limit + 1)), daemon=True)
+    reader.start()
+    try:
+        reader.join(4)
+        if reader.is_alive():
+            raise ValueError("timeout")
+        if not chunks or len(chunks[0]) > limit:
+            raise ValueError("overflow")
+        if child.wait(timeout=1) != 0:
+            raise ValueError("command")
+        return chunks[0].decode("utf-8", errors="strict")
+    finally:
+        if child.poll() is None:
+            child.kill()
+        child.wait(timeout=1)
+        reader.join(1)
+        if not reader.is_alive():
+            child.stdout.close()
+
+def classify(raw, invocation):
+    lines = raw.splitlines()
+    if len(lines) >= 200:
+        raise ValueError("possibly_truncated")
+    result = []
+    unknown = 0
+    for line in lines:
+        if len(line.encode("utf-8")) > 8192:
+            raise ValueError("record_limit")
+        row = json.loads(line)
+        if not isinstance(row, dict) or row.get("_SYSTEMD_INVOCATION_ID") != invocation:
+            raise ValueError("invocation")
+        message = row.get("MESSAGE")
+        timestamp = row.get("__REALTIME_TIMESTAMP")
+        if not isinstance(message, str) or not isinstance(timestamp, str) or not re.fullmatch(r"[0-9]{1,20}", timestamp):
+            raise ValueError("shape")
+        stage = None
+        board = "all"
+        match = re.match(r"^\[DLF\] (dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp)(?::| )", message)
+        if match:
+            board = match[1]
+            tail = message[match.end():]
+            for pattern, label in (
+                (r"^fetch failed: ", "fetch_failed"),
+                (r"^ re-auth failed: ", "reauth_failed"),
+                (r"^ still preview after re-auth", "persistent_preview"),
+                (r"^ parsed only [0-9]+ rows", "row_floor"),
+                (r"^ native Value coverage [0-9]+/[0-9]+", "native_value_floor"),
+                (r"^ got non-member preview", "preview_reauth"),
+            ):
+                if re.match(pattern, tail):
+                    stage = label
+                    break
+        if message.startswith("[DLF] login failed: "):
+            stage = "login_failed"
+        empty = re.fullmatch(r"\[DLF\] WARN: no rows extracted for (dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp)", message)
+        wrote = re.fullmatch(r"\[DLF\] wrote [0-9]+ rows → CSVs/site_raw/(dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp)\.csv", message)
+        if empty or wrote:
+            board = (empty or wrote)[1]
+            stage = "empty_rows" if empty else "wrote"
+        if message == "[dlf-fetch][ERR] fetch_dlf.py exited non-zero - keeping previous CSVs / stamp; will retry on next timer fire.":
+            stage = "wrapper_fetch_nonzero"
+        if stage is None:
+            unknown += 1
+        else:
+            result.append((timestamp, board, stage))
+    return result, unknown
+
+def main():
+    app, unit = sys.argv[1:]
+    expected = str(Path(app) / "deploy/dlf_fetch_and_push.sh")
+    try:
+        execution = bounded(["systemctl", "show", unit, "--property=ExecStart", "--value"], 8192).strip()
+    except Exception:
+        execution = ""
+    # Recognize only systemd's single-command representation with no arguments.
+    # Any other representation is unknown, never permission to inspect its path.
+    match = re.fullmatch(r"\{ path=" + re.escape(expected) + r" ; argv\[\]=" + re.escape(expected) + r" ; ignore_errors=(?:yes|no) ; start_time=\[[^\]\r\n]*\] ; stop_time=\[[^\]\r\n]*\] ; pid=[0-9]+ ; code=[A-Za-z_]+ ; status=[0-9]+ \}", execution)
+    print("dlf.identity.wrapperCommand=" + ("expected_single_command" if match else "unverified"))
+    for role, path in (("wrapper", Path(expected)), ("defaultFetcher", Path("/var/lib/dlf-fetch/repo/scripts/fetch_dlf.py"))):
+        try:
+            if path.resolve() != path.absolute() or any(parent.is_symlink() for parent in path.parents):
+                raise ValueError("path")
+            with os.fdopen(os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)), "rb") as stream:
+                before = os.fstat(stream.fileno())
+                if not stat.S_ISREG(before.st_mode) or before.st_size > 262144:
+                    raise ValueError("file")
+                content = stream.read(262145)
+                after = os.fstat(stream.fileno())
+            if len(content) > 262144 or (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
+                raise ValueError("changed")
+            print("dlf.identity." + role + "Sha256=" + hashlib.sha256(content).hexdigest())
+        except Exception:
+            print("dlf.identity." + role + "State=unavailable")
+    try:
+        revision = bounded(["git", "-C", "/var/lib/dlf-fetch/repo", "rev-parse", "--verify", "HEAD"], 128).strip()
+    except Exception:
+        revision = ""
+    print("dlf.identity.defaultRevision=" + (revision if re.fullmatch(r"[0-9a-f]{40}", revision) else "unavailable"))
+    invocation = bounded(["systemctl", "show", unit, "--property=InvocationID", "--value"], 128).strip()
+    if not re.fullmatch(r"[0-9a-f]{32}", invocation) or invocation == "0" * 32:
+        raise ValueError("no_invocation")
+    raw = bounded(["journalctl", "--no-pager", "--output=json", "--output-fields=MESSAGE,__REALTIME_TIMESTAMP,_SYSTEMD_INVOCATION_ID", "-n", "200", "_SYSTEMD_INVOCATION_ID=" + invocation])
+    events, unknown = classify(raw, invocation)
+    # Query again: do not associate an old invocation with a newly running unit.
+    if bounded(["systemctl", "show", unit, "--property=InvocationID", "--value"], 128).strip() != invocation:
+        raise ValueError("changed_invocation")
+    print("dlf.journal.state=" + ("classified" if raw else "empty"))
+    print("dlf.journal.unclassified=" + str(unknown))
+    for index, (timestamp, board, stage) in enumerate(events):
+        print(f"dlf.journal.event{index}.timestampUs={timestamp}")
+        print(f"dlf.journal.event{index}.board={board}")
+        print(f"dlf.journal.event{index}.stage={stage}")
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception:
+        print("dlf.journal.state=unavailable_or_incomplete")
+DLF_JOURNAL_PY
+        } 2>/dev/null | head -c 32769); then
+            journal_valid=1
+            [[ ${#journal_output} -le 32768 && -n "$journal_output" ]] || journal_valid=0
+            while IFS= read -r line; do
+                if [[ ! "$line" =~ ^dlf\.journal\.state=(classified|empty|unavailable_or_incomplete)$ &&
+                      ! "$line" =~ ^dlf\.journal\.unclassified=[0-9]{1,3}$ &&
+                      ! "$line" =~ ^dlf\.journal\.event[0-9]{1,3}\.timestampUs=[0-9]{1,20}$ &&
+                      ! "$line" =~ ^dlf\.journal\.event[0-9]{1,3}\.board=(all|dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp)$ &&
+                      ! "$line" =~ ^dlf\.journal\.event[0-9]{1,3}\.stage=(fetch_failed|reauth_failed|persistent_preview|row_floor|native_value_floor|preview_reauth|login_failed|empty_rows|wrote|wrapper_fetch_nonzero)$ &&
+                      ! "$line" =~ ^dlf\.identity\.wrapperCommand=(expected_single_command|unverified)$ &&
+                      ! "$line" =~ ^dlf\.identity\.(wrapper|defaultFetcher)Sha256=[0-9a-f]{64}$ &&
+                      ! "$line" =~ ^dlf\.identity\.(wrapper|defaultFetcher)State=unavailable$ &&
+                      ! "$line" =~ ^dlf\.identity\.defaultRevision=([0-9a-f]{40}|unavailable)$ ]]; then
+                    journal_valid=0
+                fi
+            done <<< "$journal_output"
+            if [[ "$journal_valid" == 1 ]]; then printf '%s\n' "$journal_output"; else echo 'dlf.journal.state=probe_failed'; fi
+        else
+            echo 'dlf.journal.state=probe_failed'
+        fi
+    else
+        echo 'dlf.journal.state=unavailable'
+    fi
     echo 'limits=snapshot_only;assumed_default_store_path;actual_store_configuration_unverified;no_process_fd_recovery;no_credential_separation_proof'
     exit 0
     ;;
