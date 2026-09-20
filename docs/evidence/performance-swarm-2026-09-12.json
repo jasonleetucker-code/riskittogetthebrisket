@@ -1,5 +1,5 @@
 {
-  "storeRevision": 125,
+  "storeRevision": 126,
   "agentOSReceipt": "af1d50a577c96fd9eed9f934a902a9469f8b69bc",
   "assignments": [
     {
@@ -717,11 +717,8 @@
         "steward:swarm-020-execution-full-packet-1",
         ".agent-runtime/performance-swarm/packets/020-attempt1.json"
       ],
-      "files_owned": [
-        "C:\\Users\\jason\\.codex\\visualizations\\2026\\09\\10\\01a08cd0-89d8-7191-be6e-d3d7859d6986\\chase-performance\\src\\api\\data_contract.py",
-        "C:\\Users\\jason\\.codex\\visualizations\\2026\\09\\10\\01a08cd0-89d8-7191-be6e-d3d7859d6986\\chase-performance\\tests\\api\\test_fantasypros_idp_integration.py"
-      ],
-      "findings": "090 demonstrated suffix-normalized metadata collision; exclusive bounded correction owned by retention_reproduction runtime; independent review required.",
+      "files_owned": [],
+      "findings": "Identity collision corrected;29passed3skipped; independentreviewpending; formatter1489files/lint/coercionpass.",
       "integration_state": "Two reviews approved final76b6e104; fresh integrated underway",
       "reviewer": [
         "092",
@@ -744,7 +741,7 @@
         }
       ],
       "squad": "failure_closure",
-      "status": "ACTIVE",
+      "status": "READY_FOR_REVIEW",
       "tests": [
         {
           "deselected": 54,
@@ -2566,15 +2563,13 @@
         ".agent-runtime/performance-swarm/packets/090-attempt1.json"
       ],
       "files_owned": [],
-      "findings": [
-        "020 independent scopedreviewPASS; sixfocusedtestspass; no othernewproductchanges."
-      ],
+      "findings": "Reproduction sealed090-attempt12; distinctMurphyII/Jrmetadataoverwrotebycanonicalkey.",
       "integration_state": "APPROVED",
       "reviewer": [
         "092"
       ],
       "squad": "adversarial",
-      "status": "ACTIVE",
+      "status": "READY_FOR_REVIEW",
       "tests": []
     },
     {
@@ -3280,19 +3275,10 @@
     }
   ],
   "productionReadOnlyProbe": {
-    "accessAvailable": true,
-    "mutations": false,
-    "runId": 34697668818,
-    "state": "SUCCESS_SNAPSHOT_ONLY",
-    "unverified": [
-      "Exactdeployedidentity",
-      "actualstorepath",
-      "combinedheadroom",
-      "FDrecovery",
-      "credentials",
-      "fullownership",
-      "candidateacceptance"
-    ]
+    "run": 35511439229,
+    "state": "dispatched",
+    "deployedOrRestarted": false,
+    "scope": "performance-safe metadata only"
   },
   "pushedHead": "fcf856be65b3c0d2084674d7a87c13025049c607",
   "reconciliationNote": "a134910a2 preserves both work-claim sides; raw cached whitespace check reports upstream CSV CRLF; not a passing check and source data not rewritten",
@@ -3305,5 +3291,5 @@
   },
   "schema": 1,
   "startedAt": "2026-09-12T00:55:40.218Z",
-  "updatedAt": "2026-09-20T12:40:23.055578+00:00"
+  "updatedAt": "2026-09-20T12:43:52.680538+00:00"
 }
