@@ -1,3 +1,4 @@
+import { fullReplayBytes } from "./replay-envelope.mjs";
 import http from "node:http";
 import { gzipSync } from "node:zlib";
 import { createHash } from "node:crypto";
@@ -61,13 +62,17 @@ if (replayDirectory) {
     serializedViews.set(value, { raw, gzip });
     return value;
   };
-  canonical = loadView("array");
+  playerIndex = JSON.parse(fs.readFileSync(path.join(directory, manifest.playerIndexFile), "utf8"));
   prepared = loadView("rankings");
+  const sourceCanonical = loadView("array");
+  const sourceBytes = serializedViews.get(sourceCanonical);
+  const fullShape = fullReplayBytes(sourceBytes.raw, sourceBytes.gzip, manifest.generation, playerIndex, prepared);
+  canonical = fullShape.payload;
+  serializedViews.set(canonical, { raw: fullShape.raw, gzip: fullShape.gzip });
   trade = loadView("trade");
   catalog = loadView("catalog");
   rows = prepared.playersArray;
   generation = manifest.generation;
-  playerIndex = JSON.parse(fs.readFileSync(path.join(directory, manifest.playerIndexFile), "utf8"));
 }
 let variant = "prepared";
 // direct-gzip mirrors nginx routing /api to the backend; next-proxy exercises
