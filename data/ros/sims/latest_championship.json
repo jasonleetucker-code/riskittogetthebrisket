@@ -1,44 +1,44 @@
 {
-  "computedAt": "2026-09-21T13:27:35.420891+00:00",
+  "computedAt": "2026-09-21T19:51:31.133086+00:00",
   "championshipOdds": [
     {
       "ownerId": "1002085133723299840",
       "displayName": "Brent",
-      "championshipOdds": 0.9973,
-      "finalsOdds": 0.9989,
+      "championshipOdds": 0.9983,
+      "finalsOdds": 0.999,
       "semifinalOdds": 1.0,
       "playoffOdds": 1.0,
       "expectedFinish": 1.0,
       "contenderTier": "Favorite"
     },
     {
-      "ownerId": "468418790212759552",
-      "displayName": "Jason",
-      "championshipOdds": 0.0011,
-      "finalsOdds": 0.1607,
-      "semifinalOdds": 0.831,
+      "ownerId": "1012114412049731584",
+      "displayName": "Joey",
+      "championshipOdds": 0.0006,
+      "finalsOdds": 0.2081,
+      "semifinalOdds": 0.7631,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.43,
+      "expectedFinish": 3.62,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "609821340567941120",
       "displayName": "Eric",
-      "championshipOdds": 0.0011,
-      "finalsOdds": 0.6005,
-      "semifinalOdds": 0.982,
+      "championshipOdds": 0.0006,
+      "finalsOdds": 0.5754,
+      "semifinalOdds": 0.9816,
       "playoffOdds": 1.0,
-      "expectedFinish": 2.45,
+      "expectedFinish": 2.48,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
-      "ownerId": "1012114412049731584",
-      "displayName": "Joey",
+      "ownerId": "468418790212759552",
+      "displayName": "Jason",
       "championshipOdds": 0.0005,
-      "finalsOdds": 0.1955,
-      "semifinalOdds": 0.7281,
+      "finalsOdds": 0.1802,
+      "semifinalOdds": 0.8561,
       "playoffOdds": 1.0,
-      "expectedFinish": 3.75,
+      "expectedFinish": 3.33,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
@@ -46,9 +46,9 @@
       "displayName": "Kich",
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
-      "semifinalOdds": 0.0001,
-      "playoffOdds": 0.3497,
-      "expectedFinish": 7.12,
+      "semifinalOdds": 0.0004,
+      "playoffOdds": 0.4411,
+      "expectedFinish": 6.84,
       "contenderTier": "Fringe Playoff Team"
     },
     {
@@ -57,8 +57,8 @@
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
-      "playoffOdds": 0.037,
-      "expectedFinish": 8.87,
+      "playoffOdds": 0.0484,
+      "expectedFinish": 8.8,
       "contenderTier": "Rebuilder / Seller"
     },
     {
@@ -76,9 +76,9 @@
       "displayName": "Ty",
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
-      "semifinalOdds": 0.0004,
-      "playoffOdds": 0.6131,
-      "expectedFinish": 6.24,
+      "semifinalOdds": 0.0002,
+      "playoffOdds": 0.5091,
+      "expectedFinish": 6.62,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
@@ -87,8 +87,8 @@
       "championshipOdds": 0.0,
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
-      "playoffOdds": 0.0002,
-      "expectedFinish": 9.88,
+      "playoffOdds": 0.0014,
+      "expectedFinish": 9.83,
       "contenderTier": "Rebuilder / Seller"
     },
     {
@@ -98,27 +98,27 @@
       "finalsOdds": 0.0,
       "semifinalOdds": 0.0,
       "playoffOdds": 0.0,
-      "expectedFinish": 10.89,
+      "expectedFinish": 10.91,
       "contenderTier": "Rebuilder / Seller"
     },
     {
       "ownerId": "714912789268865024",
       "displayName": "MaKayla",
       "championshipOdds": 0.0,
-      "finalsOdds": 0.016,
-      "semifinalOdds": 0.2082,
+      "finalsOdds": 0.0125,
+      "semifinalOdds": 0.1901,
       "playoffOdds": 1.0,
-      "expectedFinish": 5.92,
+      "expectedFinish": 6.03,
       "contenderTier": "Dangerous Playoff Team"
     },
     {
       "ownerId": "831633191830933504",
       "displayName": "Collin",
       "championshipOdds": 0.0,
-      "finalsOdds": 0.0284,
-      "semifinalOdds": 0.2502,
+      "finalsOdds": 0.0248,
+      "semifinalOdds": 0.2085,
       "playoffOdds": 1.0,
-      "expectedFinish": 5.45,
+      "expectedFinish": 5.54,
       "contenderTier": "Dangerous Playoff Team"
     }
   ],
