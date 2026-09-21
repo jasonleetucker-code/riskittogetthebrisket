@@ -75,12 +75,12 @@ Malik Willis,73,QB,MIA
 Kyler Murray,74,QB,MIN
 C.J. Stroud,75,QB,HOU
 Dalton Kincaid,76,TE,BUF
-Brian Thomas Jr.,77,WR,JAC
-Javonte Williams,78,RB,DAL
-Jadarian Price,79,RB,SEA
-Harold Fannin Jr.,80,TE,CLE
-Matthew Stafford,81,QB,LAR
-KC Concepcion Jr.,82,WR,CLE
+KC Concepcion Jr.,77,WR,CLE
+Brian Thomas Jr.,78,WR,JAC
+Javonte Williams,79,RB,DAL
+Jadarian Price,80,RB,SEA
+Harold Fannin Jr.,81,TE,CLE
+Matthew Stafford,82,QB,LAR
 Travis Etienne Jr.,83,RB,NO
 Sam Darnold,84,QB,SEA
 Terry McLaurin,85,WR,WAS
@@ -98,8 +98,8 @@ Jordan Addison,96,WR,MIN
 Cam Skattebo,97,RB,NYG
 Bhayshul Tuten,98,RB,JAC
 Josh Jacobs,99,RB,GB
-Davante Adams,100,WR,LAR
-Denzel Boston,101,WR,CLE
+Denzel Boston,100,WR,CLE
+Davante Adams,101,WR,LAR
 Michael Wilson,102,WR,ARI
 Wan'Dale Robinson,103,WR,TEN
 George Kittle,104,TE,SF
@@ -107,8 +107,8 @@ Michael Pittman Jr.,105,WR,PIT
 Jake Ferguson,106,TE,DAL
 David Montgomery,107,RB,HOU
 Courtland Sutton,108,WR,DEN
-Quentin Johnston,109,WR,LAC
-Xavier Worthy,110,WR,KC
+Xavier Worthy,109,WR,KC
+Quentin Johnston,110,WR,LAC
 Jayden Higgins,111,WR,HOU
 Jaylen Warren,112,RB,PIT
 Mike Evans,113,WR,SF
@@ -116,8 +116,8 @@ Josh Downs,114,WR,IND
 Jayden Reed,115,WR,GB
 Chris Godwin Jr.,116,WR,TB
 Eli Stowers,117,TE,PHI
-Jalen Coker,118,WR,CAR
-Dallas Goedert,119,TE,PHI
+Dallas Goedert,118,TE,PHI
+Jalen Coker,119,WR,CAR
 Omar Cooper Jr.,120,WR,NYJ
 Matthew Golden,121,WR,GB
 Jakobi Meyers,122,WR,JAC
@@ -135,8 +135,8 @@ Blake Corum,133,RB,LAR
 Chuba Hubbard,134,RB,CAR
 Rico Dowdle,135,RB,PIT
 Oronde Gadsden II,136,TE,LAC
-Rhamondre Stevenson,137,RB,NE
-Jonah Coleman,138,RB,DEN
+Jonah Coleman,137,RB,DEN
+Rhamondre Stevenson,138,RB,NE
 Rashid Shaheed,139,WR,SEA
 Chris Bell,140,WR,MIA
 Juwan Johnson,141,TE,NO
@@ -180,8 +180,8 @@ Emmett Johnson,178,RB,KC
 Dontayvion Wicks,179,WR,PHI
 Gunnar Helm,180,TE,TEN
 Isaac TeSlaa,181,WR,DET
-Stefon Diggs,182,WR,WAS
-Dylan Sampson,183,RB,CLE
+Dylan Sampson,182,RB,CLE
+Stefon Diggs,183,WR,WAS
 Max Klare,184,TE,LAR
 Tre Tucker,185,WR,LV
 Aaron Jones Sr.,186,RB,MIN
@@ -203,11 +203,11 @@ David Njoku,201,TE,LAC
 Keaton Mitchell,202,RB,LAC
 Cade Otton,203,TE,TB
 Darnell Mooney,204,WR,NYG
-Brian Robinson Jr.,205,RB,ATL
-Mike Washington Jr.,206,RB,LV
-Oscar Delp,207,TE,NO
-Calvin Ridley,208,WR,TEN
-Ryan Flournoy,209,WR,DAL
+Mike Washington Jr.,205,RB,LV
+Oscar Delp,206,TE,NO
+Calvin Ridley,207,WR,TEN
+Ryan Flournoy,208,WR,DAL
+Brian Robinson Jr.,209,RB,ATL
 Alvin Kamara,210,RB,NO
 Greg Dulcich,211,TE,MIA
 Geno Smith,212,QB,NYJ
@@ -333,7 +333,7 @@ Seydou Traore,331,TE,MIA
 Konata Mumpfield,332,WR,LAR
 Jack Endries,333,TE,CIN
 Tutu Atwell,334,WR,LAR
-Zach Ertz,335,TE,FA
+Zach Ertz,335,TE,PHI
 Mitchell Evans,336,TE,CAR
 KeAndre Lambert-Smith,337,WR,LAC
 Noah Fant,338,TE,NO
