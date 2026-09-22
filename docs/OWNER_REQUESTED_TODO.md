@@ -408,3 +408,31 @@ full list; none of these are answered by invention here.
 ### KTC scrape memory-pressure repair — owner directive 2026-09-17
 
 Continue the open KTC outage repair under issue #1391 and the matching work claim. Use the #1388/#1389 telemetry plus inspection of the actual capture code; preserve all three native source modes and coverage/provenance guards. No MemoryMax/MemoryHigh/systemd changes. Run the full non-livedata suite, pinned formatting contract and sabotage verification before publishing the repair branch; then exact-head PR CI/review, normal merge/deploy and real-cycle production verification. The prior event-loop offload fixed a separate defect but did not eliminate this outage; the launch-flag attempt did not eliminate it either. Do not claim production resolution from unit tests or CI alone.
+
+
+### Power Rankings PPG/Recent accuracy — owner report 2026-09-19
+
+Owner reported the `/league` Power Rankings PPG/Recent columns were wrong. **Fixed in
+full on branch `claude/ppg-recent-accuracy-lhc0x4`**: an in-progress league week was
+being counted as a completed game for whichever teams happened to have a Thursday-night
+partial score, so different rows divided by different numbers of games inside one table
+(PRIOR-A03-F03). Root-caused, fixed, tested against both synthetic fixtures and real
+live Sleeper data (2024/2025 completed-season replay byte-identical), documented in
+`docs/CANONICAL_WEEKLY_POWER_RANKINGS_SPEC.md` §7.1, and the denominator is now stamped
+on the payload so the defect class cannot recur invisibly. No further action needed on
+the reported symptom.
+
+Two deferred follow-ups surfaced by the investigation, genuinely out of scope for that
+fix and not authorized here:
+
+- **`metrics.scored_weeks` still drives `awards.py` VORP / starter-total / replacement-
+  pool computations** (lines ~882, 1188, 1353) on the same disproven "a week is either
+  fully real or fully a placeholder" assumption this fix retired for Power/Luck. Awards
+  can therefore still drift mid-week on the same class of defect, on a different
+  surface. Needs its own authorized unit — folding it into the Power fix would have
+  changed award outputs incidentally.
+- **No UI signals that a week is currently in progress and excluded from the board.**
+  The fix makes an in-progress week invisible (correct — it must not corrupt the
+  averages), but a small "Week N in progress — not yet counted" note on Power/Luck would
+  make that explicit rather than implicit. Not built here to avoid widening a bug-fix PR
+  into a new UI surface; a real product call on whether it's wanted.
