@@ -169,6 +169,32 @@ Missing inputs are unavailable, not zero. Missing result components are renormal
 
 Do not import prior-season PPG or back-fill historical ROS values merely to fill missing data.
 
+### 7.1 `g` counts COMPLETED league weeks, and only those (PRIOR-A03-F03, closed 2026-09-19)
+
+"Scored current-season games" above means weeks `metrics.final_regular_season_weeks`
+returns, never every week with a nonzero score. An in-progress week must contribute to
+`g` for nobody -- not for the observed-results components (`recent`, `all_play`,
+`wl_record`), and not for the raw `pointsPerGame`/`recentAvg` diagnostics either.
+
+The distinction was not academic. A week in progress has SOME rosters with a
+Thursday-night partial score and others still at a literal `0.0` because nobody on
+them has played yet. Filtering per roster-entry on "is this nonzero" (the pre-fix
+behavior) counted the partial as a completed game for whoever had one and dropped the
+week entirely for whoever did not -- so different owners' `g` diverged inside one
+table, and `pointsPerGame` silently became `(week1 + thursday_partial) / 2` for some
+rows while staying `week1 / 1` for others. Measured live, 2026-09-19: eight of twelve
+rows in `dynasty_main` carried a denominator the other four did not.
+
+`final_regular_season_weeks(season)` admits a week on either of two independent
+proofs -- the host's own `settings.last_scored_leg` clock, or every roster in the week
+reporting a real score at the league's full roster count -- because each closes the
+other's failure mode: only the host clock can admit a week where a roster genuinely
+scored `0.0`, and only data completeness can admit a finished week whose clock stamp
+lags a refresh cycle. An in-progress week fails both. Every payload now stamps
+`countedWeeks` (which weeks contributed) and each row's `gamesUsed` /
+`recentGamesUsed`, so a denominator can never again diverge invisibly; `blend`
+additionally carries `scoredGamesMax` and `scoredGamesDiverged` for the same reason.
+
 ## 8. WHAT SHOULD NOT ENTER THE CORE POWER SCORE BY DEFAULT
 
 Exclude unless future evidence demonstrates incremental predictive value:
