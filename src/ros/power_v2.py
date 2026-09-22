@@ -3,11 +3,46 @@
 The league-facing score has one forward-looking input and four observed
 results targets:
 
-    0.40 team ROS strength
-    0.20 season-to-date all-play
+    0.30 team ROS strength
+    0.30 season-to-date all-play
     0.15 recent four-game form
     0.15 canonical weekly realized VORP/PAR (currently unavailable)
     0.10 official current-season record
+
+Rebalanced 2026-09-22, owner directive: the prior 0.40/0.20/0.15/0.15/0.10
+target gave the forward-looking ROS input too much influence relative to
+demonstrated performance, especially early in the season -- at 2 games
+played it split roughly 63% forward / 37% results, the INVERSE of the
+owner's stated ~60-65% demonstrated / ~35-40% forward-looking target for
+that point in the season. Two changes, kept separate on purpose:
+
+  * the TARGET split itself moved 40/60 -> 30/70 (``WEIGHTS`` below), and
+    the evidence time constant sped up 4 -> 2 games
+    (``_RESULTS_EVIDENCE_TAU_GAMES``), so results earn their target share
+    faster. Together these land the g=2 forward/results split at
+    approximately 40/60 -- at the boundary of, not deep inside, the
+    stated band, by design: the constants are round and independently
+    explainable rather than curve-fit to hit an exact percentage the
+    owner themselves called approximate.
+  * ``all_play`` rose 0.20 -> 0.30 (now tied with ``team_ros_strength`` as
+    the largest individual weight) because it is the one genuinely
+    schedule-independent, season-long measure of scoring quality this
+    formula has -- see ``docs/CANONICAL_WEEKLY_POWER_RANKINGS_SPEC.md``
+    §6 for why a SEPARATE raw-PPG weight was rejected instead (it would
+    double-count the same scoring evidence ``all_play`` already prices
+    in). ``recent`` and ``wl_record`` were deliberately left at their
+    prior ABSOLUTE weights: growing the results bucket around them
+    already shrinks their RELATIVE share (record's share of the results
+    bucket falls from 16.7% to 14.3%), which is the "should matter but
+    not dominate" the owner asked for, without a second lever.
+
+``recent`` also gets a new, separate correction: while ``games_played <=
+_RECENT_WINDOW`` its trailing window IS the entire season-to-date sample
+(see ``_recent_distinctness``), so it is definitionally redundant with
+``all_play`` over that stretch and contributes no weight of its own until
+the window genuinely diverges from the full season past week 4. This is
+an internal reallocation within the results bucket only; it does not
+change the forward/results split itself.
 
 Observed-results evidence enters smoothly as games are scored. Missing
 inputs stay missing and the available weights renormalize without inventing
@@ -44,8 +79,8 @@ LOG = logging.getLogger("ros.power_v2")
 # first, then renormalises within the results bucket when (today) canonical
 # weekly VORP/PAR is not yet available.
 WEIGHTS: dict[str, float] = {
-    "team_ros_strength": 0.40,
-    "all_play": 0.20,
+    "team_ros_strength": 0.30,
+    "all_play": 0.30,
     "recent": 0.15,
     "team_vorp": 0.15,
     "wl_record": 0.10,
@@ -54,10 +89,20 @@ WEIGHTS: dict[str, float] = {
 FORWARD_COMPONENTS: tuple[str, ...] = ("team_ros_strength",)
 RESULT_COMPONENTS: tuple[str, ...] = ("all_play", "recent", "team_vorp", "wl_record")
 
-#: Four games is both the recent-form horizon in the canonical spec and the
-#: evidence time constant.  results_evidence = 1 - exp(-games / 4) gives a
-#: smooth, monotone transition instead of arbitrary Week-1/2/4 cliffs.
-_RESULTS_EVIDENCE_TAU_GAMES = 4.0
+#: How fast the forward/results MASS split shifts toward its target as games
+#: are played.  results_evidence = 1 - exp(-games / tau), smooth and
+#: monotone instead of arbitrary Week-1/2/4 cliffs.  Deliberately DECOUPLED
+#: from ``_RECENT_WINDOW`` (2026-09-22 rebalance) -- the two constants used
+#: to share one value (4) "by coincidence of sharing the same number," not
+#: because the two questions are the same one.  This one answers "how many
+#: games before the blend has mostly shifted from projection to results";
+#: ``_RECENT_WINDOW`` answers "how many trailing games count as recent
+#: form" and is unrelated to that.  2 games matches the owner-stated target
+#: of the blend already reading roughly 60/40 toward demonstrated
+#: performance by the second week of the season.
+_RESULTS_EVIDENCE_TAU_GAMES = 2.0
+#: Trailing-form window for the ``recent`` component and its display
+#: diagnostic.  Unchanged by the 2026-09-22 rebalance.
 _RECENT_WINDOW = 4
 
 #: Canonical weekly/realized VORP is specified but not dependency-ready.
@@ -134,6 +179,37 @@ def _results_evidence(scored_games: int) -> float:
     return 1.0 - math.exp(-float(scored_games) / _RESULTS_EVIDENCE_TAU_GAMES)
 
 
+def _recent_distinctness(games_played: int, window: int = _RECENT_WINDOW) -> float:
+    """How much of ``recent`` is information NOT already in season-to-date.
+
+    While ``games_played <= window`` the trailing-form buffer holds EVERY
+    game the team has played -- it is not a subset of the season-to-date
+    sample, it IS the season-to-date sample, just run through a different
+    aggregation (a percentile of raw average PPG, vs all_play's average of
+    weekly rank-shares).  Two different transforms of the identical game
+    set are highly correlated, not independent evidence, so crediting both
+    in full double-counts the same one or two games -- precisely what the
+    owner flagged for early season.
+
+    Returns 0.0 (fully redundant, contributes nothing distinct) while
+    ``games_played <= window``, then ramps linearly in the FRACTION of
+    played games that sit outside the trailing window: at
+    ``games_played = 2*window`` half the window is games season-to-date
+    doesn't otherwise emphasize on its own, at ``games_played = 4*window``
+    three-quarters is.  Never reaches exactly 1.0 in a finite regular
+    season, which is correct -- the two measures never become fully
+    unrelated, only decreasingly redundant.
+
+    This is a within-results-bucket reallocation only (see
+    ``_effective_weight_vector``): it does not touch how much weight the
+    results bucket gets relative to ``team_ros_strength``, only how that
+    weight splits internally once earned.
+    """
+    if games_played <= 0:
+        return 0.0
+    return max(0.0, 1.0 - float(window) / float(games_played))
+
+
 def _effective_weight_vector(
     *,
     scored_games: int,
@@ -175,8 +251,31 @@ def _effective_weight_vector(
     if forward_mass and ros_available:
         applied["team_ros_strength"] = forward_mass
     if results_mass and result_base:
+        # ``recent`` is discounted toward the OTHER active results
+        # components while its trailing window is redundant with the
+        # season-to-date sample it is drawn from (see
+        # ``_recent_distinctness``). This is a reallocation WITHIN the
+        # results bucket only -- ``results_mass`` itself, and therefore
+        # the forward/results split, is untouched by it.
+        distinctness = _recent_distinctness(scored_games)
+        effective_weight = {
+            key: (WEIGHTS[key] * distinctness if key == "recent" else WEIGHTS[key])
+            for key in result_keys
+        }
+        effective_base = sum(effective_weight.values())
+        if not effective_base:
+            # Only reachable when ``recent`` is the SOLE active result
+            # component and fully redundant (games_played <= window) --
+            # every other league surface has at least all_play/wl_record
+            # too. Fall back to the undiscounted split rather than
+            # silently dropping the entire results bucket: a discount
+            # that zeroes ALL available evidence is not what "recent is
+            # redundant with the other results components" means when
+            # there ARE no other results components.
+            effective_weight = {key: WEIGHTS[key] for key in result_keys}
+            effective_base = result_base
         for key in result_keys:
-            applied[key] = results_mass * (WEIGHTS[key] / result_base)
+            applied[key] = results_mass * (effective_weight[key] / effective_base)
 
     # Preseason suppresses observed results, so publishing last season's
     # game count beside ``resultsEvidence: 0.0`` states a number that is not

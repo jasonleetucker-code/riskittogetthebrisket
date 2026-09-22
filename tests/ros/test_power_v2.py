@@ -94,12 +94,23 @@ class TestWeights(unittest.TestCase):
     def test_weights_sum_to_one(self):
         self.assertAlmostEqual(sum(power_v2.WEIGHTS.values()), 1.0, places=2)
 
-    def test_team_ros_strength_dominates(self):
-        # Per spec: 0.38 is the largest individual weight.
+    def test_team_ros_strength_ties_all_play_for_largest_individual_weight(self):
+        """2026-09-22 rebalance: team_ros_strength moved 0.40->0.30 and
+        all_play moved 0.20->0.30 -- the two are now TIED for the largest
+        single weight, not team_ros_strength alone. No individual results
+        component may exceed team_ros_strength on its own; the shift toward
+        demonstrated performance instead comes from the AGGREGATE results
+        bucket (four components) outweighing the single forward-looking one.
+        """
         self.assertEqual(
             max(power_v2.WEIGHTS.values()),
             power_v2.WEIGHTS["team_ros_strength"],
         )
+        self.assertEqual(power_v2.WEIGHTS["team_ros_strength"], power_v2.WEIGHTS["all_play"])
+        others = [
+            v for k, v in power_v2.WEIGHTS.items() if k not in ("team_ros_strength", "all_play")
+        ]
+        self.assertLess(max(others), power_v2.WEIGHTS["team_ros_strength"])
 
 
 class TestDisplayNameResolution(unittest.TestCase):
@@ -799,6 +810,105 @@ class TestCompletedWeekGate(unittest.TestCase):
         for row in section["currentRanking"]:
             self.assertEqual(row["gamesUsed"], 0)
             self.assertEqual(row["recentGamesUsed"], 0)
+
+
+# ── 2026-09-22 rebalance: recency-distinctness and the new curve ────────
+class TestRecentDistinctness(unittest.TestCase):
+    """``_recent_distinctness`` -- how much of ``recent`` is genuinely NOT
+    already in the season-to-date sample all_play/wl_record already price.
+    """
+
+    def test_zero_games_is_zero_distinctness(self):
+        self.assertEqual(power_v2._recent_distinctness(0), 0.0)
+
+    def test_fully_redundant_at_and_below_the_window(self):
+        for g in (1, 2, 3, 4):
+            self.assertEqual(power_v2._recent_distinctness(g), 0.0, g)
+
+    def test_ramps_linearly_in_the_out_of_window_fraction_past_the_window(self):
+        # distinctness(g) = 1 - window/g for g > window.
+        self.assertAlmostEqual(power_v2._recent_distinctness(5), 1 - 4 / 5, places=9)
+        self.assertAlmostEqual(power_v2._recent_distinctness(8), 0.5, places=9)
+        self.assertAlmostEqual(power_v2._recent_distinctness(14), 1 - 4 / 14, places=9)
+
+    def test_approaches_but_never_reaches_one(self):
+        self.assertLess(power_v2._recent_distinctness(10_000), 1.0)
+        self.assertGreater(power_v2._recent_distinctness(10_000), 0.999)
+
+    def test_monotonically_non_decreasing(self):
+        prior = -1.0
+        for g in range(0, 30):
+            value = power_v2._recent_distinctness(g)
+            self.assertGreaterEqual(value, prior, g)
+            prior = value
+
+    def test_a_custom_window_is_honored(self):
+        # The signature accepts an explicit window so the function's own
+        # unit tests don't silently drift if _RECENT_WINDOW ever changes.
+        self.assertEqual(power_v2._recent_distinctness(3, window=3), 0.0)
+        self.assertAlmostEqual(power_v2._recent_distinctness(6, window=3), 0.5, places=9)
+
+
+class TestRebalancedCurve(unittest.TestCase):
+    """Pins the 2026-09-22 forward/results curve at named checkpoints, so a
+    future change to WEIGHTS or the evidence tau is a deliberate, visible
+    decision rather than a silent drift. Values independently hand-derived
+    (see the PR description), not copied from the implementation.
+    """
+
+    _EXPECTED_RESULTS_WEIGHT = {
+        0: 0.0,
+        1: 0.4787,
+        2: 0.5960,
+        4: 0.6687,
+        8: 0.6963,
+        14: 0.6998,
+    }
+
+    def test_named_checkpoints_match_hand_derivation(self):
+        for g, expected in self._EXPECTED_RESULTS_WEIGHT.items():
+            section = _section_with_scored_games(g)
+            self.assertAlmostEqual(
+                section["blend"]["resultsWeight"], expected, places=3, msg=f"g={g}"
+            )
+
+    def test_long_run_floor_is_the_new_thirty_percent_target(self):
+        section = _section_with_scored_games(60)
+        self.assertAlmostEqual(section["blend"]["forwardWeight"], 0.30, places=2)
+        self.assertAlmostEqual(section["blend"]["resultsWeight"], 0.70, places=2)
+
+    def test_sensitivity_a_half_game_tau_shift_does_not_flip_week_two_majority(self):
+        """Spec §12.5: a nearby parameter choice must not radically reorder
+        which side of the blend dominates at the owner's stated reference
+        point (g=2). tau +/- 0.5 around the chosen 2.0 must still leave
+        results as the majority share at g=2 -- the formula isn't fragile
+        around this specific constant."""
+        for tau in (1.5, 2.0, 2.5):
+            with patch.object(power_v2, "_RESULTS_EVIDENCE_TAU_GAMES", tau):
+                section = _section_with_scored_games(2)
+                self.assertGreater(section["blend"]["resultsWeight"], 0.5, f"tau={tau}")
+
+
+def _section_with_scored_games(g: int):
+    """Minimal canonical-lens section with exactly ``g`` uniform scored
+    weeks and ROS available, for pinning the blend curve in isolation from
+    any particular team's numbers."""
+    rosters = [{"roster_id": i, "owner_id": f"o{i}"} for i in (1, 2, 3)]
+    matchups = {
+        wk: [
+            {"roster_id": 1, "points": 110.0},
+            {"roster_id": 2, "points": 100.0},
+            {"roster_id": 3, "points": 90.0},
+        ]
+        for wk in range(1, g + 1)
+    }
+    snapshot = _make_snapshot(rosters=rosters, matchups_by_week=matchups)
+    with patch.object(
+        power_v2,
+        "_load_team_strength_percentiles",
+        lambda *a, **k: {"o1": 0.9, "o2": 0.5, "o3": 0.1},
+    ):
+        return power_v2.build_section(snapshot)
 
 
 if __name__ == "__main__":

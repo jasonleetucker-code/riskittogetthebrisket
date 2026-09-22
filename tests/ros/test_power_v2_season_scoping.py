@@ -459,23 +459,34 @@ class TestRecentFormSurvivesAScorelessCurrentSeason:
         carol = _row(absent["currentRanking"], "carol")["components"]
         assert carol["all_play"] is None, carol["all_play"]
 
-    def test_recent_keeps_its_declared_relative_weight(self):
+    def test_all_play_and_wl_record_keep_their_declared_relative_weight(self):
         """Results-only renormalizes the available observed bucket to 100%.
 
         The absolute weight therefore changes when canonical VORP is missing,
-        but recent/all-play/record must preserve the target vector's ratios.
+        but all_play/wl_record must preserve the target vector's ratio.
+        ``recent`` is deliberately excluded from this invariant -- see below.
         """
         out = power_v2.build_section(
             _preseason_shape_snapshot(),
             lens=power_v2.LENS_RESULTS_ONLY,
         )
         applied = out["effectiveWeights"]
-        assert applied["recent"] / applied["all_play"] == pytest.approx(
-            power_v2.WEIGHTS["recent"] / power_v2.WEIGHTS["all_play"]
+        assert applied["all_play"] / applied["wl_record"] == pytest.approx(
+            power_v2.WEIGHTS["all_play"] / power_v2.WEIGHTS["wl_record"]
         )
-        assert applied["recent"] / applied["wl_record"] == pytest.approx(
-            power_v2.WEIGHTS["recent"] / power_v2.WEIGHTS["wl_record"]
+
+    def test_recent_is_redundant_at_exactly_the_window_boundary(self):
+        """This fixture's scored season is exactly 4 weeks -- exactly
+        ``_RECENT_WINDOW`` -- so the trailing window IS the entire
+        season-to-date sample and recent must contribute no weight of its
+        own (2026-09-22 rebalance; see ``_recent_distinctness``)."""
+        out = power_v2.build_section(
+            _preseason_shape_snapshot(),
+            lens=power_v2.LENS_RESULTS_ONLY,
         )
+        applied = out["effectiveWeights"]
+        assert applied["recent"] == 0.0
+        assert power_v2._recent_distinctness(4) == 0.0
 
 
 # ── Missing is never zero (owner invariant) ────────────────────────────

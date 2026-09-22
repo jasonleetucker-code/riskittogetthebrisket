@@ -9,7 +9,7 @@
 **Status:** OWNER-APPROVED ROADMAP FEATURE / CONSOLIDATION  
 **Owner direction captured:** 2026-08-12  
 **Product family:** Public League Experience + Upside Report + ROS Intelligence + Awards/History  
-**Implementation status:** Canonical implementation active in `src/ros/power_v2.py` (2026-09-08 branch/PR #1295). The legacy `src/public_league/power.py` engine is retired. `results_only` remains a diagnostic lens inside the same engine; the old `forward_looking` query value is compatibility-only and resolves to the canonical blend. Official weekly history is owned by `src/ros/power_snapshots.py`. **2026-09-16 (owner directive):** the `/league` Power page serves ONE ranking — the lens toggle, the diagnostic week selector and the results-only trend chart are removed from the page (§10), and the rank-history chart reads the official publications. Owner-attested baseline weeks and the single sanctioned movement restatement are defined in §9. The blend itself is unchanged.
+**Implementation status:** Canonical implementation active in `src/ros/power_v2.py` (2026-09-08 branch/PR #1295). The legacy `src/public_league/power.py` engine is retired. `results_only` remains a diagnostic lens inside the same engine; the old `forward_looking` query value is compatibility-only and resolves to the canonical blend. Official weekly history is owned by `src/ros/power_snapshots.py`. **2026-09-16 (owner directive):** the `/league` Power page serves ONE ranking — the lens toggle, the diagnostic week selector and the results-only trend chart are removed from the page (§10), and the rank-history chart reads the official publications. Owner-attested baseline weeks and the single sanctioned movement restatement are defined in §9. **2026-09-22 (owner directive): the forward/results blend is REBALANCED** — the prior 0.40/0.60 target and 4-game evidence time constant gave ROS strength too much influence relative to demonstrated performance, especially early in the season (measured: at 2 games played the blend split ~63% forward / ~37% results, the inverse of the owner's stated ~60-65% demonstrated / ~35-40% forward target for that point in the season). New target 0.30/0.70, evidence tau 4→2 games, `all_play` raised 0.20→0.30 (tied with `team_ros_strength` for the largest individual weight), and a new within-bucket discount stops `recent` claiming separate credit for evidence `all_play` already prices in while its trailing window is still the entire season-to-date sample. Full rationale, real-board validation and the exact new curve: §5, §7.1, and `src/ros/power_v2.py`'s module docstring.
 
 ---
 
@@ -76,7 +76,11 @@ Do not tune against end-of-season standings or championships; that would incorre
 
 The following is the current transparent canonical target vector. It originated as the owner-approved champion candidate and is now implemented as the production methodology. Future challengers may still be evaluated under §12, but they do not silently replace this version.
 
-### A. 40% — Forward-Looking ROS Competitive Strength
+**REBALANCED 2026-09-22 (owner directive).** The original 0.40/0.20/0.15/0.15/0.10 vector gave forward-looking ROS strength too much influence relative to demonstrated performance — measured on the live board, at 2 games played the blend split ~63% forward / ~37% results, the inverse of the owner's stated philosophy that demonstrated performance should carry roughly 60-65% of the weight at that point in the season. This is a full replacement of the target vector below, not a tuning pass on top of it; §12's validation is satisfied by the real-board comparison and sensitivity check recorded in the PR that made this change (`docs/WORK_CLAIMS.md`), not the full historical rolling-origin backtest — that remains valuable future work, named explicitly rather than silently skipped.
+
+### A. 30% — Forward-Looking ROS Competitive Strength
+
+*(was 40%)*
 
 Use the canonical ROS/current-season projection layer and exact league scoring to produce schedule-neutral projected weekly score distributions for the roster's canonical best-ball lineup.
 
@@ -84,7 +88,11 @@ Preferred derived metric: expected all-play win rate / neutral-opponent win prob
 
 This naturally incorporates current player quality, role/projections, availability and best-ball depth. If injuries/availability already alter the ROS distribution, do **not** add a second standalone health penalty.
 
-### B. 20% — Season-to-Date All-Play Performance
+Tied with all-play (below) as the largest individual weight — no single results component may outweigh the comprehensive roster projection on its own; the shift toward demonstrated performance comes from the AGGREGATE results bucket (four components) outweighing this one forward-looking input, not from any one results signal individually exceeding it.
+
+### B. 30% — Season-to-Date All-Play Performance
+
+*(was 20%)*
 
 Cumulative schedule-independent performance against every league team each scored week.
 
@@ -92,13 +100,19 @@ This prevents an easy/hard H2H schedule from dominating the ranking and rewards 
 
 Use current-season only.
 
+Raised to the largest results weight because it is the one genuinely schedule-independent, season-long measure of scoring quality this formula has. §6 explains why a separate raw-PPG weight was rejected in favor of raising this one instead — they are correlated because both derive from the same weekly scoring, and weighting both would double-count it.
+
 ### C. 15% — Recent Form
+
+*(absolute weight unchanged; see the redundancy correction below)*
 
 Use a rolling **last four scored weeks** when available, preferably exponentially weighted so the latest week matters somewhat more without allowing one spike week to dominate.
 
 Preferred input is recent all-play performance and/or standardized weekly scoring relative to that week's league scoring environment.
 
 Do not make a separate "winning streak" score unless historical validation proves incremental predictive value beyond recent form and actual record.
+
+**Redundancy correction (2026-09-22).** While `games_played <= 4` (the recent-form window), the trailing buffer IS the entire season-to-date sample — not a subset of it — so it carries no distinct information beyond what All-Play (B) already prices from the same games, and contributes no weight of its own until the window genuinely diverges from the full season past week 4. See `src/ros/power_v2.py::_recent_distinctness`. This is a reallocation *within* the results bucket only; it does not change the forward/results split in §7.
 
 ### D. 15% — Team Realized Lineup VORP / PAR
 
@@ -112,13 +126,17 @@ Use the same replacement-level owner as Awards/Honors; do not create a Power-onl
 
 ### E. 10% — Official Competitive Record
 
+*(absolute weight unchanged; its share of the results bucket falls from 16.7% to 14.3% as the bucket grows around it — see below)*
+
 Use the league's real official standings semantics. If league-median results are part of the official record, preserve those semantics exactly and avoid double counting them elsewhere.
 
-Record receives meaningful but minority weight: wins matter, but schedule luck must not overwhelm evidence that a team is genuinely strong or weak.
+Record receives meaningful but minority weight: wins matter, but schedule luck must not overwhelm evidence that a team is genuinely strong or weak. Held flat in absolute terms deliberately (2026-09-22) — record already has the built-in check against matchup luck that this whole model provides (all-play, above), so de-emphasis comes from growing the results bucket around it, not from cutting it directly.
 
 ### Initial candidate formula
 
-`Power Index = 100 × (0.40 ROS + 0.20 Season All-Play + 0.15 Recent Form + 0.15 Team Realized VORP/PAR + 0.10 Official Record)`
+`Power Index = 100 × (0.30 ROS + 0.30 Season All-Play + 0.15 Recent Form + 0.15 Team Realized VORP/PAR + 0.10 Official Record)`
+
+*(was `0.40 ROS + 0.20 Season All-Play + 0.15 Recent Form + 0.15 Team Realized VORP/PAR + 0.10 Official Record`, until the 2026-09-22 rebalance.)*
 
 Each input must be normalized/calibrated to a comparable league-relative scale before combination.
 
@@ -148,22 +166,24 @@ The implementation uses a smooth evidence curve rather than arbitrary week-numbe
 
 For `g` scored current-season games:
 
-`results_evidence = 1 - exp(-g / 4)`
+`results_evidence = 1 - exp(-g / 2)`
 
-The four-game time constant matches the recent-form horizon. In canonical mode the raw forward/results target budgets are 0.40 and 0.60; the results budget is multiplied by `results_evidence`, then the surviving forward/results masses are renormalized to 100%.
+**REBALANCED 2026-09-22.** The time constant was 4 games, matching the recent-form horizon — the two were coupled "by coincidence of sharing the same number," not because they answer the same question. They are now deliberately decoupled (`_RESULTS_EVIDENCE_TAU_GAMES` vs `_RECENT_WINDOW` in `src/ros/power_v2.py`): 2 games is how fast the forward/results MASS split shifts; 4 games remains how many trailing weeks count as recent form. In canonical mode the raw forward/results target budgets are 0.30 and 0.70 (was 0.40/0.60); the results budget is multiplied by `results_evidence`, then the surviving forward/results masses are renormalized to 100%.
 
 With ROS available, that produces approximately:
 
 | scored games | forward-looking | observed results |
 |---:|---:|---:|
 | 0 | 100.0% | 0.0% |
-| 1 | 75.1% | 24.9% |
-| 2 | 62.9% | 37.1% |
-| 4 | 51.3% | 48.7% |
-| 8 | 43.5% | 56.5% |
-| 14 | 40.7% | 59.3% |
+| 1 | 52.1% | 47.9% |
+| 2 | 40.4% | 59.6% |
+| 4 | 33.1% | 66.9% |
+| 8 | 30.4% | 69.6% |
+| 14 | 30.0% | 70.0% |
 
-This makes Week 1 meaningful without letting one game dominate, and it approaches the intended 40/60 long-run blend smoothly.
+*(was 100.0/75.1/62.9/51.3/43.5/40.7% forward at g=0/1/2/4/8/14, floored at 40%, before the 2026-09-22 rebalance.)*
+
+This makes even Week 1 already close to an even split rather than deliberately keeping results minor, and the g=2 point — the owner's own stated "this early point of the season" reference — lands at the boundary of their stated 60-65% demonstrated / 35-40% forward-looking target by construction of round, independently-explainable constants (0.30/0.70 target, tau=2), not by curve-fitting to hit that percentage exactly. It approaches the new 30/70 long-run blend smoothly, floored at 30% forward rather than 40%.
 
 Missing inputs are unavailable, not zero. Missing result components are renormalized **inside the results bucket** so a missing result dependency cannot accidentally make the model more forward-looking than intended. Today the canonical weekly realized-lineup VORP/PAR owner is not dependency-ready; its 15% target share is therefore explicitly reported missing and redistributed among the legitimate observed-results components. The season-aggregate Awards approximation is not substituted.
 

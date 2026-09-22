@@ -136,6 +136,13 @@ def test_a_lens_that_keeps_one_component_still_ranks():
     from tests.ros.test_power_v2 import _make_snapshot
 
     rosters = [{"roster_id": i, "owner_id": f"o{i}"} for i in (1, 2, 3, 4)]
+    # 5 weeks, deliberately past _RECENT_WINDOW (4): at or under the window
+    # ``recent`` is fully redundant with season-to-date (2026-09-22
+    # rebalance) and carries no weight of its own, which happens to tie o2
+    # and o3 on this fixture's symmetric all_play/wl_record numbers alone --
+    # a real, separately-pinned mechanic (test_power_lenses.py), not what
+    # this non-vacuity test is about. One extra week restores recent's
+    # normal contribution and the distinct ranking this test asserts.
     matchups = {
         wk: [
             {"roster_id": 1, "matchup_id": 1, "points": 120.0 + wk},
@@ -143,7 +150,7 @@ def test_a_lens_that_keeps_one_component_still_ranks():
             {"roster_id": 3, "matchup_id": 2, "points": 95.0 + wk},
             {"roster_id": 4, "matchup_id": 2, "points": 80.0 + wk},
         ]
-        for wk in (1, 2, 3)
+        for wk in (1, 2, 3, 4, 5)
     }
     section = power_v2.build_section(
         _make_snapshot(rosters, matchups), lens=power_v2.LENS_RESULTS_ONLY

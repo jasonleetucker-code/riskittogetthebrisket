@@ -436,3 +436,29 @@ fix and not authorized here:
   averages), but a small "Week N in progress — not yet counted" note on Power/Luck would
   make that explicit rather than implicit. Not built here to avoid widening a bug-fix PR
   into a new UI surface; a real product call on whether it's wanted.
+
+
+### Power Rankings ROS/demonstrated-performance rebalance — owner directive 2026-09-22
+
+Owner reported the Power Rankings blend gave ROS/projection too much influence relative to
+demonstrated performance, citing a real regression example (not a forced outcome): a team
+~#2 in scoring/all-play/#1 in record sitting behind a team helped mainly by a higher ROS
+rank. **Implemented in full on branch `claude/ppg-recent-accuracy-lhc0x4`**: forward/results
+target moved 0.40/0.60 → 0.30/0.70, the evidence time constant sped up 4 → 2 games
+(deliberately decoupled from the unrelated recent-form window, which stays 4), `all_play`
+raised 0.20 → 0.30 (now tied with `team_ros_strength` for the largest individual weight),
+and a new within-bucket discount stops `recent` claiming separate credit for evidence
+`all_play` already prices in while its trailing window is still the entire season-to-date
+sample. Validated against the real live 12-team board (old vs new formula, full
+component-contribution breakdown per team) and an isolated synthetic sanity check matching
+the owner's described pattern exactly, independent of which real manager it currently
+applies to. Documented in `docs/CANONICAL_WEEKLY_POWER_RANKINGS_SPEC.md` §5/§7. No further
+action needed on the reported symptom.
+
+One limitation recorded rather than silently skipped: §12 of that spec calls for a full
+historical rolling-origin backtest (replay every reconstructable week, rank-correlate
+against next-week all-play outcomes) before promoting a formula change. This rebalance was
+validated the lighter way the owner explicitly asked for — current-board comparison, per-team
+component contributions, a sensitivity check on nearby parameter choices — not that full
+predictive backtest. A future formal backtest against §12's protocol remains valuable and is
+out of scope here; nothing about this change depends on skipping it forever.
