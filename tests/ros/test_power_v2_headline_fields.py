@@ -41,6 +41,14 @@ below cannot itself catch this — its fixture is single-season, so
 ``test_record_is_the_true_career_total_not_the_current_season_only`` is the
 one that discriminates, reusing the two-season fixture
 ``test_power_v2_season_scoping.py`` built for exactly this class of bug.
+
+RENAME NOTE (2026-09-19).  The state key the note above calls
+``state["career"]`` is now ``state["season"]``, and ``_EMPTY_CAREER`` is
+``_EMPTY_SEASON_STATE``.  Nothing about the incident changed — the key was
+renamed BECAUSE of it.  A name saying "career" while holding season state is
+precisely what made the same-name accident possible, and it was still there
+to make it a second time.  ``career_state`` keeps its name and remains the
+true unbounded accumulator that ``record`` reads directly.
 """
 
 from __future__ import annotations

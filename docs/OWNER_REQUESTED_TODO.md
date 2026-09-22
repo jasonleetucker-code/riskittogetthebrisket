@@ -408,3 +408,57 @@ full list; none of these are answered by invention here.
 ### KTC scrape memory-pressure repair — owner directive 2026-09-17
 
 Continue the open KTC outage repair under issue #1391 and the matching work claim. Use the #1388/#1389 telemetry plus inspection of the actual capture code; preserve all three native source modes and coverage/provenance guards. No MemoryMax/MemoryHigh/systemd changes. Run the full non-livedata suite, pinned formatting contract and sabotage verification before publishing the repair branch; then exact-head PR CI/review, normal merge/deploy and real-cycle production verification. The prior event-loop offload fixed a separate defect but did not eliminate this outage; the launch-flag attempt did not eliminate it either. Do not claim production resolution from unit tests or CI alone.
+
+
+### Power Rankings PPG/Recent accuracy — owner report 2026-09-19
+
+Owner reported the `/league` Power Rankings PPG/Recent columns were wrong. **Fixed in
+full on branch `claude/ppg-recent-accuracy-lhc0x4`**: an in-progress league week was
+being counted as a completed game for whichever teams happened to have a Thursday-night
+partial score, so different rows divided by different numbers of games inside one table
+(PRIOR-A03-F03). Root-caused, fixed, tested against both synthetic fixtures and real
+live Sleeper data (2024/2025 completed-season replay byte-identical), documented in
+`docs/CANONICAL_WEEKLY_POWER_RANKINGS_SPEC.md` §7.1, and the denominator is now stamped
+on the payload so the defect class cannot recur invisibly. No further action needed on
+the reported symptom.
+
+Two deferred follow-ups surfaced by the investigation, genuinely out of scope for that
+fix and not authorized here:
+
+- **`metrics.scored_weeks` still drives `awards.py` VORP / starter-total / replacement-
+  pool computations** (lines ~882, 1188, 1353) on the same disproven "a week is either
+  fully real or fully a placeholder" assumption this fix retired for Power/Luck. Awards
+  can therefore still drift mid-week on the same class of defect, on a different
+  surface. Needs its own authorized unit — folding it into the Power fix would have
+  changed award outputs incidentally.
+- **No UI signals that a week is currently in progress and excluded from the board.**
+  The fix makes an in-progress week invisible (correct — it must not corrupt the
+  averages), but a small "Week N in progress — not yet counted" note on Power/Luck would
+  make that explicit rather than implicit. Not built here to avoid widening a bug-fix PR
+  into a new UI surface; a real product call on whether it's wanted.
+
+
+### Power Rankings ROS/demonstrated-performance rebalance — owner directive 2026-09-22
+
+Owner reported the Power Rankings blend gave ROS/projection too much influence relative to
+demonstrated performance, citing a real regression example (not a forced outcome): a team
+~#2 in scoring/all-play/#1 in record sitting behind a team helped mainly by a higher ROS
+rank. **Implemented in full on branch `claude/ppg-recent-accuracy-lhc0x4`**: forward/results
+target moved 0.40/0.60 → 0.30/0.70, the evidence time constant sped up 4 → 2 games
+(deliberately decoupled from the unrelated recent-form window, which stays 4), `all_play`
+raised 0.20 → 0.30 (now tied with `team_ros_strength` for the largest individual weight),
+and a new within-bucket discount stops `recent` claiming separate credit for evidence
+`all_play` already prices in while its trailing window is still the entire season-to-date
+sample. Validated against the real live 12-team board (old vs new formula, full
+component-contribution breakdown per team) and an isolated synthetic sanity check matching
+the owner's described pattern exactly, independent of which real manager it currently
+applies to. Documented in `docs/CANONICAL_WEEKLY_POWER_RANKINGS_SPEC.md` §5/§7. No further
+action needed on the reported symptom.
+
+One limitation recorded rather than silently skipped: §12 of that spec calls for a full
+historical rolling-origin backtest (replay every reconstructable week, rank-correlate
+against next-week all-play outcomes) before promoting a formula change. This rebalance was
+validated the lighter way the owner explicitly asked for — current-board comparison, per-team
+component contributions, a sensitivity check on nearby parameter choices — not that full
+predictive backtest. A future formal backtest against §12's protocol remains valuable and is
+out of scope here; nothing about this change depends on skipping it forever.

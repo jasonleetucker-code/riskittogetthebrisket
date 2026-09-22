@@ -3,11 +3,46 @@
 The league-facing score has one forward-looking input and four observed
 results targets:
 
-    0.40 team ROS strength
-    0.20 season-to-date all-play
+    0.30 team ROS strength
+    0.30 season-to-date all-play
     0.15 recent four-game form
     0.15 canonical weekly realized VORP/PAR (currently unavailable)
     0.10 official current-season record
+
+Rebalanced 2026-09-22, owner directive: the prior 0.40/0.20/0.15/0.15/0.10
+target gave the forward-looking ROS input too much influence relative to
+demonstrated performance, especially early in the season -- at 2 games
+played it split roughly 63% forward / 37% results, the INVERSE of the
+owner's stated ~60-65% demonstrated / ~35-40% forward-looking target for
+that point in the season. Two changes, kept separate on purpose:
+
+  * the TARGET split itself moved 40/60 -> 30/70 (``WEIGHTS`` below), and
+    the evidence time constant sped up 4 -> 2 games
+    (``_RESULTS_EVIDENCE_TAU_GAMES``), so results earn their target share
+    faster. Together these land the g=2 forward/results split at
+    approximately 40/60 -- at the boundary of, not deep inside, the
+    stated band, by design: the constants are round and independently
+    explainable rather than curve-fit to hit an exact percentage the
+    owner themselves called approximate.
+  * ``all_play`` rose 0.20 -> 0.30 (now tied with ``team_ros_strength`` as
+    the largest individual weight) because it is the one genuinely
+    schedule-independent, season-long measure of scoring quality this
+    formula has -- see ``docs/CANONICAL_WEEKLY_POWER_RANKINGS_SPEC.md``
+    §6 for why a SEPARATE raw-PPG weight was rejected instead (it would
+    double-count the same scoring evidence ``all_play`` already prices
+    in). ``recent`` and ``wl_record`` were deliberately left at their
+    prior ABSOLUTE weights: growing the results bucket around them
+    already shrinks their RELATIVE share (record's share of the results
+    bucket falls from 16.7% to 14.3%), which is the "should matter but
+    not dominate" the owner asked for, without a second lever.
+
+``recent`` also gets a new, separate correction: while ``games_played <=
+_RECENT_WINDOW`` its trailing window IS the entire season-to-date sample
+(see ``_recent_distinctness``), so it is definitionally redundant with
+``all_play`` over that stretch and contributes no weight of its own until
+the window genuinely diverges from the full season past week 4. This is
+an internal reallocation within the results bucket only; it does not
+change the forward/results split itself.
 
 Observed-results evidence enters smoothly as games are scored. Missing
 inputs stay missing and the available weights renormalize without inventing
@@ -44,8 +79,8 @@ LOG = logging.getLogger("ros.power_v2")
 # first, then renormalises within the results bucket when (today) canonical
 # weekly VORP/PAR is not yet available.
 WEIGHTS: dict[str, float] = {
-    "team_ros_strength": 0.40,
-    "all_play": 0.20,
+    "team_ros_strength": 0.30,
+    "all_play": 0.30,
     "recent": 0.15,
     "team_vorp": 0.15,
     "wl_record": 0.10,
@@ -54,10 +89,20 @@ WEIGHTS: dict[str, float] = {
 FORWARD_COMPONENTS: tuple[str, ...] = ("team_ros_strength",)
 RESULT_COMPONENTS: tuple[str, ...] = ("all_play", "recent", "team_vorp", "wl_record")
 
-#: Four games is both the recent-form horizon in the canonical spec and the
-#: evidence time constant.  results_evidence = 1 - exp(-games / 4) gives a
-#: smooth, monotone transition instead of arbitrary Week-1/2/4 cliffs.
-_RESULTS_EVIDENCE_TAU_GAMES = 4.0
+#: How fast the forward/results MASS split shifts toward its target as games
+#: are played.  results_evidence = 1 - exp(-games / tau), smooth and
+#: monotone instead of arbitrary Week-1/2/4 cliffs.  Deliberately DECOUPLED
+#: from ``_RECENT_WINDOW`` (2026-09-22 rebalance) -- the two constants used
+#: to share one value (4) "by coincidence of sharing the same number," not
+#: because the two questions are the same one.  This one answers "how many
+#: games before the blend has mostly shifted from projection to results";
+#: ``_RECENT_WINDOW`` answers "how many trailing games count as recent
+#: form" and is unrelated to that.  2 games matches the owner-stated target
+#: of the blend already reading roughly 60/40 toward demonstrated
+#: performance by the second week of the season.
+_RESULTS_EVIDENCE_TAU_GAMES = 2.0
+#: Trailing-form window for the ``recent`` component and its display
+#: diagnostic.  Unchanged by the 2026-09-22 rebalance.
 _RECENT_WINDOW = 4
 
 #: Canonical weekly/realized VORP is specified but not dependency-ready.
@@ -82,7 +127,15 @@ _MIN_SCORED_GAMES: dict[str, int] = {}
 
 METHODOLOGY_VERSION = "canonical-power-2026.09-v1"
 
-_EMPTY_CAREER: dict[str, float | int] = {
+#: Zero state for ONE season. Named for what it holds: this and the
+#: ``state["season"]`` key it backs were called ``_EMPTY_CAREER`` /
+#: ``state["career"]`` while holding season-scoped state, and that name has
+#: already cost one shipped defect — see
+#: ``tests/ros/test_power_v2_headline_fields.py``, where ``record`` read the
+#: key believing it was the cross-season accumulator. The genuine
+#: cross-season accumulator is ``career_state``, which is used only for
+#: owner enumeration and never reaches ``_score_state``.
+_EMPTY_SEASON_STATE: dict[str, float | int] = {
     "points": 0.0,
     "games": 0,
     "wins": 0.0,
@@ -90,10 +143,33 @@ _EMPTY_CAREER: dict[str, float | int] = {
 }
 
 
+def _scored_game_span(state: dict[str, Any]) -> tuple[int, int]:
+    """``(shared, maximum)`` current-season games across scored owners.
+
+    Owners with no rows at all are excluded rather than dragging the shared
+    count to zero — they have not played, which is a different statement
+    from the league having no evidence.
+    """
+    season_state = state.get("season") or {}
+    counts = [int(v.get("games", 0)) for v in season_state.values()]
+    counts = [c for c in counts if c > 0]
+    if not counts:
+        return 0, 0
+    return min(counts), max(counts)
+
+
 def _scored_game_count(state: dict[str, Any]) -> int:
-    """Maximum current-season games represented by an as-of state."""
-    career = state.get("career") or {}
-    return max((int(v.get("games", 0)) for v in career.values()), default=0)
+    """Games EVERY scored owner has played — the league's SHARED evidence.
+
+    Deliberately the minimum, not the maximum.  The results-evidence ramp
+    asks "how much has this league actually played", and the maximum
+    answers it with the luckiest team's total: when denominators diverged
+    it claimed more evidence than any shared week supported.  With the
+    completed-week gate in ``metrics.final_regular_season_weeks`` they no
+    longer diverge, so this is an identity on healthy data and an honest
+    floor on unhealthy data.
+    """
+    return _scored_game_span(state)[0]
 
 
 def _results_evidence(scored_games: int) -> float:
@@ -103,6 +179,37 @@ def _results_evidence(scored_games: int) -> float:
     return 1.0 - math.exp(-float(scored_games) / _RESULTS_EVIDENCE_TAU_GAMES)
 
 
+def _recent_distinctness(games_played: int, window: int = _RECENT_WINDOW) -> float:
+    """How much of ``recent`` is information NOT already in season-to-date.
+
+    While ``games_played <= window`` the trailing-form buffer holds EVERY
+    game the team has played -- it is not a subset of the season-to-date
+    sample, it IS the season-to-date sample, just run through a different
+    aggregation (a percentile of raw average PPG, vs all_play's average of
+    weekly rank-shares).  Two different transforms of the identical game
+    set are highly correlated, not independent evidence, so crediting both
+    in full double-counts the same one or two games -- precisely what the
+    owner flagged for early season.
+
+    Returns 0.0 (fully redundant, contributes nothing distinct) while
+    ``games_played <= window``, then ramps linearly in the FRACTION of
+    played games that sit outside the trailing window: at
+    ``games_played = 2*window`` half the window is games season-to-date
+    doesn't otherwise emphasize on its own, at ``games_played = 4*window``
+    three-quarters is.  Never reaches exactly 1.0 in a finite regular
+    season, which is correct -- the two measures never become fully
+    unrelated, only decreasingly redundant.
+
+    This is a within-results-bucket reallocation only (see
+    ``_effective_weight_vector``): it does not touch how much weight the
+    results bucket gets relative to ``team_ros_strength``, only how that
+    weight splits internally once earned.
+    """
+    if games_played <= 0:
+        return 0.0
+    return max(0.0, 1.0 - float(window) / float(games_played))
+
+
 def _effective_weight_vector(
     *,
     scored_games: int,
@@ -110,6 +217,7 @@ def _effective_weight_vector(
     available_results: set[str],
     preseason: bool,
     results_only: bool,
+    scored_games_max: int | None = None,
 ) -> tuple[dict[str, float], dict[str, float]]:
     """Return the actual component weights plus blend metadata.
 
@@ -143,14 +251,48 @@ def _effective_weight_vector(
     if forward_mass and ros_available:
         applied["team_ros_strength"] = forward_mass
     if results_mass and result_base:
+        # ``recent`` is discounted toward the OTHER active results
+        # components while its trailing window is redundant with the
+        # season-to-date sample it is drawn from (see
+        # ``_recent_distinctness``). This is a reallocation WITHIN the
+        # results bucket only -- ``results_mass`` itself, and therefore
+        # the forward/results split, is untouched by it.
+        distinctness = _recent_distinctness(scored_games)
+        effective_weight = {
+            key: (WEIGHTS[key] * distinctness if key == "recent" else WEIGHTS[key])
+            for key in result_keys
+        }
+        effective_base = sum(effective_weight.values())
+        if not effective_base:
+            # Only reachable when ``recent`` is the SOLE active result
+            # component and fully redundant (games_played <= window) --
+            # every other league surface has at least all_play/wl_record
+            # too. Fall back to the undiscounted split rather than
+            # silently dropping the entire results bucket: a discount
+            # that zeroes ALL available evidence is not what "recent is
+            # redundant with the other results components" means when
+            # there ARE no other results components.
+            effective_weight = {key: WEIGHTS[key] for key in result_keys}
+            effective_base = result_base
         for key in result_keys:
-            applied[key] = results_mass * (WEIGHTS[key] / result_base)
+            applied[key] = results_mass * (effective_weight[key] / effective_base)
+
+    # Preseason suppresses observed results, so publishing last season's
+    # game count beside ``resultsEvidence: 0.0`` states a number that is not
+    # true of the season being described.
+    suppressed = preseason and not results_only
+    games_shared = 0 if suppressed else int(scored_games)
+    games_max = games_shared if scored_games_max is None or suppressed else int(scored_games_max)
 
     blend = {
         "forwardWeight": round(forward_mass, 6),
         "resultsWeight": round(results_mass, 6),
         "resultsEvidence": round(evidence, 6),
-        "scoredGames": int(scored_games),
+        "scoredGames": games_shared,
+        # A denominator that diverges across teams is the defect this whole
+        # gate exists to prevent. Publish it rather than let it be silent.
+        "scoredGamesMax": games_max,
+        "scoredGamesDiverged": bool(games_max != games_shared),
         "targetForwardWeight": WEIGHTS["team_ros_strength"],
         "targetResultsWeight": sum(WEIGHTS[k] for k in RESULT_COMPONENTS),
     }
@@ -392,7 +534,7 @@ def _score_state(
 
     inputs: dict[str, dict[str, float | None]] = {}
     for oid in owner_ids:
-        s = state["career"].get(oid, _EMPTY_CAREER)
+        s = state["season"].get(oid, _EMPTY_SEASON_STATE)
         games = int(s.get("games", 0))
         points = float(s.get("points", 0.0))
         ppg = points / games if games else None
@@ -407,6 +549,8 @@ def _score_state(
         luck_delta = (float(s.get("wins", 0.0)) - expected_total) / games if games else 0.0
         luck_score = max(0.0, min(1.0, 0.5 - luck_delta))
         inputs[oid] = {
+            "games_used": games,
+            "recent_games_used": len(rb),
             "ppg": ppg,
             "recent": recent,
             "wl_record": wl,
@@ -446,9 +590,17 @@ def _score_state(
         "team_vorp (canonical weekly realized VORP/PAR unavailable; not substituted)"
     )
 
-    scored_games = _scored_game_count(state)
+    scored_games, scored_games_max = _scored_game_span(state)
+    if scored_games_max != scored_games:
+        LOG.warning(
+            "[power_v2] scored-game denominators diverge across owners "
+            "(shared=%s, max=%s) — averages are not comparable across rows",
+            scored_games,
+            scored_games_max,
+        )
     active_weights, blend = _effective_weight_vector(
         scored_games=scored_games,
+        scored_games_max=scored_games_max,
         ros_available=ros_available,
         available_results=available_results,
         preseason=preseason,
@@ -459,6 +611,25 @@ def _score_state(
     # results. Results-only keeps them because retrospective performance is
     # the explicit subject of that diagnostic lens.
     suppressed_results = preseason and not results_only
+
+    def _row_denominators(oid: str) -> dict[str, int]:
+        """Per-row game counts, so an average can never hide its divisor.
+
+        ``i["games_used"]`` and ``i["recent_games_used"]`` are already
+        guaranteed real, non-None ints at their source (``int(s.get(...,
+        0))`` and ``len(rb)`` respectively in the loop above) -- 0 there
+        means "genuinely no games", never "missing". An ``or 0`` here would
+        not be a fallback for anything that can actually happen; it would
+        only be a decision-coercion pattern with nothing behind it
+        (`scripts/check_decision_coercions.py`), so it is not written.
+        """
+        if suppressed_results:
+            return {"gamesUsed": 0, "recentGamesUsed": 0}
+        i = inputs[oid]
+        return {
+            "gamesUsed": int(i["games_used"]),
+            "recentGamesUsed": int(i["recent_games_used"]),
+        }
 
     def _component_map(oid: str) -> dict[str, float | None]:
         i = inputs[oid]
@@ -482,11 +653,21 @@ def _score_state(
             "team_vorp": None,
             "wl_record": None if suppressed_results else i["wl_record"],
             # Display-only diagnostics. None of these keys appears in WEIGHTS.
-            "ppg": (None if i["ppg"] is None else _percentile(ppg_values, i["ppg"])),
+            "ppg": (
+                None
+                if suppressed_results or i["ppg"] is None
+                else _percentile(ppg_values, i["ppg"])
+            ),
             "streak": None if suppressed_results else i["streak"],
             "luck_regression": None if suppressed_results else i["luck_regression"],
-            "pointsPerGame": i["ppg"],
-            "recentAvg": recent_value,
+            # These three carried no suppression guard, unlike their
+            # neighbours above. The ``continue`` in the state builder fires
+            # BEFORE the per-season resets, so in a true preseason the state
+            # still holds the last season that had data — and last season's
+            # PPG was published in a column labelled neither "last season"
+            # nor anything else.
+            "pointsPerGame": None if suppressed_results else i["ppg"],
+            "recentAvg": None if suppressed_results else recent_value,
         }
 
     if not active_weights:
@@ -499,6 +680,7 @@ def _score_state(
                     "displayName": _metrics.display_name_for(snapshot, oid),
                     "powerScore": None,
                     "rank": None,
+                    **_row_denominators(oid),
                     "components": {
                         k: (None if v is None else round(float(v), 4))
                         for k, v in components.items()
@@ -529,6 +711,7 @@ def _score_state(
                 "ownerId": oid,
                 "displayName": _metrics.display_name_for(snapshot, oid),
                 "powerScore": score,
+                **_row_denominators(oid),
                 "components": {
                     k: (None if v is None else round(float(v), 4)) for k, v in components.items()
                 },
@@ -693,21 +876,28 @@ def build_section(
     season_state: dict[str, dict[str, float | int]] = defaultdict(
         lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0}
     )
-    last_season_recent: dict[str, list[float]] = defaultdict(list)
+    recent_window: dict[str, list[float]] = defaultdict(list)
     last_season_allplay_share: dict[str, float] = {}
     allplay_share_total: dict[str, float] = defaultdict(float)
     season_outcomes: dict[str, list[float]] = defaultdict(list)
     expected_share_total: dict[str, float] = defaultdict(float)
     week_states: list[tuple[str, int, dict[str, Any]]] = []
     scored_week_by_season: dict[str, int] = {}
+    # Reassigned per scored season, so these end up describing the newest
+    # season that produced scores — the same one ``final_state`` describes.
+    counted_weeks: list[int] = []
+    partial_weeks: list[dict[str, Any]] = []
 
     for season in seasons_sorted:
         week_scores = luck._season_weekly_scores(season, registry)
         if not week_scores:
             continue
 
+        counted_weeks = sorted(week_scores.keys())
+        partial_weeks = []
+
         season_state = defaultdict(lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0})
-        last_season_recent = defaultdict(list)
+        recent_window = defaultdict(list)
         last_season_allplay_share = {}
         allplay_share_total = defaultdict(float)
         season_outcomes = defaultdict(list)
@@ -719,6 +909,29 @@ def build_section(
             actuals, _ = luck._actual_week_results(season, wk, registry)
             all_play = luck._all_play_week(scores)
             scored_week_by_season[str(season.season)] = int(wk)
+
+            # The completed-week gate cannot close an odd/bye/unresolved-owner
+            # shortfall inside a week it admitted. Say so out loud instead of
+            # letting one short week quietly shrink somebody's denominator.
+            # ``season.num_teams`` is typed -> int and already falls back to
+            # ``len(rosters)`` internally (SeasonSnapshot.num_teams) -- an
+            # ``or 0`` here would coerce nothing real, so it is not written.
+            expected_rosters = season.num_teams
+            if expected_rosters and len(scores) != expected_rosters:
+                partial_weeks.append(
+                    {
+                        "week": int(wk),
+                        "observed": len(scores),
+                        "expected": expected_rosters,
+                    }
+                )
+                LOG.warning(
+                    "[power_v2] %s week %s counted %s scored owners, expected %s",
+                    season.season,
+                    wk,
+                    len(scores),
+                    expected_rosters,
+                )
 
             for oid, pts in scores:
                 actual_share = actuals.get(oid, 0.0)
@@ -740,7 +953,7 @@ def build_section(
                 recent.append(pts)
                 if len(recent) > _RECENT_WINDOW:
                     recent.pop(0)
-                last_season_recent[oid] = list(recent)
+                recent_window[oid] = list(recent)
 
                 expected_share = float((all_play.get(oid) or {}).get("expectedShare", 0.0))
                 allplay_share_total[oid] += expected_share
@@ -757,8 +970,8 @@ def build_section(
                     str(season.season),
                     int(wk),
                     {
-                        "career": {o: dict(v) for o, v in season_state.items()},
-                        "recent": {o: list(v) for o, v in last_season_recent.items()},
+                        "season": {o: dict(v) for o, v in season_state.items()},
+                        "recent": {o: list(v) for o, v in recent_window.items()},
                         "allplay": dict(last_season_allplay_share),
                         "expected": dict(expected_share_total),
                         "outcomes": {o: list(v) for o, v in season_outcomes.items()},
@@ -814,8 +1027,8 @@ def build_section(
     )
     ros_available = bool(ros_pct)
     final_state = {
-        "career": season_state,
-        "recent": last_season_recent,
+        "season": season_state,
+        "recent": recent_window,
         "allplay": last_season_allplay_share,
         "expected": expected_share_total,
         "outcomes": season_outcomes,
@@ -848,7 +1061,7 @@ def build_section(
             row["record"] = official_record_strings[row["ownerId"]]
             row["recordSource"] = "sleeper"
         else:
-            current = season_state.get(row["ownerId"], _EMPTY_CAREER)
+            current = season_state.get(row["ownerId"], _EMPTY_SEASON_STATE)
             wins = round(float(current.get("wins", 0.0)))
             games = int(current.get("games", 0))
             row["record"] = f"{wins}-{games - wins}" if games else "0-0"
@@ -865,6 +1078,9 @@ def build_section(
         else 0
     )
     as_of_season = current_season_label
+    median_game_enabled = (
+        _metrics.median_game_enabled(current_season) if current_season is not None else None
+    )
 
     # Canonical week-over-week movement is compared only with exactly Week
     # N-1's immutable official publication. It never diffs two recalculations
@@ -1005,6 +1221,14 @@ def build_section(
         "weights": dict(WEIGHTS),
         "effectiveWeights": dict(active_weights),
         "blend": dict(blend),
+        # Tri-state: whether RECORD reflects a league-average ("median")
+        # game alongside real H2H, which is why it can differ from
+        # countedWeeks/gamesUsed by design rather than by defect. None
+        # means unverified -- never coerced to "off".
+        "medianGameEnabled": median_game_enabled,
+        # The exact weeks behind every average on this payload.
+        "countedWeeks": list(counted_weeks),
+        "partialWeeks": [dict(w) for w in partial_weeks],
         "missingInputs": sorted(missing_inputs),
         "rosTeamStrengthAvailable": ros_available,
         "preseason": preseason,

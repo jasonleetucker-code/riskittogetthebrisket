@@ -94,12 +94,23 @@ class TestWeights(unittest.TestCase):
     def test_weights_sum_to_one(self):
         self.assertAlmostEqual(sum(power_v2.WEIGHTS.values()), 1.0, places=2)
 
-    def test_team_ros_strength_dominates(self):
-        # Per spec: 0.38 is the largest individual weight.
+    def test_team_ros_strength_ties_all_play_for_largest_individual_weight(self):
+        """2026-09-22 rebalance: team_ros_strength moved 0.40->0.30 and
+        all_play moved 0.20->0.30 -- the two are now TIED for the largest
+        single weight, not team_ros_strength alone. No individual results
+        component may exceed team_ros_strength on its own; the shift toward
+        demonstrated performance instead comes from the AGGREGATE results
+        bucket (four components) outweighing the single forward-looking one.
+        """
         self.assertEqual(
             max(power_v2.WEIGHTS.values()),
             power_v2.WEIGHTS["team_ros_strength"],
         )
+        self.assertEqual(power_v2.WEIGHTS["team_ros_strength"], power_v2.WEIGHTS["all_play"])
+        others = [
+            v for k, v in power_v2.WEIGHTS.items() if k not in ("team_ros_strength", "all_play")
+        ]
+        self.assertLess(max(others), power_v2.WEIGHTS["team_ros_strength"])
 
 
 class TestDisplayNameResolution(unittest.TestCase):
@@ -195,13 +206,23 @@ def _make_season(
     matchups_by_week: dict[int, list[dict]] | None = None,
     *,
     is_complete: bool = False,
+    last_scored_leg: int | None = None,
 ) -> SeasonSnapshot:
-    """Build a minimally-populated SeasonSnapshot for build_section tests."""
+    """Build a minimally-populated SeasonSnapshot for build_section tests.
+
+    ``last_scored_leg`` is Sleeper's own "which week have you finished
+    scoring" stamp.  Omitted by default so existing fixtures keep riding
+    the data-completeness proof in ``metrics.final_regular_season_weeks``,
+    which is what they have always effectively used.
+    """
+    settings: dict = {"playoff_week_start": 15}
+    if last_scored_leg is not None:
+        settings["last_scored_leg"] = last_scored_leg
     league = {
         "league_id": league_id,
         "season": year,
         "season_type": "regular",
-        "settings": {"playoff_week_start": 15},
+        "settings": settings,
         "total_rosters": len(rosters),
     }
     if is_complete:
@@ -228,6 +249,7 @@ def _make_snapshot(
     *,
     is_complete: bool = False,
     season_year: str = "2026",
+    last_scored_leg: int | None = None,
 ) -> PublicLeagueSnapshot:
     """Build a minimal snapshot whose ManagerRegistry is consistent with
     the supplied rosters.  Each roster's owner_id is registered as an
@@ -260,6 +282,7 @@ def _make_snapshot(
         rosters,
         matchups_by_week,
         is_complete=is_complete,
+        last_scored_leg=last_scored_leg,
     )
     return PublicLeagueSnapshot(
         root_league_id=league_id,
@@ -617,6 +640,275 @@ class TestBuildSectionThreadsLeagueKeyToTeamStrength(unittest.TestCase):
 
         with patch("src.api.league_registry.league_key_for_sleeper_id", boom):
             power_v2.build_section(snapshot, lens=power_v2.LENS_RESULTS_ONLY)
+
+
+# ── The in-progress-week regression ──────────────────────────────────────
+# Live values measured from Sleeper league 1312006700437352448 on
+# 2026-09-19, mid-week-2.  Week 1 is complete.  Week 2 is IN PROGRESS:
+# eight rosters carry a Thursday-night partial, four carry a literal 0.0
+# because nobody on them played Thursday.
+_LIVE_WEEK1 = {
+    1: 404.46, 2: 312.87, 3: 279.96, 4: 363.78, 5: 393.44, 6: 473.30,
+    7: 274.70, 8: 452.30, 9: 453.37, 10: 315.67, 11: 319.11, 12: 303.44,
+}  # fmt: skip
+_LIVE_WEEK2_PARTIAL = {
+    1: 0.0, 2: 0.0, 3: 34.99, 4: 33.09, 5: 7.04, 6: 18.05,
+    7: 0.0, 8: 27.81, 9: 58.94, 10: 32.92, 11: 0.0, 12: 75.32,
+}  # fmt: skip
+
+
+def _rows(points_by_roster: dict[int, float | None]) -> list[dict]:
+    return [
+        {"matchup_id": (rid + 1) // 2, "roster_id": rid, "points": pts}
+        for rid, pts in sorted(points_by_roster.items())
+    ]
+
+
+class TestCompletedWeekGate(unittest.TestCase):
+    """Observed results count COMPLETED league weeks, and only those.
+
+    The defect these pin: ``luck._season_weekly_scores`` iterated every
+    regular-season week and filtered per roster-entry on ``points > 0``, so
+    a live week was counted as a finished game for whoever happened to have
+    a Thursday-night player and dropped for everyone else.  Eight teams'
+    averages divided by 2 while four divided by 1, inside one table.
+    """
+
+    _ROSTERS = [{"roster_id": r, "owner_id": f"o{r}"} for r in sorted(_LIVE_WEEK1)]
+
+    def _section(self, matchups, *, last_scored_leg=None, rosters=None):
+        """Build a section with team strength isolated to a temp dir.
+
+        The isolation is load-bearing: ``team_strength`` WRITES a computed
+        snapshot into ``ROS_DATA_DIR``, so an unpatched call would leave a
+        synthetic ``latest.json`` in the repo's real ``data/ros`` and break
+        every later test that reads it.
+        """
+        snapshot = _make_snapshot(
+            rosters=rosters or self._ROSTERS,
+            matchups_by_week=matchups,
+            last_scored_leg=last_scored_leg,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(team_strength, "ROS_DATA_DIR", Path(tmp)):
+                return power_v2.build_section(snapshot)
+
+    def _by_name(self, section):
+        return {r["displayName"]: r for r in section["currentRanking"]}
+
+    def test_in_progress_week_is_excluded_from_every_team_denominator(self):
+        section = self._section(
+            {1: _rows(_LIVE_WEEK1), 2: _rows(_LIVE_WEEK2_PARTIAL)},
+            last_scored_leg=1,
+        )
+
+        self.assertEqual(section["countedWeeks"], [1])
+        self.assertEqual(section["blend"]["scoredGames"], 1)
+        self.assertFalse(section["blend"]["scoredGamesDiverged"])
+
+        rows = self._by_name(section)
+        self.assertEqual(len(rows), 12)
+        for rid, week1_points in _LIVE_WEEK1.items():
+            row = rows[f"o{rid}"]
+            # One shared denominator, or the column is not comparable.
+            self.assertEqual(row["gamesUsed"], 1, f"o{rid} denominator")
+            self.assertAlmostEqual(row["components"]["pointsPerGame"], week1_points, places=2)
+
+        # The specific number the owner reported. Before the fix this row
+        # read 256.16 — (453.37 + 58.94) / 2, a completed week averaged
+        # with a Thursday-night sliver.
+        self.assertAlmostEqual(rows["o9"]["components"]["pointsPerGame"], 453.37, places=2)
+
+    def test_all_play_field_is_the_whole_league_in_every_counted_week(self):
+        """All-play must be measured against 11 rivals, not a shrunken field.
+
+        With four rosters dropped from the live week, all-play was computed
+        over 8 teams — silently repricing a 0.20-weight component.
+        """
+        section = self._section(
+            {1: _rows(_LIVE_WEEK1), 2: _rows(_LIVE_WEEK2_PARTIAL)},
+            last_scored_leg=1,
+        )
+        shares = sorted(r["components"]["all_play"] for r in section["currentRanking"])
+        expected = [round(k / 11.0, 4) for k in range(12)]
+        self.assertEqual(shares, expected)
+
+    def test_a_genuine_zero_in_a_finalised_week_counts_as_a_game(self):
+        """MISSING IS NEVER ZERO must not become "zero is never real".
+
+        Once the host says a week is scored, a roster that put up 0.0 played
+        that game. Dropping it would shrink that one team's denominator —
+        the very asymmetry the gate exists to remove.
+        """
+        week2 = dict(_LIVE_WEEK1)
+        week2[7] = 0.0
+        section = self._section(
+            {1: _rows(_LIVE_WEEK1), 2: _rows(week2)},
+            last_scored_leg=2,
+        )
+        self.assertEqual(section["countedWeeks"], [1, 2])
+        rows = self._by_name(section)
+        for rid in _LIVE_WEEK1:
+            self.assertEqual(rows[f"o{rid}"], rows[f"o{rid}"] | {"gamesUsed": 2})
+        self.assertAlmostEqual(
+            rows["o7"]["components"]["pointsPerGame"], _LIVE_WEEK1[7] / 2.0, places=2
+        )
+
+    def test_a_roster_week_with_no_points_value_stays_missing(self):
+        """An absent score is missing evidence, never a zero-point game."""
+        week2 = dict(_LIVE_WEEK1)
+        week2[7] = None
+        section = self._section(
+            {1: _rows(_LIVE_WEEK1), 2: _rows(week2)},
+            last_scored_leg=2,
+        )
+        rows = self._by_name(section)
+        self.assertEqual(rows["o7"]["gamesUsed"], 1)
+        self.assertAlmostEqual(rows["o7"]["components"]["pointsPerGame"], _LIVE_WEEK1[7], places=2)
+        # The shortfall is reported, not silently absorbed.
+        self.assertEqual(section["partialWeeks"], [{"week": 2, "observed": 11, "expected": 12}])
+        self.assertTrue(section["blend"]["scoredGamesDiverged"])
+        # And the shared count is the honest floor, not the luckiest team's.
+        self.assertEqual(section["blend"]["scoredGames"], 1)
+        self.assertEqual(section["blend"]["scoredGamesMax"], 2)
+
+    def test_host_clock_absent_falls_back_to_data_completeness(self):
+        """No ``last_scored_leg`` must still exclude the in-progress week.
+
+        Every pre-existing fixture in this repo rides this path, and it is
+        the only proof available when Sleeper omits the stamp.
+        """
+        section = self._section({1: _rows(_LIVE_WEEK1), 2: _rows(_LIVE_WEEK2_PARTIAL)})
+        self.assertEqual(section["countedWeeks"], [1])
+        for row in section["currentRanking"]:
+            self.assertEqual(row["gamesUsed"], 1)
+
+    def test_stale_host_clock_does_not_withhold_a_fully_scored_week(self):
+        """The two proofs are a union, so either one alone admits a week.
+
+        A host clock that lags a refresh cycle must not hide a week every
+        roster has finished.
+        """
+        section = self._section(
+            {1: _rows(_LIVE_WEEK1), 2: _rows(_LIVE_WEEK1)},
+            last_scored_leg=1,
+        )
+        self.assertEqual(section["countedWeeks"], [1, 2])
+        for row in section["currentRanking"]:
+            self.assertEqual(row["gamesUsed"], 2)
+
+    def test_blend_reports_zero_scored_games_in_preseason(self):
+        """Preseason suppresses results, so the game count must say 0.
+
+        It used to publish the previous season's count beside
+        ``resultsEvidence: 0.0`` — a number untrue of the season described.
+        """
+        section = self._section({}, last_scored_leg=0)
+        self.assertTrue(section["preseason"])
+        self.assertEqual(section["blend"]["scoredGames"], 0)
+        self.assertEqual(section["blend"]["scoredGamesMax"], 0)
+        for row in section["currentRanking"]:
+            self.assertEqual(row["gamesUsed"], 0)
+            self.assertEqual(row["recentGamesUsed"], 0)
+
+
+# ── 2026-09-22 rebalance: recency-distinctness and the new curve ────────
+class TestRecentDistinctness(unittest.TestCase):
+    """``_recent_distinctness`` -- how much of ``recent`` is genuinely NOT
+    already in the season-to-date sample all_play/wl_record already price.
+    """
+
+    def test_zero_games_is_zero_distinctness(self):
+        self.assertEqual(power_v2._recent_distinctness(0), 0.0)
+
+    def test_fully_redundant_at_and_below_the_window(self):
+        for g in (1, 2, 3, 4):
+            self.assertEqual(power_v2._recent_distinctness(g), 0.0, g)
+
+    def test_ramps_linearly_in_the_out_of_window_fraction_past_the_window(self):
+        # distinctness(g) = 1 - window/g for g > window.
+        self.assertAlmostEqual(power_v2._recent_distinctness(5), 1 - 4 / 5, places=9)
+        self.assertAlmostEqual(power_v2._recent_distinctness(8), 0.5, places=9)
+        self.assertAlmostEqual(power_v2._recent_distinctness(14), 1 - 4 / 14, places=9)
+
+    def test_approaches_but_never_reaches_one(self):
+        self.assertLess(power_v2._recent_distinctness(10_000), 1.0)
+        self.assertGreater(power_v2._recent_distinctness(10_000), 0.999)
+
+    def test_monotonically_non_decreasing(self):
+        prior = -1.0
+        for g in range(0, 30):
+            value = power_v2._recent_distinctness(g)
+            self.assertGreaterEqual(value, prior, g)
+            prior = value
+
+    def test_a_custom_window_is_honored(self):
+        # The signature accepts an explicit window so the function's own
+        # unit tests don't silently drift if _RECENT_WINDOW ever changes.
+        self.assertEqual(power_v2._recent_distinctness(3, window=3), 0.0)
+        self.assertAlmostEqual(power_v2._recent_distinctness(6, window=3), 0.5, places=9)
+
+
+class TestRebalancedCurve(unittest.TestCase):
+    """Pins the 2026-09-22 forward/results curve at named checkpoints, so a
+    future change to WEIGHTS or the evidence tau is a deliberate, visible
+    decision rather than a silent drift. Values independently hand-derived
+    (see the PR description), not copied from the implementation.
+    """
+
+    _EXPECTED_RESULTS_WEIGHT = {
+        0: 0.0,
+        1: 0.4787,
+        2: 0.5960,
+        4: 0.6687,
+        8: 0.6963,
+        14: 0.6998,
+    }
+
+    def test_named_checkpoints_match_hand_derivation(self):
+        for g, expected in self._EXPECTED_RESULTS_WEIGHT.items():
+            section = _section_with_scored_games(g)
+            self.assertAlmostEqual(
+                section["blend"]["resultsWeight"], expected, places=3, msg=f"g={g}"
+            )
+
+    def test_long_run_floor_is_the_new_thirty_percent_target(self):
+        section = _section_with_scored_games(60)
+        self.assertAlmostEqual(section["blend"]["forwardWeight"], 0.30, places=2)
+        self.assertAlmostEqual(section["blend"]["resultsWeight"], 0.70, places=2)
+
+    def test_sensitivity_a_half_game_tau_shift_does_not_flip_week_two_majority(self):
+        """Spec §12.5: a nearby parameter choice must not radically reorder
+        which side of the blend dominates at the owner's stated reference
+        point (g=2). tau +/- 0.5 around the chosen 2.0 must still leave
+        results as the majority share at g=2 -- the formula isn't fragile
+        around this specific constant."""
+        for tau in (1.5, 2.0, 2.5):
+            with patch.object(power_v2, "_RESULTS_EVIDENCE_TAU_GAMES", tau):
+                section = _section_with_scored_games(2)
+                self.assertGreater(section["blend"]["resultsWeight"], 0.5, f"tau={tau}")
+
+
+def _section_with_scored_games(g: int):
+    """Minimal canonical-lens section with exactly ``g`` uniform scored
+    weeks and ROS available, for pinning the blend curve in isolation from
+    any particular team's numbers."""
+    rosters = [{"roster_id": i, "owner_id": f"o{i}"} for i in (1, 2, 3)]
+    matchups = {
+        wk: [
+            {"roster_id": 1, "points": 110.0},
+            {"roster_id": 2, "points": 100.0},
+            {"roster_id": 3, "points": 90.0},
+        ]
+        for wk in range(1, g + 1)
+    }
+    snapshot = _make_snapshot(rosters=rosters, matchups_by_week=matchups)
+    with patch.object(
+        power_v2,
+        "_load_team_strength_percentiles",
+        lambda *a, **k: {"o1": 0.9, "o2": 0.5, "o3": 0.1},
+    ):
+        return power_v2.build_section(snapshot)
 
 
 if __name__ == "__main__":

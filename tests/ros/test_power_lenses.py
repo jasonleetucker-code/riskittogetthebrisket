@@ -23,9 +23,15 @@ def _scored_snapshot(weeks: int = 3):
 
 
 def test_owner_approved_target_vector_is_the_only_weight_spec():
+    """2026-09-22 rebalance: team_ros_strength 0.40->0.30, all_play 0.20->0.30.
+
+    recent/team_vorp/wl_record kept their prior ABSOLUTE weights -- see the
+    module docstring for why growing the bucket around them already
+    de-emphasizes wl_record's RELATIVE share without a second lever.
+    """
     assert power_v2.WEIGHTS == {
-        "team_ros_strength": 0.40,
-        "all_play": 0.20,
+        "team_ros_strength": 0.30,
+        "all_play": 0.30,
         "recent": 0.15,
         "team_vorp": 0.15,
         "wl_record": 0.10,
@@ -74,7 +80,16 @@ def test_results_only_never_reads_team_strength(monkeypatch):
     assert out["blend"]["resultsWeight"] == 1.0
 
 
-def test_missing_vorp_keeps_results_component_ratios(monkeypatch):
+def test_missing_vorp_keeps_all_play_and_wl_record_ratio(monkeypatch):
+    """all_play/wl_record is a fixed ratio -- recent is NOT, see below.
+
+    ``_scored_snapshot()`` defaults to 3 weeks, at or under _RECENT_WINDOW
+    (4), where recent is fully redundant with season-to-date (see
+    ``_recent_distinctness``) and so carries no weight of its own; its
+    target is reallocated entirely to all_play/wl_record. The KEY is still
+    published (structurally available), its VALUE is 0.0 -- a present zero
+    is a different statement from an absent/unavailable component.
+    """
     monkeypatch.setattr(
         power_v2, "_load_team_strength_percentiles", lambda snapshot=None, league_key=None: {}
     )
@@ -82,8 +97,27 @@ def test_missing_vorp_keeps_results_component_ratios(monkeypatch):
     applied = out["effectiveWeights"]
 
     assert set(applied) == {"all_play", "recent", "wl_record"}
-    assert applied["all_play"] / applied["recent"] == pytest.approx(0.20 / 0.15)
-    assert applied["recent"] / applied["wl_record"] == pytest.approx(0.15 / 0.10)
+    assert applied["recent"] == 0.0
+    assert sum(applied.values()) == pytest.approx(1.0)
+    assert applied["all_play"] / applied["wl_record"] == pytest.approx(0.30 / 0.10)
+
+
+def test_recent_earns_weight_once_the_window_is_a_genuine_subset(monkeypatch):
+    """Past _RECENT_WINDOW games, the trailing 4 are no longer the entire
+    season sample, so recent starts carrying its own, growing share."""
+    monkeypatch.setattr(
+        power_v2, "_load_team_strength_percentiles", lambda snapshot=None, league_key=None: {}
+    )
+    out = power_v2.build_section(_scored_snapshot(8), lens=power_v2.LENS_RESULTS_ONLY)
+    applied = out["effectiveWeights"]
+
+    assert set(applied) == {"all_play", "recent", "wl_record"}
+    distinctness = power_v2._recent_distinctness(8)
+    assert distinctness == pytest.approx(0.5)  # 1 - window(4)/games(8)
+    base = 0.30 + 0.15 * distinctness + 0.10
+    assert applied["recent"] == pytest.approx(0.15 * distinctness / base)
+    assert applied["all_play"] == pytest.approx(0.30 / base)
+    assert applied["wl_record"] == pytest.approx(0.10 / base)
 
 
 def test_canonical_blends_ros_and_results_after_games(monkeypatch):

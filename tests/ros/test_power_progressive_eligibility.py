@@ -97,12 +97,20 @@ class TestCanonicalSeasonAwareBlend(unittest.TestCase):
         self.assertEqual(set(section["effectiveWeights"]), {"team_ros_strength"})
         self.assertTrue(all(row["rank"] is not None for row in section["currentRanking"]))
 
-    def test_week_one_gives_real_results_meaningful_but_minor_weight(self):
+    def test_week_one_already_gives_results_close_to_even_weight(self):
+        """2026-09-22 rebalance: week 1 no longer keeps results deliberately
+        MINOR (the old 0.20-0.35 band). With the target moved 40/60 -> 30/70
+        and the evidence time constant sped up 4 -> 2 games, one game's
+        evidence already earns results close to HALF the blend -- forward
+        still edges it out, but only barely, matching the owner's ask that
+        even weeks 1-2 must not let ROS "routinely overcome a large
+        multi-metric advantage" in demonstrated performance.
+        """
         section = _section_with_n_scored_weeks(1)
         blend = section["blend"]
         self.assertFalse(section["preseason"])
-        self.assertGreater(blend["resultsWeight"], 0.20)
-        self.assertLess(blend["resultsWeight"], 0.35)
+        self.assertGreater(blend["resultsWeight"], 0.40)
+        self.assertLess(blend["resultsWeight"], 0.55)
         self.assertGreater(blend["forwardWeight"], blend["resultsWeight"])
         self.assertEqual(
             set(section["effectiveWeights"]),
@@ -122,9 +130,10 @@ class TestCanonicalSeasonAwareBlend(unittest.TestCase):
         self.assertLess(results_shares[2], results_shares[4])
         self.assertLess(results_shares[4], results_shares[8])
         self.assertLess(results_shares[8], results_shares[14])
-        # The late-season ceiling is the owner-approved 60% observed-results target.
-        self.assertLess(results_shares[14], 0.60)
-        self.assertGreater(results_shares[14], 0.55)
+        # 2026-09-22 rebalance: the late-season ceiling is the new
+        # owner-directed 70% observed-results target (was 60%).
+        self.assertLess(results_shares[14], 0.72)
+        self.assertGreater(results_shares[14], 0.67)
 
     def test_curve_is_not_a_week_number_switch(self):
         for n in (1, 2, 3, 4, 5):

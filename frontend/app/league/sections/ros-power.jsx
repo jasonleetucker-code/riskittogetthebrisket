@@ -549,6 +549,8 @@ export default function RosPowerSection({ managers } = {}) {
   const preseason = !!data.preseason;
   const officialHistory = data.officialHistory || [];
   const blend = data.blend || {};
+  const scoredGames = Number(blend.scoredGames || 0);
+  const medianGameEnabled = data.medianGameEnabled;
   const forwardPct = Math.round(Number(blend.forwardWeight || 0) * 100);
   const resultsPct = Math.round(Number(blend.resultsWeight || 0) * 100);
 
@@ -614,10 +616,35 @@ export default function RosPowerSection({ managers } = {}) {
               <th style={{ textAlign: "right", padding: "4px 8px 4px 0" }}>#</th>
               <th style={{ textAlign: "left", padding: "4px 0" }}>Owner</th>
               <th style={{ textAlign: "right", padding: "4px 8px" }}>Power</th>
-              <th style={{ textAlign: "right", padding: "4px 8px" }}>PPG</th>
-              <th style={{ textAlign: "right", padding: "4px 8px" }}>Recent</th>
+              <th
+                style={{ textAlign: "right", padding: "4px 8px" }}
+                title={
+                  scoredGames > 0
+                    ? `Points per game, averaged over the ${scoredGames} league week${scoredGames === 1 ? "" : "s"} every team has finished`
+                    : "No completed league week yet"
+                }
+              >
+                {scoredGames > 0 ? `PPG (${scoredGames} wk)` : "PPG"}
+              </th>
+              <th
+                style={{ textAlign: "right", padding: "4px 8px" }}
+                title="Trailing 4-game average. Reads the same as PPG until the 4th game — that is the window filling, not a display error."
+              >
+                {scoredGames > 0 ? `Recent (${Math.min(scoredGames, 4)} of 4)` : "Recent"}
+              </th>
               <th style={{ textAlign: "right", padding: "4px 8px" }}>ROS Pct</th>
-              <th style={{ textAlign: "right", padding: "4px 8px" }}>Record</th>
+              <th
+                style={{ textAlign: "right", padding: "4px 8px" }}
+                title={
+                  medianGameEnabled === true
+                    ? "This league counts a league-average game alongside head-to-head, so Record can show more games than PPG's denominator — that is expected, not a mismatch."
+                    : medianGameEnabled === false
+                      ? "Head-to-head only."
+                      : "Whether this league counts a league-average game is unverified."
+                }
+              >
+                Record
+              </th>
               <th
                 style={{ textAlign: "right", padding: "4px 8px" }}
                 title="Current rank vs. the previous official weekly snapshot"
@@ -638,6 +665,7 @@ export default function RosPowerSection({ managers } = {}) {
                 onHover={setHoverOwnerId}
                 hovered={hoverOwnerId === row.ownerId}
                 trendDeltaValue={row.weekRankDelta}
+                sectionGamesUsed={scoredGames}
               />
             ))}
           </tbody>
@@ -699,8 +727,25 @@ function TrendCell({ deltaValue }) {
   );
 }
 
-function RankingRow({ row, managers, weights, expanded, onToggle, trendDeltaValue, onHover, hovered }) {
+function RankingRow({
+  row,
+  managers,
+  weights,
+  expanded,
+  onToggle,
+  trendDeltaValue,
+  onHover,
+  hovered,
+  sectionGamesUsed,
+}) {
   const c = row.components || {};
+  // A row with no games counted has nothing to average -- fmtRaw already
+  // renders null as "—", so this only needs to name a row whose count
+  // disagrees with the table's shared denominator, which the completed-week
+  // gate should make impossible on a healthy board.
+  const rowGames = row.gamesUsed;
+  const gamesMismatch =
+    rowGames != null && sectionGamesUsed != null && rowGames !== sectionGamesUsed;
   return (
     <>
       <tr
@@ -735,7 +780,15 @@ function RankingRow({ row, managers, weights, expanded, onToggle, trendDeltaValu
         <td style={{ textAlign: "right", fontFamily: "var(--mono)", fontWeight: 700, color: "var(--cyan)" }}>
           {fmtScore(row.powerScore)}
         </td>
-        <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{fmtRaw(c.pointsPerGame)}</td>
+        <td
+          style={{ textAlign: "right", fontFamily: "var(--mono)" }}
+          title={gamesMismatch ? `${rowGames} game${rowGames === 1 ? "" : "s"} counted for this team` : undefined}
+        >
+          {fmtRaw(c.pointsPerGame)}
+          {gamesMismatch && (
+            <span style={{ color: "var(--amber)", fontSize: "0.62rem" }}> ({rowGames}g)</span>
+          )}
+        </td>
         <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{fmtRaw(c.recentAvg)}</td>
         <td style={{ textAlign: "right", fontFamily: "var(--mono)", color: "var(--subtext)" }}>
           {fmtPct(row.rosStrengthPercentile)}

@@ -78,14 +78,14 @@ function snapshotWeek(week, rows, { preseason = false } = {}) {
   };
 }
 
-function payload({ ranking, shareSnapshot = null, officialHistory = [] }) {
+function payload({ ranking, shareSnapshot = null, officialHistory = [], blend = {} }) {
   return {
     currentRanking: ranking,
     unrankable: null,
     lens: "canonical",
     weights: { team_ros_strength: 0.4, all_play: 0.2 },
     effectiveWeights: { team_ros_strength: 0.75, all_play: 0.25 },
-    blend: { forwardWeight: 0.75, resultsWeight: 0.25 },
+    blend: { forwardWeight: 0.75, resultsWeight: 0.25, ...blend },
     missingInputs: ["team_vorp"],
     rosTeamStrengthAvailable: true,
     preseason: false,
@@ -331,5 +331,128 @@ describe("Rank history", () => {
     expect(
       container.querySelector('svg[aria-label="Published rank by week per manager"]'),
     ).toBeNull();
+  });
+});
+
+
+describe("PPG/Recent denominator — the reported defect", () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  const ROWS_WITH_GAMES = [
+    {
+      ...ROWS[0],
+      gamesUsed: 1,
+      recentGamesUsed: 1,
+      components: { pointsPerGame: 453.37, recentAvg: 453.37 },
+    },
+    {
+      ...ROWS[1],
+      gamesUsed: 1,
+      recentGamesUsed: 1,
+      components: { pointsPerGame: 240.1, recentAvg: 240.1 },
+    },
+    {
+      ...ROWS[2],
+      gamesUsed: 1,
+      recentGamesUsed: 1,
+      components: { pointsPerGame: 174.3, recentAvg: 174.3 },
+    },
+  ];
+
+  it("names the number of counted weeks in the PPG and Recent headers", async () => {
+    serve(payload({ ranking: ROWS_WITH_GAMES, blend: { scoredGames: 1 } }));
+    const RosPowerSection = await renderFresh();
+    const { container } = render(<RosPowerSection />);
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
+
+    expect(container.textContent).toContain("PPG (1 wk)");
+    expect(container.textContent).toContain("Recent (1 of 4)");
+  });
+
+  it("caps the Recent header's game count at the 4-game window", async () => {
+    serve(payload({ ranking: ROWS_WITH_GAMES, blend: { scoredGames: 9 } }));
+    const RosPowerSection = await renderFresh();
+    const { container } = render(<RosPowerSection />);
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
+
+    expect(container.textContent).toContain("PPG (9 wk)");
+    expect(container.textContent).toContain("Recent (4 of 4)");
+  });
+
+  it("plain PPG/Recent headers before any week is complete", async () => {
+    serve(payload({ ranking: ROWS_WITH_GAMES.map((r) => ({ ...r, gamesUsed: 0 })) }));
+    const RosPowerSection = await renderFresh();
+    const { container } = render(<RosPowerSection />);
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
+
+    expect(container.textContent).toContain("PPG");
+    expect(container.textContent).not.toContain("PPG (");
+  });
+
+  it("calls out a row whose own count disagrees with the table's shared count", async () => {
+    const mismatched = [
+      ROWS_WITH_GAMES[0],
+      { ...ROWS_WITH_GAMES[1], gamesUsed: 2, components: { pointsPerGame: 500.0, recentAvg: 500.0 } },
+      ROWS_WITH_GAMES[2],
+    ];
+    serve(payload({ ranking: mismatched, blend: { scoredGames: 1 } }));
+    const RosPowerSection = await renderFresh();
+    const { container } = render(<RosPowerSection />);
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
+
+    // Bob's row differs from the table's shared count and must say so.
+    expect(container.textContent).toContain("(2g)");
+    // Alice and Cass agree with the table and get no per-row annotation.
+    const annotations = container.textContent.match(/\(\d+g\)/g) || [];
+    expect(annotations).toHaveLength(1);
+  });
+
+  it("renders an em dash, never a number, when a row has no games counted", async () => {
+    const noEvidence = [
+      { ...ROWS[0], gamesUsed: 0, recentGamesUsed: 0, components: { pointsPerGame: null, recentAvg: null } },
+      ROWS_WITH_GAMES[1],
+      ROWS_WITH_GAMES[2],
+    ];
+    serve(payload({ ranking: noEvidence, blend: { scoredGames: 1 } }));
+    const RosPowerSection = await renderFresh();
+    render(<RosPowerSection />);
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
+
+    const aliceRow = screen.getAllByText("Alice")[0].closest("tr");
+    expect(aliceRow.textContent).toContain("—");
+    expect(aliceRow.textContent).not.toContain("0.0");
+  });
+
+  it("does no denominator arithmetic — every number it shows came from the payload", async () => {
+    // Structural: the component may format (toFixed, string interpolation)
+    // but must never compute an average, a ratio, or a game count itself.
+    const fs = await import("fs");
+    const path = await import("path");
+    const filePath = path.join(process.cwd(), "app/league/sections/ros-power.jsx");
+    const src = fs.readFileSync(filePath, "utf8");
+    expect(src).not.toMatch(/pointsPerGame\s*\/\s*/);
+    expect(src).not.toMatch(/points\s*\/\s*games/);
+    expect(src).not.toMatch(/reduce\(/); // no client-side aggregation over rows
+  });
+
+  it("labels Record when the league runs a median game, so it does not read as a mismatch with PPG", async () => {
+    serve(
+      payload({
+        ranking: ROWS_WITH_GAMES,
+        blend: { scoredGames: 1 },
+      }),
+    );
+    const RosPowerSection = await renderFresh();
+    const { container } = render(<RosPowerSection />);
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
+
+    const recordHeader = Array.from(container.querySelectorAll("th")).find(
+      (th) => th.textContent === "Record",
+    );
+    expect(recordHeader).toBeTruthy();
+    // Unverified (medianGameEnabled absent from the payload) must not read
+    // as "off".
+    expect(recordHeader.title).toMatch(/unverified/i);
   });
 });
