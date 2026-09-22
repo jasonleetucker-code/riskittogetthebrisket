@@ -613,13 +613,22 @@ def _score_state(
     suppressed_results = preseason and not results_only
 
     def _row_denominators(oid: str) -> dict[str, int]:
-        """Per-row game counts, so an average can never hide its divisor."""
+        """Per-row game counts, so an average can never hide its divisor.
+
+        ``i["games_used"]`` and ``i["recent_games_used"]`` are already
+        guaranteed real, non-None ints at their source (``int(s.get(...,
+        0))`` and ``len(rb)`` respectively in the loop above) -- 0 there
+        means "genuinely no games", never "missing". An ``or 0`` here would
+        not be a fallback for anything that can actually happen; it would
+        only be a decision-coercion pattern with nothing behind it
+        (`scripts/check_decision_coercions.py`), so it is not written.
+        """
         if suppressed_results:
             return {"gamesUsed": 0, "recentGamesUsed": 0}
         i = inputs[oid]
         return {
-            "gamesUsed": int(i["games_used"] or 0),
-            "recentGamesUsed": int(i["recent_games_used"] or 0),
+            "gamesUsed": int(i["games_used"]),
+            "recentGamesUsed": int(i["recent_games_used"]),
         }
 
     def _component_map(oid: str) -> dict[str, float | None]:
@@ -904,7 +913,10 @@ def build_section(
             # The completed-week gate cannot close an odd/bye/unresolved-owner
             # shortfall inside a week it admitted. Say so out loud instead of
             # letting one short week quietly shrink somebody's denominator.
-            expected_rosters = int(season.num_teams or 0)
+            # ``season.num_teams`` is typed -> int and already falls back to
+            # ``len(rosters)`` internally (SeasonSnapshot.num_teams) -- an
+            # ``or 0`` here would coerce nothing real, so it is not written.
+            expected_rosters = season.num_teams
             if expected_rosters and len(scores) != expected_rosters:
                 partial_weeks.append(
                     {
