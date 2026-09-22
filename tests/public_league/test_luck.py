@@ -241,3 +241,94 @@ class LuckSectionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ── PRIOR-A03-F03: in-progress weeks must not bank phantom results ───────
+_IP_LEAGUE = {
+    "league_id": "L2",
+    "name": "In Progress League",
+    "season": "2026",
+    "season_type": "regular",
+    "status": "in_season",
+    "total_rosters": 4,
+    "settings": {"playoff_week_start": 15, "last_scored_leg": 1},
+}
+_IP_USERS = [
+    {"user_id": f"owner-{k}", "display_name": k, "metadata": {"team_name": f"{k} Team"}}
+    for k in ("W", "X", "Y", "Z")
+]
+_IP_ROSTERS = [
+    {"roster_id": i, "owner_id": f"owner-{k}", "players": [], "settings": {}}
+    for i, k in enumerate(("W", "X", "Y", "Z"), start=1)
+]
+
+
+def _in_progress_snapshot() -> PublicLeagueSnapshot:
+    """Week 1 complete; week 2 live — two rosters played Thursday, two not."""
+    week1 = [
+        {"matchup_id": 1, "roster_id": 1, "points": 120.0},
+        {"matchup_id": 1, "roster_id": 2, "points": 100.0},
+        {"matchup_id": 2, "roster_id": 3, "points": 110.0},
+        {"matchup_id": 2, "roster_id": 4, "points": 90.0},
+    ]
+    week2 = [
+        {"matchup_id": 1, "roster_id": 1, "points": 0.0},
+        {"matchup_id": 1, "roster_id": 2, "points": 18.0},
+        {"matchup_id": 2, "roster_id": 3, "points": 0.0},
+        {"matchup_id": 2, "roster_id": 4, "points": 25.0},
+    ]
+    season = SeasonSnapshot(
+        season="2026",
+        league_id="L2",
+        league=_IP_LEAGUE,
+        users=_IP_USERS,
+        rosters=_IP_ROSTERS,
+        matchups_by_week={1: week1, 2: week2},
+        transactions_by_week={},
+        drafts=[],
+        draft_picks_by_draft={},
+        traded_picks=[],
+        winners_bracket=[],
+        losers_bracket=[],
+    )
+    return PublicLeagueSnapshot(
+        root_league_id="L2",
+        generated_at="2026-09-19T00:00:00Z",
+        seasons=[season],
+        managers=build_manager_registry(
+            [{"league": _IP_LEAGUE, "users": _IP_USERS, "rosters": _IP_ROSTERS}]
+        ),
+    )
+
+
+class InProgressWeekTests(unittest.TestCase):
+    """A live week must contribute no expected or actual wins to anyone.
+
+    This is the Luck half of PRIOR-A03-F03: "Luck score and Power rankings
+    count in-progress weeks as finished games, so the verdict and the rank
+    visibly change during Sunday afternoon and re-settle Monday night."
+    Counting a Thursday-night partial banked a real win for whoever led it,
+    and charged nothing to the rosters that had not played — so luckDelta
+    swung by up to a full win mid-week, wider than its entire reporting band.
+    """
+
+    def test_an_in_progress_week_contributes_no_expected_or_actual_wins(self):
+        data = build_section(_in_progress_snapshot())
+        career = {r["ownerId"]: r for r in data["byOwnerCareer"]}
+        self.assertEqual(len(career), 4)
+        for owner_id, row in career.items():
+            self.assertEqual(row["gamesPlayed"], 1, owner_id)
+
+        # Week 1 only: W beat X, Y beat Z.
+        self.assertAlmostEqual(career["owner-W"]["actualWins"], 1.0, places=4)
+        self.assertAlmostEqual(career["owner-X"]["actualWins"], 0.0, places=4)
+        self.assertAlmostEqual(career["owner-W"]["pointsFor"], 120.0, places=2)
+
+        # X and Z lead their live week-2 matchups. Neither may bank it.
+        self.assertAlmostEqual(career["owner-X"]["pointsFor"], 100.0, places=2)
+        self.assertAlmostEqual(career["owner-Z"]["pointsFor"], 90.0, places=2)
+
+    def test_only_the_completed_week_appears_in_the_trail(self):
+        data = build_section(_in_progress_snapshot())
+        weeks = {t["week"] for t in data["weeklyTrail"]}
+        self.assertEqual(weeks, {1})

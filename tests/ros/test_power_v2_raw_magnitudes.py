@@ -108,3 +108,55 @@ def test_raw_fields_are_present_even_when_the_engine_refuses_to_rank():
         assert row["powerScore"] is None
         assert "pointsPerGame" in row["components"]
         assert "recentAvg" in row["components"]
+
+
+def test_games_used_accompanies_every_raw_magnitude():
+    """A raw average must always be able to say what it divided by.
+
+    ``pointsPerGame`` shipped with no published denominator, and that is
+    exactly how a board serving some teams a one-game average and others a
+    two-game average went unnoticed.  ``gamesUsed`` / ``recentGamesUsed``
+    travel with the magnitudes on every row shape the engine emits --
+    headline, trend-week and refusal -- the same posture ``record`` and
+    ``pointsPerGame`` already have.
+    """
+    out = power_v2.build_section(_scored_snapshot(), lens=power_v2.LENS_FORWARD_LOOKING)
+    assert out["unrankable"] is None, "fixture must exercise the NORMAL scoring path"
+    for row in out["currentRanking"]:
+        assert "gamesUsed" in row, row["ownerId"]
+        assert "recentGamesUsed" in row, row["ownerId"]
+        # Three scored weeks, all inside the recent window.
+        assert row["gamesUsed"] == 3, row["ownerId"]
+        assert row["recentGamesUsed"] == 3, row["ownerId"]
+        # The denominator and the magnitude must agree about whether there
+        # is evidence at all: never a count beside no average, and never an
+        # average beside no count.
+        assert row["components"]["pointsPerGame"] is not None, row["ownerId"]
+
+    for week in out["trend"]["weeks"]:
+        for row in week["rankings"]:
+            assert "gamesUsed" in row
+            assert "recentGamesUsed" in row
+            assert row["recentGamesUsed"] <= row["gamesUsed"]
+
+    refusal = power_v2.build_section(build_test_snapshot(), lens=power_v2.LENS_FORWARD_LOOKING)
+    assert refusal["unrankable"] is not None, "fixture must exercise the REFUSAL path"
+    for row in refusal["currentRanking"]:
+        assert "gamesUsed" in row
+        assert "recentGamesUsed" in row
+
+
+def test_every_row_shares_one_denominator():
+    """The invariant the completed-week gate exists to hold.
+
+    Not "more than N games" -- ALL of them, the same number.  A column whose
+    rows divide by different denominators is not comparable down the page
+    however large each denominator is, and that incomparability is precisely
+    what the live board was showing.
+    """
+    out = power_v2.build_section(_scored_snapshot(), lens=power_v2.LENS_FORWARD_LOOKING)
+    denominators = {row["gamesUsed"] for row in out["currentRanking"]}
+    assert denominators == {3}, denominators
+    assert out["blend"]["scoredGames"] == 3
+    assert out["blend"]["scoredGamesMax"] == 3
+    assert out["blend"]["scoredGamesDiverged"] is False

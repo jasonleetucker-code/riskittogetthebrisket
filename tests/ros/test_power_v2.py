@@ -195,13 +195,23 @@ def _make_season(
     matchups_by_week: dict[int, list[dict]] | None = None,
     *,
     is_complete: bool = False,
+    last_scored_leg: int | None = None,
 ) -> SeasonSnapshot:
-    """Build a minimally-populated SeasonSnapshot for build_section tests."""
+    """Build a minimally-populated SeasonSnapshot for build_section tests.
+
+    ``last_scored_leg`` is Sleeper's own "which week have you finished
+    scoring" stamp.  Omitted by default so existing fixtures keep riding
+    the data-completeness proof in ``metrics.final_regular_season_weeks``,
+    which is what they have always effectively used.
+    """
+    settings: dict = {"playoff_week_start": 15}
+    if last_scored_leg is not None:
+        settings["last_scored_leg"] = last_scored_leg
     league = {
         "league_id": league_id,
         "season": year,
         "season_type": "regular",
-        "settings": {"playoff_week_start": 15},
+        "settings": settings,
         "total_rosters": len(rosters),
     }
     if is_complete:
@@ -228,6 +238,7 @@ def _make_snapshot(
     *,
     is_complete: bool = False,
     season_year: str = "2026",
+    last_scored_leg: int | None = None,
 ) -> PublicLeagueSnapshot:
     """Build a minimal snapshot whose ManagerRegistry is consistent with
     the supplied rosters.  Each roster's owner_id is registered as an
@@ -260,6 +271,7 @@ def _make_snapshot(
         rosters,
         matchups_by_week,
         is_complete=is_complete,
+        last_scored_leg=last_scored_leg,
     )
     return PublicLeagueSnapshot(
         root_league_id=league_id,
@@ -617,6 +629,176 @@ class TestBuildSectionThreadsLeagueKeyToTeamStrength(unittest.TestCase):
 
         with patch("src.api.league_registry.league_key_for_sleeper_id", boom):
             power_v2.build_section(snapshot, lens=power_v2.LENS_RESULTS_ONLY)
+
+
+# ── The in-progress-week regression ──────────────────────────────────────
+# Live values measured from Sleeper league 1312006700437352448 on
+# 2026-09-19, mid-week-2.  Week 1 is complete.  Week 2 is IN PROGRESS:
+# eight rosters carry a Thursday-night partial, four carry a literal 0.0
+# because nobody on them played Thursday.
+_LIVE_WEEK1 = {
+    1: 404.46, 2: 312.87, 3: 279.96, 4: 363.78, 5: 393.44, 6: 473.30,
+    7: 274.70, 8: 452.30, 9: 453.37, 10: 315.67, 11: 319.11, 12: 303.44,
+}  # fmt: skip
+_LIVE_WEEK2_PARTIAL = {
+    1: 0.0, 2: 0.0, 3: 34.99, 4: 33.09, 5: 7.04, 6: 18.05,
+    7: 0.0, 8: 27.81, 9: 58.94, 10: 32.92, 11: 0.0, 12: 75.32,
+}  # fmt: skip
+
+
+def _rows(points_by_roster: dict[int, float | None]) -> list[dict]:
+    return [
+        {"matchup_id": (rid + 1) // 2, "roster_id": rid, "points": pts}
+        for rid, pts in sorted(points_by_roster.items())
+    ]
+
+
+class TestCompletedWeekGate(unittest.TestCase):
+    """Observed results count COMPLETED league weeks, and only those.
+
+    The defect these pin: ``luck._season_weekly_scores`` iterated every
+    regular-season week and filtered per roster-entry on ``points > 0``, so
+    a live week was counted as a finished game for whoever happened to have
+    a Thursday-night player and dropped for everyone else.  Eight teams'
+    averages divided by 2 while four divided by 1, inside one table.
+    """
+
+    _ROSTERS = [{"roster_id": r, "owner_id": f"o{r}"} for r in sorted(_LIVE_WEEK1)]
+
+    def _section(self, matchups, *, last_scored_leg=None, rosters=None):
+        """Build a section with team strength isolated to a temp dir.
+
+        The isolation is load-bearing: ``team_strength`` WRITES a computed
+        snapshot into ``ROS_DATA_DIR``, so an unpatched call would leave a
+        synthetic ``latest.json`` in the repo's real ``data/ros`` and break
+        every later test that reads it.
+        """
+        snapshot = _make_snapshot(
+            rosters=rosters or self._ROSTERS,
+            matchups_by_week=matchups,
+            last_scored_leg=last_scored_leg,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(team_strength, "ROS_DATA_DIR", Path(tmp)):
+                return power_v2.build_section(snapshot)
+
+    def _by_name(self, section):
+        return {r["displayName"]: r for r in section["currentRanking"]}
+
+    def test_in_progress_week_is_excluded_from_every_team_denominator(self):
+        section = self._section(
+            {1: _rows(_LIVE_WEEK1), 2: _rows(_LIVE_WEEK2_PARTIAL)},
+            last_scored_leg=1,
+        )
+
+        self.assertEqual(section["countedWeeks"], [1])
+        self.assertEqual(section["blend"]["scoredGames"], 1)
+        self.assertFalse(section["blend"]["scoredGamesDiverged"])
+
+        rows = self._by_name(section)
+        self.assertEqual(len(rows), 12)
+        for rid, week1_points in _LIVE_WEEK1.items():
+            row = rows[f"o{rid}"]
+            # One shared denominator, or the column is not comparable.
+            self.assertEqual(row["gamesUsed"], 1, f"o{rid} denominator")
+            self.assertAlmostEqual(row["components"]["pointsPerGame"], week1_points, places=2)
+
+        # The specific number the owner reported. Before the fix this row
+        # read 256.16 — (453.37 + 58.94) / 2, a completed week averaged
+        # with a Thursday-night sliver.
+        self.assertAlmostEqual(rows["o9"]["components"]["pointsPerGame"], 453.37, places=2)
+
+    def test_all_play_field_is_the_whole_league_in_every_counted_week(self):
+        """All-play must be measured against 11 rivals, not a shrunken field.
+
+        With four rosters dropped from the live week, all-play was computed
+        over 8 teams — silently repricing a 0.20-weight component.
+        """
+        section = self._section(
+            {1: _rows(_LIVE_WEEK1), 2: _rows(_LIVE_WEEK2_PARTIAL)},
+            last_scored_leg=1,
+        )
+        shares = sorted(r["components"]["all_play"] for r in section["currentRanking"])
+        expected = [round(k / 11.0, 4) for k in range(12)]
+        self.assertEqual(shares, expected)
+
+    def test_a_genuine_zero_in_a_finalised_week_counts_as_a_game(self):
+        """MISSING IS NEVER ZERO must not become "zero is never real".
+
+        Once the host says a week is scored, a roster that put up 0.0 played
+        that game. Dropping it would shrink that one team's denominator —
+        the very asymmetry the gate exists to remove.
+        """
+        week2 = dict(_LIVE_WEEK1)
+        week2[7] = 0.0
+        section = self._section(
+            {1: _rows(_LIVE_WEEK1), 2: _rows(week2)},
+            last_scored_leg=2,
+        )
+        self.assertEqual(section["countedWeeks"], [1, 2])
+        rows = self._by_name(section)
+        for rid in _LIVE_WEEK1:
+            self.assertEqual(rows[f"o{rid}"], rows[f"o{rid}"] | {"gamesUsed": 2})
+        self.assertAlmostEqual(
+            rows["o7"]["components"]["pointsPerGame"], _LIVE_WEEK1[7] / 2.0, places=2
+        )
+
+    def test_a_roster_week_with_no_points_value_stays_missing(self):
+        """An absent score is missing evidence, never a zero-point game."""
+        week2 = dict(_LIVE_WEEK1)
+        week2[7] = None
+        section = self._section(
+            {1: _rows(_LIVE_WEEK1), 2: _rows(week2)},
+            last_scored_leg=2,
+        )
+        rows = self._by_name(section)
+        self.assertEqual(rows["o7"]["gamesUsed"], 1)
+        self.assertAlmostEqual(rows["o7"]["components"]["pointsPerGame"], _LIVE_WEEK1[7], places=2)
+        # The shortfall is reported, not silently absorbed.
+        self.assertEqual(section["partialWeeks"], [{"week": 2, "observed": 11, "expected": 12}])
+        self.assertTrue(section["blend"]["scoredGamesDiverged"])
+        # And the shared count is the honest floor, not the luckiest team's.
+        self.assertEqual(section["blend"]["scoredGames"], 1)
+        self.assertEqual(section["blend"]["scoredGamesMax"], 2)
+
+    def test_host_clock_absent_falls_back_to_data_completeness(self):
+        """No ``last_scored_leg`` must still exclude the in-progress week.
+
+        Every pre-existing fixture in this repo rides this path, and it is
+        the only proof available when Sleeper omits the stamp.
+        """
+        section = self._section({1: _rows(_LIVE_WEEK1), 2: _rows(_LIVE_WEEK2_PARTIAL)})
+        self.assertEqual(section["countedWeeks"], [1])
+        for row in section["currentRanking"]:
+            self.assertEqual(row["gamesUsed"], 1)
+
+    def test_stale_host_clock_does_not_withhold_a_fully_scored_week(self):
+        """The two proofs are a union, so either one alone admits a week.
+
+        A host clock that lags a refresh cycle must not hide a week every
+        roster has finished.
+        """
+        section = self._section(
+            {1: _rows(_LIVE_WEEK1), 2: _rows(_LIVE_WEEK1)},
+            last_scored_leg=1,
+        )
+        self.assertEqual(section["countedWeeks"], [1, 2])
+        for row in section["currentRanking"]:
+            self.assertEqual(row["gamesUsed"], 2)
+
+    def test_blend_reports_zero_scored_games_in_preseason(self):
+        """Preseason suppresses results, so the game count must say 0.
+
+        It used to publish the previous season's count beside
+        ``resultsEvidence: 0.0`` — a number untrue of the season described.
+        """
+        section = self._section({}, last_scored_leg=0)
+        self.assertTrue(section["preseason"])
+        self.assertEqual(section["blend"]["scoredGames"], 0)
+        self.assertEqual(section["blend"]["scoredGamesMax"], 0)
+        for row in section["currentRanking"]:
+            self.assertEqual(row["gamesUsed"], 0)
+            self.assertEqual(row["recentGamesUsed"], 0)
 
 
 if __name__ == "__main__":

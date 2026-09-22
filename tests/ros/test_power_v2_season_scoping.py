@@ -25,11 +25,15 @@ already populates it correctly.
 
 from __future__ import annotations
 
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
+
 import pytest
 
 from src.public_league.identity import Manager, ManagerRegistry
 from src.public_league.snapshot import PublicLeagueSnapshot, SeasonSnapshot
-from src.ros import power_v2
+from src.ros import power_v2, team_strength
 
 
 def _matchup_week(scores: dict[int, float]) -> list[dict]:
@@ -820,3 +824,54 @@ class TestEverySeasonResetHoldsAcrossThreeSeasons:
         dave = _row(out["currentRanking"], "dave")["components"]
         combined_ppg = (900.0 * 3 + 20.0 * 3) / 6
         assert dave["pointsPerGame"] != pytest.approx(combined_ppg)
+
+
+class TestPreseasonDoesNotPublishLastSeasonsMagnitudes:
+    """Preseason must not print last season's PPG in an unlabelled column.
+
+    ``_component_map`` guarded ``streak`` and ``luck_regression`` with
+    ``suppressed_results`` but left ``pointsPerGame``, ``recentAvg`` and the
+    ``ppg`` percentile ungated.  The state builder's ``continue`` fires
+    BEFORE the per-season resets, so in a true preseason the state still
+    holds the last season that had data — and those three keys published it
+    under headings that say only "PPG" and "Recent".
+
+    Results-only deliberately still shows them: retrospective performance is
+    the explicit subject of that diagnostic lens.  This pins the canonical
+    league-facing lens only.
+    """
+
+    def _canonical_section(self):
+        # ROS strength is isolated because team_strength WRITES its computed
+        # snapshot into ROS_DATA_DIR; an unpatched call pollutes data/ros.
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(team_strength, "ROS_DATA_DIR", Path(tmp)):
+                return power_v2.build_section(_preseason_shape_snapshot())
+
+    def test_the_canonical_lens_suppresses_all_three_display_magnitudes(self):
+        out = self._canonical_section()
+        assert out["preseason"] is True
+        for row in out["currentRanking"]:
+            components = row["components"]
+            assert components["pointsPerGame"] is None, row["ownerId"]
+            assert components["recentAvg"] is None, row["ownerId"]
+            assert components["ppg"] is None, row["ownerId"]
+
+    def test_the_denominators_agree_that_nothing_was_counted(self):
+        out = self._canonical_section()
+        assert out["blend"]["scoredGames"] == 0
+        assert out["blend"]["scoredGamesMax"] == 0
+        assert out["blend"]["scoredGamesDiverged"] is False
+        for row in out["currentRanking"]:
+            assert row["gamesUsed"] == 0
+            assert row["recentGamesUsed"] == 0
+
+    def test_results_only_still_shows_them(self):
+        """Non-vacuity: the suppression must be the lens, not an empty fixture.
+
+        If this ever starts returning None too, the test above has stopped
+        discriminating and is passing for the wrong reason.
+        """
+        out = power_v2.build_section(_preseason_shape_snapshot(), lens=power_v2.LENS_RESULTS_ONLY)
+        magnitudes = [r["components"]["pointsPerGame"] for r in out["currentRanking"]]
+        assert any(v is not None for v in magnitudes)
