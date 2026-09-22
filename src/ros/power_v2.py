@@ -967,6 +967,9 @@ def build_section(
         else 0
     )
     as_of_season = current_season_label
+    median_game_enabled = (
+        _metrics.median_game_enabled(current_season) if current_season is not None else None
+    )
 
     # Canonical week-over-week movement is compared only with exactly Week
     # N-1's immutable official publication. It never diffs two recalculations
@@ -1107,6 +1110,11 @@ def build_section(
         "weights": dict(WEIGHTS),
         "effectiveWeights": dict(active_weights),
         "blend": dict(blend),
+        # Tri-state: whether RECORD reflects a league-average ("median")
+        # game alongside real H2H, which is why it can differ from
+        # countedWeeks/gamesUsed by design rather than by defect. None
+        # means unverified -- never coerced to "off".
+        "medianGameEnabled": median_game_enabled,
         # The exact weeks behind every average on this payload.
         "countedWeeks": list(counted_weeks),
         "partialWeeks": [dict(w) for w in partial_weeks],

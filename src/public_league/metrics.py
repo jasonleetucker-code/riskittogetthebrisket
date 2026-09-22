@@ -124,6 +124,32 @@ def last_scored_week(season: SeasonSnapshot) -> int | None:
     return value if value >= 0 else None
 
 
+def median_game_enabled(season: SeasonSnapshot) -> bool | None:
+    """Whether this league's standings count a league-average ("median")
+    game alongside real H2H, per ``settings.league_average_match``.
+
+    Tri-state, same posture as ``last_scored_week``: an explicit ``True`` /
+    ``False``, or ``None`` when the setting is absent or unparseable. An
+    unknown median-game setting must not read as "off" -- a league that
+    runs it would then have its RECORD column silently misexplained as a
+    display bug rather than a real second game per scored week.
+
+    Mirrors the primitive check ``game_day_sim.rules_from_league`` already
+    performs on this same field for lineup simulation; this is the same
+    fact read for display purposes, not a second definition of it.
+    """
+    settings = season.league.get("settings") or {}
+    raw = settings.get("league_average_match")
+    if isinstance(raw, bool):
+        return raw
+    if raw is None:
+        return None
+    try:
+        return bool(int(raw))
+    except (TypeError, ValueError):
+        return None
+
+
 def week_is_fully_scored(
     entries: list[dict[str, Any]],
     expected_rosters: int | None = None,

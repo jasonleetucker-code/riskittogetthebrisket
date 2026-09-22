@@ -160,3 +160,25 @@ def test_every_row_shares_one_denominator():
     assert out["blend"]["scoredGames"] == 3
     assert out["blend"]["scoredGamesMax"] == 3
     assert out["blend"]["scoredGamesDiverged"] is False
+
+
+def test_median_game_enabled_is_read_from_the_current_seasons_settings():
+    """Tri-state, and never coerced to off when unverified.
+
+    RECORD can legitimately show more games than gamesUsed when a league
+    runs a median game -- that is a fact about the league's standings
+    rule, not a disagreement between two denominators. Publishing it lets
+    the UI explain the difference instead of the two columns looking like
+    they contradict each other.
+    """
+    on = build_test_snapshot()
+    on.seasons[0].league.setdefault("settings", {})["league_average_match"] = 1
+    assert power_v2.build_section(on)["medianGameEnabled"] is True
+
+    off = build_test_snapshot()
+    off.seasons[0].league.setdefault("settings", {})["league_average_match"] = 0
+    assert power_v2.build_section(off)["medianGameEnabled"] is False
+
+    unverified = build_test_snapshot()
+    unverified.seasons[0].league.get("settings", {}).pop("league_average_match", None)
+    assert power_v2.build_section(unverified)["medianGameEnabled"] is None
