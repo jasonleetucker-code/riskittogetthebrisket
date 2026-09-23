@@ -17,9 +17,11 @@ Two scoring methods are computed in parallel and reported side-by-side:
   value rewards positions whose starters are well-separated from the
   bottom of the startable pool.
 
-Multi-season combination uses **equal weighting** by design (no recency
-weighting).  Each available season counts as 1/N of the combined value,
-where N is the number of available seasons.
+Completed seasons use **equal weighting** by design (no recency weighting).
+An explicitly supplied partial-season weight may be used for an in-progress
+latest season so a few live weeks do not masquerade as a completed year.
+At full-season weight 1.0 the weighted combiner is identical to the
+equal-weight combiner.
 """
 
 from __future__ import annotations
@@ -232,38 +234,60 @@ def combine_seasons_equal_weight(values: Sequence[float]) -> float:
     return sum(finite) / len(finite)
 
 
+def combine_metrics_weighted(
+    metrics_by_season: dict[int, PositionMetrics | None],
+    weights_by_season: dict[int, float],
+) -> PositionMetrics:
+    """Combine per-season metrics using explicit non-negative weights.
+
+    Missing/empty seasons and seasons with a non-positive weight are skipped.
+    This is intentionally a weighted average of already-computed per-season
+    metrics, not a re-pool of player samples. Complete seasons normally carry
+    weight 1.0; the live latest season may carry weeks_observed / 17.
+
+    A missing weight is an error rather than an implicit zero/full season
+    because the caller must make the evidence policy explicit.
+    """
+    weighted: list[tuple[PositionMetrics, float]] = []
+    for season, metric in metrics_by_season.items():
+        if metric is None or metric.sample_size <= 0:
+            continue
+        if season not in weights_by_season:
+            raise ValueError(f"missing season weight for {season}")
+        weight = float(weights_by_season[season])
+        if weight <= 0:
+            continue
+        weighted.append((metric, weight))
+
+    total_weight = sum(weight for _, weight in weighted)
+    if total_weight <= 0:
+        return _EMPTY_METRICS
+
+    def _mean(attr: str) -> float:
+        return sum(getattr(metric, attr) * weight for metric, weight in weighted) / total_weight
+
+    return PositionMetrics(
+        average=_mean("average"),
+        median=_mean("median"),
+        p25=_mean("p25"),
+        p75=_mean("p75"),
+        replacement_level=_mean("replacement_level"),
+        elite=_mean("elite"),
+        replacement_adj=_mean("replacement_adj"),
+        sample_size=int(
+            round(sum(metric.sample_size * weight for metric, weight in weighted) / total_weight)
+        ),
+    )
+
+
 def combine_metrics_equal_weight(
     metrics_by_season: dict[int, PositionMetrics | None],
 ) -> PositionMetrics:
-    """Combine per-season metrics into one combined PositionMetrics.
-
-    Each available season weighted equally; missing seasons skipped.
-    Uses the average of the per-season computed values, NOT a re-pool
-    of all top-N samples (that would over-weight high-volume seasons).
-    """
-    available = [m for m in metrics_by_season.values() if m and m.sample_size > 0]
-    if not available:
-        return _EMPTY_METRICS
-    n = len(available)
-    avg = sum(m.average for m in available) / n
-    med = sum(m.median for m in available) / n
-    p25 = sum(m.p25 for m in available) / n
-    p75 = sum(m.p75 for m in available) / n
-    repl = sum(m.replacement_level for m in available) / n
-    elite = sum(m.elite for m in available) / n
-    repl_adj = sum(m.replacement_adj for m in available) / n
-    sample = int(round(sum(m.sample_size for m in available) / n))
-    return PositionMetrics(
-        average=avg,
-        median=med,
-        p25=p25,
-        p75=p75,
-        replacement_level=repl,
-        elite=elite,
-        replacement_adj=repl_adj,
-        sample_size=sample,
+    """Combine per-season metrics with weight 1.0 per available season."""
+    return combine_metrics_weighted(
+        metrics_by_season,
+        {season: 1.0 for season in metrics_by_season},
     )
-
 
 # ── Status labels ─────────────────────────────────────────────────────
 
