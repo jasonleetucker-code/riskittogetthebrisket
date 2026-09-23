@@ -1,143 +1,153 @@
-as of 2026-09-23T18:41:31Z  curve C4  applied=True
+as of 2026-09-23T21:51:07Z  curve C4  applied=True
 formula: effective = base x freshness(age / expectedCadence) x health x coverage
-row states: {'SEVERELY_DEGRADED': 86, 'DEGRADED': 224, 'NORMAL': 685}
+row states: {'SEVERELY_DEGRADED': 86, 'DEGRADED': 299, 'NORMAL': 610}
 SOURCE                   SUBSET  ROLE      STYLE          EXP_h        LAST FETCH          LAST ANY        LAST BROAD   AGE_h     r  FRESH  HLTH   COV  BASE    EFF  SHARE STATE
-ktcCrowdSfTep            players model_inp SNAPSHOT        12.0  2026-09-23T18:41  2026-09-23T13:57  2026-09-23T13:57     4.7  0.39  1.000  1.00  1.00  1.00  1.000  0.132 ON_SCHEDULE
-ktcCrowdSfTep            picks   model_inp SNAPSHOT        12.0  2026-09-23T18:41  2026-09-23T13:57  2026-09-23T13:57     4.7  0.39  1.000  1.00  1.00  1.00  1.000  0.132 ON_SCHEDULE
-ktcTradesSfTep           players model_inp SNAPSHOT        12.0  2026-09-23T18:41  2026-09-23T13:57  2026-09-23T13:57     4.7  0.39  1.000  1.00  1.00  1.00  1.000  0.132 ON_SCHEDULE
-ktcTradesSfTep           picks   model_inp SNAPSHOT        12.0  2026-09-23T18:41  2026-09-23T13:57  2026-09-23T13:57     4.7  0.39  1.000  1.00  1.00  1.00  1.000  0.132 ON_SCHEDULE
-idpTradeCalc             players model_inp BATCH          127.8  2026-09-23T18:41  2026-09-23T08:04  2026-09-15T17:22   193.3  1.51  0.887  1.00  1.00  1.00  0.887  0.248 OVERDUE
-idpTradeCalc             picks   model_inp UNKNOWN        127.8  2026-09-23T18:41  2026-08-28T01:13  2026-08-28T01:13   641.5  5.02  0.107  1.00  1.00  1.00  0.107  0.248 SEVERELY_STALE
-dlfSf                    players model_inp BATCH           52.0  2026-09-09T12:28  2026-09-05T16:27  2026-09-05T16:27   434.2  8.35  0.000  1.00  1.00  1.00  0.000      — QUARANTINED
-dlfRookieSf              players model_inp SNAPSHOT        56.5  2026-09-09T12:28  2026-09-06T18:27  2026-09-06T18:27   408.2  7.23  0.024  1.00  1.00  1.00  0.024  0.002 SEVERELY_STALE
-dlfIdp                   players model_inp SNAPSHOT       168.0  2026-09-09T12:28  2026-09-09T08:27  2026-09-09T08:27   346.2  2.06  0.685  1.00  1.00  1.00  0.685  0.204 STALE
-dlfRookieIdp             players model_inp BATCH          314.5  2026-09-09T12:28  2026-09-09T08:27  2026-09-09T08:27   346.2  1.10  0.994  1.00  1.00  1.00  0.994  0.333 ON_SCHEDULE
-idpShowCombined          players model_inp EXPLICIT_UPS   168.0  2026-09-23T18:32  2026-08-20T23:28  2026-08-20T23:28   811.2  4.83  0.122  1.00  1.00  1.00  0.122  0.025 SEVERELY_STALE
-dynastyNerdsSfTep        players model_inp SNAPSHOT       722.6  2026-09-23T18:44  2026-09-11T16:52  2026-09-11T16:52   289.8  0.40  1.000  1.00  1.00  1.00  1.000  0.088 ON_SCHEDULE
-fantasyCalc              players model_inp SNAPSHOT        12.0  2026-09-23T18:41  2026-09-23T13:57  2026-09-23T13:57     4.7  0.39  1.000  1.00  1.00  1.00  1.000  0.094 ON_SCHEDULE
-otcffbSf                 players model_inp SNAPSHOT        24.6  2026-09-23T18:41  2026-09-23T13:57  2026-09-23T13:57     4.7  0.19  1.000  1.00  1.00  1.00  1.000  0.093 ON_SCHEDULE
-fantasyNavigatorSf       players model_inp UNKNOWN         24.0  2026-09-23T18:41  2026-09-22T17:24  2026-09-22T17:24    25.3  1.05  0.998  1.00  1.00  1.00  0.998  0.164 ON_SCHEDULE
-pfkDynasty               players model_inp SNAPSHOT        54.2  2026-09-23T18:41  2026-09-19T05:11  2026-09-19T05:11   109.5  2.02  0.700  1.00  1.00  1.00  0.700  0.069 STALE
-dynastyDaddySf           players model_inp SNAPSHOT        12.0  2026-09-23T18:41  2026-09-23T13:57  2026-09-23T13:57     4.7  0.39  1.000  1.00  1.00  1.00  1.000  0.092 ON_SCHEDULE
-fantasyProsSf            players model_inp SNAPSHOT        48.0  2026-09-23T18:44  2026-09-22T17:24  2026-09-22T17:24    25.3  0.53  1.000  1.00  1.00  1.00  1.000  0.097 ON_SCHEDULE
-fantasyProsIdp           players model_inp SNAPSHOT       271.1  2026-09-23T18:44  2026-09-17T18:39  2026-09-17T18:39   144.0  0.53  1.000  1.00  1.00  1.00  1.000  0.312 ON_SCHEDULE
-fantasyProsFitzmaurice   players model_inp SNAPSHOT       737.0  2026-09-23T18:44  2026-09-01T12:07  2026-09-01T12:07   534.6  0.73  1.000  1.00  1.00  1.00  1.000  0.097 ON_SCHEDULE
-flockFantasySf           players model_inp SNAPSHOT        48.7  2026-09-23T18:41  2026-09-23T08:04  2026-09-23T08:04    10.6  0.22  1.000  1.00  1.00  1.00  1.000  0.099 ON_SCHEDULE
-flockFantasySfRookies    players model_inp SNAPSHOT       168.0  2026-09-23T18:41  2026-09-05T13:23  2026-09-05T13:23   437.3  2.60  0.504  1.00  0.69  1.00  0.348      — STALE
-yahooBoone               players model_inp SNAPSHOT       840.0  2026-09-23T18:44  2026-09-03T19:33  2026-09-03T19:33   479.1  0.57  1.000  1.00  1.00  1.00  1.000  0.098 ON_SCHEDULE
-draftSharks              players model_inp BATCH           19.5  2026-09-23T18:44  2026-09-23T13:57  2026-09-23T13:57     4.7  0.24  1.000  1.00  1.00  1.00  1.000  0.101 ON_SCHEDULE
-draftSharksIdp           players model_inp SNAPSHOT        14.0  2026-09-23T18:44  2026-09-23T13:57  2026-09-23T13:57     4.7  0.34  1.000  1.00  1.00  1.00  1.000  0.331 ON_SCHEDULE
-ktcCrowdTradesSfTep      players benchmark SNAPSHOT        12.0  2026-09-23T18:41  2026-09-23T13:57  2026-09-23T13:57     4.7  0.39  1.000  1.00  1.00     —      —      — ON_SCHEDULE
-ktcCrowdTradesSfTep      picks   benchmark SNAPSHOT        12.0  2026-09-23T18:41  2026-09-23T13:57  2026-09-23T13:57     4.7  0.39  1.000  1.00  1.00     —      —      — ON_SCHEDULE
+ktcCrowdSfTep            players model_inp SNAPSHOT        12.0  2026-09-23T21:51  2026-09-23T18:44  2026-09-23T18:44     3.1  0.26  1.000  1.00  1.00  1.00  1.000  0.133 ON_SCHEDULE
+ktcCrowdSfTep            picks   model_inp SNAPSHOT        12.0  2026-09-23T21:51  2026-09-23T18:44  2026-09-23T18:44     3.1  0.26  1.000  1.00  1.00  1.00  1.000  0.133 ON_SCHEDULE
+ktcTradesSfTep           players model_inp SNAPSHOT        12.0  2026-09-23T21:51  2026-09-23T18:44  2026-09-23T18:44     3.1  0.26  1.000  1.00  1.00  1.00  1.000  0.132 ON_SCHEDULE
+ktcTradesSfTep           picks   model_inp SNAPSHOT        12.0  2026-09-23T21:51  2026-09-23T18:44  2026-09-23T18:44     3.1  0.26  1.000  1.00  1.00  1.00  1.000  0.132 ON_SCHEDULE
+idpTradeCalc             players model_inp BATCH          127.8  2026-09-23T21:51  2026-09-23T08:04  2026-09-15T17:22   196.5  1.54  0.878  1.00  1.00  1.00  0.878  0.246 OVERDUE
+idpTradeCalc             picks   model_inp UNKNOWN        127.8  2026-09-23T21:51  2026-08-28T01:13  2026-08-28T01:13   644.6  5.04  0.106  1.00  1.00  1.00  0.106  0.246 SEVERELY_STALE
+dlfSf                    players model_inp BATCH           52.0  2026-09-09T12:28  2026-09-05T16:27  2026-09-05T16:27   437.4  8.41  0.000  1.00  1.00  1.00  0.000      — QUARANTINED
+dlfRookieSf              players model_inp SNAPSHOT        55.0  2026-09-09T12:28  2026-09-06T18:27  2026-09-06T18:27   411.4  7.48  0.020  1.00  1.00  1.00  0.020  0.002 SEVERELY_STALE
+dlfIdp                   players model_inp SNAPSHOT       168.0  2026-09-09T12:28  2026-09-09T08:27  2026-09-09T08:27   349.4  2.08  0.678  1.00  1.00  1.00  0.678  0.207 STALE
+dlfRookieIdp             players model_inp BATCH          314.5  2026-09-09T12:28  2026-09-09T08:27  2026-09-09T08:27   349.4  1.11  0.992  1.00  1.00  1.00  0.992  0.356 ON_SCHEDULE
+idpShowCombined          players model_inp EXPLICIT_UPS   168.0  2026-09-23T20:32  2026-08-20T23:28  2026-08-20T23:28   814.4  4.85  0.120  1.00  1.00  1.00  0.120  0.025 SEVERELY_STALE
+dynastyNerdsSfTep        players model_inp SNAPSHOT       722.6  2026-09-23T21:54  2026-09-11T16:52  2026-09-11T16:52   293.0  0.41  1.000  1.00  1.00  1.00  1.000  0.089 ON_SCHEDULE
+fantasyCalc              players model_inp SNAPSHOT        12.0  2026-09-23T21:51  2026-09-23T18:44  2026-09-23T18:44     3.1  0.26  1.000  1.00  1.00  1.00  1.000  0.094 ON_SCHEDULE
+otcffbSf                 players model_inp SNAPSHOT        24.6  2026-09-23T21:51  2026-09-23T13:57  2026-09-23T13:57     7.9  0.32  1.000  1.00  1.00  1.00  1.000  0.094 ON_SCHEDULE
+fantasyNavigatorSf       players model_inp UNKNOWN         24.0  2026-09-23T21:51  2026-09-23T18:44  2026-09-23T18:44     3.1  0.13  1.000  1.00  1.00  1.00  1.000  0.200 ON_SCHEDULE
+pfkDynasty               players model_inp SNAPSHOT        54.2  2026-09-23T21:51  2026-09-19T05:11  2026-09-19T05:11   112.7  2.08  0.678  1.00  1.00  1.00  0.678  0.068 STALE
+dynastyDaddySf           players model_inp SNAPSHOT        12.0  2026-09-23T21:51  2026-09-23T18:44  2026-09-23T18:44     3.1  0.26  1.000  1.00  1.00  1.00  1.000  0.093 ON_SCHEDULE
+fantasyProsSf            players model_inp SNAPSHOT        48.0  2026-09-23T21:54  2026-09-22T17:24  2026-09-22T17:24    28.4  0.59  1.000  1.00  1.00  1.00  1.000  0.097 ON_SCHEDULE
+fantasyProsIdp           players model_inp SNAPSHOT       271.1  2026-09-23T21:54  2026-09-17T18:39  2026-09-17T18:39   147.2  0.54  1.000  1.00  1.00  1.00  1.000  0.316 ON_SCHEDULE
+fantasyProsFitzmaurice   players model_inp SNAPSHOT       737.0  2026-09-23T21:54  2026-09-01T12:07  2026-09-01T12:07   537.7  0.73  1.000  1.00  1.00  1.00  1.000  0.097 ON_SCHEDULE
+flockFantasySf           players model_inp SNAPSHOT        48.7  2026-09-23T21:51  2026-09-23T08:04  2026-09-23T08:04    13.8  0.28  1.000  1.00  1.00  1.00  1.000  0.100 ON_SCHEDULE
+flockFantasySfRookies    players model_inp SNAPSHOT       168.6  2026-09-23T21:51  2026-09-05T13:23  2026-09-05T13:23   440.5  2.61  0.501  1.00  0.69  1.00  0.346      — STALE
+yahooBoone               players model_inp SNAPSHOT       840.0  2026-09-23T21:54  2026-09-03T19:33  2026-09-03T19:33   482.3  0.57  1.000  1.00  1.00  1.00  1.000  0.099 ON_SCHEDULE
+draftSharks              players model_inp BATCH           19.1  2026-09-23T21:53  2026-09-23T18:44  2026-09-23T18:44     3.1  0.16  1.000  1.00  1.00  1.00  1.000  0.102 ON_SCHEDULE
+draftSharksIdp           players model_inp SNAPSHOT        13.9  2026-09-23T21:53  2026-09-23T18:44  2026-09-23T18:44     3.1  0.22  1.000  1.00  1.00  1.00  1.000  0.331 ON_SCHEDULE
+ktcCrowdTradesSfTep      players benchmark SNAPSHOT        12.0  2026-09-23T21:51  2026-09-23T18:44  2026-09-23T18:44     3.1  0.26  1.000  1.00  1.00     —      —      — ON_SCHEDULE
+ktcCrowdTradesSfTep      picks   benchmark SNAPSHOT        12.0  2026-09-23T21:51  2026-09-23T18:44  2026-09-23T18:44     3.1  0.26  1.000  1.00  1.00     —      —      — ON_SCHEDULE
 
-PLAYER: Josh Allen (QB)  model 9963 rank 2  state NORMAL retained 0.8363  confidence high
+PLAYER: Josh Allen (QB)  model 9931 rank 2  state NORMAL retained 0.8341  confidence high
   MODEL SOURCES
-    ktcCrowdSfTep            raw    9996 rk     3 norm  9996 age    4.7h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.085 contrib   853.8  voting
-    ktcTradesSfTep           raw    9181 rk     2 norm  9890 age    4.7h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.085 contrib   844.7  voting
-    dynastyNerdsSfTep        raw   10018 rk     2 norm  9883 age  289.8h exp  722.6h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.085 contrib   844.1  voting
-    fantasyCalc              raw   11269 rk     1 norm  9999 age    4.7h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.085 contrib   854.0  voting
-    otcffbSf                 raw      94 rk     3 norm  9752 age    4.7h exp   24.6h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.085 contrib   832.9  voting
-    dynastyDaddySf           raw   10200 rk     1 norm  9999 age    4.7h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.085 contrib   854.0  voting
-    fantasyProsSf            raw       — rk     1 norm  9999 age   25.3h exp   48.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.085 contrib   854.0  voting
-    flockFantasySf           raw       — rk     4 norm  9752 age   10.6h exp   48.7h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.085 contrib   832.9  voting
-    yahooBoone               raw     141 rk     1 norm  9999 age  479.1h exp  840.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.085 contrib   854.0  voting
-    draftSharks              raw       — rk     1 norm  9999 age    4.7h exp   19.5h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.085 contrib   854.0  voting
-    idpTradeCalc             raw    9994 rk     3 norm  9996 age  193.3h exp  127.8h fresh 0.887 hlth 1.00 base 1.00 eff 0.887 share 0.076 contrib   757.0  voting
-    pfkDynasty               raw    9999 rk     1 norm  9999 age  109.5h exp   54.2h fresh 0.700 hlth 1.00 base 1.00 eff 0.700 share 0.060 contrib   597.5  voting
-    idpShowCombined          raw       — rk     2 norm  9486 age  811.2h exp  168.0h fresh 0.122 hlth 1.00 base 1.00 eff 0.122 share 0.010 contrib    98.8  voting
-    dlfSf                    raw       — rk     1 norm  9999 age  434.2h exp   52.0h fresh 0.000 hlth 1.00 base 1.00 eff 0.000 share     — contrib       —  excluded_stale_or_unhealthy
-    fantasyNavigatorSf       raw    9871 rk     1 norm  9999 age   25.3h exp   24.0h fresh 0.998 hlth 1.00 base 1.00 eff 0.998 share     — contrib       —  superseded_by_family
-    fantasyProsFitzmaurice   raw     100 rk     1 norm  9999 age  534.6h exp  737.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share     — contrib       —  superseded_by_family
-  KTC MARKET  crowd 9996  trades 9181  market 9588.0 (norm 9946.1)  freshness/confidence {'marketFreshness': 1.0, 'crowdFreshness': 1.0, 'tradesFreshness': 1.0, 'confidence': 1.0, 'componentStale': False}
-  MODEL VS KTC MARKET  abs 375.0  pct 0.0391  normalized 16.9  direction consensus_premium
+    ktcCrowdSfTep            raw    9999 rk     2 norm  9999 age    3.1h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.086 contrib   856.3  voting
+    ktcTradesSfTep           raw    9180 rk     2 norm  9899 age    3.1h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.086 contrib   847.7  voting
+    dynastyNerdsSfTep        raw   10018 rk     2 norm  9883 age  293.0h exp  722.6h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.086 contrib   846.4  voting
+    fantasyCalc              raw   11362 rk     1 norm  9999 age    3.1h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.086 contrib   856.3  voting
+    otcffbSf                 raw      94 rk     3 norm  9752 age    7.9h exp   24.6h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.086 contrib   835.2  voting
+    dynastyDaddySf           raw   10200 rk     1 norm  9999 age    3.1h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.086 contrib   856.3  voting
+    fantasyProsSf            raw       — rk     1 norm  9999 age   28.4h exp   48.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.086 contrib   856.3  voting
+    flockFantasySf           raw       — rk     4 norm  9752 age   13.8h exp   48.7h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.086 contrib   835.2  voting
+    yahooBoone               raw     141 rk     1 norm  9999 age  482.3h exp  840.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.086 contrib   856.3  voting
+    draftSharks              raw       — rk     2 norm  9486 age    3.1h exp   19.1h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.086 contrib   812.4  voting
+    idpTradeCalc             raw    9994 rk     3 norm  9996 age  196.5h exp  127.8h fresh 0.878 hlth 1.00 base 1.00 eff 0.878 share 0.075 contrib   751.7  voting
+    pfkDynasty               raw    9999 rk     1 norm  9999 age  112.7h exp   54.2h fresh 0.678 hlth 1.00 base 1.00 eff 0.678 share 0.058 contrib   580.9  voting
+    idpShowCombined          raw       — rk     2 norm  9486 age  814.4h exp  168.0h fresh 0.120 hlth 1.00 base 1.00 eff 0.120 share 0.010 contrib    97.8  voting
+    dlfSf                    raw       — rk     1 norm  9999 age  437.4h exp   52.0h fresh 0.000 hlth 1.00 base 1.00 eff 0.000 share     — contrib       —  excluded_stale_or_unhealthy
+    fantasyNavigatorSf       raw    9871 rk     1 norm  9999 age    3.1h exp   24.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share     — contrib       —  superseded_by_family
+    fantasyProsFitzmaurice   raw     100 rk     1 norm  9999 age  537.7h exp  737.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share     — contrib       —  superseded_by_family
+  KTC MARKET  crowd 9999  trades 9180  market 9589.0 (norm 9950.2)  freshness/confidence {'marketFreshness': 1.0, 'crowdFreshness': 1.0, 'tradesFreshness': 1.0, 'confidence': 1.0, 'componentStale': False}
+  MODEL VS KTC MARKET  abs 342.0  pct 0.0357  normalized -19.2  direction retail_premium
 
-PLAYER: Ja'Marr Chase (WR)  model 9513 rank 5  state NORMAL retained 0.8237  confidence high
+PLAYER: Ja'Marr Chase (WR)  model 9513 rank 5  state NORMAL retained 0.8213  confidence high
   MODEL SOURCES
-    ktcCrowdSfTep            raw    9471 rk     5 norm  9471 age    4.7h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.093 contrib   884.5  voting
-    ktcTradesSfTep           raw    8775 rk     6 norm  9453 age    4.7h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.093 contrib   882.8  voting
-    dynastyNerdsSfTep        raw    9336 rk     5 norm  9481 age  289.8h exp  722.6h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.093 contrib   885.4  voting
-    fantasyCalc              raw    9153 rk     5 norm  9481 age    4.7h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.093 contrib   885.4  voting
-    otcffbSf                 raw      88 rk     4 norm  9617 age    4.7h exp   24.6h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.093 contrib   898.1  voting
-    dynastyDaddySf           raw   10160 rk     2 norm  9883 age    4.7h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.093 contrib   922.9  voting
-    fantasyProsSf            raw       — rk     3 norm  9752 age   25.3h exp   48.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.093 contrib   910.7  voting
-    flockFantasySf           raw       — rk     5 norm  9481 age   10.6h exp   48.7h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.093 contrib   885.4  voting
-    yahooBoone               raw     107 rk    11 norm  8687 age  479.1h exp  840.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.093 contrib   811.2  voting
-    idpTradeCalc             raw    9949 rk     4 norm  9951 age  193.3h exp  127.8h fresh 0.887 hlth 1.00 base 1.00 eff 0.887 share 0.083 contrib   824.0  voting
-    pfkDynasty               raw    9489 rk     6 norm  9345 age  109.5h exp   54.2h fresh 0.700 hlth 1.00 base 1.00 eff 0.700 share 0.065 contrib   610.5  voting
-    idpShowCombined          raw       — rk     5 norm  8711 age  811.2h exp  168.0h fresh 0.122 hlth 1.00 base 1.00 eff 0.122 share 0.011 contrib    99.2  voting
-    dlfSf                    raw       — rk     4 norm  9883 age  434.2h exp   52.0h fresh 0.000 hlth 1.00 base 1.00 eff 0.000 share     — contrib       —  excluded_stale_or_unhealthy
-    fantasyProsFitzmaurice   raw      89 rk     3 norm  9752 age  534.6h exp  737.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share     — contrib       —  superseded_by_family
-    draftSharks              raw       — rk    20 norm  6861 age    4.7h exp   19.5h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share     — contrib       —  hampel_outlier
-  KTC MARKET  crowd 9471  trades 8775  market 9123.0 (norm 9463.7)  freshness/confidence {'marketFreshness': 1.0, 'crowdFreshness': 1.0, 'tradesFreshness': 1.0, 'confidence': 1.0, 'componentStale': False}
-  MODEL VS KTC MARKET  abs 390.0  pct 0.0427  normalized 49.3  direction consensus_premium
+    ktcCrowdSfTep            raw    9455 rk     5 norm  9455 age    3.1h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.094 contrib   885.6  voting
+    ktcTradesSfTep           raw    8776 rk     6 norm  9463 age    3.1h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.094 contrib   886.3  voting
+    dynastyNerdsSfTep        raw    9336 rk     5 norm  9481 age  293.0h exp  722.6h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.094 contrib   888.0  voting
+    fantasyCalc              raw    9118 rk     5 norm  9481 age    3.1h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.094 contrib   888.0  voting
+    otcffbSf                 raw      88 rk     4 norm  9617 age    7.9h exp   24.6h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.094 contrib   900.7  voting
+    dynastyDaddySf           raw   10150 rk     2 norm  9883 age    3.1h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.094 contrib   925.6  voting
+    fantasyProsSf            raw       — rk     3 norm  9752 age   28.4h exp   48.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.094 contrib   913.4  voting
+    flockFantasySf           raw       — rk     5 norm  9481 age   13.8h exp   48.7h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.094 contrib   888.0  voting
+    yahooBoone               raw     107 rk    11 norm  8687 age  482.3h exp  840.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.094 contrib   813.6  voting
+    idpTradeCalc             raw    9949 rk     4 norm  9951 age  196.5h exp  127.8h fresh 0.878 hlth 1.00 base 1.00 eff 0.878 share 0.082 contrib   818.4  voting
+    pfkDynasty               raw    9489 rk     6 norm  9345 age  112.7h exp   54.2h fresh 0.678 hlth 1.00 base 1.00 eff 0.678 share 0.064 contrib   593.8  voting
+    idpShowCombined          raw       — rk     5 norm  8711 age  814.4h exp  168.0h fresh 0.120 hlth 1.00 base 1.00 eff 0.120 share 0.011 contrib    98.2  voting
+    dlfSf                    raw       — rk     4 norm  9883 age  437.4h exp   52.0h fresh 0.000 hlth 1.00 base 1.00 eff 0.000 share     — contrib       —  excluded_stale_or_unhealthy
+    fantasyProsFitzmaurice   raw      89 rk     3 norm  9752 age  537.7h exp  737.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share     — contrib       —  superseded_by_family
+    draftSharks              raw       — rk    12 norm  7531 age    3.1h exp   19.1h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share     — contrib       —  hampel_outlier
+  KTC MARKET  crowd 9455  trades 8776  market 9115.0 (norm 9458.4)  freshness/confidence {'marketFreshness': 1.0, 'crowdFreshness': 1.0, 'tradesFreshness': 1.0, 'confidence': 1.0, 'componentStale': False}
+  MODEL VS KTC MARKET  abs 398.0  pct 0.0437  normalized 54.6  direction consensus_premium
 
-PLAYER: Kaelon Black (RB)  model 2634 rank 230  state NORMAL retained 0.7822  confidence low
+PLAYER: Kaelon Black (RB)  model 2590 rank 232  state NORMAL retained 0.7798  confidence low
   MODEL SOURCES
-    ktcCrowdSfTep            raw    3296 rk   125 norm  3296 age    4.7h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.085 contrib   280.9  voting
-    ktcTradesSfTep           raw    2939 rk   149 norm  3166 age    4.7h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.085 contrib   269.8  voting
-    dynastyNerdsSfTep        raw     139 rk   180 norm  2121 age  289.8h exp  722.6h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.085 contrib   180.8  voting
-    fantasyCalc              raw    1549 rk   136 norm  2691 age    4.7h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.085 contrib   229.4  voting
-    otcffbSf                 raw      12 rk   135 norm  2707 age    4.7h exp   24.6h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.085 contrib   230.7  voting
-    dynastyDaddySf           raw    1548 rk   129 norm  2809 age    4.7h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.085 contrib   239.4  voting
-    fantasyProsSf            raw       — rk   227 norm  1721 age   25.3h exp   48.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.085 contrib   146.7  voting
-    flockFantasySf           raw       — rk   202 norm  2230 age   10.6h exp   48.7h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.085 contrib   190.1  voting
-    yahooBoone               raw      22 rk   157 norm  2387 age  479.1h exp  840.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.085 contrib   203.5  voting
-    draftSharks              raw       — rk   146 norm  3077 age    4.7h exp   19.5h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.085 contrib   262.3  voting
-    idpTradeCalc             raw    2452 rk   316 norm  2452 age  193.3h exp  127.8h fresh 0.887 hlth 1.00 base 1.00 eff 0.887 share 0.076 contrib   185.3  voting
-    pfkDynasty               raw    1898 rk   184 norm  2080 age  109.5h exp   54.2h fresh 0.700 hlth 1.00 base 1.00 eff 0.700 share 0.060 contrib   124.0  voting
-    idpShowCombined          raw       — rk   416 norm  1894 age  811.2h exp  168.0h fresh 0.122 hlth 1.00 base 1.00 eff 0.122 share 0.010 contrib    19.7  voting
-    dlfRookieSf              raw       — rk    29 norm  1764 age  408.2h exp   56.5h fresh 0.024 hlth 1.00 base 1.00 eff 0.024 share 0.002 contrib     3.7  voting
-    dlfSf                    raw       — rk   234 norm  1591 age  434.2h exp   52.0h fresh 0.000 hlth 1.00 base 1.00 eff 0.000 share     — contrib       —  excluded_stale_or_unhealthy
-    fantasyNavigatorSf       raw     175 rk   221 norm  1786 age   25.3h exp   24.0h fresh 0.998 hlth 1.00 base 1.00 eff 0.998 share     — contrib       —  superseded_by_family
-    fantasyProsFitzmaurice   raw      16 rk   199 norm  1940 age  534.6h exp  737.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share     — contrib       —  superseded_by_family
-    flockFantasySfRookies    raw       — rk    27 norm  1906 age  437.3h exp  168.0h fresh 0.504 hlth 1.00 base 1.00 eff 0.348 share     — contrib       —  superseded_by_family
-  KTC MARKET  crowd 3296  trades 2939  market 3118.0 (norm 3234.5)  freshness/confidence {'marketFreshness': 1.0, 'crowdFreshness': 1.0, 'tradesFreshness': 1.0, 'confidence': 1.0, 'componentStale': False}
-  MODEL VS KTC MARKET  abs -484.0  pct -0.1552  normalized -600.5  direction retail_premium
+    ktcCrowdSfTep            raw    3295 rk   126 norm  3295 age    3.1h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.086 contrib   281.7  voting
+    ktcTradesSfTep           raw    2941 rk   148 norm  3171 age    3.1h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.086 contrib   271.1  voting
+    dynastyNerdsSfTep        raw     139 rk   180 norm  2121 age  293.0h exp  722.6h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.086 contrib   181.3  voting
+    fantasyCalc              raw    1534 rk   136 norm  2691 age    3.1h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.086 contrib   230.1  voting
+    otcffbSf                 raw      12 rk   135 norm  2707 age    7.9h exp   24.6h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.086 contrib   231.4  voting
+    dynastyDaddySf           raw    1539 rk   129 norm  2809 age    3.1h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.086 contrib   240.1  voting
+    fantasyProsSf            raw       — rk   227 norm  1721 age   28.4h exp   48.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.086 contrib   147.1  voting
+    flockFantasySf           raw       — rk   202 norm  2230 age   13.8h exp   48.7h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.086 contrib   190.6  voting
+    yahooBoone               raw      22 rk   157 norm  2387 age  482.3h exp  840.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.086 contrib   204.1  voting
+    draftSharks              raw       — rk   139 norm  3059 age    3.1h exp   19.1h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.086 contrib   261.5  voting
+    idpTradeCalc             raw    2452 rk   316 norm  2452 age  196.5h exp  127.8h fresh 0.878 hlth 1.00 base 1.00 eff 0.878 share 0.075 contrib   184.1  voting
+    pfkDynasty               raw    1898 rk   184 norm  2080 age  112.7h exp   54.2h fresh 0.678 hlth 1.00 base 1.00 eff 0.678 share 0.058 contrib   120.6  voting
+    idpShowCombined          raw       — rk   416 norm  1894 age  814.4h exp  168.0h fresh 0.120 hlth 1.00 base 1.00 eff 0.120 share 0.010 contrib    19.5  voting
+    dlfRookieSf              raw       — rk    29 norm  1764 age  411.4h exp   55.0h fresh 0.020 hlth 1.00 base 1.00 eff 0.020 share 0.002 contrib     3.1  voting
+    dlfSf                    raw       — rk   234 norm  1591 age  437.4h exp   52.0h fresh 0.000 hlth 1.00 base 1.00 eff 0.000 share     — contrib       —  excluded_stale_or_unhealthy
+    fantasyNavigatorSf       raw     175 rk   221 norm  1786 age    3.1h exp   24.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share     — contrib       —  superseded_by_family
+    fantasyProsFitzmaurice   raw      16 rk   199 norm  1940 age  537.7h exp  737.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share     — contrib       —  superseded_by_family
+    flockFantasySfRookies    raw       — rk    27 norm  1880 age  440.5h exp  168.6h fresh 0.501 hlth 1.00 base 1.00 eff 0.346 share     — contrib       —  superseded_by_family
+  KTC MARKET  crowd 3295  trades 2941  market 3118.0 (norm 3235.5)  freshness/confidence {'marketFreshness': 1.0, 'crowdFreshness': 1.0, 'tradesFreshness': 1.0, 'confidence': 1.0, 'componentStale': False}
+  MODEL VS KTC MARKET  abs -528.0  pct -0.1693  normalized -645.5  direction retail_premium
 
-PLAYER: Jack Campbell (LB)  model 5182 rank 62  state NORMAL retained 0.8929  confidence medium
+PLAYER: Jack Campbell (LB)  model 5606 rank 47  state NORMAL retained 0.889  confidence medium
   MODEL SOURCES
-    fantasyProsIdp           raw       — rk     3 norm  5238 age  144.0h exp  271.1h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.280 contrib  1466.6  voting
-    draftSharksIdp           raw       — rk     7 norm  4754 age    4.7h exp   14.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.280 contrib  1331.1  voting
-    idpTradeCalc             raw    5651 rk    51 norm  5652 age  193.3h exp  127.8h fresh 0.887 hlth 1.00 base 1.00 eff 0.887 share 0.248 contrib  1403.2  voting
-    dlfIdp                   raw       — rk     4 norm  5238 age  346.2h exp  168.0h fresh 0.685 hlth 1.00 base 1.00 eff 0.685 share 0.192 contrib  1004.3  voting
-    idpShowCombined          raw       — rk   106 norm  3876 age  811.2h exp  168.0h fresh 0.122 hlth 1.00 base 1.00 eff 0.122 share     — contrib       —  hampel_outlier
+    fantasyProsIdp           raw       — rk     4 norm  5201 age  147.2h exp  271.1h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.281 contrib  1462.6  voting
+    draftSharksIdp           raw       — rk     5 norm  5648 age    3.1h exp   13.9h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.281 contrib  1588.3  voting
+    idpTradeCalc             raw    5651 rk    51 norm  5652 age  196.5h exp  127.8h fresh 0.878 hlth 1.00 base 1.00 eff 0.878 share 0.247 contrib  1395.6  voting
+    dlfIdp                   raw       — rk     4 norm  5238 age  349.4h exp  168.0h fresh 0.678 hlth 1.00 base 1.00 eff 0.678 share 0.191 contrib   998.7  voting
+    idpShowCombined          raw       — rk   106 norm  3876 age  814.4h exp  168.0h fresh 0.120 hlth 1.00 base 1.00 eff 0.120 share     — contrib       —  hampel_outlier
   KTC MARKET  crowd None  trades None  market None (norm None)  freshness/confidence None
   MODEL VS KTC MARKET  abs None  pct None  normalized None  direction none
 
-PLAYER: Aidan Hutchinson (DL)  model 6411 rank 33  state NORMAL retained 0.8572  confidence medium
+PLAYER: Aidan Hutchinson (DL)  model 6411 rank 33  state NORMAL retained 0.852  confidence medium
   MODEL SOURCES
-    fantasyProsIdp           raw       — rk     1 norm  6108 age  144.0h exp  271.1h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.389 contrib  2375.3  voting
-    idpTradeCalc             raw    6444 rk    31 norm  6445 age  193.3h exp  127.8h fresh 0.887 hlth 1.00 base 1.00 eff 0.887 share 0.345 contrib  2222.4  voting
-    dlfIdp                   raw       — rk     1 norm  6108 age  346.2h exp  168.0h fresh 0.685 hlth 1.00 base 1.00 eff 0.685 share 0.266 contrib  1626.6  voting
-    idpShowCombined          raw       — rk    71 norm  4592 age  811.2h exp  168.0h fresh 0.122 hlth 1.00 base 1.00 eff 0.122 share     — contrib       —  hampel_outlier
-    draftSharksIdp           raw       — rk    46 norm  2410 age    4.7h exp   14.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share     — contrib       —  hampel_outlier
+    fantasyProsIdp           raw       — rk     1 norm  6108 age  147.2h exp  271.1h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.391 contrib  2389.6  voting
+    idpTradeCalc             raw    6444 rk    31 norm  6445 age  196.5h exp  127.8h fresh 0.878 hlth 1.00 base 1.00 eff 0.878 share 0.344 contrib  2214.1  voting
+    dlfIdp                   raw       — rk     1 norm  6108 age  349.4h exp  168.0h fresh 0.678 hlth 1.00 base 1.00 eff 0.678 share 0.265 contrib  1620.1  voting
+    idpShowCombined          raw       — rk    71 norm  4592 age  814.4h exp  168.0h fresh 0.120 hlth 1.00 base 1.00 eff 0.120 share     — contrib       —  hampel_outlier
+    draftSharksIdp           raw       — rk    33 norm  3171 age    3.1h exp   13.9h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share     — contrib       —  hampel_outlier
   KTC MARKET  crowd None  trades None  market None (norm None)  freshness/confidence None
   MODEL VS KTC MARKET  abs None  pct None  normalized None  direction none
 
-PLAYER: Fred Warner (LB)  model 4192 rank 95  state DEGRADED retained 0.7387  confidence medium
+PLAYER: Fred Warner (LB)  model 4239 rank 93  state DEGRADED retained 0.7353  confidence medium
   MODEL SOURCES
-    fantasyProsIdp           raw       — rk     7 norm  4811 age  144.0h exp  271.1h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.271 contrib  1302.6  voting
-    draftSharksIdp           raw       — rk    12 norm  4309 age    4.7h exp   14.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.271 contrib  1166.7  voting
-    idpTradeCalc             raw    4169 rk   116 norm  4170 age  193.3h exp  127.8h fresh 0.887 hlth 1.00 base 1.00 eff 0.887 share 0.240 contrib  1001.1  voting
-    dlfIdp                   raw       — rk    20 norm  3304 age  346.2h exp  168.0h fresh 0.685 hlth 1.00 base 1.00 eff 0.685 share 0.185 contrib   612.6  voting
-    idpShowCombined          raw       — rk   114 norm  3751 age  811.2h exp  168.0h fresh 0.122 hlth 1.00 base 1.00 eff 0.122 share 0.033 contrib   123.8  voting
+    fantasyProsIdp           raw       — rk     9 norm  4754 age  147.2h exp  271.1h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.272 contrib  1293.1  voting
+    draftSharksIdp           raw       — rk    15 norm  4353 age    3.1h exp   13.9h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.272 contrib  1184.0  voting
+    idpTradeCalc             raw    4173 rk   115 norm  4174 age  196.5h exp  127.8h fresh 0.878 hlth 1.00 base 1.00 eff 0.878 share 0.239 contrib   996.9  voting
+    dlfIdp                   raw       — rk    20 norm  3304 age  349.4h exp  168.0h fresh 0.678 hlth 1.00 base 1.00 eff 0.678 share 0.184 contrib   609.3  voting
+    idpShowCombined          raw       — rk   114 norm  3751 age  814.4h exp  168.0h fresh 0.120 hlth 1.00 base 1.00 eff 0.120 share 0.033 contrib   122.8  voting
   KTC MARKET  crowd None  trades None  market None (norm None)  freshness/confidence None
   MODEL VS KTC MARKET  abs None  pct None  normalized None  direction none
 
-PLAYER: Myles Garrett (DL)  model 5217 rank 61  state DEGRADED retained 0.6907  confidence medium
+PLAYER: Myles Garrett (DL)  model 5211 rank 61  state DEGRADED retained 0.6691  confidence medium
   MODEL SOURCES
-    fantasyProsIdp           raw       — rk     9 norm  4754 age  144.0h exp  271.1h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.362 contrib  1720.8  voting
-    idpTradeCalc             raw    5404 rk    64 norm  5405 age  164.9h exp  127.8h fresh 0.956 hlth 1.00 base 1.00 eff 0.956 share 0.346 contrib  1870.2  voting
-    dlfIdp                   raw       — rk     7 norm  4811 age  346.2h exp  168.0h fresh 0.685 hlth 1.00 base 1.00 eff 0.685 share 0.248 contrib  1192.6  voting
-    idpShowCombined          raw       — rk    89 norm  4184 age  811.2h exp  168.0h fresh 0.122 hlth 1.00 base 1.00 eff 0.122 share 0.044 contrib   184.6  voting
-    draftSharksIdp           raw       — rk   122 norm  1820 age    4.7h exp   14.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share     — contrib       —  hampel_outlier
+    fantasyProsIdp           raw       — rk     8 norm  4783 age  147.2h exp  271.1h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.374 contrib  1787.0  voting
+    idpTradeCalc             raw    5404 rk    64 norm  5405 age  196.5h exp  127.8h fresh 0.878 hlth 1.00 base 1.00 eff 0.878 share 0.328 contrib  1773.3  voting
+    dlfIdp                   raw       — rk     7 norm  4811 age  349.4h exp  168.0h fresh 0.678 hlth 1.00 base 1.00 eff 0.678 share 0.253 contrib  1218.7  voting
+    idpShowCombined          raw       — rk    89 norm  4184 age  814.4h exp  168.0h fresh 0.120 hlth 1.00 base 1.00 eff 0.120 share 0.045 contrib   188.2  voting
+    draftSharksIdp           raw       — rk    93 norm  1979 age    3.1h exp   13.9h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share     — contrib       —  hampel_outlier
   KTC MARKET  crowd None  trades None  market None (norm None)  freshness/confidence None
   MODEL VS KTC MARKET  abs None  pct None  normalized None  direction none
 
-PLAYER: 2027 Early 1st (PICK)  model 6773 rank 29  state DEGRADED retained 0.7025  confidence high
+PLAYER: Kyle Hamilton (DB)  model 3158 rank 170  state DEGRADED retained 0.7353  confidence medium
   MODEL SOURCES
-    ktcCrowdSfTep            raw    6984 rk    19 norm  6984 age    4.7h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.474 contrib  3313.9  voting
-    ktcTradesSfTep           raw    5812 rk    39 norm  6261 age    4.7h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.474 contrib  2970.8  voting
-    idpTradeCalc             raw    6909 rk    26 norm  6910 age  641.5h exp  127.8h fresh 0.107 hlth 1.00 base 1.00 eff 0.107 share 0.051 contrib   352.5  voting
-  KTC MARKET  crowd 6984  trades 5812  market 6398.0 (norm 6637.0)  freshness/confidence {'marketFreshness': 1.0, 'crowdFreshness': 1.0, 'tradesFreshness': 1.0, 'confidence': 1.0, 'componentStale': False}
-  MODEL VS KTC MARKET  abs 375.0  pct 0.0586  normalized 136.0  direction consensus_premium
+    fantasyProsIdp           raw       — rk    30 norm  3077 age  147.2h exp  271.1h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.272 contrib   836.9  voting
+    draftSharksIdp           raw       — rk    62 norm  2269 age    3.1h exp   13.9h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.272 contrib   617.2  voting
+    idpTradeCalc             raw    3596 rk   155 norm  3597 age  196.5h exp  127.8h fresh 0.878 hlth 1.00 base 1.00 eff 0.878 share 0.239 contrib   859.1  voting
+    dlfIdp                   raw       — rk    36 norm  2982 age  349.4h exp  168.0h fresh 0.678 hlth 1.00 base 1.00 eff 0.678 share 0.184 contrib   549.9  voting
+    idpShowCombined          raw       — rk   128 norm  3554 age  814.4h exp  168.0h fresh 0.120 hlth 1.00 base 1.00 eff 0.120 share 0.033 contrib   116.4  voting
+  KTC MARKET  crowd None  trades None  market None (norm None)  freshness/confidence None
+  MODEL VS KTC MARKET  abs None  pct None  normalized None  direction none
+
+PLAYER: 2027 Early 1st (PICK)  model 6782 rank 29  state DEGRADED retained 0.7019  confidence high
+  MODEL SOURCES
+    ktcCrowdSfTep            raw    6999 rk    19 norm  6999 age    3.1h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.475 contrib  3323.7  voting
+    ktcTradesSfTep           raw    5826 rk    38 norm  6282 age    3.1h exp   12.0h fresh 1.000 hlth 1.00 base 1.00 eff 1.000 share 0.475 contrib  2983.2  voting
+    idpTradeCalc             raw    6909 rk    26 norm  6910 age  644.6h exp  127.8h fresh 0.106 hlth 1.00 base 1.00 eff 0.106 share 0.050 contrib   347.2  voting
+  KTC MARKET  crowd 6999  trades 5826  market 6412.0 (norm 6653.5)  freshness/confidence {'marketFreshness': 1.0, 'crowdFreshness': 1.0, 'tradesFreshness': 1.0, 'confidence': 1.0, 'componentStale': False}
+  MODEL VS KTC MARKET  abs 370.0  pct 0.0577  normalized 128.5  direction consensus_premium

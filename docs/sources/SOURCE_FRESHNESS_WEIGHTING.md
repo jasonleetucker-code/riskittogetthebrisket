@@ -294,28 +294,29 @@ Set `RISKIT_FEATURE_SOURCE_FRESHNESS_WEIGHTING=0` and restart. Every
 factor becomes 1.0 in valuation and confidence, while every diagnostic
 keeps computing and reporting. The KTC split is not behind this flag.
 
-## H. Current effective weights (2026-09-23T18:41Z)
+## H. Current effective weights (board 2026-09-23T21:51Z, the PR's final head)
 
 | source | subset | style | E | age | r | fresh | health | cov | base | **effective** | state |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| ktcCrowdSfTep | players / picks | SNAPSHOT | 12 h | 4.7 h | 0.39 | 1.000 | 1 | 1 | 1 | **1.000** | ON_SCHEDULE |
-| ktcTradesSfTep | players / picks | SNAPSHOT | 12 h | 4.7 h | 0.39 | 1.000 | 1 | 1 | 1 | **1.000** | ON_SCHEDULE |
-| idpTradeCalc | players | BATCH | 127.8 h | 193 h | 1.51 | 0.887 | 1 | 1 | 1 | **0.887** | OVERDUE |
-| idpTradeCalc | picks | UNKNOWN | 127.8 h | 642 h | 5.02 | 0.107 | 1 | 1 | 1 | **0.107** | SEVERELY_STALE |
-| idpShowCombined | players | EXPLICIT | 168 h | 811 h | 4.83 | 0.122 | 1 | 1 | 1 | **0.122** | SEVERELY_STALE |
-| dlfSf | players | BATCH | 52 h | 434 h | 8.35 | 0 | 1 | 1 | 1 | **quarantined** | — |
-| dlfRookieSf | players | SNAPSHOT | 56.5 h | 408 h | 7.23 | 0.024 | 1 | 1 | 1 | **0.024** | SEVERELY_STALE |
-| dlfIdp | players | SNAPSHOT | 168 h | 346 h | 2.06 | 0.685 | 1 | 1 | 1 | **0.685** | STALE |
-| dlfRookieIdp | players | BATCH | 314.5 h | 346 h | 1.10 | 0.994 | 1 | 1 | 1 | **0.994** | ON_SCHEDULE |
-| pfkDynasty | players | SNAPSHOT | 54.2 h | 110 h | 2.02 | 0.700 | 1 | 1 | 1 | **0.700** | STALE |
-| flockFantasySfRookies | players | SNAPSHOT | 168 h | 437 h | 2.60 | 0.504 | 1 | 0.69 | 1 | **0.348** | STALE |
-| fantasyNavigatorSf | players | UNKNOWN | 24 h | 25 h | 1.05 | 0.998 | 1 | 1 | 1 | **0.998** | ON_SCHEDULE |
-| all other voters | players | mostly SNAPSHOT | 12 h – 35 d | < E | ≤ 1 | 1.000 | 1 | 1 | 1 | **1.000** | ON_SCHEDULE |
-| ktcCrowdTradesSfTep | players / picks | SNAPSHOT | 12 h | 4.7 h | — | 1.000 | — | — | — | **benchmark (no vote)** | ON_SCHEDULE |
+| ktcCrowdSfTep | players / picks | SNAPSHOT | 12 h | 3.1 h | 0.26 | 1.000 | 1 | 1 | 1 | **1.000** | ON_SCHEDULE |
+| ktcTradesSfTep | players / picks | SNAPSHOT | 12 h | 3.1 h | 0.26 | 1.000 | 1 | 1 | 1 | **1.000** | ON_SCHEDULE |
+| idpTradeCalc | players | BATCH | 127.8 h | 197 h | 1.54 | 0.878 | 1 | 1 | 1 | **0.878** | OVERDUE |
+| idpTradeCalc | picks | UNKNOWN | 127.8 h | 645 h | 5.04 | 0.106 | 1 | 1 | 1 | **0.106** | SEVERELY_STALE |
+| idpShowCombined | players | EXPLICIT | 168 h | 814 h | 4.85 | 0.120 | 1 | 1 | 1 | **0.120** | SEVERELY_STALE |
+| dlfSf | players | BATCH | 52 h | 437 h | 8.41 | 0 | 1 | 1 | 1 | **quarantined** | — |
+| dlfRookieSf | players | SNAPSHOT | 55 h | 411 h | 7.48 | 0.020 | 1 | 1 | 1 | **0.020** | SEVERELY_STALE |
+| dlfIdp | players | SNAPSHOT | 168 h | 349 h | 2.08 | 0.678 | 1 | 1 | 1 | **0.678** | STALE |
+| dlfRookieIdp | players | BATCH | 314.5 h | 349 h | 1.11 | 0.992 | 1 | 1 | 1 | **0.992** | ON_SCHEDULE |
+| pfkDynasty | players | SNAPSHOT | 54.2 h | 113 h | 2.08 | 0.678 | 1 | 1 | 1 | **0.678** | STALE |
+| flockFantasySfRookies | players | SNAPSHOT | 168.6 h | 441 h | 2.61 | 0.501 | 1 | 0.69 | 1 | **0.346** | STALE |
+| all other voters | players | SNAPSHOT / BATCH / UNKNOWN | 12 h – 35 d | < E | ≤ 1 | 1.000 | 1 | 1 | 1 | **1.000** | ON_SCHEDULE |
+| ktcCrowdTradesSfTep | players / picks | SNAPSHOT | 12 h | 3.1 h | — | 1.000 | — | — | — | **benchmark (no vote)** | ON_SCHEDULE |
 
-Row states: NORMAL 685, DEGRADED 224, SEVERELY_DEGRADED 86. Sixty of the
-severely degraded rows are 2026 picks priced only by stale IDPTC pick
-values.
+Row states: NORMAL 610, DEGRADED 299, SEVERELY_DEGRADED 86. Most severely
+degraded rows are 2026 picks priced only by stale IDPTC pick values.
+
+The earlier draft of this table was taken at 18:41Z. Its numbers differ
+only because the data aged three more hours.
 
 ## I. Real player examples (production `main` → this branch)
 
@@ -381,13 +382,16 @@ Nothing in this change targets KTC or any other single board.
 
 ## J. Model vs KTC Market (benchmark, not target)
 
-| player | our model | KTC Market (raw / normalized) | difference | direction |
+| player | our model | KTC Market (raw / normalized) | difference (raw / normalized) | direction |
 |---|---|---|---|---|
-| Josh Allen | 9963 | 9588 / 9946 | +375 raw, +17 normalized | consensus_premium |
-| Ja'Marr Chase | 9513 | 9123 / 9464 | +390 / +49 | consensus_premium |
-| Kaelon Black | 2634 | 3118 / 3235 | −484 / −601 | retail_premium |
-| 2027 Early 1st | 6773 | 6398 / 6637 | +375 / +136 | consensus_premium |
-| Jack Campbell (LB) | 5182 | — (no KTC coverage) | — | none |
+| Josh Allen | 9931 | 9589 / 9950 | +342 / −19 | retail_premium (normalized) |
+| Ja'Marr Chase | 9513 | 9115 / 9458 | +398 / +55 | consensus_premium |
+| Kaelon Black | 2590 | 3118 / 3236 | −528 / −646 | retail_premium |
+| 2027 Early 1st | 6782 | 6412 / 6654 | +370 / +129 | consensus_premium |
+| Jack Campbell (LB) | 5606 | — (no KTC coverage) | — | none |
+
+`direction` is decided on the normalized difference, because KTC's raw
+Crowd+Trades scale tops out below 9999.
 
 The explainer is available at `GET /api/players/{id}/value-explain` and
 `scripts/source_weighting_report.py --player`. It lists each model source

@@ -1,6 +1,6 @@
 {
  "backfill": {
-  "commits": 74,
+  "commits": 75,
   "firstCommitAt": "2026-09-09T09:40:42-04:00",
   "method": "git_history_replay",
   "ref": "HEAD",
@@ -602,7 +602,7 @@
      "rowsTotal": 36
     },
     {
-     "at": "2026-09-23T22:46:28Z",
+     "at": "2026-09-23T21:54:29Z",
      "broad": true,
      "rowsAdded": 0,
      "rowsChanged": 35,
@@ -610,12 +610,12 @@
      "rowsTotal": 36
     }
    ],
-   "contentSince": "2026-09-23T22:46:28Z",
+   "contentSince": "2026-09-23T21:54:29Z",
    "fingerprint": "7df768dcf72fba10693595c9",
    "firstObservationIsBaseline": true,
    "firstObservedAt": "2026-09-09T13:40:42Z",
-   "lastAnyMeaningfulChangeAt": "2026-09-23T22:46:28Z",
-   "lastBroadDatasetChangeAt": "2026-09-23T22:46:28Z",
+   "lastAnyMeaningfulChangeAt": "2026-09-23T21:54:29Z",
+   "lastBroadDatasetChangeAt": "2026-09-23T21:54:29Z",
    "rowChangedAt": {},
    "rowCount": 36,
    "rowCountHistory": [
@@ -1276,7 +1276,7 @@
      "rowsTotal": 464
     },
     {
-     "at": "2026-09-23T22:46:28Z",
+     "at": "2026-09-23T21:54:29Z",
      "broad": true,
      "rowsAdded": 1,
      "rowsChanged": 239,
@@ -1284,12 +1284,12 @@
      "rowsTotal": 464
     }
    ],
-   "contentSince": "2026-09-23T22:46:28Z",
+   "contentSince": "2026-09-23T21:54:29Z",
    "fingerprint": "256f654bbdf1475cb402237c",
    "firstObservationIsBaseline": true,
    "firstObservedAt": "2026-09-09T13:40:42Z",
-   "lastAnyMeaningfulChangeAt": "2026-09-23T22:46:28Z",
-   "lastBroadDatasetChangeAt": "2026-09-23T22:46:28Z",
+   "lastAnyMeaningfulChangeAt": "2026-09-23T21:54:29Z",
+   "lastBroadDatasetChangeAt": "2026-09-23T21:54:29Z",
    "rowChangedAt": {},
    "rowCount": 464,
    "rowCountHistory": [
