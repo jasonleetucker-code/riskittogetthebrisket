@@ -1,17 +1,25 @@
 {
- "generatedAt": "2026-09-23T00:59:48.277304+00:00",
+ "generatedAt": "2026-09-23T08:01:25.511426+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 2065,
+ "calls": 2062,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 2043,
+ "v2Same": 2040,
  "v2WouldChange": 22,
  "v2Examples": [
+  {
+   "name": "Andru Phillips",
+   "pos": "",
+   "served": "4555",
+   "engineV2": "11700",
+   "v2Method": "exact_canonical:name",
+   "v2Reason": null
+  },
   {
    "name": "Bam Knight",
    "pos": "",
@@ -155,14 +163,6 @@
    "engineV2": null,
    "v2Method": "exact_clean:name_pos",
    "v2Reason": "ambiguous"
-  },
-  {
-   "name": "D.J. Moore",
-   "pos": "DL",
-   "served": "4983",
-   "engineV2": "4961",
-   "v2Method": "exact_lookup:name_pos",
-   "v2Reason": null
   },
   {
    "name": "Jamarion Miller",
