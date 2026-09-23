@@ -1,10 +1,10 @@
 {
-  "version": "v1.3",
+  "version": "v1.4",
   "baseline_league": {
     "id": "1328545898812170240",
     "label": "Standard Baseline"
   },
-  "seasons": [2022, 2023, 2024, 2025],
+  "seasons": [2022, 2023, 2024, 2025, 2026],
   "sample_sizes": {
     "FLEX": 96
   }
