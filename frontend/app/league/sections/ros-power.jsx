@@ -592,16 +592,38 @@ export default function RosPowerSection({ managers } = {}) {
   const blend = data.blend || {};
   const scoredGames = Number(blend.scoredGames || 0);
   const medianGameEnabled = data.medianGameEnabled;
-  const forwardPct = Math.round(Number(blend.forwardWeight || 0) * 100);
-  const resultsPct = Math.round(Number(blend.resultsWeight || 0) * 100);
-
-  // Render the formula from the weights actually applied. Missing canonical
-  // inputs (for example realized weekly VORP before its owner is ready) never
-  // appear as fabricated zero-weight evidence. Order by weight descending.
-  const formulaParts = Object.entries(effectiveWeights)
-    .filter(([, w]) => Number(w) > 0)
-    .sort((a, b) => Number(b[1]) - Number(a[1]))
-    .map(([key, w]) => `${COMPONENT_LABELS[key] || key} (${Math.round(Number(w) * 100)}%)`);
+  // The formula is the backend's ``methodology`` block, rendered verbatim:
+  // it is derived from the exact weights the score was computed with, and its
+  // ``displayPct`` values are already rounded to sum to 100. Nothing here
+  // re-rounds or re-derives a weight, so the text cannot drift from the
+  // calculation as the season-aware blend moves week to week. A 0% component
+  // the model is still waiting on is named with when it activates, never
+  // silently dropped. Payloads without ``methodology`` predate it and keep the
+  // previous rendering.
+  const methodology = data.methodology;
+  const forwardPct = methodology
+    ? methodology.forwardDisplayPct
+    : Math.round(Number(blend.forwardWeight || 0) * 100);
+  const resultsPct = methodology
+    ? methodology.resultsDisplayPct
+    : Math.round(Number(blend.resultsWeight || 0) * 100);
+  const formulaParts = methodology
+    ? [
+        ...methodology.components
+          .filter((c) => c.status === "active")
+          .sort((a, b) => b.displayPct - a.displayPct)
+          .map((c) => `${COMPONENT_LABELS[c.key] || c.key} (${c.displayPct}%)`),
+        ...methodology.components
+          .filter((c) => c.status === "inactive")
+          .map(
+            (c) =>
+              `${COMPONENT_LABELS[c.key] || c.key} (0% — activates after ${c.activatesAfterGames} games)`,
+          ),
+      ]
+    : Object.entries(effectiveWeights)
+        .filter(([, w]) => Number(w) > 0)
+        .sort((a, b) => Number(b[1]) - Number(a[1]))
+        .map(([key, w]) => `${COMPONENT_LABELS[key] || key} (${Math.round(Number(w) * 100)}%)`);
 
   return (
     <section>
@@ -648,12 +670,14 @@ export default function RosPowerSection({ managers } = {}) {
 
         <div style={{ fontSize: "0.72rem", color: "var(--subtext)", marginBottom: 10 }}>
           <span style={{ color: "var(--cyan)" }}>
-            Blend: {forwardPct}% forward-looking strength + {resultsPct}% results.{" "}
+            <span data-testid="power-methodology-blend">
+              Blend: {forwardPct}% forward-looking strength + {resultsPct}% results.
+            </span>{" "}
           </span>
           {preseason ? (
             <span>Preseason uses only legitimate forward-looking evidence.{" "}</span>
           ) : null}
-          {formulaParts.join(" + ")}
+          <span data-testid="power-methodology-formula">{formulaParts.join(" + ")}</span>
           {formulaParts.length > 0 && "."}
           {!rosAvailable && (
             <span style={{ color: "var(--amber)" }}> ROS roster strength not available yet.</span>
