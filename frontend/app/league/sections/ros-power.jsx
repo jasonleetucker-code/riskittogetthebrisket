@@ -338,6 +338,38 @@ function RankHistoryChart({ history, managers, highlightOwnerId = null }) {
 }
 
 
+// What an EMPTY movement cell says. NEW means "this franchise has no previous
+// official rank" and nothing else: the backend's ``movementBaseline`` names
+// whether a comparison was actually made, so a failed lookup or a week-0 table
+// (nothing earlier to compare with) reads "—", never twelve NEWs. A payload
+// without ``movementBaseline`` predates it and keeps the old per-row rule.
+function movementEmptyLabel(row, baseline) {
+  if (row?.previousOfficialRank != null) return "—";
+  const status = baseline?.status;
+  if (status == null || status === "compared" || status === "no_prior_publication") return "NEW";
+  return "—";
+}
+
+// The week the table/card describe. Week 0 is "Preseason" only when the
+// backend says so; in-season with no FINAL week yet (Week 1 in progress) it is
+// not preseason, and saying so on a shareable card is how a live table got
+// mistaken for last summer's.
+function weekLabel(week, preseason) {
+  if (week == null) return "";
+  if (Number(week) === 0) return preseason ? " · Preseason" : " · Week 1 in progress";
+  return ` · Week ${week}`;
+}
+
+// The table and the share card must render the same canonical rows, so the
+// card is only offered when the backend says the ranking covers the whole
+// current league. ``rankingComplete``/``expectedTeamCount`` are absent on
+// older payloads, which then fall back to "complete".
+function rankingIsComplete(data, rankings) {
+  if (data?.rankingComplete === false) return false;
+  const expected = data?.expectedTeamCount;
+  return expected == null || rankings.length === Number(expected);
+}
+
 function MovementMark({ value, emptyLabel = "—" }) {
   if (value == null) return <span style={{ color: "var(--subtext)" }}>{emptyLabel}</span>;
   if (Number(value) === 0) return <span style={{ color: "var(--subtext)" }}>—</span>;
@@ -368,11 +400,18 @@ function LeaguePowerShareCard({ data, rankings, managers }) {
   // "no baseline to move against" cannot read the same on a screenshot.
   // Taken from the published history, never inferred from the week number:
   // a league whose baseline was never published must not claim one.
-  const baseline = (data?.officialHistory || [])
+  const movementBaseline = data?.movementBaseline;
+  const historyBaseline = (data?.officialHistory || [])
     .filter((w) => week != null && w?.week != null && Number(w.week) === Number(week) - 1)
     .at(0);
+  const baseline =
+    movementBaseline?.status === "compared"
+      ? movementBaseline
+      : movementBaseline == null
+        ? historyBaseline
+        : null;
   const baselineLabel = baseline
-    ? `vs ${baseline.preseason ? "preseason" : `Week ${baseline.week}`}`
+    ? `vs ${baseline.preseason ? "preseason" : `Week ${baseline.week}`} official`
     : null;
 
   return (
@@ -393,7 +432,7 @@ function LeaguePowerShareCard({ data, rankings, managers }) {
         <div>
           <div style={{ fontSize: "1rem", fontWeight: 900, letterSpacing: "0.02em" }}>League Power Rankings</div>
           <div style={{ fontSize: "0.68rem", color: "var(--subtext)" }}>
-            {season ? season : "Current season"}{week === 0 ? " · Preseason" : week != null ? ` · Week ${week}` : ""} · Current
+            {season ? season : "Current season"}{weekLabel(week, data?.preseason)} · Current
             {baselineLabel ? ` · ${baselineLabel}` : ""}
           </div>
         </div>
@@ -435,7 +474,7 @@ function LeaguePowerShareCard({ data, rankings, managers }) {
                 ) : null}
               </div>
               <div style={{ textAlign: "right", fontSize: "0.74rem" }}>
-                <MovementMark value={movement} emptyLabel={row.previousOfficialRank == null ? "NEW" : "—"} />
+                <MovementMark value={movement} emptyLabel={movementEmptyLabel(row, movementBaseline)} />
               </div>
             </div>
           );
@@ -543,6 +582,7 @@ export default function RosPowerSection({ managers } = {}) {
     );
   }
 
+  const complete = rankingIsComplete(data, rankings);
   const specWeights = data.weights || {};
   const effectiveWeights = data.effectiveWeights || specWeights;
   const missing = data.missingInputs || [];
@@ -587,7 +627,17 @@ export default function RosPowerSection({ managers } = {}) {
           </button>
         </div>
 
-        {shareOpen ? (
+        {shareOpen && !complete ? (
+          <div
+            id="league-power-share-card"
+            data-testid="league-power-share-incomplete"
+            style={{ textAlign: "center", fontSize: "0.74rem", color: "var(--amber)", margin: "10px 0 14px" }}
+          >
+            Ranking incomplete — {rankings.length} of {data.expectedTeamCount ?? "?"} teams. No share
+            card is offered for a partial ranking.
+          </div>
+        ) : null}
+        {shareOpen && complete ? (
           <div id="league-power-share-card">
             <LeaguePowerShareCard data={data} rankings={rankings} managers={managers} />
             <div style={{ textAlign: "center", fontSize: "0.66rem", color: "var(--subtext)", margin: "-6px 0 10px" }}>
@@ -666,6 +716,7 @@ export default function RosPowerSection({ managers } = {}) {
                 onHover={setHoverOwnerId}
                 hovered={hoverOwnerId === row.ownerId}
                 trendDeltaValue={row.weekRankDelta}
+                movementBaseline={data.movementBaseline}
                 sectionGamesUsed={scoredGames}
               />
             ))}
@@ -703,27 +754,13 @@ export default function RosPowerSection({ managers } = {}) {
   );
 }
 
-function TrendCell({ deltaValue }) {
-  // Null means there is no legitimate previous official/diagnostic rank to
-  // compare with. It is not a fabricated "flat" movement.
-  if (deltaValue == null) {
-    return (
-      <td style={{ textAlign: "right", fontFamily: "var(--mono)", color: "var(--subtext)" }}>
-        —
-      </td>
-    );
-  }
-  if (deltaValue === 0) {
-    return (
-      <td style={{ textAlign: "right", fontFamily: "var(--mono)", color: "var(--subtext)" }}>
-        •
-      </td>
-    );
-  }
-  const up = deltaValue > 0;
+// The table's Move cell renders through the SAME ``MovementMark`` and empty
+// label as the share card, so one row can never read "•" in the table and
+// "—" on the card, or "—" in one and NEW in the other.
+function TrendCell({ deltaValue, emptyLabel }) {
   return (
-    <td style={{ textAlign: "right", fontFamily: "var(--mono)", color: up ? "var(--cyan)" : "var(--amber)" }}>
-      {up ? "▲" : "▼"} {Math.abs(deltaValue)}
+    <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>
+      <MovementMark value={deltaValue} emptyLabel={emptyLabel} />
     </td>
   );
 }
@@ -735,6 +772,7 @@ function RankingRow({
   expanded,
   onToggle,
   trendDeltaValue,
+  movementBaseline,
   onHover,
   hovered,
   sectionGamesUsed,
@@ -795,7 +833,7 @@ function RankingRow({
           {fmtPct(row.rosStrengthPercentile)}
         </td>
         <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{row.record || "—"}</td>
-        <TrendCell deltaValue={trendDeltaValue} />
+        <TrendCell deltaValue={trendDeltaValue} emptyLabel={movementEmptyLabel(row, movementBaseline)} />
       </tr>
       {expanded && (
         <tr>
