@@ -236,3 +236,10 @@ in one large file collide on paths and not on meaning.
   report.
 - A session that never fetches sees stale branches. The branch scan is only
   as current as your last `git fetch`.
+
+
+### ChatGPT / Codex — live 2026 League Comparison scoring — 2026-09-23
+
+| Work | Paths | Defect ids | Branch | Status |
+|---|---|---|---|---|
+| **Include live 2026 NFL production in League Comparison without treating an in-progress season as a completed equal-weight year.** Preserve the 2022–2025 evidence, use the existing canonical scoring engine/source fallback, expose the live-season progress/basis, and add regression coverage for partial-season weighting plus Week-17 convergence. Owner requested this directly on 2026-09-23. Reliability applicability: external-input provenance **ALREADY_COVERED** by nflverse→Sleeper fallback/source stamps; canonical-invariant regression tests **APPLY_NOW**; new persistence/deployment machinery **NOT_RELEVANT**. | `config/league_comparison.json`, `src/league_comparison/service.py`, `src/league_comparison/metrics.py`, `frontend/app/league-comparison/sections/Methodology.jsx`, `frontend/app/league-comparison/sections/YearByYear.jsx`, `tests/league_comparison/*`, `docs/OWNER_REQUESTED_TODO.md`, `docs/WORK_CLAIMS.md` | `LC-2026-LIVE` | `codex/league-comparison-2026-live` | in progress — no overlapping active claim/open PR found at startup; base main `f479fc71c2134dc379e2c86a92f3b453020c9d8c`. Agent-OS-Receipt: `cdca1dca8385f70c0989302dece8d1bd4ce4843c` |
