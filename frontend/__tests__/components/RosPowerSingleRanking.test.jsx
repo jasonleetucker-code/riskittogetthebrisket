@@ -191,6 +191,108 @@ describe("RosPowerSection — one ranking", () => {
   });
 });
 
+describe("Power methodology text — rendered from the calculation's own weights", () => {
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.restoreAllMocks());
+
+  function methodology(parts, inactive = []) {
+    return {
+      components: [
+        ...parts.map(([key, pct, group]) => ({
+          key,
+          group,
+          weight: pct / 100,
+          displayPct: pct,
+          status: "active",
+          reason: null,
+          activatesAfterGames: null,
+        })),
+        ...inactive.map((key) => ({
+          key,
+          group: "results",
+          weight: 0,
+          displayPct: 0,
+          status: "inactive",
+          reason: "redundant",
+          activatesAfterGames: 4,
+        })),
+        {
+          key: "team_vorp",
+          group: "results",
+          weight: 0,
+          displayPct: 0,
+          status: "unavailable",
+          reason: "not yet available",
+          activatesAfterGames: null,
+        },
+      ],
+      forwardDisplayPct: parts.filter(([, , g]) => g === "forward").reduce((a, [, p]) => a + p, 0),
+      resultsDisplayPct: parts.filter(([, , g]) => g === "results").reduce((a, [, p]) => a + p, 0),
+    };
+  }
+
+  async function renderWith(m, extra = {}) {
+    serve({ ...payload({ ranking: ROWS }), methodology: m, ...extra });
+    const RosPowerSection = await renderFresh();
+    render(<RosPowerSection />);
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
+    return {
+      blend: screen.getByTestId("power-methodology-blend").textContent,
+      formula: screen.getByTestId("power-methodology-formula").textContent,
+    };
+  }
+
+  const pcts = (text) => [...text.matchAll(/\((\d+)%/g)].map((m) => Number(m[1]));
+
+  it("shows the effective early-season blend, with recent form at 0% and when it activates", async () => {
+    const m = methodology(
+      [
+        ["team_ros_strength", 40, "forward"],
+        ["all_play", 45, "results"],
+        ["wl_record", 15, "results"],
+      ],
+      ["recent"],
+    );
+    // A stale blend on the same payload must not be what the reader sees.
+    const { blend, formula } = await renderWith(m, {
+      blend: { forwardWeight: 0.3, resultsWeight: 0.7 },
+    });
+    expect(blend).toBe("Blend: 40% forward-looking strength + 60% results.");
+    expect(formula).toBe(
+      "Season all-play (45%) + Forward-looking ROS strength (40%) + Official record (15%)" +
+        " + Recent form (last 4) (0% — activates after 4 games)",
+    );
+    expect(pcts(formula).reduce((a, b) => a + b, 0)).toBe(100);
+    expect(formula).not.toContain("30%");
+    expect(formula).not.toContain("VORP");
+  });
+
+  it("renders the backend's displayPct verbatim, so a 34/33/33 split still sums to 100", async () => {
+    const m = methodology([
+      ["team_ros_strength", 34, "forward"],
+      ["all_play", 33, "results"],
+      ["wl_record", 33, "results"],
+    ]);
+    const { blend, formula } = await renderWith(m);
+    expect(blend).toBe("Blend: 34% forward-looking strength + 66% results.");
+    expect(pcts(formula)).toEqual([34, 33, 33]);
+    expect(formula).not.toContain("activates");
+  });
+
+  it("follows the model into late season without any week-specific wording", async () => {
+    const m = methodology([
+      ["team_ros_strength", 30, "forward"],
+      ["all_play", 42, "results"],
+      ["recent", 14, "results"],
+      ["wl_record", 14, "results"],
+    ]);
+    const { blend, formula } = await renderWith(m);
+    expect(blend).toBe("Blend: 30% forward-looking strength + 70% results.");
+    expect(pcts(formula).reduce((a, b) => a + b, 0)).toBe(100);
+    expect(formula).toContain("Recent form (last 4) (14%)");
+  });
+});
+
 describe("LeaguePowerShareCard — movement since last week", () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.restoreAllMocks());

@@ -487,3 +487,22 @@ edits. Binding elements, as approved with the owner's required revision the same
 
 Plan of record: branch `claude/peaceful-goodall-3uqtyx`; detail in
 `docs/sources/SOURCE_FRESHNESS_WEIGHTING.md`. Authorization recorded in `docs/EXECUTION_PLAN.md` §0.
+
+### Power Rankings pipeline audit + methodology display — owner directive 2026-09-23
+
+Owner reported a League Power Rankings share card showing 10 of 12 teams, "Preseason" in
+Week 3, NEW on every row and a suspicious order. **Fixed, merged and deployed in PR #1400**
+(`0c156fc`, production-verified 2026-09-23): a half-fetched Sleeper snapshot (current-season
+rosters missing) was accepted as healthy, so the engine ranked the previous season's results,
+dropped the two 2026-only owners and lost its week. Snapshot ingestion now refuses it, the
+engine fails closed, publication refuses partial tables, and the table/share card share one
+movement renderer. Follow-up (owner directive, same day): the methodology text is generated
+from the canonical effective weights the score was computed with, per season stage, including
+0% components that are not yet active. No further action needed on the reported symptoms.
+
+Two items the owner explicitly kept OUT of the Power Rankings fix:
+
+| Priority | Issue | Area | Required outcome | Status |
+|---|---|---|---|---|
+| P2 correctness | Owner 2026-09-23 | Playoff odds | `src/public_league/playoff_odds.py::_season_weekly_scores` keeps its own per-entry `is_scored` (points > 0) filter over all `regular_season_weeks`: an in-progress week's partial scores enter the score distributions, and a roster that genuinely scored 0.0 in a finished week is dropped. Consume the canonical definition (`luck._season_weekly_scores`: `metrics.final_regular_season_weeks` + `points is None`) with tests for both cases. Its own unit — not part of the Power fix. | TODO |
+| Owner decision | Owner 2026-09-23 | Source freshness / value overhaul | The stale-DLF source-health warning seen during #1400 CI (`dlfSf`/`dlfIdp`/`dlfRookieSf`/`dlfRookieIdp` last fetched 2026-09-09) belongs to the separate source-freshness/value overhaul, not to Power Rankings. **Do not fix it by removing DLF.** The freshness system itself must make a broken/stale source lose authority automatically while preserving its last valid values. | DECISION |
