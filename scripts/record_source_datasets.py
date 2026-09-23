@@ -43,6 +43,13 @@ from src.sources.ktc_market import KTC_MARKET_KEY  # noqa: E402
 
 DEFAULT_STATE_DIR = REPO_ROOT / "data" / "scrape_state"
 
+# Boards fetched by their own production timers (deploy/dlf_fetch_and_push.sh,
+# deploy/idpshow_fetch_and_push.sh), which record their own state.  Every
+# other writer skips them: one writer per state file.
+PROD_TIMER_OWNED_KEYS: frozenset[str] = frozenset(
+    {"dlfSf", "dlfIdp", "dlfRookieSf", "dlfRookieIdp", "idpShowCombined"}
+)
+
 
 def recorded_sources(repo_root: Path = REPO_ROOT) -> list[tuple[str, Path, str]]:
     """``(source_key, csv_path, signal)`` for every registered voter plus the

@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -37,6 +38,20 @@ def _latest_payload() -> Path:
     return candidates[-1]
 
 
+def _fetch_stamps(state_dir: Path) -> dict[str, dict]:
+    """``{key: {lastFetched}}`` from ``<key>_last_success`` epoch stamps — the
+    infrastructure clock only, shown beside (never instead of) data age."""
+    out: dict[str, dict] = {}
+    for stamp in state_dir.glob("*_last_success"):
+        try:
+            epoch = float(stamp.read_text(encoding="utf-8").strip())
+        except (OSError, ValueError):
+            continue
+        at = datetime.fromtimestamp(epoch, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        out[stamp.name[: -len("_last_success")]] = {"lastFetched": at}
+    return out
+
+
 def _fmt(v, width, prec=2):
     if v is None:
         return "—".rjust(width)
@@ -50,7 +65,7 @@ def print_table(table: dict) -> None:
     print(f"formula: {table['formula']}")
     print(f"row states: {table['rowStates']}")
     hdr = (
-        f"{'SOURCE':24s} {'SUBSET':7s} {'ROLE':9s} {'STYLE':12s} {'EXP_h':>7s} "
+        f"{'SOURCE':24s} {'SUBSET':7s} {'ROLE':9s} {'STYLE':12s} {'EXP_h':>7s} {'LAST FETCH':>17s} "
         f"{'LAST ANY':>17s} {'LAST BROAD':>17s} {'AGE_h':>7s} {'r':>5s} {'FRESH':>6s} "
         f"{'HLTH':>5s} {'COV':>5s} {'BASE':>5s} {'EFF':>6s} {'SHARE':>6s} STATE"
     )
@@ -59,6 +74,7 @@ def print_table(table: dict) -> None:
         print(
             f"{r['source']:24s} {str(r.get('subset')):7s} {str(r.get('role'))[:9]:9s} "
             f"{str(r.get('publicationStyle'))[:12]:12s} {_fmt(r.get('expectedCadenceHours'), 7, 1)} "
+            f"{str(r.get('lastFetchedAt'))[:16]:>17s} "
             f"{str(r.get('lastAnyMeaningfulChangeAt'))[:16]:>17s} "
             f"{str(r.get('lastBroadDatasetChangeAt'))[:16]:>17s} "
             f"{_fmt(r.get('ageHours'), 7, 1)} {_fmt(r.get('ageOverExpected'), 5)} "
@@ -106,7 +122,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     payload_path = args.payload or _latest_payload()
     contract = build_api_data_contract(json.loads(payload_path.read_text(encoding="utf-8")))
-    table = source_table(contract)
+    table = source_table(contract, _fetch_stamps(REPO_ROOT / "data" / "scrape_state"))
     print_table(table)
     explained = []
     for name in args.player:

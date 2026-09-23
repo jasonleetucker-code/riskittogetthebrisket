@@ -182,3 +182,35 @@ class TestAsOfIsTheBoardsOwnTime:
 
     def test_a_historical_tree_never_reads_todays_state(self, tmp_path):
         assert dc._load_source_weighting(NOW, csv_root=tmp_path) == {}
+
+
+class TestConfidenceReadsContentFreshness:
+    """The B11 freshness axis: fetched-on-time is not fresh evidence when the
+    content itself has aged past ``freshForConfidence`` of its authority."""
+
+    def _evidence(self, freshness: float | None, *, applies: bool) -> bool | None:
+        meta = {"valueContribution": 5000, "method": "value_direct"}
+        if freshness is not None:
+            meta["freshness"] = freshness
+        (ev,) = dc._family_evidence_for_row(
+            row={"position": "WR"},
+            effective_source_ranks={"ktcCrowdSfTep": 10},
+            effective_source_meta={"ktcCrowdSfTep": meta},
+            src_by_key={},
+            family_by_key={"ktcCrowdSfTep": "ktcCrowd"},
+            fresh_by_source={"ktcCrowdSfTep": True},
+            content_freshness_applies=applies,
+        )
+        return ev.fresh
+
+    def test_stale_content_is_not_fresh_evidence(self):
+        assert self._evidence(CFG.fresh_for_confidence - 0.01, applies=True) is False
+
+    def test_mildly_overdue_content_is_still_fresh_evidence(self):
+        assert self._evidence(CFG.fresh_for_confidence + 0.01, applies=True) is True
+
+    def test_unreduced_content_keeps_the_fetch_answer(self):
+        assert self._evidence(None, applies=True) is True
+
+    def test_rollback_restores_the_fetch_only_answer(self):
+        assert self._evidence(0.05, applies=False) is True

@@ -195,7 +195,8 @@ def player_explain(contract: Mapping[str, Any], row: Mapping[str, Any]) -> dict[
                 "supersededBy": m.get("supersededBy"),
             }
         )
-    sources.sort(key=lambda s: -(s["voteShare"] or 0.0))
+    # Voters by share, then every non-voter (no share is not a zero share).
+    sources.sort(key=lambda s: (s["voteShare"] is None, -s["voteShare"] if s["voteShare"] else 0))
 
     model_value = row.get("rankDerivedValue")
     market = ktc_market_for_row(row)
@@ -214,6 +215,9 @@ def player_explain(contract: Mapping[str, Any], row: Mapping[str, Any]) -> dict[
         "validSourceCount": len(voters),
         "observedSourceCount": len(meta),
         "modelSources": sources,
+        # Off-cap rows (past OVERALL_RANK_LIMIT) are valued but carry no
+        # per-source stamps, so there is nothing to itemise — say so.
+        "sourceBreakdownAvailable": bool(meta),
         "ktcMarketBenchmark": {
             "definition": "KTC's published Crowd+Trades value (benchmark only — never a model input)",
             "sourceKey": KTC_MARKET_KEY,
@@ -224,19 +228,22 @@ def player_explain(contract: Mapping[str, Any], row: Mapping[str, Any]) -> dict[
             "ktcMarketRank": market.get("rank"),
             "available": market.get("available"),
             "unavailableReason": market.get("reason"),
-            "marketDataState": _market_data_state(summary),
+            "marketDataState": (
+                _market_data_state(summary, subset) if market.get("available") else None
+            ),
         },
         "modelVsKtcMarket": model_vs_market(model_value, market),
     }
 
 
-def _market_data_state(summary: Mapping[str, Any]) -> dict[str, Any]:
+def _market_data_state(summary: Mapping[str, Any], subset: str = "players") -> dict[str, Any]:
     """KTC Market's freshness, qualified by its two components — a fresh
-    market built from a stale Trades board is not reported as simply fresh."""
+    market built from a stale Trades board is not reported as simply fresh.
+    ``None`` for a row with no KTC Market (never a fabricated 1.0)."""
 
     def fresh(key: str) -> Any:
         subs = (summary.get(key) or {}).get("subsets") or {}
-        return (subs.get("players") or {}).get("freshness")
+        return (subs.get(subset) or {}).get("freshness")
 
     market, crowd, trades = fresh(KTC_MARKET_KEY), fresh(KTC_CROWD_KEY), fresh(KTC_TRADES_KEY)
     known = [v for v in (market, crowd, trades) if isinstance(v, (int, float))]
@@ -245,5 +252,5 @@ def _market_data_state(summary: Mapping[str, Any]) -> dict[str, Any]:
         "crowdFreshness": crowd,
         "tradesFreshness": trades,
         "confidence": None if not known else round(min(known), 4),
-        "qualified": bool(known) and min(known) < 0.95,
+        "componentStale": bool(known) and min(known) < 0.95,
     }

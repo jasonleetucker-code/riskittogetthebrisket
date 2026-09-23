@@ -46,10 +46,15 @@ def _git(*args: str) -> str:
     ).stdout
 
 
-def history(rel_path: str, ref: str, since: str | None) -> list[tuple[str, datetime]]:
+def history(
+    rel_path: str, ref: str, since: str | None, until: str | None = None
+) -> list[tuple[str, datetime]]:
     cmd = ["log", "--reverse", "--format=%H %cI", ref]
     if since:
         cmd.append(f"--since={since}")
+    if until:
+        # As-of replay for backtests: nothing committed after ``until`` is seen.
+        cmd.append(f"--until={until}")
     cmd += ["--", rel_path]
     out = []
     for line in _git(*cmd).splitlines():
@@ -60,11 +65,18 @@ def history(rel_path: str, ref: str, since: str | None) -> list[tuple[str, datet
 
 
 def backfill_source(
-    key: str, rel_path: str, signal: str, *, ref: str, since: str | None, state_dir: Path
+    key: str,
+    rel_path: str,
+    signal: str,
+    *,
+    ref: str,
+    since: str | None,
+    state_dir: Path,
+    until: str | None = None,
 ) -> dict:
     policy = broad_policy()
     state = None
-    commits = history(rel_path, ref, since)
+    commits = history(rel_path, ref, since, until)
     for sha, stamp in commits:
         try:
             text = _git("show", f"{sha}:{rel_path}")
@@ -96,6 +108,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--ref", default="HEAD")
     parser.add_argument("--since", default=None)
+    parser.add_argument("--until", default=None, help="As-of replay: ignore later commits")
     parser.add_argument("--state-dir", type=Path, default=DEFAULT_STATE_DIR)
     parser.add_argument("--only", nargs="*")
     args = parser.parse_args(argv)
@@ -104,7 +117,13 @@ def main(argv: list[str] | None = None) -> int:
             continue
         rel = str(csv_path.relative_to(REPO_ROOT))
         summary = backfill_source(
-            key, rel, signal, ref=args.ref, since=args.since, state_dir=args.state_dir
+            key,
+            rel,
+            signal,
+            ref=args.ref,
+            since=args.since,
+            state_dir=args.state_dir,
+            until=args.until,
         )
         print(f"{key:26s} commits={summary['commits']:4d} first={summary.get('first')}")
     return 0

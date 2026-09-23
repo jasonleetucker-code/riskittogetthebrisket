@@ -66,8 +66,8 @@ _DEFAULT_STALENESS_HOURS: dict[str, float] = {
 class StaleSourceAlert:
     source: str
     last_seen_iso: str
-    hours_stale: float
-    threshold_hours: float
+    hours_stale: float | None  # None: a state alert with no age (health, coverage)
+    threshold_hours: float | None
     transition: str  # "stale" | "recovered"
 
 
@@ -285,6 +285,18 @@ def detect_stale_sources(
 _CONTENT_ALERT_STATES = {"SEVERELY_STALE", "QUARANTINED"}
 
 
+def _number(value: Any) -> float | None:
+    """A real number, or ``None`` — an unknown age is never 0 hours."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def _at_least(value: Any, floor: float) -> bool:
+    number = _number(value)
+    return number is not None and number >= floor
+
+
 def detect_content_alerts(weighting: dict[str, Any] | None) -> list[StaleSourceAlert]:
     """Valuation-infrastructure alerts from the board's ``sourceWeighting``.
 
@@ -307,13 +319,12 @@ def detect_content_alerts(weighting: dict[str, Any] | None) -> list[StaleSourceA
         for subset, sub in (entry.get("subsets") or {}).items():
             if not isinstance(sub, dict) or sub.get("state") not in _CONTENT_ALERT_STATES:
                 continue
-            expected = float(sub.get("expectedCadenceHours") or 0.0)
             out.append(
                 StaleSourceAlert(
                     source=f"content:{key}/{subset}",
                     last_seen_iso=str(sub.get("sourceDataAsOf") or ""),
-                    hours_stale=float(sub.get("ageHours") or 0.0),
-                    threshold_hours=expected,
+                    hours_stale=_number(sub.get("ageHours")),
+                    threshold_hours=_number(sub.get("expectedCadenceHours")),
                     transition="stale",
                 )
             )
@@ -322,8 +333,8 @@ def detect_content_alerts(weighting: dict[str, Any] | None) -> list[StaleSourceA
                 StaleSourceAlert(
                     source=f"health:{key}:{entry.get('health')}",
                     last_seen_iso="",
-                    hours_stale=0.0,
-                    threshold_hours=0.0,
+                    hours_stale=None,
+                    threshold_hours=None,
                     transition="stale",
                 )
             )
@@ -332,8 +343,8 @@ def detect_content_alerts(weighting: dict[str, Any] | None) -> list[StaleSourceA
                 StaleSourceAlert(
                     source=f"coverage:{key}",
                     last_seen_iso="",
-                    hours_stale=0.0,
-                    threshold_hours=0.0,
+                    hours_stale=None,
+                    threshold_hours=None,
                     transition="stale",
                 )
             )
@@ -346,16 +357,16 @@ def detect_content_alerts(weighting: dict[str, Any] | None) -> list[StaleSourceA
                 StaleSourceAlert(
                     source=f"content:{key}:unavailable",
                     last_seen_iso="",
-                    hours_stale=0.0,
-                    threshold_hours=0.0,
+                    hours_stale=None,
+                    threshold_hours=None,
                     transition="stale",
                 )
             )
         players = (entry.get("subsets") or {}).get("players") or {}
         if (
             entry.get("role") == "model_input"
-            and (entry.get("votingRows") or 0) >= 100
-            and float(players.get("freshness") or 0.0) >= 0.3
+            and _at_least(entry.get("votingRows"), 100)
+            and _at_least(players.get("freshness"), 0.3)
             and entry.get("health") in (None, "HEALTHY")
         ):
             healthy_offense_voters += 1
@@ -364,8 +375,8 @@ def detect_content_alerts(weighting: dict[str, Any] | None) -> list[StaleSourceA
             StaleSourceAlert(
                 source="board:single_major_source_remaining",
                 last_seen_iso="",
-                hours_stale=0.0,
-                threshold_hours=0.0,
+                hours_stale=None,
+                threshold_hours=None,
                 transition="stale",
             )
         )
@@ -488,9 +499,14 @@ def _format_body(alerts: list[StaleSourceAlert]) -> str:
     if stale:
         lines.append("Stale sources:")
         for a in stale:
+            if a.hours_stale is None:
+                # A state alert (health, coverage, board) — it has no age.
+                lines.append(f"  • {a.source}")
+                continue
+            threshold = "unknown" if a.threshold_hours is None else f"{a.threshold_hours:.0f}h"
             lines.append(
                 f"  • {a.source}: {a.hours_stale:.1f}h stale "
-                f"(threshold {a.threshold_hours:.0f}h) — last seen {a.last_seen_iso}"
+                f"(threshold {threshold}) — last seen {a.last_seen_iso}"
             )
         lines.append("")
     if recovered:

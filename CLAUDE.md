@@ -597,9 +597,27 @@ Steps:
 3. Hill-style percentile-to-value conversion via scope-level master
    curves in ``src/canonical/player_valuation.py``
 4. Value-direct voting for ``_VALUE_BASED_SOURCES`` (today exactly
-   ``ktcCrowdTradesSfTep`` + ``idpTradeCalc``): ``raw / site_max × 9999``.
-   KTC Crowdsourced and Tradesourced are retained as same-family diagnostics;
-   only KTC\'s official Crowd+Trades SF+TE++ board votes.
+   ``ktcCrowdSfTep`` + ``ktcTradesSfTep`` + ``idpTradeCalc``):
+   ``raw / site_max × 9999``.  **KTC Crowd and KTC Trades are two separate
+   model inputs** (owner directive 2026-09-23, base weight 1.0 each, B10
+   families ``ktcCrowd`` / ``ktcTrades``; ``fantasyNavigatorSf`` sits in
+   ``ktcCrowd`` so it is never a hidden third KTC vote).  **KTC Market**
+   (``ktcCrowdTradesSfTep``, KTC's own published Crowd+Trades) is the
+   benchmark ONLY — never a vote, never blended with a non-KTC input; its
+   one owner is ``src/sources/ktc_market.py`` and registering it is refused
+   at import (``_NON_VOTING_SOURCE_CSV_KEYS``).  Rows carry ``ktcMarket``;
+   ``marketGap*`` compares ``rankDerivedValue`` against it.
+4b. Freshness-aware source weighting (flag ``source_freshness_weighting``,
+   default ON).  Per (row, source): ``effective = base × freshness × health
+   × coverage``, freshness a cadence-relative curve of data age / expected
+   cadence — FETCH TIME IS NOT DATA FRESHNESS.  Owners:
+   ``src/sources/dataset_state.py`` (three clocks, players/picks subsets,
+   row-level age), ``src/sources/freshness.py`` +
+   ``config/sources/freshness_v1.json`` (curve, cadence, style).
+   Quarantined observations are dropped, never zero.  Rollback
+   ``RISKIT_FEATURE_SOURCE_FRESHNESS_WEIGHTING=0`` + restart (factor 1.0,
+   diagnostics keep reporting).  Full record:
+   ``docs/sources/SOURCE_FRESHNESS_WEIGHTING.md``.
    Every other source — including DynastyDaddy, Yahoo/Boone,
    Fitzmaurice, FantasyCalc, OTCFFB after their rank-signal
    conversions — votes via rank → percentile → Hill.  (The refit
@@ -614,7 +632,7 @@ Steps:
    to_basis="tepp")`` — KTC's own measured uplift, 1.209 at the top of
    the board rising toward 2.05 down it.  Replaces a flat 1.15 that sat
    below the entire observed range.  KTC TE++ boards, including the current
-   ``ktcCrowdTradesSfTep`` anchor and historical ``ktcSfTep``, are exempt
+   Crowd/Trades inputs and historical ``ktcSfTep``, are exempt
    (the anchor IS already TE++) and the conversion is a no-op when
    ``from == to``, so the double-count guard is structural.  TEP-native
    sources keep the flat 1.10 — only base ↔ tepp is measured.
@@ -626,8 +644,8 @@ Steps:
    explicit operator slider value bypasses the curve regardless.
 6. Hierarchical anchor + α-shrinkage (α=0.10) ONLY for IDP and
    picks; offense takes a flat count-aware mean-median across all
-   sources.  Pick rows widen the anchor set to include ``ktcCrowdTradesSfTep`` so
-   the two real pick markets (KTC Crowd+Trades + IDPTC) average as peers.
+   sources.  Pick rows widen the anchor set to include the KTC Crowd and
+   Trades inputs so the real pick markets (KTC + IDPTC) average as peers.
 7. Count-aware aggregation (n=1 passthrough, n=2 mean, n=3-4 untrimmed
    mean-median, n≥5 trimmed mean-median)
 8. RETIRED: the λ·MAD volatility penalty is switched off
@@ -1032,7 +1050,7 @@ them without reading why (WS-J F-3/F-4):
 | Engine | Gate | Ranked against |
 |---|---|---|
 | `suggestions.py` | `BOARD_TOP_N_FILTER` (150) | **our blended board** — `display_value` order, covers every asset class |
-| `finder.py` | `MARKET_TOP_N_FILTER` (150) | **the retail market, per market** — `ktcCrowdTradesSfTep` for offense + picks, `idpTradeCalc` for IDP, each ranked within its own population |
+| `finder.py` | `MARKET_TOP_N_FILTER` (150) | **the retail market, per market** — KTC Market (`ktcCrowdTradesSfTep`, via `src/sources/ktc_market.py`) for offense + picks, `idpTradeCalc` for IDP, each ranked within its own population |
 
 `finder.py` must anchor on a real retail value because its whole
 premise is arbitrage between our board and the market — the market
@@ -1554,7 +1572,7 @@ test-pinned (``tests/bdvm/``):
   final score — from ``data/bdvm/events/<season>.json``.
 - Fundamentals compute with ZERO market inputs; the market layer
   (``src/bdvm/market.py``) runs strictly afterward and reads only
-  value-signal sources (current ``ktcCrowdTradesSfTep`` plus historical
+  value-signal sources (current KTC Market ``ktcCrowdTradesSfTep`` plus historical
   ``ktcSfTep``/``ktc`` fallbacks and ``idpTradeCalc`` — never
   the rank-signal synthetic encodings in ``canonicalSiteValues``).
 - No positional multipliers anywhere: Superflex/TEP/IDP format effects

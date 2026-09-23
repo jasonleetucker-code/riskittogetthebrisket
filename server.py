@@ -2939,11 +2939,15 @@ def _import_scraper_module():
 def _record_source_dataset_state() -> None:
     """Fold the current source CSVs into ``data/scrape_state/*_dataset.json``."""
     try:
-        from scripts.record_source_datasets import record_all  # noqa: PLC0415
+        from scripts.record_source_datasets import (  # noqa: PLC0415
+            PROD_TIMER_OWNED_KEYS,
+            record_all,
+        )
 
         written, failed = record_all(
             state_dir=BASE_DIR / "data" / "scrape_state",
             observed_at=datetime.now(timezone.utc),
+            skip=set(PROD_TIMER_OWNED_KEYS),
         )
         log.info("source dataset state: %d changed, %d failed", len(written), len(failed))
     except Exception as exc:  # noqa: BLE001 — never block a scrape on bookkeeping

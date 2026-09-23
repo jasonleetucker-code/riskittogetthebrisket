@@ -6367,6 +6367,7 @@ def _family_evidence_for_row(
     src_by_key: dict[str, dict[str, Any]],
     family_by_key: dict[str, str],
     fresh_by_source: dict[str, bool | None],
+    content_freshness_applies: bool = False,
 ) -> list["FamilyEvidence"]:
     """Assemble the B11 gate's per-family evidence for one row.
 
@@ -6379,6 +6380,9 @@ def _family_evidence_for_row(
     Decides no level.  Every judgement below is about what a source
     contribution IS, not about how good it is.
     """
+    from src.sources.freshness import default_config  # noqa: PLC0415
+
+    fresh_floor = default_config().fresh_for_confidence
     row_is_te = str(row.get("position") or "").strip().upper() == "TE"
     evidence: list[FamilyEvidence] = []
     for skey in effective_source_ranks:
@@ -6389,12 +6393,26 @@ def _family_evidence_for_row(
             continue
         method = str(smeta.get("method") or "")
         src_def = src_by_key.get(skey, {})
+        # Fetch time is not data freshness (owner directive 2026-09-23):
+        # a source fetched on time whose CONTENT has aged past half its
+        # authority is not fresh evidence.  ``freshness`` is stamped
+        # as a diagnostic even under the rollback flag, so the caller says
+        # whether it applies — flag off restores the fetch-only answer.
+        fresh = fresh_by_source.get(skey)
+        content_freshness = smeta.get("freshness")
+        if (
+            content_freshness_applies
+            and fresh is True
+            and isinstance(content_freshness, (int, float))
+            and content_freshness < fresh_floor
+        ):
+            fresh = False
         evidence.append(
             FamilyEvidence(
                 family=family_by_key.get(skey, skey),
                 source_key=skey,
                 value_contribution=smeta.get("valueContribution"),
-                fresh=fresh_by_source.get(skey),
+                fresh=fresh,
                 # ADR-015 lifts a non-TEP source's TE row onto the
                 # TE++ basis the board is anchored on.  A measured
                 # conversion, not a native observation.
@@ -10877,6 +10895,7 @@ def _compute_unified_rankings(
                 src_by_key=src_by_key,
                 family_by_key=family_by_key,
                 fresh_by_source=fresh_by_source,
+                content_freshness_applies=_freshness_applied,
             )
             # Kept so a LATER post-blend override that moves this row's
             # value can re-state its confidence against the value that
@@ -11059,6 +11078,7 @@ def _compute_unified_rankings(
                 src_by_key=src_by_key,
                 family_by_key=family_by_key,
                 fresh_by_source=fresh_by_source,
+                content_freshness_applies=_freshness_applied,
             )
             # Registered so a LATER post-blend override that moves this
             # row's value re-states its confidence against the number

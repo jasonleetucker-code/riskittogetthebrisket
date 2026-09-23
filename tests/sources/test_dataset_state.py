@@ -252,3 +252,20 @@ class TestPersistenceIsQuiet:
             observed_at=T0 + timedelta(days=1),
         )
         assert first is True and second is False
+
+
+def test_refresh_workflow_skips_exactly_the_prod_timer_owned_boards():
+    """One writer per state file: the 2-hourly refresh must skip the boards
+    whose production timers record their own state — the same set the
+    server's post-scrape recorder skips."""
+    import re
+    from pathlib import Path
+
+    from scripts.record_source_datasets import PROD_TIMER_OWNED_KEYS
+
+    wf = (
+        Path(__file__).resolve().parents[2] / ".github" / "workflows" / "scheduled-refresh.yml"
+    ).read_text(encoding="utf-8")
+    m = re.search(r"record_source_datasets\.py\s*\\\s*\n\s*--skip ([^\n|]+)", wf)
+    assert m, "scheduled-refresh.yml no longer records dataset state with --skip"
+    assert set(m.group(1).split()) - {"\\"} == set(PROD_TIMER_OWNED_KEYS)
