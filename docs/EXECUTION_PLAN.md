@@ -54,6 +54,18 @@ execution, source activation, or changes to merge/deploy authority.
 Week 1 remains a literal 30-row contract. Runtime entry and state contracts:
 `docs/agent-operating-system/STEWARD_RUNTIME.md`.
 
+## Freshness-aware source weighting + KTC signal separation — owner directive, 2026-09-23
+
+The owner explicitly authorized one bounded valuation unit, including production promotion (merge,
+deploy and production verification through the normal protected path): (1) KTC Crowd and KTC Trades
+become two separate voting model inputs and KTC's published Crowd+Trades value becomes a
+benchmark-only canonical **KTC Market** owner; (2) per-source content freshness (separate fetch /
+any-change / broad-change clocks, publication-style-aware, cadence-relative decay), health and coverage
+factors drive effective blend weight; (3) diagnostics, alerts and IDP Trade Calculator / IDP Show / DLF
+source-health root-cause work. It does not authorize unrelated ranking/model redesign, tuning toward
+KTC Market, or any change to Hill constants. Intake: `docs/OWNER_REQUESTED_TODO.md` (2026-09-23);
+record: `docs/sources/SOURCE_FRESHNESS_WEIGHTING.md`.
+
 ## V1 COMPLETION SPRINT — AUTHORIZED BY THE OWNER, 2026-08-18.
 
 **This supersedes the 2026-08-17 feature freeze below, to the extent necessary for V1
