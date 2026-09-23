@@ -307,6 +307,93 @@ def _effective_weight_vector(
     return applied, blend
 
 
+def _largest_remainder_percents(
+    weights: dict[str, float], order: tuple[str, ...]
+) -> dict[str, int]:
+    """Whole-number percentages that sum to EXACTLY 100.
+
+    Rounding each weight on its own does not: three equal thirds display as
+    33 + 33 + 33 = 99, and a methodology line that does not add up reads as
+    an error. Floors every share, then hands the leftover points to the
+    largest fractional parts (ties broken by ``order``, so it is
+    deterministic). ``{}`` when nothing carries weight.
+    """
+    total = sum(w for w in weights.values() if w > 0)
+    if total <= 0:
+        return {}
+    exact = {k: 100.0 * w / total for k, w in weights.items() if w > 0}
+    floors = {k: math.floor(v) for k, v in exact.items()}
+    leftover = 100 - sum(floors.values())
+    rank = sorted(exact, key=lambda k: (-(exact[k] - floors[k]), order.index(k)))
+    for k in rank[:leftover]:
+        floors[k] += 1
+    return floors
+
+
+def _methodology(
+    active_weights: dict[str, float],
+    *,
+    preseason: bool,
+    results_only: bool,
+) -> dict[str, Any]:
+    """The methodology a reader is shown, derived from the weights USED.
+
+    ``active_weights`` is the exact vector ``_score_state`` scored with, so
+    the displayed formula cannot drift from the calculation: early in the
+    season the blend is ROS-heavy and ``recent`` carries no weight, late in
+    the season it approaches the 30/70 target, and neither is hard-coded here.
+    Every canonical component is listed with a status, so a 0% component is
+    explained ("activates after N games") rather than silently omitted.
+    ``displayPct`` is the largest-remainder rounding of ``weight`` and always
+    sums to 100 when anything is weighted; the page renders it verbatim.
+    """
+    order = FORWARD_COMPONENTS + RESULT_COMPONENTS
+    display = _largest_remainder_percents(
+        {k: float(active_weights.get(k, 0.0)) for k in order}, order
+    )
+    components: list[dict[str, Any]] = []
+    for key in order:
+        weight = float(active_weights.get(key, 0.0))
+        entry: dict[str, Any] = {
+            "key": key,
+            "group": "forward" if key in FORWARD_COMPONENTS else "results",
+            "weight": round(weight, 6),
+            "displayPct": display.get(key, 0),
+            "status": "active",
+            "reason": None,
+            "activatesAfterGames": None,
+        }
+        if weight > 0:
+            pass
+        elif key in _UNAVAILABLE_CANONICAL_COMPONENTS:
+            entry["status"] = "unavailable"
+            entry["reason"] = "canonical weekly realized VORP/PAR not yet available"
+        elif key == "team_ros_strength" and results_only:
+            entry["status"] = "excluded_by_lens"
+            entry["reason"] = "results-only lens"
+        elif key in RESULT_COMPONENTS and preseason and not results_only:
+            entry["status"] = "suppressed"
+            entry["reason"] = "no games scored this season yet"
+        elif key == "recent" and key in active_weights:
+            # Measured, but its trailing window is still the whole season
+            # (``_recent_distinctness``): it earns weight once more than
+            # ``_RECENT_WINDOW`` games exist.
+            entry["status"] = "inactive"
+            entry["reason"] = "redundant with season-to-date results until the window diverges"
+            entry["activatesAfterGames"] = _RECENT_WINDOW
+        else:
+            entry["status"] = "unavailable"
+            entry["reason"] = "input unavailable"
+        components.append(entry)
+    forward_pct = sum(c["displayPct"] for c in components if c["group"] == "forward")
+    results_pct = sum(c["displayPct"] for c in components if c["group"] == "results")
+    return {
+        "components": components,
+        "forwardDisplayPct": forward_pct,
+        "resultsDisplayPct": results_pct,
+    }
+
+
 def _percentile(values: list[float], target: float) -> float:
     """Inclusive percentile rank in [0, 1]."""
     if not values:
@@ -1434,6 +1521,7 @@ def build_section(
         },
         "weights": dict(WEIGHTS),
         "effectiveWeights": dict(active_weights),
+        "methodology": _methodology(active_weights, preseason=preseason, results_only=results_only),
         "blend": dict(blend),
         # Tri-state: whether RECORD reflects a league-average ("median")
         # game alongside real H2H, which is why it can differ from
