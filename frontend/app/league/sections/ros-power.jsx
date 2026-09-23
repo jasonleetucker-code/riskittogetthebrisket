@@ -97,10 +97,9 @@ async function _fetchOddsOnce() {
 
 // Movement is BACKEND-OWNED. ``row.weekRankDelta`` is computed by
 // ``power_snapshots.movement_against_previous`` against exactly week N-1's
-// immutable publication, and the share card reads the frozen ``rankDelta`` off
-// the snapshot itself. This file deliberately has no rank-delta arithmetic:
-// a second definition of "how far did they move" is how the page ended up
-// disagreeing with the card it was next to.
+// immutable publication. Both the table and its share card read that SAME
+// current row and delta. Official snapshots remain the history, not a second
+// answer to "Share Rankings". This file has no rank-delta arithmetic.
 function fmtScore(v) {
   if (v == null || !Number.isFinite(Number(v))) return "—";
   return Number(v).toFixed(1);
@@ -186,8 +185,8 @@ function composition(row) {
 
 // ── Rank history chart ──────────────────────────────────────────────────
 // Reads ``officialHistory`` — the immutable weekly publications, and nothing
-// else. Every point is a week that was actually published, so this chart and
-// the arrows on the share card can never disagree.
+// else. Every point is a week that was actually published. Unlike the current
+// table and share card, this historical record never follows recalculations.
 //
 // It plots RANK, not Power score, for a reason: an owner-attested baseline week
 // records the order the site published and carries no Power score at all
@@ -358,18 +357,19 @@ function MovementMark({ value, emptyLabel = "—" }) {
 }
 
 function LeaguePowerShareCard({ data, rankings, managers }) {
-  const official = data?.shareSnapshot || data?.officialSnapshot || null;
-  const rows = Array.isArray(official?.ranking) && official.ranking.length ? official.ranking : rankings;
-  const week = official?.week ?? data?.asOfWeek ?? null;
-  const season = official?.season ?? data?.asOfSeason ?? null;
-  const isOfficial = !!official;
+  // Share exactly the table the visitor is looking at, including its backend-
+  // owned movement. A frozen publication can predate a same-week model/data
+  // correction; neither shareSnapshot nor officialSnapshot may override it.
+  const rows = rankings;
+  const week = data?.asOfWeek ?? null;
+  const season = data?.asOfSeason ?? null;
 
   // Name the week the arrows are measured against, so "no movement" and
   // "no baseline to move against" cannot read the same on a screenshot.
   // Taken from the published history, never inferred from the week number:
   // a league whose baseline was never published must not claim one.
   const baseline = (data?.officialHistory || [])
-    .filter((w) => week != null && Number(w?.week) === Number(week) - 1)
+    .filter((w) => week != null && w?.week != null && Number(w.week) === Number(week) - 1)
     .at(0);
   const baselineLabel = baseline
     ? `vs ${baseline.preseason ? "preseason" : `Week ${baseline.week}`}`
@@ -393,7 +393,7 @@ function LeaguePowerShareCard({ data, rankings, managers }) {
         <div>
           <div style={{ fontSize: "1rem", fontWeight: 900, letterSpacing: "0.02em" }}>League Power Rankings</div>
           <div style={{ fontSize: "0.68rem", color: "var(--subtext)" }}>
-            {season ? season : "Current season"}{week ? ` · Week ${week}` : ""}{isOfficial ? " · Official" : " · Current"}
+            {season ? season : "Current season"}{week === 0 ? " · Preseason" : week != null ? ` · Week ${week}` : ""} · Current
             {baselineLabel ? ` · ${baselineLabel}` : ""}
           </div>
         </div>
@@ -404,13 +404,14 @@ function LeaguePowerShareCard({ data, rankings, managers }) {
 
       <div style={{ display: "grid", gap: 2 }}>
         {rows.map((row, index) => {
-          const movement = isOfficial ? row.rankDelta : row.weekRankDelta;
+          const movement = row.weekRankDelta;
           const ownerName = managers
             ? nameFor(managers, row.ownerId)
             : row.displayName || row.ownerId || "—";
           return (
             <div
               key={row.ownerId || index}
+              data-testid="league-power-share-row"
               style={{
                 display: "grid",
                 gridTemplateColumns: "30px minmax(0,1fr) 58px",
@@ -434,7 +435,7 @@ function LeaguePowerShareCard({ data, rankings, managers }) {
                 ) : null}
               </div>
               <div style={{ textAlign: "right", fontSize: "0.74rem" }}>
-                <MovementMark value={movement} emptyLabel={row.priorRank == null ? "NEW" : "—"} />
+                <MovementMark value={movement} emptyLabel={row.previousOfficialRank == null ? "NEW" : "—"} />
               </div>
             </div>
           );
@@ -590,7 +591,7 @@ export default function RosPowerSection({ managers } = {}) {
           <div id="league-power-share-card">
             <LeaguePowerShareCard data={data} rankings={rankings} managers={managers} />
             <div style={{ textAlign: "center", fontSize: "0.66rem", color: "var(--subtext)", margin: "-6px 0 10px" }}>
-              Sized to fit all 12 teams in one phone screenshot. Official weekly cards stay frozen after publication.
+              Matches the current table. Sized for all 12 teams in one phone screenshot. Weekly publications stay frozen in Rank history.
             </div>
           </div>
         ) : null}
@@ -674,7 +675,7 @@ export default function RosPowerSection({ managers } = {}) {
 
       <Card
         title="Rank history"
-        subtitle="Official published weeks only. Each point is a week that was actually published, so this agrees with the share card by construction."
+        subtitle="Official weekly publications, frozen at publication time. Current rankings may differ."
       >
         <RankHistoryChart
           history={officialHistory}

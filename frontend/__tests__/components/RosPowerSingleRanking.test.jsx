@@ -11,13 +11,13 @@
  * section 3). It is not a thing this page offers, so these tests assert its
  * absence structurally rather than trusting that nobody re-adds the button.
  *
- * Movement is backend-owned throughout: the table reads ``weekRankDelta`` and
- * the share card reads the frozen ``rankDelta`` off the immutable snapshot.
+ * Movement is backend-owned throughout: both the table and its share card read
+ * ``weekRankDelta`` from the current row. Frozen snapshots own history only.
  * There is no rank arithmetic in the component to test, and that is the point.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 
 vi.mock("@/components/ui", () => ({
   LoadingState: ({ message }) => <div>{message}</div>,
@@ -78,7 +78,7 @@ function snapshotWeek(week, rows, { preseason = false } = {}) {
   };
 }
 
-function payload({ ranking, shareSnapshot = null, officialHistory = [], blend = {} }) {
+function payload({ ranking, shareSnapshot = null, officialHistory = [], blend = {}, asOfWeek = 1 }) {
   return {
     currentRanking: ranking,
     unrankable: null,
@@ -90,7 +90,7 @@ function payload({ ranking, shareSnapshot = null, officialHistory = [], blend = 
     rosTeamStrengthAvailable: true,
     preseason: false,
     asOfSeason: "2026",
-    asOfWeek: shareSnapshot?.week ?? 1,
+    asOfWeek,
     shareSnapshot,
     officialSnapshot: shareSnapshot,
     officialHistory,
@@ -215,10 +215,14 @@ describe("LeaguePowerShareCard — movement since last week", () => {
     return screen.findByTestId("league-power-share-card");
   }
 
-  it("renders the frozen movement from the published snapshot", async () => {
+  it("renders current backend movement, not frozen snapshot movement", async () => {
     const card = await openCard(
       payload({
-        ranking: ROWS,
+        ranking: [
+          { ...ROWS[0], previousOfficialRank: 1, weekRankDelta: 0 },
+          { ...ROWS[1], previousOfficialRank: 3, weekRankDelta: 1 },
+          { ...ROWS[2], previousOfficialRank: 2, weekRankDelta: -1 },
+        ],
         shareSnapshot: WEEK_ONE,
         officialHistory: [WEEK_ZERO, WEEK_ONE],
       }),
@@ -226,7 +230,8 @@ describe("LeaguePowerShareCard — movement since last week", () => {
 
     expect(card.textContent).toContain("League Power Rankings");
     expect(card.textContent).toContain("Week 1");
-    expect(card.textContent).toContain("Official");
+    expect(card.textContent).toContain("Current");
+    expect(card.textContent).not.toContain(" · Official");
     expect(card.textContent).toContain("▲ 1"); // Bob, 3 -> 2
     expect(card.textContent).toContain("▼ 1"); // Cass, 2 -> 3
     // Alice held her rank: that is a dash, not a NEW and not a zero.
@@ -241,7 +246,11 @@ describe("LeaguePowerShareCard — movement since last week", () => {
   it("names the week the arrows are measured against", async () => {
     const card = await openCard(
       payload({
-        ranking: ROWS,
+        ranking: [
+          { ...ROWS[0], previousOfficialRank: 1, weekRankDelta: 0 },
+          { ...ROWS[1], previousOfficialRank: 3, weekRankDelta: 1 },
+          { ...ROWS[2], previousOfficialRank: 2, weekRankDelta: -1 },
+        ],
         shareSnapshot: WEEK_ONE,
         officialHistory: [WEEK_ZERO, WEEK_ONE],
       }),
@@ -275,13 +284,143 @@ describe("LeaguePowerShareCard — movement since last week", () => {
       { ...ROWS[2], priorRank: null, rankDelta: null },
     ]);
     const card = await openCard(
-      payload({ ranking: ROWS, shareSnapshot: mixed, officialHistory: [WEEK_ZERO, mixed] }),
+      payload({
+        ranking: [
+          { ...ROWS[0], previousOfficialRank: 2, weekRankDelta: 1 },
+          { ...ROWS[1], previousOfficialRank: 1, weekRankDelta: -1 },
+          { ...ROWS[2], previousOfficialRank: null, weekRankDelta: null },
+        ],
+        shareSnapshot: mixed,
+        officialHistory: [WEEK_ZERO, mixed],
+      }),
     );
 
     expect(card.textContent.match(/NEW/g)).toHaveLength(1);
     expect(card.textContent).toContain("▲ 1");
     expect(card.textContent).toContain("▼ 1");
   });
+  it.each(["shareSnapshot", "officialSnapshot"])(
+    "matches all 12 table ranks and arrows despite a stale %s",
+    async (snapshotKey) => {
+      // Different order, names, movement and methodology in the frozen data.
+      // Checking only card presence or labels would miss the reported defect.
+      const ranking = Array.from({ length: 12 }, (_, i) => ({
+        ownerId: `owner-${i}`,
+        displayName: i === 0 ? "Alice" : `Manager ${i}`,
+        teamName: `Current team ${i}`,
+        rank: i + 1,
+        powerScore: 100 - i,
+        previousOfficialRank: 12 - i,
+        weekRankDelta: 11 - 2 * i,
+      }));
+      const frozen = snapshotWeek(2, [...ranking].reverse().map((row, i) => ({
+        ...row,
+        rank: i + 1,
+        teamName: `Old team ${i}`,
+        rankDelta: 0,
+        priorRank: i + 1,
+      })));
+      frozen.methodologyVersion = "old-methodology";
+      const body = {
+        ...payload({ ranking, asOfWeek: 2 }),
+        methodologyVersion: "new-methodology",
+        [snapshotKey]: frozen,
+      };
+      const frozenBefore = JSON.stringify(frozen);
+      const card = await openCard(body);
+      const tableRows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
+      const cardRows = within(card).getAllByTestId("league-power-share-row");
+      expect(cardRows).toHaveLength(12);
+      expect(tableRows).toHaveLength(12);
+      cardRows.forEach((cardRow, i) => {
+        const cells = within(tableRows[i]).getAllByRole("cell");
+        expect(cardRow.children[0].textContent).toBe(cells[0].textContent);
+        expect(within(cardRow).getByText(ranking[i].displayName)).toBeTruthy();
+        expect(within(cells[1]).getByText(ranking[i].displayName)).toBeTruthy();
+        expect(within(cardRow).getByText(ranking[i].teamName)).toBeTruthy();
+        expect(cardRow.children[2].textContent).toBe(cells[7].textContent);
+      });
+      expect(card.textContent).not.toContain("Old team");
+      expect(card.textContent).not.toContain(" · Official");
+      expect(JSON.stringify(frozen)).toBe(frozenBefore);
+      // Opening/closing the card must not fetch a different ranking response.
+      fireEvent.click(screen.getByRole("button", { name: /hide share card/i }));
+      expect(screen.queryByTestId("league-power-share-card")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: /share rankings/i }));
+      expect(screen.getAllByTestId("league-power-share-row")).toHaveLength(12);
+      expect(global.fetch.mock.calls.filter(([url]) => String(url).includes("rosPower"))).toHaveLength(1);
+    },
+  );
+
+  it("uses the current week and its exact N-1 baseline, not the stale card's week", async () => {
+    const card = await openCard(payload({
+      ranking: [
+        { ...ROWS[1], rank: 1, previousOfficialRank: 2, weekRankDelta: 1 },
+        { ...ROWS[0], rank: 2, previousOfficialRank: 1, weekRankDelta: -1 },
+        { ...ROWS[2], previousOfficialRank: 3, weekRankDelta: 0 },
+      ],
+      asOfWeek: 2,
+      shareSnapshot: WEEK_ONE,
+      officialHistory: [WEEK_ZERO, WEEK_ONE],
+    }));
+    expect(card.textContent).toContain("2026 · Week 2 · Current");
+    expect(card.textContent).toContain("vs Week 1");
+    expect(card.textContent).not.toContain("vs preseason");
+    expect(card.textContent).not.toContain("NEW");
+  });
+
+  it("does not substitute an older publication when exactly N-1 is missing", async () => {
+    const card = await openCard(payload({
+      ranking: ROWS.map((row) => ({ ...row, previousOfficialRank: null, weekRankDelta: null })),
+      asOfWeek: 3,
+      shareSnapshot: WEEK_ONE,
+      officialHistory: [WEEK_ZERO, WEEK_ONE],
+    }));
+    expect(card.textContent).toContain("Week 3 · Current");
+    expect(card.textContent).not.toContain("vs ");
+    expect(card.textContent.match(/NEW/g)).toHaveLength(3);
+  });
+
+  it("shares the current ranking without any published snapshot", async () => {
+    const card = await openCard(payload({ ranking: ROWS }));
+    expect(within(card).getAllByTestId("league-power-share-row")).toHaveLength(3);
+    expect(card.textContent).toContain("Week 1 · Current");
+    expect(card.textContent).not.toContain(" · Official");
+  });
+
+  it("labels week zero as current preseason without leaking a prior-season snapshot", async () => {
+    const card = await openCard({
+      ...payload({ ranking: ROWS, asOfWeek: 0, shareSnapshot: { ...WEEK_ONE, season: "2025" } }),
+      preseason: true,
+    });
+    expect(card.textContent).toContain("2026 · Preseason · Current");
+    expect(card.textContent).not.toContain("2025");
+    expect(card.textContent).not.toContain("Week 1");
+    expect(card.textContent).not.toContain("vs ");
+  });
+
+  it("does not call a known prior rank NEW when its current delta is unavailable", async () => {
+    const card = await openCard(payload({
+      ranking: ROWS.map((row) => ({ ...row, previousOfficialRank: row.rank, weekRankDelta: null })),
+      shareSnapshot: WEEK_ONE,
+    }));
+    expect(card.textContent).not.toContain("NEW");
+    expect(card.textContent).not.toContain("▲");
+    expect(card.textContent).not.toContain("▼");
+  });
+
+  it("does not offer a stale share card when the current ranking is empty or unrankable", async () => {
+    serve({
+      ...payload({ ranking: [], shareSnapshot: WEEK_ONE }),
+      unrankable: { explanation: "Current evidence is unavailable" },
+    });
+    const RosPowerSection = await renderFresh();
+    render(<RosPowerSection />);
+    await screen.findByText("Current evidence is unavailable");
+    expect(screen.queryByRole("button", { name: /share rankings/i })).toBeNull();
+    expect(screen.queryByTestId("league-power-share-card")).toBeNull();
+  });
+
 });
 
 describe("Rank history", () => {
