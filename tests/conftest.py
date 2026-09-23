@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import itertools
 import os
+import shutil
 import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -115,6 +118,67 @@ try:
     _data_contract._LEAGUE_CONTEXT_CACHE["fetched_at"] = 0.0
 except Exception:  # noqa: BLE001 — conftest must never block collection
     pass
+
+
+# ── Gitignored runtime files cannot reach a deterministic test ─────────
+# Owner decision (2026-09-23): an ignored runtime file must not be able to
+# change a unit-test result.  Measured while validating PR #1402: a fresh
+# ``data/ros/team_strength/latest.json`` turned seven "the engine must
+# refuse to rank" tests red (7 passed without it, 7 failed with it), and
+# every suite run WROTE ``data/public_league/{snapshot,contract,identity,
+# nfl_players}.json`` from Sleeper stubs, poisoning whatever ran next.
+# Full record: ``tests/runtime_data_isolation.py``.
+#
+# Redirected HERE, at import, for the same reason as RISKIT_RETENTION_DIR
+# above: ``server`` loads the persisted public snapshot at import time,
+# which is during collection.  NOT wrapped in try/except, unlike the
+# registry reset — if isolation cannot install, the suite is not hermetic
+# and must say so rather than run anyway.
+#
+# Every test then gets its own empty root (``pytest_runtest_setup``, a hook
+# rather than a fixture so ``setUpClass`` is covered too), so a test that
+# persists a runtime file cannot poison the test after it either.
+from tests import runtime_data_isolation as _runtime_data  # noqa: E402
+
+_RUNTIME_DATA_BASE = Path(tempfile.mkdtemp(prefix="riskit-runtime-data-"))
+_runtime_data.install()
+_runtime_data.activate(_RUNTIME_DATA_BASE / "collection")
+_runtime_data_counter = itertools.count()
+# The REAL directories as this session found them.  A local server or
+# scrape may legitimately own these files; the suite may not touch them.
+_RUNTIME_DATA_BASELINE = {"value": _runtime_data.fingerprint()}
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_setup(item):
+    _runtime_data.activate(_RUNTIME_DATA_BASE / f"t{next(_runtime_data_counter):06d}")
+
+
+@pytest.fixture(autouse=True)
+def _real_runtime_data_is_untouched():
+    """Fail the test during which a guarded real runtime file changed.
+
+    Compared against the SESSION baseline, not a per-test one, so a write
+    made in class-level setup is still caught (by the first test of that
+    class).  Re-baselines after reporting so one write is one failure.
+    """
+    yield
+    now = _runtime_data.fingerprint()
+    before = _RUNTIME_DATA_BASELINE["value"]
+    if now != before:
+        _RUNTIME_DATA_BASELINE["value"] = now
+        changes = "\n  ".join(_runtime_data.describe_changes(before, now))
+        pytest.fail(
+            "the real gitignored runtime directories changed during this test "
+            "(tests must write to the isolated root — see "
+            "tests/runtime_data_isolation.py; a local server or scrape running "
+            f"at the same time can also cause this):\n  {changes}",
+            pytrace=False,
+        )
+
+
+def pytest_sessionfinish(session, exitstatus):
+    shutil.rmtree(_RUNTIME_DATA_BASE, ignore_errors=True)
 
 
 # ── Live-data CI tiering ──────────────────────────────────────────────

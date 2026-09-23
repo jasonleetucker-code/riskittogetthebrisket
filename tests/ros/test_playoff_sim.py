@@ -57,9 +57,19 @@ class TestEmptySnapshot(unittest.TestCase):
 
 class TestRosStrengthLoader(unittest.TestCase):
     def test_returns_empty_when_no_snapshot(self):
+        # The patch target is ``team_strength``, not ``playoff_sim``:
+        # ``_load_ros_strength_map`` delegates to
+        # ``team_strength.load_or_compute_team_strength``, which resolves the
+        # snapshot path from ITS OWN module global.  ``playoff_sim.ROS_DATA_DIR``
+        # now only locates ``sims/``, so patching it redirected nothing and a
+        # fresh gitignored ``data/ros/team_strength/latest.json`` made this
+        # fail (see tests/runtime_data_isolation.py) -- same migration
+        # ``test_power_v2.py`` records for its own copy of this test.
         from pathlib import Path
 
-        with patch.object(playoff_sim, "ROS_DATA_DIR", Path("/nonexistent")):
+        from src.ros import team_strength
+
+        with patch.object(team_strength, "ROS_DATA_DIR", Path("/nonexistent")):
             self.assertEqual(playoff_sim._load_ros_strength_map(), {})
 
 

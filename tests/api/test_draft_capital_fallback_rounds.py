@@ -219,7 +219,26 @@ def test_omitting_the_rookie_board_leaves_the_payload_exactly_as_before(_no_netw
     assert all("overallPick" in p for p in out["picks"])
 
 
-def test_idp_rookies_are_kept_off_a_non_idp_league_board(monkeypatch):  # noqa: PLR0915
+@pytest.fixture
+def _real_league_registry(monkeypatch):
+    """The REAL registry for one test, and the conftest one back afterwards.
+
+    ``reload_registry()`` caches module-wide, so undoing the env var alone
+    left the real registry loaded for the rest of the session.  With it,
+    ``team_strength.compute_team_strength_from_snapshot`` found real starter
+    slots in later tests and persisted rows — the leak that could write
+    ``data/ros/team_strength/latest.json`` from the suite.
+    """
+    from src.api import league_registry
+
+    monkeypatch.delenv("LEAGUE_REGISTRY_PATH", raising=False)
+    league_registry.reload_registry()
+    yield league_registry
+    monkeypatch.undo()
+    league_registry.reload_registry()
+
+
+def test_idp_rookies_are_kept_off_a_non_idp_league_board(_real_league_registry):  # noqa: PLR0915
     """Sharing a scoring profile is necessary but NOT sufficient.
 
     Both live leagues are ``superflex_tep15_ppr1``, yet ``dynasty_main``
@@ -229,14 +248,12 @@ def test_idp_rookies_are_kept_off_a_non_idp_league_board(monkeypatch):  # noqa: 
     start onto the non-IDP league's draft board, at real dollar values, ahead
     of the offensive rookies it can actually use.
     """
-    from src.api import league_registry
-
     # Other tests in the session monkeypatch LEAGUE_REGISTRY_PATH and leave the
     # module cache pointing at a fixture, so read the REAL registry explicitly
-    # and put it back afterwards. The premise below is about this repo's actual
-    # league config; a fixture would assert nothing.
-    monkeypatch.delenv("LEAGUE_REGISTRY_PATH", raising=False)
-    league_registry.reload_registry()
+    # (``_real_league_registry``, which puts it back afterwards). The premise
+    # below is about this repo's actual league config; a fixture would assert
+    # nothing.
+    league_registry = _real_league_registry
     main = league_registry.get_league_by_key("dynasty_main")
     new = league_registry.get_league_by_key("dynasty_new")
     assert main is not None and new is not None
