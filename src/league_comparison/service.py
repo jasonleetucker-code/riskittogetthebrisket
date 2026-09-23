@@ -254,9 +254,7 @@ def _observed_regular_weeks(rows: list[dict[str, Any]]) -> int:
     return len(weeks)
 
 
-def _scale_position_metrics(
-    metrics: _m.PositionMetrics, factor: float
-) -> _m.PositionMetrics:
+def _scale_position_metrics(metrics: _m.PositionMetrics, factor: float) -> _m.PositionMetrics:
     """Scale point-valued metrics while preserving the measured sample size."""
     if factor <= 0:
         raise ValueError("position-metric scale factor must be positive")
@@ -303,6 +301,7 @@ def _season_evidence_basis(
         else "historical"
     )
     return status, weeks_observed, 1.0, 1.0
+
 
 def _build_league_block(
     league_info: _sleeper.LeagueScoringInfo,
@@ -370,12 +369,10 @@ def _build_league_block(
             sample_sizes,
             season,
         )
-        season_status, weeks_observed, season_weight, annualization_factor = (
-            _season_evidence_basis(
-                season,
-                rows,
-                latest_requested_season=latest_requested_season,
-            )
+        season_status, weeks_observed, season_weight, annualization_factor = _season_evidence_basis(
+            season,
+            rows,
+            latest_requested_season=latest_requested_season,
         )
         if annualization_factor != 1.0:
             per_pos = {
@@ -419,9 +416,7 @@ def _build_league_block(
             "seasonWeight": season_weight,
             "annualizationFactor": annualization_factor,
             "metricsBasis": (
-                "annualized_partial"
-                if season_status == "live_partial"
-                else "full_season_scale"
+                "annualized_partial" if season_status == "live_partial" else "full_season_scale"
             ),
         }
 
@@ -447,8 +442,7 @@ def _build_league_block(
                 sample_size=d["sampleSize"],
             )
         weights = {
-            season: float(per_season[season].get("seasonWeight") or 0.0)
-            for season in per_year
+            season: float(per_season[season].get("seasonWeight") or 0.0) for season in per_year
         }
         combined_positions[pos] = _m.combine_metrics_weighted(per_year, weights)
     flex_per_year = {}
@@ -467,8 +461,7 @@ def _build_league_block(
             sample_size=d["sampleSize"],
         )
     flex_weights = {
-        season: float(per_season[season].get("seasonWeight") or 0.0)
-        for season in flex_per_year
+        season: float(per_season[season].get("seasonWeight") or 0.0) for season in flex_per_year
     }
     combined_flex = _m.combine_metrics_weighted(flex_per_year, flex_weights)
 
