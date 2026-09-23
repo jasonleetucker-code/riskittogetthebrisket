@@ -614,7 +614,10 @@ Steps:
    ``src/sources/dataset_state.py`` (three clocks, players/picks subsets,
    row-level age), ``src/sources/freshness.py`` +
    ``config/sources/freshness_v1.json`` (curve, cadence, style).
-   Quarantined observations are dropped, never zero.  Rollback
+   Quarantined observations are dropped, never zero.  The weighted
+   median is CONTINUOUS in the weights (midpoint-interpolated; exactly the
+   ordinary median under equal weights) — the textbook step median flipped
+   a whole row when one weight crossed a knife-edge.  Rollback
    ``RISKIT_FEATURE_SOURCE_FRESHNESS_WEIGHTING=0`` + restart (factor 1.0,
    diagnostics keep reporting).  Full record:
    ``docs/sources/SOURCE_FRESHNESS_WEIGHTING.md``.

@@ -328,51 +328,53 @@ September movers in KTC Market (since the key began, 09-09) and in IDPTC
 
 | player | KTC Market | prod | split | final |
 |---|---|---|---|---|
-| Dalton Kincaid | 4146 → 5124 | 4605 | 4705 | 4756 |
-| Jalen Coker | 3146 → 4090 | 3084 | 3084 | 3217 |
-| Bryce Young | 3849 → 4730 | 3730 | 3730 | 3922 |
-| Parker Washington | 4382 → 5222 | 4025 | 4025 | 4087 |
-| Devaughn Vele | 1776 → 2443 | 1768 | 1848 | 1868 |
+| Dalton Kincaid | 4146 → 5158 | 4714 | 4757 | 4788 |
+| Jalen Coker | 3146 → 4108 | 3080 | 3080 | 3220 |
+| Bryce Young | 3849 → 4754 | 3730 | 3730 | 3830 |
+| Parker Washington | 4382 → 5247 | 4030 | 4030 | 4082 |
+| Isaiah Likely | 4272 → 4959 | 4241 | 4240 | 4321 |
 
 **KTC Market fallers**:
 
 | player | KTC Market | prod | split | final |
 |---|---|---|---|---|
-| Drake Maye | 8537 → 7691 | 9254 | 9224 | 9213 |
-| Jayden Daniels | 7236 → 6530 | 8044 | 7990 | 7862 |
-| Justin Herbert | 6854 → 6193 | 7321 | 7254 | 7254 |
-| A.J. Brown | 5391 → 4787 | 4987 | 4999 | 4898 |
-| Carnell Tate | 5551 → 4995 | 5511 | 5369 | 5495 |
+| Drake Maye | 8537 → 7668 | 9223 | 9132 | 9098 |
+| Jayden Daniels | 7236 → 6505 | 8015 | 7963 | 7888 |
+| Justin Herbert | 6854 → 6167 | 7157 | 7072 | 7018 |
+| A.J. Brown | 5391 → 4788 | 4963 | 4982 | 4877 |
+| Carnell Tate | 5551 → 4982 | 5446 | 5330 | 5403 |
 
 **IDP** (IDPTC movers; IDP rows carry no KTC):
 
 | player | IDPTC | prod | final | state |
 |---|---|---|---|---|
-| Jacob Rodriguez | 4173 → 5409 | 3899 | 3976 | NORMAL |
-| Greg Rousseau | 2141 → 3068 | 2502 | 2501 | DEGRADED |
-| Jared Verse | 5399 → 4164 | 3636 | 3512 | DEGRADED |
-| Jalon Walker | 2963 → 2141 | 2186 | 2087 | DEGRADED |
-| Kevin Winston | 2940 → 2153 | 2508 | 2449 | DEGRADED |
+| Jacob Rodriguez | 4173 → 5409 | 4389 | 4702 | DEGRADED |
+| Greg Rousseau | 2141 → 3068 | 2499 | 2480 | DEGRADED |
+| Jared Verse | 5399 → 3611 | 3447 | 3000 | DEGRADED |
+| Jalon Walker | 2963 → 2141 | 2170 | 1999 | DEGRADED |
+| Kevin Winston | 2940 → 2153 | 2694 | 2662 | DEGRADED |
 
 **Where stale IDP evidence mattered most** (largest freshness moves on
-09-23). All of them are deep IDP rows valued by a stale source (IDP Show 34
-days old, DLF IDP 14 days old) that sat well above the fresher boards:
+09-23). All of them are IDP rows valued partly by a stale source (IDP Show
+34 days old, DLF IDP 14 days old) that disagreed with the fresher boards:
 
 | player | before | after | driver |
 |---|---|---|---|
-| Christian Harris (LB) | 1495 (#589) | 1087 (off-cap) | IDPTC 0.887 vs IDP Show 0.122 |
-| Jack Kiser (LB) | 1222 (#737) | 892 (off-cap) | IDPTC + IDP Show only; IDP Show now 12% of weight |
-| Myles Garrett (DL) | 4793 | 5217 | stale IDP Show rank 89 loses weight against fresh FP IDP / IDPTC |
+| Carson Schwesinger (LB) | 4910 (#65) | 5423 (#53) | fresh FP IDP / DS IDP outweigh the stale boards that ranked him lower |
+| Myles Garrett (DL) | 4793 (#70) | 5218 (#61) | stale IDP Show rank 89 loses weight against fresh FP IDP / IDPTC |
+| Laiatu Latu (DL) | 3306 (#155) | 2852 (#201) | the stale boards that ranked him higher lose weight |
+| Christian Harris (LB) | 1495 (#583) | 1087 (off-cap) | IDPTC 0.88 vs IDP Show 0.12 |
+| Jack Kiser (LB) | 1222 (#735) | 892 (off-cap) | IDPTC + IDP Show only; IDP Show now 12% of weight |
 
 **Direction check, not a target.** Among the top-50 KTC Market risers,
 freshness weighting moved the model *with* the market move for 33 players
-and against it for 16. Among fallers it was 25 with and 22 against.
+and against it for 16. Among fallers it was 28 with and 19 against.
 
 For IDPTC, the top-50 by absolute change is mostly sub-3% edits. Among
 players whose IDPTC value moved ≥ 5%:
 
-* **Fallers**: 5 with, 1 against.
-* **Risers**: 1 with, 3 against. IDPTC's own weight is 0.887 today, so a
+* **Fallers**: 6 with, 0 against.
+* **Risers**: 1 with, 4 against. IDPTC's own weight is 0.88 today, so a
   rise it alone reports is diluted, as designed.
 
 Nothing in this change targets KTC or any other single board.
@@ -402,12 +404,17 @@ and dataset state replayed from git history up to that moment. Values are
 versus the `split` variant (KTC split, freshness off), averaged over 14
 days:
 
-| curve | rows changed | median \|Δ\| | p90 \|Δ\| | degraded share | mean retained authority |
-|---|---|---|---|---|---|
-| C1 exp after 1E (2^−(r−1)) | 869 | 1.39% | 7.96% | 33.7% | 0.776 |
-| C2 logistic | 903 | 1.42% | 7.69% | 31.9% | 0.782 |
-| C3 half-normal σ = 1.2 | 863 | 1.51% | 7.91% | 26.7% | 0.790 |
-| **C4 eased exp (selected)** | **860** | **1.08%** | **4.57%** | **17.0%** | **0.815** |
+| curve | rows changed | median \|Δ\| | p90 \|Δ\| | worst-day p90 | degraded share | mean retained authority |
+|---|---|---|---|---|---|---|
+| C1 exp after 1E (2^−(r−1)) | 868 | 1.50% | 8.78% | 15.5% | 34.0% | 0.775 |
+| C2 logistic | 894 | 1.47% | 9.07% | 14.1% | 31.9% | 0.782 |
+| C3 half-normal σ = 1.2 | 860 | 1.59% | 9.60% | 15.1% | 26.7% | 0.789 |
+| **C4 eased exp (selected)** | **857** | **1.23%** | **7.26%** | **10.8%** | **17.6%** | **0.815** |
+
+These numbers are measured with the **continuous** weighted median (below). A
+first run under the old step median put C4 at 1.08% / 4.57%. That run was
+flattered wherever the step snapped back to an unweighted answer, and elsewhere
+it hid cliffs. The ranking of the four curves is the same under both.
 
 Synthetic probes:
 
@@ -420,24 +427,55 @@ Synthetic probes:
 | monthly source at 70 d | 0.50 | 0.74 | 0.71 | 0.71 |
 
 **Why C4.** All four candidates hit the directive's target bands at r = 2
-to 4. C4 is the most stable of them day to day: the lowest median and p90
-movement, and none of the 14–17% p90 days that C1, C2 and C3 show on
-09-11, 09-18 and 09-20–23. It keeps the most authority while still
-decaying a dark fast source to 0.21 at 4E, and it keeps a stale source
-accountable longer before quarantine. C1 halves a source only one hour
-past its normal interval. C2 and C3 collapse too steeply between 2E and 4E.
+to 4. C4 is the most stable of them day to day: the lowest median, p90 and
+worst-day movement (10.8% against 14–15.5%). It keeps the most authority
+while still decaying a dark fast source to 0.21 at 4E, and it keeps a stale
+source accountable longer before quarantine. C1 halves a source only one
+hour past its normal interval. C2 and C3 collapse too steeply between 2E
+and 4E.
 
 **KTC split vs production**, per day: 522–581 rows changed, median |Δ| 0.74
-– 0.94%, p90 2.2 – 3.2%. Offense and picks only.
+– 0.97%, p90 2.2 – 3.3%. Offense and picks only. The baseline is current
+`main` (`4e79d10ad`), so its Hill constants are the same as this branch's.
 
 **Split + C4 vs production** (09-23):
 
-* 918 rows changed.
-* IDP median |Δ| 2.19% and offense 0.94%.
-* The largest moves are deep IDP rows leaning on stale IDP Show / DLF IDP
+* 940 rows changed.
+* Median |Δ|: IDP 4.06%, offense 1.26%, picks 1.23%.
+* The largest moves are IDP rows leaning on stale IDP Show / DLF IDP
   evidence.
-* On 09-11 the IDP median moved 9.75%. DLF IDP and IDP Show were both far
-  past cadence while IDPTC had just batch-published.
+
+### The weighted median is continuous in the weights
+
+Merging `main` exposed a cliff that the freshness weights made reachable on
+every board. The blend's weighted median was the textbook "first value whose
+cumulative weight passes half", which is a **step function** of the weights.
+Before this PR, only custom user weights reached it.
+
+Kyle Hamilton's three-source IDP anchor was:
+
+* IDPTC 3597 at weight 0.878;
+* IDP Show 3554 at 0.120;
+* Draft Sharks IDP 2269 at 1.0.
+
+The median snapped to 2269 because 1.0 exceeded half of 1.998 by 0.001. That
+dropped his value 20% (3315 → 2643). IDPTC at 0.881 would have snapped it
+back to about 3554.
+
+`_weighted_median_sorted` now works like this:
+
+* each observation sits at the midpoint of its cumulative-weight interval;
+* the median is the linear interpolation of the values at 0.5.
+
+It is continuous in the weights and exactly the ordinary median under equal
+weights. The equal-weight path, including flag-off and the default board
+with no stale sources, still delegates to the unweighted blend before
+reaching it, so those outputs are byte-identical.
+
+Kyle Hamilton is now 3158 (−4.7% vs flag-off). Pinned by
+`tests/api/test_weighted_blend.py`, which checks continuity across that exact
+knife-edge and the equal-weight identity. The change also applies to custom
+user weights, which now move values smoothly too.
 
 ## Storage contract
 
@@ -465,6 +503,24 @@ leaves the file untouched.
 These run in the existing sweep. `scripts/check_source_health.py` adds a
 `contentFreshness` advisory (`::warning title=Stale source data::`).
 
+## Post-deploy evidence
+
+The weighting endpoints are auth-gated, so every deploy prints its own
+evidence. `deploy/verify-deploy.sh` runs
+`scripts/source_weighting_report.py --state-only` on the box. It builds no
+contract and takes about 0.1 s. It assesses that box's own
+`data/scrape_state` through the same freshness owner the blend uses, and
+prints, per source and subset:
+
+* last FETCH beside the DATA clock (data-as-of);
+* E, age, r and freshness;
+* health, coverage, base and effective weight;
+* state.
+
+It is **advisory**: a failure only warns
+(`VERIFY_SOURCE_WEIGHTING_REPORT=0` disables it), so it can never fail or
+skip a deploy.
+
 ## Relationship to `dynamic_source_weights`
 
 The existing `dynamic_source_weights` flag gates an accuracy-based
@@ -482,6 +538,8 @@ second owner.
 | `tests/sources/test_freshness.py` | the curve at the specified absolute ages for E = 12 h / 3 d / 7 d / 35 d, style, cadence learning, outage clamp, season phase, inheritance, as-of rebuild |
 | `tests/api/test_freshness_weighted_blend.py` | exact weighted influence, recovery, quarantine without zero, no haircut cliff, missing ≠ zero, rollback, as-of determinism, confidence content freshness |
 | `tests/api/test_canonical_value_consumers.py` | one canonical value, and every market display reads `ktcMarket` |
+| `tests/api/test_weighted_blend.py` | continuous weighted median (the Kyle Hamilton knife-edge) and the equal-weight identity |
+| `tests/scripts/test_source_weighting_report_state_only.py` | the on-box report: reduced vs full weight, a re-fetch does not freshen, KTC Market is a benchmark, unmeasured ≠ zero, the deploy hook is advisory |
 
 ## Deferred / follow-ups (visible, not smuggled in)
 
