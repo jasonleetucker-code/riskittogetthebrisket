@@ -1092,12 +1092,15 @@ def build_section(
             reason="current_league_membership_incomplete",
             detail=membership_error,
         )
+    host_scored_through = (
+        _metrics.last_scored_week(current_season) if current_season is not None else None
+    )
     if (
         current_season is not None
         and not current_season.is_complete
         and current_label not in scored_week_by_season
         and (
-            (_metrics.last_scored_week(current_season) or 0) >= 1
+            (host_scored_through is not None and host_scored_through >= 1)
             or bool(_metrics.final_regular_season_weeks(current_season))
         )
     ):

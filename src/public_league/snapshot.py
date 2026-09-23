@@ -421,8 +421,14 @@ def current_season_membership_error(snapshot: PublicLeagueSnapshot) -> str | Non
     rosters = current.rosters or []
     if not rosters:
         return f"current season {label} has no rosters"
-    declared = int(current.league.get("total_rosters") or 0)
-    if declared and len(rosters) != declared:
+    # An undeclared roster count is UNKNOWN, not a mismatch -- the roster list
+    # itself is then the only statement of league size.
+    raw_declared = current.league.get("total_rosters")
+    try:
+        declared = int(raw_declared) if raw_declared is not None else None
+    except (TypeError, ValueError):
+        declared = None
+    if declared is not None and declared > 0 and len(rosters) != declared:
         return f"current season {label} has {len(rosters)} rosters, league declares {declared}"
     registry = snapshot.managers
     unresolved: list[str] = []
@@ -468,14 +474,17 @@ def current_season_integrity_error(snapshot: PublicLeagueSnapshot) -> str | None
     if not (current.users or []):
         return f"current season {label} has no users"
 
-    settings = current.league.get("settings") or {}
-    raw_horizon = settings.get("last_scored_leg")
+    # The host's own "finished scoring through week N" (``None`` = unverified,
+    # in which case no week can be proven missing). Imported here because
+    # ``metrics`` imports this module.
+    from . import metrics  # noqa: PLC0415
+
+    horizon = metrics.last_scored_week(current)
+    if horizon is None:
+        return None
+    raw_start = (current.league.get("settings") or {}).get("start_week")
     try:
-        horizon = int(raw_horizon) if raw_horizon is not None else 0
-    except (TypeError, ValueError):
-        horizon = 0
-    try:
-        start_week = max(1, int(settings.get("start_week") or 1))
+        start_week = max(1, int(raw_start)) if raw_start is not None else 1
     except (TypeError, ValueError):
         start_week = 1
     last_regular = min(horizon, current.playoff_week_start - 1)
