@@ -279,7 +279,6 @@ def test_single_season_emits_limited_data_warning(monkeypatch):
     assert any("limited" in w.lower() for w in out["warnings"])
 
 
-
 def test_live_latest_season_is_annualized_and_progress_weighted(monkeypatch):
     _stub_scoring_fetch(monkeypatch)
 
