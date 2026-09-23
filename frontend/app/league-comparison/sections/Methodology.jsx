@@ -94,10 +94,13 @@ export default function Methodology({ data }) {
       <h3 style={{ marginTop: "var(--space-md)" }}>Seasons</h3>
       <p className="text-sm" style={{ lineHeight: 1.6 }}>
         Requested: <strong>{seasonsReq}</strong>. Available: <strong>{seasonsAvail}</strong>.
-        Each available season is weighted <strong>equally</strong> in the
-        combined result — no recency weighting.  If a season is missing
-        from the upstream data source, the remaining seasons each absorb
-        its weight proportionally (e.g. 3 seasons → each counts 1/3).
+        Completed historical seasons carry equal weight.  When the latest
+        requested season is still in progress, its positional metrics are
+        normalized to 17-week units for an apples-to-apples comparison, but
+        its combined weight is only <code>observed_weeks ÷ 17</code>.  That
+        means 3 completed modeled weeks contribute 3/17 of a season, 10 weeks
+        contribute 10/17, and Week 17 naturally becomes a normal full-weight
+        season.  Missing seasons contribute no weight.
       </p>
 
       <h3 style={{ marginTop: "var(--space-md)" }}>Position metrics (per top-N sample)</h3>
