@@ -297,11 +297,18 @@ def record_snapshot(
     section: dict[str, Any],
     scoring_fingerprint: str,
     finalized_at: str | None = None,
+    expected_owner_ids: set[str] | None = None,
 ) -> tuple[Path, bool]:
     """Create one immutable snapshot for section asOfSeason/asOfWeek.
 
     Returns a path plus whether this call created it. Existing snapshots are
     never rewritten.
+
+    A publication is frozen forever, so a partial table must never become
+    one. The engine stamps ``rankingComplete``; the publisher also passes the
+    current league's owners as ``expected_owner_ids`` and the ranked set must
+    equal it exactly (2026-09-23: a half-fetched snapshot produced a 10-of-12
+    table; this refuses it even if a future engine change stops refusing).
     """
     season = section.get("asOfSeason")
     week = section.get("asOfWeek")
@@ -310,6 +317,16 @@ def record_snapshot(
     rankings = section.get("currentRanking") or []
     if not rankings or any(row.get("rank") is None for row in rankings):
         raise ValueError("cannot publish an empty or unrankable Power snapshot")
+    if section.get("rankingComplete") is False:
+        raise ValueError("cannot publish a Power snapshot the engine marked incomplete")
+    if expected_owner_ids is not None:
+        ranked = {str(row.get("ownerId") or "") for row in rankings}
+        expected = {str(oid) for oid in expected_owner_ids}
+        if ranked != expected:
+            raise ValueError(
+                "cannot publish a Power snapshot whose owners differ from the current "
+                f"league: missing {sorted(expected - ranked)}, extra {sorted(ranked - expected)}"
+            )
 
     path = snapshot_path(league_key, season, week)
     if path.exists():
