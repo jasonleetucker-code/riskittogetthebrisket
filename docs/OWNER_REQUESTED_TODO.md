@@ -462,3 +462,8 @@ validated the lighter way the owner explicitly asked for — current-board compa
 component contributions, a sensitivity check on nearby parameter choices — not that full
 predictive backtest. A future formal backtest against §12's protocol remains valuable and is
 out of scope here; nothing about this change depends on skipping it forever.
+
+
+### League Comparison / scoring lab — live 2026 evidence — owner directive 2026-09-23
+
+Owner requested that the scoring-comparison work begin taking **2026 scoring** into account now, while the season is still in progress. Required outcome: preserve the existing 2022–2025 historical evidence, ingest available 2026 regular-season production through the canonical nflverse→Sleeper fallback, and make the current season influence the combined comparison **without pretending a partial season is a completed year**. The live-season basis/progress must be visible in the payload/UI, and the treatment must converge to ordinary full-season semantics when all 17 modeled weeks are present. Tracked as `LC-2026-LIVE` on `codex/league-comparison-2026-live`.
