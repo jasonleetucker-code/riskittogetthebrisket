@@ -67,7 +67,7 @@ from collections import defaultdict
 from typing import Any, Iterable
 
 from src.public_league import luck, metrics as _metrics
-from src.public_league.snapshot import PublicLeagueSnapshot
+from src.public_league.snapshot import PublicLeagueSnapshot, current_season_membership_error
 
 LOG = logging.getLogger("ros.power_v2")
 
@@ -125,7 +125,15 @@ _HISTORICAL_RESULTS_COMPONENTS: tuple[str, ...] = (
 # reliability.
 _MIN_SCORED_GAMES: dict[str, int] = {}
 
-METHODOLOGY_VERSION = "canonical-power-2026.09-v1"
+#: Bumped to v2 with the 2026-09-22 rebalance (30/70 target, tau 2, recent
+#: redundancy discount). That commit changed the formula but kept v1, so the
+#: Week 2 publication (old formula, 05:29Z) and the live table (new formula,
+#: 10:59Z onward) carried the same version string and a reader could not tell
+#: a methodology change from a data change. Publications stay keyed by
+#: (league, season, week) only, so a version change can never orphan history:
+#: movement still compares against exactly week N-1, and names that week's
+#: version in ``movementBaseline``.
+METHODOLOGY_VERSION = "canonical-power-2026.09-v2"
 
 #: Zero state for ONE season. Named for what it holds: this and the
 #: ``state["season"]`` key it backs were called ``_EMPTY_CAREER`` /
@@ -221,7 +229,7 @@ def _effective_weight_vector(
 ) -> tuple[dict[str, float], dict[str, float]]:
     """Return the actual component weights plus blend metadata.
 
-    Canonical mode preserves the spec's 40/60 forward/results TARGET while
+    Canonical mode preserves the spec's 30/70 forward/results TARGET while
     allowing observed evidence to earn its way into the score. Missing result
     inputs are renormalised *inside* the results bucket so an unavailable VORP
     dependency cannot accidentally make the ranking more forward-looking than
@@ -350,7 +358,16 @@ def _load_team_strength_percentiles(
         oid = str(r.get("ownerId") or "")
         if not oid:
             continue
-        score = float(r.get("teamRosStrength") or 0.0)
+        # MISSING IS NEVER ZERO: a row with no strength is left out, so the
+        # owner's ROS component is ``None`` and ``_score_state`` renormalises
+        # over what IS measured -- never the league's bottom percentile.
+        raw = r.get("teamRosStrength")
+        if raw is None:
+            continue
+        try:
+            score = float(raw)
+        except (TypeError, ValueError):
+            continue
         scores.append((oid, score))
     score_values = [s for _, s in scores]
     return {oid: _percentile(score_values, score) for oid, score in scores}
@@ -429,11 +446,13 @@ def _enumerate_owner_ids(
          2026 season, so prior-season history is a SHRINKING set that
          cannot be trusted as a primary source without silently dropping
          every owner who joined after the expansion.
-      2. If no registry-valid current roster membership is available,
-         owners present in the live team-strength snapshot are the first
-         fallback.
+      2. Only if there is no current roster list at all, owners present in
+         the live team-strength snapshot are the first fallback.
       3. Prior-season career history is the final fallback. It never unions
-         departed owners into a populated current-season league table.
+         departed owners into a current-season league table. In production
+         ``build_section`` refuses an in-season snapshot whose current roster
+         list is empty or short before enumeration, so 2 and 3 are reachable
+         only for a snapshot with no current season.
 
     Precedence was inverted 2026-09 (was: team-strength -> current season
     -> history). Team-strength first made history — the shrinking set —
@@ -461,10 +480,16 @@ def _enumerate_owner_ids(
         for roster in current.rosters or []:
             _add(roster.get("owner_id"))
 
-    # A populated current-season roster is authoritative membership for this
-    # CURRENT league ranking. Team-strength/history are fallbacks for an
-    # incomplete snapshot, not unions that can resurrect departed owners.
-    if not ordered:
+    # A current-season roster list is authoritative membership for this
+    # CURRENT league ranking -- even when every owner on it is filtered out
+    # (orphaned or retired), which is an answer, not an absence.
+    # Team-strength/history are fallbacks ONLY when there is no current roster
+    # list at all, and ``build_section`` refuses a current season whose roster
+    # list is empty or short (``current_season_membership_error``) before it
+    # gets here: filtered through a registry built from those same missing
+    # rosters, the fallback silently dropped every owner new this season
+    # (2026-09-23: 10 of 12, the two 2026 joiners gone).
+    if not ordered and (current is None or not (current.rosters or [])):
         for row in team_strength_rows:
             _add(row.get("ownerId"))
         for oid in historical_owner_ids:
@@ -580,6 +605,16 @@ def _score_state(
     missing_inputs: list[str] = []
     if not ros_available:
         missing_inputs.append(_LENS_DROPPED_ROS if results_only else "team_ros_strength")
+    else:
+        ros_missing = sorted(o for o in owner_ids if o not in ros_pct)
+        if ros_missing:
+            # Measured for the league but not for these owners: their ROS
+            # component is ``None`` and their score renormalises over what
+            # IS measured. Named, so it can never pass for a full table.
+            missing_inputs.append(
+                f"team_ros_strength (unavailable for {len(ros_missing)} owner(s): "
+                f"{', '.join(ros_missing)})"
+            )
     if not all_play_available:
         missing_inputs.append("all_play")
     if not recent_available:
@@ -801,6 +836,58 @@ LENS_RESULTS_ONLY = "results_only"
 _LENS_DROPPED_ROS = "team_ros_strength (lens: results_only)"
 
 
+def _refused_section(
+    *,
+    lens: str,
+    requested_lens: str,
+    preseason: bool,
+    as_of_season: str | None,
+    reason: str,
+    detail: str,
+) -> dict[str, Any]:
+    """The section shape for "the inputs cannot support a ranking".
+
+    ``currentRanking`` is empty and ``unrankable`` names why, so the page
+    renders an explicit refusal instead of a partial table, the publisher
+    (``src/ros/scrape.py``) skips it, and nothing downstream can mistake it
+    for a real week. ``asOfWeek`` is ``None`` -- unknown -- never 0, which
+    would claim "preseason" and turn every movement into NEW.
+    """
+    return {
+        "currentRanking": [],
+        "lens": lens,
+        "requestedLens": requested_lens,
+        "methodologyVersion": METHODOLOGY_VERSION,
+        "unrankable": {
+            "reason": reason,
+            "missingInputs": [detail],
+            "explanation": (
+                "The league snapshot is incomplete for the current season, so Power "
+                "withholds the ranking instead of publishing a partial or "
+                "prior-season table."
+            ),
+        },
+        "weights": dict(WEIGHTS),
+        "effectiveWeights": {},
+        "blend": {
+            "forwardWeight": 0.0,
+            "resultsWeight": 0.0,
+            "resultsEvidence": 0.0,
+            "scoredGames": 0,
+            "targetForwardWeight": WEIGHTS["team_ros_strength"],
+            "targetResultsWeight": sum(WEIGHTS[k] for k in RESULT_COMPONENTS),
+        },
+        "missingInputs": [detail],
+        "rosTeamStrengthAvailable": False,
+        "preseason": preseason,
+        "asOfSeason": as_of_season,
+        "asOfWeek": None,
+        "expectedTeamCount": None,
+        "rankingComplete": False,
+        "officialSnapshot": None,
+    }
+
+
 def build_section(
     snapshot: PublicLeagueSnapshot,
     *,
@@ -887,6 +974,11 @@ def build_section(
     # season that produced scores — the same one ``final_state`` describes.
     counted_weeks: list[int] = []
     partial_weeks: list[dict[str, Any]] = []
+    # Which season the accumulators above currently describe. A season with
+    # no resolvable scores ``continue``s BEFORE the reset below, so without
+    # this the "current" state silently stays the previous season's -- see
+    # the prior-season guard after this loop.
+    state_season_label: str | None = None
 
     for season in seasons_sorted:
         week_scores = luck._season_weekly_scores(season, registry)
@@ -895,6 +987,7 @@ def build_section(
 
         counted_weeks = sorted(week_scores.keys())
         partial_weeks = []
+        state_season_label = str(season.season)
 
         season_state = defaultdict(lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0})
         recent_window = defaultdict(list)
@@ -979,6 +1072,68 @@ def build_section(
                 )
             )
 
+    current_season = snapshot.current_season
+    current_label = str(current_season.season) if current_season is not None else None
+
+    # ── Current-season integrity: refuse rather than publish a wrong table ──
+    # Both gates exist because the alternative was measured on 2026-09-23: a
+    # snapshot whose 2026 rosters failed to fetch ranked the 2025 season's
+    # results for 10 of 12 owners, labelled the table "Preseason" and marked
+    # every team NEW. A refusal is a true statement about a table we cannot
+    # build; a plausible-looking wrong ranking is not.
+    membership_error = current_season_membership_error(snapshot)
+    if membership_error is not None:
+        LOG.warning("[power_v2] refusing to rank: %s", membership_error)
+        return _refused_section(
+            lens=public_lens,
+            requested_lens=requested_lens,
+            preseason=preseason,
+            as_of_season=current_label,
+            reason="current_league_membership_incomplete",
+            detail=membership_error,
+        )
+    if (
+        current_season is not None
+        and not current_season.is_complete
+        and current_label not in scored_week_by_season
+        and (
+            (_metrics.last_scored_week(current_season) or 0) >= 1
+            or bool(_metrics.final_regular_season_weeks(current_season))
+        )
+    ):
+        detail = f"host reports scored week(s) for {current_label} but none resolved to an owner"
+        LOG.warning("[power_v2] refusing to rank: %s", detail)
+        return _refused_section(
+            lens=public_lens,
+            requested_lens=requested_lens,
+            preseason=preseason,
+            as_of_season=current_label,
+            reason="current_season_scores_unresolvable",
+            detail=detail,
+        )
+
+    # ── No prior-season results in the canonical in-season answer ──
+    # In-season with no FINAL week yet (Week 1 in progress: live points make
+    # ``_is_preseason`` False, but ``_season_weekly_scores`` admits nothing),
+    # the accumulators still hold last season's complete results. Canonical
+    # Power answers "what has this team earned THIS season"; the honest
+    # answer before any final week is "nothing yet", so results carry no
+    # evidence and ROS strength stands alone. Results-only keeps its
+    # documented offseason view of the finished year.
+    if (
+        not results_only
+        and not preseason
+        and current_label is not None
+        and state_season_label != current_label
+    ):
+        season_state = defaultdict(lambda: {"points": 0.0, "games": 0, "wins": 0.0, "losses": 0.0})
+        recent_window = defaultdict(list)
+        last_season_allplay_share = {}
+        season_outcomes = defaultdict(list)
+        expected_share_total = defaultdict(float)
+        counted_weeks = []
+        partial_weeks = []
+
     owner_ids = _enumerate_owner_ids(snapshot, team_strength_rows, sorted(career_state.keys()))
     if not owner_ids:
         return {
@@ -1001,7 +1156,6 @@ def build_section(
     # retroactively, so they fall back to matchup-derived as-of records.
     official_record_scores: dict[str, float] = {}
     official_record_strings: dict[str, str] = {}
-    current_season = snapshot.current_season
     if current_season is not None:
         for roster in current_season.rosters or []:
             rid = _metrics.roster_id_of(roster)
@@ -1089,7 +1243,16 @@ def build_section(
     share_snapshot = None
     official_history: list[dict[str, Any]] = []
     league_key = None
+    # What the movement arrows were measured against. The frontend keys NEW on
+    # it: "no prior publication exists" and "the lookup failed" must not both
+    # render as NEW on every row, which is what a swallowed exception or a
+    # mis-stamped week 0 used to produce.
+    movement_baseline: dict[str, Any] = {
+        "status": "unavailable",
+        "reason": "results_only lens" if results_only else "no current season",
+    }
     if not results_only and as_of_season:
+        movement_baseline = {"status": "unavailable", "reason": "league key not resolved"}
         try:
             from src.api.league_registry import league_key_for_sleeper_id  # noqa: PLC0415
             from src.ros import power_snapshots  # noqa: PLC0415
@@ -1102,6 +1265,29 @@ def build_section(
                 # and served like any other official week. Movement itself is
                 # still correctly ``None`` there — week 0 has no predecessor,
                 # which ``movement_against_previous`` decides, not this guard.
+                if as_of_week == 0:
+                    movement_baseline = {
+                        "status": "not_applicable",
+                        "reason": "week 0 (preseason) has no earlier publication",
+                    }
+                else:
+                    baseline = power_snapshots.load_snapshot(
+                        league_key, as_of_season, as_of_week - 1
+                    )
+                    movement_baseline = (
+                        {
+                            "status": "compared",
+                            "week": as_of_week - 1,
+                            "preseason": bool(baseline.get("preseason")),
+                            "methodologyVersion": baseline.get("methodologyVersion"),
+                            "rankSource": power_snapshots.rank_source(baseline),
+                            "sameMethodology": (
+                                baseline.get("methodologyVersion") == METHODOLOGY_VERSION
+                            ),
+                        }
+                        if baseline is not None
+                        else {"status": "no_prior_publication", "week": as_of_week - 1}
+                    )
                 if as_of_week >= 0:
                     movement = power_snapshots.movement_against_previous(
                         league_key=league_key,
@@ -1131,6 +1317,7 @@ def build_section(
                         "week": snap.get("week"),
                         "preseason": bool(snap.get("preseason")),
                         "rankSource": power_snapshots.rank_source(snap),
+                        "methodologyVersion": snap.get("methodologyVersion"),
                         "ranking": [
                             {
                                 "ownerId": r.get("ownerId"),
@@ -1144,6 +1331,7 @@ def build_section(
                 ]
         except Exception as exc:  # noqa: BLE001
             LOG.warning("[power_v2] weekly movement unavailable: %s", exc)
+            movement_baseline = {"status": "unavailable", "reason": str(exc)}
 
     # Historical chart remains results-only because no historical ROS value is
     # reconstructed after the fact. The immutable official snapshots above are
@@ -1194,6 +1382,29 @@ def build_section(
             ),
         }
 
+    # Completeness is stamped, not assumed: the table and the share card both
+    # render ``currentRanking``, and a reader must be able to tell "all twelve"
+    # from "the ten we could resolve" without counting rows. Expected is the
+    # current season's active (non-retired) roster owners; an orphaned or
+    # retired-owner roster is counted separately rather than silently.
+    expected_team_count: int | None = None
+    ranking_complete: bool | None = None
+    unowned_rosters: int | None = None
+    if current_season is not None:
+        active_ids = {m.owner_id for m in registry.ordered_managers()}
+        roster_owners = [
+            str(r.get("owner_id") or "").strip() for r in (current_season.rosters or [])
+        ]
+        expected_ids = {oid for oid in roster_owners if oid in active_ids}
+        expected_team_count = len(expected_ids)
+        unowned_rosters = sum(1 for oid in roster_owners if oid not in active_ids)
+        ranked_ids = {str(r.get("ownerId")) for r in rankings if r.get("rank") is not None}
+        ranking_complete = (
+            unrankable is None
+            and len(rankings) == expected_team_count
+            and ranked_ids == expected_ids
+        )
+
     scoring_fingerprint = None
     try:
         from src.ros import power_snapshots  # noqa: PLC0415
@@ -1239,4 +1450,8 @@ def build_section(
         "officialSnapshot": official_snapshot,
         "shareSnapshot": share_snapshot,
         "officialHistory": official_history,
+        "movementBaseline": movement_baseline,
+        "expectedTeamCount": expected_team_count,
+        "rankingComplete": ranking_complete,
+        "unownedRosters": unowned_rosters,
     }

@@ -393,30 +393,27 @@ def build_public_snapshot(
     return snapshot
 
 
-def current_season_integrity_error(snapshot: PublicLeagueSnapshot) -> str | None:
-    """Why the snapshot's CURRENT season cannot be trusted, or ``None``.
+def current_season_membership_error(snapshot: PublicLeagueSnapshot) -> str | None:
+    """Why the CURRENT season's roster membership cannot be trusted, or ``None``.
 
-    ``sleeper_client`` answers every failed GET with ``[]``, so a Sleeper
-    blip on ``/rosters`` or ``/users`` produces a snapshot that LOOKS whole —
-    it has seasons, it has managers from the older seasons — while the
-    current season is missing the one thing every current-view section keys
-    on.  Measured 2026-09-23: that shape made the Power Rankings rank the
-    previous season's results, drop the two owners who joined this season
-    (10 of 12 rows), label the table "Preseason" and mark every team NEW.
+    The one definition of "we know who is in this league right now", shared
+    by snapshot ingestion (``current_season_integrity_error``) and the Power
+    engine, so the two cannot disagree about whether a table is complete.
 
-    A zero-season snapshot is already refused upstream; this is the same
-    rule applied one level down.  ``None`` for a snapshot with no seasons,
-    so the two guards never double-report.
+    * no rosters at all — a failed ``/rosters`` GET (``sleeper_client``
+      answers every failure with ``[]``);
+    * fewer/more rosters than the league declares (``total_rosters``);
+    * a roster whose owner does not resolve through the manager registry
+      for THIS season's league — the registry is built from the rosters, so
+      a mismatch means the two were not built from the same fetch.
 
-    Deliberately NOT an error:
+    Deliberately NOT an error: an orphaned roster (``owner_id`` null).
+    Sleeper genuinely has those, and the registry refuses to invent an
+    owner for one.
 
-    * an orphaned roster (``owner_id`` null) — Sleeper genuinely has those,
-      and the registry refuses to invent an owner for one;
-    * a week past the host's ``last_scored_leg`` with no matchups — that is
-      the future, not a failed fetch.
+    ``None`` for a snapshot with no current season (the zero-season guard
+    owns that), and for test doubles that model only ``seasons``/``managers``.
     """
-    # ``getattr``: callers' test doubles model only ``seasons``/``managers``;
-    # a double with no current season has nothing current to be wrong about.
     current = getattr(snapshot, "current_season", None)
     if not isinstance(current, SeasonSnapshot):
         return None
@@ -424,12 +421,9 @@ def current_season_integrity_error(snapshot: PublicLeagueSnapshot) -> str | None
     rosters = current.rosters or []
     if not rosters:
         return f"current season {label} has no rosters"
-    if not (current.users or []):
-        return f"current season {label} has no users"
     declared = int(current.league.get("total_rosters") or 0)
     if declared and len(rosters) != declared:
         return f"current season {label} has {len(rosters)} rosters, league declares {declared}"
-
     registry = snapshot.managers
     unresolved: list[str] = []
     for roster in rosters:
@@ -443,6 +437,36 @@ def current_season_integrity_error(snapshot: PublicLeagueSnapshot) -> str | None
             f"current season {label}: {len(unresolved)} roster owner(s) do not resolve "
             f"through the manager registry: {sorted(unresolved)}"
         )
+    return None
+
+
+def current_season_integrity_error(snapshot: PublicLeagueSnapshot) -> str | None:
+    """Why the snapshot's CURRENT season cannot be trusted, or ``None``.
+
+    ``sleeper_client`` answers every failed GET with ``[]``, so a Sleeper
+    blip on ``/rosters`` or ``/users`` produces a snapshot that LOOKS whole —
+    it has seasons, it has managers from the older seasons — while the
+    current season is missing the one thing every current-view section keys
+    on.  Measured 2026-09-23: that shape made the Power Rankings rank the
+    previous season's results, drop the two owners who joined this season
+    (10 of 12 rows), label the table "Preseason" and mark every team NEW.
+
+    A zero-season snapshot is already refused upstream; this is the same
+    rule applied one level down.  Membership is
+    ``current_season_membership_error``; on top of it this requires users,
+    and a matchup payload for every week the host says is scored.  A week
+    past the host's ``last_scored_leg`` with no matchups is the future, not
+    a failed fetch, and is not an error.
+    """
+    membership = current_season_membership_error(snapshot)
+    if membership is not None:
+        return membership
+    current = getattr(snapshot, "current_season", None)
+    if not isinstance(current, SeasonSnapshot):
+        return None
+    label = f"{current.season or '?'} ({current.league_id or '?'})"
+    if not (current.users or []):
+        return f"current season {label} has no users"
 
     settings = current.league.get("settings") or {}
     raw_horizon = settings.get("last_scored_leg")
