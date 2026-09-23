@@ -391,3 +391,76 @@ def build_public_snapshot(
         ]
     )
     return snapshot
+
+
+def current_season_integrity_error(snapshot: PublicLeagueSnapshot) -> str | None:
+    """Why the snapshot's CURRENT season cannot be trusted, or ``None``.
+
+    ``sleeper_client`` answers every failed GET with ``[]``, so a Sleeper
+    blip on ``/rosters`` or ``/users`` produces a snapshot that LOOKS whole —
+    it has seasons, it has managers from the older seasons — while the
+    current season is missing the one thing every current-view section keys
+    on.  Measured 2026-09-23: that shape made the Power Rankings rank the
+    previous season's results, drop the two owners who joined this season
+    (10 of 12 rows), label the table "Preseason" and mark every team NEW.
+
+    A zero-season snapshot is already refused upstream; this is the same
+    rule applied one level down.  ``None`` for a snapshot with no seasons,
+    so the two guards never double-report.
+
+    Deliberately NOT an error:
+
+    * an orphaned roster (``owner_id`` null) — Sleeper genuinely has those,
+      and the registry refuses to invent an owner for one;
+    * a week past the host's ``last_scored_leg`` with no matchups — that is
+      the future, not a failed fetch.
+    """
+    # ``getattr``: callers' test doubles model only ``seasons``/``managers``;
+    # a double with no current season has nothing current to be wrong about.
+    current = getattr(snapshot, "current_season", None)
+    if not isinstance(current, SeasonSnapshot):
+        return None
+    label = f"{current.season or '?'} ({current.league_id or '?'})"
+    rosters = current.rosters or []
+    if not rosters:
+        return f"current season {label} has no rosters"
+    if not (current.users or []):
+        return f"current season {label} has no users"
+    declared = int(current.league.get("total_rosters") or 0)
+    if declared and len(rosters) != declared:
+        return f"current season {label} has {len(rosters)} rosters, league declares {declared}"
+
+    registry = snapshot.managers
+    unresolved: list[str] = []
+    for roster in rosters:
+        owner_id = str(roster.get("owner_id") or "").strip()
+        if not owner_id:
+            continue
+        if registry.owner_for_roster(current.league_id, roster.get("roster_id")) != owner_id:
+            unresolved.append(owner_id)
+    if unresolved:
+        return (
+            f"current season {label}: {len(unresolved)} roster owner(s) do not resolve "
+            f"through the manager registry: {sorted(unresolved)}"
+        )
+
+    settings = current.league.get("settings") or {}
+    raw_horizon = settings.get("last_scored_leg")
+    try:
+        horizon = int(raw_horizon) if raw_horizon is not None else 0
+    except (TypeError, ValueError):
+        horizon = 0
+    try:
+        start_week = max(1, int(settings.get("start_week") or 1))
+    except (TypeError, ValueError):
+        start_week = 1
+    last_regular = min(horizon, current.playoff_week_start - 1)
+    missing_weeks = [
+        wk for wk in range(start_week, last_regular + 1) if not current.matchups_by_week.get(wk)
+    ]
+    if missing_weeks:
+        return (
+            f"current season {label}: host reports week {horizon} scored but matchups "
+            f"are missing for week(s) {missing_weeks}"
+        )
+    return None
