@@ -52,7 +52,6 @@ def test_combine_metrics_equal_weight_averages_per_year():
     assert out.sample_size == 24
 
 
-
 def test_combine_metrics_weighted_gives_live_partial_season_fractional_influence():
     historical = _pm(avg=100, med=90)
     live = _pm(avg=170, med=153)
@@ -75,6 +74,8 @@ def test_combine_metrics_weighted_full_weight_converges_to_equal_weight():
 def test_combine_metrics_weighted_requires_explicit_weight_for_available_season():
     with pytest.raises(ValueError, match="missing season weight"):
         m.combine_metrics_weighted({2026: _pm(avg=100, med=90)}, {})
+
+
 def test_combine_metrics_equal_weight_skips_missing_seasons():
     per_year = {
         2022: _pm(avg=200, med=180),
