@@ -45,7 +45,7 @@ from src.api.data_contract import (
 # ── The golden dataset ──────────────────────────────────────────────────
 # (name, position, {source: raw site value})
 #
-# Source values are on each site's native 0-9999 scale.  ``ktcCrowdTradesSfTep``
+# Source values are on each site's native 0-9999 scale.  ``ktcCrowdSfTep``
 # and ``idpTradeCalc`` are the two value-direct sources; everything else
 # votes via rank -> percentile -> Hill.
 
@@ -55,7 +55,7 @@ GOLDEN_PLAYERS: dict[str, dict[str, Any]] = {
         "position": "WR",
         "team": "CIN",
         "sites": {
-            "ktcCrowdTradesSfTep": 9999,
+            "ktcCrowdSfTep": 9999,
             "idpTradeCalc": 9900,
             "dlfSf": 9950,
             "dynastyNerdsSfTep": 9970,
@@ -66,7 +66,7 @@ GOLDEN_PLAYERS: dict[str, dict[str, Any]] = {
         "position": "QB",
         "team": "BUF",
         "sites": {
-            "ktcCrowdTradesSfTep": 9800,
+            "ktcCrowdSfTep": 9800,
             "idpTradeCalc": 9700,
             "dlfSf": 9850,
             "dynastyNerdsSfTep": 9820,
@@ -77,35 +77,35 @@ GOLDEN_PLAYERS: dict[str, dict[str, Any]] = {
     "Marvin Harrison Jr.": {
         "position": "WR",
         "team": "ARI",
-        "sites": {"ktcCrowdTradesSfTep": 8200, "idpTradeCalc": 8100, "dlfSf": 8300},
+        "sites": {"ktcCrowdSfTep": 8200, "idpTradeCalc": 8100, "dlfSf": 8300},
     },
     "D.J. Moore": {
         "position": "WR",
         "team": "CHI",
-        "sites": {"ktcCrowdTradesSfTep": 5600, "idpTradeCalc": 5500, "dlfSf": 5700},
+        "sites": {"ktcCrowdSfTep": 5600, "idpTradeCalc": 5500, "dlfSf": 5700},
     },
     "Amon-Ra St. Brown": {
         "position": "WR",
         "team": "DET",
-        "sites": {"ktcCrowdTradesSfTep": 8000, "idpTradeCalc": 7900, "dlfSf": 8100},
+        "sites": {"ktcCrowdSfTep": 8000, "idpTradeCalc": 7900, "dlfSf": 8100},
     },
     # ── Mid-tier and replacement-level offense ──
     "Mid Tier RB": {
         "position": "RB",
         "team": "NYJ",
-        "sites": {"ktcCrowdTradesSfTep": 4200, "idpTradeCalc": 4300, "dlfSf": 4100},
+        "sites": {"ktcCrowdSfTep": 4200, "idpTradeCalc": 4300, "dlfSf": 4100},
     },
     "Replacement WR": {
         "position": "WR",
         "team": "CAR",
-        "sites": {"ktcCrowdTradesSfTep": 600, "idpTradeCalc": 650, "dlfSf": 550},
+        "sites": {"ktcCrowdSfTep": 600, "idpTradeCalc": 650, "dlfSf": 550},
     },
     # ── TE: the custom-scoring-sensitive position (TE++ basis) ──
     "Brock Bowers": {
         "position": "TE",
         "team": "LV",
         "sites": {
-            "ktcCrowdTradesSfTep": 9400,
+            "ktcCrowdSfTep": 9400,
             "idpTradeCalc": 9300,
             "dlfSf": 9450,
             "dynastyNerdsSfTep": 9600,
@@ -116,7 +116,7 @@ GOLDEN_PLAYERS: dict[str, dict[str, Any]] = {
         "position": "WR",
         "team": "SEA",
         "sites": {
-            "ktcCrowdTradesSfTep": 7000,
+            "ktcCrowdSfTep": 7000,
             "idpTradeCalc": 6900,
             "dlfSf": 7100,
             "dynastyNerdsSfTep": 1200,  # the outlier
@@ -127,13 +127,13 @@ GOLDEN_PLAYERS: dict[str, dict[str, Any]] = {
     "Lonely Rookie": {
         "position": "WR",
         "team": "???",
-        "sites": {"ktcCrowdTradesSfTep": 7500},
+        "sites": {"ktcCrowdSfTep": 7500},
     },
     # ── Missing optional metadata (no team) ──
     "No Team Guy": {
         "position": "RB",
         "team": "",
-        "sites": {"ktcCrowdTradesSfTep": 3000, "idpTradeCalc": 3100, "dlfSf": 2900},
+        "sites": {"ktcCrowdSfTep": 3000, "idpTradeCalc": 3100, "dlfSf": 2900},
     },
     # ── IDP: all three families ──
     "Myles Garrett": {
@@ -160,7 +160,7 @@ GOLDEN_PLAYERS: dict[str, dict[str, Any]] = {
     "Some Lineman": {
         "position": "OL",
         "team": "PHI",
-        "sites": {"ktcCrowdTradesSfTep": 400},
+        "sites": {"ktcCrowdSfTep": 400},
     },
 }
 

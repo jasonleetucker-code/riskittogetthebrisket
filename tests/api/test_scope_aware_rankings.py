@@ -44,6 +44,10 @@ def _row(name: str, pos: str, *, ktc=None, idp=None, extra=None) -> dict:
     """Build a minimal playersArray row with optional per-source values."""
     sites: dict = {}
     if ktc is not None:
+        # One KTC model input (Crowd) plus KTC's own published market value
+        # (Crowd+Trades, benchmark-only) so ``ktcRank`` — KTC Market's rank —
+        # is defined on these fixtures.
+        sites["ktcCrowdSfTep"] = ktc
         sites["ktcCrowdTradesSfTep"] = ktc
     if idp is not None:
         sites["idpTradeCalc"] = idp
@@ -338,7 +342,7 @@ class TestDNoOffenseRegression(unittest.TestCase):
             ["qb1", "wr1", "rb1", "pick1"],
         )
         for r in rows:
-            meta = r["sourceRankMeta"]["ktcCrowdTradesSfTep"]
+            meta = r["sourceRankMeta"]["ktcCrowdSfTep"]
             self.assertEqual(meta["method"], TRANSLATION_DIRECT)
             self.assertEqual(meta["rawRank"], meta["effectiveRank"])
 
@@ -352,7 +356,7 @@ class TestDNoOffenseRegression(unittest.TestCase):
         ]
         _compute_unified_rankings(rows, {})
         dl = next(r for r in rows if r["canonicalName"] == "dl_with_ktc")
-        self.assertNotIn("ktcCrowdTradesSfTep", dl["sourceRanks"])
+        self.assertNotIn("ktcCrowdSfTep", dl["sourceRanks"])
         # The IDP row still receives its IDP rank.
         self.assertEqual(dl["sourceRanks"]["idpTradeCalc"], 1)
 
@@ -392,7 +396,8 @@ class TestETransparencyFields(unittest.TestCase):
         _compute_unified_rankings(rows, {})
         qb = next(r for r in rows if r["canonicalName"] == "qb1")
         dl = next(r for r in rows if r["canonicalName"] == "dl1")
-        self.assertEqual(qb["ktcRank"], qb["sourceRanks"]["ktcCrowdTradesSfTep"])
+        # ``ktcRank`` is KTC MARKET's own rank (benchmark), not a vote's rank.
+        self.assertEqual(qb["ktcRank"], qb["ktcMarket"]["rank"])
         self.assertEqual(dl["idpRank"], dl["sourceRanks"]["idpTradeCalc"])
 
 
@@ -427,7 +432,7 @@ class TestGDualScopeIdpTradeCalc(unittest.TestCase):
 
         # Both sources stamp an offense rank on every row.
         for r in (qb1, wr1, rb1):
-            self.assertIn("ktcCrowdTradesSfTep", r["sourceRanks"])
+            self.assertIn("ktcCrowdSfTep", r["sourceRanks"])
             self.assertIn("idpTradeCalc", r["sourceRanks"])
             # IDPTradeCalc's meta for this row is tagged overall_offense,
             # not overall_idp — they're being ranked in the offense pool.
@@ -437,9 +442,9 @@ class TestGDualScopeIdpTradeCalc(unittest.TestCase):
             )
 
         # KTC order: qb1(9500) > wr1(9000) > rb1(8500)
-        self.assertEqual(qb1["sourceRanks"]["ktcCrowdTradesSfTep"], 1)
-        self.assertEqual(wr1["sourceRanks"]["ktcCrowdTradesSfTep"], 2)
-        self.assertEqual(rb1["sourceRanks"]["ktcCrowdTradesSfTep"], 3)
+        self.assertEqual(qb1["sourceRanks"]["ktcCrowdSfTep"], 1)
+        self.assertEqual(wr1["sourceRanks"]["ktcCrowdSfTep"], 2)
+        self.assertEqual(rb1["sourceRanks"]["ktcCrowdSfTep"], 3)
         # IDPTC order: wr1(9200) > qb1(9600 wait that's higher) — recompute
         # idp values:  qb1=9600, wr1=9200, rb1=8400  →  qb1 > wr1 > rb1
         self.assertEqual(qb1["sourceRanks"]["idpTradeCalc"], 1)
@@ -466,9 +471,9 @@ class TestGDualScopeIdpTradeCalc(unittest.TestCase):
         wr2 = next(r for r in rows if r["canonicalName"] == "wr2")
 
         # KTC: wr1=1, wr2=2.  IDPTC: wr2=1, wr1=2.
-        self.assertEqual(wr1["sourceRanks"]["ktcCrowdTradesSfTep"], 1)
+        self.assertEqual(wr1["sourceRanks"]["ktcCrowdSfTep"], 1)
         self.assertEqual(wr1["sourceRanks"]["idpTradeCalc"], 2)
-        self.assertEqual(wr2["sourceRanks"]["ktcCrowdTradesSfTep"], 2)
+        self.assertEqual(wr2["sourceRanks"]["ktcCrowdSfTep"], 2)
         self.assertEqual(wr2["sourceRanks"]["idpTradeCalc"], 1)
         # Each carries a spread of 1 between the two sources.
         self.assertEqual(wr1["sourceRankSpread"], 1.0)
@@ -490,7 +495,7 @@ class TestGDualScopeIdpTradeCalc(unittest.TestCase):
             self.assertEqual(meta["scope"], SOURCE_SCOPE_OVERALL_IDP)
             # Offense scope didn't leak onto IDP rows (they have no 'ktc'
             # entry because they're not eligible under overall_offense).
-            self.assertNotIn("ktcCrowdTradesSfTep", r["sourceRanks"])
+            self.assertNotIn("ktcCrowdSfTep", r["sourceRanks"])
         self.assertEqual(rows[0]["sourceRanks"]["idpTradeCalc"], 1)
         self.assertEqual(rows[1]["sourceRanks"]["idpTradeCalc"], 2)
         self.assertEqual(rows[2]["sourceRanks"]["idpTradeCalc"], 3)
@@ -514,13 +519,13 @@ class TestGDualScopeIdpTradeCalc(unittest.TestCase):
         solo = next(r for r in rows if r["canonicalName"] == "qb_solo")
         both = next(r for r in rows if r["canonicalName"] == "qb_both")
         # Player still lands on the board via KTC.
-        self.assertEqual(solo["sourceRanks"], {"ktcCrowdTradesSfTep": 2})
+        self.assertEqual(solo["sourceRanks"], {"ktcCrowdSfTep": 2})
         self.assertIn(solo["canonicalConsensusRank"], (1, 2))
         # With two primary-scope offense sources, KTC-only is a real
         # matching failure against DLF SF.
         self.assertTrue(solo["isSingleSource"])
         self.assertFalse(solo["isStructurallySingleSource"])
-        self.assertEqual(both["sourceRanks"]["ktcCrowdTradesSfTep"], 1)
+        self.assertEqual(both["sourceRanks"]["ktcCrowdSfTep"], 1)
         self.assertEqual(both["sourceRanks"]["idpTradeCalc"], 1)
 
 
@@ -629,11 +634,11 @@ class TestHCrossUniverseRanking(unittest.TestCase):
             _row("dl1", "DL", idp=9999),  # IDP should not appear in KTC ranks
         ]
         _compute_unified_rankings(rows, {})
-        self.assertEqual(rows[0]["sourceRanks"]["ktcCrowdTradesSfTep"], 1)
-        self.assertEqual(rows[1]["sourceRanks"]["ktcCrowdTradesSfTep"], 2)
-        self.assertEqual(rows[2]["sourceRanks"]["ktcCrowdTradesSfTep"], 3)
+        self.assertEqual(rows[0]["sourceRanks"]["ktcCrowdSfTep"], 1)
+        self.assertEqual(rows[1]["sourceRanks"]["ktcCrowdSfTep"], 2)
+        self.assertEqual(rows[2]["sourceRanks"]["ktcCrowdSfTep"], 3)
         dl1 = next(r for r in rows if r["canonicalName"] == "dl1")
-        self.assertNotIn("ktcCrowdTradesSfTep", dl1["sourceRanks"])
+        self.assertNotIn("ktcCrowdSfTep", dl1["sourceRanks"])
 
 
 class TestFEdgeCases(unittest.TestCase):

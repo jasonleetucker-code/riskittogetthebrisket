@@ -8,16 +8,18 @@ from src.api.data_contract import (
 )
 
 
-def test_only_crowd_trades_is_a_ktc_voter():
+def test_crowd_and_trades_are_the_ktc_voters_and_market_is_not():
+    """Owner directive 2026-09-23: KTC Crowd and KTC Trades are two separate
+    model inputs; KTC Market (Crowd+Trades) is the benchmark, never a vote."""
     keys = {str(source.get("key") or "") for source in _RANKING_SOURCES}
-    assert "ktcCrowdTradesSfTep" in keys
-    assert "ktcCrowdSfTep" not in keys
-    assert "ktcTradesSfTep" not in keys
+    assert "ktcCrowdSfTep" in keys
+    assert "ktcTradesSfTep" in keys
+    assert "ktcCrowdTradesSfTep" not in keys
     assert "ktcSfTep" not in keys
 
-    assert "ktcCrowdTradesSfTep" in _VALUE_BASED_SOURCES
-    assert "ktcCrowdSfTep" not in _VALUE_BASED_SOURCES
-    assert "ktcTradesSfTep" not in _VALUE_BASED_SOURCES
+    assert "ktcCrowdSfTep" in _VALUE_BASED_SOURCES
+    assert "ktcTradesSfTep" in _VALUE_BASED_SOURCES
+    assert "ktcCrowdTradesSfTep" not in _VALUE_BASED_SOURCES
     assert "ktcSfTep" not in _VALUE_BASED_SOURCES
 
 

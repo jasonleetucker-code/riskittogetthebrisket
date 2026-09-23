@@ -627,8 +627,35 @@ def main() -> int:
                 if float(days) > budget:
                     content_stale.append((f"{src_key} ({label})", float(days), budget))
 
+    # Cadence-relative content freshness from the per-source dataset state
+    # (src/sources/freshness.py) — the SAME rule the blend weights by, so this
+    # report and the board can never disagree about which source is stale.
+    # Advisory: a vendor publishing slowly is not a code failure.
+    content_freshness: list[dict] = []
+    try:
+        from datetime import datetime as _dt, timezone as _tz  # noqa: PLC0415
+
+        from scripts.record_source_datasets import recorded_sources  # noqa: PLC0415
+        from src.sources.freshness import load_source_weightings  # noqa: PLC0415
+
+        weightings = load_source_weightings(
+            [k for k, _p, _s in recorded_sources(repo_root)],
+            state_dir=repo_root / "data" / "scrape_state",
+            as_of=_dt.now(_tz.utc),
+        )
+        for key, sw in weightings.items():
+            for subset, sub in sw.subsets.items():
+                d = sub.to_dict()
+                content_freshness.append({"source": key, **d, "health": sw.health_state})
+    except Exception as exc:  # noqa: BLE001 — advisory section
+        content_freshness = [{"error": str(exc)}]
+    severe_content = [
+        c for c in content_freshness if c.get("state") in ("SEVERELY_STALE", "QUARANTINED")
+    ]
+
     report = {
         "payload": payload_path,
+        "contentFreshness": content_freshness,
         "contractSourceHealthErrors": contract_errors,
         "hardStale": [
             {"source": s, "ageHours": a, "thresholdHours": t} for s, a, t, _ in hard_stale
@@ -695,6 +722,13 @@ def main() -> int:
                 f"::warning title=Content unchanged::{src_key} raw CSV byte-identical for "
                 f"{days:.0f} days (budget {budget:.0f}d) — the FETCH is fresh; the vendor "
                 f"has published nothing new"
+            )
+        for c in severe_content:
+            print(
+                f"::warning title=Stale source data::{c['source']} ({c['subset']}) data is "
+                f"{c.get('ageHours')}h old against a {c.get('expectedCadenceHours')}h normal "
+                f"interval (x{c.get('ageOverExpected')}) — freshness {c.get('freshness')}, "
+                f"{c.get('state')}; its blend weight is reduced accordingly"
             )
         for msg in contract_warnings[:10]:
             print(f"[source-health][warn] {msg}")

@@ -281,9 +281,101 @@ def detect_stale_sources(
     return out
 
 
+#: Content-freshness states that page (src/sources/freshness.py bands).
+_CONTENT_ALERT_STATES = {"SEVERELY_STALE", "QUARANTINED"}
+
+
+def detect_content_alerts(weighting: dict[str, Any] | None) -> list[StaleSourceAlert]:
+    """Valuation-infrastructure alerts from the board's ``sourceWeighting``.
+
+    Fetch staleness (above) says a JOB stopped; these say the DATA a source
+    contributes is stale relative to its own rhythm, broken, or thin — the
+    conditions the owner asked to hear about before discovering them by
+    comparing trades to other sites (directive 2026-09-23).  Keys are
+    namespaced (``content:`` / ``health:`` / ``coverage:`` / ``board:``) so
+    they share this module's cooldown and recovery state without colliding
+    with fetch alerts.
+    """
+    out: list[StaleSourceAlert] = []
+    if not isinstance(weighting, dict):
+        return out
+    sources = weighting.get("sources") or {}
+    healthy_offense_voters = 0
+    for key, entry in sources.items():
+        if not isinstance(entry, dict):
+            continue
+        for subset, sub in (entry.get("subsets") or {}).items():
+            if not isinstance(sub, dict) or sub.get("state") not in _CONTENT_ALERT_STATES:
+                continue
+            expected = float(sub.get("expectedCadenceHours") or 0.0)
+            out.append(
+                StaleSourceAlert(
+                    source=f"content:{key}/{subset}",
+                    last_seen_iso=str(sub.get("sourceDataAsOf") or ""),
+                    hours_stale=float(sub.get("ageHours") or 0.0),
+                    threshold_hours=expected,
+                    transition="stale",
+                )
+            )
+        if entry.get("health") not in (None, "HEALTHY"):
+            out.append(
+                StaleSourceAlert(
+                    source=f"health:{key}:{entry.get('health')}",
+                    last_seen_iso="",
+                    hours_stale=0.0,
+                    threshold_hours=0.0,
+                    transition="stale",
+                )
+            )
+        if isinstance(entry.get("coverageFactor"), (int, float)) and entry["coverageFactor"] < 1.0:
+            out.append(
+                StaleSourceAlert(
+                    source=f"coverage:{key}",
+                    last_seen_iso="",
+                    hours_stale=0.0,
+                    threshold_hours=0.0,
+                    transition="stale",
+                )
+            )
+        if (
+            entry.get("role") == "model_input"
+            and key.startswith("ktc")
+            and not entry.get("votingRows")
+        ):
+            out.append(
+                StaleSourceAlert(
+                    source=f"content:{key}:unavailable",
+                    last_seen_iso="",
+                    hours_stale=0.0,
+                    threshold_hours=0.0,
+                    transition="stale",
+                )
+            )
+        players = (entry.get("subsets") or {}).get("players") or {}
+        if (
+            entry.get("role") == "model_input"
+            and (entry.get("votingRows") or 0) >= 100
+            and float(players.get("freshness") or 0.0) >= 0.3
+            and entry.get("health") in (None, "HEALTHY")
+        ):
+            healthy_offense_voters += 1
+    if sources and healthy_offense_voters <= 1:
+        out.append(
+            StaleSourceAlert(
+                source="board:single_major_source_remaining",
+                last_seen_iso="",
+                hours_stale=0.0,
+                threshold_hours=0.0,
+                transition="stale",
+            )
+        )
+    return out
+
+
 def check_and_alert(
     source_health: dict[str, Any],
     *,
+    source_weighting: dict[str, Any] | None = None,
     delivery: Callable[[str, str, str], bool] | None = None,
     to_email: str | None = None,
     thresholds: dict[str, float] | None = None,
@@ -307,7 +399,7 @@ def check_and_alert(
         source_health,
         thresholds=thresholds,
         now_epoch=now,
-    )
+    ) + detect_content_alerts(source_weighting)
     stale_sources = {a.source for a in stale}
 
     # Detect recovery transitions — sources in alert_state marked stale

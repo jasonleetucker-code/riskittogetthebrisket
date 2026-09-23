@@ -45,7 +45,7 @@
     "ktcTradesSfTep": {"seedHours": 12, "minHours": 12, "maxHours": 48},
     "ktcCrowdTradesSfTep": {"seedHours": 12, "minHours": 12, "maxHours": 48},
     "idpTradeCalc": {"seedHours": 120, "minHours": 48, "maxHours": 240},
-    "idpShowCombined": {"seedHours": 168, "minHours": 72, "maxHours": 336},
+    "idpShowCombined": {"seedHours": 168, "minHours": 72, "maxHours": 336, "style": "EXPLICIT_UPSTREAM_TIMESTAMP"},
     "dlfSf": {"seedHours": 72, "minHours": 24, "maxHours": 168},
     "dlfIdp": {"seedHours": 72, "minHours": 24, "maxHours": 168},
     "dlfRookieSf": {"seedHours": 72, "minHours": 24, "maxHours": 336},

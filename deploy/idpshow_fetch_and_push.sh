@@ -158,6 +158,23 @@ ADD_PATHS=(
 if [[ -f data/scrape_state/idpShow_last_status.json ]]; then
   ADD_PATHS+=(data/scrape_state/idpShow_last_status.json)
 fi
+
+# Source dataset state for the VOTING board (freshness-aware weighting,
+# docs/sources/SOURCE_FRESHNESS_WEIGHTING.md): when did IDP Show's DATA last
+# change — not when did we fetch it.  This timer is the ONE writer of
+# idpShowCombined's state (the GitHub refresh skips it), and the fetcher's
+# idpShowCombined_upstream.json carries the vendor's own Datawrapper
+# lastModifiedAt as the upstream clock.  Non-fatal and existence-checked
+# like the status files above.
+if [[ "${COMBINED_FETCH_OK}" -eq 1 ]]; then
+  "${VENV_PYTHON}" scripts/record_source_datasets.py --only idpShowCombined \
+    || err "record_source_datasets.py failed - dataset state left at its last observation"
+fi
+for extra in data/scrape_state/idpShowCombined_dataset.json data/scrape_state/idpShowCombined_upstream.json; do
+  if [[ -f "${extra}" ]]; then
+    ADD_PATHS+=("${extra}")
+  fi
+done
 if [[ -f data/scrape_state/idpShowCombined_last_status.json ]]; then
   ADD_PATHS+=(data/scrape_state/idpShowCombined_last_status.json)
 fi

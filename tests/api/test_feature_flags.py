@@ -85,6 +85,15 @@ def test_every_flag_defaults_off_except_safe_additive():
     # blast radius recorded at the point of change, not an argument that
     # the change is probably fine.
     value_moving_on = {
+        # Owner directive 2026-09-23 (docs/sources/SOURCE_FRESHNESS_WEIGHTING.md):
+        # each blend vote is base × freshness × health × coverage.  Blast
+        # radius measured on the 2026-09-23 board (freshness effect alone,
+        # KTC split held fixed): 912 of 1,043 priced values move, median
+        # |Δ| 1.39%; the largest moves are IDP rows as the 34-day-stale IDP
+        # Show vote (0.12) and the stale DLF boards lose authority (DLF SF
+        # quarantined, 288 rows).  Rollback:
+        # RISKIT_FEATURE_SOURCE_FRESHNESS_WEIGHTING=0 (factors stay stamped).
+        "source_freshness_weighting",
         # Collaborative audit finding F.  Replaces the flat 1.15 TE
         # alignment multiplier with KTC's measured base → TE++ curve.
         # Blast radius measured against the 2026-07-27 live board (810

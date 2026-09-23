@@ -4,6 +4,7 @@ import {
   confBadgeClass,
   confBadgeLabel,
   marketGapLabel,
+  marketEdge,
   marketAction,
   isEligibleForBoard,
   isEligibleForAnalysis,
@@ -78,67 +79,33 @@ function _metaFrom(sourceRanks) {
 }
 
 describe("marketGapLabel", () => {
-  it("returns KTC label when KTC ranks higher than consensus mean", () => {
-    // KTC 9500 vs IDPTC 5000 → mean 7250, gap +62%.
-    const row = { sourceRanks: { ktcCrowdTradesSfTep: 5, idpTradeCalc: 50 } };
-    row.sourceRankMeta = _metaFrom(row.sourceRanks);
-    expect(marketGapLabel(row)).toBe("KTC +62%");
+  const row = (direction, ratio, model = 5000, market = 6000) => ({
+    rankDerivedValue: model,
+    ktcMarket: { available: true, value: market, normalizedValue: market },
+    marketGapDirection: direction,
+    marketGapValueRatio: ratio,
   });
-  it("returns Consensus label when consensus mean ranks higher than KTC", () => {
-    // KTC 2000 vs IDPTC 9000 → mean 5500, gap -127%.
-    const row = { sourceRanks: { ktcCrowdTradesSfTep: 80, idpTradeCalc: 10 } };
-    row.sourceRankMeta = _metaFrom(row.sourceRanks);
-    expect(marketGapLabel(row)).toBe("Consensus +127%");
+  it("names KTC Market when the market prices the asset higher", () => {
+    expect(marketGapLabel(row("retail_premium", 0.62))).toBe("KTC Market +62%");
   });
-  it("averages multiple consensus sources", () => {
-    // KTC 9000 vs mean(IDPTC 5000, DLF 3000) = 4000 → mean 6500, gap +77%.
-    const row = { sourceRanks: { ktcCrowdTradesSfTep: 10, idpTradeCalc: 50, dlfIdp: 70 } };
-    row.sourceRankMeta = _metaFrom(row.sourceRanks);
-    expect(marketGapLabel(row)).toBe("KTC +77%");
+  it("names our model when it prices the asset higher", () => {
+    expect(marketGapLabel(row("consensus_premium", 0.27))).toBe("Model +27%");
   });
   it("returns null for small differences", () => {
-    // 9000 vs 8800 → 2.2% apart, inside the 5% gate.
-    const row = { sourceRanks: { ktcCrowdTradesSfTep: 10, idpTradeCalc: 12 } };
-    row.sourceRankMeta = _metaFrom(row.sourceRanks);
-    expect(marketGapLabel(row)).toBeNull();
+    expect(marketGapLabel(row("retail_premium", 0.02))).toBeNull();
   });
-  it("returns null when KTC is missing", () => {
-    expect(marketGapLabel({ sourceRanks: { idpTradeCalc: 20, dlfIdp: 30 } })).toBeNull();
+  it("returns null when KTC Market is missing", () => {
+    expect(
+      marketGapLabel({ rankDerivedValue: 5000, ktcMarket: { available: false }, marketGapValueRatio: null }),
+    ).toBeNull();
   });
-  it("returns null when only KTC is present", () => {
-    expect(marketGapLabel({ sourceRanks: { ktcCrowdTradesSfTep: 10 } })).toBeNull();
-  });
-  it("returns null for no sourceRanks", () => {
+  it("returns null for no stamps", () => {
     expect(marketGapLabel({})).toBeNull();
   });
   it("returns null for null row", () => {
     expect(marketGapLabel(null)).toBeNull();
   });
-  it("prefers effectiveSourceRanks over sourceRanks when present", () => {
-    // sourceRanks contains a Hampel-dropped outlier (ktc: 200) that
-    // would otherwise pull the retail mean way out.  effectiveSourceRanks
-    // reflects the post-Hampel set the backend uses for its own
-    // marketGapDirection — frontend must agree.
-    const row = {
-      sourceRanks: { ktcCrowdTradesSfTep: 200, idpTradeCalc: 10, dlfIdp: 20 },
-      effectiveSourceRanks: { idpTradeCalc: 10, dlfIdp: 20 },
-    };
-    // KTC dropped → no retail rank → null per the "KTC missing" rule.
-    expect(marketGapLabel(row)).toBeNull();
-  });
-  it("falls back to sourceRanks when effectiveSourceRanks is empty", () => {
-    // Legacy / pre-Hampel payloads stamp effectiveSourceRanks as {}.
-    // Display helpers must still work off sourceRanks in that case.
-    const row = {
-      sourceRanks: { ktcCrowdTradesSfTep: 5, idpTradeCalc: 50 },
-      effectiveSourceRanks: {},
-    };
-    row.sourceRankMeta = _metaFrom(row.sourceRanks);
-    expect(marketGapLabel(row)).toBe("KTC +62%");
-  });
 });
-
-// ── isEligibleForBoard ──────────────────────────────────────────────
 
 describe("isEligibleForBoard", () => {
   it("includes offense positions", () => {
@@ -185,69 +152,71 @@ describe("isEligibleForAnalysis", () => {
 // ── marketAction (BUY / SELL / HOLD) ────────────────────────────────
 
 describe("marketAction", () => {
-  // Build a row with rank dict matching the retail/expert split.
-  // Retail = ktc by default; everything else = expert/consensus.
-  function _row({ ktc, dlf, fc }) {
-    const sourceRanks = {};
-    if (ktc != null) sourceRanks.ktcCrowdTradesSfTep = ktc;
-    if (dlf != null) sourceRanks.dlf = dlf;
-    if (fc != null) sourceRanks.fc = fc;
-    return { sourceRanks, sourceRankMeta: _metaFrom(sourceRanks) };
+  // OUR MODEL vs canonical KTC MARKET (owner directive 2026-09-23): the
+  // backend stamps ktcMarket + marketGapDirection/marketGapValueRatio and
+  // these helpers only format them — nothing is recomputed client-side.
+  function _row({ model, market, direction, ratio }) {
+    const row = {};
+    if (model != null) row.rankDerivedValue = model;
+    if (market != null) row.ktcMarket = { available: true, value: market, normalizedValue: market };
+    else row.ktcMarket = { available: false, value: null, reason: "no_ktc_coverage" };
+    row.marketGapDirection = direction ?? "none";
+    row.marketGapValueRatio = ratio ?? null;
+    return row;
   }
 
-  it("BUY when experts rank well above retail (consensus_higher)", () => {
-    // ktc=50, experts=10/12 — experts 38+ ranks above retail.
-    const r = _row({ ktc: 50, dlf: 10, fc: 12 });
-    const a = marketAction(r);
+  it("BUY when our model prices the asset above KTC Market", () => {
+    const a = marketAction(_row({ model: 6000, market: 5000, direction: "consensus_premium", ratio: 0.18 }));
     expect(a.label).toBe("BUY");
     expect(a.kind).toBe("buy");
     expect(a.css).toBe("edge-buy");
   });
 
-  it("SELL when retail ranks well above experts (retail_higher)", () => {
-    // ktc=10, experts=50/55 — market overvalues.
-    const r = _row({ ktc: 10, dlf: 50, fc: 55 });
-    const a = marketAction(r);
+  it("SELL when KTC Market prices the asset above our model", () => {
+    const a = marketAction(_row({ model: 5000, market: 6000, direction: "retail_premium", ratio: 0.18 }));
     expect(a.label).toBe("SELL");
     expect(a.kind).toBe("sell");
     expect(a.css).toBe("edge-sell");
   });
 
-  it("HOLD when sides are aligned within threshold", () => {
-    const r = _row({ ktc: 25, dlf: 26, fc: 24 });
-    const a = marketAction(r);
+  it("HOLD when the two are within the display threshold", () => {
+    const a = marketAction(_row({ model: 5000, market: 5050, direction: "retail_premium", ratio: 0.01 }));
     expect(a.label).toBe("HOLD");
     expect(a.kind).toBe("hold");
     expect(a.css).toBe("edge-hold");
   });
 
-  it("— when only retail (consensus_only would be inverse here)", () => {
-    const r = _row({ ktc: 25 });
-    const a = marketAction(r);
+  it("— when KTC Market does not price the asset (IDP)", () => {
+    const a = marketAction(_row({ model: 4000 }));
     expect(a.label).toBe("—");
     expect(a.css).toBe("edge-none");
+    expect(marketEdge(_row({ model: 4000 })).kind).toBe("consensus_only");
   });
 
-  it("— when only experts", () => {
-    const r = _row({ dlf: 25, fc: 26 });
-    const a = marketAction(r);
+  it("— when only KTC Market prices the asset", () => {
+    const a = marketAction(_row({ market: 4000 }));
     expect(a.label).toBe("—");
-    expect(a.css).toBe("edge-none");
+    expect(marketEdge(_row({ market: 4000 })).kind).toBe("retail_only");
   });
 
-  it("— when no source ranks at all", () => {
+  it("— when neither side is available", () => {
     expect(marketAction({}).label).toBe("—");
     expect(marketAction({ sourceRanks: {} }).label).toBe("—");
   });
 
   it("title surfaces direction context", () => {
-    const a = marketAction(_row({ ktc: 50, dlf: 10, fc: 12 }));
+    const a = marketAction(_row({ model: 6000, market: 5000, direction: "consensus_premium", ratio: 0.18 }));
     expect(a.title.toLowerCase()).toContain("market is undervaluing");
   });
+
+  it("never recomputes from per-source ranks", () => {
+    // Source ranks that WOULD have read as a retail premium under the retired
+    // client-side split change nothing: only the backend stamps are read.
+    const row = _row({ model: 6000, market: 5000, direction: "consensus_premium", ratio: 0.18 });
+    row.sourceRanks = { ktcCrowdSfTep: 1, dlfSf: 400 };
+    expect(marketAction(row).label).toBe("BUY");
+  });
 });
-
-
-// ── idpMarketAction (IDP BUY / SELL / HOLD vs IDPTC) ────────────────
 
 describe("idpMarketAction", () => {
   // Build an IDP row with IDPTC + IDP-expert ranks.

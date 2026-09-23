@@ -416,7 +416,7 @@ class TestSurfaceHarness(unittest.TestCase):
             {
                 "ros_direction",  # C0 — the ladder itself (R-2)
                 "ros_deadline",  # C3 — its caller (N-2), where absence became "Seller"
-                "market_gap",  # C4 — retail vs consensus (S-1/S-2/S-3)
+                "market_gap",  # C4 — our model vs KTC Market (S-1/S-3; redefined 2026-09-23)
                 "faab_bid",
                 "news_polarity",
                 "trade_verdict",
@@ -451,35 +451,45 @@ class TestSurfaceHarness(unittest.TestCase):
     def test_the_gap_is_measured_in_value_space(self) -> None:
         """S-1, pinned at the harness level.
 
-        REWRITTEN. This used to assert a rank-space result on a
-        depth-mismatched pair, because batch C4 fixed the ordinal
-        comparison by normalizing ranks. #740 fixed it differently and
-        better — by comparing ``valueContribution``, which is already
-        common-scaled and past ADR-015's TE conversion — so rank space
-        no longer exists to assert on. The property that survives is the
-        one that mattered: the gap follows the VALUES, not the ordinals.
+        REWRITTEN TWICE.  Batch C4 normalized ranks; #740 moved the
+        comparison to value space; the owner directive of 2026-09-23 then
+        REDEFINED what is compared: OUR MODEL VALUE against canonical KTC
+        MARKET (``src/sources/ktc_market.py``) instead of a retail source
+        family against a consensus family.  The property that survives is
+        the one that mattered: the gap follows VALUES, relative to the mean.
         """
-        retail = self.rows["market_gap/retail_premium_large"]
-        consensus = self.rows["market_gap/consensus_premium_large"]
-        self.assertEqual(retail["label"], "retail_premium")
-        self.assertEqual(consensus["label"], "consensus_premium")
+        market = self.rows["market_gap/market_premium_large"]
+        model = self.rows["market_gap/model_premium_large"]
+        self.assertEqual(market["label"], "retail_premium")
+        self.assertEqual(model["label"], "consensus_premium")
         # 6000 vs 4000 either way → |(6000-4000)/5000| = 0.40.
-        self.assertAlmostEqual(retail["value"], 0.40, places=6)
-        self.assertAlmostEqual(consensus["value"], 0.40, places=6)
+        self.assertAlmostEqual(market["value"], 0.40, places=6)
+        self.assertAlmostEqual(model["value"], 0.40, places=6)
 
     def test_a_tight_end_with_a_huge_rank_gap_is_not_a_signal(self) -> None:
-        """S-2, pinned at the harness level, and the reason value space wins.
+        """S-2 — RETIRED BY CONSTRUCTION (2026-09-23), recorded in place.
 
-        The retail anchor is a TE-premium board, so an ordinary tight end
-        shows an enormous ORDINAL gap — here rank 40 against 180 and 200.
-        Under the old comparison that was the 68-of-72 SELL artifact.
-        Their values agree to within 2.5%, because valueContribution is
-        already on the TE++ basis, so the artifact never forms and no
-        basis has to be measured and subtracted.
+        The artifact this pinned (a TE-premium retail board showing a huge
+        ORDINAL gap against standard-basis expert boards) needed two SETS of
+        sources to exist.  The gap now compares two single VALUES already on
+        one basis — our TE++-anchored model value and KTC's TE++ market value
+        — so no rank, and no source set, can enter it.  Pinned structurally:
+        the surface has exactly the model/market cases and no source-level row.
         """
-        row = self.rows["market_gap/tight_end_rank_gap_but_value_agreement"]
-        self.assertEqual(row["label"], "retail_premium")
-        self.assertLess(row["value"], 0.05)  # below the label floor
+        gap_rows = {k for k in self.rows if k.startswith("market_gap/")}
+        self.assertNotIn("market_gap/tight_end_rank_gap_but_value_agreement", gap_rows)
+        self.assertEqual(
+            gap_rows,
+            {
+                "market_gap/market_premium_large",
+                "market_gap/model_premium_large",
+                "market_gap/exact_tie",
+                "market_gap/small_gap_under_floor",
+                "market_gap/no_ktc_market",
+                "market_gap/unpriced_model",
+                "market_gap/neither_side",
+            },
+        )
 
     def test_a_gap_under_the_floor_still_reports_its_direction(self) -> None:
         """The floor is a DISPLAY gate, not a measurement.
@@ -493,17 +503,16 @@ class TestSurfaceHarness(unittest.TestCase):
         self.assertLess(row["value"], 0.05)
 
     def test_the_cases_that_cannot_be_compared_abstain(self) -> None:
-        """Four ways to have no gap, all of which must return none/None.
+        """Three ways to have no gap, all of which must return none/None.
 
-        Note ``ranked_but_unpriced``: a payload with per-source RANKS but
-        no value stamps must abstain rather than quietly fall back to the
-        ordinal arithmetic that value space replaced.
+        An asset KTC Market does not price (every defender), an asset our
+        model does not price, and neither — an unmeasurable gap is None,
+        never a zero gap.
         """
         for key in (
-            "market_gap/retail_only",
-            "market_gap/consensus_only_every_defender",
-            "market_gap/unranked",
-            "market_gap/ranked_but_unpriced",
+            "market_gap/no_ktc_market",
+            "market_gap/unpriced_model",
+            "market_gap/neither_side",
         ):
             with self.subTest(row=key):
                 self.assertEqual(self.rows[key]["label"], "none")

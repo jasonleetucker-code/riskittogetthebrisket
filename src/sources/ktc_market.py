@@ -214,33 +214,24 @@ def build_market_blocks(
         sites = row.get("canonicalSiteValues")
         sites = sites if isinstance(sites, Mapping) else {}
         raw = market_raw_value(sites)
-        crowd = _positive(sites.get(KTC_CROWD_KEY))
-        trades = _positive(sites.get(KTC_TRADES_KEY))
+        # Compact on purpose: this block rides on every row of every
+        # override delta.  The two KTC components are already on the row in
+        # ``canonicalSiteValues`` (``ktcCrowdSfTep`` / ``ktcTradesSfTep``);
+        # ``player_market_explain`` reads them from there.
         if raw is None:
             reason = (
                 MARKET_UNAVAILABLE_OUT_OF_RANGE
                 if _positive(sites.get(KTC_MARKET_KEY)) is not None
                 else MARKET_UNAVAILABLE_NO_COVERAGE
             )
-            row["ktcMarket"] = {
-                "value": None,
-                "normalizedValue": None,
-                "rank": None,
-                "crowdValue": crowd,
-                "tradesValue": trades,
-                "available": False,
-                "reason": reason,
-            }
+            row["ktcMarket"] = {"value": None, "available": False, "reason": reason}
             continue
         norm = raw / market_max * BOARD_SCALE_MAX if market_max > 0 else None
         row["ktcMarket"] = {
             "value": raw,
             "normalizedValue": None if norm is None else round(norm, 1),
             "rank": rank_by_id.get(id(row)),
-            "crowdValue": crowd,
-            "tradesValue": trades,
             "available": True,
-            "reason": None,
         }
     return {
         "sourceKey": KTC_MARKET_KEY,

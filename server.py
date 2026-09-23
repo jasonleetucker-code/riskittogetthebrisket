@@ -2936,6 +2936,20 @@ def _import_scraper_module():
     return scraper_module
 
 
+def _record_source_dataset_state() -> None:
+    """Fold the current source CSVs into ``data/scrape_state/*_dataset.json``."""
+    try:
+        from scripts.record_source_datasets import record_all  # noqa: PLC0415
+
+        written, failed = record_all(
+            state_dir=BASE_DIR / "data" / "scrape_state",
+            observed_at=datetime.now(timezone.utc),
+        )
+        log.info("source dataset state: %d changed, %d failed", len(written), len(failed))
+    except Exception as exc:  # noqa: BLE001 — never block a scrape on bookkeeping
+        log.warning("source dataset state: recording failed: %s", exc)
+
+
 async def run_scraper(trigger: str = "manual") -> dict | None:
     """
     Import and run the scraper, returning the dashboard JSON dict.
@@ -3336,6 +3350,13 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             # serving the OLD generation until the new one is fully
             # encoded.  (The lifespan call site stays inline — it runs
             # before the port binds, so there is nothing to block.)
+            # Source dataset state (freshness-aware weighting): record what
+            # this scrape actually changed BEFORE the board is rebuilt, so the
+            # freshness clocks describe the CSVs the new generation reads.
+            # Local only — the committed state is written by the GitHub
+            # refresh and the prod source timers.  Best-effort: a recording
+            # hiccup leaves the last observation in place, never blocks.
+            await run_in_threadpool(_record_source_dataset_state)
             await run_in_threadpool(_prime_latest_payload, result, is_fresh_scrape=True)
 
             _mark_scrape_success(elapsed, player_count, site_count, total_sites)
@@ -5840,6 +5861,49 @@ async def get_news(request: Request):
         content=payload,
         headers={"Cache-Control": "public, max-age=60, stale-while-revalidate=180"},
     )
+
+
+@app.get("/api/sources/weighting")
+async def get_source_weighting():
+    """Per-source freshness / health / coverage and effective weight.
+
+    Owner directive 2026-09-23 (docs/sources/SOURCE_FRESHNESS_WEIGHTING.md):
+    for every source and subset — which clock it is judged on, its expected
+    cadence, last fetch vs last any-change vs last broad change, factors,
+    base vs effective weight, normalized vote share and state.  Read from
+    the loaded contract; nothing is recomputed.  Auth-gated (methodology).
+    """
+    from src.api.source_weighting_explain import source_table  # noqa: PLC0415
+
+    contract = latest_contract_data or {}
+    if not contract.get("sourceWeighting"):
+        return JSONResponse(
+            status_code=503,
+            content={"error": "data_not_ready", "message": "No board loaded yet."},
+        )
+    try:
+        stamps = _per_source_freshness()
+    except Exception:  # noqa: BLE001 — fetch stamps are informative only
+        stamps = {}
+    return JSONResponse(content=source_table(contract, stamps))
+
+
+@app.get("/api/players/{player}/value-explain")
+async def get_player_value_explain(player: str):
+    """Why is this player valued where he is: every model source (raw,
+    normalized, data-as-of, age, cadence, freshness, health, base and
+    effective weight, contribution), then the KTC Market benchmark, then our
+    model vs KTC Market.  ``player`` is a playerId or exact display name."""
+    from src.api.source_weighting_explain import find_row, player_explain  # noqa: PLC0415
+
+    contract = latest_contract_data or {}
+    row = find_row(contract, player)
+    if row is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": "player_not_found", "player": player},
+        )
+    return JSONResponse(content=player_explain(contract, row))
 
 
 @app.get("/api/scaffold/status")
@@ -14461,6 +14525,7 @@ async def run_signal_alerts(request: Request):
         if source_health:
             stale_summary = _sha.check_and_alert(
                 source_health,
+                source_weighting=(latest_contract_data or {}).get("sourceWeighting"),
                 delivery=_deliver_email_smtp if ALERT_TO else None,
                 to_email=ALERT_TO or None,
             )

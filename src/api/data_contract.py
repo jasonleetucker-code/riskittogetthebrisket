@@ -3850,8 +3850,20 @@ def _stamp_ktc_market_benchmark(
     """
     from src.sources.ktc_market import build_market_blocks  # noqa: PLC0415
 
-    summary = build_market_blocks(players_array)
+    # Only rows the board can rank take part: an unresolved-position row must
+    # not shift real assets' KTC Market ranks or the normalization maximum.
+    rankable = [
+        r
+        for r in players_array
+        if str(r.get("position") or "").strip().upper() in _RANKABLE_POSITIONS
+    ]
+    rankable_ids = {id(r) for r in rankable}
     for row in players_array:
+        if id(row) not in rankable_ids:
+            row.pop("ktcMarket", None)
+            row.pop("ktcRank", None)
+    summary = build_market_blocks(rankable)
+    for row in rankable:
         market = row.get("ktcMarket") or {}
         model = row.get("rankDerivedValue")
         gap_dir, gap_ratio = _compute_market_gap(model, market.get("normalizedValue"))
@@ -8822,12 +8834,13 @@ def _source_weighting_summary(
             state_counts[st] = state_counts.get(st, 0) + 1
         meta = row.get("sourceRankMeta") or {}
         voters = {
-            k: float(m.get("appliedWeight") or 0.0)
+            k: float(m["appliedWeight"])
             for k, m in meta.items()
             if isinstance(m, dict)
             and m.get("contributedToBlend") is not False
             and not m.get("hampelDropped")
-            and float(m.get("appliedWeight") or 0.0) > 0
+            and isinstance(m.get("appliedWeight"), (int, float))
+            and m["appliedWeight"] > 0
         }
         total = sum(voters.values())
         for k, w in voters.items():
@@ -9893,17 +9906,30 @@ def _compute_unified_rankings(
         "source_freshness_weighting"
     )
 
+    from src.sources.freshness import (  # noqa: PLC0415
+        STYLE_EXPLICIT as _STYLE_EXPLICIT,
+        STYLE_SNAPSHOT as _STYLE_SNAPSHOT,
+    )
+    from src.utils.name_clean import canonical_position_group as _cpg  # noqa: PLC0415
+
+    _match_key_cache: dict[int, tuple[str, str, str]] = {}
+
     def _row_csv_key(row: dict[str, Any], source_key: str) -> str | None:
         """The dataset-state row key (``casefold(vendor name)``) for this
         row in this source's CSV — the SAME entry the source audit reports."""
-        nm = str(row.get("canonicalName") or row.get("displayName") or "")
+        cached = _match_key_cache.get(id(row))
+        if cached is None:
+            nm = str(row.get("canonicalName") or row.get("displayName") or "")
+            cached = (
+                nm,
+                _canonical_match_key(nm) if nm else "",
+                _cpg(str(row.get("position") or "").strip().upper()),
+            )
+            _match_key_cache[id(row)] = cached
+        nm, ckey, grp = cached
         if not nm:
             return None
-        from src.utils.name_clean import canonical_position_group as _cpg  # noqa: PLC0415
-
         per = (csv_index or {}).get(source_key) or {}
-        ckey = _canonical_match_key(nm)
-        grp = _cpg(str(row.get("position") or "").strip().upper())
         entry = per.get(f"{ckey}::{grp}") or per.get(f"{ckey}::*")
         name = str((entry or {}).get("displayName") or nm)
         return re.sub(r"\s+", " ", name.strip().casefold())
@@ -9922,8 +9948,18 @@ def _compute_unified_rankings(
         """
         sw = (source_weighting or {}).get(source_key)
         if sw is None or not sw.measured:
-            return 1.0, {"freshnessState": "UNMEASURED"}
-        fresh, age = sw.factor_for_row(is_pick=is_pick, row_key=_row_csv_key(row, source_key))
+            # Unmeasured is stated ONCE, in the board-level
+            # ``sourceWeighting`` block (``measured: false``), not per row.
+            return 1.0, {}
+        sub = sw.subset_for(is_pick)
+        # Snapshot / explicit-timestamp sources share ONE clock across rows,
+        # so the per-row CSV key is only resolved where it can matter.
+        row_key = (
+            _row_csv_key(row, source_key)
+            if sub is not None and sub.style not in (_STYLE_SNAPSHOT, _STYLE_EXPLICIT)
+            else None
+        )
+        fresh, age = sw.factor_for_row(is_pick=is_pick, row_key=row_key)
         stamp: dict[str, Any] = {}
         if fresh < 1.0:
             stamp["freshness"] = round(fresh, 4)
@@ -10175,8 +10211,12 @@ def _compute_unified_rankings(
             src_blend_weight = base_weight * dyn_factor if _freshness_applied else base_weight
             meta_dyn = row_source_meta[row_idx].setdefault(source_key, {})
             meta_dyn.update(dyn_stamp)
-            meta_dyn["baseWeight"] = round(base_weight, 4)
-            meta_dyn["dynamicWeightFactor"] = round(dyn_factor, 4)
+            if dyn_factor < 1.0:
+                # Only a REDUCED observation carries the decomposition;
+                # ``appliedWeight`` (always stamped) equals the base weight
+                # whenever the factor is 1.0.
+                meta_dyn["baseWeight"] = round(base_weight, 4)
+                meta_dyn["dynamicWeightFactor"] = round(dyn_factor, 4)
             if src_blend_weight <= 0.0:
                 # Quarantined / FAILED: this observation does not vote.  It is
                 # NOT a zero — the row simply blends over its other sources.
@@ -10547,7 +10587,20 @@ def _compute_unified_rankings(
         # unpenalized would let an unranked single-source rookie sort
         # and price picks on its full uncorroborated value while a
         # ranked single-source rookie is held to 30%.
-        if not row_is_pick and len(all_values) <= 1:
+        #
+        # Freshness exclusions COUNT as present evidence here (2026-09-23).
+        # A source quarantined for staleness is dropped from the vote, but if
+        # it also flipped this row into "single source" the value would jump
+        # from ~the fresh source's value (weighted mean as the stale weight
+        # tends to 0) to 30% of it at the quarantine line — a cliff the
+        # freshness curve exists to avoid.  The row's thinness is reported
+        # instead, by ``sourceWeightState`` / ``retainedAuthority`` and the
+        # confidence freshness axis.  Counted by FAMILY so a quarantined
+        # member of a family that already voted adds nothing.
+        present_families = {family_by_key.get(k, k) for k, _v, _a in family_kept} | {
+            family_by_key.get(k, k) for k in freshness_excluded
+        }
+        if not row_is_pick and len(all_values) <= 1 and len(present_families) <= 1:
             blended_value *= _SINGLE_SOURCE_VALUE_RETENTION
             players_array[row_idx]["_blendedValueUncapped"] = (
                 int(round(blended_value)) if blended_value > 0 else 0

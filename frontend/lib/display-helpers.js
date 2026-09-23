@@ -6,7 +6,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { MARKET_GAP_MIN_VALUE_RATIO } from "./thresholds.js";
-import { getRetailSourceKeys, getRetailLabel } from "./dynasty-data.js";
 
 /**
  * Return the CSS class for a position badge based on asset class.
@@ -69,17 +68,11 @@ export function isEligibleForAnalysis(row) {
 /**
  * Return a short market-gap label string, or null if insignificant.
  *
- * "Market gap" frames the retail market (sources flagged `isRetail` in
- * the registry — today just KTC) against every other registered
- * source (the expert consensus — IDPTC, DLF, etc.).  Both sides are
- * averaged and the label shows the side that ranks the player higher
- * and by how many ordinal ranks.  A "KTC +N" label means retail values
- * the player more than the consensus does; a "Consensus +N" label is
- * the reverse.
- *
- * The retail side label is resolved dynamically from the registry via
- * `getRetailLabel()`, so adding a second retail source flips the label
- * to the generic "Retail" with no code edits here.
+ * "Market gap" is OUR MODEL VALUE against canonical KTC MARKET (KTC's
+ * published Crowd+Trades value, normalized onto the board scale) — owner
+ * directive 2026-09-23, backend owner `src/sources/ktc_market.py`.  It is
+ * read from backend stamps (`ktcMarket`, `marketGapDirection`,
+ * `marketGapValueRatio`); nothing here recomputes it.
  */
 /**
  * Compute the structured market-edge descriptor for a row.
@@ -91,32 +84,35 @@ export function isEligibleForAnalysis(row) {
  *
  * `kind` identifies the exact logic branch so UI code can render
  * different styles without re-implementing the branching:
- *   - "retail_higher"   retail prices player above consensus by >= threshold
- *   - "consensus_higher" consensus prices player above retail by >= threshold
- *   - "aligned"          both sides agree within threshold
- *   - "retail_only"      only retail sources ranked this player
- *   - "consensus_only"   only expert/consensus sources ranked this player
- *   - "unranked"         no per-source ranks available at all
+ *   - "retail_higher"    KTC Market prices the asset above our model
+ *   - "consensus_higher" our model prices the asset above KTC Market
+ *   - "aligned"          within the display threshold
+ *   - "retail_only"      only KTC Market prices it (our model does not)
+ *   - "consensus_only"   our model prices it, KTC Market does not
+ *   - "unranked"         neither side is available
  *
  * The legacy `marketGapLabel` behavior (returning a raw string or null)
  * is preserved in `marketGapLabelLegacy` for back-compat with tests.
  */
-// ── the market gap is measured in VALUE space, not rank space ──────────
+// ── Model vs KTC Market: read, never recomputed (owner directive 2026-09-23) ──
 //
-// `sourceRankMeta[key].valueContribution` is what the blend itself
-// compares sources in: post-ladder, common-scaled 0-9999, and — the load
-// bearing part — the stage AFTER ADR-015's `convert_te_value` has been
-// applied.  Averaging raw ordinals instead measured pool depth and format
-// basis, which is why every top-250 SELL label on the board was a tight
-// end while QB inverted to mostly BUY.
+// The market gap used to be rebuilt HERE from per-source value stamps —
+// "retail" (KTC + Fantasy Navigator) against "consensus" (every other source)
+// — a second, client-side market definition.  The owner ruled there is ONE
+// market: canonical KTC MARKET (KTC's published Crowd+Trades), owned by the
+// backend (`src/sources/ktc_market.py`), compared against OUR model value.
+// The backend stamps `row.ktcMarket`, `marketGapDirection` and
+// `marketGapValueRatio`; these helpers only format them.
+
+const MARKET_LABEL = "KTC Market";
+
+// ── IDPTC-vs-IDP-experts helpers (NOT the market) ──────────────────────
 //
-// This computes no rank and no value; it averages two subsets of a
-// backend stamp, exactly as TradeFairnessExplanation and
-// SourceContributionBars already do.  `buildRows` is untouched.
-//
-// Returns null when the payload carries no `sourceRankMeta` at all, so a
-// legacy contract DEGRADES to "can't tell" instead of being scored on a
-// field that isn't there.
+// Used ONLY by `idpMarketEdge` below — an explicitly NAMED alternate
+// comparison ("IDPTC vs IDP-expert consensus", labelled with IDPTC on every
+// surface).  It is not "the market": KTC Market prices no defenders, so an
+// IDP row has no market benchmark and `marketEdge` says so.  Kept because
+// the name travels with the number.
 function sideValues(row, keys, isRetailKey) {
   const meta = row?.sourceRankMeta;
   if (!meta || typeof meta !== "object" || Object.keys(meta).length === 0)
@@ -131,13 +127,6 @@ function sideValues(row, keys, isRetailKey) {
   return { retail, consensus };
 }
 
-/**
- * The signed relative gap between the two sides, in value space.
- *
- * Positive = the retail anchor values the player ABOVE expert consensus
- * (the market is high on him → SELL).  Note this inverts the sense of the
- * old rank comparison, where a LOWER mean rank meant "priced higher".
- */
 function relativeValueGap(retailValues, consensusValues) {
   const mean = (xs) => xs.reduce((s, v) => s + v, 0) / xs.length;
   const r = mean(retailValues);
@@ -145,6 +134,20 @@ function relativeValueGap(retailValues, consensusValues) {
   const scale = (r + c) / 2;
   if (!(scale > 0)) return null;
   return { ratio: (r - c) / scale, retailMean: r, consensusMean: c };
+}
+
+function _positive(v) {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function _modelValue(row) {
+  return _positive(row?.values?.full ?? row?.rankDerivedValue);
+}
+
+function _hasMarket(row) {
+  const market = row?.ktcMarket;
+  return !!market && market.available === true && _positive(market.normalizedValue) !== null;
 }
 
 function pctText(ratio) {
@@ -185,100 +188,64 @@ export function formatMarketGap(row) {
 }
 
 export function marketEdge(row) {
-  const retailLabel = getRetailLabel();
-  // Prefer ``effectiveSourceRanks`` (post-Hampel filter on the
-  // backend) when present so retail-vs-consensus edge labels stay in
-  // lockstep with backend marketGapDirection / confidence /
-  // anomalyFlags.  Fall back to ``sourceRanks`` for legacy payloads.
-  const ranks =
-    row?.effectiveSourceRanks &&
-    Object.keys(row.effectiveSourceRanks).length > 0
-      ? row.effectiveSourceRanks
-      : row?.sourceRanks;
-  if (!ranks || Object.keys(ranks).length === 0) {
+  const model = _modelValue(row);
+  const hasMarket = _hasMarket(row);
+  if (!row || (model === null && !hasMarket)) {
     return {
       label: "unranked",
       css: "edge-none",
       kind: "unranked",
-      title: "This player has no per-source ranks available.",
+      title: "Neither our model nor KTC Market prices this asset.",
     };
   }
-  const retailKeys = new Set(getRetailSourceKeys());
-
-  const retailRanks = Object.entries(ranks)
-    .filter(([key, rank]) => retailKeys.has(key) && rank != null)
-    .map(([, rank]) => Number(rank))
-    .filter((n) => Number.isFinite(n));
-
-  const consensusRanks = Object.entries(ranks)
-    .filter(([key, rank]) => !retailKeys.has(key) && rank != null)
-    .map(([, rank]) => Number(rank))
-    .filter((n) => Number.isFinite(n));
-
-  if (retailRanks.length === 0 && consensusRanks.length > 0) {
+  if (!hasMarket) {
     return {
-      label: "expert only",
+      label: "no KTC market",
       css: "edge-none",
       kind: "consensus_only",
-      title: `No ${retailLabel} rank for this player — only expert/consensus sources contributed.`,
+      title: `${MARKET_LABEL} does not price this asset, so there is no market to compare our model value against.`,
     };
   }
-  if (consensusRanks.length === 0 && retailRanks.length > 0) {
+  if (model === null) {
     return {
-      label: `${retailLabel} only`,
+      label: "KTC only",
       css: "edge-none",
       kind: "retail_only",
-      title: `No expert/consensus rank for this player — only ${retailLabel} contributed.`,
+      title: `Only ${MARKET_LABEL} prices this asset — our model does not, so there is nothing to compare.`,
     };
   }
-  if (retailRanks.length === 0 && consensusRanks.length === 0) {
-    return {
-      label: "unranked",
-      css: "edge-none",
-      kind: "unranked",
-      title: "This player has no per-source ranks available.",
-    };
-  }
-
-  const sides = sideValues(row, Object.keys(ranks), (k) => retailKeys.has(k));
-  const gap =
-    sides && sides.retail.length && sides.consensus.length
-      ? relativeValueGap(sides.retail, sides.consensus)
-      : null;
-  if (!gap) {
-    // No per-source value stamps (legacy payload). Say so rather than
-    // falling back to the rank arithmetic this replaced.
+  const ratio = marketGapRatioOf(row);
+  const direction = String(row?.marketGapDirection || "none");
+  if (ratio === null) {
     return {
       label: "unpriced",
       css: "edge-none",
       kind: "unranked",
-      title:
-        "This payload carries no per-source value contributions, so the market gap cannot be measured.",
+      title: "This payload carries no model-vs-market gap, so it cannot be measured.",
     };
   }
-
-  const pct = pctText(gap.ratio);
-  if (Math.abs(gap.ratio) < MARKET_GAP_MIN_VALUE_RATIO) {
+  const pct = pctText(ratio);
+  if (ratio < MARKET_GAP_MIN_VALUE_RATIO || direction === "none") {
     return {
       label: "aligned",
       css: "edge-aligned",
       kind: "aligned",
-      title: `${retailLabel} and expert consensus value this player within ${Math.round(MARKET_GAP_MIN_VALUE_RATIO * 100)}% of each other (actual difference: ${pct}).`,
+      title: `Our model and ${MARKET_LABEL} value this asset within ${Math.round(MARKET_GAP_MIN_VALUE_RATIO * 100)}% of each other (actual difference: ${pct}).`,
     };
   }
-  if (gap.ratio > 0) {
+  if (direction === "retail_premium") {
     return {
-      label: `${retailLabel} higher by ${pct}`,
+      label: `${MARKET_LABEL} higher by ${pct}`,
       css: "edge-retail",
       kind: "retail_higher",
-      title: `${retailLabel} values this player ~${pct} above expert consensus.`,
+      title: `${MARKET_LABEL} values this asset ~${pct} above our model.`,
     };
   }
   return {
-    label: `Experts higher by ${pct}`,
+    label: `Model higher by ${pct}`,
     css: "edge-consensus",
     kind: "consensus_higher",
-    title: `Expert consensus values this player ~${pct} above ${retailLabel}.`,
+    title: `Our model values this asset ~${pct} above ${MARKET_LABEL}.`,
   };
 }
 
@@ -306,7 +273,7 @@ export function marketAction(row) {
       label: "BUY",
       css: "edge-buy",
       kind: "buy",
-      title: `${edge.title} Experts > market → market is undervaluing.`,
+      title: `${edge.title} Model > KTC Market → the market is undervaluing.`,
     };
   }
   if (edge.kind === "retail_higher") {
@@ -314,7 +281,7 @@ export function marketAction(row) {
       label: "SELL",
       css: "edge-sell",
       kind: "sell",
-      title: `${edge.title} Market > experts → market is overvaluing.`,
+      title: `${edge.title} KTC Market > model → the market is overvaluing.`,
     };
   }
   if (edge.kind === "aligned") {
@@ -331,7 +298,7 @@ export function marketAction(row) {
     kind: edge.kind,
     title:
       edge.title ||
-      "Insufficient source coverage to compare market vs experts.",
+      "Insufficient coverage to compare our model against KTC Market.",
   };
 }
 
@@ -342,34 +309,12 @@ export function marketAction(row) {
  * returns an explicit structured object.
  */
 export function marketGapLabel(row) {
-  // Mirror ``marketEdge``: prefer the post-Hampel ``effectiveSourceRanks``
-  // when stamped, fall back to ``sourceRanks`` for legacy payloads.
-  const ranks =
-    row?.effectiveSourceRanks &&
-    Object.keys(row.effectiveSourceRanks).length > 0
-      ? row.effectiveSourceRanks
-      : row?.sourceRanks;
-  if (!ranks) return null;
-  const retailKeys = new Set(getRetailSourceKeys());
-
-  const retailRanks = Object.entries(ranks)
-    .filter(([key, rank]) => retailKeys.has(key) && rank != null)
-    .map(([, rank]) => Number(rank))
-    .filter((n) => Number.isFinite(n));
-  if (retailRanks.length === 0) return null;
-
-  const consensusRanks = Object.entries(ranks)
-    .filter(([key, rank]) => !retailKeys.has(key) && rank != null)
-    .map(([, rank]) => Number(rank))
-    .filter((n) => Number.isFinite(n));
-  if (consensusRanks.length === 0) return null;
-
-  const sides = sideValues(row, Object.keys(ranks), (k) => retailKeys.has(k));
-  if (!sides || !sides.retail.length || !sides.consensus.length) return null;
-  const gap = relativeValueGap(sides.retail, sides.consensus);
-  if (!gap || Math.abs(gap.ratio) < MARKET_GAP_MIN_VALUE_RATIO) return null;
-  const higher = gap.ratio > 0 ? getRetailLabel() : "Consensus";
-  return `${higher} +${pctText(gap.ratio)}`;
+  const edge = marketEdge(row);
+  const ratio = marketGapRatioOf(row);
+  if (ratio === null) return null;
+  if (edge.kind === "retail_higher") return `${MARKET_LABEL} +${pctText(ratio)}`;
+  if (edge.kind === "consensus_higher") return `Model +${pctText(ratio)}`;
+  return null;
 }
 
 // ── IDP market gap (IDPTC vs other IDP sources) ─────────────────────────

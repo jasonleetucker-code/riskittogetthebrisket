@@ -44,7 +44,9 @@ def _contract(**overrides):
                 "isSingleSource": False,
                 "marketGapDirection": "aligned",
                 "marketGapMagnitude": 0.4,
-                "rawSourceValues": {"ktcSfTep": 9983},
+                # The stored retail price is canonical KTC MARKET
+                # (Crowd+Trades, src/sources/ktc_market.py) since 2026-09-23.
+                "rawSourceValues": {"ktcCrowdTradesSfTep": 9983},
             },
             {
                 "displayName": "Some Unpriced Guy",

@@ -422,10 +422,15 @@ def assess_subset(
     clock_name = "lastBroadDatasetChangeAt"
     clock_at = last_broad
     if style == STYLE_EXPLICIT:
+        # The vendor's own timestamp — but never FRESHER than the content we
+        # observed: a cosmetic chart edit moves the vendor's clock without
+        # moving the data, so the clock is the earlier of the two.  A genuine
+        # republish moves both.
         published = parse_iso((upstream or {}).get("publishedAt"))
         if published is not None and published <= as_of:
-            clock_name = "upstreamPublishedAt"
-            clock_at = published
+            if last_broad is None or published <= last_broad:
+                clock_name = "upstreamPublishedAt"
+                clock_at = published
     base = SubsetFreshness(
         source_key=source_key,
         subset=subset,

@@ -336,6 +336,53 @@ def _resolve_latest_version(session, chart_id: str) -> str | None:
     return current
 
 
+#: Vendor-stated publication metadata for the VOTING (combined) board —
+#: consumed by ``scripts/record_source_datasets.py`` as the upstream clock
+#: for ``src/sources/freshness.py`` (EXPLICIT_UPSTREAM_TIMESTAMP style).
+COMBINED_UPSTREAM_PATH = REPO / "data" / "scrape_state" / "idpShowCombined_upstream.json"
+
+
+def _chart_metadata(session, chart_id: str, version: str) -> dict:
+    """Datawrapper's own timestamps for one published chart version.
+
+    The rendered version page embeds the chart JSON, including
+    ``lastModifiedAt`` (last edit of the chart's data/config) and
+    ``publishedAt``.  Measured 2026-09-23 on the public excerpt chart
+    (gNM2r v5): lastModifiedAt 2026-08-19T17:46:59Z — the vendor's own
+    statement of when the board last changed.  Missing fields stay None;
+    nothing is inferred.
+    """
+    out: dict = {
+        "chartId": chart_id,
+        "version": version,
+        "lastModifiedAt": None,
+        "publishedAt": None,
+    }
+    try:
+        r = session.get(
+            f"https://datawrapper.dwcdn.net/{chart_id}/{version}/",
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=15,
+        )
+    except Exception:  # noqa: BLE001 — metadata is best-effort, never blocks the board
+        return out
+    if getattr(r, "status_code", 0) != 200:
+        return out
+    text = str(getattr(r, "text", "") or "").replace('\\"', '"')
+    for field in ("lastModifiedAt", "publishedAt"):
+        m = re.search(rf'"{field}":"(20\d\d-\d\d-\d\dT[0-9:.]+Z?)"', text)
+        if m:
+            out[field] = m.group(1)
+    return out
+
+
+def _persist_upstream(meta: dict) -> None:
+    COMBINED_UPSTREAM_PATH.parent.mkdir(parents=True, exist_ok=True)
+    COMBINED_UPSTREAM_PATH.write_text(
+        json.dumps(meta, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+
 def _looks_paywalled(html: str) -> bool:
     """Detect the paywall state.  Authenticated fetches still include
     ``paywall`` in related UI chrome, so we key off the specific
@@ -616,6 +663,9 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         count = _write_csv(out_path, rows)
         print(f"[idpshow] wrote {count} rows → {_rel(out_path)}")
+        meta = _chart_metadata(session, chart_id, version)
+        print(f"[idpshow] chart metadata: {meta}")
+        _persist_upstream(meta)
         return _persist_outcome(
             AcquisitionOutcome(
                 source_key=source_key,

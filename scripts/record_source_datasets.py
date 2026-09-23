@@ -8,6 +8,11 @@ production timer, and the scheduled-refresh workflow before
 ``data/scrape_state/<key>_dataset.json`` via :mod:`src.sources.dataset_state`:
 an unchanged board moves no data clock, a changed one records the change.
 
+ONE WRITER PER FILE.  The GitHub refresh records the sources it fetches and
+``--skip``s the ones production timers own (DLF, IDP Show), whose timers
+record their own keys — two writers pushing the same state file would
+conflict on rebase.
+
 Exit codes: 0 success (including "nothing changed"), 1 a source could not be
 recorded (its state is left untouched), 2 usage error.
 """
@@ -67,6 +72,24 @@ def broad_policy() -> BroadChangePolicy:
     )
 
 
+def _upstream_sidecar(state_dir: Path, key: str) -> tuple[str | None, str | None]:
+    """A fetcher-written ``<key>_upstream.json`` (vendor-stated publication
+    metadata, e.g. IDP Show's Datawrapper ``lastModifiedAt``)."""
+    import json  # noqa: PLC0415
+
+    try:
+        meta = json.loads((Path(state_dir) / f"{key}_upstream.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None, None
+    if not isinstance(meta, dict):
+        return None, None
+    published = meta.get("lastModifiedAt") or meta.get("publishedAt")
+    version = None
+    if meta.get("chartId") and meta.get("version"):
+        version = f"{meta['chartId']}/v{meta['version']}"
+    return (str(published) if published else None), version
+
+
 def _track_rows(prior: dict | None) -> bool:
     """Per-row clocks are kept unless the subset is a classified SNAPSHOT."""
     if not prior:
@@ -81,6 +104,7 @@ def record_all(
     state_dir: Path,
     observed_at: datetime,
     only: set[str] | None = None,
+    skip: set[str] | None = None,
     upstream: dict[str, tuple[str | None, str | None]] | None = None,
 ) -> tuple[list[str], list[str]]:
     written: list[str] = []
@@ -89,8 +113,12 @@ def record_all(
     for key, csv_path, signal in recorded_sources():
         if only and key not in only:
             continue
+        if skip and key in skip:
+            continue
         prior = load_state(state_path(state_dir, key))
-        published, version = (upstream or {}).get(key, (None, None))
+        published, version = (upstream or {}).get(key, (None, None)) or (None, None)
+        if published is None and version is None:
+            published, version = _upstream_sidecar(state_dir, key)
         try:
             state, changed = record_source_file(
                 source_key=key,
@@ -120,6 +148,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--state-dir", type=Path, default=DEFAULT_STATE_DIR)
     parser.add_argument("--only", nargs="*", help="Record only these source keys")
     parser.add_argument(
+        "--skip",
+        nargs="*",
+        help="Never record these keys (sources whose state another writer owns)",
+    )
+    parser.add_argument(
         "--observed-at", help="ISO timestamp of the observation (default: now, UTC)"
     )
     parser.add_argument(
@@ -146,6 +179,7 @@ def main(argv: list[str] | None = None) -> int:
         state_dir=args.state_dir,
         observed_at=observed,
         only=set(args.only) if args.only else None,
+        skip=set(args.skip) if args.skip else None,
         upstream=upstream,
     )
     print(f"source datasets recorded: {len(written)} changed, {len(failed)} failed")

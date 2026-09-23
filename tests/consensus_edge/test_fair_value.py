@@ -97,9 +97,10 @@ class TestHistoricalKtcAnchorMigration(unittest.TestCase):
         self.assertEqual(anchors["offense"], "ktcCrowdTradesSfTep")
 
     def test_retired_predecessor_keeps_its_ktc_correlation_family(self):
+        # ``ktcSfTep`` was a Crowd-only capture, so it belongs to KTC Crowd.
         self.assertEqual(
             dc.expand_correlation_groups(["ktcSfTep"]),
-            {"ktcSfTep", "ktcCrowdTradesSfTep", "fantasyNavigatorSf"},
+            {"ktcSfTep", "ktcCrowdSfTep", "fantasyNavigatorSf"},
         )
 
 
@@ -108,10 +109,12 @@ class TestCorrelationGroups(unittest.TestCase):
 
     def test_expanding_the_anchor_pulls_in_its_derived_source(self):
         # fantasyNavigatorSf republishes KTC-derived values; excluding
-        # ktcCrowdTradesSfTep alone left 440 rows still carrying an FN vote.
+        # the KTC anchor alone once left 440 rows still carrying an FN vote.
+        # Since 2026-09-23 the anchor (KTC Market) is DERIVED from the two
+        # KTC model inputs, so excluding it removes both plus FN.
         self.assertEqual(
             fv.expand_correlation_groups(["ktcCrowdTradesSfTep"]),
-            {"ktcCrowdTradesSfTep", "fantasyNavigatorSf"},
+            {"ktcCrowdTradesSfTep", "ktcCrowdSfTep", "ktcTradesSfTep", "fantasyNavigatorSf"},
         )
 
     def test_an_independent_source_expands_to_only_itself(self):
@@ -564,6 +567,8 @@ class TestFairValueIndex(unittest.TestCase):
         base = {fv._row_key(r): r for r in default["playersArray"] if fv._row_key(r)}
         ratios: list[tuple[float, str]] = []
         offense_ratios: list[tuple[float, str]] = []
+        # Offense rows that keep >= 4 votes on the anchor-free board.
+        offense_well_covered: list[tuple[float, str]] = []
         for key, entry in fv.fair_value_index(_RAW).items():
             fair = entry.get("fairValue")
             row = base.get(key) or {}
@@ -574,6 +579,11 @@ class TestFairValueIndex(unittest.TestCase):
             ratios.append((ratio, key))
             if str(row.get("position") or "").upper() in {"QB", "RB", "WR", "TE"}:
                 offense_ratios.append((ratio, key))
+                surviving = set(row.get("sourceRanks") or {}) - set(
+                    entry.get("excludedSources") or []
+                )
+                if len(surviving) >= 4:
+                    offense_well_covered.append((ratio, key))
 
         self.assertGreater(len(ratios), 200, "too few priced rows to judge scale")
 
@@ -585,12 +595,28 @@ class TestFairValueIndex(unittest.TestCase):
             f"not denominated in the same units as the board it is compared against",
         )
 
-        worst_offense, worst_key = max(offense_ratios)
+        # WHY THE OFFENSE BOUND IS NO LONGER A SINGLE WORST CASE (2026-09-23).
+        # The offense anchor is KTC Market, and since the owner directive of
+        # 2026-09-23 it is derived from TWO voting KTC families (Crowd and
+        # Trades, weight 1.0 each).  Excluding it removes two of a thin row's
+        # four votes, so a deep offense player priced by KTC far below
+        # Draft Sharks / PFK moves a long way on the STRENGTH OF AN OPINION —
+        # measured on the 2026-09-23 board: offense median 0.986, p95 1.086;
+        # every row above 1.35x is a deep asset (value < 1,250) left with
+        # 2-3 sources (Derius Davis 1.66x on PFK + Draft Sharks alone).  A
+        # units fault moves the CENTRAL MASS, so that is where the bound is
+        # asserted — plus a worst case on rows the exclusion cannot thin out.
+        offense_sorted = sorted(r for r, _ in offense_ratios)
+        offense_median = statistics.median(offense_sorted)
+        offense_p95 = offense_sorted[int(0.95 * (len(offense_sorted) - 1))]
+        self.assertLess(abs(offense_median - 1.0), 0.05, f"offense median {offense_median:.3f}")
+        self.assertLess(offense_p95, 1.20, f"offense p95 {offense_p95:.3f}")
+        worst_offense, worst_key = max(offense_well_covered)
         self.assertLess(
             worst_offense,
             1.35,
             f"{worst_key} is {worst_offense:.2f}x the default board on the offense "
-            f"side, where no bridge changed — that is a denominator fault, not a "
+            f"side while keeping >= 4 votes — that is a denominator fault, not a "
             f"difference of opinion",
         )
 
