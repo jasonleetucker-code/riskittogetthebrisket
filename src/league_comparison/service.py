@@ -71,7 +71,7 @@ _CACHE_TTL_SEC = 7 * 24 * 3600
 #: 2026-08-19 — season-card symmetry repair: the two arms were averaged
 #: over different season windows (four against one on the live config).
 #: Every cached comparison written before this predates the fix.
-_CACHE_METHODOLOGY_VERSION = "2026-08-19.symmetric-counterfactual"
+_CACHE_METHODOLOGY_VERSION = "2026-09-23.live-partial-season-weighting"
 _CACHE_SUBDIR = "league_comparison_cache"
 
 
@@ -241,6 +241,69 @@ def _per_season_metrics_for_league(
     return per_pos, flex_metrics, sample_union
 
 
+def _observed_regular_weeks(rows: list[dict[str, Any]]) -> int:
+    """Count distinct modeled regular-season weeks present in a row set."""
+    weeks: set[int] = set()
+    for row in rows or []:
+        try:
+            week = int(row.get("week") or 0)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= week <= _stats.MAX_REGULAR_WEEK:
+            weeks.add(week)
+    return len(weeks)
+
+
+def _scale_position_metrics(
+    metrics: _m.PositionMetrics, factor: float
+) -> _m.PositionMetrics:
+    """Scale point-valued metrics while preserving the measured sample size."""
+    if factor <= 0:
+        raise ValueError("position-metric scale factor must be positive")
+    return _m.PositionMetrics(
+        average=metrics.average * factor,
+        median=metrics.median * factor,
+        p25=metrics.p25 * factor,
+        p75=metrics.p75 * factor,
+        replacement_level=metrics.replacement_level * factor,
+        elite=metrics.elite * factor,
+        replacement_adj=metrics.replacement_adj * factor,
+        sample_size=metrics.sample_size,
+    )
+
+
+def _season_evidence_basis(
+    season: int,
+    rows: list[dict[str, Any]],
+    *,
+    latest_requested_season: int | None,
+) -> tuple[str, int, float, float]:
+    """Return status, observed weeks, combine weight and annualization factor.
+
+    Only the latest requested season can be treated as live/in-progress.  Its
+    positional metrics are annualized by 17 / observed_weeks so their units
+    match completed seasons, while its combined weight is observed_weeks / 17.
+    The two converge to 1.0 at week 17.  Historical seasons retain the existing
+    full weight and are never reinterpreted as live merely because a source is
+    sparse.
+    """
+    weeks_observed = _observed_regular_weeks(rows)
+    if (
+        latest_requested_season is not None
+        and season == latest_requested_season
+        and 0 < weeks_observed < _stats.MAX_REGULAR_WEEK
+    ):
+        season_weight = weeks_observed / float(_stats.MAX_REGULAR_WEEK)
+        annualization_factor = float(_stats.MAX_REGULAR_WEEK) / weeks_observed
+        return "live_partial", weeks_observed, season_weight, annualization_factor
+
+    status = (
+        "complete"
+        if season == latest_requested_season and weeks_observed >= _stats.MAX_REGULAR_WEEK
+        else "historical"
+    )
+    return status, weeks_observed, 1.0, 1.0
+
 def _build_league_block(
     league_info: _sleeper.LeagueScoringInfo,
     seasons_map: dict[int, list[dict[str, Any]] | None],
@@ -265,8 +328,8 @@ def _build_league_block(
     view: the chain was resolved independently per arm, so an arm whose
     walk returned nothing fell back to today's card with every season
     ``available``, while an arm whose walk returned something dropped its
-    unresolved seasons.  ``combined`` averages the available seasons
-    equally, so the two arms were averaged over different windows and
+    unresolved seasons.  ``combined`` averages the available seasons over one shared evidence basis,
+    so the two arms were averaged over different windows and
     compared as though they were the same measurement — measured live at
     four seasons against one.
 
@@ -274,6 +337,7 @@ def _build_league_block(
     the card, not about inventing data.
     """
     per_season: dict[int, dict[str, Any]] = {}
+    latest_requested_season = max(seasons_map) if seasons_map else None
     for season, rows in seasons_map.items():
         # ONE basis, both arms, every season.  No per-arm branch, because a
         # per-arm branch is exactly how the windows diverged.
@@ -293,6 +357,11 @@ def _build_league_block(
                 # know which one they hit.
                 "unavailableReason": ("no_stat_rows" if not rows else "no_scoring_card"),
                 "cardBasis": card_basis,
+                "seasonStatus": "unavailable",
+                "weeksObserved": 0,
+                "seasonWeight": 0.0,
+                "annualizationFactor": None,
+                "metricsBasis": "unavailable",
             }
             continue
         per_pos, flex_metrics, sample_union = _per_season_metrics_for_league(
@@ -301,6 +370,20 @@ def _build_league_block(
             sample_sizes,
             season,
         )
+        season_status, weeks_observed, season_weight, annualization_factor = (
+            _season_evidence_basis(
+                season,
+                rows,
+                latest_requested_season=latest_requested_season,
+            )
+        )
+        if annualization_factor != 1.0:
+            per_pos = {
+                pos: _scale_position_metrics(metrics, annualization_factor)
+                for pos, metrics in per_pos.items()
+            }
+            flex_metrics = _scale_position_metrics(flex_metrics, annualization_factor)
+
         # Top players sample for the UI year-by-year detail panel —
         # cap at 25 to keep payload light.  Sort by blended_score so
         # the displayed top matches what the ranking math actually used.
@@ -331,10 +414,21 @@ def _build_league_block(
                 for s in top_players
             ],
             "available": True,
+            "seasonStatus": season_status,
+            "weeksObserved": weeks_observed,
+            "seasonWeight": season_weight,
+            "annualizationFactor": annualization_factor,
+            "metricsBasis": (
+                "annualized_partial"
+                if season_status == "live_partial"
+                else "full_season_scale"
+            ),
         }
 
-    # Build combined metrics by averaging available-season metrics
-    # equally per position.
+    # Build combined metrics. Completed/historical seasons carry weight 1.0.
+    # A live latest season carries weeks_observed / 17 after its metrics have
+    # been annualized to 17-week units, so it begins contributing immediately
+    # without pretending a few weeks are a complete equal-weight season.
     combined_positions: dict[str, _m.PositionMetrics] = {}
     for pos in _m.OFFENSE_POSITIONS:
         per_year = {}
@@ -352,7 +446,11 @@ def _build_league_block(
                 replacement_adj=d["replacementAdj"],
                 sample_size=d["sampleSize"],
             )
-        combined_positions[pos] = _m.combine_metrics_equal_weight(per_year)
+        weights = {
+            season: float(per_season[season].get("seasonWeight") or 0.0)
+            for season in per_year
+        }
+        combined_positions[pos] = _m.combine_metrics_weighted(per_year, weights)
     flex_per_year = {}
     for season, block in per_season.items():
         if not block.get("available"):
@@ -368,7 +466,11 @@ def _build_league_block(
             replacement_adj=d["replacementAdj"],
             sample_size=d["sampleSize"],
         )
-    combined_flex = _m.combine_metrics_equal_weight(flex_per_year)
+    flex_weights = {
+        season: float(per_season[season].get("seasonWeight") or 0.0)
+        for season in flex_per_year
+    }
+    combined_flex = _m.combine_metrics_weighted(flex_per_year, flex_weights)
 
     return {
         "perSeason": {str(yr): block for yr, block in per_season.items()},
@@ -378,6 +480,11 @@ def _build_league_block(
         },
         "_combinedPositions": combined_positions,  # internal handle
         "_combinedFlex": combined_flex,  # internal handle
+        "_seasonWeights": {
+            season: float(block.get("seasonWeight") or 0.0)
+            for season, block in per_season.items()
+            if block.get("available")
+        },
     }
 
 
@@ -578,7 +685,7 @@ def build_comparison(*, refresh: bool = False) -> dict[str, Any]:
         missing = ", ".join(str(s) for s in avail["unavailable"])
         warnings.append(
             f"Seasons unavailable from upstream NFL stats source: {missing}. "
-            f"Combined results use only the available seasons, equally weighted."
+            f"Combined results use only the available seasons."
         )
     if len(avail["available"]) == 1:
         warnings.append(
@@ -660,6 +767,20 @@ def build_comparison(*, refresh: bool = False) -> dict[str, Any]:
     my_block = _build_league_block(my_info, seasons_map, sample_sizes)
     base_block = _build_league_block(base_info, seasons_map, sample_sizes)
 
+    if requested_seasons:
+        latest = requested_seasons[-1]
+        latest_block = my_block["perSeason"].get(str(latest)) or {}
+        if latest_block.get("seasonStatus") == "live_partial":
+            weeks = int(latest_block.get("weeksObserved") or 0)
+            weight = float(latest_block.get("seasonWeight") or 0.0)
+            warnings.append(
+                f"{latest} is in progress: {weeks}/{_stats.MAX_REGULAR_WEEK} modeled "
+                f"weeks are present. Its positional metrics are annualized to "
+                f"{_stats.MAX_REGULAR_WEEK}-week units and its combined-season "
+                f"weight is {weight:.3f}; the weight grows automatically as new "
+                "weeks arrive and reaches 1.0 at the full modeled season."
+            )
+
     positions, my_sl, my_si, base_sl, base_si = _build_position_comparisons(
         my_block,
         base_block,
@@ -678,7 +799,13 @@ def build_comparison(*, refresh: bool = False) -> dict[str, Any]:
 
     by_season: dict[str, Any] = {}
     for season in avail["available"]:
+        season_meta = my_block["perSeason"][str(season)]
         by_season[str(season)] = {
+            "seasonStatus": season_meta.get("seasonStatus"),
+            "weeksObserved": season_meta.get("weeksObserved"),
+            "seasonWeight": season_meta.get("seasonWeight"),
+            "annualizationFactor": season_meta.get("annualizationFactor"),
+            "metricsBasis": season_meta.get("metricsBasis"),
             "my": {
                 "positions": my_block["perSeason"][str(season)]["positions"],
                 "flex": my_block["perSeason"][str(season)]["flex"],
@@ -711,6 +838,9 @@ def build_comparison(*, refresh: bool = False) -> dict[str, Any]:
             "seasonsAvailable": avail["available"],
             "seasonsUnavailable": avail["unavailable"],
             "seasonsSources": avail.get("sources") or {},
+            "seasonWeights": {
+                str(season): weight for season, weight in my_block["_seasonWeights"].items()
+            },
             "sampleSizes": sample_sizes,
             "computeMs": int((time.time() - t_start) * 1000),
             "cacheHit": False,
