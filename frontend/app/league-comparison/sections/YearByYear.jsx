@@ -215,6 +215,10 @@ function ShareTrendChart({ bySeason }) {
 }
 
 function SeasonRow({ season, block, open, onToggle }) {
+  const isLivePartial = block?.seasonStatus === "live_partial";
+  const weeksObserved = Number(block?.weeksObserved || 0);
+  const seasonWeight = Number(block?.seasonWeight || 0);
+
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
       <button
@@ -234,11 +238,26 @@ function SeasonRow({ season, block, open, onToggle }) {
           fontWeight: 700,
         }}
       >
-        <span>Season {season}</span>
+        <span>
+          Season {season}
+          {isLivePartial ? (
+            <span className="muted" style={{ marginLeft: 8, fontSize: "0.78rem", fontWeight: 600 }}>
+              LIVE · {weeksObserved}/17 weeks
+            </span>
+          ) : null}
+        </span>
         <span className="muted">{open ? "▼" : "▸"}</span>
       </button>
       {open && (
         <div style={{ padding: "var(--space-sm)" }}>
+          {isLivePartial ? (
+            <p className="muted text-xs" style={{ marginTop: 0, marginBottom: 10, lineHeight: 1.5 }}>
+              In-progress season: positional metrics below are normalized to a 17-week
+              equivalent for comparability.  The combined multi-season result gives this
+              season only {seasonWeight.toFixed(3)} weight ({weeksObserved}/17), increasing
+              automatically as more modeled weeks arrive.
+            </p>
+          ) : null}
           <SeasonTables block={block} />
         </div>
       )}
