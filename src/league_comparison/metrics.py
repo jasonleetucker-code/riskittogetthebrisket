@@ -289,6 +289,7 @@ def combine_metrics_equal_weight(
         {season: 1.0 for season in metrics_by_season},
     )
 
+
 # ── Status labels ─────────────────────────────────────────────────────
 
 
