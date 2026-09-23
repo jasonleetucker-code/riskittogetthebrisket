@@ -391,3 +391,109 @@ def build_public_snapshot(
         ]
     )
     return snapshot
+
+
+def current_season_membership_error(snapshot: PublicLeagueSnapshot) -> str | None:
+    """Why the CURRENT season's roster membership cannot be trusted, or ``None``.
+
+    The one definition of "we know who is in this league right now", shared
+    by snapshot ingestion (``current_season_integrity_error``) and the Power
+    engine, so the two cannot disagree about whether a table is complete.
+
+    * no rosters at all — a failed ``/rosters`` GET (``sleeper_client``
+      answers every failure with ``[]``);
+    * fewer/more rosters than the league declares (``total_rosters``);
+    * a roster whose owner does not resolve through the manager registry
+      for THIS season's league — the registry is built from the rosters, so
+      a mismatch means the two were not built from the same fetch.
+
+    Deliberately NOT an error: an orphaned roster (``owner_id`` null).
+    Sleeper genuinely has those, and the registry refuses to invent an
+    owner for one.
+
+    ``None`` for a snapshot with no current season (the zero-season guard
+    owns that), and for test doubles that model only ``seasons``/``managers``.
+    """
+    current = getattr(snapshot, "current_season", None)
+    if not isinstance(current, SeasonSnapshot):
+        return None
+    label = f"{current.season or '?'} ({current.league_id or '?'})"
+    rosters = current.rosters or []
+    if not rosters:
+        return f"current season {label} has no rosters"
+    # An undeclared roster count is UNKNOWN, not a mismatch -- the roster list
+    # itself is then the only statement of league size.
+    raw_declared = current.league.get("total_rosters")
+    try:
+        declared = int(raw_declared) if raw_declared is not None else None
+    except (TypeError, ValueError):
+        declared = None
+    if declared is not None and declared > 0 and len(rosters) != declared:
+        return f"current season {label} has {len(rosters)} rosters, league declares {declared}"
+    registry = snapshot.managers
+    unresolved: list[str] = []
+    for roster in rosters:
+        owner_id = str(roster.get("owner_id") or "").strip()
+        if not owner_id:
+            continue
+        if registry.owner_for_roster(current.league_id, roster.get("roster_id")) != owner_id:
+            unresolved.append(owner_id)
+    if unresolved:
+        return (
+            f"current season {label}: {len(unresolved)} roster owner(s) do not resolve "
+            f"through the manager registry: {sorted(unresolved)}"
+        )
+    return None
+
+
+def current_season_integrity_error(snapshot: PublicLeagueSnapshot) -> str | None:
+    """Why the snapshot's CURRENT season cannot be trusted, or ``None``.
+
+    ``sleeper_client`` answers every failed GET with ``[]``, so a Sleeper
+    blip on ``/rosters`` or ``/users`` produces a snapshot that LOOKS whole —
+    it has seasons, it has managers from the older seasons — while the
+    current season is missing the one thing every current-view section keys
+    on.  Measured 2026-09-23: that shape made the Power Rankings rank the
+    previous season's results, drop the two owners who joined this season
+    (10 of 12 rows), label the table "Preseason" and mark every team NEW.
+
+    A zero-season snapshot is already refused upstream; this is the same
+    rule applied one level down.  Membership is
+    ``current_season_membership_error``; on top of it this requires users,
+    and a matchup payload for every week the host says is scored.  A week
+    past the host's ``last_scored_leg`` with no matchups is the future, not
+    a failed fetch, and is not an error.
+    """
+    membership = current_season_membership_error(snapshot)
+    if membership is not None:
+        return membership
+    current = getattr(snapshot, "current_season", None)
+    if not isinstance(current, SeasonSnapshot):
+        return None
+    label = f"{current.season or '?'} ({current.league_id or '?'})"
+    if not (current.users or []):
+        return f"current season {label} has no users"
+
+    # The host's own "finished scoring through week N" (``None`` = unverified,
+    # in which case no week can be proven missing). Imported here because
+    # ``metrics`` imports this module.
+    from . import metrics  # noqa: PLC0415
+
+    horizon = metrics.last_scored_week(current)
+    if horizon is None:
+        return None
+    raw_start = (current.league.get("settings") or {}).get("start_week")
+    try:
+        start_week = max(1, int(raw_start)) if raw_start is not None else 1
+    except (TypeError, ValueError):
+        start_week = 1
+    last_regular = min(horizon, current.playoff_week_start - 1)
+    missing_weeks = [
+        wk for wk in range(start_week, last_regular + 1) if not current.matchups_by_week.get(wk)
+    ]
+    if missing_weeks:
+        return (
+            f"current season {label}: host reports week {horizon} scored but matchups "
+            f"are missing for week(s) {missing_weeks}"
+        )
+    return None

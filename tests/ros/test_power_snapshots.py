@@ -379,3 +379,91 @@ def test_movement_never_crosses_a_season_boundary(tmp_path, monkeypatch):
     payload = json.loads(path.read_text())
     assert payload["season"] == "2026"
     assert all(row["rankDelta"] is None for row in payload["ranking"])
+
+
+# --- Publication guards (2026-09-23 audit) ---------------------------------
+#
+# A half-fetched snapshot produced a 10-of-12 Power table. The engine now
+# refuses it, and the publisher refuses to FREEZE a partial table even if a
+# future engine change stops refusing -- a publication is forever.
+
+
+def test_publisher_admits_a_final_week_where_a_roster_genuinely_scored_zero():
+    """Inside a FINAL week 0.0 is an observation. The old per-entry
+    ``is_scored`` (points > 0) withheld the week, and under the one-window
+    rule a withheld week is never published -- so the next week read NEW."""
+    snapshot = _publisher_snapshot(incomplete=True)  # roster 4 scored 0.0
+    snapshot.current_season.league["settings"]["last_scored_leg"] = 1  # host: week 1 final
+    assert scrape._power_week_is_complete(snapshot, "2026", 1)
+
+
+def test_publisher_still_refuses_a_live_week_with_zero_placeholders():
+    """Without the host clock a 0.0 cannot be told from 'not played yet'."""
+    snapshot = _publisher_snapshot(incomplete=True)
+    assert not scrape._power_week_is_complete(snapshot, "2026", 1)
+
+
+def test_publisher_refuses_a_missing_score_inside_a_final_week():
+    snapshot = _publisher_snapshot()
+    snapshot.current_season.league["settings"]["last_scored_leg"] = 1
+    snapshot.current_season.matchups_by_week[1][0]["points"] = None
+    assert not scrape._power_week_is_complete(snapshot, "2026", 1)
+
+
+def test_record_snapshot_refuses_a_partial_owner_set(tmp_path, monkeypatch):
+    monkeypatch.setattr(power_snapshots, "ROS_DATA_DIR", tmp_path)
+    ranks = {f"o{i}": i for i in range(1, 11)}
+    with pytest.raises(ValueError, match="differ from the current league"):
+        power_snapshots.record_snapshot(
+            league_key="dynasty_main",
+            section=_section(week=3, ranks=ranks),
+            scoring_fingerprint="abc",
+            expected_owner_ids={f"o{i}" for i in range(1, 13)},
+        )
+    assert not list(tmp_path.rglob("week_*.json"))
+
+
+def test_record_snapshot_refuses_a_section_the_engine_marked_incomplete(tmp_path, monkeypatch):
+    monkeypatch.setattr(power_snapshots, "ROS_DATA_DIR", tmp_path)
+    section = _section(week=3, ranks={"a": 1, "b": 2})
+    section["rankingComplete"] = False
+    with pytest.raises(ValueError, match="incomplete"):
+        power_snapshots.record_snapshot(
+            league_key="dynasty_main", section=section, scoring_fingerprint="abc"
+        )
+
+
+def test_record_snapshot_accepts_the_exact_current_league(tmp_path, monkeypatch):
+    monkeypatch.setattr(power_snapshots, "ROS_DATA_DIR", tmp_path)
+    ranks = {f"o{i}": i for i in range(1, 13)}
+    _, created = power_snapshots.record_snapshot(
+        league_key="dynasty_main",
+        section=_section(week=3, ranks=ranks),
+        scoring_fingerprint="abc",
+        expected_owner_ids=set(ranks),
+    )
+    assert created
+
+
+def test_a_new_methodology_publication_leaves_the_previous_week_byte_identical(
+    tmp_path, monkeypatch
+):
+    """Rank history is keyed by (league, season, week), never methodology."""
+    monkeypatch.setattr(power_snapshots, "ROS_DATA_DIR", tmp_path)
+    ranks = {"a": 1, "b": 2, "c": 3}
+    week2 = _section(week=2, ranks=ranks)
+    week2["methodologyVersion"] = "canonical-power-2026.09-v1"
+    path2, _ = power_snapshots.record_snapshot(
+        league_key="dynasty_main", section=week2, scoring_fingerprint="abc"
+    )
+    frozen = path2.read_bytes()
+    week3 = _section(week=3, ranks={"a": 2, "b": 1, "c": 3})
+    week3["methodologyVersion"] = "canonical-power-2026.09-v2"
+    path3, _ = power_snapshots.record_snapshot(
+        league_key="dynasty_main", section=week3, scoring_fingerprint="abc"
+    )
+    assert path2.read_bytes() == frozen
+    rows = {r["ownerId"]: r for r in json.loads(path3.read_text())["ranking"]}
+    assert rows["a"]["priorRank"] == 1 and rows["a"]["rankDelta"] == -1
+    assert rows["b"]["priorRank"] == 2 and rows["b"]["rankDelta"] == 1
+    assert rows["c"]["rankDelta"] == 0

@@ -10810,6 +10810,9 @@ from src.public_league.public_contract import (  # noqa: E402 — grouped with p
     is_private_intelligence_section,
 )
 from src.public_league.sleeper_client import PUBLIC_MAX_SEASONS  # noqa: E402 — grouped with public-league block
+from src.public_league.snapshot import (  # noqa: E402 — grouped with public-league block
+    current_season_integrity_error as _public_snapshot_integrity_error,
+)
 from src.public_league import snapshot_store as public_snapshot_store  # noqa: E402 — grouped with public-league block
 from src.public_league import csv_export as public_csv_export  # noqa: E402 — grouped with public-league block
 from src.public_league import matchup_recap as public_matchup_recap  # noqa: E402 — grouped with public-league block
@@ -11145,6 +11148,14 @@ def _public_league_metrics_snapshot() -> dict:
 # page while the first Sleeper rebuild is running in the background.
 try:
     _persisted = public_snapshot_store.load_snapshot()
+    _persisted_error = (
+        _public_snapshot_integrity_error(_persisted) if _persisted is not None else None
+    )
+    if _persisted_error is not None:
+        # A partial snapshot persisted by an older build must not be served
+        # at cold start; the first request rebuilds from Sleeper instead.
+        logging.warning("Ignoring persisted public_league snapshot: %s", _persisted_error)
+        _persisted = None
     if _persisted is not None and _persisted.seasons:
         _public_league_cache["snapshot"] = _persisted
         _public_league_cache["snapshot_league_id"] = _persisted.root_league_id
@@ -11470,6 +11481,28 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
                 _public_league_metrics["rebuild_cooldown_served_stale"] += 1
                 return cached
             raise PublicSnapshotUnavailable("public league snapshot came back with zero seasons")
+
+        # The same rule one level down: a snapshot whose CURRENT season came
+        # back without rosters/users/owners (``sleeper_client`` answers every
+        # failed GET with ``[]``) is a failed fetch, not a league.  Served, it
+        # made Power rank last season's results for 10 of 12 owners under a
+        # "Preseason" label with every movement NEW (2026-09-23).  Serve the
+        # last good snapshot instead, exactly as the zero-season guard does.
+        integrity_error = _public_snapshot_integrity_error(snapshot)
+        if integrity_error is not None:
+            _public_league_metrics["rebuild_failures"] += 1
+            _public_league_cache["last_failure_at"] = time.time()
+            _public_league_cache["last_failure_error"] = f"partial snapshot: {integrity_error}"
+            _log_public_league_event(
+                "rebuild_failed",
+                trigger=trigger,
+                league_id=league_id,
+                error=f"partial snapshot: {integrity_error}",
+            )
+            if cached is not None and cached_id == league_id:
+                _public_league_metrics["rebuild_cooldown_served_stale"] += 1
+                return cached
+            raise PublicSnapshotUnavailable(f"public league snapshot incomplete: {integrity_error}")
 
         # A success clears the cooldown, so recovery needs no operator
         # action and no waiting out the remaining window.

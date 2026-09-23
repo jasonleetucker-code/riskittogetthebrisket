@@ -325,6 +325,16 @@ def _power_week_is_complete(snapshot: Any, season_label: str, week: int) -> bool
     if not expected_owners:
         return False
 
+    # FINAL is the same question Power's own aggregation asks
+    # (``metrics.final_regular_season_weeks``: the host clock, or every roster
+    # reporting). Inside a final week ``0.0`` is an observation and only an
+    # absent score is missing -- the previous per-entry ``is_scored``
+    # (points > 0) withheld a finished week whenever a roster genuinely scored
+    # zero, and under the one-window rule below (``week == host_week - 1``) a
+    # withheld week is never published, so the NEXT week's arrows all read NEW.
+    if int(week) not in metrics.final_regular_season_weeks(season):
+        return False
+
     rows = season.matchups_by_week.get(int(week)) or []
     pairs = metrics.matchup_pairs(rows)
     if len(pairs) * 2 != len(expected_owners):
@@ -332,7 +342,7 @@ def _power_week_is_complete(snapshot: Any, season_label: str, week: int) -> bool
 
     observed: set[str] = set()
     for a, b in pairs:
-        if not metrics.is_scored(a) or not metrics.is_scored(b):
+        if a.get("points") is None or b.get("points") is None:
             return False
         for entry in (a, b):
             oid = metrics.resolve_owner(
@@ -414,10 +424,21 @@ def _refresh_power_snapshots() -> dict[str, Path]:
                         week,
                     )
                     continue
+                current = next(
+                    (s for s in snap.seasons if str(s.season) == season),
+                    None,
+                )
+                active_ids = {m.owner_id for m in snap.managers.ordered_managers()}
+                expected_owner_ids = {
+                    str(r.get("owner_id") or "").strip()
+                    for r in ((current.rosters if current is not None else None) or [])
+                    if str(r.get("owner_id") or "").strip() in active_ids
+                }
                 path, created = power_snapshots.record_snapshot(
                     league_key=cfg.key,
                     section=section,
                     scoring_fingerprint=power_snapshots.scoring_config_fingerprint(snap),
+                    expected_owner_ids=expected_owner_ids,
                 )
                 if created:
                     LOG.info(
