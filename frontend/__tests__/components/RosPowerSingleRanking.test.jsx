@@ -181,8 +181,13 @@ describe("RosPowerSection — one ranking", () => {
 
     expect(container.textContent).toContain("▲ 1");
     expect(container.textContent).toContain("▼ 1");
-    // A zero delta is "did not move" (•), never a missing comparison.
-    expect(container.textContent).toContain("•");
+    // A zero delta is "did not move": "—", the SAME glyph the share card uses
+    // (owner spec, 2026-09-23). The table used to say "•" while the card said
+    // "—" for the same row.
+    const cassRow = within(screen.getByRole("table")).getAllByRole("row")[3];
+    const cells = within(cassRow).getAllByRole("cell");
+    expect(cells[7].textContent).toBe("—");
+    expect(container.textContent).not.toContain("•");
   });
 });
 
@@ -421,6 +426,113 @@ describe("LeaguePowerShareCard — movement since last week", () => {
     expect(screen.queryByTestId("league-power-share-card")).toBeNull();
   });
 
+  // ── 2026-09-23 audit: dropped owners, false NEW, wrong week label ─────
+
+  function twelveRows({ previous = (i) => i + 1, delta = () => 0 } = {}) {
+    return Array.from({ length: 12 }, (_, i) => ({
+      ownerId: `owner-${i}`,
+      displayName: i === 0 ? "Alice" : `Manager ${i}`,
+      teamName: `Team ${i}`,
+      rank: i + 1,
+      powerScore: 100 - i,
+      previousOfficialRank: previous(i),
+      weekRankDelta: delta(i),
+    }));
+  }
+
+  it("renders exactly the canonical 12 rows on the card, in the table's order and glyphs", async () => {
+    // Deltas cover every glyph: up, down, unchanged, and NEW.
+    const ranking = twelveRows({
+      previous: (i) => (i === 11 ? null : [3, 2, 1][i] ?? i + 1),
+      delta: (i) => (i === 11 ? null : [2, 0, -2][i] ?? 0),
+    });
+    const card = await openCard({
+      ...payload({ ranking, asOfWeek: 2 }),
+      expectedTeamCount: 12,
+      rankingComplete: true,
+      movementBaseline: { status: "compared", week: 1, preseason: false },
+    });
+    const cardRows = within(card).getAllByTestId("league-power-share-row");
+    const tableRows = within(screen.getByRole("table")).getAllByRole("row").slice(1);
+    expect(cardRows).toHaveLength(12);
+    expect(tableRows).toHaveLength(12);
+    cardRows.forEach((cardRow, i) => {
+      const cells = within(tableRows[i]).getAllByRole("cell");
+      expect(cardRow.children[0].textContent).toBe(String(ranking[i].rank));
+      expect(cells[0].textContent).toBe(String(ranking[i].rank));
+      expect(within(cardRow).getByText(ranking[i].displayName)).toBeTruthy();
+      expect(cardRow.children[2].textContent).toBe(cells[7].textContent);
+    });
+    expect(cardRows[0].children[2].textContent).toBe("▲ 2"); // previous 3 -> current 1
+    expect(cardRows[1].children[2].textContent).toBe("—"); // previous 2 -> current 2
+    expect(cardRows[2].children[2].textContent).toBe("▼ 2"); // previous 1 -> current 3
+    expect(cardRows[11].children[2].textContent).toBe("NEW"); // genuinely no previous rank
+    expect(card.textContent.match(/NEW/g)).toHaveLength(1);
+    expect(card.textContent).toContain("2026 · Week 2 · Current · vs Week 1 official");
+  });
+
+  it("offers no share card for a ranking the backend marks incomplete", async () => {
+    serve({
+      ...payload({ ranking: twelveRows().slice(0, 10), asOfWeek: 2 }),
+      expectedTeamCount: 12,
+      rankingComplete: false,
+    });
+    const RosPowerSection = await renderFresh();
+    render(<RosPowerSection />);
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByRole("button", { name: /share rankings/i }));
+    const notice = await screen.findByTestId("league-power-share-incomplete");
+    expect(notice.textContent).toContain("10 of 12 teams");
+    expect(screen.queryByTestId("league-power-share-card")).toBeNull();
+    expect(screen.queryAllByTestId("league-power-share-row")).toHaveLength(0);
+  });
+
+  it("offers no share card when the row count disagrees with the league size", async () => {
+    serve({ ...payload({ ranking: twelveRows().slice(0, 10), asOfWeek: 2 }), expectedTeamCount: 12 });
+    const RosPowerSection = await renderFresh();
+    render(<RosPowerSection />);
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByRole("button", { name: /share rankings/i }));
+    expect(await screen.findByTestId("league-power-share-incomplete")).toBeTruthy();
+    expect(screen.queryByTestId("league-power-share-card")).toBeNull();
+  });
+
+  it("never renders NEW when a previous publication gave every team a rank", async () => {
+    const card = await openCard({
+      ...payload({ ranking: twelveRows({ delta: (i) => (i % 2 ? 1 : -1) }), asOfWeek: 3 }),
+      expectedTeamCount: 12,
+      rankingComplete: true,
+      movementBaseline: { status: "compared", week: 2, preseason: false },
+    });
+    expect(card.textContent).not.toContain("NEW");
+  });
+
+  it("reads '—', not NEW, when the movement comparison itself was unavailable", async () => {
+    const card = await openCard({
+      ...payload({
+        ranking: twelveRows({ previous: () => null, delta: () => null }),
+        asOfWeek: 2,
+      }),
+      expectedTeamCount: 12,
+      rankingComplete: true,
+      movementBaseline: { status: "unavailable", reason: "lookup failed" },
+    });
+    expect(card.textContent).not.toContain("NEW");
+    expect(card.textContent).not.toContain("vs ");
+  });
+
+  it("labels an in-season week-0 table 'Week 1 in progress', not Preseason", async () => {
+    const card = await openCard({
+      ...payload({ ranking: twelveRows({ previous: () => null, delta: () => null }), asOfWeek: 0 }),
+      preseason: false,
+      expectedTeamCount: 12,
+      rankingComplete: true,
+      movementBaseline: { status: "not_applicable" },
+    });
+    expect(card.textContent).toContain("2026 · Week 1 in progress · Current");
+    expect(card.textContent).not.toContain("Preseason");
+    expect(card.textContent).not.toContain("NEW");
+  });
 });
 
 describe("Rank history", () => {
