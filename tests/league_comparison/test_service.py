@@ -192,6 +192,10 @@ def _make_season(season: int):
     return rows
 
 
+def _make_partial_season(season: int, weeks: int):
+    return [row for row in _make_season(season) if int(row["week"]) <= weeks]
+
+
 def _stub_stats_fetch(monkeypatch, available_seasons):
     def fake_load(season):
         if season in available_seasons:
@@ -206,7 +210,7 @@ def _stub_stats_fetch(monkeypatch, available_seasons):
 
 def test_build_comparison_returns_full_shape(monkeypatch, tmp_path):
     _stub_scoring_fetch(monkeypatch)
-    _stub_stats_fetch(monkeypatch, available_seasons={2022, 2023, 2024, 2025})
+    _stub_stats_fetch(monkeypatch, available_seasons={2022, 2023, 2024, 2025, 2026})
     # Point at the real config (it exists in the repo).
     out = _service.build_comparison(refresh=True)
 
@@ -228,8 +232,8 @@ def test_build_comparison_returns_full_shape(monkeypatch, tmp_path):
     my_id, base_id = _load_real_league_ids()
     assert meta["myLeague"]["id"] == my_id
     assert meta["baselineLeague"]["id"] == base_id
-    assert meta["seasonsRequested"] == [2022, 2023, 2024, 2025]
-    assert meta["seasonsAvailable"] == [2022, 2023, 2024, 2025]
+    assert meta["seasonsRequested"] == [2022, 2023, 2024, 2025, 2026]
+    assert meta["seasonsAvailable"] == [2022, 2023, 2024, 2025, 2026]
     assert meta["seasonsUnavailable"] == []
 
     # Per-position block has all four offense positions
@@ -253,18 +257,18 @@ def test_build_comparison_returns_full_shape(monkeypatch, tmp_path):
     assert out["idp"]["available"] is False
     assert out["idp"]["status"] == "placeholder"
 
-    # bySeason has all four seasons
-    assert set(out["bySeason"].keys()) == {"2022", "2023", "2024", "2025"}
+    # bySeason has all five requested seasons
+    assert set(out["bySeason"].keys()) == {"2022", "2023", "2024", "2025", "2026"}
 
 
 def test_missing_season_emits_warning(monkeypatch):
     _stub_scoring_fetch(monkeypatch)
-    _stub_stats_fetch(monkeypatch, available_seasons={2022, 2023, 2024})  # 2025 missing
+    _stub_stats_fetch(monkeypatch, available_seasons={2022, 2023, 2024, 2025})  # 2026 missing
     out = _service.build_comparison(refresh=True)
-    assert out["meta"]["seasonsUnavailable"] == [2025]
-    assert any("2025" in w for w in out["warnings"])
-    # Combined still uses three seasons, equally weighted
-    assert out["meta"]["seasonsAvailable"] == [2022, 2023, 2024]
+    assert out["meta"]["seasonsUnavailable"] == [2026]
+    assert any("2026" in w for w in out["warnings"])
+    # Combined still uses the four completed available seasons.
+    assert out["meta"]["seasonsAvailable"] == [2022, 2023, 2024, 2025]
 
 
 def test_single_season_emits_limited_data_warning(monkeypatch):
@@ -273,6 +277,49 @@ def test_single_season_emits_limited_data_warning(monkeypatch):
     out = _service.build_comparison(refresh=True)
     assert out["meta"]["seasonsAvailable"] == [2024]
     assert any("limited" in w.lower() for w in out["warnings"])
+
+
+
+def test_live_latest_season_is_annualized_and_progress_weighted(monkeypatch):
+    _stub_scoring_fetch(monkeypatch)
+
+    def fake_load(season):
+        if season == 2025:
+            return _make_season(2025)
+        if season == 2026:
+            return _make_partial_season(2026, 3)
+        return None
+
+    monkeypatch.setattr(_stats_mod, "load_season_rows", fake_load)
+    out = _service.build_comparison(refresh=True)
+
+    live = out["bySeason"]["2026"]
+    assert live["seasonStatus"] == "live_partial"
+    assert live["weeksObserved"] == 3
+    assert live["seasonWeight"] == pytest.approx(3 / 17)
+    assert live["annualizationFactor"] == pytest.approx(17 / 3)
+    assert live["metricsBasis"] == "annualized_partial"
+    assert out["meta"]["seasonWeights"]["2026"] == pytest.approx(3 / 17)
+    assert any("3/17" in warning and "2026" in warning for warning in out["warnings"])
+
+    historical_avg = out["bySeason"]["2025"]["my"]["positions"]["QB"]["average"]
+    live_avg = out["bySeason"]["2026"]["my"]["positions"]["QB"]["average"]
+    expected = (historical_avg + live_avg * (3 / 17)) / (1 + (3 / 17))
+    combined_avg = out["positions"]["QB"]["my"]["metrics"]["average"]
+    assert combined_avg == pytest.approx(expected, abs=0.02)
+
+
+def test_latest_season_at_week_17_converges_to_full_weight(monkeypatch):
+    _stub_scoring_fetch(monkeypatch)
+    _stub_stats_fetch(monkeypatch, available_seasons={2025, 2026})
+    out = _service.build_comparison(refresh=True)
+
+    season = out["bySeason"]["2026"]
+    assert season["seasonStatus"] == "complete"
+    assert season["weeksObserved"] == 17
+    assert season["seasonWeight"] == pytest.approx(1.0)
+    assert season["annualizationFactor"] == pytest.approx(1.0)
+    assert out["meta"]["seasonWeights"]["2026"] == pytest.approx(1.0)
 
 
 def test_cache_hit_avoids_recomputation(monkeypatch):
