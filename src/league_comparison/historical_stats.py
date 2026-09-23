@@ -30,6 +30,8 @@ _LOGGER = logging.getLogger(__name__)
 # by this filter as a side benefit.
 _MAX_REGULAR_WEEK = 17
 
+MAX_REGULAR_WEEK = _MAX_REGULAR_WEEK
+
 # Which source produced each season's rows in the most recent call.
 # Surfaces through :func:`summarize_availability` so the API meta
 # block can tell the UI which seasons came from where.
