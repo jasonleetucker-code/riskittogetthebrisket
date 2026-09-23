@@ -529,7 +529,11 @@ def _pick_confidence_from_values(
     """
     raw_values: list[tuple[str, float]] = []
     for key in (
-        "ktcCrowdTradesSfTep",
+        # The two KTC model inputs (owner directive 2026-09-23): Crowd and
+        # Trades are separate families.  KTC Market (Crowd+Trades) is the
+        # benchmark and is derived from these two — never counted here.
+        "ktcCrowdSfTep",
+        "ktcTradesSfTep",
         "idpTradeCalc",
         "dlfSf",
         "dynastyNerdsSfTep",
@@ -551,7 +555,7 @@ def _pick_confidence_from_values(
 
     effective_count = 0.0
     for key, _v in raw_values:
-        if key == "ktcCrowdTradesSfTep" and is_slot_specific:
+        if key in ("ktcCrowdSfTep", "ktcTradesSfTep") and is_slot_specific:
             effective_count += 0.5
         else:
             effective_count += 1.0

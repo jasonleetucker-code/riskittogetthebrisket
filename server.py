@@ -9246,7 +9246,11 @@ def _our_rookie_pool(top_n: int = 72) -> list[dict]:
         csv = p.get("canonicalSiteValues") or {}
         if not isinstance(csv, dict):
             csv = {}
-        ktc_raw = csv.get("ktcSfTep") or csv.get("ktc")
+        # KTC MARKET (the one canonical owner) — this read the Crowd-only
+        # legacy ``ktcSfTep`` board until 2026-09-23.
+        from src.sources.ktc_market import market_raw_value as _ktc_market_raw  # noqa: PLC0415
+
+        ktc_raw = _ktc_market_raw(csv)
         idp_raw = csv.get("idpTradeCalc")
         cv = p.get("marketDispersionCV")
         out.append(

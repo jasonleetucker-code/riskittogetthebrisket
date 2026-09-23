@@ -85,6 +85,7 @@ from typing import Any
 # labeller lives where provenance semantics are owned — see
 # ``src/history/provenance.py``.
 from src.history.provenance import pipeline_version  # noqa: F401
+from src.sources.ktc_market import KTC_MARKET_KEY
 from src.utils.name_clean import canonical_player_key
 
 DB_PATH: Path = Path(__file__).resolve().parents[2] / "data" / "board_history.sqlite"
@@ -295,7 +296,10 @@ def _row_values(
         (1 if single else 0) if single is not None else None,
         str(row.get("marketGapDirection") or "") or None,
         _num(row.get("marketGapMagnitude")),
-        _retail(row, "ktcSfTep"),
+        # The stored retail price is canonical KTC MARKET (src/sources/
+        # ktc_market.py) — it read the Crowd-only legacy ``ktcSfTep`` board
+        # until 2026-09-23, a different quantity under the same column.
+        _retail(row, KTC_MARKET_KEY),
         _retail(row, "idpTradeCalc"),
         scraped_at,
         _num((row.get("dataFreshness") or {}).get("hoursStale"))

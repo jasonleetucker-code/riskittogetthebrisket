@@ -1,0 +1,68 @@
+{
+  "version": "freshness_v1",
+  "description": "Cadence-relative source freshness (owner directive 2026-09-23; docs/sources/SOURCE_FRESHNESS_WEIGHTING.md). freshness = curve(age / E), where E is the source's own expected interval learned from its closed broad-change intervals (p75, same season phase first) and clamped to the per-source [minHours, maxHours]. There is deliberately NO universal absolute grace floor: minHours is per source and exists only where the observed interval measures OUR polling rather than the vendor (KTC). seedHours is used only until >= minIntervals closed intervals exist. effective weight = base x freshness x health x coverage. These numbers decide influence, not values: nothing here is a price.",
+  "curve": "C4",
+  "curveDefinitions": {
+    "C1": "1 if r<=1 else 2^-(r-1)",
+    "C2": "logistic 1/(1+e^(2(r-2.5))) normalised to f(0)=1",
+    "C3": "1 if r<=1 else exp(-(r-1)^2/(2*1.2^2))",
+    "C4": "1 if r<=1 else 2^(-(r-1)^2/r)"
+  },
+  "quarantineBelow": 0.02,
+  "freshForConfidence": 0.5,
+  "stateBands": [
+    {"minFreshness": 0.95, "state": "ON_SCHEDULE"},
+    {"minFreshness": 0.7, "state": "OVERDUE"},
+    {"minFreshness": 0.3, "state": "STALE"},
+    {"minFreshness": 0.0, "state": "SEVERELY_STALE"}
+  ],
+  "broadChange": {"minRows": 5, "minFraction": 0.02},
+  "styleClassification": {
+    "minEvents": 5,
+    "lookbackEvents": 20,
+    "snapshotBroadShare": 0.8,
+    "snapshotMedianChangedFraction": 0.25,
+    "incrementalBroadShare": 0.2
+  },
+  "cadence": {
+    "percentile": 0.75,
+    "minIntervals": 5,
+    "trailingDays": 120,
+    "inSeasonMonths": [9, 10, 11, 12, 1]
+  },
+  "healthFactors": {"HEALTHY": 1.0, "DEGRADED": 0.5, "FAILED": 0.0},
+  "coverage": {"floorFraction": 0.8},
+  "sourceWeightState": {
+    "description": "Per-row evidence state under renormalization. retainedAuthority = sum(effective weights of voting sources) / sum(base weights of those sources plus sources excluded for zero effective weight). dominantShare = the largest single voting source's normalized share, judged only when >= 2 sources would vote at full base weight (a structurally single-source row is NORMAL here; its own single-source flags already describe it). Start values; reviewed against the backtest.",
+    "degradedRetained": 0.75,
+    "severeRetained": 0.5,
+    "degradedDominantShare": 0.6,
+    "severeDominantShare": 0.85
+  },
+  "defaultCadence": {"seedHours": 72, "minHours": 24, "maxHours": 336},
+  "sources": {
+    "ktcCrowdSfTep": {"seedHours": 12, "minHours": 12, "maxHours": 48},
+    "ktcTradesSfTep": {"seedHours": 12, "minHours": 12, "maxHours": 48},
+    "ktcCrowdTradesSfTep": {"seedHours": 12, "minHours": 12, "maxHours": 48},
+    "idpTradeCalc": {"seedHours": 120, "minHours": 48, "maxHours": 240},
+    "idpShowCombined": {"seedHours": 168, "minHours": 72, "maxHours": 336},
+    "dlfSf": {"seedHours": 72, "minHours": 24, "maxHours": 168},
+    "dlfIdp": {"seedHours": 72, "minHours": 24, "maxHours": 168},
+    "dlfRookieSf": {"seedHours": 72, "minHours": 24, "maxHours": 336},
+    "dlfRookieIdp": {"seedHours": 72, "minHours": 24, "maxHours": 336},
+    "draftSharks": {"seedHours": 24, "minHours": 12, "maxHours": 96},
+    "draftSharksIdp": {"seedHours": 24, "minHours": 12, "maxHours": 96},
+    "fantasyCalc": {"seedHours": 24, "minHours": 12, "maxHours": 96},
+    "dynastyDaddySf": {"seedHours": 24, "minHours": 12, "maxHours": 96},
+    "fantasyNavigatorSf": {"seedHours": 24, "minHours": 12, "maxHours": 96},
+    "otcffbSf": {"seedHours": 24, "minHours": 12, "maxHours": 96},
+    "pfkDynasty": {"seedHours": 72, "minHours": 24, "maxHours": 336},
+    "fantasyProsSf": {"seedHours": 168, "minHours": 48, "maxHours": 336},
+    "fantasyProsIdp": {"seedHours": 168, "minHours": 48, "maxHours": 336},
+    "fantasyProsFitzmaurice": {"seedHours": 840, "minHours": 336, "maxHours": 1080},
+    "yahooBoone": {"seedHours": 840, "minHours": 336, "maxHours": 1080},
+    "dynastyNerdsSfTep": {"seedHours": 720, "minHours": 240, "maxHours": 1080},
+    "flockFantasySf": {"seedHours": 48, "minHours": 24, "maxHours": 168},
+    "flockFantasySfRookies": {"seedHours": 336, "minHours": 168, "maxHours": 720}
+  }
+}

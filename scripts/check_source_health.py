@@ -336,8 +336,11 @@ def measure_registered_source_integrity(
                     if signal == "rank" and numeric <= 0:
                         errors.append(f"non-positive rank observed: {numeric}")
                         break
-                    if key == "ktcCrowdTradesSfTep" and not 0 < numeric <= 9999:
-                        errors.append(f"KTC combined value outside 0-9999: {numeric}")
+                    if (
+                        key in ("ktcCrowdSfTep", "ktcTradesSfTep", "ktcCrowdTradesSfTep")
+                        and not 0 < numeric <= 9999
+                    ):
+                        errors.append(f"KTC {key} value outside 0-9999: {numeric}")
                         break
 
             duplicate_names = sorted(duplicate_set)[:20]
@@ -590,8 +593,13 @@ def main() -> int:
     try:
         from src.api.data_contract import _RANKING_SOURCES
 
+        from src.sources.ktc_market import KTC_MODEL_INPUT_KEYS
+
+        # Deploy-blocking once any KTC value-source mode VOTES (Crowd and
+        # Trades since 2026-09-23): three byte-identical modes would mean
+        # the model is counting one capture as two independent inputs.
         ktc_semantic_required = any(
-            str(source.get("key") or "") == "ktcCrowdTradesSfTep" for source in _RANKING_SOURCES
+            str(source.get("key") or "") in KTC_MODEL_INPUT_KEYS for source in _RANKING_SOURCES
         )
     except Exception:
         ktc_semantic_required = False

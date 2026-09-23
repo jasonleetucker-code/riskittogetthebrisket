@@ -121,6 +121,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Iterable
 
+from src.sources.ktc_market import KTC_MARKET_KEY
 from src.api.data_contract import (
     SCALE_LOST_IDP_BACKBONE,
     build_api_data_contract,
@@ -137,7 +138,11 @@ from src.api.data_contract import (
 # retail board publishes a pick market we can treat as a price, so pick
 # rows get no mispricing signal rather than an invented one.
 MARKET_ANCHOR_BY_ASSET_CLASS: dict[str, str] = {
-    "offense": "ktcCrowdTradesSfTep",
+    # KTC MARKET — the one canonical benchmark owner.  Excluding it from the
+    # fair-value board expands (``expand_correlation_groups``) to BOTH KTC
+    # model inputs it is derived from plus Fantasy Navigator, so the
+    # anchor-free board carries no KTC lineage at all.
+    "offense": KTC_MARKET_KEY,
     "idp": "idpTradeCalc",
 }
 
@@ -154,7 +159,7 @@ MARKET_ANCHOR_BY_ASSET_CLASS: dict[str, str] = {
 # stays missing: only positive evidence that the predecessor file exists
 # authorizes the compatibility mapping.
 _HISTORICAL_KTC_PREDECESSOR = "ktcSfTep"
-_KTC_CROWD_TRADES_CSV = Path("CSVs/site_raw/ktcCrowdTradesSfTep.csv")
+_KTC_CROWD_TRADES_CSV = Path(f"CSVs/site_raw/{KTC_MARKET_KEY}.csv")
 _KTC_PREDECESSOR_CSV = Path("CSVs/site_raw/ktcSfTep.csv")
 
 

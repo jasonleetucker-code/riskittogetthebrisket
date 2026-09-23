@@ -1,0 +1,290 @@
+{
+ "backfill": {
+  "commits": 32,
+  "firstCommitAt": "2026-04-20T21:18:59-04:00",
+  "method": "git_history_replay",
+  "ref": "HEAD",
+  "since": "2026-04-01"
+ },
+ "health": {
+  "errors": [],
+  "since": "2026-05-15T20:27:24Z",
+  "state": "HEALTHY",
+  "warnings": []
+ },
+ "schemaVersion": 1,
+ "sourceKey": "dlfRookieIdp",
+ "subsets": {
+  "players": {
+   "changeHistory": [
+    {
+     "at": "2026-05-05T10:48:58Z",
+     "broad": true,
+     "rowsAdded": 2,
+     "rowsChanged": 29,
+     "rowsRemoved": 1,
+     "rowsTotal": 30
+    },
+    {
+     "at": "2026-05-06T22:27:16Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 11,
+     "rowsRemoved": 0,
+     "rowsTotal": 31
+    },
+    {
+     "at": "2026-05-14T08:27:21Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 17,
+     "rowsRemoved": 1,
+     "rowsTotal": 31
+    },
+    {
+     "at": "2026-05-17T16:27:26Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 8,
+     "rowsRemoved": 0,
+     "rowsTotal": 30
+    },
+    {
+     "at": "2026-05-30T06:27:23Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 20,
+     "rowsRemoved": 1,
+     "rowsTotal": 30
+    },
+    {
+     "at": "2026-05-30T14:27:23Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 5,
+     "rowsRemoved": 0,
+     "rowsTotal": 29
+    },
+    {
+     "at": "2026-06-14T12:27:21Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 8,
+     "rowsRemoved": 0,
+     "rowsTotal": 29
+    },
+    {
+     "at": "2026-06-17T22:27:19Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 14,
+     "rowsRemoved": 0,
+     "rowsTotal": 29
+    },
+    {
+     "at": "2026-07-21T22:02:27Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 20,
+     "rowsRemoved": 0,
+     "rowsTotal": 29
+    },
+    {
+     "at": "2026-07-23T06:27:40Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 3,
+     "rowsRemoved": 0,
+     "rowsTotal": 29
+    },
+    {
+     "at": "2026-07-28T16:27:29Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 29
+    },
+    {
+     "at": "2026-07-29T02:27:46Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 4,
+     "rowsRemoved": 0,
+     "rowsTotal": 29
+    },
+    {
+     "at": "2026-08-02T16:27:37Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 7,
+     "rowsRemoved": 0,
+     "rowsTotal": 29
+    },
+    {
+     "at": "2026-08-15T12:27:47Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 6,
+     "rowsRemoved": 0,
+     "rowsTotal": 29
+    },
+    {
+     "at": "2026-08-15T18:27:58Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 4,
+     "rowsRemoved": 0,
+     "rowsTotal": 29
+    },
+    {
+     "at": "2026-08-18T12:27:26Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 4,
+     "rowsRemoved": 0,
+     "rowsTotal": 29
+    },
+    {
+     "at": "2026-08-23T18:27:26Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 9,
+     "rowsRemoved": 0,
+     "rowsTotal": 30
+    },
+    {
+     "at": "2026-09-06T16:27:51Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 17,
+     "rowsRemoved": 0,
+     "rowsTotal": 30
+    },
+    {
+     "at": "2026-09-07T14:27:28Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 5,
+     "rowsRemoved": 0,
+     "rowsTotal": 30
+    },
+    {
+     "at": "2026-09-09T00:27:29Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 7,
+     "rowsRemoved": 1,
+     "rowsTotal": 30
+    },
+    {
+     "at": "2026-09-09T08:27:25Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 13,
+     "rowsRemoved": 0,
+     "rowsTotal": 30
+    }
+   ],
+   "contentSince": "2026-09-09T08:27:25Z",
+   "fingerprint": "cbf5da7be90f6ee734054a82",
+   "firstObservationIsBaseline": true,
+   "firstObservedAt": "2026-04-21T01:18:59Z",
+   "lastAnyMeaningfulChangeAt": "2026-09-09T08:27:25Z",
+   "lastBroadDatasetChangeAt": "2026-09-09T08:27:25Z",
+   "rowChangedAt": {
+    "aj haulcy": "2026-09-09T08:27:25Z",
+    "akheem mesidor": "2026-09-07T14:27:28Z",
+    "anthony hill jr": "2026-09-09T08:27:25Z",
+    "arvell reese": "2026-09-09T08:27:25Z",
+    "bryce boettcher": "2026-09-09T00:27:29Z",
+    "caleb downs": "2026-09-09T08:27:25Z",
+    "cashius howell": "2026-08-23T18:27:26Z",
+    "cj allen": "2026-09-09T08:27:25Z",
+    "david bailey": "2026-07-21T22:02:27Z",
+    "derrick moore": "2026-09-06T16:27:51Z",
+    "dillon thieneman": "2026-07-29T02:27:46Z",
+    "emmanuel mcneil-warren": "2026-09-09T08:27:25Z",
+    "gabe jacas": "2026-09-09T08:27:25Z",
+    "jacob rodriguez": "2026-09-09T08:27:25Z",
+    "jaishawn barham": "2026-09-09T00:27:29Z",
+    "jake golday": "2026-09-09T08:27:25Z",
+    "josiah trotter": "2026-09-07T14:27:28Z",
+    "kaleb elarms-orr": "2026-09-09T08:27:25Z",
+    "keldric faulk": "2026-09-09T00:27:29Z",
+    "kendal daniels": "2026-08-23T18:27:26Z",
+    "keyshaun elliott": "2026-09-09T00:27:29Z",
+    "kyle louis": "2026-09-06T16:27:51Z",
+    "malachi lawrence": "2026-09-09T08:27:25Z",
+    "peter woods": "2026-09-09T08:27:25Z",
+    "r mason thomas": "2026-09-06T16:27:51Z",
+    "rueben bain jr": "2026-09-06T16:27:51Z",
+    "sonny styles": "2026-05-05T10:48:58Z",
+    "tj parker": "2026-07-21T22:02:27Z",
+    "treydan stukes": "2026-09-09T00:27:29Z",
+    "zion young": "2026-09-09T08:27:25Z"
+   },
+   "rowCount": 30,
+   "rowCountHistory": [
+    29,
+    30,
+    31,
+    30,
+    30,
+    29,
+    29,
+    29,
+    29,
+    29,
+    29,
+    29,
+    29,
+    29,
+    29,
+    29,
+    29,
+    30,
+    30,
+    30,
+    30,
+    30
+   ],
+   "rowHashes": {
+    "aj haulcy": "527ea73846",
+    "akheem mesidor": "f7475b81fd",
+    "anthony hill jr": "e0c8246149",
+    "arvell reese": "bdc1408a91",
+    "bryce boettcher": "aa4c490ee3",
+    "caleb downs": "75c35bc684",
+    "cashius howell": "10535e2f86",
+    "cj allen": "75c35bc684",
+    "david bailey": "a33beb1398",
+    "derrick moore": "018f5ea75d",
+    "dillon thieneman": "db63fca627",
+    "emmanuel mcneil-warren": "4c346b7954",
+    "gabe jacas": "48b7d602d0",
+    "jacob rodriguez": "b5f69dbc58",
+    "jaishawn barham": "788235c7a7",
+    "jake golday": "9444a8503e",
+    "josiah trotter": "e0c8246149",
+    "kaleb elarms-orr": "4c346b7954",
+    "keldric faulk": "0a18df35eb",
+    "kendal daniels": "efcffc3abf",
+    "keyshaun elliott": "efcffc3abf",
+    "kyle louis": "e258c198b4",
+    "malachi lawrence": "a3d10b2002",
+    "peter woods": "376bfef574",
+    "r mason thomas": "6bb5cd8771",
+    "rueben bain jr": "5e56ceb6a3",
+    "sonny styles": "e8dc057d33",
+    "tj parker": "aa4c490ee3",
+    "treydan stukes": "8020c96810",
+    "zion young": "18b66e1ee3"
+   }
+  }
+ },
+ "upstream": {
+  "publishedAt": null,
+  "version": null
+ }
+}

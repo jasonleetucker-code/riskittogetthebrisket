@@ -42,7 +42,12 @@ ORIGIN_LIVE = "live:server"
 # numbers with synthetic rank encodings, and a synthetic encoding
 # recorded as a market observation would poison every future
 # measurement scored against it.
-_CONTRACT_RETAIL_KEYS = ("ktcCrowdTradesSfTep", "idpTradeCalc")
+#
+# KTC is recorded as all THREE published modes (owner directive
+# 2026-09-23): Crowd and Trades are separate model inputs, and KTC Market
+# (Crowd+Trades) is the benchmark — "what did each say on day D" must stay
+# answerable for all three independently.
+_CONTRACT_RETAIL_KEYS = ("ktcCrowdSfTep", "ktcTradesSfTep", "ktcCrowdTradesSfTep", "idpTradeCalc")
 
 
 def _num(value: Any) -> float | None:

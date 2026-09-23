@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src import packages as substrate
+from src.sources.ktc_market import KTC_HISTORICAL_MARKET_KEYS, KTC_MARKET_KEY
 from src.trade.finder_value_adjustment import value_adjustment_payload
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — re-exported via _norm_pos shim below for back-compat
 
@@ -136,7 +137,9 @@ MARKET_TOP_N_FILTER = 150
 KTC_TOP_N_FILTER = MARKET_TOP_N_FILTER
 
 # Canonical site keys per market, in preference order.
-OFFENSE_MARKET_KEYS = ("ktcCrowdTradesSfTep", "ktcSfTep", "ktc")
+# KTC Market first (the one canonical owner, src/sources/ktc_market.py),
+# then the pre-split Crowd-only boards for historical snapshots only.
+OFFENSE_MARKET_KEYS = (KTC_MARKET_KEY, *KTC_HISTORICAL_MARKET_KEYS)
 IDP_MARKET_KEYS = ("idpTradeCalc",)
 
 # ── Hardening-pass thresholds ────────────────────────────────────────────

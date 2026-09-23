@@ -39,6 +39,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Mapping
 
+from src.sources.ktc_market import KTC_MARKET_KEY
+
 __all__ = [
     "VALUE_SCHEMA_VERSION",
     "MODEL_VERSION",
@@ -78,10 +80,13 @@ Validated on the live board before flipping: 719 of 874 rows moved,
 # read-only constant rather than imported to keep this module free of
 # the contract module's heavy import graph; the parity test in
 # tests/consensus_edge/test_fair_value.py fails if the two diverge.
+# The offense key comes from the ONE KTC Market owner
+# (``src/sources/ktc_market.py`` — KTC's published Crowd+Trades,
+# benchmark-only since 2026-09-23).
 # ``data_contract`` no longer defines one: that copy served the
 # market-corridor clamp, removed under #794/#795/#796.
 MARKET_ANCHOR_BY_ASSET_CLASS: dict[str, str] = {
-    "offense": "ktcCrowdTradesSfTep",
+    "offense": KTC_MARKET_KEY,
     "idp": "idpTradeCalc",
 }
 

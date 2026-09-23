@@ -202,26 +202,17 @@ export function resolvedRank(row) {
 // never acts on the scope — the backend computes every rank.
 export const RANKING_SOURCES = [
   {
-    // KeepTradeCut Crowd+Trades Superflex + TE++ board — the canonical KTC
-    // retail signal as of the 2026-09-08 owner decision.  KTC publishes both a standard SF
-    // view and a TE+ sub-board from the same per-player API payload
-    // (``superflexValues.value`` + ``superflexValues.tep`` level 1),
-    // and one scrape produces both CSVs.  Historically both were
-    // registered as separate blend sources, but the standard ``ktc``
-    // vote duplicated this one (identical values for non-TE rows;
-    // TEP-correction converged them on TE rows), so it was retired
-    // from the blend.  The standard ``ktc`` raw value is still loaded
-    // into ``canonicalSiteValues`` (free side-effect of the same
-    // scrape) so the KTC arbitrage finder + per-source winner row on
-    // /trade can keep displaying both side-by-side; only the blend
-    // vote was removed.  Mirrors the `is_retail: True` flag on the
-    // backend `_RANKING_SOURCES` entry.
-    key: "ktcCrowdTradesSfTep",
-    displayName: "KeepTradeCut Crowd+Trades SF-TE++",
-    // Compact label remains "KTC". The canonical KTC market vote is now
-    // the official Crowd+Trades SF+TE++ value; Crowd and Trades are
-    // preserved separately as same-family diagnostics and never vote beside it.
-    columnLabel: "KTC",
+    // KeepTradeCut CROWDSOURCED Superflex + TE++ board — one of the TWO
+    // KTC model inputs (owner directive 2026-09-23).  Mirrors the backend
+    // ``_RANKING_SOURCES`` entry.  KTC publishes three value modes on one
+    // player object: Crowd (this), Trades (``ktcTradesSfTep``) and
+    // Crowd+Trades — KTC MARKET, the benchmark our model is compared
+    // against (``row.ktcMarket``), which is deliberately NOT a source here:
+    // it is derived from Crowd + Trades, so registering it would count
+    // KTC's information twice.
+    key: "ktcCrowdSfTep",
+    displayName: "KeepTradeCut Crowd SF-TE++",
+    columnLabel: "KTC Crowd",
     scope: "overall_offense",
     positionGroup: null,
     depth: null,
@@ -230,11 +221,27 @@ export const RANKING_SOURCES = [
     isRetail: true,
     isRankSignal: false,
     isTepPremium: true,
-    // Head of the `ktc` correlation group: `fantasyNavigatorSf`
-    // republishes KTC-derived values, so the two are one vote's worth
-    // of evidence, not two.  Sources with no declared group are
-    // independent and default to a singleton named after themselves.
-    correlationGroup: "ktc",
+    // Head of the `ktcCrowd` correlation group: `fantasyNavigatorSf`
+    // republishes KTC-derived values (closest to KTC Crowd, measured
+    // 2026-09-23), so the two are one vote's worth of evidence.
+    correlationGroup: "ktcCrowd",
+  },
+  {
+    // KeepTradeCut TRADESOURCED Superflex + TE++ board — the second KTC
+    // model input, its own family (revealed trade behaviour, not the
+    // crowd's stated opinion).
+    key: "ktcTradesSfTep",
+    displayName: "KeepTradeCut Trades SF-TE++",
+    columnLabel: "KTC Trades",
+    scope: "overall_offense",
+    positionGroup: null,
+    depth: null,
+    weight: 1.0,
+    isBackbone: false,
+    isRetail: true,
+    isRankSignal: false,
+    isTepPremium: true,
+    correlationGroup: "ktcTrades",
   },
   {
     // IDP Trade Calculator's value pool covers both offense (via the
@@ -515,7 +522,7 @@ export const RANKING_SOURCES = [
     // Member of the `ktc` correlation group — every FN row carries a
     // `ktc_player_id` and the site credits KeepTradeCut as a source.
     // FN agreeing with KTC is not independent confirmation.
-    correlationGroup: "ktc",
+    correlationGroup: "ktcCrowd",
   },
   {
     // Play for Keeps Dynasty master board — PFK's hand-maintained
@@ -1154,6 +1161,9 @@ function _materializePlayerArrayRow(player) {
     // the backend now stamps None on every row; it is forwarded only so a
     // consumer reading it sees the explicit null rather than an absent key.
     marketGapValueRatio: player.marketGapValueRatio ?? null,
+    // Canonical KTC MARKET block (backend ``src/sources/ktc_market.py``):
+    // KTC's published Crowd+Trades — the benchmark, never a model input.
+    ktcMarket: player.ktcMarket ?? null,
     marketGapMagnitude: player.marketGapMagnitude ?? null,
     sourceOriginalRanks:
       player.sourceOriginalRanks &&
@@ -1313,6 +1323,9 @@ function _materializeLegacyDictRow(name, player, posMap) {
     // the backend now stamps None on every row; it is forwarded only so a
     // consumer reading it sees the explicit null rather than an absent key.
     marketGapValueRatio: player.marketGapValueRatio ?? null,
+    // Canonical KTC MARKET block (backend ``src/sources/ktc_market.py``):
+    // KTC's published Crowd+Trades — the benchmark, never a model input.
+    ktcMarket: player.ktcMarket ?? null,
     marketGapMagnitude: player.marketGapMagnitude ?? null,
     sourceOriginalRanks:
       player.sourceOriginalRanks &&

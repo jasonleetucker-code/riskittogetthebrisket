@@ -98,6 +98,7 @@ from src.packages import RECEIVE as _RECEIVE
 from src.packages import SEND as _SEND
 from src.packages import UNCONSTRAINED_OUTGOING as _UNCONSTRAINED_OUTGOING
 from src.packages import EligibilityPolicy as _EligibilityPolicy
+from src.sources.ktc_market import KTC_HISTORICAL_MARKET_KEYS, KTC_MARKET_KEY
 from src.trade.ktc_va import (
     adjusted_pair_totals as _adjusted_pair_totals,  # noqa: F401
     ktc_adjust_package,
@@ -171,7 +172,7 @@ def _market_source_for(position: str | None) -> str:
     """
     if _is_idp_position(position):
         return "idpTradeCalc"
-    return "ktcCrowdTradesSfTep"
+    return KTC_MARKET_KEY
 
 
 # ── Package-level market valuation (ADR-010) ─────────────────────────
@@ -328,10 +329,10 @@ def _value_pair(row: dict[str, Any]) -> tuple[float, float, str] | None:
     sites = row.get("canonicalSiteValues") or {}
     source = _market_source_for(row.get("position"))
     market_val = sites.get(source) if isinstance(sites, dict) else None
-    if market_val is None and source == "ktcCrowdTradesSfTep" and isinstance(sites, dict):
+    if market_val is None and source == KTC_MARKET_KEY and isinstance(sites, dict):
         # Historical snapshots predate the combined board. Read them under
         # their real key rather than relabelling Crowd-only data as combined.
-        for legacy_key in ("ktcSfTep", "ktc"):
+        for legacy_key in KTC_HISTORICAL_MARKET_KEYS:
             legacy_val = sites.get(legacy_key)
             if legacy_val is not None:
                 market_val = legacy_val

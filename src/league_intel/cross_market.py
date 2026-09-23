@@ -185,6 +185,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Iterable, Mapping
 
+from src.sources.ktc_market import KTC_HISTORICAL_MARKET_KEYS, KTC_MARKET_KEY
 from src.utils.name_clean import normalize_position as _norm_pos
 
 __all__ = [
@@ -204,9 +205,9 @@ __all__ = [
 
 NORMALIZATION_VERSION = "li.crossmarket.2026-09-08.v2"
 
-MARKET_KTC = "ktcCrowdTradesSfTep"
+MARKET_KTC = KTC_MARKET_KEY  # the one KTC Market owner (src/sources/ktc_market.py)
 MARKET_IDPTC = "idpTradeCalc"
-_LEGACY_KTC_KEYS = ("ktcSfTep", "ktc")
+_LEGACY_KTC_KEYS = KTC_HISTORICAL_MARKET_KEYS
 
 SHARED_SCALE_ASSUMPTION = (
     "IDPTC's internal offense<->IDP exchange rate is assumed CORRECT, not merely "
