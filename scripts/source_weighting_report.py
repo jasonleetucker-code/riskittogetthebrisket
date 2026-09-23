@@ -9,6 +9,14 @@ Usage:
     python scripts/source_weighting_report.py                     # latest export
     python scripts/source_weighting_report.py --player "Jack Campbell" --player "Josh Allen"
     python scripts/source_weighting_report.py --json out.json
+    python scripts/source_weighting_report.py --state-only [--state-dir DIR]
+
+``--state-only`` builds no contract: it assesses ``data/scrape_state`` through
+the same freshness owner the server's blend uses
+(``src.sources.freshness.load_source_weightings``) as of now, which is cheap
+enough to run on the production box after every deploy
+(``deploy/verify-deploy.sh``, advisory).  It shows fetch time beside the data
+clock so "fetched today, content from August" is visible at a glance.
 """
 
 from __future__ import annotations
@@ -22,13 +30,6 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-
-from src.api.data_contract import build_api_data_contract  # noqa: E402
-from src.api.source_weighting_explain import (  # noqa: E402
-    find_row,
-    player_explain,
-    source_table,
-)
 
 
 def _latest_payload() -> Path:
@@ -114,12 +115,94 @@ def print_player(ex: dict) -> None:
     )
 
 
+def state_only_rows(state_dir: Path, as_of: datetime) -> list[dict]:
+    """Source x subset rows straight from dataset state — no contract build."""
+    from scripts.record_source_datasets import recorded_sources  # noqa: PLC0415
+    from src.api.data_contract import _RANKING_SOURCES  # noqa: PLC0415
+    from src.sources.freshness import load_source_weightings  # noqa: PLC0415
+
+    base = {str(s.get("key") or ""): float(s.get("weight", 1.0)) for s in _RANKING_SOURCES}
+    keys = [key for key, _, _ in recorded_sources()]
+    fetched = _fetch_stamps(state_dir)
+    rows: list[dict] = []
+    for key, sw in load_source_weightings(keys, state_dir=state_dir, as_of=as_of).items():
+        role = "model_input" if key in base else "benchmark"
+        subsets = sw.subsets or {"-": None}
+        for name, sub in subsets.items():
+            d = sub.to_dict() if sub is not None else {}
+            fresh = d.get("freshness")
+            effective = None
+            if role == "model_input" and sw.measured and isinstance(fresh, (int, float)):
+                effective = base[key] * fresh * sw.health_factor * sw.coverage_factor
+            rows.append(
+                {
+                    "source": key,
+                    "subset": name,
+                    "role": role,
+                    "measured": sw.measured,
+                    "lastFetchedAt": (fetched.get(key) or {}).get("lastFetched"),
+                    "health": sw.health_state,
+                    "healthFactor": sw.health_factor,
+                    "coverageFactor": round(sw.coverage_factor, 4),
+                    "baseWeight": base.get(key),
+                    "effectiveWeight": None if effective is None else round(effective, 4),
+                    **d,
+                }
+            )
+    return rows
+
+
+def print_state_only(rows: list[dict], as_of: datetime, flag_on: bool) -> None:
+    print(
+        f"source weighting (dataset state) as of {as_of.strftime('%Y-%m-%dT%H:%M:%SZ')}  "
+        f"source_freshness_weighting={'ON' if flag_on else 'OFF (valuation uses base weights)'}"
+    )
+    print(
+        f"{'SOURCE':24s} {'SUBSET':7s} {'ROLE':11s} {'STYLE':12s} {'LAST FETCH':>17s} "
+        f"{'DATA AS OF':>17s} {'EXP_h':>7s} {'AGE_h':>7s} {'r':>5s} {'FRESH':>6s} "
+        f"{'HLTH':>5s} {'COV':>5s} {'BASE':>5s} {'EFF':>6s} STATE"
+    )
+    for r in rows:
+        eff = r.get("effectiveWeight")
+        state = r.get("state") if r.get("measured") else "UNMEASURED"
+        if r["role"] == "model_input" and eff == 0:
+            state = "QUARANTINED"
+        print(
+            f"{r['source']:24s} {str(r['subset']):7s} {r['role']:11s} "
+            f"{str(r.get('publicationStyle'))[:12]:12s} {str(r.get('lastFetchedAt'))[:16]:>17s} "
+            f"{str(r.get('sourceDataAsOf'))[:16]:>17s} {_fmt(r.get('expectedCadenceHours'), 7, 1)} "
+            f"{_fmt(r.get('ageHours'), 7, 1)} {_fmt(r.get('ageOverExpected'), 5)} "
+            f"{_fmt(r.get('freshness'), 6, 3)} {_fmt(r.get('healthFactor'), 5)} "
+            f"{_fmt(r.get('coverageFactor'), 5)} {_fmt(r.get('baseWeight'), 5)} "
+            f"{_fmt(eff, 6, 3)} {state}"
+        )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--payload", type=Path, default=None)
     parser.add_argument("--player", action="append", default=[])
+    parser.add_argument("--state-only", action="store_true")
+    parser.add_argument("--state-dir", type=Path, default=REPO_ROOT / "data" / "scrape_state")
     parser.add_argument("--json", type=Path, default=None)
     args = parser.parse_args(argv)
+    if args.state_only:
+        from src.api import feature_flags  # noqa: PLC0415
+
+        as_of = datetime.now(timezone.utc)
+        rows = state_only_rows(args.state_dir, as_of)
+        print_state_only(rows, as_of, feature_flags.is_enabled("source_freshness_weighting"))
+        if args.json:
+            args.json.write_text(json.dumps(rows, indent=1))
+        return 0
+
+    from src.api.data_contract import build_api_data_contract  # noqa: PLC0415
+    from src.api.source_weighting_explain import (  # noqa: PLC0415
+        find_row,
+        player_explain,
+        source_table,
+    )
+
     payload_path = args.payload or _latest_payload()
     contract = build_api_data_contract(json.loads(payload_path.read_text(encoding="utf-8")))
     table = source_table(contract, _fetch_stamps(REPO_ROOT / "data" / "scrape_state"))
