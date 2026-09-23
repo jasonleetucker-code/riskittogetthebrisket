@@ -8739,27 +8739,47 @@ def count_aware_mean_median_blend(
 
 
 def _weighted_median_sorted(pairs: list[tuple[float, float]], total_weight: float) -> float:
-    """Weighted median over ``(value, weight)`` pairs pre-sorted by value.
+    """Weighted median over ``(value, weight)`` pairs pre-sorted by value —
+    CONTINUOUS in the weights.
 
-    Standard cumulative-weight definition with midpoint interpolation
-    on an exact half split: the smallest value whose cumulative weight
-    reaches half the total; when the cumulative weight lands exactly on
-    the half point, average with the next value.  With equal weights
-    this reproduces the ordinary median (odd n → middle element, even
-    n → mean of the two middle elements).
+    Each observation sits at the midpoint of its cumulative-weight
+    interval, ``c_i = (W_{<i} + w_i / 2) / W``, and the median is the
+    linear interpolation of the values at 0.5 (clamped to the extremes).
+    With equal weights this is exactly the ordinary median (odd n → the
+    middle element sits at 0.5; even n → the two middle elements straddle
+    it symmetrically, giving their mean).
+
+    Why not the textbook "first value whose cumulative weight passes half":
+    that is a STEP function of the weights.  Measured on the 2026-09-23
+    board once freshness made fractional weights normal: Kyle Hamilton's
+    three-source IDP anchor (IDPTC 3597 @0.878, IDP Show 3554 @0.120,
+    Draft Sharks IDP 2269 @1.0) snapped its median to 2269 because 1.0
+    exceeded half of 1.998 by 0.001 — IDPTC at 0.881 instead would have
+    snapped it to 3554.  A source's authority must move a value smoothly,
+    never flip it across the board.
     """
-    half = total_weight / 2.0
+    live = [(v, w) for v, w in pairs if w > 0.0]
+    if not live:
+        return pairs[-1][0]
+    total = sum(w for _, w in live)
+    if total <= 0.0:
+        return live[-1][0]
+    positions: list[float] = []
     cum = 0.0
-    eps = 1e-12 * max(total_weight, 1.0)
-    for i, (v, w) in enumerate(pairs):
+    for _, w in live:
+        positions.append((cum + w / 2.0) / total)
         cum += w
-        if cum > half + eps:
-            return v
-        if abs(cum - half) <= eps:
-            if i + 1 < len(pairs):
-                return (v + pairs[i + 1][0]) / 2.0
-            return v
-    return pairs[-1][0]
+    if 0.5 <= positions[0]:
+        return live[0][0]
+    if 0.5 >= positions[-1]:
+        return live[-1][0]
+    for i in range(len(live) - 1):
+        lo, hi = positions[i], positions[i + 1]
+        if lo <= 0.5 <= hi:
+            span = hi - lo
+            t = 0.0 if span <= 0.0 else (0.5 - lo) / span
+            return live[i][0] + t * (live[i + 1][0] - live[i][0])
+    return live[-1][0]
 
 
 def weighted_count_aware_mean_median_blend(
@@ -10239,6 +10259,10 @@ def _compute_unified_rankings(
                 # Quarantined / FAILED: this observation does not vote.  It is
                 # NOT a zero — the row simply blends over its other sources.
                 meta_dyn["valueContribution"] = int(round(value))
+                # How the would-be vote was derived stays on the record —
+                # exclusion is a separate fact, not a change of path.
+                meta_dyn["percentile"] = round(p, 6)
+                meta_dyn["valueContributionPath"] = contribution_path
                 meta_dyn["appliedWeight"] = 0.0
                 meta_dyn["contributedToBlend"] = False
                 meta_dyn["excludedReason"] = "freshness_or_health_zero_weight"

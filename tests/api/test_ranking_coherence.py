@@ -32,7 +32,7 @@ def _row(
     dlf: int | None = None,
 ) -> dict[str, Any]:
     sites: dict[str, int | None] = {
-        "ktcCrowdTradesSfTep": ktc,
+        "ktcCrowdSfTep": ktc,
         "idpTradeCalc": idp,
         "dlfIdp": dlf,
     }

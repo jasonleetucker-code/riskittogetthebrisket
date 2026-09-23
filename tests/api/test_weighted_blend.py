@@ -24,6 +24,10 @@ These tests pin:
 
 from __future__ import annotations
 
+import statistics
+
+import pytest
+
 from typing import Any
 
 from src.api.data_contract import (
@@ -77,11 +81,30 @@ class TestWeightedArithmetic:
     def test_three_sources_weighted_center(self):
         # values [2000, 3000, 10000], weights [1, 1, 2]
         # w_mean = (2000 + 3000 + 20000) / 4 = 6250
-        # weighted median: cum weights 1, 2, 4; half = 2 → exact hit at
-        # 3000 → midpoint with next → (3000 + 10000)/2 = 6500
-        # center = (6250 + 6500) / 2 = 6375
+        # continuous weighted median: midpoint positions 0.5/4, 1.5/4, 3/4
+        # = 0.125, 0.375, 0.75; 0.5 lies 1/3 of the way from 3000 to 10000
+        # → 3000 + 7000/3 = 5333.33…
+        # center = (6250 + 5333.33…) / 2 = 5791.66…
         center, _ = _weighted([2000.0, 3000.0, 10000.0], [1.0, 1.0, 2.0])
-        assert center == 6375.0
+        assert center == pytest.approx(5791.6667, abs=1e-3)
+
+    def test_weighted_median_is_continuous_in_the_weights(self):
+        """No cliffs.  The textbook step median flipped this anchor between
+        2269 and 3554 when one weight crossed 0.878 → 0.881 (Kyle Hamilton,
+        2026-09-23 board).  A small weight change must make a small move."""
+        values = [2269.0, 3554.0, 3597.0]
+        centers = [_weighted(values, [1.0, 0.1204, 0.870 + 0.001 * i])[0] for i in range(21)]
+        steps = [abs(b - a) for a, b in zip(centers, centers[1:])]
+        assert max(steps) < 5.0, steps
+
+    def test_weighted_median_equals_the_median_under_equal_weights(self):
+        from src.api.data_contract import _weighted_median_sorted
+
+        for vals in ([1.0], [1.0, 3.0], [1.0, 2.0, 9.0], [1.0, 2.0, 4.0, 9.0]):
+            pairs = [(v, 2.5) for v in vals]
+            assert _weighted_median_sorted(pairs, 2.5 * len(vals)) == pytest.approx(
+                statistics.median(vals)
+            )
 
     def test_monotone_in_weight(self):
         """Raising the weight of the highest-value source must not
