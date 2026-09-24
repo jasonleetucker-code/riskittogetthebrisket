@@ -1,6 +1,6 @@
 # Combined-Phase Backlog Replan — 2026-09-10
 
-**Status:** Canonical combined-phase sequencing overlay. This document does **not**
+**Status:** Canonical combined-phase sequencing overlay. **Owner-facing batch selection now enters through `docs/BRISKET_IDEAS.md` (2026-09-24, #1418), which uses this document as one sequencing input but recomputes against current main/issues/PRs/claims before proposing a batch.** This document does **not**
 replace `docs/EXECUTION_PLAN.md` (sole authorization record), `docs/MASTER_PRODUCT_PLAN.md`
 (product hierarchy), `docs/C_SERIES_SCOPE_MANIFEST.md` (full 163-row requirement census),
 or `docs/C_SERIES_ZERO_LOSS_TRACEABILITY.md` (zero-loss mapping proof). It sits **above**
