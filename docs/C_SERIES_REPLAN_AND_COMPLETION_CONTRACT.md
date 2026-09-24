@@ -58,17 +58,20 @@ A stale implementation, old roadmap row, old screenshot, or old test expectation
 
 ## Explicit conflict resolutions already decided
 
-### Every valid pick through 2029 must have value
+### Every valid ACTIVE pick through 2029 must have value
 
-The newer owner requirement supersedes older wording that allowed valid 2028/2029 picks to remain unpriced indefinitely.
+The newer owner requirement supersedes older wording that allowed valid 2028/2029 picks to remain unpriced indefinitely. **Owner clarification 2026-09-24 (#1414 / T-NEW-20): a completed rookie-draft class is no longer an ACTIVE current asset after the draft is complete and the drafted rookies are rostered.**
 
-By C completion, **every valid league-supported draft-pick asset through the 2029 rookie class must have a finite, non-missing canonical Chase Upside value**.
+By C completion, **every valid ACTIVE league-supported draft-pick asset through the 2029 rookie class must have a finite, non-missing canonical Chase Upside value**.
 
 - Missing source evidence is never represented as zero.
-- Unknown exact slot is not permission to drop the asset. Use a documented generic/future-pick valuation or distribution with provenance and uncertainty until the exact slot is known.
+- Unknown exact slot is not permission to drop an active asset. Use a documented generic/future-pick valuation or distribution with provenance and uncertainty until the exact slot is known.
 - When a slot becomes known, transition the same owned-pick identity safely to exact-slot valuation without double counting or creating a second asset.
+- Once the league rookie draft is complete **and** rookies are rostered, retire that class from current/active selectors through one canonical lifecycle rule rather than page-local year filters.
+- Retirement does not delete or zero historical pick identity: historical trades, immutable snapshots and provenance must continue to resolve.
+- Missing/unknown draft-completion or rookie-roster evidence must not prematurely retire a class.
 - Exact-slot and generic representations must resolve consistently through canonical ownership.
-- Mobile, desktop, APIs, exports, rankings, trade tools, ownership, history, and downstream engines must agree on the same canonical pick value.
+- Mobile, desktop, APIs, exports, rankings, trade tools, ownership, history, and downstream engines must agree on the same canonical pick lifecycle/value state.
 
 ### Player MVP eligibility
 
@@ -170,6 +173,7 @@ Build/finish shared primitives that many later products depend on:
 - stable real player/pick identity and ownership;
 - **complete canonical draft-pick valuation through 2029**;
 - exact-slot and future-generic pick transition rules;
+- active-pick lifecycle / post-draft retirement once draft completion + rookie roster assignment are proven, while preserving historical identity;
 - immutable value/history snapshots with league/scoring/methodology provenance;
 - acquisition/holding-period history;
 - canonical transaction/event ledger and asset lineage primitives;
@@ -202,7 +206,7 @@ Once assets and roster math are stable, consolidate the transaction decision sta
 - exact KTC Value Adjustment as a clearly labelled market/consolidation lens;
 - canonical raw asset equity separate from Value Adjustment;
 - two-team and 3+ team ownership/destination correctness;
-- generic pick quantities versus unique owned-pick rules;
+- generic/repeatable asset quantities versus unique owned-pick rules: repeated generic labels and distinct real picks with the same displayed tier are valid; the exact same unique owned pick is not;
 - before→apply→rerank→after roster simulation;
 - one Analyze Trade decision contract;
 - Trade Finder / Suggestions / Golden Upgrades / Package Builder as consumers;
@@ -452,7 +456,7 @@ Every material feature must satisfy all applicable items below before its manife
 
 # 10. HARD PICK-VALUE ACCEPTANCE GATE THROUGH 2029
 
-C cannot complete while any valid supported pick through 2029 is missing a canonical value.
+C cannot complete while any valid **ACTIVE** supported pick through 2029 is missing a canonical value. A retired post-draft class remains historically resolvable but is no longer a current selectable asset.
 
 Required automated census:
 
