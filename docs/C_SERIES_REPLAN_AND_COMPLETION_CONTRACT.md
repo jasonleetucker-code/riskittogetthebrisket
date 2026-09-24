@@ -462,7 +462,7 @@ Required automated census:
 
 ```text
 for every supported league
-for every season from current rookie class through 2029
+for every ACTIVE draft class from the first non-retired class through 2029
 for every supported round
 for every real owned pick
 for every exact slot when known
