@@ -2895,7 +2895,10 @@ def _seed_ingestion_verdict_from_startup_payload(payload: dict | None) -> None:
     """
     if latest_data_source.get("type") != "disk_cache":
         return
-    scrape_status["critical_source_failures"] = sorted(_critical_source_run_failures(payload))
+    # The same union the guard records: critical run failures and empty anchors.
+    scrape_status["critical_source_failures"] = sorted(
+        set(_critical_source_run_failures(payload)) | set(_missing_expected_sites(payload))
+    )
 
 
 def _recover_startup_contract_from_checkout(initial_data: dict | None) -> dict | None:
@@ -3083,19 +3086,6 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             if not result or not result.get("players"):
                 raise RuntimeError("Scraper returned empty result")
 
-            # A critical source failed or timed out while the served board is
-            # structurally valid: that board stays (the guard below refuses the
-            # run).  "Structurally" because a served board may carry only
-            # source-lane errors of its own, and it is still a better board than
-            # a critical-partial one.
-            critical_run_failures = _critical_source_run_failures(result)
-            served_structurally_ok = bool(
-                (contract_health or {}).get("structurallyOk", (contract_health or {}).get("ok"))
-            )
-            keep_served_generation = (
-                bool(critical_run_failures) and latest_data is not None and served_structurally_ok
-            )
-
             # Refresh Dynasty Nerds SF-TEP rankings.  The DN board is
             # inlined in the page HTML as a ``window.DR_DATA`` JS
             # constant — no Playwright required — so we run the plain
@@ -3279,6 +3269,20 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             )
             population_collapsed = (
                 previous_player_count > 0 and player_retention < SCRAPE_PLAYER_RETENTION_FLOOR
+            )
+            # A critical source failed or timed out while the served board is
+            # structurally valid: that board stays (the guard below refuses the
+            # run).  "Structurally" because a served board may carry only
+            # source-lane errors of its own, and it is still a better board than
+            # a critical-partial one.  Read here, at the guard, not before the
+            # minutes-long fetcher phase, so a concurrent re-prime cannot make
+            # it stale.
+            critical_run_failures = _critical_source_run_failures(result)
+            served_structurally_ok = bool(
+                (contract_health or {}).get("structurallyOk", (contract_health or {}).get("ok"))
+            )
+            keep_served_generation = (
+                bool(critical_run_failures) and latest_data is not None and served_structurally_ok
             )
             # What this run says about current ingestion, whatever the guard
             # decides below.  Read by /api/health as ``source_health_ok``.

@@ -356,6 +356,16 @@ class TestRestartKeepsTheVerdict:
         assert body["contract_ok"] is True
         assert body["source_health_ok"] is False
 
+    def test_a_missing_anchor_last_run_is_seeded_too(self, env, monkeypatch) -> None:
+        """Same union the guard records: an empty anchor is a critical-source failure."""
+        refused = _scrape_result(players=LKG_PLAYERS)
+        refused["sites"][1]["playerCount"] = 0
+        (env["data"] / "dynasty_data_2026-09-23.json").write_text(json.dumps(refused))
+        server.scrape_status["critical_source_failures"] = []
+        loaded = server.load_from_disk()
+        server._seed_ingestion_verdict_from_startup_payload(loaded)  # noqa: SLF001
+        assert server.scrape_status["critical_source_failures"] == ["idpTradeCalc"]
+
     def test_a_complete_last_run_seeds_a_clean_verdict(self, env, monkeypatch) -> None:
         (env["data"] / "dynasty_data_2026-09-23.json").write_text(
             json.dumps(_scrape_result(players=LKG_PLAYERS))
