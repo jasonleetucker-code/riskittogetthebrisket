@@ -1,5 +1,15 @@
 # C-Series Execution Map
 
+## Current parallel-UI amendment — 2026-09-24 (#1421)
+
+C8-U1 / C8-U2 / C8-U3 are the existing always-active Lane 6 program, not a late sequential
+phase. Shared performance/design/accessibility foundation can run in parallel when
+its dependencies/file claims permit. Consumer routes join migration individually as
+canonical contracts stabilize; final legacy removal waits for replacement parity.
+Use `docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md` and `docs/ui/UI_PARALLEL_LEDGER.md`. Every substantial Calculator Ideas batch includes or
+references active UI. Historical freeze records remain; EXECUTION_PLAN.md is current
+authority. No IDs, census totals, methodology or dependency owners are changed.
+
 **Status:** CANONICAL ACTIVE — the bounded-unit decomposition of the C-Series census
 **Created:** 2026-08-15
 **Decomposes:** `docs/C_SERIES_SCOPE_MANIFEST.md` (**164 rows** — 143 C-phase, 14 completed
@@ -513,7 +523,7 @@ calibration policy's dependency principle binds this entire phase.
 ### C8-U2 — Premium design system + route migration · **rows** `C8-PSI-01` `C8-PSI-02` `C8-PSI-03` · **deps** C0-U3
   — route migration is **parallel-conditional**: only after each route's data contract stabilizes
 ### C8-U3 — Accessibility instrumentation · **rows** `C8-A11Y-01` · **deps** C8-U2 · **lane** `psi`
-  — a structural ratchet exists today but no axe-core. **CI gate:** automated a11y checks per route,
+  — the structural ratchet and axe E2E exist; populated reference-route coverage remains. **CI gate:** automated a11y checks per route,
   axe in CI — accessibility that is not measured in CI regresses silently
 
 ### C9-U1 — Public history correctness · **rows** `C9-HIST-01` `C9-HIST-02`
@@ -637,7 +647,7 @@ The consolidation ledger. `C10-U2` closes only when every line is zero.
 
 # 14. Safe parallelism
 
-**Parallel-safe (any time):** C0-U2 · C0-U3 · C1-U1 · C4-U1 · C8-U1 · C5-U6
+**Parallel-safe (when dependencies/file claims permit):** C0-U2 · C0-U3 · C1-U1 · C4-U1 · C8-U1 · C5-U6; shared C8-U2/C8-U3 foundation is also parallel-eligible. Final consumer wiring is individually contract-gated under the 2026-09-24 amendment.
 
 **Parallel after their interface freezes:** C1-U5 ∥ C1-U6 · C2-U4 ∥ C2-U5 · the
 three C6-U3 feeds ∥ each other · per-ledger C4 collectors

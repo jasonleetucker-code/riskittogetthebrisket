@@ -14,6 +14,11 @@ below.** A document that appears nowhere is drift, and `scripts/check_planning_i
 
 | Document | Authority |
 |---|---|
+| `docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md` | Binding implementation of locked PSI; existing Lane 6 parallel rule, not independent scope or authorization |
+| `docs/ui/UI_PARALLEL_LEDGER.md` | Operational UI migration/claim/evidence dimension; no competing product denominator |
+| `docs/ui/UI_AUDIT_2026-09-24.md` | Dated source and work-overlap audit; not current production proof |
+| `docs/ui/UI_IMPACT_TEMPLATE.md` | Proportional material feature/PR handoff template |
+| `docs/ui/PSI_DESIGN_REFERENCE_HANDOFF.md` | Bounded #1422 dispatch; recheck current claims before starting |
 | `docs/MASTER_PRODUCT_PLAN.md` | Overall product direction, document precedence, unified feature families, public/private philosophy, removed scope |
 | `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` | Zero-loss planning, execution discipline, the definition of done, and the completion standard for the C-Series |
 | `docs/OWNER_FEATURE_INVENTORY.md` | Exhaustive feature/status/classification/dependency ledger |
@@ -25,7 +30,7 @@ below.** A document that appears nowhere is drift, and `scripts/check_planning_i
 | `docs/VERSION_1_COMPLETION_CONTRACT.md` | **The V1 completion denominator and status ledger.** Answers "what must be true for V1 to be complete, and how much of it is proven". Classifies scope; authorizes nothing — `EXECUTION_PLAN.md` §0 alone does |
 | `docs/CE_REGISTRY.md` | **The only place a CE identifier is defined** |
 | `docs/OWNER_REQUESTED_TODO.md` | **THE LIVE OWNER INTAKE LEDGER** — see §2 |
-| `docs/BRISKET_IDEAS.md` | **Owner-facing intake/parallel-work front door.** Defines the conversational `Brisket Ideas` shorthand, dedupe/replan workflow, shared-foundation grouping and concurrency classes. It is navigation/process only: it does not duplicate the ledger and does not authorize implementation. |
+| `docs/BRISKET_IDEAS.md` | **Owner-facing intake/parallel-work front door.** Defines the conversational `Calculator Ideas` shorthand, dedupe/replan workflow, shared-foundation grouping and concurrency classes. It is navigation/process only: it does not duplicate the ledger and does not authorize implementation. |
 | `docs/ARCHITECTURE_HANDOFF.md` | Architecture / canonical-owner state; may contain stale phase metadata and must not override `EXECUTION_PLAN.md` |
 | `docs/WORK_CLAIMS.md` | Current concurrent-edit ownership only |
 
@@ -38,7 +43,7 @@ documents stale — but implementation behaviour never overrides a newer *owner 
 
 ## 2. OWNER INTAKE — one mechanism, stated once
 
-**`docs/OWNER_REQUESTED_TODO.md` is the live intake ledger.** New owner instructions land there first. The owner-facing shorthand **Brisket Ideas** routes here; `docs/BRISKET_IDEAS.md` explains the workflow so the owner never needs to choose a planning file. This is a
+**`docs/OWNER_REQUESTED_TODO.md` is the live intake ledger.** New owner instructions land there first. The owner-facing shorthand **Calculator Ideas** routes here; `docs/BRISKET_IDEAS.md` explains the workflow so the owner never needs to choose a planning file. This is a
 deliberate 2026-08-14 reclassification: the file was previously listed as historical/superseded while carrying
 **65 binding owner decisions**, including the two newest binding decision sets in the repository. The governance
 system was telling readers not to trust the file where the newest owner intent lived.

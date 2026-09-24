@@ -19,6 +19,13 @@
 > rules again when they are already recorded in the repo.
 
 
+## Calculator Premium UI — permanent parallel rule
+
+PSI / Direction A is the permanent design north star. Do not invent styling. Read
+`docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md` and `docs/ui/UI_PARALLEL_LEDGER.md`; keep Lane 6 active in substantial batches or name its
+already-active claim/PR. Route instability blocks that route, not all UI. Coordination
+owns dispatch; this is a universal rule for every model, not a Claude-only instruction.
+
 ## What this document is — and is not
 
 **CLAUDE.md is the legacy-named universal technical operating / runbook document for every LLM.** It describes how
