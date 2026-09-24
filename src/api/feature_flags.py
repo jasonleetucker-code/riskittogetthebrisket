@@ -95,6 +95,15 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # dynamic factors are still computed and stamped on every row, so
     # observability survives rollback, but only the base weight is applied.
     "source_freshness_weighting": True,
+    # Family-capped source voting (owner directive 2026-09-24;
+    # docs/sources/SOURCE_FRESHNESS_WEIGHTING.md).  ON: every member of a
+    # correlation family votes with its own effective weight and the
+    # family's total is capped at one provider's authority
+    # (data_contract.cap_family_weights).  OFF
+    # (RISKIT_FEATURE_SOURCE_FAMILY_CAP=0 + restart): the retired
+    # family-head selection — the registry-first member votes, the rest
+    # are stamped supersededBy.
+    "source_family_cap": True,
     # C1-U4 — ledger-derived rankChange on the canonical contract.  ON
     # derives each ranked row's rankChange from the temporal ledger's
     # previous recorded board; OFF stamps None on every row (deliberately
@@ -561,6 +570,11 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # a request through ``/api/data`` and every engine that reads the board;
     # off → base weights only, factors still stamped.
     "source_freshness_weighting": LIVE,
+    # source_family_cap gates whether correlated family members all vote
+    # under a family cap or the family head alone votes, in
+    # ``data_contract._compute_unified_rankings``, which reaches a request
+    # through ``/api/data`` and every engine that reads the board.
+    "source_family_cap": LIVE,
     # host_native_scoring gates the stat vocabulary
     # ``league_comparison.sleeper_stats.fetch_sleeper_weekly_stats``
     # emits, which reaches a request through ``historical_stats`` →

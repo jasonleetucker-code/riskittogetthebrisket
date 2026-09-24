@@ -508,6 +508,31 @@ edits. Binding elements, as approved with the owner's required revision the same
 Plan of record: branch `claude/peaceful-goodall-3uqtyx`; detail in
 `docs/sources/SOURCE_FRESHNESS_WEIGHTING.md`. Authorization recorded in `docs/EXECUTION_PLAN.md` §0.
 
+### Dynasty value overhaul continuation — owner directive 2026-09-24
+
+Owner directive (definite, durable), continuing the 2026-09-23 unit above:
+
+- **Every distinct legitimate signal votes.** Replace "family head wins" with **family-capped
+  weighting**: each member of a correlation family votes with its own
+  base × freshness × health × coverage weight, and the family's total is capped at one provider's
+  authority, so a provider cannot multiply its influence by publishing related datasets. A stale family
+  is never renormalized back up. Derived composites (KTC Market) and exact mirrors still do not vote.
+- **DLF Trade Analyzer Values** (`/trade-analyzer-values/?l=sf_te_prem`) becomes DLF's offense value
+  vote after a production probe and a measurement gate (distribution, identity mapping, Hampel drop
+  rate, board diff); DLF IDP stays rank-based; Value and Rank keep separate freshness / health; one
+  failing never freezes the other; the trade-page DLF second opinion shows DLF's raw native Value.
+- DLF rookie-board audit (independent signal, family member, or mirror; seasonal applicability from
+  evidence, never a hard-coded date); authoritative source inventory; participation invariant; IDP Show
+  staleness root-caused.
+- **Hill-curve / live source-authority alignment** (owner request 2026-09-24): audit whether the Hill
+  refit's training evidence and weighting follow the live model's source semantics (native-value
+  sources only — rank-only sources cannot teach value spacing; freshness / health / coverage and family
+  semantics; KTC Market never a training vote; holdout stays out-of-sample; pinned `asOf` and source
+  state), then make the smallest canonical repair. Sequenced after family-capped weighting.
+
+Authorization recorded in `docs/EXECUTION_PLAN.md` §0 (2026-09-24). Record:
+`docs/sources/SOURCE_FRESHNESS_WEIGHTING.md`.
+
 ### Power Rankings pipeline audit + methodology display — owner directive 2026-09-23
 
 Owner reported a League Power Rankings share card showing 10 of 12 teams, "Preseason" in

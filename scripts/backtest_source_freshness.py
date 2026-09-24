@@ -102,7 +102,7 @@ def replay_states(cuts: list[datetime], since: str) -> dict[datetime, dict[str, 
     policy = broad_policy()
     out: dict[datetime, dict[str, dict]] = {c: {} for c in cuts}
     for key, csv_path, signal in recorded_sources():
-        rel = str(csv_path.relative_to(REPO_ROOT))
+        rel = csv_path.relative_to(REPO_ROOT).as_posix()
         log = _git("log", "--reverse", "--format=%H %cI", f"--since={since}", "HEAD", "--", rel)
         commits = [
             (sha, datetime.fromisoformat(stamp))

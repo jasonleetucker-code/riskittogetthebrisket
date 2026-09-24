@@ -2967,6 +2967,50 @@ def collapse_to_independent_families(
     return kept, superseded
 
 
+#: One fully fresh, fully healthy independent provider's worth of authority.
+#: A family's members may together carry at most this much weight on a row.
+FAMILY_WEIGHT_CAP_DEFAULT: float = 1.0
+
+
+def cap_family_weights(
+    weights: Mapping[str, float],
+    *,
+    cap: float = FAMILY_WEIGHT_CAP_DEFAULT,
+) -> tuple[dict[str, float], dict[str, float]]:
+    """Every family member keeps a vote; a family's TOTAL is capped.
+
+    Replaces "family head wins" (owner directive 2026-09-24): correlated
+    members of one provider family all contribute, each with its own
+    freshness × health × coverage weight, but together they cannot exceed
+    ``cap`` — so a provider cannot multiply its authority by publishing
+    several related datasets.
+
+    ``weights`` is ``{source_key: effective_weight}`` for the observations
+    present on one row.  For each family with total ``T``:
+
+    * ``T <= cap`` → unchanged.  A stale family is NEVER scaled back up:
+      members at 0.2 + 0.1 keep 0.3 of authority, not 1.0;
+    * ``T > cap``  → every member scaled by ``cap / T``, preserving their
+      relative shares (fresher members keep proportionally more).
+
+    Missing members contribute nothing — only keys present are weighed.
+    Returns ``(adjusted_weights, family_adjustment_by_key)``; the factor is
+    1.0 for every member of an uncapped family.
+    """
+    totals: dict[str, float] = {}
+    for key, w in weights.items():
+        group = correlation_group_for(key)
+        totals[group] = totals.get(group, 0.0) + max(0.0, float(w))
+    adjusted: dict[str, float] = {}
+    factors: dict[str, float] = {}
+    for key, w in weights.items():
+        total = totals[correlation_group_for(key)]
+        factor = cap / total if total > cap > 0.0 else 1.0
+        factors[key] = factor
+        adjusted[key] = max(0.0, float(w)) * factor
+    return adjusted, factors
+
+
 # Retired source keys can still occur in immutable historical panels. Keep
 # their provider-family identity after retirement so a leave-one-out replay
 # does not accidentally retain a correlated modern/derived source. This is
@@ -6526,7 +6570,22 @@ def _family_evidence_for_row(
                 ),
             )
         )
-    return evidence
+    # Under the family cap several members of one family vote, but a family
+    # is still ONE piece of independent evidence to the B11 gate (which
+    # raises on a repeated family).  Its representative is the member that
+    # carried the most weight on this row — ties to registry order — and
+    # every field comes from that one real source: no averaged number.
+    best: dict[str, tuple[tuple[float, int], FamilyEvidence]] = {}
+    for ev in evidence:
+        weight = (effective_source_meta.get(ev.source_key) or {}).get("appliedWeight")
+        key = (
+            -float(weight) if isinstance(weight, (int, float)) else 0.0,
+            _source_precedence(ev.source_key),
+        )
+        if ev.family not in best or key < best[ev.family][0]:
+            best[ev.family] = (key, ev)
+    chosen = {id(entry) for _k, entry in best.values()}
+    return [ev for ev in evidence if id(ev) in chosen]
 
 
 def _restate_confidence_after_override(
@@ -10053,6 +10112,9 @@ def _compute_unified_rankings(
     _freshness_applied = bool(source_weighting) and _feature_flags.is_enabled(
         "source_freshness_weighting"
     )
+    # Correlated family members all vote under a family cap
+    # (``cap_family_weights``); off restores the family-head selection.
+    _family_cap_applied = _feature_flags.is_enabled("source_family_cap")
 
     from src.sources.freshness import (  # noqa: PLC0415
         STYLE_EXPLICIT as _STYLE_EXPLICIT,
@@ -10496,11 +10558,32 @@ def _compute_unified_rankings(
         # the raw observation set.  Collapsing first would change
         # rejection decisions about unrelated sources.
         #
-        # A SELECTION, never an average — see
-        # ``collapse_to_independent_families``.  ``_source_precedence``
-        # is registry order, which already declares the heads.
+        # Default (``source_family_cap``, owner directive 2026-09-24): every
+        # member keeps its own weighted vote and the family's total is
+        # capped — see ``cap_family_weights``.  Rollback restores the
+        # retired SELECTION (``collapse_to_independent_families``: the
+        # registry-first member votes, the rest are superseded).
         surviving = [(k, v, a) for k, v, a in all_value_pairs if k not in set(hampel_dropped_keys)]
-        family_kept, family_superseded = collapse_to_independent_families(surviving)
+        if _family_cap_applied:
+            family_kept, family_superseded = surviving, {}
+            capped, family_factor = cap_family_weights(
+                {k: row_weight.get(k, 1.0) for k, _v, _a in surviving}
+            )
+            for sk, factor in family_factor.items():
+                meta = row_source_meta[row_idx].get(sk, {})
+                meta["familyAdjustment"] = round(factor, 4)
+                if factor < 1.0:
+                    meta["preFamilyWeight"] = meta.get("appliedWeight")
+                    meta["appliedWeight"] = round(capped[sk], 4)
+            row_weight.update(capped)
+            all_values = [v for _k, v, _a in surviving]
+            cross_market_values = [v for _k, v, a in surviving if a]
+            subgroup_values = [v for _k, v, a in surviving if not a]
+            all_weights = [capped[k] for k, _v, _a in surviving]
+            cross_market_weights = [capped[k] for k, _v, a in surviving if a]
+            subgroup_weights = [capped[k] for k, _v, a in surviving if not a]
+        else:
+            family_kept, family_superseded = collapse_to_independent_families(surviving)
         if family_superseded:
             kept_keys = {k for k, _v, _a in family_kept}
             all_values = [v for k, v, _a in family_kept]
@@ -10523,14 +10606,22 @@ def _compute_unified_rankings(
         # These two answer independence questions and must not be
         # conflated with it.
         players_array[row_idx]["effectiveSourceCount"] = len(surviving)
-        players_array[row_idx]["independentSourceCount"] = len(family_kept)
+        players_array[row_idx]["independentSourceCount"] = len(
+            {correlation_group_for(k) for k, _v, _a in family_kept}
+        )
+        base_weights = {
+            k: blend_weight_by_source.get(k, 1.0)
+            for k in [k for k, _v, _a in family_kept] + freshness_excluded
+        }
+        if _family_cap_applied:
+            # The same cap on the denominator: a family's normal authority
+            # is one provider's, however many members it has, so two fully
+            # fresh DLF boards retain 1.0 — not 0.5.
+            base_weights, _ = cap_family_weights(base_weights)
         _stamp_source_weight_state(
             players_array[row_idx],
             voting={k: row_weight.get(k, 0.0) for k, _v, _a in family_kept},
-            base={
-                k: blend_weight_by_source.get(k, 1.0)
-                for k in [k for k, _v, _a in family_kept] + freshness_excluded
-            },
+            base=base_weights,
         )
 
         # Coverage diagnostic (2026-04-20 override): soft-fallback
@@ -10748,11 +10839,15 @@ def _compute_unified_rankings(
         # freshness curve exists to avoid.  The row's thinness is reported
         # instead, by ``sourceWeightState`` / ``retainedAuthority`` and the
         # confidence freshness axis.  Counted by FAMILY so a quarantined
-        # member of a family that already voted adds nothing.
+        # member of a family that already voted adds nothing — and, under the
+        # family cap, so a second member of the SAME family (Fantasy Navigator
+        # beside KTC Crowd) cannot lift a one-provider row out of the haircut.
+        # With the cap off this is exactly the old ``len(all_values) <= 1``
+        # test: selection leaves at most one value per family.
         present_families = {family_by_key.get(k, k) for k, _v, _a in family_kept} | {
             family_by_key.get(k, k) for k in freshness_excluded
         }
-        if not row_is_pick and len(all_values) <= 1 and len(present_families) <= 1:
+        if not row_is_pick and len(present_families) <= 1:
             blended_value *= _SINGLE_SOURCE_VALUE_RETENTION
             players_array[row_idx]["_blendedValueUncapped"] = (
                 int(round(blended_value)) if blended_value > 0 else 0

@@ -66,6 +66,24 @@ source-health root-cause work. It does not authorize unrelated ranking/model red
 KTC Market, or any change to Hill constants. Intake: `docs/OWNER_REQUESTED_TODO.md` (2026-09-23);
 record: `docs/sources/SOURCE_FRESHNESS_WEIGHTING.md`.
 
+## Dynasty value overhaul continuation — owner directive, 2026-09-24
+
+The owner authorized the continuation of the unit above through production promotion (plan revision,
+implementation, tests, backtest, review, merge, deploy and production verification via the normal
+protected path): (1) finish PR #1411 (DLF rank/Value split, unslotted 2027 class priced from tiers,
+participation invariant); (2) **DLF Trade Analyzer Values** becomes DLF's offense value vote, after a
+production probe and a measurement gate, with its own freshness / health / coverage state; (3) every
+distinct legitimate signal votes — **family-capped weighting** replaces "family head wins" (members of a
+correlation family each vote with their own effective weight; the family total is capped at one
+provider's authority; a stale family is never scaled back up; KTC Crowd and KTC Trades stay two
+families; KTC Market stays benchmark-only); (4) DLF rookie-board audit, authoritative source inventory,
+IDP Show root cause. Separately the owner asked (2026-09-24) for a **Hill-curve / live source-authority
+alignment audit** and the smallest canonical repair it justifies — sequenced after (3), whose family
+semantics it must follow; Hill constants still move only through the existing Hill Autopilot / model
+registry gates. Not authorized: unrelated ranking redesign, tuning toward KTC Market, hand edits to Hill
+constants. Intake: `docs/OWNER_REQUESTED_TODO.md` (2026-09-24); record:
+`docs/sources/SOURCE_FRESHNESS_WEIGHTING.md`.
+
 ## V1 COMPLETION SPRINT — AUTHORIZED BY THE OWNER, 2026-08-18.
 
 **This supersedes the 2026-08-17 feature freeze below, to the extent necessary for V1
