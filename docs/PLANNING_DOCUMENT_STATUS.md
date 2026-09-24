@@ -25,7 +25,7 @@ below.** A document that appears nowhere is drift, and `scripts/check_planning_i
 | `docs/VERSION_1_COMPLETION_CONTRACT.md` | **The V1 completion denominator and status ledger.** Answers "what must be true for V1 to be complete, and how much of it is proven". Classifies scope; authorizes nothing — `EXECUTION_PLAN.md` §0 alone does |
 | `docs/CE_REGISTRY.md` | **The only place a CE identifier is defined** |
 | `docs/OWNER_REQUESTED_TODO.md` | **THE LIVE OWNER INTAKE LEDGER** — see §2 |
-| `docs/BRISKET_IDEAS.md` | **Owner-facing intake/parallel-work front door.** Defines the conversational `Brisket Ideas` shorthand, dedupe/replan workflow, shared-foundation grouping and concurrency classes. It is navigation/process only: it does not duplicate the ledger and does not authorize implementation. |
+| `docs/BRISKET_IDEAS.md` | **Owner-facing unified completion-portfolio front door.** “Brisket Ideas” means the conversational view of all unfinished still-desired site work, derived from the canonical records here plus current issues/code/evidence. Defines intake, dedupe/replan, shared-foundation grouping, concurrency classes, and the “next reasonable batch” selection procedure. It is navigation/process only: it does not duplicate the underlying ledgers/plans and does not authorize implementation. |
 | `docs/ARCHITECTURE_HANDOFF.md` | Architecture / canonical-owner state; may contain stale phase metadata and must not override `EXECUTION_PLAN.md` |
 | `docs/WORK_CLAIMS.md` | Current concurrent-edit ownership only |
 
@@ -38,7 +38,7 @@ documents stale — but implementation behaviour never overrides a newer *owner 
 
 ## 2. OWNER INTAKE — one mechanism, stated once
 
-**`docs/OWNER_REQUESTED_TODO.md` is the live intake ledger.** New owner instructions land there first. The owner-facing shorthand **Brisket Ideas** routes here; `docs/BRISKET_IDEAS.md` explains the workflow so the owner never needs to choose a planning file. This is a
+**`docs/OWNER_REQUESTED_TODO.md` is the live intake ledger.** New owner instructions land there first. The owner-facing shorthand **Brisket Ideas** routes here; `docs/BRISKET_IDEAS.md` explains the workflow so the owner never needs to choose a planning file. For batching/completion planning, Brisket Ideas additionally derives the unfinished portfolio from the Master Plan, inventory/specs, scope/completion records, issues, and verified current-state evidence; the intake ledger is only one constituent. This is a
 deliberate 2026-08-14 reclassification: the file was previously listed as historical/superseded while carrying
 **65 binding owner decisions**, including the two newest binding decision sets in the repository. The governance
 system was telling readers not to trust the file where the newest owner intent lived.
