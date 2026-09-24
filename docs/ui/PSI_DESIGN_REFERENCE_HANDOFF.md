@@ -2,7 +2,7 @@
 
 Existing Lane 6 / C8-U2 + C8-U3, parent #1421.
 Branch: `codex/psi-design-reference`, separate and stacked on the reviewable governance
-head until Integration lands it. Initial status NEXT/queued, not running or verified.
+head until Integration lands it. Initial reservation has advanced to implementation; inspect the current PR/evidence before resuming. Deployment and production proof remain separate gates.
 Agent-OS-Receipt at audit: cdca1dca8385f70c0989302dece8d1bd4ce4843c; regenerate for the implementation session.
 
 ## Copyable prompt

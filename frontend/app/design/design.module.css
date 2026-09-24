@@ -2,6 +2,11 @@
 
 .page {
   max-width: 1080px;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  background: var(--surface-0);
+  color: var(--text-primary);
   margin: 0 auto;
   padding: var(--space-7) var(--space-5) var(--space-10);
   display: flex;
@@ -56,7 +61,7 @@
   padding: var(--space-2) var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
 }
 .swatchName {
   font-size: var(--font-size-xs);
@@ -71,6 +76,8 @@
 
 .typeRow {
   display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
   align-items: baseline;
   gap: var(--space-4);
   border-bottom: 1px solid var(--border-subtle);
@@ -87,7 +94,7 @@
 .spaceChip {
   background: var(--accent-muted);
   border: 1px solid var(--accent-border);
-  border-radius: 2px;
+  border-radius: var(--radius-1);
   height: 16px;
 }
 
@@ -118,4 +125,45 @@
   text-transform: uppercase;
   color: var(--text-tertiary);
   margin: 0 0 var(--space-2);
+}
+
+/* Same editorial headline role as the approved Rankings reference. */
+.hero :global(.ds-page-header__title) {
+  font-family: var(--font-display);
+  font-size: var(--font-size-3xl);
+  font-style: italic;
+}
+.hero :global(.ds-page-header__eyebrow) {
+  font-family: var(--font-data);
+}
+.displaySample {
+  font-family: var(--font-display);
+  font-size: var(--font-size-2xl);
+  font-style: italic;
+  line-height: var(--line-height-tight);
+}
+.roundIndicator {
+  width: var(--space-10);
+  height: var(--space-10);
+}
+.drawerChart {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+}
+.swatchName {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .page {
+    padding: var(--space-4) var(--space-3) var(--space-7);
+  }
+  .cols2,
+  .cols3,
+  .cols4 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tablePanel :global(.ds-panel__header) {
+    flex-wrap: wrap;
+  }
 }
