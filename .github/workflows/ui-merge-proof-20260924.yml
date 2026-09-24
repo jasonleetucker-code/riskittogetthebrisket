@@ -1,0 +1,45 @@
+name: Calculator UI exact-tree integration proof
+on:
+  push:
+    branches: [codex/ui-merge-proof-20260924]
+permissions:
+  contents: read
+jobs:
+  governance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 239fecc6771bfc666e8bc3b050f1a394721dbc25
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - name: Exact candidate and tree provenance
+        run: |
+          set -Eeuo pipefail
+          test "$(git rev-parse HEAD)" = 239fecc6771bfc666e8bc3b050f1a394721dbc25
+          git show -s --format='candidate=%H tree=%T parents=%P'
+          git diff --stat 1c026cae372628cf2852a56ef11bef50e116cf2a HEAD
+          test ! -e .github/workflows/ui-merge-proof-20260924.yml
+      - name: Install canonical validation dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Planning, documentation, and L0 integration gates
+        run: |
+          set -Eeuo pipefail
+          python scripts/check_planning_integrity.py
+          python scripts/check_product_plan_governance.py
+          python -m pytest tests/docs -q
+          python scripts/check_work_claims.py --files docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md docs/ui/UI_PARALLEL_LEDGER.md scripts/check_planning_integrity.py tests/docs/test_ui_parallel_governance.py
+          bash scripts/tiered_validate.sh l0
+          git diff --check 1c026cae372628cf2852a56ef11bef50e116cf2a HEAD
+          git diff --exit-code
+      - name: Publish provenance
+        if: always()
+        run: |
+          printf '### Exact governance integration candidate\n\nCandidate: `239fecc6771bfc666e8bc3b050f1a394721dbc25`\n\nBase: `1c026cae372628cf2852a56ef11bef50e116cf2a`\n\nPR head: `07a6d1e76e6a7126cf4a91084af6ce7fcd507805`\n\nNo production files or release branch were modified by this proof.\n' >> "$GITHUB_STEP_SUMMARY"
