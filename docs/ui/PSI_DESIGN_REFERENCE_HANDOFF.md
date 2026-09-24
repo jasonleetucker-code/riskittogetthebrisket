@@ -5,6 +5,20 @@ Branch: `codex/psi-design-reference`, separate and stacked on the reviewable gov
 head until Integration lands it. Initial reservation has advanced to implementation; inspect the current PR/evidence before resuming. Deployment and production proof remain separate gates.
 Agent-OS-Receipt at audit: cdca1dca8385f70c0989302dece8d1bd4ce4843c; regenerate for the implementation session.
 
+## Current checkpoint — implementation exists, do not redo it
+
+PR #1429 is a separate draft stacked on governance #1426. Runtime code tested at
+49e7fcfd824ba3f2c7432a818d2f7f5fbc2d8121: 2,483 Vitest, build/14 budgets, four E2E,
+six axe states, keyboard/responsive checks passed. Ten reviewed CI images and
+bundle +1,191-byte measurement are in docs/psi/evidence/PR_1429_2026-09-24/README.md.
+They are not production proof. Current blocker is only #1428's inherited categorical
+chart contrast on cream; do not invent palette/plot treatment or weaken contrast.
+Reuse an evidenced approved solution or obtain the explicit bounded owner decision.
+Shared shell outer-canvas/Screenshot-FAB debt needs its own claim. Continue safe
+populated Rankings/Player File reference test work while that decision waits.
+The original prompt below is historical scope; first inspect the implemented diff
+and resume only remaining acceptance. No background worker is implied by the branch.
+
 ## Copyable prompt
 
 ```text
