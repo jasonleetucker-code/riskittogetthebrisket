@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Fetch DynastyLeagueFootball (DLF) rankings for the four boards
-we consume: ``dlfSf``, ``dlfIdp``, ``dlfRookieSf``, ``dlfRookieIdp``.
+we consume: ``dlfSf``, ``dlfIdp``, ``dlfRookieSf``, ``dlfRookieIdp`` —
+plus ``dlfValuesSfTep``, DLF's native offensive Trade Analyzer Values
+(``name,pos,team,value``, values exactly as published; pick values go to
+``dlfValuesSfTepPicks.csv`` for audit).
 
 DLF sits behind Cloudflare and WordPress member authentication.
 Vanilla ``requests`` and Playwright both get blocked at Cloudflare's
@@ -61,6 +64,7 @@ import argparse
 import csv
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -110,6 +114,25 @@ BOARDS: dict[str, dict[str, str]] = {
         "out": "CSVs/site_raw/dlfRookieIdp.csv",
         "label": "Rookie IDP",
         "min_rows": 20,  # smallest board; pre-NFL-draft class ~29 rows
+    },
+    # DLF's native offensive VALUE moved off the rankings boards to the Trade
+    # Analyzer Values page (owner directive 2026-09-24).  Probed on the
+    # production host 2026-09-24 (DLF Fetch Diagnostics run 36038278764):
+    # title "Dynasty Trade Analyzer Values – 2QB/Superflex with TE Premium",
+    # three ``Asset | Value`` tables of 138 + 138 + 136 rows, assets as
+    # ``Name [POS, TEAM]`` or ``YYYY R.SS (overall)`` for picks, values
+    # published to four decimals (984.7047 at the top).  Offense only — DLF
+    # IDP stays rank-based.  Its OWN board, fetch state and health: a failure
+    # here never touches the rank boards, and vice versa.
+    "dlfValuesSfTep": {
+        "url": "https://dynastyleaguefootball.com/trade-analyzer-values/?l=sf_te_prem",
+        "out": "CSVs/site_raw/dlfValuesSfTep.csv",
+        "picks_out": "CSVs/site_raw/dlfValuesSfTepPicks.csv",
+        "label": "Trade Analyzer Values (SF, TE premium)",
+        "kind": "values",
+        # ~80% of the players on the probed board (412 assets incl. picks);
+        # re-derived from the first real capture.
+        "min_rows": 300,
     },
 }
 
@@ -438,6 +461,158 @@ def _native_value_of(row: dict) -> float | None:
     return value if value > 0 else None
 
 
+_TRADE_VALUE_PLAYER_RE = re.compile(
+    r"^(?P<name>.+?)\s*\[(?P<pos>[A-Z]{1,4}),\s*(?P<team>[A-Z]{2,4})\]$"
+)
+_TRADE_VALUE_PICK_RE = re.compile(
+    r"^(?P<year>\d{4})\s+(?P<round>\d{1,2})\.(?P<slot>\d{1,2})(?:\s*\((?P<overall>\d+)\))?$"
+)
+#: Icon ligature text the page renders beside every asset (Material "swap
+#: arrows" button) — markup, not part of the asset's name.
+_ASSET_ICON_SUFFIXES: tuple[str, ...] = ("swap_horiz",)
+
+
+def _published_value(raw: str) -> str | None:
+    """DLF's value exactly as published (commas removed, every decimal kept),
+    or ``None`` — blank, malformed and non-positive are MISSING, never 0."""
+    text = str(raw or "").strip().replace(",", "")
+    try:
+        number = float(text)
+    except (TypeError, ValueError):
+        return None
+    return text if number > 0 else None
+
+
+def _parse_trade_values(html: str) -> list[dict]:
+    """Rows of every ``Asset | Value`` table on the Trade Analyzer Values page.
+
+    Each row is ``{"kind": "player"|"pick"|"unparsed", "asset", "value", ...}``
+    where ``value`` is the published text (or ``None`` when missing).  Players
+    carry ``name`` / ``pos`` / ``team``; picks ``year`` / ``round`` / ``slot``
+    / ``overall``.  An asset matching neither shape is kept as ``unparsed`` so
+    a page change is counted, not silently dropped.
+    """
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        raise SystemExit("beautifulsoup4 required for HTML parsing.")
+    out: list[dict] = []
+    for table in BeautifulSoup(html, "html.parser").find_all("table"):
+        thead = table.find("thead")
+        head = (thead or table.find("tr") or table).find_all(["th", "td"])
+        headers = [c.get_text(" ", strip=True).strip().lower() for c in head]
+        if "asset" not in headers or "value" not in headers:
+            continue
+        a_idx, v_idx = headers.index("asset"), headers.index("value")
+        body = table.find("tbody") or table
+        for tr in body.find_all("tr"):
+            cells = tr.find_all("td")
+            if len(cells) <= max(a_idx, v_idx):
+                continue
+            asset = cells[a_idx].get_text(" ", strip=True)
+            for suffix in _ASSET_ICON_SUFFIXES:
+                if asset.endswith(suffix):
+                    asset = asset[: -len(suffix)].strip()
+            if not asset:
+                continue
+            row: dict = {
+                "asset": asset,
+                "value": _published_value(cells[v_idx].get_text(" ", strip=True)),
+            }
+            if m := _TRADE_VALUE_PLAYER_RE.match(asset):
+                row.update(kind="player", name=m["name"].strip(), pos=m["pos"], team=m["team"])
+            elif m := _TRADE_VALUE_PICK_RE.match(asset):
+                row.update(
+                    kind="pick",
+                    year=int(m["year"]),
+                    round=int(m["round"]),
+                    slot=int(m["slot"]),
+                    overall=int(m["overall"]) if m["overall"] else None,
+                )
+            else:
+                row["kind"] = "unparsed"
+            out.append(row)
+    return out
+
+
+def _values_board_verdict(cfg: dict, rows: list[dict]) -> tuple[bool, str]:
+    """Write guard for a ``kind: values`` board: enough PLAYERS with a valid
+    published value.  Picks and unparsed assets never count toward the floor."""
+    min_rows = int(cfg.get("min_rows") or 30)
+    valued = sum(1 for r in rows if r.get("kind") == "player" and r.get("value"))
+    if valued < min_rows:
+        return False, (
+            f"only {valued} players with a valid published Value — expected ≥{min_rows}; "
+            "partial/degraded scrape or page change"
+        )
+    return True, "ok"
+
+
+def _write_values_csv(path: Path, rows: list[dict]) -> int:
+    """``name,pos,team,value`` — each value exactly as DLF published it.
+    Players without a valid value are omitted (missing, not zero)."""
+    written, seen = [], set()
+    for r in rows:
+        if r.get("kind") != "player" or not r.get("value"):
+            continue
+        key = (r["name"], r["pos"])
+        if key in seen:
+            continue
+        seen.add(key)
+        written.append((r["name"], r["pos"], r["team"], r["value"]))
+    written.sort(key=lambda t: -float(t[3]))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["name", "pos", "team", "value"])
+        w.writerows(written)
+    return len(written)
+
+
+def _write_value_picks_csv(path: Path, rows: list[dict]) -> int:
+    """Pick assets, kept for the pick audit — never a model input here."""
+    picks = [r for r in rows if r.get("kind") == "pick" and r.get("value")]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["asset", "year", "round", "slot", "overall", "value"])
+        for r in picks:
+            w.writerow(
+                [r["asset"], r["year"], r["round"], r["slot"], r["overall"] or "", r["value"]]
+            )
+    return len(picks)
+
+
+def _values_summary(rows: list[dict]) -> list[str]:
+    """Evidence lines for ``--dry-run`` (and the on-box diagnostic)."""
+    from collections import Counter
+
+    kinds = Counter(r["kind"] for r in rows)
+    players = [r for r in rows if r["kind"] == "player"]
+    valued = [float(r["value"]) for r in players if r["value"]]
+    lines = [
+        f"assets={len(rows)} kinds={dict(kinds)} players_valued={len(valued)} "
+        f"missing_value={sum(1 for r in players if not r['value'])}",
+        f"positions={dict(Counter(r['pos'] for r in players))}",
+    ]
+    if valued:
+        s = sorted(valued, reverse=True)
+        q = {p: s[min(len(s) - 1, int(p * len(s)))] for p in (0.0, 0.1, 0.25, 0.5, 0.75, 0.9)}
+        lines.append(
+            f"value max={s[0]} min={s[-1]} p10={q[0.1]} p25={q[0.25]} p50={q[0.5]} "
+            f"p75={q[0.75]} p90={q[0.9]} decimals={any('.' in r['value'] for r in players if r['value'])}"
+        )
+    picks = [r for r in rows if r["kind"] == "pick"]
+    if picks:
+        by_year = Counter(r["year"] for r in picks)
+        lines.append(f"picks by year={dict(sorted(by_year.items()))}")
+        lines.append("pick sample=" + str([(r["asset"], r["value"]) for r in picks[:12]]))
+    unparsed = [r["asset"] for r in rows if r["kind"] == "unparsed"]
+    if unparsed:
+        lines.append(f"unparsed ({len(unparsed)})={unparsed[:12]}")
+    return lines
+
+
 def _board_verdict(cfg: dict, rows: list[dict]) -> tuple[bool, str]:
     """Would a real run write this board?  ``(ok, reason)``.
 
@@ -491,6 +666,128 @@ def _candidate_table_headers(html: str) -> list[list[str]]:
         cells = (thead or table.find("tr") or table).find_all(["th", "td"])
         out.append([c.get_text(" ", strip=True)[:40] for c in cells][:40])
     return out
+
+
+#: Page-structure markers the probe counts.  Plain substrings, printed as
+#: counts only — never the surrounding text, which can carry nonces.
+_PROBE_MARKERS: tuple[str, ...] = (
+    "wpDataTable",
+    "wpdatatables",
+    "wdt_",
+    "admin-ajax.php",
+    "wp-json",
+    "ajaxurl",
+    'type="application/json"',
+    "JSON.parse(",
+    "DataTable(",
+    "tablepress",
+    "__NEXT_DATA__",
+    "trade-analyzer",
+    "tradeAnalyzer",
+    "trade_analyzer",
+)
+_PROBE_HOST = "dynastyleaguefootball.com"
+
+
+def _probe_page(html: str) -> list[str]:
+    """Structural diagnostics for one DLF page — lines to print.
+
+    Read-only evidence for designing a parser: table shapes, the first rows of
+    each table, and which embedded-data mechanisms the page uses.  Prints
+    structure and public row text only: no script bodies, no attribute values
+    that could be nonces, and never anything from the session.
+    """
+    import re
+
+    lines = [f"html_bytes={len(html)} preview={_looks_like_preview(html)}"]
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        return lines + ["bs4 unavailable — structure not parsed"]
+    soup = BeautifulSoup(html, "html.parser")
+    title = soup.find("title")
+    lines.append(f"title={(title.get_text(' ', strip=True) if title else '')[:100]!r}")
+
+    for marker in _PROBE_MARKERS:
+        n = html.count(marker)
+        if n:
+            lines.append(f"marker {marker!r} x{n}")
+
+    tables = soup.find_all("table")
+    lines.append(f"tables={len(tables)}")
+    for ti, table in enumerate(tables):
+        body = table.find("tbody") or table
+        body_rows = [tr for tr in body.find_all("tr") if tr.find_all("td")]
+        attrs = sorted(k for k in table.attrs if k in ("id", "class") or k.startswith("data-"))
+        classes = " ".join(table.get("class") or [])[:80]
+        lines.append(
+            f"table[{ti}] body_rows={len(body_rows)} id={str(table.get('id') or '')[:40]!r} "
+            f"class={classes!r} attr_names={attrs[:12]}"
+        )
+        if len(body_rows) < 3:
+            continue
+        thead = table.find("thead")
+        head = (thead or table.find("tr") or table).find_all(["th", "td"])
+        lines.append(f"  headers={[c.get_text(' ', strip=True)[:30] for c in head][:20]}")
+        for ri, tr in enumerate(body_rows[:8], 1):
+            cells = [c.get_text(" ", strip=True)[:30] for c in tr.find_all("td")][:14]
+            lines.append(f"  row{ri}={cells}")
+
+    for si, script in enumerate(soup.find_all("script")):
+        stype = str(script.get("type") or "")
+        text = script.string or script.get_text() or ""
+        if "json" in stype.lower():
+            keys: list[str] = []
+            try:
+                parsed = json.loads(text)
+                if isinstance(parsed, dict):
+                    keys = sorted(parsed)[:15]
+                elif isinstance(parsed, list):
+                    keys = [f"<list len={len(parsed)}>"]
+            except (TypeError, ValueError):
+                keys = ["<unparseable>"]
+            lines.append(
+                f"json_script[{si}] type={stype!r} id={str(script.get('id') or '')[:40]!r} "
+                f"bytes={len(text)} top_keys={keys}"
+            )
+            continue
+        # Large inline JS literals are the usual carrier of a client-rendered
+        # table.  Name and size only.
+        for m in re.finditer(r"(?:var|let|const)\s+([A-Za-z_$][\w$]*)\s*=\s*([\[{])", text):
+            if len(text) - m.start() >= 5000:
+                lines.append(
+                    f"js_literal script[{si}] name={m.group(1)!r} opens={m.group(2)!r} "
+                    f"script_bytes={len(text)}"
+                )
+        actions = sorted(set(re.findall(r"""action['"]?\s*[:=]\s*['"]([\w-]{3,60})['"]""", text)))
+        if actions:
+            lines.append(f"ajax_actions script[{si}]={actions[:10]}")
+    return lines
+
+
+def _probe(session, url: str) -> int:
+    """Fetch one DLF URL with the member session and print diagnostics only."""
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or (
+        parsed.hostname != _PROBE_HOST and not str(parsed.hostname).endswith("." + _PROBE_HOST)
+    ):
+        print(f"[DLF] probe refused: only https://{_PROBE_HOST} URLs", file=sys.stderr)
+        return 2
+    try:
+        html = _fetch_rankings_html(session, url)
+        if _looks_like_preview(html):
+            print("[DLF] probe: non-member preview — re-authenticating …", flush=True)
+            _login(session)
+            html = _fetch_rankings_html(session, url)
+    except (RuntimeError, SystemExit) as exc:
+        print(f"[DLF] probe fetch failed: {exc}", file=sys.stderr)
+        return 1
+    print(f"[DLF] probe {url}")
+    for line in _probe_page(html):
+        print(f"  {line}")
+    return 0
 
 
 def _format_number(value: float) -> int | str:
@@ -562,9 +859,26 @@ def main() -> int:
             "board refused to overwrite its last-good CSV (exit 2)."
         ),
     )
+    parser.add_argument(
+        "--probe",
+        metavar="URL",
+        default=None,
+        help=(
+            "Read-only: log in, fetch one DLF URL and print its page structure "
+            "(tables, first rows, embedded-data markers).  Writes nothing."
+        ),
+    )
     args = parser.parse_args()
 
     _load_env_dotfile(ENV_PATH)
+    if args.probe:
+        session = _build_session()
+        try:
+            _ensure_logged_in(session)
+        except (SystemExit, RuntimeError) as exc:
+            print(f"[DLF] login failed: {exc}", file=sys.stderr)
+            return 1
+        return _probe(session, args.probe)
     written_keys: list[str] = []
 
     def _write_manifest() -> None:
@@ -618,6 +932,34 @@ def main() -> int:
                 )
                 exit_code = max(exit_code, 1)
                 continue
+        if cfg.get("kind") == "values":
+            vrows = _parse_trade_values(html)
+            print(f"[DLF] {key} ({label}): parsed {len(vrows)} assets")
+            ok, reason = _values_board_verdict(cfg, vrows)
+            if args.dry_run:
+                print(f"  html_bytes={len(html)} preview={_looks_like_preview(html)}")
+                for line in _values_summary(vrows):
+                    print(f"  {line}")
+                print(f"  verdict={'WRITE' if ok else 'REFUSE'} reason={reason}")
+                continue
+            if not ok:
+                print(
+                    f"[DLF] {key}: {reason}.  Preserving last-good CSV, NOT "
+                    f"overwriting {out_path.relative_to(REPO)}.",
+                    file=sys.stderr,
+                )
+                exit_code = max(exit_code, 2)
+                continue
+            count = _write_values_csv(out_path, vrows)
+            picks = _write_value_picks_csv(REPO / cfg["picks_out"], vrows)
+            print(
+                f"[DLF] wrote {count} player values → {out_path.relative_to(REPO)} "
+                f"(+{picks} pick values for audit)",
+                flush=True,
+            )
+            written_keys.append(key)
+            _write_manifest()
+            continue
         rows = _parse_rankings(html)
         print(f"[DLF] {key} ({label}): parsed {len(rows)} rows")
         if not rows:

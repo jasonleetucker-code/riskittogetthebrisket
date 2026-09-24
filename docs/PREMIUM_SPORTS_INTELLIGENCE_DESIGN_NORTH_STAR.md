@@ -1,5 +1,13 @@
 # Chase Upside — Premium Sports Intelligence Design North Star
 
+> **CURRENT EXECUTION AMENDMENT — 2026-09-24 (#1421).** PSI / Direction A remains the
+> permanent owner-approved design. Historical preparation/wait/trigger records below
+> are traceability, not a current global UI blocker. Lane 6 stays active in parallel:
+> foundation is eligible when dependencies/claims permit; final route wiring is
+> individually contract-gated. No aesthetic exploration or replacement direction.
+> Implementation: `docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md`; queue/evidence: `docs/ui/UI_PARALLEL_LEDGER.md`; execution authority:
+> `docs/EXECUTION_PLAN.md`.
+
 > **RECONCILIATION AMENDMENT — 2026-08-14.** Promoted to `main` verbatim from its planning branch by the
 > post-B master reconciliation (`docs/POST_B_RECONCILIATION_2026-08-14.md`). No content was changed.
 > Its C-Series phase placement and completion evidence live in

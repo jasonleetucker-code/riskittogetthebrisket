@@ -1,0 +1,6 @@
+{
+  "context": "Own gallery page chunk bytes; not shared first-load JS or a production latency certificate",
+  "baseline_bytes": 27690,
+  "implementation_bytes": 28881,
+  "delta_bytes": 1191
+}

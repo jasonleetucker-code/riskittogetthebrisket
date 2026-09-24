@@ -1,0 +1,27 @@
+{
+  "code_sha": "30a853691c13c65cfa7d7680cf024c7185447da2",
+  "base_sha": "af199bacb29a4b0df80c7f0df84f7ae9c5f47c32",
+  "run_id": "36055955615",
+  "context": "Built local CI stack, NOT production. Charts explicitly gated; #1428 remains open.",
+  "unit_summary": [
+    "Test Files  168 passed (168)",
+    "Tests  2484 passed (2484)"
+  ],
+  "e2e_passed": 4,
+  "e2e_skipped": 0,
+  "axe_scans": 6,
+  "focused_coverage_floor": 4,
+  "focused_skip_ceiling": 0,
+  "screenshots": {
+    "desktop-modal.png": "57598f4c189672031a7d937972ffd2ffd23a97290d0fd8433b030dd1bf1b1dc8",
+    "desktop-drawer.png": "aca36732b2992586f9819c3566119c0351c5488b1a45e5a0b4cb7fd2a36f8904",
+    "phone-reference-top.png": "2b42dd1b13975b7d6aaf456e9876c40c702ca88a760cc9f9be4cddec11203195",
+    "desktop-table-secondary-fields.png": "2963a5307fc4ce513ca31fab0c686981af227e352702706636cf3b877897ae24",
+    "desktop-reference-full.png": "0ebba3dfa15b84f81d6a075bf89568b3d273de5eb9538ba8d50f3ed2c2791abc",
+    "phone-reference-full.png": "c9c5519c177783526a2c0059107faf2bf36cb962bc964acd28c840668e02b8c2",
+    "phone-drawer.png": "9404196cefd2d582d52093cb068c0a9c4e5845988a5cd02862116ef4bcd56fdb",
+    "phone-modal.png": "6f4f8fd41a4c5ed87c7d43c42d3c0342e4468a816197e522cea4d815bd2d02b1",
+    "desktop-reference-top.png": "f630b5050c0735874dd60d5431dfe4b9520de7e3ddcf522f8d8693ea9f4fbf5e",
+    "phone-table-secondary-fields.png": "bb9b2a9cd9d15aa2d2e45fb722787513d009af8745c28ce3d78f496a3d3decae"
+  }
+}

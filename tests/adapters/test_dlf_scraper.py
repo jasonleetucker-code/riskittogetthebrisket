@@ -235,15 +235,17 @@ def test_write_csv_preserves_integer_vs_fractional(dlf_module, tmp_path: Path):
     assert written[1]["rank"] == "2.50"
 
 
-def test_boards_registry_covers_all_four_sources(dlf_module):
+def test_boards_registry_covers_every_dlf_source(dlf_module):
     """Guard: if a future edit drops a board, downstream
     _SOURCE_CSV_PATHS will silently lose coverage — this test
-    trips before that happens."""
+    trips before that happens.  Four rank boards plus DLF's native
+    offensive Trade Analyzer Values (owner directive 2026-09-24)."""
     assert set(dlf_module.BOARDS) == {
         "dlfSf",
         "dlfIdp",
         "dlfRookieSf",
         "dlfRookieIdp",
+        "dlfValuesSfTep",
     }
     for key, cfg in dlf_module.BOARDS.items():
         assert cfg["url"].startswith("https://dynastyleaguefootball.com/")
@@ -259,10 +261,15 @@ def test_boards_match_registered_csv_paths(dlf_module):
     paths (``_SOURCE_CSV_PATHS`` in src/api/data_contract.py),
     otherwise the ranking pipeline reads a stale CSV instead of
     the freshly-fetched one."""
+    from scripts.record_source_datasets import TRACKED_NON_VOTING_KEYS
     from src.api.data_contract import _SOURCE_CSV_PATHS
 
     for key, cfg in dlf_module.BOARDS.items():
-        reg_cfg = _SOURCE_CSV_PATHS.get(key)
+        # A board acquired ahead of registration (dlfValuesSfTep) is declared
+        # to the dataset recorder instead; the same path must agree there.
+        reg_cfg = _SOURCE_CSV_PATHS.get(key) or (
+            TRACKED_NON_VOTING_KEYS[key][0] if key in TRACKED_NON_VOTING_KEYS else None
+        )
         assert reg_cfg is not None, f"Source {key} missing from _SOURCE_CSV_PATHS"
         reg_path = reg_cfg["path"] if isinstance(reg_cfg, dict) else reg_cfg
         assert reg_path == cfg["out"], (
@@ -309,3 +316,158 @@ def test_candidate_table_headers_skips_small_tables(dlf_module):
     assert headers, "the rankings table must be reported"
     assert all(len(h) <= 40 for h in headers)
     assert any("Name" in cell for h in headers for cell in h)
+
+
+# ── --probe (read-only page-structure diagnostics) ───────────────────
+
+_PROBE_HTML = """
+<html><head><title>Trade Analyzer Values</title></head><body>
+<table id="tav" class="wpDataTable" data-wpdatatable_id="42">
+<thead><tr><th>Player</th><th>Pos</th><th>Team</th><th>Value</th></tr></thead>
+<tbody>
+<tr><td>Ja'Marr Chase</td><td>WR</td><td>CIN</td><td>101.5</td></tr>
+<tr><td>Josh Allen</td><td>QB</td><td>BUF</td><td>99.25</td></tr>
+<tr><td>Bijan Robinson</td><td>RB</td><td>ATL</td><td>98</td></tr>
+</tbody></table>
+<script type="application/json" id="tav-data">{"rows": [], "nonce": "SECRETNONCE123"}</script>
+<script>var wdt_ajax = {"url": "/wp-admin/admin-ajax.php", "nonce": "OTHERNONCE456"};
+jQuery.post(ajaxurl, {action: 'get_wdtable', table_id: 42});</script>
+</body></html>
+"""
+
+
+def test_probe_page_reports_structure_without_script_bodies(dlf_module):
+    out = "\n".join(dlf_module._probe_page(_PROBE_HTML))
+    assert "tables=1" in out
+    assert "Player" in out and "Value" in out
+    assert "Ja'Marr Chase" in out and "101.5" in out
+    assert "json_script" in out and "'nonce'" in out and "'rows'" in out
+    assert "marker 'wpDataTable'" in out and "marker 'admin-ajax.php'" in out
+    assert "get_wdtable" in out
+    # Script bodies and nonce VALUES never reach the output.
+    assert "SECRETNONCE123" not in out
+    assert "OTHERNONCE456" not in out
+
+
+def test_probe_refuses_non_dlf_urls_without_fetching(dlf_module):
+    class _NoFetch:
+        def get(self, *a, **k):  # pragma: no cover - must not be called
+            raise AssertionError("probe fetched a non-DLF URL")
+
+    for url in (
+        "https://example.com/trade-analyzer-values/",
+        "http://dynastyleaguefootball.com/trade-analyzer-values/",
+        "https://dynastyleaguefootball.com.evil.test/x",
+    ):
+        assert dlf_module._probe(_NoFetch(), url) == 2
+
+
+def test_probe_never_prints_session_cookies(dlf_module, capsys):
+    class _Resp:
+        status_code = 200
+        text = _PROBE_HTML
+
+    class _Session:
+        cookies = {"wordpress_logged_in_abc": "COOKIEVALUE789"}
+
+        def get(self, *a, **k):
+            return _Resp()
+
+    assert (
+        dlf_module._probe(_Session(), "https://dynastyleaguefootball.com/trade-analyzer-values/")
+        == 0
+    )
+    captured = capsys.readouterr()
+    assert "COOKIEVALUE789" not in captured.out + captured.err
+    assert "wordpress_logged_in" not in captured.out + captured.err
+
+
+# ── dlfValuesSfTep: DLF Trade Analyzer Values ────────────────────────
+# Mirrors the page probed on the production host 2026-09-24: several
+# ``Asset | Value`` tables, ``Name [POS, TEAM]`` assets followed by the
+# Material icon text ``swap_horiz``, pick assets ``YYYY R.SS (overall)``,
+# values to four decimals.
+
+_TRADE_VALUES_HTML = """
+<html><body>
+<table class="table"><thead><tr><th>Asset</th><th>Value</th></tr></thead><tbody>
+<tr><td>Josh Allen [QB, BUF] <i>swap_horiz</i></td><td>984.7047</td></tr>
+<tr><td>Ja'Marr Chase [WR, CIN] <i>swap_horiz</i></td><td>936.5448</td></tr>
+<tr><td>Brock Bowers [TE, LV] <i>swap_horiz</i></td><td>1,044.9830</td></tr>
+<tr><td>Blank Guy [RB, NYJ] <i>swap_horiz</i></td><td></td></tr>
+<tr><td>Junk Guy [RB, NYJ] <i>swap_horiz</i></td><td>n/a</td></tr>
+<tr><td>Zero Guy [WR, NYJ] <i>swap_horiz</i></td><td>0</td></tr>
+</tbody></table>
+<table class="table"><thead><tr><th>Asset</th><th>Value</th></tr></thead><tbody>
+<tr><td>2026 3.09 (33) <i>swap_horiz</i></td><td>10.0000</td></tr>
+<tr><td>Ryan Flournoy [WR, DAL] <i>swap_horiz</i></td><td>0.7000</td></tr>
+<tr><td>Something Odd <i>swap_horiz</i></td><td>5.0</td></tr>
+</tbody></table>
+<table><tr><td>sidebar</td></tr></table>
+</body></html>
+"""
+
+
+def test_trade_values_parse_players_picks_and_unparsed(dlf_module):
+    rows = dlf_module._parse_trade_values(_TRADE_VALUES_HTML)
+    by_asset = {r["asset"]: r for r in rows}
+    allen = by_asset["Josh Allen [QB, BUF]"]
+    assert (allen["kind"], allen["name"], allen["pos"], allen["team"]) == (
+        "player",
+        "Josh Allen",
+        "QB",
+        "BUF",
+    )
+    pick = by_asset["2026 3.09 (33)"]
+    assert (pick["kind"], pick["year"], pick["round"], pick["slot"], pick["overall"]) == (
+        "pick",
+        2026,
+        3,
+        9,
+        33,
+    )
+    assert by_asset["Something Odd"]["kind"] == "unparsed"
+
+
+def test_trade_values_are_preserved_exactly_as_published(dlf_module):
+    rows = {r["asset"]: r for r in dlf_module._parse_trade_values(_TRADE_VALUES_HTML)}
+    assert rows["Josh Allen [QB, BUF]"]["value"] == "984.7047"  # decimals kept
+    assert rows["Brock Bowers [TE, LV]"]["value"] == "1044.9830"  # commas stripped
+    assert rows["Ryan Flournoy [WR, DAL]"]["value"] == "0.7000"  # < 1 survives
+
+
+def test_trade_values_missing_is_not_zero(dlf_module):
+    rows = {r["asset"]: r for r in dlf_module._parse_trade_values(_TRADE_VALUES_HTML)}
+    for asset in ("Blank Guy [RB, NYJ]", "Junk Guy [RB, NYJ]", "Zero Guy [WR, NYJ]"):
+        assert rows[asset]["value"] is None, asset
+
+
+def test_trade_values_csv_is_players_only_with_published_text(dlf_module, tmp_path):
+    rows = dlf_module._parse_trade_values(_TRADE_VALUES_HTML)
+    out = tmp_path / "v.csv"
+    assert dlf_module._write_values_csv(out, rows) == 4
+    lines = out.read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "name,pos,team,value"
+    assert lines[1] == "Brock Bowers,TE,LV,1044.9830"
+    assert "Ryan Flournoy,WR,DAL,0.7000" in lines
+    assert not any(n in out.read_text() for n in ("Blank Guy", "Junk Guy", "Zero Guy", "2026 3.09"))
+    picks = tmp_path / "p.csv"
+    assert dlf_module._write_value_picks_csv(picks, rows) == 1
+    assert "2026 3.09 (33),2026,3,9,33,10.0000" in picks.read_text(encoding="utf-8")
+
+
+def test_values_board_floor_counts_valued_players_only(dlf_module):
+    rows = dlf_module._parse_trade_values(_TRADE_VALUES_HTML)
+    assert dlf_module._values_board_verdict({"min_rows": 4}, rows)[0] is True
+    ok, reason = dlf_module._values_board_verdict({"min_rows": 5}, rows)
+    assert ok is False and "only 4 players" in reason
+
+
+def test_values_board_failure_does_not_block_rank_boards(dlf_module):
+    """The values board is its own entry: its verdict function never sees a
+    rank board's rows and the rank boards never require a Value."""
+    cfg = dlf_module.BOARDS["dlfValuesSfTep"]
+    assert cfg["kind"] == "values" and cfg["out"] != dlf_module.BOARDS["dlfSf"]["out"]
+    for key in ("dlfSf", "dlfIdp", "dlfRookieSf", "dlfRookieIdp"):
+        assert dlf_module.BOARDS[key].get("kind") is None
+        assert not dlf_module.BOARDS[key].get("require_native_value")

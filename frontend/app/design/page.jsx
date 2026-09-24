@@ -1,10 +1,10 @@
 /**
- * /design — living style reference for the R0 design system.
+ * /design — living implementation reference for approved PSI / Direction A.
  *
  * Dev/reference route: linked from no navigation, noindexed. Renders every
  * token ramp and component state so later phases (and reviewers) can see
- * the system at a glance. This page is the first impression of the new
- * design language — keep it as disciplined as the system it documents.
+ * the system at a glance. Isolated examples are fixtures, not live product
+ * data. Reuse the approved direction; this route does not authorize a redesign.
  */
 import DesignGallery from "./DesignGallery";
 

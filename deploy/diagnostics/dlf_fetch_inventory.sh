@@ -10,7 +10,8 @@
 # cause is unobservable from anywhere else.  This collects the evidence needed
 # to classify it — service result, journal, credential PRESENCE, session age,
 # and a per-board dry run that reports the exact write/refuse verdict the real
-# run makes (``fetch_dlf._board_verdict``) plus the table headers it parsed.
+# run makes (``fetch_dlf._board_verdict``) plus the table headers it parsed,
+# and a structure probe of the Trade Analyzer Values page (``--probe``).
 #
 # CONTRACT
 # --------
@@ -120,11 +121,11 @@ fi
 hdr "[5] dedicated fetch clone + committed CSV headers"
 if [[ -d "${WORK_DIR}/repo/.git" ]]; then
   git -C "${WORK_DIR}/repo" log -1 --format='clone HEAD : %h %cI %s' 2>&1 || true
-  for key in dlfSf dlfIdp dlfRookieSf dlfRookieIdp; do
+  for key in dlfSf dlfIdp dlfRookieSf dlfRookieIdp dlfValuesSfTep; do
     f="${WORK_DIR}/repo/CSVs/site_raw/${key}.csv"
     [[ -f "${f}" ]] && echo "${key}: $(head -n1 "${f}") rows=$(($(wc -l <"${f}") - 1))"
   done
-  for key in dlf dlfSf dlfIdp dlfRookieSf dlfRookieIdp; do
+  for key in dlf dlfSf dlfIdp dlfRookieSf dlfRookieIdp dlfValuesSfTep; do
     s="${WORK_DIR}/repo/data/scrape_state/${key}_last_success"
     [[ -f "${s}" ]] && echo "stamp ${key}_last_success = $(date -u -d "@$(tr -d '[:space:]' <"${s}")" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || cat "${s}")"
   done
@@ -144,5 +145,21 @@ set +e
 rc=${PIPESTATUS[0]}
 set -e
 echo "dry_run_exit=${rc}"
+
+# DLF moved its native offensive Value off the rankings boards to the Trade
+# Analyzer Values page.  Page structure is evidence the parser is designed
+# from; the probe prints table shapes, first rows and embedded-data markers,
+# never cookies or script bodies, and writes nothing.
+hdr "[7] probe trade-analyzer-values"
+DLF_VALUES_URL="${DLF_VALUES_URL:-https://dynastyleaguefootball.com/trade-analyzer-values/?l=sf_te_prem}"
+set +e
+(
+  cd "${DIAG_DIR}"
+  export DLF_USERNAME DLF_PASSWORD
+  timeout 180 "${PY}" scripts/fetch_dlf.py --probe "${DLF_VALUES_URL}" 2>&1
+) | scrub
+rc=${PIPESTATUS[0]}
+set -e
+echo "probe_exit=${rc}"
 echo
 echo "=== done ==="

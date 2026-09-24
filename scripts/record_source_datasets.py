@@ -47,20 +47,35 @@ DEFAULT_STATE_DIR = REPO_ROOT / "data" / "scrape_state"
 # deploy/idpshow_fetch_and_push.sh), which record their own state.  Every
 # other writer skips them: one writer per state file.
 PROD_TIMER_OWNED_KEYS: frozenset[str] = frozenset(
-    {"dlfSf", "dlfIdp", "dlfRookieSf", "dlfRookieIdp", "idpShowCombined"}
+    {"dlfSf", "dlfIdp", "dlfRookieSf", "dlfRookieIdp", "dlfValuesSfTep", "idpShowCombined"}
 )
+
+#: Sources whose dataset state is recorded BEFORE they are loaded or vote,
+#: because the measurement gate that decides whether they may vote needs their
+#: change history: DLF Trade Analyzer Values (owner directive 2026-09-24).
+#: ``{key: (csv_path, signal)}`` — stated here because such a source is not yet
+#: in ``_SOURCE_CSV_PATHS``.  Recording state never makes a source vote; only
+#: ``_RANKING_SOURCES`` does.
+TRACKED_NON_VOTING_KEYS: dict[str, tuple[str, str]] = {
+    "dlfValuesSfTep": ("CSVs/site_raw/dlfValuesSfTep.csv", "value"),
+}
 
 
 def recorded_sources(repo_root: Path = REPO_ROOT) -> list[tuple[str, Path, str]]:
-    """``(source_key, csv_path, signal)`` for every registered voter plus the
-    KTC Market benchmark (its freshness qualifies every market comparison)."""
+    """``(source_key, csv_path, signal)`` for every registered voter, the KTC
+    Market benchmark (its freshness qualifies every market comparison) and
+    ``TRACKED_NON_VOTING_KEYS``."""
     from src.api.data_contract import _RANKING_SOURCES, _SOURCE_CSV_PATHS  # noqa: PLC0415
 
     keys = [str(s.get("key") or "") for s in _RANKING_SOURCES]
     keys.append(KTC_MARKET_KEY)
+    keys.extend(k for k in TRACKED_NON_VOTING_KEYS if k not in keys)
     out: list[tuple[str, Path, str]] = []
     for key in keys:
         cfg = _SOURCE_CSV_PATHS.get(key)
+        if cfg is None and key in TRACKED_NON_VOTING_KEYS:
+            rel_path, tracked_signal = TRACKED_NON_VOTING_KEYS[key]
+            cfg = {"path": rel_path, "signal": tracked_signal}
         if isinstance(cfg, str):
             rel, signal = cfg, "value"
         elif isinstance(cfg, dict):

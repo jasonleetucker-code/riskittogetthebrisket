@@ -15,9 +15,26 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
-## Brisket Ideas shorthand and intake discipline — owner decision 2026-09-24
+## Permanent parallel Premium UI / locked PSI — owner directive 2026-09-24
 
-**Friendly owner-facing name:** **Brisket Ideas**. When the owner says “add this to Brisket Ideas,” “put this on the Brisket list,” “save this idea,” or equivalent durable wording, it routes to this live intake ledger. The owner does not need to choose a repository document.
+Binding owner instruction #1421 is incorporated in `docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md`; queue/evidence:
+`docs/ui/UI_PARALLEL_LEDGER.md`. This is the live intake pointer, not a second ledger. Existing Lane 6 /
+C8-U1/U2/U3 stays active in parallel until genuine UI/product completion. Every substantial
+Calculator Ideas batch includes useful UI or names adequate active coverage. A route's
+unstable contract blocks its final integration, never all UI. Locked Direction A,
+semantic DS/reference reuse, mobile parity, honest data, a11y/performance, desktop/phone
+and production proof apply. Backend complete / UI incomplete is product incomplete.
+
+The owner authorizes this bounded governance/enforcement reconciliation and continuation
+of already-approved safe UI; `docs/EXECUTION_PLAN.md` records current authority. No
+unrelated scope, model/serving activation or denominator change. First safe unit: #1422
+`/design`, separate `codex/psi-design-reference` branch/claim; exact dispatch in
+`docs/ui/PSI_DESIGN_REFERENCE_HANDOFF.md`. Queued is not running. Integration reconciles
+#1416/#1419/#1344 without discarding their work. No deployment/completion is asserted.
+
+## Calculator Ideas shorthand and intake discipline — owner decision 2026-09-24
+
+**Friendly owner-facing name:** **Calculator Ideas**. When the owner says “add this to Calculator Ideas,” “put this on the Calculator list,” “save this idea,” or equivalent durable wording, it routes to this live intake ledger. The owner does not need to choose a repository document.
 
 The operating front door is `docs/BRISKET_IDEAS.md` (issue #1412). It creates **no second backlog** and no implementation authority. It standardizes how new material requests are reconciled:
 

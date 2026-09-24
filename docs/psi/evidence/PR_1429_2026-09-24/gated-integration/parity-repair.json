@@ -1,0 +1,27 @@
+{
+  "code_sha": "abdcf000e8a6592704221b9203efe4ee9edf2731",
+  "run_id": "36058509651",
+  "integration_base": "3154065c828b3f1204b0f0351a47a7147c60b337",
+  "prior_head": "85864751e06d64181d3039c18e9e15ab42bda4fe",
+  "change": "Add already-consumed ktcMarket to explicit desktop/mobile comparisons. Guard, exclusions and all assertions unchanged.",
+  "e2e_passed": 7,
+  "e2e_skipped": 0,
+  "retries": 0,
+  "runtime_changed": false,
+  "shared_file_coordination": {
+    "pr": 1346,
+    "comment_id": 5822109954,
+    "preserve_separate_entry": "readModelKey"
+  },
+  "prior_full_suite_failure": {
+    "run_id": "36056426564",
+    "passed": 214,
+    "failed": 1,
+    "skipped": 63,
+    "flaky": 0,
+    "cause": "Explicit materializer field-list omitted ktcMarket"
+  },
+  "full_final_head_ci": "Required separately; not claimed by this focused run",
+  "production_verification": "Not performed by this CI proof",
+  "chart_decision_1428": "OPEN"
+}

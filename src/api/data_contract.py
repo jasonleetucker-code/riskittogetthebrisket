@@ -4705,8 +4705,16 @@ def _parse_source_csv_cached(
                             orig_rank = None
                     sid = _pick_provider_id(csvrow, _SLEEPER_ID_TOKENS).strip()
                     try:
+                        # A published fraction survives (DLF's Trade Analyzer
+                        # Values run 0–~1000 to four decimals, where
+                        # ``int(float())`` turned 0.7 into 0 and cut every
+                        # value under 10 to a whole number).  An integral
+                        # value stays an ``int``, so the integer-native boards
+                        # (KTC, IDPTC) are bit-identical to before.
+                        number = float(val)
+                        parsed_val: int | float = int(number) if number == int(number) else number
                         csv_lookup.setdefault(key, []).append(
-                            (name, int(float(val)), orig_rank, None, sid or None)
+                            (name, parsed_val, orig_rank, None, sid or None)
                         )
                     except (ValueError, TypeError):
                         continue
