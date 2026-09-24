@@ -9,12 +9,12 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-11 of the 21 entries in ``_DEFAULTS`` below are ``True`` —
+12 of the 22 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
-``perfect_draft``, ``ledger_rank_change``, ``waiver_live_opportunity`` and
-``source_freshness_weighting`` — several with comments
+``perfect_draft``, ``ledger_rank_change``, ``waiver_live_opportunity``,
+``source_freshness_weighting`` and ``source_family_cap`` — several with comments
 recording that the enabled default is deliberate.
 
 **No live gate sits outside this registry any more.**  The last one —
@@ -95,6 +95,15 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # dynamic factors are still computed and stamped on every row, so
     # observability survives rollback, but only the base weight is applied.
     "source_freshness_weighting": True,
+    # Family-capped source voting (owner directive 2026-09-24;
+    # docs/sources/SOURCE_FRESHNESS_WEIGHTING.md).  ON: every member of a
+    # correlation family votes with its own effective weight and the
+    # family's total is capped at one provider's authority
+    # (data_contract.cap_family_weights).  OFF
+    # (RISKIT_FEATURE_SOURCE_FAMILY_CAP=0 + restart): the retired
+    # family-head selection — the registry-first member votes, the rest
+    # are stamped supersededBy.
+    "source_family_cap": True,
     # C1-U4 — ledger-derived rankChange on the canonical contract.  ON
     # derives each ranked row's rankChange from the temporal ledger's
     # previous recorded board; OFF stamps None on every row (deliberately
@@ -561,6 +570,11 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # a request through ``/api/data`` and every engine that reads the board;
     # off → base weights only, factors still stamped.
     "source_freshness_weighting": LIVE,
+    # source_family_cap gates whether correlated family members all vote
+    # under a family cap or the family head alone votes, in
+    # ``data_contract._compute_unified_rankings``, which reaches a request
+    # through ``/api/data`` and every engine that reads the board.
+    "source_family_cap": LIVE,
     # host_native_scoring gates the stat vocabulary
     # ``league_comparison.sleeper_stats.fetch_sleeper_weekly_stats``
     # emits, which reaches a request through ``historical_stats`` →

@@ -2917,6 +2917,14 @@ def collapse_to_independent_families(
 ) -> "tuple[list[tuple[str, float, bool]], dict[str, str]]":
     """One vote per provider family — a SELECTION, never an average.
 
+    ROLLBACK PATH since 2026-09-24: the default is family-capped voting
+    (:func:`cap_family_weights`, flag ``source_family_cap``), where every
+    member votes and the family total is capped.  This selection runs only
+    with ``RISKIT_FEATURE_SOURCE_FAMILY_CAP=0``.  The rationale below is the
+    one that decision superseded; its measurable part (Fantasy Navigator
+    votes rank → Hill beside KTC Crowd's native value) is quantified in
+    ``docs/sources/SOURCE_FRESHNESS_WEIGHTING.md``.
+
     ``pairs`` is ``(source_key, value, is_anchor_source)`` for the
     sources that survived Hampel on one row.  Returns the surviving
     pairs plus ``{superseded_key: winning_key}`` for provenance.
@@ -2965,6 +2973,63 @@ def collapse_to_independent_families(
     # Preserve the caller's ordering; only membership changes.
     kept = [pair for pair in pairs if pair[0] in winning_keys]
     return kept, superseded
+
+
+#: One fully fresh, fully healthy independent provider's worth of authority.
+#: A family's members may together carry at most this much weight on a row.
+FAMILY_WEIGHT_CAP_DEFAULT: float = 1.0
+
+
+def cap_family_weights(
+    weights: Mapping[str, float],
+    *,
+    cap: float = FAMILY_WEIGHT_CAP_DEFAULT,
+    base: Mapping[str, float] | None = None,
+) -> tuple[dict[str, float], dict[str, float]]:
+    """Every family member keeps a vote; a family's TOTAL is capped.
+
+    Replaces "family head wins" (owner directive 2026-09-24): correlated
+    members of one provider family all contribute, each with its own
+    freshness × health × coverage weight, but together they cannot exceed
+    ``cap`` — so a provider cannot multiply its authority by publishing
+    several related datasets.
+
+    ``weights`` is ``{source_key: effective_weight}`` for the observations
+    present on one row.  For each family with total ``T``:
+
+    * ``T <= cap`` → unchanged.  A stale family is NEVER scaled back up:
+      members at 0.2 + 0.1 keep 0.3 of authority, not 1.0;
+    * ``T > cap``  → every member scaled by ``cap / T``, preserving their
+      relative shares (fresher members keep proportionally more).
+
+    Missing members contribute nothing — only keys present are weighed.
+
+    ``base`` (``{source_key: base_weight}``, the registry weight or the
+    user's override) makes the cap the family's own provider authority:
+    the largest base weight among its members present.  At the default
+    1.0 everywhere that is exactly ``cap``; a user who raises a source to
+    2.0 raises its family's ceiling with it, so a weight override is never
+    silently undone by the cap.
+
+    Returns ``(adjusted_weights, family_adjustment_by_key)``; the factor is
+    1.0 for every member of an uncapped family.
+    """
+    totals: dict[str, float] = {}
+    caps: dict[str, float] = {}
+    for key, w in weights.items():
+        group = correlation_group_for(key)
+        totals[group] = totals.get(group, 0.0) + max(0.0, float(w))
+        member_cap = max(0.0, float(base.get(key, cap))) if base is not None else cap
+        caps[group] = max(caps.get(group, 0.0), member_cap)
+    adjusted: dict[str, float] = {}
+    factors: dict[str, float] = {}
+    for key, w in weights.items():
+        group = correlation_group_for(key)
+        total, family_cap = totals[group], caps[group]
+        factor = family_cap / total if total > family_cap > 0.0 else 1.0
+        factors[key] = factor
+        adjusted[key] = max(0.0, float(w)) * factor
+    return adjusted, factors
 
 
 # Retired source keys can still occur in immutable historical panels. Keep
@@ -6534,7 +6599,22 @@ def _family_evidence_for_row(
                 ),
             )
         )
-    return evidence
+    # Under the family cap several members of one family vote, but a family
+    # is still ONE piece of independent evidence to the B11 gate (which
+    # raises on a repeated family).  Its representative is the member that
+    # carried the most weight on this row — ties to registry order — and
+    # every field comes from that one real source: no averaged number.
+    best: dict[str, tuple[tuple[float, int], FamilyEvidence]] = {}
+    for ev in evidence:
+        weight = (effective_source_meta.get(ev.source_key) or {}).get("appliedWeight")
+        key = (
+            -float(weight) if isinstance(weight, (int, float)) else 0.0,
+            _source_precedence(ev.source_key),
+        )
+        if ev.family not in best or key < best[ev.family][0]:
+            best[ev.family] = (key, ev)
+    chosen = {id(entry) for _k, entry in best.values()}
+    return [ev for ev in evidence if id(ev) in chosen]
 
 
 def _restate_confidence_after_override(
@@ -8856,6 +8936,38 @@ def count_aware_mean_median_blend(
     return center, mad_val
 
 
+def _trim_one_observation_mass(pairs: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    """Drop one AVERAGE observation's weight from each end of value-sorted pairs.
+
+    The n≥5 trim removes the extremes.  Removing the single extreme
+    OBSERVATION whatever its weight is a step function once weights are
+    unequal: which observation sits at an end can flip on float noise, and
+    the trimmed mass jumps with it.  Measured 2026-09-24 on the golden
+    dataset under family-capped weights: every source raised Brock Bowers
+    and his blend FELL 9984.6 → 9983.7, because a 0.287-weight observation
+    at the 9999 ceiling gave way to a 1.0-weight one as the one trimmed.
+
+    Trimming by MASS — ``Σw / n`` from each end, taking partial weights —
+    is continuous and monotone, and with equal weights it is exactly the
+    observation trim (each end loses one whole observation).
+    """
+    n = len(pairs)
+    total = sum(w for _, w in pairs)
+    if n < 5 or total <= 0.0:
+        return list(pairs)
+    mass = total / n
+    out = [[v, w] for v, w in pairs]
+    for order in (range(n), range(n - 1, -1, -1)):
+        remaining = mass
+        for i in order:
+            if remaining <= 0.0:
+                break
+            take = min(out[i][1], remaining)
+            out[i][1] -= take
+            remaining -= take
+    return [(v, w) for v, w in out if w > 1e-12]
+
+
 def _weighted_median_sorted(pairs: list[tuple[float, float]], total_weight: float) -> float:
     """Weighted median over ``(value, weight)`` pairs pre-sorted by value —
     CONTINUOUS in the weights.
@@ -8919,13 +9031,16 @@ def weighted_count_aware_mean_median_blend(
       n == 1   → passthrough
       n == 2   → weighted mean; MAD = weighted abs deviation
       n == 3-4 → (weighted mean + weighted median) / 2, untrimmed
-      n ≥ 5    → drop the single min / max OBSERVATION, then
-                 (weighted mean + weighted median) / 2 over the rest
+      n ≥ 5    → drop one average observation's weight (Σw / n) from each
+                 end, then (weighted mean + weighted median) / 2 over the rest
 
-    Trimming stays observation-based (one max + one min by value,
-    regardless of weight): the robustness rule targets extreme values,
-    and keeping it observation-based preserves exact equal-weight
-    parity with the unweighted blend.  Degenerate inputs (mismatched
+    Trimming targets extreme VALUES by weight MASS
+    (:func:`_trim_one_observation_mass`, 2026-09-24).  With equal weights
+    that removes exactly the single min / max observation, so equal-weight
+    parity with the unweighted blend is exact; with unequal weights it is
+    continuous and monotone, where the retired weight-blind observation
+    trim was a step function that could lower a value when every input
+    rose.  Degenerate inputs (mismatched
     lengths, non-positive total weight) fall back to the unweighted
     blend rather than failing — a malformed override must never take
     down the board.
@@ -8942,7 +9057,7 @@ def weighted_count_aware_mean_median_blend(
     k = len(pairs)
     if k == 1:
         return pairs[0][0], None
-    used = pairs[1:-1] if k >= 5 else pairs
+    used = _trim_one_observation_mass(pairs) if k >= 5 else pairs
     total_w = sum(w for _, w in used)
     if total_w <= 0:
         return count_aware_mean_median_blend(values)
@@ -10061,6 +10176,9 @@ def _compute_unified_rankings(
     _freshness_applied = bool(source_weighting) and _feature_flags.is_enabled(
         "source_freshness_weighting"
     )
+    # Correlated family members all vote under a family cap
+    # (``cap_family_weights``); off restores the family-head selection.
+    _family_cap_applied = _feature_flags.is_enabled("source_family_cap")
 
     from src.sources.freshness import (  # noqa: PLC0415
         STYLE_EXPLICIT as _STYLE_EXPLICIT,
@@ -10504,11 +10622,33 @@ def _compute_unified_rankings(
         # the raw observation set.  Collapsing first would change
         # rejection decisions about unrelated sources.
         #
-        # A SELECTION, never an average — see
-        # ``collapse_to_independent_families``.  ``_source_precedence``
-        # is registry order, which already declares the heads.
+        # Default (``source_family_cap``, owner directive 2026-09-24): every
+        # member keeps its own weighted vote and the family's total is
+        # capped — see ``cap_family_weights``.  Rollback restores the
+        # retired SELECTION (``collapse_to_independent_families``: the
+        # registry-first member votes, the rest are superseded).
         surviving = [(k, v, a) for k, v, a in all_value_pairs if k not in set(hampel_dropped_keys)]
-        family_kept, family_superseded = collapse_to_independent_families(surviving)
+        if _family_cap_applied:
+            family_kept, family_superseded = surviving, {}
+            capped, family_factor = cap_family_weights(
+                {k: row_weight.get(k, 1.0) for k, _v, _a in surviving},
+                base=blend_weight_by_source,
+            )
+            for sk, factor in family_factor.items():
+                meta = row_source_meta[row_idx].get(sk, {})
+                meta["familyAdjustment"] = round(factor, 4)
+                if factor < 1.0:
+                    meta["preFamilyWeight"] = meta.get("appliedWeight")
+                    meta["appliedWeight"] = round(capped[sk], 4)
+            row_weight.update(capped)
+            all_values = [v for _k, v, _a in surviving]
+            cross_market_values = [v for _k, v, a in surviving if a]
+            subgroup_values = [v for _k, v, a in surviving if not a]
+            all_weights = [capped[k] for k, _v, _a in surviving]
+            cross_market_weights = [capped[k] for k, _v, a in surviving if a]
+            subgroup_weights = [capped[k] for k, _v, a in surviving if not a]
+        else:
+            family_kept, family_superseded = collapse_to_independent_families(surviving)
         if family_superseded:
             kept_keys = {k for k, _v, _a in family_kept}
             all_values = [v for k, v, _a in family_kept]
@@ -10531,14 +10671,22 @@ def _compute_unified_rankings(
         # These two answer independence questions and must not be
         # conflated with it.
         players_array[row_idx]["effectiveSourceCount"] = len(surviving)
-        players_array[row_idx]["independentSourceCount"] = len(family_kept)
+        players_array[row_idx]["independentSourceCount"] = len(
+            {correlation_group_for(k) for k, _v, _a in family_kept}
+        )
+        base_weights = {
+            k: blend_weight_by_source.get(k, 1.0)
+            for k in [k for k, _v, _a in family_kept] + freshness_excluded
+        }
+        if _family_cap_applied:
+            # The same cap on the denominator: a family's normal authority
+            # is one provider's, however many members it has, so two fully
+            # fresh DLF boards retain 1.0 — not 0.5.
+            base_weights, _ = cap_family_weights(base_weights, base=blend_weight_by_source)
         _stamp_source_weight_state(
             players_array[row_idx],
             voting={k: row_weight.get(k, 0.0) for k, _v, _a in family_kept},
-            base={
-                k: blend_weight_by_source.get(k, 1.0)
-                for k in [k for k, _v, _a in family_kept] + freshness_excluded
-            },
+            base=base_weights,
         )
 
         # Coverage diagnostic (2026-04-20 override): soft-fallback
@@ -10756,11 +10904,15 @@ def _compute_unified_rankings(
         # freshness curve exists to avoid.  The row's thinness is reported
         # instead, by ``sourceWeightState`` / ``retainedAuthority`` and the
         # confidence freshness axis.  Counted by FAMILY so a quarantined
-        # member of a family that already voted adds nothing.
+        # member of a family that already voted adds nothing — and, under the
+        # family cap, so a second member of the SAME family (Fantasy Navigator
+        # beside KTC Crowd) cannot lift a one-provider row out of the haircut.
+        # With the cap off this is exactly the old ``len(all_values) <= 1``
+        # test: selection leaves at most one value per family.
         present_families = {family_by_key.get(k, k) for k, _v, _a in family_kept} | {
             family_by_key.get(k, k) for k in freshness_excluded
         }
-        if not row_is_pick and len(all_values) <= 1 and len(present_families) <= 1:
+        if not row_is_pick and len(present_families) <= 1:
             blended_value *= _SINGLE_SOURCE_VALUE_RETENTION
             players_array[row_idx]["_blendedValueUncapped"] = (
                 int(round(blended_value)) if blended_value > 0 else 0

@@ -628,6 +628,17 @@ Steps:
    ``RISKIT_FEATURE_SOURCE_FRESHNESS_WEIGHTING=0`` + restart (factor 1.0,
    diagnostics keep reporting).  Full record:
    ``docs/sources/SOURCE_FRESHNESS_WEIGHTING.md``.
+4c. Family-capped voting (flag ``source_family_cap``, default ON, owner
+   directive 2026-09-24) — after Hampel, EVERY member of a B10
+   correlation family votes with its own effective weight and the
+   family's total is capped at one provider's authority
+   (``cap_family_weights``: scale by ``cap / total`` only when over; a
+   stale family is never scaled back up).  REPLACES "family head wins"
+   (``collapse_to_independent_families``, now the rollback path via
+   ``RISKIT_FEATURE_SOURCE_FAMILY_CAP=0``).  The cap also applies to the
+   ``retainedAuthority`` denominator; the single-source haircut and B11
+   confidence count FAMILIES (confidence takes the member carrying the
+   most weight as the family's one piece of evidence).
    Every other source — including DynastyDaddy, Yahoo/Boone,
    Fitzmaurice, FantasyCalc, OTCFFB after their rank-signal
    conversions — votes via rank → percentile → Hill.  (The refit

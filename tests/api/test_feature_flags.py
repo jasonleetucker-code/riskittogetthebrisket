@@ -94,6 +94,12 @@ def test_every_flag_defaults_off_except_safe_additive():
         # quarantined, 288 rows).  Rollback:
         # RISKIT_FEATURE_SOURCE_FRESHNESS_WEIGHTING=0 (factors stay stamped).
         "source_freshness_weighting",
+        # Owner directive 2026-09-24: every correlation-family member votes
+        # under a family cap (one provider's authority).  Blast radius
+        # measured by scripts/backtest_family_cap.py over 2026-09-10..24:
+        # 352-525 of ~1,040 values move per day, median |d| 0.35-0.83%,
+        # top-50 max 1.7%.  Rollback: RISKIT_FEATURE_SOURCE_FAMILY_CAP=0.
+        "source_family_cap",
         # Collaborative audit finding F.  Replaces the flat 1.15 TE
         # alignment multiplier with KTC's measured base → TE++ curve.
         # Blast radius measured against the 2026-07-27 live board (810

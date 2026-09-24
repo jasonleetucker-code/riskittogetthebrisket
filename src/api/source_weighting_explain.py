@@ -175,6 +175,13 @@ def player_explain(contract: Mapping[str, Any], row: Mapping[str, Any]) -> dict[
                 "healthFactor": src.get("healthFactor"),
                 "coverageFactor": src.get("coverageFactor"),
                 "baseWeight": m.get("baseWeight", src.get("baseWeight")),
+                # Family cap: the family and the factor its members were
+                # scaled by so the family's total stays one provider's
+                # authority (1.0 = uncapped); ``preFamilyWeight`` is the
+                # weight before that scaling.
+                "family": src.get("correlationGroup") or key,
+                "preFamilyWeight": m.get("preFamilyWeight", m.get("appliedWeight")),
+                "familyAdjustment": m.get("familyAdjustment"),
                 # The weight the pipeline applied to this observation; an
                 # observation that did not vote (outlier / superseded /
                 # quarantined) shows its would-be weight and no vote share.

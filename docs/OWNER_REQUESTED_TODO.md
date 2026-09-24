@@ -525,6 +525,55 @@ edits. Binding elements, as approved with the owner's required revision the same
 Plan of record: branch `claude/peaceful-goodall-3uqtyx`; detail in
 `docs/sources/SOURCE_FRESHNESS_WEIGHTING.md`. Authorization recorded in `docs/EXECUTION_PLAN.md` §0.
 
+### Dynasty value overhaul continuation — owner directive 2026-09-24
+
+Owner directive (definite, durable), continuing the 2026-09-23 unit above:
+
+- **Every distinct legitimate signal votes.** Replace "family head wins" with **family-capped
+  weighting**: each member of a correlation family votes with its own
+  base × freshness × health × coverage weight, and the family's total is capped at one provider's
+  authority, so a provider cannot multiply its influence by publishing related datasets. A stale family
+  is never renormalized back up. Derived composites (KTC Market) and exact mirrors still do not vote.
+- **DLF Trade Analyzer Values** (`/trade-analyzer-values/?l=sf_te_prem`) becomes DLF's offense value
+  vote after a production probe and a measurement gate (distribution, identity mapping, Hampel drop
+  rate, board diff); DLF IDP stays rank-based; Value and Rank keep separate freshness / health; one
+  failing never freezes the other; the trade-page DLF second opinion shows DLF's raw native Value.
+- DLF rookie-board audit (independent signal, family member, or mirror; seasonal applicability from
+  evidence, never a hard-coded date); authoritative source inventory; participation invariant; IDP Show
+  staleness root-caused.
+- **Hill-curve / live source-authority alignment** (owner request 2026-09-24): audit whether the Hill
+  refit's training evidence and weighting follow the live model's source semantics (native-value
+  sources only — rank-only sources cannot teach value spacing; freshness / health / coverage and family
+  semantics; KTC Market never a training vote; holdout stays out-of-sample; pinned `asOf` and source
+  state), then make the smallest canonical repair. Sequenced after family-capped weighting.
+
+Authorization recorded in `docs/EXECUTION_PLAN.md` §0 (2026-09-24). Record:
+`docs/sources/SOURCE_FRESHNESS_WEIGHTING.md`.
+
+**DLF Values normalization — owner decision 2026-09-24 (refines the measurement gate).**
+Hampel rejection is a DIAGNOSTIC, not the objective. The chosen transformation must preserve
+the information DLF publishes while making it comparable with the 1–9999 model space. Every
+candidate is judged on: player ordering; native value SPACING; monotonicity; Hampel rejection;
+board impact; stability across captures; interaction with DLF Rank inside the family cap;
+whether it is new information or merely duplicates DLF Rank; circular dependence on our own
+board; explainability / reproducibility.
+
+* **rank → Hill is the control case.** If DLF Value through rank → Hill carries the same
+  information as `dlfSf` Rank, it earns no second meaningful DLF family contribution. That
+  would be evidence that the transformation throws away the spacing that is the point of
+  acquiring Value, and choosing it anyway needs an explicit reason it beats DLF Rank alone.
+* **raw / max × 9999**: measure how faithfully it keeps DLF's relative spacing and whether its
+  curve is genuinely incompatible with the aggregation space. **DLF may disagree with KTC**,
+  and differing from KTC's curve is not grounds for rejection.
+* **quantile mapping**: define the target distribution BEFORE running it. Never map onto the
+  current `rankDerivedValue` distribution (our board → DLF translation → DLF votes on our
+  board is circular). Any reference must be proven independent and legitimate. Compare DLF's
+  curve with KTC Crowd and other native-value sources for understanding only. Never tune DLF
+  to KTC; KTC Market is a benchmark, not a truth target.
+* If no transformation preserves meaningful DLF value information without pathological
+  aggregation behaviour, DLF Values stay acquired, visible and in the DLF second opinion, but
+  NON-VOTING, and DLF Rank remains the model signal until a defensible normalization exists.
+
 ### Power Rankings pipeline audit + methodology display — owner directive 2026-09-23
 
 Owner reported a League Power Rankings share card showing 10 of 12 teams, "Preseason" in
