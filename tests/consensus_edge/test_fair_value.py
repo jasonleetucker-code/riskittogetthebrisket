@@ -579,9 +579,22 @@ class TestFairValueIndex(unittest.TestCase):
             ratios.append((ratio, key))
             if str(row.get("position") or "").upper() in {"QB", "RB", "WR", "TE"}:
                 offense_ratios.append((ratio, key))
-                surviving = set(row.get("sourceRanks") or {}) - set(
-                    entry.get("excludedSources") or []
-                )
+                # A VOTE is a source that voted on the default board: a Hampel
+                # outlier or a superseded / zero-weight observation is present
+                # in ``sourceRanks`` but was not a vote there.  Counting it made
+                # Reggie Virgil (2026-09-24 18:47Z board) look like a 4-vote row
+                # when Draft Sharks — the one source left above him — had been
+                # rejected as an outlier on the default board.
+                meta = row.get("sourceRankMeta") or {}
+                voted = {
+                    k
+                    for k, m in meta.items()
+                    if isinstance(m, dict)
+                    and not m.get("hampelDropped")
+                    and m.get("contributedToBlend") is not False
+                    and (m.get("appliedWeight") or 0) > 0
+                }
+                surviving = voted - set(entry.get("excludedSources") or [])
                 if len(surviving) >= 4:
                     offense_well_covered.append((ratio, key))
 
