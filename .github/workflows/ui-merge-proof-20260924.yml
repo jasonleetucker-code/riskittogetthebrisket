@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: 239fecc6771bfc666e8bc3b050f1a394721dbc25
+          ref: main
           fetch-depth: 0
       - uses: actions/setup-python@v7
         with:
@@ -20,12 +20,17 @@ jobs:
           cache-dependency-path: |
             requirements.txt
             requirements-dev.txt
-      - name: Exact candidate and tree provenance
+      - name: Compose exact current-main integration candidate
         run: |
           set -Eeuo pipefail
-          test "$(git rev-parse HEAD)" = 239fecc6771bfc666e8bc3b050f1a394721dbc25
-          git show -s --format='candidate=%H tree=%T parents=%P'
-          git diff --stat 1c026cae372628cf2852a56ef11bef50e116cf2a HEAD
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          base=$(git rev-parse HEAD)
+          echo "INTEGRATION_BASE=$base" >> "$GITHUB_ENV"
+          git merge --no-ff -m 'Local-only exact governance integration proof' 07a6d1e76e6a7126cf4a91084af6ce7fcd507805
+          git show -s --format='candidate=%H tree=%T parents=%P' | tee /tmp/ui-integration-provenance.txt
+          printf 'base=%s\nhead=07a6d1e76e6a7126cf4a91084af6ce7fcd507805\n' "$base" | tee -a /tmp/ui-integration-provenance.txt
+          git diff --stat "$base" HEAD
           test ! -e .github/workflows/ui-merge-proof-20260924.yml
       - name: Install canonical validation dependencies
         run: python -m pip install -r requirements-dev.txt
@@ -35,11 +40,23 @@ jobs:
           python scripts/check_planning_integrity.py
           python scripts/check_product_plan_governance.py
           python -m pytest tests/docs -q
-          python scripts/check_work_claims.py --files docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md docs/ui/UI_PARALLEL_LEDGER.md scripts/check_planning_integrity.py tests/docs/test_ui_parallel_governance.py
+          python scripts/check_work_claims.py --files docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md docs/ui/UI_PARALLEL_LEDGER.md scripts/check_planning_integrity.py tests/docs/test_ui_parallel_governance.py --branch codex/calculator-ui-parallel-contract
           bash scripts/tiered_validate.sh l0
-          git diff --check 1c026cae372628cf2852a56ef11bef50e116cf2a HEAD
+          git diff --check "$INTEGRATION_BASE" HEAD
           git diff --exit-code
+      - name: Preserve source for bounded gallery integration
+        run: |
+          git archive --format=tar 121adb09d3f50ab2284a0aae3dfb5dd840a8dd9b frontend/app/design frontend/__tests__ tests/e2e docs/ui docs/WORK_CLAIMS.md > /tmp/ui-integration-source.tar
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ui-integration-source-and-provenance
+          path: |
+            /tmp/ui-integration-source.tar
+            /tmp/ui-integration-provenance.txt
+          retention-days: 2
       - name: Publish provenance
         if: always()
         run: |
-          printf '### Exact governance integration candidate\n\nCandidate: `239fecc6771bfc666e8bc3b050f1a394721dbc25`\n\nBase: `1c026cae372628cf2852a56ef11bef50e116cf2a`\n\nPR head: `07a6d1e76e6a7126cf4a91084af6ce7fcd507805`\n\nNo production files or release branch were modified by this proof.\n' >> "$GITHUB_STEP_SUMMARY"
+          printf '### Exact governance integration candidate\n\n' >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/ui-integration-provenance.txt >> "$GITHUB_STEP_SUMMARY"
+          printf '\nNo release branch was modified by this proof.\n' >> "$GITHUB_STEP_SUMMARY"
