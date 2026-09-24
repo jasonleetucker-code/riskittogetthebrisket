@@ -172,7 +172,37 @@ class TestSessionStaging(unittest.TestCase):
                 staged_from = _mod._stage_session_file(str(candidate))
             self.assertEqual(staged_from, candidate)
             self.assertEqual(repo_jar.read_text(), "fresh")
-            self.assertEqual(repo_jar.stat().st_mode & 0o777, 0o600)
+            if os.name == "posix":
+                # POSIX permission bits only; Windows reports 0o666 for any
+                # writable file whatever was requested.
+                self.assertEqual(repo_jar.stat().st_mode & 0o777, 0o600)
+
+    def test_atomic_copy_without_fchmod_still_copies_private(self):
+        """Platforms without ``os.fchmod`` (Windows) fall back to ``os.chmod``."""
+        with tempfile.TemporaryDirectory() as td:
+            src = Path(td) / "src.json"
+            dst = Path(td) / "dst.json"
+            src.write_text("jar")
+            real_chmod = os.chmod
+            calls = []
+
+            def _chmod(path, mode, *a, **k):
+                calls.append(mode)
+                return real_chmod(path, mode, *a, **k)
+
+            saved_fchmod = getattr(os, "fchmod", None)
+            if saved_fchmod is not None:
+                del os.fchmod
+            try:
+                with mock.patch.object(_mod.os, "chmod", side_effect=_chmod):
+                    _mod._atomic_copy_0600(src, dst)
+            finally:
+                if saved_fchmod is not None:
+                    os.fchmod = saved_fchmod
+            self.assertEqual(calls, [0o600])
+            self.assertEqual(dst.read_text(), "jar")
+            if os.name == "posix":
+                self.assertEqual(dst.stat().st_mode & 0o777, 0o600)
 
     def test_fresher_repo_copy_is_kept(self):
         with tempfile.TemporaryDirectory() as td:

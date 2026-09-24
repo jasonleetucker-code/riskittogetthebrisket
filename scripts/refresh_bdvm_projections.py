@@ -107,7 +107,12 @@ def _atomic_copy_0600(src: Path, dst: Path) -> None:
     try:
         try:
             os.write(fd, data)
-            os.fchmod(fd, 0o600)
+            if hasattr(os, "fchmod"):
+                os.fchmod(fd, 0o600)
+            else:
+                # Windows has no fchmod; mkstemp's file is already private to
+                # the creating user there.  Same request by path.
+                os.chmod(tmp_name, 0o600)
         finally:
             os.close(fd)
         os.replace(tmp_name, dst)
