@@ -19,6 +19,7 @@ Run with:  python3 -m pytest tests/api/test_pick_refinement.py -v
 from __future__ import annotations
 
 import json
+import re
 import unittest
 from pathlib import Path
 from typing import Any
@@ -55,6 +56,22 @@ def _by_name(contract: dict[str, Any]) -> dict[str, dict[str, Any]]:
     }
 
 
+_SLOT_NAME = re.compile(r"^(20\d{2}) Pick [1-6]\.\d{2}$")
+
+#: Between one rookie draft and the next class's draft order no class is
+#: slotted (C1-U6-D2): the board carries every year as tiers.  Slot-specific
+#: assertions have nothing to assert then, and say so rather than fail.
+_NO_SLOTTED_CLASS = (
+    "no slotted class on the board — between drafts every year prices as tiers (C1-U6-D2)"
+)
+
+
+def _slotted_year(by_name: dict[str, dict[str, Any]]) -> int | None:
+    """The class whose SLOT rows are on the board, derived — never a literal."""
+    years = sorted({int(m.group(1)) for n in by_name for m in [_SLOT_NAME.match(n)] if m})
+    return years[0] if years else None
+
+
 class TestSlotMonotonic(unittest.TestCase):
     """Slot-specific picks must be strictly monotonic by slot number
     inside every (year, round) bucket."""
@@ -89,27 +106,33 @@ class TestSlotMonotonic(unittest.TestCase):
                 )
             prev_val = val
 
-    def test_2026_r1_slots_monotonic(self) -> None:
-        self._check_round(2026, 1)
+    def _year(self) -> int:
+        year = _slotted_year(self.by_name)
+        if year is None:
+            self.skipTest(_NO_SLOTTED_CLASS)
+        return year
 
-    def test_2026_r2_slots_monotonic(self) -> None:
-        self._check_round(2026, 2)
+    def test_current_class_r1_slots_monotonic(self) -> None:
+        self._check_round(self._year(), 1)
 
-    def test_2026_r3_slots_monotonic(self) -> None:
-        self._check_round(2026, 3)
+    def test_current_class_r2_slots_monotonic(self) -> None:
+        self._check_round(self._year(), 2)
 
-    def test_2026_r4_slots_monotonic(self) -> None:
+    def test_current_class_r3_slots_monotonic(self) -> None:
+        self._check_round(self._year(), 3)
+
+    def test_current_class_r4_slots_monotonic(self) -> None:
         # R4 pick slots anchor to rookies 37-48 where the rookie value
         # cluster sits in the Hill's flatter tail.  Allow a 100-point
         # tolerance for bounded inversions from rookie-value ties.
-        self._check_round(2026, 4, tolerance=100)
+        self._check_round(self._year(), 4, tolerance=100)
 
-    def test_2026_r2_no_known_inversions(self) -> None:
+    def test_current_class_r2_no_known_inversions(self) -> None:
         """Audit's specific R2 inversions are fixed:
         * 2.05 must NOT outrank 2.04
         * 2.09 must NOT outrank 2.04 or 2.07
         """
-        names = [f"2026 Pick 2.{s:02d}" for s in range(1, 13)]
+        names = [f"{self._year()} Pick 2.{s:02d}" for s in range(1, 13)]
         rows = [self.by_name.get(n) for n in names]
         # All present
         for n, r in zip(names, rows):
@@ -224,8 +247,11 @@ class TestYearDiscount(unittest.TestCase):
         against a runaway future-pick valuation without re-encoding the
         overcorrection.
         """
-        top = self.by_name.get("2026 Pick 1.01")
-        far = self.by_name.get("2028 Early 1st")
+        year = _slotted_year(self.by_name)
+        if year is None:
+            self.skipTest(_NO_SLOTTED_CLASS)
+        top = self.by_name.get(f"{year} Pick 1.01")
+        far = self.by_name.get(f"{year + 2} Early 1st")
         if not top or not far:
             self.skipTest("pick rows not present on this board")
         if not top.get("rankDerivedValue") or not far.get("rankDerivedValue"):
@@ -233,7 +259,7 @@ class TestYearDiscount(unittest.TestCase):
         self.assertLess(
             int(far["rankDerivedValue"]),
             int(top["rankDerivedValue"]),
-            "a speculative 2028 tier must not outvalue the 1.01 of the "
+            "a speculative two-years-out tier must not outvalue the 1.01 of the "
             "class that is about to be drafted",
         )
 
@@ -247,21 +273,24 @@ class TestSpecificSlotVsRoundBoundary(unittest.TestCase):
             self.skipTest("No live data")
         self.by_name = _by_name(self.contract)
 
-    def test_2026_slot_1_12_above_2026_slot_2_01(self) -> None:
+    def test_current_class_slot_1_12_above_slot_2_01(self) -> None:
         # Under the Final Framework's flatter Hill tail the 12th and
         # 13th rookies can land at identical integer values (picks
         # anchor to rookies, so ties on the rookie side propagate).
         # We assert weak monotonicity — 1.12 must never undervalue
         # 2.01 — rather than strict > which the old rank-Hill curve
         # guaranteed by construction.
-        a = self.by_name.get("2026 Pick 1.12")
-        b = self.by_name.get("2026 Pick 2.01")
-        self.assertIsNotNone(a, "2026 Pick 1.12 missing")
-        self.assertIsNotNone(b, "2026 Pick 2.01 missing")
+        year = _slotted_year(self.by_name)
+        if year is None:
+            self.skipTest(_NO_SLOTTED_CLASS)
+        a = self.by_name.get(f"{year} Pick 1.12")
+        b = self.by_name.get(f"{year} Pick 2.01")
+        self.assertIsNotNone(a, f"{year} Pick 1.12 missing")
+        self.assertIsNotNone(b, f"{year} Pick 2.01 missing")
         self.assertGreaterEqual(
             int(a["rankDerivedValue"]),  # type: ignore[index]
             int(b["rankDerivedValue"]),  # type: ignore[index]
-            "2026 Pick 1.12 must weakly outvalue 2026 Pick 2.01",
+            f"{year} Pick 1.12 must weakly outvalue {year} Pick 2.01",
         )
 
 
@@ -274,46 +303,73 @@ class TestGenericTierSuppression(unittest.TestCase):
             self.skipTest("No live data")
         self.by_name = _by_name(self.contract)
 
-    def test_2026_generic_tiers_suppressed(self) -> None:
+    def test_slotted_class_generic_tiers_suppressed(self) -> None:
+        year = _slotted_year(self.by_name)
+        if year is None:
+            self.skipTest(_NO_SLOTTED_CLASS)
         for label in ("Early", "Mid", "Late"):
             for rnd in ("1st", "2nd", "3rd", "4th", "5th", "6th"):
-                name = f"2026 {label} {rnd}"
+                name = f"{year} {label} {rnd}"
                 row = self.by_name.get(name)
                 if row is None:
                     continue
                 self.assertTrue(
                     row.get("pickGenericSuppressed"),
-                    f"{name} should be suppressed when 2026 slots exist",
+                    f"{name} should be suppressed when {year} slots exist",
                 )
                 self.assertIsNone(
                     row.get("canonicalConsensusRank"),
                     f"{name} should have no rank after suppression",
                 )
 
-    def test_pick_aliases_includes_2026_generic_tiers(self) -> None:
+    def test_pick_aliases_cover_exactly_the_slotted_class(self) -> None:
         aliases = self.contract.get("pickAliases", {}) if self.contract else {}
-        self.assertIn("2026 Mid 1st", aliases)
-        self.assertIn("2026 Early 1st", aliases)
-        self.assertIn("2026 Late 1st", aliases)
+        year = _slotted_year(self.by_name)
+        if year is None:
+            # Nothing is slotted, so nothing may be aliased away.
+            self.assertEqual(aliases, {}, "tiers aliased with no slot rows to alias to")
+            return
+        self.assertIn(f"{year} Mid 1st", aliases)
+        self.assertIn(f"{year} Early 1st", aliases)
+        self.assertIn(f"{year} Late 1st", aliases)
         # Targets must be valid slot picks
         for k, v in aliases.items():
             row = self.by_name.get(v)
             self.assertIsNotNone(row, f"alias target missing: {v}")
 
-    def test_2027_generic_tiers_kept(self) -> None:
-        """2027 has no specific slots — its generic tiers must remain
-        on the ranked board."""
-        for tier in ("Early", "Mid", "Late"):
-            row = self.by_name.get(f"2027 {tier} 1st")
-            self.assertIsNotNone(row, f"2027 {tier} 1st missing")
-            self.assertFalse(
-                row.get("pickGenericSuppressed"),
-                f"2027 {tier} 1st should NOT be suppressed (no specific slots)",
-            )
-            self.assertIsNotNone(
-                row.get("canonicalConsensusRank"),
-                f"2027 {tier} 1st should still be ranked",
-            )
+    def test_unslotted_years_keep_their_tiers(self) -> None:
+        """Every year with no slot rows keeps its tiers on the ranked board —
+        including the CURRENT class between drafts (C1-U6-D2)."""
+        slotted = _slotted_year(self.by_name)
+        tier_years = sorted(
+            {int(n[:4]) for n in self.by_name if re.match(r"^20\d{2} (Early|Mid|Late) 1st$", n)}
+        )
+        checked = [y for y in tier_years if y != slotted]
+        self.assertTrue(checked, "no unslotted tier year on the board")
+        for year in checked:
+            for tier in ("Early", "Mid", "Late"):
+                row = self.by_name.get(f"{year} {tier} 1st")
+                self.assertIsNotNone(row, f"{year} {tier} 1st missing")
+                self.assertFalse(
+                    row.get("pickGenericSuppressed"),
+                    f"{year} {tier} 1st should NOT be suppressed (no specific slots)",
+                )
+                self.assertIsNotNone(
+                    row.get("canonicalConsensusRank"),
+                    f"{year} {tier} 1st should still be ranked",
+                )
+
+    def test_no_tether_outside_the_slotted_class(self) -> None:
+        """A pick is tethered to rookies only inside the slotted class —
+        never a tier year, never a class whose draft order is unknown."""
+        slotted = _slotted_year(self.by_name)
+        for name, row in self.by_name.items():
+            prov = row.get("pickValueProvenance") or {}
+            if isinstance(prov, dict) and prov.get("class") == "rookie_pool_tether":
+                self.assertIsNotNone(_SLOT_NAME.match(name), f"{name} tethered but not a slot")
+                self.assertEqual(
+                    int(name[:4]), slotted, f"{name} tethered outside the slotted class"
+                )
 
 
 class TestPickConfidenceUsesCV(unittest.TestCase):
@@ -325,14 +381,17 @@ class TestPickConfidenceUsesCV(unittest.TestCase):
             self.skipTest("No live data")
         self.by_name = _by_name(self.contract)
 
-    def test_2026_specific_slots_have_pick_confidence(self) -> None:
-        # All 2026 specific slots should resolve to a known pick bucket
+    def test_slotted_class_picks_have_pick_confidence(self) -> None:
+        # All slotted-class slots should resolve to a known pick bucket
         # — never the generic player labels.
 
         # Round 1 picks should be high confidence (KTC + IDPTC values
         # typically agree within 30%)
+        year = _slotted_year(self.by_name)
+        if year is None:
+            self.skipTest(_NO_SLOTTED_CLASS)
         for slot in range(1, 13):
-            row = self.by_name.get(f"2026 Pick 1.{slot:02d}")
+            row = self.by_name.get(f"{year} Pick 1.{slot:02d}")
             self.assertIsNotNone(row)
             bucket = row.get("confidenceBucket")  # type: ignore[union-attr]
             self.assertIn(

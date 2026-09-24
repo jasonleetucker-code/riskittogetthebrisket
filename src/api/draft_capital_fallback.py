@@ -138,7 +138,11 @@ def _pick_value_from_contract(
         from src.api.pick_value_resolution import resolve_pick_value
         from src.identity.picks import MarketPickRef
 
-        if int(season) > int(current_rookie_draft_year()):
+        # ``>=``: the CURRENT class is unslotted between one rookie draft
+        # and the next class's draft order (C1-U6-D2) — its generated slot
+        # is the same stand-in, and a slotted current year never reaches
+        # here because its slot row matched above.
+        if int(season) >= int(current_rookie_draft_year()):
             res = resolve_pick_value(
                 contract, MarketPickRef(year=int(season), round_num=int(round_num))
             )

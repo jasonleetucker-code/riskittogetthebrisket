@@ -20,7 +20,8 @@ regress:
    structural exemption — expected_sources == matched_sources)
 6. Picks from the live ``idpTradeCalc.csv`` do not silently disappear
    from the API output
-7. Representative picks (2026 1.01, 1.06, 1.12, 2.06, 2027 Mid 1st)
+7. Representative picks (the slotted class's 1.01/1.06/1.12/2.06 + a future Mid 1st;
+   between drafts, the current class's tiers)
    are present with positive values
 
 Run with:  python3 -m pytest tests/api/test_picks_end_to_end.py -v
@@ -117,6 +118,19 @@ def _slot_pick_round(name: str) -> int | None:
     return None
 
 
+_SLOT_NAME = re.compile(r"^(20\d{2}) Pick [1-6]\.\d{2}$")
+
+
+def _slotted_year(names: Any) -> int | None:
+    """The class whose SLOT rows are on the board — derived, never a literal.
+
+    ``None`` between one rookie draft and the next class's draft order, when
+    every year prices as tiers (C1-U6-D2).
+    """
+    years = sorted({int(m.group(1)) for n in names for m in [_SLOT_NAME.match(str(n))] if m})
+    return years[0] if years else None
+
+
 def _pick_rows(contract: dict[str, Any]) -> list[dict[str, Any]]:
     return [r for r in contract.get("playersArray", []) if r.get("assetClass") == "pick"]
 
@@ -189,27 +203,29 @@ class TestPicksPresentInContract(unittest.TestCase):
             if p.get("canonicalConsensusRank") and not p.get("rankDerivedValue")
         ]
         self.assertEqual(rank_no_value, [], f"Ranked picks without value: {rank_no_value[:10]}")
-        # 2026 slot picks in rounds 1-4 must have VALUE (anchored to
+        # Slotted-class picks in rounds 1-4 must have VALUE (anchored to
         # the corresponding rookie). Later-round slot picks depend on
         # rookie universe depth; if the rookie list runs out before
         # round 5-6, some deep picks legitimately end up without an
         # anchored value — this mirrors the pre-change behaviour where
         # those picks had tier-value approximations only.
-        slot_2026_early = [
+        slotted = _slotted_year(p.get("canonicalName") for p in picks)
+        slot_early = [
             p
             for p in picks
-            if str(p.get("canonicalName") or "").startswith("2026 Pick ")
+            if slotted is not None
+            and str(p.get("canonicalName") or "").startswith(f"{slotted} Pick ")
             and _slot_pick_round(p.get("canonicalName") or "") in (1, 2, 3, 4)
         ]
         value_missing = [
             p["canonicalName"]
-            for p in slot_2026_early
+            for p in slot_early
             if not p.get("rankDerivedValue") or p.get("rankDerivedValue", 0) <= 0
         ]
         self.assertEqual(
             value_missing,
             [],
-            f"2026 rounds 1-4 slot picks missing anchored value: {value_missing[:5]}",
+            f"{slotted} rounds 1-4 slot picks missing anchored value: {value_missing[:5]}",
         )
 
     def test_every_pick_has_source_ranks(self) -> None:
@@ -327,7 +343,11 @@ class TestIdpTradeCalcPicksSurviveEnrichment(unittest.TestCase):
         if not self.csv_picks:
             self.skipTest("No picks in idpTradeCalc.csv")
         contract_pick_names = {p["canonicalName"] for p in _pick_rows(self.contract)}
-        missing = [n for n in self.csv_picks if n not in contract_pick_names]
+        # A class already drafted is not an asset any more — the board
+        # starts at the contract's own current draft year.
+        current = int(self.contract.get("currentDraftYear") or 0)
+        required = [n for n in self.csv_picks if int(n[:4]) >= current]
+        missing = [n for n in required if n not in contract_pick_names]
         self.assertEqual(
             missing,
             [],
@@ -338,32 +358,35 @@ class TestIdpTradeCalcPicksSurviveEnrichment(unittest.TestCase):
 class TestRepresentativePicks(unittest.TestCase):
     """Specific picks from the 7-point verification list must be findable."""
 
-    TARGETS = [
-        "2026 Pick 1.01",  # early-1st, slot-specific
-        "2026 Pick 1.06",  # mid-1st, slot-specific
-        "2026 Pick 1.12",  # late-1st, slot-specific
-        "2026 Pick 2.06",  # mid-2nd, slot-specific
-        "2027 Mid 1st",  # generic future 1st
-    ]
-
     def setUp(self) -> None:
         self.contract = _load_contract()
         if self.contract is None:
             self.skipTest("No live scraper export available")
         self.by_name = {p["canonicalName"]: p for p in _pick_rows(self.contract)}
+        self.slotted = _slotted_year(self.by_name)
+        current = int(self.contract.get("currentDraftYear") or 0)
+        if self.slotted is not None:
+            # Slot-specific picks of the class being drafted + a future tier.
+            y = self.slotted
+            self.targets = [f"{y} Pick 1.01", f"{y} Pick 1.06", f"{y} Pick 1.12", f"{y} Pick 2.06"]
+            self.targets.append(f"{y + 1} Mid 1st")
+        else:
+            # Between drafts (C1-U6-D2): the current class is tiers, like
+            # every future year, plus its generic-grade row.
+            self.targets = [f"{current} Early 1st", f"{current} Mid 1st", f"{current} Late 1st"]
+            self.targets += [f"{current} Mid 2nd", f"{current + 1} Mid 1st"]
 
     def test_targets_have_rank_and_value(self) -> None:
-        # 2026 slot-specific picks are intentionally un-ranked — they
-        # carry the rookie-anchored value only (``rankDerivedValue``)
-        # so they don't consume merged-board rank slots. Tier-generic
-        # picks and future-year picks still hold real ranks.
-        for name in self.TARGETS:
+        # Slot-specific picks are intentionally un-ranked — they carry
+        # the rookie-anchored value only (``rankDerivedValue``) so they
+        # don't consume merged-board rank slots. Tier-generic picks and
+        # future-year picks still hold real ranks.
+        for name in self.targets:
             with self.subTest(pick=name):
                 row = self.by_name.get(name)
                 self.assertIsNotNone(row, f"{name} missing from pick contract output")
                 assert row is not None
-                is_2026_slot = name.startswith("2026 Pick ")
-                if is_2026_slot:
+                if _SLOT_NAME.match(name):
                     self.assertIsNone(
                         row.get("canonicalConsensusRank"),
                         f"{name} should be un-ranked (anchored to rookie only)",
@@ -389,8 +412,10 @@ class TestRepresentativePicks(unittest.TestCase):
     def test_early_first_has_higher_value_than_late_first(self) -> None:
         """2026 slot picks no longer carry ranks — value is the only
         comparison signal (anchored to the corresponding rookie)."""
-        early = self.by_name.get("2026 Pick 1.01")
-        late = self.by_name.get("2026 Pick 1.12")
+        if self.slotted is None:
+            self.skipTest("no slotted class on the board — between drafts (C1-U6-D2)")
+        early = self.by_name.get(f"{self.slotted} Pick 1.01")
+        late = self.by_name.get(f"{self.slotted} Pick 1.12")
         if not early or not late:
             self.skipTest("Slot-specific 1st not in snapshot")
         self.assertGreater(
@@ -416,7 +441,7 @@ class TestRepresentativePicks(unittest.TestCase):
         mismatched: list[str] = []
         for row in pa:
             name = str(row.get("canonicalName") or "")
-            if not name.startswith("2026 Pick "):
+            if not _SLOT_NAME.match(name):
                 continue
             if row.get("assetClass") != "pick":
                 continue

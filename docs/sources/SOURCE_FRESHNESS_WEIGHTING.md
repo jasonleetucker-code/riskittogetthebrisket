@@ -161,10 +161,28 @@ Fixes made:
 * The wrapper still exits non-zero on a partial run, so the failure stays
   visible.
 
-**Owner action:** `journalctl -u dynasty-dlf-fetch.service` on the box to
-confirm which board trips the guard. Meanwhile the last valid DLF values
-keep their real age and decay by cadence. DLF SF is quarantined, and the
-IDP boards (longer cadence) retain partial authority.
+**Root cause, confirmed in production (2026-09-24, DLF-2026-09).** The first
+DLF commit after the wrapper fix, `3793500e8` ("chore(dlf): automated refresh
+2026-09-24T12:27:49Z", authored by the production fetch), wrote `dlfIdp` (172
+rows), `dlfRookieIdp` (30) and `dlfRookieSf` (56) — every one with an **empty**
+native Value column — and no `dlfSf`. So login, Cloudflare and the session all
+work. DLF no longer serves its Value column on any board, and `dlfSf` alone
+declared `require_native_value`, so its otherwise-valid ranking was refused
+every run (native Value coverage 0 against a 240-row floor).
+
+**Fix: rank health and native-Value health are separate questions.** The row
+floor over parsed ranks decides whether a board is written (`_board_verdict`).
+`dlfSf` now declares `expect_native_value`: when native Value coverage falls
+below the floor, `fetch_dlf.py` prints `[DLF] WARNING dlfSf: native Value
+coverage N/M — … writing rank with an empty value column` and writes
+`name,rank,value` with the value **empty**. It never synthesizes Value from
+Rank. Nothing in the dynasty blend reads DLF's native Value (DLF votes as a
+rank signal), so an empty column changes no canonical number; it only means
+the native Value is unavailable, and says so. Pinned by
+`tests/adapters/test_dlf_scraper.py`.
+
+The last valid DLF values keep their real age and decay by cadence until the
+next successful run restores `dlfSf` to full authority.
 
 ## F. How production calculated values before this change
 
