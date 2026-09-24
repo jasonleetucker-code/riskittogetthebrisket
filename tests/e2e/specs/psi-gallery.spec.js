@@ -43,6 +43,9 @@ test("PSI gallery: populated reference, table access and desktop/phone evidence"
   const usefulMs = Date.now() - started;
   await expect(page.getByRole("main")).toHaveCount(1);
   await expect(page.getByText("Fixtures only")).toBeVisible();
+  await expect(page.getByText("Chart previews unavailable")).toBeVisible();
+  await expect(page.locator(".ds-sparkline, .ds-meter")).toHaveCount(0);
+  await expect(page.getByTestId("chart-preview-gate")).toContainText("9,541 / 10,000");
   await noPageOverflow(page);
   const scope = await page.getByTestId("psi-gallery").evaluate(element => {
     const style = getComputedStyle(element);
@@ -92,10 +95,13 @@ test("PSI gallery: accessible modal/drawer and keyboard focus under reduced moti
     expect(await dialog.evaluate(node => node.contains(document.activeElement))).toBe(true);
     await noPageOverflow(page);
     if (name === "drawer") {
-      const chart = dialog.getByRole("img", { name: "Jefferson 6-week value trend" });
-      const chartWidth = await chart.evaluate(node => node.getBoundingClientRect().width);
+      const detail = dialog.getByTestId("drawer-chart-gate");
+      await expect(detail).toContainText("88 → 90 → 91 → 93 → 96 → 97");
+      await expect(detail).toContainText("Chart preview unavailable");
+      await expect(page.locator(".ds-sparkline, .ds-meter")).toHaveCount(0);
+      const detailWidth = await detail.evaluate(node => node.getBoundingClientRect().width);
       const bodyWidth = await dialog.evaluate(node => node.clientWidth);
-      expect(chartWidth).toBeLessThanOrEqual(bodyWidth);
+      expect(detailWidth).toBeLessThanOrEqual(bodyWidth);
     }
     await scan(page, testInfo, name);
     await image(page, testInfo, name);

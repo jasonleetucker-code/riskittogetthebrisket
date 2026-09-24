@@ -5,19 +5,23 @@ Branch: `codex/psi-design-reference`, separate and stacked on the reviewable gov
 head until Integration lands it. Initial reservation has advanced to implementation; inspect the current PR/evidence before resuming. Deployment and production proof remain separate gates.
 Agent-OS-Receipt at audit: cdca1dca8385f70c0989302dece8d1bd4ce4843c; regenerate for the implementation session.
 
-## Current checkpoint — implementation exists, do not redo it
+## Current integration checkpoint — incremental foundation, not full chart acceptance
 
-PR #1429 is a separate draft stacked on governance #1426. Runtime code tested at
-49e7fcfd824ba3f2c7432a818d2f7f5fbc2d8121: 2,483 Vitest, build/14 budgets, four E2E,
-six axe states, keyboard/responsive checks passed. Ten reviewed CI images and
-bundle +1,191-byte measurement are in docs/psi/evidence/PR_1429_2026-09-24/README.md.
-They are not production proof. Current blocker is only #1428's inherited categorical
-chart contrast on cream; do not invent palette/plot treatment or weaken contrast.
-Reuse an evidenced approved solution or obtain the explicit bounded owner decision.
-Shared shell outer-canvas/Screenshot-FAB debt needs its own claim. Continue safe
-populated Rankings/Player File reference test work while that decision waits.
-The original prompt below is historical scope; first inspect the implemented diff
-and resume only remaining acceptance. No background worker is implied by the branch.
+The owner subsequently requested push and merge. Governance #1426 is integrated.
+PR #1429 releases only the independently usable gallery foundation: all unapproved
+categorical previews are explicitly gated, with honest pending-state messaging and
+numeric fixture history retained. No product chart, palette, DS owner or design
+precedence is changed. #1428 remains OPEN; the gallery stays PARTIAL / MIGRATING,
+not PSI_VERIFIED. Enabling previews requires separately approved treatment and proof.
+
+Current-head integration validation, screenshot provenance and deployment status must
+be read from PR #1429; old screenshots at 49e7fcf are historical, not the gated release.
+The original 2,483-test / 14-budget / four-E2E / six-axe evidence remains historical.
+Fresh desktop/phone and keyboard/axe proof is required before the gated state ships.
+Production verification and shared shell outer-canvas/Screenshot-FAB debt remain open.
+Continue dependency-safe populated Rankings/Player File test work while #1428 waits.
+The prompt below is retained as historical scope, not permission to repeat completed
+work or enable the chart gate. A branch does not imply a running background worker.
 
 ## Copyable prompt
 
