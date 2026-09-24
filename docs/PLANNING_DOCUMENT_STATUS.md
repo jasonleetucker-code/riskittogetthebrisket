@@ -25,6 +25,7 @@ below.** A document that appears nowhere is drift, and `scripts/check_planning_i
 | `docs/VERSION_1_COMPLETION_CONTRACT.md` | **The V1 completion denominator and status ledger.** Answers "what must be true for V1 to be complete, and how much of it is proven". Classifies scope; authorizes nothing — `EXECUTION_PLAN.md` §0 alone does |
 | `docs/CE_REGISTRY.md` | **The only place a CE identifier is defined** |
 | `docs/OWNER_REQUESTED_TODO.md` | **THE LIVE OWNER INTAKE LEDGER** — see §2 |
+| `docs/BRISKET_IDEAS.md` | **Owner-facing intake/parallel-work front door.** Defines the conversational `Brisket Ideas` shorthand, dedupe/replan workflow, shared-foundation grouping and concurrency classes. It is navigation/process only: it does not duplicate the ledger and does not authorize implementation. |
 | `docs/ARCHITECTURE_HANDOFF.md` | Architecture / canonical-owner state; may contain stale phase metadata and must not override `EXECUTION_PLAN.md` |
 | `docs/WORK_CLAIMS.md` | Current concurrent-edit ownership only |
 
@@ -37,7 +38,7 @@ documents stale — but implementation behaviour never overrides a newer *owner 
 
 ## 2. OWNER INTAKE — one mechanism, stated once
 
-**`docs/OWNER_REQUESTED_TODO.md` is the live intake ledger.** New owner instructions land there first. This is a
+**`docs/OWNER_REQUESTED_TODO.md` is the live intake ledger.** New owner instructions land there first. The owner-facing shorthand **Brisket Ideas** routes here; `docs/BRISKET_IDEAS.md` explains the workflow so the owner never needs to choose a planning file. This is a
 deliberate 2026-08-14 reclassification: the file was previously listed as historical/superseded while carrying
 **65 binding owner decisions**, including the two newest binding decision sets in the repository. The governance
 system was telling readers not to trust the file where the newest owner intent lived.
@@ -51,9 +52,10 @@ system was telling readers not to trust the file where the newest owner intent l
    it carries detailed behaviour, in the Product Backlog Spec or its own spec document.
 3. **Manifest row** — it gets a row in `docs/C_SERIES_SCOPE_MANIFEST.md` with a canonical owner, a phase and
    completion evidence. **This is the step that makes it un-losable.**
-4. **Authorization** — only `docs/EXECUTION_PLAN.md` may say it can be built, and only after an owner decision.
+4. **Portfolio reconciliation** — for a material idea, perform the lightweight `docs/BRISKET_IDEAS.md` check: canonical owner, dependencies, overlap/supersession, shared foundation, NOW/NEXT/LATER/BLOCKED placement, and safe parallel class. This organizes work but grants no authority.
+5. **Authorization** — only `docs/EXECUTION_PLAN.md` may say it can be built, and only after an owner decision.
 
-Steps 1–3 are documentation and may happen at any time. Step 4 is the gate.
+Steps 1–4 are intake/planning and may happen at any time. Step 5 is the gate.
 
 **Enforced:** `scripts/check_planning_integrity.py` fails CI when a numbered owner decision in the intake ledger
 has no destination in the Scope Manifest or the traceability document.

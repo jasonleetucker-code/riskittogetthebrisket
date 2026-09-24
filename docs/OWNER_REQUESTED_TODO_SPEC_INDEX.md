@@ -24,9 +24,13 @@
 
 `OWNER_REQUESTED_TODO.md` remains the compact durable tracking ledger. This file prevents a short row in that ledger from being mistaken for a complete implementation prompt.
 
+`docs/BRISKET_IDEAS.md` is the owner-facing front door for adding and organizing new durable requests. It does not replace this index or the intake ledger; it defines the shorthand, dedupe/replan step, shared-foundation grouping, and safe-parallel classification before an item reaches implementation.
+
 ## Rule
 
 Before implementing any owner-requested item, Claude must read:
+
+0. `BRISKET_IDEAS.md` when selecting/organizing work across multiple ideas or sessions;
 
 1. the matching row in `OWNER_REQUESTED_TODO.md`;
 2. the matching detailed section in `OWNER_FEATURE_SPEC_RECONCILIATION_2026-08-13.md` or the older `OWNER_PRODUCT_BACKLOG_SPEC.md`;
