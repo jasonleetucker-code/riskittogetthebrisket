@@ -777,14 +777,7 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
 #   and is the benchmark our model is compared against, never a vote.
 # Enforced at import (``_assert_non_voting_keys_unregistered``): registering
 # any of these would re-count KTC information the model already holds.
-_NON_VOTING_SOURCE_CSV_KEYS: frozenset[str] = frozenset(
-    # dlfValuesSfTep: DLF Trade Analyzer Values (owner directive 2026-09-24).
-    # Acquired by the production DLF timer; its ``_SOURCE_CSV_PATHS`` entry
-    # lands only once real captures exist on main (the freshness watchdog
-    # rightly calls a path with no CSV and no stamp unmeasurable), and it
-    # stays here — refused as a voter — until its measurement gate passes.
-    {"ktc", "ktcSfTep", "ktcCrowdTradesSfTep", "dlfValuesSfTep"}
-)
+_NON_VOTING_SOURCE_CSV_KEYS: frozenset[str] = frozenset({"ktc", "ktcSfTep", "ktcCrowdTradesSfTep"})
 
 # Rank -> synthetic value transform used when a CSV declares signal=rank.
 # The absolute number is irrelevant to the downstream pipeline (it only
