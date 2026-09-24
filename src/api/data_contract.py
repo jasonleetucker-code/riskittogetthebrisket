@@ -11083,6 +11083,14 @@ def _compute_unified_rankings(
             effective_source_meta = {k: v for k, v in source_meta.items() if k not in dropped_set}
             row["rankDerivedValue"] = derived
             row["offCapPlayerValue"] = True
+            # Per-source provenance, exactly as the ranked path stamps it
+            # (source-participation audit, 2026-09-24): a priced row whose
+            # contributors are invisible is the "scraped but not voting?"
+            # question with no way to answer it.  ``sourceRanks`` is already
+            # stamped for every source-bearing row; the meta (applied weight,
+            # freshness, supersession, Hampel verdict) was computed for this
+            # row by the same blend and then dropped.
+            row["sourceRankMeta"] = source_meta
             # Publish the post-Hampel set the assessment below was read
             # from.  Leaving the template's ``{}`` on a row that now
             # carries a price would assert "no source survived" about a
