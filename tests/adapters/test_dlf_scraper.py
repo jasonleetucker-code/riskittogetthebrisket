@@ -269,3 +269,29 @@ def test_boards_match_registered_csv_paths(dlf_module):
             f"Path mismatch for {key}: scraper writes {cfg['out']!r}, "
             f"registry expects {reg_path!r}"
         )
+
+
+def test_board_verdict_is_the_one_write_guard(dlf_module):
+    """``--dry-run`` and the real run decide through the same function, so an
+    on-box dry run reports exactly what production would do."""
+    sf = dlf_module.BOARDS["dlfSf"]
+    rows = [{"name": f"P{i}", "avg": str(i), "value": str(1000 - i)} for i in range(1, 300)]
+    assert dlf_module._board_verdict(sf, rows) == (True, "ok")
+
+    ok, reason = dlf_module._board_verdict(sf, rows[:10])
+    assert not ok and reason.startswith("parsed only 10 rows")
+
+    no_value = [{"name": r["name"], "avg": r["avg"], "value": ""} for r in rows]
+    ok, reason = dlf_module._board_verdict(sf, no_value)
+    assert not ok and reason.startswith("native Value coverage 0/299")
+
+    # Boards that do not require native Value only answer to the row floor.
+    idp = dlf_module.BOARDS["dlfIdp"]
+    assert dlf_module._board_verdict(idp, no_value[:200]) == (True, "ok")
+
+
+def test_candidate_table_headers_skips_small_tables(dlf_module):
+    headers = dlf_module._candidate_table_headers(DLF_WITH_SIDEBAR_HTML)
+    assert headers, "the rankings table must be reported"
+    assert all(len(h) <= 40 for h in headers)
+    assert any("Name" in cell for h in headers for cell in h)

@@ -236,6 +236,15 @@
     "deploy.yml::validate::Validate required deploy artifacts exist": {
       "category": "blocking"
     },
+    "dlf-diagnostics.yml::inventory::Checkout": {
+      "category": "blocking"
+    },
+    "dlf-diagnostics.yml::inventory::Collect DLF fetch inventory": {
+      "category": "blocking"
+    },
+    "dlf-diagnostics.yml::inventory::Configure production SSH": {
+      "category": "blocking"
+    },
     "draftsharks-diagnostic.yml::probe::Assert nothing in the repository was modified": {
       "category": "blocking"
     },
