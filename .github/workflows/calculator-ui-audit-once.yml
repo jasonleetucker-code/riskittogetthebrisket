@@ -1,0 +1,79 @@
+name: Calculator UI audit (temporary, issue 1421)
+
+# Read-only inspection helper for the connector session. No deployment or source
+# mutation. Removed before this branch is offered for integration.
+on:
+  push:
+    branches: [codex/calculator-ui-parallel-contract]
+    paths: [.github/workflows/calculator-ui-audit-once.yml]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+jobs:
+  audit:
+    if: github.repository == 'jasonleetucker-code/riskittogetthebrisket'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Collect pinned source and live work inventory without editing product files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          import json, os, pathlib, subprocess, urllib.request, zipfile
+          root = pathlib.Path.cwd()
+          repo = 'jasonleetucker-code/riskittogetthebrisket'
+          def request(endpoint):
+              req = urllib.request.Request(
+                  'https://api.github.com/repos/' + repo + '/' + endpoint,
+                  headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'],
+                           'Accept': 'application/vnd.github+json'})
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  return json.load(response)
+          def pages(endpoint):
+              rows = []
+              for page in range(1, 101):
+                  sep = '&' if '?' in endpoint else '?'
+                  batch = request(endpoint + sep + f'per_page=100&page={page}')
+                  rows.extend(batch)
+                  if len(batch) < 100:
+                      return rows
+              raise RuntimeError('Pagination not complete; audit cannot claim completeness')
+          inventory = {'baseline': 'a3c29639aeb61c2af4fd169b75ccb9429011109b',
+                       'checkout': subprocess.check_output(['git','rev-parse','HEAD'], text=True).strip(),
+                       'current_main': request('branches/main'),
+                       'pulls': pages('pulls?state=open'),
+                       'issues': pages('issues?state=open'),
+                       'branches': pages('branches')}
+          for pull in inventory['pulls']:
+              pull['changed_files_inventory'] = pages(f"pulls/{pull['number']}/files")
+          out = root / 'calculator-ui-audit-artifact'
+          out.mkdir()
+          (out / 'live-work-inventory.json').write_text(json.dumps(inventory, indent=2), encoding='utf-8')
+          excluded = {'data', 'exports', 'CSVs', 'reports'}
+          with zipfile.ZipFile(out / 'source-code.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
+              for name in subprocess.check_output(['git','ls-files'], text=True).splitlines():
+                  path = pathlib.PurePosixPath(name)
+                  if path.parts[0] in excluded or path.suffix.lower() == '.pdf':
+                      continue
+                  file = root / name
+                  if file.is_file():
+                      archive.write(file, name)
+          print('Pinned source files archived; live open PR file lists, issues and branches recorded.')
+          print('No product, governance, source-data, deployment or runtime file changed.')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: calculator-ui-readonly-audit
+          path: calculator-ui-audit-artifact/
+          retention-days: 2
+          if-no-files-found: error
