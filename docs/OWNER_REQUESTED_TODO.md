@@ -496,4 +496,54 @@ hand-edit production data, or hide a current refresh-unit failure with `reset-fa
 | Priority | Issue | Area | Required outcome | Status |
 |---|---|---|---|---|
 | P0 live defect | Owner 2026-09-24 | Scrape promotion / health | Root cause: a critical-source timeout run whose partial values passed the anchor and retention checks was promoted and overwrote `exports/latest` (`partial_run_critical:IDPTradeCalc`). Fixed by PR #1405 (promotion guard refuses critical-partial runs while the served board is structurally valid; `/api/health` reports `contract_ok`/`served_generation_ok`/`source_health_ok` separately). | DONE (code); production verification in PR #1405 |
-| P2 ops defect (out of scope) | Owner 2026-09-24 | Refresh units | Failing `dynasty-*` units recorded during the investigation, none in the contract path: `depth-charts-refresh`, `injury-feed-refresh` and `trending-history-refresh` (`ModuleNotFoundError: No module named 'src'`); `sharp-cohort-snapshot` (`EvidenceStatus is not JSON serializable`); `dlf-fetch` (`fetch_dlf.py` non-zero, keeps previous CSVs); `playerctx-refresh` (intentional fail-closed snapCounts schema-regression guard). Classified, not fixed, not reset. | TODO |
+| P2 ops defect (out of scope) | Owner 2026-09-24 | Refresh units | Failing `dynasty-*` units recorded during the investigation, none in the contract path: `depth-charts-refresh`, `injury-feed-refresh` and `trending-history-refresh` (`ModuleNotFoundError: No module named 'src'`); `sharp-cohort-snapshot` (`EvidenceStatus is not JSON serializable`); `dlf-fetch` (`fetch_dlf.py` non-zero, keeps previous CSVs); `playerctx-refresh` (intentional fail-closed snapCounts schema-regression guard). Classified, not fixed, not reset. `dlf-fetch` is root-caused in the next section. | TODO |
+
+## Added 2026-09-24 — DLF SF fetch refuses every run: the #1297 native-Value guard has no number to read
+
+Owner-directed investigation (2026-09-24) of the failing `dynasty-dlf-fetch` unit. The owner's constraint
+from 2026-09-23 stands: **do not fix it by removing DLF**, and do not weaken the coverage floor to hide it.
+
+**Root cause (proven).** This is not a credentials, paywall, markup-change or parser-regression problem.
+PR #1297 (merged 2026-09-09 13:40Z) added `require_native_value` to `dlfSf` in `scripts/fetch_dlf.py`,
+on the premise that DLF publishes a numeric per-player trade "Value" beside the expert rank. The
+parser reads the column whose header is `Value`. On DLF's Superflex rankings table
+(`table#avgTable.superflex-table`) that header labels the **rankings-history icon column**: each cell
+is only an `<a href="/rankings-comparison.php?...">` wrapping an `<img>`, with no text and no numeric
+`data-*` attribute. Header order: `Rank, Avg, Pos, Name, Team, Age, <6 experts>, Value, Follow`
+(14 headers, 14 cells per row, aligned). So every row's "Value" text is `""`, and the guard's
+coverage is structurally 0/N. It can never pass against this page. #1297's regression tests used a
+synthetic fixture with invented numbers in a `Value` column, never captured DLF markup.
+
+Evidence:
+
+- Production journal (`journalctl -u dynasty-dlf-fetch`, read-only): the last successful push was
+  2026-09-09 12:28Z (`8b05d9f9e`, pre-#1297 code, 288 rows). The first refusal was 2026-09-09 14:27Z,
+  the first timer run after #1297 merged: `native Value coverage 0/288`. Every run since has failed the
+  same way; on 2026-09-24 the count is 0/287.
+- Authentication is fine. Each run parses the full member board (287 rows; the public preview is 10).
+  `dlfIdp`, `dlfRookieSf` and `dlfRookieIdp` also parse and write in full. The "cached session rejected
+  — re-authenticating" line is a side effect, not a cause. The wrapper copies the refreshed cookie jar
+  back only on exit 0, so every failed run restarts from the 2026-09-09 jar and logs in again, which
+  succeeds.
+- Reproduced on the laptop. One unauthenticated GET of the public SF page (robots.txt allows it),
+  then `_parse_rankings` from current `main`: 10 rows, every `value == ""`, native coverage 0. The
+  same template and header set appear in `fetch_dlf.py`'s original April docstring ("… Value, Follow"),
+  so this is not a recent DLF markup change.
+- The guard protects nothing. The last-good `CSVs/site_raw/dlfSf.csv`, on `main` and in the prod
+  work dir, is already rank-only (`name,rank`; it was written by pre-#1297 code). Refusing to overwrite
+  it with a rank-only board only freezes DLF SF's ranks.
+- Collateral: `deploy/dlf_fetch_and_push.sh` discards all four boards on any non-zero exit, so the three
+  healthy DLF boards are also frozen at 2026-09-09. Open PR #1402 (`--written-manifest`, partial push)
+  fixes that part independently. It does not fix `dlfSf`.
+
+**Owner decision needed.** Pick one:
+
+| Option | What changes | Effect |
+|---|---|---|
+| **A (recommended now)** | Drop `require_native_value` from the `dlfSf` board. Keep the 240-row floor and every other guard. Replace #1297's synthetic parser test with a sanitized fixture of the real header/cell structure, asserting the `Value` column is non-numeric. | DLF SF ranks refresh again. The CSV's `value` column stays empty (Missing, not 0). The DLF trade second opinion keeps rendering "incomplete" as #1297 designed, instead of relying on a stale board. |
+| **B (follow-up, optional)** | Identify where DLF actually publishes numeric per-player values (unverified candidate: the member Trade Analyzer, `/trade-analyzer/`). If it exists and terms allow, add it as its own fetch with its own ADR and fixtures. | Restores a real DLF native value for literal second opinions, without holding the rankings refresh hostage. |
+| C (status quo) | Nothing. | `dlfSf` stays frozen at 2026-09-09 and keeps losing authority under freshness weighting (#1402 quarantines it). The unit fails every 2 h. |
+
+| Priority | Issue | Area | Required outcome | Status |
+|---|---|---|---|---|
+| P1 data freshness | Owner 2026-09-24 | DLF SF fetch | Owner chooses A, B or C above. A and B are code changes under the normal PR / CI / deploy rules, and should land after or on top of #1402 because both touch `scripts/fetch_dlf.py`. Until then, `dynasty-dlf-fetch` keeps exiting non-zero by design. Do not `reset-failed` it to hide that. | DECISION |
