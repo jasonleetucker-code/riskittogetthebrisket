@@ -1,15 +1,15 @@
 {
- "generatedAt": "2026-09-24T00:56:28.849631+00:00",
+ "generatedAt": "2026-09-24T07:57:35.475456+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 2064,
+ "calls": 1964,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 2043,
+ "v2Same": 1943,
  "v2WouldChange": 21,
  "v2Examples": [
   {
@@ -37,14 +37,6 @@
    "v2Reason": "ambiguous"
   },
   {
-   "name": "Byron Murphy",
-   "pos": "DL",
-   "served": "11668",
-   "engineV2": null,
-   "v2Method": "exact_clean:name_pos",
-   "v2Reason": "ambiguous"
-  },
-  {
    "name": "Byron Young",
    "pos": "DL",
    "served": "10917",
@@ -69,14 +61,6 @@
    "v2Reason": "no_candidate"
   },
   {
-   "name": "JT Tuimoloau",
-   "pos": "",
-   "served": "12594",
-   "engineV2": null,
-   "v2Method": "none",
-   "v2Reason": "no_candidate"
-  },
-  {
    "name": "Johnny Newton",
    "pos": "",
    "served": "11764",
@@ -91,6 +75,14 @@
    "engineV2": "6818",
    "v2Method": "exact_canonical:name",
    "v2Reason": null
+  },
+  {
+   "name": "Marcus Harris",
+   "pos": "DB",
+   "served": "12712",
+   "engineV2": null,
+   "v2Method": "exact_clean:name_pos",
+   "v2Reason": "ambiguous"
   },
   {
    "name": "Matt Judon",
@@ -142,16 +134,24 @@
   },
   {
    "name": "Byron Murphy",
-   "pos": "DL",
+   "pos": "",
    "served": "11668",
    "engineV2": null,
-   "v2Method": "exact_clean:name_pos",
+   "v2Method": "exact_clean:name",
    "v2Reason": "ambiguous"
   },
   {
    "name": "Byron Young",
    "pos": "DL",
    "served": "10917",
+   "engineV2": null,
+   "v2Method": "exact_clean:name_pos",
+   "v2Reason": "ambiguous"
+  },
+  {
+   "name": "Marcus Harris",
+   "pos": "DB",
+   "served": "12712",
    "engineV2": null,
    "v2Method": "exact_clean:name_pos",
    "v2Reason": "ambiguous"
