@@ -98,6 +98,9 @@ jobs:
       - name: Desktop phone E2E, six axe scans, keyboard and screenshots
         env:
           E2E_FRONTEND_CMD: npm run start
+          # Exactly two specified tests on two projects. Full-suite defaults are unchanged.
+          E2E_MIN_PASSED: '4'
+          E2E_MAX_SKIPPED: '0'
         run: |
           set -Eeuo pipefail
           npx playwright test -c tests/e2e/playwright.config.js tests/e2e/specs/psi-gallery.spec.js --project=desktop-1366 --project=mobile-chromium --retries=0 2>&1 | tee /tmp/psi-gated-evidence/e2e.log
@@ -112,23 +115,25 @@ jobs:
           from pathlib import Path
           evidence = Path('docs/psi/evidence/PR_1429_2026-09-24/gated-integration')
           evidence.mkdir(parents=True, exist_ok=True)
-          images = sorted(Path('tests/e2e/test-results').rglob('*.png'))
+          expected = {'reference-top.png', 'reference-full.png', 'table-secondary-fields.png', 'modal.png', 'drawer.png'}
+          images = sorted(p for p in Path('tests/e2e/test-results').rglob('*.png') if 'attachments' not in p.parts)
           assert len(images) == 10, [str(p) for p in images]
           names = set()
           for p in images:
               project = 'desktop' if 'desktop-1366' in str(p) else 'phone' if 'mobile-chromium' in str(p) else None
-              assert project, str(p)
+              assert project and p.name in expected, str(p)
               name = project + '-' + p.name
               assert name not in names, name
               names.add(name)
               shutil.copyfile(p, evidence / name)
+          assert names == {project + '-' + name for project in ('desktop', 'phone') for name in expected}, names
           shutil.copyfile('/tmp/psi-gated-evidence/live-claim-audit.json', evidence / 'live-claim-audit.json')
           tests = Path('/tmp/psi-gated-evidence/vitest.log').read_text()
           tests = re.sub(r'\x1b\[[0-9;]*m', '', tests)
           counts = re.findall(r'(?:Test Files|Tests)\s+[^\n]+', tests)
-          manifest = {'code_sha': os.environ['EVIDENCE_SHA'], 'base_sha': os.environ['INTEGRATION_BASE'], 'run_id': os.environ['GITHUB_RUN_ID'], 'context': 'Built local CI stack, NOT production. Charts explicitly gated; #1428 remains open.', 'unit_summary': counts, 'e2e_passed': 4, 'e2e_skipped': 0, 'axe_scans': 6, 'screenshots': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in evidence.glob('*.png')}}
+          manifest = {'code_sha': os.environ['EVIDENCE_SHA'], 'base_sha': os.environ['INTEGRATION_BASE'], 'run_id': os.environ['GITHUB_RUN_ID'], 'context': 'Built local CI stack, NOT production. Charts explicitly gated; #1428 remains open.', 'unit_summary': counts, 'e2e_passed': 4, 'e2e_skipped': 0, 'axe_scans': 6, 'focused_coverage_floor': 4, 'focused_skip_ceiling': 0, 'screenshots': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in evidence.glob('*.png')}}
           (evidence / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
-          (evidence / 'README.md').write_text('# Gated gallery integration evidence\n\nCode: `' + os.environ['EVIDENCE_SHA'] + '`; base: `' + os.environ['INTEGRATION_BASE'] + '`.\n\nRun: ' + os.environ['GITHUB_RUN_ID'] + '. Full frontend unit suite, build and all existing bundle budgets passed. Four real-stack desktop/phone E2E tests passed with zero skips/retries; six axe state scans, keyboard/focus, table access and page-overflow checks passed. Ten fresh PNGs are checksummed in manifest.json.\n\nThese screenshots show the fail-closed chart preview state, not approved chart treatment. Original parent-directory screenshots are historical pre-gate evidence. No palette, token, DS primitive, business logic or product chart was changed. #1428 and final /design PSI acceptance remain OPEN. This is CI evidence, not production verification or owner visual approval.\n')
+          (evidence / 'README.md').write_text('# Gated gallery integration evidence\n\nCode: `' + os.environ['EVIDENCE_SHA'] + '`; base: `' + os.environ['INTEGRATION_BASE'] + '`.\n\nRun: ' + os.environ['GITHUB_RUN_ID'] + '. Full frontend unit suite, build and all existing bundle budgets passed. Four real-stack desktop/phone E2E tests passed with zero skips/retries; six axe state scans, keyboard/focus, table access and page-overflow checks passed. Ten original PNGs are checksummed in manifest.json; Playwright attachment copies are not counted twice.\n\nThe focused run uses the canonical coverage reporter with E2E_MIN_PASSED=4 and E2E_MAX_SKIPPED=0 because its selected suite is two tests on two projects; no full-suite defaults or shipping tests are weakened. The earlier helper run 36055160060 passed its four tests but correctly failed its incorrectly inherited full-suite floor of 120; that failed run is not claimed green.\n\nThese screenshots show the fail-closed chart preview state, not approved chart treatment. Original parent-directory screenshots are historical pre-gate evidence. No palette, token, DS primitive, business logic or product chart was changed. #1428 and final /design PSI acceptance remain OPEN. This is CI evidence, not production verification or owner visual approval.\n')
           p = Path('docs/WORK_CLAIMS.md')
           s = p.read_text()
           s = s.replace('integration in progress — owner requested push/merge; releasing the non-chart gallery foundation with explicit fail-closed chart previews and numeric fixture detail. #1428 remains OPEN, route remains PARTIAL. Exact-tree frontend/E2E/evidence gates required; no production acceptance claimed.', 'done — gated non-chart foundation implemented and validated on code ' + os.environ['EVIDENCE_SHA'][:12] + ', run ' + os.environ['GITHUB_RUN_ID'] + '; full frontend/build/budgets, four E2E, six axe scans and ten screenshots. PR #1429 normal integration/deployment remains separate. #1428 OPEN; route PARTIAL, not PSI_VERIFIED. No running worker or production acceptance claimed.')
