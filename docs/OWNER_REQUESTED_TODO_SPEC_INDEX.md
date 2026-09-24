@@ -350,3 +350,52 @@ When the owner materially changes a feature, do not merely add another one-line 
 > T-NEW-01…T-NEW-17, so they arrived on `main` by capability (manifest rows `C2-AGE-01`…`C2-AGE-03`,
 > `C7-AGE-01`, `C2-CORE-01`) but not by identifier. Both are now here, so closing #816 loses nothing
 > addressable by either name or id.
+
+## T-NEW-21 — 24/7 Adaptive Staggered Data-Freshness Orchestration
+
+**Status:** NEXT / P1 decision-quality foundation / NOT AUTHORIZED  
+**Owner directive:** 2026-09-24, issue #1423
+
+Create one canonical always-on **freshness orchestration layer** for every decision-relevant external source.
+
+The owner goal is simple:
+
+> At any decision moment, Chase Upside should use the newest trustworthy information it can legitimately and reliably obtain.
+
+This does **not** mean continuously hammering every site. The orchestration system runs 24/7, while each source is scheduled independently according to:
+
+- normal upstream publication/update cadence;
+- decision importance and volatility;
+- event-relative timing;
+- provider rate limits, quotas, terms, and cost;
+- last successful fetch;
+- last actual content change / upstream publication time;
+- source health / consecutive failures;
+- known high-information windows.
+
+Required architecture:
+
+- API / webhook / streaming first when legitimately available;
+- independent per-source collectors rather than one monolithic all-source scrape;
+- staggered schedules plus jitter;
+- adaptive cadence and temporary event acceleration;
+- rate-limit budgets, Retry-After handling, exponential backoff and circuit breakers;
+- bounded timeouts / locks / CPU-memory isolation so collection cannot starve the interactive app;
+- idempotent collection and promotion;
+- immutable point-in-time/raw evidence retention with efficient unchanged-payload dedupe;
+- existing fetch-time vs content-time semantics preserved;
+- last-known-good serving with explicit stale/degraded state;
+- source-specific freshness SLA: target cadence, last fetch, data-as-of/content age, next due, lag, health, coverage, failure streak;
+- alerts on missed freshness budgets / material coverage drift, not only cron failure;
+- consumer contracts that degrade/refuse stale dimensions instead of silently treating them as current.
+
+**High-volatility sources / future sportsbook odds:** retain every observed line/price with market/book/timestamp identity; use provider-authorized API access, event-relative and quota-aware capture, and tighter schedules near kickoff/material news. Stale odds must never masquerade as current consensus.
+
+**Relationship to existing architecture:** extends the existing 2-hour Scheduled Data Refresh, source-specific jobs/timers, cadence-relative `SOURCE_FRESHNESS_WEIGHTING`, promotion guards and as-of history. Do not create a competing freshness model.
+
+**Canonical mapping:** `C4-SRC-04`, folded into the existing C4 source-health/freshness unit rather than a new product-local scheduler.
+
+**Parallel posture:** architecture/research and isolated adapters may be `SAFE_PARALLEL`; the shared scheduler/registry/orchestration core is `SERIAL_CANONICAL_OWNER`.
+
+**Acceptance:** all active external sources registered with cadence/budget policy; jobs independently schedulable and staggered; one hung source cannot delay unrelated sources; rate budgets enforced; event acceleration supported; freshness/SLA diagnostics exposed; missed-SLA alerts; point-in-time evidence preserved; production load proves interactive traffic remains responsive; staged rollout/rollback exists.
+
