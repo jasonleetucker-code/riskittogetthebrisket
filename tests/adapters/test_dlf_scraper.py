@@ -261,10 +261,15 @@ def test_boards_match_registered_csv_paths(dlf_module):
     paths (``_SOURCE_CSV_PATHS`` in src/api/data_contract.py),
     otherwise the ranking pipeline reads a stale CSV instead of
     the freshly-fetched one."""
+    from scripts.record_source_datasets import TRACKED_NON_VOTING_KEYS
     from src.api.data_contract import _SOURCE_CSV_PATHS
 
     for key, cfg in dlf_module.BOARDS.items():
-        reg_cfg = _SOURCE_CSV_PATHS.get(key)
+        # A board acquired ahead of registration (dlfValuesSfTep) is declared
+        # to the dataset recorder instead; the same path must agree there.
+        reg_cfg = _SOURCE_CSV_PATHS.get(key) or (
+            TRACKED_NON_VOTING_KEYS[key][0] if key in TRACKED_NON_VOTING_KEYS else None
+        )
         assert reg_cfg is not None, f"Source {key} missing from _SOURCE_CSV_PATHS"
         reg_path = reg_cfg["path"] if isinstance(reg_cfg, dict) else reg_cfg
         assert reg_path == cfg["out"], (

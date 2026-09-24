@@ -50,11 +50,15 @@ PROD_TIMER_OWNED_KEYS: frozenset[str] = frozenset(
     {"dlfSf", "dlfIdp", "dlfRookieSf", "dlfRookieIdp", "dlfValuesSfTep", "idpShowCombined"}
 )
 
-#: Non-voting sources whose dataset state is recorded anyway, because they
-#: are on their way to voting and the measurement gate needs their history:
-#: DLF Trade Analyzer Values (owner directive 2026-09-24).  Recording state
-#: never makes a source vote — only ``_RANKING_SOURCES`` does.
-TRACKED_NON_VOTING_KEYS: tuple[str, ...] = ("dlfValuesSfTep",)
+#: Sources whose dataset state is recorded BEFORE they are loaded or vote,
+#: because the measurement gate that decides whether they may vote needs their
+#: change history: DLF Trade Analyzer Values (owner directive 2026-09-24).
+#: ``{key: (csv_path, signal)}`` — stated here because such a source is not yet
+#: in ``_SOURCE_CSV_PATHS``.  Recording state never makes a source vote; only
+#: ``_RANKING_SOURCES`` does.
+TRACKED_NON_VOTING_KEYS: dict[str, tuple[str, str]] = {
+    "dlfValuesSfTep": ("CSVs/site_raw/dlfValuesSfTep.csv", "value"),
+}
 
 
 def recorded_sources(repo_root: Path = REPO_ROOT) -> list[tuple[str, Path, str]]:
@@ -69,6 +73,9 @@ def recorded_sources(repo_root: Path = REPO_ROOT) -> list[tuple[str, Path, str]]
     out: list[tuple[str, Path, str]] = []
     for key in keys:
         cfg = _SOURCE_CSV_PATHS.get(key)
+        if cfg is None and key in TRACKED_NON_VOTING_KEYS:
+            rel_path, tracked_signal = TRACKED_NON_VOTING_KEYS[key]
+            cfg = {"path": rel_path, "signal": tracked_signal}
         if isinstance(cfg, str):
             rel, signal = cfg, "value"
         elif isinstance(cfg, dict):
