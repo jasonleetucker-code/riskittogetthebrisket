@@ -1,7 +1,7 @@
 {
   "modelId": "hill_scope_masters",
   "schemaVersion": 1,
-  "updatedAt": "2026-09-23T21:56:22.511572+00:00",
+  "updatedAt": "2026-09-24T08:03:07.303931+00:00",
   "championVersion": 2,
   "versions": [
     {
@@ -10806,6 +10806,82 @@
         "params": {
           "c": 0.066,
           "s": 1.085
+        },
+        "holdoutSources": [
+          "FantasyCalc",
+          "FantasyNavigator",
+          "OTCFFB",
+          "PFKDynasty"
+        ],
+        "trainingSources": [
+          "DraftSharks",
+          "DynastyDaddy",
+          "DynastyNerds",
+          "Fitzmaurice",
+          "KTC",
+          "YahooBoone"
+        ],
+        "_semantics": {
+          "measures": "generalization across dynasty markets \u2014 whether a curve fitted to the training boards also describes boards it never saw",
+          "doesNotMeasure": "accuracy against reality; every holdout board is another consensus market correlated with the training boards, and no ground truth for dynasty value exists"
+        }
+      },
+      "qualified": true,
+      "confidence": "measured",
+      "notes": [],
+      "promotedAt": null,
+      "retiredAt": null,
+      "appliedAt": null,
+      "scopeValidation": {}
+    },
+    {
+      "modelId": "hill_scope_masters",
+      "version": 142,
+      "params": {
+        "HILL_GLOBAL_PERCENTILE_C": 0.062,
+        "HILL_GLOBAL_PERCENTILE_S": 0.69,
+        "HILL_PERCENTILE_C": 0.067,
+        "HILL_PERCENTILE_S": 1.09,
+        "IDP_HILL_PERCENTILE_C": 0.023,
+        "IDP_HILL_PERCENTILE_S": 0.89,
+        "HILL_ROOKIE_PERCENTILE_C": 0.02,
+        "HILL_ROOKIE_PERCENTILE_S": 0.79
+      },
+      "fittedAt": "2026-09-24T08:03:07.300639+00:00",
+      "producer": "scripts/fit_hill_curve_percentile.py @ 52d78cbc1",
+      "status": "challenger",
+      "trainingInputs": {
+        "DraftSharks": "sha256:eab14b5401c8b5e8",
+        "DynastyDaddy": "sha256:80e248e84df4fc54",
+        "DynastyNerds": "sha256:96c1e6c9d1dd4a9e",
+        "Fitzmaurice": "sha256:d398e8a676fdbeb8",
+        "GLOBAL:IDPTradeCalc": "sha256:75abdac13302fb85",
+        "IDP:DraftSharks-IDP": "sha256:0783dc662f85587a",
+        "KTC": "sha256:90e52276ab39a00a",
+        "YahooBoone": "sha256:2003a09a82f88cc5",
+        "boardSnapshot": "sha256:2e46286714263ad7"
+      },
+      "holdout": {
+        "criterion": 643.1871,
+        "measuredAt": "2026-09-24T08:03:07.303806+00:00",
+        "criterionName": "mean_per_source_rmse",
+        "criterionUnits": "points on the 0-9999 value scale (lower is better)",
+        "perSource": {
+          "FantasyCalc": 655.9136,
+          "FantasyNavigator": 844.645,
+          "OTCFFB": 598.8086,
+          "PFKDynasty": 473.3811
+        },
+        "perSourceRows": {
+          "FantasyCalc": 395,
+          "FantasyNavigator": 400,
+          "OTCFFB": 363,
+          "PFKDynasty": 400
+        },
+        "skipped": {},
+        "params": {
+          "c": 0.067,
+          "s": 1.09
         },
         "holdoutSources": [
           "FantasyCalc",
