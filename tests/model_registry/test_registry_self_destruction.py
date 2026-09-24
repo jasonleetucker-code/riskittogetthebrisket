@@ -82,12 +82,12 @@ class TestAnUnreadableRegistryIsNotAnAbsentOne:
                 }
             )
         )
-        before = path.read_text()
+        before = path.read_text(encoding="utf-8")
 
         with pytest.raises(RegistryError):
             hm.load_or_seed_registry(tmp_path)
 
-        assert path.read_text() == before, (
+        assert path.read_text(encoding="utf-8") == before, (
             "an unreadable registry was overwritten instead of reported; the "
             "promotion history is the thing this file exists to preserve"
         )
@@ -128,7 +128,7 @@ class TestProductionRegistryIsNotReseeded:
     """
 
     def test_the_registry_has_not_been_reset_to_a_seed(self):
-        blob = json.loads(PROD_REGISTRY.read_text())
+        blob = json.loads(PROD_REGISTRY.read_text(encoding="utf-8"))
         versions = blob.get("versions") or []
         assert len(versions) > 1, (
             "the production registry has collapsed to a single version — this "
@@ -140,7 +140,7 @@ class TestProductionRegistryIsNotReseeded:
         ), "no version was produced by a real fit; the registry looks seeded"
 
     def test_it_still_names_a_champion_with_recorded_history(self):
-        blob = json.loads(PROD_REGISTRY.read_text())
+        blob = json.loads(PROD_REGISTRY.read_text(encoding="utf-8"))
         champion = blob.get("championVersion")
         assert champion is not None
         by_version = {v["version"]: v for v in blob.get("versions") or []}
@@ -153,6 +153,6 @@ class TestProductionRegistryIsNotReseeded:
     def test_the_historical_versions_survive(self):
         """v1-v3 are the pre-B1 record. Later versions may legitimately
         accumulate; these three disappearing would mean history was lost."""
-        blob = json.loads(PROD_REGISTRY.read_text())
+        blob = json.loads(PROD_REGISTRY.read_text(encoding="utf-8"))
         present = {v["version"] for v in blob.get("versions") or []}
         assert {1, 2, 3} <= present, f"historical versions missing: {sorted({1, 2, 3} - present)}"

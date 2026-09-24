@@ -281,13 +281,27 @@ def test_board_verdict_is_the_one_write_guard(dlf_module):
     ok, reason = dlf_module._board_verdict(sf, rows[:10])
     assert not ok and reason.startswith("parsed only 10 rows")
 
+    # Rank is the model signal; a missing native Value never blocks the rank
+    # board (owner directive 2026-09-24 — requiring it froze DLF SF from
+    # 09-09 while its rank was healthy).  It is reported instead.
     no_value = [{"name": r["name"], "avg": r["avg"], "value": ""} for r in rows]
-    ok, reason = dlf_module._board_verdict(sf, no_value)
-    assert not ok and reason.startswith("native Value coverage 0/299")
+    assert dlf_module._board_verdict(sf, no_value) == (True, "ok")
+    note = dlf_module._native_value_note(sf, no_value)
+    assert note is not None and note.startswith("native Value coverage 0/299")
+    assert dlf_module._native_value_note(sf, rows) is None
 
-    # Boards that do not require native Value only answer to the row floor.
+    # Boards that never carried Value say nothing about it.
     idp = dlf_module.BOARDS["dlfIdp"]
     assert dlf_module._board_verdict(idp, no_value[:200]) == (True, "ok")
+    assert dlf_module._native_value_note(idp, no_value[:200]) is None
+
+
+def test_missing_native_value_writes_rank_with_an_empty_value_column(dlf_module, tmp_path: Path):
+    """Never synthesized from rank: the column is present and empty."""
+    out = tmp_path / "dlfSf.csv"
+    dlf_module._write_csv(out, [{"name": "Josh Allen", "avg": "1.2", "value": ""}])
+    with out.open() as f:
+        assert list(csv.DictReader(f)) == [{"name": "Josh Allen", "rank": "1.20", "value": ""}]
 
 
 def test_candidate_table_headers_skips_small_tables(dlf_module):
@@ -295,3 +309,67 @@ def test_candidate_table_headers_skips_small_tables(dlf_module):
     assert headers, "the rankings table must be reported"
     assert all(len(h) <= 40 for h in headers)
     assert any("Name" in cell for h in headers for cell in h)
+
+
+# ── --probe (read-only page-structure diagnostics) ───────────────────
+
+_PROBE_HTML = """
+<html><head><title>Trade Analyzer Values</title></head><body>
+<table id="tav" class="wpDataTable" data-wpdatatable_id="42">
+<thead><tr><th>Player</th><th>Pos</th><th>Team</th><th>Value</th></tr></thead>
+<tbody>
+<tr><td>Ja'Marr Chase</td><td>WR</td><td>CIN</td><td>101.5</td></tr>
+<tr><td>Josh Allen</td><td>QB</td><td>BUF</td><td>99.25</td></tr>
+<tr><td>Bijan Robinson</td><td>RB</td><td>ATL</td><td>98</td></tr>
+</tbody></table>
+<script type="application/json" id="tav-data">{"rows": [], "nonce": "SECRETNONCE123"}</script>
+<script>var wdt_ajax = {"url": "/wp-admin/admin-ajax.php", "nonce": "OTHERNONCE456"};
+jQuery.post(ajaxurl, {action: 'get_wdtable', table_id: 42});</script>
+</body></html>
+"""
+
+
+def test_probe_page_reports_structure_without_script_bodies(dlf_module):
+    out = "\n".join(dlf_module._probe_page(_PROBE_HTML))
+    assert "tables=1" in out
+    assert "Player" in out and "Value" in out
+    assert "Ja'Marr Chase" in out and "101.5" in out
+    assert "json_script" in out and "'nonce'" in out and "'rows'" in out
+    assert "marker 'wpDataTable'" in out and "marker 'admin-ajax.php'" in out
+    assert "get_wdtable" in out
+    # Script bodies and nonce VALUES never reach the output.
+    assert "SECRETNONCE123" not in out
+    assert "OTHERNONCE456" not in out
+
+
+def test_probe_refuses_non_dlf_urls_without_fetching(dlf_module):
+    class _NoFetch:
+        def get(self, *a, **k):  # pragma: no cover - must not be called
+            raise AssertionError("probe fetched a non-DLF URL")
+
+    for url in (
+        "https://example.com/trade-analyzer-values/",
+        "http://dynastyleaguefootball.com/trade-analyzer-values/",
+        "https://dynastyleaguefootball.com.evil.test/x",
+    ):
+        assert dlf_module._probe(_NoFetch(), url) == 2
+
+
+def test_probe_never_prints_session_cookies(dlf_module, capsys):
+    class _Resp:
+        status_code = 200
+        text = _PROBE_HTML
+
+    class _Session:
+        cookies = {"wordpress_logged_in_abc": "COOKIEVALUE789"}
+
+        def get(self, *a, **k):
+            return _Resp()
+
+    assert (
+        dlf_module._probe(_Session(), "https://dynastyleaguefootball.com/trade-analyzer-values/")
+        == 0
+    )
+    captured = capsys.readouterr()
+    assert "COOKIEVALUE789" not in captured.out + captured.err
+    assert "wordpress_logged_in" not in captured.out + captured.err

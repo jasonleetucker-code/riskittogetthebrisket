@@ -121,6 +121,7 @@ those two rows (`rowChangedAt`). A broad batch refreshes the whole board.
 | coverage / health | 1.00 / HEALTHY |
 | base → effective weight | 1.0 → **0.122** (SEVERELY_STALE) |
 | root cause | **Upstream.** The vendor has not republished. The public excerpt chart v5 matches our board on 247 of 249 rows, and our fetcher reads the latest chart version. There is nothing to fix on our side, so its authority decays until the vendor republishes and then recovers automatically. |
+| root cause, re-checked 2026-09-24 | **Still upstream, confirmed by four independent checks.** (1) Substack's public archive: the two posts the fetcher reads are still IDP Show's newest *dynasty* boards (`combined-idp-offense-dynasty-rankings-fantasy-football`, `idp-dynasty-rankings`); every newer ranking post — "2026 Fantasy Football Rankings … 3.0" (08-29), "2026 Combined IDP Rankings 3.0", the weekly rankings — is a season/weekly board, which the dynasty lane must never ingest. (2) Datawrapper: chart `U8I37` serves v4, v5–v7 are 404 and the chart root redirects to v4 (last modified 2026-08-19). (3) Every 2-hourly production run is HEALTHY with the full 665 rows — not a paywall preview. (4) The CSV has not changed on `main` since acquisition (#1008). Four chart versions between 07-15 and 08-19 put the vendor's offseason cadence at ~9–12 days, consistent with the 168 h seed (bounds 72–336 h); no cadence change. The vendor moved to in-season redraft content; its dynasty board ages honestly and recovers automatically on republication. |
 
 ## E. Every other source
 
@@ -161,10 +162,28 @@ Fixes made:
 * The wrapper still exits non-zero on a partial run, so the failure stays
   visible.
 
-**Owner action:** `journalctl -u dynasty-dlf-fetch.service` on the box to
-confirm which board trips the guard. Meanwhile the last valid DLF values
-keep their real age and decay by cadence. DLF SF is quarantined, and the
-IDP boards (longer cadence) retain partial authority.
+**Root cause, confirmed in production (2026-09-24, DLF-2026-09).** The first
+DLF commit after the wrapper fix, `3793500e8` ("chore(dlf): automated refresh
+2026-09-24T12:27:49Z", authored by the production fetch), wrote `dlfIdp` (172
+rows), `dlfRookieIdp` (30) and `dlfRookieSf` (56) — every one with an **empty**
+native Value column — and no `dlfSf`. So login, Cloudflare and the session all
+work. DLF no longer serves its Value column on any board, and `dlfSf` alone
+declared `require_native_value`, so its otherwise-valid ranking was refused
+every run (native Value coverage 0 against a 240-row floor).
+
+**Fix: rank health and native-Value health are separate questions.** The row
+floor over parsed ranks decides whether a board is written (`_board_verdict`).
+`dlfSf` now declares `expect_native_value`: when native Value coverage falls
+below the floor, `fetch_dlf.py` prints `[DLF] WARNING dlfSf: native Value
+coverage N/M — … writing rank with an empty value column` and writes
+`name,rank,value` with the value **empty**. It never synthesizes Value from
+Rank. Nothing in the dynasty blend reads DLF's native Value (DLF votes as a
+rank signal), so an empty column changes no canonical number; it only means
+the native Value is unavailable, and says so. Pinned by
+`tests/adapters/test_dlf_scraper.py`.
+
+The last valid DLF values keep their real age and decay by cadence until the
+next successful run restores `dlfSf` to full authority.
 
 ## F. How production calculated values before this change
 

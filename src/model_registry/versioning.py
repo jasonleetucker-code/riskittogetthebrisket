@@ -200,7 +200,7 @@ class ModelRegistry:
         path = cls.path_for(model_id, registry_dir)
         if not path.exists():
             raise RegistryError(f"no registry for model {model_id!r} at {path}")
-        blob = json.loads(path.read_text())
+        blob = json.loads(path.read_text(encoding="utf-8"))
         return cls(
             model_id=str(blob.get("modelId") or model_id),
             versions=[ModelVersion.from_dict(v) for v in blob.get("versions") or []],
@@ -216,7 +216,11 @@ class ModelRegistry:
             "championVersion": self.champion.version if self.has_champion else None,
             "versions": [v.to_dict() for v in self._versions],
         }
-        path.write_text(json.dumps(payload, indent=2, sort_keys=False) + "\n")
+        path.write_text(
+            json.dumps(payload, indent=2, sort_keys=False) + "\n",
+            encoding="utf-8",
+            newline="\n",
+        )
         return path
 
     # ── invariants ─────────────────────────────────────────────────

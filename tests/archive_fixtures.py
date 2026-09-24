@@ -32,6 +32,7 @@ from __future__ import annotations
 import json
 import zipfile
 from pathlib import Path
+from typing import Callable
 
 REPO = Path(__file__).resolve().parents[1]
 ARCHIVE = REPO / "exports" / "archive"
@@ -63,12 +64,30 @@ def _degraded_critical_sources(payload: dict) -> list[str]:
     return degraded
 
 
-def newest_complete_raw_payload() -> tuple[dict | None, str | None]:
+def has_published_slot_class(payload: dict) -> bool:
+    """True when a vendor published SLOT prices for some draft class.
+
+    The rookie tether only runs in that phase (C1-U6-D2); between the draft
+    and the next season's order, every class is priced as tiers.  Uses the
+    contract's own evidence rule, so "slotted" means the same thing here.
+    """
+    from src.api.data_contract import published_slot_years
+
+    return bool(published_slot_years(payload.get("pickAnchorsProvenance")))
+
+
+def newest_complete_raw_payload(
+    require: Callable[[dict], bool] | None = None,
+) -> tuple[dict | None, str | None]:
     """``(payload, archive_name)`` for the newest COMPLETE archived scrape.
 
     ``(None, None)`` when the archive is absent or every bundle in it is
     source-degraded — in which case callers skip, because a degraded
     board cannot answer the question they are asking.
+
+    ``require`` narrows the search to scrapes in a given PHASE (e.g.
+    :func:`has_published_slot_class`) for tests whose property only exists
+    in that phase.  Same skip-not-pass degradation.
     """
     if not ARCHIVE.is_dir():
         return None, None
@@ -88,6 +107,8 @@ def newest_complete_raw_payload() -> tuple[dict | None, str | None]:
         if not isinstance(payload, dict):
             continue
         if _degraded_critical_sources(payload):
+            continue
+        if require is not None and not require(payload):
             continue
         return payload, archive.name
     return None, None

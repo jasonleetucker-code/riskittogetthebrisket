@@ -29,11 +29,33 @@
 # detection failure widens what gets run rather than narrowing it.
 
 set -Eeuo pipefail
+# Carry `set -e` into `$(...)` too (bash >= 4.4).
+shopt -s inherit_errexit
 cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+# No silent exits: whatever aborts the run (set -e, a failing pytest, a failed
+# change detection) names itself, so a truncated log can never read as green.
+trap 'rc=$?; echo "tiered_validate: FAILED (exit ${rc}) at line ${LINENO}: ${BASH_COMMAND}" >&2' ERR
 
 BASE_REF="${TIERED_VALIDATE_BASE_REF:-origin/main}"
 
 log() { printf '\n\033[1m== %s ==\033[0m\n' "$1"; }
+
+# Changed paths, one per line, CR-stripped.  Python on Windows writes CRLF, and
+# a trailing \r silently defeats every exact `case` pattern and `grep '$'`
+# below.  Captured with command substitution rather than `< <(...)` so a
+# change-detection failure aborts the run instead of reading as "no changes".
+#
+# The explicit `|| return` matters: this runs inside `$(...)` at its call
+# sites, and bash does not carry `set -e` into command substitutions, so
+# without it a failed detection printed an error and still returned 0.
+changed_paths() {
+  local out
+  out="$(python scripts/ci_change_scope.py --base "$BASE_REF" --paths-only)" || return
+  out="${out//$'\r'/}"
+  [[ -n "$out" ]] && printf '%s\n' "$out"
+  return 0
+}
 
 run_l0() {
   log "L0 — formatting, linting, syntax (seconds)"
@@ -42,14 +64,16 @@ run_l0() {
   # Changed-file Python syntax + import-shape gate. ruff check/format above
   # already covers style; this catches import errors quickly on just the
   # files that changed, without paying for the full backend test suite.
-  mapfile -t PY_FILES < <(python scripts/ci_change_scope.py --base "$BASE_REF" --paths-only | grep -E '\.py$' || true)
+  local paths
+  paths="$(changed_paths)"
+  mapfile -t PY_FILES < <(printf '%s\n' "$paths" | grep -E '\.py$' || true)
   if ((${#PY_FILES[@]} > 0)); then
     echo "Syntax-checking ${#PY_FILES[@]} changed Python file(s):"
     printf '  %s\n' "${PY_FILES[@]}"
     python -m py_compile "${PY_FILES[@]}"
   fi
 
-  mapfile -t FRONTEND_FILES < <(python scripts/ci_change_scope.py --base "$BASE_REF" --paths-only | grep -E '^frontend/.*\.(js|jsx|ts|tsx)$' || true)
+  mapfile -t FRONTEND_FILES < <(printf '%s\n' "$paths" | grep -E '^frontend/.*\.(js|jsx|ts|tsx)$' || true)
   if ((${#FRONTEND_FILES[@]} > 0)) && [[ -d frontend/node_modules ]]; then
     echo "Frontend files changed (${#FRONTEND_FILES[@]}) — run 'npm run build:nocheck' in frontend/ for a full L1 check."
   fi
@@ -61,16 +85,49 @@ run_l1() {
   log "L1 — subsystem-targeted tests (~1-3 min)"
   local scope_out
   scope_out="$(python scripts/ci_change_scope.py --base "$BASE_REF")"
+  scope_out="${scope_out//$'\r'/}"
   echo "$scope_out"
 
-  mapfile -t CHANGED < <(python scripts/ci_change_scope.py --base "$BASE_REF" --paths-only)
+  local paths
+  paths="$(changed_paths)"
+  local CHANGED=()
+  [[ -n "$paths" ]] && mapfile -t CHANGED <<<"$paths"
 
   # Map changed paths onto the tests/<subsystem> directory of the same
   # name, plus a small set of named subsystems from CLAUDE.md's L1 table
   # (Game Day, rankings/valuation, trade analyzer, Sleeper ingestion,
   # database/schema) that don't line up 1:1 with a single src/ directory.
   declare -A TEST_DIRS=()
-  add_dir() { [[ -d "tests/$1" ]] && TEST_DIRS["$1"]=1; }
+  local full_suite=""
+  # `if`, not `[[ ]] &&`: as a function's last command a false test returns 1,
+  # and under `set -e` that killed the whole run the first time a changed path
+  # named something that is not a tests/ directory (tests/archive_fixtures.py).
+  add_dir() {
+    if [[ -d "tests/$1" ]]; then
+      TEST_DIRS["$1"]=1
+    fi
+  }
+  # A shared helper directly under tests/ belongs to whoever imports it.
+  # conftest.py applies to every test; any other module maps to the
+  # directories of its importers.  Widen, never drop.
+  add_importers_of() {
+    local module="$1" importer rel
+    if [[ "$module" == "conftest" ]]; then
+      full_suite="tests/conftest.py"
+      return 0
+    fi
+    while IFS= read -r importer; do
+      rel="${importer#tests/}"
+      if [[ "$rel" == */* ]]; then
+        add_dir "${rel%%/*}"
+      fi
+    done < <(grep -rlE "(tests[./]${module}\b|from tests import .*\b${module}\b)" tests --include='*.py' || true)
+  }
+
+  # Change detection that fell back to "run everything" must widen L1 too.
+  if grep -q '^FAIL-SAFE' <<<"$scope_out"; then
+    full_suite="change detection fell back"
+  fi
 
   for path in "${CHANGED[@]}"; do
     case "$path" in
@@ -79,10 +136,14 @@ run_l1() {
         subsystem="${subsystem%%/*}"
         add_dir "$subsystem"
         ;;
-      tests/*)
+      tests/*/*)
         subsystem="${path#tests/}"
         subsystem="${subsystem%%/*}"
         add_dir "$subsystem"
+        ;;
+      tests/*.py)
+        module="${path#tests/}"
+        add_importers_of "${module%.py}"
         ;;
     esac
     case "$path" in
@@ -106,7 +167,10 @@ run_l1() {
     esac
   done
 
-  if ((${#TEST_DIRS[@]} > 0)); then
+  if [[ -n "$full_suite" ]]; then
+    echo "Running the full backend suite (${full_suite})."
+    python -m pytest tests/ -q --tb=short -m "not livedata"
+  elif ((${#TEST_DIRS[@]} > 0)); then
     local dirs=()
     for d in "${!TEST_DIRS[@]}"; do dirs+=("tests/$d"); done
     echo "Running targeted pytest for: ${dirs[*]}"

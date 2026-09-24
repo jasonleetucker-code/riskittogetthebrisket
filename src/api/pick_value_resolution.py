@@ -56,7 +56,7 @@ class PickValueResolution:
 
     ``value`` is the canonical board value (``rankDerivedValue`` scale),
     or ``None`` with ``reason`` set — never 0 for missing.  ``basis``
-    names HOW the ref resolved (``board_row`` / ``alias_centre_slot`` /
+    names HOW the ref resolved (``board_row`` / ``alias_centre_slot`` / ``tier_of_unslotted_class`` /
     ``centre_slot_convention``); ``basisRowName`` is the row that
     supplied the number; ``provenance`` is that row's
     ``pickValueProvenance`` block verbatim.
@@ -148,6 +148,19 @@ def resolve_pick_value(
         )
     if row is not None:
         return _resolved(ref, row, name, "board_row")
+
+    if ref.slot is not None:
+        # No slot row: the class is UNSLOTTED (C1-U6-D2) — no vendor has
+        # published its draft order, so the board carries tiers.  The slot's
+        # own tier is a deterministic mapping, labelled, never a guess.
+        from src.identity.picks import MarketPickRef as _Ref, slot_tier
+
+        tier_name = _Ref(
+            year=ref.year, round_num=ref.round_num, tier=slot_tier(int(ref.slot))
+        ).board_row_name()
+        tier_row = rows.get(tier_name) if tier_name else None
+        if tier_row is not None and not tier_row.get("pickGenericSuppressed"):
+            return _resolved(ref, tier_row, tier_name, "tier_of_unslotted_class")
 
     if ref.grade == "generic":
         # No generic row (the pipeline publishes them for FUTURE years

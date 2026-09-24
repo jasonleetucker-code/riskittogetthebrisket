@@ -469,7 +469,20 @@ def _print_human(report: dict[str, Any], *, limit: int) -> None:
         print("Alias collision-delta check: clean (0 alias-introduced pool collisions)")
 
 
+def _utf8_stdio() -> None:
+    """The report prints ``──`` / ``→``; a cp1252 console (Windows) cannot
+    encode them and the run died with UnicodeEncodeError.  A no-op where the
+    streams are already UTF-8 (Linux, GitHub Actions)."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure") and (stream.encoding or "").lower() not in (
+            "utf-8",
+            "utf8",
+        ):
+            stream.reconfigure(encoding="utf-8")
+
+
 def main() -> int:
+    _utf8_stdio()
     ap = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     ap.add_argument("--json-path", help="raw dynasty_data payload JSON (default: newest export)")
     ap.add_argument("--json", dest="json_out", help="write the full machine-readable report here")

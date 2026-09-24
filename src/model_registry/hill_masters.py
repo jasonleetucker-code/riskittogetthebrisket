@@ -56,7 +56,7 @@ VALIDATED_PARAMS: tuple[str, str] = ("HILL_PERCENTILE_C", "HILL_PERCENTILE_S")
 def read_committed_constants(path: Path | None = None) -> dict[str, float]:
     """The eight constants currently live in ``player_valuation.py``."""
     target = path or PLAYER_VALUATION
-    text = target.read_text()
+    text = target.read_text(encoding="utf-8")
     out: dict[str, float] = {}
     for name in CONSTANT_NAMES:
         m = re.search(rf"^{re.escape(name)}:\s*float\s*=\s*([0-9.]+)\s*$", text, re.MULTILINE)
@@ -74,7 +74,7 @@ def write_committed_constants(params: dict[str, float], path: Path | None = None
     after its separate readiness, scope and board-impact gates clear.
     """
     target = path or PLAYER_VALUATION
-    text = target.read_text()
+    text = target.read_text(encoding="utf-8")
     for name in CONSTANT_NAMES:
         if name not in params:
             raise RegistryError(f"champion params missing {name!r}")
@@ -87,7 +87,9 @@ def write_committed_constants(params: dict[str, float], path: Path | None = None
         )
         if n != 1:
             raise RegistryError(f"expected 1 match for {name!r}, got {n}")
-    target.write_text(text)
+    # Explicit UTF-8 + LF: the platform defaults (cp1252 / CRLF on Windows)
+    # would re-encode the module's non-ASCII text and flip its line endings.
+    target.write_text(text, encoding="utf-8", newline="\n")
 
 
 def git_sha() -> str:

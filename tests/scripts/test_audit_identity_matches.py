@@ -166,6 +166,7 @@ class TestCommittedDataRegression:
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             cwd=str(REPO),
             timeout=600,
         )
@@ -214,6 +215,7 @@ class TestCommittedDataRegression:
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             cwd=str(REPO),
             timeout=600,
         )
@@ -261,6 +263,7 @@ class TestCommittedDataRegression:
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             cwd=str(REPO),
             timeout=600,
         )

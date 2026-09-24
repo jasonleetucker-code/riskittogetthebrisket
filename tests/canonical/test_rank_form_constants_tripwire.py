@@ -131,7 +131,7 @@ def test_the_refit_script_still_does_not_write():
     from pathlib import Path
 
     script = Path(__file__).resolve().parents[2] / "scripts" / "fit_hill_curve_from_market.py"
-    text = script.read_text()
+    text = script.read_text(encoding="utf-8")
     # Reading CSVs is expected; writing is not.
     for forbidden in ("write_text(", "write_committed_constants", ".writelines(", "json.dump("):
         assert forbidden not in text, (
