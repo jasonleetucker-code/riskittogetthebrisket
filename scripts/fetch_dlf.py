@@ -80,10 +80,12 @@ BOARDS: dict[str, dict[str, str]] = {
         "url": "https://dynastyleaguefootball.com/dynasty-superflex-rankings/",
         "out": "CSVs/site_raw/dlfSf.csv",
         "label": "Dynasty Superflex",
-        # DLF publishes an atomic Value beside the expert rank.  Preserve it
-        # for literal DLF trade second opinions; if it disappears, refuse to
-        # overwrite the last-good file with a rank-only semantic downgrade.
-        "require_native_value": True,
+        # DLF publishes (or published) an atomic Value beside the expert
+        # rank.  It is preserved when present, for literal DLF trade second
+        # opinions — but it is NOT what the model votes on (rank is), so its
+        # absence is reported and never blocks the rank board (2026-09-24:
+        # requiring it froze DLF SF from 09-09 while its rank was healthy).
+        "expect_native_value": True,
         # Aligned with the downstream contract floor
         # ``_DEFAULT_SOURCE_ROW_FLOORS["dlfSf"]`` (240) so a partial
         # scrape fails here and preserves last-good rather than
@@ -448,14 +450,26 @@ def _board_verdict(cfg: dict, rows: list[dict]) -> tuple[bool, str]:
             f"parsed only {len(rows)} rows — expected ≥{min_rows} (aligned with "
             "the downstream contract floor); partial/degraded scrape"
         )
-    if cfg.get("require_native_value"):
-        native_count = sum(1 for row in rows if _native_value_of(row) is not None)
-        if native_count < min_rows:
-            return False, (
-                f"native Value coverage {native_count}/{len(rows)} is below "
-                f"required floor {min_rows}; semantic/parser degradation"
-            )
     return True, "ok"
+
+
+def _native_value_note(cfg: dict, rows: list[dict]) -> str | None:
+    """A warning when a board that should carry DLF's native Value does not.
+
+    SEPARATE from :func:`_board_verdict` on purpose (owner directive
+    2026-09-24): rank is the model signal and Value is an optional
+    vendor-literal column, so a missing Value is reported — and written as an
+    empty column, never synthesized from rank — while the rank board updates.
+    """
+    if not cfg.get("expect_native_value"):
+        return None
+    native_count = sum(1 for row in rows if _native_value_of(row) is not None)
+    if native_count >= int(cfg.get("min_rows") or 30):
+        return None
+    return (
+        f"native Value coverage {native_count}/{len(rows)} — DLF's Value column is "
+        "unavailable on this board; writing rank with an empty value column"
+    )
 
 
 def _candidate_table_headers(html: str) -> list[list[str]]:
@@ -623,9 +637,12 @@ def main() -> int:
             print(
                 f"  rows={len(rows)} rank_parsable={rank_count} "
                 f"native_value={native_count} min_rows={min_rows} "
-                f"require_native_value={bool(cfg.get('require_native_value'))}"
+                f"expect_native_value={bool(cfg.get('expect_native_value'))}"
             )
             print(f"  verdict={'WRITE' if ok else 'REFUSE'} reason={reason}")
+            note = _native_value_note(cfg, rows)
+            if note:
+                print(f"  native_value=UNAVAILABLE {note}")
             for i, r in enumerate(rows[:5], 1):
                 print(
                     f"  {i:>3}. name={r.get('name')!r} "
@@ -648,6 +665,9 @@ def main() -> int:
             )
             exit_code = max(exit_code, 2)
             continue
+        note = _native_value_note(cfg, rows)
+        if note:
+            print(f"[DLF] WARNING {key}: {note}", file=sys.stderr, flush=True)
         count = _write_csv(out_path, rows)
         print(
             f"[DLF] wrote {count} rows → {out_path.relative_to(REPO)}",

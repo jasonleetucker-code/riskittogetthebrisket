@@ -100,7 +100,7 @@ from typing import Any
 import pytest
 
 from src.api.data_contract import build_api_data_contract
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import has_published_slot_class, newest_complete_raw_payload
 
 _REPO = Path(__file__).resolve().parents[2]
 
@@ -121,6 +121,25 @@ def _load_contract() -> dict[str, Any] | None:
         return None
     _contract_cache = build_api_data_contract(raw)
     return _contract_cache
+
+
+_slotted_cache: dict[str, Any] | None = None
+
+
+def _slotted_rows() -> list[dict[str, Any]]:
+    """Rows from the newest complete scrape that HAS a published slot class.
+
+    The rookie tether exists only in that phase (C1-U6-D2): after the draft,
+    until the next order is published, nothing is tethered and the property
+    under test has no population.  Skips rather than passing vacuously.
+    """
+    global _slotted_cache
+    if _slotted_cache is None:
+        raw, _archive = newest_complete_raw_payload(require=has_published_slot_class)
+        if raw is None:
+            pytest.skip("no complete archived scrape with a published slot class")
+        _slotted_cache = build_api_data_contract(raw)
+    return _slotted_cache.get("playersArray") or []
 
 
 def _rows() -> list[dict[str, Any]]:
@@ -152,7 +171,7 @@ class TestPricedRowsWearThePlaceholderLabel:
 
     def test_the_measured_population_now_reports_its_tether(self) -> None:
         """The 24 rows this RED was written for, by the property that identified them."""
-        anchored = [r for r in _rows() if r.get("pickRookieAnchor") and _is_priced(r)]
+        anchored = [r for r in _slotted_rows() if r.get("pickRookieAnchor") and _is_priced(r)]
         assert anchored, "no rookie-anchored priced picks — the anchor pass stopped running"
         unassessed = [
             r.get("canonicalName")

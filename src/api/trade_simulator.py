@@ -103,6 +103,20 @@ def _resolve_asset(
             if not board_name:
                 return None
             row = row_index.get(board_name.strip().lower())
+            if not row and res.basis == "exact_slot":
+                # An UNSLOTTED current class (C1-U6-D2): no vendor published
+                # its slots, so the board carries its tiers, not slot rows.
+                # The slot's own tier is a deterministic mapping, not a guess
+                # — the same ``tier_from_slot`` rule a future year gets.
+                from src.identity.picks import MarketPickRef, slot_tier
+
+                tier_name = MarketPickRef(
+                    year=parsed.year,
+                    round_num=parsed.round_num,
+                    tier=slot_tier(int(parsed.slot)),
+                ).board_row_name()
+                if tier_name:
+                    row = row_index.get(tier_name.strip().lower())
         if not row:
             return None
     # A pick row the pipeline deliberately left valueless (an

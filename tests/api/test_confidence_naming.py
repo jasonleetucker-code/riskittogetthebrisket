@@ -39,7 +39,7 @@ from src.api.confidence import (
     unassessed_defaults,
 )
 from src.api.data_contract import build_api_data_contract, validate_api_data_contract
-from tests.archive_fixtures import newest_complete_raw_payload
+from tests.archive_fixtures import has_published_slot_class, newest_complete_raw_payload
 
 _REPO = Path(__file__).resolve().parents[2]
 
@@ -63,6 +63,25 @@ def _load_contract() -> dict[str, Any] | None:
         return None
     _contract_cache = build_api_data_contract(raw)
     return _contract_cache
+
+
+_slotted_cache: dict[str, Any] | None = None
+
+
+def _slotted_rows() -> list[dict[str, Any]]:
+    """Rows from the newest complete scrape that HAS a published slot class.
+
+    The rookie tether exists only in that phase (C1-U6-D2): after the draft,
+    until the next order is published, nothing is tethered and the property
+    under test has no population.  Skips rather than passing vacuously.
+    """
+    global _slotted_cache
+    if _slotted_cache is None:
+        raw, _archive = newest_complete_raw_payload(require=has_published_slot_class)
+        if raw is None:
+            pytest.skip("no complete archived scrape with a published slot class")
+        _slotted_cache = build_api_data_contract(raw)
+    return _slotted_cache.get("playersArray") or []
 
 
 def _rows() -> list[dict[str, Any]]:
@@ -156,7 +175,9 @@ class TestRookieTetheredPicksAreHonest:
     """The 24 measured rows, and the 48 that must NOT have been relabelled."""
 
     def test_tethered_rows_report_the_tether_as_their_basis(self) -> None:
-        tethered = [r for r in _rows() if r.get("confidenceBasis") == "derived_rookie_tether"]
+        tethered = [
+            r for r in _slotted_rows() if r.get("confidenceBasis") == "derived_rookie_tether"
+        ]
         assert tethered, "no row reports a rookie tether — the anchor pass stopped stamping"
         for row in tethered:
             assert _priced(row), f"{row.get('canonicalName')} claims a tether but carries no value"
@@ -174,7 +195,7 @@ class TestRookieTetheredPicksAreHonest:
         methodology change wearing a rename's clothes. The rows the dispersion
         rule already assessed must still say so.
         """
-        dispersion = [r for r in _rows() if r.get("confidenceBasis") == "pick_dispersion"]
+        dispersion = [r for r in _slotted_rows() if r.get("confidenceBasis") == "pick_dispersion"]
         assert dispersion, (
             "no row reports pick_dispersion — the anchor pass has overwritten "
             "confidence the dispersion rule had already decided"

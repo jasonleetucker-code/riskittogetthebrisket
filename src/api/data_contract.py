@@ -5594,6 +5594,106 @@ def derive_current_draft_year_from_names(names: Any) -> int | None:
     return best
 
 
+#: Anchor provenance classes that are a vendor's OWN slot observation.
+#: Everything else a slot key can carry — ``derived_slot_from_tier`` (a tier
+#: spread across a slot curve) or ``model_injected_composite`` (our rookie
+#: proxy published under a vendor key) — is a derivation, not evidence that
+#: the class has a known draft order.
+_PUBLISHED_SLOT_PROVENANCE: frozenset[str] = frozenset({"published_slot", "unyeared_slot"})
+
+
+def _pick_count_floor_for_board(players_array: list[Any]) -> int:
+    """The pick-count floor for THIS board's phase (C1-U6-D2).
+
+    ``_PICK_COUNT_FLOOR`` (100) is ~80% of a board carrying the current
+    class's 72 slot rows.  Between one rookie draft and the next class's
+    draft order there are no slot rows at all — the complete board is then
+    (horizon + 1) years × 6 rounds × (3 tiers + 1 generic) = 96 rows, and 100
+    would fail a board that is whole.  Same 80% rule, applied to the board
+    that can exist.
+    """
+    has_slots = any(
+        isinstance(row, dict)
+        and row.get("assetClass") == "pick"
+        and _parse_pick_slot(str(row.get("canonicalName") or "")) is not None
+        for row in players_array
+    )
+    if has_slots:
+        return _PICK_COUNT_FLOOR
+    try:
+        horizon = max(0, int(_load_pick_year_discount().get("horizonYears") or 3))
+    except (TypeError, ValueError):
+        horizon = 3
+    complete = (horizon + 1) * 6 * 4
+    return min(_PICK_COUNT_FLOOR, math.ceil(0.8 * complete))
+
+
+def published_slot_years(anchor_provenance: Any) -> set[int] | None:
+    """Years for which at least one vendor published real slot values.
+
+    ``None`` when the payload predates ``pickAnchorsProvenance`` (C1-U6-D1):
+    unknown evidence is not "no evidence", so callers keep the legacy
+    behaviour rather than dropping rows they cannot judge.
+    """
+    if not isinstance(anchor_provenance, dict) or not anchor_provenance:
+        return None
+    from src.identity.picks import parse_pick_label
+
+    years: set[int] = set()
+    for per_site in anchor_provenance.values():
+        if not isinstance(per_site, dict):
+            continue
+        for label, klass in per_site.items():
+            if klass not in _PUBLISHED_SLOT_PROVENANCE:
+                continue
+            parsed = parse_pick_label(str(label))
+            if parsed is not None and parsed.slot is not None and parsed.year is not None:
+                years.add(int(parsed.year))
+    return years
+
+
+def _drop_unpublished_slot_pick_rows(
+    players_by_name: dict[str, Any], anchor_provenance: Any
+) -> list[str]:
+    """Remove slot-pick rows for years no vendor published slots for.
+
+    C1-U6-D2 (2026-09-24).  After a rookie draft the vendors stop publishing
+    that class and price the next one as Early/Mid/Late TIERS — its draft
+    order does not exist yet.  The scraper still minted 72 ``YYYY Pick R.SS``
+    rows for the next year, valued from the ``years_exp == 0`` rookie pool
+    (the class that was JUST drafted), and the pick map spread the vendors'
+    tiers into slots (``derived_slot_from_tier``).  Those rows then:
+
+    * made the next year look like an active slot class to
+      :func:`derive_current_draft_year_from_names`;
+    * were tethered to the wrong class (2027 Pick 1.01 = Jeremiyah Love, a
+      2026 rookie already in the NFL);
+    * suppressed the vendor-priced tiers as their aliases.
+
+    A slot row is an asset observation only when its draft order is known,
+    and the evidence for that is a vendor publishing the slots.  Without it
+    the year prices at tier / generic grade through the future-pick path —
+    no fabricated slot certainty (C1-ID-02), never zero.
+
+    Returns the dropped names.  No-op when provenance is absent (legacy
+    payloads) or when every slot year has published evidence.
+    """
+    published = published_slot_years(anchor_provenance)
+    if published is None:
+        return []
+    from src.identity.picks import parse_pick_label
+
+    dropped: list[str] = []
+    for name in list(players_by_name):
+        parsed = parse_pick_label(str(name))
+        if parsed is None or parsed.slot is None or parsed.year is None:
+            continue
+        if int(parsed.year) not in published:
+            del players_by_name[name]
+            dropped.append(name)
+    return dropped
+
+
 def derive_future_tier_years_from_names(names: Any, current_year: int) -> list[int]:
     """Years strictly after ``current_year`` that carry generic TIER labels.
 
@@ -8261,7 +8361,17 @@ def _complete_future_pick_values(
         if row.get("assetClass") == "pick":
             by_name[str(row.get("canonicalName") or "")] = row
 
-    future_years = range(current_year + 1, current_year + horizon + 1)
+    # The current class is completed here too when it has NO slot rows
+    # (C1-U6-D2): between one rookie draft and the next class's draft order,
+    # the vendors price the upcoming year as tiers only, so it is priced
+    # exactly like a future year — tiers from the market, rounds 5-6 by
+    # round-step, a generic-grade row per round — rather than tethered to a
+    # rookie pool that belongs to the class just drafted.
+    current_has_slots = any(
+        (_parse_pick_slot(name) or (None,))[0] == current_year for name in by_name
+    )
+    first_year = current_year + 1 if current_has_slots else current_year
+    future_years = range(first_year, current_year + horizon + 1)
     derived: dict[str, int] = {}
 
     # ── 0. Year-step completion for unpriced future tier rows ──
@@ -12037,6 +12147,11 @@ def build_api_data_contract(
             players_by_name[_name] = _copy
     base["players"] = players_by_name
 
+    # A slot row is only an asset observation when some vendor PUBLISHED
+    # that year's slots (C1-U6-D2, 2026-09-24).  Drop the ones nobody did —
+    # before the draft year is derived from them.
+    _drop_unpublished_slot_pick_rows(players_by_name, src_payload.get("pickAnchorsProvenance"))
+
     # Derive the active rookie draft year from the scrape's own
     # slot-pick names so the discount, rookie-anchor, and synthetic
     # tether passes all key off one self-rolling value (see
@@ -13540,8 +13655,9 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         pick_count = sum(
             1 for row in players_array if isinstance(row, dict) and row.get("assetClass") == "pick"
         )
-        if pick_count < _PICK_COUNT_FLOOR:
-            errors.append(f"pick_count_below_floor:{pick_count}:{_PICK_COUNT_FLOOR}")
+        pick_floor = _pick_count_floor_for_board(players_array)
+        if pick_count < pick_floor:
+            errors.append(f"pick_count_below_floor:{pick_count}:{pick_floor}")
         pick_anchors = payload.get("pickAnchors")
         if pick_anchors is None:
             errors.append("pickAnchors missing from payload")
@@ -13626,7 +13742,15 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
                 census_horizon = max(0, int(_load_pick_year_discount().get("horizonYears") or 3))
             except (TypeError, ValueError):
                 census_horizon = 3
-            for census_year in range(census_current + 1, census_current + census_horizon + 1):
+            # An UNSLOTTED current class (C1-U6-D2) is priced as tiers +
+            # generic rows exactly like a future year, so the census covers
+            # it too; a slotted one keeps its deliberately alias-suppressed
+            # tiers out of scope as before.
+            census_current_slotted = any(
+                (_parse_pick_slot(nm) or (None,))[0] == census_current for nm in pick_rows_by_name
+            )
+            census_first = census_current + 1 if census_current_slotted else census_current
+            for census_year in range(census_first, census_current + census_horizon + 1):
                 for census_round in range(1, 7):
                     names = [
                         f"{census_year} {t} {_round_suffix(census_round)}"

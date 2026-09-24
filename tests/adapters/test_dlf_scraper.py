@@ -281,13 +281,27 @@ def test_board_verdict_is_the_one_write_guard(dlf_module):
     ok, reason = dlf_module._board_verdict(sf, rows[:10])
     assert not ok and reason.startswith("parsed only 10 rows")
 
+    # Rank is the model signal; a missing native Value never blocks the rank
+    # board (owner directive 2026-09-24 — requiring it froze DLF SF from
+    # 09-09 while its rank was healthy).  It is reported instead.
     no_value = [{"name": r["name"], "avg": r["avg"], "value": ""} for r in rows]
-    ok, reason = dlf_module._board_verdict(sf, no_value)
-    assert not ok and reason.startswith("native Value coverage 0/299")
+    assert dlf_module._board_verdict(sf, no_value) == (True, "ok")
+    note = dlf_module._native_value_note(sf, no_value)
+    assert note is not None and note.startswith("native Value coverage 0/299")
+    assert dlf_module._native_value_note(sf, rows) is None
 
-    # Boards that do not require native Value only answer to the row floor.
+    # Boards that never carried Value say nothing about it.
     idp = dlf_module.BOARDS["dlfIdp"]
     assert dlf_module._board_verdict(idp, no_value[:200]) == (True, "ok")
+    assert dlf_module._native_value_note(idp, no_value[:200]) is None
+
+
+def test_missing_native_value_writes_rank_with_an_empty_value_column(dlf_module, tmp_path: Path):
+    """Never synthesized from rank: the column is present and empty."""
+    out = tmp_path / "dlfSf.csv"
+    dlf_module._write_csv(out, [{"name": "Josh Allen", "avg": "1.2", "value": ""}])
+    with out.open() as f:
+        assert list(csv.DictReader(f)) == [{"name": "Josh Allen", "rank": "1.20", "value": ""}]
 
 
 def test_candidate_table_headers_skips_small_tables(dlf_module):
