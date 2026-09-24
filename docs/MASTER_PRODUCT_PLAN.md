@@ -43,6 +43,7 @@ The product plan is intentionally split by responsibility. Multiple documents ar
 |---|---|
 | What is the overall product direction and which document wins? | **`docs/MASTER_PRODUCT_PLAN.md`** (this file) |
 | How do I add an owner idea / see how it should be grouped or parallelized? | **`docs/BRISKET_IDEAS.md`** front door → `docs/OWNER_REQUESTED_TODO.md` live intake ledger. This is process/navigation, not implementation authority. |
+| What is the owner-facing view of all remaining work / how do I ask for the next sensible batch? | **`docs/BRISKET_IDEAS.md` unified completion portfolio.** It derives the remaining desired work from this plan + inventory/specs + scope/completion records + owner intake + current issues/code/evidence, then batches it by priority/dependencies/shared foundations/concurrency. It is a view/process layer, not a replacement authority. |
 | What features exist, are planned, removed, defective, or evidence-gated? | **`docs/OWNER_FEATURE_INVENTORY.md`** |
 | What does an approved feature actually mean; what UX/methodology/public-private behavior was decided? | **`docs/OWNER_PRODUCT_BACKLOG_SPEC.md`** plus the detailed reconciled requirements in this file |
 | What is the current authorized execution sequence/checkpoint? | **`docs/EXECUTION_PLAN.md`** |
