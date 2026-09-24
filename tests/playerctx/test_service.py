@@ -192,6 +192,148 @@ class TestRefreshPlayerctx:
         assert summary["counts"]["players"] == 3
 
 
+_ROLLOVER_NAMES = [
+    ("Aaron Alpha", "AlphAa00", "SF"),
+    ("Bobby Bravo", "BravBo00", "MIN"),
+    ("Carl Charlie", "CharCa00", "DAL"),
+    ("Dan Delta", "DeltDa00", "CHI"),
+    ("Eddie Echo", "EchoEd00", "SF"),
+    ("Frank Foxtrot", "FoxtFr00", "MIN"),
+    ("Gus Golf", "GolfGu00", "DAL"),
+    ("Hank Hotel", "HoteHa00", "CHI"),
+]
+
+
+def _snap_row(season: int, week: int, idx: int) -> str:
+    name, pfr, team = _ROLLOVER_NAMES[idx]
+    return f"{season}_{week:02d}_{team}_XX,g{season}{week}{idx},{season},REG,{week},{name},{pfr},WR,{team},XX,40,0.60,0,0,0,0"
+
+
+class TestSnapSeasonRollover:
+    """Production, 2026-09-10 onward: every refresh failed closed with
+    "snapCounts: matched 1283 retains less than 75% of last-good 1764".
+
+    Last-good held the COMPLETE 2025 season (22 weeks, 2189 players
+    parsed); the new file held 2026 weeks 1-2 only (1600 parsed).  A
+    season's snap aggregate only grows as weeks are played, so the
+    per-source check compared two different things.  Against the same
+    week coverage, 2025 through week 2 was 1601 parsed / 1283 matched —
+    identical to 2026.  Sanitized shape: four players appear in weeks
+    1-2 of both seasons, four more only later in 2025.
+    """
+
+    @pytest.fixture
+    def pool(self):
+        return {
+            str(1000 + i): {
+                "player_id": str(1000 + i),
+                "full_name": name,
+                "position": "WR",
+                "team": team,
+                "gsis_id": f"00-00{1000 + i}",
+                "espn_id": "",
+            }
+            for i, (name, _pfr, team) in enumerate(_ROLLOVER_NAMES)
+        }
+
+    def _bundle(self, tmp_path, fixture_bundle, *, new_players=4, prior=True):
+        # 2026: weeks 1-2 only, `new_players` of the four early players.
+        fixture_bundle.snap_counts = write_csv(
+            tmp_path / "snap_counts_2026.csv",
+            SNAPS_HEADER,
+            [_snap_row(2026, w, i) for w in (1, 2) for i in range(new_players)],
+        )
+        fixture_bundle.snap_counts_season = 2026
+        if prior:
+            # 2025, complete: the same four in weeks 1-2, four more
+            # who only show up from week 5 on.
+            fixture_bundle.snap_counts_prior = write_csv(
+                tmp_path / "snap_counts_2025.csv",
+                SNAPS_HEADER,
+                [_snap_row(2025, w, i) for w in (1, 2, 3) for i in range(4)]
+                + [_snap_row(2025, w, i) for w in (5, 12, 18) for i in range(4, 8)],
+            )
+            fixture_bundle.snap_counts_prior_season = 2025
+        return fixture_bundle
+
+    def _last_good(self, target, *, season=2025, snaps_matched=8):
+        store.write_snapshot(
+            {
+                f"00-00{1000 + i}": {"gsisId": f"00-00{1000 + i}", "sleeperId": str(1000 + i)}
+                for i in range(3)
+            },
+            counts={
+                "contracts": {"parsed": 2, "matched": 2},
+                "snapCounts": {"parsed": 8, "matched": snaps_matched},
+                "depthCharts": {"parsed": 3, "matched": 3},
+            },
+            sources={"snapCounts": {"season": season}},
+            path=target,
+        )
+        return target.read_text(encoding="utf-8")
+
+    def _refresh(self, bundle, pool, players_dir, target):
+        return service.refresh_playerctx(
+            fetcher=_fetcher(bundle),
+            players_dir={**players_dir, **pool},
+            snapshot_path=target,
+        )
+
+    def test_early_season_rollover_is_compared_like_for_like(
+        self, tmp_path, fixture_bundle, players_dir, pool, small_floors
+    ):
+        target = tmp_path / "snapshot.json"
+        self._last_good(target)
+        bundle = self._bundle(tmp_path, fixture_bundle)
+        # 4 matched vs a full-season last-good of 8 is 50%, but 2025
+        # through week 2 also matched exactly 4.
+        summary = self._refresh(bundle, pool, players_dir, target)
+        assert summary["counts"]["snapCounts"]["matched"] == 4
+        payload = store.load_snapshot(target)
+        assert payload["sources"]["snapCounts"]["season"] == 2026
+
+    def test_a_real_collapse_at_rollover_still_keeps_last_good(
+        self, tmp_path, fixture_bundle, players_dir, pool, small_floors
+    ):
+        target = tmp_path / "snapshot.json"
+        before = self._last_good(target)
+        # Only 2 of the 4 players 2025 had by week 2: a partial file.
+        bundle = self._bundle(tmp_path, fixture_bundle, new_players=2)
+        with pytest.raises(SchemaRegressionError, match="2025 through week 2"):
+            self._refresh(bundle, pool, players_dir, target)
+        assert target.read_text(encoding="utf-8") == before
+
+    def test_rollover_without_a_prior_season_baseline_fails_closed(
+        self, tmp_path, fixture_bundle, players_dir, pool, small_floors
+    ):
+        target = tmp_path / "snapshot.json"
+        before = self._last_good(target)
+        bundle = self._bundle(tmp_path, fixture_bundle, prior=False)
+        with pytest.raises(SchemaRegressionError, match="no like-for-like baseline"):
+            self._refresh(bundle, pool, players_dir, target)
+        assert target.read_text(encoding="utf-8") == before
+
+    def test_a_season_going_backwards_is_a_regression(
+        self, tmp_path, fixture_bundle, players_dir, pool, small_floors
+    ):
+        target = tmp_path / "snapshot.json"
+        before = self._last_good(target, season=2027)
+        bundle = self._bundle(tmp_path, fixture_bundle)
+        with pytest.raises(SchemaRegressionError, match="older than last-good season 2027"):
+            self._refresh(bundle, pool, players_dir, target)
+        assert target.read_text(encoding="utf-8") == before
+
+    def test_within_a_season_the_last_good_count_still_applies(
+        self, tmp_path, fixture_bundle, players_dir, pool, small_floors
+    ):
+        target = tmp_path / "snapshot.json"
+        before = self._last_good(target, season=2026)
+        bundle = self._bundle(tmp_path, fixture_bundle)
+        with pytest.raises(SchemaRegressionError, match="snapCounts: matched 4 retains less"):
+            self._refresh(bundle, pool, players_dir, target)
+        assert target.read_text(encoding="utf-8") == before
+
+
 class TestReconstructPlayerctx:
     """Replaying the snapshot as it would have read at a past week.
 

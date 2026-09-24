@@ -102,6 +102,12 @@ class FetchBundle:
     contracts: Path | None = None
     snap_counts: Path | None = None
     snap_counts_season: int | None = None
+    # The season before ``snap_counts_season``: the like-for-like
+    # baseline the refresh compares against when the snap season rolls
+    # over (see ``service._rollover_snap_baseline``).  Optional — its
+    # absence only matters at a rollover, where the refresh fails closed.
+    snap_counts_prior: Path | None = None
+    snap_counts_prior_season: int | None = None
     depth_charts: Path | None = None
     depth_charts_season: int | None = None
     sleeper_players: Path | None = None
@@ -342,6 +348,27 @@ def fetch_all(
         session=session,
     )
     bundle.warnings.extend(warns)
+
+    if bundle.snap_counts_season is not None:
+        # Cached like every other file (fresh-skip / 304), so this costs
+        # one download per season and a conditional GET afterwards.
+        prior = bundle.snap_counts_season - 1
+        res = fetch_url(
+            SNAP_COUNTS_URL_TMPL.format(season=prior),
+            cache / f"snap_counts_{prior}.csv",
+            key=f"snap_counts:{prior}",
+            max_age_hours=max_age_hours,
+            force=force,
+            session=session,
+        )
+        if res.path is not None:
+            bundle.snap_counts_prior = res.path
+            bundle.snap_counts_prior_season = prior
+        if res.path is None or res.status == "error":
+            bundle.warnings.append(
+                f"snap_counts prior season {prior}: {res.status} {res.detail} "
+                "(season-rollover baseline)"
+            )
 
     bundle.depth_charts, bundle.depth_charts_season, warns = _fetch_seasonal(
         DEPTH_CHARTS_URL_TMPL,

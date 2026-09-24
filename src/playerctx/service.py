@@ -119,6 +119,57 @@ def _parse_and_join(
     return records, stats, counts
 
 
+def _check_rollover_snap_retention(
+    bundle: fetch_mod.FetchBundle,
+    players_dir: dict[str, dict[str, Any]],
+    new_matched: int,
+    prev_season: int,
+) -> None:
+    """Snap retention across a season rollover, compared like for like.
+
+    The baseline is the prior season's snap file cut at the new
+    season's highest week, joined to the same Sleeper pool.  Anything
+    that prevents building it fails closed: a rollover with no baseline
+    is exactly when a partial upstream file would otherwise publish.
+    """
+    new_rows = norm.parse_snap_counts(bundle.snap_counts)
+    through_week = max((r["week"] for r in new_rows), default=None)
+    baseline = 0
+    prior_season = bundle.snap_counts_prior_season
+    if bundle.snap_counts_prior is not None and through_week is not None:
+        prior_snaps = norm.aggregate_snaps(
+            norm.parse_snap_counts(
+                bundle.snap_counts_prior, season=prior_season, through_week=through_week
+            )
+        )
+        _, prior_stats = norm.build_player_context(
+            contracts=[], snaps=prior_snaps, depth=[], players_dir=players_dir
+        )
+        baseline = prior_stats["snapCounts"]["matched"]
+    if baseline <= 0:
+        raise SchemaRegressionError(
+            f"snapCounts: season rolled over {prev_season} -> {bundle.snap_counts_season} "
+            f"but there is no like-for-like baseline (prior season "
+            f"{prior_season or bundle.snap_counts_season - 1} through week {through_week}); "
+            "keeping last-good"
+        )
+    if new_matched < baseline * _LAST_GOOD_RETENTION:
+        raise SchemaRegressionError(
+            f"snapCounts: matched {new_matched} retains less than "
+            f"{_LAST_GOOD_RETENTION:.0%} of {prior_season} through week {through_week} "
+            f"({baseline}); keeping last-good"
+        )
+    log.info(
+        "playerctx: snap season rollover %s -> %s; matched %d vs %s through week %s = %d",
+        prev_season,
+        bundle.snap_counts_season,
+        new_matched,
+        prior_season,
+        through_week,
+        baseline,
+    )
+
+
 def refresh_playerctx(
     *,
     force: bool = False,
@@ -200,8 +251,31 @@ def refresh_playerctx(
         # a snapshot silently missing every contract block.  Each
         # source's matched count must hold its own retention ratio
         # against last-good.
+        #
+        # Snap counts are the one CUMULATIVE source: a season's aggregate
+        # only grows as weeks are played.  Within a season last-good is
+        # the right baseline.  Across a season rollover it is not — week
+        # 2 of the new season against all 22 weeks of the old one fails
+        # every refresh until about week 3 (production, 2026-09-10 on:
+        # 1283 matched vs last-good 1764, while 2025 through week 2 had
+        # also matched exactly 1283).  At a rollover the baseline is the
+        # prior season through the same week instead.
         prev_counts = last_good.get("counts") or {}
+        prev_snap_season = ((last_good.get("sources") or {}).get("snapCounts") or {}).get("season")
+        snap_rollover = False
+        if isinstance(prev_snap_season, int) and isinstance(bundle.snap_counts_season, int):
+            if bundle.snap_counts_season < prev_snap_season:
+                raise SchemaRegressionError(
+                    f"snapCounts: season {bundle.snap_counts_season} is older than "
+                    f"last-good season {prev_snap_season}; keeping last-good"
+                )
+            snap_rollover = bundle.snap_counts_season > prev_snap_season
         for source_key in ("contracts", "snapCounts", "depthCharts"):
+            if source_key == "snapCounts" and snap_rollover:
+                _check_rollover_snap_retention(
+                    bundle, players_dir, stats[source_key]["matched"], prev_snap_season
+                )
+                continue
             prev_matched = (prev_counts.get(source_key) or {}).get("matched")
             if not isinstance(prev_matched, int) or prev_matched <= 0:
                 continue  # older snapshot without per-source counts

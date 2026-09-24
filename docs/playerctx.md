@@ -129,6 +129,18 @@ an offensive formation ("3WR 1TE"), "Base 3-4 D" / "Base 4-3 D", or
    matching nothing after a naming change) can't hide behind a healthy
    total.  Either breach → exit 2 with the last-good snapshot left
    untouched.  Soft failures (network, empty parse) → exit 1.
+   Snap counts are cumulative within a season, so when the snap season
+   rolls over (new season > last-good `sources.snapCounts.season`) the
+   snap check compares like with like: the prior season's file, cut at
+   the new season's highest week and joined to the same Sleeper pool,
+   is the baseline instead of last-good's full-season count.  (2026
+   kickoff: weeks 1-2 matched 1283 against a full-2025 last-good of
+   1764, which failed every refresh, while 2025 through week 2 had also
+   matched 1283.)  A rollover with no prior-season file, or a snap
+   season older than last-good's, still fails closed (exit 2).  The fetch
+   step downloads the prior season's snap file alongside the current
+   one for this purpose; if that download fails it logs a warning and
+   the refresh continues.
 5. **store** (`store.py`) — atomic tmp-then-replace write of
    `data/playerctx/snapshot.json`.
 

@@ -266,3 +266,41 @@ class TestSeasonalFallbackUsesStaleCopy:
         assert path == dest
         assert season == 2025
         assert any("stale" in w for w in warns)
+
+
+class TestPriorSeasonSnapBaseline:
+    """The refresh needs the season before the snap season it found to
+    compare a rollover like for like; fetching it must never be what
+    fails a refresh."""
+
+    def _urls(self, prior_response):
+        snap = fetch_mod.SNAP_COUNTS_URL_TMPL
+        depth = fetch_mod.DEPTH_CHARTS_URL_TMPL
+        return {
+            fetch_mod.CONTRACTS_URL: _FakeResponse(chunks=[b"c"]),
+            snap.format(season=2026): _FakeResponse(chunks=[b"s2026"]),
+            snap.format(season=2025): prior_response,
+            depth.format(season=2026): _FakeResponse(chunks=[b"d2026"]),
+            fetch_mod.SLEEPER_PLAYERS_URL: _FakeResponse(chunks=[b"{}"]),
+        }
+
+    def test_the_prior_season_file_rides_along(self, tmp_path):
+        session = _FakeSession(by_url=self._urls(_FakeResponse(chunks=[b"s2025"])))
+        bundle = fetch_mod.fetch_all(
+            cache_dir=tmp_path, seasons=[2026, 2025], max_age_hours=0.0, session=session
+        )
+        assert bundle.snap_counts_season == 2026
+        assert bundle.snap_counts.read_bytes() == b"s2026"
+        assert bundle.snap_counts_prior_season == 2025
+        assert bundle.snap_counts_prior.read_bytes() == b"s2025"
+        assert bundle.warnings == []
+
+    def test_a_missing_prior_season_is_a_warning_not_a_failure(self, tmp_path):
+        session = _FakeSession(by_url=self._urls(_FakeResponse(status_code=500)))
+        bundle = fetch_mod.fetch_all(
+            cache_dir=tmp_path, seasons=[2026, 2025], max_age_hours=0.0, session=session
+        )
+        assert bundle.snap_counts_season == 2026
+        assert bundle.snap_counts_prior is None
+        assert bundle.snap_counts_prior_season is None
+        assert any("season-rollover baseline" in w for w in bundle.warnings)
