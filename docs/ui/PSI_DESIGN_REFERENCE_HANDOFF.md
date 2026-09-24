@@ -17,7 +17,7 @@ not PSI_VERIFIED. Enabling previews requires separately approved treatment and p
 Current-head integration validation, screenshot provenance and deployment status must
 be read from PR #1429; old screenshots at 49e7fcf are historical, not the gated release.
 The original 2,483-test / 14-budget / four-E2E / six-axe evidence remains historical.
-Fresh desktop/phone and keyboard/axe proof is required before the gated state ships.
+Fresh gated-state desktop/phone, keyboard and six axe scans passed in run 36055955615; see docs/psi/evidence/PR_1429_2026-09-24/gated-integration. Normal PR/deploy gates remain separate.
 Production verification and shared shell outer-canvas/Screenshot-FAB debt remain open.
 Continue dependency-safe populated Rankings/Player File test work while #1428 waits.
 The prompt below is retained as historical scope, not permission to repeat completed
