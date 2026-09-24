@@ -75,11 +75,14 @@ class TestSourceCsvPathRegistryParity(unittest.TestCase):
             f"{accidental_votes}.  This can double-count historical/diagnostic evidence.",
         )
 
-        # KTC is the concrete anti-regression that motivated the distinction:
-        # Crowd + Trades are diagnostics and legacy Crowd is historical; only
-        # KTC's official Crowd+Trades blend is the current KTC family vote.
-        self.assertIn("ktcCrowdTradesSfTep", registry_keys)
-        for key in ("ktc", "ktcSfTep", "ktcCrowdSfTep", "ktcTradesSfTep"):
+        # KTC is the concrete anti-regression that motivated the distinction
+        # (owner directive 2026-09-23): Crowd and Trades are the two KTC
+        # votes; KTC's Crowd+Trades is the benchmark-only KTC Market, derived
+        # from those two, so registering it would count KTC twice; legacy
+        # Crowd boards are historical.
+        self.assertIn("ktcCrowdSfTep", registry_keys)
+        self.assertIn("ktcTradesSfTep", registry_keys)
+        for key in ("ktc", "ktcSfTep", "ktcCrowdTradesSfTep"):
             self.assertIn(key, _NON_VOTING_SOURCE_CSV_KEYS)
             self.assertNotIn(key, registry_keys)
 

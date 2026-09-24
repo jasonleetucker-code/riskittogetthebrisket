@@ -464,6 +464,30 @@ predictive backtest. A future formal backtest against §12's protocol remains va
 out of scope here; nothing about this change depends on skipping it forever.
 
 
+### Dynasty value freshness-aware source weighting + KTC signal separation — owner directive 2026-09-23
+
+Owner directive (definite, durable): overhaul the dynasty value system so source influence responds
+automatically to each source's *actual* content freshness, health and coverage rather than manual weight
+edits. Binding elements, as approved with the owner's required revision the same day:
+
+- **KTC Crowd and KTC Trades become two separate model inputs** (base weight 1.0 each, separate source
+  families). **KTC Market** (KTC's own published Crowd+Trades value) becomes **benchmark-only** — never a
+  third KTC vote, never containing any non-KTC source — with one canonical owner every market comparison
+  consumes. Fantasy Navigator stays inside KTC lineage so KTC gains no hidden third vote.
+- **Fetch time is not data freshness.** Track fetch, any-meaningful-change and broad-dataset-change clocks
+  separately; classify each provider's publication style (snapshot / batch / incremental / unknown /
+  explicit upstream timestamp) from evidence; players and picks are independent subsets.
+- **Freshness is cadence-relative** (age ÷ the source's own expected interval), smooth and deterministic,
+  with no universal absolute grace floors; candidate curves compared before constants are fixed; outages
+  cannot redefine "normal" cadence; influence recovers automatically after a genuine update.
+- `effective weight = base × freshness × health × coverage`; missing ≠ zero; degraded evidence stays
+  visible under renormalization; per-player and per-source explainability; alerts for stale valuation
+  infrastructure; IDP Trade Calculator, IDP Show and DLF staleness root-caused from evidence.
+- Do not tune toward KTC Market; KTC Market is the benchmark, not the target.
+
+Plan of record: branch `claude/peaceful-goodall-3uqtyx`; detail in
+`docs/sources/SOURCE_FRESHNESS_WEIGHTING.md`. Authorization recorded in `docs/EXECUTION_PLAN.md` §0.
+
 ### Power Rankings pipeline audit + methodology display — owner directive 2026-09-23
 
 Owner reported a League Power Rankings share card showing 10 of 12 teams, "Preseason" in

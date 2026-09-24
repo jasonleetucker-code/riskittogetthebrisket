@@ -4,7 +4,9 @@
 // "How far is OUR canonical value from the public transaction market a trade
 // partner is likely to consult?"
 //
-// Offense -> KeepTradeCut SF/TEP (ktcSfTep)
+// Offense -> KTC MARKET: KTC's published Crowd+Trades SF/TE++ value
+//            (ktcCrowdTradesSfTep) — the one canonical market owner
+//            (src/sources/ktc_market.py), benchmark-only, never a model input
 // IDP     -> IDP Trade Calculator (idpTradeCalc)
 //
 // No ranking or valuation math is recreated here. `ourValue` is read from the

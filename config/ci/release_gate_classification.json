@@ -650,6 +650,9 @@
     "scheduled-refresh.yml::refresh::Prune regenerable archives (retention)": {
       "category": "blocking"
     },
+    "scheduled-refresh.yml::refresh::Record source dataset state": {
+      "category": "blocking"
+    },
     "scheduled-refresh.yml::refresh::Report freshness": {
       "category": "blocking"
     },

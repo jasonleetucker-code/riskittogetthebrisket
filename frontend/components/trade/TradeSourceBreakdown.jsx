@@ -36,7 +36,12 @@ import {
 } from "@/lib/dynasty-data";
 import { resolveVendorAssetValue, summariseSide } from "@/lib/second-opinions";
 
-const KTC_RAW_NATIVE_VENDORS = new Set(["ktcSfTep", "ktcCrowdTradesSfTep"]);
+const KTC_RAW_NATIVE_VENDORS = new Set([
+  "ktcSfTep",
+  "ktcCrowdSfTep",
+  "ktcTradesSfTep",
+  "ktcCrowdTradesSfTep",
+]);
 const VENDOR_NATIVE_VENDORS = new Set(["dlf"]);
 
 // NOTE: this component deliberately takes NO ``valueMode``.

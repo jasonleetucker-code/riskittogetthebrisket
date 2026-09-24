@@ -74,7 +74,13 @@ KNOWN_MULTI_BOARD_PROVIDERS = {
     "fantasyPros": {"fantasyProsSf", "fantasyProsIdp", "fantasyProsFitzmaurice"},
     "flockFantasy": {"flockFantasySf", "flockFantasySfRookies"},
     "draftSharks": {"draftSharks", "draftSharksIdp"},
-    "ktc": {"ktcCrowdTradesSfTep", "fantasyNavigatorSf"},
+    # KTC publishes Crowd and Trades from one vendor, but the OWNER ruled
+    # them two separate model inputs (2026-09-23): expressed community
+    # valuation vs revealed trade behaviour are different evidence-generating
+    # processes.  So KTC is the one provider deliberately split into two
+    # families; the KTC-derived republisher rides with Crowd (measured).
+    "ktcCrowd": {"ktcCrowdSfTep", "fantasyNavigatorSf"},
+    "ktcTrades": {"ktcTradesSfTep"},
 }
 
 
@@ -124,12 +130,13 @@ class TestEveryMultiBoardProviderIsDeclared:
     def test_independent_family_count_is_lower_than_source_count(self):
         """The number this exists to make available to B10-T3.
 
-        21 source keys, 13 independent provider families. Any aggregation
+        22 source keys, 14 independent provider families (KTC Crowd and KTC
+        Trades are two families by owner ruling, 2026-09-23). Any aggregation
         step whose mathematical meaning is "how much independent evidence
         is there" must use the second number.
         """
-        assert len(_RANKING_SOURCES) == 21
-        assert len(_groups()) == 13
+        assert len(_RANKING_SOURCES) == 22
+        assert len(_groups()) == 14
 
 
 class TestTheDeclarationHasOneConsumerPath:

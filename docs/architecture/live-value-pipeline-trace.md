@@ -94,7 +94,8 @@ policy.  Pinned against the registry by
 | `fantasyProsSf` | overall_offense | 1.0 | 250 | `rank_signal` |
 | `flockFantasySf` | overall_offense | 1.0 | 370 | `rank_signal` |
 | `flockFantasySfRookies` | overall_offense | 1.0 | 50 | `rank_signal` |
-| `ktcCrowdTradesSfTep` | overall_offense | 1.0 | — | `retail`, `tep_premium` |
+| `ktcCrowdSfTep` | overall_offense | 1.0 | — | `retail`, `tep_premium` (KTC Crowd — model input) |
+| `ktcTradesSfTep` | overall_offense | 1.0 | — | `retail`, `tep_premium` (KTC Trades — model input) |
 | `otcffbSf` | overall_offense | 1.0 | 460 | `rank_signal` |
 | `pfkDynasty` | overall_offense | 1.0 | 460 | `rank_signal` |
 | `yahooBoone` | overall_offense | 1.0 | 500 | `tep_premium`, `rank_signal` |

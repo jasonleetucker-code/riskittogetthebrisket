@@ -26,14 +26,16 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    `src/api/feature_flags.py`. Env override via `RISKIT_FEATURE_<NAME>=1`
    (or `=0` to disable).
 
-   **Defaults are per-flag.** As of 2026-09-09, 10 of the 20 entries in
+   **Defaults are per-flag.** As of 2026-09-23, 11 of the 21 entries in
    `_DEFAULTS` ship enabled — `ledger_rank_change` (registered closing
    F-24: the ledger-derived `rankChange` derivation, previously an
    invisible direct env read), `bdvm_engine`, `te_basis_conversion`
    (which reprices every tight end on the live board),
    `monte_carlo_trade`, `idp_scoring_fit`, `reception_scoring_fit`,
    `nfl_data_ingest`, `realized_points_api`, `perfect_draft`,
-   `waiver_live_opportunity` (shadow-only; response remains canonical-only) — several
+   `waiver_live_opportunity` (shadow-only; response remains canonical-only),
+   `source_freshness_weighting` (freshness × health × coverage applied to
+   blend weights; off keeps the diagnostics) — several
    with comments
    recording that the enabled default is deliberate. For those, the env
    var is a rollback lever rather than an opt-in.

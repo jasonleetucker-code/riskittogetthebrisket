@@ -867,26 +867,24 @@ export function getPlayerEdge(row) {
     return { signal: null, edgePct: 0, valueGapPct: 0, sources: ["ktc"] };
   }
 
-  // Translate the rank gap into a rough value-% for display continuity
-  // with the old UI.  We compare the row's live value against its KTC
-  // canonical-site value when available, else derive from the rank
-  // gap.  The SIGNAL itself is rank-driven — this % is purely a
-  // human-readable "how different is the price".
-  //
-  // Read KTC's TE++ raw scrape (``rawSourceValues.ktcSfTep``) so the
-  // gap matches what the user sees on keeptradecut.com.  Falls back
-  // to ``canonicalSites.ktcSfTep`` (post PR #406 this equals the raw
-  // scrape verbatim — KTC is exempt from the blend-time TE
-  // multiplier) if the rawSourceValues stamp is missing, then to the
-  // legacy ``canonicalSites.ktc`` board for pre-#393 fixtures.
+  // How far our model value sits from canonical KTC MARKET (owner
+  // directive 2026-09-23): the backend-stamped ``row.ktcMarket`` block is
+  // the ONE market definition — KTC's published Crowd+Trades, never a blend
+  // of other sources.  ``normalizedValue`` is that price on the board's
+  // 0-9999 scale (the same encoding the signal direction is computed on),
+  // so the percentage and the BUY/SELL direction can never disagree.
+  // Falls back to the published value, then to the pre-split Crowd-only
+  // board for historical fixtures only.
   let edgePct = 0;
   const ourValue = Number(row?.values?.full);
+  const market = row?.ktcMarket && typeof row.ktcMarket === "object" ? row.ktcMarket : null;
   const ktcValue =
+    Number(market?.normalizedValue) ||
+    Number(market?.value) ||
     Number(row?.rawSourceValues?.ktcCrowdTradesSfTep) ||
     Number(row?.canonicalSites?.ktcCrowdTradesSfTep) ||
     Number(row?.rawSourceValues?.ktcSfTep) ||
-    Number(row?.canonicalSites?.ktcSfTep) ||
-    Number(row?.canonicalSites?.ktc);
+    Number(row?.canonicalSites?.ktcSfTep);
   if (Number.isFinite(ourValue) && ourValue > 0 && Number.isFinite(ktcValue) && ktcValue > 0) {
     edgePct = Math.round(Math.abs(((ourValue - ktcValue) / ktcValue) * 100));
   } else {

@@ -88,6 +88,11 @@ def paths(tmp_path, monkeypatch):
     monkeypatch.setattr(mod, "COMBINED_OUT_PATH", combined_out_path)
     monkeypatch.setattr(mod, "STATUS_PATH", status_path)
     monkeypatch.setattr(mod, "COMBINED_STATUS_PATH", combined_status_path)
+    monkeypatch.setattr(
+        mod,
+        "COMBINED_UPSTREAM_PATH",
+        tmp_path / "data" / "scrape_state" / "idpShowCombined_upstream.json",
+    )
     # Every scenario stubs the network; _build_session's return value is
     # never actually used for a real request once _fetch_article_html /
     # _resolve_latest_version / _fetch_dataset_csv are monkeypatched below.

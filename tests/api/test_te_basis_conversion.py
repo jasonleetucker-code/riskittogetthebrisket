@@ -14,7 +14,7 @@ assertion here would pass against a completely unwired pipeline that
 happened to produce plausible numbers; that one would not.
 
 The second thing worth stating plainly: this moves live consensus values
-for tight ends, upward. That is the point. ``ktcCrowdTradesSfTep`` — the board this
+for tight ends, upward. That is the point. ``ktcCrowdSfTep`` — the board this
 blend anchors on — IS KTC's TE++ board, every non-TEP source's TE
 contribution was already being scaled to align with it, and the flat
 1.15 doing that scaling sat below the entire observed range of KTC's own
@@ -50,7 +50,7 @@ def _player(value: str | int, position: str) -> dict:
         "_composite": v,
         "_rawComposite": v,
         "_finalAdjusted": v,
-        "_canonicalSiteValues": {"ktcCrowdTradesSfTep": v, "dlfSf": v},
+        "_canonicalSiteValues": {"ktcCrowdSfTep": v, "dlfSf": v},
         "position": position,
     }
 
@@ -74,8 +74,8 @@ def _raw() -> dict:
     players[_WR_NAME] = _player(4940, "WR")
     return {
         "players": players,
-        "sites": [{"key": "ktcCrowdTradesSfTep"}, {"key": "dlfSf"}],
-        "maxValues": {"ktcCrowdTradesSfTep": 9999, "dlfSf": 9999},
+        "sites": [{"key": "ktcCrowdSfTep"}, {"key": "dlfSf"}],
+        "maxValues": {"ktcCrowdSfTep": 9999, "dlfSf": 9999},
         "sleeper": {"positions": {}},
     }
 
@@ -124,7 +124,7 @@ def test_convert_te_value_is_reached_by_the_live_blend(monkeypatch):
 
 
 def test_the_target_basis_is_the_board_anchor_basis():
-    """``ktcCrowdTradesSfTep`` is KTC's TE++ (level 2) board and is the blend's
+    """``ktcCrowdSfTep`` is KTC's TE++ (level 2) board and is the blend's
     anchor. Converting onto any other basis would align every source to
     a board nothing here publishes."""
     assert data_contract._BOARD_TE_BASIS == "tepp"
@@ -164,10 +164,14 @@ def test_the_uplift_is_the_measured_curve_not_the_flat_constant(monkeypatch):
 
 def test_the_market_anchor_is_still_exempt(monkeypatch):
     """The double-count guard, restated against the wired path.
-    ``ktcCrowdTradesSfTep`` already IS the TE++ board; lifting it would apply the
+    ``ktcCrowdSfTep`` already IS the TE++ board; lifting it would apply the
     premium twice."""
     payload = _build(monkeypatch)
-    te = _contribution(payload, _TE_NAME, "ktcCrowdTradesSfTep")
+    te = _contribution(payload, _TE_NAME, "ktcCrowdSfTep")
+    # Non-vacuous: the anchor must actually have voted on this row, or the
+    # two assertions below prove nothing (the retired Crowd+Trades key stopped
+    # voting in the 2026-09-23 KTC split and this test kept passing on {}).
+    assert te.get("valueContribution"), "the KTC anchor did not vote on the TE row"
     assert te.get("tepBoostApplied") is not True
     assert "tepBasisTo" not in te
 

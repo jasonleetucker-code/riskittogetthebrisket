@@ -27,6 +27,11 @@ from src.canonical.player_valuation import (  # noqa: E402  — grouped with its
     DISPLAY_SCALE_MIN as _CANONICAL_VALUE_MIN,
 )
 from src.data_models.contracts import utc_now_iso
+from src.sources.ktc_market import (
+    KTC_MARKET_DERIVED_FROM as _KTC_MARKET_DERIVED_FROM,
+    KTC_MARKET_KEY as _KTC_MARKET_KEY,
+    KTC_MODEL_INPUT_KEYS as _KTC_MODEL_INPUT_KEYS,
+)
 from src.ros import lineup as lineup_owner
 
 #: C1-U6-D1 — the single owner of the slot↔tier tables.  This module is a
@@ -135,7 +140,8 @@ _IDP_POSITIONS = {"DL", "LB", "DB"}
 # participate; picks, kickers, and unsupported positions are excluded.
 _RANKABLE_POSITIONS = _OFFENSE_POSITIONS | _IDP_POSITIONS | {"PICK"}
 _OFFENSE_SIGNAL_KEYS = {
-    "ktcCrowdTradesSfTep",
+    "ktcCrowdSfTep",
+    "ktcTradesSfTep",
     "dlfSf",
     "dynastyNerdsSfTep",
     "yahooBoone",
@@ -148,16 +154,18 @@ _IDP_SIGNAL_KEYS = {
     "idpShowCombined",
 }
 
-# ``_OFFENSE_SIGNAL_KEYS`` names the CURRENT canonical voting KTC source
-# (``ktcCrowdTradesSfTep`` as of the September-2026 three-source cutover).
-# That source is CSV-only: ``Dynasty Scraper.py`` deliberately never writes
-# it into the raw scrape composite (to avoid the three KTC source-mode
-# variants -- Crowd / Trades / Crowd+Trades -- casting three votes), so it
-# is only ever populated by ``_enrich_from_source_csvs``, which runs LATER
+# ``_OFFENSE_SIGNAL_KEYS`` names the CURRENT voting KTC sources
+# (``ktcCrowdSfTep`` + ``ktcTradesSfTep`` since the 2026-09-23 owner
+# directive; KTC's Crowd+Trades board is the benchmark-only KTC Market —
+# ``src/sources/ktc_market.py``).
+# They are CSV-only: ``Dynasty Scraper.py`` deliberately never writes
+# them into the raw scrape composite (so the three KTC source-mode
+# variants never enter the legacy composite), so they are only ever
+# populated by ``_enrich_from_source_csvs``, which runs LATER
 # in ``build_api_data_contract``. ``_derive_player_row``'s position-family
 # guardrail runs BEFORE that join, so it must not use
 # ``_OFFENSE_SIGNAL_KEYS`` directly for its offense-signal check:
-# ``ktcCrowdTradesSfTep`` can never be present yet, which silently blanks
+# the KTC voters can never be present yet, which silently blanks
 # the position of nearly every offense player (``has_off_signal`` always
 # False, ``has_idp_signal`` often True via idpTradeCalc's cross-market
 # pricing of offense players) and drops them from every source's ranking
@@ -761,13 +769,15 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
 # test-only exception: callers can distinguish active ranking sources from
 # historical/diagnostic observations without weakening registry parity.
 #
-# KTC's September-2026 source architecture makes this distinction load-bearing:
+# KTC's source architecture makes this distinction load-bearing (owner
+# directive 2026-09-23, ``src/sources/ktc_market.py``):
 # - legacy ktc / ktcSfTep remain the historical Crowdsourced base↔TE++ pair;
-# - ktcCrowdSfTep and ktcTradesSfTep are same-family diagnostics;
-# - only ktcCrowdTradesSfTep is registered in _RANKING_SOURCES and votes.
-_NON_VOTING_SOURCE_CSV_KEYS: frozenset[str] = frozenset(
-    {"ktc", "ktcSfTep", "ktcCrowdSfTep", "ktcTradesSfTep"}
-)
+# - ktcCrowdSfTep and ktcTradesSfTep are the two registered KTC model inputs;
+# - ktcCrowdTradesSfTep is KTC MARKET — KTC's published blend of those two —
+#   and is the benchmark our model is compared against, never a vote.
+# Enforced at import (``_assert_non_voting_keys_unregistered``): registering
+# any of these would re-count KTC information the model already holds.
+_NON_VOTING_SOURCE_CSV_KEYS: frozenset[str] = frozenset({"ktc", "ktcSfTep", "ktcCrowdTradesSfTep"})
 
 # Rank -> synthetic value transform used when a CSV declares signal=rank.
 # The absolute number is irrelevant to the downstream pipeline (it only
@@ -1057,7 +1067,8 @@ _PAYLOAD_SIZE_FLOOR_BYTES: int = 2_000_000
 # coverage on the premium tier specifically.
 _DEFAULT_TOP50_COVERAGE_FLOORS: dict[str, dict[str, int]] = {
     "offense": {
-        "ktcCrowdTradesSfTep": 48,
+        "ktcCrowdSfTep": 48,
+        "ktcTradesSfTep": 48,
         "idpTradeCalc": 48,
         "dlfSf": 42,
         "dynastyNerdsSfTep": 45,
@@ -1228,7 +1239,7 @@ def registry_keys_for_run_source(run_source: str) -> list[str]:
     this reads that owner rather than keeping a second parallel table.
     It is declared only where the in-process Dynasty Scraper run governs
     the source (the only run names that can reach
-    ``sourceRunSummary``): ``KTC`` → ``ktcCrowdTradesSfTep``, ``IDPTradeCalc`` →
+    ``sourceRunSummary``): ``KTC`` → ``ktcCrowdSfTep`` + ``ktcTradesSfTep``, ``IDPTradeCalc`` →
     ``idpTradeCalc``, and ``DLF_LocalCSV`` → the four DLF boards it loads
     from local CSVs (V1-80 / F-17).  A registry key fetched by its own
     ``scripts/`` timer declares no ``run_source`` and a scrape-run
@@ -1436,17 +1447,21 @@ GAME_TYPES: frozenset[str] = frozenset(
 
 _RANKING_SOURCES: list[dict[str, Any]] = [
     {
-        # KeepTradeCut Crowd+Trades Superflex + TE++ board — the one current
-        # KTC retail vote. Live 2026-09-08 evidence from KTC's own page
-        # establishes the three source codes and fields:
-        #   1 Crowdsourced  -> value/rank
-        #   2 Crowd+Trades  -> blendValue/blendRank
-        #   3 Tradesourced  -> vftValue/vftRank
-        # with TE++ under superflexValues.tepp. The same payload carries all
-        # three, so Crowd and Trades are archived as same-family diagnostics
-        # while only Crowd+Trades enters consensus. Legacy ktc/ktcSfTep stay
-        # Crowd-only for historical same-population TE calibration.
-        "key": "ktcCrowdTradesSfTep",
+        # KeepTradeCut CROWDSOURCED Superflex + TE++ board — one of TWO KTC
+        # model inputs (owner directive 2026-09-23).  KTC publishes three
+        # value modes on one player object (live 2026-09-08 evidence):
+        #   1 Crowdsourced  -> value/rank           (this entry)
+        #   3 Tradesourced  -> vftValue/vftRank     (``ktcTradesSfTep``)
+        #   2 Crowd+Trades  -> blendValue/blendRank (KTC MARKET — benchmark
+        #                                            only, NOT registered)
+        # Crowd = expressed dynasty-community valuation; Trades = revealed
+        # trade-market behaviour.  Different evidence-generation processes,
+        # so they are two families with independent freshness and weight.
+        # Crowd+Trades is DERIVED from these two, so registering it as well
+        # would count KTC's information twice — it is the market benchmark
+        # our model is compared against (``src/sources/ktc_market.py``).
+        # Legacy ktc/ktcSfTep stay Crowd-only historical calibration boards.
+        "key": "ktcCrowdSfTep",
         # F-12 / V1-76: the Dynasty Scraper run name that governs this
         # board, so a ``sourceRunSummary`` failure round-trips to this
         # registry key (``registry_keys_for_run_source``).  Declared only
@@ -1461,7 +1476,8 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
             "dynasty per-player payload (superflexValues) — KTC's redraft product is a "
             "separate site section and is not fetched"
         ),
-        "display_name": "KeepTradeCut Crowd+Trades SF-TE++",
+        "display_name": "KeepTradeCut Crowd SF-TE++",
+        "column_label": "KTC Crowd",
         "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
         "position_group": None,
         "depth": None,
@@ -1469,12 +1485,36 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_backbone": False,
         "is_retail": True,
         "is_tep_premium": True,
-        # Head of the ``ktc`` correlation group — see
-        # ``_CORRELATION_GROUPS``.  ``fantasyNavigatorSf`` republishes
-        # KTC-derived numbers, so the two are not independent votes and
-        # must leave the blend together when a caller wants a board that
-        # does not contain KTC.
-        "correlation_group": "ktc",
+        # Head of the ``ktcCrowd`` correlation group.  ``fantasyNavigatorSf``
+        # republishes KTC-derived numbers; measured 2026-09-23 on the live
+        # board it tracks KTC's Crowd base-SF board most closely (median
+        # normalized deviation 0.156 vs 0.166 Crowd TE++ vs 0.188 Trades),
+        # so it joins THIS family and can never become a hidden third KTC
+        # vote (family collapse keeps the registry-earlier member).
+        "correlation_group": "ktcCrowd",
+    },
+    {
+        # KeepTradeCut TRADESOURCED Superflex + TE++ board — the second KTC
+        # model input.  See the ``ktcCrowdSfTep`` entry for the three-mode
+        # contract.  Own family: trade-derived evidence is not the crowd's
+        # opinion, and the two can go stale or fail independently.
+        "key": "ktcTradesSfTep",
+        "run_source": "KTC",
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "keeptradecut.com dynasty rankings, Tradesourced value mode of the same "
+            "dynasty per-player payload (superflexValues.tepp vftValue)"
+        ),
+        "display_name": "KeepTradeCut Trades SF-TE++",
+        "column_label": "KTC Trades",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        "depth": None,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": True,
+        "is_tep_premium": True,
+        "correlation_group": "ktcTrades",
     },
     {
         # IDP Trade Calculator's public value pool covers both offense
@@ -1934,12 +1974,16 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_tep_premium": False,
         "needs_shared_market_translation": False,
         "excludes_rookies": False,
-        # Member of the ``ktc`` correlation group.  The CORRELATION
-        # CAVEAT above is no longer only a comment: it is now machine
-        # readable, so a caller asking for a KTC-free board actually
-        # gets one.  Measured 2026-08-04 on the live payload: excluding
-        # ``ktcSfTep`` alone still left 440 rows carrying an FN vote.
-        "correlation_group": "ktc",
+        # Member of the ``ktcCrowd`` correlation group (was ``ktc`` until
+        # the 2026-09-23 Crowd/Trades split).  The CORRELATION CAVEAT above
+        # is machine readable, so a caller asking for a KTC-free board
+        # actually gets one.  Measured 2026-08-04 on the live payload:
+        # excluding ``ktcSfTep`` alone still left 440 rows carrying an FN
+        # vote.  Measured 2026-09-23 (431 shared players): FN's normalized
+        # median deviation is 0.156 vs KTC Crowd base-SF, 0.166 vs Crowd
+        # TE++, 0.188 vs Trades TE++ — closest to Crowd, so it rides in
+        # the Crowd family and cannot become a third KTC vote.
+        "correlation_group": "ktcCrowd",
     },
     {
         # Play for Keeps Dynasty master board — PFK's hand-maintained
@@ -2341,6 +2385,26 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_cross_market": True,
     },
 ]
+
+
+def _assert_non_voting_keys_unregistered() -> None:
+    """Fail at import if a non-voting CSV key is registered as a voter.
+
+    KTC Market (``ktcCrowdTradesSfTep``) is derived from the two registered
+    KTC inputs; registering it would make the model count KTC's information
+    twice.  The same holds for the legacy Crowd-only boards.  This used to be
+    a test-only declaration; the 2026-09-23 split makes it structural.
+    """
+    registered = {str(s.get("key") or "") for s in _RANKING_SOURCES}
+    leaked = sorted(registered & _NON_VOTING_SOURCE_CSV_KEYS)
+    if leaked:
+        raise RuntimeError(
+            f"non-voting source keys registered as voters: {leaked} — KTC Market and "
+            "the legacy KTC boards are benchmark/historical only"
+        )
+
+
+_assert_non_voting_keys_unregistered()
 
 
 # ── Derived registry field: is_rank_signal ──────────────────────────────
@@ -2909,7 +2973,17 @@ def collapse_to_independent_families(
 # provenance metadata only: listing a retired key here does NOT register it as
 # a voting source.
 _RETIRED_SOURCE_CORRELATION_GROUPS: dict[str, str] = {
-    "ktcSfTep": "ktc",
+    # Both legacy KTC boards were Crowd-only captures.
+    "ktcSfTep": "ktcCrowd",
+    "ktc": "ktcCrowd",
+}
+
+# Benchmark keys that are DERIVED from registered voters rather than being
+# voters themselves.  KTC Market (Crowd+Trades) is KTC's published blend of
+# ``ktcCrowdSfTep`` and ``ktcTradesSfTep``; removing "the market's influence"
+# from a board therefore means removing both families it is derived from.
+_BENCHMARK_DERIVED_FROM: dict[str, tuple[str, ...]] = {
+    _KTC_MARKET_KEY: _KTC_MARKET_DERIVED_FROM,
 }
 
 
@@ -2929,12 +3003,17 @@ def correlation_group_for(key: str) -> str:
 def expand_correlation_groups(keys: Iterable[str]) -> set[str]:
     """Expand ``keys`` to every registered source correlated with them.
 
-    ``expand_correlation_groups(["ktcCrowdTradesSfTep"])`` returns
-    ``{"ktcCrowdTradesSfTep", "fantasyNavigatorSf"}``.  Unknown keys pass through
+    ``expand_correlation_groups(["ktcCrowdSfTep"])`` returns
+    ``{"ktcCrowdSfTep", "fantasyNavigatorSf"}``.  A benchmark key derived
+    from voters (KTC Market, ``ktcCrowdTradesSfTep``) expands to every
+    family it is derived from: ``{"ktcCrowdTradesSfTep", "ktcCrowdSfTep",
+    "fantasyNavigatorSf", "ktcTradesSfTep"}``.  Unknown keys pass through
     unchanged rather than raising: a caller naming a source that has
     since been retired should get a board without it, not an exception.
     """
     wanted = {str(k) for k in keys if str(k)}
+    for key in list(wanted):
+        wanted.update(_BENCHMARK_DERIVED_FROM.get(key, ()))
     groups = {correlation_group_for(k) for k in wanted}
     out = set(wanted)
     for src in _RANKING_SOURCES:
@@ -2986,9 +3065,9 @@ def expand_correlation_groups(keys: Iterable[str]) -> set[str]:
 # is why that caller has to be able to ask this question structurally
 # instead of discovering it as a wrong number.
 ROOKIE_LADDER_PAIRS: tuple[tuple[str, str, set[str]], ...] = (
-    ("dlfRookieSf", "ktcCrowdTradesSfTep", _OFFENSE_POSITIONS),
+    ("dlfRookieSf", "ktcCrowdSfTep", _OFFENSE_POSITIONS),
     ("dlfRookieIdp", "idpTradeCalc", _IDP_POSITIONS),
-    ("flockFantasySfRookies", "ktcCrowdTradesSfTep", _OFFENSE_POSITIONS),
+    ("flockFantasySfRookies", "ktcCrowdSfTep", _OFFENSE_POSITIONS),
 )
 
 SCALE_LOST_IDP_BACKBONE = "idp_backbone_excluded"
@@ -3656,12 +3735,13 @@ def _anchor_key_sets(
     the user left enabled but slid to weight 0 must not anchor
     anything (Codex review on PR #530 — the membership-only check
     promoted zero-weight KTC into the pick anchor at full peer
-    strength).  ``pick_anchor_keys`` additionally includes the current
-    canonical KTC vote (``ktcCrowdTradesSfTep`` as of the September-2026
-    three-source cutover; formerly ``ktcSfTep``) — the deepest pick
-    market ingested — so on PICK rows the two real pick markets (KTC +
-    IDPTC) average as peers instead of KTC riding in the α=0.10 subgroup
-    (2026-07-25 calculation audit, F-2).
+    strength).  ``pick_anchor_keys`` additionally includes the KTC model
+    inputs (``ktcCrowdSfTep`` + ``ktcTradesSfTep`` since the 2026-09-23
+    owner directive; ``ktcCrowdTradesSfTep`` before it; ``ktcSfTep``
+    before that) — the deepest pick market ingested — so on PICK rows
+    the real pick markets (KTC Crowd, KTC Trades, IDPTC) average as
+    peers instead of KTC riding in the α=0.10 subgroup (2026-07-25
+    calculation audit, F-2).
 
     NOTE on weights (updated 2026-07-29 audit): subgroup/flat votes
     are weighted by each source's DECLARED weight (all 1.0 by registry
@@ -3683,7 +3763,7 @@ def _anchor_key_sets(
         for s in active_sources
         if s.get("is_cross_market") and str(s.get("key") or "") in positively_weighted
     }
-    pick_anchor = cross_market | ({"ktcCrowdTradesSfTep"} & positively_weighted)
+    pick_anchor = cross_market | (set(_KTC_MODEL_INPUT_KEYS) & positively_weighted)
     return cross_market, pick_anchor
 
 
@@ -3732,104 +3812,81 @@ def _active_sources(
 
 
 def _compute_market_gap(
-    source_ranks: dict[str, int],
-    source_meta: dict[str, dict] | None = None,
-    retail_keys: set[str] | frozenset[str] | None = None,
+    model_value: float | None,
+    market_normalized: float | None,
 ) -> tuple[str, float | None]:
-    """Quantify the disagreement between retail and expert consensus.
+    """OUR model value against KTC MARKET — a thin alias of the owner.
 
-    "Market gap" frames the retail market (sources flagged `is_retail`
-    in the registry — today just KTC) against every other registered
-    source (the expert consensus — IDPTC, DLF, and any future non-retail
-    source).  Both sides are averaged in VALUE space and the gap is their
-    RELATIVE difference.
+    REDEFINED 2026-09-23 (owner directive, ``src/sources/ktc_market.py``).
+    Until then this compared a "retail" side (KTC + the KTC-derived Fantasy
+    Navigator) against a "consensus" side (every other source) — a
+    comparison of sources with each other that never involved the published
+    model value, and whose market side was not KTC's own number.  The owner
+    ruled that "difference from market" means OUR MODEL VALUE
+    (``rankDerivedValue``) against CANONICAL KTC MARKET (KTC's published
+    Crowd+Trades value, normalized onto the board's 0-9999 scale exactly as
+    a value-direct KTC vote is) and nothing else.
 
-    Measured in ordinal ranks until 2026-08-05, which was wrong in a way
-    that looked plausible: the sides are drawn from pools of very unequal
-    depth (ktcSfTep 473 rows, idpTradeCalc 901, dlfSf 278), so
-    differencing their mean ordinals measured pool depth and format basis
-    rather than opinion.  On the live board the median signed gap by
-    position was TE +40.7 ranks against QB -18.3, RB -9.3 and WR -6.0 —
-    every position negative and TE alone hugely positive, which is not 15
-    independent boards agreeing about tight ends.  In value space the same
-    medians are QB +0.008, TE +0.084, WR +0.110, RB +0.112.
-
-    ``valueContribution`` is the right currency because it is what the
-    blend itself compares sources in: post-ladder, common-scaled 0-9999,
-    and after ADR-015's ``convert_te_value`` has been applied — which is
-    exactly the correction the rank-space gap never saw.
-
-    A retail premium means retail ranks the player higher (lower rank
-    number) than consensus — i.e. the retail market is pricing the
-    player above where the experts have them.  A consensus premium is
-    the reverse: the experts value the player more than retail does,
-    making them a potential "buy low" from a retail-first trade partner.
-
-    Returns (direction, magnitude) where direction is one of:
-      "retail_premium"     — retail mean rank is lower number than consensus mean
-      "consensus_premium"  — consensus mean rank is lower number than retail mean
-      "none"               — tie, or either side has zero sources present
-
-    magnitude is the absolute RELATIVE gap in value space — 0.25 means
-    one side prices the player 25% above the other — or None when the
-    comparison cannot be made (one side has no priced source on this row,
-    or no value stamps were supplied).  Magnitude is 0.0 on a tie.
-
-    THE SIDES ARE FAMILIES, NOT KEYS (B10-T3a).  The split used to be
-    taken over the ``is_retail`` keys alone — today just ``ktcSfTep`` —
-    which put ``fantasyNavigatorSf`` on the CONSENSUS side.  It is not
-    another opinion: the registry declares it ``correlation_group:
-    "ktc"`` and its own comment says it republishes KTC-derived numbers.
-    So on 437 live rows the retail market was being compared against a
-    consensus that contains retail, and the disagreement it reported was
-    partly retail disagreeing with itself.
-
-    Reclassified rather than dropped: it is retail-DERIVED evidence, so
-    it informs the retail estimate.  Discarding it would throw away a
-    real observation to fix a bookkeeping error.  Measured effect of the
-    move: 364 rows change magnitude (median 0.055, p90 0.148, max 0.545)
-    and **72 flip direction** — the published signal was pointing the
-    wrong way on those.
-
-    `retail_keys` is an optional override for tests; when None the set is
-    derived from `_RANKING_SOURCES` via `_retail_source_keys()` and then
-    expanded across correlation groups.  A caller passing an explicit set
-    is taken at its word and NOT expanded — the tests that pass one are
-    constructing a specific split on purpose.
+    The direction vocabulary is kept so consumers keep working, with the
+    meanings now precise: ``retail_premium`` = KTC Market prices the asset
+    above our model; ``consensus_premium`` = our model prices it above KTC
+    Market.  Missing either side → ``("none", None)``, never a zero gap.
     """
-    if retail_keys is None:
-        retail_keys = frozenset(expand_correlation_groups(_retail_source_keys()))
+    from src.sources.ktc_market import compute_market_gap  # noqa: PLC0415
 
-    meta = source_meta or {}
-    retail_values: list[float] = []
-    consensus_values: list[float] = []
-    for key in source_ranks:
-        raw = (meta.get(key) or {}).get("valueContribution")
-        if not isinstance(raw, (int, float)):
-            continue
-        (retail_values if key in retail_keys else consensus_values).append(float(raw))
+    return compute_market_gap(model_value, market_normalized)
 
-    if not retail_values or not consensus_values:
-        # Either a side is absent, or the caller passed no value stamps.
-        # Both mean "cannot compare" — say so rather than silently
-        # dropping back to the ordinal arithmetic this replaced.
-        return "none", None
 
-    retail_mean = sum(retail_values) / len(retail_values)
-    consensus_mean = sum(consensus_values) / len(consensus_values)
-    scale = (retail_mean + consensus_mean) / 2.0
-    if scale <= 0:
-        return "none", None
+def _stamp_ktc_market_benchmark(
+    players_array: list[dict[str, Any]],
+    players_by_name: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Stamp the canonical ``ktcMarket`` block + model-vs-market gap.
 
-    # Positive → retail VALUES the player above consensus.  Note this
-    # inverts the sense of the old rank comparison, where retail ranking
-    # him "higher" meant a LOWER mean rank number.
-    ratio = (retail_mean - consensus_mean) / scale
-    if ratio > 0:
-        return "retail_premium", float(abs(ratio))
-    if ratio < 0:
-        return "consensus_premium", float(abs(ratio))
-    return "none", 0.0
+    Runs LAST in ``_compute_unified_rankings`` so the model side is the
+    final published ``rankDerivedValue`` (after tethering, the two-way boost
+    and the Phase 5 pick passes) — a gap measured against a value that a
+    later pass overwrote would describe a board nobody sees.
+    """
+    from src.sources.ktc_market import build_market_blocks  # noqa: PLC0415
+
+    # Only rows the board can rank take part: an unresolved-position row must
+    # not shift real assets' KTC Market ranks or the normalization maximum.
+    rankable = [
+        r
+        for r in players_array
+        if str(r.get("position") or "").strip().upper() in _RANKABLE_POSITIONS
+    ]
+    rankable_ids = {id(r) for r in rankable}
+    for row in players_array:
+        if id(row) not in rankable_ids:
+            row.pop("ktcMarket", None)
+            row.pop("ktcRank", None)
+    summary = build_market_blocks(rankable)
+    for row in rankable:
+        market = row.get("ktcMarket") or {}
+        model = row.get("rankDerivedValue")
+        gap_dir, gap_ratio = _compute_market_gap(model, market.get("normalizedValue"))
+        row["marketGapDirection"] = gap_dir
+        row["marketGapValueRatio"] = gap_ratio
+        # Retired rank-space field; explicit None = "no longer computed".
+        row["marketGapMagnitude"] = None
+        # Backward-compatible public field: ``ktcRank`` is KTC MARKET's own
+        # rank (by KTC's published Crowd+Trades value) — never a model rank.
+        if market.get("rank") is not None:
+            row["ktcRank"] = market["rank"]
+        else:
+            row.pop("ktcRank", None)
+        legacy_ref = row.get("legacyRef")
+        if players_by_name and legacy_ref and legacy_ref in players_by_name:
+            pdata = players_by_name[legacy_ref]
+            if isinstance(pdata, dict):
+                pdata["ktcMarket"] = market
+                if market.get("rank") is not None:
+                    pdata["ktcRank"] = market["rank"]
+                else:
+                    pdata.pop("ktcRank", None)
+    return summary
 
 
 def _normalize_for_collision(name: str) -> str:
@@ -4144,6 +4201,13 @@ _TRUST_MIRROR_FIELDS = (
     "marketGapDirection",
     "marketGapMagnitude",
     "marketGapValueRatio",
+    # Freshness-aware weighting (2026-09-23): degraded evidence must stay
+    # visible on the runtime view, which strips playersArray.
+    "sourceWeightState",
+    "retainedAuthority",
+    "dominantSource",
+    "dominantSourceShare",
+    "freshnessExcludedSources",
     "identityConfidence",
     "identityMethod",
     "identityResolutionConfidence",
@@ -4316,6 +4380,87 @@ _LAST_CONTRACT_JOIN_SUMMARY: dict | None = None
 # bridges actually contributed to the shared-market ladder, and the withheld
 # vote count per source.  ``None`` before any board is built.
 _LAST_CROSS_POSITION_BRIDGE_SUMMARY: dict | None = None
+# Board-level KTC Market benchmark summary (``_stamp_ktc_market_benchmark``).
+_LAST_KTC_MARKET_SUMMARY: dict | None = None
+# Board-level source weighting summary (``_source_weighting_summary``).
+_LAST_SOURCE_WEIGHTING_SUMMARY: dict | None = None
+
+_SOURCE_WEIGHTING_CACHE: dict[tuple, dict[str, Any]] = {}
+
+
+def _source_weighting_state_dir(csv_root: "Path | None") -> Path:
+    """Where the per-source dataset state lives for this build.
+
+    The live board reads ``data/scrape_state``.  A replay of a historical
+    tree (``csv_root``) reads that tree's own state and, when it carries
+    none, gets no freshness weighting — never today's state applied to a
+    past board.
+    """
+    root = Path(csv_root) if csv_root is not None else Path(__file__).resolve().parents[2]
+    return root / "data" / "scrape_state"
+
+
+def _load_source_weighting(
+    as_of: "datetime | None", csv_root: "Path | None" = None
+) -> dict[str, Any]:
+    """``{source_key: SourceWeighting}`` for every registered voter + KTC Market.
+
+    Memoized on (as_of, state-file mtimes, config mtime): the overrides
+    endpoint rebuilds the board often and the inputs change only when a
+    refresh records a new dataset state.
+    """
+    if as_of is None:
+        return {}
+    from src.sources import freshness as _freshness  # noqa: PLC0415
+    from src.sources.dataset_state import state_path  # noqa: PLC0415
+
+    state_dir = _source_weighting_state_dir(csv_root)
+    if not state_dir.is_dir():
+        return {}
+    keys = [str(s.get("key") or "") for s in _RANKING_SOURCES] + [_KTC_MARKET_KEY]
+    stamps: list[tuple[str, int]] = []
+    for key in keys:
+        try:
+            stamps.append((key, state_path(state_dir, key).stat().st_mtime_ns))
+        except OSError:
+            stamps.append((key, -1))
+    try:
+        cfg_mtime = _freshness.CONFIG_PATH.stat().st_mtime_ns
+    except OSError:
+        cfg_mtime = -1
+    cache_key = (as_of.isoformat(), str(state_dir), tuple(stamps), cfg_mtime)
+    cached = _SOURCE_WEIGHTING_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+    weighting = _freshness.load_source_weightings(keys, state_dir=state_dir, as_of=as_of)
+    if len(_SOURCE_WEIGHTING_CACHE) > 16:
+        _SOURCE_WEIGHTING_CACHE.clear()
+    _SOURCE_WEIGHTING_CACHE[cache_key] = weighting
+    return weighting
+
+
+def _iso_or_none(dt: "datetime | None") -> str | None:
+    if dt is None:
+        return None
+    return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _payload_as_of(raw_payload: Mapping[str, Any]) -> "datetime | None":
+    """The board's own observation time — the freshness clock's ``now``.
+
+    Never the wall clock: the same snapshot must produce the same board
+    whenever it is rebuilt (determinism), and the overrides path must see
+    the same freshness as the base board it is a delta of.
+    """
+    raw = raw_payload.get("scrapeTimestamp") if isinstance(raw_payload, Mapping) else None
+    if not raw:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
 
 _FP_META_CSV_CACHE: dict[str, tuple[float, dict[str, dict[str, Any]]]] = {}
 
@@ -4978,12 +5123,15 @@ def _enrich_from_source_csvs(
 
 
 def _stamp_ktc_value_source_diagnostics(players_array: list[dict[str, Any]]) -> None:
-    """Expose KTC Crowd/Trades/Combined without turning them into extra votes.
+    """Expose KTC Crowd / Trades / Crowd+Trades side by side.
 
     ``canonicalSiteValues`` already contains the three source-mode CSV values.
     This stamps a stable, machine-readable diagnostic block for downstream
-    decision intelligence. Only ``ktcCrowdTradesSfTep`` is registered in
-    ``_RANKING_SOURCES``; Crowd and Trades remain same-family observations.
+    decision intelligence. Since the 2026-09-23 owner directive Crowd
+    (``ktcCrowdSfTep``) and Trades (``ktcTradesSfTep``) are the two registered
+    KTC model inputs; Crowd+Trades is KTC MARKET, the benchmark-only value
+    stamped canonically as ``row["ktcMarket"]`` by
+    ``_stamp_ktc_market_benchmark``.
     """
     from src.sources.ktc_value_sources import value_divergence  # noqa: PLC0415
 
@@ -6219,6 +6367,7 @@ def _family_evidence_for_row(
     src_by_key: dict[str, dict[str, Any]],
     family_by_key: dict[str, str],
     fresh_by_source: dict[str, bool | None],
+    content_freshness_applies: bool = False,
 ) -> list["FamilyEvidence"]:
     """Assemble the B11 gate's per-family evidence for one row.
 
@@ -6231,6 +6380,9 @@ def _family_evidence_for_row(
     Decides no level.  Every judgement below is about what a source
     contribution IS, not about how good it is.
     """
+    from src.sources.freshness import default_config  # noqa: PLC0415
+
+    fresh_floor = default_config().fresh_for_confidence
     row_is_te = str(row.get("position") or "").strip().upper() == "TE"
     evidence: list[FamilyEvidence] = []
     for skey in effective_source_ranks:
@@ -6241,12 +6393,26 @@ def _family_evidence_for_row(
             continue
         method = str(smeta.get("method") or "")
         src_def = src_by_key.get(skey, {})
+        # Fetch time is not data freshness (owner directive 2026-09-23):
+        # a source fetched on time whose CONTENT has aged past half its
+        # authority is not fresh evidence.  ``freshness`` is stamped
+        # as a diagnostic even under the rollback flag, so the caller says
+        # whether it applies — flag off restores the fetch-only answer.
+        fresh = fresh_by_source.get(skey)
+        content_freshness = smeta.get("freshness")
+        if (
+            content_freshness_applies
+            and fresh is True
+            and isinstance(content_freshness, (int, float))
+            and content_freshness < fresh_floor
+        ):
+            fresh = False
         evidence.append(
             FamilyEvidence(
                 family=family_by_key.get(skey, skey),
                 source_key=skey,
                 value_contribution=smeta.get("valueContribution"),
-                fresh=fresh_by_source.get(skey),
+                fresh=fresh,
                 # ADR-015 lifts a non-TEP source's TE row onto the
                 # TE++ basis the board is anchored on.  A measured
                 # conversion, not a native observation.
@@ -6864,11 +7030,13 @@ _DS_COMBINED_RANK_KEYS: frozenset[str] = frozenset(
 
 _VALUE_BASED_SOURCES: frozenset[str] = frozenset(
     {
-        # KTC Crowd+Trades SF+TE++ carries KTC's official combined market
-        # value and is the one KTC-family direct vote. Crowdsourced and
-        # Tradesourced remain loaded for diagnostics only; legacy ktc/ktcSfTep
-        # remain readable as historical Crowd calibration snapshots.
-        "ktcCrowdTradesSfTep",
+        # KTC Crowdsourced and Tradesourced SF+TE++ — the two KTC model
+        # inputs, each value-direct on KTC's native 0-9999 scale.  KTC's
+        # Crowd+Trades (KTC Market) is benchmark-only and never votes;
+        # legacy ktc/ktcSfTep remain readable as historical Crowd
+        # calibration snapshots.
+        "ktcCrowdSfTep",
+        "ktcTradesSfTep",
         "idpTradeCalc",
         # ``dynastyDaddySf``, ``yahooBoone``, and ``fantasyProsFitzmaurice``
         # were moved to the rank-signal path 2026-04-22 after the Hampel
@@ -6930,7 +7098,8 @@ _VALUE_SOURCE_DECLARED_MAX: dict[str, float] = {
     # scale whose top asset is exactly 9999.  Verified against the live
     # board 2026-07-27: ktcSfTep max 9999 (Josh Allen), idpTradeCalc max
     # 9999 (Bijan Robinson), zero out-of-range rows on either.
-    "ktcCrowdTradesSfTep": 9999.0,
+    "ktcCrowdSfTep": 9999.0,
+    "ktcTradesSfTep": 9999.0,
     "idpTradeCalc": 9999.0,
 }
 
@@ -8570,27 +8739,47 @@ def count_aware_mean_median_blend(
 
 
 def _weighted_median_sorted(pairs: list[tuple[float, float]], total_weight: float) -> float:
-    """Weighted median over ``(value, weight)`` pairs pre-sorted by value.
+    """Weighted median over ``(value, weight)`` pairs pre-sorted by value —
+    CONTINUOUS in the weights.
 
-    Standard cumulative-weight definition with midpoint interpolation
-    on an exact half split: the smallest value whose cumulative weight
-    reaches half the total; when the cumulative weight lands exactly on
-    the half point, average with the next value.  With equal weights
-    this reproduces the ordinary median (odd n → middle element, even
-    n → mean of the two middle elements).
+    Each observation sits at the midpoint of its cumulative-weight
+    interval, ``c_i = (W_{<i} + w_i / 2) / W``, and the median is the
+    linear interpolation of the values at 0.5 (clamped to the extremes).
+    With equal weights this is exactly the ordinary median (odd n → the
+    middle element sits at 0.5; even n → the two middle elements straddle
+    it symmetrically, giving their mean).
+
+    Why not the textbook "first value whose cumulative weight passes half":
+    that is a STEP function of the weights.  Measured on the 2026-09-23
+    board once freshness made fractional weights normal: Kyle Hamilton's
+    three-source IDP anchor (IDPTC 3597 @0.878, IDP Show 3554 @0.120,
+    Draft Sharks IDP 2269 @1.0) snapped its median to 2269 because 1.0
+    exceeded half of 1.998 by 0.001 — IDPTC at 0.881 instead would have
+    snapped it to 3554.  A source's authority must move a value smoothly,
+    never flip it across the board.
     """
-    half = total_weight / 2.0
+    live = [(v, w) for v, w in pairs if w > 0.0]
+    if not live:
+        return pairs[-1][0]
+    total = sum(w for _, w in live)
+    if total <= 0.0:
+        return live[-1][0]
+    positions: list[float] = []
     cum = 0.0
-    eps = 1e-12 * max(total_weight, 1.0)
-    for i, (v, w) in enumerate(pairs):
+    for _, w in live:
+        positions.append((cum + w / 2.0) / total)
         cum += w
-        if cum > half + eps:
-            return v
-        if abs(cum - half) <= eps:
-            if i + 1 < len(pairs):
-                return (v + pairs[i + 1][0]) / 2.0
-            return v
-    return pairs[-1][0]
+    if 0.5 <= positions[0]:
+        return live[0][0]
+    if 0.5 >= positions[-1]:
+        return live[-1][0]
+    for i in range(len(live) - 1):
+        lo, hi = positions[i], positions[i + 1]
+        if lo <= 0.5 <= hi:
+            span = hi - lo
+            t = 0.0 if span <= 0.0 else (0.5 - lo) / span
+            return live[i][0] + t * (live[i + 1][0] - live[i][0])
+    return live[-1][0]
 
 
 def weighted_count_aware_mean_median_blend(
@@ -8650,6 +8839,147 @@ def weighted_count_aware_mean_median_blend(
     return center, mad_val
 
 
+def _source_weighting_summary(
+    players_array: list[dict[str, Any]],
+    source_weighting: Mapping[str, Any] | None,
+    active_sources: list[dict[str, Any]],
+    *,
+    applied: bool,
+) -> dict[str, Any]:
+    """Board-level source weighting: one entry per source, plus row states.
+
+    Answers, per source: how fresh is what it contributes (and on which
+    clock), how healthy and complete is its board, what weight did it get
+    by default and what did it actually carry, and on how many rows.
+    ``meanVoteShare`` is the source's average normalized share of the rows
+    it voted on — the "normalized vote share" of the diagnostics view.
+    """
+    from src.sources.freshness import default_config  # noqa: PLC0415
+    from src.sources.ktc_market import KTC_MARKET_KEY as _MKT  # noqa: PLC0415
+
+    cfg = default_config()
+    base_by_key = {
+        str(s.get("key") or ""): max(0.0, float(s.get("weight") or 1.0)) for s in active_sources
+    }
+    share_sum: dict[str, float] = {}
+    applied_sum: dict[str, float] = {}
+    votes: dict[str, int] = {}
+    excluded: dict[str, int] = {}
+    state_counts: dict[str, int] = {}
+    for row in players_array:
+        st = row.get("sourceWeightState")
+        if st:
+            state_counts[st] = state_counts.get(st, 0) + 1
+        meta = row.get("sourceRankMeta") or {}
+        voters = {
+            k: float(m["appliedWeight"])
+            for k, m in meta.items()
+            if isinstance(m, dict)
+            and m.get("contributedToBlend") is not False
+            and not m.get("hampelDropped")
+            and isinstance(m.get("appliedWeight"), (int, float))
+            and m["appliedWeight"] > 0
+        }
+        total = sum(voters.values())
+        for k, w in voters.items():
+            votes[k] = votes.get(k, 0) + 1
+            applied_sum[k] = applied_sum.get(k, 0.0) + w
+            if total > 0:
+                share_sum[k] = share_sum.get(k, 0.0) + w / total
+        for k in row.get("freshnessExcludedSources") or []:
+            excluded[k] = excluded.get(k, 0) + 1
+    sources: dict[str, Any] = {}
+    keys = list(base_by_key) + ([_MKT] if _MKT not in base_by_key else [])
+    for key in keys:
+        sw = (source_weighting or {}).get(key)
+        entry: dict[str, Any] = (
+            sw.to_dict() if sw is not None else {"sourceKey": key, "measured": False}
+        )
+        entry["role"] = "benchmark" if key == _MKT else "model_input"
+        if key != _MKT:
+            n = votes.get(key, 0)
+            entry["baseWeight"] = base_by_key.get(key)
+            entry["votingRows"] = n
+            entry["excludedRows"] = excluded.get(key, 0)
+            entry["meanAppliedWeight"] = round(applied_sum.get(key, 0.0) / n, 4) if n else None
+            entry["meanVoteShare"] = round(share_sum.get(key, 0.0) / n, 4) if n else None
+        sources[key] = entry
+    return {
+        "configVersion": cfg.version,
+        "curve": cfg.curve,
+        "formula": "effective = base x freshness(age / expectedCadence) x health x coverage",
+        "applied": bool(applied),
+        "measured": bool(source_weighting),
+        # Stamped by ``build_api_data_contract`` (the board's scrape time).
+        "asOf": None,
+        "rowStates": state_counts,
+        "sources": sources,
+    }
+
+
+SOURCE_WEIGHT_NORMAL = "NORMAL"
+SOURCE_WEIGHT_DEGRADED = "DEGRADED"
+SOURCE_WEIGHT_SEVERELY_DEGRADED = "SEVERELY_DEGRADED"
+SOURCE_WEIGHT_INSUFFICIENT = "INSUFFICIENT_DATA"
+
+
+def _source_weight_state_thresholds() -> dict[str, float]:
+    from src.sources.freshness import default_config  # noqa: PLC0415
+
+    raw = default_config().raw.get("sourceWeightState") or {}
+    return {
+        "degradedRetained": float(raw.get("degradedRetained", 0.75)),
+        "severeRetained": float(raw.get("severeRetained", 0.5)),
+        "degradedDominantShare": float(raw.get("degradedDominantShare", 0.6)),
+        "severeDominantShare": float(raw.get("severeDominantShare", 0.85)),
+    }
+
+
+def _stamp_source_weight_state(
+    row: dict[str, Any], *, voting: Mapping[str, float], base: Mapping[str, float]
+) -> None:
+    """Make degraded evidence VISIBLE under renormalization.
+
+    Renormalizing over valid observations is right for the number and wrong
+    for the story: if three of four sources go stale the fourth silently
+    becomes the whole model.  This stamps how much of the row's normal
+    authority is still behind its value and whether one source dominates:
+
+    * ``retainedAuthority`` — Σ effective / Σ base over the sources that
+      would vote at full strength;
+    * ``dominantSource`` / ``dominantSourceShare`` — largest normalized share;
+    * ``sourceWeightState`` — NORMAL / DEGRADED / SEVERELY_DEGRADED /
+      INSUFFICIENT_DATA (thresholds in ``config/sources/freshness_v1.json``).
+    """
+    thresholds = _source_weight_state_thresholds()
+    total = sum(max(0.0, w) for w in voting.values())
+    base_total = sum(max(0.0, w) for w in base.values())
+    if total <= 0.0:
+        row["sourceWeightState"] = SOURCE_WEIGHT_INSUFFICIENT
+        row["retainedAuthority"] = 0.0 if base_total > 0 else None
+        row["dominantSource"] = None
+        row["dominantSourceShare"] = None
+        return
+    dominant, dominant_w = max(voting.items(), key=lambda kv: (kv[1], kv[0]))
+    share = dominant_w / total
+    retained = total / base_total if base_total > 0 else 1.0
+    judged = len(base) >= 2
+    if retained < thresholds["severeRetained"] or (
+        judged and share > thresholds["severeDominantShare"]
+    ):
+        state = SOURCE_WEIGHT_SEVERELY_DEGRADED
+    elif retained < thresholds["degradedRetained"] or (
+        judged and share > thresholds["degradedDominantShare"]
+    ):
+        state = SOURCE_WEIGHT_DEGRADED
+    else:
+        state = SOURCE_WEIGHT_NORMAL
+    row["sourceWeightState"] = state
+    row["retainedAuthority"] = round(min(1.0, retained), 4)
+    row["dominantSource"] = dominant
+    row["dominantSourceShare"] = round(share, 4)
+
+
 def _compute_unified_rankings(
     players_array: list[dict[str, Any]],
     players_by_name: dict[str, Any],
@@ -8663,6 +8993,7 @@ def _compute_unified_rankings(
     suppress_market_corridor_clamp: bool = False,
     board_date: str | None = None,
     synthetic_pick_derivations: Mapping[str, dict[str, Any]] | None = None,
+    source_weighting: Mapping[str, Any] | None = None,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
 
@@ -9597,6 +9928,82 @@ def _compute_unified_rankings(
         str(s.get("key") or ""): max(0.0, float(s.get("weight") or 1.0)) for s in active_sources
     }
 
+    # ── Freshness × health × coverage (owner directive 2026-09-23) ──
+    # ``blend_weight_by_source`` is the BASE weight (registry 1.0, or the
+    # user's override).  Each (row, source) observation is then scaled by
+    # the source's dynamic factor from ``src/sources/freshness.py``:
+    #     effective = base × freshness × health × coverage
+    # where freshness is cadence-relative and may be ROW-level (a batch /
+    # incremental source's 2-row edit refreshes exactly those rows).  An
+    # observation whose effective weight is 0 (quarantined or FAILED) does
+    # not vote at all — it is dropped, never counted as a zero value, and the
+    # weighted blend renormalizes over the rest.  With the
+    # ``source_freshness_weighting`` flag off the factors are still computed
+    # and stamped, but only ``base`` is applied.
+    _freshness_applied = bool(source_weighting) and _feature_flags.is_enabled(
+        "source_freshness_weighting"
+    )
+
+    from src.sources.freshness import (  # noqa: PLC0415
+        STYLE_EXPLICIT as _STYLE_EXPLICIT,
+        STYLE_SNAPSHOT as _STYLE_SNAPSHOT,
+    )
+    from src.utils.name_clean import canonical_position_group as _cpg  # noqa: PLC0415
+
+    _match_key_cache: dict[int, tuple[str, str, str]] = {}
+
+    def _row_csv_key(row: dict[str, Any], source_key: str) -> str | None:
+        """The dataset-state row key (``casefold(vendor name)``) for this
+        row in this source's CSV — the SAME entry the source audit reports."""
+        cached = _match_key_cache.get(id(row))
+        if cached is None:
+            nm = str(row.get("canonicalName") or row.get("displayName") or "")
+            cached = (
+                nm,
+                _canonical_match_key(nm) if nm else "",
+                _cpg(str(row.get("position") or "").strip().upper()),
+            )
+            _match_key_cache[id(row)] = cached
+        nm, ckey, grp = cached
+        if not nm:
+            return None
+        per = (csv_index or {}).get(source_key) or {}
+        entry = per.get(f"{ckey}::{grp}") or per.get(f"{ckey}::*")
+        name = str((entry or {}).get("displayName") or nm)
+        return re.sub(r"\s+", " ", name.strip().casefold())
+
+    def _dynamic_weight_factor(
+        row: dict[str, Any], source_key: str, is_pick: bool
+    ) -> tuple[float, dict[str, Any]]:
+        """``(freshness × health × coverage, per-row stamp)``.
+
+        Per-row stamps carry only what can VARY by row — the combined factor
+        always, plus freshness and its age when freshness is reduced (a
+        batch source's row clock differs row to row).  Source-level facts
+        (cadence, style, health, coverage) are published once, in the
+        contract's ``sourceWeighting`` block, instead of on ~6,000
+        (row, source) pairs.
+        """
+        sw = (source_weighting or {}).get(source_key)
+        if sw is None or not sw.measured:
+            # Unmeasured is stated ONCE, in the board-level
+            # ``sourceWeighting`` block (``measured: false``), not per row.
+            return 1.0, {}
+        sub = sw.subset_for(is_pick)
+        # Snapshot / explicit-timestamp sources share ONE clock across rows,
+        # so the per-row CSV key is only resolved where it can matter.
+        row_key = (
+            _row_csv_key(row, source_key)
+            if sub is not None and sub.style not in (_STYLE_SNAPSHOT, _STYLE_EXPLICIT)
+            else None
+        )
+        fresh, age = sw.factor_for_row(is_pick=is_pick, row_key=row_key)
+        stamp: dict[str, Any] = {}
+        if fresh < 1.0:
+            stamp["freshness"] = round(fresh, 4)
+            stamp["freshnessAgeHours"] = None if age is None else round(age, 1)
+        return fresh * sw.health_factor * sw.coverage_factor, stamp
+
     # Cache which source keys are NOT TEP-native (non-TEP sources) and
     # which ARE TEP-native.  Both get a value-level correction on TE
     # rows during the Phase 2-3 blend, but with different multipliers:
@@ -9686,6 +10093,9 @@ def _compute_unified_rankings(
         # produced which values and rebuild the three lists from the
         # surviving subset.
         all_value_pairs: list[tuple[str, float, bool]] = []
+        # Per-row EFFECTIVE weight of each voting source (base × dynamic).
+        row_weight: dict[str, float] = {}
+        freshness_excluded: list[str] = []
 
         canonical_site_values = players_array[row_idx].get("canonicalSiteValues") or {}
         if not isinstance(canonical_site_values, dict):
@@ -9832,8 +10242,34 @@ def _compute_unified_rankings(
                     # inventing an intermediate uplift.
                     value = _te_lift_under_ceiling(value * effective_native_multiplier)
                     tep_native_corrected = True
+            base_weight = blend_weight_by_source.get(source_key, 1.0)
+            dyn_factor, dyn_stamp = _dynamic_weight_factor(
+                players_array[row_idx], source_key, row_is_pick
+            )
+            src_blend_weight = base_weight * dyn_factor if _freshness_applied else base_weight
+            meta_dyn = row_source_meta[row_idx].setdefault(source_key, {})
+            meta_dyn.update(dyn_stamp)
+            if dyn_factor < 1.0:
+                # Only a REDUCED observation carries the decomposition;
+                # ``appliedWeight`` (always stamped) equals the base weight
+                # whenever the factor is 1.0.
+                meta_dyn["baseWeight"] = round(base_weight, 4)
+                meta_dyn["dynamicWeightFactor"] = round(dyn_factor, 4)
+            if src_blend_weight <= 0.0:
+                # Quarantined / FAILED: this observation does not vote.  It is
+                # NOT a zero — the row simply blends over its other sources.
+                meta_dyn["valueContribution"] = int(round(value))
+                # How the would-be vote was derived stays on the record —
+                # exclusion is a separate fact, not a change of path.
+                meta_dyn["percentile"] = round(p, 6)
+                meta_dyn["valueContributionPath"] = contribution_path
+                meta_dyn["appliedWeight"] = 0.0
+                meta_dyn["contributedToBlend"] = False
+                meta_dyn["excludedReason"] = "freshness_or_health_zero_weight"
+                freshness_excluded.append(source_key)
+                continue
+            row_weight[source_key] = src_blend_weight
             all_values.append(value)
-            src_blend_weight = blend_weight_by_source.get(source_key, 1.0)
             all_weights.append(src_blend_weight)
             # Pick rows use the widened anchor set (KTC joins IDPTC as
             # a peer pick market — audit F-2); player rows keep the
@@ -9924,17 +10360,13 @@ def _compute_unified_rankings(
                 cross_market_values = [v for k, v, a in all_value_pairs if k in kept_set and a]
                 subgroup_values = [v for k, v, a in all_value_pairs if k in kept_set and not a]
                 all_weights = [
-                    blend_weight_by_source.get(k, 1.0)
-                    for k, _v, _a in all_value_pairs
-                    if k in kept_set
+                    row_weight.get(k, 1.0) for k, _v, _a in all_value_pairs if k in kept_set
                 ]
                 cross_market_weights = [
-                    blend_weight_by_source.get(k, 1.0)
-                    for k, _v, a in all_value_pairs
-                    if k in kept_set and a
+                    row_weight.get(k, 1.0) for k, _v, a in all_value_pairs if k in kept_set and a
                 ]
                 subgroup_weights = [
-                    blend_weight_by_source.get(k, 1.0)
+                    row_weight.get(k, 1.0)
                     for k, _v, a in all_value_pairs
                     if k in kept_set and not a
                 ]
@@ -9942,6 +10374,10 @@ def _compute_unified_rankings(
                     meta = row_source_meta[row_idx].get(sk, {})
                     meta["hampelDropped"] = True
         players_array[row_idx]["droppedSources"] = list(hampel_dropped_keys)
+        # Observations present but not voting because their effective weight
+        # is 0 (quarantined staleness or FAILED health) — named separately
+        # from Hampel drops, because "stale" and "outlier" are different facts.
+        players_array[row_idx]["freshnessExcludedSources"] = sorted(freshness_excluded)
 
         # ── One vote per provider family (B10-T3b) ──
         #
@@ -9960,13 +10396,9 @@ def _compute_unified_rankings(
             all_values = [v for k, v, _a in family_kept]
             cross_market_values = [v for k, v, a in family_kept if a]
             subgroup_values = [v for k, v, a in family_kept if not a]
-            all_weights = [blend_weight_by_source.get(k, 1.0) for k, _v, _a in family_kept]
-            cross_market_weights = [
-                blend_weight_by_source.get(k, 1.0) for k, _v, a in family_kept if a
-            ]
-            subgroup_weights = [
-                blend_weight_by_source.get(k, 1.0) for k, _v, a in family_kept if not a
-            ]
+            all_weights = [row_weight.get(k, 1.0) for k, _v, _a in family_kept]
+            cross_market_weights = [row_weight.get(k, 1.0) for k, _v, a in family_kept if a]
+            subgroup_weights = [row_weight.get(k, 1.0) for k, _v, a in family_kept if not a]
             for sk, winner in family_superseded.items():
                 meta = row_source_meta[row_idx].get(sk, {})
                 # The observation is kept and still readable — it did not
@@ -9982,6 +10414,14 @@ def _compute_unified_rankings(
         # conflated with it.
         players_array[row_idx]["effectiveSourceCount"] = len(surviving)
         players_array[row_idx]["independentSourceCount"] = len(family_kept)
+        _stamp_source_weight_state(
+            players_array[row_idx],
+            voting={k: row_weight.get(k, 0.0) for k, _v, _a in family_kept},
+            base={
+                k: blend_weight_by_source.get(k, 1.0)
+                for k in [k for k, _v, _a in family_kept] + freshness_excluded
+            },
+        )
 
         # Coverage diagnostic (2026-04-20 override): soft-fallback
         # values used to be injected into the blend as "just past the
@@ -10189,7 +10629,20 @@ def _compute_unified_rankings(
         # unpenalized would let an unranked single-source rookie sort
         # and price picks on its full uncorroborated value while a
         # ranked single-source rookie is held to 30%.
-        if not row_is_pick and len(all_values) <= 1:
+        #
+        # Freshness exclusions COUNT as present evidence here (2026-09-23).
+        # A source quarantined for staleness is dropped from the vote, but if
+        # it also flipped this row into "single source" the value would jump
+        # from ~the fresh source's value (weighted mean as the stale weight
+        # tends to 0) to 30% of it at the quarantine line — a cliff the
+        # freshness curve exists to avoid.  The row's thinness is reported
+        # instead, by ``sourceWeightState`` / ``retainedAuthority`` and the
+        # confidence freshness axis.  Counted by FAMILY so a quarantined
+        # member of a family that already voted adds nothing.
+        present_families = {family_by_key.get(k, k) for k, _v, _a in family_kept} | {
+            family_by_key.get(k, k) for k in freshness_excluded
+        }
+        if not row_is_pick and len(all_values) <= 1 and len(present_families) <= 1:
             blended_value *= _SINGLE_SOURCE_VALUE_RETENTION
             players_array[row_idx]["_blendedValueUncapped"] = (
                 int(round(blended_value)) if blended_value > 0 else 0
@@ -10368,7 +10821,9 @@ def _compute_unified_rankings(
             else 100.0
         )
 
-        dropped_set = set(row.get("droppedSources") or [])
+        dropped_set = set(row.get("droppedSources") or []) | set(
+            row.get("freshnessExcludedSources") or []
+        )
         effective_source_ranks = {k: v for k, v in source_ranks.items() if k not in dropped_set}
         effective_source_meta = {k: v for k, v in source_meta.items() if k not in dropped_set}
         # Publish the post-Hampel rank map so frontend display helpers
@@ -10426,21 +10881,9 @@ def _compute_unified_rankings(
             and percentile_spread > _DISAGREEMENT_BASE_THRESHOLD + depth_allowance
         )
 
-        gap_dir, gap_ratio = _compute_market_gap(
-            effective_source_ranks,
-            source_meta=row.get("sourceRankMeta") or {},
-        )
-        row["marketGapDirection"] = gap_dir
-        # NEW FIELD, not a redefinition.  ``marketGapMagnitude`` was an
-        # ordinal rank difference; this is a relative gap in value space.
-        # Writing the new number under the old name would silently change
-        # the units of a published field and of every row already recorded
-        # in the board-history store.
-        row["marketGapValueRatio"] = gap_ratio
-        # Retired with the rank-space computation it came from.  Kept as an
-        # explicit None so consumers see "no longer computed" rather than a
-        # missing key that could read as "not applicable to this row".
-        row["marketGapMagnitude"] = None
+        # ``marketGapDirection`` / ``marketGapValueRatio`` are stamped by
+        # ``_stamp_ktc_market_benchmark`` at the END of this function:
+        # our FINAL model value against canonical KTC Market (2026-09-23).
 
         # Picks get their own confidence logic (CV-based on raw values),
         # because rank-spread is dominated by flat-value regions in
@@ -10476,6 +10919,7 @@ def _compute_unified_rankings(
                 src_by_key=src_by_key,
                 family_by_key=family_by_key,
                 fresh_by_source=fresh_by_source,
+                content_freshness_applies=_freshness_applied,
             )
             # Kept so a LATER post-blend override that moves this row's
             # value can re-state its confidence against the value that
@@ -10520,20 +10964,10 @@ def _compute_unified_rankings(
             disagreement_allowance=depth_allowance,
         )
 
-        # Backward compatibility: set ktcRank / idpRank if applicable.
-        # ktcRank and idpRank carry the *effective* rank consumers are
-        # Backward-compatible public field: ``ktcRank`` follows the
-        # CURRENT canonical KTC vote.  Since the September-2026 three-source
-        # cutover that is Crowd+Trades SF-TE++; legacy ``ktcSfTep`` is
-        # non-voting historical Crowd data.  Keep a legacy fallback only for
-        # direct/unit callers that intentionally construct pre-cutover rows.
-        ktc_rank_source = (
-            "ktcCrowdTradesSfTep"
-            if "ktcCrowdTradesSfTep" in source_ranks
-            else ("ktcSfTep" if "ktcSfTep" in source_ranks else None)
-        )
-        if ktc_rank_source is not None:
-            row["ktcRank"] = source_ranks[ktc_rank_source]
+        # Backward compatibility: ``idpRank`` follows IDPTC's effective rank.
+        # ``ktcRank`` is KTC MARKET's own rank and is stamped by
+        # ``_stamp_ktc_market_benchmark`` (KTC Market is not a voter, so it
+        # has no source rank here).
         if "idpTradeCalc" in source_ranks:
             row["idpRank"] = source_ranks["idpTradeCalc"]
 
@@ -10563,8 +10997,6 @@ def _compute_unified_rankings(
                         if v is not None and v > 0:
                             legacy_csv[k] = v
                             pdata[k] = v
-                if ktc_rank_source is not None:
-                    pdata["ktcRank"] = source_ranks[ktc_rank_source]
                 if "idpTradeCalc" in source_ranks:
                     pdata["idpRank"] = source_ranks["idpTradeCalc"]
 
@@ -10670,6 +11102,7 @@ def _compute_unified_rankings(
                 src_by_key=src_by_key,
                 family_by_key=family_by_key,
                 fresh_by_source=fresh_by_source,
+                content_freshness_applies=_freshness_applied,
             )
             # Registered so a LATER post-blend override that moves this
             # row's value re-states its confidence against the number
@@ -10994,6 +11427,13 @@ def _compute_unified_rankings(
         "multiBridgeLadderEnabled": _feature_flags.is_enabled("multi_bridge_ladder"),
     }
 
+    # KTC Market benchmark + model-vs-market gap, on FINAL values.
+    global _LAST_KTC_MARKET_SUMMARY, _LAST_SOURCE_WEIGHTING_SUMMARY
+    _LAST_KTC_MARKET_SUMMARY = _stamp_ktc_market_benchmark(players_array, players_by_name)
+    _LAST_SOURCE_WEIGHTING_SUMMARY = _source_weighting_summary(
+        players_array, source_weighting, active_sources, applied=_freshness_applied
+    )
+
     return pick_aliases
 
 
@@ -11200,7 +11640,7 @@ def _derive_player_row(
 
     # Pre-CSV-enrichment guardrail: use _PRE_ENRICHMENT_OFFENSE_SIGNAL_KEYS,
     # not _OFFENSE_SIGNAL_KEYS -- this runs before _enrich_from_source_csvs
-    # joins ktcCrowdTradesSfTep, so the canonical voting key can never be
+    # joins the KTC Crowd/Trades CSVs, so the canonical voting keys can never be
     # present in canonical_sites yet.  See the constant's docstring above.
     has_off_signal = any(
         _to_int_or_none(canonical_sites.get(k)) not in (None, 0)
@@ -11698,6 +12138,10 @@ def build_api_data_contract(
     # threaded through the same path so TE premium is a
     # backend-authoritative adjustment baked into every ``rankDerivedValue``
     # stamp before the delta / full contract is materialized.
+    # Freshness × health × coverage per source, evaluated at the board's OWN
+    # scrape time (src/sources/freshness.py; owner directive 2026-09-23).
+    freshness_as_of = _payload_as_of(raw_payload)
+    source_weighting = _load_source_weighting(freshness_as_of, csv_root)
     pick_aliases = _compute_unified_rankings(
         players_array,
         players_by_name,
@@ -11712,6 +12156,7 @@ def build_api_data_contract(
         # comparison anchor (latest ledger date strictly before it).
         board_date=str(raw_payload.get("date") or "") or None,
         synthetic_pick_derivations=synthetic_pick_derivations,
+        source_weighting=source_weighting,
     )
 
     # Stamp rankDerivedValue into the values bundle so every page uses the
@@ -12060,6 +12505,18 @@ def build_api_data_contract(
         # bridge that is PENDING / UNAVAILABLE / STALE is named here rather
         # than silently absent from the board it did not translate.
         "crossPositionBridges": _LAST_CROSS_POSITION_BRIDGE_SUMMARY,
+        # Canonical KTC Market benchmark (src/sources/ktc_market.py): what the
+        # market side of every model-vs-market comparison means, and that it
+        # is NOT a model input.
+        "ktcMarket": _LAST_KTC_MARKET_SUMMARY,
+        # Freshness × health × coverage per source (src/sources/freshness.py):
+        # the clock each source is judged on, its expected cadence, its
+        # factors, base vs effective weight, and how many rows it voted on.
+        "sourceWeighting": (
+            {**(_LAST_SOURCE_WEIGHTING_SUMMARY or {}), "asOf": _iso_or_none(freshness_as_of)}
+            if _LAST_SOURCE_WEIGHTING_SUMMARY is not None
+            else None
+        ),
     }
     # Drop internal-only provenance markers before materializing the
     # contract so they don't leak into the public payload.
@@ -12430,6 +12887,14 @@ _DELTA_PLAYER_FIELDS: tuple[str, ...] = (
     "canonicalSiteValues",
     "quarantined",
     "ktcRank",
+    "sourceWeightState",
+    "retainedAuthority",
+    "dominantSource",
+    "dominantSourceShare",
+    "freshnessExcludedSources",
+    # Canonical KTC Market block — its ``normalizedValue`` is board-scale,
+    # and the model-vs-market gap above is override-sensitive.
+    "ktcMarket",
     "idpRank",
     # Pick-specific stamps.  ``pickYearDiscount`` and
     # ``pickProjectedDraft*`` derive directly from the post-blend

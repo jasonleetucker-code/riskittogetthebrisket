@@ -1,0 +1,2274 @@
+{
+ "backfill": {
+  "commits": 804,
+  "firstCommitAt": "2026-04-17T01:36:34+00:00",
+  "method": "git_history_replay",
+  "ref": "HEAD",
+  "since": "2026-04-01"
+ },
+ "health": {
+  "errors": [],
+  "since": "2026-04-17T01:36:34Z",
+  "state": "HEALTHY",
+  "warnings": []
+ },
+ "schemaVersion": 1,
+ "sourceKey": "flockFantasySf",
+ "subsets": {
+  "players": {
+   "changeHistory": [
+    {
+     "at": "2026-04-17T03:59:52Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 31,
+     "rowsRemoved": 0,
+     "rowsTotal": 368
+    },
+    {
+     "at": "2026-04-17T19:48:23Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 5,
+     "rowsRemoved": 0,
+     "rowsTotal": 368
+    },
+    {
+     "at": "2026-04-19T16:23:20Z",
+     "broad": false,
+     "rowsAdded": 1,
+     "rowsChanged": 2,
+     "rowsRemoved": 1,
+     "rowsTotal": 368
+    },
+    {
+     "at": "2026-04-19T18:59:26Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 5,
+     "rowsRemoved": 1,
+     "rowsTotal": 368
+    },
+    {
+     "at": "2026-04-19T19:33:38Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 14,
+     "rowsRemoved": 0,
+     "rowsTotal": 367
+    },
+    {
+     "at": "2026-04-21T04:00:02Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 5,
+     "rowsRemoved": 0,
+     "rowsTotal": 367
+    },
+    {
+     "at": "2026-04-22T03:56:26Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 24,
+     "rowsRemoved": 0,
+     "rowsTotal": 367
+    },
+    {
+     "at": "2026-04-24T04:05:44Z",
+     "broad": true,
+     "rowsAdded": 10,
+     "rowsChanged": 339,
+     "rowsRemoved": 0,
+     "rowsTotal": 377
+    },
+    {
+     "at": "2026-04-24T08:39:26Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 291,
+     "rowsRemoved": 0,
+     "rowsTotal": 377
+    },
+    {
+     "at": "2026-04-24T14:21:59Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 9,
+     "rowsRemoved": 0,
+     "rowsTotal": 377
+    },
+    {
+     "at": "2026-04-24T22:30:43Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 267,
+     "rowsRemoved": 0,
+     "rowsTotal": 377
+    },
+    {
+     "at": "2026-04-25T03:47:02Z",
+     "broad": true,
+     "rowsAdded": 19,
+     "rowsChanged": 270,
+     "rowsRemoved": 0,
+     "rowsTotal": 396
+    },
+    {
+     "at": "2026-04-25T07:56:37Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 43,
+     "rowsRemoved": 0,
+     "rowsTotal": 396
+    },
+    {
+     "at": "2026-04-25T10:32:37Z",
+     "broad": true,
+     "rowsAdded": 2,
+     "rowsChanged": 308,
+     "rowsRemoved": 4,
+     "rowsTotal": 396
+    },
+    {
+     "at": "2026-04-25T16:27:05Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 177,
+     "rowsRemoved": 0,
+     "rowsTotal": 394
+    },
+    {
+     "at": "2026-04-25T19:36:36Z",
+     "broad": true,
+     "rowsAdded": 7,
+     "rowsChanged": 234,
+     "rowsRemoved": 0,
+     "rowsTotal": 401
+    },
+    {
+     "at": "2026-04-26T08:09:55Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 18,
+     "rowsRemoved": 0,
+     "rowsTotal": 401
+    },
+    {
+     "at": "2026-04-26T13:55:47Z",
+     "broad": true,
+     "rowsAdded": 5,
+     "rowsChanged": 141,
+     "rowsRemoved": 0,
+     "rowsTotal": 406
+    },
+    {
+     "at": "2026-04-26T16:27:40Z",
+     "broad": true,
+     "rowsAdded": 18,
+     "rowsChanged": 271,
+     "rowsRemoved": 0,
+     "rowsTotal": 424
+    },
+    {
+     "at": "2026-04-26T19:39:14Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 14,
+     "rowsRemoved": 0,
+     "rowsTotal": 424
+    },
+    {
+     "at": "2026-04-27T16:17:33Z",
+     "broad": true,
+     "rowsAdded": 2,
+     "rowsChanged": 147,
+     "rowsRemoved": 0,
+     "rowsTotal": 426
+    },
+    {
+     "at": "2026-04-27T17:56:49Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 68,
+     "rowsRemoved": 1,
+     "rowsTotal": 426
+    },
+    {
+     "at": "2026-04-27T20:03:32Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 3,
+     "rowsRemoved": 0,
+     "rowsTotal": 426
+    },
+    {
+     "at": "2026-04-27T21:43:29Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 247,
+     "rowsRemoved": 0,
+     "rowsTotal": 427
+    },
+    {
+     "at": "2026-04-27T23:41:20Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 8,
+     "rowsRemoved": 0,
+     "rowsTotal": 427
+    },
+    {
+     "at": "2026-04-28T04:29:48Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 96,
+     "rowsRemoved": 0,
+     "rowsTotal": 427
+    },
+    {
+     "at": "2026-04-28T10:40:13Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 158,
+     "rowsRemoved": 0,
+     "rowsTotal": 427
+    },
+    {
+     "at": "2026-04-28T15:15:22Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 44,
+     "rowsRemoved": 0,
+     "rowsTotal": 427
+    },
+    {
+     "at": "2026-04-28T18:13:40Z",
+     "broad": true,
+     "rowsAdded": 9,
+     "rowsChanged": 305,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-04-28T20:10:40Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 27,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-04-28T21:47:54Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 4,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-04-28T23:42:23Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 52,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-04-29T04:26:33Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 155,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-04-29T15:01:00Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 6,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-04-29T18:08:36Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 41,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-04-29T20:07:36Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 39,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-04-30T04:27:52Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 18,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-04-30T14:57:03Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 3,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-04-30T18:01:14Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 3,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-04-30T20:06:06Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 80,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-04-30T23:40:55Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 7,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-01T14:09:55Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 15,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-01T21:41:52Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-01T23:40:54Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 104,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-04T04:35:29Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 251,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-04T07:43:32Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 41,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-04T12:18:21Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 294,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-04T15:00:33Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 257,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-04T18:09:45Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 22,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-04T21:49:45Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 46,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-04T23:39:44Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 306,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-05T14:40:34Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 16,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-05T20:04:50Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 9,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-05T21:46:47Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 220,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-06T04:29:42Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 20,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-06T18:10:33Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 21,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-06T20:16:38Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 3,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-07T04:30:08Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 231,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-07T15:22:15Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 341,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-07T21:42:37Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 190,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-07T23:39:23Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 247,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-08T04:05:33Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 333,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-08T12:02:38Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 317,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-08T20:02:27Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 156,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-08T21:44:34Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 348,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-09T21:32:19Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 6,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-10T17:41:53Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 165,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-10T23:38:51Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 176,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-11T04:51:30Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 19,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-11T17:17:37Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 3,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-11T21:57:28Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 26,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-11T23:44:45Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 4,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-12T04:31:27Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-12T15:37:07Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 167,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-12T18:30:13Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 15,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-13T04:38:46Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 53,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-13T15:40:48Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 10,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-13T18:33:40Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 39,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-13T22:04:05Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 8,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-14T04:37:49Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 4,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-15T04:44:59Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 260,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-15T15:10:31Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 45,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-16T19:53:55Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 10,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-16T21:38:46Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 96,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-17T15:49:02Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 3,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-18T05:03:43Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 6,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-18T18:28:46Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-18T23:51:04Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 3,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-19T04:52:15Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 27,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-19T10:32:54Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 10,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-19T22:05:20Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 8,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-20T04:56:51Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 7,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-20T23:59:06Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 21,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-21T17:26:33Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 50,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-21T20:31:04Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 8,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-22T17:02:17Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 20,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-22T20:30:34Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 7,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-23T15:51:58Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 37,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-24T09:14:34Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 37,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-24T21:44:25Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 3,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-25T11:04:25Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-26T04:54:15Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 10,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-26T13:45:40Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 26,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-26T17:52:56Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 34,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-26T22:17:16Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 41,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-27T05:09:01Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 4,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-27T14:10:16Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 12,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-27T20:59:20Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 21,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-30T14:22:39Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 23,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-31T05:14:25Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 9,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-31T14:27:10Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 6,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-05-31T15:59:33Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 4,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-06-01T05:35:43Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 10,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-06-01T18:33:00Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 4,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-06-01T21:58:40Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 24,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-06-02T00:03:13Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 13,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-06-02T05:21:03Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 20,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-06-02T11:13:28Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 30,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-06-03T05:37:34Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 34,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-06-03T17:39:24Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 5,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-06-04T00:25:32Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 15,
+     "rowsRemoved": 0,
+     "rowsTotal": 436
+    },
+    {
+     "at": "2026-06-04T13:54:10Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 16,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-06-05T20:38:01Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 7,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-06-08T05:23:38Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 32,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-06-08T16:43:51Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 30,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-06-09T04:56:19Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 7,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-06-10T00:04:09Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 335,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-06-12T05:25:26Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-06-12T18:35:11Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 4,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-06-17T00:09:34Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 30,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-06-17T05:35:53Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 19,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-06-19T00:20:04Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 6,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-06-19T06:03:19Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 22,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-06-19T18:27:48Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-06-22T06:18:08Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 37,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-06-22T17:24:28Z",
+     "broad": false,
+     "rowsAdded": 1,
+     "rowsChanged": 1,
+     "rowsRemoved": 0,
+     "rowsTotal": 438
+    },
+    {
+     "at": "2026-06-22T21:30:48Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 18,
+     "rowsRemoved": 0,
+     "rowsTotal": 438
+    },
+    {
+     "at": "2026-06-22T23:59:31Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 438
+    },
+    {
+     "at": "2026-06-23T13:36:21Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 123,
+     "rowsRemoved": 0,
+     "rowsTotal": 438
+    },
+    {
+     "at": "2026-06-24T17:00:10Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 22,
+     "rowsRemoved": 0,
+     "rowsTotal": 438
+    },
+    {
+     "at": "2026-06-25T04:56:00Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 6,
+     "rowsRemoved": 0,
+     "rowsTotal": 438
+    },
+    {
+     "at": "2026-06-25T17:02:33Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 3,
+     "rowsRemoved": 0,
+     "rowsTotal": 438
+    },
+    {
+     "at": "2026-06-26T15:21:35Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 4,
+     "rowsRemoved": 0,
+     "rowsTotal": 438
+    },
+    {
+     "at": "2026-06-27T14:22:22Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 186,
+     "rowsRemoved": 0,
+     "rowsTotal": 438
+    },
+    {
+     "at": "2026-06-28T05:13:07Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 4,
+     "rowsRemoved": 0,
+     "rowsTotal": 438
+    },
+    {
+     "at": "2026-06-29T16:32:42Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 149,
+     "rowsRemoved": 0,
+     "rowsTotal": 438
+    },
+    {
+     "at": "2026-06-29T18:38:35Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 87,
+     "rowsRemoved": 1,
+     "rowsTotal": 438
+    },
+    {
+     "at": "2026-06-29T23:43:53Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 4,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-06-30T04:55:15Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-06-30T18:27:35Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 60,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-06-30T20:35:45Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 19,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-07-01T20:34:30Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 14,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-07-01T22:12:35Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 228,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-07-04T07:34:21Z",
+     "broad": false,
+     "rowsAdded": 1,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 438
+    },
+    {
+     "at": "2026-07-07T15:39:05Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 227,
+     "rowsRemoved": 0,
+     "rowsTotal": 438
+    },
+    {
+     "at": "2026-07-07T23:40:37Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 29,
+     "rowsRemoved": 0,
+     "rowsTotal": 438
+    },
+    {
+     "at": "2026-07-08T04:02:42Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 19,
+     "rowsRemoved": 0,
+     "rowsTotal": 438
+    },
+    {
+     "at": "2026-07-08T15:04:15Z",
+     "broad": false,
+     "rowsAdded": 1,
+     "rowsChanged": 1,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-07-10T04:43:13Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 1,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-07-14T03:51:41Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 8,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-07-16T03:55:53Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-07-16T14:50:47Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 4,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-07-17T03:55:57Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 41,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-07-18T14:12:00Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-07-20T04:31:17Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 1,
+     "rowsRemoved": 1,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-07-20T15:01:28Z",
+     "broad": true,
+     "rowsAdded": 1,
+     "rowsChanged": 37,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-07-21T04:03:20Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 27,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-07-21T18:02:31Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 4,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-07-21T23:44:35Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 66,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-07-22T23:44:40Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 1,
+     "rowsRemoved": 1,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-07-24T04:01:48Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 65,
+     "rowsRemoved": 0,
+     "rowsTotal": 438
+    },
+    {
+     "at": "2026-07-24T18:08:55Z",
+     "broad": true,
+     "rowsAdded": 2,
+     "rowsChanged": 279,
+     "rowsRemoved": 0,
+     "rowsTotal": 440
+    },
+    {
+     "at": "2026-07-24T20:05:09Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 92,
+     "rowsRemoved": 0,
+     "rowsTotal": 440
+    },
+    {
+     "at": "2026-07-26T21:43:17Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 36,
+     "rowsRemoved": 0,
+     "rowsTotal": 440
+    },
+    {
+     "at": "2026-07-27T15:34:38Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 32,
+     "rowsRemoved": 0,
+     "rowsTotal": 440
+    },
+    {
+     "at": "2026-07-27T18:16:51Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 22,
+     "rowsRemoved": 0,
+     "rowsTotal": 440
+    },
+    {
+     "at": "2026-07-28T03:55:30Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 219,
+     "rowsRemoved": 1,
+     "rowsTotal": 440
+    },
+    {
+     "at": "2026-07-30T21:52:28Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 21,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-07-31T07:38:18Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 4,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-01T17:45:56Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 21,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-03T20:21:00Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-05T03:53:11Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 31,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-07T03:41:50Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 3,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-07T17:36:48Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 12,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-07T19:42:23Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 12,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-08T17:12:40Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 6,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-10T23:22:11Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 9,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-18T19:21:20Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 108,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-18T21:04:48Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 56,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-19T02:12:38Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 39,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-19T17:07:32Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 21,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-19T19:14:43Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 37,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-21T07:33:50Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 101,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-23T21:03:50Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 250,
+     "rowsRemoved": 2,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-24T15:27:18Z",
+     "broad": true,
+     "rowsAdded": 2,
+     "rowsChanged": 250,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-25T03:36:17Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 20,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-26T02:19:04Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 33,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-28T01:13:39Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 169,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-28T14:40:46Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 20,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-08-31T17:47:48Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-09-01T05:45:41Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 10,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-09-01T12:07:14Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 226,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-09-03T00:46:10Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 358,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-09-04T05:11:45Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 8,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-09-06T11:26:24Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 376,
+     "rowsRemoved": 15,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-09-06T18:43:05Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 359,
+     "rowsRemoved": 0,
+     "rowsTotal": 424
+    },
+    {
+     "at": "2026-09-07T18:57:14Z",
+     "broad": true,
+     "rowsAdded": 15,
+     "rowsChanged": 377,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-09-08T05:20:37Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 53,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-09-09T00:43:09Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 37,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-09-09T11:57:25Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 30,
+     "rowsRemoved": 0,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-09-12T00:44:58Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 199,
+     "rowsRemoved": 1,
+     "rowsTotal": 439
+    },
+    {
+     "at": "2026-09-16T00:55:07Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 139,
+     "rowsRemoved": 0,
+     "rowsTotal": 438
+    },
+    {
+     "at": "2026-09-16T08:00:43Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 62,
+     "rowsRemoved": 0,
+     "rowsTotal": 438
+    },
+    {
+     "at": "2026-09-16T18:32:24Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 430,
+     "rowsRemoved": 1,
+     "rowsTotal": 438
+    },
+    {
+     "at": "2026-09-16T21:49:28Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 17,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-09-18T00:53:41Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 11,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-09-18T21:21:18Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 344,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-09-20T05:30:28Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 8,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-09-21T23:44:30Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 342,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-09-23T01:02:21Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 123,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    },
+    {
+     "at": "2026-09-23T08:04:05Z",
+     "broad": true,
+     "rowsAdded": 0,
+     "rowsChanged": 14,
+     "rowsRemoved": 0,
+     "rowsTotal": 437
+    }
+   ],
+   "contentSince": "2026-09-23T08:04:05Z",
+   "fingerprint": "5a65848da663cd790b05fbfa",
+   "firstObservationIsBaseline": true,
+   "firstObservedAt": "2026-04-17T01:36:34Z",
+   "lastAnyMeaningfulChangeAt": "2026-09-23T08:04:05Z",
+   "lastBroadDatasetChangeAt": "2026-09-23T08:04:05Z",
+   "rowChangedAt": {},
+   "rowCount": 437,
+   "rowCountHistory": [
+    439,
+    439,
+    437,
+    439,
+    439,
+    439,
+    439,
+    439,
+    439,
+    439,
+    439,
+    439,
+    439,
+    424,
+    424,
+    439,
+    439,
+    439,
+    439,
+    438,
+    438,
+    438,
+    437,
+    437,
+    437,
+    437,
+    437,
+    437,
+    437,
+    437
+   ],
+   "rowHashes": {
+    "a.j. brown": "f3fcd5574e",
+    "aaron jones": "a665f5a989",
+    "aaron rodgers": "99ed1614ea",
+    "adam randall": "8c6487f4fe",
+    "adam thielen": "b8bf9cee4a",
+    "adonai mitchell": "7768fbb56a",
+    "aidan o'connell": "9223be55e5",
+    "aj barner": "bb120c23f4",
+    "aj dillon": "82822552c8",
+    "alec pierce": "e9f949a103",
+    "alexander mattison": "873f46470a",
+    "alvin kamara": "e5723e105f",
+    "amari cooper": "deb61a058d",
+    "amon-ra st. brown": "4fde6b87a2",
+    "andrei iosivas": "f39c704068",
+    "anthony richardson": "3d9a28347c",
+    "antonio gibson": "48ffc8e971",
+    "antonio williams": "7152d31b61",
+    "arian smith": "8744b156b0",
+    "ashton jeanty": "1d1a88a35c",
+    "audric estime": "065577e092",
+    "austin ekeler": "cd3f3e07b7",
+    "baker mayfield": "ed070a6e28",
+    "barion brown": "8831b7a430",
+    "ben sinnott": "deca1fd0b8",
+    "bhayshul tuten": "93b2382150",
+    "bijan robinson": "bdc1408a91",
+    "blake corum": "09d195d57c",
+    "bo nix": "6fb72c54fb",
+    "braelon allen": "3646fd823d",
+    "brandin cooks": "48aed7c87b",
+    "brandon aiyuk": "3d63c38a2e",
+    "brashard smith": "92ec63390b",
+    "breece hall": "bd39155416",
+    "brenen thompson": "ec0eefbbbd",
+    "brenton strange": "d665a15d7e",
+    "brevin jordan": "b9c0cf519b",
+    "brian robinson": "98d5ee2208",
+    "brian thomas": "311655f293",
+    "brock bowers": "af03b68266",
+    "brock purdy": "a1b3963186",
+    "bryce lance": "31a4759c62",
+    "bryce young": "5514bbda8f",
+    "bucky irving": "a2d9c410a1",
+    "c.j. daniels": "af747f578c",
+    "c.j. stroud": "1f023dd065",
+    "cade klubnik": "d4839495a6",
+    "cade otton": "b9032167a1",
+    "caleb douglas": "4e207f3ec2",
+    "caleb williams": "c2c2009a71",
+    "calvin austin": "e91cab34e5",
+    "calvin ridley": "a60a667820",
+    "cam skattebo": "5950de5681",
+    "cam ward": "b1d7a81084",
+    "carnell tate": "6ad5933e6a",
+    "carson beck": "ddb6c73540",
+    "cedric tillman": "ff47d1ebdc",
+    "ceedee lamb": "0cb33f0c32",
+    "charlie kolar": "06ee43bc13",
+    "chase brown": "2e02d12f31",
+    "chig okonkwo": "8edd814daf",
+    "chimere dike": "8f1fc1de41",
+    "chris bell": "38bbe108ea",
+    "chris brazzell ii": "718b2e5249",
+    "chris godwin": "aedea77021",
+    "chris manhertz": "9e68723018",
+    "chris olave": "2fe371ec38",
+    "chris rodriguez": "ce8be2a003",
+    "christian kirk": "293993d419",
+    "christian mccaffrey": "aa78e36bb0",
+    "christian watson": "b1d7a81084",
+    "chuba hubbard": "3bb1b5d009",
+    "colby parkinson": "46b8b266e7",
+    "cole kmet": "35d144e82a",
+    "cole payton": "d7033cb977",
+    "cole payton#2": "4362a0acc8",
+    "colston loveland": "0088b3cf7e",
+    "cooper kupp": "59930786e9",
+    "courtland sutton": "d08de5ed40",
+    "curtis samuel": "32359aba8c",
+    "cyrus allen": "dfbe47dcc9",
+    "d'andre swift": "fb90869136",
+    "dak prescott": "0ca4cfad19",
+    "dallas goedert": "b42fee32fe",
+    "dalton kincaid": "fb90869136",
+    "dalton schultz": "c18a0016c3",
+    "dameon pierce": "175e9e2d7f",
+    "damien martinez": "95d242dbeb",
+    "daniel bellinger": "2c51cb9d62",
+    "daniel jones": "8f45c28aec",
+    "darius slayton": "9b71bd6db9",
+    "darnell mooney": "e5566c67dd",
+    "darnell washington": "bb126e3fde",
+    "darren waller": "50fb2e3897",
+    "davante adams": "8e47d5e4e0",
+    "david montgomery": "04522f3a73",
+    "david njoku": "0b11bf3c77",
+    "davis mills": "f29258cf60",
+    "dawson knox": "32962fa455",
+    "de'zhaun stribling": "ccd162a2c7",
+    "deandre hopkins": "dfdd55eb5e",
+    "deebo samuel": "365b6f22ae",
+    "deion burks": "6a08072c2f",
+    "demarcus robinson": "c5d216e223",
+    "demario douglas": "9a7a70cc3b",
+    "demond claiborne": "2a233ded9a",
+    "denzel boston": "8e47d5e4e0",
+    "derrick henry": "557771b8db",
+    "deshaun watson": "26711aca10",
+    "desmond reid": "fe7b5d8cc6",
+    "deuce vaughn": "b8bf9cee4a",
+    "devaughn vele": "da0fe6f8a6",
+    "devin neal": "f4789ec088",
+    "devin singletary": "179da8b6cf",
+    "devon achane": "7c7b86b5cd",
+    "devonta smith": "d281ebc7ea",
+    "diego pavia": "ca34c62adf",
+    "dillon gabriel": "475f4952f1",
+    "dj giddens": "8af0d04768",
+    "dj moore": "218e7120bb",
+    "dk metcalf": "2818bb1bec",
+    "dont'e thornton jr.": "7c6341dfc8",
+    "dontayvion wicks": "3f9688357d",
+    "drake london": "546e369c3b",
+    "drake maye": "905d0c1326",
+    "drew allar": "20fd0a82fe",
+    "dyami brown": "36a1e11891",
+    "dylan sampson": "c0020855e0",
+    "efton chism": "828df06ca4",
+    "eli heidenreich": "7d178f0e08",
+    "eli raridon": "ee211dac4f",
+    "eli stowers": "9768cd4c5e",
+    "elic ayomanor": "585a86ef8e",
+    "elijah arroyo": "fc7a2db7d5",
+    "elijah moore": "2b4d1cafd6",
+    "elijah sarratt": "8edd814daf",
+    "emanuel wilson": "f8c0184f7b",
+    "emari demercado": "cd3f3e07b7",
+    "emeka egbuka": "7751bcc49e",
+    "emmett johnson": "8e556a842f",
+    "eric mcalister": "2210aaf22d",
+    "erick all": "536068819d",
+    "evan engram": "5874a8012f",
+    "fernando mendoza": "71184fbff4",
+    "gabe davis": "2210aaf22d",
+    "gardner minshew": "8cd72070f1",
+    "garrett nussmeier": "73760b1ea3",
+    "garrett wilson": "edb31fa4f0",
+    "geno smith": "4d64b0316d",
+    "george holani": "3e83044dac",
+    "george kittle": "356b2285f9",
+    "george pickens": "eb3cb647b5",
+    "germie bernard": "1e2130dcd9",
+    "greg dortch": "19ca698553",
+    "greg dulcich": "e9654a015e",
+    "gunnar helm": "6660c6150d",
+    "harold fannin": "548f06cea8",
+    "hollywood brown": "e554b5dbd0",
+    "hunter henry": "e82365fba3",
+    "isaac guerendo": "078da5f1a8",
+    "isaac teslaa": "b5105ea127",
+    "isaiah bond": "dc8d945c1c",
+    "isaiah davis": "46c2aadf8b",
+    "isaiah likely": "af26c2c61f",
+    "isiah pacheco": "0edde43476",
+    "j'mari taylor": "50c3e2b1d4",
+    "j.j. mccarthy": "4e906e718a",
+    "j.k. dobbins": "bc6f8c52c1",
+    "ja'kobi lane": "a080da71c7",
+    "ja'lynn polk": "5b63c591ba",
+    "ja'marr chase": "743da23f34",
+    "ja'tavion sanders": "b07b429ffb",
+    "jack bech": "1c7cb90cf9",
+    "jack endries": "67c5c674cf",
+    "jacoby brissett": "ea83477295",
+    "jacory croskey-merritt": "6641d934a5",
+    "jadarian price": "298b7fb300",
+    "jahan dotson": "9c95aac8ea",
+    "jaheim bell": "800b147999",
+    "jahmyr gibbs": "fd522fb657",
+    "jake browning": "3d33f5f622",
+    "jake ferguson": "cc15a629a1",
+    "jake tonges": "95fd48b424",
+    "jakobi meyers": "cd32929e3c",
+    "jaleel mclaughlin": "572a2e39eb",
+    "jalen coker": "3bb1b5d009",
+    "jalen hurts": "dd7e263cda",
+    "jalen mcmillan": "3e6f75f65e",
+    "jalen milroe": "5cf0470a70",
+    "jalen nailor": "2e8410b8c7",
+    "jalen royals": "51f774bf62",
+    "jalen tolbert": "b5135ce247",
+    "jalin hyatt": "9b71bd6db9",
+    "jalon daniels": "f29258cf60",
+    "jameis winston": "fba6a5b97d",
+    "james conner": "7cbb8c6c2a",
+    "james cook": "6f64bfefd9",
+    "jameson williams": "966a161fde",
+    "jared goff": "d3cdf32718",
+    "jared wiley": "a61b8e12ff",
+    "jarquez hunter": "aa6b3c8e4d",
+    "jauan jennings": "7ed7202eee",
+    "javon baker": "0723540251",
+    "javonte williams": "473a46a635",
+    "jaxon smith-njigba": "e6dcdc3bb6",
+    "jaxson dart": "95a47fa4d3",
+    "jayden daniels": "c4dc0140a2",
+    "jayden higgins": "50c038b3a3",
+    "jayden reed": "f5e34c3929",
+    "jaydn ott": "8da3f28231",
+    "jaydon blue": "59930786e9",
+    "jaylen waddle": "13c1211a2c",
+    "jaylen warren": "60f69dd392",
+    "jaylen wright": "fbe7c9bc81",
+    "jaylin lane": "b0beab7f90",
+    "jaylin noel": "74f3af6d27",
+    "jeremiyah love": "bf3cc06e4c",
+    "jeremy mcnichols": "a29e1d41c5",
+    "jermaine burton": "05518def0f",
+    "jerome ford": "31eab1ad0f",
+    "jerry jeudy": "b5ca858b7d",
+    "jimmy horn jr.": "77d9ee8e10",
+    "joe burrow": "c4dc0140a2",
+    "joe flacco": "e2df714782",
+    "joe milton": "4b920a6bf4",
+    "joe mixon": "921fa64daa",
+    "john metchie": "b50a00fdea",
+    "jonah coleman": "d3c353c8ed",
+    "jonathan mingo": "2847337c56",
+    "jonathan taylor": "e509d1f44b",
+    "jonathon brooks": "8acddcdedd",
+    "jonnu smith": "98fa6964e4",
+    "jordan addison": "2618311ec1",
+    "jordan james": "454fb8e67c",
+    "jordan love": "bf0a7db030",
+    "jordan mason": "c7deac213a",
+    "jordan whittington": "359de4c049",
+    "jordyn tyson": "e530c96977",
+    "josh allen": "1f29bbf165",
+    "josh cuevas": "99660f984e",
+    "josh downs": "6afb97b84f",
+    "josh jacobs": "59714aa34a",
+    "joshua palmer": "06527dec82",
+    "justice hill": "242b14eafd",
+    "justin fields": "b86c5de562",
+    "justin herbert": "1bbdd15ac6",
+    "justin jefferson": "4c7a18c8ba",
+    "justin joly": "4eddad2a7d",
+    "juwan johnson": "7dc70facaa",
+    "kaden wetjen": "6a08072c2f",
+    "kaelon black": "a665f5a989",
+    "kaleb johnson": "81952a06ce",
+    "kalel mullings": "cd3f3e07b7",
+    "kareem hunt": "4eaa0d2f35",
+    "kayshon boutte": "590c631071",
+    "kaytron allen": "43f9cba2f9",
+    "kc concepcion": "be09d64f62",
+    "keandre lambert-smith": "8744b156b0",
+    "keaton mitchell": "c005a1bdf6",
+    "keenan allen": "393cd2dbbc",
+    "kendre miller": "74dedc3648",
+    "kendrick bourne": "94e4bab60e",
+    "kendrick law": "6d9ae3cf3b",
+    "kenneth gainwell": "c48284857e",
+    "kenneth walker": "c5f9918824",
+    "kenny pickett": "cb1b3cdf38",
+    "kenyon sadiq": "9df07a12f1",
+    "keon coleman": "febe80625d",
+    "kevin coleman jr.": "c1bd13b72f",
+    "khalil herbert": "dc42b86f19",
+    "khalil shakir": "f21fd56c28",
+    "kimani vidal": "4747cb7c94",
+    "kirk cousins": "4fe5eeea8e",
+    "kyle monangai": "cd64a5fa51",
+    "kyle pitts": "e8510349d8",
+    "kyle williams": "a721b8f782",
+    "kyler murray": "b1d7a81084",
+    "kyren williams": "991ae77aa5",
+    "ladd mcconkey": "6e2853ffaa",
+    "lamar jackson": "e1ee09aea0",
+    "le'veon moss": "1df65a5cb8",
+    "lequint allen": "3ddf65d2f8",
+    "lewis bond": "5a19117a23",
+    "luke mccaffrey": "5ae84cf745",
+    "luke musgrave": "0e2973dfb3",
+    "luke schoonmaker": "28b2e81414",
+    "luther burden": "8e60d0e32d",
+    "mac jones": "ef6aa40f4d",
+    "makai lemon": "ac9afceaf0",
+    "malachi corley": "ca903089b0",
+    "malachi fields": "aaf69002e5",
+    "malik benson": "a91cde4e98",
+    "malik nabers": "9444a8503e",
+    "malik washington": "dc0c6d965a",
+    "malik willis": "8ff0b9f583",
+    "marcus mariota": "09493a22c8",
+    "mark andrews": "64c0907217",
+    "marlin klein": "8e353e6b73",
+    "marshawn lloyd": "05a9b096fe",
+    "marvin harrison": "6bff9a64a1",
+    "marvin mims": "c7b3152a68",
+    "mason taylor": "85bb703930",
+    "matthew golden": "c0d10b18b7",
+    "matthew hibner": "120f2e48a0",
+    "matthew stafford": "c587782348",
+    "max klare": "2a28ae1c91",
+    "michael carter": "7a9c322a6b",
+    "michael mayer": "52e8b87135",
+    "michael penix": "4ee7baef51",
+    "michael pittman": "01fd97e310",
+    "michael wilson": "c599c15213",
+    "mike evans": "899020049f",
+    "mike gesicki": "8df1ff50ab",
+    "mike washington jr.": "8de018b284",
+    "mike williams": "26548f9551",
+    "miles sanders": "cd3f3e07b7",
+    "najee harris": "1fcda01bf8",
+    "nicholas singleton": "95b7a81ba0",
+    "nick chubb": "1730b3c764",
+    "nico collins": "9802e622be",
+    "noah brown": "990e476dd7",
+    "noah fant": "6d9ae3cf3b",
+    "noah gray": "8e353e6b73",
+    "odell beckham": "820351d185",
+    "ollie gordon ii": "4161b1be4b",
+    "omar cooper jr.": "99a7734081",
+    "omarion hampton": "adb462b1f9",
+    "oronde gadsden": "bf3a5e83ea",
+    "oscar delp": "26e8f72c25",
+    "parker washington": "343bc8c284",
+    "pat bryant": "e7f0edc4e7",
+    "pat freiermuth": "e713a999f9",
+    "patrick mahomes": "386cd47a39",
+    "phil mafah": "1c926ba3c3",
+    "puka nacua": "2ce6ddc84d",
+    "quentin johnston": "a1ddb1696b",
+    "quinn ewers": "a5d89cecb3",
+    "quinshon judkins": "a2790127f3",
+    "rachaad white": "d32a12acd1",
+    "raheem mostert": "efc0682f00",
+    "raheim sanders": "99b4824fda",
+    "rashee rice": "ff683b813f",
+    "rasheen ali": "9d12814bba",
+    "rashid shaheed": "72d198788a",
+    "rashod bateman": "12997663af",
+    "ray davis": "276c740d77",
+    "reggie virgil": "1ce855ac59",
+    "rhamondre stevenson": "db8e95d49e",
+    "ricky pearsall": "b4009e3523",
+    "rico dowdle": "182ae12fa1",
+    "riley leonard": "ba955e806b",
+    "rj harvey": "2c7d03354c",
+    "roman wilson": "e301f85383",
+    "rome odunze": "ec83094fdc",
+    "romeo doubs": "87c52b54dd",
+    "rondale moore": "6d9ae3cf3b",
+    "roschon johnson": "f34496ba2c",
+    "russell wilson": "b67a29a3f9",
+    "ryan flournoy": "572d87cf83",
+    "sam darnold": "c4b1d195be",
+    "sam howell": "108868755b",
+    "sam laporta": "cead8548fe",
+    "sam roush": "076f56e1e9",
+    "samaje perine": "efe732143e",
+    "saquon barkley": "c30e0da063",
+    "savion williams": "04a78eeb3d",
+    "sean tucker": "8c161ab83b",
+    "seth mcgowan": "8e03b70cdc",
+    "seydou traore": "c300fad2ed",
+    "shedeur sanders": "ccc8236c0b",
+    "skyler bell": "2be8b04b25",
+    "spencer rattler": "35d144e82a",
+    "stefon diggs": "cc3c0483bc",
+    "t.j. hockenson": "edb75ed578",
+    "tahj brooks": "6e8cb6f821",
+    "tahj washington": "7ca1c2353b",
+    "tai felton": "13b25870fb",
+    "tank bigsby": "1548a3877f",
+    "tank dell": "4747cb7c94",
+    "tanner koziol": "97bc36e290",
+    "taylen green": "5fa121b93f",
+    "taysom hill": "640dc25f00",
+    "ted hurst": "4653fa4ba6",
+    "tee higgins": "920e41ca58",
+    "terrance ferguson": "fdcd2bb9d3",
+    "terry mclaurin": "8f45c28aec",
+    "tetairoa mcmillan": "eb3cb647b5",
+    "tez johnson": "193b28f138",
+    "theo johnson": "7d0d1fb213",
+    "tony pollard": "be67c7f2ed",
+    "tory horton": "2139736426",
+    "travis etienne": "66e996497e",
+    "travis hunter": "f45d6346b1",
+    "travis kelce": "04dd6d29e1",
+    "tre harris": "5a837f88e9",
+    "tre tucker": "78696c83c7",
+    "treveyon henderson": "e50744186a",
+    "trevor etienne": "c0d3afc2c3",
+    "trevor lawrence": "799b3a4a88",
+    "trey benson": "fe0ba1e7ba",
+    "trey mcbride": "da9a7712a2",
+    "treylon burks": "7c49886ba8",
+    "troy franklin": "e8bc34f79b",
+    "tua tagovailoa": "3bd6a4db34",
+    "tucker kraft": "762d329d95",
+    "tutu atwell": "ec605ea2ea",
+    "ty johnson": "b73dea682a",
+    "ty simpson": "0b9f782b95",
+    "tyjae spears": "cfbbd40d3c",
+    "tyler allgeier": "d77bcb250c",
+    "tyler conklin": "61cb014a81",
+    "tyler higbee": "88d6bea6a2",
+    "tyler lockett": "30d087c39d",
+    "tyler shough": "8d4036da87",
+    "tyler warren": "09ca163cf2",
+    "tyquan thornton": "1b4fc746b9",
+    "tyreek hill": "52b19e7171",
+    "tyrone tracy": "ff6cd25d1b",
+    "wan'dale robinson": "b46ae5352b",
+    "will dissly": "57830f7806",
+    "will howard": "600d3125a7",
+    "will levis": "7da740068a",
+    "will shipley": "74e13e7c20",
+    "woody marks": "5169fa360a",
+    "xavier hutchinson": "9784a69489",
+    "xavier legette": "4f36a7de41",
+    "xavier restrepo": "9892952e64",
+    "xavier worthy": "fd8f32bcf1",
+    "zach charbonnet": "93e06574f8",
+    "zach ertz": "14f498c381",
+    "zach wilson": "7dbd303467",
+    "zachariah branch": "1016f49623",
+    "zack moss": "bde858fa37",
+    "zavion thomas": "4857f29919",
+    "zay flowers": "3608227aaa",
+    "zay jones": "14940ff603",
+    "zonovan knight": "dfdd55eb5e"
+   }
+  }
+ },
+ "upstream": {
+  "publishedAt": null,
+  "version": null
+ }
+}

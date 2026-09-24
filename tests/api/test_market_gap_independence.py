@@ -1,47 +1,23 @@
-"""The market gap does not measure retail against itself — B10-T3a.
+"""The market gap compares OUR MODEL against KTC MARKET — and nothing else.
 
-THE SIGNAL
-──────────
-``marketGapDirection`` / ``marketGapMagnitude`` answer: *does the retail
-market price this player above or below where the experts have him?*
-It is the input to /edge's premium and buy-low labels and to
-``MARKET_GAP_MIN_VALUE_RATIO`` in ``config/thresholds.json``.
+HISTORY (B10-T3a)
+─────────────────
+``marketGapDirection`` / ``marketGapValueRatio`` used to split the sources
+on a row into a "retail" side (the KTC family, incl. the KTC-derived
+``fantasyNavigatorSf``) and a "consensus" side (every other source).  B10-T3a
+fixed a real defect in that design — Fantasy Navigator had landed on the
+consensus side, so retail was measured against itself on 437 rows and the
+direction flipped on 72 when corrected.
 
-The whole signal rests on the two sides being **different bodies of
-evidence**. ``_compute_market_gap`` split them by the ``is_retail``
-registry flag — today exactly ``ktcCrowdTradesSfTep`` — and put *every other*
-registered source on the consensus side.
-
-THE DEFECT
-──────────
-``fantasyNavigatorSf`` is not another opinion. The registry declares it
-``correlation_group: "ktc"`` and its own comment at
-``data_contract.py:1129-1133`` says it *"republishes KTC-derived
-numbers"*. It was landing on the **consensus** side.
-
-Measured on the tracked 2026-08-14 export, built through
-``build_api_data_contract``:
-
-* **437 rows** carried a retail source and had ``fantasyNavigatorSf`` on
-  the consensus side — i.e. retail was being compared against a
-  consensus that contains retail;
-* moving it to the side it belongs to changes the magnitude on **364
-  rows** — median 0.055, p90 0.148, max 0.545 — and **flips the
-  direction on 72**. Brandon Aiyuk and Tyreek Hill both go
-  ``consensus_premium`` → ``retail_premium``: the published signal was
-  pointing the wrong way.
-
-This is the anti-circularity requirement in its plainest form. A body of
-evidence affects a conclusion once, and it cannot sit on both sides of a
-comparison drawn to measure disagreement *with itself*.
-
-THE FIX, AND WHY IT IS RECLASSIFY RATHER THAN DROP
+THE CURRENT DEFINITION (owner directive 2026-09-23)
 ───────────────────────────────────────────────────
-``fantasyNavigatorSf`` is not noise to be discarded — it is
-**retail-derived evidence**, so it informs the retail estimate. The
-split is therefore taken over the retail *family*
-(``expand_correlation_groups``), not the retail *keys*. Dropping it
-instead would throw away a real observation to fix a bookkeeping error.
+"Difference from market" means OUR MODEL VALUE (``rankDerivedValue``)
+against CANONICAL KTC MARKET — KTC's own published Crowd+Trades value,
+normalized onto the board scale — owned by ``src/sources/ktc_market.py``.
+The anti-circularity requirement survives in a stronger form: the market
+side is a single published number, so no other source (Fantasy Navigator,
+IDPTC, DLF, …) can ever enter it, and KTC Market can never enter the model
+as a vote (it is derived from the two KTC inputs that already do).
 """
 
 from __future__ import annotations
@@ -52,11 +28,17 @@ import pathlib
 import pytest
 
 from src.api.data_contract import (
+    _RANKING_SOURCES,
     _compute_market_gap,
-    _retail_source_keys,
     build_api_data_contract,
-    correlation_group_for,
     expand_correlation_groups,
+)
+from src.sources.ktc_market import (
+    KTC_CROWD_KEY,
+    KTC_MARKET_KEY,
+    KTC_TRADES_KEY,
+    build_market_blocks,
+    compute_market_gap,
 )
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
@@ -69,97 +51,72 @@ def _contract() -> dict:
     return build_api_data_contract(json.loads(candidates[0].read_text(encoding="utf-8")))
 
 
-class TestTheTwoSidesAreDifferentBodiesOfEvidence:
-    def test_no_consensus_source_shares_a_family_with_a_retail_source(self):
-        """The invariant, asserted over the live board.
-
-        Stated as a property of the SIDES the function actually forms —
-        not as "fantasyNavigatorSf is excluded" — so declaring a future
-        retail-derived source into the family is enough to protect the
-        signal, with no second edit here.
-        """
-        contract = _contract()
-        retail_side = frozenset(expand_correlation_groups(_retail_source_keys()))
-        retail_families = {correlation_group_for(k) for k in retail_side}
-
-        offenders: list[tuple[str, list[str]]] = []
-        for row in contract["playersArray"]:
-            source_ranks = row.get("sourceRanks") or {}
-            if not (set(source_ranks) & retail_side):
-                continue
-            # Whatever the function does NOT put on the retail side is,
-            # by construction, its consensus side.
-            leaked = [
-                key
-                for key in source_ranks
-                if key not in retail_side and correlation_group_for(key) in retail_families
-            ]
-            if leaked:
-                offenders.append((str(row.get("displayName")), leaked))
-
-        assert not offenders, (
-            f"{len(offenders)} rows measure the retail market against a consensus that "
-            f"contains a member of the retail family, e.g. {offenders[:3]}"
-        )
+def _row(name: str, **sites: float) -> dict:
+    return {"displayName": name, "position": "WR", "canonicalSiteValues": dict(sites)}
 
 
-class TestTheSplitIsTakenOverFamilies:
-    """Unit-level, so the property holds without needing an export."""
+class TestTheMarketSideIsOnlyKtcMarket:
+    def test_other_sources_cannot_move_the_market_block(self):
+        base = [_row("A", ktcCrowdTradesSfTep=8000.0), _row("B", ktcCrowdTradesSfTep=4000.0)]
+        noisy = [
+            _row(
+                "A",
+                ktcCrowdTradesSfTep=8000.0,
+                fantasyNavigatorSf=1.0,
+                idpTradeCalc=9999.0,
+                dlfSf=5.0,
+            ),
+            _row("B", ktcCrowdTradesSfTep=4000.0, fantasyNavigatorSf=9999.0),
+        ]
+        build_market_blocks(base)
+        build_market_blocks(noisy)
+        assert [r["ktcMarket"] for r in base] == [r["ktcMarket"] for r in noisy]
 
-    #: One retail source, one source declared into its family, one
-    #: genuinely independent source. Values chosen so the two possible
-    #: splits give visibly different answers.
-    SOURCE_RANKS = {"ktcCrowdTradesSfTep": 1, "fantasyNavigatorSf": 2, "idpTradeCalc": 3}
-    META = {
-        "ktcCrowdTradesSfTep": {"valueContribution": 9000.0},
-        "fantasyNavigatorSf": {"valueContribution": 8800.0},
-        "idpTradeCalc": {"valueContribution": 5000.0},
-    }
+    def test_crowd_and_trades_alone_do_not_manufacture_a_market(self):
+        """KTC Market is KTC's PUBLISHED blend; we never reconstruct it."""
+        rows = [_row("A", ktcCrowdSfTep=8000.0, ktcTradesSfTep=7000.0)]
+        build_market_blocks(rows)
+        assert rows[0]["ktcMarket"]["value"] is None
+        assert rows[0]["ktcMarket"]["available"] is False
 
-    def test_the_derived_source_is_priced_with_retail_not_against_it(self):
-        direction, magnitude = _compute_market_gap(self.SOURCE_RANKS, self.META)
-
-        # Retail side = mean(9000, 8800) = 8900; consensus = 5000. The
-        # gap is relative to the mean of the two sides, not to either one.
-        retail_mean, consensus_mean = 8900.0, 5000.0
-        expected = abs(retail_mean - consensus_mean) / ((retail_mean + consensus_mean) / 2.0)
-
+    def test_the_gap_is_model_against_market(self):
+        assert compute_market_gap(7000.0, 9000.0) == _compute_market_gap(7000.0, 9000.0)
+        direction, ratio = _compute_market_gap(7000.0, 9000.0)
         assert direction == "retail_premium"
-        assert magnitude == pytest.approx(expected, rel=1e-6)
+        assert ratio == pytest.approx(0.25)
 
-    def test_leaving_the_derived_source_on_the_consensus_side_understates_the_gap(self):
-        """The defect, kept as a live comparison rather than a memory.
 
-        Same row, same numbers, split the old way: the consensus mean
-        becomes mean(8800, 5000) = 6900 and the reported disagreement
-        shrinks by more than half — because retail is now sitting on both
-        sides of a comparison drawn to measure disagreement with itself.
-        """
-        old_split, old_magnitude = _compute_market_gap(
-            self.SOURCE_RANKS, self.META, retail_keys=frozenset({"ktcCrowdTradesSfTep"})
-        )
-        _, new_magnitude = _compute_market_gap(self.SOURCE_RANKS, self.META)
+class TestKtcMarketIsNeverAModelInput:
+    def test_market_key_is_not_registered(self):
+        keys = {str(s.get("key") or "") for s in _RANKING_SOURCES}
+        assert KTC_MARKET_KEY not in keys
+        assert {KTC_CROWD_KEY, KTC_TRADES_KEY} <= keys
 
-        assert old_split == "retail_premium"
-        assert old_magnitude is not None and new_magnitude is not None
-        assert old_magnitude < new_magnitude / 2
-
-    def test_a_row_with_only_the_derived_source_has_no_consensus_side(self):
-        """`fantasyNavigatorSf` alone is a retail reading, not a consensus.
-
-        Reporting a gap here would be comparing retail against nothing and
-        calling the result agreement — the missing-is-not-zero rule applied
-        to a comparison rather than to a value.
-        """
-        direction, magnitude = _compute_market_gap(
-            {"fantasyNavigatorSf": 2},
-            {"fantasyNavigatorSf": {"valueContribution": 8800.0}},
-        )
-        assert direction == "none"
-        assert magnitude is None
-
-    def test_the_retail_family_is_what_the_helper_resolves(self):
-        assert expand_correlation_groups(_retail_source_keys()) >= {
-            "ktcCrowdTradesSfTep",
+    def test_removing_the_market_removes_all_ktc_lineage(self):
+        """Consensus Edge's leave-one-out board excludes the anchor; for KTC
+        Market that must drop BOTH inputs it is derived from and the
+        KTC-derived republisher, or the "anchor-free" board still carries
+        KTC."""
+        assert expand_correlation_groups([KTC_MARKET_KEY]) >= {
+            KTC_MARKET_KEY,
+            KTC_CROWD_KEY,
+            KTC_TRADES_KEY,
             "fantasyNavigatorSf",
         }
+
+
+class TestOnTheLiveBoard:
+    def test_every_published_gap_is_model_vs_ktc_market(self):
+        contract = _contract()
+        checked = 0
+        for row in contract["playersArray"]:
+            market = row.get("ktcMarket") or {}
+            expected = _compute_market_gap(
+                row.get("rankDerivedValue"), market.get("normalizedValue")
+            )
+            assert (row.get("marketGapDirection"), row.get("marketGapValueRatio")) == expected, row[
+                "displayName"
+            ]
+            if expected[1] is not None:
+                checked += 1
+        assert checked > 0

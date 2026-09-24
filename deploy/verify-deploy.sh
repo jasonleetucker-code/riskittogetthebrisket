@@ -350,6 +350,27 @@ main() {
     warn "Source-coverage gate skipped (VERIFY_SOURCE_COVERAGE=0)."
   fi
 
+  # Source weighting report — ADVISORY, never fails or skips the deploy.
+  # Prints the production effective-weight table from this box's own
+  # data/scrape_state through the same freshness owner the blend uses
+  # (docs/sources/SOURCE_FRESHNESS_WEIGHTING.md), with last FETCH beside
+  # the DATA clock, so the deploy log itself carries the post-deploy
+  # evidence (the weighting endpoints are auth-gated).  No contract build.
+  # Escape hatch: VERIFY_SOURCE_WEIGHTING_REPORT=0.
+  if [[ "${VERIFY_SOURCE_WEIGHTING_REPORT:-1}" != "0" ]]; then
+    local sw_python="python3"
+    local sw_venv_dir="${VENV_DIR:-${APP_DIR:-.}/.venv}"
+    if [[ -x "${sw_venv_dir}/bin/python" ]]; then
+      sw_python="${sw_venv_dir}/bin/python"
+    fi
+    log "Source weighting report (advisory):"
+    if ( cd "${APP_DIR}" && "${sw_python}" scripts/source_weighting_report.py --state-only ); then
+      log "Source weighting report printed."
+    else
+      warn "Source weighting report failed - advisory only, deploy unaffected."
+    fi
+  fi
+
   log "Deploy verification checks passed."
 }
 

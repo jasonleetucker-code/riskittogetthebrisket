@@ -65,7 +65,7 @@ class TestComputeKtcRankings(unittest.TestCase):
                 "finalAdjusted": ktc,
                 "displayValue": None,
             },
-            "canonicalSiteValues": {"ktcCrowdTradesSfTep": ktc},
+            "canonicalSiteValues": {"ktcCrowdSfTep": ktc, "ktcCrowdTradesSfTep": ktc},
             "sourceCount": 1,
         }
 
@@ -126,7 +126,7 @@ class TestComputeKtcRankings(unittest.TestCase):
         rows = [self._make_player_row(f"P{i}", "WR", 9999 - i * 10) for i in range(60)]
         _compute_unified_rankings(rows, {})
         rank_50_row = next(r for r in rows if r.get("ktcRank") == 50)
-        raw_v = rank_50_row["canonicalSiteValues"]["ktcCrowdTradesSfTep"]
+        raw_v = rank_50_row["canonicalSiteValues"]["ktcCrowdSfTep"]
         # site_max comes from the same pool → P0's value 9999.
         site_max = 9999
         # This pool is KTC-only (single source), so the single-source
@@ -197,7 +197,7 @@ class TestComputeKtcRankings(unittest.TestCase):
 
     def test_mirrors_to_legacy_players_dict(self):
         rows = [self._make_player_row("Josh Allen", "QB", 9000)]
-        legacy = {"Josh Allen": {"ktcCrowdTradesSfTep": 9000, "_finalAdjusted": 9000}}
+        legacy = {"Josh Allen": {"ktcCrowdSfTep": 9000, "_finalAdjusted": 9000}}
         _compute_unified_rankings(rows, legacy)
         self.assertEqual(legacy["Josh Allen"]["ktcRank"], 1)
         # The legacy dict must mirror whatever the array row computed,
@@ -216,19 +216,19 @@ class TestComputeKtcRankings(unittest.TestCase):
                     "_composite": 9000,
                     "_rawComposite": 9000,
                     "_finalAdjusted": 9000,
-                    "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 9000},
+                    "_canonicalSiteValues": {"ktcCrowdSfTep": 9000},
                     "position": "QB",
                 },
                 "Ja'Marr Chase": {
                     "_composite": 8500,
                     "_rawComposite": 8500,
                     "_finalAdjusted": 8500,
-                    "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 8500},
+                    "_canonicalSiteValues": {"ktcCrowdSfTep": 8500},
                     "position": "WR",
                 },
             },
-            "sites": [{"key": "ktcCrowdTradesSfTep"}],
-            "maxValues": {"ktcCrowdTradesSfTep": 9999},
+            "sites": [{"key": "ktcCrowdSfTep"}],
+            "maxValues": {"ktcCrowdSfTep": 9999},
             "sleeper": {"positions": {}},
         }
         contract = build_api_data_contract(raw)
@@ -246,11 +246,11 @@ class TestComputeKtcRankings(unittest.TestCase):
                     "_composite": 9000,
                     "_rawComposite": 9000,
                     "_finalAdjusted": 9000,
-                    "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 9000},
+                    "_canonicalSiteValues": {"ktcCrowdSfTep": 9000},
                     "position": "QB",
                 },
             },
-            "sites": [{"key": "ktcCrowdTradesSfTep"}],
+            "sites": [{"key": "ktcCrowdSfTep"}],
             "maxValues": {},
             "sleeper": {"positions": {}},
         }
@@ -271,11 +271,11 @@ class TestComputeKtcRankings(unittest.TestCase):
                     "_composite": 9000,
                     "_rawComposite": 9000,
                     "_finalAdjusted": 9000,
-                    "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 9000},
+                    "_canonicalSiteValues": {"ktcCrowdSfTep": 9000},
                     "position": "QB",
                 },
             },
-            "sites": [{"key": "ktcCrowdTradesSfTep"}],
+            "sites": [{"key": "ktcCrowdSfTep"}],
             "maxValues": {},
             "sleeper": {"positions": {}},
         }
@@ -311,7 +311,7 @@ class TestCanonicalConsensusRank(unittest.TestCase):
                 "finalAdjusted": ktc,
                 "displayValue": None,
             },
-            "canonicalSiteValues": {"ktcCrowdTradesSfTep": ktc},
+            "canonicalSiteValues": {"ktcCrowdSfTep": ktc, "ktcCrowdTradesSfTep": ktc},
             "sourceCount": 1,
         }
 
@@ -345,7 +345,7 @@ class TestCanonicalConsensusRank(unittest.TestCase):
 
     def test_canonical_consensus_rank_mirrored_to_legacy_dict(self):
         rows = [self._make_player_row("Josh Allen", "QB", 9000)]
-        legacy = {"Josh Allen": {"ktcCrowdTradesSfTep": 9000}}
+        legacy = {"Josh Allen": {"ktcCrowdSfTep": 9000}}
         _compute_unified_rankings(rows, legacy)
         self.assertEqual(legacy["Josh Allen"]["_canonicalConsensusRank"], 1)
 
@@ -388,12 +388,12 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
                     "_composite": 8000,
                     "_rawComposite": 8000,
                     "_finalAdjusted": 7900,
-                    "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 7700},
+                    "_canonicalSiteValues": {"ktcCrowdSfTep": 7700},
                     "position": "WR",
                 },
             },
-            "sites": [{"key": "ktcCrowdTradesSfTep"}, {"key": "idpTradeCalc"}],
-            "maxValues": {"ktcCrowdTradesSfTep": 9999},
+            "sites": [{"key": "ktcCrowdSfTep"}, {"key": "idpTradeCalc"}],
+            "maxValues": {"ktcCrowdSfTep": 9999},
             "sleeper": {"positions": {"DJ Moore": "DB"}},
         }
         contract = build_api_data_contract(raw)
@@ -408,11 +408,11 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
                 "_composite": 5000,
                 "_rawComposite": 5000,
                 "_finalAdjusted": 5000,
-                "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 5000},
+                "_canonicalSiteValues": {"ktcCrowdSfTep": 5000},
                 "position": "DB",
             },
         }
-        payload["sites"] = [{"key": "ktcCrowdTradesSfTep"}]
+        payload["sites"] = [{"key": "ktcCrowdSfTep"}]
         contract = build_api_data_contract(payload)
         report = validate_api_data_contract(contract)
         self.assertFalse(report["ok"])
@@ -425,7 +425,7 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
                 "_composite": 4000 - i,
                 "_rawComposite": 4000 - i,
                 "_finalAdjusted": 4000 - i,
-                "_canonicalSiteValues": {"ktcCrowdTradesSfTep": 3000},
+                "_canonicalSiteValues": {"ktcCrowdSfTep": 3000},
                 "position": "WR",
             }
         players["Bobby Brown"] = {
@@ -437,8 +437,8 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
         }
         raw = {
             "players": players,
-            "sites": [{"key": "ktcCrowdTradesSfTep"}, {"key": "idpTradeCalc"}],
-            "maxValues": {"ktcCrowdTradesSfTep": 9999},
+            "sites": [{"key": "ktcCrowdSfTep"}, {"key": "idpTradeCalc"}],
+            "maxValues": {"ktcCrowdSfTep": 9999},
             "sleeper": {"positions": {}},
         }
         contract = build_api_data_contract(raw)
@@ -462,7 +462,7 @@ class TestIdpIntegrityGuardrails(unittest.TestCase):
                     "finalAdjusted": 100,
                     "displayValue": 100,
                 },
-                "canonicalSiteValues": {"ktcCrowdTradesSfTep": 100},
+                "canonicalSiteValues": {"ktcCrowdSfTep": 100},
                 "sourceCount": 1,
             }
         )
@@ -493,11 +493,11 @@ class TestKtcThreeSignalCutoverPreEnrichmentGuardrail(unittest.TestCase):
     """Regression coverage for the 2026-09 KTC three-signal cutover bug.
 
     ``_OFFENSE_SIGNAL_KEYS`` was renamed so the canonical voting KTC source
-    became ``ktcCrowdTradesSfTep``.  That source is CSV-only and is joined
+    became ``ktcCrowdSfTep``.  That source is CSV-only and is joined
     by ``_enrich_from_source_csvs`` *after* ``_derive_player_row`` runs, so
     a naive rename broke ``_derive_player_row``'s pre-CSV position-family
     guardrail: it saw idpTradeCalc's cross-market offense evidence but no
-    offense evidence of its own (ktcCrowdTradesSfTep can never be present
+    offense evidence of its own (ktcCrowdSfTep can never be present
     that early), and blanked the position of nearly every offense player
     with no native adapter position -- the normal case, not the exception.
     Measured on the live board: ranked population collapsed 740 -> 495.
@@ -516,7 +516,7 @@ class TestKtcThreeSignalCutoverPreEnrichmentGuardrail(unittest.TestCase):
         )
         self.assertFalse(
             pre_fix_has_off_signal,
-            "This is exactly the defect: ktcCrowdTradesSfTep is CSV-only and "
+            "This is exactly the defect: ktcCrowdSfTep is CSV-only and "
             "can never be in canonical_sites pre-enrichment, so checking "
             "_OFFENSE_SIGNAL_KEYS directly here always misses real offense "
             "evidence.",
@@ -528,7 +528,7 @@ class TestKtcThreeSignalCutoverPreEnrichmentGuardrail(unittest.TestCase):
 
     def test_derive_player_row_position_not_blanked_directly(self):
         """A player with no native adapter position (the norm), legacy
-        ktcSfTep + idpTradeCalc evidence, and no ktcCrowdTradesSfTep
+        ktcSfTep + idpTradeCalc evidence, and no ktcCrowdSfTep
         evidence yet (it's CSV-only and _derive_player_row runs before
         that join, for every player, real or synthetic) must keep the
         sleeper map's offense position and stay rankable -- not get
@@ -539,7 +539,7 @@ class TestKtcThreeSignalCutoverPreEnrichmentGuardrail(unittest.TestCase):
             "_canonicalSiteValues": {"ktcSfTep": 9983, "idpTradeCalc": 9983},
         }
         pos_map = {"Josh Allen": "QB"}
-        site_keys = ["ktcSfTep", "ktcCrowdTradesSfTep", "idpTradeCalc"]
+        site_keys = ["ktcSfTep", "ktcCrowdSfTep", "idpTradeCalc"]
         row = _derive_player_row("Josh Allen", p_data, pos_map, site_keys)
         self.assertEqual(row["position"], "QB")
         self.assertIn(row["position"], _RANKABLE_POSITIONS)
@@ -549,10 +549,10 @@ class TestKtcThreeSignalCutoverPreEnrichmentGuardrail(unittest.TestCase):
         only the pre-enrichment guardrail may treat it as offense evidence.
         """
         self.assertNotIn("ktcSfTep", _VALUE_BASED_SOURCES)
-        self.assertIn("ktcCrowdTradesSfTep", _VALUE_BASED_SOURCES)
+        self.assertIn("ktcCrowdSfTep", _VALUE_BASED_SOURCES)
         ranking_keys = {s["key"] for s in _RANKING_SOURCES}
         self.assertNotIn("ktcSfTep", ranking_keys)
-        self.assertIn("ktcCrowdTradesSfTep", ranking_keys)
+        self.assertIn("ktcCrowdSfTep", ranking_keys)
 
 
 class TestStripNameSuffix(unittest.TestCase):

@@ -28,10 +28,12 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from src.bdvm.params import ParamSet
+from src.sources.ktc_market import KTC_HISTORICAL_MARKET_KEYS, KTC_MARKET_KEY
 
 # Value-signal market sources with their market-type tags (§8.1).
 VALUE_MARKET_SOURCES: dict[str, str] = {
-    "ktcCrowdTradesSfTep": "crowd_trades",
+    # KTC Market (src/sources/ktc_market.py) — KTC's published Crowd+Trades.
+    KTC_MARKET_KEY: "crowd_trades",
     "ktcSfTep": "crowd_historical",
     "ktc": "crowd_historical",
     "idpTradeCalc": "crowd",
@@ -91,7 +93,7 @@ def market_view_for_row(
     if group in _IDP_GROUPS:
         source_order = ("idpTradeCalc",)
     else:
-        source_order = ("ktcCrowdTradesSfTep", "ktcSfTep", "ktc")
+        source_order = (KTC_MARKET_KEY, *KTC_HISTORICAL_MARKET_KEYS)
     value: float | None = None
     source: str | None = None
     for key in source_order:

@@ -9,11 +9,12 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-10 of the 20 entries in ``_DEFAULTS`` below are ``True`` —
+11 of the 21 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
-``perfect_draft``, ``ledger_rank_change`` and ``waiver_live_opportunity`` — several with comments
+``perfect_draft``, ``ledger_rank_change``, ``waiver_live_opportunity`` and
+``source_freshness_weighting`` — several with comments
 recording that the enabled default is deliberate.
 
 **No live gate sits outside this registry any more.**  The last one —
@@ -87,6 +88,13 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # label, and with the flag off it uses the first usable bridge, which
     # reproduces the incumbent ladder integer for integer.
     "multi_bridge_ladder": False,
+    # Freshness-aware source weighting (owner directive 2026-09-23;
+    # docs/sources/SOURCE_FRESHNESS_WEIGHTING.md).  ON: each blend vote is
+    # base × freshness × health × coverage from src/sources/freshness.py.
+    # OFF (RISKIT_FEATURE_SOURCE_FRESHNESS_WEIGHTING=0 + restart): the
+    # dynamic factors are still computed and stamped on every row, so
+    # observability survives rollback, but only the base weight is applied.
+    "source_freshness_weighting": True,
     # C1-U4 — ledger-derived rankChange on the canonical contract.  ON
     # derives each ranked row's rankChange from the temporal ledger's
     # previous recorded board; OFF stamps None on every row (deliberately
@@ -547,6 +555,12 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # integer for integer, on → all of them combined.  Measured on the
     # 2026-08-20 board, flipping it moves 337 of 1,111 values.
     "multi_bridge_ladder": LIVE,
+    # source_freshness_weighting gates whether the dynamic freshness ×
+    # health × coverage factor is APPLIED in
+    # ``data_contract._compute_unified_rankings`` (Phase 2-3), which reaches
+    # a request through ``/api/data`` and every engine that reads the board;
+    # off → base weights only, factors still stamped.
+    "source_freshness_weighting": LIVE,
     # host_native_scoring gates the stat vocabulary
     # ``league_comparison.sleeper_stats.fetch_sleeper_weekly_stats``
     # emits, which reaches a request through ``historical_stats`` →

@@ -66,8 +66,8 @@ _DEFAULT_STALENESS_HOURS: dict[str, float] = {
 class StaleSourceAlert:
     source: str
     last_seen_iso: str
-    hours_stale: float
-    threshold_hours: float
+    hours_stale: float | None  # None: a state alert with no age (health, coverage)
+    threshold_hours: float | None
     transition: str  # "stale" | "recovered"
 
 
@@ -281,9 +281,112 @@ def detect_stale_sources(
     return out
 
 
+#: Content-freshness states that page (src/sources/freshness.py bands).
+_CONTENT_ALERT_STATES = {"SEVERELY_STALE", "QUARANTINED"}
+
+
+def _number(value: Any) -> float | None:
+    """A real number, or ``None`` — an unknown age is never 0 hours."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def _at_least(value: Any, floor: float) -> bool:
+    number = _number(value)
+    return number is not None and number >= floor
+
+
+def detect_content_alerts(weighting: dict[str, Any] | None) -> list[StaleSourceAlert]:
+    """Valuation-infrastructure alerts from the board's ``sourceWeighting``.
+
+    Fetch staleness (above) says a JOB stopped; these say the DATA a source
+    contributes is stale relative to its own rhythm, broken, or thin — the
+    conditions the owner asked to hear about before discovering them by
+    comparing trades to other sites (directive 2026-09-23).  Keys are
+    namespaced (``content:`` / ``health:`` / ``coverage:`` / ``board:``) so
+    they share this module's cooldown and recovery state without colliding
+    with fetch alerts.
+    """
+    out: list[StaleSourceAlert] = []
+    if not isinstance(weighting, dict):
+        return out
+    sources = weighting.get("sources") or {}
+    healthy_offense_voters = 0
+    for key, entry in sources.items():
+        if not isinstance(entry, dict):
+            continue
+        for subset, sub in (entry.get("subsets") or {}).items():
+            if not isinstance(sub, dict) or sub.get("state") not in _CONTENT_ALERT_STATES:
+                continue
+            out.append(
+                StaleSourceAlert(
+                    source=f"content:{key}/{subset}",
+                    last_seen_iso=str(sub.get("sourceDataAsOf") or ""),
+                    hours_stale=_number(sub.get("ageHours")),
+                    threshold_hours=_number(sub.get("expectedCadenceHours")),
+                    transition="stale",
+                )
+            )
+        if entry.get("health") not in (None, "HEALTHY"):
+            out.append(
+                StaleSourceAlert(
+                    source=f"health:{key}:{entry.get('health')}",
+                    last_seen_iso="",
+                    hours_stale=None,
+                    threshold_hours=None,
+                    transition="stale",
+                )
+            )
+        if isinstance(entry.get("coverageFactor"), (int, float)) and entry["coverageFactor"] < 1.0:
+            out.append(
+                StaleSourceAlert(
+                    source=f"coverage:{key}",
+                    last_seen_iso="",
+                    hours_stale=None,
+                    threshold_hours=None,
+                    transition="stale",
+                )
+            )
+        if (
+            entry.get("role") == "model_input"
+            and key.startswith("ktc")
+            and not entry.get("votingRows")
+        ):
+            out.append(
+                StaleSourceAlert(
+                    source=f"content:{key}:unavailable",
+                    last_seen_iso="",
+                    hours_stale=None,
+                    threshold_hours=None,
+                    transition="stale",
+                )
+            )
+        players = (entry.get("subsets") or {}).get("players") or {}
+        if (
+            entry.get("role") == "model_input"
+            and _at_least(entry.get("votingRows"), 100)
+            and _at_least(players.get("freshness"), 0.3)
+            and entry.get("health") in (None, "HEALTHY")
+        ):
+            healthy_offense_voters += 1
+    if sources and healthy_offense_voters <= 1:
+        out.append(
+            StaleSourceAlert(
+                source="board:single_major_source_remaining",
+                last_seen_iso="",
+                hours_stale=None,
+                threshold_hours=None,
+                transition="stale",
+            )
+        )
+    return out
+
+
 def check_and_alert(
     source_health: dict[str, Any],
     *,
+    source_weighting: dict[str, Any] | None = None,
     delivery: Callable[[str, str, str], bool] | None = None,
     to_email: str | None = None,
     thresholds: dict[str, float] | None = None,
@@ -307,7 +410,7 @@ def check_and_alert(
         source_health,
         thresholds=thresholds,
         now_epoch=now,
-    )
+    ) + detect_content_alerts(source_weighting)
     stale_sources = {a.source for a in stale}
 
     # Detect recovery transitions — sources in alert_state marked stale
@@ -396,9 +499,14 @@ def _format_body(alerts: list[StaleSourceAlert]) -> str:
     if stale:
         lines.append("Stale sources:")
         for a in stale:
+            if a.hours_stale is None:
+                # A state alert (health, coverage, board) — it has no age.
+                lines.append(f"  • {a.source}")
+                continue
+            threshold = "unknown" if a.threshold_hours is None else f"{a.threshold_hours:.0f}h"
             lines.append(
                 f"  • {a.source}: {a.hours_stale:.1f}h stale "
-                f"(threshold {a.threshold_hours:.0f}h) — last seen {a.last_seen_iso}"
+                f"(threshold {threshold}) — last seen {a.last_seen_iso}"
             )
         lines.append("")
     if recovered:

@@ -137,7 +137,7 @@ def _contract_payload(*, retail_rows: int, total: int = 300) -> dict:
         "maxValues": {
             "ktc": 9999,
             "ktcSfTep": 9999,
-            "ktcCrowdTradesSfTep": 9999,
+            **{key: 9999 for key in _RETAIL_KEYS},
             "idpTradeCalc": 9999,
         },
         "players": {r["displayName"]: {} for r in rows},
@@ -145,7 +145,7 @@ def _contract_payload(*, retail_rows: int, total: int = 300) -> dict:
         "playersArray": rows,
         "sites": [
             {"key": "ktc"},
-            {"key": "ktcCrowdTradesSfTep"},
+            *({"key": key} for key in _RETAIL_KEYS),
             {"key": "idpTradeCalc"},
         ],
     }
@@ -166,14 +166,15 @@ def _source_errors(payload: dict) -> list[str]:
     return list(lane)
 
 
-def test_registry_still_has_exactly_one_retail_offense_source() -> None:
-    """The premise of this module: one retail anchor, KTC Crowd+Trades TE++.
+def test_registry_retail_sources_are_exactly_the_two_ktc_inputs() -> None:
+    """The premise of this module: the retail votes are KTC Crowd and KTC
+    Trades TE++ (owner directive 2026-09-23; KTC Market is benchmark-only).
 
-    If a second retail source is registered, the floors below stop being
+    If another retail source is registered, the floors below stop being
     the whole story and this module must be revisited rather than kept
     passing on a stale assumption.
     """
-    assert _RETAIL_KEYS == ("ktcCrowdTradesSfTep",), _RETAIL_KEYS
+    assert _RETAIL_KEYS == ("ktcCrowdSfTep", "ktcTradesSfTep"), _RETAIL_KEYS
 
 
 def test_every_retail_source_carries_a_row_floor() -> None:
@@ -271,11 +272,13 @@ def test_current_retail_board_is_guarded_by_the_canonical_ktc_writer() -> None:
     map because src.sources.ktc_value_sources writes these artifacts after
     the FULL_DATA export. Pin the actual writer mapping and priced-row floor.
     """
-    retail_key = _RETAIL_KEYS[0]
-    assert KTC_SOURCE_FILE_KEYS[KTC_CANONICAL_MARKET_SOURCE] == retail_key
-    assert (
-        KTC_SOURCE_MIN_PRICED[KTC_CANONICAL_MARKET_SOURCE] >= _load_source_row_floors()[retail_key]
-    )
+    mode_by_file_key = {v: k for k, v in KTC_SOURCE_FILE_KEYS.items()}
+    floors = _load_source_row_floors()
+    for retail_key in _RETAIL_KEYS:
+        mode = mode_by_file_key[retail_key]
+        assert KTC_SOURCE_MIN_PRICED[mode] >= floors[retail_key], retail_key
+    # The benchmark is written by the same writer and is NOT a retail vote.
+    assert KTC_SOURCE_FILE_KEYS[KTC_CANONICAL_MARKET_SOURCE] not in _RETAIL_KEYS
 
 
 def test_the_twin_board_is_wired_too() -> None:
@@ -365,9 +368,8 @@ def test_the_offense_anchor_is_a_ktc_transport_sentinel() -> None:
             keys = [e.value for e in node.value.elts if isinstance(e, ast.Constant)]
     assert keys == ["ktcSfTep"], keys
 
-    retail_key = _RETAIL_KEYS[0]
-    assert KTC_SOURCE_FILE_KEYS[KTC_CANONICAL_MARKET_SOURCE] == retail_key
-    assert retail_key in _DEFAULT_SOURCE_ROW_FLOORS
+    for retail_key in _RETAIL_KEYS:
+        assert retail_key in _DEFAULT_SOURCE_ROW_FLOORS
     assert KTC_SOURCE_MIN_PRICED[KTC_CANONICAL_MARKET_SOURCE] > 0
 
 

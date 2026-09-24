@@ -88,6 +88,14 @@ class TestThePureUnitSuiteIsSelfContained(unittest.TestCase):
         The pre-fix cost was 6.07 s per client, essentially all of it in
         ``__exit__``. The bound is deliberately loose — this is a
         regression tripwire for a seconds-scale wait, not a benchmark.
+
+        Raised 3.0 → 4.0 s on 2026-09-23: the lifespan primes the board, and
+        the board build alone was already ~2.7 s on a 4-core container
+        before the owner-directed KTC Crowd/Trades split added a voter
+        (+~0.2 s: one more identity join and ranking pass).  A tripwire that
+        fires on legitimate board-build growth stops meaning "something is
+        waiting on the network"; 4.0 s still sits well under the 6.07 s
+        wait class this test exists to catch.
         """
         start = time.perf_counter()
         with TestClient(server.app):
@@ -95,7 +103,7 @@ class TestThePureUnitSuiteIsSelfContained(unittest.TestCase):
         elapsed = time.perf_counter() - start
         self.assertLess(
             elapsed,
-            3.0,
+            4.0,
             f"a TestClient lifespan took {elapsed:.2f}s — the suite is waiting "
             "on something external again",
         )

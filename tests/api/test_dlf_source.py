@@ -46,7 +46,7 @@ def _row(name: str, pos: str, *, idp=None, dlf=None, ktc=None, ktc_sf=None) -> d
     if ktc is not None:
         sites["ktc"] = ktc
     if ktc_sf is not None:
-        sites["ktcCrowdTradesSfTep"] = ktc_sf
+        sites["ktcCrowdSfTep"] = ktc_sf
     return {
         "canonicalName": name,
         "displayName": name,
@@ -333,7 +333,7 @@ class TestDlfParticipatesInUnifiedRankings(unittest.TestCase):
         best IDP in the backbone."""
         # 10 offense rows all price higher in IDPTradeCalc than any IDP,
         # so the combined-pool rank of the top IDP in IDPTC is 11.  Each
-        # carries a second corroborating offense source (KTC Crowd+Trades) so
+        # carries a second corroborating offense source (KTC Crowd) so
         # the single-source confidence haircut does not fire — these
         # stand in for realistic multi-source offense players; the
         # regression under test is the DLF shared-market translation,

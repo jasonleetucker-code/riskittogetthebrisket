@@ -99,9 +99,7 @@ _SCOPE_TO_ASSET_CLASSES: dict[str, frozenset[str]] = {
 # Filtered at write-time (new snapshots omit these) AND at read-time
 # (historical snapshots are masked) so the chart deduplicates
 # immediately without a destructive rewrite of the JSONL.
-_RETIRED_FROM_CHART_KEYS: frozenset[str] = frozenset(
-    {"ktc", "ktcSfTep", "ktcCrowdSfTep", "ktcTradesSfTep"}
-)
+_RETIRED_FROM_CHART_KEYS: frozenset[str] = frozenset({"ktc", "ktcSfTep"})
 
 # Sources whose per-player chart series should record the *raw* scrape
 # value (top-level ``row[key]`` from the contract) rather than the
@@ -114,7 +112,13 @@ _RETIRED_FROM_CHART_KEYS: frozenset[str] = frozenset(
 #   directly.  Recording the contribution (e.g. 9999 for a player KTC
 #   ranks at 9594) confused users.  This flag pulls the raw value
 #   from ``row['ktcSfTep']`` instead.
-_RAW_VALUE_PREFERRED_KEYS: frozenset[str] = frozenset({"ktcCrowdTradesSfTep"})
+#
+# Since the 2026-09-23 owner directive KTC is charted as all three published
+# modes: Crowd and Trades (the two KTC model inputs) and KTC Market
+# (Crowd+Trades, the benchmark) — each as KTC publishes it.
+_RAW_VALUE_PREFERRED_KEYS: frozenset[str] = frozenset(
+    {"ktcCrowdSfTep", "ktcTradesSfTep", "ktcCrowdTradesSfTep"}
+)
 
 
 # Highest legitimate value on the normalized scale this module's

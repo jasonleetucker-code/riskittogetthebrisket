@@ -94,9 +94,27 @@ if [[ -z "${DLF_USERNAME:-}" || -z "${DLF_PASSWORD:-}" ]]; then
 fi
 
 log "running scripts/fetch_dlf.py"
-if ! "${VENV_PYTHON}" scripts/fetch_dlf.py; then
-  err "fetch_dlf.py exited non-zero - keeping previous CSVs / stamp; will retry on next timer fire."
+# PARTIAL SUCCESS IS PUSHED (2026-09-23).  fetch_dlf.py exits non-zero when
+# ANY board fails or refuses to overwrite its last-good CSV (e.g. the #1297
+# native-Value coverage guard on dlfSf) — but it still writes every board
+# that passed.  This script used to discard ALL of them on any non-zero exit,
+# so one refusing board froze all four boards and every DLF stamp from
+# 2026-09-09 onward.  Now the boards it actually wrote (``--written-manifest``)
+# are committed with their per-key stamps and dataset state; the aggregate
+# ``dlf_last_success`` stamp still requires a fully clean run, and the unit
+# still exits non-zero so the failure stays visible in the journal.
+MANIFEST="${WORK_DIR}/dlf_written.json"
+FETCH_RC=0
+"${VENV_PYTHON}" scripts/fetch_dlf.py --written-manifest "${MANIFEST}" || FETCH_RC=$?
+mapfile -t WRITTEN < <("${VENV_PYTHON}" -c 'import json,sys; print("\n".join(json.load(open(sys.argv[1]))))' "${MANIFEST}" 2>/dev/null || true)
+if [[ "${FETCH_RC}" -ne 0 && "${#WRITTEN[@]}" -eq 0 ]]; then
+  err "fetch_dlf.py exited ${FETCH_RC} and wrote no board - keeping previous CSVs / stamps; will retry on next timer fire."
   exit 1
+fi
+if [[ "${FETCH_RC}" -ne 0 ]]; then
+  err "fetch_dlf.py exited ${FETCH_RC}; committing only the boards it wrote: ${WRITTEN[*]}"
+else
+  WRITTEN=(dlfSf dlfIdp dlfRookieSf dlfRookieIdp)
 fi
 
 # Persist the (possibly refreshed) session jar back to the work dir so
@@ -120,8 +138,25 @@ fi
 # in the off-season), tripping false-positive 24h stale alerts.
 mkdir -p data/scrape_state
 NOW_EPOCH="$(date -u +%s)"
-for key in dlf dlfSf dlfIdp dlfRookieSf dlfRookieIdp; do
+for key in "${WRITTEN[@]}"; do
   printf '%s\n' "${NOW_EPOCH}" > "data/scrape_state/${key}_last_success"
+done
+if [[ "${FETCH_RC}" -eq 0 ]]; then
+  printf '%s\n' "${NOW_EPOCH}" > "data/scrape_state/dlf_last_success"
+fi
+
+# Source dataset state (freshness-aware weighting): when did each DLF board's
+# DATA last change.  This timer is the ONE writer of the DLF boards' state
+# (the GitHub refresh skips them).  Only boards written this run are
+# recorded; a refused board keeps its last observation, so its data age keeps
+# growing honestly.  Non-fatal.
+"${VENV_PYTHON}" scripts/record_source_datasets.py --only "${WRITTEN[@]}" \
+  || err "record_source_datasets.py failed - dataset state left at its last observation"
+DATASET_PATHS=()
+for key in "${WRITTEN[@]}"; do
+  if [[ -f "data/scrape_state/${key}_dataset.json" ]]; then
+    DATASET_PATHS+=("data/scrape_state/${key}_dataset.json")
+  fi
 done
 
 # Stage only the paths we own.  No -A/-u, no broad globs - if
@@ -138,7 +173,8 @@ git add -f -- \
   data/scrape_state/dlfSf_last_success \
   data/scrape_state/dlfIdp_last_success \
   data/scrape_state/dlfRookieSf_last_success \
-  data/scrape_state/dlfRookieIdp_last_success
+  data/scrape_state/dlfRookieIdp_last_success \
+  "${DATASET_PATHS[@]}"
 
 if git diff --cached --quiet; then
   log "no changes after fetch - exiting clean"
@@ -161,6 +197,10 @@ attempt=1
 while (( attempt <= PUSH_RETRY_MAX )); do
   if git push origin main; then
     log "push succeeded on attempt ${attempt}/${PUSH_RETRY_MAX}"
+    # A partial run pushed what it could but is still a failure to see.
+    if [[ "${FETCH_RC}" -ne 0 ]]; then
+      exit 1
+    fi
     exit 0
   fi
   log "push rejected on attempt ${attempt}/${PUSH_RETRY_MAX} - rebasing and retrying"

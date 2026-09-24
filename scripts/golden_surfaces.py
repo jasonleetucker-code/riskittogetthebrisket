@@ -158,69 +158,25 @@ def _ros_deadline_rows() -> dict[str, dict]:
     return rows
 
 
-# ── Market gap (retail vs consensus) ──────────────────────────────────
-# S-1/S-2/S-3.  The gap is measured in VALUE space (#740): each source's
-# ``valueContribution`` — post-ladder, common-scaled 0-9999, and already
-# past ADR-015's convert_te_value — averaged per side, differenced, and
-# expressed RELATIVE to the mean of the two.
+# ── Market gap (our model vs KTC Market) ───────────────────────────────
+# REDEFINED 2026-09-23 (owner directive, src/sources/ktc_market.py): the gap
+# is OUR model value (``rankDerivedValue``) against CANONICAL KTC MARKET
+# (KTC's published Crowd+Trades, normalized onto the board scale), relative
+# to the mean of the two.  It used to compare a retail source family against
+# the other sources, which never involved the published model value.
 #
-# The grid covers the cases the ordinal version got wrong and the ones
-# that must keep working.  Fixed synthetic stamps rather than live rows,
-# so a data refresh cannot masquerade as a code change.
-_MARKET_GAP_RETAIL = frozenset({"ktcCrowdTradesSfTep"})
-
-
-def _meta(**values) -> dict[str, dict]:
-    return {k: {"valueContribution": v} for k, v in values.items()}
-
-
+# Fixed synthetic numbers rather than live rows, so a data refresh cannot
+# masquerade as a code change.
 _MARKET_GAP_CASES = [
-    # (label, ranks, meta)
-    (
-        "retail_premium_large",
-        {"ktcCrowdTradesSfTep": 10, "idpTradeCalc": 50},
-        _meta(ktcCrowdTradesSfTep=6000.0, idpTradeCalc=4000.0),
-    ),
-    (
-        "consensus_premium_large",
-        {"ktcCrowdTradesSfTep": 50, "idpTradeCalc": 10},
-        _meta(ktcCrowdTradesSfTep=4000.0, idpTradeCalc=6000.0),
-    ),
-    (
-        "exact_tie",
-        {"ktcCrowdTradesSfTep": 30, "idpTradeCalc": 30},
-        _meta(ktcCrowdTradesSfTep=5000.0, idpTradeCalc=5000.0),
-    ),
-    (
-        "small_gap_under_floor",
-        {"ktcCrowdTradesSfTep": 20, "idpTradeCalc": 25},
-        _meta(ktcCrowdTradesSfTep=5100.0, idpTradeCalc=4900.0),
-    ),
-    (
-        "multi_consensus_averaged",
-        {"ktcCrowdTradesSfTep": 10, "idpTradeCalc": 40, "dlfIdp": 60},
-        _meta(ktcCrowdTradesSfTep=6000.0, idpTradeCalc=4500.0, dlfIdp=3500.0),
-    ),
-    # A tight end whose RANKS look like a structural SELL — retail ranks him
-    # far above every consensus board — but whose VALUES agree, because
-    # valueContribution is already on the TE++ basis.  Under the ordinal
-    # comparison this was the 68-of-72 artifact; here it is unremarkable.
-    (
-        "tight_end_rank_gap_but_value_agreement",
-        {"ktcCrowdTradesSfTep": 40, "idpTradeCalc": 180, "dlfIdp": 200},
-        _meta(ktcCrowdTradesSfTep=3050.0, idpTradeCalc=3000.0, dlfIdp=2950.0),
-    ),
-    # Abstentions.
-    ("retail_only", {"ktcCrowdTradesSfTep": 10}, _meta(ktcCrowdTradesSfTep=6000.0)),
-    (
-        "consensus_only_every_defender",
-        {"idpTradeCalc": 10, "dlfIdp": 20},
-        _meta(idpTradeCalc=6000.0, dlfIdp=5800.0),
-    ),
-    ("unranked", {}, {}),
-    # Ranks present but NO value stamps — the legacy-payload path. Must
-    # abstain rather than fall back to the ordinal arithmetic it replaced.
-    ("ranked_but_unpriced", {"ktcCrowdTradesSfTep": 10, "idpTradeCalc": 50}, {}),
+    # (label, model value, KTC Market normalized value)
+    ("market_premium_large", 4000.0, 6000.0),
+    ("model_premium_large", 6000.0, 4000.0),
+    ("exact_tie", 5000.0, 5000.0),
+    ("small_gap_under_floor", 4900.0, 5100.0),
+    # Abstentions: an unmeasurable gap is None, never 0.
+    ("no_ktc_market", 6000.0, None),
+    ("unpriced_model", None, 6000.0),
+    ("neither_side", None, None),
 ]
 
 
@@ -228,14 +184,12 @@ def _market_gap_rows() -> dict[str, dict]:
     from src.api.data_contract import _compute_market_gap
 
     rows: dict[str, dict] = {}
-    for label, ranks, meta in _MARKET_GAP_CASES:
-        direction, ratio = _compute_market_gap(
-            ranks, source_meta=meta, retail_keys=_MARKET_GAP_RETAIL
-        )
+    for label, model, market in _MARKET_GAP_CASES:
+        direction, ratio = _compute_market_gap(model, market)
         rows[f"market_gap/{label}"] = {
             "value": _num(ratio),
             "label": direction,
-            "pricedSides": len(meta),
+            "pricedSides": int(model is not None) + int(market is not None),
         }
     return rows
 

@@ -68,6 +68,9 @@ def _isolate_scrape_state(monkeypatch):
     """
     monkeypatch.setattr(server, "_import_scraper_module", _fake_scraper_module)
     monkeypatch.setattr(server, "_prime_latest_payload", lambda *a, **k: None)
+    # The post-scrape dataset-state recorder folds the CSVs into the REAL
+    # data/scrape_state (a tracked directory) — never from a unit test.
+    monkeypatch.setattr(server, "_record_source_dataset_state", lambda *a, **k: None)
 
     for mod_path in (
         "scripts.fetch_dynasty_nerds",

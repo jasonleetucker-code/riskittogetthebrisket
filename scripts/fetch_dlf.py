@@ -495,9 +495,28 @@ def main() -> int:
         default=None,
         help=f"Scrape only this board (repeatable).  Choices: {', '.join(BOARDS)}",
     )
+    parser.add_argument(
+        "--written-manifest",
+        metavar="PATH",
+        default=None,
+        help=(
+            "Write a JSON list of the board keys this run actually wrote.  Lets "
+            "the prod push commit the boards that succeeded even when another "
+            "board refused to overwrite its last-good CSV (exit 2)."
+        ),
+    )
     args = parser.parse_args()
 
     _load_env_dotfile(ENV_PATH)
+    written_keys: list[str] = []
+
+    def _write_manifest() -> None:
+        if args.written_manifest:
+            Path(args.written_manifest).write_text(
+                json.dumps(written_keys) + "\n", encoding="utf-8"
+            )
+
+    _write_manifest()
 
     boards = args.only if args.only else list(BOARDS.keys())
     for key in boards:
@@ -589,6 +608,8 @@ def main() -> int:
             f"[DLF] wrote {count} rows → {out_path.relative_to(REPO)}",
             flush=True,
         )
+        written_keys.append(key)
+        _write_manifest()
     return exit_code
 
 
