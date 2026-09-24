@@ -1,0 +1,47 @@
+name: PSI evidence origin correction (temporary)
+on:
+  push:
+    branches: [codex/psi-design-reference]
+    paths: [.github/workflows/psi-evidence-origin-once.yml]
+permissions:
+  contents: write
+jobs:
+  correct:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 30
+      - name: Correct two evidence metadata literals and verify preserved image hashes
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_REF_NAME" = codex/psi-design-reference
+          test "$GITHUB_REPOSITORY" = jasonleetucker-code/riskittogetthebrisket
+          git config user.name 'Calculator UI implementation'
+          git config user.email 'noreply@users.noreply.github.com'
+          python - <<'PY'
+          import hashlib,json,pathlib,subprocess
+          root=pathlib.Path('docs/psi/evidence/PR_1429_2026-09-24')
+          harness=pathlib.Path('tests/e2e/helpers/journey.js').read_text()
+          assert '"http://127.0.0.1:3000"' in harness
+          for name in ('README.md','manifest.json'):
+              p=root/name
+              text=p.read_text()
+              assert text.count('http://127.0.0.1:3100/design')==1
+              p.write_text(text.replace('http://127.0.0.1:3100/design','http://127.0.0.1:3000/design'))
+          manifest=json.loads((root/'manifest.json').read_text())
+          assert manifest['runtime_origin']=='http://127.0.0.1:3000/design'
+          assert len(manifest['images'])==10
+          for image in manifest['images']:
+              assert hashlib.sha256((root/image['file']).read_bytes()).hexdigest()==image['sha256']
+          subprocess.run(['git','diff','--exit-code','49e7fcfd824ba3f2c7432a818d2f7f5fbc2d8121','HEAD','--','frontend/','tests/e2e/'],check=True)
+          print('Two metadata literals corrected; all ten original PNG hashes and tested code unchanged.')
+          PY
+          git rm .github/workflows/psi-evidence-origin-once.yml
+          git add docs/psi/evidence/PR_1429_2026-09-24/README.md docs/psi/evidence/PR_1429_2026-09-24/manifest.json
+          git diff --cached --check
+          git commit -m 'fix(ui-evidence): record actual local Next.js origin :3000, not :3100'
+          git push origin HEAD:refs/heads/codex/psi-design-reference
