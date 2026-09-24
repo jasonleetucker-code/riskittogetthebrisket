@@ -64,9 +64,11 @@ except ImportError:  # pragma: no cover — optional dep; chat endpoint degrades
 
 from src.api.data_contract import (
     CONTRACT_VERSION as API_DATA_CONTRACT_VERSION,
+    TOLERABLE_PARTIAL_SOURCES,
     build_api_data_contract,
     build_api_startup_payload,
     build_rankings_delta_payload,
+    critical_primary_for_run_source,
     get_ranking_source_registry,
     normalize_source_overrides,
     normalize_tep_multiplier,
@@ -708,6 +710,14 @@ scrape_status = {
     "worker_id": None,
     "scrape_count": 0,
     "run_events": [],
+    # Critical primary sources (``data_contract._CRITICAL_PRIMARY_SOURCES``)
+    # that the LAST COMPLETED run reported failed, timed out or partial, or
+    # whose anchor arrived empty.  A verdict on current ingestion, kept apart
+    # from ``contract_health`` (the verdict on the SERVED board): a refused
+    # partial run leaves the last-known-good board valid while the source
+    # itself is down, and /api/health must say both.  In memory only, so a
+    # restart forgets it until the startup scrape finishes.
+    "critical_source_failures": [],
 }
 # R-4: Rolling scrape history for success rate tracking.
 SCRAPE_HISTORY_MAX = 50
@@ -1171,6 +1181,48 @@ def _mark_scrape_success(
     # R-9: Update metrics counters
     _metrics["scrape_total"] = _metrics.get("scrape_total", 0) + 1
     _metrics["scrape_duration_seconds_last"] = round(elapsed, 1)
+
+
+def _critical_source_run_failures(result: dict | None) -> list[str]:
+    """Critical primary sources this run reported as failed, timed out or partial.
+
+    Reads the run's own ``settings.sourceRunSummary`` with the same rule
+    ``validate_api_data_contract`` uses to emit ``partial_run_critical``
+    (``critical_primary_for_run_source`` plus ``TOLERABLE_PARTIAL_SOURCES``),
+    so the promotion guard and the contract cannot disagree about which runs
+    are critical-partial.
+
+    Why the guard needs it (production, 2026-09-23 22:38Z): IDPTradeCalc
+    timed out after 480s and the scraper recovered its PARTIAL values, so the
+    anchor was non-empty (``_missing_expected_sites`` passed) and 979/1111
+    players cleared the retention floor.  The partial board was promoted and
+    mirrored to ``exports/latest``, the contract failed
+    ``partial_run_critical:IDPTradeCalc``, and startup recovery found no
+    healthy generation left to restore.
+
+    Returns ``[]`` on any shape surprise; see ``_missing_expected_sites``.
+    """
+    try:
+        settings = (result or {}).get("settings") or {}
+        summary = settings.get("sourceRunSummary") if isinstance(settings, dict) else None
+        if not isinstance(summary, dict):
+            return []
+        if not (bool(summary.get("partialRun")) or summary.get("overallStatus") == "partial"):
+            return []
+        failures: list[str] = []
+        for field in ("partialSources", "failedSources", "timedOutSources"):
+            listed = summary.get(field)
+            if not isinstance(listed, list):
+                continue
+            for raw_name in listed:
+                name = str(raw_name or "")
+                if not name or name in TOLERABLE_PARTIAL_SOURCES or name in failures:
+                    continue
+                if critical_primary_for_run_source(name) is not None:
+                    failures.append(name)
+        return failures
+    except Exception:  # noqa: BLE001 - a diagnostic must not crash the scrape
+        return []
 
 
 def _missing_expected_sites(result: dict | None) -> list[str]:
@@ -2829,6 +2881,26 @@ def load_from_disk() -> dict | None:
     return None
 
 
+def _seed_ingestion_verdict_from_startup_payload(payload: dict | None) -> None:
+    """Carry the last completed run's critical-source verdict across a restart.
+
+    The newest runtime ``data/dynasty_data_*.json`` is the LAST COMPLETED run,
+    promoted or refused: the scraper writes it before the promotion guard runs.
+    Without this, a restart resets ``critical_source_failures`` to ``[]``, and
+    startup recovery restores the untouched ``exports/latest`` board, so
+    ``/api/health`` would read 200 while the source that run lost is still down
+    (it would stay that way until the startup scrape finished).  Only a
+    ``disk_cache`` load is that run.  A checkout load says nothing about the
+    last run, so it leaves the verdict alone.
+    """
+    if latest_data_source.get("type") != "disk_cache":
+        return
+    # The same union the guard records: critical run failures and empty anchors.
+    scrape_status["critical_source_failures"] = sorted(
+        set(_critical_source_run_failures(payload)) | set(_missing_expected_sites(payload))
+    )
+
+
 def _recover_startup_contract_from_checkout(initial_data: dict | None) -> dict | None:
     """Recover from a full-size runtime cache that builds a degraded contract.
 
@@ -3032,40 +3104,6 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             if not result or not result.get("players"):
                 raise RuntimeError("Scraper returned empty result")
 
-            # Mirror fresh scraper-owned site_raw CSVs from the DATA_DIR
-            # output path (data/exports/latest/site_raw/) back to the repo's
-            # tracked CSVs/site_raw/ directory before the canonical contract
-            # rebuild. data_contract.py reads the repo-root copies.
-            #
-            # IMPORTANT: KTC became a three-source family in September 2026.
-            # Mirroring only the legacy ktc.csv left the running scraper and
-            # the canonical voter on different generations: the scraper had
-            # fresh Crowd / Trades / Crowd+Trades files under DATA_DIR while
-            # the contract could still read an older ktcCrowdTradesSfTep.csv
-            # from the checkout. Keep the complete scraper-owned family
-            # together. DLF and other rank fetchers are maintained separately.
-            try:
-                import shutil as _sh
-
-                src_raw = DATA_DIR / "exports" / "latest" / "site_raw"
-                dst_raw = BASE_DIR / "CSVs" / "site_raw"
-                if src_raw.exists() and dst_raw.exists():
-                    scraper_owned_site_raw = (
-                        "ktc.csv",
-                        "ktcSfTep.csv",
-                        "ktcCrowdSfTep.csv",
-                        "ktcTradesSfTep.csv",
-                        "ktcCrowdTradesSfTep.csv",
-                        "idpTradeCalc.csv",
-                    )
-                    for fname in scraper_owned_site_raw:
-                        src_file = src_raw / fname
-                        dst_file = dst_raw / fname
-                        if src_file.exists():
-                            _sh.copy2(src_file, dst_file)
-            except Exception as _mirror_err:
-                log.warning(f"Post-scrape CSV mirror failed: {_mirror_err}")
-
             # Refresh Dynasty Nerds SF-TEP rankings.  The DN board is
             # inlined in the page HTML as a ``window.DR_DATA`` JS
             # constant — no Playwright required — so we run the plain
@@ -3250,14 +3288,36 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
             population_collapsed = (
                 previous_player_count > 0 and player_retention < SCRAPE_PLAYER_RETENTION_FLOOR
             )
+            # A critical source failed or timed out while the served board is
+            # structurally valid: that board stays (the guard below refuses the
+            # run).  "Structurally" because a served board may carry only
+            # source-lane errors of its own, and it is still a better board than
+            # a critical-partial one.  Read here, at the guard, not before the
+            # minutes-long fetcher phase, so a concurrent re-prime cannot make
+            # it stale.
+            critical_run_failures = _critical_source_run_failures(result)
+            served_structurally_ok = bool(
+                (contract_health or {}).get("structurallyOk", (contract_health or {}).get("ok"))
+            )
+            keep_served_generation = (
+                bool(critical_run_failures) and latest_data is not None and served_structurally_ok
+            )
+            # What this run says about current ingestion, whatever the guard
+            # decides below.  Read by /api/health as ``source_health_ok``.
+            scrape_status["critical_source_failures"] = sorted(
+                set(critical_run_failures) | set(missing_anchors)
+            )
             if (
                 missing_anchors
+                or keep_served_generation
                 or (total_sites > 0 and site_count < total_sites / 2)
                 or population_collapsed
             ):
                 anchor_note = (
                     f"MISSING ANCHOR SOURCE(S): {', '.join(missing_anchors)}"
                     if missing_anchors
+                    else f"CRITICAL SOURCE RUN FAILED: {', '.join(critical_run_failures)}"
+                    if keep_served_generation
                     else (
                         f"PLAYER POPULATION COLLAPSE: {player_count}/{previous_player_count} "
                         f"({player_retention:.1%} retained; "
@@ -3314,6 +3374,45 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                         "Please free disk space on the server."
                     ),
                 )
+
+            # Mirror fresh scraper-owned site_raw CSVs from the DATA_DIR
+            # output path (data/exports/latest/site_raw/) back to the repo's
+            # tracked CSVs/site_raw/ directory before the canonical contract
+            # rebuild. data_contract.py reads the repo-root copies.
+            #
+            # Only AFTER every promotion guard has passed (2026-09-24): a
+            # refused run's CSVs must not reach the copies the next re-prime
+            # reads, exactly as the 2026-09-09 fix did for the JSON export
+            # below.  Nothing between the scrape and this point reads them.
+            #
+            # IMPORTANT: KTC became a three-source family in September 2026.
+            # Mirroring only the legacy ktc.csv left the running scraper and
+            # the canonical voter on different generations: the scraper had
+            # fresh Crowd / Trades / Crowd+Trades files under DATA_DIR while
+            # the contract could still read an older ktcCrowdTradesSfTep.csv
+            # from the checkout. Keep the complete scraper-owned family
+            # together. DLF and other rank fetchers are maintained separately.
+            try:
+                import shutil as _sh
+
+                src_raw = DATA_DIR / "exports" / "latest" / "site_raw"
+                dst_raw = BASE_DIR / "CSVs" / "site_raw"
+                if src_raw.exists() and dst_raw.exists():
+                    scraper_owned_site_raw = (
+                        "ktc.csv",
+                        "ktcSfTep.csv",
+                        "ktcCrowdSfTep.csv",
+                        "ktcTradesSfTep.csv",
+                        "ktcCrowdTradesSfTep.csv",
+                        "idpTradeCalc.csv",
+                    )
+                    for fname in scraper_owned_site_raw:
+                        src_file = src_raw / fname
+                        dst_file = dst_raw / fname
+                        if src_file.exists():
+                            _sh.copy2(src_file, dst_file)
+            except Exception as _mirror_err:
+                log.warning(f"Post-scrape CSV mirror failed: {_mirror_err}")
 
             # The full raw export becomes checkout-visible only AFTER all
             # promotion guards pass. Before 2026-09-09 this copy happened
@@ -3527,6 +3626,7 @@ async def lifespan(app: FastAPI):
 
     # 1. Load cached data immediately so the dashboard is usable right away
     latest_data = load_from_disk()
+    _seed_ingestion_verdict_from_startup_payload(latest_data)
     _prime_latest_payload(latest_data)
     latest_data = _recover_startup_contract_from_checkout(latest_data)
     if latest_data:
@@ -5642,11 +5742,28 @@ async def get_health():
         except Exception:
             _session_ages[fname] = {"present": False, "autoRefresh": auto_refresh}
 
+    # Two separate truths (2026-09-23 incident).  ``contract_ok`` is the
+    # verdict on the board being SERVED; ``source_health_ok`` is the verdict
+    # on current ingestion.  A refused partial run keeps a valid last-known-
+    # good board (contract_ok true) while a critical source is down
+    # (source_health_ok false): degraded, and reported as exactly that.
+    contract_ok = bool(contract_health.get("ok", False))
+    served_generation_ok = latest_contract_data is not None and contract_ok
+    latest_run_critical_failures = list(status_payload.get("critical_source_failures") or [])
+    # A contract that is ``ok`` has no errors in either lane.  Otherwise
+    # ``None`` when the served contract does not say (not initialized, or the
+    # build failed): unknown is reported as unknown, and is never ok.
+    source_health_ok: bool | None = (
+        False
+        if latest_run_critical_failures
+        else contract_health.get("sourceHealthOk", True if contract_ok else None)
+    )
     is_ok = (
         status_payload.get("last_error") in (None, "")
         and not status_payload.get("stalled")
         and not data_stale
-        and bool(contract_health.get("ok", False))
+        and contract_ok
+        and source_health_ok is True
     )
     status = "ok" if is_ok else "degraded"
 
@@ -5714,6 +5831,10 @@ async def get_health():
             "current_source": status_payload.get("current_source"),
             "contract_version": API_DATA_CONTRACT_VERSION,
             "contract_ok": contract_health.get("ok"),
+            "served_generation_ok": served_generation_ok,
+            "source_health_ok": source_health_ok,
+            "latest_run_critical_source_failures": latest_run_critical_failures,
+            "last_blocked_at": status_payload.get("last_blocked_at"),
             "uptime_watchdog": {
                 "enabled": uptime_status.get("enabled"),
                 "target_url": uptime_status.get("target_url"),
