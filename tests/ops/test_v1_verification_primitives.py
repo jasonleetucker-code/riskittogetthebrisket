@@ -342,7 +342,10 @@ def test_workflow_masks_token_before_use():
 def test_workflow_declares_read_only_posture():
     wf = (REPO_ROOT / ".github" / "workflows" / "v1-authenticated-verification.yml").read_text()
     assert "permissions:\n  contents: read" in wf
-    assert "concurrency:\n  group: production-deploy" in wf
+    # Serialises with deploys at JOB level (a skipped run must not queue in
+    # the group — see tests/deploy/test_production_deploy_concurrency.py).
+    job = yaml.safe_load(wf)["jobs"]["v1-authenticated"]
+    assert job["concurrency"] == {"group": "production-deploy", "cancel-in-progress": False}
     # No auth-weakening env is SET (the header may name E2E_TEST_MODE only
     # to say the workflow does not use it — so scan non-comment lines).
     code_lines = [ln for ln in wf.splitlines() if not ln.lstrip().startswith("#")]
