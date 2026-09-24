@@ -396,13 +396,34 @@ audit (sequenced next) is where the curve side is examined.
   median 0.14%, max 3.8%. The cap alone changes 522, median 0.85%. Together
   they change 535, median 0.72%, top-150 max 2.8%.
 
-**Known and NOT fixed here:** the #1402 weighted median (midpoint-interpolated,
-continuous in the WEIGHTS) is not monotone in the VALUES. When two
-observations with different weights swap order, their cumulative positions
-jump. On 20,000 random unequal-weight cases, production's blend lowers its
-output when an input rises in 1,596 cases (worst −2.15%). The mass trim cuts
-that to 237; the rest come from the median. It is a separate queued unit with
-its own measurement.
+**Weighted median: monotone in the values (2026-09-24, follow-up to #1427).**
+The #1402 midpoint-interpolated median was continuous in the WEIGHTS but not
+monotone in the VALUES. When two observations of different weight swap order,
+their midpoints jump, so raising one value could LOWER the median. It failed on
+513 of 20,000 random unequal-weight cases (worst −2.95%), and production's blend
+lowered its output when an input rose in 1,596 of 20,000 cases.
+
+`_weighted_median_sorted` is now the mean of the weighted quantile function
+over a window of one average observation's mass centred on 0.5
+(`[0.5 − 1/(2n), 0.5 + 1/(2n)]`):
+
+* **exact** ordinary median under equal weights (odd n: the middle slice;
+  even n: half of each middle slice);
+* monotone in the values;
+* continuous in the weights. In the Kyle Hamilton case its max step is 1.01
+  per 0.001 weight change (the midpoint median's was 1.15).
+
+The blend reads the median from the full distribution, because the
+symmetric mass trim leaves the 0.5-quantile unchanged. The whole blend is
+then monotone: 0 violations in 50,000 random cases.
+
+Board impact vs the family-cap board (same payload): 712 of 1,042 values move,
+median 0.17%, top-50 max 1.9% (max rank move 1). The largest moves are 3-source
+IDP rows where one source holds about half the weight. Kyle Hamilton
+(DS-IDP 2269 @1.0, IDP Show 3554 @0.12, IDPTC 3597 @0.878) drops 3416 → 2922
+at the median. DS-IDP owns [0, 0.500] of the weight, so the 50% point sits at
+its boundary and ~2,900 is the textbook weighted median. The midpoint
+interpolation leaned toward the higher sources.
 
 **The DLF rookie boards** vote inside the DLF family cap until the rookie-board
 audit decides whether they are distinct signals, mirrors, or seasonal.

@@ -82,12 +82,13 @@ class TestWeightedArithmetic:
     def test_three_sources_weighted_center(self):
         # values [2000, 3000, 10000], weights [1, 1, 2]
         # w_mean = (2000 + 3000 + 20000) / 4 = 6250
-        # continuous weighted median: midpoint positions 0.5/4, 1.5/4, 3/4
-        # = 0.125, 0.375, 0.75; 0.5 lies 1/3 of the way from 3000 to 10000
-        # → 3000 + 7000/3 = 5333.33…
-        # center = (6250 + 5333.33…) / 2 = 5791.66…
+        # window median: slices [0, .25], [.25, .5], [.5, 1]; the window of one
+        # average observation's mass is [.5 - 1/6, .5 + 1/6] — half on 3000,
+        # half on 10000 → 6500 (the half-weight point falls exactly on their
+        # boundary, where the median is their mean)
+        # center = (6250 + 6500) / 2 = 6375
         center, _ = _weighted([2000.0, 3000.0, 10000.0], [1.0, 1.0, 2.0])
-        assert center == pytest.approx(5791.6667, abs=1e-3)
+        assert center == pytest.approx(6375.0, abs=1e-6)
 
     def test_weighted_median_is_continuous_in_the_weights(self):
         """No cliffs.  The textbook step median flipped this anchor between
@@ -106,6 +107,41 @@ class TestWeightedArithmetic:
             assert _weighted_median_sorted(pairs, 2.5 * len(vals)) == pytest.approx(
                 statistics.median(vals)
             )
+
+    def test_weighted_median_is_monotone_in_the_values(self):
+        """Raising any one value never lowers the median (2026-09-24).  The
+        retired midpoint interpolation failed this on 513 of 20,000 random
+        unequal-weight cases (worst -2.95%)."""
+        import random
+
+        from src.api.data_contract import _weighted_median_sorted
+
+        rng = random.Random(1)
+        for _ in range(5000):
+            n = rng.randint(3, 12)
+            vals = [rng.uniform(9000.0, 9999.0) for _ in range(n)]
+            wts = [rng.choice([0.25, 0.287, 0.5, 0.713, 1.0]) for _ in range(n)]
+            i = rng.randrange(n)
+            raised = list(vals)
+            raised[i] += rng.uniform(0.0, 300.0)
+            before = _weighted_median_sorted(sorted(zip(vals, wts)), sum(wts))
+            after = _weighted_median_sorted(sorted(zip(raised, wts)), sum(wts))
+            assert after >= before - 1e-9, (vals, wts, i)
+
+    def test_the_whole_blend_is_monotone_in_the_values(self):
+        """Mean, mass trim and median together: an input rising can never
+        lower the blended center."""
+        import random
+
+        rng = random.Random(2)
+        for _ in range(5000):
+            n = rng.randint(3, 12)
+            vals = [rng.uniform(9000.0, 9999.0) for _ in range(n)]
+            wts = [rng.choice([0.25, 0.287, 0.5, 0.713, 1.0]) for _ in range(n)]
+            i = rng.randrange(n)
+            raised = list(vals)
+            raised[i] += rng.uniform(0.0, 300.0)
+            assert _weighted(raised, wts)[0] >= _weighted(vals, wts)[0] - 1e-9
 
     def test_monotone_in_weight(self):
         """Raising the weight of the highest-value source must not
