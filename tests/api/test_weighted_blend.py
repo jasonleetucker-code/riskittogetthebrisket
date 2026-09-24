@@ -14,7 +14,8 @@ These tests pin:
   * weighted mean/median arithmetic per count bucket,
   * directional monotonicity (upweighting a source pulls the center
     toward that source's value),
-  * observation-based trimming at n>=5,
+  * n>=5 trimming by weight MASS (exactly the observation trim under
+    equal weights; continuous and monotone under unequal ones),
   * degenerate-input fallbacks (a malformed override must never take
     down the board),
   * end-to-end: a weight override changes ``rankDerivedValue``
