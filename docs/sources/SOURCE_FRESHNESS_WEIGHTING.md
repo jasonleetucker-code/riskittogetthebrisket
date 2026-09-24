@@ -312,6 +312,79 @@ Set `RISKIT_FEATURE_SOURCE_FRESHNESS_WEIGHTING=0` and restart. Every
 factor becomes 1.0 in valuation and confidence, while every diagnostic
 keeps computing and reporting. The KTC split is not behind this flag.
 
+### Family-capped voting (flag `source_family_cap`, default ON — owner directive 2026-09-24)
+
+**Replaces "family head wins".** Before, only the registry-first member of a
+correlation family voted and the rest were stamped `supersededBy`, so a fresh
+Fantasy Navigator never voted beside KTC Crowd, nor Fitzmaurice beside the
+FantasyPros consensus, nor a DLF rookie board beside the regular board.
+
+Now every member votes with its own effective weight
+(base × freshness × health × coverage), and the family's **total** is capped
+at one provider's authority (`data_contract.cap_family_weights`, cap 1.0):
+
+```
+family_total = Σ effective_weight(member)
+factor       = cap / family_total   if family_total > cap   else 1.0
+member_vote  = effective_weight(member) × factor
+```
+
+* **Fresh members share one vote.** Two fully fresh DLF boards each carry
+  0.5. A fresh Value (1.0) beside a stale Rank (0.25) carries 0.8 / 0.2.
+* **A stale family is never scaled back up.** Members at 0.2 + 0.1 keep 0.3.
+  The cap only ever lowers weight.
+* **Missing is not zero.** An absent member contributes nothing, and its
+  sibling keeps its own weight.
+* **The families are the B10 correlation groups, unchanged.** KTC Crowd and
+  KTC Trades are two families. Fantasy Navigator is inside the KTC Crowd
+  family, so it can never become a hidden third full KTC vote. KTC Market is
+  still benchmark-only and never an observation.
+
+Four places change with it, so the cap cannot leak authority:
+
+1. `retainedAuthority` caps its **denominator** the same way. Two fresh
+   members of one family retain 1.0, not 0.5.
+2. The **single-source haircut** counts families. A second member of the same
+   family cannot lift a one-provider row out of the 30% haircut. With the cap
+   off this is exactly the old rule, because selection leaves at most one
+   value per family.
+3. **B11 confidence** still sees ONE piece of evidence per family. It uses the
+   member that carried the most weight on the row (ties go to registry order),
+   and every field comes from that one real source, so no averaged number is
+   invented.
+4. The explainer and `sourceRankMeta` publish `familyAdjustment` and
+   `preFamilyWeight`.
+
+**Backtest** (`scripts/backtest_family_cap.py`). Each day 09-10…09-24 is
+rebuilt from its own inputs, family-head selection vs cap, with freshness ON
+in both:
+
+* 352–525 rows change per day, median |Δ| 0.35–0.83%.
+* By rank band on 09-24: 1–50 max 1.7% (max rank move 3); 51–150 max 3.5%
+  (9); 151–300 max 4.9% (18); 301–500 max 5.9% (49); 501–800 max 10.5% (97).
+* Newly voting: Fantasy Navigator (~365 rows from 09-21), Fitzmaurice (~280),
+  Flock rookies (~45), DLF rookie IDP (~15).
+* 6–14 rows per day move from the 3–4-voter blend rung to the trimmed 5+ rung,
+  because family members count as observations.
+* Mean retained authority 0.822 → 0.825. Degraded share unchanged.
+
+**Known methodology effect, measured rather than hidden.** Fitzmaurice and
+FantasyPros both vote rank → Hill, and they agree at every depth (median
+ratio 0.95–1.03). Fantasy Navigator votes rank → Hill while KTC Crowd votes
+its native value, and those two diverge by depth: median ratio 1.12 in the
+top 50, 0.87–0.92 in ranks 151–500. That gap is the Hill curve against KTC's
+own curve shape, not two opinions. Inside the cap, Navigator's roughly half
+share of the KTC Crowd family carries part of it into the board (at most
+1.7% in the top 50). The owner's decision keeps Navigator voting inside the
+KTC family, so this is reported, not tuned. The Hill / live-source alignment
+audit (sequenced next) is where the curve side is examined.
+
+**The DLF rookie boards** vote inside the DLF family cap until the rookie-board
+audit decides whether they are distinct signals, mirrors, or seasonal.
+
+**Rollback:** `RISKIT_FEATURE_SOURCE_FAMILY_CAP=0` and restart restores
+family-head selection. The weights are still stamped either way.
+
 ## H. Current effective weights (board 2026-09-23T21:51Z, the PR's final head)
 
 | source | subset | style | E | age | r | fresh | health | cov | base | **effective** | state |

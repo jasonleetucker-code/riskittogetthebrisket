@@ -2917,6 +2917,14 @@ def collapse_to_independent_families(
 ) -> "tuple[list[tuple[str, float, bool]], dict[str, str]]":
     """One vote per provider family — a SELECTION, never an average.
 
+    ROLLBACK PATH since 2026-09-24: the default is family-capped voting
+    (:func:`cap_family_weights`, flag ``source_family_cap``), where every
+    member votes and the family total is capped.  This selection runs only
+    with ``RISKIT_FEATURE_SOURCE_FAMILY_CAP=0``.  The rationale below is the
+    one that decision superseded; its measurable part (Fantasy Navigator
+    votes rank → Hill beside KTC Crowd's native value) is quantified in
+    ``docs/sources/SOURCE_FRESHNESS_WEIGHTING.md``.
+
     ``pairs`` is ``(source_key, value, is_anchor_source)`` for the
     sources that survived Hampel on one row.  Returns the surviving
     pairs plus ``{superseded_key: winning_key}`` for provenance.

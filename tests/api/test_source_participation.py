@@ -98,32 +98,41 @@ def test_a_non_voting_observation_names_its_reason(rows):
     assert not bad, f"superseded by a source outside the family: {bad[:10]}"
 
 
-def test_one_vote_per_correlation_family(rows):
+def test_a_family_never_carries_more_than_one_providers_authority(rows):
     """KTC Crowd + Fantasy Navigator, the four DLF boards, FantasyPros +
-    Fitzmaurice, Flock + Flock rookies: each family casts at most one vote."""
-    doubled = []
+    Fitzmaurice, Flock + Flock rookies: every member may vote (owner
+    directive 2026-09-24), but a family's total weight on a row never
+    exceeds the cap.  With ``source_family_cap`` off, selection enforces the
+    stronger one-vote-per-family rule, which satisfies this too."""
+    over = []
     for row in rows:
-        voters = [
-            k
-            for k, m in (row.get("sourceRankMeta") or {}).items()
-            if _disposition(row, k, m) == "voted"
-        ]
-        counts = Counter(dc.correlation_group_for(k) for k in voters)
-        extra = {g: n for g, n in counts.items() if n > 1}
+        totals: Counter[str] = Counter()
+        for k, m in (row.get("sourceRankMeta") or {}).items():
+            if _disposition(row, k, m) == "voted":
+                totals[dc.correlation_group_for(k)] += float(m.get("appliedWeight") or 0.0)
+        extra = {
+            g: round(t, 4) for g, t in totals.items() if t > dc.FAMILY_WEIGHT_CAP_DEFAULT + 1e-3
+        }
         if extra:
-            doubled.append((row["canonicalName"], extra))
-    assert not doubled, f"families voting more than once: {doubled[:10]}"
+            over.append((row["canonicalName"], extra))
+    assert not over, f"families over the cap: {over[:10]}"
 
 
-def test_dlf_rookie_board_never_votes_beside_the_regular_board(rows):
-    """A rookie on both DLF boards gets ONE DLF vote — the regular board's."""
+def test_a_capped_family_keeps_every_members_relative_share(rows):
+    """Capping scales members proportionally: a family that was capped keeps
+    exactly the cap, and every member shares one scaling factor."""
+    bad = []
     for row in rows:
-        meta = row.get("sourceRankMeta") or {}
-        for regular, rookie in (("dlfSf", "dlfRookieSf"), ("dlfIdp", "dlfRookieIdp")):
-            if regular in meta and rookie in meta:
-                assert _disposition(row, rookie, meta[rookie]) != "voted" or (
-                    _disposition(row, regular, meta[regular]) != "voted"
-                ), f"{row['canonicalName']}: {regular} and {rookie} both voted"
+        by_family: dict[str, list[float]] = {}
+        for k, m in (row.get("sourceRankMeta") or {}).items():
+            if _disposition(row, k, m) == "voted" and m.get("familyAdjustment") is not None:
+                by_family.setdefault(dc.correlation_group_for(k), []).append(
+                    float(m["familyAdjustment"])
+                )
+        for fam, factors in by_family.items():
+            if max(factors) - min(factors) > 1e-3:
+                bad.append((row["canonicalName"], fam, factors))
+    assert not bad, f"family members scaled by different factors: {bad[:10]}"
 
 
 def test_ktc_market_is_never_an_observation(rows):
