@@ -32,8 +32,8 @@ Neither audit's headline number survives contact with that census. One reported 
 population by a factor of six** — because the first counted a *sample* of source entries rather than enumerating
 them, and neither unioned `UNIMPLEMENTED_BACKLOG.md`, `docs/status/*`, or `docs/ROADMAP-competitor-parity.md`.
 
-<!-- MANIFEST-ROW-COUNT: 164 -->
-This manifest carries **164 rows** — 143 C-phase rows, 14 completed foundations and 7 explicit out-of-scope rows,
+<!-- MANIFEST-ROW-COUNT: 165 -->
+This manifest carries **165 rows** — 144 C-phase rows, 14 completed foundations and 7 explicit out-of-scope rows,
 with 3 of them aggregates that enumerate their members inline (`C7-CE-01` names 16 CE surfaces; `C10-CLOSE-*`
 and `C1-RET-*` are individually listed). Rows are at *capability* grain: where a source enumerates many small members
 of one capability — the 104-ledger's calculator-workflow tier is the main case — the row **names its members
@@ -465,8 +465,8 @@ kind**. Those gate the *ingestion*, which is already live and long-standing — 
 | Combined raw population | ≈1,182 |
 | Distinct capability identities after de-duplication | ≈357 |
 | Binding constraint / methodology / validation units (not capabilities) | ≈425 |
-| **Manifest rows** | **164** (143 C-phase · 14 completed foundations · 7 out-of-scope; 3 of the 143 are aggregates that enumerate their members inline) |
-| Rows carrying a phase, a disposition and completion evidence | 158 |
+| **Manifest rows** | **165** (144 C-phase · 14 completed foundations · 7 out-of-scope; 3 of the 144 are aggregates that enumerate their members inline) |
+| Rows carrying a phase, a disposition and completion evidence | 159 |
 | **Unmapped** | **0** |
 | Duplicate clusters resolved | 4 (CE namespace · ledger 102–104 ≡ #835 · Best Trade dual record · Trade Trees dual identity) |
 | Explicitly superseded owner rules | 6 (2028/2029 unpriced posture · player-MVP eligibility gate · `unified_signal_engine` ownership claim · Best Trade `no draft picks` · Best Trade exact-equal-player-count · **fixed meaningful-core positional caps, superseded by #839's `ceil(1.5 × real starter demand)`** — see `docs/C_SERIES_DIRECTIVE_RECONCILIATION_2026-08-17.md` §4.1) |
