@@ -119,7 +119,7 @@ Mostly discharged by the post-B reconciliation; listed so the census closes.
 
 ---
 
-# 3. C1 — Identity, temporal substrate, retention (23 rows, 10 units)
+# 3. C1 — Identity, temporal substrate, retention (22 rows, 9 units)
 
 The foundation everything else consumes. **Closed: `C1-U1`, `C1-U2`, `C1-U3`, `C1-U4`,
 `C1-U6`.** **`CLOSED-PENDING-PROD` (merged 2026-08-17, code in production, checklists not yet
@@ -222,6 +222,8 @@ run here because it declares `deps C2-U4` (see its entry). Authorization state i
   work performed in this unit, promotion recorded for the checkpoint).  Record:
   `docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md`
 
+- **2026-09-24 lifecycle extension (#1414 / T-NEW-20):** the original valuation/completeness unit stays historically CLOSED for what it proved, but `C1-PICK-02` is now PARTIAL for a new owner requirement: after a league draft is complete **and** the drafted rookies are rostered, that class must retire from active/current selectors while historical identity/snapshots/trades remain resolvable. Immediate case: 2026. This follow-up is NOT AUTHORIZED merely by documentation and must serialize with in-flight canonical pick work such as #1411.
+
 ### C1-U7 — Owned-pick outcome distributions
 - **rows** `C1-PICK-03` · **owner** same · **kind** INFRA · **deps** C1-U6, C2-U4
 - **required end state** distribution over slots, not only a point estimate;
@@ -256,15 +258,6 @@ run here because it declares `deps C2-U4` (see its entry). Authorization state i
   Production checklist `docs/sources/C1_U9_MULTI_FORMAT_SOURCE_ARCHIVE.md` §7 **not yet
   executed**
 
-### C1-U10 — Active draft-pick lifecycle / post-draft retirement  ← **PLANNED, NOT AUTHORIZED**
-- **rows** `C1-PICK-04` · **owner** canonical pick identity/lifecycle + active-asset availability
-- **kind** INFRA/product-correctness · **deps** C1-U3, C1-U6
-- **owner directive** #1414 / T-NEW-20 (2026-09-24)
-- **rule** a class remains ACTIVE until the rookie draft is complete **and** drafted rookies are rostered; then it retires from current selectors while historical identity/snapshots/trades remain resolvable
-- **immediate case** 2026 is already complete/rostered and should retire from current surfaces
-- **RED→GREEN** current-site selectors still expose a completed class; synthetic future rollover must work without a hard-coded year
-- **safety** unknown/incomplete draft-state evidence must not retire a class; retirement never becomes value zero
-- **parallel posture** SERIAL_CANONICAL_OWNER with any in-flight canonical pick-pipeline work (currently #1411); consumer UI can follow after the owner predicate is stable
 
 ---
 
@@ -334,7 +327,7 @@ recomputed anywhere here — this is roster-impact math.
 
 ---
 
-# 5. C3 — Trade substrate (18 rows, 10 units)
+# 5. C3 — Trade substrate (17 rows, 9 units)
 
 `trade` is a **SERIAL lane — one writer only**.
 
@@ -373,6 +366,7 @@ recomputed anywhere here — this is roster-impact math.
 - **calibration** internal fairness language must be **scale-aware** — a 500-point
   gap at the elite tier is not a 500-point gap deep on the board. Relative gap,
   package size, tier/curve slope, uncertainty, topology. Symmetry preserved.
+- **2026-09-24 quantity clarification (#1415 / T-NEW-02):** maturity includes repeatable/generic asset quantities and identity-safe duplicate labels. Two generic “Mid 2027 1st” assets must survive add→math→remove-one→share/persist→restore and count twice; two distinct owned picks with the same displayed tier must coexist; the exact same unique owned pick must not double-count. This remains inside the existing C3-U5/C3-CALC-01 owner rather than creating a second quantity subsystem.
 
 ### C3-U6 — Whole-package market coverage + equalizers
 - **rows** `C3-XMKT-01` `C3-EQ-01` · **owner** `src/league_intel/cross_market.py`
@@ -399,14 +393,6 @@ recomputed anywhere here — this is roster-impact math.
   one) · How It Aged (**same methodology on both timestamps**). A missing historical
   value is not today's value. The ±200 threshold is evidence-gated, not finished.
 
-### C3-U10 — Repeatable/generic Trade Calculator asset quantities  ← **PLANNED, NOT AUTHORIZED**
-- **rows** `C3-CALC-04` · **owner** `C3-PKG-01` + Trade Calculator state/serialization
-- **kind** PRODUCT CORRECTNESS · **deps** C1-U3, C3-U1
-- **owner clarification** #1415 / T-NEW-02 (2026-09-24)
-- **rule** generic/hypothetical/repeatable assets may occur more than once; distinct real owned picks may coexist even when the displayed tier/label matches; the exact same unique owned-pick identity cannot be counted twice
-- **RED→GREEN** two “Mid 2027 1st” generic assets survive add→math→remove-one→share/persist→restore and contribute twice; two distinct same-label owned picks survive; one exact owned pick cannot duplicate
-- **consumers** totals, Value Adjustment, equalizers, share URLs, persistence/exports, mobile and desktop
-- **parallel posture** SAFE_PARALLEL with unrelated source/DLF work when file claims are disjoint; SERIAL inside the shared package/serialization owner
 
 ---
 
