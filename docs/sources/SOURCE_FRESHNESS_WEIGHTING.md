@@ -121,6 +121,7 @@ those two rows (`rowChangedAt`). A broad batch refreshes the whole board.
 | coverage / health | 1.00 / HEALTHY |
 | base → effective weight | 1.0 → **0.122** (SEVERELY_STALE) |
 | root cause | **Upstream.** The vendor has not republished. The public excerpt chart v5 matches our board on 247 of 249 rows, and our fetcher reads the latest chart version. There is nothing to fix on our side, so its authority decays until the vendor republishes and then recovers automatically. |
+| root cause, re-checked 2026-09-24 | **Still upstream, confirmed by four independent checks.** (1) Substack's public archive: the two posts the fetcher reads are still IDP Show's newest *dynasty* boards (`combined-idp-offense-dynasty-rankings-fantasy-football`, `idp-dynasty-rankings`); every newer ranking post — "2026 Fantasy Football Rankings … 3.0" (08-29), "2026 Combined IDP Rankings 3.0", the weekly rankings — is a season/weekly board, which the dynasty lane must never ingest. (2) Datawrapper: chart `U8I37` serves v4, v5–v7 are 404 and the chart root redirects to v4 (last modified 2026-08-19). (3) Every 2-hourly production run is HEALTHY with the full 665 rows — not a paywall preview. (4) The CSV has not changed on `main` since acquisition (#1008). Four chart versions between 07-15 and 08-19 put the vendor's offseason cadence at ~9–12 days, consistent with the 168 h seed (bounds 72–336 h); no cadence change. The vendor moved to in-season redraft content; its dynasty board ages honestly and recovers automatically on republication. |
 
 ## E. Every other source
 
