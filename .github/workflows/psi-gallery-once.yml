@@ -1,0 +1,151 @@
+name: PSI gallery implementation and proof (temporary issue 1422)
+on:
+  push:
+    branches: [codex/psi-design-reference]
+    paths: [.github/workflows/psi-gallery-once.yml]
+permissions:
+  contents: write
+  pull-requests: read
+concurrency:
+  group: psi-gallery-1422
+  cancel-in-progress: false
+jobs:
+  gallery:
+    if: github.repository == 'jasonleetucker-code/riskittogetthebrisket'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      ALLOW_DEFAULT_LOGIN_DEV: '1'
+      UPTIME_CHECK_ENABLED: '0'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 60
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+      - name: Install pinned repository toolchains
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p /tmp/psi-gallery-evidence
+          python -m pip install -r requirements-dev.txt
+          npm ci --no-audit --no-fund
+          npm --prefix frontend ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Measure unchanged gallery page chunk baseline
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          npm --prefix frontend run build 2>&1 | tee /tmp/psi-gallery-evidence/baseline-build.log
+          python - <<'PY'
+          import json, pathlib
+          paths = list(pathlib.Path('frontend/.next/static/chunks/app/design').glob('page-*.js'))
+          if not paths:
+              raise SystemExit('No baseline gallery chunks measured')
+          pathlib.Path('/tmp/psi-gallery-evidence/baseline-page-chunks.json').write_text(json.dumps({'context': 'Unchanged gallery at governance parent 07a6d1e; own page chunks, not shared first-load JS', 'bytes': sum(p.stat().st_size for p in paths), 'files': [str(p) for p in paths]}, indent=2))
+          PY
+      - name: Claim, apply, remove temporary helpers and publish only UI branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_REF_NAME" = 'codex/psi-design-reference'
+          git config user.name 'Calculator UI implementation'
+          git config user.email 'noreply@users.noreply.github.com'
+          git switch -c psi-gallery-application
+          git fetch origin main:refs/remotes/origin/main --depth=60
+          python .github/ui-design-once.py
+          git rm .github/ui-design-once.py .github/workflows/psi-gallery-once.yml
+          git add frontend/app/design/ frontend/__tests__/components/ds/psi-gallery.test.jsx tests/e2e/specs/psi-gallery.spec.js docs/ui/UI_PARALLEL_LEDGER.md docs/ui/PSI_DESIGN_REFERENCE_HANDOFF.md docs/WORK_CLAIMS.md
+          git diff --cached --check
+          python - <<'PY'
+          import subprocess
+          allowed = {'frontend/app/design/DesignGallery.jsx','frontend/app/design/design.module.css','frontend/app/design/page.jsx','frontend/__tests__/components/ds/psi-gallery.test.jsx','tests/e2e/specs/psi-gallery.spec.js','docs/ui/UI_PARALLEL_LEDGER.md','docs/ui/PSI_DESIGN_REFERENCE_HANDOFF.md','docs/WORK_CLAIMS.md','.github/ui-design-once.py','.github/workflows/psi-gallery-once.yml'}
+          paths = set(subprocess.check_output(['git','diff','--cached','--name-only'], text=True).splitlines())
+          if paths - allowed:
+              raise SystemExit(f'Unexpected staged paths: {paths - allowed}')
+          PY
+          git commit -m 'feat(ui): make design gallery a faithful PSI reference with focused parity tests (#1422)'
+          git rev-parse HEAD > /tmp/psi-gallery-evidence/implementation-head.txt
+          echo "EVIDENCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          git diff 07a6d1e76e6a7126cf4a91084af6ce7fcd507805 HEAD > /tmp/psi-gallery-evidence/gallery.patch
+          git push origin HEAD:refs/heads/codex/psi-design-reference
+          # This publishes implementation with tests PENDING, never a green or
+          # production claim. Results below remain independently visible.
+      - name: Current planning, work-claim, L0 and frontend unit gates
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          {
+            python scripts/agent_os_receipt.py
+            python scripts/check_planning_integrity.py
+            python scripts/check_product_plan_governance.py
+            python -m pytest tests/docs -q
+            python scripts/check_work_claims.py --files frontend/app/design/DesignGallery.jsx frontend/app/design/design.module.css frontend/app/design/page.jsx frontend/__tests__/components/ds/psi-gallery.test.jsx tests/e2e/specs/psi-gallery.spec.js --branch codex/psi-design-reference
+            bash scripts/tiered_validate.sh l0
+            npm --prefix frontend test
+          } 2>&1 | tee /tmp/psi-gallery-evidence/unit-validation.log
+      - name: Build, bundle gates and actual own-page size delta
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          npm --prefix frontend run build 2>&1 | tee /tmp/psi-gallery-evidence/implementation-build.log
+          python - <<'PY'
+          import json, pathlib
+          root = pathlib.Path('/tmp/psi-gallery-evidence')
+          before = json.loads((root/'baseline-page-chunks.json').read_text())
+          paths = list(pathlib.Path('frontend/.next/static/chunks/app/design').glob('page-*.js'))
+          if not paths:
+              raise SystemExit('No implementation gallery chunks measured')
+          size = sum(p.stat().st_size for p in paths)
+          result = {'context': 'Own gallery page chunk bytes; not shared first-load JS or a production latency certificate', 'baseline_bytes': before['bytes'], 'implementation_bytes': size, 'delta_bytes': size-before['bytes']}
+          (root/'bundle-delta.json').write_text(json.dumps(result, indent=2))
+          print(result)
+          PY
+      - name: Real desktop and phone route, axe, keyboard and screenshot evidence
+        env:
+          E2E_FRONTEND_CMD: npm run start
+          # Two tests on two projects: exact targeted coverage floor, zero skips.
+          # Full-suite floors, reporters and flaky-test guards are unchanged.
+          E2E_MIN_PASSED: '4'
+          E2E_MAX_SKIPPED: '0'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          npm run regression:preflight 2>&1 | tee /tmp/psi-gallery-evidence/preflight.log
+          npx playwright test --config tests/e2e/playwright.config.js tests/e2e/specs/psi-gallery.spec.js --project=desktop-1366 --project=mobile-chromium --retries=0 2>&1 | tee /tmp/psi-gallery-evidence/browser-validation.log
+      - name: Export only changed text, images and results
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p /tmp/psi-gallery-evidence/screenshots
+          python - <<'PY'
+          import pathlib, shutil, subprocess, zipfile
+          out = pathlib.Path('/tmp/psi-gallery-evidence')
+          names = subprocess.check_output(['git','diff','--name-only','07a6d1e76e6a7126cf4a91084af6ce7fcd507805','HEAD'], text=True).splitlines()
+          with zipfile.ZipFile(out/'changed-text-files.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
+              for name in names:
+                  p = pathlib.Path(name)
+                  if p.is_file():
+                      archive.write(p, name)
+          results = pathlib.Path('tests/e2e/test-results')
+          for p in results.rglob('*') if results.exists() else []:
+              if p.is_file() and p.suffix in {'.png', '.json', '.md'}:
+                  dest = out/'screenshots'/p.relative_to(results)
+                  dest.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(p, dest)
+          PY
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: psi-gallery-implementation-evidence
+          path: /tmp/psi-gallery-evidence/
+          retention-days: 14
+          if-no-files-found: warn
