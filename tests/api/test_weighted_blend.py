@@ -125,16 +125,40 @@ class TestWeightedArithmetic:
         down, _ = _weighted(values, [1.0, 1.0, 0.25])
         assert down < base
 
-    def test_trim_at_five_is_observation_based(self):
-        """n>=5 drops the min and max OBSERVATIONS even when heavily
-        weighted — the robustness rule targets extreme values."""
-        values = [1000.0, 4000.0, 5000.0, 6000.0, 9999.0]
-        # Heavy weight on the extremes; they are trimmed regardless, so
-        # the result must equal the blend over the middle three at
-        # their (equal) weights == the unweighted middle-three blend.
-        center, _ = _weighted(values, [9.0, 1.0, 1.0, 1.0, 9.0])
-        middle_center, _ = _unweighted([4000.0, 5000.0, 6000.0])
-        assert center == middle_center
+    def test_trim_at_five_is_the_observation_trim_under_equal_weights(self):
+        """Equal weights: trimming one average observation's MASS from each
+        end removes exactly the min and max observations."""
+        from src.api.data_contract import _trim_one_observation_mass
+
+        pairs = [(1000.0, 0.7), (4000.0, 0.7), (5000.0, 0.7), (6000.0, 0.7), (9999.0, 0.7)]
+        assert _trim_one_observation_mass(pairs) == pairs[1:-1]
+
+    def test_trim_at_five_removes_one_average_observation_of_mass(self):
+        """Unequal weights: Σw/n leaves each end — a heavy extreme keeps the
+        rest of its weight instead of vanishing on a weight-blind trim."""
+        from src.api.data_contract import _trim_one_observation_mass
+
+        trimmed = _trim_one_observation_mass(
+            [(1000.0, 9.0), (4000.0, 1.0), (5000.0, 1.0), (6000.0, 1.0), (9999.0, 9.0)]
+        )
+        mass = 21.0 / 5
+        assert trimmed == pytest.approx(
+            [
+                (1000.0, 9.0 - mass),
+                (4000.0, 1.0),
+                (5000.0, 1.0),
+                (6000.0, 1.0),
+                (9999.0, 9.0 - mass),
+            ]
+        )
+
+    def test_raising_an_extreme_low_weight_value_cannot_lower_the_blend(self):
+        """Regression (2026-09-24, golden Brock Bowers): which observation sits
+        at the top must not decide how much weight the trim removes."""
+        base = [9400.0, 9820.8, 9893.3, 9996.86, 9997.74, 9998.98, 9998.99] + [9999.0] * 6
+        raised = [9800.0, 9820.8, 9893.3, 9998.9, 9998.99, 9998.98, 9998.99] + [9999.0] * 6
+        weights = [0.713, 1.0, 1.0, 1.0, 1.0, 0.5, 1.0, 0.5, 1.0, 1.0, 1.0, 1.0, 0.287]
+        assert _weighted(raised, weights)[0] >= _weighted(base, weights)[0]
 
 
 class TestDegenerateInputs:

@@ -379,6 +379,30 @@ share of the KTC Crowd family carries part of it into the board (at most
 KTC family, so this is reported, not tuned. The Hill / live-source alignment
 audit (sequenced next) is where the curve side is examined.
 
+**Two corrections the cap required, found by the invariant tests:**
+
+* **The cap follows the provider's base weight.** A fixed 1.0 cap silently
+  undid a user's 2.0 weight override, which broke the end-to-end weight
+  monotonicity test. The ceiling is now the largest base weight among the
+  family's members. That is exactly 1.0 at default weights.
+* **The n ≥ 5 trim removes weight MASS, not an observation.** The weight-blind
+  trim was a step function. Under the cap's fractional weights, raising every
+  source for Brock Bowers LOWERED his blend (9984.6 → 9983.7), because which
+  observation sat at the 9999 ceiling decided whether 0.287 or 1.0 of weight
+  was trimmed. `_trim_one_observation_mass` removes Σw / n from each end. With
+  equal weights that is exactly the old trim, so the parity guarantee holds.
+  Measured on today's board against production: trim alone changes 419 rows,
+  median 0.14%, max 3.8%. The cap alone changes 522, median 0.85%. Together
+  they change 535, median 0.72%, top-150 max 2.8%.
+
+**Known and NOT fixed here:** the #1402 weighted median (midpoint-interpolated,
+continuous in the WEIGHTS) is not monotone in the VALUES. When two
+observations with different weights swap order, their cumulative positions
+jump. On 20,000 random unequal-weight cases, production's blend lowers its
+output when an input rises in 1,596 cases (worst −2.15%). The mass trim cuts
+that to 237; the rest come from the median. It is a separate queued unit with
+its own measurement.
+
 **The DLF rookie boards** vote inside the DLF family cap until the rookie-board
 audit decides whether they are distinct signals, mirrors, or seasonal.
 

@@ -2984,6 +2984,7 @@ def cap_family_weights(
     weights: Mapping[str, float],
     *,
     cap: float = FAMILY_WEIGHT_CAP_DEFAULT,
+    base: Mapping[str, float] | None = None,
 ) -> tuple[dict[str, float], dict[str, float]]:
     """Every family member keeps a vote; a family's TOTAL is capped.
 
@@ -3002,18 +3003,30 @@ def cap_family_weights(
       relative shares (fresher members keep proportionally more).
 
     Missing members contribute nothing — only keys present are weighed.
+
+    ``base`` (``{source_key: base_weight}``, the registry weight or the
+    user's override) makes the cap the family's own provider authority:
+    the largest base weight among its members present.  At the default
+    1.0 everywhere that is exactly ``cap``; a user who raises a source to
+    2.0 raises its family's ceiling with it, so a weight override is never
+    silently undone by the cap.
+
     Returns ``(adjusted_weights, family_adjustment_by_key)``; the factor is
     1.0 for every member of an uncapped family.
     """
     totals: dict[str, float] = {}
+    caps: dict[str, float] = {}
     for key, w in weights.items():
         group = correlation_group_for(key)
         totals[group] = totals.get(group, 0.0) + max(0.0, float(w))
+        member_cap = max(0.0, float(base.get(key, cap))) if base is not None else cap
+        caps[group] = max(caps.get(group, 0.0), member_cap)
     adjusted: dict[str, float] = {}
     factors: dict[str, float] = {}
     for key, w in weights.items():
-        total = totals[correlation_group_for(key)]
-        factor = cap / total if total > cap > 0.0 else 1.0
+        group = correlation_group_for(key)
+        total, family_cap = totals[group], caps[group]
+        factor = family_cap / total if total > family_cap > 0.0 else 1.0
         factors[key] = factor
         adjusted[key] = max(0.0, float(w)) * factor
     return adjusted, factors
@@ -8915,6 +8928,38 @@ def count_aware_mean_median_blend(
     return center, mad_val
 
 
+def _trim_one_observation_mass(pairs: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    """Drop one AVERAGE observation's weight from each end of value-sorted pairs.
+
+    The n≥5 trim removes the extremes.  Removing the single extreme
+    OBSERVATION whatever its weight is a step function once weights are
+    unequal: which observation sits at an end can flip on float noise, and
+    the trimmed mass jumps with it.  Measured 2026-09-24 on the golden
+    dataset under family-capped weights: every source raised Brock Bowers
+    and his blend FELL 9984.6 → 9983.7, because a 0.287-weight observation
+    at the 9999 ceiling gave way to a 1.0-weight one as the one trimmed.
+
+    Trimming by MASS — ``Σw / n`` from each end, taking partial weights —
+    is continuous and monotone, and with equal weights it is exactly the
+    observation trim (each end loses one whole observation).
+    """
+    n = len(pairs)
+    total = sum(w for _, w in pairs)
+    if n < 5 or total <= 0.0:
+        return list(pairs)
+    mass = total / n
+    out = [[v, w] for v, w in pairs]
+    for order in (range(n), range(n - 1, -1, -1)):
+        remaining = mass
+        for i in order:
+            if remaining <= 0.0:
+                break
+            take = min(out[i][1], remaining)
+            out[i][1] -= take
+            remaining -= take
+    return [(v, w) for v, w in out if w > 1e-12]
+
+
 def _weighted_median_sorted(pairs: list[tuple[float, float]], total_weight: float) -> float:
     """Weighted median over ``(value, weight)`` pairs pre-sorted by value —
     CONTINUOUS in the weights.
@@ -8978,13 +9023,16 @@ def weighted_count_aware_mean_median_blend(
       n == 1   → passthrough
       n == 2   → weighted mean; MAD = weighted abs deviation
       n == 3-4 → (weighted mean + weighted median) / 2, untrimmed
-      n ≥ 5    → drop the single min / max OBSERVATION, then
-                 (weighted mean + weighted median) / 2 over the rest
+      n ≥ 5    → drop one average observation's weight (Σw / n) from each
+                 end, then (weighted mean + weighted median) / 2 over the rest
 
-    Trimming stays observation-based (one max + one min by value,
-    regardless of weight): the robustness rule targets extreme values,
-    and keeping it observation-based preserves exact equal-weight
-    parity with the unweighted blend.  Degenerate inputs (mismatched
+    Trimming targets extreme VALUES by weight MASS
+    (:func:`_trim_one_observation_mass`, 2026-09-24).  With equal weights
+    that removes exactly the single min / max observation, so equal-weight
+    parity with the unweighted blend is exact; with unequal weights it is
+    continuous and monotone, where the retired weight-blind observation
+    trim was a step function that could lower a value when every input
+    rose.  Degenerate inputs (mismatched
     lengths, non-positive total weight) fall back to the unweighted
     blend rather than failing — a malformed override must never take
     down the board.
@@ -9001,7 +9049,7 @@ def weighted_count_aware_mean_median_blend(
     k = len(pairs)
     if k == 1:
         return pairs[0][0], None
-    used = pairs[1:-1] if k >= 5 else pairs
+    used = _trim_one_observation_mass(pairs) if k >= 5 else pairs
     total_w = sum(w for _, w in used)
     if total_w <= 0:
         return count_aware_mean_median_blend(values)
@@ -10575,7 +10623,8 @@ def _compute_unified_rankings(
         if _family_cap_applied:
             family_kept, family_superseded = surviving, {}
             capped, family_factor = cap_family_weights(
-                {k: row_weight.get(k, 1.0) for k, _v, _a in surviving}
+                {k: row_weight.get(k, 1.0) for k, _v, _a in surviving},
+                base=blend_weight_by_source,
             )
             for sk, factor in family_factor.items():
                 meta = row_source_meta[row_idx].get(sk, {})
@@ -10625,7 +10674,7 @@ def _compute_unified_rankings(
             # The same cap on the denominator: a family's normal authority
             # is one provider's, however many members it has, so two fully
             # fresh DLF boards retain 1.0 — not 0.5.
-            base_weights, _ = cap_family_weights(base_weights)
+            base_weights, _ = cap_family_weights(base_weights, base=blend_weight_by_source)
         _stamp_source_weight_state(
             players_array[row_idx],
             voting={k: row_weight.get(k, 0.0) for k, _v, _a in family_kept},

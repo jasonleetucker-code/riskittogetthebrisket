@@ -85,3 +85,27 @@ def test_confidence_still_sees_one_evidence_per_family(monkeypatch):
     assert by_family["fam"].source_key == "a2"
     assert by_family["fam"].value_contribution == 5200
     assert all(isinstance(ev, FamilyEvidence) for ev in evidence)
+
+
+def test_a_user_weight_override_raises_its_familys_ceiling(monkeypatch):
+    # Owner rule: a user override replaces the BASE weight.  A cap fixed at
+    # 1.0 would silently undo a 2.0 override; the ceiling follows the base.
+    adjusted, factor = _cap_with_base({"dlfValue": 2.0}, {"dlfValue": 2.0}, monkeypatch, GROUPS)
+    assert adjusted == pytest.approx({"dlfValue": 2.0})
+    both, _ = _cap_with_base(
+        {"dlfValue": 2.0, "dlfRank": 1.0}, {"dlfValue": 2.0, "dlfRank": 1.0}, monkeypatch, GROUPS
+    )
+    assert sum(both.values()) == pytest.approx(2.0)
+    assert both["dlfValue"] / both["dlfRank"] == pytest.approx(2.0)
+
+
+def test_default_base_weights_keep_the_one_provider_cap(monkeypatch):
+    adjusted, _ = _cap_with_base(
+        {"dlfValue": 1.0, "dlfRank": 1.0}, {"dlfValue": 1.0, "dlfRank": 1.0}, monkeypatch, GROUPS
+    )
+    assert adjusted == pytest.approx({"dlfValue": 0.5, "dlfRank": 0.5})
+
+
+def _cap_with_base(weights, base, monkeypatch, groups):
+    monkeypatch.setattr(dc, "correlation_group_for", lambda k: groups.get(k, k))
+    return dc.cap_family_weights(weights, base=base)
