@@ -6,6 +6,8 @@
 
 This is the simple front door for ideas, defects, UX requests, methodology changes, future products, and “do this later” instructions for **Risk It To Get The Brisket / Chase Upside**.
 
+**Owner-facing meaning (2026-09-24, issue #1418):** conversationally, **Brisket Ideas means the unified completion portfolio — roughly, everything we still want or need to do to reach the intended completed site.** The underlying canonical records remain separate; this file is the navigation/routing layer over them, not a replacement master backlog.
+
 The owner should not need to remember the repository's planning-document hierarchy.
 
 ## 1. Conversational shorthand
@@ -180,6 +182,105 @@ Before writing, check:
 
 If a unit collides with a live claim, do not build around the owner. Mark only that unit blocked and continue with another dependency-ready unit.
 
+## 8A. Unified completion portfolio — what "Brisket Ideas" includes
+
+Brisket Ideas is not limited to requests spoken after this file was created. For owner-facing planning and batching, the portfolio is the **union of all unfinished, still-desired work** supported by current canonical evidence.
+
+At minimum reconcile:
+
+- `docs/MASTER_PRODUCT_PLAN.md` — intended product direction;
+- `docs/OWNER_FEATURE_INVENTORY.md` — feature/status inventory;
+- `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` and feature-specific specs — intended behavior;
+- `docs/C_SERIES_SCOPE_MANIFEST.md` and active completion contracts — exhaustive requirement/disposition census where applicable;
+- `docs/OWNER_REQUESTED_TODO.md` — live owner additions/changes;
+- `docs/BACKLOG_REPLAN_2026-09-10.md` — shared-foundation sequencing guidance, corrected against current truth;
+- open GitHub issues;
+- open PRs, remote branches, and `docs/WORK_CLAIMS.md`;
+- current code and production evidence when older status text is stale;
+- `docs/EXECUTION_PLAN.md` for the separate question of what is authorized now.
+
+Therefore, an item may belong to the Brisket Ideas portfolio even if the owner never explicitly said "add this to Brisket Ideas" after 2026-09-24.
+
+The portfolio excludes:
+
+- work that is genuinely DONE/VERIFIED;
+- owner-rejected / NOT PLANNED scope;
+- superseded formulations whose successor is active;
+- stale issue text contradicted by verified merged/current code;
+- historical records that exist only for provenance and no longer represent desired future work.
+
+Do not copy all of those records into this file. Derive the portfolio from them.
+
+## 8B. "Next reasonable batch" contract
+
+When the owner says something like:
+
+> Type out a prompt for the next batch of reasonable ideas.
+
+treat that as a request to **recompute a bounded implementation batch from current truth**, not to take the next issue numbers or the next rows in one document.
+
+### Refresh before selecting
+
+Before choosing the batch:
+
+1. refresh current `main`;
+2. inspect open PRs and their changed files;
+3. inspect `docs/WORK_CLAIMS.md` and relevant remote branches;
+4. reconcile current production/code evidence for candidates whose status may be stale;
+5. load the relevant completion contract / manifest / inventory / owner intake / combined-phase plan;
+6. remove DONE, rejected, superseded, and already-satisfied work.
+
+### Rank by practical importance, not issue number
+
+Prefer, in order unless evidence justifies a different sequence:
+
+1. **P0/P1 correctness, production health, data loss, security, or user-blocking defects**;
+2. **completion-critical requirements** that block the declared site/completion contract;
+3. **high-unlock shared foundations** that satisfy or unblock several downstream requirements;
+4. **time-sensitive / irrecoverable evidence work** that cannot be reconstructed later;
+5. **dependency-ready product work with high user value**;
+6. **adjacent cleanup** that is cheap because the same owner/files are already open and that reduces future duplication/rework.
+
+Within a tier, favor:
+- more downstream unlocks;
+- fewer risky canonical-owner conflicts;
+- smaller coherent PR boundaries;
+- stronger existing specs/acceptance criteria;
+- lower rework risk;
+- safe parallelism.
+
+Do not rank by novelty, issue age, issue number, or which feature sounds most exciting.
+
+### Build a coherent batch
+
+A good batch should normally contain:
+
+- one primary critical-path/foundation lane;
+- zero to a few independent parallel lanes that can genuinely progress without colliding;
+- explicit serial/integration-only work separated from implementation lanes;
+- acceptance criteria and stop conditions per lane;
+- dependency/merge order;
+- named owner-only decisions or external blockers.
+
+Default to a **small handful of coherent work units** rather than dozens of unrelated tickets. Two to four implementation lanes is a useful default, not a quota.
+
+### Prompt output
+
+The generated handoff/prompt should include:
+
+- current repo/production starting state;
+- why these units were selected now;
+- exact canonical owners / files or subsystems;
+- dependencies;
+- work claims / open-PR collision warnings;
+- which lanes are SAFE_PARALLEL vs SERIAL_CANONICAL_OWNER vs INTEGRATION_ONLY vs DEPENDENCY_BLOCKED;
+- acceptance tests/evidence;
+- merge/integration order;
+- what is explicitly out of scope;
+- instruction to continue through implementation/tests/PR/CI/merge/deploy only to the extent already authorized by `docs/EXECUTION_PLAN.md`.
+
+If an attractive item is not authorized, either put it in a planning/research-only lane when that is allowed or identify it as NEXT/NOT AUTHORIZED instead of smuggling implementation into the prompt.
+
 ## 8. Shared-foundation / combined-phase rule
 
 Brisket has many historical issue numbers and owner decisions. Issue order is not automatically implementation order.
@@ -246,6 +347,8 @@ Orderliness means fewer conflicting truths, not fewer historical records.
 | “What exactly did the owner mean?” | GitHub issue + `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` / feature-specific spec |
 | “Does it already exist / what is its status?” | `docs/OWNER_FEATURE_INVENTORY.md` + current code/PR evidence |
 | “Which canonical owner/foundation should handle it?” | `docs/MASTER_PRODUCT_PLAN.md`, architecture records, combined-phase replan |
+| “What does Brisket Ideas include?” | The **unified completion portfolio**: all unfinished, still-desired work derived from the Master Plan, inventory/specs, scope manifest/contracts, owner intake, issues, current code/evidence, and live coordination state. |
+| “What is the next reasonable batch?” | Recompute it from §8B using current `main`, dependencies, priority, shared foundations, claims/PRs, safe parallelism, and `EXECUTION_PLAN.md` authority. |
 | “Can several items be built together?” | this file + `docs/BACKLOG_REPLAN_2026-09-10.md` |
 | “Is it authorized now?” | **`docs/EXECUTION_PLAN.md` only** |
 | “Who is editing it?” | `docs/WORK_CLAIMS.md`, open PRs and branches |
