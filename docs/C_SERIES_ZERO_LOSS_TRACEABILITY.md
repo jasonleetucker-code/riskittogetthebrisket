@@ -272,6 +272,8 @@ capabilities were already mapped through the #838 and #839 addenda; the two iden
 promoted to `docs/OWNER_REQUESTED_TODO_SPEC_INDEX.md` on 2026-08-15 before #816 was closed, so nothing is
 lost by either name or id.
 
+**2026-09-24 addition:** T-NEW-21 / issue #1423 (24/7 adaptive staggered data-freshness orchestration) maps to `C4-SRC-04` and is folded into existing execution unit `C4-U1`, extending the source-health platform rather than creating a separate freshness or scheduler product.
+
 ## G — PR #816 feature-spec appendix (40 entries)
 
 A1 → `C3-CON-02` · A2 → `C2-WEAK-01` · A3 → **CE-22** · A4 → **CE-23** · A5 → **CE-24** · A6 → CE-03 ·
