@@ -5,7 +5,7 @@
   "artifact_id": 10817595460,
   "archive_sha256": "22a9d0d46d0f317b96762c6a24c81725cba331b65e73a2bbe3846e268303a71e",
   "captured_utc_date": "2026-09-24",
-  "runtime_origin": "http://127.0.0.1:3100/design",
+  "runtime_origin": "http://127.0.0.1:3000/design",
   "images": [
     {
       "file": "desktop-reference-top.png",

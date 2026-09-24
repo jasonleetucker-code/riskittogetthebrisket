@@ -1,7 +1,7 @@
 # PR #1429 — PSI gallery evidence, 2026-09-24
 
 **Code tested:** `49e7fcfd824ba3f2c7432a818d2f7f5fbc2d8121`. **Run:** 36021591253.
-**Origin:** built local CI stack, `http://127.0.0.1:3100/design`, NOT production.
+**Origin:** built local CI stack, `http://127.0.0.1:3000/design`, NOT production.
 The evidence-only follow-up commit does not change tested frontend or E2E code.
 Source artifact 10817595460 is checksummed in manifest.json. The ten exact PNGs
 are preserved here so the evidence does not disappear when the artifact expires.
