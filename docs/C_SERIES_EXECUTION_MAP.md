@@ -391,12 +391,14 @@ recomputed anywhere here — this is roster-impact math.
 
 ---
 
-# 6. C4 — Market, sharp, FAAB (14 rows, 6 units)
+# 6. C4 — Market, sharp, FAAB (15 rows, 6 units)
 
-### C4-U1 — Source health repairs
-- **rows** `C4-SRC-01` `C4-SRC-02` `C4-SRC-03` · **kind** INFRA · **deps** none
+### C4-U1 — Source health + freshness orchestration
+- **rows** `C4-SRC-01` `C4-SRC-02` `C4-SRC-03` `C4-SRC-04` · **kind** INFRA · **deps** none for existing repairs; C1-U4 history is reused for immutable observation retention
 - **always-open lane** — DraftSharks staleness is operations, not C scope, but
   needs owner disposition (`OD-04`)
+- **2026-09-24 owner extension (#1423 / T-NEW-21):** evolve the current 2-hour monolithic refresh + source-specific jobs into one canonical 24/7 per-source freshness orchestrator. Continuous program, not continuous hammering: adaptive/source-relative schedules, stagger+jitter, event acceleration, provider budgets/backoff, isolation, LKG/promotion guards, point-in-time retention, next-due/SLA observability and missed-freshness alerts. Future odds feeds use authorized APIs and event-relative quota-aware capture.
+- **parallel posture:** source-adapter research/isolated adapters may run in parallel; the orchestration registry/scheduler core is one writer.
 
 ### C4-U2 — Sharp cohort proven in production
 - **rows** `C4-SHARP-01` `C4-SHARP-02` `C4-SHARP-03` · **owner** `src/sharp/cohort.py`
