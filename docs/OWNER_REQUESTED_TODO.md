@@ -482,3 +482,18 @@ Two items the owner explicitly kept OUT of the Power Rankings fix:
 |---|---|---|---|---|
 | P2 correctness | Owner 2026-09-23 | Playoff odds | `src/public_league/playoff_odds.py::_season_weekly_scores` keeps its own per-entry `is_scored` (points > 0) filter over all `regular_season_weeks`: an in-progress week's partial scores enter the score distributions, and a roster that genuinely scored 0.0 in a finished week is dropped. Consume the canonical definition (`luck._season_weekly_scores`: `metrics.final_regular_season_weeks` + `points is None`) with tests for both cases. Its own unit — not part of the Power fix. | TODO |
 | Owner decision | Owner 2026-09-23 | Source freshness / value overhaul | The stale-DLF source-health warning seen during #1400 CI (`dlfSf`/`dlfIdp`/`dlfRookieSf`/`dlfRookieIdp` last fetched 2026-09-09) belongs to the separate source-freshness/value overhaul, not to Power Rankings. **Do not fix it by removing DLF.** The freshness system itself must make a broken/stale source lose authority automatically while preserving its last valid values. | DECISION |
+
+## Added 2026-09-24 — restore `/api/health` and `contract_ok` (owner directive, cross-repo mission)
+
+The owner directed (2026-09-23/24) that Brisket's `/api/health` degradation (`contract_ok=false`, first seen
+around 22:47Z on 2026-09-23) be diagnosed from production evidence and fixed at the root, before any Market
+Edge work. The owner's semantics, verbatim in substance: contract integrity and current ingestion health are
+**separate truths**. When a critical source fails or times out while the served generation is valid,
+**keep serving the last-known-good generation** (`contract_ok=true`) and refuse the partial run, but overall
+health stays **DEGRADED/503** (`source_health_ok=false`) until that source recovers. Do not weaken invariants,
+hand-edit production data, or hide a current refresh-unit failure with `reset-failed`.
+
+| Priority | Issue | Area | Required outcome | Status |
+|---|---|---|---|---|
+| P0 live defect | Owner 2026-09-24 | Scrape promotion / health | Root cause: a critical-source timeout run whose partial values passed the anchor and retention checks was promoted and overwrote `exports/latest` (`partial_run_critical:IDPTradeCalc`). Fixed by PR #1405 (promotion guard refuses critical-partial runs while the served board is structurally valid; `/api/health` reports `contract_ok`/`served_generation_ok`/`source_health_ok` separately). | DONE (code); production verification in PR #1405 |
+| P2 ops defect (out of scope) | Owner 2026-09-24 | Refresh units | Failing `dynasty-*` units recorded during the investigation, none in the contract path: `depth-charts-refresh`, `injury-feed-refresh` and `trending-history-refresh` (`ModuleNotFoundError: No module named 'src'`); `sharp-cohort-snapshot` (`EvidenceStatus is not JSON serializable`); `dlf-fetch` (`fetch_dlf.py` non-zero, keeps previous CSVs); `playerctx-refresh` (intentional fail-closed snapCounts schema-regression guard). Classified, not fixed, not reset. | TODO |
