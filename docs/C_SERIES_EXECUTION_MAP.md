@@ -2,7 +2,7 @@
 
 **Status:** CANONICAL ACTIVE — the bounded-unit decomposition of the C-Series census
 **Created:** 2026-08-15
-**Decomposes:** `docs/C_SERIES_SCOPE_MANIFEST.md` (**164 rows** — 143 C-phase, 14 completed
+**Decomposes:** `docs/C_SERIES_SCOPE_MANIFEST.md` (**165 rows** — 144 C-phase, 14 completed
 foundations, 7 explicitly out of scope)
 **Binding methodology inputs:** `docs/MATH_MODEL_CALIBRATION_POLICY_2026-08-15.md`,
 `docs/PROJECTION_ENSEMBLE_PLAN_2026-08-15.md` (PR #853)
@@ -26,7 +26,7 @@ as the historical record of what it paused, not edited to match. See
 # 0. What this file is, and what it is not
 
 The manifest is a **census** — it proves nothing is lost. This file is the
-**decomposition** — it turns 164 census rows into bounded units a session can
+**decomposition** — it turns 165 census rows into bounded units a session can
 actually execute, in an order that does not require improvising architecture
 halfway through.
 
@@ -578,7 +578,7 @@ forecasts and manager tendencies are private.
 
 # 12. Complete manifest-row → unit mapping
 
-Every one of the **164** rows appears exactly once.
+Every one of the **165** rows appears exactly once.
 
 > **Corrected 2026-08-17 (C0-R).** This summary declared **153** and dropped ten rows —
 > `C7-BEST-TRADE` (no numeric suffix), `C8-A11Y-01` and `C9-V3-01` (digits in the middle
@@ -605,7 +605,7 @@ Every one of the **164** rows appears exactly once.
 | C1-U9 | C1-SRC-01, -02 | 2 |
 | C2-U1…U10 | C2-LINE-01 · C2-REPL-01 · C2-SIM-01 · C2-STR-01 · C2-WEAK-01 · C2-CORE-01 · C2-AGE-01/-02/-03 · C2-DROP-01 · C2-EXP-01 · C2-GP-01 | 12 |
 | C3-U1…U9 | C3-PKG-01 · C3-VA-01/-02 · C3-CON-01/-02/-03 · C3-CAP-01 · C3-CALC-01/-02/-03 · C3-XMKT-01/C3-EQ-01 · C3-MC-01 · C3-CTX-01/C3-TOPO-01 · C3-REPLAY-01/C3-AGE-01 | 17 |
-| C4-U1…U6 | C4-SRC-01/-02/-03 · C4-SHARP-01/-02/-03 · C4-MTL-01/-02/-03/C4-KTC-01 · C4-FAAB-01/-02 · C4-WAIV-01 · C4-INS-01 | 14 |
+| C4-U1…U6 | C4-SRC-01/-02/-03/-04 · C4-SHARP-01/-02/-03 · C4-MTL-01/-02/-03/C4-KTC-01 · C4-FAAB-01/-02 · C4-WAIV-01 · C4-INS-01 | 15 |
 | C5-U1…U8 | C5-ROS-01 · C5-GD-01/-02 · C5-PLAY-01 · C5-POW-01 · C5-WAR-01 · C5-ST-01 · C5-BDVM-01 · C5-FIT-01 | 9 |
 | C6-U1…U6 | C6-SIG-01/-02 · C6-ANA-01/C6-FRESH-01 · C6-POD-01/C6-YT-01/C6-X-01 · C6-MGR-01 · C6-EDGE-01 · C6-UPP-01 | 10 |
 | C7-U1…U12 | C7-BEST-TRADE · C7-DESK-01 · C7-GOLD-01 · C7-PKGB-01 · C7-POST-01/C7-PICKGEN-01 · C7-WAIV-01 · C7-DRAFT-01/-02/-03 · C7-CMD-01/C7-AGE-01 · C7-CE-01 · C7-AI-01…05 · C7-ALERT-01 · C7-GATE-01 | 20 |
@@ -614,7 +614,7 @@ Every one of the **164** rows appears exactly once.
 | C10-U1…U4 | C10-CLOSE-01 · -02 · C10-ML-01 · C10-CLOSE-03…07 | 8 |
 | F-U1, F-U2 | 11 invariant rows + 3 permission rows | 14 |
 | X-U1 | X-01…X-07 — dispositions, **no implementation unit** | 7 |
-| | **total** | **164** |
+| | **total** | **165** |
 
 ---
 
@@ -769,7 +769,7 @@ approved IDP projection source candidate — `C5-PROJ-A`), **FantasyPros IDP**, 
 
 # 20. Appendix — every manifest row, explicitly
 
-Derived from `docs/C_SERIES_SCOPE_MANIFEST.md` §4, not hand-listed. All **164** ids appear exactly once; `scripts/check_planning_integrity.py` recomputes both sets and fails CI on any drift.
+Derived from `docs/C_SERIES_SCOPE_MANIFEST.md` §4, not hand-listed. All **165** ids appear exactly once; `scripts/check_planning_integrity.py` recomputes both sets and fails CI on any drift.
 
 | row | unit |
 |---|---|
@@ -849,6 +849,7 @@ Derived from `docs/C_SERIES_SCOPE_MANIFEST.md` §4, not hand-listed. All **164**
 | `C4-SRC-01` | C4-U1 |
 | `C4-SRC-02` | C4-U1 |
 | `C4-SRC-03` | C4-U1 |
+| `C4-SRC-04` | C4-U1 |
 | `C5-POW-01` | C5-U4 |
 | `C5-PLAY-01` | C5-U3 |
 | `C5-GD-01` | C5-U2 |
