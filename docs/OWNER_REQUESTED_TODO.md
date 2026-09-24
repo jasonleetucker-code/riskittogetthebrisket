@@ -34,6 +34,19 @@ Existing historical rows/status vocabulary are preserved. Normalize an older ite
 
 **Durable record:** issue #1412 and `docs/BRISKET_IDEAS.md`. This process instruction is active immediately and does not itself authorize any feature build.
 
+
+## Added 2026-09-24 — 24/7 adaptive staggered data freshness
+
+| Priority | Issue | Area | Required outcome | Status |
+|---|---|---|---|---|
+| P1 decision-quality foundation | #1423 / T-NEW-21 | Source acquisition / freshness orchestration | Build one canonical **24/7 freshness orchestrator** over the existing source-health/freshness primitives. The system should always be collecting or waiting for the next due source, but must **not** hammer every provider continuously. Each source gets an adaptive schedule based on publication cadence, decision value/volatility, event windows, rate limits/quotas/terms, last fetch, last real content change, health, and cost. Use APIs/webhooks/streams first where authorized; isolate collectors; stagger/jitter jobs; accelerate around high-information windows; enforce request budgets/backoff/circuit breakers; preserve immutable point-in-time observations; serve LKG honestly with real age; expose target cadence/next due/content age/SLA state; alert on missed freshness budgets. Future sportsbook/odds feeds are a high-volatility tier with event-relative, quota-aware collection and retained line/price history. This extends the existing 2-hour scheduled refresh and cadence-relative freshness model rather than creating a second freshness system. | NEXT — NOT AUTHORIZED; architecture/research may parallel unrelated product work, orchestration core is SERIAL_CANONICAL_OWNER |
+
+**Owner intent:** at any decision moment, use the newest trustworthy information the system can legitimately and reliably obtain, with its true data-as-of state visible. “Constant” means a continuously running freshness program, **not** indiscriminate nonstop requests to every source.
+
+**Overlap/shared foundation:** existing Scheduled Data Refresh, source-specific timers/jobs, `docs/sources/SOURCE_FRESHNESS_WEIGHTING.md`, #1065, #1391, C4-SRC-* source-health work, projection/news/analyst/market-evidence feeds, and future odds feeds. One scheduler/registry should own cadence and SLA semantics; valuation freshness remains a consumer of observed data age rather than a second scheduler.
+
+Implementation authority remains exclusively in `docs/EXECUTION_PLAN.md`.
+
 ## Added 2026-08-11
 
 *(Rows #829 and #830 and binding decisions 47–65 were added 2026-08-14 under this same heading.)*
