@@ -1,10 +1,38 @@
-# Brisket Ideas — Owner Intake & Parallel Work Front Door
+# Calculator Ideas — Owner Intake & Parallel Work Front Door
+
+## Full completion portfolio / permanent UI batching — 2026-09-24 (#1421)
+
+UI policy: ALWAYS_PARALLEL_UNTIL_UI_COMPLETE
+UI batching: INCLUDE_OR_REFERENCE_ACTIVE_LANE
+
+Calculator Ideas represents the entire remaining master site completion plan. Keep this
+legacy filename; it is a front door, not a competing backlog. Before next reasonable
+batch / next ten / parallel batches / fresh-session dispatch, reconcile current main,
+open PRs/branches/claims, Master Plan, Feature Inventory, Product Backlog/specs, C-Series
+manifest/map, completion contracts, owner intake, issues, code/production evidence and
+the combined-phase replan. Remove completed/superseded/rejected work, group shared
+foundations, respect dependencies and avoid active-file conflicts. Preserve #1419's
+related full-portfolio reconciliation during integration, not one or the other.
+
+Every substantial batch explicitly evaluates backend completion, UI completion, actual
+UI staffing, stable routes, file/branch conflicts and integration order. Consult
+`docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md` and `docs/ui/UI_PARALLEL_LEDGER.md`. Required response shape:
+
+- FOUNDATION / BACKEND: bounded authorized unit, canonical owner, dependencies.
+- UI: safe unit/claim/branch, or `UI lane already active: <issue/PR/work claim>` with
+  adequate coverage. Queued handoffs/old branches are not running workers. An unstable
+  route contract blocks only its final wiring; select other useful UI work.
+- INTEGRATION: contract connection, ordering, E2E and production proof. Backend complete
+  / UI incomplete = product incomplete, without double-counting scope.
+
+Use `docs/ui/UI_IMPACT_TEMPLATE.md` for material feature plans. Tiny maintenance need
+not manufacture UI edits; substantial planning still names Lane 6 coverage.
 
 **Status:** OWNER-FACING NAVIGATION / PROCESS LAYER  
 **Owner directive:** 2026-09-24 · issue #1412  
 **Product authority:** none by itself. `docs/EXECUTION_PLAN.md` remains the only implementation-authorization record.
 
-This is the simple front door for ideas, defects, UX requests, methodology changes, future products, and “do this later” instructions for **Risk It To Get The Brisket / Chase Upside**.
+This is the simple front door for ideas, defects, UX requests, methodology changes, future products, and “do this later” instructions for **Calculator**.
 
 The owner should not need to remember the repository's planning-document hierarchy.
 
@@ -12,8 +40,8 @@ The owner should not need to remember the repository's planning-document hierarc
 
 When the owner says any of the following, treat them as equivalent:
 
-- “add this to Brisket Ideas”
-- “put this on the Brisket list”
+- “add this to Calculator Ideas”
+- “put this on the Calculator list”
 - “save this idea”
 - “remember this for the site”
 - “we should build/fix/revisit this later”
@@ -182,7 +210,7 @@ If a unit collides with a live claim, do not build around the owner. Mark only t
 
 ## 8. Shared-foundation / combined-phase rule
 
-Brisket has many historical issue numbers and owner decisions. Issue order is not automatically implementation order.
+Calculator has many historical issue numbers and owner decisions. Issue order is not automatically implementation order.
 
 When several requests share:
 
@@ -242,7 +270,7 @@ Orderliness means fewer conflicting truths, not fewer historical records.
 
 | Question | Record |
 |---|---|
-| “Where do I put this idea?” | `docs/OWNER_REQUESTED_TODO.md` (use the shorthand **Brisket Ideas**) |
+| “Where do I put this idea?” | `docs/OWNER_REQUESTED_TODO.md` (use the shorthand **Calculator Ideas**) |
 | “What exactly did the owner mean?” | GitHub issue + `docs/OWNER_PRODUCT_BACKLOG_SPEC.md` / feature-specific spec |
 | “Does it already exist / what is its status?” | `docs/OWNER_FEATURE_INVENTORY.md` + current code/PR evidence |
 | “Which canonical owner/foundation should handle it?” | `docs/MASTER_PRODUCT_PLAN.md`, architecture records, combined-phase replan |
@@ -256,7 +284,7 @@ Orderliness means fewer conflicting truths, not fewer historical records.
 
 The owner may simply say:
 
-> Add this to Brisket Ideas.
+> Add this to Calculator Ideas.
 
 The agent is responsible for the repository bookkeeping. The owner should not have to choose between the intake ledger, issue tracker, feature inventory, manifest, backlog spec, or execution plan.
 

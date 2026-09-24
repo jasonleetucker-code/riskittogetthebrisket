@@ -1,5 +1,24 @@
 # Chase Upside / Risk It To Get The Brisket — Current Execution Plan
 
+## Permanent parallel Premium UI — owner directive, 2026-09-24 (#1421)
+
+UI policy: ALWAYS_PARALLEL_UNTIL_UI_COMPLETE
+
+**Lane 6 / Premium UI is an always-active parallel lane through Calculator completion.**
+Preserve UI/frontend/performance/accessibility ownership and C8-U1/C8-U2/C8-U3.
+Every substantial batch includes useful UI or explicitly references an adequately
+staffed active issue/PR/work claim. UI foundation is always eligible when dependencies
+and file claims permit; final route migration is individually canonical-contract gated.
+A changing Trade contract may block Trade wiring, not all UI.
+
+Implement locked PSI / Direction A under `docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md`; use `docs/ui/UI_PARALLEL_LEDGER.md` and Calculator
+Ideas (`docs/BRISKET_IDEAS.md`). This authorizes the bounded governance/enforcement
+reconciliation and continuous execution of already-approved safe UI, not unrelated
+scope, new design exploration, changed denominators, model/serving activation or bypassed
+Integration. Historical freezes/first-migration timing below stay traceable but cannot
+globally defer UI under this newer instruction. Backend complete / UI incomplete is
+product incomplete. First safe unit: #1422 `/design`, on its own branch/claim.
+
 **Status:** CANONICAL SEQUENCING / AUTHORIZATION RECORD
 **Last reconciled:** 2026-08-20 (owner directive: **FIRST PREMIUM SPORTS INTELLIGENCE PRODUCTION MIGRATION AUTHORIZED** — PSI foundation, shell, Rankings and Player File reference routes; execution timing only, V1 denominator unchanged — §0). Also 2026-08-20 (owner directive: **POST-V1 C-SERIES MASS-BUILD CAMPAIGN AUTHORIZED** — five isolated lanes, Claude 9-13, execution timing only; V1 classification and denominator unchanged — §0). Previously 2026-08-18 (owner directive: **V1 COMPLETION SPRINT AUTHORIZED**, six parallel lanes, superseding the 2026-08-17 feature freeze for V1-required work only — §0)
 **Companion:** `docs/MASTER_PRODUCT_PLAN.md` · `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md`

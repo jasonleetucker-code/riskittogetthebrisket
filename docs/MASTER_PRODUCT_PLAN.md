@@ -1,5 +1,17 @@
 # Risk It To Get The Brisket — Master Product Plan
 
+## Continuous UI convergence — owner decision, 2026-09-24 (#1421)
+
+UI policy: ALWAYS_PARALLEL_UNTIL_UI_COMPLETE
+
+Calculator Ideas is the entire remaining completion portfolio, including UI, not just
+recent intake. Backend completion without user-facing completion is not product
+completion. Track capability and UI evidence as two dimensions of one product, not
+separate products or new denominator rows. Keep existing Lane 6 active beside model/
+feature/data work. A route blocker redirects the UI lane to another safe task.
+Every substantial batch includes UI or names its adequately staffed active claim/PR.
+Use `docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md` and `docs/ui/UI_PARALLEL_LEDGER.md`; implementation authority remains EXECUTION_PLAN.md.
+
 **Status:** CANONICAL FRONT DOOR FOR PRODUCT DIRECTION  
 **Owner direction reconciled through:** 2026-09-24 for owner-intake/parallel-work process; product-direction body retains its existing dated decisions  
 **Purpose:** Give every future Claude/ChatGPT/Codex session one place to answer: *What are we building? What are we not building? What does each feature mean? What is private vs public? What comes next? Which document wins if records disagree?*
