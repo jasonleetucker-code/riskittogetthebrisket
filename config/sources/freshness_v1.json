@@ -50,6 +50,7 @@
     "dlfIdp": {"seedHours": 72, "minHours": 24, "maxHours": 168},
     "dlfRookieSf": {"seedHours": 72, "minHours": 24, "maxHours": 336},
     "dlfRookieIdp": {"seedHours": 72, "minHours": 24, "maxHours": 336},
+    "dlfValuesSfTep": {"seedHours": 72, "minHours": 24, "maxHours": 336},
     "draftSharks": {"seedHours": 24, "minHours": 12, "maxHours": 96},
     "draftSharksIdp": {"seedHours": 24, "minHours": 12, "maxHours": 96},
     "fantasyCalc": {"seedHours": 24, "minHours": 12, "maxHours": 96},

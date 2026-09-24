@@ -59,6 +59,13 @@ COVERAGE_COLUMNS = ("QB", "RB", "WR", "TE", "DL", "LB", "DB", "ROOKIE", "PICK")
 # reason is data, stated once here and printed, so "why isn't X voting" has an
 # answer on the page instead of in someone's memory.
 KNOWN_NON_VOTING_REASONS: dict[str, str] = {
+    "dlfValuesSfTepPicks": (
+        "DLF Trade Analyzer pick values — kept for the pick audit, never a model input"
+    ),
+    "dlfValuesSfTep": (
+        "DLF Trade Analyzer Values (native offense value) — acquired, measurement gate "
+        "pending before it may vote (owner directive 2026-09-24)"
+    ),
     "ktcCrowdTradesSfTep": "KTC Market — benchmark only (src/sources/ktc_market.py); never a vote",
     "ktcSfTep": "mirror of KTC Crowd (TE++ board, identical values) — voting would double-count KTC Crowd",
     "ktc": "KTC Crowd at base (non-TEP) calibration — same crowd opinion, a calibration state not a vote",
