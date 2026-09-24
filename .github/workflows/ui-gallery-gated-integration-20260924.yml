@@ -1,0 +1,168 @@
+name: Calculator gated gallery integration
+on:
+  push:
+    branches: [codex/ui-gallery-gated-integration-20260924]
+    paths: [.github/workflows/ui-gallery-gated-integration-20260924.yml]
+permissions:
+  contents: write
+  pull-requests: read
+jobs:
+  gallery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: codex/psi-design-reference
+          fetch-depth: 0
+      - name: Audit ownership and compose integration candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          test "$(git rev-parse HEAD)" = 121adb09d3f50ab2284a0aae3dfb5dd840a8dd9b
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          mkdir -p /tmp/psi-gated-evidence
+          python - <<'PY'
+          import json, os, urllib.request
+          root = 'https://api.github.com/repos/jasonleetucker-code/riskittogetthebrisket'
+          def read(path):
+              req = urllib.request.Request(root + path, headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'})
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  return json.load(response)
+          def pages(path):
+              result = []
+              for page in range(1, 100):
+                  chunk = read(path + ('&' if '?' in path else '?') + f'per_page=100&page={page}')
+                  result.extend(chunk)
+                  if len(chunk) < 100:
+                      return result
+              raise RuntimeError('Unexpected pagination bound')
+          owned = {'frontend/app/design/DesignGallery.jsx', 'frontend/__tests__/components/ds/psi-gallery.test.jsx', 'tests/e2e/specs/psi-gallery.spec.js'}
+          audit = []
+          for pr in pages('/pulls?state=open'):
+              files = [f['filename'] for f in pages(f"/pulls/{pr['number']}/files")]
+              overlap = sorted(owned.intersection(files))
+              audit.append({'number': pr['number'], 'head': pr['head']['sha'], 'overlap': overlap})
+              if pr['number'] != 1429 and overlap:
+                  raise RuntimeError(f"Active overlapping PR #{pr['number']}: {overlap}")
+          with open('/tmp/psi-gated-evidence/live-claim-audit.json', 'w') as stream:
+              json.dump(audit, stream, indent=2)
+          PY
+          git fetch origin main
+          echo "INTEGRATION_BASE=$(git rev-parse origin/main)" >> "$GITHUB_ENV"
+          git merge --no-ff -m 'Integrate current main for bounded PSI gallery release' origin/main
+          git show fcb05507abd95e6bd1af06d1c5a2cb5450cce059:scripts/tmp_gallery_gate_integration.py > /tmp/patch_gallery.py
+          python /tmp/patch_gallery.py
+          git add frontend/app/design/DesignGallery.jsx frontend/__tests__/components/ds/psi-gallery.test.jsx tests/e2e/specs/psi-gallery.spec.js docs/ui/UI_PARALLEL_LEDGER.md docs/ui/PSI_DESIGN_REFERENCE_HANDOFF.md docs/WORK_CLAIMS.md
+          git commit -m 'fix(ui): gate unapproved chart previews while preserving PSI reference numbers'
+          echo "EVIDENCE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          git show -s --format='code=%H tree=%T parents=%P' | tee /tmp/psi-gated-evidence/code-provenance.txt
+          test ! -e scripts/tmp_gallery_gate_integration.py
+          test ! -e .github/workflows/ui-gallery-gated-integration-20260924.yml
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+      - name: Install canonical test dependencies
+        run: |
+          set -Eeuo pipefail
+          python -m pip install -r requirements-dev.txt
+          npm ci --no-audit --no-fund
+          npm ci --prefix frontend --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Planning, docs and L0
+        run: |
+          set -Eeuo pipefail
+          python scripts/check_planning_integrity.py
+          python scripts/check_product_plan_governance.py
+          python -m pytest tests/docs -q | tee /tmp/psi-gated-evidence/docs.log
+          python scripts/check_work_claims.py --files frontend/app/design/DesignGallery.jsx frontend/__tests__/components/ds/psi-gallery.test.jsx tests/e2e/specs/psi-gallery.spec.js --branch codex/psi-design-reference
+          bash scripts/tiered_validate.sh l0 | tee /tmp/psi-gated-evidence/l0.log
+      - name: Full frontend unit tests and production build budgets
+        run: |
+          set -Eeuo pipefail
+          npm test --prefix frontend 2>&1 | tee /tmp/psi-gated-evidence/vitest.log
+          npm run build --prefix frontend 2>&1 | tee /tmp/psi-gated-evidence/build.log
+      - name: Desktop phone E2E, six axe scans, keyboard and screenshots
+        env:
+          E2E_FRONTEND_CMD: npm run start
+        run: |
+          set -Eeuo pipefail
+          npx playwright test -c tests/e2e/playwright.config.js tests/e2e/specs/psi-gallery.spec.js --project=desktop-1366 --project=mobile-chromium --retries=0 2>&1 | tee /tmp/psi-gated-evidence/e2e.log
+          grep -Eq '4 passed' /tmp/psi-gated-evidence/e2e.log
+          if grep -Eq '[1-9][0-9]* skipped' /tmp/psi-gated-evidence/e2e.log; then exit 1; fi
+      - name: Record evidence and completed implementation claim
+        run: |
+          set -Eeuo pipefail
+          git diff --exit-code -- frontend src server.py scripts config .github
+          python - <<'PY'
+          import hashlib, json, os, re, shutil
+          from pathlib import Path
+          evidence = Path('docs/psi/evidence/PR_1429_2026-09-24/gated-integration')
+          evidence.mkdir(parents=True, exist_ok=True)
+          images = sorted(Path('tests/e2e/test-results').rglob('*.png'))
+          assert len(images) == 10, [str(p) for p in images]
+          names = set()
+          for p in images:
+              project = 'desktop' if 'desktop-1366' in str(p) else 'phone' if 'mobile-chromium' in str(p) else None
+              assert project, str(p)
+              name = project + '-' + p.name
+              assert name not in names, name
+              names.add(name)
+              shutil.copyfile(p, evidence / name)
+          shutil.copyfile('/tmp/psi-gated-evidence/live-claim-audit.json', evidence / 'live-claim-audit.json')
+          tests = Path('/tmp/psi-gated-evidence/vitest.log').read_text()
+          tests = re.sub(r'\x1b\[[0-9;]*m', '', tests)
+          counts = re.findall(r'(?:Test Files|Tests)\s+[^\n]+', tests)
+          manifest = {'code_sha': os.environ['EVIDENCE_SHA'], 'base_sha': os.environ['INTEGRATION_BASE'], 'run_id': os.environ['GITHUB_RUN_ID'], 'context': 'Built local CI stack, NOT production. Charts explicitly gated; #1428 remains open.', 'unit_summary': counts, 'e2e_passed': 4, 'e2e_skipped': 0, 'axe_scans': 6, 'screenshots': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in evidence.glob('*.png')}}
+          (evidence / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
+          (evidence / 'README.md').write_text('# Gated gallery integration evidence\n\nCode: `' + os.environ['EVIDENCE_SHA'] + '`; base: `' + os.environ['INTEGRATION_BASE'] + '`.\n\nRun: ' + os.environ['GITHUB_RUN_ID'] + '. Full frontend unit suite, build and all existing bundle budgets passed. Four real-stack desktop/phone E2E tests passed with zero skips/retries; six axe state scans, keyboard/focus, table access and page-overflow checks passed. Ten fresh PNGs are checksummed in manifest.json.\n\nThese screenshots show the fail-closed chart preview state, not approved chart treatment. Original parent-directory screenshots are historical pre-gate evidence. No palette, token, DS primitive, business logic or product chart was changed. #1428 and final /design PSI acceptance remain OPEN. This is CI evidence, not production verification or owner visual approval.\n')
+          p = Path('docs/WORK_CLAIMS.md')
+          s = p.read_text()
+          s = s.replace('integration in progress — owner requested push/merge; releasing the non-chart gallery foundation with explicit fail-closed chart previews and numeric fixture detail. #1428 remains OPEN, route remains PARTIAL. Exact-tree frontend/E2E/evidence gates required; no production acceptance claimed.', 'done — gated non-chart foundation implemented and validated on code ' + os.environ['EVIDENCE_SHA'][:12] + ', run ' + os.environ['GITHUB_RUN_ID'] + '; full frontend/build/budgets, four E2E, six axe scans and ten screenshots. PR #1429 normal integration/deployment remains separate. #1428 OPEN; route PARTIAL, not PSI_VERIFIED. No running worker or production acceptance claimed.')
+          p.write_text(s)
+          p = Path('docs/ui/UI_PARALLEL_LEDGER.md')
+          s = p.read_text().replace('Integration proof required | Integration proof required', '1366x768 gated-state tests/screens | 390x844 gated-state tests/screens').replace('Earlier six axe scans/keyboard passed; gated release revalidation required; #1428 OPEN', 'Six gated-state axe scans, keyboard and responsive checks PASS; #1428 OPEN').replace('Build/budget revalidation required; production NM', 'Full build and existing budgets PASS; production NM').replace('Earlier CI PNGs retained as historical; fresh gated proof required; NO production proof', 'Ten fresh PNGs in PR_1429_2026-09-24/gated-integration; earlier PNGs historical; NO production proof').replace('Validate and merge the gated foundation; keep chart decision and final production acceptance open', 'Normal PR integration/deploy gates; keep chart decision and final production acceptance open')
+          p.write_text(s)
+          p = Path('docs/ui/PSI_DESIGN_REFERENCE_HANDOFF.md')
+          s = p.read_text().replace('Fresh desktop/phone and keyboard/axe proof is required before the gated state ships.', 'Fresh gated-state desktop/phone, keyboard and six axe scans passed in run ' + os.environ['GITHUB_RUN_ID'] + '; see docs/psi/evidence/PR_1429_2026-09-24/gated-integration. Normal PR/deploy gates remain separate.')
+          p.write_text(s)
+          PY
+          python scripts/check_planning_integrity.py
+          python scripts/check_product_plan_governance.py
+          python -m pytest tests/docs -q
+          git add docs/psi/evidence/PR_1429_2026-09-24/gated-integration docs/ui/UI_PARALLEL_LEDGER.md docs/ui/PSI_DESIGN_REFERENCE_HANDOFF.md docs/WORK_CLAIMS.md
+          git diff --cached --check
+          git commit -m 'test(ui): preserve gated gallery desktop phone and accessibility proof'
+          git show -s --format='final=%H tree=%T parents=%P' | tee /tmp/psi-gated-evidence/final-provenance.txt
+          test ! -e scripts/tmp_gallery_gate_integration.py
+          test ! -e .github/workflows/ui-gallery-gated-integration-20260924.yml
+          git push origin HEAD:refs/heads/codex/psi-gallery-gated-candidate-20260924
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: psi-gated-integration-proof
+          path: |
+            /tmp/psi-gated-evidence
+            tests/e2e/test-results
+            docs/psi/evidence/PR_1429_2026-09-24/gated-integration
+          retention-days: 3
+      - name: Summary
+        if: always()
+        run: |
+          printf '### Gated PSI gallery integration\n\n' >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/psi-gated-evidence/code-provenance.txt >> "$GITHUB_STEP_SUMMARY"
+          if test -e /tmp/psi-gated-evidence/final-provenance.txt; then cat /tmp/psi-gated-evidence/final-provenance.txt >> "$GITHUB_STEP_SUMMARY"; fi
+          printf '\nCandidate only: no main write or deploy. Chart decision #1428 remains open.\n' >> "$GITHUB_STEP_SUMMARY"
