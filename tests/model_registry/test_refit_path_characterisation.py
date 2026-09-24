@@ -62,29 +62,29 @@ def _strip_comments_and_docstrings(text: str) -> str:
 
 class TestTheRefitDriverStillCannotWriteProductionCode:
     def test_raw_refit_does_not_write_any_file(self):
-        code = _strip_comments_and_docstrings(REFIT.read_text())
+        code = _strip_comments_and_docstrings(REFIT.read_text(encoding="utf-8"))
         assert "write_text" not in code, "the raw fitter writes production again"
 
     def test_raw_refit_cannot_import_the_writer(self):
-        code = _strip_comments_and_docstrings(REFIT.read_text())
+        code = _strip_comments_and_docstrings(REFIT.read_text(encoding="utf-8"))
         assert "write_committed_constants" not in code
 
     def test_raw_refit_never_rebaselines_a_guard(self):
-        code = _strip_comments_and_docstrings(REFIT.read_text())
+        code = _strip_comments_and_docstrings(REFIT.read_text(encoding="utf-8"))
         assert "rebaseline" not in code.lower()
         assert "PINNED_DELTAS" not in code
 
     def test_hard_tripwire_tracks_the_registry_champion_not_literal_numbers(self):
         tripwire = (
             REPO / "tests" / "canonical" / "test_hill_percentile_constants_tripwire.py"
-        ).read_text()
+        ).read_text(encoding="utf-8")
         assert "read_committed_constants() == reg.champion.params" in tripwire
         assert "_PINNED = {" not in tripwire
 
 
 class TestAutopilotOwnsTheOnlyAutomaticStateChangePath:
     def test_workflow_runs_the_fail_closed_gates_before_apply(self):
-        wf = WORKFLOW.read_text()
+        wf = WORKFLOW.read_text(encoding="utf-8")
         order = [
             "scripts/hill_autopilot.py",
             "scripts/hill_board_guard.py",
@@ -96,12 +96,12 @@ class TestAutopilotOwnsTheOnlyAutomaticStateChangePath:
         assert offsets == sorted(offsets)
 
     def test_workflow_changes_canonical_source_only_after_applied_true(self):
-        wf = WORKFLOW.read_text()
+        wf = WORKFLOW.read_text(encoding="utf-8")
         assert "steps.promote.outputs.applied" in wf
         assert "git add src/canonical/player_valuation.py" in wf
 
     def test_automatic_promotion_does_not_override_unvalidated_scopes(self):
-        autopilot = (REPO / "src" / "model_registry" / "autopilot.py").read_text()
+        autopilot = (REPO / "src" / "model_registry" / "autopilot.py").read_text(encoding="utf-8")
         assert 'out["HILL_PERCENTILE_C"]' in autopilot
         assert 'out["HILL_PERCENTILE_S"]' in autopilot
         assert "override_scopes" not in autopilot
@@ -112,7 +112,7 @@ class TestAutopilotOwnsTheOnlyAutomaticStateChangePath:
 
 class TestTheGateRunsDirectly:
     def test_refit_calls_the_holdout_evaluation_itself(self):
-        code = _strip_comments_and_docstrings(REFIT.read_text())
+        code = _strip_comments_and_docstrings(REFIT.read_text(encoding="utf-8"))
         assert "evaluate_offense_master" in code
         assert "decide_promotion" in code
 
@@ -122,23 +122,23 @@ class TestTheGateRunsDirectly:
         A gate invoked through pytest can be deselected by a filter; a
         gate invoked as a function call cannot.
         """
-        code = _strip_comments_and_docstrings(REFIT.read_text())
+        code = _strip_comments_and_docstrings(REFIT.read_text(encoding="utf-8"))
         assert "pytest" not in code, "the gate went back through pytest"
         assert "livedata" not in code
 
     def test_an_unevaluable_gate_is_an_error_not_a_pass(self):
-        code = _strip_comments_and_docstrings(REFIT.read_text())
+        code = _strip_comments_and_docstrings(REFIT.read_text(encoding="utf-8"))
         assert "HoldoutError" in code
         assert "EXIT_ERROR" in code
 
     def test_the_workflow_self_tests_the_gate_before_trusting_it(self):
-        assert "pytest tests/model_registry/" in WORKFLOW.read_text()
+        assert "pytest tests/model_registry/" in WORKFLOW.read_text(encoding="utf-8")
 
     def test_the_workflow_no_longer_runs_the_suite_against_rewritten_code(self):
         """It used to run `pytest -m "not livedata"` over constants it
         had just rewritten, while that same filter deselected the one
         test guarding them."""
-        assert 'pytest tests/ -q -m "not livedata"' not in WORKFLOW.read_text()
+        assert 'pytest tests/ -q -m "not livedata"' not in WORKFLOW.read_text(encoding="utf-8")
 
 
 class TestTheLivedataMarkingIsPreserved:
@@ -156,14 +156,16 @@ class TestTheLivedataMarkingIsPreserved:
         # comment — which made this guard silently read an empty-ish block
         # and fail for a reason that had nothing to do with the marking.
         # ``tests/test_livedata_policy.py`` already parses it this way.
-        block = CONFTEST.read_text().partition("_LIVEDATA_MODULES")[2].partition("}")[0]
+        block = (
+            CONFTEST.read_text(encoding="utf-8").partition("_LIVEDATA_MODULES")[2].partition("}")[0]
+        )
         assert '"test_ktc_reconciliation.py"' in block, (
             "the guard was un-marked — that re-introduces the PR-stalling "
             "failure the marking was added to prevent"
         )
 
     def test_the_gate_does_not_rely_on_that_marking_either_way(self):
-        code = _strip_comments_and_docstrings(REFIT.read_text())
+        code = _strip_comments_and_docstrings(REFIT.read_text(encoding="utf-8"))
         assert "conftest" not in code
         assert "_LIVEDATA_MODULES" not in code
 
@@ -173,12 +175,12 @@ class TestTheLivedataMarkingIsPreserved:
 
 class TestKtcRemainsATrainingSource:
     def test_ktc_is_a_training_source(self):
-        offense_block = FIT.read_text().split("OFFENSE_SOURCES")[1].split("}")[0]
+        offense_block = FIT.read_text(encoding="utf-8").split("OFFENSE_SOURCES")[1].split("}")[0]
         assert "ktc.csv" in offense_block
         assert "KTC" in OFFENSE_TRAINING_SOURCES
 
     def test_the_guard_scores_the_constants_ktc_trains(self):
-        pv = _strip_comments_and_docstrings(PLAYER_VALUATION.read_text())
+        pv = _strip_comments_and_docstrings(PLAYER_VALUATION.read_text(encoding="utf-8"))
         sig = pv.split("def percentile_to_value")[1].split(")")[0]
         assert "midpoint: float = HILL_PERCENTILE_C" in sig
         assert "slope: float = HILL_PERCENTILE_S" in sig
@@ -196,7 +198,9 @@ class TestParityWithTheFitSourceList:
     becomes eligible as holdout."""
 
     def test_training_mirror_matches_the_fit_script(self):
-        block = FIT.read_text().split("OFFENSE_SOURCES: dict[str, tuple[str, str]] = {")[1]
+        block = FIT.read_text(encoding="utf-8").split(
+            "OFFENSE_SOURCES: dict[str, tuple[str, str]] = {"
+        )[1]
         block = block.split("}")[0]
         found = set(re.findall(r'^\s*"([A-Za-z]+)":', block, re.MULTILINE))
         assert found == set(OFFENSE_TRAINING_SOURCES), (
@@ -205,7 +209,9 @@ class TestParityWithTheFitSourceList:
         )
 
     def test_mirrored_paths_match_the_fit_script(self):
-        block = FIT.read_text().split("OFFENSE_SOURCES: dict[str, tuple[str, str]] = {")[1]
+        block = FIT.read_text(encoding="utf-8").split(
+            "OFFENSE_SOURCES: dict[str, tuple[str, str]] = {"
+        )[1]
         block = block.split("}")[0]
         for label, (path, _) in OFFENSE_TRAINING_SOURCES.items():
             assert path in block, f"{label} path {path} not in the fit script"

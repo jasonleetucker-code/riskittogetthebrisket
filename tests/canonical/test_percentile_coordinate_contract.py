@@ -194,7 +194,7 @@ class TestServingConsumesTheOwner:
 
     def test_serving_maps_ranks_through_the_canonical_helper(self):
         """A static guard against the formula being re-inlined later."""
-        src = (ROOT / "src/api/data_contract.py").read_text()
+        src = (ROOT / "src/api/data_contract.py").read_text(encoding="utf-8")
         assert "rank_to_percentile" in src, (
             "serving should consume the canonical coordinate owner rather than "
             "recomputing (rank - 1) / (denom - 1) inline"
@@ -202,7 +202,7 @@ class TestServingConsumesTheOwner:
 
     def test_the_fitter_and_holdout_import_the_owner(self):
         for rel in ("scripts/fit_hill_curve_percentile.py", "src/model_registry/holdout.py"):
-            src = (ROOT / rel).read_text()
+            src = (ROOT / rel).read_text(encoding="utf-8")
             assert (
                 "training_percentiles" in src or "rank_to_percentile" in src
             ), f"{rel} still builds percentiles locally"

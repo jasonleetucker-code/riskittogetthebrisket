@@ -82,12 +82,12 @@ class TestScheduledRefitPinsItsSnapshot:
 
     def test_the_fitter_honours_an_explicit_pin(self):
         """The mechanism exists; the question is whether the caller uses it."""
-        source = FIT.read_text()
+        source = FIT.read_text(encoding="utf-8")
         assert 'SNAPSHOT_ENV_VAR = "RISKIT_FIT_SNAPSHOT"' in source
 
     def test_the_workflow_pins_the_snapshot_before_fitting(self):
         """RED: the scheduled refit sets no pin, so selection is by mtime."""
-        wf = WORKFLOW.read_text()
+        wf = WORKFLOW.read_text(encoding="utf-8")
         assert "RISKIT_FIT_SNAPSHOT" in wf, (
             "the weekly refit does not pin its board snapshot, so "
             "`_latest_snapshot()` selects by mtime and the IDP and ROOKIE "
@@ -100,7 +100,7 @@ class TestScheduledRefitPinsItsSnapshot:
         Exporting a path that has since been rewritten by a data refresh
         would still fit the wrong bytes while looking pinned.
         """
-        wf = WORKFLOW.read_text()
+        wf = WORKFLOW.read_text(encoding="utf-8")
         assert re.search(r"sha256sum|hashlib|sha256", wf), (
             "the pinned snapshot must be hashed so the challenger record can "
             "state which bytes produced it"
@@ -108,7 +108,7 @@ class TestScheduledRefitPinsItsSnapshot:
 
     def test_a_missing_pin_target_is_fatal_rather_than_a_fallback(self):
         """Already true in the fitter — pinned so it stays true."""
-        source = FIT.read_text()
+        source = FIT.read_text(encoding="utf-8")
         block = source.split("def _latest_snapshot")[1].split("\ndef ")[0]
         assert "raise SystemExit" in block
         assert "Refusing to fall back" in block
@@ -341,5 +341,5 @@ class TestTheBindingPromotionRuleIsTheMarginNotUnanimity:
 
 class TestProductionRegistryIsNotTouchedByTests:
     def test_the_shipped_registry_still_names_v2_champion(self):
-        blob = json.loads(PROD_REGISTRY.read_text())
+        blob = json.loads(PROD_REGISTRY.read_text(encoding="utf-8"))
         assert blob["championVersion"] == 2

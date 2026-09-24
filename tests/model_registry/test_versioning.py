@@ -231,7 +231,7 @@ class TestPersistence:
         reg = ModelRegistry("m")
         reg.seed_champion(_v(1))
         path = reg.save(tmp_path)
-        blob = json.loads(path.read_text())
+        blob = json.loads(path.read_text(encoding="utf-8"))
         assert blob["championVersion"] == 1
         assert blob["schemaVersion"] == 1
 
