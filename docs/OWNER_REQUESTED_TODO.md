@@ -34,6 +34,17 @@ Existing historical rows/status vocabulary are preserved. Normalize an older ite
 
 **Durable record:** issue #1412 and `docs/BRISKET_IDEAS.md`. This process instruction is active immediately and does not itself authorize any feature build.
 
+
+### Unified completion-portfolio meaning — owner decision 2026-09-24
+
+The owner-facing phrase **Brisket Ideas** now means more than newly captured chat ideas. It is the conversational front door for the **entire remaining completion portfolio**: everything still desired/required by the Master Product Plan, feature inventory/specs, C-Series scope/completion records, live owner intake, open issues, and verified current-state evidence.
+
+This does **not** turn `docs/OWNER_REQUESTED_TODO.md` into a duplicate exhaustive master backlog. The portfolio is derived from the existing canonical records. Issue #1418 and `docs/BRISKET_IDEAS.md` define the selection process.
+
+When the owner asks for “the next reasonable batch” or equivalent, the agent must recompute a bounded batch from current truth using priority, completion criticality, dependencies, shared foundations, downstream unlocks, time sensitivity, active claims/PRs, and safe parallelism. Issue number/order is not a priority scheme.
+
+`docs/EXECUTION_PLAN.md` remains the sole implementation-authorization record.
+
 ## Added 2026-08-11
 
 *(Rows #829 and #830 and binding decisions 47–65 were added 2026-08-14 under this same heading.)*
