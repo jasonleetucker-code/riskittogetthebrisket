@@ -9184,8 +9184,11 @@ def weighted_count_aware_mean_median_blend(
       n == 1   → passthrough
       n == 2   → weighted mean; MAD = weighted abs deviation
       n == 3-4 → (weighted mean + weighted median) / 2, untrimmed
-      n ≥ 5    → drop one average observation's weight (Σw / n) from each
-                 end, then (weighted mean + weighted median) / 2 over the rest
+      n ≥ 5    → trimmed weighted mean (one average observation's weight,
+                 Σw / n, dropped from each end) + weighted median, / 2.
+                 The median is read from the full distribution: a symmetric
+                 trim leaves the 0.5-quantile unchanged, exactly as in the
+                 unweighted rule (#164), where trimming acts on the mean only.
 
     Trimming targets extreme VALUES by weight MASS
     (:func:`_trim_one_observation_mass`, 2026-09-24).  With equal weights

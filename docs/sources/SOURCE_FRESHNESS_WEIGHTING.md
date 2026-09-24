@@ -417,13 +417,49 @@ The blend reads the median from the full distribution, because the
 symmetric mass trim leaves the 0.5-quantile unchanged. The whole blend is
 then monotone: 0 violations in 50,000 random cases.
 
-Board impact vs the family-cap board (same payload): 712 of 1,042 values move,
-median 0.17%, top-50 max 1.9% (max rank move 1). The largest moves are 3-source
-IDP rows where one source holds about half the weight. Kyle Hamilton
-(DS-IDP 2269 @1.0, IDP Show 3554 @0.12, IDPTC 3597 @0.878) drops 3416 → 2922
-at the median. DS-IDP owns [0, 0.500] of the weight, so the 50% point sits at
-its boundary and ~2,900 is the textbook weighted median. The midpoint
-interpolation leaned toward the higher sources.
+**The estimator contract.** Unweighted (#164): n=1 passthrough, n=2 mean,
+n=3-4 (mean + median)/2, n≥5 drop one min and one max and take
+(trimmed mean + median)/2. A symmetric trim never moves the median, so trimming
+acts on the MEAN only. The weighted generalisation uses one unit throughout: one
+AVERAGE observation's mass, W/n.
+
+* The trimmed mean is the mean of the weighted quantile function Q(u) over
+  [1/n, 1 − 1/n].
+* The median is the mean of Q(u) over [1/2 − 1/(2n), 1/2 + 1/(2n)].
+* With equal weights both are exactly the unweighted statistics.
+
+The median is read from the full distribution. Trimming mass m from both ends
+leaves the remaining mass's midpoint at cumulative m + (W − 2m)/2 = W/2, so the
+trimmed and full distributions have the same 0.5 point. That makes it the
+estimator's median, not a workaround. Sizing the window on the trimmed set's
+leftover slivers was a count artifact, and it broke monotonicity.
+
+**Why values move: bounded influence.** Under the window median, an
+observation's pull on the median is at most its weight relative to one average
+observation. Under the step median and the retired midpoint median, a
+near-zero-weight source whose thin slice straddles 0.5 becomes the ENTIRE
+median. That contradicts freshness weighting. Kyle Hamilton's IDP anchor on the
+2026-09-24 board: Draft Sharks IDP 2228 @0.986, **IDP Show 3554 @0.100** (36
+days stale; 4.8% of the weight), IDPTC 3597 @1.0. The old anchor median was IDP
+Show's own value, 3554.5. The window median is 3018.6 (IDP Show capped at
+0.048 / 0.333 = 14% of the window). The anchor center (weighted mean 2948 +
+median) / 2 moves 3251 → 2983, and after α-shrinkage the row moves 3228 → 2987.
+The IDP anchors that include the stale IDP Show move this way; offense barely
+moves.
+
+**Board impact vs the family-cap board (same payload
+`dynasty_export_20260924_135023`):** 712 of 1,042 values move. |Δ| median
+0.17%, p75 0.43%, p90 1.49%, p95 3.71%, max 10.04%. By group:
+
+| group | changed / rows | median | p90 | max |
+|---|---|---|---|---|
+| offense | 386 / 503 | 0.13% | 0.57% | 3.36% |
+| IDP | 218 / 395 | 0.30% | 4.78% | 10.04% |
+| picks | 108 / 144 | 0.22% | 1.30% | 6.03% |
+
+2-voter rows change 0 of 86, because n = 2 is a weighted mean. 1-voter rows move
+only through downstream stages (for example the rookie-pool tether for picks).
+Top-50 max is 1.9% with at most one rank move.
 
 **The DLF rookie boards** vote inside the DLF family cap until the rookie-board
 audit decides whether they are distinct signals, mirrors, or seasonal.
