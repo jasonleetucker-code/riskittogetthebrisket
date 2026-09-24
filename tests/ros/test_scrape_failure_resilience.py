@@ -8,25 +8,28 @@ the last-known-good values.  A bad scrape never erases data.
 from __future__ import annotations
 
 import csv
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
+from src.ros import scrape
 from src.ros.scrape import _csv_path, _has_valid_cache, _write_csv
 
 
 class TestScrapeResilience(unittest.TestCase):
     def setUp(self):
-        # Use a per-test-class scratch CSV so we don't disturb real
-        # production scrape outputs.  Test asserts work on a known
-        # source key that won't conflict with production registry.
+        # Scratch CSV under a per-test temp ROS root.  This used to be
+        # written into the REAL ``data/ros/sources/`` (a tracked directory)
+        # and deleted in tearDown -- a crash between the two left it there,
+        # and the suite had no business writing that tree at all.
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        patcher = patch.object(scrape, "ROS_DATA_DIR", Path(tmp.name))
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self._test_key = "_isolation_test_source"
         self._csv = _csv_path(self._test_key)
-        # Clean any leftover from a previous run.
-        if self._csv.exists():
-            self._csv.unlink()
-
-    def tearDown(self):
-        if self._csv.exists():
-            self._csv.unlink()
 
     def test_existing_csv_preserved_when_adapter_returns_no_rows(self):
         # Seed yesterday's CSV.
