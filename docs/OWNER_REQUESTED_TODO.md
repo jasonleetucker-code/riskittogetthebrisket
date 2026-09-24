@@ -34,6 +34,16 @@ Existing historical rows/status vocabulary are preserved. Normalize an older ite
 
 **Durable record:** issue #1412 and `docs/BRISKET_IDEAS.md`. This process instruction is active immediately and does not itself authorize any feature build.
 
+
+## Added 2026-09-24 — draft-pick lifecycle and repeatable Trade Calculator assets
+
+| Priority | Issue | Area | Required outcome | Status |
+|---|---|---|---|---|
+| P1 product correctness | #1414 | Canonical pick lifecycle / active asset set | **Retire a rookie-draft class from active/current site surfaces only after the league draft is complete AND the drafted rookies have been added to fantasy rosters.** Immediate case: 2026 picks should no longer appear as active assets. Going forward this must be an event/state-driven lifecycle rule, not a hard-coded calendar-year cleanup. Preserve retired pick identities in historical trades, immutable snapshots and provenance; retired/missing is never rewritten to zero. One canonical lifecycle rule should drive Rankings/search, Trade Calculator, active pick selectors/generation, Draft Capital and other present-tense consumers. | NEXT — NOT AUTHORIZED; serial with current canonical pick work / #1411 |
+| P1 Trade Calculator correctness | #1415 / T-NEW-02 | Trade Calculator / package asset quantities | **Allow repeated assets whenever repetition is semantically valid.** Generic/hypothetical/repeatable pick classes (for example two “Mid 2027 1st” assets) may appear more than once or carry quantity >1; multiple distinct real owned picks must all be addable even when they render with the same tier/label. The exact same unique owned-pick identity must not be accidentally double-counted. Value/VA/package math, remove-one behavior, share URLs, persistence, exports, equalizers and mobile/desktop must preserve every valid copy/identity. This refines the existing T-NEW-02 requirement rather than creating a second quantity system. | NEXT — NOT AUTHORIZED; safe parallel with unrelated source work if path claims are disjoint |
+
+Planning classification follows `docs/BRISKET_IDEAS.md`: #1414 is `SERIAL_CANONICAL_OWNER` while current pick-pipeline work is in flight; #1415 is `SAFE_PARALLEL` relative to unrelated source/DLF work but remains serial inside the shared package/serialization owner. Implementation authority remains exclusively in `docs/EXECUTION_PLAN.md`.
+
 ## Added 2026-08-11
 
 *(Rows #829 and #830 and binding decisions 47–65 were added 2026-08-14 under this same heading.)*
