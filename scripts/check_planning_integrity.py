@@ -576,6 +576,51 @@ def check_reserved_phrase(f: Failures) -> None:
             )
 
 
+UI_CONTRACT = "docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md"
+UI_LEDGER = "docs/ui/UI_PARALLEL_LEDGER.md"
+UI_POLICY = "UI policy: ALWAYS_PARALLEL_UNTIL_UI_COMPLETE"
+UI_BATCHING = "UI batching: INCLUDE_OR_REFERENCE_ACTIVE_LANE"
+UI_POLICY_DOCUMENTS = (
+    "docs/EXECUTION_PLAN.md",
+    "docs/MASTER_PRODUCT_PLAN.md",
+    "docs/BRISKET_IDEAS.md",
+    "ASSISTANT_COORDINATION.md",
+)
+UI_POINTER_DOCUMENTS = (*UI_POLICY_DOCUMENTS, "CLAUDE.md", "docs/C_SERIES_EXECUTION_MAP.md")
+
+
+def check_ui_parallel_governance(f: Failures, root: Path | None = None) -> None:
+    """Guard durable UI planning links, not worker activity or visual acceptance."""
+    root = REPO if root is None else root
+    texts = {}
+    for relative in dict.fromkeys((UI_CONTRACT, UI_LEDGER, *UI_POINTER_DOCUMENTS)):
+        try:
+            text = (root / relative).read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as exc:
+            f.add("ui-parallel", f"{relative}: required readable document missing ({exc})")
+            continue
+        if not text.strip():
+            f.add("ui-parallel", f"{relative}: required document is empty")
+            continue
+        texts[relative] = text
+    for relative in (UI_CONTRACT, *UI_POLICY_DOCUMENTS):
+        if relative in texts and UI_POLICY not in {
+            line.strip() for line in texts[relative].splitlines()
+        }:
+            f.add("ui-parallel", f"{relative}: missing operative field {UI_POLICY!r}")
+    ideas = texts.get("docs/BRISKET_IDEAS.md")
+    if ideas is not None and UI_BATCHING not in {line.strip() for line in ideas.splitlines()}:
+        f.add("ui-parallel", "docs/BRISKET_IDEAS.md: active UI batching field is missing")
+    links = {relative: (UI_CONTRACT, UI_LEDGER) for relative in UI_POINTER_DOCUMENTS}
+    links[UI_CONTRACT] = ("docs/PREMIUM_SPORTS_INTELLIGENCE_DESIGN_NORTH_STAR.md", UI_LEDGER)
+    links[UI_LEDGER] = (UI_CONTRACT, "docs/WORK_CLAIMS.md")
+    for relative, targets in links.items():
+        if relative in texts:
+            for target in targets:
+                if target not in texts[relative]:
+                    f.add("ui-parallel", f"{relative}: missing canonical pointer {target}")
+
+
 def main() -> int:
     f = Failures()
     try:
@@ -590,6 +635,7 @@ def main() -> int:
         check_single_authorization_record(f)
         check_single_intake_ledger(f)
         check_reserved_phrase(f)
+        check_ui_parallel_governance(f)
     except SystemExit as exc:
         print(exc, file=sys.stderr)
         return 2
@@ -615,6 +661,7 @@ def main() -> int:
     print("  declared RET-row count matches the rows actually flagged")
     print("  every manifest row maps to exactly one execution unit")
     print("  V1 standing tally agrees with the V1 row table")
+    print("  UI contract, ledger, planning pointers and parallel batching policy remain connected")
     return 0
 
 
