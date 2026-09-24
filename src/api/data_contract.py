@@ -715,6 +715,17 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "CSVs/site_raw/dlfRookieIdp.csv",
         "signal": "rank",
     },
+    # DLF's native offensive VALUE (Trade Analyzer Values, SF + TE premium;
+    # owner directive 2026-09-24), fetched by ``scripts/fetch_dlf.py`` on the
+    # production timer.  LOADED (so the raw published value reaches
+    # ``canonicalSiteValues`` for the trade page's literal DLF second opinion)
+    # but declared in ``_NON_VOTING_SOURCE_CSV_KEYS`` until its measurement
+    # gate — distribution, identity match, Hampel drop rate, board diff — has
+    # passed on real captures.  Registering it as a voter is a separate step.
+    "dlfValuesSfTep": {
+        "path": "CSVs/site_raw/dlfValuesSfTep.csv",
+        "signal": "value",
+    },
     # DraftSharks dynasty rankings — split into offense + IDP CSVs
     # by scripts/fetch_draftsharks.py.  The scraper reads the single
     # offense-combined DOM (where every player has a cross-universe
@@ -777,7 +788,11 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
 #   and is the benchmark our model is compared against, never a vote.
 # Enforced at import (``_assert_non_voting_keys_unregistered``): registering
 # any of these would re-count KTC information the model already holds.
-_NON_VOTING_SOURCE_CSV_KEYS: frozenset[str] = frozenset({"ktc", "ktcSfTep", "ktcCrowdTradesSfTep"})
+_NON_VOTING_SOURCE_CSV_KEYS: frozenset[str] = frozenset(
+    # dlfValuesSfTep: DLF Trade Analyzer Values, loaded for provenance and the
+    # literal DLF second opinion; non-voting until its measurement gate passes.
+    {"ktc", "ktcSfTep", "ktcCrowdTradesSfTep", "dlfValuesSfTep"}
+)
 
 # Rank -> synthetic value transform used when a CSV declares signal=rank.
 # The absolute number is irrelevant to the downstream pipeline (it only
@@ -4640,8 +4655,16 @@ def _parse_source_csv_cached(
                             orig_rank = None
                     sid = _pick_provider_id(csvrow, _SLEEPER_ID_TOKENS).strip()
                     try:
+                        # A published fraction survives (DLF's Trade Analyzer
+                        # Values run 0–~1000 to four decimals, where
+                        # ``int(float())`` turned 0.7 into 0 and cut every
+                        # value under 10 to a whole number).  An integral
+                        # value stays an ``int``, so the integer-native boards
+                        # (KTC, IDPTC) are bit-identical to before.
+                        number = float(val)
+                        parsed_val: int | float = int(number) if number == int(number) else number
                         csv_lookup.setdefault(key, []).append(
-                            (name, int(float(val)), orig_rank, None, sid or None)
+                            (name, parsed_val, orig_rank, None, sid or None)
                         )
                     except (ValueError, TypeError):
                         continue

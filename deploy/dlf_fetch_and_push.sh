@@ -114,7 +114,7 @@ fi
 if [[ "${FETCH_RC}" -ne 0 ]]; then
   err "fetch_dlf.py exited ${FETCH_RC}; committing only the boards it wrote: ${WRITTEN[*]}"
 else
-  WRITTEN=(dlfSf dlfIdp dlfRookieSf dlfRookieIdp)
+  WRITTEN=(dlfSf dlfIdp dlfRookieSf dlfRookieIdp dlfValuesSfTep)
 fi
 
 # Persist the (possibly refreshed) session jar back to the work dir so
@@ -141,7 +141,18 @@ NOW_EPOCH="$(date -u +%s)"
 for key in "${WRITTEN[@]}"; do
   printf '%s\n' "${NOW_EPOCH}" > "data/scrape_state/${key}_last_success"
 done
-if [[ "${FETCH_RC}" -eq 0 ]]; then
+# The aggregate ``dlf_last_success`` (read by scheduled-refresh.yml's "Assert
+# DLF freshness") means "every DLF RANK board refreshed".  It deliberately
+# ignores dlfValuesSfTep: a Trade Analyzer Values failure must never raise the
+# rank boards' freshness alarm, and vice versa — each board has its own stamp,
+# dataset state and health (owner directive 2026-09-24).
+RANK_BOARDS_WRITTEN=0
+for key in dlfSf dlfIdp dlfRookieSf dlfRookieIdp; do
+  if [[ " ${WRITTEN[*]} " == *" ${key} "* ]]; then
+    RANK_BOARDS_WRITTEN=$((RANK_BOARDS_WRITTEN + 1))
+  fi
+done
+if [[ "${RANK_BOARDS_WRITTEN}" -eq 4 ]]; then
   printf '%s\n' "${NOW_EPOCH}" > "data/scrape_state/dlf_last_success"
 fi
 
@@ -164,17 +175,20 @@ done
 # -f because data/ is gitignored at the repo level - matches the
 # "Commit updated data" step in scheduled-refresh.yml which also
 # force-adds data/scrape_state/ for the same reason.
-git add -f -- \
-  CSVs/site_raw/dlfSf.csv \
-  CSVs/site_raw/dlfIdp.csv \
-  CSVs/site_raw/dlfRookieSf.csv \
-  CSVs/site_raw/dlfRookieIdp.csv \
-  data/scrape_state/dlf_last_success \
-  data/scrape_state/dlfSf_last_success \
-  data/scrape_state/dlfIdp_last_success \
-  data/scrape_state/dlfRookieSf_last_success \
-  data/scrape_state/dlfRookieIdp_last_success \
-  "${DATASET_PATHS[@]}"
+# Existing paths only: a board that has never been written (dlfValuesSfTep
+# before its first successful capture) has no CSV yet, and one missing
+# pathspec would abort the whole add — and with it every healthy board.
+OWNED_PATHS=(data/scrape_state/dlf_last_success CSVs/site_raw/dlfValuesSfTepPicks.csv)
+for key in dlfSf dlfIdp dlfRookieSf dlfRookieIdp dlfValuesSfTep; do
+  OWNED_PATHS+=("CSVs/site_raw/${key}.csv" "data/scrape_state/${key}_last_success")
+done
+STAGE=()
+for path in "${OWNED_PATHS[@]}"; do
+  if [[ -e "${path}" ]]; then
+    STAGE+=("${path}")
+  fi
+done
+git add -f -- "${STAGE[@]}" "${DATASET_PATHS[@]}"
 
 if git diff --cached --quiet; then
   log "no changes after fetch - exiting clean"

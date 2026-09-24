@@ -121,11 +121,11 @@ fi
 hdr "[5] dedicated fetch clone + committed CSV headers"
 if [[ -d "${WORK_DIR}/repo/.git" ]]; then
   git -C "${WORK_DIR}/repo" log -1 --format='clone HEAD : %h %cI %s' 2>&1 || true
-  for key in dlfSf dlfIdp dlfRookieSf dlfRookieIdp; do
+  for key in dlfSf dlfIdp dlfRookieSf dlfRookieIdp dlfValuesSfTep; do
     f="${WORK_DIR}/repo/CSVs/site_raw/${key}.csv"
     [[ -f "${f}" ]] && echo "${key}: $(head -n1 "${f}") rows=$(($(wc -l <"${f}") - 1))"
   done
-  for key in dlf dlfSf dlfIdp dlfRookieSf dlfRookieIdp; do
+  for key in dlf dlfSf dlfIdp dlfRookieSf dlfRookieIdp dlfValuesSfTep; do
     s="${WORK_DIR}/repo/data/scrape_state/${key}_last_success"
     [[ -f "${s}" ]] && echo "stamp ${key}_last_success = $(date -u -d "@$(tr -d '[:space:]' <"${s}")" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || cat "${s}")"
   done
