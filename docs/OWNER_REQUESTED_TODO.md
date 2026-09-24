@@ -14,6 +14,26 @@ reconciliation). New owner instructions land here first and are durable the mome
 
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
+
+## Brisket Ideas shorthand and intake discipline — owner decision 2026-09-24
+
+**Friendly owner-facing name:** **Brisket Ideas**. When the owner says “add this to Brisket Ideas,” “put this on the Brisket list,” “save this idea,” or equivalent durable wording, it routes to this live intake ledger. The owner does not need to choose a repository document.
+
+The operating front door is `docs/BRISKET_IDEAS.md` (issue #1412). It creates **no second backlog** and no implementation authority. It standardizes how new material requests are reconciled:
+
+- dedupe/supersede before creating a new record;
+- identify the canonical owner and shared foundation;
+- name dependencies and overlap;
+- classify planning position **NOW / NEXT / LATER / BLOCKED** (plus PAUSED / DONE / REJECTED where applicable);
+- classify safe concurrency as **SAFE_PARALLEL / SERIAL_CANONICAL_OWNER / INTEGRATION_ONLY / DEPENDENCY_BLOCKED**;
+- perform a lightweight same-session portfolio check so a new idea is placed coherently rather than appended as an isolated issue;
+- prefer one shared foundation that unlocks several requirements over parallel feature-local implementations;
+- keep readiness separate from authority: **only `docs/EXECUTION_PLAN.md` authorizes implementation**.
+
+Existing historical rows/status vocabulary are preserved. Normalize an older item when it is next materially reconciled; do not mass-rewrite history merely for naming consistency.
+
+**Durable record:** issue #1412 and `docs/BRISKET_IDEAS.md`. This process instruction is active immediately and does not itself authorize any feature build.
+
 ## Added 2026-08-11
 
 *(Rows #829 and #830 and binding decisions 47–65 were added 2026-08-14 under this same heading.)*

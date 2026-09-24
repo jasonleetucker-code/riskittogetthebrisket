@@ -1,7 +1,7 @@
 # Risk It To Get The Brisket — Master Product Plan
 
 **Status:** CANONICAL FRONT DOOR FOR PRODUCT DIRECTION  
-**Owner direction reconciled through:** 2026-08-12  
+**Owner direction reconciled through:** 2026-09-24 for owner-intake/parallel-work process; product-direction body retains its existing dated decisions  
 **Purpose:** Give every future Claude/ChatGPT/Codex session one place to answer: *What are we building? What are we not building? What does each feature mean? What is private vs public? What comes next? Which document wins if records disagree?*
 
 > **Start here for every material product, roadmap, architecture, or implementation-planning task.**
@@ -42,6 +42,7 @@ The product plan is intentionally split by responsibility. Multiple documents ar
 | Question | Canonical record |
 |---|---|
 | What is the overall product direction and which document wins? | **`docs/MASTER_PRODUCT_PLAN.md`** (this file) |
+| How do I add an owner idea / see how it should be grouped or parallelized? | **`docs/BRISKET_IDEAS.md`** front door → `docs/OWNER_REQUESTED_TODO.md` live intake ledger. This is process/navigation, not implementation authority. |
 | What features exist, are planned, removed, defective, or evidence-gated? | **`docs/OWNER_FEATURE_INVENTORY.md`** |
 | What does an approved feature actually mean; what UX/methodology/public-private behavior was decided? | **`docs/OWNER_PRODUCT_BACKLOG_SPEC.md`** plus the detailed reconciled requirements in this file |
 | What is the current authorized execution sequence/checkpoint? | **`docs/EXECUTION_PLAN.md`** |
