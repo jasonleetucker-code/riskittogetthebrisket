@@ -112,6 +112,37 @@ Reading it honestly:
    it changes any historical champion/challenger decision. Families should be
    defined from measured curve-shape correlation.
 
+## 4b. H3 measured: each trainer's marginal influence (leave-one-source-out)
+
+Read-only, same primitives, the committed CSVs at `97c1f84e8`. The scope master
+refit from all six trainers is c = 0.069, s = 1.11 (V at p = .10 is 3984). Each
+row refits the master without one trainer and reports the shift in V(p):
+
+| trainer removed | live role | p=.05 | p=.10 | p=.30 | p=.50 | p=.90 |
+|---|---|---|---|---|---|---|
+| KTC (base) | non-voting | −3.4% | −8.2% | −17.5% | −21.6% | −25.8% |
+| Dynasty Nerds | rank voter | +0.9% | +4.3% | +12.9% | +17.7% | +23.4% |
+| Fitzmaurice | rank voter | −5.8% | −7.7% | −9.1% | −9.1% | −8.7% |
+| Draft Sharks | rank voter | +8.2% | +8.9% | +4.4% | +0.8% | −3.9% |
+| Dynasty Daddy | rank voter | +1.0% | +2.3% | +5.2% | +6.6% | +8.1% |
+| Yahoo / Boone | rank voter | −0.9% | −0.5% | +1.1% | +2.2% | +3.4% |
+
+A master fitted on the one value-voting-lineage trainer (KTC base) alone sits
+**+32% at p = .10 and +110% at p = .50** above the six-trainer master. The
+indirect channel H3 describes is therefore **not small**. The five rank-voting
+trainers' native values set most of the curve's mid and tail shape. A single
+expert board (Dynasty Nerds) moves the tail by up to 23%. That is
+not a verdict that they should stop training: whether a rank voter's published
+native values are valid spacing evidence is repair-contract item 2
+(eligibility), decided per source on evidence, not by voting role. It does mean
+the choice changes the curve materially, so it must be explicit.
+
+Context: the Autopilot's pending OFFENSE challenger (c = 0.066, s = 1.085;
+gates `forward_persistence` and `parameter_stability` still false on
+2026-09-24) sits close to this refit, and the live champion is c = 0.110,
+s = 1.110. Promotion stays with the Autopilot. This audit neither promotes
+nor blocks it.
+
 ## 5. Repair contract (sequenced after #1427; owner requirements, 2026-09-24)
 
 1. **One canonical source-metadata model** expresses `model_input`,
@@ -142,7 +173,7 @@ Reading it honestly:
    holdout, board-impact gates and rollback are untouched. No constant is
    hand-edited, and the curve is never fitted to our own board.
 
-Measured next, once #1427 is on `main`: each trainer's marginal calibration
-influence (leave-one-source-out on the master, H3), and a current-vs-aligned
+H3's marginal influence is measured in §4b. Measured next, once #1427 is on
+`main`: re-derive §3's production columns, then a current-vs-aligned
 curve comparison on the same pinned evidence, with c / s and values at
 p = 0, .01, .02, .05, .10, .20, .30, .50, .70, .90 for each routed scope.
