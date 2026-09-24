@@ -436,6 +436,49 @@ def _native_value_of(row: dict) -> float | None:
     return value if value > 0 else None
 
 
+def _board_verdict(cfg: dict, rows: list[dict]) -> tuple[bool, str]:
+    """Would a real run write this board?  ``(ok, reason)``.
+
+    The ONE place the per-board write guards live, shared by the real run and
+    ``--dry-run`` so a diagnostic reports exactly the decision production makes.
+    """
+    min_rows = int(cfg.get("min_rows") or 30)
+    if len(rows) < min_rows:
+        return False, (
+            f"parsed only {len(rows)} rows — expected ≥{min_rows} (aligned with "
+            "the downstream contract floor); partial/degraded scrape"
+        )
+    if cfg.get("require_native_value"):
+        native_count = sum(1 for row in rows if _native_value_of(row) is not None)
+        if native_count < min_rows:
+            return False, (
+                f"native Value coverage {native_count}/{len(rows)} is below "
+                f"required floor {min_rows}; semantic/parser degradation"
+            )
+    return True, "ok"
+
+
+def _candidate_table_headers(html: str) -> list[list[str]]:
+    """Header cells of every table with at least 10 body rows (diagnostics).
+
+    Header text on DLF's tables is public column labels and expert names; each
+    cell is clipped so a long annotation cannot flood the log.
+    """
+    try:
+        from bs4 import BeautifulSoup
+    except ImportError:
+        return []
+    out: list[list[str]] = []
+    for table in BeautifulSoup(html, "html.parser").find_all("table"):
+        body = table.find("tbody") or table
+        if len([tr for tr in body.find_all("tr") if tr.find_all("td")]) < 10:
+            continue
+        thead = table.find("thead")
+        cells = (thead or table.find("tr") or table).find_all(["th", "td"])
+        out.append([c.get_text(" ", strip=True)[:40] for c in cells][:40])
+    return out
+
+
 def _format_number(value: float) -> int | str:
     """CSV-friendly number that keeps meaningful decimal precision."""
     if value == int(value):
@@ -567,7 +610,22 @@ def main() -> int:
             print(f"[DLF] WARN: no rows extracted for {key}", file=sys.stderr)
             exit_code = max(exit_code, 1)
             continue
+        ok, reason = _board_verdict(cfg, rows)
         if args.dry_run:
+            # Evidence only: what the real run WOULD decide, from the same
+            # verdict function, plus the table headers the parser saw.  Used by
+            # the on-box DLF diagnostic (deploy/diagnostics/dlf_fetch_inventory.sh).
+            rank_count = sum(1 for row in rows if _rank_of(row) is not None)
+            native_count = sum(1 for row in rows if _native_value_of(row) is not None)
+            print(f"  html_bytes={len(html)} preview={_looks_like_preview(html)}")
+            for headers in _candidate_table_headers(html):
+                print(f"  table_headers={headers}")
+            print(
+                f"  rows={len(rows)} rank_parsable={rank_count} "
+                f"native_value={native_count} min_rows={min_rows} "
+                f"require_native_value={bool(cfg.get('require_native_value'))}"
+            )
+            print(f"  verdict={'WRITE' if ok else 'REFUSE'} reason={reason}")
             for i, r in enumerate(rows[:5], 1):
                 print(
                     f"  {i:>3}. name={r.get('name')!r} "
@@ -582,27 +640,14 @@ def main() -> int:
         # CSV that later hard-failed the contract-coverage test on a
         # clean checkout.  Now: fail loudly, preserve last-good, never
         # overwrite with a structurally-degraded board.
-        if len(rows) < min_rows:
+        if not ok:
             print(
-                f"[DLF] {key}: parsed only {len(rows)} rows — expected "
-                f"≥{min_rows} (aligned with the downstream contract "
-                f"floor).  Partial/degraded scrape; preserving last-good "
-                f"CSV, NOT overwriting {out_path.relative_to(REPO)}.",
+                f"[DLF] {key}: {reason}.  Preserving last-good CSV, NOT "
+                f"overwriting {out_path.relative_to(REPO)}.",
                 file=sys.stderr,
             )
             exit_code = max(exit_code, 2)
             continue
-        if cfg.get("require_native_value"):
-            native_count = sum(1 for row in rows if _native_value_of(row) is not None)
-            if native_count < min_rows:
-                print(
-                    f"[DLF] {key}: native Value coverage {native_count}/{len(rows)} "
-                    f"is below required floor {min_rows}; semantic/parser degradation. "
-                    f"Preserving last-good CSV, NOT overwriting {out_path.relative_to(REPO)}.",
-                    file=sys.stderr,
-                )
-                exit_code = max(exit_code, 2)
-                continue
         count = _write_csv(out_path, rows)
         print(
             f"[DLF] wrote {count} rows → {out_path.relative_to(REPO)}",

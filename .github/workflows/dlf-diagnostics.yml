@@ -1,0 +1,72 @@
+name: DLF Fetch Diagnostics (read-only)
+
+# Evidence for why the DLF boards stopped updating (last fetch 2026-09-09).
+#
+# DLF 403s GitHub and agent IP ranges at Cloudflare, so the fetch runs only on
+# the production host (``dynasty-dlf-fetch.timer``) and its failure is
+# unobservable from anywhere else.  This reuses the deploy path's existing SSH
+# capability to collect: unit result, journal, credential PRESENCE (never
+# values), session-jar age, and a per-board ``fetch_dlf.py --dry-run`` that
+# prints the exact write/refuse verdict and the table headers it parsed.
+#
+# The RUNNER's ``fetch_dlf.py`` is uploaded into a mktemp dir and run from
+# there — the host is checked out at whatever revision is deployed, and the
+# dedicated fetch clone must not be touched.  The remote script removes the
+# temp dir on exit and writes nothing else.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  # Never overlap a deploy (or the other on-box diagnostics).
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    name: DLF fetch inventory
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Configure production SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" | sed 's/\r$//' > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" | sed 's/\r$//' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
+          chmod 644 "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/id_ed25519" >/dev/null
+          echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
+
+      - name: Collect DLF fetch inventory
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          SSH=(ssh -i "$HOME/.ssh/id_ed25519"
+            -o BatchMode=yes -o StrictHostKeyChecking=yes
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts"
+            -o ConnectTimeout=15 -o ServerAliveInterval=15
+            -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST")
+          DIAG_DIR="$("${SSH[@]}" 'mktemp -d /tmp/dlf-diag.XXXXXX')"
+          "${SSH[@]}" "mkdir -p $(printf %q "$DIAG_DIR")/scripts && cat > $(printf %q "$DIAG_DIR")/scripts/fetch_dlf.py" < scripts/fetch_dlf.py
+          # The remote script's exit status is this step's exit status.
+          "${SSH[@]}" \
+            "APP_DIR=$(printf %q "$APP_DIR") DIAG_DIR=$(printf %q "$DIAG_DIR") bash -s" \
+            < deploy/diagnostics/dlf_fetch_inventory.sh
