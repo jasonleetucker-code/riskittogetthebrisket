@@ -1,5 +1,16 @@
 # Design System — Premium Sports Intelligence
 
+## Current PSI authority — 2026-09-24 (#1421)
+
+PSI / Direction A is locked. Migrated surfaces use `.psi-editorial` in tokens.css:
+warm cream, near-black ink, one burnt-red identity/interactive accent, --font-display,
+2/2/3px radii, thin rules and shadows only for actual overlays. Use `docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md` and
+`docs/ui/UI_PARALLEL_LEDGER.md`. Gold/black terminal reasoning and measurements below describe the retained
+legacy theme, not new PSI authority. Preserve correct token/component machinery, not
+that obsolete aesthetic. Dark-theme chart validation does not prove every editorial
+plot surface. Compatibility aliases are migration debt, not new-consumer permission.
+No new palette/font/type scale/radius/breakpoint or page-local visual language.
+
 > **DIRECTION RESOLVED — 2026-08-18 (`OD-05`).** This document described the
 > **"War-room terminal"** direction, which
 > `docs/PREMIUM_SPORTS_INTELLIGENCE_DESIGN_NORTH_STAR.md` supersedes "where
@@ -33,7 +44,7 @@ foundation.
 
 ---
 
-## 1. Visual direction: "War-room terminal"
+## 1. Historical retained theme: "War-room terminal" (not current PSI authority)
 
 The brief: *NFL war room × Bloomberg-grade market terminal × Apple-level
 restraint. Intelligence, confidence, speed, authority.* The choices below are
@@ -96,7 +107,7 @@ repaint survivors when a filter changes series count; >6 series folds to
 |---|---|---|
 | `--font-ui` | Inter (next/font var) | Everything textual |
 | `--font-data` | JetBrains Mono (next/font var) | ALL data values, always with `tabular-nums` (`.ds-mono`) |
-| `--font-size-2xs..3xl` | 11 / 12 / 13 / 14 / 16 / 20 / 24 / 32 px | **Eight sizes. There is no ninth.** 2xs is the floor. |
+| `--font-size-2xs..3xl` | 11 / 12 / 13 / 14 / 16 / 18 / 22 / 28 px | **Eight sizes. There is no ninth.** 2xs is the floor. |
 | `--font-weight-regular/medium/semibold/bold` | 400/500/600/700 | |
 | `--line-height-tight/snug/normal` | 1.2 / 1.35 / 1.5 | headings / dense rows / body |
 | `--tracking-wide` | 0.06em | uppercase micro-labels only |
@@ -110,7 +121,7 @@ headline · 2xl = page title · 3xl = hero stat.
 | Group | Tokens |
 |---|---|
 | Space (4px grid) | `--space-0..10` → 0, 4, 8, 12, 16, 20, 24, 32, 40, 48, 64px |
-| Radii (four) | `--radius-1` 4px (inputs, badges) · `--radius-2` 8px (buttons, tiles) · `--radius-3` 12px (panels, modals) · `--radius-full` |
+| Radii (four) | `--radius-1` 2px (inputs, badges) · `--radius-2` 2px (buttons, tiles) · `--radius-3` 3px (panels, modals) · `--radius-full` |
 | Shadows (three) | `--shadow-1/2/3` — only overlays get 2-3 |
 | Z-index | `--z-raised/sticky/header/dropdown/overlay/modal/toast/tooltip` (1 → 2500; overlay tiers sit above every legacy value, incl. the inline 1100/1200/2000s) |
 | Motion | `--motion-fast/base/slow` (120/180/280ms) + `--ease-out/in-out`; all durations zero under `prefers-reduced-motion` |
@@ -118,7 +129,7 @@ headline · 2xl = page title · 3xl = hero stat.
 
 ### Theming
 
-Dark is default. `:root[data-theme="light"]` re-maps semantic aliases only
+The retained unmigrated theme defaults to dark; `.psi-editorial` is the approved migration scope. `:root[data-theme="light"]` re-maps semantic aliases only
 (scaffolded now, validated for contrast, not user-exposed yet). Because
 components are semantic-only, light mode costs zero component changes at
 enablement; remaining work then is light steps for `--chart-*` and a toggle.

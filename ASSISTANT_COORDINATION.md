@@ -1,5 +1,22 @@
 # Assistant Coordination
 
+## Permanent parallel UI coordination — 2026-09-24 (#1421)
+
+UI policy: ALWAYS_PARALLEL_UNTIL_UI_COMPLETE
+
+Every substantial Calculator feature session asks: Does this affect frontend? Is its
+route contract stable enough for parallel UI? If yes, where is the UI claim/PR? If no,
+what other UI work stays active? Foundation remains eligible when dependencies/file
+claims permit; instability gates only that route's final integration.
+
+Use `docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md` and `docs/ui/UI_PARALLEL_LEDGER.md`; keep Lane 6 in Calculator Ideas batching. PSI /
+Direction A is locked, not an invitation to invent styling. Material plans use
+`docs/ui/UI_IMPACT_TEMPLATE.md`. Backend writers coordinate coverage, not invade UI
+files. Shared globals.css/package.json/server.py/data_contract.py edits require the
+existing custodian/Integration process. Separate branches/claims; no safe worker runtime
+means exact issue, queued claim, branch and fresh-session handoff, not a claimed running
+worker. Existing protected integration/release authority below is unchanged.
+
 > **Process context:** `docs/AGENT_OPERATING_SYSTEM.md` defines the shared
 > agent-role/loop/review/handoff model. This file remains authoritative for
 > day-to-day branch and merge mechanics. The operating-system document points
