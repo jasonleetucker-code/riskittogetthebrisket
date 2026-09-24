@@ -360,7 +360,7 @@ class TestTheOwnerIsSingle:
         )
         if not replay.is_file():  # pragma: no cover - evidence pruned
             pytest.skip("historical replay evidence not present")
-        payload = json.loads(replay.read_text())
+        payload = json.loads(replay.read_text(encoding="utf-8"))
         deepest = max(float(d["deepestEffectiveRank"]) for d in payload["days"])
         assert MEASURED_BOUNDARY >= deepest, (
             f"boundary {MEASURED_BOUNDARY} is shallower than the deepest observed "
