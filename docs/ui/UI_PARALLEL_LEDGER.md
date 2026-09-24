@@ -26,8 +26,8 @@ not a passing populated-state scan for each listed route. Historical proof stays
 #1346 `codex/performance-serving` is existing draft performance work (audit head
 47b90cd412eeed8c8429487de8109823d82baac0), not a visual-completion or activation claim.
 #1399 `codex/league-comparison-2026-live` is frontend consumer work. #1421 owns bounded
-governance. #1422 `codex/psi-design-reference` is the selected NEXT/queued reference
-unit until a worker starts; do not equate an issue/branch with a running session.
+governance. #1422 `codex/psi-design-reference` is now an implementation branch for the bounded
+reference unit, PR #1429 in integration with chart previews explicitly gated. #1428 holds only chart-treatment acceptance; no deployment or continuously running worker is claimed.
 Exact dispatch is `docs/ui/PSI_DESIGN_REFERENCE_HANDOFF.md`. #1294 merged September 9;
 its old open claim is not an active writer, but independent live overlaps still matter.
 
@@ -35,7 +35,7 @@ its old open claim is not an active writer, but independent live overlaps still 
 
 | Route / surface | Family | Canonical owner | Contract stability | PSI state | Desktop | Mobile | Accessibility | Performance | Legacy CSS | Visual proof | Claim / PR | Hard dependency | Next action |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `/design` | C8-U2/U3 | Static gallery / ds/token-contract.js; no private API | STABLE foundation | AUDITED — Legacy gallery; #1422 selected | Code inspected; NV | Parity NV | Existing suite; route NV | NM | Retirement not re-certified | No fresh production screenshots | #1422 queued | Governance contract / gallery claim | Apply existing PSI scope including portals; fixtures/display roles; responsive/axe/screenshots |
+| `/design` | C8-U2/U3 | Static gallery / ds/token-contract.js; no private API | STABLE foundation; chart acceptance #1428 | MIGRATING — incremental non-chart foundation; charts explicitly gated | 1366x768 gated-state tests/screens | 390x844 gated-state tests/screens | Six gated-state axe scans, keyboard and responsive checks PASS; #1428 OPEN | Full build and existing budgets PASS; production NM | Gallery terminal copy retired; outer shell/FAB debt remains | Ten fresh PNGs in PR_1429_2026-09-24/gated-integration; earlier PNGs historical; NO production proof | #1422 / PR #1429 integration | #1428 for chart previews only, not other UI | Normal PR integration/deploy gates; keep chart decision and final production acceptance open |
 | `tokens / ds primitives` | C8-U2/U3 | tokens.css + components/ds/* | STABLE styling API; extensions separately claimed | AUDITED — Editorial tokens/shared behaviors exist | Code inspected; NV | Parity NV | Existing suite; route NV | NM | Retirement not re-certified | No fresh production screenshots | No new primitive writer confirmed | Preserve owner values and actual surface contrasts | Reconcile gallery/docs and state examples; legacy aliases remain debt |
 | `shell / nav / command` | C8-U2/U3 | AppShell, AppShellWrapper, nav-model, auth owner | Existing shared IA; serving files overlap | AUDITED — Top/mobile chrome PSI-scoped | Code inspected; NV | Parity NV | Existing suite; route NV | NM | Retirement not re-certified | No fresh production screenshots | #1346 | One IA; auth and public/private boundaries | Re-certify focus/search/mobile parity; separately claim shared fixes |
 | `/rankings` | C8-U2 reference | useApp/useDynastyData -> canonical /api/data | Existing consumer; #1411/#1346 upstream changes | AUDITED — PSI reference code exists | Code inspected; NV | Parity NV | Existing suite; route NV | NM | Retirement not re-certified | No fresh production screenshots | #1346 overlap | Stable consumer boundary; no valuation duplication | Re-certify dense table, filters, identity, populated axe and performance |
@@ -71,3 +71,10 @@ Next complete the populated Rankings/Player File accessibility/visual matrix wit
 presentation while final lifecycle/Analyze Trade wiring waits only on its own contract.
 Continue high-value stable routes and verified legacy retirement, reprioritizing each
 batch rather than waiting for every backend feature to finish.
+
+## Measured checkpoint — PR #1429
+
+Code `49e7fcfd824ba3f2c7432a818d2f7f5fbc2d8121`; actual proof and limitations in
+`docs/psi/evidence/PR_1429_2026-09-24/README.md`. Axe green does not close #1428.
+The next safe UI unit remains populated Rankings/Player File test coverage after
+live claim checks; no whole-program blocker or route-completion promotion.

@@ -2,8 +2,26 @@
 
 Existing Lane 6 / C8-U2 + C8-U3, parent #1421.
 Branch: `codex/psi-design-reference`, separate and stacked on the reviewable governance
-head until Integration lands it. Initial status NEXT/queued, not running or verified.
+head until Integration lands it. Initial reservation has advanced to implementation; inspect the current PR/evidence before resuming. Deployment and production proof remain separate gates.
 Agent-OS-Receipt at audit: cdca1dca8385f70c0989302dece8d1bd4ce4843c; regenerate for the implementation session.
+
+## Current integration checkpoint — incremental foundation, not full chart acceptance
+
+The owner subsequently requested push and merge. Governance #1426 is integrated.
+PR #1429 releases only the independently usable gallery foundation: all unapproved
+categorical previews are explicitly gated, with honest pending-state messaging and
+numeric fixture history retained. No product chart, palette, DS owner or design
+precedence is changed. #1428 remains OPEN; the gallery stays PARTIAL / MIGRATING,
+not PSI_VERIFIED. Enabling previews requires separately approved treatment and proof.
+
+Current-head integration validation, screenshot provenance and deployment status must
+be read from PR #1429; old screenshots at 49e7fcf are historical, not the gated release.
+The original 2,483-test / 14-budget / four-E2E / six-axe evidence remains historical.
+Fresh gated-state desktop/phone, keyboard and six axe scans passed in run 36055955615; see docs/psi/evidence/PR_1429_2026-09-24/gated-integration. Normal PR/deploy gates remain separate.
+Production verification and shared shell outer-canvas/Screenshot-FAB debt remain open.
+Continue dependency-safe populated Rankings/Player File test work while #1428 waits.
+The prompt below is retained as historical scope, not permission to repeat completed
+work or enable the chart gate. A branch does not imply a running background worker.
 
 ## Copyable prompt
 

@@ -1,0 +1,141 @@
+{
+  "kind": "CI built-stack evidence, NOT production",
+  "code_sha": "49e7fcfd824ba3f2c7432a818d2f7f5fbc2d8121",
+  "run_id": 36021591253,
+  "artifact_id": 10817595460,
+  "archive_sha256": "22a9d0d46d0f317b96762c6a24c81725cba331b65e73a2bbe3846e268303a71e",
+  "captured_utc_date": "2026-09-24",
+  "runtime_origin": "http://127.0.0.1:3000/design",
+  "images": [
+    {
+      "file": "desktop-reference-top.png",
+      "state": "reference-top",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "image_dimensions": [
+        1366,
+        768
+      ],
+      "sha256": "fd416e961a22c68fa85c581bc3391f5ad898804356935b60ee644ce70312a6e5"
+    },
+    {
+      "file": "desktop-reference-full.png",
+      "state": "reference-full",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "image_dimensions": [
+        1366,
+        5449
+      ],
+      "sha256": "263fdb14a29ba1b3c547f673e4a8bdd486ad43cae5f0fea300b0678952c57f87"
+    },
+    {
+      "file": "desktop-table-secondary-fields.png",
+      "state": "table-secondary-fields",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "image_dimensions": [
+        1366,
+        768
+      ],
+      "sha256": "865b14834ce513a9aabd9a150594943c1b29ef582f4a8e2cfec34bf2f512e5f6"
+    },
+    {
+      "file": "desktop-modal.png",
+      "state": "modal",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "image_dimensions": [
+        1366,
+        768
+      ],
+      "sha256": "1dc9bbe5856b49be53a937678638922d6614088a78e7f9b88f39030440f78a81"
+    },
+    {
+      "file": "desktop-drawer.png",
+      "state": "drawer",
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "image_dimensions": [
+        1366,
+        768
+      ],
+      "sha256": "12d3dddad901c7266abe2ba20102cdafd80375040666b759a02a867cee4f2c38"
+    },
+    {
+      "file": "phone-reference-top.png",
+      "state": "reference-top",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "image_dimensions": [
+        390,
+        844
+      ],
+      "sha256": "7c5107ad14791971b4cdb03d197568c1a6b61c0fa7d16845a38a7ab2e8f00f12"
+    },
+    {
+      "file": "phone-reference-full.png",
+      "state": "reference-full",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "image_dimensions": [
+        390,
+        9690
+      ],
+      "sha256": "3520eb94df328e98d5981e7c816ba56eca94e75fa2b7e9db820dd1abfb0ae157"
+    },
+    {
+      "file": "phone-table-secondary-fields.png",
+      "state": "table-secondary-fields",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "image_dimensions": [
+        390,
+        844
+      ],
+      "sha256": "5ea446776d5fa6c11ceee57abbf44a56a8231042b2c97d95364c45bf12915beb"
+    },
+    {
+      "file": "phone-modal.png",
+      "state": "modal",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "image_dimensions": [
+        390,
+        844
+      ],
+      "sha256": "1acca6a500727cbdcb2da999f2d861cbce29d0d96ab87e5ce346c09f20a089c9"
+    },
+    {
+      "file": "phone-drawer.png",
+      "state": "drawer",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "image_dimensions": [
+        390,
+        844
+      ],
+      "sha256": "49863655cc81796861bf089a69647725479ea93ef2c41944fa1ee93ae60df525"
+    }
+  ]
+}

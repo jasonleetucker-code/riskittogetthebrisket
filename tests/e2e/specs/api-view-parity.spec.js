@@ -79,6 +79,7 @@ const MATERIALIZED_FIELDS = [
   "identityMethod",
   "identityResolutionConfidence",
   "isSingleSource",
+  "ktcMarket",
   "madPenaltyApplied",
   "marketBreadthAgreementIndex",
   "marketConfidence",

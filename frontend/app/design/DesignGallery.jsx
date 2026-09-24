@@ -53,16 +53,16 @@ const SURFACES = [
   ["--surface-3", "overlay"],
 ];
 const TEXTS = [
-  ["--text-primary", "primary · 15.7:1"],
-  ["--text-secondary", "secondary · 8.4:1"],
-  ["--text-tertiary", "tertiary · 5.9:1"],
+  ["--text-primary", "primary ink"],
+  ["--text-secondary", "secondary ink"],
+  ["--text-tertiary", "tertiary ink"],
   ["--text-disabled", "disabled · decorative"],
 ];
 const ACCENTS = [
-  ["--accent", "accent (franchise gold)"],
+  ["--accent", "accent (burnt red)"],
   ["--accent-hover", "hover"],
   ["--accent-pressed", "pressed"],
-  ["--accent-muted", "muted wash"],
+  ["--accent-muted", "muted selected state"],
 ];
 const SEMANTIC = [
   ["--positive", "positive"],
@@ -71,6 +71,12 @@ const SEMANTIC = [
   ["--info", "info"],
 ];
 const CHARTS = [1, 2, 3, 4, 5, 6];
+
+// #1428: the inherited categorical colors are not approved for PSI cream plots.
+// Keep only these reference previews gated; never infer acceptance from axe.
+// No URL/env switch: enabling requires the separately recorded design decision,
+// contrast proof and updated desktop/phone evidence. Product charts are untouched.
+const CHART_PREVIEWS_APPROVED = false;
 
 const TYPE_SCALE = [
   ["2xs", "11px · micro labels"],
@@ -106,13 +112,25 @@ export default function DesignGallery() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
-    <div className={styles.page}>
+    <div className={`psi-editorial ${styles.page}`} data-testid="psi-gallery">
       <PageHeader
+        className={styles.hero}
         eyebrow="Design system"
         title="Design system"
-        description="Premium Sports Intelligence: near-black cool neutrals, ONE franchise-gold accent reserved for interactive and identity roles, market direction on a CVD-validated blue/orange pair, near-zero radii, data in a tabular mono face. Every ramp and component state on this page is the live system — if it renders here, it is what ships."
-        actions={<Badge tone="outline">docs/DESIGN-SYSTEM.md</Badge>}
+        description="Premium Sports Intelligence / Direction A. Warm editorial surfaces, strong ink, one burnt-red interactive accent, thin rules and tabular data. These are shared implementation references, not a separate product or a new design direction."
+        actions={<Badge tone="outline">PSI / Direction A</Badge>}
       />
+
+      <Banner tone="info" title="Fixtures only">
+        Values, source states and actions below are deterministic examples, not live
+        league data. Example actions do not send, save or export anything.
+      </Banner>
+
+      <Banner tone="warning" title="Chart previews unavailable">
+        This reference is partially complete. Chart examples await an approved
+        contrast-safe treatment (#1428). Fixture numbers remain available below;
+        no replacement colors or chart-completion claim are implied.
+      </Banner>
 
       {/* ── Color ─────────────────────────────────────────────────── */}
       <Panel
@@ -129,7 +147,7 @@ export default function DesignGallery() {
             </div>
           </div>
           <div>
-            <p className={styles.demoLabel}>Text (contrast on --surface-1)</p>
+            <p className={styles.demoLabel}>Text roles</p>
             <div className={`${styles.grid} ${styles.cols4}`}>
               {TEXTS.map(([t, n]) => (
                 <Swatch key={t} token={t} note={n} />
@@ -146,7 +164,7 @@ export default function DesignGallery() {
           </div>
           <div>
             <p className={styles.demoLabel}>
-              Market / state semantics (terminal-restrained, never neon)
+              System states — distinct from market movement
             </p>
             <div className={`${styles.grid} ${styles.cols4}`}>
               {SEMANTIC.map(([t, n]) => (
@@ -156,7 +174,7 @@ export default function DesignGallery() {
           </div>
           <div>
             <p className={styles.demoLabel}>
-              Chart series — CVD-validated fixed order, never cycled
+              Chart token inventory — fixed order; plot acceptance pending #1428
             </p>
             <div className={`${styles.grid} ${styles.cols3}`}>
               {CHARTS.map((i) => (
@@ -170,9 +188,13 @@ export default function DesignGallery() {
       {/* ── Typography ────────────────────────────────────────────── */}
       <Panel
         title="Typography"
-        subtitle="JetBrains Mono throughout, via next/font. Inter survives only inside .ds-prose — see the prose exception in tokens.css. Eight sizes, there is no ninth."
+        subtitle="Existing --font-display for editorial hierarchy, --font-ui for controls and --font-data for comparable numbers. Use the approved eight-size scale; no new font assets."
       >
         <div className={styles.stack}>
+          <div className={styles.typeRow}>
+            <span className={styles.typeTag}>--font-display</span>
+            <span className={styles.displaySample}>Personnel &amp; market intelligence</span>
+          </div>
           {TYPE_SCALE.map(([size, note]) => (
             <div key={size} className={styles.typeRow}>
               <span className={styles.typeTag}>
@@ -200,7 +222,7 @@ export default function DesignGallery() {
       {/* ── Space / radius / shadow ───────────────────────────────── */}
       <Panel
         title="Space, radius, elevation"
-        subtitle="4px grid · four radii · three shadows. Motion: 120/180/280ms, zeroed under prefers-reduced-motion."
+        subtitle="Token spacing; 2px controls and tiles, 3px panels, circles only for round indicators. Shadow examples are for overlays, not normal panels. Motion respects reduced-motion preferences."
       >
         <div className={styles.stack}>
           <div>
@@ -217,7 +239,7 @@ export default function DesignGallery() {
           <div className={styles.row} style={{ gap: "var(--space-6)" }}>
             {["1", "2", "3", "full"].map((r) => (
               <div key={r} className={styles.stack} style={{ gap: "var(--space-1)", alignItems: "center" }}>
-                <span className={styles.radiusChip} style={{ borderRadius: `var(--radius-${r})` }} />
+                <span className={`${styles.radiusChip} ${r === "full" ? styles.roundIndicator : ""}`} style={{ borderRadius: `var(--radius-${r})` }} />
                 <span className={styles.swatchNote}>--radius-{r}</span>
               </div>
             ))}
@@ -358,6 +380,7 @@ export default function DesignGallery() {
       <Panel
         flush
         title="DataTable"
+        className={styles.tablePanel}
         subtitle="Sortable (aria-sort), sticky header, density modes, tabular numerics."
         actions={
           <SegmentedControl
@@ -372,7 +395,7 @@ export default function DesignGallery() {
         }
       >
         <DataTable
-          caption="Sample value board: rank, player, position, value, 7-day movement and trend"
+          caption="Fixture value board: rank, player, position, value, 7-day movement and trend"
           density={density}
           defaultSort={{ key: "value", direction: "desc" }}
           rows={SAMPLE_ROWS}
@@ -398,7 +421,13 @@ export default function DesignGallery() {
               key: "trend",
               header: "Trend",
               render: (r) => (
-                <Sparkline values={r.trend} label={`${r.name} 6-week trend`} series={1} />
+                CHART_PREVIEWS_APPROVED ? (
+                  <Sparkline values={r.trend} label={`${r.name} 6-week trend`} series={1} />
+                ) : (
+                  <span className="ds-mono" aria-label={`${r.name} 6-week fixture values`}>
+                    {r.trend.join(" → ")}
+                  </span>
+                )
               ),
             },
           ]}
@@ -447,7 +476,7 @@ export default function DesignGallery() {
           </div>
         </Panel>
 
-        <Panel title="Skeletons" subtitle="Px-sized to content — zero layout shift.">
+        <Panel title="Skeletons" subtitle="Stable placeholder dimensions; preserve useful content while refreshing.">
           <div className={styles.stack}>
             <div className={styles.row}>
               <Skeleton width={140} height={16} />
@@ -484,7 +513,16 @@ export default function DesignGallery() {
             <Banner tone="negative" onDismiss={() => {}}>
               KTC fetch failed — serving last snapshot.
             </Banner>
-            <Banner tone="positive">Board exported.</Banner>
+            <Banner tone="positive">Example export completed.</Banner>
+            <Banner tone="info" title="Value unavailable">
+              No example observation is available. Missing is never zero.
+            </Banner>
+            <Banner tone="warning" title="Partial coverage">
+              Two of three example sources are available. The missing source is not counted as zero.
+            </Banner>
+            <Banner tone="info" title="Actual zero">
+              Reported movement: 0. This is an observed zero, not missing data.
+            </Banner>
           </div>
         </Panel>
       </div>
@@ -492,9 +530,9 @@ export default function DesignGallery() {
       {/* ── Small charts ──────────────────────────────────────────── */}
       <Panel
         title="Small charts"
-        subtitle="Sparkline + Meter. Larger charts compose lib/chart-primitives with the --chart-* slots."
+        subtitle="Sparkline + Meter previews are gated pending #1428. Existing fixture numbers are preserved."
       >
-        <div className={styles.stack}>
+        {CHART_PREVIEWS_APPROVED ? <div className={styles.stack}>
           <div className={styles.row} style={{ gap: "var(--space-6)" }}>
             <Sparkline values={[20, 24, 22, 30, 34, 33, 40]} label="Value trend, rising" width={140} height={32} />
             <Sparkline values={[40, 38, 39, 31, 28, 26, 22]} label="Value trend, falling" series={3} width={140} height={32} />
@@ -505,17 +543,29 @@ export default function DesignGallery() {
             <Meter value={6120} max={10000} label="Draft capital" series={2} />
             <Meter value={2870} max={10000} label="Bench depth" series={4} />
           </div>
-        </div>
+        </div> : (
+          <div className={styles.stack} data-testid="chart-preview-gate">
+            <Banner tone="info" title="Chart treatment pending">
+              These numerical fixtures are not an approved graphical chart reference.
+            </Banner>
+            <p className="ds-mono">Rising fixture: 20 → 24 → 22 → 30 → 34 → 33 → 40</p>
+            <p className="ds-mono">Falling fixture: 40 → 38 → 39 → 31 → 28 → 26 → 22</p>
+            <p className="ds-mono">Variable fixture: 10 → 14 → 8 → 16 → 12 → 18 → 13; baseline 12</p>
+            <p className="ds-mono">Jefferson value: 9,541 / 10,000</p>
+            <p className="ds-mono">Draft capital: 6,120 / 10,000</p>
+            <p className="ds-mono">Bench depth: 2,870 / 10,000</p>
+          </div>
+        )}
       </Panel>
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Confirm trade proposal">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Trade proposal example">
         <div className={styles.stack}>
           <p style={{ margin: 0, color: "var(--text-secondary)", fontSize: "var(--font-size-sm)" }}>
-            Send Jefferson + 2027 2nd for Chase + 2026 1st? This posts the offer to your league.
+            Demonstration only. No trade offer is sent or saved.
           </p>
           <div className={styles.row} style={{ justifyContent: "flex-end" }}>
             <Button variant="ghost" onClick={() => setModalOpen(false)}>Cancel</Button>
-            <Button variant="primary" onClick={() => setModalOpen(false)}>Send offer</Button>
+            <Button variant="primary" onClick={() => setModalOpen(false)}>Close example</Button>
           </div>
         </div>
       </Modal>
@@ -526,8 +576,15 @@ export default function DesignGallery() {
             <StatTile bare label="Value" value="9,541" movement={<Movement delta={128} confidence={0.9} />} />
             <StatTile bare label="Overall" value="#1" meta="WR1" />
           </div>
-          <Sparkline values={[88, 90, 91, 93, 96, 97]} label="Jefferson 6-week value trend" width={360} height={48} />
-          <Banner tone="info">Drawer replaces PlayerPopup in R2.</Banner>
+          {CHART_PREVIEWS_APPROVED ? (
+            <Sparkline className={styles.drawerChart} values={[88, 90, 91, 93, 96, 97]} label="Jefferson 6-week value trend" width={360} height={48} />
+          ) : (
+            <div data-testid="drawer-chart-gate">
+              <p className="ds-mono">Six-week fixture values: 88 → 90 → 91 → 93 → 96 → 97</p>
+              <Banner tone="info">Chart preview unavailable pending approved treatment (#1428).</Banner>
+            </div>
+          )}
+          <Banner tone="info">Example player detail only. Real player links converge on the canonical Player File.</Banner>
         </div>
       </Drawer>
     </div>

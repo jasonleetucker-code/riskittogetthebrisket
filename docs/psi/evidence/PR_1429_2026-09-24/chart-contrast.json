@@ -1,0 +1,43 @@
+{
+  "issue": 1428,
+  "method": "standard sRGB relative luminance; existing token values; no new palette",
+  "recorded_target": 3.0,
+  "ratios": [
+    {
+      "token": "--chart-1",
+      "color": "#c98500",
+      "panel": 2.8454038848327907,
+      "nested": 2.321067724962469
+    },
+    {
+      "token": "--chart-2",
+      "color": "#3987e5",
+      "panel": 3.371749762533094,
+      "nested": 2.7504213346237587
+    },
+    {
+      "token": "--chart-3",
+      "color": "#d55181",
+      "panel": 3.655386152430847,
+      "nested": 2.981790692670177
+    },
+    {
+      "token": "--chart-4",
+      "color": "#9085e9",
+      "panel": 2.896659032722709,
+      "nested": 2.3628778420216356
+    },
+    {
+      "token": "--chart-5",
+      "color": "#199e70",
+      "panel": 3.155721182721818,
+      "nested": 2.5742013726906934
+    },
+    {
+      "token": "--chart-6",
+      "color": "#d95926",
+      "panel": 3.5985418149181054,
+      "nested": 2.93542133264681
+    }
+  ]
+}
