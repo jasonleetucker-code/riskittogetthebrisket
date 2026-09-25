@@ -646,26 +646,53 @@ yields); `trade-sections.jsx` is not in #1346. The `GameDayPanel` refresh-in-pla
 `game_day_sim` single-flight/atomic cache writes are carried into the Game Day units with their tests,
 and #1346 drops them at reconciliation.
 
-**Game Day live sources — SOURCE CANDIDATES: OWNER DECISION REQUIRED / TERMS VERIFICATION REQUIRED (2026-09-25).**
-The owner has **not** approved production use of either source and has **not** accepted any
-licensing or terms risk. An earlier draft of this entry said otherwise; the owner corrected it, and
-it must not be read as an approval.
+**Owner attestation — source access (2026-09-25, explicit, in writing). Canonical posture: `OWNER_ATTESTED_AUTHORIZED`.**
+The owner explicitly attests that permission exists for Calculator's current automated ingestion and
+project use of the sources already integrated, or intentionally being integrated, into the existing
+source portfolio. That includes, among others: Sleeper, RotoWire, ESPN, IDP Show, Fantasy Nerds,
+SportsDataIO, FantasyPros, DraftSharks, IDP Trade Calculator, DLF, FantasyCalc, Dynasty Daddy, Fantasy
+Navigator, PFK and related feeds, Flock Fantasy, Yahoo/Boone where currently used, and every other
+source already in Calculator's ingestion system. Public terms are not the basis for that permission,
+and the repository does not hold or reproduce any private permission correspondence unless it is
+separately provided.
 
-| Source candidate | What it is | Status | Required before activation |
-|---|---|---|---|
-| Sleeper weekly projections (`https://api.sleeper.app/projections/nfl/<season>/<week>`) | Undocumented public endpoint. Every row observed carries `company: "rotowire"`, so it appears to expose RotoWire-sourced weekly projection content (QB/RB/WR/TE/K/IDP, stat-level). | Implemented behind `sleeper_weekly_projections` (default OFF); census `licensingStatus: UNVERIFIED`. **Not activated.** | Verify whether automated production use/reuse is permitted. If authorization cannot be established, identify an alternative legitimate weekly-projection source; never silently turn the flag on. |
-| ESPN public scoreboard (`site.api.espn.com/.../nfl/scoreboard`) | Undocumented public API giving observed period/clock/status per game. | Implemented behind `game_day_live_game_state` (default OFF), with adapter and replay fixtures. **Not activated.** | Verify the permitted technical/usage posture for this exact access path. Public visibility is not permission for unattended automated collection. If an already-authorized existing ESPN integration in this repo demonstrably covers the same access method and usage class, document that evidence and reuse it; otherwise the flag stays off pending the owner's decision. |
+- **What changes.** These sources are no longer "owner decision required". They are not treated as
+  unauthorized because public terms do not document private permission, and they need no per-source
+  re-approval. **The Game Day source-access blocker is removed.**
+- **Scope boundary.** A genuinely new provider, or a material expansion of an existing provider into a
+  different product, feed or use case, still goes through normal source intake and permission
+  verification, and any expansion is recorded. A new permission decision is surfaced only for a new
+  provider, a materially out-of-scope mechanism or use, or an owner change or revocation.
+- **Credentials.** Keyed or subscription APIs are configured by the owner through environment or
+  secrets. Agents never handle credentials.
+- **Record.** `docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md`, which keeps the public-terms
+  research as background context only.
 
-Evidence gathered 2026-09-25, with the owner questions: `docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md`.
-It also found that the repo's existing ESPN integrations (injuries, depth charts, news) run with **no recorded
-authorization**. That is recorded as an owner question, and no production feed was changed.
+**Game Day scope reaffirmed (owner, 2026-09-25).**
 
-**Campaign behaviour.** These decisions do not block U4–U7: the resolver, simulation, collector,
-payload and PSI UI are built and tested against fixtures and interfaces. The production flags stay
-off until the source-access decision is actually resolved. A missing source authorization is an
-**external activation blocker**. It is not permission to fall back to preseason projections and call
-Game Day complete: the preseason full-season estimate stays explicitly labelled as a fallback, never
-as a current-week forecast.
+- **Sequence.** Build U4 through U7, then integrated validation, production release, and verification
+  during a real live game.
+- **Weekly projections.** Use a multi-source weekly ensemble of genuinely independent evidence.
+  Record provider, family, ancestry, horizon, week, as-of, fetch time, stat and position coverage,
+  native scoring basis and missing state. Never double-count aggregators, representations or horizons.
+- **Scoring.** Stat-level projections are rescored through the exact league scorer, covering QB, RB,
+  WR, TE, K, DL/EDGE, LB, DB, first downs, yardage bonuses and return/special teams. An uncovered
+  category is kept as uncovered, or covered by a validated estimator labelled as OURS; never zero.
+- **Live data.** Live state, factual stats, the projection ensemble, scoring, lineup and simulation
+  each have one owner. Do not build a single-source dependency.
+- **Default page hierarchy.**
+  1. Matchup hero: score now, projected final best-ball, margin, win chance, median chance,
+     LIVE/UPCOMING/FINAL and freshness.
+  2. What matters now.
+  3. A chronological NFL slate.
+  4. Best-ball details.
+  5. Data info.
+- **Freshness.** Shared background collection with persisted, versioned generations. Show observed-at,
+  fetched-at, computed-at, payload age, degraded state and refresh-in-progress state.
+- **Acceptance.** Pregame, live, halftime, second half, overtime, delay or postponement, final, stat
+  corrections, negative points, real zero, missing player, missing projection, source outage, K, IDP,
+  SF/FLEX displacement, several players competing for one slot, team switching, and stale or
+  out-of-order responses. Use real captured fixtures, then production during a live game.
 
 **Owner decision — FAAB vs Trade flex demand stays as-is (2026-09-24).** Do NOT unify the two yet.
 FAAB apportions flex demand fractionally (`even_split`, e.g. QB 1.25 in dynasty_main); Trade assigns

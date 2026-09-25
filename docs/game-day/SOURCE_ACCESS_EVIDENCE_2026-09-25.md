@@ -1,85 +1,74 @@
-# Game Day source access: evidence for an owner decision (2026-09-25)
+# Game Day source access (2026-09-25)
 
-**Status: evidence only. Nothing here is an authorization.** Both Game Day source candidates are
-implemented behind default-off flags (`sleeper_weekly_projections`, `game_day_live_game_state`) and
-are **not activated**. The owner has not approved either, and has not accepted any licensing or terms
-risk (`docs/OWNER_REQUESTED_TODO.md`, Calculator campaign entry). Quotes are short excerpts with
-their sources and were retrieved on 2026-09-25.
+## Canonical access posture: OWNER_ATTESTED_AUTHORIZED
 
-## 1. Sleeper weekly projections (RotoWire content)
+**Owner attestation (2026-09-25, explicit, in writing):** The owner explicitly attests that permission
+exists for Calculator's current automated ingestion and project use of the sources already integrated,
+or intentionally being integrated, into the existing source portfolio. Public terms are not the basis
+for that permission. The repository does not hold or reproduce any private permission correspondence
+unless it is separately provided.
 
-- **Undocumented endpoint.** The official docs (https://docs.sleeper.com/) list user, league, draft,
-  player, trending and state endpoints. They list no `/projections` or `/stats`.
-- **Sleeper API terms.** The docs say "free to use for non-commercial purposes", and "For commercial
-  use of the Sleeper API, please reach out to us directly to discuss licensing".
-- **Sleeper Terms of Use** (support.sleeper.com, updated 2026-08-27): §9.2 grants a licence "for your
-  personal and non-commercial use" and forbids redistributing it or creating derivative works.
-- **Content owner.** Every row observed carries `company: "rotowire"`. RotoWire's Terms
-  (rotowire.com/termsandconditions.php, updated 2026-09-19) provide content "only for your own
-  personal, non-commercial use". They forbid reproducing or distributing content "obtained from or
-  through the Services", and forbid collecting it "by any automated means".
-- **Would be needed:** written permission from RotoWire (the content owner) and from Sleeper (the
-  channel), or a directly licensed feed.
+**Named sources** include, but are not limited to: Sleeper, RotoWire, ESPN, IDP Show, Fantasy Nerds,
+SportsDataIO, FantasyPros, DraftSharks, IDP Trade Calculator, DLF, FantasyCalc, Dynasty Daddy,
+Fantasy Navigator, PFK and related existing feeds, Flock Fantasy, Yahoo/Boone where currently used,
+and every other source already part of Calculator's ingestion/source system.
 
-## 2. ESPN public scoreboard, and the existing ESPN integrations
+**Consequence.** These sources are no longer "owner decision required", and they are not treated as
+unauthorized because public-facing terms do not document the owner's private permission. They need no
+per-source re-approval. The Game Day source-access blocker is removed.
 
-- **Terms.** ESPN falls under the Disney Terms of Use (disneytermsofuse.com, updated 2024-05-24):
-  - §2.B.x forbids access or extraction "using a robot, spider, script, or other automated means";
-  - §2.A grants a licence "for your personal, noncommercial use only".
-- **No public API.** ESPN closed its public developer API in 2014, so `site.api.espn.com` is
-  documented only by community reverse-engineering.
-- **Existing ESPN integrations, which run without any recorded authorization:**
-  - the injury feed, `src/nfl_data/injury_feed.py`, polled every 4 hours;
-  - depth charts, `src/nfl_data/depth_charts.py`, 32 calls nightly;
-  - player news, `src/news/providers/espn_player.py`;
-  - RSS, `src/news/providers/espn.py`;
-  - the Mike Clay PDF from `g.espncdn.com`.
-- **How they were switched on.** They were enabled in commits 96fc4a226 (2026-04-25) and 4230db191
-  (2026-09-01). The only rationale on record is engineering risk:
-  `docs/upgrade_phases_1_10.md:310`, "low risk, graceful degradation already proven".
-- **No decision record.** No decision record, planning record or census entry records ESPN terms or
-  permission.
-- **So the scoreboard cannot inherit a class.** No authorized class exists to inherit, and live game
-  polling is a different endpoint and usage class from those batch feeds.
-- **Would be needed:** written permission from ESPN/Disney, or a licensed live feed.
+**Scope boundary.**
 
-## 3. Legitimate alternatives (facts, not recommendations)
+- This is not blanket permission to discover and ingest arbitrary new websites. A genuinely new
+  provider, outside the existing portfolio and not explicitly owner-directed, still goes through
+  normal source intake and permission verification.
+- Materially broadening an existing provider into a different product, feed or use case than the
+  intended integration must be recorded as an expansion; it must not be done silently.
+- A new permission decision is surfaced only when:
+  - the provider is genuinely new;
+  - the access mechanism or use case is materially outside the intended integration; or
+  - the owner changes or revokes the authorization.
 
-**Weekly per-player projections**
+**Credentials are separate from permission.** Several named sources are keyed or subscription APIs
+(for example Fantasy Nerds, SportsDataIO and FantasyPros). The attestation covers permission. Where
+the repository has no configured credential for a source, the owner configures it through the
+environment or secrets; agents never enter or handle credentials themselves.
 
-| Source | Terms / cost (published) | Coverage |
+## Background evidence: public terms (context only, not the basis of permission)
+
+Public terms do not supersede or define the private permission the owner states he possesses. They are
+kept here only as context, retrieved 2026-09-25, with short excerpts.
+
+- **Sleeper.**
+  - Documented API: "free to use for non-commercial purposes", with commercial use handled through
+    licensing (https://docs.sleeper.com/).
+  - The `/projections` and `/stats` endpoints are undocumented.
+  - Rows carry `company: "rotowire"`.
+- **RotoWire.** The public terms (rotowire.com/termsandconditions.php) describe personal,
+  non-commercial use.
+- **ESPN.** Falls under the Disney Terms of Use (disneytermsofuse.com). ESPN's public developer API
+  closed in 2014, and `site.api.espn.com` is documented only by the community. The repo's existing
+  ESPN integrations are:
+  - injuries, `src/nfl_data/injury_feed.py`;
+  - depth charts, `src/nfl_data/depth_charts.py`;
+  - news, `src/news/providers/espn*.py`;
+  - the Mike Clay PDF.
+- **Keyed and licensed providers.**
+  - Fantasy Nerds: api.fantasynerds.com; weekly stat projections, Weeks 1–18.
+  - SportsDataIO: sportsdata.io; weekly stat-level projections plus live game data.
+  - FantasyPros: fantasypros.com/api-data; weekly and ROS stat lines.
+  - Sportradar and MySportsFeeds: live status, quarter and clock.
+- **Not currently wired.** Coverage details for these providers (K/IDP depth, cadence) are recorded
+  on each source's census entry once it is wired. Live game state from ESPN or SportsDataIO, and
+  multi-source weekly projections, are the Game Day inputs to build next.
+
+## Game Day source roles (one owner each)
+
+| Concern | Owner module | Candidate authorized sources |
 |---|---|---|
-| Fantasy Nerds API | Official; $499/yr Standard, $2,999/yr Extended Commercial (api.fantasynerds.com pricing) | Weekly stat projections Weeks 1–18, QB/RB/WR/TE/K; IDP detail unconfirmed |
-| FantasyPros API | Official; personal-use tier, or a commercial tier with redistribution rights (custom price) | Weekly and ROS full stat lines; K/IDP unconfirmed |
-| SportsDataIO | Official; production pricing via sales | Weekly stat-level plus points; IDP game projections |
-| MySportsFeeds | Official; separate personal and commercial tiers, plus a PROJECTIONS add-on | Game-by-game stat projections |
-| Yahoo Fantasy API | Official OAuth, API agreement plus attribution | Through league context; the consensus may include RotoWire |
-| nflverse ffopportunity | Open (CC BY-SA 4.0) | Retrospective expected points, **not** a forward projection |
-| The IDP Show | Subscription; automated-use scope unrecorded | In-season weekly IDP *rankings*, not stat lines |
-
-**Live game clock and status**
-
-- Licensed providers: Sportradar (status, quarter and clock), Genius Sports (the NFL's official
-  distributor), SportsDataIO, MySportsFeeds.
-- Free sources give no clock: nflverse schedules update status only, and Sleeper `/v1/state` gives
-  season and week only.
-
-## 4. Questions only the owner can answer
-
-1. Does the site count as **commercial** for licensing purposes? Most of the terms above turn on this.
-2. **Sleeper/RotoWire:** seek written permission, or keep the flag off permanently and choose another
-   weekly source?
-3. **Existing ESPN feeds** (injuries, depth charts, news): record a decision to continue, pause, or
-   seek permission. This is a separate question from Game Day.
-4. **ESPN scoreboard:** seek permission for live polling, or keep the flag off?
-5. If licensed options are in scope: which positions and horizon are required (stat-level K and IDP?),
-   and is a budget in scope? This asks about scope only, not a purchase.
-6. **IDP Show:** does the subscription permit automated collection? The census reads
-   `SUBSCRIPTION_SCOPE_UNRECORDED`.
-7. Until these are resolved, Game Day runs on the labelled preseason fallback plus nflverse schedule
-   status, with no observed clock. That is a fallback state, **not** completion of the live dashboard
-   (owner requirement).
-
-**Unverified:** Sleeper's appearance on RotoWire's partner page, Yahoo's full API agreement text (the
-link returned 404), the NFL Fantasy API docs (the host did not resolve), FantasyPros K/IDP coverage,
-and SportsDataIO trial terms.
+| Live game state (status, period, clock, OT, delay, postponement, final) | `src/nfl_data/live_game_state.py` | ESPN scoreboard; SportsDataIO where configured |
+| Factual live player stats and corrections | `src/nfl_data/sleeper_live_stats.py` | Sleeper stats; SportsDataIO where configured |
+| Weekly projection ensemble | `src/ros/projection_ensemble.py` + weekly sources | RotoWire via Sleeper, Fantasy Nerds, SportsDataIO, FantasyPros, DraftSharks, IDP Show where appropriate. Independence is recorded by source family and ancestry, so there is no double counting of an aggregator and its constituents, or of several horizons from one model |
+| Exact league scoring | `src/league_intel/scorer.py` | Stat-level projections are rescored here. Uncovered categories are preserved as uncovered, or estimated by a separately validated estimator labelled as OUR estimate; never zero |
+| Best-ball lineup | `src/ros/lineup.py` | — |
+| Game Day simulation | `src/ros/game_day_sim.py` | — |
