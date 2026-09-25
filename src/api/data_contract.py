@@ -4737,8 +4737,16 @@ def _parse_source_csv_cached(
     return csv_lookup, schema_err
 
 
-def _parse_fp_meta_csv_cached(fp_path: Path) -> dict[str, dict[str, Any]]:
-    """Parse FantasyPros IDP metadata CSV with mtime-keyed caching."""
+def _parse_fp_meta_csv_cached(fp_path: Path) -> dict[str, list[dict[str, Any]]]:
+    """Parse FantasyPros IDP metadata CSV with mtime-keyed caching.
+
+    Maps canonical match key -> EVERY row sharing it.  Distinct players can
+    share a key once suffixes are stripped ("Byron Murphy II", DT SEA, and
+    "Byron Murphy Jr.", CB MIN, both reduce to ``byron murphy``); a flat
+    ``key -> row`` map let the later row overwrite the earlier, so one
+    player was stamped with the other's ranks.  The stamp site chooses among
+    candidates (``_select_fp_meta``) and abstains when it cannot.
+    """
     import csv as _csv  # noqa: PLC0415
 
     try:
@@ -4750,7 +4758,7 @@ def _parse_fp_meta_csv_cached(fp_path: Path) -> dict[str, dict[str, Any]]:
     if cached and cached[0] == current_mtime:
         return cached[1]
 
-    fp_meta_lookup: dict[str, dict[str, Any]] = {}
+    fp_meta_lookup: dict[str, list[dict[str, Any]]] = {}
     with fp_path.open("r", encoding="utf-8-sig") as f:
         for row_csv in _csv.DictReader(f):
             nm = str(row_csv.get("name") or "").strip()
@@ -4771,20 +4779,47 @@ def _parse_fp_meta_csv_cached(fp_path: Path) -> dict[str, dict[str, Any]]:
                 norm_v = int(float(row_csv.get("normalizedValue") or 0))
             except (TypeError, ValueError):
                 norm_v = 0
-            fp_meta_lookup[key] = {
-                "fantasyProsIdpOriginalRank": orig_r,
-                "fantasyProsIdpEffectiveRank": eff_r,
-                "fantasyProsIdpDerivationMethod": str(
-                    row_csv.get("derivationMethod") or ""
-                ).strip(),
-                "fantasyProsIdpFamily": str(row_csv.get("family") or "").strip(),
-                "fantasyProsIdpNormalizedValue": norm_v,
-                "fantasyProsIdpMatchedSourceName": str(
-                    row_csv.get("matchedSourceName") or nm
-                ).strip(),
-            }
+            fp_meta_lookup.setdefault(key, []).append(
+                {
+                    "_name": nm,
+                    "fantasyProsIdpOriginalRank": orig_r,
+                    "fantasyProsIdpEffectiveRank": eff_r,
+                    "fantasyProsIdpDerivationMethod": str(
+                        row_csv.get("derivationMethod") or ""
+                    ).strip(),
+                    "fantasyProsIdpFamily": str(row_csv.get("family") or "").strip(),
+                    "fantasyProsIdpNormalizedValue": norm_v,
+                    "fantasyProsIdpMatchedSourceName": str(
+                        row_csv.get("matchedSourceName") or nm
+                    ).strip(),
+                }
+            )
     _FP_META_CSV_CACHE[cache_key] = (current_mtime, fp_meta_lookup)
     return fp_meta_lookup
+
+
+def _select_fp_meta(
+    candidates: list[dict[str, Any]], row_name: str, row_position: object
+) -> dict[str, Any] | None:
+    """The one FantasyPros IDP metadata row that belongs to this board row.
+
+    A single candidate is used as before.  Several (a suffix-stripped name
+    collision) are narrowed by exact name, then by position family; anything
+    still ambiguous gets NO stamp: an unknown is not a guess.
+    """
+    if len(candidates) == 1:
+        return candidates[0]
+    exact = [c for c in candidates if c.get("_name") == row_name]
+    if len(exact) == 1:
+        return exact[0]
+    from src.utils.name_clean import normalize_position_family  # noqa: PLC0415
+
+    family = normalize_position_family(str(row_position or ""))
+    pool = exact or candidates
+    same_family = [c for c in pool if c.get("fantasyProsIdpFamily") == family] if family else []
+    if len(same_family) == 1:
+        return same_family[0]
+    return None
 
 
 def _enrich_from_source_csvs(
@@ -5153,7 +5188,7 @@ def _enrich_from_source_csvs(
                     key = _canonical_match_key(nm)
                     if not key:
                         continue
-                    meta = fp_meta_lookup.get(key)
+                    meta = _select_fp_meta(fp_meta_lookup.get(key) or [], nm, row.get("position"))
                     if meta is None:
                         continue
                     # Only stamp FP metadata on rows that actually
@@ -5166,7 +5201,8 @@ def _enrich_from_source_csvs(
                     if not csv_vals.get("fantasyProsIdp"):
                         continue
                     for k, v in meta.items():
-                        row[k] = v
+                        if not k.startswith("_"):
+                            row[k] = v
             except Exception as exc:  # noqa: BLE001
                 _LOGGER.warning("FantasyPros IDP metadata stamp failed: %s", exc)
 
