@@ -126,6 +126,12 @@ single authorization record for the batch; ideas inside it do not get their own 
     intelligence persistence + as-of query foundation, OD-03, authorized here**, extending
     `src/intel/` / `src/analyst/`).
   - 6: Premium UI, permanent (above).
+  - **Priority deliverable — Game Day live best-ball dashboard** (owner amendment 2026-09-24,
+    #1335 comment 5824706487, reconciling #1334 / #789 / #854): current-week projection inputs,
+    observed live game state and scoring, a per-draw best-ball rest-of-game simulation and the PSI
+    Game Day experience, paired across Season/Scoring/Projections and Lane 6. It is a named unit of
+    this campaign, not a separate program and not a later UI phase. No paid feed and no access
+    bypass is authorized; exact external blockers are named while the rest proceeds.
 * **Build broadly, integrate narrowly is authorized:** focused/targeted tests while building,
   full CI at integration boundaries and on every merge head, one integrated release candidate and
   one production deploy where practical. It never weakens an acceptance gate.
