@@ -1,0 +1,49 @@
+{
+  "_provenance": "SYNTHETIC (hand-built, not a provider capture): an in-progress game, 3rd quarter 7:32 left.",
+  "season": {
+    "type": 2,
+    "year": 2026
+  },
+  "week": {
+    "number": 3
+  },
+  "events": [
+    {
+      "id": "900001",
+      "date": "2026-09-27T17:00Z",
+      "competitions": [
+        {
+          "id": "900001",
+          "date": "2026-09-27T17:00Z",
+          "status": {
+            "clock": 452.0,
+            "displayClock": "7:32",
+            "period": 3,
+            "type": {
+              "name": "STATUS_IN_PROGRESS",
+              "state": "in",
+              "completed": false,
+              "shortDetail": "7:32 - 3rd"
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "10",
+              "team": {
+                "abbreviation": "DAL"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "7",
+              "team": {
+                "abbreviation": "PHI"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

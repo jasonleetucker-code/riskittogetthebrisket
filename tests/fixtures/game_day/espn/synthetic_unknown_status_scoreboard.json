@@ -1,0 +1,123 @@
+{
+  "_provenance": "SYNTHETIC (hand-built, not a provider capture): an unmapped status name, a status/state conflict, and a missing status name.",
+  "season": {
+    "type": 2,
+    "year": 2026
+  },
+  "week": {
+    "number": 3
+  },
+  "events": [
+    {
+      "id": "900010",
+      "date": "2026-09-27T17:00Z",
+      "competitions": [
+        {
+          "id": "900010",
+          "date": "2026-09-27T17:00Z",
+          "status": {
+            "clock": 200.0,
+            "displayClock": "3:20",
+            "period": 3,
+            "type": {
+              "name": "STATUS_SUSPENDED",
+              "state": "in",
+              "completed": false,
+              "shortDetail": "Suspended"
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "10",
+              "team": {
+                "abbreviation": "DAL"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "7",
+              "team": {
+                "abbreviation": "PHI"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "900011",
+      "date": "2026-09-27T17:00Z",
+      "competitions": [
+        {
+          "id": "900011",
+          "date": "2026-09-27T17:00Z",
+          "status": {
+            "clock": 30.0,
+            "displayClock": "0:30",
+            "period": 4,
+            "type": {
+              "name": "STATUS_FINAL",
+              "state": "in",
+              "completed": false,
+              "shortDetail": "Final?"
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "10",
+              "team": {
+                "abbreviation": "DAL"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "7",
+              "team": {
+                "abbreviation": "PHI"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "900012",
+      "date": "2026-09-27T17:00Z",
+      "competitions": [
+        {
+          "id": "900012",
+          "date": "2026-09-27T17:00Z",
+          "status": {
+            "clock": 100.0,
+            "displayClock": "1:40",
+            "period": 2,
+            "type": {
+              "name": null,
+              "state": "in",
+              "completed": false,
+              "shortDetail": "?"
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "10",
+              "team": {
+                "abbreviation": "DAL"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "7",
+              "team": {
+                "abbreviation": "PHI"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

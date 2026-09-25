@@ -34,6 +34,7 @@ import logging
 import os
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from typing import Any, Callable
 
 from src.nfl_data import cache as _nfl_cache
@@ -198,6 +199,68 @@ def _player_index(*, fetcher: Callable[[str], Any] | None = None) -> dict[str, d
     return slim
 
 
+def week_stats_url(season: int, week: int) -> str:
+    """The ONE spelling of Sleeper's regular-season weekly stat-dump URL."""
+    return f"{_SLEEPER_API_ROOT}/stats/nfl/regular/{int(season)}/{int(week)}"
+
+
+@dataclass(frozen=True)
+class WeekStatsResponse:
+    """One UNCACHED request to the weekly stat dump, outcome preserved.
+
+    ``payload`` is ``None`` whenever no JSON body was obtained; ``error``
+    then says why.  ``http_status`` is the status actually observed, or
+    ``None`` when none was (a network error before any response, or an
+    injected test ``fetcher`` that only returns parsed JSON) — an unseen
+    status is not reported as 200.
+    """
+
+    url: str
+    payload: Any
+    http_status: int | None
+    error: str | None
+
+
+def fetch_week_stats_response(
+    season: int,
+    week: int,
+    *,
+    fetcher: Callable[[str], Any] | None = None,
+    timeout: float = _HTTP_TIMEOUT,
+) -> WeekStatsResponse:
+    """Fetch one week's stat dump with NO cache, never raising.
+
+    This is the single HTTP owner for ``/v1/stats/nfl/regular/<s>/<w>``:
+    the cached historical path (:func:`_fetch_week_stats`) and the live
+    Game Day adapter (``src.nfl_data.sleeper_live_stats``) both call it,
+    so neither keeps a private fetcher.  The cache policy stays with the
+    caller because the two want opposite things — a finished season is
+    safe to hold for a week, a live week is stale within minutes.
+    """
+    url = week_stats_url(season, week)
+    if fetcher is not None:
+        try:
+            return WeekStatsResponse(url, fetcher(url), None, None)
+        except urllib.error.HTTPError as exc:
+            return WeekStatsResponse(url, None, exc.code, f"http_error:{exc.code}")
+        except Exception as exc:  # noqa: BLE001
+            return WeekStatsResponse(url, None, None, f"fetch_failed:{type(exc).__name__}")
+    req = urllib.request.Request(url, headers={"User-Agent": "riskit-league-compare/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
+            status = getattr(resp, "status", None)
+            body = resp.read()
+    except urllib.error.HTTPError as exc:
+        return WeekStatsResponse(url, None, exc.code, f"http_error:{exc.code}")
+    except Exception as exc:  # noqa: BLE001 — timeouts, DNS, resets
+        return WeekStatsResponse(url, None, None, f"fetch_failed:{type(exc).__name__}")
+    try:
+        payload = json.loads(body)
+    except (TypeError, ValueError) as exc:
+        return WeekStatsResponse(url, None, status, f"invalid_json:{type(exc).__name__}")
+    return WeekStatsResponse(url, payload, status, None)
+
+
 def _fetch_week_stats(
     season: int,
     week: int,
@@ -215,28 +278,26 @@ def _fetch_week_stats(
     cached = _nfl_cache.get(key, ttl_seconds=_WEEKLY_STATS_TTL)
     if cached is not None:
         return cached
-    fetch = fetcher or _http_get_json
-    url = f"{_SLEEPER_API_ROOT}/stats/nfl/regular/{season}/{week}"
-    try:
-        raw = fetch(url)
-    except urllib.error.HTTPError as exc:
-        if exc.code == 404:
+    response = fetch_week_stats_response(season, week, fetcher=fetcher)
+    if response.error is not None:
+        if response.http_status == 404:
             return None
-        _LOGGER.warning(
-            "sleeper_stats.week_http_error season=%d week=%d code=%s",
-            season,
-            week,
-            exc.code,
-        )
+        if response.http_status is not None:
+            _LOGGER.warning(
+                "sleeper_stats.week_http_error season=%d week=%d code=%s",
+                season,
+                week,
+                response.http_status,
+            )
+        else:
+            _LOGGER.warning(
+                "sleeper_stats.week_fetch_failed season=%d week=%d err=%s",
+                season,
+                week,
+                response.error,
+            )
         return None
-    except Exception as exc:  # noqa: BLE001
-        _LOGGER.warning(
-            "sleeper_stats.week_fetch_failed season=%d week=%d err=%r",
-            season,
-            week,
-            exc,
-        )
-        return None
+    raw = response.payload
     if not isinstance(raw, dict) or not raw:
         return None
     try:

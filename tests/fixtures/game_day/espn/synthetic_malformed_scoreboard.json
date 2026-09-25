@@ -1,0 +1,124 @@
+{
+  "_provenance": "SYNTHETIC (hand-built, not a provider capture): one valid event followed by five malformed ones that must be skipped and counted.",
+  "season": {
+    "type": 2,
+    "year": 2026
+  },
+  "week": {
+    "number": 3
+  },
+  "events": [
+    {
+      "id": "900020",
+      "date": "2026-09-27T17:00Z",
+      "competitions": [
+        {
+          "id": "900020",
+          "date": "2026-09-27T17:00Z",
+          "status": {
+            "clock": 900.0,
+            "displayClock": "15:00",
+            "period": 1,
+            "type": {
+              "name": "STATUS_IN_PROGRESS",
+              "state": "in",
+              "completed": false,
+              "shortDetail": "15:00 - 1st"
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "10",
+              "team": {
+                "abbreviation": "DAL"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "7",
+              "team": {
+                "abbreviation": "PHI"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "900021",
+      "competitions": []
+    },
+    {
+      "id": "900022",
+      "date": "2026-09-27T17:00Z",
+      "competitions": [
+        {
+          "id": "900020",
+          "date": "2026-09-27T17:00Z",
+          "status": {
+            "clock": 900.0,
+            "displayClock": "15:00",
+            "period": 1,
+            "type": {
+              "name": "STATUS_IN_PROGRESS",
+              "state": "in",
+              "completed": false,
+              "shortDetail": "15:00 - 1st"
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "10",
+              "team": {
+                "abbreviation": "DAL"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "900023",
+      "date": "2026-09-27T17:00Z",
+      "competitions": [
+        {
+          "id": "900020",
+          "date": "2026-09-27T17:00Z",
+          "status": {
+            "clock": 900.0,
+            "displayClock": "15:00",
+            "period": 1,
+            "type": {
+              "name": "STATUS_IN_PROGRESS",
+              "state": "in",
+              "completed": false,
+              "shortDetail": "15:00 - 1st"
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "10",
+              "team": {}
+            },
+            {
+              "homeAway": "away",
+              "score": "7",
+              "team": {
+                "abbreviation": "PHI"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "not-an-object",
+    {
+      "competitions": [
+        {}
+      ]
+    }
+  ]
+}
