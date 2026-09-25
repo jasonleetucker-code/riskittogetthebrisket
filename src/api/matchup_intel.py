@@ -47,10 +47,13 @@ module owns the ASSEMBLY both producers share — :func:`assemble_league_week`,
 the same inputs are the same answer.
 
 **Request-path seams.** ``_observe_live_state`` and
-``_weekly_projection_fetches`` remain the acquisition for the on-demand
-path (no usable generation).  Both are flag-gated, bounded and memoised
-in-process; the weekly seam also merges the collector's persisted
-observations so a restart keeps each game's pre-kickoff read.
+``_weekly_projection_fetches`` remain the acquisition for the BACKGROUND
+compute that runs when no usable generation exists (never on the request
+thread: the request itself answers :func:`pending_league_render`, which
+reads no projection and makes no scoreboard request).  Both seams are
+flag-gated, bounded and memoised in-process; the weekly seam also merges the
+collector's persisted observations so a restart keeps each game's
+pre-kickoff read.
 
 **Private, and league-scoped.** Projections, win probabilities and roster
 weaknesses are proprietary decision intelligence under CLAUDE.md §5 — this
@@ -98,10 +101,12 @@ from src.ros.lineup import (
 )
 
 #: Draws for the league-week simulation. NOT `game_day_sim.DEFAULT_DRAWS`
-#: (10,000) — this endpoint runs synchronously in a web request, so it uses
-#: a smaller count named explicitly here, so the payload can report what it
-#: actually ran rather than implying a precision it did not buy.  The SEED
-#: is `game_day_sim.DEFAULT_SEED` — one default, not two.
+#: (10,000) — the collector re-runs it on every input change during games
+#: (~60 s cadence), so it uses a smaller count named explicitly here, so the
+#: payload can report what it actually ran rather than implying a precision
+#: it did not buy.  (It never runs on a request thread: see
+#: ``game_day_live.serve_league_render``.)  The SEED is
+#: `game_day_sim.DEFAULT_SEED` — one default, not two.
 DEFAULT_DRAWS = 2000
 
 __all__ = ["DEFAULT_DRAWS", "DEFAULT_SEED", "build_matchup_intel"]
@@ -155,14 +160,30 @@ def _fetch_league_week(sleeper_league_id: str, week: int) -> _LeagueFetch:
     requests for the same league-week costs one round trip. Nothing new
     is fetched here that some other surface does not already fetch.
     """
+    rosters = sleeper_client.fetch_rosters(sleeper_league_id)
     return _LeagueFetch(
         league=sleeper_client.fetch_league(sleeper_league_id) or {},
         users=sleeper_client.fetch_users(sleeper_league_id),
-        rosters=sleeper_client.fetch_rosters(sleeper_league_id),
+        rosters=rosters,
         matchups=sleeper_client.fetch_matchups(sleeper_league_id, week),
-        players=sleeper_client.fetch_nfl_players(),
+        players=_players_meta(rosters),
         fetched_at=time.time(),
     )
+
+
+def _players_meta(rosters: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Sleeper player metadata: the collector's persisted (daily) players DB
+    when it is fresh and holds every rostered player — a disk read — else
+    the full ``players/nfl`` dump through the shared client (a multi-MB
+    network fetch on a cold process)."""
+    rostered = {str(pid) for r in rosters or () for pid in (r.get("players") or ()) if pid}
+    try:
+        from src.ros import game_day_live
+
+        persisted = game_day_live.persisted_players_meta(rostered)
+    except Exception:  # noqa: BLE001 — optional, the network path remains
+        persisted = None
+    return persisted if persisted is not None else sleeper_client.fetch_nfl_players()
 
 
 def _schedule_context(season: int) -> tuple[list[Mapping[str, Any]], float | None, float]:
@@ -825,6 +846,35 @@ class LeagueWeekAssembly:
     can_simulate: bool
     simulation: Any = None
     sim_error: str | None = None
+    #: A PENDING assembly (Game Day G): the cheap factual half only — rosters,
+    #: host scores, game states and the banked best-ball lineup — while the
+    #: forecast is computed off the request thread.  No projection is read,
+    #: so every projection-derived field renders WITHHELD (``None``), never
+    #: as "unpriced" or zero.
+    pending: bool = False
+
+
+#: ``weekly_state`` / lineage state of a pending assembly: projections were
+#: not read on the request path, which is different from "none available".
+WEEKLY_PENDING = "pending"
+PENDING_REASON = "generation_pending"
+#: ``probabilityState`` of a pending payload.
+PROBABILITY_PENDING = "PENDING"
+#: Player-row fields a pending payload WITHHOLDS (``None``) — every one is
+#: derived from a projection or the simulation.
+PENDING_WITHHELD_PLAYER_FIELDS = (
+    "projectedRemaining",
+    "remainingBasis",
+    "progressUnavailableReason",
+    "projectionBasis",
+    "projectionFamilies",
+    "providerBaselinePoints",
+    "imputedPoints",
+    "imputedScoringKeys",
+    "uncoveredScoringKeys",
+    "providerAsOf",
+    "finalLineupPct",
+)
 
 
 def assemble_league_week(
@@ -834,8 +884,13 @@ def assemble_league_week(
     season: int,
     week: int,
     roster_settings: Mapping[str, Any] | None = None,
+    pending: bool = False,
 ) -> LeagueWeekAssembly:
-    """Resolve the league-week from ``inputs`` — no network, no simulation."""
+    """Resolve the league-week from ``inputs`` — no network, no simulation.
+
+    ``pending=True`` skips projection resolution entirely (nothing is priced,
+    nothing is simulated); see :func:`pending_league_render`.
+    """
     fetched = inputs.fetched
     if not fetched.rosters:
         raise MatchupIntelError(f"{league_key}: the host returned no rosters")
@@ -869,22 +924,30 @@ def assemble_league_week(
         {str(pid) for r in fetched.rosters for pid in (r.get("players") or ()) if pid}
     )
     try:
-        estimates = resolve_game_day_estimates(
-            player_ids=rostered_ids,
-            players_meta=fetched.players,
-            scoring_settings=scoring_card,
-            season=season,
-            week=week,
-            now=now,
-            preseason_by_name=preseason,
-            preseason_source=preseason_source,
-            sources_loaded=sources_loaded,
-            sources_unavailable=sources_unavailable,
-            weekly_fetches=inputs.weekly_fetches,
-            weekly_state=inputs.weekly_state,
-            weekly_reason=inputs.weekly_reason,
-            kickoffs_by_team=kickoffs_by_team,
-        )
+        if pending:
+            estimates = GameDayEstimates(
+                by_player_id={},
+                weekly_state=WEEKLY_PENDING,
+                weekly_reason=PENDING_REASON,
+                preseason_source=None,
+            )
+        else:
+            estimates = resolve_game_day_estimates(
+                player_ids=rostered_ids,
+                players_meta=fetched.players,
+                scoring_settings=scoring_card,
+                season=season,
+                week=week,
+                now=now,
+                preseason_by_name=preseason,
+                preseason_source=preseason_source,
+                sources_loaded=sources_loaded,
+                sources_unavailable=sources_unavailable,
+                weekly_fetches=inputs.weekly_fetches,
+                weekly_state=inputs.weekly_state,
+                weekly_reason=inputs.weekly_reason,
+                kickoffs_by_team=kickoffs_by_team,
+            )
     except Exception as exc:  # noqa: BLE001 — a bad input must not lose the matchup
         estimates = GameDayEstimates(
             by_player_id={},
@@ -921,8 +984,10 @@ def assemble_league_week(
     unknown_state = [
         p.player_id for t in resolution.teams for p in t.players if p.state == "unknown"
     ]
-    can_simulate = not scoring.progress_unavailable_player_ids and (
-        scoring.mode == "pregame" or not unknown_state
+    can_simulate = (
+        not pending
+        and not scoring.progress_unavailable_player_ids
+        and (scoring.mode == "pregame" or not unknown_state)
     )
     return LeagueWeekAssembly(
         league_key=league_key,
@@ -937,6 +1002,7 @@ def assemble_league_week(
         owner_by_roster=_owner_by_roster(fetched.rosters),
         unknown_state=unknown_state,
         can_simulate=can_simulate,
+        pending=pending,
     )
 
 
@@ -1006,9 +1072,25 @@ def render_league(assembly: LeagueWeekAssembly) -> dict[str, Any]:
     median_verified = _median_verification(simulation, resolution.rules)
     team_week = {t.team_id: t for t in resolution.teams}
     est_by_id = estimates.by_player_id
+    pending = assembly.pending
 
     def _player_row(p: Any, outcome: TeamWeekOutcome | None) -> dict[str, Any]:
         est = est_by_id.get(p.player_id)
+        if pending:
+            # Game Day G: projections were not read on this request, so every
+            # projection-derived field is WITHHELD (None) — not "no
+            # projection" (which the empty lists / None below would claim).
+            return {
+                "playerId": p.player_id,
+                "name": str(
+                    (fetched.players.get(p.player_id) or {}).get("full_name") or p.player_id
+                ),
+                "state": p.state,
+                "nflGameId": p.nfl_game_id,
+                "pointsScored": p.points_scored,
+                **{key: None for key in PENDING_WITHHELD_PLAYER_FIELDS},
+                "fantasyPositions": list(p.fantasy_positions),
+            }
         return {
             "playerId": p.player_id,
             "name": str((fetched.players.get(p.player_id) or {}).get("full_name") or p.player_id),
@@ -1047,23 +1129,31 @@ def render_league(assembly: LeagueWeekAssembly) -> dict[str, Any]:
             ),
             "expectedLineup": (
                 _expected_lineup(tw.players, slots, fetched.players)
-                if tw and scoring.mode != "final"
+                if tw and scoring.mode != "final" and not pending
                 else None
             ),
-            "unpricedPlayerIds": list(resolution.unpriced_player_ids.get(roster_id, ())),
+            "unpricedPlayerIds": (
+                None if pending else list(resolution.unpriced_player_ids.get(roster_id, ()))
+            ),
             "ineligiblePlayerIds": list(resolution.ineligible_player_ids.get(roster_id, ())),
         }
         if tw:
             outcome = outcomes.get(roster_id)
             side["players"] = [_player_row(p, outcome) for p in tw.players]
-            side["uncoveredScoringKeys"] = sorted(
-                {
-                    k
-                    for p in tw.players
-                    for k in (
-                        est_by_id[p.player_id].uncovered_keys if p.player_id in est_by_id else ()
-                    )
-                }
+            side["uncoveredScoringKeys"] = (
+                None
+                if pending
+                else sorted(
+                    {
+                        k
+                        for p in tw.players
+                        for k in (
+                            est_by_id[p.player_id].uncovered_keys
+                            if p.player_id in est_by_id
+                            else ()
+                        )
+                    }
+                )
             )
         if tw and scoring.mode != "pregame":
             side["actualScore"] = scoring.host_scores.get(roster_id)
@@ -1133,6 +1223,17 @@ def render_league(assembly: LeagueWeekAssembly) -> dict[str, Any]:
         basis_counts[est.basis] = basis_counts.get(est.basis, 0) + 1
     if assembly.sim_error:
         notes.append(f"simulation unavailable: {assembly.sim_error}")
+    if pending:
+        # The resolver's coverage notes describe projections, which were not
+        # read here; "no projection snapshot" would be a false statement.
+        notes = [
+            n for n in notes if not n.startswith("no projection snapshot") and "unpriced" not in n
+        ]
+        notes.append(
+            "PENDING: the forecast (projections, win / beat-median probability, "
+            "expected final) is being computed in the background; the scores, "
+            "game states and banked best-ball lineup shown are the host's facts"
+        )
 
     roster_ids = sorted(owner_by_roster)
     shared = {
@@ -1143,6 +1244,8 @@ def render_league(assembly: LeagueWeekAssembly) -> dict[str, Any]:
         "probabilityState": (
             "FINAL"
             if scoring.mode == "final"
+            else PROBABILITY_PENDING
+            if pending
             else "LIVE_PROGRESS_UNAVAILABLE"
             if scoring.progress_unavailable_player_ids
             else "GAME_STATE_OR_SCORING_UNAVAILABLE"
@@ -1261,6 +1364,14 @@ def render_league(assembly: LeagueWeekAssembly) -> dict[str, Any]:
             else None
         ),
     }
+    if pending:
+        # Projection coverage was not measured on this request — withheld,
+        # never "0 families" / "0 of N priced".
+        lineage.update(
+            projectionBasisCounts=None,
+            projectionFamiliesContributing=None,
+            estimateCoverage=None,
+        )
     return {
         "shared": shared,
         "lineage": lineage,
@@ -1358,28 +1469,94 @@ def compose_team_payload(
     return payload
 
 
-def compute_league_render(
+def prepare_league_week(
     *,
     league_key: str,
     sleeper_league_id: str,
     season: int,
     week: int,
     roster_settings: Mapping[str, Any] | None = None,
-    draws: int = DEFAULT_DRAWS,
-    seed: int = DEFAULT_SEED,
     fetched: _LeagueFetch | None = None,
-) -> tuple[dict[str, Any], LiveInputs]:
-    """Request-path compute: acquire through the interim seams, assemble,
-    simulate and render the whole league.  Used only when no collector
-    generation can be served (``src/ros/game_day_live.py`` decides)."""
+) -> LeagueWeekAssembly:
+    """Request-path acquisition + assembly (no simulation) for the BACKGROUND
+    compute that runs when no collector generation can be served
+    (``src/ros/game_day_live.py`` decides, and runs it off the request
+    thread).  ``fetched`` reuses the league fetch the pending payload made."""
     fetched = fetched if fetched is not None else _fetch_league_week(sleeper_league_id, week)
     if not fetched.rosters:
         raise MatchupIntelError(f"{league_key}: the host returned no rosters")
     inputs = gather_request_inputs(fetched, season=season, week=week)
-    assembly = assemble_league_week(
+    return assemble_league_week(
         inputs, league_key=league_key, season=season, week=week, roster_settings=roster_settings
     )
-    run_league_simulation(assembly, draws=draws, seed=seed)
+
+
+def peek_live_state(season: int, week: int) -> Any:
+    """The newest live-game-state observation ALREADY HELD — no network.
+
+    The in-process memo (any age) or the collector's persisted last good
+    observation, whichever is newer; ``None`` when neither exists.  Its
+    true ``observed_at`` travels with it, so the resolver marks an old one
+    ``stale_live_state`` rather than treating it as current.
+    """
+    key = (int(season), int(week))
+    with _memo_lock:
+        hit = _live_state_memo.get(key)
+    candidates = [hit[1]] if hit is not None else []
+    try:
+        from src.ros import game_day_live
+
+        persisted = game_day_live.last_good_live_snapshot(int(season), int(week))
+    except Exception:  # noqa: BLE001 — optional evidence, never fatal
+        persisted = None
+    if persisted is not None:
+        candidates.append(persisted)
+    if not candidates:
+        return None
+    return max(candidates, key=lambda s: s.observed_at.timestamp() if s.observed_at else 0.0)
+
+
+def pending_league_render(
+    *,
+    league_key: str,
+    sleeper_league_id: str,
+    season: int,
+    week: int,
+    roster_settings: Mapping[str, Any] | None = None,
+) -> tuple[dict[str, Any], LiveInputs]:
+    """The PENDING league render (Game Day G): cheap factual inputs only.
+
+    The league fetch (the shared TTL-cached Sleeper client), the cached
+    nflverse schedule and :func:`peek_live_state` — no projection fetch, no
+    preseason ensemble, no scoreboard request, no simulation.  Host scores,
+    game states and the banked best-ball lineup (``actual_lineup`` → the
+    exact solver in ``src/ros/lineup.py``) are real; every forecast field is
+    withheld.  Returns the inputs too, so the background compute reuses the
+    same league fetch.
+    """
+    fetched = _fetch_league_week(sleeper_league_id, week)
+    if not fetched.rosters:
+        raise MatchupIntelError(f"{league_key}: the host returned no rosters")
+    schedule_rows, schedule_observed_at, now = _schedule_context(season)
+    inputs = LiveInputs(
+        fetched=fetched,
+        schedule_rows=schedule_rows,
+        schedule_observed_at=schedule_observed_at,
+        now=now,
+        live_snapshot=peek_live_state(season, week),
+        weekly_fetches=(),
+        weekly_state=WEEKLY_PENDING,
+        weekly_reason=PENDING_REASON,
+        preseason=({}, None, (), ()),
+    )
+    assembly = assemble_league_week(
+        inputs,
+        league_key=league_key,
+        season=season,
+        week=week,
+        roster_settings=roster_settings,
+        pending=True,
+    )
     return render_league(assembly), inputs
 
 
@@ -1398,12 +1575,13 @@ def build_matchup_intel(
 ) -> dict[str, Any]:
     """One team's scheduled, live, or final matchup intelligence for ``week``.
 
-    Served from the shared collector's latest GENERATION for this
-    league-week when one exists (fast: no network, no simulation), with a
-    ``freshness`` block stating its true as-of, age and state.  Only when no
-    generation can be served does this compute on demand — single-flighted
-    per league-week, labelled ``degraded`` — see
-    ``src/ros/game_day_live.py::serve_league_render``.
+    Served from the latest GENERATION for this league-week when one exists
+    (fast: no network, no simulation), with a ``freshness`` block stating its
+    true as-of, age and state.  With no usable generation the request never
+    blocks on the simulation: it answers a PENDING payload from cheap
+    factual inputs (``freshness.state == "pending"``) and starts ONE
+    background compute per league-week, whose generation the next poll
+    serves — see ``src/ros/game_day_live.py::serve_league_render``.
     """
     from src.ros import game_day_live
 
