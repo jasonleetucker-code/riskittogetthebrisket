@@ -778,6 +778,7 @@ def build_matchup_intel(
             # The PROVIDER's pregame weekly baseline, kept separate from
             # our derived rest-of-game forecast (projectedRemaining).
             "projectionBasis": est.basis if est else None,
+            "projectionFamilies": list(est.families) if est else [],
             "providerBaselinePoints": round(est.provider_points, 2) if est else None,
             "imputedPoints": round(est.imputed_points, 2) if est else None,
             "imputedScoringKeys": list(est.imputed_keys) if est else [],
@@ -949,6 +950,12 @@ def build_matchup_intel(
             if estimate_source
             else None,
             "projectionBasisCounts": basis_counts,
+            # How many INDEPENDENT weekly projection families actually
+            # contribute (one per census providerFamily). 1 today (RotoWire
+            # via Sleeper): a one-family state is never a multi-source ensemble.
+            "projectionFamiliesContributing": len(
+                {f for e in est_by_id.values() for f in e.families}
+            ),
             # Human wording for each basis, so the fallback can never be read
             # as the weekly projection.
             "projectionBasisLabels": {b: BASIS_LABELS[b] for b in sorted(basis_counts)},

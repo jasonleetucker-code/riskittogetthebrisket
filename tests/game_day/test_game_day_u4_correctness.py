@@ -186,6 +186,33 @@ def test_super_flex_cascade_moves_a_completed_qb_and_benches_a_completed_wr():
     assert a.projected_mean == pytest.approx(12.0 + 4.0 + 21.0, rel=0.08)
 
 
+def test_three_players_competing_for_one_open_slot_share_it_by_draw():
+    """SYNTHETIC: QB slot + one SUPER_FLEX; QB1 done at 25, QB2 and QB3 both
+    still to play with equal means — they split the one remaining seat, and
+    the pair's shares always sum to the single seat (no player used twice)."""
+    team = TeamWeek(
+        "a",
+        (
+            PlayerWeek("qb1", "QB", "completed", points_scored=25.0),
+            PlayerWeek("qb2", "QB", "not_started", 0.0, projected_remaining=15.0),
+            PlayerWeek("qb3", "QB", "not_started", 0.0, projected_remaining=15.0),
+        ),
+    )
+    opp = TeamWeek("b", (PlayerWeek("x", "QB", "completed", points_scored=10.0),))
+    sim = simulate_league_week(
+        rules=_rules(["QB", "SUPER_FLEX"]),
+        teams=[team, opp],
+        opponents={"a": "b", "b": "a"},
+        season=2026,
+        week=3,
+        draws=1000,
+    )
+    pct = next(t for t in sim.teams if t.team_id == "a").player_lineup_pct
+    assert pct["qb1"] > 95.0
+    assert 30.0 < pct["qb2"] < 70.0 and 30.0 < pct["qb3"] < 70.0
+    assert pct["qb1"] + pct["qb2"] + pct["qb3"] == pytest.approx(200.0)  # two seats
+
+
 def test_all_completed_week_has_no_variance_and_no_leverage():
     team = TeamWeek(
         "a", (PlayerWeek("q", "QB", "completed", points_scored=20.0, nfl_game_id="g1"),)

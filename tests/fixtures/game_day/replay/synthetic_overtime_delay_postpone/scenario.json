@@ -22,13 +22,13 @@
       ],
       "date": "2026-09-25T00:15Z",
       "status": {
-       "clock": 0.0,
-       "displayClock": "0:00",
-       "period": 4,
+       "clock": 480.0,
+       "displayClock": "8:00",
+       "period": 5,
        "type": {
         "completed": false,
-        "name": "STATUS_END_PERIOD",
-        "shortDetail": "STATUS_END_PERIOD",
+        "name": "STATUS_IN_PROGRESS",
+        "shortDetail": "STATUS_IN_PROGRESS",
         "state": "in"
        }
       }
@@ -171,8 +171,8 @@
        "period": 0,
        "type": {
         "completed": false,
-        "name": "STATUS_SCHEDULED",
-        "shortDetail": "9/27 - 1:00 PM EDT",
+        "name": "STATUS_POSTPONED",
+        "shortDetail": "Postponed",
         "state": "pre"
        }
       }
@@ -279,8 +279,8 @@
        "period": 0,
        "type": {
         "completed": false,
-        "name": "STATUS_SCHEDULED",
-        "shortDetail": "9/27 - 1:00 PM EDT",
+        "name": "STATUS_DELAYED",
+        "shortDetail": "Delayed",
         "state": "pre"
        }
       }
@@ -2365,8 +2365,8 @@
  "meta": {
   "base": "real_halftime",
   "capturedAt": "2026-09-25T01:50:08+00:00",
-  "description": "Halftime base; GB@ATL rewritten to end of Q4 tied (overtime possible)",
+  "description": "Halftime base; GB@ATL in overtime, PIT@CIN delayed pregame, IND@HOU postponed",
   "kind": "synthetic",
-  "mutation": "espn: TNF status -> STATUS_END_PERIOD period 4 clock 0:00, scores 20-20"
+  "mutation": "espn: TNF -> period 5 tied; PIT@CIN -> STATUS_DELAYED pre; IND@HOU -> STATUS_POSTPONED pre"
  }
 }

@@ -15,11 +15,14 @@ Trimmed REAL captures taken 2026-09-25 during the Thursday GB@ATL game
 | `real_q2_in_progress` | 01:13:34Z | Q2 9:38 |
 | `real_halftime` | 01:50:08Z | `STATUS_HALFTIME` (both leagues) |
 | `real_q3_in_progress` | 02:05:24Z | Q3 12:26 |
+| `real_q4_in_progress` | 02:48:09Z | Q4 10:44 |
+| `real_final_first_seen` | 03:18:41Z | `STATUS_FINAL` first observed (both leagues) |
+| `real_final` | 03:24:47Z | `STATUS_FINAL`; the host still moved player points after the first final (6804 22.07→18.30, 11559 19.01→18.83 in `dynasty_main`) — a REAL post-final stat change (feed catch-up or correction; the capture cannot tell which) |
 
 Each `scenario.json` carries the ESPN public scoreboard (trimmed to id, dates,
 competitors' abbreviations + scores, and status) and the Sleeper week-3
 matchups for `dynasty_main` (`1312006700437352448`, best ball) and, for
-halftime, `dynasty_new` (`1320092771247222784`, managed). Matchup rows keep
+halftime and the finals, `dynasty_new` (`1320092771247222784`, managed). Matchup rows keep
 `roster_id`, `matchup_id`, `points`, `players`, `starters`, `players_points`.
 
 `shared/`:
@@ -56,10 +59,19 @@ halftime, `dynasty_new` (`1320092771247222784`, managed). Matchup rows keep
   with NO weekly baseline (asserted by
   `test_real_capture_without_pre_kickoff_fetch_leaves_tnf_players_unpriced`).
 - `synthetic_overtime`, `synthetic_end_regulation_tied`, `synthetic_delayed`,
-  `synthetic_postponed`, `synthetic_final` — the real halftime capture with one
-  ESPN status rewritten; each file's `meta.mutation` says exactly what changed.
-- Missing feed, stale feed, a post-final stat correction, and both flags off are
-  produced inside the test from these files (snapshot error / older
-  `observed_at` / one `players_points` edit / disabled seams).
+  `synthetic_postponed` — the real halftime capture with one ESPN status
+  rewritten; `synthetic_overtime_delay_postpone` combines overtime, a pregame
+  delay and a postponement. Each file's `meta.mutation` says exactly what
+  changed.
+- `synthetic_mixed_slate` — the REAL final capture plus the nine Sunday 1pm
+  games rewritten to every stage (final / in progress / halftime / end of
+  period / still scheduled) at a synthetic now of 2026-09-27T19:30Z; players
+  of begun Sunday games get deterministic synthetic points (pid mod 17 × 0.75,
+  −1.25 when pid mod 13 == 0 — real zeros and negatives both occur). One
+  fantasy matchup then holds completed, live and upcoming players.
+- Missing live feed, stale feed, projection-source outage, a rostered player
+  with no metadata, and both flags off are produced inside the tests from these
+  files (snapshot error / older `observed_at` / failed fetch / roster edit /
+  disabled seams).
 - Nflverse schedule rows are derived in the test from each scenario's ESPN
   kickoffs (the 2026 nflverse cache is not available offline).

@@ -2363,6 +2363,7 @@
   ]
  },
  "meta": {
+  "base": "real_halftime",
   "capturedAt": "2026-09-25T01:50:08+00:00",
   "description": "Halftime base; GB@ATL rewritten to overtime (period 5, tied 20-20)",
   "kind": "synthetic",

@@ -34,6 +34,12 @@ REAL_SCENARIOS = {
     "real_q2_in_progress": ("20260925T011334Z", ("dynasty_main",)),
     "real_halftime": ("20260925T015008Z", ("dynasty_main", "dynasty_new")),
     "real_q3_in_progress": ("20260925T020524Z", ("dynasty_main",)),
+    "real_q4_in_progress": ("20260925T024809Z", ("dynasty_main",)),
+    # ESPN first reported FINAL at 03:18:41Z; the host's per-player points
+    # still moved afterwards (captured at 03:24:47Z) — a real post-final
+    # stat change (feed catch-up or correction; the capture cannot tell which).
+    "real_final_first_seen": ("20260925T031841Z", ("dynasty_main", "dynasty_new")),
+    "real_final": ("20260925T032447Z", ("dynasty_main", "dynasty_new")),
 }
 YARD_KEYS = ("pass_yd", "rush_yd", "rec_yd")
 TNF_TEAMS = ("GB", "ATL")
@@ -256,19 +262,26 @@ def main(capture_dir: Path) -> None:
         }
         scenarios[name] = scenario
 
-    base = scenarios["real_halftime"]
-
-    def _mutate(name: str, description: str, mutation: str, fn) -> None:
-        sc = copy.deepcopy(base)
+    def _mutate(name: str, description: str, mutation: str, fn, *, base="real_halftime") -> None:
+        src = scenarios[base]
+        sc = copy.deepcopy(src)
         sc["matchups"] = {"dynasty_main": sc["matchups"]["dynasty_main"]}
         sc["meta"] = {
             "kind": "synthetic",
-            "capturedAt": base["meta"]["capturedAt"],
+            "base": base,
+            "capturedAt": src["meta"]["capturedAt"],
             "description": description,
             "mutation": mutation,
         }
         fn(sc)
         scenarios[name] = sc
+
+    def _event(sc, *teams):
+        for e in sc["espn"]["events"]:
+            abbr = {c["team"]["abbreviation"] for c in e["competitions"][0]["competitors"]}
+            if abbr == set(teams):
+                return e["competitions"][0]
+        raise SystemExit(f"event {teams} missing")
 
     def _tnf(sc):
         for e in sc["espn"]["events"]:
@@ -315,10 +328,47 @@ def main(capture_dir: Path) -> None:
                 sc["meta"]["postponedEventId"] = e["id"]
                 return
 
-    def final(sc):
-        comp = _tnf(sc)
-        _status(comp, "STATUS_FINAL", "post", 4, 0.0, completed=True, detail="Final")
-        _scores(comp, 17, 24)
+    def overtime_delay_postpone(sc):
+        overtime(sc)
+        _status(_event(sc, "PIT", "CIN"), "STATUS_DELAYED", "pre", 0, 0.0, detail="Delayed")
+        _status(_event(sc, "IND", "HOU"), "STATUS_POSTPONED", "pre", 0, 0.0, detail="Postponed")
+
+    # Mixed slate: TNF real final + Sunday early games at every stage, now =
+    # 2026-09-27T19:30Z.  Players of a begun Sunday game get a deterministic
+    # synthetic score (pid mod 17 x 0.75, minus 1.25 when pid mod 13 == 0 —
+    # so some are REAL zeros and some negative); later games stay scheduled.
+    SUNDAY_STAGES = {
+        ("BUF", "LAC"): ("STATUS_FINAL", "post", 4, 0.0, True),
+        ("MIA", "KC"): ("STATUS_FINAL", "post", 4, 0.0, True),
+        ("PIT", "CIN"): ("STATUS_IN_PROGRESS", "in", 4, 300.0, False),
+        ("IND", "HOU"): ("STATUS_HALFTIME", "in", 2, 0.0, False),
+        ("CLE", "CAR"): ("STATUS_END_PERIOD", "in", 3, 0.0, False),
+        ("NYG", "TEN"): ("STATUS_IN_PROGRESS", "in", 4, 120.0, False),
+        ("WSH", "SEA"): ("STATUS_IN_PROGRESS", "in", 3, 480.0, False),
+        ("DET", "NYJ"): ("STATUS_SCHEDULED", "pre", 0, 0.0, False),
+        ("JAX", "NE"): ("STATUS_IN_PROGRESS", "in", 1, 600.0, False),
+    }
+
+    def mixed_slate(sc):
+        sc["meta"]["capturedAt"] = "2026-09-27T19:30:00+00:00"
+        begun: set[str] = set()
+        for teams, (name, state, period, clock, done) in SUNDAY_STAGES.items():
+            comp = _event(sc, *teams)
+            if name == "STATUS_SCHEDULED":
+                # Kept as a game observed pregame though its kickoff passed:
+                # a late kickoff (e.g. a pregame delay the feed has not
+                # named) must still read as not started, never guessed.
+                continue
+            _status(comp, name, state, period, clock, completed=done)
+            _scores(comp, 17, 20)
+            begun |= {"WAS" if t == "WSH" else t for t in teams}
+        for m in sc["matchups"]["dynasty_main"]:
+            pts = m["players_points"]
+            for pid in m["players"]:
+                if (players.get(pid) or {}).get("team") in begun:
+                    value = (int(pid) % 17) * 0.75 - (1.25 if int(pid) % 13 == 0 else 0.0)
+                    pts[pid] = round(value, 2)
+            m["points"] = None  # the host total is not re-derived here
 
     _mutate(
         "synthetic_overtime",
@@ -345,10 +395,19 @@ def main(capture_dir: Path) -> None:
         postponed_sunday,
     )
     _mutate(
-        "synthetic_final",
-        "Halftime base; GB@ATL rewritten FINAL (17-24), halftime player points kept as final",
-        "espn: TNF status -> STATUS_FINAL completed; matchups unchanged",
-        final,
+        "synthetic_overtime_delay_postpone",
+        "Halftime base; GB@ATL in overtime, PIT@CIN delayed pregame, IND@HOU postponed",
+        "espn: TNF -> period 5 tied; PIT@CIN -> STATUS_DELAYED pre; IND@HOU -> STATUS_POSTPONED pre",
+        overtime_delay_postpone,
+    )
+    _mutate(
+        "synthetic_mixed_slate",
+        "Real TNF final + Sunday early games at every stage on one slate (now 2026-09-27T19:30Z)",
+        "espn: nine 1pm games -> final/in-progress/halftime/end-of-period/scheduled; "
+        "matchups: begun Sunday players get deterministic synthetic points "
+        "(pid%17 x 0.75, -1.25 when pid%13==0), team totals set null",
+        mixed_slate,
+        base="real_final",
     )
     for name, sc in scenarios.items():
         _dump(HERE / name / "scenario.json", sc)

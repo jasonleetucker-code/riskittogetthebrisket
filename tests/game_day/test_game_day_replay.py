@@ -3,8 +3,8 @@
 Fixtures: ``tests/fixtures/game_day/replay/`` (see its README).  ``real_*``
 scenarios are trimmed REAL captures taken 2026-09-25 during the Thursday
 GB@ATL game (ESPN scoreboard + both leagues' Sleeper matchups + Sleeper
-weekly projections).  ``synthetic_*`` scenarios are clearly-labelled
-mutations of the real halftime capture.
+weekly projections), through Q4 and two final observations.  ``synthetic_*``
+scenarios are clearly-labelled mutations of the real captures.
 
 Every scenario runs the real endpoint assembly
 (:func:`src.api.matchup_intel.build_matchup_intel`) with only the network
@@ -263,6 +263,7 @@ REAL_FRACTIONS = {
     "real_q2_in_progress": (2 * 900 + 9 * 60 + 38) / 3600,
     "real_halftime": 0.5,
     "real_q3_in_progress": (900 + 12 * 60 + 26) / 3600,
+    "real_q4_in_progress": (10 * 60 + 44) / 3600,
 }
 
 
@@ -279,6 +280,9 @@ def test_real_capture_replays_coherently(name):
     assert weekly["sourceLabel"] == "RotoWire via Sleeper"
     # Read from the census, never restated in the payload code.
     assert weekly["licensingStatus"] == "OWNER_ATTESTED_AUTHORIZED"
+    # ONE independent family today; never described as a multi-source ensemble.
+    assert out["lineage"]["projectionFamiliesContributing"] == 1
+    assert "weekly:ensemble" not in out["lineage"]["projectionBasisCounts"]
     _assert_no_double_counting(run, sc["matchups"]["dynasty_main"], fraction=REAL_FRACTIONS[name])
     _assert_one_coherent_simulation(run)
     tnf = [p for p in _players(out).values() if _tnf(p["playerId"])]
@@ -464,25 +468,107 @@ def test_both_flags_off_still_answers_honestly():
     assert out["team"]["actualScore"] is not None
 
 
-def test_final_game_banks_and_a_stat_correction_moves_only_banked():
-    base = _run("synthetic_final")
-    tnf_players = [p for p in _players(base.payload).values() if _tnf(p["playerId"])]
-    assert tnf_players and all(p["state"] == "completed" for p in tnf_players)
-    assert all(p["projectedRemaining"] == 0.0 for p in tnf_players)
-    _assert_one_coherent_simulation(base)
+@pytest.mark.parametrize("name", ["real_final_first_seen", "real_final"])
+def test_real_final_banks_every_tnf_player_with_nothing_remaining(name):
+    run = _run(name)
+    out = run.payload
+    assert out["mode"] == "live"  # Sunday is still to play
+    assert out["lineage"]["gameEvidence"]["GB"]["phase"] == "FINAL"
+    _assert_no_double_counting(run, _scenario(name)["matchups"]["dynasty_main"], fraction=None)
+    _assert_one_coherent_simulation(run)
+    tnf = [p for p in _players(out).values() if _tnf(p["playerId"])]
+    assert tnf and all(p["state"] in ("completed", "inactive") for p in tnf)
+    assert all(p["projectedRemaining"] == 0.0 for p in tnf)
+    assert all(p["remainingBasis"] == "game_over" for p in tnf)
 
-    # Stat correction after final: Jordan Love (6804) +1.5 in the host feed.
-    matchups = json.loads(json.dumps(_scenario("synthetic_final")["matchups"]["dynasty_main"]))
+
+def test_real_post_final_stat_change_moves_only_the_banked_points():
+    """REAL: after ESPN first said FINAL (03:18:41Z) the host still moved
+    6804 22.07 -> 18.30 and 11559 19.01 -> 18.83 (captured 03:24:47Z)."""
+    before = _players(_run("real_final_first_seen").payload)
+    after_run = _run("real_final")
+    after = _players(after_run.payload)
+    assert (before["6804"]["pointsScored"], after["6804"]["pointsScored"]) == (22.07, 18.3)
+    assert (before["11559"]["pointsScored"], after["11559"]["pointsScored"]) == (19.01, 18.83)
+    for pid in ("6804", "11559"):
+        assert before[pid]["projectedRemaining"] == after[pid]["projectedRemaining"] == 0.0
+    # Everyone else on this matchup: identical inputs.
+    for pid, p in before.items():
+        if pid not in ("6804", "11559"):
+            assert after[pid]["pointsScored"] == p["pointsScored"]
+            assert after[pid]["projectedRemaining"] == p["projectedRemaining"]
+    # The current lineup re-derives from the corrected numbers, raw.
+    lineup = after_run.payload["team"]["actualLineup"]
+    assert lineup["knownSubtotal"] == pytest.approx(sum(s["points"] for s in lineup["slots"]))
+
+
+def test_overtime_delay_and_postponement_together_name_every_reason():
+    """SYNTHETIC: TNF in overtime + PIT@CIN delayed + IND@HOU postponed."""
+    out = _run("synthetic_overtime_delay_postpone").payload
+    assert out["probabilityState"] == "LIVE_PROGRESS_UNAVAILABLE"
+    assert {"overtime", "delayed", "postponed"} <= set(out["progressUnavailableReasons"])
+    assert out["team"]["outcome"] is None
+
+
+def test_mixed_slate_one_matchup_with_completed_live_and_upcoming_players():
+    """SYNTHETIC mixed slate (real TNF final + Sunday at every stage)."""
+    run = _run("synthetic_mixed_slate")
+    out = run.payload
+    sc = _scenario("synthetic_mixed_slate")
+    phases = {g["phase"] for g in out["lineage"]["gameEvidence"].values()}
+    assert {"FINAL", "IN_PROGRESS", "HALFTIME", "END_PERIOD", "SCHEDULED"} <= phases
+    states = {p["state"] for p in out["team"]["players"]}
+    assert {"completed", "in_progress", "not_started"} <= states
+    assert out["probabilityState"] == "AVAILABLE"
+    _assert_one_coherent_simulation(run)
+    host = _points_by_player(sc["matchups"]["dynasty_main"])
+    ev = out["lineage"]["gameEvidence"]
+    zeros = negatives = 0
+    for p in _players(out).values():
+        team = (PLAYERS.get(p["playerId"]) or {}).get("team")
+        if p["state"] in ("in_progress", "completed"):
+            assert p["pointsScored"] == host[p["playerId"]]  # banked, verbatim
+            zeros += p["pointsScored"] == 0.0
+            negatives += p["pointsScored"] < 0.0
+        if p["state"] == "in_progress" and p["providerBaselinePoints"] is not None:
+            frac = ev[{"WSH": "WAS"}.get(team, team)]["remainingFraction"]
+            full = p["providerBaselinePoints"] + (p["imputedPoints"] or 0.0)
+            assert p["projectedRemaining"] == pytest.approx(full * frac, abs=0.01)
+        if p["state"] == "completed":
+            assert p["projectedRemaining"] == 0.0
+    assert zeros and negatives  # real zeros and negative scores both present
+    # Completed players can still be displaced by teammates yet to play.
+    pct = out["team"]["outcome"]["playerLineupPct"]
+    done = [p for p in out["team"]["players"] if p["state"] == "completed"]
+    assert any(0.0 < pct.get(p["playerId"], 0.0) < 100.0 for p in done)
+
+
+def test_a_rostered_player_with_no_metadata_blocks_probability_by_name():
+    """SYNTHETIC: a roster id Sleeper metadata does not know is UNKNOWN, not zero."""
+    matchups = json.loads(json.dumps(_scenario("real_halftime")["matchups"]["dynasty_main"]))
+    ghost = "99999999"
     for m in matchups:
-        if "6804" in (m.get("players_points") or {}):
-            m["players_points"]["6804"] = round(m["players_points"]["6804"] + 1.5, 2)
-    corrected = _run("synthetic_final", matchups_override=matchups)
-    before = _players(base.payload)["6804"]
-    after = _players(corrected.payload)["6804"]
-    assert after["pointsScored"] == pytest.approx(before["pointsScored"] + 1.5)
-    assert after["projectedRemaining"] == 0.0 == before["projectedRemaining"]
-    # Every non-corrected player's inputs are unchanged.
-    for pid, p in _players(base.payload).items():
-        if pid != "6804":
-            assert _players(corrected.payload)[pid]["pointsScored"] == p["pointsScored"]
-            assert _players(corrected.payload)[pid]["projectedRemaining"] == p["projectedRemaining"]
+        if m["roster_id"] == 4:
+            m["players"].append(ghost)
+    out = _run("real_halftime", matchups_override=matchups).payload
+    assert ghost in out["unknownStatePlayerIds"]
+    assert out["probabilityState"] == "GAME_STATE_OR_SCORING_UNAVAILABLE"
+    assert out["team"]["outcome"] is None
+
+
+def test_projection_source_outage_falls_back_labelled_and_never_zero():
+    """SYNTHETIC outage: the weekly fetch failed; no preseason snapshot offline."""
+    failed = FetchResult("fetch_failed", SEASON, WEEK, "fixture", None, (), "TimeoutError")
+    out = _run("real_halftime", fetches=(failed,)).payload
+    weekly = out["lineage"]["weeklyProjection"]
+    assert weekly["state"] == "no_usable_fetch"
+    assert "TimeoutError" in weekly["reason"]
+    assert out["lineage"]["projectionFamiliesContributing"] == 0
+    # Nobody is priced, so no probability — never a 0-point projection.
+    assert all(
+        p["projectedRemaining"] is None
+        or p["state"] == "completed"
+        or p["remainingBasis"] == "game_over"
+        for p in _players(out).values()
+    )
+    assert out["team"]["outcome"] is None
