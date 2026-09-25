@@ -103,6 +103,49 @@ registry gates. Not authorized: unrelated ranking redesign, tuning toward KTC Ma
 constants. Intake: `docs/OWNER_REQUESTED_TODO.md` (2026-09-24); record:
 `docs/sources/SOURCE_FRESHNESS_WEIGHTING.md`.
 
+## Calculator completion campaign — owner directive, 2026-09-24
+
+The owner authorized ONE multi-lane Calculator implementation campaign: implementation, tests,
+review, merge, deploy and production verification through the normal protected path. This is the
+single authorization record for the batch; ideas inside it do not get their own records.
+
+* **Prerequisite:** begins only after the #1427 family-capped production release is verified and
+  PR #1432 (deploy-group concurrency) is resolved.
+* **Lanes:**
+  - A: canonical roster decision foundation (Team Strength, Meaningful Roster Core, Need Priority /
+    lineup demand, roster capacity, droppability, duplicate-owner retirement, `classify_need`
+    delegation, Competitive Posture #840 as an explained probabilistic classification over continuous
+    evidence, Team Strength #1340 re-verification/repair).
+  - B: Trade intelligence (Analyze Trade UX, before/after and final-roster impact, capacity/forced
+    drops, Team Context, best-ball utility, **pick lifecycle #1414 and asset quantity/identity #1415,
+    both authorized here**, generation constraints where dependency-ready).
+  - C: freshness + valuation hardening (#1425 reconciliation, weighted-median monotonicity, Hill /
+    native-source alignment, DLF Values gate once captures exist).
+  - D: product correctness and parallel product (Playoff Odds finished-week scoring as an early item,
+    scoring/projection correctness, special-teams scoring, projection ensemble, and the **analyst /
+    intelligence persistence + as-of query foundation, OD-03, authorized here**, extending
+    `src/intel/` / `src/analyst/`).
+  - 6: Premium UI, permanent (above).
+  - **Priority deliverable — Game Day live best-ball dashboard** (owner amendment 2026-09-24,
+    #1335 comment 5824706487, reconciling #1334 / #789 / #854): current-week projection inputs,
+    observed live game state and scoring, a per-draw best-ball rest-of-game simulation and the PSI
+    Game Day experience, paired across Season/Scoring/Projections and Lane 6. It is a named unit of
+    this campaign, not a separate program and not a later UI phase. No paid feed and no access
+    bypass is authorized; exact external blockers are named while the rest proceeds.
+* **Build broadly, integrate narrowly is authorized:** focused/targeted tests while building,
+  full CI at integration boundaries and on every merge head, one integrated release candidate and
+  one production deploy where practical. It never weakens an acceptance gate.
+* **Preserved rules:** active WORK_CLAIMS and open-PR file ownership win; `data_contract.py` keeps
+  one writer at a time; no second canonical owner; §6 do-not-preempt still applies to anything not
+  listed above; KTC Value Adjustment stays a market lens; Hill constants move only through the Hill
+  Autopilot / model registry; DLF Values stay non-voting until their gate passes and the owner
+  approves the vote; the Power Rankings methodology stays backend-owned (#1401).
+* **Owner gates still open:** #1428 categorical-chart contrast (OWNER UI DECISION REQUIRED; does
+  not block other UI work); the DLF Values vote.
+
+Intake and the full decision text: `docs/OWNER_REQUESTED_TODO.md` (2026-09-24, "Calculator
+completion campaign").
+
 ## V1 COMPLETION SPRINT — AUTHORIZED BY THE OWNER, 2026-08-18.
 
 **This supersedes the 2026-08-17 feature freeze below, to the extent necessary for V1
