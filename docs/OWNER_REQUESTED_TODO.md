@@ -712,6 +712,19 @@ separately provided.
   one-source state is never described as a mature multi-source ensemble. The actual number of
   independent projection families contributing is reported.
 
+**Owner decision — #1414 retirement is separate from the future-pick horizon (2026-09-25).**
+The canonical draft-class retirement rule is approved (PR #1442). Retirement must NOT automatically
+expand the supported future-pick horizon, so two concepts stay separate:
+
+1. draft-class lifecycle / retirement;
+2. the supported future-pick horizon.
+
+Retiring 2026 keeps the existing horizon unchanged: 2027–2029, with no 2030 rows and no induced
+rank/tier shifts. The only horizon rule on record is CLAUDE.md step 12 / C1-U6 ("horizon = current +
+3, self-rolling", anchored on the active draft year); nothing says retirement advances that anchor.
+**Horizon advancement (introducing 2030) is a separate owner decision**, to be brought with evidence
+and measured impact.
+
 **Owner decision — FAAB vs Trade flex demand stays as-is (2026-09-24).** Do NOT unify the two yet.
 FAAB apportions flex demand fractionally (`even_split`, e.g. QB 1.25 in dynasty_main); Trade assigns
 flex slots through the lineup/need owner. Both read the one canonical demand owner (PR #1436), but they
