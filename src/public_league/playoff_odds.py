@@ -10,7 +10,7 @@ Algorithm
 ─────────
 For the *current* season only:
 
-1. Walk every scored regular-season week in this season's snapshot to
+1. Walk every FINISHED regular-season week in this season's snapshot to
    build an empirical per-owner weekly score distribution (points
    scored in each past week).  This is the sampling pool for future
    weeks — it's the owner's *actual* scoring history, so unusual
@@ -58,7 +58,7 @@ from __future__ import annotations
 import random
 from typing import Any, Iterable
 
-from . import metrics
+from . import luck, metrics
 from .playoff_structure import PlayoffStructure, resolve_playoff_structure
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
@@ -90,20 +90,20 @@ def _season_weekly_scores(
     League-wide pool is the fallback distribution for owners who
     haven't played enough weeks yet to have a stable personal
     distribution.
+
+    Which weeks and which entries count is NOT decided here: it is the
+    canonical completed-score definition, ``luck._season_weekly_scores``
+    (``metrics.final_regular_season_weeks`` + ``points is None`` is
+    missing), shared with Luck and Power.  This used to keep its own
+    per-entry ``metrics.is_scored`` (``points > 0``) over every
+    regular-season week, which let an in-progress week's partial scores
+    into the distributions and dropped a finished week's genuine ``0.0``.
     """
     per_owner: dict[str, list[float]] = {}
     pool: list[float] = []
-    for wk in season.regular_season_weeks:
-        for entry in season.matchups_by_week.get(wk) or []:
-            if not metrics.is_scored(entry):
-                continue
-            rid = metrics.roster_id_of(entry)
-            if rid is None:
-                continue
-            owner_id = metrics.resolve_owner(registry, season.league_id, rid)
-            if not owner_id:
-                continue
-            pts = metrics.matchup_points(entry)
+    week_scores = luck._season_weekly_scores(season, registry)
+    for wk in sorted(week_scores):
+        for owner_id, pts in week_scores[wk]:
             per_owner.setdefault(owner_id, []).append(pts)
             pool.append(pts)
     return per_owner, pool
