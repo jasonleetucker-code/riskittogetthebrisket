@@ -36,29 +36,105 @@ the simulation distinguishes `completed` / `in_progress` / `not_started` /
 `resolve_pregame_week` remains the pregame adapter and still refuses a begun
 week. `resolve_scoring_week` reuses it for roster enumeration, projections,
 IR/taxi subtraction, positions, and rules, then overlays Sleeper actual scores
-and typed `GameEvidence`. The existing nflverse schedule cache can establish
-scheduled and completed games. A passed kickoff without a result remains
-`unknown`; wall time does not prove that a game started.
+and typed `GameEvidence`. Evidence comes from two places, merged per NFL team
+by `merge_game_evidence` (observed wins):
 
-**Owner methodology decision, 2026-09-09: in-progress remaining production is
-TIME-PRORATED.** An explicitly evidenced `in_progress` player keeps observed
-points, and his remaining production is his pregame per-game estimate scaled
-by the fraction of a single fixed assumed game duration
-(`_ASSUMED_GAME_DURATION_SECONDS`, ~3h15m) not yet elapsed since the evidenced
-`kickoff_at`. This is deliberately the simplest correct estimator — a future
-revision may use snaps, drives, possession or game script, but not without the
-same owner authority. The rejected alternative was "remaining = 0 for every
-in-progress player," which is not a default, it is a different forecast.
+* **observed** — `observed_game_evidence` turns one ESPN scoreboard
+  observation (`src/nfl_data/live_game_state.py`, flag
+  `game_day_live_game_state`) into per-team evidence carrying the observed
+  `phase`, `period`, `clock_seconds` and `remaining_fraction`, joined to our
+  schedule by normalized team codes (`WSH`→`WAS`, `LA`→`LAR`) plus a kickoff
+  within 36 h. A scoreboard for another season/week/season type is refused
+  whole. `in_progress` is a real state here.
+* **schedule** — the nflverse cache establishes scheduled and completed
+  games only. A passed kickoff without a result or an observation remains
+  `unknown`; wall time does not prove that a game started.
 
-When a player is evidenced `in_progress` but has no usable `kickoff_at` (or
-`now` precedes it), remaining stays `None` and the resolver reports him in
-`progress_unavailable_player_ids` — a **missing-evidence** state, never a
-**methodology-undecided** one (that seam is closed). Completed players and a
-host-declared `Out` (definitively finished) both get `remaining=0.0`, not
-`None`: the game being over is real evidence nothing further is coming, and
-`0.0` is the honest number for that, distinct from `None` ("we cannot say").
-Final state requires completed game evidence and actual player scoring, and
-its optimal lineup comes from `src/ros/lineup.py`.
+### In-progress remaining production: observed clock first (reconciliation)
+
+**Owner decision 2026-09-09** chose a PRORATED remaining — "remaining = 0 for
+every in-progress player" was rejected — and, with no live clock wired,
+measured progress as wall time since kickoff over one fixed assumed duration
+(`_ASSUMED_GAME_DURATION_SECONDS`, ~3h15m).
+
+**Owner contract 2026-09-24** ("observe actual quarter/clock/status; elapsed
+wall time since kickoff is not sufficient") keeps the proration and changes
+what it is prorated BY. It does not silently change the 09-09 meaning; it
+demotes the wall-time measure to a labelled, degraded fallback:
+
+| `remainingBasis` | when | remaining |
+|---|---|---|
+| `pregame_full_baseline` | game not started (observed `SCHEDULED`, or schedule says future) | pregame provider baseline |
+| `observed_clock` | observed in progress / end of period / halftime | baseline × `regulation_fraction_remaining` (observed quarter + clock) |
+| `wall_time_fallback` | `in_progress` evidence with NO observed phase (the legacy seam) | baseline × (1 − elapsed / assumed duration) |
+| `game_over` | completed, or host-declared `Out` | 0.0 |
+| — (withheld) | see below | `None`, reason in `progress_unavailable_reasons` |
+
+Withheld with a named reason, never invented: `overtime` (period > 4),
+`overtime_possible` (end of regulation with the score tied or unstated),
+`delayed`, `postponed`, `canceled`, `unknown_status:*`, `stale_live_state`
+(observation older than `LIVE_STATE_MAX_AGE_SECONDS` = 180 s, i.e. three missed
+60 s polls), `no_kickoff_evidence`, and `wall_time_exhausted_without_observed_final`
+— the fallback can never finish a game by itself. The nflverse cache never
+asserts `in_progress`, so with the live feed off (or failing) the fallback is
+unreachable from the matchup endpoint: a begun game stays `unknown` and the
+probability is withheld as `GAME_STATE_OR_SCORING_UNAVAILABLE`.
+
+**The baseline is never reduced by actual points** — banked points and
+remaining production are separate terms, so nothing is counted twice. This is
+a simple observed-clock baseline, labelled as one: it knows nothing about
+possession, score, injuries or usage, and nothing here claims otherwise.
+
+Completed players and a host-declared `Out` get `remaining=0.0`, not `None`:
+the game being over is real evidence nothing further is coming. Final state
+requires completed game evidence for every team with a game and actual player
+scoring.
+
+### Weekly baselines (`src/ros/game_day_estimates.py`)
+
+Each player's pregame baseline has ONE basis, published per player as
+`projectionBasis`:
+
+* `weekly:rotowire_via_sleeper` — the Sleeper weekly projection (RotoWire),
+  rescored under this league's card by the exact scorer and locked at the
+  player's kickoff (`lock_baseline_at_kickoff`: last observation fetched at or
+  before kickoff). Flag `sleeper_weekly_projections`, DEFAULT OFF: the
+  endpoint is a source candidate whose terms are UNVERIFIED (census
+  `licensingStatus: UNVERIFIED`); activation is pending terms verification.
+* `preseason_full_season_fallback` — the full-season ensemble's per-game
+  average, used only when no locked weekly baseline exists. It is a FALLBACK
+  and NOT a current-week forecast; the payload says so per player and in
+  lineage, and never presents it as the weekly projection.
+
+Joins are by Sleeper `player_id`; the name-keyed preseason ensemble resolves
+name → id through the Sleeper player map and refuses a name two current NFL
+players share. League-paid keys the provider does not project are published as
+`uncoveredScoringKeys` (unknown, never zero). The first-down bonus
+(`bonus_fd_<pos>`) is imputed from the canonical measured fit
+(`first_down_rate.imputed_sleeper_first_down_bonus`) and carried separately as
+OUR component (`imputedPoints` / `imputedScoringKeys`). The provider's
+`pass_fd` / `rush_fd` / `rec_fd` are yards/10 on every measured row (677/677),
+not first downs: they are never read as such, and a card that pays them refuses
+the weekly line.
+
+### The simulation's own outputs (`src/ros/game_day_sim.py`, model v4)
+
+Per draw: banked points are kept, only remaining production is drawn, and the
+exact lineup is re-solved on the final points — choice and sum both on the raw
+points (`lineup.OBJECTIVE_REALIZED_POINTS`), so a negative score is never
+seated over a 0.0. From the SAME draws: win %, beat-median %, per-player
+`player_lineup_pct` (a completed player below 100 % is being displaced), and
+per-NFL-game `game_leverage`:
+
+> net_g = (team's final-lineup points from game g) − (opponent's, same game);
+> leverage_g = P(win | net_g above its median) − P(win | net_g below its median),
+> in percentage points. Games with nothing left to play carry no leverage.
+
+`projected_mean` (published as `expectedFinalBestBall`) is the mean of the
+optimized totals — deliberately distinct from `expectedLineup.projectedTotal`,
+the lineup optimizing individual means implies. Remaining draws are floored at
+0 (`PointsModel.draw_from_mean`): the per-position CV model has no basis for a
+negative remainder; the floor adds a small upward bias on tiny remaining means.
 
 ## The NFL slate — a per-game object, not a fan-out of `GameEvidence`
 
@@ -140,21 +216,25 @@ whose win% + tie% summed to **exactly 600.0** across 12 teams / 6 matchups.
 The estimate index was labelled `SYNTHETIC:wiring-proof-only`; it proves the
 wiring, not a forecast.
 
-## Known limitation, named rather than papered over
+## Known limitations, named rather than papered over
 
-No live per-game clock/quarter feed is wired, so proration uses a single fixed
-assumed game duration rather than a real per-game measurement — a simple
-estimator by design (see the owner decision above), not a precise one. The API
-shows actual/banked scoring and player state where it has evidence, and
-withholds probability only when game-progress evidence for an in-progress
-player is genuinely missing. Sleeper `Out` is treated as definitively finished
-(`remaining=0.0`); less certain injury labels remain projections.
+* The observed-clock baseline scales a pregame projection by regulation time
+  left; no possession, score, injury or usage modelling exists.
+* Live acquisition in `matchup_intel` is an in-process interim memo until the
+  shared background collector (U5): a restart after kickoff forgets pre-kickoff
+  weekly observations, and those players fall back to the preseason basis
+  (counted as `noPreKickoffObservation`).
+* The simulation cache fingerprint includes live inputs, so it misses on every
+  live poll; making live simulation cheap is the collector's job (U5).
+* Sleeper `Out` is treated as definitively finished; less certain injury labels
+  remain projections.
 
 ## Tests
 
 `tests/ros/test_game_day_week.py` covers pregame plus deterministic live/final
-fixtures. The tests pin that banked points survive, in-progress remainder is
-time-prorated when kickoff evidence is usable and reports
+fixtures. The tests pin that banked points survive, the legacy (no observed
+clock) in-progress remainder takes the labelled wall-time fallback when kickoff
+evidence is usable and reports
 `progress_unavailable_player_ids` when it is not, completed and ruled-out
 players get `remaining=0.0` (not `None`), completed scoring produces the
 canonical final lineup, and a passed kickoff without a result remains unknown.
@@ -176,3 +256,12 @@ reason, an unavailable schedule cache stamped distinctly from an empty one,
 and games rendered in kickoff order regardless of fantasy relevance.
 `frontend/__tests__/components/game-day-panel.test.jsx` pins the same
 properties on the render side.
+
+`tests/game_day/test_game_day_u4_correctness.py` pins the U4 mechanics on
+synthetic inputs (negative vs zero lineup choice, FLEX / SUPER_FLEX displacement
+of completed players, every observed status, the capped wall-time fallback, the
+kickoff lock, first-down imputation, leverage). `tests/game_day/test_game_day_replay.py`
+replays real 2026-09-25 captures (`tests/fixtures/game_day/replay/`) through the
+whole matchup assembly and asserts banked points retained, remaining only for
+unfinished players, one coherent simulation (every league draw puts exactly half
+the teams above the median), and every withheld state named.

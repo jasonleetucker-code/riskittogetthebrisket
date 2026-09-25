@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-12 of the 23 entries in ``_DEFAULTS`` below are ``True`` —
+12 of the 24 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -431,22 +431,27 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # RISKIT_FEATURE_WAIVER_LIVE_OPPORTUNITY=0 + restart.
     "waiver_live_opportunity": True,
     # Game Day live game state — ``src/nfl_data/live_game_state.py`` reads
-    # ESPN's public scoreboard (observed quarter / clock / status).  OFF:
-    # the adapter is not wired into any endpoint yet, so there is nothing
-    # for it to do in a request.  Off, ``fetch_live_game_state`` returns an
-    # explicit ``enabled=False`` observation, never an empty slate.
+    # ESPN's public scoreboard (observed quarter / clock / status).
+    # Consumed by ``src/api/matchup_intel.py`` (observed-clock remaining
+    # production).  OFF: automated use of this feed is NOT approved; turning
+    # it on is an owner decision, not an engineering one.  Off,
+    # ``fetch_live_game_state`` returns an explicit
+    # ``enabled=False`` observation (no network call) and Game Day keeps the
+    # schedule-only evidence, where a passed kickoff stays ``unknown``.
     "game_day_live_game_state": False,
     # C5-PROJ-C, first WEEKLY-horizon projection source (2026-09-24):
     # Sleeper's weekly projections endpoint (RotoWire stat lines served by
     # Sleeper), in ``src/ros/sleeper_weekly_projections.py``.  SEASONAL
-    # intelligence lane only — never dynasty value.  OFF, deliberately:
-    # the endpoint is public but UNDOCUMENTED and its licensing for
-    # automated consumption is UNVERIFIED (census entry
-    # ``sleeperWeeklyProjections``, accessPosture
-    # PUBLIC_UNDOCUMENTED_NO_AUTH).  Off → ``fetch_weekly_projection_rows``
-    # refuses with ``feature_disabled`` and makes no network call; parsing
-    # and rescoring already-captured rows is unaffected.  Turning it on is
-    # an owner decision on the licensing open item, not an engineering one.
+    # intelligence lane only — never dynasty value.  OFF, deliberately: the
+    # endpoint is public but UNDOCUMENTED and its licensing for automated
+    # consumption is UNVERIFIED (census entry ``sleeperWeeklyProjections``,
+    # licensingStatus UNVERIFIED) — a source candidate, activation pending
+    # terms verification.  Consumed by ``src/api/matchup_intel.py``
+    # (kickoff-locked weekly baselines).  Off, ``fetch_weekly_projection_rows``
+    # refuses with ``feature_disabled`` and makes no network call, and Game
+    # Day uses the preseason per-game FALLBACK, labelled as not a
+    # current-week forecast.  Turning it on is an owner decision on the
+    # licensing open item, not an engineering one.
     "sleeper_weekly_projections": False,
 }
 
@@ -630,15 +635,17 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # exists and is a real, tested cross-check primitive, but nothing
     # calls it yet — a genuine follow-up, not fabricated here.
     "usage_signals": UNREACHABLE,
-    # ``src/nfl_data/live_game_state.py`` — gated, tested, and not yet
-    # imported by anything: the Game Day adapter lands before the shared
-    # background collector that will consume it.
-    "game_day_live_game_state": UNREACHABLE,
+    # ``src/nfl_data/live_game_state.py`` — reached through
+    # ``src/api/matchup_intel.py::_observe_live_state`` on the matchup
+    # endpoint: on, observed quarter/clock drive remaining production; off,
+    # schedule-only evidence.  Defaults False.
+    "game_day_live_game_state": LIVE,
     # ``src/ros/sleeper_weekly_projections.py`` — the C5-PROJ-C weekly
-    # source.  Built and tested, deliberately NOT yet consumed: no route,
-    # script or engine imports it, so the gate is real but stranded until
-    # the Game Day consumer (C5-PROJ-F) wires it.  Defaults False.
-    "sleeper_weekly_projections": UNREACHABLE,
+    # source, reached through ``src/api/matchup_intel.py::
+    # _weekly_projection_fetches`` on the matchup endpoint: on, kickoff-
+    # locked weekly baselines; off, the labelled preseason fallback.
+    # Defaults False.
+    "sleeper_weekly_projections": LIVE,
     # ``src/nfl_data/depth_charts.py`` is gated and imported by
     # ``scripts/refresh_depth_charts.py``, which since 2026-09-01 also
     # writes DEPTH_CHART_PROMOTION/DEMOTION events into the BDVM ledger

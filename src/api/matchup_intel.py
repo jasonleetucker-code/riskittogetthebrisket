@@ -8,9 +8,12 @@ canonical owner and copied:
 | which players are on the roster, IR/taxi subtraction | `src/ros/game_day_capture.py` |
 | the league's starter slots and who is legal in each | `src/ros/lineup.py` |
 | the expected best-ball lineup | `src/ros/lineup.solve_optimal_assignment` |
-| per-player weekly distribution, win % / beat-median % | `src/ros/game_day_sim.py` |
+| per-player weekly distribution, win % / beat-median %, lineup %, leverage | `src/ros/game_day_sim.py` |
 | resolving a live league-week into those inputs | `src/ros/game_day_week.py` |
-| projections | `src/ros/projection_ensemble.py` |
+| observed NFL quarter / clock / status | `src/nfl_data/live_game_state.py` |
+| which weekly baseline each player uses | `src/ros/game_day_estimates.py` |
+| weekly projections (RotoWire via Sleeper) | `src/ros/sleeper_weekly_projections.py` |
+| preseason fallback projections | `src/ros/projection_ensemble.py` |
 | roster strength / weakness / age-value | `src/api/roster_intelligence.py` |
 | the league's identity and rules | `src/api/league_registry.py` + the host |
 
@@ -21,9 +24,24 @@ private decision surface cannot omit — a win probability with no stated
 projection source or coverage is not intelligence, it is a number.
 
 **Scheduled, live and final assembly.** Actual scores and canonical lineups
-remain available while game-state coverage or the explicit in-progress
-remaining-production policy is unresolved. No remaining-production policy
-is selected here. Final results need complete factual scoring evidence.
+remain available while game-state coverage is incomplete. The remaining-
+production policy lives in `game_day_week` (observed clock first, labelled
+wall-time fallback, withheld with a named reason otherwise); nothing here
+selects one. Final results need complete factual scoring evidence.
+
+**Three different lineup quantities, never conflated.** ``actualLineup`` is
+the CURRENT scoring lineup (points already scored); ``expectedLineup`` is
+the ILLUSTRATIVE lineup that optimizing individual MEAN projections implies;
+``outcome.expectedFinalBestBall`` is the mean of the OPTIMIZED lineup over
+simulation draws. The last is not the total of the second — optimizing
+means and averaging optimized outcomes are different statistics.
+
+**Acquisition seams.** ``_observe_live_state`` and
+``_weekly_projection_fetches`` are the only places live inputs are
+acquired. Both are flag-gated (default OFF), bounded, and memoised
+in-process as an INTERIM until the shared background collector (Game Day
+U5) supplies them; a collector replaces these two functions and nothing
+else.
 
 **Private, and league-scoped.** Projections, win probabilities and roster
 weaknesses are proprietary decision intelligence under CLAUDE.md §5 — this
@@ -33,24 +51,37 @@ public contract.
 
 from __future__ import annotations
 
+import threading
 import time
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from src.api import roster_intelligence as _roster_intelligence
 from src.public_league import sleeper_client
+from src.ros.game_day_estimates import (
+    BASIS_LABELS,
+    WEEKLY_FEATURE_DISABLED,
+    WEEKLY_SOURCE_LABEL,
+    GameDayEstimates,
+    resolve_game_day_estimates,
+)
 from src.ros.game_day_sim import (
+    DEFAULT_SEED,
+    LEVERAGE_DEFINITION,
     TeamWeekOutcome,
     get_cached_league_week_simulation,
-    player_is_drawable,
 )
 from src.ros.game_day_week import (
     GameDayWeekRefusal,
+    ObservedSlate,
     actual_lineup,
+    merge_game_evidence,
+    observed_game_evidence,
     resolve_scoring_week,
     schedule_game_evidence,
 )
 from src.ros.lineup import (
+    OBJECTIVE_REALIZED_POINTS,
     RosterPlayer,
     player_eligible_for_slot,
     resolve_starter_slots,
@@ -60,9 +91,30 @@ from src.ros.lineup import (
 #: Draws for the league-week simulation. NOT `game_day_sim.DEFAULT_DRAWS`
 #: (10,000) — this endpoint runs synchronously in a web request, so it uses
 #: a smaller count named explicitly here, so the payload can report what it
-#: actually ran rather than implying a precision it did not buy.
+#: actually ran rather than implying a precision it did not buy.  The SEED
+#: is `game_day_sim.DEFAULT_SEED` — one default, not two.
 DEFAULT_DRAWS = 2000
-DEFAULT_SEED = 20260905
+
+__all__ = ["DEFAULT_DRAWS", "DEFAULT_SEED", "build_matchup_intel"]
+
+# ── Interim acquisition memo (replaced by the U5 collector) ──────────────
+#
+# A browser polls every 60 s; without a memo every poll would hit ESPN and
+# Sleeper.  Both memos are process-local and bounded.  They are NOT the
+# durable store the collector will be: a restart after kickoff forgets the
+# pre-kickoff weekly observations, and those players then fall back to the
+# preseason basis (counted in lineage as ``noPreKickoffObservation``) rather
+# than being given an in-game observation as their baseline.
+
+#: Reuse one scoreboard observation for this long (well inside
+#: ``game_day_week.LIVE_STATE_MAX_AGE_SECONDS``).
+_LIVE_STATE_TTL_SEC = 20.0
+#: Refetch weekly projections at most this often.
+_WEEKLY_FETCH_TTL_SEC = 600.0
+
+_memo_lock = threading.Lock()
+_live_state_memo: dict[tuple[int, int], tuple[float, Any]] = {}
+_weekly_memo: dict[tuple[int, int], list[Any]] = {}
 
 
 class MatchupIntelError(RuntimeError):
@@ -133,6 +185,86 @@ def _game_evidence(
     return schedule_game_evidence(rows, season=season, week=week, observed_at=observed_at, now=now)
 
 
+def _observe_live_state(season: int, week: int):
+    """One ESPN scoreboard observation for ``week`` (flag ``game_day_live_game_state``).
+
+    Flag off -> an explicit disabled snapshot with no network call.  On,
+    one observation is reused for ``_LIVE_STATE_TTL_SEC``; a failed read is
+    returned as the failure it is (never memoised as "no games").
+    """
+    from src.nfl_data.live_game_state import fetch_live_game_state
+
+    key = (int(season), int(week))
+    now = time.time()
+    with _memo_lock:
+        hit = _live_state_memo.get(key)
+        if hit is not None and now - hit[0] <= _LIVE_STATE_TTL_SEC:
+            return hit[1]
+    snapshot = fetch_live_game_state(week=int(week), season_type=2)
+    if snapshot.ok and snapshot.enabled:
+        with _memo_lock:
+            _live_state_memo[key] = (now, snapshot)
+    return snapshot
+
+
+def _prune_weekly_history(fetches: list[Any], kickoffs: Sequence[float]) -> list[Any]:
+    """Keep only fetches that can still be some game's last pre-kickoff read.
+
+    Fetch ``i`` (ordered by ``observed_at``) is needed iff a kickoff lies in
+    ``[observed_i, observed_{i+1})``; the newest fetch is always kept.
+    """
+    from datetime import datetime
+
+    ordered = sorted(fetches, key=lambda f: f.observed_at or "")
+    stamps = [datetime.fromisoformat(f.observed_at).timestamp() for f in ordered]
+    keep = []
+    for i, fetch in enumerate(ordered):
+        if i == len(ordered) - 1:
+            keep.append(fetch)
+            continue
+        if any(stamps[i] <= k < stamps[i + 1] for k in kickoffs):
+            keep.append(fetch)
+    return keep
+
+
+def _weekly_projection_fetches(
+    season: int, week: int, kickoffs: Sequence[float]
+) -> tuple[tuple[Any, ...], str, str | None]:
+    """``(fetches, state, reason)`` — weekly projection observations for the lock.
+
+    Flag ``sleeper_weekly_projections`` off -> ``feature_disabled`` with no
+    network call (the fetcher refuses by itself).  On, at most one fetch per
+    ``_WEEKLY_FETCH_TTL_SEC``; rows without a game id (Sleeper's
+    no-projection placeholders) are not retained.
+    """
+    from dataclasses import replace
+    from datetime import datetime
+
+    from src.ros.sleeper_weekly_projections import fetch_weekly_projection_rows
+
+    key = (int(season), int(week))
+    now = time.time()
+    with _memo_lock:
+        history = list(_weekly_memo.get(key, ()))
+    newest = history[-1] if history else None
+    fresh = newest is not None and (
+        now - datetime.fromisoformat(newest.observed_at).timestamp() <= _WEEKLY_FETCH_TTL_SEC
+    )
+    if not fresh:
+        result = fetch_weekly_projection_rows(int(season), int(week))
+        if result.status == "feature_disabled":
+            return (), WEEKLY_FEATURE_DISABLED, result.reason
+        if result.status != "ok":
+            if not history:
+                return (result,), result.status, result.reason
+        else:
+            slim = replace(result, rows=tuple(r for r in result.rows if r.get("game_id")))
+            history = _prune_weekly_history([*history, slim], kickoffs)
+            with _memo_lock:
+                _weekly_memo[key] = history
+    return tuple(history), "ok", None
+
+
 def _nfl_slate(
     *,
     season: int,
@@ -144,8 +276,13 @@ def _nfl_slate(
     my_roster_id: str,
     opponent_roster_id: str | None,
     players_meta: Mapping[str, Any],
+    observed: ObservedSlate | None = None,
 ) -> dict[str, Any]:
     """The week's complete real NFL schedule, this matchup's players attached to their game.
+
+    Where the live feed observed a game, its observed state, phase, period
+    and clock replace the schedule cache's (``stateSource`` names
+    which), so the slate and the probabilities read the same game state.
 
     Never reorders by fantasy relevance (the ordering is `schedule_games`'s
     own chronological one, taken verbatim). A bye-week player and a player
@@ -174,10 +311,29 @@ def _nfl_slate(
             "state": g.state,
             "homeScore": g.home_score,
             "awayScore": g.away_score,
+            "stateSource": "nflverse:schedules",
+            "phase": None,
+            "period": None,
+            "clockSeconds": None,
+            "remainingFraction": None,
+            "remainingReason": None,
             "players": [],
         }
         for g in games
     }
+    for ev in observed.evidence.values() if observed else ():
+        row = game_payloads.get(ev.game_id)
+        if row is None or row["stateSource"] != "nflverse:schedules":
+            continue
+        row.update(
+            state=ev.state,
+            stateSource=ev.source,
+            phase=ev.phase,
+            period=ev.period,
+            clockSeconds=ev.clock_seconds,
+            remainingFraction=ev.remaining_fraction,
+            remainingReason=ev.remaining_reason,
+        )
     payload_by_team: dict[str, dict[str, Any]] = {}
     for g in games:
         payload_by_team[g.home_team] = game_payloads[g.game_id]
@@ -216,6 +372,36 @@ def _nfl_slate(
         "byeWeek": bye_week,
         "unattributed": unattributed,
     }
+
+
+def _live_state_lineage(observed: ObservedSlate) -> dict[str, Any]:
+    return {
+        "source": "espn:scoreboard",
+        "flag": "game_day_live_game_state",
+        "state": observed.state,
+        "reason": observed.reason,
+        "observedAt": observed.observed_at,
+        "stale": observed.stale,
+        "maxAgeSeconds": _live_state_max_age(),
+        "unmatchedGameIds": list(observed.unmatched_game_ids),
+    }
+
+
+def _weekly_licensing_status() -> str | None:
+    """The census's own licensing status for the weekly source (``None`` if absent)."""
+    try:
+        from src.ros import projection_source_census as census
+
+        entry = census.get_source("sleeperWeeklyProjections") or {}
+    except Exception:  # noqa: BLE001 — lineage detail, never fatal
+        return None
+    return entry.get("licensingStatus")
+
+
+def _live_state_max_age() -> float:
+    from src.ros.game_day_week import LIVE_STATE_MAX_AGE_SECONDS
+
+    return LIVE_STATE_MAX_AGE_SECONDS
 
 
 def _resolve_estimates(
@@ -325,12 +511,14 @@ def _expected_lineup(
     starter_slots: Sequence[str],
     players_meta: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """The best-ball lineup at the MEAN estimate.
+    """The ILLUSTRATIVE lineup that optimizing individual MEAN projections implies.
 
     A DIFFERENT quantity from the simulation, and labelled as one: the
-    simulation re-solves this assignment on every draw, so no single lineup
-    is "the" answer. This is the lineup the mean projection implies — useful
-    to a manager, and never presented as the simulated outcome.
+    simulation re-solves the assignment on every draw, so no single lineup
+    is "the" answer, and ``projectedTotal`` here is NOT the expected final
+    best-ball total (that is ``outcome.expectedFinalBestBall``, the mean of
+    optimized draws). Each player's value is banked points plus the mean of
+    his remaining production (pregame: just the mean projection).
 
     A player with no estimate is not in the pool at all; he is reported so
     the reader can see the lineup was chosen from an incomplete board.
@@ -341,6 +529,7 @@ def _expected_lineup(
         if p.projected_remaining is None:
             unpriced.append(p.player_id)
             continue
+        banked = float(p.points_scored) if p.points_scored is not None else 0.0
         pool.append(
             RosterPlayer(
                 player_id=p.player_id,
@@ -348,15 +537,20 @@ def _expected_lineup(
                     (players_meta.get(p.player_id) or {}).get("full_name") or p.player_id
                 ),
                 position=p.position,
-                ros_value=float(p.projected_remaining),
+                ros_value=banked + float(p.projected_remaining),
                 fantasy_positions=p.fantasy_positions,
             )
         )
     if not pool:
-        return {"slots": [], "projectedTotal": None, "unpricedPlayerIds": tuple(unpriced)}
+        return {
+            "slots": [],
+            "projectedTotal": None,
+            "unpricedPlayerIds": tuple(unpriced),
+            "basis": "optimized_individual_means",
+        }
 
     slot_list = list(starter_slots)
-    assignment = solve_optimal_assignment(pool, slot_list)
+    assignment = solve_optimal_assignment(pool, slot_list, objective=OBJECTIVE_REALIZED_POINTS)
     slots = []
     total = 0.0
     # The solver returns ``{slot_INDEX: player}``. The index is meaningless
@@ -384,6 +578,9 @@ def _expected_lineup(
         "slots": slots,
         "projectedTotal": round(total, 2),
         "unpricedPlayerIds": tuple(unpriced),
+        # Named so a reader never mistakes this for the expected final
+        # best-ball total (the mean of optimized draws).
+        "basis": "optimized_individual_means",
     }
 
 
@@ -391,6 +588,11 @@ def _outcome_payload(outcome: TeamWeekOutcome | None) -> dict[str, Any] | None:
     if outcome is None:
         return None
     return {
+        # The mean of the OPTIMIZED best-ball total over draws — the expected
+        # final score.  Deliberately distinct from expectedLineup.projectedTotal.
+        "expectedFinalBestBall": round(outcome.projected_mean, 2),
+        "playerLineupPct": dict(outcome.player_lineup_pct),
+        "gameLeverage": [dict(row) for row in outcome.game_leverage],
         "winMatchupPct": outcome.win_matchup_pct,
         "tieMatchupPct": outcome.tie_matchup_pct,
         "beatMedianPct": outcome.beat_median_pct,
@@ -442,11 +644,56 @@ def build_matchup_intel(
             f"{league_key}: no starter slots resolved from the host or the registry"
         )
 
-    estimates, estimate_source, sources_loaded, sources_unavailable = _resolve_estimates(
-        season, fetched.league.get("scoring_settings") or {}
+    scoring_card = fetched.league.get("scoring_settings") or {}
+    preseason, preseason_source, sources_loaded, sources_unavailable = _resolve_estimates(
+        season, scoring_card
     )
 
     schedule_rows, schedule_observed_at, schedule_now = _schedule_context(season)
+    schedule_evidence = _game_evidence(
+        season, week, schedule_rows, schedule_observed_at, schedule_now
+    )
+    observed = observed_game_evidence(
+        _observe_live_state(season, week),
+        schedule_rows=schedule_rows,
+        season=season,
+        week=week,
+        now=schedule_now,
+    )
+    evidence = merge_game_evidence(schedule_evidence, observed)
+    kickoffs_by_team = {t: g.kickoff_at for t, g in evidence.items() if g.kickoff_at is not None}
+    weekly_fetches, weekly_state, weekly_reason = _weekly_projection_fetches(
+        season, week, sorted(set(kickoffs_by_team.values()))
+    )
+    rostered_ids = sorted(
+        {str(pid) for r in fetched.rosters for pid in (r.get("players") or ()) if pid}
+    )
+    try:
+        estimates = resolve_game_day_estimates(
+            player_ids=rostered_ids,
+            players_meta=fetched.players,
+            scoring_settings=scoring_card,
+            season=season,
+            week=week,
+            now=schedule_now,
+            preseason_by_name=preseason,
+            preseason_source=preseason_source,
+            sources_loaded=sources_loaded,
+            sources_unavailable=sources_unavailable,
+            weekly_fetches=weekly_fetches,
+            weekly_state=weekly_state,
+            weekly_reason=weekly_reason,
+            kickoffs_by_team=kickoffs_by_team,
+        )
+    except Exception as exc:  # noqa: BLE001 — a bad input must not lose the matchup
+        estimates = GameDayEstimates(
+            by_player_id={},
+            weekly_state="error",
+            weekly_reason=f"{type(exc).__name__}: {exc}",
+            preseason_source=None,
+        )
+    estimate_source = estimates.source_label
+
     try:
         scoring = resolve_scoring_week(
             league_key=league_key,
@@ -455,11 +702,10 @@ def build_matchup_intel(
             matchups=fetched.matchups,
             players_meta=fetched.players,
             starter_slots=slots,
-            estimates=estimates,
+            estimates_by_player_id=estimates.points_by_player_id(),
             estimate_source=estimate_source,
-            game_evidence=_game_evidence(
-                season, week, schedule_rows, schedule_observed_at, schedule_now
-            ),
+            game_evidence=evidence,
+            now=schedule_now,
         )
     except GameDayWeekRefusal as exc:
         if "already begun" in str(exc):
@@ -482,12 +728,17 @@ def build_matchup_intel(
     # invalidation rule and why the cache cannot live under `data/ros/`.
     simulation = None
     sim_error: str | None = None
-    # Do not silently simulate a player whose in-progress remaining could
-    # not be time-prorated for lack of game-progress evidence. Outside
-    # pregame, every simulated player requires complete evidence.
-    complete = all(player_is_drawable(p) for t in resolution.teams for p in t.players)
+    # Do not simulate while any player's remaining production cannot be
+    # stated (overtime, delay, stale feed …) or while any player's game
+    # STATE is unknown (a passed kickoff with no live observation): either
+    # would draw a number for football we cannot see. An UNPRICED player
+    # (no baseline from any source) is excluded and reported, exactly as
+    # pregame — that is a coverage gap, not an unknown game state.
+    unknown_state = [
+        p.player_id for t in resolution.teams for p in t.players if p.state == "unknown"
+    ]
     can_simulate = not scoring.progress_unavailable_player_ids and (
-        scoring.mode == "pregame" or complete
+        scoring.mode == "pregame" or not unknown_state
     )
     if scoring.mode != "final" and can_simulate and resolution.estimate_coverage[0] > 0:
         try:
@@ -506,6 +757,30 @@ def build_matchup_intel(
     outcomes = {t.team_id: t for t in (simulation.teams if simulation else ())}
     labels = _team_labels(fetched.users)
     team_week = {t.team_id: t for t in resolution.teams}
+    est_by_id = estimates.by_player_id
+
+    def _player_row(p: Any, outcome: TeamWeekOutcome | None) -> dict[str, Any]:
+        est = est_by_id.get(p.player_id)
+        return {
+            "playerId": p.player_id,
+            "name": str((fetched.players.get(p.player_id) or {}).get("full_name") or p.player_id),
+            "state": p.state,
+            "nflGameId": p.nfl_game_id,
+            "pointsScored": p.points_scored,
+            "projectedRemaining": p.projected_remaining,
+            "remainingBasis": scoring.remaining_basis.get(p.player_id),
+            "progressUnavailableReason": scoring.progress_unavailable_reasons.get(p.player_id),
+            # The PROVIDER's pregame weekly baseline, kept separate from
+            # our derived rest-of-game forecast (projectedRemaining).
+            "projectionBasis": est.basis if est else None,
+            "providerBaselinePoints": round(est.provider_points, 2) if est else None,
+            "imputedPoints": round(est.imputed_points, 2) if est else None,
+            "imputedScoringKeys": list(est.imputed_keys) if est else [],
+            "uncoveredScoringKeys": list(est.uncovered_keys) if est else [],
+            "providerAsOf": est.provider_as_of if est else None,
+            "finalLineupPct": (outcome.player_lineup_pct.get(p.player_id) if outcome else None),
+            "fantasyPositions": list(p.fantasy_positions),
+        }
 
     def _side(roster_id: str | None) -> dict[str, Any] | None:
         if not roster_id:
@@ -521,29 +796,28 @@ def build_matchup_intel(
             "outcome": _outcome_payload(outcomes.get(roster_id)),
             "expectedLineup": (
                 _expected_lineup(tw.players, slots, fetched.players)
-                if tw and scoring.mode == "pregame"
+                if tw and scoring.mode != "final"
                 else None
             ),
             "unpricedPlayerIds": list(resolution.unpriced_player_ids.get(roster_id, ())),
             "ineligiblePlayerIds": list(resolution.ineligible_player_ids.get(roster_id, ())),
         }
+        if tw:
+            outcome = outcomes.get(roster_id)
+            side["players"] = [_player_row(p, outcome) for p in tw.players]
+            side["uncoveredScoringKeys"] = sorted(
+                {
+                    k
+                    for p in tw.players
+                    for k in (
+                        est_by_id[p.player_id].uncovered_keys if p.player_id in est_by_id else ()
+                    )
+                }
+            )
         if tw and scoring.mode != "pregame":
             side["actualScore"] = scoring.host_scores.get(roster_id)
             side["actualLineup"] = actual_lineup(tw, resolution.rules, fetched.players)
             side["pointsBanked"] = side["actualLineup"]["total"]
-            side["players"] = [
-                {
-                    "playerId": p.player_id,
-                    "name": str(
-                        (fetched.players.get(p.player_id) or {}).get("full_name") or p.player_id
-                    ),
-                    "state": p.state,
-                    "pointsScored": p.points_scored,
-                    "projectedRemaining": p.projected_remaining,
-                    "fantasyPositions": list(p.fantasy_positions),
-                }
-                for p in tw.players
-            ]
             current_ids = {s["playerId"] for s in side["actualLineup"]["slots"]}
             possibilities = []
             for p in tw.players:
@@ -604,6 +878,12 @@ def build_matchup_intel(
 
     priced, active = resolution.estimate_coverage
     notes = list(resolution.notes)
+    reasons_by_kind: dict[str, list[str]] = {}
+    for pid, why in sorted(scoring.progress_unavailable_reasons.items()):
+        reasons_by_kind.setdefault(why, []).append(pid)
+    basis_counts: dict[str, int] = {}
+    for est in est_by_id.values():
+        basis_counts[est.basis] = basis_counts.get(est.basis, 0) + 1
     if sim_error:
         notes.append(f"simulation unavailable: {sim_error}")
     if opponent_roster_id is None:
@@ -626,6 +906,10 @@ def build_matchup_intel(
             else "UNAVAILABLE"
         ),
         "progressUnavailablePlayerIds": list(scoring.progress_unavailable_player_ids),
+        # reason -> player ids, e.g. {"overtime": [...]} — a withheld
+        # probability always names why.
+        "progressUnavailableReasons": reasons_by_kind,
+        "unknownStatePlayerIds": unknown_state if scoring.mode != "pregame" else [],
         "recapUrl": f"/league/articles/{season}/{week}" if scoring.mode == "final" else None,
         "team": _side(my_roster_id),
         "opponent": _side(opponent_roster_id),
@@ -639,17 +923,51 @@ def build_matchup_intel(
             my_roster_id=my_roster_id,
             opponent_roster_id=opponent_roster_id,
             players_meta=fetched.players,
+            observed=observed,
         ),
         # Everything a reader needs to decide how much to trust the numbers
         # above, and which owner produced each of them. W1-15.
         "lineage": {
             "projectionSource": estimate_source,
             "projectionHorizonNote": (
-                "per-game figure from a full-season projection; no live "
-                "WEEKLY-horizon projection source exists"
-                if estimate_source
-                else None
+                (
+                    f"weekly projections ({WEEKLY_SOURCE_LABEL}) locked at each game's "
+                    "kickoff; players without one use a preseason full-season "
+                    "per-game average — a FALLBACK, NOT a current-week forecast — "
+                    "labelled per player"
+                )
+                if estimates.weekly_state == "ok"
+                else "preseason full-season per-game average — a FALLBACK, NOT a "
+                "current-week forecast; no WEEKLY-horizon projection is in use"
+                f" (weekly source: {estimates.weekly_state})"
+            )
+            if estimate_source
+            else None,
+            "projectionBasisCounts": basis_counts,
+            # Human wording for each basis, so the fallback can never be read
+            # as the weekly projection.
+            "projectionBasisLabels": {b: BASIS_LABELS[b] for b in sorted(basis_counts)},
+            # The ensemble behind the preseason FALLBACK basis, by its own name.
+            "preseasonProjectionSource": estimates.preseason_source,
+            "weeklyProjection": {
+                "sourceLabel": WEEKLY_SOURCE_LABEL,
+                "flag": "sleeper_weekly_projections",
+                "state": estimates.weekly_state,
+                "reason": estimates.weekly_reason,
+                "asOf": estimates.weekly_as_of,
+                "observedAt": estimates.weekly_observed_at,
+                "counts": dict(estimates.weekly_counts),
+                # Read from the census, never restated here.
+                "licensingStatus": _weekly_licensing_status(),
+            },
+            "ambiguousNamePlayerIds": list(estimates.ambiguous_name_player_ids),
+            "remainingProductionMethod": (
+                "remaining = pregame provider baseline x observed share of regulation "
+                "left (observed_clock); banked points are never subtracted from the "
+                "baseline; overtime/delay/postponement/stale feed withhold the "
+                "probability with a named reason"
             ),
+            "leverageDefinition": LEVERAGE_DEFINITION,
             "projectionSourcesLoaded": list(sources_loaded),
             "projectionSourcesUnavailable": list(sources_unavailable),
             "estimateCoverage": {"priced": priced, "active": active},
@@ -665,10 +983,23 @@ def build_matchup_intel(
                     "source": g.source,
                     "observedAt": g.observed_at,
                     "kickoffAt": g.kickoff_at,
+                    "gameId": g.game_id,
+                    "phase": g.phase,
+                    "period": g.period,
+                    "clockSeconds": g.clock_seconds,
+                    "remainingFraction": g.remaining_fraction,
+                    "remainingReason": g.remaining_reason,
                 }
                 for team, g in scoring.game_evidence.items()
             },
-            "gameStateLimitation": "nflverse schedule/result cache; no live game-status or remaining-production feed",
+            "liveGameState": _live_state_lineage(observed),
+            "gameStateLimitation": (
+                "observed ESPN scoreboard (quarter/clock/status) where available; "
+                "nflverse schedule/result cache otherwise"
+                if observed.state == "observed"
+                else "nflverse schedule/result cache only; live game state "
+                f"{observed.state} ({observed.reason}) — a passed kickoff stays unknown"
+            ),
             # W1-26: the perishable pregame archive's own timestamp, with
             # "nothing was captured" kept distinct from "we could not read
             # the archive".

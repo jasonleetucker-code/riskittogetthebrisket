@@ -39,9 +39,11 @@ here — becomes :data:`PHASE_UNKNOWN`.  A mapped name whose ESPN ``state``
 contradicts it (e.g. ``STATUS_FINAL`` with state ``in``) is also
 ``UNKNOWN``, with the conflict recorded, rather than trusting either half.
 
-Not wired: nothing in ``server.py`` imports this yet.  Polling cadence and
-caching belong to the future shared background collector; this module
-performs exactly one uncached request per call.
+Consumed by ``src/api/matchup_intel.py::_observe_live_state`` (turned into
+per-team evidence by ``src/ros/game_day_week.py::observed_game_evidence``),
+behind the flag.  Polling cadence and durable caching belong to the shared
+background collector; this module performs exactly one uncached request per
+call.
 """
 
 from __future__ import annotations
