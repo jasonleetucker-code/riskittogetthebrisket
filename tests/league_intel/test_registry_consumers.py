@@ -11,7 +11,8 @@ the corrected shape:
 2. src/ros/scrape.py::_flatten_starter_slots + src/ros/lineup.py
 3. src/ros/playoff_sim.py::_load_starter_slots + _eligible_for_slot
 4. src/trade/team_impact.py (via src/api/trade_simulator.py)
-5. src/trade/suggestions.py::DEFAULT_STARTER_NEEDS (hardcoded mirror)
+5. src/trade/suggestions.py::starter_needs_for_league (the retired
+   DEFAULT_STARTER_NEEDS hardcoded mirror is gone — 2026-09-24)
 6. server.py draft-capital teamCount read (value unchanged: 12)
 7. frontend useTeam.js / LeagueSwitcher.jsx read only teamCount /
    passthrough — covered by the registry-shape assertions here plus
@@ -353,37 +354,30 @@ class TestTeamImpactPath:
 
 
 class TestSuggestionsNeeds:
-    def test_default_starter_needs_match_live_lineup(self):
-        from src.trade.suggestions import DEFAULT_STARTER_NEEDS
-
-        assert DEFAULT_STARTER_NEEDS["TE"] == 2
-        assert DEFAULT_STARTER_NEEDS["DB"] == 3
-        assert DEFAULT_STARTER_NEEDS["DL"] == 3
-        assert DEFAULT_STARTER_NEEDS["LB"] == 3
-        assert "K" not in DEFAULT_STARTER_NEEDS  # kickers not tradeable assets
+    #: dynasty_main's derived demand, pinned as EXPECTED DATA.  It used to be
+    #: a module constant in suggestions.py that doubled as the silent default
+    #: for every league (and every opponent roster); the constant is gone,
+    #: and this is what the derivation must keep producing for the live league.
+    DYNASTY_MAIN_EXPECTED = {"QB": 2, "RB": 3, "WR": 4, "TE": 2, "DL": 3, "LB": 3, "DB": 3}
 
     # NOTE: every derived-needs test below takes ``real_registry``.  The
-    # global conftest points LEAGUE_REGISTRY_PATH at /nonexistent, and
-    # ``starter_needs_for_league`` falls back to DEFAULT_STARTER_NEEDS
-    # when the registry has nothing — so without the fixture the
-    # dynasty_main assertion passes by comparing the fallback to itself,
-    # and the dynasty_new one fails for the wrong reason.
-    def test_derived_needs_reproduce_the_constant_for_dynasty_main(self, real_registry):
+    # global conftest points LEAGUE_REGISTRY_PATH at /nonexistent, where
+    # ``starter_needs_for_league`` now answers ``None`` — so without the
+    # fixture these would fail for the wrong reason.
+    def test_derived_needs_reproduce_the_retired_constant_for_dynasty_main(self, real_registry):
         """The derivation must be a NO-OP for the live league.
 
-        ``DEFAULT_STARTER_NEEDS`` was hand-derived: base slots plus an
-        allocation of the 3 flex slots as +1 QB / +1 RB / +1 WR.  If the
-        registry-driven version disagrees, it is the derivation that is
-        wrong, not the constant — this league's trade suggestions have
-        been computed against those numbers and are correct.
+        The retired constant was hand-derived: base slots plus an allocation
+        of the 3 flex slots as +1 QB / +1 RB / +1 WR.  This league's trade
+        suggestions were computed against those numbers and are correct.
         """
-        from src.trade.suggestions import DEFAULT_STARTER_NEEDS, starter_needs_for_league
+        from src.trade.suggestions import starter_needs_for_league
 
         derived = starter_needs_for_league("dynasty_main")
-        # Guard against the vacuous pass: prove the registry is actually
-        # loaded, so this is a real comparison and not fallback == fallback.
+        # Guard against a vacuous pass: prove the registry is actually loaded.
         assert real_registry.get_league_roster_settings("dynasty_main").get("starters")
-        assert derived == DEFAULT_STARTER_NEEDS
+        assert derived == self.DYNASTY_MAIN_EXPECTED
+        assert "K" not in derived  # kickers not tradeable assets
 
     def test_derived_needs_follow_the_league_not_the_scoring_profile(self, real_registry):
         """dynasty_new shares the scoring profile and not the lineup.
@@ -397,8 +391,7 @@ class TestSuggestionsNeeds:
         (WR/RB only), not a second RB/WR/TE FLEX.  Under the
         ``flex_priority`` round-robin both flexes therefore open on RB
         (FLEX ranks RB first; WR_RB_FLEX ranks RB first), so demand is
-        RB 4 / WR 3 — this test asserted RB 3 / WR 4 while the registry
-        modelled a lineup the host does not run.
+        RB 4 / WR 3.
         """
         from src.trade.suggestions import starter_needs_for_league
 
@@ -413,16 +406,21 @@ class TestSuggestionsNeeds:
         assert sum(needs.values()) == 10
         assert "K" not in needs
 
-    def test_derived_needs_fall_back_rather_than_returning_nothing(self, real_registry):
-        """An unknown league must not read as 'this roster needs nobody'.
+    def test_an_unresolvable_league_is_refused_not_given_another_leagues_lineup(
+        self, real_registry
+    ):
+        """Unknown is not dynasty_main.
 
-        An empty demand map silences every surplus/need suggestion, which
-        looks identical to a roster with no holes.
+        This used to return the dynasty_main constant for an unknown key, on
+        the grounds that an empty map "reads as needs nobody".  Both are
+        wrong: the honest answer is that the lineup is unknown, and the
+        engine turns ``None`` into an explicit ``league_lineup_unresolved``
+        result (tests/trade/test_starter_needs_league_scoped.py).
         """
-        from src.trade.suggestions import DEFAULT_STARTER_NEEDS, starter_needs_for_league
+        from src.trade.suggestions import starter_needs_for_league
 
-        assert starter_needs_for_league("no_such_league") == DEFAULT_STARTER_NEEDS
-        assert starter_needs_for_league(None)
+        assert starter_needs_for_league("no_such_league") is None
+        assert starter_needs_for_league(None) is None
 
 
 # ── 6. server draft-capital teamCount read ────────────────────────────

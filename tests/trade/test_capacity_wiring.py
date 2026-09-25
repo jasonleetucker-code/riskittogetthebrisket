@@ -19,6 +19,11 @@ import pytest
 from src.trade.roster_capacity import build_capacity_context
 from src.trade.suggestions import PlayerAsset, generate_suggestions_from_pool
 
+#: The league demand these tests exercise, passed EXPLICITLY: the engine has no
+#: default lineup (canonical-need-priority, 2026-09-24 — an omitted demand used
+#: to fall back silently to dynasty_main's).  dynasty_main-shaped.
+LEAGUE_NEEDS = {"QB": 2, "RB": 3, "WR": 4, "TE": 2, "DL": 3, "LB": 3, "DB": 3}
+
 SETTINGS = {
     "teamCount": 12,
     "rosterSize": 34,
@@ -168,9 +173,11 @@ def test_suggestions_are_not_filtered_by_capacity(full_roster_setup):
     dropped "for cleanliness".
     """
     pool, roster, context = full_roster_setup
-    without = generate_suggestions_from_pool(roster_names=roster, pool=pool)
+    without = generate_suggestions_from_pool(
+        roster_names=roster, pool=pool, starter_needs=LEAGUE_NEEDS
+    )
     with_capacity = generate_suggestions_from_pool(
-        roster_names=roster, pool=pool, capacity_context=context
+        starter_needs=LEAGUE_NEEDS, roster_names=roster, pool=pool, capacity_context=context
     )
     assert _counts(without) == _counts(with_capacity)
 
@@ -188,7 +195,7 @@ def test_suggestions_are_not_filtered_by_capacity(full_roster_setup):
 def test_suggestions_carry_the_capacity_block_when_it_is_available(full_roster_setup):
     pool, roster, context = full_roster_setup
     result = generate_suggestions_from_pool(
-        roster_names=roster, pool=pool, capacity_context=context
+        starter_needs=LEAGUE_NEEDS, roster_names=roster, pool=pool, capacity_context=context
     )
     seen = 0
     for category in _CATEGORIES:
@@ -210,7 +217,7 @@ def test_suggestions_carry_the_capacity_block_when_it_is_available(full_roster_s
 def test_a_one_for_two_on_a_full_roster_reports_its_forced_drop(full_roster_setup):
     pool, roster, context = full_roster_setup
     result = generate_suggestions_from_pool(
-        roster_names=roster, pool=pool, capacity_context=context
+        starter_needs=LEAGUE_NEEDS, roster_names=roster, pool=pool, capacity_context=context
     )
     asymmetric = [
         s
@@ -242,7 +249,7 @@ def test_no_suggestion_shape_can_currently_exceed_the_cap(full_roster_setup):
     """
     pool, roster, context = full_roster_setup
     result = generate_suggestions_from_pool(
-        roster_names=roster, pool=pool, capacity_context=context
+        starter_needs=LEAGUE_NEEDS, roster_names=roster, pool=pool, capacity_context=context
     )
     for category in _CATEGORIES:
         for suggestion in result.get(category) or []:
@@ -265,9 +272,11 @@ def test_an_already_over_limit_roster_does_not_lose_its_suggestions(full_roster_
         contract, None, contract["sleeper"]["teams"][0], roster_settings=tight
     )
 
-    without = generate_suggestions_from_pool(roster_names=roster, pool=pool)
+    without = generate_suggestions_from_pool(
+        roster_names=roster, pool=pool, starter_needs=LEAGUE_NEEDS
+    )
     with_capacity = generate_suggestions_from_pool(
-        roster_names=roster, pool=pool, capacity_context=over_context
+        starter_needs=LEAGUE_NEEDS, roster_names=roster, pool=pool, capacity_context=over_context
     )
     assert _counts(without) == _counts(with_capacity)
     assert sum(_counts(with_capacity).values()) > 0
@@ -289,7 +298,9 @@ def test_suggestions_without_a_context_carry_no_capacity_block(full_roster_setup
     which reads as "this trade costs nothing" rather than "we did not check".
     """
     pool, roster, _context = full_roster_setup
-    result = generate_suggestions_from_pool(roster_names=roster, pool=pool)
+    result = generate_suggestions_from_pool(
+        roster_names=roster, pool=pool, starter_needs=LEAGUE_NEEDS
+    )
     for category in _CATEGORIES:
         for suggestion in result.get(category) or []:
             assert "rosterCapacity" not in suggestion
