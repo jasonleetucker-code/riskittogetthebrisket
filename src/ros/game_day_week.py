@@ -631,7 +631,7 @@ def _observed_state(obs: Any) -> tuple[str, float | None, str | None]:
         # End of regulation is 0.0 regulation time left, but a TIED game
         # (or one whose score was not stated) may still go to overtime.
         # Not invented either way: withheld until a final is observed.
-        at_end = fraction == 0.0 and (obs.period or 0) >= 4
+        at_end = fraction == 0.0 and obs.period is not None and obs.period >= 4
         tied = obs.home_score is None or obs.away_score is None or obs.home_score == obs.away_score
         if at_end and tied:
             fraction, reason = None, "overtime_possible"

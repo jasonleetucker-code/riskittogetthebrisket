@@ -186,8 +186,14 @@ def _normalize_team(code: Any) -> str:
 
 
 def _rate(scoring_settings: Mapping[str, Any], key: str) -> float:
+    """The league's rate for ``key``.  A key ABSENT from the scoring card is
+    worth zero points — that is the host's own rule (absent and explicit
+    zero score identically), not a missing measurement."""
+    value = (scoring_settings or {}).get(key)
+    if value is None:
+        return 0.0
     try:
-        return float((scoring_settings or {}).get(key) or 0.0)
+        return float(value)
     except (TypeError, ValueError):
         return 0.0
 
