@@ -456,6 +456,25 @@ const SOURCE_TEXT = {
   nflverse_schedule: "NFL schedule",
 };
 
+const PROVIDER_TEXT = {
+  espn: "ESPN",
+  sportsdataio: "SportsDataIO",
+};
+
+// A source's failure detail in words.  Unknown details are shown verbatim.
+function sourceStatusText(tail) {
+  if (!tail || tail === "unavailable") return "unavailable";
+  if (tail === "error") return "failed";
+  const http = tail.match(/^http_error:(\d+)$/);
+  if (http) return `failed (HTTP ${http[1]})`;
+  if (tail.startsWith("credential_missing") || tail === "not_configured") {
+    return "not configured (no credential installed)";
+  }
+  if (tail === "flag_disabled") return "switched off";
+  if (tail.startsWith("backoff")) return "paused after repeated failures";
+  return `unavailable (${tail})`;
+}
+
 /**
  * One backend freshness reason (``src/ros/game_day_live.py``) in words.
  * Unknown reasons are shown verbatim rather than dropped.
@@ -470,8 +489,15 @@ export function freshnessReasonText(reason) {
   if (r === "payload_age_unknown") return "age unknown";
   const [head, ...rest] = r.split(":");
   const tail = rest.join(":");
-  if (SOURCE_TEXT[head]) {
-    return `${SOURCE_TEXT[head]} ${tail === "error" ? "failed" : tail ? `unavailable (${tail})` : "unavailable"}`;
+  // Provider-qualified reasons from the live-state fallback
+  // (``live_game_state.espn:http_error:403``,
+  // ``live_game_state.sportsdataio:credential_missing:…``) name WHICH
+  // provider failed and how; the bare ``live_game_state:unavailable`` is the
+  // overall verdict.  Rendered as words, never dropped.
+  const [base, provider] = head.split(".");
+  if (SOURCE_TEXT[base]) {
+    const who = provider ? `${SOURCE_TEXT[base]} (${PROVIDER_TEXT[provider] || provider})` : SOURCE_TEXT[base];
+    return `${who} ${sourceStatusText(tail)}`;
   }
   switch (head) {
     case "no_collector_generation":

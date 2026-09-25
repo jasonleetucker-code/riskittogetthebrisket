@@ -225,7 +225,7 @@ describe("GameDayPanel — withheld probability", () => {
   it("says the live feed is down instead of presenting schedule state as live", async () => {
     await renderReady(FEED_DOWN);
     // ESPN refused (HTTP 403): the collector's own freshness state says so.
-    expect(screen.getByText(/^Partial · as of .* · live game feed failed$/)).toBeInTheDocument();
+    expect(screen.getByText(/^Partial · as of .* · live game feed unavailable$/)).toBeInTheDocument();
     expect(
       screen.getByText(/Game status unknown for ATL @ GB — the live game feed is unavailable/),
     ).toBeInTheDocument();
@@ -276,7 +276,10 @@ describe("GameDayPanel — freshness is never hidden", () => {
     expect(espn).toHaveTextContent("error (http_error:403)");
     expect(within(table).getByText(/^Sleeper league/).closest("tr")).toHaveTextContent("ok");
     expect(screen.getByText("Partial")).toBeInTheDocument();
-    expect(screen.getByText(/live game feed failed/, { selector: "li" })).toBeInTheDocument();
+    expect(screen.getByText(/live game feed \(ESPN\) failed \(HTTP 403\)/, { selector: "li" })).toBeInTheDocument();
+    expect(
+      screen.getByText(/live game feed \(SportsDataIO\) not configured/, { selector: "li" }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Shared live collector/)).toBeInTheDocument();
   });
 });

@@ -130,7 +130,7 @@ const STATES = [
   {
     name: "live-feed-down",
     check: async (page) => {
-      await expect(page.getByText(/^Partial · as of .* · live game feed failed$/)).toBeVisible();
+      await expect(page.getByText(/^Partial · as of .* · live game feed unavailable$/)).toBeVisible();
       await expect(page.getByText(/Game status unknown for ATL @ GB/)).toBeVisible();
       await expect(hero(page).getByText(/%$/)).toHaveCount(0);
     },

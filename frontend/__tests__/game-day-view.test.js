@@ -194,7 +194,7 @@ describe("freshness line (the U5 collector block)", () => {
   it("flags a partial state with the failed source (ESPN 403), never hiding it", () => {
     expect(FEED_DOWN.freshness.state).toBe("partial");
     const line = freshnessLine(FEED_DOWN);
-    expect(line.text).toMatch(/^Partial · as of .* · live game feed failed$/);
+    expect(line.text).toMatch(/^Partial · as of .* · live game feed unavailable$/);
     expect(line.warn).toBe(true);
   });
 
