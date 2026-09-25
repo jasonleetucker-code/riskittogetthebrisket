@@ -20,7 +20,13 @@
  */
 
 import { DataTable } from "@/components/ds";
-import { formatAge, formatDateTime, freshnessReasonText } from "@/lib/game-day-view";
+import {
+  formatAge,
+  formatDateTime,
+  formatPoints,
+  freshnessReasonText,
+  playerIndex,
+} from "@/lib/game-day-view";
 import styles from "./game-day.module.css";
 
 
@@ -29,11 +35,14 @@ const FRESHNESS_LABEL = {
   partial: "Partial",
   degraded: "Degraded",
   stale: "Stale",
+  pending: "Computing forecast",
+  failed: "Forecast failed (retrying)",
 };
 
 const SERVED_FROM = {
   collector_generation: "Shared live collector (cached generation)",
-  request_compute: "Computed on request (no collector generation)",
+  request_generation: "Computed in the background (no collector generation)",
+  pending_factual: "Scores and lineups only — forecast still computing",
 };
 
 const SOURCE_LABEL = {
@@ -91,7 +100,47 @@ function SourceTable({ sources }) {
   );
 }
 
-function familiesText(n) {
+/**
+ * `freshness.statCorrections`: post-final stat changes Sleeper published.
+ * The host's player points stay the score of record; a change the host has
+ * not absorbed yet is listed (with what it would move under this league's
+ * scoring), never applied here.
+ */
+function StatCorrections({ corrections, payload }) {
+  const pending = corrections.pendingHost || [];
+  const players = playerIndex(payload);
+  const count = (n) => (Number.isInteger(n) ? String(n) : "an unknown number");
+  const summary = [
+    `${pending.length} awaiting the host`,
+    `${count(corrections.reflectedInHostCount)} already in the host's scores`,
+    `${count(corrections.notScoredByLeagueCount)} not scored by this league`,
+  ].join(" · ");
+  return (
+    <>
+      {summary}
+      {pending.length ? (
+        <ul className={styles.factList}>
+          {pending.map((e) => {
+            const name = players.get(e.playerId)?.player?.name || `Player ${e.playerId}`;
+            const delta = formatPoints(e.scoredDeltaUnderLeagueCard);
+            const now = formatPoints(e.hostPointsNow);
+            return (
+              <li key={`${e.playerId}-${e.gameId}`}>
+                {name}: {delta !== null ? `${e.scoredDeltaUnderLeagueCard > 0 ? "+" : ""}${delta} pts` : "change"}{" "}
+                under this league&apos;s scoring, not yet in the host&apos;s score
+                {now !== null ? ` (host shows ${now})` : ""}
+                {e.detectedAt ? `, seen ${formatDateTime(e.detectedAt)}` : ""}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </>
+  );
+}
+
+function familiesText(n, pending) {
+  if (pending) return "Not read yet — the forecast is still computing";
   if (typeof n !== "number") return "Unknown";
   if (n === 0) return "No weekly projection family contributed";
   if (n === 1) return "1 projection family";
@@ -150,7 +199,7 @@ export default function DataInfoBody({ payload }) {
       </dd>
 
       <dt>Projection families</dt>
-      <dd>{familiesText(lineage.projectionFamiliesContributing)}</dd>
+      <dd>{familiesText(lineage.projectionFamiliesContributing, payload.probabilityState === "PENDING")}</dd>
 
       <dt>Projection basis</dt>
       <dd>
@@ -264,6 +313,15 @@ export default function DataInfoBody({ payload }) {
               simulation {formatDateTime(freshness.simulationComputedAt) || "not run"}
             </span>
           </dd>
+
+          {freshness.statCorrections ? (
+            <>
+              <dt>Stat corrections</dt>
+              <dd>
+                <StatCorrections corrections={freshness.statCorrections} payload={payload} />
+              </dd>
+            </>
+          ) : null}
 
           <dt>Sources</dt>
           <dd>

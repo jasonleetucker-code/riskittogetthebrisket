@@ -53,6 +53,10 @@ import WhatMattersNow from "@/components/game-day/WhatMattersNow";
 import styles from "@/components/game-day/game-day.module.css";
 
 const POLL_MS = 60000;
+// While the server is computing the forecast (probabilityState PENDING, Game
+// Day G), check back sooner: the background run takes tens of seconds and the
+// next poll after it serves the finished generation.
+const PENDING_POLL_MS = 10000;
 
 export function validMatchupPayload(body, expectedLeagueKey = "") {
   return (
@@ -217,6 +221,15 @@ export default function GameDayPanel() {
       requestRef.current = null;
     };
   }, [load, leagueReady]);
+
+  const pendingPayload = state.payload?.probabilityState === "PENDING" ? state.payload : null;
+  useEffect(() => {
+    if (!pendingPayload) return undefined;
+    const timer = setTimeout(() => {
+      if (!document.hidden) load({ background: true });
+    }, PENDING_POLL_MS);
+    return () => clearTimeout(timer);
+  }, [pendingPayload, load]);
 
   const manualRefresh = useCallback(() => load({ background: true }), [load]);
 

@@ -136,6 +136,15 @@ const STATES = [
     },
   },
   {
+    name: "pending",
+    check: async (page) => {
+      await expect(page.getByText("Computing the forecast")).toBeVisible();
+      await expect(hero(page).getByText("Computing…").first()).toBeVisible();
+      await expect(hero(page).getByText(/%$/)).toHaveCount(0);
+      await expect(page.getByText("Win chance paused")).toHaveCount(0);
+    },
+  },
+  {
     name: "stale",
     check: async (page) => {
       await expect(page.getByText(/^Stale · as of .*\(2 h old\)/)).toBeVisible();

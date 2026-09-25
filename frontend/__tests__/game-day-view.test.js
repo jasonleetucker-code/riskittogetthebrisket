@@ -23,6 +23,7 @@ import {
   gameStatusText,
   leverageGames,
   marginText,
+  pendingForecast,
   reasonText,
   slotLabel,
   whatMattersNow,
@@ -36,6 +37,7 @@ import WEEK_FINAL from "./fixtures/game-day/week-final.json";
 import MIXED from "./fixtures/game-day/mixed-slate.json";
 import FEED_DOWN from "./fixtures/game-day/live-feed-down.json";
 import STALE from "./fixtures/game-day/stale.json";
+import PENDING from "./fixtures/game-day/pending.json";
 
 describe("formatters keep missing distinct from zero", () => {
   it.each([null, undefined, Number.NaN, "3"])("formats %s as null, never 0", (v) => {
@@ -205,11 +207,11 @@ describe("freshness line (the U5 collector block)", () => {
     expect(line.text).toMatch(/^Stale · as of .*\(2 h old\) · past its 3 min freshness budget$/);
   });
 
-  it("names a degraded, computed-on-request answer and a running refresh", () => {
+  it("names a degraded, background-computed answer and a running refresh", () => {
     const p = JSON.parse(JSON.stringify(HALFTIME));
     p.freshness = { ...p.freshness, state: "degraded", reasons: ["no_collector_generation"], refreshInProgress: true };
     const line = freshnessLine(p);
-    expect(line.text).toMatch(/^Degraded · .* · computed on request .* · refresh running$/);
+    expect(line.text).toMatch(/^Degraded · .* not published this week; computed in the background · refresh running$/);
     expect(line.warn).toBe(true);
   });
 
@@ -232,6 +234,15 @@ describe("freshness line (the U5 collector block)", () => {
     );
     expect(freshnessReasonText("last_collector_tick_failed:Timeout")).toMatch(/last run failed \(Timeout\)/);
     expect(freshnessReasonText("something_new")).toBe("something new");
+    expect(freshnessReasonText("generation_pending")).toMatch(/being computed in the background/);
+    expect(freshnessReasonText("generation_failed:Timeout")).toMatch(/run failed \(Timeout\); it will be retried/);
+    expect(freshnessReasonText("previous_attempt_failed:Boom")).toMatch(/earlier forecast run failed \(Boom\)/);
+    expect(freshnessReasonText("background_refresh_failed:Boom")).toMatch(/showing the last answer/);
+    expect(freshnessReasonText("background_compute_capacity_exhausted")).toMatch(/server is busy/);
+    expect(freshnessReasonText("stat_correction_pending_host")).toMatch(/host has not applied/);
+    expect(freshnessReasonText("weekly_projections:pending")).toBe(
+      "weekly projections not read yet (forecast computing)",
+    );
     expect(formatAge(20)).toBe("20 s");
     expect(formatAge(null)).toBeNull();
   });
@@ -239,5 +250,41 @@ describe("freshness line (the U5 collector block)", () => {
   it("names an unverified median rule", () => {
     expect(medianUnverifiedText("odd_team_count_host_rule_unverified")).toMatch(/odd team count/);
     expect(medianUnverifiedText(null)).toMatch(/not verified/);
+  });
+});
+
+describe("pending forecast (Game Day G: cold request)", () => {
+  it("is not a withheld chance: real scores, forecast computing, one running compute", () => {
+    expect(PENDING.probabilityState).toBe("PENDING");
+    expect(PENDING.freshness.state).toBe("pending");
+    expect(withheldProbabilityReasons(PENDING)).toEqual([]);
+    const pending = pendingForecast(PENDING);
+    expect(pending.failed).toBe(false);
+    expect(pending.title).toBe("Computing the forecast");
+    expect(pending.text).toMatch(/Scores and lineups shown are real/);
+    // Forecast fields are withheld as null — never zero.
+    expect(PENDING.team.outcome).toBeNull();
+    expect(PENDING.team.scoreNow.bestBallFromBankedPoints).toBeGreaterThan(0);
+    const line = freshnessLine(PENDING);
+    expect(line.text).toMatch(
+      /^Computing forecast · as of .* · forecast being computed in the background · refresh running$/,
+    );
+    expect(line.warn).toBe(true);
+    expect(line.stale).toBe(false);
+  });
+
+  it("says a failed compute failed and will be retried", () => {
+    const p = JSON.parse(JSON.stringify(PENDING));
+    p.freshness = { ...p.freshness, state: "failed", reasons: ["generation_failed:Timeout"] };
+    p.freshness.backgroundCompute = { ...p.freshness.backgroundCompute, state: "failed" };
+    const pending = pendingForecast(p);
+    expect(pending.failed).toBe(true);
+    expect(pending.title).toBe("Forecast failed");
+    expect(freshnessLine(p).text).toMatch(/^Forecast failed · .* the forecast run failed \(Timeout\)/);
+  });
+
+  it("is null for a computed payload", () => {
+    expect(pendingForecast(HALFTIME)).toBeNull();
+    expect(pendingForecast(WEEK_FINAL)).toBeNull();
   });
 });

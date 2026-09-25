@@ -41,9 +41,17 @@ def test_fixtures_cover_every_state_the_ui_renders():
     assert "overtime" in load["overtime"]["progressUnavailableReasons"]
     assert load["week-final"]["mode"] == "final"
     assert load["week-final"]["team"]["result"] in {"WIN", "LOSS", "TIE"}
-    # Every payload is SERVED from a collector generation with a freshness
-    # block, and the freshness states the UI must render are all present.
-    assert all(p["freshness"]["servedFrom"] == "collector_generation" for p in load.values())
+    # Every computed payload is SERVED from a collector generation with a
+    # freshness block, and the freshness states the UI must render are all
+    # present — including the cold request's PENDING answer (Game Day G).
+    computed = {k: v for k, v in load.items() if k != "pending"}
+    assert all(p["freshness"]["servedFrom"] == "collector_generation" for p in computed.values())
+    pending = load["pending"]
+    assert pending["probabilityState"] == "PENDING"
+    assert pending["freshness"]["state"] == "pending"
+    assert pending["freshness"]["servedFrom"] == "pending_factual"
+    assert pending["team"]["outcome"] is None
+    assert pending["team"]["scoreNow"]["bestBallFromBankedPoints"] is not None
     assert load["halftime"]["freshness"]["state"] == "current"
     assert load["live-feed-down"]["freshness"]["state"] == "partial"
     assert load["live-feed-down"]["freshness"]["sources"]["espnScoreboard"]["error"] == (

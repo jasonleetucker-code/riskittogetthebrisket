@@ -49,6 +49,7 @@ from tests.game_day.test_game_day_live_collector import (
     TNF_KICKOFF,
     FixtureWorld,
     _pregame_espn,
+    _replay_seams,
 )
 from tests.game_day.test_game_day_replay import (
     PLAYERS,
@@ -119,6 +120,15 @@ SCENARIOS: dict[str, tuple[str, dict, str]] = {
         {"espn_error": "http_error:403"},
         "REAL halftime capture with every ESPN scoreboard read refused (HTTP 403, as "
         "observed from at least one location on 2026-09-25) — partial live state.",
+    ),
+    "pending": (
+        "real_halftime",
+        {"cold": True},
+        "REAL halftime capture served cold: no collector generation exists, so the "
+        "request answers PENDING from the factual inputs (host scores, game states, "
+        "the banked best-ball lineup) while the one background compute runs.  The "
+        "background attempt is a deterministic stand-in started at the request "
+        "(the thread itself is not run by the generator).",
     ),
     "stale": (
         "real_halftime",
@@ -258,6 +268,34 @@ def _run_world(sc: dict, opts: dict) -> tuple[_World, float]:
     return world, captured
 
 
+def _build_cold(scenario_dir: str) -> dict:
+    """A cold request: no generation, the background compute reported running."""
+    captured = datetime.fromisoformat(_scenario(scenario_dir)["meta"]["capturedAt"]).timestamp()
+    now = captured + 1.0
+    attempt = live.BackgroundAttempt(
+        league_key="dynasty_main",
+        season=SEASON,
+        week=WEEK,
+        reason="no_collector_generation",
+        started_at=now,
+    )
+    running = {"state": "running", "triggered": True, **attempt.to_dict(), "previous": None}
+    with (
+        _replay_seams(scenario_dir) as league,
+        mock.patch.object(live, "ensure_background_compute", return_value=running),
+        mock.patch("time.time", return_value=now),
+    ):
+        return matchup_intel.build_matchup_intel(
+            league_key="dynasty_main",
+            sleeper_league_id=str(league["league_id"]),
+            owner_id=f"owner-{ROSTER}",
+            season=SEASON,
+            week=WEEK,
+            draws=DRAWS,
+            seed=SEED,
+        )
+
+
 def build(name: str) -> dict:
     """The served payload for one UI scenario (see :data:`SCENARIOS`)."""
     scenario_dir, opts, description = SCENARIOS[name]
@@ -270,6 +308,8 @@ def build(name: str) -> dict:
     matchup_intel._weekly_memo.clear()
     matchup_intel._live_state_memo.clear()
     try:
+        if opts.get("cold"):
+            return _finish(_build_cold(scenario_dir), scenario_dir, description)
         if opts.get("week_final"):
             _week_final(sc)
             sc["meta"]["capturedAt"] = "2026-09-29T12:00:00+00:00"

@@ -25,6 +25,9 @@
  *                    degraded are flagged, and stale also gets a banner
  *
  * A withheld probability shows its NAMED reason in words, never a number.
+ * A PENDING payload (no forecast computed yet; one background run started)
+ * shows real scores with "Computing" in the forecast cells and an info
+ * banner — pending is not a withheld chance and not an error.
  * An absent score is "Unavailable", never 0.0.
  */
 
@@ -37,6 +40,7 @@ import {
   marginText,
   medianUnverifiedText,
   matchupStateLabel,
+  pendingForecast,
   withheldProbabilityReasons,
 } from "@/lib/game-day-view";
 import styles from "./game-day.module.css";
@@ -91,7 +95,7 @@ function ScoreCell({ side, mode }) {
   );
 }
 
-function OutcomeCells({ side, mode, medianShown }) {
+function OutcomeCells({ side, mode, medianShown, pending }) {
   if (mode === "final") {
     return (
       <td className={styles.numCell}>
@@ -102,7 +106,9 @@ function OutcomeCells({ side, mode, medianShown }) {
   }
   const o = side?.outcome;
   const paused = (
-    <span className={styles.withheldWord}>{mode === "live" ? "Paused" : "Unavailable"}</span>
+    <span className={styles.withheldWord}>
+      {pending ? "Computing…" : mode === "live" ? "Paused" : "Unavailable"}
+    </span>
   );
   const finish = formatPoints(o?.expectedFinalBestBall);
   const lo = formatPoints(o?.projectedP10);
@@ -143,7 +149,7 @@ function OutcomeCells({ side, mode, medianShown }) {
   );
 }
 
-function SideRow({ side, role, mode, medianShown, selected }) {
+function SideRow({ side, role, mode, medianShown, selected, pending }) {
   return (
     <tr className={selected ? styles.selectedRow : undefined}>
       <th scope="row" className={styles.sideCell}>
@@ -154,7 +160,7 @@ function SideRow({ side, role, mode, medianShown, selected }) {
         ) : null}
       </th>
       <ScoreCell side={side} mode={mode} />
-      <OutcomeCells side={side} mode={mode} medianShown={medianShown} />
+      <OutcomeCells side={side} mode={mode} medianShown={medianShown} pending={pending} />
     </tr>
   );
 }
@@ -167,6 +173,7 @@ export default function MatchupHero({ payload, refreshing, onRefresh }) {
   const medianShown = mode !== "final" && p.lineage?.medianEnabled === true;
   const fresh = freshnessLine(p);
   const withheld = withheldProbabilityReasons(p);
+  const pending = pendingForecast(p);
   const margin = marginText(
     team?.outcome?.expectedMarginVsOpponent,
     team?.displayName,
@@ -221,9 +228,22 @@ export default function MatchupHero({ payload, refreshing, onRefresh }) {
           </tr>
         </thead>
         <tbody>
-          <SideRow side={team} role="Selected team" mode={mode} medianShown={medianShown} selected />
+          <SideRow
+            side={team}
+            role="Selected team"
+            mode={mode}
+            medianShown={medianShown}
+            pending={pending !== null}
+            selected
+          />
           {opponent ? (
-            <SideRow side={opponent} role="Opponent" mode={mode} medianShown={medianShown} />
+            <SideRow
+              side={opponent}
+              role="Opponent"
+              mode={mode}
+              medianShown={medianShown}
+              pending={pending !== null}
+            />
           ) : null}
         </tbody>
       </table>
@@ -239,6 +259,12 @@ export default function MatchupHero({ payload, refreshing, onRefresh }) {
               : ""}
             . Scores and chances below may have moved since.
           </p>
+        </Banner>
+      ) : null}
+
+      {pending ? (
+        <Banner tone={pending.failed ? "warning" : "info"} title={pending.title}>
+          <p>{pending.text}</p>
         </Banner>
       ) : null}
 

@@ -33,6 +33,7 @@ import WEEK_FINAL from "../fixtures/game-day/week-final.json";
 import MIXED from "../fixtures/game-day/mixed-slate.json";
 import FEED_DOWN from "../fixtures/game-day/live-feed-down.json";
 import STALE from "../fixtures/game-day/stale.json";
+import PENDING from "../fixtures/game-day/pending.json";
 
 const mockUserState = { state: { selectedTeam: null } };
 vi.mock("@/components/useUserState", () => ({
@@ -261,11 +262,80 @@ describe("GameDayPanel — freshness is never hidden", () => {
     expect(screen.getByText(/Last collected 2 h ago, past the 3 min budget/)).toBeInTheDocument();
   });
 
-  it("shows a degraded, computed-on-request answer as degraded", async () => {
+  it("shows a degraded, background-computed answer as degraded", async () => {
     const p = clone(HALFTIME);
     p.freshness = { ...p.freshness, state: "degraded", reasons: ["no_collector_generation"] };
     await renderReady(p);
-    expect(screen.getByText(/^Degraded · .* computed on request/)).toBeInTheDocument();
+    expect(screen.getByText(/^Degraded · .* computed in the background/)).toBeInTheDocument();
+  });
+
+  it("answers a cold request with real scores and a computing forecast, not a paused chance", async () => {
+    await renderReady(PENDING);
+    expect(screen.getByText("Computing the forecast")).toBeInTheDocument();
+    expect(screen.queryByText("Win chance paused")).not.toBeInTheDocument();
+    expect(screen.queryByText("Win chance unavailable")).not.toBeInTheDocument();
+    const row = heroRow("Selected team");
+    expect(row).toHaveTextContent(PENDING.team.scoreNow.bestBallFromBankedPoints.toFixed(1));
+    expect(within(row).getAllByText("Computing…").length).toBeGreaterThanOrEqual(2);
+    fireEvent.click(screen.getByRole("button", { name: "Data info" }));
+    expect(await screen.findByText(/forecast still computing/)).toBeInTheDocument();
+    expect(screen.getByText(/Not read yet — the forecast is still computing/)).toBeInTheDocument();
+  });
+
+  it("polls again soon while the forecast is computing, then shows it", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      let calls = 0;
+      globalThis.fetch = vi.fn(() => {
+        calls += 1;
+        const body = calls === 1 ? PENDING : HALFTIME;
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) });
+      });
+      render(<GameDayPanel />);
+      await screen.findByText("Computing the forecast");
+      await vi.advanceTimersByTimeAsync(10500);
+      await waitFor(() => expect(screen.queryByText("Computing the forecast")).not.toBeInTheDocument());
+      expect(calls).toBeGreaterThanOrEqual(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("lists a stat correction the host has not applied, without rescoring", async () => {
+    const p = clone(HALFTIME);
+    const player = p.team.players[0];
+    p.freshness = {
+      ...p.freshness,
+      state: "partial",
+      reasons: ["stat_correction_pending_host"],
+      statCorrections: {
+        scoringSourceOfRecord: "sleeper:league matchups players_points (host scoring)",
+        pendingHost: [
+          {
+            playerId: player.playerId,
+            gameId: "g1",
+            detectedAt: p.freshness.asOf,
+            statChanges: {},
+            scoredDeltaUnderLeagueCard: -3.95,
+            hostPointsBefore: 22.07,
+            hostPointsNow: 22.07,
+            state: "pending_host",
+            reflectedAt: null,
+          },
+        ],
+        reflectedInHostCount: 1,
+        notScoredByLeagueCount: 0,
+      },
+    };
+    await renderReady(p);
+    fireEvent.click(screen.getByRole("button", { name: "Data info" }));
+    expect(
+      await screen.findByText(/1 awaiting the host · 1 already in the host's scores/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/-4\.0 pts under this league's scoring/)).toHaveTextContent(player.name);
+    expect(
+      screen.getByText(/host has not applied to its scores yet/, { selector: "li" }),
+    ).toBeInTheDocument();
   });
 
   it("lists every source with its status and age in Data info, failures visible", async () => {

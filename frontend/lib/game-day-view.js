@@ -276,7 +276,7 @@ export function playerIndex(payload) {
 export function withheldProbabilityReasons(payload) {
   if (!payload || payload.mode === "final") return [];
   const state = payload.probabilityState;
-  if (state === "AVAILABLE" || state === "FINAL") return [];
+  if (state === "AVAILABLE" || state === "FINAL" || state === "PENDING") return [];
   const players = playerIndex(payload);
   const games = slateGameById(payload);
   const gamesFor = (ids) => {
@@ -318,6 +318,34 @@ export function withheldProbabilityReasons(payload) {
     );
   }
   return out;
+}
+
+/**
+ * The forecast is being computed (Game Day G): no generation existed, so the
+ * server answered with the facts — scores, game states, the banked lineup —
+ * and started ONE background simulation.  Not a withheld chance (nothing is
+ * missing) and not an error; `null` when the payload is not pending.
+ * `failed` is the last attempt having failed, retried on a later poll.
+ */
+export function pendingForecast(payload) {
+  if (payload?.probabilityState !== "PENDING") return null;
+  const f = payload.freshness || {};
+  const bg = f.backgroundCompute || {};
+  if (f.state === "failed" || bg.state === "failed") {
+    return {
+      failed: true,
+      title: "Forecast failed",
+      text: "The projection run failed; it will be retried automatically. Scores shown are real.",
+    };
+  }
+  const since = formatClockTime(bg.startedAt || f.refreshStartedAt);
+  return {
+    failed: false,
+    title: "Computing the forecast",
+    text:
+      `Projected finish and win chance are being computed${since ? ` (started ${since})` : ""} ` +
+      "and will appear on the next update. Scores and lineups shown are real.",
+  };
 }
 
 // ── Best-ball selections (filters + orderings on backend fields only) ────
@@ -447,6 +475,8 @@ const FRESHNESS_STATE_TEXT = {
   partial: "Partial",
   degraded: "Degraded",
   stale: "Stale",
+  pending: "Computing forecast",
+  failed: "Forecast failed",
 };
 
 const SOURCE_TEXT = {
@@ -471,6 +501,7 @@ function sourceStatusText(tail) {
     return "not configured (no credential installed)";
   }
   if (tail === "flag_disabled") return "switched off";
+  if (tail === "pending") return "not read yet (forecast computing)";
   if (tail.startsWith("backoff")) return "paused after repeated failures";
   return `unavailable (${tail})`;
 }
@@ -501,11 +532,25 @@ export function freshnessReasonText(reason) {
   }
   switch (head) {
     case "no_collector_generation":
-      return "computed on request — the shared collector has not published this week";
+      return "the shared collector has not published this week; computed in the background";
     case "collector_absent_generation_stale":
-      return "the shared collector has stopped; recomputed on request";
+      return "the shared collector has stopped; refreshing in the background";
     case "generation_draws_or_seed_differ":
-      return "recomputed on request (collector ran a different simulation size)";
+      return "computed in the background (collector ran a different simulation size)";
+    case "generation_pending":
+      return "forecast being computed in the background";
+    case "generation_failed":
+      return `the forecast run failed${tail ? ` (${tail})` : ""}; it will be retried`;
+    case "previous_attempt_failed":
+      return `an earlier forecast run failed${tail ? ` (${tail})` : ""}; retrying`;
+    case "background_compute_capacity_exhausted":
+      return "the server is busy; the forecast will start on a later update";
+    case "background_refresh_running":
+      return "a newer forecast is being computed";
+    case "background_refresh_failed":
+      return `the background refresh failed${tail ? ` (${tail})` : ""}; showing the last answer`;
+    case "stat_correction_pending_host":
+      return "a stat correction was seen that the host has not applied to its scores yet";
     case "on_demand_refresh_failed":
       return "the on-request refresh failed; showing the last collected answer";
     case "generation_behind_latest_evidence":
