@@ -40,7 +40,7 @@ from src.roster_intel.marginal import (
     absence_impacts,
     position_marginals,
 )
-from src.ros.lineup import RosterPlayer, is_priced, priced_players
+from src.ros.lineup import RosterPlayer, is_priced, priced_players, slot_demand
 
 __all__ = [
     "ELITE_PERCENTILE",
@@ -242,13 +242,19 @@ def _required_slots(slots: Sequence[str]) -> dict[str, int]:
     SUPER_FLEX 9 times in 12, TE taking FLEX zero times).  Splitting
     them by assumption is the error that made the old even-split
     demand numbers wrong by 40% at QB.
+
+    Read from the canonical lineup-demand owner's ``dedicated`` quantity
+    (``src/ros/lineup.py::slot_demand``) rather than counted here: the
+    private walk this replaces knew four flex names, so a ``WR_RB_FLEX`` /
+    ``REC_FLEX`` / ``DL_LB`` slot was counted as a POSITION, and it never
+    consulted ``NON_LINEUP_SLOTS`` (IR/TAXI) or DEF.  Keys are folded onto
+    this module's base-position vocabulary so a lookup by player position
+    still matches.
     """
     out: dict[str, int] = {}
-    for slot in slots:
-        s = normalize_base_position(str(slot).upper())
-        if s in {"FLEX", "SUPER_FLEX", "IDP_FLEX", "BN"}:
-            continue
-        out[s] = out.get(s, 0) + 1
+    for pos, n in slot_demand(list(slots)).dedicated.items():
+        base = normalize_base_position(str(pos))
+        out[base] = out.get(base, 0) + int(n)
     return out
 
 

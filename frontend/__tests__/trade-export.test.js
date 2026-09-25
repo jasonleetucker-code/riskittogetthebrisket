@@ -10,10 +10,10 @@ describe("tradeWorkspaceToCSV", () => {
   it("emits header + a row per asset with the right value mode", () => {
     const csv = tradeWorkspaceToCSV(sides, "full", "Market consensus");
     const lines = csv.trim().split("\n");
-    expect(lines[0]).toBe("Side,Asset,Position,Team,Value,Value Basis");
-    expect(lines[1]).toBe("A,Josh Allen,QB,BUF,8000,Market consensus");
+    expect(lines[0]).toBe("Side,Asset,Position,Team,Value,Value Basis,Asset ID");
+    expect(lines[1]).toBe("A,Josh Allen,QB,BUF,8000,Market consensus,");
     // comma in name must be quoted
-    expect(lines[2]).toBe('B,"Bijan, Jr.",RB,ATL,7000,Market consensus');
+    expect(lines[2]).toBe('B,"Bijan, Jr.",RB,ATL,7000,Market consensus,');
   });
   it("raw mode falls back to full when raw missing", () => {
     const csv = tradeWorkspaceToCSV(sides, "raw");
@@ -28,7 +28,7 @@ describe("tradeWorkspaceToCSV", () => {
     // confident "Market" — guessing is the error the column exists to
     // prevent.
     const csv = tradeWorkspaceToCSV(sides, "full");
-    expect(csv.trim().split("\n")[1]).toBe("A,Josh Allen,QB,BUF,8000,unspecified");
+    expect(csv.trim().split("\n")[1]).toBe("A,Josh Allen,QB,BUF,8000,unspecified,");
   });
   it("carries the league-adjusted basis through to every row", () => {
     const csv = tradeWorkspaceToCSV(sides, "full", "League-adjusted (x)");

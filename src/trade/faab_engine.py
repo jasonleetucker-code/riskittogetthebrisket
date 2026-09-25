@@ -79,6 +79,7 @@ contains no numeric literal that affects a recommendation.
 
 from __future__ import annotations
 from src.ros import lineup as lineup_owner
+from src.roster_intel.weakness import position_depth
 
 import math
 from dataclasses import dataclass
@@ -397,58 +398,52 @@ def resolve_anchors(
 def position_family(position: str | None) -> str:
     """Normalize an IDP/offense position to its lineup family.
 
-    Mirrors the roll-up the rest of the platform uses (``DT``/``DE``/
-    ``EDGE``/``NT`` → ``DL`` and so on) so depth counting matches the
-    slots a lineup actually has.
+    Delegates to the lineup owner's :func:`~src.ros.lineup.lineup_position`
+    (``DT``/``DE``/``EDGE``/``NT`` → ``DL`` and so on), so depth counting
+    is written in the same vocabulary the league's slots — and therefore
+    the canonical demand — are keyed by.  A private family table used to
+    live here beside the owner's.
     """
-    pos = str(position or "").upper()
-    return _POSITION_FAMILY.get(pos, pos)
+    return lineup_owner.lineup_position(str(position or ""))
+
+
+#: Which named :class:`~src.ros.lineup.SlotDemand` basis FAAB need reads.
+#: ``even_split`` shares every flex across the positions it accepts, which
+#: is what "an injury away from a hole" means for waiver urgency: a 2-FLEX
+#: league genuinely wants more RB/WR/TE depth than its direct slots say.
+#: A labelled CHOICE of one canonical quantity, not a second derivation.
+FAAB_NEED_DEMAND_BASIS = "even_split"
 
 
 def starter_slots_for_position(
     position: str | None,
     starters: dict[str, Any] | None,
-) -> float:
+) -> float | None:
     """How many lineup slots this position must fill each week.
 
-    Direct slots plus a share of every flex that accepts the position,
-    so a 2-FLEX league genuinely requires more RB/WR/TE depth than a
-    0-FLEX one.  Returns 0.0 for a position the lineup never starts.
+    Read from the canonical league-demand owner
+    (``src/ros/lineup.py::resolve_league_slot_demand``) under
+    :data:`FAAB_NEED_DEMAND_BASIS` — direct slots plus a share of every
+    flex that accepts the position.  Callers hand over only the registry
+    ``starters`` block, so the flex eligibility applied is the lineup
+    owner's DECLARED default; both live leagues configure exactly that
+    (``flexEligible`` / ``sflexEligible`` / ``wrrbFlexEligible`` in the
+    registry), so nothing differs today.  Threading the full
+    ``roster_settings`` through is what would honour a league that narrows
+    a flex.
+
+    ``0.0`` for a position the lineup never starts, or no position at
+    all.  **``None`` when the league's lineup cannot be resolved** — an
+    unknown lineup is not a lineup that starts nobody, and the retired
+    ``0.0`` here made every position of an unconfigured league read as
+    "no need".
     """
-    if not position or not isinstance(starters, dict):
-        return 0.0
-    family = position_family(str(position).upper())
-    # Reads the canonical slot-demand contract's ``even_split`` (C2-U1) —
-    # a sixth hand-rolled copy of the same rule lived here.
-    #
-    # It was also subtly WRONG once it started reading the owner's
-    # eligibility SET: this divided by ``len(eligible)``, and the
-    # IDP_FLEX set spells eight positions (DL/DE/DT/EDGE/LB/DB/CB/S)
-    # where the demand keys are three FAMILIES, so an IDP flex slot
-    # attributed 1/8 of a slot to DL instead of 1/3.  Latent only —
-    # both live leagues start zero IDP_FLEX — but wrong, and
-    # ``slot_demand`` keys demand by family precisely so this cannot
-    # happen.
-    return float(
-        lineup_owner.slot_demand(lineup_owner.flatten_starter_slots(starters)).even_split.get(
-            family, 0.0
-        )
+    demand = lineup_owner.resolve_league_slot_demand(
+        roster_settings={"starters": starters} if isinstance(starters, dict) else None
     )
-
-
-_POSITION_FAMILY = {
-    "DT": "DL",
-    "DE": "DL",
-    "EDGE": "DL",
-    "NT": "DL",
-    "ILB": "LB",
-    "OLB": "LB",
-    "MLB": "LB",
-    "CB": "DB",
-    "S": "DB",
-    "FS": "DB",
-    "SS": "DB",
-}
+    if not position:
+        return 0.0 if demand.resolved else None
+    return demand.required(position, basis=FAAB_NEED_DEMAND_BASIS)
 
 
 def classify_need(
@@ -459,27 +454,43 @@ def classify_need(
     *,
     config: FaabConfig | None = None,
 ) -> str:
-    """Classify one roster's need at a position by STARTABLE DEPTH.
+    """Translate canonical startable depth into a FAAB bid category.
 
-    Deliberately not ``src.trade.suggestions.analyze_roster``.  That
-    helper answers a different question ("is this position a trade
-    surplus"), and on this platform's real rosters it is measured to
-    return ``surplus`` for 68 of 84 team/position pairs and ``need``
-    exactly once — in a 58-man best-ball league every team is deep
-    everywhere by that measure, so it cannot discriminate and the
-    factor collapses to a constant.
+    **The boundary (owner decision 2026-09-24).**  This function is a
+    FAAB-specific INTERPRETATION, not a source of roster/lineup need truth:
 
-    Startable depth is the question a waiver claim actually turns on:
-    how many players at this position are better than what the wire
-    hands out for free, against how many the lineup must start.
+    * the league's lineup DEMAND comes from the canonical owner
+      (:func:`starter_slots_for_position` → ``src/ros/lineup.py``);
+    * the depth arithmetic — bodies clearing a bar against that demand —
+      is ``src/roster_intel/weakness.py::position_depth``, shared with the
+      trade engine;
+    * what stays here is FAAB's own translation: the bar is the FAAB
+      free-agent replacement anchor ``anchors.v_repl`` (what the wire hands
+      out for free), and ``spare`` maps onto the bid categories
+      ``starterHole`` / ``need`` / ``neutral`` / ``surplus`` via the
+      ``positionalNeed`` thresholds in ``config/trade/faab.json``.
+
+    ``unknown`` when the league's lineup cannot be resolved — never
+    ``neutral``, which is a measured statement.  It prices like neutral
+    (no multiplier is configured for it), so the change is honesty, not
+    dollars.
+
+    Deliberately not the trade engine's surplus reading of the same depth:
+    on this platform's real 58-man best-ball rosters that reading returns
+    ``surplus`` for 68 of 84 team/position pairs, because its bar is a
+    relevance floor rather than the waiver line.
     """
     cfg = config or FaabConfig()
     required = starter_slots_for_position(position, starters)
+    if required is None:
+        return "unknown"
     if required <= 0:
         return "neutral"
 
-    startable = sum(1 for v in roster_values_at_position if float(v) > anchors.v_repl)
-    spare = startable - required
+    depth = position_depth(
+        str(position), roster_values_at_position, required=required, bar=anchors.v_repl
+    )
+    spare = depth.spare
 
     if spare < 0:
         return "starterHole"

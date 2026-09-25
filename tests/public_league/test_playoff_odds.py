@@ -725,6 +725,10 @@ class ScheduleInferenceFromPosted(unittest.TestCase):
             league_id = "L1"
             league = {"settings": {"playoff_week_start": 15, "playoff_teams": 2}}
             rosters = [{"roster_id": r} for r in (1, 2, 3, 4)]
+            # Read by the canonical finished-week gate
+            # (``metrics.final_regular_season_weeks``) that the score
+            # distributions now consume.
+            num_teams = 4
             matchups_by_week = entries
 
             @property
