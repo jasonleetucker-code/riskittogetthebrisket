@@ -713,6 +713,7 @@ def _median_verification(simulation: Any, rules: Any) -> tuple[bool | None, str 
 def _outcome_payload(
     outcome: TeamWeekOutcome | None,
     median_verified: tuple[bool | None, str | None] = (None, None),
+    opponent: TeamWeekOutcome | None = None,
 ) -> dict[str, Any] | None:
     if outcome is None:
         return None
@@ -724,6 +725,16 @@ def _outcome_payload(
         # The mean of the OPTIMIZED best-ball total over draws — the expected
         # final score.  Deliberately distinct from expectedLineup.projectedTotal.
         "expectedFinalBestBall": round(outcome.projected_mean, 2),
+        # Expected final margin over the scheduled opponent: the difference
+        # of the two expected finals from the SAME joint draws (the mean of
+        # the per-draw margin equals the difference of the means).  A pure
+        # projection of values computed above, published so the UI never
+        # subtracts; ``None`` when there is no simulated opponent.
+        "expectedMarginVsOpponent": (
+            round(outcome.projected_mean - opponent.projected_mean, 2)
+            if opponent is not None
+            else None
+        ),
         "playerLineupPct": dict(outcome.player_lineup_pct),
         "gameLeverage": [dict(row) for row in outcome.game_leverage],
         "winMatchupPct": outcome.win_matchup_pct,
@@ -1111,7 +1122,11 @@ def render_league(assembly: LeagueWeekAssembly) -> dict[str, Any]:
             "rosterId": roster_id,
             "displayName": label["displayName"],
             "teamName": label["teamName"],
-            "outcome": _outcome_payload(outcomes.get(roster_id), median_verified),
+            "outcome": _outcome_payload(
+                outcomes.get(roster_id),
+                median_verified,
+                outcomes.get(resolution.opponents.get(roster_id) or ""),
+            ),
             "expectedLineup": (
                 _expected_lineup(tw.players, slots, fetched.players)
                 if tw and scoring.mode != "final" and not pending
