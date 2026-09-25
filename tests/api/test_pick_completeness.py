@@ -78,6 +78,13 @@ def _finite(v: Any) -> bool:
 
 
 def _board_years(contract: dict[str, Any]) -> tuple[int, list[int]]:
+    """``(earliest class on the board, the later ones)``.
+
+    The earliest class ON THE BOARD is not necessarily the current draft
+    year: since #1414 (PR #1442) a retired class leaves the board while the
+    current draft year — the horizon's anchor — does not move.  The horizon
+    test reads the anchor from the contract (``currentDraftYear``) instead.
+    """
     years = sorted(
         {
             parse_board_tier_name(str(r.get("canonicalName") or ""))[0]
@@ -99,7 +106,21 @@ class TestPickCompletenessCensus(unittest.TestCase):
             self.skipTest("no scraper export available")
 
     def test_every_valid_ref_through_the_horizon_resolves_finite(self) -> None:
-        current, future_years = _board_years(self.contract)
+        _earliest, board_future = _board_years(self.contract)
+        # The horizon is anchored on the contract's own current draft year
+        # (C1-U6: current + 3), which retiring a class does not advance
+        # (owner decision on #1442).  The earliest class still on the board
+        # is a different quantity once the current class has retired.
+        anchor = self.contract.get("currentDraftYear")
+        self.assertIsInstance(anchor, int, "the contract no longer stamps currentDraftYear")
+        board_years = sorted({_earliest, *board_future})
+        future_years = [y for y in board_years if y > anchor]
+        current = anchor
+        # A retired anchor class is absent BY DESIGN (#1442: the contract's
+        # own census counts active classes only), so its slot universe is
+        # not a hole — its checks below do not apply.
+        retired = set((self.contract.get("pickClassLifecycle") or {}).get("retiredYears") or [])
+        anchor_active = anchor not in retired
         # The horizon is DERIVED, and its derivation needs a template:
         # ``_inject_far_future_pick_sources`` mints the unpublished years
         # by stepping the nearest PUBLISHED future year.  With no future
@@ -135,7 +156,7 @@ class TestPickCompletenessCensus(unittest.TestCase):
                     elif not isinstance(res.provenance, dict) or not res.provenance.get("class"):
                         failures.append(f"{ref.canonical_id}: no provenance")
         # The anchor year's exact slots (the board's slot universe).
-        for rnd in range(1, 7):
+        for rnd in range(1, 7) if anchor_active else ():
             for slot in range(1, 13):
                 ref = MarketPickRef(year=current, round_num=rnd, slot=slot)
                 res = resolve_pick_value(self.contract, ref)
@@ -143,7 +164,7 @@ class TestPickCompletenessCensus(unittest.TestCase):
                     failures.append(f"{ref.canonical_id}: {res.reason}")
         # The anchor year's tier + generic grades resolve via aliases /
         # the centre-slot convention rather than their own rows.
-        for rnd in range(1, 7):
+        for rnd in range(1, 7) if anchor_active else ():
             for ref in [MarketPickRef(year=current, round_num=rnd)] + [
                 MarketPickRef(year=current, round_num=rnd, tier=t) for t in ("early", "mid", "late")
             ]:

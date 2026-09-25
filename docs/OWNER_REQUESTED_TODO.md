@@ -737,3 +737,72 @@ and production-verified the methodology display; do not reopen or duplicate it. 
 the canonical owner of the effective Power Ranking methodology and weights; the frontend renders the
 published weights directly and never reconstructs, rounds or infers the methodology. Any future
 Power Rankings work keeps that boundary.
+
+## Added 2026-09-25 — research-to-portfolio reconciliation adopted (owner approval, explicit)
+
+The owner approved adopting the completed research-to-portfolio reconciliation into the canonical planning
+records, as **supporting evidence plus a proposed portfolio amendment**. It is not implementation
+authorization; `docs/EXECUTION_PLAN.md` §0 stays the sole authorization record.
+
+The full record is `docs/research/calculator-reconciliation-2026-09-25/`: the README plus the verbatim
+70-row crosswalk and its receipts.
+
+**Identity.** Native Calculator IDs and owners stay authoritative. `R01`–`R70` are evidence and
+cross-reference IDs only: no manifest rows and no second ledger.
+
+**Explicitly not authorized by this approval:**
+
+- implementing all 70 recommendations;
+- creating 70 issues;
+- changing owner decisions;
+- promoting model or source candidates;
+- activating paid or default-off sources;
+- reducing approved scope;
+- admitting every idea.
+
+Disposition census: EXTEND 39, KEEP 9, CONSOLIDATE 9, REFRAME 6, NEW CANDIDATE 6, DEFER 1 (R60, salary-cap
+leagues). The consolidations into existing owners are listed in the record's README.
+
+**NEW CANDIDATE admissions.** These were reconciled against the final crosswalk before admission. Status is
+CANDIDATE: recorded, not authorized, no native ID minted.
+
+| R-ID | Candidate | Native anchor (crosswalk) | Status |
+|---|---|---|---|
+| R14 | Prospective private decision and offer journal | extension of `C6-MGR-01` / #985, `C1-HIST-01` | CANDIDATE |
+| R39 | Value-movement attribution and normalization audit | consumer of `C1-HIST-03`, source provenance, C8 generation owners | CANDIDATE |
+| R41 | Robust action frontier and regret budget | method extension of `C7-DESK-01` / `C7-AI-02` | CANDIDATE |
+| R64 | Source-directed player research queue | extension of `C6-UPP-01` / `C6-ANA-01` / `C7-ALERT-01` | CANDIDATE |
+| R67 | Offer option value and expiry dashboard | private offer consumer of `C6-MGR-01` / `C7-AI-02` / `C7-DESK-01` | CANDIDATE |
+| — | Sixth slot | see below | **OWNER DECISION REQUIRED** |
+
+**Sixth-slot discrepancy (held, not substituted).** The owner's approval listed "value-of-information /
+action-deadline intelligence" (R40). The crosswalk classifies R40 as **EXTEND** of `C7-ALERT-01` / CE-29, noting
+that a new prioritization policy needs explicit approval. The crosswalk's sixth NEW CANDIDATE is instead
+**R44**, "Personalized decision-quality feedback". R44's native anchor is CE-28, which is **NOT OWNER-APPROVED**
+and whose promotion is decision row `OD-06`. Admitting R44 would prejudge OD-06, so neither was admitted. The
+owner chooses between:
+
+1. R40 remains EXTEND under C7-ALERT-01, with its VOI prioritization policy still needing approval before it is
+   built.
+2. R44 is admitted, which also means deciding OD-06.
+
+**Train-2 boundary correction (owner, 2026-09-25).**
+
+- #1445 (Game Day backend) and #1446 (Game Day PSI UI) are the bounded next slice. They ship together once
+  their own gates pass: exact-head CI, the RC, and research gates A–H as applicable.
+- #1442 (pick lifecycle) and #1444 (DLF gate record) proceed in parallel and **must not gate Game Day**.
+- #1447 (claims-2) may merge when safe and must not gate Game Day.
+- Overlap and ownership rules are unchanged, especially the #1346 handoff: no duplicate engines, registries,
+  caches, source owners or UI systems.
+
+**Continuing work named by the approval:**
+
+- **Gate D.** A real stat correction must propagate to a new generation while preserving as-known history.
+  Provider corrections stay distinguished from authoritative scoring corrections.
+- **Gate G.** Cold or no-generation requests must be immediately useful, with truthful pending/computing
+  states. No latency-budget relaxation.
+- **Lane 6.** #1446 still needs actual mobile, accessibility, real-data and production acceptance.
+
+**Kept separate.** The finding is `row.confidence or 1.0` in `src/ros/aggregate.py`: a confidence of 0.0 would
+be weighted as 1.0. It stays a separate item unless it becomes a demonstrated Game Day dependency.
+Reachability is established with a discriminating test before any behaviour changes.

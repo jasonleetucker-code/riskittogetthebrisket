@@ -5711,7 +5711,12 @@ def derive_current_draft_year_from_names(names: Any) -> int | None:
 _PUBLISHED_SLOT_PROVENANCE: frozenset[str] = frozenset({"published_slot", "unyeared_slot"})
 
 
-def _pick_count_floor_for_board(players_array: list[Any]) -> int:
+def _pick_count_floor_for_board(
+    players_array: list[Any],
+    *,
+    current_year: int | None = None,
+    retired_years: Iterable[int] | None = None,
+) -> int:
     """The pick-count floor for THIS board's phase (C1-U6-D2).
 
     ``_PICK_COUNT_FLOOR`` (100) is ~80% of a board carrying the current
@@ -5733,7 +5738,15 @@ def _pick_count_floor_for_board(players_array: list[Any]) -> int:
         horizon = max(0, int(_load_pick_year_discount().get("horizonYears") or 3))
     except (TypeError, ValueError):
         horizon = 3
-    complete = (horizon + 1) * 6 * 4
+    # Only ACTIVE classes can be on the board (#1414): a retired class inside
+    # the horizon window is absent by design, so the complete board it is
+    # 80% of shrinks by that class — same rule, applied to the classes the
+    # board publishes.  Unknown current year ⇒ nothing is discounted.
+    window_years = horizon + 1
+    if current_year is not None and retired_years:
+        window = range(int(current_year), int(current_year) + horizon + 1)
+        window_years -= len({int(y) for y in retired_years if int(y) in window})
+    complete = max(0, window_years) * 6 * 4
     return min(_PICK_COUNT_FLOOR, math.ceil(0.8 * complete))
 
 
@@ -5800,6 +5813,104 @@ def _drop_unpublished_slot_pick_rows(
         if int(parsed.year) not in published:
             del players_by_name[name]
             dropped.append(name)
+    return dropped
+
+
+def _evaluate_pick_class_lifecycle(
+    players_by_name: dict[str, Any], sleeper_block: Any
+) -> dict[str, Any]:
+    """The board verdict on every rookie-draft class this board carries.
+
+    #1414 (owner decision 2026-09-24).  The RULE is
+    ``src/identity/pick_lifecycle.py`` and the evidence plumbing is
+    ``src/api/draft_class_evidence.py``; this only asks them.  A class is
+    board-retired only when every league this board may be served to
+    proves its rookie draft complete AND its rookies on rosters — any
+    unknown league keeps it.
+
+    Evaluates, does not remove: the rows of a retired class still take part
+    in valuation (every vendor's rank space is the board the vendor
+    published, including its stale pick rows, and pulling them out would
+    re-translate every IDP vote — measured up to +41% on one row) and leave
+    the board in :func:`_drop_retired_pick_class_rows`, after the blend and
+    before the pick passes.
+
+    Fails safe: any error evaluating the lifecycle retires nothing.
+    Returns the ``pickClassLifecycle`` contract stamp.
+    """
+    years: dict[int, int] = {}
+    for name in players_by_name:
+        if not _is_pick_name(str(name)):
+            continue
+        year = _pick_year_from_name(str(name))
+        if year is not None:
+            years[int(year)] = years.get(int(year), 0) + 1
+    stamp: dict[str, Any] = {
+        "rule": "src/identity/pick_lifecycle.py",
+        "classes": {},
+        "retiredYears": [],
+        "retiredRowCount": 0,
+        "leaguesConsulted": [],
+    }
+    if not years:
+        return stamp
+    try:
+        from src.api.draft_class_evidence import board_pick_class_lifecycle
+        from src.identity.pick_lifecycle import retired_seasons
+
+        board, per_league = board_pick_class_lifecycle(sleeper_block, years)
+    except Exception as exc:  # noqa: BLE001 — unknown never retires
+        _LOGGER.warning("pick class lifecycle: evaluation failed, retiring nothing: %s", exc)
+        stamp["error"] = "lifecycle_evaluation_failed"
+        return stamp
+    retired = sorted(retired_seasons(board))
+    stamp["classes"] = {str(s): lc.to_dict() for s, lc in sorted(board.items())}
+    stamp["retiredYears"] = retired
+    stamp["retiredRowCount"] = sum(years[y] for y in retired)
+    stamp["leaguesConsulted"] = sorted(per_league)
+    return stamp
+
+
+def _drop_retired_pick_class_rows(
+    players_array: list[dict[str, Any]],
+    players_by_name: dict[str, Any],
+    retired_years: Iterable[int] | None,
+) -> int:
+    """Remove every pick row of a retired draft class from the board (#1414).
+
+    Retirement is ABSENCE from the present-tense board: the rows leave
+    ``playersArray`` and the legacy ``players`` dict, so every selector,
+    engine and materializer that reads the contract stops offering them
+    without a filter of its own.  Nothing is valued 0 and nothing is
+    rewritten; the temporal ledger, stored trades and the identity parsers
+    still resolve every retired name.
+
+    Called between the blend and the Phase 5 pick passes: after every other
+    row has been valued against the unaltered vendor rank spaces, before the
+    tether / completion / rank compaction, so the retired rows neither move
+    another value nor hold a rank.  Returns the number of rows removed.
+    """
+    retired = {int(y) for y in (retired_years or ())}
+    if not retired:
+        return 0
+    keep: list[dict[str, Any]] = []
+    dropped = 0
+    for row in players_array:
+        name = str(row.get("canonicalName") or "")
+        year = _pick_year_from_name(name) if row.get("assetClass") == "pick" else None
+        if year is not None and int(year) in retired:
+            dropped += 1
+            legacy_ref = row.get("legacyRef")
+            if legacy_ref in players_by_name:
+                del players_by_name[legacy_ref]
+            continue
+        keep.append(row)
+    for name in list(players_by_name):
+        if _is_pick_name(str(name)):
+            year = _pick_year_from_name(str(name))
+            if year is not None and int(year) in retired:
+                del players_by_name[name]
+    players_array[:] = keep
     return dropped
 
 
@@ -8419,6 +8530,7 @@ def _complete_future_pick_values(
     players_by_name: dict[str, Any],
     current_year: int,
     synthetic_pick_derivations: Mapping[str, dict[str, Any]] | None = None,
+    retired_years: Iterable[int] | None = None,
 ) -> dict[str, int]:
     """Guarantee a finite canonical value for every valid future pick
     through the horizon, and stamp provenance on EVERY pick row (C1-U6,
@@ -8495,7 +8607,10 @@ def _complete_future_pick_values(
         (_parse_pick_slot(name) or (None,))[0] == current_year for name in by_name
     )
     first_year = current_year + 1 if current_has_slots else current_year
-    future_years = range(first_year, current_year + horizon + 1)
+    # A retired draft class (#1414) is not a pick through the horizon: its
+    # rows left the board and completion must not mint them back.
+    _retired = {int(y) for y in (retired_years or ())}
+    future_years = [y for y in range(first_year, current_year + horizon + 1) if y not in _retired]
     derived: dict[str, int] = {}
 
     # ── 0. Year-step completion for unpriced future tier rows ──
@@ -9263,6 +9378,7 @@ def _compute_unified_rankings(
     board_date: str | None = None,
     synthetic_pick_derivations: Mapping[str, dict[str, Any]] | None = None,
     source_weighting: Mapping[str, Any] | None = None,
+    retired_pick_years: Iterable[int] | None = None,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
 
@@ -11547,6 +11663,11 @@ def _compute_unified_rankings(
     # outright — see docs/architecture/live-value-pipeline-trace.md.)
 
     # ── Phase 5: Pick refinement passes (gated to picks) ──
+    # 0) A retired draft class leaves the board here (#1414): valued
+    #    against the unaltered vendor rank spaces above, gone before the
+    #    tether / completion / compaction below.
+    _drop_retired_pick_class_rows(players_array, players_by_name, retired_pick_years)
+
     # 1) Reassign (rank, value) tuples within each (year, round) bucket
     #    so slot-specific picks 1.01..1.12 are strictly monotonic in
     #    slot order.  This corrects KTC's _estimate_slot_from_tier
@@ -11575,7 +11696,11 @@ def _compute_unified_rankings(
     #      evidence always outranks a derivation — rows the blend or the
     #      tether priced are never touched.
     _complete_future_pick_values(
-        players_array, players_by_name, _anchor_year, synthetic_pick_derivation_map
+        players_array,
+        players_by_name,
+        _anchor_year,
+        synthetic_pick_derivation_map,
+        retired_years=retired_pick_years,
     )
 
     # 2c) Stamp draft-day value projections on every pick row.
@@ -12348,11 +12473,33 @@ def build_api_data_contract(
     # before the draft year is derived from them.
     _drop_unpublished_slot_pick_rows(players_by_name, src_payload.get("pickAnchorsProvenance"))
 
+    # A draft class whose rookie draft is complete and whose rookies are on
+    # rosters is no longer a present-tense asset (#1414) — also before the
+    # draft year is derived.
+    pick_class_lifecycle = _evaluate_pick_class_lifecycle(
+        players_by_name, src_payload.get("sleeper")
+    )
+
     # Derive the active rookie draft year from the scrape's own
     # slot-pick names so the discount, rookie-anchor, and synthetic
     # tether passes all key off one self-rolling value (see
     # ``current_rookie_draft_year``).
+    #
+    # Deliberately computed over the board INCLUDING a retired class's rows
+    # (they leave only after the blend): retirement decides which classes are
+    # present-tense, NOT the future-pick horizon, which stays anchored on
+    # this year exactly as before.  Advancing the horizon is a separate owner
+    # decision (#1442), so a retired class never rolls it.
+    _retired_pick_years = frozenset(pick_class_lifecycle["retiredYears"])
     set_observed_current_draft_year(_derive_current_draft_year_from_names(players_by_name.keys()))
+    # The upcoming draft for draft-capital consumers (pick stacks): the
+    # horizon anchor, stepped past retired classes.  Derived by the owner,
+    # published on the stamp, never re-derived in JS.
+    from src.identity.pick_lifecycle import first_active_class
+
+    pick_class_lifecycle["firstActiveClass"] = first_active_class(
+        current_rookie_draft_year(), _retired_pick_years
+    )
 
     # Seed raw entries for far-future pick years the vendors don't
     # price yet (e.g. 2029) so they ride the normal pipeline like the
@@ -12476,6 +12623,7 @@ def build_api_data_contract(
         board_date=str(raw_payload.get("date") or "") or None,
         synthetic_pick_derivations=synthetic_pick_derivations,
         source_weighting=source_weighting,
+        retired_pick_years=_retired_pick_years,
     )
 
     # Stamp rankDerivedValue into the values bundle so every page uses the
@@ -12789,6 +12937,10 @@ def build_api_data_contract(
         # class).  Self-rolls with the scrape; serialized so frontend
         # calculators don't carry their own stale copy.
         "currentDraftYear": current_rookie_draft_year(),
+        # Which rookie-draft classes are still present-tense (#1414), and
+        # why.  A retired class's rows are ABSENT from this contract; this
+        # stamp is what makes the omission visible instead of silent.
+        "pickClassLifecycle": pick_class_lifecycle,
         "playersArray": players_array,
         "playerCount": len(players_array),
         # How many rows the blend declined to price.  Those rows carry
@@ -13316,6 +13468,7 @@ def build_rankings_delta_payload(
         "contractVersion": full.get("contractVersion"),
         "generatedAt": full.get("generatedAt"),
         "currentDraftYear": full.get("currentDraftYear"),
+        "pickClassLifecycle": full.get("pickClassLifecycle"),
         "date": full.get("date"),
         "scrapeTimestamp": full.get("scrapeTimestamp"),
         "mode": "delta",
@@ -13851,7 +14004,22 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         pick_count = sum(
             1 for row in players_array if isinstance(row, dict) and row.get("assetClass") == "pick"
         )
-        pick_floor = _pick_count_floor_for_board(players_array)
+        _lifecycle = payload.get("pickClassLifecycle")
+        census_retired: set[int] = set()
+        if isinstance(_lifecycle, dict):
+            for _y in _lifecycle.get("retiredYears") or ():
+                if isinstance(_y, int) and not isinstance(_y, bool):
+                    census_retired.add(_y)
+        _stamped = payload.get("currentDraftYear")
+        pick_floor = _pick_count_floor_for_board(
+            players_array,
+            current_year=(
+                int(_stamped)
+                if isinstance(_stamped, (int, float)) and not isinstance(_stamped, bool)
+                else None
+            ),
+            retired_years=census_retired,
+        )
         if pick_count < pick_floor:
             errors.append(f"pick_count_below_floor:{pick_count}:{pick_floor}")
         pick_anchors = payload.get("pickAnchors")
@@ -13947,6 +14115,10 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
             )
             census_first = census_current + 1 if census_current_slotted else census_current
             for census_year in range(census_first, census_current + census_horizon + 1):
+                if census_year in census_retired:
+                    # Retired class (#1414): ABSENT by design, stamped in
+                    # ``pickClassLifecycle`` — not a hole in the horizon.
+                    continue
                 for census_round in range(1, 7):
                     names = [
                         f"{census_year} {t} {_round_suffix(census_round)}"

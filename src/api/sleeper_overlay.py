@@ -354,6 +354,16 @@ def _build_pick_ownership(
         return {}
     current_year = _dt.datetime.now(_dt.timezone.utc).year
     years = [current_year + y for y in range(num_years)]
+    # #1414: a class THIS league has drafted and rostered is no longer an
+    # owned pick.  League-scoped verdict from the league's persisted
+    # draft-class snapshot (written off the request path by the warm pass);
+    # no snapshot → unknown → every year kept.
+    try:
+        from src.api.draft_class_evidence import active_seasons_for_league
+
+        years = active_seasons_for_league(sleeper_league_id, years)
+    except Exception as exc:  # noqa: BLE001 — unknown never retires
+        log.warning("sleeper_overlay: draft-class lifecycle unavailable: %s", exc)
 
     traded = (getter or _http_get_json)(
         f"https://api.sleeper.app/v1/league/{sleeper_league_id}/traded_picks"

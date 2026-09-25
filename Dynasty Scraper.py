@@ -819,6 +819,7 @@ def fetch_sleeper_rosters(league_id):
     scoring_settings = {}
     roster_positions = []
     league_settings = {}
+    league_info = None
     try:
         league_resp = _req.get(f"https://api.sleeper.app/v1/league/{league_id}", timeout=10)
         league_resp.raise_for_status()
@@ -956,11 +957,52 @@ def fetch_sleeper_rosters(league_id):
     except Exception:
         _pick_league_key = None
 
+    # #1414: a draft class whose rookie draft is complete AND whose rookies
+    # are on rosters is no longer an owned pick asset.  The rule is
+    # src/identity/pick_lifecycle.py; this is an adapter that supplies this
+    # league's own evidence (league-scoped surface, league-scoped verdict)
+    # and ships the evidence in the sleeper block so the board build can ask
+    # the same question without a fetch.  Any failure leaves every year
+    # active — unknown never retires.
+    draft_class_evidence = None
+    owned_pick_years = list(pick_years)
+    try:
+        from src.api.draft_class_evidence import collect_league_draft_evidence
+        from src.identity.pick_lifecycle import league_class_lifecycles, retired_seasons
+
+        def _sleeper_get_json(url):
+            try:
+                resp = _req.get(url, timeout=15)
+                return resp.json() if resp.status_code == 200 else None
+            except Exception:
+                return None
+
+        draft_class_evidence = collect_league_draft_evidence(
+            league_id,
+            league_key=_pick_league_key,
+            fetch=_sleeper_get_json,
+            rosters=rosters,
+            league_info=league_info if isinstance(league_info, dict) else None,
+        )
+        _retired_pick_years = retired_seasons(
+            league_class_lifecycles(pick_years, draft_class_evidence)
+        )
+        owned_pick_years = [y for y in pick_years if y not in _retired_pick_years]
+        if _retired_pick_years:
+            print(
+                f"  [Sleeper] Retired draft classes (drafted + rostered): "
+                f"{sorted(_retired_pick_years)}"
+            )
+    except Exception as exc:
+        print(f"  [Sleeper] Draft-class lifecycle unavailable ({exc}); no class retired")
+        draft_class_evidence = None
+        owned_pick_years = list(pick_years)
+
     owned_picks = _pick_identity.build_pick_ownership(
         _pick_league_key or "unregistered-league",
         roster_ids,
         traded_picks,
-        seasons=pick_years,
+        seasons=owned_pick_years,
         rounds=draft_rounds,
         slot_by_origin=draft_slot_by_origin,
     )
@@ -1006,7 +1048,7 @@ def fetch_sleeper_rosters(league_id):
     if team_pick_assets:
         total_pick_assets = sum(len(v) for v in team_pick_assets.values())
         print(
-            f"  [Sleeper] Computed {total_pick_assets} future pick assets ({draft_rounds} rounds, years {pick_years})"
+            f"  [Sleeper] Computed {total_pick_assets} future pick assets ({draft_rounds} rounds, years {owned_pick_years})"
         )
 
     # C2-U1: Sleeper's own slot-eligibility list, kept rather than
@@ -1175,6 +1217,13 @@ def fetch_sleeper_rosters(league_id):
         "scoringSettings": scoring_settings,
         "rosterPositions": roster_positions,
         "leagueSettings": league_settings,
+        # #1414 lifecycle evidence for THIS league (league-scoped: dropped by
+        # merge_cross_league_sleeper_block, which carries only NFL-wide
+        # fields).  None when it could not be collected — unknown, never
+        # "no draft".
+        "draftClassEvidence": (
+            draft_class_evidence.to_dict() if draft_class_evidence is not None else None
+        ),
     }
 
     # ── Fetch rolling 1-year trades from Sleeper API ──

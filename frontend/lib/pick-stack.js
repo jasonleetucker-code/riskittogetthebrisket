@@ -97,6 +97,22 @@ export function buildSlotDollarGrid(draftCapital) {
   return grid;
 }
 
+// The draft year the stack anchors on: the UPCOMING draft.  That is the
+// backend's ``pickClassLifecycle.firstActiveClass`` (#1414 / #1442) — the
+// board's active draft year stepped past any retired class, derived by
+// the lifecycle owner and never re-derived here.  ``currentDraftYear`` is
+// the future-pick HORIZON anchor, which retirement deliberately does not
+// move, so it is only the fallback for payloads that predate the stamp;
+// the draft-capital payload's own season is the last resort.
+export function pickStackAnchorYear(contract, draftCapital) {
+  const upcoming = Number(contract?.pickClassLifecycle?.firstActiveClass);
+  if (Number.isFinite(upcoming) && upcoming > 2000) return upcoming;
+  const fromContract = Number(contract?.currentDraftYear);
+  if (Number.isFinite(fromContract) && fromContract > 2000) return fromContract;
+  const fromDC = parseInt(String(draftCapital?.season || ""), 10);
+  return Number.isFinite(fromDC) ? fromDC : null;
+}
+
 function avg(nums) {
   const v = nums.filter((n) => Number.isFinite(n));
   return v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0;
