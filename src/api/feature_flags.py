@@ -433,8 +433,9 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # Game Day live game state — ``src/nfl_data/live_game_state.py`` reads
     # ESPN's public scoreboard (observed quarter / clock / status).
     # Consumed by ``src/api/matchup_intel.py`` (observed-clock remaining
-    # production).  OFF: automated use of this feed is NOT approved; turning
-    # it on is an owner decision, not an engineering one.  Off,
+    # production).  Access is owner-attested
+    # (docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md).  Default OFF in
+    # code until the Game Day collector + payload units activate it.  Off,
     # ``fetch_live_game_state`` returns an explicit
     # ``enabled=False`` observation (no network call) and Game Day keeps the
     # schedule-only evidence, where a passed kickoff stays ``unknown``.
@@ -442,16 +443,15 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # C5-PROJ-C, first WEEKLY-horizon projection source (2026-09-24):
     # Sleeper's weekly projections endpoint (RotoWire stat lines served by
     # Sleeper), in ``src/ros/sleeper_weekly_projections.py``.  SEASONAL
-    # intelligence lane only — never dynasty value.  OFF, deliberately: the
-    # endpoint is public but UNDOCUMENTED and its licensing for automated
-    # consumption is UNVERIFIED (census entry ``sleeperWeeklyProjections``,
-    # licensingStatus UNVERIFIED) — a source candidate, activation pending
-    # terms verification.  Consumed by ``src/api/matchup_intel.py``
-    # (kickoff-locked weekly baselines).  Off, ``fetch_weekly_projection_rows``
-    # refuses with ``feature_disabled`` and makes no network call, and Game
-    # Day uses the preseason per-game FALLBACK, labelled as not a
-    # current-week forecast.  Turning it on is an owner decision on the
-    # licensing open item, not an engineering one.
+    # intelligence lane only — never dynasty value.  Access is
+    # owner-attested (census entry ``sleeperWeeklyProjections``,
+    # OWNER_ATTESTED_AUTHORIZED; record
+    # docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md).  Consumed by
+    # ``src/api/matchup_intel.py`` (kickoff-locked weekly baselines).
+    # Default OFF in code until the Game Day collector + payload units
+    # activate it.  Off, ``fetch_weekly_projection_rows`` refuses with
+    # ``feature_disabled`` and makes no network call, and Game Day uses the
+    # preseason per-game FALLBACK, labelled as not a current-week forecast.
     "sleeper_weekly_projections": False,
 }
 

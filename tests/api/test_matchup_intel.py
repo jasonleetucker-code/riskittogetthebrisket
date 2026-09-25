@@ -293,7 +293,7 @@ class LineageTests(unittest.TestCase):
         self.assertEqual(lin["preseasonProjectionSource"], "test:ensemble")
         self.assertEqual(lin["projectionBasisCounts"], {"preseason_full_season_fallback": 6})
         self.assertEqual(lin["weeklyProjection"]["state"], "feature_disabled")
-        self.assertEqual(lin["weeklyProjection"]["licensingStatus"], "UNVERIFIED")
+        self.assertEqual(lin["weeklyProjection"]["licensingStatus"], "OWNER_ATTESTED_AUTHORIZED")
         self.assertIn("WEEKLY", lin["projectionHorizonNote"])
         # With the weekly source off, the preseason fallback must never read
         # as a current-week forecast.

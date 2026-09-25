@@ -241,12 +241,32 @@ class TestSleeperWeeklyEntry:
         assert src["providerFamily"] == "rotowire"
         assert src["modelAncestry"]["chain"] == ["rotowire", "sleeper"]
 
-    def test_licensing_is_an_open_item_and_not_automatable(self):
+    def test_access_is_owner_attested_and_automatable(self):
+        # Owner attestation 2026-09-25: the basis is the owner's written
+        # statement (recorded), not public terms.
         src = census.get_source("sleeperWeeklyProjections")
-        assert src["accessPosture"] == "PUBLIC_UNDOCUMENTED_NO_AUTH"
-        assert src["licensingStatus"] == "UNVERIFIED"
-        assert src["licensingOpenItem"]
-        assert "sleeperWeeklyProjections" not in {s["key"] for s in census.automatable_sources()}
+        assert src["accessPosture"] == "OWNER_ATTESTED_AUTHORIZED"
+        assert src["licensingStatus"] == "OWNER_ATTESTED_AUTHORIZED"
+        assert "SOURCE_ACCESS_EVIDENCE_2026-09-25" in src["accessAttestation"]
+        assert "sleeperWeeklyProjections" in {s["key"] for s in census.automatable_sources()}
+
+    def test_attested_status_requires_the_record(self):
+        bad = {
+            "sources": [
+                {
+                    "key": "x",
+                    "evidenceClass": "PROJECTION_MODEL",
+                    "horizons": ["WEEKLY"],
+                    "implementationStatus": "GREENFIELD",
+                    "accessPosture": "OWNER_ATTESTED_AUTHORIZED",
+                    "providerFamily": "x",
+                    "targetPopulation": ["OFFENSE"],
+                    "acquisitionOwnerLane": "Claude 11",
+                }
+            ],
+            "discoveryLanes": [{"lane": "DFS_PROJECTION"}],
+        }
+        assert any("accessAttestation" in e for e in census.validate_census(bad))
 
     def test_implemented_behind_a_default_off_flag_not_live(self):
         from src.api import feature_flags

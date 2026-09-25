@@ -6,22 +6,39 @@ forecast is scaled from), where did it come from, and what does it not
 cover?  :mod:`src.ros.game_day_week` consumes the answer; it never picks a
 source itself.
 
-Two bases, never blended for one player
----------------------------------------
-* ``weekly:rotowire_via_sleeper`` — the player's Sleeper weekly projection
-  (RotoWire stat lines, :mod:`src.ros.sleeper_weekly_projections`),
-  rescored under THIS league's card by the exact scorer, and LOCKED at his
-  game's kickoff (:func:`lock_baseline_at_kickoff`): the last observation
-  fetched at or before kickoff.  An in-game provider update can never drift
-  the baseline; a player first seen after kickoff has no weekly baseline.
-  Gated by the ``sleeper_weekly_projections`` flag, DEFAULT OFF: a source
-  candidate whose terms are UNVERIFIED (census ``licensingStatus``);
-  activation is pending terms verification.
+Bases, never blended across horizons
+------------------------------------
+* ``weekly:<source>`` — a WEEKLY-horizon provider projection, rescored under
+  THIS league's card by the exact scorer and LOCKED at the player's kickoff:
+  the last observation fetched at or before kickoff.  An in-game provider
+  update can never drift the baseline; a player first seen after kickoff has
+  no weekly baseline.  Today exactly one weekly source is wired —
+  ``sleeperWeeklyProjections`` (RotoWire via Sleeper,
+  :mod:`src.ros.sleeper_weekly_projections`; flag
+  ``sleeper_weekly_projections``, default OFF in code; access is
+  owner-attested per its census entry).
+* ``weekly:ensemble`` — reserved for a player priced by MORE THAN ONE
+  independent weekly provider family (see below).
 * ``preseason_full_season_fallback`` — the per-game average from the
   full-season ROS ensemble (``PRESEASON_FULL_SEASON`` horizon).  Used only
   when no locked weekly baseline exists.  It is a FALLBACK and NOT a
   current-week forecast; :data:`BASIS_LABELS` carries that wording so no
   consumer can present it as the weekly projection.
+
+More weekly sources, without double counting
+--------------------------------------------
+:data:`WEEKLY_SOURCE_ADAPTERS` is the seam: one adapter per census source
+key, each turning that source's fetches into kickoff-locked per-player
+:class:`WeeklyBaseline` values.  Independence is decided by the census
+``providerFamily``, never by the source key: two sources of the SAME family
+(e.g. a separately ingested RotoWire product beside RotoWire-via-Sleeper)
+give ONE vote — the first adapter in registry order — and the rest are
+counted in ``sameFamilyDuplicates``.  When two or more families price a
+player, the combination is delegated to the canonical ensemble owner
+(:func:`src.ros.projection_ensemble.combine_ensemble`, ``equal_family_mean``);
+this module does not own a second combination rule.  Keyed APIs (Fantasy
+Nerds, SportsDataIO, FantasyPros, DraftSharks) plug in here once their
+adapters and owner-configured credentials exist; none is implemented.
 
 Join keys
 ---------
@@ -41,14 +58,14 @@ measured fit (:mod:`src.nfl_data.first_down_rate`) is reused to impute it.
 That component is OURS, carried separately as ``imputed_points`` /
 ``imputed_keys``, never folded silently into the provider's number.
 
-Missing is never zero: a player with neither basis has no estimate at all.
+Missing is never zero: a player with no basis has no estimate at all.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from src.nfl_data.first_down_rate import (
     SLEEPER_PROJECTED_FD_KEYS,
@@ -56,16 +73,19 @@ from src.nfl_data.first_down_rate import (
 )
 from src.utils.name_clean import normalize_player_name
 
+SLEEPER_WEEKLY_SOURCE_KEY = "sleeperWeeklyProjections"
 BASIS_WEEKLY = "weekly:rotowire_via_sleeper"
+BASIS_WEEKLY_ENSEMBLE = "weekly:ensemble"
 BASIS_PRESEASON = "preseason_full_season_fallback"
-#: Factual source label for the weekly basis.  Its terms are unverified, so
-#: the label says it is a candidate, not an activated source.
-WEEKLY_SOURCE_LABEL = (
-    "RotoWire via Sleeper (source candidate — activation pending terms verification)"
-)
+#: Factual source label for the one wired weekly source.
+WEEKLY_SOURCE_LABEL = "RotoWire via Sleeper"
 #: Human-facing wording per basis, published in lineage beside every count.
 BASIS_LABELS: dict[str, str] = {
     BASIS_WEEKLY: f"Weekly projection — {WEEKLY_SOURCE_LABEL}, locked at kickoff",
+    BASIS_WEEKLY_ENSEMBLE: (
+        "Weekly projection — equal-family mean of independent weekly providers, "
+        "each locked at kickoff"
+    ),
     BASIS_PRESEASON: (
         "Preseason full-season per-game average — FALLBACK, NOT a current-week forecast"
     ),
@@ -80,6 +100,27 @@ WEEKLY_SCORING_UNUSABLE = "scoring_unusable"
 
 
 @dataclass(frozen=True)
+class WeeklyBaseline:
+    """One source's kickoff-locked baseline for one player."""
+
+    player_id: str
+    source_key: str
+    provider_family: str
+    basis: str
+    position: str
+    season: int
+    #: Provider line under the league card + our imputed component.
+    points: float
+    provider_points: float
+    imputed_points: float = 0.0
+    imputed_keys: tuple[str, ...] = ()
+    uncovered_keys: tuple[str, ...] = ()
+    provider_as_of: str | None = None
+    observed_at: str | None = None
+    locked: bool | None = None
+
+
+@dataclass(frozen=True)
 class PlayerEstimate:
     """One player's pregame weekly baseline, with its provenance."""
 
@@ -87,7 +128,7 @@ class PlayerEstimate:
     #: The baseline the resolver scales: provider points + our imputed part.
     points: float
     basis: str
-    #: Weekly: the provider line under the league card, WITHOUT our
+    #: Weekly: the provider line(s) under the league card, WITHOUT our
     #: imputation.  Preseason: the ensemble's per-game figure.
     provider_points: float
     #: Our first-down imputation (0.0 when none fired).
@@ -101,6 +142,8 @@ class PlayerEstimate:
     #: True once kickoff has passed (the baseline can no longer change).
     kickoff_locked: bool | None = None
     join_key: str = "sleeper_player_id"
+    #: Weekly provider families behind the number (one vote each).
+    families: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -113,11 +156,13 @@ class GameDayEstimates:
     sources_unavailable: tuple[str, ...] = ()
     #: Players whose preseason name join was refused as ambiguous.
     ambiguous_name_player_ids: tuple[str, ...] = ()
-    #: Counts from the kickoff lock, for lineage.
+    #: Counts from the kickoff lock (summed over weekly sources), for lineage.
     weekly_counts: dict[str, int] = field(default_factory=dict)
     #: Newest provider stamp / fetch time among the weekly baselines used.
     weekly_as_of: str | None = None
     weekly_observed_at: str | None = None
+    #: Per weekly source: state / reason / family / counts.
+    weekly_sources: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def points_by_player_id(self) -> dict[str, float]:
         return {pid: e.points for pid, e in self.by_player_id.items()}
@@ -138,6 +183,19 @@ def _normalize_team(code: Any) -> str:
 
     team = normalize_team_code(str(code or ""))
     return "LAR" if team == "LA" else team
+
+
+def _rate(scoring_settings: Mapping[str, Any], key: str) -> float:
+    try:
+        return float((scoring_settings or {}).get(key) or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _census(source_key: str) -> Mapping[str, Any]:
+    from src.ros import projection_source_census as census
+
+    return census.get_source(source_key) or {}
 
 
 def _preseason_by_id(
@@ -183,7 +241,12 @@ def _preseason_by_id(
     return out, tuple(sorted(ambiguous))
 
 
-def _weekly_baselines(
+# ── Weekly source adapters ──────────────────────────────────────────────
+
+WeeklyAdapter = Callable[..., tuple[dict[str, WeeklyBaseline], dict[str, int], str | None]]
+
+
+def _sleeper_weekly_adapter(
     fetches: Sequence[Any],
     *,
     season: int,
@@ -191,8 +254,9 @@ def _weekly_baselines(
     scoring_settings: Mapping[str, Any],
     kickoffs_by_team: Mapping[str, float],
     now: float,
-) -> tuple[dict[str, Any], dict[str, int], str | None]:
-    """``(player_id -> BaselineEntry, counts, refusal reason)``."""
+    provider_family: str,
+) -> tuple[dict[str, WeeklyBaseline], dict[str, int], str | None]:
+    """RotoWire via Sleeper: ``(player_id -> baseline, counts, refusal)``."""
     from src.ros.sleeper_weekly_projections import (
         WeeklyProjectionError,
         build_weekly_observations,
@@ -227,7 +291,113 @@ def _weekly_baselines(
         "unknownKickoff": len(lock.unknown_kickoff),
         "postKickoffObservationsIgnored": lock.post_kickoff_observations_ignored,
     }
-    return dict(lock.baselines), counts, None
+    paid_fd_keys = [k for k in SLEEPER_PROJECTED_FD_KEYS if _rate(scoring_settings, k) != 0.0]
+    out: dict[str, WeeklyBaseline] = {}
+    refused_fd = 0
+    for pid, entry in lock.baselines.items():
+        obs = entry.observation
+        if paid_fd_keys and any(k in obs.stat_line for k in paid_fd_keys):
+            # The provider's *_fd keys are yardage/10, not first downs
+            # (see first_down_rate.SLEEPER_PROJECTED_FD_KEYS); a card that
+            # pays them would price that proxy.  Refused, not scored.
+            refused_fd += 1
+            continue
+        imputed = imputed_sleeper_first_down_bonus(obs.stat_line, obs.position, scoring_settings)
+        imputed_points = imputed[2] if imputed else 0.0
+        imputed_keys = (imputed[0],) if imputed else ()
+        out[pid] = WeeklyBaseline(
+            player_id=pid,
+            source_key=SLEEPER_WEEKLY_SOURCE_KEY,
+            provider_family=provider_family,
+            basis=BASIS_WEEKLY,
+            position=obs.position,
+            season=obs.season,
+            points=obs.league_scored_points + imputed_points,
+            provider_points=obs.league_scored_points,
+            imputed_points=imputed_points,
+            imputed_keys=imputed_keys,
+            uncovered_keys=tuple(k for k in obs.uncovered_scoring_keys if k not in imputed_keys),
+            provider_as_of=obs.provider_updated_at,
+            observed_at=obs.observed_at,
+            locked=entry.locked,
+        )
+    if refused_fd:
+        counts["refusedProviderFirstDownKeys"] = refused_fd
+    return out, counts, None
+
+
+#: Census source key -> adapter, in PRECEDENCE order (first of a family wins
+#: that family's single vote).  Add a keyed provider here with its adapter.
+WEEKLY_SOURCE_ADAPTERS: dict[str, WeeklyAdapter] = {
+    SLEEPER_WEEKLY_SOURCE_KEY: _sleeper_weekly_adapter,
+}
+
+
+def _combine_families(pid: str, votes: Sequence[WeeklyBaseline]) -> PlayerEstimate:
+    """One vote per family; two or more families go to the ensemble owner."""
+    if len(votes) == 1:
+        b = votes[0]
+        return PlayerEstimate(
+            player_id=pid,
+            points=b.points,
+            basis=b.basis,
+            provider_points=b.provider_points,
+            imputed_points=b.imputed_points,
+            imputed_keys=b.imputed_keys,
+            uncovered_keys=b.uncovered_keys,
+            provider_as_of=b.provider_as_of,
+            observed_at=b.observed_at,
+            kickoff_locked=b.locked,
+            families=(b.provider_family,),
+        )
+    from src.ros.projection_ensemble import combine_ensemble
+    from src.ros.projection_observations import ProjectionObservation
+
+    observations = []
+    for b in votes:
+        entry = _census(b.source_key)
+        observations.append(
+            ProjectionObservation(
+                census_source_key=b.source_key,
+                provider_family=b.provider_family,
+                evidence_class=str(entry.get("evidenceClass") or "PROJECTION_MODEL"),
+                horizon="WEEKLY",
+                access_posture=str(entry.get("accessPosture") or ""),
+                player_key=f"player:{pid}",
+                position=b.position,
+                season=b.season,
+                # Metadata only here (the combined value does not read it);
+                # the provider stamp when stated, else when we fetched.
+                as_of=b.provider_as_of or b.observed_at or "",
+                games=1.0,
+                league_scored_fpg=b.points,
+                league_scored_is_native=False,
+                native_fpg=None,
+                native_is_scoring_native=False,
+                stat_line_available=True,
+                proj_high=None,
+                proj_low=None,
+                is_proxy=False,
+            )
+        )
+    combined = combine_ensemble(observations, method="equal_family_mean")
+    provider = sum(b.provider_points for b in votes) / len(votes)
+    return PlayerEstimate(
+        player_id=pid,
+        points=combined.combined_league_scored_fpg,
+        basis=BASIS_WEEKLY_ENSEMBLE,
+        provider_points=provider,
+        # equal_family_mean is linear, so our imputed share is the mean too.
+        imputed_points=combined.combined_league_scored_fpg - provider,
+        imputed_keys=tuple(sorted({k for b in votes for k in b.imputed_keys})),
+        uncovered_keys=tuple(sorted({k for b in votes for k in b.uncovered_keys})),
+        provider_as_of=max((b.provider_as_of for b in votes if b.provider_as_of), default=None),
+        observed_at=max((b.observed_at for b in votes if b.observed_at), default=None),
+        kickoff_locked=all(b.locked for b in votes)
+        if all(b.locked is not None for b in votes)
+        else None,
+        families=tuple(sorted(b.provider_family for b in votes)),
+    )
 
 
 def resolve_game_day_estimates(
@@ -243,16 +413,19 @@ def resolve_game_day_estimates(
     sources_loaded: Sequence[str] = (),
     sources_unavailable: Sequence[str] = (),
     weekly_fetches: Sequence[Any] | None = None,
+    weekly_fetches_by_source: Mapping[str, Sequence[Any]] | None = None,
     weekly_state: str = WEEKLY_NOT_REQUESTED,
     weekly_reason: str | None = None,
     kickoffs_by_team: Mapping[str, float] | None = None,
 ) -> GameDayEstimates:
     """Per-player baselines for ``player_ids``: locked weekly first, else preseason.
 
-    ``weekly_fetches`` are :class:`~src.ros.sleeper_weekly_projections.FetchResult`
-    observations (possibly several, fetched at different times — the lock
-    takes each player's last pre-kickoff one).  ``kickoffs_by_team`` maps a
-    normalized NFL team code to its game's kickoff (epoch seconds).
+    ``weekly_fetches_by_source`` maps a census source key (one of
+    :data:`WEEKLY_SOURCE_ADAPTERS`) to that source's fetch observations,
+    possibly several taken at different times — each adapter's lock takes a
+    player's last pre-kickoff one.  ``weekly_fetches`` is shorthand for the
+    RotoWire-via-Sleeper source.  ``kickoffs_by_team`` maps a normalized NFL
+    team code to its game's kickoff (epoch seconds).
     """
     ids = [str(p) for p in player_ids]
     preseason, ambiguous = (
@@ -261,74 +434,72 @@ def resolve_game_day_estimates(
         else ({}, ())
     )
 
-    baselines: dict[str, Any] = {}
-    counts: dict[str, int] = {}
-    state, reason = weekly_state, weekly_reason
-    paid_fd_keys = [k for k in SLEEPER_PROJECTED_FD_KEYS if _rate(scoring_settings, k) != 0.0]
+    by_source: dict[str, Sequence[Any]] = dict(weekly_fetches_by_source or {})
     if weekly_fetches:
-        baselines, counts, refusal = _weekly_baselines(
-            weekly_fetches,
+        by_source.setdefault(SLEEPER_WEEKLY_SOURCE_KEY, weekly_fetches)
+
+    per_source: dict[str, dict[str, WeeklyBaseline]] = {}
+    source_info: dict[str, dict[str, Any]] = {}
+    totals: dict[str, int] = {}
+    for key, adapter in WEEKLY_SOURCE_ADAPTERS.items():
+        fetches = by_source.get(key)
+        if not fetches:
+            continue
+        family = str(_census(key).get("providerFamily") or key)
+        baselines, counts, refusal = adapter(
+            fetches,
             season=season,
             week=week,
             scoring_settings=scoring_settings,
             kickoffs_by_team=kickoffs_by_team or {},
             now=now,
+            provider_family=family,
         )
         if refusal:
             state, reason = WEEKLY_SCORING_UNUSABLE, refusal
-        elif not any(getattr(f, "status", None) == "ok" for f in weekly_fetches):
+        elif not any(getattr(f, "status", None) == "ok" for f in fetches):
             state = WEEKLY_NO_USABLE_FETCH
-            reason = reason or "; ".join(
-                sorted(
-                    {
-                        str(getattr(f, "reason", "") or getattr(f, "status", ""))
-                        for f in weekly_fetches
-                    }
-                )
+            reason = "; ".join(
+                sorted({str(getattr(f, "reason", "") or getattr(f, "status", "")) for f in fetches})
             )
         else:
-            state = WEEKLY_OK
+            state, reason = WEEKLY_OK, None
+        per_source[key] = baselines
+        source_info[key] = {
+            "providerFamily": family,
+            "state": state,
+            "reason": reason,
+            "counts": dict(counts),
+        }
+        for name, n in counts.items():
+            totals[name] = totals.get(name, 0) + n
+
+    if source_info:
+        states = [info["state"] for info in source_info.values()]
+        agg_state = WEEKLY_OK if WEEKLY_OK in states else states[0]
+        agg_reason = (
+            None
+            if agg_state == WEEKLY_OK
+            else next((info["reason"] for info in source_info.values() if info["reason"]), None)
+        )
+    else:
+        agg_state, agg_reason = weekly_state, weekly_reason
 
     out: dict[str, PlayerEstimate] = {}
-    weekly_as_of: str | None = None
-    weekly_observed_at: str | None = None
-    refused_fd = 0
+    duplicates = 0
     for pid in ids:
-        entry = baselines.get(pid)
-        if entry is not None:
-            obs = entry.observation
-            if paid_fd_keys and any(k in obs.stat_line for k in paid_fd_keys):
-                # The provider's *_fd keys are yardage/10, not first downs
-                # (see first_down_rate.SLEEPER_PROJECTED_FD_KEYS); a card that
-                # pays them would price that proxy.  Refused, not scored.
-                refused_fd += 1
-                entry = None
-        if entry is not None:
-            obs = entry.observation
-            imputed = imputed_sleeper_first_down_bonus(
-                obs.stat_line, obs.position, scoring_settings
-            )
-            imputed_points = imputed[2] if imputed else 0.0
-            imputed_keys = (imputed[0],) if imputed else ()
-            uncovered = tuple(k for k in obs.uncovered_scoring_keys if k not in imputed_keys)
-            out[pid] = PlayerEstimate(
-                player_id=pid,
-                points=obs.league_scored_points + imputed_points,
-                basis=BASIS_WEEKLY,
-                provider_points=obs.league_scored_points,
-                imputed_points=imputed_points,
-                imputed_keys=imputed_keys,
-                uncovered_keys=uncovered,
-                provider_as_of=obs.provider_updated_at,
-                observed_at=obs.observed_at,
-                kickoff_locked=entry.locked,
-            )
-            if obs.provider_updated_at and (
-                weekly_as_of is None or obs.provider_updated_at > weekly_as_of
-            ):
-                weekly_as_of = obs.provider_updated_at
-            if weekly_observed_at is None or obs.observed_at > weekly_observed_at:
-                weekly_observed_at = obs.observed_at
+        votes: dict[str, WeeklyBaseline] = {}
+        for key in WEEKLY_SOURCE_ADAPTERS:
+            b = per_source.get(key, {}).get(pid)
+            if b is None:
+                continue
+            if b.provider_family in votes:
+                # Same family = same evidence: one vote, never two.
+                duplicates += 1
+                continue
+            votes[b.provider_family] = b
+        if votes:
+            out[pid] = _combine_families(pid, list(votes.values()))
             continue
         value = preseason.get(pid)
         if value is not None:
@@ -339,36 +510,35 @@ def resolve_game_day_estimates(
                 provider_points=value,
                 join_key="normalized_name",
             )
-    if refused_fd:
-        counts["refusedProviderFirstDownKeys"] = refused_fd
+    if duplicates:
+        totals["sameFamilyDuplicates"] = duplicates
 
+    weekly = [e for e in out.values() if e.basis != BASIS_PRESEASON]
     return GameDayEstimates(
         by_player_id=out,
-        weekly_state=state,
-        weekly_reason=reason,
+        weekly_state=agg_state,
+        weekly_reason=agg_reason,
         preseason_source=preseason_source if preseason else None,
         sources_loaded=tuple(sources_loaded),
         sources_unavailable=tuple(sources_unavailable),
         ambiguous_name_player_ids=ambiguous,
-        weekly_counts=counts,
-        weekly_as_of=weekly_as_of,
-        weekly_observed_at=weekly_observed_at,
+        weekly_counts=totals,
+        weekly_as_of=max((e.provider_as_of for e in weekly if e.provider_as_of), default=None),
+        weekly_observed_at=max((e.observed_at for e in weekly if e.observed_at), default=None),
+        weekly_sources=source_info,
     )
-
-
-def _rate(scoring_settings: Mapping[str, Any], key: str) -> float:
-    try:
-        return float((scoring_settings or {}).get(key) or 0.0)
-    except (TypeError, ValueError):
-        return 0.0
 
 
 __all__ = [
     "BASIS_LABELS",
     "BASIS_PRESEASON",
     "BASIS_WEEKLY",
+    "BASIS_WEEKLY_ENSEMBLE",
+    "SLEEPER_WEEKLY_SOURCE_KEY",
+    "WEEKLY_SOURCE_ADAPTERS",
     "WEEKLY_SOURCE_LABEL",
     "GameDayEstimates",
     "PlayerEstimate",
+    "WeeklyBaseline",
     "resolve_game_day_estimates",
 ]

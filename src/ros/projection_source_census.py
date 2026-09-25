@@ -67,13 +67,26 @@ ACCESS_POSTURES: frozenset[str] = frozenset(
         # PUBLIC_NO_AUTH (an openly offered file/page) because "reachable
         # without a login" is not "licensed for automation". Fails closed.
         "PUBLIC_UNDOCUMENTED_NO_AUTH",
+        # The owner has explicitly attested, in writing, that permission
+        # exists for automated ingestion and project use of this source
+        # (record: docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md). The
+        # basis is that attestation — NOT public terms and NOT public
+        # availability. An entry carrying it must name the record in
+        # ``accessAttestation``.
+        "OWNER_ATTESTED_AUTHORIZED",
     }
 )
 
 #: Licensing vocabulary. Optional per entry (the older entries predate
 #: it); when present it must be one of these. ``UNVERIFIED`` is an
 #: explicit open item, never a quiet "probably fine".
-LICENSING_STATUSES: frozenset[str] = frozenset({"UNVERIFIED", "CLEARED_WITH_ARTIFACT"})
+LICENSING_STATUSES: frozenset[str] = frozenset(
+    {"UNVERIFIED", "CLEARED_WITH_ARTIFACT", "OWNER_ATTESTED_AUTHORIZED"}
+)
+
+#: Statuses whose basis is the owner's written attestation; the entry must
+#: point at the record in ``accessAttestation``.
+_ATTESTED: str = "OWNER_ATTESTED_AUTHORIZED"
 
 #: Implementation-status vocabulary used by this census. Distinct from
 #: (and coarser than) ``ROS_SOURCES``'s ``enabled`` flag — this tracks
@@ -188,6 +201,10 @@ def validate_census(data: dict[str, Any] | None = None) -> list[str]:
         if licensing is not None and licensing not in LICENSING_STATUSES:
             errors.append(
                 f"{where}: licensingStatus {licensing!r} not in {sorted(LICENSING_STATUSES)}"
+            )
+        if _ATTESTED in (posture, licensing) and not src.get("accessAttestation"):
+            errors.append(
+                f"{where}: {_ATTESTED} requires 'accessAttestation' naming the owner's record"
             )
 
         if not src.get("providerFamily"):

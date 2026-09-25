@@ -387,15 +387,20 @@ def _live_state_lineage(observed: ObservedSlate) -> dict[str, Any]:
     }
 
 
-def _weekly_licensing_status() -> str | None:
-    """The census's own licensing status for the weekly source (``None`` if absent)."""
+def _weekly_census_field(name: str) -> str | None:
+    """A field of the weekly source's census entry (``None`` if absent)."""
     try:
         from src.ros import projection_source_census as census
 
         entry = census.get_source("sleeperWeeklyProjections") or {}
     except Exception:  # noqa: BLE001 — lineage detail, never fatal
         return None
-    return entry.get("licensingStatus")
+    return entry.get(name)
+
+
+def _weekly_licensing_status() -> str | None:
+    """The census's own licensing status for the weekly source."""
+    return _weekly_census_field("licensingStatus")
 
 
 def _live_state_max_age() -> float:
@@ -959,6 +964,10 @@ def build_matchup_intel(
                 "counts": dict(estimates.weekly_counts),
                 # Read from the census, never restated here.
                 "licensingStatus": _weekly_licensing_status(),
+                "accessPosture": _weekly_census_field("accessPosture"),
+                # Per weekly source (family, state, lock counts); one family
+                # is one vote however many of its products are wired.
+                "sources": {k: dict(v) for k, v in estimates.weekly_sources.items()},
             },
             "ambiguousNamePlayerIds": list(estimates.ambiguous_name_player_ids),
             "remainingProductionMethod": (

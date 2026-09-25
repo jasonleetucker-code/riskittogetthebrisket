@@ -11,7 +11,8 @@ vocabulary the league host scores — plus the scheduled ``game_id``,
 What this module owns, and nothing more:
 
 * acquisition, behind the ``sleeper_weekly_projections`` feature flag
-  (default OFF — licensing is an open owner item, see the census entry
+  (default OFF in code; activation ships with the Game Day collector and
+  payload units — access is owner-attested, see the census entry
   ``sleeperWeeklyProjections``);
 * turning captured rows into :class:`WeeklyProjectionObservation`, each
   rescored under the CALLER's league card by the canonical exact scorer
@@ -407,7 +408,7 @@ def fetch_weekly_projection_rows(
             week=int(week),
             url=url,
             observed_at=None,
-            reason=f"feature flag {FEATURE_FLAG!r} is off (licensing UNVERIFIED)",
+            reason=f"feature flag {FEATURE_FLAG!r} is off",
         )
     getter = http_get or _default_http_get
     clock = now or (lambda: datetime.now(timezone.utc))

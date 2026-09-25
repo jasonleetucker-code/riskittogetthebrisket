@@ -98,9 +98,16 @@ Each player's pregame baseline has ONE basis, published per player as
 * `weekly:rotowire_via_sleeper` — the Sleeper weekly projection (RotoWire),
   rescored under this league's card by the exact scorer and locked at the
   player's kickoff (`lock_baseline_at_kickoff`: last observation fetched at or
-  before kickoff). Flag `sleeper_weekly_projections`, DEFAULT OFF: the
-  endpoint is a source candidate whose terms are UNVERIFIED (census
-  `licensingStatus: UNVERIFIED`); activation is pending terms verification.
+  before kickoff). Flag `sleeper_weekly_projections` (default OFF in code;
+  access is owner-attested — census `OWNER_ATTESTED_AUTHORIZED`, record
+  `docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md`).
+* `weekly:ensemble` — reserved for a player priced by two or more independent
+  weekly provider FAMILIES. `WEEKLY_SOURCE_ADAPTERS` is the seam for further
+  weekly sources (Fantasy Nerds, SportsDataIO, FantasyPros, DraftSharks — keyed
+  APIs needing owner-configured credentials; none implemented). Independence
+  is the census `providerFamily`: a same-family source gives no second vote
+  (`sameFamilyDuplicates`), and cross-family combination is delegated to
+  `projection_ensemble.combine_ensemble` (`equal_family_mean`).
 * `preseason_full_season_fallback` — the full-season ensemble's per-game
   average, used only when no locked weekly baseline exists. It is a FALLBACK
   and NOT a current-week forecast; the payload says so per player and in

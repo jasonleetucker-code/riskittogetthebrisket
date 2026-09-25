@@ -14,10 +14,12 @@
     "CREDENTIALED_SESSION_ALREADY_WIRED",
     "SUBSCRIPTION_SCOPE_UNRECORDED",
     "NO_ACCESS_PATH_RECORDED",
-    "PUBLIC_UNDOCUMENTED_NO_AUTH"
+    "PUBLIC_UNDOCUMENTED_NO_AUTH",
+    "OWNER_ATTESTED_AUTHORIZED"
   ],
-  "licensingStatuses": ["UNVERIFIED", "CLEARED_WITH_ARTIFACT"],
+  "licensingStatuses": ["UNVERIFIED", "CLEARED_WITH_ARTIFACT", "OWNER_ATTESTED_AUTHORIZED"],
   "accessPostureNotes": {
+    "OWNER_ATTESTED_AUTHORIZED": "The owner has explicitly attested, in writing, that permission exists for Calculator's automated ingestion and project use of this source (docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md). The basis is that attestation, not public terms and not public availability. Keyed or subscription APIs still need owner-configured credentials; permission and credentials are separate.",
     "PUBLIC_UNDOCUMENTED_NO_AUTH": "A specific endpoint is recorded and answers without any credential, but it is not part of the provider's documented/published API and no artifact in this repo records terms permitting automated consumption or internal redistribution. Reachable is not licensed. Fails closed — does not authorize production automation; the owning feature flag stays OFF until the licensing open item is resolved.",
     "PUBLIC_NO_AUTH": "No login or credential needed; automation is a straightforward fetch.",
     "CREDENTIALED_SESSION_ALREADY_WIRED": "A working authenticated session already exists in this repo for a DIFFERENT product from the same vendor (typically dynasty rankings). Reusing it for a projection endpoint is a session-scope question, not a new credential question.",
@@ -221,10 +223,10 @@
       "featureFlag": "sleeper_weekly_projections",
       "existingRosRegistryKey": null,
       "existingFetcher": null,
-      "accessPosture": "PUBLIC_UNDOCUMENTED_NO_AUTH",
+      "accessPosture": "OWNER_ATTESTED_AUTHORIZED",
+      "accessAttestation": "Owner attestation 2026-09-25 (explicit, in writing) that permission exists for Calculator's automated ingestion and project use of its existing source portfolio, naming Sleeper and RotoWire. Basis: the owner's statement, not public terms. Record: docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md and docs/OWNER_REQUESTED_TODO.md.",
       "accessEvidence": "https://api.sleeper.app/projections/nfl/<season>/<week>?season_type=regular&position[]=... answers without authentication. It is NOT under Sleeper's documented public API root (api.sleeper.app/v1, which this repo already uses for leagues/rosters/matchups); it is the endpoint Sleeper's own web client calls.",
-      "licensingStatus": "UNVERIFIED",
-      "licensingOpenItem": "No artifact records that Sleeper's or RotoWire's terms permit automated consumption or internal redistribution of these projections. The RotoWire model is a commercial product surfaced through Sleeper. OPEN ITEM for an owner decision — the feature flag stays OFF until it is resolved. Do not treat reachability as clearance.",
+      "licensingStatus": "OWNER_ATTESTED_AUTHORIZED",
       "sourceUrlEvidence": "src/ros/sleeper_weekly_projections.py::ENDPOINT_TEMPLATE",
       "acquisitionOwnerLane": "Claude 11",
       "notes": "C5-PROJ-C first WEEKLY source. Seasonal intelligence lane ONLY: weekly per-player projected stat lines, rescored under the caller's exact league card by src.league_intel.scorer.score_stat_line — never a dynasty value, rank or vote. Rows with no projection (Sleeper ships a placeholder carrying only adp_dd_ppr, no game_id) are reported as missing, never as a 0-point projection. Threshold/bonus and special-teams categories the provider does not publish are reported per player as uncovered, never silently zero."

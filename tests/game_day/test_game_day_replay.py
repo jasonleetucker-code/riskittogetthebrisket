@@ -276,9 +276,9 @@ def test_real_capture_replays_coherently(name):
     assert out["lineage"]["liveGameState"]["state"] == "observed"
     assert out["lineage"]["weeklyProjection"]["state"] == "ok"
     weekly = out["lineage"]["weeklyProjection"]
-    assert weekly["sourceLabel"].startswith("RotoWire via Sleeper (source candidate")
-    # Terms are unverified; the payload reads the census, never claims more.
-    assert weekly["licensingStatus"] == "UNVERIFIED"
+    assert weekly["sourceLabel"] == "RotoWire via Sleeper"
+    # Read from the census, never restated in the payload code.
+    assert weekly["licensingStatus"] == "OWNER_ATTESTED_AUTHORIZED"
     _assert_no_double_counting(run, sc["matchups"]["dynasty_main"], fraction=REAL_FRACTIONS[name])
     _assert_one_coherent_simulation(run)
     tnf = [p for p in _players(out).values() if _tnf(p["playerId"])]

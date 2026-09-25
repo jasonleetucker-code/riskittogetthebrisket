@@ -574,3 +574,83 @@ def test_first_down_bonus_imputation_reuses_the_canonical_fit():
     assert imputed_sleeper_first_down_bonus({"rush_yd": 60.0}, "RB", {}) is None
     assert imputed_sleeper_first_down_bonus({"bonus_fd_rb": 3.0}, "RB", {"bonus_fd_rb": 1}) is None
     assert imputed_sleeper_first_down_bonus({"idp_tkl": 5.0}, "LB", {"bonus_fd_lb": 1}) is None
+
+
+# ── Further weekly sources: one vote per provider family ───────────────
+
+
+def _fake_adapter(family_value: float, *, source_key: str):
+    """SYNTHETIC adapter: prices player "q" at ``family_value``."""
+    from src.ros.game_day_estimates import WeeklyBaseline
+
+    def adapter(fetches, *, provider_family, **_kw):
+        return (
+            {
+                "q": WeeklyBaseline(
+                    player_id="q",
+                    source_key=source_key,
+                    provider_family=provider_family,
+                    basis=f"weekly:{source_key}",
+                    position="QB",
+                    season=2026,
+                    points=family_value,
+                    provider_points=family_value,
+                    observed_at=(KICK - timedelta(minutes=1)).isoformat(),
+                    locked=True,
+                )
+            },
+            {"baselines": 1},
+            None,
+        )
+
+    return adapter
+
+
+def _with_extra_source(monkeypatch, key, family, value):
+    from src.ros import game_day_estimates as gde
+
+    real_census = gde._census
+    monkeypatch.setitem(gde.WEEKLY_SOURCE_ADAPTERS, key, _fake_adapter(value, source_key=key))
+
+    def census(k):
+        if k == key:
+            return {"providerFamily": family, "evidenceClass": "PROJECTION_MODEL"}
+        return real_census(k)
+
+    monkeypatch.setattr(gde, "_census", census)
+
+
+def _estimates_multi(extra_key):
+    pre = _fetch([_row("q", {"pass_yd": 250.0, "pass_td": 2.0})], KICK - timedelta(minutes=5))
+    return resolve_game_day_estimates(
+        player_ids=["q"],
+        players_meta={"q": {"full_name": "Quinn Brady", "position": "QB", "team": "BAL"}},
+        scoring_settings=CARD,
+        season=2026,
+        week=3,
+        now=(KICK + timedelta(hours=1)).timestamp(),
+        weekly_fetches_by_source={"sleeperWeeklyProjections": [pre], extra_key: ["fixture"]},
+        kickoffs_by_team={"BAL": KICK.timestamp()},
+    )
+
+
+def test_a_same_family_second_source_never_votes_twice(monkeypatch):
+    """SYNTHETIC: another RotoWire product is the SAME evidence as RotoWire via Sleeper."""
+    _with_extra_source(monkeypatch, "rotowireDirectFake", "rotowire", 99.0)
+    est = _estimates_multi("rotowireDirectFake")
+    q = est.by_player_id["q"]
+    assert q.basis == BASIS_WEEKLY  # the first adapter's single family vote
+    assert q.families == ("rotowire",)
+    assert q.provider_points == pytest.approx(250 * 0.04 + 2 * 4.0)
+    assert est.weekly_counts["sameFamilyDuplicates"] == 1
+
+
+def test_independent_families_combine_through_the_ensemble_owner(monkeypatch):
+    """SYNTHETIC: a second, independent family -> equal-family mean, not a sum."""
+    _with_extra_source(monkeypatch, "otherVendorFake", "otherVendor", 10.0)
+    est = _estimates_multi("otherVendorFake")
+    q = est.by_player_id["q"]
+    rotowire = 250 * 0.04 + 2 * 4.0 + 250.0 * FIRST_DOWNS_PER_YARD["QB"] * 0.67
+    assert q.basis == "weekly:ensemble"
+    assert q.families == ("otherVendor", "rotowire")
+    assert q.points == pytest.approx((rotowire + 10.0) / 2)
