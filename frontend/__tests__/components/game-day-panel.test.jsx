@@ -276,7 +276,8 @@ describe("GameDayPanel — freshness is never hidden", () => {
     expect(screen.queryByText("Win chance unavailable")).not.toBeInTheDocument();
     const row = heroRow("Selected team");
     expect(row).toHaveTextContent(PENDING.team.scoreNow.bestBallFromBankedPoints.toFixed(1));
-    expect(within(row).getAllByText("Computing…").length).toBeGreaterThanOrEqual(2);
+    // One "Computing…" cell spans the forecast columns (fits a phone).
+    expect(within(row).getByText("Computing…").closest("td")).toHaveAttribute("colspan");
     fireEvent.click(screen.getByRole("button", { name: "Data info" }));
     expect(await screen.findByText(/forecast still computing/)).toBeInTheDocument();
     expect(screen.getByText(/Not read yet — the forecast is still computing/)).toBeInTheDocument();

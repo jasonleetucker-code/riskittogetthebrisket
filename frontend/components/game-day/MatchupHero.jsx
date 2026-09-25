@@ -104,11 +104,18 @@ function OutcomeCells({ side, mode, medianShown, pending }) {
       </td>
     );
   }
+  if (pending) {
+    // One cell across the forecast columns: nothing in them is computed yet,
+    // and a per-column word does not fit a 390 px phone.
+    return (
+      <td className={styles.numCell} colSpan={medianShown ? 3 : 2}>
+        <span className={styles.withheldWord}>Computing…</span>
+      </td>
+    );
+  }
   const o = side?.outcome;
   const paused = (
-    <span className={styles.withheldWord}>
-      {pending ? "Computing…" : mode === "live" ? "Paused" : "Unavailable"}
-    </span>
+    <span className={styles.withheldWord}>{mode === "live" ? "Paused" : "Unavailable"}</span>
   );
   const finish = formatPoints(o?.expectedFinalBestBall);
   const lo = formatPoints(o?.projectedP10);
