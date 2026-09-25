@@ -12,11 +12,12 @@
  * or the /api/trade/* responses.
  */
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import {
   Badge,
   Banner,
   Button,
+  DataTable,
   Field,
   Icon,
   Input,
@@ -601,9 +602,204 @@ export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) 
           <p className={styles.suggestMeta} style={{ marginTop: "var(--space-2)" }}>
             Equity (receiving − sending): {fmtSigned(simResult.equity)}
           </p>
+
+          {/* Secondary context, deliberately AFTER every verdict-bearing
+              block: exposure feeds no value, equity or verdict
+              (C2-EXP-01), so it must not read as part of the grade. */}
+          <NflExposureSection exposure={simResult.nflExposure} />
         </>
       ) : null}
     </Panel>
+  );
+}
+
+// ── NFL team exposure (C2-EXP-01) ─────────────────────────────────────
+
+/**
+ * Backend share (0–100 scale, already a percentage) for display.
+ * Missing stays missing: `null` is an UNMEASURED share, never 0%.
+ */
+function exposurePct(v) {
+  if (v == null) return "—";
+  const n = Number(v);
+  return Number.isFinite(n) ? `${n.toFixed(1)}%` : "—";
+}
+
+/** Backend Herfindahl index (0–10,000) for display; missing stays missing. */
+function exposureHhi(v) {
+  if (v == null) return "—";
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n).toLocaleString() : "—";
+}
+
+/** Magnitude formatter for <Movement>: percentage points, never a bare 0.0. */
+function ppMagnitude(m) {
+  return m > 0 && m < 0.05 ? "<0.1 pp" : `${m.toFixed(1)} pp`;
+}
+
+function exposureIds(ids) {
+  return Array.isArray(ids) ? ids.filter(Boolean) : [];
+}
+
+const EXPOSURE_SCOPE_COPY = {
+  full_roster: "Share of full-roster board value",
+};
+
+const EXPOSURE_MOVE_COLUMNS = [
+  {
+    key: "team",
+    header: "NFL team",
+    render: (r) => (r.isFranchise === false ? `${r.team} (not an NFL franchise)` : r.team),
+  },
+  { key: "shareBefore", header: "Before", numeric: true, render: (r) => exposurePct(r.shareBefore) },
+  { key: "shareAfter", header: "After", numeric: true, render: (r) => exposurePct(r.shareAfter) },
+  {
+    key: "delta",
+    header: "Change",
+    numeric: true,
+    // The BACKEND's delta, in percentage points — never after − before
+    // recomputed here.
+    render: (r) => {
+      const d = Number(r.delta);
+      if (r.delta == null || !Number.isFinite(d)) return "—";
+      const words = ppMagnitude(Math.abs(d)).replace("pp", "percentage points");
+      return (
+        <Movement
+          delta={d}
+          format={ppMagnitude}
+          srLabel={d === 0 ? "unchanged" : `${d > 0 ? "up" : "down"} ${words}`}
+        />
+      );
+    },
+  },
+];
+
+const EXPOSURE_CONCENTRATION_COLUMNS = [
+  { key: "measure", header: "Measure" },
+  { key: "before", header: "Before", numeric: true },
+  { key: "after", header: "After", numeric: true },
+];
+
+/**
+ * "NFL team exposure" — value-weighted NFL-franchise share of the team's
+ * roster before → after the simulated trade (`nflExposure` on
+ * `POST /api/trade/simulate`, owner `src/roster_intel/exposure.py`).
+ *
+ * PURE RENDERER: every share, delta and concentration figure is a backend
+ * stamp; nothing is summed, differenced or re-derived here. Collapsed by
+ * default and labelled as context — the owner ruled exposure never
+ * influences the grade, so it must not present as part of the verdict.
+ *
+ * States: absent (render nothing), `unavailable`, populated with moves,
+ * populated with no team moved, and coverage gaps (`unpricedIds`,
+ * `unknownTeamIds`, `outgoingNotOnRoster`), which are always named —
+ * missing is never zero.
+ */
+export function NflExposureSection({ exposure }) {
+  const headingId = useId();
+  if (!exposure || typeof exposure !== "object") return null;
+
+  const heading = (
+    <div className={styles.simSectionHead}>
+      <h3 id={headingId} className={`${styles.simSectionTitle} ${styles.exposureTitle}`}>
+        NFL team exposure
+      </h3>
+      <span className={styles.suggestMeta}>Context only — not part of the verdict</span>
+    </div>
+  );
+
+  const before = exposure.before;
+  const after = exposure.after;
+  if (exposure.unavailable || !before || !after) {
+    const note = exposureIds(exposure.notes)[0];
+    return (
+      <section className={styles.simSection} aria-labelledby={headingId} data-testid="nfl-exposure">
+        {heading}
+        <p className={styles.suggestMeta}>
+          {`Unavailable — ${note || "NFL-team exposure could not be computed for this trade"}.`}
+          {exposure.unavailable ? ` (${exposure.unavailable})` : ""}
+        </p>
+      </section>
+    );
+  }
+
+  const moved = Array.isArray(exposure.moved)
+    ? exposure.moved
+    : Array.isArray(exposure.changes)
+      ? exposure.changes
+      : [];
+  const gaps = [
+    ["Not priced by the board — excluded, never counted as zero (before)", exposureIds(before.unpricedIds)],
+    ["Not priced by the board — excluded, never counted as zero (after)", exposureIds(after.unpricedIds)],
+    ["Priced, but NFL team unknown — excluded (before)", exposureIds(before.unknownTeamIds)],
+    ["Priced, but NFL team unknown — excluded (after)", exposureIds(after.unknownTeamIds)],
+    ["Sent but not on this roster — frees nothing", exposureIds(exposure.outgoingNotOnRoster)],
+  ].filter(([, ids]) => ids.length > 0);
+
+  const concentration = [
+    {
+      measure: "Largest single team",
+      before: exposurePct(before.topFranchiseShare),
+      after: exposurePct(after.topFranchiseShare),
+    },
+    {
+      measure: "Concentration index (HHI, 0–10,000)",
+      before: exposureHhi(before.franchiseHHI),
+      after: exposureHhi(after.franchiseHHI),
+    },
+  ];
+
+  const summary =
+    moved.length > 0
+      ? `Show ${moved.length} team${moved.length === 1 ? "" : "s"} that moved`
+      : "Show detail — no team's share changed";
+
+  return (
+    <section className={styles.simSection} aria-labelledby={headingId} data-testid="nfl-exposure">
+      {heading}
+      {gaps.length > 0 ? (
+        <p className={styles.suggestMeta}>
+          Coverage incomplete — some players are excluded; they are named in the detail.
+        </p>
+      ) : null}
+      <details>
+        <summary className={styles.exposureSummary}>{summary}</summary>
+        <div className={styles.exposureBody}>
+          <p className={styles.suggestMeta}>
+            {EXPOSURE_SCOPE_COPY[exposure.scope] ||
+              `Share of board value${exposure.scope ? ` (${exposure.scope})` : ""}`}
+            , before → after the trade as entered. Draft picks carry no NFL team and are not
+            included.
+          </p>
+          <DataTable
+            columns={EXPOSURE_MOVE_COLUMNS}
+            rows={moved}
+            rowKey="team"
+            density="compact"
+            caption="NFL team share of roster value, before and after the trade"
+            emptyState={
+              <p className={styles.suggestMeta}>No NFL team&apos;s share of roster value changed.</p>
+            }
+          />
+          <DataTable
+            columns={EXPOSURE_CONCENTRATION_COLUMNS}
+            rows={concentration}
+            rowKey="measure"
+            density="compact"
+            caption="Roster concentration across NFL teams, before and after the trade"
+          />
+          {gaps.length > 0 ? (
+            <ul className={styles.simRationale}>
+              {gaps.map(([label, ids]) => (
+                <li key={label}>
+                  {label}: {ids.join(", ")}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      </details>
+    </section>
   );
 }
 
