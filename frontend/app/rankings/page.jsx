@@ -2003,7 +2003,20 @@ export default function RankingsPage() {
               // rows are empty — without one, a filter that matches
               // nothing renders no table at all (not even headers) and
               // the user is left staring at a blank panel.
+              //
+              // But an empty DEFERRED list is not an empty board: on first
+              // population ``renderedRows`` is still [] while ``displayRows``
+              // already holds the board, so this used to flash "No players
+              // match these filters" — a false statement, dimmed by the
+              // pending opacity below WCAG contrast (axe color-contrast on
+              // .ds-empty__title, measured by tests/e2e/specs/a11y-axe.spec.js
+              // at 390px). While the rows are catching up, show the same
+              // skeleton the loading state uses; the empty state is only for
+              // a settled zero.
               emptyState={
+                rowsPending ? (
+                  <SkeletonTable rows={12} columns={7} />
+                ) : (
                 <EmptyState
                   title="No players match these filters"
                   description={
@@ -2029,6 +2042,7 @@ export default function RankingsPage() {
                     ) : undefined
                   }
                 />
+                )
               }
               sort={tableSort}
               onSortChange={handleTableSort}
