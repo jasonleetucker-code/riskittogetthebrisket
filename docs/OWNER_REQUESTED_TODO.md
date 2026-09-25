@@ -646,10 +646,22 @@ yields); `trade-sections.jsx` is not in #1346. The `GameDayPanel` refresh-in-pla
 `game_day_sim` single-flight/atomic cache writes are carried into the Game Day units with their tests,
 and #1346 drops them at reconciliation.
 
-**Owner decisions — Game Day live sources (2026-09-25).**
-- **Weekly projections:** Game Day may use Sleeper's weekly projection endpoint in production. It is RotoWire-sourced, served through an undocumented public API, and its reuse terms are unverified; the owner accepts that risk. The UI and Data info must name the source as "RotoWire via Sleeper" along with its as-of. The census `licensingStatus` records this as an owner acceptance, not as verified terms.
-- **Live clock:** ESPN's public scoreboard may supply the observed quarter/clock/status, under the same posture as the existing ESPN injury and depth-chart feeds (bounded shared polling, circuit breaker).
-- **Activation:** both flags (`sleeper_weekly_projections`, `game_day_live_game_state`) turn on when the Game Day collector and payload ship, not before.
+**Game Day live sources — SOURCE CANDIDATES: OWNER DECISION REQUIRED / TERMS VERIFICATION REQUIRED (2026-09-25).**
+The owner has **not** approved production use of either source and has **not** accepted any
+licensing or terms risk. An earlier draft of this entry said otherwise; the owner corrected it, and
+it must not be read as an approval.
+
+| Source candidate | What it is | Status | Required before activation |
+|---|---|---|---|
+| Sleeper weekly projections (`https://api.sleeper.app/projections/nfl/<season>/<week>`) | Undocumented public endpoint. Every row observed carries `company: "rotowire"`, so it appears to expose RotoWire-sourced weekly projection content (QB/RB/WR/TE/K/IDP, stat-level). | Implemented behind `sleeper_weekly_projections` (default OFF); census `licensingStatus: UNVERIFIED`. **Not activated.** | Verify whether automated production use/reuse is permitted. If authorization cannot be established, identify an alternative legitimate weekly-projection source; never silently turn the flag on. |
+| ESPN public scoreboard (`site.api.espn.com/.../nfl/scoreboard`) | Undocumented public API giving observed period/clock/status per game. | Implemented behind `game_day_live_game_state` (default OFF), with adapter and replay fixtures. **Not activated.** | Verify the permitted technical/usage posture for this exact access path. Public visibility is not permission for unattended automated collection. If an already-authorized existing ESPN integration in this repo demonstrably covers the same access method and usage class, document that evidence and reuse it; otherwise the flag stays off pending the owner's decision. |
+
+**Campaign behaviour.** These decisions do not block U4–U7: the resolver, simulation, collector,
+payload and PSI UI are built and tested against fixtures and interfaces. The production flags stay
+off until the source-access decision is actually resolved. A missing source authorization is an
+**external activation blocker**. It is not permission to fall back to preseason projections and call
+Game Day complete: the preseason full-season estimate stays explicitly labelled as a fallback, never
+as a current-week forecast.
 
 **Owner decision — FAAB vs Trade flex demand stays as-is (2026-09-24).** Do NOT unify the two yet.
 FAAB apportions flex demand fractionally (`even_split`, e.g. QB 1.25 in dynasty_main); Trade assigns
