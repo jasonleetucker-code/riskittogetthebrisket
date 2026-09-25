@@ -27,42 +27,36 @@ from src.canonical.calibration import to_display_value
 from src.packages import PackageAsset, adapt_assets, side_key
 from src.trade.ktc_va import adjusted_pair_totals
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — see _norm_pos shim removal below (audit S2)
-from src.ros.lineup import configured_slot_eligibility, resolve_starter_slots, slot_demand
+from src.ros.lineup import resolve_league_slot_demand
+from src.roster_intel.weakness import position_depth
 
 
 # ── Configuration ────────────────────────────────────────────────────
 
-# Starter demand per position in default SF/TEP/IDP (effective starters per
-# team).  Aligned with the live dynasty_main lineup (config/leagues/registry
-# rosterSettings, corrected 2026-07-26 per docs/league-intelligence/
-# SETTINGS_AUDIT.md): QB1 RB2 WR3 TE2 FLEX2 SFLEX1 K1 DL3 LB3 DB3, no
-# IDP_FLEX.  K is deliberately absent — kickers are not tradeable assets in
-# the suggestion engine (they carry no dynasty value on the board).
-DEFAULT_STARTER_NEEDS: dict[str, int] = {
-    "QB": 2,  # 1 QB + ~1 SFLEX
-    "RB": 3,  # 2 RB + ~1 FLEX
-    "WR": 4,  # 3 WR + ~1 FLEX
-    "TE": 2,  # 2 TE
-    "DL": 3,  # 3 DL (fixed slots; league has no IDP_FLEX)
-    "LB": 3,  # 3 LB
-    "DB": 3,  # 3 DB
-}
+# Starter demand is a per-LEAGUE fact and has exactly one source:
+# ``starter_needs_for_league`` below, which reads the canonical lineup-demand
+# owner (``src/ros/lineup.py::resolve_league_slot_demand``).  The retired
+# module constant held ``dynasty_main``'s demand and was used as a SILENT
+# default whenever a caller passed nothing — which every opponent-roster
+# analysis and both FAAB need paths did — so every league's rivals were
+# measured against one league's lineup.  An unresolvable league now fails
+# closed; there is no default lineup.
 
 # Slots that carry no dynasty trade demand.  ``K`` is deliberately
-# absent from the constant above and must stay absent from the derived
-# version: kickers carry no board value, so a "need" for one can never
+# absent from every league's derived trade demand (it was absent from the
+# retired constant too): kickers carry no board value, so a "need" for one can never
 # be met or traded for.  ``BN``/``IR``/``TAXI`` are not lineup slots.
 _NON_DEMAND_SLOTS: frozenset[str] = frozenset({"K", "DEF", "BN", "IR", "TAXI"})
 
 
-def starter_needs_for_league(league_key: str | None = None) -> dict[str, int]:
+def starter_needs_for_league(league_key: str | None = None) -> dict[str, int] | None:
     """Effective starter demand per position for one league.
 
-    ``DEFAULT_STARTER_NEEDS`` above is not a slot count — it is a demand
-    model: base slots PLUS a hand-allocation of the flex slots, because
-    a superflex league genuinely wants a second startable QB even though
-    only one QB slot exists.  That model was correct and hardcoded, which
-    made it silently wrong for any other league.  The two live leagues
+    Not a slot count — a demand model: base slots PLUS an allocation of
+    the flex slots, because a superflex league genuinely wants a second
+    startable QB even though only one QB slot exists.  That model used to
+    be hardcoded as ``dynasty_main``'s numbers, which made it silently
+    wrong for any other league.  The two live leagues
     share a scoring profile but not a lineup (``dynasty_main`` starts
     2 TE and 9 IDP; ``dynasty_new`` starts 1 TE and no IDP), and starter
     counts are leagueKey-scoped per CLAUDE.md.
@@ -79,41 +73,38 @@ def starter_needs_for_league(league_key: str | None = None) -> dict[str, int]:
     * ``K``/``DEF`` contribute nothing — see ``_NON_DEMAND_SLOTS``.
 
     Since C2-U1 the first four bullets ARE
-    ``src/ros/lineup.py::slot_demand(...).flex_priority`` — a declared
-    variant of the one slot-demand contract, not a fifth private model.
-    Only the last bullet is this engine's own policy, because "a kicker
-    is not a dynasty need" is a trade judgment rather than a lineup fact.
+    ``src/ros/lineup.py::LeagueSlotDemand`` under the ``flex_priority``
+    basis — a declared variant of the one slot-demand contract, resolved
+    by the one league → demand resolver (which also applies the league's
+    configured flex eligibility), not a fifth private model.  Only the
+    last bullet is this engine's own policy, because "a kicker is not a
+    dynasty need" is a trade judgment rather than a lineup fact.
 
-    Applied to ``dynasty_main`` this reproduces ``DEFAULT_STARTER_NEEDS``
-    exactly, so the live league's suggestions are unchanged; pinned by
+    For ``dynasty_main`` this is QB 2 / RB 3 / WR 4 / TE 2 / DL 3 / LB 3 /
+    DB 3 — the numbers the retired constant hard-coded, so the live
+    league's suggestions are unchanged; pinned by
     ``tests/league_intel/test_registry_consumers.py``.
 
-    Falls back to ``DEFAULT_STARTER_NEEDS`` when the registry has
-    nothing to say — an unknown key, or no roster settings — rather than
-    returning an empty demand map, which would read as "this roster
-    needs nobody" and silence every surplus/need suggestion.
+    **Returns ``None`` when the league's lineup cannot be resolved** — an
+    unknown key, no roster settings, or a lineup with no tradeable
+    demand.  ``None`` is a refusal, not "needs nobody": the entry point
+    turns it into an explicit ``league_lineup_unresolved`` result rather
+    than measuring this league against another league's lineup, which is
+    what the retired ``DEFAULT_STARTER_NEEDS`` fallback did.
     """
     settings: dict[str, Any] = {}
-    try:
-        from src.api.league_registry import get_league_roster_settings
+    if league_key:
+        try:
+            from src.api.league_registry import get_league_roster_settings
 
-        settings = get_league_roster_settings(league_key) or {}
-    except Exception:  # noqa: BLE001 — registry is optional for this module
-        settings = {}
-    slots, _source = resolve_starter_slots(roster_settings=settings)
-    if not slots:
-        return dict(DEFAULT_STARTER_NEEDS)
-
-    # The one resolver, not a local two-entry copy.  The retired map here
-    # omitted ``sflexEligible`` entirely, so a league that narrows its
-    # Superflex was measured against the declared default — and C2-U1's
-    # ``configured_slot_eligibility`` docstring names this very module as the
-    # "two-entry variant" it exists to replace.
-    demand = slot_demand(
-        slots, eligibility_overrides=configured_slot_eligibility(settings)
-    ).flex_priority
-    needs = {pos: n for pos, n in demand.items() if pos not in _NON_DEMAND_SLOTS}
-    return needs or dict(DEFAULT_STARTER_NEEDS)
+            settings = get_league_roster_settings(league_key) or {}
+        except Exception:  # noqa: BLE001 — registry is optional for this module
+            settings = {}
+    demand = resolve_league_slot_demand(roster_settings=settings).by_basis("flex_priority")
+    if demand is None:
+        return None
+    needs = {pos: int(n) for pos, n in demand.items() if pos not in _NON_DEMAND_SLOTS}
+    return needs or None
 
 
 # Minimum display value to consider a player "rosterable" (not a throw-in).
@@ -352,11 +343,11 @@ class RosterAnalysis:
     #: The starter-demand model this analysis was computed with (W30-F006 /
     #: V1-25).  ``analyze_roster`` stores the LEAGUE'S resolved needs here so
     #: every downstream consumer — the four generators, ``rank_score``, the
-    #: balancer-candidate picker — reads the same lineup the rooms were split
-    #: with.  ``DEFAULT_STARTER_NEEDS`` (dynasty_main's demand) is the
-    #: FALLBACK default only: reading the module constant directly inside a
-    #: generator is the hardcode that told the 1-TE league to keep its TE2.
-    starter_needs: dict[str, int] = field(default_factory=lambda: dict(DEFAULT_STARTER_NEEDS))
+    #: balancer-candidate picker, and every OPPONENT analysis — reads the same
+    #: lineup the rooms were split with.  There is no default lineup: an
+    #: analysis constructed without one carries an empty demand, and
+    #: ``analyze_roster`` refuses to build one at all.
+    starter_needs: dict[str, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """An analysis built without constraints has consulted none.
@@ -814,12 +805,29 @@ def analyze_roster(
 ) -> RosterAnalysis:
     """Analyze a roster for positional surplus and need.
 
+    ``starter_needs`` is the LEAGUE's resolved demand
+    (:func:`starter_needs_for_league`) and is required.  Passing nothing
+    raises rather than falling back: the retired fallback was
+    ``dynasty_main``'s lineup, so an omitted argument silently measured any
+    league against another league's demand.
+
+    The depth arithmetic — bodies clearing the relevance floor against the
+    league's demand — is the canonical need owner's
+    (``src/roster_intel/weakness.py::position_depth``).  What stays here is
+    this engine's translation of it: a hole is a ``need``, two or more spare
+    relevant bodies is a trade ``surplus``.
+
     ``constraints`` (``src.trade.constraints.TradeConstraints``) is resolved
     into ``sendable_by_position`` and changes NOTHING else about the analysis.
     A protected player is still counted, still fills a starting slot and still
     makes his position a surplus — he is only withheld from what we may offer.
     """
-    needs = starter_needs or DEFAULT_STARTER_NEEDS
+    if not starter_needs:
+        raise ValueError(
+            "analyze_roster requires the league's resolved starter demand "
+            "(starter_needs_for_league); there is no default lineup"
+        )
+    needs = starter_needs
 
     pool_by_name: dict[str, PlayerAsset] = {}
     for a in asset_pool:
@@ -847,14 +855,20 @@ def analyze_roster(
 
     for pos, need in needs.items():
         players = by_position.get(pos, [])
-        relevant = [p for p in players if p.display_value >= MIN_RELEVANT_VALUE]
-        starters = relevant[:need]
-        depth = relevant[need:]
-        starter_counts[pos] = len(starters)
-        depth_counts[pos] = len(depth)
-        if len(starters) < need:
+        depth = position_depth(
+            pos,
+            (p.display_value for p in players),
+            required=need,
+            bar=MIN_RELEVANT_VALUE,
+            inclusive=True,
+        )
+        # ``need`` is an int (flex_priority), so ``spare`` is integral too.
+        spare = int(depth.spare)
+        starter_counts[pos] = min(depth.startable, need)
+        depth_counts[pos] = max(0, spare)
+        if depth.starter_hole:
             need_positions.append(pos)
-        if len(depth) >= 2:
+        if spare >= 2:
             surplus_positions.append(pos)
 
     # C3-CON-01, resolved ONCE for the whole module.  Every generator draws
@@ -1090,8 +1104,17 @@ def _rank_sort_key(s: TradeSuggestion, roster: RosterAnalysis | None = None):
 def _analyze_opponent_rosters(
     league_rosters: list[dict[str, Any]],
     asset_pool: list[PlayerAsset],
+    *,
+    starter_needs: dict[str, int],
 ) -> dict[str, RosterAnalysis]:
-    """Analyze all opponent rosters for need/surplus."""
+    """Analyze all opponent rosters for need/surplus.
+
+    Opponents play in the SAME league as the requesting roster, so they are
+    measured against the same resolved demand.  This used to call
+    ``analyze_roster`` with no demand at all, which fell back to
+    ``dynasty_main``'s lineup — so in ``dynasty_new`` every rival was read
+    as needing a second TE and nine defenders that league does not start.
+    """
     result: dict[str, RosterAnalysis] = {}
     for roster_entry in league_rosters:
         team_name = str(roster_entry.get("team_name", roster_entry.get("owner", ""))).strip()
@@ -1100,7 +1123,7 @@ def _analyze_opponent_rosters(
         players = roster_entry.get("players", [])
         if not isinstance(players, list) or not players:
             continue
-        analysis = analyze_roster(players, asset_pool)
+        analysis = analyze_roster(players, asset_pool, starter_needs)
         result[team_name] = analysis
     return result
 
@@ -1845,6 +1868,23 @@ def generate_suggestions_from_pool(
     if not _rookies_eligible_today():
         pool = [p for p in pool if not p.rookie]
 
+    if not starter_needs:
+        # Fail closed.  Without the league's lineup there is no honest way to
+        # say what this roster needs or can spare, and the retired fallback —
+        # another league's lineup — is worse than saying so.
+        return {
+            **{c: [] for c in ("sellHigh", "buyLow", "consolidation", "positionalUpgrades")},
+            "totalSuggestions": 0,
+            "warnings": [
+                "This league's starting lineup could not be resolved, so positional "
+                "need and surplus cannot be measured and no suggestion was generated."
+            ],
+            "metadata": {
+                "rosterProvided": len(roster_names),
+                "starterNeeds": None,
+                "noResultReason": "league_lineup_unresolved",
+            },
+        }
     roster = analyze_roster(roster_names, pool, starter_needs, constraints=constraints)
     if roster.roster_size and not roster.sendable_keys:
         # Every asset we could offer is protected or excluded.  Say so rather
@@ -1874,7 +1914,9 @@ def generate_suggestions_from_pool(
     # Phase 3: Opponent-aware analysis (if league rosters provided)
     opponent_analyses: dict[str, RosterAnalysis] = {}
     if league_rosters:
-        opponent_analyses = _analyze_opponent_rosters(league_rosters, pool)
+        opponent_analyses = _analyze_opponent_rosters(
+            league_rosters, pool, starter_needs=roster.starter_needs
+        )
 
     # Enrich all suggestions with edge signals, balancers, opponent fit
     all_unranked = sell_high + buy_low + consolidation + upgrades
