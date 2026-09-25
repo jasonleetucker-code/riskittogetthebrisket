@@ -36,12 +36,21 @@ the ILLUSTRATIVE lineup that optimizing individual MEAN projections implies;
 simulation draws. The last is not the total of the second — optimizing
 means and averaging optimized outcomes are different statistics.
 
-**Acquisition seams.** ``_observe_live_state`` and
-``_weekly_projection_fetches`` are the only places live inputs are
-acquired. Both are flag-gated (default OFF), bounded, and memoised
-in-process as an INTERIM until the shared background collector (Game Day
-U5) supplies them; a collector replaces these two functions and nothing
-else.
+**Served from the shared collector (Game Day U5).** The live acquisition
+cadence, persistence and simulation belong to ``src/ros/game_day_live.py``:
+its timer-driven tick fills :class:`LiveInputs` from persisted observations
+and publishes one versioned GENERATION per league-week, which
+:func:`build_matchup_intel` serves (with a ``freshness`` block).  This
+module owns the ASSEMBLY both producers share — :func:`assemble_league_week`,
+:func:`run_league_simulation`, :func:`render_league`,
+:func:`compose_team_payload` — so a generation and a request-path build of
+the same inputs are the same answer.
+
+**Request-path seams.** ``_observe_live_state`` and
+``_weekly_projection_fetches`` remain the acquisition for the on-demand
+path (no usable generation).  Both are flag-gated, bounded and memoised
+in-process; the weekly seam also merges the collector's persisted
+observations so a restart keeps each game's pre-kickoff read.
 
 **Private, and league-scoped.** Projections, win probabilities and roster
 weaknesses are proprietary decision intelligence under CLAUDE.md §5 — this
@@ -236,6 +245,11 @@ def _weekly_projection_fetches(
     network call (the fetcher refuses by itself).  On, at most one fetch per
     ``_WEEKLY_FETCH_TTL_SEC``; rows without a game id (Sleeper's
     no-projection placeholders) are not retained.
+
+    The shared collector's PERSISTED observations for the week
+    (``src/ros/game_day_live.py``) are merged in, so a request-path compute
+    after a process restart still holds each game's last pre-kickoff read —
+    the in-memory memo alone forgot it.
     """
     from dataclasses import replace
     from datetime import datetime
@@ -255,17 +269,31 @@ def _weekly_projection_fetches(
         if result.status == "feature_disabled":
             return (), WEEKLY_FEATURE_DISABLED, result.reason
         if result.status != "ok":
-            if not history:
+            if not history and not _persisted_weekly_history(season, week):
                 return (result,), result.status, result.reason
         else:
             slim = replace(result, rows=tuple(r for r in result.rows if r.get("game_id")))
             history = _prune_weekly_history([*history, slim], kickoffs)
             with _memo_lock:
                 _weekly_memo[key] = history
+    persisted = _persisted_weekly_history(season, week)
+    if persisted:
+        merged = {f.observed_at: f for f in [*persisted, *history] if f.observed_at}
+        history = _prune_weekly_history(list(merged.values()), kickoffs)
     return tuple(history), "ok", None
 
 
-def _nfl_slate(
+def _persisted_weekly_history(season: int, week: int) -> list[Any]:
+    """The collector's stored weekly projection observations (never raises)."""
+    try:
+        from src.ros import game_day_live
+
+        return game_day_live.load_weekly_history(int(season), int(week))
+    except Exception:  # noqa: BLE001 — optional evidence, never fatal
+        return []
+
+
+def _nfl_slate_parts(
     *,
     season: int,
     week: int,
@@ -273,32 +301,38 @@ def _nfl_slate(
     observed_at: float | None,
     now: float,
     team_week: Mapping[str, Any],
-    my_roster_id: str,
-    opponent_roster_id: str | None,
     players_meta: Mapping[str, Any],
     observed: ObservedSlate | None = None,
 ) -> dict[str, Any]:
-    """The week's complete real NFL schedule, this matchup's players attached to their game.
+    """The LEAGUE-level half of the NFL slate: the week's games, and for every
+    roster where each of its players lands (a game, a bye, or unattributed).
 
-    Where the live feed observed a game, its observed state, phase, period
-    and clock replace the schedule cache's (``stateSource`` names
-    which), so the slate and the probabilities read the same game state.
+    :func:`_compose_slate` turns it into one matchup's slate, so a stored
+    generation answers any team without re-running this.  The composed
+    result is identical to what a per-team build would produce.
 
-    Never reorders by fantasy relevance (the ordering is `schedule_games`'s
-    own chronological one, taken verbatim). A bye-week player and a player
-    with no resolvable NFL team are both real, distinct facts — neither is
-    silently dropped, and neither is guessed into a game it is not in.
+    The week's complete real NFL schedule, never reordered by fantasy
+    relevance (the ordering is `schedule_games`'s own chronological one,
+    taken verbatim).  Where the live feed observed a game, its observed
+    state, phase, period and clock replace the schedule cache's
+    (``stateSource`` names which), so the slate and the probabilities read
+    the same game state.  A bye-week player and a player with no resolvable
+    NFL team are both real, distinct facts — neither is silently dropped,
+    and neither is guessed into a game it is not in.
     """
     from src.ros.game_day_week import _normalize_nfl_team, schedule_games
 
     if not rows:
         return {
-            "scheduleState": "unavailable",
-            "scheduleUnavailableReason": "no cached nflverse schedule for this season",
-            "observedAt": observed_at,
-            "games": [],
-            "byeWeek": [],
-            "unattributed": [],
+            "base": {
+                "scheduleState": "unavailable",
+                "scheduleUnavailableReason": "no cached nflverse schedule for this season",
+                "observedAt": observed_at,
+                "games": [],
+                "byeWeek": [],
+                "unattributed": [],
+            },
+            "entries": {},
         }
 
     games = schedule_games(rows, season=season, week=week, now=now)
@@ -334,24 +368,22 @@ def _nfl_slate(
             remainingFraction=ev.remaining_fraction,
             remainingReason=ev.remaining_reason,
         )
-    payload_by_team: dict[str, dict[str, Any]] = {}
+    game_by_team: dict[str, str] = {}
     for g in games:
-        payload_by_team[g.home_team] = game_payloads[g.game_id]
-        payload_by_team[g.away_team] = game_payloads[g.game_id]
+        game_by_team[g.home_team] = g.game_id
+        game_by_team[g.away_team] = g.game_id
 
-    bye_week: list[dict[str, Any]] = []
-    unattributed: list[dict[str, Any]] = []
-    for side_label, roster_id in (("team", my_roster_id), ("opponent", opponent_roster_id)):
-        tw = team_week.get(roster_id) if roster_id else None
-        if not tw:
-            continue
+    entries: dict[str, dict[str, Any]] = {}
+    for roster_id, tw in team_week.items():
+        by_game: dict[str, list[dict[str, Any]]] = {}
+        bye_week: list[dict[str, Any]] = []
+        unattributed: list[dict[str, Any]] = []
         for p in tw.players:
             meta = players_meta.get(p.player_id) or {}
             nfl_team = _normalize_nfl_team(meta.get("team"))
             entry = {
                 "playerId": p.player_id,
                 "name": str(meta.get("full_name") or p.player_id),
-                "side": side_label,
                 "nflTeam": nfl_team or None,
                 "state": p.state,
                 "pointsScored": p.points_scored,
@@ -360,17 +392,62 @@ def _nfl_slate(
             }
             if not nfl_team:
                 unattributed.append({**entry, "reason": "no NFL team on file for this player"})
-            elif nfl_team in payload_by_team:
-                payload_by_team[nfl_team]["players"].append(entry)
+            elif nfl_team in game_by_team:
+                by_game.setdefault(game_by_team[nfl_team], []).append(entry)
             else:
                 bye_week.append(entry)
+        entries[str(roster_id)] = {
+            "byGame": by_game,
+            "byeWeek": bye_week,
+            "unattributed": unattributed,
+        }
 
     return {
-        "scheduleState": "available",
-        "observedAt": observed_at,
-        "games": [game_payloads[g.game_id] for g in games],
-        "byeWeek": bye_week,
-        "unattributed": unattributed,
+        "base": {
+            "scheduleState": "available",
+            "observedAt": observed_at,
+            "games": [game_payloads[g.game_id] for g in games],
+            "byeWeek": [],
+            "unattributed": [],
+        },
+        "entries": entries,
+    }
+
+
+def _with_side(entry: Mapping[str, Any], side: str) -> dict[str, Any]:
+    out = {"playerId": entry["playerId"], "name": entry["name"], "side": side}
+    out.update((k, v) for k, v in entry.items() if k not in ("playerId", "name"))
+    return out
+
+
+def _compose_slate(
+    parts: Mapping[str, Any], my_roster_id: str, opponent_roster_id: str | None
+) -> dict[str, Any]:
+    """One matchup's NFL slate from :func:`_nfl_slate_parts` — this team's
+    players first, then the opponent's, exactly as a per-team build orders
+    them.  Builds new containers; never mutates ``parts`` (which may be a
+    shared, cached generation)."""
+    base = parts["base"]
+    entries = parts.get("entries") or {}
+    sides = [("team", entries.get(str(my_roster_id)))]
+    if opponent_roster_id:
+        sides.append(("opponent", entries.get(str(opponent_roster_id))))
+    games = []
+    for game in base["games"]:
+        players = [
+            _with_side(e, label)
+            for label, ent in sides
+            if ent
+            for e in (ent.get("byGame") or {}).get(game["gameId"], ())
+        ]
+        games.append({**game, "players": players})
+    return {
+        **base,
+        "games": games,
+        "byeWeek": [_with_side(e, label) for label, ent in sides if ent for e in ent["byeWeek"]],
+        "unattributed": [
+            _with_side(e, label) for label, ent in sides if ent for e in ent["unattributed"]
+        ],
     }
 
 
@@ -616,29 +693,111 @@ def _outcome_payload(outcome: TeamWeekOutcome | None) -> dict[str, Any] | None:
     }
 
 
-def build_matchup_intel(
+@dataclass(frozen=True)
+class LiveInputs:
+    """Everything one league-week assembly reads from outside this module.
+
+    The ONLY acquisition-dependent part of Game Day.  Two producers fill it:
+    the request path (:func:`gather_request_inputs`, the interim seams above)
+    and the shared background collector (``src/ros/game_day_live.py``),
+    which fills it from its persisted observations.  Everything downstream —
+    :func:`assemble_league_week`, :func:`run_league_simulation`,
+    :func:`render_league`, :func:`compose_team_payload` — is identical for
+    both, so a collector generation and a request-path build of the same
+    inputs are the same answer.
+    """
+
+    fetched: _LeagueFetch
+    schedule_rows: list[Mapping[str, Any]]
+    schedule_observed_at: float | None
+    now: float
+    live_snapshot: Any
+    weekly_fetches: tuple[Any, ...]
+    weekly_state: str
+    weekly_reason: str | None
+    preseason: tuple[dict[str, float], str | None, tuple[str, ...], tuple[str, ...]]
+
+
+def kickoffs_for_week(
+    schedule_rows: list[Mapping[str, Any]],
+    live_snapshot: Any,
     *,
-    league_key: str,
-    sleeper_league_id: str,
-    owner_id: str,
     season: int,
     week: int,
-    contract: Mapping[str, Any] | None = None,
-    team_count: int | None = None,
+    now: float,
+) -> dict[str, float]:
+    """``{nfl team: kickoff epoch}`` from the merged schedule + observed evidence."""
+    schedule_evidence = _game_evidence(season, week, schedule_rows, None, now)
+    observed = observed_game_evidence(
+        live_snapshot, schedule_rows=schedule_rows, season=season, week=week, now=now
+    )
+    evidence = merge_game_evidence(schedule_evidence, observed)
+    return {t: g.kickoff_at for t, g in evidence.items() if g.kickoff_at is not None}
+
+
+def gather_request_inputs(fetched: _LeagueFetch, *, season: int, week: int) -> LiveInputs:
+    """The request path's acquisition, through the interim in-process seams."""
+    scoring_card = fetched.league.get("scoring_settings") or {}
+    preseason = _resolve_estimates(season, scoring_card)
+    schedule_rows, schedule_observed_at, schedule_now = _schedule_context(season)
+    snapshot = _observe_live_state(season, week)
+    kickoffs = kickoffs_for_week(
+        schedule_rows, snapshot, season=season, week=week, now=schedule_now
+    )
+    weekly_fetches, weekly_state, weekly_reason = _weekly_projection_fetches(
+        season, week, sorted(set(kickoffs.values()))
+    )
+    return LiveInputs(
+        fetched=fetched,
+        schedule_rows=schedule_rows,
+        schedule_observed_at=schedule_observed_at,
+        now=schedule_now,
+        live_snapshot=snapshot,
+        weekly_fetches=tuple(weekly_fetches),
+        weekly_state=weekly_state,
+        weekly_reason=weekly_reason,
+        preseason=preseason,
+    )
+
+
+@dataclass
+class LeagueWeekAssembly:
+    """One league-week resolved for EVERY team — owner-agnostic.
+
+    Cheap to build (no simulation); :func:`run_league_simulation` adds the
+    one expensive step.  The simulation always covers the whole league
+    because the median leg's threshold is every team's drawn score in the
+    same iteration.
+    """
+
+    league_key: str
+    season: int
+    week: int
+    inputs: LiveInputs
+    slots: list[str]
+    slot_source: str
+    estimates: GameDayEstimates
+    observed: ObservedSlate
+    scoring: Any
+    owner_by_roster: dict[str, str]
+    unknown_state: list[str]
+    can_simulate: bool
+    simulation: Any = None
+    sim_error: str | None = None
+
+
+def assemble_league_week(
+    inputs: LiveInputs,
+    *,
+    league_key: str,
+    season: int,
+    week: int,
     roster_settings: Mapping[str, Any] | None = None,
-    draws: int = DEFAULT_DRAWS,
-    seed: int = DEFAULT_SEED,
-) -> dict[str, Any]:
-    """One team's scheduled, live, or final matchup intelligence for ``week``."""
-    fetched = _fetch_league_week(sleeper_league_id, week)
+) -> LeagueWeekAssembly:
+    """Resolve the league-week from ``inputs`` — no network, no simulation."""
+    fetched = inputs.fetched
     if not fetched.rosters:
         raise MatchupIntelError(f"{league_key}: the host returned no rosters")
-
-    owner_by_roster = _owner_by_roster(fetched.rosters)
-    roster_by_owner = {v: k for k, v in owner_by_roster.items() if v}
-    my_roster_id = roster_by_owner.get(str(owner_id))
-    if not my_roster_id:
-        raise TeamNotInLeague(str(owner_id))
 
     slots, slot_source = resolve_starter_slots(
         roster_positions=fetched.league.get("roster_positions"),
@@ -650,26 +809,21 @@ def build_matchup_intel(
         )
 
     scoring_card = fetched.league.get("scoring_settings") or {}
-    preseason, preseason_source, sources_loaded, sources_unavailable = _resolve_estimates(
-        season, scoring_card
-    )
+    preseason, preseason_source, sources_loaded, sources_unavailable = inputs.preseason
 
-    schedule_rows, schedule_observed_at, schedule_now = _schedule_context(season)
+    now = inputs.now
     schedule_evidence = _game_evidence(
-        season, week, schedule_rows, schedule_observed_at, schedule_now
+        season, week, inputs.schedule_rows, inputs.schedule_observed_at, now
     )
     observed = observed_game_evidence(
-        _observe_live_state(season, week),
-        schedule_rows=schedule_rows,
+        inputs.live_snapshot,
+        schedule_rows=inputs.schedule_rows,
         season=season,
         week=week,
-        now=schedule_now,
+        now=now,
     )
     evidence = merge_game_evidence(schedule_evidence, observed)
     kickoffs_by_team = {t: g.kickoff_at for t, g in evidence.items() if g.kickoff_at is not None}
-    weekly_fetches, weekly_state, weekly_reason = _weekly_projection_fetches(
-        season, week, sorted(set(kickoffs_by_team.values()))
-    )
     rostered_ids = sorted(
         {str(pid) for r in fetched.rosters for pid in (r.get("players") or ()) if pid}
     )
@@ -680,14 +834,14 @@ def build_matchup_intel(
             scoring_settings=scoring_card,
             season=season,
             week=week,
-            now=schedule_now,
+            now=now,
             preseason_by_name=preseason,
             preseason_source=preseason_source,
             sources_loaded=sources_loaded,
             sources_unavailable=sources_unavailable,
-            weekly_fetches=weekly_fetches,
-            weekly_state=weekly_state,
-            weekly_reason=weekly_reason,
+            weekly_fetches=inputs.weekly_fetches,
+            weekly_state=inputs.weekly_state,
+            weekly_reason=inputs.weekly_reason,
             kickoffs_by_team=kickoffs_by_team,
         )
     except Exception as exc:  # noqa: BLE001 — a bad input must not lose the matchup
@@ -697,7 +851,6 @@ def build_matchup_intel(
             weekly_reason=f"{type(exc).__name__}: {exc}",
             preseason_source=None,
         )
-    estimate_source = estimates.source_label
 
     try:
         scoring = resolve_scoring_week(
@@ -708,9 +861,9 @@ def build_matchup_intel(
             players_meta=fetched.players,
             starter_slots=slots,
             estimates_by_player_id=estimates.points_by_player_id(),
-            estimate_source=estimate_source,
+            estimate_source=estimates.source_label,
             game_evidence=evidence,
-            now=schedule_now,
+            now=now,
         )
     except GameDayWeekRefusal as exc:
         if "already begun" in str(exc):
@@ -718,21 +871,6 @@ def build_matchup_intel(
         raise MatchupIntelError(str(exc)) from exc
 
     resolution = scoring.week
-    opponent_roster_id = resolution.opponents.get(my_roster_id)
-
-    # The simulation runs over the WHOLE league because the median leg's
-    # threshold is derived from every team's drawn score in the same
-    # iteration; simulating two teams would answer a different question.
-    #
-    # Every manager in this league asking about the SAME week is asking
-    # this identical question, so this goes through the shared cache
-    # rather than `simulate_league_week` directly — measured at
-    # dynasty_main's real scale (12 teams, ~45 active players each,
-    # draws=2000), a cold call takes ~19s and a cache hit ~1ms. See
-    # `get_cached_league_week_simulation`'s own docstring for the
-    # invalidation rule and why the cache cannot live under `data/ros/`.
-    simulation = None
-    sim_error: str | None = None
     # Do not simulate while any player's remaining production cannot be
     # stated (overtime, delay, stale feed …) or while any player's game
     # STATE is unknown (a passed kickoff with no live observation): either
@@ -745,19 +883,82 @@ def build_matchup_intel(
     can_simulate = not scoring.progress_unavailable_player_ids and (
         scoring.mode == "pregame" or not unknown_state
     )
-    if scoring.mode != "final" and can_simulate and resolution.estimate_coverage[0] > 0:
-        try:
-            simulation = get_cached_league_week_simulation(
-                rules=resolution.rules,
-                teams=resolution.teams,
-                opponents=resolution.opponents,
-                season=season,
-                week=week,
-                draws=draws,
-                seed=seed,
-            )
-        except Exception as exc:  # noqa: BLE001 — report, never fabricate
-            sim_error = f"{type(exc).__name__}: {exc}"
+    return LeagueWeekAssembly(
+        league_key=league_key,
+        season=season,
+        week=week,
+        inputs=inputs,
+        slots=list(slots),
+        slot_source=slot_source,
+        estimates=estimates,
+        observed=observed,
+        scoring=scoring,
+        owner_by_roster=_owner_by_roster(fetched.rosters),
+        unknown_state=unknown_state,
+        can_simulate=can_simulate,
+    )
+
+
+def simulation_wanted(assembly: LeagueWeekAssembly) -> bool:
+    """Whether this league-week has a forecast to compute at all."""
+    return (
+        assembly.scoring.mode != "final"
+        and assembly.can_simulate
+        and assembly.scoring.week.estimate_coverage[0] > 0
+    )
+
+
+def run_league_simulation(
+    assembly: LeagueWeekAssembly, *, draws: int = DEFAULT_DRAWS, seed: int = DEFAULT_SEED
+) -> None:
+    """The one expensive step, through the shared single-flighted cache.
+
+    Every manager in this league asking about the SAME week is asking this
+    identical question, so this goes through
+    `get_cached_league_week_simulation` rather than `simulate_league_week`
+    directly (one simulation per input change, shared by every viewer and
+    by the collector).  See that function's docstring for the invalidation
+    rule and why the cache cannot live under `data/ros/`.
+    """
+    if not simulation_wanted(assembly):
+        return
+    resolution = assembly.scoring.week
+    try:
+        assembly.simulation = get_cached_league_week_simulation(
+            rules=resolution.rules,
+            teams=resolution.teams,
+            opponents=resolution.opponents,
+            season=assembly.season,
+            week=assembly.week,
+            draws=draws,
+            seed=seed,
+        )
+    except Exception as exc:  # noqa: BLE001 — report, never fabricate
+        assembly.sim_error = f"{type(exc).__name__}: {exc}"
+
+
+def render_league(assembly: LeagueWeekAssembly) -> dict[str, Any]:
+    """Every team's matchup payload for this league-week, in shared parts.
+
+    JSON-able and owner-agnostic: ``shared`` (top-level fields and the
+    league lineage), ``sides`` (one per roster), ``opponents``,
+    ``ownerToRoster`` and the league half of the NFL slate.
+    :func:`compose_team_payload` assembles one team's answer from it, adding
+    the request-scoped parts (roster intelligence from the loaded contract,
+    the archive stamp, freshness).  This is what a collector generation
+    stores.
+    """
+    fetched = assembly.inputs.fetched
+    scoring = assembly.scoring
+    resolution = scoring.week
+    estimates = assembly.estimates
+    simulation = assembly.simulation
+    slots = assembly.slots
+    observed = assembly.observed
+    season, week = assembly.season, assembly.week
+    estimate_source = estimates.source_label
+    sources_loaded, sources_unavailable = assembly.inputs.preseason[2:4]
+    owner_by_roster = assembly.owner_by_roster
 
     outcomes = {t.team_id: t for t in (simulation.teams if simulation else ())}
     labels = _team_labels(fetched.users)
@@ -788,9 +989,7 @@ def build_matchup_intel(
             "fantasyPositions": list(p.fantasy_positions),
         }
 
-    def _side(roster_id: str | None) -> dict[str, Any] | None:
-        if not roster_id:
-            return None
+    def _side(roster_id: str) -> dict[str, Any]:
         oid = owner_by_roster.get(roster_id) or ""
         label = labels.get(oid, {"displayName": f"Roster {roster_id}", "teamName": ""})
         tw = team_week.get(roster_id)
@@ -863,6 +1062,197 @@ def build_matchup_intel(
                     side["result"] = "WIN" if own > other else "LOSS" if own < other else "TIE"
                 # A final result is a fact, not a forecast distribution.
                 side["outcome"] = None
+        return side
+
+    priced, active = resolution.estimate_coverage
+    notes = list(resolution.notes)
+    reasons_by_kind: dict[str, list[str]] = {}
+    for pid, why in sorted(scoring.progress_unavailable_reasons.items()):
+        reasons_by_kind.setdefault(why, []).append(pid)
+    basis_counts: dict[str, int] = {}
+    for est in est_by_id.values():
+        basis_counts[est.basis] = basis_counts.get(est.basis, 0) + 1
+    if assembly.sim_error:
+        notes.append(f"simulation unavailable: {assembly.sim_error}")
+
+    roster_ids = sorted(owner_by_roster)
+    shared = {
+        "leagueKey": assembly.league_key,
+        "season": season,
+        "week": week,
+        "mode": scoring.mode,
+        "probabilityState": (
+            "FINAL"
+            if scoring.mode == "final"
+            else "LIVE_PROGRESS_UNAVAILABLE"
+            if scoring.progress_unavailable_player_ids
+            else "GAME_STATE_OR_SCORING_UNAVAILABLE"
+            if not assembly.can_simulate
+            else "AVAILABLE"
+            if simulation
+            else "UNAVAILABLE"
+        ),
+        "progressUnavailablePlayerIds": list(scoring.progress_unavailable_player_ids),
+        # reason -> player ids, e.g. {"overtime": [...]} — a withheld
+        # probability always names why.
+        "progressUnavailableReasons": reasons_by_kind,
+        "unknownStatePlayerIds": assembly.unknown_state if scoring.mode != "pregame" else [],
+        "recapUrl": f"/league/articles/{season}/{week}" if scoring.mode == "final" else None,
+    }
+    # Everything a reader needs to decide how much to trust the numbers,
+    # and which owner produced each of them. W1-15.  ``archive`` and
+    # ``contractScrapeTimestamp`` are request-scoped and added at compose.
+    lineage = {
+        "projectionSource": estimate_source,
+        "projectionHorizonNote": (
+            (
+                f"weekly projections ({WEEKLY_SOURCE_LABEL}) locked at each game's "
+                "kickoff; players without one use a preseason full-season "
+                "per-game average — a FALLBACK, NOT a current-week forecast — "
+                "labelled per player"
+            )
+            if estimates.weekly_state == "ok"
+            else "preseason full-season per-game average — a FALLBACK, NOT a "
+            "current-week forecast; no WEEKLY-horizon projection is in use"
+            f" (weekly source: {estimates.weekly_state})"
+        )
+        if estimate_source
+        else None,
+        "projectionBasisCounts": basis_counts,
+        # How many INDEPENDENT weekly projection families actually
+        # contribute (one per census providerFamily). 1 today (RotoWire
+        # via Sleeper): a one-family state is never a multi-source ensemble.
+        "projectionFamiliesContributing": len({f for e in est_by_id.values() for f in e.families}),
+        # Human wording for each basis, so the fallback can never be read
+        # as the weekly projection.
+        "projectionBasisLabels": {b: BASIS_LABELS[b] for b in sorted(basis_counts)},
+        # The ensemble behind the preseason FALLBACK basis, by its own name.
+        "preseasonProjectionSource": estimates.preseason_source,
+        "weeklyProjection": {
+            "sourceLabel": WEEKLY_SOURCE_LABEL,
+            "flag": "sleeper_weekly_projections",
+            "state": estimates.weekly_state,
+            "reason": estimates.weekly_reason,
+            "asOf": estimates.weekly_as_of,
+            "observedAt": estimates.weekly_observed_at,
+            "counts": dict(estimates.weekly_counts),
+            # Read from the census, never restated here.
+            "licensingStatus": _weekly_licensing_status(),
+            "accessPosture": _weekly_census_field("accessPosture"),
+            # Per weekly source (family, state, lock counts); one family
+            # is one vote however many of its products are wired.
+            "sources": {k: dict(v) for k, v in estimates.weekly_sources.items()},
+        },
+        "ambiguousNamePlayerIds": list(estimates.ambiguous_name_player_ids),
+        "remainingProductionMethod": (
+            "remaining = pregame provider baseline x observed share of regulation "
+            "left (observed_clock); banked points are never subtracted from the "
+            "baseline; overtime/delay/postponement/stale feed withhold the "
+            "probability with a named reason"
+        ),
+        "leverageDefinition": LEVERAGE_DEFINITION,
+        "projectionSourcesLoaded": list(sources_loaded),
+        "projectionSourcesUnavailable": list(sources_unavailable),
+        "estimateCoverage": {"priced": priced, "active": active},
+        "starterSlotSource": assembly.slot_source,
+        "starterSlots": list(slots),
+        "bestBall": resolution.rules.best_ball,
+        "medianEnabled": resolution.rules.median_enabled,
+        "teamCount": resolution.rules.team_count,
+        "sleeperFetchedAt": fetched.fetched_at,
+        "gameEvidence": {
+            team: {
+                "state": g.state,
+                "source": g.source,
+                "observedAt": g.observed_at,
+                "kickoffAt": g.kickoff_at,
+                "gameId": g.game_id,
+                "phase": g.phase,
+                "period": g.period,
+                "clockSeconds": g.clock_seconds,
+                "remainingFraction": g.remaining_fraction,
+                "remainingReason": g.remaining_reason,
+            }
+            for team, g in scoring.game_evidence.items()
+        },
+        "liveGameState": _live_state_lineage(observed),
+        "gameStateLimitation": (
+            "observed ESPN scoreboard (quarter/clock/status) where available; "
+            "nflverse schedule/result cache otherwise"
+            if observed.state == "observed"
+            else "nflverse schedule/result cache only; live game state "
+            f"{observed.state} ({observed.reason}) — a passed kickoff stays unknown"
+        ),
+        "simulation": (
+            {
+                "modelVersion": simulation.model_version,
+                "pointsModelSource": simulation.points_model_source,
+                "draws": simulation.draws,
+                "seed": simulation.seed,
+                "thresholdSemantics": simulation.threshold_semantics,
+                "thresholdSemanticsVerified": simulation.threshold_semantics_verified,
+                "notes": list(simulation.notes),
+                # Honest freshness, matching this module's own stated
+                # purpose: a number computed 90 minutes ago and one
+                # computed 30 seconds ago should not read the same.
+                "cached": simulation.cached,
+                "cacheComputedAt": simulation.cache_computed_at,
+            }
+            if simulation
+            else None
+        ),
+    }
+    return {
+        "shared": shared,
+        "lineage": lineage,
+        "notes": notes,
+        "sides": {rid: _side(rid) for rid in roster_ids},
+        "opponents": {rid: resolution.opponents.get(rid) for rid in roster_ids},
+        "ownerToRoster": {v: k for k, v in owner_by_roster.items() if v},
+        "slate": _nfl_slate_parts(
+            season=season,
+            week=week,
+            rows=assembly.inputs.schedule_rows,
+            observed_at=assembly.inputs.schedule_observed_at,
+            now=assembly.inputs.now,
+            team_week=team_week,
+            players_meta=fetched.players,
+            observed=observed,
+        ),
+    }
+
+
+def compose_team_payload(
+    render: Mapping[str, Any],
+    *,
+    owner_id: str,
+    contract: Mapping[str, Any] | None = None,
+    team_count: int | None = None,
+    freshness: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """One team's matchup payload from a :func:`render_league` result.
+
+    Never mutates ``render`` — it may be a cached, shared collector
+    generation.  Adds only request-scoped context: roster intelligence from
+    the loaded contract, the archive stamp, the contract's scrape stamp and
+    the ``freshness`` block.
+    """
+    roster_by_owner = render.get("ownerToRoster") or {}
+    my_roster_id = roster_by_owner.get(str(owner_id))
+    if not my_roster_id:
+        raise TeamNotInLeague(str(owner_id))
+    shared = render["shared"]
+    opponent_roster_id = (render.get("opponents") or {}).get(my_roster_id)
+    sides = render.get("sides") or {}
+
+    def _side(roster_id: str | None) -> dict[str, Any] | None:
+        if not roster_id:
+            return None
+        base = sides.get(roster_id)
+        if base is None:
+            return None
+        side = dict(base)
+        oid = side.get("ownerId")
         if contract and oid:
             # REUSE, not recomputation: the canonical roster-intelligence
             # owner's own answer for this team. `TeamNotInLeague` here means
@@ -882,167 +1272,95 @@ def build_matchup_intel(
             side["rosterIntelligence"] = None
         return side
 
-    priced, active = resolution.estimate_coverage
-    notes = list(resolution.notes)
-    reasons_by_kind: dict[str, list[str]] = {}
-    for pid, why in sorted(scoring.progress_unavailable_reasons.items()):
-        reasons_by_kind.setdefault(why, []).append(pid)
-    basis_counts: dict[str, int] = {}
-    for est in est_by_id.values():
-        basis_counts[est.basis] = basis_counts.get(est.basis, 0) + 1
-    if sim_error:
-        notes.append(f"simulation unavailable: {sim_error}")
+    notes = list(render.get("notes") or ())
     if opponent_roster_id is None:
         notes.append("no scheduled opponent for this team in this week")
-
-    return {
-        "leagueKey": league_key,
-        "season": season,
-        "week": week,
-        "mode": scoring.mode,
-        "probabilityState": (
-            "FINAL"
-            if scoring.mode == "final"
-            else "LIVE_PROGRESS_UNAVAILABLE"
-            if scoring.progress_unavailable_player_ids
-            else "GAME_STATE_OR_SCORING_UNAVAILABLE"
-            if not can_simulate
-            else "AVAILABLE"
-            if simulation
-            else "UNAVAILABLE"
-        ),
-        "progressUnavailablePlayerIds": list(scoring.progress_unavailable_player_ids),
-        # reason -> player ids, e.g. {"overtime": [...]} — a withheld
-        # probability always names why.
-        "progressUnavailableReasons": reasons_by_kind,
-        "unknownStatePlayerIds": unknown_state if scoring.mode != "pregame" else [],
-        "recapUrl": f"/league/articles/{season}/{week}" if scoring.mode == "final" else None,
+    lineage = dict(render["lineage"])
+    # W1-26: the perishable pregame archive's own timestamp, with "nothing
+    # was captured" kept distinct from "we could not read the archive".
+    lineage["archive"] = _archive_evidence(
+        str(shared["leagueKey"]), int(shared["season"]), int(shared["week"])
+    )
+    lineage["contractScrapeTimestamp"] = (
+        ((contract or {}).get("meta") or {}).get("scrapeTimestamp")
+        if isinstance(contract, Mapping)
+        else None
+    )
+    payload = {
+        **shared,
         "team": _side(my_roster_id),
         "opponent": _side(opponent_roster_id),
-        "nflSlate": _nfl_slate(
-            season=season,
-            week=week,
-            rows=schedule_rows,
-            observed_at=schedule_observed_at,
-            now=schedule_now,
-            team_week=team_week,
-            my_roster_id=my_roster_id,
-            opponent_roster_id=opponent_roster_id,
-            players_meta=fetched.players,
-            observed=observed,
-        ),
-        # Everything a reader needs to decide how much to trust the numbers
-        # above, and which owner produced each of them. W1-15.
-        "lineage": {
-            "projectionSource": estimate_source,
-            "projectionHorizonNote": (
-                (
-                    f"weekly projections ({WEEKLY_SOURCE_LABEL}) locked at each game's "
-                    "kickoff; players without one use a preseason full-season "
-                    "per-game average — a FALLBACK, NOT a current-week forecast — "
-                    "labelled per player"
-                )
-                if estimates.weekly_state == "ok"
-                else "preseason full-season per-game average — a FALLBACK, NOT a "
-                "current-week forecast; no WEEKLY-horizon projection is in use"
-                f" (weekly source: {estimates.weekly_state})"
-            )
-            if estimate_source
-            else None,
-            "projectionBasisCounts": basis_counts,
-            # How many INDEPENDENT weekly projection families actually
-            # contribute (one per census providerFamily). 1 today (RotoWire
-            # via Sleeper): a one-family state is never a multi-source ensemble.
-            "projectionFamiliesContributing": len(
-                {f for e in est_by_id.values() for f in e.families}
-            ),
-            # Human wording for each basis, so the fallback can never be read
-            # as the weekly projection.
-            "projectionBasisLabels": {b: BASIS_LABELS[b] for b in sorted(basis_counts)},
-            # The ensemble behind the preseason FALLBACK basis, by its own name.
-            "preseasonProjectionSource": estimates.preseason_source,
-            "weeklyProjection": {
-                "sourceLabel": WEEKLY_SOURCE_LABEL,
-                "flag": "sleeper_weekly_projections",
-                "state": estimates.weekly_state,
-                "reason": estimates.weekly_reason,
-                "asOf": estimates.weekly_as_of,
-                "observedAt": estimates.weekly_observed_at,
-                "counts": dict(estimates.weekly_counts),
-                # Read from the census, never restated here.
-                "licensingStatus": _weekly_licensing_status(),
-                "accessPosture": _weekly_census_field("accessPosture"),
-                # Per weekly source (family, state, lock counts); one family
-                # is one vote however many of its products are wired.
-                "sources": {k: dict(v) for k, v in estimates.weekly_sources.items()},
-            },
-            "ambiguousNamePlayerIds": list(estimates.ambiguous_name_player_ids),
-            "remainingProductionMethod": (
-                "remaining = pregame provider baseline x observed share of regulation "
-                "left (observed_clock); banked points are never subtracted from the "
-                "baseline; overtime/delay/postponement/stale feed withhold the "
-                "probability with a named reason"
-            ),
-            "leverageDefinition": LEVERAGE_DEFINITION,
-            "projectionSourcesLoaded": list(sources_loaded),
-            "projectionSourcesUnavailable": list(sources_unavailable),
-            "estimateCoverage": {"priced": priced, "active": active},
-            "starterSlotSource": slot_source,
-            "starterSlots": list(slots),
-            "bestBall": resolution.rules.best_ball,
-            "medianEnabled": resolution.rules.median_enabled,
-            "teamCount": resolution.rules.team_count,
-            "sleeperFetchedAt": fetched.fetched_at,
-            "gameEvidence": {
-                team: {
-                    "state": g.state,
-                    "source": g.source,
-                    "observedAt": g.observed_at,
-                    "kickoffAt": g.kickoff_at,
-                    "gameId": g.game_id,
-                    "phase": g.phase,
-                    "period": g.period,
-                    "clockSeconds": g.clock_seconds,
-                    "remainingFraction": g.remaining_fraction,
-                    "remainingReason": g.remaining_reason,
-                }
-                for team, g in scoring.game_evidence.items()
-            },
-            "liveGameState": _live_state_lineage(observed),
-            "gameStateLimitation": (
-                "observed ESPN scoreboard (quarter/clock/status) where available; "
-                "nflverse schedule/result cache otherwise"
-                if observed.state == "observed"
-                else "nflverse schedule/result cache only; live game state "
-                f"{observed.state} ({observed.reason}) — a passed kickoff stays unknown"
-            ),
-            # W1-26: the perishable pregame archive's own timestamp, with
-            # "nothing was captured" kept distinct from "we could not read
-            # the archive".
-            "archive": _archive_evidence(league_key, int(season), int(week)),
-            "contractScrapeTimestamp": (
-                ((contract or {}).get("meta") or {}).get("scrapeTimestamp")
-                if isinstance(contract, Mapping)
-                else None
-            ),
-            "simulation": (
-                {
-                    "modelVersion": simulation.model_version,
-                    "pointsModelSource": simulation.points_model_source,
-                    "draws": simulation.draws,
-                    "seed": simulation.seed,
-                    "thresholdSemantics": simulation.threshold_semantics,
-                    "thresholdSemanticsVerified": simulation.threshold_semantics_verified,
-                    "notes": list(simulation.notes),
-                    # Honest freshness, matching this module's own stated
-                    # purpose: a number computed 90 minutes ago and one
-                    # computed 30 seconds ago should not read the same.
-                    "cached": simulation.cached,
-                    "cacheComputedAt": simulation.cache_computed_at,
-                }
-                if simulation
-                else None
-            ),
-        },
+        "nflSlate": _compose_slate(render["slate"], my_roster_id, opponent_roster_id),
+        "lineage": lineage,
         "notes": notes,
     }
+    if freshness is not None:
+        payload["freshness"] = dict(freshness)
+    return payload
+
+
+def compute_league_render(
+    *,
+    league_key: str,
+    sleeper_league_id: str,
+    season: int,
+    week: int,
+    roster_settings: Mapping[str, Any] | None = None,
+    draws: int = DEFAULT_DRAWS,
+    seed: int = DEFAULT_SEED,
+    fetched: _LeagueFetch | None = None,
+) -> tuple[dict[str, Any], LiveInputs]:
+    """Request-path compute: acquire through the interim seams, assemble,
+    simulate and render the whole league.  Used only when no collector
+    generation can be served (``src/ros/game_day_live.py`` decides)."""
+    fetched = fetched if fetched is not None else _fetch_league_week(sleeper_league_id, week)
+    if not fetched.rosters:
+        raise MatchupIntelError(f"{league_key}: the host returned no rosters")
+    inputs = gather_request_inputs(fetched, season=season, week=week)
+    assembly = assemble_league_week(
+        inputs, league_key=league_key, season=season, week=week, roster_settings=roster_settings
+    )
+    run_league_simulation(assembly, draws=draws, seed=seed)
+    return render_league(assembly), inputs
+
+
+def build_matchup_intel(
+    *,
+    league_key: str,
+    sleeper_league_id: str,
+    owner_id: str,
+    season: int,
+    week: int,
+    contract: Mapping[str, Any] | None = None,
+    team_count: int | None = None,
+    roster_settings: Mapping[str, Any] | None = None,
+    draws: int = DEFAULT_DRAWS,
+    seed: int = DEFAULT_SEED,
+) -> dict[str, Any]:
+    """One team's scheduled, live, or final matchup intelligence for ``week``.
+
+    Served from the shared collector's latest GENERATION for this
+    league-week when one exists (fast: no network, no simulation), with a
+    ``freshness`` block stating its true as-of, age and state.  Only when no
+    generation can be served does this compute on demand — single-flighted
+    per league-week, labelled ``degraded`` — see
+    ``src/ros/game_day_live.py::serve_league_render``.
+    """
+    from src.ros import game_day_live
+
+    render, freshness = game_day_live.serve_league_render(
+        league_key=league_key,
+        sleeper_league_id=sleeper_league_id,
+        season=int(season),
+        week=int(week),
+        roster_settings=roster_settings,
+        draws=draws,
+        seed=seed,
+    )
+    return compose_team_payload(
+        render,
+        owner_id=str(owner_id),
+        contract=contract,
+        team_count=team_count,
+        freshness=freshness,
+    )

@@ -60,6 +60,19 @@ os.environ.setdefault(
 # unit-test step so the CI policy is visible rather than inherited.
 os.environ.setdefault("UPTIME_CHECK_ENABLED", "0")
 
+# ── Game Day live network feeds OFF for the suite ─────────────────────
+# ``game_day_live_game_state`` (ESPN scoreboard) and
+# ``sleeper_weekly_projections`` default ON in production since Game Day
+# U5 (the shared collector owns their cadence).  A unit test must never
+# reach ESPN or Sleeper, and the request-path seams in
+# ``src/api/matchup_intel.py`` would with the production default, so the
+# suite runs with both OFF.  ``setdefault`` for the same reason as above:
+# a test exercising the ON path sets ``1`` itself (monkeypatch), and the
+# production default in ``_DEFAULTS`` is untouched — it is pinned by
+# ``tests/api/test_feature_flags.py``.
+os.environ.setdefault("RISKIT_FEATURE_GAME_DAY_LIVE_GAME_STATE", "0")
+os.environ.setdefault("RISKIT_FEATURE_SLEEPER_WEEKLY_PROJECTIONS", "0")
+
 # ── Sleeper league context isolation ──────────────────────────────────
 # ``src/api/data_contract.py::_resolve_league_context`` reads the
 # operator's Sleeper league to derive the roster count (rookie-pick

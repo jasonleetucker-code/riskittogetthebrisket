@@ -858,6 +858,33 @@ def _sim_input_fingerprint(
     return hashlib.sha256(blob).hexdigest()
 
 
+def simulation_input_fingerprint(
+    *,
+    rules: LeagueWeekRules,
+    teams: Sequence[TeamWeek],
+    opponents: Mapping[str, str | None],
+    draws: int = DEFAULT_DRAWS,
+    seed: int = DEFAULT_SEED,
+    points_model: PointsModel | None = None,
+    threshold_semantics: str = THRESHOLD_SEMANTICS,
+) -> str:
+    """The cache's own input identity, for callers that version on it.
+
+    The Game Day collector (``src/ros/game_day_live.py``) folds this into
+    its generation fingerprint so a generation moves exactly when the
+    simulation would — one definition of "the simulation's inputs changed".
+    """
+    return _sim_input_fingerprint(
+        rules=rules,
+        teams=teams,
+        opponents=opponents,
+        draws=draws,
+        seed=seed,
+        threshold_semantics=threshold_semantics,
+        model=points_model or load_points_model(),
+    )
+
+
 def _outcome_from_dict(row: Mapping[str, Any]) -> TeamWeekOutcome:
     kwargs = dict(row)
     kwargs["unsimulable_player_ids"] = tuple(kwargs.get("unsimulable_player_ids") or ())
