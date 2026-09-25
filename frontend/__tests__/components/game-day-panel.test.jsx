@@ -221,6 +221,21 @@ describe("GameDayPanel — withheld probability", () => {
     ).toBeInTheDocument();
     expect(within(heroTable()).queryByText(/%$/)).toBeNull();
   });
+
+  it("never turns unseen football into a 0.0 score: shows Sleeper's total, labelled", async () => {
+    await renderReady(FEED_DOWN);
+    const unknown = FEED_DOWN.team.players.filter((p) => p.state === "unknown");
+    expect(unknown.length).toBeGreaterThan(0);
+    const row = heroRow("Team 8");
+    expect(within(row).getByText(formatPoints(FEED_DOWN.team.actualScore))).toBeInTheDocument();
+    expect(
+      within(row).getByText(`Sleeper total · game status unknown for ${unknown.length}`),
+    ).toBeInTheDocument();
+    expect(within(row).queryByText("No players have played yet")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Best-ball details" }));
+    expect((await screen.findAllByText(/Game status unknown for/)).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/No one on this roster has played yet/)).toBeNull();
+  });
 });
 
 describe("GameDayPanel — final", () => {

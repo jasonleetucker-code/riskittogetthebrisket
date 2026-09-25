@@ -50,11 +50,21 @@ function CurrentLineup({ side, mode }) {
       </div>
     );
   }
+  const unknown = (side?.players || []).filter((p) => p.state === "unknown");
+  const unknownNote = unknown.length ? (
+    <p className={styles.note}>
+      Game status unknown for {unknown.map((p) => p.name).join(", ")} — the live feed could not see
+      their game{unknown.length === 1 ? "" : "s"}, so {unknown.length === 1 ? "he is" : "they are"}{" "}
+      not seated here even if Sleeper shows points.
+    </p>
+  ) : null;
   if (lineup.lineupState === "not_started") {
     return (
       <div>
         <h4 className={styles.subTitle}>{title}</h4>
-        <p className={styles.note}>No one on this roster has played yet, so no lineup is counting.</p>
+        {unknownNote || (
+          <p className={styles.note}>No one on this roster has played yet, so no lineup is counting.</p>
+        )}
       </div>
     );
   }
@@ -99,6 +109,7 @@ function CurrentLineup({ side, mode }) {
           ? ` · ${lineup.notStartedPlayerIds.length} yet to play`
           : ""}
       </p>
+      {unknownNote}
     </div>
   );
 }

@@ -45,12 +45,22 @@ function ScoreCell({ side, mode }) {
   // points (measured in the real TNF capture: 0.0 beside a 3.77 lineup), so
   // it is shown beside ours when they differ, never silently preferred.
   // FINAL: the host's final total is the result of record.
+  // UNKNOWN GAME STATE: the current lineup only seats players whose game is
+  // OBSERVED begun, so a player whose status the feed could not see is in
+  // neither its seats nor its missing list — its total would read as an
+  // honest-looking 0.0 while Sleeper shows points. Then the host total is
+  // the only stated score, and it is labelled as such.
+  const unknown = (side?.players || []).filter((p) => p.state === "unknown").length;
+  const hostOnly = mode === "live" && unknown > 0;
   const banked = lineup ? (side?.pointsBanked ?? lineup.total ?? null) : null;
-  const primaryValue = mode === "final" ? side?.actualScore : lineup ? banked : side?.actualScore;
+  const primaryValue =
+    mode === "final" || hostOnly || !lineup ? side?.actualScore : banked;
   const value = formatPoints(primaryValue);
   const host = formatPoints(side?.actualScore);
   const notes = [];
-  if (value === null && lineup?.missingPlayerIds?.length) {
+  if (hostOnly) {
+    notes.push(`Sleeper total · game status unknown for ${unknown}`);
+  } else if (value === null && lineup?.missingPlayerIds?.length) {
     const known = formatPoints(lineup.knownSubtotal);
     notes.push(
       `Scoring missing for ${lineup.missingPlayerIds.length}${known ? ` · known ${known}` : ""}`,
@@ -59,7 +69,7 @@ function ScoreCell({ side, mode }) {
     notes.push("No players have played yet");
   }
   const secondary = mode === "final" ? formatPoints(banked) : host;
-  if (value !== null && secondary !== null && secondary !== value) {
+  if (!hostOnly && value !== null && secondary !== null && secondary !== value) {
     notes.push(mode === "final" ? `Best-ball lineup ${secondary}` : `Sleeper shows ${secondary}`);
   }
   return (

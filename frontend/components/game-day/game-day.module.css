@@ -83,6 +83,7 @@
   z-index: auto;
 }
 .scoreboard tbody th {
+  white-space: normal;
   text-transform: none;
   letter-spacing: normal;
   font-size: inherit;
