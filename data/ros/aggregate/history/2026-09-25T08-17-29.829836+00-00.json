@@ -1,13 +1,4 @@
 {
-  "aggregatedAt": "2026-09-25T08:17:29.803817+00:00",
-  "league": {
-    "is_superflex": true,
-    "is_2qb": false,
-    "is_te_premium": true,
-    "idp_enabled": true
-  },
-  "sourceCount": 5,
-  "playerCount": 877,
   "players": [
     {
       "canonicalName": "carson schwesinger",
