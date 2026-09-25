@@ -53,16 +53,24 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import random
 import statistics
+import tempfile
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from src.league_intel.sim_calibration import PointsModel, load_points_model
-from src.ros.lineup import RosterPlayer, precompute_slot_eligibility, solve_optimal_assignment
+from src.ros.lineup import (
+    OBJECTIVE_REALIZED_POINTS,
+    RosterPlayer,
+    precompute_slot_eligibility,
+    solve_optimal_assignment,
+)
 from src.utils.config_loader import repo_root
+from src.utils.singleflight import SingleFlight
 
 #: A player's state within the scoring period. Every one of these is a
 #: DIFFERENT statement about what is still uncertain, and collapsing any
@@ -87,10 +95,17 @@ THRESHOLD_SEMANTICS_VERIFIED_FOR_EVEN_LEAGUES: bool = True
 DEFAULT_DRAWS: int = 10_000
 
 #: Fixed so a probability does not flicker between identical requests.
-#: A re-render is not new evidence.
+#: A re-render is not new evidence.  THE one default seed: the matchup
+#: endpoint imports this rather than keeping a second constant, so a
+#: background collector and a request compute the identical answer for
+#: identical inputs.
 DEFAULT_SEED: int = 20260910
 
-MODEL_VERSION: str = "game-day-sim-v3"
+#: v4 (2026-09-24, Game Day U4): best-ball lineup CHOICE now uses the same
+#: raw realized/drawn points it SUMS (``lineup.OBJECTIVE_REALIZED_POINTS``);
+#: per-player P(in final lineup) and per-NFL-game matchup leverage are
+#: emitted from the same draws.  Bumped so no v3 cache is served.
+MODEL_VERSION: str = "game-day-sim-v4"
 
 
 class GameDaySimError(ValueError):
@@ -114,6 +129,10 @@ class PlayerWeek:
     points_scored: float | None = None
     projected_remaining: float | None = None
     fantasy_positions: tuple[str, ...] = ()
+    #: The real NFL game this player's week is played in, or ``None`` when
+    #: it is not known (bye, no team on file, no schedule).  Used ONLY to
+    #: group players for per-game leverage; it never changes a draw.
+    nfl_game_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.state not in PLAYER_STATES:
@@ -185,6 +204,28 @@ class TeamWeekOutcome:
 
     unsimulable_player_ids: tuple[str, ...] = ()
     notes: list[str] = field(default_factory=list)
+
+    #: player_id -> % of draws in which the player is in the team's FINAL
+    #: optimized lineup (best ball: the exact solver's assignment on that
+    #: draw's final points; managed: the submitted starters).  From the
+    #: SAME draws as every other number here.  A completed player below
+    #: 100% is being displaced by teammates still to play.
+    player_lineup_pct: dict[str, float] = field(default_factory=dict)
+    #: Per-NFL-game matchup leverage, strongest first — see
+    #: :data:`LEVERAGE_DEFINITION`.  Empty when the team has no opponent.
+    game_leverage: list[dict[str, Any]] = field(default_factory=list)
+
+
+#: Leverage definition, published with every payload so a reader never has
+#: to reverse-engineer what the number means.
+LEVERAGE_DEFINITION: str = (
+    "For NFL game g: net_g = (this team's final-lineup points from players in g) - "
+    "(opponent's final-lineup points from players in g), per simulation draw. "
+    "leverage_g = P(win matchup | net_g above its median across draws) - "
+    "P(win matchup | net_g below its median), in percentage points, from the same "
+    "draws as the win probability. Draws exactly at the median are in neither half. "
+    "Games with no remaining production on either side carry no leverage."
+)
 
 
 @dataclass
@@ -272,7 +313,18 @@ def _team_score(
     *,
     precomputed_eligibility: Mapping[str, Sequence[int]] | None = None,
 ) -> float:
-    """One team's simulated weekly score under its OWN lineup rules.
+    """One team's simulated weekly score (see :func:`_team_assignment`)."""
+    return _team_assignment(team, drawn, rules, precomputed_eligibility=precomputed_eligibility)[0]
+
+
+def _team_assignment(
+    team: TeamWeek,
+    drawn: Mapping[str, float],
+    rules: LeagueWeekRules,
+    *,
+    precomputed_eligibility: Mapping[str, Sequence[int]] | None = None,
+) -> tuple[float, tuple[str, ...]]:
+    """``(score, lineup player ids)`` for one team under its OWN rules.
 
     Best ball re-solves the exact optimal assignment against THIS draw's
     scores, which is what makes lineup displacement real: a player
@@ -287,6 +339,10 @@ def _team_score(
     solver so eligibility is not rederived on every one of a
     simulation's thousands of draws for the same team. Omitting it
     reproduces today's per-call derivation exactly.
+
+    The best-ball solve uses ``OBJECTIVE_REALIZED_POINTS``: the lineup is
+    CHOSEN on the same raw points it is SUMMED on, so a negative banked
+    score is never seated over a 0.0 by a clamped tie-break.
     """
     if rules.best_ball:
         pool = [
@@ -301,14 +357,20 @@ def _team_score(
             if p.player_id in drawn
         ]
         if not pool:
-            return 0.0
+            return 0.0, ()
         assignment = solve_optimal_assignment(
             pool,
             list(rules.starter_slots),
             precomputed_eligibility=precomputed_eligibility,
+            objective=OBJECTIVE_REALIZED_POINTS,
         )
-        return float(sum(pl.ros_value or 0.0 for pl in assignment.values()))
-    return float(sum(drawn.get(pid, 0.0) for pid in team.declared_starters))
+        # ros_value is a drawn float for every pool member (never None).
+        return (
+            float(sum(float(pl.ros_value) for pl in assignment.values())),
+            tuple(pl.player_id for pl in assignment.values()),
+        )
+    starters = tuple(pid for pid in team.declared_starters if pid in drawn)
+    return float(sum(drawn[pid] for pid in starters)), starters
 
 
 def _threshold(scores: Sequence[float], semantics: str = THRESHOLD_SEMANTICS) -> float:
@@ -321,6 +383,105 @@ def _threshold(scores: Sequence[float], semantics: str = THRESHOLD_SEMANTICS) ->
 
 def _pct(count: int, draws: int) -> float:
     return round(100.0 * count / draws, 2) if draws else 0.0
+
+
+def _has_remaining(player: PlayerWeek) -> bool:
+    return (
+        player.state in ("in_progress", "not_started")
+        and player.projected_remaining is not None
+        and player.projected_remaining > 0.0
+    )
+
+
+def _leverage_plan(
+    teams: Sequence[TeamWeek],
+    simulable: Mapping[str, tuple[PlayerWeek, ...]],
+    opponents: Mapping[str, str | None],
+) -> dict[str, tuple[str, tuple[str, ...]]]:
+    """team_id -> (opponent_id, NFL games with remaining production on either side).
+
+    A game where neither side has football left cannot move the outcome
+    distribution any further; it is omitted rather than reported as zero.
+    """
+    known = {t.team_id for t in teams}
+    plan: dict[str, tuple[str, tuple[str, ...]]] = {}
+    for team in teams:
+        opp = opponents.get(team.team_id)
+        if opp is None or opp not in known:
+            continue
+        games = sorted(
+            {
+                p.nfl_game_id
+                for p in (*simulable[team.team_id], *simulable[opp])
+                if p.nfl_game_id is not None and _has_remaining(p)
+            }
+        )
+        plan[team.team_id] = (opp, tuple(games))
+    return plan
+
+
+def _players_by_game(players: Iterable[PlayerWeek]) -> dict[str, list[str]]:
+    out: dict[str, list[str]] = {}
+    for p in players:
+        if p.nfl_game_id is not None:
+            out.setdefault(p.nfl_game_id, []).append(p.player_id)
+    return out
+
+
+def _game_leverage(
+    nets: Mapping[str, Sequence[float]],
+    wins: Sequence[bool],
+    *,
+    team_players: Mapping[str, Sequence[str]],
+    opponent_players: Mapping[str, Sequence[str]],
+) -> list[dict[str, Any]]:
+    """Per-game matchup leverage — :data:`LEVERAGE_DEFINITION`.
+
+    Draws exactly AT the median are in neither half (a game whose players
+    are benched in most draws has a net of 0.0 there, and assigning those
+    draws to a side would be arbitrary).  When either half is empty the
+    game's leverage is ``None`` with a reason, never 0.0: "this game did
+    not vary in the draws" is not "this game does not matter".
+    """
+    rows: list[dict[str, Any]] = []
+    for game_id, series in nets.items():
+        med = statistics.median(series) if series else 0.0
+        up = [w for n, w in zip(series, wins) if n > med]
+        down = [w for n, w in zip(series, wins) if n < med]
+        row: dict[str, Any] = {
+            "gameId": game_id,
+            "teamPlayerIds": sorted(team_players.get(game_id, ())),
+            "opponentPlayerIds": sorted(opponent_players.get(game_id, ())),
+            "drawsFavoringTeam": len(up),
+            "drawsFavoringOpponent": len(down),
+        }
+        if not up or not down:
+            row.update(
+                leverage=None,
+                winPctWhenGameFavorsTeam=None,
+                winPctWhenGameFavorsOpponent=None,
+                reason="no_variation_in_draws",
+            )
+        else:
+            hi = 100.0 * sum(up) / len(up)
+            lo = 100.0 * sum(down) / len(down)
+            row.update(
+                leverage=round(hi - lo, 2),
+                winPctWhenGameFavorsTeam=round(hi, 2),
+                winPctWhenGameFavorsOpponent=round(lo, 2),
+                reason=None,
+            )
+        rows.append(row)
+    # Rows without a stated leverage sort last (first key); the second key
+    # only orders rows that HAVE one.
+    rows.sort(
+        key=lambda r: (
+            r["leverage"] is None,
+            -abs(r["leverage"]) if r["leverage"] is not None else 0.0,
+            r["gameId"],
+        )
+    )
+    return rows
 
 
 def simulate_league_week(
@@ -403,23 +564,53 @@ def simulate_league_week(
 
     median_live = rules.median_enabled is True
 
+    lineup_counts: dict[str, dict[str, int]] = {
+        t.team_id: {p.player_id: 0 for p in simulable[t.team_id]} for t in teams
+    }
+    game_of: dict[str, str | None] = {
+        p.player_id: p.nfl_game_id for t in teams for p in simulable[t.team_id]
+    }
+    leverage_plan = _leverage_plan(teams, simulable, opponents)
+    net_series: dict[str, dict[str, list[float]]] = {
+        tid: {g: [] for g in games} for tid, (_opp, games) in leverage_plan.items()
+    }
+    win_series: dict[str, list[bool]] = {tid: [] for tid in leverage_plan}
+
     for _ in range(draws):
         drawn_by_team: dict[str, dict[str, float]] = {}
         for team in teams:
             drawn_by_team[team.team_id] = {
                 p.player_id: _draw_player(p, model, rng) for p in simulable[team.team_id]
             }
-        scores = {
-            t.team_id: _team_score(
+        scores: dict[str, float] = {}
+        contrib: dict[str, dict[str, float]] = {}
+        for t in teams:
+            drawn = drawn_by_team[t.team_id]
+            score, lineup_ids = _team_assignment(
                 t,
-                drawn_by_team[t.team_id],
+                drawn,
                 rules,
                 precomputed_eligibility=team_eligibility.get(t.team_id),
             )
-            for t in teams
-        }
+            scores[t.team_id] = score
+            counts = lineup_counts[t.team_id]
+            by_game: dict[str, float] = {}
+            for pid in lineup_ids:
+                counts[pid] = counts.get(pid, 0) + 1
+                g = game_of.get(pid)
+                if g is not None:
+                    by_game[g] = by_game.get(g, 0.0) + drawn[pid]
+            contrib[t.team_id] = by_game
         for tid, sc in scores.items():
             totals[tid].append(sc)
+
+        # Leverage reads THIS draw's final lineups — the same draw both
+        # probabilities below are decided on.
+        for tid, (opp, games) in leverage_plan.items():
+            win_series[tid].append(scores[tid] > scores[opp])
+            mine, theirs = contrib[tid], contrib[opp]
+            for g in games:
+                net_series[tid][g].append(mine.get(g, 0.0) - theirs.get(g, 0.0))
 
         # THE SAME DRAW decides both legs. The threshold is computed from
         # this iteration's league-wide scores, so it moves with them.
@@ -493,6 +684,17 @@ def simulate_league_week(
             )
 
         joint_live = med_state == "OK" and opp is not None
+        lineup_pct = {pid: _pct(n, draws) for pid, n in sorted(lineup_counts[tid].items())}
+        leverage = (
+            _game_leverage(
+                net_series[tid],
+                win_series[tid],
+                team_players=_players_by_game(simulable[tid]),
+                opponent_players=_players_by_game(simulable[leverage_plan[tid][0]]),
+            )
+            if tid in leverage_plan
+            else []
+        )
         out.append(
             TeamWeekOutcome(
                 team_id=tid,
@@ -513,6 +715,8 @@ def simulate_league_week(
                 joint_0_2_pct=_pct(joint[tid]["0_2"], draws) if joint_live else None,
                 unsimulable_player_ids=unsimulable[tid],
                 notes=notes,
+                player_lineup_pct=lineup_pct,
+                game_leverage=leverage,
             )
         )
 
@@ -583,6 +787,11 @@ _SIM_CACHE_ROOT = repo_root() / "data" / "game_day" / "sims"
 #: computation being requested, not merely "recent enough" — so this TTL
 #: only guards a fingerprint gap or bug, never decides freshness on its own.
 _GAME_DAY_SIM_CACHE_TTL_SEC = 2 * 3600
+#: One in-process builder per (cache path, input fingerprint).  Carried from
+#: #1346 (codex/performance-serving, owner decision 2026-09-24 in #1346
+#: comment 5825392001): concurrent managers asking the identical league-week
+#: question share ONE simulation instead of each paying for it.
+_SIM_FLIGHTS = SingleFlight()
 
 
 def _sim_cache_path(league_key: str, season: int, week: int) -> Path:
@@ -620,6 +829,7 @@ def _sim_input_fingerprint(
                     p.points_scored,
                     p.projected_remaining,
                     tuple(p.fantasy_positions),
+                    p.nfl_game_id,
                 )
                 for p in t.players
             ),
@@ -656,10 +866,39 @@ def _sim_input_fingerprint(
     return hashlib.sha256(blob).hexdigest()
 
 
+def simulation_input_fingerprint(
+    *,
+    rules: LeagueWeekRules,
+    teams: Sequence[TeamWeek],
+    opponents: Mapping[str, str | None],
+    draws: int = DEFAULT_DRAWS,
+    seed: int = DEFAULT_SEED,
+    points_model: PointsModel | None = None,
+    threshold_semantics: str = THRESHOLD_SEMANTICS,
+) -> str:
+    """The cache's own input identity, for callers that version on it.
+
+    The Game Day collector (``src/ros/game_day_live.py``) folds this into
+    its generation fingerprint so a generation moves exactly when the
+    simulation would — one definition of "the simulation's inputs changed".
+    """
+    return _sim_input_fingerprint(
+        rules=rules,
+        teams=teams,
+        opponents=opponents,
+        draws=draws,
+        seed=seed,
+        threshold_semantics=threshold_semantics,
+        model=points_model or load_points_model(),
+    )
+
+
 def _outcome_from_dict(row: Mapping[str, Any]) -> TeamWeekOutcome:
     kwargs = dict(row)
     kwargs["unsimulable_player_ids"] = tuple(kwargs.get("unsimulable_player_ids") or ())
     kwargs["notes"] = list(kwargs.get("notes") or [])
+    kwargs["player_lineup_pct"] = dict(kwargs.get("player_lineup_pct") or {})
+    kwargs["game_leverage"] = list(kwargs.get("game_leverage") or [])
     return TeamWeekOutcome(**kwargs)
 
 
@@ -711,16 +950,42 @@ def _read_sim_cache(path: Path, fingerprint: str) -> LeagueWeekSimulation | None
     return sim
 
 
-def _write_sim_cache(path: Path, fingerprint: str, sim: LeagueWeekSimulation) -> None:
+def _write_sim_cache(path: Path, fingerprint: str, sim: LeagueWeekSimulation) -> float:
     body = asdict(sim)
     body.pop("cached", None)
     body.pop("cache_computed_at", None)
     computed_at = time.time()
     payload = {"fingerprint": fingerprint, "computedAt": computed_at, "simulation": body}
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
-    tmp.replace(path)
+    # The scheduled capture and web process can publish concurrently. Each
+    # writer owns its tempfile; replacement exposes only complete JSON.
+    # (Carried from #1346 with the same behaviour.)
+    tmp = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=path.name + ".",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            tmp = Path(handle.name)
+            json.dump(payload, handle, sort_keys=True)
+        for attempt in range(3):
+            try:
+                tmp.replace(path)
+                break
+            except PermissionError as exc:
+                # Windows can briefly deny replacement while another process
+                # finishes its own atomic rename. Never unlink the live file.
+                if os.name != "nt" or getattr(exc, "winerror", None) not in (5, 32) or attempt == 2:
+                    raise
+                time.sleep(0.01)
+    finally:
+        if tmp is not None:
+            tmp.unlink(missing_ok=True)
+    return computed_at
 
 
 def get_cached_league_week_simulation(
@@ -764,19 +1029,29 @@ def get_cached_league_week_simulation(
     if cached is not None:
         return cached
 
-    result = simulate_league_week(
-        rules=rules,
-        teams=teams,
-        opponents=opponents,
-        season=season,
-        week=week,
-        draws=draws,
-        seed=seed,
-        points_model=model,
-        threshold_semantics=threshold_semantics,
-    )
-    _write_sim_cache(path, fingerprint, result)
-    return result
+    def compute():
+        cached = _read_sim_cache(path, fingerprint)
+        if cached is not None:
+            return cached, cached.cache_computed_at
+        result = simulate_league_week(
+            rules=rules,
+            teams=teams,
+            opponents=opponents,
+            season=season,
+            week=week,
+            draws=draws,
+            seed=seed,
+            points_model=model,
+            threshold_semantics=threshold_semantics,
+        )
+        computed_at = _write_sim_cache(path, fingerprint, result)
+        return result, computed_at
+
+    # Single-flight (#1346): concurrent callers with the SAME inputs share
+    # one computation; the builder re-checks the cache first, so a caller
+    # that lost the race to a finished writer reads rather than recomputes.
+    (result, computed_at), shared = _SIM_FLIGHTS.run((str(path), fingerprint), compute)
+    return replace(result, cached=True, cache_computed_at=computed_at) if shared else result
 
 
 def rules_from_league(

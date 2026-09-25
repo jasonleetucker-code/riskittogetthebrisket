@@ -1175,6 +1175,9 @@ main() {
   install_simple_timer "injury-feed-refresh" "ESPN injury-status diff -> BDVM injury/return events"
   install_simple_timer "trending-history-refresh" "Sleeper trending adds+drops history snapshot"
   install_simple_timer "game-day-capture" "pre-kickoff Game Day prediction archive capture"
+  # Game Day U5 shared live collector: fires every minute, the tick decides
+  # whether it is due (src/ros/game_day_live.py).  Public endpoints, no creds.
+  install_simple_timer "game-day-live" "Game Day live collector (observations + generations)"
 
   # ── daemon-reload and enable ────────────────────────────────────────────
   # ce_needs_install was missing from this list. Every other timer's

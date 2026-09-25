@@ -17,6 +17,7 @@ from unittest import mock
 
 from src.api import matchup_intel
 from src.ros import game_day_sim as _game_day_sim
+from tests.game_day.serving_helpers import served_after_background
 
 #: `build_matchup_intel` now goes through `get_cached_league_week_simulation`
 #: (Defect 1 fix), which writes to `_game_day_sim._SIM_CACHE_ROOT` on a
@@ -125,7 +126,10 @@ def _build(**over):
         seed=4,
     )
     kwargs.update(over)
-    return matchup_intel.build_matchup_intel(**kwargs)
+    # No generation exists, so the request answers PENDING and the forecast
+    # is computed in the background (Game Day G); these tests are about the
+    # forecast, so they read the generation the background compute wrote.
+    return served_after_background(lambda: matchup_intel.build_matchup_intel(**kwargs))
 
 
 class MatchupIdentityTests(unittest.TestCase):
@@ -287,8 +291,27 @@ class LineageTests(unittest.TestCase):
         with _patch_fetch(), _patch_estimates():
             out = _build()
         lin = out["lineage"]
-        self.assertEqual(lin["projectionSource"], "test:ensemble")
+        # The source label names the BASIS actually used per player; the
+        # ensemble behind the preseason fallback keeps its own name.
+        self.assertEqual(lin["projectionSource"], "preseason_full_season_fallback")
+        self.assertEqual(lin["preseasonProjectionSource"], "test:ensemble")
+        self.assertEqual(lin["projectionBasisCounts"], {"preseason_full_season_fallback": 6})
+        self.assertEqual(lin["weeklyProjection"]["state"], "feature_disabled")
+        self.assertEqual(lin["weeklyProjection"]["licensingStatus"], "OWNER_ATTESTED_AUTHORIZED")
         self.assertIn("WEEKLY", lin["projectionHorizonNote"])
+        # With the weekly source off, the preseason fallback must never read
+        # as a current-week forecast.
+        self.assertIn("NOT a current-week forecast", lin["projectionHorizonNote"])
+        self.assertIn(
+            "NOT a current-week forecast",
+            lin["projectionBasisLabels"]["preseason_full_season_fallback"],
+        )
+        self.assertTrue(
+            all(
+                p["projectionBasis"] == "preseason_full_season_fallback"
+                for p in out["team"]["players"]
+            )
+        )
         self.assertEqual(lin["projectionSourcesLoaded"], ["clayProjections"])
 
     def test_the_horizon_caveat_is_absent_when_there_is_no_source(self) -> None:
@@ -511,3 +534,56 @@ class NflSlateTests(unittest.TestCase):
         # The irrelevant early game is still present, with an empty roster
         # -- the complete schedule, not filtered down to relevant games.
         self.assertEqual(games[0]["players"], [])
+
+
+class AcquisitionSeamTests(unittest.TestCase):
+    """The two interim live-acquisition seams (replaced by the U5 collector)."""
+
+    def setUp(self) -> None:
+        matchup_intel._live_state_memo.clear()
+        matchup_intel._weekly_memo.clear()
+
+    def test_flags_off_make_no_network_call_and_say_so(self) -> None:
+        from src.api import feature_flags
+
+        feature_flags.reload()
+        with mock.patch("urllib.request.urlopen", side_effect=AssertionError("network")):
+            snap = matchup_intel._observe_live_state(2026, 3)
+            fetches, state, reason = matchup_intel._weekly_projection_fetches(2026, 3, [])
+        self.assertFalse(snap.enabled)
+        self.assertEqual(snap.error, "flag_disabled")
+        self.assertEqual((fetches, state), ((), "feature_disabled"))
+        self.assertIn("sleeper_weekly_projections", reason)
+
+    def test_weekly_history_keeps_each_games_last_pre_kickoff_fetch(self) -> None:
+        from src.ros.sleeper_weekly_projections import FetchResult
+
+        def _f(hour):
+            return FetchResult("ok", 2026, 3, "u", f"2026-09-27T{hour:02d}:00:00+00:00", ())
+
+        kick = 1790528400.0  # 2026-09-27T17:00Z
+        kept = matchup_intel._prune_weekly_history([_f(10), _f(12), _f(16), _f(18)], [kick])
+        # 16:00 is the last read before the 17:00 kickoff; 18:00 is newest.
+        self.assertEqual([f.observed_at[11:13] for f in kept], ["16", "18"])
+
+    def test_weekly_flag_on_fetches_once_per_ttl_and_drops_placeholders(self) -> None:
+        from src.ros.sleeper_weekly_projections import FetchResult
+
+        result = FetchResult(
+            "ok",
+            2026,
+            3,
+            "u",
+            "2099-01-01T00:00:00+00:00",
+            ({"player_id": "1", "game_id": "g"}, {"player_id": "2"}),
+        )
+        with mock.patch(
+            "src.ros.sleeper_weekly_projections.fetch_weekly_projection_rows",
+            return_value=result,
+        ) as fetch:
+            first = matchup_intel._weekly_projection_fetches(2026, 3, [])
+            second = matchup_intel._weekly_projection_fetches(2026, 3, [])
+        self.assertEqual(fetch.call_count, 1)
+        self.assertEqual(first[1], "ok")
+        self.assertEqual([r["player_id"] for r in first[0][0].rows], ["1"])
+        self.assertEqual(first, second)

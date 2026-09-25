@@ -1,0 +1,186 @@
+{
+  "_provenance": "REAL capture of the ESPN public NFL scoreboard at 2026-09-25T00:58:24Z (week 3 Thursday game, end of 1st quarter), trimmed to the fields the parser reads and to 3 of 16 events: one STATUS_END_PERIOD game, one STATUS_SCHEDULED game, and the WSH home game (ESPN code for WAS).",
+  "season": {
+    "type": 2,
+    "year": 2026
+  },
+  "week": {
+    "number": 3
+  },
+  "events": [
+    {
+      "id": "401872948",
+      "date": "2026-09-25T00:15Z",
+      "shortName": "ATL @ GB",
+      "competitions": [
+        {
+          "id": "401872948",
+          "date": "2026-09-25T00:15Z",
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0:00",
+            "period": 1,
+            "type": {
+              "id": "22",
+              "name": "STATUS_END_PERIOD",
+              "state": "in",
+              "completed": false,
+              "description": "End of Period",
+              "detail": "End of 1st Quarter",
+              "shortDetail": "End of 1st"
+            },
+            "isTBDFlex": false
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "7",
+              "team": {
+                "id": "9",
+                "abbreviation": "GB"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "7",
+              "team": {
+                "id": "1",
+                "abbreviation": "ATL"
+              }
+            }
+          ]
+        }
+      ],
+      "status": {
+        "clock": 0.0,
+        "displayClock": "0:00",
+        "period": 1,
+        "type": {
+          "id": "22",
+          "name": "STATUS_END_PERIOD",
+          "state": "in",
+          "completed": false,
+          "description": "End of Period",
+          "detail": "End of 1st Quarter",
+          "shortDetail": "End of 1st"
+        }
+      }
+    },
+    {
+      "id": "401872953",
+      "date": "2026-09-27T17:00Z",
+      "shortName": "LAC @ BUF",
+      "competitions": [
+        {
+          "id": "401872953",
+          "date": "2026-09-27T17:00Z",
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0:00",
+            "period": 0,
+            "type": {
+              "id": "1",
+              "name": "STATUS_SCHEDULED",
+              "state": "pre",
+              "completed": false,
+              "description": "Scheduled",
+              "detail": "Sun, September 27th at 1:00 PM EDT",
+              "shortDetail": "9/27 - 1:00 PM EDT"
+            },
+            "isTBDFlex": false
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "0",
+              "team": {
+                "id": "2",
+                "abbreviation": "BUF"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "0",
+              "team": {
+                "id": "24",
+                "abbreviation": "LAC"
+              }
+            }
+          ]
+        }
+      ],
+      "status": {
+        "clock": 0.0,
+        "displayClock": "0:00",
+        "period": 0,
+        "type": {
+          "id": "1",
+          "name": "STATUS_SCHEDULED",
+          "state": "pre",
+          "completed": false,
+          "description": "Scheduled",
+          "detail": "Sun, September 27th at 1:00 PM EDT",
+          "shortDetail": "9/27 - 1:00 PM EDT"
+        }
+      }
+    },
+    {
+      "id": "401872955",
+      "date": "2026-09-27T17:00Z",
+      "shortName": "SEA @ WSH",
+      "competitions": [
+        {
+          "id": "401872955",
+          "date": "2026-09-27T17:00Z",
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0:00",
+            "period": 0,
+            "type": {
+              "id": "1",
+              "name": "STATUS_SCHEDULED",
+              "state": "pre",
+              "completed": false,
+              "description": "Scheduled",
+              "detail": "Sun, September 27th at 1:00 PM EDT",
+              "shortDetail": "9/27 - 1:00 PM EDT"
+            },
+            "isTBDFlex": false
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "0",
+              "team": {
+                "id": "28",
+                "abbreviation": "WSH"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "0",
+              "team": {
+                "id": "26",
+                "abbreviation": "SEA"
+              }
+            }
+          ]
+        }
+      ],
+      "status": {
+        "clock": 0.0,
+        "displayClock": "0:00",
+        "period": 0,
+        "type": {
+          "id": "1",
+          "name": "STATUS_SCHEDULED",
+          "state": "pre",
+          "completed": false,
+          "description": "Scheduled",
+          "detail": "Sun, September 27th at 1:00 PM EDT",
+          "shortDetail": "9/27 - 1:00 PM EDT"
+        }
+      }
+    }
+  ]
+}

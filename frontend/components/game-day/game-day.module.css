@@ -1,0 +1,489 @@
+/* Game Day — PSI editorial structure (C8-U2 / #1335).
+   Tokens only: every colour, size, space, radius and breakpoint comes from
+   tokens.css (the .psi-editorial scope set on the page root). No raw
+   colours, no new radii/shadows, canonical breakpoints (480/768) only.
+   Hierarchy comes from type, rules and alignment — not cards or tiles. */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* Local refresh status — sits in the flow, never a global spinner. */
+.refreshStatus {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  margin: 0;
+}
+.refreshStatusWarn {
+  color: var(--warning-text);
+}
+
+/* ── Matchup hero ── */
+.hero {
+  background: var(--surface-1);
+  border-top: 2px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-default);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.heroStatus {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+.heroEyebrow {
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: var(--font-weight-semibold);
+}
+.heroStale {
+  color: var(--warning-text);
+  font-weight: var(--font-weight-semibold);
+}
+.unverified {
+  color: var(--warning-text);
+}
+.heroStatusSpacer {
+  flex: 1 1 auto;
+}
+
+.scoreboard {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.scoreboard caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+/* globals.css still styles bare <th> for the legacy terminal tables (dark
+   sticky background, pointer cursor, uppercase). This is not a sortable
+   table, so those are reset here rather than edited in globals.css. */
+.scoreboard th,
+.scoreboard td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: baseline;
+  background: transparent;
+  position: static;
+  cursor: auto;
+  user-select: auto;
+  z-index: auto;
+}
+.scoreboard tbody th {
+  white-space: normal;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: inherit;
+  color: inherit;
+}
+.scoreboard tr:last-child th,
+.scoreboard tr:last-child td {
+  border-bottom: 0;
+}
+.scoreboard thead th {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border-default);
+}
+.scoreboard thead th:first-child {
+  text-align: left;
+}
+.sideCell {
+  text-align: left;
+  min-width: 0;
+}
+.sideRole {
+  display: block;
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  font-weight: var(--font-weight-regular);
+}
+.sideName {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
+}
+.sideTeamName {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-regular);
+  overflow-wrap: anywhere;
+}
+.selectedRow .sideName {
+  color: var(--accent);
+}
+.numCell {
+  text-align: right;
+  white-space: nowrap;
+}
+.bigNum {
+  display: block;
+  font-family: var(--font-data);
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--line-height-tight);
+  color: var(--text-primary);
+}
+.midNum {
+  display: block;
+  font-family: var(--font-data);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--text-primary);
+}
+.numNote {
+  display: block;
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+  white-space: normal;
+}
+.withheldWord {
+  display: block;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+}
+
+.heroFacts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.heroFacts div {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+.heroFacts dt {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+.heroFacts dd {
+  margin: 0;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+/* ── Section heading (What matters now / NFL slate) ── */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border-bottom: 1px solid var(--border-strong);
+  padding-bottom: var(--space-1);
+}
+.sectionTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.sectionHint {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+
+/* ── What matters now ── */
+.matters {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.mattersItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.mattersItem:last-child {
+  border-bottom: 0;
+}
+.mattersTitle {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.mattersKind {
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  text-align: right;
+  white-space: nowrap;
+}
+.mattersDetail {
+  grid-column: 1 / -1;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+/* ── NFL slate ── */
+.slate {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border-default);
+}
+.gameRow {
+  border-bottom: 1px solid var(--border-subtle);
+}
+.gameLine {
+  display: grid;
+  grid-template-columns: 9.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-1);
+  min-height: 2.5rem;
+}
+.gameIdle .gameLine {
+  color: var(--text-tertiary);
+}
+.gameStatus {
+  font-family: var(--font-data);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.gameLiveStatus {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+.gameTeams {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  min-width: 0;
+}
+.gameAt {
+  color: var(--text-tertiary);
+  font-weight: var(--font-weight-regular);
+}
+.gameRelevance {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.keyGame {
+  border-left: 2px solid var(--accent);
+}
+.keyGame .gameLine {
+  padding-left: var(--space-2);
+}
+.gameToggle {
+  font: inherit;
+  font-size: var(--font-size-xs);
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-1);
+  padding: 2px var(--space-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.gameToggle:hover {
+  background: var(--surface-hover);
+}
+.gameToggle:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.gameDetail {
+  padding: 0 var(--space-1) var(--space-3);
+}
+/* globals.css sets `white-space: nowrap` on every bare td; these detail
+   tables wrap instead, so names and reasons never push a phone sideways. */
+.gameDetail :global(.ds-table) td,
+.sideBlock :global(.ds-table) td,
+.wrapTable :global(.ds-table) td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.slateFoot {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+/* ── Best-ball details / data info ── */
+.sides {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-5);
+}
+.sideBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.sideBlockTitle {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.subTitle {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.facts {
+  display: grid;
+  grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr);
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.facts dt {
+  color: var(--text-tertiary);
+}
+.facts dd {
+  margin: 0;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.factList {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+.muted {
+  color: var(--text-secondary);
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface-1);
+  border-top: 2px solid var(--border-strong);
+}
+
+@media (max-width: 768px) {
+  .hero {
+    padding: var(--space-3);
+  }
+  .sides {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .gameLine {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .gameStatus {
+    grid-column: 1 / -1;
+  }
+  .facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
+  }
+  .facts dd {
+    margin-bottom: var(--space-2);
+  }
+}
+
+/* Phone: the scoreboard keeps every column (same product, not a summary);
+   the table is fixed-width so it can never push the page sideways, headers
+   wrap, and the numerals step down one size. */
+@media (max-width: 480px) {
+  .scoreboard {
+    table-layout: fixed;
+  }
+  .scoreboard thead th:first-child {
+    width: 30%;
+  }
+  .scoreboard th,
+  .scoreboard td {
+    padding: var(--space-2) var(--space-1);
+  }
+  .scoreboard thead th {
+    white-space: normal;
+    letter-spacing: normal;
+  }
+  .numCell {
+    white-space: normal;
+  }
+  .bigNum {
+    font-size: var(--font-size-xl);
+  }
+  .midNum {
+    font-size: var(--font-size-md);
+  }
+  .sideName {
+    font-size: var(--font-size-md);
+  }
+  .mattersItem {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mattersKind {
+    text-align: left;
+    white-space: normal;
+  }
+}

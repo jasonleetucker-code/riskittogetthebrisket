@@ -79,8 +79,11 @@ __all__ = [
     "FIRST_DOWN_COLUMNS",
     "FIT_R_SQUARED",
     "YARD_COLUMNS",
+    "SLEEPER_PROJECTED_FD_KEYS",
+    "SLEEPER_YARD_KEYS",
     "fit_first_downs_per_yard",
     "imputed_first_down_column",
+    "imputed_sleeper_first_down_bonus",
     "supplies_first_downs",
     "with_imputed_first_downs",
 ]
@@ -245,3 +248,58 @@ def fit_first_downs_per_yard(
         out["r2"][pos] = round(1 - ss_res / ss_tot, 4) if ss_tot > 0 else 0.0
         out["n"][pos] = len(pairs)
     return out
+
+
+# ── Sleeper-keyed projection lines (Game Day weekly baseline) ───────────
+
+#: Sleeper stat keys carrying the yardage the fit is defined over, in the
+#: same order as :data:`YARD_COLUMNS`.
+SLEEPER_YARD_KEYS: tuple[str, ...] = ("pass_yd", "rush_yd", "rec_yd")
+
+#: Sleeper's per-play-type first-down keys.  On the WEEKLY PROJECTION rows
+#: (RotoWire via Sleeper) these are NOT first-down counts: measured on the
+#: full 2026 week-3 capture, 677 of 677 rows carrying one equal the matching
+#: yardage / 10 exactly (Lamar Jackson: pass_yd 273.55, pass_fd 27.35 — about
+#: twice the single-game NFL record).  They are never read as first downs
+#: here, and a league card that pays them makes a projected line unscorable
+#: rather than silently priced on a yardage proxy.
+SLEEPER_PROJECTED_FD_KEYS: tuple[str, ...] = ("pass_fd", "rush_fd", "rec_fd")
+
+
+def imputed_sleeper_first_down_bonus(
+    stat_line: Mapping[str, Any] | None,
+    position: str | None,
+    scoring_settings: Mapping[str, Any] | None,
+) -> tuple[str, float, float] | None:
+    """``(bonus key, imputed first downs, points)`` for a Sleeper-keyed line.
+
+    The league-paid ``bonus_fd_<pos>`` is a count of ALL the player's first
+    downs, which no projection publishes.  This reuses the canonical fit
+    (:func:`with_imputed_first_downs` — same rates, same minimum, same
+    refusal of unmeasured positions) over the line's Sleeper yardage and
+    prices the count at the card's own rate.  ``None`` when the card does
+    not pay the bonus, the line already supplies it, the position is
+    unmeasured, or the yardage is below the fit's floor.  The result is OUR
+    estimate and callers must label it as such.
+    """
+    pos = str(position or "").strip().upper()
+    key = f"bonus_fd_{pos.lower()}"
+    try:
+        rate = float((scoring_settings or {}).get(key) or 0.0)
+    except (TypeError, ValueError):
+        return None
+    if rate == 0.0:
+        return None
+    line = stat_line or {}
+    if key in line:
+        return None
+    nflverse_line = {
+        column: _num(line.get(sleeper_key))
+        for column, sleeper_key in zip(YARD_COLUMNS, SLEEPER_YARD_KEYS)
+    }
+    imputed_line, imputed = with_imputed_first_downs(nflverse_line, pos)
+    if not imputed:
+        return None
+    column = imputed_first_down_column(pos)
+    count = _num(imputed_line.get(column)) if column else 0.0
+    return key, count, count * rate

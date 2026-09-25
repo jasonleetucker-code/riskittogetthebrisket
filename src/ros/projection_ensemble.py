@@ -10,6 +10,8 @@ reasoning. In short: the `C5-PROJ-A` census
 ``clayProjections`` and ``idpShowProjections`` — and both are
 ``PRESEASON_FULL_SEASON`` horizon. Zero ``WEEKLY``-horizon sources are
 live. `C5-PROJ-C` would have nothing real to combine; this unit does.
+(Since Game Day U5, 2026-09-25, the WEEKLY ``sleeperWeeklyProjections`` is
+also LIVE; it feeds Game Day only, never this ensemble's fixed source set.)
 
 **Combines `ProjectionObservation` rows (`C5-PROJ-B`) across independent
 provider families**, per plan §6: "count independent model families, not

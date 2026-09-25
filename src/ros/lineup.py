@@ -851,6 +851,42 @@ def _value_with_health_penalty(player: RosterPlayer) -> float:
     return 0.0 if value is None else value
 
 
+#: ``solve_optimal_assignment`` objective modes.
+#:
+#: ``adjusted`` (the default, every pre-existing caller) — a VALUE the
+#: player is expected to be worth: floored at 0, discounted for
+#: injury / bye.  Right for ROS / projection values, which are never
+#: negative and where an injured player's value genuinely shrinks.
+#:
+#: ``realized_points`` — POINTS that were (or, in a simulation draw,
+#: would be) actually scored, used exactly as given.  Best-ball hosts
+#: award the lineup maximising the RAW sum, and a realized score can be
+#: negative (a QB's interceptions, a kicker's misses).  Under
+#: ``adjusted`` a -1.5 and a 0.0 both read as 0.0, so which one the
+#: solver seats is a tie-break artifact — while every Game Day caller
+#: SUMS the raw values — so the solver could choose a lineup scoring
+#: 1.5 below the host's.  The choice and the sum must use the same
+#: number, which is what this mode is.
+OBJECTIVE_ADJUSTED = "adjusted"
+OBJECTIVE_REALIZED_POINTS = "realized_points"
+_OBJECTIVES = frozenset({OBJECTIVE_ADJUSTED, OBJECTIVE_REALIZED_POINTS})
+
+
+def _realized_points(player: RosterPlayer) -> float:
+    """Raw points for ``realized_points`` mode (UNKNOWN never reaches here)."""
+    return float(player.ros_value) if player.ros_value is not None else 0.0
+
+
+def _value_fn(objective: str):
+    if objective not in _OBJECTIVES:
+        raise ValueError(
+            f"unknown lineup objective {objective!r}; use one of {sorted(_OBJECTIVES)}"
+        )
+    return (
+        _realized_points if objective == OBJECTIVE_REALIZED_POINTS else _value_with_health_penalty
+    )
+
+
 def _eligibility_predicate(
     slot_eligibility: Mapping[str, Collection[str]] | None,
 ):
@@ -922,6 +958,7 @@ def solve_optimal_assignment(
     *,
     slot_eligibility: Mapping[str, Collection[str]] | None = None,
     precomputed_eligibility: Mapping[str, Sequence[int]] | None = None,
+    objective: str = OBJECTIVE_ADJUSTED,
 ) -> dict[int, RosterPlayer]:
     """Exact maximum-weight player→slot assignment.
 
@@ -959,11 +996,20 @@ def solve_optimal_assignment(
     byte-for-byte — a player absent from the map is treated as
     ineligible everywhere, matching what a fresh derivation would give
     a player found nowhere in ``slots``.
+
+    ``objective`` selects what "weight" means (see
+    :data:`OBJECTIVE_REALIZED_POINTS`).  The algorithm is unchanged: the
+    matroid greedy admits every player an augmenting path allows, so it
+    returns a maximum-weight BASIS — every fillable slot filled, the raw
+    sum maximised — which is the host's best-ball rule even when some
+    weights are negative.  Omitting it keeps every existing caller's
+    ``adjusted`` behaviour byte-for-byte.
     """
+    value = _value_fn(objective)
     is_eligible = _eligibility_predicate(slot_eligibility)
     ordered = sorted(
         (p for p in pool if _objective(p) is not None),
-        key=lambda p: (-_value_with_health_penalty(p), p.player_id),
+        key=lambda p: (-value(p), p.player_id),
     )
     if precomputed_eligibility is not None:
         eligible_slots: list[list[int]] = [
@@ -997,7 +1043,7 @@ def solve_optimal_assignment(
         _augment(idx, set())
 
     assignment = {slot_idx: ordered[p_idx] for slot_idx, p_idx in slot_owner.items()}
-    return _canonicalize_slots(assignment, slots, is_eligible)
+    return _canonicalize_slots(assignment, slots, is_eligible, value=value)
 
 
 @dataclass(frozen=True)
@@ -1078,6 +1124,7 @@ def _canonicalize_slots(
     assignment: dict[int, RosterPlayer],
     slots: list[str],
     is_eligible=_player_eligible_for_slot,
+    value=None,
 ) -> dict[int, RosterPlayer]:
     """Pick a canonical representative among equally-optimal lineups.
 
@@ -1096,6 +1143,7 @@ def _canonicalize_slots(
     players — and therefore the total — identical, so optimality is
     preserved by construction.
     """
+    value = value or _value_with_health_penalty
     changed = True
     while changed:
         changed = False
@@ -1110,7 +1158,7 @@ def _canonicalize_slots(
                         del assignment[j]
                         changed = True
                     continue
-                if _value_with_health_penalty(here) >= _value_with_health_penalty(there):
+                if value(here) >= value(there):
                     continue
                 if is_eligible(slots[i], there) and is_eligible(slots[j], here):
                     assignment[i], assignment[j] = there, here
