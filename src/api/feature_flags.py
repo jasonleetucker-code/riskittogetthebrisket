@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-12 of the 22 entries in ``_DEFAULTS`` below are ``True`` —
+12 of the 23 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -430,6 +430,12 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # challenger into a live recommendation. Roll back with
     # RISKIT_FEATURE_WAIVER_LIVE_OPPORTUNITY=0 + restart.
     "waiver_live_opportunity": True,
+    # Game Day live game state — ``src/nfl_data/live_game_state.py`` reads
+    # ESPN's public scoreboard (observed quarter / clock / status).  OFF:
+    # the adapter is not wired into any endpoint yet, so there is nothing
+    # for it to do in a request.  Off, ``fetch_live_game_state`` returns an
+    # explicit ``enabled=False`` observation, never an empty slate.
+    "game_day_live_game_state": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"
@@ -612,6 +618,10 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # exists and is a real, tested cross-check primitive, but nothing
     # calls it yet — a genuine follow-up, not fabricated here.
     "usage_signals": UNREACHABLE,
+    # ``src/nfl_data/live_game_state.py`` — gated, tested, and not yet
+    # imported by anything: the Game Day adapter lands before the shared
+    # background collector that will consume it.
+    "game_day_live_game_state": UNREACHABLE,
     # ``src/nfl_data/depth_charts.py`` is gated and imported by
     # ``scripts/refresh_depth_charts.py``, which since 2026-09-01 also
     # writes DEPTH_CHART_PROMOTION/DEMOTION events into the BDVM ledger

@@ -1,0 +1,86 @@
+{
+  "_provenance": "SYNTHETIC (hand-built, not a provider capture): an in-game delay and a pre-kickoff rain delay.",
+  "season": {
+    "type": 2,
+    "year": 2026
+  },
+  "week": {
+    "number": 3
+  },
+  "events": [
+    {
+      "id": "900006",
+      "date": "2026-09-27T17:00Z",
+      "competitions": [
+        {
+          "id": "900006",
+          "date": "2026-09-27T17:00Z",
+          "status": {
+            "clock": 610.0,
+            "displayClock": "10:10",
+            "period": 2,
+            "type": {
+              "name": "STATUS_DELAYED",
+              "state": "in",
+              "completed": false,
+              "shortDetail": "Delayed"
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "10",
+              "team": {
+                "abbreviation": "DAL"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "7",
+              "team": {
+                "abbreviation": "PHI"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "900007",
+      "date": "2026-09-27T17:00Z",
+      "competitions": [
+        {
+          "id": "900007",
+          "date": "2026-09-27T17:00Z",
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0:00",
+            "period": 0,
+            "type": {
+              "name": "STATUS_RAIN_DELAY",
+              "state": "pre",
+              "completed": false,
+              "shortDetail": "Rain Delay"
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "10",
+              "team": {
+                "abbreviation": "DAL"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "7",
+              "team": {
+                "abbreviation": "PHI"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

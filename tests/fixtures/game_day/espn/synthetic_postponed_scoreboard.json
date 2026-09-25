@@ -1,0 +1,86 @@
+{
+  "_provenance": "SYNTHETIC (hand-built, not a provider capture): a postponed game and a canceled game.",
+  "season": {
+    "type": 2,
+    "year": 2026
+  },
+  "week": {
+    "number": 3
+  },
+  "events": [
+    {
+      "id": "900008",
+      "date": "2026-09-27T17:00Z",
+      "competitions": [
+        {
+          "id": "900008",
+          "date": "2026-09-27T17:00Z",
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0:00",
+            "period": 0,
+            "type": {
+              "name": "STATUS_POSTPONED",
+              "state": "post",
+              "completed": false,
+              "shortDetail": "Postponed"
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "10",
+              "team": {
+                "abbreviation": "DAL"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "7",
+              "team": {
+                "abbreviation": "PHI"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "900009",
+      "date": "2026-09-27T17:00Z",
+      "competitions": [
+        {
+          "id": "900009",
+          "date": "2026-09-27T17:00Z",
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0:00",
+            "period": 0,
+            "type": {
+              "name": "STATUS_CANCELED",
+              "state": "post",
+              "completed": false,
+              "shortDetail": "Canceled"
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "10",
+              "team": {
+                "abbreviation": "DAL"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "7",
+              "team": {
+                "abbreviation": "PHI"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
