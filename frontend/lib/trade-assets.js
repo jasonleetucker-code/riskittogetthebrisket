@@ -224,6 +224,13 @@ export function teamPickEntries(team, resolveRow) {
  *     the team's picks of that row (which one is unknown), so it consumes
  *     one of them.
  */
+// A copy COUNTER, not a value: a name never counted has been seen zero
+// times.  Spelled out so it cannot be mistaken for (or become) a missing
+// value coerced to a number.
+function copiesCounted(counts, name) {
+  return counts.has(name) ? counts.get(name) : 0;
+}
+
 export function availableTeamPickEntries(teamEntries, sides, sideIdx) {
   const inTradeIds = new Set();
   for (const side of sides || []) {
@@ -234,7 +241,7 @@ export function availableTeamPickEntries(teamEntries, sides, sideIdx) {
   const genericOnSide = new Map();
   for (const entry of assetsOf((sides || [])[sideIdx])) {
     if (isRepeatableEntry(entry)) {
-      genericOnSide.set(entry.name, (genericOnSide.get(entry.name) || 0) + 1);
+      genericOnSide.set(entry.name, copiesCounted(genericOnSide, entry.name) + 1);
     }
   }
   const consumed = new Map();
@@ -242,8 +249,8 @@ export function availableTeamPickEntries(teamEntries, sides, sideIdx) {
   for (const entry of teamEntries || []) {
     if (!entry) continue;
     if (isOwnedPickEntry(entry) && inTradeIds.has(String(entry.assetId))) continue;
-    const pending = genericOnSide.get(entry.name) || 0;
-    const used = consumed.get(entry.name) || 0;
+    const pending = copiesCounted(genericOnSide, entry.name);
+    const used = copiesCounted(consumed, entry.name);
     if (used < pending) {
       consumed.set(entry.name, used + 1);
       continue;
