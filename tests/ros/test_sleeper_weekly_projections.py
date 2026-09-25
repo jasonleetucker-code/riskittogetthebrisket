@@ -248,10 +248,15 @@ class TestUncovered:
 
 
 class TestFetch:
-    def test_flag_is_off_by_default_and_no_request_is_made(self):
+    def test_flag_defaults_on_since_the_collector_owns_the_cadence(self):
+        assert feature_flags._DEFAULTS[swp.FEATURE_FLAG] is True
+
+    def test_flag_off_makes_no_request(self, monkeypatch):
         def boom(url, timeout):  # pragma: no cover — must not be called
             raise AssertionError("network call with the flag off")
 
+        monkeypatch.setenv("RISKIT_FEATURE_SLEEPER_WEEKLY_PROJECTIONS", "0")
+        feature_flags.reload()
         assert swp.FEATURE_FLAG == "sleeper_weekly_projections"
         assert feature_flags.is_enabled(swp.FEATURE_FLAG) is False
         result = swp.fetch_weekly_projection_rows(2026, 3, http_get=boom)

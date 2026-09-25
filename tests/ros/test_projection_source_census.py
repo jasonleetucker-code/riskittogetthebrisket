@@ -133,10 +133,18 @@ class TestMeasuredFacts:
     """
 
     def test_clay_and_idp_show_are_the_only_live_true_projections(self):
-        live = [
-            s["key"] for s in census.load_census()["sources"] if s["implementationStatus"] == "LIVE"
-        ]
-        assert sorted(live) == ["clayProjections", "idpShowProjections"]
+        """…of the season horizon.  Game Day U5 (2026-09-25) made the WEEKLY
+        ``sleeperWeeklyProjections`` LIVE as well; it feeds Game Day only and
+        never the full-season ensemble (whose source set is a fixed tuple)."""
+        sources = census.load_census()["sources"]
+        live = sorted(s["key"] for s in sources if s["implementationStatus"] == "LIVE")
+        assert live == ["clayProjections", "idpShowProjections", "sleeperWeeklyProjections"]
+        season_live = sorted(
+            s["key"]
+            for s in sources
+            if s["implementationStatus"] == "LIVE" and "WEEKLY" not in s["horizons"]
+        )
+        assert season_live == ["clayProjections", "idpShowProjections"]
 
     def test_cbs_and_nfl_fantasy_are_greenfield(self):
         for key in ("cbsSportsFantasyProjections", "nflFantasyProjections"):
@@ -268,21 +276,31 @@ class TestSleeperWeeklyEntry:
         }
         assert any("accessAttestation" in e for e in census.validate_census(bad))
 
-    def test_implemented_behind_a_default_off_flag_not_live(self):
+    def test_live_since_the_collector_shipped_with_its_rollback_flag_named(self):
+        """Game Day U5 (2026-09-25) activated the source: the shared live
+        collector owns its cadence, so the flag defaults ON and the status
+        moved IMPLEMENTED_FLAG_OFF -> LIVE deliberately.  The flag stays
+        named as the rollback lever."""
         from src.api import feature_flags
 
         src = census.get_source("sleeperWeeklyProjections")
-        assert src["implementationStatus"] == "IMPLEMENTED_FLAG_OFF"
+        assert src["implementationStatus"] == "LIVE"
         assert src["featureFlag"] == "sleeper_weekly_projections"
-        assert feature_flags._DEFAULTS["sleeper_weekly_projections"] is False
+        assert feature_flags._DEFAULTS["sleeper_weekly_projections"] is True
 
     def test_validator_rejects_flag_off_status_whose_flag_defaults_on(self, monkeypatch):
+        import copy
+
         from src.api import feature_flags
 
-        data = census.load_census()
+        data = copy.deepcopy(census.load_census())
+        entry = next(s for s in data["sources"] if s["key"] == "sleeperWeeklyProjections")
+        entry["implementationStatus"] = "IMPLEMENTED_FLAG_OFF"
         monkeypatch.setitem(feature_flags._DEFAULTS, "sleeper_weekly_projections", True)
         errors = census.validate_census(data)
         assert any("defaults ON" in e for e in errors)
+        monkeypatch.setitem(feature_flags._DEFAULTS, "sleeper_weekly_projections", False)
+        assert not any("defaults ON" in e for e in census.validate_census(data))
 
     def test_validator_requires_a_registered_flag(self):
         bad = {

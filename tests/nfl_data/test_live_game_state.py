@@ -298,7 +298,14 @@ def _enable(monkeypatch):
     feature_flags.reload()
 
 
-def test_flag_default_is_off_and_fetch_says_so():
+def test_flag_defaults_on_since_the_collector_owns_the_cadence():
+    """Game Day U5: the shared live collector polls on a bounded cadence."""
+    assert feature_flags._DEFAULTS[lgs.FLAG_NAME] is True
+
+
+def test_flag_off_fetch_says_so(monkeypatch):
+    monkeypatch.setenv("RISKIT_FEATURE_GAME_DAY_LIVE_GAME_STATE", "0")
+    feature_flags.reload()
     assert feature_flags.is_enabled(lgs.FLAG_NAME) is False
     calls = []
     snap = lgs.fetch_live_game_state(

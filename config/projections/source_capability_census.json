@@ -218,7 +218,7 @@
       "targetPopulation": ["OFFENSE", "IDP"],
       "positionsCovered": ["QB", "RB", "WR", "TE", "K", "DL", "LB", "DB"],
       "horizons": ["WEEKLY"],
-      "implementationStatus": "IMPLEMENTED_FLAG_OFF",
+      "implementationStatus": "LIVE",
       "existingModule": "src.ros.sleeper_weekly_projections",
       "featureFlag": "sleeper_weekly_projections",
       "existingRosRegistryKey": null,
