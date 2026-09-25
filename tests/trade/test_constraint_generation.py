@@ -492,12 +492,17 @@ def test_a_roster_analysis_built_without_constraints_says_so():
     assert hand_built.constraints_applied is False
     assert hand_built.can_send(PlayerAsset("QB1", "QB", 9000, 9000))
 
-    resolved = analyze_roster(["QB1"], [PlayerAsset("QB1", "QB", 9000, 9000)], constraints=None)
+    # The league demand is explicit: there is no default lineup.
+    needs = {"QB": 2, "RB": 3, "WR": 4, "TE": 2, "DL": 3, "LB": 3, "DB": 3}
+    resolved = analyze_roster(
+        ["QB1"], [PlayerAsset("QB1", "QB", 9000, 9000)], needs, constraints=None
+    )
     assert resolved.constraints_applied is True
 
     protected = analyze_roster(
         ["QB1"],
         [PlayerAsset("QB1", "QB", 9000, 9000)],
+        needs,
         constraints=resolve_constraints(persistent={"untouchables": ["QB1"]}),
     )
     assert protected.constraints_applied is True

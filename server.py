@@ -6836,13 +6836,10 @@ async def post_waiver_faab_recommend(request: Request):
     own_players = (selected_team_row or {}).get("players") or []
     open_roster_spots = max(0, roster_size - len(own_players)) if roster_size else 0
 
-    asset_pool = None
-    try:
-        asset_pool = await run_in_threadpool(
-            _faab_contention.build_opponent_asset_pool, latest_contract_data
-        )
-    except Exception as exc:  # noqa: BLE001 — need analysis is optional
-        log.warning("faab-recommend asset pool build failed: %s", exc)
+    # No asset pool is built here any more.  It existed only to feed the
+    # retired ``suggestions.analyze_roster`` need fallback, which measured
+    # every roster against dynasty_main's lineup constant.  Need is now the
+    # canonical startable-depth read below and nothing else.
 
     # Startable-depth need, resolved from the same board the values
     # come from.  Built once and shared with every rival so the user's
@@ -6867,12 +6864,13 @@ async def post_waiver_faab_recommend(request: Request):
         if key:
             roster_index[key] = (float(value), str(row.get("position") or ""))
 
-    own_need = "neutral"
+    # No identified team is an UNMEASURED need, not a neutral one.  It
+    # prices identically (no multiplier is configured for ``unknown``).
+    own_need = "unknown"
     if own_players:
         own_need = _need_level(
             add_position,
             own_players,
-            asset_pool,
             anchors=faab_anchors,
             starters=starters_map,
             roster_index=roster_index,
@@ -6982,7 +6980,6 @@ async def post_waiver_faab_recommend(request: Request):
                 lambda: _build_rivals(
                     opponents,
                     position=add_position,
-                    asset_pool=asset_pool,
                     market_priors=market_priors,
                     league_summary=league_summary,
                     roster_size=roster_size,
@@ -8099,7 +8096,9 @@ async def post_trade_suggestions(request: Request):
     # 2 TE + 9 IDP while ``dynasty_new`` starts 1 TE and no IDP.  The
     # engine has always accepted ``starter_needs``; nothing ever passed
     # it, so every league got dynasty_main's lineup.  The derivation is
-    # a no-op for dynasty_main by construction.
+    # a no-op for dynasty_main by construction.  ``None`` (the lineup does
+    # not resolve) fails closed inside the engine with an explicit
+    # ``league_lineup_unresolved`` reason — there is no default lineup.
     starter_needs = starter_needs_for_league(getattr(league_cfg, "key", None))
 
     league_rosters = body.get("league_rosters")

@@ -24,8 +24,10 @@ Factors
              bids), so every output here is an ESTIMATE, not a
              prediction — surfaced via ``estimateOnly`` + notes.
 ``need_f``   Positional need from the existing roster-analysis
-             helpers (``src.trade.suggestions.analyze_roster``):
-             need → 1.0, neutral → 0.55, surplus → 0.25.
+             helpers (``src.trade.suggestions.analyze_roster``),
+             measured against the caller-supplied LEAGUE demand
+             (``starter_needs``) — never a default lineup:
+             need → 1.0, neutral/unknown → 0.55, surplus → 0.25.
 ``intel_f``  Cross-league intel from the Insider Trading crawl
              snapshot (league-partitioned:
              ``data/intel/snapshot_<leagueKey>.json``), read
@@ -54,6 +56,9 @@ log = logging.getLogger(__name__)
 NEED_FACTORS: dict[str, float] = {
     "need": 1.0,
     "neutral": 0.55,
+    # Unmeasured (no league demand supplied) — priced like neutral, and
+    # reported as what it is rather than as a measured "neutral".
+    "unknown": 0.55,
     "surplus": 0.25,
 }
 
@@ -247,20 +252,29 @@ def need_level_for(
     opponent_players: list[str],
     add_position: str | None,
     asset_pool: list[Any],
+    *,
+    starter_needs: dict[str, int] | None,
 ) -> str:
     """Classify one opponent's need at ``add_position``.
 
     Runs the existing ``analyze_roster`` helper over the opponent's
-    roster names against the (unfiltered) asset pool.  Returns
-    ``"need"`` / ``"surplus"`` / ``"neutral"`` — a position outside
-    the starter-needs map, or an empty roster read, is neutral.
+    roster names against the (unfiltered) asset pool, measured against
+    ``starter_needs`` — the LEAGUE's resolved demand
+    (``suggestions.starter_needs_for_league``).  Returns ``"need"`` /
+    ``"surplus"`` / ``"neutral"`` — a position outside the demand map, or
+    an empty roster read, is neutral — or ``"unknown"`` when no league
+    demand was supplied.  That used to fall through to ``dynasty_main``'s
+    lineup constant inside ``analyze_roster``, measuring every league's
+    rivals against one league's lineup.
     """
     if not add_position or not opponent_players or not asset_pool:
         return "neutral"
+    if not starter_needs:
+        return "unknown"
     from src.trade.suggestions import analyze_roster  # noqa: PLC0415 — avoid import cycle at module load
 
     try:
-        analysis = analyze_roster([str(n) for n in opponent_players], asset_pool)
+        analysis = analyze_roster([str(n) for n in opponent_players], asset_pool, starter_needs)
     except Exception as exc:  # noqa: BLE001 — a single bad roster must not kill the estimate
         log.warning("contention roster analysis failed: %s", exc)
         return "neutral"
@@ -317,8 +331,13 @@ def estimate_rival_bids(
     league_median_winning_bid: float | None = None,
     intel_index: dict[str, dict[str, set[str]]] | None = None,
     intel_available: bool = False,
+    starter_needs: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     """Estimate every opponent's expected bid on the add target.
+
+    ``starter_needs`` is the league's resolved lineup demand.  Without it
+    every rival's need is ``unknown`` (priced like neutral) — never a
+    default lineup borrowed from another league.
 
     ``opponents`` are Sleeper team dicts (``ownerId``, ``name``,
     ``players``, ``faabRemaining``) — the caller must already have
@@ -390,6 +409,7 @@ def estimate_rival_bids(
             team.get("players") or [],
             add_position,
             asset_pool,
+            starter_needs=starter_needs,
         )
         need_f = NEED_FACTORS.get(need_level, NEED_FACTORS["neutral"])
 

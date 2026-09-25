@@ -342,6 +342,112 @@ class TestSlotDemandHasOneOwner:
                     offenders.append(f"{path.relative_to(REPO)}:{line_no}")
         assert offenders == []
 
+    def test_no_module_hardcodes_a_lineup_demand_table(self):
+        """A position → starter-COUNT literal is a second demand derivation.
+
+        The retired ``trade/suggestions.DEFAULT_STARTER_NEEDS`` was exactly
+        this shape — ``{"QB": 2, "RB": 3, "WR": 4, ...}`` — and it served
+        as the silent default for every opponent-roster analysis and both
+        FAAB need paths, so every league was measured against
+        ``dynasty_main``'s lineup (canonical-need-priority, 2026-09-24).
+        A league's demand comes from
+        ``lineup.resolve_league_slot_demand``; nothing else may spell one.
+
+        Fingerprint: a dict literal of three or more lineup-position keys
+        whose values are all integer literals.  Weight/multiplier tables
+        (float values) and eligibility tables (collections) do not match.
+        """
+        positions = {
+            "QB", "RB", "WR", "TE", "K", "DL", "LB", "DB",
+            "FLEX", "SFLEX", "SUPER_FLEX", "IDP_FLEX",
+        }  # fmt: skip
+        # Known debt, named rather than hidden — found by this guard on the day
+        # it was written, and outside the canonical-need-priority unit's scope:
+        # a LEAGUE-WIDE slot-total fallback for historical seasons that carry no
+        # roster settings (public awards VORP cutoff).  Same defect class; a
+        # follow-up, not a precedent.  Remove the entry when it is repaired.
+        known_debt = {"src/public_league/awards.py"}
+        offenders = []
+        for path in _python_sources():
+            if path.relative_to(REPO).as_posix() in known_debt:
+                continue
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Dict) or len(node.keys) < 3:
+                    continue
+                keys = node.keys
+                if not all(isinstance(k, ast.Constant) and k.value in positions for k in keys):
+                    continue
+                if all(
+                    isinstance(v, ast.Constant)
+                    and isinstance(v.value, int)
+                    and not isinstance(v.value, bool)
+                    for v in node.values
+                ):
+                    offenders.append(f"{path.relative_to(REPO).as_posix()}:{node.lineno}")
+        assert offenders == [], (
+            "a hardcoded lineup-demand table is back — resolve the LEAGUE's demand "
+            f"through lineup.resolve_league_slot_demand instead: {offenders}"
+        )
+
+    #: Modules allowed to call :func:`slot_demand` on a slot list they were
+    #: HANDED.  Anything that starts from a LEAGUE goes through
+    #: ``resolve_league_slot_demand`` (ladder + configured eligibility + demand)
+    #: so no consumer can re-plumb league → demand with its own fallback — the
+    #: shape of the defect this list exists to keep out.  Adding a module here
+    #: is a declaration that it receives slots, not a league.
+    SLOT_LIST_DEMAND_CONSUMERS = frozenset(
+        {
+            "src/intel/roster_shape.py",
+            "src/roster_intel/core.py",
+            "src/roster_intel/profiles.py",
+            "src/scoring/replacement_level.py",
+            "src/trade/team_impact.py",
+            "scripts/prove_trade_consumes_roster.py",
+            "scripts/replacement_census.py",
+        }
+    )
+
+    def test_league_demand_is_resolved_through_one_resolver(self):
+        callers = set()
+        for path in _python_sources():
+            if re.search(r"\bslot_demand\(", path.read_text(encoding="utf-8")):
+                callers.add(path.relative_to(REPO).as_posix())
+        undeclared = sorted(callers - self.SLOT_LIST_DEMAND_CONSUMERS)
+        assert undeclared == [], (
+            "new direct slot_demand() callers — a league's demand must come from "
+            f"lineup.resolve_league_slot_demand: {undeclared}"
+        )
+
+    def test_an_unresolvable_league_has_unknown_demand_not_zero(self):
+        unresolved = owner.resolve_league_slot_demand(roster_settings={})
+        assert unresolved.resolved is False
+        assert unresolved.required("QB", basis="flex_priority") is None
+        assert unresolved.by_basis("even_split") is None
+
+        resolved = owner.resolve_league_slot_demand(
+            roster_settings={"starters": {"QB": 1, "RB": 2, "SFLEX": 1}}
+        )
+        assert resolved.required("DL", basis="even_split") == 0.0  # measured zero
+        assert resolved.required("QB", basis="flex_priority") == 2.0
+        # The configured flex rules are applied, not the declared defaults.
+        narrowed = owner.resolve_league_slot_demand(
+            roster_settings={"starters": {"QB": 1, "SFLEX": 1}, "sflexEligible": ["QB"]}
+        )
+        assert narrowed.required("QB", basis="even_split") == 2.0
+
+    def test_no_need_path_falls_back_to_another_leagues_lineup(self):
+        """Every consumer that classifies positional need gets the league's
+        demand or reports UNKNOWN.  Pinned on source for the two retired
+        fallbacks, because the defect was invisible in any single league."""
+        from src.trade import faab_recommender, suggestions
+
+        rec_src = inspect.getsource(faab_recommender._need_level)
+        assert "analyze_roster(" not in rec_src, "the FAAB analyze_roster fallback is back"
+        assert not hasattr(suggestions, "DEFAULT_STARTER_NEEDS")
+        with pytest.raises(ValueError):
+            suggestions.analyze_roster([], [], None)
+
     def test_the_three_demand_questions_stay_distinct(self):
         """Collapsing them would reintroduce the error LI-5 measured."""
         demand = owner.slot_demand(["QB", "RB", "FLEX", "SUPER_FLEX"])

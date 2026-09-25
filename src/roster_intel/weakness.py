@@ -60,6 +60,22 @@ scoring him as a need would manufacture trade targets out of a join
 miss.  ``UNKNOWN`` rungs are counted and reported separately from unmet
 ones and never contribute to ``priority``.
 
+Startable depth — the second, value-bar reading of need
+========================================================
+
+Rung priority above asks "is your k-th best good enough against the
+league's ranks".  Two decision engines ask a coarser question — "how
+many bodies clearing MY quality bar do you hold, against how many this
+league starts" — and each had written the arithmetic itself, against
+its own copy of the league's demand (``trade/suggestions.analyze_roster``
+against a ``dynasty_main`` constant; ``trade/faab_engine.classify_need``
+against a private demand helper that read an unresolvable lineup as
+"starts nobody").  :func:`position_depth` is that measurement, once.  The DEMAND it
+measures against is ``src/ros/lineup.py::LeagueSlotDemand`` — never a
+constant — and an unresolved demand yields an unmeasured depth, not a
+zero one.  What a consumer does with ``spare`` (a trade surplus, a FAAB
+bid category) is that consumer's translation, and stays there.
+
 Pure computation.  No I/O, no network, no clock.
 """
 
@@ -73,12 +89,14 @@ from src.roster_intel.core import CoreMember, MeaningfulCore
 
 __all__ = [
     "NEED_LEVELS",
+    "PositionDepth",
     "PositionNeed",
     "PositionRanks",
     "SlotRung",
     "TeamWeakness",
     "build_position_ranks",
     "build_team_weakness",
+    "position_depth",
 ]
 
 #: Worst → best.  A position takes the level of its worst rung.
@@ -157,6 +175,67 @@ def build_position_ranks(
         for i, (pid, _) in enumerate(entries, start=1):
             ranks[pid] = i
     return PositionRanks(ranks=ranks, population=population, population_size=total)
+
+
+@dataclass(frozen=True)
+class PositionDepth:
+    """Startable depth at one position against the league's lineup demand.
+
+    ``required`` is ``None`` when the league's demand is unresolved: the
+    depth is then UNMEASURED, and ``spare`` / ``starter_hole`` answer
+    ``None`` rather than reading a missing lineup as "needs nobody".
+    """
+
+    position: str
+    required: float | None
+    startable: int
+
+    @property
+    def measured(self) -> bool:
+        return self.required is not None
+
+    @property
+    def spare(self) -> float | None:
+        """Startable bodies beyond what the lineup demands; negative is a hole."""
+        if self.required is None:
+            return None
+        return self.startable - self.required
+
+    @property
+    def starter_hole(self) -> bool | None:
+        """The roster cannot field the league's demand from bodies clearing the bar."""
+        if self.required is None:
+            return None
+        return self.startable < self.required
+
+
+def position_depth(
+    position: str,
+    values: Iterable[float],
+    *,
+    required: float | None,
+    bar: float,
+    inclusive: bool = False,
+) -> PositionDepth:
+    """Count the players at ``position`` clearing ``bar``, against ``required``.
+
+    ``required`` must come from the canonical demand owner
+    (``src/ros/lineup.py::LeagueSlotDemand.required``) — it is a parameter,
+    not a lookup, so a caller cannot reach a default lineup through here.
+    ``bar`` and ``inclusive`` are the consumer's quality line (the FAAB
+    replacement anchor, strictly above; the trade engine's relevance
+    floor, at or above) — a stated input, not a second definition of
+    need.  ``None`` values are unpriced and never count as depth.
+    """
+    if inclusive:
+        startable = sum(1 for v in values if v is not None and float(v) >= bar)
+    else:
+        startable = sum(1 for v in values if v is not None and float(v) > bar)
+    return PositionDepth(
+        position=lineup_position(position),
+        required=None if required is None else float(required),
+        startable=startable,
+    )
 
 
 @dataclass(frozen=True)

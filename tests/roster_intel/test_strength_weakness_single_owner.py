@@ -45,6 +45,11 @@ OWNER_SYMBOL_PATHS: dict[str, str] = {
     "TeamWeakness": "src/roster_intel/weakness.py",
     "build_position_ranks": "src/roster_intel/weakness.py",
     "build_team_weakness": "src/roster_intel/weakness.py",
+    # Startable depth against the canonical league demand — the arithmetic the
+    # trade engine and the FAAB need classifier each used to write themselves
+    # (canonical-need-priority, 2026-09-24).
+    "PositionDepth": "src/roster_intel/weakness.py",
+    "position_depth": "src/roster_intel/weakness.py",
 }
 
 #: Same scan roots as scripts/replacement_census.py — src/ + scripts/ +
