@@ -442,6 +442,20 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # and rescoring already-captured rows is unaffected.  Turning it on is
     # an owner decision on the licensing open item, not an engineering one.
     "sleeper_weekly_projections": False,
+    # C5-PROJ-C keyed WEEKLY projection sources (2026-09-25): Fantasy Nerds
+    # (``src/ros/fantasynerds_weekly_projections.py``, key
+    # FANTASYNERDS_API_KEY) and SportsDataIO
+    # (``src/ros/sportsdataio_weekly_projections.py``, key
+    # SPORTSDATAIO_API_KEY).  SEASONAL intelligence lane only.  Licensing is
+    # OWNER_ATTESTED_AUTHORIZED; OFF because no production credential is
+    # installed yet.  Off, or no key → the fetch refuses (feature_disabled /
+    # credential_missing) with no network call; that source is unavailable
+    # and nothing else is affected.  Activate: install the key in the
+    # service environment, set RISKIT_FEATURE_<NAME>=1, restart; the source
+    # becomes usable only once ``source_available()`` also sees a healthy
+    # fetch.
+    "fantasynerds_weekly_projections": False,
+    "sportsdataio_weekly_projections": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"
@@ -629,6 +643,11 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # script or engine imports it, so the gate is real but stranded until
     # the Game Day consumer (C5-PROJ-F) wires it.  Defaults False.
     "sleeper_weekly_projections": UNREACHABLE,
+    # The two keyed weekly sources: built and tested, not yet consumed by
+    # any route/script/engine (the Game Day consumer wires them). Default
+    # False, and they also need their credential env var.
+    "fantasynerds_weekly_projections": UNREACHABLE,
+    "sportsdataio_weekly_projections": UNREACHABLE,
     # ``src/nfl_data/depth_charts.py`` is gated and imported by
     # ``scripts/refresh_depth_charts.py``, which since 2026-09-01 also
     # writes DEPTH_CHART_PROMOTION/DEMOTION events into the BDVM ledger
