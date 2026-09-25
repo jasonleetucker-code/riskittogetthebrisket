@@ -98,8 +98,8 @@ Each player's pregame baseline has ONE basis, published per player as
 * `weekly:rotowire_via_sleeper` — the Sleeper weekly projection (RotoWire),
   rescored under this league's card by the exact scorer and locked at the
   player's kickoff (`lock_baseline_at_kickoff`: last observation fetched at or
-  before kickoff). Flag `sleeper_weekly_projections` (default OFF in code;
-  access is owner-attested — census `OWNER_ATTESTED_AUTHORIZED`, record
+  before kickoff). Flag `sleeper_weekly_projections` (default ON since U5 —
+  rollback `RISKIT_FEATURE_SLEEPER_WEEKLY_PROJECTIONS=0`; access is owner-attested — census `OWNER_ATTESTED_AUTHORIZED`, record
   `docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md`).
 * `weekly:ensemble` — reserved for a player priced by two or more independent
   weekly provider FAMILIES. `WEEKLY_SOURCE_ADAPTERS` is the seam for further
@@ -223,16 +223,117 @@ whose win% + tie% summed to **exactly 600.0** across 12 teams / 6 matchups.
 The estimate index was labelled `SYNTHETIC:wiring-proof-only`; it proves the
 wiring, not a forecast.
 
+## Shared live collector and generations (U5, `src/ros/game_day_live.py`)
+
+Owner requirement (2026-09-24 escalation, §A.5): bounded shared background
+collection and cached, versioned simulation generations — a live update never
+needs a deployment, a scrape, or a simulation per viewer.
+
+**Collector.** `scripts/run_game_day_live.py` under the
+`dynasty-game-day-live` systemd timer (fires every minute; the tick decides
+whether it is due, exit 2 otherwise). Cadence comes from OBSERVED game windows
+(`decide_cadence`): 60 s while any game is live (a passed kickoff with no
+observed final counts as live for 6 h), 180 s inside 90 min of a kickoff,
+hourly otherwise, and the next tick is pulled forward to the near-kickoff
+window and to each kickoff. A tick is bounded (`MAX_REQUESTS_PER_TICK` = 20;
+one NFL-state, ESPN, live-stats, projections and players-DB request plus four
+per league) and keeps a persisted per-source backoff, because the in-process
+circuit breaker does not survive a oneshot run. A failed scoreboard read uses
+the last good observation at its TRUE as-of, so the resolver marks it
+`stale_live_state` rather than reading it as fresh.
+
+**Weekly projections and the kickoff lock.** Fetched while any kickoff is
+ahead (every 10 min inside 90 min of a kickoff, every 3 h otherwise, never
+once every game has kicked off), with one fetch FORCED inside the final 10 min
+before each kickoff. Every fetch is persisted, so a restart after kickoff keeps
+each game's last pre-kickoff read (U4's gap). Each generation records
+`preKickoffCoverage` — per game, the last pre-kickoff fetch and its lead time,
+and the games that have none.
+
+**Persistence** — `data/game_day/live/` (gitignored; never `data/ros/`, which
+`scheduled-refresh.yml` force-adds to the public repo):
+
+| path | what |
+|---|---|
+| `_nfl/<season>/week_<n>/observations/{espn_scoreboard,sleeper_live_stats,sleeper_weekly_projections}.jsonl` | NFL-wide observations, stored once |
+| `<leagueKey>/<season>/week_<n>/observations/sleeper_league_week.jsonl` | league + users + rosters + matchups per tick |
+| `<leagueKey>/<season>/week_<n>/generation.json` | the latest generation (atomic tempfile + replace) |
+| `<leagueKey>/<season>/week_<n>/generations.jsonl` | one summary row per published generation (win %, expected final, actual score per roster) |
+| `<leagueKey>/<season>/week_<n>/state.json` | last tick, `lastVerifiedAt`, cadence, timings, refresh-in-progress |
+| `_collector/state.json`, `_collector/ticks.jsonl`, `_collector/tick.lock` | next due time, source health/backoff, tick log (trimmed), lock |
+
+Observation logs are append-only keyed-delta JSONL (`keyframe` / `delta` /
+`unchanged` / `failure`; a keyframe every 100 records), with a `.head.json`
+cache rebuilt from the log whenever it disagrees. A torn trailing write is cut
+back rather than glued onto. Raw logs are pruned after 4 weeks; generations,
+their index and state are kept for the season.
+
+**Generations.** `generation.json` holds the input as-of stamps per source,
+the resolved state (every team's `TeamWeek`, opponents, host scores), the
+simulation output, `computedAt`, `modelVersion`, draws/seed, the generation id
+and the rendered payload parts (`matchup_intel.render_league`: shared fields,
+league lineage, one side per roster, the league half of the NFL slate). A new
+generation is computed ONLY when `input_fingerprint` changes — a hash of the
+pre-simulation render with fetch/compute timestamps stripped plus the
+simulation's own input fingerprint — so an unchanged poll is a few requests and
+a hash (0.6 s measured). A generation is published only if its `sequence` (the
+tick's input fetch time) is newer than the one on disk.
+
+**Serving.** `/api/matchup/intel` → `build_matchup_intel` →
+`game_day_live.serve_league_render`: the latest generation, composed for the
+requested owner (`compose_team_payload` adds only roster intelligence from the
+loaded contract, the archive stamp and freshness) — 15 ms with a cold parse of
+the ~1 MB generation, <1 ms warm. With no generation (or the collector absent
+and the generation stale) it computes on demand through the request-path seams,
+single-flighted per league-week, labelled `degraded`; if that fails a stale
+generation is served with its true age — never a blank.
+
+**`freshness` block** (on every payload):
+
+| field | meaning |
+|---|---|
+| `state` | `stale` (payload age > 3 cadence intervals for the current phase: 180 s live) › `degraded` (not the collector's current answer: request compute, last tick failed, generation behind evidence) › `partial` (a source unavailable: live state during games, weekly projections, league, schedule) › `current` |
+| `reasons` | why, machine-readable |
+| `servedFrom` | `collector_generation` / `request_compute` |
+| `generationId`, `generationComputedAt`, `simulationComputedAt` | which answer, when computed |
+| `lastVerifiedAt`, `asOf`, `payloadAgeSeconds`, `staleAfterSeconds`, `phase` | the last moment the payload was known to reflect the freshest evidence (a tick that found inputs unchanged re-verifies it) and its age |
+| `refreshInProgress`, `refreshStartedAt` | a collector tick is working on this league-week now |
+| `collector` | last tick time/outcome and cadence |
+| `sources.<name>` | `status`, `fetchedAt` (when WE fetched), `observedAt` (when the source says its content was true, `observedAtBasis` naming the evidence — ESPN `http_last_modified`, projections `provider_updated_at`, else `fetch_time`), `ageSeconds`; sources `espnScoreboard`, `sleeperLeague`, `weeklyProjections`, `nflverseSchedule`, `preseasonProjection`, `sleeperLiveStats` |
+
+Sleeper live stats are observed and persisted (stat-correction evidence) but
+NOT consumed by scoring — the host's `players_points` remain the banked
+points; `sources.sleeperLiveStats.consumedByScoring` says so.
+
+**Flags.** `game_day_live_game_state` and `sleeper_weekly_projections` default
+ON since U5 (rollback `RISKIT_FEATURE_GAME_DAY_LIVE_GAME_STATE=0` /
+`RISKIT_FEATURE_SLEEPER_WEEKLY_PROJECTIONS=0` + restart; the collector reads
+them at its next tick). The test suite runs with both OFF (`tests/conftest.py`)
+so no unit test can reach ESPN or Sleeper.
+
+**Tests.** `tests/game_day/test_game_day_live_collector.py` — cadence per
+phase, the observation log (reconstruction, append-only, head rebuild, torn
+write, damaged delta), ticks over the real replay fixtures (one generation per
+league-week, served payload == direct build, unchanged poll recomputes nothing,
+a scored point republishes, restart keeps the pre-kickoff baseline, last-good
+scoreboard at its true age, persisted backoff, lock/not-due, one league
+failing), out-of-order and failed publication, serving + every freshness state,
+single-flighted on-demand compute. #1346's single-flight / atomic-write tests
+are carried in `tests/test_singleflight.py` and
+`tests/game_day/test_game_day_sim_cache.py`.
+
 ## Known limitations, named rather than papered over
 
 * The observed-clock baseline scales a pregame projection by regulation time
   left; no possession, score, injury or usage modelling exists.
-* Live acquisition in `matchup_intel` is an in-process interim memo until the
-  shared background collector (U5): a restart after kickoff forgets pre-kickoff
-  weekly observations, and those players fall back to the preseason basis
-  (counted as `noPreKickoffObservation`).
-* The simulation cache fingerprint includes live inputs, so it misses on every
-  live poll; making live simulation cheap is the collector's job (U5).
+* ~~Live acquisition is an in-process memo; a restart after kickoff forgets
+  pre-kickoff weekly observations~~ — closed by U5 (below): every observation is
+  persisted append-only and the request seam merges the persisted history.
+* The simulation still recomputes whenever its inputs change, which during a
+  live game is every tick (the clock moves remaining production). U5 makes
+  that ONE shared computation per input change instead of one per viewer:
+  measured 24-29 s for `dynasty_main` (12 teams, 2,000 draws) on the real
+  halftime/Q3/Q4 replays, inside the 60 s live cadence.
 * Sleeper `Out` is treated as definitively finished; less certain injury labels
   remain projections.
 

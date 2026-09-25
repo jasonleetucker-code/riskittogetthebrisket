@@ -1,0 +1,52 @@
+[Unit]
+Description=Game Day live collector tick (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+
+# Game Day U5 — the SHARED background collector.  One bounded tick of
+# scripts/run_game_day_live.py (owner: src/ros/game_day_live.py):
+#
+#   * ESPN scoreboard, Sleeper live stats, Sleeper weekly projections and
+#     every active league's league/users/rosters/matchups — at most
+#     MAX_REQUESTS_PER_TICK requests, with a persisted per-source backoff
+#     (the in-process circuit breaker does not survive a oneshot run);
+#   * every observation appended to data/game_day/live/ (gitignored, never
+#     force-added — NOT data/ros/, which scheduled-refresh.yml commits to
+#     the public repo), so a restart after kickoff keeps each game's
+#     pre-kickoff projection baseline;
+#   * a new versioned generation per league-week ONLY when the input
+#     content changed.  /api/matchup/intel serves that generation: a live
+#     update needs no deploy, no scrape, and no simulation per viewer.
+#
+# WHY A PROD-SIDE TIMER AND NOT CI: data/ is gitignored and the API reads
+# the generation from local disk; a CI runner's copy would be discarded.
+# Deploys do not endanger it: deploy.sh never removes gitignored data/.
+#
+# Exit codes (scripts/run_game_day_live.py):
+#   0 - tick ran, every league-week current
+#   1 - tick ran, at least one league-week (or the tick) failed
+#   2 - nothing to do (not due, another tick running, out of season)
+
+[Service]
+Type=oneshot
+# EXIT 2 IS A SUCCESS, AND SAYING SO IS LOAD-BEARING: the timer fires every
+# minute and the tick decides whether it is due, so MOST firings exit 2.
+# Without this the unit would sit `failed` almost permanently and a REAL
+# failure (exit 1) would be indistinguishable from the normal case.  Same
+# reasoning as dynasty-game-day-capture.
+SuccessExitStatus=2
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/run_game_day_live.py
+StandardOutput=journal
+StandardError=journal
+# A live tick is a handful of requests plus, when inputs changed, one
+# league-week simulation per league.  Matches LOCK_STALE_SECONDS in
+# src/ros/game_day_live.py: a tick killed here leaves a lock the next tick
+# treats as abandoned.
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target

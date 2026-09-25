@@ -174,6 +174,23 @@ def test_every_flag_defaults_off_except_safe_additive():
         # rates.  Opt-in league-adjusted lens only.
         # Rollback: RISKIT_FEATURE_RECEPTION_SCORING_FIT=0.
         "reception_scoring_fit",
+        # Game Day U5 (2026-09-25): the shared live collector owns both feeds'
+        # cadence, so both default ON.  They move GAME DAY numbers only —
+        # seasonal-intelligence lane; no canonical dynasty value, rank or
+        # tier can change (the weekly module is scanned by the canonical-
+        # ownership guard and never enters the full-season ensemble).
+        # Blast radius measured on the REAL 2026-09-25 TNF halftime replay
+        # (dynasty_main, 12 teams, no preseason snapshot offline): ON, 596
+        # rostered players carry a kickoff-locked weekly baseline and the
+        # win / beat-median probability is AVAILABLE for all 12 teams; OFF,
+        # passed kickoffs stay ``unknown`` (17 of the 114 players in the
+        # measured matchup change state) and every probability is withheld
+        # (GAME_STATE_OR_SCORING_UNAVAILABLE); 93 of 114 players'
+        # projectedRemaining differ.  Rollback:
+        # RISKIT_FEATURE_GAME_DAY_LIVE_GAME_STATE=0 /
+        # RISKIT_FEATURE_SLEEPER_WEEKLY_PROJECTIONS=0 + restart.
+        "game_day_live_game_state",
+        "sleeper_weekly_projections",
     }
     off_only = {
         "dynamic_source_weights",  # held OFF until backtest data exists

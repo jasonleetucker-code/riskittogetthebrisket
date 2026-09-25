@@ -1,0 +1,28 @@
+[Unit]
+Description=Game Day live collector (every minute; the tick decides if due) for __SERVICE_NAME__
+# No Requires= here: [Timer]
+# FIRES EVERY MINUTE; THE SCRIPT DECIDES WHICH FIRING IS DUE.
+#
+# The cadence is read from OBSERVED game windows, never from a weekday
+# (the same lesson as dynasty-game-day-capture, whose Thursday-only
+# schedule would have missed a Wednesday Week 1 opener): ~60 s while any
+# game is live, every few minutes inside 90 minutes of a kickoff, hourly
+# otherwise.  A systemd calendar cannot express that, so the timer fires
+# at the finest cadence and scripts/run_game_day_live.py exits 2 on every
+# firing that is not due — before importing anything heavy.
+#
+# systemd never starts a oneshot unit that is still running, so a slow
+# tick cannot overlap the next firing; the collector's own lock file covers
+# manual runs.
+[Timer]
+OnCalendar=*-*-* *:*:00 UTC
+# Deliberately NO RandomizedDelaySec: a live tick every minute is the
+# point, and jitter only delays a live score.
+AccuracySec=1s
+# Persistent=false: a missed minute is not worth catching up; the next
+# firing is at most a minute away and reads the current state anyway.
+Persistent=false
+Unit=__SERVICE_NAME__-game-day-live.service
+
+[Install]
+WantedBy=timers.target

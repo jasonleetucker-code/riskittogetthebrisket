@@ -53,10 +53,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import random
 import statistics
+import tempfile
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
@@ -68,6 +70,7 @@ from src.ros.lineup import (
     solve_optimal_assignment,
 )
 from src.utils.config_loader import repo_root
+from src.utils.singleflight import SingleFlight
 
 #: A player's state within the scoring period. Every one of these is a
 #: DIFFERENT statement about what is still uncertain, and collapsing any
@@ -776,6 +779,11 @@ _SIM_CACHE_ROOT = repo_root() / "data" / "game_day" / "sims"
 #: computation being requested, not merely "recent enough" — so this TTL
 #: only guards a fingerprint gap or bug, never decides freshness on its own.
 _GAME_DAY_SIM_CACHE_TTL_SEC = 2 * 3600
+#: One in-process builder per (cache path, input fingerprint).  Carried from
+#: #1346 (codex/performance-serving, owner decision 2026-09-24 in #1346
+#: comment 5825392001): concurrent managers asking the identical league-week
+#: question share ONE simulation instead of each paying for it.
+_SIM_FLIGHTS = SingleFlight()
 
 
 def _sim_cache_path(league_key: str, season: int, week: int) -> Path:
@@ -850,6 +858,33 @@ def _sim_input_fingerprint(
     return hashlib.sha256(blob).hexdigest()
 
 
+def simulation_input_fingerprint(
+    *,
+    rules: LeagueWeekRules,
+    teams: Sequence[TeamWeek],
+    opponents: Mapping[str, str | None],
+    draws: int = DEFAULT_DRAWS,
+    seed: int = DEFAULT_SEED,
+    points_model: PointsModel | None = None,
+    threshold_semantics: str = THRESHOLD_SEMANTICS,
+) -> str:
+    """The cache's own input identity, for callers that version on it.
+
+    The Game Day collector (``src/ros/game_day_live.py``) folds this into
+    its generation fingerprint so a generation moves exactly when the
+    simulation would — one definition of "the simulation's inputs changed".
+    """
+    return _sim_input_fingerprint(
+        rules=rules,
+        teams=teams,
+        opponents=opponents,
+        draws=draws,
+        seed=seed,
+        threshold_semantics=threshold_semantics,
+        model=points_model or load_points_model(),
+    )
+
+
 def _outcome_from_dict(row: Mapping[str, Any]) -> TeamWeekOutcome:
     kwargs = dict(row)
     kwargs["unsimulable_player_ids"] = tuple(kwargs.get("unsimulable_player_ids") or ())
@@ -907,16 +942,42 @@ def _read_sim_cache(path: Path, fingerprint: str) -> LeagueWeekSimulation | None
     return sim
 
 
-def _write_sim_cache(path: Path, fingerprint: str, sim: LeagueWeekSimulation) -> None:
+def _write_sim_cache(path: Path, fingerprint: str, sim: LeagueWeekSimulation) -> float:
     body = asdict(sim)
     body.pop("cached", None)
     body.pop("cache_computed_at", None)
     computed_at = time.time()
     payload = {"fingerprint": fingerprint, "computedAt": computed_at, "simulation": body}
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
-    tmp.replace(path)
+    # The scheduled capture and web process can publish concurrently. Each
+    # writer owns its tempfile; replacement exposes only complete JSON.
+    # (Carried from #1346 with the same behaviour.)
+    tmp = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=path.name + ".",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            tmp = Path(handle.name)
+            json.dump(payload, handle, sort_keys=True)
+        for attempt in range(3):
+            try:
+                tmp.replace(path)
+                break
+            except PermissionError as exc:
+                # Windows can briefly deny replacement while another process
+                # finishes its own atomic rename. Never unlink the live file.
+                if os.name != "nt" or getattr(exc, "winerror", None) not in (5, 32) or attempt == 2:
+                    raise
+                time.sleep(0.01)
+    finally:
+        if tmp is not None:
+            tmp.unlink(missing_ok=True)
+    return computed_at
 
 
 def get_cached_league_week_simulation(
@@ -960,19 +1021,29 @@ def get_cached_league_week_simulation(
     if cached is not None:
         return cached
 
-    result = simulate_league_week(
-        rules=rules,
-        teams=teams,
-        opponents=opponents,
-        season=season,
-        week=week,
-        draws=draws,
-        seed=seed,
-        points_model=model,
-        threshold_semantics=threshold_semantics,
-    )
-    _write_sim_cache(path, fingerprint, result)
-    return result
+    def compute():
+        cached = _read_sim_cache(path, fingerprint)
+        if cached is not None:
+            return cached, cached.cache_computed_at
+        result = simulate_league_week(
+            rules=rules,
+            teams=teams,
+            opponents=opponents,
+            season=season,
+            week=week,
+            draws=draws,
+            seed=seed,
+            points_model=model,
+            threshold_semantics=threshold_semantics,
+        )
+        computed_at = _write_sim_cache(path, fingerprint, result)
+        return result, computed_at
+
+    # Single-flight (#1346): concurrent callers with the SAME inputs share
+    # one computation; the builder re-checks the cache first, so a caller
+    # that lost the race to a finished writer reads rather than recomputes.
+    (result, computed_at), shared = _SIM_FLIGHTS.run((str(path), fingerprint), compute)
+    return replace(result, cached=True, cache_computed_at=computed_at) if shared else result
 
 
 def rules_from_league(

@@ -18,6 +18,9 @@ from __future__ import annotations
 
 import shutil
 import tempfile
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest import mock
 
@@ -166,3 +169,75 @@ def test_the_cache_never_writes_under_data_ros():
     real_root = str(gds._SIM_CACHE_ROOT).replace("\\", "/")
     assert "data/ros" not in real_root
     assert "data/game_day" in real_root
+
+
+def test_concurrent_same_inputs_simulate_once(cache_dir):
+    rules, teams, opponents = _league()
+    original = gds.simulate_league_week
+    start = threading.Barrier(6)
+
+    def simulate(**kwargs):
+        time.sleep(0.05)
+        return original(**kwargs)
+
+    def request(_):
+        start.wait(timeout=5)
+        return _call(rules, teams, opponents)
+
+    with (
+        mock.patch.object(gds, "simulate_league_week", side_effect=simulate) as solve,
+        ThreadPoolExecutor(max_workers=6) as pool,
+    ):
+        outcomes = list(pool.map(request, range(6)))
+    assert solve.call_count == 1
+    assert all(outcome.teams == outcomes[0].teams for outcome in outcomes)
+    assert sum(not outcome.cached for outcome in outcomes) == 1
+
+
+def test_failed_simulation_does_not_poison_retry(cache_dir):
+    rules, teams, opponents = _league()
+    with mock.patch.object(gds, "simulate_league_week", side_effect=RuntimeError("failed")):
+        with pytest.raises(RuntimeError, match="failed"):
+            _call(rules, teams, opponents)
+    assert _call(rules, teams, opponents).cached is False
+    assert _call(rules, teams, opponents).cached is True
+
+
+def test_concurrent_publishers_use_distinct_temporary_files(cache_dir, monkeypatch):
+    """Also covers writers outside the process-local simulation single-flight."""
+    rules, teams, opponents = _league()
+    simulation = _call(rules, teams, opponents)
+    path = gds._sim_cache_path(rules.league_key, 2026, 1)
+    ready_to_publish = threading.Barrier(2)
+    original_replace = Path.replace
+    temporary_paths = []
+    attempted = set()
+    attempts_lock = threading.Lock()
+
+    def publish(source, destination):
+        with attempts_lock:
+            first_attempt = source not in attempted
+            attempted.add(source)
+            temporary_paths.append(source)
+        if first_attempt:
+            ready_to_publish.wait(timeout=5)
+        return original_replace(source, destination)
+
+    monkeypatch.setattr(Path, "replace", publish)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        list(pool.map(lambda _: gds._write_sim_cache(path, "same-inputs", simulation), range(2)))
+    assert len(set(temporary_paths)) == 2
+    assert gds._read_sim_cache(path, "same-inputs").teams == simulation.teams
+    assert not list(path.parent.glob("*.tmp"))
+
+
+def test_failed_publication_preserves_previous_file_and_cleans_temp(cache_dir):
+    rules, teams, opponents = _league()
+    simulation = _call(rules, teams, opponents)
+    path = gds._sim_cache_path(rules.league_key, 2026, 1)
+    previous = path.read_bytes()
+    with mock.patch.object(Path, "replace", side_effect=OSError("disk failure")):
+        with pytest.raises(OSError, match="disk failure"):
+            gds._write_sim_cache(path, "new-inputs", simulation)
+    assert path.read_bytes() == previous
+    assert not list(path.parent.glob("*.tmp"))
