@@ -1,6 +1,7 @@
 [
   {
     "scenario": "pregame",
+    "dataInfo": null,
     "viewport": "desktop",
     "size": {
       "width": 1366,
@@ -17,6 +18,7 @@
   },
   {
     "scenario": "pregame",
+    "dataInfo": null,
     "viewport": "phone",
     "size": {
       "width": 390,
@@ -33,6 +35,7 @@
   },
   {
     "scenario": "halftime",
+    "dataInfo": null,
     "viewport": "desktop",
     "size": {
       "width": 1366,
@@ -55,6 +58,7 @@
   },
   {
     "scenario": "halftime",
+    "dataInfo": null,
     "viewport": "phone",
     "size": {
       "width": 390,
@@ -77,6 +81,7 @@
   },
   {
     "scenario": "overtime",
+    "dataInfo": null,
     "viewport": "desktop",
     "size": {
       "width": 1366,
@@ -93,6 +98,7 @@
   },
   {
     "scenario": "overtime",
+    "dataInfo": null,
     "viewport": "phone",
     "size": {
       "width": 390,
@@ -109,6 +115,7 @@
   },
   {
     "scenario": "mixed-slate",
+    "dataInfo": null,
     "viewport": "desktop",
     "size": {
       "width": 1366,
@@ -125,6 +132,7 @@
   },
   {
     "scenario": "mixed-slate",
+    "dataInfo": null,
     "viewport": "phone",
     "size": {
       "width": 390,
@@ -141,6 +149,7 @@
   },
   {
     "scenario": "week-final",
+    "dataInfo": null,
     "viewport": "desktop",
     "size": {
       "width": 1366,
@@ -157,6 +166,7 @@
   },
   {
     "scenario": "week-final",
+    "dataInfo": null,
     "viewport": "phone",
     "size": {
       "width": 390,
@@ -173,6 +183,11 @@
   },
   {
     "scenario": "live-feed-down",
+    "dataInfo": {
+      "axeViolations": [],
+      "scrollWidth": 1366,
+      "shot": "live-feed-down-desktop-data-info.png"
+    },
     "viewport": "desktop",
     "size": {
       "width": 1366,
@@ -189,6 +204,11 @@
   },
   {
     "scenario": "live-feed-down",
+    "dataInfo": {
+      "axeViolations": [],
+      "scrollWidth": 390,
+      "shot": "live-feed-down-phone-data-info.png"
+    },
     "viewport": "phone",
     "size": {
       "width": 390,
@@ -201,6 +221,40 @@
     "axePasses": 19,
     "consoleErrors": [],
     "screenshot": "live-feed-down-phone.png",
+    "keyboard": null
+  },
+  {
+    "scenario": "stale",
+    "dataInfo": null,
+    "viewport": "desktop",
+    "size": {
+      "width": 1366,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "scrollWidth": 1366,
+    "innerWidth": 1366,
+    "axeViolations": [],
+    "axePasses": 21,
+    "consoleErrors": [],
+    "screenshot": "stale-desktop.png",
+    "keyboard": null
+  },
+  {
+    "scenario": "stale",
+    "dataInfo": null,
+    "viewport": "phone",
+    "size": {
+      "width": 390,
+      "height": 844
+    },
+    "horizontalOverflow": false,
+    "scrollWidth": 390,
+    "innerWidth": 390,
+    "axeViolations": [],
+    "axePasses": 21,
+    "consoleErrors": [],
+    "screenshot": "stale-phone.png",
     "keyboard": null
   }
 ]
