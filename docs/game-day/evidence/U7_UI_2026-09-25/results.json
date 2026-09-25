@@ -1,0 +1,206 @@
+[
+  {
+    "scenario": "pregame",
+    "viewport": "desktop",
+    "size": {
+      "width": 1366,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "scrollWidth": 1366,
+    "innerWidth": 1366,
+    "axeViolations": [],
+    "axePasses": 21,
+    "consoleErrors": [],
+    "screenshot": "pregame-desktop.png",
+    "keyboard": null
+  },
+  {
+    "scenario": "pregame",
+    "viewport": "phone",
+    "size": {
+      "width": 390,
+      "height": 844
+    },
+    "horizontalOverflow": false,
+    "scrollWidth": 390,
+    "innerWidth": 390,
+    "axeViolations": [],
+    "axePasses": 21,
+    "consoleErrors": [],
+    "screenshot": "pregame-phone.png",
+    "keyboard": null
+  },
+  {
+    "scenario": "halftime",
+    "viewport": "desktop",
+    "size": {
+      "width": 1366,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "scrollWidth": 1366,
+    "innerWidth": 1366,
+    "axeViolations": [],
+    "axePasses": 21,
+    "consoleErrors": [],
+    "screenshot": "halftime-desktop.png",
+    "keyboard": {
+      "reachedByTab": true,
+      "ariaExpandedAfterEnter": "true",
+      "axeViolationsExpanded": [],
+      "scrollWidthExpanded": 1366,
+      "detailShot": "halftime-desktop-details-open.png"
+    }
+  },
+  {
+    "scenario": "halftime",
+    "viewport": "phone",
+    "size": {
+      "width": 390,
+      "height": 844
+    },
+    "horizontalOverflow": false,
+    "scrollWidth": 390,
+    "innerWidth": 390,
+    "axeViolations": [],
+    "axePasses": 21,
+    "consoleErrors": [],
+    "screenshot": "halftime-phone.png",
+    "keyboard": {
+      "reachedByTab": true,
+      "ariaExpandedAfterEnter": "true",
+      "axeViolationsExpanded": [],
+      "scrollWidthExpanded": 390,
+      "detailShot": "halftime-phone-details-open.png"
+    }
+  },
+  {
+    "scenario": "overtime",
+    "viewport": "desktop",
+    "size": {
+      "width": 1366,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "scrollWidth": 1366,
+    "innerWidth": 1366,
+    "axeViolations": [],
+    "axePasses": 19,
+    "consoleErrors": [],
+    "screenshot": "overtime-desktop.png",
+    "keyboard": null
+  },
+  {
+    "scenario": "overtime",
+    "viewport": "phone",
+    "size": {
+      "width": 390,
+      "height": 844
+    },
+    "horizontalOverflow": false,
+    "scrollWidth": 390,
+    "innerWidth": 390,
+    "axeViolations": [],
+    "axePasses": 19,
+    "consoleErrors": [],
+    "screenshot": "overtime-phone.png",
+    "keyboard": null
+  },
+  {
+    "scenario": "mixed-slate",
+    "viewport": "desktop",
+    "size": {
+      "width": 1366,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "scrollWidth": 1366,
+    "innerWidth": 1366,
+    "axeViolations": [],
+    "axePasses": 21,
+    "consoleErrors": [],
+    "screenshot": "mixed-slate-desktop.png",
+    "keyboard": null
+  },
+  {
+    "scenario": "mixed-slate",
+    "viewport": "phone",
+    "size": {
+      "width": 390,
+      "height": 844
+    },
+    "horizontalOverflow": false,
+    "scrollWidth": 390,
+    "innerWidth": 390,
+    "axeViolations": [],
+    "axePasses": 21,
+    "consoleErrors": [],
+    "screenshot": "mixed-slate-phone.png",
+    "keyboard": null
+  },
+  {
+    "scenario": "week-final",
+    "viewport": "desktop",
+    "size": {
+      "width": 1366,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "scrollWidth": 1366,
+    "innerWidth": 1366,
+    "axeViolations": [],
+    "axePasses": 20,
+    "consoleErrors": [],
+    "screenshot": "week-final-desktop.png",
+    "keyboard": null
+  },
+  {
+    "scenario": "week-final",
+    "viewport": "phone",
+    "size": {
+      "width": 390,
+      "height": 844
+    },
+    "horizontalOverflow": false,
+    "scrollWidth": 390,
+    "innerWidth": 390,
+    "axeViolations": [],
+    "axePasses": 20,
+    "consoleErrors": [],
+    "screenshot": "week-final-phone.png",
+    "keyboard": null
+  },
+  {
+    "scenario": "live-feed-down",
+    "viewport": "desktop",
+    "size": {
+      "width": 1366,
+      "height": 900
+    },
+    "horizontalOverflow": false,
+    "scrollWidth": 1366,
+    "innerWidth": 1366,
+    "axeViolations": [],
+    "axePasses": 19,
+    "consoleErrors": [],
+    "screenshot": "live-feed-down-desktop.png",
+    "keyboard": null
+  },
+  {
+    "scenario": "live-feed-down",
+    "viewport": "phone",
+    "size": {
+      "width": 390,
+      "height": 844
+    },
+    "horizontalOverflow": false,
+    "scrollWidth": 390,
+    "innerWidth": 390,
+    "axeViolations": [],
+    "axePasses": 19,
+    "consoleErrors": [],
+    "screenshot": "live-feed-down-phone.png",
+    "keyboard": null
+  }
+]
