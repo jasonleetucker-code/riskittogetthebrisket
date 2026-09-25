@@ -93,6 +93,12 @@ def activate(root: Path) -> None:
     its own parent directory, and a directory that does not exist is the
     honest "no runtime file here" state.
     """
+    # A Game Day background compute (Game Day G) still running from the
+    # previous test would write into THIS test's root once it is switched,
+    # and a failed attempt would make this test's first request read
+    # "failed": join it BEFORE re-pointing anything, then forget it.
+    game_day_live.wait_for_background(timeout=120.0)
+    game_day_live.reset_background_state()
     _state["root"] = root
     public_dir = root / "public_league"
     snapshot_store.DATA_DIR = public_dir

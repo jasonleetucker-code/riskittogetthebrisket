@@ -31,8 +31,9 @@ import pytest
 
 from src.api import matchup_intel
 from src.nfl_data.live_game_state import parse_scoreboard
-from src.ros import game_day_sim
+from src.ros import game_day_live, game_day_sim
 from src.ros.sleeper_weekly_projections import FetchResult
+from tests.game_day.serving_helpers import served_after_background
 
 REPLAY = Path(__file__).resolve().parents[1] / "fixtures" / "game_day" / "replay"
 SEASON, WEEK = 2026, 3
@@ -167,7 +168,12 @@ def _run(
         captured["teams"] = tuple(kwargs["teams"])
         return result
 
+    # A replay is the request path from captured inputs alone: its own empty
+    # generation store, so a generation some earlier step of the calling test
+    # published (the collector tests) is never served in its place.
+    live_root = Path(tempfile.mkdtemp(prefix="game_day_replay_live_"))
     with (
+        mock.patch.object(game_day_live, "LIVE_ROOT", live_root),
         mock.patch.object(matchup_intel, "_fetch_league_week", return_value=fetched),
         mock.patch.object(
             matchup_intel,
@@ -181,14 +187,17 @@ def _run(
         mock.patch.object(matchup_intel, "_resolve_estimates", return_value=({}, None, (), ())),
         mock.patch.object(matchup_intel, "get_cached_league_week_simulation", side_effect=_spy),
     ):
-        payload = matchup_intel.build_matchup_intel(
-            league_key=league_key,
-            sleeper_league_id=str(league["league_id"]),
-            owner_id=f"owner-{roster_id}",
-            season=SEASON,
-            week=WEEK,
-            draws=DRAWS,
+        payload = served_after_background(
+            lambda: matchup_intel.build_matchup_intel(
+                league_key=league_key,
+                sleeper_league_id=str(league["league_id"]),
+                owner_id=f"owner-{roster_id}",
+                season=SEASON,
+                week=WEEK,
+                draws=DRAWS,
+            )
         )
+    shutil.rmtree(live_root, ignore_errors=True)
     return Run(payload, captured.get("sim"), captured.get("teams", ()), now)
 
 

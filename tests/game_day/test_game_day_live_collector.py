@@ -12,7 +12,9 @@ survive a restart (the pre-kickoff weekly baseline in particular); a
 generation recomputed only when input CONTENT changes; out-of-order
 publication refused; atomic writes; the API serving the generation with a
 truthful freshness block (current / partial / degraded / stale,
-refreshInProgress); single-flighted on-demand compute.
+refreshInProgress); and the non-blocking cold path (Game Day G) — a
+PENDING payload inside the cold budget, exactly ONE background compute per
+league-week, the next poll served, a failure named and bounded.
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
@@ -716,15 +719,30 @@ class TestServing:
             live._release_lock()
         assert fresh["refreshInProgress"] is True and fresh["refreshStartedAt"]
 
-    def test_collector_absent_and_stale_refreshes_on_demand_else_serves_stale(self):
+    def test_collector_absent_and_stale_is_served_at_once_and_refreshed_in_background(self):
         world = FixtureWorld("real_halftime")
         world.tick()
+        gen_id = live.load_generation("dynasty_main", SEASON, WEEK)["generationId"]
         much_later = world.clock() + live.COLLECTOR_ABSENT_AFTER_SECONDS + 60
-        # On-demand refresh fails (the network seam raises): the stale
-        # generation is served, never a blank, and says the refresh failed.
-        payload = _serve(now=much_later)
-        assert payload["freshness"]["state"] == "stale"
-        assert "on_demand_refresh_failed" in payload["freshness"]["reasons"]
+        # The background refresh fails (the network seam raises): the stale
+        # generation is served immediately both times, never a blank, and
+        # the second read names the failure.
+        with mock.patch.object(
+            matchup_intel, "_fetch_league_week", side_effect=RuntimeError("network down")
+        ):
+            first = _serve(now=much_later, fetch_error=False)
+            assert live.wait_for_background(timeout=60)
+            second = _serve(now=much_later, fetch_error=False)
+        fresh = first["freshness"]
+        assert fresh["state"] == "stale" and fresh["generationId"] == gen_id
+        assert fresh["refreshInProgress"] is True
+        assert "background_refresh_running" in fresh["reasons"]
+        assert fresh["backgroundCompute"]["reason"] == "collector_absent_generation_stale"
+        fresh = second["freshness"]
+        assert fresh["state"] == "stale" and fresh["generationId"] == gen_id
+        assert "background_refresh_failed:RuntimeError: network down" in fresh["reasons"]
+        assert fresh["backgroundCompute"]["outcome"] == "failed"
+        assert second["team"]["players"] and second["team"]["outcome"], "stale, never blanked"
 
     def test_partial_when_the_live_feed_is_unavailable_during_games(self):
         world = FixtureWorld("real_halftime")
@@ -752,42 +770,261 @@ class TestServing:
             _serve(owner="nobody", now=world.clock() + 5)
 
 
-class TestOnDemand:
-    def test_no_generation_computes_on_request_labelled_degraded(self):
-        from tests.api.test_matchup_intel import _build, _patch_estimates, _patch_fetch
+#: The endpoint's cold budget: docs/GLOBAL_PERFORMANCE_STANDARD.md §2
+#: ("cold/uncached supported path: <=3 seconds"; no route-specific budget
+#: exists for /api/matchup-intel).  The pending path measures ~0.1 s on the
+#: real replay; the full simulation it no longer waits for is 24-45 s.
+COLD_BUDGET_SECONDS = 3.0
 
-        with _patch_fetch(), _patch_estimates():
-            payload = _build()
-        fresh = payload["freshness"]
-        assert fresh["servedFrom"] == "request_compute"
-        assert fresh["state"] == "degraded"
-        assert "no_collector_generation" in fresh["reasons"]
-        assert fresh["generationId"] is None
 
-    def test_concurrent_viewers_share_one_on_demand_compute(self):
-        from tests.api.test_matchup_intel import _build, _patch_estimates, _patch_fetch
+@contextmanager
+def _replay_seams(scenario: str = "real_halftime", *, clock_offset: float = 1.0, held=True):
+    """The request path's network seams replaced by the REAL replay capture
+    (as ``test_game_day_replay._run`` does), the wall clock pinned just after
+    the capture, and — when ``held`` — that capture's scoreboard as the
+    observation already held (memo / collector), so the pending payload and
+    the background compute read the same game states."""
+    from tests.game_day.test_game_day_replay import REPLAY, _scenario
 
-        original = matchup_intel.compute_league_render
-        start = threading.Barrier(5)
+    sc = _scenario(scenario)
+    league = LEAGUES["dynasty_main"]
+    matchups = sc["matchups"]["dynasty_main"]
+    now_dt = datetime.fromisoformat(sc["meta"]["capturedAt"])
+    now = now_dt.timestamp()
+    fetched = matchup_intel._LeagueFetch(
+        league=league,
+        users=[],
+        rosters=[
+            {
+                "roster_id": m["roster_id"],
+                "owner_id": f"owner-{m['roster_id']}",
+                "players": m["players"],
+            }
+            for m in matchups
+        ],
+        matchups=matchups,
+        players=PLAYERS,
+        fetched_at=now,
+    )
+    snapshot = parse_scoreboard(sc["espn"], observed_at=now_dt - timedelta(seconds=30))
+    assert (REPLAY / scenario).is_dir()
+    with (
+        mock.patch.object(matchup_intel, "_fetch_league_week", return_value=fetched),
+        mock.patch.object(
+            matchup_intel,
+            "_schedule_context",
+            return_value=(_schedule_rows(sc["espn"]), now - 3600.0, now),
+        ),
+        mock.patch.object(matchup_intel, "_observe_live_state", return_value=snapshot),
+        mock.patch.object(
+            matchup_intel, "peek_live_state", return_value=snapshot if held else None
+        ),
+        mock.patch.object(
+            matchup_intel,
+            "_weekly_projection_fetches",
+            return_value=((PRE_KICKOFF_FETCH, REAL_FETCH), "ok", None),
+        ),
+        mock.patch.object(matchup_intel, "_resolve_estimates", return_value=({}, None, (), ())),
+        mock.patch.object(live.time, "time", return_value=now + clock_offset),
+    ):
+        yield league
 
-        def slow(**kwargs):
-            time.sleep(0.2)
-            return original(**kwargs)
 
-        def request(owner):
-            start.wait(timeout=5)
-            return _build(owner_id=owner)
+def _cold_build(league: dict, *, week: int = WEEK, owner: str = "owner-4") -> dict:
+    return matchup_intel.build_matchup_intel(
+        league_key="dynasty_main",
+        sleeper_league_id=str(league["league_id"]),
+        owner_id=owner,
+        season=SEASON,
+        week=week,
+        draws=DRAWS,
+        seed=SEED,
+    )
+
+
+def _slots(side: dict) -> list[tuple]:
+    return [(s["slotIndex"], s["playerId"], s["points"]) for s in side["actualLineup"]["slots"]]
+
+
+class TestColdRequest:
+    """Game Day G: no usable generation never blocks a request on the
+    simulation — PENDING now, ONE background compute, the next poll serves."""
+
+    def test_a_cold_request_answers_pending_inside_the_budget_without_simulating(self):
+        gate = threading.Event()
+        sim_threads: list[threading.Thread] = []
+        real_sim = matchup_intel.get_cached_league_week_simulation
+
+        def gated(**kwargs):
+            sim_threads.append(threading.current_thread())
+            assert gate.wait(timeout=120)
+            return real_sim(**kwargs)
 
         with (
-            _patch_fetch(),
-            _patch_estimates(),
-            mock.patch.object(matchup_intel, "compute_league_render", side_effect=slow) as spy,
-            ThreadPoolExecutor(max_workers=5) as pool,
+            _replay_seams() as league,
+            mock.patch.object(
+                matchup_intel, "get_cached_league_week_simulation", side_effect=gated
+            ),
         ):
-            owners = ["own-A", "own-B", "own-A", "own-B", "own-A"]
-            payloads = list(pool.map(request, owners))
-        assert spy.call_count == 1
-        assert {p["team"]["ownerId"] for p in payloads} == {"own-A", "own-B"}
+            started = time.perf_counter()
+            try:
+                pending = _cold_build(league)
+                elapsed = time.perf_counter() - started
+            finally:
+                gate.set()
+            assert live.wait_for_background(timeout=300)
+            served = _cold_build(league)
+
+        assert elapsed < COLD_BUDGET_SECONDS, elapsed
+        fresh = pending["freshness"]
+        assert fresh["state"] == "pending"
+        assert fresh["reasons"][0] == "generation_pending"
+        assert fresh["servedFrom"] == "pending_factual"
+        assert fresh["generationId"] is None and fresh["simulationComputedAt"] is None
+        assert fresh["refreshInProgress"] is True
+        assert fresh["backgroundCompute"]["triggered"] is True
+        assert fresh["backgroundCompute"]["reason"] == "no_collector_generation"
+        # Forecast WITHHELD — named, never zero, never "unpriced".
+        assert pending["probabilityState"] == "PENDING"
+        for side in ("team", "opponent"):
+            s = pending[side]
+            assert s["outcome"] is None and s["expectedLineup"] is None
+            assert s["unpricedPlayerIds"] is None and s["uncoveredScoringKeys"] is None
+            assert all(p["projectedRemaining"] is None for p in s["players"])
+            assert all(p["finalLineupPct"] is None for p in s["players"])
+        assert pending["lineage"]["estimateCoverage"] is None
+        assert pending["lineage"]["projectionFamiliesContributing"] is None
+        assert any(n.startswith("PENDING:") for n in pending["notes"])
+        # The FACTS are there: league/team/opponent context, host scores and
+        # the banked best-ball lineup from the exact lineup owner — identical
+        # to what the computed generation then says.
+        assert pending["team"]["rosterId"] == "4" and pending["opponent"]["rosterId"]
+        for side in ("team", "opponent"):
+            assert pending[side]["actualScore"] == served[side]["actualScore"]
+            assert pending[side]["scoreNow"] == served[side]["scoreNow"]
+            assert _slots(pending[side]) == _slots(served[side])
+            assert pending[side]["actualLineup"]["owner"] == "src/ros/lineup.py"
+        # The simulation ran, once, and never on the request thread.
+        assert sim_threads and all(t is not threading.main_thread() for t in sim_threads)
+        assert all(t.name.startswith("game-day-compute:") for t in sim_threads)
+        # The next poll serves the generation the background compute wrote.
+        fresh = served["freshness"]
+        assert fresh["servedFrom"] == "request_generation"
+        assert fresh["state"] == "degraded"
+        assert "no_collector_generation" in fresh["reasons"]
+        gen = live.load_generation("dynasty_main", SEASON, WEEK)
+        assert fresh["generationId"] == gen["generationId"]
+        assert gen["producer"] == live.PRODUCER_REQUEST
+        assert served["probabilityState"] == "AVAILABLE"
+        assert served["team"]["outcome"]["winMatchupPct"] is not None
+
+    def test_nothing_held_still_answers_pending_with_the_banked_facts(self):
+        """No scoreboard observation held at all: the pending payload says so
+        (liveGameState unavailable) and makes no scoreboard request."""
+        with (
+            _replay_seams(held=False) as league,
+            mock.patch.object(
+                matchup_intel, "_observe_live_state", side_effect=AssertionError("network")
+            ) as observe,
+            mock.patch.object(live, "ensure_background_compute", return_value={"state": "running"}),
+        ):
+            pending = _cold_build(league)
+        assert observe.call_count == 0
+        assert pending["freshness"]["state"] == "pending"
+        assert pending["lineage"]["liveGameState"]["state"] == "unavailable"
+        assert pending["team"]["scoreNow"]["hostReportedTotal"] is not None
+
+    def test_concurrent_cold_requests_start_exactly_one_background_compute(self):
+        gate = threading.Event()
+        calls: list[int] = []
+        real = live.compute_request_generation
+
+        def gated(**kwargs):
+            calls.append(1)
+            assert gate.wait(timeout=120)
+            return real(**kwargs)
+
+        barrier = threading.Barrier(6)
+
+        def request(owner):
+            barrier.wait(timeout=10)
+            return _cold_build(league, owner=owner)
+
+        with (
+            _replay_seams() as league,
+            mock.patch.object(live, "compute_request_generation", side_effect=gated),
+            ThreadPoolExecutor(max_workers=6) as pool,
+        ):
+            try:
+                owners = ["owner-4", "owner-1", "owner-4", "owner-2", "owner-4", "owner-1"]
+                payloads = list(pool.map(request, owners))
+            finally:
+                gate.set()
+            assert live.wait_for_background(timeout=300)
+            served = [_cold_build(league, owner=o) for o in ("owner-4", "owner-1")]
+        assert len(calls) == 1
+        assert all(p["freshness"]["state"] == "pending" for p in payloads)
+        assert sum(bool(p["freshness"]["backgroundCompute"]["triggered"]) for p in payloads) == 1
+        assert {p["team"]["ownerId"] for p in payloads} == {"owner-4", "owner-1", "owner-2"}
+        assert len({s["freshness"]["generationId"] for s in served}) == 1
+
+    def test_a_failed_background_compute_is_a_named_state_never_a_number(self):
+        with (
+            _replay_seams() as league,
+            mock.patch.object(
+                matchup_intel, "prepare_league_week", side_effect=RuntimeError("feed exploded")
+            ),
+        ):
+            first = _cold_build(league)
+            assert live.wait_for_background(timeout=60)
+            second = _cold_build(league)
+        assert first["freshness"]["state"] == "pending"
+        fresh = second["freshness"]
+        assert fresh["state"] == "failed"
+        assert fresh["reasons"][0] == "generation_failed:RuntimeError: feed exploded"
+        assert fresh["backgroundCompute"]["outcome"] == "failed"
+        assert fresh["backgroundCompute"]["triggered"] is False
+        assert fresh["refreshInProgress"] is False
+        assert second["probabilityState"] == "PENDING"
+        assert second["team"]["outcome"] is None and second["opponent"]["outcome"] is None
+        assert live.load_generation("dynasty_main", SEASON, WEEK) is None
+        # Past the retry window the next poll tries again, naming the failure.
+        with (
+            _replay_seams(clock_offset=1.0 + live.BACKGROUND_RETRY_AFTER_SECONDS + 1) as league,
+            mock.patch.object(
+                matchup_intel, "prepare_league_week", side_effect=RuntimeError("still down")
+            ),
+        ):
+            third = _cold_build(league)
+            assert live.wait_for_background(timeout=60)
+        fresh = third["freshness"]
+        assert fresh["state"] == "pending" and fresh["backgroundCompute"]["triggered"] is True
+        assert "previous_attempt_failed:RuntimeError: feed exploded" in fresh["reasons"]
+
+    def test_background_computes_are_bounded_across_league_weeks(self, monkeypatch):
+        monkeypatch.setattr(live, "MAX_BACKGROUND_COMPUTES", 1)
+        gate = threading.Event()
+        real = live.compute_request_generation
+
+        def gated(**kwargs):
+            assert gate.wait(timeout=120)
+            return real(**kwargs)
+
+        with (
+            _replay_seams() as league,
+            mock.patch.object(live, "compute_request_generation", side_effect=gated),
+        ):
+            try:
+                week3 = _cold_build(league, week=WEEK)
+                week4 = _cold_build(league, week=WEEK + 1)
+            finally:
+                gate.set()
+            assert live.wait_for_background(timeout=300)
+        assert week3["freshness"]["backgroundCompute"]["triggered"] is True
+        fresh = week4["freshness"]
+        assert fresh["state"] == "pending"
+        assert "background_compute_capacity_exhausted" in fresh["reasons"]
+        assert fresh["refreshInProgress"] is False
 
     def test_the_request_seam_merges_the_collectors_persisted_pre_kickoff_fetch(self, monkeypatch):
         """Even the on-demand (no generation) path survives a restart: the

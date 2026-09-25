@@ -17,6 +17,7 @@ from unittest import mock
 
 from src.api import matchup_intel
 from src.ros import game_day_sim as _game_day_sim
+from tests.game_day.serving_helpers import served_after_background
 
 #: `build_matchup_intel` now goes through `get_cached_league_week_simulation`
 #: (Defect 1 fix), which writes to `_game_day_sim._SIM_CACHE_ROOT` on a
@@ -125,7 +126,10 @@ def _build(**over):
         seed=4,
     )
     kwargs.update(over)
-    return matchup_intel.build_matchup_intel(**kwargs)
+    # No generation exists, so the request answers PENDING and the forecast
+    # is computed in the background (Game Day G); these tests are about the
+    # forecast, so they read the generation the background compute wrote.
+    return served_after_background(lambda: matchup_intel.build_matchup_intel(**kwargs))
 
 
 class MatchupIdentityTests(unittest.TestCase):

@@ -34,9 +34,18 @@ What this module owns
   ``freshness`` block — per-source ``observedAt`` / ``fetchedAt``, the
   generation's ``computedAt``, ``payloadAgeSeconds``, ``state``
   (``current`` / ``partial`` / ``degraded`` / ``stale``) and
-  ``refreshInProgress``.  With no usable generation it computes on demand,
-  single-flighted per league-week, labelled ``degraded``.  A stale
-  generation is served with its true as-of — never blanked.
+  ``refreshInProgress``.  The simulation NEVER runs on a request thread:
+  with no usable generation the API answers a PENDING payload from cheap
+  factual inputs (``state: "pending"``) and starts ONE background compute
+  per league-week (:func:`ensure_background_compute`), whose generation the
+  next poll serves labelled ``request_generation`` / ``degraded``.  A stale
+  generation is served with its true as-of — never blanked — while the
+  same background path refreshes it.
+* **Corrections.**  Host points are the scoring source of record; a changed
+  host value changes the fingerprint and publishes a new generation (the
+  superseded one stays in ``generations.jsonl``).  Post-final stat changes
+  the host has not absorbed yet are reported, never rescored — see
+  :func:`update_stat_corrections`.
 
 What it does NOT own
 --------------------
@@ -68,7 +77,6 @@ from pathlib import Path
 from typing import Any
 
 from src.utils.config_loader import repo_root
-from src.utils.singleflight import SingleFlight
 
 # ── Paths ────────────────────────────────────────────────────────────────
 
@@ -85,6 +93,25 @@ _COLLECTOR_DIR = "_collector"
 #: generation written by an older layout is never served as current.
 GENERATION_SCHEMA_VERSION = 1
 PRODUCER = "game_day_live_collector"
+#: Producer of a generation computed in the BACKGROUND because a request
+#: found no usable collector generation (Game Day G).  Same store, same
+#: layout; served labelled ``request_generation`` + ``degraded`` and
+#: replaced by the collector's own next publication.
+PRODUCER_REQUEST = "game_day_request_compute"
+
+# ── Cold-request background compute (Game Day G) ─────────────────────────
+
+#: At most this many background league-week computes run at once in one
+#: process (one per league-week by construction; this bounds the SUM, since
+#: season/week are request parameters).  Past it a request answers pending
+#: with ``background_compute_capacity_exhausted`` and the next poll retries.
+MAX_BACKGROUND_COMPUTES = 2
+#: A failed background compute is reported (``freshness.state == "failed"``)
+#: and not retried until this long after it finished — a broken input must
+#: not turn every poll into a new 30-second compute.
+BACKGROUND_RETRY_AFTER_SECONDS = 30.0
+#: Finished-attempt records kept per process (oldest dropped first).
+BACKGROUND_HISTORY_MAX = 64
 
 # ── Cadence (seconds) ────────────────────────────────────────────────────
 
@@ -766,6 +793,37 @@ def load_players_meta(
     }
 
 
+_players_db_cache: dict[str, tuple[tuple[int, int], dict[str, Any], float | None]] = {}
+
+
+def persisted_players_meta(rostered_ids: set[str], *, now: float | None = None) -> dict | None:
+    """The collector's persisted players DB, or ``None`` unless it is within
+    :data:`PLAYERS_DB_MAX_AGE_SECONDS` and holds every rostered id (the same
+    population rule :func:`load_players_meta` trims to).  Disk only; parsed
+    once per file version."""
+    path = _players_db_path()
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    stamp = (st.st_mtime_ns, st.st_size)
+    hit = _players_db_cache.get(str(path))
+    if hit is None or hit[0] != stamp:
+        cached = _read_json(path)
+        players = (cached or {}).get("players") if isinstance(cached, dict) else None
+        if not isinstance(players, dict):
+            return None
+        hit = (stamp, players, _epoch(cached.get("fetchedAt")))
+        _players_db_cache[str(path)] = hit
+    _, players, fetched_at = hit
+    now = time.time() if now is None else now
+    if fetched_at is None or now - fetched_at > PLAYERS_DB_MAX_AGE_SECONDS:
+        return None
+    if not set(rostered_ids) <= set(players):
+        return None
+    return players
+
+
 # ── Cadence ──────────────────────────────────────────────────────────────
 
 
@@ -930,6 +988,20 @@ def observed_windows(
     now: float,
 ) -> list[GameWindow]:
     """Game windows from the schedule merged with the latest scoreboard."""
+    return windows_from_evidence(
+        observed_evidence(schedule_rows, snapshot, season=season, week=week, now=now)
+    )
+
+
+def observed_evidence(
+    schedule_rows: Sequence[Mapping[str, Any]],
+    snapshot: Any,
+    *,
+    season: int,
+    week: int,
+    now: float,
+) -> dict[str, Any]:
+    """``{nfl team: GameEvidence}`` — the schedule merged with the latest scoreboard."""
     from src.ros.game_day_week import (
         merge_game_evidence,
         observed_game_evidence,
@@ -942,7 +1014,197 @@ def observed_windows(
     observed = observed_game_evidence(
         snapshot, schedule_rows=list(schedule_rows), season=season, week=week, now=now
     )
-    return windows_from_evidence(merge_game_evidence(schedule, observed))
+    return merge_game_evidence(schedule, observed)
+
+
+# ── Post-final stat changes (Game Day D) ─────────────────────────────────
+#
+# Banked points come from the HOST (Sleeper league matchups'
+# ``players_points``, under the league's own scoring), which absorbs stat
+# corrections itself: a corrected host value changes the league
+# observation, so the input fingerprint changes and a NEW generation is
+# published (the superseded one stays in ``generations.jsonl`` and the raw
+# league log).  Sleeper's live STATS can show a correction before the host
+# re-scores it.  That is detected and REPORTED (``statCorrections`` +
+# freshness reason ``stat_correction_pending_host``) — never rescored from
+# the stat line: host points remain the scoring source of record.
+
+#: What banked points are read from.
+SCORING_SOURCE_OF_RECORD = "sleeper:league matchups players_points (host scoring)"
+#: ``statCorrections`` entry states.
+CORRECTION_PENDING_HOST = "pending_host"
+CORRECTION_REFLECTED = "reflected_in_host"
+CORRECTION_NOT_SCORED = "not_scored_by_league"
+#: Freshness reason while a detected correction is not in the host's points.
+REASON_CORRECTION_PENDING_HOST = "stat_correction_pending_host"
+#: Host points are published to two decimals.
+_HOST_POINTS_TOLERANCE = 0.005
+
+
+def raw_stat_changes(
+    previous: Mapping[str, Any] | None, current: Mapping[str, Any] | None
+) -> dict[str, dict[str, list[float | None]]]:
+    """``{player_id: {stat: [before, after]}}`` between two stored live-stats
+    contents (``p:<id>`` player lines only; ``None`` = key absent, not 0)."""
+    prev, cur = previous or {}, current or {}
+    out: dict[str, dict[str, list[float | None]]] = {}
+    for key in sorted(set(prev) | set(cur)):
+        if not key.startswith("p:") or prev.get(key) == cur.get(key):
+            continue
+        before = prev.get(key) if isinstance(prev.get(key), Mapping) else {}
+        after = cur.get(key) if isinstance(cur.get(key), Mapping) else {}
+        diff = {
+            k: [before.get(k), after.get(k)]
+            for k in sorted(set(before) | set(after))
+            if before.get(k) != after.get(k)
+        }
+        if diff:
+            out[key[2:]] = diff
+    return out
+
+
+def attribute_post_final_changes(
+    changes: Mapping[str, Mapping[str, Any]],
+    *,
+    players_meta: Mapping[str, Any],
+    evidence: Mapping[str, Any],
+    final_first_seen: Mapping[str, str],
+    previous_fetched_at: float | None,
+    detected_at: float,
+) -> tuple[dict[str, dict[str, Any]], list[str]]:
+    """``(post_final, unattributable)``: keep only changes to a player whose
+    game was ALREADY observed final when the previous stats observation was
+    fetched.  A game that went final between the two observations changes
+    lines on its way to final — that is not a correction.  A player whose
+    game cannot be identified is listed, never guessed in or out."""
+    from src.ros.game_day_week import _normalize_nfl_team
+
+    post: dict[str, dict[str, Any]] = {}
+    unattributable: list[str] = []
+    for pid, diff in changes.items():
+        team = _normalize_nfl_team((players_meta.get(pid) or {}).get("team"))
+        ev = evidence.get(team) if team else None
+        game_id = getattr(ev, "game_id", None) if ev is not None else None
+        if not game_id:
+            unattributable.append(pid)
+            continue
+        first_final = _epoch(final_first_seen.get(game_id))
+        if first_final is None or previous_fetched_at is None or first_final > previous_fetched_at:
+            continue
+        post[pid] = {
+            "playerId": pid,
+            "gameId": game_id,
+            "detectedAt": _iso(detected_at),
+            "statChanges": {k: list(v) for k, v in diff.items()},
+        }
+    return post, sorted(unattributable)
+
+
+def _record_finals(
+    gstate: dict[str, Any],
+    windows: Sequence[GameWindow],
+    *,
+    season: int,
+    week: int,
+    now: float,
+) -> dict[str, str]:
+    """``{game_id: when a final was FIRST observed}`` for this week, kept in
+    the collector state (reset when the week changes)."""
+    block = gstate.get("finalFirstSeenAt") or {}
+    if block.get("season") != season or block.get("week") != week:
+        block = {"season": season, "week": week, "games": {}}
+    games = dict(block.get("games") or {})
+    for w in windows:
+        if w.state == "completed" and w.game_id not in games:
+            games[w.game_id] = _iso(now)
+    gstate["finalFirstSeenAt"] = {"season": season, "week": week, "games": games}
+    return games
+
+
+def _host_points(matchups: Sequence[Mapping[str, Any]]) -> tuple[dict[str, float | None], set]:
+    """``({player_id: host points}, rostered ids)`` from matchup rows."""
+    points: dict[str, float | None] = {}
+    rostered: set[str] = set()
+    for row in matchups or ():
+        rostered |= {str(p) for p in (row.get("players") or ()) if p}
+        for pid, pts in (row.get("players_points") or {}).items():
+            try:
+                points[str(pid)] = float(pts)
+            except (TypeError, ValueError):
+                points[str(pid)] = None
+    return points, rostered
+
+
+def _host_changed(before: float | None, now: float | None) -> bool:
+    if before is None or now is None:
+        return before is not now
+    return abs(float(before) - float(now)) > _HOST_POINTS_TOLERANCE
+
+
+def update_stat_corrections(
+    existing: Mapping[str, Any] | None,
+    post_final: Mapping[str, Mapping[str, Any]],
+    *,
+    previous_matchups: Sequence[Mapping[str, Any]] | None,
+    matchups: Sequence[Mapping[str, Any]],
+    scoring_card: Mapping[str, Any],
+    now: float,
+) -> dict[str, dict[str, Any]]:
+    """One league-week's ``statCorrections`` after this tick.
+
+    A post-final change to a player ROSTERED in this league whose changed
+    stats move points under this league's card (the exact scorer, applied to
+    the changed keys only — a diagnostic, never a score) is
+    ``pending_host`` until the host's own points for him move from their
+    value BEFORE the change was seen; then ``reflected_in_host``.  A change
+    this league does not score is ``not_scored_by_league``.
+    """
+    from src.league_intel.scorer import score_stat_line
+
+    host_now, rostered = _host_points(matchups)
+    host_before, _ = _host_points(previous_matchups or ())
+    out = {str(pid): dict(e) for pid, e in (existing or {}).items()}
+    for pid, change in post_final.items():
+        if pid not in rostered:
+            continue
+        prior = out.get(pid) or {}
+        still_pending = prior.get("state") == CORRECTION_PENDING_HOST
+        merged = {k: list(v) for k, v in (prior.get("statChanges") or {}).items()}
+        for k, (before, after) in change["statChanges"].items():
+            merged[k] = [merged[k][0] if k in merged else before, after]
+        before_line = {k: v[0] for k, v in merged.items() if v[0] is not None}
+        after_line = {k: v[1] for k, v in merged.items() if v[1] is not None}
+        delta = (
+            score_stat_line(after_line, scoring_card).total_points
+            - score_stat_line(before_line, scoring_card).total_points
+        )
+        baseline = (
+            prior.get("hostPointsBefore")
+            if still_pending
+            else host_before.get(pid, host_now.get(pid))
+        )
+        out[pid] = {
+            "playerId": pid,
+            "gameId": change["gameId"],
+            "detectedAt": prior.get("detectedAt") if still_pending else change["detectedAt"],
+            "statChanges": merged,
+            "scoredDeltaUnderLeagueCard": round(delta, 4),
+            "hostPointsBefore": baseline,
+            "hostPointsNow": host_now.get(pid),
+            "state": CORRECTION_NOT_SCORED if abs(delta) < 1e-9 else CORRECTION_PENDING_HOST,
+            "reflectedAt": None,
+        }
+    for entry in out.values():
+        if entry.get("state") != CORRECTION_PENDING_HOST:
+            continue
+        entry["hostPointsNow"] = host_now.get(entry["playerId"])
+        if _host_changed(entry.get("hostPointsBefore"), entry["hostPointsNow"]):
+            entry.update(state=CORRECTION_REFLECTED, reflectedAt=_iso(now))
+    return out
+
+
+def _matchups_from_content(content: Mapping[str, Any] | None) -> list[Mapping[str, Any]]:
+    return [v for k, v in (content or {}).items() if k.startswith("matchup:")]
 
 
 # ── Fingerprint ──────────────────────────────────────────────────────────
@@ -1071,7 +1333,12 @@ def source_stamps(inputs: Any, lineage: Mapping[str, Any]) -> dict[str, dict[str
     }
 
 
-FRESHNESS_STATES = ("current", "partial", "degraded", "stale")
+#: ``current`` / ``partial`` / ``degraded`` / ``stale`` describe a SERVED
+#: generation; ``pending`` (a background compute is running or about to)
+#: and ``failed`` (the last background compute failed; retried after
+#: :data:`BACKGROUND_RETRY_AFTER_SECONDS`) describe a payload that carries
+#: no forecast at all (Game Day G).
+FRESHNESS_STATES = ("current", "partial", "degraded", "stale", "pending", "failed")
 
 
 def _partial_reasons(sources: Mapping[str, Mapping[str, Any]], mode: str | None) -> list[str]:
@@ -1125,6 +1392,8 @@ def build_freshness(
     refresh_started_at: float | None = None,
     collector: Mapping[str, Any] | None = None,
     degraded_reasons: Sequence[str] = (),
+    extra_partial_reasons: Sequence[str] = (),
+    stat_corrections: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The payload's ``freshness`` block.
 
@@ -1133,7 +1402,9 @@ def build_freshness(
     that confirmed its inputs unchanged, else when its inputs were fetched).
     ``state``, worst first: ``stale`` (older than three cadence intervals
     for the current phase), ``degraded`` (not the collector's current
-    answer), ``partial`` (a source was unavailable), ``current``.
+    answer), ``partial`` (a source was unavailable, or a detected stat
+    correction the host has not yet absorbed — ``extra_partial_reasons``,
+    which apply in every mode including ``final``), ``current``.
     """
     age = (now - as_of) if as_of is not None else None
     reasons: list[str] = []
@@ -1145,7 +1416,7 @@ def build_freshness(
             else f"payload_age_{int(age)}s_exceeds_{int(cadence.stale_after_seconds)}s"
         )
     reasons.extend(degraded_reasons)
-    partial = _partial_reasons(sources, mode)
+    partial = [*_partial_reasons(sources, mode), *extra_partial_reasons]
     reasons.extend(partial)
     state = (
         "stale"
@@ -1178,6 +1449,7 @@ def build_freshness(
         "refreshStartedAt": _iso(refresh_started_at),
         "collector": dict(collector) if collector is not None else None,
         "sources": stamped_sources,
+        "statCorrections": dict(stat_corrections) if stat_corrections is not None else None,
     }
 
 
@@ -1215,15 +1487,24 @@ def write_generation(generation: Mapping[str, Any]) -> bool:
     Order is decided by ``sequence`` (the epoch at which the tick fetched its
     inputs), so a slow tick that started earlier can never overwrite what a
     later tick published.  Returns whether it was written.
+
+    ``generation.json`` holds only the LATEST answer; every published
+    generation is also appended to ``generations.jsonl`` (never rewritten)
+    with ``supersedes`` naming the one it replaced, so an answer that a
+    later input (a stat correction, a scored point) changed stays
+    retrievable as it was known — see :func:`load_generation_history`.
     """
     league_key = generation["leagueKey"]
     season, week = int(generation["season"]), int(generation["week"])
     path = generation_path(league_key, season, week)
     with _generation_write_lock:
         current = _read_json(path)
+        previous_id = None
         if isinstance(current, dict) and current.get("schemaVersion") == GENERATION_SCHEMA_VERSION:
             if float(current.get("sequence") or 0.0) >= float(generation["sequence"]):
                 return False
+            previous_id = current.get("generationId")
+        generation = {**dict(generation), "supersedes": previous_id}
         _atomic_write_json(path, generation)
         _append_line(
             _generation_index_path(league_key, season, week),
@@ -1233,14 +1514,21 @@ def write_generation(generation: Mapping[str, Any]) -> bool:
 
 
 def _generation_index_row(generation: Mapping[str, Any]) -> dict[str, Any]:
-    """Small, calibration-useful summary appended per published generation."""
+    """Summary appended per published generation: calibration-useful, and
+    the AS-KNOWN record of what was served (banked score, host score and
+    forecast per side) plus the raw league observation ``seq`` it was built
+    from, so a later correction never erases what an earlier answer said."""
     sides = (generation.get("render") or {}).get("sides") or {}
+    inputs = generation.get("inputs") or {}
     return {
         "generationId": generation["generationId"],
+        "supersedes": generation.get("supersedes"),
+        "producer": generation.get("producer"),
         "sequence": generation["sequence"],
         "inputsFetchedAt": generation.get("inputsFetchedAt"),
         "computedAt": generation.get("computedAt"),
         "inputFingerprint": generation.get("inputFingerprint"),
+        "leagueObservationSeq": inputs.get("leagueObservationSeq"),
         "mode": ((generation.get("render") or {}).get("shared") or {}).get("mode"),
         "modelVersion": generation.get("modelVersion"),
         "outcomes": {
@@ -1249,10 +1537,32 @@ def _generation_index_row(generation: Mapping[str, Any]) -> dict[str, Any]:
                 "beatMedianPct": (s.get("outcome") or {}).get("beatMedianPct"),
                 "expectedFinalBestBall": (s.get("outcome") or {}).get("expectedFinalBestBall"),
                 "actualScore": s.get("actualScore"),
+                "pointsBanked": s.get("pointsBanked"),
+                "scoreNow": s.get("scoreNow"),
             }
             for rid, s in sides.items()
         },
     }
+
+
+def load_generation_history(league_key: str, season: int, week: int) -> list[dict[str, Any]]:
+    """Every published generation's index row for the league-week, oldest
+    first (the append-only ``generations.jsonl``).  A damaged line is skipped,
+    never fatal."""
+    path = _generation_index_path(league_key, season, week)
+    rows: list[dict[str, Any]] = []
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return rows
+    for line in lines:
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(row, dict):
+            rows.append(row)
+    return rows
 
 
 def build_generation(
@@ -1267,6 +1577,7 @@ def build_generation(
     draws: int,
     seed: int,
     extra_inputs: Mapping[str, Any] | None = None,
+    producer: str = PRODUCER,
 ) -> dict[str, Any]:
     from src.ros.game_day_sim import MODEL_VERSION
 
@@ -1281,7 +1592,7 @@ def build_generation(
             f"{assembly.league_key}:{assembly.season}:w{assembly.week}:"
             f"{int(inputs_fetched_at * 1000)}:{fingerprint[:12]}"
         ),
-        "producer": PRODUCER,
+        "producer": producer,
         "leagueKey": assembly.league_key,
         "season": assembly.season,
         "week": assembly.week,
@@ -1368,7 +1679,27 @@ def collector_active(state: Mapping[str, Any], now: float) -> bool:
 
 # ── Serving (the API path) ───────────────────────────────────────────────
 
-_REQUEST_FLIGHTS = SingleFlight()
+
+def stat_corrections_summary(state: Mapping[str, Any] | None) -> dict[str, Any]:
+    """The ``freshness.statCorrections`` block from a league-week state.
+
+    Host points stay the scoring source of record: a post-final stat change
+    seen in Sleeper's live stats is REPORTED here until the host's own
+    player points move, and never rescored from the stat line.
+    """
+    entries = list(((state or {}).get("statCorrections") or {}).values())
+    pending = sorted(
+        (e for e in entries if e.get("state") == CORRECTION_PENDING_HOST),
+        key=lambda e: str(e.get("playerId")),
+    )
+    return {
+        "scoringSourceOfRecord": SCORING_SOURCE_OF_RECORD,
+        "pendingHost": [dict(e) for e in pending],
+        "reflectedInHostCount": sum(1 for e in entries if e.get("state") == CORRECTION_REFLECTED),
+        "notScoredByLeagueCount": sum(
+            1 for e in entries if e.get("state") == CORRECTION_NOT_SCORED
+        ),
+    }
 
 
 def _generation_freshness(
@@ -1386,6 +1717,12 @@ def _generation_freshness(
     fetched = _epoch(gen.get("inputsFetchedAt"))
     as_of = max(t for t in (verified, fetched) if t is not None) if (verified or fetched) else None
     degraded: list[str] = []
+    producer = gen.get("producer") or PRODUCER
+    if producer != PRODUCER:
+        # Computed in the background for a request, not by the collector.
+        degraded.append(
+            (gen.get("inputs") or {}).get("requestComputeReason") or "no_collector_generation"
+        )
     if state and state.get("lastTickOk") is False:
         degraded.append(f"last_collector_tick_failed:{state.get('lastError')}")
     latest_fp = state.get("latestInputFingerprint")
@@ -1393,8 +1730,9 @@ def _generation_freshness(
         degraded.append("generation_behind_latest_evidence")
     refreshing = bool(state.get("refreshStartedAt")) and lock_is_fresh(now)
     sim = gen.get("simulation")
+    corrections = stat_corrections_summary(state)
     return build_freshness(
-        served_from="collector_generation",
+        served_from=SERVED_COLLECTOR if producer == PRODUCER else SERVED_REQUEST_GENERATION,
         sources=(gen.get("inputs") or {}).get("sources") or {},
         as_of=as_of,
         computed_at=_epoch(gen.get("computedAt")),
@@ -1415,7 +1753,17 @@ def _generation_freshness(
         if state
         else None,
         degraded_reasons=degraded,
+        extra_partial_reasons=[REASON_CORRECTION_PENDING_HOST]
+        if corrections["pendingHost"]
+        else [],
+        stat_corrections=corrections,
     )
+
+
+#: ``freshness.servedFrom`` values.
+SERVED_COLLECTOR = "collector_generation"
+SERVED_REQUEST_GENERATION = "request_generation"
+SERVED_PENDING = "pending_factual"
 
 
 def serve_league_render(
@@ -1428,51 +1776,294 @@ def serve_league_render(
     draws: int,
     seed: int,
 ) -> tuple[Mapping[str, Any], dict[str, Any]]:
-    """``(league render, freshness)`` for the API.
+    """``(league render, freshness)`` for the API.  Never runs the simulation
+    on the request thread.
 
-    1. The collector's latest generation for this league-week (same draws
-       and seed) — served as-is with its true as-of, even when stale, while
-       the collector is active for it.
-    2. Otherwise compute on demand through the request-path seams,
-       single-flighted per league-week so concurrent viewers share one
-       computation, and labelled ``degraded``.  If that compute fails and a
-       stale generation exists, the stale generation is served — never a
-       blank.
+    1. The latest generation for this league-week (same draws and seed) —
+       served as-is with its true as-of while it is not stale or the
+       collector is active for it.
+    2. A STALE generation nobody is refreshing (collector absent) — still
+       served immediately at its true age, while ONE background compute
+       refreshes it (``backgroundCompute`` / ``refreshInProgress``).
+    3. No usable generation — a PENDING payload from cheap factual inputs
+       (``matchup_intel.pending_league_render``: rosters, host scores, game
+       states and the banked best-ball lineup; every forecast field
+       withheld; ``freshness.state == "pending"``), and ONE background
+       compute per league-week whose generation the next poll serves.  A
+       failed background compute answers ``freshness.state == "failed"``
+       with the error named — never a fabricated number.
     """
     now = time.time()
     gen = load_generation(league_key, season, week)
     state = load_league_state(league_key, season, week)
-    stale_fallback: tuple[Mapping[str, Any], dict[str, Any]] | None = None
-    reason = "no_collector_generation"
+    params = {
+        "league_key": league_key,
+        "sleeper_league_id": sleeper_league_id,
+        "season": int(season),
+        "week": int(week),
+        "roster_settings": roster_settings,
+        "draws": int(draws),
+        "seed": int(seed),
+    }
+    key = background_key(**params)
     if gen is not None and gen.get("draws") == draws and gen.get("seed") == seed:
         fresh = _generation_freshness(gen, state, now)
         if fresh["state"] != "stale" or collector_active(state, now):
             return gen["render"], fresh
-        stale_fallback = (gen["render"], fresh)
-        reason = "collector_absent_generation_stale"
-    elif gen is not None:
-        reason = "generation_draws_or_seed_differ"
-    try:
-        return _compute_on_request(
-            league_key=league_key,
-            sleeper_league_id=sleeper_league_id,
-            season=season,
-            week=week,
-            roster_settings=roster_settings,
-            draws=draws,
-            seed=seed,
-            reason=reason,
+        bg = ensure_background_compute(
+            key, reason="collector_absent_generation_stale", now=now, **params
         )
-    except Exception:
-        if stale_fallback is not None:
-            render, fresh = stale_fallback
-            fresh = dict(fresh)
-            fresh["reasons"] = [*fresh["reasons"], "on_demand_refresh_failed"]
-            return render, fresh
-        raise
+        return gen["render"], _with_background(fresh, bg)
+    reason = "no_collector_generation" if gen is None else "generation_draws_or_seed_differ"
+    from src.api import matchup_intel as mi
+
+    render, inputs = mi.pending_league_render(
+        league_key=league_key,
+        sleeper_league_id=sleeper_league_id,
+        season=int(season),
+        week=int(week),
+        roster_settings=roster_settings,
+    )
+    bg = ensure_background_compute(key, reason=reason, fetched=inputs.fetched, now=now, **params)
+    return render, _pending_freshness(render, inputs, bg, time.time())
 
 
-def _compute_on_request(
+def _with_background(fresh: Mapping[str, Any], bg: Mapping[str, Any]) -> dict[str, Any]:
+    """A served (stale) generation's freshness, plus its background refresh."""
+    out = dict(fresh)
+    reasons = list(out.get("reasons") or ())
+    if bg["state"] == "running":
+        out["refreshInProgress"] = True
+        out["refreshStartedAt"] = bg.get("startedAt")
+        reasons.append("background_refresh_running")
+    elif bg["state"] == "failed":
+        reasons.append(f"background_refresh_failed:{bg.get('error')}")
+    elif bg["state"] == "capacity_exhausted":
+        reasons.append("background_compute_capacity_exhausted")
+    out["reasons"] = reasons
+    out["backgroundCompute"] = dict(bg)
+    return out
+
+
+def _pending_freshness(
+    render: Mapping[str, Any], inputs: Any, bg: Mapping[str, Any], now: float
+) -> dict[str, Any]:
+    """The ``freshness`` block of a PENDING payload.
+
+    ``state`` is ``pending`` while a background compute runs (or could not
+    start for capacity and will on the next poll) and ``failed`` when the
+    last attempt failed and its retry window has not passed.  Sources are
+    only what the pending payload actually read; ``weeklyProjections``
+    says ``pending`` because projections were not read, not that none exist.
+    """
+    lineage = render.get("lineage") or {}
+    cadence = decide_cadence(windows_from_evidence(lineage.get("gameEvidence") or {}), now)
+    fresh = build_freshness(
+        served_from=SERVED_PENDING,
+        sources=source_stamps(inputs, lineage),
+        as_of=_epoch(inputs.fetched.fetched_at),
+        computed_at=None,
+        now=now,
+        cadence=cadence,
+        mode=(render.get("shared") or {}).get("mode"),
+        refresh_in_progress=bg["state"] == "running",
+        refresh_started_at=_epoch(bg.get("startedAt")) if bg["state"] == "running" else None,
+    )
+    if bg["state"] == "failed":
+        state, lead = "failed", [f"generation_failed:{bg.get('error')}"]
+    else:
+        state, lead = "pending", [PENDING_REASON]
+        if bg["state"] == "capacity_exhausted":
+            lead.append("background_compute_capacity_exhausted")
+        previous = bg.get("previous") or {}
+        if previous.get("outcome") == "failed":
+            lead.append(f"previous_attempt_failed:{previous.get('error')}")
+    fresh["state"] = state
+    fresh["reasons"] = [*lead, *fresh["reasons"]]
+    fresh["backgroundCompute"] = dict(bg)
+    return fresh
+
+
+#: The pending payload's reason (and ``matchup_intel.PENDING_REASON``).
+PENDING_REASON = "generation_pending"
+
+
+@dataclass
+class BackgroundAttempt:
+    """One background league-week compute, as the serving path reports it."""
+
+    league_key: str
+    season: int
+    week: int
+    reason: str
+    started_at: float
+    finished_at: float | None = None
+    #: ``written`` | ``superseded_by_newer_generation`` | ``failed``.
+    outcome: str | None = None
+    error: str | None = None
+    generation_id: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "leagueKey": self.league_key,
+            "season": self.season,
+            "week": self.week,
+            "reason": self.reason,
+            "startedAt": _iso(self.started_at),
+            "finishedAt": _iso(self.finished_at),
+            "outcome": self.outcome,
+            "error": self.error,
+            "generationId": self.generation_id,
+        }
+
+
+_background_lock = threading.Lock()
+_background_running: dict[tuple, BackgroundAttempt] = {}
+_background_threads: dict[tuple, threading.Thread] = {}
+_background_last: dict[tuple, BackgroundAttempt] = {}
+
+
+def background_key(
+    *,
+    league_key: str,
+    sleeper_league_id: str,
+    season: int,
+    week: int,
+    roster_settings: Mapping[str, Any] | None,
+    draws: int,
+    seed: int,
+) -> tuple:
+    """One background compute per (league-week, draws, seed, settings)."""
+    settings_key = json.dumps(dict(roster_settings or {}), sort_keys=True, default=str)
+    return (
+        league_key,
+        sleeper_league_id,
+        int(season),
+        int(week),
+        int(draws),
+        int(seed),
+        settings_key,
+    )
+
+
+def ensure_background_compute(
+    key: tuple,
+    *,
+    reason: str,
+    league_key: str,
+    sleeper_league_id: str,
+    season: int,
+    week: int,
+    roster_settings: Mapping[str, Any] | None,
+    draws: int,
+    seed: int,
+    fetched: Any = None,
+    now: float | None = None,
+) -> dict[str, Any]:
+    """Start at most ONE background compute for ``key``; return its status.
+
+    ``state``: ``running`` (``triggered`` says whether THIS call started
+    it), ``failed`` (the last attempt failed less than
+    :data:`BACKGROUND_RETRY_AFTER_SECONDS` ago — not retried yet) or
+    ``capacity_exhausted`` (:data:`MAX_BACKGROUND_COMPUTES` already run).
+    Concurrent callers share the one running compute; nothing here blocks
+    on it.
+    """
+    now = time.time() if now is None else now
+    with _background_lock:
+        running = _background_running.get(key)
+        last = _background_last.get(key)
+        previous = last.to_dict() if last is not None else None
+        if running is not None:
+            return {
+                "state": "running",
+                "triggered": False,
+                **running.to_dict(),
+                "previous": previous,
+            }
+        if (
+            last is not None
+            and last.outcome == "failed"
+            and now - (last.finished_at or 0.0) < BACKGROUND_RETRY_AFTER_SECONDS
+        ):
+            return {
+                "state": "failed",
+                "triggered": False,
+                **last.to_dict(),
+                "retryAfter": _iso((last.finished_at or now) + BACKGROUND_RETRY_AFTER_SECONDS),
+            }
+        if len(_background_running) >= MAX_BACKGROUND_COMPUTES:
+            return {
+                "state": "capacity_exhausted",
+                "triggered": False,
+                "limit": MAX_BACKGROUND_COMPUTES,
+                "previous": previous,
+            }
+        attempt = BackgroundAttempt(
+            league_key=league_key, season=int(season), week=int(week), reason=reason, started_at=now
+        )
+        thread = threading.Thread(
+            target=_run_background,
+            args=(key, attempt),
+            kwargs={
+                "league_key": league_key,
+                "sleeper_league_id": sleeper_league_id,
+                "season": int(season),
+                "week": int(week),
+                "roster_settings": roster_settings,
+                "draws": int(draws),
+                "seed": int(seed),
+                "reason": reason,
+                "fetched": fetched,
+            },
+            name=f"game-day-compute:{league_key}:{season}:w{week}",
+            daemon=True,
+        )
+        _background_running[key] = attempt
+        _background_threads[key] = thread
+    try:
+        thread.start()
+    except RuntimeError as exc:  # the interpreter could not start a thread
+        _finish_background(key, attempt, "failed", f"{type(exc).__name__}: {exc}", None)
+        return {"state": "failed", "triggered": False, **attempt.to_dict()}
+    return {"state": "running", "triggered": True, **attempt.to_dict(), "previous": previous}
+
+
+def _finish_background(
+    key: tuple,
+    attempt: BackgroundAttempt,
+    outcome: str,
+    error: str | None,
+    generation_id: str | None,
+) -> None:
+    attempt.finished_at = time.time()
+    attempt.outcome, attempt.error, attempt.generation_id = outcome, error, generation_id
+    with _background_lock:
+        _background_running.pop(key, None)
+        _background_threads.pop(key, None)
+        _background_last.pop(key, None)
+        _background_last[key] = attempt
+        while len(_background_last) > BACKGROUND_HISTORY_MAX:
+            _background_last.pop(next(iter(_background_last)))
+
+
+def _run_background(key: tuple, attempt: BackgroundAttempt, **params: Any) -> None:
+    try:
+        generation = compute_request_generation(**params)
+        written = write_generation(generation)
+    except Exception as exc:  # noqa: BLE001 — reported by the next poll, never raised into it
+        _finish_background(key, attempt, "failed", f"{type(exc).__name__}: {exc}", None)
+        return
+    _finish_background(
+        key,
+        attempt,
+        "written" if written else "superseded_by_newer_generation",
+        None,
+        generation["generationId"],
+    )
+
+
+def compute_request_generation(
     *,
     league_key: str,
     sleeper_league_id: str,
@@ -1482,46 +2073,75 @@ def _compute_on_request(
     draws: int,
     seed: int,
     reason: str,
-) -> tuple[Mapping[str, Any], dict[str, Any]]:
+    fetched: Any = None,
+) -> dict[str, Any]:
+    """The request path's full compute, as a generation (background thread only).
+
+    Acquisition through the request-path seams (``prepare_league_week``),
+    then the SAME fingerprint, simulation, render and generation layout the
+    collector uses — only ``producer`` (:data:`PRODUCER_REQUEST`) and
+    ``inputs.requestComputeReason`` differ, and the serving path labels it
+    ``request_generation`` + ``degraded`` accordingly.
+    """
     from src.api import matchup_intel as mi
 
-    settings_key = json.dumps(dict(roster_settings or {}), sort_keys=True, default=str)
-    key = (league_key, sleeper_league_id, int(season), int(week), draws, seed, settings_key)
-
-    def build():
-        render, inputs = mi.compute_league_render(
-            league_key=league_key,
-            sleeper_league_id=sleeper_league_id,
-            season=season,
-            week=week,
-            roster_settings=roster_settings,
-            draws=draws,
-            seed=seed,
-        )
-        sources = source_stamps(inputs, render.get("lineage") or {})
-        return render, sources, inputs.now, time.time()
-
-    (render, sources, as_of, computed_at), _shared = _REQUEST_FLIGHTS.run(key, build)
-    now = time.time()
-    lineage = render.get("lineage") or {}
-    sim = lineage.get("simulation") or {}
-    cadence = decide_cadence(windows_from_evidence(lineage.get("gameEvidence") or {}), now)
-    fresh = build_freshness(
-        served_from="request_compute",
-        sources=sources,
-        as_of=as_of,
-        computed_at=computed_at,
-        now=now,
-        cadence=cadence,
-        mode=(render.get("shared") or {}).get("mode"),
-        simulation_computed_at=(
-            (_epoch(sim.get("cacheComputedAt")) or computed_at)
-            if lineage.get("simulation")
-            else None
-        ),
-        degraded_reasons=[reason],
+    started = time.time()
+    assembly = mi.prepare_league_week(
+        league_key=league_key,
+        sleeper_league_id=sleeper_league_id,
+        season=season,
+        week=week,
+        roster_settings=roster_settings,
+        fetched=fetched,
     )
-    return render, fresh
+    fingerprint = input_fingerprint(assembly, draws=draws, seed=seed)
+    mi.run_league_simulation(assembly, draws=draws, seed=seed)
+    render = mi.render_league(assembly)
+    inputs = assembly.inputs
+    computed_at = time.time()
+    return build_generation(
+        assembly=assembly,
+        render=render,
+        fingerprint=fingerprint,
+        sources=source_stamps(inputs, render.get("lineage") or {}),
+        inputs_fetched_at=inputs.now,
+        computed_at=computed_at,
+        compute_seconds=computed_at - started,
+        draws=draws,
+        seed=seed,
+        extra_inputs={"requestComputeReason": reason},
+        producer=PRODUCER_REQUEST,
+    )
+
+
+def background_status(key: tuple) -> dict[str, Any] | None:
+    """The running or last-finished background attempt for ``key``."""
+    with _background_lock:
+        attempt = _background_running.get(key) or _background_last.get(key)
+        return attempt.to_dict() if attempt is not None else None
+
+
+def wait_for_background(timeout: float | None = None) -> bool:
+    """Join every running background compute (tests, scripts).  Returns
+    whether all finished within ``timeout``."""
+    deadline = None if timeout is None else time.monotonic() + timeout
+    while True:
+        with _background_lock:
+            threads = list(_background_threads.values())
+        if not threads:
+            return True
+        for thread in threads:
+            remaining = None if deadline is None else max(0.0, deadline - time.monotonic())
+            thread.join(remaining)
+        if deadline is not None and time.monotonic() >= deadline:
+            with _background_lock:
+                return not _background_threads
+
+
+def reset_background_state() -> None:
+    """Forget finished attempts (tests).  Running computes are left alone."""
+    with _background_lock:
+        _background_last.clear()
 
 
 # ── The collector tick ───────────────────────────────────────────────────
@@ -1804,12 +2424,15 @@ def _run_tick_locked(
     report.sources[SOURCE_LIVE_SELECTION] = live_sources["liveGameState"]
 
     schedule_rows, schedule_observed_at, _ = clients.schedule(season)
-    windows = observed_windows(schedule_rows, snapshot, season=season, week=week, now=clock())
+    evidence = observed_evidence(schedule_rows, snapshot, season=season, week=week, now=clock())
+    windows = windows_from_evidence(evidence)
+    final_first_seen = _record_finals(gstate, windows, season=season, week=week, now=tick_start)
 
     stats_log = observation_log(NFL_KEY, season, week, SOURCE_LIVE_STATS)
     stats_head = stats_log.head() or {}
     due, why = live_stats_due(_epoch(stats_head.get("lastOkFetchedAt")), windows, clock())
     stats_source: dict[str, Any] = {"status": "not_due", "reason": why}
+    stat_changes: dict[str, dict[str, Any]] = {}
     if due and _source_backoff(health, SOURCE_LIVE_STATS, clock()) is None:
         if budget.take(SOURCE_LIVE_STATS):
             live = clients.live_stats(season, week)
@@ -1818,6 +2441,8 @@ def _run_tick_locked(
                 fetched_at=meta["observedAt"], status=status, meta=meta, content=content
             )
             _record_health(health, SOURCE_LIVE_STATS, status == "ok", clock(), meta.get("error"))
+            if status == "ok" and stats_head.get("content") is not None:
+                stat_changes = raw_stat_changes(stats_head.get("content"), content)
             stats_source = {
                 "source": "sleeper:stats (v1)",
                 "status": status,
@@ -1893,6 +2518,17 @@ def _run_tick_locked(
         clients.nfl_players, rostered, now=clock(), budget=budget
     )
     report.sources["sleeper_players_db"] = players_stamp
+    post_final, unattributable = attribute_post_final_changes(
+        stat_changes,
+        players_meta=players,
+        evidence=evidence,
+        final_first_seen=final_first_seen,
+        previous_fetched_at=_epoch(stats_head.get("lastOkFetchedAt")),
+        detected_at=tick_start,
+    )
+    if stat_changes:
+        stats_source["postFinalChanges"] = len(post_final)
+        stats_source["unattributableChanges"] = len(unattributable)
 
     preseason_cache: dict[str, tuple] = {}
     any_failed = False
@@ -1921,6 +2557,7 @@ def _run_tick_locked(
             draws=draws,
             seed=seed,
             health=health,
+            post_final=post_final,
         )
         report.leagues[key] = result
         any_failed = any_failed or not result.get("ok")
@@ -1953,6 +2590,20 @@ def _stale_candidate(log: KeyedObservationLog) -> tuple[float, Any] | None:
         return None
     stamp = _epoch(head["lastOkMeta"].get("observedAt")) or 0.0
     return stamp, scoreboard_from_observation(head["lastOkMeta"], head["content"])
+
+
+def last_good_live_snapshot(season: int, week: int) -> Any:
+    """The newest persisted good live-game-state observation for the week
+    (any provider), at its true as-of; ``None`` when none is stored.  Disk
+    only — the pending request path reads this instead of the network."""
+    candidates = []
+    for source in (SOURCE_ESPN, SOURCE_SDIO):
+        found = _stale_candidate(observation_log(NFL_KEY, season, week, source))
+        if found is not None:
+            candidates.append(found)
+    if not candidates:
+        return None
+    return max(candidates, key=lambda c: c[0])[1]
 
 
 def collect_live_game_state(
@@ -2191,6 +2842,7 @@ def _process_league(
     draws: int,
     seed: int,
     health: dict[str, Any],
+    post_final: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Assemble one league-week; publish a generation only if inputs changed."""
     from dataclasses import replace
@@ -2208,6 +2860,7 @@ def _process_league(
             raise RuntimeError("Sleeper players metadata unavailable")
         fetched = replace(fetched, players=players)
         log = observation_log(key, season, week, SOURCE_LEAGUE)
+        previous_content = (log.head() or {}).get("content")
         status = "ok" if fetched.rosters else "error"
         log.append(
             fetched_at=_iso(fetched.fetched_at),
@@ -2218,6 +2871,21 @@ def _process_league(
         _record_health(
             health, health_name, status == "ok", clock(), None if fetched.rosters else "no rosters"
         )
+        # The raw league record this tick's answer is built from (append-only;
+        # the host's as-known player points stay retrievable by this seq).
+        league_seq = (log.head() or {}).get("seq")
+        try:
+            lstate["statCorrections"] = update_stat_corrections(
+                lstate.get("statCorrections"),
+                post_final or {},
+                previous_matchups=_matchups_from_content(previous_content),
+                matchups=fetched.matchups,
+                scoring_card=fetched.league.get("scoring_settings") or {},
+                now=tick_start,
+            )
+            lstate.pop("statCorrectionsError", None)
+        except Exception as exc:  # noqa: BLE001 — a diagnostic never sinks the league
+            lstate["statCorrectionsError"] = f"{type(exc).__name__}: {exc}"
 
         scoring_card = fetched.league.get("scoring_settings") or {}
         card_key = _content_hash(scoring_card)
@@ -2252,6 +2920,9 @@ def _process_league(
             and current.get("inputFingerprint") == fp
             and current.get("draws") == draws
             and current.get("seed") == seed
+            # A background request-path generation is republished under the
+            # collector's own name (the simulation cache makes it cheap).
+            and (current.get("producer") or PRODUCER) == PRODUCER
         ):
             out.update(ok=True, outcome="inputs_unchanged", generationId=current["generationId"])
             lstate.update(
@@ -2282,7 +2953,10 @@ def _process_league(
                 compute_seconds=computed_at - t0,
                 draws=draws,
                 seed=seed,
-                extra_inputs={"preKickoffCoverage": dict(coverage)},
+                extra_inputs={
+                    "preKickoffCoverage": dict(coverage),
+                    "leagueObservationSeq": league_seq,
+                },
             )
             t3 = clock()
             written = write_generation(generation)

@@ -258,8 +258,8 @@ and the games that have none.
 | `_nfl/<season>/week_<n>/observations/{espn_scoreboard,sleeper_live_stats,sleeper_weekly_projections}.jsonl` | NFL-wide observations, stored once |
 | `<leagueKey>/<season>/week_<n>/observations/sleeper_league_week.jsonl` | league + users + rosters + matchups per tick |
 | `<leagueKey>/<season>/week_<n>/generation.json` | the latest generation (atomic tempfile + replace) |
-| `<leagueKey>/<season>/week_<n>/generations.jsonl` | one summary row per published generation (win %, expected final, actual score per roster) |
-| `<leagueKey>/<season>/week_<n>/state.json` | last tick, `lastVerifiedAt`, cadence, timings, refresh-in-progress |
+| `<leagueKey>/<season>/week_<n>/generations.jsonl` | one row per published generation, append-only: id, `supersedes`, `producer`, `inputFingerprint`, `leagueObservationSeq`, and per roster the AS-KNOWN win % / beat-median % / expected final / host score / `pointsBanked` / `scoreNow` (`load_generation_history`) |
+| `<leagueKey>/<season>/week_<n>/state.json` | last tick, `lastVerifiedAt`, cadence, timings, refresh-in-progress, `statCorrections` |
 | `_collector/state.json`, `_collector/ticks.jsonl`, `_collector/tick.lock` | next due time, source health/backoff, tick log (trimmed), lock |
 
 Observation logs are append-only keyed-delta JSONL (`keyframe` / `delta` /
@@ -283,27 +283,104 @@ tick's input fetch time) is newer than the one on disk.
 `game_day_live.serve_league_render`: the latest generation, composed for the
 requested owner (`compose_team_payload` adds only roster intelligence from the
 loaded contract, the archive stamp and freshness) — 15 ms with a cold parse of
-the ~1 MB generation, <1 ms warm. With no generation (or the collector absent
-and the generation stale) it computes on demand through the request-path seams,
-single-flighted per league-week, labelled `degraded`; if that fails a stale
-generation is served with its true age — never a blank.
+the ~1 MB generation, <1 ms warm. **The simulation never runs on a request
+thread** (Game Day G, 2026-09-25):
+
+* **Stale generation, collector absent** — served IMMEDIATELY at its true age
+  (`state: "stale"`, never blanked) while ONE background compute refreshes it
+  (`refreshInProgress`, reason `background_refresh_running`; a failure reads
+  `background_refresh_failed:<error>`).
+* **No usable generation** (none, or other draws/seed) — a PENDING payload
+  from cheap factual inputs only (`matchup_intel.pending_league_render`): the
+  TTL-cached Sleeper league fetch (players metadata from the collector's
+  persisted daily DB when it covers every rostered player), the cached
+  nflverse schedule, and the live-game-state observation ALREADY held
+  (`peek_live_state`: in-process memo or the collector's persisted last good,
+  at its true age) — no projection fetch, no preseason ensemble, no scoreboard
+  request, no simulation. Rosters, host scores, game states, `scoreNow` and
+  the banked best-ball lineup (`actual_lineup` → the exact solver in
+  `src/ros/lineup.py`) are real; `probabilityState` is `PENDING` and every
+  forecast field is WITHHELD as `null` — `outcome`, `expectedLineup`,
+  `unpricedPlayerIds`, `uncoveredScoringKeys`, per-player
+  `projectedRemaining` / `remainingBasis` / `projectionBasis` /
+  `finalLineupPct` …, lineage `estimateCoverage` /
+  `projectionFamiliesContributing` / `projectionBasisCounts` — never zero and
+  never "unpriced". The request starts ONE background compute
+  (`ensure_background_compute`: a daemon thread per league-week key, never
+  one per request; concurrent cold requests share it; at most
+  `MAX_BACKGROUND_COMPUTES` = 2 per process, past which a request answers
+  pending with `background_compute_capacity_exhausted`). It runs the SAME
+  fingerprint / simulation / render / generation layout as the collector
+  (`compute_request_generation`, producer `game_day_request_compute`) and
+  publishes through `write_generation`, so the next poll serves it as
+  `servedFrom: "request_generation"`, `state: "degraded"`, reason
+  `no_collector_generation`. The collector republishes it under its own name
+  at its next tick (the simulation cache makes that cheap), and a request
+  generation built from older inputs than the collector's is refused by the
+  normal `sequence` order.
+* **Background failure** — `state: "failed"`, reason
+  `generation_failed:<error>`, forecast still withheld: never a fabricated
+  number. It is retried by the first poll after
+  `BACKGROUND_RETRY_AFTER_SECONDS` (30 s), which answers pending with
+  `previous_attempt_failed:<error>`.
+
+Measured on the real replay (`real_halftime`, `dynasty_main`, 12 teams, 2,000
+draws, network seams replaced by the captures, this Windows dev box): cold
+request **43.7–44.5 s** (the whole simulation on the request thread) →
+**0.06–0.21 s** (median 0.13 s) pending; the background generation is ready
+~44–46 s later and the next poll is served in 48–65 ms. Budget:
+`docs/GLOBAL_PERFORMANCE_STANDARD.md` §2 (cold/uncached ≤ 3 s, useful state
+≤ 5 s) — no route-specific budget exists for this endpoint; the tests pin
+the 3 s cold budget.
 
 **`freshness` block** (on every payload):
 
 | field | meaning |
 |---|---|
-| `state` | `stale` (payload age > 3 cadence intervals for the current phase: 180 s live) › `degraded` (not the collector's current answer: request compute, last tick failed, generation behind evidence) › `partial` (a source unavailable: live state during games, weekly projections, league, schedule) › `current` |
+| `state` | served generation: `stale` (payload age > 3 cadence intervals for the current phase: 180 s live) › `degraded` (not the collector's current answer: request generation, last tick failed, generation behind evidence) › `partial` (a source unavailable: live state during games, weekly projections, league, schedule; or `stat_correction_pending_host`) › `current`. No forecast yet: `pending` (background compute running or about to) / `failed` (last background compute failed; retry window open) |
 | `reasons` | why, machine-readable |
-| `servedFrom` | `collector_generation` / `request_compute` |
-| `generationId`, `generationComputedAt`, `simulationComputedAt` | which answer, when computed |
+| `servedFrom` | `collector_generation` / `request_generation` / `pending_factual` |
+| `generationId`, `generationComputedAt`, `simulationComputedAt` | which answer, when computed (`null` while pending) |
 | `lastVerifiedAt`, `asOf`, `payloadAgeSeconds`, `staleAfterSeconds`, `phase` | the last moment the payload was known to reflect the freshest evidence (a tick that found inputs unchanged re-verifies it) and its age |
-| `refreshInProgress`, `refreshStartedAt` | a collector tick is working on this league-week now |
+| `refreshInProgress`, `refreshStartedAt` | a collector tick or a background compute is working on this league-week now |
+| `backgroundCompute` | pending / refreshing payloads only: `state` (`running` / `failed` / `capacity_exhausted`), `triggered` (this request started it), `reason`, `startedAt`, `finishedAt`, `outcome`, `error`, `generationId`, `previous` |
 | `collector` | last tick time/outcome and cadence |
-| `sources.<name>` | `status`, `fetchedAt` (when WE fetched), `observedAt` (when the source says its content was true, `observedAtBasis` naming the evidence — ESPN `http_last_modified`, projections `provider_updated_at`, else `fetch_time`), `ageSeconds`; sources `liveGameState` (the ONE provider whose state this tick used: `provider`, `selectionReason`), `espnScoreboard` and `sportsDataIoScores` (each provider's own attempt), `sleeperLeague`, `weeklyProjections`, `nflverseSchedule`, `preseasonProjection`, `sleeperLiveStats` |
+| `statCorrections` | generation payloads: `scoringSourceOfRecord`, `pendingHost` (entries below), `reflectedInHostCount`, `notScoredByLeagueCount`; `null` on pending payloads |
+| `sources.<name>` | `status`, `fetchedAt` (when WE fetched), `observedAt` (when the source says its content was true, `observedAtBasis` naming the evidence — ESPN `http_last_modified`, projections `provider_updated_at`, else `fetch_time`), `ageSeconds`; sources `liveGameState` (the ONE provider whose state this tick used: `provider`, `selectionReason`), `espnScoreboard` and `sportsDataIoScores` (each provider's own attempt), `sleeperLeague`, `weeklyProjections`, `nflverseSchedule`, `preseasonProjection`, `sleeperLiveStats` (`postFinalChanges` / `unattributableChanges` when stats moved) |
 
-Sleeper live stats are observed and persisted (stat-correction evidence) but
-NOT consumed by scoring — the host's `players_points` remain the banked
-points; `sources.sleeperLiveStats.consumedByScoring` says so.
+**Stat corrections (Game Day D).** Banked points are the HOST's —
+Sleeper league matchups' `players_points` under the league's own scoring —
+and that is the scoring source of record; Sleeper live stats are never
+rescored into points (`sources.sleeperLiveStats.consumedByScoring: false`).
+
+* **A corrected host value propagates.** It changes the league observation,
+  so `input_fingerprint` changes and the collector publishes a NEW generation
+  whose current lineup, `scoreNow`, `expectedFinalBestBall` and win /
+  beat-median probabilities are recomputed from it. The superseded generation
+  is not lost: `generations.jsonl` keeps its row (with the as-known
+  `scoreNow` / host score / forecast per roster), the new generation names it
+  in `supersedes`, and each generation's `inputs.leagueObservationSeq` points
+  at the exact raw, append-only `sleeper_league_week.jsonl` record — the
+  host's player points as they were then. Proven on the REAL post-final change
+  in the replay (`dynasty_main` roster 4 after GB@ATL went final: 6804
+  22.07 → 18.30, 11559 19.01 → 18.83; banked best ball 118.88 → 114.93,
+  expected final 358.65 → 355.30, beat median 75 % → 70 % at 200 draws) by
+  `tests/game_day/test_game_day_correction_propagation.py`, one test per link.
+* **A correction the host has not absorbed is reported, not applied.** Each
+  tick diffs the new live-stats observation against the previous one. A
+  change to a player whose game was ALREADY observed final when the previous
+  stats were read (the collector records each game's first observed final,
+  `finalFirstSeenAt`) is a post-final change; a game going final between two
+  reads is not. Per league, a post-final change to a rostered player whose
+  changed keys move points under that league's card (the exact scorer on the
+  changed keys only — a diagnostic, never a score) is `pending_host` until
+  the host's own points for him move from their value before the change; then
+  `reflected_in_host`. A change the league does not score is
+  `not_scored_by_league`. While any is pending the freshness state is
+  `partial` with reason `stat_correction_pending_host` — in every mode,
+  including `final` (Tuesday corrections) — and the payload still shows the
+  host's points. Post-game, live stats are read hourly, so detection lags a
+  correction by up to an hour.
 
 **Live game state providers (2026-09-25).** `src/nfl_data/live_game_state.py`
 stays the ONE owner of observed game state; SportsDataIO NFL v3
@@ -333,9 +410,16 @@ league-week, served payload == direct build, unchanged poll recomputes nothing,
 a scored point republishes, restart keeps the pre-kickoff baseline, last-good
 scoreboard at its true age, persisted backoff, lock/not-due, one league
 failing), out-of-order and failed publication, serving + every freshness state,
-single-flighted on-demand compute. #1346's single-flight / atomic-write tests
-are carried in `tests/test_singleflight.py` and
-`tests/game_day/test_game_day_sim_cache.py`.
+and the cold path (`TestColdRequest`: pending inside the 3 s budget with the
+simulation gated off the request thread and the banked facts equal to the
+generation's, exactly one background compute for six concurrent cold
+requests, the next poll served, a failure named and retried after the
+window, the per-process bound). `tests/game_day/serving_helpers.py` lets
+assembly-focused tests (`test_game_day_replay.py`, `tests/api/test_matchup_intel.py`)
+join the background compute and read the served generation.
+`tests/game_day/test_game_day_correction_propagation.py` pins the
+correction chain. #1346's single-flight / atomic-write tests are carried in
+`tests/test_singleflight.py` and `tests/game_day/test_game_day_sim_cache.py`.
 
 ## Known limitations, named rather than papered over
 
@@ -348,7 +432,14 @@ are carried in `tests/test_singleflight.py` and
   live game is every tick (the clock moves remaining production). U5 makes
   that ONE shared computation per input change instead of one per viewer:
   measured 24-29 s for `dynasty_main` (12 teams, 2,000 draws) on the real
-  halftime/Q3/Q4 replays, inside the 60 s live cadence.
+  halftime/Q3/Q4 replays, inside the 60 s live cadence (44 s on the Windows
+  dev box). With no generation the first viewer now waits for none of it
+  (pending payload), but still sees no forecast until the background compute
+  finishes.
+* Background computes are in-process threads: each uvicorn worker process
+  has its own (bounded) set, and a process restart abandons one mid-flight
+  (the next poll starts another). Its result is shared across processes
+  through the generation store.
 * Sleeper `Out` is treated as definitively finished; less certain injury labels
   remain projections.
 
