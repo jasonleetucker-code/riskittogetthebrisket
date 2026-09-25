@@ -693,6 +693,24 @@ separately provided.
   corrections, negative points, real zero, missing player, missing projection, source outage, K, IDP,
   SF/FLEX displacement, several players competing for one slot, team switching, and stale or
   out-of-order responses. Use real captured fixtures, then production during a live game.
+- **Execution (owner clarification, 2026-09-25).**
+  - Do NOT wait for Sunday or Tuesday before completing U4–U7.
+  - Build deterministic captured-input or synthetic replay fixtures now for the states not yet captured
+    naturally: stat corrections; simultaneous games at different stages; one matchup mixing completed,
+    live and upcoming players; overtime and delay combinations. Finish the engineering against them.
+    The real Thursday ATL@GB capture (end of Q1 → final) already supplies pregame, live, halftime,
+    second half and final.
+  - The real Sunday multi-game capture and the Tuesday stat-correction window are additional evidence
+    required before Game Day is declared fully verified.
+- **Fantasy Nerds and SportsDataIO** are integrated now at the adapter and configuration level.
+  - Each gets a canonical env/secret name. Keys are never hard-coded, committed, logged or exposed.
+  - A missing credential means the source is unavailable, not zero data, and it blocks nothing else.
+  - Activation happens through the source-health and capability gates once the owner installs
+    credentials.
+  - Source-family ancestry is preserved, so they expand the ensemble without double counting.
+- **Honest ensemble status.** RotoWire via Sleeper may be the initial usable weekly source, but a
+  one-source state is never described as a mature multi-source ensemble. The actual number of
+  independent projection families contributing is reported.
 
 **Owner decision — FAAB vs Trade flex demand stays as-is (2026-09-24).** Do NOT unify the two yet.
 FAAB apportions flex demand fractionally (`even_split`, e.g. QB 1.25 in dynasty_main); Trade assigns
