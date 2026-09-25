@@ -646,6 +646,11 @@ yields); `trade-sections.jsx` is not in #1346. The `GameDayPanel` refresh-in-pla
 `game_day_sim` single-flight/atomic cache writes are carried into the Game Day units with their tests,
 and #1346 drops them at reconciliation.
 
+**Owner decisions — Game Day live sources (2026-09-25).**
+- **Weekly projections:** Game Day may use Sleeper's weekly projection endpoint in production. It is RotoWire-sourced, served through an undocumented public API, and its reuse terms are unverified; the owner accepts that risk. The UI and Data info must name the source as "RotoWire via Sleeper" along with its as-of. The census `licensingStatus` records this as an owner acceptance, not as verified terms.
+- **Live clock:** ESPN's public scoreboard may supply the observed quarter/clock/status, under the same posture as the existing ESPN injury and depth-chart feeds (bounded shared polling, circuit breaker).
+- **Activation:** both flags (`sleeper_weekly_projections`, `game_day_live_game_state`) turn on when the Game Day collector and payload ship, not before.
+
 **Owner decision — FAAB vs Trade flex demand stays as-is (2026-09-24).** Do NOT unify the two yet.
 FAAB apportions flex demand fractionally (`even_split`, e.g. QB 1.25 in dynasty_main); Trade assigns
 flex slots through the lineup/need owner. Both read the one canonical demand owner (PR #1436), but they
