@@ -95,12 +95,14 @@ from src.roster_intel.strength import (
     rank_team_strengths,
 )
 from src.roster_intel.weakness import (
+    PositionDepth,
     PositionNeed,
     PositionRanks,
     SlotRung,
     TeamWeakness,
     build_position_ranks,
     build_team_weakness,
+    position_depth,
 )
 
 __all__ = [
@@ -111,6 +113,7 @@ __all__ = [
     "MeaningfulCore",
     "NflExposure",
     "POSITION_GROUPS",
+    "PositionDepth",
     "PositionNeed",
     "PositionRanks",
     "PositionStrength",
@@ -134,6 +137,7 @@ __all__ = [
     "exposure_from_core",
     "league_droppability",
     "pool_cut_ladder",
+    "position_depth",
     "rank_age_portfolios",
     "rank_team_strengths",
     "reserve_demand",

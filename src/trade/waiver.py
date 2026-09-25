@@ -441,7 +441,6 @@ def find_waiver_targets(
             own_need = _recommender._need_level(
                 pos,
                 own_players,
-                None,
                 anchors=anchors,
                 starters=starters,
                 roster_index=roster_index,
@@ -449,7 +448,6 @@ def find_waiver_targets(
             rivals = _recommender.build_rivals(
                 opponent_teams,
                 position=pos,
-                asset_pool=None,
                 market_priors=market_priors,
                 league_summary=None,
                 roster_size=roster_size,

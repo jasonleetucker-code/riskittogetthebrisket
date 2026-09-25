@@ -616,7 +616,10 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     by_key: dict[str, dict[str, Any]] = {}
 
     for season in seasons_sorted:
-        for wk in sorted(season.matchups_by_week.keys()):
+        # Only FINISHED weeks are recapped: the module's contract is "every
+        # completed week", and a live week's partial scores would be published
+        # as final results ("the books shut").
+        for wk in metrics.final_weeks(season):
             recap = _build_week_recap(snapshot, season, wk)
             if not recap:
                 continue

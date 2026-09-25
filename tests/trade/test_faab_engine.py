@@ -196,11 +196,31 @@ class TestStarterSlots:
         )
 
     def test_a_position_the_lineup_never_starts_needs_nothing(self):
-        assert FE.starter_slots_for_position("P", STARTERS) == 0.0
+        # ``P`` folds to the lineup family ``K`` (the lineup owner's
+        # vocabulary), so a punter asks for kicker demand; a position with
+        # no slot at all is the measured zero.
+        assert FE.starter_slots_for_position("P", STARTERS) == 1.0
+        assert FE.starter_slots_for_position("DEF", STARTERS) == 0.0
+        assert FE.starter_slots_for_position("DL", {"QB": 1, "RB": 2}) == 0.0
 
-    def test_missing_settings_are_survivable(self):
-        assert FE.starter_slots_for_position("RB", None) == 0.0
+    def test_missing_settings_are_unknown_not_zero(self):
+        """An unresolvable lineup is UNKNOWN.  The retired ``0.0`` read every
+        position of an unconfigured league as "needs nobody"."""
+        assert FE.starter_slots_for_position("RB", None) is None
+        assert FE.starter_slots_for_position("RB", {}) is None
         assert FE.starter_slots_for_position(None, STARTERS) == 0.0
+        assert FE.starter_slots_for_position(None, None) is None
+
+    def test_demand_comes_from_the_canonical_league_resolver(self):
+        """The helper is a translation of ``LeagueSlotDemand``, not a
+        second derivation: the numbers must be identical."""
+        from src.ros.lineup import resolve_league_slot_demand
+
+        league = resolve_league_slot_demand(roster_settings={"starters": STARTERS})
+        for pos in ("QB", "RB", "WR", "TE", "DL", "LB", "DB", "EDGE", "CB"):
+            assert FE.starter_slots_for_position(pos, STARTERS) == league.required(
+                pos, basis=FE.FAAB_NEED_DEMAND_BASIS
+            )
 
 
 class TestClassifyNeed:
@@ -235,7 +255,23 @@ class TestClassifyNeed:
 
     def test_a_position_with_no_lineup_slot_is_neutral(self):
         a = _anchors()
-        assert classify(a, "P", [a.v_repl + 500] * 9) == "neutral"
+        assert classify(a, "DEF", [a.v_repl + 500] * 9) == "neutral"
+        assert FE.classify_need([a.v_repl + 500] * 9, "DL", {"QB": 1}, a) == "neutral"
+
+    def test_an_unresolvable_lineup_is_unknown_not_neutral(self):
+        """MISSING IS NEVER ZERO: no lineup is not "adequately covered"."""
+        a = _anchors()
+        assert FE.classify_need([a.v_repl + 500], "RB", None, a) == "unknown"
+        assert FE.classify_need([a.v_repl + 500], "RB", {}, a) == "unknown"
+
+    def test_unknown_prices_exactly_like_neutral(self):
+        """Honesty, not dollars: no multiplier is configured for ``unknown``."""
+        cfg = FE.FaabConfig()
+        assert cfg.num("positionalNeed", "unknown", 1.0) == cfg.num(
+            "positionalNeed", "neutral", 1.0
+        )
+        engagement = cfg.section("market").get("rivalNeedEngagementMultiplier") or {}
+        assert engagement.get("unknown", 1.0) == engagement.get("neutral", 1.0)
 
 
 def classify(anchors, position, values):

@@ -6845,13 +6845,10 @@ async def post_waiver_faab_recommend(request: Request):
     own_players = (selected_team_row or {}).get("players") or []
     open_roster_spots = max(0, roster_size - len(own_players)) if roster_size else 0
 
-    asset_pool = None
-    try:
-        asset_pool = await run_in_threadpool(
-            _faab_contention.build_opponent_asset_pool, latest_contract_data
-        )
-    except Exception as exc:  # noqa: BLE001 — need analysis is optional
-        log.warning("faab-recommend asset pool build failed: %s", exc)
+    # No asset pool is built here any more.  It existed only to feed the
+    # retired ``suggestions.analyze_roster`` need fallback, which measured
+    # every roster against dynasty_main's lineup constant.  Need is now the
+    # canonical startable-depth read below and nothing else.
 
     # Startable-depth need, resolved from the same board the values
     # come from.  Built once and shared with every rival so the user's
@@ -6876,12 +6873,13 @@ async def post_waiver_faab_recommend(request: Request):
         if key:
             roster_index[key] = (float(value), str(row.get("position") or ""))
 
-    own_need = "neutral"
+    # No identified team is an UNMEASURED need, not a neutral one.  It
+    # prices identically (no multiplier is configured for ``unknown``).
+    own_need = "unknown"
     if own_players:
         own_need = _need_level(
             add_position,
             own_players,
-            asset_pool,
             anchors=faab_anchors,
             starters=starters_map,
             roster_index=roster_index,
@@ -6991,7 +6989,6 @@ async def post_waiver_faab_recommend(request: Request):
                 lambda: _build_rivals(
                     opponents,
                     position=add_position,
-                    asset_pool=asset_pool,
                     market_priors=market_priors,
                     league_summary=league_summary,
                     roster_size=roster_size,
@@ -8108,7 +8105,9 @@ async def post_trade_suggestions(request: Request):
     # 2 TE + 9 IDP while ``dynasty_new`` starts 1 TE and no IDP.  The
     # engine has always accepted ``starter_needs``; nothing ever passed
     # it, so every league got dynasty_main's lineup.  The derivation is
-    # a no-op for dynasty_main by construction.
+    # a no-op for dynasty_main by construction.  ``None`` (the lineup does
+    # not resolve) fails closed inside the engine with an explicit
+    # ``league_lineup_unresolved`` reason — there is no default lineup.
     starter_needs = starter_needs_for_league(getattr(league_cfg, "key", None))
 
     league_rosters = body.get("league_rosters")
@@ -13649,9 +13648,47 @@ async def _build_trade_simulation(
         roster_settings=dict(league_cfg.roster_settings or {}),
         league_key=league_cfg.key,
     )
+    # Attached AFTER the simulation, never inside it: ``trade_simulator`` does
+    # not import exposure, so there is no edge along which it could reach
+    # equity, team impact or Analyze Trade (C2-EXP-01 non-influence).
+    result["nflExposure"] = _trade_nfl_exposure_block(
+        contract,
+        resolved_team,
+        players_in=_str_list("playersIn"),
+        players_out=_str_list("playersOut"),
+    )
     result["leagueKey"] = league_cfg.key
     _stamp_valuation_mode(result, valuation_mode, valuation_note)
     return result, league_cfg.key, None
+
+
+def _trade_nfl_exposure_block(
+    contract: dict | None,
+    resolved_team: dict | None,
+    *,
+    players_in: list[str],
+    players_out: list[str],
+) -> dict[str, Any]:
+    """Before → after NFL-franchise exposure for the simulated trade (#786).
+
+    Descriptive context from ``src/roster_intel/exposure.py`` via
+    ``roster_intelligence.trade_nfl_exposure``.  Degrade, never fail: the value
+    delta is the primary answer, and an absent block must not read the same as
+    "no exposure", so the reason is published.
+    """
+    try:
+        return _roster_intelligence.trade_nfl_exposure(
+            contract,
+            roster_players=[str(p) for p in ((resolved_team or {}).get("players") or [])],
+            players_in=players_in,
+            players_out=players_out,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("trade-simulate nfl exposure unavailable: %s", exc)
+        return {
+            "unavailable": type(exc).__name__,
+            "notes": ["NFL-team exposure could not be computed for this trade"],
+        }
 
 
 @app.post("/api/trade/simulate")
@@ -13671,7 +13708,11 @@ async def post_trade_simulate(request: Request):
           "picksOut":   ["2027 2.08", ...]         # outbound picks
         }
 
-    Response shape matches ``trade_simulator.simulate_trade``.
+    Response shape matches ``trade_simulator.simulate_trade``, plus
+    ``nflExposure`` — value-weighted NFL-franchise exposure of the team's
+    full roster before → after the trade (C2-EXP-01; see
+    ``roster_intelligence.trade_nfl_exposure``).  Descriptive only: it is
+    attached after the simulation and feeds no value, equity or verdict.
     No persistence — the live contract is never mutated.
     """
     result, _league_key, error = await _build_trade_simulation(request)

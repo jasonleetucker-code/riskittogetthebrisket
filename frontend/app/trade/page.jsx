@@ -41,6 +41,17 @@ import { valuationBasisLabel, valuationBasisOf } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
 import { buildShareUrl, parseShareParam } from "@/lib/trade-share";
+import {
+  availableTeamPickEntries,
+  canAddEntry,
+  countEntries,
+  dedupeUniqueAcrossSides,
+  removeOneEntry,
+  searchPickEntries,
+  teamPickEntries,
+  tradeEntryKey,
+  uniqueKeysInTrade,
+} from "@/lib/trade-assets";
 import { useTradeSimulator } from "@/components/useTradeSimulator";
 import { useTeam } from "@/components/useTeam";
 import SharedTradeMeter from "@/components/trade/TradeMeter";
@@ -273,6 +284,29 @@ export default function TradePage() {
     [sleeperTeams, teamRosterNames],
   );
 
+  // Every team's picks as trade entries (lib/trade-assets): an owned pick
+  // carries the canonical ``assetId`` the backend stamps on
+  // ``pickDetails`` so two picks that both read "2027 Mid 1st" stay two
+  // assets, and the same one can never be counted twice (T-NEW-02).
+  const pickEntriesByTeam = useMemo(() => {
+    const m = new Map();
+    const resolve = (label) => resolvePickRow(label, rowByLowerName, pickAliases);
+    for (const team of sleeperTeams || []) {
+      if (team?.name) m.set(team.name, teamPickEntries(team, resolve));
+    }
+    return m;
+  }, [sleeperTeams, rowByLowerName, pickAliases]);
+
+  // assetId → today's ownership label, so an owned pick restored from a
+  // share link shows who holds it rather than a bare tier label.
+  const ownedPickLabelById = useMemo(() => {
+    const m = new Map();
+    for (const entries of pickEntriesByTeam.values()) {
+      for (const e of entries) if (e.assetId) m.set(e.assetId, e.assetLabel);
+    }
+    return m;
+  }, [pickEntriesByTeam]);
+
   // ── Stack-aware trade verdicts ───────────────────────────────────────
   // A pick's worth depends on the receiving team's existing draft
   // capital.  We pull the league's draft-capital ($1200) board, value
@@ -354,7 +388,7 @@ export default function TradePage() {
         if (n === 2) {
           to = 1 - i;
         } else {
-          const dest = s.destinations?.[a.name];
+          const dest = s.destinations?.[tradeEntryKey(a)];
           to = Number.isInteger(dest) ? dest : defaultDestination(i, n);
         }
         if (to != null && to >= 0 && to < n) involved.add(to);
@@ -497,12 +531,12 @@ export default function TradePage() {
       };
       setSides((prev) => {
         const base = ensureSides(prev);
-        return base.map((side, i) => {
+        const resolvedBySide = base.map((side, i) => {
           const incoming = state.sides[i];
-          if (!incoming) return { ...side, assets: [], destinations: {} };
+          if (!incoming) return [];
           const resolved = [];
-          const seen = new Set();
-          for (const name of incoming.players || []) {
+          const ids = incoming.assetIds || [];
+          (incoming.players || []).forEach((name, j) => {
             // Direct rowByName lookup catches every player and any
             // pick that happens to be in canonical form
             // ("2026 Pick 1.04").
@@ -518,14 +552,31 @@ export default function TradePage() {
                 row = resolvePickRow(name, rowByLowerName, pickAliases);
               }
             }
-            if (!row || seen.has(row.name)) continue;
-            seen.add(row.name);
-            resolved.push(row);
-          }
+            if (!row) return;
+            // An owned pick keeps its canonical id; everything else is
+            // the board row.  Repeated names are copies and all load —
+            // uniqueness is enforced below by IDENTITY, never by label.
+            const assetId = ids[j];
+            resolved.push(
+              assetId
+                ? {
+                    ...row,
+                    assetId,
+                    assetLabel: ownedPickLabelById.get(assetId) || row.name,
+                  }
+                : row,
+            );
+          });
+          return resolved;
+        });
+        const deduped = dedupeUniqueAcrossSides(resolvedBySide);
+        return base.map((side, i) => {
+          if (!state.sides[i]) return { ...side, assets: [], destinations: {} };
+          const resolved = deduped[i];
           const nextDestinations = {};
           if (base.length > 2) {
             for (const row of resolved) {
-              nextDestinations[row.name] = defaultDestination(i, base.length);
+              nextDestinations[tradeEntryKey(row)] = defaultDestination(i, base.length);
             }
           }
           return { ...side, assets: resolved, destinations: nextDestinations };
@@ -538,7 +589,7 @@ export default function TradePage() {
     } finally {
       setShareHydrated(true);
     }
-  }, [hydrated, shareHydrated, rows, rowByName]);
+  }, [hydrated, shareHydrated, rows, rowByName, ownedPickLabelById]);
 
   // Apply per-player value overrides to the sides for all value calculations.
   // Only modifies the asset rows that have an override; everything else passes through.
@@ -546,8 +597,11 @@ export default function TradePage() {
     if (!Object.keys(valueOverrides).length) return sides;
     return sides.map((s) => ({
       ...s,
+      // Keyed by side-line identity (lib/trade-assets): one override per
+      // line, applied to every copy of a repeated generic pick, and never
+      // leaking between two owned picks that share a label.
       assets: s.assets.map((r) => {
-        const ov = valueOverrides[r.name];
+        const ov = valueOverrides[tradeEntryKey(r)];
         if (ov == null) return r;
         return { ...r, customValue: ov };
       }),
@@ -610,7 +664,7 @@ export default function TradePage() {
         if (n === 2) {
           to = 1 - i;
         } else {
-          const dest = s.destinations?.[a.name];
+          const dest = s.destinations?.[tradeEntryKey(a)];
           to = Number.isInteger(dest) ? dest : defaultDestination(i, n);
         }
         if (to == null || to === i || to < 0 || to >= n) continue;
@@ -736,34 +790,52 @@ export default function TradePage() {
   // match is found (manual-entry workflows, mixed assets, no Sleeper
   // data).  Also emits the inferred team name so the UI can label
   // "Add from [team]:" instead of a generic "consider adding".
+  // Equalizer candidate pool for one side (T-NEW-02).  Uniqueness is by
+  // IDENTITY: a player or owned pick already in the trade is out, but a
+  // team's SECOND "2027 Mid 1st" stays a candidate after its first is in
+  // — and a copy the team does not hold is never offered
+  // (``availableTeamPickEntries``).  Without a team, board pick rows are
+  // repeatable market references and stay eligible.
+  const balancerPool = useCallback(
+    (sideIdx, team) => {
+      const inTradeUnique = uniqueKeysInTrade(sides);
+      const excluded = (r) => !isTradeableBoardRow(r);
+      if (team) {
+        const roster = teamRosterNames(team);
+        const players = rows.filter(
+          (r) =>
+            r.assetClass !== "pick" &&
+            roster.has(r.name) &&
+            !inTradeUnique.has(tradeEntryKey(r)) &&
+            !excluded(r),
+        );
+        const picks = availableTeamPickEntries(
+          pickEntriesByTeam.get(team.name) || [],
+          sides,
+          sideIdx,
+        ).filter((e) => !excluded(e));
+        const pool = [...players, ...picks];
+        if (pool.length) return { pool, teamName: team.name || null };
+      }
+      // Fallback when no team can be inferred (or the inferred team has
+      // nothing left).  Preserves existing behaviour when Sleeper data is
+      // unavailable.
+      return {
+        pool: rows.filter((r) => !inTradeUnique.has(tradeEntryKey(r)) && !excluded(r)),
+        teamName: null,
+      };
+    },
+    [sides, rows, teamRosterNames, pickEntriesByTeam],
+  );
+
   const balancers = useMemo(() => {
     if (sides.length !== 2) return { list: [], teamName: null };
     if (Math.abs(pwGap) < 350) return { list: [], teamName: null };
-    const allInTrade = new Set(
-      sides.flatMap((s) => s.assets.map((a) => a.name)),
-    );
     // Behind side = the one whose total is LOWER.
     const behindSideIdx = pwGap > 0 ? 1 : 0;
     const behindSide = sides[behindSideIdx];
     const behindTeam = inferTeamForSide(behindSide);
-    let pool;
-    let teamName = null;
-    const excluded = (r) => !isTradeableBoardRow(r);
-    if (behindTeam) {
-      const roster = teamRosterNames(behindTeam);
-      pool = rows.filter(
-        (r) => roster.has(r.name) && !allInTrade.has(r.name) && !excluded(r),
-      );
-      teamName = behindTeam.name || null;
-    }
-    // Fallback when no team can be inferred (or the inferred team
-    // has nothing left after subtracting what's already in the
-    // trade).  Preserves existing behaviour when Sleeper data is
-    // unavailable.
-    if (!pool || pool.length === 0) {
-      pool = rows.filter((r) => !allInTrade.has(r.name) && !excluded(r));
-      teamName = null;
-    }
+    const { pool, teamName } = balancerPool(behindSideIdx, behindTeam);
     // The gap is NOT passed in.  ``findBalancers`` takes the trade and
     // measures the post-add gap through the same path the meter renders,
     // so a raw value can never be matched against an adjusted target
@@ -775,14 +847,13 @@ export default function TradePage() {
     return { list, teamName };
   }, [
     pwGap,
-    rows,
     sides,
     sidesWithOverrides,
     settings,
     stackContext,
     valueMode,
     inferTeamForSide,
-    teamRosterNames,
+    balancerPool,
   ]);
 
   // For 3+ teams, find balancers for the team getting the best deal
@@ -799,29 +870,13 @@ export default function TradePage() {
     const bestIdx = nets.indexOf(Math.max(...nets)); // most positive = getting a deal
     const gap = nets[bestIdx] - nets[worstIdx];
     if (gap < 350) return null;
-    const allInTrade = new Set(
-      sides.flatMap((s) => s.assets.map((a) => a.name)),
-    );
     // Panel renders on the side that needs to GIVE more (the one with
     // the best deal right now).  Filter the suggestion pool to that
     // side's Sleeper team so the "add more" list is players they
     // actually own.  Same fallback to full pool when inference fails.
     const underpayingSide = sides[bestIdx];
     const underpayingTeam = inferTeamForSide(underpayingSide);
-    let pool;
-    let teamName = null;
-    const excluded = (r) => !isTradeableBoardRow(r);
-    if (underpayingTeam) {
-      const roster = teamRosterNames(underpayingTeam);
-      pool = rows.filter(
-        (r) => roster.has(r.name) && !allInTrade.has(r.name) && !excluded(r),
-      );
-      teamName = underpayingTeam.name || null;
-    }
-    if (!pool || pool.length === 0) {
-      pool = rows.filter((r) => !allInTrade.has(r.name) && !excluded(r));
-      teamName = null;
-    }
+    const { pool, teamName } = balancerPool(bestIdx, underpayingTeam);
     const suggestions = findBalancers(sidesWithOverrides, bestIdx, pool, valueMode, {
       settings,
       stackContext,
@@ -838,25 +893,24 @@ export default function TradePage() {
     sides,
     sidesWithOverrides,
     sideFlows,
-    rows,
     settings,
     stackContext,
     valueMode,
     inferTeamForSide,
-    teamRosterNames,
+    balancerPool,
   ]);
 
-  // All assets currently in any side (for picker exclusion)
-  const allTradeNames = useMemo(() => {
-    return new Set(sides.flatMap((s) => s.assets.map((r) => r.name)));
-  }, [sides]);
+  // UNIQUE identities already in the trade (players, owned picks) — the
+  // only things search hides.  A repeatable market pick stays searchable
+  // after its first copy so a side can carry it more than once (T-NEW-02).
+  const uniqueTradeKeys = useMemo(() => uniqueKeysInTrade(sides), [sides]);
 
   // Inline search helper: returns up to 5 best matches for the given
   // query, excluding anything already in the trade.  Sorted by
   // consensus rank ascending so the top hits are the most relevant
   // dynasty assets first — matches the KTC trade-calculator UX.
   const searchAssets = useCallback(
-    (query) => {
+    (query, sideIdx = null) => {
       // The eligibility rule lives in ``lib/trade-logic`` so the four
       // call sites on this page cannot drift apart again.  What it
       // excludes is the suppressed generic-tier pick ALIASES (rows the
@@ -864,44 +918,61 @@ export default function TradePage() {
       // hardcoded year: the old ``/^2026\b/`` also removed the 72 slot
       // rows the current-year board is priced on, so searching "2026"
       // returned nothing at all (W08-F004).
-      return searchTradeAssets(rows, query, allTradeNames, 5);
+      const board = searchTradeAssets(rows, query, uniqueTradeKeys, 5);
+      // The side's own team's picks lead, as OWNED entries: each carries
+      // its canonical id and ownership label, so two picks that both read
+      // "2027 Mid 1st" are both offered and each can be added once.
+      const team = Number.isInteger(sideIdx) ? sideTeamNames[sideIdx] : null;
+      if (!team) return board;
+      const owned = searchPickEntries(
+        availableTeamPickEntries(pickEntriesByTeam.get(team) || [], sides, sideIdx).filter(
+          (e) => e.assetId,
+        ),
+        query,
+        5,
+      );
+      return [...owned, ...board];
     },
-    [rows, allTradeNames],
+    [rows, uniqueTradeKeys, sideTeamNames, pickEntriesByTeam, sides],
   );
 
   // ── Side management ─────────────────────────────────────────────────
   function addToSide(row, sideIdx) {
     if (!row) return;
-    // Check all sides for duplicates
-    if (allTradeNames.has(row.name)) return;
-    setSides((prev) =>
-      prev.map((s, i) => {
+    // Uniqueness is by IDENTITY (lib/trade-assets): a player or owned pick
+    // already on any side is refused; a repeatable market pick adds
+    // another copy.  Checked against ``prev`` so two quick taps cannot
+    // both pass a stale closure.
+    setSides((prev) => {
+      if (!canAddEntry(prev, row)) return prev;
+      return prev.map((s, i) => {
         if (i !== sideIdx) return s;
-        if (s.assets.some((r) => r.name === row.name)) return s;
         // 3+-team trades need an explicit destination per asset so the
         // fairness bar can compute each side's NET flow.  Seed the
         // default (next side, circular) whenever we're adding to a
         // multi-side trade.  2-team trades leave destinations empty —
         // ``computeSideFlows`` handles the implicit "other side" case.
         const nextDestinations = { ...(s.destinations || {}) };
-        if (prev.length > 2) {
-          nextDestinations[row.name] = defaultDestination(i, prev.length);
+        const key = tradeEntryKey(row);
+        // A further copy of a repeated line keeps that line's routing.
+        if (prev.length > 2 && nextDestinations[key] == null) {
+          nextDestinations[key] = defaultDestination(i, prev.length);
         }
         return {
           ...s,
           assets: [...s.assets, row],
           destinations: nextDestinations,
         };
-      }),
-    );
+      });
+    });
   }
 
-  function setAssetDestination(sideIdx, assetName, destIdx) {
+  function setAssetDestination(sideIdx, entryKey, destIdx) {
     setSides((prev) =>
       prev.map((s, i) => {
         if (i !== sideIdx) return s;
         const next = { ...(s.destinations || {}) };
-        next[assetName] = Number(destIdx);
+        next[entryKey] = Number(destIdx);
         return { ...s, destinations: next };
       }),
     );
@@ -950,20 +1021,20 @@ export default function TradePage() {
     });
   }
 
-  function removeFromSide(name, sideIdx) {
+  // Removes ONE copy of the line ``entryKey`` (lib/trade-assets): with
+  // two generic "2027 Mid 1st" on a side, one remains.  The line's routing
+  // and value override go only when its last copy does.
+  function removeFromSide(entryKey, sideIdx) {
     setSides((prev) =>
       prev.map((s, i) => {
         if (i !== sideIdx) return s;
+        const assets = removeOneEntry(s.assets, entryKey);
         const nextDestinations = { ...(s.destinations || {}) };
-        delete nextDestinations[name];
-        return {
-          ...s,
-          assets: s.assets.filter((r) => r.name !== name),
-          destinations: nextDestinations,
-        };
+        if (countEntries(assets, entryKey) === 0) delete nextDestinations[entryKey];
+        return { ...s, assets, destinations: nextDestinations };
       }),
     );
-    clearValueOverride(name);
+    if (countEntries(sides, entryKey) <= 1) clearValueOverride(entryKey);
   }
 
   function clearTrade() {
@@ -1022,8 +1093,9 @@ export default function TradePage() {
       const withDestinations = prev.map((s, i) => {
         const nextDest = { ...(s.destinations || {}) };
         for (const asset of s.assets) {
-          if (nextDest[asset.name] == null) {
-            nextDest[asset.name] = defaultDestination(i, newCount);
+          const key = tradeEntryKey(asset);
+          if (nextDest[key] == null) {
+            nextDest[key] = defaultDestination(i, newCount);
           }
         }
         return { ...s, destinations: nextDest };
@@ -1168,21 +1240,10 @@ export default function TradePage() {
       const one = resolveBatch(sideOneEntries);
       const two = resolveBatch(sideTwoEntries);
 
-      // Replace sides A and B in place, dedup per-side and across
-      // sides (addToSide normally does this — we mirror that guard
-      // here since we're bypassing it for a bulk set).
-      const seen = new Set();
-      const clean = (rowsIn) => {
-        const out = [];
-        for (const r of rowsIn) {
-          if (!r || seen.has(r.name)) continue;
-          seen.add(r.name);
-          out.push(r);
-        }
-        return out;
-      };
-      const cleanedOne = clean(one.found);
-      const cleanedTwo = clean(two.found);
+      // Replace sides A and B in place, applying the same identity rule
+      // ``addToSide`` does (lib/trade-assets): a player cannot land twice,
+      // but a pick KTC lists twice is two copies and both load.
+      const [cleanedOne, cleanedTwo] = dedupeUniqueAcrossSides([one.found, two.found]);
 
       setSides((prev) =>
         prev.map((s, i) => {
@@ -1195,7 +1256,7 @@ export default function TradePage() {
           const nextDestinations = {};
           if (prev.length > 2) {
             for (const asset of replacement) {
-              nextDestinations[asset.name] = defaultDestination(i, prev.length);
+              nextDestinations[tradeEntryKey(asset)] = defaultDestination(i, prev.length);
             }
           }
           return { ...s, assets: replacement, destinations: nextDestinations };
@@ -1317,9 +1378,12 @@ export default function TradePage() {
   const copyShareLink = useCallback(async () => {
     try {
       const payload = {
+        // One name per COPY plus each owned pick's canonical id, so the
+        // link restores quantity and distinct identity (T-NEW-02).
         sides: sides.map((s) => ({
           name: s.label ? `Side ${s.label}` : "",
           players: (s.assets || []).map((a) => a.name),
+          assetIds: (s.assets || []).map((a) => a.assetId || null),
         })),
       };
       const url = buildShareUrl(payload);
@@ -1361,16 +1425,21 @@ export default function TradePage() {
     }
     const otherSide = mySide === 0 ? 1 : 0;
     const isPickName = (name) => /\d{4}/.test(String(name || ""));
+    // One payload item per COPY.  An owned pick sends its ownership label
+    // ("2027 Mid 1st (from X)"): the simulator removes roster picks by
+    // exact label first, so the specific pick leaves the roster rather
+    // than whichever pick shares its board row.
+    const simLabel = (a) => (a.assetId && a.assetLabel ? a.assetLabel : a.name);
     const playersOut = [];
     const picksOut = [];
     for (const a of sides[mySide].assets || []) {
-      if (isPickName(a.name)) picksOut.push(a.name);
+      if (isPickName(a.name)) picksOut.push(simLabel(a));
       else playersOut.push(a.name);
     }
     const playersIn = [];
     const picksIn = [];
     for (const a of sides[otherSide].assets || []) {
-      if (isPickName(a.name)) picksIn.push(a.name);
+      if (isPickName(a.name)) picksIn.push(simLabel(a));
       else playersIn.push(a.name);
     }
     simulateTrade({
@@ -1624,7 +1693,7 @@ export default function TradePage() {
         if (sideCount <= 2) return {};
         const out = {};
         for (const asset of assets) {
-          out[asset.name] = defaultDestination(sideIdx, sideCount);
+          out[tradeEntryKey(asset)] = defaultDestination(sideIdx, sideCount);
         }
         return out;
       };
@@ -1777,7 +1846,7 @@ export default function TradePage() {
           activeSide={activeSide}
           sides={sides}
           onAddToActiveSide={addToActiveSide}
-          searchAssets={searchAssets}
+          searchAssets={(q) => searchAssets(q, activeSide)}
           settings={settings}
           onSetActiveSide={setActiveSide}
         />
@@ -1954,7 +2023,7 @@ export default function TradePage() {
                 isFocused={focusedSideIdx === sideIdx}
                 searchResults={
                   focusedSideIdx === sideIdx
-                    ? searchAssets(sideQueries[sideIdx] || "")
+                    ? searchAssets(sideQueries[sideIdx] || "", sideIdx)
                     : []
                 }
                 settings={settings}
@@ -1985,10 +2054,12 @@ export default function TradePage() {
                 onRemoveAsset={removeFromSide}
                 onSetDestination={setAssetDestination}
                 onRemoveTeam={removeTeam}
-                onAddBalancer={(name, idx) => {
-                  const row = rowByName.get(name);
+                onAddBalancer={(b, idx) => {
+                  // The candidate ENTRY, so an owned pick keeps its id.
+                  const row = b?.entry || rowByName.get(b?.name);
                   if (row) addToSide(row, idx);
                 }}
+                onAddCopy={(entry, idx) => addToSide(entry, idx)}
                 registerInputRef={(idx, el) => {
                   sideInputRefs.current[idx] = el;
                 }}

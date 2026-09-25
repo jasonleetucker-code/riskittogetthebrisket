@@ -15,9 +15,11 @@ historical hardcodes is reintroduced:
 
 * behavioral — a 1-TE-demand league's sell-high offers the TE2;
   ``rank_score`` grades need severity against the league's own demand;
-* structural — ``DEFAULT_STARTER_NEEDS`` is private to the declared
-  fallback sites (the W30-F006 required repair, stated as an AST guard
-  in the same style as ``test_finder_va_is_not_bypassable``).
+* structural — there is no default lineup to fall back to at all
+  (canonical-need-priority, 2026-09-24).  This file used to pin the
+  ``dynasty_main`` constant as a declared FALLBACK; the fallback itself was
+  the defect — every opponent analysis and both FAAB need paths reached it
+  by passing nothing — so it is gone and an absent demand fails closed.
 """
 
 from __future__ import annotations
@@ -25,13 +27,15 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+import pytest
+
 from src.trade.suggestions import (
-    DEFAULT_STARTER_NEEDS,
     PlayerAsset,
     RosterAnalysis,
     TradeSuggestion,
     _generate_sell_high,
     _identity_key,
+    _analyze_opponent_rosters,
     _roster_balancer_candidates,
     analyze_roster,
     generate_suggestions_from_pool,
@@ -139,13 +143,66 @@ class TestRankScoreFollowsLeagueDemand:
         breakdown = rank_score_breakdown(suggestion, roster)
         assert breakdown["need_severity"] == 0.0
 
-    def test_default_analysis_still_carries_the_dynasty_main_fallback(self):
-        """No-op guard for the live league: an analysis built without
-        explicit needs must behave exactly as before the threading —
-        ``RosterAnalysis.starter_needs`` IS the constant then."""
+    def test_an_analysis_without_league_demand_is_refused(self):
+        """There is no default lineup.  The retired fallback silently
+        measured the roster against ``dynasty_main``'s demand."""
         roster_names, pool = _one_te_league_pool()
-        roster = analyze_roster(roster_names, pool)
-        assert roster.starter_needs == DEFAULT_STARTER_NEEDS
+        with pytest.raises(ValueError, match="no default lineup"):
+            analyze_roster(roster_names, pool)
+        with pytest.raises(ValueError):
+            analyze_roster(roster_names, pool, {})
+
+
+class TestOpponentsShareTheLeaguesDemand:
+    """The measured defect: opponent rosters were analysed with NO demand,
+    i.e. against ``dynasty_main``'s lineup, whatever league was asking."""
+
+    def test_opponent_analysis_uses_the_requesting_leagues_demand(self):
+        roster_names, pool = _one_te_league_pool()
+        # One rival holding two TEs: a TE SURPLUS in a 1-TE league, and no
+        # surplus at all under dynasty_main's TE 2.
+        rival = {"team_name": "Rival", "players": ["Te One", "Te Two", "Te Three"]}
+        out = _analyze_opponent_rosters([rival], pool, starter_needs=ONE_TE_NEEDS)
+        assert out["Rival"].starter_needs == ONE_TE_NEEDS
+        assert "TE" in out["Rival"].surplus_positions
+
+    def test_the_entry_point_hands_opponents_the_same_demand(self, monkeypatch):
+        from src.trade import suggestions as S
+
+        seen: list[dict] = []
+        real = S._analyze_opponent_rosters
+
+        def spy(rosters, pool, *, starter_needs):
+            seen.append(dict(starter_needs))
+            return real(rosters, pool, starter_needs=starter_needs)
+
+        monkeypatch.setattr(S, "_analyze_opponent_rosters", spy)
+        roster_names, pool = _one_te_league_pool()
+        generate_suggestions_from_pool(
+            roster_names=roster_names,
+            pool=pool,
+            starter_needs=ONE_TE_NEEDS,
+            league_rosters=[{"team_name": "Rival", "players": ["Qb Target"]}],
+            board_top_n=0,
+        )
+        assert seen == [ONE_TE_NEEDS]
+
+
+class TestUnresolvedLeagueFailsClosed:
+    def test_no_demand_returns_an_explained_empty_result(self):
+        """An unresolvable league's lineup is UNKNOWN: say so, with the wire
+        keys the endpoint normally returns, rather than suggest trades
+        measured against another league's lineup."""
+        roster_names, pool = _one_te_league_pool()
+        out = generate_suggestions_from_pool(
+            roster_names=roster_names, pool=pool, starter_needs=None, board_top_n=0
+        )
+        assert out["metadata"]["noResultReason"] == "league_lineup_unresolved"
+        assert out["metadata"]["starterNeeds"] is None
+        for key in ("sellHigh", "buyLow", "consolidation", "positionalUpgrades"):
+            assert out[key] == []
+        assert out["totalSuggestions"] == 0
+        assert out["warnings"]
 
 
 class TestBalancerCandidatesFollowLeagueDemand:
@@ -160,41 +217,23 @@ class TestBalancerCandidatesFollowLeagueDemand:
         )
 
 
-class TestDefaultNeedsPrivateToFallback:
-    """The W30-F006 required repair, structurally: ``DEFAULT_STARTER_NEEDS``
-    may be read only where the FALLBACK is decided.  Any new read inside a
-    generator, scorer or balancer helper is the historical drift coming
-    back, whatever it is named at that point."""
+class TestNoDefaultLineupExists:
+    """The W30-F006 structural guard, tightened.  It used to allow the
+    ``dynasty_main`` constant at three declared fallback sites; every one of
+    those was the silent default this unit removed.  Now the constant may
+    not exist at all, and ``analyze_roster`` may not default its demand."""
 
-    ALLOWED_SCOPES = {
-        None,  # module level: the definition itself
-        "starter_needs_for_league",  # registry-empty fallback
-        "analyze_roster",  # caller-passed-nothing fallback
-        "RosterAnalysis",  # dataclass default_factory
-    }
+    def test_the_dynasty_main_constant_is_gone(self):
+        from src.trade import suggestions as S
 
-    def test_default_starter_needs_is_read_only_at_fallback_sites(self):
+        assert not hasattr(S, "DEFAULT_STARTER_NEEDS")
+
+    def test_analyze_roster_has_no_default_demand(self):
         tree = ast.parse(SUGGESTIONS_PATH.read_text(encoding="utf-8"))
-
-        offenders: list[str] = []
-
-        def walk(node: ast.AST, scope: str | None) -> None:
-            for child in ast.iter_child_nodes(node):
-                child_scope = scope
-                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                    child_scope = child.name
-                if (
-                    isinstance(child, ast.Name)
-                    and child.id == "DEFAULT_STARTER_NEEDS"
-                    and scope not in self.ALLOWED_SCOPES
-                ):
-                    offenders.append(f"{scope}:{child.lineno}")
-                walk(child, child_scope)
-
-        walk(tree, None)
-        assert offenders == [], (
-            "DEFAULT_STARTER_NEEDS (dynasty_main's demand model) is read "
-            f"outside its declared fallback sites: {offenders}. Consumers "
-            "must read RosterAnalysis.starter_needs — the league's own "
-            "demand — instead (W30-F006 / V1-25)."
+        fn = next(
+            n
+            for n in ast.walk(tree)
+            if isinstance(n, ast.FunctionDef) and n.name == "analyze_roster"
         )
+        src = ast.unparse(fn)
+        assert "starter_needs or " not in src, "a fallback demand is back in analyze_roster"

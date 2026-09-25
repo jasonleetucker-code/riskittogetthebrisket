@@ -3492,6 +3492,14 @@ body:has(.trade-sticky-tray) .screenshot-fab {
   0%, 100% { box-shadow: 0 0 0 0 rgba(79, 155, 236, 0); }
   50% { box-shadow: 0 0 0 3px rgba(79, 155, 236, 0.25); }
 }
+/* The pulse is an infinite animation in the shell on every private route;
+   it must stop under reduced motion. The "Pick your team" label and the
+   accent border still carry the needs-selection state without it. */
+@media (prefers-reduced-motion: reduce) {
+  .team-switcher--needs .team-switcher-toggle {
+    animation: none;
+  }
+}
 .team-switcher-label {
   overflow: hidden;
   text-overflow: ellipsis;

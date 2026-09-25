@@ -918,6 +918,10 @@ def _engineered_pool_and_roster():
     return pool, roster_names
 
 
+#: Explicit league demand — the engine has no default lineup (2026-09-24).
+_LEAGUE_NEEDS = {"QB": 2, "RB": 3, "WR": 4, "TE": 2, "DL": 3, "LB": 3, "DB": 3}
+
+
 class TestGeneratorsStillExcludeRosteredAssets:
     """Behavioural proof (not just a source scan): with the identity
     computation owned elsewhere, a rostered asset must still never appear as a
@@ -926,7 +930,7 @@ class TestGeneratorsStillExcludeRosteredAssets:
 
     def test_no_generator_ever_recommends_receiving_a_rostered_asset(self):
         pool, roster_names = _engineered_pool_and_roster()
-        roster = analyze_roster(roster_names, pool)
+        roster = analyze_roster(roster_names, pool, _LEAGUE_NEEDS)
         roster_set = {_identity_key(n) for n in roster_names}
         rostered_keys = {_identity_key(n) for n in roster_names}
 
@@ -949,7 +953,7 @@ class TestGeneratorsStillExcludeRosteredAssets:
         so a noisy-but-identical name is still excluded as a target."""
         pool, roster_names = _engineered_pool_and_roster()
         noisy_roster_names = [f"  {n.upper()}  " for n in roster_names]
-        roster = analyze_roster(noisy_roster_names, pool)
+        roster = analyze_roster(noisy_roster_names, pool, _LEAGUE_NEEDS)
         assert roster.roster_size == len(
             roster_names
         ), "the noisy names must still all match the pool"
