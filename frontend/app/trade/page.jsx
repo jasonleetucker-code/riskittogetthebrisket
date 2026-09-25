@@ -35,6 +35,7 @@ import {
   pickAuctionDollars,
   buildSlotDollarGrid,
   buildLeagueStacks,
+  pickStackAnchorYear,
 } from "@/lib/pick-stack";
 import { valuationBasisLabel, valuationBasisOf } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
@@ -303,13 +304,12 @@ export default function TradePage() {
     };
   }, [selectedLeagueKey]);
 
-  const currentDraftYear = useMemo(() => {
-    const fromContract = Number(rawData?.currentDraftYear);
-    if (Number.isFinite(fromContract) && fromContract > 2000)
-      return fromContract;
-    const fromDC = parseInt(String(draftCapital?.season || ""), 10);
-    return Number.isFinite(fromDC) ? fromDC : null;
-  }, [rawData, draftCapital]);
+  // The stack anchors on the UPCOMING draft (lifecycle-owned
+  // ``pickClassLifecycle.firstActiveClass``), not the horizon anchor.
+  const pickStackAnchor = useMemo(
+    () => pickStackAnchorYear(rawData, draftCapital),
+    [rawData, draftCapital],
+  );
 
   const boardValueByName = useCallback(
     (name) => Number(rowByName.get(name)?.values?.full) || 0,
@@ -568,7 +568,7 @@ export default function TradePage() {
     const ctx = {
       slotGrid,
       teamsPerRound,
-      currentDraftYear,
+      currentDraftYear: pickStackAnchor,
       boardValueByName,
     };
     // Future-year picks per team from Sleeper ownership.  Exclude every
@@ -576,12 +576,12 @@ export default function TradePage() {
     // double-counted: the workbook path covers only the upcoming draft,
     // but the Sleeper-derived (non-default-league) path covers BOTH the
     // current and next season.  ``coveredPickYears`` states this
-    // explicitly; fall back to [currentDraftYear] if it's absent.
+    // explicitly; fall back to [the upcoming draft] if it's absent.
     const coveredYears = new Set(
       (Array.isArray(draftCapital.coveredPickYears) &&
       draftCapital.coveredPickYears.length
         ? draftCapital.coveredPickYears
-        : [currentDraftYear]
+        : [pickStackAnchor]
       )
         .map(Number)
         .filter((y) => Number.isFinite(y)),
@@ -629,7 +629,7 @@ export default function TradePage() {
     sleeperTeams,
     tradeHasPicks,
     stackGateUnmet,
-    currentDraftYear,
+    pickStackAnchor,
     boardValueByName,
     rowByLowerName,
     pickAliases,

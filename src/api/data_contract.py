@@ -12456,6 +12456,14 @@ def build_api_data_contract(
     # decision (#1442), so a retired class never rolls it.
     _retired_pick_years = frozenset(pick_class_lifecycle["retiredYears"])
     set_observed_current_draft_year(_derive_current_draft_year_from_names(players_by_name.keys()))
+    # The upcoming draft for draft-capital consumers (pick stacks): the
+    # horizon anchor, stepped past retired classes.  Derived by the owner,
+    # published on the stamp, never re-derived in JS.
+    from src.identity.pick_lifecycle import first_active_class
+
+    pick_class_lifecycle["firstActiveClass"] = first_active_class(
+        current_rookie_draft_year(), _retired_pick_years
+    )
 
     # Seed raw entries for far-future pick years the vendors don't
     # price yet (e.g. 2029) so they ride the normal pipeline like the
@@ -13424,6 +13432,7 @@ def build_rankings_delta_payload(
         "contractVersion": full.get("contractVersion"),
         "generatedAt": full.get("generatedAt"),
         "currentDraftYear": full.get("currentDraftYear"),
+        "pickClassLifecycle": full.get("pickClassLifecycle"),
         "date": full.get("date"),
         "scrapeTimestamp": full.get("scrapeTimestamp"),
         "mode": "delta",

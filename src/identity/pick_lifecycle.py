@@ -120,6 +120,7 @@ __all__ = [
     "board_class_lifecycle",
     "draft_class_lifecycle",
     "evidence_from_sleeper",
+    "first_active_class",
     "is_retired",
     "league_class_lifecycles",
     "retired_seasons",
@@ -494,3 +495,20 @@ def retired_seasons(
 ) -> set[int]:
     values = lifecycles.values() if isinstance(lifecycles, Mapping) else lifecycles
     return {lc.season for lc in values if is_retired(lc)}
+
+
+def first_active_class(anchor_year: int, retired: Iterable[int]) -> int:
+    """The upcoming draft: the first class at or after ``anchor_year`` that is
+    not retired.
+
+    ``anchor_year`` is the board's active draft year (the future-pick horizon
+    anchor, which retirement deliberately does not move — owner decision on
+    #1442).  Consumers that mean "the next draft that will actually happen"
+    (draft-capital pick stacks) read this instead, so the two concepts stay
+    separately named.  With nothing retired it IS ``anchor_year``.
+    """
+    retired_set = {int(y) for y in retired}
+    year = int(anchor_year)
+    while year in retired_set:
+        year += 1
+    return year

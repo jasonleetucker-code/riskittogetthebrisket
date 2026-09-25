@@ -23,6 +23,7 @@ from src.identity.pick_lifecycle import (
     board_class_lifecycle,
     draft_class_lifecycle,
     evidence_from_sleeper,
+    first_active_class,
     is_retired,
     league_class_lifecycles,
     retired_seasons,
@@ -302,3 +303,10 @@ def test_retired_pick_identities_still_resolve():
     # A stored trade label from before retirement.
     label = parse_pick_label("2026 1.02 (from Blaine)")
     assert label is not None and label.year == 2026 and label.slot == 2
+
+
+def test_first_active_class_steps_past_retired_classes():
+    assert first_active_class(2026, []) == 2026
+    assert first_active_class(2026, [2026]) == 2027
+    assert first_active_class(2026, [2026, 2027]) == 2028
+    assert first_active_class(2026, [2025, 2028]) == 2026  # only a contiguous run moves it

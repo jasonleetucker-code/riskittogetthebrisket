@@ -217,6 +217,17 @@ def test_retirement_does_not_move_the_future_pick_horizon(boards):
     assert not any(n.startswith("2030") for n in retired)
 
 
+def test_first_active_class_is_published_separately_from_the_horizon(boards):
+    """Draft-capital consumers (pick stacks) anchor on the UPCOMING draft,
+    derived by the lifecycle owner; ``currentDraftYear`` stays the horizon
+    anchor.  With nothing retired the two agree."""
+    assert boards["kept"]["pickClassLifecycle"]["firstActiveClass"] == 2026
+    assert boards["retired"]["pickClassLifecycle"]["firstActiveClass"] == 2027
+    assert boards["retired_later"]["pickClassLifecycle"]["firstActiveClass"] == 2028
+    for key in ("kept", "retired", "retired_later"):
+        assert boards[key]["currentDraftYear"] == 2026
+
+
 def test_a_synthetic_later_retirement_does_not_extend_the_horizon(boards):
     c = boards["retired_later"]
     stamp = c["pickClassLifecycle"]
