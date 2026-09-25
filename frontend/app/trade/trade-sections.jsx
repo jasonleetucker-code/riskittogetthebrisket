@@ -12,11 +12,12 @@
  * or the /api/trade/* responses.
  */
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import {
   Badge,
   Banner,
   Button,
+  DataTable,
   Field,
   Icon,
   Input,
@@ -35,6 +36,7 @@ import {
   unpricedAssetsOnSide,
   getPlayerEdge,
 } from "@/lib/trade-logic";
+import { groupSideEntries, tradeEntryKey, tradeEntryLabel } from "@/lib/trade-assets";
 import styles from "./trade.module.css";
 
 // ── Shared bits ───────────────────────────────────────────────────────
@@ -89,7 +91,7 @@ function fmtSigned(n) {
 function SearchResultRow({ row, settings, onPick, keyPrefix }) {
   return (
     <button
-      key={`${keyPrefix}-${row.name}`}
+      key={`${keyPrefix}-${tradeEntryKey(row)}`}
       type="button"
       className="trade-side-search-result button-reset"
       onMouseDown={(e) => {
@@ -111,9 +113,10 @@ function SearchResultRow({ row, settings, onPick, keyPrefix }) {
         size={26}
       />
       <div className="trade-side-search-result-body">
-        <div className="trade-side-search-result-name">{row.name}</div>
+        <div className="trade-side-search-result-name">{tradeEntryLabel(row)}</div>
         <div className="trade-side-search-result-meta">
           <Badge tone="outline">{row.pos}</Badge>
+          {row.assetId ? <Badge tone="accent">Owned pick</Badge> : null}
           <span className="muted">
             {row.blendedSourceRank != null ? `#${row.blendedSourceRank.toFixed(1)}` : "—"}
             {" · "}
@@ -200,7 +203,7 @@ export function MobileQuickAddBar({
           ) : (
             results.map((r) => (
               <SearchResultRow
-                key={`mobile-quick-${r.name}`}
+                key={`mobile-quick-${tradeEntryKey(r)}`}
                 row={r}
                 settings={settings}
                 onPick={handleAdd}
@@ -601,9 +604,204 @@ export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) 
           <p className={styles.suggestMeta} style={{ marginTop: "var(--space-2)" }}>
             Equity (receiving − sending): {fmtSigned(simResult.equity)}
           </p>
+
+          {/* Secondary context, deliberately AFTER every verdict-bearing
+              block: exposure feeds no value, equity or verdict
+              (C2-EXP-01), so it must not read as part of the grade. */}
+          <NflExposureSection exposure={simResult.nflExposure} />
         </>
       ) : null}
     </Panel>
+  );
+}
+
+// ── NFL team exposure (C2-EXP-01) ─────────────────────────────────────
+
+/**
+ * Backend share (0–100 scale, already a percentage) for display.
+ * Missing stays missing: `null` is an UNMEASURED share, never 0%.
+ */
+function exposurePct(v) {
+  if (v == null) return "—";
+  const n = Number(v);
+  return Number.isFinite(n) ? `${n.toFixed(1)}%` : "—";
+}
+
+/** Backend Herfindahl index (0–10,000) for display; missing stays missing. */
+function exposureHhi(v) {
+  if (v == null) return "—";
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n).toLocaleString() : "—";
+}
+
+/** Magnitude formatter for <Movement>: percentage points, never a bare 0.0. */
+function ppMagnitude(m) {
+  return m > 0 && m < 0.05 ? "<0.1 pp" : `${m.toFixed(1)} pp`;
+}
+
+function exposureIds(ids) {
+  return Array.isArray(ids) ? ids.filter(Boolean) : [];
+}
+
+const EXPOSURE_SCOPE_COPY = {
+  full_roster: "Share of full-roster board value",
+};
+
+const EXPOSURE_MOVE_COLUMNS = [
+  {
+    key: "team",
+    header: "NFL team",
+    render: (r) => (r.isFranchise === false ? `${r.team} (not an NFL franchise)` : r.team),
+  },
+  { key: "shareBefore", header: "Before", numeric: true, render: (r) => exposurePct(r.shareBefore) },
+  { key: "shareAfter", header: "After", numeric: true, render: (r) => exposurePct(r.shareAfter) },
+  {
+    key: "delta",
+    header: "Change",
+    numeric: true,
+    // The BACKEND's delta, in percentage points — never after − before
+    // recomputed here.
+    render: (r) => {
+      const d = Number(r.delta);
+      if (r.delta == null || !Number.isFinite(d)) return "—";
+      const words = ppMagnitude(Math.abs(d)).replace("pp", "percentage points");
+      return (
+        <Movement
+          delta={d}
+          format={ppMagnitude}
+          srLabel={d === 0 ? "unchanged" : `${d > 0 ? "up" : "down"} ${words}`}
+        />
+      );
+    },
+  },
+];
+
+const EXPOSURE_CONCENTRATION_COLUMNS = [
+  { key: "measure", header: "Measure" },
+  { key: "before", header: "Before", numeric: true },
+  { key: "after", header: "After", numeric: true },
+];
+
+/**
+ * "NFL team exposure" — value-weighted NFL-franchise share of the team's
+ * roster before → after the simulated trade (`nflExposure` on
+ * `POST /api/trade/simulate`, owner `src/roster_intel/exposure.py`).
+ *
+ * PURE RENDERER: every share, delta and concentration figure is a backend
+ * stamp; nothing is summed, differenced or re-derived here. Collapsed by
+ * default and labelled as context — the owner ruled exposure never
+ * influences the grade, so it must not present as part of the verdict.
+ *
+ * States: absent (render nothing), `unavailable`, populated with moves,
+ * populated with no team moved, and coverage gaps (`unpricedIds`,
+ * `unknownTeamIds`, `outgoingNotOnRoster`), which are always named —
+ * missing is never zero.
+ */
+export function NflExposureSection({ exposure }) {
+  const headingId = useId();
+  if (!exposure || typeof exposure !== "object") return null;
+
+  const heading = (
+    <div className={styles.simSectionHead}>
+      <h3 id={headingId} className={`${styles.simSectionTitle} ${styles.exposureTitle}`}>
+        NFL team exposure
+      </h3>
+      <span className={styles.suggestMeta}>Context only — not part of the verdict</span>
+    </div>
+  );
+
+  const before = exposure.before;
+  const after = exposure.after;
+  if (exposure.unavailable || !before || !after) {
+    const note = exposureIds(exposure.notes)[0];
+    return (
+      <section className={styles.simSection} aria-labelledby={headingId} data-testid="nfl-exposure">
+        {heading}
+        <p className={styles.suggestMeta}>
+          {`Unavailable — ${note || "NFL-team exposure could not be computed for this trade"}.`}
+          {exposure.unavailable ? ` (${exposure.unavailable})` : ""}
+        </p>
+      </section>
+    );
+  }
+
+  const moved = Array.isArray(exposure.moved)
+    ? exposure.moved
+    : Array.isArray(exposure.changes)
+      ? exposure.changes
+      : [];
+  const gaps = [
+    ["Not priced by the board — excluded, never counted as zero (before)", exposureIds(before.unpricedIds)],
+    ["Not priced by the board — excluded, never counted as zero (after)", exposureIds(after.unpricedIds)],
+    ["Priced, but NFL team unknown — excluded (before)", exposureIds(before.unknownTeamIds)],
+    ["Priced, but NFL team unknown — excluded (after)", exposureIds(after.unknownTeamIds)],
+    ["Sent but not on this roster — frees nothing", exposureIds(exposure.outgoingNotOnRoster)],
+  ].filter(([, ids]) => ids.length > 0);
+
+  const concentration = [
+    {
+      measure: "Largest single team",
+      before: exposurePct(before.topFranchiseShare),
+      after: exposurePct(after.topFranchiseShare),
+    },
+    {
+      measure: "Concentration index (HHI, 0–10,000)",
+      before: exposureHhi(before.franchiseHHI),
+      after: exposureHhi(after.franchiseHHI),
+    },
+  ];
+
+  const summary =
+    moved.length > 0
+      ? `Show ${moved.length} team${moved.length === 1 ? "" : "s"} that moved`
+      : "Show detail — no team's share changed";
+
+  return (
+    <section className={styles.simSection} aria-labelledby={headingId} data-testid="nfl-exposure">
+      {heading}
+      {gaps.length > 0 ? (
+        <p className={styles.suggestMeta}>
+          Coverage incomplete — some players are excluded; they are named in the detail.
+        </p>
+      ) : null}
+      <details>
+        <summary className={styles.exposureSummary}>{summary}</summary>
+        <div className={styles.exposureBody}>
+          <p className={styles.suggestMeta}>
+            {EXPOSURE_SCOPE_COPY[exposure.scope] ||
+              `Share of board value${exposure.scope ? ` (${exposure.scope})` : ""}`}
+            , before → after the trade as entered. Draft picks carry no NFL team and are not
+            included.
+          </p>
+          <DataTable
+            columns={EXPOSURE_MOVE_COLUMNS}
+            rows={moved}
+            rowKey="team"
+            density="compact"
+            caption="NFL team share of roster value, before and after the trade"
+            emptyState={
+              <p className={styles.suggestMeta}>No NFL team&apos;s share of roster value changed.</p>
+            }
+          />
+          <DataTable
+            columns={EXPOSURE_CONCENTRATION_COLUMNS}
+            rows={concentration}
+            rowKey="measure"
+            density="compact"
+            caption="Roster concentration across NFL teams, before and after the trade"
+          />
+          {gaps.length > 0 ? (
+            <ul className={styles.simRationale}>
+              {gaps.map(([label, ids]) => (
+                <li key={label}>
+                  {label}: {ids.join(", ")}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      </details>
+    </section>
   );
 }
 
@@ -710,6 +908,8 @@ export function PickTeamSelectors({
 
 function AssetRow({
   row,
+  count = 1,
+  repeatable = false,
   sideIdx,
   sides,
   side,
@@ -720,13 +920,19 @@ function AssetRow({
   onSetValueOverride,
   onClearValueOverride,
   onRemove,
+  onAddCopy,
   onSetDestination,
 }) {
   const edge = getPlayerEdge(row);
+  // One line per IDENTITY (lib/trade-assets): a repeated generic pick is
+  // one line with a quantity, two owned picks that share a label are two
+  // lines.  Routing, overrides and removal all key on the line identity.
+  const key = tradeEntryKey(row);
+  const label = tradeEntryLabel(row);
   // 3+-team trades give every asset an explicit destination so the
   // fairness bar can compute per-team NET flow.  For 2-team trades the
   // other side is implicit and the dropdown is hidden.
-  const storedDest = side.destinations?.[row.name];
+  const storedDest = side.destinations?.[key];
   const parsedDest = Number(storedDest);
   const currentDest =
     Number.isInteger(parsedDest) &&
@@ -753,8 +959,18 @@ function AssetRow({
               className={styles.assetNameButton}
               onClick={() => onOpenPlayer?.(row)}
             >
-              {row.name}
+              {label}
             </button>
+            {count > 1 ? (
+              <Badge tone="outline" title={`${count} copies, each counted in the totals`}>
+                ×{count}
+              </Badge>
+            ) : null}
+            {row.assetId ? (
+              <Badge tone="accent" title={row.assetId}>
+                Owned pick
+              </Badge>
+            ) : null}
             {edge.signal ? (
               <Badge tone={edge.signal === "BUY" ? "positive" : "negative"}>
                 {edge.signal} {edge.edgePct}%
@@ -791,25 +1007,29 @@ function AssetRow({
             <input
               type="number"
               className="asset-value-override-input"
-              value={valueOverrides[row.name] != null ? valueOverrides[row.name] : ""}
+              value={valueOverrides[key] != null ? valueOverrides[key] : ""}
               placeholder={
                 isUnpricedBoardRow(row)
                   ? "—"
                   : String(Math.round(effectiveValue(row, valueMode, settings)))
               }
-              onChange={(e) => onSetValueOverride(row.name, e.target.value)}
+              onChange={(e) => onSetValueOverride(key, e.target.value)}
               onBlur={(e) => {
-                if (e.target.value === "") onClearValueOverride(row.name);
+                if (e.target.value === "") onClearValueOverride(key);
               }}
-              aria-label={`Override ${row.name}'s value for this trade`}
-              title="Override this player's value for this trade only"
+              aria-label={`Override ${label}'s value for this trade`}
+              title={
+                count > 1
+                  ? "Override this asset's per-copy value for this trade only"
+                  : "Override this player's value for this trade only"
+              }
             />
-            {valueOverrides[row.name] != null ? (
+            {valueOverrides[key] != null ? (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => onClearValueOverride(row.name)}
-                aria-label={`Reset ${row.name} to the default value`}
+                onClick={() => onClearValueOverride(key)}
+                aria-label={`Reset ${label} to the default value`}
               >
                 Reset
               </Button>
@@ -820,13 +1040,13 @@ function AssetRow({
       <div className={styles.assetActions}>
         {sides.length > 2 ? (
           <label className={styles.assetDest}>
-            <span className="ds-visually-hidden">Destination for {row.name}</span>
+            <span className="ds-visually-hidden">Destination for {label}</span>
             <Icon name="arrow-right" aria-hidden="true" />
             <Select
               className="trade-dest-select"
               value={currentDest}
-              onChange={(e) => onSetDestination(sideIdx, row.name, e.target.value)}
-              aria-label={`Send ${row.name} to which side`}
+              onChange={(e) => onSetDestination(sideIdx, key, e.target.value)}
+              aria-label={`Send ${label} to which side`}
             >
               {sides.map((s, i) =>
                 i === sideIdx ? null : (
@@ -838,15 +1058,43 @@ function AssetRow({
             </Select>
           </label>
         ) : null}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="trade-remove-btn"
-          onClick={() => onRemove(row.name, sideIdx)}
-          aria-label={`Remove ${row.name} from Side ${side.label}`}
-        >
-          Remove
-        </Button>
+        {repeatable ? (
+          /* Quantity control for a repeatable market pick (T-NEW-02):
+             "−" removes ONE copy, "+" adds another.  Unique assets
+             (players, owned picks) keep the plain Remove. */
+          <span className={styles.assetQuantity} role="group" aria-label={`${label} quantity`}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="trade-remove-btn"
+              onClick={() => onRemove(key, sideIdx)}
+              aria-label={`Remove one ${label} from Side ${side.label}`}
+            >
+              −
+            </Button>
+            <span className={styles.assetQuantityCount} aria-live="polite">
+              {count}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onAddCopy?.(row, sideIdx)}
+              aria-label={`Add another ${label} to Side ${side.label}`}
+            >
+              +
+            </Button>
+          </span>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="trade-remove-btn"
+            onClick={() => onRemove(key, sideIdx)}
+            aria-label={`Remove ${label} from Side ${side.label}`}
+          >
+            Remove
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -871,7 +1119,7 @@ function IncomingRow({ asset, fromSideIdx, sides, valueMode, settings, valueOver
               className={styles.assetNameButton}
               onClick={() => onOpenPlayer?.(asset)}
             >
-              {asset.name}
+              {tradeEntryLabel(asset)}
             </button>
             {edge.signal ? (
               <Badge tone={edge.signal === "BUY" ? "positive" : "negative"}>
@@ -881,10 +1129,10 @@ function IncomingRow({ asset, fromSideIdx, sides, valueMode, settings, valueOver
           </span>
           <span className={styles.assetMeta}>
             {asset.pos} · from Side {sides[fromSideIdx]?.label || "?"} ·{" "}
-            {valueOverrides[asset.name] == null && isUnpricedBoardRow(asset)
+            {valueOverrides[tradeEntryKey(asset)] == null && isUnpricedBoardRow(asset)
               ? "not priced"
               : Math.round(
-                  valueOverrides[asset.name] ??
+                  valueOverrides[tradeEntryKey(asset)] ??
                     effectiveValue(asset, valueMode, settings),
                 ).toLocaleString()}
           </span>
@@ -917,6 +1165,7 @@ export function SideCard({
   onSetValueOverride,
   onClearValueOverride,
   onRemoveAsset,
+  onAddCopy,
   onSetDestination,
   onRemoveTeam,
   onAddBalancer,
@@ -1000,7 +1249,7 @@ export function SideCard({
             ) : (
               searchResults.map((r) => (
                 <SearchResultRow
-                  key={`search-${side.label}-${r.name}`}
+                  key={`search-${side.label}-${tradeEntryKey(r)}`}
                   row={r}
                   settings={settings}
                   onPick={(row) => onAddFromSearch(row, sideIdx)}
@@ -1017,10 +1266,12 @@ export function SideCard({
       ) : null}
 
       <div className={styles.assetList}>
-        {side.assets.map((r) => (
+        {groupSideEntries(side.assets).map((g) => (
           <AssetRow
-            key={`${side.label}-${r.name}`}
-            row={r}
+            key={`${side.label}-${g.key}`}
+            row={g.entry}
+            count={g.count}
+            repeatable={g.repeatable}
             side={side}
             sideIdx={sideIdx}
             sides={sides}
@@ -1031,6 +1282,7 @@ export function SideCard({
             onSetValueOverride={onSetValueOverride}
             onClearValueOverride={onClearValueOverride}
             onRemove={onRemoveAsset}
+            onAddCopy={onAddCopy}
             onSetDestination={onSetDestination}
           />
         ))}
@@ -1046,9 +1298,9 @@ export function SideCard({
           <div className={styles.sideGroupLabel}>Receiving</div>
           <div className={styles.assetList}>
             {(incoming || []).length > 0 ? (
-              incoming.map(({ asset, fromSideIdx }) => (
+              incoming.map(({ asset, fromSideIdx }, idx) => (
                 <IncomingRow
-                  key={`recv-${side.label}-${asset.name}`}
+                  key={`recv-${side.label}-${fromSideIdx}-${tradeEntryKey(asset)}-${idx}`}
                   asset={asset}
                   fromSideIdx={fromSideIdx}
                   sides={sides}
@@ -1072,10 +1324,10 @@ export function SideCard({
           <span className={styles.balancerLabel}>{balancers.label}</span>
           {balancers.list.map((b) => (
             <Button
-              key={b.name}
+              key={b.key || b.name}
               variant="ghost"
               size="sm"
-              onClick={() => onAddBalancer(b.name, sideIdx)}
+              onClick={() => onAddBalancer(b, sideIdx)}
               /* The suggestion says what it LANDS ON, not just what it
                  is worth.  ``imbalanceAfter`` is measured through the
                  same adjusted-gap path the meter renders, so the number
@@ -1087,7 +1339,7 @@ export function SideCard({
                   : undefined
               }
             >
-              {b.name} ({b.pos}) · {b.value.toLocaleString()}
+              {b.label || b.name} ({b.pos}) · {b.value.toLocaleString()}
               {Number.isFinite(b.imbalanceAfter) ? (
                 <span className={styles.balancerResidual}>
                   {" "}

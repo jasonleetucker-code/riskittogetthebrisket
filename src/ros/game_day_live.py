@@ -196,6 +196,15 @@ def _dt(value: Any) -> datetime | None:
     return datetime.fromtimestamp(ts, tz=timezone.utc) if ts is not None else None
 
 
+def _counter(value: Any) -> int:
+    """A stored COUNT (keyframe distance, failure streak, event tally).
+
+    Nothing recorded yet is a count of zero — a count, not a measurement,
+    so this is the one place a ``None`` legitimately becomes ``0``.
+    """
+    return 0 if value is None else int(value)
+
+
 def _content_hash(content: Any) -> str:
     blob = json.dumps(content, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
@@ -392,6 +401,9 @@ class KeyedObservationLog:
                 if not isinstance(rec, dict):
                     broken = True
                     continue
+                if not isinstance(rec.get("seq"), int):
+                    broken = True
+                    continue
                 kind = rec.get("kind")
                 if kind == "keyframe":
                     state = dict(rec.get("set") or {})
@@ -412,7 +424,7 @@ class KeyedObservationLog:
                 elif kind == "failure":
                     yield (
                         Observation(
-                            seq=int(rec.get("seq") or 0),
+                            seq=rec["seq"],
                             fetched_at=rec.get("fetchedAt"),
                             status=str(rec.get("status") or "error"),
                             meta=rec.get("meta") or {},
@@ -427,7 +439,7 @@ class KeyedObservationLog:
                     continue
                 yield (
                     Observation(
-                        seq=int(rec.get("seq") or 0),
+                        seq=rec["seq"],
                         fetched_at=rec.get("fetchedAt"),
                         status=str(rec.get("status") or "ok"),
                         meta=rec.get("meta") or {},
@@ -475,7 +487,7 @@ class KeyedObservationLog:
         else:
             content = dict(content)
             digest = _content_hash(content)
-            since = int((head or {}).get("sinceKeyframe") or 0)
+            since = _counter((head or {}).get("sinceKeyframe"))
             if prev is not None and (head or {}).get("contentHash") == digest:
                 record["kind"] = "unchanged"
                 info["kind"] = "unchanged"
@@ -643,8 +655,8 @@ def scoreboard_from_observation(meta: Mapping[str, Any], content: Mapping[str, A
         season_type=meta.get("seasonType"),
         week=meta.get("week"),
         games=tuple(games),
-        event_count=int(meta.get("eventCount") or 0),
-        skipped_events=int(meta.get("skippedEvents") or 0),
+        event_count=_counter(meta.get("eventCount")),
+        skipped_events=_counter(meta.get("skippedEvents")),
     )
 
 
@@ -674,15 +686,28 @@ def weekly_to_observation(result: Any) -> tuple[str, dict[str, Any], dict[str, A
     return "ok", meta, content
 
 
-def weekly_from_observation(obs: Observation) -> Any:
+def weekly_from_observation(
+    obs: Observation, *, season: int | None = None, week: int | None = None
+) -> Any:
+    """A stored weekly observation back as a ``FetchResult``.
+
+    Season and week come from the observation's own meta; the log's key
+    (``season`` / ``week``, which the caller read it by) answers only when
+    the meta does not.  Neither known is a malformed record — refused, never
+    stamped as week 0.
+    """
     from src.ros.sleeper_weekly_projections import FetchResult
 
     meta = obs.meta
+    stored_season = meta.get("season") if meta.get("season") is not None else season
+    stored_week = meta.get("week") if meta.get("week") is not None else week
+    if stored_season is None or stored_week is None:
+        raise ValueError("stored weekly observation carries no season/week")
     rows = tuple(obs.content[k] for k in sorted(obs.content or {}))
     return FetchResult(
         status="ok",
-        season=int(meta.get("season") or 0),
-        week=int(meta.get("week") or 0),
+        season=int(stored_season),
+        week=int(stored_week),
         url=str(meta.get("url") or ""),
         observed_at=meta.get("observedAt"),
         rows=rows,
@@ -709,7 +734,7 @@ def load_weekly_history(season: int, week: int) -> list[Any]:
     hit = _weekly_history_cache.get(key)
     if hit is not None and hit[0] == stamp:
         return list(hit[1])
-    history = [weekly_from_observation(o) for o in log.observations()]
+    history = [weekly_from_observation(o, season=season, week=week) for o in log.observations()]
     _weekly_history_cache[key] = (stamp, history)
     return list(history)
 
@@ -1501,7 +1526,10 @@ def write_generation(generation: Mapping[str, Any]) -> bool:
         current = _read_json(path)
         previous_id = None
         if isinstance(current, dict) and current.get("schemaVersion") == GENERATION_SCHEMA_VERSION:
-            if float(current.get("sequence") or 0.0) >= float(generation["sequence"]):
+            # A stored generation with no sequence cannot be shown newer, so
+            # it is superseded rather than protected.
+            current_seq = current.get("sequence")
+            if current_seq is not None and float(current_seq) >= float(generation["sequence"]):
                 return False
             previous_id = current.get("generationId")
         generation = {**dict(generation), "supersedes": previous_id}
@@ -1984,7 +2012,8 @@ def ensure_background_compute(
         if (
             last is not None
             and last.outcome == "failed"
-            and now - (last.finished_at or 0.0) < BACKGROUND_RETRY_AFTER_SECONDS
+            and last.finished_at is not None
+            and now - last.finished_at < BACKGROUND_RETRY_AFTER_SECONDS
         ):
             return {
                 "state": "failed",
@@ -2280,7 +2309,7 @@ def _record_health(
     if ok:
         entry.update(consecutiveFailures=0, backoffUntil=None, lastOkAt=_iso(now), lastError=None)
     else:
-        n = int(entry.get("consecutiveFailures") or 0) + 1
+        n = _counter(entry.get("consecutiveFailures")) + 1
         entry.update(consecutiveFailures=n, lastError=error, lastFailureAt=_iso(now))
         if n >= BACKOFF_FAILURE_THRESHOLD:
             wait = min(60.0 * 2 ** (n - BACKOFF_FAILURE_THRESHOLD), BACKOFF_MAX_SECONDS)
@@ -2579,7 +2608,7 @@ def _run_tick_locked(
 
 def _last_healthy(health: Mapping[str, Any], name: str) -> bool | None:
     entry = health.get(name) or {}
-    if int(entry.get("consecutiveFailures") or 0) > 0:
+    if _counter(entry.get("consecutiveFailures")) > 0:
         return False
     return True if entry.get("lastOkAt") else None
 
@@ -2588,8 +2617,11 @@ def _stale_candidate(log: KeyedObservationLog) -> tuple[float, Any] | None:
     head = log.head()
     if not head or head.get("content") is None or not head.get("lastOkMeta"):
         return None
-    stamp = _epoch(head["lastOkMeta"].get("observedAt")) or 0.0
-    return stamp, scoreboard_from_observation(head["lastOkMeta"], head["content"])
+    stamp = _epoch(head["lastOkMeta"].get("observedAt"))
+    # An unknown observation time ranks below every known one (never as
+    # "newest"), but the observation itself stays usable as a last resort.
+    rank = stamp if stamp is not None else float("-inf")
+    return rank, scoreboard_from_observation(head["lastOkMeta"], head["content"])
 
 
 def last_good_live_snapshot(season: int, week: int) -> Any:

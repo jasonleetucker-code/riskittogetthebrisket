@@ -224,6 +224,39 @@ def final_regular_season_weeks(season: SeasonSnapshot) -> list[int]:
     return out
 
 
+def final_weeks(season: SeasonSnapshot) -> list[int]:
+    """Every week, regular season AND playoffs, whose scoring is FINISHED.
+
+    For surfaces that narrate or decide a week (recaps, winners, "the books
+    shut"), where a playoff week matters as much as a regular one.  Extends
+    ``final_regular_season_weeks`` rather than re-deriving it:
+
+    * regular-season weeks: exactly ``final_regular_season_weeks``;
+    * playoff weeks: the host clock alone (``wk <= last_scored_week``).  The
+      data-completeness proof does not apply, since a playoff week
+      legitimately carries fewer rows than the league has rosters;
+    * a season the host marks ``complete`` has no week left in progress, so
+      every week with matchups is final.  Deliberately NOT
+      ``SeasonSnapshot.is_complete``, which also accepts ``post_season``:
+      Sleeper's status while the playoffs are being played.
+
+    Anything unproven is withheld, never assumed complete: a live week read
+    as final is how a Thursday-night sliver was published as a closed week
+    (2026-09-24, "the week 3 books shut at 24.2 total points").
+    """
+    weeks = sorted(season.matchups_by_week)
+    if str(season.league.get("status") or "").lower() == "complete":
+        return weeks
+    regular = set(final_regular_season_weeks(season))
+    horizon = last_scored_week(season)
+    return [
+        wk
+        for wk in weeks
+        if wk in regular
+        or (wk >= season.playoff_week_start and horizon is not None and wk <= horizon)
+    ]
+
+
 def resolve_owner(
     registry: ManagerRegistry,
     league_id: str,

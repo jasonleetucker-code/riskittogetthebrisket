@@ -666,6 +666,94 @@ def configured_slot_eligibility(
     return out
 
 
+#: The named :class:`SlotDemand` quantities a consumer may ask
+#: :meth:`LeagueSlotDemand.required` for.  ``flex_capacity`` is absent on
+#: purpose: it is keyed by SLOT, not by position, so it cannot answer
+#: "how many starters does this league demand at a position".
+DEMAND_BASES: tuple[str, ...] = ("dedicated", "even_split", "flex_priority")
+
+
+@dataclass(frozen=True)
+class LeagueSlotDemand:
+    """ONE league's lineup demand, resolved through the one truth ladder.
+
+    The canonical answer to *"how many starters does THIS league demand
+    at a position"* (Need Priority's demand half; the other half — how a
+    roster measures against it — is ``src/roster_intel/weakness.py``).
+    Before this existed, each consumer carried its own league → demand
+    plumbing and its own fallback, and one of them (``trade/suggestions``)
+    fell back to ``dynasty_main``'s demand as a module constant, so an
+    unresolvable league — and every opponent roster, which was analysed
+    with no demand at all — was silently measured against another
+    league's lineup.
+
+    ``demand is None`` is a REFUSAL, not an empty lineup: nothing
+    resolved, and :meth:`required` answers ``None`` (unknown) rather
+    than ``0`` (this league starts nobody there).  Consumers must carry
+    that state to their own output — MISSING IS NEVER ZERO.
+    """
+
+    slots: tuple[str, ...] = ()
+    source: str | None = None
+    demand: SlotDemand | None = None
+
+    @property
+    def resolved(self) -> bool:
+        return self.demand is not None
+
+    def by_basis(self, basis: str) -> dict[str, float] | None:
+        """Per-position demand under one named :class:`SlotDemand` basis,
+        or ``None`` when the league's lineup is unresolved."""
+        if basis not in DEMAND_BASES:
+            raise ValueError(f"unknown demand basis {basis!r}; expected one of {DEMAND_BASES}")
+        if self.demand is None:
+            return None
+        return {pos: float(n) for pos, n in getattr(self.demand, basis).items()}
+
+    def required(self, position: str | None, *, basis: str) -> float | None:
+        """Starters this league demands at ``position`` under ``basis``.
+
+        ``None`` = the league's lineup is unknown.  ``0.0`` = measured: the
+        league resolves and starts no one at that position.  The position
+        is folded through :func:`lineup_position`, so ``EDGE`` asks for DL
+        demand in the same vocabulary the slots are written in.
+        """
+        demand = self.by_basis(basis)
+        if demand is None:
+            return None
+        if not position:
+            return 0.0
+        return float(demand.get(lineup_position(str(position)), 0.0))
+
+
+def resolve_league_slot_demand(
+    *,
+    roster_positions: Sequence[str] | None = None,
+    roster_settings: Mapping[str, Any] | None = None,
+) -> LeagueSlotDemand:
+    """THE league → lineup-demand resolver.
+
+    The composition every demand consumer needs and several had written
+    separately: :func:`resolve_starter_slots` (live host → registry →
+    refuse) + :func:`configured_slot_eligibility` (the league's OWN flex
+    rules, applied whenever the caller hands over the full roster settings)
+    + :func:`slot_demand`.
+    An unresolvable league returns an unresolved :class:`LeagueSlotDemand`;
+    there is no default lineup to fall back to, by design.
+    """
+    settings = dict(roster_settings) if isinstance(roster_settings, Mapping) else {}
+    slots, source = resolve_starter_slots(
+        roster_positions=roster_positions, roster_settings=settings
+    )
+    if not slots:
+        return LeagueSlotDemand()
+    return LeagueSlotDemand(
+        slots=tuple(slots),
+        source=source,
+        demand=slot_demand(slots, eligibility_overrides=configured_slot_eligibility(settings)),
+    )
+
+
 def load_league_starter_slots(league_key: str | None = None) -> list[str]:
     """Flat starter-slot list for a league, read from the registry.
 

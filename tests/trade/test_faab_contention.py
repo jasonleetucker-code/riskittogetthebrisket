@@ -59,6 +59,10 @@ def _team(owner_id: str, players: list[str], faab: int | None = 100) -> dict:
 # A pool where "WR Needy" rosters have too few WRs and "WR Loaded"
 # rosters have starters + 2 depth pieces (surplus per analyze_roster).
 _WR_NAMES = [f"Wr Guy {i}" for i in range(1, 9)]
+
+#: The league demand these tests measure against, passed EXPLICITLY — there is
+#: no default lineup any more.  dynasty_main-shaped (WR 4).
+_NEEDS = {"QB": 2, "RB": 3, "WR": 4, "TE": 2}
 _POOL = [_asset(n, "WR") for n in _WR_NAMES] + [
     _asset("Qb Guy", "QB"),
     _asset("Rb Guy", "RB"),
@@ -100,13 +104,31 @@ def test_aggression_low_sample_defaults_neutral():
 
 def test_need_level_classification():
     # 1 WR rostered (< 4 starters needed) → need.
-    assert need_level_for([_WR_NAMES[0]], "WR", _POOL) == "need"
+    assert need_level_for([_WR_NAMES[0]], "WR", _POOL, starter_needs=_NEEDS) == "need"
     # 6 WRs → 4 starters + 2 depth → surplus.
-    assert need_level_for(_WR_NAMES[:6], "WR", _POOL) == "surplus"
+    assert need_level_for(_WR_NAMES[:6], "WR", _POOL, starter_needs=_NEEDS) == "surplus"
     # Position with no starter-needs mapping → neutral.
-    assert need_level_for([_WR_NAMES[0]], "K", _POOL) == "neutral"
+    assert need_level_for([_WR_NAMES[0]], "K", _POOL, starter_needs=_NEEDS) == "neutral"
     # No roster info → neutral.
-    assert need_level_for([], "WR", _POOL) == "neutral"
+    assert need_level_for([], "WR", _POOL, starter_needs=_NEEDS) == "neutral"
+
+
+def test_need_level_without_league_demand_is_unknown():
+    """No league demand → UNKNOWN.  This used to fall through to
+    dynasty_main's lineup constant inside ``analyze_roster``."""
+    assert need_level_for([_WR_NAMES[0]], "WR", _POOL, starter_needs=None) == "unknown"
+    out = estimate_rival_bids(
+        base_bid=10,
+        add_position="WR",
+        opponents=[_team("o1", [_WR_NAMES[0]])],
+        asset_pool=_POOL,
+        team_aggression={},
+        league_median_winning_bid=10.0,
+    )
+    row = out["perOpponent"][0]
+    assert row["needLevel"] == "unknown"
+    # Priced like neutral: 10 × 0.55 × 1.15 = 6.325 → 6.
+    assert row["expBid"] == 6
 
 
 # ── intel index + factor ───────────────────────────────────────
@@ -267,6 +289,7 @@ def test_partitioned_snapshot_written_by_intel_store_feeds_intel_factor(tmp_path
 
 def test_clearing_is_top_rival_plus_one():
     out = estimate_rival_bids(
+        starter_needs=_NEEDS,
         base_bid=10,
         add_position="WR",
         opponents=[
@@ -292,6 +315,7 @@ def test_clearing_is_top_rival_plus_one():
 
 def test_aggression_raises_rival_estimate():
     out = estimate_rival_bids(
+        starter_needs=_NEEDS,
         base_bid=10,
         add_position="WR",
         opponents=[_team("o1", [_WR_NAMES[0]])],
@@ -316,6 +340,7 @@ def test_stack_cap_limits_multiplier_pileup():
         now_ms=now_ms,
     )
     out = estimate_rival_bids(
+        starter_needs=_NEEDS,
         base_bid=20,
         add_position="WR",
         add_player_id="p9",
@@ -335,6 +360,7 @@ def test_stack_cap_limits_multiplier_pileup():
 
 def test_rival_capped_by_faab_remaining():
     out = estimate_rival_bids(
+        starter_needs=_NEEDS,
         base_bid=30,
         add_position="WR",
         opponents=[_team("o1", [_WR_NAMES[0]], faab=8)],
@@ -353,6 +379,7 @@ def test_unknown_balance_rival_excluded_from_clearing():
     row is reported (flagged ``balanceUnknown``) but must never drive
     ``topRival``/``clearing`` upward."""
     out = estimate_rival_bids(
+        starter_needs=_NEEDS,
         base_bid=30,
         add_position="WR",
         opponents=[
@@ -374,6 +401,7 @@ def test_unknown_balance_rival_excluded_from_clearing():
 
 def test_all_broke_rivals_clear_at_one_dollar():
     out = estimate_rival_bids(
+        starter_needs=_NEEDS,
         base_bid=30,
         add_position="WR",
         opponents=[
@@ -391,6 +419,7 @@ def test_all_broke_rivals_clear_at_one_dollar():
 
 def test_missing_intel_snapshot_adds_note():
     out = estimate_rival_bids(
+        starter_needs=_NEEDS,
         base_bid=10,
         add_position="WR",
         opponents=[_team("o1", [_WR_NAMES[0]])],
@@ -406,6 +435,7 @@ def test_missing_intel_snapshot_adds_note():
 
 def test_selection_bias_note_always_present():
     out = estimate_rival_bids(
+        starter_needs=_NEEDS,
         base_bid=10,
         add_position="WR",
         opponents=[],
@@ -416,6 +446,7 @@ def test_selection_bias_note_always_present():
 
 def test_zero_base_bid_returns_token_clearing():
     out = estimate_rival_bids(
+        starter_needs=_NEEDS,
         base_bid=0,
         add_position="WR",
         opponents=[_team("o1", [_WR_NAMES[0]])],

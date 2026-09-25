@@ -98,56 +98,45 @@ def compute_confidence(factors: Sequence[Any]) -> str:
 def _need_level(
     position: str | None,
     roster_players: Sequence[str],
-    asset_pool: Any,
     *,
     anchors: engine.Anchors | None = None,
     starters: dict[str, Any] | None = None,
     roster_index: dict[str, tuple[float, str]] | None = None,
 ) -> str:
-    """Classify one roster's need at ``position``.
+    """Classify one roster's need at ``position`` for FAAB.
 
-    Prefers the engine's startable-depth classifier, which needs the
-    roster's player VALUES and the league's lineup slots.  Falls back
-    to ``src.trade.suggestions.analyze_roster`` only when those are
-    unavailable.
+    ONE path: ``engine.classify_need``, which reads the league's demand
+    from the canonical lineup owner and the depth arithmetic from the
+    canonical need owner (see its docstring for the boundary).
 
-    The fallback is second choice for a measured reason: on this
-    platform's real 58-man best-ball rosters ``analyze_roster``
-    returns ``surplus`` for 68 of 84 team/position pairs and ``need``
-    exactly once, so the resulting factor is very nearly a constant
-    and cannot discriminate between a team with a lineup hole and one
-    with four spare starters.  It answers a trade-surplus question,
-    not a start-this-week question.
+    RETIRED 2026-09-24: the fallback to ``suggestions.analyze_roster``.
+    It was a second need derivation, and it ran against no league demand
+    at all — so it measured every roster against ``dynasty_main``'s
+    lineup constant.  It fired whenever the roster held no priced player
+    at the position (``at_position`` empty), which is exactly the case
+    the startable-depth rule answers best: an empty room at a position
+    the league starts is a ``starterHole``, and an empty room at a
+    position it does not start (IDP in ``dynasty_new``) is no need — the
+    fallback called both ``need``.
+
+    ``unknown`` when the inputs needed to MEASURE need are absent (no
+    anchors, no board index, no roster, or a league lineup that does not
+    resolve).  Unknown is not ``neutral``; it prices the same because no
+    multiplier is configured for it, but it says what happened.
     """
-    if not position or not roster_players:
+    if not position:
         return "neutral"
-
-    if anchors is not None and starters and roster_index:
-        target_family = engine.position_family(position)
-        at_position = [
-            value
-            for value, pos in (
-                roster_index.get(str(name).strip().lower(), (None, "")) for name in roster_players
-            )
-            if value is not None and engine.position_family(pos) == target_family
-        ]
-        if at_position:
-            return engine.classify_need(at_position, position, starters, anchors)
-
-    if asset_pool is None:
-        return "neutral"
-    try:
-        from src.trade.suggestions import analyze_roster  # noqa: PLC0415
-
-        analysis = analyze_roster([str(n) for n in roster_players], asset_pool)
-    except Exception:  # noqa: BLE001 — one bad roster must not kill the estimate
-        return "neutral"
-    pos = str(position).upper()
-    if pos in getattr(analysis, "need_positions", ()) or ():
-        return "need"
-    if pos in getattr(analysis, "surplus_positions", ()) or ():
-        return "surplus"
-    return "neutral"
+    if anchors is None or not roster_index or not roster_players:
+        return "unknown"
+    target_family = engine.position_family(position)
+    at_position = [
+        value
+        for value, pos in (
+            roster_index.get(str(name).strip().lower(), (None, "")) for name in roster_players
+        )
+        if value is not None and engine.position_family(pos) == target_family
+    ]
+    return engine.classify_need(at_position, position, starters, anchors)
 
 
 def _aggression_from_league_summary(
@@ -191,7 +180,6 @@ def build_rivals(
     opponent_teams: Sequence[dict[str, Any]],
     *,
     position: str | None = None,
-    asset_pool: Any = None,
     market_priors: Any = None,
     league_summary: dict[str, Any] | None = None,
     roster_size: int | None = 0,
@@ -240,7 +228,6 @@ def build_rivals(
                 need_level=_need_level(
                     position,
                     players,
-                    asset_pool,
                     anchors=anchors,
                     starters=starters,
                     roster_index=roster_index,

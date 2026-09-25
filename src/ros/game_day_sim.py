@@ -472,7 +472,15 @@ def _game_leverage(
                 reason=None,
             )
         rows.append(row)
-    rows.sort(key=lambda r: (r["leverage"] is None, -abs(r["leverage"] or 0.0), r["gameId"]))
+    # Rows without a stated leverage sort last (first key); the second key
+    # only orders rows that HAVE one.
+    rows.sort(
+        key=lambda r: (
+            r["leverage"] is None,
+            -abs(r["leverage"]) if r["leverage"] is not None else 0.0,
+            r["gameId"],
+        )
+    )
     return rows
 
 

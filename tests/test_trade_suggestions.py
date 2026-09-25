@@ -15,8 +15,6 @@ from src.trade.suggestions import (
     PlayerAsset,
     RosterAnalysis,
     build_asset_pool,
-    analyze_roster,
-    generate_suggestions,
     rank_score,
     rank_score_breakdown,
     _fairness_label,
@@ -38,6 +36,27 @@ from src.trade.suggestions import (
     KTC_TOP_N_FILTER,
     BOARD_TOP_N_FILTER,
 )
+
+from src.trade import suggestions as _suggestions
+
+#: The league demand these tests exercise, passed EXPLICITLY: the engine has no
+#: default lineup (canonical-need-priority, 2026-09-24 — an omitted demand used
+#: to fall back silently to dynasty_main's).  dynasty_main-shaped.
+LEAGUE_NEEDS = {"QB": 2, "RB": 3, "WR": 4, "TE": 2, "DL": 3, "LB": 3, "DB": 3}
+
+
+def analyze_roster(roster_names, asset_pool, starter_needs=None, **kwargs):
+    """The engine's ``analyze_roster`` with this file's league demand supplied."""
+    return _suggestions.analyze_roster(
+        roster_names, asset_pool, starter_needs or LEAGUE_NEEDS, **kwargs
+    )
+
+
+def generate_suggestions(roster_names, asset_dict_payload, *, starter_needs=None, **kwargs):
+    """The engine's ``generate_suggestions`` with this file's league demand supplied."""
+    return _suggestions.generate_suggestions(
+        roster_names, asset_dict_payload, starter_needs=starter_needs or LEAGUE_NEEDS, **kwargs
+    )
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -742,6 +761,7 @@ class TestRankScore:
             need_positions=["WR"],
             starter_counts={"QB": 2, "WR": 1},
             depth_counts={"QB": 0, "WR": 0},
+            starter_needs=dict(LEAGUE_NEEDS),
         )
         assert rank_score(s_need, roster) > rank_score(s_no_need, roster)
 
@@ -1636,6 +1656,7 @@ class TestRosterBalancerCandidates:
             need_positions=[],
             starter_counts={"QB": 2},
             depth_counts={"QB": 1},
+            starter_needs=dict(LEAGUE_NEEDS),
         )
         result = _roster_balancer_candidates(roster, set())
         names = {p.name for p in result}
@@ -2410,6 +2431,7 @@ class TestBuildAssetPoolFromContract:
         pool = build_asset_pool_from_contract(self._contract(rows), ktc_top_n=0)
         roster_names = ["QB00", "RB00", "WR00", "WR01", "TE00"]
         result = generate_suggestions_from_pool(
+            starter_needs=LEAGUE_NEEDS,
             roster_names=roster_names,
             pool=pool,
         )
@@ -2644,6 +2666,7 @@ class TestEffectiveSourceRanks:
         assert sell_player.source_count == 3  # effective, not 8
 
         result = generate_suggestions_from_pool(
+            starter_needs=LEAGUE_NEEDS,
             roster_names=roster,
             pool=pool,
         )
@@ -2688,6 +2711,7 @@ class TestEffectiveSourceRanks:
         assert target.source_count == 2
 
         result = generate_suggestions_from_pool(
+            starter_needs=LEAGUE_NEEDS,
             roster_names=roster,
             pool=pool,
         )
@@ -2736,6 +2760,7 @@ class TestEffectiveSourceRanks:
         assert target.source_count == 4
 
         result = generate_suggestions_from_pool(
+            starter_needs=LEAGUE_NEEDS,
             roster_names=roster,
             pool=pool,
         )
@@ -2805,6 +2830,7 @@ class TestEffectiveSourceRanks:
         assert target.source_count == 2
 
         result = generate_suggestions_from_pool(
+            starter_needs=LEAGUE_NEEDS,
             roster_names=roster,
             pool=pool,
         )
