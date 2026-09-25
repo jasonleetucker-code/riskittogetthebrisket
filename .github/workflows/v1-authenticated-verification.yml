@@ -61,9 +61,17 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: production-deploy
-  cancel-in-progress: false
+# No WORKFLOW-level concurrency, deliberately (2026-09-24).  This workflow
+# fires on EVERY Deploy Production completion, cancelled ones included, and
+# the job's ``if`` skips all but a successful main deploy.  A workflow-level
+# group is entered before that ``if`` is evaluated, so a run whose job was
+# about to be skipped still sat PENDING in ``production-deploy`` — and GitHub
+# keeps one pending run per group, so it cancelled whatever deploy was
+# queued (Deploy Production 36072042988 / 36072618473, both cancelled with no
+# job started, displaced by run 36072626319).  Each cancelled deploy then
+# spawned another such run.  Job-level concurrency is acquired only when the
+# job actually runs, so a real verification still serialises with deploys
+# and a skipped one never enters the group.
 
 jobs:
   v1-authenticated:
@@ -72,6 +80,9 @@ jobs:
       ${{ github.event_name == 'workflow_dispatch' ||
           (github.event.workflow_run.conclusion == 'success' &&
            github.event.workflow_run.head_branch == 'main') }}
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: production
