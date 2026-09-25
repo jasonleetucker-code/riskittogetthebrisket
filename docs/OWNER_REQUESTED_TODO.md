@@ -656,6 +656,10 @@ it must not be read as an approval.
 | Sleeper weekly projections (`https://api.sleeper.app/projections/nfl/<season>/<week>`) | Undocumented public endpoint. Every row observed carries `company: "rotowire"`, so it appears to expose RotoWire-sourced weekly projection content (QB/RB/WR/TE/K/IDP, stat-level). | Implemented behind `sleeper_weekly_projections` (default OFF); census `licensingStatus: UNVERIFIED`. **Not activated.** | Verify whether automated production use/reuse is permitted. If authorization cannot be established, identify an alternative legitimate weekly-projection source; never silently turn the flag on. |
 | ESPN public scoreboard (`site.api.espn.com/.../nfl/scoreboard`) | Undocumented public API giving observed period/clock/status per game. | Implemented behind `game_day_live_game_state` (default OFF), with adapter and replay fixtures. **Not activated.** | Verify the permitted technical/usage posture for this exact access path. Public visibility is not permission for unattended automated collection. If an already-authorized existing ESPN integration in this repo demonstrably covers the same access method and usage class, document that evidence and reuse it; otherwise the flag stays off pending the owner's decision. |
 
+Evidence gathered 2026-09-25, with the owner questions: `docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md`.
+It also found that the repo's existing ESPN integrations (injuries, depth charts, news) run with **no recorded
+authorization**. That is recorded as an owner question, and no production feed was changed.
+
 **Campaign behaviour.** These decisions do not block U4–U7: the resolver, simulation, collector,
 payload and PSI UI are built and tested against fixtures and interfaces. The production flags stay
 off until the source-access decision is actually resolved. A missing source authorization is an
