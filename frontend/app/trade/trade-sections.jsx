@@ -35,6 +35,7 @@ import {
   unpricedAssetsOnSide,
   getPlayerEdge,
 } from "@/lib/trade-logic";
+import { groupSideEntries, tradeEntryKey, tradeEntryLabel } from "@/lib/trade-assets";
 import styles from "./trade.module.css";
 
 // ── Shared bits ───────────────────────────────────────────────────────
@@ -89,7 +90,7 @@ function fmtSigned(n) {
 function SearchResultRow({ row, settings, onPick, keyPrefix }) {
   return (
     <button
-      key={`${keyPrefix}-${row.name}`}
+      key={`${keyPrefix}-${tradeEntryKey(row)}`}
       type="button"
       className="trade-side-search-result button-reset"
       onMouseDown={(e) => {
@@ -111,9 +112,10 @@ function SearchResultRow({ row, settings, onPick, keyPrefix }) {
         size={26}
       />
       <div className="trade-side-search-result-body">
-        <div className="trade-side-search-result-name">{row.name}</div>
+        <div className="trade-side-search-result-name">{tradeEntryLabel(row)}</div>
         <div className="trade-side-search-result-meta">
           <Badge tone="outline">{row.pos}</Badge>
+          {row.assetId ? <Badge tone="accent">Owned pick</Badge> : null}
           <span className="muted">
             {row.blendedSourceRank != null ? `#${row.blendedSourceRank.toFixed(1)}` : "—"}
             {" · "}
@@ -200,7 +202,7 @@ export function MobileQuickAddBar({
           ) : (
             results.map((r) => (
               <SearchResultRow
-                key={`mobile-quick-${r.name}`}
+                key={`mobile-quick-${tradeEntryKey(r)}`}
                 row={r}
                 settings={settings}
                 onPick={handleAdd}
@@ -710,6 +712,8 @@ export function PickTeamSelectors({
 
 function AssetRow({
   row,
+  count = 1,
+  repeatable = false,
   sideIdx,
   sides,
   side,
@@ -720,13 +724,19 @@ function AssetRow({
   onSetValueOverride,
   onClearValueOverride,
   onRemove,
+  onAddCopy,
   onSetDestination,
 }) {
   const edge = getPlayerEdge(row);
+  // One line per IDENTITY (lib/trade-assets): a repeated generic pick is
+  // one line with a quantity, two owned picks that share a label are two
+  // lines.  Routing, overrides and removal all key on the line identity.
+  const key = tradeEntryKey(row);
+  const label = tradeEntryLabel(row);
   // 3+-team trades give every asset an explicit destination so the
   // fairness bar can compute per-team NET flow.  For 2-team trades the
   // other side is implicit and the dropdown is hidden.
-  const storedDest = side.destinations?.[row.name];
+  const storedDest = side.destinations?.[key];
   const parsedDest = Number(storedDest);
   const currentDest =
     Number.isInteger(parsedDest) &&
@@ -753,8 +763,18 @@ function AssetRow({
               className={styles.assetNameButton}
               onClick={() => onOpenPlayer?.(row)}
             >
-              {row.name}
+              {label}
             </button>
+            {count > 1 ? (
+              <Badge tone="outline" title={`${count} copies, each counted in the totals`}>
+                ×{count}
+              </Badge>
+            ) : null}
+            {row.assetId ? (
+              <Badge tone="accent" title={row.assetId}>
+                Owned pick
+              </Badge>
+            ) : null}
             {edge.signal ? (
               <Badge tone={edge.signal === "BUY" ? "positive" : "negative"}>
                 {edge.signal} {edge.edgePct}%
@@ -791,25 +811,29 @@ function AssetRow({
             <input
               type="number"
               className="asset-value-override-input"
-              value={valueOverrides[row.name] != null ? valueOverrides[row.name] : ""}
+              value={valueOverrides[key] != null ? valueOverrides[key] : ""}
               placeholder={
                 isUnpricedBoardRow(row)
                   ? "—"
                   : String(Math.round(effectiveValue(row, valueMode, settings)))
               }
-              onChange={(e) => onSetValueOverride(row.name, e.target.value)}
+              onChange={(e) => onSetValueOverride(key, e.target.value)}
               onBlur={(e) => {
-                if (e.target.value === "") onClearValueOverride(row.name);
+                if (e.target.value === "") onClearValueOverride(key);
               }}
-              aria-label={`Override ${row.name}'s value for this trade`}
-              title="Override this player's value for this trade only"
+              aria-label={`Override ${label}'s value for this trade`}
+              title={
+                count > 1
+                  ? "Override this asset's per-copy value for this trade only"
+                  : "Override this player's value for this trade only"
+              }
             />
-            {valueOverrides[row.name] != null ? (
+            {valueOverrides[key] != null ? (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => onClearValueOverride(row.name)}
-                aria-label={`Reset ${row.name} to the default value`}
+                onClick={() => onClearValueOverride(key)}
+                aria-label={`Reset ${label} to the default value`}
               >
                 Reset
               </Button>
@@ -820,13 +844,13 @@ function AssetRow({
       <div className={styles.assetActions}>
         {sides.length > 2 ? (
           <label className={styles.assetDest}>
-            <span className="ds-visually-hidden">Destination for {row.name}</span>
+            <span className="ds-visually-hidden">Destination for {label}</span>
             <Icon name="arrow-right" aria-hidden="true" />
             <Select
               className="trade-dest-select"
               value={currentDest}
-              onChange={(e) => onSetDestination(sideIdx, row.name, e.target.value)}
-              aria-label={`Send ${row.name} to which side`}
+              onChange={(e) => onSetDestination(sideIdx, key, e.target.value)}
+              aria-label={`Send ${label} to which side`}
             >
               {sides.map((s, i) =>
                 i === sideIdx ? null : (
@@ -838,15 +862,43 @@ function AssetRow({
             </Select>
           </label>
         ) : null}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="trade-remove-btn"
-          onClick={() => onRemove(row.name, sideIdx)}
-          aria-label={`Remove ${row.name} from Side ${side.label}`}
-        >
-          Remove
-        </Button>
+        {repeatable ? (
+          /* Quantity control for a repeatable market pick (T-NEW-02):
+             "−" removes ONE copy, "+" adds another.  Unique assets
+             (players, owned picks) keep the plain Remove. */
+          <span className={styles.assetQuantity} role="group" aria-label={`${label} quantity`}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="trade-remove-btn"
+              onClick={() => onRemove(key, sideIdx)}
+              aria-label={`Remove one ${label} from Side ${side.label}`}
+            >
+              −
+            </Button>
+            <span className={styles.assetQuantityCount} aria-live="polite">
+              {count}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onAddCopy?.(row, sideIdx)}
+              aria-label={`Add another ${label} to Side ${side.label}`}
+            >
+              +
+            </Button>
+          </span>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="trade-remove-btn"
+            onClick={() => onRemove(key, sideIdx)}
+            aria-label={`Remove ${label} from Side ${side.label}`}
+          >
+            Remove
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -871,7 +923,7 @@ function IncomingRow({ asset, fromSideIdx, sides, valueMode, settings, valueOver
               className={styles.assetNameButton}
               onClick={() => onOpenPlayer?.(asset)}
             >
-              {asset.name}
+              {tradeEntryLabel(asset)}
             </button>
             {edge.signal ? (
               <Badge tone={edge.signal === "BUY" ? "positive" : "negative"}>
@@ -881,10 +933,10 @@ function IncomingRow({ asset, fromSideIdx, sides, valueMode, settings, valueOver
           </span>
           <span className={styles.assetMeta}>
             {asset.pos} · from Side {sides[fromSideIdx]?.label || "?"} ·{" "}
-            {valueOverrides[asset.name] == null && isUnpricedBoardRow(asset)
+            {valueOverrides[tradeEntryKey(asset)] == null && isUnpricedBoardRow(asset)
               ? "not priced"
               : Math.round(
-                  valueOverrides[asset.name] ??
+                  valueOverrides[tradeEntryKey(asset)] ??
                     effectiveValue(asset, valueMode, settings),
                 ).toLocaleString()}
           </span>
@@ -917,6 +969,7 @@ export function SideCard({
   onSetValueOverride,
   onClearValueOverride,
   onRemoveAsset,
+  onAddCopy,
   onSetDestination,
   onRemoveTeam,
   onAddBalancer,
@@ -1000,7 +1053,7 @@ export function SideCard({
             ) : (
               searchResults.map((r) => (
                 <SearchResultRow
-                  key={`search-${side.label}-${r.name}`}
+                  key={`search-${side.label}-${tradeEntryKey(r)}`}
                   row={r}
                   settings={settings}
                   onPick={(row) => onAddFromSearch(row, sideIdx)}
@@ -1017,10 +1070,12 @@ export function SideCard({
       ) : null}
 
       <div className={styles.assetList}>
-        {side.assets.map((r) => (
+        {groupSideEntries(side.assets).map((g) => (
           <AssetRow
-            key={`${side.label}-${r.name}`}
-            row={r}
+            key={`${side.label}-${g.key}`}
+            row={g.entry}
+            count={g.count}
+            repeatable={g.repeatable}
             side={side}
             sideIdx={sideIdx}
             sides={sides}
@@ -1031,6 +1086,7 @@ export function SideCard({
             onSetValueOverride={onSetValueOverride}
             onClearValueOverride={onClearValueOverride}
             onRemove={onRemoveAsset}
+            onAddCopy={onAddCopy}
             onSetDestination={onSetDestination}
           />
         ))}
@@ -1046,9 +1102,9 @@ export function SideCard({
           <div className={styles.sideGroupLabel}>Receiving</div>
           <div className={styles.assetList}>
             {(incoming || []).length > 0 ? (
-              incoming.map(({ asset, fromSideIdx }) => (
+              incoming.map(({ asset, fromSideIdx }, idx) => (
                 <IncomingRow
-                  key={`recv-${side.label}-${asset.name}`}
+                  key={`recv-${side.label}-${fromSideIdx}-${tradeEntryKey(asset)}-${idx}`}
                   asset={asset}
                   fromSideIdx={fromSideIdx}
                   sides={sides}
@@ -1072,10 +1128,10 @@ export function SideCard({
           <span className={styles.balancerLabel}>{balancers.label}</span>
           {balancers.list.map((b) => (
             <Button
-              key={b.name}
+              key={b.key || b.name}
               variant="ghost"
               size="sm"
-              onClick={() => onAddBalancer(b.name, sideIdx)}
+              onClick={() => onAddBalancer(b, sideIdx)}
               /* The suggestion says what it LANDS ON, not just what it
                  is worth.  ``imbalanceAfter`` is measured through the
                  same adjusted-gap path the meter renders, so the number
@@ -1087,7 +1143,7 @@ export function SideCard({
                   : undefined
               }
             >
-              {b.name} ({b.pos}) · {b.value.toLocaleString()}
+              {b.label || b.name} ({b.pos}) · {b.value.toLocaleString()}
               {Number.isFinite(b.imbalanceAfter) ? (
                 <span className={styles.balancerResidual}>
                   {" "}
