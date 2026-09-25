@@ -1,0 +1,60 @@
+/* /game-day page shell — the same .psi-editorial full-bleed rule as the
+   migrated reference routes (app/rankings/board.module.css `.page`,
+   app/players/[playerId]/player-file.module.css, app/trade/trade.module.css):
+   the app shell's .main-shell padding (globals.css, not edited here) is
+   cancelled with matching negative margins and restored as padding, so the
+   cream canvas reaches the edges. The 420/360 steps MIRROR .main-shell's
+   own padding steps exactly as those routes do; they are not new layout
+   breakpoints. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  background: var(--surface-0);
+  color: var(--text-primary);
+  min-height: 100vh;
+  min-width: 0;
+  margin: calc(-1 * var(--space-lg));
+  padding: var(--space-lg);
+}
+
+@media (max-width: 1024px) {
+  .page {
+    margin: calc(-1 * var(--space-md));
+    padding: var(--space-md);
+  }
+}
+
+@media (max-width: 768px) {
+  .page {
+    margin: calc(-1 * var(--space-sm)) calc(-1 * var(--space-sm))
+      calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md)));
+    padding: var(--space-sm) var(--space-sm)
+      calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md));
+  }
+}
+
+@media (max-width: 420px) {
+  .page {
+    margin: -6px -6px calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px));
+    padding: 6px 6px calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px);
+  }
+}
+
+@media (max-width: 360px) {
+  .page {
+    margin: -4px -4px calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 8px));
+    padding: 4px 4px calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 8px);
+  }
+}
+
+/* Same serif-display hero treatment as Rankings' / Player File's .hero. */
+.hero :global(.ds-page-header__title) {
+  font-family: var(--font-display);
+  font-size: var(--font-size-3xl);
+  font-style: italic;
+}
+.hero :global(.ds-page-header__eyebrow) {
+  font-family: var(--font-data);
+}
