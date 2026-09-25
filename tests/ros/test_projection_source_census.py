@@ -212,3 +212,96 @@ class TestMeasuredFacts:
         assert "idpShowProjections" in keys
         assert "clayProjections" in keys  # Clay covers a defensive tackle line too
         assert "cbsSportsFantasyProjections" not in keys  # offense-only candidate
+
+
+class TestSleeperWeeklyEntry:
+    """C5-PROJ-C: the first WEEKLY-horizon source is censused with its
+    game type, ancestry, access posture and an explicit licensing open
+    item — and built behind a flag that really defaults OFF."""
+
+    def test_entry_is_a_weekly_seasonal_lane_projection(self):
+        src = census.get_source("sleeperWeeklyProjections")
+        assert src is not None
+        assert src["horizons"] == ["WEEKLY"]
+        assert src["gameType"] == "WEEKLY"
+        assert src["valuationLane"] == "SEASONAL_INTELLIGENCE"
+        assert src["evidenceClass"] == "PROJECTION_MODEL"
+        assert set(src["targetPopulation"]) == {"OFFENSE", "IDP"}
+        assert {"K", "DL", "LB", "DB"} <= set(src["positionsCovered"])
+
+    def test_game_type_is_a_recognized_non_dynasty_value(self):
+        from src.api.data_contract import GAME_TYPE_DYNASTY, GAME_TYPES
+
+        src = census.get_source("sleeperWeeklyProjections")
+        assert src["gameType"] in GAME_TYPES
+        assert src["gameType"] != GAME_TYPE_DYNASTY
+
+    def test_ancestry_names_rotowire_as_the_independence_family(self):
+        src = census.get_source("sleeperWeeklyProjections")
+        assert src["providerFamily"] == "rotowire"
+        assert src["modelAncestry"]["chain"] == ["rotowire", "sleeper"]
+
+    def test_licensing_is_an_open_item_and_not_automatable(self):
+        src = census.get_source("sleeperWeeklyProjections")
+        assert src["accessPosture"] == "PUBLIC_UNDOCUMENTED_NO_AUTH"
+        assert src["licensingStatus"] == "UNVERIFIED"
+        assert src["licensingOpenItem"]
+        assert "sleeperWeeklyProjections" not in {s["key"] for s in census.automatable_sources()}
+
+    def test_implemented_behind_a_default_off_flag_not_live(self):
+        from src.api import feature_flags
+
+        src = census.get_source("sleeperWeeklyProjections")
+        assert src["implementationStatus"] == "IMPLEMENTED_FLAG_OFF"
+        assert src["featureFlag"] == "sleeper_weekly_projections"
+        assert feature_flags._DEFAULTS["sleeper_weekly_projections"] is False
+
+    def test_validator_rejects_flag_off_status_whose_flag_defaults_on(self, monkeypatch):
+        from src.api import feature_flags
+
+        data = census.load_census()
+        monkeypatch.setitem(feature_flags._DEFAULTS, "sleeper_weekly_projections", True)
+        errors = census.validate_census(data)
+        assert any("defaults ON" in e for e in errors)
+
+    def test_validator_requires_a_registered_flag(self):
+        bad = {
+            "sources": [
+                {
+                    "key": "x",
+                    "evidenceClass": "PROJECTION_MODEL",
+                    "horizons": ["WEEKLY"],
+                    "implementationStatus": "IMPLEMENTED_FLAG_OFF",
+                    "existingModule": "src.x",
+                    "featureFlag": "not_a_registered_flag",
+                    "accessPosture": "PUBLIC_UNDOCUMENTED_NO_AUTH",
+                    "licensingStatus": "UNVERIFIED",
+                    "providerFamily": "x",
+                    "targetPopulation": ["OFFENSE"],
+                    "acquisitionOwnerLane": "Claude 11",
+                }
+            ],
+            "discoveryLanes": [{"lane": "DFS_PROJECTION"}],
+        }
+        errors = census.validate_census(bad)
+        assert any("not registered" in e for e in errors)
+
+    def test_validator_rejects_an_unknown_licensing_status(self):
+        bad = {
+            "sources": [
+                {
+                    "key": "x",
+                    "evidenceClass": "PROJECTION_MODEL",
+                    "horizons": ["WEEKLY"],
+                    "implementationStatus": "GREENFIELD",
+                    "accessPosture": "PUBLIC_NO_AUTH",
+                    "licensingStatus": "PROBABLY_FINE",
+                    "providerFamily": "x",
+                    "targetPopulation": ["OFFENSE"],
+                    "acquisitionOwnerLane": "Claude 11",
+                }
+            ],
+            "discoveryLanes": [{"lane": "DFS_PROJECTION"}],
+        }
+        errors = census.validate_census(bad)
+        assert any("licensingStatus" in e for e in errors)

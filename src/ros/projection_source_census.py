@@ -61,15 +61,33 @@ ACCESS_POSTURES: frozenset[str] = frozenset(
         "CREDENTIALED_SESSION_ALREADY_WIRED",
         "SUBSCRIPTION_SCOPE_UNRECORDED",
         "NO_ACCESS_PATH_RECORDED",
+        # A specific endpoint IS recorded and needs no credential, but it is
+        # not part of the provider's documented API and no artifact records
+        # terms permitting automated consumption. Distinct from
+        # PUBLIC_NO_AUTH (an openly offered file/page) because "reachable
+        # without a login" is not "licensed for automation". Fails closed.
+        "PUBLIC_UNDOCUMENTED_NO_AUTH",
     }
 )
+
+#: Licensing vocabulary. Optional per entry (the older entries predate
+#: it); when present it must be one of these. ``UNVERIFIED`` is an
+#: explicit open item, never a quiet "probably fine".
+LICENSING_STATUSES: frozenset[str] = frozenset({"UNVERIFIED", "CLEARED_WITH_ARTIFACT"})
 
 #: Implementation-status vocabulary used by this census. Distinct from
 #: (and coarser than) ``ROS_SOURCES``'s ``enabled`` flag — this tracks
 #: whether the source is wired at all, and if so, whether what is wired
 #: actually qualifies as the evidence class claimed.
+#:
+#: ``IMPLEMENTED_FLAG_OFF`` — the parser/rescorer exists and is tested,
+#: but acquisition sits behind a feature flag that defaults OFF and no
+#: consumer reads it. Kept distinct from ``LIVE`` so "the code exists"
+#: can never read as "production uses it"; the validator requires the
+#: named flag to be registered AND to default False, so flipping the
+#: default without deliberately updating this status fails validation.
 IMPLEMENTATION_STATUSES: frozenset[str] = frozenset(
-    {"LIVE", "LIVE_BUT_RANKINGS_ONLY", "GREENFIELD", "NOT_STARTED"}
+    {"LIVE", "LIVE_BUT_RANKINGS_ONLY", "IMPLEMENTED_FLAG_OFF", "GREENFIELD", "NOT_STARTED"}
 )
 
 #: Access postures that authorize NOTHING beyond recording the fact. A
@@ -77,7 +95,7 @@ IMPLEMENTATION_STATUSES: frozenset[str] = frozenset(
 #: other than PUBLIC_NO_AUTH or CREDENTIALED_SESSION_ALREADY_WIRED as a
 #: hard stop pending an owner decision, per plan §3.
 _POSTURES_REQUIRING_OWNER_DECISION: frozenset[str] = frozenset(
-    {"SUBSCRIPTION_SCOPE_UNRECORDED", "NO_ACCESS_PATH_RECORDED"}
+    {"SUBSCRIPTION_SCOPE_UNRECORDED", "NO_ACCESS_PATH_RECORDED", "PUBLIC_UNDOCUMENTED_NO_AUTH"}
 )
 
 
@@ -159,6 +177,18 @@ def validate_census(data: dict[str, Any] | None = None) -> list[str]:
             errors.append(f"{where}: implementationStatus LIVE but existingModule is empty")
         if status == "GREENFIELD" and src.get("existingModule"):
             errors.append(f"{where}: implementationStatus GREENFIELD but existingModule is set")
+        if status == "IMPLEMENTED_FLAG_OFF":
+            if not src.get("existingModule"):
+                errors.append(
+                    f"{where}: implementationStatus IMPLEMENTED_FLAG_OFF but existingModule is empty"
+                )
+            errors.extend(_flag_off_errors(where, src.get("featureFlag")))
+
+        licensing = src.get("licensingStatus")
+        if licensing is not None and licensing not in LICENSING_STATUSES:
+            errors.append(
+                f"{where}: licensingStatus {licensing!r} not in {sorted(LICENSING_STATUSES)}"
+            )
 
         if not src.get("providerFamily"):
             errors.append(
@@ -174,6 +204,23 @@ def validate_census(data: dict[str, Any] | None = None) -> list[str]:
         errors.append("'discoveryLanes' must be a non-empty list")
 
     return errors
+
+
+def _flag_off_errors(where: str, flag: Any) -> list[str]:
+    """An IMPLEMENTED_FLAG_OFF entry must name a registered flag that
+    really defaults OFF — otherwise the status is a claim nothing checks."""
+    from src.api import feature_flags
+
+    if not flag or not isinstance(flag, str):
+        return [f"{where}: implementationStatus IMPLEMENTED_FLAG_OFF requires 'featureFlag'"]
+    if flag not in feature_flags.registered_flags():
+        return [f"{where}: featureFlag {flag!r} is not registered in src.api.feature_flags"]
+    if feature_flags._DEFAULTS[flag]:
+        return [
+            f"{where}: featureFlag {flag!r} defaults ON, so the entry is no longer "
+            "IMPLEMENTED_FLAG_OFF; update implementationStatus deliberately"
+        ]
+    return []
 
 
 def sources_by_evidence_class(

@@ -436,6 +436,18 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # for it to do in a request.  Off, ``fetch_live_game_state`` returns an
     # explicit ``enabled=False`` observation, never an empty slate.
     "game_day_live_game_state": False,
+    # C5-PROJ-C, first WEEKLY-horizon projection source (2026-09-24):
+    # Sleeper's weekly projections endpoint (RotoWire stat lines served by
+    # Sleeper), in ``src/ros/sleeper_weekly_projections.py``.  SEASONAL
+    # intelligence lane only — never dynasty value.  OFF, deliberately:
+    # the endpoint is public but UNDOCUMENTED and its licensing for
+    # automated consumption is UNVERIFIED (census entry
+    # ``sleeperWeeklyProjections``, accessPosture
+    # PUBLIC_UNDOCUMENTED_NO_AUTH).  Off → ``fetch_weekly_projection_rows``
+    # refuses with ``feature_disabled`` and makes no network call; parsing
+    # and rescoring already-captured rows is unaffected.  Turning it on is
+    # an owner decision on the licensing open item, not an engineering one.
+    "sleeper_weekly_projections": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"
@@ -622,6 +634,11 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # imported by anything: the Game Day adapter lands before the shared
     # background collector that will consume it.
     "game_day_live_game_state": UNREACHABLE,
+    # ``src/ros/sleeper_weekly_projections.py`` — the C5-PROJ-C weekly
+    # source.  Built and tested, deliberately NOT yet consumed: no route,
+    # script or engine imports it, so the gate is real but stranded until
+    # the Game Day consumer (C5-PROJ-F) wires it.  Defaults False.
+    "sleeper_weekly_projections": UNREACHABLE,
     # ``src/nfl_data/depth_charts.py`` is gated and imported by
     # ``scripts/refresh_depth_charts.py``, which since 2026-09-01 also
     # writes DEPTH_CHART_PROMOTION/DEMOTION events into the BDVM ledger
