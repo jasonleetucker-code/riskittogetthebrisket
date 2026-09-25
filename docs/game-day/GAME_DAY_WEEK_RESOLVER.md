@@ -299,11 +299,26 @@ generation is served with its true age — never a blank.
 | `lastVerifiedAt`, `asOf`, `payloadAgeSeconds`, `staleAfterSeconds`, `phase` | the last moment the payload was known to reflect the freshest evidence (a tick that found inputs unchanged re-verifies it) and its age |
 | `refreshInProgress`, `refreshStartedAt` | a collector tick is working on this league-week now |
 | `collector` | last tick time/outcome and cadence |
-| `sources.<name>` | `status`, `fetchedAt` (when WE fetched), `observedAt` (when the source says its content was true, `observedAtBasis` naming the evidence — ESPN `http_last_modified`, projections `provider_updated_at`, else `fetch_time`), `ageSeconds`; sources `espnScoreboard`, `sleeperLeague`, `weeklyProjections`, `nflverseSchedule`, `preseasonProjection`, `sleeperLiveStats` |
+| `sources.<name>` | `status`, `fetchedAt` (when WE fetched), `observedAt` (when the source says its content was true, `observedAtBasis` naming the evidence — ESPN `http_last_modified`, projections `provider_updated_at`, else `fetch_time`), `ageSeconds`; sources `liveGameState` (the ONE provider whose state this tick used: `provider`, `selectionReason`), `espnScoreboard` and `sportsDataIoScores` (each provider's own attempt), `sleeperLeague`, `weeklyProjections`, `nflverseSchedule`, `preseasonProjection`, `sleeperLiveStats` |
 
 Sleeper live stats are observed and persisted (stat-correction evidence) but
 NOT consumed by scoring — the host's `players_points` remain the banked
 points; `sources.sleeperLiveStats.consumedByScoring` says so.
+
+**Live game state providers (2026-09-25).** `src/nfl_data/live_game_state.py`
+stays the ONE owner of observed game state; SportsDataIO NFL v3
+`ScoresByWeek` is a second provider behind it
+(`src/nfl_data/sportsdataio_live_game_state.py`, same `ObservedGameState`
+shape, `regulation_fraction_remaining` unchanged). The collector
+(`game_day_live.collect_live_game_state`) reads ESPN first; only when ESPN
+yields no fresh observation (HTTP 403, timeout, backoff) AND SportsDataIO is
+eligible (flag `sportsdataio_live_game_state`, default OFF, plus
+`SPORTSDATAIO_API_KEY`, checked before any request) does it read SportsDataIO.
+One provider per tick, never a per-game merge; else the newest last-good
+observation across both providers, else `unavailable` with each provider's
+reason named in `freshness.reasons` (`live_game_state.espn:…`,
+`live_game_state.sportsdataio:…`). The request-path seam
+(`matchup_intel._observe_live_state`) is still ESPN-only.
 
 **Flags.** `game_day_live_game_state` and `sleeper_weekly_projections` default
 ON since U5 (rollback `RISKIT_FEATURE_GAME_DAY_LIVE_GAME_STATE=0` /

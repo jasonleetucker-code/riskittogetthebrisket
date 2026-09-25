@@ -453,7 +453,9 @@ def _compose_slate(
 
 def _live_state_lineage(observed: ObservedSlate) -> dict[str, Any]:
     return {
-        "source": "espn:scoreboard",
+        # The provider the slate was read from (ESPN unless the collector
+        # selected another provider for this tick).
+        "source": observed.source or "espn:scoreboard",
         "flag": "game_day_live_game_state",
         "state": observed.state,
         "reason": observed.reason,

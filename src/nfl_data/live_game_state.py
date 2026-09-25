@@ -1,7 +1,24 @@
-"""Observed live NFL game state from ESPN's public scoreboard — read-only.
+"""Observed live NFL game state — read-only, ONE owner, several providers.
 
-Source
-------
+This module owns what an observed game state IS (:class:`ObservedGameState`,
+:class:`ScoreboardSnapshot`, the :data:`PHASES` vocabulary and
+:func:`regulation_fraction_remaining`).  Providers are adapters behind
+:func:`fetch_live_game_state` (``provider=``):
+
+* ``espn`` (default) — ESPN's public scoreboard, parsed here;
+* ``sportsdataio`` — SportsDataIO's keyed NFL v3 ``ScoresByWeek`` feed,
+  parsed by :mod:`src.nfl_data.sportsdataio_live_game_state` into the SAME
+  shapes (owner-named for live game state; flag
+  ``sportsdataio_live_game_state``, default OFF, plus the
+  ``SPORTSDATAIO_API_KEY`` credential).
+
+Every state carries ``provider`` so a consumer can always say which feed
+supplied it; choosing ONE provider per poll (never merging two providers'
+states for one game) is the collector's job
+(``src/ros/game_day_live.py``).
+
+ESPN source
+-----------
 The undocumented public endpoint already used by
 :mod:`src.nfl_data.injury_feed` and :mod:`src.nfl_data.depth_charts`::
 
@@ -83,6 +100,30 @@ PHASE_POSTPONED = "POSTPONED"
 PHASE_CANCELED = "CANCELED"
 PHASE_UNKNOWN = "UNKNOWN"
 
+# ── Providers ────────────────────────────────────────────────────────
+
+PROVIDER_ESPN = "espn"
+PROVIDER_SPORTSDATAIO = "sportsdataio"
+PROVIDERS: tuple[str, ...] = (PROVIDER_ESPN, PROVIDER_SPORTSDATAIO)
+#: Lineage label per provider (``GameEvidence.source`` and freshness).
+PROVIDER_SOURCE_LABELS: Mapping[str, str] = {
+    PROVIDER_ESPN: "espn:scoreboard",
+    PROVIDER_SPORTSDATAIO: "sportsdataio:scores",
+}
+#: The provider-specific flag for each provider.  The Game Day master
+#: switch ``game_day_live_game_state`` gates every provider as well.
+PROVIDER_FLAGS: Mapping[str, str] = {
+    PROVIDER_ESPN: "game_day_live_game_state",
+    PROVIDER_SPORTSDATAIO: "sportsdataio_live_game_state",
+}
+
+
+def provider_source_label(provider: str | None) -> str:
+    """``espn:scoreboard`` / ``sportsdataio:scores``; unknown → ``<name>:unknown``."""
+    name = provider or PROVIDER_ESPN
+    return PROVIDER_SOURCE_LABELS.get(name, f"{name}:unknown")
+
+
 PHASES: frozenset[str] = frozenset(
     {
         PHASE_SCHEDULED,
@@ -134,9 +175,15 @@ _DISPLAY_CLOCK_RE = re.compile(r"^\s*(\d{1,2}):(\d{2})(?:\.\d+)?\s*$")
 
 @dataclass(frozen=True)
 class ObservedGameState:
-    """One game as ESPN reported it at ``observed_at``."""
+    """One game as ONE provider reported it at ``observed_at``.
 
-    espn_event_id: str
+    ``espn_event_id`` / ``espn_state`` are ESPN's own fields and are
+    ``None`` on a state from another provider — never filled with another
+    provider's id or a translated value.  Provider-neutral readers use
+    :attr:`game_key` and :attr:`lifecycle_state`.
+    """
+
+    espn_event_id: str | None
     home_team: str
     away_team: str
     home_team_raw: str
@@ -157,10 +204,37 @@ class ObservedGameState:
     observed_at: datetime
     provider_timestamp: datetime | None = None
     provider_timestamp_source: str | None = None
+    #: Which provider supplied this state (:data:`PROVIDERS`).
+    provider: str = PROVIDER_ESPN
+    #: The provider's own game id (non-ESPN providers; ESPN uses
+    #: ``espn_event_id``).
+    provider_game_id: str | None = None
+    #: Provider-neutral ``pre`` / ``in`` / ``post`` for non-ESPN providers,
+    #: derived from the provider's own started / in-progress / over flags.
+    provider_state: str | None = None
+    #: The provider's explicit overtime flag, where it publishes one.
+    overtime: bool | None = None
+
+    @property
+    def game_key(self) -> str:
+        """Stable per-provider key (ESPN keeps its bare event id)."""
+        if self.provider == PROVIDER_ESPN and self.espn_event_id is not None:
+            return str(self.espn_event_id)
+        return f"{self.provider}:{self.provider_game_id}"
+
+    @property
+    def lifecycle_state(self) -> str | None:
+        """``pre`` / ``in`` / ``post`` whichever provider supplied it."""
+        return self.espn_state if self.provider == PROVIDER_ESPN else self.provider_state
+
+    @property
+    def source_label(self) -> str:
+        return provider_source_label(self.provider)
 
     @property
     def is_overtime(self) -> bool:
-        return self.period is not None and self.period > _REGULATION_PERIODS
+        in_ot_period = self.period is not None and self.period > _REGULATION_PERIODS
+        return in_ot_period or bool(self.overtime)
 
 
 @dataclass(frozen=True)
@@ -182,10 +256,18 @@ class ScoreboardSnapshot:
     event_count: int = 0
     #: Events skipped as malformed (no id, no competitors, no team codes …).
     skipped_events: int = 0
+    #: Which provider this snapshot came from (:data:`PROVIDERS`).
+    #: ``season_type`` is always in the ESPN/nflverse convention
+    #: (1 pre, 2 regular, 3 post) whatever the provider's own coding.
+    provider: str = PROVIDER_ESPN
 
     @property
     def ok(self) -> bool:
         return self.error is None
+
+    @property
+    def source_label(self) -> str:
+        return provider_source_label(self.provider)
 
 
 @dataclass(frozen=True)
@@ -449,16 +531,52 @@ def fetch_live_game_state(
     dates: str | None = None,
     week: int | None = None,
     season_type: int | None = None,
+    season: int | None = None,
+    provider: str = PROVIDER_ESPN,
     now: Callable[[], datetime] | None = None,
     _url_opener: Callable[..., Any] | None = None,
+    _http_get: Callable[..., Any] | None = None,
+    _env: Mapping[str, str] | None = None,
 ) -> ScoreboardSnapshot:
-    """One uncached read of the ESPN scoreboard.  Never raises.
+    """One uncached read of ONE provider's scoreboard.  Never raises.
 
-    Flag off → an ``enabled=False`` snapshot with no games and
-    ``error="flag_disabled"`` — distinguishable from an empty slate.
-    ``now`` and ``_url_opener`` are test hooks.
+    ``provider="espn"`` (default) reads ESPN's public scoreboard;
+    ``provider="sportsdataio"`` reads SportsDataIO ``ScoresByWeek`` and
+    needs ``season`` + ``week`` (``dates`` is refused).  Either way the
+    Game Day master flag off → an ``enabled=False`` snapshot with no games
+    and ``error="flag_disabled"`` — distinguishable from an empty slate.
+    ``now``, ``_url_opener``, ``_http_get`` and ``_env`` are test hooks.
     """
     clock = now or (lambda: datetime.now(timezone.utc))
+    if provider == PROVIDER_SPORTSDATAIO:
+        from src.nfl_data import sportsdataio_live_game_state as _sdio
+
+        if dates is not None:
+            return ScoreboardSnapshot(
+                observed_at=clock(),
+                enabled=True,
+                source_url=None,
+                http_status=None,
+                error="invalid_query:sportsdataio reads by season+week, not dates",
+                provider=PROVIDER_SPORTSDATAIO,
+            )
+        return _sdio.fetch_scores_by_week(
+            season=season,
+            week=week,
+            season_type=2 if season_type is None else season_type,
+            now=clock,
+            http_get=_http_get,
+            env=_env,
+        )
+    if provider != PROVIDER_ESPN:
+        return ScoreboardSnapshot(
+            observed_at=clock(),
+            enabled=True,
+            source_url=None,
+            http_status=None,
+            error=f"unknown_provider:{provider}",
+            provider=str(provider),
+        )
     observed_at = clock()
     # Literal, not FLAG_NAME: the flag-reachability scan reads call sites
     # statically (tests/api/test_feature_flag_reachability.py).
@@ -605,6 +723,11 @@ __all__ = [
     "ESPN_SCOREBOARD_URL",
     "FLAG_NAME",
     "PHASES",
+    "PROVIDERS",
+    "PROVIDER_ESPN",
+    "PROVIDER_FLAGS",
+    "PROVIDER_SOURCE_LABELS",
+    "PROVIDER_SPORTSDATAIO",
     "PHASE_CANCELED",
     "PHASE_DELAYED",
     "PHASE_END_PERIOD",
@@ -620,6 +743,7 @@ __all__ = [
     "ScoreboardSnapshot",
     "fetch_live_game_state",
     "parse_scoreboard",
+    "provider_source_label",
     "regulation_fraction_remaining",
     "scoreboard_url",
 ]

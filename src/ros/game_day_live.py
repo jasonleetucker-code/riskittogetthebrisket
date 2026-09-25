@@ -6,8 +6,13 @@ What this module owns
   (``scripts/run_game_day_live.py`` under the ``dynasty-game-day-live``
   systemd timer) fetches the ESPN scoreboard, Sleeper live stats, Sleeper
   weekly projections and every active league's Sleeper league / users /
-  rosters / matchups.  :func:`decide_cadence` reads the OBSERVED game
-  windows: ~60 s while any game is in progress, a few minutes near a
+  rosters / matchups.  When ESPN fails (an HTTP 403, a timeout, backoff) and
+  the SportsDataIO provider is eligible (flag ``sportsdataio_live_game_state``
+  + ``SPORTSDATAIO_API_KEY``), live game state is read from SportsDataIO
+  instead — ONE provider per tick, never a merge of two providers' states
+  for a game, with the chosen provider and the reason recorded
+  (:func:`collect_live_game_state`).  :func:`decide_cadence` reads the
+  OBSERVED game windows: ~60 s while any game is in progress, a few minutes near a
   kickoff, hourly otherwise.  A live update never needs a deployment, a
   scrape, or a simulation per viewer.
 * **Observations, persisted append-only.**  Every fetch is written to a
@@ -109,9 +114,10 @@ PRE_KICKOFF_FINAL_WINDOW_SECONDS = 600.0
 LIVE_STATS_POSTGAME_INTERVAL_SECONDS = 3600.0
 
 #: Hard cap on network requests in one tick (bounded by construction:
-#: 1 NFL state + 1 ESPN + 1 live stats + 1 projections + 1 players DB +
-#: 4 per league — 13 for today's two active leagues; the cap leaves room
-#: for six).  A fetch past it is skipped and recorded, never silent.
+#: 1 NFL state + 1 ESPN + at most 1 SportsDataIO fallback + 1 live stats +
+#: 1 projections + 1 players DB + 4 per league — 14 for today's two active
+#: leagues; the cap leaves room for five more).  A fetch past it is skipped
+#: and recorded, never silent.
 MAX_REQUESTS_PER_TICK = 30
 #: Persisted per-source backoff (the in-process circuit breaker does not
 #: survive a oneshot run): after this many consecutive failures a source is
@@ -529,6 +535,9 @@ def _players_db_path() -> Path:
 # ── Source serialization ─────────────────────────────────────────────────
 
 SOURCE_ESPN = "espn_scoreboard"
+SOURCE_SDIO = "sportsdataio_scores"
+#: TickReport key naming which provider supplied this tick's live state.
+SOURCE_LIVE_SELECTION = "live_game_state"
 SOURCE_LIVE_STATS = "sleeper_live_stats"
 SOURCE_WEEKLY = "sleeper_weekly_projections"
 SOURCE_LEAGUE = "sleeper_league_week"
@@ -540,8 +549,14 @@ _GAME_SNAPSHOT_FIELDS = ("observed_at", "provider_timestamp", "provider_timestam
 
 
 def scoreboard_to_observation(snapshot: Any) -> tuple[str, dict[str, Any], dict[str, Any] | None]:
-    """``(status, meta, content)`` for one ESPN scoreboard snapshot."""
+    """``(status, meta, content)`` for one live-game-state snapshot (any provider).
+
+    Content is keyed by :attr:`ObservedGameState.game_key` — ESPN's bare
+    event id (unchanged from the ESPN-only layout), ``sportsdataio:<id>``
+    for SportsDataIO.  Each provider has its OWN log, so keys never mix.
+    """
     meta = {
+        "provider": getattr(snapshot, "provider", "espn"),
         "observedAt": _iso(_epoch(snapshot.observed_at)),
         "enabled": bool(snapshot.enabled),
         "sourceUrl": snapshot.source_url,
@@ -554,7 +569,7 @@ def scoreboard_to_observation(snapshot: Any) -> tuple[str, dict[str, Any], dict[
         "week": snapshot.week,
         "eventCount": snapshot.event_count,
         "skippedEvents": snapshot.skipped_events,
-        "order": [g.espn_event_id for g in snapshot.games],
+        "order": [g.game_key for g in snapshot.games],
     }
     if not snapshot.enabled:
         return "disabled", meta, None
@@ -567,7 +582,7 @@ def scoreboard_to_observation(snapshot: Any) -> tuple[str, dict[str, Any], dict[
             row.pop(key, None)
         for key in _GAME_DT_FIELDS:
             row[key] = _iso(_epoch(row.get(key)))
-        content[str(g.espn_event_id)] = row
+        content[str(g.game_key)] = row
     return "ok", meta, content
 
 
@@ -589,6 +604,7 @@ def scoreboard_from_observation(meta: Mapping[str, Any], content: Mapping[str, A
             row["provider_timestamp_source"] = meta.get("providerTimestampSource")
             games.append(ObservedGameState(**row))
     return ScoreboardSnapshot(
+        provider=str(meta.get("provider") or "espn"),
         observed_at=observed_at,
         enabled=bool(meta.get("enabled", True)),
         source_url=meta.get("sourceUrl"),
@@ -975,19 +991,24 @@ def input_fingerprint(assembly: Any, *, draws: int, seed: int) -> str:
 # ── Source stamps and freshness ──────────────────────────────────────────
 
 
-def _espn_source(snapshot: Any) -> dict[str, Any]:
+def _live_state_stamp(snapshot: Any) -> dict[str, Any]:
+    """The freshness stamp for one live-game-state snapshot, naming its provider."""
+    from src.nfl_data.live_game_state import PROVIDER_FLAGS, provider_source_label
+
     if snapshot is None:
         return {"source": "espn:scoreboard", "status": "unavailable", "fetchedAt": None}
+    name = getattr(snapshot, "provider", "espn")
     fetched = _iso(_epoch(snapshot.observed_at))
-    provider = _iso(_epoch(snapshot.provider_timestamp))
+    provider_ts = _iso(_epoch(snapshot.provider_timestamp))
     status = "disabled" if not snapshot.enabled else ("ok" if snapshot.ok else "error")
     return {
-        "source": "espn:scoreboard",
-        "flag": "game_day_live_game_state",
+        "source": provider_source_label(name),
+        "provider": name,
+        "flag": PROVIDER_FLAGS.get(name, "game_day_live_game_state"),
         "status": status,
         "error": snapshot.error,
         "fetchedAt": fetched,
-        "observedAt": provider or fetched,
+        "observedAt": provider_ts or fetched,
         "observedAtBasis": snapshot.provider_timestamp_source or "fetch_time",
         "gamesObserved": len(snapshot.games),
     }
@@ -1005,8 +1026,18 @@ def source_stamps(inputs: Any, lineage: Mapping[str, Any]) -> dict[str, dict[str
     ok_fetches = [f for f in inputs.weekly_fetches if getattr(f, "status", None) == "ok"]
     newest_fetch = max((f.observed_at for f in ok_fetches if f.observed_at), default=None)
     league_fetched = _iso(fetched.fetched_at)
+    live = _live_state_stamp(inputs.live_snapshot)
+    espn = (
+        live
+        if live.get("provider", "espn") == "espn"
+        else {"source": "espn:scoreboard", "provider": "espn", "status": "not_used"}
+    )
     return {
-        "espnScoreboard": _espn_source(inputs.live_snapshot),
+        # The provider whose state these numbers were built on.  The
+        # collector overwrites this (and adds every provider's attempt)
+        # with the tick's recorded selection.
+        "liveGameState": live,
+        "espnScoreboard": espn,
         "sleeperLeague": {
             "source": "sleeper:league+users+rosters+matchups",
             "status": "ok" if fetched.rosters else "empty",
@@ -1047,9 +1078,25 @@ def _partial_reasons(sources: Mapping[str, Mapping[str, Any]], mode: str | None)
     reasons: list[str] = []
     if mode == "final":
         return reasons
-    espn = sources.get("espnScoreboard") or {}
-    if mode != "pregame" and espn.get("status") not in ("ok", None):
-        reasons.append(f"live_game_state:{espn.get('status')}")
+    # Generations written before provider selection carry only espnScoreboard.
+    live = sources.get("liveGameState") or sources.get("espnScoreboard") or {}
+    if mode != "pregame" and live.get("status") not in ("ok", None):
+        reasons.append(f"live_game_state:{live.get('status')}")
+        # Name each provider's own failure, so "partial" says WHY.
+        for name, key in (("espn", "espnScoreboard"), ("sportsdataio", "sportsDataIoScores")):
+            attempt = sources.get(key)
+            if not attempt or attempt is live:
+                continue
+            if attempt.get("status") in ("ok", None, "not_needed"):
+                continue
+            last = attempt.get("lastAttempt") or {}
+            detail = (
+                attempt.get("error")
+                or last.get("error")
+                or ",".join(attempt.get("reasons") or ())
+                or attempt.get("status")
+            )
+            reasons.append(f"live_game_state.{name}:{detail}")
     weekly = sources.get("weeklyProjections") or {}
     if weekly and weekly.get("status") != "ok":
         reasons.append(f"weekly_projections:{weekly.get('status')}")
@@ -1519,12 +1566,20 @@ class Clients:
     schedule: Callable[[int], tuple]
     preseason: Callable[[int, Mapping[str, Any]], tuple]
     leagues: Callable[[], list[LeagueTarget]]
+    #: Live-game-state FALLBACK provider (SportsDataIO), read only when the
+    #: ESPN scoreboard did not produce a fresh observation this tick.
+    fallback_scoreboard: Callable[[int, int], Any] | None = None
+    #: ``(last_healthy: bool | None) -> capability`` with ``.eligible``,
+    #: ``.available``, ``.health_state`` and ``.reasons`` — checked BEFORE
+    #: any fallback request, so an absent key or an off flag costs nothing.
+    fallback_capability: Callable[[bool | None], Any] | None = None
 
 
 def default_clients() -> Clients:
     from src.api import league_registry
     from src.api import matchup_intel as mi
-    from src.nfl_data.live_game_state import fetch_live_game_state
+    from src.nfl_data import sportsdataio_live_game_state as sdio
+    from src.nfl_data.live_game_state import PROVIDER_SPORTSDATAIO, fetch_live_game_state
     from src.nfl_data.sleeper_live_stats import fetch_live_week_stats
     from src.public_league import sleeper_client
     from src.ros.sleeper_weekly_projections import fetch_weekly_projection_rows
@@ -1555,6 +1610,10 @@ def default_clients() -> Clients:
         schedule=mi._schedule_context,
         preseason=mi._resolve_estimates,
         leagues=_leagues,
+        fallback_scoreboard=lambda season, week: fetch_live_game_state(
+            provider=PROVIDER_SPORTSDATAIO, season=int(season), week=int(week), season_type=2
+        ),
+        fallback_capability=lambda last_healthy: sdio.capability(last_healthy=last_healthy),
     )
 
 
@@ -1736,34 +1795,13 @@ def _run_tick_locked(
         return
 
     # ── NFL-wide sources ──
-    espn_log = observation_log(NFL_KEY, season, week, SOURCE_ESPN)
-    snapshot = None
-    espn_source: dict[str, Any]
-    if _source_backoff(health, SOURCE_ESPN, tick_start) is None and budget.take(SOURCE_ESPN):
-        fresh = clients.scoreboard(season, week)
-        status, meta, content = scoreboard_to_observation(fresh)
-        espn_log.append(fetched_at=meta["observedAt"], status=status, meta=meta, content=content)
-        if status == "ok":
-            _record_health(health, SOURCE_ESPN, True, tick_start)
-        elif status != "disabled":
-            _record_health(health, SOURCE_ESPN, False, tick_start, meta.get("error"))
-        snapshot = fresh
-        espn_source = _espn_source(fresh)
-    else:
-        espn_source = {"source": "espn:scoreboard", "status": "skipped_backoff"}
-    if snapshot is None or (snapshot.enabled and not snapshot.ok):
-        # Keep the LAST GOOD observation, at its true as-of: the resolver
-        # marks it stale past LIVE_STATE_MAX_AGE_SECONDS, so it can never
-        # pass as a fresh read.
-        head = espn_log.head()
-        if head and head.get("content") is not None and head.get("lastOkMeta"):
-            snapshot = scoreboard_from_observation(head["lastOkMeta"], head["content"])
-            espn_source = {
-                **_espn_source(snapshot),
-                "status": "stale_last_good",
-                "lastAttempt": espn_source,
-            }
+    snapshot, live_sources = collect_live_game_state(
+        clients, health, budget, season=season, week=week, now=tick_start
+    )
+    espn_source = live_sources["espnScoreboard"]
     report.sources[SOURCE_ESPN] = espn_source
+    report.sources[SOURCE_SDIO] = live_sources["sportsDataIoScores"]
+    report.sources[SOURCE_LIVE_SELECTION] = live_sources["liveGameState"]
 
     schedule_rows, schedule_observed_at, _ = clients.schedule(season)
     windows = observed_windows(schedule_rows, snapshot, season=season, week=week, now=clock())
@@ -1871,7 +1909,7 @@ def _run_tick_locked(
             clients=clients,
             clock=clock,
             snapshot=snapshot,
-            espn_source=espn_source,
+            live_sources=live_sources,
             schedule_rows=schedule_rows,
             schedule_observed_at=schedule_observed_at,
             weekly=(weekly_fetches, weekly_state, weekly_reason),
@@ -1900,6 +1938,185 @@ def _run_tick_locked(
     except Exception:  # noqa: BLE001 — housekeeping never fails a tick
         pass
     _finish("ran", 1 if any_failed else 0, cadence.next_due_at, cadence.to_dict())
+
+
+def _last_healthy(health: Mapping[str, Any], name: str) -> bool | None:
+    entry = health.get(name) or {}
+    if int(entry.get("consecutiveFailures") or 0) > 0:
+        return False
+    return True if entry.get("lastOkAt") else None
+
+
+def _stale_candidate(log: KeyedObservationLog) -> tuple[float, Any] | None:
+    head = log.head()
+    if not head or head.get("content") is None or not head.get("lastOkMeta"):
+        return None
+    stamp = _epoch(head["lastOkMeta"].get("observedAt")) or 0.0
+    return stamp, scoreboard_from_observation(head["lastOkMeta"], head["content"])
+
+
+def collect_live_game_state(
+    clients: Clients,
+    health: dict[str, Any],
+    budget: RequestBudget,
+    *,
+    season: int,
+    week: int,
+    now: float,
+) -> tuple[Any, dict[str, dict[str, Any]]]:
+    """``(snapshot, stamps)`` — this tick's ONE live-game-state observation.
+
+    Order, each step reached only when the previous produced no fresh
+    observation:
+
+    1. **ESPN** (primary; free, no quota) unless in persisted backoff.
+    2. **SportsDataIO** (fallback) when ESPN failed or is backing off AND the
+       provider is eligible — both flags on and ``SPORTSDATAIO_API_KEY``
+       present, checked without a request — AND it is not itself backing off.
+    3. **Last good** observation of whichever provider has the NEWER one, at
+       its true as-of (the resolver marks it stale past
+       ``LIVE_STATE_MAX_AGE_SECONDS``, so it never passes as fresh).
+
+    One provider's snapshot is returned whole; two providers' states are
+    never merged for a game.  ``stamps`` has ``liveGameState`` (the chosen
+    provider, ``status`` and ``selectionReason``), ``espnScoreboard`` and
+    ``sportsDataIoScores`` (each provider's own attempt).  With the Game Day
+    master flag off ESPN answers ``disabled`` and no fallback is tried — the
+    master switch gates every provider.
+    """
+    from src.nfl_data.live_game_state import PROVIDER_SOURCE_LABELS
+
+    sdio_label = PROVIDER_SOURCE_LABELS["sportsdataio"]
+    espn_log = observation_log(NFL_KEY, season, week, SOURCE_ESPN)
+    sdio_log = observation_log(NFL_KEY, season, week, SOURCE_SDIO)
+
+    espn_fresh = None
+    if _source_backoff(health, SOURCE_ESPN, now) is not None:
+        espn_source: dict[str, Any] = {
+            "source": "espn:scoreboard",
+            "provider": "espn",
+            "status": "skipped_backoff",
+        }
+    elif not budget.take(SOURCE_ESPN):
+        espn_source = {
+            "source": "espn:scoreboard",
+            "provider": "espn",
+            "status": "budget_exhausted",
+        }
+    else:
+        espn_fresh = clients.scoreboard(season, week)
+        status, meta, content = scoreboard_to_observation(espn_fresh)
+        espn_log.append(fetched_at=meta["observedAt"], status=status, meta=meta, content=content)
+        if status == "ok":
+            _record_health(health, SOURCE_ESPN, True, now)
+        elif status != "disabled":
+            _record_health(health, SOURCE_ESPN, False, now, meta.get("error"))
+        espn_source = _live_state_stamp(espn_fresh)
+
+    def _chosen(stamp: Mapping[str, Any], status: str, reason: str) -> dict:
+        return {**dict(stamp), "status": status, "selectionReason": reason}
+
+    if espn_fresh is not None and espn_fresh.enabled and espn_fresh.ok:
+        sdio_source = {"source": sdio_label, "provider": "sportsdataio", "status": "not_needed"}
+        return espn_fresh, {
+            "liveGameState": _chosen(espn_source, "ok", "primary_ok"),
+            "espnScoreboard": espn_source,
+            "sportsDataIoScores": sdio_source,
+        }
+    if espn_fresh is not None and not espn_fresh.enabled:
+        sdio_source = {
+            "source": sdio_label,
+            "provider": "sportsdataio",
+            "status": "disabled",
+            "reason": "game_day_live_game_state master flag is off",
+        }
+        return espn_fresh, {
+            "liveGameState": _chosen(espn_source, "disabled", "master_flag_off"),
+            "espnScoreboard": espn_source,
+            "sportsDataIoScores": sdio_source,
+        }
+    espn_reason = (espn_fresh.error if espn_fresh is not None else None) or espn_source["status"]
+
+    # ── fallback: SportsDataIO ──
+    sdio_fresh = None
+    sdio_source = {"source": sdio_label, "provider": "sportsdataio"}
+    cap = (
+        clients.fallback_capability(_last_healthy(health, SOURCE_SDIO))
+        if clients.fallback_capability is not None
+        else None
+    )
+    if cap is not None:
+        sdio_source["capability"] = {
+            "eligible": bool(cap.eligible),
+            "available": bool(cap.available),
+            "healthState": cap.health_state,
+            "reasons": list(cap.reasons),
+        }
+    if clients.fallback_scoreboard is None:
+        sdio_source["status"] = "not_configured"
+    elif cap is not None and not cap.eligible:
+        sdio_source.update(status="unavailable", reasons=list(cap.reasons))
+    elif _source_backoff(health, SOURCE_SDIO, now) is not None:
+        sdio_source["status"] = "skipped_backoff"
+    elif not budget.take(SOURCE_SDIO):
+        sdio_source["status"] = "budget_exhausted"
+    else:
+        sdio_fresh = clients.fallback_scoreboard(season, week)
+        status, meta, content = scoreboard_to_observation(sdio_fresh)
+        sdio_log.append(fetched_at=meta["observedAt"], status=status, meta=meta, content=content)
+        error = str(meta.get("error") or "")
+        if status == "ok":
+            _record_health(health, SOURCE_SDIO, True, now)
+        elif status != "disabled" and not error.startswith("credential_missing"):
+            _record_health(health, SOURCE_SDIO, False, now, error)
+        stamp = _live_state_stamp(sdio_fresh)
+        if "capability" in sdio_source:
+            stamp["capability"] = sdio_source["capability"]
+        sdio_source = stamp
+    if sdio_fresh is not None and sdio_fresh.enabled and sdio_fresh.ok:
+        return sdio_fresh, {
+            "liveGameState": _chosen(sdio_source, "ok", f"espn_unavailable:{espn_reason}"),
+            "espnScoreboard": espn_source,
+            "sportsDataIoScores": sdio_source,
+        }
+    sdio_reason = (
+        (sdio_fresh.error if sdio_fresh is not None else None)
+        or ",".join(sdio_source.get("reasons") or ())
+        or sdio_source.get("status")
+    )
+    why = f"no_fresh_provider:espn={espn_reason};sportsdataio={sdio_reason}"
+
+    # ── last good, newest across providers ──
+    candidates = []
+    for provider, log in (("espn", espn_log), ("sportsdataio", sdio_log)):
+        found = _stale_candidate(log)
+        if found is not None:
+            candidates.append((found[0], provider, found[1]))
+    if candidates:
+        _, provider, stale = max(candidates, key=lambda c: c[0])
+        stamp = {**_live_state_stamp(stale), "status": "stale_last_good"}
+        if provider == "espn":
+            espn_source = {**stamp, "lastAttempt": espn_source}
+        else:
+            sdio_source = {**stamp, "lastAttempt": sdio_source}
+        return stale, {
+            "liveGameState": _chosen(stamp, "stale_last_good", why),
+            "espnScoreboard": espn_source,
+            "sportsDataIoScores": sdio_source,
+        }
+    failed = espn_fresh if espn_fresh is not None else sdio_fresh
+    unavailable = {
+        **(_live_state_stamp(failed) if failed is not None else {}),
+        "source": "none",
+        "provider": None,
+        "status": "unavailable",
+        "selectionReason": why,
+    }
+    return failed, {
+        "liveGameState": unavailable,
+        "espnScoreboard": espn_source,
+        "sportsDataIoScores": sdio_source,
+    }
 
 
 def pre_kickoff_coverage(
@@ -1962,7 +2179,7 @@ def _process_league(
     clients: Clients,
     clock: Callable[[], float],
     snapshot: Any,
-    espn_source: Mapping[str, Any],
+    live_sources: Mapping[str, Mapping[str, Any]],
     schedule_rows: list,
     schedule_observed_at: float | None,
     weekly: tuple,
@@ -2049,9 +2266,9 @@ def _process_league(
             t2 = clock()
             render = mi.render_league(assembly)
             sources = source_stamps(inputs, render.get("lineage") or {})
-            sources["espnScoreboard"] = (
-                dict(espn_source) if espn_source else sources["espnScoreboard"]
-            )
+            for name, stamp in (live_sources or {}).items():
+                if stamp:
+                    sources[name] = dict(stamp)
             sources["sleeperLiveStats"] = dict(live_stats_source)
             timings["renderSeconds"] = round(clock() - t2, 3)
             computed_at = clock()
