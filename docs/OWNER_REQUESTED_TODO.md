@@ -634,6 +634,104 @@ giant PR.
 | **PRIORITY — Game Day live best-ball dashboard (owner amendment 2026-09-24)** | The current `/game-day` is rejected as a product: not a restyle and not a diagnostic dump. It is a named campaign deliverable pairing Season/Scoring/Projections with Lane 6. Full contract: issue #1335 comment 5824706487 (reconciles #1334, #789 / CE-20, #854); campaign cross-reference PR #1433 comment 5824708400. **Product:** a normal user immediately sees the selected team vs its actual opponent, score now, projected final best-ball score for both teams, win probability and (where applicable) beat-median probability, the live/upcoming players and NFL games that matter most, and whether the evidence is current, delayed or incomplete. **Inputs:** audit which providers really supply CURRENT-WEEK projections (source family, horizon/week, scoring basis, as-of, K and IDP coverage, cadence); use the #854 ensemble and the exact league-scoring owners; expose uncovered scoring categories; never substitute dynasty values, ranks or preseason per-game averages as weekly forecasts. Wire a legitimate live game-state and scoring source with OBSERVED quarter/clock/status (elapsed wall time since kickoff does not qualify; reconcile the older wall-time fallback explicitly). **Forecast:** provider weekly projections stay distinct from our derived rest-of-game forecast, which updates with scoring, game progress and supported availability evidence. Validate the method and claim no sophistication that is not implemented. Per simulation draw: keep actual production, simulate only the remainder, recompute the exact legal best-ball lineup (completed players can still be displaced), with no double counting of players, points, FLEX eligibility or bench projections. The expected final best-ball total stays distinct from a lineup chosen on individual means. Matchup and median probabilities come from the same coherent league simulation. **Experience:** locked PSI / Direction A. Default hierarchy: compact matchup scoreboard, then 3–5 "What matters now" items, then a compact chronological NFL slate, then expandable lineup/player detail, then collapsed Data info. No walls of repeated eligibility text. Refresh in place: keep same-context content, scroll, focus and expansion; out-of-order or other-context responses never replace the current team/league/week; never blank the page each minute. **Updates:** bounded shared background collection plus cached simulation generations. A live update needs no deploy, full scrape or per-viewer simulation. Measure source-to-screen freshness; a fetch timestamp is not a current projection. Missing stays missing (no zeros, no fabricated odds), but an "unavailable" message is a fallback, not completion. Name exact source-access, permission, coverage or cost blockers. Buy nothing and bypass nothing; keep building while an external dependency is blocked. **Acceptance:** replay/regression evidence for pregame, live, halftime, delay/overtime, final, stat corrections, missing feeds and best-ball displacement; exact league scoring and UI/API agreement; desktop and phone screenshots with real data; refresh without blanking; verified live production behaviour. A mockup, doc update or test proving the old limitation is displayed is not completion. | TODO — PRIORITY |
 | Owner decision | #1428 categorical-chart contrast | OWNER UI DECISION REQUIRED: do not invent a palette or weaken accessibility criteria. It does not block the rest of Lane 6. | DECISION |
 
+**Owner decision — draft #1346 must not block Game Day / Trade UI (2026-09-24).** Game Day and the
+authorized Trade UI take priority over uninterrupted ownership of overlapping hunks in draft PR
+#1346. Do not merge #1346 merely to clear file ownership, and do not build duplicate UI, routes or
+components around it. Preserve any #1346 performance/serving behavior actually needed in the
+overlapping files. Separable hunks yield temporarily to product work and #1346 reconciles afterward;
+inseparable ones are rebased/cherry-picked with proof that both behaviors survive. Do not weaken
+#1346's own acceptance criteria, and keep its non-overlapping work moving. Measured overlap and plan:
+#1346 comment 5825392001. The `rankings/page.jsx` and `trade/page.jsx` hunks are line-local (nothing
+yields); `trade-sections.jsx` is not in #1346. The `GameDayPanel` refresh-in-place logic and the
+`game_day_sim` single-flight/atomic cache writes are carried into the Game Day units with their tests,
+and #1346 drops them at reconciliation.
+
+**Owner attestation — source access (2026-09-25, explicit, in writing). Canonical posture: `OWNER_ATTESTED_AUTHORIZED`.**
+The owner explicitly attests that permission exists for Calculator's current automated ingestion and
+project use of the sources already integrated, or intentionally being integrated, into the existing
+source portfolio. That includes, among others: Sleeper, RotoWire, ESPN, IDP Show, Fantasy Nerds,
+SportsDataIO, FantasyPros, DraftSharks, IDP Trade Calculator, DLF, FantasyCalc, Dynasty Daddy, Fantasy
+Navigator, PFK and related feeds, Flock Fantasy, Yahoo/Boone where currently used, and every other
+source already in Calculator's ingestion system. Public terms are not the basis for that permission,
+and the repository does not hold or reproduce any private permission correspondence unless it is
+separately provided.
+
+- **What changes.** These sources are no longer "owner decision required". They are not treated as
+  unauthorized because public terms do not document private permission, and they need no per-source
+  re-approval. **The Game Day source-access blocker is removed.**
+- **Scope boundary.** A genuinely new provider, or a material expansion of an existing provider into a
+  different product, feed or use case, still goes through normal source intake and permission
+  verification, and any expansion is recorded. A new permission decision is surfaced only for a new
+  provider, a materially out-of-scope mechanism or use, or an owner change or revocation.
+- **Credentials.** Keyed or subscription APIs are configured by the owner through environment or
+  secrets. Agents never handle credentials.
+- **Record.** `docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md`, which keeps the public-terms
+  research as background context only.
+
+**Game Day scope reaffirmed (owner, 2026-09-25).**
+
+- **Sequence.** Build U4 through U7, then integrated validation, production release, and verification
+  during a real live game.
+- **Weekly projections.** Use a multi-source weekly ensemble of genuinely independent evidence.
+  Record provider, family, ancestry, horizon, week, as-of, fetch time, stat and position coverage,
+  native scoring basis and missing state. Never double-count aggregators, representations or horizons.
+- **Scoring.** Stat-level projections are rescored through the exact league scorer, covering QB, RB,
+  WR, TE, K, DL/EDGE, LB, DB, first downs, yardage bonuses and return/special teams. An uncovered
+  category is kept as uncovered, or covered by a validated estimator labelled as OURS; never zero.
+- **Live data.** Live state, factual stats, the projection ensemble, scoring, lineup and simulation
+  each have one owner. Do not build a single-source dependency.
+- **Default page hierarchy.**
+  1. Matchup hero: score now, projected final best-ball, margin, win chance, median chance,
+     LIVE/UPCOMING/FINAL and freshness.
+  2. What matters now.
+  3. A chronological NFL slate.
+  4. Best-ball details.
+  5. Data info.
+- **Freshness.** Shared background collection with persisted, versioned generations. Show observed-at,
+  fetched-at, computed-at, payload age, degraded state and refresh-in-progress state.
+- **Acceptance.** Pregame, live, halftime, second half, overtime, delay or postponement, final, stat
+  corrections, negative points, real zero, missing player, missing projection, source outage, K, IDP,
+  SF/FLEX displacement, several players competing for one slot, team switching, and stale or
+  out-of-order responses. Use real captured fixtures, then production during a live game.
+- **Execution (owner clarification, 2026-09-25).**
+  - Do NOT wait for Sunday or Tuesday before completing U4–U7.
+  - Build deterministic captured-input or synthetic replay fixtures now for the states not yet captured
+    naturally: stat corrections; simultaneous games at different stages; one matchup mixing completed,
+    live and upcoming players; overtime and delay combinations. Finish the engineering against them.
+    The real Thursday ATL@GB capture (end of Q1 → final) already supplies pregame, live, halftime,
+    second half and final.
+  - The real Sunday multi-game capture and the Tuesday stat-correction window are additional evidence
+    required before Game Day is declared fully verified.
+- **Fantasy Nerds and SportsDataIO** are integrated now at the adapter and configuration level.
+  - Each gets a canonical env/secret name. Keys are never hard-coded, committed, logged or exposed.
+  - A missing credential means the source is unavailable, not zero data, and it blocks nothing else.
+  - Activation happens through the source-health and capability gates once the owner installs
+    credentials.
+  - Source-family ancestry is preserved, so they expand the ensemble without double counting.
+- **Honest ensemble status.** RotoWire via Sleeper may be the initial usable weekly source, but a
+  one-source state is never described as a mature multi-source ensemble. The actual number of
+  independent projection families contributing is reported.
+
+**Owner decision — #1414 retirement is separate from the future-pick horizon (2026-09-25).**
+The canonical draft-class retirement rule is approved (PR #1442). Retirement must NOT automatically
+expand the supported future-pick horizon, so two concepts stay separate:
+
+1. draft-class lifecycle / retirement;
+2. the supported future-pick horizon.
+
+Retiring 2026 keeps the existing horizon unchanged: 2027–2029, with no 2030 rows and no induced
+rank/tier shifts. The only horizon rule on record is CLAUDE.md step 12 / C1-U6 ("horizon = current +
+3, self-rolling", anchored on the active draft year); nothing says retirement advances that anchor.
+**Horizon advancement (introducing 2030) is a separate owner decision**, to be brought with evidence
+and measured impact.
+
+**Owner decision — FAAB vs Trade flex demand stays as-is (2026-09-24).** Do NOT unify the two yet.
+FAAB apportions flex demand fractionally (`even_split`, e.g. QB 1.25 in dynasty_main); Trade assigns
+flex slots through the lineup/need owner. Both read the one canonical demand owner (PR #1436), but they
+answer "how many does this league start" differently. That is recorded as an explicit
+owner-methodology decision. No FAAB bid changes for conceptual symmetry without a measured,
+owner-approved methodology change. Status: DECISION (deferred).
+
 **Preserved invariant — Power Rankings methodology ownership (owner 2026-09-24).** PR #1401 fixed
 and production-verified the methodology display; do not reopen or duplicate it. The backend/API is
 the canonical owner of the effective Power Ranking methodology and weights; the frontend renders the

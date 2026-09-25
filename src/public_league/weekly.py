@@ -153,7 +153,9 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         for wk in sorted_weeks:
             standings_at[wk] = _incremental_standings(season, snapshot, wk)
 
-        for wk in sorted(season.matchups_by_week.keys()):
+        # Only FINISHED weeks: this section declares winners and highlights,
+        # which a live week cannot have yet.
+        for wk in metrics.final_weeks(season):
             entries = season.matchups_by_week[wk]
             pairs = metrics.matchup_pairs(entries)
             if not pairs:

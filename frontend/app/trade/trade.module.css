@@ -151,6 +151,30 @@
   line-height: var(--line-height-normal);
   color: var(--text-secondary);
 }
+/* NFL team exposure — secondary context under the simulation, folded by
+   default. The heading reuses .simSectionTitle; only the h3's UA margin
+   and weight are neutralised so it reads like the sibling section labels.
+   The disclosure mirrors the ds-panel disclosure (native <details>). */
+.exposureTitle {
+  margin: 0;
+  font-weight: inherit;
+}
+.exposureSummary {
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  border-radius: var(--radius-1);
+}
+.exposureSummary:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.exposureBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
 
 /* ── Import row ── */
 .importRow {
@@ -359,6 +383,19 @@
   align-items: center;
   gap: var(--space-2);
   flex-shrink: 0;
+}
+/* Quantity control for a repeatable market pick (T-NEW-02): − N + */
+.assetQuantity {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.assetQuantityCount {
+  min-width: 1.5ch;
+  text-align: center;
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
 }
 .assetDest {
   display: flex;

@@ -1,9 +1,9 @@
 # Analyst claim schema and stance taxonomy
 
-**Owner module:** `src/analyst/` (`stance.py`, `claim.py`)
+**Owner module:** `src/analyst/` (`stance.py`, `claim.py`; ledger: `store.py`, `asof.py`)
 **Owner spec:** `OWNER_FEATURE_SPEC_RECONCILIATION_2026-08-13.md` §4.16, §4.19, §4.20
 **Tracked as:** T-NEW-10 (`OWNER_REQUESTED_TODO_SPEC_INDEX.md`) — *REQUIRED METHODOLOGY REFINEMENT*
-**Status:** schema only. No ingestion, no consumers yet — by design, see §6.
+**Status:** schema + persistence/as-of foundation (C6-ANA-01, OD-03 — §9). No ingestion, no consumers yet — by design, see §6.
 
 ---
 
@@ -137,7 +137,7 @@ In order, and each is a separate authorized unit:
 ## 8. Verification
 
 ```bash
-python -m pytest tests/analyst -q      # 57 deterministic tests, no network
+python -m pytest tests/analyst -q      # deterministic, no network (ledger tests: §9)
 ```
 
 The tests are the specification made checkable: the vocabulary matches §4.16
@@ -145,3 +145,57 @@ exactly, STASH cannot merge into conviction, a quote cannot carry non-verbatim
 provenance, an unknown game type is not dynasty, a conditional stance without
 its trigger will not construct, and syndicated or repeated takes collapse to
 one vote.
+
+## 9. Persistence and as-of queries (C6-ANA-01, OD-03)
+
+Authorized by the Calculator completion campaign, Lane D (OD-03). The
+ledger is the shared substrate later intelligence consumers build on; it adds
+no ingestion, scoring or freshness policy, and no HTTP route or UI.
+
+**Write — `src/analyst/store.py`** (`data/analyst_ledger.sqlite`, gitignored;
+same posture as `src/history/store.py`):
+
+- `ingest(ContentRecord, [LedgerEntry, ...])` records one content item and its
+  extracted claims in **one transaction**. Content carries provenance
+  (platform, show, url, `published_at` + precision, `observed_at`, analysts,
+  `origin`); recording it asserts extraction ran over it. Zero claims is a
+  valid, queryable answer.
+- INSERT-only. Identical re-ingest is a counted no-op; same identity with
+  different content is returned in `conflicts` and **not applied**; a content
+  conflict rejects that call's claims.
+- Claim identity is the utterance — `(analyst, platform, content_id,
+  asset_key, said_at)` + correction revision. Stance is not identity.
+- `correct_claim(id, corrected, reason)` writes a new row and links it; the
+  original is retained. This is for extraction errors — an analyst changing
+  their mind is a new claim with `supersedes`.
+- Asset keys come from the identity owners only: `player:<sleeperId>` from a
+  resolved `Resolution`, `mpick:*` from `MarketPickRef` (the `src/history/keys`
+  namespace). `name:*` is refused as `unresolved_identity`.
+- Every instant is UTC-aware (naive refused); `day` precision is explicit.
+
+**Read — `src/analyst/asof.py`:**
+
+- `claims_as_of(asset_key, as_of, *, basis, analyst_id=, platform=, show_id=)`
+  → `ClaimsAsOf`; `stance_as_of(asset_key, analyst_id, as_of, *, basis)` →
+  `StanceAsOf` with `exact` / `nearest-prior` / `unavailable` fidelity (the
+  `src/history/asof` vocabulary).
+- `basis` is **required**: `SAID` = the public record as of T with today's
+  corrections (analyst accuracy, retrospectives); `KNOWN` = what the ledger
+  held at T (`recorded_at <= T`, corrections from their own instant) —
+  reproduces what a consumer was served.
+- Never future under either basis. A claim is visible only when said AND its
+  content published at/before T; a `day`-precision stamp answers a date query
+  for its day but an instant query only from the next day.
+- Missing is never empty: `claims` / `empty` (covered content, no claim about
+  the asset) / `unavailable` (`no_ledger`, `no_coverage_at_or_before`). A read
+  never creates the database.
+- Thesis collapse, syndication and retractions are delegated to
+  `independent_claims` over the claims visible at T (`ClaimsAsOf.independent`).
+
+`tests/analyst/test_ledger_non_influence.py` keeps `data_contract.py`,
+`src/canonical/` and `ktc_va.py` from importing the ledger: an analyst take
+reaching canonical value needs its own approved methodology.
+
+```bash
+python -m pytest tests/analyst -q      # 101 deterministic tests, no network
+```

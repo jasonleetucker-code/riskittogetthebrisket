@@ -9,8 +9,14 @@
  *     v: 1,                          // schema version
  *     s: [                           // sides (typically 2, but N is allowed)
  *       { n: "Team A", p: ["Ja'Marr Chase", "2026 1.03"] },
- *       { n: "Team B", p: ["Josh Allen"] },
+ *       { n: "Team B", p: ["Josh Allen", "2027 Mid 1st", "2027 Mid 1st"],
+ *         a: [null, null, "pick:dynasty_main:2027:r1:o4"] },  // optional
  *     ],
+ *
+ *   ``p`` repeats a name once per COPY (a generic pick x2 is two items).
+ *   ``a`` (optional, aligned with ``p``) carries an owned league pick's
+ *   canonical id from ``src/identity/picks.py``; it is absent on every
+ *   link written before T-NEW-02 and on any side without an owned pick.
  *     t: "2026-04-23T14:00:00Z",    // optional creation timestamp
  *     c: "Testing a buy-low play",  // optional free-text note
  *   }))
@@ -82,13 +88,27 @@ export function encodeTrade(trade) {
   }
   const payload = {
     v: SHARE_SCHEMA_VERSION,
-    s: trade.sides.map((side) => ({
-      n: String(side.name || "").slice(0, 40),
-      p: (Array.isArray(side.players) ? side.players : [])
-        .filter((x) => typeof x === "string" && x.trim())
-        .slice(0, 32)  // hard cap to avoid pathologically long URLs
-        .map((x) => x.slice(0, 64)),
-    })),
+    s: trade.sides.map((side) => {
+      // Names and owned-pick ids travel as PAIRS until the final shape so
+      // filtering an unusable name can never shift an id onto the wrong
+      // asset.  Repeated names are copies and are all kept (T-NEW-02).
+      const ids = Array.isArray(side.assetIds) ? side.assetIds : [];
+      const pairs = (Array.isArray(side.players) ? side.players : [])
+        .map((x, i) => [x, ids[i]])
+        .filter(([x]) => typeof x === "string" && x.trim())
+        .slice(0, 32) // hard cap to avoid pathologically long URLs
+        .map(([x, id]) => [
+          x.slice(0, 64),
+          typeof id === "string" && id.trim() ? id.trim().slice(0, 96) : null,
+        ]);
+      const out = { n: String(side.name || "").slice(0, 40), p: pairs.map(([x]) => x) };
+      // ``a`` is ADDITIVE and aligned with ``p``: an owned pick's canonical
+      // id, or null.  Omitted entirely when a side has no owned pick, so a
+      // trade without one encodes exactly as it always did, and a decoder
+      // that predates ``a`` ignores it and loads the names as before.
+      if (pairs.some(([, id]) => id)) out.a = pairs.map(([, id]) => id);
+      return out;
+    }),
   };
   if (trade.note) {
     payload.c = String(trade.note).slice(0, 200);
@@ -117,12 +137,19 @@ export function decodeTrade(encoded) {
   if (version !== SHARE_SCHEMA_VERSION) return null;
   const sides = Array.isArray(parsed.s) ? parsed.s : [];
   return {
-    sides: sides.map((s) => ({
-      name: String(s?.n || ""),
-      players: Array.isArray(s?.p)
-        ? s.p.filter((x) => typeof x === "string")
-        : [],
-    })),
+    sides: sides.map((s) => {
+      const rawIds = Array.isArray(s?.a) ? s.a : [];
+      const pairs = (Array.isArray(s?.p) ? s.p : [])
+        .map((x, i) => [x, rawIds[i]])
+        .filter(([x]) => typeof x === "string");
+      return {
+        name: String(s?.n || ""),
+        players: pairs.map(([x]) => x),
+        // Aligned with ``players``; null where the link carries no owned
+        // pick identity (every link written before T-NEW-02).
+        assetIds: pairs.map(([, id]) => (typeof id === "string" && id.trim() ? id.trim() : null)),
+      };
+    }),
     note: String(parsed.c || "") || null,
     createdAt: parsed.t ? String(parsed.t) : null,
   };

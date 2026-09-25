@@ -1,7 +1,13 @@
-"""Analyst intelligence — the claim schema and stance taxonomy.
+"""Analyst intelligence — the claim schema, stance taxonomy and claim ledger.
 
 This package is the **gating artifact** for podcast / YouTube / analyst
-ingestion, and deliberately nothing more.  The owner's sequencing is that the
+ingestion plus its persistence substrate (C6-ANA-01, OD-03):
+``store`` (the append-only claim ledger) and ``asof`` (the never-future,
+missing-is-not-empty query contract).  Those two are imported directly
+(``from src.analyst.asof import claims_as_of``), not re-exported here, so
+importing the schema never pulls in SQLite or the identity owners.
+
+The owner's sequencing is that the
 claim is defined before anything starts storing claims, because the questions
 that matter — *is this dynasty?  did he say that or did we infer it?  is this
 the same take as last week's?* — are not recoverable from a row that was
@@ -14,8 +20,10 @@ What is here:
 * ``claim``   what one take IS: attribution, provenance, game type, side,
   conditions, thesis lineage, and the supersession/dedupe rules.
 
-**Nothing consumes this yet, and that is the intended state**, not an
-oversight.  Said plainly because this repo already carries
+**No production path writes or reads the ledger yet, and that is the
+intended state**, not an oversight — the ledger is the substrate later
+consumers (ingestion, Player File intelligence) are authorized to build
+on.  Said plainly because this repo already carries
 ``src/news/unified_signal_engine.py``, which describes itself as "single
 entry point for every BUY/SELL/HOLD decision" and is imported by nothing in
 production — a module that claims to be wired is worse than one that says it

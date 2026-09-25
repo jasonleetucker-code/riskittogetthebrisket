@@ -64,7 +64,8 @@ from __future__ import annotations
 
 import math
 import time
-from typing import Any, Collection, Mapping
+from collections import Counter
+from typing import Any, Collection, Mapping, Sequence
 
 from src.api.data_contract import contract_roster_pools, contract_slot_eligibility
 from src.roster_intel.age_portfolio import (
@@ -74,7 +75,12 @@ from src.roster_intel.age_portfolio import (
 )
 from src.roster_intel.core import build_meaningful_core
 from src.roster_intel.droppability import league_droppability, team_droppability
-from src.roster_intel.exposure import build_nfl_exposure, exposure_from_core, nfl_team_by_player
+from src.roster_intel.exposure import (
+    build_nfl_exposure,
+    exposure_change,
+    exposure_from_core,
+    nfl_team_by_player,
+)
 from src.roster_intel.strength import build_team_strength, rank_team_strengths
 from src.roster_intel.weakness import build_position_ranks, build_team_weakness
 
@@ -83,6 +89,7 @@ __all__ = [
     "TeamNotInLeague",
     "build_league_roster_intelligence",
     "get_team_roster_intelligence",
+    "trade_nfl_exposure",
 ]
 
 ROSTER_INTELLIGENCE_CONTRACT_VERSION = "roster-intelligence/2026-08-18.v1"
@@ -378,3 +385,117 @@ def get_team_roster_intelligence(
     ]
     payload.pop("teams", None)
     return payload
+
+
+#: Scope label for the trade exposure block.  The CAPITAL question ("how
+#: concentrated is the roster's value") is the owner-specified primary metric
+#: for the Trade Simulator (#786), so the population is the full roster, not
+#: the meaningful core.
+_TRADE_EXPOSURE_SCOPE = "full_roster"
+
+_TRADE_EXPOSURE_NOTES = (
+    "descriptive context only: it does not enter the trade's value, equity, "
+    "value adjustment, team impact or analysis",
+    "draft picks carry no NFL franchise and are not part of this population",
+    "rostered or incoming players the canonical board did not price are listed "
+    "in unpricedIds and carry no weight; they are never counted as zero",
+    "the after roster is the trade as entered, before any forced release; "
+    "finalRosterSimulation describes the legal roster after cleanup",
+)
+
+
+def trade_nfl_exposure(
+    contract: Mapping[str, Any] | None,
+    *,
+    roster_players: Sequence[str],
+    players_in: Sequence[str] = (),
+    players_out: Sequence[str] = (),
+) -> dict[str, Any]:
+    """Before → after value-weighted NFL-franchise exposure for one trade.
+
+    C2-EXP-01 / #786, the Trade Simulator consumer.  **This computes nothing
+    about exposure**: the shares, buckets, unpriced/unknown-team handling and
+    the before/after union all come from ``src/roster_intel/exposure.py``.
+    What lives here is only the population each side is measured over.
+
+    * **before** — the roster's players (``sleeper.teams[].players``).
+    * **after** — before, minus ``players_out`` matched by MULTIPLICITY (the
+      rule ``simulate_trade`` and ``roster_capacity`` use: trading one of two
+      entries removes one), plus ``players_in``.  An outgoing name the roster
+      does not hold frees nothing and is published in ``outgoingNotOnRoster``
+      rather than silently dropped.
+
+    Keying and pricing mirror ``contract_roster_pools`` (canonical name, then
+    display name; value = ``rankDerivedValue``), so this roster's ``before``
+    is the same population ``/api/roster/intelligence`` reports as
+    ``nflExposure.fullRoster``.  A name the board cannot join keeps its raw
+    spelling as its id and has no value, so the owner reports it UNPRICED —
+    missing is never zero.  Picks are never looked up: pick rows are excluded
+    from the join, and the caller passes player names only.
+
+    Emits no verdict, and nothing in the trade chain reads it back
+    (``tests/api/test_trade_nfl_exposure.py`` proves the value/grade outputs
+    are byte-identical with and without it).
+    """
+    key_by_name: dict[str, str] = {}
+    values: dict[str, float | None] = {}
+    positions: dict[str, str] = {}
+    for row in (contract or {}).get("playersArray") or []:
+        if not isinstance(row, Mapping) or row.get("assetClass") == "pick":
+            continue
+        key = str(row.get("canonicalName") or row.get("displayName") or "").strip()
+        if not key:
+            continue
+        for name in (row.get("canonicalName"), row.get("displayName")):
+            if name:
+                key_by_name.setdefault(str(name).strip().lower(), key)
+        value = row.get("rankDerivedValue")
+        priced = (
+            isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and math.isfinite(float(value))
+            and value > 0
+        )
+        values.setdefault(key, float(value) if priced else None)
+        position = str(row.get("position") or row.get("pos") or "").strip()
+        if position:
+            positions.setdefault(key, position)
+
+    def _key(name: Any) -> str:
+        raw = str(name or "").strip()
+        return key_by_name.get(raw.lower(), raw)
+
+    def _names(names: Sequence[Any]) -> list[str]:
+        return [_key(n) for n in names if str(n or "").strip()]
+
+    before_ids = _names(roster_players)
+    leaving = Counter(_names(players_out))
+    after_ids: list[str] = []
+    for player_id in before_ids:
+        if leaving[player_id] > 0:
+            leaving[player_id] -= 1
+            continue
+        after_ids.append(player_id)
+    not_on_roster = sorted(pid for pid, left in leaving.items() if left > 0)
+    after_ids.extend(_names(players_in))
+
+    teams = nfl_team_by_player(contract)
+
+    def _exposure(ids: list[str]):
+        # One entry per player: a population is a set of people, and the
+        # owner would otherwise sum a duplicated id's value twice.
+        return build_nfl_exposure(
+            list(dict.fromkeys(ids)),
+            teams=teams,
+            values=values,
+            positions=positions,
+            scope=_TRADE_EXPOSURE_SCOPE,
+        )
+
+    block = exposure_change(_exposure(before_ids), _exposure(after_ids))
+    block["scope"] = _TRADE_EXPOSURE_SCOPE
+    block["valueScale"] = "rankDerivedValue"
+    block["descriptiveOnly"] = True
+    block["outgoingNotOnRoster"] = not_on_roster
+    block["notes"] = list(_TRADE_EXPOSURE_NOTES)
+    return block
