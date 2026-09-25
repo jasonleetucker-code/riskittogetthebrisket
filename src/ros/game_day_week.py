@@ -610,6 +610,10 @@ class ObservedSlate:
     observed_at: float | None
     stale: bool = False
     unmatched_game_ids: tuple[str, ...] = ()
+    #: Which provider's scoreboard this slate was read from
+    #: (``espn:scoreboard`` / ``sportsdataio:scores``); ``None`` when no
+    #: provider was read at all (no observation, or the feed is disabled).
+    source: str | None = None
 
 
 def _observed_state(obs: Any) -> tuple[str, float | None, str | None]:
@@ -633,7 +637,7 @@ def _observed_state(obs: Any) -> tuple[str, float | None, str | None]:
             fraction, reason = None, "overtime_possible"
         return "in_progress", fraction, reason
     if phase in (lgs.PHASE_DELAYED, lgs.PHASE_POSTPONED, lgs.PHASE_CANCELED):
-        state = "in_progress" if obs.espn_state == "in" else "not_started"
+        state = "in_progress" if obs.lifecycle_state == "in" else "not_started"
         return state, None, rr.reason or phase.lower()
     return "unknown", None, rr.reason or f"unknown_status:{obs.phase_reason}"
 
@@ -662,18 +666,24 @@ def observed_game_evidence(
     if not getattr(snapshot, "enabled", True):
         return ObservedSlate({}, "disabled", snapshot.error or "flag_disabled", None)
     observed_at = snapshot.observed_at.timestamp() if snapshot.observed_at else None
+    label = getattr(snapshot, "source_label", "espn:scoreboard")
     if not snapshot.ok:
-        return ObservedSlate({}, "unavailable", snapshot.error, observed_at)
+        return ObservedSlate({}, "unavailable", snapshot.error, observed_at, source=label)
     if (snapshot.season not in (None, season)) or (snapshot.week not in (None, week)):
         return ObservedSlate(
             {},
             "week_mismatch",
             f"scoreboard is {snapshot.season}/{snapshot.week}, asked {season}/{week}",
             observed_at,
+            source=label,
         )
     if snapshot.season_type not in (None, 2):
         return ObservedSlate(
-            {}, "week_mismatch", f"season_type {snapshot.season_type} is not regular", observed_at
+            {},
+            "week_mismatch",
+            f"season_type {snapshot.season_type} is not regular",
+            observed_at,
+            source=label,
         )
 
     scheduled: dict[frozenset[str], list[NflGame]] = {}
@@ -715,7 +725,7 @@ def observed_game_evidence(
                 fraction, reason = None, "stale_live_state"
         ev = GameEvidence(
             state=state,
-            source="espn:scoreboard",
+            source=obs.source_label,
             observed_at=obs_at,
             kickoff_at=kickoff if kickoff is not None else (match.kickoff_at if match else None),
             game_id=game_id,
@@ -729,7 +739,7 @@ def observed_game_evidence(
         evidence[home] = ev
         evidence[away] = ev
     return ObservedSlate(
-        evidence, "observed", None, observed_at, stale_any, tuple(sorted(unmatched))
+        evidence, "observed", None, observed_at, stale_any, tuple(sorted(unmatched)), source=label
     )
 
 
