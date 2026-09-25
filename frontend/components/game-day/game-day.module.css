@@ -50,6 +50,10 @@
 }
 .heroStale {
   color: var(--warning-text);
+  font-weight: var(--font-weight-semibold);
+}
+.unverified {
+  color: var(--warning-text);
 }
 .heroStatusSpacer {
   flex: 1 1 auto;
@@ -354,7 +358,8 @@
 /* globals.css sets `white-space: nowrap` on every bare td; these detail
    tables wrap instead, so names and reasons never push a phone sideways. */
 .gameDetail :global(.ds-table) td,
-.sideBlock :global(.ds-table) td {
+.sideBlock :global(.ds-table) td,
+.wrapTable :global(.ds-table) td {
   white-space: normal;
   overflow-wrap: anywhere;
 }

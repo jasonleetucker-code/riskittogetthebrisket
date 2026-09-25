@@ -32,6 +32,7 @@ import TNF_FINAL from "../fixtures/game-day/final.json";
 import WEEK_FINAL from "../fixtures/game-day/week-final.json";
 import MIXED from "../fixtures/game-day/mixed-slate.json";
 import FEED_DOWN from "../fixtures/game-day/live-feed-down.json";
+import STALE from "../fixtures/game-day/stale.json";
 
 const mockUserState = { state: { selectedTeam: null } };
 vi.mock("@/components/useUserState", () => ({
@@ -123,7 +124,7 @@ describe("GameDayPanel — pregame", () => {
     expect(
       screen.getByText(`Team 8 by ${Math.abs(team.expectedMarginVsOpponent).toFixed(1)}`),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Projections as of/)).toBeInTheDocument();
+    expect(screen.getByText(/^Current · as of/)).toBeInTheDocument();
   });
 
   it("labels the pregame lineup illustrative and never shows a counting lineup", async () => {
@@ -140,12 +141,14 @@ describe("GameDayPanel — live (real halftime capture)", () => {
     await renderReady(HALFTIME);
     expect(screen.getByText("Live")).toBeInTheDocument();
     const row = heroRow("Team 8");
-    expect(within(row).getByText(formatPoints(HALFTIME.team.pointsBanked))).toBeInTheDocument();
+    expect(
+      within(row).getByText(formatPoints(HALFTIME.team.scoreNow.bestBallFromBankedPoints)),
+    ).toBeInTheDocument();
     expect(
       within(row).getByText(formatPoints(HALFTIME.team.outcome.expectedFinalBestBall)),
     ).toBeInTheDocument();
     expect(within(row).getByText(formatPct(HALFTIME.team.outcome.winMatchupPct))).toBeInTheDocument();
-    expect(screen.getByText(/Live game status observed/)).toBeInTheDocument();
+    expect(screen.getByText(/^Current · as of .*\(20 s old\)$/)).toBeInTheDocument();
     expect(screen.queryByText(/Win chance paused/)).toBeNull();
   });
 
@@ -153,9 +156,11 @@ describe("GameDayPanel — live (real halftime capture)", () => {
     await renderReady(HALFTIME);
     // Real capture: Sleeper's team total for roster 10 still read 0.0 while
     // two of its players had scored (lineup 3.77).
-    expect(HALFTIME.opponent.actualScore).toBe(0);
+    const sn = HALFTIME.opponent.scoreNow;
+    expect(sn.hostReportedTotal).toBe(0);
+    expect(sn.hostTotalDiffers).toBe(true);
     const row = heroRow("Team 10");
-    expect(within(row).getByText(formatPoints(HALFTIME.opponent.pointsBanked))).toBeInTheDocument();
+    expect(within(row).getByText(formatPoints(sn.bestBallFromBankedPoints))).toBeInTheDocument();
     expect(within(row).getByText("Sleeper shows 0.0")).toBeInTheDocument();
   });
 
@@ -163,6 +168,12 @@ describe("GameDayPanel — live (real halftime capture)", () => {
     const p = clone(HALFTIME);
     p.opponent.actualScore = 0;
     p.opponent.pointsBanked = 0;
+    p.opponent.scoreNow = {
+      bestBallFromBankedPoints: 0,
+      complete: true,
+      hostReportedTotal: 0,
+      hostTotalDiffers: false,
+    };
     p.opponent.actualLineup = {
       ...p.opponent.actualLineup,
       slots: [],
@@ -213,28 +224,79 @@ describe("GameDayPanel — withheld probability", () => {
 
   it("says the live feed is down instead of presenting schedule state as live", async () => {
     await renderReady(FEED_DOWN);
-    expect(
-      screen.getByText(/Live game feed unavailable — game status from the schedule only/),
-    ).toBeInTheDocument();
+    // ESPN refused (HTTP 403): the collector's own freshness state says so.
+    expect(screen.getByText(/^Partial · as of .* · live game feed failed$/)).toBeInTheDocument();
     expect(
       screen.getByText(/Game status unknown for ATL @ GB — the live game feed is unavailable/),
     ).toBeInTheDocument();
     expect(within(heroTable()).queryByText(/%$/)).toBeNull();
   });
 
-  it("never turns unseen football into a 0.0 score: shows Sleeper's total, labelled", async () => {
+  it("scores banked points while the feed is down and shows Sleeper's lagging total beside them", async () => {
     await renderReady(FEED_DOWN);
-    const unknown = FEED_DOWN.team.players.filter((p) => p.state === "unknown");
-    expect(unknown.length).toBeGreaterThan(0);
+    const sn = FEED_DOWN.team.scoreNow;
     const row = heroRow("Team 8");
-    expect(within(row).getByText(formatPoints(FEED_DOWN.team.actualScore))).toBeInTheDocument();
-    expect(
-      within(row).getByText(`Sleeper total · game status unknown for ${unknown.length}`),
-    ).toBeInTheDocument();
+    expect(within(row).getByText(formatPoints(sn.bestBallFromBankedPoints))).toBeInTheDocument();
+    expect(within(row).getByText(`Sleeper shows ${formatPoints(sn.hostReportedTotal)}`)).toBeInTheDocument();
     expect(within(row).queryByText("No players have played yet")).toBeNull();
+  });
+
+  it("names unknown-state players with nothing banked instead of dropping them", async () => {
+    const p = clone(FEED_DOWN);
+    const ghost = p.team.players.find((x) => !p.team.actualLineup.slots.some((s) => s.playerId === x.playerId));
+    p.team.actualLineup.unknownStatePlayerIds = [ghost.playerId];
+    p.team.actualLineup.lineupState = "partial";
+    await renderReady(p);
+    expect(within(heroRow("Team 8")).getByText("Game status unknown for 1 player")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Best-ball details" }));
-    expect((await screen.findAllByText(/Game status unknown for/)).length).toBeGreaterThan(0);
-    expect(screen.queryByText(/No one on this roster has played yet/)).toBeNull();
+    expect(await screen.findByText(new RegExp(`Game status unknown for ${ghost.name}`))).toBeInTheDocument();
+  });
+});
+
+describe("GameDayPanel — freshness is never hidden", () => {
+  it("shows a stale generation as stale, with its age, in the hero and a banner", async () => {
+    await renderReady(STALE);
+    expect(screen.getByText(/^Stale · as of .*\(2 h old\)/)).toBeInTheDocument();
+    expect(screen.getByText("These numbers are out of date")).toBeInTheDocument();
+    expect(screen.getByText(/Last collected 2 h ago, past the 3 min budget/)).toBeInTheDocument();
+  });
+
+  it("shows a degraded, computed-on-request answer as degraded", async () => {
+    const p = clone(HALFTIME);
+    p.freshness = { ...p.freshness, state: "degraded", reasons: ["no_collector_generation"] };
+    await renderReady(p);
+    expect(screen.getByText(/^Degraded · .* computed on request/)).toBeInTheDocument();
+  });
+
+  it("lists every source with its status and age in Data info, failures visible", async () => {
+    await renderReady(FEED_DOWN);
+    fireEvent.click(screen.getByRole("button", { name: "Data info" }));
+    const table = await screen.findByRole("table", { name: /data sources and their freshness/ });
+    const espn = within(table).getByText(/^ESPN scoreboard/).closest("tr");
+    expect(espn).toHaveTextContent("error (http_error:403)");
+    expect(within(table).getByText(/^Sleeper league/).closest("tr")).toHaveTextContent("ok");
+    expect(screen.getByText("Partial")).toBeInTheDocument();
+    expect(screen.getByText(/live game feed failed/, { selector: "li" })).toBeInTheDocument();
+    expect(screen.getByText(/Shared live collector/)).toBeInTheDocument();
+  });
+});
+
+describe("GameDayPanel — beat median verification", () => {
+  it("marks an unverified median rule in the scoreboard with its reason", async () => {
+    const p = clone(PREGAME);
+    p.team.outcome.beatMedianVerified = false;
+    p.team.outcome.beatMedianUnverifiedReason = "odd_team_count_host_rule_unverified";
+    await renderReady(p);
+    expect(
+      within(heroRow("Team 8")).getByText(/Unverified — odd team count: the host's median rule is unverified/),
+    ).toBeInTheDocument();
+    expect(within(heroRow("Team 8")).getByText(formatPct(p.team.outcome.beatMedianPct))).toBeInTheDocument();
+  });
+
+  it("does not mark a verified median", async () => {
+    await renderReady(PREGAME);
+    expect(PREGAME.team.outcome.beatMedianVerified).toBe(true);
+    expect(screen.queryByText(/^Unverified/)).toBeNull();
   });
 });
 
@@ -297,12 +359,19 @@ describe("GameDayPanel — missing is never zero", () => {
     p.team.pointsBanked = null;
     p.team.actualLineup.total = null;
     p.team.actualLineup.missingPlayerIds = ["9509"];
+    p.team.scoreNow = {
+      bestBallFromBankedPoints: null,
+      complete: false,
+      hostReportedTotal: null,
+      hostTotalDiffers: null,
+    };
     const game = p.nflSlate.games.find((g) => g.gameId === "2026_3_ATL_GB");
     const live = game.players.find((x) => x.side === "team");
     live.pointsScored = null;
     live.projectedRemaining = null;
     const { container } = await renderReady(p);
     expect(within(heroRow("Team 8")).getByText("Unavailable")).toBeInTheDocument();
+    expect(within(heroRow("Team 8")).getByText("Partial — scoring missing for 1 player")).toBeInTheDocument();
     const row = container.querySelector('[data-game-id="2026_3_ATL_GB"]');
     fireEvent.click(within(row).getByRole("button", { name: /Players/ }));
     const cells = (await within(row).findByText(live.name)).closest("tr");
@@ -371,21 +440,6 @@ describe("GameDayPanel — data info honesty", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders the collector freshness block when the payload carries one", async () => {
-    const p = clone(HALFTIME);
-    p.freshness = {
-      observedAt: HALFTIME.lineage.sleeperFetchedAt,
-      computedAt: HALFTIME.lineage.sleeperFetchedAt,
-      fetchedAt: HALFTIME.lineage.sleeperFetchedAt,
-      payloadAgeSeconds: 12.4,
-      state: "fresh",
-      refreshInProgress: true,
-    };
-    await renderReady(p);
-    expect(screen.getByText(/^Updated /)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Data info" }));
-    expect(await screen.findByText(/12 s old when served · refresh in progress/)).toBeInTheDocument();
-  });
 });
 
 // ── States that are not errors (carried) ─────────────────────────────────
@@ -577,7 +631,7 @@ describe("GameDayPanel — background refresh", () => {
 
     const next = clone(HALFTIME);
     next.team.outcome.winMatchupPct = 64.2;
-    next.team.pointsBanked = 31.4;
+    next.team.scoreNow.bestBallFromBankedPoints = 31.4;
     globalThis.fetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => next });
     await act(async () => tick());
 

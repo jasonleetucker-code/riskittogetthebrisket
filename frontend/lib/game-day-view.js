@@ -433,47 +433,146 @@ export function whatMattersNow(payload) {
 
 // ── Freshness ────────────────────────────────────────────────────────────
 
+/** A duration in seconds for a reader: "20 s", "4 min", "2 h", "3 d". */
+export function formatAge(seconds) {
+  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds < 0) return null;
+  if (seconds < 90) return `${Math.round(seconds)} s`;
+  if (seconds < 90 * 60) return `${Math.round(seconds / 60)} min`;
+  if (seconds < 36 * 3600) return `${Math.round(seconds / 3600)} h`;
+  return `${Math.round(seconds / 86400)} d`;
+}
+
+const FRESHNESS_STATE_TEXT = {
+  current: "Current",
+  partial: "Partial",
+  degraded: "Degraded",
+  stale: "Stale",
+};
+
+const SOURCE_TEXT = {
+  live_game_state: "live game feed",
+  weekly_projections: "weekly projections",
+  sleeper_league: "Sleeper league data",
+  nflverse_schedule: "NFL schedule",
+};
+
 /**
- * One concise freshness line for the hero. Reads the collector's
- * `freshness` block when the payload carries one (Game Day U5), otherwise
- * the lineage the endpoint already publishes. Fetch time is never
- * presented as content freshness: the live feed's OBSERVED time is.
+ * One backend freshness reason (``src/ros/game_day_live.py``) in words.
+ * Unknown reasons are shown verbatim rather than dropped.
+ */
+export function freshnessReasonText(reason) {
+  const r = String(reason || "");
+  if (!r) return null;
+  const age = r.match(/^payload_age_(\d+)s_exceeds_(\d+)s$/);
+  if (age) {
+    return `${formatAge(Number(age[1]))} old, past its ${formatAge(Number(age[2]))} freshness budget`;
+  }
+  if (r === "payload_age_unknown") return "age unknown";
+  const [head, ...rest] = r.split(":");
+  const tail = rest.join(":");
+  if (SOURCE_TEXT[head]) {
+    return `${SOURCE_TEXT[head]} ${tail === "error" ? "failed" : tail ? `unavailable (${tail})` : "unavailable"}`;
+  }
+  switch (head) {
+    case "no_collector_generation":
+      return "computed on request — the shared collector has not published this week";
+    case "collector_absent_generation_stale":
+      return "the shared collector has stopped; recomputed on request";
+    case "generation_draws_or_seed_differ":
+      return "recomputed on request (collector ran a different simulation size)";
+    case "on_demand_refresh_failed":
+      return "the on-request refresh failed; showing the last collected answer";
+    case "generation_behind_latest_evidence":
+      return "newer evidence has been collected but not yet simulated";
+    case "last_collector_tick_failed":
+      return `the collector's last run failed${tail ? ` (${tail})` : ""}`;
+    default:
+      return r.replaceAll("_", " ");
+  }
+}
+
+/**
+ * The hero's freshness line. Reads the collector's `freshness` block
+ * (Game Day U5): its state (current / partial / degraded / stale), the
+ * as-of time and age, the first reason, and whether a refresh is running.
+ * Stale, partial and degraded are flagged (`warn`) — never hidden. Without
+ * the block (an older server), falls back to the lineage's own live-feed
+ * observation; fetch time is never presented as content freshness.
  */
 export function freshnessLine(payload) {
   const f = payload?.freshness;
   if (f && typeof f === "object") {
-    const at = formatClockTime(f.observedAt ?? f.computedAt ?? f.fetchedAt);
     const state = String(f.state || "").toLowerCase();
-    const word =
-      state === "fresh" || state === "current"
-        ? "Updated"
-        : state === "stale"
-          ? "Stale — last updated"
-          : state
-            ? `${state[0].toUpperCase()}${state.slice(1)} — last updated`
-            : "Updated";
-    return { text: at ? `${word} ${at}` : `${word} (time unavailable)`, stale: state === "stale" };
+    const label = FRESHNESS_STATE_TEXT[state] || (state ? state : "Freshness unknown");
+    const at = formatClockTime(f.asOf);
+    const age = formatAge(f.payloadAgeSeconds);
+    const parts = [label];
+    if (at) parts.push(`as of ${at}${age ? ` (${age} old)` : ""}`);
+    else parts.push("as-of time unknown");
+    const first = (f.reasons || [])[0];
+    // The age is already on the line; for an age reason say only the budget.
+    const ageBudget = String(first || "").match(/^payload_age_\d+s_exceeds_(\d+)s$/);
+    const reason = ageBudget
+      ? `past its ${formatAge(Number(ageBudget[1]))} freshness budget`
+      : freshnessReasonText(first);
+    if (reason && state !== "current") parts.push(reason);
+    if (f.refreshInProgress) parts.push("refresh running");
+    return {
+      text: parts.join(" · "),
+      warn: state !== "current",
+      stale: state === "stale",
+      state: state || "unknown",
+    };
   }
   const lineage = payload?.lineage || {};
-  if (payload?.mode === "final") return { text: "Final scoring", stale: false };
+  if (payload?.mode === "final") return { text: "Final scoring", warn: false, stale: false };
   if (payload?.mode === "pregame") {
     const weekly = lineage.weeklyProjection || {};
     if (weekly.state === "ok") {
       const at = formatDateTime(weekly.asOf || weekly.observedAt);
-      return { text: at ? `Projections as of ${at}` : "Weekly projections loaded", stale: false };
+      return {
+        text: at ? `Projections as of ${at}` : "Weekly projections loaded",
+        warn: false,
+        stale: false,
+      };
     }
-    return { text: "Weekly projections unavailable — preseason fallback where priced", stale: true };
+    return {
+      text: "Weekly projections unavailable — preseason fallback where priced",
+      warn: true,
+      stale: false,
+    };
   }
   const live = lineage.liveGameState || {};
   const at = formatClockTime(live.observedAt);
   if (live.state === "observed" && live.stale) {
-    return { text: `Live game feed stale${at ? ` since ${at}` : ""}`, stale: true };
+    return { text: `Live game feed stale${at ? ` since ${at}` : ""}`, warn: true, stale: true };
   }
   if (live.state === "observed") {
-    return { text: at ? `Live game status observed ${at}` : "Live game status observed", stale: false };
+    return {
+      text: at ? `Live game status observed ${at}` : "Live game status observed",
+      warn: false,
+      stale: false,
+    };
   }
   if (live.state === "disabled") {
-    return { text: "Live game feed off — game status from the schedule only", stale: true };
+    return { text: "Live game feed off — game status from the schedule only", warn: true, stale: false };
   }
-  return { text: "Live game feed unavailable — game status from the schedule only", stale: true };
+  return {
+    text: "Live game feed unavailable — game status from the schedule only",
+    warn: true,
+    stale: false,
+  };
+}
+
+const MEDIAN_REASON_TEXT = {
+  odd_team_count_host_rule_unverified: "odd team count: the host's median rule is unverified",
+  team_count_mismatch: "team count does not match the simulated league",
+  team_count_unknown: "team count unknown",
+  non_canonical_threshold_semantics: "non-standard median rule",
+  threshold_semantics_unverified: "median rule not verified against the host",
+};
+
+export function medianUnverifiedText(reason) {
+  if (!reason) return "median rule not verified against the host";
+  return MEDIAN_REASON_TEXT[reason] || String(reason).replaceAll("_", " ");
 }

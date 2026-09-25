@@ -12,6 +12,8 @@ frontend tests) are regenerated with it::
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from tests.game_day import ui_payloads
@@ -29,12 +31,34 @@ def test_committed_ui_fixture_matches_the_endpoint(name):
 
 
 def test_fixtures_cover_every_state_the_ui_renders():
-    built = {name: ui_payloads.build(name) for name in ("pregame", "overtime", "week-final")}
-    assert built["pregame"]["mode"] == "pregame"
-    assert built["overtime"]["probabilityState"] == "LIVE_PROGRESS_UNAVAILABLE"
-    assert "overtime" in built["overtime"]["progressUnavailableReasons"]
-    assert built["week-final"]["mode"] == "final"
-    assert built["week-final"]["team"]["result"] in {"WIN", "LOSS", "TIE"}
+    """Read from the committed files (pinned equal to the backend above)."""
+    load = {
+        name: json.loads(ui_payloads.fixture_path(name).read_text(encoding="utf-8"))
+        for name in ui_payloads.SCENARIOS
+    }
+    assert load["pregame"]["mode"] == "pregame"
+    assert load["overtime"]["probabilityState"] == "LIVE_PROGRESS_UNAVAILABLE"
+    assert "overtime" in load["overtime"]["progressUnavailableReasons"]
+    assert load["week-final"]["mode"] == "final"
+    assert load["week-final"]["team"]["result"] in {"WIN", "LOSS", "TIE"}
+    # Every payload is SERVED from a collector generation with a freshness
+    # block, and the freshness states the UI must render are all present.
+    assert all(p["freshness"]["servedFrom"] == "collector_generation" for p in load.values())
+    assert load["halftime"]["freshness"]["state"] == "current"
+    assert load["live-feed-down"]["freshness"]["state"] == "partial"
+    assert load["live-feed-down"]["freshness"]["sources"]["espnScoreboard"]["error"] == (
+        "http_error:403"
+    )
+    assert load["stale"]["freshness"]["state"] == "stale"
+    # U4 canonical score fields the scoreboard renders.
+    sn = load["halftime"]["team"]["scoreNow"]
+    assert set(sn) == {
+        "bestBallFromBankedPoints",
+        "complete",
+        "hostReportedTotal",
+        "hostTotalDiffers",
+    }
+    assert load["pregame"]["team"]["outcome"]["beatMedianVerified"] is True
 
 
 def test_expected_margin_is_the_difference_of_the_two_expected_finals():

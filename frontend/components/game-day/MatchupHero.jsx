@@ -5,19 +5,24 @@
  * opponent, as one compact scoreboard.
  *
  * Renders, verbatim from `GET /api/matchup/intel`:
- *   Score now        side.pointsBanked — the canonical best-ball lineup
- *                    over points already scored (live); side.actualScore,
- *                    the host's total, is the final score of record and is
- *                    shown beside ours whenever the two differ
+ *   Score now        side.scoreNow.bestBallFromBankedPoints (live) with
+ *                    "Sleeper shows X" when hostTotalDiffers, a partial
+ *                    marker when complete === false, and the count of
+ *                    actualLineup.unknownStatePlayerIds; the host total is
+ *                    the final score of record
  *   Projected finish side.outcome.expectedFinalBestBall (mean of the
  *                    OPTIMIZED best-ball total over simulation draws), with
  *                    outcome.projectedP10–projectedP90 as its 80% range
  *   Win chance       side.outcome.winMatchupPct
  *   Beat median      side.outcome.beatMedianPct (only where the league plays
- *                    a median game — lineage.medianEnabled === true)
+ *                    a median game — lineage.medianEnabled === true), marked
+ *                    "Unverified" with beatMedianUnverifiedReason when
+ *                    beatMedianVerified === false
  *   Projected margin team.outcome.expectedMarginVsOpponent
  *   state            payload.mode -> Upcoming / Live / Final
- *   freshness        payload.freshness (U5) when present, else lineage
+ *   freshness        payload.freshness (U5 collector): state, as-of, age,
+ *                    first reason, refresh running; stale / partial /
+ *                    degraded are flagged, and stale also gets a banner
  *
  * A withheld probability shows its NAMED reason in words, never a number.
  * An absent score is "Unavailable", never 0.0.
@@ -27,8 +32,10 @@ import { Banner, Button, StatusIndicator } from "@/components/ds";
 import {
   formatPct,
   formatPoints,
+  formatAge,
   freshnessLine,
   marginText,
+  medianUnverifiedText,
   matchupStateLabel,
   withheldProbabilityReasons,
 } from "@/lib/game-day-view";
@@ -39,38 +46,34 @@ const STATE_TONE = { live: "info", final: "neutral", pregame: "neutral" };
 function ScoreCell({ side, mode }) {
   if (mode === "pregame") return null;
   const lineup = side?.actualLineup;
-  // LIVE: the score is the best-ball lineup of points already scored —
-  // `pointsBanked` (= actualLineup.total, the canonical lineup owner's
-  // answer). Sleeper's own in-progress team total can lag its player
-  // points (measured in the real TNF capture: 0.0 beside a 3.77 lineup), so
-  // it is shown beside ours when they differ, never silently preferred.
-  // FINAL: the host's final total is the result of record.
-  // UNKNOWN GAME STATE: the current lineup only seats players whose game is
-  // OBSERVED begun, so a player whose status the feed could not see is in
-  // neither its seats nor its missing list — its total would read as an
-  // honest-looking 0.0 while Sleeper shows points. Then the host total is
-  // the only stated score, and it is labelled as such.
-  const unknown = (side?.players || []).filter((p) => p.state === "unknown").length;
-  const hostOnly = mode === "live" && unknown > 0;
-  const banked = lineup ? (side?.pointsBanked ?? lineup.total ?? null) : null;
-  const primaryValue =
-    mode === "final" || hostOnly || !lineup ? side?.actualScore : banked;
-  const value = formatPoints(primaryValue);
-  const host = formatPoints(side?.actualScore);
+  const sn = side?.scoreNow;
+  // LIVE: `scoreNow.bestBallFromBankedPoints` — the canonical best-ball
+  // lineup over points already banked (whatever the game state). Sleeper's
+  // own team total (`hostReportedTotal`) can lag its player points, so it is
+  // shown beside ours when `hostTotalDiffers`, never silently preferred.
+  // FINAL: the host's final total is the result of record, with ours beside
+  // it if they differ.
+  const ours = sn ? sn.bestBallFromBankedPoints : (side?.pointsBanked ?? lineup?.total ?? null);
+  const host = sn ? sn.hostReportedTotal : side?.actualScore;
+  const value = formatPoints(mode === "final" ? (host ?? ours) : ours);
   const notes = [];
-  if (hostOnly) {
-    notes.push(`Sleeper total · game status unknown for ${unknown}`);
-  } else if (value === null && lineup?.missingPlayerIds?.length) {
-    const known = formatPoints(lineup.knownSubtotal);
-    notes.push(
-      `Scoring missing for ${lineup.missingPlayerIds.length}${known ? ` · known ${known}` : ""}`,
-    );
+  const complete = sn ? sn.complete : lineup?.complete;
+  if (complete === false) {
+    const n = lineup?.missingPlayerIds?.length || 0;
+    notes.push(`Partial — scoring missing for ${n} player${n === 1 ? "" : "s"}`);
+  }
+  const unknown = lineup?.unknownStatePlayerIds?.length || 0;
+  if (unknown) {
+    notes.push(`Game status unknown for ${unknown} player${unknown === 1 ? "" : "s"}`);
   } else if (lineup?.lineupState === "not_started") {
     notes.push("No players have played yet");
   }
-  const secondary = mode === "final" ? formatPoints(banked) : host;
-  if (!hostOnly && value !== null && secondary !== null && secondary !== value) {
-    notes.push(mode === "final" ? `Best-ball lineup ${secondary}` : `Sleeper shows ${secondary}`);
+  const differs = sn ? sn.hostTotalDiffers === true : false;
+  if (differs) {
+    const other = formatPoints(mode === "final" ? ours : host);
+    if (other !== null) {
+      notes.push(mode === "final" ? `Best-ball lineup ${other}` : `Sleeper shows ${other}`);
+    }
   }
   return (
     <td className={styles.numCell}>
@@ -98,7 +101,9 @@ function OutcomeCells({ side, mode, medianShown }) {
     );
   }
   const o = side?.outcome;
-  const paused = <span className={styles.withheldWord}>{mode === "live" ? "Paused" : "Unavailable"}</span>;
+  const paused = (
+    <span className={styles.withheldWord}>{mode === "live" ? "Paused" : "Unavailable"}</span>
+  );
   const finish = formatPoints(o?.expectedFinalBestBall);
   const lo = formatPoints(o?.projectedP10);
   const hi = formatPoints(o?.projectedP90);
@@ -106,10 +111,20 @@ function OutcomeCells({ side, mode, medianShown }) {
   let median = null;
   if (medianShown) {
     const pct = formatPct(o?.beatMedianPct);
+    const unverified = o?.beatMedianVerified === false;
     median = pct ? (
-      <span className={styles.midNum}>{pct}</span>
+      <>
+        <span className={styles.midNum}>{pct}</span>
+        {unverified ? (
+          <span className={`${styles.numNote} ${styles.unverified}`}>
+            Unverified — {medianUnverifiedText(o?.beatMedianUnverifiedReason)}
+          </span>
+        ) : null}
+      </>
     ) : o ? (
-      <span className={styles.withheldWord}>Not verified</span>
+      <span className={styles.withheldWord}>
+        {unverified ? "Unverified" : "Unavailable"}
+      </span>
     ) : (
       paused
     );
@@ -172,7 +187,9 @@ export default function MatchupHero({ payload, refreshing, onRefresh }) {
         <span id="game-day-hero-title" className={styles.heroEyebrow}>
           Week {p.week} · {p.season}
         </span>
-        <span className={fresh.stale ? styles.heroStale : undefined}>{fresh.text}</span>
+        <span className={fresh.warn ? styles.heroStale : undefined} data-freshness={fresh.state}>
+          {fresh.text}
+        </span>
         <span className={styles.heroStatusSpacer} />
         {onRefresh ? (
           // Not `loading`: that disables the button, and disabling a focused
@@ -212,6 +229,18 @@ export default function MatchupHero({ payload, refreshing, onRefresh }) {
       </table>
 
       {!opponent ? <p className={styles.note}>No scheduled opponent this week.</p> : null}
+
+      {fresh.stale ? (
+        <Banner tone="warning" title="These numbers are out of date">
+          <p>
+            Last collected {formatAge(p.freshness?.payloadAgeSeconds) || "an unknown time"} ago
+            {p.freshness?.staleAfterSeconds
+              ? `, past the ${formatAge(p.freshness.staleAfterSeconds)} budget for this phase`
+              : ""}
+            . Scores and chances below may have moved since.
+          </p>
+        </Banner>
+      ) : null}
 
       {withheld.length ? (
         <Banner tone="warning" title={mode === "live" ? "Win chance paused" : "Win chance unavailable"}>

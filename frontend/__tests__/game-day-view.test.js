@@ -15,7 +15,10 @@ import {
   formatLineupPct,
   formatPct,
   formatPoints,
+  formatAge,
   freshnessLine,
+  freshnessReasonText,
+  medianUnverifiedText,
   gamePhaseKind,
   gameStatusText,
   leverageGames,
@@ -32,6 +35,7 @@ import OVERTIME from "./fixtures/game-day/overtime.json";
 import WEEK_FINAL from "./fixtures/game-day/week-final.json";
 import MIXED from "./fixtures/game-day/mixed-slate.json";
 import FEED_DOWN from "./fixtures/game-day/live-feed-down.json";
+import STALE from "./fixtures/game-day/stale.json";
 
 describe("formatters keep missing distinct from zero", () => {
   it.each([null, undefined, Number.NaN, "3"])("formats %s as null, never 0", (v) => {
@@ -173,32 +177,67 @@ describe("selectors pass backend values through", () => {
   });
 });
 
-describe("freshness line", () => {
-  it("reads the observed live time, not the fetch time", () => {
-    expect(freshnessLine(HALFTIME).text).toMatch(/^Live game status observed \d/);
-    expect(freshnessLine(HALFTIME).stale).toBe(false);
+describe("freshness line (the U5 collector block)", () => {
+  const without = (p) => {
+    const out = JSON.parse(JSON.stringify(p));
+    delete out.freshness;
+    return out;
+  };
+
+  it("names a current generation with its as-of time and age", () => {
+    expect(HALFTIME.freshness.state).toBe("current");
+    const line = freshnessLine(HALFTIME);
+    expect(line.text).toMatch(/^Current · as of \d{1,2}:\d{2} [AP]M E[SD]T \(20 s old\)$/);
+    expect(line.warn).toBe(false);
   });
 
-  it("says the feed is down rather than implying live tracking", () => {
-    expect(freshnessLine(FEED_DOWN)).toEqual({
-      text: "Live game feed unavailable — game status from the schedule only",
-      stale: true,
-    });
+  it("flags a partial state with the failed source (ESPN 403), never hiding it", () => {
+    expect(FEED_DOWN.freshness.state).toBe("partial");
+    const line = freshnessLine(FEED_DOWN);
+    expect(line.text).toMatch(/^Partial · as of .* · live game feed failed$/);
+    expect(line.warn).toBe(true);
   });
 
-  it("flags a stale observation", () => {
-    const p = JSON.parse(JSON.stringify(HALFTIME));
-    p.lineage.liveGameState.stale = true;
-    expect(freshnessLine(p).text).toMatch(/^Live game feed stale since/);
-  });
-
-  it("prefers the collector's freshness block when present", () => {
-    const line = freshnessLine({ ...HALFTIME, freshness: { state: "stale", computedAt: 1790300978 } });
-    expect(line.text).toMatch(/^Stale — last updated /);
+  it("flags a stale generation with its true age against the budget", () => {
+    expect(STALE.freshness.state).toBe("stale");
+    const line = freshnessLine(STALE);
     expect(line.stale).toBe(true);
+    expect(line.text).toMatch(/^Stale · as of .*\(2 h old\) · past its 3 min freshness budget$/);
   });
 
-  it("pregame names the projection as-of time", () => {
-    expect(freshnessLine(PREGAME).text).toMatch(/^Projections as of /);
+  it("names a degraded, computed-on-request answer and a running refresh", () => {
+    const p = JSON.parse(JSON.stringify(HALFTIME));
+    p.freshness = { ...p.freshness, state: "degraded", reasons: ["no_collector_generation"], refreshInProgress: true };
+    const line = freshnessLine(p);
+    expect(line.text).toMatch(/^Degraded · .* · computed on request .* · refresh running$/);
+    expect(line.warn).toBe(true);
+  });
+
+  it("falls back to the lineage's observed live time when the block is absent", () => {
+    expect(freshnessLine(without(HALFTIME)).text).toMatch(/^Live game status observed \d/);
+    expect(freshnessLine(without(FEED_DOWN))).toEqual({
+      text: "Live game feed unavailable — game status from the schedule only",
+      warn: true,
+      stale: false,
+    });
+    expect(freshnessLine(without(PREGAME)).text).toMatch(/^Projections as of /);
+  });
+
+  it("words every backend reason, and shows an unknown one verbatim", () => {
+    expect(freshnessReasonText("payload_age_7200s_exceeds_180s")).toBe(
+      "2 h old, past its 3 min freshness budget",
+    );
+    expect(freshnessReasonText("weekly_projections:no_usable_fetch")).toBe(
+      "weekly projections unavailable (no_usable_fetch)",
+    );
+    expect(freshnessReasonText("last_collector_tick_failed:Timeout")).toMatch(/last run failed \(Timeout\)/);
+    expect(freshnessReasonText("something_new")).toBe("something new");
+    expect(formatAge(20)).toBe("20 s");
+    expect(formatAge(null)).toBeNull();
+  });
+
+  it("names an unverified median rule", () => {
+    expect(medianUnverifiedText("odd_team_count_host_rule_unverified")).toMatch(/odd team count/);
+    expect(medianUnverifiedText(null)).toMatch(/not verified/);
   });
 });

@@ -1,73 +1,94 @@
 """Game Day U7 — real ``/api/matchup/intel`` payloads for the UI, from the U4 replay.
 
 The Game Day UI is a pure renderer of the matchup payload, so its component
-tests must read what the backend ACTUALLY emits rather than a hand-written
-approximation of it.  This module runs the real endpoint assembly
-(:func:`src.api.matchup_intel.build_matchup_intel`) over the captured replay
-inputs in ``tests/fixtures/game_day/replay/`` — the same seams
-``test_game_day_replay.py`` replaces, nothing else — and writes the JSON the
-frontend tests load from ``frontend/__tests__/fixtures/game-day/``.
+tests (and the /game-day E2E spec) must read what the backend ACTUALLY
+emits rather than a hand-written approximation of it.  This module drives
+the PRODUCTION path end to end over the captured replay inputs in
+``tests/fixtures/game_day/replay/``:
 
-``test_game_day_ui_fixtures.py`` regenerates every scenario and fails if a
-committed fixture differs, so a backend change that alters what the UI reads
-cannot land without the UI fixtures (and therefore the UI tests) seeing it.
+1. the U5 shared collector (``src.ros.game_day_live.run_tick``) ticks with
+   only its network clients replaced by the captures — the same
+   ``FixtureWorld`` the collector suite uses — and writes a versioned
+   generation to a private temporary ``LIVE_ROOT``;
+2. ``src.api.matchup_intel.build_matchup_intel`` then SERVES that generation
+   (its request-path network seam raises, so nothing is recomputed) with the
+   collector's ``freshness`` block, exactly as ``GET /api/matchup/intel``
+   would.
 
-Regenerate::
+Output: ``frontend/__tests__/fixtures/game-day/*.json``.
+``test_game_day_ui_fixtures.py`` regenerates every scenario and requires
+byte equality, so a backend change to anything the UI reads fails there
+until the fixtures (and therefore the UI tests) are regenerated with it::
 
     python -m tests.game_day.ui_payloads
 
 Labelling.  Team names are replay labels (``Team 8``), never real managers.
-Every non-capture input is named in each fixture's ``_fixture.description``:
-the pregame scenario re-stamps the REAL 00:58Z weekly projections fetch as
-observed at 00:11Z so a pre-kickoff board exists (no capture predates kickoff)
-— exactly the ``projections_synthetic_pre_kickoff.json`` caveat, applied to
-every game — and ``week-final`` finishes the rest of the week synthetically.
-Volatile fields that describe the machine rather than the payload
-(simulation cache timestamps, the local pregame archive) are normalized.
+Every non-capture input is named in each fixture's ``_fixture.description``.
+The wall clock is pinned to the scenario's own clock throughout (collector
+tick, simulation cache stamp, freshness ages), so the output is
+deterministic; the local pregame archive is normalized to "not captured".
 """
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import shutil
 import sys
 import tempfile
 from dataclasses import replace
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
 from src.api import matchup_intel
-from src.nfl_data.live_game_state import parse_scoreboard
+from src.ros import game_day_live as live
 from src.ros import game_day_sim
+from tests.game_day.test_game_day_live_collector import (
+    LEAGUES,
+    TNF_KICKOFF,
+    FixtureWorld,
+    _pregame_espn,
+)
 from tests.game_day.test_game_day_replay import (
     PLAYERS,
-    PRE_KICKOFF_FETCH,
     REAL_FETCH,
-    REPLAY,
     SEASON,
     WEEK,
-    _json,
     _scenario,
-    _schedule_rows,
 )
 
 OUT_DIR = Path(__file__).resolve().parents[2] / "frontend" / "__tests__" / "fixtures" / "game-day"
-#: Enough draws for stable leverage rows; the replay suite's own count is 200.
+#: Enough draws for stable leverage rows (production serves 2000).
 DRAWS = 400
+SEED = game_day_sim.DEFAULT_SEED
 #: Roster 8 vs 10 is the closest real matchup in the capture (~80/20 at halftime).
 ROSTER = 8
+#: A served payload is read this long after the tick that produced it.
+SERVE_LAG_SECONDS = 20.0
+#: The weekly-projection fetch every scenario's pre-kickoff collector tick
+#: sees: the REAL 00:58Z fetch re-stamped as observed 00:10Z (LABELLED
+#: SYNTHETIC — no capture predates the TNF kickoff; the same caveat as
+#: ``projections_synthetic_pre_kickoff.json``, applied to every game so the
+#: Sunday players hold a baseline, as a collector running all week would).
+PRE_KICKOFF_WEEKLY = replace(REAL_FETCH, observed_at="2026-09-25T00:10:00+00:00")
 
 #: name -> (scenario dir, options, description)
 SCENARIOS: dict[str, tuple[str, dict, str]] = {
     "pregame": (
         "real_end_q1",
         {"pregame": True},
-        "SYNTHETIC CLOCK over real inputs: now = 2026-09-25T00:12Z (before GB@ATL "
-        "kickoff); live feed not yet consulted; the REAL 00:58Z weekly projection "
-        "fetch re-stamped as observed 00:11Z.",
+        "SYNTHETIC CLOCK over real inputs: collector tick at 2026-09-25T00:12Z "
+        "(before GB@ATL kickoff), every ESPN game rewritten to scheduled, no points "
+        "banked, and the REAL 00:58Z weekly projection fetch re-stamped as observed "
+        "00:11Z so a full pre-kickoff board exists.",
     ),
-    "halftime": ("real_halftime", {}, "REAL capture: GB@ATL halftime."),
+    "halftime": (
+        "real_halftime",
+        {},
+        "REAL capture: GB@ATL halftime.  Collector ticked once pre-kickoff and once "
+        "at capture (see PRE_KICKOFF_WEEKLY).",
+    ),
     "overtime": (
         "synthetic_overtime",
         {},
@@ -76,7 +97,7 @@ SCENARIOS: dict[str, tuple[str, dict, str]] = {
     "final": (
         "real_final",
         {},
-        "REAL capture: GB@ATL final; the host week is otherwise unplayed, so the "
+        "REAL capture: GB@ATL final; the rest of the week is unplayed, so the "
         "matchup is still live (Sunday games scheduled).",
     ),
     "mixed-slate": (
@@ -91,12 +112,19 @@ SCENARIOS: dict[str, tuple[str, dict, str]] = {
         "to STATUS_FINAL at a synthetic now of 2026-09-29T12:00Z; players of those games "
         "get deterministic synthetic points (pid%17 x 0.75, -1.25 when pid%13==0, the "
         "mixed-slate rule) and each host team total is set to the canonical best-ball "
-        "lineup total of those points (two-pass build).",
+        "total of those points (two-pass build).",
     ),
     "live-feed-down": (
         "real_halftime",
-        {"snapshot_error": "fetch_failed:TimeoutError"},
-        "REAL halftime capture with the live scoreboard read failing.",
+        {"espn_error": "http_error:403"},
+        "REAL halftime capture with every ESPN scoreboard read refused (HTTP 403, as "
+        "observed from at least one location on 2026-09-25) — partial live state.",
+    ),
+    "stale": (
+        "real_halftime",
+        {"serve_lag": 7200.0},
+        "REAL halftime capture served two hours after the collector's last tick (no "
+        "tick since) — the generation is served as-is at its true age, marked stale.",
     ),
 }
 
@@ -110,6 +138,24 @@ def _users(matchups) -> list[dict]:
         }
         for m in matchups
     ]
+
+
+class _World(FixtureWorld):
+    """The collector suite's fixture world: one league, labelled team names."""
+
+    def clients(self) -> live.Clients:
+        base = super().clients()
+        league = LEAGUES["dynasty_main"]
+        return dataclasses.replace(
+            base,
+            users=lambda sid: _users(self._matchups("dynasty_main")),
+            leagues=lambda: [live.LeagueTarget("dynasty_main", str(league["league_id"]), {})],
+        )
+
+    def tick(self, **kw) -> live.TickReport:
+        return live.run_tick(
+            clients=self.clients(), clock=self.clock, force=True, draws=DRAWS, seed=SEED, **kw
+        )
 
 
 def _week_final(sc: dict) -> None:
@@ -142,116 +188,112 @@ def _week_final(sc: dict) -> None:
         m["points"] = None
 
 
+def _tick(world: _World) -> None:
+    with mock.patch("time.time", side_effect=lambda: world.clock()):
+        report = world.tick()
+    league = report.leagues.get("dynasty_main") or {}
+    if report.exit_code != 0 or not league.get("ok"):
+        raise RuntimeError(f"collector tick failed: {report.outcome} {report.error} {league}")
+
+
+def _serve(owner_id: str, now: float) -> dict:
+    league = LEAGUES["dynasty_main"]
+    with (
+        mock.patch("time.time", return_value=now),
+        mock.patch.object(
+            matchup_intel, "_fetch_league_week", side_effect=RuntimeError("replay: no network")
+        ),
+        mock.patch.object(
+            matchup_intel,
+            "_archive_evidence",
+            return_value={"state": "not_captured", "teamsCaptured": 0},
+        ),
+    ):
+        return matchup_intel.build_matchup_intel(
+            league_key="dynasty_main",
+            sleeper_league_id=str(league["league_id"]),
+            owner_id=owner_id,
+            season=SEASON,
+            week=WEEK,
+            draws=DRAWS,
+            seed=SEED,
+        )
+
+
+def _run_world(sc: dict, opts: dict) -> tuple[_World, float]:
+    """Tick the collector over ``sc`` the way it would have run; returns the world."""
+    captured = datetime.fromisoformat(sc["meta"]["capturedAt"]).timestamp()
+    world = _World("real_halftime", now=TNF_KICKOFF - 300)
+    world.sc = sc
+    world.captured_at = captured
+    if opts.get("espn_error"):
+        world.espn_error = opts["espn_error"]
+    if opts.get("pregame"):
+        now = datetime(2026, 9, 25, 0, 12, tzinfo=timezone.utc).timestamp()
+        world.clock.ts = now
+        world.sc = {
+            **sc,
+            "matchups": {
+                k: [
+                    {**m, "points": 0.0, "players_points": {p: 0.0 for p in m["players"]}}
+                    for m in rows
+                ]
+                for k, rows in sc["matchups"].items()
+            },
+        }
+        world.espn_override = _pregame_espn(sc["espn"])
+        world.weekly_result = replace(REAL_FETCH, observed_at="2026-09-25T00:11:00+00:00")
+        _tick(world)
+        return world, now
+    # A pre-kickoff tick (every game scheduled, the pre-kickoff weekly fetch),
+    # then the capture itself — how the collector would have seen the night.
+    if not opts.get("espn_error"):
+        world.espn_override = _pregame_espn(sc["espn"])
+    world.weekly_result = PRE_KICKOFF_WEEKLY
+    _tick(world)
+    world.clock.ts = captured
+    world.espn_override = None
+    world.weekly_result = REAL_FETCH
+    _tick(world)
+    return world, captured
+
+
 def build(name: str) -> dict:
-    """The normalized payload for one UI scenario (see :data:`SCENARIOS`)."""
+    """The served payload for one UI scenario (see :data:`SCENARIOS`)."""
     scenario_dir, opts, description = SCENARIOS[name]
     sc = json.loads(json.dumps(_scenario(scenario_dir)))
-    if opts.get("week_final"):
-        _week_final(sc)
-        sc["meta"]["capturedAt"] = "2026-09-29T12:00:00+00:00"
-        # Pass 1 reads the canonical lineup totals; pass 2 states them as the
-        # host totals (labelled in the scenario description).
-        first = _build_payload(sc, opts, all_rosters=True)
-        for m in sc["matchups"]["dynasty_main"]:
-            m["points"] = first[str(m["roster_id"])]
-    return _finish(_build_payload(sc, opts), scenario_dir, description)
-
-
-def _build_payload(sc: dict, opts: dict, *, all_rosters: bool = False):
-    league = _json(REPLAY / "shared" / "dynasty_main_league.json")
-    matchups = sc["matchups"]["dynasty_main"]
-    pregame = bool(opts.get("pregame"))
-    if pregame:
-        now_dt = datetime.fromisoformat("2026-09-25T00:12:00+00:00")
-        # No player has played: the host reports nothing banked yet.
-        matchups = [
-            {**m, "points": 0.0, "players_points": {pid: 0.0 for pid in m["players"]}}
-            for m in matchups
-        ]
-    else:
-        now_dt = datetime.fromisoformat(sc["meta"]["capturedAt"])
-    now = now_dt.timestamp()
-    rosters = [
-        {
-            "roster_id": m["roster_id"],
-            "owner_id": f"owner-{m['roster_id']}",
-            "players": m["players"],
-        }
-        for m in matchups
-    ]
-    fetched = matchup_intel._LeagueFetch(
-        league=league,
-        users=_users(matchups),
-        rosters=rosters,
-        matchups=matchups,
-        players=PLAYERS,
-        fetched_at=now,
-    )
-    if pregame:
-        snapshot = parse_scoreboard(None, observed_at=now_dt, error="flag_disabled", enabled=False)
-        fetches = (replace(REAL_FETCH, observed_at="2026-09-25T00:11:00+00:00"),)
-    elif opts.get("snapshot_error"):
-        snapshot = parse_scoreboard(None, observed_at=now_dt, error=opts["snapshot_error"])
-        fetches = (PRE_KICKOFF_FETCH, REAL_FETCH)
-    else:
-        snapshot = parse_scoreboard(sc["espn"], observed_at=now_dt - timedelta(seconds=30))
-        fetches = (PRE_KICKOFF_FETCH, REAL_FETCH)
-
-    tmp = tempfile.mkdtemp(prefix="game_day_ui_payloads_")
-    original_root = game_day_sim._SIM_CACHE_ROOT
-    game_day_sim._SIM_CACHE_ROOT = Path(tmp)
+    tmp = Path(tempfile.mkdtemp(prefix="game_day_ui_payloads_"))
+    saved = (live.LIVE_ROOT, game_day_sim._SIM_CACHE_ROOT)
+    live.LIVE_ROOT = tmp / "live"
+    game_day_sim._SIM_CACHE_ROOT = tmp / "sim"
+    live._generation_cache.clear()
+    matchup_intel._weekly_memo.clear()
+    matchup_intel._live_state_memo.clear()
     try:
-        with (
-            mock.patch.object(matchup_intel, "_fetch_league_week", return_value=fetched),
-            mock.patch.object(
-                matchup_intel,
-                "_schedule_context",
-                return_value=(_schedule_rows(sc["espn"]), now - 3600.0, now),
-            ),
-            mock.patch.object(matchup_intel, "_observe_live_state", return_value=snapshot),
-            mock.patch.object(
-                matchup_intel, "_weekly_projection_fetches", return_value=(fetches, "ok", None)
-            ),
-            mock.patch.object(matchup_intel, "_resolve_estimates", return_value=({}, None, (), ())),
-            mock.patch.object(
-                matchup_intel,
-                "_archive_evidence",
-                return_value={"state": "not_captured", "teamsCaptured": 0},
-            ),
-        ):
-            if all_rosters:
-                totals = {}
-                for m in matchups:
-                    out = matchup_intel.build_matchup_intel(
-                        league_key="dynasty_main",
-                        sleeper_league_id=str(league["league_id"]),
-                        owner_id=f"owner-{m['roster_id']}",
-                        season=SEASON,
-                        week=WEEK,
-                        draws=DRAWS,
-                    )
-                    totals[str(m["roster_id"])] = out["team"]["actualLineup"]["total"]
-                return totals
-            return matchup_intel.build_matchup_intel(
-                league_key="dynasty_main",
-                sleeper_league_id=str(league["league_id"]),
-                owner_id=f"owner-{ROSTER}",
-                season=SEASON,
-                week=WEEK,
-                draws=DRAWS,
-            )
+        if opts.get("week_final"):
+            _week_final(sc)
+            sc["meta"]["capturedAt"] = "2026-09-29T12:00:00+00:00"
+            world, now = _run_world(sc, opts)
+            # Pass 2: state the canonical best-ball totals as the host's.
+            for m in sc["matchups"]["dynasty_main"]:
+                side = _serve(f"owner-{m['roster_id']}", now + SERVE_LAG_SECONDS)["team"]
+                m["points"] = side["scoreNow"]["bestBallFromBankedPoints"]
+            world.sc = sc
+            world.clock.ts = now + 60.0
+            _tick(world)
+            now = world.clock()
+        else:
+            world, now = _run_world(sc, opts)
+        payload = _serve(f"owner-{ROSTER}", now + opts.get("serve_lag", SERVE_LAG_SECONDS))
     finally:
-        game_day_sim._SIM_CACHE_ROOT = original_root
+        live.LIVE_ROOT, game_day_sim._SIM_CACHE_ROOT = saved
+        live._generation_cache.clear()
         shutil.rmtree(tmp, ignore_errors=True)
+    return _finish(payload, scenario_dir, description)
 
 
 def _finish(payload: dict, scenario_dir: str, description: str) -> dict:
     payload = json.loads(json.dumps(payload, default=list))
-    sim = (payload.get("lineage") or {}).get("simulation")
-    if sim:
-        # Machine-local cache facts, not properties of the payload.
-        sim["cached"] = False
-        sim["cacheComputedAt"] = payload["lineage"].get("sleeperFetchedAt")
     payload["_fixture"] = {
         "scenario": scenario_dir,
         "description": description,

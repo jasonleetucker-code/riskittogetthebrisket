@@ -13,11 +13,83 @@
  *                 players' imputedScoringKeys (OUR estimate, labelled so)
  *   method        remainingProductionMethod, leverageDefinition
  *   simulation    lineage.simulation (modelVersion, draws, computed at)
- *   freshness     payload.freshness (U5 collector) when the payload has it
+ *   freshness     payload.freshness (U5 collector): state + every reason,
+ *                 as-of / age / stale budget, generation, refresh running,
+ *                 and one row per source {status, fetchedAt, observedAt
+ *                 (+ basis), ageSeconds} — a failed source is shown failed
  */
 
-import { formatDateTime } from "@/lib/game-day-view";
+import { DataTable } from "@/components/ds";
+import { formatAge, formatDateTime, freshnessReasonText } from "@/lib/game-day-view";
 import styles from "./game-day.module.css";
+
+
+const FRESHNESS_LABEL = {
+  current: "Current",
+  partial: "Partial",
+  degraded: "Degraded",
+  stale: "Stale",
+};
+
+const SERVED_FROM = {
+  collector_generation: "Shared live collector (cached generation)",
+  request_compute: "Computed on request (no collector generation)",
+};
+
+const SOURCE_LABEL = {
+  espnScoreboard: "ESPN scoreboard (quarter / clock / status)",
+  sleeperLeague: "Sleeper league, rosters, matchups",
+  sleeperLiveStats: "Sleeper live stat lines",
+  weeklyProjections: "Weekly projections (RotoWire via Sleeper)",
+  nflverseSchedule: "NFL schedule (nflverse cache)",
+  preseasonProjection: "Preseason projection (fallback)",
+};
+
+const BASIS_LABEL = {
+  fetch_time: "fetch time",
+  provider_updated_at: "provider's update time",
+  cache_write_time: "cache write time",
+};
+
+function SourceTable({ sources }) {
+  const rows = Object.entries(sources || {}).map(([key, src]) => ({ key, ...src }));
+  if (!rows.length) return "No per-source detail reported.";
+  return (
+    <DataTable
+      caption="Game Day data sources and their freshness"
+      rowKey="key"
+      density="compact"
+      rows={rows}
+      columns={[
+        { key: "source", header: "Source", render: (r) => SOURCE_LABEL[r.key] || r.source || r.key },
+        {
+          key: "status",
+          header: "Status",
+          render: (r) => (
+            <span className={r.status === "ok" ? undefined : styles.unverified}>
+              {r.status || "unknown"}
+              {r.error ? ` (${r.error})` : r.reason ? ` (${r.reason})` : ""}
+            </span>
+          ),
+        },
+        {
+          key: "observed",
+          header: "Observed",
+          render: (r) =>
+            r.observedAt
+              ? `${formatDateTime(r.observedAt)}${r.observedAtBasis ? ` · ${BASIS_LABEL[r.observedAtBasis] || r.observedAtBasis}` : ""}`
+              : "—",
+        },
+        {
+          key: "age",
+          header: "Age",
+          numeric: true,
+          render: (r) => formatAge(r.ageSeconds) ?? "—",
+        },
+      ]}
+    />
+  );
+}
 
 function familiesText(n) {
   if (typeof n !== "number") return "Unknown";
@@ -158,23 +230,54 @@ export default function DataInfoBody({ payload }) {
 
       {freshness ? (
         <>
-          <dt>Update pipeline</dt>
+          <dt>Freshness</dt>
+          <dd data-freshness-state={freshness.state}>
+            <strong>{FRESHNESS_LABEL[freshness.state] || freshness.state || "Unknown"}</strong>
+            {" · "}
+            {freshness.asOf ? `as of ${formatDateTime(freshness.asOf)}` : "as-of time unknown"}
+            {typeof freshness.payloadAgeSeconds === "number"
+              ? ` · ${formatAge(freshness.payloadAgeSeconds)} old when served`
+              : ""}
+            {typeof freshness.staleAfterSeconds === "number"
+              ? ` · stale after ${formatAge(freshness.staleAfterSeconds)} (${freshness.phase || "phase unknown"} phase)`
+              : ""}
+            {freshness.refreshInProgress
+              ? ` · refresh running since ${formatDateTime(freshness.refreshStartedAt) || "an unknown time"}`
+              : ""}
+            {(freshness.reasons || []).length ? (
+              <ul className={styles.factList}>
+                {freshness.reasons.map((r) => (
+                  <li key={r}>{freshnessReasonText(r)}</li>
+                ))}
+              </ul>
+            ) : null}
+          </dd>
+
+          <dt>Served from</dt>
           <dd>
-            {[
-              freshness.state ? `state ${freshness.state}` : null,
-              freshness.observedAt ? `observed ${formatDateTime(freshness.observedAt)}` : null,
-              freshness.fetchedAt ? `fetched ${formatDateTime(freshness.fetchedAt)}` : null,
-              freshness.computedAt ? `computed ${formatDateTime(freshness.computedAt)}` : null,
-              typeof freshness.payloadAgeSeconds === "number"
-                ? `${Math.round(freshness.payloadAgeSeconds)} s old when served`
-                : null,
-              freshness.refreshInProgress ? "refresh in progress" : null,
-            ]
-              .filter(Boolean)
-              .join(" · ") || "Reported without detail"}
+            {SERVED_FROM[freshness.servedFrom] || freshness.servedFrom || "Not stated"}
+            {freshness.generationId ? (
+              <span className={styles.numNote}>Generation {freshness.generationId}</span>
+            ) : null}
+            <span className={styles.numNote}>
+              Inputs computed {formatDateTime(freshness.generationComputedAt) || "time not stated"} ·
+              simulation {formatDateTime(freshness.simulationComputedAt) || "not run"}
+            </span>
+          </dd>
+
+          <dt>Sources</dt>
+          <dd>
+            <div className={styles.wrapTable}>
+              <SourceTable sources={freshness.sources} />
+            </div>
           </dd>
         </>
-      ) : null}
+      ) : (
+        <>
+          <dt>Freshness</dt>
+          <dd>Not reported by this server — the collector freshness block is absent.</dd>
+        </>
+      )}
 
       <dt>Pregame archive</dt>
       <dd>

@@ -50,12 +50,16 @@ function CurrentLineup({ side, mode }) {
       </div>
     );
   }
-  const unknown = (side?.players || []).filter((p) => p.state === "unknown");
+  // actualLineup.unknownStatePlayerIds: players whose game state the live
+  // feed could not see AND who have no banked points — so they cannot be
+  // seated (0.0 cannot tell "has not played" from "scored nothing"). Named,
+  // never dropped. Unknown-state players WITH points are already seated.
+  const unknown = (lineup.unknownStatePlayerIds || []).map((id) => nameFor(side, id));
   const unknownNote = unknown.length ? (
     <p className={styles.note}>
-      Game status unknown for {unknown.map((p) => p.name).join(", ")} — the live feed could not see
-      their game{unknown.length === 1 ? "" : "s"}, so {unknown.length === 1 ? "he is" : "they are"}{" "}
-      not seated here even if Sleeper shows points.
+      Game status unknown for {unknown.join(", ")} — the live feed could not see{" "}
+      {unknown.length === 1 ? "his game and he has" : "their games and they have"} no points
+      banked, so {unknown.length === 1 ? "he is" : "they are"} not seated here yet.
     </p>
   ) : null;
   if (lineup.lineupState === "not_started") {
