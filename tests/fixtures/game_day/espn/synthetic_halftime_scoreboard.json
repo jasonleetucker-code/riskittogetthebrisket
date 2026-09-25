@@ -1,0 +1,49 @@
+{
+  "_provenance": "SYNTHETIC (hand-built, not a provider capture): a game at halftime.",
+  "season": {
+    "type": 2,
+    "year": 2026
+  },
+  "week": {
+    "number": 3
+  },
+  "events": [
+    {
+      "id": "900002",
+      "date": "2026-09-27T17:00Z",
+      "competitions": [
+        {
+          "id": "900002",
+          "date": "2026-09-27T17:00Z",
+          "status": {
+            "clock": 0.0,
+            "displayClock": "0:00",
+            "period": 2,
+            "type": {
+              "name": "STATUS_HALFTIME",
+              "state": "in",
+              "completed": false,
+              "shortDetail": "Halftime"
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "10",
+              "team": {
+                "abbreviation": "DAL"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "7",
+              "team": {
+                "abbreviation": "PHI"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

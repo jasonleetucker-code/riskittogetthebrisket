@@ -21,7 +21,15 @@ installs it before any test module is imported and re-points it at a fresh,
 empty root before every test; ``tests/test_runtime_data_isolation.py`` proves
 it by planting real files and re-running the affected tests.
 
-Deliberately NARROW: only those two directories move.  ``ROS_DATA_DIR`` as a
+A third was added with Game Day U5 (2026-09-25):
+
+* ``data/game_day/live/`` — ``src/ros/game_day_live.py``'s observation logs
+  and versioned generations.  ``build_matchup_intel`` SERVES a generation
+  from there before computing anything, so a real collector generation for
+  the same league-week would otherwise replace a test's fixtures with the
+  box's (or a developer's) live answer.
+
+Deliberately NARROW: only those directories move.  ``ROS_DATA_DIR`` as a
 whole is not redirected, because ``data/ros/aggregate/latest.json`` — read
 through the same ``team_strength.ROS_DATA_DIR`` — is TRACKED, and hiding a
 tracked input is a different change from hiding an ignored one.  Tests that
@@ -36,18 +44,23 @@ from pathlib import Path
 from typing import Iterable
 
 from src.public_league import snapshot_store
-from src.ros import team_strength
+from src.ros import game_day_live, team_strength
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # Captured at import, before anything is redirected.
 REAL_PUBLIC_LEAGUE_DIR: Path = snapshot_store.DATA_DIR
 REAL_TEAM_STRENGTH_DIR: Path = team_strength.ROS_DATA_DIR / "team_strength"
+REAL_GAME_DAY_LIVE_DIR: Path = game_day_live.LIVE_ROOT
 
 #: The directories the guard watches.  ``conduct_registry.json`` (tracked)
 #: lives in the first one and is watched too — no test has any business
 #: writing it either.
-GUARDED_DIRS: tuple[Path, ...] = (REAL_PUBLIC_LEAGUE_DIR, REAL_TEAM_STRENGTH_DIR)
+GUARDED_DIRS: tuple[Path, ...] = (
+    REAL_PUBLIC_LEAGUE_DIR,
+    REAL_TEAM_STRENGTH_DIR,
+    REAL_GAME_DAY_LIVE_DIR,
+)
 
 _IGNORED_NAMES = frozenset({".gitkeep"})
 
@@ -74,12 +87,18 @@ def install() -> None:
 
 
 def activate(root: Path) -> None:
-    """Point both runtime directories at ``root``.
+    """Point every guarded runtime directory at ``root``.
 
     Computes paths only and creates nothing: every writer already creates
     its own parent directory, and a directory that does not exist is the
     honest "no runtime file here" state.
     """
+    # A Game Day background compute (Game Day G) still running from the
+    # previous test would write into THIS test's root once it is switched,
+    # and a failed attempt would make this test's first request read
+    # "failed": join it BEFORE re-pointing anything, then forget it.
+    game_day_live.wait_for_background(timeout=120.0)
+    game_day_live.reset_background_state()
     _state["root"] = root
     public_dir = root / "public_league"
     snapshot_store.DATA_DIR = public_dir
@@ -87,6 +106,7 @@ def activate(root: Path) -> None:
     snapshot_store.CONTRACT_PATH = public_dir / "contract.json"
     snapshot_store.IDENTITY_PATH = public_dir / "identity.json"
     snapshot_store.NFL_PLAYERS_PATH = public_dir / "nfl_players.json"
+    game_day_live.LIVE_ROOT = root / "game_day" / "live"
 
 
 def fingerprint(dirs: Iterable[Path] = GUARDED_DIRS) -> dict[str, tuple[int, int]]:

@@ -61,15 +61,55 @@ ACCESS_POSTURES: frozenset[str] = frozenset(
         "CREDENTIALED_SESSION_ALREADY_WIRED",
         "SUBSCRIPTION_SCOPE_UNRECORDED",
         "NO_ACCESS_PATH_RECORDED",
+        # A specific endpoint IS recorded and needs no credential, but it is
+        # not part of the provider's documented API and no artifact records
+        # terms permitting automated consumption. Distinct from
+        # PUBLIC_NO_AUTH (an openly offered file/page) because "reachable
+        # without a login" is not "licensed for automation". Fails closed.
+        "PUBLIC_UNDOCUMENTED_NO_AUTH",
+        # The owner has explicitly attested, in writing, that permission
+        # exists for automated ingestion and project use of this source
+        # (record: docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md). The
+        # basis is that attestation — NOT public terms and NOT public
+        # availability. An entry carrying it must name the record in
+        # ``accessAttestation``.
+        "OWNER_ATTESTED_AUTHORIZED",
+        # A documented commercial API that needs a per-account key. The key
+        # lives only in the entry's ``credentialEnvVar``; its absence makes
+        # the source unavailable at runtime, never zero data. Whether the
+        # source may be automated at all is ``licensingStatus``.
+        "KEYED_API_CREDENTIAL_REQUIRED",
     }
 )
+
+#: Licensing vocabulary. Optional per entry (the older entries predate
+#: it); when present it must be one of these. ``UNVERIFIED`` is an
+#: explicit open item, never a quiet "probably fine".
+#: ``OWNER_ATTESTED_AUTHORIZED`` — the owner's written attestation
+#: (docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md) covers the source.
+LICENSING_STATUSES: frozenset[str] = frozenset(
+    {"UNVERIFIED", "CLEARED_WITH_ARTIFACT", "OWNER_ATTESTED_AUTHORIZED"}
+)
+
+#: Statuses whose basis is the owner's written attestation; the entry must
+#: point at the record in ``accessAttestation``.
+_ATTESTED: str = "OWNER_ATTESTED_AUTHORIZED"
+#: Credentials are environment-only; the name must look like one.
+_CREDENTIAL_ENV_VAR_SHAPE = "UPPER_SNAKE_CASE ending in _API_KEY"
 
 #: Implementation-status vocabulary used by this census. Distinct from
 #: (and coarser than) ``ROS_SOURCES``'s ``enabled`` flag — this tracks
 #: whether the source is wired at all, and if so, whether what is wired
 #: actually qualifies as the evidence class claimed.
+#:
+#: ``IMPLEMENTED_FLAG_OFF`` — the parser/rescorer exists and is tested,
+#: but acquisition sits behind a feature flag that defaults OFF and no
+#: consumer reads it. Kept distinct from ``LIVE`` so "the code exists"
+#: can never read as "production uses it"; the validator requires the
+#: named flag to be registered AND to default False, so flipping the
+#: default without deliberately updating this status fails validation.
 IMPLEMENTATION_STATUSES: frozenset[str] = frozenset(
-    {"LIVE", "LIVE_BUT_RANKINGS_ONLY", "GREENFIELD", "NOT_STARTED"}
+    {"LIVE", "LIVE_BUT_RANKINGS_ONLY", "IMPLEMENTED_FLAG_OFF", "GREENFIELD", "NOT_STARTED"}
 )
 
 #: Access postures that authorize NOTHING beyond recording the fact. A
@@ -77,7 +117,7 @@ IMPLEMENTATION_STATUSES: frozenset[str] = frozenset(
 #: other than PUBLIC_NO_AUTH or CREDENTIALED_SESSION_ALREADY_WIRED as a
 #: hard stop pending an owner decision, per plan §3.
 _POSTURES_REQUIRING_OWNER_DECISION: frozenset[str] = frozenset(
-    {"SUBSCRIPTION_SCOPE_UNRECORDED", "NO_ACCESS_PATH_RECORDED"}
+    {"SUBSCRIPTION_SCOPE_UNRECORDED", "NO_ACCESS_PATH_RECORDED", "PUBLIC_UNDOCUMENTED_NO_AUTH"}
 )
 
 
@@ -159,6 +199,26 @@ def validate_census(data: dict[str, Any] | None = None) -> list[str]:
             errors.append(f"{where}: implementationStatus LIVE but existingModule is empty")
         if status == "GREENFIELD" and src.get("existingModule"):
             errors.append(f"{where}: implementationStatus GREENFIELD but existingModule is set")
+        if status == "IMPLEMENTED_FLAG_OFF":
+            if not src.get("existingModule"):
+                errors.append(
+                    f"{where}: implementationStatus IMPLEMENTED_FLAG_OFF but existingModule is empty"
+                )
+            errors.extend(_flag_off_errors(where, src.get("featureFlag")))
+
+        if posture == "KEYED_API_CREDENTIAL_REQUIRED":
+            errors.extend(_keyed_errors(where, src))
+        errors.extend(_ancestry_errors(where, src.get("modelAncestry")))
+
+        licensing = src.get("licensingStatus")
+        if licensing is not None and licensing not in LICENSING_STATUSES:
+            errors.append(
+                f"{where}: licensingStatus {licensing!r} not in {sorted(LICENSING_STATUSES)}"
+            )
+        if _ATTESTED in (posture, licensing) and not src.get("accessAttestation"):
+            errors.append(
+                f"{where}: {_ATTESTED} requires 'accessAttestation' naming the owner's record"
+            )
 
         if not src.get("providerFamily"):
             errors.append(
@@ -174,6 +234,78 @@ def validate_census(data: dict[str, Any] | None = None) -> list[str]:
         errors.append("'discoveryLanes' must be a non-empty list")
 
     return errors
+
+
+def _flag_off_errors(where: str, flag: Any) -> list[str]:
+    """An IMPLEMENTED_FLAG_OFF entry must name a registered flag that
+    really defaults OFF — otherwise the status is a claim nothing checks."""
+    from src.api import feature_flags
+
+    if not flag or not isinstance(flag, str):
+        return [f"{where}: implementationStatus IMPLEMENTED_FLAG_OFF requires 'featureFlag'"]
+    if flag not in feature_flags.registered_flags():
+        return [f"{where}: featureFlag {flag!r} is not registered in src.api.feature_flags"]
+    if feature_flags._DEFAULTS[flag]:
+        return [
+            f"{where}: featureFlag {flag!r} defaults ON, so the entry is no longer "
+            "IMPLEMENTED_FLAG_OFF; update implementationStatus deliberately"
+        ]
+    return []
+
+
+def _keyed_errors(where: str, src: dict[str, Any]) -> list[str]:
+    """A keyed source must name its credential env var — and only a NAME:
+    the census is committed, so a value here would be a leaked key."""
+    name = src.get("credentialEnvVar")
+    if not isinstance(name, str) or not name:
+        return [f"{where}: KEYED_API_CREDENTIAL_REQUIRED requires 'credentialEnvVar'"]
+    if not (name.isupper() and name.endswith("_API_KEY") and name.replace("_", "").isalnum()):
+        return [f"{where}: credentialEnvVar {name!r} is not {_CREDENTIAL_ENV_VAR_SHAPE}"]
+    if src.get("licensingStatus") is None:
+        return [f"{where}: a keyed source must record licensingStatus"]
+    return []
+
+
+def _ancestry_errors(where: str, ancestry: Any) -> list[str]:
+    """An aggregate must declare what it aggregates, or the ensemble cannot
+    avoid counting it and its constituents as independent votes."""
+    if ancestry is None:
+        return []
+    if not isinstance(ancestry, dict):
+        return [f"{where}: modelAncestry must be an object"]
+    families = ancestry.get("constituentFamilies", [])
+    if not isinstance(families, list) or not all(isinstance(f, str) and f for f in families):
+        return [f"{where}: modelAncestry.constituentFamilies must be a list of family names"]
+    if ancestry.get("isAggregate") is True and not families:
+        return [f"{where}: an aggregate (isAggregate) must list constituentFamilies"]
+    return []
+
+
+def ancestry_families(key: str) -> frozenset[str]:
+    """Every independence family whose evidence may be inside ``key``'s
+    numbers: its own ``providerFamily`` plus any declared constituents."""
+    src = get_source(key)
+    if src is None:
+        raise KeyError(key)
+    ancestry = src.get("modelAncestry") or {}
+    return frozenset({str(src["providerFamily"])}) | frozenset(
+        ancestry.get("constituentFamilies") or ()
+    )
+
+
+def ancestry_overlaps(keys: list[str] | tuple[str, ...]) -> list[tuple[str, str, frozenset[str]]]:
+    """Pairs of census sources that share evidence ancestry — an aggregate
+    and one of its constituents, or two products of one family. Such a pair
+    must not be counted as two independent votes. Empty = independent."""
+    fams = {k: ancestry_families(k) for k in keys}
+    out = []
+    ordered = sorted(fams)
+    for i, a in enumerate(ordered):
+        for b in ordered[i + 1 :]:
+            shared = fams[a] & fams[b]
+            if shared:
+                out.append((a, b, shared))
+    return out
 
 
 def sources_by_evidence_class(

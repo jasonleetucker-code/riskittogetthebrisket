@@ -1,0 +1,1171 @@
+{
+ "observedAt": "2026-09-25T00:10:00+00:00",
+ "rows": [
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": null,
+   "player": {
+    "fantasy_positions": [
+     "WR"
+    ],
+    "position": "WR"
+   },
+   "player_id": "10222",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {},
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "ATL",
+   "player": {
+    "fantasy_positions": [
+     "DL"
+    ],
+    "position": "DL"
+   },
+   "player_id": "10885",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "idp_qb_hit": 0.8,
+    "idp_sack": 0.34,
+    "idp_sack_yd": 1.89,
+    "idp_tkl_ast": 0.86,
+    "idp_tkl_loss": 0.34,
+    "idp_tkl_solo": 1.32
+   },
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "GB",
+   "player": {
+    "fantasy_positions": [
+     "DL"
+    ],
+    "position": "DL"
+   },
+   "player_id": "10899",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "idp_fum_rec": 0.05,
+    "idp_pass_def": 0.05,
+    "idp_qb_hit": 0.74,
+    "idp_sack": 0.26,
+    "idp_sack_yd": 1.69,
+    "idp_tkl_ast": 1.27,
+    "idp_tkl_loss": 0.26,
+    "idp_tkl_solo": 1.16
+   },
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "ATL",
+   "player": {
+    "fantasy_positions": [
+     "RB"
+    ],
+    "position": "RB"
+   },
+   "player_id": "11370",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "fum_lost": 0.03,
+    "rec": 1.47,
+    "rec_0_4": 0.29,
+    "rec_10_19": 0.44,
+    "rec_20_29": 0.29,
+    "rec_30_39": 0.15,
+    "rec_40p": 0.15,
+    "rec_5_9": 0.29,
+    "rec_td": 0.1,
+    "rec_yd": 9.54,
+    "rush_2pt": 0.01,
+    "rush_att": 6.21,
+    "rush_td": 0.16,
+    "rush_yd": 29.39
+   },
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "GB",
+   "player": {
+    "fantasy_positions": [
+     "QB"
+    ],
+    "position": "QB"
+   },
+   "player_id": "11559",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "fum_lost": 0.16,
+    "pass_2pt": 0.05,
+    "pass_cmp": 16.77,
+    "pass_inc": 12.45,
+    "pass_int": 0.5,
+    "pass_sack": 2.19,
+    "pass_td": 1.14,
+    "pass_yd": 200.8,
+    "rush_2pt": 0.01,
+    "rush_att": 2.78,
+    "rush_td": 0.12,
+    "rush_yd": 8.65
+   },
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "ATL",
+   "player": {
+    "fantasy_positions": [
+     "RB"
+    ],
+    "position": "RB"
+   },
+   "player_id": "11581",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "fum_lost": 0.05,
+    "rec": 1.7,
+    "rec_0_4": 0.34,
+    "rec_10_19": 0.51,
+    "rec_20_29": 0.34,
+    "rec_2pt": 0.01,
+    "rec_30_39": 0.17,
+    "rec_40p": 0.17,
+    "rec_5_9": 0.34,
+    "rec_td": 0.12,
+    "rec_yd": 12.05,
+    "rush_2pt": 0.02,
+    "rush_att": 10.89,
+    "rush_td": 0.33,
+    "rush_yd": 46.18
+   },
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "ATL",
+   "player": {
+    "fantasy_positions": [
+     "DB"
+    ],
+    "position": "DB"
+   },
+   "player_id": "11686",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "idp_fum_rec": 0.05,
+    "idp_pass_def": 0.11,
+    "idp_qb_hit": 0.05,
+    "idp_tkl_ast": 1.45,
+    "idp_tkl_loss": 0.11,
+    "idp_tkl_solo": 2.42
+   },
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "ATL",
+   "player": {
+    "fantasy_positions": [
+     "LB"
+    ],
+    "position": "LB"
+   },
+   "player_id": "11687",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "idp_ff": 0.11,
+    "idp_fum_rec": 0.06,
+    "idp_pass_def": 0.23,
+    "idp_qb_hit": 0.29,
+    "idp_sack": 0.2,
+    "idp_sack_yd": 0.63,
+    "idp_tkl_ast": 3.09,
+    "idp_tkl_loss": 0.4,
+    "idp_tkl_solo": 3.72
+   },
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "ATL",
+   "player": {
+    "fantasy_positions": [
+     "DB"
+    ],
+    "position": "DB"
+   },
+   "player_id": "11739",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "idp_ff": 0.06,
+    "idp_int": 0.11,
+    "idp_pass_def": 0.29,
+    "idp_tkl_ast": 2.69,
+    "idp_tkl_loss": 0.17,
+    "idp_tkl_solo": 2.75
+   },
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "ATL",
+   "player": {
+    "fantasy_positions": [
+     "WR"
+    ],
+    "position": "WR"
+   },
+   "player_id": "12501",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "def_kr_yd": 26.46,
+    "fum_lost": 0.02,
+    "pr_yd": 1.14,
+    "rec": 3.99,
+    "rec_0_4": 0.8,
+    "rec_10_19": 1.2,
+    "rec_20_29": 0.8,
+    "rec_2pt": 0.01,
+    "rec_30_39": 0.4,
+    "rec_40p": 0.4,
+    "rec_5_9": 0.8,
+    "rec_td": 0.3,
+    "rec_yd": 52.46,
+    "rush_att": 0.22,
+    "rush_td": 0.01,
+    "rush_yd": 0.99
+   },
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "ATL",
+   "player": {
+    "fantasy_positions": [
+     "RB"
+    ],
+    "position": "RB"
+   },
+   "player_id": "12504",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "def_kr_yd": 6.69,
+    "fum_lost": 0.03,
+    "rec": 0.67,
+    "rec_0_4": 0.13,
+    "rec_10_19": 0.2,
+    "rec_20_29": 0.13,
+    "rec_30_39": 0.07,
+    "rec_40p": 0.07,
+    "rec_5_9": 0.13,
+    "rec_td": 0.05,
+    "rec_yd": 4.93,
+    "rush_2pt": 0.01,
+    "rush_att": 5.82,
+    "rush_td": 0.15,
+    "rush_yd": 21.98
+   },
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": null,
+   "player": {
+    "fantasy_positions": [
+     "DL",
+     "LB"
+    ],
+    "position": "DL"
+   },
+   "player_id": "12568",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {},
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": null,
+   "player": {
+    "fantasy_positions": [
+     "DL"
+    ],
+    "position": "DL"
+   },
+   "player_id": "12585",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {},
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "GB",
+   "player": {
+    "fantasy_positions": [
+     "DB"
+    ],
+    "position": "DB"
+   },
+   "player_id": "12591",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "idp_ff": 0.05,
+    "idp_fum_rec": 0.05,
+    "idp_int": 0.15,
+    "idp_pass_def": 0.6,
+    "idp_tkl_ast": 2.24,
+    "idp_tkl_solo": 3.08
+   },
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "GB",
+   "player": {
+    "fantasy_positions": [
+     "DB"
+    ],
+    "position": "DB"
+   },
+   "player_id": "12647",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "def_pr_yd": 1.43,
+    "idp_ff": 0.05,
+    "idp_int": 0.11,
+    "idp_int_ret_yd": 1.43,
+    "idp_pass_def": 0.37,
+    "idp_qb_hit": 0.26,
+    "idp_sack": 0.13,
+    "idp_sack_yd": 0.95,
+    "idp_tkl_ast": 1.21,
+    "idp_tkl_loss": 0.11,
+    "idp_tkl_solo": 1.79,
+    "pass_int_td": 0.05
+   },
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "GB",
+   "player": {
+    "fantasy_positions": [
+     "WR"
+    ],
+    "position": "WR"
+   },
+   "player_id": "13320",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "def_kr_yd": 36.25,
+    "fum_lost": 0.01,
+    "pr_yd": 6.98,
+    "rec": 1.41,
+    "rec_0_4": 0.28,
+    "rec_10_19": 0.42,
+    "rec_20_29": 0.28,
+    "rec_30_39": 0.14,
+    "rec_40p": 0.14,
+    "rec_5_9": 0.28,
+    "rec_td": 0.09,
+    "rec_yd": 13.94,
+    "rush_att": 0.14,
+    "rush_yd": 0.55
+   },
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "ATL",
+   "player": {
+    "fantasy_positions": [
+     "DB"
+    ],
+    "position": "DB"
+   },
+   "player_id": "13369",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "idp_pass_def": 0.17,
+    "idp_tkl_ast": 0.63,
+    "idp_tkl_solo": 1.03
+   },
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "GB",
+   "player": {
+    "fantasy_positions": [
+     "DB"
+    ],
+    "position": "DB"
+   },
+   "player_id": "13389",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "def_pr_yd": 1.16,
+    "idp_int": 0.05,
+    "idp_int_ret_yd": 1.16,
+    "idp_pass_def": 0.32,
+    "idp_tkl_ast": 0.63,
+    "idp_tkl_solo": 1.0
+   },
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "ATL",
+   "player": {
+    "fantasy_positions": [
+     "K"
+    ],
+    "position": "K"
+   },
+   "player_id": "13545",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "fgm_20_29": 0.39,
+    "fgm_30_39": 0.52,
+    "fgm_40_49": 0.52,
+    "fgm_50p": 0.26,
+    "fgm_yds": 70.62,
+    "fgmiss_30_39": 0.13,
+    "fgmiss_40_49": 0.13,
+    "xpm": 2.62,
+    "xpmiss": 0.13
+   },
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "GB",
+   "player": {
+    "fantasy_positions": [
+     "LB"
+    ],
+    "position": "LB"
+   },
+   "player_id": "13555",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "idp_tkl_ast": 0.53,
+    "idp_tkl_loss": 0.05,
+    "idp_tkl_solo": 0.69
+   },
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "GB",
+   "player": {
+    "fantasy_positions": [
+     "DL",
+     "LB"
+    ],
+    "position": "LB"
+   },
+   "player_id": "2427",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "idp_pass_def": 0.05,
+    "idp_qb_hit": 0.58,
+    "idp_sack": 0.37,
+    "idp_sack_yd": 1.48,
+    "idp_tkl_ast": 0.63,
+    "idp_tkl_loss": 0.53,
+    "idp_tkl_solo": 0.95
+   },
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": null,
+   "player": {
+    "fantasy_positions": [
+     "QB"
+    ],
+    "position": "QB"
+   },
+   "player_id": "4574",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {},
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "GB",
+   "player": {
+    "fantasy_positions": [
+     "DB"
+    ],
+    "position": "DB"
+   },
+   "player_id": "5017",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "idp_ff": 0.05,
+    "idp_int": 0.15,
+    "idp_pass_def": 0.35,
+    "idp_qb_hit": 0.05,
+    "idp_tkl_ast": 2.04,
+    "idp_tkl_loss": 0.1,
+    "idp_tkl_solo": 2.93
+   },
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "ATL",
+   "player": {
+    "fantasy_positions": [
+     "LB"
+    ],
+    "position": "LB"
+   },
+   "player_id": "5346",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "def_pr_yd": 0.38,
+    "idp_ff": 0.05,
+    "idp_int": 0.05,
+    "idp_int_ret_yd": 0.38,
+    "idp_pass_def": 0.27,
+    "idp_qb_hit": 0.32,
+    "idp_sack": 0.16,
+    "idp_sack_yd": 0.86,
+    "idp_tkl_ast": 2.96,
+    "idp_tkl_loss": 0.32,
+    "idp_tkl_solo": 3.07
+   },
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": null,
+   "player": {
+    "fantasy_positions": [
+     "RB"
+    ],
+    "position": "RB"
+   },
+   "player_id": "5850",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {},
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "GB",
+   "player": {
+    "fantasy_positions": [
+     "WR"
+    ],
+    "position": "WR"
+   },
+   "player_id": "6271",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "fum_lost": 0.01,
+    "rec": 1.18,
+    "rec_0_4": 0.24,
+    "rec_10_19": 0.35,
+    "rec_20_29": 0.24,
+    "rec_2pt": 0.01,
+    "rec_30_39": 0.12,
+    "rec_40p": 0.12,
+    "rec_5_9": 0.24,
+    "rec_td": 0.1,
+    "rec_yd": 13.62,
+    "rush_att": 0.21,
+    "rush_td": 0.01,
+    "rush_yd": 0.93
+   },
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "ATL",
+   "player": {
+    "fantasy_positions": [
+     "DB"
+    ],
+    "position": "CB"
+   },
+   "player_id": "6333",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "def_pr_yd": 0.81,
+    "idp_ff": 0.05,
+    "idp_fum_rec": 0.05,
+    "idp_int": 0.11,
+    "idp_int_ret_yd": 0.81,
+    "idp_pass_def": 0.48,
+    "idp_qb_hit": 0.05,
+    "idp_tkl_ast": 1.13,
+    "idp_tkl_loss": 0.16,
+    "idp_tkl_solo": 3.18
+   },
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": null,
+   "player": {
+    "fantasy_positions": [
+     "QB"
+    ],
+    "position": "QB"
+   },
+   "player_id": "6768",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {},
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "ATL",
+   "player": {
+    "fantasy_positions": [
+     "DB"
+    ],
+    "position": "DB"
+   },
+   "player_id": "6788",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "def_pr_yd": 1.72,
+    "idp_ff": 0.05,
+    "idp_fum_rec": 0.05,
+    "idp_int": 0.11,
+    "idp_int_ret_yd": 1.72,
+    "idp_pass_def": 0.54,
+    "idp_qb_hit": 0.05,
+    "idp_sack": 0.05,
+    "idp_sack_yd": 0.32,
+    "idp_tkl_ast": 2.64,
+    "idp_tkl_loss": 0.05,
+    "idp_tkl_solo": 2.8
+   },
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "ATL",
+   "player": {
+    "fantasy_positions": [
+     "QB"
+    ],
+    "position": "QB"
+   },
+   "player_id": "6804",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "fum_lost": 0.19,
+    "pass_2pt": 0.08,
+    "pass_cmp": 21.21,
+    "pass_inc": 11.1,
+    "pass_int": 1.14,
+    "pass_sack": 2.63,
+    "pass_td": 1.63,
+    "pass_yd": 232.01,
+    "rush_2pt": 0.01,
+    "rush_att": 3.3,
+    "rush_td": 0.09,
+    "rush_yd": 15.0
+   },
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "GB",
+   "player": {
+    "fantasy_positions": [
+     "TE"
+    ],
+    "position": "TE"
+   },
+   "player_id": "7553",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "bonus_rec_te": 3.54,
+    "fum_lost": 0.01,
+    "rec": 3.54,
+    "rec_0_4": 0.71,
+    "rec_10_19": 1.06,
+    "rec_20_29": 0.71,
+    "rec_2pt": 0.02,
+    "rec_30_39": 0.35,
+    "rec_40p": 0.35,
+    "rec_5_9": 0.71,
+    "rec_td": 0.32,
+    "rec_yd": 40.3
+   },
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "ATL",
+   "player": {
+    "fantasy_positions": [
+     "DL",
+     "LB"
+    ],
+    "position": "LB"
+   },
+   "player_id": "7640",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "idp_ff": 0.11,
+    "idp_pass_def": 0.06,
+    "idp_qb_hit": 1.03,
+    "idp_sack": 0.52,
+    "idp_sack_yd": 2.98,
+    "idp_tkl_ast": 0.74,
+    "idp_tkl_loss": 0.52,
+    "idp_tkl_solo": 0.92
+   },
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "GB",
+   "player": {
+    "fantasy_positions": [
+     "LB"
+    ],
+    "position": "LB"
+   },
+   "player_id": "7677",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "idp_ff": 0.05,
+    "idp_fum_rec": 0.05,
+    "idp_int": 0.05,
+    "idp_pass_def": 0.42,
+    "idp_qb_hit": 0.16,
+    "idp_sack": 0.05,
+    "idp_sack_yd": 0.26,
+    "idp_tkl_ast": 2.38,
+    "idp_tkl_loss": 0.32,
+    "idp_tkl_solo": 2.38
+   },
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "GB",
+   "player": {
+    "fantasy_positions": [
+     "WR"
+    ],
+    "position": "WR"
+   },
+   "player_id": "8112",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "fum_lost": 0.02,
+    "rec": 4.67,
+    "rec_0_4": 0.93,
+    "rec_10_19": 1.4,
+    "rec_20_29": 0.93,
+    "rec_2pt": 0.02,
+    "rec_30_39": 0.47,
+    "rec_40p": 0.47,
+    "rec_5_9": 0.93,
+    "rec_td": 0.43,
+    "rec_yd": 61.99,
+    "rush_att": 0.06,
+    "rush_yd": 0.22
+   },
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "GB",
+   "player": {
+    "fantasy_positions": [
+     "WR"
+    ],
+    "position": "WR"
+   },
+   "player_id": "8119",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "def_kr_yd": 11.97,
+    "fum_lost": 0.01,
+    "pr_yd": 6.86,
+    "rec": 1.44,
+    "rec_0_4": 0.29,
+    "rec_10_19": 0.43,
+    "rec_20_29": 0.29,
+    "rec_2pt": 0.01,
+    "rec_30_39": 0.14,
+    "rec_40p": 0.14,
+    "rec_5_9": 0.29,
+    "rec_td": 0.14,
+    "rec_yd": 17.49,
+    "rush_att": 0.03,
+    "rush_yd": 0.11
+   },
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "GB",
+   "player": {
+    "fantasy_positions": [
+     "RB"
+    ],
+    "position": "RB"
+   },
+   "player_id": "8154",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "def_kr_yd": 13.96,
+    "fum_lost": 0.02,
+    "rec": 0.68,
+    "rec_0_4": 0.14,
+    "rec_10_19": 0.2,
+    "rec_20_29": 0.14,
+    "rec_30_39": 0.07,
+    "rec_40p": 0.07,
+    "rec_5_9": 0.14,
+    "rec_td": 0.04,
+    "rec_yd": 4.94,
+    "rush_2pt": 0.01,
+    "rush_att": 5.6,
+    "rush_td": 0.14,
+    "rush_yd": 21.49
+   },
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "ATL",
+   "player": {
+    "fantasy_positions": [
+     "WR"
+    ],
+    "position": "WR"
+   },
+   "player_id": "8167",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "fum_lost": 0.02,
+    "rec": 3.93,
+    "rec_0_4": 0.79,
+    "rec_10_19": 1.18,
+    "rec_20_29": 0.79,
+    "rec_2pt": 0.04,
+    "rec_30_39": 0.39,
+    "rec_40p": 0.39,
+    "rec_5_9": 0.79,
+    "rec_td": 0.75,
+    "rec_yd": 69.46,
+    "rush_att": 0.24,
+    "rush_td": 0.01,
+    "rush_yd": 1.36
+   },
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "ATL",
+   "player": {
+    "fantasy_positions": [
+     "WR"
+    ],
+    "position": "WR"
+   },
+   "player_id": "8168",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "def_kr_yd": 49.61,
+    "fum_lost": 0.01,
+    "pr_yd": 11.45,
+    "rec": 1.65,
+    "rec_0_4": 0.33,
+    "rec_10_19": 0.49,
+    "rec_20_29": 0.33,
+    "rec_2pt": 0.01,
+    "rec_30_39": 0.16,
+    "rec_40p": 0.16,
+    "rec_5_9": 0.33,
+    "rec_td": 0.13,
+    "rec_yd": 20.08,
+    "rush_att": 0.35,
+    "rush_td": 0.01,
+    "rush_yd": 1.92
+   },
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "GB",
+   "player": {
+    "fantasy_positions": [
+     "LB"
+    ],
+    "position": "LB"
+   },
+   "player_id": "8278",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "idp_ff": 0.05,
+    "idp_pass_def": 0.21,
+    "idp_qb_hit": 0.16,
+    "idp_sack": 0.05,
+    "idp_sack_yd": 0.26,
+    "idp_tkl_ast": 1.48,
+    "idp_tkl_loss": 0.26,
+    "idp_tkl_solo": 2.27
+   },
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": null,
+   "player": {
+    "fantasy_positions": [
+     "TE"
+    ],
+    "position": "TE"
+   },
+   "player_id": "9481",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {},
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "ATL",
+   "player": {
+    "fantasy_positions": [
+     "TE"
+    ],
+    "position": "TE"
+   },
+   "player_id": "9484",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "bonus_rec_te": 3.81,
+    "fum_lost": 0.02,
+    "rec": 3.81,
+    "rec_0_4": 0.76,
+    "rec_10_19": 1.14,
+    "rec_20_29": 0.76,
+    "rec_2pt": 0.02,
+    "rec_30_39": 0.38,
+    "rec_40p": 0.38,
+    "rec_5_9": 0.76,
+    "rec_td": 0.46,
+    "rec_yd": 48.84
+   },
+   "team": "GB",
+   "updated_at": null,
+   "week": 3
+  },
+  {
+   "company": "rotowire",
+   "game_id": "202610312",
+   "opponent": "GB",
+   "player": {
+    "fantasy_positions": [
+     "RB"
+    ],
+    "position": "RB"
+   },
+   "player_id": "9509",
+   "season": "2026",
+   "season_type": "regular",
+   "stats": {
+    "fum_lost": 0.08,
+    "rec": 4.15,
+    "rec_0_4": 0.83,
+    "rec_10_19": 1.25,
+    "rec_20_29": 0.83,
+    "rec_2pt": 0.01,
+    "rec_30_39": 0.42,
+    "rec_40p": 0.42,
+    "rec_5_9": 0.83,
+    "rec_td": 0.24,
+    "rec_yd": 32.57,
+    "rush_2pt": 0.03,
+    "rush_att": 18.47,
+    "rush_td": 0.46,
+    "rush_yd": 85.95
+   },
+   "team": "ATL",
+   "updated_at": null,
+   "week": 3
+  }
+ ],
+ "synthetic": "NOT a provider capture: the REAL 20260925T005824Z rows for GB/ATL players re-stamped as if fetched at 00:10Z (5 min before the 00:15Z kickoff), provider updated_at removed. UNVERIFIABLE ASSUMPTION: the lines did not change between 00:10Z and 00:58Z. The provider DOES change lines mid-game (the 01:28:54Z fetch changed 254 players' stat lines, GB/ATL included), and its row stamps are one batch-refresh stamp that cannot date a line. Used only to exercise the in-progress path; not evidence of a real baseline."
+}

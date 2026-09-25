@@ -9,12 +9,13 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-12 of the 22 entries in ``_DEFAULTS`` below are ``True`` —
+14 of the 25 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
 ``perfect_draft``, ``ledger_rank_change``, ``waiver_live_opportunity``,
-``source_freshness_weighting`` and ``source_family_cap`` — several with comments
+``source_freshness_weighting``, ``source_family_cap``,
+``game_day_live_game_state`` and ``sleeper_weekly_projections`` — several with comments
 recording that the enabled default is deliberate.
 
 **No live gate sits outside this registry any more.**  The last one —
@@ -430,6 +431,68 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # challenger into a live recommendation. Roll back with
     # RISKIT_FEATURE_WAIVER_LIVE_OPPORTUNITY=0 + restart.
     "waiver_live_opportunity": True,
+    # Game Day live game state — ``src/nfl_data/live_game_state.py`` reads
+    # ESPN's public scoreboard (observed quarter / clock / status).
+    # Consumed by ``src/api/matchup_intel.py`` (observed-clock remaining
+    # production).  Access is owner-attested
+    # (docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md).  Default ON
+    # since Game Day U5 (2026-09-25): the shared live collector
+    # (``src/ros/game_day_live.py`` + the ``dynasty-game-day-live`` timer)
+    # polls it on a bounded cadence and persists every observation, so the
+    # request path no longer depends on it.  Rollback:
+    # ``RISKIT_FEATURE_GAME_DAY_LIVE_GAME_STATE=0`` + restart the backend
+    # (the collector is a fresh process per tick and reads it next tick).
+    # Off, ``fetch_live_game_state`` returns an explicit ``enabled=False``
+    # observation (no network call) and Game Day keeps the schedule-only
+    # evidence, where a passed kickoff stays ``unknown``.
+    "game_day_live_game_state": True,
+    # C5-PROJ-C, first WEEKLY-horizon projection source (2026-09-24):
+    # Sleeper's weekly projections endpoint (RotoWire stat lines served by
+    # Sleeper), in ``src/ros/sleeper_weekly_projections.py``.  SEASONAL
+    # intelligence lane only — never dynasty value.  Access is
+    # owner-attested (census entry ``sleeperWeeklyProjections``,
+    # OWNER_ATTESTED_AUTHORIZED; record
+    # docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md).  Consumed by
+    # ``src/api/matchup_intel.py`` (kickoff-locked weekly baselines).
+    # Default ON since Game Day U5 (2026-09-25): the shared live collector
+    # fetches it at most every 10 min near a kickoff (3 h otherwise, never
+    # once every game has kicked off) and persists every fetch append-only,
+    # so a restart after kickoff keeps each game's pre-kickoff baseline.
+    # Rollback: ``RISKIT_FEATURE_SLEEPER_WEEKLY_PROJECTIONS=0`` + restart the
+    # backend (the collector reads it next tick).  Off,
+    # ``fetch_weekly_projection_rows`` refuses with ``feature_disabled`` and
+    # makes no network call, and Game Day uses the preseason per-game
+    # FALLBACK, labelled as not a current-week forecast.
+    "sleeper_weekly_projections": True,
+    # Game Day live game state from SportsDataIO (2026-09-25) —
+    # ``src/nfl_data/sportsdataio_live_game_state.py``, a PROVIDER behind
+    # the one live-state owner ``src/nfl_data/live_game_state.py``
+    # (``fetch_live_game_state(provider="sportsdataio")``).  Owner-named for
+    # live game state (docs/game-day/SOURCE_ACCESS_EVIDENCE_2026-09-25.md);
+    # the collector (``src/ros/game_day_live.py``) uses it only when ESPN
+    # fails (HTTP 403 / backoff), one provider per tick with the reason
+    # recorded.  Default OFF: it needs the owner-installed
+    # ``SPORTSDATAIO_API_KEY`` and a live-scores subscription, and a keyed
+    # feed costs quota.  Capability = this flag ON + the Game Day master
+    # flag ON + key present + last fetch healthy.  Off, or with no key,
+    # the fetcher refuses (``flag_disabled`` / ``credential_missing``)
+    # without a request.  Enable: RISKIT_FEATURE_SPORTSDATAIO_LIVE_GAME_STATE=1
+    # + restart (the collector reads it next tick).
+    "sportsdataio_live_game_state": False,
+    # C5-PROJ-C keyed WEEKLY projection sources (2026-09-25): Fantasy Nerds
+    # (``src/ros/fantasynerds_weekly_projections.py``, key
+    # FANTASYNERDS_API_KEY) and SportsDataIO
+    # (``src/ros/sportsdataio_weekly_projections.py``, key
+    # SPORTSDATAIO_API_KEY).  SEASONAL intelligence lane only.  Licensing is
+    # OWNER_ATTESTED_AUTHORIZED; OFF because no production credential is
+    # installed yet.  Off, or no key → the fetch refuses (feature_disabled /
+    # credential_missing) with no network call; that source is unavailable
+    # and nothing else is affected.  Activate: install the key in the
+    # service environment, set RISKIT_FEATURE_<NAME>=1, restart; the source
+    # becomes usable only once ``source_available()`` also sees a healthy
+    # fetch.
+    "fantasynerds_weekly_projections": False,
+    "sportsdataio_weekly_projections": False,
 }
 
 _ENV_PREFIX: Final[str] = "RISKIT_FEATURE_"
@@ -612,6 +675,28 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # exists and is a real, tested cross-check primitive, but nothing
     # calls it yet — a genuine follow-up, not fabricated here.
     "usage_signals": UNREACHABLE,
+    # ``src/nfl_data/live_game_state.py`` — reached through
+    # ``src/api/matchup_intel.py::_observe_live_state`` on the matchup
+    # endpoint and by the Game Day live collector
+    # (``src/ros/game_day_live.py``): on, observed quarter/clock drive
+    # remaining production; off, schedule-only evidence.  Defaults True
+    # since Game Day U5.
+    "game_day_live_game_state": LIVE,
+    # ``src/ros/sleeper_weekly_projections.py`` — the C5-PROJ-C weekly
+    # source, reached through ``src/api/matchup_intel.py::
+    # _weekly_projection_fetches`` on the matchup endpoint and by the Game
+    # Day live collector: on, kickoff-locked weekly baselines; off, the
+    # labelled preseason fallback.  Defaults True since Game Day U5.
+    "sleeper_weekly_projections": LIVE,
+    # ``src/nfl_data/sportsdataio_live_game_state.py`` — reached through
+    # ``live_game_state.fetch_live_game_state(provider="sportsdataio")`` by
+    # the Game Day live collector's ESPN-failure fallback.  Defaults False.
+    "sportsdataio_live_game_state": LIVE,
+    # The two keyed weekly sources: built and tested, not yet consumed by
+    # any route/script/engine (the Game Day consumer wires them). Default
+    # False, and they also need their credential env var.
+    "fantasynerds_weekly_projections": UNREACHABLE,
+    "sportsdataio_weekly_projections": UNREACHABLE,
     # ``src/nfl_data/depth_charts.py`` is gated and imported by
     # ``scripts/refresh_depth_charts.py``, which since 2026-09-01 also
     # writes DEPTH_CHART_PROMOTION/DEMOTION events into the BDVM ledger
