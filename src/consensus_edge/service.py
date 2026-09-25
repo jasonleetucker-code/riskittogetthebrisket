@@ -358,7 +358,13 @@ def build_board(
         fit_board = scoring_fit_board
     else:
         scoring_fit.set_gsis_join(identity_join.build_gsis_to_player_key(contract))
-        fit_board = scoring_fit.measure(season=contract.get("currentDraftYear"))
+        # The NFL SEASON whose weekly stats the fit measures — never the
+        # contract's ``currentDraftYear``, the upcoming ROOKIE-DRAFT year,
+        # which advances past the season as soon as a class is retired
+        # (#1414) and would point the fit at a season with no stat rows.
+        from src.bdvm.actuals import nfl_projection_season  # noqa: PLC0415
+
+        fit_board = scoring_fit.measure(season=nfl_projection_season())
     index = fair_value_index(contract, scoring_fit_board=fit_board, csv_root=csv_root)
     mispricing = score_index(index)
     flow = sf.sharp_flow_index(

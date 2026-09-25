@@ -5767,6 +5767,104 @@ def _drop_unpublished_slot_pick_rows(
     return dropped
 
 
+def _evaluate_pick_class_lifecycle(
+    players_by_name: dict[str, Any], sleeper_block: Any
+) -> dict[str, Any]:
+    """The board verdict on every rookie-draft class this board carries.
+
+    #1414 (owner decision 2026-09-24).  The RULE is
+    ``src/identity/pick_lifecycle.py`` and the evidence plumbing is
+    ``src/api/draft_class_evidence.py``; this only asks them.  A class is
+    board-retired only when every league this board may be served to
+    proves its rookie draft complete AND its rookies on rosters — any
+    unknown league keeps it.
+
+    Evaluates, does not remove: the rows of a retired class still take part
+    in valuation (every vendor's rank space is the board the vendor
+    published, including its stale pick rows, and pulling them out would
+    re-translate every IDP vote — measured up to +41% on one row) and leave
+    the board in :func:`_drop_retired_pick_class_rows`, after the blend and
+    before the pick passes.
+
+    Fails safe: any error evaluating the lifecycle retires nothing.
+    Returns the ``pickClassLifecycle`` contract stamp.
+    """
+    years: dict[int, int] = {}
+    for name in players_by_name:
+        if not _is_pick_name(str(name)):
+            continue
+        year = _pick_year_from_name(str(name))
+        if year is not None:
+            years[int(year)] = years.get(int(year), 0) + 1
+    stamp: dict[str, Any] = {
+        "rule": "src/identity/pick_lifecycle.py",
+        "classes": {},
+        "retiredYears": [],
+        "retiredRowCount": 0,
+        "leaguesConsulted": [],
+    }
+    if not years:
+        return stamp
+    try:
+        from src.api.draft_class_evidence import board_pick_class_lifecycle
+        from src.identity.pick_lifecycle import retired_seasons
+
+        board, per_league = board_pick_class_lifecycle(sleeper_block, years)
+    except Exception as exc:  # noqa: BLE001 — unknown never retires
+        _LOGGER.warning("pick class lifecycle: evaluation failed, retiring nothing: %s", exc)
+        stamp["error"] = "lifecycle_evaluation_failed"
+        return stamp
+    retired = sorted(retired_seasons(board))
+    stamp["classes"] = {str(s): lc.to_dict() for s, lc in sorted(board.items())}
+    stamp["retiredYears"] = retired
+    stamp["retiredRowCount"] = sum(years[y] for y in retired)
+    stamp["leaguesConsulted"] = sorted(per_league)
+    return stamp
+
+
+def _drop_retired_pick_class_rows(
+    players_array: list[dict[str, Any]],
+    players_by_name: dict[str, Any],
+    retired_years: Iterable[int] | None,
+) -> int:
+    """Remove every pick row of a retired draft class from the board (#1414).
+
+    Retirement is ABSENCE from the present-tense board: the rows leave
+    ``playersArray`` and the legacy ``players`` dict, so every selector,
+    engine and materializer that reads the contract stops offering them
+    without a filter of its own.  Nothing is valued 0 and nothing is
+    rewritten; the temporal ledger, stored trades and the identity parsers
+    still resolve every retired name.
+
+    Called between the blend and the Phase 5 pick passes: after every other
+    row has been valued against the unaltered vendor rank spaces, before the
+    tether / completion / rank compaction, so the retired rows neither move
+    another value nor hold a rank.  Returns the number of rows removed.
+    """
+    retired = {int(y) for y in (retired_years or ())}
+    if not retired:
+        return 0
+    keep: list[dict[str, Any]] = []
+    dropped = 0
+    for row in players_array:
+        name = str(row.get("canonicalName") or "")
+        year = _pick_year_from_name(name) if row.get("assetClass") == "pick" else None
+        if year is not None and int(year) in retired:
+            dropped += 1
+            legacy_ref = row.get("legacyRef")
+            if legacy_ref in players_by_name:
+                del players_by_name[legacy_ref]
+            continue
+        keep.append(row)
+    for name in list(players_by_name):
+        if _is_pick_name(str(name)):
+            year = _pick_year_from_name(str(name))
+            if year is not None and int(year) in retired:
+                del players_by_name[name]
+    players_array[:] = keep
+    return dropped
+
+
 def derive_future_tier_years_from_names(names: Any, current_year: int) -> list[int]:
     """Years strictly after ``current_year`` that carry generic TIER labels.
 
@@ -9227,6 +9325,7 @@ def _compute_unified_rankings(
     board_date: str | None = None,
     synthetic_pick_derivations: Mapping[str, dict[str, Any]] | None = None,
     source_weighting: Mapping[str, Any] | None = None,
+    retired_pick_years: Iterable[int] | None = None,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
 
@@ -11511,6 +11610,11 @@ def _compute_unified_rankings(
     # outright — see docs/architecture/live-value-pipeline-trace.md.)
 
     # ── Phase 5: Pick refinement passes (gated to picks) ──
+    # 0) A retired draft class leaves the board here (#1414): valued
+    #    against the unaltered vendor rank spaces above, gone before the
+    #    tether / completion / compaction below.
+    _drop_retired_pick_class_rows(players_array, players_by_name, retired_pick_years)
+
     # 1) Reassign (rank, value) tuples within each (year, round) bucket
     #    so slot-specific picks 1.01..1.12 are strictly monotonic in
     #    slot order.  This corrects KTC's _estimate_slot_from_tier
@@ -12312,11 +12416,26 @@ def build_api_data_contract(
     # before the draft year is derived from them.
     _drop_unpublished_slot_pick_rows(players_by_name, src_payload.get("pickAnchorsProvenance"))
 
+    # A draft class whose rookie draft is complete and whose rookies are on
+    # rosters is no longer a present-tense asset (#1414) — also before the
+    # draft year is derived.
+    pick_class_lifecycle = _evaluate_pick_class_lifecycle(
+        players_by_name, src_payload.get("sleeper")
+    )
+
     # Derive the active rookie draft year from the scrape's own
     # slot-pick names so the discount, rookie-anchor, and synthetic
     # tether passes all key off one self-rolling value (see
-    # ``current_rookie_draft_year``).
-    set_observed_current_draft_year(_derive_current_draft_year_from_names(players_by_name.keys()))
+    # ``current_rookie_draft_year``).  When a class was retired and no
+    # later class carries slots yet, the active class is the one after the
+    # latest retired class — lifecycle evidence, not the calendar fallback.
+    _retired_pick_years = frozenset(pick_class_lifecycle["retiredYears"])
+    _observed_draft_year = _derive_current_draft_year_from_names(
+        n for n in players_by_name if _pick_year_from_name(str(n)) not in _retired_pick_years
+    )
+    if _observed_draft_year is None and _retired_pick_years:
+        _observed_draft_year = max(_retired_pick_years) + 1
+    set_observed_current_draft_year(_observed_draft_year)
 
     # Seed raw entries for far-future pick years the vendors don't
     # price yet (e.g. 2029) so they ride the normal pipeline like the
@@ -12440,6 +12559,7 @@ def build_api_data_contract(
         board_date=str(raw_payload.get("date") or "") or None,
         synthetic_pick_derivations=synthetic_pick_derivations,
         source_weighting=source_weighting,
+        retired_pick_years=_retired_pick_years,
     )
 
     # Stamp rankDerivedValue into the values bundle so every page uses the
@@ -12753,6 +12873,10 @@ def build_api_data_contract(
         # class).  Self-rolls with the scrape; serialized so frontend
         # calculators don't carry their own stale copy.
         "currentDraftYear": current_rookie_draft_year(),
+        # Which rookie-draft classes are still present-tense (#1414), and
+        # why.  A retired class's rows are ABSENT from this contract; this
+        # stamp is what makes the omission visible instead of silent.
+        "pickClassLifecycle": pick_class_lifecycle,
         "playersArray": players_array,
         "playerCount": len(players_array),
         # How many rows the blend declined to price.  Those rows carry
