@@ -384,6 +384,19 @@
   gap: var(--space-2);
   flex-shrink: 0;
 }
+/* Quantity control for a repeatable market pick (T-NEW-02): − N + */
+.assetQuantity {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.assetQuantityCount {
+  min-width: 1.5ch;
+  text-align: center;
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
 .assetDest {
   display: flex;
   align-items: center;

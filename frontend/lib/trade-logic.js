@@ -12,6 +12,15 @@
 // (including the KTC-VA parity pins) until the 2026-07-25 audit (F-4).
 import { effectiveAuctionPower } from "./auction-power.js";
 import { MARKET_GAP_MIN_VALUE_RATIO } from "./thresholds.js";
+import {
+  canAddEntry,
+  deserializeEntry,
+  dedupeUniqueAcrossSides,
+  removeOneEntry,
+  serializeEntry,
+  tradeEntryKey,
+  uniqueKeysInTrade,
+} from "./trade-assets.js";
 
 // ── Value Modes ──────────────────────────────────────────────────────────
 export const VALUE_MODES = [
@@ -1199,18 +1208,21 @@ export function resolvePickRow(rawLabel, rowLookup, pickAliases) {
 }
 
 // ── Trade Side Helpers ───────────────────────────────────────────────────
+// Identity and quantity rules live in ./trade-assets.js (T-NEW-02): only
+// UNIQUE entries (players, owned picks) refuse a second copy; repeatable
+// market-reference picks may repeat, and removal takes ONE copy.
 export function addAssetToSide(side, row) {
   if (!row) return side;
-  if (side.some((r) => r.name === row.name)) return side;
+  if (!canAddEntry([side], row)) return side;
   return [...side, row];
 }
 
-export function removeAssetFromSide(side, name) {
-  return side.filter((r) => r.name !== name);
+export function removeAssetFromSide(side, key) {
+  return removeOneEntry(side, key);
 }
 
-export function isAssetInTrade(sideA, sideB, name) {
-  return sideA.some((r) => r.name === name) || sideB.some((r) => r.name === name);
+export function isAssetInTrade(sideA, sideB, key) {
+  return [...sideA, ...sideB].some((r) => tradeEntryKey(r) === key);
 }
 
 // ── Balancing Suggestions ────────────────────────────────────────────────
@@ -1291,14 +1303,21 @@ export function findBalancers(sides, behindIdx, rosterRows, valueMode, opts = {}
       return {
         ...side,
         assets,
-        destinations: { ...(side?.destinations || {}), [row.name]: toSideIdx },
+        destinations: { ...(side?.destinations || {}), [tradeEntryKey(row)]: toSideIdx },
       };
     });
     return tradeImbalance(next, valueMode, settings, stackContext);
   };
 
   const scored = [];
+  // Candidates are scored per IDENTITY, not per label: two distinct owned
+  // picks that both read "2027 Mid 1st" are two candidates, while the same
+  // repeatable market row offered twice is one (T-NEW-02).
+  const scoredKeys = new Set();
   for (const row of rosterRows || []) {
+    const key = tradeEntryKey(row);
+    if (!key || scoredKeys.has(key)) continue;
+    scoredKeys.add(key);
     // Unpriced rows cannot be shown to close anything, so they are
     // SKIPPED rather than coerced to zero.  A zero-value candidate would
     // let "we do not know what this is worth" render as "this changes
@@ -1309,6 +1328,9 @@ export function findBalancers(sides, behindIdx, rosterRows, valueMode, opts = {}
     if (!(after.imbalance < before.imbalance)) continue;
     scored.push({
       name: row.name,
+      key,
+      label: row.assetLabel || row.name,
+      entry: row,
       pos: row.pos,
       value,
       gapBefore: before.gap,
@@ -1318,7 +1340,12 @@ export function findBalancers(sides, behindIdx, rosterRows, valueMode, opts = {}
     });
   }
 
-  scored.sort((a, b) => a.imbalanceAfter - b.imbalanceAfter || a.name.localeCompare(b.name));
+  scored.sort(
+    (a, b) =>
+      a.imbalanceAfter - b.imbalanceAfter ||
+      a.name.localeCompare(b.name) ||
+      a.key.localeCompare(b.key),
+  );
   return scored.slice(0, maxResults);
 }
 
@@ -1395,7 +1422,7 @@ export function computeSideFlowAssets(sides) {
       if (n === 2) {
         dest = 1 - i;
       } else {
-        const raw = destinations[asset.name];
+        const raw = destinations[tradeEntryKey(asset)];
         const parsed = Number(raw);
         if (
           Number.isInteger(parsed) &&
@@ -1484,7 +1511,7 @@ export function computeSideFlows(
       if (n === 2) {
         dest = 1 - i; // implicit: the other side
       } else {
-        const raw = destinations[asset.name];
+        const raw = destinations[tradeEntryKey(asset)];
         const parsed = Number(raw);
         if (
           Number.isInteger(parsed) &&
@@ -1643,15 +1670,20 @@ export function serializeWorkspaceMulti(sides, valueMode, activeSide) {
     valueMode,
     activeSide,
     sides: sides.map((s) => {
-      const assetNames = s.assets.map((r) => r.name);
+      // One item per COPY (a generic pick x3 is three items), and an owned
+      // pick keeps its canonical id — see ./trade-assets.js.  Players and
+      // repeatable picks stay bare names, so this is byte-identical to the
+      // pre-T-NEW-02 format for any trade that has no owned pick.
+      const assets = (s.assets || []).map(serializeEntry).filter((x) => x != null);
       const destSource = s.destinations || {};
       const destinations = {};
-      for (const name of assetNames) {
-        if (Object.prototype.hasOwnProperty.call(destSource, name)) {
-          destinations[name] = destSource[name];
+      for (const entry of s.assets || []) {
+        const key = tradeEntryKey(entry);
+        if (Object.prototype.hasOwnProperty.call(destSource, key)) {
+          destinations[key] = destSource[key];
         }
       }
-      return { label: s.label, assets: assetNames, destinations };
+      return { label: s.label, assets, destinations };
     }),
   };
 }
@@ -1683,11 +1715,17 @@ export function tradeWorkspaceToCSV(sides, valueMode = "full", valueBasis = "") 
     return v == null ? "" : Math.round(Number(v));
   };
   const basis = valueBasis || "unspecified";
-  const lines = ["Side,Asset,Position,Team,Value,Value Basis"];
+  // One line per COPY, so a generic pick x2 exports as two lines and the
+  // column sums agree with the calculator.  ``Asset ID`` carries an owned
+  // pick's canonical identity, which the label alone cannot: two distinct
+  // owned picks may both read "2027 Mid 1st" (T-NEW-02).
+  const lines = ["Side,Asset,Position,Team,Value,Value Basis,Asset ID"];
   for (const s of sides || []) {
     for (const r of s.assets || []) {
       lines.push(
-        [s.label, r.name, r.pos || "", r.team || "", pickVal(r), basis].map(esc).join(","),
+        [s.label, r.name, r.pos || "", r.team || "", pickVal(r), basis, r.assetId || ""]
+          .map(esc)
+          .join(","),
       );
     }
   }
@@ -1717,15 +1755,26 @@ export function deserializeWorkspaceMulti(parsed, rowByName) {
   if (parsed.version === 2 && Array.isArray(parsed.sides)) {
     const activeSide = typeof parsed.activeSide === "number" ? parsed.activeSide : 0;
     const sideCount = parsed.sides.length;
+    // Items are bare names (every payload ever written, and players /
+    // repeatable picks now) or ``{name, assetId, label}`` for an owned
+    // pick.  Repeated items are copies and all survive; a UNIQUE identity
+    // appearing twice (a corrupted or hand-edited payload) keeps its
+    // first occurrence only, so it cannot count twice.
+    const entryLists = dedupeUniqueAcrossSides(
+      parsed.sides.map((s) =>
+        Array.isArray(s?.assets)
+          ? s.assets.map((item) => deserializeEntry(item, rowByName)).filter(Boolean)
+          : [],
+      ),
+    );
     const sides = parsed.sides.map((s, i) => {
-      const assets = Array.isArray(s.assets)
-        ? s.assets.map((n) => rowByName.get(n)).filter(Boolean)
-        : [];
+      const assets = entryLists[i];
       const destSource =
         s.destinations && typeof s.destinations === "object" ? s.destinations : {};
       const destinations = {};
       for (const asset of assets) {
-        const raw = destSource[asset.name];
+        const key = tradeEntryKey(asset);
+        const raw = destSource[key];
         const parsedIdx = Number(raw);
         if (
           Number.isInteger(parsedIdx) &&
@@ -1733,7 +1782,7 @@ export function deserializeWorkspaceMulti(parsed, rowByName) {
           parsedIdx < sideCount &&
           parsedIdx !== i
         ) {
-          destinations[asset.name] = parsedIdx;
+          destinations[key] = parsedIdx;
         }
       }
       return {
@@ -1767,9 +1816,11 @@ export function addRecent(recentNames, name) {
 }
 
 export function filterPickerRows(rows, sideA, sideB, query, filter) {
-  const inTrade = new Set([...sideA, ...sideB].map((r) => r.name));
+  // Only UNIQUE identities already in the trade are hidden; a repeatable
+  // market pick stays pickable after its first copy (T-NEW-02).
+  const inTrade = uniqueKeysInTrade([sideA, sideB]);
   const q = query.trim().toLowerCase();
-  let list = rows.filter((r) => !inTrade.has(r.name));
+  let list = rows.filter((r) => !inTrade.has(tradeEntryKey(r)));
   if (filter !== "all") list = list.filter((r) => r.assetClass === filter);
   if (q) list = list.filter((r) => r.name.toLowerCase().includes(q));
   return list.slice(0, 80);
