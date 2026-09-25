@@ -65,15 +65,35 @@ def _degraded_critical_sources(payload: dict) -> list[str]:
 
 
 def has_published_slot_class(payload: dict) -> bool:
-    """True when a vendor published SLOT prices for some draft class.
+    """True when a vendor published SLOT prices for an ACTIVE draft class.
 
     The rookie tether only runs in that phase (C1-U6-D2); between the draft
     and the next season's order, every class is priced as tiers.  Uses the
-    contract's own evidence rule, so "slotted" means the same thing here.
+    contract's own evidence rules, so "slotted" and "active" mean the same
+    thing here as in the build.
+
+    ACTIVE matters since #1414 (PR #1442): vendors keep publishing a class's
+    slot prices after its rookie draft, and a class the draft-class lifecycle
+    has retired leaves the board before the tether pass — so a payload whose
+    only slotted class is retired has no tether population either.  The
+    evaluation is the build's own (``board_pick_class_lifecycle`` over the
+    payload's ``sleeper`` block); if it cannot be evaluated the class is kept,
+    exactly as the build keeps it.
     """
     from src.api.data_contract import published_slot_years
 
-    return bool(published_slot_years(payload.get("pickAnchorsProvenance")))
+    years = published_slot_years(payload.get("pickAnchorsProvenance"))
+    if not years:
+        return False
+    try:
+        from src.api.draft_class_evidence import board_pick_class_lifecycle
+        from src.identity.pick_lifecycle import retired_seasons
+
+        board, _per_league = board_pick_class_lifecycle(payload.get("sleeper"), years)
+        retired = set(retired_seasons(board))
+    except Exception:  # noqa: BLE001 — unknown never retires (the build's rule)
+        retired = set()
+    return bool(set(years) - retired)
 
 
 def newest_complete_raw_payload(
