@@ -5675,7 +5675,12 @@ def derive_current_draft_year_from_names(names: Any) -> int | None:
 _PUBLISHED_SLOT_PROVENANCE: frozenset[str] = frozenset({"published_slot", "unyeared_slot"})
 
 
-def _pick_count_floor_for_board(players_array: list[Any]) -> int:
+def _pick_count_floor_for_board(
+    players_array: list[Any],
+    *,
+    current_year: int | None = None,
+    retired_years: Iterable[int] | None = None,
+) -> int:
     """The pick-count floor for THIS board's phase (C1-U6-D2).
 
     ``_PICK_COUNT_FLOOR`` (100) is ~80% of a board carrying the current
@@ -5697,7 +5702,15 @@ def _pick_count_floor_for_board(players_array: list[Any]) -> int:
         horizon = max(0, int(_load_pick_year_discount().get("horizonYears") or 3))
     except (TypeError, ValueError):
         horizon = 3
-    complete = (horizon + 1) * 6 * 4
+    # Only ACTIVE classes can be on the board (#1414): a retired class inside
+    # the horizon window is absent by design, so the complete board it is
+    # 80% of shrinks by that class — same rule, applied to the classes the
+    # board publishes.  Unknown current year ⇒ nothing is discounted.
+    window_years = horizon + 1
+    if current_year is not None and retired_years:
+        window = range(int(current_year), int(current_year) + horizon + 1)
+        window_years -= len({int(y) for y in retired_years if int(y) in window})
+    complete = max(0, window_years) * 6 * 4
     return min(_PICK_COUNT_FLOOR, math.ceil(0.8 * complete))
 
 
@@ -8481,6 +8494,7 @@ def _complete_future_pick_values(
     players_by_name: dict[str, Any],
     current_year: int,
     synthetic_pick_derivations: Mapping[str, dict[str, Any]] | None = None,
+    retired_years: Iterable[int] | None = None,
 ) -> dict[str, int]:
     """Guarantee a finite canonical value for every valid future pick
     through the horizon, and stamp provenance on EVERY pick row (C1-U6,
@@ -8557,7 +8571,10 @@ def _complete_future_pick_values(
         (_parse_pick_slot(name) or (None,))[0] == current_year for name in by_name
     )
     first_year = current_year + 1 if current_has_slots else current_year
-    future_years = range(first_year, current_year + horizon + 1)
+    # A retired draft class (#1414) is not a pick through the horizon: its
+    # rows left the board and completion must not mint them back.
+    _retired = {int(y) for y in (retired_years or ())}
+    future_years = [y for y in range(first_year, current_year + horizon + 1) if y not in _retired]
     derived: dict[str, int] = {}
 
     # ── 0. Year-step completion for unpriced future tier rows ──
@@ -11643,7 +11660,11 @@ def _compute_unified_rankings(
     #      evidence always outranks a derivation — rows the blend or the
     #      tether priced are never touched.
     _complete_future_pick_values(
-        players_array, players_by_name, _anchor_year, synthetic_pick_derivation_map
+        players_array,
+        players_by_name,
+        _anchor_year,
+        synthetic_pick_derivation_map,
+        retired_years=retired_pick_years,
     )
 
     # 2c) Stamp draft-day value projections on every pick row.
@@ -12426,16 +12447,15 @@ def build_api_data_contract(
     # Derive the active rookie draft year from the scrape's own
     # slot-pick names so the discount, rookie-anchor, and synthetic
     # tether passes all key off one self-rolling value (see
-    # ``current_rookie_draft_year``).  When a class was retired and no
-    # later class carries slots yet, the active class is the one after the
-    # latest retired class — lifecycle evidence, not the calendar fallback.
+    # ``current_rookie_draft_year``).
+    #
+    # Deliberately computed over the board INCLUDING a retired class's rows
+    # (they leave only after the blend): retirement decides which classes are
+    # present-tense, NOT the future-pick horizon, which stays anchored on
+    # this year exactly as before.  Advancing the horizon is a separate owner
+    # decision (#1442), so a retired class never rolls it.
     _retired_pick_years = frozenset(pick_class_lifecycle["retiredYears"])
-    _observed_draft_year = _derive_current_draft_year_from_names(
-        n for n in players_by_name if _pick_year_from_name(str(n)) not in _retired_pick_years
-    )
-    if _observed_draft_year is None and _retired_pick_years:
-        _observed_draft_year = max(_retired_pick_years) + 1
-    set_observed_current_draft_year(_observed_draft_year)
+    set_observed_current_draft_year(_derive_current_draft_year_from_names(players_by_name.keys()))
 
     # Seed raw entries for far-future pick years the vendors don't
     # price yet (e.g. 2029) so they ride the normal pipeline like the
@@ -13939,7 +13959,22 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
         pick_count = sum(
             1 for row in players_array if isinstance(row, dict) and row.get("assetClass") == "pick"
         )
-        pick_floor = _pick_count_floor_for_board(players_array)
+        _lifecycle = payload.get("pickClassLifecycle")
+        census_retired: set[int] = set()
+        if isinstance(_lifecycle, dict):
+            for _y in _lifecycle.get("retiredYears") or ():
+                if isinstance(_y, int) and not isinstance(_y, bool):
+                    census_retired.add(_y)
+        _stamped = payload.get("currentDraftYear")
+        pick_floor = _pick_count_floor_for_board(
+            players_array,
+            current_year=(
+                int(_stamped)
+                if isinstance(_stamped, (int, float)) and not isinstance(_stamped, bool)
+                else None
+            ),
+            retired_years=census_retired,
+        )
         if pick_count < pick_floor:
             errors.append(f"pick_count_below_floor:{pick_count}:{pick_floor}")
         pick_anchors = payload.get("pickAnchors")
@@ -14035,6 +14070,10 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
             )
             census_first = census_current + 1 if census_current_slotted else census_current
             for census_year in range(census_first, census_current + census_horizon + 1):
+                if census_year in census_retired:
+                    # Retired class (#1414): ABSENT by design, stamped in
+                    # ``pickClassLifecycle`` — not a hole in the horizon.
+                    continue
                 for census_round in range(1, 7):
                     names = [
                         f"{census_year} {t} {_round_suffix(census_round)}"

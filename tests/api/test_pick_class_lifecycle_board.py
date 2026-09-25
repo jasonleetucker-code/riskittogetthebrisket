@@ -147,6 +147,13 @@ def boards(tmp_path_factory):
                 json.dumps({"sleeperLeagueId": cfg.sleeper_league_id, "scoringSettings": card})
             )
         out["retired"] = build_api_data_contract(copy.deepcopy(raw))
+        # A LATER class retiring too (2027 evidence; 2026 follows by
+        # supersession) — the horizon must still not move.
+        later = copy.deepcopy(raw)
+        later["sleeper"]["draftClassEvidence"] = _retired_evidence(
+            raw, 2027, board_lid, "board_league"
+        )
+        out["retired_later"] = build_api_data_contract(later)
 
         same = tmp_path_factory.mktemp("snap_same")
         _install(mp, same, raw)
@@ -197,11 +204,45 @@ def test_later_classes_are_untouched(boards):
         assert retired[name].get("rankDerivedValue") == kept[name].get("rankDerivedValue"), name
 
 
-def test_the_next_class_becomes_current_and_the_horizon_rolls(boards):
+def test_retirement_does_not_move_the_future_pick_horizon(boards):
+    """Owner decision on #1442: retirement decides which classes are
+    present-tense; the horizon stays anchored exactly as before.  Advancing
+    it is a separate decision."""
+    kept, retired = _pick_rows(boards["kept"]), _pick_rows(boards["retired"])
     assert boards["kept"]["currentDraftYear"] == 2026
-    assert boards["retired"]["currentDraftYear"] == 2027
-    # horizon = current + 3 is the pre-existing self-rolling rule
-    assert any(n.startswith("2030 ") for n in _pick_rows(boards["retired"]))
+    assert boards["retired"]["currentDraftYear"] == 2026
+    # The retired board is EXACTLY the kept board minus the 2026 class:
+    # nothing added (no 2030 rows), nothing else removed.
+    assert set(retired) == {n for n in kept if not n.startswith("2026")}
+    assert not any(n.startswith("2030") for n in retired)
+
+
+def test_a_synthetic_later_retirement_does_not_extend_the_horizon(boards):
+    c = boards["retired_later"]
+    stamp = c["pickClassLifecycle"]
+    assert stamp["retiredYears"] == [2026, 2027]
+    assert stamp["classes"]["2026"]["status"] == "retired"  # by supersession
+    years = {int(n[:4]) for n in _pick_rows(c)}
+    assert years == {2028, 2029}  # no 2030 / 2031 minted to backfill
+    assert c["currentDraftYear"] == 2026
+    report = validate_api_data_contract(c)
+    assert report.get("structuralErrors") == [], report.get("structuralErrors")
+    assert not [e for e in report.get("errors") or [] if "pick_count_below_floor" in e]
+
+
+def test_the_pick_floor_counts_active_classes_only():
+    from src.api.data_contract import _pick_count_floor_for_board
+
+    tiers_only = [{"assetClass": "pick", "canonicalName": "2027 Early 1st"}]
+    assert _pick_count_floor_for_board(tiers_only) == 77  # 4 classes x 24 x 0.8
+    assert (
+        _pick_count_floor_for_board(tiers_only, current_year=2026, retired_years=[2026]) == 58
+    )  # 3 active classes
+    assert (
+        _pick_count_floor_for_board(tiers_only, current_year=2026, retired_years=[2026, 2027]) == 39
+    )
+    # A retired year outside the horizon window discounts nothing.
+    assert _pick_count_floor_for_board(tiers_only, current_year=2026, retired_years=[2025]) == 77
 
 
 def test_retired_board_is_a_valid_contract(boards):
