@@ -13,9 +13,12 @@
     "PUBLIC_NO_AUTH",
     "CREDENTIALED_SESSION_ALREADY_WIRED",
     "SUBSCRIPTION_SCOPE_UNRECORDED",
-    "NO_ACCESS_PATH_RECORDED"
+    "NO_ACCESS_PATH_RECORDED",
+    "PUBLIC_UNDOCUMENTED_NO_AUTH"
   ],
+  "licensingStatuses": ["UNVERIFIED", "CLEARED_WITH_ARTIFACT"],
   "accessPostureNotes": {
+    "PUBLIC_UNDOCUMENTED_NO_AUTH": "A specific endpoint is recorded and answers without any credential, but it is not part of the provider's documented/published API and no artifact in this repo records terms permitting automated consumption or internal redistribution. Reachable is not licensed. Fails closed — does not authorize production automation; the owning feature flag stays OFF until the licensing open item is resolved.",
     "PUBLIC_NO_AUTH": "No login or credential needed; automation is a straightforward fetch.",
     "CREDENTIALED_SESSION_ALREADY_WIRED": "A working authenticated session already exists in this repo for a DIFFERENT product from the same vendor (typically dynasty rankings). Reusing it for a projection endpoint is a session-scope question, not a new credential question.",
     "SUBSCRIPTION_SCOPE_UNRECORDED": "The owner reports subscription/account access, but no artifact in this repo records that the subscription's terms permit automated acquisition and internal redistribution of the specific data. Per the governing plan §3: 'Subscription access must not be silently equated with unrestricted automated acquisition/redistribution rights.' Fails closed — does not authorize production automation.",
@@ -196,6 +199,35 @@
       "sourceUrlEvidence": "https://www.draftsharks.com/ros-rankings/idp (src/ros/sources/draftsharks_ros.py)",
       "acquisitionOwnerLane": "Claude 8",
       "notes": "Same disposition and ownership as draftSharksOffenseProjections (see its corrected note)."
+    },
+    {
+      "key": "sleeperWeeklyProjections",
+      "displayName": "Sleeper weekly projections (RotoWire stat lines served by Sleeper)",
+      "providerFamily": "rotowire",
+      "modelAncestry": {
+        "model": "rotowire",
+        "publisher": "sleeper",
+        "chain": ["rotowire", "sleeper"],
+        "evidence": "Every row of a full 2026 week-3 capture taken 2026-09-25T00:58Z (7,630 of 7,630; a trimmed 18-row sample is committed at tests/fixtures/game_day/sleeper_projections/) carries company: \"rotowire\". The independence family is therefore RotoWire, not Sleeper: a separately ingested RotoWire product, or a consensus containing RotoWire (e.g. Yahoo's), is the SAME family and must not vote twice. The parser checks the per-row company field and refuses rows naming any other model rather than relabelling them."
+      },
+      "gameType": "WEEKLY",
+      "valuationLane": "SEASONAL_INTELLIGENCE",
+      "evidenceClass": "PROJECTION_MODEL",
+      "targetPopulation": ["OFFENSE", "IDP"],
+      "positionsCovered": ["QB", "RB", "WR", "TE", "K", "DL", "LB", "DB"],
+      "horizons": ["WEEKLY"],
+      "implementationStatus": "IMPLEMENTED_FLAG_OFF",
+      "existingModule": "src.ros.sleeper_weekly_projections",
+      "featureFlag": "sleeper_weekly_projections",
+      "existingRosRegistryKey": null,
+      "existingFetcher": null,
+      "accessPosture": "PUBLIC_UNDOCUMENTED_NO_AUTH",
+      "accessEvidence": "https://api.sleeper.app/projections/nfl/<season>/<week>?season_type=regular&position[]=... answers without authentication. It is NOT under Sleeper's documented public API root (api.sleeper.app/v1, which this repo already uses for leagues/rosters/matchups); it is the endpoint Sleeper's own web client calls.",
+      "licensingStatus": "UNVERIFIED",
+      "licensingOpenItem": "No artifact records that Sleeper's or RotoWire's terms permit automated consumption or internal redistribution of these projections. The RotoWire model is a commercial product surfaced through Sleeper. OPEN ITEM for an owner decision — the feature flag stays OFF until it is resolved. Do not treat reachability as clearance.",
+      "sourceUrlEvidence": "src/ros/sleeper_weekly_projections.py::ENDPOINT_TEMPLATE",
+      "acquisitionOwnerLane": "Claude 11",
+      "notes": "C5-PROJ-C first WEEKLY source. Seasonal intelligence lane ONLY: weekly per-player projected stat lines, rescored under the caller's exact league card by src.league_intel.scorer.score_stat_line — never a dynasty value, rank or vote. Rows with no projection (Sleeper ships a placeholder carrying only adp_dd_ppr, no game_id) are reported as missing, never as a 0-point projection. Threshold/bonus and special-teams categories the provider does not publish are reported per player as uncovered, never silently zero."
     },
     {
       "key": "brisketInternalModel",
