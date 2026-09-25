@@ -695,7 +695,17 @@ def to_projection_observation(obs: WeeklyProjectionObservation) -> ProjectionObs
             f"{obs.sleeper_player_id!r}: no provider updated_at; fetch time is not data "
             "freshness, so this observation cannot be dated for the ensemble"
         )
-    entry = _census_entry()
+    # Keyed by the OBSERVATION's own census entry, so the keyed weekly
+    # sources (src.ros.keyed_weekly_projections) share this one adapter.
+    entry = (
+        _census_entry()
+        if obs.census_source_key == CENSUS_SOURCE_KEY
+        else census.get_source(obs.census_source_key)
+    )
+    if entry is None:
+        raise ProjectionObservationError(
+            f"{obs.census_source_key!r} is not in the projection-source census"
+        )
     return ProjectionObservation(
         census_source_key=obs.census_source_key,
         provider_family=obs.provider_family,

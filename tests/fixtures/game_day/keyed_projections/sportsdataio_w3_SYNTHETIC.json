@@ -1,0 +1,60 @@
+{
+  "_comment": "SYNTHETIC — hand-written test data, NOT a capture and NOT a real SportsDataIO projection. Field names and types follow SportsDataIO's published NFL v3 Projections OpenAPI schema PlayerGameProjection (https://api.apis.guru/v2/specs/sportsdata.io/nfl-v3-projections/1.0/openapi.json, retrieved 2026-09-25). Only a subset of the schema's 168 fields is present; the numbers are invented. PlayerIDs are fictitious. No API key was used to produce it.",
+  "payload": [
+    {
+      "PlayerID": 900001, "Name": "Synthetic Quarterback", "Team": "AAA", "Opponent": "BBB",
+      "Position": "QB", "FantasyPosition": "QB", "Season": 2026, "SeasonType": 1, "Week": 3,
+      "GameKey": "202610301", "GlobalGameID": 1, "ScoreID": 1,
+      "PassingAttempts": 34.0, "PassingCompletions": 22.5, "PassingYards": 255.0,
+      "PassingTouchdowns": 1.8, "PassingInterceptions": 0.7, "PassingSacks": 2.1,
+      "PassingSackYards": 14.0, "TwoPointConversionPasses": 0.1,
+      "RushingAttempts": 4.0, "RushingYards": 18.0, "RushingTouchdowns": 0.2,
+      "TwoPointConversionRuns": 0.0, "Fumbles": 0.3, "FumblesLost": 0.2,
+      "SoloTackles": 0.1, "Sacks": 0.0, "Interceptions": 0.0,
+      "PassingCompletionPercentage": 66.2, "PassingRating": 94.1,
+      "FantasyPoints": 17.9, "FantasyPointsPPR": 17.9, "DraftKingsSalary": 6500,
+      "DeclaredInactive": false, "InjuryStatus": null
+    },
+    {
+      "PlayerID": 900002, "Name": "Synthetic Tight End", "Team": "BBB", "Opponent": "AAA",
+      "Position": "TE", "FantasyPosition": "TE", "Season": 2026, "SeasonType": 1, "Week": 3,
+      "Receptions": 5.0, "ReceivingTargets": 7.0, "ReceivingYards": 52.0,
+      "ReceivingTouchdowns": 0.4, "TwoPointConversionReceptions": 0.05,
+      "RushingAttempts": 0.0, "RushingYards": 0.0, "Fumbles": 0.1, "FumblesLost": null,
+      "FantasyPointsPPR": 12.6
+    },
+    {
+      "PlayerID": 900003, "Name": "Synthetic Kicker", "Team": "AAA", "Opponent": "BBB",
+      "Position": "K", "FantasyPosition": "K", "Season": 2026, "SeasonType": 1, "Week": 3,
+      "FieldGoalsAttempted": 2.2, "FieldGoalsMade": 1.9, "FieldGoalsMade0to19": 0.0,
+      "FieldGoalsMade20to29": 0.5, "FieldGoalsMade30to39": 0.6, "FieldGoalsMade40to49": 0.5,
+      "FieldGoalsMade50Plus": 0.3, "ExtraPointsAttempted": 2.5, "ExtraPointsMade": 2.4,
+      "FieldGoalPercentage": 86.0, "FantasyPointsPPR": 8.1
+    },
+    {
+      "PlayerID": 900004, "Name": "Synthetic Linebacker", "Team": "BBB", "Opponent": "AAA",
+      "Position": "ILB", "FantasyPosition": "LB", "Season": 2026, "SeasonType": 1, "Week": 3,
+      "SoloTackles": 5.1, "AssistedTackles": 2.9, "Tackles": 8.0, "Sacks": 0.3,
+      "SackYards": 2.0, "TacklesForLoss": 0.6, "QuarterbackHits": 0.4, "PassesDefended": 0.5,
+      "FumblesForced": 0.1, "FumblesRecovered": 0.05, "Interceptions": 0.1,
+      "InterceptionReturnYards": 1.0, "DefensiveTouchdowns": 0.02, "Safeties": 0.0,
+      "BlockedKicks": 0.0, "FumbleReturnYards": 0.1
+    },
+    {
+      "PlayerID": 900005, "Name": "Synthetic Edge", "Team": "AAA", "Opponent": "BBB",
+      "Position": "DE", "FantasyPosition": "DL", "Season": 2026, "SeasonType": 1, "Week": 3,
+      "SoloTackles": 2.4, "AssistedTackles": 1.2, "Sacks": 0.6, "QuarterbackHits": 1.1,
+      "TacklesForLoss": 0.7
+    },
+    {
+      "PlayerID": 900006, "Name": "Synthetic Unknown", "Team": "AAA", "Opponent": "BBB",
+      "Position": "WR", "FantasyPosition": "WR", "Season": 2026, "SeasonType": 1, "Week": 3,
+      "Receptions": 3.0, "ReceivingYards": 30.0
+    },
+    {
+      "PlayerID": 900007, "Name": "Synthetic Last Week", "Team": "AAA", "Opponent": "CCC",
+      "Position": "RB", "FantasyPosition": "RB", "Season": 2026, "SeasonType": 1, "Week": 2,
+      "RushingAttempts": 12.0, "RushingYards": 50.0
+    }
+  ]
+}

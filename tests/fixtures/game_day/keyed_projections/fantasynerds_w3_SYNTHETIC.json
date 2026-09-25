@@ -1,0 +1,29 @@
+{
+  "_comment": "SYNTHETIC — hand-written test data, NOT a capture and NOT a real Fantasy Nerds response. Fantasy Nerds publishes NO response schema (https://api.fantasynerds.com/docs/nfl lists endpoints + the apikey parameter only), so this envelope and these field names are an ASSUMED shape built from the stat categories on the public weekly page (https://www.fantasynerds.com/nfl/weekly-projections, retrieved 2026-09-25). It exercises the parser's contract, not the provider's real wire format. The ambiguous fields 'fumbles' and 'tackles' are here on purpose to prove they stay unmapped. Numbers and playerIds are invented; no API key was used.",
+  "payload": {
+    "season": 2026,
+    "week": 3,
+    "players": [
+      {
+        "playerId": "fn-101", "name": "Synthetic Quarterback", "team": "AAA", "position": "QB",
+        "passing_completions": 21.0, "passing_attempts": 33.0, "passing_yards": 240.0,
+        "passing_touchdowns": 1.6, "passing_interceptions": 0.8,
+        "rushing_yards": 15.0, "rushing_touchdowns": 0.1, "fumbles": 0.3
+      },
+      {
+        "playerId": "fn-102", "name": "Synthetic Tight End", "team": "BBB", "position": "TE",
+        "receptions": 4.5, "receiving_yards": 48.0, "receiving_touchdowns": 0.35,
+        "rushing_attempts": 0.0, "rushing_yards": 0.0, "rushing_touchdowns": 0.0, "fumbles": 0.1
+      },
+      {
+        "playerId": "fn-103", "name": "Synthetic Linebacker", "team": "BBB", "position": "LB",
+        "tackles": 5.0, "assisted_tackles": 3.0, "sacks": 0.3, "passes_defended": 0.4,
+        "interceptions": 0.1
+      },
+      {
+        "playerId": "fn-104", "name": "Synthetic Defense", "team": "AAA", "position": "DEF",
+        "sacks": 2.5, "interceptions": 0.9
+      }
+    ]
+  }
+}
