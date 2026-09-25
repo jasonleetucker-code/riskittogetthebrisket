@@ -460,6 +460,85 @@ def test_missing_live_feed_degrades_to_schedule_only_unknown(error):
     assert all(p["remainingBasis"] != "wall_time_fallback" for p in _players(out).values())
 
 
+def _banked_best_ball(team_players, slots, *, include):
+    from src.ros.lineup import OBJECTIVE_REALIZED_POINTS, RosterPlayer, solve_optimal_assignment
+
+    pool = [
+        RosterPlayer(
+            p["playerId"],
+            p["name"],
+            (PLAYERS[p["playerId"]].get("position") or "").upper(),
+            p["pointsScored"],
+            fantasy_positions=tuple(p["fantasyPositions"]),
+        )
+        for p in team_players
+        if include(p)
+    ]
+    chosen = solve_optimal_assignment(pool, list(slots), objective=OBJECTIVE_REALIZED_POINTS)
+    return sum(pl.ros_value for pl in chosen.values())
+
+
+def test_live_feed_down_still_counts_every_banked_point_in_the_current_lineup():
+    """REAL halftime capture, live feed DOWN: TNF game state is unknown, but
+    the host's nonzero points are fact and fill the current best-ball lineup."""
+    out = _run("real_halftime", snapshot_error="fetch_failed:TimeoutError").payload
+    lineup = out["team"]["actualLineup"]
+    slots = out["lineage"]["starterSlots"]
+    tnf = [p for p in out["team"]["players"] if _tnf(p["playerId"])]
+    assert any(p["state"] == "unknown" for p in tnf)
+    expected = _banked_best_ball(
+        out["team"]["players"],
+        slots,
+        include=lambda p: p["state"] == "unknown" and p["pointsScored"] not in (None, 0.0),
+    )
+    assert expected > 0
+    assert lineup["knownSubtotal"] == pytest.approx(expected)
+    assert lineup["lineupState"] == "partial"  # unknown zero-point players remain
+    seated = {s["playerId"] for s in lineup["slots"]}
+    # Unknown-state players with no banked points are named, not dropped.
+    for p in tnf:
+        if p["state"] == "unknown" and not p["pointsScored"]:
+            assert p["playerId"] in lineup["unknownStatePlayerIds"]
+            assert p["playerId"] not in seated
+    # Remaining production stays withheld; the banked number is unaffected.
+    assert out["team"]["outcome"] is None
+    # With the feed UP the banked lineup is identical.
+    up = _run("real_halftime").payload["team"]["actualLineup"]
+    assert up["knownSubtotal"] == pytest.approx(lineup["knownSubtotal"])
+
+
+def test_host_team_total_lag_is_exposed_never_overwrites_our_lineup():
+    """REAL: at halftime roster 4's host total is 33.38 while its per-player
+    points already give a larger best-ball lineup. Both are published."""
+    out = _run("real_halftime").payload
+    score = out["team"]["scoreNow"]
+    assert score["hostReportedTotal"] == out["team"]["actualScore"] == 33.38
+    assert score["bestBallFromBankedPoints"] == out["team"]["actualLineup"]["knownSubtotal"]
+    assert score["bestBallFromBankedPoints"] > score["hostReportedTotal"]
+    assert score["hostTotalDiffers"] is True
+
+
+def test_beat_median_carries_its_verification_flag():
+    out = _run("real_halftime").payload
+    outcome = out["team"]["outcome"]
+    assert outcome["beatMedianVerified"] is True  # 12-team even league
+    assert outcome["beatMedianUnverifiedReason"] is None
+
+
+def test_unverified_median_semantics_is_flagged_per_outcome():
+    """SYNTHETIC: drop one roster so the league simulates 11 teams against a
+    12-team host setting — the median rule is no longer verified."""
+    matchups = [
+        m for m in _scenario("real_halftime")["matchups"]["dynasty_main"] if m["roster_id"] != 12
+    ]
+    run = _run("real_halftime", matchups_override=matchups)
+    outcome = run.payload["team"]["outcome"]
+    assert run.sim.threshold_semantics_verified is False
+    assert outcome["beatMedianVerified"] is False
+    assert outcome["beatMedianUnverifiedReason"] == "team_count_mismatch"
+    assert outcome["beatMedianPct"] is not None  # math unchanged, only flagged
+
+
 def test_both_flags_off_still_answers_honestly():
     out = _run("real_halftime", weekly_on=False, live_on=False).payload
     assert out["lineage"]["liveGameState"]["state"] == "disabled"

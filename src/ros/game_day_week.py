@@ -949,7 +949,16 @@ def actual_lineup(team: TeamWeek, rules: LeagueWeekRules, players_meta) -> dict[
 
     Only players whose game has begun (``in_progress`` / ``completed``) are
     candidates; a definitively-out (``inactive``) player's certain 0.0 is not
-    shown as a scoring seat either (listed in ``inactivePlayerIds``).  A player whose
+    shown as a scoring seat either (listed in ``inactivePlayerIds``).
+
+    **Banked points are fact whatever we know about the game's state.**  A
+    player whose game state is ``unknown`` (live feed down, unmatched game)
+    but whom the host credits with NONZERO points is seated like any other
+    scorer — unknown state only withholds his REMAINING production.  An
+    ``unknown`` player with 0.0 or no points is not seated (0.0 cannot tell
+    "has not played" from "played, scored nothing") and is listed in
+    ``unknownStatePlayerIds``, never silently dropped; his presence makes
+    ``lineupState`` ``partial``.  A player whose
     game has not kicked off has scored nothing, but seating him at 0.0 would
     turn a pregame roster into an arbitrary all-zero tie-break presented as
     a lineup; he is listed in ``notStartedPlayerIds`` instead, and before any
@@ -962,12 +971,19 @@ def actual_lineup(team: TeamWeek, rules: LeagueWeekRules, players_meta) -> dict[
     from src.ros.lineup import OBJECTIVE_REALIZED_POINTS, RosterPlayer, solve_optimal_assignment
 
     begun_states = {"in_progress", "completed"}
+
+    def _seated(p) -> bool:
+        if p.points_scored is None:
+            return False
+        if p.state in begun_states:
+            return True
+        return p.state == "unknown" and p.points_scored != 0.0
+
     not_started = [p.player_id for p in team.players if p.state == "not_started"]
     inactive = [p.player_id for p in team.players if p.state == "inactive"]
+    unknown_state = [p.player_id for p in team.players if p.state == "unknown" and not _seated(p)]
     missing = [
-        p.player_id
-        for p in team.players
-        if p.points_scored is None and p.state not in ("not_started", "inactive")
+        p.player_id for p in team.players if p.points_scored is None and p.state in begun_states
     ]
     pool = [
         RosterPlayer(
@@ -978,7 +994,7 @@ def actual_lineup(team: TeamWeek, rules: LeagueWeekRules, players_meta) -> dict[
             ros_value=p.points_scored,
         )
         for p in team.players
-        if p.points_scored is not None and p.state in begun_states
+        if _seated(p)
     ]
     if rules.best_ball:
         assignment = (
@@ -1020,9 +1036,9 @@ def actual_lineup(team: TeamWeek, rules: LeagueWeekRules, players_meta) -> dict[
         for i, p in sorted(assignment.items())
     ]
     total = sum(p.ros_value for p in assignment.values()) if assignment else None
-    if not pool and not missing:
+    if not pool and not missing and not unknown_state:
         lineup_state = "not_started"
-    elif missing:
+    elif missing or unknown_state:
         lineup_state = "partial"
     elif not_started:
         lineup_state = "in_progress"
@@ -1039,6 +1055,8 @@ def actual_lineup(team: TeamWeek, rules: LeagueWeekRules, players_meta) -> dict[
         "missingPlayerIds": missing,
         "notStartedPlayerIds": not_started,
         "inactivePlayerIds": inactive,
+        # State unknown AND no nonzero banked points: not seated, named.
+        "unknownStatePlayerIds": unknown_state,
         "lineupState": lineup_state,
         "complete": not missing,
         "owner": "src/ros/lineup.py",

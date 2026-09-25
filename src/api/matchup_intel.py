@@ -668,10 +668,38 @@ def _expected_lineup(
     }
 
 
-def _outcome_payload(outcome: TeamWeekOutcome | None) -> dict[str, Any] | None:
+def _median_verification(simulation: Any, rules: Any) -> tuple[bool | None, str | None]:
+    """``(beatMedianVerified, reason)`` from the simulation's own provenance.
+
+    Reports the SAME ``threshold_semantics_verified`` fact the lineage carries,
+    per outcome, with the reason it is false.  Changes no median arithmetic.
+    """
+    if simulation is None or rules.median_enabled is not True:
+        return None, None
+    if simulation.threshold_semantics_verified:
+        return True, None
+    if simulation.threshold_semantics != "median":
+        return False, "non_canonical_threshold_semantics"
+    if rules.team_count is None:
+        return False, "team_count_unknown"
+    if rules.team_count != len(simulation.teams):
+        return False, "team_count_mismatch"
+    if rules.team_count % 2:
+        return False, "odd_team_count_host_rule_unverified"
+    return False, "threshold_semantics_unverified"
+
+
+def _outcome_payload(
+    outcome: TeamWeekOutcome | None,
+    median_verified: tuple[bool | None, str | None] = (None, None),
+) -> dict[str, Any] | None:
     if outcome is None:
         return None
     return {
+        # Whether the beat-median figure rests on VERIFIED host semantics
+        # (``None`` when the median leg does not apply).
+        "beatMedianVerified": median_verified[0],
+        "beatMedianUnverifiedReason": median_verified[1],
         # The mean of the OPTIMIZED best-ball total over draws — the expected
         # final score.  Deliberately distinct from expectedLineup.projectedTotal.
         "expectedFinalBestBall": round(outcome.projected_mean, 2),
@@ -964,6 +992,7 @@ def render_league(assembly: LeagueWeekAssembly) -> dict[str, Any]:
 
     outcomes = {t.team_id: t for t in (simulation.teams if simulation else ())}
     labels = _team_labels(fetched.users)
+    median_verified = _median_verification(simulation, resolution.rules)
     team_week = {t.team_id: t for t in resolution.teams}
     est_by_id = estimates.by_player_id
 
@@ -1000,7 +1029,7 @@ def render_league(assembly: LeagueWeekAssembly) -> dict[str, Any]:
             "rosterId": roster_id,
             "displayName": label["displayName"],
             "teamName": label["teamName"],
-            "outcome": _outcome_payload(outcomes.get(roster_id)),
+            "outcome": _outcome_payload(outcomes.get(roster_id), median_verified),
             "expectedLineup": (
                 _expected_lineup(tw.players, slots, fetched.players)
                 if tw and scoring.mode != "final"
@@ -1025,6 +1054,19 @@ def render_league(assembly: LeagueWeekAssembly) -> dict[str, Any]:
             side["actualScore"] = scoring.host_scores.get(roster_id)
             side["actualLineup"] = actual_lineup(tw, resolution.rules, fetched.players)
             side["pointsBanked"] = side["actualLineup"]["total"]
+            # Two numbers, both published, neither overwriting the other: OUR
+            # best-ball lineup over banked player points, and the host's own
+            # team total, which can lag its per-player points mid-game.
+            ours = side["actualLineup"]["knownSubtotal"]
+            host = side["actualScore"]
+            side["scoreNow"] = {
+                "bestBallFromBankedPoints": ours,
+                "complete": side["actualLineup"]["complete"],
+                "hostReportedTotal": host,
+                "hostTotalDiffers": (
+                    None if ours is None or host is None else abs(ours - host) > 0.005
+                ),
+            }
             current_ids = {s["playerId"] for s in side["actualLineup"]["slots"]}
             possibilities = []
             for p in tw.players:
