@@ -18,14 +18,6 @@
   "players": {
    "changeHistory": [
     {
-     "at": "2026-04-20T04:06:27Z",
-     "broad": true,
-     "rowsAdded": 0,
-     "rowsChanged": 112,
-     "rowsRemoved": 0,
-     "rowsTotal": 461
-    },
-    {
      "at": "2026-04-24T04:05:44Z",
      "broad": true,
      "rowsAdded": 0,
@@ -1936,18 +1928,25 @@
      "rowsChanged": 48,
      "rowsRemoved": 0,
      "rowsTotal": 408
+    },
+    {
+     "at": "2026-09-25T18:59:54Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 4,
+     "rowsRemoved": 0,
+     "rowsTotal": 408
     }
    ],
-   "contentSince": "2026-09-25T14:17:04Z",
-   "fingerprint": "1634593dd8168f7a2cb4f356",
+   "contentSince": "2026-09-25T18:59:54Z",
+   "fingerprint": "b6b11cf741084011ef11bb6c",
    "firstObservationIsBaseline": true,
    "firstObservedAt": "2026-04-19T19:47:46Z",
-   "lastAnyMeaningfulChangeAt": "2026-09-25T14:17:04Z",
+   "lastAnyMeaningfulChangeAt": "2026-09-25T18:59:54Z",
    "lastBroadDatasetChangeAt": "2026-09-25T14:17:04Z",
    "rowChangedAt": {},
    "rowCount": 408,
    "rowCountHistory": [
-    446,
     446,
     446,
     446,
@@ -1974,6 +1973,7 @@
     425,
     425,
     424,
+    408,
     408,
     408,
     408
@@ -2071,7 +2071,7 @@
     "darnell washington": "581db5e7e7",
     "darren waller": "1e4c4960ae",
     "davante adams": "37a1bd7063",
-    "david montgomery": "d99e43a4ad",
+    "david montgomery": "c64502a0f3",
     "david njoku": "a6c21da313",
     "davis allen": "d5549c0831",
     "dawson knox": "fbb4c141f5",
@@ -2209,7 +2209,7 @@
     "josh allen": "848a6e72d9",
     "josh cameron": "ab4e69de57",
     "josh cuevas": "623f104014",
-    "josh downs": "522fb2718c",
+    "josh downs": "9f839d847d",
     "josh jacobs": "98f625cf3b",
     "joshua palmer": "f45bcb5fa5",
     "justice hill": "1fb140064b",
@@ -2262,7 +2262,7 @@
     "marlin klein": "ee461c94f0",
     "marquise brown": "3ffc629e30",
     "marshawn lloyd": "791eb6ad0e",
-    "marvin harrison jr.": "c64502a0f3",
+    "marvin harrison jr.": "d99e43a4ad",
     "marvin mims jr.": "4218c4de4b",
     "mason taylor": "c6e7cfc2ab",
     "mason tipton": "7ce2912a4c",
@@ -2353,7 +2353,7 @@
     "travis hunter": "720ffecfa2",
     "travis kelce": "7bf0e4c550",
     "tre harris": "a55f223c3e",
-    "tre tucker": "9f839d847d",
+    "tre tucker": "522fb2718c",
     "treveyon henderson": "af34967bda",
     "trevor etienne": "5f39cf122c",
     "trevor lawrence": "c98d149fa5",
