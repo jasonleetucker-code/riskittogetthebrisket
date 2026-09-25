@@ -6,6 +6,7 @@ import {
   buildSlotDollarGrid,
   pickAuctionDollars,
   buildLeagueStacks,
+  pickStackAnchorYear,
 } from "@/lib/pick-stack";
 
 describe("parsePickAsset", () => {
@@ -183,5 +184,53 @@ describe("buildLeagueStacks", () => {
     expect(stacks.Alpha).toBeCloseTo(300 + 105, 6);
     expect(stacks.Bravo).toBe(180);
     expect(stacks.Charlie).toBe(120);
+  });
+});
+
+// #1414 / #1442: the stack anchors on the UPCOMING draft — the lifecycle
+// owner's ``pickClassLifecycle.firstActiveClass`` — never the horizon
+// anchor ``currentDraftYear``, which retirement deliberately leaves alone.
+describe("pickStackAnchorYear", () => {
+  it("prefers the lifecycle-owned first active class", () => {
+    const contract = {
+      currentDraftYear: 2026,
+      pickClassLifecycle: { retiredYears: [2026], firstActiveClass: 2027 },
+    };
+    expect(pickStackAnchorYear(contract, { season: "2027" })).toBe(2027);
+  });
+
+  it("falls back to currentDraftYear, then the draft-capital season", () => {
+    expect(pickStackAnchorYear({ currentDraftYear: 2026 }, { season: "2027" })).toBe(2026);
+    expect(pickStackAnchorYear({}, { season: "2027" })).toBe(2027);
+    expect(pickStackAnchorYear(null, null)).toBe(null);
+  });
+
+  it("with the retired class gone, the upcoming class is undiscounted and later ones discount against it", () => {
+    // 2026 retired: its slot rows are ABSENT from the board.  The upcoming
+    // draft is 2027 (tiers only, no slot rows yet); the draft-capital grid
+    // is the 2027 draft's.
+    const dc = { ...dc12(), season: "2027" };
+    const board = (name) =>
+      ({ "2027 Early 1st": 1000, "2028 Early 1st": 800, "2029 Early 1st": 640 })[name] || 0;
+    const contract = {
+      currentDraftYear: 2026,
+      pickClassLifecycle: { retiredYears: [2026], firstActiveClass: 2027 },
+    };
+    const ctx = {
+      slotGrid: buildSlotDollarGrid(dc),
+      teamsPerRound: 12,
+      currentDraftYear: pickStackAnchorYear(contract, dc),
+      boardValueByName: board,
+    };
+    // base avg(120,110,100,90) = 105
+    expect(pickAuctionDollars("2027 Early 1st", ctx)).toBeCloseTo(105, 6); // factor 1.0
+    expect(pickAuctionDollars("2028 Early 1st", ctx)).toBeCloseTo(84, 6); // 0.8
+    expect(pickAuctionDollars("2029 Early 1st", ctx)).toBeCloseTo(67.2, 6); // 0.64
+
+    // Anchoring on the horizon year instead (the regression this guards):
+    // the retired 2026 rows are absent, so every future class loses its
+    // discount.
+    const horizonCtx = { ...ctx, currentDraftYear: contract.currentDraftYear };
+    expect(pickAuctionDollars("2028 Early 1st", horizonCtx)).toBeCloseTo(105, 6);
   });
 });

@@ -2214,6 +2214,15 @@ def _warm_overlays_in_background(contract_payload: dict) -> None:
                 # failure leaves the previous snapshot alone.
                 if _league_registry.refresh_scoring_snapshot(cfg):
                     scoring_refreshed.append(cfg.key)
+                # Draft-class lifecycle evidence (#1414) — same off-request
+                # posture: the board build and the overlay read the
+                # snapshot, never Sleeper.  BEFORE the overlay warm so its
+                # pick ownership sees this pass's evidence.
+                from src.api.draft_class_evidence import (  # noqa: PLC0415
+                    refresh_draft_class_snapshot,
+                )
+
+                refresh_draft_class_snapshot(cfg)
                 try:
                     overlay = _sleeper_overlay.fetch_sleeper_overlay(
                         sleeper_league_id=cfg.sleeper_league_id,
@@ -10707,10 +10716,35 @@ async def get_draft_capital(request: Request, refresh: str = ""):
             logging.warning("draft-capital fallback: rookie board unavailable", exc_info=True)
             rookie_rows = None
 
+        # #1414: the board starts at this league's first NON-retired class.
+        # A class the league has drafted and rostered is no longer draft
+        # capital, and the rookie pool (``years_exp == 0``) IS that class —
+        # stapling it onto the next class's slots would price last draft's
+        # rookies as next draft's picks, so it is withheld when a class was
+        # skipped.  League-scoped verdict from the persisted snapshot; no
+        # snapshot → nothing retired → the calendar year, as before.
+        _dc_calendar_season = datetime.now(timezone.utc).year
+        _dc_season = _dc_calendar_season
+        try:
+            from src.api.draft_class_evidence import (  # noqa: PLC0415
+                active_seasons_for_league,
+            )
+
+            _dc_active = active_seasons_for_league(
+                league_cfg.sleeper_league_id,
+                range(_dc_calendar_season, _dc_calendar_season + 4),
+            )
+            if _dc_active:
+                _dc_season = _dc_active[0]
+        except Exception:  # noqa: BLE001 — unknown never retires
+            logging.warning("draft-capital fallback: lifecycle unavailable", exc_info=True)
+        if _dc_season != _dc_calendar_season:
+            rookie_rows = None
+
         return build_sleeper_derived(
             league_cfg.sleeper_league_id,
             latest_contract_data or {},
-            current_season=datetime.now(timezone.utc).year,
+            current_season=_dc_season,
             declared_draft_rounds=(league_cfg.roster_settings or {}).get("draftRounds"),
             rookies=rookie_rows,
         )
@@ -14512,10 +14546,14 @@ async def run_signal_alerts(request: Request):
                     player_names=_live_player_names(),
                     player_meta=_live_player_meta(),
                 )
-                _season = int(
-                    (latest_contract_data or {}).get("currentDraftYear")
-                    or datetime.now(timezone.utc).year
-                )
+                # The events file BDVM reads is keyed by the NFL season
+                # (``nfl_projection_season``), never the contract's
+                # ``currentDraftYear`` — the upcoming ROOKIE-DRAFT year,
+                # which runs ahead of the season once a class retires
+                # (#1414) and would file events where nothing reads them.
+                from src.bdvm.actuals import nfl_projection_season  # noqa: PLC0415
+
+                _season = int(nfl_projection_season())
                 bdvm_news_events_summary = _bdvm_news_events.ingest_news_events(
                     [it.to_dict() for it in _aggregated.items],
                     season=_season,
