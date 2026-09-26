@@ -866,3 +866,28 @@ owner-approved; the authorization record is the pointer in `docs/EXECUTION_PLAN.
   categorical probability colours (#1428 stays separate).
 - **Not authorized.** A new engine, simulation, projection, scoring, collector or ML system; playoff or
   season projections.
+**Owner directive — Awards: 2026 Waiver King eligibility + Expand standings (2026-09-26).**
+Owner-approved; the authorization record is the League Hub Awards pointer in `docs/EXECUTION_PLAN.md`.
+- **A. 2026 Waiver King eligibility (season-scoped, one award).**
+  - Joel and Blaine may not WIN Waiver King in the 2026 season:
+    - Joel: owner `712035316776669184` (Sleeper `jstuedle`, roster 11).
+    - Blaine: owner `1303549304882892800` (Sleeper `ughb`, roster 12).
+  - The rule is recorded with its provenance in `config/leagues/award_eligibility_overrides.json` and answered only
+    by `src/public_league/award_eligibility.py`.
+  - Keyed by season and that season's league id, never a date: 2027 starts with no rule, and 2026 viewed in any
+    later year keeps it.
+  - Their waiver data and metric are unchanged and still published, with metric rank and an "Ineligible for 2026
+    award" label. The award goes to the highest-ranked eligible manager.
+  - No other award, statistic, standing or consumer is affected.
+- **B. Expand standings (durable).**
+  - Every current-season award race keeps its concise leaders and publishes `standings`: the award's canonical
+    ranking, at most 12 rows, from the same backend rows that decide the award.
+  - Entity per award: player, manager, team, NFL franchise, or event (team-week).
+  - Fewer qualifying candidates means fewer rows; ties share a rank; awards awaiting evidence publish none.
+  - Race-less current-season awards (Regular-Season Crown, Points King, highest/lowest single week) carry
+    standings too.
+  - Award history stays separate.
+  - Explicit exceptions: Champion (decided by the bracket, not a metric), Best Trade and Rivalry of the Year
+    (their owners compute only the single best), Best Rebuild (off-season, completed seasons only).
+- **Not authorized.** Formula, VORP, scoring or waiver-methodology changes; new or removed awards; a League Hub
+  redesign.

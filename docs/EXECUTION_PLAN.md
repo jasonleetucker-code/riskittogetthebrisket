@@ -143,6 +143,11 @@ single authorization record for the batch; ideas inside it do not get their own 
 * **Build broadly, integrate narrowly is authorized:** focused/targeted tests while building,
   full CI at integration boundaries and on every merge head, one integrated release candidate and
   one production deploy where practical. It never weakens an acceptance gate.
+* **League Hub Awards — authorized (owner, 2026-09-26):** (a) the 2026-only Waiver King
+  eligibility override for Joel and Blaine (season-scoped owner rule, one award, metric unchanged);
+  (b) Expand standings — every current-season award race shows its canonical top-12 ranking from the
+  backend. Contract: `docs/OWNER_REQUESTED_TODO.md` ("Awards: 2026 Waiver King eligibility +
+  Expand standings"). No formula, VORP, scoring or award-set change.
 * **Preserved rules:** active WORK_CLAIMS and open-PR file ownership win; `data_contract.py` keeps
   one writer at a time; no second canonical owner; §6 do-not-preempt still applies to anything not
   listed above; KTC Value Adjustment stays a market lens; Hill constants move only through the Hill
