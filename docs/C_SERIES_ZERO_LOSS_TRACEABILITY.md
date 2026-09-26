@@ -435,6 +435,41 @@ faithfully at a lower resolution. → `C3-CON-02`.
 
 ---
 
+
+## 6.1 2026-09-26 owner directive — Adaptive Learning / Continuous Model Improvement
+
+This owner direction is an **extension of existing native owners**, not a new parallel ML roadmap. The detailed
+reconciliation is `docs/research/ADAPTIVE_LEARNING_2026-09-26.md`. Recording it does not authorize
+implementation; `docs/EXECUTION_PLAN.md` remains the implementation authority.
+
+| Owner-learning requirement | Canonical destination | Disposition |
+|---|---|---|
+| Cross-cutting champion/challenger, promotion, rollback and model-evidence governance | `C10-ML-01` + acceptance profile P6 + `src/model_registry/` | **EXTEND** — preserve existing gates; Hill Autopilot is a bounded precedent, not blanket auto-promotion authority |
+| Point-in-time observation / known-at evidence and reproducibility | `C1-HIST-01` + applicable retention rows | **EXTEND** |
+| Game Day prediction archive, calibration and future shadow challengers | `C5-GD-02` + `C5-GD-01` | **EXTEND** |
+| Weekly / ROS projection evaluation and later reliability-weight challengers | `C5-ROS-01` / #854 | **EXTEND** |
+| Source cadence, freshness, task reliability and action-aware acquisition | `C6-FRESH-01`, `F-SRC-01`, `C4-SRC-02`, #1423 | **EXTEND** — current cadence-relative production policy stays champion until a challenger earns promotion |
+| Power Rankings and playoff/title model evaluation | `C5-POW-01`, `C5-PLAY-01` | **EXTEND** — validation/calibration, not another rewrite |
+| Future-pick probabilistic learning | existing pick-distribution / seasonal owners (`C1-PICK-03` and dependencies) | **EXTEND** |
+| FAAB / waiver demand and censored behavioral learning | `C4-FAAB-01`, `C4-FAAB-02`, `C4-WAIV-01` | **EXTEND** |
+| Manager preferences and eventual offer-response learning | `C6-MGR-01`, `C4-MTL-01`, `C7-DESK-01` | **EXTEND** — calibrated acceptance depends on prospective rejection/non-action evidence; R14 remains candidate |
+| Trade recommendation / decision-process evaluation | `C7-DESK-01`, `C3-REPLAY-01` | **EXTEND** — do not define success as one hindsight player outcome |
+| Analyst claim accuracy / reliability | `C6-ANA-01` | **EXTEND** |
+| Competitive-posture calibration | `C7-POST-01` | **EXTEND** |
+| Contextual alerts / information acquisition | `C7-ALERT-01` + #1423 | **EXTEND** — bounded bandit/VOI work remains later and separately governed |
+| Private rejected/countered/expired offers and non-actions | research R14 -> `C6-MGR-01` / `C1-HIST-01` | **KEEP CANDIDATE** — no implementation authorization |
+| Shared learned-feature definition manifest | proposed sub-capability of `C10-ML-01` if the first implementation proves it necessary | **REFRAME / NO NEW ID NOW** |
+
+**Deterministic boundary.** Scoring arithmetic, league rules, roster/transaction legality, canonical identity,
+ownership, exact lineup eligibility/assignment, provenance/timestamps and missing-vs-zero semantics do not
+self-learn. Learned models may estimate uncertain inputs consumed by those owners; they may not override the
+owners.
+
+**Promotion boundary.** Continuous capture, evaluation and shadow challengers are the default learning loop.
+Production models do not silently self-modify. Automatic promotion requires a separately owner-approved,
+deterministic, fail-closed policy for that model family plus rollback and a durable promotion record.
+
+
 # 7. Result
 
 | measure | count |
