@@ -88,10 +88,9 @@ def scored_weeks(matchups_by_week: dict[int, list[dict[str, Any]]]) -> list[int]
     ``final_regular_season_weeks`` instead.  This remains the ONE
     canonical place deciding the former; do not re-derive it elsewhere.
 
-    Known follow-up: ``awards.py`` builds VORP, starter totals and
-    replacement pools on this helper, so those figures still drift
-    while a week is in progress.  Tracked separately — changing this
-    function's behaviour would move award outputs.
+    ``awards.py`` intersects this with ``final_weeks`` for VORP,
+    starter totals and replacement pools (``_final_scored_weeks``), so an
+    in-progress week no longer drifts award outputs.
     """
     return sorted(
         wk for wk, entries in matchups_by_week.items() if any(is_scored(e) for e in entries)

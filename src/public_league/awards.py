@@ -292,6 +292,33 @@ def _player_points_in_week_for_roster(
     return None
 
 
+def _final_week_set(season: SeasonSnapshot) -> set[int]:
+    """Weeks whose scoring is FINISHED, per the canonical owner.
+
+    Every award is a claim about games that were played to completion.  A
+    week still being played carries Thursday-night slivers and literal
+    ``0.0`` stubs for rosters that have not kicked off (measured on the live
+    2026 week 3: 7 of 12 teams scored, 240 of 252 starter slots at 0.0), and
+    reading it moved the MVP leader, posted a partial score as the "Lowest
+    single week" and credited Weekly Hammer from Thursday night.
+    ``metrics.final_weeks`` is the one definition of "finished"; this is a
+    set view of it, not a second rule.  A season the host marks ``complete``
+    returns every week, so completed seasons are unchanged by the gate.
+    """
+    return set(metrics.final_weeks(season))
+
+
+def _final_scored_weeks(season: SeasonSnapshot) -> list[int]:
+    """``metrics.scored_weeks`` restricted to FINISHED weeks.
+
+    ``scored_weeks`` answers "has anything been scored" (it drops Sleeper's
+    fully-stubbed future weeks); ``final_weeks`` answers "has scoring
+    finished".  Awards aggregate over weeks that satisfy both.
+    """
+    final = _final_week_set(season)
+    return [wk for wk in metrics.scored_weeks(season.matchups_by_week) if wk in final]
+
+
 def _season_has_player_scoring(season: SeasonSnapshot) -> bool:
     """True when at least one matchup entry carries players_points."""
     for entries in season.matchups_by_week.values():
@@ -339,7 +366,10 @@ def _season_canonical_awards(
 
     high_week: tuple[float, int, int] | None = None
     low_week: tuple[float, int, int] | None = None
+    final_weeks = _final_week_set(season)
     for week, entries in season.matchups_by_week.items():
+        if week not in final_weeks:
+            continue
         for m in entries:
             rid = metrics.roster_id_of(m)
             if rid is None:
@@ -607,8 +637,9 @@ def _silent_assassin_scores(
             }
         return per_owner[owner_id]
 
+    final_weeks = _final_week_set(season)
     for week in sorted(season.matchups_by_week.keys()):
-        if week >= season.playoff_week_start:
+        if week >= season.playoff_week_start or week not in final_weeks:
             continue
         for a, b in metrics.matchup_pairs(season.matchups_by_week[week]):
             pa = metrics.matchup_points(a)
@@ -680,8 +711,9 @@ def _weekly_hammer_scores(
             }
         return per_owner[owner_id]
 
+    final_weeks = _final_week_set(season)
     for week in sorted(season.matchups_by_week.keys()):
-        if week >= season.playoff_week_start:
+        if week >= season.playoff_week_start or week not in final_weeks:
             continue
         entries = season.matchups_by_week[week]
         scored = [(metrics.roster_id_of(m), metrics.matchup_points(m)) for m in entries]
@@ -734,7 +766,10 @@ def _bad_beat_scores(
             }
         return per_owner[owner_id]
 
+    final_weeks = _final_week_set(season)
     for week in sorted(season.matchups_by_week.keys()):
+        if week not in final_weeks:
+            continue
         for a, b in metrics.matchup_pairs(season.matchups_by_week[week]):
             pa = metrics.matchup_points(a)
             pb = metrics.matchup_points(b)
@@ -872,14 +907,16 @@ def _starter_scoring_walk(
     via ``snapshot.player_position`` so IDP-eligible players collapse
     into DL/LB/DB.
 
-    Only walks ``metrics.scored_weeks`` — Sleeper stamps ``matchup_id``
-    for the whole season's schedule at draft time and echoes each
-    roster's CURRENT starting lineup into ``starters``/``players_points``
-    for every future week (at a stubbed 0.0), so a week's mere presence
-    in ``matchups_by_week`` does not mean it was actually played.  See
-    ``metrics.scored_weeks`` for the full rationale.
+    Only walks FINISHED scored weeks (``_final_scored_weeks``).  Sleeper
+    stamps ``matchup_id`` for the whole season's schedule at draft time and
+    echoes each roster's CURRENT starting lineup into
+    ``starters``/``players_points`` for every future week (at a stubbed
+    0.0), so a week's mere presence in ``matchups_by_week`` does not mean
+    it was actually played (``metrics.scored_weeks``); and a week in which
+    something has scored is not a week that has FINISHED scoring
+    (``metrics.final_weeks``).  An in-progress week contributes nothing.
     """
-    for week in metrics.scored_weeks(season.matchups_by_week):
+    for week in _final_scored_weeks(season):
         is_playoff = week >= season.playoff_week_start
         if regular_season_only and is_playoff:
             continue
@@ -1170,13 +1207,13 @@ def _player_all_rostered_totals(
     this walks that full map rather than ``_starter_scoring_walk``'s
     starters-only subset.
 
-    Only walks ``metrics.scored_weeks`` (see that function and
+    Only walks FINISHED scored weeks (``_final_scored_weeks``; see
     ``_starter_scoring_walk`` above) — without this gate, every future
     week's full-roster ``players_points`` stub (0.0 for all 58 rostered
     players, not just starters) inflates ``games`` for nearly the whole
     league's player pool, which deflates ``replacement_per_game``'s
     per-game rate for virtually every position.  ``games`` therefore
-    means: the number of the season's ACTUALLY-SCORED weeks in which
+    means: the number of the season's FINISHED scored weeks in which
     this player had a ``players_points`` entry on some roster (bench
     included).  A bye/inactive/rostered zero-point week in an
     actually-scored week still counts — that is a real, legitimate 0,
@@ -1185,7 +1222,7 @@ def _player_all_rostered_totals(
     they only appear in ``players_points`` for those weeks.
     """
     out: dict[str, dict[str, Any]] = {}
-    for week in metrics.scored_weeks(season.matchups_by_week):
+    for week in _final_scored_weeks(season):
         is_playoff = week >= season.playoff_week_start
         if regular_season_only and is_playoff:
             continue
@@ -1301,7 +1338,7 @@ _FLEX_RBWR_POOL = 84  # top 84 RB+WR by starter points (TEs excluded)
 #: Bumped whenever the VORP formula or its week-eligibility gating
 #: changes, so a stale cached payload (see server.py's public-contract
 #: byte cache) can never silently outlive a correctness fix.
-_VORP_CALC_VERSION = "2026-09-15-scored-week-gate"
+_VORP_CALC_VERSION = "2026-09-26-final-week-gate"
 
 
 def _dynamic_starter_slots(season: SeasonSnapshot) -> dict[str, int]:
@@ -1344,13 +1381,13 @@ def _vorp_starter_slots(
 
 
 def _as_of_week(season: SeasonSnapshot) -> int:
-    """The last actually-scored week backing an awards calculation.
+    """The last FINISHED scored week backing an awards calculation.
 
     Shared by every VORP/starter-points award builder so MVP, ROY,
     Playoff MVP and Top Position races are always stamped from the same
     as-of boundary, whatever subset of weeks each one filters to.
     """
-    weeks = metrics.scored_weeks(season.matchups_by_week)
+    weeks = _final_scored_weeks(season)
     return max(weeks) if weeks else 0
 
 
@@ -1515,8 +1552,9 @@ def _mr_consistent_scores(
         return []
 
     weekly: dict[int, list[float]] = defaultdict(list)
+    final_weeks = _final_week_set(season)
     for week in sorted(season.matchups_by_week.keys()):
-        if week >= season.playoff_week_start:
+        if week >= season.playoff_week_start or week not in final_weeks:
             continue
         for entry in season.matchups_by_week[week]:
             rid = metrics.roster_id_of(entry)
@@ -1676,7 +1714,10 @@ def _rivalry_of_the_year(
             }
         return pair_scores[key]
 
+    final_weeks = _final_week_set(season)
     for week in sorted(season.matchups_by_week.keys()):
+        if week not in final_weeks:
+            continue
         is_playoff = week >= season.playoff_week_start
         for a, b in metrics.matchup_pairs(season.matchups_by_week[week]):
             pa = metrics.matchup_points(a)
