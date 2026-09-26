@@ -715,7 +715,7 @@ export function medianRaceStateText(race) {
     case "unverified":
       return "This league's median rule could not be verified, so beat-median chances are withheld.";
     case "pending":
-      return "Computing the forecast — live scores are shown now; chances follow shortly.";
+      return "Beat-median chances are still being calculated — live scores are shown now.";
     case "forecast_unavailable":
       return "Beat-median chances are paused while live game progress is unavailable.";
     case "final_scores_incomplete":

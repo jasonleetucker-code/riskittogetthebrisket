@@ -144,7 +144,7 @@ describe("Live Median Race — states", () => {
 
   it("pending: known scores now, chances named as computing, never 0%", async () => {
     await show(PENDING);
-    expect(screen.getByText(/Computing the forecast — live scores are shown now/)).toBeInTheDocument();
+    expect(screen.getByText(/Beat-median chances are still being calculated/)).toBeInTheDocument();
     expect(within(board()).queryByText("0.0%")).toBeNull();
     const top = PENDING.medianRace.teams[0];
     expect(within(rowFor(top.rosterId)).getByText(formatPoints(top.scoreNow))).toBeInTheDocument();
