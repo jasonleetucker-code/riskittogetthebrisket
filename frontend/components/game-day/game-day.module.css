@@ -62,6 +62,10 @@
   .teamPickerControl {
     flex: 1 1 100%;
   }
+  /* Primary control on a touch screen: a 44 px target. */
+  .teamPickerSelect {
+    min-height: 44px;
+  }
 }
 
 /* ── Matchup hero ── */
@@ -166,21 +170,30 @@
   color: var(--text-tertiary);
   font-weight: var(--font-weight-regular);
 }
-.sideName {
+/* Team identity wraps only BETWEEN words. `overflow-wrap: anywhere` let the
+   phone scoreboard (fixed layout, ~99 px name column) split a name mid-word
+   ("Rossini Pan|ini"). A single word wider than its line is clipped with an
+   ellipsis instead of being cut; the full name stays in the DOM (the row
+   header's accessible name and the table caption) and in `title`. */
+.sideName,
+.sideTeamName {
   display: block;
+  overflow: hidden;
+  overflow-wrap: normal;
+  word-break: normal;
+  text-overflow: ellipsis;
+}
+.sideName {
   font-family: var(--font-display);
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   line-height: var(--line-height-tight);
-  overflow-wrap: anywhere;
 }
 .sideTeamName {
-  display: block;
   font-size: var(--font-size-xs);
   color: var(--text-secondary);
   font-weight: var(--font-weight-regular);
-  overflow-wrap: anywhere;
 }
 .selectedRow .sideName {
   color: var(--accent);

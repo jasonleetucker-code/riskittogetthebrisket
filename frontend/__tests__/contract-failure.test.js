@@ -61,6 +61,28 @@ describe("classifyContractFailure", () => {
     const f = classifyContractFailure(500, "<html>502 Bad Gateway</html>");
     expect(f.kind).toBe("server");
     expect(f.code).toBe("");
+    expect(f.message).toBe("Server error (500).");
+  });
+
+  it("never shows a proxy's HTML error page as the message (production 2026-09-26)", () => {
+    const nginx =
+      "<html> <head><title>502 Bad Gateway</title></head> <body> <center><h1>502 Bad Gateway</h1></center>" +
+      " <hr><center>nginx/1.24.0 (Ubuntu)</center> </body> </html>";
+    for (const status of [502, 503, 504]) {
+      const f = classifyContractFailure(status, nginx);
+      expect(f.kind).toBe("unavailable");
+      expect(f.message).not.toMatch(/</);
+      expect(f.message).toMatch(/restarting or briefly unavailable/);
+      expect(f.retryable).toBe(true);
+    }
+  });
+
+  it("an unexplained 503 still gets a plain sentence, not an empty banner", () => {
+    expect(classifyContractFailure(503, null).message).toMatch(/Try again in a moment/);
+  });
+
+  it("a plain-text body that is not markup is still shown", () => {
+    expect(classifyContractFailure(502, "upstream timed out").message).toBe("upstream timed out");
   });
 });
 

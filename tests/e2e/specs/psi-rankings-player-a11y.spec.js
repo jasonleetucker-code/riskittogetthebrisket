@@ -83,6 +83,37 @@ async function scan(page, testInfo, name) {
   ).toEqual([]);
 }
 
+/**
+ * Wait until a re-sorted board has SETTLED before scanning it.
+ *
+ * /rankings renders rows through `useDeferredValue`. Until the deferred rows
+ * catch up (`rowsPending` in app/rankings/page.jsx) the page marks the
+ * result count `aria-busy` and dims the whole table panel, headers included,
+ * to `opacity: 0.55` — a deliberate, transient "these rows are stale" state.
+ * Header text there measures 2.32:1 against the settled 5.63:1
+ * (--text-tertiary on --surface-1 over --surface-0, .psi-editorial), so an
+ * axe pass that lands inside that window reports color-contrast on every
+ * sort header. That was this test's intermittent failure (E2E runs
+ * 36132280290, 36160006580, 36208782749). The scan asserts on the settled
+ * board the user reads, so wait for the page's own "settled" signals rather
+ * than a fixed sleep. The axe rule set is unchanged.
+ */
+async function waitForSettledBoard(page) {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            !document.querySelector('[aria-live="polite"][aria-busy="true"]') &&
+            ![...document.querySelectorAll('[role="tabpanel"]')].some(
+              (el) => el.style.opacity && el.style.opacity !== "1",
+            ),
+        ),
+      { message: "the re-sorted board must settle (no aria-busy count, no dimmed panel)", timeout: 30_000 },
+    )
+    .toBe(true);
+}
+
 async function noPageOverflow(page, label) {
   const sizes = await page.evaluate(() => ({
     document: document.documentElement.scrollWidth,
@@ -256,6 +287,7 @@ test.describe("PSI reference a11y matrix: /rankings (populated)", () => {
     expect(stillOnHeader, "focus must remain on the sort header after sorting").toBe(true);
     await page.keyboard.press("Enter");
     await expect(header).not.toHaveAttribute("aria-sort", first);
+    await waitForSettledBoard(page);
     await scan(page, testInfo, "rankings-keyboard-sorted");
   });
 
