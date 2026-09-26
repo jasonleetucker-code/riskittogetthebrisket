@@ -461,6 +461,46 @@ moves.
 only through downstream stages (for example the rookie-pool tether for picks).
 Top-50 max is 1.9% with at most one rank move.
 
+**Owner approval and refresh (2026-09-26).** The owner approved the
+window-median methodology on 2026-09-26, conditional on refresh and
+revalidation against current main. It was re-applied onto main `304e38c52`
+(clean cherry-pick). Main's changes to `data_contract.py` since the PR's base
+(#1442 pick-class lifecycle, #1443 FantasyPros IDP metadata) do not touch the
+estimator, and `src/sources`, `confidence.py` and `config/sources` are
+unchanged, so the contract's assumptions still hold.
+
+Property re-proof, 20,000 random unequal-weight cases each, main → this change:
+
+| property | main (midpoint median) | window median |
+|---|---|---|
+| median monotone in the values | 425 violations (worst −67.6%) | **0** |
+| whole blend monotone in the values | 227 (worst −22.2%) | **0** |
+| hierarchical anchor + α=0.10 subgroup | 156 (worst −25.1%) | **0** |
+| continuous in the weights (jumps per 1e-7 of weight) | 0 | **0** |
+| equal weights: ordinary median, unweighted blend, n=1/2/3–4/≥5 rungs | 0 mismatches | **0** |
+| bounded influence: a ≤5%-weight source straddling 0.5 moves the median by ≤ n·w/W per unit | 19,938 breaches | **0** |
+
+Board impact on the pinned payload `dynasty_export_20260926_053303.zip`
+(`dynasty_data_2026-09-26.json`, sha256 `d33a78ab…bc40`): the same tree built
+twice, with main's two estimator functions patched in for the "before" build.
+Those two functions are the only `src/` difference. 554 of 1,038 values move.
+
+| group | changed / rows | median | p90 | max |
+|---|---|---|---|---|
+| all | 554 / 1,038 | 0.15% | 2.05% | 10.15% |
+| offense | 226 / 498 | 0.08% | 0.39% | 4.23% |
+| IDP | 228 / 396 | 0.26% | 4.81% | 10.15% |
+| picks | 100 / 144 | 0.14% | 1.19% | 5.60% |
+
+- 2-voter rows change 0 of 86.
+- Top-50: max 1.19%, 2 ranks. Top-150: max 5.76%, 17 ranks.
+- Source lineage, per-source freshness/health/coverage weights, family and
+  source counts, weight states and exclusions are byte-identical.
+- `pickValueProvenance` evidence classes are unchanged. Only the tether
+  `basis` rookie changes, on 34 rows.
+- `confidenceBucket` changes on 25 rows, all through the agreement axis. That
+  axis is measured against the new value.
+
 **The DLF rookie boards** vote inside the DLF family cap until the rookie-board
 audit decides whether they are distinct signals, mirrors, or seasonal.
 

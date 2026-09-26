@@ -674,7 +674,10 @@ Steps:
    median); the weighted median is the mean of the weighted quantile
    function over [½ − 1/2n, ½ + 1/2n].  Exactly the unweighted rule under
    equal weights; monotone in the values; continuous in the weights; a
-   near-zero-weight source cannot become the median (bounded influence)
+   near-zero-weight source cannot become the median (bounded influence).
+   **Owner approved the window-median methodology 2026-09-26, conditional on
+   refresh/revalidation** against current main (#1434; refresh evidence in
+   ``docs/sources/SOURCE_FRESHNESS_WEIGHTING.md``)
 8. RETIRED: the λ·MAD volatility penalty is switched off
    (``_MAD_PENALTY_LAMBDA = 0.0`` since 2026-04-20); ``sourceSpread``
    is stamped as a pure diagnostic.  Likewise the soft fallback is
