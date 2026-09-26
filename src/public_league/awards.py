@@ -264,32 +264,83 @@ def _post_weeks(season: SeasonSnapshot, after_leg: int) -> list[int]:
     return [w for w in sorted(season.matchups_by_week.keys()) if w > after_leg]
 
 
-def _player_points_in_week_for_roster(
-    season: SeasonSnapshot,
-    week: int,
-    roster_id: int,
-    player_id: str,
-    require_started: bool = False,
-) -> float | None:
-    """Return the player's scored points for a specific roster-week.
+def _final_week_set(season: SeasonSnapshot) -> set[int]:
+    """Weeks whose scoring is FINISHED, per the canonical owner.
 
-    ``require_started`` restricts the lookup to when the roster actually
-    started the player that week.  Returns ``None`` if the data isn't
-    available (older seasons or missing players_points map).
+    Every award is a claim about games that were played to completion.  A
+    week still being played carries Thursday-night slivers and literal
+    ``0.0`` stubs for rosters that have not kicked off (measured on the live
+    2026 week 3: 7 of 12 teams scored, 240 of 252 starter slots at 0.0), and
+    reading it moved the MVP leader, posted a partial score as the "Lowest
+    single week" and credited Weekly Hammer from Thursday night.
+    ``metrics.final_weeks`` is the one definition of "finished"; this is a
+    set view of it, not a second rule.  A season the host marks ``complete``
+    returns every week, so completed seasons are unchanged by the gate.
     """
-    entries = season.matchups_by_week.get(week) or []
-    for entry in entries:
-        try:
-            rid = int(entry.get("roster_id"))
-        except (TypeError, ValueError):
-            continue
-        if rid != roster_id:
-            continue
-        if require_started and str(player_id) not in _starter_set(entry):
+    return set(metrics.final_weeks(season))
+
+
+def _final_scored_weeks(season: SeasonSnapshot) -> list[int]:
+    """``metrics.scored_weeks`` restricted to FINISHED weeks.
+
+    ``scored_weeks`` answers "has anything been scored" (it drops Sleeper's
+    fully-stubbed future weeks); ``final_weeks`` answers "has scoring
+    finished".  Awards aggregate over weeks that satisfy both.
+    """
+    final = _final_week_set(season)
+    return [wk for wk in metrics.scored_weeks(season.matchups_by_week) if wk in final]
+
+
+class _RosterWeekLookup:
+    """A player's scored points for one roster-week (trade / waiver awards).
+
+    ``points`` returns ``None`` when the data isn't available (no entry for
+    that roster-week, or no ``players_points`` value), and -- with
+    ``require_started`` -- when the roster did not start the player that
+    week.  The FIRST entry for a (week, roster) wins.
+
+    Replaces the scan-per-lookup ``_player_points_in_week_for_roster``
+    with identical answers, but each roster-week's starter set and float
+    points map is built once per build instead of once per player-week
+    lookup.  Trader of the Year made ~62k lookups per awards build and
+    re-converted a whole 58-player map on every one (0.64 s of a 2.25 s
+    profiled build).
+
+    Scoped to ONE build by construction (callers create it), never cached
+    on the season: tests and fixtures mutate ``matchups_by_week`` in place,
+    and a memo that outlived the build would serve the old values.
+    """
+
+    def __init__(self, season: SeasonSnapshot) -> None:
+        self._entries: dict[tuple[int, int], dict[str, Any]] = {}
+        for week, entries in season.matchups_by_week.items():
+            for entry in entries or []:
+                try:
+                    rid = int(entry.get("roster_id"))
+                except (TypeError, ValueError):
+                    continue
+                self._entries.setdefault((week, rid), entry)
+        self._parsed: dict[tuple[int, int], tuple[set[str], dict[str, float]]] = {}
+
+    def points(
+        self,
+        week: int,
+        roster_id: int,
+        player_id: str,
+        require_started: bool = False,
+    ) -> float | None:
+        key = (week, roster_id)
+        entry = self._entries.get(key)
+        if entry is None:
             return None
-        pp = _roster_player_points(entry)
+        parsed = self._parsed.get(key)
+        if parsed is None:
+            parsed = (_starter_set(entry), _roster_player_points(entry))
+            self._parsed[key] = parsed
+        starters, pp = parsed
+        if require_started and str(player_id) not in starters:
+            return None
         return pp.get(str(player_id))
-    return None
 
 
 def _season_has_player_scoring(season: SeasonSnapshot) -> bool:
@@ -339,7 +390,10 @@ def _season_canonical_awards(
 
     high_week: tuple[float, int, int] | None = None
     low_week: tuple[float, int, int] | None = None
+    final_weeks = _final_week_set(season)
     for week, entries in season.matchups_by_week.items():
+        if week not in final_weeks:
+            continue
         for m in entries:
             rid = metrics.roster_id_of(m)
             if rid is None:
@@ -396,8 +450,11 @@ def _season_canonical_awards(
 def _trader_of_the_year_scores(
     snapshot: PublicLeagueSnapshot,
     season: SeasonSnapshot,
+    lookup: _RosterWeekLookup | None = None,
 ) -> tuple[list[dict[str, Any]], tuple[float, str, dict[str, Any]] | None]:
     """Return sortable trader-of-the-year score rows per owner."""
+    if lookup is None:
+        lookup = _RosterWeekLookup(season)
     per_owner: dict[str, dict[str, Any]] = {}
 
     def _ensure(owner_id: str) -> dict[str, Any]:
@@ -448,7 +505,7 @@ def _trader_of_the_year_scores(
             for week in post_weeks:
                 is_playoff = week >= season.playoff_week_start
                 for pid in received:
-                    pts = _player_points_in_week_for_roster(season, week, rid, pid)
+                    pts = lookup.points(week, rid, pid)
                     if pts is None:
                         continue
                     gain += pts
@@ -461,7 +518,7 @@ def _trader_of_the_year_scores(
                     )
                     if other_rid is None:
                         continue
-                    pts = _player_points_in_week_for_roster(season, week, other_rid, pid)
+                    pts = lookup.points(week, other_rid, pid)
                     if pts is None:
                         continue
                     gain -= pts
@@ -527,7 +584,24 @@ def _trader_of_the_year_scores(
 def _waiver_king_scores(
     snapshot: PublicLeagueSnapshot,
     season: SeasonSnapshot,
+    lookup: _RosterWeekLookup | None = None,
 ) -> list[dict[str, Any]]:
+    """Starting-lineup points each owner got from waiver / FA adds.
+
+    Each ``(roster, player, week)`` contributes AT MOST ONCE.  The lookup
+    is "was this player started by this roster in week w", which is a fact
+    about the roster-week, not about a transaction -- so when a manager
+    adds a player, drops him and adds him again, the first add's
+    post-weeks and the re-add's post-weeks overlap and the old per-add
+    loop counted every week after the re-add twice (measured 2026-09-26 on
+    the persisted snapshot: 43 re-added roster/player pairs and 799.6
+    double-counted points in 2025, 9 pairs and 182.1 points in 2024 --
+    enough to flip both seasons' winners).  A roster-week is
+    credited to the MOST RECENT add of that player by that roster made
+    before the week, which is the stint that actually produced it.
+    """
+    if lookup is None:
+        lookup = _RosterWeekLookup(season)
     per_owner: dict[str, dict[str, Any]] = {}
 
     def _ensure(owner_id: str) -> dict[str, Any]:
@@ -540,6 +614,9 @@ def _waiver_king_scores(
             }
         return per_owner[owner_id]
 
+    # Pass 1: every counted add, in chronological transaction order.
+    # (owner_id, roster_id, player_id, leg, post_weeks)
+    counted_adds: list[tuple[str, int, str, int, list[int]]] = []
     for tx in season.waivers():
         leg = tx.get("leg") or tx.get("_leg") or 0
         try:
@@ -561,20 +638,35 @@ def _waiver_king_scores(
                 continue
             rec = _ensure(owner_id)
             rec["addCount"] += 1
-            # Only points scored while the pickup was actually in the
-            # starting lineup count — bench weeks are ignored entirely.
-            gain = 0.0
-            started_at_least_once = False
-            for week in post_weeks:
-                starter_pts = _player_points_in_week_for_roster(
-                    season, week, rid_int, pid, require_started=True
-                )
-                if starter_pts is not None:
-                    gain += starter_pts
-                    started_at_least_once = True
-            rec["pointsGained"] += gain
-            if started_at_least_once and gain > 0:
-                rec["usefulAdds"] += 1
+            counted_adds.append((owner_id, rid_int, str(pid), leg_int, post_weeks))
+
+    # Which add owns each roster-week: the latest add (by transaction
+    # order) of that player by that roster whose leg precedes the week.
+    owner_of_week: dict[tuple[int, str, int], int] = {}
+    for idx, (_owner, rid_int, pid, _leg, post_weeks) in enumerate(counted_adds):
+        for week in post_weeks:
+            key = (rid_int, pid, week)
+            prev = owner_of_week.get(key)
+            if prev is None or counted_adds[prev][3] <= counted_adds[idx][3]:
+                owner_of_week[key] = idx
+
+    # Pass 2: credit each roster-week once, to the add that owns it.
+    for idx, (owner_id, rid_int, pid, _leg, post_weeks) in enumerate(counted_adds):
+        rec = per_owner[owner_id]
+        # Only points scored while the pickup was actually in the
+        # starting lineup count — bench weeks are ignored entirely.
+        gain = 0.0
+        started_at_least_once = False
+        for week in post_weeks:
+            if owner_of_week.get((rid_int, pid, week)) != idx:
+                continue
+            starter_pts = lookup.points(week, rid_int, pid, require_started=True)
+            if starter_pts is not None:
+                gain += starter_pts
+                started_at_least_once = True
+        rec["pointsGained"] += gain
+        if started_at_least_once and gain > 0:
+            rec["usefulAdds"] += 1
 
     rows = list(per_owner.values())
     for r in rows:
@@ -607,8 +699,9 @@ def _silent_assassin_scores(
             }
         return per_owner[owner_id]
 
+    final_weeks = _final_week_set(season)
     for week in sorted(season.matchups_by_week.keys()):
-        if week >= season.playoff_week_start:
+        if week >= season.playoff_week_start or week not in final_weeks:
             continue
         for a, b in metrics.matchup_pairs(season.matchups_by_week[week]):
             pa = metrics.matchup_points(a)
@@ -680,8 +773,9 @@ def _weekly_hammer_scores(
             }
         return per_owner[owner_id]
 
+    final_weeks = _final_week_set(season)
     for week in sorted(season.matchups_by_week.keys()):
-        if week >= season.playoff_week_start:
+        if week >= season.playoff_week_start or week not in final_weeks:
             continue
         entries = season.matchups_by_week[week]
         scored = [(metrics.roster_id_of(m), metrics.matchup_points(m)) for m in entries]
@@ -734,7 +828,10 @@ def _bad_beat_scores(
             }
         return per_owner[owner_id]
 
+    final_weeks = _final_week_set(season)
     for week in sorted(season.matchups_by_week.keys()):
+        if week not in final_weeks:
+            continue
         for a, b in metrics.matchup_pairs(season.matchups_by_week[week]):
             pa = metrics.matchup_points(a)
             pb = metrics.matchup_points(b)
@@ -872,14 +969,16 @@ def _starter_scoring_walk(
     via ``snapshot.player_position`` so IDP-eligible players collapse
     into DL/LB/DB.
 
-    Only walks ``metrics.scored_weeks`` — Sleeper stamps ``matchup_id``
-    for the whole season's schedule at draft time and echoes each
-    roster's CURRENT starting lineup into ``starters``/``players_points``
-    for every future week (at a stubbed 0.0), so a week's mere presence
-    in ``matchups_by_week`` does not mean it was actually played.  See
-    ``metrics.scored_weeks`` for the full rationale.
+    Only walks FINISHED scored weeks (``_final_scored_weeks``).  Sleeper
+    stamps ``matchup_id`` for the whole season's schedule at draft time and
+    echoes each roster's CURRENT starting lineup into
+    ``starters``/``players_points`` for every future week (at a stubbed
+    0.0), so a week's mere presence in ``matchups_by_week`` does not mean
+    it was actually played (``metrics.scored_weeks``); and a week in which
+    something has scored is not a week that has FINISHED scoring
+    (``metrics.final_weeks``).  An in-progress week contributes nothing.
     """
-    for week in metrics.scored_weeks(season.matchups_by_week):
+    for week in _final_scored_weeks(season):
         is_playoff = week >= season.playoff_week_start
         if regular_season_only and is_playoff:
             continue
@@ -1170,13 +1269,13 @@ def _player_all_rostered_totals(
     this walks that full map rather than ``_starter_scoring_walk``'s
     starters-only subset.
 
-    Only walks ``metrics.scored_weeks`` (see that function and
+    Only walks FINISHED scored weeks (``_final_scored_weeks``; see
     ``_starter_scoring_walk`` above) — without this gate, every future
     week's full-roster ``players_points`` stub (0.0 for all 58 rostered
     players, not just starters) inflates ``games`` for nearly the whole
     league's player pool, which deflates ``replacement_per_game``'s
     per-game rate for virtually every position.  ``games`` therefore
-    means: the number of the season's ACTUALLY-SCORED weeks in which
+    means: the number of the season's FINISHED scored weeks in which
     this player had a ``players_points`` entry on some roster (bench
     included).  A bye/inactive/rostered zero-point week in an
     actually-scored week still counts — that is a real, legitimate 0,
@@ -1185,7 +1284,7 @@ def _player_all_rostered_totals(
     they only appear in ``players_points`` for those weeks.
     """
     out: dict[str, dict[str, Any]] = {}
-    for week in metrics.scored_weeks(season.matchups_by_week):
+    for week in _final_scored_weeks(season):
         is_playoff = week >= season.playoff_week_start
         if regular_season_only and is_playoff:
             continue
@@ -1301,7 +1400,7 @@ _FLEX_RBWR_POOL = 84  # top 84 RB+WR by starter points (TEs excluded)
 #: Bumped whenever the VORP formula or its week-eligibility gating
 #: changes, so a stale cached payload (see server.py's public-contract
 #: byte cache) can never silently outlive a correctness fix.
-_VORP_CALC_VERSION = "2026-09-15-scored-week-gate"
+_VORP_CALC_VERSION = "2026-09-26-final-week-gate"
 
 
 def _dynamic_starter_slots(season: SeasonSnapshot) -> dict[str, int]:
@@ -1344,13 +1443,13 @@ def _vorp_starter_slots(
 
 
 def _as_of_week(season: SeasonSnapshot) -> int:
-    """The last actually-scored week backing an awards calculation.
+    """The last FINISHED scored week backing an awards calculation.
 
     Shared by every VORP/starter-points award builder so MVP, ROY,
     Playoff MVP and Top Position races are always stamped from the same
     as-of boundary, whatever subset of weeks each one filters to.
     """
-    weeks = metrics.scored_weeks(season.matchups_by_week)
+    weeks = _final_scored_weeks(season)
     return max(weeks) if weeks else 0
 
 
@@ -1448,47 +1547,56 @@ def _vorp_rows(
     return out
 
 
+# The MVP / ROY boards below are FILTERS over the regular-season VORP
+# board.  ``vorp_rows`` lets a caller that already holds that board (see
+# ``_season_row_sets``) pass it in instead of recomputing it per award.
 def _league_mvp_rows(
     snapshot: PublicLeagueSnapshot,
     season: SeasonSnapshot,
+    vorp_rows: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """Regular-season MVP candidates ranked by VORP."""
-    return _vorp_rows(snapshot, season, regular_season_only=True)
+    if vorp_rows is None:
+        vorp_rows = _vorp_rows(snapshot, season, regular_season_only=True)
+    return vorp_rows
 
 
 def _offensive_mvp_rows(
-    snapshot: PublicLeagueSnapshot, season: SeasonSnapshot
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    vorp_rows: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """League MVP restricted to offensive skill positions (QB/RB/WR/TE)."""
-    return [
-        r
-        for r in _vorp_rows(snapshot, season, regular_season_only=True)
-        if r["position"] in _OFF_ROY_POSITIONS
-    ]
+    if vorp_rows is None:
+        vorp_rows = _vorp_rows(snapshot, season, regular_season_only=True)
+    return [r for r in vorp_rows if r["position"] in _OFF_ROY_POSITIONS]
 
 
 def _defensive_mvp_rows(
-    snapshot: PublicLeagueSnapshot, season: SeasonSnapshot
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    vorp_rows: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """League MVP restricted to defensive positions (DL/LB/DB)."""
-    return [
-        r
-        for r in _vorp_rows(snapshot, season, regular_season_only=True)
-        if r["position"] in _DEF_ROY_POSITIONS
-    ]
+    if vorp_rows is None:
+        vorp_rows = _vorp_rows(snapshot, season, regular_season_only=True)
+    return [r for r in vorp_rows if r["position"] in _DEF_ROY_POSITIONS]
 
 
 def _rookie_of_year_rows(
     snapshot: PublicLeagueSnapshot,
     season: SeasonSnapshot,
     positions: frozenset[str],
+    vorp_rows: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """First-year players *for that season* at the given positions,
     ranked by regular-season VORP (starter-only).  Season-relative so
     Off/Def ROY populate for past seasons too, not just the current."""
+    if vorp_rows is None:
+        vorp_rows = _vorp_rows(snapshot, season, regular_season_only=True)
     return [
         r
-        for r in _vorp_rows(snapshot, season, regular_season_only=True)
+        for r in vorp_rows
         if r["position"] in positions and _is_rookie_in_season(snapshot, r["playerId"], season)
     ]
 
@@ -1515,8 +1623,9 @@ def _mr_consistent_scores(
         return []
 
     weekly: dict[int, list[float]] = defaultdict(list)
+    final_weeks = _final_week_set(season)
     for week in sorted(season.matchups_by_week.keys()):
-        if week >= season.playoff_week_start:
+        if week >= season.playoff_week_start or week not in final_weeks:
             continue
         for entry in season.matchups_by_week[week]:
             rid = metrics.roster_id_of(entry)
@@ -1676,7 +1785,10 @@ def _rivalry_of_the_year(
             }
         return pair_scores[key]
 
+    final_weeks = _final_week_set(season)
     for week in sorted(season.matchups_by_week.keys()):
+        if week not in final_weeks:
+            continue
         is_playoff = week >= season.playoff_week_start
         for a, b in metrics.matchup_pairs(season.matchups_by_week[week]):
             pa = metrics.matchup_points(a)
@@ -1844,17 +1956,61 @@ def _roster_id_for_owner(season: SeasonSnapshot, owner_id: str) -> int | None:
     return None
 
 
+# ── shared per-season row sets ────────────────────────────────────────────
+def _season_row_sets(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> dict[str, Any]:
+    """Every candidate row set the awards pass AND the races pass read.
+
+    Both passes used to compute each of these independently, so a build
+    computed every row set twice -- and the regular-season VORP board ten
+    times per season (League/Off/Def MVP + both ROY, in each pass).  This is
+    the single computation; both passes read it, neither mutates it (every
+    consumer filters into a new list or builds new output dicts).  Pure
+    reuse: the rows are the same functions on the same inputs, so the
+    published section is byte-identical.
+    """
+    lookup = _RosterWeekLookup(season)
+    trader_rows, best_trade = _trader_of_the_year_scores(snapshot, season, lookup)
+    waiver_rows = _waiver_king_scores(snapshot, season, lookup)
+    vorp_rows = _vorp_rows(snapshot, season, regular_season_only=True)
+    return {
+        "trader": trader_rows,
+        "best_trade": best_trade,
+        "waiver": waiver_rows,
+        "silent": _silent_assassin_scores(snapshot, season),
+        "hammer": _weekly_hammer_scores(snapshot, season),
+        "bad_beat": _bad_beat_scores(snapshot, season),
+        "playoff_mvp": _playoff_mvp_player_rows(snapshot, season),
+        "mr_consistent": _mr_consistent_scores(snapshot, season),
+        "offense": _top_offense_scores(snapshot, season),
+        "defense": _top_defense_scores(snapshot, season),
+        "nfl_team": _top_nfl_team_scores(snapshot, season),
+        "moty": _manager_of_the_year_scores(snapshot, season, trader_rows, waiver_rows),
+        "player_by_pos": _top_player_per_position_scores(
+            snapshot, season, regular_season_only=True
+        ),
+        # One shared VORP board, filtered by the award helpers themselves.
+        "mvp": _league_mvp_rows(snapshot, season, vorp_rows),
+        "off_mvp": _offensive_mvp_rows(snapshot, season, vorp_rows),
+        "def_mvp": _defensive_mvp_rows(snapshot, season, vorp_rows),
+        "off_roy": _rookie_of_year_rows(snapshot, season, _OFF_ROY_POSITIONS, vorp_rows),
+        "def_roy": _rookie_of_year_rows(snapshot, season, _DEF_ROY_POSITIONS, vorp_rows),
+    }
+
+
 # ── public entry point ────────────────────────────────────────────────────
 def _activity_awards_for_season(
     snapshot: PublicLeagueSnapshot,
     season: SeasonSnapshot,
     previous_season: SeasonSnapshot | None,
+    rows: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    trader_rows, best_trade = _trader_of_the_year_scores(snapshot, season)
-    waiver_rows = _waiver_king_scores(snapshot, season)
-    silent_rows = _silent_assassin_scores(snapshot, season)
-    hammer_rows = _weekly_hammer_scores(snapshot, season)
-    bad_beat_rows = _bad_beat_scores(snapshot, season)
+    if rows is None:
+        rows = _season_row_sets(snapshot, season)
+    trader_rows, best_trade = rows["trader"], rows["best_trade"]
+    waiver_rows = rows["waiver"]
+    silent_rows = rows["silent"]
+    hammer_rows = rows["hammer"]
+    bad_beat_rows = rows["bad_beat"]
 
     awards: list[dict[str, Any]] = []
 
@@ -1947,7 +2103,7 @@ def _activity_awards_for_season(
         )
     )
     # Playoff MVP — VORP-based player award (replaces the prior team-points version).
-    playoff_mvp_rows = _playoff_mvp_player_rows(snapshot, season)
+    playoff_mvp_rows = rows["playoff_mvp"]
     if playoff_mvp_rows and not _is_positive_number(playoff_mvp_rows[0].get("vorp")):
         # VORP floors at 0, so an all-zero board means no starter on the
         # championship roster cleared replacement — there is no standout
@@ -1996,7 +2152,7 @@ def _activity_awards_for_season(
     )
 
     # ── Manager awards ─────────────────────────────────────────────
-    offense_rows = _top_offense_scores(snapshot, season)
+    offense_rows = rows["offense"]
     _add(
         _award_from_row(
             snapshot,
@@ -2007,7 +2163,7 @@ def _activity_awards_for_season(
             lambda r: {"offensePoints": r["offensePoints"]},
         )
     )
-    defense_rows = _top_defense_scores(snapshot, season)
+    defense_rows = rows["defense"]
     if defense_rows:
         _add(
             _award_from_row(
@@ -2019,7 +2175,7 @@ def _activity_awards_for_season(
                 lambda r: {"defensePoints": r["defensePoints"]},
             )
         )
-    nfl_team_rows = _top_nfl_team_scores(snapshot, season)
+    nfl_team_rows = rows["nfl_team"]
     if nfl_team_rows:
         top_team = nfl_team_rows[0]
         awards.append(
@@ -2033,7 +2189,7 @@ def _activity_awards_for_season(
                 "value": {"team": top_team["team"], "points": top_team["points"]},
             }
         )
-    moty_rows = _manager_of_the_year_scores(snapshot, season, trader_rows, waiver_rows)
+    moty_rows = rows["moty"]
     _add(
         _award_from_row(
             snapshot,
@@ -2055,12 +2211,12 @@ def _activity_awards_for_season(
     )
 
     # ── Player awards (top scorer per position, regular-season starter-only) ──
-    player_rows_by_pos = _top_player_per_position_scores(snapshot, season, regular_season_only=True)
+    player_rows_by_pos = rows["player_by_pos"]
     for pos in _PLAYER_AWARD_POSITIONS:
-        rows = player_rows_by_pos.get(pos) or []
-        if not rows:
+        pos_rows = player_rows_by_pos.get(pos) or []
+        if not pos_rows:
             continue
-        winner = rows[0]
+        winner = pos_rows[0]
         if winner["starterPoints"] <= 0:
             continue
         rid = _roster_id_for_owner(season, winner["ownerId"]) if winner["ownerId"] else None
@@ -2087,7 +2243,7 @@ def _activity_awards_for_season(
         )
 
     # ── League MVP (regular-season VORP) ───────────────────────────
-    mvp_rows = _league_mvp_rows(snapshot, season)
+    mvp_rows = rows["mvp"]
     if mvp_rows:
         winner = mvp_rows[0]
         rid = _roster_id_for_owner(season, winner["ownerId"]) if winner["ownerId"] else None
@@ -2117,10 +2273,10 @@ def _activity_awards_for_season(
         )
 
     # ── Rookie of the Year (offense / defense, regular-season VORP) ──
-    def _vorp_player_award(rows, key, label):
-        if not rows:
+    def _vorp_player_award(candidates, key, label):
+        if not candidates:
             return
-        w = rows[0]
+        w = candidates[0]
         # Crown the best rookie even if at/below replacement (VORP is
         # floored at 0); only skip when nobody actually started/scored.
         if (w.get("starterPoints") or 0) <= 0:
@@ -2152,22 +2308,22 @@ def _activity_awards_for_season(
         )
 
     _vorp_player_award(
-        _rookie_of_year_rows(snapshot, season, _OFF_ROY_POSITIONS),
+        rows["off_roy"],
         "off_roy",
         "Offensive Rookie of the Year",
     )
     _vorp_player_award(
-        _rookie_of_year_rows(snapshot, season, _DEF_ROY_POSITIONS),
+        rows["def_roy"],
         "def_roy",
         "Defensive Rookie of the Year",
     )
     _vorp_player_award(
-        _offensive_mvp_rows(snapshot, season),
+        rows["off_mvp"],
         "off_mvp",
         "Offensive MVP",
     )
     _vorp_player_award(
-        _defensive_mvp_rows(snapshot, season),
+        rows["def_mvp"],
         "def_mvp",
         "Defensive MVP",
     )
@@ -2177,7 +2333,7 @@ def _activity_awards_for_season(
         _award_from_row(
             snapshot,
             season,
-            _mr_consistent_scores(snapshot, season),
+            rows["mr_consistent"],
             "mr_consistent",
             "Mr. Consistent",
             lambda r: {"cv": r["cv"], "meanScore": r["meanScore"], "weeks": r["weeks"]},
@@ -2277,14 +2433,17 @@ def _build_race(
 def _current_season_races(
     snapshot: PublicLeagueSnapshot,
     season: SeasonSnapshot,
+    rows: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     races: list[dict[str, Any]] = []
 
-    trader_rows, _ = _trader_of_the_year_scores(snapshot, season)
-    waiver_rows = _waiver_king_scores(snapshot, season)
-    silent_rows = _silent_assassin_scores(snapshot, season)
-    hammer_rows = _weekly_hammer_scores(snapshot, season)
-    bad_beat_rows = _bad_beat_scores(snapshot, season)
+    if rows is None:
+        rows = _season_row_sets(snapshot, season)
+    trader_rows = rows["trader"]
+    waiver_rows = rows["waiver"]
+    silent_rows = rows["silent"]
+    hammer_rows = rows["hammer"]
+    bad_beat_rows = rows["bad_beat"]
 
     def _add(race):
         if race:
@@ -2340,9 +2499,7 @@ def _current_season_races(
         )
     )
     # Same rule the ROY races use: a zero-VORP board is no race at all.
-    playoff_mvp_rows = [
-        r for r in _playoff_mvp_player_rows(snapshot, season) if _is_positive_number(r.get("vorp"))
-    ]
+    playoff_mvp_rows = [r for r in rows["playoff_mvp"] if _is_positive_number(r.get("vorp"))]
     if playoff_mvp_rows:
         race = {
             "key": "playoff_mvp",
@@ -2387,13 +2544,13 @@ def _current_season_races(
             snapshot,
             "mr_consistent",
             "Mr. Consistent",
-            _mr_consistent_scores(snapshot, season),
+            rows["mr_consistent"],
             lambda r: {"cv": r["cv"], "meanScore": r["meanScore"], "weeks": r["weeks"]},
         )
     )
 
     # ── Manager-award races ──
-    offense_rows = _top_offense_scores(snapshot, season)
+    offense_rows = rows["offense"]
     _add(
         _build_race(
             snapshot,
@@ -2403,7 +2560,7 @@ def _current_season_races(
             lambda r: {"offensePoints": r["offensePoints"]},
         )
     )
-    defense_rows = _top_defense_scores(snapshot, season)
+    defense_rows = rows["defense"]
     if defense_rows:
         _add(
             _build_race(
@@ -2414,7 +2571,7 @@ def _current_season_races(
                 lambda r: {"defensePoints": r["defensePoints"]},
             )
         )
-    nfl_team_rows = _top_nfl_team_scores(snapshot, season)
+    nfl_team_rows = rows["nfl_team"]
     if nfl_team_rows:
         _add(
             {
@@ -2432,7 +2589,7 @@ def _current_season_races(
                 ],
             }
         )
-    moty_rows = _manager_of_the_year_scores(snapshot, season, trader_rows, waiver_rows)
+    moty_rows = rows["moty"]
     _add(
         _build_race(
             snapshot,
@@ -2453,11 +2610,10 @@ def _current_season_races(
     )
 
     # ── Player-award races (top 5 per position) ──
-    player_rows_by_pos = _top_player_per_position_scores(snapshot, season, regular_season_only=True)
+    player_rows_by_pos = rows["player_by_pos"]
     for pos in _PLAYER_AWARD_POSITIONS:
-        rows = player_rows_by_pos.get(pos) or []
-        rows = [r for r in rows if r["starterPoints"] > 0]
-        if not rows:
+        pos_rows = [r for r in (player_rows_by_pos.get(pos) or []) if r["starterPoints"] > 0]
+        if not pos_rows:
             continue
         race = {
             "key": _PLAYER_AWARD_KEY_BY_POS[pos],
@@ -2478,13 +2634,13 @@ def _current_season_races(
                         "asOfWeek": r.get("asOfWeek"),
                     },
                 }
-                for i, r in enumerate(rows[:5])
+                for i, r in enumerate(pos_rows[:5])
             ],
         }
         _add(race)
 
     # ── League MVP race ──
-    mvp_rows = _league_mvp_rows(snapshot, season)
+    mvp_rows = rows["mvp"]
     if mvp_rows:
         race = {
             "key": "league_mvp",
@@ -2514,9 +2670,9 @@ def _current_season_races(
         _add(race)
 
     # ── Rookie of the Year races ──
-    def _vorp_player_race(rows, key, label):
-        rows = [r for r in rows if r.get("vorp", 0) > 0]
-        if not rows:
+    def _vorp_player_race(candidates, key, label):
+        leaders = [r for r in candidates if r.get("vorp", 0) > 0]
+        if not leaders:
             return None
         return {
             "key": key,
@@ -2540,34 +2696,34 @@ def _current_season_races(
                         "asOfWeek": r.get("asOfWeek"),
                     },
                 }
-                for i, r in enumerate(rows[:5])
+                for i, r in enumerate(leaders[:5])
             ],
         }
 
     _add(
         _vorp_player_race(
-            _rookie_of_year_rows(snapshot, season, _OFF_ROY_POSITIONS),
+            rows["off_roy"],
             "off_roy",
             "Offensive Rookie of the Year Race",
         )
     )
     _add(
         _vorp_player_race(
-            _rookie_of_year_rows(snapshot, season, _DEF_ROY_POSITIONS),
+            rows["def_roy"],
             "def_roy",
             "Defensive Rookie of the Year Race",
         )
     )
     _add(
         _vorp_player_race(
-            _offensive_mvp_rows(snapshot, season),
+            rows["off_mvp"],
             "off_mvp",
             "Offensive MVP Race",
         )
     )
     _add(
         _vorp_player_race(
-            _defensive_mvp_rows(snapshot, season),
+            rows["def_mvp"],
             "def_mvp",
             "Defensive MVP Race",
         )
@@ -2652,11 +2808,13 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             continue
 
         canonical = _season_canonical_awards(snapshot, season)
-        activity_based = _activity_awards_for_season(snapshot, season, prev)
+        # One row-set computation feeds both the awards and the races pass.
+        season_rows = _season_row_sets(snapshot, season)
+        activity_based = _activity_awards_for_season(snapshot, season, prev, season_rows)
         # Per-season races double as that year's "finalists" board so the
         # award-history modal can show the ranked runner-ups, not just the
         # winner.  Reused below for the featured season's live awardRaces.
-        season_races = _current_season_races(snapshot, season)
+        season_races = _current_season_races(snapshot, season, season_rows)
         races_by_season[season.season] = season_races
         row["awards"] = _order_awards(canonical + activity_based)
         row["finalists"] = {r["key"]: r["leaders"] for r in season_races}

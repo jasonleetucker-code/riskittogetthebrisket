@@ -88,10 +88,9 @@ def scored_weeks(matchups_by_week: dict[int, list[dict[str, Any]]]) -> list[int]
     ``final_regular_season_weeks`` instead.  This remains the ONE
     canonical place deciding the former; do not re-derive it elsewhere.
 
-    Known follow-up: ``awards.py`` builds VORP, starter totals and
-    replacement pools on this helper, so those figures still drift
-    while a week is in progress.  Tracked separately — changing this
-    function's behaviour would move award outputs.
+    ``awards.py`` intersects this with ``final_weeks`` for VORP,
+    starter totals and replacement pools (``_final_scored_weeks``), so an
+    in-progress week no longer drifts award outputs.
     """
     return sorted(
         wk for wk, entries in matchups_by_week.items() if any(is_scored(e) for e in entries)
@@ -471,8 +470,26 @@ def final_playoff_matchup(bracket: list[dict[str, Any]]) -> dict[str, Any] | Non
 
 
 def season_champion(season: SeasonSnapshot) -> int | None:
-    """Primary: winner of ``p=1`` matchup.  Fallback: min place winner.
-    Final fallback: ``league.metadata.latest_league_winner_roster_id``.
+    """The roster that WON this season's title, or ``None`` if none has.
+
+    Only a DECIDED championship names a champion:
+
+    * primary — the winner of the ``p=1`` matchup;
+    * fallback — a roster the bracket places FIRST (``playoff_placement``
+      also accepts a string ``p``).  Place 1 only: the old fallback took
+      the *minimum* placement, so a decided 3rd-place game in a bracket
+      whose final was still unplayed crowned the 3rd-place winner;
+    * last resort — ``league.metadata.latest_league_winner_roster_id``,
+      and ONLY when the host marks the season ``complete`` (the same strict
+      status ``final_weeks`` uses — ``post_season`` means the playoffs are
+      still being played) and the bracket decided nothing.
+
+    Why the metadata is gated: Sleeper carries that field forward onto the
+    NEXT season's league object.  On an in-progress season it therefore
+    names LAST season's champion — measured 2026-09-26, the 2026 league
+    (bracket unplayed) reported roster 2, the 2025 champion, which the
+    awards page published as the 2026 Champion and a franchise shelf
+    counted as a second title.  Unknown is ``None``, never a stale answer.
     """
     final = final_playoff_matchup(season.winners_bracket)
     if final is not None:
@@ -483,8 +500,11 @@ def season_champion(season: SeasonSnapshot) -> int | None:
             except (TypeError, ValueError):
                 pass
     placement = playoff_placement(season.winners_bracket)
-    if placement:
-        return min(placement, key=lambda rid: placement[rid])
+    firsts = [rid for rid, place in placement.items() if place == 1]
+    if firsts:
+        return firsts[0]
+    if str(season.league.get("status") or "").lower() != "complete":
+        return None
     metadata = season.league.get("metadata") or {}
     explicit = metadata.get("latest_league_winner_roster_id") or season.league.get(
         "last_league_winner_roster_id"
@@ -528,8 +548,23 @@ def walk_weekly_scores(
 def walk_matchup_pairs(
     snapshot: PublicLeagueSnapshot,
     include_playoffs: bool = True,
+    *,
+    final_only: bool = True,
 ) -> Iterable[tuple[SeasonSnapshot, int, dict[str, Any], dict[str, Any], bool]]:
     """Yield (season, week, a, b, is_playoff) for every scored pair.
+
+    **Finished weeks only, by default.**  Every consumer of this walker
+    (records, streaks, rivalries, the matchup preview's head-to-head and
+    form) reports RESULTS, and a pair in a week that is still being played
+    has no result: measured on the live 2026 week 3, the record book ranked
+    a 16.7-point Thursday sliver the 1st-lowest single-week score all-time,
+    a win streak ended on a 44.79-0.0 partial game, and the Home preview
+    called an unplayed game "most recent: Collin by 32.4 in 2026 wk 3".
+    Weeks are therefore restricted to ``final_weeks`` -- the one canonical
+    definition, never a second one.  A combined multi-week final is emitted
+    only once BOTH of its weeks are final: a championship whose second leg
+    is still live has no winner.  ``final_only=False`` is the explicit,
+    opt-in live view; no current consumer uses it.
 
     Multi-week championship matchups (e.g. a 2-week final spanning
     weeks 16 and 17) are detected and yielded as a single combined
@@ -551,6 +586,7 @@ def walk_matchup_pairs(
     """
     for season in snapshot.seasons:
         weeks_sorted = sorted(season.matchups_by_week.keys())
+        final_week_set = set(final_weeks(season)) if final_only else set(weeks_sorted)
         # Pre-compute pairs per week so lookahead into wk+1 is cheap.
         pairs_by_week: dict[int, list[tuple[dict[str, Any], dict[str, Any]]]] = {
             wk: matchup_pairs(season.matchups_by_week[wk]) for wk in weeks_sorted
@@ -608,6 +644,8 @@ def walk_matchup_pairs(
             is_playoff = wk >= playoff_week_start
             if is_playoff and not include_playoffs:
                 continue
+            if wk not in final_week_set:
+                continue
             for a, b in pairs_by_week[wk]:
                 rid_a = roster_id_of(a)
                 rid_b = roster_id_of(b)
@@ -622,6 +660,10 @@ def walk_matchup_pairs(
                 # Combine only when this week is the first half of
                 # the planned 2-week final for *this* pair.
                 plan = combine_plan.get(pair_key)
+                if plan is not None and plan[0] == wk and plan[1] not in final_week_set:
+                    # First leg of a two-week final whose second leg is not
+                    # finished: the matchup is undecided, so emit nothing.
+                    continue
                 if plan is not None and plan[0] == wk:
                     combine_to_wk = plan[1]
                     next_pair = index_by_week.get(combine_to_wk, {}).get(pair_key)
