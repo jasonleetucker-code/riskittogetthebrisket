@@ -7,6 +7,7 @@ Checkout identity is deliberately not a claim about Python's loaded code.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import json
 import math
@@ -405,6 +406,15 @@ STAGE_PATTERNS = {
         "sync_started": r"\[dlf-fetch\] syncing to origin/main",
         "fetch_started": r"\[dlf-fetch\] running scripts/fetch_dlf\.py",
         "credentials_missing": r"\[dlf-fetch\]\[ERR\] DLF_USERNAME / DLF_PASSWORD not set in environment - check the systemd unit's EnvironmentFile=\.",
+        "preview_detected": r"\[DLF\] (?:dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp|dlfValuesSfTep): got non-member preview — re-authenticating …",
+        "reauth_failed": r"\[DLF\] (?:dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp|dlfValuesSfTep): re-auth failed: .+",
+        "preview_persisted": r"\[DLF\] (?:dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp|dlfValuesSfTep): still preview after re-auth — membership may have lapsed\.",
+        "no_rows": r"\[DLF\] WARN: no rows extracted for (?:dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp|dlfValuesSfTep)",
+        "board_parsed": r"\[DLF\] (?:dlfSf \(Dynasty Superflex\)|dlfIdp \(Dynasty IDP\)|dlfRookieSf \(Rookie Superflex\)|dlfRookieIdp \(Rookie IDP\)|dlfValuesSfTep \(Trade Analyzer Values \(SF, TE premium\)\)): parsed [0-9]{1,6} (?:rows|assets)",
+        "push_succeeded": r"\[dlf-fetch\] push succeeded on attempt [1-3]/3",
+        "push_rejected": r"\[dlf-fetch\] push rejected on attempt [1-3]/3 - rebasing and retrying",
+        "rebase_failed": r"\[dlf-fetch\]\[ERR\] rebase failed - manual intervention required\.",
+        "push_exhausted": r"\[dlf-fetch\]\[ERR\] push still rejected after 3 attempts - giving up; will retry on next timer fire\.",
         "login_failed": r"\[DLF\] login failed: .+",
         "board_fetch_failed": r"\[DLF\] (?:dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp|dlfValuesSfTep) fetch failed: .+",
         "board_refused": r"\[DLF\] (?:dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp|dlfValuesSfTep): .+\.  Preserving last-good CSV, NOT overwriting .+\.",
@@ -543,6 +553,170 @@ def validate_stages(value):
             raise ProbeError()
 
 
+def fixed_file(path, cap):
+    """Bounded no-follow regular file; callers supply fixed owner-relative paths."""
+    path = Path(path)
+    if any(parent.is_symlink() for parent in (path, *path.parents)):
+        raise ProbeError()
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0))
+    with os.fdopen(fd, "rb") as stream:
+        before = os.fstat(stream.fileno())
+        if not stat.S_ISREG(before.st_mode) or before.st_size > cap:
+            raise ProbeError()
+        value = stream.read(cap + 1)
+        after = os.fstat(stream.fileno())
+    if len(value) > cap or (before.st_ino, before.st_size, before.st_mtime_ns) != (
+        after.st_ino,
+        after.st_size,
+        after.st_mtime_ns,
+    ):
+        raise ProbeError()
+    return value
+
+
+def deployment_files(app, state_dir=Path("/home/dynasty/.deploy-state")):
+    # Fixed configured paths, independently read from GitHub variables on 2026-09-26;
+    # this historical configuration observation is not loaded-code proof.
+    result = {
+        "pathBinding": "configured_paths_observed_2026-09-26",
+        "receiptState": "unavailable",
+        "targetRevision": None,
+        "successAtUtc": None,
+        "successAtEpochSeconds": None,
+        "frontendBuildIdSha256": None,
+        "frontendManifestSha256": None,
+        "loadedProcessRevision": None,
+    }
+    try:
+        paths = [
+            state_dir / name
+            for name in (
+                "last_successful_rev",
+                "last_successful_at_utc",
+                "trade-calculator.last_successful_deploy_commit",
+            )
+        ]
+        first = [fixed_file(path, 128) for path in paths]
+        revision_value, stamp, duplicate = [raw.decode("ascii").strip() for raw in first]
+        if not re.fullmatch(r"[a-f0-9]{40}", revision_value) or duplicate != revision_value:
+            raise ProbeError()
+        if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z", stamp):
+            raise ProbeError()
+        epoch = (
+            datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()
+        )
+        if first != [fixed_file(path, 128) for path in paths]:
+            result["receiptState"] = "ambiguous"
+        else:
+            result.update(
+                receiptState="observed",
+                targetRevision=revision_value,
+                successAtUtc=stamp,
+                successAtEpochSeconds=epoch,
+            )
+    except (OSError, ValueError, ProbeError):
+        pass
+    for name, output, cap in (
+        ("BUILD_ID", "frontendBuildIdSha256", 256),
+        ("build-manifest.json", "frontendManifestSha256", CAP),
+    ):
+        try:
+            raw = fixed_file(Path(app) / "frontend" / ".next" / name, cap)
+            if name == "BUILD_ID" and not re.fullmatch(rb"[A-Za-z0-9_-]{1,200}\n?", raw):
+                raise ProbeError()
+            if name != "BUILD_ID" and not isinstance(json.loads(raw), dict):
+                raise ProbeError()
+            result[output] = hashlib.sha256(raw).hexdigest()
+        except (OSError, ValueError, ProbeError):
+            pass
+    return result
+
+
+def validate_deployment(value):
+    keys = {
+        "pathBinding",
+        "receiptState",
+        "targetRevision",
+        "successAtUtc",
+        "successAtEpochSeconds",
+        "frontendBuildIdSha256",
+        "frontendManifestSha256",
+        "loadedProcessRevision",
+    }
+    if (
+        not isinstance(value, dict)
+        or set(value) != keys
+        or value["pathBinding"] != "configured_paths_observed_2026-09-26"
+        or value["receiptState"] not in {"observed", "unavailable", "ambiguous"}
+        or value["loadedProcessRevision"] is not None
+    ):
+        raise ProbeError()
+    for key in ("frontendBuildIdSha256", "frontendManifestSha256"):
+        if value[key] is not None and (
+            type(value[key]) is not str or not re.fullmatch(r"[a-f0-9]{64}", value[key])
+        ):
+            raise ProbeError()
+    if value["receiptState"] == "observed":
+        try:
+            stamp = value["successAtUtc"]
+            if type(stamp) is not str or not re.fullmatch(
+                r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z", stamp
+            ):
+                raise ProbeError()
+            epoch = (
+                datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ")
+                .replace(tzinfo=timezone.utc)
+                .timestamp()
+            )
+            if (
+                type(value["targetRevision"]) is not str
+                or not re.fullmatch(r"[a-f0-9]{40}", value["targetRevision"])
+                or type(value["successAtEpochSeconds"]) not in (int, float)
+                or epoch < 0
+                or value["successAtEpochSeconds"] != epoch
+            ):
+                raise ProbeError()
+        except (ValueError, TypeError):
+            raise ProbeError() from None
+    elif any(
+        value[k] is not None for k in ("targetRevision", "successAtUtc", "successAtEpochSeconds")
+    ):
+        raise ProbeError()
+
+
+def deployment_chronology(args, previous, receipt):
+    output = {}
+    boot = None
+    try:
+        match = re.search(r"(?m)^btime ([0-9]+)$", read_text("/proc/stat"))
+        boot = int(match.group(1)) if match else None
+        ticks = os.sysconf("SC_CLK_TCK")
+        if ticks <= 0:
+            boot = None
+    except (OSError, ValueError, AttributeError, ProbeError):
+        pass
+    for role in ("web", "frontend"):
+        old = previous[role]["process"]
+        new = unit(args.service + ROLES[role], args.app_dir)["process"]
+        stable = (
+            old["state"] == new["state"] == "observed"
+            and old["pid"] == new["pid"]
+            and old["startTicks"] == new["startTicks"]
+        )
+        epoch = boot + new["startTicks"] / ticks if stable and boot is not None else None
+        succeeded = receipt["successAtEpochSeconds"]
+        output[role] = {
+            "processIdentityStable": stable,
+            "pid": new["pid"],
+            "startTicks": new["startTicks"],
+            "startEpochApprox": epoch,
+            "startedBeforeReceipt": epoch <= succeeded
+            if epoch is not None and succeeded is not None
+            else None,
+        }
+    return output
+
+
 def collect(args):
     start, before = time.monotonic(), revision(args.app_dir)
     rows = []
@@ -573,9 +747,13 @@ def collect(args):
         "checkoutStable": before is not None and before == after,
         "loadedProcessRevision": None,
         "rows": rows,
+        "deploymentFiles": deployment_files(args.app_dir),
         "dlfManifest": dlf_manifest(),
         "sourceStages": {role: journal_stages(args.service, role) for role in STAGE_PATTERNS},
     }
+    result["deploymentChronology"] = deployment_chronology(
+        args, rows[-1]["units"], result["deploymentFiles"]
+    )
     if complete_observations(result):
         result["state"] = "complete"
     return result
@@ -594,7 +772,7 @@ def validate(raw, count):
     if len(raw) > CAP:
         raise ProbeError()
     value = json.loads(raw, object_pairs_hook=strict_object)
-    if set(value) - {"dlfManifest", "sourceStages"} != {
+    if set(value) - {"dlfManifest", "sourceStages", "deploymentFiles", "deploymentChronology"} != {
         "schema",
         "state",
         "checkoutBefore",
@@ -610,6 +788,53 @@ def validate(raw, count):
         or value["loadedProcessRevision"] is not None
     ):
         raise ProbeError()
+    if "deploymentChronology" in value:
+        chronology = value["deploymentChronology"]
+        if not isinstance(chronology, dict) or set(chronology) != {"web", "frontend"}:
+            raise ProbeError()
+        for row in chronology.values():
+            if (
+                set(row)
+                != {
+                    "processIdentityStable",
+                    "pid",
+                    "startTicks",
+                    "startEpochApprox",
+                    "startedBeforeReceipt",
+                }
+                or type(row["processIdentityStable"]) is not bool
+            ):
+                raise ProbeError()
+            for key in ("pid", "startTicks", "startEpochApprox"):
+                if row[key] is not None and (
+                    type(row[key]) not in (int, float)
+                    or not math.isfinite(row[key])
+                    or row[key] < 0
+                ):
+                    raise ProbeError()
+            if (
+                row["startedBeforeReceipt"] is not None
+                and type(row["startedBeforeReceipt"]) is not bool
+            ):
+                raise ProbeError()
+            if not row["processIdentityStable"] and (
+                row["startEpochApprox"] is not None or row["startedBeforeReceipt"] is not None
+            ):
+                raise ProbeError()
+            if row["processIdentityStable"] and any(
+                type(row[key]) is not int or row[key] <= 0 for key in ("pid", "startTicks")
+            ):
+                raise ProbeError()
+            receipt_epoch = value.get("deploymentFiles", {}).get("successAtEpochSeconds")
+            expected = (
+                row["startEpochApprox"] <= receipt_epoch
+                if row["startEpochApprox"] is not None and type(receipt_epoch) in (int, float)
+                else None
+            )
+            if row["startedBeforeReceipt"] is not expected:
+                raise ProbeError()
+    if "deploymentFiles" in value:
+        validate_deployment(value["deploymentFiles"])
     if "sourceStages" in value:
         validate_stages(value["sourceStages"])
     if "dlfManifest" in value:

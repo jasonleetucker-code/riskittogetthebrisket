@@ -1,0 +1,49 @@
+{
+  "status": "SOURCE_EVIDENCE_ANALYZED_CAUSE_PARTIAL",
+  "startUtc": "2026-09-26T21:40:54.5589016Z",
+  "endUtc": "2026-09-26T17:42:05.459242-04:00",
+  "report": "performance-safe-36273411832-1/performance-safe.json",
+  "reportSha256": "e49e66720c5950b88dd37c5519766f1d2666a8e87f14c71be158a3e6f4e5755d",
+  "sourceHashes": {
+    "deploy/diagnostics/performance_inventory.py": "1aba96b1615ed1826945a7a754f8fb3c91e0361252d7efadb6141c9a35a863a2",
+    "scripts/fetch_dlf.py": "19cb0e40c2b7f652cd74119d954df0fe532d5549c35a1849bf52efb874b4a920",
+    "deploy/dlf_fetch_and_push.sh": "8851216eaa4a1f41154e5fc56a24964d00ad895aaf252cbb84c5d9e5d8a6a3d3",
+    "scripts/capture_game_day_predictions.py": "623de534103bbc31e2556e4d2b76e1e814ac34d8d5692a1023e6c719cbdaa181"
+  },
+  "findings": [
+    {
+      "owner": "capture",
+      "evidence": "Latest stable invocation3rows, kickoff_passed1,unknown2; exit3 in earlier status.",
+      "proved": "Known exact kickoff-refusal message corresponds to pregame_window_state closed branch returning3 before player/roster fetch/build_capture. This is intended refusal to avoid post-kickoff fabrication, not proof of failed provider or memory exhaustion.",
+      "limit": "Codebinding unproven; no proof required pregame snapshot existed before cutoff. Systemd failed state remains literal, even though refusal semantic is protective."
+    },
+    {
+      "owner": "DLF wrapper",
+      "evidence": "Latest stable invocation37rows, sync_started1/fetch_started1/partial_commit1,unknown34. Default assumed manifest only dlfValuesSfTep=true.",
+      "proved": "Wrapper logged fetcher nonzero with at least one written board and partial-commit intent. Neither commit success nor push success is classified yet; default manifest is independently observed, not invocation-bound.",
+      "limit": "34 unknown messages leave individual rank-board cause unresolved; do not infer login/membership expiry, native-value guard, parser or source outage."
+    },
+    {
+      "owner": "Current fetcher semantic distinction",
+      "evidence": "_board_verdict currently only rowfloor; _native_value_note warns but permits rankwithmissingvalue.",
+      "proved": "Old native-value blocking hypothesis cannot be assigned to current source; loaded fetcher identity still unproven. Missing nativevalue alone is not current rank-board refusal."
+    }
+  ],
+  "nextSmallestAction": [
+    "Extend existing stage classifier only with exact known board_preview_detected,board_reauth_failed,board_preview_persisted,no_rows,board_parsed and wrapper_push_succeeded/rebase_failed/push_exhausted patterns. Keepfixedboard enum, no rawsuffixes/names/HTML. A preview-persisted enum is observation of preview detection, not proof membershipactuallylapsed.",
+    "Re-run same bounded latest-invocation read-onlyprobe after review, separately scheduled from browsermeasurements. Do not trigger DLF/capture workers, login/providerfetch or changegates.",
+    "For capture first inspect existing snapshotmetadata count/recordedweek/pre-kickofftimestamps through bounded allowlisted metadata only if needed to establish missedcapture; no rerunpostkickoff or status-onlywaiver.",
+    "If stage remainsunknown, bind known deployedwrapper/defaultclone fetcherhash before parserfix; never infer runtime from checkoutalone."
+  ],
+  "tests": [
+    "Exact knownstage messages with private suffix discarded; unknown board/prefix lookalikes remain unknown.",
+    "Parsed/written records do not imply publication; push-specific literal required.",
+    "Currentrowfloor rejects partialranks while missingnativevalue remainswarning; preservevaluesnozero substitution.",
+    "Captureknownkickoffrefusal retains exit3/protective semantics and cannot be reported successfullycaptured."
+  ],
+  "limits": [
+    "No rawjournal orcredentials read; no remoteoperations/providerrequests/serviceactions/trackededits.",
+    "Initial top-levelpathlisting foundnone; bounded recursivefilename search locatedsafeartifact in nested artifactdirectory.",
+    "No sourcefix authorized or justified by these incomplete DLF stages."
+  ]
+}

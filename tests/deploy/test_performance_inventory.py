@@ -418,3 +418,117 @@ def test_stage_report_validates_without_changing_resource_verdict():
         role: probe.stage_result("unavailable") for role in probe.STAGE_PATTERNS
     }
     assert probe.validate(json.dumps(value).encode(), 1) == value
+
+
+@pytest.mark.parametrize(
+    "message,stage",
+    [
+        ("[DLF] dlfSf: got non-member preview — re-authenticating …", "preview_detected"),
+        ("[DLF] dlfSf: re-auth failed: SECRET_SENTINEL", "reauth_failed"),
+        (
+            "[DLF] dlfSf: still preview after re-auth — membership may have lapsed.",
+            "preview_persisted",
+        ),
+        ("[DLF] WARN: no rows extracted for dlfIdp", "no_rows"),
+        ("[DLF] dlfSf (Dynasty Superflex): parsed 287 rows", "board_parsed"),
+        ("[dlf-fetch] push succeeded on attempt 1/3", "push_succeeded"),
+        (
+            "[dlf-fetch][ERR] push still rejected after 3 attempts - giving up; will retry on next timer fire.",
+            "push_exhausted",
+        ),
+    ],
+)
+def test_exact_additional_dlf_stages(message, stage):
+    result = probe.parse_journal(journal_bytes([message]), "a" * 32, "dlf")
+    assert result["stages"] == {stage: 1}
+    assert "SECRET_SENTINEL" not in json.dumps(result)
+
+
+def receipt_fixture(tmp_path):
+    state = tmp_path / "state"
+    state.mkdir()
+    (state / "last_successful_rev").write_text("a" * 40 + "\n")
+    (state / "trade-calculator.last_successful_deploy_commit").write_text("a" * 40 + "\n")
+    (state / "last_successful_at_utc").write_text("2026-09-26T21:00:00Z\n")
+    build = tmp_path / "frontend" / ".next"
+    build.mkdir(parents=True)
+    (build / "BUILD_ID").write_text("build_test")
+    (build / "build-manifest.json").write_text('{"pages":{}}')
+    return state
+
+
+def test_deployment_receipt_is_disk_provenance_not_loaded_identity(tmp_path):
+    state = receipt_fixture(tmp_path)
+    result = probe.deployment_files(tmp_path, state)
+    assert result["receiptState"] == "observed"
+    assert result["targetRevision"] == "a" * 40
+    assert result["loadedProcessRevision"] is None
+    assert result["pathBinding"] == "configured_paths_observed_2026-09-26"
+    assert len(result["frontendBuildIdSha256"]) == 64
+    assert "build_test" not in json.dumps(result)
+    probe.validate_deployment(result)
+
+
+def test_missing_mismatched_and_private_receipt_content_refused(tmp_path):
+    state = receipt_fixture(tmp_path)
+    (state / "last_successful_rev").write_text("SECRET_SENTINEL")
+    result = probe.deployment_files(tmp_path, state)
+    assert result["receiptState"] == "unavailable"
+    assert result["targetRevision"] is None
+    assert "SECRET_SENTINEL" not in json.dumps(result)
+    (state / "last_successful_rev").write_text("b" * 40)
+    assert probe.deployment_files(tmp_path, state)["receiptState"] == "unavailable"
+    (state / "last_successful_rev").unlink()
+    assert probe.deployment_files(tmp_path, state)["receiptState"] == "unavailable"
+
+
+def test_fixed_file_refuses_oversize_directory_and_symlink(tmp_path):
+    file = tmp_path / "file"
+    file.write_bytes(b"x" * 129)
+    with pytest.raises(probe.ProbeError):
+        probe.fixed_file(file, 128)
+    with pytest.raises((probe.ProbeError, OSError)):
+        probe.fixed_file(tmp_path, 128)
+    link = tmp_path / "link"
+    try:
+        link.symlink_to(file)
+    except OSError:
+        pytest.skip("symlink capability unavailable")
+    with pytest.raises(probe.ProbeError):
+        probe.fixed_file(link, 256)
+
+
+def test_deployment_permission_failure_is_unavailable(monkeypatch, tmp_path):
+    def denied(*a, **k):
+        raise PermissionError("SECRET_SENTINEL")
+
+    monkeypatch.setattr(probe, "fixed_file", denied)
+    result = probe.deployment_files(tmp_path, tmp_path)
+    assert result["receiptState"] == "unavailable"
+    assert result["frontendBuildIdSha256"] is None
+    assert "SECRET_SENTINEL" not in json.dumps(result)
+
+
+def test_deployment_chronology_changed_identity_never_joins(monkeypatch):
+    from types import SimpleNamespace
+
+    old = {"state": "observed", "pid": 2, "startTicks": 100}
+    new = {"state": "observed", "pid": 3, "startTicks": 200}
+    monkeypatch.setattr(probe, "read_text", lambda p: "btime 1000\n")
+    monkeypatch.setattr(probe.os, "sysconf", lambda name: 100, raising=False)
+    monkeypatch.setattr(probe, "unit", lambda *args: {"process": new})
+    result = probe.deployment_chronology(
+        SimpleNamespace(service="dynasty", app_dir="unused"),
+        {r: {"process": old} for r in ("web", "frontend")},
+        {"successAtEpochSeconds": 1005},
+    )
+    assert result["web"]["processIdentityStable"] is False
+    assert result["web"]["startEpochApprox"] is None
+    monkeypatch.setattr(probe, "unit", lambda *args: {"process": old})
+    result = probe.deployment_chronology(
+        SimpleNamespace(service="dynasty", app_dir="unused"),
+        {r: {"process": old} for r in ("web", "frontend")},
+        {"successAtEpochSeconds": 1005},
+    )
+    assert result["web"]["startEpochApprox"] == 1001
+    assert result["web"]["startedBeforeReceipt"] is True
