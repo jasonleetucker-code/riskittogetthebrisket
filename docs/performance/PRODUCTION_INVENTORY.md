@@ -71,3 +71,11 @@ cannot be called complete. Even a complete bounded retained query does not prove
 historical log completeness, loaded code identity or root cause. No service,
 provider or configuration is changed. [Independent review](evidence/source-stage-review-2026-09-26.json)
 records52passing tests,2Linux-only skips and five additional privacy discriminators.
+
+## Bounded source and deployment follow-up
+
+Run36273411832 succeeded through the authorized read-only path. Its fixed stage counters identify Game Day capture's post-kickoff refusal; they do not prove an earlier required snapshot exists. DLF logged partial-commit intent, with34of37messages unclassified, so individual board failure and publication outcome remain unresolved. [Analysis](evidence/source-stage-analysis-2026-09-26.json) preserves scope and uncertainty. Linux helper hash6dda36d91eaf8b784b1fa0e142ec14df837253306a22712fde59699117991a1d is the LF Git form of the reviewed Windows CRLF bytes; normalization was independently verified.
+
+The next reviewed probe adds only exact known DLF preview/reauth/parse/push categories and fixed deployment receipt/build-file hashes. Repository variables for the receipt directory and commit file were independently verified on2026-09-26. That configuration observation is dated; future path changes require revalidation. Stable PID/start-tick chronology and success receipts supply operational provenance, not proof of loaded code. A process predating a receipt can be an older process; frontend disk hashes alone do not prove served assets. `loadedProcessRevision` remains unknown.
+
+[Independent review](evidence/production-proof-review-2026-09-26.json):63tests pass,3platform capability skips, plus7independent schema/receipt/race cases. No source worker is triggered and no service, credential, source threshold or product behavior changes. Linux CI and actual follow-up collection remain required.
