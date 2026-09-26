@@ -1,0 +1,1619 @@
+{
+ "_fixture": {
+  "description": "Two players for a pick on a 7/8 roster: picks free no spot, one cut required.",
+  "generator": "tests/trade/war_room_ui_payloads.py",
+  "request": {
+   "picksIn": [],
+   "picksOut": [
+    "2027 Round 1"
+   ],
+   "playersIn": [
+    "WR Buf Star",
+    "RB Buf Depth"
+   ],
+   "playersOut": [],
+   "teamName": "Us",
+   "useTeamContext": true
+  },
+  "scenario": "forced-cut"
+ },
+ "after": {
+  "byPosition": {
+   "DEF": {
+    "count": 0,
+    "value": 0
+   },
+   "IDP": {
+    "count": 0,
+    "value": 0
+   },
+   "K": {
+    "count": 0,
+    "value": 0
+   },
+   "PICK": {
+    "count": 0,
+    "value": 0
+   },
+   "QB": {
+    "count": 1,
+    "value": 6000
+   },
+   "RB": {
+    "count": 3,
+    "value": 3300
+   },
+   "TE": {
+    "count": 1,
+    "value": 500
+   },
+   "WR": {
+    "count": 3,
+    "value": 13000
+   }
+  },
+  "tiers": {
+   "depth": 4,
+   "elite": 0,
+   "high": 1,
+   "mid": 3
+  },
+  "totalValue": 22800
+ },
+ "analysis": {
+  "basis": "market_and_roster",
+  "confidence": "HIGH",
+  "dimensions": [
+   {
+    "available": true,
+    "detail": {
+     "magnitude": "stretch",
+     "rawGap": 3800,
+     "receivingAdjusted": 9304.0,
+     "receivingValue": 7300,
+     "receivingValueAdjustment": 2004.0,
+     "sendingAdjusted": 3500.0,
+     "sendingValue": 3500,
+     "sendingValueAdjustment": 0.0,
+     "unresolvedIn": [],
+     "unresolvedOut": [],
+     "vaAdjustedGap": 5804,
+     "valueAdjustment": "KTC Value Adjustment (exact; src.trade.ktc_va)"
+    },
+    "dimension": "equity",
+    "direction": "favors",
+    "lineage": "canonical_value",
+    "votes": true
+   },
+   {
+    "available": true,
+    "detail": {
+     "after": {
+      "expectedLineupPpg": 69.75,
+      "projectedPlayers": 7,
+      "rawProjectedPpg": 83.0,
+      "redundantPpg": 13.25,
+      "rosteredPlayers": 8,
+      "unprojectedPlayerIds": [
+       "RB Unpriced"
+      ]
+     },
+     "assumptions": [
+      "each week is drawn around the player's per-game projection with the league's calibrated per-position variance; players are independent",
+      "injury / availability probabilities are not modelled",
+      "bye weeks are not modelled",
+      "the lineup is re-solved exactly for every simulated week (best ball)"
+     ],
+     "basis": {
+      "description": "labelled synthetic per-game table (tests/trade/war_room_ui_payloads.py)",
+      "draws": 400,
+      "families": [
+       "synthetic"
+      ],
+      "horizon": "PRESEASON_FULL_SEASON",
+      "lineupSolver": "src.ros.lineup.solve_optimal_assignment (realized_points)",
+      "pointsModel": {
+       "cvByPosition": {
+        "CB": 0.55,
+        "DB": 0.5,
+        "DE": 0.55,
+        "DL": 0.55,
+        "DT": 0.55,
+        "EDGE": 0.55,
+        "LB": 0.45,
+        "QB": 0.32,
+        "RB": 0.55,
+        "S": 0.5,
+        "TE": 0.65,
+        "WR": 0.6
+       },
+       "defaultCv": 0.55,
+       "generatedAt": null,
+       "rosValuePerPoint": 2.7,
+       "sampleSize": 0,
+       "source": "fallback-constants"
+      },
+      "season": 2026,
+      "seed": 1173,
+      "source": "SYNTHETIC_FIXTURE_PROJECTIONS",
+      "state": "available"
+     },
+     "before": {
+      "expectedLineupPpg": 57.24,
+      "projectedPlayers": 5,
+      "rawProjectedPpg": 60.0,
+      "redundantPpg": 2.76,
+      "rosteredPlayers": 7,
+      "unprojectedPlayerIds": [
+       "RB Unpriced",
+       "ghost player"
+      ]
+     },
+     "cleanup": {
+      "candidatesTied": false,
+      "forcedDropIds": [
+       "ghost player"
+      ],
+      "isUpperBound": false,
+      "state": "applied"
+     },
+     "coverage": {
+      "state": "full",
+      "tradedUnprojectedPlayerIds": []
+     },
+     "depth": {
+      "after": {
+       "expectedLineupPpg": 64.0,
+       "meanLossPpg": 10.5,
+       "starters": 4,
+       "worstLossPlayerId": "QB Min",
+       "worstLossPpg": 20.0
+      },
+      "before": {
+       "expectedLineupPpg": 54.0,
+       "meanLossPpg": 10.5,
+       "starters": 4,
+       "worstLossPlayerId": "QB Min",
+       "worstLossPpg": 20.0
+      },
+      "description": "each expected starter removed in turn and the legal lineup re-solved; a deterministic what-if, not an injury probability",
+      "meanLossDeltaPpg": 0.0,
+      "method": "single_starter_absence"
+     },
+     "magnitude": "large",
+     "neutralBandPpg": 1.0,
+     "players": [
+      {
+       "lineupEntryPctAfter": null,
+       "lineupEntryPctBefore": null,
+       "name": "Ghost Player",
+       "playerId": "ghost player",
+       "position": "",
+       "projectedPpg": null,
+       "role": "forcedDrop",
+       "usablePpgAfter": null,
+       "usablePpgBefore": null
+      },
+      {
+       "lineupEntryPctAfter": 12.5,
+       "lineupEntryPctBefore": null,
+       "name": "RB Buf Depth",
+       "playerId": "RB Buf Depth",
+       "position": "RB",
+       "projectedPpg": 4.0,
+       "role": "incoming",
+       "usablePpgAfter": 0.67,
+       "usablePpgBefore": null
+      },
+      {
+       "lineupEntryPctAfter": 81.8,
+       "lineupEntryPctBefore": null,
+       "name": "WR Buf Star",
+       "playerId": "WR Buf Star",
+       "position": "WR",
+       "projectedPpg": 19.0,
+       "role": "incoming",
+       "usablePpgAfter": 19.27,
+       "usablePpgBefore": null
+      },
+      {
+       "lineupEntryPctAfter": 37.0,
+       "lineupEntryPctBefore": 75.0,
+       "name": "WR Phi",
+       "playerId": "WR Phi",
+       "position": "WR",
+       "projectedPpg": 9.0,
+       "role": "displaced",
+       "usablePpgAfter": 4.65,
+       "usablePpgBefore": 8.31
+      },
+      {
+       "lineupEntryPctAfter": 12.5,
+       "lineupEntryPctBefore": 39.2,
+       "name": "TE Free",
+       "playerId": "TE Free",
+       "position": "TE",
+       "projectedPpg": 6.0,
+       "role": "displaced",
+       "usablePpgAfter": 1.19,
+       "usablePpgBefore": 3.27
+      },
+      {
+       "lineupEntryPctAfter": 67.2,
+       "lineupEntryPctBefore": 85.8,
+       "name": "WR Kc",
+       "playerId": "WR Kc",
+       "position": "WR",
+       "projectedPpg": 13.0,
+       "role": "displaced",
+       "usablePpgAfter": 11.61,
+       "usablePpgBefore": 13.05
+      },
+      {
+       "lineupEntryPctAfter": 89.0,
+       "lineupEntryPctBefore": 100.0,
+       "name": "RB Min",
+       "playerId": "RB Min",
+       "position": "RB",
+       "projectedPpg": 12.0,
+       "role": "displaced",
+       "usablePpgAfter": 12.11,
+       "usablePpgBefore": 12.36
+      }
+     ],
+     "ppg": 12.52,
+     "ppgBeforeCleanup": 12.52,
+     "rosterSpot": {
+      "openSpotsGained": 0,
+      "reason": "not_yet_measured: the waiver-pool projection join is pending",
+      "shadowValuePpg": null
+     },
+     "shape": {
+      "label": "expansion",
+      "playersIn": 2,
+      "playersOut": 0
+     },
+     "standardError": 0.493,
+     "teamStrength": {
+      "after": 22800.0,
+      "before": 15500.0,
+      "countedAsVote": false,
+      "delta": 7300.0,
+      "lineage": "canonical_value",
+      "why": "Team Strength sums canonical values over the meaningful core \u2014 the same lineage the market lens already counts, so it explains but does not vote."
+     },
+     "unit": "expected best-ball points per week (exact league scoring)"
+    },
+    "dimension": "rosterUtility",
+    "direction": "favors",
+    "lineage": "league_scored_projection",
+    "votes": true
+   },
+   {
+    "available": true,
+    "detail": {
+     "candidatesTied": false,
+     "certainty": "exact",
+     "forcedDropReleaseCost": 0.0,
+     "forcedDrops": [
+      {
+       "acquiredInTrade": false,
+       "name": "Ghost Player",
+       "playerId": "ghost player",
+       "position": "",
+       "releaseCost": 0.0,
+       "value": null
+      }
+     ],
+     "ladderExhausted": false,
+     "notes": [
+      "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+      "no waiver-level values available \u2014 cut costs fall back to raw board value",
+      "positional scarcity not used in this fixture (LABELLED) \u2014 multiplier inert",
+      "cut ladder truncated at 1 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan"
+     ],
+     "openSpotsAfter": 0,
+     "openSpotsBefore": 1,
+     "overLimitAfter": 1,
+     "overLimitBefore": 0,
+     "picksOccupySpots": false,
+     "requiresDrops": true,
+     "rosterLimit": 8,
+     "sizeAfter": 9,
+     "sizeBefore": 7,
+     "state": "cut_required",
+     "unpricedForcedDrops": 1
+    },
+    "dimension": "feasibility",
+    "direction": "neutral",
+    "lineage": "league_roster_rules",
+    "votes": true
+   },
+   {
+    "available": true,
+    "detail": {
+     "lowConfidenceAssets": [],
+     "note": "Evidence quality sets confidence and the uncertainty list; it is never a vote, and the canonical value's contributing sources are never re-counted as independent opinions.",
+     "projectionCoverage": {
+      "state": "full",
+      "tradedUnprojectedPlayerIds": []
+     },
+     "rosterUtilityStandardError": 0.493,
+     "sourceDisagreementAssets": [],
+     "unstampedAssets": [
+      "WR Buf Star",
+      "RB Buf Depth",
+      "2027 Round 1"
+     ]
+    },
+    "dimension": "evidence",
+    "direction": null,
+    "lineage": null,
+    "votes": false
+   }
+  ],
+  "lenses": {
+   "evidence": {
+    "available": true,
+    "detail": {
+     "lowConfidenceAssets": [],
+     "note": "Evidence quality sets confidence and the uncertainty list; it is never a vote, and the canonical value's contributing sources are never re-counted as independent opinions.",
+     "projectionCoverage": {
+      "state": "full",
+      "tradedUnprojectedPlayerIds": []
+     },
+     "rosterUtilityStandardError": 0.493,
+     "sourceDisagreementAssets": [],
+     "unstampedAssets": [
+      "WR Buf Star",
+      "RB Buf Depth",
+      "2027 Round 1"
+     ]
+    },
+    "dimension": "evidence",
+    "direction": null,
+    "lineage": null,
+    "votes": false
+   },
+   "feasibility": {
+    "available": true,
+    "detail": {
+     "candidatesTied": false,
+     "certainty": "exact",
+     "forcedDropReleaseCost": 0.0,
+     "forcedDrops": [
+      {
+       "acquiredInTrade": false,
+       "name": "Ghost Player",
+       "playerId": "ghost player",
+       "position": "",
+       "releaseCost": 0.0,
+       "value": null
+      }
+     ],
+     "ladderExhausted": false,
+     "notes": [
+      "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+      "no waiver-level values available \u2014 cut costs fall back to raw board value",
+      "positional scarcity not used in this fixture (LABELLED) \u2014 multiplier inert",
+      "cut ladder truncated at 1 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan"
+     ],
+     "openSpotsAfter": 0,
+     "openSpotsBefore": 1,
+     "overLimitAfter": 1,
+     "overLimitBefore": 0,
+     "picksOccupySpots": false,
+     "requiresDrops": true,
+     "rosterLimit": 8,
+     "sizeAfter": 9,
+     "sizeBefore": 7,
+     "state": "cut_required",
+     "unpricedForcedDrops": 1
+    },
+    "dimension": "feasibility",
+    "direction": "neutral",
+    "lineage": "league_roster_rules",
+    "votes": true
+   },
+   "market": {
+    "available": true,
+    "detail": {
+     "magnitude": "stretch",
+     "rawGap": 3800,
+     "receivingAdjusted": 9304.0,
+     "receivingValue": 7300,
+     "receivingValueAdjustment": 2004.0,
+     "sendingAdjusted": 3500.0,
+     "sendingValue": 3500,
+     "sendingValueAdjustment": 0.0,
+     "unresolvedIn": [],
+     "unresolvedOut": [],
+     "vaAdjustedGap": 5804,
+     "valueAdjustment": "KTC Value Adjustment (exact; src.trade.ktc_va)"
+    },
+    "dimension": "equity",
+    "direction": "favors",
+    "lineage": "canonical_value",
+    "votes": true
+   },
+   "roster": {
+    "available": true,
+    "detail": {
+     "after": {
+      "expectedLineupPpg": 69.75,
+      "projectedPlayers": 7,
+      "rawProjectedPpg": 83.0,
+      "redundantPpg": 13.25,
+      "rosteredPlayers": 8,
+      "unprojectedPlayerIds": [
+       "RB Unpriced"
+      ]
+     },
+     "assumptions": [
+      "each week is drawn around the player's per-game projection with the league's calibrated per-position variance; players are independent",
+      "injury / availability probabilities are not modelled",
+      "bye weeks are not modelled",
+      "the lineup is re-solved exactly for every simulated week (best ball)"
+     ],
+     "basis": {
+      "description": "labelled synthetic per-game table (tests/trade/war_room_ui_payloads.py)",
+      "draws": 400,
+      "families": [
+       "synthetic"
+      ],
+      "horizon": "PRESEASON_FULL_SEASON",
+      "lineupSolver": "src.ros.lineup.solve_optimal_assignment (realized_points)",
+      "pointsModel": {
+       "cvByPosition": {
+        "CB": 0.55,
+        "DB": 0.5,
+        "DE": 0.55,
+        "DL": 0.55,
+        "DT": 0.55,
+        "EDGE": 0.55,
+        "LB": 0.45,
+        "QB": 0.32,
+        "RB": 0.55,
+        "S": 0.5,
+        "TE": 0.65,
+        "WR": 0.6
+       },
+       "defaultCv": 0.55,
+       "generatedAt": null,
+       "rosValuePerPoint": 2.7,
+       "sampleSize": 0,
+       "source": "fallback-constants"
+      },
+      "season": 2026,
+      "seed": 1173,
+      "source": "SYNTHETIC_FIXTURE_PROJECTIONS",
+      "state": "available"
+     },
+     "before": {
+      "expectedLineupPpg": 57.24,
+      "projectedPlayers": 5,
+      "rawProjectedPpg": 60.0,
+      "redundantPpg": 2.76,
+      "rosteredPlayers": 7,
+      "unprojectedPlayerIds": [
+       "RB Unpriced",
+       "ghost player"
+      ]
+     },
+     "cleanup": {
+      "candidatesTied": false,
+      "forcedDropIds": [
+       "ghost player"
+      ],
+      "isUpperBound": false,
+      "state": "applied"
+     },
+     "coverage": {
+      "state": "full",
+      "tradedUnprojectedPlayerIds": []
+     },
+     "depth": {
+      "after": {
+       "expectedLineupPpg": 64.0,
+       "meanLossPpg": 10.5,
+       "starters": 4,
+       "worstLossPlayerId": "QB Min",
+       "worstLossPpg": 20.0
+      },
+      "before": {
+       "expectedLineupPpg": 54.0,
+       "meanLossPpg": 10.5,
+       "starters": 4,
+       "worstLossPlayerId": "QB Min",
+       "worstLossPpg": 20.0
+      },
+      "description": "each expected starter removed in turn and the legal lineup re-solved; a deterministic what-if, not an injury probability",
+      "meanLossDeltaPpg": 0.0,
+      "method": "single_starter_absence"
+     },
+     "magnitude": "large",
+     "neutralBandPpg": 1.0,
+     "players": [
+      {
+       "lineupEntryPctAfter": null,
+       "lineupEntryPctBefore": null,
+       "name": "Ghost Player",
+       "playerId": "ghost player",
+       "position": "",
+       "projectedPpg": null,
+       "role": "forcedDrop",
+       "usablePpgAfter": null,
+       "usablePpgBefore": null
+      },
+      {
+       "lineupEntryPctAfter": 12.5,
+       "lineupEntryPctBefore": null,
+       "name": "RB Buf Depth",
+       "playerId": "RB Buf Depth",
+       "position": "RB",
+       "projectedPpg": 4.0,
+       "role": "incoming",
+       "usablePpgAfter": 0.67,
+       "usablePpgBefore": null
+      },
+      {
+       "lineupEntryPctAfter": 81.8,
+       "lineupEntryPctBefore": null,
+       "name": "WR Buf Star",
+       "playerId": "WR Buf Star",
+       "position": "WR",
+       "projectedPpg": 19.0,
+       "role": "incoming",
+       "usablePpgAfter": 19.27,
+       "usablePpgBefore": null
+      },
+      {
+       "lineupEntryPctAfter": 37.0,
+       "lineupEntryPctBefore": 75.0,
+       "name": "WR Phi",
+       "playerId": "WR Phi",
+       "position": "WR",
+       "projectedPpg": 9.0,
+       "role": "displaced",
+       "usablePpgAfter": 4.65,
+       "usablePpgBefore": 8.31
+      },
+      {
+       "lineupEntryPctAfter": 12.5,
+       "lineupEntryPctBefore": 39.2,
+       "name": "TE Free",
+       "playerId": "TE Free",
+       "position": "TE",
+       "projectedPpg": 6.0,
+       "role": "displaced",
+       "usablePpgAfter": 1.19,
+       "usablePpgBefore": 3.27
+      },
+      {
+       "lineupEntryPctAfter": 67.2,
+       "lineupEntryPctBefore": 85.8,
+       "name": "WR Kc",
+       "playerId": "WR Kc",
+       "position": "WR",
+       "projectedPpg": 13.0,
+       "role": "displaced",
+       "usablePpgAfter": 11.61,
+       "usablePpgBefore": 13.05
+      },
+      {
+       "lineupEntryPctAfter": 89.0,
+       "lineupEntryPctBefore": 100.0,
+       "name": "RB Min",
+       "playerId": "RB Min",
+       "position": "RB",
+       "projectedPpg": 12.0,
+       "role": "displaced",
+       "usablePpgAfter": 12.11,
+       "usablePpgBefore": 12.36
+      }
+     ],
+     "ppg": 12.52,
+     "ppgBeforeCleanup": 12.52,
+     "rosterSpot": {
+      "openSpotsGained": 0,
+      "reason": "not_yet_measured: the waiver-pool projection join is pending",
+      "shadowValuePpg": null
+     },
+     "shape": {
+      "label": "expansion",
+      "playersIn": 2,
+      "playersOut": 0
+     },
+     "standardError": 0.493,
+     "teamStrength": {
+      "after": 22800.0,
+      "before": 15500.0,
+      "countedAsVote": false,
+      "delta": 7300.0,
+      "lineage": "canonical_value",
+      "why": "Team Strength sums canonical values over the meaningful core \u2014 the same lineage the market lens already counts, so it explains but does not vote."
+     },
+     "unit": "expected best-ball points per week (exact league scoring)"
+    },
+    "dimension": "rosterUtility",
+    "direction": "favors",
+    "lineage": "league_scored_projection",
+    "votes": true
+   }
+  },
+  "reasonsAgainst": [
+   "RB Buf Depth would reach the lineup in only 12% of simulated weeks (redundant here)",
+   "Roster full \u2014 1 cut required: likely Ghost Player"
+  ],
+  "reasonsFor": [
+   "+5,804 package value after KTC Value Adjustment (stretch gap)",
+   "+12.5 expected best-ball points per week in the legal lineup",
+   "WR Buf Star enters the optimal lineup in 82% of simulated weeks"
+  ],
+  "recommendation": "MAKE",
+  "teamContext": {
+   "applied": true,
+   "mode": "team"
+  },
+  "topUncertainty": null,
+  "unavailableDimensions": [
+   {
+    "dimension": "marketCorroboration",
+    "notes": "C4-MTL-01 (real market trades) and C4-MTL-03 (comparable-trade matching) are ABSENT \u2014 there is no independent vendor/comp evidence to synthesize.",
+    "reason": "no_backing_ledger"
+   },
+   {
+    "dimension": "valueUncertainty",
+    "notes": "Monte Carlo value-uncertainty bands/correlation have open revalidation items (docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md \u00a7A) and are not folded into this recommendation until that audit closes.",
+    "reason": "unaudited_model"
+   },
+   {
+    "dimension": "strategicPosture",
+    "notes": "Competitive posture (#840) has no canonical owner yet and awaits an owner decision; no posture is invented here.",
+    "reason": "no_canonical_owner"
+   },
+   {
+    "dimension": "currentSeasonEquity",
+    "notes": "src.ros.playoff_sim.simulate_trade_impact takes a weekly-mean shift only and has no production caller; playoff/championship deltas wait for that owner.",
+    "reason": "counterfactual_not_wired"
+   }
+  ],
+  "uncertainty": [],
+  "version": "analyze_trade_v2"
+ },
+ "before": {
+  "byPosition": {
+   "DEF": {
+    "count": 0,
+    "value": 0
+   },
+   "IDP": {
+    "count": 0,
+    "value": 0
+   },
+   "K": {
+    "count": 0,
+    "value": 0
+   },
+   "PICK": {
+    "count": 1,
+    "value": 3500
+   },
+   "QB": {
+    "count": 1,
+    "value": 6000
+   },
+   "RB": {
+    "count": 2,
+    "value": 3000
+   },
+   "TE": {
+    "count": 1,
+    "value": 500
+   },
+   "WR": {
+    "count": 2,
+    "value": 6000
+   }
+  },
+  "tiers": {
+   "depth": 3,
+   "elite": 0,
+   "high": 0,
+   "mid": 4
+  },
+  "totalValue": 19000
+ },
+ "delta": {
+  "byPosition": {
+   "DEF": {
+    "count": 0,
+    "value": 0
+   },
+   "IDP": {
+    "count": 0,
+    "value": 0
+   },
+   "K": {
+    "count": 0,
+    "value": 0
+   },
+   "PICK": {
+    "count": -1,
+    "value": -3500
+   },
+   "QB": {
+    "count": 0,
+    "value": 0
+   },
+   "RB": {
+    "count": 1,
+    "value": 300
+   },
+   "TE": {
+    "count": 0,
+    "value": 0
+   },
+   "WR": {
+    "count": 1,
+    "value": 7000
+   }
+  },
+  "tiers": {
+   "depth": 1,
+   "elite": 0,
+   "high": 1,
+   "mid": -1
+  },
+  "totalValue": 3800
+ },
+ "equity": 3800,
+ "finalRosterSimulation": {
+  "available": true,
+  "cleanupApplied": [
+   {
+    "acquiredInTrade": false,
+    "effectiveCutCost": 0.0,
+    "name": "Ghost Player",
+    "playerId": "ghost player",
+    "position": "",
+    "releaseCost": 0.0,
+    "rung": 1,
+    "scarcityMultiplier": 1.0,
+    "value": null,
+    "valueBasis": "assumedWaiver",
+    "valueScale": "rankDerivedValue",
+    "waiverValue": 0.0
+   }
+  ],
+  "cleanupIsUpperBound": false,
+  "coreAfter": {
+   "available": true,
+   "demand": {
+    "bySlot": {
+     "FLEX": 1,
+     "QB": 1,
+     "RB": 1,
+     "WR": 1
+    },
+    "dedicatedBasis": {
+     "QB": 1,
+     "RB": 1,
+     "WR": 1
+    },
+    "flexSlots": [
+     "FLEX"
+    ],
+    "multiplier": 1.5,
+    "multiplierProvenance": "owner_addendum_839_amended_899",
+    "multiplierStatus": "PRIOR",
+    "starterBasis": {
+     "FLEX": 1,
+     "QB": 1,
+     "RB": 1,
+     "WR": 1
+    },
+    "superflexFoldedIntoQb": true,
+    "total": 4
+   },
+   "duplicateIds": [],
+   "members": [
+    {
+     "name": "QB Min",
+     "playerId": "QB Min",
+     "position": "QB",
+     "role": "starter",
+     "slot": "QB",
+     "value": 6000.0
+    },
+    {
+     "name": "RB Min",
+     "playerId": "RB Min",
+     "position": "RB",
+     "role": "starter",
+     "slot": "RB",
+     "value": 3000.0
+    },
+    {
+     "name": "WR Buf Star",
+     "playerId": "WR Buf Star",
+     "position": "WR",
+     "role": "starter",
+     "slot": "WR",
+     "value": 7000.0
+    },
+    {
+     "name": "WR Kc",
+     "playerId": "WR Kc",
+     "position": "WR",
+     "role": "starter",
+     "slot": "FLEX",
+     "value": 4000.0
+    },
+    {
+     "name": "TE Free",
+     "playerId": "TE Free",
+     "position": "TE",
+     "role": "reserve",
+     "slot": "FLEX",
+     "value": 500.0
+    },
+    {
+     "name": "RB Buf Depth",
+     "playerId": "RB Buf Depth",
+     "position": "RB",
+     "role": "reserve",
+     "slot": "RB",
+     "value": 300.0
+    },
+    {
+     "name": "WR Phi",
+     "playerId": "WR Phi",
+     "position": "WR",
+     "role": "reserve",
+     "slot": "WR",
+     "value": 2000.0
+    }
+   ],
+   "reserveCount": 3,
+   "slotSource": null,
+   "starterCount": 4,
+   "starterSlots": [
+    "QB",
+    "RB",
+    "WR",
+    "FLEX"
+   ],
+   "unavailableReason": null,
+   "unfilledReserveSlots": [
+    "QB"
+   ],
+   "unfilledStarterSlots": [],
+   "unpricedIds": [
+    "RB Unpriced"
+   ]
+  },
+  "coreBefore": {
+   "available": true,
+   "demand": {
+    "bySlot": {
+     "FLEX": 1,
+     "QB": 1,
+     "RB": 1,
+     "WR": 1
+    },
+    "dedicatedBasis": {
+     "QB": 1,
+     "RB": 1,
+     "WR": 1
+    },
+    "flexSlots": [
+     "FLEX"
+    ],
+    "multiplier": 1.5,
+    "multiplierProvenance": "owner_addendum_839_amended_899",
+    "multiplierStatus": "PRIOR",
+    "starterBasis": {
+     "FLEX": 1,
+     "QB": 1,
+     "RB": 1,
+     "WR": 1
+    },
+    "superflexFoldedIntoQb": true,
+    "total": 4
+   },
+   "duplicateIds": [],
+   "members": [
+    {
+     "name": "QB Min",
+     "playerId": "QB Min",
+     "position": "QB",
+     "role": "starter",
+     "slot": "QB",
+     "value": 6000.0
+    },
+    {
+     "name": "RB Min",
+     "playerId": "RB Min",
+     "position": "RB",
+     "role": "starter",
+     "slot": "RB",
+     "value": 3000.0
+    },
+    {
+     "name": "WR Kc",
+     "playerId": "WR Kc",
+     "position": "WR",
+     "role": "starter",
+     "slot": "WR",
+     "value": 4000.0
+    },
+    {
+     "name": "WR Phi",
+     "playerId": "WR Phi",
+     "position": "WR",
+     "role": "starter",
+     "slot": "FLEX",
+     "value": 2000.0
+    },
+    {
+     "name": "TE Free",
+     "playerId": "TE Free",
+     "position": "TE",
+     "role": "reserve",
+     "slot": "FLEX",
+     "value": 500.0
+    }
+   ],
+   "reserveCount": 1,
+   "slotSource": null,
+   "starterCount": 4,
+   "starterSlots": [
+    "QB",
+    "RB",
+    "WR",
+    "FLEX"
+   ],
+   "unavailableReason": null,
+   "unfilledReserveSlots": [
+    "QB",
+    "RB",
+    "WR"
+   ],
+   "unfilledStarterSlots": [],
+   "unpricedIds": [
+    "RB Unpriced",
+    "ghost player"
+   ]
+  },
+  "displacements": [],
+  "isVerdict": false,
+  "movements": [
+   {
+    "kind": "promoted",
+    "name": "RB Buf Depth",
+    "playerId": "RB Buf Depth",
+    "position": "RB",
+    "roleAfter": "reserve",
+    "roleBefore": null,
+    "slotAfter": "RB",
+    "slotBefore": null
+   },
+   {
+    "kind": "promoted",
+    "name": "WR Buf Star",
+    "playerId": "WR Buf Star",
+    "position": "WR",
+    "roleAfter": "starter",
+    "roleBefore": null,
+    "slotAfter": "WR",
+    "slotBefore": null
+   },
+   {
+    "kind": "moved",
+    "name": "WR Kc",
+    "playerId": "WR Kc",
+    "position": "WR",
+    "roleAfter": "starter",
+    "roleBefore": "starter",
+    "slotAfter": "FLEX",
+    "slotBefore": "WR"
+   },
+   {
+    "kind": "moved",
+    "name": "WR Phi",
+    "playerId": "WR Phi",
+    "position": "WR",
+    "roleAfter": "reserve",
+    "roleBefore": "starter",
+    "slotAfter": "WR",
+    "slotBefore": "FLEX"
+   }
+  ],
+  "needsCreated": [],
+  "needsFixed": [],
+  "notes": [],
+  "outgoingNotFound": [],
+  "promotions": [
+   {
+    "kind": "promoted",
+    "name": "RB Buf Depth",
+    "playerId": "RB Buf Depth",
+    "position": "RB",
+    "roleAfter": "reserve",
+    "roleBefore": null,
+    "slotAfter": "RB",
+    "slotBefore": null
+   },
+   {
+    "kind": "promoted",
+    "name": "WR Buf Star",
+    "playerId": "WR Buf Star",
+    "position": "WR",
+    "roleAfter": "starter",
+    "roleBefore": null,
+    "slotAfter": "WR",
+    "slotBefore": null
+   }
+  ],
+  "strengthAfter": {
+   "available": true,
+   "byPosition": [
+    {
+     "count": 1,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "QB Min"
+     ],
+     "position": "QB",
+     "reserveCount": 0,
+     "reserveValue": 0.0,
+     "starterCount": 1,
+     "starterValue": 6000.0,
+     "value": 6000.0
+    },
+    {
+     "count": 2,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "RB Min",
+      "RB Buf Depth"
+     ],
+     "position": "RB",
+     "reserveCount": 1,
+     "reserveValue": 300.0,
+     "starterCount": 1,
+     "starterValue": 3000.0,
+     "value": 3300.0
+    },
+    {
+     "count": 3,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "WR Buf Star",
+      "WR Kc",
+      "WR Phi"
+     ],
+     "position": "WR",
+     "reserveCount": 1,
+     "reserveValue": 2000.0,
+     "starterCount": 2,
+     "starterValue": 11000.0,
+     "value": 13000.0
+    },
+    {
+     "count": 1,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "TE Free"
+     ],
+     "position": "TE",
+     "reserveCount": 1,
+     "reserveValue": 500.0,
+     "starterCount": 0,
+     "starterValue": 0.0,
+     "value": 500.0
+    }
+   ],
+   "fullRosterValue": null,
+   "isComplete": false,
+   "leaguePercentile": null,
+   "leagueRank": null,
+   "positionOrder": [
+    "QB",
+    "RB",
+    "WR",
+    "TE"
+   ],
+   "reserveValue": 2800.0,
+   "starterValue": 20000.0,
+   "total": 22800.0,
+   "unavailableReason": null,
+   "unfilledReserveSlots": [
+    "QB"
+   ],
+   "unfilledStarterSlots": [],
+   "unpricedCount": 1,
+   "unpricedIds": [
+    "RB Unpriced"
+   ]
+  },
+  "strengthBefore": {
+   "available": true,
+   "byPosition": [
+    {
+     "count": 1,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "QB Min"
+     ],
+     "position": "QB",
+     "reserveCount": 0,
+     "reserveValue": 0.0,
+     "starterCount": 1,
+     "starterValue": 6000.0,
+     "value": 6000.0
+    },
+    {
+     "count": 1,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "RB Min"
+     ],
+     "position": "RB",
+     "reserveCount": 0,
+     "reserveValue": 0.0,
+     "starterCount": 1,
+     "starterValue": 3000.0,
+     "value": 3000.0
+    },
+    {
+     "count": 2,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "WR Kc",
+      "WR Phi"
+     ],
+     "position": "WR",
+     "reserveCount": 0,
+     "reserveValue": 0.0,
+     "starterCount": 2,
+     "starterValue": 6000.0,
+     "value": 6000.0
+    },
+    {
+     "count": 1,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "TE Free"
+     ],
+     "position": "TE",
+     "reserveCount": 1,
+     "reserveValue": 500.0,
+     "starterCount": 0,
+     "starterValue": 0.0,
+     "value": 500.0
+    }
+   ],
+   "fullRosterValue": null,
+   "isComplete": false,
+   "leaguePercentile": null,
+   "leagueRank": null,
+   "positionOrder": [
+    "QB",
+    "RB",
+    "WR",
+    "TE"
+   ],
+   "reserveValue": 500.0,
+   "starterValue": 15000.0,
+   "total": 15500.0,
+   "unavailableReason": null,
+   "unfilledReserveSlots": [
+    "QB",
+    "RB",
+    "WR"
+   ],
+   "unfilledStarterSlots": [],
+   "unpricedCount": 2,
+   "unpricedIds": [
+    "RB Unpriced",
+    "ghost player"
+   ]
+  },
+  "strengthDelta": 7300.0,
+  "unavailableReason": null,
+  "unpricedIncoming": [],
+  "weaknessAfter": null,
+  "weaknessBefore": null
+ },
+ "leagueKey": "main",
+ "receiving": [
+  {
+   "age": null,
+   "assetClass": "offense",
+   "basePos": "WR",
+   "confidenceBucket": null,
+   "hasSourceDisagreement": null,
+   "name": "WR Buf Star",
+   "playerId": null,
+   "pos": "WR",
+   "rank": null,
+   "sourceLabel": "WR Buf Star",
+   "tier": "high",
+   "value": 7000
+  },
+  {
+   "age": null,
+   "assetClass": "offense",
+   "basePos": "RB",
+   "confidenceBucket": null,
+   "hasSourceDisagreement": null,
+   "name": "RB Buf Depth",
+   "playerId": null,
+   "pos": "RB",
+   "rank": null,
+   "sourceLabel": "RB Buf Depth",
+   "tier": "depth",
+   "value": 300
+  }
+ ],
+ "rosterCapacity": {
+  "certainty": "exact",
+  "forcedDropCutCost": 0.0,
+  "forcedDropReleaseCost": 0.0,
+  "forcedDropValue": 0.0,
+  "forcedDrops": [
+   {
+    "acquiredInTrade": false,
+    "effectiveCutCost": 0.0,
+    "name": "Ghost Player",
+    "playerId": "ghost player",
+    "position": "",
+    "releaseCost": 0.0,
+    "rung": 1,
+    "scarcityMultiplier": 1.0,
+    "value": null,
+    "valueBasis": "assumedWaiver",
+    "valueScale": "rankDerivedValue",
+    "waiverValue": 0.0
+   }
+  ],
+  "forcedDropsAreUpperBound": false,
+  "incoming": 2,
+  "ladderExhausted": false,
+  "notes": [
+   "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+   "no waiver-level values available \u2014 cut costs fall back to raw board value",
+   "positional scarcity not used in this fixture (LABELLED) \u2014 multiplier inert",
+   "cut ladder truncated at 1 rungs \u2014 deeper cuts exist but are far past any budget-feasible plan"
+  ],
+  "openSpotsAfter": 0,
+  "openSpotsBefore": 1,
+  "outgoing": 0,
+  "outgoingNotOnRoster": 0,
+  "overLimitAfter": 1,
+  "overLimitAfterMax": 1,
+  "overLimitAfterMin": 1,
+  "overLimitBefore": 0,
+  "requiresDrops": true,
+  "rosterLimit": 8,
+  "rungOrderWasTied": false,
+  "sizeAfter": 9,
+  "sizeBefore": 7,
+  "taxiOccupiedMax": 0,
+  "taxiOccupiedMin": 0,
+  "taxiSize": 0,
+  "unpricedForcedDrops": 1,
+  "valueScale": "rankDerivedValue"
+ },
+ "rosterUtility": {
+  "after": {
+   "expectedLineupPpg": 69.75,
+   "projectedPlayers": 7,
+   "rawProjectedPpg": 83.0,
+   "redundantPpg": 13.25,
+   "rosteredPlayers": 8,
+   "unprojectedPlayerIds": [
+    "RB Unpriced"
+   ]
+  },
+  "afterBeforeCleanup": {
+   "expectedLineupPpg": 69.75,
+   "projectedPlayers": 7,
+   "rawProjectedPpg": 83.0,
+   "redundantPpg": 13.25,
+   "rosteredPlayers": 9,
+   "unprojectedPlayerIds": [
+    "RB Unpriced",
+    "ghost player"
+   ]
+  },
+  "assumptions": [
+   "each week is drawn around the player's per-game projection with the league's calibrated per-position variance; players are independent",
+   "injury / availability probabilities are not modelled",
+   "bye weeks are not modelled",
+   "the lineup is re-solved exactly for every simulated week (best ball)"
+  ],
+  "available": true,
+  "basis": {
+   "description": "labelled synthetic per-game table (tests/trade/war_room_ui_payloads.py)",
+   "draws": 400,
+   "families": [
+    "synthetic"
+   ],
+   "horizon": "PRESEASON_FULL_SEASON",
+   "lineupSolver": "src.ros.lineup.solve_optimal_assignment (realized_points)",
+   "pointsModel": {
+    "cvByPosition": {
+     "CB": 0.55,
+     "DB": 0.5,
+     "DE": 0.55,
+     "DL": 0.55,
+     "DT": 0.55,
+     "EDGE": 0.55,
+     "LB": 0.45,
+     "QB": 0.32,
+     "RB": 0.55,
+     "S": 0.5,
+     "TE": 0.65,
+     "WR": 0.6
+    },
+    "defaultCv": 0.55,
+    "generatedAt": null,
+    "rosValuePerPoint": 2.7,
+    "sampleSize": 0,
+    "source": "fallback-constants"
+   },
+   "season": 2026,
+   "seed": 1173,
+   "source": "SYNTHETIC_FIXTURE_PROJECTIONS",
+   "state": "available"
+  },
+  "before": {
+   "expectedLineupPpg": 57.24,
+   "projectedPlayers": 5,
+   "rawProjectedPpg": 60.0,
+   "redundantPpg": 2.76,
+   "rosteredPlayers": 7,
+   "unprojectedPlayerIds": [
+    "RB Unpriced",
+    "ghost player"
+   ]
+  },
+  "cleanup": {
+   "candidatesTied": false,
+   "forcedDropIds": [
+    "ghost player"
+   ],
+   "isUpperBound": false,
+   "state": "applied"
+  },
+  "coverage": {
+   "state": "full",
+   "tradedUnprojectedPlayerIds": []
+  },
+  "depth": {
+   "after": {
+    "expectedLineupPpg": 64.0,
+    "meanLossPpg": 10.5,
+    "starters": 4,
+    "worstLossPlayerId": "QB Min",
+    "worstLossPpg": 20.0
+   },
+   "before": {
+    "expectedLineupPpg": 54.0,
+    "meanLossPpg": 10.5,
+    "starters": 4,
+    "worstLossPlayerId": "QB Min",
+    "worstLossPpg": 20.0
+   },
+   "description": "each expected starter removed in turn and the legal lineup re-solved; a deterministic what-if, not an injury probability",
+   "meanLossDeltaPpg": 0.0,
+   "method": "single_starter_absence"
+  },
+  "impact": {
+   "ppg": 12.52,
+   "ppgBeforeCleanup": 12.52,
+   "standardError": 0.493
+  },
+  "players": [
+   {
+    "lineupEntryPctAfter": null,
+    "lineupEntryPctBefore": null,
+    "name": "Ghost Player",
+    "playerId": "ghost player",
+    "position": "",
+    "projectedPpg": null,
+    "role": "forcedDrop",
+    "usablePpgAfter": null,
+    "usablePpgBefore": null
+   },
+   {
+    "lineupEntryPctAfter": 12.5,
+    "lineupEntryPctBefore": null,
+    "name": "RB Buf Depth",
+    "playerId": "RB Buf Depth",
+    "position": "RB",
+    "projectedPpg": 4.0,
+    "role": "incoming",
+    "usablePpgAfter": 0.67,
+    "usablePpgBefore": null
+   },
+   {
+    "lineupEntryPctAfter": 81.8,
+    "lineupEntryPctBefore": null,
+    "name": "WR Buf Star",
+    "playerId": "WR Buf Star",
+    "position": "WR",
+    "projectedPpg": 19.0,
+    "role": "incoming",
+    "usablePpgAfter": 19.27,
+    "usablePpgBefore": null
+   },
+   {
+    "lineupEntryPctAfter": 37.0,
+    "lineupEntryPctBefore": 75.0,
+    "name": "WR Phi",
+    "playerId": "WR Phi",
+    "position": "WR",
+    "projectedPpg": 9.0,
+    "role": "displaced",
+    "usablePpgAfter": 4.65,
+    "usablePpgBefore": 8.31
+   },
+   {
+    "lineupEntryPctAfter": 12.5,
+    "lineupEntryPctBefore": 39.2,
+    "name": "TE Free",
+    "playerId": "TE Free",
+    "position": "TE",
+    "projectedPpg": 6.0,
+    "role": "displaced",
+    "usablePpgAfter": 1.19,
+    "usablePpgBefore": 3.27
+   },
+   {
+    "lineupEntryPctAfter": 67.2,
+    "lineupEntryPctBefore": 85.8,
+    "name": "WR Kc",
+    "playerId": "WR Kc",
+    "position": "WR",
+    "projectedPpg": 13.0,
+    "role": "displaced",
+    "usablePpgAfter": 11.61,
+    "usablePpgBefore": 13.05
+   },
+   {
+    "lineupEntryPctAfter": 89.0,
+    "lineupEntryPctBefore": 100.0,
+    "name": "RB Min",
+    "playerId": "RB Min",
+    "position": "RB",
+    "projectedPpg": 12.0,
+    "role": "displaced",
+    "usablePpgAfter": 12.11,
+    "usablePpgBefore": 12.36
+   }
+  ],
+  "rosterSpot": {
+   "openSpotsGained": 0,
+   "reason": "not_yet_measured: the waiver-pool projection join is pending",
+   "shadowValuePpg": null
+  },
+  "shape": {
+   "label": "expansion",
+   "playersIn": 2,
+   "playersOut": 0
+  },
+  "unit": "expected best-ball points per week (exact league scoring)"
+ },
+ "sending": [
+  {
+   "age": null,
+   "assetClass": "pick",
+   "basePos": "PICK",
+   "confidenceBucket": null,
+   "hasSourceDisagreement": null,
+   "name": "2027 Round 1",
+   "playerId": null,
+   "pos": "PICK",
+   "rank": null,
+   "sourceLabel": "2027 Round 1",
+   "tier": "mid",
+   "value": 3500
+  }
+ ],
+ "team": {
+  "name": "Us",
+  "ownerId": "o1",
+  "rosterId": 1
+ },
+ "teamContext": {
+  "applied": true,
+  "mode": "team"
+ },
+ "teamImpact": {
+  "ageDelta": 0.0,
+  "compositeScore": 68.5,
+  "depthDelta": {
+   "QB": 0,
+   "RB": 1,
+   "TE": 0,
+   "WR": 1
+  },
+  "equityScore": 100.0,
+  "fitScore": 42.8,
+  "lineupDisplacement": {
+   "arrived": [
+    {
+     "name": "WR Buf Star",
+     "position": "WR",
+     "value": 7000,
+     "valueScale": "rankDerivedValue"
+    }
+   ],
+   "departed": [],
+   "displaced": [
+    {
+     "name": "WR Phi",
+     "position": "WR",
+     "value": 2000,
+     "valueScale": "rankDerivedValue"
+    }
+   ],
+   "isValueDelta": false,
+   "promoted": [],
+   "startersAfter": 4,
+   "startersBefore": 4
+  },
+  "posture": "contender",
+  "rationale": [
+   "Shifts WR starter quality (+5000.0)",
+   "Net KTC equity +3800",
+   "Adds bench depth at saturated RB (-overflow)",
+   "Adds bench depth at saturated WR (-overflow)",
+   "Acquired RB Buf Depth (RB) doesn't start \u2014 duplicate"
+  ],
+  "redundancy": [
+   {
+    "name": "RB Buf Depth",
+    "pos": "RB",
+    "reason": "duplicate at saturated position"
+   }
+  ],
+  "scarcityDelta": {
+   "QB": 0.0,
+   "RB": 0.0,
+   "TE": 0,
+   "WR": 2500.0
+  },
+  "starterDelta": {
+   "QB": 0,
+   "RB": 0,
+   "TE": 0,
+   "WR": 0
+  },
+  "starterValueDelta": {
+   "QB": 0.0,
+   "RB": 0.0,
+   "TE": 0,
+   "WR": 5000.0
+  },
+  "unscalablePositions": [
+   "TE"
+  ],
+  "verdict": "accept",
+  "windowFit": 0.33
+ },
+ "unresolvedIn": [],
+ "unresolvedOut": []
+}

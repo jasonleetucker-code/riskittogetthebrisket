@@ -835,3 +835,104 @@ Implementation is authorized by the owner's own handoff. The authorization recor
     evidence.
 - **Not authorized.** A Game Day rewrite, methodology or scoring changes, paid-source activation, a PSI
   redesign, or a new league/team identity owner.
+
+
+**Owner directive — Game Day Live Median Race (2026-09-26).**
+Extends the Game Day deliverable (#1335 / #1334, Lane 6); it is not a second Game Day. Implementation is
+owner-approved; the authorization record is the pointer in `docs/EXECUTION_PLAN.md` under Game Day.
+
+- **Experience.** A primary "Live Median Race" section placed directly after the Matchup Hero. The new
+  hierarchy is Hero → Median Race → What Matters Now → NFL Slate → Best Ball Details → Data Info.
+  - Every roster of the selected league appears once, ranked by beat-median probability.
+  - Each row shows score now, projected finish, same-draw median margin, beat-median % and movement.
+  - A league-median summary shows current, projected final and 80% range.
+  - An objective bubble (probability distance from 50%) names who is fighting around the cutoff.
+- **Math reused, never re-derived.** The existing league-wide simulation stays canonical: one draw scores
+  every team, M(d) is that draw's own median (host-verified semantics; an exact tie is not a win), and
+  P(beat) = P[S(t,d) > M(d)].
+  - The projected median distribution comes from the M(d) series.
+  - The margin is the paired S(t,d) − M(d).
+  - There is no frontend median, no per-team simulation and no fixed cutoff.
+- **Truth rules.**
+  - Current median only when live scoring is complete; otherwise it is named unavailable.
+  - Final week resolves to actual BEAT / MISS / TIE.
+  - A median-disabled or unverified league never gets fabricated percentages.
+  - Missing is never zero.
+- **Live.** Only the existing shared collector and generations. Movement is in percentage points, against
+  the previous comparable published generation only, and absent when there is none. No new timer,
+  history or archive; the existing generation index retains calibration evidence.
+- **Selection.** A row switches Game Day via the existing `?team=` mechanism. The picker stays in sync.
+  There is no second team state and no global My Team change.
+- **UI.** Locked PSI / Direction A. A dense ranked list on desktop and two-line ruled rows at 390 px. No
+  categorical probability colours (#1428 stays separate).
+- **Not authorized.** A new engine, simulation, projection, scoring, collector or ML system; playoff or
+  season projections.
+
+
+**Owner directive — Awards: 2026 Waiver King eligibility + Expand standings (2026-09-26).**
+Owner-approved; the authorization record is the League Hub Awards pointer in `docs/EXECUTION_PLAN.md`.
+
+- **A. 2026 Waiver King eligibility (season-scoped, one award).**
+  - Joel and Blaine may not WIN Waiver King in the 2026 season:
+    - Joel: owner `712035316776669184` (Sleeper `jstuedle`, roster 11).
+    - Blaine: owner `1303549304882892800` (Sleeper `ughb`, roster 12).
+  - The rule is recorded with its provenance in `config/leagues/award_eligibility_overrides.json` and answered only
+    by `src/public_league/award_eligibility.py`.
+  - Keyed by season and that season's league id, never a date: 2027 starts with no rule, and 2026 viewed in any
+    later year keeps it.
+  - Their waiver data and metric are unchanged and still published, with metric rank and an "Ineligible for 2026
+    award" label. The award goes to the highest-ranked eligible manager.
+  - No other award, statistic, standing or consumer is affected.
+- **B. Expand standings (durable).**
+  - Every current-season award race keeps its concise leaders and publishes `standings`: the award's canonical
+    ranking, at most 12 rows, from the same backend rows that decide the award.
+  - Entity per award: player, manager, team, NFL franchise, or event (team-week).
+  - Fewer qualifying candidates means fewer rows; ties share a rank; awards awaiting evidence publish none.
+  - Race-less current-season awards (Regular-Season Crown, Points King, highest/lowest single week) carry
+    standings too.
+  - Award history stays separate.
+  - Explicit exceptions: Champion (decided by the bracket, not a metric), Best Trade and Rivalry of the Year
+    (their owners compute only the single best), Best Rebuild (off-season, completed seasons only).
+- **Not authorized.** Formula, VORP, scoring or waiver-methodology changes; new or removed awards; a League Hub
+  redesign.
+- **C. OPOY / DPOY terminology (owner clarification on #1464, 2026-09-26).**
+  - `off_mvp` is shown as "Offensive Player of the Year" and `def_mvp` as "Defensive Player of the Year". "League
+    MVP" is unchanged.
+  - Internal keys are unchanged; formulas and rankings are byte-identical.
+  - Applies everywhere the backend label reaches: cards, races, expanded standings and history.
+  - OPOY/DPOY do not inherit any League-MVP competition-success gate.
+  - **Open owner decision (recorded, not implemented).** The clarification describes League MVP as gated on a
+    playoff-field, above-.500 franchise per the Honors spec. The spec's 2026-08-14 reconciliation amendment
+    (citing `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` §7) says player MVP has **no** hard playoff/.500 gate, and the code
+    has none. The rename changes no eligibility. Whether League MVP should (re)gain that gate needs an explicit
+    owner ruling that supersedes the 2026-08-13/14 decision.
+
+
+## Added 2026-09-26 — Championship / playoff odds methodology: two owner decisions awaiting approval
+
+Recorded by the League Hub championship input-integrity unit (`claude/championship-input-integrity`; claim in
+`docs/WORK_CLAIMS.md`). That unit fixes only factual defects: D1 (a failed NFL player download published coin-flip
+odds), D4 (live-week matchups frozen as finals) and D5 (a non-default league simulated on the default league's
+rosters). The two items below are **methodology**. They are **not changed** and **not authorized**. Each waits for an
+explicit owner decision; only `docs/EXECUTION_PLAN.md` can authorize the work.
+
+- **D2 — ROS strength counted twice in the weekly mean.**
+  - **Current:** `src/ros/playoff_sim.py::_build_team_distributions` sets the mean to `pre-sim mean × (1 + 0.2z)`.
+    The best-ball pre-sim is already drawn from the same ROS roster values, and the ROS z-score multiplier is then
+    applied on top.
+  - **Observed** (dynasty_main, 2026-09-26, inputs intact):
+    - Brent's championship odds are 99.45% with the multiplier and 84.6% with it removed.
+    - Weekly log-loss on finalized weeks 1–2 is 0.928, against 0.693 for a coin flip. That is a small sample.
+  - **Proposal:**
+    - drop the multiplier when the pre-sim supplies the mean;
+    - fit the points model to league scoring;
+    - add a per-draw team shock.
+  - **Validation before any promotion:** run the change as a challenger, scored by weekly log-loss / PIT on
+    finalized weeks. Champion ≠ challenger.
+- **D3 — median games ignored.**
+  - `dynasty_main` sets `league_average_match = 1`, so each week counts as two games: head-to-head plus the
+    league median.
+  - The median W/L is excluded from both the current record and the simulated weeks. The host's record therefore
+    counts twice as many games as the simulator's.
+  - Measured 2026-09-26: after two finished weeks the host shows 4-0 where the simulator shows 2-0.
+  - Deciding whether and how the median game enters seeding is a methodology decision.

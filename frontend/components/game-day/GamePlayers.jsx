@@ -9,7 +9,7 @@
  */
 
 import { useMemo } from "react";
-import { DataTable } from "@/components/ds";
+import { DataTable, PlayerNameButton } from "@/components/ds";
 import {
   formatLineupPct,
   formatPoints,
@@ -57,7 +57,7 @@ export default function GamePlayers({ game, index, teamName, opponentName }) {
       header: "Player",
       render: (p) => (
         <span>
-          {p.name}
+          <PlayerNameButton name={p.name} playerId={p.playerId} />
           {positionLabel(p) ? <span className={styles.muted}> · {positionLabel(p)}</span> : null}
           <span className={styles.numNote}>
             {p.side === "team" ? teamName || "Selected team" : opponentName || "Opponent"} ·{" "}

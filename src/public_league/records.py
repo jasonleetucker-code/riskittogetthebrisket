@@ -14,6 +14,11 @@ Streak rules:
 Single-week records use individual-week side rows (no combined-finals
 fusion) so the highest single-week always reflects exactly one NFL week
 of scoring.
+
+Every walk reads FINISHED weeks only (``metrics.final_weeks``, directly or
+through ``metrics.walk_matchup_pairs``).  A record book entry is a result, and
+a week still being played has none: on the live 2026 week 3 all five
+"lowest single-week scores" were Thursday-night slivers.
 """
 
 from __future__ import annotations
@@ -83,7 +88,10 @@ def _weekly_side_rows_individual(snapshot: PublicLeagueSnapshot) -> list[dict[st
     """
     rows: list[dict[str, Any]] = []
     for season in snapshot.seasons:
+        final_weeks = set(metrics.final_weeks(season))
         for week in sorted(season.matchups_by_week.keys()):
+            if week not in final_weeks:
+                continue
             entries = season.matchups_by_week.get(week) or []
             is_playoff = week >= season.playoff_week_start
             for a, b in metrics.matchup_pairs(entries):
@@ -287,7 +295,10 @@ def _season_scoring_totals(
     by_key: dict[tuple[str, str], dict[str, Any]] = {}
     for season in snapshot.seasons:
         weeks = season.regular_season_weeks if regular_season_only else season.all_weeks
+        final_weeks = set(metrics.final_weeks(season))
         for wk in weeks:
+            if wk not in final_weeks:
+                continue
             for a, b in metrics.matchup_pairs(season.matchups_by_week.get(wk) or []):
                 for me, foe in ((a, b), (b, a)):
                     if not metrics.is_scored(me) and not metrics.is_scored(foe):
@@ -338,7 +349,10 @@ def _player_records(snapshot: PublicLeagueSnapshot) -> dict[str, list[dict[str, 
     by_position: dict[str, list[dict[str, Any]]] = {pos: [] for pos in _PLAYER_RECORD_POSITIONS}
 
     for season in snapshot.seasons:
+        final_weeks = set(metrics.final_weeks(season))
         for week in season.regular_season_weeks:
+            if week not in final_weeks:
+                continue
             entries = season.matchups_by_week.get(week) or []
             for entry in entries:
                 rid = metrics.roster_id_of(entry)

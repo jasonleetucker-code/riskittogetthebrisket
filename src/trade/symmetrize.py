@@ -59,6 +59,12 @@ def _average_results(ab: _mc.SimResult, ba: _mc.SimResult) -> dict[str, Any]:
     avg_p90 = (ab.delta_p90 + neg_ba_p90) / 2.0
 
     drift = abs(winA_ab - winA_ba_flipped)
+    # The band provenance and its disclosure belong to the INPUTS, which
+    # both passes share: carry them through from the AB pass.  Rebuilding
+    # the disclaimer here used to drop the "N of M assets used a
+    # synthesized ±15% band" sentence and ``bandSources`` on every live
+    # run — the one path the UI actually calls.
+    ab_payload = ab.to_dict()
     return {
         "winProbA": round(avg_win_a, 4),
         "winProbB": round(1.0 - avg_win_a, 4),
@@ -75,11 +81,9 @@ def _average_results(ab: _mc.SimResult, ba: _mc.SimResult) -> dict[str, Any]:
         "method": "consensus_based_win_rate_symmetrized",
         "labelHint": "consensus_based_win_rate",
         "disclaimer": (
-            "This is the fraction of consensus-band samples where "
-            "side A's total exceeds side B's — NOT a real-world "
-            "win probability.  Direction-symmetrized to eliminate "
-            "ordering bias."
+            ab_payload["disclaimer"] + "  Direction-symmetrized to eliminate ordering bias."
         ),
+        "bandSources": ab_payload["bandSources"],
         "symmetryCheck": {
             "winProbA_AB": round(winA_ab, 4),
             "winProbA_BA_flipped": round(winA_ba_flipped, 4),

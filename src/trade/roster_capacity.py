@@ -654,6 +654,92 @@ def _as_roster_players(assets: Iterable[RosterAsset]) -> list[RosterPlayer]:
     ]
 
 
+@dataclass(frozen=True)
+class FinalLegalRoster:
+    """The three rosters a trade passes through, as the ONE definition both
+    roster consumers read: Team Strength (``simulate_final_legal_roster``) and
+    best-ball utility (#1173, ``src.roster_intel.best_ball_utility``).
+
+    ``landed`` is the roster the moment the trade executes; ``final`` is the
+    legal roster after this capacity answer's own forced drops.  They are the
+    same list whenever no cleanup is required.
+    """
+
+    before: tuple[RosterAsset, ...]
+    landed: tuple[RosterAsset, ...]
+    final: tuple[RosterAsset, ...]
+    incoming: tuple[RosterAsset, ...]
+    #: Ids leaving the BEFORE roster: the trade's outgoing players plus the
+    #: forced drops that were on it (a drop the trade acquired leaves from
+    #: ``incoming`` instead).
+    removed_ids: tuple[str, ...]
+    outgoing_ids: tuple[str, ...]
+    forced_drop_ids: tuple[str, ...]
+    acquired_drop_ids: tuple[str, ...]
+
+
+def final_legal_roster(
+    context: CapacityContext,
+    capacity: RosterCapacity,
+    *,
+    incoming_players: Sequence[str] = (),
+    outgoing_players: Sequence[str] = (),
+) -> FinalLegalRoster:
+    """Apply the trade, then this capacity answer's cleanup — no second selection.
+
+    Removal is by MULTIPLICITY: two roster entries sharing an id are two
+    spots, and removing one removes exactly one (the rule ``_surviving_keys``
+    and ``simulate_trade`` already follow).
+    """
+    before = tuple(
+        context.assets_by_key.get(_norm(name)) or _resolve_incoming(name, context.by_name)
+        for name in context.roster_player_names
+    )
+    on_roster = {a.player_id for a in before}
+    incoming = tuple(_resolve_incoming(n, context.by_name) for n in incoming_players)
+    drop_ids = tuple(d.player_id for d in capacity.forced_drops)
+    acquired_drop_ids = tuple(d.player_id for d in capacity.forced_drops if d.acquired_in_trade)
+    outgoing_ids = tuple(
+        a.player_id
+        for a in (
+            context.assets_by_key.get(_norm(n)) or _resolve_incoming(n, context.by_name)
+            for n in outgoing_players
+        )
+        if a.player_id in on_roster
+    )
+    removed_ids = tuple(
+        sorted(
+            set(outgoing_ids) | ({i for i in drop_ids if i in on_roster} - set(acquired_drop_ids))
+        )
+    )
+
+    def _without(assets: Sequence[RosterAsset], ids: Sequence[str]) -> list[RosterAsset]:
+        pending = Counter(ids)
+        kept: list[RosterAsset] = []
+        for a in assets:
+            if pending.get(a.player_id, 0) > 0:
+                pending[a.player_id] -= 1
+                continue
+            kept.append(a)
+        return kept
+
+    landed = (*_without(before, outgoing_ids), *incoming)
+    final = (
+        *_without(before, removed_ids),
+        *_without(incoming, acquired_drop_ids),
+    )
+    return FinalLegalRoster(
+        before=before,
+        landed=tuple(landed),
+        final=tuple(final),
+        incoming=incoming,
+        removed_ids=removed_ids,
+        outgoing_ids=outgoing_ids,
+        forced_drop_ids=drop_ids,
+        acquired_drop_ids=acquired_drop_ids,
+    )
+
+
 def simulate_final_legal_roster(
     context: CapacityContext,
     capacity: RosterCapacity,
@@ -685,39 +771,23 @@ def simulate_final_legal_roster(
             "notes": ["the league's starting slots did not resolve, so no lineup can be solved"],
         }
 
-    before_assets = [
-        context.assets_by_key.get(_norm(name)) or _resolve_incoming(name, context.by_name)
-        for name in context.roster_player_names
-    ]
-    before_pool = _as_roster_players(before_assets)
-    on_roster = {p.player_id for p in before_pool}
-
-    incoming_assets = [_resolve_incoming(n, context.by_name) for n in incoming_players]
-    incoming_pool = _as_roster_players(incoming_assets)
-
     # The cleanup IS the capacity answer's own forced drops — not a second
     # selection.  A drop the trade acquired leaves from the INCOMING side
-    # instead, because he was never on the before-roster to leave it.
-    drop_ids = {d.player_id for d in capacity.forced_drops}
-    acquired_drop_ids = {d.player_id for d in capacity.forced_drops if d.acquired_in_trade}
-    incoming_pool = [p for p in incoming_pool if p.player_id not in acquired_drop_ids]
-
-    outgoing_ids = sorted(
-        {
-            a.player_id
-            for a in (
-                context.assets_by_key.get(_norm(n)) or _resolve_incoming(n, context.by_name)
-                for n in outgoing_players
-            )
-        }
-        | (drop_ids - acquired_drop_ids)
+    # instead, because he was never on the before-roster to leave it.  The
+    # rosters come from ``final_legal_roster``, the one definition #1173's
+    # best-ball utility reads too.
+    rosters = final_legal_roster(
+        context,
+        capacity,
+        incoming_players=incoming_players,
+        outgoing_players=outgoing_players,
     )
-
+    acquired = set(rosters.acquired_drop_ids)
     simulation = simulate_roster_change(
-        before_pool,
+        _as_roster_players(rosters.before),
         list(context.starter_slots),
-        incoming=incoming_pool,
-        outgoing_ids=[i for i in outgoing_ids if i in on_roster],
+        incoming=[p for p in _as_roster_players(rosters.incoming) if p.player_id not in acquired],
+        outgoing_ids=list(rosters.removed_ids),
         slot_eligibility=context.slot_eligibility,
     )
 
@@ -737,6 +807,94 @@ def simulate_final_legal_roster(
     # roster IS afterwards, and grades nothing.
     payload["isVerdict"] = False
     return payload
+
+
+def evaluate_final_roster_utility(
+    context: CapacityContext,
+    capacity: RosterCapacity,
+    *,
+    incoming_players: Sequence[str] = (),
+    outgoing_players: Sequence[str] = (),
+    season: int | None,
+    scoring_settings: Mapping[str, Any] | None,
+    draws: int | None = None,
+) -> dict[str, Any]:
+    """#1173 best-ball utility for the FINAL LEGAL roster (C3-CAP-01's last step).
+
+    Same rosters ``simulate_final_legal_roster`` solves (``final_legal_roster``),
+    evaluated by ``src.roster_intel.best_ball_utility`` on league-scored
+    projections instead of canonical values.  Nothing here picks a cut: the
+    cleanup is this capacity answer's own forced drops.  When taxi occupancy
+    makes the drop set a RANGE (``requires_drops is None``) the post-cleanup
+    roster is not determined, so only the landed roster is evaluated and the
+    cleanup is reported as ``uncertain`` — never a guessed set.
+    """
+    from src.roster_intel import best_ball_utility as bbu  # noqa: PLC0415
+
+    if not context.starter_slots:
+        return {"available": False, "unavailableReason": "starter_slots_unresolved"}
+    if season is None:
+        return {
+            "available": False,
+            "unavailableReason": "season_unresolved",
+            "notes": ["no current NFL season resolves, so no current-season projection applies"],
+        }
+    rosters = final_legal_roster(
+        context,
+        capacity,
+        incoming_players=incoming_players,
+        outgoing_players=outgoing_players,
+    )
+    all_assets = (*rosters.before, *rosters.incoming)
+    ppg, basis = bbu.league_scored_ppg_by_id(
+        sorted({a.player_id for a in all_assets}),
+        season=season,
+        scoring_settings=scoring_settings or {},
+    )
+    if basis.get("state") != "available":
+        return {
+            "available": False,
+            "unavailableReason": f"projection_basis_{basis.get('reason') or 'unavailable'}",
+            "basis": basis,
+        }
+
+    def _players(assets: Sequence[RosterAsset]) -> list[bbu.UtilityPlayer]:
+        return [
+            bbu.UtilityPlayer(
+                player_id=a.player_id,
+                name=a.name,
+                position=a.position,
+                ppg=ppg.get(a.player_id),
+                fantasy_positions=tuple(a.fantasy_positions or ()),
+            )
+            for a in assets
+        ]
+
+    roles: dict[str, str] = {a.player_id: "incoming" for a in rosters.incoming}
+    roles.update({pid: "outgoing" for pid in rosters.outgoing_ids})
+    uncertain = capacity.requires_drops is None
+    cleanup_applied = bool(rosters.forced_drop_ids) and not uncertain
+    if cleanup_applied:
+        roles.update({pid: "forcedDrop" for pid in rosters.forced_drop_ids})
+    result = bbu.evaluate_trade_utility(
+        before=_players(rosters.before),
+        after=_players(rosters.landed if uncertain else rosters.final),
+        after_before_cleanup=_players(rosters.landed) if cleanup_applied else None,
+        slots=list(context.starter_slots),
+        roles=roles,
+        slot_eligibility=context.slot_eligibility,
+        draws=draws or bbu.DEFAULT_DRAWS,
+        basis=basis,
+    )
+    result["cleanup"] = {
+        "state": "uncertain" if uncertain else "applied" if cleanup_applied else "none",
+        "forcedDropIds": list(rosters.forced_drop_ids) if cleanup_applied else [],
+        # Close cut candidates stay visible rather than one drop being
+        # presented as certain (the ladder's own tie flag).
+        "candidatesTied": bool(capacity.rung_order_was_tied),
+        "isUpperBound": capacity.certainty != "exact",
+    }
+    return result
 
 
 def assess_roster_capacity(

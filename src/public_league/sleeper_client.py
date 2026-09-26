@@ -255,13 +255,24 @@ def fetch_nfl_players() -> dict[str, Any]:
 
     Graceful fallback: empty dict on any network or parse error so the
     public pipeline can still render without position breakdowns.
+
+    **An empty dict is a FAILURE, and it is not cached.**  Only a
+    non-empty dump is memoized, matching ``_request_json``'s own rule
+    ("failures are NOT cached").  This used to memoize ``{}`` for the
+    life of the process, so one ``ConnectionResetError`` (refresh run
+    36220954196) answered every later caller in that run with an empty
+    universe too — and the ROS team-strength refresh then scored every
+    rostered player at zero.  Callers that need names must treat ``{}``
+    as unavailable, never as "the NFL has no players".
     """
     global _nfl_players_cache
     if _nfl_players_cache is not None:
         return _nfl_players_cache
     data = _request_json(f"{SLEEPER_BASE}/players/nfl", timeout=30.0)
-    _nfl_players_cache = data if isinstance(data, dict) else {}
-    return _nfl_players_cache
+    if isinstance(data, dict) and data:
+        _nfl_players_cache = data
+        return data
+    return {}
 
 
 def reset_nfl_players_cache() -> None:

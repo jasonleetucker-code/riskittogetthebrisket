@@ -410,3 +410,66 @@ test("game-day: long team names wrap between words, never mid-word; no sideways 
   await scan(page, testInfo, "long-names");
   await image(page, testInfo, "long-names");
 });
+
+/**
+ * LIVE MEDIAN RACE (owner directive 2026-09-26).  Real replay payloads; the
+ * board is the backend's `medianRace` block.  Covers every viewport project:
+ * all rosters once, the league-median summary, no sideways scroll, axe clean,
+ * a row tap switching Game Day through ?team=, and long team names that wrap
+ * between words only.
+ */
+test("game-day median race: the whole league, a row switches the team, no sideways scroll, axe clean", async ({
+  authedPage: page,
+}, testInfo) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const payloads = byTeam();
+  // LABELLED SYNTHETIC: long real-shaped team names on the board.
+  for (const p of Object.values(payloads)) {
+    for (const t of p.medianRace.teams) {
+      if (t.rosterId === "1") t.teamName = "The Rossini Panini Dynasty Collective of Greater Brisketville";
+      if (t.rosterId === "2") t.teamName = "Supercalifragilisticexpialidocious";
+    }
+  }
+  await serveByTeam(page, payloads, null);
+  await open(page, payloads["owner-8"]);
+  const race = page.locator('section[aria-labelledby="median-race-title"]');
+  await expect(race.getByRole("heading", { name: "Live median race" })).toBeVisible();
+  const rows = race.getByRole("list", { name: /beat the median/ }).getByRole("listitem");
+  await expect(rows).toHaveCount(payloads["owner-8"].leagueTeams.length);
+  await expect(race.getByText("Projected final")).toBeVisible();
+  await expect(race.locator('[aria-current="true"]')).toHaveCount(1);
+  await noPageOverflow(page);
+  const splits = await race.evaluate((root) => {
+    const out = [];
+    for (const el of root.querySelectorAll("li [class*='teamName']")) {
+      const text = el.firstChild;
+      if (!text || text.nodeType !== 3) continue;
+      let i = 0;
+      for (const word of text.textContent.split(" ")) {
+        if (word) {
+          const r = document.createRange();
+          r.setStart(text, i);
+          r.setEnd(text, i + word.length);
+          if (new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size > 1) out.push(word);
+        }
+        i += word.length + 1;
+      }
+    }
+    return out;
+  });
+  expect(splits, "no word of a team name may be split across lines").toEqual([]);
+  await scan(page, testInfo, "median-race");
+  const shot = testInfo.outputPath("median-race.png");
+  await race.screenshot({ path: shot });
+  await testInfo.attach("median-race", { path: shot, contentType: "image/png" });
+
+  // A row is a team switch: tap Team 10's row.
+  await race.locator('li[data-roster-id="10"] button').click();
+  await expect(page).toHaveURL(/team=owner-10/);
+  await expect(hero(page).locator("caption")).toContainText("Team 10 versus Team 8", { timeout: 15_000 });
+  await expect(page.getByRole("combobox", { name: "Viewing team" })).toHaveValue("owner-10");
+  await expect(race.locator('li[data-roster-id="10"] [aria-current="true"]')).toHaveCount(1);
+  await noPageOverflow(page);
+  expect(errors).toEqual([]);
+});

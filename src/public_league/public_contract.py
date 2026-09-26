@@ -509,6 +509,11 @@ def build_public_contract(
     for key, builder in _SECTION_BUILDERS.items():
         if key == "activity":
             sections[key] = _build_activity_section(snapshot, activity_valuation)
+        elif key == "franchise":
+            # Same reuse as ``build_section_payload``'s overview walk:
+            # awards is built earlier in the dict order, and franchise
+            # would otherwise rebuild it from scratch.
+            sections[key] = franchise.build_section(snapshot, awards_section=sections.get("awards"))
         else:
             sections[key] = builder(snapshot)
     sections[OVERVIEW_SECTION] = _build_overview(snapshot, sections)

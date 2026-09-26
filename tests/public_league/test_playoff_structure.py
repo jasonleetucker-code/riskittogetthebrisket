@@ -131,7 +131,7 @@ def test_the_private_engine_takes_the_leagues_bracket_not_a_constant(monkeypatch
     league that plays seven, because the parameter defaulted to 6 and
     ``ros/scrape.py`` — its only production caller — passes no value."""
     monkeypatch.setattr(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {})
-    monkeypatch.setattr(playoff_sim, "_league_best_ball", lambda: False)
+    monkeypatch.setattr(playoff_sim, "_league_best_ball", lambda *a, **k: False)
     monkeypatch.setattr(playoff_sim, "_build_team_distributions", lambda *a, **k: ({}, {}))
     out = playoff_sim.simulate_playoff_odds(_snapshot(playoff_teams=7), n_simulations=10)
     assert out["playoffSeeds"] == 7
@@ -141,7 +141,7 @@ def test_the_private_engine_takes_the_leagues_bracket_not_a_constant(monkeypatch
 
 def test_the_private_engine_refuses_an_unknown_bracket_rather_than_assuming_six(monkeypatch):
     monkeypatch.setattr(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {})
-    monkeypatch.setattr(playoff_sim, "_league_best_ball", lambda: False)
+    monkeypatch.setattr(playoff_sim, "_league_best_ball", lambda *a, **k: False)
     out = playoff_sim.simulate_playoff_odds(_snapshot(), n_simulations=10)
 
     assert out["playoffOdds"] == []
@@ -155,7 +155,7 @@ def test_an_explicit_bracket_still_wins_so_an_a_b_compares_one_league(monkeypatc
     resolution overrode that, the two arms could be different leagues and
     the delta would measure the bracket, not the trade."""
     monkeypatch.setattr(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {})
-    monkeypatch.setattr(playoff_sim, "_league_best_ball", lambda: False)
+    monkeypatch.setattr(playoff_sim, "_league_best_ball", lambda *a, **k: False)
     monkeypatch.setattr(playoff_sim, "_build_team_distributions", lambda *a, **k: ({}, {}))
     out = playoff_sim.simulate_playoff_odds(
         _snapshot(playoff_teams=7), n_simulations=10, playoff_seeds=4, bye_seeds=0
@@ -186,7 +186,7 @@ def test_both_engines_agree_on_the_bracket_for_one_league(monkeypatch):
     """The consolidation, stated as a property. Two engines that disagree
     about how many teams qualify are not two views of one league."""
     monkeypatch.setattr(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {})
-    monkeypatch.setattr(playoff_sim, "_league_best_ball", lambda: False)
+    monkeypatch.setattr(playoff_sim, "_league_best_ball", lambda *a, **k: False)
     monkeypatch.setattr(playoff_sim, "_build_team_distributions", lambda *a, **k: ({}, {}))
     for teams in (4, 6, 7, 8):
         snap = _snapshot(playoff_teams=teams)
@@ -203,7 +203,7 @@ def test_the_championship_engine_takes_the_leagues_bracket_too(monkeypatch):
     from src.ros import championship
 
     monkeypatch.setattr(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {})
-    monkeypatch.setattr(playoff_sim, "_league_best_ball", lambda: False)
+    monkeypatch.setattr(playoff_sim, "_league_best_ball", lambda *a, **k: False)
     monkeypatch.setattr(playoff_sim, "_build_team_distributions", lambda *a, **k: ({}, {}))
 
     out = championship.simulate_championship_odds(_snapshot(playoff_teams=7), n_simulations=10)
@@ -223,7 +223,7 @@ def test_the_trade_impact_ab_resolves_one_bracket_for_both_arms(monkeypatch):
     arms on different brackets would measure the bracket.
     """
     monkeypatch.setattr(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {})
-    monkeypatch.setattr(playoff_sim, "_league_best_ball", lambda: False)
+    monkeypatch.setattr(playoff_sim, "_league_best_ball", lambda *a, **k: False)
     monkeypatch.setattr(playoff_sim, "_build_team_distributions", lambda *a, **k: ({}, {}))
 
     out = playoff_sim.simulate_trade_impact(
@@ -415,7 +415,7 @@ def test_the_championship_engine_receives_the_leagues_field_size(monkeypatch):
 
     monkeypatch.setattr(championship, "_simulate_bracket", _spy)
     monkeypatch.setattr(playoff_sim, "_load_ros_strength_map", lambda *a, **k: {})
-    monkeypatch.setattr(playoff_sim, "_league_best_ball", lambda: False)
+    monkeypatch.setattr(playoff_sim, "_league_best_ball", lambda *a, **k: False)
 
     owners, dists = _identical_field(12)
     monkeypatch.setattr(playoff_sim, "_build_team_distributions", lambda *a, **k: (dists, {}))
