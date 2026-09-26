@@ -396,13 +396,110 @@ audit (sequenced next) is where the curve side is examined.
   median 0.14%, max 3.8%. The cap alone changes 522, median 0.85%. Together
   they change 535, median 0.72%, top-150 max 2.8%.
 
-**Known and NOT fixed here:** the #1402 weighted median (midpoint-interpolated,
-continuous in the WEIGHTS) is not monotone in the VALUES. When two
-observations with different weights swap order, their cumulative positions
-jump. On 20,000 random unequal-weight cases, production's blend lowers its
-output when an input rises in 1,596 cases (worst −2.15%). The mass trim cuts
-that to 237; the rest come from the median. It is a separate queued unit with
-its own measurement.
+**Weighted median: monotone in the values (2026-09-24, follow-up to #1427).**
+The #1402 midpoint-interpolated median was continuous in the WEIGHTS but not
+monotone in the VALUES. When two observations of different weight swap order,
+their midpoints jump, so raising one value could LOWER the median. It failed on
+513 of 20,000 random unequal-weight cases (worst −2.95%), and production's blend
+lowered its output when an input rose in 1,596 of 20,000 cases.
+
+`_weighted_median_sorted` is now the mean of the weighted quantile function
+over a window of one average observation's mass centred on 0.5
+(`[0.5 − 1/(2n), 0.5 + 1/(2n)]`):
+
+* **exact** ordinary median under equal weights (odd n: the middle slice;
+  even n: half of each middle slice);
+* monotone in the values;
+* continuous in the weights. In the Kyle Hamilton case its max step is 1.01
+  per 0.001 weight change (the midpoint median's was 1.15).
+
+The blend reads the median from the full distribution, because the
+symmetric mass trim leaves the 0.5-quantile unchanged. The whole blend is
+then monotone: 0 violations in 50,000 random cases.
+
+**The estimator contract.** Unweighted (#164): n=1 passthrough, n=2 mean,
+n=3-4 (mean + median)/2, n≥5 drop one min and one max and take
+(trimmed mean + median)/2. A symmetric trim never moves the median, so trimming
+acts on the MEAN only. The weighted generalisation uses one unit throughout: one
+AVERAGE observation's mass, W/n.
+
+* The trimmed mean is the mean of the weighted quantile function Q(u) over
+  [1/n, 1 − 1/n].
+* The median is the mean of Q(u) over [1/2 − 1/(2n), 1/2 + 1/(2n)].
+* With equal weights both are exactly the unweighted statistics.
+
+The median is read from the full distribution. Trimming mass m from both ends
+leaves the remaining mass's midpoint at cumulative m + (W − 2m)/2 = W/2, so the
+trimmed and full distributions have the same 0.5 point. That makes it the
+estimator's median, not a workaround. Sizing the window on the trimmed set's
+leftover slivers was a count artifact, and it broke monotonicity.
+
+**Why values move: bounded influence.** Under the window median, an
+observation's pull on the median is at most its weight relative to one average
+observation. Under the step median and the retired midpoint median, a
+near-zero-weight source whose thin slice straddles 0.5 becomes the ENTIRE
+median. That contradicts freshness weighting. Kyle Hamilton's IDP anchor on the
+2026-09-24 board: Draft Sharks IDP 2228 @0.986, **IDP Show 3554 @0.100** (36
+days stale; 4.8% of the weight), IDPTC 3597 @1.0. The old anchor median was IDP
+Show's own value, 3554.5. The window median is 3018.6 (IDP Show capped at
+0.048 / 0.333 = 14% of the window). The anchor center (weighted mean 2948 +
+median) / 2 moves 3251 → 2983, and after α-shrinkage the row moves 3228 → 2987.
+The IDP anchors that include the stale IDP Show move this way; offense barely
+moves.
+
+**Board impact vs the family-cap board (same payload
+`dynasty_export_20260924_135023`):** 712 of 1,042 values move. |Δ| median
+0.17%, p75 0.43%, p90 1.49%, p95 3.71%, max 10.04%. By group:
+
+| group | changed / rows | median | p90 | max |
+|---|---|---|---|---|
+| offense | 386 / 503 | 0.13% | 0.57% | 3.36% |
+| IDP | 218 / 395 | 0.30% | 4.78% | 10.04% |
+| picks | 108 / 144 | 0.22% | 1.30% | 6.03% |
+
+2-voter rows change 0 of 86, because n = 2 is a weighted mean. 1-voter rows move
+only through downstream stages (for example the rookie-pool tether for picks).
+Top-50 max is 1.9% with at most one rank move.
+
+**Owner approval and refresh (2026-09-26).** The owner approved the
+window-median methodology on 2026-09-26, conditional on refresh and
+revalidation against current main. It was re-applied onto main `304e38c52`
+(clean cherry-pick). Main's changes to `data_contract.py` since the PR's base
+(#1442 pick-class lifecycle, #1443 FantasyPros IDP metadata) do not touch the
+estimator, and `src/sources`, `confidence.py` and `config/sources` are
+unchanged, so the contract's assumptions still hold.
+
+Property re-proof, 20,000 random unequal-weight cases each, main → this change:
+
+| property | main (midpoint median) | window median |
+|---|---|---|
+| median monotone in the values | 425 violations (worst −67.6%) | **0** |
+| whole blend monotone in the values | 227 (worst −22.2%) | **0** |
+| hierarchical anchor + α=0.10 subgroup | 156 (worst −25.1%) | **0** |
+| continuous in the weights (jumps per 1e-7 of weight) | 0 | **0** |
+| equal weights: ordinary median, unweighted blend, n=1/2/3–4/≥5 rungs | 0 mismatches | **0** |
+| bounded influence: a ≤5%-weight source straddling 0.5 moves the median by ≤ n·w/W per unit | 19,938 breaches | **0** |
+
+Board impact on the pinned payload `dynasty_export_20260926_053303.zip`
+(`dynasty_data_2026-09-26.json`, sha256 `d33a78ab…bc40`): the same tree built
+twice, with main's two estimator functions patched in for the "before" build.
+Those two functions are the only `src/` difference. 554 of 1,038 values move.
+
+| group | changed / rows | median | p90 | max |
+|---|---|---|---|---|
+| all | 554 / 1,038 | 0.15% | 2.05% | 10.15% |
+| offense | 226 / 498 | 0.08% | 0.39% | 4.23% |
+| IDP | 228 / 396 | 0.26% | 4.81% | 10.15% |
+| picks | 100 / 144 | 0.14% | 1.19% | 5.60% |
+
+- 2-voter rows change 0 of 86.
+- Top-50: max 1.19%, 2 ranks. Top-150: max 5.76%, 17 ranks.
+- Source lineage, per-source freshness/health/coverage weights, family and
+  source counts, weight states and exclusions are byte-identical.
+- `pickValueProvenance` evidence classes are unchanged. Only the tether
+  `basis` rookie changes, on 34 rows.
+- `confidenceBucket` changes on 25 rows, all through the agreement axis. That
+  axis is measured against the new value.
 
 **The DLF rookie boards** vote inside the DLF family cap until the rookie-board
 audit decides whether they are distinct signals, mirrors, or seasonal.

@@ -668,7 +668,16 @@ Steps:
    sources.  Pick rows widen the anchor set to include the KTC Crowd and
    Trades inputs so the real pick markets (KTC + IDPTC) average as peers.
 7. Count-aware aggregation (n=1 passthrough, n=2 mean, n=3-4 untrimmed
-   mean-median, n≥5 trimmed mean-median)
+   mean-median, n≥5 trimmed mean-median).  WEIGHTED form (2026-09-24), one unit throughout —
+   one average observation's mass W/n: the n≥5 trim removes that much
+   weight from each end (the MEAN only — a symmetric trim never moves the
+   median); the weighted median is the mean of the weighted quantile
+   function over [½ − 1/2n, ½ + 1/2n].  Exactly the unweighted rule under
+   equal weights; monotone in the values; continuous in the weights; a
+   near-zero-weight source cannot become the median (bounded influence).
+   **Owner approved the window-median methodology 2026-09-26, conditional on
+   refresh/revalidation** against current main (#1434; refresh evidence in
+   ``docs/sources/SOURCE_FRESHNESS_WEIGHTING.md``)
 8. RETIRED: the λ·MAD volatility penalty is switched off
    (``_MAD_PENALTY_LAMBDA = 0.0`` since 2026-04-20); ``sourceSpread``
    is stamped as a pure diagnostic.  Likewise the soft fallback is

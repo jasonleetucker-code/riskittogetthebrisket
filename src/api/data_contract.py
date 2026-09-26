@@ -9121,23 +9121,30 @@ def _trim_one_observation_mass(pairs: list[tuple[float, float]]) -> list[tuple[f
 
 def _weighted_median_sorted(pairs: list[tuple[float, float]], total_weight: float) -> float:
     """Weighted median over ``(value, weight)`` pairs pre-sorted by value —
-    CONTINUOUS in the weights.
+    continuous in the WEIGHTS and monotone in the VALUES.
 
-    Each observation sits at the midpoint of its cumulative-weight
-    interval, ``c_i = (W_{<i} + w_i / 2) / W``, and the median is the
-    linear interpolation of the values at 0.5 (clamped to the extremes).
-    With equal weights this is exactly the ordinary median (odd n → the
-    middle element sits at 0.5; even n → the two middle elements straddle
-    it symmetrically, giving their mean).
+    Each observation owns the slice of the unit interval its weight gives it
+    (``[W_{<i} / W, W_{<=i} / W]``).  The median is the MEAN of that weighted
+    quantile function over a window of one average observation's mass centred
+    on 0.5, ``[0.5 − 1/(2n), 0.5 + 1/(2n)]``.  With equal weights the window is
+    exactly the middle observation's slice (odd n) or half of each of the two
+    middle slices (even n), so this IS the ordinary median.
 
-    Why not the textbook "first value whose cumulative weight passes half":
-    that is a STEP function of the weights.  Measured on the 2026-09-23
-    board once freshness made fractional weights normal: Kyle Hamilton's
-    three-source IDP anchor (IDPTC 3597 @0.878, IDP Show 3554 @0.120,
-    Draft Sharks IDP 2269 @1.0) snapped its median to 2269 because 1.0
-    exceeded half of 1.998 by 0.001 — IDPTC at 0.881 instead would have
-    snapped it to 3554.  A source's authority must move a value smoothly,
-    never flip it across the board.
+    Why a window and not a point (2026-09-24):
+
+    * the textbook "first value whose cumulative weight passes half" is a
+      STEP function of the weights — Kyle Hamilton's three-source IDP anchor
+      (IDPTC 3597 @0.878, IDP Show 3554 @0.120, Draft Sharks IDP 2269 @1.0)
+      snapped between 2269 and 3554 on a 0.003 weight change (2026-09-23);
+    * the midpoint interpolation that replaced it was continuous in the
+      weights but NOT monotone in the values: when two observations of
+      different weight swap order their midpoints jump, so raising one value
+      could LOWER the median — 513 of 20,000 random unequal-weight cases,
+      worst −2.95%.
+
+    A raised value only ever moves mass upward, so every quantile — and any
+    average of quantiles — can only rise: monotone.  Slice widths move
+    continuously with the weights: continuous.
     """
     live = [(v, w) for v, w in pairs if w > 0.0]
     if not live:
@@ -9145,22 +9152,17 @@ def _weighted_median_sorted(pairs: list[tuple[float, float]], total_weight: floa
     total = sum(w for _, w in live)
     if total <= 0.0:
         return live[-1][0]
-    positions: list[float] = []
+    n = len(live)
+    lo, hi = 0.5 - 0.5 / n, 0.5 + 0.5 / n
+    acc = 0.0
     cum = 0.0
-    for _, w in live:
-        positions.append((cum + w / 2.0) / total)
-        cum += w
-    if 0.5 <= positions[0]:
-        return live[0][0]
-    if 0.5 >= positions[-1]:
-        return live[-1][0]
-    for i in range(len(live) - 1):
-        lo, hi = positions[i], positions[i + 1]
-        if lo <= 0.5 <= hi:
-            span = hi - lo
-            t = 0.0 if span <= 0.0 else (0.5 - lo) / span
-            return live[i][0] + t * (live[i + 1][0] - live[i][0])
-    return live[-1][0]
+    for value, weight in live:
+        start_q, end_q = cum / total, (cum + weight) / total
+        overlap = min(end_q, hi) - max(start_q, lo)
+        if overlap > 0.0:
+            acc += value * overlap
+        cum += weight
+    return acc / (hi - lo)
 
 
 def weighted_count_aware_mean_median_blend(
@@ -9182,8 +9184,11 @@ def weighted_count_aware_mean_median_blend(
       n == 1   → passthrough
       n == 2   → weighted mean; MAD = weighted abs deviation
       n == 3-4 → (weighted mean + weighted median) / 2, untrimmed
-      n ≥ 5    → drop one average observation's weight (Σw / n) from each
-                 end, then (weighted mean + weighted median) / 2 over the rest
+      n ≥ 5    → trimmed weighted mean (one average observation's weight,
+                 Σw / n, dropped from each end) + weighted median, / 2.
+                 The median is read from the full distribution: a symmetric
+                 trim leaves the 0.5-quantile unchanged, exactly as in the
+                 unweighted rule (#164), where trimming acts on the mean only.
 
     Trimming targets extreme VALUES by weight MASS
     (:func:`_trim_one_observation_mass`, 2026-09-24).  With equal weights
@@ -9217,7 +9222,11 @@ def weighted_count_aware_mean_median_blend(
         center = w_mean
         mad_val = sum(abs(v - center) * w for v, w in used) / total_w
         return center, mad_val
-    w_median = _weighted_median_sorted(used, total_w)
+    # The median reads the FULL distribution: the mass trim removes equal
+    # weight from both ends, so the 0.5-quantile is unchanged by it, and
+    # sizing the median's window on the trimmed set would make it jump when
+    # a partially trimmed sliver is used up (a monotonicity break).
+    w_median = _weighted_median_sorted(pairs, sum(w for _, w in pairs))
     center = (w_mean + w_median) / 2.0
     mad_val = sum(abs(v - w_mean) * w for v, w in used) / total_w
     return center, mad_val
