@@ -156,3 +156,20 @@ def test_lopsided_trade_has_significant_impact():
     base = sym.simulate_symmetric(side_a, side_b, n_sims=2000, seed=1)
     enriched = sym.enrich_with_decision_shape(base, side_a, side_b)
     assert enriched["tierImpact"] == "significant"
+
+
+def test_symmetrized_result_keeps_the_band_disclosure():
+    """The live endpoint returns THIS dict, not ``SimResult.to_dict``.
+
+    Rebuilding the disclaimer here used to drop ``bandSources`` and the
+    "N of M assets used a synthesized ±15% band" sentence on every live
+    run, so the disclosure that makes a constant band honest never
+    reached the user.
+    """
+    side_a = [mc.build_trade_player({"name": "A", "rankDerivedValue": 5000})]
+    side_b = [mc.build_trade_player({"name": "B", "rankDerivedValue": 4000})]
+    out = sym.simulate_symmetric(side_a, side_b, n_sims=1000, seed=3)
+    assert out["bandSources"] == {mc.BAND_SOURCE_SYNTHETIC: 2}
+    assert "synthesized" in out["disclaimer"]
+    assert "not a measurement" in out["disclaimer"]
+    assert "Direction-symmetrized" in out["disclaimer"]

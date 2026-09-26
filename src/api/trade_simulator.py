@@ -156,6 +156,12 @@ def _resolve_asset(
         "tier": _tier_bucket(value),
         "age": int(age) if isinstance(age, (int, float)) and age else None,
         "assetClass": row.get("assetClass") or ("pick" if pos == "PICK" else "player"),
+        # Canonical stamps, READ never computed: identity for the UI's player
+        # link, and the confidence owner's evidence-quality verdict for the
+        # Analyze Trade evidence lens (``src/api/confidence.py``).
+        "playerId": str(row.get("playerId")) if row.get("playerId") else None,
+        "confidenceBucket": row.get("confidenceBucket"),
+        "hasSourceDisagreement": row.get("hasSourceDisagreement"),
     }
 
 
@@ -213,6 +219,7 @@ def simulate_trade(
     picks_out: list[str] | None = None,
     roster_settings: dict[str, Any] | None = None,
     league_key: str | None = None,
+    include_roster_utility: bool = False,
 ) -> dict[str, Any]:
     """Build the simulator payload for a single hypothetical trade.
 
@@ -476,5 +483,44 @@ def simulate_trade(
                         "unavailable": f"{type(exc).__name__}",
                         "notes": ["the final legal roster could not be simulated for this trade"],
                     }
+
+    # #1173 roster-conditional best-ball utility, on the SAME final legal
+    # roster as ``finalRosterSimulation`` (``roster_capacity.final_legal_roster``)
+    # but priced by league-scored projections, never by canonical value.
+    # Opt-in: it is a Monte-Carlo pass, and only Analyze Trade asks for it.
+    if include_roster_utility:
+        if not resolved_team:
+            response["rosterUtility"] = {
+                "available": False,
+                "unavailableReason": "no_team_selected",
+            }
+        elif capacity is None or capacity_context is None:
+            response["rosterUtility"] = {
+                "available": False,
+                "unavailableReason": "roster_capacity_unavailable",
+            }
+        else:
+            try:
+                from src.bdvm.actuals import current_nfl_season  # noqa: PLC0415
+                from src.trade.roster_capacity import (  # noqa: PLC0415
+                    evaluate_final_roster_utility,
+                )
+
+                sleeper = contract.get("sleeper") if isinstance(contract, dict) else None
+                response["rosterUtility"] = evaluate_final_roster_utility(
+                    capacity_context,
+                    capacity,
+                    incoming_players=players_in,
+                    outgoing_players=players_out,
+                    season=current_nfl_season(),
+                    scoring_settings=(sleeper or {}).get("scoringSettings") or {},
+                )
+            except Exception as exc:  # noqa: BLE001
+                # Degrade, never fail: the package answer stands without it,
+                # and "could not compute" must not read as "no impact".
+                response["rosterUtility"] = {
+                    "available": False,
+                    "unavailableReason": f"error:{type(exc).__name__}",
+                }
 
     return response

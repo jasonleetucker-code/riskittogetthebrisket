@@ -230,7 +230,7 @@ class TestSimulateTradeImpact:
             "_build_team_distributions",
             lambda *a, **k: (base, {o: 0.0 for o in owners}),
         )
-        monkeypatch.setattr(playoff_sim, "_league_best_ball", lambda: False)
+        monkeypatch.setattr(playoff_sim, "_league_best_ball", lambda *a, **k: False)
         monkeypatch.setattr(playoff_sim, "_current_record", lambda s: {})
         # Round-robin-ish schedule so wins actually differentiate.
         names = sorted(owners)

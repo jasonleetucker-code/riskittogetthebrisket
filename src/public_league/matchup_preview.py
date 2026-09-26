@@ -14,11 +14,16 @@ For each matchup on the upcoming (or most recent) week, surface:
 Current-week detection:
     1. Walk the current season's weeks in order.
     2. The current week is the first week whose matchup rows exist
-       but have at least one unscored entry.
-    3. If no such week exists (every scheduled matchup already has a
-       score), fall back to the most recently scored week.  The UI can
-       then render the section as "This week's results" instead of a
-       preview — both modes use the same H2H context.
+       but whose scoring is not FINISHED (``metrics.final_weeks``).
+    3. If no such week exists (every scheduled week is final), fall back
+       to the most recent final scored week.  The UI can then render the
+       section as "This week's results" instead of a preview — both modes
+       use the same H2H context.
+
+H2H history and recent form read ``metrics.walk_matchup_pairs``, which yields
+FINISHED weeks only, so a game still being played is never a "meeting" and
+never "most recent" (measured 2026-09-26: the Home preview read "most recent:
+Collin by 32.4 in 2026 wk 3" for a game not yet played).
 
 Output shape
 ────────────
@@ -41,27 +46,29 @@ from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
 
 def _detect_current_week(season: SeasonSnapshot) -> tuple[int, str]:
-    """Return (week, mode).  ``mode`` is ``"preview"`` if there are
-    unscored matchups in the week, else ``"recap"``.
+    """Return (week, mode).  ``mode`` is ``"preview"`` while the week's
+    scoring is not finished, else ``"recap"``.
+
+    "Finished" is ``metrics.final_weeks`` -- the canonical owner -- not a
+    per-entry ``points > 0`` test.  The old test called a week "recap" (and
+    published its scores as results) as soon as every roster had posted
+    ANY points, which on a Sunday evening is a live week.
     """
+    final = set(metrics.final_weeks(season))
     for wk in season.all_weeks:
         entries = season.matchups_by_week.get(wk) or []
         if not entries:
             continue
-        has_scored = any(metrics.is_scored(e) for e in entries)
-        has_unscored = any(not metrics.is_scored(e) for e in entries)
-        # A "current" week is one where Sleeper has matchup rows but
-        # not every team has posted a final score.  If every row is
-        # unscored, it's a future week; we still preview it.
-        if not has_scored:
+        # A "current" week is one where Sleeper has matchup rows but the
+        # week has not finished scoring.  A future (all-stub) week is not
+        # final either; we still preview it.
+        if wk not in final:
             return wk, "preview"
-        if has_unscored:
-            return wk, "preview"
-    # All weeks fully scored → recap the most recent one.
+    # Every week is final → recap the most recent scored one.
     last = 0
     for wk in season.all_weeks:
         entries = season.matchups_by_week.get(wk) or []
-        if any(metrics.is_scored(e) for e in entries):
+        if wk in final and any(metrics.is_scored(e) for e in entries):
             last = wk
     return last, "recap"
 

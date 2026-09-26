@@ -106,6 +106,12 @@ DEFAULT_SEED: int = 20260910
 #: per-player P(in final lineup) and per-NFL-game matchup leverage are
 #: emitted from the same draws.  Bumped so no v3 cache is served.
 MODEL_VERSION: str = "game-day-sim-v4"
+#: Version of the SUMMARIES a simulation publishes (not of its model): v2 adds
+#: the league-median distribution and each team's paired median margin
+#: (Live Median Race).  Every pre-existing number is byte-identical, so
+#: ``MODEL_VERSION`` does not move; this term is in the cache fingerprint so a
+#: cache written before the summaries existed is a miss, not a silent gap.
+SUMMARY_SCHEMA: int = 2
 
 
 class GameDaySimError(ValueError):
@@ -214,6 +220,14 @@ class TeamWeekOutcome:
     #: Per-NFL-game matchup leverage, strongest first — see
     #: :data:`LEVERAGE_DEFINITION`.  Empty when the team has no opponent.
     game_leverage: list[dict[str, Any]] = field(default_factory=list)
+    #: Same-draw margin to the league median, D(t, d) = S(t, d) - M(d), over
+    #: the SAME draws as ``beat_median_pct`` — never mean(S) - mean(M).  Only
+    #: when the median leg is live (``beat_median_state == "OK"``).
+    median_margin_mean: float | None = None
+    median_margin_p50: float | None = None
+    #: % of draws in which the team lands EXACTLY on that draw's median (a
+    #: tie under the host's rule, never a median win).
+    median_tie_pct: float | None = None
 
 
 #: Leverage definition, published with every payload so a reader never has
@@ -246,6 +260,11 @@ class LeagueWeekSimulation:
     best_ball: bool
     seed: int
     notes: list[str] = field(default_factory=list)
+    #: The league median's own distribution across draws, from the M(d) each
+    #: draw computed from its OWN league-wide scores — never from team means.
+    #: ``{"mean", "p10", "p50", "p90", "draws"}`` when the median leg is live,
+    #: else ``None``.
+    median_distribution: dict[str, Any] | None = None
     #: Set only by :func:`get_cached_league_week_simulation` — this
     #: function's own output always leaves these at the default,
     #: because ``simulate_league_week`` is the pure, uncached
@@ -560,6 +579,10 @@ def simulate_league_week(
     h2h_win = {t.team_id: 0 for t in teams}
     h2h_tie = {t.team_id: 0 for t in teams}
     med_win = {t.team_id: 0 for t in teams}
+    med_tie = {t.team_id: 0 for t in teams}
+    # M(d) per draw and D(t, d) = S(t, d) - M(d): recorded, never re-derived.
+    median_draws: list[float] = []
+    margin_series: dict[str, list[float]] = {t.team_id: [] for t in teams}
     joint = {t.team_id: {"2_0": 0, "1_1_h2h": 0, "1_1_med": 0, "0_2": 0} for t in teams}
 
     median_live = rules.median_enabled is True
@@ -615,6 +638,8 @@ def simulate_league_week(
         # THE SAME DRAW decides both legs. The threshold is computed from
         # this iteration's league-wide scores, so it moves with them.
         thr = _threshold(list(scores.values()), threshold_semantics) if median_live else None
+        if thr is not None:
+            median_draws.append(thr)
 
         for team in teams:
             tid = team.team_id
@@ -631,6 +656,7 @@ def simulate_league_week(
                     won_h2h = False
             if thr is None:
                 continue
+            margin_series[tid].append(scores[tid] - thr)
             if scores[tid] > thr:
                 median_result: bool | None = True
                 med_win[tid] += 1
@@ -639,6 +665,7 @@ def simulate_league_week(
                 # four joint buckets model only win/loss combinations,
                 # so a tied leg must not be silently folded into a loss.
                 median_result = None
+                med_tie[tid] += 1
             else:
                 median_result = False
             if won_h2h is None or median_result is None:
@@ -684,6 +711,7 @@ def simulate_league_week(
             )
 
         joint_live = med_state == "OK" and opp is not None
+        margins = sorted(margin_series[tid]) if med_state == "OK" else []
         lineup_pct = {pid: _pct(n, draws) for pid, n in sorted(lineup_counts[tid].items())}
         leverage = (
             _game_leverage(
@@ -717,6 +745,9 @@ def simulate_league_week(
                 notes=notes,
                 player_lineup_pct=lineup_pct,
                 game_leverage=leverage,
+                median_margin_mean=round(statistics.fmean(margins), 2) if margins else None,
+                median_margin_p50=round(statistics.median(margins), 2) if margins else None,
+                median_tie_pct=_pct(med_tie[tid], draws) if med_state == "OK" else None,
             )
         )
 
@@ -731,6 +762,18 @@ def simulate_league_week(
             "points model is the documented FALLBACK, not this league's measured "
             "calibration — treat the spread as weaker evidence"
         )
+
+    median_distribution: dict[str, Any] | None = None
+    if median_draws:
+        ordered = sorted(median_draws)
+        # The same order-statistic convention as each team's projected range.
+        median_distribution = {
+            "mean": round(statistics.fmean(ordered), 2),
+            "p10": round(ordered[int(0.10 * (len(ordered) - 1))], 2),
+            "p50": round(statistics.median(ordered), 2),
+            "p90": round(ordered[int(0.90 * (len(ordered) - 1))], 2),
+            "draws": len(ordered),
+        }
 
     return LeagueWeekSimulation(
         league_key=rules.league_key,
@@ -755,6 +798,7 @@ def simulate_league_week(
         best_ball=rules.best_ball,
         seed=seed,
         notes=sim_notes,
+        median_distribution=median_distribution,
     )
 
 
@@ -842,6 +886,7 @@ def _sim_input_fingerprint(
         # a deploy can serve a pre-change result from disk even though the
         # Python implementation and provenance changed.
         "modelVersion": MODEL_VERSION,
+        "summarySchema": SUMMARY_SCHEMA,
         "rules": [
             rules.league_key,
             list(rules.starter_slots),
@@ -939,6 +984,7 @@ def _read_sim_cache(path: Path, fingerprint: str) -> LeagueWeekSimulation | None
             best_ball=body["best_ball"],
             seed=body["seed"],
             notes=list(body.get("notes") or []),
+            median_distribution=body.get("median_distribution"),
         )
     except (KeyError, TypeError):
         # A cache written by a shape this reader no longer understands

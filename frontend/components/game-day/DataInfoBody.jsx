@@ -19,7 +19,7 @@
  *                 (+ basis), ageSeconds} — a failed source is shown failed
  */
 
-import { DataTable } from "@/components/ds";
+import { DataTable, PlayerNameButton } from "@/components/ds";
 import {
   formatAge,
   formatDateTime,
@@ -126,7 +126,7 @@ function StatCorrections({ corrections, payload }) {
             const now = formatPoints(e.hostPointsNow);
             return (
               <li key={`${e.playerId}-${e.gameId}`}>
-                {name}: {delta !== null ? `${e.scoredDeltaUnderLeagueCard > 0 ? "+" : ""}${delta} pts` : "change"}{" "}
+                <PlayerNameButton name={name} playerId={e.playerId} />: {delta !== null ? `${e.scoredDeltaUnderLeagueCard > 0 ? "+" : ""}${delta} pts` : "change"}{" "}
                 under this league&apos;s scoring, not yet in the host&apos;s score
                 {now !== null ? ` (host shows ${now})` : ""}
                 {e.detectedAt ? `, seen ${formatDateTime(e.detectedAt)}` : ""}

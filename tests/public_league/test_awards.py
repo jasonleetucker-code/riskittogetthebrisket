@@ -897,6 +897,8 @@ class AwaitingEvidenceTests(unittest.TestCase):
     def test_race_reports_awaiting_with_no_leaders(self) -> None:
         race = awards._build_race(
             self.snapshot,
+            self.season,
+            "manager",
             "trader_of_the_year",
             "Trader of the Year",
             self._rows(0.0, 0.0),
@@ -913,6 +915,8 @@ class AwaitingEvidenceTests(unittest.TestCase):
     def test_race_with_evidence_is_unchanged(self) -> None:
         race = awards._build_race(
             self.snapshot,
+            self.season,
+            "manager",
             "trader_of_the_year",
             "Trader of the Year",
             self._rows(8.0, 0.0),

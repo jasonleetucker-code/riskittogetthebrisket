@@ -2,7 +2,8 @@
 
 Computes per-season:
     * Champion (winners_bracket p=1 winner, fallback placement 1,
-      final fallback league.metadata.latest_league_winner_roster_id)
+      final fallback league.metadata.latest_league_winner_roster_id, only
+      for a season the host marks complete — see metrics.season_champion)
     * Runner-up (placement 2, fallback = loser of p=1 matchup)
     * Top seed (best regular-season win%, tiebreak PF desc, PA asc,
       sleeperRank asc)

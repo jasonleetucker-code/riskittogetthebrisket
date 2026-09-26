@@ -113,6 +113,12 @@ export function encodeTrade(trade) {
   if (trade.note) {
     payload.c = String(trade.note).slice(0, 200);
   }
+  // #842 Use Team Context: ADDITIVE, and only when OFF — a link made with the
+  // default mode encodes exactly as it always did, and an older decoder that
+  // predates ``m`` simply opens it in the default (Team context) mode.
+  if (trade.teamContext === false) {
+    payload.m = "asset";
+  }
   payload.t = new Date().toISOString();
   return toBase64Url(JSON.stringify(payload));
 }
@@ -151,6 +157,8 @@ export function decodeTrade(encoded) {
       };
     }),
     note: String(parsed.c || "") || null,
+    // Absent (every link before #842, and every Team-context link) is ON.
+    teamContext: parsed.m !== "asset",
     createdAt: parsed.t ? String(parsed.t) : null,
   };
 }

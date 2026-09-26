@@ -115,9 +115,19 @@ def _weekly_scoring_by_owner(
 def _awards_won_by_owner(awards_section: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     """Map owner_id -> [{key, label, seasons:[...]}] across every season,
     so each franchise page can list every award that manager has won and
-    the years they won it."""
+    the years they won it.
+
+    Only FINALIZED seasons count.  An in-progress season's ``awards`` row
+    names the current LEADER of each race (measured 2026-09-26: "Top DB
+    2026" after two weeks), and a shelf of awards "won" must not include a
+    race still being run.  Finalized is the host's strict ``complete``
+    status -- not ``isComplete``, which also accepts ``post_season`` while
+    the playoffs are still being played.
+    """
     by_owner: dict[str, dict[str, dict[str, Any]]] = {}
     for season_row in awards_section.get("bySeason", []):
+        if str(season_row.get("seasonStatus") or "").lower() != "complete":
+            continue
         season = season_row.get("season")
         for a in season_row.get("awards", []):
             owner_id = a.get("ownerId")

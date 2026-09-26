@@ -241,6 +241,46 @@ def compute_team_strength(
     return out
 
 
+def nfl_player_dump_is_usable(nfl_players: Any) -> bool:
+    """Whether a Sleeper ``players/nfl`` dump can hydrate roster names.
+
+    ``fetch_nfl_players`` answers ``{}`` on ANY failure (refresh run
+    36220954196: ``ConnectionResetError``), and ``hydrate_roster_players``
+    then falls back to the raw Sleeper id for every name.  No id joins the
+    ROS aggregate, so every rostered player scores zero and every team's
+    strength is 0 — a FAILURE published as a measurement.  An empty or
+    non-dict dump is therefore unusable, never "a league with no players".
+    """
+    return isinstance(nfl_players, dict) and bool(nfl_players)
+
+
+def team_strength_has_evidence(rows: Iterable[dict[str, Any]] | None) -> bool:
+    """Whether computed team-strength rows carry any real ROS evidence.
+
+    True when at least one team has a positive ``startingLineupScore`` —
+    i.e. at least one rostered player was priced by the ROS aggregate and
+    started.  Deliberately NOT ``teamRosStrength > 0``: the composite also
+    carries positional-coverage and health terms that are positive for a
+    roster nobody priced (measured: a two-WR roster with zero ROS matches
+    composites to 6.67), so it cannot tell "no ROS evidence" apart from "a
+    weak team".  The empty-dump failure produced 0 on every term; a partial
+    failure (names hydrate, nothing joins) would not, and must be caught
+    too.
+
+    An evidence-less set must never replace a last-good snapshot or be
+    served as current: it stamps every team at the same (or a non-ROS)
+    strength and flattens every odds surface downstream.  Missing /
+    non-numeric values are not evidence.
+    """
+    for row in rows or ():
+        if not isinstance(row, dict):
+            continue
+        value = row.get("startingLineupScore")
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0:
+            return True
+    return False
+
+
 def hydrate_roster_players(
     player_ids: Iterable[Any],
     nfl_players: dict[str, Any],
@@ -374,7 +414,14 @@ def compute_team_strength_from_snapshot(
             LOG.warning("[ros] team-strength live fallback: no ROS aggregate available")
             return []
 
-        nfl_players = snapshot.nfl_players or {}
+        nfl_players = snapshot.nfl_players
+        if not nfl_player_dump_is_usable(nfl_players):
+            # A snapshot built with ``include_nfl_players=False`` (the ROS
+            # scrape's own power pass) or whose dump fetch failed carries no
+            # names; hydrating from it scores every player zero.  Fall
+            # through to the overlay tier, which fetches the dump itself.
+            LOG.warning("[ros] team-strength live fallback: snapshot has no NFL player dump")
+            return []
         teams: list[dict[str, Any]] = []
         for roster in current.rosters:
             owner_id = str(roster.get("owner_id") or "").strip()
@@ -441,7 +488,14 @@ def compute_team_strength_live(
         if nfl_players is None:
             from src.public_league.sleeper_client import fetch_nfl_players  # noqa: PLC0415
 
-            nfl_players = fetch_nfl_players() or {}
+            nfl_players = fetch_nfl_players()
+        if not nfl_player_dump_is_usable(nfl_players):
+            LOG.warning(
+                "[ros] team-strength live overlay fallback for %s: NFL player dump "
+                "unavailable; refusing to score raw ids as zero",
+                league_key,
+            )
+            return []
 
         teams = hydrate_overlay_players(overlay["teams"], nfl_players)
         if not teams:
@@ -551,12 +605,19 @@ def load_or_compute_team_strength(
     every tier is genuinely unable to answer.
     """
     persisted = load_team_strength_snapshot(league_key)
-    if persisted and _persisted_snapshot_is_fresh(league_key):
+    # An all-zero persisted file is a recorded FAILURE (see
+    # ``team_strength_has_evidence``), not a fast-path answer: it is what
+    # the 2026-09-26 refresh wrote after losing the NFL player dump.
+    if (
+        persisted
+        and _persisted_snapshot_is_fresh(league_key)
+        and team_strength_has_evidence(persisted)
+    ):
         return persisted
 
     if snapshot is not None:
         rows = compute_team_strength_from_snapshot(snapshot, league_key=league_key)
-        if rows:
+        if team_strength_has_evidence(rows):
             _persist_best_effort(rows, league_key=league_key, persist=persist)
             return rows
         # Falls through to the overlay tier below rather than returning
@@ -570,6 +631,10 @@ def load_or_compute_team_strength(
         return cached[1]
 
     rows = compute_team_strength_live(league_key)
+    if not team_strength_has_evidence(rows):
+        # Evidence-less rows are a failure; answer "unavailable" rather than
+        # handing every consumer twelve zeros to rank, z-score or simulate.
+        rows = []
     _live_compute_cache[league_key] = (now, rows)
 
     if rows:
@@ -585,6 +650,10 @@ def _persist_best_effort(
     persist: bool,
 ) -> None:
     if not persist:
+        return
+    if not team_strength_has_evidence(rows):
+        # Never overwrite a last-good snapshot with an evidence-less one.
+        LOG.warning("[ros] team-strength: refusing to persist rows with no ROS evidence")
         return
     try:
         write_team_strength_snapshot(rows, league_key=league_key)
