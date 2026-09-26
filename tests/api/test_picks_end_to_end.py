@@ -344,9 +344,16 @@ class TestIdpTradeCalcPicksSurviveEnrichment(unittest.TestCase):
             self.skipTest("No picks in idpTradeCalc.csv")
         contract_pick_names = {p["canonicalName"] for p in _pick_rows(self.contract)}
         # A class already drafted is not an asset any more — the board
-        # starts at the contract's own current draft year.
+        # starts at the contract's own current draft year, and a class the
+        # lifecycle owner RETIRED (#1414/#1442: draft complete, rookies
+        # rostered) leaves the board even while it is still the current
+        # draft year.  Read the owner's own stamp; never guess retirement.
         current = int(self.contract.get("currentDraftYear") or 0)
-        required = [n for n in self.csv_picks if int(n[:4]) >= current]
+        lifecycle = self.contract.get("pickClassLifecycle") or {}
+        retired = {int(y) for y in lifecycle.get("retiredYears") or ()}
+        required = [
+            n for n in self.csv_picks if int(n[:4]) >= current and int(n[:4]) not in retired
+        ]
         missing = [n for n in required if n not in contract_pick_names]
         self.assertEqual(
             missing,
