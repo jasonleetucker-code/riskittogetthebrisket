@@ -17,6 +17,20 @@ This file is the durable repository record for owner-requested live defects, UX 
 
 ## Permanent parallel Premium UI / locked PSI — owner directive 2026-09-24
 
+**New performance authorization (2026-09-26, #1338).** Finish Calculator's current
+performance architecture under `GLOBAL_PERFORMANCE_STANDARD.md`, through protected
+implementation, review, merge, deploy and production verification. Current main is
+the baseline; #1346 is closed and remains a donor only. Fresh route/POST census and
+measurements precede implementation choices. Preserve canonical answers, complete
+cache identities, league/scoring and public/private boundaries, freshness/LKG, PSI
+UI and the global useful-state budgets. Repair measured server/browser/resource
+owners, add durable regression guards, and accept every important current route on
+production-shaped desktop/mobile evidence. Do not close #1338 for documentation or
+local green. Authorization is recorded in `EXECUTION_PLAN.md` §0; current evidence
+and the release sequence live in `performance/CURRENT_ARCHITECTURE.md`. This
+supersedes the historical donor record's future-authorization blocker, without
+promoting any historical benchmark or restarting the abandoned serving branch.
+
 Binding owner instruction #1421 is incorporated in `docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md`; queue/evidence:
 `docs/ui/UI_PARALLEL_LEDGER.md`. This is the live intake pointer, not a second ledger. Existing Lane 6 /
 C8-U1/U2/U3 stays active in parallel until genuine UI/product completion. Every substantial
@@ -381,7 +395,7 @@ The following existing `T-NEW-*` requirements in `docs/OWNER_REQUESTED_TODO_SPEC
 | Future competitive expansion | #985 | DynastyStats-derived expansion | Preserve League Hub/Pulse, Asset Map, Transaction Intelligence and Manager Scout enrichment as POST-V1 / fold-when-natural competitive scope. | LONG-TERM |
 | Planned trade intelligence | #1173 | Best-ball roster-conditional utility | Add roster-conditional dynasty best-ball utility to Analyze Trade using exact legal lineup assignment, without changing standalone canonical player values. | PLANNED / dependency-gated on #792 |
 | P1 cross-site UX | #1337 | Universal Player Profile / Player File linking | Every actionable player name site-wide should resolve through one identity-safe shared player-link primitive to the canonical Player File / public-safe counterpart where intentionally applicable. Existing partial links are not completion. | TODO |
-| Cross-cutting performance research | #1338 | Data-heavy performance architecture | Trace real request paths and reconcile measured bottlenecks against the existing global performance standard: precompute/materialize/index expensive work, serve prepared outputs quickly, refresh asynchronously, preserve last-known-good where safe, and justify infrastructure changes with evidence rather than convention. Future scope (2026-09-26, from the #1346 disposition, not implemented): `/api/gameplan` bundle single-flight; donor at `archive/pr-1346`. | PLANNED / RESEARCH FOLLOW-THROUGH |
+| Cross-cutting performance architecture | #1338 | Data-heavy performance architecture | Re-authorized 2026-09-26 in `EXECUTION_PLAN.md` §0: current-main implementation through protected production verification. Current census and reviewed Gameplan single-flight correction are recorded in `performance/CURRENT_ARCHITECTURE.md`; archived #1346 remains donor-only. Measured route, browser and Linux acceptance are still required. | IN PROGRESS / NOT ACCEPTED |
 | P1 Game Day / global context | #1334 | Global selected team + Game Day matchup + NFL-game impact | One canonical selected fantasy team must drive every team-dependent surface. Game Day must show that team's actual matchup. Keep the NFL slate in real kickoff order while computing selected-side, opponent-side and combined projected fantasy-point impact so higher-impact games are visibly emphasized. | PLANNED |
 | P1 Game Day UX | #1335 | Game Day information architecture | Redesign Game Day as a clean live-sports/fantasy command center: compact matchup hero, score/projection/win probability, 3–5 key swing factors, NFL slate as the primary body, progressive disclosure for lineups/best-ball diagnostics/provenance, plain-language states, mobile-first scannability. | PLANNED |
 | P1 public awards UX | Owner directive 2026-09-11 / T-NEW-09 | Awards Hub mobile hierarchy + weekly share snapshot | Make live player races the primary story in a deliberate MVP → OPOY/DPOY → OROY/DROY → positional order; move manager/team awards below; keep playoff/championship honors later-season and visually subordinate until relevant; prevent player/team imagery collisions; and provide a polished top-three-per-race snapshot that can be saved or screenshotted weekly on mobile. Preserve the canonical awards data/methodology and public-safe boundary. | FEATURE_GREEN — `codex/awards-mobile-redesign`; integration/deploy and real-iPhone verification pending |
