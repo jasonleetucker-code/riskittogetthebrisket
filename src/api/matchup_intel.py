@@ -849,7 +849,7 @@ def median_race_block(
         rows.sort(
             key=lambda r: (
                 r["scoreNow"] is None,
-                -(r["scoreNow"] or 0.0),
+                -r["scoreNow"] if r["scoreNow"] is not None else 0.0,
                 _roster_order(r["rosterId"]),
             )
         )
@@ -861,9 +861,9 @@ def median_race_block(
             mean = _num(r["projectedMean"])
             return (
                 pct is None,
-                -(pct or 0.0) if pct is not None else 0.0,
-                -(margin or 0.0) if margin is not None else 0.0,
-                -(mean or 0.0) if mean is not None else 0.0,
+                -pct if pct is not None else 0.0,
+                -margin if margin is not None else 0.0,
+                -mean if mean is not None else 0.0,
                 _roster_order(r["rosterId"]),
             )
 
