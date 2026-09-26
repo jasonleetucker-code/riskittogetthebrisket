@@ -11,6 +11,7 @@ from __future__ import annotations
 import copy
 import unittest
 import contextlib
+from unittest import mock
 
 from src.public_league import awards
 from src.public_league.awards import (
@@ -45,7 +46,7 @@ from src.public_league.awards import (
 )
 from src.public_league.public_contract import assert_public_payload_safe, build_public_contract
 
-from tests.public_league.fixtures import build_test_snapshot
+from tests.public_league.fixtures import add_rostered_bench, build_test_snapshot
 
 
 # Transaction awards are season-scoped (no date cutoff), like every
@@ -172,6 +173,11 @@ def _with_player_points(snapshot):
             total = entry.get("points") or 0.0
             pp = {"p-te1": round(float(total) / 2, 2), "p-wr1": round(float(total) / 2, 2)}
             _stamp(entry, pp, starters=["p-te1", "p-wr1"])
+    # Sleeper scores every ROSTERED player, bench included.  A starters-only
+    # map is a league with no bench, where VORP has no replacement band and
+    # correctly abstains; give both seasons a real league's bench depth.
+    for season in snap.seasons:
+        add_rostered_bench(snap, season)
     return snap
 
 
@@ -614,6 +620,58 @@ class VorpFloorAndSlotsTests(unittest.TestCase):
         slots = _vorp_starter_slots({"RB": rb, "WR": wr}, self.snapshot.seasons[0])
         self.assertEqual(slots["RB"], 10)
         self.assertEqual(slots["WR"], 5)
+
+
+class ThinSamplePositionExclusionTests(unittest.TestCase):
+    """``_vorp_rows`` (League/Off/Def MVP + ROY) must EXCLUDE a position
+    whose replacement baseline is undefined rather than default it.
+
+    Driven through a controlled monkeypatch so the exclusion itself is
+    what is under test; the real-data shape (a no-IDP league's lone
+    two-way DB) is pinned end to end in
+    ``test_vorp_thin_position_exclusion.py``.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.snapshot = _with_player_points(build_test_snapshot())
+
+    def test_vorp_rows_excludes_a_position_with_no_baseline(self) -> None:
+        original = awards._replacement_per_game_for_position
+
+        def _only_lb_is_undefined(rows, slots, **kwargs):
+            if rows and rows[0].get("position") == "LB":
+                return None
+            return original(rows, slots, **kwargs)
+
+        with mock.patch.object(
+            awards, "_replacement_per_game_for_position", side_effect=_only_lb_is_undefined
+        ):
+            rows, exclusions = awards._vorp_board(
+                self.snapshot, self.snapshot.seasons[0], regular_season_only=True
+            )
+
+        self.assertTrue(rows, "other positions should still produce VORP rows")
+        self.assertFalse(
+            any(r["position"] == "LB" for r in rows),
+            "a position with an undefined replacement baseline must be excluded, not defaulted",
+        )
+        self.assertIn("LB", {e["position"] for e in exclusions})
+
+    def test_vorp_board_requests_the_strict_gate(self) -> None:
+        original = awards._replacement_per_game_for_position
+        calls: list[dict] = []
+
+        def _spy(rows, slots, **kwargs):
+            calls.append(kwargs)
+            return original(rows, slots, **kwargs)
+
+        with mock.patch.object(awards, "_replacement_per_game_for_position", side_effect=_spy):
+            _vorp_rows(self.snapshot, self.snapshot.seasons[0], regular_season_only=True)
+
+        self.assertTrue(calls)
+        for kwargs in calls:
+            self.assertIs(kwargs.get("require_full_band"), True)
 
 
 class TopNflTeamTests(unittest.TestCase):

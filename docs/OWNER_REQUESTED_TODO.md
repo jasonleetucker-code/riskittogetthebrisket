@@ -381,7 +381,7 @@ The following existing `T-NEW-*` requirements in `docs/OWNER_REQUESTED_TODO_SPEC
 | Future competitive expansion | #985 | DynastyStats-derived expansion | Preserve League Hub/Pulse, Asset Map, Transaction Intelligence and Manager Scout enrichment as POST-V1 / fold-when-natural competitive scope. | LONG-TERM |
 | Planned trade intelligence | #1173 | Best-ball roster-conditional utility | Add roster-conditional dynasty best-ball utility to Analyze Trade using exact legal lineup assignment, without changing standalone canonical player values. | PLANNED / dependency-gated on #792 |
 | P1 cross-site UX | #1337 | Universal Player Profile / Player File linking | Every actionable player name site-wide should resolve through one identity-safe shared player-link primitive to the canonical Player File / public-safe counterpart where intentionally applicable. Existing partial links are not completion. | TODO |
-| Cross-cutting performance research | #1338 | Data-heavy performance architecture | Trace real request paths and reconcile measured bottlenecks against the existing global performance standard: precompute/materialize/index expensive work, serve prepared outputs quickly, refresh asynchronously, preserve last-known-good where safe, and justify infrastructure changes with evidence rather than convention. | PLANNED / RESEARCH FOLLOW-THROUGH |
+| Cross-cutting performance research | #1338 | Data-heavy performance architecture | Trace real request paths and reconcile measured bottlenecks against the existing global performance standard: precompute/materialize/index expensive work, serve prepared outputs quickly, refresh asynchronously, preserve last-known-good where safe, and justify infrastructure changes with evidence rather than convention. Future scope (2026-09-26, from the #1346 disposition, not implemented): `/api/gameplan` bundle single-flight; donor at `archive/pr-1346`. | PLANNED / RESEARCH FOLLOW-THROUGH |
 | P1 Game Day / global context | #1334 | Global selected team + Game Day matchup + NFL-game impact | One canonical selected fantasy team must drive every team-dependent surface. Game Day must show that team's actual matchup. Keep the NFL slate in real kickoff order while computing selected-side, opponent-side and combined projected fantasy-point impact so higher-impact games are visibly emphasized. | PLANNED |
 | P1 Game Day UX | #1335 | Game Day information architecture | Redesign Game Day as a clean live-sports/fantasy command center: compact matchup hero, score/projection/win probability, 3–5 key swing factors, NFL slate as the primary body, progressive disclosure for lineups/best-ball diagnostics/provenance, plain-language states, mobile-first scannability. | PLANNED |
 | P1 public awards UX | Owner directive 2026-09-11 / T-NEW-09 | Awards Hub mobile hierarchy + weekly share snapshot | Make live player races the primary story in a deliberate MVP → OPOY/DPOY → OROY/DROY → positional order; move manager/team awards below; keep playoff/championship honors later-season and visually subordinate until relevant; prevent player/team imagery collisions; and provide a polished top-three-per-race snapshot that can be saved or screenshotted weekly on mobile. Preserve the canonical awards data/methodology and public-safe boundary. | FEATURE_GREEN — `codex/awards-mobile-redesign`; integration/deploy and real-iPhone verification pending |
@@ -444,7 +444,7 @@ full list; none of these are answered by invention here.
 
 ### KTC scrape memory-pressure repair — owner directive 2026-09-17
 
-Continue the open KTC outage repair under issue #1391 and the matching work claim. Use the #1388/#1389 telemetry plus inspection of the actual capture code; preserve all three native source modes and coverage/provenance guards. No MemoryMax/MemoryHigh/systemd changes. Run the full non-livedata suite, pinned formatting contract and sabotage verification before publishing the repair branch; then exact-head PR CI/review, normal merge/deploy and real-cycle production verification. The prior event-loop offload fixed a separate defect but did not eliminate this outage; the launch-flag attempt did not eliminate it either. Do not claim production resolution from unit tests or CI alone.
+**DONE 2026-09-19** — #1394 merged; #1391 closed POST_DEPLOY_FIX_CONFIRMED; capture-window responsiveness accepted by owner decision, not directly measured (probe PR #1395 closed 2026-09-26 as contrary to that decision). Original directive: continue the open KTC outage repair under issue #1391 and the matching work claim. Use the #1388/#1389 telemetry plus inspection of the actual capture code; preserve all three native source modes and coverage/provenance guards. No MemoryMax/MemoryHigh/systemd changes. Run the full non-livedata suite, pinned formatting contract and sabotage verification before publishing the repair branch; then exact-head PR CI/review, normal merge/deploy and real-cycle production verification. The prior event-loop offload fixed a separate defect but did not eliminate this outage; the launch-flag attempt did not eliminate it either. Do not claim production resolution from unit tests or CI alone.
 
 
 ### Power Rankings PPG/Recent accuracy — owner report 2026-09-19
@@ -625,9 +625,9 @@ giant PR.
 | A — Competitive Posture #840 (decision 2026-09-24) | The posture MODEL stays continuous and evidence-driven. The product may publish PUSH / HOLD / RETOOL / REBUILD, but only as an explained probabilistic classification from the continuous evidence, with confidence and component evidence; no single arbitrary hard threshold; HOLD / low confidence when evidence is balanced or ambiguous. Posture is context, never an automatic veto; Analyze Trade consumes the underlying evidence and marginal effects, not merely the label. | TODO (unblocks #841) |
 | A — Team Strength #1340 (decision 2026-09-24) | Re-verify against current production first. If the page still sticks on "Loading league data..." rather than a real result or a truthful unavailable state, repair it early as a roster-foundation/production defect; if not, close/update #1340 with current production evidence. | TODO |
 | B — Trade intelligence | Complete Analyze Trade UX, before/after roster impact, final roster simulation, capacity / forced-drop consequences, Team Context, best-ball roster utility, canonical generation constraints where dependency-ready. Exact KTC Value Adjustment stays a market lens, not canonical truth. No frontend business logic duplicating backend owners. | TODO |
-| B — Pick lifecycle #1414 (authorized 2026-09-24) | ONE canonical lifecycle rule (never page-local year filters): a rookie-draft class leaves active/current surfaces only when the draft is complete AND roster state proves its rookies were consumed. Immediate case: 2026 pick assets no longer active. Historical identities, trades, snapshots and provenance stay resolvable. | TODO |
-| B — Asset quantity/identity #1415 (authorized 2026-09-24) | Generic/repeatable assets may have quantity > 1; distinct real picks with similar labels may coexist; the exact same unique owned pick may not be double-counted. Quantity and identity survive math, remove-one, share/persistence/export and mobile/desktop round trips. PR #1416 is planning/intake only: reconcile its useful records with current main, never treat it as implementation or merge stale branch state. | TODO |
-| C — Freshness + valuation hardening | Reconcile #1425 (adaptive staggered freshness orchestration); weighted-median monotonicity repair; Hill / native-source alignment and rank-form drift; DLF Values normalization gate once enough real captures exist (binding rules in the 2026-09-24 DLF decision above). Never blocks other lanes. | TODO |
+| B — Pick lifecycle #1414 (authorized 2026-09-24) | ONE canonical lifecycle rule (never page-local year filters): a rookie-draft class leaves active/current surfaces only when the draft is complete AND roster state proves its rookies were consumed. Immediate case: 2026 pick assets no longer active. Historical identities, trades, snapshots and provenance stay resolvable. | DONE — #1442 (`bfdb238d8`); production pick-horizon verified 2026-09-26; #1416 planning PR closed as superseded |
+| B — Asset quantity/identity #1415 (authorized 2026-09-24) | Generic/repeatable assets may have quantity > 1; distinct real picks with similar labels may coexist; the exact same unique owned pick may not be double-counted. Quantity and identity survive math, remove-one, share/persistence/export and mobile/desktop round trips. PR #1416 is planning/intake only: reconcile its useful records with current main, never treat it as implementation or merge stale branch state. | DONE — #1441 (`53109028c`); #1416 planning PR closed as superseded |
+| C — Freshness + valuation hardening | Reconcile #1423 (T-NEW-21, adaptive staggered freshness orchestration; its planning PR #1425 was closed 2026-09-26 with the owner contract preserved in the issue); weighted-median monotonicity repair; Hill / native-source alignment and rank-form drift; DLF Values normalization gate once enough real captures exist (binding rules in the 2026-09-24 DLF decision above). Never blocks other lanes. | TODO |
 | D — Product correctness | Playoff Odds finished-week scoring: the P2 row under "Power Rankings pipeline audit" above (owner amendment 2026-09-24: an early item; consume the canonical definition; regression tests for the in-progress-week and finished-week `0.0` cases; not a Playoff Odds redesign). Also scoring/projection correctness, individual special-teams scoring, projection ensemble, Universal Player File intelligence consumers. | TODO |
 | D — Analyst ledger OD-03 (authorized 2026-09-24) | The analyst/intelligence **persistence + as-of query foundation**: the shared substrate for unified Player File intelligence, YouTube/news/podcast ingestion consumers, the homepage intelligence ticker and Weekly Report Studio. Extend the existing `src/intel/` / `src/analyst/` architecture and restore the missing persistence/query layer cleanly from current main; no competing ingestion system. | TODO |
 | 6 — Premium UI (permanent) | Every substantial checkpoint includes active UI or names the active UI PR/issue/claim. Locked PSI / Direction A, shared `ds/` primitives, no business logic in UI; move to another stable route when one route's contract is unstable. Continue non-chart PSI work (populated Rankings / Player File accessibility and visual coverage, stable-route migrations). | TODO |
@@ -645,6 +645,27 @@ inseparable ones are rebased/cherry-picked with proof that both behaviors surviv
 yields); `trade-sections.jsx` is not in #1346. The `GameDayPanel` refresh-in-place logic and the
 `game_day_sim` single-flight/atomic cache writes are carried into the Game Day units with their tests,
 and #1346 drops them at reconciliation.
+
+**#1346 performance-serving campaign — historical owner intent (2026-09-10..20) and donor-branch
+disposition (recorded 2026-09-26).** HISTORICAL RECORD, NOT CURRENT AUTHORIZATION. Preserved so the
+intent is not lost when the branch closes:
+- 2026-09-10 — owner approved the audited performance modernization plan (producers, prepared
+  rankings/trade read models, dependency-aware refresh).
+- 2026-09-11 — local acceptance policy: refresh p95 < 75 ms AND (relative increase ≤ 20% OR
+  (absolute increase ≤ 15 ms AND p95 ≤ 25 ms)).
+- 2026-09-12 — owner paused the campaign and reserved final-release authority to the owner.
+- 2026-09-20 — owner terminal completion directive for the campaign.
+- 2026-09-26 — owner instruction: use #1346 as a donor, harvest small independent defect fixes onto
+  current main with tests, then close it. Harvested on `claude/harvest-1346` (contract raw-input
+  immutability, BDVM actuals/context/schedule cache keys, frontend request-scope + missing-value fixes,
+  timer `__SERVICE_NAME__` prefix); prepared serving, read models, `src/serving/*`, performance-lab and
+  telemetry were deliberately NOT ported.
+
+Donor state is preserved at tag `archive/pr-1346` → `47b90cd41`. Any future serving / read-model work
+starts from issue #1338 and must be re-authorized in `docs/EXECUTION_PLAN.md`; **main does not authorize
+serving activation.** Future-scope note for #1338 (not implemented): the donor's `/api/gameplan` bundle
+single-flight (`src/api/gameplan.py::_BUNDLE_FLIGHTS`, `tests/api/test_gameplan_singleflight.py` at
+`47b90cd41`) coalescing concurrent identical bundle builds.
 
 **Owner attestation — source access (2026-09-25, explicit, in writing). Canonical posture: `OWNER_ATTESTED_AUTHORIZED`.**
 The owner explicitly attests that permission exists for Calculator's current automated ingestion and
@@ -936,3 +957,65 @@ explicit owner decision; only `docs/EXECUTION_PLAN.md` can authorize the work.
     counts twice as many games as the simulator's.
   - Measured 2026-09-26: after two finished weeks the host shows 4-0 where the simulator shows 2-0.
   - Deciding whether and how the median game enters seeding is a methodology decision.
+
+## Added 2026-09-26 — Adaptive Learning / Continuous Model Improvement (owner directive)
+The owner wants Calculator to become **empirically self-improving wherever learning is legitimate**: preserve point-in-time observations, forecasts, recommendations, decisions/non-decisions and outcomes; evaluate what happened; run bounded challengers; and promote a different production methodology only when it clears the applicable evidence and governance gates. “Machine learning” is acceptable shorthand, but the product direction is broader: calibration, statistical learning, model selection, behavioral learning, time-series methods and other evidence-based adaptation are all eligible when they fit the question.
+This is **not** authorization for a monolithic ML platform or for uncontrolled self-modifying production models. Deterministic facts and rules — scoring arithmetic, league rules, roster legality, canonical identity, ownership, exact lineup eligibility/assignment, provenance, timestamps and missing-vs-zero semantics — remain deterministic.
+**Canonical reconciliation.** The existing native governance umbrella is `C10-ML-01` plus the P6 model/methodology acceptance profile. Domain learning stays with its current owner rather than moving to a new ML backlog: `C1-HIST-01` (point-in-time evidence), `C5-GD-02` / Game Day, `C5-ROS-01` / #854 projections, `C5-PLAY-01` playoff calibration, `C5-POW-01` Power validation, `C6-FRESH-01` / #1423 freshness, `C4-FAAB-01/02` + `C4-WAIV-01` FAAB/waiver evidence, `C6-MGR-01` manager behavior, `C6-ANA-01` analyst evidence, `C7-DESK-01` / `C3-REPLAY-01` decision evaluation, `C7-POST-01` posture and `C7-ALERT-01` alerts. No new native ID is minted by this intake.
+**Existing precedent.** `src/model_registry/` already provides champion/challenger/rejected/retired model versions, pinned training-input fingerprints, held-out evidence, promotion records and rollback. Hill Autopilot is the existing bounded automatic-promotion example. It is **not** blanket permission for other model families to auto-promote.
+**Operating rule.** Continuous archival capture, deterministic evaluation, shadow challenger refits, drift detection and scorecard updates may eventually be automated where authorized. Production promotion remains gated. Automatic promotion is allowed only when the owner has approved a deterministic, fail-closed promotion policy for that exact model family, with rollback and a durable promotion record.
+**First-wave planning priority:**
+1. Game Day calibration scorecards over the already-deployed prediction archive;
+2. projection-family / ensemble evaluation under #854, beginning with simple independent-family baselines;
+3. shadow evaluation of whether content age actually degrades task performance before changing the current freshness policy;
+4. rolling-origin Power / playoff validation;
+5. FAAB / manager behavioral learning only after enough prospective, censoring-aware evidence exists.
+The private decision/offer journal (research R14) remains a **CANDIDATE**, not implementation-authorized scope. It is the clean prospective path for rejected/countered/expired offers and considered-but-not-sent decisions that cannot be inferred from completed trades alone.
+**Detailed reconciliation and proposed first batch:** `docs/research/ADAPTIVE_LEARNING_2026-09-26.md`.
+**Authority boundary:** this entry authorizes durable planning/reconciliation only. It does **not** change production weights, activate sources, promote challengers, auto-retrain a live model, authorize autonomous roster transactions, decide R40/R44, or alter any existing owner-approved methodology. `docs/EXECUTION_PLAN.md` is unchanged and remains the sole implementation authority.
+
+**Zero-open-PR reconciliation — owner directive 2026-09-26.** Every open PR is merged, or closed with a
+harvest receipt; future scope lives here, in native issues or in specs, never in an open PR.
+- **#1425** (freshness orchestration planning) → owner contract lives in open issue **#1423** (T-NEW-21):
+  24/7 adaptive staggered freshness orchestration; planning NEXT/P1; C4 source-health owner; not authorized.
+  Whether to mint a manifest row (`C4-SRC-04` was proposed) is decided when Lane C is authorized.
+- **#1419** (unified completion portfolio) → absorbed by #1421 plus the batch-ranking rules harvested into
+  `docs/BRISKET_IDEAS.md` §8; issue **#1418** is the durable record.
+- **#1395** (#1391 capture probe) → closed; contrary to the owner's 2026-09-19 decision to accept the evidence
+  instead of adding probe instrumentation. Reopen only on a new owner request.
+- **#1416** (pick lifecycle + asset quantity planning) → implemented by #1442 (`bfdb238d8`) and #1441
+  (`53109028c`); its ACTIVE-pick contract/spec wording was harvested with shipped status.
+- **#1406** (DLF native-value refusal) → superseded: rank-with-empty-value shipped in #1411, and DLF Values as a
+  non-voting board in #1424/#1430; the root cause is recorded in `docs/sources/SOURCE_FRESHNESS_WEIGHTING.md`.
+- **#1407** (refresh-unit fixes) → both defects still reproduced on main; the script and test fixes were re-landed
+  in the cleanup harvest PR.
+- **#1383** (Week-1 fetch scripts) → obsolete; Weeks 1–3 come in through the public-league snapshot.
+- **#1344** (harness progressive disclosure) → stale; the startup-script `grep || true` fix was harvested. Moving
+  Agent OS sections out needs a fresh audit (the repo-harness-auditor skill), not this branch.
+- **#1399**, **#1381** → future scope recorded below.
+
+### League Comparison / scoring lab — live 2026 evidence — owner directive 2026-09-23
+Owner requested that the scoring-comparison work begin taking **2026 scoring** into account now, while the season is still in progress. Required outcome: preserve the existing 2022–2025 historical evidence, ingest available 2026 regular-season production through the canonical nflverse→Sleeper fallback, and make the current season influence the combined comparison **without pretending a partial season is a completed year**. The live-season basis/progress must be visible in the payload/UI, and the treatment must converge to ordinary full-season semantics when all 17 modeled weeks are present. Tracked as `LC-2026-LIVE` on `codex/league-comparison-2026-live`.
+  - **Status 2026-09-26 (zero-open-PR reconciliation):** NOT implemented on main (`config/league_comparison.json`
+    seasons still 2022–2025). Its implementation PR #1399 was closed unmerged:
+    - it counted every Sleeper week key as observed, so an in-progress NFL week counted as a full week, and cached a
+      week for 7 days;
+    - its CI failed.
+  - **A correct port must:**
+    - count only FINISHED weeks via the canonical host-clock gate (`metrics.final_weeks` / `last_scored_leg`, never raw
+      week keys);
+    - never cache a week at or beyond that horizon;
+    - reuse #1399's explicit-weight combiner (`combine_metrics_weighted` / `_season_evidence_basis`) and payload
+      fields (`seasonStatus`, `weeksObserved`, `seasonWeight`);
+    - bump the methodology-version pin deliberately.
+  - The donor branch is `codex/league-comparison-2026-live`.
+  - Awaiting an `EXECUTION_PLAN` authorization pointer.
+
+**Power Rankings — median-aware Sleeper record horizon guard (recorded 2026-09-26, latent, not authorized).**
+- **Latent defect.** `src/ros/power_v2.py` (~`:1257`) trusts Sleeper's W-L record with no horizon check.
+- **Correct guard.** Games = finished weeks × (2 when `medianGameEnabled`, else 1). Otherwise fall back and flag it.
+- **Why not #1381.** PR #1381's equality check (`sleeper_games == scored_games`) would reject every record in a
+  median-game league and silently drop median games. It was closed 2026-09-26: its share-card change is contradicted
+  by #1398, and its horizon mixing is mostly addressed by the finished-week gate.
+- **Status.** Not observed in production (production shows `countedWeeks` [1, 2] with 4-game records). Needs an
+  authorization pointer before implementation.

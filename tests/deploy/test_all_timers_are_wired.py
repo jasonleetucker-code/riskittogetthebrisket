@@ -194,6 +194,40 @@ def test_every_timer_resolves_to_a_service_that_ships() -> None:
         assert (_SYSTEMD / f"dynasty-{stem}.service.template").is_file(), stem
 
 
+def test_timer_unit_dependencies_use_the_rendered_service_prefix() -> None:
+    """Every ``Requires=`` / ``Unit=`` in a rendered timer template names
+    ``__SERVICE_NAME__-…``, never a literal ``dynasty-…`` unit.
+
+    The installers render these templates with ``SERVICE_NAME``; a literal
+    prefix makes an installation under any other name require (and so
+    start) another installation's feed unit, or one that does not exist.
+    ``dlf-fetch`` and ``idpshow-fetch`` hard-coded ``dynasty-`` until
+    harvested from #1346 (donor commit f2b987fee).
+    """
+    templates = sorted(_SYSTEMD.glob("*.timer.template")) + sorted(
+        (_REPO / "deploy" / "ffpc-systemd").glob("*.timer.template")
+    )
+    assert templates
+    offenders: list[str] = []
+    for template in templates:
+        body = template.read_text(encoding="utf-8")
+        for match in re.finditer(r"^(Requires|Unit)=(.+)$", body, re.M):
+            for unit in match.group(2).split():
+                if not unit.startswith("__SERVICE_NAME__-"):
+                    offenders.append(f"{template.name}: {match.group(1)}={unit}")
+    assert not offenders, offenders
+
+
+def test_feed_timer_dependencies_follow_rendered_prefix() -> None:
+    """A custom installation must not require another installation's feed unit."""
+    for prefix in ("dynasty", "brisket"):
+        for stem in ("dlf-fetch", "idpshow-fetch"):
+            template = _SYSTEMD / f"dynasty-{stem}.timer.template"
+            rendered = template.read_text(encoding="utf-8").replace("__SERVICE_NAME__", prefix)
+            dependencies = re.findall(r"^Requires=(.+)$", rendered, re.M)
+            assert dependencies == [f"{prefix}-{stem}.service"]
+
+
 # ── The other end of the loop ────────────────────────────────────────
 
 

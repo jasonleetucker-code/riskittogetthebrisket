@@ -362,3 +362,58 @@ def build_test_snapshot():
     # Replace NFL players with fixture stub directly (cache may return live).
     snapshot.nfl_players = NFL_PLAYERS_STUB
     return snapshot
+
+
+#: Bench depth per position of a real 12-team, 58-man dynasty league
+#: (dynasty_main's shape).  Each is at least ``starter slots + 5`` for the
+#: award VORP cutoffs (QB/TE 24, K 12, DL/LB/DB 36), so every position has a
+#: full replacement band below its cutoff, as it does in real data.
+REAL_LEAGUE_BENCH_DEPTH: dict[str, int] = {
+    "QB": 36,
+    "RB": 60,
+    "WR": 84,
+    "TE": 36,
+    "K": 20,
+    "DL": 48,
+    "LB": 48,
+    "DB": 48,
+}
+
+
+def add_rostered_bench(
+    snapshot,
+    season,
+    *,
+    per_game: float = 2.0,
+    depth: dict[str, int] | None = None,
+) -> None:
+    """Give ``season`` the rostered BENCH population real Sleeper data has.
+
+    Sleeper's matchup ``players_points`` scores every ROSTERED player each
+    week, started or not.  Hand-built fixtures usually stamp starters only,
+    which is a league with no bench at all: VORP's replacement band (the
+    players just below the starter cutoff) then cannot exist, and the
+    awards path correctly refuses to measure it.  This adds ``depth``
+    never-started bench players per position, scoring ``per_game`` in each
+    week whose entry scored (0.0 in an unplayed/stub week, as Sleeper
+    does), to one roster entry per week.  Starters, starter points and the
+    team ``points`` total are untouched, so award candidates are unchanged.
+
+    ``snapshot.nfl_players`` is REPLACED with an extended copy (fixtures
+    share the module-level stub dict) and the position memo is cleared.
+    """
+    depth = REAL_LEAGUE_BENCH_DEPTH if depth is None else depth
+    bench_players: dict[str, dict[str, Any]] = {}
+    for pos, n in depth.items():
+        for i in range(n):
+            pid = f"bench-{pos.lower()}-{i}"
+            bench_players[pid] = {"first_name": "Bench", "last_name": pid, "position": pos}
+    for entries in season.matchups_by_week.values():
+        entry = next((e for e in entries if isinstance(e.get("players_points"), dict)), None)
+        if entry is None:
+            continue
+        scored = float(entry.get("points") or 0.0) > 0.0
+        for pid in bench_players:
+            entry["players_points"].setdefault(pid, per_game if scored else 0.0)
+    snapshot.nfl_players = {**snapshot.nfl_players, **bench_players}
+    snapshot.__dict__.pop("_position_memo", None)

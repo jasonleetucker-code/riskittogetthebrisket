@@ -48,6 +48,13 @@ updates:
       python-minor-and-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+    ignore:
+      # Ruff is the repo's formatter CONTRACT (AI_INSTRUCTIONS.md →
+      # scripts/format_python_changes.sh requires the exact pinned
+      # version). A new Ruff reformats the whole tree, so moving it is a
+      # deliberate, isolated change — not a grouped bump. (#1355 was
+      # closed for this reason on 2026-09-26.)
+      - dependency-name: "ruff"
 
   # ── Next.js frontend ──────────────────────────────────────────────
   # This is the one with a real blast radius: `npm run build` enforces
@@ -81,6 +88,11 @@ updates:
       - dependency-name: "react"
         update-types: ["version-update:semver-major"]
       - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      # jest-dom 7 requires Node >= 22; CI and production still run Node
+      # 20. Unblocked by the Node 22 migration, issue #1467 (#1354 closed
+      # 2026-09-26). Remove this entry as part of that migration.
+      - dependency-name: "@testing-library/jest-dom"
         update-types: ["version-update:semver-major"]
 
   # ── Root package.json (Playwright E2E harness only) ───────────────

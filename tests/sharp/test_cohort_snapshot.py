@@ -179,3 +179,27 @@ def test_the_no_data_path_is_not_success():
     body = _SCRIPT.read_text(encoding="utf-8")
     assert "return 2" in body
     assert 'evaluable"] == 0' in body
+
+
+def test_a_real_evidence_status_population_serializes(monkeypatch):
+    """Production 2026-08..09: every daily run died in json.dumps on EvidenceStatus."""
+    import json
+
+    from src.sharp import cohort as sharp_cohort
+    from src.sharp import platform_records
+    from src.sharp import score as sharp_score
+
+    mod = _load()
+    status = platform_records.EvidenceStatus(
+        manager_key="sleeper:1", platform="sleeper", automated_eligible_rows=2, total_rows=3
+    )
+    status.reasons.add("league_scoped_identity")
+    monkeypatch.setattr(
+        platform_records, "build_manager_records", lambda **_k: ([], {"sleeper:1": status})
+    )
+    monkeypatch.setattr(sharp_score, "score_managers", lambda _records: [])
+    monkeypatch.setattr(sharp_cohort, "cohort_members", lambda **_k: ([], {}))
+
+    snap = mod.build_snapshot(None)
+    decoded = json.loads(json.dumps(snap))
+    assert decoded["evidence"] == {"sleeper:1": status.to_dict()}

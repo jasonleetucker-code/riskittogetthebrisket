@@ -22,14 +22,14 @@ pytest~=9.0.0
 # a required dep by FastAPI itself — installing FastAPI alone leaves
 # TestClient importable but unusable.  Pin httpx here so every test
 # job has it.
-httpx~=0.28.0
+httpx~=0.28.1
 
 # Lint + format + type tooling (config in pyproject.toml).  ruff format
 # is hard-gated in CI as of the A1 sweep; ruff-check and mypy gates are
 # introduced report-only/ratcheted in later phases.  Production never
 # installs requirements-dev.txt, so these stay out of the runtime image.
 ruff==0.6.9
-mypy~=2.3.0
+mypy~=2.3.1
 
 # tests/intel/test_workflow_scripts.py parses
 # .github/workflows/intel-refresh.yml to exercise the workflow's

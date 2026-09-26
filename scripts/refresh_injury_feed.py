@@ -47,10 +47,14 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from src.api import feature_flags
-from src.bdvm.events import EVENTS_DIR
-from src.nfl_data.injury_feed import InjuryEntry, diff_for_signals, fetch_injuries
-from src.utils.name_clean import normalize_player_name
+# Run by systemd as `python scripts/<name>.py`, Python puts scripts/ (not the repo
+# root) on sys.path; without this every `from src...` import fails (2026-09-24).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from src.api import feature_flags  # noqa: E402
+from src.bdvm.events import EVENTS_DIR  # noqa: E402
+from src.nfl_data.injury_feed import InjuryEntry, diff_for_signals, fetch_injuries  # noqa: E402
+from src.utils.name_clean import normalize_player_name  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 _LOGGER = logging.getLogger(__name__)

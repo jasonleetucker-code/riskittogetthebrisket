@@ -20,6 +20,7 @@ import unittest
 from src.public_league import awards, matchup_preview, metrics, records, rivalries, streaks
 from src.public_league.identity import build_manager_registry
 from src.public_league.snapshot import PublicLeagueSnapshot, SeasonSnapshot
+from tests.public_league.fixtures import add_rostered_bench
 
 _OWNERS = ["owner-A", "owner-B", "owner-C", "owner-D"]
 _USERS = [{"user_id": o, "display_name": o[-1], "metadata": {}} for o in _OWNERS]
@@ -112,7 +113,7 @@ def season_with(weeks: dict[int, list[dict]], *, last_scored_leg: int = 2) -> Se
 
 
 def snapshot_of(season: SeasonSnapshot) -> PublicLeagueSnapshot:
-    return PublicLeagueSnapshot(
+    snap = PublicLeagueSnapshot(
         root_league_id="L1",
         generated_at="2026-09-26T00:00:00Z",
         seasons=[season],
@@ -121,6 +122,10 @@ def snapshot_of(season: SeasonSnapshot) -> PublicLeagueSnapshot:
         ),
         nfl_players=copy.deepcopy(NFL_PLAYERS),
     )
+    # Sleeper scores the rostered bench too; without it VORP has no
+    # replacement band and the MVP board correctly abstains.
+    add_rostered_bench(snap, season)
+    return snap
 
 
 def post_week_snapshot() -> PublicLeagueSnapshot:

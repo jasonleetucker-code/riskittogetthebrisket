@@ -237,22 +237,30 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
   // Lazily pull the section the visitor just opened.  ``inflightRef``
   // (not state) guards against a double-fetch across the re-render that
   // marking it pending would itself cause.
-  const [sectionError, setSectionError] = useState("");
+  const [sectionErrors, setSectionErrors] = useState({});
+  const sectionError = sectionErrors[neededSection] || "";
   const inflightRef = useRef({});
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
   useEffect(() => {
     if (!contract) return undefined;
     if (!neededSection || haveSection) return undefined;
     if (inflightRef.current[neededSection]) return undefined;
     inflightRef.current[neededSection] = true;
-    let active = true;
+    setSectionErrors((previous) => ({ ...previous, [neededSection]: "" }));
     (async () => {
       try {
         const payload = await fetchPublicSection(neededSection);
-        if (!active) return;
+        // The shell owns its section cache, not whichever tab was active
+        // when this request began. Switching tabs must not discard it.
+        if (!mountedRef.current) return;
         if (!payload || typeof payload !== "object") {
           throw new Error(`Empty payload for section ${neededSection}`);
         }
-        setSectionError("");
+        setSectionErrors((previous) => ({ ...previous, [neededSection]: "" }));
         // Merge, never replace: other sections already fetched stay.
         setState((prev) =>
           prev.contract
@@ -269,15 +277,13 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
             : prev,
         );
       } catch (err) {
-        if (!active) return;
-        setSectionError(err?.message || `Failed to load ${neededSection}`);
+        if (!mountedRef.current) return;
+        setSectionErrors((previous) => ({ ...previous, [neededSection]: err?.message || `Failed to load ${neededSection}` }));
       } finally {
         delete inflightRef.current[neededSection];
       }
     })();
-    return () => {
-      active = false;
-    };
+    return undefined;
   }, [contract, neededSection, haveSection]);
 
   const managers = useMemo(() => buildManagerLookup(league), [league]);

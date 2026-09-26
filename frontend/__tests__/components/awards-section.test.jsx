@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import AwardsSection, { groupAwards } from "@/app/league/sections/awards";
+import AwardsSection, { groupAwards, vorpExclusionNote } from "@/app/league/sections/awards";
 
 const managers = new Map([
   ["owner-a", { displayName: "Jason", currentTeamName: "Brisket Club", avatar: "manager-a" }],
@@ -147,5 +147,40 @@ describe("AwardsSection", () => {
     const playerWinner = cards[0];
     expect(within(playerWinner).getAllByRole("img")).toHaveLength(1);
     expect(playerWinner).toHaveTextContent("Rostered by Jason");
+  });
+  it("explains a position excluded from the VORP awards instead of hiding it", () => {
+    const exclusion = {
+      position: "DB",
+      reason: "insufficient_replacement_band",
+      poolSize: 1,
+      required: 6,
+    };
+    const withExclusion = {
+      ...data,
+      awardRaces: races.map((r) =>
+        r.key === "league_mvp" ? { ...r, vorpExclusions: [exclusion] } : r,
+      ),
+      bySeason: [{ ...data.bySeason[0], vorpExclusions: [exclusion] }],
+    };
+    const { container } = render(
+      <AwardsSection managers={managers} data={withExclusion} onNavigate={vi.fn()} />,
+    );
+    const mvpRace = container.querySelector('[data-award-key="league_mvp"]');
+    expect(mvpRace).toHaveTextContent(
+      "DB excluded — not enough rostered players to set a replacement level",
+    );
+    // The race's leaders still render: an exclusion is a note, not an empty board.
+    expect(mvpRace).toHaveTextContent("League Star");
+    const offRace = container.querySelector('[data-award-key="off_mvp"]');
+    expect(offRace.querySelector("[data-vorp-exclusion]")).toBeNull();
+    expect(container.querySelectorAll("[data-vorp-exclusion]")).toHaveLength(2);
+  });
+
+  it("formats the exclusion note by reason and renders nothing when there is none", () => {
+    expect(vorpExclusionNote(undefined)).toBeNull();
+    expect(vorpExclusionNote([])).toBeNull();
+    expect(vorpExclusionNote([{ position: "FB", reason: "no_bench_population" }])).toBe(
+      "FB excluded — no bench scoring on record to set a replacement level",
+    );
   });
 });

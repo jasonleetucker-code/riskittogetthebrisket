@@ -28,6 +28,7 @@ import pytest
 from src.public_league import award_eligibility, awards
 from src.public_league.identity import build_manager_registry
 from src.public_league.snapshot import PublicLeagueSnapshot, SeasonSnapshot
+from tests.public_league.fixtures import add_rostered_bench
 
 JOEL = "712035316776669184"
 BLAINE = "1303549304882892800"
@@ -131,6 +132,10 @@ def _snapshot(*seasons: SeasonSnapshot) -> PublicLeagueSnapshot:
         nfl[f"base_{i}"] = {"position": "RB", "team": "BUF", "full_name": f"Base {i}"}
         nfl[f"wav_{i}"] = {"position": "WR", "team": "KC", "full_name": f"Waiver {i}"}
     snap.nfl_players = nfl
+    # Sleeper scores the whole rostered bench, not only starters; without it
+    # no position has a replacement band and VORP awards correctly abstain.
+    for season in seasons:
+        add_rostered_bench(snap, season)
     return snap
 
 

@@ -120,11 +120,22 @@ Do not implement as a second scale beside canonical pick values and do not keep 
 
 ## T-NEW-02 — Trade Calculator Generic Pick Quantities
 
-**Status:** TODO / safe product-correctness checkpoint
+**Status:** IMPLEMENTED — #1441 (`53109028c`), tests `frontend/__tests__/trade-asset-quantity.test.js` + `tests/trade/test_repeated_trade_assets.py`; issue #1415 closes on production verification  
+**Owner clarification:** 2026-09-24, issue #1415
 
-Generic hypothetical picks must support unlimited quantity on both sides with quantity-aware serialization and downstream math. Real owned league picks remain unique and non-duplicable.
+The Trade Calculator must preserve **quantity and identity separately** rather than treating a display label or asset type as globally unique.
 
-**Full binding spec:** reconciliation §4.8, “Generic-pick quantity correctness.”
+Required semantics:
+
+- generic / hypothetical / repeatable pick representations may be added more than once or represented with quantity > 1 on either side;
+- multiple **distinct real owned picks** must all be addable even when they currently render to the same descriptive tier/label (for example two different owned picks both shown as “Mid 2027 1st”);
+- the **same exact unique owned-pick identity** remains non-duplicable, so one real pick cannot be accidentally counted twice;
+- value, Value Adjustment, package math, equalizers, share URLs, persistence, exports and mobile/desktop round-trips must preserve every valid copy or distinct identity;
+- removing one generic copy removes only that copy, not every matching label.
+
+This is one canonical quantity/identity contract, not a second Trade Calculator-only pick system.
+
+**Full binding spec:** reconciliation §4.8, “Generic-pick quantity correctness,” as clarified by issue #1415.
 
 ## T-NEW-03 — Public League Manual Sleeper Sync / Freshness
 
@@ -350,3 +361,33 @@ When the owner materially changes a feature, do not merely add another one-line 
 > T-NEW-01…T-NEW-17, so they arrived on `main` by capability (manifest rows `C2-AGE-01`…`C2-AGE-03`,
 > `C7-AGE-01`, `C2-CORE-01`) but not by identifier. Both are now here, so closing #816 loses nothing
 > addressable by either name or id.
+
+## T-NEW-20 — Active Draft-Pick Lifecycle / Post-Draft Retirement
+
+**Status:** IMPLEMENTED — #1442 (`bfdb238d8`, `src/identity/pick_lifecycle.py`); production-verified 2026-09-26 (prod-auth `pick-lifecycle-horizon.spec.js`: 2026 retired, 2027–2029 present, no 2030 — V1 run 36233825688)  
+**Owner directive:** 2026-09-24, issue #1414
+
+A draft-pick class is an **active current asset only until that league's rookie draft is complete and the drafted rookies have been added to fantasy rosters**.
+
+Immediate owner requirement:
+
+- the 2026 rookie draft is complete;
+- 2026 rookies are rostered;
+- 2026 draft-pick assets should therefore disappear from active/current site surfaces.
+
+Going forward, this must be state/event-driven rather than a hard-coded year or calendar date. The canonical lifecycle owner should expose whether a draft class is ACTIVE or RETIRED from present-tense asset selection.
+
+Retirement affects active/current consumers such as Rankings/search, Trade Calculator pickers, active generation/equalizer choices, Draft Capital and other current pick selectors. It does **not** erase historical truth:
+
+- old trades may still resolve the retired pick identity;
+- immutable value/history snapshots and provenance remain;
+- retirement is never represented as value zero;
+- missing/unknown draft-state evidence must fail conservatively rather than retire a class early.
+
+One canonical lifecycle rule should be consumed by every surface; page-local year filters are not the target architecture.
+
+**Dependencies / overlap:** canonical pick identity/lifecycle (`C1-ID-02` / `C1-PICK-01` family), current #1411 pick-pipeline work, and active-asset consumers.
+
+**Parallel posture:** `SERIAL_CANONICAL_OWNER` while #1411 is changing the canonical pick pipeline; downstream presentation consumers may be split after the owner rule is stable.
+
+**Acceptance:** 2026 is absent from current selectors while historical references still resolve; a synthetic future completed-draft + rookies-rostered state retires that class without changing code; incomplete/unknown state does not retire it.
