@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "startUtc": null,
+  "startLimitation": "No separate clock captured before worktree creation; command transcript preserves operation ordering.",
+  "endUtc": "2026-09-26T18:24:04.576716-04:00",
+  "branch": "codex/performance-1338-data-cache",
+  "base": "7744eeb83c7763aca61f4b80e3714b6e4cd1a422",
+  "changed": {
+    "tests/lineup/test_serving_path.py": "3a5574bb5555266eb60e9b30ea113352a11e9ec42f0d62c30f22495c8d59cc56"
+  },
+  "failure": "CI36274180175 failed old inline-window assertion; local exact class reproduced both window assertions failing2tests.",
+  "owner": "Test coupling to next2000sourcecharacters after sleeper splice. Actual get_data handler creates prepare_lineups closure and passes it to serialization cache-miss owner; canonical stamp is preserved before encoding.",
+  "change": "Replace both source substring guards with actual TestClient requests for full/runtime overlays using isolated lifespan and existing factual registry fixture. Observe real stamp-owner arguments, assert fresh overlay already installed, identical full canonical rows passed, nonempty fresh starter survives response encoding, shared overlay remains unstamped, runtime lacks playersArray and selects runtime-overlay header.",
+  "runs": [
+    {
+      "result": "2failed0passed0.62s",
+      "command": "python -X utf8 -m pytest tests/lineup/test_serving_path.py::TestTheServingPathIsWired -q"
+    },
+    {
+      "result": "1failed18passed1warning16.66s",
+      "cause": "Firstnewruntimefixture did not install reduced representation; handler correctlyfellbackfull. Preserved failure; fixture corrected to publication dict/pop/payloadView shape, assertionnotremoved."
+    },
+    {
+      "result": "19passed1warning5.93s",
+      "command": "python -X utf8 -m pytest tests/lineup/test_serving_path.py tests/api/test_data_overlay_preparation.py -q"
+    },
+    {
+      "result": "PASS",
+      "command": "python -X utf8 -m ruff format/check tests/lineup/test_serving_path.py; git diff --check"
+    }
+  ],
+  "limits": [
+    "No productimplementation edited. No providers/startupcollectors invoked bynewcases. Existinggoldencontracttest scope remains unchanged.",
+    "Scoped formatter/lint pass; repository formatter/integrationCI ownedbyroot.",
+    "No Gitcommit/push/docs changes. Independentrootreviewpending."
+  ],
+  "receipt": "cdca1dca8385f70c0989302dece8d1bd4ce4843c",
+  "integrationReview": {
+    "validation": "19 passed, one deprecation warning, 5.07 seconds; full Ruff0.6.9 repository1559 format/lint passed",
+    "limitation": "Local fixture auth/isolated lifespan; not production latency",
+    "verdict": "APPROVE",
+    "invariants": "Actual handler splices fresh overlay before canonical owner; runtime supplies captured full rows; response carries correct starter; shared overlay remains unstamped",
+    "reviewer": "Commander000"
+  }
+}
