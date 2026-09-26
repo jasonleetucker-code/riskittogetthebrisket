@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "agent": "/root/report_regression",
+  "verdict": "APPROVE scoped read-only metadata probe",
+  "finishedUtc": "2026-09-26T20:53:38.3179911Z",
+  "hashes": {
+    ".github/workflows/c1a-closure-diagnostics.yml": "723749501e613321317c45733099d247be940a2a2117044d83eb4b9f89c71e3f",
+    "tests/deploy/test_performance_inventory.py": "125a14057c8193d06ee455cbe1535fdf16c7464bc428a1cb0ea8ceb7c20d6bd4",
+    "deploy/diagnostics/performance_inventory.py": "812fb18be125b8d3eac7f70b311a6d78b11df16c1720e24063e6780c24a9a7e0",
+    "config/ci/release_gate_classification.json": "ae56a9427017611491e32864a9492d6fe9b2de09a43b279228689ea500ed3695"
+  },
+  "priorReview": "review-production-probe.json VETO preserved",
+  "resolved": [
+    "Unknown PID unavailable, only0not-running",
+    "FD denial before or during enumeration yieldsNone"
+  ],
+  "validation": [
+    "Independent focused21passed1Linuxskip1.00s",
+    "Independent prior-failure discriminators PASS",
+    "Actual final workflow scope exact closure/empty or performance-safe, no arbitrary scope routes to legacy"
+  ],
+  "scope": [
+    "Systemd named-unit MainPIDs and cgroup counters only",
+    "complete means stable checkout identity plus complete webMainPID and host observations; not allunits orfullprocess tree",
+    "loadedProcessRevision remainsnull; checkoutSha cannot establish loadedPythoncode",
+    "cpuTicks cumulative notCPUutilization; RSSprocess distinct cgroupmemory; observations sequential notatomic"
+  ],
+  "limitations": [
+    "Linux actualproc test skipped onWindows",
+    "No productiondispatch/credentials inspection",
+    "Descendant cleanup orFDrecovery require dedicated authorized observations beyondthissnapshot",
+    "No performanceacceptance or resourceheadroom verdict"
+  ],
+  "commands": [
+    "python -X utf8 -m pytest tests/deploy/test_performance_inventory.py -q",
+    "Independent bounded proc mock via stdinPython",
+    "Read final4files and hashes"
+  ],
+  "edits": "Evidence only"
+}
