@@ -77,9 +77,9 @@ class TestLoadTeamStrength(unittest.TestCase):
             target.write_text(
                 json.dumps(
                     [
-                        {"ownerId": "alpha", "teamRosStrength": 90.0},
-                        {"ownerId": "beta", "teamRosStrength": 60.0},
-                        {"ownerId": "gamma", "teamRosStrength": 30.0},
+                        {"ownerId": "alpha", "teamRosStrength": 90.0, "startingLineupScore": 90.0},
+                        {"ownerId": "beta", "teamRosStrength": 60.0, "startingLineupScore": 60.0},
+                        {"ownerId": "gamma", "teamRosStrength": 30.0, "startingLineupScore": 30.0},
                     ]
                 )
             )
@@ -441,6 +441,7 @@ class TestBuildSectionPreseason(unittest.TestCase):
             {
                 "ownerId": f"owner-{i:02d}",
                 "teamRosStrength": 100 - i * 5,
+                "startingLineupScore": 100 - i * 5,
                 "healthAvailabilityScore": 100,
             }
             for i in range(1, 13)
@@ -503,6 +504,7 @@ class TestBuildSectionPreseason(unittest.TestCase):
                         {
                             "ownerId": f"o{i}",
                             "teamRosStrength": 50.0,
+                            "startingLineupScore": 50.0,
                             "healthAvailabilityScore": 100,
                         }
                         for i in range(1, 4)

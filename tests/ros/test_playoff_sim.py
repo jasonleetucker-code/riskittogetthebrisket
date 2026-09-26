@@ -149,6 +149,10 @@ class TestRosterLoaderFeedsTheOptimizerProperly(unittest.TestCase):
         return [
             {
                 "ownerId": "o1",
+                # A persisted snapshot must carry ROS evidence to be served
+                # (team_strength.team_strength_has_evidence, D1 2026-09-26).
+                "teamRosStrength": 42.0,
+                "startingLineupScore": 50.0,
                 "startingLineup": [{"playerId": "s1", "position": "DL", "rosValue": 50.0}],
                 "benchDepth": [{"playerId": "b1", "position": "WR", "rosValue": 10.0}],
                 "fullRoster": [

@@ -37,6 +37,7 @@ import logging
 import random
 from typing import Any
 
+from src.league_intel.sim_calibration import load_points_model
 from src.public_league import metrics, playoff_odds
 from src.public_league.playoff_structure import resolve_playoff_structure
 from src.public_league.snapshot import PublicLeagueSnapshot
@@ -187,6 +188,16 @@ def simulate_championship_odds(
         playoff_seeds = structure.teams
     if bye_seeds is None:
         bye_seeds = structure.byes if structure.known else None
+    # ONE league key, resolved once and passed to every roster-derived read
+    # (D5).  This engine used to pass none, so a non-default league's
+    # championship odds were drawn from the DEFAULT league's team strength,
+    # rosters and starter slots — measured 2026-09-26: dynasty_new's
+    # simulation read dynasty_main's twelve strengths, of which only the
+    # owners who happen to play in both leagues matched at all.
+    # ``playoff_sim.simulate_playoff_odds`` already resolved it this way.
+    from src.ros.team_strength import resolve_snapshot_league_key  # noqa: PLC0415
+
+    league_key = resolve_snapshot_league_key(snapshot)
     if playoff_seeds is None:
         # No bracket, no champion to simulate. Same refusal as
         # ``playoff_sim.simulate_playoff_odds`` — never a default.
@@ -195,7 +206,9 @@ def simulate_championship_odds(
             "n_simulations": 0,
             "playoffSeeds": None,
             "byeSeeds": None,
-            "rosStrengthAvailable": bool(playoff_sim._load_ros_strength_map()),
+            "rosStrengthAvailable": playoff_sim.ros_strength_available(
+                playoff_sim._load_ros_strength_map(league_key)
+            ),
             "playoffStructure": structure.to_dict(),
             "unsimulable": {
                 "reason": structure.reason or "playoff_bracket_unknown",
@@ -207,10 +220,18 @@ def simulate_championship_odds(
             },
         }
     if best_ball is None:
-        best_ball = playoff_sim._league_best_ball()
-    ros_map = playoff_sim._load_ros_strength_map()
+        best_ball = playoff_sim._league_best_ball(league_key)
+    ros_map = playoff_sim._load_ros_strength_map(league_key)
+    # The same calibrated points model the playoff engine draws through;
+    # omitting it silently fell back to ``DEFAULT_POINTS_MODEL`` here while
+    # ``simulate_playoff_odds`` used the calibrated one — two surfaces, one
+    # league, two presim scales.
     distributions, pf_by_owner = playoff_sim._build_team_distributions(
-        snapshot, ros_map, best_ball=best_ball
+        snapshot,
+        ros_map,
+        league_key=league_key,
+        best_ball=best_ball,
+        points_model=load_points_model(),
     )
     if not distributions:
         # No team has a scored regular-season week, so there is no weekly
@@ -239,7 +260,7 @@ def simulate_championship_odds(
             "playoffSeeds": playoff_seeds,
             "byeSeeds": bye_seeds,
             "playoffStructure": structure.to_dict(),
-            "rosStrengthAvailable": bool(ros_map),
+            "rosStrengthAvailable": playoff_sim.ros_strength_available(ros_map),
             "unsimulable": {
                 "reason": "no_scored_weeks_in_league",
                 "detail": (
@@ -248,6 +269,22 @@ def simulate_championship_odds(
                     "cannot be simulated. This is not a 0% chance for anyone."
                 ),
             },
+        }
+
+    refusal = playoff_sim.team_evidence_refusal(distributions, ros_map)
+    if refusal is not None:
+        # D1 (2026-09-26): the refresh that lost the NFL player dump published
+        # ~13/12/10% "odds" for every team, stamped rosStrengthAvailable=true.
+        # They were the league-average distribution drawn twelve times.  Same
+        # refusal, same words, as ``playoff_sim.simulate_playoff_odds``.
+        return {
+            "championshipOdds": [],
+            "n_simulations": 0,
+            "playoffSeeds": playoff_seeds,
+            "byeSeeds": bye_seeds,
+            "playoffStructure": structure.to_dict(),
+            "rosStrengthAvailable": False,
+            "unsimulable": refusal,
         }
 
     record = playoff_sim._current_record(snapshot)
@@ -328,19 +365,44 @@ def simulate_championship_odds(
         "playoffSeeds": playoff_seeds,
         "byeSeeds": bye_seeds,
         "playoffStructure": structure.to_dict(),
-        "rosStrengthAvailable": bool(ros_map),
+        "rosStrengthAvailable": playoff_sim.ros_strength_available(ros_map),
     }
 
 
 _SIM_CACHE_TTL_SEC = 6 * 3600
 
 
-def _load_cached_payload() -> dict[str, Any] | None:
-    """Read ``data/ros/sims/latest_championship.json`` if fresh; else None."""
+def _cached_payload_path(league_key: str | None) -> Any:
+    """The championship cache file for ``league_key``.
+
+    The file NAMES are owned by ``src.ros.scrape._sim_paths`` (the writer);
+    this reuses its naming rule rather than restating it, but resolves the
+    directory from this module's ``ROS_DATA_DIR`` so the reader and the
+    tests that relocate it agree.  ``None`` (unresolvable league) is the
+    default league's historical ``latest_championship.json``.
+    """
+    from src.api.league_registry import default_league_key  # noqa: PLC0415
+    from src.ros.scrape import _sim_paths  # noqa: PLC0415
+
+    try:
+        default_key = default_league_key()
+    except Exception:  # noqa: BLE001 — registry trouble reads the default file
+        default_key = None
+    _, champ_path = _sim_paths(league_key, default_key)
+    return ROS_DATA_DIR / "sims" / champ_path.name
+
+
+def _load_cached_payload(league_key: str | None = None) -> dict[str, Any] | None:
+    """Read this league's cached championship sim if fresh; else None.
+
+    Used to read ``latest_championship.json`` for EVERY league, so a
+    non-default league's /league Championship tab was served the default
+    league's odds whenever that file was fresh (D5).
+    """
     import os
     import time
 
-    path = ROS_DATA_DIR / "sims" / "latest_championship.json"
+    path = _cached_payload_path(league_key)
     if not path.exists():
         return None
     try:
@@ -361,7 +423,9 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     Prefers the cached output written by the scheduled scrape; falls
     back to a live Monte Carlo when the cache is missing or stale.
     """
-    cached = _load_cached_payload()
+    from src.ros.team_strength import resolve_snapshot_league_key  # noqa: PLC0415
+
+    cached = _load_cached_payload(resolve_snapshot_league_key(snapshot))
     if cached is not None:
         cached["cached"] = True
         return cached

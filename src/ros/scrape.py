@@ -215,12 +215,24 @@ def _refresh_team_strength_for_league(
     cfg: Any,
     aggregated: list[dict[str, Any]],
     nfl_players: dict[str, Any],
+    failures: dict[str, str] | None = None,
 ) -> Path | None:
-    """Compute team-strength for a single league and persist."""
+    """Compute team-strength for a single league and persist.
+
+    Keep-last-good: rows with no ROS evidence (every team at 0) are NOT
+    written, so the previous snapshot survives, and the reason is recorded
+    in ``failures`` (keyed by league) for the run summary.
+    """
+
+    def _fail(reason: str) -> None:
+        if failures is not None and cfg is not None:
+            failures[str(getattr(cfg, "key", "?"))] = reason
+
     try:
         from src.api.sleeper_overlay import fetch_sleeper_overlay  # noqa: PLC0415
         from src.ros.team_strength import (  # noqa: PLC0415
             compute_team_strength,
+            team_strength_has_evidence,
             write_team_strength_snapshot,
         )
 
@@ -235,6 +247,7 @@ def _refresh_team_strength_for_league(
                 "[ros] team-strength %s: overlay fetch returned no teams",
                 cfg.key,
             )
+            _fail("overlay_returned_no_teams")
             return None
         teams = _hydrate_overlay_players(overlay["teams"], nfl_players)
         starter_slots = _flatten_starter_slots((cfg.roster_settings or {}).get("starters"))
@@ -243,12 +256,22 @@ def _refresh_team_strength_for_league(
                 "[ros] team-strength %s: no starter slots configured",
                 cfg.key,
             )
+            _fail("no_starter_slots")
             return None
         rows = compute_team_strength(
             teams,
             aggregated_players=aggregated,
             starter_slots=starter_slots,
         )
+        if not team_strength_has_evidence(rows):
+            LOG.error(
+                "[ros] team-strength %s: no team has positive ROS strength; keeping "
+                "the last good snapshot instead of writing %d all-zero rows",
+                cfg.key,
+                len(rows),
+            )
+            _fail("no_team_strength_evidence")
+            return None
         path = write_team_strength_snapshot(rows, league_key=cfg.key)
         LOG.info(
             "[ros] team-strength %s: wrote %d teams to %s",
@@ -263,6 +286,7 @@ def _refresh_team_strength_for_league(
             getattr(cfg, "key", "?"),
             exc,
         )
+        _fail(f"exception: {type(exc).__name__}")
         LOG.debug(
             "[ros] team-strength %s traceback: %s",
             getattr(cfg, "key", "?"),
@@ -271,28 +295,54 @@ def _refresh_team_strength_for_league(
         return None
 
 
-def _refresh_team_strength_snapshot(aggregated: list[dict[str, Any]]) -> dict[str, Path]:
+def _refresh_team_strength_snapshot(
+    aggregated: list[dict[str, Any]],
+    failures: dict[str, str] | None = None,
+) -> dict[str, Path]:
     """Iterate every active league in the registry and write a per-league
     team-strength snapshot.  Default-league output keeps the historical
     ``team_strength/latest.json`` filename for backward compat.
+
+    **A failed NFL player download is a failure, not an empty universe.**
+    This used to read ``fetch_nfl_players() or {}`` and carry on: every
+    rostered player's name fell back to its raw Sleeper id, nothing joined
+    the ROS aggregate, every team scored 0, and those zeros were written
+    over the last good snapshot (refresh run 36220954196, 2026-09-26) --
+    which then drove flat coin-flip championship odds stamped
+    ``rosStrengthAvailable: true``.  Now nothing is written for any league
+    (the last good snapshot stands) and each league is reported in
+    ``failures`` so ``run_all`` can surface it.
     """
     out: dict[str, Path] = {}
     try:
         from src.api.league_registry import active_leagues  # noqa: PLC0415
         from src.public_league.sleeper_client import fetch_nfl_players  # noqa: PLC0415
+        from src.ros.team_strength import nfl_player_dump_is_usable  # noqa: PLC0415
 
         leagues = active_leagues()
         if not leagues:
             LOG.info("[ros] team-strength: no active leagues; skipping")
             return out
-        nfl_players = fetch_nfl_players() or {}
+        nfl_players = fetch_nfl_players()
+        if not nfl_player_dump_is_usable(nfl_players):
+            LOG.error(
+                "[ros] team-strength: Sleeper NFL player dump unavailable; keeping "
+                "the last good snapshot for all %d leagues",
+                len(leagues),
+            )
+            if failures is not None:
+                for cfg in leagues:
+                    failures[str(cfg.key)] = "nfl_player_dump_unavailable"
+            return out
         for cfg in leagues:
-            path = _refresh_team_strength_for_league(cfg, aggregated, nfl_players)
+            path = _refresh_team_strength_for_league(cfg, aggregated, nfl_players, failures)
             if path:
                 out[cfg.key] = path
     except Exception as exc:  # noqa: BLE001
         LOG.warning("[ros] team-strength refresh failed: %s", exc)
         LOG.debug("[ros] team-strength traceback: %s", traceback.format_exc())
+        if failures is not None:
+            failures["*"] = f"exception: {type(exc).__name__}"
     return out
 
 
@@ -640,7 +690,12 @@ def _build_default_canonical_universe() -> set[str]:
         from src.public_league.sleeper_client import fetch_nfl_players  # noqa: PLC0415
         from src.utils.name_clean import normalize_player_name  # noqa: PLC0415
 
-        nfl = fetch_nfl_players() or {}
+        nfl = fetch_nfl_players()
+        if not isinstance(nfl, dict) or not nfl:
+            # A failed download, not an empty league: say so rather than
+            # logging "canonical universe: 0 names" as if it were a count.
+            LOG.error("[ros] canonical universe: Sleeper NFL player dump unavailable")
+            return set()
         names: set[str] = set()
         for meta in nfl.values():
             if not isinstance(meta, dict):
@@ -679,8 +734,11 @@ def run_all(
     # universe from Sleeper means a misspelled "Achane" still gets
     # fuzzy-matched to canonical "De'Von Achane" instead of becoming
     # a phantom 1.0-confidence entry.
+    failures: dict[str, Any] = {}
     if canonical_universe is None:
         canonical_universe = _build_default_canonical_universe() or None
+        if canonical_universe is None:
+            failures["canonicalUniverse"] = "nfl_player_dump_unavailable"
 
     results_by_key: dict[str, dict[str, Any]] = {}
     snapshots: list[SourceSnapshot] = []
@@ -766,7 +824,10 @@ def run_all(
     # Warm derived caches per active league.  Both helpers are best-
     # effort and never raise — a network blip during sim cache refresh
     # shouldn't lose the aggregate write that just landed.
-    team_strength_paths = _refresh_team_strength_snapshot(aggregated)
+    team_strength_failures: dict[str, str] = {}
+    team_strength_paths = _refresh_team_strength_snapshot(aggregated, team_strength_failures)
+    if team_strength_failures:
+        failures["teamStrength"] = team_strength_failures
     # Power publication runs AFTER team-strength refresh so the finalized
     # canonical week captures the ROS information genuinely available at
     # publication time, never a stale pre-refresh value.
@@ -792,6 +853,12 @@ def run_all(
             league_key: {kind: str(p.relative_to(ROS_DATA_DIR)) for kind, p in paths.items()}
             for league_key, paths in sim_paths_by_league.items()
         },
+        # Derived-artifact failures this run.  Empty when everything that
+        # should have refreshed did.  ``main`` exits non-zero when present so
+        # the scheduled workflow raises its "ROS scrape failed" warning
+        # instead of reporting a run whose team strength silently did not
+        # refresh.
+        "failures": failures,
     }
 
 
@@ -814,6 +881,9 @@ def main() -> int:
 
     summary = run_all(overrides=overrides)
     print(json.dumps(summary, indent=2))
+    if summary.get("failures"):
+        LOG.error("[ros] refresh completed with failures: %s", summary["failures"])
+        return 1
     return 0
 
 
