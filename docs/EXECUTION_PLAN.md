@@ -136,6 +136,10 @@ single authorization record for the batch; ideas inside it do not get their own 
     the selected league from its own side, same route and engine, league-isolated. Contract:
     `docs/OWNER_REQUESTED_TODO.md` ("Game Day switches between every team"). No methodology,
     scoring, source or PSI-direction change.
+    **Extension authorized (owner, 2026-09-26):** the Game Day Live Median Race — a league-wide
+    beat-the-median board from the existing joint simulation (median distribution from each draw's
+    own M(d); paired margins; existing generations for movement). Contract:
+    `docs/OWNER_REQUESTED_TODO.md` ("Game Day Live Median Race"). No new engine, collector or archive.
 * **Build broadly, integrate narrowly is authorized:** focused/targeted tests while building,
   full CI at integration boundaries and on every merge head, one integrated release candidate and
   one production deploy where practical. It never weakens an acceptance gate.

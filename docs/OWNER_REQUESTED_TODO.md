@@ -835,3 +835,34 @@ Implementation is authorized by the owner's own handoff. The authorization recor
     evidence.
 - **Not authorized.** A Game Day rewrite, methodology or scoring changes, paid-source activation, a PSI
   redesign, or a new league/team identity owner.
+
+**Owner directive — Game Day Live Median Race (2026-09-26).**
+Extends the Game Day deliverable (#1335 / #1334, Lane 6); it is not a second Game Day. Implementation is
+owner-approved; the authorization record is the pointer in `docs/EXECUTION_PLAN.md` under Game Day.
+
+- **Experience.** A primary "Live Median Race" section placed directly after the Matchup Hero. The new
+  hierarchy is Hero → Median Race → What Matters Now → NFL Slate → Best Ball Details → Data Info.
+  - Every roster of the selected league appears once, ranked by beat-median probability.
+  - Each row shows score now, projected finish, same-draw median margin, beat-median % and movement.
+  - A league-median summary shows current, projected final and 80% range.
+  - An objective bubble (probability distance from 50%) names who is fighting around the cutoff.
+- **Math reused, never re-derived.** The existing league-wide simulation stays canonical: one draw scores
+  every team, M(d) is that draw's own median (host-verified semantics; an exact tie is not a win), and
+  P(beat) = P[S(t,d) > M(d)].
+  - The projected median distribution comes from the M(d) series.
+  - The margin is the paired S(t,d) − M(d).
+  - There is no frontend median, no per-team simulation and no fixed cutoff.
+- **Truth rules.**
+  - Current median only when live scoring is complete; otherwise it is named unavailable.
+  - Final week resolves to actual BEAT / MISS / TIE.
+  - A median-disabled or unverified league never gets fabricated percentages.
+  - Missing is never zero.
+- **Live.** Only the existing shared collector and generations. Movement is in percentage points, against
+  the previous comparable published generation only, and absent when there is none. No new timer,
+  history or archive; the existing generation index retains calibration evidence.
+- **Selection.** A row switches Game Day via the existing `?team=` mechanism. The picker stays in sync.
+  There is no second team state and no global My Team change.
+- **UI.** Locked PSI / Direction A. A dense ranked list on desktop and two-line ruled rows at 390 px. No
+  categorical probability colours (#1428 stays separate).
+- **Not authorized.** A new engine, simulation, projection, scoring, collector or ML system; playoff or
+  season projections.
