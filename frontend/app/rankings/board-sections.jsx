@@ -8,7 +8,7 @@
  * All data derivations live in the page / lib helpers — these render
  * backend stamps verbatim (no ranking math client-side).
  */
-import { Icon, Panel } from "@/components/ds";
+import { Icon, Panel, PlayerNameButton, canonicalPlayerId } from "@/components/ds";
 import { RANKING_SOURCES } from "@/lib/dynasty-data";
 import SourceContributionBars from "@/components/graphs/SourceContributionBars";
 import SourceAgreementRadar from "@/components/graphs/SourceAgreementRadar";
@@ -82,13 +82,17 @@ function RailList({ items, emptyText, onPlayerClick, detailFor }) {
         const detail = detailFor(item);
         return (
           <li key={row.name} className={styles.railItem}>
-            <button
-              type="button"
+            {/* #1337: canonical Player File link when the row carries a
+                playerId; picks (no id) keep the quick-view button. */}
+            <PlayerNameButton
+              name={row.name}
+              row={row}
+              playerId={canonicalPlayerId(row)}
+              onOpen={onPlayerClick}
               className={`${styles.resetButton} ${styles.railName}`}
-              onClick={() => onPlayerClick?.(row)}
             >
               #{item.rank ?? row.rank} {row.name}
-            </button>
+            </PlayerNameButton>
             <span className="badge">{row.pos}</span>
             {detail}
           </li>

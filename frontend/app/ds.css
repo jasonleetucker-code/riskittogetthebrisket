@@ -797,10 +797,15 @@ th[aria-sort="ascending"] .ds-table__sort-glyph {
   top: calc(100% + var(--space-2));
 }
 
-/* ══ Player name button ═════════════════════════════════════════════════
-   A name that opens the detail popup, for pages that build their own
-   table markup.  Inherits type so it looks like the text it replaces —
-   the affordance is the hover/focus treatment, not a link colour. */
+/* ══ Player name (PlayerNameButton) ═════════════════════════════════════
+   The canonical player-name primitive (#1337): a link to the Player File
+   when the row carries a canonical id, else the legacy quick-view
+   button.  Inherits type so it looks like the text it replaces — the
+   affordance is the hover/focus treatment, not a link colour, so the
+   <a> form drops the UA underline until hover.  `break-word` keeps a
+   name whole even inside a container that sets `overflow-wrap:
+   anywhere`: it only breaks a word that cannot fit a line on its own,
+   so a long name never splits mid-word but still cannot overflow 390px. */
 .ds-player-name {
   border: 0;
   background: none;
@@ -809,6 +814,8 @@ th[aria-sort="ascending"] .ds-table__sort-glyph {
   font: inherit;
   color: inherit;
   text-align: inherit;
+  text-decoration: none;
+  overflow-wrap: break-word;
   cursor: pointer;
   border-radius: var(--radius-1);
 }

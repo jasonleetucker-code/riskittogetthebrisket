@@ -17,7 +17,8 @@
  * No slot-eligibility arrays: slots are named once, in the lineup table.
  */
 
-import { DataTable } from "@/components/ds";
+import { Fragment } from "react";
+import { DataTable, PlayerNameButton } from "@/components/ds";
 import {
   couldEnterPlayers,
   finishedPlayers,
@@ -31,6 +32,22 @@ import styles from "./game-day.module.css";
 
 function nameFor(side, playerId) {
   return (side?.players || []).find((p) => p.playerId === playerId)?.name || playerId;
+}
+
+// A player's name as the canonical Player File link (#1337), keyed by the
+// Sleeper playerId the payload carries. No id → plain text.
+function playerName(p) {
+  return <PlayerNameButton name={p.name} playerId={p.playerId} />;
+}
+
+/** Comma-joined canonical name links for a list of player ids. */
+function nameLinks(side, ids) {
+  return ids.map((id, i) => (
+    <Fragment key={id}>
+      {i > 0 ? ", " : null}
+      <PlayerNameButton name={nameFor(side, id)} playerId={id} />
+    </Fragment>
+  ));
 }
 
 function pctByPlayer(side) {
@@ -54,10 +71,10 @@ function CurrentLineup({ side, mode }) {
   // feed could not see AND who have no banked points — so they cannot be
   // seated (0.0 cannot tell "has not played" from "scored nothing"). Named,
   // never dropped. Unknown-state players WITH points are already seated.
-  const unknown = (lineup.unknownStatePlayerIds || []).map((id) => nameFor(side, id));
+  const unknown = lineup.unknownStatePlayerIds || [];
   const unknownNote = unknown.length ? (
     <p className={styles.note}>
-      Game status unknown for {unknown.join(", ")} — the live feed could not see{" "}
+      Game status unknown for {nameLinks(side, unknown)} — the live feed could not see{" "}
       {unknown.length === 1 ? "his game and he has" : "their games and they have"} no points
       banked, so {unknown.length === 1 ? "he is" : "they are"} not seated here yet.
     </p>
@@ -75,7 +92,7 @@ function CurrentLineup({ side, mode }) {
   const pct = pctByPlayer(side);
   const columns = [
     { key: "slot", header: "Slot", render: (s) => slotLabel(s.slot) },
-    { key: "name", header: "Player", render: (s) => s.name },
+    { key: "name", header: "Player", render: (s) => playerName(s) },
     {
       key: "points",
       header: "Points",
@@ -132,7 +149,7 @@ function ProjectedLineup({ side }) {
   }
   const columns = [
     { key: "slot", header: "Slot", render: (s) => slotLabel(s.slot) },
-    { key: "name", header: "Player", render: (s) => s.name },
+    { key: "name", header: "Player", render: (s) => playerName(s) },
     {
       key: "proj",
       header: "Proj",
@@ -176,7 +193,7 @@ function CouldEnter({ side, mode }) {
             header: "Player",
             render: (p) => (
               <span>
-                {p.name}
+                {playerName(p)}
                 {positionLabel(p) ? <span className={styles.muted}> · {positionLabel(p)}</span> : null}
               </span>
             ),
@@ -207,7 +224,7 @@ function GameFinished({ side, mode }) {
       <DataTable
         caption={`${side.displayName}: players whose game is over`}
         columns={[
-          { key: "name", header: "Player", render: (p) => p.name },
+          { key: "name", header: "Player", render: (p) => playerName(p) },
           {
             key: "pts",
             header: "Points",
