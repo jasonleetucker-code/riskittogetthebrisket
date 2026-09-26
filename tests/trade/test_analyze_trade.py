@@ -263,7 +263,7 @@ class TestFeasibility:
         )
         assert clean["recommendation"] == "LEAN_MAKE"
         assert cut["recommendation"] == "TOO_CLOSE"
-        assert any("cut(s) required" in r for r in cut["reasonsAgainst"])
+        assert any("1 cut required" in r for r in cut["reasonsAgainst"])
 
     def test_resolving_an_overage_is_a_real_benefit(self):
         a = analyze_trade(
@@ -390,3 +390,33 @@ class TestReasons:
     def test_lost_bench_insurance_is_a_reason_against(self):
         a = analyze_trade(_sim([5000], [3000], utility=_utility(2.0, depth=0.9)))
         assert any("Bench insurance declines" in r for r in a["reasonsAgainst"])
+
+
+class TestReasonsNeverTreatMissingAsZero:
+    def test_unmeasured_outgoing_usage_is_not_reported(self):
+        players = [
+            {
+                "playerId": "u",
+                "name": "Unprojected RB",
+                "role": "outgoing",
+                "lineupEntryPctBefore": None,
+            },
+        ]
+        a = analyze_trade(_sim([5000], [3000], utility=_utility(2.0, players=players)))
+        assert not any("Unprojected RB" in r for r in a["reasonsFor"] + a["reasonsAgainst"])
+
+    def test_an_abstaining_roster_lens_gives_no_roster_reasons(self):
+        players = [
+            {"playerId": "a", "name": "Star", "role": "incoming", "lineupEntryPctAfter": 95.0}
+        ]
+        a = analyze_trade(
+            _sim(
+                [3010],
+                [3000],
+                utility=_utility(5.0, coverage="partial", players=players, depth=2.0),
+            )
+        )
+        text = " ".join(a["reasonsFor"] + a["reasonsAgainst"])
+        assert "Star enters" not in text
+        assert "Bench insurance" not in text
+        assert "best-ball points per week" not in text

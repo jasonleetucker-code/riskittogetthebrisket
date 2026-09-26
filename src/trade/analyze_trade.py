@@ -468,6 +468,10 @@ def _pct(x: Any) -> str:
     return "—" if x is None else f"{float(x):.0f}%"
 
 
+def _plural(n: int, word: str) -> str:
+    return f"{n} {word}" if n == 1 else f"{n} {word}s"
+
+
 def _reasons(
     market: DimensionResult,
     roster: DimensionResult,
@@ -488,7 +492,11 @@ def _reasons(
             )
 
     detail = roster.detail or {}
-    if detail.get("ppg") is not None:
+    # A roster lens that abstained (a traded player has no projection) gives
+    # no roster reasons: its numbers are partial, and a reason built on them
+    # would read as complete.  The uncertainty list says why.
+    abstained = roster.unavailable_reason == "partial_projection_coverage"
+    if detail.get("ppg") is not None and not abstained:
         ppg = detail["ppg"]
         if roster.available and roster.direction == "favors":
             reasons_for.append(f"+{ppg:.1f} expected best-ball points per week in the legal lineup")
@@ -507,7 +515,13 @@ def _reasons(
                     f"{p['name']} would reach the lineup in only "
                     f"{_pct(p['lineupEntryPctAfter'])} of simulated weeks (redundant here)"
                 )
-        outgoing = [p for p in detail.get("players") or [] if p.get("role") == "outgoing"]
+        # Only players whose lineup usage was measured: an unprojected player's
+        # usage is unknown, not 0%, and never counts toward "rarely used".
+        outgoing = [
+            p
+            for p in detail.get("players") or []
+            if p.get("role") == "outgoing" and p.get("lineupEntryPctBefore") is not None
+        ]
         if outgoing:
             usage = ", ".join(
                 f"{p['name']} {_pct(p.get('lineupEntryPctBefore'))}" for p in outgoing
@@ -533,7 +547,11 @@ def _reasons(
     fd = feasibility.detail or {}
     state = fd.get("state")
     if state == "fits_cleanly":
-        reasons_for.append(f"Fits without a cut ({fd.get('openSpotsAfter')} open spot(s) after)")
+        spots = fd.get("openSpotsAfter")
+        reasons_for.append(
+            "Fits without a cut"
+            + (f" ({_plural(int(spots), 'open spot')} after)" if spots is not None else "")
+        )
     elif state == "uses_final_spot":
         reasons_against.append("Uses your final open roster spot")
     elif state == "resolves_overage":
@@ -546,7 +564,7 @@ def _reasons(
         names = ", ".join(str(d.get("name")) for d in fd.get("forcedDrops") or [])
         cut = len(fd.get("forcedDrops") or [])
         reasons_against.append(
-            f"Roster full — {cut} cut(s) required" + (f": likely {names}" if names else "")
+            f"Roster full — {_plural(cut, 'cut')} required" + (f": likely {names}" if names else "")
         )
     return reasons_for, reasons_against
 
