@@ -36,3 +36,22 @@ Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 The same runner accepts `--diagnostics true`; the default remains disabled. Bounded browser observations classify auth, settings, league and data views, retaining fetch/header and body/JSON-promise completion timestamps plus ResourceTiming sizes. JSON promise time includes body waiting and scheduling as well as parsing. Resource categories are not exact request joins. Useful-boundary and post-load snapshots remain distinct; missing observer support, pending requests and dropped events are explicit.
 
 Native fetch/JSON promises, values and errors are preserved. No URLs, queries, headers, credentials, identities or bodies enter the report. The workflow's manual boolean input only affects its existing baseline step. [Independent review](evidence/browser-attribution-review-2026-09-26.json) preserves two rejected attribution defects and their corrections: the real settings endpoint and failed-observer availability. Final 21 Node tests and 9 workflow/classification checks pass. Collector-on/off production measurements are still required; no new performance improvement is claimed.
+
+## Remaining-route readiness predicates
+
+The existing runner now recognizes public league overview and Game Day useful,
+partial and unavailable states. Public league uses a fresh sessionless context;
+the surrounding workflow can still warm the backend during guest provisioning.
+Guest Game Day without a selected team is explicitly unavailable, never a passing
+numerical timing observation. Zero scores/counts remain valid. Existing core
+predicates and budgets are unchanged; the supplemental resolved-within-five-seconds
+field does not make partial/unavailable observations pass numerical route gates.
+The manual fixed `baseline_route_set` defaults to `core`; `league-game-day` adds
+these two routes without accepting arbitrary shell or route input.
+
+Independent review rejected four misleading state cases before approval; all
+remain regression-tested. Final 33 Node/Chrome DOM tests and six workflow checks
+pass. The Node/DOM tests run as a blocking E2E workflow step before stack startup.
+This expands the existing route denominator; it adds no new diagnostic platform
+and does not establish production acceptance. See the reviewed hash receipt in
+`evidence/route-probes-review-2026-09-26.json`.

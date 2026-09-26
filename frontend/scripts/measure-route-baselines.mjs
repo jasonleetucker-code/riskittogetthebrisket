@@ -84,7 +84,8 @@ const SECRET = process.env.E2E_TEST_SECRET || "";
 const ROUTES = [
   { path: "/rankings", ready: SEL.boardRow, note: "a board row — the player table has data" },
   { path: "/trade", ready: SEL.tradeControls, note: "visible controls and an eligible result for the fixed a search" },
-  { path: "/league", ready: "main .card, .league-page .card", note: "the first league card" },
+  { path: "/league", ready: "#league-panel-overview .ds-stat__value", note: "five public overview vitals; sessionless" },
+  { path: "/game-day", ready: "[data-game-day-ready] table", note: "mode-specific score/forecast; no-team only unavailable" },
   { path: "/market/sharp-tracker", ready: "main table tbody tr", note: "a tracker table row" },
   { path: "/market/sharp-roster-percentage", ready: "main table tbody tr", note: "a roster-percentage row" },
   { path: "/waivers", ready: SEL.waiverBidDesk, note: "the FAAB bid desk" },
@@ -110,11 +111,12 @@ export function parseArgs(argv) {
     else if (a === "--json") out.json = argv[++i];
     else if (a === "--timeout") out.timeout = Number(argv[++i]);
   }
-  if (!["local-test", "production-cookie"].includes(out.auth) || !Number.isInteger(out.runs) || out.runs < 1 || out.runs > 100 ||
+  if (!["local-test", "production-cookie", "public"].includes(out.auth) || !Number.isInteger(out.runs) || out.runs < 1 || out.runs > 100 ||
       !["desktop", "mobile", "both"].includes(out.viewport) ||
       !Number.isFinite(out.timeout) || out.timeout < 1 || out.timeout > 120000 ||
       (out.routes && (!out.routes.length || new Set(out.routes).size !== out.routes.length ||
        out.routes.some(path => !ROUTES.some(route => route.path === path))))) throw new Error("invalid_arguments");
+  if (out.auth === "public" && (!out.routes || out.routes.some(path => path !== "/league"))) throw Error("invalid_arguments");
   return out;
 }
 
@@ -217,6 +219,7 @@ export async function measureOnce(page, route, timeoutMs, origin = PAGE_ORIGIN, 
   let terminalState = "missing";
   let navigationStatus = null;
   let usefulDiagnostics = null;
+  let outcomeDetail = null, resolvedObservedMs = null;
   try {
     const response = await page.goto(`${origin}${route.path}`, {
       waitUntil: "commit",
@@ -227,7 +230,12 @@ export async function measureOnce(page, route, timeoutMs, origin = PAGE_ORIGIN, 
     navigationStatus = status;
     if (new URL(page.url()).origin !== new URL(origin).origin || new URL(page.url()).pathname !== route.path) return failedSample("route_mismatch");
     try {
-      terminalState = await baselineUsefulState(page, route.path, timeoutMs);
+      const outcome = await baselineUsefulState(page, route.path, timeoutMs);
+      terminalState = typeof outcome === "string" ? outcome : outcome.state;
+      if (typeof outcome === "object") {
+        outcomeDetail = outcome.detail;
+        resolvedObservedMs = await page.evaluate(() => performance.now());
+      }
       if (terminalState === "useful") {
         if (diagnostics) {
           const boundary = await page.evaluate(() => ({ time: performance.now(), diagnostics: globalThis.__baselineDiagnosticsSnapshot?.() ?? null }));
@@ -286,12 +294,13 @@ export async function measureOnce(page, route, timeoutMs, origin = PAGE_ORIGIN, 
   return {
     ...nav,
     navigationStatus,
+    ...(outcomeDetail ? {outcomeDetail, resolvedObservedMs} : {}),
     ...(diagnostics ? { usefulDiagnostics, postLoadDiagnostics: await page.evaluate(() => globalThis.__baselineDiagnosticsSnapshot?.() ?? null) } : {}),
     usefulMs,
     readyReason,
     terminalState,
     // A late check after the useful probe, not the first error paint.
-    unavailableObservedMs: terminalState === "unavailable" ? await page.evaluate(() => performance.now()) : null,
+    unavailableObservedMs: terminalState === "unavailable" ? (resolvedObservedMs ?? await page.evaluate(() => performance.now())) : null,
   };
 }
 
@@ -310,6 +319,7 @@ export function summarise(samples, expected = samples.length) {
   out.expected = expected;
   out.observed = samples.length;
   out.valid = expected > 0 && samples.length === expected && out.usefulMissing === 0 && out.errors === 0;
+  out.partial = samples.filter(s => s?.terminalState === "partial").length;
   out.unavailable = samples.filter(s => s?.terminalState === "unavailable").length;
   return out;
 }
@@ -352,7 +362,11 @@ export async function collectAttempt(browser, viewport, route, timeout, auth = {
     ctx = await browser.newContext({ baseURL: API, viewport: VIEWPORTS[viewport], isMobile: viewport === "mobile", hasTouch: viewport === "mobile" });
     if (diagnostics) await ctx.addInitScript(installBaselineDiagnostics, true);
     let authenticated = false;
-    if (auth.mode === "production-cookie") {
+    if (route.path === "/league") {
+      authenticated = true; // New context, no cookie installation or authentication preflight.
+    } else if (auth.mode === "public") {
+      authenticated = false;
+    } else if (auth.mode === "production-cookie") {
       authenticated = await authenticateProduction(ctx, auth);
     } else {
       const session = await ctx.request.post(`${API}/api/test/create-session`, {
@@ -390,6 +404,7 @@ export function targetVerdicts(cold, warm, expected) {
     coldP95Within3000Ms: c.valid && c.usefulMs.p95 <= 3000,
     warmP95Within1000Ms: w.valid && w.usefulMs.p95 <= 1000,
     everyObservedUsefulWithin5000Ms: complete && [...cold, ...warm].every(s => s.usefulMs <= 5000),
+    everyObservedResolvedWithin5000Ms: expected > 0 && cold.length === expected && warm.length === expected && [...cold,...warm].every(s => !s.error && ["useful","partial","unavailable"].includes(s.terminalState) && Number.isFinite(s.resolvedObservedMs ?? s.usefulMs) && (s.resolvedObservedMs ?? s.usefulMs) >= 0 && (s.resolvedObservedMs ?? s.usefulMs) <= 5000),
     normalNavigationP95: null,
     normalNavigationReason: "not_measured",
   };
@@ -403,7 +418,9 @@ export async function main(argv = process.argv.slice(2)) {
   }
   const routes = args.routes ? ROUTES.filter(r => args.routes.includes(r.path)) : ROUTES;
   const viewports = args.viewport === "both" ? ["desktop", "mobile"] : [args.viewport];
-  const auth = args.auth === "production-cookie"
+  const publicOrigin = process.env.PROD_ORIGIN || PAGE_ORIGIN;
+  if (args.auth === "public" && process.env.PROD_ORIGIN && process.env.PROD_ORIGIN !== "https://chaseupside.com") throw Error("invalid_production_configuration");
+  const auth = args.auth === "public" ? {mode: "public", origin: publicOrigin} : args.auth === "production-cookie"
     ? productionAuth(process.env, args.runs * routes.length * viewports.length * (6 * args.timeout / 1000 + 30) + 120)
     : { mode: "local-test", origin: PAGE_ORIGIN };
   const browser = await chromium.launch({
@@ -436,7 +453,7 @@ export async function main(argv = process.argv.slice(2)) {
         }
         const key = `${vp} ${route.path}`;
         report.routes[key] = {
-          viewport: vp, path: route.path, readySelector: route.ready, readyMeans: route.note,
+          viewport: vp, path: route.path, authProfile: route.path === "/league" ? "public_sessionless" : auth.mode, readySelector: route.ready, readyMeans: route.note,
           cold: summarise(cold, args.runs), coldAttempts: cold,
           warm: summarise(warm, args.runs), warmAttempts: warm,
           observedTargets: targetVerdicts(cold, warm, args.runs),

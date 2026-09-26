@@ -7,6 +7,30 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github/workflows/v1-authenticated-verification.yml"
 
 
+def test_measurement_predicates_run_in_blocking_browser_ci_before_app_start():
+    import yaml
+
+    workflow = yaml.safe_load((ROOT / ".github/workflows/e2e.yml").read_text(encoding="utf-8"))
+    steps = workflow["jobs"]["e2e"]["steps"]
+    names = [step["name"] for step in steps]
+    index = names.index("Validate route measurement predicates")
+    assert names.index("Install Playwright chromium (test runner only)") < index
+    assert index < names.index("Start backend (FastAPI :8000)")
+    step = steps[index]
+    assert "if" not in step and not step.get("continue-on-error", False)
+    assert "set -Eeuo pipefail" in step["run"]
+    assert (
+        "node --test tests/e2e/route-baseline-unit.test.mjs tests/e2e/route-useful-state.test.mjs"
+        in step["run"]
+    )
+    classification = json.loads(
+        (ROOT / "config/ci/release_gate_classification.json").read_text(encoding="utf-8")
+    )
+    assert classification["entries"]["e2e.yml::e2e::Validate route measurement predicates"] == {
+        "category": "blocking"
+    }
+
+
 def test_opt_in_baseline_does_not_change_legacy_suites():
     text = WORKFLOW.read_text(encoding="utf-8")
     assert "options: [api, browser, all, baseline]" in text
@@ -14,7 +38,11 @@ def test_opt_in_baseline_does_not_change_legacy_suites():
     assert "(inputs.suite != 'api' && inputs.suite != 'baseline')" in text
     assert "node-version: '20'" in text
     assert "--auth production-cookie --runs 5 --viewport both" in text
-    assert "--routes /rankings,/trade" in text
+    assert "options: [core, league-game-day]" in text
+    assert "core) routes=/rankings,/trade ;;" in text
+    assert "league-game-day) routes=/league,/game-day ;;" in text
+    assert "*) echo 'Unreviewed baseline route set' >&2; exit 2 ;;" in text
+    assert '--routes "$routes" --timeout 45000' in text
     assert "PROD_SESSION_EXPIRES_EPOCH: ${{ steps.login.outputs.expires_epoch }}" in text
     assert '"$BASELINE_REQUESTED" = "true"' in text
     assert '"$BASELINE_EXIT" != "0"' in text

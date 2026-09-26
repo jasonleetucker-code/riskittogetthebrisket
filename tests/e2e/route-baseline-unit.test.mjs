@@ -45,7 +45,7 @@ test("trade control chrome alone is insufficient; missing search result fails", 
   }};
   await assert.rejects(baselineUsefulState(page,"/trade",20),/no data/);
   assert.ok(queries.some(q=>q.includes("search-result:visible")));
-  assert.equal(await baselineUsefulState(page,"/league",20),"unsupported_predicate");
+  assert.equal(await baselineUsefulState(page,"/unknown",20),"unsupported_predicate");
 });
 
 test("invalid useful observations and arbitrary errors fail closed", () => {

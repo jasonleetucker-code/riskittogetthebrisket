@@ -595,6 +595,73 @@ function attachConsoleGuards(page, { allow = [] } = {}) {
   };
 }
 
+/** Browser-local, fixed-enum evidence only; no names, identifiers or payloads returned. */
+function routeUsefulSnapshot(path) {
+  const visible = el => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
+  const text = el => (el?.textContent || "").trim();
+  const all = (root, selector) => [...root.querySelectorAll(selector)].filter(visible);
+  const result = (state, detail) => ({state, detail});
+  const pending = () => result("pending", "data_pending");
+  const main = document.querySelector("main") || document;
+  if (path === "/league") {
+    const topLevelEmpty = all(main, "h2,h3,h4,.empty-state-title").some(el => !el.closest('[role="tabpanel"]') && ["League data unavailable", "No public league data"].includes(text(el)));
+    const panel = document.querySelector('#league-panel-overview[role="tabpanel"]');
+    if (!visible(panel)) return topLevelEmpty ? result("unavailable", "public_data_unavailable") : pending();
+    const select = document.querySelector('#league-section-select');
+    const tab = document.querySelector('#league-tab-overview');
+    if (visible(select) ? select.value !== "overview" : !visible(tab) || tab.getAttribute("aria-selected") !== "true") return pending();
+    const empty = all(panel, "h2,h3,h4,.empty-state-title").some(el => ["Overview coming online", "Section unavailable"].includes(text(el)));
+    const cards = all(panel, '.league-card').filter(card => all(card, 'h2').some(el => text(el) === "At a glance"));
+    if (cards.length !== 1) return empty ? result("unavailable", "public_data_unavailable") : pending();
+    for (const label of ["Seasons", "Managers", "Trades", "Waivers", "Scored weeks"]) {
+      const tiles = all(cards[0], '.ds-stat').filter(tile => text(tile.querySelector('.ds-stat__label')) === label);
+      if (tiles.length !== 1) return pending();
+      const value = tiles[0].querySelector('.ds-stat__value'), raw = text(value);
+      if (!visible(value) || !/^\d+$/.test(raw) || !Number.isSafeInteger(Number(raw))) return pending();
+    }
+    return result("useful", "public_overview_vitals");
+  }
+  if (path !== "/game-day") return pending();
+  const empty = all(main, "h2,h3,h4").find(el => ["No team selected", "That team is not in this league", "The host has not stated the current week", "This week has already started"].includes(text(el)));
+  if (empty) return result("unavailable", text(empty) === "No team selected" ? "team_required" : "matchup_unavailable");
+  const roots = all(main, '[data-game-day-ready="true"]');
+  if (roots.length !== 1) return all(main, '[role="alert"]').length ? result("unavailable", "matchup_failure") : pending();
+  const root = roots[0], hero = root.querySelector('section[aria-labelledby="game-day-hero-title"]');
+  if (!visible(hero) || !root.dataset.gameDayTeam) return pending();
+  const params = new URL(location.href).searchParams;
+  if (params.get('team') && params.get('team') !== root.dataset.gameDayTeam) return pending();
+  const week = text(hero.querySelector('#game-day-hero-title')).match(/^Week ([1-9]\d*) \u00b7 ([1-9]\d*)$/);
+  if (!week || ['week','season'].some((key,i) => params.get(key) && params.get(key) !== week[i+1])) return pending();
+  const heads = all(hero, 'thead th').map(text);
+  const rows = all(hero, 'tbody tr').filter(row => all(row,'th[scope="row"]').some(el => text(el).startsWith('Selected team')));
+  if (rows.length !== 1) return pending();
+  const cells = [...rows[0].querySelectorAll('td')];
+  const cell = label => cells[heads.indexOf(label)-1];
+  const number = label => { const el=cell(label); const raw=text(el?.querySelector(':scope > span') || el); return visible(el) && /^-?\d+(?:\.\d+)?$/.test(raw) && Number.isFinite(Number(raw)); };
+  const percent = label => { const el=cell(label); const raw=text(el?.querySelector(':scope > span') || el); return visible(el) && /^\d+(?:\.\d+)?%$/.test(raw) && Number(raw.slice(0,-1)) <= 100; };
+  const bye = all(hero,'p').some(el => text(el) === 'No scheduled opponent this week.');
+  const retained = all(root,'[role="status"]').some(el => text(el).startsWith('Refresh unavailable.'));
+  const scoreCell = cell(heads.includes('Final score') ? 'Final score' : 'Score now');
+  const scorePartial = scoreCell && all(scoreCell,'span').some(el => /^Partial .*scoring missing for [0-9]+ players?$/.test(text(el)));
+  if (scorePartial && number(heads.includes('Final score') ? 'Final score' : 'Score now')) return result('partial','score_partial');
+  if (heads.includes('Final score') && all(hero,'*').some(el => text(el) === 'Final')) {
+    const value=text(cell('Result')?.querySelector(':scope > span') || cell('Result'));
+    if (number('Final score') && (bye || ['WIN','LOSS','TIE','Win','Loss','Tie','W','L','T'].includes(value))) return result('useful',retained?'retained_final':'final_score');
+    if (number('Final score')) return result('partial','final_incomplete');
+    return text(cell('Final score')?.querySelector(':scope > span')) === 'Unavailable' ? result('unavailable','final_unavailable') : pending();
+  }
+  const live = heads.includes('Score now');
+  if (!all(hero,'*').some(el => text(el) === (live ? 'Live' : 'Upcoming'))) return pending();
+  const forecastFailed = all(hero,'.ds-banner__title').some(el => text(el) === 'Forecast failed');
+  if (forecastFailed) return live && number('Score now') ? result('partial','live_score_forecast_failed') : result('unavailable','forecast_failed');
+  const forecast = number('Projected finish') && (bye || percent('Win chance'));
+  if (forecast && (!live || number('Score now'))) return result('useful',retained?'retained_matchup':live?'live_score_and_forecast':'pregame_forecast');
+  if (live && number('Score now')) return result('partial','live_score_only');
+  if (all(hero,'*').some(el => visible(el) && text(el) === 'Computing\u2026')) return pending();
+  if (heads.includes('Projected finish') && all(rows[0],'span').some(el => ['Unavailable','Paused','Unverified'].includes(text(el)))) return result('unavailable','forecast_unavailable');
+  return pending();
+}
+
 /** Baseline-only probe: navigation plus an actual eligible search result on Trade.
  * Never weakens the journey assertions above. Unsupported routes fail closed.
  */
@@ -615,10 +682,19 @@ async function baselineUsefulState(page, path, timeout) {
     await page.locator('.trade-side-search-result:visible').first().waitFor({ state: "visible", timeout: remaining() });
     return "useful";
   }
+  if (["/league", "/game-day"].includes(path)) {
+    while (Date.now() < deadline) {
+      const snapshot = await page.evaluate(routeUsefulSnapshot, path);
+      if (snapshot.state !== "pending") return snapshot;
+      await page.waitForTimeout(Math.min(50, remaining()));
+    }
+    throw new Error("useful_timeout");
+  }
   return "unsupported_predicate";
 }
 
 module.exports = {
+  routeUsefulSnapshot,
   baselineUsefulState,
   SEL,
   NAME,

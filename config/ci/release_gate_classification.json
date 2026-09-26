@@ -293,6 +293,9 @@
     "e2e.yml::e2e::Preflight (compile checks, contract validation, data seed)": {
       "category": "blocking"
     },
+    "e2e.yml::e2e::Validate route measurement predicates": {
+      "category": "blocking"
+    },
     "e2e.yml::e2e::Run Playwright suite": {
       "category": "blocking"
     },
