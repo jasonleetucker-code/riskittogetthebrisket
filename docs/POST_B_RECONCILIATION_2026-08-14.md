@@ -208,6 +208,8 @@ these appear **zero times**:
 **Six capability families and one authorization record would have been lost** by treating #816 as a superset.
 All 15 #809 specifications are now on `main`; per-spec destinations are in the traceability document §I.
 
+> **Superseded 2026-09-26:** the owner reinstated the League MVP playoff-field + >.500 gate (OPOY/DPOY/ROY/positional stay ungated); see `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md`. The text below is the 2026-08-14 record.
+
 **The Player-MVP conflict is resolved in favour of the newer owner decision**, as the mission directs: player MVP
 has **no** hard playoff-field or >.500 eligibility gate. Team success may be contextual or tie-break evidence.
 The amendment is recorded in `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` itself, at the top, so it cannot be read

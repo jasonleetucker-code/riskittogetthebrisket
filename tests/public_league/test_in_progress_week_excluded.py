@@ -30,7 +30,10 @@ _ROSTERS = [
         "roster_id": i,
         "owner_id": o,
         "players": [f"q{i}", f"r{i}", f"d{i}"],
-        "settings": {"wins": 1, "losses": 1, "fpts": 200},
+        # Every team 2-0 and in the field: League MVP's team-success gate
+        # (owner decision 2026-09-26) admits every franchise, so these tests
+        # keep measuring the finished-week rule, not eligibility.
+        "settings": {"wins": 2, "losses": 0, "fpts": 200},
     }
     for i, o in enumerate(_OWNERS, start=1)
 ]
@@ -90,7 +93,7 @@ def season_with(weeks: dict[int, list[dict]], *, last_scored_leg: int = 2) -> Se
         "roster_positions": ["QB", "RB", "DL", "BN"],
         "settings": {
             "playoff_week_start": 15,
-            "playoff_teams": 2,
+            "playoff_teams": 4,
             "last_scored_leg": last_scored_leg,
         },
         # Sleeper carries LAST season's champion forward -- must stay unused.

@@ -303,7 +303,7 @@ Trade only, not for protection or LOCK/EXCLUDE. Both are fixed on `main` by this
 | spec | destination |
 |---|---|
 | `AI_FRONT_OFFICE_INTELLIGENCE_SPEC.md` | `C7-AI-01`…`C7-AI-05`, `C7-ALERT-01` |
-| `BRISKET_HONORS_ELIGIBILITY_SPEC.md` | `C9-AWARD-02` — **player-MVP gate superseded**, MOTY preserved |
+| `BRISKET_HONORS_ELIGIBILITY_SPEC.md` | `C9-AWARD-02` — **League MVP gate reinstated by owner decision 2026-09-26** (the 2026-08-14 supersession is itself superseded); OPOY/DPOY/ROY/positional ungated; MOTY preserved |
 | `CANONICAL_WEEKLY_POWER_RANKINGS_SPEC.md` | `C5-POW-01` |
 | `COMPETITOR_REUSE_POLICY.md` | `C0-GOV-08` — scope-bounded to design patterns, not data rights |
 | `GAME_DAY_PROBABILITY_SPEC.md` | `C5-GD-01` |
@@ -406,9 +406,11 @@ dropped: every branch-side entry either resolved to its canonical identifier or 
    (`docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §2 and §10). Missing evidence still never becomes zero —
    the replacement is a documented generic/future valuation with provenance and uncertainty, not a zero.
    → `C1-PICK-01`. Both records are patched on `main` by this PR.
-2. **Player MVP requires the playoff field and >.500.** In `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md`.
-   **Superseded** by `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` §7. **Manager of the Year is NOT superseded** — no
-   newer owner instruction touches it, so its team-success eligibility rule stands. → `C9-AWARD-02`.
+2. **Player MVP has no hard playoff-field or >.500 gate.** In `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` §7
+   (2026-08-13), which had superseded the Honors spec's gate. **Superseded by the owner decision of 2026-09-26:**
+   League MVP requires playoff-field membership + a record above .500 again
+   (`docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` §3–§6); OPOY / DPOY / ROY / positional awards stay ungated.
+   **Manager of the Year is NOT superseded** — its team-success eligibility rule stands. → `C9-AWARD-02`.
 3. **`src/news/unified_signal_engine.py` is "the single entry point for every BUY/SELL/HOLD decision."** A
    docstring ownership claim in a module with zero callers, while six other emitters serve production.
    **Superseded** — the claim is retired and a real reconciler is scope. → `C6-SIG-01`.

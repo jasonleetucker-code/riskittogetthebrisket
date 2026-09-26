@@ -1,12 +1,16 @@
 # Brisket Honors — MVP / Manager Eligibility Rules
 
-> **RECONCILIATION AMENDMENT — 2026-08-14.** Promoted to `main` verbatim from PR #809 by the post-B master
-> reconciliation (`docs/POST_B_RECONCILIATION_2026-08-14.md`). Body unchanged, with **one binding supersession**:
+> **OWNER DECISION — 2026-09-26 (binding; supersedes the 2026-08-14 amendment below).** League MVP
+> **requires meaningful team success**: this document's §3 (live) and §4 (finalized) gate is the canonical rule
+> again — the credited franchise must be in the championship playoff field **and** above .500. Offensive and
+> Defensive Player of the Year, both Rookie of the Year awards and the positional awards **do not** inherit it
+> (§10, §14). League MVP = elite player performance on a successful fantasy team; OPOY / DPOY = the best
+> offensive / defensive individual performance regardless of the fantasy team's record. Implemented in
+> `src/public_league/awards.py` (`_league_mvp_gate`); the implementation status is recorded in §14.
 >
-> **PLAYER MVP HAS NO HARD PLAYOFF-FIELD OR >.500 ELIGIBILITY GATE.** Wherever this document imposes one on
-> *player* MVP, the newer owner decision recorded in `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` §7 and
-> `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §2 wins. Team success may be contextual or tie-break
-> evidence only.
+> ~~**RECONCILIATION AMENDMENT — 2026-08-14.**~~ *Superseded 2026-09-26.* It had promoted this file from PR #809
+> with one binding supersession — "player MVP has no hard playoff-field or >.500 eligibility gate", citing
+> `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` §7 — which the owner reversed on 2026-09-26. Kept for provenance only.
 >
 > **Manager of the Year is NOT superseded.** It may retain an appropriately validated team-success eligibility
 > rule, exactly as this document states. GM/Executive and player-performance awards stay conceptually separate.
@@ -280,7 +284,13 @@ Before this eligibility system is considered complete:
 
 ## 14. Method status
 
-**League MVP team-success eligibility:** OWNER-APPROVED / FINAL DIRECTION.  
+**League MVP team-success eligibility:** OWNER-APPROVED / FINAL DIRECTION (re-confirmed 2026-09-26). **Implemented 2026-09-26** in
+`src/public_league/awards.py::_league_mvp_gate` for live (§3: canonical standings order × the league's own
+`playoff_teams`, host records incl. median games, strictly above .500) and finalized seasons (§4: actual winners-
+bracket membership + final record); unverifiable fields report `mvp_eligibility_unverified`, an empty eligible
+pool reports `no_eligible_mvp_candidate`, and the race publishes the best performers kept out with the reason
+(§11). **Partial:** §7's per-franchise-week attribution for traded players is not yet implemented — a player is
+credited to his most recent franchise (the existing award attribution) and gated on it.  
 **Manager of the Year team-success eligibility:** OWNER-APPROVED / FINAL DIRECTION.  
 **GM of the Year playoff/winning-record gate:** EXPLICITLY NOT APPLIED.  
 **OPOY/DPOY/ROY/positional playoff/winning-record gate:** EXPLICITLY NOT APPLIED BY DEFAULT.  
