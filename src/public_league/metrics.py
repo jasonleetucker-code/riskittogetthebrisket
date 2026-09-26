@@ -548,8 +548,23 @@ def walk_weekly_scores(
 def walk_matchup_pairs(
     snapshot: PublicLeagueSnapshot,
     include_playoffs: bool = True,
+    *,
+    final_only: bool = True,
 ) -> Iterable[tuple[SeasonSnapshot, int, dict[str, Any], dict[str, Any], bool]]:
     """Yield (season, week, a, b, is_playoff) for every scored pair.
+
+    **Finished weeks only, by default.**  Every consumer of this walker
+    (records, streaks, rivalries, the matchup preview's head-to-head and
+    form) reports RESULTS, and a pair in a week that is still being played
+    has no result: measured on the live 2026 week 3, the record book ranked
+    a 16.7-point Thursday sliver the 1st-lowest single-week score all-time,
+    a win streak ended on a 44.79-0.0 partial game, and the Home preview
+    called an unplayed game "most recent: Collin by 32.4 in 2026 wk 3".
+    Weeks are therefore restricted to ``final_weeks`` -- the one canonical
+    definition, never a second one.  A combined multi-week final is emitted
+    only once BOTH of its weeks are final: a championship whose second leg
+    is still live has no winner.  ``final_only=False`` is the explicit,
+    opt-in live view; no current consumer uses it.
 
     Multi-week championship matchups (e.g. a 2-week final spanning
     weeks 16 and 17) are detected and yielded as a single combined
@@ -571,6 +586,7 @@ def walk_matchup_pairs(
     """
     for season in snapshot.seasons:
         weeks_sorted = sorted(season.matchups_by_week.keys())
+        final_week_set = set(final_weeks(season)) if final_only else set(weeks_sorted)
         # Pre-compute pairs per week so lookahead into wk+1 is cheap.
         pairs_by_week: dict[int, list[tuple[dict[str, Any], dict[str, Any]]]] = {
             wk: matchup_pairs(season.matchups_by_week[wk]) for wk in weeks_sorted
@@ -628,6 +644,8 @@ def walk_matchup_pairs(
             is_playoff = wk >= playoff_week_start
             if is_playoff and not include_playoffs:
                 continue
+            if wk not in final_week_set:
+                continue
             for a, b in pairs_by_week[wk]:
                 rid_a = roster_id_of(a)
                 rid_b = roster_id_of(b)
@@ -642,6 +660,10 @@ def walk_matchup_pairs(
                 # Combine only when this week is the first half of
                 # the planned 2-week final for *this* pair.
                 plan = combine_plan.get(pair_key)
+                if plan is not None and plan[0] == wk and plan[1] not in final_week_set:
+                    # First leg of a two-week final whose second leg is not
+                    # finished: the matchup is undecided, so emit nothing.
+                    continue
                 if plan is not None and plan[0] == wk:
                     combine_to_wk = plan[1]
                     next_pair = index_by_week.get(combine_to_wk, {}).get(pair_key)

@@ -17,7 +17,7 @@ from __future__ import annotations
 import copy
 import unittest
 
-from src.public_league import awards
+from src.public_league import awards, matchup_preview, metrics, records, rivalries, streaks
 from src.public_league.identity import build_manager_registry
 from src.public_league.snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
@@ -169,6 +169,68 @@ class AwardsIgnoreTheLiveWeekTests(unittest.TestCase):
 
     def test_no_champion_from_last_seasons_metadata(self):
         self.assertIsNone(self._award("champion"))
+
+
+class RecordBookIgnoresTheLiveWeekTests(unittest.TestCase):
+    def test_records_equal_the_post_week_book(self):
+        mid = records.build_section(mid_week_snapshot())
+        self.assertEqual(mid, records.build_section(post_week_snapshot()))
+        # The 6.2-point sliver is not the lowest single week ever.
+        self.assertEqual(mid["singleWeekLowest"][0]["points"], 43.0)
+        self.assertTrue(all(r["week"] != 3 for r in mid["singleWeekLowest"]))
+
+    def test_streaks_equal_the_post_week_streaks(self):
+        mid = streaks.build_section(mid_week_snapshot())
+        self.assertEqual(mid, streaks.build_section(post_week_snapshot()))
+        self.assertEqual(mid["latestWeek"], {"season": "2026", "week": 2})
+        # Nothing from the live week can be "notable this week".
+        self.assertTrue(all(n["week"] != 3 for n in mid["notableThisWeek"]))
+
+    def test_rivalries_equal_the_post_week_rivalries(self):
+        mid = rivalries.build_section(mid_week_snapshot())
+        self.assertEqual(mid, rivalries.build_section(post_week_snapshot()))
+        for rec in mid["rivalries"]:
+            self.assertEqual(rec["totalMeetings"], 2)
+
+
+class PreviewHistoryIgnoresTheLiveWeekTests(unittest.TestCase):
+    def test_h2h_history_equals_the_post_week_history(self):
+        self.assertEqual(
+            matchup_preview._build_h2h_index(mid_week_snapshot()),
+            matchup_preview._build_h2h_index(post_week_snapshot()),
+        )
+
+    def test_live_week_is_previewed_and_never_the_most_recent_meeting(self):
+        section = matchup_preview.build_section(mid_week_snapshot())
+        self.assertEqual((section["mode"], section["currentWeek"]), ("preview", 3))
+        for m in section["matchups"]:
+            self.assertEqual(m["h2h"]["totalMeetings"], 2)
+            self.assertEqual(m["h2h"]["lastMeeting"]["week"], 2)
+            self.assertNotIn("wk 3", m["h2h"]["narrative"])
+            self.assertIsNone(m["home"]["points"])
+
+
+class CombinedFinalTests(unittest.TestCase):
+    """A two-week final is undecided until its SECOND leg is final."""
+
+    def _snap(self, last_scored_leg):
+        weeks = {
+            1: WEEK_1,
+            15: [_entry(1, 1, 30.0, 20.0, 10.0), _entry(1, 2, 25.0, 20.0, 10.0)],
+            16: [_entry(1, 1, 5.0, 0.0, 0.0), _entry(1, 2, 0.0, 0.0, 0.0)],
+        }
+        season = season_with(weeks, last_scored_leg=last_scored_leg)
+        season.league["settings"]["playoff_week_start"] = 15
+        return snapshot_of(season)
+
+    def test_first_leg_alone_emits_no_pair(self):
+        pairs = list(metrics.walk_matchup_pairs(self._snap(15)))
+        self.assertEqual([wk for _s, wk, *_rest in pairs if wk >= 15], [])
+
+    def test_both_legs_final_emit_one_combined_pair(self):
+        pairs = [p for p in metrics.walk_matchup_pairs(self._snap(16)) if p[1] >= 15]
+        self.assertEqual(len(pairs), 1)
+        self.assertEqual(pairs[0][2]["_combinedWeeks"], [15, 16])
 
 
 if __name__ == "__main__":
