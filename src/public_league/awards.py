@@ -558,6 +558,20 @@ def _waiver_king_scores(
     snapshot: PublicLeagueSnapshot,
     season: SeasonSnapshot,
 ) -> list[dict[str, Any]]:
+    """Starting-lineup points each owner got from waiver / FA adds.
+
+    Each ``(roster, player, week)`` contributes AT MOST ONCE.  The lookup
+    is "was this player started by this roster in week w", which is a fact
+    about the roster-week, not about a transaction -- so when a manager
+    adds a player, drops him and adds him again, the first add's
+    post-weeks and the re-add's post-weeks overlap and the old per-add
+    loop counted every week after the re-add twice (measured 2026-09-26 on
+    the persisted snapshot: 43 re-added roster/player pairs and 799.6
+    double-counted points in 2025, 9 pairs and 182.1 points in 2024 --
+    enough to flip both seasons' winners).  A roster-week is
+    credited to the MOST RECENT add of that player by that roster made
+    before the week, which is the stint that actually produced it.
+    """
     per_owner: dict[str, dict[str, Any]] = {}
 
     def _ensure(owner_id: str) -> dict[str, Any]:
@@ -570,6 +584,9 @@ def _waiver_king_scores(
             }
         return per_owner[owner_id]
 
+    # Pass 1: every counted add, in chronological transaction order.
+    # (owner_id, roster_id, player_id, leg, post_weeks)
+    counted_adds: list[tuple[str, int, str, int, list[int]]] = []
     for tx in season.waivers():
         leg = tx.get("leg") or tx.get("_leg") or 0
         try:
@@ -591,20 +608,37 @@ def _waiver_king_scores(
                 continue
             rec = _ensure(owner_id)
             rec["addCount"] += 1
-            # Only points scored while the pickup was actually in the
-            # starting lineup count — bench weeks are ignored entirely.
-            gain = 0.0
-            started_at_least_once = False
-            for week in post_weeks:
-                starter_pts = _player_points_in_week_for_roster(
-                    season, week, rid_int, pid, require_started=True
-                )
-                if starter_pts is not None:
-                    gain += starter_pts
-                    started_at_least_once = True
-            rec["pointsGained"] += gain
-            if started_at_least_once and gain > 0:
-                rec["usefulAdds"] += 1
+            counted_adds.append((owner_id, rid_int, str(pid), leg_int, post_weeks))
+
+    # Which add owns each roster-week: the latest add (by transaction
+    # order) of that player by that roster whose leg precedes the week.
+    owner_of_week: dict[tuple[int, str, int], int] = {}
+    for idx, (_owner, rid_int, pid, _leg, post_weeks) in enumerate(counted_adds):
+        for week in post_weeks:
+            key = (rid_int, pid, week)
+            prev = owner_of_week.get(key)
+            if prev is None or counted_adds[prev][3] <= counted_adds[idx][3]:
+                owner_of_week[key] = idx
+
+    # Pass 2: credit each roster-week once, to the add that owns it.
+    for idx, (owner_id, rid_int, pid, _leg, post_weeks) in enumerate(counted_adds):
+        rec = per_owner[owner_id]
+        # Only points scored while the pickup was actually in the
+        # starting lineup count — bench weeks are ignored entirely.
+        gain = 0.0
+        started_at_least_once = False
+        for week in post_weeks:
+            if owner_of_week.get((rid_int, pid, week)) != idx:
+                continue
+            starter_pts = _player_points_in_week_for_roster(
+                season, week, rid_int, pid, require_started=True
+            )
+            if starter_pts is not None:
+                gain += starter_pts
+                started_at_least_once = True
+        rec["pointsGained"] += gain
+        if started_at_least_once and gain > 0:
+            rec["usefulAdds"] += 1
 
     rows = list(per_owner.values())
     for r in rows:
