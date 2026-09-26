@@ -11241,7 +11241,17 @@ class PublicSnapshotUnavailable(RuntimeError):
 # (``_store_public_contract_bytes``) and the section route threw the
 # identical work away.
 #
-# So we single-flight + memoize these two:
+# ``awards`` joined on 2026-09-26.  ``GET /api/public/league/awards``
+# rebuilt the whole section -- every season's awards AND races -- on every
+# request: measured 0.76-1.08 s warm on the live snapshot, against a few
+# milliseconds for its sibling sections.  It is purely snapshot-derived
+# (no clock, no file, no env read; its bytes are identical across rebuilds
+# of one snapshot), so the snapshot key below is complete for it, and the
+# route never forwards ``activity_valuation`` to it.  The builder itself
+# was also made ~6x cheaper in the same change; memoizing removes the
+# remaining per-request rebuild.
+#
+# So we single-flight + memoize these:
 #   * Coordination happens on the EVENT LOOP via a per-section
 #     ``asyncio.Lock`` (see ``_get_heavy_section_payload``), so waiters
 #     ``await`` on the loop instead of occupying AnyIO worker tokens.
@@ -11268,7 +11278,7 @@ class PublicSnapshotUnavailable(RuntimeError):
 # cheap file reads in the common case, and caching them by snapshot
 # identity would hide fresh results the ROS publisher writes between
 # snapshot refreshes.  They read their artifact fresh on every request.
-_HEAVY_SECTION_KEYS = frozenset({"playoffOdds", "archives"})
+_HEAVY_SECTION_KEYS = frozenset({"playoffOdds", "archives", "awards"})
 _heavy_section_cache: dict = {}
 _heavy_section_async_locks: dict = {}
 

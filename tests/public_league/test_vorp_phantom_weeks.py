@@ -276,7 +276,18 @@ class AllRosteredTotalsPhantomWeekTests(unittest.TestCase):
     def test_midseason_add_drop_only_counts_rostered_weeks(self) -> None:
         """A player who only appears in players_points for SOME of the
         scored weeks (added/dropped mid-season) accumulates games only
-        from the weeks they were actually rostered."""
+        from the weeks they were actually rostered.
+
+        Both rosters report in both weeks: awards only aggregate FINISHED
+        weeks (``metrics.final_weeks``), and a week in which one of the
+        league's two rosters is missing is not proven finished."""
+        opponent = {
+            "matchup_id": 1,
+            "roster_id": 2,
+            "points": 20.0,
+            "players_points": {"watt": 20.0},
+            "starters": ["watt"],
+        }
         matchups = {
             1: [
                 {
@@ -285,16 +296,18 @@ class AllRosteredTotalsPhantomWeekTests(unittest.TestCase):
                     "points": 40.0,
                     "players_points": {"allen": 40.0},
                     "starters": ["allen"],
-                }
+                },
+                dict(opponent),
             ],
             2: [
                 {
-                    "matchup_id": 2,
+                    "matchup_id": 1,
                     "roster_id": 1,
                     "points": 30.0,
                     "players_points": {"caleb": 30.0},  # allen was dropped, caleb added
                     "starters": ["caleb"],
-                }
+                },
+                dict(opponent),
             ],
         }
         snap = _build_snapshot(matchups)

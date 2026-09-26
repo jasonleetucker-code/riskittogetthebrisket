@@ -296,13 +296,14 @@ _TOP3_LINES = (
     "Podium for the week — {a} {pa:.1f}, {b} {pb:.1f}, {c} {pc:.1f}.",
     "Best three outputs: {a} ({pa:.1f}) over {b} ({pb:.1f}) over {c} ({pc:.1f}).",
 )
+# Scoring-tone lines state a RANK within this league's own finished weeks
+# of the same season -- a fact the data proves -- never a comparison with a
+# fixed points constant (see ``_summary``).
 _HIGH_SCORING_WEEK_LINES = (
-    "The slate averaged {avg:.1f} points per side — well above league norm.",
-    "{above} of {total} teams cracked {threshold:.0f}+, a high-scoring week across the board.",
+    "The slate averaged {avg:.1f} points per side — the highest weekly average of the {season} season so far.",
 )
 _LOW_SCORING_WEEK_LINES = (
-    "Sluggish slate — {below} of {total} teams finished under {threshold:.0f}.",
-    "Across-the-board defensive week; nobody hit the {threshold:.0f}-point mark.",
+    "The slate averaged {avg:.1f} points per side — the lowest weekly average of the {season} season so far.",
 )
 _BAD_BEAT_LINES = (
     "{name} was the bad-beat candidate of the week — {pts:.1f} points and still {ml:.1f} short of the win.",
@@ -333,8 +334,30 @@ _STREAK_LINES = (
 )
 
 
-def _summary(recap: dict[str, Any], seed: int) -> str:
-    """Compose 3-5 sentences of varied analysis."""
+def _side_average(recap: dict[str, Any]) -> float | None:
+    """Mean points per side across the recap's scored matchups.
+
+    ``None`` when the recap has no matchups -- an average over nothing is
+    undefined, not zero.
+    """
+    matchups = recap.get("matchups") or []
+    if not matchups:
+        return None
+    total = sum((m["home"]["points"] + m["away"]["points"]) for m in matchups)
+    return total / (2 * len(matchups))
+
+
+def _summary(
+    recap: dict[str, Any],
+    seed: int,
+    prior_side_averages: list[float] | None = None,
+) -> str:
+    """Compose 3-5 sentences of varied analysis.
+
+    ``prior_side_averages`` are the per-side averages of this season's
+    EARLIER finished weeks, oldest first; the scoring-tone sentence is
+    judged against them and is omitted when there are none.
+    """
     parts: list[str] = []
     rng = random.Random(seed)
 
@@ -435,30 +458,27 @@ def _summary(recap: dict[str, Any], seed: int) -> str:
             )
         )
 
-    # League-wide scoring tone.  150-pt threshold = "high" baseline,
-    # 100-pt threshold = "low" baseline; tuned for SF + TEP fantasy
-    # scoring where 110-150 is a typical pace.
-    if matchups and len(top) >= 2:
-        avg_side = scored_total / max(1, 2 * len(matchups))
-        if avg_side >= 130:
-            above = sum(1 for s in top if s["points"] >= 150)
-            if above >= 2:
-                parts.append(
-                    _choose(_HIGH_SCORING_WEEK_LINES, seed + 9).format(
-                        avg=avg_side,
-                        above=above,
-                        total=2 * len(matchups),
-                        threshold=150,
-                    )
+    # League-wide scoring tone -- judged against THIS league's own earlier
+    # finished weeks of the same season, never a fixed constant.  The old
+    # block compared with hard-coded 150 / 130 / 95 / 100-point marks
+    # "tuned for SF + TEP" and counted only the TOP-3 sides, so in a league
+    # where every team scored 278+ it published "3 of 12 teams cracked
+    # 150+, a high-scoring week across the board" -- false on both counts.
+    # The only claim made now is a rank the data proves: this week's
+    # per-side average is the season's highest (or lowest) so far.  With
+    # no earlier finished week there is nothing to compare, so no claim.
+    avg_side = _side_average(recap)
+    if avg_side is not None and prior_side_averages:
+        if avg_side > max(prior_side_averages):
+            parts.append(
+                _choose(_HIGH_SCORING_WEEK_LINES, seed + 9).format(
+                    avg=avg_side, season=recap["season"]
                 )
-        elif avg_side <= 95:
-            below = sum(1 for s in top if s["points"] <= 100)
+            )
+        elif avg_side < min(prior_side_averages):
             parts.append(
                 _choose(_LOW_SCORING_WEEK_LINES, seed + 9).format(
-                    avg=avg_side,
-                    below=below,
-                    total=2 * len(matchups),
-                    threshold=100,
+                    avg=avg_side, season=recap["season"]
                 )
             )
 
@@ -495,6 +515,7 @@ def _build_week_recap(
     snapshot: PublicLeagueSnapshot,
     season: SeasonSnapshot,
     week: int,
+    prior_side_averages: list[float] | None = None,
 ) -> dict[str, Any] | None:
     entries = season.matchups_by_week.get(week) or []
     pairs = metrics.matchup_pairs(entries)
@@ -605,7 +626,7 @@ def _build_week_recap(
         "topPerformers": top_performers,
     }
     recap["headline"] = _headline(recap, seed)
-    recap["summary"] = _summary(recap, seed)
+    recap["summary"] = _summary(recap, seed, prior_side_averages)
     return recap
 
 
@@ -619,10 +640,16 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         # Only FINISHED weeks are recapped: the module's contract is "every
         # completed week", and a live week's partial scores would be published
         # as final results ("the books shut").
+        # Per-side averages of this season's earlier finished weeks, for
+        # the scoring-tone sentence (a rank within the league's own data).
+        prior_side_averages: list[float] = []
         for wk in metrics.final_weeks(season):
-            recap = _build_week_recap(snapshot, season, wk)
+            recap = _build_week_recap(snapshot, season, wk, list(prior_side_averages))
             if not recap:
                 continue
+            avg = _side_average(recap)
+            if avg is not None:
+                prior_side_averages.append(avg)
             weeks_out.append(recap)
             by_key[f"{season.season}:{wk}"] = recap
 
