@@ -136,3 +136,9 @@ all three RED regressions and review findings. Build-count elimination is proven
 no measured route-latency gain or full production acceptance is asserted. The
 existing publisher's immutable canonical bytes and overlay observation identity
 remain assumptions of this cache; no canonical no-op or new source owner is added.
+
+## Integration and production checkpoint
+
+Foundation #1488 merged as `1de2bd5d922df13414eed5d2bae6ca62145ec152` after exact-head checks and independent review. Read-only Linux diagnostics #1489 merged as `e6a6afd1f0cebe0b83185e733af8214a6a281045`. Their running production identity is not yet verified; automatic deployment is still in progress. Subsequent source/cache/browser units remain separate PRs and issue #1338 stays open.
+
+Main then incorporated the other owner's League MVP gate (#1487) and a superseded-deploy receipt. [Reconciliation evidence](evidence/reconciliation-2026-09-26.json) classifies the combined movement as relevant. The sole merge conflict was adjacent performance work-claim rows from our own operations/API branches; both current owners are retained. Upstream MVP product and authority changes are preserved. The composed API/MVP/release-classification selection passes30tests and planning integrity passes; API implementation hashes are unchanged. Exact new-head CI remains required. Upstream intentional Markdown line-break whitespace is retained rather than reformatted.
