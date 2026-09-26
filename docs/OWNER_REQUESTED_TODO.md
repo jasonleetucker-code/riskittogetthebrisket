@@ -866,6 +866,7 @@ owner-approved; the authorization record is the pointer in `docs/EXECUTION_PLAN.
   categorical probability colours (#1428 stays separate).
 - **Not authorized.** A new engine, simulation, projection, scoring, collector or ML system; playoff or
   season projections.
+
 **Owner directive — Awards: 2026 Waiver King eligibility + Expand standings (2026-09-26).**
 Owner-approved; the authorization record is the League Hub Awards pointer in `docs/EXECUTION_PLAN.md`.
 - **A. 2026 Waiver King eligibility (season-scoped, one award).**
@@ -891,6 +892,7 @@ Owner-approved; the authorization record is the League Hub Awards pointer in `do
     (their owners compute only the single best), Best Rebuild (off-season, completed seasons only).
 - **Not authorized.** Formula, VORP, scoring or waiver-methodology changes; new or removed awards; a League Hub
   redesign.
+
 ## Added 2026-09-26 — Championship / playoff odds methodology: two owner decisions awaiting approval
 Recorded by the League Hub championship input-integrity unit (`claude/championship-input-integrity`; claim in
 `docs/WORK_CLAIMS.md`). That unit fixes only factual defects: D1 (a failed NFL player download published coin-flip
