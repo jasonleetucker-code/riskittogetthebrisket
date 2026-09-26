@@ -42,6 +42,22 @@ are outside authority. Signing and distributed infrastructure require evidence.
 payload, Linux resources, field metrics and production useful state remain unknown
 until observed. Unit tests and local probes cannot substitute for those gates.
 
+## Expanded search and final adversarial hunt
+
+Owner mandate recorded September 26: this route/task list is the investigation
+floor. New opportunities enter the existing #1338 ledger with measured user delay,
+frequency, affected routes/users, severity and implementation leverage; unmeasured
+hypotheses stay hypotheses. Each retained performance improvement needs a demonstrated
+owner, semantic proof, before/after evidence and independent review. Correctness
+repairs discovered during census remain clearly distinguished from speed claims.
+
+The final hunt is **NOT STARTED**; known failures and baseline measurements are still
+open. After those close, an independent reviewer must challenge the entire current
+request, compute/storage, background, browser and deployment path for overlooked
+material costs. Completion requires accepted worthwhile fixes or evidence-backed
+residual-cost dispositions, actual production verification and regression guards.
+Checklist completion alone cannot satisfy this gate.
+
 ## First foundation change: Gameplan and executable census
 
 The live endpoint resolves the factual league/profile and team before dispatching
@@ -136,3 +152,18 @@ all three RED regressions and review findings. Build-count elimination is proven
 no measured route-latency gain or full production acceptance is asserted. The
 existing publisher's immutable canonical bytes and overlay observation identity
 remain assumptions of this cache; no canonical no-op or new source owner is added.
+
+## Materializer missing-confidence correction
+
+Current array and legacy materializers converted explicit null/blank confidence
+to numeric zero. Both now guard the selected value before numeric conversion,
+preserving real zero and existing nullish alias precedence. Ten parity cases retain
+canonical ranks, values and source ranks. Rankings confidence-bucket sorting,
+filtering and CSV do not use this numeric field and remain unchanged. This is a
+correctness repair found during performance boundary research, not a speed claim.
+
+Independent review approved the captured source/test hashes. Fresh Node20 frontend
+validation:188files/2,799tests pass; production build and all14unchanged bundle
+budgets pass. [Evidence](evidence/confidence-null-2026-09-26.json) preserves the
+initial three failing cases and exact reports. Production semantics/browser
+acceptance remain a separate required gate.

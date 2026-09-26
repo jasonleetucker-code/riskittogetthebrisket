@@ -83,6 +83,19 @@ actual deployed identity and Linux/resource/browser evidence. #1338 stays open u
 the complete current-product acceptance requirements are met. Execution/evidence:
 `performance/CURRENT_ARCHITECTURE.md`; intake: `OWNER_REQUESTED_TODO.md`.
 
+### Expanded performance search and terminal hunt — owner, 2026-09-26
+
+The #1338 list is a floor. Investigate newly demonstrated material bottlenecks
+throughout the existing product/runtime/serving/browser system, prioritized by
+user delay, frequency, affected population/routes, severity and implementation
+leverage. Apply the same measurement, canonical-owner, smallest-correction,
+semantic-proof, before/after and independent-review gates. This grants no threshold
+waiver, speculative architecture or unrelated product redesign. Preserve the UI lane.
+Before final completion, conduct an independent adversarial performance hunt beyond
+the original checklist. Implement and accept worthwhile findings; document evidence
+for residual costs judged negligible, inherent, externally constrained or not worth
+the complexity. Production proof and durable regression guards are required.
+
 ## Bounded Agent OS consolidation — owner directive, 2026-09-10
 
 The owner explicitly authorized one continuous local Agent OS / Site Steward

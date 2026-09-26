@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "author": {
+    "author": "/root/retention_reproduction",
+    "utc": "2026-09-26T21:23:10.335575+00:00",
+    "status": "READY_FOR_REVIEW",
+    "hashes": {
+      "frontend/lib/dynasty-data.js": "8ae2614919275a3479129d3e43f38f3cea28cadb6cbc88e17a83f2be17c53991",
+      "frontend/__tests__/dynasty-data.test.js": "ff3d42199709aebbcdd5e2c91cbef2e3950522a18bbd252d6ccffbae56ced701"
+    },
+    "demonstrated_defect": "Actual array and legacy buildRows turn explicit null/null, empty and whitespace confidence into numeric0. Backend explicitly emits None.",
+    "change": "Guard selected null/blank confidence before Number in both materializers, retaining nullish alias precedence, numeric strings, true zero and finite values.",
+    "red": "New actual buildRows cases:3 failed,7 passed,73 skipped; null/empty/whitespace produced0. Private legacy reproduction separately confirms same behavior. Initial private legacy fixture lacked underscore rank stamp and was corrected; not a product failure.",
+    "green": "153 passed across dynasty-data, market-movers, signal-engine-parity, signal-engine-roster;1.19s Node20. Whitespace check passes.",
+    "path": "backend marketBreadthAgreementIndex/marketConfidence -> array or legacy materializer -> numeric confidence consumers market-movers, portfolio-insights, signal-engine",
+    "constraints": [
+      "Canonical ranks/values/sourceRanks asserted unchanged in all10 cases.",
+      "Primary field precedence and null fallback alias unchanged.",
+      "Rankings numeric confidence is not its confidenceBucket UI/filter/CSV field; no direct rank/sort/export change proved.",
+      "No rookie/IDP/valuation/scoring algorithm changed; generic field conversion only.",
+      "No performance, production or browser acceptance claim; independent review pending."
+    ],
+    "commands": [
+      "Node20 frontend/node_modules/vitest/vitest.mjs run __tests__/dynasty-data.test.js --root frontend -t confidence absence",
+      "Node20 frontend/node_modules/vitest/vitest.mjs run __tests__/dynasty-data.test.js __tests__/market-movers.test.js __tests__/signal-engine-parity.test.js __tests__/signal-engine-roster.test.js --root frontend"
+    ]
+  },
+  "independentReview": {
+    "status": "APPROVE_SCOPED",
+    "reviewer": "/root/report_regression",
+    "scope": "Independent source/test and authority review of current confidence absence correction; not final adversarial performance hunt.",
+    "findings": [
+      {
+        "area": "missing versus zero",
+        "verdict": "PASS",
+        "evidence": "Both actual materializers call the same null/blank-before-Number helper. Explicit null/null, missing, empty and whitespace retain null; finite numeric zero and numeric strings retain their values; invalid/nonfinite become null. Existing nullish alias precedence stays unchanged, including blank primary not falling back."
+      },
+      {
+        "area": "backend live source",
+        "verdict": "PASS",
+        "evidence": "src/api/data_contract.py:8477-8478 explicitly emits both fields as None for derived pick rows; :12205 and :12208 serialize _safe_num(_marketConfidence) for player rows. This is an actual nullable field, not an invented fixture-only contract."
+      },
+      {
+        "area": "downstream owner separation",
+        "verdict": "PASS",
+        "evidence": "Canonical rank/value/sourceRanks unchanged in source and asserted across10cases. Rankings sorting/filtering/render/CSV reads confidenceBucket (page.jsx:506,585,627,847,1223), not this numeric measurement. market-movers:95, portfolio-insights:221/287 and signal-engine:250 preserve null. Rookie/IDP do not get a new branch or canonical computation."
+      },
+      {
+        "area": "residual nonblocking observation",
+        "verdict": "EXISTING_UNUSED_FIELD",
+        "evidence": "PlayerMarketMovement.jsx:102 still populates Number(r.confidence)||0 in an enriched record, but the file has no other confidence use; no demonstrated rendered/sorting regression attributable to this fix. Do not claim every historical confidence copy is repaired."
+      },
+      {
+        "area": "mandate authority",
+        "verdict": "PASS_SCOPED",
+        "evidence": "Three documents state scope floor/materiality, retain measurement/correctness/review/production gates, explicitly prohibit threshold waiver and speculative architecture, and label final hunt NOT STARTED. They preserve the separate UI lane. This agrees with root-supplied owner mandate; no deployment, budget waiver, or completed hunt is inferred."
+      }
+    ],
+    "validation": {
+      "independent": "Read actual diff and live downstream source/test bodies; no redundant suite or benchmark while root prepares build.",
+      "authorEvidence": "confidence-null-implementation.json records3red/7pass new cases then153focusedpass; root separately reports2799tests/188files pass62.57s. Counts are separate reported evidence, not independent reruns."
+    },
+    "limits": [
+      "No browser measurement, scoring recomputation, production result or speed gain is claimed.",
+      "Existing JS coercion of booleans/arrays is unchanged; this review covers demonstrated nullable serialized numeric inputs.",
+      "No final whole-product hunt completed; known performance failures remain."
+    ],
+    "commands": [
+      "git diff for five reviewed files",
+      "rg + bounded Get-Content of backend confidence emitters, materializer, ranking filters/sort/CSV and terminal numeric consumers",
+      "Read author confidence-null-implementation.json"
+    ],
+    "files": [
+      "frontend/lib/dynasty-data.js",
+      "frontend/__tests__/dynasty-data.test.js",
+      "docs/OWNER_REQUESTED_TODO.md",
+      "docs/EXECUTION_PLAN.md",
+      "docs/performance/CURRENT_ARCHITECTURE.md"
+    ],
+    "hashes": {
+      "frontend/lib/dynasty-data.js": "8ae2614919275a3479129d3e43f38f3cea28cadb6cbc88e17a83f2be17c53991",
+      "frontend/__tests__/dynasty-data.test.js": "ff3d42199709aebbcdd5e2c91cbef2e3950522a18bbd252d6ccffbae56ced701",
+      "docs/OWNER_REQUESTED_TODO.md": "02991971a1eaa18d63a3e6056476e24d6acaea085ea1ae89a3057e8460f7d5c1",
+      "docs/EXECUTION_PLAN.md": "c792545e3f298fa2865105b8baa5f6aabc271aaf46ec4ff1fc0cbed65a5eebc7",
+      "docs/performance/CURRENT_ARCHITECTURE.md": "6e30c91abc15a858b1521a58155b8ff9595e383a74b74df01e822eaa98fef80b"
+    },
+    "sealedAtUtc": "2026-09-26T21:27:33.351847+00:00"
+  },
+  "integration": {
+    "frontendTests": "188 files /2799 tests passed62.57s Node20.20.2",
+    "productionBuild": "PASS Node20;14/14unchangedbudgets pass",
+    "logs": {
+      "frontend-confidence-full.txt": "8c912e64e9a8e0b1267814f7f2922c086cb55480251d61b8bb0790a71b590540",
+      "frontend-confidence-build.txt": "5e3372092028d05b5a6d0a7dc7e5d8b94543f3971e26a18b8710b6ef2b488278"
+    }
+  },
+  "performanceClaim": null,
+  "productionAcceptance": "not established"
+}

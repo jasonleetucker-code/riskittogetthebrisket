@@ -1154,3 +1154,37 @@ describe("source vendor grouping", () => {
     }
   });
 });
+
+describe("buildRows confidence absence and alias parity", () => {
+  it.each([
+    ["null", null, null, null],
+    ["missing", undefined, undefined, null],
+    ["empty", "", 0.6, null],
+    ["whitespace", "  ", 0.6, null],
+    ["zero", 0, 0.6, 0],
+    ["nonzero", 0.8, 0.2, 0.8],
+    ["fallback", null, 0.2, 0.2],
+    ["numeric string", "0.4", 0.2, 0.4],
+    ["invalid", "unknown", 0.2, null],
+    ["nonfinite", Infinity, 0.2, null],
+  ])("preserves %s through both materializers", (_name, primary, alias, expected) => {
+    const array = buildRows({ playersArray: [withStamps({
+      displayName: "Fixture", position: "QB",
+      marketBreadthAgreementIndex: primary, marketConfidence: alias,
+      sourceRanks: { ktc: 3 },
+    }, 2, 777)] })[0];
+    const legacy = buildRows({
+      players: { Fixture: {
+        _canonicalConsensusRank: 2, rankDerivedValue: 777,
+        _marketBreadthAgreementIndex: primary, _marketConfidence: alias,
+        sourceRanks: { ktc: 3 },
+      } }, sleeper: { positions: { Fixture: "QB" } },
+    })[0];
+    for (const row of [array, legacy]) {
+      expect(row.confidence).toBe(expected);
+      expect(row.canonicalConsensusRank).toBe(2);
+      expect(row.rankDerivedValue).toBe(777);
+      expect(row.sourceRanks).toEqual({ ktc: 3 });
+    }
+  });
+});
