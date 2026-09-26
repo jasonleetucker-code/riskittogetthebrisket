@@ -81,6 +81,25 @@ export default function RosChampionshipSection() {
     );
   }
   const rows = data?.championshipOdds || [];
+  // The engine REFUSED rather than found nothing: an unpublished bracket,
+  // no scored weeks, or (D1, 2026-09-26) no ROS team strength and too few
+  // finished weeks to tell teams apart.  Show its own reason — the generic
+  // copy below would tell a manager to wait for games that were played.
+  const unsimulable = data?.unsimulable;
+  if (!rows.length && unsimulable) {
+    const title =
+      unsimulable.reason === "team_strength_unavailable"
+        ? "Odds withheld — rosters could not be priced"
+        : "Championship odds not simulated";
+    return (
+      <Card>
+        <EmptyState
+          title={title}
+          message={unsimulable.detail || "The simulation declined to run on the inputs it had."}
+        />
+      </Card>
+    );
+  }
   if (!rows.length) {
     return (
       <Card>

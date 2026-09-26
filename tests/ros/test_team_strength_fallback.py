@@ -129,7 +129,11 @@ class TestComputeTeamStrengthFromSnapshot(unittest.TestCase):
         the fallback -- it hydrates to an empty roster, not an exception."""
         rosters = [{"owner_id": "alpha", "roster_id": 1}]
         snapshot = _make_snapshot(rosters=rosters)
-        # Deliberately no `players` key and no nfl_players set.
+        # Deliberately no `players` key.  A usable NFL dump IS set: without
+        # one the fallback now refuses outright (D1, 2026-09-26 -- an empty
+        # dump scores every player zero), which would hide the malformed-
+        # roster path this test exists to exercise.
+        snapshot.nfl_players = {"p-alpha": {"full_name": "Alpha Player", "position": "WR"}}
         agg = _aggregate({"p-alpha": 90.0})
         with (
             patch.object(league_registry, "get_default_league", return_value=_fake_cfg()),
