@@ -43,6 +43,7 @@ from typing import Any
 
 from . import award_eligibility, metrics
 from .draft import _pick_ownership_map, pick_weight
+from .playoff_structure import resolve_playoff_structure
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
 
@@ -52,7 +53,10 @@ from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 AWARD_DESCRIPTIONS: dict[str, str] = {
     "champion": "Won the league.",
     "manager_of_the_year": "The league's best manager this season.",
-    "league_mvp": "The league's Most Valuable Player.",
+    "league_mvp": (
+        "The league's Most Valuable Player — elite production for a team in "
+        "playoff position with a winning record."
+    ),
     "off_mvp": "The best offensive player of the season.",
     "def_mvp": "The best defensive player of the season.",
     "playoff_mvp": "The champion's standout playoff performer.",
@@ -104,7 +108,13 @@ AWARD_AWAITING_REASONS: dict[str, str] = {
     "best_trade_of_the_year": "no_scored_week_since_any_trade",
     "waiver_king": "no_scored_week_since_any_add",
     "playoff_mvp": "no_value_above_replacement",
+    "league_mvp": "no_eligible_mvp_candidate",
 }
+
+#: League MVP awaiting reason when the team-success gate itself cannot be
+#: evaluated (unknown playoff field or unreadable standings). Unverified is
+#: not "nobody qualified", and never "everybody qualified".
+LEAGUE_MVP_ELIGIBILITY_UNVERIFIED = "mvp_eligibility_unverified"
 
 
 # Player-award positions in display order.
@@ -1483,7 +1493,7 @@ _FLEX_RBWR_POOL = 84  # top 84 RB+WR by starter points (TEs excluded)
 #: Bumped whenever the VORP formula or its week-eligibility gating
 #: changes, so a stale cached payload (see server.py's public-contract
 #: byte cache) can never silently outlive a correctness fix.
-_VORP_CALC_VERSION = "2026-09-26-strict-replacement-band"
+_VORP_CALC_VERSION = "2026-09-26-league-mvp-team-success-gate"
 
 
 def _dynamic_starter_slots(season: SeasonSnapshot) -> dict[str, int]:
@@ -1711,15 +1721,160 @@ def _vorp_rows(
 # The MVP / ROY boards below are FILTERS over the regular-season VORP
 # board.  ``vorp_rows`` lets a caller that already holds that board (see
 # ``_season_row_sets``) pass it in instead of recomputing it per award.
+#: Why a franchise's players are outside the League MVP race.
+MVP_OUTSIDE_PLAYOFF_FIELD = "team_outside_playoff_field"
+MVP_RECORD_NOT_ABOVE_500 = "team_record_not_above_500"
+
+
+def _league_mvp_gate(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> dict[str, Any]:
+    """League MVP team-success eligibility, per credited franchise.
+
+    Owner decision 2026-09-26 (supersedes the 2026-08-13/14 "no hard gate"
+    rule; ``docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md`` §3–§5): League MVP is
+    elite performance on a SUCCESSFUL fantasy team. A franchise is eligible
+    only when it is BOTH in the championship playoff field AND above .500.
+
+    * live season — the field is the first ``playoff_teams`` of the
+      canonical standings order (``metrics.season_standings``: the host's
+      own W/L/T, so median games count exactly as the host counts them),
+      with the bracket size from the league's settings
+      (``resolve_playoff_structure``). Those roster records are the host's
+      processed standings, never a live scoreboard.
+    * finalized (post-season / complete) — the franchises that ACTUALLY
+      appear in the winners bracket, and the final regular-season record.
+
+    Anything unreadable answers ``verified=False``: the race reports that
+    its eligibility is unverified instead of guessing a field. This is an
+    eligibility rule over the canonical VORP board; it measures nothing and
+    no other award reads it.
+    """
+    standings = metrics.season_standings(season, snapshot.managers)
+    gate: dict[str, Any] = {
+        "rule": "playoff_field_and_winning_record",
+        "verified": False,
+        "basis": None,
+        "playoffTeams": None,
+        "teams": {},
+    }
+    if not standings:
+        gate["reason"] = "standings_unavailable"
+        return gate
+    if season.is_complete:
+        bracket_rids = set(metrics.playoff_teams(season.winners_bracket))
+        if not bracket_rids:
+            gate["reason"] = "final_bracket_unavailable"
+            return gate
+        qualified = {r["ownerId"] for r in standings if r["rosterId"] in bracket_rids}
+        gate.update(basis="final_bracket", playoffTeams=len(bracket_rids))
+    else:
+        structure = resolve_playoff_structure(season)
+        if not structure.known:
+            gate["reason"] = structure.reason or "playoff_field_unknown"
+            return gate
+        qualified = {r["ownerId"] for r in standings[: structure.teams]}
+        gate.update(basis="current_standings", playoffTeams=structure.teams)
+    for r in standings:
+        in_field = r["ownerId"] in qualified
+        winning = r["games"] > 0 and r["winPct"] > 0.5
+        reason = None
+        if not in_field:
+            reason = MVP_OUTSIDE_PLAYOFF_FIELD
+        elif not winning:
+            reason = MVP_RECORD_NOT_ABOVE_500
+        gate["teams"][r["ownerId"]] = {
+            "eligible": reason is None,
+            "reason": reason,
+            "standing": r["standing"],
+            "record": f'{r["wins"]}-{r["losses"]}' + (f'-{r["ties"]}' if r["ties"] else ""),
+            "winPct": r["winPct"],
+        }
+    gate["verified"] = True
+    return gate
+
+
 def _league_mvp_rows(
     snapshot: PublicLeagueSnapshot,
     season: SeasonSnapshot,
     vorp_rows: list[dict[str, Any]] | None = None,
+    gate: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """Regular-season MVP candidates ranked by VORP."""
+    """Regular-season MVP candidates ranked by VORP — only players credited to
+    a franchise that passes the League MVP team-success gate.
+
+    Returns a NEW list: the shared VORP board (which OPOY / DPOY / ROY also
+    filter) is never narrowed by this gate.
+    """
     if vorp_rows is None:
         vorp_rows = _vorp_rows(snapshot, season, regular_season_only=True)
-    return vorp_rows
+    if gate is None:
+        gate = _league_mvp_gate(snapshot, season)
+    if not gate.get("verified"):
+        return []
+    teams = gate["teams"]
+    return [r for r in vorp_rows if (teams.get(r.get("ownerId")) or {}).get("eligible") is True]
+
+
+def _league_mvp_outside(
+    vorp_rows: list[dict[str, Any]], gate: dict[str, Any], limit: int = 3
+) -> list[dict[str, Any]]:
+    """Top performers the gate keeps out of the race, with the reason — so a
+    high-VORP player missing from the MVP race is explained, not hidden."""
+    if not gate.get("verified"):
+        return []
+    out = []
+    for r in vorp_rows:
+        team = gate["teams"].get(r.get("ownerId")) or {}
+        if team.get("eligible") is True or not _is_positive_number(r.get("vorp")):
+            continue
+        out.append(
+            {
+                "playerId": r["playerId"],
+                "playerName": r["playerName"],
+                "position": r["position"],
+                "vorp": r["vorp"],
+                "ownerId": r.get("ownerId", ""),
+                "displayName": r.get("displayName", ""),
+                "reason": team.get("reason") or MVP_OUTSIDE_PLAYOFF_FIELD,
+                "record": team.get("record"),
+            }
+        )
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _league_mvp_eligibility_payload(
+    vorp_rows: list[dict[str, Any]], gate: dict[str, Any]
+) -> dict[str, Any]:
+    return {
+        "rule": gate["rule"],
+        "verified": gate["verified"],
+        "basis": gate.get("basis"),
+        "playoffTeams": gate.get("playoffTeams"),
+        "reason": gate.get("reason"),
+        "outsideTheRace": _league_mvp_outside(vorp_rows, gate),
+        "boardCandidates": sum(1 for r in vorp_rows if _is_positive_number(r.get("vorp"))),
+    }
+
+
+def _league_mvp_awaiting(eligibility: dict[str, Any], *, race: bool) -> dict[str, Any] | None:
+    """The honest League MVP state when its gated pool is empty: nobody on a
+    successful team has cleared replacement (or the gate is unverifiable) —
+    never a silently missing award and never a widened field. ``None`` when
+    the VORP board itself has no candidate (the award is absent, as before).
+    """
+    if not eligibility.get("boardCandidates"):
+        return None
+    label = "League MVP Race" if race else "League MVP"
+    out = _awaiting_award("league_mvp", label)
+    if not eligibility.get("verified"):
+        out["awaitingReason"] = LEAGUE_MVP_ELIGIBILITY_UNVERIFIED
+    out["eligibility"] = eligibility
+    if race:
+        for k in ("ownerId", "displayName", "teamName", "value"):
+            out.pop(k, None)
+        out["leaders"] = []
+    return out
 
 
 def _offensive_mvp_rows(
@@ -2139,6 +2294,7 @@ def _season_row_sets(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> 
     trader_rows, best_trade = _trader_of_the_year_scores(snapshot, season, lookup)
     waiver_rows = _waiver_king_scores(snapshot, season, lookup)
     vorp_rows, vorp_exclusions = _vorp_board(snapshot, season, regular_season_only=True)
+    mvp_gate = _league_mvp_gate(snapshot, season)
     return {
         "trader": trader_rows,
         "best_trade": best_trade,
@@ -2156,7 +2312,9 @@ def _season_row_sets(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> 
             snapshot, season, regular_season_only=True
         ),
         # One shared VORP board, filtered by the award helpers themselves.
-        "mvp": _league_mvp_rows(snapshot, season, vorp_rows),
+        "mvp_gate": mvp_gate,
+        "mvp": _league_mvp_rows(snapshot, season, vorp_rows, mvp_gate),
+        "mvp_eligibility": _league_mvp_eligibility_payload(vorp_rows, mvp_gate),
         "off_mvp": _offensive_mvp_rows(snapshot, season, vorp_rows),
         "def_mvp": _defensive_mvp_rows(snapshot, season, vorp_rows),
         "off_roy": _rookie_of_year_rows(snapshot, season, _OFF_ROY_POSITIONS, vorp_rows),
@@ -2411,8 +2569,12 @@ def _activity_awards_for_season(
             }
         )
 
-    # ── League MVP (regular-season VORP) ───────────────────────────
+    # ── League MVP (regular-season VORP, team-success gated) ────────
     mvp_rows = rows["mvp"]
+    if not mvp_rows:
+        pending = _league_mvp_awaiting(rows["mvp_eligibility"], race=False)
+        if pending is not None:
+            awards.append(pending)
     if mvp_rows:
         winner = mvp_rows[0]
         rid = _roster_id_for_owner(season, winner["ownerId"]) if winner["ownerId"] else None
@@ -2421,6 +2583,7 @@ def _activity_awards_for_season(
                 "key": "league_mvp",
                 "label": "League MVP",
                 "description": AWARD_DESCRIPTIONS["league_mvp"],
+                "eligibility": rows["mvp_eligibility"],
                 "ownerId": winner["ownerId"],
                 "displayName": winner["displayName"],
                 "teamName": metrics.team_name(snapshot, season.league_id, rid)
@@ -2982,16 +3145,16 @@ def _current_season_races(
             race["vorpExclusions"] = excluded
         return race
 
-    # ── League MVP race ──
+    # ── League MVP race (team-success gated: eligible franchises only) ──
     mvp_rows = rows["mvp"]
-    _add(
-        _with_exclusions(
-            _player_race(
-                snapshot, season, "league_mvp", "League MVP Race", mvp_rows, _player_vorp_value
-            ),
-            None,
-        )
+    mvp_race = _player_race(
+        snapshot, season, "league_mvp", "League MVP Race", mvp_rows, _player_vorp_value
     )
+    if mvp_race is not None:
+        mvp_race["eligibility"] = rows["mvp_eligibility"]
+    else:
+        mvp_race = _league_mvp_awaiting(rows["mvp_eligibility"], race=True)
+    _add(_with_exclusions(mvp_race, None))
 
     # ── Rookie of the Year races ──
     def _vorp_player_race(candidates, key, label):

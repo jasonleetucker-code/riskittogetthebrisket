@@ -55,7 +55,9 @@ def _rosters():
             "roster_id": i,
             "owner_id": o,
             "players": [f"base_{i}", f"wav_{i}"],
-            "settings": {"wins": 0, "losses": 0, "fpts": 0},
+            # 2-0 and all in the field: the League MVP team-success gate
+            # admits every franchise here (it is tested in its own file).
+            "settings": {"wins": 2, "losses": 0, "fpts": 0},
         }
         for i, o in enumerate(OWNERS, start=1)
     ]
@@ -87,7 +89,7 @@ def _season(label: str, league_id: str, *, status: str) -> SeasonSnapshot:
         "season": label,
         "status": status,
         "total_rosters": 4,
-        "settings": {"playoff_week_start": 15, "last_scored_leg": 3},
+        "settings": {"playoff_week_start": 15, "playoff_teams": 4, "last_scored_leg": 3},
     }
     return SeasonSnapshot(
         season=label,

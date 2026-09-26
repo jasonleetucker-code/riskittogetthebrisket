@@ -182,6 +182,9 @@ single authorization record for the batch; ideas inside it do not get their own 
   (b) Expand standings — every current-season award race shows its canonical top-12 ranking from the
   backend. Contract: `docs/OWNER_REQUESTED_TODO.md` ("Awards: 2026 Waiver King eligibility +
   Expand standings"). No formula, VORP, scoring or award-set change.
+  **Extension authorized (owner, 2026-09-26):** the League MVP team-success gate (playoff field + above .500;
+  League MVP only — OPOY / DPOY / ROY / positional ungated). Contract: `docs/OWNER_REQUESTED_TODO.md`
+  ("League MVP requires team success"). No VORP, OPOY / DPOY formula or Manager of the Year change.
 * **Preserved rules:** active WORK_CLAIMS and open-PR file ownership win; `data_contract.py` keeps
   one writer at a time; no second canonical owner; §6 do-not-preempt still applies to anything not
   listed above; KTC Value Adjustment stays a market lens; Hill constants move only through the Hill

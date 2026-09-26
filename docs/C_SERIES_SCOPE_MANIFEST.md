@@ -398,7 +398,7 @@ kind**. Those gate the *ingestion*, which is already live and long-standing — 
 | id | capability | owner | status | final | disposition | deps | source | prof | lane | flag | evidence |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `C9-AWARD-01` | Awards do not exist before games are played | `src/public_league/awards.py` | **WRONG** — the live 2026 payload manufactures eight awards with zero games: a 0–0 crown, a zero-point leader, a zero-VORP MVP | Eligibility gates; suppressed or explicitly labelled | REPAIR | — | audit 1 §5 | P4 | public | — | zero-games test |
-| `C9-AWARD-02` | Brisket Honors v2 | `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` | ABSENT | **Player MVP has no playoff/>.500 gate**; MOTY may retain a validated team-success rule | IMPLEMENT | `C5-WAR-01` | #809 + `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` §7 | P4 | public | — | eligibility tests |
+| `C9-AWARD-02` | Brisket Honors v2 | `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` | ABSENT | **League MVP requires playoff field + >.500 (owner decision 2026-09-26; supersedes the 2026-08-13 no-gate rule; implemented in `awards._league_mvp_gate`)**; OPOY/DPOY/ROY/positional do not inherit it; MOTY may retain a validated team-success rule | IMPLEMENT | `C5-WAR-01` | #809 + `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` §7 | P4 | public | — | eligibility tests |
 | `C9-HIST-01` | Historical franchise continuity | `src/public_league/identity.py` | **WRONG** — 2024 declares ten teams and carries eight standings rows; retired-owner mappings hard-coded | Continuity repaired before any awards/WAR backfill | REPAIR | `C1-ACQ-02` | audit 1 §5 | P4 | public | — | continuity test |
 | `C9-HIST-02` | `PUBLIC_MAX_SEASONS` truncation | `src/public_league/` | PARTIAL — "all-time" truncates as seasons accumulate | Paginated archives | REPAIR | — | audit 1 §20 | P4 | public | — | archive test |
 | `C9-SHARE-01` | Canonical Share Renderer (CE-10) | *(new)* | ABSENT — 4 ad-hoc opengraph routes | One renderer over privacy-classified view models | IMPLEMENT | `F-PRIV-01` | CE-10 | P4 | public | — | renderer tests |
@@ -468,7 +468,7 @@ kind**. Those gate the *ingestion*, which is already live and long-standing — 
 | Rows carrying a phase, a disposition and completion evidence | 158 |
 | **Unmapped** | **0** |
 | Duplicate clusters resolved | 4 (CE namespace · ledger 102–104 ≡ #835 · Best Trade dual record · Trade Trees dual identity) |
-| Explicitly superseded owner rules | 6 (2028/2029 unpriced posture · player-MVP eligibility gate · `unified_signal_engine` ownership claim · Best Trade `no draft picks` · Best Trade exact-equal-player-count · **fixed meaningful-core positional caps, superseded by #839's `ceil(1.5 × real starter demand)`** — see `docs/C_SERIES_DIRECTIVE_RECONCILIATION_2026-08-17.md` §4.1) |
+| Explicitly superseded owner rules | 6 (2028/2029 unpriced posture · player-MVP no-gate rule (reversed by the owner 2026-09-26; the League MVP gate stands) · `unified_signal_engine` ownership claim · Best Trade `no draft picks` · Best Trade exact-equal-player-count · **fixed meaningful-core positional caps, superseded by #839's `ceil(1.5 × real starter demand)`** — see `docs/C_SERIES_DIRECTIVE_RECONCILIATION_2026-08-17.md` §4.1) |
 | Owner-rejected / paused / not-scope rows | 7 (`X-01`…`X-07`) |
 | External blockers | 3 (`F-EXT-01`, `F-EXT-02`, `F-EXT-03` — all one owner decision, `OD-01`) |
 | Owner decisions required | 7 (§6) |
