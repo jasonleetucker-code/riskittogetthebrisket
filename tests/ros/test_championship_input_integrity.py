@@ -19,6 +19,7 @@ Three factual defects, each pinned against the condition that produced it:
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import random
 import sys
@@ -129,22 +130,33 @@ class _TmpRosDir(unittest.TestCase):
 
 class TestPlayerDumpFailureIsNotCached(unittest.TestCase):
     def setUp(self) -> None:
-        sleeper_client.reset_nfl_players_cache()
-        self.addCleanup(sleeper_client.reset_nfl_players_cache)
+        # A FRESH copy of the module: several public-league suites install
+        # module-level stubs over ``sleeper_client.fetch_nfl_players`` and
+        # never restore them, so the shared module object may not hold the
+        # real function by the time this runs.
+        spec = importlib.util.find_spec("src.public_league.sleeper_client")
+        self.client = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.client)
 
     def test_a_failed_download_is_retried_not_memoized_as_empty(self) -> None:
         answers = [None, {"123": {"full_name": "Real Player"}}]
-        with patch.object(sleeper_client, "_request_json", side_effect=answers):
-            self.assertEqual(sleeper_client.fetch_nfl_players(), {})
-            self.assertEqual(
-                sleeper_client.fetch_nfl_players(), {"123": {"full_name": "Real Player"}}
-            )
+        with patch.object(self.client, "_request_json", side_effect=answers):
+            self.assertEqual(self.client.fetch_nfl_players(), {})
+            self.assertEqual(self.client.fetch_nfl_players(), {"123": {"full_name": "Real Player"}})
 
     def test_an_empty_dump_is_not_memoized_either(self) -> None:
         answers = [{}, {"1": {"full_name": "X"}}]
-        with patch.object(sleeper_client, "_request_json", side_effect=answers):
-            self.assertEqual(sleeper_client.fetch_nfl_players(), {})
-            self.assertEqual(sleeper_client.fetch_nfl_players(), {"1": {"full_name": "X"}})
+        with patch.object(self.client, "_request_json", side_effect=answers):
+            self.assertEqual(self.client.fetch_nfl_players(), {})
+            self.assertEqual(self.client.fetch_nfl_players(), {"1": {"full_name": "X"}})
+
+    def test_a_good_dump_is_memoized(self) -> None:
+        with patch.object(
+            self.client, "_request_json", side_effect=[{"1": {"full_name": "X"}}]
+        ) as req:
+            self.client.fetch_nfl_players()
+            self.client.fetch_nfl_players()
+        self.assertEqual(req.call_count, 1)
 
     def test_the_usability_predicate(self) -> None:
         self.assertFalse(team_strength.nfl_player_dump_is_usable({}))

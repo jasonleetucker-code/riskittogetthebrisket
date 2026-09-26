@@ -207,10 +207,23 @@ class TestLoadOrComputeTeamStrengthPrecedence(unittest.TestCase):
             tmp_root = Path(tmp)
             target = tmp_root / "team_strength" / "latest.json"
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(json.dumps([{"ownerId": "persisted-owner", "teamRosStrength": 42.0}]))
+            target.write_text(
+                json.dumps(
+                    [
+                        {
+                            "ownerId": "persisted-owner",
+                            "teamRosStrength": 42.0,
+                            "startingLineupScore": 42.0,
+                        }
+                    ]
+                )
+            )
             with patch.object(team_strength, "ROS_DATA_DIR", tmp_root):
                 rows = team_strength.load_or_compute_team_strength()
-        self.assertEqual(rows, [{"ownerId": "persisted-owner", "teamRosStrength": 42.0}])
+        self.assertEqual(
+            rows,
+            [{"ownerId": "persisted-owner", "teamRosStrength": 42.0, "startingLineupScore": 42.0}],
+        )
 
     def test_falls_back_to_snapshot_tier_when_file_missing(self):
         rosters = [{"owner_id": "alpha", "roster_id": 1}]
@@ -218,7 +231,7 @@ class TestLoadOrComputeTeamStrengthPrecedence(unittest.TestCase):
         for roster in snapshot.current_season.rosters:
             roster["players"] = ["p-alpha"]
         snapshot.nfl_players = {"p-alpha": {"full_name": "Alpha Player", "position": "WR"}}
-        agg = _aggregate({"p-alpha": 50.0})
+        agg = _aggregate({"alpha player": 50.0})
         with tempfile.TemporaryDirectory() as tmp:
             with (
                 patch.object(team_strength, "ROS_DATA_DIR", Path(tmp)),
@@ -274,7 +287,17 @@ class TestLoadOrComputeTeamStrengthPrecedence(unittest.TestCase):
             tmp_root = Path(tmp)
             target = tmp_root / "team_strength" / "latest.json"
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(json.dumps([{"ownerId": "stale-owner", "teamRosStrength": 99.0}]))
+            target.write_text(
+                json.dumps(
+                    [
+                        {
+                            "ownerId": "stale-owner",
+                            "teamRosStrength": 99.0,
+                            "startingLineupScore": 99.0,
+                        }
+                    ]
+                )
+            )
             # 7 hours old -- past the 6-hour freshness budget.
             stale_time = time.time() - 7 * 3600
             os.utime(target, (stale_time, stale_time))
@@ -296,13 +319,25 @@ class TestLoadOrComputeTeamStrengthPrecedence(unittest.TestCase):
             tmp_root = Path(tmp)
             target = tmp_root / "team_strength" / "latest.json"
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(json.dumps([{"ownerId": "fresh-owner", "teamRosStrength": 88.0}]))
+            target.write_text(
+                json.dumps(
+                    [
+                        {
+                            "ownerId": "fresh-owner",
+                            "teamRosStrength": 88.0,
+                            "startingLineupScore": 88.0,
+                        }
+                    ]
+                )
+            )
             # 1 hour old -- comfortably within the 6-hour budget.
             fresh_time = time.time() - 1 * 3600
             os.utime(target, (fresh_time, fresh_time))
             with patch.object(team_strength, "ROS_DATA_DIR", tmp_root):
                 rows = team_strength.load_or_compute_team_strength()
-        self.assertEqual(rows, [{"ownerId": "fresh-owner", "teamRosStrength": 88.0}])
+        self.assertEqual(
+            rows, [{"ownerId": "fresh-owner", "teamRosStrength": 88.0, "startingLineupScore": 88.0}]
+        )
 
     def test_two_leagues_do_not_collide_on_one_persisted_file(self):
         """Before this fix, every caller of ``load_or_compute_team_strength``
@@ -314,17 +349,35 @@ class TestLoadOrComputeTeamStrengthPrecedence(unittest.TestCase):
             tmp_root = Path(tmp)
             with patch.object(team_strength, "ROS_DATA_DIR", tmp_root):
                 team_strength.write_team_strength_snapshot(
-                    [{"ownerId": "league-a-owner", "teamRosStrength": 10.0}],
+                    [
+                        {
+                            "ownerId": "league-a-owner",
+                            "teamRosStrength": 10.0,
+                            "startingLineupScore": 10.0,
+                        }
+                    ],
                     league_key="league_a",
                 )
                 team_strength.write_team_strength_snapshot(
-                    [{"ownerId": "league-b-owner", "teamRosStrength": 20.0}],
+                    [
+                        {
+                            "ownerId": "league-b-owner",
+                            "teamRosStrength": 20.0,
+                            "startingLineupScore": 20.0,
+                        }
+                    ],
                     league_key="league_b",
                 )
                 rows_a = team_strength.load_or_compute_team_strength("league_a")
                 rows_b = team_strength.load_or_compute_team_strength("league_b")
-        self.assertEqual(rows_a, [{"ownerId": "league-a-owner", "teamRosStrength": 10.0}])
-        self.assertEqual(rows_b, [{"ownerId": "league-b-owner", "teamRosStrength": 20.0}])
+        self.assertEqual(
+            rows_a,
+            [{"ownerId": "league-a-owner", "teamRosStrength": 10.0, "startingLineupScore": 10.0}],
+        )
+        self.assertEqual(
+            rows_b,
+            [{"ownerId": "league-b-owner", "teamRosStrength": 20.0, "startingLineupScore": 20.0}],
+        )
         self.assertNotEqual(rows_a, rows_b)
 
     def test_persist_writes_atomically_and_is_readable_on_the_next_call(self):
@@ -333,7 +386,7 @@ class TestLoadOrComputeTeamStrengthPrecedence(unittest.TestCase):
         for roster in snapshot.current_season.rosters:
             roster["players"] = ["p-alpha"]
         snapshot.nfl_players = {"p-alpha": {"full_name": "Alpha Player", "position": "WR"}}
-        agg = _aggregate({"p-alpha": 50.0})
+        agg = _aggregate({"alpha player": 50.0})
         with tempfile.TemporaryDirectory() as tmp:
             with (
                 patch.object(team_strength, "ROS_DATA_DIR", Path(tmp)),
