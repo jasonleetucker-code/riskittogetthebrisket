@@ -211,3 +211,210 @@ def test_current_process_identity_and_descriptors():
     assert value["startTicks"] > 0
     assert value["fdCount"] >= 3
     assert value["cwdMatchesCheckout"] is True
+
+
+def test_unit_diagnostics_are_categorical_and_numeric(monkeypatch):
+    monkeypatch.setattr(
+        probe,
+        "bounded",
+        lambda *a, **k: (
+            b"LoadState=loaded\nActiveState=failed\nMainPID=0\nResult=exit-code\n"
+            b"ExecMainCode=1\nExecMainStartTimestampMonotonic=1200\n"
+            b"SuccessExitStatus=2 0 2\nPrivate=SECRET\n"
+        ),
+    )
+    unit = probe.unit("fixture.service", "/fixture")
+    assert unit["diagnostics"]["result"] == "exit-code"
+    assert unit["diagnostics"]["successExitStatuses"] == [0, 2]
+    assert unit["diagnostics"]["ExecMainStartTimestampMonotonic"] == 1200
+    value = report()
+    value["rows"][0]["units"]["dlf"] = unit
+    assert probe.validate(json.dumps(value).encode(), 1) == value
+    assert "SECRET" not in json.dumps(value)
+    unit["diagnostics"]["result"] = "SECRET"
+    with pytest.raises(probe.ProbeError):
+        probe.validate(json.dumps(value).encode(), 1)
+
+
+@pytest.mark.parametrize("status", ["SIGTERM", "256", "2 SECRET", "-1"])
+def test_unparseable_success_status_unknown(monkeypatch, status):
+    monkeypatch.setattr(
+        probe,
+        "bounded",
+        lambda *a, **k: (
+            "LoadState=loaded\nActiveState=inactive\nSuccessExitStatus=" + status
+        ).encode(),
+    )
+
+
+@pytest.mark.parametrize("bad", [True, 1.5, -1, "SECRET"])
+def test_diagnostic_timestamp_rejects_non_integer_and_private_values(monkeypatch, bad):
+    monkeypatch.setattr(
+        probe, "bounded", lambda *a, **k: b"LoadState=loaded\nActiveState=inactive\n"
+    )
+    value = report()
+    unit = probe.unit("fixture.service", "/fixture")
+    unit["diagnostics"]["ExecMainStartTimestampMonotonic"] = bad
+    value["rows"][0]["units"]["dlf"] = unit
+    with pytest.raises(probe.ProbeError):
+        probe.validate(json.dumps(value).encode(), 1)
+    assert probe.unit("fixture.service", "/fixture")["diagnostics"]["successExitStatuses"] is None
+
+
+@pytest.mark.parametrize("body", ['["dlfSf","dlfIdp"]', "[]"])
+def test_manifest_fixed_keys_and_old_schema_compatible(tmp_path, body):
+    path = tmp_path / "manifest.json"
+    path.write_text(body)
+    observed = probe.dlf_manifest(path)
+    assert observed["state"] == "observed"
+    assert observed["assumedDefaultPath"] is True
+    assert observed["written"]["dlfSf"] == ("dlfSf" in body)
+    value = report()
+    assert probe.validate(json.dumps(value).encode(), 1) == value
+    value["dlfManifest"] = observed
+    assert probe.validate(json.dumps(value).encode(), 1) == value
+
+
+@pytest.mark.parametrize("body", ['["SECRET"]', '["dlfSf","dlfSf"]', "{}", "x" * 4097])
+def test_manifest_malformed_or_private_data_stays_unknown(tmp_path, body):
+    path = tmp_path / "manifest.json"
+    path.write_text(body)
+    value = probe.dlf_manifest(path)
+    assert value["state"] == "unavailable"
+    assert all(x is None for x in value["written"].values())
+    assert "SECRET" not in json.dumps(value)
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="POSIX FIFO and symlink semantics")
+def test_manifest_rejects_fifo_and_symlink(tmp_path):
+    import os
+
+    fifo = tmp_path / "fifo"
+    os.mkfifo(fifo)
+    assert probe.dlf_manifest(fifo)["state"] == "unavailable"
+    target = tmp_path / "target"
+    target.write_text("[]")
+    link = tmp_path / "link"
+    link.symlink_to(target)
+    assert probe.dlf_manifest(link)["state"] == "unavailable"
+
+
+def journal_bytes(messages, invocation="a" * 32):
+    return b"\n".join(
+        json.dumps({"MESSAGE": text, "_SYSTEMD_INVOCATION_ID": invocation}).encode()
+        for text in messages
+    )
+
+
+def test_journal_stage_privacy_and_unknowns(monkeypatch):
+    outputs = iter(
+        [
+            b"a" * 32,
+            journal_bytes(
+                [
+                    "[DLF] login failed: SECRET_SENTINEL https://private.invalid",
+                    "arbitrary SECRET_SENTINEL",
+                ]
+            ),
+            b"a" * 32,
+        ]
+    )
+    calls = []
+
+    def command(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return next(outputs)
+
+    monkeypatch.setattr(probe, "bounded", command)
+    result = probe.journal_stages("dynasty", "dlf")
+    assert result["state"] == "complete"
+    assert result["stages"] == {"login_failed": 1}
+    assert result["unknown"] == 1
+    assert result["codeBinding"] == "unproven"
+    assert "SECRET_SENTINEL" not in json.dumps(result)
+    assert "a" * 32 not in json.dumps(result)
+    assert calls[1][1] == {"timeout": 8, "cap": 131072}
+    assert "--lines=201" in calls[1][0]
+
+
+@pytest.mark.parametrize(
+    "raw,state",
+    [
+        (b"invalid", "malformed"),
+        (journal_bytes(["x"] * 201), "truncated"),
+        (journal_bytes(["x" * 8193]), "malformed"),
+        (journal_bytes(["x"], "b" * 32), "invocation_changed"),
+        (b"", "empty"),
+    ],
+)
+def test_journal_limits_and_missing_are_explicit(raw, state):
+    assert probe.parse_journal(raw, "a" * 32, "dlf")["state"] == state
+
+
+def test_journal_invocation_race_and_command_failures(monkeypatch):
+    values = iter([b"a" * 32, journal_bytes(["Done."]), b"b" * 32])
+    monkeypatch.setattr(probe, "bounded", lambda *a, **k: next(values))
+    result = probe.journal_stages("dynasty", "game_day_capture")
+    assert result["state"] == "invocation_changed"
+    assert result["invocationStable"] is False
+    for exception, state in [
+        (probe.ProbeTimeout, "timeout"),
+        (probe.ProbeLimit, "truncated"),
+        (PermissionError, "unavailable"),
+    ]:
+
+        def fail(*a, **k):
+            raise exception("SECRET_SENTINEL")
+
+        monkeypatch.setattr(probe, "bounded", fail)
+        result = probe.journal_stages("dynasty", "dlf")
+        assert result["state"] == state
+        assert "SECRET_SENTINEL" not in json.dumps(result)
+
+
+def test_capture_exit_code_is_not_inferred_from_unknown_text():
+    value = probe.parse_journal(
+        journal_bytes(["REFUSED: first kickoff has passed.", "unrecognized failure"]),
+        "a" * 32,
+        "game_day_capture",
+    )
+    assert value["stages"] == {"kickoff_passed": 1}
+    assert value["unknown"] == 1
+    unknown = probe.parse_journal(
+        journal_bytes(["exit 3 SECRET_SENTINEL"]), "a" * 32, "game_day_capture"
+    )
+    assert unknown["stages"] == {}
+    assert unknown["unknown"] == 1
+
+
+@pytest.mark.parametrize("mutation", ["raw", "id", "stage", "count", "last", "state", "binding"])
+def test_runner_rejects_invalid_source_stage_schema(mutation):
+    value = report()
+    value["sourceStages"] = {
+        role: probe.stage_result("unavailable") for role in probe.STAGE_PATTERNS
+    }
+    row = value["sourceStages"]["dlf"]
+    if mutation == "raw":
+        row["MESSAGE"] = "SECRET_SENTINEL"
+    elif mutation == "id":
+        row["InvocationID"] = "a" * 32
+    elif mutation == "stage":
+        row["stages"] = {"SECRET_SENTINEL": 1}
+    elif mutation == "count":
+        row["rows"] = True
+    elif mutation == "last":
+        row["lastRecognizedStage"] = "login_failed"
+    elif mutation == "state":
+        row["state"] = "complete"
+    else:
+        row["codeBinding"] = "proven"
+    with pytest.raises(probe.ProbeError):
+        probe.validate(json.dumps(value).encode(), 1)
+
+
+def test_stage_report_validates_without_changing_resource_verdict():
+    value = report()
+    value["sourceStages"] = {
+        role: probe.stage_result("unavailable") for role in probe.STAGE_PATTERNS
+    }
+    assert probe.validate(json.dumps(value).encode(), 1) == value

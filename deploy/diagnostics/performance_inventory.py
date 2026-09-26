@@ -1,6 +1,6 @@
 """Bounded read-only Linux inventory; runner emits only validated fixed-schema JSON.
 
-No application imports, providers, journals, command lines or environment reads.
+No application imports, providers, raw journal output, command lines or environment reads.
 Checkout identity is deliberately not a claim about Python's loaded code.
 """
 
@@ -14,11 +14,33 @@ import os
 from pathlib import Path
 import re
 import shlex
+import stat
 import subprocess
 import threading
 import time
 
 CAP = 131072
+RESULTS = {
+    "success",
+    "resources",
+    "timeout",
+    "exit-code",
+    "signal",
+    "core-dump",
+    "watchdog",
+    "start-limit-hit",
+    "oom-kill",
+    "exec-condition",
+    "protocol",
+}
+DIAGNOSTIC_NUMBERS = (
+    "ExecMainCode",
+    "ExecMainStartTimestampMonotonic",
+    "ExecMainExitTimestampMonotonic",
+    "LastTriggerUSecMonotonic",
+    "NextElapseUSecMonotonic",
+)
+DLF_KEYS = ("dlfSf", "dlfIdp", "dlfRookieSf", "dlfRookieIdp", "dlfValuesSfTep")
 ROLES = {
     "web": ".service",
     "frontend": "-frontend.service",
@@ -74,6 +96,14 @@ class ProbeError(Exception):
     """Messages never cross the report boundary."""
 
 
+class ProbeTimeout(ProbeError):
+    pass
+
+
+class ProbeLimit(ProbeError):
+    pass
+
+
 class Parser(argparse.ArgumentParser):
     def error(self, message):
         raise ProbeError()
@@ -87,6 +117,7 @@ def bounded(argv, *, data=None, timeout=8, cap=16384):
         stderr=subprocess.DEVNULL,
     )
     chunks, failed = [], threading.Event()
+    limited = threading.Event()
 
     def read():
         total = 0
@@ -94,6 +125,7 @@ def bounded(argv, *, data=None, timeout=8, cap=16384):
             while chunk := child.stdout.read(4096):
                 total += len(chunk)
                 if total > cap:
+                    limited.set()
                     failed.set()
                     return
                 chunks.append(chunk)
@@ -115,12 +147,18 @@ def bounded(argv, *, data=None, timeout=8, cap=16384):
     deadline = time.monotonic() + timeout
     try:
         while child.poll() is None:
-            if failed.is_set() or time.monotonic() >= deadline:
+            if limited.is_set():
+                raise ProbeLimit()
+            if failed.is_set():
                 raise ProbeError()
+            if time.monotonic() >= deadline:
+                raise ProbeTimeout()
             time.sleep(0.02)
         reader.join(max(0, deadline - time.monotonic()))
         if writer:
             writer.join(max(0, deadline - time.monotonic()))
+        if limited.is_set():
+            raise ProbeLimit()
         if (
             child.returncode
             or failed.is_set()
@@ -220,9 +258,21 @@ def unit(name, app):
         active=None,
         memoryUnlimited=False,
         process=process(None, app),
+        diagnostics={
+            **dict.fromkeys(DIAGNOSTIC_NUMBERS),
+            "result": None,
+            "successExitStatuses": None,
+        },
     )
     try:
-        props = ["LoadState", "ActiveState", *UNIT_NUMBERS]
+        props = [
+            "LoadState",
+            "ActiveState",
+            *UNIT_NUMBERS,
+            "Result",
+            "SuccessExitStatus",
+            *DIAGNOSTIC_NUMBERS,
+        ]
         raw = bounded(
             ["systemctl", "show", name, "--no-pager", *[f"--property={p}" for p in props]]
         )
@@ -237,8 +287,63 @@ def unit(name, app):
             memoryUnlimited=fields.get("MemoryMax") == "infinity",
         )
         result.update({k: number(fields.get(k, "")) for k in UNIT_NUMBERS})
+        success = fields.get("SuccessExitStatus")
+        statuses = success.split() if success is not None else None
+        result["diagnostics"] = {
+            **{k: number(fields.get(k, "")) for k in DIAGNOSTIC_NUMBERS},
+            "result": fields.get("Result") if fields.get("Result") in RESULTS else None,
+            "successExitStatuses": sorted(set(map(int, statuses)))
+            if statuses is not None
+            and len(statuses) <= 256
+            and all(re.fullmatch(r"[0-9]{1,3}", item) and int(item) <= 255 for item in statuses)
+            else None,
+        }
         result["process"] = process(result["MainPID"], app)
     except (OSError, ProbeError, UnicodeError):
+        pass
+    return result
+
+
+def dlf_manifest(path=Path("/var/lib/dlf-fetch/dlf_written.json")):
+    """Default-path observation only; never proof of effective service configuration."""
+    result = {
+        "state": "unavailable",
+        "assumedDefaultPath": True,
+        "mtimeEpochSeconds": None,
+        "written": dict.fromkeys(DLF_KEYS),
+    }
+    try:
+        path = Path(path)
+        if any(parent.is_symlink() for parent in (path, *path.parents)):
+            return result
+        descriptor = os.open(
+            path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0)
+        )
+        with os.fdopen(descriptor, "rb") as stream:
+            before = os.fstat(stream.fileno())
+            if not stat.S_ISREG(before.st_mode) or before.st_size > 4096:
+                return result
+            raw = stream.read(4097)
+            after = os.fstat(stream.fileno())
+        if len(raw) > 4096 or (before.st_size, before.st_mtime_ns) != (
+            after.st_size,
+            after.st_mtime_ns,
+        ):
+            return result
+        keys = json.loads(raw)
+        if (
+            not isinstance(keys, list)
+            or len(keys) > len(DLF_KEYS)
+            or any(type(k) is not str or k not in DLF_KEYS for k in keys)
+            or len(set(keys)) != len(keys)
+        ):
+            return result
+        result.update(
+            state="observed",
+            mtimeEpochSeconds=before.st_mtime,
+            written={key: key in keys for key in DLF_KEYS},
+        )
+    except (OSError, ValueError, TypeError):
         pass
     return result
 
@@ -286,6 +391,158 @@ def complete_observations(value):
     )
 
 
+JOURNAL_STATES = {
+    "complete",
+    "empty",
+    "truncated",
+    "unavailable",
+    "timeout",
+    "malformed",
+    "invocation_changed",
+}
+STAGE_PATTERNS = {
+    "dlf": {
+        "sync_started": r"\[dlf-fetch\] syncing to origin/main",
+        "fetch_started": r"\[dlf-fetch\] running scripts/fetch_dlf\.py",
+        "credentials_missing": r"\[dlf-fetch\]\[ERR\] DLF_USERNAME / DLF_PASSWORD not set in environment - check the systemd unit's EnvironmentFile=\.",
+        "login_failed": r"\[DLF\] login failed: .+",
+        "board_fetch_failed": r"\[DLF\] (?:dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp|dlfValuesSfTep) fetch failed: .+",
+        "board_refused": r"\[DLF\] (?:dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp|dlfValuesSfTep): .+\.  Preserving last-good CSV, NOT overwriting .+\.",
+        "no_board_written": r"\[dlf-fetch\]\[ERR\] fetch_dlf\.py exited [0-9]{1,3} and wrote no board - keeping previous CSVs / stamps; will retry on next timer fire\.",
+        "partial_commit": r"\[dlf-fetch\]\[ERR\] fetch_dlf\.py exited [0-9]{1,3}; committing only the boards it wrote: (?:dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp|dlfValuesSfTep)(?: (?:dlfSf|dlfIdp|dlfRookieSf|dlfRookieIdp|dlfValuesSfTep))*",
+    },
+    "game_day_capture": {
+        "no_leagues": r"Nothing to do: no leagues resolved\.",
+        "no_week": r"Nothing to do: no season/week resolved\.",
+        "kickoff_passed": r"REFUSED: first kickoff has passed\.",
+        "window_closed": r"REFUSED: the pregame window has closed for this week\.",
+        "capture_started": r"Capturing (?:pregame|live) for season [0-9]{4}, week [0-9]{1,2} across [0-9]{1,3} league\(s\)\.",
+        "league_id_missing": r"    ERROR: no Sleeper league id",
+        "league_payload_missing": r"    ERROR: Sleeper returned no league payload or no rosters",
+        "capture_refused": r"    REFUSED: .+",
+        "capture_error": r"    ERROR: .+",
+        "refusal_summary": r"REFUSED [0-9]{1,3} league\(s\): pregame window closed\.",
+        "failure_summary": r"FAILED for [0-9]{1,3} league\(s\)\.",
+        "completed": r"Done\.",
+    },
+}
+
+
+def stage_result(state):
+    return {
+        "state": state,
+        "invocationStable": None,
+        "rows": 0,
+        "unknown": 0,
+        "stages": {},
+        "lastRecognizedStage": None,
+        "codeBinding": "unproven",
+    }
+
+
+def parse_journal(raw, invocation, role):
+    result = stage_result("complete")
+    lines = raw.splitlines()
+    if len(raw) > CAP or len(lines) > 200:
+        return stage_result("truncated")
+    for line in lines:
+        try:
+            row = json.loads(line, object_pairs_hook=strict_object)
+            message = row["MESSAGE"]
+            if row.get("_SYSTEMD_INVOCATION_ID") != invocation:
+                return stage_result("invocation_changed")
+            if not isinstance(message, str) or len(message.encode("utf-8")) > 8192:
+                return stage_result("malformed")
+        except (ValueError, KeyError, TypeError, ProbeError):
+            return stage_result("malformed")
+        result["rows"] += 1
+        stage = next(
+            (
+                key
+                for key, pattern in STAGE_PATTERNS[role].items()
+                if re.fullmatch(pattern, message)
+            ),
+            None,
+        )
+        if stage:
+            result["stages"][stage] = result["stages"].get(stage, 0) + 1
+            result["lastRecognizedStage"] = stage
+        else:
+            result["unknown"] += 1
+    if not lines:
+        result["state"] = "empty"
+    return result
+
+
+def journal_stages(service, role):
+    unit_name = service + ROLES[role]
+    command = ["systemctl", "show", unit_name, "--property=InvocationID", "--value"]
+    try:
+        before = bounded(command, timeout=8, cap=128).decode("ascii").strip()
+        if not re.fullmatch(r"[a-f0-9]{32}", before):
+            return stage_result("unavailable")
+        raw = bounded(
+            [
+                "journalctl",
+                "--quiet",
+                "--no-pager",
+                "--output=json",
+                "--output-fields=MESSAGE,_SYSTEMD_INVOCATION_ID",
+                "--lines=201",
+                "--unit=" + unit_name,
+                "_SYSTEMD_INVOCATION_ID=" + before,
+            ],
+            timeout=8,
+            cap=CAP,
+        )
+        after = bounded(command, timeout=8, cap=128).decode("ascii").strip()
+        if before != after:
+            result = stage_result("invocation_changed")
+            result["invocationStable"] = False
+            return result
+        result = parse_journal(raw, before, role)
+        result["invocationStable"] = result["state"] != "invocation_changed"
+        return result
+    except ProbeLimit:
+        return stage_result("truncated")
+    except ProbeTimeout:
+        return stage_result("timeout")
+    except (OSError, ValueError, ProbeError):
+        return stage_result("unavailable")
+
+
+def validate_stages(value):
+    if not isinstance(value, dict) or set(value) != set(STAGE_PATTERNS):
+        raise ProbeError()
+    for role, row in value.items():
+        if not isinstance(row, dict) or set(row) != set(stage_result("empty")):
+            raise ProbeError()
+        if row["state"] not in JOURNAL_STATES or row["codeBinding"] != "unproven":
+            raise ProbeError()
+        if row["invocationStable"] is not None and type(row["invocationStable"]) is not bool:
+            raise ProbeError()
+        if any(type(row[k]) is not int or not 0 <= row[k] <= 200 for k in ("rows", "unknown")):
+            raise ProbeError()
+        stages = row["stages"]
+        if not isinstance(stages, dict) or set(stages) - set(STAGE_PATTERNS[role]):
+            raise ProbeError()
+        if any(type(n) is not int or not 1 <= n <= 200 for n in stages.values()):
+            raise ProbeError()
+        if row["rows"] != row["unknown"] + sum(stages.values()):
+            raise ProbeError()
+        if row["lastRecognizedStage"] not in ({None} | set(stages)) or (
+            bool(stages) != (row["lastRecognizedStage"] is not None)
+        ):
+            raise ProbeError()
+        if row["state"] in {"complete", "empty"}:
+            if row["invocationStable"] is not True or (row["state"] == "empty") != (
+                row["rows"] == 0
+            ):
+                raise ProbeError()
+        elif row["rows"] or stages or row["lastRecognizedStage"] is not None:
+            raise ProbeError()
+
+
 def collect(args):
     start, before = time.monotonic(), revision(args.app_dir)
     rows = []
@@ -316,6 +573,8 @@ def collect(args):
         "checkoutStable": before is not None and before == after,
         "loadedProcessRevision": None,
         "rows": rows,
+        "dlfManifest": dlf_manifest(),
+        "sourceStages": {role: journal_stages(args.service, role) for role in STAGE_PATTERNS},
     }
     if complete_observations(result):
         result["state"] = "complete"
@@ -335,7 +594,7 @@ def validate(raw, count):
     if len(raw) > CAP:
         raise ProbeError()
     value = json.loads(raw, object_pairs_hook=strict_object)
-    if set(value) != {
+    if set(value) - {"dlfManifest", "sourceStages"} != {
         "schema",
         "state",
         "checkoutBefore",
@@ -351,6 +610,28 @@ def validate(raw, count):
         or value["loadedProcessRevision"] is not None
     ):
         raise ProbeError()
+    if "sourceStages" in value:
+        validate_stages(value["sourceStages"])
+    if "dlfManifest" in value:
+        manifest = value["dlfManifest"]
+        if (
+            set(manifest) != {"state", "assumedDefaultPath", "mtimeEpochSeconds", "written"}
+            or manifest["state"] not in {"observed", "unavailable"}
+            or manifest["assumedDefaultPath"] is not True
+            or set(manifest["written"]) != set(DLF_KEYS)
+        ):
+            raise ProbeError()
+        stamp = manifest["mtimeEpochSeconds"]
+        if manifest["state"] == "observed":
+            if (
+                type(stamp) not in (int, float)
+                or not math.isfinite(stamp)
+                or not 0 <= stamp <= 10**22
+                or any(type(x) is not bool for x in manifest["written"].values())
+            ):
+                raise ProbeError()
+        elif stamp is not None or any(x is not None for x in manifest["written"].values()):
+            raise ProbeError()
     for key in ("checkoutBefore", "checkoutAfter"):
         if value[key] is not None and not re.fullmatch(r"[a-f0-9]{40}", str(value[key])):
             raise ProbeError()
@@ -387,7 +668,7 @@ def validate(raw, count):
             raise ProbeError()
         nums(row["host"], HOST_NUMBERS)
         for u in row["units"].values():
-            if set(u) != set(UNIT_NUMBERS) | {
+            if set(u) - {"diagnostics"} != set(UNIT_NUMBERS) | {
                 "state",
                 "load",
                 "active",
@@ -395,6 +676,27 @@ def validate(raw, count):
                 "process",
             }:
                 raise ProbeError()
+            if "diagnostics" in u:
+                diagnostic = u["diagnostics"]
+                if set(diagnostic) != set(DIAGNOSTIC_NUMBERS) | {
+                    "result",
+                    "successExitStatuses",
+                } or diagnostic["result"] not in RESULTS | {None}:
+                    raise ProbeError()
+                nums(diagnostic, DIAGNOSTIC_NUMBERS)
+                if any(
+                    diagnostic[key] is not None and type(diagnostic[key]) is not int
+                    for key in DIAGNOSTIC_NUMBERS
+                ):
+                    raise ProbeError()
+                statuses = diagnostic["successExitStatuses"]
+                if statuses is not None and (
+                    type(statuses) is not list
+                    or len(statuses) > 256
+                    or any(type(x) is not int or not 0 <= x <= 255 for x in statuses)
+                    or statuses != sorted(set(statuses))
+                ):
+                    raise ProbeError()
             nums(u, UNIT_NUMBERS)
             if (
                 u["state"] not in ("observed", "unavailable")
