@@ -471,8 +471,26 @@ def final_playoff_matchup(bracket: list[dict[str, Any]]) -> dict[str, Any] | Non
 
 
 def season_champion(season: SeasonSnapshot) -> int | None:
-    """Primary: winner of ``p=1`` matchup.  Fallback: min place winner.
-    Final fallback: ``league.metadata.latest_league_winner_roster_id``.
+    """The roster that WON this season's title, or ``None`` if none has.
+
+    Only a DECIDED championship names a champion:
+
+    * primary — the winner of the ``p=1`` matchup;
+    * fallback — a roster the bracket places FIRST (``playoff_placement``
+      also accepts a string ``p``).  Place 1 only: the old fallback took
+      the *minimum* placement, so a decided 3rd-place game in a bracket
+      whose final was still unplayed crowned the 3rd-place winner;
+    * last resort — ``league.metadata.latest_league_winner_roster_id``,
+      and ONLY when the host marks the season ``complete`` (the same strict
+      status ``final_weeks`` uses — ``post_season`` means the playoffs are
+      still being played) and the bracket decided nothing.
+
+    Why the metadata is gated: Sleeper carries that field forward onto the
+    NEXT season's league object.  On an in-progress season it therefore
+    names LAST season's champion — measured 2026-09-26, the 2026 league
+    (bracket unplayed) reported roster 2, the 2025 champion, which the
+    awards page published as the 2026 Champion and a franchise shelf
+    counted as a second title.  Unknown is ``None``, never a stale answer.
     """
     final = final_playoff_matchup(season.winners_bracket)
     if final is not None:
@@ -483,8 +501,11 @@ def season_champion(season: SeasonSnapshot) -> int | None:
             except (TypeError, ValueError):
                 pass
     placement = playoff_placement(season.winners_bracket)
-    if placement:
-        return min(placement, key=lambda rid: placement[rid])
+    firsts = [rid for rid, place in placement.items() if place == 1]
+    if firsts:
+        return firsts[0]
+    if str(season.league.get("status") or "").lower() != "complete":
+        return None
     metadata = season.league.get("metadata") or {}
     explicit = metadata.get("latest_league_winner_roster_id") or season.league.get(
         "last_league_winner_roster_id"
