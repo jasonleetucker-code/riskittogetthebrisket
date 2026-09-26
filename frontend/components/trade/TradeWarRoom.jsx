@@ -226,7 +226,9 @@ function RosterImpact({ lens }) {
         </div>
       </dl>
       {rows.length ? (
-        <div className={styles.tableWrap}>
+        // A table wider than a phone scrolls inside this region; the region is
+        // focusable and named so a keyboard user can reach and scroll it.
+        <div className={styles.tableWrap} role="region" aria-label="Lineup entry table" tabIndex={0}>
           <table className={styles.table}>
             <caption className={styles.srOnly}>
               Lineup entry: how often each affected player makes the optimal legal lineup, before and after

@@ -225,6 +225,10 @@
   overflow-x: auto;
   max-width: 100%;
 }
+.tableWrap:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
 .table {
   width: 100%;
   border-collapse: collapse;
