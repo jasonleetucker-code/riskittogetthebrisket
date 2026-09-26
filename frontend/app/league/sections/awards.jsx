@@ -480,7 +480,7 @@ function AwardHistoryModal({ awardKey, label, description, history, managers, on
                     </div>
                     {fin.map((leader) => (
                       <LeaderRow
-                        key={leader.ownerId || leader.value?.playerId || `${award.key}-${leader.rank}`}
+                        key={leader.value?.playerId || leader.ownerId || `${award.key}-${leader.rank}`}
                         awardKey={award.key}
                         leader={leader}
                         managers={managers}
@@ -515,7 +515,7 @@ function RaceCard({ race, managers, onNavigate, featured = false }) {
           <ol className={styles.leaderList}>
             {race.leaders.slice(0, 3).map((leader) => (
               <LeaderRow
-                key={leader.ownerId || leader.value?.playerId || `${race.key}-${leader.rank}`}
+                key={leader.value?.playerId || leader.ownerId || `${race.key}-${leader.rank}`}
                 awardKey={race.key}
                 leader={leader}
                 managers={managers}

@@ -41,7 +41,7 @@ import math
 from collections import defaultdict
 from typing import Any
 
-from . import metrics
+from . import award_eligibility, metrics
 from .draft import _pick_ownership_map, pick_weight
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
@@ -378,7 +378,10 @@ def _canonical_award(
 
 
 def _season_canonical_awards(
-    snapshot: PublicLeagueSnapshot, season: SeasonSnapshot
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    *,
+    with_standings: bool = False,
 ) -> list[dict[str, Any]]:
     standings = metrics.season_standings(season, snapshot.managers)
     if not standings:
@@ -390,6 +393,7 @@ def _season_canonical_awards(
 
     high_week: tuple[float, int, int] | None = None
     low_week: tuple[float, int, int] | None = None
+    team_weeks: list[tuple[float, int, int]] = []
     final_weeks = _final_week_set(season)
     for week, entries in season.matchups_by_week.items():
         if week not in final_weeks:
@@ -401,6 +405,7 @@ def _season_canonical_awards(
             pts = metrics.matchup_points(m)
             if pts <= 0:
                 continue
+            team_weeks.append((pts, rid, week))
             if high_week is None or pts > high_week[0]:
                 high_week = (pts, rid, week)
             if low_week is None or pts < low_week[0]:
@@ -443,7 +448,72 @@ def _season_canonical_awards(
             value={"points": round(low_week[0], 2), "week": low_week[2]} if low_week else None,
         ),
     ]
-    return [a for a in awards if a is not None]
+    awards = [a for a in awards if a is not None]
+    if with_standings:
+        _attach_canonical_standings(snapshot, season, awards, standings, team_weeks)
+    return awards
+
+
+def _attach_canonical_standings(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    awards: list[dict[str, Any]],
+    standings: list[dict[str, Any]],
+    team_weeks: list[tuple[float, int, int]],
+) -> None:
+    """Expand standings for the current season's race-less awards.
+
+    Each list is the SAME evidence and order its award is decided by:
+    ``season_standings`` order for the crown; that order stably re-sorted
+    by points for (``max`` keeps the first maximum) for Points King; every
+    finished team-week, stably sorted, for the single-week awards (the
+    award keeps the first of equal scores).  The Champion has no metric
+    ranking — a bracket decides it — so it has none.
+    """
+
+    def _team_week_row(tw: tuple[float, int, int]) -> dict[str, Any]:
+        pts, rid, week = tw
+        owner_id = metrics.resolve_owner(snapshot.managers, season.league_id, rid) or ""
+        return {"ownerId": owner_id, "points": round(pts, 2), "week": week}
+
+    lists: dict[str, dict[str, Any]] = {
+        "regular_season_crown": _standings(
+            snapshot,
+            season,
+            "regular_season_crown",
+            standings,
+            lambda r: {
+                "record": f'{r["wins"]}-{r["losses"]}',
+                "pointsFor": r["pointsFor"],
+                "pointsAgainst": r["pointsAgainst"],
+            },
+            entity="team",
+        ),
+        "points_king": _standings(
+            snapshot,
+            season,
+            "points_king",
+            sorted(standings, key=lambda r: -r["pointsFor"]),
+            lambda r: {"pointsFor": r["pointsFor"]},
+            entity="team",
+        ),
+    }
+    high = [_team_week_row(tw) for tw in sorted(team_weeks, key=lambda tw: -tw[0])]
+    low = [_team_week_row(tw) for tw in sorted(team_weeks, key=lambda tw: tw[0])]
+    for key, rows in (("highest_single_week", high), ("lowest_single_week", low)):
+        lists[key] = _standings(
+            snapshot,
+            season,
+            key,
+            [r for r in rows if r["ownerId"]],
+            lambda r: {"points": r["points"], "week": r["week"]},
+            entity="event",
+            detail=lambda r: f"Week {r['week']}",
+        )
+    for award in awards:
+        extra = lists.get(award["key"])
+        if extra and extra["standings"]:
+            award.update(extra)
 
 
 # ── activity-based per-season awards ───────────────────────────────────────
@@ -1930,6 +2000,12 @@ def _award_from_row(
         pool = [r for r in rows if r.get("eligible") is True]
     if not pool:
         return None
+    # An owner season rule (``award_eligibility``) may bar a manager from
+    # WINNING this award in this season.  Their row stays measured and
+    # ranked; the award goes to the highest-ranked eligible candidate.
+    pool = [r for r in pool if _award_ineligibility(season, key, r.get("ownerId")) is None]
+    if not pool:
+        return None
     if evidence is not None and not any(evidence(r) for r in pool):
         return _awaiting_award(key, label)
     winner = pool[0]
@@ -2381,8 +2457,105 @@ def _activity_awards_for_season(
     return _order_awards(awards)
 
 
+#: Expand standings — at most this many rows per award (a 12-team league).
+STANDINGS_LIMIT = 12
+
+#: Fields that identify a standings row rather than measure it; two rows are
+#: TIED only when everything else they publish is equal.
+_IDENTITY_VALUE_KEYS = frozenset({"playerId", "playerName", "team", "position", "asOfWeek"})
+
+
+def _award_ineligibility(
+    season: SeasonSnapshot, key: str, owner_id: Any
+) -> award_eligibility.Ineligibility | None:
+    """The season-scoped owner rule barring ``owner_id`` from WINNING ``key``."""
+    return award_eligibility.ineligibility(
+        season=season.season,
+        league_id=season.league_id,
+        award=key,
+        owner_id=str(owner_id or ""),
+    )
+
+
+def _standings(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    key: str,
+    pool: list[dict[str, Any]],
+    value_builder,
+    *,
+    entity: str,
+    display_name=None,
+    detail=None,
+) -> dict[str, Any]:
+    """The ranking behind one award: its canonical rows in canonical order.
+
+    Nothing is re-sorted, re-measured or padded here: ``pool`` is the same
+    sorted row set the award and its race are decided from, cut to
+    ``STANDINGS_LIMIT``.  ``rank`` is the METRIC rank; ``awardRank`` counts
+    only rows eligible to win (``None`` for a row an owner season rule
+    bars — that row keeps its real metric and says why).  A tie is a row
+    whose published measurement equals the previous row's in every field;
+    it shares that rank rather than getting an invented one.
+    """
+    out: list[dict[str, Any]] = []
+    award_rank = 0
+    prev_measure: Any = None
+    for i, row in enumerate(pool[:STANDINGS_LIMIT]):
+        value = value_builder(row)
+        measure = (
+            {k: v for k, v in value.items() if k not in _IDENTITY_VALUE_KEYS}
+            if isinstance(value, dict)
+            else value
+        )
+        tied = i > 0 and measure == prev_measure
+        owner_id = str(row.get("ownerId") or "")
+        barred = (
+            _award_ineligibility(season, key, owner_id)
+            if entity in ("manager", "team", "event") and owner_id
+            else None
+        )
+        prev = out[-1] if out else None
+        if display_name is not None:
+            name = display_name(row)
+        else:
+            name = row.get("displayName") or metrics.display_name_for(snapshot, owner_id)
+        entry: dict[str, Any] = {
+            "rank": prev["rank"] if tied and prev else i + 1,
+            "ownerId": owner_id,
+            "displayName": name,
+            "value": value,
+            "eligible": barred is None,
+            "awardRank": None,
+        }
+        if tied:
+            entry["tied"] = True
+        if barred is None:
+            if not (tied and prev and prev["eligible"]):
+                award_rank += 1
+            entry["awardRank"] = award_rank
+        else:
+            entry.update(barred.to_payload())
+        if entity in ("manager", "team", "event") and owner_id:
+            rid = _roster_id_for_owner(season, owner_id)
+            entry["teamName"] = (
+                metrics.team_name(snapshot, season.league_id, rid) if rid is not None else ""
+            )
+        if detail is not None:
+            entry["detail"] = detail(row)
+        out.append(entry)
+        prev_measure = measure
+    return {
+        "standings": out,
+        "standingsEntity": entity,
+        "standingsTotal": len(pool),
+    }
+
+
 def _build_race(
     snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    entity: str,
     key: str,
     label: str,
     rows: list[dict[str, Any]],
@@ -2397,13 +2570,18 @@ def _build_race(
     Same rule as :func:`_award_from_row`: a board where every candidate
     sits at zero is an arbitrary ordering, not a race, so it reports its
     awaiting state (no leaders) rather than ranking a tie.
+
+    ``leaders`` is the AWARD race (eligible candidates, award order);
+    ``standings`` is the metric ranking behind it, ineligible rows
+    included and labelled.  Both come from the same ``rows``.
     """
     pool = rows
     if eligible_only:
         pool = [r for r in rows if r.get("eligible") is True]
     if not pool:
         return None
-    if evidence is not None and not any(evidence(r) for r in pool):
+    award_pool = [r for r in pool if _award_ineligibility(season, key, r.get("ownerId")) is None]
+    if evidence is not None and not any(evidence(r) for r in award_pool):
         race = _awaiting_award(key, label)
         race.pop("ownerId", None)
         race.pop("displayName", None)
@@ -2412,7 +2590,7 @@ def _build_race(
         race["leaders"] = []
         return race
     leaders = []
-    for i, row in enumerate(pool[:top_n]):
+    for i, row in enumerate(award_pool[:top_n]):
         leaders.append(
             {
                 "rank": i + 1,
@@ -2422,11 +2600,73 @@ def _build_race(
                 "value": value_builder(row),
             }
         )
+    # Standings rank only candidates WITH evidence: a manager with no
+    # waiver production has no Waiver King measurement, not one of 0.
+    measured = [r for r in pool if evidence(r)] if evidence is not None else pool
     return {
         "key": key,
         "label": label,
         "description": AWARD_DESCRIPTIONS.get(key, ""),
         "leaders": leaders,
+        **_standings(snapshot, season, key, measured, value_builder, entity=entity),
+    }
+
+
+def _player_points_value(r: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "playerId": r["playerId"],
+        "playerName": r["playerName"],
+        "team": r.get("team", ""),
+        "position": r["position"],
+        "starterPoints": r["starterPoints"],
+        "gamesStarted": r["gamesStarted"],
+        "asOfWeek": r.get("asOfWeek"),
+    }
+
+
+def _player_vorp_value(r: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "playerId": r["playerId"],
+        "playerName": r["playerName"],
+        "team": r.get("team", ""),
+        "position": r["position"],
+        "vorp": r["vorp"],
+        "starterPoints": r["starterPoints"],
+        "gamesStarted": r["gamesStarted"],
+        "replacementPerGame": r.get("replacementPerGame"),
+        "replacementTotal": r.get("replacementTotal"),
+        "asOfWeek": r.get("asOfWeek"),
+    }
+
+
+def _player_race(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    key: str,
+    label: str,
+    rows: list[dict[str, Any]],
+    value_builder,
+    *,
+    top_n: int = 5,
+) -> dict[str, Any] | None:
+    """A player award race: top ``top_n`` leaders plus the standings (≤12)
+    from the same qualifying rows.  Player awards carry no owner rule."""
+    if not rows:
+        return None
+    return {
+        "key": key,
+        "label": label,
+        "description": AWARD_DESCRIPTIONS[key],
+        "leaders": [
+            {
+                "rank": i + 1,
+                "ownerId": r["ownerId"],
+                "displayName": r["displayName"],
+                "value": value_builder(r),
+            }
+            for i, r in enumerate(rows[:top_n])
+        ],
+        **_standings(snapshot, season, key, rows, value_builder, entity="player"),
     }
 
 
@@ -2452,6 +2692,8 @@ def _current_season_races(
     _add(
         _build_race(
             snapshot,
+            season,
+            "manager",
             "trader_of_the_year",
             "Trader of the Year",
             trader_rows,
@@ -2462,6 +2704,8 @@ def _current_season_races(
     _add(
         _build_race(
             snapshot,
+            season,
+            "manager",
             "waiver_king",
             "Waiver King",
             waiver_rows,
@@ -2475,6 +2719,8 @@ def _current_season_races(
     _add(
         _build_race(
             snapshot,
+            season,
+            "manager",
             "silent_assassin",
             "Silent Assassin",
             silent_rows,
@@ -2489,6 +2735,8 @@ def _current_season_races(
     _add(
         _build_race(
             snapshot,
+            season,
+            "manager",
             "weekly_hammer",
             "Weekly Hammer",
             hammer_rows,
@@ -2500,36 +2748,16 @@ def _current_season_races(
     )
     # Same rule the ROY races use: a zero-VORP board is no race at all.
     playoff_mvp_rows = [r for r in rows["playoff_mvp"] if _is_positive_number(r.get("vorp"))]
-    if playoff_mvp_rows:
-        race = {
-            "key": "playoff_mvp",
-            "label": "Playoff MVP",
-            "description": AWARD_DESCRIPTIONS["playoff_mvp"],
-            "leaders": [
-                {
-                    "rank": i + 1,
-                    "ownerId": r["ownerId"],
-                    "displayName": r["displayName"],
-                    "value": {
-                        "playerId": r["playerId"],
-                        "playerName": r["playerName"],
-                        "team": r.get("team", ""),
-                        "position": r["position"],
-                        "vorp": r["vorp"],
-                        "starterPoints": r["starterPoints"],
-                        "gamesStarted": r["gamesStarted"],
-                        "replacementPerGame": r.get("replacementPerGame"),
-                        "replacementTotal": r.get("replacementTotal"),
-                        "asOfWeek": r.get("asOfWeek"),
-                    },
-                }
-                for i, r in enumerate(playoff_mvp_rows[:5])
-            ],
-        }
-        _add(race)
+    _add(
+        _player_race(
+            snapshot, season, "playoff_mvp", "Playoff MVP", playoff_mvp_rows, _player_vorp_value
+        )
+    )
     _add(
         _build_race(
             snapshot,
+            season,
+            "event",
             "bad_beat",
             "Bad Beat",
             bad_beat_rows,
@@ -2542,6 +2770,8 @@ def _current_season_races(
     _add(
         _build_race(
             snapshot,
+            season,
+            "manager",
             "mr_consistent",
             "Mr. Consistent",
             rows["mr_consistent"],
@@ -2554,6 +2784,8 @@ def _current_season_races(
     _add(
         _build_race(
             snapshot,
+            season,
+            "team",
             "top_offense",
             "Top Offense Race",
             offense_rows,
@@ -2565,6 +2797,8 @@ def _current_season_races(
         _add(
             _build_race(
                 snapshot,
+                season,
+                "team",
                 "top_defense",
                 "Top Defense Race",
                 defense_rows,
@@ -2573,6 +2807,10 @@ def _current_season_races(
         )
     nfl_team_rows = rows["nfl_team"]
     if nfl_team_rows:
+
+        def _nfl_value(r):
+            return {"team": r["team"], "points": r["points"]}
+
         _add(
             {
                 "key": "top_nfl_team",
@@ -2583,16 +2821,27 @@ def _current_season_races(
                         "rank": i + 1,
                         "ownerId": "",
                         "displayName": r["team"],
-                        "value": {"team": r["team"], "points": r["points"]},
+                        "value": _nfl_value(r),
                     }
                     for i, r in enumerate(nfl_team_rows[:3])
                 ],
+                **_standings(
+                    snapshot,
+                    season,
+                    "top_nfl_team",
+                    nfl_team_rows,
+                    _nfl_value,
+                    entity="nfl_team",
+                    display_name=lambda r: r["team"],
+                ),
             }
         )
     moty_rows = rows["moty"]
     _add(
         _build_race(
             snapshot,
+            season,
+            "manager",
             "manager_of_the_year",
             "Manager of the Year Race",
             moty_rows,
@@ -2615,90 +2864,35 @@ def _current_season_races(
         pos_rows = [r for r in (player_rows_by_pos.get(pos) or []) if r["starterPoints"] > 0]
         if not pos_rows:
             continue
-        race = {
-            "key": _PLAYER_AWARD_KEY_BY_POS[pos],
-            "label": f"{_PLAYER_AWARD_LABEL_BY_POS[pos]} Race",
-            "description": AWARD_DESCRIPTIONS[_PLAYER_AWARD_KEY_BY_POS[pos]],
-            "leaders": [
-                {
-                    "rank": i + 1,
-                    "ownerId": r["ownerId"],
-                    "displayName": r["displayName"],
-                    "value": {
-                        "playerId": r["playerId"],
-                        "playerName": r["playerName"],
-                        "team": r.get("team", ""),
-                        "position": r["position"],
-                        "starterPoints": r["starterPoints"],
-                        "gamesStarted": r["gamesStarted"],
-                        "asOfWeek": r.get("asOfWeek"),
-                    },
-                }
-                for i, r in enumerate(pos_rows[:5])
-            ],
-        }
-        _add(race)
+        _add(
+            _player_race(
+                snapshot,
+                season,
+                _PLAYER_AWARD_KEY_BY_POS[pos],
+                f"{_PLAYER_AWARD_LABEL_BY_POS[pos]} Race",
+                pos_rows,
+                _player_points_value,
+            )
+        )
 
     # ── League MVP race ──
     mvp_rows = rows["mvp"]
-    if mvp_rows:
-        race = {
-            "key": "league_mvp",
-            "label": "League MVP Race",
-            "description": AWARD_DESCRIPTIONS["league_mvp"],
-            "leaders": [
-                {
-                    "rank": i + 1,
-                    "ownerId": r["ownerId"],
-                    "displayName": r["displayName"],
-                    "value": {
-                        "playerId": r["playerId"],
-                        "playerName": r["playerName"],
-                        "team": r.get("team", ""),
-                        "position": r["position"],
-                        "vorp": r["vorp"],
-                        "starterPoints": r["starterPoints"],
-                        "gamesStarted": r["gamesStarted"],
-                        "replacementPerGame": r.get("replacementPerGame"),
-                        "replacementTotal": r.get("replacementTotal"),
-                        "asOfWeek": r.get("asOfWeek"),
-                    },
-                }
-                for i, r in enumerate(mvp_rows[:5])
-            ],
-        }
-        _add(race)
+    _add(
+        _player_race(
+            snapshot, season, "league_mvp", "League MVP Race", mvp_rows, _player_vorp_value
+        )
+    )
 
     # ── Rookie of the Year races ──
     def _vorp_player_race(candidates, key, label):
-        leaders = [r for r in candidates if r.get("vorp", 0) > 0]
-        if not leaders:
-            return None
-        return {
-            "key": key,
-            "label": label,
-            "description": AWARD_DESCRIPTIONS[key],
-            "leaders": [
-                {
-                    "rank": i + 1,
-                    "ownerId": r["ownerId"],
-                    "displayName": r["displayName"],
-                    "value": {
-                        "playerId": r["playerId"],
-                        "playerName": r["playerName"],
-                        "team": r.get("team", ""),
-                        "position": r["position"],
-                        "vorp": r["vorp"],
-                        "starterPoints": r["starterPoints"],
-                        "gamesStarted": r["gamesStarted"],
-                        "replacementPerGame": r.get("replacementPerGame"),
-                        "replacementTotal": r.get("replacementTotal"),
-                        "asOfWeek": r.get("asOfWeek"),
-                    },
-                }
-                for i, r in enumerate(leaders[:5])
-            ],
-        }
+        return _player_race(
+            snapshot,
+            season,
+            key,
+            label,
+            [r for r in candidates if r.get("vorp", 0) > 0],
+            _player_vorp_value,
+        )
 
     _add(
         _vorp_player_race(
@@ -2765,6 +2959,11 @@ def _has_begun(s: SeasonSnapshot) -> bool:
 def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     by_season: list[dict[str, Any]] = []
     races_by_season: dict[str, list[dict[str, Any]]] = {}
+    # The season whose races are live — the one whose race-less awards also
+    # publish Expand standings (current season only; history stays compact).
+    live_season = next((s for s in snapshot.seasons if _has_begun(s)), snapshot.current_season)
+    if live_season is not None and live_season.is_complete:
+        live_season = None
     for idx, season in enumerate(snapshot.seasons):
         prev = snapshot.seasons[idx + 1] if idx + 1 < len(snapshot.seasons) else None
         row: dict[str, Any] = {
@@ -2807,7 +3006,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
             by_season.append(row)
             continue
 
-        canonical = _season_canonical_awards(snapshot, season)
+        canonical = _season_canonical_awards(snapshot, season, with_standings=season is live_season)
         # One row-set computation feeds both the awards and the races pass.
         season_rows = _season_row_sets(snapshot, season)
         activity_based = _activity_awards_for_season(snapshot, season, prev, season_rows)
