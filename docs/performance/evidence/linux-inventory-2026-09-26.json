@@ -1,0 +1,362 @@
+{
+  "schemaVersion": 1,
+  "workflowRun": 36271660914,
+  "rawSafeReportSha256": "44d4c129d74d893948bbea644f8d119b9a8da613973003a5f008e4f07cfda567",
+  "provenance": {
+    "sourceSha": "7f3dfac15c1e5166d9f09e9e6281505ed04a0f40",
+    "helperSha256": "812fb18be125b8d3eac7f70b311a6d78b11df16c1720e24063e6780c24a9a7e0",
+    "runId": 36271660914,
+    "attempt": 1
+  },
+  "checkoutBefore": "27f246895560ef47285ffa2579d27e5e6a927c97",
+  "checkoutAfter": "27f246895560ef47285ffa2579d27e5e6a927c97",
+  "loadedProcessRevision": null,
+  "sampleCount": 3,
+  "host": {
+    "memoryTotalBytes": 8326946816,
+    "memoryAvailableBytes": 5718093824,
+    "cpuCount": 4,
+    "cpuTotalTicks": 129106711,
+    "cpuIdleTicks": 119318861,
+    "diskTotalBytes": 102888095744,
+    "diskFreeBytes": 66558152704,
+    "clockTicks": 100
+  },
+  "units": {
+    "web": [
+      {
+        "load": "loaded",
+        "active": "active",
+        "ExecMainStatus": 0,
+        "MemoryCurrent": 2254917632,
+        "MemoryMax": 3221225472,
+        "TasksCurrent": 4,
+        "rssBytes": 1837793280,
+        "fdCount": 18,
+        "cpuTicks": 155988
+      },
+      {
+        "load": "loaded",
+        "active": "active",
+        "ExecMainStatus": 0,
+        "MemoryCurrent": 2254917632,
+        "MemoryMax": 3221225472,
+        "TasksCurrent": 4,
+        "rssBytes": 1837793280,
+        "fdCount": 18,
+        "cpuTicks": 155992
+      },
+      {
+        "load": "loaded",
+        "active": "active",
+        "ExecMainStatus": 0,
+        "MemoryCurrent": 2254917632,
+        "MemoryMax": 3221225472,
+        "TasksCurrent": 4,
+        "rssBytes": 1837793280,
+        "fdCount": 18,
+        "cpuTicks": 155996
+      }
+    ],
+    "frontend": [
+      {
+        "load": "loaded",
+        "active": "active",
+        "ExecMainStatus": 0,
+        "MemoryCurrent": 110841856,
+        "MemoryMax": 2147483648,
+        "TasksCurrent": 23,
+        "rssBytes": 53477376,
+        "fdCount": 19,
+        "cpuTicks": 36
+      },
+      {
+        "load": "loaded",
+        "active": "active",
+        "ExecMainStatus": 0,
+        "MemoryCurrent": 110841856,
+        "MemoryMax": 2147483648,
+        "TasksCurrent": 23,
+        "rssBytes": 53477376,
+        "fdCount": 19,
+        "cpuTicks": 36
+      },
+      {
+        "load": "loaded",
+        "active": "active",
+        "ExecMainStatus": 0,
+        "MemoryCurrent": 110841856,
+        "MemoryMax": 2147483648,
+        "TasksCurrent": 23,
+        "rssBytes": 53477376,
+        "fdCount": 19,
+        "cpuTicks": 36
+      }
+    ],
+    "dlf": [
+      {
+        "load": "loaded",
+        "active": "failed",
+        "ExecMainStatus": 1,
+        "MemoryCurrent": null,
+        "MemoryMax": null,
+        "TasksCurrent": null,
+        "rssBytes": null,
+        "fdCount": null,
+        "cpuTicks": null
+      },
+      {
+        "load": "loaded",
+        "active": "failed",
+        "ExecMainStatus": 1,
+        "MemoryCurrent": null,
+        "MemoryMax": null,
+        "TasksCurrent": null,
+        "rssBytes": null,
+        "fdCount": null,
+        "cpuTicks": null
+      },
+      {
+        "load": "loaded",
+        "active": "failed",
+        "ExecMainStatus": 1,
+        "MemoryCurrent": null,
+        "MemoryMax": null,
+        "TasksCurrent": null,
+        "rssBytes": null,
+        "fdCount": null,
+        "cpuTicks": null
+      }
+    ],
+    "dlf_timer": [
+      {
+        "load": "loaded",
+        "active": "active",
+        "ExecMainStatus": null,
+        "MemoryCurrent": null,
+        "MemoryMax": null,
+        "TasksCurrent": null,
+        "rssBytes": null,
+        "fdCount": null,
+        "cpuTicks": null
+      },
+      {
+        "load": "loaded",
+        "active": "active",
+        "ExecMainStatus": null,
+        "MemoryCurrent": null,
+        "MemoryMax": null,
+        "TasksCurrent": null,
+        "rssBytes": null,
+        "fdCount": null,
+        "cpuTicks": null
+      },
+      {
+        "load": "loaded",
+        "active": "active",
+        "ExecMainStatus": null,
+        "MemoryCurrent": null,
+        "MemoryMax": null,
+        "TasksCurrent": null,
+        "rssBytes": null,
+        "fdCount": null,
+        "cpuTicks": null
+      }
+    ],
+    "game_day_live": [
+      {
+        "load": "loaded",
+        "active": "inactive",
+        "ExecMainStatus": 2,
+        "MemoryCurrent": null,
+        "MemoryMax": null,
+        "TasksCurrent": null,
+        "rssBytes": null,
+        "fdCount": null,
+        "cpuTicks": null
+      },
+      {
+        "load": "loaded",
+        "active": "inactive",
+        "ExecMainStatus": 2,
+        "MemoryCurrent": null,
+        "MemoryMax": null,
+        "TasksCurrent": null,
+        "rssBytes": null,
+        "fdCount": null,
+        "cpuTicks": null
+      },
+      {
+        "load": "loaded",
+        "active": "inactive",
+        "ExecMainStatus": 2,
+        "MemoryCurrent": null,
+        "MemoryMax": null,
+        "TasksCurrent": null,
+        "rssBytes": null,
+        "fdCount": null,
+        "cpuTicks": null
+      }
+    ],
+    "game_day_live_timer": [
+      {
+        "load": "loaded",
+        "active": "active",
+        "ExecMainStatus": null,
+        "MemoryCurrent": null,
+        "MemoryMax": null,
+        "TasksCurrent": null,
+        "rssBytes": null,
+        "fdCount": null,
+        "cpuTicks": null
+      },
+      {
+        "load": "loaded",
+        "active": "active",
+        "ExecMainStatus": null,
+        "MemoryCurrent": null,
+        "MemoryMax": null,
+        "TasksCurrent": null,
+        "rssBytes": null,
+        "fdCount": null,
+        "cpuTicks": null
+      },
+      {
+        "load": "loaded",
+        "active": "active",
+        "ExecMainStatus": null,
+        "MemoryCurrent": null,
+        "MemoryMax": null,
+        "TasksCurrent": null,
+        "rssBytes": null,
+        "fdCount": null,
+        "cpuTicks": null
+      }
+    ],
+    "game_day_capture": [
+      {
+        "load": "loaded",
+        "active": "failed",
+        "ExecMainStatus": 3,
+        "MemoryCurrent": null,
+        "MemoryMax": null,
+        "TasksCurrent": null,
+        "rssBytes": null,
+        "fdCount": null,
+        "cpuTicks": null
+      },
+      {
+        "load": "loaded",
+        "active": "failed",
+        "ExecMainStatus": 3,
+        "MemoryCurrent": null,
+        "MemoryMax": null,
+        "TasksCurrent": null,
+        "rssBytes": null,
+        "fdCount": null,
+        "cpuTicks": null
+      },
+      {
+        "load": "loaded",
+        "active": "failed",
+        "ExecMainStatus": 3,
+        "MemoryCurrent": null,
+        "MemoryMax": null,
+        "TasksCurrent": null,
+        "rssBytes": null,
+        "fdCount": null,
+        "cpuTicks": null
+      }
+    ],
+    "game_day_capture_timer": [
+      {
+        "load": "loaded",
+        "active": "active",
+        "ExecMainStatus": null,
+        "MemoryCurrent": null,
+        "MemoryMax": null,
+        "TasksCurrent": null,
+        "rssBytes": null,
+        "fdCount": null,
+        "cpuTicks": null
+      },
+      {
+        "load": "loaded",
+        "active": "active",
+        "ExecMainStatus": null,
+        "MemoryCurrent": null,
+        "MemoryMax": null,
+        "TasksCurrent": null,
+        "rssBytes": null,
+        "fdCount": null,
+        "cpuTicks": null
+      },
+      {
+        "load": "loaded",
+        "active": "active",
+        "ExecMainStatus": null,
+        "MemoryCurrent": null,
+        "MemoryMax": null,
+        "TasksCurrent": null,
+        "rssBytes": null,
+        "fdCount": null,
+        "cpuTicks": null
+      }
+    ],
+    "nginx": [
+      {
+        "load": "loaded",
+        "active": "active",
+        "ExecMainStatus": 0,
+        "MemoryCurrent": 19210240,
+        "MemoryMax": null,
+        "TasksCurrent": 5,
+        "rssBytes": 8331264,
+        "fdCount": null,
+        "cpuTicks": 17
+      },
+      {
+        "load": "loaded",
+        "active": "active",
+        "ExecMainStatus": 0,
+        "MemoryCurrent": 19210240,
+        "MemoryMax": null,
+        "TasksCurrent": 5,
+        "rssBytes": 8331264,
+        "fdCount": null,
+        "cpuTicks": 17
+      },
+      {
+        "load": "loaded",
+        "active": "active",
+        "ExecMainStatus": 0,
+        "MemoryCurrent": 19210240,
+        "MemoryMax": null,
+        "TasksCurrent": 5,
+        "rssBytes": 8331264,
+        "fdCount": null,
+        "cpuTicks": 17
+      }
+    ]
+  },
+  "limitations": [
+    "Three sequential metadata observations only, not full process tree, sustained resource acceptance, child/FD recovery or loaded-code identity.",
+    "Inactive exit2 can be allowed no-work; DLFexit1 and captureexit3 causes remain unknown.",
+    "Capture closed-window refusal can follow a prior successful capture; no data loss inferred.",
+    "Available authorized GitHub SSH diagnostic path succeeded; no services changed."
+  ],
+  "followupReview": {
+    "reviewer": "Commander000 independent from implementation author",
+    "verdict": "APPROVE bounded categorical followup",
+    "validation": "36passed2Linuxskips1.10s; source trace/diff reviewed; old schema compatibility preserved",
+    "hashes": {
+      "deploy/diagnostics/performance_inventory.py": "5a55a3d2d1319b0de833302b3a9375f7b81b66b1cb024c036f92b9e4a7ab3505",
+      "tests/deploy/test_performance_inventory.py": "0b67faf78816ca17a3f470a7008d37d75a42614191d1591f47da990702a5af57"
+    },
+    "limitations": [
+      "Optional diagnostic outcome fields do not expand completeness denominator.",
+      "Default DLF manifest may not be effective configured path; no cause inferred.",
+      "No capture coverage inferred from filenames."
+    ]
+  }
+}
