@@ -228,9 +228,25 @@ def _roster_lens(simulation: dict[str, Any], cfg: dict[str, float]) -> Dimension
             detail={"teamStrength": context} if context else {},
         )
     impact = utility.get("impact") or {}
-    ppg = float(impact.get("ppg") or 0.0)
+    raw_ppg = impact.get("ppg")
+    if not isinstance(raw_ppg, (int, float)):
+        # "available" without a number is a malformed utility, not a zero.
+        return DimensionResult(
+            name="rosterUtility",
+            available=False,
+            unavailable_reason="impact_missing",
+            lineage=LINEAGE_PROJECTION,
+            detail={"teamStrength": context} if context else {},
+        )
+    ppg = float(raw_ppg)
     stderr = impact.get("standardError")
-    band = max(cfg["materialityPpg"], 2.0 * float(stderr or 0.0))
+    # No published precision: the band is the declared PRIOR alone, never a
+    # precision of zero invented for the missing figure.
+    band = (
+        max(cfg["materialityPpg"], 2.0 * float(stderr))
+        if isinstance(stderr, (int, float))
+        else cfg["materialityPpg"]
+    )
     coverage = (utility.get("coverage") or {}).get("state")
     if coverage == "partial":
         # A traded player without a projection: the number is real for the
@@ -288,8 +304,11 @@ def _feasibility_state(cap: dict[str, Any]) -> str:
         return "unknown_limit"
     if cap.get("requiresDrops") is None:
         return "uncertain"
-    before = int(cap.get("overLimitBefore") or 0)
-    after = int(cap.get("overLimitAfter") or 0)
+    before = cap.get("overLimitBefore")
+    after = cap.get("overLimitAfter")
+    if not isinstance(before, int) or not isinstance(after, int):
+        # A known limit with an unstated overage is not "zero over".
+        return "uncertain"
     if before > 0:
         if after == 0:
             return "resolves_overage"
@@ -362,7 +381,10 @@ def _feasibility_lens(simulation: dict[str, Any]) -> DimensionResult:
         # cost is already inside the roster lens).  Releasing only unpriced
         # or zero-cost players is a burden but not a value loss.
         released = cap.get("forcedDropReleaseCost")
-        direction = "opposes" if (released or 0) > 0 or state == "worsens_overage" else "neutral"
+        # An unpriced forced drop's value is UNKNOWN, not zero: it is not
+        # claimed as a cost (the reasons still name the cut).
+        released_value = isinstance(released, (int, float)) and released > 0
+        direction = "opposes" if released_value or state == "worsens_overage" else "neutral"
     else:
         direction = "neutral"
     return DimensionResult(
@@ -505,12 +527,15 @@ def _reasons(
                 f"{ppg:.1f} expected best-ball points per week in the legal lineup"
             )
         for p in detail.get("players") or []:
-            if p.get("role") == "incoming" and (p.get("lineupEntryPctAfter") or 0) >= 50:
+            entry = p.get("lineupEntryPctAfter")
+            if p.get("role") != "incoming" or not isinstance(entry, (int, float)):
+                continue  # unprojected: no lineup-entry claim either way
+            if entry >= 50:
                 reasons_for.append(
                     f"{p['name']} enters the optimal lineup in "
                     f"{_pct(p['lineupEntryPctAfter'])} of simulated weeks"
                 )
-            elif p.get("role") == "incoming" and p.get("lineupEntryPctAfter") is not None:
+            else:
                 reasons_against.append(
                     f"{p['name']} would reach the lineup in only "
                     f"{_pct(p['lineupEntryPctAfter'])} of simulated weeks (redundant here)"
@@ -527,7 +552,7 @@ def _reasons(
                 f"{p['name']} {_pct(p.get('lineupEntryPctBefore'))}" for p in outgoing
             )
             line = f"Outgoing lineup usage today: {usage}"
-            if all((p.get("lineupEntryPctBefore") or 0) < 50 for p in outgoing):
+            if all(p["lineupEntryPctBefore"] < 50 for p in outgoing):
                 reasons_for.append(line)
             else:
                 reasons_against.append(line)

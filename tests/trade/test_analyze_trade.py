@@ -420,3 +420,18 @@ class TestReasonsNeverTreatMissingAsZero:
         assert "Star enters" not in text
         assert "Bench insurance" not in text
         assert "best-ball points per week" not in text
+
+    def test_available_utility_without_a_number_is_unavailable_not_zero(self):
+        broken = {**_utility(0.0), "impact": {"ppg": None, "standardError": None}}
+        a = analyze_trade(_sim([5000], [3000], utility=broken))
+        assert a["lenses"]["roster"]["unavailableReason"] == "impact_missing"
+
+    def test_known_limit_with_unstated_overage_is_uncertain(self):
+        cap = {**_capacity(), "overLimitBefore": None}
+        assert _feasibility_state(cap) == "uncertain"
+
+    def test_unpriced_forced_drop_is_not_claimed_as_a_cost(self):
+        cap = _capacity(before=58, after=59, requires=True, drops=["X"], release=None)
+        a = analyze_trade(_sim([3010], [3000], utility=_utility(0.1), capacity=cap))
+        assert a["lenses"]["feasibility"]["direction"] == "neutral"
+        assert any("1 cut required" in r for r in a["reasonsAgainst"])
