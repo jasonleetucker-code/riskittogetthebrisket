@@ -35,10 +35,10 @@ async function noPageOverflow(page) {
 
 /** A real team, one of its exactly-spelled players, and one player from another team. */
 async function pickTrade(page) {
-  const { contract, teams } = await contractFixture(page);
-  const board = new Set(
-    (contract.playersArray || []).map((p) => p?.displayName).filter(Boolean),
-  );
+  // `view=app` strips playersArray; the helper's `playerNames` reads
+  // whichever encoding the contract carries.
+  const { teams, playerNames } = await contractFixture(page);
+  const board = new Set(playerNames);
   for (const [idx, team] of teams.entries()) {
     const give = (team.players || []).find((p) => p && !PICK_TOKEN.test(p) && board.has(p));
     const other = teams.find((t) => t !== team);
