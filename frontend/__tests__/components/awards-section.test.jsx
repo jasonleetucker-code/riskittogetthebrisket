@@ -45,7 +45,7 @@ const races = [
     playerLeader(4, "Quarterback Four"),
   ]),
   race("playoff_mvp", "Playoff MVP", [playerLeader(1, "Future Playoff Star")]),
-  race("off_mvp", "Offensive MVP Race", [playerLeader(1, "Offensive Star")]),
+  race("off_mvp", "Offensive Player of the Year Race", [playerLeader(1, "Offensive Star")]),
   race("league_mvp", "League MVP Race", [playerLeader(1, "League Star")]),
 ];
 

@@ -341,3 +341,31 @@ def test_history_seasons_carry_no_standings():
     assert all(
         "standings" not in f for fl in past["finalists"].values() for f in fl
     )  # finalists stay the concise leaders
+
+
+# ── OPOY / DPOY terminology (owner clarification 2026-09-26) ───────────
+
+
+def test_offensive_and_defensive_awards_are_player_of_the_year_not_mvp():
+    """Presentation only: keys, formulas and rankings are unchanged; League
+    MVP keeps its name.  The two awards have different eligibility semantics
+    from League MVP, and calling all three "MVP" hid that."""
+    sec = awards.build_section(_live_2026())
+    labels = {r["key"]: r["label"] for r in sec["awardRaces"]}
+    assert labels["off_mvp"] == "Offensive Player of the Year Race"
+    assert labels["league_mvp"] == "League MVP Race"
+    season_labels = {a["key"]: a["label"] for a in sec["bySeason"][0]["awards"]}
+    assert season_labels.get("off_mvp", "Offensive Player of the Year") == (
+        "Offensive Player of the Year"
+    )
+    assert "MVP" not in awards.AWARD_DESCRIPTIONS["off_mvp"]
+    assert "MVP" not in awards.AWARD_DESCRIPTIONS["def_mvp"]
+    body = json.dumps(sec)
+    assert "Offensive MVP" not in body and "Defensive MVP" not in body
+    # Same rows as League MVP's VORP board: the rename moved no number.
+    race = next(r for r in sec["awardRaces"] if r["key"] == "off_mvp")
+    snap = _live_2026()
+    rows = awards._season_row_sets(snap, snap.seasons[0])["off_mvp"]
+    assert [x["value"]["playerId"] for x in race["standings"]] == [
+        r["playerId"] for r in rows if r.get("vorp", 0) > 0
+    ][: awards.STANDINGS_LIMIT]
