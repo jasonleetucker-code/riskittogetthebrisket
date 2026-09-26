@@ -725,6 +725,194 @@ def _median_verification(simulation: Any, rules: Any) -> tuple[bool | None, str 
     return False, "threshold_semantics_unverified"
 
 
+#: How the Live Median Race orders and groups teams — published with the block
+#: so a reader never has to reverse-engineer the ordinal.  The rank is a SORT
+#: of the simulation's own probabilities, never another model.
+MEDIAN_RACE_RANKING = (
+    "forecast: beat-median probability descending; ties broken by the same-draw "
+    "median margin (mean), then expected final best-ball, then roster id. "
+    "final: final score descending, then roster id."
+)
+MEDIAN_RACE_BUBBLE = (
+    "the teams whose beat-median probability is closest to 50% (smallest "
+    "|p - 50|), in that order: the teams the remaining football moves most"
+)
+MEDIAN_RACE_BUBBLE_SIZE = 3
+
+
+def _roster_order(rid: str) -> tuple[int, str]:
+    return (int(rid), str(rid)) if str(rid).isdigit() else (1 << 30, str(rid))
+
+
+def _num(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return round(float(value), 2)
+
+
+def median_race_block(
+    sides: Mapping[str, Mapping[str, Any]],
+    *,
+    simulation: Any,
+    rules: Any,
+    mode: str,
+    pending: bool,
+    median_verified: tuple[bool | None, str | None],
+) -> dict[str, Any]:
+    """The league-wide beat-the-median board (owner directive 2026-09-26).
+
+    Pure composition of numbers the league render already holds: every
+    probability, margin and projected range is the joint simulation's
+    (``src.ros.game_day_sim``: one draw scores every team, M(d) is that draw's
+    own median), and the current / final medians use that module's own
+    threshold rule over the host-backed scores.  Nothing here simulates or
+    re-derives a probability, and missing never becomes zero.
+    """
+    from src.ros.game_day_sim import THRESHOLD_SEMANTICS, _threshold
+
+    enabled = getattr(rules, "median_enabled", None)
+    semantics = getattr(simulation, "threshold_semantics", None) or THRESHOLD_SEMANTICS
+    rows: list[dict[str, Any]] = []
+    for rid, side in sides.items():
+        outcome = side.get("outcome") or {}
+        score_now = side.get("scoreNow") or {}
+        if mode == "pregame":
+            # Before any kickoff every team's banked score is a KNOWN zero.
+            now_value: float | None = 0.0
+            now_complete: bool | None = True
+        else:
+            now_value = _num(score_now.get("bestBallFromBankedPoints"))
+            now_complete = score_now.get("complete")
+        rows.append(
+            {
+                "rosterId": str(side.get("rosterId") or rid),
+                "ownerId": side.get("ownerId"),
+                "teamName": side.get("teamName") or "",
+                "displayName": side.get("displayName") or "",
+                "scoreNow": now_value,
+                "scoreNowComplete": now_complete,
+                "projectedMean": outcome.get("projectedMean"),
+                "projectedP10": outcome.get("projectedP10"),
+                "projectedP90": outcome.get("projectedP90"),
+                "beatMedianPct": outcome.get("beatMedianPct"),
+                "beatMedianState": outcome.get("beatMedianState"),
+                "medianMarginMean": outcome.get("medianMarginMean"),
+                "medianMarginP50": outcome.get("medianMarginP50"),
+                "medianTiePct": outcome.get("medianTiePct"),
+                "finalScore": _num(side.get("actualScore")) if mode == "final" else None,
+                "finalResult": None,
+                # Attached at serve time from the superseded comparable
+                # generation; absent (None), never 0, when there is none.
+                "movementPp": None,
+            }
+        )
+
+    # Current median: only when EVERY team's live score is known and complete.
+    current: float | None
+    if mode == "pregame":
+        current, current_state = 0.0, "pregame"
+    else:
+        values = [r["scoreNow"] for r in rows]
+        complete = all(r["scoreNowComplete"] is True for r in rows)
+        if rows and complete and all(v is not None for v in values):
+            current, current_state = round(_threshold(values, semantics), 2), "complete"
+        else:
+            current, current_state = None, "incomplete_live_scoring"
+
+    final_median: float | None = None
+    if mode == "final":
+        finals = [r["finalScore"] for r in rows]
+        if rows and all(v is not None for v in finals):
+            final_median = round(_threshold(finals, semantics), 2)
+            for r in rows:
+                if r["finalScore"] > final_median:
+                    r["finalResult"] = "BEAT"
+                elif r["finalScore"] == final_median:
+                    r["finalResult"] = "TIE"
+                else:
+                    r["finalResult"] = "MISS"
+
+    distribution = getattr(simulation, "median_distribution", None) if simulation else None
+    if enabled is False:
+        state = "not_applicable"
+    elif enabled is None:
+        state = "unverified"
+    elif mode == "final":
+        state = "final" if final_median is not None else "final_scores_incomplete"
+    elif pending:
+        state = "pending"
+    elif not distribution:
+        state = "forecast_unavailable"
+    else:
+        state = "forecast"
+
+    if state == "final":
+        rows.sort(key=lambda r: (-float(r["finalScore"]), _roster_order(r["rosterId"])))
+    elif state != "forecast":
+        # No probability to rank on (pending, withheld, not applicable,
+        # unverified): order by the known live score, unknown last.
+        rows.sort(
+            key=lambda r: (
+                r["scoreNow"] is None,
+                -r["scoreNow"] if r["scoreNow"] is not None else 0.0,
+                _roster_order(r["rosterId"]),
+            )
+        )
+    else:
+
+        def _rank_key(r: Mapping[str, Any]) -> tuple:
+            pct = _num(r["beatMedianPct"])
+            margin = _num(r["medianMarginMean"])
+            mean = _num(r["projectedMean"])
+            return (
+                pct is None,
+                -pct if pct is not None else 0.0,
+                -margin if margin is not None else 0.0,
+                -mean if mean is not None else 0.0,
+                _roster_order(r["rosterId"]),
+            )
+
+        rows.sort(key=_rank_key)
+    for i, r in enumerate(rows, start=1):
+        r["rank"] = i
+
+    bubble: list[str] = []
+    if state == "forecast":
+        priced = [r for r in rows if _num(r["beatMedianPct"]) is not None]
+        priced.sort(key=lambda r: (abs(float(r["beatMedianPct"]) - 50.0), r["rank"]))
+        bubble = [r["rosterId"] for r in priced[:MEDIAN_RACE_BUBBLE_SIZE]]
+
+    shown = distribution if state == "forecast" else None
+    return {
+        "state": state,
+        "medianEnabled": enabled,
+        "verified": median_verified[0],
+        "unverifiedReason": median_verified[1],
+        "thresholdSemantics": semantics,
+        "currentMedian": current,
+        "currentMedianState": current_state,
+        "projectedMedianMean": shown.get("mean") if shown else None,
+        "projectedMedianP10": shown.get("p10") if shown else None,
+        "projectedMedianP50": shown.get("p50") if shown else None,
+        "projectedMedianP90": shown.get("p90") if shown else None,
+        "projectedMedianDraws": shown.get("draws") if shown else None,
+        "finalMedian": final_median,
+        "teams": rows,
+        "bubble": bubble,
+        "movement": None,
+        "definitions": {
+            "ranking": MEDIAN_RACE_RANKING
+            + " With no forecast to rank on: score now descending, unknown last.",
+            "bubble": MEDIAN_RACE_BUBBLE,
+            "median": "each simulated week's own league median of every team's final "
+            "best-ball score; an exact median score is a tie, never a win",
+            "movement": "percentage-point change in beat-median probability since the "
+            "previous published generation of this league-week, same model version; "
+            "absent when there is none",
+        },
+    }
+
+
 def _outcome_payload(
     outcome: TeamWeekOutcome | None,
     median_verified: tuple[bool | None, str | None] = (None, None),
@@ -756,6 +944,11 @@ def _outcome_payload(
         "tieMatchupPct": outcome.tie_matchup_pct,
         "beatMedianPct": outcome.beat_median_pct,
         "beatMedianState": outcome.beat_median_state,
+        # Same-draw margin to the league median, D = S(t, d) - M(d), and the
+        # share of draws landing exactly on it (a tie, never a win).
+        "medianMarginMean": outcome.median_margin_mean,
+        "medianMarginP50": outcome.median_margin_p50,
+        "medianTiePct": outcome.median_tie_pct,
         "projectedMean": round(outcome.projected_mean, 2),
         "projectedP10": round(outcome.projected_p10, 2),
         "projectedP50": round(outcome.projected_p50, 2),
@@ -1251,6 +1444,7 @@ def render_league(assembly: LeagueWeekAssembly) -> dict[str, Any]:
         )
 
     roster_ids = sorted(owner_by_roster)
+    sides_by_roster = {rid: _side(rid) for rid in roster_ids}
     shared = {
         "leagueKey": assembly.league_key,
         "season": season,
@@ -1391,7 +1585,15 @@ def render_league(assembly: LeagueWeekAssembly) -> dict[str, Any]:
         "shared": shared,
         "lineage": lineage,
         "notes": notes,
-        "sides": {rid: _side(rid) for rid in roster_ids},
+        "sides": sides_by_roster,
+        "medianRace": median_race_block(
+            sides_by_roster,
+            simulation=simulation,
+            rules=resolution.rules,
+            mode=scoring.mode,
+            pending=pending,
+            median_verified=median_verified,
+        ),
         "opponents": {rid: resolution.opponents.get(rid) for rid in roster_ids},
         "ownerToRoster": {v: k for k, v in owner_by_roster.items() if v},
         "slate": _nfl_slate_parts(
@@ -1514,6 +1716,13 @@ def compose_team_payload(
         "opponent": _side(opponent_roster_id),
         "nflSlate": _compose_slate(render["slate"], my_roster_id, opponent_roster_id),
         "leagueTeams": league_teams(render),
+        # League-wide, identical for every team's view; only the selected
+        # roster differs.  Never recomputed per request.
+        "medianRace": (
+            {**dict(render["medianRace"]), "selectedRosterId": my_roster_id}
+            if isinstance(render.get("medianRace"), Mapping)
+            else None
+        ),
         "lineage": lineage,
         "notes": notes,
     }

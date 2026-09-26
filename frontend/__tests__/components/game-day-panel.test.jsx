@@ -93,7 +93,10 @@ describe("GameDayPanel — owner hierarchy", () => {
   it("renders hero, what matters now, slate, then collapsed details and data info", async () => {
     const { container } = await renderReady(HALFTIME);
     const headings = [...container.querySelectorAll("h2")].map((h) => h.textContent.trim());
+    // Owner amendment 2026-09-26: the Live Median Race sits directly after
+    // the hero, ahead of What matters now.
     expect(headings).toEqual([
+      "Live median race",
       "What matters now",
       "NFL slate",
       "Best-ball details",
@@ -487,6 +490,23 @@ describe("GameDayPanel — missing is never zero", () => {
     p.team.outcome = null;
     p.opponent.outcome = null;
     p.probabilityState = "UNAVAILABLE";
+    // The league board of a week nothing priced carries no probabilities
+    // either (the backend's forecast_unavailable state).
+    p.medianRace = {
+      ...p.medianRace,
+      state: "forecast_unavailable",
+      projectedMedianMean: null,
+      projectedMedianP10: null,
+      projectedMedianP50: null,
+      projectedMedianP90: null,
+      bubble: [],
+      teams: p.medianRace.teams.map((t) => ({
+        ...t,
+        beatMedianPct: null,
+        medianMarginMean: null,
+        projectedMean: null,
+      })),
+    };
     await renderReady(p);
     expect(screen.queryByText(/50\.0%/)).toBeNull();
     expect(within(heroRow("Team 8")).getAllByText("Unavailable").length).toBeGreaterThan(0);

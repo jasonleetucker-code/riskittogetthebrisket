@@ -17,6 +17,8 @@
  *
  * Owner hierarchy (2026-09-24 escalation on #1335):
  *   1. MatchupHero      — score now / projected finish / win / median
+ *   1b. MedianRace      — the whole league vs this week's median (owner
+ *                         amendment 2026-09-26: directly after the hero)
  *   2. WhatMattersNow   — 3–5 evidence-backed items
  *   3. NflSlate         — every game, kickoff order, relevance emphasized
  *   4. BestBallDetails  — collapsed: counting / could enter / finished
@@ -59,6 +61,7 @@ import { useUserState } from "@/components/useUserState";
 import BestBallDetails from "@/components/game-day/BestBallDetails";
 import DataInfo from "@/components/game-day/DataInfo";
 import MatchupHero from "@/components/game-day/MatchupHero";
+import MedianRace from "@/components/game-day/MedianRace";
 import NflSlate from "@/components/game-day/NflSlate";
 import TeamPicker from "@/components/game-day/TeamPicker";
 import WhatMattersNow from "@/components/game-day/WhatMattersNow";
@@ -309,12 +312,13 @@ export default function GameDayPanel() {
         leagueTeamsKnown={leagueTeams.length > 0}
         onRetry={load}
         onRefresh={manualRefresh}
+        onSelectTeam={selectTeam}
       />
     </div>
   );
 }
 
-function GameDayBody({ state, requestKey, teamName, leagueTeamsKnown, onRetry, onRefresh }) {
+function GameDayBody({ state, requestKey, teamName, leagueTeamsKnown, onRetry, onRefresh, onSelectTeam }) {
   if (state.status === "loading" || state.requestKey !== requestKey) {
     return <GameDayLoading teamName={teamName} />;
   }
@@ -406,6 +410,7 @@ function GameDayBody({ state, requestKey, teamName, leagueTeamsKnown, onRetry, o
             : ""}
       </p>
       <MatchupHero payload={p} refreshing={Boolean(state.refreshing)} onRefresh={onRefresh} />
+      <MedianRace race={p.medianRace} week={p.week} onSelectTeam={onSelectTeam} />
       <WhatMattersNow payload={p} />
       <NflSlate payload={p} />
       <BestBallDetails payload={p} />
