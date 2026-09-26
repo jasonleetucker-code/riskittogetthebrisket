@@ -15,6 +15,39 @@ reconciliation). New owner instructions land here first and are durable the mome
 This file is the durable repository record for owner-requested live defects, UX requirements, planned products, and explicitly deferred long-term ideas that must not be lost between implementation phases or coding sessions. Items remain open until the linked issue is actually reproduced/researched, implemented where authorized, validated, and closed.
 
 
+## #1338 expanded performance mandate — owner, 2026-09-26
+
+**Closure priority amendment (2026-09-26):** merge the already-reviewed PR train
+as exact-head gates pass. Use the existing measurement framework to fix the largest
+measured user-visible owner first: production Rankings/Trade useful state and its
+8–14 MB aggregate decoded resource total. That total is not yet an isolated API
+payload measurement. Stop expanding diagnostic infrastructure and adjacent source
+or operations investigations unless they directly block performance acceptance or
+production correctness. Remeasure each material correction, then sweep the remaining
+route denominator, fix material failures, complete production/adversarial acceptance
+and reconcile #1338. Preserve correctness without an unbounded subsystem audit.
+
+The named performance requirements are a minimum, not an exhaustive checklist.
+Actively search the current system for material opportunities across request and
+Next.js architecture, Python/JS compute, event-loop/process contention, memory/GC,
+serialization/compression, files/SQLite/indexes, algorithms and redundant work,
+payloads/HTTP/caches/connections/concurrency, source scheduling/freshness/invalidation,
+browser networking/bundles/hydration/rendering/layout/assets/prefetch, auth/settings
+waterfalls, background interference, deployment/nginx, observability and regression.
+Rank work by user-visible delay × frequency × affected users/routes × severity ×
+implementation leverage. Measure → identify owner/materiality → smallest correct
+change → prove semantics → before/after measurement → independent review → retain
+only demonstrated improvements. Do not pursue insignificant microbenchmarks ahead
+of larger user-visible bottlenecks or sacrifice correctness, maintainability,
+security or product quality.
+
+After known failures are fixed, a required independent adversarial hunt must find
+and resolve worthwhile remaining inefficiencies, or substantiate why residual costs
+are negligible, inherent, externally constrained or not worth added complexity.
+Production proof and durable regression protection remain mandatory. Existing
+#1338 authorization and global budgets are unchanged; execution and evidence live
+in `EXECUTION_PLAN.md` §0 and `performance/CURRENT_ARCHITECTURE.md`.
+
 ## Permanent parallel Premium UI / locked PSI — owner directive 2026-09-24
 
 **New performance authorization (2026-09-26, #1338).** Finish Calculator's current

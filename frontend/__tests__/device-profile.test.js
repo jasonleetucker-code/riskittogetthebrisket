@@ -19,7 +19,10 @@ import {
 
 
 function setWindow(opts = {}) {
-  globalThis.window = { innerWidth: opts.innerWidth ?? 1920 };
+  globalThis.window = {
+    innerWidth: opts.innerWidth ?? 1920,
+    location: { pathname: opts.pathname ?? "/" },
+  };
   globalThis.navigator = {
     connection: opts.effectiveType ? { effectiveType: opts.effectiveType } : undefined,
     deviceMemory: opts.deviceMemory,
@@ -91,6 +94,30 @@ describe("device-profile", () => {
   it("preferredDataView → compact on slow network", () => {
     setWindow({ innerWidth: 1920, effectiveType: "3g" });
     expect(preferredDataView()).toBe("compact");
+  });
+
+  it.each(["/rankings", "/trade"])("desktop %s uses the compact board", (pathname) => {
+    setWindow({ innerWidth: 1920, deviceMemory: 16, pathname });
+    expect(preferredDataView()).toBe("compact");
+  });
+
+  it.each(["/", "/draft", "/settings", "/trades", "/trade-ledger", "/rankings/audit"])(
+    "does not widen the desktop migration to %s", (pathname) => {
+      setWindow({ innerWidth: 1920, deviceMemory: 16, pathname });
+      expect(preferredDataView()).toBe("array");
+    },
+  );
+
+  it("reads the current SPA route without changing other device decisions", () => {
+    setWindow({ innerWidth: 1920, deviceMemory: 16, pathname: "/rankings" });
+    expect(preferredDataView()).toBe("compact");
+    window.location.pathname = "/draft";
+    expect(preferredDataView()).toBe("array");
+    window.location.pathname = "/trade";
+    expect(preferredDataView()).toBe("compact");
+    expect(adjustedPollingMs(30000)).toBe(30000);
+    resetGlobals();
+    expect(preferredDataView()).toBe("array");
   });
 
   it("adjustedPollingMs unchanged on desktop foreground", () => {

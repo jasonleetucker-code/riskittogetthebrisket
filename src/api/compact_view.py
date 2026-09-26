@@ -57,7 +57,7 @@ WHAT IS STILL PRUNED
 Only fields no frontend consumer reads at all — verified by that same
 test, not by assertion:
 
-    contract level : poolAudit, siteStats, sites
+    contract level : poolAudit, siteStats
     per player     : pickDetails, hillValueSpread, marketDispersionCV
     sourceRankMeta : reduced to the consumed subset (see the constant)
 
@@ -74,6 +74,8 @@ from __future__ import annotations
 from typing import Any
 
 # Contract-level fields no frontend consumer reads.
+# ``sites`` stays: getSiteKeys feeds PlayerPopup source ordering, including
+# stable ordering when two sources have the same contribution.
 #
 # ``methodology`` is deliberately ABSENT from this set: it is rendered by
 # ``app/rankings/page.jsx`` (``<MethodologySection methodology={rawData?.methodology} />``)
@@ -83,7 +85,6 @@ _PRUNED_CONTRACT_FIELDS = frozenset(
     {
         "poolAudit",
         "siteStats",
-        "sites",  # leave sleeper.sites in place
     }
 )
 

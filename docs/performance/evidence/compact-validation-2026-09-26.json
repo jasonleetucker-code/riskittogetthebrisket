@@ -1,0 +1,48 @@
+{
+  "formatter": {
+    "ruff": "0.6.9",
+    "passed": true
+  },
+  "limitations": [
+    "Offline payload comparison, not deployed browser latency",
+    "Existing full/prepared historical evidence not reused as current acceptance",
+    "SPA shell may retain existing compact representation; new fetch route selection is tested"
+  ],
+  "planning": "PASS",
+  "verdict": "LOCAL_VALIDATION_PASS_PRODUCTION_TIMING_PENDING",
+  "coercion": "No new coercions or stale touched-file allowances; eight unrelated main differences retained",
+  "schemaVersion": 1,
+  "backend": {
+    "passed": 76,
+    "warnings": 1,
+    "seconds": 27.28,
+    "subtests": 5
+  },
+  "frontend": {
+    "priorAttempts": [
+      {
+        "failed": 1,
+        "passed": 2813
+      },
+      {
+        "failed": 3,
+        "passed": 2811
+      }
+    ],
+    "seconds": 112.65,
+    "passed": 2814,
+    "workers": 4,
+    "unchangedTestTimeoutMs": 5000,
+    "files": 189,
+    "isolatedFailedFile": {
+      "seconds": 7.69,
+      "passed": 5
+    }
+  },
+  "build": {
+    "node": "20.20.2",
+    "passed": true,
+    "declaredBudgets": 14,
+    "unchangedBudgetsPassed": 14
+  }
+}

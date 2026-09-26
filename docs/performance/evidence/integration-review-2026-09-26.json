@@ -1,0 +1,98 @@
+{
+  "status": "APPROVE_SCOPED_MERGE_RESOLUTION",
+  "reviewer": "/root/report_regression",
+  "sealedAtUtc": "2026-09-26T21:47:51.438761+00:00",
+  "parents": {
+    "candidate": "6824fa7ebc1dea29f528acabea10664e8406f632",
+    "incoming": "bfe74f81faa9122ee22d5425b5f0505eb47cef7a",
+    "commonBase": "a4750df2a154bbabcfbc495eab7f9c507619e0d7"
+  },
+  "initialFinding": {
+    "verdict": "VETO",
+    "issue": "Two preserved WORK_CLAIMS rows concatenated onto one physical line. Root corrected newline and restaged; separate rows independently rechecked."
+  },
+  "claims": {
+    "opsMatchesIncoming": true,
+    "overlayMatchesCandidate": true,
+    "separateRows": true,
+    "indexSha256": "56c05933daaccc3687a20018588463b750e051420c51036d1b2d91d8d8ff2877"
+  },
+  "unmergedEntries": "",
+  "candidateChecks": {
+    "server.py": {
+      "equalsCandidateParent": true,
+      "indexSha256": "f49f00ab58297090f20c2b303afd19560ebfd48ccb2bbf6fd9895f7ac2e28b43"
+    },
+    "src/api/data_contract.py": {
+      "equalsCandidateParent": true,
+      "indexSha256": "d3595168d32d1866815bf04b6ee8bb34b219baeaad1904432c07198f11342d16"
+    },
+    "tests/api/test_data_overlay_preparation.py": {
+      "equalsCandidateParent": true,
+      "indexSha256": "7c40c22ec5b59e9c31f0635698178a15bd86c9048024b3ae264ed55bbc6d4099"
+    },
+    "src/api/gameplan.py": {
+      "equalsCandidateParent": true,
+      "indexSha256": "402aaef11ef411e7124b3ee6f317aed0dd4a61146184e01e701d982c07aa5346"
+    },
+    "scripts/replacement_census.py": {
+      "equalsCandidateParent": true,
+      "indexSha256": "cb1e1871b58de912a2ffefc74d838192e59350aad96bad43edb0c69c45b036f8"
+    },
+    "frontend/lib/dynasty-data.js": {
+      "equalsCandidateParent": true,
+      "indexSha256": "cc1a3364cc02f18e306c90fbf1a8c3b37955f0bd3dbad01c20e34823ffa07e3f"
+    }
+  },
+  "upstreamPaths": [
+    ".github/workflows/c1a-closure-diagnostics.yml",
+    "config/ci/release_gate_classification.json",
+    "data/ops/sharp-production-smoke.json",
+    "data/scrape_state/dlfValuesSfTep_last_success",
+    "data/scrape_state/idpShowCombined_last_status.json",
+    "data/scrape_state/idpShowCombined_last_success",
+    "data/scrape_state/idpShow_last_status.json",
+    "data/scrape_state/idpShow_last_success",
+    "deploy/diagnostics/performance_inventory.py",
+    "docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md",
+    "docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md",
+    "docs/C_SERIES_SCOPE_MANIFEST.md",
+    "docs/C_SERIES_ZERO_LOSS_TRACEABILITY.md",
+    "docs/EXECUTION_PLAN.md",
+    "docs/OWNER_REQUESTED_TODO.md",
+    "docs/OWNER_REQUESTED_TODO_SPEC_INDEX.md",
+    "docs/PLANNING_DOCUMENT_STATUS.md",
+    "docs/PLAYER_IMPACT_WAR_MVP_SPEC.md",
+    "docs/POST_B_RECONCILIATION_2026-08-14.md",
+    "docs/PRODUCT_DIRECTION_SYNC_MANIFEST.md",
+    "docs/WORK_CLAIMS.md",
+    "docs/performance/PRODUCTION_INVENTORY.md",
+    "docs/performance/evidence/production-probe-review-2026-09-26.json",
+    "frontend/__tests__/components/league-mvp-eligibility.test.jsx",
+    "frontend/app/league/sections/awards.jsx",
+    "src/public_league/awards.py",
+    "tests/deploy/test_performance_inventory.py",
+    "tests/e2e/specs/prod-auth/league-mvp-gate.spec.js",
+    "tests/public_league/test_awards_standings.py",
+    "tests/public_league/test_in_progress_week_excluded.py",
+    "tests/public_league/test_league_mvp_team_success_gate.py",
+    "tests/public_league/test_vorp_thin_position_exclusion.py"
+  ],
+  "upstreamDifferencesExceptClaims": [],
+  "classification": {
+    "overall": "RELEVANT_BASE_MOVE",
+    "product": "MVP awards backend/frontend/tests and associated owner specs preserved; ops diagnostic workflow/helper/classification retained. No product merge conflict.",
+    "sourceObservation": "DLF success and four IDP status/success paths timestamp-only; source acquisition/row counts unchanged. Relevant current freshness input, not changed fixed-input overlay response fixtures.",
+    "sharpReceipt": "deploy_superseded, measured=false; not production acceptance."
+  },
+  "validation": {
+    "independent": "git index/parent blob comparisons, unresolved-index check, conflict-row check, source-observation diff read.",
+    "rootReported": "30 tests overlay9 + MVP/classification passed3.41s; planning passed. Not independently rerun.",
+    "whitespace": "git diff --cached --check initially reported upstream honors spec293 two trailing spaces, existing Markdown hard-break source; no silent edit made."
+  },
+  "limits": [
+    "Exact staged state only; final commit/CI/deploy not verified here.",
+    "Parent blob equality proves candidate semantics retained in merge, not independently revalidation of every feature.",
+    "Root may add reconciliation evidence/docs after snapshot; source freeze hashes bound above."
+  ]
+}

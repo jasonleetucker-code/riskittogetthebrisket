@@ -145,11 +145,6 @@ def test_pruned_contract_fields_have_no_frontend_reader(field: str):
         REPO / "frontend" / "components",
         REPO / "frontend" / "app",
     ]
-    # ``sites`` is too common a word to grep for usefully; the constant's own
-    # comment scopes it ("leave sleeper.sites in place") and the shape test
-    # covers it.
-    if field == "sites":
-        pytest.skip("bare 'sites' is not a searchable identifier; covered by shape tests")
     pattern = re.compile(rf"\b(?:data|payload|rawData|contract|base)\??\.{field}\b")
     hits = []
     for root in roots:
@@ -159,3 +154,12 @@ def test_pruned_contract_fields_have_no_frontend_reader(field: str):
             if pattern.search(path.read_text(encoding="utf-8", errors="ignore")):
                 hits.append(str(path.relative_to(REPO)))
     assert not hits, f"compact prunes contract field {field!r}, but it is read in: {hits}"
+
+
+def test_popup_source_order_inventory_is_not_pruned():
+    assert "sites" not in cv._PRUNED_CONTRACT_FIELDS
+    source = MATERIALIZER.read_text(encoding="utf-8")
+    body = source[source.index("export function getSiteKeys") :].split("\n}", 1)[0]
+    assert "data?.sites" in body
+    popup = (REPO / "frontend/components/PlayerPopup.jsx").read_text(encoding="utf-8")
+    assert "...(siteKeys.length > 0 ? siteKeys : [])" in popup

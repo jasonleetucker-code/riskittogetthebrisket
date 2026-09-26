@@ -74,6 +74,7 @@ from src.api.data_contract import (
     normalize_tep_multiplier,
     normalize_tep_native_multiplier,
     stamp_optimal_lineups as _stamp_optimal_lineups_owner,
+    capture_contract_roster_settings,
     validate_api_data_contract,
 )
 from src.api import gameplan as _gameplan
@@ -4023,7 +4024,9 @@ def _evict_overlay_cache_if_oversized(keep_key) -> None:
         del _OVERLAY_ENCODE_LOCKS[k]
 
 
-async def _serialize_overlaid_response(request, scrubbed, headers, cache_key, overlay_version=None):
+async def _serialize_overlaid_response(
+    request, scrubbed, headers, cache_key, overlay_version=None, *, prepare=None
+):
     """Serialize a live-overlay / cross-league ``/api/data`` response
     without blocking the event loop.
 
@@ -4047,6 +4050,8 @@ async def _serialize_overlaid_response(request, scrubbed, headers, cache_key, ov
     """
 
     def _encode():
+        if prepare is not None:
+            prepare()
         raw = json.dumps(scrubbed, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         etag = hashlib.sha1(raw).hexdigest()
         gz = gzip.compress(raw, compresslevel=5)
@@ -4138,17 +4143,17 @@ async def get_data(request: Request):
     except LeagueResolutionError as err:
         return err.json_response()
 
-    if latest_contract_data:
-        loaded_meta = (
-            latest_contract_data.get("meta") or {} if isinstance(latest_contract_data, dict) else {}
-        )
+    canonical = latest_contract_data
+    canonical_etag = latest_data_etag
+    if canonical:
+        loaded_meta = canonical.get("meta") or {} if isinstance(canonical, dict) else {}
         loaded_league = str(loaded_meta.get("leagueKey") or "")
         sleeper_matches = bool(loaded_league) and loaded_league == league_cfg.key
 
         # Scoring mismatch → genuinely different data; 503.  Decided by
         # the factual fingerprint, not the registry label, and unproven
         # fails closed (W18-F001).
-        _scoring_err = _scoring_identity_error(latest_contract_data, league_cfg)
+        _scoring_err = _scoring_identity_error(canonical, league_cfg)
         if _scoring_err is not None:
             return _scoring_err
 
@@ -4161,7 +4166,7 @@ async def get_data(request: Request):
         payload_bytes = latest_data_bytes
         payload_gzip_bytes = latest_data_gzip_bytes
         payload_etag = latest_data_etag
-        payload_obj = latest_contract_data
+        payload_obj = canonical
         payload_view_name = "full"
 
         if startup_view and latest_startup_data is not None:
@@ -4185,7 +4190,7 @@ async def get_data(request: Request):
             payload_etag = latest_array_data_etag
             payload_obj = latest_array_data
             payload_view_name = "array"
-        elif compact_view and latest_contract_data is not None:
+        elif compact_view and canonical is not None:
             # Mobile / slow-network view.  Drops the legacy ``players``
             # dict (as ``array`` does) and prunes the three per-player
             # fields no frontend consumer reads.
@@ -4218,7 +4223,7 @@ async def get_data(request: Request):
                 # during refresh) — build on demand.
                 from src.api.compact_view import compact_contract
 
-                compact_obj = compact_contract(latest_contract_data)
+                compact_obj = compact_contract(canonical)
                 import json as _json
 
                 payload_bytes = _json.dumps(compact_obj).encode("utf-8")
@@ -4248,9 +4253,7 @@ async def get_data(request: Request):
         # /draft etc. converge on the same 15-min ceiling regardless
         # of which league is "loaded."
         loaded_sleeper = (
-            (latest_contract_data or {}).get("sleeper") or {}
-            if isinstance(latest_contract_data, dict)
-            else {}
+            (canonical or {}).get("sleeper") or {} if isinstance(canonical, dict) else {}
         )
         id_to_player = loaded_sleeper.get("idToPlayer") or {}
         try:
@@ -4324,31 +4327,6 @@ async def get_data(request: Request):
                     )
                 )
             scrubbed["sleeper"] = overlay_full
-            # RE-STAMP THE LINEUP (C2-U1).  The overlay rebuilds
-            # ``teams`` from scratch (``sleeper_overlay._build_teams_block``
-            # emits no ``optimalLineup``), so the stamp taken at contract
-            # build time is discarded here — on the NORMAL path, because
-            # the overlay is warmed after every scrape and cached for
-            # 15 minutes.  Without this the frontend fails closed and
-            # /terminal, /rosters and the team-tier leaderboard all lose
-            # their starter/bench split whenever Sleeper is REACHABLE,
-            # which is the opposite of a degradation.
-            #
-            # Re-SOLVED, never copied: the overlay's rosters are fresher
-            # than the baked ones, so a copied lineup could start a
-            # player dropped ten minutes ago.  Values come from the baked
-            # contract because some payload views strip ``playersArray``,
-            # and they are scoring-profile scoped so they are identical
-            # either way.  Degrades, never raises.
-            try:
-                _stamp_optimal_lineups_owner(
-                    scrubbed,
-                    rows=(latest_contract_data or {}).get("playersArray")
-                    if isinstance(latest_contract_data, dict)
-                    else None,
-                )
-            except Exception as exc:  # noqa: BLE001
-                log.warning("optimalLineup re-stamp failed for %s: %s", league_cfg.key, exc)
             meta = dict(scrubbed.get("meta") or {})
             meta["leagueKey"] = league_cfg.key
             meta["scoringProfile"] = league_cfg.scoring_profile
@@ -4373,12 +4351,41 @@ async def get_data(request: Request):
                     payload_view_name,
                     bool(sleeper_matches),
                 )
-                if (overlay_fetched_at and payload_etag)
+                if (overlay_fetched_at and payload_etag and canonical_etag)
                 else None
             )
-            overlay_version = (overlay_fetched_at, payload_etag) if overlay_cache_key else None
+            # Registry context can change without an overlay observation or
+            # board publication. Capture it once for both identity and solve;
+            # meta already belongs to the requested league, including fallback.
+            roster_settings = capture_contract_roster_settings(scrubbed)
+            context_digest = hashlib.sha256(
+                json.dumps(roster_settings, sort_keys=True, separators=(",", ":")).encode("utf-8")
+            ).hexdigest()
+            overlay_version = (
+                (overlay_fetched_at, payload_etag, canonical_etag, context_digest)
+                if overlay_cache_key
+                else None
+            )
+            canonical_rows = canonical.get("playersArray") if isinstance(canonical, dict) else None
+
+            def prepare_lineups():
+                # Re-solve fresh overlay membership, never copy a baked lineup.
+                # Existing canonical owner preserves unpriced players and makes
+                # copy-on-write team stamps. Only the encode miss pays this cost.
+                try:
+                    _stamp_optimal_lineups_owner(
+                        scrubbed, rows=canonical_rows, roster_settings=roster_settings
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("optimalLineup re-stamp failed for %s: %s", league_cfg.key, exc)
+
             return await _serialize_overlaid_response(
-                request, scrubbed, headers, overlay_cache_key, overlay_version
+                request,
+                scrubbed,
+                headers,
+                overlay_cache_key,
+                overlay_version,
+                prepare=prepare_lineups,
             )
 
         if not sleeper_matches:

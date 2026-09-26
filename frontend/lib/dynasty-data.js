@@ -987,6 +987,14 @@ export function tepNativeMultiplierIsCustomized(tepNativeMultiplier) {
 // logs was a bug signal, not a safety net.  An empty-with-error
 // board is strictly better than a quietly-wrong one.
 
+function _materializeConfidence(value) {
+  if (value == null || (typeof value === "string" && value.trim() === "")) {
+    return null;
+  }
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
 function _materializePlayerArrayRow(player) {
   if (!player || typeof player !== "object") return null;
   const name = String(player.displayName || player.canonicalName || "").trim();
@@ -1078,11 +1086,9 @@ function _materializePlayerArrayRow(player) {
     // C1-U5: prefer the honest name, fall back to the deprecated alias so a
     // bundle can serve an old payload and vice versa during a rolling deploy.
     // The null-not-zero rule below is unchanged (audit N2).
-    confidence: Number.isFinite(
-      Number(player.marketBreadthAgreementIndex ?? player.marketConfidence),
-    )
-      ? Number(player.marketBreadthAgreementIndex ?? player.marketConfidence)
-      : null,
+    confidence: _materializeConfidence(
+      player.marketBreadthAgreementIndex ?? player.marketConfidence,
+    ),
     marketLabel: "",
     canonicalSites,
     rawSourceValues,
@@ -1274,11 +1280,9 @@ function _materializeLegacyDictRow(name, player, posMap) {
     // keeps absent as null rather than 0. (That rule was retired
     // 2026-07-30; reading the real field is still correct.)
     // C1-U5: same lockstep as the playersArray materializer above.
-    confidence: Number.isFinite(
-      Number(player._marketBreadthAgreementIndex ?? player._marketConfidence),
-    )
-      ? Number(player._marketBreadthAgreementIndex ?? player._marketConfidence)
-      : null,
+    confidence: _materializeConfidence(
+      player._marketBreadthAgreementIndex ?? player._marketConfidence,
+    ),
     marketLabel: String(player._marketReliabilityLabel || ""),
     canonicalSites,
     rawSourceValues,
@@ -1548,8 +1552,8 @@ if (typeof window !== "undefined") {
 
 async function _fetchBaseContract() {
   const leagueKey = _readActiveLeagueKey();
-  // Mobile / slow-network callers get the compact view, desktop the
-  // array view.  Both carry the SAME board: compact prunes only fields
+  // Rankings/Trade and mobile/slow-network callers get compact; other
+  // desktop routes keep array. Both carry the SAME board: compact prunes fields
   // no consumer reads (pinned in
   // ``tests/api/test_compact_view_consumer_parity.py``), which is a
   // property it gained on 2026-08-18 — before that it pruned 14 fields

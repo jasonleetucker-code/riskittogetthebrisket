@@ -1,0 +1,65 @@
+{
+  "status": "APPROVE_SCOPED",
+  "reviewer": "/root/report_regression",
+  "scope": "Final03 GameDay/public-league predicates and eight-file workflow/CI change; not campaign acceptance.",
+  "resolvedVetoes": [
+    "Wrong section failure now scoped to active overview; global no-league failure handled separately.",
+    "Explicit incomplete scoring is partial before numeric completion.",
+    "Explicit final score unavailable recorded as unavailable.",
+    "Exact visible Forecast failed banner handled before generic Computing, while ordinary pending remains pending; live score may remain partial."
+  ],
+  "validation": {
+    "node": {
+      "command": "Node20 --test tests/e2e/route-baseline-unit.test.mjs tests/e2e/route-useful-state.test.mjs",
+      "passed": 33,
+      "failed": 0,
+      "durationSeconds": 5.2033319
+    },
+    "workflow": {
+      "command": "projectPython -m pytest tests/deploy/test_production_baseline_workflow.py -q",
+      "passed": 6,
+      "durationSeconds": 0.17
+    },
+    "independence": "Actual local Chrome DOM tests rerun; prior independently reproduced four defects now have discriminating regression cases. No production calls/benchmark/source edits."
+  },
+  "workflowReview": [
+    "Manual baseline_route_set defaults core; only fixed core and league-game-day cases allowed; invalid value exits2. Environment interpolation does not execute arbitrary shell content.",
+    "Existing temporary guest mint/login/revoke remains in surrounding workflow; revoke always runs when pass exists.",
+    "collectAttempt /league fresh context skips cookie installation and auth preflight. Workflow guest mint/login may still warm shared backend before public attempt: record this and do not claim entirely unauthenticated campaign execution or cold server.",
+    "New blocking Node step executes after Node/root+frontend dependencies and Chromium installation and before backendboot; no conditional suppression or continue-on-error; classification explicitly blocking.",
+    "Rankings/trade predicates, numerical budgets and core default unchanged. Supplemental resolved5s field does not turn partial/unavailable into numerical cold/warm pass."
+  ],
+  "privacy": [
+    "Fixed enum results, no DOM content/owner IDs exported; private query selectors only compared in memory.",
+    "Existing origin/path and production credential checks remain; public CLI restricts routes and production origin.",
+    "Test/browser cleanup finally remains; no raw production payload in new tests."
+  ],
+  "coreAttributionDisposition": "Existing core ranking/trade diagnostics and accepted baseline are sufficient to run the authorized bounded attribution now, without this supplemental route probe. These changes expand measured route coverage; they do not repair or supersede core attribution and should not delay it.",
+  "limits": [
+    "Fixture HTML is grounded in live component markup but is not React render proof.",
+    "Guest GameDay can legitimately be team-required unavailable; this cannot establish selected-team numerical latency.",
+    "No all-route timing, mobile-throttled, production identity or final campaign pass claimed.",
+    "Global standard applies to all current routes; historical design no-inherited-budget statement superseded."
+  ],
+  "files": [
+    ".github/workflows/e2e.yml",
+    ".github/workflows/v1-authenticated-verification.yml",
+    "config/ci/release_gate_classification.json",
+    "frontend/scripts/measure-route-baselines.mjs",
+    "tests/deploy/test_production_baseline_workflow.py",
+    "tests/e2e/helpers/journey.js",
+    "tests/e2e/route-baseline-unit.test.mjs",
+    "tests/e2e/route-useful-state.test.mjs"
+  ],
+  "sealedAtUtc": "2026-09-26T22:06:50.165833+00:00",
+  "hashes": {
+    ".github/workflows/e2e.yml": "acd57c681a8a50150b20a832db1bae314dbceb71820fd9bddb83760f577550fa",
+    ".github/workflows/v1-authenticated-verification.yml": "5e7ba08de01cb6a4ebcc46e6b1dba3ddebf9fb0b2529af2aa31f005045328407",
+    "config/ci/release_gate_classification.json": "f2333387e68b04dc5ddb35a522459d73a1c74fe5a24e35ab89791d06ad883516",
+    "frontend/scripts/measure-route-baselines.mjs": "bb3148eca799c589d7e5f15562afd3ded79ebb894c0202baecb14decc4ad5d5c",
+    "tests/deploy/test_production_baseline_workflow.py": "6286275fdae05ba8a50080fe0e596c7f45f8445bf781e14c88a533b62f949921",
+    "tests/e2e/helpers/journey.js": "528f48e19942a29d1ad9d1053d822282d0a5f712a0fd479ae3bca6eca2069640",
+    "tests/e2e/route-baseline-unit.test.mjs": "73f8455a1005ec586945b7f2b55606ff5e9ea1b556c63aa28194af6fdc67649a",
+    "tests/e2e/route-useful-state.test.mjs": "86d9d65bef9de9c2b80f2ff37018fbb2569ed2612318e4a60779dc6f41753e98"
+  }
+}

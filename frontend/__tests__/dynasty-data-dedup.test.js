@@ -89,6 +89,32 @@ describe("contract data layer dedup + TTL", () => {
     expect(a).toBe(b);
   });
 
+  it("shares the scoped compact request and separates another route's array cache", async () => {
+    vi.stubGlobal("window", { innerWidth: 1920, location: { pathname: "/rankings" } });
+    vi.stubGlobal("navigator", { deviceMemory: 16 });
+    vi.stubGlobal("localStorage", { getItem: () => "league-a" });
+    try {
+      const [shell, page] = await Promise.all([fetchDynastyData(), fetchDynastyData()]);
+      expect(shell).toBe(page);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      let request = new URL(globalThis.fetch.mock.calls[0][0], "https://example.test");
+      expect(request.searchParams.get("view")).toBe("compact");
+      expect(request.searchParams.get("leagueKey")).toBe("league-a");
+
+      window.location.pathname = "/trade";
+      expect(await fetchDynastyData()).toBe(shell);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+      window.location.pathname = "/draft";
+      expect(await fetchDynastyData()).not.toBe(shell);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+      request = new URL(globalThis.fetch.mock.calls[1][0], "https://example.test");
+      expect(request.searchParams.get("view")).toBe("array");
+      expect(request.searchParams.get("leagueKey")).toBe("league-a");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("a second call within the TTL makes zero network requests", async () => {
     await fetchDynastyData();
     await fetchDynastyData();

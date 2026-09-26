@@ -51,7 +51,18 @@ on:
         required: false
         default: "all"
         type: choice
-        options: [api, browser, all]
+        options: [api, browser, all, baseline]
+      baseline_diagnostics:
+        description: Opt-in bounded browser attribution for manual baseline only
+        type: boolean
+        required: false
+        default: false
+      baseline_route_set:
+        description: Reviewed routes for manual baseline (league is sessionless; Game Day uses the guest profile)
+        type: choice
+        required: false
+        default: core
+        options: [core, league-game-day]
       pass_hours:
         description: Guest-pass duration in hours (non-default on purpose — 12 is the UI default)
         required: false
@@ -101,6 +112,7 @@ jobs:
         env:
           EXPECTED_SOURCE_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
           PROD_PUBLIC_URL: ${{ vars.PROD_PUBLIC_URL }}
+          BASELINE_REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.suite == 'baseline' }}
         run: |
           set -Eeuo pipefail
           if [ -z "${EXPECTED_SOURCE_SHA:-}" ]; then
@@ -113,6 +125,10 @@ jobs:
           test "$ACTUAL_SHA" = "$EXPECTED_SOURCE_SHA"
           if [ -z "${PROD_PUBLIC_URL:-}" ]; then
             echo "::error::vars.PROD_PUBLIC_URL is unset — refusing to guess the origin"
+            exit 1
+          fi
+          if [ "$BASELINE_REQUESTED" = "true" ] && [ "$PROD_PUBLIC_URL" != "https://chaseupside.com" ]; then
+            echo "::error::baseline production origin is not approved"
             exit 1
           fi
           echo "ORIGIN=${PROD_PUBLIC_URL%/}" >> "$GITHUB_ENV"
@@ -190,6 +206,7 @@ jobs:
         id: login
         shell: bash
         env:
+          BASELINE_REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.suite == 'baseline' }}
           PASS_HOURS: ${{ inputs.pass_hours || '2' }}
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
@@ -199,10 +216,23 @@ jobs:
           set +e
           BODY=$(python3 - "$ORIGIN" "$RUNNER_TEMP/guest_pass_token" <<'PYEOF'
           import json
+          import os
           import sys
           import urllib.request
 
+          class NoBaselineRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+
+          def login_opener(origin, baseline):
+              if not baseline:
+                  return urllib.request.urlopen
+              if origin != "https://chaseupside.com":
+                  raise ValueError("baseline_origin_refused")
+              return urllib.request.build_opener(NoBaselineRedirect()).open
+
           origin, token_file = sys.argv[1], sys.argv[2]
+          open_login = login_opener(origin, os.environ.get("BASELINE_REQUESTED") == "true")
           token = open(token_file, encoding="utf-8").read().strip()
           req = urllib.request.Request(
               origin + "/api/auth/login",
@@ -210,7 +240,7 @@ jobs:
               headers={"Content-Type": "application/json"},
               data=json.dumps({"username": "guest", "password": token}).encode(),
           )
-          with urllib.request.urlopen(req, timeout=30) as resp:
+          with open_login(req, timeout=30) as resp:
               cookie = ""
               for header, value in resp.headers.items():
                   if header.lower() == "set-cookie" and value.startswith("jason_session="):
@@ -280,7 +310,7 @@ jobs:
         # The temporary post-deploy Week 1 bridge needs the prod-auth browser
         # artifact for W1-30; API/Lane-4 rows are already independently
         # VERIFIED. Manual dispatch semantics stay unchanged.
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.suite != 'browser' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.suite != 'browser' && inputs.suite != 'baseline' }}
         id: api
         shell: bash
         env:
@@ -301,7 +331,7 @@ jobs:
           echo "API suite exit: $rc (0 pass · 2 fail · 3 proved nothing)"
 
       - name: Lane 4 remote verification (C1-C3 + C8/C9)
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.suite != 'browser' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.suite != 'browser' && inputs.suite != 'baseline' }}
         id: lane4
         shell: bash
         env:
@@ -324,7 +354,7 @@ jobs:
           echo "Lane 4 remote exit: $rc"
 
       - name: Browser verification suite (prod-auth Playwright specs)
-        if: ${{ (github.event_name == 'workflow_run' || inputs.suite != 'api') && hashFiles('tests/e2e/prod-auth.config.js') != '' }}
+        if: ${{ (github.event_name == 'workflow_run' || (inputs.suite != 'api' && inputs.suite != 'baseline')) && hashFiles('tests/e2e/prod-auth.config.js') != '' }}
         id: browser
         shell: bash
         env:
@@ -339,6 +369,39 @@ jobs:
           echo "browser_exit=$rc" >> "$GITHUB_OUTPUT"
           echo "Browser suite exit: $rc"
 
+      - name: Set up Node 20 for production baseline
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.suite == 'baseline' }}
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Collect authenticated route baseline
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.suite == 'baseline' }}
+        id: baseline
+        shell: bash
+        env:
+          PROD_ORIGIN: ${{ env.ORIGIN }}
+          PROD_SESSION_COOKIE_FILE: ${{ runner.temp }}/session_cookie
+          PROD_SESSION_EXPIRES_EPOCH: ${{ steps.login.outputs.expires_epoch }}
+          BASELINE_DIAGNOSTICS: ${{ inputs.baseline_diagnostics && 'true' || 'false' }}
+          BASELINE_ROUTE_SET: ${{ inputs.baseline_route_set || 'core' }}
+        run: |
+          set -Eeuo pipefail
+          npm ci
+          npx playwright install chromium --with-deps
+          case "$BASELINE_ROUTE_SET" in
+            core) routes=/rankings,/trade ;;
+            league-game-day) routes=/league,/game-day ;;
+            *) echo 'Unreviewed baseline route set' >&2; exit 2 ;;
+          esac
+          rc=0
+          node frontend/scripts/measure-route-baselines.mjs \
+            --auth production-cookie --runs 5 --viewport both --diagnostics "$BASELINE_DIAGNOSTICS" \
+            --routes "$routes" --timeout 45000 \
+            --json production-route-baselines.json || rc=$?
+          echo "baseline_exit=$rc" >> "$GITHUB_OUTPUT"
+          echo "Baseline collection exit: $rc (bounded observations, not campaign acceptance)"
+
       - name: Revoke the pass (always)
         if: ${{ always() && steps.mint.outputs.pass_id != '' }}
         env:
@@ -348,6 +411,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          trap 'rm -f -- "$RUNNER_TEMP/guest_pass_token" "$RUNNER_TEMP/session_cookie"' EXIT
           ssh -i "$HOME/.ssh/id_ed25519" \
             -o BatchMode=yes -o StrictHostKeyChecking=yes \
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
@@ -379,6 +443,8 @@ jobs:
           API_EXIT: ${{ steps.api.outputs.api_exit }}
           LANE4_EXIT: ${{ steps.lane4.outputs.lane4_exit }}
           BROWSER_EXIT: ${{ steps.browser.outputs.browser_exit }}
+          BASELINE_EXIT: ${{ steps.baseline.outputs.baseline_exit }}
+          BASELINE_REQUESTED: ${{ github.event_name == 'workflow_dispatch' && inputs.suite == 'baseline' }}
         run: |
           set -Eeuo pipefail
           echo "api=$API_EXIT lane4=$LANE4_EXIT browser=$BROWSER_EXIT (0 pass · 2 fail · 3 proved nothing)"
@@ -397,6 +463,10 @@ jobs:
           # A skipped suite leaves its output empty, which the case below
           # ignores: absent is not a verdict, and must not read as either a
           # pass or a failure.
+          if [ "$BASELINE_REQUESTED" = "true" ] && [ "$BASELINE_EXIT" != "0" ]; then
+            echo "::error::requested baseline failed or produced no verdict"
+            exit 1
+          fi
           for code in "$API_EXIT" "$LANE4_EXIT" "$BROWSER_EXIT"; do
             case "$code" in
               1|2) echo "::error title=V1 authenticated::a suite reported exit $code"; exit "$code" ;;
@@ -409,6 +479,7 @@ jobs:
         with:
           name: v1-authenticated-report
           path: |
+            production-route-baselines.json
             v1-auth-report.json
             lane4-remote.txt
             prod-auth-browser.txt
