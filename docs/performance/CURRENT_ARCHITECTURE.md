@@ -87,3 +87,23 @@ build is current-main frontend evidence, not browser useful-state acceptance.
 The existing baseline runner still needs verified data-ready predicates and
 fail-closed handling of session admission failures before its results can
 support the global standard. Local E2E mode does not disable source scheduling.
+
+### Validation and integration checkpoint
+
+Final Gameplan endpoint/configuration/concurrency and inventory selection:
+**56 passed, one existing deprecation warning**, 127.85 seconds. The broader
+roster-intelligence run remains recorded as **7 failed, 694 passed, 22 skipped**;
+all seven failures were reproduced against unchanged current-main AST guards.
+They compared Windows separators to declared POSIX paths. Three `.as_posix()`
+boundaries and a portable temporary output file repair that check without
+changing duplicate-owner rules. Both affected files then passed **26 tests**,
+including deliberate undeclared-owner cases. Counts overlap and are not summed.
+
+Scoped Ruff 0.6.9 checks pass; earlier full repository format/lint checked 1,555
+files. The current [foundation receipt](evidence/foundation-2026-09-26.json)
+retains fingerprints, failed attempts, independent reviews and missing metrics.
+Main advanced to `2e49e4ea5` through two automated commits changing only five
+source observation/success timestamps. Every changed leaf was inspected:
+**BENIGN_AUTOMATION_MOVE for the fixed-input Gameplan and inventory checks**;
+no serving code, runtime, fixture or configured ranking input changed. This is
+not a deployed freshness claim and does not suppress later relevant reconciliation.

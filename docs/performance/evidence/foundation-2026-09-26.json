@@ -354,5 +354,28 @@
     "command": "python -m pytest tests/api/test_gameplan_singleflight.py tests/api/test_gameplan_endpoint.py tests/api/test_gameplan_league_config_consistency.py tests/roster_intel tests/test_performance_route_inventory.py -q --tb=short",
     "failureOwner": "Existing AST owner census uses Windows paths against POSIX declared paths. All7failures preserved; no full-suite pass claimed.",
     "reportSha256": "c3643c3d5467054e1358428b6e0fa1c86d9f6924d35cef0212ab5296f42ef64b"
+  },
+  "finalValidation": [
+    {
+      "command": "python -m pytest tests/api/test_gameplan_singleflight.py tests/api/test_gameplan_endpoint.py tests/api/test_gameplan_league_config_consistency.py tests/test_performance_route_inventory.py -q --tb=short",
+      "result": "56 passed,1existingwarning127.85s",
+      "reportSha256": "a2be6e42ed70d1f8fbd781585142cf7cea2f939b9319cc81aeb7c3ccc4ea1012"
+    },
+    {
+      "command": "python -m pytest tests/roster_intel/test_replacement_owner.py tests/roster_intel/test_strength_weakness_single_owner.py -q --tb=short",
+      "result": "26 passed86.31s after existing Windows path comparison correction",
+      "reportSha256": "47ef0b730efc1f3771f58695beb31bbec649c79614b942383561915129d88809"
+    }
+  ],
+  "portabilityCorrection": {
+    "owner": "scripts/replacement_census.py and test-local strength/weakness scanner",
+    "before": "Both files and relevant test exactly matched base; all7failures independently reproduced",
+    "change": "Three relative path boundaries use as_posix; output test uses tmp_path rather than /dev/null. No AST rules, declared paths, scan exclusions or assertions relaxed.",
+    "review": "Root independently read diff and original failure output; scoped26test result includes actual duplicate-owner adversarial positives.",
+    "files": {
+      "scripts\\replacement_census.py": "e087eea72df8e9919ffe5ecbf96a72dfe9f26850eefab64c95d53a6d3dfe8b81",
+      "tests\\roster_intel\\test_replacement_owner.py": "c91012bc5942d8f5acf5072ad0b24858afb5c55eef064ce7c6e07bbe041e03ca",
+      "tests\\roster_intel\\test_strength_weakness_single_owner.py": "46fa646fc635ad1f491ba0610bb5e3cb028ed91cdb4ba8c3e2cd6ff034570be4"
+    }
   }
 }
