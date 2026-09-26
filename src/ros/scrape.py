@@ -536,6 +536,29 @@ def _refresh_sim_caches() -> dict[str, dict[str, Path]]:
     return out
 
 
+def _is_blank(value: Any) -> bool:
+    """Absent at an ingestion boundary: ``None`` or an empty CSV cell."""
+    return value is None or (isinstance(value, str) and not value.strip())
+
+
+def _row_confidence(value: Any) -> float:
+    """An adapter row's per-row confidence multiplier (``RankedRow.confidence``).
+
+    A stated value is kept as stated — ``0`` included; ``float(x or 1.0)``
+    used to read a real zero as full confidence.  Blank means the adapter
+    stated no per-row reduction, which is the multiplicative identity
+    ``1.0`` — the same value ``RankedRow.confidence`` defaults to.
+    """
+    return 1.0 if _is_blank(value) else float(value)
+
+
+def _row_projection(value: Any) -> float | None:
+    """An adapter row's projection: blank is missing (``None``); ``0`` is a
+    projection of zero points, never missing.  The numeric row the live
+    snapshot is built from and its CSV text (``"0"``) mean the same thing."""
+    return None if _is_blank(value) else float(value)
+
+
 def _build_snapshot(src_meta: dict[str, Any], result: ScrapeResult) -> SourceSnapshot:
     rows = [
         RankedRow(
@@ -543,10 +566,8 @@ def _build_snapshot(src_meta: dict[str, Any], result: ScrapeResult) -> SourceSna
             position=row.get("position"),
             rank=int(row.get("rank") or 0),
             total_ranked=int(row.get("total_ranked") or len(result.rows)),
-            projection_value=(
-                float(row["projection"]) if row.get("projection") not in (None, "", 0) else None
-            ),
-            confidence=float(row.get("confidence") or 1.0),
+            projection_value=_row_projection(row.get("projection")),
+            confidence=_row_confidence(row.get("confidence")),
         )
         for row in result.rows
         if row.get("canonicalName")
@@ -682,7 +703,7 @@ def run_all(
                 )
                 if resolved.canonical_name and resolved.confidence >= 0.7:
                     row["canonicalName"] = resolved.canonical_name
-                    existing = float(row.get("confidence") or 1.0)
+                    existing = _row_confidence(row.get("confidence"))
                     row["confidence"] = existing * resolved.confidence
 
         # Drop rows that didn't resolve (quarantine).

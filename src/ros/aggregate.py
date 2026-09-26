@@ -71,7 +71,13 @@ class RankedRow:
     # Pinned by ``tests/ros/test_projection_value_is_not_consumed.py``;
     # that suite fails if this comment starts claiming an override again.
     projection_value: float | None = None
-    confidence: float = 1.0
+    # Per-row MULTIPLIER on the source's weight (``scrape.run_all``: an
+    # adapter can express a low-signal row; the resolver multiplies in its
+    # match confidence).  ``1.0`` / ``None`` = no per-row reduction was
+    # stated — the multiplicative identity, not an imputed measurement.
+    # ``0.0`` is a statement: this row carries no weight, and it is kept as
+    # zero (never read as full confidence).
+    confidence: float | None = 1.0
 
 
 @dataclass(frozen=True)
@@ -181,9 +187,21 @@ def aggregate(
             score = rank_to_score(row.rank, row.total_ranked)
             if score <= 0:
                 continue
+            # A stated confidence is used as stated — 0 included.  ``None``
+            # is the declared identity (see ``RankedRow.confidence``); it is
+            # decided here explicitly rather than by ``or``, which read a
+            # real 0 as full confidence.
+            row_confidence = 1.0 if row.confidence is None else float(row.confidence)
+            row_weight = weight * row_confidence
+            # A zero-weight row casts no vote, exactly as a zero-weight
+            # SOURCE (``if weight <= 0`` above) and a zero-score row: it is
+            # not a contributor, does not count toward ``sourceCount`` and
+            # does not claim the dedup slot below.
+            if row_weight <= 0:
+                continue
             # Checked here rather than at the top of the loop so a row that
-            # scores 0 (and contributes nothing) cannot claim the slot and
-            # shut out a scoreable duplicate behind it.
+            # scores 0 or weighs 0 (and contributes nothing) cannot claim the
+            # slot and shut out a scoreable duplicate behind it.
             if row.canonical_name in seen_in_source:
                 LOG.warning(
                     "[ros] %s emitted %r more than once — keeping the first "
@@ -200,7 +218,6 @@ def aggregate(
                     position=row.position,
                 )
                 accs[row.canonical_name] = acc
-            row_weight = weight * (row.confidence or 1.0)
             acc.weighted_score_sum += score * row_weight
             acc.weight_sum += row_weight
             acc.ranks.append(int(row.rank))
