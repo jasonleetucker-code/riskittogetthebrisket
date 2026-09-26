@@ -686,3 +686,48 @@ export function medianUnverifiedText(reason) {
   if (!reason) return "median rule not verified against the host";
   return MEDIAN_REASON_TEXT[reason] || String(reason).replaceAll("_", " ");
 }
+
+// ── Live Median Race (owner directive 2026-09-26) ───────────────────────
+//
+// Labels only.  Every probability, margin, projected range and median is the
+// backend's `medianRace` block (the joint simulation's own M(d) draws); the
+// rank and the bubble are the backend's too.  Nothing here recomputes one.
+
+/** A same-draw median margin: "+7.8" / "−5.4" / "±0.0"; null when unknown. */
+export function formatSignedPoints(value) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  const r = Math.round(value * 10) / 10;
+  if (r === 0) return "±0.0";
+  return `${r > 0 ? "+" : "−"}${Math.abs(r).toFixed(1)}`;
+}
+
+export const MEDIAN_RESULT_WORDS = {
+  BEAT: "Beat median",
+  MISS: "Missed median",
+  TIE: "Median tie",
+};
+
+/** Why the board shows no probabilities, in the reader's words. */
+export function medianRaceStateText(race) {
+  switch (race?.state) {
+    case "not_applicable":
+      return "This league plays no median game, so there is nothing to race.";
+    case "unverified":
+      return "This league's median rule could not be verified, so beat-median chances are withheld.";
+    case "pending":
+      return "Computing the forecast — live scores are shown now; chances follow shortly.";
+    case "forecast_unavailable":
+      return "Beat-median chances are paused while live game progress is unavailable.";
+    case "final_scores_incomplete":
+      return "The week is final, but a host score is missing, so no final median is claimed.";
+    default:
+      return null;
+  }
+}
+
+export function currentMedianText(race) {
+  if (race?.currentMedianState === "incomplete_live_scoring") {
+    return "Unavailable — live scoring incomplete";
+  }
+  return formatPoints(race?.currentMedian);
+}

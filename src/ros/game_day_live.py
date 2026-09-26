@@ -1533,12 +1533,97 @@ def write_generation(generation: Mapping[str, Any]) -> bool:
                 return False
             previous_id = current.get("generationId")
         generation = {**dict(generation), "supersedes": previous_id}
+        generation["render"] = _with_median_movement(
+            generation.get("render"),
+            current if previous_id is not None else None,
+            generation,
+        )
         _atomic_write_json(path, generation)
         _append_line(
             _generation_index_path(league_key, season, week),
             _generation_index_row(generation),
         )
     return True
+
+
+def _with_median_movement(
+    render: Any,
+    previous: Mapping[str, Any] | None,
+    generation: Mapping[str, Any],
+) -> Any:
+    """The Live Median Race's movement: each team's beat-median probability
+    change, in percentage points, since the generation this one SUPERSEDES.
+
+    Consumes the existing versioned generation chain — no second history.
+    Only a comparable predecessor counts: the same league-week file (by
+    construction), the same ``modelVersion``, and both published as a
+    ``forecast``.  Otherwise movement is absent, never 0.
+    """
+    if not isinstance(render, Mapping):
+        return render
+    race = render.get("medianRace")
+    if not isinstance(race, Mapping) or race.get("state") != "forecast":
+        return render
+    prev_race = ((previous or {}).get("render") or {}).get("medianRace") or {}
+    if (
+        previous is None
+        or previous.get("modelVersion") != generation.get("modelVersion")
+        or prev_race.get("state") != "forecast"
+    ):
+        return render
+    before = {
+        str(t.get("rosterId")): t.get("beatMedianPct")
+        for t in prev_race.get("teams") or ()
+        if isinstance(t, Mapping)
+    }
+    teams = []
+    for t in race.get("teams") or ():
+        row = dict(t)
+        old, new = before.get(str(row.get("rosterId"))), row.get("beatMedianPct")
+        if isinstance(old, (int, float)) and isinstance(new, (int, float)):
+            row["movementPp"] = round(float(new) - float(old), 1)
+        teams.append(row)
+    return {
+        **dict(render),
+        "medianRace": {
+            **dict(race),
+            "teams": teams,
+            "movement": {
+                "comparedToGenerationId": previous.get("generationId"),
+                "comparedToComputedAt": previous.get("computedAt"),
+            },
+        },
+    }
+
+
+def _median_race_summary(render: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Calibration evidence for the median race, kept in the append-only
+    generation index: what the league median was projected to be at this
+    generation's cutoff, each team's beat-median probability, and — once
+    final — the actual median and each team's actual BEAT / MISS / TIE."""
+    race = render.get("medianRace")
+    if not isinstance(race, Mapping):
+        return None
+    return {
+        "state": race.get("state"),
+        "verified": race.get("verified"),
+        "currentMedian": race.get("currentMedian"),
+        "projectedMedianMean": race.get("projectedMedianMean"),
+        "projectedMedianP10": race.get("projectedMedianP10"),
+        "projectedMedianP50": race.get("projectedMedianP50"),
+        "projectedMedianP90": race.get("projectedMedianP90"),
+        "finalMedian": race.get("finalMedian"),
+        "teams": {
+            str(t.get("rosterId")): {
+                "beatMedianPct": t.get("beatMedianPct"),
+                "medianMarginMean": t.get("medianMarginMean"),
+                "finalScore": t.get("finalScore"),
+                "finalResult": t.get("finalResult"),
+            }
+            for t in race.get("teams") or ()
+            if isinstance(t, Mapping)
+        },
+    }
 
 
 def _generation_index_row(generation: Mapping[str, Any]) -> dict[str, Any]:
@@ -1559,6 +1644,7 @@ def _generation_index_row(generation: Mapping[str, Any]) -> dict[str, Any]:
         "leagueObservationSeq": inputs.get("leagueObservationSeq"),
         "mode": ((generation.get("render") or {}).get("shared") or {}).get("mode"),
         "modelVersion": generation.get("modelVersion"),
+        "medianRace": _median_race_summary(generation.get("render") or {}),
         "outcomes": {
             rid: {
                 "winMatchupPct": (s.get("outcome") or {}).get("winMatchupPct"),
