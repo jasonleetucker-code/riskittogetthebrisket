@@ -27,11 +27,13 @@ from __future__ import annotations
 import gzip
 import json
 from pathlib import Path
+from contextlib import asynccontextmanager
 
 import pytest
 
 from src.api import sleeper_overlay
 from src.api.data_contract import build_api_data_contract, stamp_optimal_lineups
+from tests.api.test_league_routing import shared_scoring_registry  # noqa: F401
 
 FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "golden" / "input_export.json.gz"
 
@@ -192,23 +194,86 @@ class TestRestampingAfterAnOverlayMerge:
         assert stamp["unpriced"], "unpriced must be reported, not silently empty"
 
 
+@pytest.mark.usefixtures("shared_scoring_registry")
 class TestTheServingPathIsWired:
-    """Structural: ``server.py`` must actually call the re-stamp at the
-    seam where it replaces ``sleeper.teams``."""
+    """Exercise the actual splice -> prepare callback -> encoded response path."""
 
-    def test_server_re_stamps_after_splicing_the_overlay(self):
-        repo = Path(__file__).resolve().parents[2]
-        src = (repo / "server.py").read_text(encoding="utf-8")
-        idx = src.index('scrubbed["sleeper"] = overlay_full')
-        window = src[idx : idx + 2000]
-        assert "stamp_optimal_lineups" in window, (
-            "server.py replaces sleeper.teams with the overlay's and does not re-stamp "
-            "the lineup — the C2-U1 stamp is discarded on the normal serving path"
-        )
+    @staticmethod
+    def _assert_served_stamp(monkeypatch, view):
+        import server
+        from fastapi.testclient import TestClient
+        from tests.api.test_league_routing import _install_contract_with_profile
 
-    def test_the_re_stamp_supplies_rows_explicitly(self):
-        repo = Path(__file__).resolve().parents[2]
-        src = (repo / "server.py").read_text(encoding="utf-8")
-        idx = src.index('scrubbed["sleeper"] = overlay_full')
-        window = src[idx : idx + 2000]
-        assert "rows=" in window and "playersArray" in window
+        @asynccontextmanager
+        async def isolated_lifespan(app):
+            yield
+
+        monkeypatch.setattr(server.app.router, "lifespan_context", isolated_lifespan)
+        overlay = {
+            "teams": [{"ownerId": "fresh-owner", "players": ["fresh-player"]}],
+            "leagueId": "L-MAIN",
+            "overlayFetchedAt": "serving-lineup-regression",
+        }
+        monkeypatch.setattr(server._sleeper_overlay, "fetch_sleeper_overlay", lambda **kw: overlay)
+        calls = []
+        real_stamp = server._stamp_optimal_lineups_owner
+        with TestClient(server.app) as client:
+            _install_contract_with_profile(monkeypatch, "main", "superflex_tep15_ppr1")
+            canonical_rows = [
+                {
+                    "canonicalName": "fresh-player",
+                    "displayName": "fresh-player",
+                    "rankDerivedValue": 10,
+                }
+            ]
+            server.latest_contract_data["playersArray"] = canonical_rows
+            server.latest_contract_data["sleeper"].update(
+                {"rosterPositions": ["QB"], "positions": {"fresh-player": "QB"}}
+            )
+            # Install the reduced representation exactly as publication does;
+            # otherwise the handler truthfully falls back to the full payload.
+            runtime_payload = dict(server.latest_contract_data)
+            runtime_payload.pop("playersArray")
+            runtime_payload["payloadView"] = "runtime"
+            monkeypatch.setattr(server, "latest_runtime_data", runtime_payload)
+            monkeypatch.setattr(server, "latest_runtime_data_bytes", None)
+            monkeypatch.setattr(server, "latest_runtime_data_gzip_bytes", None)
+            monkeypatch.setattr(server, "latest_runtime_data_etag", "serving-runtime-regression")
+            monkeypatch.setattr(server, "latest_data_etag", "serving-lineup-regression")
+            monkeypatch.setattr(server, "_OVERLAY_RESPONSE_CACHE", {})
+            monkeypatch.setattr(server, "_OVERLAY_ENCODE_LOCKS", {})
+
+            def observed_stamp(payload, *, rows, roster_settings):
+                # Assert at the real canonical owner boundary: the fresh
+                # overlay is already installed and full rows are captured.
+                calls.append((payload["sleeper"]["teams"], rows))
+                return real_stamp(payload, rows=rows, roster_settings=roster_settings)
+
+            monkeypatch.setattr(server, "_stamp_optimal_lineups_owner", observed_stamp)
+            response = client.get(f"/api/data?leagueKey=main&view={view}")
+        assert response.status_code == 200
+        assert (
+            len(calls) == 1
+        ), "the live serving path must invoke canonical stamping on its cache miss"
+        teams_at_stamp, rows_at_stamp = calls[0]
+        assert teams_at_stamp == overlay["teams"], "stamp must follow fresh roster splice"
+        assert (
+            rows_at_stamp is canonical_rows
+        ), "reduced views must use captured full canonical rows"
+        served = response.json()
+        team = served["sleeper"]["teams"][0]
+        assert team["ownerId"] == "fresh-owner"
+        assert team["optimalLineup"]["available"] is True
+        assert team["optimalLineup"]["starters"] == ["fresh-player"]
+        assert (
+            "optimalLineup" not in overlay["teams"][0]
+        ), "shared overlay input must remain untouched"
+        if view == "runtime":
+            assert response.headers["X-Payload-View"] == "runtime-overlay"
+            assert "playersArray" not in served
+
+    def test_server_re_stamps_after_splicing_the_overlay(self, monkeypatch):
+        self._assert_served_stamp(monkeypatch, "full")
+
+    def test_the_re_stamp_supplies_rows_explicitly(self, monkeypatch):
+        self._assert_served_stamp(monkeypatch, "runtime")
