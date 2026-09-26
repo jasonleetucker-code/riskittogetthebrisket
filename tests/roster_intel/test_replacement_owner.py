@@ -40,8 +40,8 @@ from scripts.replacement_census import (
 REPO = pathlib.Path(__file__).resolve().parents[2]
 
 
-def test_the_census_runs_clean_at_head():
-    assert main(["--json-out", "/dev/null"]) == EXIT_OK
+def test_the_census_runs_clean_at_head(tmp_path):
+    assert main(["--json-out", str(tmp_path / "census.json")]) == EXIT_OK
 
 
 def test_retired_implementations_are_not_reachable():

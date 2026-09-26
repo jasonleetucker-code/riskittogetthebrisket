@@ -81,10 +81,11 @@ which is far too slow to run per request on the event loop.
 
 Two caches, both keyed on a **source stamp** rather than a clock:
 :data:`_BUNDLE_CACHE` holds the league-wide build, :data:`_TEAM_CACHE`
-the per-team derivation.  The stamp is the identity of the inputs
-(snapshot mtimes + the contract's scrape timestamp), so a refresh
+the per-team derivation. The stamp binds loaded facts and observation
+stamps, so a refresh
 invalidates immediately and a quiet hour never serves something newer
-than it claims.  Warm requests are dictionary lookups.  The route runs
+than it claims. Warm builds are reused after loading and fingerprinting
+the current inputs. The route runs
 cold builds in a threadpool and stamps ``timing.computeMs`` /
 ``timing.cacheHit`` on every response, so the cost stays measurable in
 production instead of being re-guessed.
@@ -141,6 +142,7 @@ from src.roster_intel.engine import RosterIntel, analyze_roster
 from src.roster_intel.marginal import optimal_score, to_roster_players
 from src.ros.lineup import RosterPlayer, load_league_starter_slots
 from src.ros.team_strength import load_or_compute_team_strength
+from src.utils.singleflight import SingleFlight
 
 __all__ = [
     "FIELD_POLICY",
@@ -247,6 +249,7 @@ class LeagueInputs:
     playoff_odds: tuple[Mapping[str, Any], ...] | None
     source_stamp: str
     notes: tuple[str, ...] = ()
+    roster_limit: int | None = None
 
 
 @dataclass(frozen=True)
@@ -427,18 +430,31 @@ def load_league_inputs(
     except (OSError, json.JSONDecodeError) as exc:
         notes.append(f"playoff-sim cache unreadable ({exc.__class__.__name__}); odds omitted")
 
+    # Observation stamps alone miss same-timestamp contract changes, registry
+    # slot changes, and the computed roster fallback when no snapshot exists.
+    # Bind the facts actually loaded, not a second file read after the build.
+    # The optimizer pool is a pure projection of each team's captured rows.
+    roster_limit = _roster_limit(league_key)
+    identity = {
+        "league": league_key,
+        "scoring": scoring_profile,
+        "version": GAMEPLAN_CONTRACT_VERSION,
+        "observations": [
+            _file_stamp(_team_strength_stamp_path(league_key)),
+            _file_stamp(sim_path),
+            _contract_stamp(contract),
+        ],
+        "slots": slots,
+        "teams": [(t.owner_id, t.team_name, t.rows) for t in teams],
+        "playerMeta": ages,
+        "siteValues": sites,
+        "playoffOdds": playoff_odds,
+        "notes": notes,
+        "rosterLimit": roster_limit,
+    }
     stamp = hashlib.sha256(
-        "|".join(
-            [
-                league_key,
-                scoring_profile,
-                _file_stamp(_team_strength_stamp_path(league_key)),
-                _file_stamp(sim_path),
-                _contract_stamp(contract),
-                GAMEPLAN_CONTRACT_VERSION,
-            ]
-        ).encode("utf-8")
-    ).hexdigest()[:16]
+        json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
 
     return LeagueInputs(
         league_key=league_key,
@@ -450,6 +466,7 @@ def load_league_inputs(
         playoff_odds=playoff_odds,
         source_stamp=stamp,
         notes=tuple(notes),
+        roster_limit=roster_limit,
     )
 
 
@@ -563,6 +580,9 @@ def build_league_bundle(inputs: LeagueInputs) -> LeagueBundle:
 # in server.py.
 
 _CACHE_LOCK = threading.Lock()
+_BUNDLE_FLIGHTS = SingleFlight()
+_TEAM_FLIGHTS = SingleFlight()
+_CACHE_EPOCH = 0
 _BUNDLE_CACHE: dict[str, tuple[str, LeagueBundle]] = {}
 _TEAM_CACHE: "OrderedDict[str, tuple[str, dict[str, Any]]]" = OrderedDict()
 
@@ -575,7 +595,11 @@ league is dropped outright when that league's bundle is rebuilt."""
 
 def invalidate_cache(league_key: str | None = None) -> None:
     """Drop cached builds.  ``None`` clears every league."""
+    global _CACHE_EPOCH
     with _CACHE_LOCK:
+        # A build already running may answer its original caller, but must not
+        # repopulate an explicitly invalidated cache or attract new callers.
+        _CACHE_EPOCH += 1
         if league_key is None:
             _BUNDLE_CACHE.clear()
             _TEAM_CACHE.clear()
@@ -592,30 +616,37 @@ def get_league_bundle(
 ) -> tuple[LeagueBundle, bool]:
     """Cached :func:`build_league_bundle`.  Returns ``(bundle, cache_hit)``.
 
-    Loading the inputs is cheap (file stats plus one snapshot read) and
-    happens on every call so the stamp is always current; only the
-    ~1.35 s solve is cached.
+    Inputs are loaded and fingerprinted on every call; equal captured
+    inputs share one solve. Loading may invoke the existing live roster
+    fallback when persisted data is unavailable. That cost is separate
+    from bundle construction and is not removed by this cache.
     """
+    with _CACHE_LOCK:
+        epoch = _CACHE_EPOCH
     inputs = load_league_inputs(league_key, scoring_profile, contract)
     with _CACHE_LOCK:
         cached = _BUNDLE_CACHE.get(league_key)
         if cached is not None and cached[0] == inputs.source_stamp:
             return cached[1], True
 
-    # The lock is NOT held across the build.  Two concurrent cold
-    # requests for the same league will each solve it and the second
-    # write wins — a wasted 1.35 s, never a wrong answer, since the
-    # build is a pure function of ``inputs``.  Holding the lock instead
-    # would serialise every gameplan request in the process, including
-    # requests for other leagues, behind one solve.
-    bundle = build_league_bundle(inputs)
-    with _CACHE_LOCK:
-        _BUNDLE_CACHE[league_key] = (inputs.source_stamp, bundle)
-        # Team payloads derived from a superseded bundle are stale by
-        # construction; drop them with it.
-        for key in [k for k in _TEAM_CACHE if k.startswith(f"{league_key}\x00")]:
-            _TEAM_CACHE.pop(key, None)
-    return bundle, False
+    def build():
+        with _CACHE_LOCK:
+            cached = _BUNDLE_CACHE.get(league_key)
+            if epoch == _CACHE_EPOCH and cached is not None and cached[0] == inputs.source_stamp:
+                return cached[1], True
+        bundle = build_league_bundle(inputs)
+        with _CACHE_LOCK:
+            # Another input generation may finish while this solve runs. Do
+            # not replace its accepted entry with this older in-flight result.
+            if epoch == _CACHE_EPOCH and _BUNDLE_CACHE.get(league_key) is cached:
+                _BUNDLE_CACHE[league_key] = (inputs.source_stamp, bundle)
+                # Team payloads derived from a superseded bundle are stale.
+                for key in [k for k in _TEAM_CACHE if k.startswith(f"{league_key}\x00")]:
+                    _TEAM_CACHE.pop(key, None)
+        return bundle, False
+
+    (bundle, cached), shared = _BUNDLE_FLIGHTS.run((league_key, inputs.source_stamp, epoch), build)
+    return bundle, cached or shared
 
 
 # ── Candidate assembly ───────────────────────────────────────────────
@@ -1030,7 +1061,7 @@ def _build_packages(bundle: LeagueBundle, owner_id: str, partner_owner_id: str) 
     # and the premium rule refuses almost every package.
     their_full = _trade_assets(bundle, partner_owner_id, surplus_only=False)
 
-    roster_settings = _roster_limit(bundle.inputs.league_key)
+    roster_settings = bundle.inputs.roster_limit
     result = _packages.generate_packages(
         list(bundle.team(owner_id).pool),
         list(bundle.inputs.slots),
@@ -1088,6 +1119,8 @@ def get_team_gameplan(
     Package payloads are cached under their own key so asking about a
     second partner does not rebuild the ~550 ms target section.
     """
+    with _CACHE_LOCK:
+        epoch = _CACHE_EPOCH
     bundle, cache_hit = get_league_bundle(league_key, scoring_profile, contract)
     if bundle.team(owner_id) is None:
         raise TeamNotInLeague(owner_id)
@@ -1112,15 +1145,30 @@ def get_team_gameplan(
             }
             return payload
 
-    payload = build_gameplan(
-        bundle, owner_id, partner_owner_id=partner_owner_id, cache_hit=cache_hit
-    )
-    payload["timing"]["teamBuildCached"] = False
-    with _CACHE_LOCK:
-        _TEAM_CACHE[cache_key] = (stamp, payload)
-        _TEAM_CACHE.move_to_end(cache_key)
-        while len(_TEAM_CACHE) > _TEAM_CACHE_MAX:
-            _TEAM_CACHE.popitem(last=False)
+    def build():
+        with _CACHE_LOCK:
+            cached = _TEAM_CACHE.get(cache_key)
+            if epoch == _CACHE_EPOCH and cached is not None and cached[0] == stamp:
+                _TEAM_CACHE.move_to_end(cache_key)
+                return cached[1], True
+        payload = build_gameplan(
+            bundle, owner_id, partner_owner_id=partner_owner_id, cache_hit=cache_hit
+        )
+        with _CACHE_LOCK:
+            if epoch == _CACHE_EPOCH:
+                _TEAM_CACHE[cache_key] = (stamp, payload)
+                _TEAM_CACHE.move_to_end(cache_key)
+                while len(_TEAM_CACHE) > _TEAM_CACHE_MAX:
+                    _TEAM_CACHE.popitem(last=False)
+        return payload, False
+
+    (stored, cached), shared = _TEAM_FLIGHTS.run((cache_key, epoch), build)
+    payload = dict(stored)
+    payload["timing"] = {
+        **stored["timing"],
+        "teamBuildCached": cached or shared,
+        "leagueBuildCached": cache_hit,
+    }
     return payload
 
 

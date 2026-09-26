@@ -1,0 +1,381 @@
+{
+  "schemaVersion": 1,
+  "issue": 1338,
+  "base": "ed890b1009e9e7a5ec31b6b815ba56ec783d228d",
+  "status": "reviewed local foundation; not production performance acceptance",
+  "runtime": {
+    "python": "3.12.10",
+    "node": "20.20.2",
+    "host": "Windows"
+  },
+  "dependencies": {
+    "src/api/gameplan.py": "409a1126604aa9ed74048bc32ccce366f24b2b1cdca444a3a5545c5d3d86481c",
+    "src/utils/singleflight.py": "fc4340fc1dbf40293e574ca39b7a1793477a709cfae13ccd44b03d741e98f29a",
+    "tests/api/test_gameplan_singleflight.py": "f565a54ba887c05945c6c2a97b6e697eea58fecd0ce0811c08bae5f8543a1386",
+    "scripts/performance_route_inventory.py": "f425c8a8bdca232604ffc8a15d7ca863c141be1e32522257bee94971a4abbf9f",
+    "tests/test_performance_route_inventory.py": "f18a75315e496b802ebde6257222f08a45717bad513e4ea795d93dcff06f9f11",
+    "requirements.txt": "68aeb4ffbc30f444ce43191a89e81929d7e21523a3d4c27e1e6472bec2e30f2d",
+    "frontend/package-lock.json": "44121ab6a5b8707b182019c2cecbc96a4b5d035689c21ea60c2fc8ed62f5c253",
+    "exports/latest/dynasty_data_2026-09-26.json": "ca5eb4c491cf3e72b51821742d786a3354819228bdf7035d8828cece9b45e22b"
+  },
+  "receipts": {
+    "gameplan-red.txt": "1ab98dc07d925b351c07bee94dadea628a8c1a9b47f6fa3286c742c0622bc4d2",
+    "gameplan-team-red.txt": "4edd4ac31d460a3636fa2f3053d9d3150276a277b8064000c86235d1e840d4b7",
+    "gameplan-race-review.txt": "4ee77589cbdaa7763cad13acd45e2ee18850905b03870ca3ec8e53414efad57e",
+    "review-gameplan.json": "69d529c3cc29f3d78eca1d722097da1bf884b01722cddb5036d27b35a46e9568",
+    "review-gameplan-v2.json": "69ec1db744f85091404ce626ac02ace02bc99ad4824befb473d1c767ce000a1d",
+    "review-inventory.json": "da90720109d39abe350a09e7d7ece376bba0d1ac169b2e352de52c8536229433",
+    "review-inventory-v2.json": "513aaecef7c97b7df9eed3a2c42780944295f9cd68772c03f106c6dfa574413f",
+    "frontend-build.txt": "409c9fa145067f2fe81a688265200a365e65842e5b0af4e8d1f3f450352d906b"
+  },
+  "redEvidence": [
+    {
+      "case": "same-key league build and same-observation changed facts",
+      "result": "5 failed, 2 passed; six duplicate league builds"
+    },
+    {
+      "case": "same-team builds, invalidation during build, captured roster capacity",
+      "result": "3 failed, 7 passed; four duplicate team builds"
+    },
+    {
+      "case": "old input build finishes after different accepted cache entry",
+      "result": "1 failed, 13 passed"
+    }
+  ],
+  "reviews": [
+    {
+      "reviewer": "/root/retention_reproduction",
+      "review": "Independent final Gameplan cache correction",
+      "base": "ed890b1009e9e7a5ec31b6b815ba56ec783d228d",
+      "at": "2026-09-26T20:36:43.0773731Z",
+      "verdict": "APPROVE bounded implementation",
+      "hashes": {
+        "tests": "f565a54ba887c05945c6c2a97b6e697eea58fecd0ce0811c08bae5f8543a1386",
+        "singleflight": "fc4340fc1dbf40293e574ca39b7a1793477a709cfae13ccd44b03d741e98f29a",
+        "source": "3fdd41da62f8e83998fb0f01f763f8c75171aca6ea85042286fccdfee9e00adb"
+      },
+      "findings": [
+        "Original independently reproduced team-cache invalidation defect corrected by epoch captured before bundle acquisition and guarded publication. New callers use new epoch and do not join invalidated work.",
+        "Both expensive league solve and same-team derivation share equal-input in-flight work. Different league or fact stamp does not join. Failed Future removed so subsequent attempt can retry.",
+        "Bundle publication now additionally compares the accepted cache-entry object captured before build. A different build publishing during the solve cannot be overwritten by its late completion. This is conservative compare-and-swap, not a total chronology ordering: if older work publishes first, newer concurrent build can remain uncached until next request. Fact-stamp validation prevents wrong cached answers.",
+        "Roster limit is captured with league input facts, included in stamp and used by package builder. Changes to registry capacity cannot silently change already captured package input.",
+        "Loaded roster rows are mappings from team-strength owner; that owner replaces its cache entry and disk loader decodes fresh JSON. No live post-capture mutating writer demonstrated, so broad deep copy is not required by this review.",
+        "Existing per-team LRU bound retained and flight entries removed on success/failure. Bundle map remains one entry per league, relying on live API registered-league admission.",
+        "No changes to canonical values/scoring algorithm, package thresholds, source collection or auth found in this diff."
+      ],
+      "validation": [
+        {
+          "result": "14 passed in0.79s",
+          "scope": "Final source/test hashes above",
+          "command": "PYTHONUTF8=1 PYTHONDONTWRITEBYTECODE=1 python -m pytest tests/api/test_gameplan_singleflight.py -q --tb=short"
+        },
+        {
+          "result": "Prior corrected source44passed1existingwarning131.51s",
+          "scope": "Pre-CAS source28ab47e4/test7881b902; retained bounded endpoint/league routing evidence, not relabeled final combined run",
+          "command": "python -m pytest tests/api/test_gameplan_singleflight.py tests/api/test_gameplan_endpoint.py tests/api/test_gameplan_league_config_consistency.py -q --tb=short"
+        }
+      ],
+      "regressions_reviewed": [
+        "Invalidation during team build cannot repopulate",
+        "Invalidated bundle cannot attract new caller or replace new accepted build",
+        "Changed age facts overlap old build and retain new accepted cache",
+        "Followers share controlled failure; fresh request retries",
+        "Captured capacity25 remains25 after live registry becomes30",
+        "Same timestamp changed slots/roster/player ages/site values and distinct leagues",
+        "Same-key concurrent league/team work and request-specific cache timing"
+      ],
+      "limitations": [
+        "No measured speedup, production useful-state, capacity/FD or whole-campaign acceptance claimed.",
+        "Synthetic tests stub loaded league facts; endpoint/config suite supplies real handler/routing coverage on prior narrowly changed source.",
+        "Concurrency tests use bounded barriers/events plus100ms release timer for follower arrival; scheduler fairness is not a production latency guarantee.",
+        "Source/test fingerprints checked before and after final focused run; no reviewer edits."
+      ],
+      "supersedes": "review-gameplan.json interim veto, retained as historical"
+    },
+    {
+      "schemaVersion": 1,
+      "agent": "/root/report_regression",
+      "verdict": "APPROVE scoped static inventory",
+      "finishedUtc": "2026-09-26T20:36:27.2821743Z",
+      "supersedesReview": "review-inventory.json veto retained unchanged",
+      "sourceSha256": "f425c8a8bdca232604ffc8a15d7ca863c141be1e32522257bee94971a4abbf9f",
+      "testSha256": "f18a75315e496b802ebde6257222f08a45717bad513e4ea795d93dcff06f9f11",
+      "validation": [
+        "8 tests passed in0.22s",
+        "Independent original tempfile discriminators PASS: group/slot normalized, unrelated decorator omitted, recognized app query path null, synthetic sentinel absent"
+      ],
+      "resolved": [
+        "Groups/parallel slots excluded from URL template; intercepted routes explicit UNKNOWN_INTERCEPTION/null",
+        "Backend only directly constructed imported FastAPI/APIRouter owners; external/query strings rejected",
+        "BFF exports derived from comment/string-safe tokens"
+      ],
+      "limits": [
+        "Lexical possible-dependency inventory, not runtime/API reachability proof",
+        "Dynamic targets remain UNKNOWN; mounted routers/alias constructs remain unresolved",
+        "Template counts include filesystem entries; parallel routes can share URL and are not unique public URL counts",
+        "Missing support for other decorators/export syntax does not establish absent runtime route",
+        "No benchmark or timing claim"
+      ],
+      "commands": [
+        "Read current source/test",
+        "python -X utf8 -m pytest tests/test_performance_route_inventory.py -q",
+        "Independent temporary filesystem discriminator via stdin Python"
+      ],
+      "edits": "Evidence packet only"
+    }
+  ],
+  "staticInventory": {
+    "pageFiles": 46,
+    "bffFiles": 48,
+    "serverDecorators": 94,
+    "truncated": false,
+    "generatedReportSha256": "a96c88bfb7b9bbb14f29ad7297e080ba4cc9a255bce092d9c52ce41099061a43",
+    "command": "python scripts/performance_route_inventory.py --output route-inventory.json",
+    "pageTemplates": [
+      {
+        "template": "/admin",
+        "source": "frontend/app/admin/page.jsx"
+      },
+      {
+        "template": "/admin/sharp-identities",
+        "source": "frontend/app/admin/sharp-identities/page.jsx"
+      },
+      {
+        "template": "/angle",
+        "source": "frontend/app/angle/page.jsx"
+      },
+      {
+        "template": "/arbitrage",
+        "source": "frontend/app/arbitrage/page.jsx"
+      },
+      {
+        "template": "/bdvm",
+        "source": "frontend/app/bdvm/page.jsx"
+      },
+      {
+        "template": "/consensus-edge",
+        "source": "frontend/app/consensus-edge/page.jsx"
+      },
+      {
+        "template": "/design",
+        "source": "frontend/app/design/page.jsx"
+      },
+      {
+        "template": "/draft",
+        "source": "frontend/app/draft/page.jsx"
+      },
+      {
+        "template": "/edge",
+        "source": "frontend/app/edge/page.jsx"
+      },
+      {
+        "template": "/finder",
+        "source": "frontend/app/finder/page.jsx"
+      },
+      {
+        "template": "/game-day",
+        "source": "frontend/app/game-day/page.jsx"
+      },
+      {
+        "template": "/idptc-rookies",
+        "source": "frontend/app/idptc-rookies/page.jsx"
+      },
+      {
+        "template": "/intel",
+        "source": "frontend/app/intel/page.jsx"
+      },
+      {
+        "template": "/league/activity",
+        "source": "frontend/app/league/activity/page.jsx"
+      },
+      {
+        "template": "/league/articles/[season]/[week]/[matchupId]/[mode]",
+        "source": "frontend/app/league/articles/[season]/[week]/[matchupId]/[mode]/page.jsx"
+      },
+      {
+        "template": "/league/articles/[season]/[week]",
+        "source": "frontend/app/league/articles/[season]/[week]/page.jsx"
+      },
+      {
+        "template": "/league/franchise/[owner]",
+        "source": "frontend/app/league/franchise/[owner]/page.jsx"
+      },
+      {
+        "template": "/league/insider-trading",
+        "source": "frontend/app/league/insider-trading/page.jsx"
+      },
+      {
+        "template": "/league",
+        "source": "frontend/app/league/page.jsx"
+      },
+      {
+        "template": "/league/player/[playerId]",
+        "source": "frontend/app/league/player/[playerId]/page.jsx"
+      },
+      {
+        "template": "/league/rivalry/[pair]",
+        "source": "frontend/app/league/rivalry/[pair]/page.jsx"
+      },
+      {
+        "template": "/league/week/[season]/[week]",
+        "source": "frontend/app/league/week/[season]/[week]/page.jsx"
+      },
+      {
+        "template": "/league/weekly/[season]/[week]/[matchup]",
+        "source": "frontend/app/league/weekly/[season]/[week]/[matchup]/page.jsx"
+      },
+      {
+        "template": "/league-comparison",
+        "source": "frontend/app/league-comparison/page.jsx"
+      },
+      {
+        "template": "/login",
+        "source": "frontend/app/login/page.jsx"
+      },
+      {
+        "template": "/market/sharp-people/[personId]",
+        "source": "frontend/app/market/sharp-people/[personId]/page.jsx"
+      },
+      {
+        "template": "/market/sharp-people",
+        "source": "frontend/app/market/sharp-people/page.jsx"
+      },
+      {
+        "template": "/market/sharp-roster-percentage",
+        "source": "frontend/app/market/sharp-roster-percentage/page.jsx"
+      },
+      {
+        "template": "/market/sharp-tracker",
+        "source": "frontend/app/market/sharp-tracker/page.jsx"
+      },
+      {
+        "template": "/more",
+        "source": "frontend/app/more/page.jsx"
+      },
+      {
+        "template": "/news",
+        "source": "frontend/app/news/page.jsx"
+      },
+      {
+        "template": "/",
+        "source": "frontend/app/page.jsx"
+      },
+      {
+        "template": "/phases",
+        "source": "frontend/app/phases/page.jsx"
+      },
+      {
+        "template": "/players/[playerId]",
+        "source": "frontend/app/players/[playerId]/page.jsx"
+      },
+      {
+        "template": "/players/compare",
+        "source": "frontend/app/players/compare/page.jsx"
+      },
+      {
+        "template": "/rankings/[position]",
+        "source": "frontend/app/rankings/[position]/page.jsx"
+      },
+      {
+        "template": "/rankings",
+        "source": "frontend/app/rankings/page.jsx"
+      },
+      {
+        "template": "/rosters",
+        "source": "frontend/app/rosters/page.jsx"
+      },
+      {
+        "template": "/settings",
+        "source": "frontend/app/settings/page.jsx"
+      },
+      {
+        "template": "/tools/ros-data-health",
+        "source": "frontend/app/tools/ros-data-health/page.jsx"
+      },
+      {
+        "template": "/tools/source-health",
+        "source": "frontend/app/tools/source-health/page.jsx"
+      },
+      {
+        "template": "/tools/trade-coverage",
+        "source": "frontend/app/tools/trade-coverage/page.jsx"
+      },
+      {
+        "template": "/trade",
+        "source": "frontend/app/trade/page.jsx"
+      },
+      {
+        "template": "/trades",
+        "source": "frontend/app/trades/page.jsx"
+      },
+      {
+        "template": "/trending",
+        "source": "frontend/app/trending/page.jsx"
+      },
+      {
+        "template": "/waivers",
+        "source": "frontend/app/waivers/page.jsx"
+      }
+    ],
+    "runtimeEdgesVerified": false
+  },
+  "measurements": {
+    "routeLatency": null,
+    "wireBytes": null,
+    "browserUsefulState": null,
+    "productionLoadedRevision": null,
+    "LinuxResources": null
+  },
+  "limits": [
+    "Small synthetic concurrency regressions execute real calculation owners but do not establish route performance.",
+    "Static import graph is a possible dependency map; dynamic edges, provider execution and mounted router resolution require runtime verification.",
+    "Historical archived1346 performance results are not imported or relabeled.",
+    "Local Node20 production build passes14unchangedbundlebudgets; browser acceptance remains outstanding."
+  ],
+  "reviewFollowup": "After independent14-test review, module documentation alone corrected warm-request description: current input loading/fingerprinting still occurs; executable code unchanged.",
+  "mainMovement": {
+    "fetched": "2e49e4ea5c673866c10a2d509ca57555b2976ccd",
+    "commits": [
+      "526ada157",
+      "2e49e4ea5"
+    ],
+    "paths": [
+      "data/scrape_state/dlfValuesSfTep_last_success",
+      "data/scrape_state/idpShowCombined_last_status.json",
+      "data/scrape_state/idpShowCombined_last_success",
+      "data/scrape_state/idpShow_last_status.json",
+      "data/scrape_state/idpShow_last_success"
+    ],
+    "classification": "BENIGN_AUTOMATION_MOVE for this fixed-input Gameplan/census change",
+    "proof": "Every diff leaf inspected: success epochs and observedAt only; acquired/usable/rowCount and payloads unchanged. No code/config/runtime/test input changes. Production freshness differs and is not certified by this classification."
+  },
+  "integrationAttempt": {
+    "result": "7 failed, 694 passed,22skipped,1warning235.07s",
+    "command": "python -m pytest tests/api/test_gameplan_singleflight.py tests/api/test_gameplan_endpoint.py tests/api/test_gameplan_league_config_consistency.py tests/roster_intel tests/test_performance_route_inventory.py -q --tb=short",
+    "failureOwner": "Existing AST owner census uses Windows paths against POSIX declared paths. All7failures preserved; no full-suite pass claimed.",
+    "reportSha256": "c3643c3d5467054e1358428b6e0fa1c86d9f6924d35cef0212ab5296f42ef64b"
+  },
+  "finalValidation": [
+    {
+      "command": "python -m pytest tests/api/test_gameplan_singleflight.py tests/api/test_gameplan_endpoint.py tests/api/test_gameplan_league_config_consistency.py tests/test_performance_route_inventory.py -q --tb=short",
+      "result": "56 passed,1existingwarning127.85s",
+      "reportSha256": "a2be6e42ed70d1f8fbd781585142cf7cea2f939b9319cc81aeb7c3ccc4ea1012"
+    },
+    {
+      "command": "python -m pytest tests/roster_intel/test_replacement_owner.py tests/roster_intel/test_strength_weakness_single_owner.py -q --tb=short",
+      "result": "26 passed86.31s after existing Windows path comparison correction",
+      "reportSha256": "47ef0b730efc1f3771f58695beb31bbec649c79614b942383561915129d88809"
+    }
+  ],
+  "portabilityCorrection": {
+    "owner": "scripts/replacement_census.py and test-local strength/weakness scanner",
+    "before": "Both files and relevant test exactly matched base; all7failures independently reproduced",
+    "change": "Three relative path boundaries use as_posix; output test uses tmp_path rather than /dev/null. No AST rules, declared paths, scan exclusions or assertions relaxed.",
+    "review": "Root independently read diff and original failure output; scoped26test result includes actual duplicate-owner adversarial positives.",
+    "files": {
+      "scripts\\replacement_census.py": "e087eea72df8e9919ffe5ecbf96a72dfe9f26850eefab64c95d53a6d3dfe8b81",
+      "tests\\roster_intel\\test_replacement_owner.py": "c91012bc5942d8f5acf5072ad0b24858afb5c55eef064ce7c6e07bbe041e03ca",
+      "tests\\roster_intel\\test_strength_weakness_single_owner.py": "46fa646fc635ad1f491ba0610bb5e3cb028ed91cdb4ba8c3e2cd6ff034570be4"
+    }
+  }
+}

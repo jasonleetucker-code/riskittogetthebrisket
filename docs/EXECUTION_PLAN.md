@@ -62,6 +62,27 @@ foundation once. Preserve small, reviewable PR boundaries within the combined ph
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
 
+## Calculator performance architecture — owner directive, 2026-09-26 (#1338)
+
+The owner re-authorizes implementation through normal protected test, review, PR,
+merge, deployment and production verification under `GLOBAL_PERFORMANCE_STANDARD.md`.
+Start from current main; closed #1346 / `archive/pr-1346` is historical evidence and
+an idea donor only. Do not revive its branch or restore its architecture wholesale.
+The September 26 donor disposition remains historical; its requirement for new
+authorization is satisfied by this section, not by any old benchmark or claim.
+
+Scope: a current route and expensive GET/POST census, measured request-path repair,
+complete cache identities and single-flight, justified prepared route projections,
+background ownership, freshness/LKG, browser/mobile boundaries, privacy-safe
+observability and regression protection. Preserve existing canonical engines,
+public/private and league/scoring boundaries, useful-state budgets, current Game Day
+and Trade work, and the permanent parallel PSI UI lane. No infrastructure, signing
+system or new valuation owner is presumed necessary. Deliver small dependency-aware
+PRs, with current measurements and independent review; production claims require the
+actual deployed identity and Linux/resource/browser evidence. #1338 stays open until
+the complete current-product acceptance requirements are met. Execution/evidence:
+`performance/CURRENT_ARCHITECTURE.md`; intake: `OWNER_REQUESTED_TODO.md`.
+
 ## Bounded Agent OS consolidation — owner directive, 2026-09-10
 
 The owner explicitly authorized one continuous local Agent OS / Site Steward

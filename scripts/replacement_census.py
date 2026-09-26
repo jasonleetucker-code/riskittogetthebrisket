@@ -275,7 +275,7 @@ def called_names(tree: ast.AST) -> set[str]:
 def call_sites(names: set[str], extra: Path | None = None) -> dict[str, list[str]]:
     hits: dict[str, list[str]] = {}
     for path in _python_files(extra):
-        rel = str(path.relative_to(REPO)) if REPO in path.parents else str(path)
+        rel = path.relative_to(REPO).as_posix() if REPO in path.parents else path.as_posix()
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
         except (SyntaxError, UnicodeDecodeError):
@@ -352,7 +352,7 @@ def definition_sites(names: set[str], extra: Path | None = None) -> dict[str, li
     """
     hits: dict[str, list[str]] = {}
     for path in _python_files(extra):
-        rel = str(path.relative_to(REPO)) if REPO in path.parents else str(path)
+        rel = path.relative_to(REPO).as_posix() if REPO in path.parents else path.as_posix()
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
         except (SyntaxError, UnicodeDecodeError):

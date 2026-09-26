@@ -77,7 +77,7 @@ def definition_sites(names: set[str]) -> dict[str, list[str]]:
     """
     hits: dict[str, list[str]] = {}
     for path in _python_files():
-        rel = str(path.relative_to(REPO))
+        rel = path.relative_to(REPO).as_posix()
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"))
         except (SyntaxError, UnicodeDecodeError):
