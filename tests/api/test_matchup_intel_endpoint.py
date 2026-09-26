@@ -151,6 +151,57 @@ def test_an_owner_with_no_roster_is_404_not_an_empty_matchup():
     assert r.json()["error"] == "team_not_found"
 
 
+def test_a_team_not_in_this_league_offers_this_leagues_teams():
+    """The switcher's recovery path: a stale or foreign ``?team=`` answers
+    with the league it looked in and that league's own rosters."""
+    teams = [{"ownerId": "own-A", "rosterId": "1", "teamName": "A", "displayName": "a"}]
+    with (
+        _patch(side_effect=matchup_intel.TeamNotInLeague("own-Z", teams)),
+        _patch_clock(),
+        _client() as c,
+    ):
+        r = c.get("/api/matchup/intel?team=own-Z")
+    assert r.status_code == 404
+    body = r.json()
+    assert body["error"] == "team_not_found"
+    assert body["leagueKey"] == "dynasty_main"
+    assert body["requestedTeam"] == "own-Z"
+    assert body["leagueTeams"] == teams
+
+
+def test_no_inferable_team_is_a_400_that_lists_this_leagues_teams():
+    """A guest / unlinked session has no team of its own: it gets the
+    league's rosters to pick from, never a silent default team."""
+    teams = [{"ownerId": "own-A", "rosterId": "1", "teamName": "A", "displayName": "a"}]
+    with (
+        _patch(side_effect=matchup_intel.TeamNotInLeague("", teams)) as built,
+        _patch_clock(),
+        mock.patch.object(server, "_get_auth_session", return_value={"username": "guest"}),
+        _client() as c,
+    ):
+        r = c.get("/api/matchup/intel?leagueKey=dynasty_main")
+    assert r.status_code == 400
+    body = r.json()
+    assert body["error"] == "team_required"
+    assert body["leagueKey"] == "dynasty_main"
+    assert body["leagueTeams"] == teams
+    assert built.call_args.kwargs["owner_id"] == ""
+    assert built.call_args.kwargs["league_key"] == "dynasty_main"
+
+
+def test_the_requested_team_is_asked_of_the_requested_league_only():
+    """Team and league travel together to the one assembly call: switching
+    team never re-resolves the league, and there is no retry elsewhere."""
+    with _patch() as built, _patch_clock(), _client() as c:
+        r = c.get("/api/matchup/intel?leagueKey=dynasty_main&team=own-B")
+    assert r.status_code == 200
+    assert built.call_count == 1
+    kwargs = built.call_args.kwargs
+    assert kwargs["league_key"] == "dynasty_main"
+    assert kwargs["sleeper_league_id"] == "L-MAIN"
+    assert kwargs["owner_id"] == "own-B"
+
+
 def test_an_unstated_clock_refuses_rather_than_guessing_the_week():
     with (
         mock.patch("src.public_league.sleeper_client.fetch_nfl_state", return_value={}),

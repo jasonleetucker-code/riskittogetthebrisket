@@ -7863,7 +7863,14 @@ async def get_matchup_intel(request: Request):
         leagueKey   optional — standard resolver (explicit key, else the
                     user's activeLeagueKey, else the registry default)
         team        optional — ownerId. Defaults to the session's Sleeper
-                    user id, then the league's default_team_map.
+                    user id, then the league's default_team_map. ANY
+                    roster of the resolved league may be asked for — Game
+                    Day switches perspective across the whole league, and
+                    the payload's ``leagueTeams`` lists them. An owner with
+                    no roster in THIS league is a 404 carrying this
+                    league's ``leagueTeams``; it never resolves in another.
+                    With no team given or inferable it is a 400
+                    ``team_required`` that also carries ``leagueTeams``.
         week        optional — defaults to the host's own current week.
         season      optional — defaults to the host's own current season.
 
@@ -7908,19 +7915,10 @@ async def get_matchup_intel(request: Request):
             username = str(session.get("username") or "").strip().lower()
             mapped = (league_cfg.default_team_map or {}).get(username) or {}
             owner_id = str(mapped.get("ownerId") or "").strip()
-    if not owner_id:
-        return JSONResponse(
-            status_code=400,
-            content={
-                "error": "team_required",
-                "message": (
-                    "Pass ?team=<ownerId>. It could not be inferred: this session "
-                    "carries no Sleeper user id and the league has no default team "
-                    "mapping for it."
-                ),
-                "leagueKey": league_cfg.key,
-            },
-        )
+    # No inferable team is NOT refused here: the league-week render is still
+    # built (or served from the shared generation) so the refusal below can
+    # list this league's rosters — a session with no team of its own (the
+    # guest pass, an unlinked user) picks one instead of hitting a dead end.
 
     # The CLOCK comes from the host, not from this process. A season and a
     # week are facts Sleeper states; deriving them from the calendar is how
@@ -8018,15 +8016,32 @@ async def get_matchup_intel(request: Request):
                 "week": int(week),
             },
         )
-    except _matchup_intel.TeamNotInLeague:
-        return JSONResponse(
-            status_code=404,
-            content={
-                "error": "team_not_found",
-                "message": f"No roster for owner {owner_id!r} in league {league_cfg.key!r}.",
+    except _matchup_intel.TeamNotInLeague as exc:
+        # The refusal names the league it looked in and, when the render
+        # was reached, that league's own rosters — so a stale or foreign
+        # ``?team=`` recovers to a team IN THIS LEAGUE, never another one.
+        if not owner_id:
+            body = {
+                "error": "team_required",
+                "message": (
+                    "Pass ?team=<ownerId>. It could not be inferred: this session "
+                    "carries no Sleeper user id and the league has no default team "
+                    "mapping for it."
+                ),
                 "leagueKey": league_cfg.key,
-            },
-        )
+            }
+            if exc.league_teams is not None:
+                body["leagueTeams"] = exc.league_teams
+            return JSONResponse(status_code=400, content=body)
+        body = {
+            "error": "team_not_found",
+            "message": f"No roster for owner {owner_id!r} in league {league_cfg.key!r}.",
+            "leagueKey": league_cfg.key,
+            "requestedTeam": owner_id,
+        }
+        if exc.league_teams is not None:
+            body["leagueTeams"] = exc.league_teams
+        return JSONResponse(status_code=404, content=body)
     except _matchup_intel.MatchupIntelError as exc:
         return JSONResponse(
             status_code=503,

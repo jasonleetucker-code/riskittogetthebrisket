@@ -65,6 +65,9 @@ DRAWS = 400
 SEED = game_day_sim.DEFAULT_SEED
 #: Roster 8 vs 10 is the closest real matchup in the capture (~80/20 at halftime).
 ROSTER = 8
+#: Roster 8's scheduled opponent in the capture: the team-switcher scenario
+#: serves the same generation from this side.
+OPPONENT_ROSTER = 10
 #: A served payload is read this long after the tick that produced it.
 SERVE_LAG_SECONDS = 20.0
 #: The weekly-projection fetch every scenario's pre-kickoff collector tick
@@ -114,6 +117,13 @@ SCENARIOS: dict[str, tuple[str, dict, str]] = {
         "get deterministic synthetic points (pid%17 x 0.75, -1.25 when pid%13==0, the "
         "mixed-slate rule) and each host team total is set to the canonical best-ball "
         "total of those points (two-pass build).",
+    ),
+    "halftime-opponent": (
+        "real_halftime",
+        {"roster": OPPONENT_ROSTER},
+        "REAL capture: GB@ATL halftime served from the OPPONENT's perspective "
+        "(roster 10, the scheduled opponent of the default fixture's roster 8) "
+        "out of the same collector generation — the Game Day team switcher.",
     ),
     "live-feed-down": (
         "real_halftime",
@@ -324,22 +334,23 @@ def build(name: str) -> dict:
             now = world.clock()
         else:
             world, now = _run_world(sc, opts)
-        payload = _serve(f"owner-{ROSTER}", now + opts.get("serve_lag", SERVE_LAG_SECONDS))
+        roster = opts.get("roster", ROSTER)
+        payload = _serve(f"owner-{roster}", now + opts.get("serve_lag", SERVE_LAG_SECONDS))
     finally:
         live.LIVE_ROOT, game_day_sim._SIM_CACHE_ROOT = saved
         live._generation_cache.clear()
         shutil.rmtree(tmp, ignore_errors=True)
-    return _finish(payload, scenario_dir, description)
+    return _finish(payload, scenario_dir, description, roster=opts.get("roster", ROSTER))
 
 
-def _finish(payload: dict, scenario_dir: str, description: str) -> dict:
+def _finish(payload: dict, scenario_dir: str, description: str, roster: int = ROSTER) -> dict:
     payload = json.loads(json.dumps(payload, default=list))
     payload["_fixture"] = {
         "scenario": scenario_dir,
         "description": description,
         "generator": "tests/game_day/ui_payloads.py",
         "draws": DRAWS,
-        "rosterId": ROSTER,
+        "rosterId": roster,
     }
     return payload
 

@@ -36,7 +36,7 @@ export default function GameDayPage() {
         className={styles.hero}
         eyebrow="Game Day"
         title="This week's matchup"
-        description="Score, projected finish and win chance for your selected team, then the games that matter, then the detail."
+        description="Score, projected finish and win chance for any team in your league, then the games that matter, then the detail."
       />
       {/* `useSearchParams` inside the panel requires a Suspense boundary
           during static prerender — same convention as

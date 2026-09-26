@@ -140,7 +140,17 @@ class WeekInProgress(MatchupIntelError):
 
 
 class TeamNotInLeague(MatchupIntelError):
-    """The requested owner holds no roster in this league."""
+    """The requested owner holds no roster in this league.
+
+    ``league_teams`` is the league's own roster list (:func:`league_teams`)
+    when the refusal came from a render, so the transport can offer the
+    teams that DO exist in this league instead of a bare refusal.  ``None``
+    when the refusal was raised without one.
+    """
+
+    def __init__(self, owner_id: str, league_teams: list[dict[str, Any]] | None = None):
+        super().__init__(owner_id)
+        self.league_teams = league_teams
 
 
 @dataclass(frozen=True)
@@ -1392,6 +1402,43 @@ def render_league(assembly: LeagueWeekAssembly) -> dict[str, Any]:
     }
 
 
+def league_teams(render: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Every roster in the rendered league-week, for the Game Day team picker.
+
+    Read from the SAME render the team payload is composed from — the one
+    league-week the request resolved — so the list cannot contain a roster
+    from any other league, and switching perspective needs no second fetch
+    or simulation (every side of the league is already in the render).
+
+    ``ownerId`` is the selection identity ``?team=`` and the session default
+    already use.  A roster with no manager keeps ``ownerId: None``: it is
+    listed (it IS in the league) but cannot be addressed by owner.  Sorted
+    by team name, then roster id, so the order is stable across polls.
+    """
+    sides = render.get("sides") or {}
+    teams = [
+        {
+            "ownerId": side.get("ownerId") or None,
+            "rosterId": str(side.get("rosterId") or rid),
+            "teamName": side.get("teamName") or "",
+            "displayName": side.get("displayName") or "",
+        }
+        for rid, side in sides.items()
+        if isinstance(side, Mapping)
+    ]
+
+    def _roster_order(rid: str) -> tuple[int, str]:
+        return (int(rid), rid) if rid.isdigit() else (1 << 30, rid)
+
+    return sorted(
+        teams,
+        key=lambda t: (
+            (t["teamName"] or t["displayName"]).casefold(),
+            _roster_order(t["rosterId"]),
+        ),
+    )
+
+
 def compose_team_payload(
     render: Mapping[str, Any],
     *,
@@ -1410,7 +1457,7 @@ def compose_team_payload(
     roster_by_owner = render.get("ownerToRoster") or {}
     my_roster_id = roster_by_owner.get(str(owner_id))
     if not my_roster_id:
-        raise TeamNotInLeague(str(owner_id))
+        raise TeamNotInLeague(str(owner_id), league_teams(render))
     shared = render["shared"]
     opponent_roster_id = (render.get("opponents") or {}).get(my_roster_id)
     sides = render.get("sides") or {}
@@ -1461,6 +1508,7 @@ def compose_team_payload(
         "team": _side(my_roster_id),
         "opponent": _side(opponent_roster_id),
         "nflSlate": _compose_slate(render["slate"], my_roster_id, opponent_roster_id),
+        "leagueTeams": league_teams(render),
         "lineage": lineage,
         "notes": notes,
     }
