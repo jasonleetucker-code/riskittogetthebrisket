@@ -1,0 +1,36 @@
+{
+  "reviewer": "/root/retention_reproduction",
+  "utc": "2026-09-26T21:35:48.307716+00:00",
+  "verdict": "APPROVE",
+  "hashes": {
+    "frontend/scripts/measure-route-baselines.mjs": "9e62cfc3a9ec9d67ba668dbb7443ed013e5841fa44ff5e74fbd3012b1edef977",
+    "tests/e2e/route-baseline-unit.test.mjs": "1e53fd9c9e7d8354bd241d26a291f187002adfba58f2b254c1a754e46ca21025",
+    ".github/workflows/v1-authenticated-verification.yml": "fdb3a45fea670fc390087375024be6f97bc51028e506c1ebebb21ad21ac58b57"
+  },
+  "initialVeto": [
+    "Actual /api/user/state classifiedother_api; live useUserState102/128 anduseLeague202 traced.",
+    "Observer observe() failure left observernonnull and availabilitytrue."
+  ],
+  "independentReproduction": {
+    "actualSettingsCategory": "other_api",
+    "failedObserverReportedAvailable": true,
+    "invalid": 1
+  },
+  "correction": "Actual settings endpoint included; failed observer initialization now null, snapshot avoids takeRecords. New regression cases directly test both.",
+  "validation": [
+    "Initial19Node passed977.1396ms;9workflow/classification passed2.37s.",
+    "Corrected21Node passed1031.193ms; workflow unchanged fromprior9pass."
+  ],
+  "review": [
+    "Defaultoff nativefetch/json untouched. Enabled wrappers preserve original receiver,args,promises,responseobjects,values and rejection/throw reasons; side observation has observeroverhead.",
+    "Event/resource arrays capped512, loss/pending/invalid counters exposed; WeakMap doesnotretainresponseobjects. No URL/query/header/body/token/identity text serialized.",
+    "Usefulclock captured before snapshot allocation and extra loadwait; JSONduration body+parse+scheduling, fetchheaders microtaskobservation, ResourceTiming category-only notexactjoin.",
+    "Current auth,leagues,data and settings endpoints inspected. Authcredential boundary unchanged; never test-session production bypass."
+  ],
+  "limitations": [
+    "No browser/production run; required on/off controls pending.",
+    "ResourceTiming zero/cached/unknown not proof wiretraffic or pureparse; postload totals retain existingscope.",
+    "Usefulprobe includes driver observationlag; diagnostics overhead unmeasured.",
+    "Partial/failed observer remains explicit; no assertion allnativeentries universallyretained."
+  ]
+}

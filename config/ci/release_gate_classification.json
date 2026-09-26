@@ -295,6 +295,9 @@
     "e2e.yml::e2e::Preflight (compile checks, contract validation, data seed)": {
       "category": "blocking"
     },
+    "e2e.yml::e2e::Validate route measurement predicates": {
+      "category": "blocking"
+    },
     "e2e.yml::e2e::Run Playwright suite": {
       "category": "blocking"
     },
@@ -872,6 +875,12 @@
       "category": "blocking"
     },
     "weekly-narratives.yml::narratives::Upload exported package (export mode only)": {
+      "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Set up Node 20 for production baseline": {
+      "category": "blocking"
+    },
+    "v1-authenticated-verification.yml::v1-authenticated::Collect authenticated route baseline": {
       "category": "blocking"
     }
   },
