@@ -282,6 +282,20 @@ function awaitingCopy(reason) {
   return AWAITING_COPY[reason] || AWAITING_COPY.no_qualifying_evidence;
 }
 
+// A position the backend could not measure against a replacement level
+// (``vorpExclusions``). Its players are absent from the VORP awards on
+// purpose; say so, so an empty DPOY reads as "unmeasurable", not "missing".
+export function vorpExclusionNote(exclusions) {
+  if (!Array.isArray(exclusions) || exclusions.length === 0) return null;
+  const positions = [...new Set(exclusions.map((e) => e?.position).filter(Boolean))];
+  if (positions.length === 0) return null;
+  const noBench = exclusions.every((e) => e?.reason === "no_bench_population");
+  const why = noBench
+    ? "no bench scoring on record to set a replacement level"
+    : "not enough rostered players to set a replacement level";
+  return `${positions.join(", ")} excluded — ${why}`;
+}
+
 function AwardWinner({ a, managers, size = 24 }) {
   const isPlayer = PLAYER_AWARD_KEYS.has(a.key) && a.value?.playerId;
   if (a.awaitingEvidence) {
@@ -508,6 +522,11 @@ function RaceCard({ race, managers, onNavigate, featured = false }) {
         <h4 className={styles.raceTitle}>{race.label}</h4>
         {featured && <span className={styles.liveMark}>Live</span>}
       </div>
+      {vorpExclusionNote(race.vorpExclusions) && (
+        <p className={styles.raceAwaiting} data-vorp-exclusion>
+          {vorpExclusionNote(race.vorpExclusions)}
+        </p>
+      )}
       {race.awaitingEvidence ? (
         <p className={styles.raceAwaiting}>{awaitingCopy(race.awaitingReason)}</p>
       ) : (
@@ -767,6 +786,15 @@ function AwardsSection({ managers, data, onNavigate }) {
             <div style={{ fontSize: "0.7rem", color: "var(--subtext)", marginBottom: 8 }}>
               Trader / Waiver / MVP / Rookie awards depend on per-player scoring that
               Sleeper didn't surface for this season — some awards may be skipped.
+            </div>
+          )}
+          {vorpExclusionNote(featured.vorpExclusions) && (
+            <div
+              style={{ fontSize: "0.7rem", color: "var(--subtext)", marginBottom: 8 }}
+              data-vorp-exclusion
+            >
+              MVP / Player of the Year / Rookie awards:{" "}
+              {vorpExclusionNote(featured.vorpExclusions)}.
             </div>
           )}
           {(featured.awards || []).length === 0 ? (
