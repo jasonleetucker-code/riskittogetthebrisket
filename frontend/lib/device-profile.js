@@ -82,7 +82,8 @@ export function adjustedPollingMs(baseMs, { when = "foreground" } = {}) {
  * Which `/api/data` view the contract fetch should request.
  *
  *   Mobile / slow network → "compact"
- *   Desktop              → "array"
+ *   Rankings / Trade     → "compact" on desktop too
+ *   Other desktop routes → "array"
  *
  * BOTH views serve the same board.  That is a property this pair did
  * not have until 2026-08-18: "compact" pruned 14 fields the
@@ -106,9 +107,10 @@ export function adjustedPollingMs(baseMs, { when = "foreground" } = {}) {
  *
  * Desktop deliberately does NOT use "app"/"runtime" (drops
  * `playersArray`, losing tier ids, confidence, and the audit fields
- * 20+ desktop surfaces render) or "compact" (prunes audit fields the
- * desktop rankings board and PlayerPopup show).  Row-parity against
- * the full view is pinned by `tests/api/test_array_view.py`.
+ * 20+ desktop surfaces render). Rankings and Trade use the existing
+ * compact representation after materialized-row, source-audit, popup
+ * order and CSV parity checks. Other desktop consumers keep array;
+ * this is a bounded route migration, not a new global contract.
  *
  * Historical note: this used to return "delta" for desktop, which is
  * NOT a valid `GET /api/data` view — the caller dropped it and the
@@ -117,6 +119,10 @@ export function adjustedPollingMs(baseMs, { when = "foreground" } = {}) {
  */
 export function preferredDataView() {
   if (isMobileProfile() || isSlowNetwork()) {
+    return "compact";
+  }
+  const pathname = typeof window !== "undefined" ? window.location?.pathname : "";
+  if (pathname === "/rankings" || pathname === "/trade") {
     return "compact";
   }
   return "array";

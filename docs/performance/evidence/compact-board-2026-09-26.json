@@ -1,0 +1,94 @@
+{
+  "at": "2026-09-26T22:17:22.688602+00:00",
+  "agent": "/root/retention_reproduction",
+  "scope": "Existing compact view correctness prerequisite for route-scoped rankings/trade selection. No provider calls or product performance claim.",
+  "files": {
+    "src/api/compact_view.py": "8be22e08e396e7348df76ef0c4de31802ae82a8d144dbf3717b865a11697c4b1",
+    "tests/api/test_compact_view.py": "35a346aa489df7ca012c5a3060814c0c7aaa3744b4cf71a8ef8ab81cff3e08ac",
+    "tests/api/test_compact_view_consumer_parity.py": "8e05927b3276bba90f496688740f1483ceb7626a85f0484aa57a09eb622c54e3",
+    "tests/api/test_compact_view_byte_budget.py": "7866a5a95c618f010bbacc57375b223d3cff3c23aac459fdf87e9646d20a9529",
+    "frontend/__tests__/components/PlayerPopup.test.jsx": "2f093e97e8f5c9ba2eedca22daefbab271a505adf7842c76fea66bc21dcabee3"
+  },
+  "input": {
+    "pytestExit": 0,
+    "archive": "dynasty_export_20260926_164906.zip",
+    "archiveSha256": "2067a77f832c3648f3de6eceba9f22d36447bde0af54f5ccf2a49e9c28aa553d",
+    "rawCanonicalJsonSha256": "9846e3725e41eac338903b56f99451af47768213a1612d1b870519eba5933d8f",
+    "players": 1037,
+    "networkAttempts": 0,
+    "variants": {
+      "array": {
+        "rawBytes": 8757503,
+        "gzip6Bytes": 792636,
+        "sha256": "824089559df652d85dbf9590e92a933fa9be7fa7f0368f94d63f2e205997be96"
+      },
+      "compact": {
+        "rawBytes": 6057077,
+        "gzip6Bytes": 598369,
+        "sha256": "f8628b48d2550fbaae7f742d543d310fc8275a5dd5780e9d948a40a830bdcfc2"
+      }
+    }
+  },
+  "red": {
+    "popupActualOrderedMismatches": 1,
+    "popupUnorderedMismatches": 0,
+    "backendOrderedInventoryTest": "1 failed 10 deselected, KeyError sites, 0.37s"
+  },
+  "fix": "Retain original sites inventory unchanged; getSiteKeys seeds popup stable tie ordering. No value/scoring/rank change.",
+  "fixedBytes": {
+    "raw": 6057221,
+    "gzip6mtime0": 598415,
+    "rawReductionPercent": 30.8339260631712,
+    "gzipReductionPercent": 24.50317674190927,
+    "rawCostVsPreviousCompact": 144,
+    "gzipCostVsPreviousCompact": 46,
+    "sha256": "0abda75c8e09f0c8327cb644bdc232653ffee04532f361601a2d7162861e333b"
+  },
+  "parity": {
+    "at": "2026-09-26T22:16:36.407Z",
+    "node": "v20.20.2",
+    "rawRows": 1037,
+    "materializedRows": 1013,
+    "results": {
+      "materialized": {
+        "count": 1013,
+        "equal": true,
+        "arrayHash": "0f3c866014fe2535cd28df9b60c63ae467557e94bf994b95e89743bcfb7e1c40",
+        "compactHash": "0f3c866014fe2535cd28df9b60c63ae467557e94bf994b95e89743bcfb7e1c40"
+      },
+      "cells": {
+        "count": 22286,
+        "equal": true,
+        "arrayHash": "1588ebf2dd2b97feab1dcc282adaf448608e640fb892500668c5df48481e6a16",
+        "compactHash": "1588ebf2dd2b97feab1dcc282adaf448608e640fb892500668c5df48481e6a16"
+      },
+      "csvSources": {
+        "count": 22286,
+        "equal": true,
+        "arrayHash": "f1ea8123bddf12ad35c2eeea10bdc869a9cbd928afcaefbcbc8e3bb388cc7829",
+        "compactHash": "f1ea8123bddf12ad35c2eeea10bdc869a9cbd928afcaefbcbc8e3bb388cc7829"
+      },
+      "popup": {
+        "count": 1013,
+        "equal": true,
+        "arrayHash": "ec53493ed9c2cb9158c4a2455bf20777b527fc7c937bea8366c7a63faf43a2c8",
+        "compactHash": "ec53493ed9c2cb9158c4a2455bf20777b527fc7c937bea8366c7a63faf43a2c8"
+      }
+    }
+  },
+  "tests": [
+    "28 passed 3.94s: compact view/weights/consumer parity/byte budget",
+    "7 passed 3.95s: actual PlayerPopup Vitest; existing jsdom navigation warning",
+    "Scoped Ruff format/check PASS"
+  ],
+  "executionLimitations": [
+    "Initial frontend edit command used frontend cwd with repo-relative paths and made no changes; first6test run was pre-new-test. Corrected cwd then7 passed.",
+    "Parity executes actual unchanged buildRows/board-utils modules and extracted actual pure computeSiteDetails with actual source registry; not browser interaction or rendered geometry.",
+    "Materialized equality deliberately excludes raw object and trims sourceRankMeta to its four retained consumed fields; no claim of full raw metadata identity.",
+    "CSV source cells and all consumed materialized fields identical; no actual browser CSV download exercised.",
+    "Source-audit live reader accesses only retained contribution/weights/method, sourceAudit, canonicalSites, ranks and original ranks.",
+    "Bytes are offline current archived1037-row input;1013 rows pass unchanged materializer. Not production wire bytes/latency or old historical1109 input.",
+    "No universal all-route compact recommendation: bounded rankings/trade consumers reviewed; other desktop routes retain array under root proposal."
+  ],
+  "candidateVerdict": "READY FOR INDEPENDENT REVIEW: ordered sites prerequisite corrected; route-scoped existing compact selection justified by measured bytes and bounded semantic parity. Useful-state improvement remains unmeasured."
+}

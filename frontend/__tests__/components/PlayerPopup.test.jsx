@@ -48,7 +48,8 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-import PlayerPopup from "@/components/PlayerPopup";
+import PlayerPopup, { computeSiteDetails } from "@/components/PlayerPopup";
+import { getSiteKeys } from "@/lib/dynasty-data";
 
 beforeEach(() => {
   // PlayerPopup loads ROS values via fetch in an effect.
@@ -126,5 +127,28 @@ describe("PlayerPopup", () => {
     const { onClose } = renderPopup();
     fireEvent.click(screen.getByRole("link", { name: /compare/i }));
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+
+describe("compact source inventory", () => {
+  it("preserves explicit source order for tied contributions including unknown sources", () => {
+    const row = { sourceRankMeta: {
+      ktcTradesSfTep: { valueContribution: 9999 },
+      unknownSource: { valueContribution: 9999 },
+      idpTradeCalc: { valueContribution: 9999 },
+    } };
+    const contract = { sites: [
+      { key: "idpTradeCalc" }, { key: "unknownSource" }, { key: "ktcTradesSfTep" },
+    ] };
+    const details = computeSiteDetails(row, getSiteKeys(contract));
+    expect(details.map(({ key }) => key)).toEqual([
+      "idpTradeCalc", "unknownSource", "ktcTradesSfTep",
+    ]);
+    expect(details.map(({ value, pct }) => [value, pct])).toEqual([
+      [9999, 100], [9999, 100], [9999, 100],
+    ]);
+    expect(details.find(({ key }) => key === "unknownSource").label).toBe("unknownSource");
+    expect(computeSiteDetails(row, getSiteKeys({}))).not.toEqual(details);
   });
 });

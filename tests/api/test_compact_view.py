@@ -211,3 +211,16 @@ def test_byte_savings_reports_positive_number():
 def test_compact_player_on_non_dict_is_passthrough():
     assert cv.compact_player(None) is None
     assert cv.compact_player("string") == "string"
+
+
+def test_preserves_ordered_site_inventory_for_popup_tie_order():
+    contract = _sample_contract()
+    contract["sites"] = [
+        {"key": "idpTradeCalc", "label": "IDP"},
+        {"key": "unknownSource", "label": "Unknown"},
+        {"key": "ktcTradesSfTep", "label": "KTC trades"},
+    ]
+    before = list(contract["sites"])
+    out = cv.compact_contract(contract)
+    assert out["sites"] == before
+    assert contract["sites"] == before

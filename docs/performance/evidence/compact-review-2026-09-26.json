@@ -1,0 +1,57 @@
+{
+  "status": "APPROVE_SCOPED_CANDIDATE",
+  "reviewer": "/root/report_regression",
+  "scope": "Nine product/test files: ordered compact source inventory and desktop Rankings/Trade fetch-time selection.",
+  "findings": [
+    "Retained sites preserves source inventory ordering without altering values/ranks/scoring. Backend regression asserts ordered inventory survives unchanged; frontend uses actual computeSiteDetails and getSiteKeys with reversed meta order, equal contributions and unknown source. Without sites its expected order differs, so this is a meaningful discriminator.",
+    "Desktop exact /rankings or /trade selectscompact; otherdesktopfetches retainarray; mobile/slow network behavior unchanged. SSR withoutwindow remainsarray. No prefix expansion or new API.",
+    "Real fetchDynastyData test verifies concurrent shell/page reuse, sameleaguecompact sharedrankings/trade, and separate arrayrequest on draft. Cache identity retains league|view, authinvalidations unchanged.",
+    "Hook effect does not depend onpathname; existing mounted AppShell may keep semanticallyequivalent compact after SPA navigation until nextfetch. This is fetch-time scoping, not mandatoryrepresentation replacement of all existing state. No forcedrefetch recommended.",
+    "Earlier nested sourceaudit/popup/override trace remains applicable. All four consumed nested metadata fields retained; expanded source inventory corrects actual observedpopupordered mismatch."
+  ],
+  "validation": {
+    "backend": {
+      "command": "projectPython -X utf8 -m pytest tests/api/test_compact_view.py tests/api/test_compact_view_consumer_parity.py tests/api/test_compact_view_byte_budget.py -q",
+      "passed": 21,
+      "durationSeconds": 5.92
+    },
+    "frontend": {
+      "command": "Node20 node_modules/vitest/vitest.mjs run __tests__/device-profile.test.js __tests__/dynasty-data-dedup.test.js __tests__/components/PlayerPopup.test.jsx --maxWorkers=2",
+      "passed": 44,
+      "files": 3,
+      "durationSeconds": 5.61,
+      "warnings": "Existing jsdom navigation not implemented and Vite configloader future warning; exit0."
+    },
+    "authorEvidence": "compact-candidate-implementation.json separately records1037raw/1013materialized currentarchive parity, sourceCSVcells and orderedpopup parity;24.503%gzip6reduction. Not independently rerun fullofflinearchive in this review.",
+    "rootEvidence": "Fullfrontend189files2814pass with maxWorkers4 after separatelyretained defaultworkers timeoutfailures; backend76pass; Node20build14/14; rootreported, notduplicated."
+  },
+  "limits": [
+    "No production before/after useful-state result or wire-byte claim. Candidate acceptance remains pending measured benefit.",
+    "Currentarchive1037rows differs from earlier1109fixture; never relabel old measurements.",
+    "Purematerialized/sourceCSVhelper parity is not a complete renderedbrowser/export-download parity proof.",
+    "New compact sites also repairs existingmobile sourceorder, but does not prove mobile latencyimprovement."
+  ],
+  "files": [
+    "frontend/lib/device-profile.js",
+    "frontend/lib/dynasty-data.js",
+    "src/api/compact_view.py",
+    "frontend/__tests__/device-profile.test.js",
+    "frontend/__tests__/dynasty-data-dedup.test.js",
+    "frontend/__tests__/components/PlayerPopup.test.jsx",
+    "tests/api/test_compact_view.py",
+    "tests/api/test_compact_view_consumer_parity.py",
+    "tests/api/test_compact_view_byte_budget.py"
+  ],
+  "sealedAtUtc": "2026-09-26T22:27:12.211449+00:00",
+  "hashes": {
+    "frontend/lib/device-profile.js": "3d6234f0aa60a329bd115b4f5b5265c38f77b61e0ecce9e7c1e12970c6f89d8d",
+    "frontend/lib/dynasty-data.js": "bf907aa3cc3ef65d23c477d71af1b0f6ac7f38a75f771878d5c7b031263d8a4e",
+    "src/api/compact_view.py": "8be22e08e396e7348df76ef0c4de31802ae82a8d144dbf3717b865a11697c4b1",
+    "frontend/__tests__/device-profile.test.js": "4fd49a2212d85aaf914cfb704dfb7bc086bfdfa2815ba4f9d1c74b6cfccb8ec2",
+    "frontend/__tests__/dynasty-data-dedup.test.js": "d1359d3a967aa04363d30748f8ec9be1a828b58b82d45d43b2a58e04aaf1cd0f",
+    "frontend/__tests__/components/PlayerPopup.test.jsx": "2f093e97e8f5c9ba2eedca22daefbab271a505adf7842c76fea66bc21dcabee3",
+    "tests/api/test_compact_view.py": "35a346aa489df7ca012c5a3060814c0c7aaa3744b4cf71a8ef8ab81cff3e08ac",
+    "tests/api/test_compact_view_consumer_parity.py": "8e05927b3276bba90f496688740f1483ceb7626a85f0484aa57a09eb622c54e3",
+    "tests/api/test_compact_view_byte_budget.py": "7866a5a95c618f010bbacc57375b223d3cff3c23aac459fdf87e9646d20a9529"
+  }
+}

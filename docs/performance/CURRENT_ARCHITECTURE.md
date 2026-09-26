@@ -47,6 +47,42 @@ are outside authority. Signing and distributed infrastructure require evidence.
 
 ## Acceptance disposition
 
+### Rankings/Trade compact candidate — closure priority, 2026-09-26
+
+The production baseline failed Rankings cold and all four warm document-navigation
+series. Its 8–14 MB decoded total includes multiple resources and cached bodies;
+it does not prove duplicated API requests. Live-path inspection confirms the current
+fetch single-flight and row WeakMap already share routine requests/materialization.
+The first bounded correction therefore reuses the existing compact board for desktop
+`/rankings` and `/trade`; new fetches on other desktop routes request array. A
+persistent shell can retain an already-loaded semantically equal compact board
+across SPA navigation, as with the existing mobile path. No forced refetch is added.
+Mobile already uses compact. No additional API, calculation owner or prepared-serving
+system is added.
+
+On the same 1,037-row archived input, array is 8,757,503 raw / 792,636 gzip bytes;
+corrected compact is 6,057,221 raw / 598,415 gzip bytes: **30.83% raw and 24.50%
+gzip reduction**. This is an offline payload comparison, not a production timing
+gain or the historical 1,109-player replay. The 1,013 eligible materialized rows,
+22,286 source display/export cells and ordered popup details match. Review found
+one tied-source ordering difference before the correction: retaining the canonical
+source inventory costs 144 raw / 46 gzip bytes and restores exact popup ordering.
+No missing values, source weights, canonical ranks or calculations change.
+
+Affected backend validation passes 76 tests and five subtests with one existing
+deprecation warning. Two default-concurrency full frontend attempts remain failed
+(one then three Trade test timeout/cascade failures). That file passes alone; the
+same full suite with four workers passes **189 files / 2,814 tests** with all test
+assertions and five-second timeouts unchanged. Node 20 production build passes all
+14 unchanged bundle budgets. These results do not substitute for deployment,
+browser semantic checks and useful-state remeasurement, which remain required.
+
+The remaining compact body is primarily player rows, including 1.58 MB raw source
+audit detail used on disclosure intent. This identifies a possible next material
+owner, not permission to discard it or a measured timing benefit. Remeasure the
+first correction before choosing additional work. Adjacent DLF diagnostic expansion
+is deferred; its uncommitted experiment and historical findings are preserved.
+
 **INCOMPLETE.** No current route family is accepted by this ledger yet. Timing,
 payload, Linux resources, field metrics and production useful state remain unknown
 until observed. Unit tests and local probes cannot substitute for those gates.

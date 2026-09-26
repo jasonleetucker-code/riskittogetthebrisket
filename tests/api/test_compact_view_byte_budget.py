@@ -1,8 +1,7 @@
 """The mobile view must not be the largest of the optimized views.
 
-``preferredDataView()`` (``frontend/lib/device-profile.js``) routes mobile
-and slow-network clients to ``?view=compact`` and everyone else to
-``?view=array``.  So "compact" is a promise about bytes made to exactly the
+``preferredDataView()`` (``frontend/lib/device-profile.js``) routes mobile,
+slow-network and ordinary rankings/trade clients to ``?view=compact``.  So "compact" is a promise about bytes made to exactly the
 clients least able to absorb a broken one.
 
 That promise was inverted and stayed inverted, because no test measured it.

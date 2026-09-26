@@ -1552,8 +1552,8 @@ if (typeof window !== "undefined") {
 
 async function _fetchBaseContract() {
   const leagueKey = _readActiveLeagueKey();
-  // Mobile / slow-network callers get the compact view, desktop the
-  // array view.  Both carry the SAME board: compact prunes only fields
+  // Rankings/Trade and mobile/slow-network callers get compact; other
+  // desktop routes keep array. Both carry the SAME board: compact prunes fields
   // no consumer reads (pinned in
   // ``tests/api/test_compact_view_consumer_parity.py``), which is a
   // property it gained on 2026-08-18 — before that it pruned 14 fields
