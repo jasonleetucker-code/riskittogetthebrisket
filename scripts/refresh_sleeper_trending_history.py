@@ -22,8 +22,14 @@ from __future__ import annotations
 import logging
 import sys
 
-from src.adapters import sleeper_trending as _trending
-from src.adapters import sleeper_trending_history as _history
+from pathlib import Path
+
+# Run by systemd as `python scripts/<name>.py`, Python puts scripts/ (not the repo
+# root) on sys.path; without this every `from src...` import fails (2026-09-24).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from src.adapters import sleeper_trending as _trending  # noqa: E402
+from src.adapters import sleeper_trending_history as _history  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 _LOGGER = logging.getLogger(__name__)

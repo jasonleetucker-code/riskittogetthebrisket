@@ -232,6 +232,8 @@ run here because it declares `deps C2-U4` (see its entry). Authorization state i
   work performed in this unit, promotion recorded for the checkpoint).  Record:
   `docs/picks/C1_U6_PICK_VALUE_COMPLETENESS.md`
 
+- **2026-09-24 lifecycle extension (#1414 / T-NEW-20):** the original valuation/completeness unit stays historically CLOSED for what it proved, but `C1-PICK-02` is now PARTIAL for a new owner requirement: after a league draft is complete **and** the drafted rookies are rostered, that class must retire from active/current selectors while historical identity/snapshots/trades remain resolvable. Immediate case: 2026. This follow-up is NOT AUTHORIZED merely by documentation and must serialize with in-flight canonical pick work such as #1411.
+
 ### C1-U7 — Owned-pick outcome distributions
 - **rows** `C1-PICK-03` · **owner** same · **kind** INFRA · **deps** C1-U6, C2-U4
 - **required end state** distribution over slots, not only a point estimate;
@@ -265,6 +267,7 @@ run here because it declares `deps C2-U4` (see its entry). Authorization state i
   invariant raising on absent/unknown/non-dynasty/unevidenced. Board measured inert 0/1111.
   Production checklist `docs/sources/C1_U9_MULTI_FORMAT_SOURCE_ARCHIVE.md` §7 **not yet
   executed**
+
 
 ---
 
@@ -373,6 +376,7 @@ recomputed anywhere here — this is roster-impact math.
 - **calibration** internal fairness language must be **scale-aware** — a 500-point
   gap at the elite tier is not a 500-point gap deep on the board. Relative gap,
   package size, tier/curve slope, uncertainty, topology. Symmetry preserved.
+- **2026-09-24 quantity clarification (#1415 / T-NEW-02):** maturity includes repeatable/generic asset quantities and identity-safe duplicate labels. Two generic “Mid 2027 1st” assets must survive add→math→remove-one→share/persist→restore and count twice; two distinct owned picks with the same displayed tier must coexist; the exact same unique owned pick must not double-count. This remains inside the existing C3-U5/C3-CALC-01 owner rather than creating a second quantity subsystem.
 
 ### C3-U6 — Whole-package market coverage + equalizers
 - **rows** `C3-XMKT-01` `C3-EQ-01` · **owner** `src/league_intel/cross_market.py`
@@ -398,6 +402,7 @@ recomputed anywhere here — this is roster-impact math.
   Grade · At-the-Time Grade (nearest valid snapshot **at or before**, never a future
   one) · How It Aged (**same methodology on both timestamps**). A missing historical
   value is not today's value. The ±200 threshold is evidence-gated, not finished.
+
 
 ---
 

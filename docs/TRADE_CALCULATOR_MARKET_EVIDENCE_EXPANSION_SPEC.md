@@ -323,11 +323,11 @@ Provide concise tooltips/popovers/methodology links for non-obvious concepts, in
 
 The product should be understandable without requiring the user to know internal code names.
 
-## TC-19 — Hard canonical pick-value completeness through 2029
+## TC-19 — Hard canonical ACTIVE pick-value completeness through 2029
 
 **Non-negotiable C completion requirement.**
 
-Every valid draft-pick asset through the 2029 rookie class must exist and have a finite, non-missing canonical Chase Upside value.
+Every valid **ACTIVE** draft-pick asset through the 2029 rookie class must exist and have a finite, non-missing canonical Chase Upside value.
 
 Coverage includes every league-supported round and, where applicable:
 
@@ -336,13 +336,15 @@ Coverage includes every league-supported round and, where applicable:
 - generic future round assets before slot is known;
 - hypothetical generic picks used by the calculator.
 
+**Owner clarification 2026-09-24 (#1414 / T-NEW-20):** once a league's rookie draft is complete and the drafted rookies have been added to fantasy rosters, that draft class is RETIRED from current/active selectors. Retirement does not delete historical pick identity or snapshots and is never represented as value zero. Missing/unknown draft state must not retire the class early.
+
 Missing must never be silently represented as zero.
 
-Automated completeness census and cross-surface parity tests are required.
+Automated completeness, lifecycle, and cross-surface parity tests are required.
 
 ## TC-20 — Exact-slot draft-pick trade assets
 
-When the exact slot is known, support assets such as `2026 1.03` or `2026 4.07` directly in:
+While that draft class is ACTIVE, when the exact slot is known, support assets such as `2027 1.03` or `2027 4.07` directly in:
 
 - Rankings;
 - search/autocomplete;
@@ -355,7 +357,7 @@ When the exact slot is known, support assets such as `2026 1.03` or `2026 4.07` 
 - exports;
 - downstream analysis.
 
-Do not collapse a known 1.03 back into a generic “2026 1st.”
+Do not collapse a known 1.03 back into a generic “2027 1st.” After the class retires under TC-19, current selectors stop offering it while historical references continue to resolve.
 
 ## TC-21 — Future generic-pick representation before slot is known
 
@@ -366,6 +368,19 @@ Before exact draft order is known, represent future assets such as:
 - early/mid/late distributions where the canonical methodology supports them.
 
 Use a documented valuation/distribution method with uncertainty. Transition later to the exact owned-pick identity without double counting, orphaning trade history, or creating a second lineage.
+
+### Owner clarification — repeatable asset quantities (2026-09-24, #1415 / T-NEW-02)
+
+The calculator must not use display label or asset type as a uniqueness key.
+
+- Generic / hypothetical / repeatable assets may appear multiple times or carry quantity > 1.
+- Multiple distinct real owned picks must coexist even when they render with the same descriptive tier, such as two different owned picks both shown as “Mid 2027 1st.”
+- The exact same unique owned-pick identity must not be added twice accidentally.
+- Totals, Value Adjustment, package math, amount-to-even/equalizers, remove-one behavior, share URLs, persistence, exports and mobile/desktop round-trips must preserve quantity and identity.
+- Removing one of two generic copies removes only that copy.
+- A repeated display label is not proof of duplicate identity.
+
+This is the Trade Calculator consumer contract for the existing C3 generic-pick-quantity requirement; do not create a second pick identity or quantity engine.
 
 ## TC-22 — Cross-surface pick-value parity
 

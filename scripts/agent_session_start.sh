@@ -63,7 +63,7 @@ COLLECT_OUT=$(python -m pytest tests/ -q --co 2>&1) && COLLECT_RC=0 || COLLECT_R
 echo "$COLLECT_OUT" | tail -1
 if (( COLLECT_RC != 0 )); then
   echo "ACTION NEEDED: pytest collection failed (rc $COLLECT_RC) — likely a missing dependency or import error:"
-  echo "$COLLECT_OUT" | grep -iE "error|no module named|cannot import" | head -5
+  echo "$COLLECT_OUT" | grep -iE "error|no module named|cannot import" | head -5 || true
 fi
 
 # 2. Scrape data freshness

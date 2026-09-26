@@ -272,6 +272,8 @@ capabilities were already mapped through the #838 and #839 addenda; the two iden
 promoted to `docs/OWNER_REQUESTED_TODO_SPEC_INDEX.md` on 2026-08-15 before #816 was closed, so nothing is
 lost by either name or id.
 
+**2026-09-24 additions:** T-NEW-20 (active draft-pick lifecycle / post-draft retirement, issue #1414) maps to the existing canonical lifecycle row `C1-PICK-02` rather than creating a competing pick owner. The same owner decision also clarifies that retired classes leave current selectors while historical identities/snapshots/trades remain resolvable. T-NEW-02 remains mapped to `C3-CALC-01`; issue #1415 sharpens its quantity/identity acceptance semantics without creating a new calculator subsystem.
+
 ## G — PR #816 feature-spec appendix (40 entries)
 
 A1 → `C3-CON-02` · A2 → `C2-WEAK-01` · A3 → **CE-22** · A4 → **CE-23** · A5 → **CE-24** · A6 → CE-03 ·
