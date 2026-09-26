@@ -30,7 +30,9 @@ from tests.public_league.fixtures import REAL_LEAGUE_BENCH_DEPTH, add_rostered_b
 _OWNERS = ["owner-A", "owner-B", "owner-C", "owner-D"]
 _USERS = [{"user_id": o, "display_name": o[-1], "metadata": {}} for o in _OWNERS]
 _ROSTERS = [
-    {"roster_id": i, "owner_id": o, "players": [], "settings": {"wins": 1, "losses": 1}}
+    # 2-0 and all in the field (playoff_teams 4): the League MVP team-success
+    # gate admits every franchise, so this file tests the replacement band only.
+    {"roster_id": i, "owner_id": o, "players": [], "settings": {"wins": 2, "losses": 0}}
     for i, o in enumerate(_OWNERS, start=1)
 ]
 # Offense-only league: no DL/LB/DB slot anywhere.
@@ -87,7 +89,7 @@ def _snapshot() -> PublicLeagueSnapshot:
         "status": "in_season",
         "total_rosters": 4,
         "roster_positions": _ROSTER_POSITIONS,
-        "settings": {"playoff_week_start": 15, "last_scored_leg": 3},
+        "settings": {"playoff_week_start": 15, "playoff_teams": 4, "last_scored_leg": 3},
     }
     season = SeasonSnapshot(
         season="2025",

@@ -922,11 +922,30 @@ Owner-approved; the authorization record is the League Hub Awards pointer in `do
   - Internal keys are unchanged; formulas and rankings are byte-identical.
   - Applies everywhere the backend label reaches: cards, races, expanded standings and history.
   - OPOY/DPOY do not inherit any League-MVP competition-success gate.
-  - **Open owner decision (recorded, not implemented).** The clarification describes League MVP as gated on a
-    playoff-field, above-.500 franchise per the Honors spec. The spec's 2026-08-14 reconciliation amendment
-    (citing `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` §7) says player MVP has **no** hard playoff/.500 gate, and the code
-    has none. The rename changes no eligibility. Whether League MVP should (re)gain that gate needs an explicit
-    owner ruling that supersedes the 2026-08-13/14 decision.
+  - **Resolved 2026-09-26 by the owner** (see "League MVP requires team success" below). This bullet had
+    recorded the conflict between the clarification (League MVP gated on a playoff-field, above-.500 franchise) and
+    the 2026-08-14 amendment (no hard gate). The owner ruled for the gate on League MVP only.
+
+**Owner decision — League MVP requires team success (2026-09-26).**
+Binding; supersedes the 2026-08-13/14 "player MVP has no hard playoff-field / >.500 gate" rule wherever it appears
+(`docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` §7, `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §2, the Honors spec's
+2026-08-14 amendment, the spec index, manifest and sync records — all reconciled in the same change).
+- **League MVP** = elite player performance on a successful fantasy team. Eligible only when the credited fantasy
+  franchise is BOTH in the championship playoff field AND above .500:
+  - **live** — in a qualifying position under the league's real rules if the season ended at the latest
+    completed scoring period (canonical standings order × the league's own `playoff_teams`), with an official
+    regular-season winning percentage strictly above .500 (host W/L/T, median games counted as the host counts
+    them);
+  - **finalized** — actually qualified for the championship playoffs (real bracket) and finished above .500.
+  - An unknown field is `mvp_eligibility_unverified`; nobody eligible is `no_eligible_mvp_candidate`. Never a
+    widened field.
+- **Not gated:** Offensive / Defensive Player of the Year (the best individual performances regardless of the
+  fantasy team's record), both Rookie of the Year awards, positional awards, Waiver King, Trader of the Year,
+  Weekly Hammer, Bad Beat, Top Offense / Defense and every other award unless separately specified. Manager of
+  the Year keeps its own validated team-success logic, unchanged.
+- **The gate is eligibility, not measurement**: the VORP metric is untouched and the OPOY / DPOY labels stay.
+- **Known partial:** the Honors spec §7 per-franchise-week split for traded players is not yet implemented; the
+  player is credited to, and gated on, his most recent franchise (the existing award attribution).
 
 
 ## Added 2026-09-26 — Championship / playoff odds methodology: two owner decisions awaiting approval

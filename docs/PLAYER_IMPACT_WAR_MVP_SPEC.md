@@ -4,9 +4,11 @@
 > reconciliation (`docs/POST_B_RECONCILIATION_2026-08-14.md`). Body unchanged. One correction of fact:
 >
 > **There is no active B fast lane to avoid interrupting.** B4–B11 are merged and the B-Series Completion Audit
-> passed (#837, `79f47ff`). This spec's closing sequencing caution is satisfied, not pending. Its §7 MVP
-> eligibility decision is **binding and supersedes** the playoff-field + >.500 gate in
-> `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` for *player* MVP only.
+> passed (#837, `79f47ff`). This spec's closing sequencing caution is satisfied, not pending.
+>
+> **OWNER DECISION — 2026-09-26:** §7 below is **superseded**. League MVP **does** require team success (the
+> playoff-field + >.500 gate in `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` §3–§4 is canonical again); OPOY, DPOY,
+> ROY and positional awards do not inherit it.
 
 
 **Status:** BINDING OWNER-INTENT / FUTURE IMPLEMENTATION SPEC  
@@ -116,17 +118,22 @@ The Upside Report's Game Changer must reuse the exact same remove-and-re-solve p
 
 The report may show both the point delta and whether those points flipped H2H and/or median results. Do not implement separate Game Changer math in the report renderer.
 
-## 7. MVP methodology — eligibility change
+## 7. MVP methodology — eligibility
 
-The previous planned rule that League MVP must be on a playoff team and above .500 is **superseded**.
+**Owner decision 2026-09-26 (binding; supersedes the 2026-08-13 text of this section):** League MVP
+**requires meaningful team success.** A player is in the League MVP race only when the credited fantasy
+franchise is in the championship playoff field **and** above .500 — live: current standings position under the
+league's real qualification rules; finalized: actual playoff qualification plus a winning final record. The full
+rule is `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` §3–§6.
 
-**League MVP has no hard playoff-field or >.500 team-record eligibility requirement.**
+League MVP = elite player performance on a successful fantasy team. **Offensive / Defensive Player of the Year**
+are the best offensive / defensive individual performances regardless of the fantasy team's record; they, the
+Rookie of the Year awards and the positional awards do **not** inherit the gate. Manager of the Year keeps its
+own separately validated team-success logic. The gate is an eligibility rule over the canonical player-impact
+metric; it never changes the metric.
 
-A player who created the most defensible individual fantasy value must not be automatically disqualified because the rest of his manager's roster missed the playoffs.
-
-Team success may be context or a validated tie-breaker, but not a hard player-MVP gate.
-
-This change applies to **player MVP only**. Manager of the Year may continue to require actual team success because it measures managerial accomplishment. GM of the Year remains distinct, and OPOY/DPOY/ROY/positional awards do not inherit the player-MVP team gate.
+*Superseded (2026-08-13):* "League MVP has no hard playoff-field or >.500 team-record eligibility requirement;
+team success may be context or a validated tie-breaker." Kept for provenance only.
 
 ## 8. MVP evidence hierarchy
 
@@ -211,6 +218,6 @@ Before production promotion, pin at minimum:
 
 ## 13. Done criteria / sequencing
 
-Done requires one canonical replacement-baseline owner, trusted B7 realized scoring, one canonical best-ball solver, league standings rules from canonical config, one weekly player-impact contract shared by Awards/UPP/Upside Report, immutable provenance/history, the old MVP playoff/>.500 gate removed, final deterministic MVP aggregation validated + owner-approved, and representative production weeks independently reproduced.
+Done requires one canonical replacement-baseline owner, trusted B7 realized scoring, one canonical best-ball solver, league standings rules from canonical config, one weekly player-impact contract shared by Awards/UPP/Upside Report, immutable provenance/history, the League MVP playoff-field + >.500 gate applied to League MVP only (owner decision 2026-09-26), final deterministic MVP aggregation validated + owner-approved, and representative production weeks independently reproduced.
 
 Do **not** interrupt the active B fast lane to implement this full feature family. B7 exact scoring is a prerequisite foundation; the complete Player Impact / WAR / Awards integration belongs in the mandatory post-B C-series replan, where this file is binding owner intent.

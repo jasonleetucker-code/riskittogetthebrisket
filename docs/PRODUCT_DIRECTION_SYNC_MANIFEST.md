@@ -162,7 +162,7 @@ Applies to values, history, scoring, roster/team assignment, projections, market
 
 ## 7.5 Player MVP eligibility
 
-No hard playoff-field or >.500 player-MVP gate. Team success may be context/tie-break evidence. MOTY may use separately validated team-success eligibility.
+**Owner decision 2026-09-26 (supersedes the earlier no-gate entry):** League MVP requires playoff-field membership + a record above .500 (`docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` §3–§6). OPOY/DPOY/ROY/positional awards do not inherit it. MOTY may use separately validated team-success eligibility.
 
 ## 7.6 Trade concepts remain separate
 

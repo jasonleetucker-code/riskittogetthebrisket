@@ -73,11 +73,17 @@ By C completion, **every valid ACTIVE league-supported draft-pick asset through 
 - Exact-slot and generic representations must resolve consistently through canonical ownership.
 - Mobile, desktop, APIs, exports, rankings, trade tools, ownership, history, and downstream engines must agree on the same canonical pick lifecycle/value state.
 
-### Player MVP eligibility
+### League MVP eligibility
 
-The later Player Impact / Fantasy WAR / MVP decision supersedes older wording that imposed a hard playoff-field + >.500 eligibility gate on **player MVP**.
+**Owner decision 2026-09-26 (binding; supersedes the 2026-08-13/14 "no hard gate" wording that stood here):**
+League MVP **requires meaningful team success** — the credited franchise must be in the championship playoff
+field **and** above .500 (live: current standings position under the league's real qualification rules;
+finalized: actual qualification + winning final record). Canonical rule: `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md`
+§3–§6.
 
-Player MVP has **no hard playoff-field or >.500 eligibility requirement**. Team success may be contextual/tie-break evidence. Manager of the Year may retain appropriately validated team-success eligibility. GM/Executive and player performance awards remain conceptually separate.
+Offensive / Defensive Player of the Year, the Rookie of the Year awards and the positional awards do **not**
+inherit the gate. Manager of the Year keeps its separately validated team-success eligibility. GM/Executive and
+player performance awards remain conceptually separate.
 
 ---
 
