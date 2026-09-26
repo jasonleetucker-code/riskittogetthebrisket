@@ -43,6 +43,20 @@
 const AUTH_STATUSES = new Set([401, 403]);
 
 /**
+ * A proxy's error PAGE is not a message.  When the backend restarts, nginx
+ * answers 502 with an HTML document, and showing that verbatim put
+ * "<html> <head><title>502 Bad Gateway</title>…" in /trade's error banner
+ * (seen in production 2026-09-26, during a deploy restart).  Markup never
+ * becomes user-facing text; the status's own plain sentence is used instead.
+ */
+function looksLikeMarkup(text) {
+  return /<\s*(!doctype|html|head|body|title|center|h1)\b/i.test(String(text || ""));
+}
+
+const UNAVAILABLE_MESSAGE =
+  "The server is restarting or briefly unavailable. Try again in a moment.";
+
+/**
  * Classify a contract-fetch failure.
  *
  * @param {number|null} status HTTP status, or null when the request never
@@ -67,7 +81,7 @@ export function classifyContractFailure(status, body) {
       : "";
   const message =
     (body && typeof body === "object" && (body.message || body.detail)) ||
-    (typeof body === "string" ? body.slice(0, 300) : "") ||
+    (typeof body === "string" && !looksLikeMarkup(body) ? body.slice(0, 300) : "") ||
     "";
 
   if (status == null) {
@@ -106,10 +120,10 @@ export function classifyContractFailure(status, body) {
     if (code || message) {
       return { kind: "degraded", code, message, retryable: true };
     }
-    return { kind: "unavailable", code, message: "", retryable: true };
+    return { kind: "unavailable", code, message: UNAVAILABLE_MESSAGE, retryable: true };
   }
   if (status === 502 || status === 504) {
-    return { kind: "unavailable", code, message, retryable: true };
+    return { kind: "unavailable", code, message: message || UNAVAILABLE_MESSAGE, retryable: true };
   }
   if (status >= 500) {
     return { kind: "server", code, message: message || `Server error (${status}).`, retryable: true };

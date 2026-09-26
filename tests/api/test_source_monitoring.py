@@ -21,6 +21,7 @@ from src.api.data_contract import (
     _DEFAULT_TOP50_COVERAGE_FLOORS,
     _PAYLOAD_SIZE_FLOOR_BYTES,
     _PICK_COUNT_FLOOR,
+    _pick_count_floor_for_board,
     _SOURCE_CSV_PATHS,
     TOLERABLE_PARTIAL_SOURCES,
     assert_payload_size_floor,
@@ -255,17 +256,31 @@ class TestPartialRunCrossWire(unittest.TestCase):
 
 class TestPickCountFloor(unittest.TestCase):
     def test_pick_count_floor_passes_on_live(self):
-        """Live build has ≥100 picks (currently ~126)."""
+        """Live build meets the floor for ITS phase.
+
+        The floor is the validator's own ``_pick_count_floor_for_board``: 100
+        only while a class's slot rows are on the board, and smaller between
+        drafts or once the lifecycle owner retires a class (#1442) — a
+        2027-2029 tier board is a whole 72 rows, not a short 100.
+        """
         result = _get_live_contract()
         if result is None:
             self.skipTest("No live data")
         contract, report = result
         pa = contract.get("playersArray") or []
         pick_count = sum(1 for r in pa if isinstance(r, dict) and r.get("assetClass") == "pick")
+        retired = (contract.get("pickClassLifecycle") or {}).get("retiredYears") or ()
+        current = contract.get("currentDraftYear")
+        floor = _pick_count_floor_for_board(
+            pa,
+            current_year=int(current) if isinstance(current, int) else None,
+            retired_years=retired,
+        )
+        self.assertLessEqual(floor, _PICK_COUNT_FLOOR)
         self.assertGreaterEqual(
             pick_count,
-            _PICK_COUNT_FLOOR,
-            f"Live build should have ≥{_PICK_COUNT_FLOOR} picks, got {pick_count}",
+            floor,
+            f"Live build should have ≥{floor} picks for its phase, got {pick_count}",
         )
         # No pick_count_below_floor errors emitted.
         self.assertFalse(

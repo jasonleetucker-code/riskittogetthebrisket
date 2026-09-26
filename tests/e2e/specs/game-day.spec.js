@@ -363,3 +363,50 @@ test("game-day: switch team A -> B -> C in the selected league; stale answers ne
   await image(page, testInfo, "team-after-reload");
   expect(errors).toEqual([]);
 });
+
+/**
+ * Long team identity (production observation: names broke mid-word on a
+ * phone).  LABELLED SYNTHETIC: the real halftime payload with long manager /
+ * team names — one very long single word, and multi-word names.  Every word
+ * of each hero name must render on ONE line (a word split across lines has
+ * more than one client rect), the page must not scroll sideways, and the
+ * full name must stay in the accessible row header.
+ */
+test("game-day: long team names wrap between words, never mid-word; no sideways scroll", async ({
+  authedPage: page,
+}, testInfo) => {
+  const payload = load("halftime");
+  payload.team.displayName = "Supercalifragilisticexpialidocious";
+  payload.team.teamName = "The Rossini Panini Dynasty Collective of Greater Brisketville";
+  payload.opponent.displayName = "Joey Bagadonuts The Magnificent";
+  payload.opponent.teamName = "Brent's Unreasonably Long Franchise Name";
+  await serveReplay(page, () => payload);
+  await open(page, payload);
+  await noPageOverflow(page);
+  const splits = await page.evaluate(() => {
+    const out = [];
+    for (const el of document.querySelectorAll("table caption ~ tbody th span")) {
+      const text = el.firstChild && el.firstChild.nodeType === 3 ? el.firstChild : null;
+      if (!text) continue;
+      const s = text.textContent;
+      let i = 0;
+      for (const word of s.split(" ")) {
+        if (word) {
+          const r = document.createRange();
+          r.setStart(text, i);
+          r.setEnd(text, i + word.length);
+          const lines = new Set([...r.getClientRects()].map((q) => Math.round(q.top)));
+          if (lines.size > 1) out.push(word);
+        }
+        i += word.length + 1;
+      }
+    }
+    return out;
+  });
+  expect(splits, "no word of a team or manager name may be split across lines").toEqual([]);
+  const row = hero(page).getByRole("row", { name: /Supercalifragilisticexpialidocious/ });
+  await expect(row).toHaveCount(1);
+  await expect(page.getByTitle("Supercalifragilisticexpialidocious")).toHaveCount(1);
+  await scan(page, testInfo, "long-names");
+  await image(page, testInfo, "long-names");
+});
