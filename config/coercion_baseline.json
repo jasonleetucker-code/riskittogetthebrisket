@@ -1,6 +1,6 @@
 {
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 657,
+ "count": 654,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -459,7 +459,6 @@
   "src/public_league/snapshot.py::total_rosters = int(self.league.get(\"total_rosters\") or 0)",
   "src/public_league/streaks.py::return (yr, int(event.get(\"week\") or 0))",
   "src/public_league/weekly_recap.py::leg = int(tx.get(\"_leg\") or tx.get(\"leg\") or 0)",
-  "src/ros/aggregate.py::row_weight = weight * (row.confidence or 1.0)",
   "src/ros/api.py::unmapped_total = sum(int(t.get(\"unmappedPlayerCount\") or 0) for t in team_strength)",
   "src/ros/direction.py::strength_pct = team_ros_strength_percentile or 0.0",
   "src/ros/lineup.py::confidence=float(row.get(\"confidence\") or 0.0),",
@@ -478,8 +477,6 @@
   "src/ros/playoff_sim.py::starter = float(r.get(\"startingLineupScore\") or 0.0)",
   "src/ros/playoff_sim.py::str(r.get(\"ownerId\") or \"\"): float(r.get(\"teamRosStrength\") or 0.0)",
   "src/ros/scrape.py::base_weight=float(src_meta.get(\"base_weight\") or 0.0),",
-  "src/ros/scrape.py::confidence=float(row.get(\"confidence\") or 1.0),",
-  "src/ros/scrape.py::existing = float(row.get(\"confidence\") or 1.0)",
   "src/ros/scrape.py::rank=int(row.get(\"rank\") or 0),",
   "src/ros/sources/draftsharks_ros.py::rank = int(raw.get(\"rank\") or 0)",
   "src/ros/sources/fantasypros_ros_overall.py::rank = int(entry.get(\"rank_ecr\") or 0)",
