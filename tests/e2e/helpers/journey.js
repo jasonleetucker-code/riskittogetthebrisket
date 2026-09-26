@@ -595,7 +595,31 @@ function attachConsoleGuards(page, { allow = [] } = {}) {
   };
 }
 
+/** Baseline-only probe: navigation plus an actual eligible search result on Trade.
+ * Never weakens the journey assertions above. Unsupported routes fail closed.
+ */
+async function baselineUsefulState(page, path, timeout) {
+  const deadline = Date.now() + timeout;
+  const remaining = () => Math.max(1, deadline - Date.now());
+  if (path === "/rankings") {
+    await page.locator(SEL.boardRow).first().waitFor({ state: "visible", timeout: remaining() });
+    const count = await boardRowCount(page);
+    if (!Number.isFinite(count) || count <= 0) return "invalid_data";
+    return "useful";
+  }
+  if (path === "/trade") {
+    await page.locator(SEL.tradeControls).waitFor({ state: "visible", timeout: remaining() });
+    // Fixed, non-private query; any eligible match proves the pool is usable.
+    const search = page.locator('.mobile-quick-add-input:visible, .trade-side-search-input:visible').first();
+    await search.fill("a", { timeout: remaining() });
+    await page.locator('.trade-side-search-result:visible').first().waitFor({ state: "visible", timeout: remaining() });
+    return "useful";
+  }
+  return "unsupported_predicate";
+}
+
 module.exports = {
+  baselineUsefulState,
   SEL,
   NAME,
   TITLE,

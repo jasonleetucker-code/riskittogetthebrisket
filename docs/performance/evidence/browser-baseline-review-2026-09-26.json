@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "review": {
+    "reviewer": "/root/retention_reproduction",
+    "time": "2026-09-26T21:21:34.318574+00:00",
+    "verdict": "APPROVE",
+    "supersedes": "review-production-browser-01.json VETO retained",
+    "hashes": {
+      "frontend/scripts/measure-route-baselines.mjs": "3585400ae5395035f15c22df8c6b8c162a8dc6a46791e91cb6c4c79bbbef7c85",
+      ".github/workflows/v1-authenticated-verification.yml": "7980cb71e885889fa8706b65698d509cd8ca0418413e404347857c11a1327434",
+      "tests/e2e/route-baseline-unit.test.mjs": "a587d616565d3f1605d88541761e9083ed2cf7ef274cab6cf27c8c00f7020207",
+      "tests/deploy/test_production_baseline_workflow.py": "3a1e2e1c9f62cb122bc8336eb21a523a1924928b8a4991abdd6b1302b5e66f1c",
+      "config/ci/release_gate_classification.json": "6cfc51ce99c04fb5dfd3a59f72278231d960e2f1b3db96ea338c549ed34353af"
+    },
+    "verification": [
+      "Independent live workflow review confirms baseline-only exact origin guard precedes SSH/mint/login and origin output; second login guard precedes token read.",
+      "Actual workflow Python definitions reject foreign origin and redirect statuses301/302/303/307/308; legacy opener unchanged.",
+      "Node20 route-baseline unit14 passed948.0298ms",
+      "Workflow/classification pytest9 passed1.58s"
+    ],
+    "limits": [
+      "No production dispatch, credentials or browser measurement.",
+      "Guest authentication does not prove personalized owner experience.",
+      "Job timeout can leave incomplete report; no campaign acceptance claim."
+    ]
+  },
+  "initialReview": {
+    "reviewer": "/root/retention_reproduction",
+    "at": "2026-09-26T21:12:17.4497052Z",
+    "verdict": "VETO before production baseline use: origin guard is after credential login",
+    "hashes": {
+      "workflow_tests": "6e70a4988e60e43a89dfeb3d759e0357f4878208cbb4f6a6895040a68e215170",
+      "workflow": "2a0042e62acdd8df0991bc6bea3aa08131f04158f56befad1c95541cce6d0fbc",
+      "runner": "3585400ae5395035f15c22df8c6b8c162a8dc6a46791e91cb6c4c79bbbef7c85",
+      "classification": "6cfc51ce99c04fb5dfd3a59f72278231d960e2f1b3db96ea338c549ed34353af",
+      "node_tests": "a587d616565d3f1605d88541761e9083ed2cf7ef274cab6cf27c8c00f7020207"
+    },
+    "validation": [
+      "Independent Node20 unit suite14passed1414.7386ms",
+      "Workflow + releaseclassification7passed2.27s"
+    ],
+    "finding": "productionAuth enforces exact HTTPS origin, but runs after existing workflow mint/login. Resolve step only requires PROD_PUBLIC_URL nonempty; login posts guest credential through urllib default redirect handler. Baseline exactorigin protection is therefore too late for credential transmission.",
+    "correction": "For baseline only, validate exact allowed origin in Resolve before SSH/mint/login; refuse redirects in baseline login opener. Preserve legacy suite conditions. Regression executable extractedworkflow blocks with synthetic config/response only.",
+    "positive": [
+      "Cookie file regular nonsymlink bounded0600 onUnix, opaque token regex; no credential material written toreport.",
+      "Production contexts add secure HttpOnly origincookie, statuscheck redirectsdisabled, require authMethod guest_pass; actualserver auth/status agrees. No test-session POST inproduction branch.",
+      "Remaining expiry admission accounts for requested samples and stage timeout, includingsetup consumedtime; percontext expiry rechecked. Authfailures retained.",
+      "Existing always-revoke pass path retained with localcredentialcleanup EXIT trap; dependency/install/baseline failure reaches revoke.",
+      "Manual suitebaseline excludes old suites; automatic andapi/browser/all conditions unchanged. Requestedmissing/nonzero baseline verdict fails. Onlyaggregate baseline JSON addedtoupload.",
+      "Rawfractional thresholds and exactorigin page guards preserved. Deployedrevision remainsunknown, verificationcheckoutidentity distinct."
+    ],
+    "limitations": [
+      "No real credentials, networklogin, workflowdispatch or browserbenchmark. No observed productionmisconfiguration/leak.",
+      "Job45minute deadline can interrupt pathological maximum stage timeouts; missing report must remain failed/incomplete.",
+      "Existing revoke returnsFalse without raising; no actualrevocation failure observed and thisbehaviorunchanged.",
+      "Cookie file checkthenread assumes trusted runner filesystem; not hardenedagainstlocalconcurrentfile replacement."
+    ]
+  },
+  "measurement": "not yet executed",
+  "journeySha256": "35918a519456164835788a3f9d14772127cb2293404ca1d5025a4f59cb179a96",
+  "rootValidation": "9 workflow/classification tests passed1.55s; actualserver session UUID and guest_pass auth-status owner traced"
+}
