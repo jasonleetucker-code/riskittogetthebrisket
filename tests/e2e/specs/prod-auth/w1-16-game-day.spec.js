@@ -63,9 +63,15 @@ function pageTitle(page) {
   return page.getByRole("heading", { level: 1, name: /this week.s matchup/i });
 }
 
+/** The matchup hero (section 1).  Scopes every hero assertion: the NFL
+ * slate below also prints "Final" for each finished game. */
+function hero(page) {
+  return page.locator('section[aria-labelledby="game-day-hero-title"]');
+}
+
 /** The hero's state badge — exactly one of the three real states. */
 function stateBadge(page) {
-  return page.getByText(/^(Upcoming|Live|Final)$/);
+  return hero(page).getByText(/^(Upcoming|Live|Final)$/);
 }
 
 /** Open a collapsed Game Day disclosure (Best-ball details / Data info). */
@@ -107,9 +113,9 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
     // static heading appears raced the fetch and failed at 0+0 even when the
     // page was working correctly (measured in production, 2026-09-06). Wait
     // for the badge itself, on the same 90s budget as the direct API calls.
-    const scheduled = page.getByText(/^Upcoming$/);
-    const live = page.getByText(/^Live$/);
-    const final = page.getByText(/^Final$/);
+    const scheduled = hero(page).getByText(/^Upcoming$/);
+    const live = hero(page).getByText(/^Live$/);
+    const final = hero(page).getByText(/^Final$/);
     await expect(scheduled.or(live).or(final)).toBeVisible({ timeout: 90_000 });
     const scheduledCount = await scheduled.count();
     const liveCount = await live.count();
@@ -186,6 +192,9 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
       { timeout: 90_000 },
     );
     const text = await page.locator("body").innerText();
+    // Rendered text: CSS uppercases headers and labels, so copy is compared
+    // case-insensitively; names and numbers are compared as served.
+    const lower = text.toLowerCase();
 
     // The matchup identity is a fact and must always render, in every mode.
     expect(text).toContain(body.team.displayName);
@@ -211,7 +220,7 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
       if (win === null || win === undefined) {
         // UNPRICED. The row is satisfied by an honest degraded state, not by
         // a number — and a fabricated 50% is the specific thing forbidden.
-        expect(text).toContain("Win chance unavailable");
+        expect(lower).toContain("win chance unavailable");
         expect(text).not.toMatch(/\b50\.0%/);
         annotate(testInfo, "w1-16-branch", "unpriced — degraded state, no fabricated probability");
       } else {
@@ -226,16 +235,18 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
     // replaces `SideHeadline` in both modes, so the score/lineup facts must
     // render regardless of whether a probability can be shown at all.
     const final = body.mode === "final";
-    expect(text).toContain(final ? "Final score" : "Score now");
+    expect(lower).toContain(final ? "final score" : "score now");
     // The lineup lives in the collapsed "Best-ball details" section.
     await openSection(page, "Best-ball details");
-    await expect(page.getByText(final ? "Final lineup" : "Currently counting").first()).toBeVisible();
+    await expect(
+      page.getByText(final ? /^final lineup$/i : /^currently counting$/i).first(),
+    ).toBeVisible();
 
     if (final) {
       // A final result is a fact, not a forecast distribution — the page
       // must not render a win-chance column for it (W1-28's own acceptance
       // text: "preserves final optimal lineup/results").
-      await expect(page.getByRole("columnheader", { name: "Win chance" })).toHaveCount(0);
+      await expect(hero(page).getByRole("columnheader", { name: /win chance/i })).toHaveCount(0);
       if (body.team?.result) {
         expect(text).toContain(body.team.result);
         annotate(testInfo, "w1-28-branch", `final — result ${body.team.result}`);
@@ -243,7 +254,7 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
         annotate(testInfo, "w1-28-branch", "final — result not yet resolvable for this side");
       }
       if (body.recapUrl) {
-        expect(text).toContain("articles and recap");
+        expect(lower).toContain("articles and recap");
         annotate(testInfo, "w1-28-recap", body.recapUrl);
       }
       return;
@@ -261,23 +272,23 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
       // that a game is live, but no reliable kickoff/game-progress evidence
       // exists to prorate against — a missing-evidence report, never a
       // methodology-undecided one.
-      expect(text).toContain("Win chance paused");
+      expect(lower).toContain("win chance paused");
       expect(body.progressUnavailablePlayerIds?.length).toBeGreaterThan(0);
       annotate(testInfo, "w1-27-branch", "live — LIVE_PROGRESS_UNAVAILABLE, no fabricated probability");
     } else if (body.probabilityState === "GAME_STATE_OR_SCORING_UNAVAILABLE") {
-      expect(text).toContain("Win chance paused");
+      expect(lower).toContain("win chance paused");
       annotate(testInfo, "w1-27-branch", "live — game-state/scoring evidence incomplete");
     } else if (body.probabilityState === "AVAILABLE") {
       const win = body.team?.outcome?.winMatchupPct;
       expect(win, "AVAILABLE must carry a real number").not.toBeUndefined();
       expect(win).not.toBeNull();
-      await expect(page.getByRole("columnheader", { name: "Win chance" })).toBeVisible();
+      await expect(hero(page).getByRole("columnheader", { name: /win chance/i })).toBeVisible();
       expect(text).toContain(`${win.toFixed(1)}%`);
       annotate(testInfo, "w1-27-branch", `live — priced, win ${win.toFixed(1)}%`);
     } else {
       // UNAVAILABLE: no simulation could be produced (e.g. zero coverage).
       // The chance is withheld with its reason, never a fabricated number.
-      expect(text).toContain("Win chance paused");
+      expect(lower).toContain("win chance paused");
       annotate(testInfo, "w1-27-branch", `live — ${body.probabilityState}`);
     }
   });
@@ -339,14 +350,17 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
       { timeout: 90_000 },
     );
     const text = await page.locator("body").innerText();
+    // Rendered text: CSS uppercases headers and labels, so copy is compared
+    // case-insensitively; names and numbers are compared as served.
+    const lower = text.toLowerCase();
 
     // "production-usable": the page renders the completed week as FINAL.
-    await expect(page.getByText(/^Final$/)).toBeVisible({ timeout: 60_000 });
+    await expect(hero(page).getByText(/^Final$/)).toBeVisible({ timeout: 60_000 });
     expect(text).toContain(body.team.displayName);
     // "preserves final optimal lineup/results".
-    expect(text).toContain("Final score");
+    expect(lower).toContain("final score");
     // A final result is a fact, not a forecast distribution.
-    await expect(page.getByRole("columnheader", { name: "Win chance" })).toHaveCount(0);
+    await expect(hero(page).getByRole("columnheader", { name: /win chance/i })).toHaveCount(0);
     if (body.team?.result) {
       expect(text).toContain(body.team.result);
       annotate(testInfo, "w1-28-result", String(body.team.result));
@@ -358,12 +372,12 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
     // stamped, rendered, and actually resolves. A link that 404s is not
     // linkage.
     expect(body.recapUrl).toBe(`/league/articles/${season}/${week}`);
-    expect(text).toContain("articles and recap");
+    expect(lower).toContain("articles and recap");
     const recap = await page.request.get(prodUrl(body.recapUrl));
     expect(recap.status(), "the recap the page links to must exist").toBe(200);
     annotate(testInfo, "w1-28-recap", `${body.recapUrl} -> HTTP ${recap.status()}`);
     await openSection(page, "Best-ball details");
-    await expect(page.getByText("Final lineup").first()).toBeVisible();
+    await expect(page.getByText(/^final lineup$/i).first()).toBeVisible();
   });
 
   test("provenance travels with the numbers", async ({ prodPage: page }, testInfo) => {
@@ -385,24 +399,27 @@ test.describe("W1-16: the owner's Game Day experience (production)", () => {
     await page.goto(prodUrl(`/game-day${q}`), { waitUntil: "domcontentloaded" });
     await expect(stateBadge(page)).toBeVisible({ timeout: 90_000 });
     await openSection(page, "Data info");
-    await expect(page.getByText(/^Weekly projections$/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/^weekly projections$/i).first()).toBeVisible({ timeout: 30_000 });
     const text = await page.locator("body").innerText();
+    // Rendered text: CSS uppercases headers and labels, so copy is compared
+    // case-insensitively; names and numbers are compared as served.
+    const lower = text.toLowerCase();
 
     const cov = body.lineage?.estimateCoverage;
     if (cov && typeof cov.priced === "number") {
-      expect(text).toContain(
+      expect(lower).toContain(
         `${cov.priced} of ${cov.active} active players in the league have a projection`,
       );
     } else {
       // PENDING: coverage is not computed yet — shown as unknown, never 0.
       annotate(testInfo, "w1-16-coverage", "pending — not computed yet");
-      expect(text).not.toContain("0 of 0 active players");
+      expect(lower).not.toContain("0 of 0 active players");
     }
 
     // If this league's host semantics are unverified (for example an
     // unsupported odd-sized case), the surface must still say so.
     if (body.lineage?.simulation && body.lineage.simulation.thresholdSemanticsVerified === false) {
-      expect(text).toMatch(/not verified against the host/);
+      expect(lower).toMatch(/not verified against the host/);
       annotate(testInfo, "w1-16-threshold", "unverified median semantics surfaced");
     }
   });
