@@ -215,6 +215,31 @@ acceptance remain a separate required gate.
 
 ## Integration and production checkpoint
 
+### Composed release candidate — September 26, 22:36 UTC
+
+The remaining reviewed heads (#1490, #1492, #1493, #1495, #1497 and #1498)
+are composed with the compact-board correction into one integration candidate.
+Their original commits and independent reviews are retained. This avoids repeated
+work-claim conflicts and does not promote pending or failed individual CI to a pass.
+The exact composed head still requires CI, browser journeys and integration review.
+No deferred DLF structural experiment is included.
+
+Composition checks pass **83 Python tests (three platform skips)** and **33 browser
+runner tests**; planning integrity passes. Frontend product, package/lock and compact
+projection blobs are unchanged from the recorded 189-file/2,814-test build, so that
+local evidence remains applicable; fresh exact-head CI is still required. Counts
+overlap earlier runs and are not summed. Main `c7adc72b2` is included; subsequent
+`976109461` changes only four IDP observation/status timestamps, with identical
+success/row counts. It is benign for these fixed-input comparisons, not proof of
+production freshness or authorization to overwrite its new observations.
+
+Foundation deployment run `36272986437` completed successfully. A later automatic
+deployment and authenticated verification are queued/running; no new deployed
+useful-state pass is claimed. The original production failures remain acceptance
+failures until the actual corrected deployment is measured.
+
+Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
+
 Foundation #1488 merged as `1de2bd5d922df13414eed5d2bae6ca62145ec152` after exact-head checks and independent review. Read-only Linux diagnostics #1489 merged as `e6a6afd1f0cebe0b83185e733af8214a6a281045`. Their running production identity is not yet verified; automatic deployment is still in progress. Subsequent source/cache/browser units remain separate PRs and issue #1338 stays open.
 
 Main then incorporated the other owner's League MVP gate (#1487) and a superseded-deploy receipt. [Reconciliation evidence](evidence/reconciliation-2026-09-26.json) classifies the combined movement as relevant. The sole merge conflict was adjacent performance work-claim rows from our own operations/API branches; both current owners are retained. Upstream MVP product and authority changes are preserved. The composed API/MVP/release-classification selection passes30tests and planning integrity passes; API implementation hashes are unchanged. Exact new-head CI remains required. Upstream intentional Markdown line-break whitespace is retained rather than reformatted.
