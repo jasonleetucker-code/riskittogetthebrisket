@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Movement, Panel, SegmentedControl, SkeletonTable } from "@/components/ds";
+import {
+  Movement,
+  Panel,
+  PlayerNameButton,
+  SegmentedControl,
+  SkeletonTable,
+  canonicalPlayerId,
+} from "@/components/ds";
 import styles from "./terminal.module.css";
 import { PlayerImage } from "@/components/ui";
 import { useApp } from "@/components/AppShell";
@@ -60,7 +67,17 @@ function MoverRow({ row, openPlayerPopup }) {
           size={22}
         />
         <div className={styles.moverIdentity}>
-          <div className={styles.moverName}>{row.name}</div>
+          <div className={styles.moverName}>
+            {/* #1337: canonical Player File link (keyed by the /api/movers
+                row's playerId; no id → plain text). stopPropagation keeps
+                the click from also toggling the row's source breakdown;
+                the quick-view stays on the expanded "Open player" button. */}
+            <PlayerNameButton
+              name={row.name}
+              playerId={canonicalPlayerId(row)}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
           <div className={styles.moverMeta}>
             {posLabel}
             {row.team ? ` · ${row.team}` : ""} · #{row.rankNow}

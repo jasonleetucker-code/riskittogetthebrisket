@@ -521,6 +521,12 @@ function SignalPanel({
   // data.  It moves to an InfoTip on the title: same words, same
   // discoverability (the icon sits on the thing it explains), none of
   // the vertical space.
+  //
+  // #1337: the player NAME is now the canonical Player File link, so the
+  // quick-view it used to open moves to the row (ds DataTable ignores
+  // row activation that starts inside the link) — the popup stays one
+  // click / Enter away rather than disappearing from the page.
+  const { openPlayerPopup } = useApp();
   return (
     <Panel
       title={
@@ -548,6 +554,7 @@ function SignalPanel({
         caption={caption}
         density="compact"
         defaultSort={defaultSort}
+        onRowClick={typeof openPlayerPopup === "function" ? openPlayerPopup : undefined}
         emptyState={<EmptyState title="Nothing here" description={emptyText} />}
       />
     </Panel>

@@ -135,7 +135,12 @@ describe("GameDayPanel — pregame", () => {
   it("labels the pregame lineup illustrative and never shows a counting lineup", async () => {
     await renderReady(PREGAME);
     fireEvent.click(screen.getByRole("button", { name: "Best-ball details" }));
-    expect((await screen.findAllByText("Projected lineup (illustrative)")).length).toBe(2);
+    // First test to open the lazy BestBallDetailsBody: its cold import
+    // (now incl. the ds PlayerNameButton → next/link, #1337) can exceed
+    // the default 1 s under a full parallel suite run.
+    expect(
+      (await screen.findAllByText("Projected lineup (illustrative)", {}, { timeout: 5000 })).length,
+    ).toBe(2);
     expect(screen.queryByText("Currently counting")).toBeNull();
     expect(screen.getAllByText(/Projected finish averages the best lineup/).length).toBe(2);
   });
@@ -254,7 +259,16 @@ describe("GameDayPanel — withheld probability", () => {
     await renderReady(p);
     expect(within(heroRow("Team 8")).getByText("Game status unknown for 1 player")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Best-ball details" }));
-    expect(await screen.findByText(new RegExp(`Game status unknown for ${ghost.name}`))).toBeInTheDocument();
+    // #1337: the named player is the canonical Player File link inside
+    // the sentence, so the text spans two elements — match the paragraph.
+    const note = await screen.findByText(
+      (_, el) =>
+        el?.tagName === "P" && el.textContent.startsWith(`Game status unknown for ${ghost.name}`),
+    );
+    expect(within(note).getByRole("link", { name: ghost.name })).toHaveAttribute(
+      "href",
+      `/players/${encodeURIComponent(ghost.playerId)}`,
+    );
   });
 });
 

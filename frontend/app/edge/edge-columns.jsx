@@ -13,6 +13,7 @@
  * tables before, so no sort semantics are being changed, only added.
  */
 
+import { PlayerNameButton, canonicalPlayerId } from "@/components/ds";
 import { posBadgeClass, confBadgeClass, confBadgeLabel } from "@/lib/display-helpers";
 import { actionLabel, cautionLabels } from "@/lib/edge-helpers";
 import styles from "./edge.module.css";
@@ -36,16 +37,19 @@ export function colPlayer(onPlayerClick) {
     header: "Player",
     sortable: true,
     accessor: (r) => r.name || "",
+    // #1337: the canonical Player File link when the row carries a
+    // playerId; a row without one keeps the quick-view button.
     render: (r) => (
-      <button
-        type="button"
+      <PlayerNameButton
+        name={r.name}
+        row={r}
+        playerId={canonicalPlayerId(r)}
+        onOpen={onPlayerClick}
         className={styles.playerCell}
-        onClick={() => onPlayerClick?.(r)}
-        title={`Open ${r.name}`}
       >
         {r.name}
         {r.team ? <span className={styles.playerTeam}>{r.team}</span> : null}
-      </button>
+      </PlayerNameButton>
     ),
   };
 }

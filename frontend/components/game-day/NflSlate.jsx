@@ -23,15 +23,26 @@
  * re-renders the rows keeps whatever the reader opened.
  */
 
-import { Suspense, lazy, useCallback, useMemo, useState } from "react";
+import { Fragment, Suspense, lazy, useCallback, useMemo, useState } from "react";
 import { NflTeamLogo } from "@/components/ui";
-import { SkeletonText } from "@/components/ds";
+import { PlayerNameButton, SkeletonText } from "@/components/ds";
 import { formatPct, gameLabel, gamePhaseKind, gameStatusText, playerIndex } from "@/lib/game-day-view";
 import styles from "./game-day.module.css";
 
 // The per-game player table (DataTable) loads on first expansion: every row
 // starts collapsed, so it is never needed for the first paint.
 const GamePlayers = lazy(() => import("./GamePlayers"));
+
+// Comma-joined player names, each the canonical Player File link (#1337)
+// keyed by the Sleeper playerId the slate entry carries; no id → text.
+function nameLinks(players) {
+  return players.map((p, i) => (
+    <Fragment key={p.playerId || `${p.name}-${i}`}>
+      {i > 0 ? ", " : null}
+      <PlayerNameButton name={p.name} playerId={p.playerId} />
+    </Fragment>
+  ));
+}
 
 export default function NflSlate({ payload }) {
   const slate = payload?.nflSlate;
@@ -150,11 +161,11 @@ export default function NflSlate({ payload }) {
         </ul>
       )}
       {slate.byeWeek?.length > 0 ? (
-        <p className={styles.slateFoot}>On bye: {slate.byeWeek.map((p) => p.name).join(", ")}.</p>
+        <p className={styles.slateFoot}>On bye: {nameLinks(slate.byeWeek)}.</p>
       ) : null}
       {slate.unattributed?.length > 0 ? (
         <p className={styles.slateFoot}>
-          No NFL game on file for: {slate.unattributed.map((p) => p.name).join(", ")}.
+          No NFL game on file for: {nameLinks(slate.unattributed)}.
         </p>
       ) : null}
     </section>
