@@ -36,7 +36,7 @@ openpyxl~=3.1.0
 # guards ``import anthropic`` with ImportError fallback) but declared
 # here so production + CI install a consistent version and the feature
 # is never silently disabled.
-anthropic~=0.40.0
+anthropic~=1.5.0
 
 # DLF scraping: curl_cffi impersonates Chrome's TLS fingerprint so
 # we can pass DLF's Cloudflare JS challenge (vanilla requests and
