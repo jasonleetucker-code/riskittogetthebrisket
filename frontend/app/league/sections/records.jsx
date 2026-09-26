@@ -20,11 +20,15 @@ const POSITION_LABELS = {
 function RecordsSection({ data }) {
   if (!data) return <EmptyCard label="Records" />;
 
+  // ``showMargin`` marks the categories RANKED by margin, which must lead
+  // with the margin.  It is declared per group rather than inferred from the
+  // key: "narrowestVictory" is a margin ranking whose key does not contain
+  // "margin", and the old substring test printed the winner's score there.
   const groups = [
     { title: "Highest single-week scores", key: "singleWeekHighest" },
     { title: "Lowest single-week scores", key: "singleWeekLowest" },
-    { title: "Biggest margin of victory", key: "biggestMargin" },
-    { title: "Narrowest victories", key: "narrowestVictory" },
+    { title: "Biggest margin of victory", key: "biggestMargin", showMargin: true },
+    { title: "Narrowest victories", key: "narrowestVictory", showMargin: true },
     { title: "Most points in a loss", key: "mostPointsInLoss" },
     { title: "Fewest points in a win", key: "fewestPointsInWin" },
   ];
@@ -54,7 +58,7 @@ function RecordsSection({ data }) {
                       </span>
                     </span>
                     <span style={{ fontFamily: "var(--mono)", color: "var(--cyan)" }}>
-                      {r.margin !== undefined && g.key.toLowerCase().includes("margin")
+                      {g.showMargin && r.margin !== undefined
                         ? `${fmtPoints(r.margin)} (${fmtPoints(r.points)})`
                         : fmtPoints(r.points)}
                     </span>
