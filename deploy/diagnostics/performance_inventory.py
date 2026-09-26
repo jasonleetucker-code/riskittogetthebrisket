@@ -14,11 +14,33 @@ import os
 from pathlib import Path
 import re
 import shlex
+import stat
 import subprocess
 import threading
 import time
 
 CAP = 131072
+RESULTS = {
+    "success",
+    "resources",
+    "timeout",
+    "exit-code",
+    "signal",
+    "core-dump",
+    "watchdog",
+    "start-limit-hit",
+    "oom-kill",
+    "exec-condition",
+    "protocol",
+}
+DIAGNOSTIC_NUMBERS = (
+    "ExecMainCode",
+    "ExecMainStartTimestampMonotonic",
+    "ExecMainExitTimestampMonotonic",
+    "LastTriggerUSecMonotonic",
+    "NextElapseUSecMonotonic",
+)
+DLF_KEYS = ("dlfSf", "dlfIdp", "dlfRookieSf", "dlfRookieIdp", "dlfValuesSfTep")
 ROLES = {
     "web": ".service",
     "frontend": "-frontend.service",
@@ -220,9 +242,21 @@ def unit(name, app):
         active=None,
         memoryUnlimited=False,
         process=process(None, app),
+        diagnostics={
+            **dict.fromkeys(DIAGNOSTIC_NUMBERS),
+            "result": None,
+            "successExitStatuses": None,
+        },
     )
     try:
-        props = ["LoadState", "ActiveState", *UNIT_NUMBERS]
+        props = [
+            "LoadState",
+            "ActiveState",
+            *UNIT_NUMBERS,
+            "Result",
+            "SuccessExitStatus",
+            *DIAGNOSTIC_NUMBERS,
+        ]
         raw = bounded(
             ["systemctl", "show", name, "--no-pager", *[f"--property={p}" for p in props]]
         )
@@ -237,8 +271,63 @@ def unit(name, app):
             memoryUnlimited=fields.get("MemoryMax") == "infinity",
         )
         result.update({k: number(fields.get(k, "")) for k in UNIT_NUMBERS})
+        success = fields.get("SuccessExitStatus")
+        statuses = success.split() if success is not None else None
+        result["diagnostics"] = {
+            **{k: number(fields.get(k, "")) for k in DIAGNOSTIC_NUMBERS},
+            "result": fields.get("Result") if fields.get("Result") in RESULTS else None,
+            "successExitStatuses": sorted(set(map(int, statuses)))
+            if statuses is not None
+            and len(statuses) <= 256
+            and all(re.fullmatch(r"[0-9]{1,3}", item) and int(item) <= 255 for item in statuses)
+            else None,
+        }
         result["process"] = process(result["MainPID"], app)
     except (OSError, ProbeError, UnicodeError):
+        pass
+    return result
+
+
+def dlf_manifest(path=Path("/var/lib/dlf-fetch/dlf_written.json")):
+    """Default-path observation only; never proof of effective service configuration."""
+    result = {
+        "state": "unavailable",
+        "assumedDefaultPath": True,
+        "mtimeEpochSeconds": None,
+        "written": dict.fromkeys(DLF_KEYS),
+    }
+    try:
+        path = Path(path)
+        if any(parent.is_symlink() for parent in (path, *path.parents)):
+            return result
+        descriptor = os.open(
+            path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0)
+        )
+        with os.fdopen(descriptor, "rb") as stream:
+            before = os.fstat(stream.fileno())
+            if not stat.S_ISREG(before.st_mode) or before.st_size > 4096:
+                return result
+            raw = stream.read(4097)
+            after = os.fstat(stream.fileno())
+        if len(raw) > 4096 or (before.st_size, before.st_mtime_ns) != (
+            after.st_size,
+            after.st_mtime_ns,
+        ):
+            return result
+        keys = json.loads(raw)
+        if (
+            not isinstance(keys, list)
+            or len(keys) > len(DLF_KEYS)
+            or any(type(k) is not str or k not in DLF_KEYS for k in keys)
+            or len(set(keys)) != len(keys)
+        ):
+            return result
+        result.update(
+            state="observed",
+            mtimeEpochSeconds=before.st_mtime,
+            written={key: key in keys for key in DLF_KEYS},
+        )
+    except (OSError, ValueError, TypeError):
         pass
     return result
 
@@ -316,6 +405,7 @@ def collect(args):
         "checkoutStable": before is not None and before == after,
         "loadedProcessRevision": None,
         "rows": rows,
+        "dlfManifest": dlf_manifest(),
     }
     if complete_observations(result):
         result["state"] = "complete"
@@ -335,7 +425,7 @@ def validate(raw, count):
     if len(raw) > CAP:
         raise ProbeError()
     value = json.loads(raw, object_pairs_hook=strict_object)
-    if set(value) != {
+    if set(value) - {"dlfManifest"} != {
         "schema",
         "state",
         "checkoutBefore",
@@ -351,6 +441,26 @@ def validate(raw, count):
         or value["loadedProcessRevision"] is not None
     ):
         raise ProbeError()
+    if "dlfManifest" in value:
+        manifest = value["dlfManifest"]
+        if (
+            set(manifest) != {"state", "assumedDefaultPath", "mtimeEpochSeconds", "written"}
+            or manifest["state"] not in {"observed", "unavailable"}
+            or manifest["assumedDefaultPath"] is not True
+            or set(manifest["written"]) != set(DLF_KEYS)
+        ):
+            raise ProbeError()
+        stamp = manifest["mtimeEpochSeconds"]
+        if manifest["state"] == "observed":
+            if (
+                type(stamp) not in (int, float)
+                or not math.isfinite(stamp)
+                or not 0 <= stamp <= 10**22
+                or any(type(x) is not bool for x in manifest["written"].values())
+            ):
+                raise ProbeError()
+        elif stamp is not None or any(x is not None for x in manifest["written"].values()):
+            raise ProbeError()
     for key in ("checkoutBefore", "checkoutAfter"):
         if value[key] is not None and not re.fullmatch(r"[a-f0-9]{40}", str(value[key])):
             raise ProbeError()
@@ -387,7 +497,7 @@ def validate(raw, count):
             raise ProbeError()
         nums(row["host"], HOST_NUMBERS)
         for u in row["units"].values():
-            if set(u) != set(UNIT_NUMBERS) | {
+            if set(u) - {"diagnostics"} != set(UNIT_NUMBERS) | {
                 "state",
                 "load",
                 "active",
@@ -395,6 +505,27 @@ def validate(raw, count):
                 "process",
             }:
                 raise ProbeError()
+            if "diagnostics" in u:
+                diagnostic = u["diagnostics"]
+                if set(diagnostic) != set(DIAGNOSTIC_NUMBERS) | {
+                    "result",
+                    "successExitStatuses",
+                } or diagnostic["result"] not in RESULTS | {None}:
+                    raise ProbeError()
+                nums(diagnostic, DIAGNOSTIC_NUMBERS)
+                if any(
+                    diagnostic[key] is not None and type(diagnostic[key]) is not int
+                    for key in DIAGNOSTIC_NUMBERS
+                ):
+                    raise ProbeError()
+                statuses = diagnostic["successExitStatuses"]
+                if statuses is not None and (
+                    type(statuses) is not list
+                    or len(statuses) > 256
+                    or any(type(x) is not int or not 0 <= x <= 255 for x in statuses)
+                    or statuses != sorted(set(statuses))
+                ):
+                    raise ProbeError()
             nums(u, UNIT_NUMBERS)
             if (
                 u["state"] not in ("observed", "unavailable")
