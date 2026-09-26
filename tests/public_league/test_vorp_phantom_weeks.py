@@ -32,6 +32,7 @@ bug class cannot silently regress.
 
 from __future__ import annotations
 
+import copy
 import unittest
 
 from src.public_league import metrics
@@ -43,6 +44,7 @@ from src.public_league.awards import (
 )
 from src.public_league.identity import build_manager_registry
 from src.public_league.snapshot import PublicLeagueSnapshot, SeasonSnapshot
+from tests.public_league.fixtures import add_rostered_bench
 
 
 _LEAGUE = {
@@ -142,10 +144,17 @@ def _build_snapshot(matchups_by_week: dict[int, list[dict]]) -> PublicLeagueSnap
 
 
 def _phantom_snapshot(phantom_weeks: tuple[int, ...] = (2, 3, 4)) -> PublicLeagueSnapshot:
-    matchups = {1: _WEEK_1_REAL}
+    """The live shape, bench included: Sleeper scores every ROSTERED player
+    in ``players_points`` (and stubs the whole roster at 0.0 in future
+    weeks), so the fixture carries a real league's bench depth.  Without it
+    no position has a replacement band and VORP correctly refuses to
+    measure anything (see ``awards._vorp_board``)."""
+    matchups = {1: copy.deepcopy(_WEEK_1_REAL)}
     for wk in phantom_weeks:
         matchups[wk] = _phantom_week(wk)
-    return _build_snapshot(matchups)
+    snap = _build_snapshot(matchups)
+    add_rostered_bench(snap, snap.seasons[0], per_game=5.0)
+    return snap
 
 
 class ScoredWeeksHelperTests(unittest.TestCase):

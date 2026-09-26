@@ -1423,20 +1423,33 @@ def _top_player_per_position_scores(
     return grouped
 
 
+#: Width of the replacement band just below the starter cutoff.
+_REPLACEMENT_BAND_SIZE = 5
+
+
 def _replacement_per_game_for_position(
     rows: list[dict[str, Any]],
     starter_slots: int,
-) -> float:
+    *,
+    require_full_band: bool = False,
+) -> float | None:
     """Replacement-level points-per-game at a position.
 
     Thin shim around :func:`src.scoring.replacement_level.replacement_per_game`
     that lets the awards path keep using its dict shape (``starterPoints``,
     ``gamesStarted``) without restructuring callers.  See the shared
-    module for the algorithm.
+    module for the algorithm and what ``require_full_band`` means: with it
+    set, ``None`` is returned when the band below the cutoff is not full,
+    and the caller must treat the position as UNMEASURABLE — never as 0.
     """
     from src.scoring.replacement_level import replacement_per_game
 
-    return replacement_per_game(rows or [], starter_slots, band_size=5)
+    return replacement_per_game(
+        rows or [],
+        starter_slots,
+        band_size=_REPLACEMENT_BAND_SIZE,
+        require_full_band=require_full_band,
+    )
 
 
 # Replacement-level starter depth per position (the cutoff index whose
@@ -1470,7 +1483,7 @@ _FLEX_RBWR_POOL = 84  # top 84 RB+WR by starter points (TEs excluded)
 #: Bumped whenever the VORP formula or its week-eligibility gating
 #: changes, so a stale cached payload (see server.py's public-contract
 #: byte cache) can never silently outlive a correctness fix.
-_VORP_CALC_VERSION = "2026-09-26-final-week-gate"
+_VORP_CALC_VERSION = "2026-09-26-strict-replacement-band"
 
 
 def _dynamic_starter_slots(season: SeasonSnapshot) -> dict[str, int]:
@@ -1523,21 +1536,69 @@ def _as_of_week(season: SeasonSnapshot) -> int:
     return max(weeks) if weeks else 0
 
 
-def _vorp_rows(
+#: ``vorpExclusions[].reason`` — the position's replacement band below the
+#: starter cutoff is not full, so no replacement level can be measured.
+VORP_EXCLUSION_THIN_BAND = "insufficient_replacement_band"
+#: ``vorpExclusions[].reason`` — the season's matchups carry STARTER points
+#: only (no bench ``players_points``), so the population the replacement
+#: band is drawn from does not exist in the data.
+VORP_EXCLUSION_NO_BENCH = "no_bench_population"
+
+
+def _season_has_bench_points(season: SeasonSnapshot, *, regular_season_only: bool) -> bool:
+    """True when some finished week's ``players_points`` scores a NON-starter.
+
+    Sleeper stamps every rostered player's points, started or not, so real
+    data answers True.  A season whose maps carry starters only (older
+    exports, hand-built data) answers False: its "rostered population" IS
+    the starter population, capped at the very cutoff the replacement band
+    sits below, so any band built from it is structurally thin.
+    """
+    for week in _final_scored_weeks(season):
+        if regular_season_only and week >= season.playoff_week_start:
+            continue
+        for entry in season.matchups_by_week[week]:
+            pp = entry.get("players_points")
+            if not isinstance(pp, dict) or not pp:
+                continue
+            starters = _starter_set(entry)
+            if any(pid not in starters for pid in pp):
+                return True
+    return False
+
+
+def _position_sort_key(pos: str) -> tuple[int, str]:
+    order = {p: i for i, p in enumerate(_PLAYER_AWARD_POSITIONS)}
+    return (order.get(pos, len(order)), pos)
+
+
+def _vorp_board(
     snapshot: PublicLeagueSnapshot,
     season: SeasonSnapshot,
     *,
     regular_season_only: bool,
-) -> list[dict[str, Any]]:
-    """Compute a VORP row per player.
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """``(vorp rows, excluded positions)`` for one season.
 
     Replacement-level baseline is per-position (per-game), so injured
     starters who scored a lot per game still rate fairly against
     healthier-but-thinner peers.
+
+    A position whose replacement band (``starter_slots + band``) is not
+    full is EXCLUDED: its players get no VORP row at all, and the
+    position is reported in the second element instead.  The retired
+    behaviour fell back to the single worst player's per-game rate, which
+    for a one-player pool is that player's OWN rate: a no-IDP league whose
+    only DB is a two-way player then measured him against himself and
+    crowned him Defensive Player (and Rookie) of the Year.  MISSING IS
+    NEVER ZERO: an unmeasurable baseline is reported as unmeasurable, never
+    published as a 0 or a self-referential number.  League/Off/Def MVP and
+    both ROY read this board, so the exclusion applies to all of them.
+    Playoff MVP deliberately does not (separate unit).
     """
     totals = _player_starter_totals(snapshot, season, regular_season_only=regular_season_only)
     if not totals:
-        return []
+        return [], []
 
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for rec in totals.values():
@@ -1558,10 +1619,11 @@ def _vorp_rows(
 
     # The replacement band is "the next eligible body" just below the
     # starter cutoff, which cannot exist inside a starter-only pool (see
-    # `_player_all_rostered_totals`) — feed the position's full rostered
-    # population (bench included) instead, falling back to the
-    # starter-only rows when no broader data is available (older seasons,
-    # test fixtures) so behaviour there is unchanged.
+    # `_player_all_rostered_totals`), so the position's full rostered
+    # population (bench included) is the only valid population.  There is
+    # no starter-only fallback: without bench data the position FAILS
+    # CLOSED (``no_bench_population``) rather than borrowing a band from
+    # the wrong population.
     all_rostered = _player_all_rostered_totals(
         snapshot, season, regular_season_only=regular_season_only
     )
@@ -1570,19 +1632,37 @@ def _vorp_rows(
         pos = rec["position"]
         if pos:
             replacement_pool[pos].append(rec)
+    has_bench = _season_has_bench_points(season, regular_season_only=regular_season_only)
 
     starter_slots = _vorp_starter_slots(grouped, season)
     as_of_week = _as_of_week(season)
     out: list[dict[str, Any]] = []
+    exclusions: list[dict[str, Any]] = []
     for pos, rows in grouped.items():
         slots = starter_slots.get(pos, 0)
-        pool_rows = replacement_pool.get(pos) or rows
+        pool_rows = replacement_pool.get(pos) or []
         if slots <= 0:
-            # No dedicated slot for this position; treat as a thin
-            # baseline so a single-game cameo doesn't outshine real
-            # full-season starters.
+            # No dedicated slot for this position: the substitute cutoff is
+            # half the rostered pool, and the full-band gate below decides
+            # whether that pool is deep enough to measure at all.
             slots = max(1, len(pool_rows) // 2)
-        replacement_per_game = _replacement_per_game_for_position(pool_rows, slots)
+        replacement_per_game = (
+            _replacement_per_game_for_position(pool_rows, slots, require_full_band=True)
+            if has_bench
+            else None
+        )
+        if replacement_per_game is None:
+            exclusions.append(
+                {
+                    "position": pos,
+                    "reason": VORP_EXCLUSION_THIN_BAND if has_bench else VORP_EXCLUSION_NO_BENCH,
+                    "poolSize": len(pool_rows),
+                    "required": slots + _REPLACEMENT_BAND_SIZE,
+                    "starterSlots": slots,
+                    "candidates": len(rows),
+                }
+            )
+            continue
         for r in rows:
             games = r["gamesStarted"] or 1
             replacement_total = replacement_per_game * games
@@ -1614,7 +1694,18 @@ def _vorp_rows(
                 }
             )
     out.sort(key=lambda r: -r["vorp"])
-    return out
+    exclusions.sort(key=lambda e: _position_sort_key(e["position"]))
+    return out, exclusions
+
+
+def _vorp_rows(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    *,
+    regular_season_only: bool,
+) -> list[dict[str, Any]]:
+    """The VORP rows of :func:`_vorp_board` (excluded positions omitted)."""
+    return _vorp_board(snapshot, season, regular_season_only=regular_season_only)[0]
 
 
 # The MVP / ROY boards below are FILTERS over the regular-season VORP
@@ -2047,7 +2138,7 @@ def _season_row_sets(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> 
     lookup = _RosterWeekLookup(season)
     trader_rows, best_trade = _trader_of_the_year_scores(snapshot, season, lookup)
     waiver_rows = _waiver_king_scores(snapshot, season, lookup)
-    vorp_rows = _vorp_rows(snapshot, season, regular_season_only=True)
+    vorp_rows, vorp_exclusions = _vorp_board(snapshot, season, regular_season_only=True)
     return {
         "trader": trader_rows,
         "best_trade": best_trade,
@@ -2070,6 +2161,8 @@ def _season_row_sets(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> 
         "def_mvp": _defensive_mvp_rows(snapshot, season, vorp_rows),
         "off_roy": _rookie_of_year_rows(snapshot, season, _OFF_ROY_POSITIONS, vorp_rows),
         "def_roy": _rookie_of_year_rows(snapshot, season, _DEF_ROY_POSITIONS, vorp_rows),
+        # Positions the VORP board could not measure (see _vorp_board).
+        "vorp_exclusions": vorp_exclusions,
     }
 
 
@@ -2875,23 +2968,44 @@ def _current_season_races(
             )
         )
 
+    # A VORP race states which of ITS positions the board could not measure,
+    # so an absent DB is explained rather than silently missing.
+    vorp_exclusions = rows.get("vorp_exclusions") or []
+
+    def _with_exclusions(race, positions):
+        if race is None:
+            return None
+        excluded = [
+            dict(e) for e in vorp_exclusions if positions is None or e["position"] in positions
+        ]
+        if excluded:
+            race["vorpExclusions"] = excluded
+        return race
+
     # ── League MVP race ──
     mvp_rows = rows["mvp"]
     _add(
-        _player_race(
-            snapshot, season, "league_mvp", "League MVP Race", mvp_rows, _player_vorp_value
+        _with_exclusions(
+            _player_race(
+                snapshot, season, "league_mvp", "League MVP Race", mvp_rows, _player_vorp_value
+            ),
+            None,
         )
     )
 
     # ── Rookie of the Year races ──
     def _vorp_player_race(candidates, key, label):
-        return _player_race(
-            snapshot,
-            season,
-            key,
-            label,
-            [r for r in candidates if r.get("vorp", 0) > 0],
-            _player_vorp_value,
+        positions = _DEF_ROY_POSITIONS if key in ("def_roy", "def_mvp") else _OFF_ROY_POSITIONS
+        return _with_exclusions(
+            _player_race(
+                snapshot,
+                season,
+                key,
+                label,
+                [r for r in candidates if r.get("vorp", 0) > 0],
+                _player_vorp_value,
+            ),
+            positions,
         )
 
     _add(
@@ -3017,6 +3131,10 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         races_by_season[season.season] = season_races
         row["awards"] = _order_awards(canonical + activity_based)
         row["finalists"] = {r["key"]: r["leaders"] for r in season_races}
+        # Positions whose replacement level could not be measured this season
+        # (see _vorp_board): absent from every VORP award and race, and
+        # said so here rather than published as 0 or measured against itself.
+        row["vorpExclusions"] = [dict(e) for e in season_rows["vorp_exclusions"]]
         by_season.append(row)
 
     featured = next(

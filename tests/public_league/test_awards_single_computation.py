@@ -19,7 +19,7 @@ class SingleComputationTests(unittest.TestCase):
     def test_vorp_board_is_built_once_per_season(self):
         snapshot = build_test_snapshot()
         begun = [s for s in snapshot.seasons if awards._has_begun(s)]
-        with mock.patch.object(awards, "_vorp_rows", wraps=awards._vorp_rows) as spy:
+        with mock.patch.object(awards, "_vorp_board", wraps=awards._vorp_board) as spy:
             awards.build_section(snapshot)
         self.assertEqual(spy.call_count, len(begun))
 

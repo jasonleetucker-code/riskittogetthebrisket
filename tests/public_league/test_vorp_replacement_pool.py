@@ -25,7 +25,12 @@ from __future__ import annotations
 
 import unittest
 
-from src.public_league.awards import _vorp_rows
+from src.public_league.awards import (
+    VORP_EXCLUSION_NO_BENCH,
+    VORP_EXCLUSION_THIN_BAND,
+    _vorp_board,
+    _vorp_rows,
+)
 from tests.public_league.fixtures import build_test_snapshot
 
 
@@ -93,18 +98,47 @@ class VorpReplacementPoolTests(unittest.TestCase):
             self.assertLessEqual(r["vorp"], r["starterPoints"] + 1e-9)
             self.assertAlmostEqual(r["vorp"], 10.0 - 4.0, places=2)
 
-    def test_without_bench_data_falls_back_safely(self) -> None:
-        """Older/incomplete data with no bench points at all (the
-        pre-fix fixture shape) must not crash — it degrades to the
-        starter-only pool exactly as before, never negative, never
-        above raw points."""
+    def test_without_bench_data_fails_closed(self) -> None:
+        """Older/incomplete data with no bench points at all (starters-only
+        ``players_points``) must not crash, and must NOT fall back to the
+        starter-only pool.  That pool is capped at the very cutoff the
+        replacement band sits below, so any "replacement level" drawn from
+        it is the wrong population's number.  MISSING IS NEVER ZERO: the
+        position is excluded and the exclusion is published with its
+        reason, instead of a VORP measured against the starters
+        themselves.  (This test used to pin the degraded fallback; the
+        fallback is retired.)"""
         snapshot, season = _build_snapshot_with_full_dl_pool(bench_count=0)
-        rows = _vorp_rows(snapshot, season, regular_season_only=True)
-        dl_rows = [r for r in rows if r["position"] == "DL"]
-        self.assertTrue(dl_rows)
-        for r in dl_rows:
-            self.assertGreaterEqual(r["vorp"], 0.0)
-            self.assertLessEqual(r["vorp"], r["starterPoints"] + 1e-9)
+        rows, exclusions = _vorp_board(snapshot, season, regular_season_only=True)
+        self.assertEqual([r for r in rows if r["position"] == "DL"], [])
+        dl = [e for e in exclusions if e["position"] == "DL"]
+        self.assertEqual(len(dl), 1)
+        self.assertEqual(dl[0]["reason"], VORP_EXCLUSION_NO_BENCH)
+        self.assertEqual(dl[0]["poolSize"], 36)
+        self.assertEqual(dl[0]["required"], 36 + 5)
+        self.assertEqual(dl[0]["candidates"], 36)
+
+    def test_bench_too_shallow_for_a_full_band_is_excluded(self) -> None:
+        """Bench data present, but 36 starters + 3 bench = 39 rostered DL,
+        short of the 41 a 36-slot cutoff plus a 5-player band needs.  The
+        retired fallback averaged the 3 it had; the band is not the band,
+        so the position is excluded and says why."""
+        snapshot, season = _build_snapshot_with_full_dl_pool(bench_count=3)
+        rows, exclusions = _vorp_board(snapshot, season, regular_season_only=True)
+        self.assertEqual([r for r in rows if r["position"] == "DL"], [])
+        self.assertEqual(
+            [e for e in exclusions if e["position"] == "DL"],
+            [
+                {
+                    "position": "DL",
+                    "reason": VORP_EXCLUSION_THIN_BAND,
+                    "poolSize": 39,
+                    "required": 41,
+                    "starterSlots": 36,
+                    "candidates": 36,
+                }
+            ],
+        )
 
     def test_replacement_reflects_the_real_bench_average_not_a_lone_fallback(self) -> None:
         """A genuinely bad bench week is legitimate signal, and the fix
