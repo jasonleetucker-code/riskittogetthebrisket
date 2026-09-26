@@ -31,14 +31,23 @@ import { useSettings } from "@/components/useSettings";
 // contract row), so it was the least-tested most-load-bearing number
 // in the simulator.
 export function _payloadFromSides(sides, valueMode, settings) {
+  // An asset the board does not price has NO value, not a value of 0.
+  // Simulating it as a 0/0/0 band would hand the other side a free win,
+  // so it is named here and the run is refused instead.
+  const unpriced = [];
   const pick = (i) => {
     const assets = sides?.[i]?.assets || [];
-    return assets.map((r) => {
+    return assets.flatMap((r) => {
       // Use the SAME per-player value the trade builder displays
       // (backend-authoritative values[valueMode]; the pick-year
       // discount is already baked in upstream).  This is the
       // canonical "what is this player worth" number.
-      const v = effectiveValue(r, valueMode, settings) || 0;
+      const raw = Number(effectiveValue(r, valueMode, settings));
+      if (!Number.isFinite(raw) || raw <= 0) {
+        unpriced.push(r?.name || r?.displayName || "An asset");
+        return [];
+      }
+      const v = raw;
       // Build the consensus band centered on v.  Width comes from
       // the row's existing valueBand if present (real source-
       // disagreement), else a ±15% synthesized band.
@@ -76,7 +85,9 @@ export function _payloadFromSides(sides, valueMode, settings) {
       };
     });
   };
-  return { sideA: pick(0), sideB: pick(1) };
+  const sideA = pick(0);
+  const sideB = pick(1);
+  return { sideA, sideB, unpriced };
 }
 
 
@@ -143,7 +154,15 @@ export default function MonteCarloButton({ sides, valueMode = "full" }) {
     try {
       setState("running");
       setErr("");
-      const body = { ..._payloadFromSides(sides, valueMode, settings), nSims: 20000, applyConsolidationAdjustment: true };
+      const { sideA, sideB, unpriced } = _payloadFromSides(sides, valueMode, settings);
+      if (unpriced.length > 0) {
+        setErr(
+          `Can't simulate: ${unpriced.join(", ")} ${unpriced.length === 1 ? "has" : "have"} no value on the board.`,
+        );
+        setState("error");
+        return;
+      }
+      const body = { sideA, sideB, nSims: 20000, applyConsolidationAdjustment: true };
       const res = await fetch("/api/trade/simulate-mc", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -180,6 +199,12 @@ export default function MonteCarloButton({ sides, valueMode = "full" }) {
   }
 
   const summary = state === "ok" && result ? _renderPlainSummary(result, sides) : null;
+  const synthetic = Number(result?.bandSources?.synthetic_flat_15pct) || 0;
+  const va = result?.vaAdjustment;
+  const vaText =
+    va?.applied && Number(va.value) > 0 && (va.side === 1 || va.side === 2)
+      ? `It includes our package adjustment: +${Math.round(Number(va.value)).toLocaleString()} to Side ${va.side === 1 ? "A" : "B"} for consolidating value.`
+      : "";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
@@ -227,6 +252,14 @@ export default function MonteCarloButton({ sides, valueMode = "full" }) {
           <div style={{ fontSize: "0.85rem", marginBottom: 4 }}>
             {summary.deltaLine}
           </div>
+          <div
+            data-testid="mc-scope-note"
+            style={{ fontSize: "0.75rem", color: "var(--subtext)", marginTop: 2 }}
+          >
+            Value-uncertainty check
+            {synthetic > 0 ? " (assumed ±15% range)" : ""} — not the chance
+            the trade works out.
+          </div>
           {summary.rangeLine && (
             <div style={{ fontSize: "0.85rem", color: "var(--subtext)" }}>
               {summary.rangeLine}
@@ -243,15 +276,15 @@ export default function MonteCarloButton({ sides, valueMode = "full" }) {
               How is this calculated?
             </summary>
             <div style={{ marginTop: 4, lineHeight: 1.5 }}>
-              For each player, our 6+ ranking sources don't fully
-              agree on value — a player worth 8,500 by one source
-              might be 7,900 by another.  We sample {result.nSims?.toLocaleString() || "20,000"} times
-              from this disagreement range, sum each side, and
-              check who came out ahead.  The "win %" is the
-              fraction of those samples where Side A's total beat
-              Side B's.  This is NOT a real-world win probability
-              — it's how often the sources' own ranges put one
-              side ahead.
+              Each asset&apos;s value is drawn {result.nSims?.toLocaleString() || "20,000"} times
+              from a range around our board value, each side is
+              summed, and we count who came out ahead.
+              {synthetic > 0
+                ? " That range is an assumed ±15% — we don't yet measure how uncertain each player's value is — so the spread is an assumption, not a measurement."
+                : ""}
+              {vaText ? ` ${vaText}` : ""} This is how often one side
+              comes out ahead under that value uncertainty — NOT the
+              chance the trade works out.
             </div>
           </details>
         </div>

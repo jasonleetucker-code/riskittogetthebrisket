@@ -34,7 +34,15 @@ import {
   SOURCE_VENDOR_LABELS,
   vendorForSource,
 } from "@/lib/dynasty-data";
-import { resolveVendorAssetValue, summariseSide } from "@/lib/second-opinions";
+import {
+  VENDOR_VERDICT,
+  assetCoverage,
+  resolveVendorAssetValue,
+  summariseSide,
+  tallySecondOpinions,
+  vendorVerdict,
+  verdictReason,
+} from "@/lib/second-opinions";
 
 const KTC_RAW_NATIVE_VENDORS = new Set([
   "ktcSfTep",
@@ -109,20 +117,32 @@ export default function TradeSourceBreakdown({ sides, settings }) {
         // 1.142 in the tail, range 0.400-1.491).
         const useRawNative = KTC_RAW_NATIVE_VENDORS.has(vendor);
         const useVendorNative = VENDOR_NATIVE_VENDORS.has(vendor);
-        const sideSummaries = assetsBySide.map((assets) =>
-          summariseSide(
-            assets.map((row) =>
-              resolveVendorAssetValue({
-                row,
-                mainSubs,
-                rookieSubs,
-                useKtcNative: useRawNative,
-                useVendorNative,
-                impute: imputeUncovered,
-              }),
-            ),
+        const resolutionsBySide = assetsBySide.map((assets) =>
+          assets.map((row) =>
+            resolveVendorAssetValue({
+              row,
+              mainSubs,
+              rookieSubs,
+              useKtcNative: useRawNative,
+              useVendorNative,
+              impute: imputeUncovered,
+            }),
           ),
         );
+        const sideSummaries = resolutionsBySide.map(summariseSide);
+        // WHY each piece is or is not covered — a vendor that does not
+        // price IDP at all is a different statement from a vendor whose
+        // row failed to match, and only a fully native row is an opinion.
+        const coverageBySide = assetsBySide.map((assets, si) =>
+          assets.map((row, ai) =>
+            assetCoverage({
+              row,
+              subs,
+              resolution: resolutionsBySide[si][ai],
+            }),
+          ),
+        );
+        const verdict = vendorVerdict(coverageBySide, sideSummaries);
         const sideValues = sideSummaries.map((s) => s.values);
         const imputedCounts = sideSummaries.map((s) => s.imputed);
         const nativeCounts = sideSummaries.map((s) => s.native);
@@ -132,11 +152,6 @@ export default function TradeSourceBreakdown({ sides, settings }) {
           vs.reduce((sum, v) => sum + v, 0),
         );
         const coverage = nativeCounts.map((n, i) => n + imputedCounts[i]);
-        // Skip vendors that touch zero pieces across the whole trade
-        // (this can still happen when imputation is OFF and the
-        // vendor covers nothing — keep the empty-rows diagnostic
-        // path useful).
-        if (coverage.reduce((a, b) => a + b, 0) === 0) return null;
 
         // External second opinions are vendor-literal atomic sums.  The old
         // implementation applied our historical KTC Value Adjustment port to
@@ -182,6 +197,9 @@ export default function TradeSourceBreakdown({ sides, settings }) {
 
         return {
           key: vendor,
+          family: primary.correlationGroup || vendor,
+          verdict,
+          reason: verdictReason(verdict),
           label,
           displayName,
           rawTotals,
@@ -217,8 +235,33 @@ export default function TradeSourceBreakdown({ sides, settings }) {
   // section is wired up, and ops can grep the rendered DOM for the
   // diagnostic copy below to confirm the bundle shipped.  Cheap
   // (one extra .card on a page with ~20 already) and self-documenting.
-  const hasRows = rows.length > 0;
+  // A vendor that published nothing for any piece is not a second
+  // opinion: every number it would show is ours. It leaves the table and
+  // is named below it, with the reason, instead of posting a verdict.
+  const shownRows = rows.filter(
+    (r) => r.verdict.state !== VENDOR_VERDICT.NO_COVERAGE,
+  );
+  const uncoveredRows = rows.filter(
+    (r) => r.verdict.state === VENDOR_VERDICT.NO_COVERAGE,
+  );
+  const hasRows = shownRows.length > 0;
   const sideLabels = sides.map((s) => s.label);
+  const tally = tallySecondOpinions(shownRows, sides.length);
+  const outOfScopeOnly = uncoveredRows.filter(
+    (r) => r.verdict.counts.outOfScope === r.verdict.counts.total,
+  );
+  const otherUncovered = uncoveredRows.filter(
+    (r) => r.verdict.counts.outOfScope !== r.verdict.counts.total,
+  );
+  const scopeWords = [
+    ...new Set(
+      outOfScopeOnly.flatMap((r) =>
+        r.verdict.outOfScopeClasses.map((c) =>
+          c === "idp" ? "IDP" : c === "excluded" ? "kickers" : c,
+        ),
+      ),
+    ),
+  ];
 
   return (
     <div className="card source-breakdown-card" style={{ marginTop: 14 }}>
@@ -271,6 +314,54 @@ export default function TradeSourceBreakdown({ sides, settings }) {
         </div>
       )}
       {hasRows && (
+        <p
+          className="source-breakdown-tally"
+          data-testid="second-opinions-tally"
+          style={{ margin: "6px 0 4px", fontSize: "0.78rem" }}
+        >
+          {tally.families > 0 ? (
+            <>
+              <strong>
+                {sideLabels
+                  .map((lbl, i) => `Side ${lbl} ${tally.wins[i]}`)
+                  .join(" · ")}
+                {tally.even > 0 ? ` · Even ${tally.even}` : ""}
+                {tally.split > 0 ? ` · Split ${tally.split}` : ""}
+              </strong>
+              <span className="muted">
+                {" "}
+                — one vote per independent source family ({tally.families})
+              </span>
+            </>
+          ) : (
+            <span className="muted">
+              No source prices every piece of this trade natively, so there
+              is no vote to count.
+            </span>
+          )}
+          {tally.notCounted.estimate +
+            tally.notCounted.notApplicable +
+            tally.notCounted.incomplete >
+            0 && (
+            <span className="muted">
+              {" "}
+              Not counted:{" "}
+              {[
+                tally.notCounted.notApplicable &&
+                  `${tally.notCounted.notApplicable} not applicable`,
+                tally.notCounted.incomplete &&
+                  `${tally.notCounted.incomplete} incomplete`,
+                tally.notCounted.estimate &&
+                  `${tally.notCounted.estimate} estimated`,
+              ]
+                .filter(Boolean)
+                .join(", ")}
+              .
+            </span>
+          )}
+        </p>
+      )}
+      {hasRows && (
         <div
           id="source-breakdown-body"
           className="source-breakdown-body"
@@ -290,7 +381,7 @@ export default function TradeSourceBreakdown({ sides, settings }) {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {shownRows.map((row) => (
                 <tr key={row.key}>
                   <td
                     style={{ textAlign: "left", whiteSpace: "nowrap" }}
@@ -360,7 +451,9 @@ export default function TradeSourceBreakdown({ sides, settings }) {
                       textAlign: "center",
                       fontWeight: 700,
                       color:
-                        row.winnerIdx === null
+                        row.winnerIdx === null ||
+                        row.verdict.state === VENDOR_VERDICT.NOT_APPLICABLE ||
+                        row.verdict.state === VENDOR_VERDICT.INCOMPLETE
                           ? "var(--muted)"
                           : row.winnerIdx === 0
                             ? "var(--green)"
@@ -369,11 +462,29 @@ export default function TradeSourceBreakdown({ sides, settings }) {
                               : "var(--cyan)",
                     }}
                   >
-                    {row.incomplete
-                      ? "Incomplete"
-                      : row.winnerIdx === null
-                        ? "Even"
-                        : `Side ${row.winnerLabel}`}
+                    {row.verdict.state === VENDOR_VERDICT.NOT_APPLICABLE ? (
+                      "Not applicable"
+                    ) : row.verdict.state === VENDOR_VERDICT.INCOMPLETE ? (
+                      "Incomplete"
+                    ) : row.winnerIdx === null ? (
+                      "Even"
+                    ) : row.verdict.state === VENDOR_VERDICT.ESTIMATE ? (
+                      `Side ${row.winnerLabel} (est.)`
+                    ) : (
+                      `Side ${row.winnerLabel}`
+                    )}
+                    {row.reason && (
+                      <span
+                        className="muted"
+                        style={{
+                          display: "block",
+                          fontSize: "0.62rem",
+                          fontWeight: 400,
+                        }}
+                      >
+                        {row.reason}
+                      </span>
+                    )}
                   </td>
                   <td
                     style={{
@@ -383,7 +494,9 @@ export default function TradeSourceBreakdown({ sides, settings }) {
                         row.winnerIdx === null ? "var(--muted)" : "var(--text)",
                     }}
                   >
-                    {row.incomplete || row.winnerIdx === null
+                    {row.verdict.state === VENDOR_VERDICT.NOT_APPLICABLE ||
+                    row.verdict.state === VENDOR_VERDICT.INCOMPLETE ||
+                    row.winnerIdx === null
                       ? "—"
                       : `${row.marginPct.toFixed(1)}%`}
                   </td>
@@ -392,6 +505,27 @@ export default function TradeSourceBreakdown({ sides, settings }) {
             </tbody>
           </table>
         </div>
+      )}
+      {uncoveredRows.length > 0 && (
+        <p
+          className="muted"
+          data-testid="second-opinions-uncovered"
+          style={{ margin: "6px 0 0", fontSize: "0.72rem", lineHeight: 1.45 }}
+        >
+          {outOfScopeOnly.length > 0 && (
+            <>
+              Not applicable — {outOfScopeOnly.map((r) => r.label).join(", ")}{" "}
+              {outOfScopeOnly.length === 1 ? "doesn't" : "don't"} price{" "}
+              {scopeWords.join(" or ") || "these assets"}.{" "}
+            </>
+          )}
+          {otherUncovered.length > 0 && (
+            <>
+              No values published for any piece —{" "}
+              {otherUncovered.map((r) => r.label).join(", ")}.
+            </>
+          )}
+        </p>
       )}
     </div>
   );
