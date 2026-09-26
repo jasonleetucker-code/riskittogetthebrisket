@@ -79,6 +79,11 @@ async function openWith(page, p, give, receive) {
   await page.waitForFunction(() => !document.body.innerText.includes("Loading player pool..."), null, {
     timeout: 90_000,
   });
+  // The builder PERSISTS the previous trade across reloads, and the search
+  // (correctly) offers no asset that is already in the trade — so without
+  // this the second shape re-typed a player still on Side A and got "No
+  // matches" (production run 36255440819). Start every shape empty.
+  await page.getByRole("button", { name: "Clear Trade", exact: true }).click();
   await page.selectOption("#suggest-team", String(p.myIdx));
   for (const [side, names] of [
     ["A", give],
