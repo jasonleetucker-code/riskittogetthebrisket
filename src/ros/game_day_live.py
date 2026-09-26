@@ -91,7 +91,11 @@ _COLLECTOR_DIR = "_collector"
 
 #: Bumped when the generation layout or render semantics change, so a
 #: generation written by an older layout is never served as current.
-GENERATION_SCHEMA_VERSION = 1
+#: 2 (2026-09-26): the render gained ``medianRace`` (Live Median Race). A
+#: version-1 generation, written before it, would otherwise be served with
+#: no median board until the next idle-cadence tick (up to an hour) —
+#: observed on production right after the deploy.
+GENERATION_SCHEMA_VERSION = 2
 PRODUCER = "game_day_live_collector"
 #: Producer of a generation computed in the BACKGROUND because a request
 #: found no usable collector generation (Game Day G).  Same store, same

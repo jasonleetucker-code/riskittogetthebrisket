@@ -42,11 +42,20 @@ async function noPageOverflow(page) {
 }
 
 async function plan(page) {
-  const { status, body: contract } = await getJson(page, "/api/data?view=app");
+  // The FULL contract: view=app strips playersArray, and the legacy
+  // players dict also names rows the materialized board never offers to
+  // the /trade search (first production run: "Barrett Carter" was in the
+  // dict and unsearchable). Only ranked, priced rows are the search's pool.
+  const { status, body: contract } = await getJson(page, "/api/data", { timeoutMs: 120_000 });
   expect(status, "/api/data must serve the session").toBe(200);
   const teams = contract?.sleeper?.teams || [];
-  const board = new Set(Object.keys(contract?.players || {}));
-  for (const p of contract?.playersArray || []) if (p?.displayName) board.add(p.displayName);
+  const board = new Set();
+  for (const p of contract?.playersArray || []) {
+    const v = Number(p?.rankDerivedValue);
+    if (p?.displayName && Number.isFinite(v) && v > 0 && typeof p.canonicalConsensusRank === "number") {
+      board.add(p.displayName);
+    }
+  }
   const leagueKey = contract?.meta?.leagueKey || contract?.leagueKey || null;
   const bySize = [...teams].sort((a, b) => (b.players || []).length - (a.players || []).length);
   const my = bySize[0];

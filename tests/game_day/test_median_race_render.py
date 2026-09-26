@@ -276,3 +276,23 @@ def test_the_generation_index_keeps_calibration_evidence(live_root):
     assert summary["teams"]["A"]["beatMedianPct"] == 75.0
     assert rows[-1]["modelVersion"] == "game-day-sim-v4"
     assert rows[-1]["computedAt"]
+
+
+def test_a_generation_written_before_the_median_race_is_never_served(live_root):
+    """A pre-median-race generation (schema 1) has no ``medianRace``; serving it
+    after the deploy showed production no board until the collector's next
+    idle tick. It must read as absent, so the endpoint's single background
+    compute (or the next tick) publishes a current-schema generation."""
+    old = _generation(1, {"A": 75.0, "B": 55.0})
+    old["schemaVersion"] = 1
+    old["render"].pop("medianRace")
+    path = live.generation_path("lg", 2026, 4)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(old), encoding="utf-8")
+    assert live.GENERATION_SCHEMA_VERSION >= 2
+    assert live.load_generation("lg", 2026, 4) is None
+    # A current generation then publishes, with no movement against the
+    # incompatible predecessor.
+    assert live.write_generation(_generation(2, {"A": 62.0, "B": 80.0}))
+    race = live.load_generation("lg", 2026, 4)["render"]["medianRace"]
+    assert race["movement"] is None
