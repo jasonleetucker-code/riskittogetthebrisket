@@ -161,9 +161,13 @@ function SideRow({ side, role, mode, medianShown, selected, pending }) {
     <tr className={selected ? styles.selectedRow : undefined}>
       <th scope="row" className={styles.sideCell}>
         <span className={styles.sideRole}>{role}</span>
-        <span className={styles.sideName}>{side?.displayName || "—"}</span>
+        <span className={styles.sideName} title={side?.displayName || undefined}>
+          {side?.displayName || "—"}
+        </span>
         {side?.teamName && side.teamName !== side.displayName ? (
-          <span className={styles.sideTeamName}>{side.teamName}</span>
+          <span className={styles.sideTeamName} title={side.teamName}>
+            {side.teamName}
+          </span>
         ) : null}
       </th>
       <ScoreCell side={side} mode={mode} />
