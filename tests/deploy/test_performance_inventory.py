@@ -297,3 +297,124 @@ def test_manifest_rejects_fifo_and_symlink(tmp_path):
     link = tmp_path / "link"
     link.symlink_to(target)
     assert probe.dlf_manifest(link)["state"] == "unavailable"
+
+
+def journal_bytes(messages, invocation="a" * 32):
+    return b"\n".join(
+        json.dumps({"MESSAGE": text, "_SYSTEMD_INVOCATION_ID": invocation}).encode()
+        for text in messages
+    )
+
+
+def test_journal_stage_privacy_and_unknowns(monkeypatch):
+    outputs = iter(
+        [
+            b"a" * 32,
+            journal_bytes(
+                [
+                    "[DLF] login failed: SECRET_SENTINEL https://private.invalid",
+                    "arbitrary SECRET_SENTINEL",
+                ]
+            ),
+            b"a" * 32,
+        ]
+    )
+    calls = []
+
+    def command(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return next(outputs)
+
+    monkeypatch.setattr(probe, "bounded", command)
+    result = probe.journal_stages("dynasty", "dlf")
+    assert result["state"] == "complete"
+    assert result["stages"] == {"login_failed": 1}
+    assert result["unknown"] == 1
+    assert result["codeBinding"] == "unproven"
+    assert "SECRET_SENTINEL" not in json.dumps(result)
+    assert "a" * 32 not in json.dumps(result)
+    assert calls[1][1] == {"timeout": 8, "cap": 131072}
+    assert "--lines=201" in calls[1][0]
+
+
+@pytest.mark.parametrize(
+    "raw,state",
+    [
+        (b"invalid", "malformed"),
+        (journal_bytes(["x"] * 201), "truncated"),
+        (journal_bytes(["x" * 8193]), "malformed"),
+        (journal_bytes(["x"], "b" * 32), "invocation_changed"),
+        (b"", "empty"),
+    ],
+)
+def test_journal_limits_and_missing_are_explicit(raw, state):
+    assert probe.parse_journal(raw, "a" * 32, "dlf")["state"] == state
+
+
+def test_journal_invocation_race_and_command_failures(monkeypatch):
+    values = iter([b"a" * 32, journal_bytes(["Done."]), b"b" * 32])
+    monkeypatch.setattr(probe, "bounded", lambda *a, **k: next(values))
+    result = probe.journal_stages("dynasty", "game_day_capture")
+    assert result["state"] == "invocation_changed"
+    assert result["invocationStable"] is False
+    for exception, state in [
+        (probe.ProbeTimeout, "timeout"),
+        (probe.ProbeLimit, "truncated"),
+        (PermissionError, "unavailable"),
+    ]:
+
+        def fail(*a, **k):
+            raise exception("SECRET_SENTINEL")
+
+        monkeypatch.setattr(probe, "bounded", fail)
+        result = probe.journal_stages("dynasty", "dlf")
+        assert result["state"] == state
+        assert "SECRET_SENTINEL" not in json.dumps(result)
+
+
+def test_capture_exit_code_is_not_inferred_from_unknown_text():
+    value = probe.parse_journal(
+        journal_bytes(["REFUSED: first kickoff has passed.", "unrecognized failure"]),
+        "a" * 32,
+        "game_day_capture",
+    )
+    assert value["stages"] == {"kickoff_passed": 1}
+    assert value["unknown"] == 1
+    unknown = probe.parse_journal(
+        journal_bytes(["exit 3 SECRET_SENTINEL"]), "a" * 32, "game_day_capture"
+    )
+    assert unknown["stages"] == {}
+    assert unknown["unknown"] == 1
+
+
+@pytest.mark.parametrize("mutation", ["raw", "id", "stage", "count", "last", "state", "binding"])
+def test_runner_rejects_invalid_source_stage_schema(mutation):
+    value = report()
+    value["sourceStages"] = {
+        role: probe.stage_result("unavailable") for role in probe.STAGE_PATTERNS
+    }
+    row = value["sourceStages"]["dlf"]
+    if mutation == "raw":
+        row["MESSAGE"] = "SECRET_SENTINEL"
+    elif mutation == "id":
+        row["InvocationID"] = "a" * 32
+    elif mutation == "stage":
+        row["stages"] = {"SECRET_SENTINEL": 1}
+    elif mutation == "count":
+        row["rows"] = True
+    elif mutation == "last":
+        row["lastRecognizedStage"] = "login_failed"
+    elif mutation == "state":
+        row["state"] = "complete"
+    else:
+        row["codeBinding"] = "proven"
+    with pytest.raises(probe.ProbeError):
+        probe.validate(json.dumps(value).encode(), 1)
+
+
+def test_stage_report_validates_without_changing_resource_verdict():
+    value = report()
+    value["sourceStages"] = {
+        role: probe.stage_result("unavailable") for role in probe.STAGE_PATTERNS
+    }
+    assert probe.validate(json.dumps(value).encode(), 1) == value

@@ -52,3 +52,22 @@ Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c.
 DLF reported failed/exit1 and Game Day capture failed/exit3. Cause remains unknown: current DLF can fail after partial publication; capture checks the closed window before the already-captured condition, so a later refusal does not prove lost observations. Live collector inactive/exit2 is compatible with checked-in no-work semantics; installed success-code configuration still requires verification. No service was restarted or modified.
 
 [Sanitized observations and follow-up review](evidence/linux-inventory-2026-09-26.json) preserve numeric evidence and limitations. The next bounded probe adds explicit systemd Result/exit/start/timer metadata and numeric success statuses. Optional default-path DLF written-key presence carries assumedDefaultPath=true; missing/unknown metadata is not cause attribution. It reads no credentials, environment, command lines, arbitrary logs or payloads. Capture coverage remains unknown.
+
+
+## Bounded source-stage attribution
+
+Follow-up run36272340282 proves installed Game Day live Result=success with
+SuccessExitStatus=[2]; its inactive exit2 is not a failed service observation.
+DLF's assumed-default written manifest lists only dlfValuesSfTep; the other four
+boards are absent. This is partial manifest evidence, not proof of last invocation,
+publication success, freshness or provider root cause. Capture still reports exit3.
+
+The next reviewed helper revision reads only the two fixed service roles' bounded
+latest-invocation journal on the host. It emits recognized categorical stages and
+numeric counts; raw messages, invocation IDs, paths and exception text never leave
+the host. Unit+invocation matching and a before/after identity check reject races.
+Byte, line, message and time limits fail explicitly; unavailable/truncated logs
+cannot be called complete. Even a complete bounded retained query does not prove
+historical log completeness, loaded code identity or root cause. No service,
+provider or configuration is changed. [Independent review](evidence/source-stage-review-2026-09-26.json)
+records52passing tests,2Linux-only skips and five additional privacy discriminators.
