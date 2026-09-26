@@ -835,3 +835,29 @@ Implementation is authorized by the owner's own handoff. The authorization recor
     evidence.
 - **Not authorized.** A Game Day rewrite, methodology or scoring changes, paid-source activation, a PSI
   redesign, or a new league/team identity owner.
+
+## Added 2026-09-26 — Adaptive Learning / Continuous Model Improvement (owner directive)
+
+The owner wants Calculator to become **empirically self-improving wherever learning is legitimate**: preserve point-in-time observations, forecasts, recommendations, decisions/non-decisions and outcomes; evaluate what happened; run bounded challengers; and promote a different production methodology only when it clears the applicable evidence and governance gates. “Machine learning” is acceptable shorthand, but the product direction is broader: calibration, statistical learning, model selection, behavioral learning, time-series methods and other evidence-based adaptation are all eligible when they fit the question.
+
+This is **not** authorization for a monolithic ML platform or for uncontrolled self-modifying production models. Deterministic facts and rules — scoring arithmetic, league rules, roster legality, canonical identity, ownership, exact lineup eligibility/assignment, provenance, timestamps and missing-vs-zero semantics — remain deterministic.
+
+**Canonical reconciliation.** The existing native governance umbrella is `C10-ML-01` plus the P6 model/methodology acceptance profile. Domain learning stays with its current owner rather than moving to a new ML backlog: `C1-HIST-01` (point-in-time evidence), `C5-GD-02` / Game Day, `C5-ROS-01` / #854 projections, `C5-PLAY-01` playoff calibration, `C5-POW-01` Power validation, `C6-FRESH-01` / #1423 freshness, `C4-FAAB-01/02` + `C4-WAIV-01` FAAB/waiver evidence, `C6-MGR-01` manager behavior, `C6-ANA-01` analyst evidence, `C7-DESK-01` / `C3-REPLAY-01` decision evaluation, `C7-POST-01` posture and `C7-ALERT-01` alerts. No new native ID is minted by this intake.
+
+**Existing precedent.** `src/model_registry/` already provides champion/challenger/rejected/retired model versions, pinned training-input fingerprints, held-out evidence, promotion records and rollback. Hill Autopilot is the existing bounded automatic-promotion example. It is **not** blanket permission for other model families to auto-promote.
+
+**Operating rule.** Continuous archival capture, deterministic evaluation, shadow challenger refits, drift detection and scorecard updates may eventually be automated where authorized. Production promotion remains gated. Automatic promotion is allowed only when the owner has approved a deterministic, fail-closed promotion policy for that exact model family, with rollback and a durable promotion record.
+
+**First-wave planning priority:**
+1. Game Day calibration scorecards over the already-deployed prediction archive;
+2. projection-family / ensemble evaluation under #854, beginning with simple independent-family baselines;
+3. shadow evaluation of whether content age actually degrades task performance before changing the current freshness policy;
+4. rolling-origin Power / playoff validation;
+5. FAAB / manager behavioral learning only after enough prospective, censoring-aware evidence exists.
+
+The private decision/offer journal (research R14) remains a **CANDIDATE**, not implementation-authorized scope. It is the clean prospective path for rejected/countered/expired offers and considered-but-not-sent decisions that cannot be inferred from completed trades alone.
+
+**Detailed reconciliation and proposed first batch:** `docs/research/ADAPTIVE_LEARNING_2026-09-26.md`.
+
+**Authority boundary:** this entry authorizes durable planning/reconciliation only. It does **not** change production weights, activate sources, promote challengers, auto-retrain a live model, authorize autonomous roster transactions, decide R40/R44, or alter any existing owner-approved methodology. `docs/EXECUTION_PLAN.md` is unchanged and remains the sole implementation authority.
+
