@@ -21,7 +21,7 @@
 # running on 2026-04-24 — the narrower pins were authored three
 # days earlier and fell behind the live env.
 fastapi~=0.141.1
-uvicorn~=0.52.0
+uvicorn~=0.52.4
 
 # HTTP client used by scrapers, Sleeper client, news providers, etc.
 requests~=2.34.2
@@ -36,7 +36,7 @@ openpyxl~=3.1.0
 # guards ``import anthropic`` with ImportError fallback) but declared
 # here so production + CI install a consistent version and the feature
 # is never silently disabled.
-anthropic~=0.40.0
+anthropic~=1.5.0
 
 # DLF scraping: curl_cffi impersonates Chrome's TLS fingerprint so
 # we can pass DLF's Cloudflare JS challenge (vanilla requests and
