@@ -12524,10 +12524,14 @@ def build_api_data_contract(
         max_values = {}
         base["maxValues"] = max_values
 
+    # ``base`` is a SHALLOW copy, so ``base["sleeper"]`` would alias the
+    # caller's raw dict.  The raw payload is the accepted scrape generation
+    # and must stay read-only: the ``positions`` default below and
+    # ``stamp_optimal_lineups`` (which replaces ``teams``) write to THIS
+    # contract's own copy.  Team rows are copied by the stamp itself.
     sleeper = base.get("sleeper")
-    if not isinstance(sleeper, dict):
-        sleeper = {}
-        base["sleeper"] = sleeper
+    sleeper = dict(sleeper) if isinstance(sleeper, dict) else {}
+    base["sleeper"] = sleeper
 
     pos_map = sleeper.get("positions")
     if not isinstance(pos_map, dict):

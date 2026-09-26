@@ -21,13 +21,13 @@
  *     via `journey.js::boardRowCount`, plus the FPS harness.
  */
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, act } from "@testing-library/react";
 import { renderHook } from "@testing-library/react";
 import { useRef } from "react";
 import { DataTable } from "@/components/ds/DataTable";
 import { useRowWindow } from "@/components/ds/useRowWindow";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const ROW_H = 34; // the hook's declared bootstrap height
 
@@ -63,6 +63,27 @@ function windowFor({ rowCount, scrolledPast = 0, viewportHeight = 800 }) {
 }
 
 describe("useRowWindow", () => {
+  it("publishes changed geometry once instead of rerendering for identical row heights", () => {
+    const frames = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => { frames.push(callback); return frames.length; });
+    const { result } = windowFor({ rowCount: 1000 });
+    const measure = (height) => {
+      result.current.measure(0, { offsetTop: 0 });
+      result.current.measure(1, { offsetTop: height });
+      act(() => frames.splice(0).forEach((callback) => callback()));
+    };
+    measure(42);
+    const stable = result.current;
+    expect(stable.padTop + (stable.end - stable.start) * 42 + stable.padBottom).toBeCloseTo(42000, 0);
+    measure(42);
+    expect(result.current).toBe(stable);
+    // A real height change must still update geometry, including when
+    // changed samples first move the median between two observed heights.
+    measure(60);
+    measure(60);
+    expect(result.current).not.toBe(stable);
+  });
+
   it("mounts a viewport's worth of rows, not the whole board", () => {
     const { result } = windowFor({ rowCount: 1000, viewportHeight: 800 });
     const mounted = result.current.end - result.current.start;

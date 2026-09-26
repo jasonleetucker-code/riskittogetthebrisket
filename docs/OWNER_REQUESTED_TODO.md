@@ -381,7 +381,7 @@ The following existing `T-NEW-*` requirements in `docs/OWNER_REQUESTED_TODO_SPEC
 | Future competitive expansion | #985 | DynastyStats-derived expansion | Preserve League Hub/Pulse, Asset Map, Transaction Intelligence and Manager Scout enrichment as POST-V1 / fold-when-natural competitive scope. | LONG-TERM |
 | Planned trade intelligence | #1173 | Best-ball roster-conditional utility | Add roster-conditional dynasty best-ball utility to Analyze Trade using exact legal lineup assignment, without changing standalone canonical player values. | PLANNED / dependency-gated on #792 |
 | P1 cross-site UX | #1337 | Universal Player Profile / Player File linking | Every actionable player name site-wide should resolve through one identity-safe shared player-link primitive to the canonical Player File / public-safe counterpart where intentionally applicable. Existing partial links are not completion. | TODO |
-| Cross-cutting performance research | #1338 | Data-heavy performance architecture | Trace real request paths and reconcile measured bottlenecks against the existing global performance standard: precompute/materialize/index expensive work, serve prepared outputs quickly, refresh asynchronously, preserve last-known-good where safe, and justify infrastructure changes with evidence rather than convention. | PLANNED / RESEARCH FOLLOW-THROUGH |
+| Cross-cutting performance research | #1338 | Data-heavy performance architecture | Trace real request paths and reconcile measured bottlenecks against the existing global performance standard: precompute/materialize/index expensive work, serve prepared outputs quickly, refresh asynchronously, preserve last-known-good where safe, and justify infrastructure changes with evidence rather than convention. Future scope (2026-09-26, from the #1346 disposition, not implemented): `/api/gameplan` bundle single-flight; donor at `archive/pr-1346`. | PLANNED / RESEARCH FOLLOW-THROUGH |
 | P1 Game Day / global context | #1334 | Global selected team + Game Day matchup + NFL-game impact | One canonical selected fantasy team must drive every team-dependent surface. Game Day must show that team's actual matchup. Keep the NFL slate in real kickoff order while computing selected-side, opponent-side and combined projected fantasy-point impact so higher-impact games are visibly emphasized. | PLANNED |
 | P1 Game Day UX | #1335 | Game Day information architecture | Redesign Game Day as a clean live-sports/fantasy command center: compact matchup hero, score/projection/win probability, 3–5 key swing factors, NFL slate as the primary body, progressive disclosure for lineups/best-ball diagnostics/provenance, plain-language states, mobile-first scannability. | PLANNED |
 | P1 public awards UX | Owner directive 2026-09-11 / T-NEW-09 | Awards Hub mobile hierarchy + weekly share snapshot | Make live player races the primary story in a deliberate MVP → OPOY/DPOY → OROY/DROY → positional order; move manager/team awards below; keep playoff/championship honors later-season and visually subordinate until relevant; prevent player/team imagery collisions; and provide a polished top-three-per-race snapshot that can be saved or screenshotted weekly on mobile. Preserve the canonical awards data/methodology and public-safe boundary. | FEATURE_GREEN — `codex/awards-mobile-redesign`; integration/deploy and real-iPhone verification pending |
@@ -645,6 +645,27 @@ inseparable ones are rebased/cherry-picked with proof that both behaviors surviv
 yields); `trade-sections.jsx` is not in #1346. The `GameDayPanel` refresh-in-place logic and the
 `game_day_sim` single-flight/atomic cache writes are carried into the Game Day units with their tests,
 and #1346 drops them at reconciliation.
+
+**#1346 performance-serving campaign — historical owner intent (2026-09-10..20) and donor-branch
+disposition (recorded 2026-09-26).** HISTORICAL RECORD, NOT CURRENT AUTHORIZATION. Preserved so the
+intent is not lost when the branch closes:
+- 2026-09-10 — owner approved the audited performance modernization plan (producers, prepared
+  rankings/trade read models, dependency-aware refresh).
+- 2026-09-11 — local acceptance policy: refresh p95 < 75 ms AND (relative increase ≤ 20% OR
+  (absolute increase ≤ 15 ms AND p95 ≤ 25 ms)).
+- 2026-09-12 — owner paused the campaign and reserved final-release authority to the owner.
+- 2026-09-20 — owner terminal completion directive for the campaign.
+- 2026-09-26 — owner instruction: use #1346 as a donor, harvest small independent defect fixes onto
+  current main with tests, then close it. Harvested on `claude/harvest-1346` (contract raw-input
+  immutability, BDVM actuals/context/schedule cache keys, frontend request-scope + missing-value fixes,
+  timer `__SERVICE_NAME__` prefix); prepared serving, read models, `src/serving/*`, performance-lab and
+  telemetry were deliberately NOT ported.
+
+Donor state is preserved at tag `archive/pr-1346` → `47b90cd41`. Any future serving / read-model work
+starts from issue #1338 and must be re-authorized in `docs/EXECUTION_PLAN.md`; **main does not authorize
+serving activation.** Future-scope note for #1338 (not implemented): the donor's `/api/gameplan` bundle
+single-flight (`src/api/gameplan.py::_BUNDLE_FLIGHTS`, `tests/api/test_gameplan_singleflight.py` at
+`47b90cd41`) coalescing concurrent identical bundle builds.
 
 **Owner attestation — source access (2026-09-25, explicit, in writing). Canonical posture: `OWNER_ATTESTED_AUTHORIZED`.**
 The owner explicitly attests that permission exists for Calculator's current automated ingestion and
