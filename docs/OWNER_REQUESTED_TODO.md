@@ -836,6 +836,7 @@ Implementation is authorized by the owner's own handoff. The authorization recor
 - **Not authorized.** A Game Day rewrite, methodology or scoring changes, paid-source activation, a PSI
   redesign, or a new league/team identity owner.
 
+
 **Owner directive — Game Day Live Median Race (2026-09-26).**
 Extends the Game Day deliverable (#1335 / #1334, Lane 6); it is not a second Game Day. Implementation is
 owner-approved; the authorization record is the pointer in `docs/EXECUTION_PLAN.md` under Game Day.
@@ -867,8 +868,10 @@ owner-approved; the authorization record is the pointer in `docs/EXECUTION_PLAN.
 - **Not authorized.** A new engine, simulation, projection, scoring, collector or ML system; playoff or
   season projections.
 
+
 **Owner directive — Awards: 2026 Waiver King eligibility + Expand standings (2026-09-26).**
 Owner-approved; the authorization record is the League Hub Awards pointer in `docs/EXECUTION_PLAN.md`.
+
 - **A. 2026 Waiver King eligibility (season-scoped, one award).**
   - Joel and Blaine may not WIN Waiver King in the 2026 season:
     - Joel: owner `712035316776669184` (Sleeper `jstuedle`, roster 11).
@@ -893,12 +896,15 @@ Owner-approved; the authorization record is the League Hub Awards pointer in `do
 - **Not authorized.** Formula, VORP, scoring or waiver-methodology changes; new or removed awards; a League Hub
   redesign.
 
+
 ## Added 2026-09-26 — Championship / playoff odds methodology: two owner decisions awaiting approval
+
 Recorded by the League Hub championship input-integrity unit (`claude/championship-input-integrity`; claim in
 `docs/WORK_CLAIMS.md`). That unit fixes only factual defects: D1 (a failed NFL player download published coin-flip
 odds), D4 (live-week matchups frozen as finals) and D5 (a non-default league simulated on the default league's
 rosters). The two items below are **methodology**. They are **not changed** and **not authorized**. Each waits for an
 explicit owner decision; only `docs/EXECUTION_PLAN.md` can authorize the work.
+
 - **D2 — ROS strength counted twice in the weekly mean.**
   - **Current:** `src/ros/playoff_sim.py::_build_team_distributions` sets the mean to `pre-sim mean × (1 + 0.2z)`.
     The best-ball pre-sim is already drawn from the same ROS roster values, and the ROS z-score multiplier is then
