@@ -8,6 +8,74 @@ import {
   fetchPublicSection,
 } from "../lib/public-league-data.js";
 
+describe("public request total deadline", () => {
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+  it("bounds a silent connection and aborts it", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    const pending = fetchPublicSection("activity", { deadline: performance.now() + 100 });
+    const check = expect(pending).rejects.toThrow(/timed out/i);
+    await vi.advanceTimersByTimeAsync(101);
+    await check;
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch.mock.calls[0][1].signal.aborted).toBe(true);
+  });
+  it("bounds response JSON, not just headers", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: () => new Promise(() => {}) })));
+    const pending = fetchPublicSection("activity", { deadline: performance.now() + 100 });
+    const check = expect(pending).rejects.toThrow(/timed out/i);
+    await vi.advanceTimersByTimeAsync(101);
+    await check;
+  });
+  it("rejects JSON that finishes after the deadline before the timeout task runs", async () => {
+    let now = 0;
+    vi.stubGlobal("performance", { now: () => now });
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true,
+      json: async () => { now = 6000; return { late: true }; },
+    })));
+    await expect(fetchPublicSection("activity", { deadline: 5000 })).rejects.toThrow(/timed out/i);
+    expect(fetch.mock.calls[0][1].signal.aborted).toBe(true);
+  });
+  it("does not grant a retry a fresh budget", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 502 })));
+    const pending = fetchPublicSection("activity", { deadline: performance.now() + 100 });
+    const check = expect(pending).rejects.toThrow(/timed out/i);
+    await vi.advanceTimersByTimeAsync(101);
+    await check;
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+  it("does not admit already expired work", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({}) })));
+    await expect(fetchPublicSection("activity", { deadline: performance.now() - 1 })).rejects.toThrow(/timed out/i);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it("cancels pending backoff on unmount without another attempt", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 504 })));
+    const controller = new AbortController();
+    const pending = fetchPublicSection("activity", { deadline: performance.now() + 5000, signal: controller.signal });
+    const check = expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    await vi.advanceTimersByTimeAsync(100);
+    controller.abort();
+    await check;
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it("keeps nonretryable failure and successful JSON behavior within a deadline", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 503 })));
+    await expect(fetchPublicSection("activity", { deadline: performance.now() + 5000 })).rejects.toThrow(/503/);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const payload = { data: { count: 0, historicalValue: null } };
+    fetch.mockResolvedValue({ ok: true, json: async () => payload });
+    expect(await fetchPublicSection("activity", { deadline: performance.now() + 5000 })).toBe(payload);
+    expect(fetch.mock.calls[1][1].credentials).toBe("omit");
+  });
+});
+
 // ── Section keys ────────────────────────────────────────────────────────────
 describe("PUBLIC_SECTION_KEYS", () => {
   it("starts with overview so the front door is always first", () => {

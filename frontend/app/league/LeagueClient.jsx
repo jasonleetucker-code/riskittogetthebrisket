@@ -122,6 +122,24 @@ const TeamAssignmentSection = lazySection(() => import("./sections/team-assignme
 // A "use client" module's plain exports are client references and
 // cannot be called on the server, so the map could not stay here.
 
+// A full document's first League mount shares the navigation clock, including
+// SSR. Subsequent SPA mounts get a new intent clock. Commit this marker only
+// in an effect so abandoned renders and StrictMode replay cannot consume it.
+let committedDocumentOrigin = null;
+const RESOLVED_DEADLINE_MS = 5000;
+function initialIntent(tab) {
+  const navigation = typeof window !== "undefined"
+    ? performance.getEntriesByType?.("navigation")?.[0]
+    : null;
+  const documentLeague = navigation && new URL(navigation.name).pathname === "/league";
+  const initialDocument = documentLeague && committedDocumentOrigin !== performance.timeOrigin;
+  return {
+    tab,
+    deadline: (initialDocument ? 0 : performance.now()) + RESOLVED_DEADLINE_MS,
+    documentOrigin: initialDocument ? performance.timeOrigin : null,
+  };
+}
+
 export default function LeagueClient({ initialContract = null, initialTab = DEFAULT_TAB }) {
   return (
     <Suspense fallback={<LoadingState message="Loading league data..." />}>
@@ -149,6 +167,18 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
           ? normalizedInitialTab
           : DEFAULT_TAB),
   );
+  const [initialRequestIntent] = useState(() => initialIntent(activeTab));
+  const intentRef = useRef(initialRequestIntent);
+  useEffect(() => {
+    if (initialRequestIntent.documentOrigin !== null) {
+      committedDocumentOrigin = initialRequestIntent.documentOrigin;
+    }
+  }, [initialRequestIntent]);
+  useEffect(() => {
+    if (intentRef.current.tab !== activeTab) {
+      intentRef.current = { tab: activeTab, deadline: performance.now() + RESOLVED_DEADLINE_MS };
+    }
+  }, [activeTab]);
   const [state, setState] = useState(
     initialContract
       ? { loading: false, error: "", contract: initialContract }
@@ -173,6 +203,9 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
     // keys (overview.jsx → onNavigate("matchupPreview")) route to
     // the renamed tabs instead of into a blank-content state.
     const normalized = normalizeTabKey(key);
+    if (intentRef.current.tab !== normalized) {
+      intentRef.current = { tab: normalized, deadline: performance.now() + RESOLVED_DEADLINE_MS };
+    }
     setActiveTabState(normalized);
     router.replace(
       leagueTabHref(normalized, searchParams.toString(), extraParams),
@@ -184,6 +217,7 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
     // Server-rendered page already handed us the contract — skip.
     if (initialContract) return undefined;
     let active = true;
+    const controller = new AbortController();
     (async () => {
       try {
         // The OVERVIEW section, not the aggregate contract.  Every
@@ -192,7 +226,7 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
         // landing tab — where the aggregate was 2.01 MB.  This is the
         // SSR-failed fallback path; the tab effect below fills in
         // whatever else the visitor opens.
-        const payload = await fetchPublicSection("overview");
+        const payload = await fetchPublicSection("overview", { deadline: initialRequestIntent.deadline, signal: controller.signal });
         if (!active) return;
         if (!payload || typeof payload !== "object" || !payload.league) {
           setState({
@@ -222,8 +256,9 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
     })();
     return () => {
       active = false;
+      controller.abort();
     };
-  }, [initialContract]);
+  }, [initialContract, initialRequestIntent]);
 
   const { loading, error, contract } = state;
   const sections = contract?.sections || {};
@@ -243,17 +278,27 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
   const mountedRef = useRef(false);
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+      // StrictMode immediately replays setup. Only a real unmount retires the
+      // shell-owned requests; tab changes still populate their section cache.
+      queueMicrotask(() => {
+        if (!mountedRef.current) {
+          for (const controller of Object.values(inflightRef.current)) controller.abort();
+        }
+      });
+    };
   }, []);
   useEffect(() => {
     if (!contract) return undefined;
     if (!neededSection || haveSection) return undefined;
     if (inflightRef.current[neededSection]) return undefined;
-    inflightRef.current[neededSection] = true;
+    const controller = new AbortController();
+    inflightRef.current[neededSection] = controller;
     setSectionErrors((previous) => ({ ...previous, [neededSection]: "" }));
     (async () => {
       try {
-        const payload = await fetchPublicSection(neededSection);
+        const payload = await fetchPublicSection(neededSection, { deadline: intentRef.current.deadline, signal: controller.signal });
         // The shell owns its section cache, not whichever tab was active
         // when this request began. Switching tabs must not discard it.
         if (!mountedRef.current) return;

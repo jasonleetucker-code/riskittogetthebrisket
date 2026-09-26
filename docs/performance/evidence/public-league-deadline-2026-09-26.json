@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "recordedUtc": "2026-09-26T23:47:07.341643+00:00",
+  "campaign": "Current-main performance #1338",
+  "status": "IMPLEMENTED_AND_INDEPENDENTLY_REVIEWED; PRODUCTION_ACCEPTANCE_PENDING",
+  "scope": "Existing public LeagueClient section request deadline and failure recovery. No backend, scoring, source, API or infrastructure redesign.",
+  "observedFailure": {
+    "workflowRun": "36278712412",
+    "attempt": 1,
+    "counts": {
+      "passed": 93,
+      "failed": 1,
+      "skipped": 26
+    },
+    "failedTest": "prod-mobile v1-123-public-league-matrix.spec.js:98",
+    "failureOwner": "waitForLeagueReady at line63: active visible Loading section... did not clear within30000ms",
+    "route": "/league?tab=activity",
+    "selectedTab": "Trades",
+    "documentStatus": 200,
+    "documentElapsedMs": 3123.066,
+    "requestPath": "/api/public/league/activity",
+    "requestTraceStartMs": 474604.054,
+    "timeoutTraceEndMs": 504630.552,
+    "requestToTimeoutMs": 30026.498,
+    "networkObservation": "Response status and duration were -1 in trace: incomplete response, not actual HTTP status or duration. Screenshot and accessibility snapshot independently show active loading spinner.",
+    "interpretation": "Genuine unresolved user-visible section, not hidden text or settled-scanner false failure. Upstream delay cause unproven. First failure retained regardless of later workflow attempts."
+  },
+  "beforeChangeAfter": {
+    "before": "Browser helper fetch/body/retries had no total deadline. Silent connection or JSON body left the section loading indefinitely.",
+    "change": "LeagueClient supplies optional absolute monotonic intent deadline to existing helper; one budget spans response, body, retries and backoff. Timeout aborts and reports existing unavailable state. Final monotonic check refuses late JSON completion even if timer task was delayed.",
+    "afterLocal": "57 focused tests pass and independent corrected review approves. No deployed before/after usefulness measurement in this record.",
+    "verdict": "Local bounded-failure correctness correction, not normal-speed acceptance."
+  },
+  "semantics": {
+    "initialNavigation": "First committed /league document mount uses navigation-origin5000ms deadline, including SSR elapsed; overview fallback and subsequent initial section do not reset the deadline.",
+    "spa": "Later same-document League mounts and tab intents get a fresh intent budget; already cached sections remain usable.",
+    "lifecycle": "First-document marker committed only in effect. StrictMode replay preserves pending section work; real unmount aborts. Inactive pending sections still populate their own cache; expired late bytes cannot publish.",
+    "privacy": "credentials omit unchanged; optional deadline is applied only by LeagueClient. Other existing public helper consumers retain their contracts.",
+    "values": "Successful response objects, finite zero and missing/null preserved. No canonical values or historical grades changed.",
+    "retry": "Existing502/504 transient behavior retained within total deadline;503 terminal; abort cancels backoff and stops further attempts."
+  },
+  "validation": {
+    "initialRed": {
+      "failed": 4,
+      "passed": 19,
+      "durationSeconds": 15.6,
+      "cases": [
+        "silent connection",
+        "headers received but JSON hangs",
+        "retry exceeds original budget",
+        "expired request admitted"
+      ]
+    },
+    "firstIndependentReview": "VETO: JSON could resolve at monotonic6000ms against deadline5000ms before queued timeout task, incorrectly returning success. Original review and implementation receipts retained.",
+    "vetoRegressionRed": {
+      "failed": 1,
+      "skipped": 25,
+      "durationSeconds": 0.526
+    },
+    "correctedAuthorRun": {
+      "passed": 57,
+      "files": 5,
+      "durationSeconds": 3.0,
+      "command": "Node20 vitest run __tests__/public-league.test.js __tests__/components/league-section-lifecycle.test.jsx __tests__/league-tab-sections.test.js __tests__/components/activity-news-unavailable.test.jsx __tests__/a11y-failure-not-empty.test.js --maxWorkers=2"
+    },
+    "independentValidation": [
+      {
+        "command": "Node20 frontend/node_modules/vitest/vitest.mjs run __tests__/public-league.test.js __tests__/components/league-section-lifecycle.test.jsx __tests__/league-tab-sections.test.js __tests__/components/activity-news-unavailable.test.jsx __tests__/a11y-failure-not-empty.test.js --root frontend --maxWorkers=2",
+        "result": "57passed5files3.12s; existingVitenativeconfigwarning retained"
+      },
+      {
+        "command": "Actualhelper Node20dataURLimport; fetchresolved,JSONadvancesmonotonicclock0to6000beforetimer,deadline5000",
+        "result": {
+          "resolved": false,
+          "name": "TimeoutError",
+          "now": 6000,
+          "deadline": 5000
+        }
+      },
+      {
+        "command": "git diff --check",
+        "result": "PASS; CRLFadvisoryonly"
+      }
+    ],
+    "independentVerdict": "APPROVE_SCOPED_DEADLINE_CORRECTION",
+    "whitespace": "git diff --check PASS",
+    "repositoryIntegration": {
+      "node": "20.20.2",
+      "frontendFiles": 189,
+      "frontendPassed": 2826,
+      "frontendSeconds": 70.36,
+      "productionBuild": "PASS",
+      "unchangedBundleGates": 14,
+      "planningIntegrity": "PASS",
+      "backendRevalidation": "No backend files changed; retained merged-release checks. Required PR CI remains pending.",
+      "logs": {
+        "public-deadline-full-frontend.txt": "3f033d3dd5decc6b96aec8a407fdd65a1b1472893ca3017dc3ba40997c3d2d38",
+        "public-deadline-build.txt": "423c5ee4645483d5c30676a16024ed12f4c6d609192cc59b8fd0bd3f0ce7e3f6"
+      }
+    }
+  },
+  "implementationHashes": {
+    "frontend/lib/public-league-data.js": "010863552a447d1fb16f0fe1b25c4dd9253dd59089631bc5804f79b7cd7e3c8e",
+    "frontend/app/league/LeagueClient.jsx": "3847c636862564afd6630a60e25180f007d34b8a5edd758550ae880aeedf777b",
+    "frontend/__tests__/public-league.test.js": "751b830d6b7de87769c1c600b6cae1789a442f0084b727445e677aab9d569bc8",
+    "frontend/__tests__/components/league-section-lifecycle.test.jsx": "90b3c2f8e54d9d46849094f752a1b0be28b7d664063126866f1b17c55ec23864"
+  },
+  "evidenceReceipts": [
+    {
+      "name": "verification-36278712412-triage.json",
+      "sha256": "66052627a61d8212adb94af34957043afa798926b3c98764bb26d5e53e5bd326",
+      "storage": "Private existing campaign evidence; raw screenshots, trace and session artifacts not copied to this sanitized record."
+    },
+    {
+      "name": "public-activity-deadline-attribution.json",
+      "sha256": "e41576d0af4f7edddcfe4594d250894b76170b8944d91135fe9ee4ac13fc1e06",
+      "storage": "Private existing campaign evidence; raw screenshots, trace and session artifacts not copied to this sanitized record."
+    },
+    {
+      "name": "public-league-deadline-implementation.json",
+      "sha256": "219bb5c71a4ee4444f79b1246b8c38ff2428edb2b8ed43beb3b3eaac70df9d4d",
+      "storage": "Private existing campaign evidence; raw screenshots, trace and session artifacts not copied to this sanitized record."
+    },
+    {
+      "name": "public-league-deadline-implementation-02.json",
+      "sha256": "3c69decc9a36e6d904f6b80b174032ceb7b9571077169dfda7ff2c474f2370c5",
+      "storage": "Private existing campaign evidence; raw screenshots, trace and session artifacts not copied to this sanitized record."
+    },
+    {
+      "name": "public-league-deadline-review-01.json",
+      "sha256": "a5457bc68317930581bc2ff3763d1b18b84409860d9320a179ec7706fdc72eb0",
+      "storage": "Private existing campaign evidence; raw screenshots, trace and session artifacts not copied to this sanitized record."
+    },
+    {
+      "name": "public-league-deadline-review-02.json",
+      "sha256": "338fce498dc0b78abdf9eac718bd0fcf5500b2ae7d312fd0b0c7318d53708623",
+      "storage": "Private existing campaign evidence; raw screenshots, trace and session artifacts not copied to this sanitized record."
+    }
+  ],
+  "limitations": [
+    "No production5second guarantee or useful-speed improvement established. Delayed hydration, event-loop blocking and dynamic component loading can still exceed the deadline; immediate honest fallback cannot undo elapsed time.",
+    "Synchronous parsing cannot be preempted; late completion is rejected before helper returns.",
+    "Client abort does not establish cancellation of backend worker/provider work.",
+    "Root cause of the unfinished activity response may involve upstream computation, cache, database, network or proxy; no causal claim is selected.",
+    "React component tests mock navigation and section renderers; actual production/SSR/SPA validation remains required.",
+    "Unavailable is a truthful failure outcome, not numerical or normal-speed success.",
+    "No independent totals are summed with overlapping author tests."
+  ]
+}

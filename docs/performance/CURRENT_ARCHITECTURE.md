@@ -250,3 +250,62 @@ owner directives. Fresh combined frontend validation passes189files/2,803tests
 Independent merge review confirms confidence source/tests are unchanged and both
 ledger sections survive. These are integration checks, not browser performance
 acceptance. Required new-head CI and deployed verification remain outstanding.
+
+## Merged release checkpoint — September 26, 23:38 UTC
+
+PR #1499 merged the reviewed performance train as
+`0b92d66fc6875c5487e60fc1d2a41308026b8f2c`. All constituent PRs are merged.
+[Merged-release evidence](evidence/merged-release-2026-09-26.json) records the identities and limitations.
+Exact-head required validation passed: 12,590 backend tests (43 skipped),
+189 frontend files / 2,814 tests, Node20 production build and all14 unchanged
+bundle gates. Browser journeys passed255 with63 explicit exclusions/skips;
+these are functional checks, not production useful-state acceptance.
+
+The live-data advisory lane retains17 failures. Independent same-input,
+same-clock reproduction on pre-release main and candidate gives identical
+rank/value/confidence results:36 high-confidence rows of740 and the same
+10 low-confidence anchor players. Sixteen source-observation stamps crossed
+the existing six-hour freshness boundary between runs. This is not a candidate
+confidence regression or proof of production freshness. Assertions remain intact.
+
+The actual merged tree differs from CI's tested synthetic merge only in an
+automated Sharp smoke receipt. The final leaf classification was completed
+immediately after merge, not before it. Later main `1b17eaea0` changes only that
+same receipt to an unauthenticated/unmeasured state. Both are benign for the
+fixed-input performance code checks; neither is production health evidence.
+
+Deployment36278976584 is still validating the merged identity. Last verified
+production identity is `7eae987b2f98eefc48758a207f4f85e666997e9a`; the compact
+Rankings/Trade change is not yet claimed deployed or accepted. Remeasure the
+actual deployment using the existing core baseline before further optimization.
+
+Production browser verification36278712412 attempt1 retained93 passes,26 skips
+and one real mobile public League Trades failure: the activity request remained
+pending for over30 seconds and the visible panel still said Loading section.
+The existing client helper has no fetch/body/retry deadline. A bounded recovery
+correction is being prepared; upstream latency ownership remains unproved.
+Campaign #1338 stays open.
+
+Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
+
+### Public League bounded recovery correction
+
+The existing section helper now accepts one absolute intent deadline spanning
+fetch, body and transient retries. LeagueClient includes SSR time on the first
+document and assigns fresh budgets to later SPA/tab intents. Cached sections
+and inactive pending section reuse remain intact. Real unmount and timeout
+abort the request; late results cannot overwrite state. Other public helper
+consumers retain their existing behavior.
+
+Independent review rejected the first timer-only version: JSON could finish
+after the deadline before the timer callback ran. A reproduced regression now
+requires a final monotonic-clock check before publication. The corrected candidate
+passes57 focused tests independently, the full189-file/2,826-test frontend suite,
+Node20 build and all14 unchanged bundle budgets. Planning and whitespace checks
+pass. [Failure, review and validation evidence](evidence/public-league-deadline-2026-09-26.json)
+preserve both rejected and corrected attempts.
+
+This fixes unbounded failure behavior, not the unproven upstream latency owner.
+Hydration, scheduling or component loading can still exceed five seconds; an
+unavailable outcome is never numerical useful-state success. Exact-head CI and
+actual deployed acceptance remain required.

@@ -56,30 +56,40 @@ export const PUBLIC_SECTION_KEYS = Object.freeze([
 const _TRANSIENT_GATEWAY_STATUSES = new Set([502, 504]);
 const _MAX_FETCH_ATTEMPTS = 3;
 
-function _sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function _sleep(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(signal.reason); return; }
+    const finish = () => { signal?.removeEventListener("abort", abort); resolve(); };
+    const timer = setTimeout(finish, ms);
+    const abort = () => { clearTimeout(timer); reject(signal.reason); };
+    signal?.addEventListener("abort", abort, { once: true });
+  });
 }
 
-async function _getJson(url) {
+async function _getJsonAttempt(url, signal) {
   let lastErr;
   for (let attempt = 1; attempt <= _MAX_FETCH_ATTEMPTS; attempt += 1) {
+    if (signal?.aborted) throw signal.reason;
     let resp;
     try {
       resp = await fetch(url, {
+        ...(signal ? { signal } : {}),
         method: "GET",
         credentials: "omit",
         headers: { Accept: "application/json" },
       });
     } catch (err) {
+      if (signal?.aborted) throw signal.reason;
       // Network-level failure (connection reset mid-rebuild, etc.) — retry.
       lastErr = err;
       if (attempt < _MAX_FETCH_ATTEMPTS) {
-        await _sleep(300 * attempt);
+        await _sleep(300 * attempt, signal);
         continue;
       }
       throw err;
     }
     if (resp.ok) {
+      if (signal?.aborted) throw signal.reason;
       return resp.json();
     }
     lastErr = new Error(
@@ -89,7 +99,7 @@ async function _getJson(url) {
       _TRANSIENT_GATEWAY_STATUSES.has(resp.status) &&
       attempt < _MAX_FETCH_ATTEMPTS
     ) {
-      await _sleep(300 * attempt);
+      await _sleep(300 * attempt, signal);
       continue;
     }
     throw lastErr;
@@ -97,12 +107,53 @@ async function _getJson(url) {
   throw lastErr;
 }
 
+// An admitted LeagueClient intent supplies one absolute monotonic deadline.
+// Other public consumers retain their existing request contract.
+async function _getJson(url, { deadline, signal } = {}) {
+  if (!Number.isFinite(deadline)) return _getJsonAttempt(url, signal);
+  const controller = new AbortController();
+  const timeoutError = () => new DOMException("Public league request timed out.", "TimeoutError");
+  const remaining = deadline - performance.now();
+  if (remaining <= 0) throw timeoutError();
+  if (signal?.aborted) throw signal.reason;
+  let timer;
+  let onAbort;
+  const interrupted = new Promise((_, reject) => {
+    onAbort = () => {
+      controller.abort(signal.reason);
+      reject(signal.reason);
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+    timer = setTimeout(() => {
+      const error = timeoutError();
+      controller.abort(error);
+      reject(error);
+    }, remaining);
+  });
+  try {
+    // Race the entire operation, including JSON and retry delays. An upstream
+    // or test double that ignores abort still cannot keep the UI pending.
+    const payload = await Promise.race([_getJsonAttempt(url, controller.signal), interrupted]);
+    // Parsing may occupy the event loop beyond the deadline before the timer
+    // task can run. Never publish that late completion as an on-time answer.
+    if (performance.now() >= deadline) {
+      const error = timeoutError();
+      controller.abort(error);
+      throw error;
+    }
+    return payload;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", onAbort);
+  }
+}
+
 export async function fetchPublicLeague({ refresh } = {}) {
   const qs = refresh ? "?refresh=1" : "";
   return _getJson(`/api/public/league${qs}`);
 }
 
-export async function fetchPublicSection(section, { owner, refresh } = {}) {
+export async function fetchPublicSection(section, { owner, refresh, deadline, signal } = {}) {
   if (!PUBLIC_SECTION_KEYS.includes(section)) {
     throw new Error(`Unknown public section: ${section}`);
   }
@@ -110,7 +161,7 @@ export async function fetchPublicSection(section, { owner, refresh } = {}) {
   if (owner) params.set("owner", owner);
   if (refresh) params.set("refresh", "1");
   const qs = params.toString();
-  return _getJson(`/api/public/league/${section}${qs ? `?${qs}` : ""}`);
+  return _getJson(`/api/public/league/${section}${qs ? `?${qs}` : ""}`, { deadline, signal });
 }
 
 export async function fetchPublicMatchup(season, week, matchupId, { refresh } = {}) {
