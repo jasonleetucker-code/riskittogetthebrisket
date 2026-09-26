@@ -17,9 +17,11 @@ READ-ONLY with respect to the live contract: BDVM never mutates
 
 from __future__ import annotations
 
+import json
 import logging
 import threading
 from collections import OrderedDict
+from pathlib import Path
 from typing import Any, Mapping
 
 from src.api import league_registry as _league_registry
@@ -41,13 +43,98 @@ _VALUES_CACHE_MAX = 4
 _values_cache: OrderedDict[tuple, dict[str, Any]] = OrderedDict()
 
 _aux_lock = threading.Lock()
-_context_cache: dict[int, Mapping[str, Any]] = {}
-_schedule_cache: dict[int, Mapping[str, Any] | None] = {}
-# In-season actuals change WEEKLY, so unlike context/schedule this
-# cache keys on (season, UTC day) — a failed or preseason-empty fetch
-# is retried the next day, and the day rides the ingest layer's 24h
-# disk TTL underneath.
-_actuals_cache: dict[tuple[int, str], tuple[int | None, Mapping[str, Any]]] = {}
+# Every auxiliary cache is keyed on the IDENTITY of the inputs it was
+# built from (season + the local artifact's file generation, and for
+# actuals the scoring card too), and bounded LRU.  Keying on season
+# alone served a context/schedule that had since been refreshed on disk
+# until the process restarted; keying actuals on (season, UTC day)
+# served one league's SCORED points to a league with a different card.
+_AUX_CACHE_MAX = 16
+_context_cache: OrderedDict[tuple, Mapping[str, Any]] = OrderedDict()
+_schedule_cache: OrderedDict[tuple, Mapping[str, Any] | None] = OrderedDict()
+_actuals_cache: OrderedDict[tuple, tuple[int | None, Mapping[str, Any]]] = OrderedDict()
+
+
+def _file_generation(path: Path | None) -> tuple:
+    """Cheap local identity of one artifact, including atomic replacement.
+
+    A missing file is its own generation (``(path, None)``), so
+    missing -> present is a change like any other.
+    """
+    if path is None:
+        return (None,)
+    try:
+        stat = path.stat()
+    except OSError:
+        return (str(path), None)
+    return (str(path), stat.st_mtime_ns, stat.st_size)
+
+
+def _nfl_generation(feed: str, season: int) -> tuple:
+    """File generation of one ``nfl_data`` cache entry (data + metadata).
+
+    The key and paths come from the acquisition owner (``ingest`` /
+    ``cache``) rather than being rebuilt here.
+    """
+    from src.nfl_data import cache as nfl_cache  # noqa: PLC0415
+    from src.nfl_data import ingest  # noqa: PLC0415
+
+    paths = nfl_cache._entry_paths(nfl_cache._default_cache_dir(), ingest.cache_key(feed, [season]))
+    return tuple(_file_generation(path) for path in paths)
+
+
+def _context_generation(season: int) -> tuple:
+    from src.bdvm.context_store import snapshot_path  # noqa: PLC0415
+
+    return _file_generation(snapshot_path(season))
+
+
+def _scoring_key(contract: Mapping[str, Any]) -> tuple:
+    """The scoring card actually consumed by the actuals scorer.
+
+    Both the factual fingerprint AND the exact card: the fingerprint
+    deliberately ignores non-numeric values for compatibility decisions,
+    while the scorer may still read them, so sharing must never introduce
+    an equivalence the scorer did not promise.
+    """
+    from src.league_comparison.sleeper_scoring import scoring_fingerprint  # noqa: PLC0415
+
+    scoring = (contract.get("sleeper") or {}).get("scoringSettings") or {}
+    return scoring_fingerprint(scoring), json.dumps(scoring, sort_keys=True, default=str)
+
+
+def _actuals_key(contract: Mapping[str, Any]) -> tuple | None:
+    """Identity of every input ``fetch_current_season_actuals`` reads, or
+    None outside the in-season window."""
+    from src.bdvm.actuals import current_nfl_season  # noqa: PLC0415
+    from src.nfl_data.pbp_weekly import pbp_weekly_path  # noqa: PLC0415
+
+    season = current_nfl_season()
+    if season is None:
+        return None
+    return (
+        season,
+        _today(),
+        _scoring_key(contract),
+        _nfl_generation("weekly_stats", season),
+        _file_generation(pbp_weekly_path(season)),
+    )
+
+
+def _aux_get(cache: OrderedDict, key: tuple) -> tuple[bool, Any]:
+    with _aux_lock:
+        if key in cache:
+            cache.move_to_end(key)
+            return True, cache[key]
+    return False, None
+
+
+def _aux_put(cache: OrderedDict, key: tuple, value: Any) -> None:
+    with _aux_lock:
+        cache[key] = value
+        cache.move_to_end(key)
+        while len(cache) > _AUX_CACHE_MAX:
+            cache.popitem(last=False)
 
 
 def _registry_settings_for(league_key: str) -> tuple[Mapping[str, Any] | None, bool, str]:
@@ -61,9 +148,10 @@ def _registry_settings_for(league_key: str) -> tuple[Mapping[str, Any] | None, b
 
 
 def _context_for(season: int) -> Mapping[str, Any]:
-    with _aux_lock:
-        if season in _context_cache:
-            return _context_cache[season]
+    key = (season, _context_generation(season))
+    hit, cached = _aux_get(_context_cache, key)
+    if hit:
+        return cached
     try:
         from src.bdvm.context_store import load_snapshot  # noqa: PLC0415
 
@@ -87,15 +175,15 @@ def _context_for(season: int) -> Mapping[str, Any]:
             season,
         )
         ctx = {}
-    with _aux_lock:
-        _context_cache[season] = ctx
+    _aux_put(_context_cache, key, ctx)
     return ctx
 
 
 def _schedule_for(season: int) -> Mapping[str, Any] | None:
-    with _aux_lock:
-        if season in _schedule_cache:
-            return _schedule_cache[season]
+    key = (season, _nfl_generation("schedules", season))
+    hit, cached = _aux_get(_schedule_cache, key)
+    if hit:
+        return cached
     try:
         from src.bdvm.schedule import fetch_team_weeks  # noqa: PLC0415
 
@@ -103,8 +191,7 @@ def _schedule_for(season: int) -> Mapping[str, Any] | None:
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning("bdvm: schedule unavailable: %s", exc)
         sched = None
-    with _aux_lock:
-        _schedule_cache[season] = sched
+    _aux_put(_schedule_cache, key, sched)
     return sched
 
 
@@ -134,7 +221,13 @@ def _today() -> str:
 
 
 def _actuals_for(contract: Mapping[str, Any]) -> tuple[int | None, Mapping[str, Any]]:
-    """In-progress-season weekly actuals, cached per (season, UTC day).
+    """In-progress-season weekly actuals, cached per scoring card and inputs.
+
+    The key is :func:`_actuals_key` — season, UTC day, the scoring card
+    (fingerprint + exact card) and the file generation of the weekly-stats
+    cache entry and the PBP supplement.  Two leagues with different cards
+    therefore never share SCORED points, and a same-day refresh of either
+    input is re-scored instead of served stale until midnight.
 
     The season is the CALENDAR NFL season (``current_nfl_season``),
     never the contract's ``currentDraftYear`` — the draft year points
@@ -147,15 +240,13 @@ def _actuals_for(contract: Mapping[str, Any]) -> tuple[int | None, Mapping[str, 
     cached for the day — that's the honest preseason/early-window
     signal.)
     """
-    from src.bdvm.actuals import current_nfl_season  # noqa: PLC0415
-
-    nfl_season = current_nfl_season()
-    if nfl_season is None:
+    cache_key = _actuals_key(contract)
+    if cache_key is None:
         return (None, {})
-    cache_key = (nfl_season, _today())
-    with _aux_lock:
-        if cache_key in _actuals_cache:
-            return _actuals_cache[cache_key]
+    nfl_season = cache_key[0]
+    hit, cached = _aux_get(_actuals_cache, cache_key)
+    if hit:
+        return cached
     try:
         from src.bdvm.actuals import fetch_current_season_actuals  # noqa: PLC0415
         from src.utils.name_clean import normalize_player_name  # noqa: PLC0415
@@ -178,11 +269,9 @@ def _actuals_for(contract: Mapping[str, Any]) -> tuple[int | None, Mapping[str, 
     except Exception as exc:  # noqa: BLE001
         _LOGGER.warning("bdvm: in-season actuals unavailable (not cached, will retry): %s", exc)
         return (None, {})
-    with _aux_lock:
-        # Drop stale day entries so the cache never grows unbounded.
-        for old_key in [k for k in _actuals_cache if k[1] != cache_key[1]]:
-            _actuals_cache.pop(old_key, None)
-        _actuals_cache[cache_key] = result
+    # Bounded LRU: several scoring cards can be live on the same day, so
+    # the old per-day sweep no longer bounds it.
+    _aux_put(_actuals_cache, cache_key, result)
     return result
 
 
@@ -295,18 +384,25 @@ def get_bdvm_values(
     # — the better part of a minute on a cold cache — buys nothing at all.
     # Ask whether the answer is reachable before paying for an input to it.
     actuals = _actuals_for(contract) if snapshot else (None, {})
+    actuals_key = _actuals_key(contract) if snapshot else None
     key = (
         id(contract),
         contract.get("generatedAt"),
         league_key,
         params.param_set_id,
-        str(snapshot) if snapshot else None,
+        _file_generation(snapshot) if snapshot else None,
         surplus_mode,
         # In-season freshness: a new observed week (or day rollover
         # after one) must recompute; events-file edits are covered by
-        # the fingerprint.
+        # the fingerprint.  ``actuals[0]`` stays in the key so a failed
+        # (unmemoized) actuals read cannot pin its degraded valuation.
         actuals[0],
         _today() if actuals[0] is not None else None,
+        # Input identity: a same-day refresh of the weekly/PBP artifacts,
+        # the player context or the schedule must recompute.
+        actuals_key,
+        _context_generation(season),
+        _nfl_generation("schedules", season),
         _events_fingerprint(season),
     )
     with _lock:
@@ -336,7 +432,12 @@ def get_bdvm_values(
     # materialised inputs the payload is byte-equivalent apart from this
     # block.
     if isinstance(payload, dict) and isinstance(payload.get("meta"), dict):
-        payload["meta"]["auxiliaryInputs"] = _auxiliary_input_report(season, actuals[0])
+        # The report takes the actuals SEASON.  ``actuals[0]`` is the
+        # observed WEEK, which looked up a ``weekly_stats`` entry for
+        # "season 2" and always reported it missing.
+        payload["meta"]["auxiliaryInputs"] = _auxiliary_input_report(
+            season, actuals_key[0] if actuals_key is not None else None
+        )
     with _lock:
         _values_cache[key] = payload
         _values_cache.move_to_end(key)
