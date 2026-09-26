@@ -74,7 +74,17 @@ def build_snapshot(ledger_path: Path | None = None) -> dict[str, Any]:
             "qualified": sum(1 for s in evaluable if s.qualified),
             "cohortMembers": len(members),
         },
-        "evidence": evidence if isinstance(evidence, dict) else {},
+        # build_manager_records returns {managerKey: EvidenceStatus}; the dataclass
+        # owns its JSON shape (to_dict).  Dumping it raw failed every daily run
+        # with "Object of type EvidenceStatus is not JSON serializable" (2026-08..09).
+        "evidence": (
+            {
+                key: (value.to_dict() if hasattr(value, "to_dict") else value)
+                for key, value in evidence.items()
+            }
+            if isinstance(evidence, dict)
+            else {}
+        ),
         "coverage": coverage,
         # The ORDER is the artifact under test, so it is stored as a list.
         "ranking": [s.user_id for s in ranked],

@@ -45,16 +45,20 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from src.api import feature_flags
-from src.bdvm.events import EVENTS_DIR
-from src.nfl_data import cache as _cache
-from src.nfl_data.depth_charts import (
+# Run by systemd as `python scripts/<name>.py`, Python puts scripts/ (not the repo
+# root) on sys.path; without this every `from src...` import fails (2026-09-24).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from src.api import feature_flags  # noqa: E402
+from src.bdvm.events import EVENTS_DIR  # noqa: E402
+from src.nfl_data import cache as _cache  # noqa: E402
+from src.nfl_data.depth_charts import (  # noqa: E402
     NFL_TEAM_IDS,
     DepthChartEntry,
     detect_slot_changes,
     fetch_team_depth_chart,
 )
-from src.utils.name_clean import normalize_player_name
+from src.utils.name_clean import normalize_player_name  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 _LOGGER = logging.getLogger(__name__)

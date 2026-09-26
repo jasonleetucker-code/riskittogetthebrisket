@@ -11,8 +11,8 @@ batch / next ten / parallel batches / fresh-session dispatch, reconcile current 
 open PRs/branches/claims, Master Plan, Feature Inventory, Product Backlog/specs, C-Series
 manifest/map, completion contracts, owner intake, issues, code/production evidence and
 the combined-phase replan. Remove completed/superseded/rejected work, group shared
-foundations, respect dependencies and avoid active-file conflicts. Preserve #1419's
-related full-portfolio reconciliation during integration, not one or the other.
+foundations, respect dependencies and avoid active-file conflicts. #1419's full-portfolio
+reconciliation is folded into §8 (batch ranking); issue #1418 is its durable record.
 
 Every substantial batch explicitly evaluates backend completion, UI completion, actual
 UI staffing, stable routes, file/branch conflicts and integration order. Consult
@@ -228,6 +228,26 @@ The canonical combined-phase sequencing overlay is:
 `docs/BACKLOG_REPLAN_2026-09-10.md`
 
 It is subordinate to the Master Product Plan and Execution Plan and does not authorize work.
+
+### "Next reasonable batch": rank by practical importance, never by issue number
+
+When the owner asks for the next reasonable batch (or equivalent), recompute a bounded batch from
+current truth; do not take the next issue numbers or the next rows in one document. Prefer, in
+order, unless evidence justifies a different sequence:
+
+1. P0/P1 correctness, production health, data loss, security or user-blocking defects;
+2. completion-critical requirements that block the declared completion contract;
+3. high-unlock shared foundations that satisfy or unblock several downstream requirements;
+4. time-sensitive / irrecoverable evidence work that cannot be reconstructed later;
+5. dependency-ready product work with high user value;
+6. adjacent cleanup that is cheap because the same owner/files are already open.
+
+Within a tier favor more downstream unlocks, fewer canonical-owner conflicts and smaller coherent
+PR boundaries. Never rank by novelty, issue age or issue number. A batch normally has one primary
+critical-path lane plus zero to a few genuinely independent lanes (two to four is a default, not a
+quota); serial/integration-only work kept separate; acceptance criteria and stop conditions per
+lane; merge order; and named owner-only decisions or external blockers. (Harvested from #1419;
+issue #1418 remains the durable record.)
 
 ## 9. Intake record shape for new material ideas
 
