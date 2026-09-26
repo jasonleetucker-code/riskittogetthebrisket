@@ -141,6 +141,9 @@ class LiveWeekRecordCounting(unittest.TestCase):
         # helpers read matter.
         class _SnapSeason:
             league_id = "L1"
+            # Host clock: nothing finished yet (week 1 is live).
+            league = {"settings": {"last_scored_leg": 0}}
+            num_teams = 2
             matchups_by_week = {
                 1: [
                     {"roster_id": 1, "matchup_id": 10, "points": 110.5},
@@ -178,9 +181,11 @@ class PartialWeekPostedPairs(unittest.TestCase):
     whole week.
     """
 
-    def _make_season(self, entries_by_week):
+    def _make_season(self, entries_by_week, last_scored_leg=None):
         class _Season:
             league_id = "L1"
+            league = {"settings": {"last_scored_leg": last_scored_leg}}
+            num_teams = 4
             matchups_by_week = entries_by_week
 
             @property
@@ -198,10 +203,13 @@ class PartialWeekPostedPairs(unittest.TestCase):
     def tearDown(self) -> None:
         playoff_odds.metrics.resolve_owner = self._original  # type: ignore[attr-defined]
 
-    def test_partial_week_emits_only_unplayed_pairs(self) -> None:
-        # Week 3: matchup_id 10 is complete (110.2 vs 95.7), matchup_id
-        # 11 hasn't been played yet (both sides at 0).  posted should
-        # contain ONLY the unplayed pair from matchup 11.
+    def test_partial_week_emits_every_pair_including_started_ones(self) -> None:
+        """D4 (2026-09-26).  Week 3 is live: matchup 10 has points on both
+        sides (a Thursday-night sliver), matchup 11 has not started.  A
+        started matchup is not a finished one, so NEITHER counts toward the
+        record and BOTH must be simulated.  This test used to assert only
+        matchup 11 was emitted — the exact rule that froze 3 of 6 live
+        best-ball matchups as finals on Thursday scores."""
         entries = {
             3: [
                 {"roster_id": 1, "matchup_id": 10, "points": 110.2},
@@ -210,12 +218,14 @@ class PartialWeekPostedPairs(unittest.TestCase):
                 {"roster_id": 4, "matchup_id": 11, "points": 0.0},
             ],
         }
-        posted = playoff_odds._posted_future_matchups(self._make_season(entries), None)
+        posted = playoff_odds._posted_future_matchups(
+            self._make_season(entries, last_scored_leg=2), None
+        )
         self.assertIn(3, posted)
-        self.assertEqual(len(posted[3]), 1)
-        pair = posted[3][0]
-        self.assertIn("owner-3", pair)
-        self.assertIn("owner-4", pair)
+        self.assertEqual(
+            sorted(tuple(sorted(p)) for p in posted[3]),
+            [("owner-1", "owner-2"), ("owner-3", "owner-4")],
+        )
 
     def test_fully_unplayed_week_emits_all_pairs(self) -> None:
         entries = {
@@ -226,7 +236,9 @@ class PartialWeekPostedPairs(unittest.TestCase):
                 {"roster_id": 4, "matchup_id": 21, "points": 0.0},
             ],
         }
-        posted = playoff_odds._posted_future_matchups(self._make_season(entries), None)
+        posted = playoff_odds._posted_future_matchups(
+            self._make_season(entries, last_scored_leg=4), None
+        )
         self.assertEqual(len(posted[5]), 2)
 
     def test_fully_played_week_absent_from_posted(self) -> None:
@@ -238,7 +250,9 @@ class PartialWeekPostedPairs(unittest.TestCase):
                 {"roster_id": 4, "matchup_id": 31, "points": 105.0},
             ],
         }
-        posted = playoff_odds._posted_future_matchups(self._make_season(entries), None)
+        posted = playoff_odds._posted_future_matchups(
+            self._make_season(entries, last_scored_leg=2), None
+        )
         self.assertNotIn(2, posted)
 
 
@@ -248,9 +262,14 @@ class ZeroPointPastWeek(unittest.TestCase):
     current record once the week is provably in the past.
     """
 
-    def _make_season(self, entries_by_week):
+    def _make_season(self, entries_by_week, last_scored_leg=None):
         class _Season:
             league_id = "L1"
+            # The host clock is the canonical proof that admits a finished
+            # week in which a roster genuinely scored 0.0
+            # (metrics.final_regular_season_weeks).
+            league = {"settings": {"last_scored_leg": last_scored_leg}}
+            num_teams = 2
             matchups_by_week = entries_by_week
 
             @property
@@ -279,7 +298,9 @@ class ZeroPointPastWeek(unittest.TestCase):
                 {"roster_id": 2, "matchup_id": 20, "points": 105.0},
             ],
         }
-        rec = playoff_odds._regular_season_record_to_date(self._make_season(entries), None)
+        rec = playoff_odds._regular_season_record_to_date(
+            self._make_season(entries, last_scored_leg=2), None
+        )
         # Owner-1: 1 win week 1, 1 loss week 2.
         self.assertEqual(rec["owner-1"]["wins"], 1)
         self.assertEqual(rec["owner-1"]["losses"], 1)
@@ -297,7 +318,9 @@ class ZeroPointPastWeek(unittest.TestCase):
                 {"roster_id": 2, "matchup_id": 10, "points": 0.0},
             ],
         }
-        rec = playoff_odds._regular_season_record_to_date(self._make_season(entries), None)
+        rec = playoff_odds._regular_season_record_to_date(
+            self._make_season(entries, last_scored_leg=0), None
+        )
         self.assertEqual(rec, {})
 
 
@@ -329,6 +352,8 @@ class TieHandling(unittest.TestCase):
 
         class _Season:
             league_id = "L1"
+            league = {"settings": {"last_scored_leg": 2}}
+            num_teams = 2
             matchups_by_week = {
                 1: [
                     {"roster_id": 1, "matchup_id": 10, "points": 100.0},
@@ -426,6 +451,8 @@ class ZeroZeroPastWeek(unittest.TestCase):
     def test_zero_zero_in_past_week_counts_as_tie(self) -> None:
         class _Season:
             league_id = "L1"
+            league = {"settings": {"last_scored_leg": 2}}
+            num_teams = 2
             matchups_by_week = {
                 1: [
                     {"roster_id": 1, "matchup_id": 10, "points": 0.0},

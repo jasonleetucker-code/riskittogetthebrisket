@@ -1,0 +1,30 @@
+{
+  "_comment": "Owner competition rules that make a manager ineligible to WIN one award in ONE season of ONE league. Eligibility only: the underlying metric is still measured, published and ranked (metric rank), and no other award, statistic, standings or data consumer reads this file. Scoped by season + that season's Sleeper league id, never by date, so a past season keeps its rule forever and a new season starts with none. Owner module: src/public_league/award_eligibility.py.",
+  "version": 1,
+  "overrides": [
+    {
+      "id": "2026-waiver-king-joel-blaine",
+      "season": "2026",
+      "leagueId": "1312006700437352448",
+      "award": "waiver_king",
+      "type": "owner_season_eligibility_override",
+      "ineligibleOwnerIds": ["712035316776669184", "1303549304882892800"],
+      "owners": [
+        {
+          "ownerId": "712035316776669184",
+          "person": "Joel",
+          "resolvedFrom": "Sleeper username jstuedle; 2026 roster 11; team shown as 'J Stoodle' / 'jstuedle'"
+        },
+        {
+          "ownerId": "1303549304882892800",
+          "person": "Blaine",
+          "resolvedFrom": "Sleeper username ughb; 2026 roster 12; team shown as 'Ugh BUGHB' at the time of the ruling"
+        }
+      ],
+      "publicLabel": "Ineligible for 2026 award",
+      "decidedBy": "league owner",
+      "decidedAt": "2026-09-26",
+      "reason": "Owner competition rule for the 2026 season: these two managers may not win Waiver King. Their waiver transactions and production are real league history and remain measured and visible."
+    }
+  ]
+}

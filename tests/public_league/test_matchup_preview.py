@@ -72,8 +72,16 @@ class PreviewModeTests(unittest.TestCase):
 
     def test_unscored_week_triggers_preview(self) -> None:
         snap = build_test_snapshot()
-        # Clone and zero-out week 16 scores in the current season.
+        # Clone and zero-out week 16 scores in the current season.  The
+        # fixture's season is host-``complete``, and a complete season has
+        # no live week (``metrics.final_weeks``) -- so put it back in
+        # season, scored through week 15, for week 16 to be unfinished.
         current = snap.seasons[0]
+        current.league = {
+            **current.league,
+            "status": "in_season",
+            "settings": {**(current.league.get("settings") or {}), "last_scored_leg": 15},
+        }
         current.matchups_by_week[16] = [
             {**row, "points": 0} for row in current.matchups_by_week[16]
         ]

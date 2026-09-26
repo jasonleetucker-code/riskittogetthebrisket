@@ -61,7 +61,15 @@ def _poison_files() -> dict[Path, bytes]:
     snapshot = build_test_snapshot()
     owners = sorted(snapshot.managers.by_owner_id)
     strength_rows = [
-        {"ownerId": oid, "teamName": oid, "teamRosStrength": 90.0 - 5 * i}
+        # ``startingLineupScore`` is what every real persisted row carries and
+        # what ``team_strength.team_strength_has_evidence`` reads: a file
+        # without ROS-priced starters is a recorded failure, not served (D1).
+        {
+            "ownerId": oid,
+            "teamName": oid,
+            "teamRosStrength": 90.0 - 5 * i,
+            "startingLineupScore": 100.0 - 5 * i,
+        }
         for i, oid in enumerate(owners)
     ]
     snap_dict = snapshot_store.snapshot_to_dict(snapshot, include_nfl_players=False)

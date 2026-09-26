@@ -127,29 +127,39 @@ def _latest_played_week(season: SeasonSnapshot) -> int | None:
     return latest
 
 
-def _matchup_is_final(a: dict, b: dict, is_past_week: bool) -> bool:
+def _final_week_set(season: SeasonSnapshot) -> set[int]:
+    """The regular-season weeks whose scoring is FINISHED.
+
+    Not decided here: this is ``metrics.final_regular_season_weeks``, the
+    canonical finished-week gate (host clock ``last_scored_leg``, or every
+    roster reporting a real score) that Luck, Power and this module's own
+    score distributions already use.  Record, "played weeks" and the
+    remaining schedule must all use the SAME gate, or a week can be neither
+    counted nor simulated (or both).
+    """
+    return set(metrics.final_regular_season_weeks(season))
+
+
+def _matchup_is_final(a: dict, b: dict, week_is_final: bool) -> bool:
     """True when the A vs. B matchup should count toward current record.
 
-    Two cases fall under "final":
-      1. The week is strictly before the latest week with any scored
-         entry.  We know the week is done because a later week has
-         scored entries, so every matchup in it is a real final —
-         including an exact 0-0 tie where neither roster scored a
-         point (rare but valid in extreme injury-wipeout scenarios).
-         Per Codex PR #215 round 4: the earlier "at least one side
-         scored" gate incorrectly rejected these 0-0 ties and caused
-         the simulator to re-simulate an already-finalised game.
-      2. Both sides have ``points > 0`` — the standard current-week
-         gate.  During a live week we require both sides to have
-         posted scores before counting, otherwise a Thursday-only
-         finish gets credited as a phantom win over an opponent still
-         sitting at 0.
+    A matchup is final only inside a FINISHED week (``_final_week_set``),
+    and only when both sides carry a score.  Inside a finished week ``0.0``
+    is an observation — an exact 0-0 tie is a real final (Codex PR #215
+    round 4) — and only an absent score (``points is None``) is missing.
+
+    RETIRED (D4, 2026-09-26): the rule "both sides have ``points > 0``"
+    during the current week.  In a best-ball league most rosters post
+    points on Thursday night, so that rule froze live matchups as finals:
+    measured on week 3, 3 of 6 ``dynasty_main`` matchups were counted as
+    completed games on Thursday-only scores (e.g. 35.31 vs 25.44), and
+    ``dynasty_new`` published a 3-0 record the host still showed as 2-0.
+    Per-matchup scores cannot tell a finished game from a started one;
+    only the week gate can.
     """
-    if is_past_week:
-        return True
-    if metrics.is_scored(a) and metrics.is_scored(b):
-        return True
-    return False
+    if not week_is_final:
+        return False
+    return a.get("points") is not None and b.get("points") is not None
 
 
 def _regular_season_record_to_date(
@@ -159,9 +169,10 @@ def _regular_season_record_to_date(
     """Current wins / PF / ties per owner from already-played weeks.
 
     A matchup counts toward current record when ``_matchup_is_final``
-    returns True.  That supports the two legitimate final states:
-    both-sides-scored (normal) and one-side-zero-in-a-past-week (rare
-    but real — addresses the Codex P2 review on PR #215).
+    returns True: its week is in the canonical finished-week set and both
+    sides carry a score (a genuine zero included — the Codex P2 review on
+    PR #215).  A live week counts toward nobody's record; its matchups are
+    simulated instead (``_posted_future_matchups``).
 
     Tie outcomes (both sides with identical non-zero points) are
     counted into the ``ties`` bucket so downstream standings sort
@@ -169,13 +180,13 @@ def _regular_season_record_to_date(
     default regular-season tiebreak and keeps 0-1-0 vs 0-0-1 teams
     ordered correctly in the simulator.
     """
-    latest_played = _latest_played_week(season)
+    final_weeks = _final_week_set(season)
     out: dict[str, dict[str, float | int]] = {}
     for wk in season.regular_season_weeks:
         entries = season.matchups_by_week.get(wk) or []
-        is_past_week = latest_played is not None and wk < latest_played
+        week_is_final = wk in final_weeks
         for a, b in metrics.matchup_pairs(entries):
-            if not _matchup_is_final(a, b, is_past_week):
+            if not _matchup_is_final(a, b, week_is_final):
                 continue
             for side, opp in ((a, b), (b, a)):
                 rid = metrics.roster_id_of(side)
@@ -323,34 +334,33 @@ def _posted_future_matchups(
     season: SeasonSnapshot,
     registry,
 ) -> dict[int, list[tuple[str, str]]]:
-    """Owner-id pairs for matchups within each week that haven't been
-    fully scored yet.
+    """Owner-id pairs for every matchup of every week that is not yet
+    FINISHED.
 
-    Key subtlety: a "partially played" live week (Thursday game
-    complete, Sunday games pending) still has authoritative posted
-    pairings for the unplayed matchups.  Early iterations of this
-    helper skipped the whole week when *any* entry was scored, which
-    let ``_round_robin_schedule`` re-generate pairings for the
-    already-completed Thursday game — at best wasted simulator work,
-    at worst wrong opponents for Sunday games.
+    A live week (Thursday game complete, Sunday games pending) still has
+    authoritative posted pairings, and every one of them is emitted: no
+    matchup in an unfinished week counts toward the record
+    (``_matchup_is_final``), so every one of them must be simulated —
+    otherwise a Thursday-scored game would be neither counted nor played.
 
-    So we emit pairings per un-scored matchup within each week, not
-    per whole week.  An already-complete matchup (both sides scored)
-    is filtered out — its actual result feeds ``_regular_season_
-    record_to_date`` via the week-completion check there, not the
-    simulator.  A completely un-started week still yields every pair
-    exactly as before.
+    Finished weeks are excluded wholesale; their results feed
+    ``_regular_season_record_to_date``.  The finished-week set is the
+    canonical ``metrics.final_regular_season_weeks`` gate, the same one the
+    record uses, so the two partition the season with no gap and no
+    overlap.
+
+    Retired (D4, 2026-09-26): filtering per matchup on "both sides
+    ``points > 0``", which in a best-ball league dropped Thursday-scored
+    live matchups from the schedule while the record counted them.
     """
+    final_weeks = _final_week_set(season)
     out: dict[int, list[tuple[str, str]]] = {}
     for wk in season.regular_season_weeks:
+        if wk in final_weeks:
+            continue
         entries = season.matchups_by_week.get(wk) or []
         pairs: list[tuple[str, str]] = []
         for a, b in metrics.matchup_pairs(entries):
-            # Filter completed matchups (both sides scored) — those
-            # are already in the current-record snapshot and must not
-            # be re-simulated.
-            if metrics.is_scored(a) and metrics.is_scored(b):
-                continue
             rid_a = metrics.roster_id_of(a)
             rid_b = metrics.roster_id_of(b)
             if rid_a is None or rid_b is None:
@@ -620,22 +630,17 @@ def compute_playoff_odds(
     current_record = _regular_season_record_to_date(season, registry)
 
     # Determine played vs remaining regular-season weeks.  A week is
-    # "played" only when *every* scored matchup in that week has both
-    # sides posted — mirrors ``_regular_season_record_to_date``'s
-    # requirement, so a live Thursday-only week still sits in
-    # ``remaining_weeks`` and gets simulated rather than counted as
-    # completed with half its games at zero.
+    # "played" only when it is in the canonical finished-week set — the
+    # same gate ``_regular_season_record_to_date`` and
+    # ``_posted_future_matchups`` use, so a live week (even one where
+    # every roster has posted Thursday/Sunday points) stays in
+    # ``remaining_weeks`` and is simulated rather than counted.
     latest_played = _latest_played_week(season)
+    final_weeks = _final_week_set(season)
 
     def _week_is_complete(wk: int) -> bool:
         entries = season.matchups_by_week.get(wk) or []
-        if not entries:
-            return False
-        is_past_week = latest_played is not None and wk < latest_played
-        for a, b in metrics.matchup_pairs(entries):
-            if not _matchup_is_final(a, b, is_past_week):
-                return False
-        return True
+        return bool(entries) and wk in final_weeks
 
     played_weeks = [wk for wk in season.regular_season_weeks if _week_is_complete(wk)]
     remaining_weeks = [wk for wk in season.regular_season_weeks if wk not in played_weeks]

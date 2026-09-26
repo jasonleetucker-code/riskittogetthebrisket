@@ -286,3 +286,22 @@ Before this eligibility system is considered complete:
 **OPOY/DPOY/ROY/positional playoff/winning-record gate:** EXPLICITLY NOT APPLIED BY DEFAULT.  
 **Realized Lineup VORP player-performance foundation:** APPROVED CANONICAL DIRECTION, subject to historical-truth/coverage validation.  
 **Manager/GM exact composite weights:** EXPLORATORY / REQUIRE HISTORICAL REPLAY AND SENSITIVITY VALIDATION.
+
+---
+
+## Owner season-scoped award eligibility overrides (2026-09-26)
+
+An owner competition rule can bar a named manager from **winning one award in one season**. It is an
+eligibility rule, not a measurement rule: the award's canonical metric is still computed, ranked and
+published for that manager (metric rank, value, and a public label), and the award goes to the
+highest-ranked eligible candidate.
+
+- **Record:** `config/leagues/award_eligibility_overrides.json` — season, that season's Sleeper league id,
+  award key, canonical owner ids, rule type `owner_season_eligibility_override`, who decided, when, why.
+- **Owner:** `src/public_league/award_eligibility.py` — the only reader; a malformed rule fails loudly.
+- **Scope:** season + league id, never a clock. A new season starts with no rule; a past season keeps its
+  rule when viewed later.
+
+| season | award | ineligible owners | reason |
+|---|---|---|---|
+| 2026 | `waiver_king` | `712035316776669184` (Joel), `1303549304882892800` (Blaine) | owner competition rule for 2026 |

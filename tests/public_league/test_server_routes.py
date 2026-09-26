@@ -287,20 +287,61 @@ class PublicLeagueRouteTests(unittest.TestCase):
         )
         self.assertIn("waiver", waivers.headers.get("content-disposition", "").lower())
 
-    def test_only_playoff_odds_is_cached(self) -> None:
-        """Only ``playoffOdds`` (always-simulate, purely snapshot-derived)
-        is cached.  The file-backed ROS sections are intentionally NOT
-        cached — caching them by snapshot identity would hide fresh
-        results the ROS publisher writes between snapshot refreshes — and
-        cheap sections like ``awards`` must not silently go stale."""
+    def test_only_snapshot_pure_sections_are_cached(self) -> None:
+        """Only purely snapshot-derived sections are memoized by snapshot
+        identity: ``playoffOdds`` (always-simulate), ``archives`` and
+        ``awards`` (both deterministic functions of the snapshot).  The
+        file-backed ROS sections are intentionally NOT cached — caching
+        them by snapshot identity would hide fresh results the ROS
+        publisher writes between snapshot refreshes."""
         import server
 
         self.assertIn("playoffOdds", server._HEAVY_SECTION_KEYS)
+        self.assertIn("awards", server._HEAVY_SECTION_KEYS)
         # File-backed ROS sims read their artifact fresh each request.
         self.assertNotIn("rosPlayoffOdds", server._HEAVY_SECTION_KEYS)
         self.assertNotIn("rosChampionship", server._HEAVY_SECTION_KEYS)
-        self.assertNotIn("awards", server._HEAVY_SECTION_KEYS)
         self.assertNotIn("overview", server._HEAVY_SECTION_KEYS)
+
+    def test_awards_section_is_single_flight_cached(self) -> None:
+        """awards is memoized per snapshot, same as archives: it was
+        rebuilt on every request (0.76-1.08 s warm on the live snapshot)."""
+        import server
+
+        self.client.get("/api/public/league?refresh=1")
+        server._heavy_section_cache.clear()
+
+        calls = {"n": 0}
+        real = server.build_section_payload
+
+        def _counting(snapshot, section, **kw):
+            if section == "awards":
+                calls["n"] += 1
+            return real(snapshot, section, **kw)
+
+        server.build_section_payload = _counting
+        try:
+            r1 = self.client.get("/api/public/league/awards")
+            r2 = self.client.get("/api/public/league/awards")
+        finally:
+            server.build_section_payload = real
+
+        self.assertEqual(r1.status_code, 200)
+        self.assertEqual(r2.status_code, 200)
+        self.assertEqual(r1.json()["section"], "awards")
+        self.assertEqual(calls["n"], 1)
+        self.assertEqual(r1.json()["data"], r2.json()["data"])
+
+    def test_awards_memo_matches_a_fresh_build(self) -> None:
+        """The memoized payload is exactly what a fresh build returns."""
+        import server
+        from src.public_league.public_contract import build_section_payload
+
+        self.client.get("/api/public/league?refresh=1")
+        server._heavy_section_cache.clear()
+        cached = self.client.get("/api/public/league/awards").json()
+        fresh = build_section_payload(server._get_public_snapshot(), "awards")
+        self.assertEqual(cached["data"], fresh["data"])
 
     def test_metrics_endpoint_never_leaks_private_fields(self) -> None:
         r = self.client.get("/api/public/league/metrics")

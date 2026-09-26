@@ -225,6 +225,13 @@ class _TeamDist:
     mean: float
     sd: float
     pf_to_date: float
+    #: Where this team's (mean, sd) came from: ``"presim"`` (its own roster,
+    #: best-ball pre-sim), ``"empirical"`` (its own scored weeks), or
+    #: ``"pool"`` (the LEAGUE-WIDE distribution, i.e. nothing about this
+    #: team at all).  ``"unspecified"`` for distributions built by a caller
+    #: rather than ``_build_team_distributions``.  Read by
+    #: ``team_evidence_refusal`` — see there for why it matters.
+    basis: str = "unspecified"
 
 
 def _load_team_rosters(league_key: str | None = None) -> dict[str, dict[str, Any]]:
@@ -418,6 +425,79 @@ def _load_ros_strength_map(league_key: str | None = None) -> dict[str, float]:
     }
 
 
+def ros_strength_available(ros_strength_map: dict[str, float]) -> bool:
+    """Whether a ROS team-strength map carries REAL evidence.
+
+    At least one team must have a positive strength.  A map that exists
+    but is all zeros is what a failed NFL player download produces
+    (refresh run 36220954196: every rostered player fell back to a raw
+    Sleeper id, failed the ROS join, and scored 0), and it used to be
+    stamped ``rosStrengthAvailable: true`` because the check was
+    ``bool(ros_map)`` — non-empty, not evidential.  An all-zero map gives
+    every team z = 0, i.e. no ROS signal at all, so reporting it as
+    "ROS roster strength blended in" was false.
+
+    No coverage threshold is applied: none exists in the codebase to reuse,
+    and inventing one is a methodology decision.  This predicate answers
+    only "is there any ROS evidence", which is the question the published
+    flag asks.
+    """
+    for value in ros_strength_map.values():
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0:
+            return True
+    return False
+
+
+#: Stated once so both engines (and every refusal branch) name the state
+#: identically — the V1-51 rule that two engines must not invent different
+#: words for one state.
+TEAM_STRENGTH_UNAVAILABLE = "team_strength_unavailable"
+
+
+def team_evidence_refusal(
+    distributions: dict[str, _TeamDist],
+    ros_strength_map: dict[str, float],
+) -> dict[str, Any] | None:
+    """The ``unsimulable`` block when odds would carry no team evidence.
+
+    Returns ``None`` when the simulation may run.  Refuses when BOTH:
+
+    * ROS team strength is unavailable (``ros_strength_available`` is
+      False), and
+    * at least one team's distribution is the league-wide ``"pool"`` —
+      nothing about that team, neither its roster nor its own history.
+
+    That is exactly the degraded state that published flat 13/12/10%
+    championship odds as real on 2026-09-26: with fewer than four
+    finished weeks every team falls back to the pool, and with no ROS
+    signal nothing distinguishes one team's weekly score from another's,
+    so the "odds" are coin flips weighted only by the current record.
+
+    Deliberately NOT a refusal of empirical-only mode.  When every team
+    has its own scored history (``"empirical"``) the simulation is real
+    evidence without ROS, which the frontend already labels as
+    "Empirical-only mode"; that path is unchanged.
+    """
+    if ros_strength_available(ros_strength_map):
+        return None
+    pooled = sorted(o for o, d in distributions.items() if d.basis == "pool")
+    if not pooled:
+        return None
+    return {
+        "reason": TEAM_STRENGTH_UNAVAILABLE,
+        "detail": (
+            "ROS team strength is unavailable (the last roster refresh could not "
+            "price any team), and "
+            f"{len(pooled)} of {len(distributions)} teams have too few finished "
+            "weeks for a distribution of their own. Simulating anyway would give "
+            "those teams identical league-average scoring, i.e. coin flips. "
+            "This is not an equal chance for everyone."
+        ),
+        "teamsWithoutEvidence": len(pooled),
+        "teamCount": len(distributions),
+    }
+
+
 def _empirical_distribution(scores: list[float]) -> tuple[float, float]:
     """Mean + sd over a per-team weekly-score list.  Falls back to
     league-wide pool stats when the per-team list is too short.
@@ -475,7 +555,10 @@ def _build_team_distributions(
     bestball_dists: dict[str, tuple[float, float]] = {}
     if best_ball:
         rosters = _load_team_rosters(league_key)
-        starter_slots = _load_starter_slots()
+        # The league's OWN slots (D5): ``_load_starter_slots()`` with no key
+        # resolves the DEFAULT league, so a non-default league's rosters were
+        # solved against another league's lineup rules.
+        starter_slots = _load_starter_slots(league_key)
         if rosters and starter_slots:
             presim_rng = random.Random(20260428)  # deterministic per league
             bestball_dists = _bestball_presim(rosters, starter_slots, presim_rng, points_model)
@@ -491,8 +574,10 @@ def _build_team_distributions(
     pf_by_owner: dict[str, float] = {}
     for owner_id, scores in per_owner.items():
         emp_mean, emp_sd = _empirical_distribution(scores)
+        basis = "empirical"
         if emp_mean <= 0:
             emp_mean, emp_sd = pool_mean, pool_sd
+            basis = "pool"
         # Best-ball override: replace the empirical (mean, sd) with the
         # presim's per-player optimal-lineup distribution.  Falls back
         # to empirical when the presim couldn't run for this owner
@@ -501,6 +586,7 @@ def _build_team_distributions(
             bb_mean, bb_sd = bestball_dists[owner_id]
             if bb_mean > 0:
                 emp_mean, emp_sd = bb_mean, bb_sd
+                basis = "presim"
         # Blend ROS strength as a multiplicative shift on the mean.
         ros_score = ros_strength_map.get(owner_id)
         if ros_score is not None and ros_sd > 0:
@@ -515,6 +601,7 @@ def _build_team_distributions(
             mean=max(0.0, blended_mean),
             sd=max(1.0, sd),
             pf_to_date=sum(scores),
+            basis=basis,
         )
         pf_by_owner[owner_id] = sum(scores)
     return distributions, pf_by_owner
@@ -570,15 +657,19 @@ def _completed_games(row: Any) -> float:
     return total
 
 
-def _league_best_ball() -> bool:
-    """Read the default league's best_ball flag without forcing a
+def _league_best_ball(league_key: str | None = None) -> bool:
+    """Read a league's best_ball flag without forcing a
     PublicLeagueSnapshot dependency on caller side.  Lazy import so
     test fixtures that mock league_registry still work.
+
+    ``league_key`` selects the league; ``None`` is the default league.
+    It used to read the default league unconditionally, so a lazy
+    rebuild for a non-default league inherited the default's format.
     """
     try:
-        from src.api.league_registry import get_default_league  # noqa: PLC0415
+        from src.api.league_registry import get_default_league, get_league_by_key  # noqa: PLC0415
 
-        cfg = get_default_league()
+        cfg = get_league_by_key(league_key) if league_key else get_default_league()
         return bool(cfg and cfg.best_ball)
     except Exception:  # noqa: BLE001
         return False
@@ -692,8 +783,6 @@ def simulate_playoff_odds(
         playoff_seeds = structure.teams
     if bye_seeds is None:
         bye_seeds = structure.byes if structure.known else None
-    if best_ball is None:
-        best_ball = _league_best_ball()
     model = points_model or load_points_model()
     # Team-strength rows are roster-derived and therefore leagueKey-scoped
     # (see team_strength.resolve_snapshot_league_key's docstring); without
@@ -703,6 +792,8 @@ def simulate_playoff_odds(
     from src.ros.team_strength import resolve_snapshot_league_key  # noqa: PLC0415
 
     league_key = resolve_snapshot_league_key(snapshot)
+    if best_ball is None:
+        best_ball = _league_best_ball(league_key)
 
     # ``n_simulations`` pins an exact count (used by the trade-delta path
     # so both arms draw identically); otherwise the loop is adaptive.
@@ -719,7 +810,7 @@ def simulate_playoff_odds(
             "n_simulations": 0,
             "playoffSeeds": None,
             "byeSeeds": None,
-            "rosStrengthAvailable": bool(_load_ros_strength_map(league_key)),
+            "rosStrengthAvailable": ros_strength_available(_load_ros_strength_map(league_key)),
             "bestBallVarianceMode": "depth_aware" if best_ball else "off",
             "pointsModelSource": model.source,
             "playoffStructure": structure.to_dict(),
@@ -762,7 +853,7 @@ def simulate_playoff_odds(
             "playoffSeeds": playoff_seeds,
             "byeSeeds": bye_seeds,
             "playoffStructure": structure.to_dict(),
-            "rosStrengthAvailable": bool(ros_map),
+            "rosStrengthAvailable": ros_strength_available(ros_map),
             "bestBallVarianceMode": "depth_aware" if best_ball else "off",
             "pointsModelSource": model.source,
             "unsimulable": {
@@ -773,6 +864,23 @@ def simulate_playoff_odds(
                     "not a 0% chance for anyone."
                 ),
             },
+        }
+
+    refusal = team_evidence_refusal(distributions, ros_map)
+    if refusal is not None:
+        # D1 (2026-09-26): no ROS evidence and teams with no distribution of
+        # their own.  Publishing would present league-average coin flips as
+        # each team's odds — see ``team_evidence_refusal``.
+        return {
+            "playoffOdds": [],
+            "n_simulations": 0,
+            "playoffSeeds": playoff_seeds,
+            "byeSeeds": bye_seeds,
+            "playoffStructure": structure.to_dict(),
+            "rosStrengthAvailable": False,
+            "bestBallVarianceMode": "depth_aware" if best_ball else "off",
+            "pointsModelSource": model.source,
+            "unsimulable": refusal,
         }
 
     record = _current_record(snapshot)
@@ -801,7 +909,7 @@ def simulate_playoff_odds(
             "playoffSeeds": playoff_seeds,
             "byeSeeds": bye_seeds,
             "playoffStructure": structure.to_dict(),
-            "rosStrengthAvailable": bool(ros_map),
+            "rosStrengthAvailable": ros_strength_available(ros_map),
             "bestBallVarianceMode": "depth_aware" if best_ball else "off",
             "pointsModelSource": model.source,
             # Not ``converged``. Nothing was simulated, so there is
@@ -934,7 +1042,7 @@ def simulate_playoff_odds(
         "playoffSeeds": playoff_seeds,
         "byeSeeds": bye_seeds,
         "playoffStructure": structure.to_dict(),
-        "rosStrengthAvailable": bool(ros_map),
+        "rosStrengthAvailable": ros_strength_available(ros_map),
         "rosBlend": ROS_BLEND,
         "bestBallVarianceBump": BEST_BALL_VARIANCE_BUMP,
         "bestBallVarianceMode": "depth_aware" if best_ball else "off",
@@ -951,11 +1059,32 @@ def simulate_playoff_odds(
 _SIM_CACHE_TTL_SEC = 6 * 3600
 
 
-def _load_cached_payload() -> dict[str, Any] | None:
-    """Read ``data/ros/sims/latest_playoff.json`` if fresh; else None."""
+def _cached_payload_path(league_key: str | None) -> Any:
+    """This league's playoff-sim cache file.
+
+    File names are owned by the writer, ``src.ros.scrape._sim_paths``; the
+    directory is this module's ``ROS_DATA_DIR`` so tests that relocate it
+    keep reader and fixture in agreement.  Mirrors
+    ``championship._cached_payload_path``.
+    """
+    from src.api.league_registry import default_league_key  # noqa: PLC0415
+    from src.ros.scrape import _sim_paths  # noqa: PLC0415
+
+    try:
+        default_key = default_league_key()
+    except Exception:  # noqa: BLE001 — registry trouble reads the default file
+        default_key = None
+    playoff_path, _ = _sim_paths(league_key, default_key)
+    return ROS_DATA_DIR / "sims" / playoff_path.name
+
+
+def _load_cached_payload(league_key: str | None = None) -> dict[str, Any] | None:
+    """Read this league's cached playoff sim if fresh; else None.
+
+    Used to read ``latest_playoff.json`` for every league (D5)."""
     import os
 
-    path = ROS_DATA_DIR / "sims" / "latest_playoff.json"
+    path = _cached_payload_path(league_key)
     if not path.exists():
         return None
     try:
@@ -1091,14 +1220,14 @@ def simulate_trade_impact(
           "pointsModelSource": str,
         }
     """
-    if best_ball is None:
-        best_ball = _league_best_ball()
     model = points_model or load_points_model()
     # Team-strength rows are roster-derived and therefore leagueKey-scoped
     # (see team_strength.resolve_snapshot_league_key's docstring).
     from src.ros.team_strength import resolve_snapshot_league_key  # noqa: PLC0415
 
     league_key = resolve_snapshot_league_key(snapshot)
+    if best_ball is None:
+        best_ball = _league_best_ball(league_key)
     ros_map = _load_ros_strength_map(league_key)
 
     # Resolve ONCE and pass to both arms explicitly (V1-51).  Letting each
@@ -1158,6 +1287,9 @@ def simulate_trade_impact(
             mean=max(0.0, d.mean + float(strength_delta.get(owner, 0.0))),
             sd=d.sd,
             pf_to_date=d.pf_to_date,
+            # Carried so both arms answer ``team_evidence_refusal`` alike;
+            # a trade does not create evidence about a team.
+            basis=d.basis,
         )
         for owner, d in base_dists.items()
     }
@@ -1233,7 +1365,9 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     Prefers the cached output written by the scheduled scrape; falls
     back to a live Monte Carlo when the cache is missing or stale.
     """
-    cached = _load_cached_payload()
+    from src.ros.team_strength import resolve_snapshot_league_key  # noqa: PLC0415
+
+    cached = _load_cached_payload(resolve_snapshot_league_key(snapshot))
     if cached is not None:
         cached["cached"] = True
         return cached

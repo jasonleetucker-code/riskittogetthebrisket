@@ -41,6 +41,7 @@ import { valuationBasisLabel, valuationBasisOf } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
 import { useApp } from "@/components/AppShell";
 import { buildShareUrl, parseShareParam } from "@/lib/trade-share";
+import { tradeRequestForTeam } from "@/lib/trade-war-room";
 import {
   availableTeamPickEntries,
   canAddEntry,
@@ -55,6 +56,7 @@ import {
 import { useTradeSimulator } from "@/components/useTradeSimulator";
 import { useTeam } from "@/components/useTeam";
 import SharedTradeMeter from "@/components/trade/TradeMeter";
+import TradeWarRoom from "@/components/trade/TradeWarRoom";
 import TradeFairnessExplanation from "@/components/trade/TradeFairnessExplanation";
 import {
   Banner,
@@ -175,6 +177,8 @@ export default function TradePage() {
   // Share + simulator state.
   const [shareStatus, setShareStatus] = useState("");
   const [shareHydrated, setShareHydrated] = useState(false);
+  // Use Team Context (#842): default ON.  A share link can carry Asset-Only.
+  const [useTeamContext, setUseTeamContext] = useState(true);
   const {
     simulate: simulateTrade,
     result: simResult,
@@ -583,6 +587,7 @@ export default function TradePage() {
         });
       });
       setValueOverrides({});
+      if (state.teamContext === false) setUseTeamContext(false);
       setShareStatus("Loaded shared trade from link.");
     } catch {
       setShareStatus("Share link was malformed — ignored.");
@@ -1385,6 +1390,8 @@ export default function TradePage() {
           players: (s.assets || []).map((a) => a.name),
           assetIds: (s.assets || []).map((a) => a.assetId || null),
         })),
+        // #842: the analysis mode travels with the link.
+        teamContext: useTeamContext,
       };
       const url = buildShareUrl(payload);
       if (navigator?.clipboard?.writeText) {
@@ -1398,7 +1405,7 @@ export default function TradePage() {
     } catch (err) {
       setShareStatus(err?.message || "Could not copy share link.");
     }
-  }, [sides]);
+  }, [sides, useTeamContext]);
 
   // Pure impact-on-my-roster simulator.  2-team trades only:
   // whichever side matches the user's selected Sleeper team is
@@ -1406,42 +1413,24 @@ export default function TradePage() {
   // "receiving" (players IN).  Picks and players are sent as one
   // payload each because the simulator backend treats them
   // identically — both resolve through the same row-index.
+  // The War Room's question: the same side mapping "Simulate impact" uses.
+  const warRoomRequest = useMemo(
+    () =>
+      selectedTeam && sides.length === 2
+        ? tradeRequestForTeam(sides, teamRosterNames(selectedTeam), selectedTeam.name)
+        : null,
+    [sides, selectedTeam, teamRosterNames],
+  );
+
   const runSimulateTrade = useCallback(() => {
     if (sides.length !== 2) return;
     if (!selectedTeam) return;
-    const myRosterNames = teamRosterNames(selectedTeam);
-    // Score each side by how many of its assets the user owns.
-    // Whichever side has more matches is "my side" (I'm giving).
-    const scores = sides.map((s) => {
-      let hits = 0;
-      for (const a of s.assets || []) if (myRosterNames.has(a.name)) hits += 1;
-      return hits;
-    });
-    let mySide = scores[0] >= scores[1] ? 0 : 1;
-    if (scores[0] === 0 && scores[1] === 0) {
-      // Neither side matches — default to "I'm giving side A" so the
-      // user can flip via Swap Sides if needed.
-      mySide = 0;
-    }
-    const otherSide = mySide === 0 ? 1 : 0;
-    const isPickName = (name) => /\d{4}/.test(String(name || ""));
-    // One payload item per COPY.  An owned pick sends its ownership label
-    // ("2027 Mid 1st (from X)"): the simulator removes roster picks by
-    // exact label first, so the specific pick leaves the roster rather
-    // than whichever pick shares its board row.
-    const simLabel = (a) => (a.assetId && a.assetLabel ? a.assetLabel : a.name);
-    const playersOut = [];
-    const picksOut = [];
-    for (const a of sides[mySide].assets || []) {
-      if (isPickName(a.name)) picksOut.push(simLabel(a));
-      else playersOut.push(a.name);
-    }
-    const playersIn = [];
-    const picksIn = [];
-    for (const a of sides[otherSide].assets || []) {
-      if (isPickName(a.name)) picksIn.push(simLabel(a));
-      else playersIn.push(a.name);
-    }
+    // The ONE side mapping (`lib/trade-war-room.js`), shared with the Trade
+    // War Room so the two can never disagree about which way a trade points:
+    // the side holding more of this team's players is the side it GIVES.
+    const request = tradeRequestForTeam(sides, teamRosterNames(selectedTeam), selectedTeam?.name);
+    if (!request) return;
+    const { playersIn, playersOut, picksIn, picksOut } = request;
     simulateTrade({
       teamName: selectedTeam?.name,
       playersIn,
@@ -2067,6 +2056,20 @@ export default function TradePage() {
             ))}
           </div>
 
+
+          {/* ── TRADE WAR ROOM (#792 / #1173 / #843 / #842) ────────
+              What this trade does to the selected team's actual
+              roster: recommendation, then Market / Roster /
+              Feasibility as three separate answers.  Two-side trades
+              with a selected team; every number is the backend's. */}
+          {sides.length === 2 ? (
+            <TradeWarRoom
+              request={warRoomRequest}
+              leagueKey={selectedLeagueKey || ""}
+              useTeamContext={useTeamContext}
+              onTeamContextChange={setUseTeamContext}
+            />
+          ) : null}
 
           {/* ── VERDICT ──────────────────────────────────────────
               The answer, and the one number this page exists to

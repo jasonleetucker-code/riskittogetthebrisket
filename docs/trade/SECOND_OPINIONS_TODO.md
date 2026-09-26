@@ -2,6 +2,49 @@
 
 Add a quick per-independent-vendor trade verdict summary above the detailed source breakdown. Native source coverage must be distinguished from canonical-value imputation; do not count imputed rows as independent external votes. See `TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md`.
 
+## Coverage taxonomy + family tally — SHIPPED (2026-09-26, #791)
+
+Owner observation: a trade with one IDP player read "KeepTradeCut Crowd —
+Incomplete", which looked like a failure. KTC publishes no IDP; that is a fact
+about the vendor, not a hole in our data. The same panel also published
+winners for offense-only vendors on IDP-only trades built 100% from OUR
+canonical value (measured: 9 vendor rows, native coverage 0/0).
+
+Owner: `frontend/lib/second-opinions.js`. Per (vendor, asset):
+
+| status | meaning | proven by |
+|---|---|---|
+| `NATIVE` | the vendor published a value | the value itself |
+| `OUT_OF_SCOPE` | the vendor's **declared** registry scope does not admit the asset class | `scope` / `extraScopes` in `RANKING_SOURCES` |
+| `NOT_PUBLISHED` | in scope, no value (`detail`: expected-but-unmatched vs not published) | `sourceAudit.unmatchedSources` |
+| `UNRESOLVED` | no board row | absence of the row |
+
+Picks and undeclared scopes are never out of scope by assumption — the
+registry declares no pick coverage. Per vendor row:
+
+| verdict | shown as | counted |
+|---|---|---|
+| `COUNTED` | Side X / Even | **yes** — the only vote |
+| `ESTIMATE` | Side X (est.) + "n of m pieces use our value" | no |
+| `NOT_APPLICABLE` | Not applicable + "Doesn't price IDP (1 of 3 pieces)" | no |
+| `INCOMPLETE` | Incomplete + reason | no |
+| `NO_COVERAGE` | leaves the table; named below it with the reason | no |
+
+Tally: one vote per independent family (`correlationGroup`, else the vendor):
+KTC Crowd + Fantasy Navigator vote once, FantasyPros + Fitzmaurice vote once,
+and a family whose members disagree is one **Split**. Pinned by
+`frontend/__tests__/components/second-opinions-coverage.test.jsx`.
+
+Open (owner decisions, not implemented): the "Even" threshold is still the
+historical `< 1` point (effectively unreachable); whether a partially covered
+row may ever vote; a source-unavailable state (freshness exclusion is not
+materialized onto frontend rows, so it cannot be told apart here yet).
+
+**Stale statement corrected:** no external row applies the V13 Value
+Adjustment any more (`packageAdjustment: "none"` since the KTC September 2026
+calculator change); KTC-native values still may not be mixed with canonical
+ones, for the unit reasons below.
+
 ---
 
 ## Scale contract — RESOLVED (Second Opinions Scale Audit, 2026-08-14)

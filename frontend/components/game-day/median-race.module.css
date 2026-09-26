@@ -1,0 +1,247 @@
+/* Live Median Race — PSI editorial structure (Direction A, Lane 6).
+   Tokens only (tokens.css, .psi-editorial scope on the /game-day root). No
+   raw colours, no new radii or shadows, no categorical probability colours:
+   rank order, numerals, words and the existing movement arrows carry the
+   meaning.  Canonical breakpoints (480/768) only.  One DOM for every width:
+   a dense ranked grid on desktop, two-line ruled rows on a phone. */
+
+.race {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  border-bottom: 1px solid var(--border-default);
+  padding-bottom: var(--space-4);
+}
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.week {
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: var(--font-weight-semibold);
+}
+.note {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+
+/* ── League median summary ── */
+.summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.summary div {
+  min-width: 0;
+}
+.summary dt {
+  font-size: var(--font-size-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-tertiary);
+}
+.summary dd {
+  margin: 0;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+.summary .bigNum {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+.bubble dd {
+  font-family: var(--font-ui);
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+/* ── Ranked rows ── */
+.columns,
+.rowButton {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr) 4.5rem 5rem 5rem 7.5rem;
+  align-items: baseline;
+  column-gap: var(--space-3);
+}
+.finalList .rowButton {
+  grid-template-columns: 2.25rem minmax(0, 1fr) 4.5rem 7.5rem;
+}
+.columns {
+  font-size: var(--font-size-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-tertiary);
+  font-weight: var(--font-weight-semibold);
+  padding: 0 var(--space-2);
+}
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.row {
+  border-bottom: 1px solid var(--border-subtle);
+}
+.row:last-child {
+  border-bottom: 0;
+}
+.rowButton {
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2);
+  background: none;
+  border: 0;
+  border-left: 3px solid transparent;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+}
+button.rowButton {
+  cursor: pointer;
+}
+button.rowButton:hover {
+  background: var(--surface-hover);
+}
+button.rowButton:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+/* Selected: a rule, weight and the word "Viewing" — never colour alone. */
+.selected .rowButton {
+  border-left-color: var(--accent);
+  background: var(--surface-active);
+}
+.selected .teamName {
+  font-weight: var(--font-weight-semibold);
+}
+.rank {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+}
+.team {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+  min-width: 0;
+}
+.teamName {
+  color: var(--text-primary);
+  overflow-wrap: normal;
+  word-break: normal;
+  min-width: 0;
+}
+.manager {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+.viewing {
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: var(--font-weight-semibold);
+}
+.num,
+.pct {
+  text-align: right;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.pct {
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+.move {
+  margin-left: var(--space-1);
+  font-weight: var(--font-weight-regular);
+}
+
+@media (max-width: 768px) {
+  .summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Phone: two ruled lines per team, never six squeezed columns.
+   Line 1: rank · team · beat %.   Line 2: now · projected · vs median.
+   Rank, team, beat %, score now and projected all stay visible, with short
+   inline labels standing in for the hidden column header.  No page-level
+   sideways scroll. */
+@media (max-width: 480px) {
+  .columns {
+    display: none;
+  }
+  .rowButton,
+  .finalList .rowButton {
+    grid-template-columns: 1.5rem minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-areas:
+      "rank team team beat"
+      ". now proj edge";
+    row-gap: var(--space-1);
+    column-gap: var(--space-2);
+  }
+  .rank {
+    grid-area: rank;
+  }
+  .team {
+    grid-area: team;
+  }
+  .pct {
+    grid-area: beat;
+  }
+  .num[data-col="now"],
+  .num[data-col="projected"],
+  .num[data-col="edge"] {
+    text-align: left;
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .num[data-col="now"] {
+    grid-area: now;
+  }
+  .num[data-col="projected"] {
+    grid-area: proj;
+  }
+  .num[data-col="edge"] {
+    grid-area: edge;
+    text-align: right;
+  }
+  .num[data-col="now"]::before {
+    content: "Now ";
+  }
+  .finalList .num[data-col="now"]::before {
+    content: "Final ";
+  }
+  .num[data-col="projected"]::before {
+    content: "Proj ";
+  }
+  .num[data-col="edge"]::before {
+    content: "vs med ";
+  }
+}
