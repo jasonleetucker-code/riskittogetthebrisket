@@ -835,3 +835,32 @@ Implementation is authorized by the owner's own handoff. The authorization recor
     evidence.
 - **Not authorized.** A Game Day rewrite, methodology or scoring changes, paid-source activation, a PSI
   redesign, or a new league/team identity owner.
+
+## Added 2026-09-26 — Championship / playoff odds methodology: two owner decisions awaiting approval
+
+Recorded by the League Hub championship input-integrity unit (`claude/championship-input-integrity`; claim in
+`docs/WORK_CLAIMS.md`). That unit fixes only factual defects: D1 (a failed NFL player download published coin-flip
+odds), D4 (live-week matchups frozen as finals) and D5 (a non-default league simulated on the default league's
+rosters). The two items below are **methodology**. They are **not changed** and **not authorized**. Each waits for an
+explicit owner decision; only `docs/EXECUTION_PLAN.md` can authorize the work.
+
+- **D2 — ROS strength counted twice in the weekly mean.**
+  - **Current:** `src/ros/playoff_sim.py::_build_team_distributions` sets the mean to `pre-sim mean × (1 + 0.2z)`.
+    The best-ball pre-sim is already drawn from the same ROS roster values, and the ROS z-score multiplier is then
+    applied on top.
+  - **Observed** (dynasty_main, 2026-09-26, inputs intact):
+    - Brent's championship odds are 99.45% with the multiplier and 84.6% with it removed.
+    - Weekly log-loss on finalized weeks 1–2 is 0.928, against 0.693 for a coin flip. That is a small sample.
+  - **Proposal:**
+    - drop the multiplier when the pre-sim supplies the mean;
+    - fit the points model to league scoring;
+    - add a per-draw team shock.
+  - **Validation before any promotion:** run the change as a challenger, scored by weekly log-loss / PIT on
+    finalized weeks. Champion ≠ challenger.
+- **D3 — median games ignored.**
+  - `dynasty_main` sets `league_average_match = 1`, so each week counts as two games: head-to-head plus the
+    league median.
+  - The median W/L is excluded from both the current record and the simulated weeks. The host's record therefore
+    counts twice as many games as the simulator's.
+  - Measured 2026-09-26: after two finished weeks the host shows 4-0 where the simulator shows 2-0.
+  - Deciding whether and how the median game enters seeding is a methodology decision.
