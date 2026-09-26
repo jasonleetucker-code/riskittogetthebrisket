@@ -806,3 +806,32 @@ owner chooses between:
 **Kept separate.** The finding is `row.confidence or 1.0` in `src/ros/aggregate.py`: a confidence of 0.0 would
 be weighted as 1.0. It stays a separate item unless it becomes a demonstrated Game Day dependency.
 Reachability is established with a discriminating test before any behaviour changes.
+
+**Owner directive — Game Day switches between every team in the selected league (2026-09-25).**
+Extends the Game Day deliverable above (#1335 / #1334, Lane 6); it is not a second Game Day project.
+Implementation is authorized by the owner's own handoff. The authorization record is the pointer in
+`docs/EXECUTION_PLAN.md` under the Game Day deliverable.
+
+- **Experience.** `/game-day` gets a primary PSI / Direction A team selector near the hero. Any roster
+  of the currently selected league can be viewed from its own side, repeatedly, without leaving the page.
+  The user's own team stays the default; ownership is never a restriction.
+- **League isolation.** Switching never leaves the selected league: no fallback, no substitution, no
+  same-name match from another league. Responses carry league and team identity, and the frontend
+  rejects a mismatch.
+- **Canonical owners reused.** The selection identity is the existing `?team=<ownerId>`. The backend
+  composes the chosen side and its opponent out of the SAME league-week render
+  (`src/api/matchup_intel.py`), so the perspective reverses rather than being relabelled. There is no
+  new engine, simulation, identity scheme or team store, no frontend math, and the global "my team" is
+  not rewritten by viewing a rival.
+- **URL and races.** Refresh, back/forward and deep links keep the chosen team. A late answer for an
+  earlier team never publishes (A → B → C).
+- **States.** Loading, computing (PENDING), stale, unsupported, unavailable, failed and true zero stay
+  distinct. A newly selected team with no generation shows its known facts at once, while the shared
+  background compute fills the forecast.
+- **Acceptance.**
+  - The discriminating tests enumerated in the directive.
+  - Desktop, 390 px phone, keyboard and screen-reader naming, with no horizontal overflow.
+  - Production Team A → B → C with an authenticated session, recorded separately from local and CI
+    evidence.
+- **Not authorized.** A Game Day rewrite, methodology or scoring changes, paid-source activation, a PSI
+  redesign, or a new league/team identity owner.

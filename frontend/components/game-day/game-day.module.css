@@ -21,6 +21,49 @@
   color: var(--warning-text);
 }
 
+/* ── Team picker (whose side Game Day shows) ──
+   A labelled rule-row above the hero, not a card: the eyebrow names the
+   control, the select carries the team. Wraps on narrow screens; the select
+   never forces a width the viewport does not have. */
+.teamPicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-default);
+  min-width: 0;
+}
+.teamPickerLabel {
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-weight: var(--font-weight-semibold);
+}
+.teamPickerControl {
+  flex: 0 1 28rem;
+  min-width: 0;
+}
+.teamPickerSelect {
+  font-weight: var(--font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.teamPickerHint {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+@media (max-width: 480px) {
+  .teamPickerControl {
+    flex: 1 1 100%;
+  }
+}
+
 /* ── Matchup hero ── */
 .hero {
   background: var(--surface-1);

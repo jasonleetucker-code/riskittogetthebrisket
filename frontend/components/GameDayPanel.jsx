@@ -37,11 +37,22 @@
  *     explicit refusal (auth, week state, team) replaces it;
  *   - a hidden tab does not poll; it refreshes when it becomes visible;
  *   - `validMatchupPayload` refuses a malformed 200 rather than rendering
- *     it as a useful answer.
+ *     it as a useful answer — including one for a different league or a
+ *     different TEAM than the one asked for.
+ *
+ * TEAM SWITCHER (owner directive 2026-09-25). Game Day answers for ANY
+ * roster in the selected league. The perspective is `?team=<ownerId>` in
+ * the URL (refresh keeps it, back/forward walks it, a link shares it); the
+ * picker pushes it and the request key above does the rest, so a slow Team
+ * A answer can never publish under Team C. The list is the backend's own
+ * `leagueTeams` for the requested league, remembered per league so the
+ * picker stays mounted (and focused) while the next team loads, and dropped
+ * the moment the league changes. Every number still comes from the backend,
+ * which composes the chosen side out of the same league-week render.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { EmptyState, FailureState, SkeletonText } from "@/components/ds";
 import { useLeague } from "@/components/useLeague";
 import { useUserState } from "@/components/useUserState";
@@ -49,8 +60,10 @@ import BestBallDetails from "@/components/game-day/BestBallDetails";
 import DataInfo from "@/components/game-day/DataInfo";
 import MatchupHero from "@/components/game-day/MatchupHero";
 import NflSlate from "@/components/game-day/NflSlate";
+import TeamPicker from "@/components/game-day/TeamPicker";
 import WhatMattersNow from "@/components/game-day/WhatMattersNow";
 import styles from "@/components/game-day/game-day.module.css";
+import { validLeagueTeams } from "@/lib/game-day-view";
 
 const POLL_MS = 60000;
 // While the server is computing the forecast (probabilityState PENDING, Game
@@ -58,7 +71,7 @@ const POLL_MS = 60000;
 // next poll after it serves the finished generation.
 const PENDING_POLL_MS = 10000;
 
-export function validMatchupPayload(body, expectedLeagueKey = "") {
+export function validMatchupPayload(body, expectedLeagueKey = "", expectedOwnerId = "") {
   return (
     body !== null &&
     typeof body === "object" &&
@@ -75,14 +88,19 @@ export function validMatchupPayload(body, expectedLeagueKey = "") {
     typeof body.team === "object" &&
     !Array.isArray(body.team) &&
     typeof body.team.ownerId === "string" &&
-    body.team.ownerId.length > 0
+    body.team.ownerId.length > 0 &&
+    // The team asked for is the team answered: another team's numbers must
+    // never render under the selected team's name.
+    (!expectedOwnerId || body.team.ownerId === expectedOwnerId)
   );
 }
 
-export function GameDayLoading() {
+export function GameDayLoading({ teamName = "" }) {
   return (
     <div className={styles.loading} role="status">
-      <p className={styles.note}>Loading this week&apos;s matchup...</p>
+      <p className={styles.note}>
+        {teamName ? `Loading ${teamName}'s matchup...` : "Loading this week's matchup..."}
+      </p>
       <SkeletonText lines={4} />
     </div>
   );
@@ -99,9 +117,11 @@ export default function GameDayPanel() {
   // explicit-over-implicit precedence the backend resolver uses.
   const { state: userState } = useUserState();
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname() || "/game-day";
   const urlOwnerId = String(searchParams?.get("team") || "").trim();
-  const selectedOwnerId =
-    urlOwnerId || (userState?.selectedTeam?.ownerId ? String(userState.selectedTeam.ownerId) : "");
+  const myOwnerId = userState?.selectedTeam?.ownerId ? String(userState.selectedTeam.ownerId) : "";
+  const selectedOwnerId = urlOwnerId || myOwnerId;
 
   // SELECTED-LEAGUE CONTEXT. Sent explicitly so the answer is for the
   // league the switcher shows, and part of the request key so a response
@@ -124,6 +144,12 @@ export default function GameDayPanel() {
   const urlWeek = String(searchParams?.get("week") || "").trim();
   const urlSeason = String(searchParams?.get("season") || "").trim();
   const requestKey = JSON.stringify([leagueKey, selectedOwnerId, urlWeek, urlSeason]);
+
+  // The league's rosters, as the backend listed them for THIS requested
+  // league. Kept across a team switch (the picker must not vanish while the
+  // next team loads) and ignored the moment the league differs.
+  const [roster, setRoster] = useState({ leagueKey: null, teams: [] });
+  const leagueTeams = roster.leagueKey === leagueKey ? roster.teams : [];
 
   const load = useCallback(
     async ({ background = false } = {}) => {
@@ -154,7 +180,7 @@ export default function GameDayPanel() {
         const body = await res.json().catch(() => ({}));
         if (controller.signal.aborted || requestRef.current !== controller) return;
         if (res.ok) {
-          if (!validMatchupPayload(body, expectedLeagueKey)) {
+          if (!validMatchupPayload(body, expectedLeagueKey, selectedOwnerId)) {
             setState((previous) =>
               keepPrevious(previous)
                 ? { ...previous, refreshing: false, refreshError: true }
@@ -170,8 +196,21 @@ export default function GameDayPanel() {
             );
             return;
           }
+          if (validLeagueTeams(body.leagueTeams)) {
+            setRoster({ leagueKey, teams: body.leagueTeams });
+          }
           setState({ status: "ok", payload: body, error: null, requestKey });
           return;
+        }
+        // A team this league does not hold (or no team at all — a guest or
+        // unlinked session) still names the teams it DOES hold, so the
+        // picker can recover in-league — never elsewhere.
+        if (
+          (body.error === "team_not_found" || body.error === "team_required") &&
+          validLeagueTeams(body.leagueTeams) &&
+          (!expectedLeagueKey || body.leagueKey === expectedLeagueKey)
+        ) {
+          setRoster({ leagueKey, teams: body.leagueTeams });
         }
         // The error CODE is the state. Explicit domain/auth refusals
         // replace the old answer; a transient server failure may retain it
@@ -233,8 +272,51 @@ export default function GameDayPanel() {
 
   const manualRefresh = useCallback(() => load({ background: true }), [load]);
 
+  // Switching perspective is a URL change: `team` is replaced, every other
+  // parameter (league, week, season) is carried as-is. `push`, so back
+  // returns to the previous team; no scroll jump.
+  const selectTeam = useCallback(
+    (ownerId) => {
+      if (!ownerId) return;
+      const params = new URLSearchParams(Array.from(searchParams || []));
+      params.set("team", ownerId);
+      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [router, pathname, searchParams],
+  );
+
+  const current = state.status === "ok" && state.requestKey === requestKey ? state.payload : null;
+  const shownOwnerId = selectedOwnerId || current?.team?.ownerId || "";
+  const shownTeam = leagueTeams.find((t) => t.ownerId && t.ownerId === shownOwnerId) || null;
+
+  return (
+    // One stable tree: the picker stays mounted (and keeps focus) while the
+    // body below moves through loading / error / ready for the new team.
+    <div className={styles.stack}>
+      {leagueTeams.length > 0 ? (
+        <TeamPicker
+          teams={leagueTeams}
+          value={shownOwnerId}
+          myOwnerId={myOwnerId}
+          opponentOwnerId={current?.opponent?.ownerId || ""}
+          onSelect={selectTeam}
+        />
+      ) : null}
+      <GameDayBody
+        state={state}
+        requestKey={requestKey}
+        teamName={shownTeam?.teamName || ""}
+        leagueTeamsKnown={leagueTeams.length > 0}
+        onRetry={load}
+        onRefresh={manualRefresh}
+      />
+    </div>
+  );
+}
+
+function GameDayBody({ state, requestKey, teamName, leagueTeamsKnown, onRetry, onRefresh }) {
   if (state.status === "loading" || state.requestKey !== requestKey) {
-    return <GameDayLoading />;
+    return <GameDayLoading teamName={teamName} />;
   }
 
   if (state.status === "error") {
@@ -257,11 +339,27 @@ export default function GameDayPanel() {
         />
       );
     }
-    if (code === "team_required" || code === "team_not_found") {
+    if (code === "team_required") {
       return (
         <EmptyState
           title="No team selected"
-          description="Pick your team from the switcher above, or pass ?team= on this URL."
+          description={
+            leagueTeamsKnown
+              ? "Choose any team in this league above to see its Game Day."
+              : "Pick your team from the switcher above, or pass ?team= on this URL."
+          }
+        />
+      );
+    }
+    if (code === "team_not_found") {
+      return (
+        <EmptyState
+          title="That team is not in this league"
+          description={
+            leagueTeamsKnown
+              ? "Choose a team from this league above. Game Day never switches to another league to find it."
+              : "Pick a team from the switcher above. Game Day never switches to another league to find it."
+          }
         />
       );
     }
@@ -279,7 +377,7 @@ export default function GameDayPanel() {
           code: state.error?.error,
           message: state.error?.message || state.error?.detail || "",
         }}
-        onRetry={() => load()}
+        onRetry={() => onRetry()}
         variant="block"
         context="this week's matchup"
       />
@@ -288,7 +386,15 @@ export default function GameDayPanel() {
 
   const p = state.payload || {};
   return (
-    <div className={styles.stack} aria-busy={state.refreshing || undefined} data-game-day-ready="true">
+    <div
+      // Keyed by team: detail sections opened for one team never stay open,
+      // looking current, under another.
+      key={p.team?.ownerId || "team"}
+      className={styles.stack}
+      aria-busy={state.refreshing || undefined}
+      data-game-day-ready="true"
+      data-game-day-team={p.team?.ownerId || undefined}
+    >
       <p
         role="status"
         className={`${styles.refreshStatus} ${state.refreshError ? styles.refreshStatusWarn : ""}`.trim()}
@@ -299,7 +405,7 @@ export default function GameDayPanel() {
             ? "Updating this matchup…"
             : ""}
       </p>
-      <MatchupHero payload={p} refreshing={Boolean(state.refreshing)} onRefresh={manualRefresh} />
+      <MatchupHero payload={p} refreshing={Boolean(state.refreshing)} onRefresh={onRefresh} />
       <WhatMattersNow payload={p} />
       <NflSlate payload={p} />
       <BestBallDetails payload={p} />

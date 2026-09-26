@@ -41,8 +41,11 @@ vi.mock("@/components/useUserState", () => ({
 }));
 
 const mockSearchParams = { value: new Map() };
+const mockRouter = { push: vi.fn() };
 vi.mock("next/navigation", () => ({
   useSearchParams: () => mockSearchParams.value,
+  useRouter: () => mockRouter,
+  usePathname: () => "/game-day",
 }));
 
 // The league switcher's answer. `dynasty_main` is what every fixture says.
@@ -75,6 +78,7 @@ async function renderReady(payload) {
 beforeEach(() => {
   mockUserState.state = { selectedTeam: null };
   mockSearchParams.value = new Map();
+  mockRouter.push = vi.fn();
   mockLeague.selectedLeagueKey = "dynasty_main";
   mockLeague.loading = false;
 });

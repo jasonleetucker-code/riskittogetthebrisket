@@ -127,6 +127,45 @@ export function matchupStateLabel(mode) {
   return "Status unknown";
 }
 
+// ── Team switcher ────────────────────────────────────────────────────────
+
+/**
+ * The backend's `leagueTeams` list, accepted only in the shape it is
+ * published in (every entry a roster of the rendered league). Anything else
+ * is treated as "no list" — never a partial, guessed roster set.
+ */
+export function validLeagueTeams(teams) {
+  return (
+    Array.isArray(teams) &&
+    teams.length > 0 &&
+    teams.every(
+      (t) =>
+        t !== null &&
+        typeof t === "object" &&
+        typeof t.rosterId === "string" &&
+        t.rosterId.length > 0 &&
+        (t.ownerId === null || (typeof t.ownerId === "string" && t.ownerId.length > 0)),
+    )
+  );
+}
+
+/**
+ * One picker option's words: team name, the manager when it differs, and
+ * the viewer-relative markers. Identity is the backend's `ownerId`; the name
+ * is display only.
+ */
+export function teamOptionLabel(team, { myOwnerId = "", opponentOwnerId = "" } = {}) {
+  const teamName = team?.teamName || team?.displayName || `Roster ${team?.rosterId || "?"}`;
+  const manager = team?.displayName && team.displayName !== teamName ? ` — ${team.displayName}` : "";
+  const marks = [];
+  if (!team?.ownerId) marks.push("no manager");
+  else {
+    if (myOwnerId && team.ownerId === myOwnerId) marks.push("your team");
+    if (opponentOwnerId && team.ownerId === opponentOwnerId) marks.push("opponent");
+  }
+  return `${teamName}${manager}${marks.length ? ` (${marks.join(", ")})` : ""}`;
+}
+
 const SLOT_LABELS = { SUPER_FLEX: "SF", REC_FLEX: "FLEX", IDP_FLEX: "IDP" };
 
 export function slotLabel(slot) {

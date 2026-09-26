@@ -256,3 +256,110 @@ test("game-day: a refresh updates in place — no blank, sections stay open, foc
   await expect(refresh).toBeFocused();
   await image(page, testInfo, "after-refresh");
 });
+
+/**
+ * TEAM SWITCHER (owner directive 2026-09-25).  Answers are served by the
+ * requested `team`: owner-8 and owner-10 are REAL payloads (the two sides of
+ * one halftime generation); owner-3 is LABELLED SYNTHETIC — owner-8's real
+ * payload re-keyed — used only as a third distinct identity for the race.
+ * owner-10's answer is held for 2.5 s so a quick A -> C switch leaves it in
+ * flight: it must never replace C.
+ */
+function byTeam() {
+  const mine = load("halftime");
+  const opponent = load("halftime-opponent");
+  const third = JSON.parse(JSON.stringify(mine));
+  const t = third.leagueTeams.find((x) => x.ownerId === "owner-3");
+  third.team = { ...third.team, ownerId: "owner-3", rosterId: t.rosterId, displayName: t.displayName };
+  return { "owner-8": mine, "owner-10": opponent, "owner-3": third };
+}
+
+async function serveByTeam(page, payloads, slowTeam) {
+  const seen = [];
+  await page.route(
+    (url) => url.pathname === "/api/matchup/intel",
+    async (route) => {
+      const qs = new URL(route.request().url()).searchParams;
+      const team = qs.get("team");
+      seen.push({ team, leagueKey: qs.get("leagueKey") });
+      if (team === slowTeam) await new Promise((resolve) => setTimeout(resolve, 2500));
+      const body = payloads[team];
+      await route.fulfill({
+        status: body ? 200 : 404,
+        contentType: "application/json",
+        headers: { "Cache-Control": "no-store" },
+        body: JSON.stringify(body || { error: "team_not_found", leagueKey: "dynasty_main" }),
+      });
+    },
+  );
+  await page.route(
+    (url) => url.pathname === "/api/leagues",
+    (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(LEAGUES) }),
+  );
+  return seen;
+}
+
+test("game-day: switch team A -> B -> C in the selected league; stale answers never land", async ({
+  authedPage: page,
+}, testInfo) => {
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const payloads = byTeam();
+  const seen = await serveByTeam(page, payloads, "owner-10");
+  await open(page, payloads["owner-8"]);
+  const picker = page.getByRole("combobox", { name: "Viewing team" });
+  await expect(picker).toBeVisible();
+  await expect(picker).toHaveValue("owner-8");
+  await expect(hero(page).locator("caption")).toContainText("Team 8 versus Team 10");
+  await noPageOverflow(page);
+
+  // Reachable by keyboard, before the hero's own controls.
+  await page.locator("body").focus();
+  let reached = false;
+  for (let i = 0; i < 80 && !reached; i += 1) {
+    await page.keyboard.press("Tab");
+    reached = await picker.evaluate((el) => el === document.activeElement);
+  }
+  expect(reached, "the team picker must be reachable with Tab").toBe(true);
+
+  // A: the opponent (held in flight), then quickly C.
+  await picker.selectOption("owner-10");
+  await expect(page).toHaveURL(/team=owner-10/);
+  await expect(page.getByText(/Loading .*matchup/)).toBeVisible();
+  await picker.selectOption("owner-3");
+  await expect(page).toHaveURL(/team=owner-3/);
+  await expect(page).toHaveURL(/leagueKey=dynasty_main/);
+  await expect(hero(page).locator("caption")).toContainText("Team 3 versus");
+  await expect(picker).toHaveValue("owner-3");
+  // Outlive the held owner-10 answer: C stays on screen.
+  await page.waitForTimeout(3000);
+  await expect(hero(page).locator("caption")).toContainText("Team 3 versus");
+  await expect(page.locator('[data-game-day-team="owner-3"]')).toHaveCount(1);
+  await noPageOverflow(page);
+  await scan(page, testInfo, "team-switched");
+  await image(page, testInfo, "team-switched");
+
+  // Back walks to the previous team; this time its answer lands.
+  await page.goBack();
+  await expect(page).toHaveURL(/team=owner-10/);
+  await expect(hero(page).locator("caption")).toContainText("Team 10 versus Team 8", {
+    timeout: 15_000,
+  });
+  const opp = payloads["owner-10"].team.outcome.winMatchupPct.toFixed(1);
+  await expect(hero(page).getByRole("row", { name: /Team 10/ }).first()).toContainText(`${opp}%`);
+  await expect(picker).toHaveValue("owner-10");
+
+  // Refresh keeps the chosen team.
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await awaitStreamSettled(page);
+  await expect(hero(page).locator("caption")).toContainText("Team 10 versus Team 8", {
+    timeout: 30_000,
+  });
+  // Every request stayed in the selected league.
+  expect(seen.map((r) => r.team)).toEqual(expect.arrayContaining(["owner-8", "owner-10", "owner-3"]));
+  expect(new Set(seen.map((r) => r.leagueKey))).toEqual(new Set(["dynasty_main"]));
+  await noPageOverflow(page);
+  await image(page, testInfo, "team-after-reload");
+  expect(errors).toEqual([]);
+});

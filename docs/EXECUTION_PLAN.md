@@ -132,6 +132,10 @@ single authorization record for the batch; ideas inside it do not get their own 
     Game Day experience, paired across Season/Scoring/Projections and Lane 6. It is a named unit of
     this campaign, not a separate program and not a later UI phase. No paid feed and no access
     bypass is authorized; exact external blockers are named while the rest proceeds.
+    **Extension authorized (owner, 2026-09-25):** the Game Day team switcher — view any roster of
+    the selected league from its own side, same route and engine, league-isolated. Contract:
+    `docs/OWNER_REQUESTED_TODO.md` ("Game Day switches between every team"). No methodology,
+    scoring, source or PSI-direction change.
 * **Build broadly, integrate narrowly is authorized:** focused/targeted tests while building,
   full CI at integration boundaries and on every merge head, one integrated release candidate and
   one production deploy where practical. It never weakens an acceptance gate.
