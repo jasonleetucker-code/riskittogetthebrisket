@@ -1,0 +1,338 @@
+/* Trade War Room — PSI editorial structure (Direction A, Lane 6).
+   Tokens only (tokens.css, .psi-editorial scope on the /trade root). No raw
+   colours, no new radii or shadows, canonical breakpoints (480/768) only.
+   Hierarchy comes from type, rules and alignment — not cards or gauges. */
+
+.room {
+  background: var(--surface-1);
+  border-top: 2px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-default);
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+}
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.mode {
+  flex: 0 0 auto;
+}
+.modeNote,
+.note {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+.status {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  min-height: 1em;
+}
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.stale {
+  opacity: 0.6;
+}
+
+/* ── Verdict ── */
+.verdict {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-default);
+}
+.verdictEyebrow,
+.answerLabel {
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: var(--font-weight-semibold);
+  margin: 0;
+}
+.verdictLine {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-3);
+}
+.verdictBadge {
+  font-size: var(--font-size-md);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+.confidence {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+.topUncertainty {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+/* ── Market / Roster / Feasibility: three columns, ruled, not cards ── */
+.answers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.answer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  min-width: 0;
+  border-left: 1px solid var(--border-subtle);
+}
+.answer:first-child {
+  border-left: 0;
+  padding-left: 0;
+}
+.answerQuestion {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+.answerHeadline {
+  margin: 0;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.bigNum {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.unit {
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+.feasHeadline {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.answerNote {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+}
+.lensMuted {
+  font-size: var(--font-size-sm);
+  color: var(--text-tertiary);
+}
+.lensBadge {
+  align-self: flex-start;
+}
+
+/* ── Reasons ── */
+.reasonGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.reasons {
+  min-width: 0;
+}
+.reasonsTitle {
+  margin: 0 0 var(--space-1);
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.reasons[data-tone="positive"] .reasonsTitle {
+  color: var(--positive-text, var(--text-secondary));
+}
+.reasons[data-tone="negative"] .reasonsTitle {
+  color: var(--negative-text, var(--text-secondary));
+}
+.reasonsList {
+  margin: 0;
+  padding-left: var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* ── Roster construction impact ── */
+.impact {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.sectionTitle {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+.facts div {
+  min-width: 0;
+}
+.facts dt {
+  font-size: var(--font-size-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-tertiary);
+}
+.facts dd {
+  margin: 0;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+/* A dense table may scroll inside its own region; the page never does. */
+.tableWrap {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.tableWrap:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+.table th,
+.table td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  white-space: nowrap;
+  background: transparent;
+}
+.table thead th {
+  font-size: var(--font-size-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-tertiary);
+  font-weight: var(--font-weight-semibold);
+}
+.table .num {
+  text-align: right;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+.playerCell {
+  font-weight: var(--font-weight-semibold);
+  white-space: normal;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.playerName {
+  margin-right: var(--space-1);
+}
+.playerPos {
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ── Details ── */
+.details {
+  min-width: 0;
+}
+.detailsBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+.detailsBody p {
+  margin: 0;
+}
+.detailsTitle {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.detailsList {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+@media (max-width: 768px) {
+  .room {
+    padding: var(--space-3);
+  }
+  .answers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .answer,
+  .answer:first-child {
+    border-left: 0;
+    padding-left: 0;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .answer:first-child {
+    border-top: 0;
+  }
+  .reasonGrid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+  .facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .bigNum {
+    font-size: var(--font-size-lg);
+  }
+}

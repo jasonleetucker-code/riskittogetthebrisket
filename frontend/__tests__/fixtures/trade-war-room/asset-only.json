@@ -1,0 +1,924 @@
+{
+ "_fixture": {
+  "description": "The consolidation trade with Use Team Context OFF (Asset-Only).",
+  "generator": "tests/trade/war_room_ui_payloads.py",
+  "request": {
+   "picksIn": [],
+   "picksOut": [],
+   "playersIn": [
+    "WR Buf Star"
+   ],
+   "playersOut": [
+    "WR Kc",
+    "WR Phi"
+   ],
+   "teamName": "Us",
+   "useTeamContext": false
+  },
+  "scenario": "asset-only"
+ },
+ "after": {
+  "byPosition": {
+   "DEF": {
+    "count": 0,
+    "value": 0
+   },
+   "IDP": {
+    "count": 0,
+    "value": 0
+   },
+   "K": {
+    "count": 0,
+    "value": 0
+   },
+   "PICK": {
+    "count": 1,
+    "value": 3500
+   },
+   "QB": {
+    "count": 1,
+    "value": 6000
+   },
+   "RB": {
+    "count": 2,
+    "value": 3000
+   },
+   "TE": {
+    "count": 1,
+    "value": 500
+   },
+   "WR": {
+    "count": 1,
+    "value": 7000
+   }
+  },
+  "tiers": {
+   "depth": 2,
+   "elite": 0,
+   "high": 1,
+   "mid": 3
+  },
+  "totalValue": 20000
+ },
+ "analysis": {
+  "basis": "single_lens:equity",
+  "confidence": "MEDIUM",
+  "dimensions": [
+   {
+    "available": true,
+    "detail": {
+     "magnitude": "stretch",
+     "rawGap": 1000,
+     "receivingAdjusted": 10227.0,
+     "receivingValue": 7000,
+     "receivingValueAdjustment": 3227.0,
+     "sendingAdjusted": 6000.0,
+     "sendingValue": 6000,
+     "sendingValueAdjustment": 0.0,
+     "unresolvedIn": [],
+     "unresolvedOut": [],
+     "vaAdjustedGap": 4227,
+     "valueAdjustment": "KTC Value Adjustment (exact; src.trade.ktc_va)"
+    },
+    "dimension": "equity",
+    "direction": "favors",
+    "lineage": "canonical_value",
+    "votes": true
+   },
+   {
+    "available": false,
+    "detail": {
+     "note": "not included in Asset-Only analysis"
+    },
+    "dimension": "rosterUtility",
+    "lineage": "league_scored_projection",
+    "unavailableReason": "asset_only_mode",
+    "votes": false
+   },
+   {
+    "available": false,
+    "detail": {
+     "note": "not included in Asset-Only analysis"
+    },
+    "dimension": "feasibility",
+    "lineage": "league_roster_rules",
+    "unavailableReason": "asset_only_mode",
+    "votes": false
+   },
+   {
+    "available": true,
+    "detail": {
+     "lowConfidenceAssets": [],
+     "note": "Evidence quality sets confidence and the uncertainty list; it is never a vote, and the canonical value's contributing sources are never re-counted as independent opinions.",
+     "projectionCoverage": null,
+     "rosterUtilityStandardError": null,
+     "sourceDisagreementAssets": [],
+     "unstampedAssets": [
+      "WR Buf Star",
+      "WR Kc",
+      "WR Phi"
+     ]
+    },
+    "dimension": "evidence",
+    "direction": null,
+    "lineage": null,
+    "votes": false
+   }
+  ],
+  "lenses": {
+   "evidence": {
+    "available": true,
+    "detail": {
+     "lowConfidenceAssets": [],
+     "note": "Evidence quality sets confidence and the uncertainty list; it is never a vote, and the canonical value's contributing sources are never re-counted as independent opinions.",
+     "projectionCoverage": null,
+     "rosterUtilityStandardError": null,
+     "sourceDisagreementAssets": [],
+     "unstampedAssets": [
+      "WR Buf Star",
+      "WR Kc",
+      "WR Phi"
+     ]
+    },
+    "dimension": "evidence",
+    "direction": null,
+    "lineage": null,
+    "votes": false
+   },
+   "feasibility": {
+    "available": false,
+    "detail": {
+     "note": "not included in Asset-Only analysis"
+    },
+    "dimension": "feasibility",
+    "lineage": "league_roster_rules",
+    "unavailableReason": "asset_only_mode",
+    "votes": false
+   },
+   "market": {
+    "available": true,
+    "detail": {
+     "magnitude": "stretch",
+     "rawGap": 1000,
+     "receivingAdjusted": 10227.0,
+     "receivingValue": 7000,
+     "receivingValueAdjustment": 3227.0,
+     "sendingAdjusted": 6000.0,
+     "sendingValue": 6000,
+     "sendingValueAdjustment": 0.0,
+     "unresolvedIn": [],
+     "unresolvedOut": [],
+     "vaAdjustedGap": 4227,
+     "valueAdjustment": "KTC Value Adjustment (exact; src.trade.ktc_va)"
+    },
+    "dimension": "equity",
+    "direction": "favors",
+    "lineage": "canonical_value",
+    "votes": true
+   },
+   "roster": {
+    "available": false,
+    "detail": {
+     "note": "not included in Asset-Only analysis"
+    },
+    "dimension": "rosterUtility",
+    "lineage": "league_scored_projection",
+    "unavailableReason": "asset_only_mode",
+    "votes": false
+   }
+  },
+  "reasonsAgainst": [],
+  "reasonsFor": [
+   "+4,227 package value after KTC Value Adjustment (stretch gap)"
+  ],
+  "recommendation": "MAKE",
+  "teamContext": {
+   "applied": false,
+   "mode": "asset_only"
+  },
+  "topUncertainty": null,
+  "unavailableDimensions": [
+   {
+    "dimension": "marketCorroboration",
+    "notes": "C4-MTL-01 (real market trades) and C4-MTL-03 (comparable-trade matching) are ABSENT \u2014 there is no independent vendor/comp evidence to synthesize.",
+    "reason": "no_backing_ledger"
+   },
+   {
+    "dimension": "valueUncertainty",
+    "notes": "Monte Carlo value-uncertainty bands/correlation have open revalidation items (docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md \u00a7A) and are not folded into this recommendation until that audit closes.",
+    "reason": "unaudited_model"
+   },
+   {
+    "dimension": "strategicPosture",
+    "notes": "Competitive posture (#840) has no canonical owner yet and awaits an owner decision; no posture is invented here.",
+    "reason": "no_canonical_owner"
+   },
+   {
+    "dimension": "currentSeasonEquity",
+    "notes": "src.ros.playoff_sim.simulate_trade_impact takes a weekly-mean shift only and has no production caller; playoff/championship deltas wait for that owner.",
+    "reason": "counterfactual_not_wired"
+   }
+  ],
+  "uncertainty": [],
+  "version": "analyze_trade_v2"
+ },
+ "before": {
+  "byPosition": {
+   "DEF": {
+    "count": 0,
+    "value": 0
+   },
+   "IDP": {
+    "count": 0,
+    "value": 0
+   },
+   "K": {
+    "count": 0,
+    "value": 0
+   },
+   "PICK": {
+    "count": 1,
+    "value": 3500
+   },
+   "QB": {
+    "count": 1,
+    "value": 6000
+   },
+   "RB": {
+    "count": 2,
+    "value": 3000
+   },
+   "TE": {
+    "count": 1,
+    "value": 500
+   },
+   "WR": {
+    "count": 2,
+    "value": 6000
+   }
+  },
+  "tiers": {
+   "depth": 3,
+   "elite": 0,
+   "high": 0,
+   "mid": 4
+  },
+  "totalValue": 19000
+ },
+ "delta": {
+  "byPosition": {
+   "DEF": {
+    "count": 0,
+    "value": 0
+   },
+   "IDP": {
+    "count": 0,
+    "value": 0
+   },
+   "K": {
+    "count": 0,
+    "value": 0
+   },
+   "PICK": {
+    "count": 0,
+    "value": 0
+   },
+   "QB": {
+    "count": 0,
+    "value": 0
+   },
+   "RB": {
+    "count": 0,
+    "value": 0
+   },
+   "TE": {
+    "count": 0,
+    "value": 0
+   },
+   "WR": {
+    "count": -1,
+    "value": 1000
+   }
+  },
+  "tiers": {
+   "depth": -1,
+   "elite": 0,
+   "high": 1,
+   "mid": -1
+  },
+  "totalValue": 1000
+ },
+ "equity": 1000,
+ "finalRosterSimulation": {
+  "available": true,
+  "cleanupApplied": [],
+  "cleanupIsUpperBound": false,
+  "coreAfter": {
+   "available": true,
+   "demand": {
+    "bySlot": {
+     "FLEX": 1,
+     "QB": 1,
+     "RB": 1,
+     "WR": 1
+    },
+    "dedicatedBasis": {
+     "QB": 1,
+     "RB": 1,
+     "WR": 1
+    },
+    "flexSlots": [
+     "FLEX"
+    ],
+    "multiplier": 1.5,
+    "multiplierProvenance": "owner_addendum_839_amended_899",
+    "multiplierStatus": "PRIOR",
+    "starterBasis": {
+     "FLEX": 1,
+     "QB": 1,
+     "RB": 1,
+     "WR": 1
+    },
+    "superflexFoldedIntoQb": true,
+    "total": 4
+   },
+   "duplicateIds": [],
+   "members": [
+    {
+     "name": "QB Min",
+     "playerId": "QB Min",
+     "position": "QB",
+     "role": "starter",
+     "slot": "QB",
+     "value": 6000.0
+    },
+    {
+     "name": "RB Min",
+     "playerId": "RB Min",
+     "position": "RB",
+     "role": "starter",
+     "slot": "RB",
+     "value": 3000.0
+    },
+    {
+     "name": "WR Buf Star",
+     "playerId": "WR Buf Star",
+     "position": "WR",
+     "role": "starter",
+     "slot": "WR",
+     "value": 7000.0
+    },
+    {
+     "name": "TE Free",
+     "playerId": "TE Free",
+     "position": "TE",
+     "role": "starter",
+     "slot": "FLEX",
+     "value": 500.0
+    }
+   ],
+   "reserveCount": 0,
+   "slotSource": null,
+   "starterCount": 4,
+   "starterSlots": [
+    "QB",
+    "RB",
+    "WR",
+    "FLEX"
+   ],
+   "unavailableReason": null,
+   "unfilledReserveSlots": [
+    "FLEX",
+    "QB",
+    "RB",
+    "WR"
+   ],
+   "unfilledStarterSlots": [],
+   "unpricedIds": [
+    "RB Unpriced",
+    "ghost player"
+   ]
+  },
+  "coreBefore": {
+   "available": true,
+   "demand": {
+    "bySlot": {
+     "FLEX": 1,
+     "QB": 1,
+     "RB": 1,
+     "WR": 1
+    },
+    "dedicatedBasis": {
+     "QB": 1,
+     "RB": 1,
+     "WR": 1
+    },
+    "flexSlots": [
+     "FLEX"
+    ],
+    "multiplier": 1.5,
+    "multiplierProvenance": "owner_addendum_839_amended_899",
+    "multiplierStatus": "PRIOR",
+    "starterBasis": {
+     "FLEX": 1,
+     "QB": 1,
+     "RB": 1,
+     "WR": 1
+    },
+    "superflexFoldedIntoQb": true,
+    "total": 4
+   },
+   "duplicateIds": [],
+   "members": [
+    {
+     "name": "QB Min",
+     "playerId": "QB Min",
+     "position": "QB",
+     "role": "starter",
+     "slot": "QB",
+     "value": 6000.0
+    },
+    {
+     "name": "RB Min",
+     "playerId": "RB Min",
+     "position": "RB",
+     "role": "starter",
+     "slot": "RB",
+     "value": 3000.0
+    },
+    {
+     "name": "WR Kc",
+     "playerId": "WR Kc",
+     "position": "WR",
+     "role": "starter",
+     "slot": "WR",
+     "value": 4000.0
+    },
+    {
+     "name": "WR Phi",
+     "playerId": "WR Phi",
+     "position": "WR",
+     "role": "starter",
+     "slot": "FLEX",
+     "value": 2000.0
+    },
+    {
+     "name": "TE Free",
+     "playerId": "TE Free",
+     "position": "TE",
+     "role": "reserve",
+     "slot": "FLEX",
+     "value": 500.0
+    }
+   ],
+   "reserveCount": 1,
+   "slotSource": null,
+   "starterCount": 4,
+   "starterSlots": [
+    "QB",
+    "RB",
+    "WR",
+    "FLEX"
+   ],
+   "unavailableReason": null,
+   "unfilledReserveSlots": [
+    "QB",
+    "RB",
+    "WR"
+   ],
+   "unfilledStarterSlots": [],
+   "unpricedIds": [
+    "RB Unpriced",
+    "ghost player"
+   ]
+  },
+  "displacements": [
+   {
+    "kind": "displaced",
+    "name": "WR Kc",
+    "playerId": "WR Kc",
+    "position": "WR",
+    "roleAfter": null,
+    "roleBefore": "starter",
+    "slotAfter": null,
+    "slotBefore": "WR"
+   },
+   {
+    "kind": "displaced",
+    "name": "WR Phi",
+    "playerId": "WR Phi",
+    "position": "WR",
+    "roleAfter": null,
+    "roleBefore": "starter",
+    "slotAfter": null,
+    "slotBefore": "FLEX"
+   }
+  ],
+  "isVerdict": false,
+  "movements": [
+   {
+    "kind": "moved",
+    "name": "TE Free",
+    "playerId": "TE Free",
+    "position": "TE",
+    "roleAfter": "starter",
+    "roleBefore": "reserve",
+    "slotAfter": "FLEX",
+    "slotBefore": "FLEX"
+   },
+   {
+    "kind": "promoted",
+    "name": "WR Buf Star",
+    "playerId": "WR Buf Star",
+    "position": "WR",
+    "roleAfter": "starter",
+    "roleBefore": null,
+    "slotAfter": "WR",
+    "slotBefore": null
+   },
+   {
+    "kind": "displaced",
+    "name": "WR Kc",
+    "playerId": "WR Kc",
+    "position": "WR",
+    "roleAfter": null,
+    "roleBefore": "starter",
+    "slotAfter": null,
+    "slotBefore": "WR"
+   },
+   {
+    "kind": "displaced",
+    "name": "WR Phi",
+    "playerId": "WR Phi",
+    "position": "WR",
+    "roleAfter": null,
+    "roleBefore": "starter",
+    "slotAfter": null,
+    "slotBefore": "FLEX"
+   }
+  ],
+  "needsCreated": [],
+  "needsFixed": [],
+  "notes": [],
+  "outgoingNotFound": [],
+  "promotions": [
+   {
+    "kind": "promoted",
+    "name": "WR Buf Star",
+    "playerId": "WR Buf Star",
+    "position": "WR",
+    "roleAfter": "starter",
+    "roleBefore": null,
+    "slotAfter": "WR",
+    "slotBefore": null
+   }
+  ],
+  "strengthAfter": {
+   "available": true,
+   "byPosition": [
+    {
+     "count": 1,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "QB Min"
+     ],
+     "position": "QB",
+     "reserveCount": 0,
+     "reserveValue": 0.0,
+     "starterCount": 1,
+     "starterValue": 6000.0,
+     "value": 6000.0
+    },
+    {
+     "count": 1,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "RB Min"
+     ],
+     "position": "RB",
+     "reserveCount": 0,
+     "reserveValue": 0.0,
+     "starterCount": 1,
+     "starterValue": 3000.0,
+     "value": 3000.0
+    },
+    {
+     "count": 1,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "WR Buf Star"
+     ],
+     "position": "WR",
+     "reserveCount": 0,
+     "reserveValue": 0.0,
+     "starterCount": 1,
+     "starterValue": 7000.0,
+     "value": 7000.0
+    },
+    {
+     "count": 1,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "TE Free"
+     ],
+     "position": "TE",
+     "reserveCount": 0,
+     "reserveValue": 0.0,
+     "starterCount": 1,
+     "starterValue": 500.0,
+     "value": 500.0
+    }
+   ],
+   "fullRosterValue": null,
+   "isComplete": false,
+   "leaguePercentile": null,
+   "leagueRank": null,
+   "positionOrder": [
+    "QB",
+    "RB",
+    "WR",
+    "TE"
+   ],
+   "reserveValue": 0.0,
+   "starterValue": 16500.0,
+   "total": 16500.0,
+   "unavailableReason": null,
+   "unfilledReserveSlots": [
+    "FLEX",
+    "QB",
+    "RB",
+    "WR"
+   ],
+   "unfilledStarterSlots": [],
+   "unpricedCount": 2,
+   "unpricedIds": [
+    "RB Unpriced",
+    "ghost player"
+   ]
+  },
+  "strengthBefore": {
+   "available": true,
+   "byPosition": [
+    {
+     "count": 1,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "QB Min"
+     ],
+     "position": "QB",
+     "reserveCount": 0,
+     "reserveValue": 0.0,
+     "starterCount": 1,
+     "starterValue": 6000.0,
+     "value": 6000.0
+    },
+    {
+     "count": 1,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "RB Min"
+     ],
+     "position": "RB",
+     "reserveCount": 0,
+     "reserveValue": 0.0,
+     "starterCount": 1,
+     "starterValue": 3000.0,
+     "value": 3000.0
+    },
+    {
+     "count": 2,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "WR Kc",
+      "WR Phi"
+     ],
+     "position": "WR",
+     "reserveCount": 0,
+     "reserveValue": 0.0,
+     "starterCount": 2,
+     "starterValue": 6000.0,
+     "value": 6000.0
+    },
+    {
+     "count": 1,
+     "leaguePercentile": null,
+     "leagueRank": null,
+     "members": [
+      "TE Free"
+     ],
+     "position": "TE",
+     "reserveCount": 1,
+     "reserveValue": 500.0,
+     "starterCount": 0,
+     "starterValue": 0.0,
+     "value": 500.0
+    }
+   ],
+   "fullRosterValue": null,
+   "isComplete": false,
+   "leaguePercentile": null,
+   "leagueRank": null,
+   "positionOrder": [
+    "QB",
+    "RB",
+    "WR",
+    "TE"
+   ],
+   "reserveValue": 500.0,
+   "starterValue": 15000.0,
+   "total": 15500.0,
+   "unavailableReason": null,
+   "unfilledReserveSlots": [
+    "QB",
+    "RB",
+    "WR"
+   ],
+   "unfilledStarterSlots": [],
+   "unpricedCount": 2,
+   "unpricedIds": [
+    "RB Unpriced",
+    "ghost player"
+   ]
+  },
+  "strengthDelta": 1000.0,
+  "unavailableReason": null,
+  "unpricedIncoming": [],
+  "weaknessAfter": null,
+  "weaknessBefore": null
+ },
+ "leagueKey": "main",
+ "receiving": [
+  {
+   "age": null,
+   "assetClass": "offense",
+   "basePos": "WR",
+   "confidenceBucket": null,
+   "hasSourceDisagreement": null,
+   "name": "WR Buf Star",
+   "playerId": null,
+   "pos": "WR",
+   "rank": null,
+   "sourceLabel": "WR Buf Star",
+   "tier": "high",
+   "value": 7000
+  }
+ ],
+ "rosterCapacity": {
+  "certainty": "exact",
+  "forcedDropCutCost": 0.0,
+  "forcedDropReleaseCost": null,
+  "forcedDropValue": 0.0,
+  "forcedDrops": [],
+  "forcedDropsAreUpperBound": false,
+  "incoming": 1,
+  "ladderExhausted": false,
+  "notes": [
+   "1 rostered player(s) did not join to the board \u2014 they still occupy a roster spot and are still cut candidates, but their value is unknown",
+   "no waiver-level values available \u2014 cut costs fall back to raw board value",
+   "positional scarcity not used in this fixture (LABELLED) \u2014 multiplier inert"
+  ],
+  "openSpotsAfter": 2,
+  "openSpotsBefore": 1,
+  "outgoing": 2,
+  "outgoingNotOnRoster": 0,
+  "overLimitAfter": 0,
+  "overLimitAfterMax": 0,
+  "overLimitAfterMin": 0,
+  "overLimitBefore": 0,
+  "requiresDrops": false,
+  "rosterLimit": 8,
+  "rungOrderWasTied": false,
+  "sizeAfter": 6,
+  "sizeBefore": 7,
+  "taxiOccupiedMax": 0,
+  "taxiOccupiedMin": 0,
+  "taxiSize": 0,
+  "unpricedForcedDrops": 0,
+  "valueScale": "rankDerivedValue"
+ },
+ "sending": [
+  {
+   "age": null,
+   "assetClass": "offense",
+   "basePos": "WR",
+   "confidenceBucket": null,
+   "hasSourceDisagreement": null,
+   "name": "WR Kc",
+   "playerId": null,
+   "pos": "WR",
+   "rank": null,
+   "sourceLabel": "WR Kc",
+   "tier": "mid",
+   "value": 4000
+  },
+  {
+   "age": null,
+   "assetClass": "offense",
+   "basePos": "WR",
+   "confidenceBucket": null,
+   "hasSourceDisagreement": null,
+   "name": "WR Phi",
+   "playerId": null,
+   "pos": "WR",
+   "rank": null,
+   "sourceLabel": "WR Phi",
+   "tier": "depth",
+   "value": 2000
+  }
+ ],
+ "team": {
+  "name": "Us",
+  "ownerId": "o1",
+  "rosterId": 1
+ },
+ "teamContext": {
+  "applied": false,
+  "mode": "asset_only"
+ },
+ "teamImpact": {
+  "ageDelta": 0.0,
+  "compositeScore": 36.9,
+  "depthDelta": {
+   "QB": 0,
+   "RB": 0,
+   "TE": -1,
+   "WR": 0
+  },
+  "equityScore": 40.0,
+  "fitScore": 34.4,
+  "lineupDisplacement": {
+   "arrived": [
+    {
+     "name": "WR Buf Star",
+     "position": "WR",
+     "value": 7000,
+     "valueScale": "rankDerivedValue"
+    }
+   ],
+   "departed": [
+    {
+     "name": "WR Kc",
+     "position": "WR",
+     "value": 4000,
+     "valueScale": "rankDerivedValue"
+    },
+    {
+     "name": "WR Phi",
+     "position": "WR",
+     "value": 2000,
+     "valueScale": "rankDerivedValue"
+    }
+   ],
+   "displaced": [],
+   "isValueDelta": false,
+   "promoted": [
+    {
+     "name": "TE Free",
+     "position": "TE",
+     "value": 500,
+     "valueScale": "rankDerivedValue"
+    }
+   ],
+   "startersAfter": 4,
+   "startersBefore": 4
+  },
+  "posture": "contender",
+  "rationale": [
+   "Shifts WR starter quality (+1000.0)",
+   "Adds a starting TE (+500.0 starter value)",
+   "Net KTC equity +1000",
+   "Roster-shape fit score +34"
+  ],
+  "redundancy": [],
+  "scarcityDelta": {
+   "QB": 0.0,
+   "RB": 0.0,
+   "TE": 500.0,
+   "WR": 4000.0
+  },
+  "starterDelta": {
+   "QB": 0,
+   "RB": 0,
+   "TE": 1,
+   "WR": -1
+  },
+  "starterValueDelta": {
+   "QB": 0.0,
+   "RB": 0.0,
+   "TE": 500.0,
+   "WR": 1000.0
+  },
+  "unscalablePositions": [],
+  "verdict": "accept",
+  "windowFit": 0.0
+ },
+ "unresolvedIn": [],
+ "unresolvedOut": []
+}

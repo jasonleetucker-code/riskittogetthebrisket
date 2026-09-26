@@ -166,16 +166,44 @@ def test_weakness_rungs_never_credit_one_player_to_two_positions():
 _CHAIN = ("core.py", "strength.py", "weakness.py", "age_portfolio.py", "simulation.py")
 
 
+#: The one non-core caller, and the only question it may ask: best-ball
+#: trade utility (#1173) scores each SIMULATED DRAW's realized lineup, which
+#: the canonical solver answers under ``OBJECTIVE_REALIZED_POINTS``.  That is
+#: not "who starts on value" — the core's question — so it cannot be a second
+#: answer to it, and the check below keeps it that way.
+_REALIZED_POINTS_ONLY = {"best_ball_utility.py"}
+
+
 def test_only_the_core_owner_solves_a_lineup():
     """``assign_lineup`` / ``solve_optimal_assignment`` may be called by
-    the core and by the droppability adapter's feasibility guard — and
-    by nothing else in the chain. A second solve is a second answer."""
+    the core and by the droppability adapter's feasibility guard — and,
+    for per-draw realized best-ball scoring only, by the trade-utility
+    module — and by nothing else in the chain. A second solve of the same
+    question is a second answer."""
     callers = {}
     for path in sorted((REPO / "src/roster_intel").glob("*.py")):
         source = path.read_text(encoding="utf-8")
         if "assign_lineup(" in source or "solve_optimal_assignment(" in source:
             callers[path.name] = True
-    assert set(callers) <= {"core.py", "marginal.py"}, callers
+    assert set(callers) <= {"core.py", "marginal.py"} | _REALIZED_POINTS_ONLY, callers
+
+
+def test_the_trade_utility_solves_only_realized_points_lineups():
+    for name in _REALIZED_POINTS_ONLY:
+        tree = ast.parse((REPO / "src/roster_intel" / name).read_text(encoding="utf-8"))
+        calls = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and getattr(node.func, "id", getattr(node.func, "attr", None))
+            in {"solve_optimal_assignment", "assign_lineup"}
+        ]
+        assert calls, name
+        for call in calls:
+            assert getattr(call.func, "id", None) == "solve_optimal_assignment", name
+            objective = {k.arg: k.value for k in call.keywords}.get("objective")
+            assert isinstance(objective, ast.Name), name
+            assert objective.id == "OBJECTIVE_REALIZED_POINTS", name
 
 
 def test_the_chain_derives_reserve_demand_in_exactly_one_place():

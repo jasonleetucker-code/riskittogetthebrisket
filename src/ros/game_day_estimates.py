@@ -247,6 +247,12 @@ def _preseason_by_id(
     return out, tuple(sorted(ambiguous))
 
 
+#: Public name for the same join, for callers outside Game Day that price
+#: rostered players from the name-keyed ensemble (the trade path's #1173
+#: roster utility).  One join, one ambiguity rule.
+preseason_by_id = _preseason_by_id
+
+
 # ── Weekly source adapters ──────────────────────────────────────────────
 
 WeeklyAdapter = Callable[..., tuple[dict[str, WeeklyBaseline], dict[str, int], str | None]]
