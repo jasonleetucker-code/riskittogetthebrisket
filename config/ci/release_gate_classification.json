@@ -80,6 +80,8 @@
     "c1a-closure-diagnostics.yml::inventory::Collect the inventory from production": {
       "category": "blocking"
     },
+    "c1a-closure-diagnostics.yml::inventory::Collect privacy-safe performance metadata": {"category": "blocking"},
+    "c1a-closure-diagnostics.yml::inventory::Upload privacy-safe performance metadata": {"category": "blocking"},
     "c1a-closure-diagnostics.yml::inventory::Configure production SSH": {
       "category": "blocking"
     },

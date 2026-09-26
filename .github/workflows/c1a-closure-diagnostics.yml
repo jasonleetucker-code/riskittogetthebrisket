@@ -36,6 +36,22 @@ name: C1A closure inventory (read-only)
 on:
   workflow_dispatch:
     inputs:
+      scope:
+        description: "Legacy closure inventory or bounded privacy-safe performance metadata"
+        required: false
+        default: "closure"
+        type: choice
+        options: [closure, performance-safe]
+      samples:
+        description: "Safe scope sample count (1-20, count times interval at most 300 seconds)"
+        required: false
+        default: "3"
+        type: string
+      interval_seconds:
+        description: "Safe scope interval (1-60 seconds)"
+        required: false
+        default: "10"
+        type: string
       journal_lines:
         description: "How many journal lines to tail per unit"
         required: false
@@ -79,6 +95,7 @@ jobs:
           echo "PORT=${DEPLOY_PORT:-22}" >> "$GITHUB_ENV"
 
       - name: Collect the inventory from production
+        if: ${{ inputs.scope == 'closure' || inputs.scope == '' }}
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
@@ -99,3 +116,29 @@ jobs:
             -p "$PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
             "APP_DIR=$(printf %q "$APP_DIR") SERVICE_NAME=$(printf %q "$SERVICE_NAME") JOURNAL_LINES=$(printf %q "$JOURNAL_LINES") bash -s" \
             < deploy/diagnostics/c1a_closure_inventory.sh
+
+      - name: Collect privacy-safe performance metadata
+        if: ${{ inputs.scope == 'performance-safe' }}
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
+          SERVICE_NAME: ${{ vars.PROD_SERVICE_NAME || 'dynasty' }}
+          SAMPLES: ${{ inputs.samples }}
+          INTERVAL: ${{ inputs.interval_seconds }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python3 deploy/diagnostics/performance_inventory.py \
+            --app-dir "$APP_DIR" --service "$SERVICE_NAME" \
+            --samples "$SAMPLES" --interval "$INTERVAL" \
+            --output performance-safe.json
+
+      - name: Upload privacy-safe performance metadata
+        if: ${{ always() && inputs.scope == 'performance-safe' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: performance-safe-${{ github.run_id }}-${{ github.run_attempt }}
+          path: performance-safe.json
+          if-no-files-found: error
+          retention-days: 14

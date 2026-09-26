@@ -276,6 +276,8 @@ const AWAITING_COPY = {
   no_scored_week_since_any_add: "No scored week since any add yet",
   no_value_above_replacement: "No starter finished above replacement",
   no_qualifying_evidence: "No qualifying result yet",
+  no_eligible_mvp_candidate: "No team is in playoff position with a winning record yet",
+  mvp_eligibility_unverified: "Playoff field can't be verified yet — eligibility unavailable",
 };
 
 function awaitingCopy(reason) {
@@ -294,6 +296,31 @@ export function vorpExclusionNote(exclusions) {
     ? "no bench scoring on record to set a replacement level"
     : "not enough rostered players to set a replacement level";
   return `${positions.join(", ")} excluded — ${why}`;
+}
+
+// League MVP's team-success gate (owner decision 2026-09-26): the race lists
+// only players on a team in playoff position AND above .500. The backend
+// publishes the rule and the best performers it keeps out, so a missing
+// star reads as "outside the race", never as a data gap. OPOY / DPOY carry
+// no such block and show nothing here.
+const MVP_OUTSIDE_WHY = {
+  team_outside_playoff_field: "team outside the playoff field",
+  team_record_not_above_500: "team not above .500",
+};
+
+export function mvpEligibilityNote(eligibility) {
+  if (!eligibility || eligibility.verified !== true) return null;
+  const basis = eligibility.basis === "final_bracket" ? "that made the playoffs" : "in playoff position";
+  return `Eligible: players on a team ${basis} with a winning record.`;
+}
+
+export function mvpOutsideNote(eligibility) {
+  const out = eligibility?.outsideTheRace;
+  if (!Array.isArray(out) || out.length === 0) return null;
+  const parts = out.map(
+    (o) => `${o.playerName} (${MVP_OUTSIDE_WHY[o.reason] || "team not eligible"})`,
+  );
+  return `Outside the race: ${parts.join(", ")}`;
 }
 
 function AwardWinner({ a, managers, size = 24 }) {
@@ -527,6 +554,11 @@ function RaceCard({ race, managers, onNavigate, featured = false }) {
           {vorpExclusionNote(race.vorpExclusions)}
         </p>
       )}
+      {mvpEligibilityNote(race.eligibility) && (
+        <p className={styles.raceAwaiting} data-mvp-eligibility>
+          {mvpEligibilityNote(race.eligibility)}
+        </p>
+      )}
       {race.awaitingEvidence ? (
         <p className={styles.raceAwaiting}>{awaitingCopy(race.awaitingReason)}</p>
       ) : (
@@ -545,6 +577,11 @@ function RaceCard({ race, managers, onNavigate, featured = false }) {
           </ol>
           <AwardStandings award={race} formatMetric={raceMetric} onNavigate={onNavigate} />
         </>
+      )}
+      {mvpOutsideNote(race.eligibility) && (
+        <p className={styles.raceAwaiting} data-mvp-outside>
+          {mvpOutsideNote(race.eligibility)}
+        </p>
       )}
     </article>
   );
