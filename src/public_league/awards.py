@@ -53,8 +53,8 @@ AWARD_DESCRIPTIONS: dict[str, str] = {
     "champion": "Won the league.",
     "manager_of_the_year": "The league's best manager this season.",
     "league_mvp": "The league's Most Valuable Player.",
-    "off_mvp": "The most valuable offensive player.",
-    "def_mvp": "The most valuable defensive player.",
+    "off_mvp": "The best offensive player of the season.",
+    "def_mvp": "The best defensive player of the season.",
     "playoff_mvp": "The champion's standout playoff performer.",
     "off_roy": "The top first-year offensive player.",
     "def_roy": "The top first-year defensive player.",
@@ -2396,12 +2396,12 @@ def _activity_awards_for_season(
     _vorp_player_award(
         rows["off_mvp"],
         "off_mvp",
-        "Offensive MVP",
+        "Offensive Player of the Year",
     )
     _vorp_player_award(
         rows["def_mvp"],
         "def_mvp",
-        "Defensive MVP",
+        "Defensive Player of the Year",
     )
 
     # ── Mr. Consistent ─────────────────────────────────────────────
@@ -2912,14 +2912,14 @@ def _current_season_races(
         _vorp_player_race(
             rows["off_mvp"],
             "off_mvp",
-            "Offensive MVP Race",
+            "Offensive Player of the Year Race",
         )
     )
     _add(
         _vorp_player_race(
             rows["def_mvp"],
             "def_mvp",
-            "Defensive MVP Race",
+            "Defensive Player of the Year Race",
         )
     )
 

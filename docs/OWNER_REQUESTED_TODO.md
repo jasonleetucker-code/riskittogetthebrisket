@@ -895,6 +895,17 @@ Owner-approved; the authorization record is the League Hub Awards pointer in `do
     (their owners compute only the single best), Best Rebuild (off-season, completed seasons only).
 - **Not authorized.** Formula, VORP, scoring or waiver-methodology changes; new or removed awards; a League Hub
   redesign.
+- **C. OPOY / DPOY terminology (owner clarification on #1464, 2026-09-26).**
+  - `off_mvp` is shown as "Offensive Player of the Year" and `def_mvp` as "Defensive Player of the Year". "League
+    MVP" is unchanged.
+  - Internal keys are unchanged; formulas and rankings are byte-identical.
+  - Applies everywhere the backend label reaches: cards, races, expanded standings and history.
+  - OPOY/DPOY do not inherit any League-MVP competition-success gate.
+  - **Open owner decision (recorded, not implemented).** The clarification describes League MVP as gated on a
+    playoff-field, above-.500 franchise per the Honors spec. The spec's 2026-08-14 reconciliation amendment
+    (citing `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` §7) says player MVP has **no** hard playoff/.500 gate, and the code
+    has none. The rename changes no eligibility. Whether League MVP should (re)gain that gate needs an explicit
+    owner ruling that supersedes the 2026-08-13/14 decision.
 
 
 ## Added 2026-09-26 — Championship / playoff odds methodology: two owner decisions awaiting approval
