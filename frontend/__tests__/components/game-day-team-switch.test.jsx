@@ -23,7 +23,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import GameDayPanel from "@/components/GameDayPanel";
-import { formatPct } from "@/lib/game-day-view";
+import { formatPct, formatPoints, whatMattersNow } from "@/lib/game-day-view";
 
 import HALFTIME from "../fixtures/game-day/halftime.json";
 import OPPONENT from "../fixtures/game-day/halftime-opponent.json";
@@ -389,5 +389,73 @@ describe("Game Day team switcher — accessibility", () => {
     expect(select).toHaveAccessibleDescription(/Any team in this league/);
     // An unmanaged roster would be listed but not choosable.
     expect(within(select).getAllByRole("option").every((o) => !o.disabled)).toBe(true);
+  });
+});
+
+describe("Game Day team switcher — the whole page is the selected team's", () => {
+  function mattersText() {
+    const heading = screen.getByRole("heading", { name: "What matters now" });
+    return heading.closest("section").textContent;
+  }
+
+  it("What matters now and the score are the selected roster's own", async () => {
+    const view = render(<GameDayPanel />);
+    await screen.findByText(/matchup: Team 8/);
+    const mine = whatMattersNow(HALFTIME);
+    const theirs = whatMattersNow(OPPONENT);
+    // The two perspectives genuinely differ (backend leverage and lineup
+    // odds per side), so this cannot pass on a relabelled payload.
+    expect(theirs.map((i) => i.detail)).not.toEqual(mine.map((i) => i.detail));
+    for (const item of mine) expect(mattersText()).toContain(item.detail);
+
+    globalThis.fetch.mockResolvedValueOnce(ok(OPPONENT));
+    navigate(view, { team: "owner-10" });
+    await screen.findByText(/matchup: Team 10/);
+    for (const item of theirs) expect(mattersText()).toContain(item.detail);
+    for (const item of mine.filter((i) => !theirs.some((t) => t.detail === i.detail))) {
+      expect(mattersText()).not.toContain(item.detail);
+    }
+    // Score now belongs to roster 10: its best-ball 3.8, and the host's
+    // literal 0 is shown as a real zero ("Sleeper shows 0.0"), not missing.
+    const row = within(heroTable()).getByRole("row", { name: /Team 10/ });
+    expect(within(row).getByText(formatPoints(OPPONENT.team.scoreNow.bestBallFromBankedPoints))).toBeInTheDocument();
+    expect(within(row).getByText("Sleeper shows 0.0")).toBeInTheDocument();
+  });
+
+  it("identity is the ownerId, so a cosmetic rename keeps the selection", async () => {
+    const renamed = clone(OPPONENT);
+    for (const t of renamed.leagueTeams) t.teamName = `${t.teamName} (renamed)`;
+    renamed.team.teamName = `${renamed.team.teamName} (renamed)`;
+    globalThis.fetch = vi.fn().mockResolvedValueOnce(ok(OPPONENT)).mockResolvedValue(ok(renamed));
+    mockSearchParams.value = new Map([["team", "owner-10"]]);
+    render(<GameDayPanel />);
+    await screen.findByText(/matchup: Team 10/);
+    fireEvent.click(screen.getByRole("button", { name: /Refresh/ }));
+    await screen.findByRole("option", { name: /Replay roster 10 \(renamed\)/ });
+    expect(picker()).toHaveValue("owner-10");
+    expect(globalThis.fetch.mock.calls.every((c) => c[0].includes("team=owner-10"))).toBe(true);
+  });
+
+  it("switching away from a computing team: its later poll never lands on the new team", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      globalThis.fetch = vi.fn(async () => ok(PENDING)); // owner-8, forecast computing
+      const view = render(<GameDayPanel />);
+      await screen.findByText(/matchup: Roster 8 versus/);
+      const later = deferred();
+      globalThis.fetch.mockImplementationOnce(() => later.promise);
+      navigate(view, { team: "owner-10" });
+      // Past the 10 s pending re-poll the old team would have scheduled.
+      await act(async () => {
+        vi.advanceTimersByTime(15_000);
+      });
+      const teams = globalThis.fetch.mock.calls.map((c) => new URL(c[0], "http://x").searchParams.get("team"));
+      expect(teams.slice(1).every((t) => t === "owner-10")).toBe(true);
+      await act(async () => later.resolve(ok(OPPONENT)));
+      expect(await screen.findByText(/matchup: Team 10 versus Team 8/)).toBeInTheDocument();
+      expect(screen.queryByText(/matchup: Roster 8/)).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
