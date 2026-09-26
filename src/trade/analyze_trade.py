@@ -1,64 +1,56 @@
-"""Analyze Trade — the ONE canonical decision-synthesis owner (V1-43 / C7-DESK-01, V1 depth).
+"""Analyze Trade — the ONE canonical decision-synthesis owner (#792 / C7-DESK-01).
 
-Binding design record: ``docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md``.
-That plan describes a much larger eventual surface (CE-05 Trade Desk): canonical
-equity, market corroboration, Monte Carlo uncertainty, roster marginal impact,
-future/window context, optional intelligence context, and constraints/owner
-policy, synthesized by UNIQUE INFORMATION rather than by weighting every visible
-panel (the naive-average trap the plan names explicitly: value + MC + second
-opinions + team impact would double/triple-count the same canonical sources).
+Binding design records: ``docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md``
+(synthesize by UNIQUE INFORMATION, never by averaging every visible panel),
+``docs/trade/ROSTER_CAPACITY_FORCED_DROP_TRADE_ANALYSIS_ADDENDUM_2026-08-14.md``
+(#843) and ``docs/OWNER_FEATURE_ADDENDUM_2026-08-29_BEST_BALL_ROSTER_UTILITY.md``
+(#1173).  The same packet is meant for ``/trade`` today and the Trade Desk,
+counter-offers and saved analyses later — one recommendation contract, never a
+formula per consumer.
 
-This module is deliberately narrower than that full vision — "V1 depth" per
-``docs/VERSION_1_COMPLETION_CONTRACT.md`` row V1-43 — and says so rather than
-quietly presenting a partial synthesis as the finished product:
+The packet answers separate questions in separate LENSES
+───────────────────────────────────────────────────────
+* **market** — what does the market charge?  Canonical asset values, the raw
+  package difference, and exact KTC Value Adjustment
+  (``src.trade.ktc_va.adjusted_pair_totals``) as its own market lens.  VOTES.
+* **roster** — what does THIS roster gain or lose?  #1173 best-ball utility on
+  the final legal roster (``rosterUtility``), priced by LEAGUE-SCORED
+  PROJECTIONS.  VOTES.  Team Strength (``finalRosterSimulation``) is shown
+  inside it as context but does NOT vote: it is a sum of ``rankDerivedValue``,
+  the same lineage the market lens already counts.
+* **feasibility** — can the trade legally fit, and what must go?  #843 roster
+  capacity.  VOTES on what the other two cannot see: dynasty value released by
+  a forced cut, or an existing overage resolved.  The cut's WEEKLY-LINEUP cost
+  is already inside the roster lens (it is evaluated post-cleanup), so it is
+  not counted twice.
+* **evidence** — how trustworthy is the rest?  Projection coverage, the
+  estimate's own precision, canonical confidence stamps on the traded assets.
+  NEVER votes; it sets confidence and fills ``uncertainty``.
+* **strategicPosture** / **currentSeasonEquity** — named UNAVAILABLE with the
+  reason: #840 has no canonical owner yet, and the playoff simulator's trade
+  counterfactual (``playoff_sim.simulate_trade_impact``) takes a weekly-mean
+  shift only and is not wired.  Unavailable is not neutral and is never read
+  as zero.
 
-* **Included** (both already single-owner, already VERIFIED elsewhere, and
-  genuinely INDEPENDENT information):
-    1. canonical equity — KTC's Value Adjustment applied to the trade's two
-       sides (``src.trade.ktc_va.adjusted_pair_totals`` — the same function
-       ``suggestions._va_gap`` wraps; this module calls the owner directly
-       rather than re-deriving anything);
-    2. roster marginal impact — the Team Strength before/after delta from
-       ``finalRosterSimulation`` (V1-42 / C2-SIM-01, already wired into
-       ``/api/trade/simulate``).  A DIFFERENT canonical field
-       (``strengthBefore.total`` / ``strengthAfter.total``) from a DIFFERENT
-       computation (lineup-aware exact assignment, not asset value) than
-       dimension 1 — the two cannot double-count each other structurally,
-       not merely by convention. See ``tests/trade/test_analyze_trade.py::
-       test_dimensions_read_disjoint_canonical_fields`` for the guard.
+Use Team Context (#842)
+───────────────────────
+``simulation["teamContext"]["applied"] is False`` → Asset-Only: the roster and
+feasibility lenses are excluded BY MODE (and say so), the recommendation comes
+from the market lens alone, and no asset value changes.  One contract with a
+dimension switched off — not a second formula.
 
-* **Explicitly NOT included, named rather than silently absent**:
-    - market corroboration / comparable trades (plan §B, §C.2) — the backing
-      infrastructure (``C4-MTL-01`` real-market-trade ledger, ``C4-MTL-03``
-      comparable-trade matching) is ABSENT per
-      ``docs/C_SERIES_SCOPE_MANIFEST.md`` and C7-DESK-01's own declared
-      dependency list; there is no data to synthesize;
-    - Monte Carlo uncertainty (plan §A) — the plan's own audit section lists
-      open concerns (synthetic flat ±15% bands on unstamped rows, an
-      unvalidated same-team/same-position correlation model) that have not
-      been revalidated; folding an unaudited uncertainty model into a new
-      canonical recommendation surface would import that debt rather than
-      resolve it;
-    - owner constraint vetoes (plan dimension 7) beyond what
-      ``src.trade.constraints`` (C3-CON-01) already enforces upstream of
-      trade GENERATION — this module analyzes a trade the user typed in
-      (the manual Trade Calculator's free-form, deliberately unconstrained
-      surface per that owner's own docstring), so LOCK/EXCLUDE does not
-      apply here by design, not by omission.
-
-No weight-tuning.  Per the plan's own governance rule ("do not tune weights
-simply until recommendations look right"), the two included dimensions are
-combined by an explicit, auditable RULE TABLE over each dimension's SIGN
-(favors / opposes / neutral) plus the equity dimension's existing canonical
-magnitude bucket (``suggestions._fairness_label`` — even / lean / stretch,
-already calibrated and used everywhere else a gap is shown to a user) —
-never a fabricated numeric weight or a normalized sum of two differently
-scaled quantities.
+No weights
+──────────
+Directions (favors / opposes / neutral) and each lens's own magnitude bucket
+go through an explicit rule table.  The roster lens's neutral band and "large"
+multiple are declared PRIORS in ``config/trade/analyze_trade.json``.
 """
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from src.trade.ktc_va import adjusted_pair_totals
@@ -66,9 +58,18 @@ from src.trade.suggestions import _fairness_label
 
 #: The five product-facing verdicts (plan §C, "Product job").
 RECOMMENDATIONS = ("MAKE", "LEAN_MAKE", "TOO_CLOSE", "LEAN_PASS", "PASS")
+PACKET_VERSION = "analyze_trade_v2"
 
-#: Dimensions this V1-depth pass deliberately does not compute, named so
-#: "not included" and "computed and found neutral" never look the same.
+_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "trade" / "analyze_trade.json"
+_DEFAULTS = {"materialityPpg": 1.0, "largeMultiple": 3.0, "depthNotableLossPpg": 0.5}
+
+#: Lineage tags: two lenses sharing one may not both vote.
+LINEAGE_CANONICAL_VALUE = "canonical_value"
+LINEAGE_PROJECTION = "league_scored_projection"
+LINEAGE_ROSTER_RULES = "league_roster_rules"
+
+#: Dimensions this depth deliberately does not compute, named so "not
+#: included" and "computed and found neutral" never look the same.
 _UNAVAILABLE_DIMENSIONS = (
     {
         "dimension": "marketCorroboration",
@@ -77,13 +78,36 @@ _UNAVAILABLE_DIMENSIONS = (
         "matching) are ABSENT — there is no independent vendor/comp evidence to synthesize.",
     },
     {
-        "dimension": "uncertainty",
+        "dimension": "valueUncertainty",
         "reason": "unaudited_model",
         "notes": "Monte Carlo value-uncertainty bands/correlation have open revalidation "
-        "items (see docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md §A) and are not "
+        "items (docs/trade/TRADE_DECISION_SYNTHESIS_PLAN_2026-08-11.md §A) and are not "
         "folded into this recommendation until that audit closes.",
     },
+    {
+        "dimension": "strategicPosture",
+        "reason": "no_canonical_owner",
+        "notes": "Competitive posture (#840) has no canonical owner yet and awaits an "
+        "owner decision; no posture is invented here.",
+    },
+    {
+        "dimension": "currentSeasonEquity",
+        "reason": "counterfactual_not_wired",
+        "notes": "src.ros.playoff_sim.simulate_trade_impact takes a weekly-mean shift only "
+        "and has no production caller; playoff/championship deltas wait for that owner.",
+    },
 )
+
+_STEP = {r: i for i, r in enumerate(RECOMMENDATIONS)}
+
+
+def _config() -> dict[str, float]:
+    try:
+        raw = json.loads(_CONFIG_PATH.read_text(encoding="utf-8"))
+        roster = raw.get("rosterUtility") or {}
+        return {k: float(roster.get(k, v)) for k, v in _DEFAULTS.items()}
+    except (OSError, ValueError, TypeError):
+        return dict(_DEFAULTS)
 
 
 def _direction(value: float, *, epsilon: float = 0.0) -> str:
@@ -96,204 +120,564 @@ def _direction(value: float, *, epsilon: float = 0.0) -> str:
 
 @dataclass
 class DimensionResult:
-    """One independent piece of evidence, normalized per the plan's own shape:
-    direction / magnitude / confidence-relevant detail — never a raw score
-    meant to be summed with another dimension's raw score."""
+    """One lens: direction / magnitude / detail — never a raw score meant to be
+    summed with another lens's raw score."""
 
     name: str
     available: bool
     direction: str | None = None
     detail: dict[str, Any] = field(default_factory=dict)
     unavailable_reason: str | None = None
+    votes: bool = True
+    lineage: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        out: dict[str, Any] = {"dimension": self.name, "available": self.available}
+        out: dict[str, Any] = {
+            "dimension": self.name,
+            "available": self.available,
+            "votes": self.votes and self.available,
+            "lineage": self.lineage,
+        }
         if self.available:
             out["direction"] = self.direction
             out["detail"] = self.detail
         else:
             out["unavailableReason"] = self.unavailable_reason
+            if self.detail:
+                out["detail"] = self.detail
         return out
+
+
+# ── Lens 1: market ───────────────────────────────────────────────────────
+
+
+def _market_lens(simulation: dict[str, Any]) -> DimensionResult:
+    """Canonical package values + exact KTC VA.  Calls the owner directly."""
+    receiving = simulation.get("receiving") or []
+    sending = simulation.get("sending") or []
+    sending_values = [a["value"] for a in sending if a.get("value") is not None]
+    receiving_values = [a["value"] for a in receiving if a.get("value") is not None]
+    if not sending_values and not receiving_values:
+        return DimensionResult(
+            name="equity",
+            available=False,
+            unavailable_reason="no_priced_assets_either_side",
+            lineage=LINEAGE_CANONICAL_VALUE,
+        )
+    send_adj, recv_adj, send_va, recv_va = adjusted_pair_totals(sending_values, receiving_values)
+    gap = recv_adj - send_adj  # positive = the selected team comes out ahead
+    magnitude = _fairness_label(gap)
+    # An "even" gap is inside the market's own fairness band: it neither
+    # favors nor opposes, whatever its sign.
+    direction = "neutral" if magnitude == "even" else _direction(gap)
+    return DimensionResult(
+        name="equity",
+        available=True,
+        direction=direction,
+        lineage=LINEAGE_CANONICAL_VALUE,
+        detail={
+            "receivingValue": int(round(sum(receiving_values))),
+            "sendingValue": int(round(sum(sending_values))),
+            "rawGap": int(round(sum(receiving_values) - sum(sending_values))),
+            "vaAdjustedGap": int(round(gap)),
+            "magnitude": magnitude,
+            "sendingAdjusted": round(send_adj, 1),
+            "receivingAdjusted": round(recv_adj, 1),
+            "sendingValueAdjustment": round(float(send_va), 1),
+            "receivingValueAdjustment": round(float(recv_va), 1),
+            "valueAdjustment": "KTC Value Adjustment (exact; src.trade.ktc_va)",
+            "unresolvedIn": list(simulation.get("unresolvedIn") or []),
+            "unresolvedOut": list(simulation.get("unresolvedOut") or []),
+        },
+    )
+
+
+# ── Lens 2: roster (#1173) ───────────────────────────────────────────────
+
+
+def _team_strength_context(frs: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not isinstance(frs, dict) or frs.get("available", True) is not True:
+        return None
+    before = (frs.get("strengthBefore") or {}).get("total")
+    after = (frs.get("strengthAfter") or {}).get("total")
+    if before is None or after is None:
+        return None
+    return {
+        "before": round(float(before), 1),
+        "after": round(float(after), 1),
+        "delta": round(float(after) - float(before), 1),
+        "lineage": LINEAGE_CANONICAL_VALUE,
+        "countedAsVote": False,
+        "why": "Team Strength sums canonical values over the meaningful core — the same "
+        "lineage the market lens already counts, so it explains but does not vote.",
+    }
+
+
+def _roster_lens(simulation: dict[str, Any], cfg: dict[str, float]) -> DimensionResult:
+    utility = simulation.get("rosterUtility")
+    context = _team_strength_context(simulation.get("finalRosterSimulation"))
+    if not isinstance(utility, dict) or utility.get("available") is not True:
+        reason = "not_computed"
+        if isinstance(utility, dict):
+            reason = str(utility.get("unavailableReason") or reason)
+        return DimensionResult(
+            name="rosterUtility",
+            available=False,
+            unavailable_reason=reason,
+            lineage=LINEAGE_PROJECTION,
+            detail={"teamStrength": context} if context else {},
+        )
+    impact = utility.get("impact") or {}
+    ppg = float(impact.get("ppg") or 0.0)
+    stderr = impact.get("standardError")
+    band = max(cfg["materialityPpg"], 2.0 * float(stderr or 0.0))
+    coverage = (utility.get("coverage") or {}).get("state")
+    if coverage == "partial":
+        # A traded player without a projection: the number is real for the
+        # priced players but incomplete for the trade, so the lens ABSTAINS
+        # from voting rather than read a partial figure as whole.
+        direction = None
+        magnitude = "abstain_partial_coverage"
+    elif abs(ppg) < band:
+        direction, magnitude = "neutral", "within_band"
+    else:
+        direction = _direction(ppg)
+        magnitude = "large" if abs(ppg) >= cfg["largeMultiple"] * band else "modest"
+    detail = {
+        "unit": utility.get("unit"),
+        "ppg": round(ppg, 2),
+        "standardError": stderr,
+        "ppgBeforeCleanup": impact.get("ppgBeforeCleanup"),
+        "neutralBandPpg": round(band, 2),
+        "magnitude": magnitude,
+        "coverage": utility.get("coverage"),
+        "cleanup": utility.get("cleanup"),
+        "before": utility.get("before"),
+        "after": utility.get("after"),
+        "players": utility.get("players"),
+        "shape": utility.get("shape"),
+        "depth": utility.get("depth"),
+        "rosterSpot": utility.get("rosterSpot"),
+        "basis": utility.get("basis"),
+        "assumptions": utility.get("assumptions"),
+        "teamStrength": context,
+    }
+    if direction is None:
+        return DimensionResult(
+            name="rosterUtility",
+            available=False,
+            unavailable_reason="partial_projection_coverage",
+            lineage=LINEAGE_PROJECTION,
+            detail=detail,
+        )
+    return DimensionResult(
+        name="rosterUtility",
+        available=True,
+        direction=direction,
+        lineage=LINEAGE_PROJECTION,
+        detail=detail,
+    )
+
+
+# ── Lens 3: feasibility (#843) ───────────────────────────────────────────
+
+
+def _feasibility_state(cap: dict[str, Any]) -> str:
+    limit = cap.get("rosterLimit")
+    if limit is None:
+        return "unknown_limit"
+    if cap.get("requiresDrops") is None:
+        return "uncertain"
+    before = int(cap.get("overLimitBefore") or 0)
+    after = int(cap.get("overLimitAfter") or 0)
+    if before > 0:
+        if after == 0:
+            return "resolves_overage"
+        if after < before:
+            return "reduces_overage"
+        if after > before:
+            return "worsens_overage"
+        return "overage_unchanged"
+    if cap.get("requiresDrops"):
+        return "cut_required"
+    if cap.get("openSpotsAfter") == 0:
+        return "uses_final_spot"
+    return "fits_cleanly"
+
+
+def _feasibility_lens(simulation: dict[str, Any]) -> DimensionResult:
+    cap = simulation.get("rosterCapacity")
+    if not isinstance(cap, dict) or cap.get("unavailable"):
+        return DimensionResult(
+            name="feasibility",
+            available=False,
+            unavailable_reason="no_team_selected_or_uncomputable"
+            if not isinstance(cap, dict)
+            else str(cap.get("unavailable")),
+            lineage=LINEAGE_ROSTER_RULES,
+        )
+    state = _feasibility_state(cap)
+    drops = cap.get("forcedDrops") or []
+    detail = {
+        "state": state,
+        "rosterLimit": cap.get("rosterLimit"),
+        "sizeBefore": cap.get("sizeBefore"),
+        "sizeAfter": cap.get("sizeAfter"),
+        "openSpotsBefore": cap.get("openSpotsBefore"),
+        "openSpotsAfter": cap.get("openSpotsAfter"),
+        "overLimitBefore": cap.get("overLimitBefore"),
+        "overLimitAfter": cap.get("overLimitAfter"),
+        "requiresDrops": cap.get("requiresDrops"),
+        "forcedDrops": [
+            {
+                "playerId": d.get("playerId"),
+                "name": d.get("name"),
+                "position": d.get("position"),
+                "value": d.get("value"),
+                "releaseCost": d.get("releaseCost"),
+                "acquiredInTrade": d.get("acquiredInTrade"),
+            }
+            for d in drops
+        ],
+        "forcedDropReleaseCost": cap.get("forcedDropReleaseCost"),
+        "unpricedForcedDrops": cap.get("unpricedForcedDrops"),
+        "candidatesTied": bool(cap.get("rungOrderWasTied")),
+        "ladderExhausted": bool(cap.get("ladderExhausted")),
+        "certainty": cap.get("certainty"),
+        "picksOccupySpots": False,
+        "notes": list(cap.get("notes") or []),
+    }
+    if state in ("unknown_limit", "uncertain"):
+        return DimensionResult(
+            name="feasibility",
+            available=False,
+            unavailable_reason=state,
+            lineage=LINEAGE_ROSTER_RULES,
+            detail=detail,
+        )
+    if state in ("resolves_overage", "reduces_overage"):
+        direction = "favors"
+    elif state in ("cut_required", "worsens_overage"):
+        # The dynasty value a forced release gives away (its weekly-lineup
+        # cost is already inside the roster lens).  Releasing only unpriced
+        # or zero-cost players is a burden but not a value loss.
+        released = cap.get("forcedDropReleaseCost")
+        direction = "opposes" if (released or 0) > 0 or state == "worsens_overage" else "neutral"
+    else:
+        direction = "neutral"
+    return DimensionResult(
+        name="feasibility",
+        available=True,
+        direction=direction,
+        lineage=LINEAGE_ROSTER_RULES,
+        detail=detail,
+    )
+
+
+# ── Lens 4: evidence (never votes) ───────────────────────────────────────
+
+
+def _evidence_lens(simulation: dict[str, Any], roster: DimensionResult) -> DimensionResult:
+    traded = [*(simulation.get("receiving") or []), *(simulation.get("sending") or [])]
+    low = [
+        {"name": a.get("name"), "confidenceBucket": a.get("confidenceBucket")}
+        for a in traded
+        if a.get("confidenceBucket") == "low"
+    ]
+    disagree = [a.get("name") for a in traded if a.get("hasSourceDisagreement") is True]
+    unstamped = [a.get("name") for a in traded if a.get("confidenceBucket") is None]
+    coverage = (roster.detail or {}).get("coverage") if roster.detail else None
+    return DimensionResult(
+        name="evidence",
+        available=True,
+        direction=None,
+        votes=False,
+        detail={
+            "lowConfidenceAssets": low,
+            "sourceDisagreementAssets": disagree,
+            "unstampedAssets": unstamped,
+            "projectionCoverage": coverage,
+            "rosterUtilityStandardError": (roster.detail or {}).get("standardError"),
+            "note": "Evidence quality sets confidence and the uncertainty list; it is never a "
+            "vote, and the canonical value's contributing sources are never re-counted as "
+            "independent opinions.",
+        },
+    )
+
+
+# ── Synthesis ────────────────────────────────────────────────────────────
+
+
+def _step(rec: str, delta: int) -> str:
+    i = min(max(_STEP[rec] - delta, 0), len(RECOMMENDATIONS) - 1)
+    return RECOMMENDATIONS[i]
+
+
+def _recommend(
+    market: DimensionResult, roster: DimensionResult, feasibility: DimensionResult
+) -> tuple[str, str, str]:
+    """``(recommendation, confidence, basis)`` — the rule table."""
+    primaries = [d for d in (market, roster) if d.available]
+    if not primaries:
+        return "TOO_CLOSE", "LOW", "no_primary_lens"
+
+    if len(primaries) == 1:
+        only = primaries[0]
+        strong = only.name == "equity" and only.detail.get("magnitude") == "stretch"
+        if only.name == "rosterUtility":
+            strong = only.detail.get("magnitude") == "large"
+        if only.direction == "favors":
+            rec = "MAKE" if strong else "LEAN_MAKE"
+        elif only.direction == "opposes":
+            rec = "PASS" if strong else "LEAN_PASS"
+        else:
+            rec = "TOO_CLOSE"
+        confidence = "MEDIUM" if only.direction != "neutral" else "LOW"
+        basis = f"single_lens:{only.name}"
+    else:
+        dirs = {market.direction, roster.direction}
+        if dirs == {"favors"}:
+            rec, confidence = "MAKE", "HIGH"
+        elif dirs == {"opposes"}:
+            rec, confidence = "PASS", "HIGH"
+        elif dirs == {"favors", "neutral"}:
+            rec, confidence = "LEAN_MAKE", "MEDIUM"
+        elif dirs == {"opposes", "neutral"}:
+            rec, confidence = "LEAN_PASS", "MEDIUM"
+        elif dirs == {"favors", "opposes"}:
+            # The lenses disagree: the market and this roster want different
+            # things.  "Depends" is the honest answer; the dissent is shown.
+            rec, confidence = "TOO_CLOSE", "MEDIUM"
+        else:
+            rec, confidence = "TOO_CLOSE", "LOW"
+        basis = "market_and_roster"
+
+    if feasibility.available and feasibility.direction in ("favors", "opposes"):
+        rec = _step(rec, 1 if feasibility.direction == "favors" else -1)
+        basis += f"+feasibility:{feasibility.direction}"
+    if feasibility.detail.get("ladderExhausted"):
+        # No legal cleanup could be found: the trade cannot be recommended as
+        # a clean MAKE whatever the value says.
+        if _STEP[rec] < _STEP["TOO_CLOSE"]:
+            rec = "TOO_CLOSE"
+        basis += "+no_legal_cleanup"
+    return rec, confidence, basis
+
+
+def _pct(x: Any) -> str:
+    return "—" if x is None else f"{float(x):.0f}%"
+
+
+def _reasons(
+    market: DimensionResult,
+    roster: DimensionResult,
+    feasibility: DimensionResult,
+    cfg: dict[str, float],
+) -> tuple[list[str], list[str]]:
+    reasons_for: list[str] = []
+    reasons_against: list[str] = []
+
+    if market.available:
+        gap = market.detail["vaAdjustedGap"]
+        mag = market.detail["magnitude"]
+        if market.direction == "favors":
+            reasons_for.append(f"+{gap:,} package value after KTC Value Adjustment ({mag} gap)")
+        elif market.direction == "opposes":
+            reasons_against.append(
+                f"{gap:,} package value against you after KTC Value Adjustment ({mag} gap)"
+            )
+
+    detail = roster.detail or {}
+    if detail.get("ppg") is not None:
+        ppg = detail["ppg"]
+        if roster.available and roster.direction == "favors":
+            reasons_for.append(f"+{ppg:.1f} expected best-ball points per week in the legal lineup")
+        elif roster.available and roster.direction == "opposes":
+            reasons_against.append(
+                f"{ppg:.1f} expected best-ball points per week in the legal lineup"
+            )
+        for p in detail.get("players") or []:
+            if p.get("role") == "incoming" and (p.get("lineupEntryPctAfter") or 0) >= 50:
+                reasons_for.append(
+                    f"{p['name']} enters the optimal lineup in "
+                    f"{_pct(p['lineupEntryPctAfter'])} of simulated weeks"
+                )
+            elif p.get("role") == "incoming" and p.get("lineupEntryPctAfter") is not None:
+                reasons_against.append(
+                    f"{p['name']} would reach the lineup in only "
+                    f"{_pct(p['lineupEntryPctAfter'])} of simulated weeks (redundant here)"
+                )
+        outgoing = [p for p in detail.get("players") or [] if p.get("role") == "outgoing"]
+        if outgoing:
+            usage = ", ".join(
+                f"{p['name']} {_pct(p.get('lineupEntryPctBefore'))}" for p in outgoing
+            )
+            line = f"Outgoing lineup usage today: {usage}"
+            if all((p.get("lineupEntryPctBefore") or 0) < 50 for p in outgoing):
+                reasons_for.append(line)
+            else:
+                reasons_against.append(line)
+        depth = (detail.get("depth") or {}).get("meanLossDeltaPpg")
+        if depth is not None and abs(depth) >= cfg["depthNotableLossPpg"]:
+            if depth > 0:
+                reasons_against.append(
+                    f"Bench insurance declines: a missing starter costs {depth:.1f} more "
+                    "points per week"
+                )
+            else:
+                reasons_for.append(
+                    f"Bench insurance improves: a missing starter costs {abs(depth):.1f} "
+                    "fewer points per week"
+                )
+
+    fd = feasibility.detail or {}
+    state = fd.get("state")
+    if state == "fits_cleanly":
+        reasons_for.append(f"Fits without a cut ({fd.get('openSpotsAfter')} open spot(s) after)")
+    elif state == "uses_final_spot":
+        reasons_against.append("Uses your final open roster spot")
+    elif state == "resolves_overage":
+        reasons_for.append("Brings your roster back under the limit")
+    elif state == "reduces_overage":
+        reasons_for.append(
+            f"Reduces your roster overage ({fd.get('overLimitBefore')} → {fd.get('overLimitAfter')})"
+        )
+    elif state in ("cut_required", "worsens_overage"):
+        names = ", ".join(str(d.get("name")) for d in fd.get("forcedDrops") or [])
+        cut = len(fd.get("forcedDrops") or [])
+        reasons_against.append(
+            f"Roster full — {cut} cut(s) required" + (f": likely {names}" if names else "")
+        )
+    return reasons_for, reasons_against
+
+
+def _uncertainty(
+    market: DimensionResult,
+    roster: DimensionResult,
+    feasibility: DimensionResult,
+    evidence: DimensionResult,
+    team_context: bool,
+) -> list[str]:
+    out: list[str] = []
+    if team_context:
+        cov = (roster.detail or {}).get("coverage") or {}
+        if cov.get("state") == "partial":
+            n = len(cov.get("tradedUnprojectedPlayerIds") or [])
+            out.append(
+                f"No league-scored projection for {n} traded player(s) — the roster lens "
+                "abstains rather than count them as zero"
+            )
+        elif not roster.available and roster.unavailable_reason:
+            out.append(f"Roster impact not available ({roster.unavailable_reason})")
+        if (feasibility.detail or {}).get("candidatesTied"):
+            out.append("Several cut candidates cost about the same; the likely cut is not certain")
+        if feasibility.unavailable_reason == "uncertain":
+            out.append("Taxi occupancy is unknown, so the forced-cut count is a range")
+        cleanup = (roster.detail or {}).get("cleanup") or {}
+        if cleanup.get("state") == "uncertain":
+            out.append("Roster impact is shown before cleanup because the cut set is uncertain")
+    ev = evidence.detail or {}
+    if ev.get("lowConfidenceAssets"):
+        names = ", ".join(str(a["name"]) for a in ev["lowConfidenceAssets"])
+        out.append(f"Low-confidence canonical value for {names}")
+    if ev.get("sourceDisagreementAssets"):
+        out.append(
+            "Sources disagree on " + ", ".join(str(n) for n in ev["sourceDisagreementAssets"])
+        )
+    unresolved = [
+        *((market.detail or {}).get("unresolvedIn") or []),
+        *((market.detail or {}).get("unresolvedOut") or []),
+    ]
+    if unresolved:
+        out.append("Not on the board, so not priced: " + ", ".join(unresolved))
+    return out
 
 
 @dataclass
 class AnalyzeTradeResult:
     recommendation: str
     confidence: str
+    basis: str
     reasons_for: list[str]
     reasons_against: list[str]
+    uncertainty: list[str]
     dimensions: list[DimensionResult]
     unavailable_dimensions: list[dict[str, str]]
+    team_context: dict[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
+        by_name = {d.name: d.to_dict() for d in self.dimensions}
         return {
+            "version": PACKET_VERSION,
             "recommendation": self.recommendation,
             "confidence": self.confidence,
+            "basis": self.basis,
+            "teamContext": self.team_context,
             "reasonsFor": self.reasons_for,
             "reasonsAgainst": self.reasons_against,
+            "uncertainty": self.uncertainty,
+            "topUncertainty": self.uncertainty[0] if self.uncertainty else None,
+            "lenses": {
+                "market": by_name.get("equity"),
+                "roster": by_name.get("rosterUtility"),
+                "feasibility": by_name.get("feasibility"),
+                "evidence": by_name.get("evidence"),
+            },
             "dimensions": [d.to_dict() for d in self.dimensions],
             "unavailableDimensions": list(self.unavailable_dimensions),
         }
 
 
-def _equity_dimension(
-    sending_values: list[float], receiving_values: list[float]
-) -> DimensionResult:
-    """Canonical equity, VA-adjusted.  Calls the owner directly — no re-derivation."""
-    if not sending_values and not receiving_values:
-        return DimensionResult(
-            name="equity", available=False, unavailable_reason="no_priced_assets_either_side"
-        )
-    send_adj, recv_adj, _send_va, _recv_va = adjusted_pair_totals(sending_values, receiving_values)
-    gap = recv_adj - send_adj  # positive = the selected team comes out ahead
-    magnitude = _fairness_label(gap)
+def _excluded_by_mode(name: str, lineage: str) -> DimensionResult:
     return DimensionResult(
-        name="equity",
-        available=True,
-        direction=_direction(gap),
-        detail={
-            "vaAdjustedGap": int(round(gap)),
-            "magnitude": magnitude,
-            "sendingAdjusted": round(send_adj, 1),
-            "receivingAdjusted": round(recv_adj, 1),
-        },
+        name=name,
+        available=False,
+        unavailable_reason="asset_only_mode",
+        lineage=lineage,
+        detail={"note": "not included in Asset-Only analysis"},
     )
-
-
-def _roster_impact_dimension(final_roster_simulation: dict[str, Any] | None) -> DimensionResult:
-    """Team Strength before/after delta from the already-VERIFIED V1-42
-    simulation.  A DIFFERENT canonical computation than equity — lineup-aware
-    exact assignment over the post-trade roster, not a value sum."""
-    if not final_roster_simulation or final_roster_simulation.get("available", True) is not True:
-        reason = "no_team_selected_or_uncomputable"
-        if isinstance(final_roster_simulation, dict):
-            reason = (
-                final_roster_simulation.get("unavailableReason")
-                or final_roster_simulation.get("unavailable")
-                or reason
-            )
-        return DimensionResult(name="rosterImpact", available=False, unavailable_reason=str(reason))
-    strength_before = (final_roster_simulation.get("strengthBefore") or {}).get("total")
-    strength_after = (final_roster_simulation.get("strengthAfter") or {}).get("total")
-    if strength_before is None or strength_after is None:
-        return DimensionResult(
-            name="rosterImpact", available=False, unavailable_reason="team_strength_not_stamped"
-        )
-    delta = float(strength_after) - float(strength_before)
-    return DimensionResult(
-        name="rosterImpact",
-        available=True,
-        direction=_direction(delta),
-        detail={
-            "teamStrengthBefore": round(float(strength_before), 1),
-            "teamStrengthAfter": round(float(strength_after), 1),
-            "teamStrengthDelta": round(delta, 1),
-        },
-    )
-
-
-def _recommend(equity: DimensionResult, roster: DimensionResult) -> tuple[str, str]:
-    """The rule table.  No numeric weights — direction + the equity
-    dimension's own pre-existing magnitude bucket only."""
-    if not equity.available:
-        return "TOO_CLOSE", "LOW"
-
-    magnitude = equity.detail.get("magnitude", "even")
-    eq_dir = equity.direction
-
-    if not roster.available:
-        # Single available dimension: confidence can never reach HIGH.
-        if eq_dir == "favors":
-            return ("MAKE" if magnitude == "stretch" else "LEAN_MAKE"), "MEDIUM"
-        if eq_dir == "opposes":
-            return ("PASS" if magnitude == "stretch" else "LEAN_PASS"), "MEDIUM"
-        return "TOO_CLOSE", "LOW"
-
-    roster_dir = roster.direction
-    agree = eq_dir == roster_dir or roster_dir == "neutral" or eq_dir == "neutral"
-    conflict = (eq_dir == "favors" and roster_dir == "opposes") or (
-        eq_dir == "opposes" and roster_dir == "favors"
-    )
-
-    if conflict:
-        return "TOO_CLOSE", "MEDIUM"
-
-    if eq_dir == "favors" or (eq_dir == "neutral" and roster_dir == "favors"):
-        if magnitude == "stretch" and roster_dir == "favors":
-            return "MAKE", "HIGH"
-        if magnitude != "even" or roster_dir == "favors":
-            return "LEAN_MAKE", "HIGH" if agree and magnitude != "even" else "MEDIUM"
-        return "TOO_CLOSE", "LOW"
-
-    if eq_dir == "opposes" or (eq_dir == "neutral" and roster_dir == "opposes"):
-        if magnitude == "stretch" and roster_dir == "opposes":
-            return "PASS", "HIGH"
-        if magnitude != "even" or roster_dir == "opposes":
-            return "LEAN_PASS", "HIGH" if agree and magnitude != "even" else "MEDIUM"
-        return "TOO_CLOSE", "LOW"
-
-    return "TOO_CLOSE", "LOW"
-
-
-def _reasons(equity: DimensionResult, roster: DimensionResult) -> tuple[list[str], list[str]]:
-    reasons_for: list[str] = []
-    reasons_against: list[str] = []
-
-    if equity.available:
-        gap = equity.detail["vaAdjustedGap"]
-        if equity.direction == "favors":
-            reasons_for.append(
-                f"+{gap} value to your side after KTC Value Adjustment ({equity.detail['magnitude']} gap)"
-            )
-        elif equity.direction == "opposes":
-            reasons_against.append(
-                f"{gap} value against your side after KTC Value Adjustment "
-                f"({equity.detail['magnitude']} gap)"
-            )
-
-    if roster.available:
-        delta = roster.detail["teamStrengthDelta"]
-        if roster.direction == "favors":
-            reasons_for.append(f"Team Strength improves by {delta:+.0f} after the re-solved lineup")
-        elif roster.direction == "opposes":
-            reasons_against.append(
-                f"Team Strength declines by {delta:+.0f} after the re-solved lineup"
-            )
-    else:
-        reasons_against.append(
-            f"Roster marginal impact unavailable ({roster.unavailable_reason}) — recommendation "
-            "is based on equity alone"
-        )
-
-    return reasons_for, reasons_against
 
 
 def analyze_trade(simulation: dict[str, Any]) -> dict[str, Any]:
-    """Synthesize one Analyze Trade verdict from an already-computed
-    ``src.api.trade_simulator.simulate_trade`` payload.
+    """Synthesize one Analyze Trade packet from a ``simulate_trade`` payload.
 
-    Pure composition: reads ``receiving`` / ``sending`` (for equity) and
-    ``finalRosterSimulation`` (for roster impact) verbatim off that payload.
-    Computes no canonical value and calls no engine simulation itself does
-    not already call — this is a synthesis layer, not a third trade engine.
+    Pure composition over fields the simulation already carries
+    (``receiving`` / ``sending`` / ``rosterCapacity`` / ``rosterUtility`` /
+    ``finalRosterSimulation`` / ``teamContext``).  Computes no canonical value
+    and calls no engine the simulation did not already call.
     """
-    receiving = simulation.get("receiving") or []
-    sending = simulation.get("sending") or []
-    sending_values = [a["value"] for a in sending if a.get("value") is not None]
-    receiving_values = [a["value"] for a in receiving if a.get("value") is not None]
+    cfg = _config()
+    team_context_block = simulation.get("teamContext") or {"applied": True, "mode": "team"}
+    team_context = team_context_block.get("applied") is not False
 
-    equity = _equity_dimension(sending_values, receiving_values)
-    roster = _roster_impact_dimension(simulation.get("finalRosterSimulation"))
+    market = _market_lens(simulation)
+    if team_context:
+        roster = _roster_lens(simulation, cfg)
+        feasibility = _feasibility_lens(simulation)
+    else:
+        roster = _excluded_by_mode("rosterUtility", LINEAGE_PROJECTION)
+        feasibility = _excluded_by_mode("feasibility", LINEAGE_ROSTER_RULES)
+    evidence = _evidence_lens(simulation, roster)
 
-    recommendation, confidence = _recommend(equity, roster)
-    reasons_for, reasons_against = _reasons(equity, roster)
+    recommendation, confidence, basis = _recommend(market, roster, feasibility)
+    reasons_for, reasons_against = _reasons(market, roster, feasibility, cfg)
+    uncertainty = _uncertainty(market, roster, feasibility, evidence, team_context)
+    if confidence == "HIGH" and uncertainty:
+        # Agreement between two lenses does not survive a named gap in the
+        # evidence behind them.
+        confidence = "MEDIUM"
 
-    result = AnalyzeTradeResult(
+    return AnalyzeTradeResult(
         recommendation=recommendation,
         confidence=confidence,
+        basis=basis,
         reasons_for=reasons_for,
         reasons_against=reasons_against,
-        dimensions=[equity, roster],
+        uncertainty=uncertainty,
+        dimensions=[market, roster, feasibility, evidence],
         unavailable_dimensions=list(_UNAVAILABLE_DIMENSIONS),
-    )
-    return result.to_dict()
+        team_context={
+            "applied": team_context,
+            "mode": "team" if team_context else "asset_only",
+        },
+    ).to_dict()

@@ -1,0 +1,13 @@
+{
+  "_comment": "Analyze Trade decision packet (#792) parameters. Read by src/trade/analyze_trade.py. Every value here is a PRIOR: a declared, evidence-gated judgement, not a calibrated fit. There is no outcome data yet to calibrate a trade-recommendation threshold against; changing one is an owner-visible methodology change.",
+  "version": "analyze_trade_v2",
+  "rosterUtility": {
+    "materialityPpg": 1.0,
+    "materialityPpgClass": "PRIOR",
+    "materialityPpgRationale": "Below 1.0 expected best-ball points per week (about 17 points over a season) a lineup change is treated as neutral, and never below twice the estimate's own Monte-Carlo standard error.",
+    "largeMultiple": 3.0,
+    "largeMultipleClass": "PRIOR",
+    "depthNotableLossPpg": 0.5,
+    "depthNotableLossPpgClass": "PRIOR"
+  }
+}

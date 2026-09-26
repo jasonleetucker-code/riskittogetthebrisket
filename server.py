@@ -13530,6 +13530,8 @@ async def get_terminal(request: Request):
 
 async def _build_trade_simulation(
     request: Request,
+    *,
+    for_analysis: bool = False,
 ) -> tuple[dict[str, Any] | None, str | None, JSONResponse | None]:
     """Shared body: resolve league/team, run ``trade_simulator.simulate_trade``.
 
@@ -13652,6 +13654,12 @@ async def _build_trade_simulation(
             return []
         return [str(x) for x in vs if isinstance(x, (str, int)) and str(x).strip()]
 
+    # Use Team Context (#842): default ON, and only an explicit boolean
+    # ``false`` turns it off — the same rule ``/api/trade/finder`` applies.
+    # It changes which LENSES Analyze Trade may count, never an asset value.
+    raw_context = body.get("useTeamContext")
+    use_team_context = raw_context if isinstance(raw_context, bool) else True
+
     result = await run_in_threadpool(
         _trade_simulator.simulate_trade,
         contract,
@@ -13662,7 +13670,13 @@ async def _build_trade_simulation(
         picks_out=_str_list("picksOut"),
         roster_settings=dict(league_cfg.roster_settings or {}),
         league_key=league_cfg.key,
+        include_roster_utility=for_analysis and use_team_context,
     )
+    if for_analysis:
+        result["teamContext"] = {
+            "applied": use_team_context,
+            "mode": "team" if use_team_context else "asset_only",
+        }
     # Attached AFTER the simulation, never inside it: ``trade_simulator`` does
     # not import exposure, so there is no edge along which it could reach
     # equity, team impact or Analyze Trade (C2-EXP-01 non-influence).
@@ -13754,7 +13768,7 @@ async def post_trade_analyze(request: Request):
     (recommendation / confidence / reasonsFor / reasonsAgainst / dimensions /
     unavailableDimensions).
     """
-    result, _league_key, error = await _build_trade_simulation(request)
+    result, _league_key, error = await _build_trade_simulation(request, for_analysis=True)
     if error is not None:
         return error
     from src.trade.analyze_trade import analyze_trade

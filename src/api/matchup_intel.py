@@ -196,6 +196,11 @@ def _players_meta(rosters: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     return persisted if persisted is not None else sleeper_client.fetch_nfl_players()
 
 
+#: Public name for the same players-DB read (persisted daily DB first, the
+#: shared cached client otherwise), for the trade path's #1173 roster utility.
+players_meta_for_rosters = _players_meta
+
+
 def _schedule_context(season: int) -> tuple[list[Mapping[str, Any]], float | None, float]:
     """``(rows, observed_at, now)`` for this season's cached nflverse schedule.
 
