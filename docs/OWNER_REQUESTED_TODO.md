@@ -957,6 +957,7 @@ explicit owner decision; only `docs/EXECUTION_PLAN.md` can authorize the work.
     counts twice as many games as the simulator's.
   - Measured 2026-09-26: after two finished weeks the host shows 4-0 where the simulator shows 2-0.
   - Deciding whether and how the median game enters seeding is a methodology decision.
+
 ## Added 2026-09-26 — Adaptive Learning / Continuous Model Improvement (owner directive)
 The owner wants Calculator to become **empirically self-improving wherever learning is legitimate**: preserve point-in-time observations, forecasts, recommendations, decisions/non-decisions and outcomes; evaluate what happened; run bounded challengers; and promote a different production methodology only when it clears the applicable evidence and governance gates. “Machine learning” is acceptable shorthand, but the product direction is broader: calibration, statistical learning, model selection, behavioral learning, time-series methods and other evidence-based adaptation are all eligible when they fit the question.
 This is **not** authorization for a monolithic ML platform or for uncontrolled self-modifying production models. Deterministic facts and rules — scoring arithmetic, league rules, roster legality, canonical identity, ownership, exact lineup eligibility/assignment, provenance, timestamps and missing-vs-zero semantics — remain deterministic.
@@ -972,6 +973,7 @@ This is **not** authorization for a monolithic ML platform or for uncontrolled s
 The private decision/offer journal (research R14) remains a **CANDIDATE**, not implementation-authorized scope. It is the clean prospective path for rejected/countered/expired offers and considered-but-not-sent decisions that cannot be inferred from completed trades alone.
 **Detailed reconciliation and proposed first batch:** `docs/research/ADAPTIVE_LEARNING_2026-09-26.md`.
 **Authority boundary:** this entry authorizes durable planning/reconciliation only. It does **not** change production weights, activate sources, promote challengers, auto-retrain a live model, authorize autonomous roster transactions, decide R40/R44, or alter any existing owner-approved methodology. `docs/EXECUTION_PLAN.md` is unchanged and remains the sole implementation authority.
+
 **Zero-open-PR reconciliation — owner directive 2026-09-26.** Every open PR is merged, or closed with a
 harvest receipt; future scope lives here, in native issues or in specs, never in an open PR.
 - **#1425** (freshness orchestration planning) → owner contract lives in open issue **#1423** (T-NEW-21):
@@ -991,6 +993,7 @@ harvest receipt; future scope lives here, in native issues or in specs, never in
 - **#1344** (harness progressive disclosure) → stale; the startup-script `grep || true` fix was harvested. Moving
   Agent OS sections out needs a fresh audit (the repo-harness-auditor skill), not this branch.
 - **#1399**, **#1381** → future scope recorded below.
+
 ### League Comparison / scoring lab — live 2026 evidence — owner directive 2026-09-23
 Owner requested that the scoring-comparison work begin taking **2026 scoring** into account now, while the season is still in progress. Required outcome: preserve the existing 2022–2025 historical evidence, ingest available 2026 regular-season production through the canonical nflverse→Sleeper fallback, and make the current season influence the combined comparison **without pretending a partial season is a completed year**. The live-season basis/progress must be visible in the payload/UI, and the treatment must converge to ordinary full-season semantics when all 17 modeled weeks are present. Tracked as `LC-2026-LIVE` on `codex/league-comparison-2026-live`.
   - **Status 2026-09-26 (zero-open-PR reconciliation):** NOT implemented on main (`config/league_comparison.json`
@@ -1007,6 +1010,7 @@ Owner requested that the scoring-comparison work begin taking **2026 scoring** i
     - bump the methodology-version pin deliberately.
   - The donor branch is `codex/league-comparison-2026-live`.
   - Awaiting an `EXECUTION_PLAN` authorization pointer.
+
 **Power Rankings — median-aware Sleeper record horizon guard (recorded 2026-09-26, latent, not authorized).**
 - **Latent defect.** `src/ros/power_v2.py` (~`:1257`) trusts Sleeper's W-L record with no horizon check.
 - **Correct guard.** Games = finished weeks × (2 when `medianGameEnabled`, else 1). Otherwise fall back and flag it.
