@@ -107,3 +107,32 @@ source observation/success timestamps. Every changed leaf was inspected:
 **BENIGN_AUTOMATION_MOVE for the fixed-input Gameplan and inventory checks**;
 no serving code, runtime, fixture or configured ranking input changed. This is
 not a deployed freshness claim and does not suppress later relevant reconciliation.
+
+## Data overlay preparation: current-main reproduction and correction
+
+Three unchanged real-handler requests (200/200/304) invoked the canonical
+lineup preparation three times even though the existing encoded response cache
+served identical bytes. Separate RED cases changed registry starters or flex
+eligibility while observation stamps stayed unchanged: the encoded cache served
+the old lineup; clearing only that cache produced the correct replacement.
+
+The correction moves the existing solve into the existing single-flight encode
+miss. No alternate solver or valuation owner is introduced. It captures the
+requested league's registry roster settings once, binds them and the full
+canonical ETag to the response version, and uses those same settings for both
+slot resolution and flex eligibility. Missing canonical identity disables this
+cache. The canonical row reference is captured before awaiting the overlay.
+Requested-league metadata is installed before fallback slot resolution.
+
+Independent review and nine targeted tests cover real concurrent HTTP requests,
+unchanged304s, same-stamp rule mutation, settings mutation after capture, a
+canonical refresh during the awaited overlay, cross-league roster/scoring,
+missing canonical identity, and unavailable slots. The integrated data/scoring/
+privacy/override/compact/roster-owner selection passes120tests, with one skip,
+one existing warning and five passing subtests. Counts overlap.
+
+[Evidence and exact fingerprints](evidence/data-overlay-2026-09-26.json) retain
+all three RED regressions and review findings. Build-count elimination is proven;
+no measured route-latency gain or full production acceptance is asserted. The
+existing publisher's immutable canonical bytes and overlay observation identity
+remain assumptions of this cache; no canonical no-op or new source owner is added.

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "agent": "/root/report_regression",
+  "verdict": "APPROVE scoped overlay preparation correction",
+  "finishedUtc": "2026-09-26T20:59:58.2021687Z",
+  "hashes": {
+    "server.py": "e0bda50750d3c1c2c766d59579e37dabf4e15be0e4eccc4c8d86916bcf53f230",
+    "tests/api/test_data_overlay_preparation.py": "7c40c22ec5b59e9c31f0635698178a15bd86c9048024b3ae264ed55bbc6d4099",
+    "src/api/data_contract.py": "0539ddbb355ae5ef92866d9715f5daf10ba220a10cab7b354c9b2c82552cccb2"
+  },
+  "initialFinding": "Missing canonical ETag admission flagged in review; root corrected before finalrun",
+  "validation": [
+    "Original3RED nowGREEN",
+    "Expanded9passed1warning1.54s",
+    "Ruff0.6.9 format/check ownedtestPASS"
+  ],
+  "adversarialCoverage": [
+    "200/200/304 one realstamp equalbytesETag",
+    "Same-stamp starters/flex mutation actualanswer corrected; zero-pricedWR vs unpricedunknown",
+    "Registry nestedlist mutation aftercapture uses frozenfirstanswer then newanswer",
+    "Canonical object replacement during awaitedoverlay uses captured oldrows then adoptsnewrows",
+    "Crossleaguefallback requestedWRslots vs loadedRB; differingfactualcard503",
+    "6concurrent actualASGI requests onepreparation identicalbytes",
+    "MissingcanonicalETag withreducedviewETag disablescache; replacementrows reflected",
+    "Missingstarterconfig explicitunavailable then304"
+  ],
+  "identityReview": [
+    "Existingboundedstable slot andper-keylock retained",
+    "Version includes overlayobservation,viewETag,canonicalETag,effectivecapturedsettingsdigest",
+    "Capturedrequestedmetadata precedesregistrycapture",
+    "Canonicalrosterpool/eligibility/stamp sharecapturedsettings optionalparam; unchangedcallers stillresolveexistingowner",
+    "Stamp runs inside existingoffloadedencodemiss andpreservescopy-on-write/failuredegradation"
+  ],
+  "limits": [
+    "Trusts canonicalpublication immutability/contentETag andoverlayowner immutablefreshobservation; in-placefacts changedwithsameidentity notvalidated bythiscache",
+    "No newperformance timing claim; testelapsed isvalidationonly",
+    "Fixtureauth bypassed; productionauth coveredbyseparatesuite notthisreceipt",
+    "Authorrootrequiresindependenttestreview ofmynewtests",
+    "BroaderAPI/override/regression suite stillrootintegrationresponsibility"
+  ],
+  "commands": [
+    "Readgitdiff server.py/src/api/data_contract.py",
+    "python -X utf8 -m pytest tests/api/test_data_overlay_preparation.py -q --tb=short",
+    "python -m ruff format/check tests/api/test_data_overlay_preparation.py"
+  ],
+  "edits": "Only exclusive testfile andevidence; productauthorroot",
+  "integration": {
+    "command": "python -m pytest tests/api/test_data_overlay_preparation.py tests/api/test_league_routing.py tests/api/test_scoring_compatibility.py tests/api/test_roster_pool_identity.py tests/api/test_contract_build_does_not_mutate_raw.py tests/api/test_cache_control_privacy.py tests/api/test_overrides_response_cache.py tests/api/test_compact_view_consumer_parity.py tests/roster_intel/test_demand_chain.py -q --tb=short",
+    "result": "120 passed,1skipped,1existingwarning,5subtests passed139.52s",
+    "reportSha256": "07f8d0a6bd0afdb0a3c713c8e26912c925bb04fe733b0cd389f99f8284672644"
+  },
+  "formatterSeal": {
+    "server.py": "f625adb8194a75154ea50d6e8f21fb92ce3881bcd38987bb7cd1e99058230ea7",
+    "reason": "Canonical Ruff0.6.9 formatting after review; focused actual-handler regressions rerun9passed1warning2.65s. Original reviewed hashes preserved above.",
+    "planning": "PASS",
+    "formatLint": "PASS1557Pythonfiles"
+  }
+}

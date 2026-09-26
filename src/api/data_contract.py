@@ -13044,7 +13044,26 @@ def roster_pool_key(teams: list[Any], index: int, team: Any) -> str:
     return f"__roster_{index}"
 
 
-def contract_slot_eligibility(contract: Mapping[str, Any] | None) -> dict[str, tuple[str, ...]]:
+def capture_contract_roster_settings(contract: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Capture this contract's registry settings for one coherent calculation.
+
+    An empty mapping preserves the existing unavailable-registry behavior.
+    Copies prevent a registry refresh from changing work already admitted.
+    """
+    try:
+        from src.api.league_registry import get_league_roster_settings
+
+        settings = get_league_roster_settings(
+            str(((contract or {}).get("meta") or {}).get("leagueKey") or "") or None
+        )
+        return deepcopy(settings) if isinstance(settings, dict) else {}
+    except Exception:  # noqa: BLE001 — the registry is optional here
+        return {}
+
+
+def contract_slot_eligibility(
+    contract: Mapping[str, Any] | None, *, roster_settings: dict[str, Any] | None = None
+) -> dict[str, tuple[str, ...]]:
     """This contract's league's CONFIGURED flex eligibility, or ``{}``.
 
     The PLUMBING half — contract → registry → the rule.  The rule itself
@@ -13062,16 +13081,9 @@ def contract_slot_eligibility(contract: Mapping[str, Any] | None) -> dict[str, t
     threaded anyway, since the day one of them narrows a flex, every
     surface that skipped it seats a player the league does not allow.
     """
-    try:
-        from src.api.league_registry import (  # noqa: PLC0415
-            get_league_roster_settings,
-        )
-
-        settings = get_league_roster_settings(
-            str(((contract or {}).get("meta") or {}).get("leagueKey") or "") or None
-        )
-    except Exception:  # noqa: BLE001 — the registry is optional here
-        return {}
+    settings = (
+        capture_contract_roster_settings(contract) if roster_settings is None else roster_settings
+    )
     return lineup_owner.configured_slot_eligibility(settings)
 
 
@@ -13079,6 +13091,7 @@ def contract_roster_pools(
     contract: dict[str, Any],
     *,
     rows: list[dict[str, Any]] | None = None,
+    roster_settings: dict[str, Any] | None = None,
 ) -> tuple[dict[str, list[Any]], list[str], str | None]:
     """THE contract → per-team ``RosterPlayer`` pool builder.
 
@@ -13135,17 +13148,9 @@ def contract_roster_pools(
     # rendered a message for it — and a partial Sleeper fetch (lineup
     # endpoint times out, rosters succeed) would have refused a lineup
     # the registry could answer.
-    registry_settings: dict[str, Any] | None = None
-    try:
-        from src.api.league_registry import (  # noqa: PLC0415
-            get_league_roster_settings,
-        )
-
-        registry_settings = get_league_roster_settings(
-            str((contract.get("meta") or {}).get("leagueKey") or "") or None
-        )
-    except Exception:  # noqa: BLE001 — the registry is optional here
-        registry_settings = None
+    registry_settings = (
+        capture_contract_roster_settings(contract) if roster_settings is None else roster_settings
+    )
     slots, slot_source = lineup_owner.resolve_starter_slots(
         roster_positions=sleeper.get("rosterPositions"),
         roster_settings=registry_settings,
@@ -13197,6 +13202,7 @@ def stamp_optimal_lineups(
     contract: dict[str, Any],
     *,
     rows: list[dict[str, Any]] | None = None,
+    roster_settings: dict[str, Any] | None = None,
 ) -> None:
     """Stamp each team's optimal starting lineup onto ``sleeper.teams``.
 
@@ -13251,11 +13257,14 @@ def stamp_optimal_lineups(
     # position/eligibility vocabulary and the unpriced-stays-unpriced
     # rule all live there, so this stamp and the roster chain cannot
     # drift apart.
-    pools, slots, slot_source = contract_roster_pools(contract, rows=rows)
+    settings = (
+        capture_contract_roster_settings(contract) if roster_settings is None else roster_settings
+    )
+    pools, slots, slot_source = contract_roster_pools(contract, rows=rows, roster_settings=settings)
     # The league's OWN flex rules, not the declared defaults.  A no-op on
     # both live leagues today (they configure exactly the defaults) and
     # not a no-op the day either narrows one.
-    eligibility = contract_slot_eligibility(contract) or None
+    eligibility = contract_slot_eligibility(contract, roster_settings=settings) or None
 
     stamped: list[Any] = []
     for index, original in enumerate(teams):
