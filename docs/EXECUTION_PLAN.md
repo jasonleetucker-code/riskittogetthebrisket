@@ -85,6 +85,15 @@ the complete current-product acceptance requirements are met. Execution/evidence
 
 ### Expanded performance search and terminal hunt — owner, 2026-09-26
 
+**Latest execution priority:** close the reviewed PR train as exact-head checks pass,
+then fix and remeasure the largest demonstrated Rankings/Trade useful-state owner
+using the existing framework. Additional diagnostic infrastructure and adjacent
+source/operations work are deferred unless necessary for performance acceptance or
+production correctness. The remaining route sweep and final adversarial hunt stay
+bounded to material costs. This refines sequencing; no correctness or performance
+threshold is waived. The 8–14 MB decoded observation is an aggregate resource total,
+not a proven single API payload size.
+
 The #1338 list is a floor. Investigate newly demonstrated material bottlenecks
 throughout the existing product/runtime/serving/browser system, prioritized by
 user delay, frequency, affected population/routes, severity and implementation

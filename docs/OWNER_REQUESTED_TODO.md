@@ -17,6 +17,16 @@ This file is the durable repository record for owner-requested live defects, UX 
 
 ## #1338 expanded performance mandate — owner, 2026-09-26
 
+**Closure priority amendment (2026-09-26):** merge the already-reviewed PR train
+as exact-head gates pass. Use the existing measurement framework to fix the largest
+measured user-visible owner first: production Rankings/Trade useful state and its
+8–14 MB aggregate decoded resource total. That total is not yet an isolated API
+payload measurement. Stop expanding diagnostic infrastructure and adjacent source
+or operations investigations unless they directly block performance acceptance or
+production correctness. Remeasure each material correction, then sweep the remaining
+route denominator, fix material failures, complete production/adversarial acceptance
+and reconcile #1338. Preserve correctness without an unbounded subsystem audit.
+
 The named performance requirements are a minimum, not an exhaustive checklist.
 Actively search the current system for material opportunities across request and
 Next.js architecture, Python/JS compute, event-loop/process contention, memory/GC,

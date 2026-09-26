@@ -22,6 +22,15 @@ This is the evidence ledger for the existing issue, not a second product roadmap
 
 ## Active units
 
+Owner closure steering, 2026-09-26: complete the reviewed release train, prioritize
+the failed production Rankings/Trade useful-state measurements, remeasure material
+fixes, then close material failures in the remaining route denominator. Existing
+attribution tools are sufficient for the next measurement. The unfinished DLF
+structural diagnostic is preserved locally and deferred; it is not a prerequisite
+without demonstrated production-correctness impact on this acceptance. No additional
+diagnostic platform is authorized merely to broaden the audit. The final production
+and adversarial acceptance remains required.
+
 | Unit | Owner / paths | Current state / evidence needed |
 | --- | --- | --- |
 | Current route denominator and browser paths | `scripts/performance_route_inventory.py` | Reviewed executable static census: 46 page files, 48 BFF files and 94 server route decorators. Dynamic edges remain unknown; these are not distinct accepted URLs or runtime coverage |
