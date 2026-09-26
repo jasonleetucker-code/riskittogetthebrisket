@@ -52,6 +52,11 @@ on:
         default: "all"
         type: choice
         options: [api, browser, all, baseline]
+      baseline_diagnostics:
+        description: Opt-in bounded browser attribution for manual baseline only
+        type: boolean
+        required: false
+        default: false
       pass_hours:
         description: Guest-pass duration in hours (non-default on purpose — 12 is the UI default)
         required: false
@@ -372,13 +377,14 @@ jobs:
           PROD_ORIGIN: ${{ env.ORIGIN }}
           PROD_SESSION_COOKIE_FILE: ${{ runner.temp }}/session_cookie
           PROD_SESSION_EXPIRES_EPOCH: ${{ steps.login.outputs.expires_epoch }}
+          BASELINE_DIAGNOSTICS: ${{ inputs.baseline_diagnostics && 'true' || 'false' }}
         run: |
           set -Eeuo pipefail
           npm ci
           npx playwright install chromium --with-deps
           rc=0
           node frontend/scripts/measure-route-baselines.mjs \
-            --auth production-cookie --runs 5 --viewport both \
+            --auth production-cookie --runs 5 --viewport both --diagnostics "$BASELINE_DIAGNOSTICS" \
             --routes /rankings,/trade --timeout 45000 \
             --json production-route-baselines.json || rc=$?
           echo "baseline_exit=$rc" >> "$GITHUB_OUTPUT"

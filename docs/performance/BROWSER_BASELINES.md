@@ -12,6 +12,27 @@ The job uses the existing production-deploy concurrency group. Check for other a
 
 Independent review rejected the initial post-login-only origin check; the corrected pre-mint and redirect boundaries pass14Node and9workflow/classification tests. [Reviewed hashes and retained veto](evidence/browser-baseline-review-2026-09-26.json) describe the tested boundary. The existing local-test mode and api/browser/all production suites remain available with their prior authority.
 
-No production speed result is claimed by this implementation record. Global budgets remain cold<=3s, warm<=1s and every useful/unavailable state<=5s; normal p95<=2s remains a separate required measurement. The aggregate report never labels these bounded observations complete campaign acceptance.
+## First production baseline — FAIL, not campaign acceptance
+
+[Run36272764956](https://github.com/jasonleetucker-code/riskittogetthebrisket/actions/runs/36272764956) collected all40 requested observations on Node20.20.2 / Chromium153.0.8010.12, unthrottled, before the foundation merge. Real login and pass revocation succeeded. Independent recomputation found zero discrepancies in counts, summaries or gates.
+
+| Route/profile | Cold p95 ms (n5) | Warm document p95 ms (n5) |
+| --- | ---: | ---: |
+| Rankings desktop | 6692.1 | 1610.4 |
+| Trade desktop | 2720.3 | 1989.9 |
+| Rankings mobile | 3156.7 | 1604.1 |
+| Trade mobile | 2628.5 | 2497.0 |
+
+Both rankings cold gates and all warm gates fail; desktop rankings also exceeds5s. Every request reached the declared useful predicate, so missing samples did not cause these failures. The first desktop rankings cold attempt was the largest, but subsequent warm outliers prevent assigning the problem solely to first-request work. Five samples do not establish a robust tail distribution.
+
+Cold page ResourceTiming body totals range roughly8–14MB decoded and1.35–2.55MB encoded by profile/route. These totals include multiple resources, can include cached bodies and are sampled after load; they are neither isolated API wire bytes nor causal attribution. Navigation usefulness includes browser-driver predicate observation lag and the declared Trade search intent. Authentication prechecks occur before timing and can warm the backend.
+
+[Full sanitized report and independent review](evidence/production-browser-baseline-2026-09-26.json) preserve exact unrounded values and limitations. The next opt-in attribution separates API resource/fetch timing and body/JSON-promise work, with explicit observer controls. Global budgets remain cold<=3s, warm<=1s and useful/unavailable<=5s; normal SPA p95<=2s, prefetched/slowed/field and personalized-team acceptance remain unmeasured. Loaded production code identity is unproven; verification source SHA is not substituted.
 
 Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
+
+## Opt-in attribution
+
+The same runner accepts `--diagnostics true`; the default remains disabled. Bounded browser observations classify auth, settings, league and data views, retaining fetch/header and body/JSON-promise completion timestamps plus ResourceTiming sizes. JSON promise time includes body waiting and scheduling as well as parsing. Resource categories are not exact request joins. Useful-boundary and post-load snapshots remain distinct; missing observer support, pending requests and dropped events are explicit.
+
+Native fetch/JSON promises, values and errors are preserved. No URLs, queries, headers, credentials, identities or bodies enter the report. The workflow's manual boolean input only affects its existing baseline step. [Independent review](evidence/browser-attribution-review-2026-09-26.json) preserves two rejected attribution defects and their corrections: the real settings endpoint and failed-observer availability. Final 21 Node tests and 9 workflow/classification checks pass. Collector-on/off production measurements are still required; no new performance improvement is claimed.

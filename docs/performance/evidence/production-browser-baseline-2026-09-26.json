@@ -1,0 +1,1471 @@
+{
+  "runId": 36272764956,
+  "reportSha256": "18bb35af6a7183c9d30573a51de87b0f853e2a232d38e205775d28833b9eed5e",
+  "report": {
+    "measuredAt": "2026-09-26T21:24:24.364Z",
+    "runs": 5,
+    "routes": {
+      "desktop /rankings": {
+        "viewport": "desktop",
+        "path": "/rankings",
+        "readySelector": ".ds-table-wrap table tbody tr.rankings-row-clickable",
+        "readyMeans": "a board row \u2014 the player table has data",
+        "cold": {
+          "ttfbMs": {
+            "p50": 289,
+            "p95": 328,
+            "n": 5
+          },
+          "fcpMs": {
+            "p50": 796,
+            "p95": 840,
+            "n": 5
+          },
+          "usefulMs": {
+            "p50": 2624.7000000000116,
+            "p95": 6692.099999999977,
+            "n": 5
+          },
+          "domContentLoadedMs": {
+            "p50": 669,
+            "p95": 706,
+            "n": 5
+          },
+          "loadMs": {
+            "p50": 1075,
+            "p95": 1128,
+            "n": 5
+          },
+          "encodedBytes": {
+            "p50": 2553600,
+            "p95": 2553601,
+            "n": 5
+          },
+          "decodedBytes": {
+            "p50": 14508095,
+            "p95": 14508096,
+            "n": 5
+          },
+          "requestCount": {
+            "p50": 96,
+            "p95": 96,
+            "n": 5
+          },
+          "domNodes": {
+            "p50": 1659,
+            "p95": 1659,
+            "n": 5
+          },
+          "usefulMissing": 0,
+          "errors": 0,
+          "expected": 5,
+          "observed": 5,
+          "valid": true,
+          "unavailable": 0
+        },
+        "coldAttempts": [
+          {
+            "encodedBytes": 2553600,
+            "decodedBytes": 14508096,
+            "requestCount": 96,
+            "ttfbMs": 328,
+            "fcpMs": 840,
+            "domContentLoadedMs": 706,
+            "loadMs": 1128,
+            "domNodes": 1659,
+            "finalUrl": "/rankings",
+            "navigationStatus": 200,
+            "usefulMs": 6692.099999999977,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 2553600,
+            "decodedBytes": 14508095,
+            "requestCount": 78,
+            "ttfbMs": 286,
+            "fcpMs": 800,
+            "domContentLoadedMs": 667,
+            "loadMs": 1090,
+            "domNodes": 1659,
+            "finalUrl": "/rankings",
+            "navigationStatus": 200,
+            "usefulMs": 2634,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 2553601,
+            "decodedBytes": 14508095,
+            "requestCount": 96,
+            "ttfbMs": 289,
+            "fcpMs": 796,
+            "domContentLoadedMs": 671,
+            "loadMs": 1075,
+            "domNodes": 1659,
+            "finalUrl": "/rankings",
+            "navigationStatus": 200,
+            "usefulMs": 2624.7000000000116,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 1579323,
+            "decodedBytes": 11067500,
+            "requestCount": 84,
+            "ttfbMs": 290,
+            "fcpMs": 796,
+            "domContentLoadedMs": 666,
+            "loadMs": 1073,
+            "domNodes": 1594,
+            "finalUrl": "/rankings",
+            "navigationStatus": 200,
+            "usefulMs": 2212.8000000000175,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 2486442,
+            "decodedBytes": 14508095,
+            "requestCount": 96,
+            "ttfbMs": 288,
+            "fcpMs": 796,
+            "domContentLoadedMs": 669,
+            "loadMs": 1068,
+            "domNodes": 1657,
+            "finalUrl": "/rankings",
+            "navigationStatus": 200,
+            "usefulMs": 2331,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          }
+        ],
+        "warm": {
+          "ttfbMs": {
+            "p50": 101,
+            "p95": 120,
+            "n": 5
+          },
+          "fcpMs": {
+            "p50": 208,
+            "p95": 312,
+            "n": 5
+          },
+          "usefulMs": {
+            "p50": 1519,
+            "p95": 1610.3999999999942,
+            "n": 5
+          },
+          "domContentLoadedMs": {
+            "p50": 173,
+            "p95": 295,
+            "n": 5
+          },
+          "loadMs": {
+            "p50": 219,
+            "p95": 378,
+            "n": 5
+          },
+          "encodedBytes": {
+            "p50": 5704949,
+            "p95": 5704949,
+            "n": 5
+          },
+          "decodedBytes": {
+            "p50": 14508095,
+            "p95": 14508095,
+            "n": 5
+          },
+          "requestCount": {
+            "p50": 96,
+            "p95": 96,
+            "n": 5
+          },
+          "domNodes": {
+            "p50": 1662,
+            "p95": 1667,
+            "n": 5
+          },
+          "usefulMissing": 0,
+          "errors": 0,
+          "expected": 5,
+          "observed": 5,
+          "valid": true,
+          "unavailable": 0
+        },
+        "warmAttempts": [
+          {
+            "encodedBytes": 2550129,
+            "decodedBytes": 11353275,
+            "requestCount": 95,
+            "ttfbMs": 101,
+            "fcpMs": 200,
+            "domContentLoadedMs": 168,
+            "loadMs": 204,
+            "domNodes": 1596,
+            "finalUrl": "/rankings",
+            "navigationStatus": 200,
+            "usefulMs": 1071.1999999999825,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 5704949,
+            "decodedBytes": 14508095,
+            "requestCount": 96,
+            "ttfbMs": 101,
+            "fcpMs": 208,
+            "domContentLoadedMs": 148,
+            "loadMs": 219,
+            "domNodes": 1662,
+            "finalUrl": "/rankings",
+            "navigationStatus": 200,
+            "usefulMs": 1519,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 5704949,
+            "decodedBytes": 14508095,
+            "requestCount": 96,
+            "ttfbMs": 98,
+            "fcpMs": 196,
+            "domContentLoadedMs": 173,
+            "loadMs": 242,
+            "domNodes": 1663,
+            "finalUrl": "/rankings",
+            "navigationStatus": 200,
+            "usefulMs": 1470.3999999999942,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 5704949,
+            "decodedBytes": 14508095,
+            "requestCount": 96,
+            "ttfbMs": 120,
+            "fcpMs": 312,
+            "domContentLoadedMs": 295,
+            "loadMs": 378,
+            "domNodes": 1667,
+            "finalUrl": "/rankings",
+            "navigationStatus": 200,
+            "usefulMs": 1610.3999999999942,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 5704949,
+            "decodedBytes": 14508095,
+            "requestCount": 96,
+            "ttfbMs": 97,
+            "fcpMs": 212,
+            "domContentLoadedMs": 175,
+            "loadMs": 198,
+            "domNodes": 1658,
+            "finalUrl": "/rankings",
+            "navigationStatus": 200,
+            "usefulMs": 1568.6000000000058,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          }
+        ],
+        "observedTargets": {
+          "coldP95Within3000Ms": false,
+          "warmP95Within1000Ms": false,
+          "everyObservedUsefulWithin5000Ms": false,
+          "normalNavigationP95": null,
+          "normalNavigationReason": "not_measured"
+        }
+      },
+      "desktop /trade": {
+        "viewport": "desktop",
+        "path": "/trade",
+        "readySelector": ".trade-controls",
+        "readyMeans": "visible controls and an eligible result for the fixed a search",
+        "cold": {
+          "ttfbMs": {
+            "p50": 287,
+            "p95": 308,
+            "n": 5
+          },
+          "fcpMs": {
+            "p50": 808,
+            "p95": 1268,
+            "n": 5
+          },
+          "usefulMs": {
+            "p50": 2632.600000000006,
+            "p95": 2720.2999999999884,
+            "n": 5
+          },
+          "domContentLoadedMs": {
+            "p50": 680,
+            "p95": 1193,
+            "n": 5
+          },
+          "loadMs": {
+            "p50": 1101,
+            "p95": 1320,
+            "n": 5
+          },
+          "encodedBytes": {
+            "p50": 1770795,
+            "p95": 1798742,
+            "n": 5
+          },
+          "decodedBytes": {
+            "p50": 11362574,
+            "p95": 11362574,
+            "n": 5
+          },
+          "requestCount": {
+            "p50": 64,
+            "p95": 64,
+            "n": 5
+          },
+          "domNodes": {
+            "p50": 304,
+            "p95": 311,
+            "n": 5
+          },
+          "usefulMissing": 0,
+          "errors": 0,
+          "expected": 5,
+          "observed": 5,
+          "valid": true,
+          "unavailable": 0
+        },
+        "coldAttempts": [
+          {
+            "encodedBytes": 1739007,
+            "decodedBytes": 11266818,
+            "requestCount": 61,
+            "ttfbMs": 284,
+            "fcpMs": 704,
+            "domContentLoadedMs": 577,
+            "loadMs": 1077,
+            "domNodes": 305,
+            "finalUrl": "/trade",
+            "navigationStatus": 200,
+            "usefulMs": 2222.6999999999825,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 1770795,
+            "decodedBytes": 11362574,
+            "requestCount": 64,
+            "ttfbMs": 298,
+            "fcpMs": 1268,
+            "domContentLoadedMs": 1193,
+            "loadMs": 1320,
+            "domNodes": 299,
+            "finalUrl": "/trade",
+            "navigationStatus": 200,
+            "usefulMs": 2720.2999999999884,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 1696080,
+            "decodedBytes": 11259913,
+            "requestCount": 58,
+            "ttfbMs": 283,
+            "fcpMs": 684,
+            "domContentLoadedMs": 669,
+            "loadMs": 1101,
+            "domNodes": 311,
+            "finalUrl": "/trade",
+            "navigationStatus": 200,
+            "usefulMs": 2133.600000000006,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 1798742,
+            "decodedBytes": 11362574,
+            "requestCount": 64,
+            "ttfbMs": 287,
+            "fcpMs": 808,
+            "domContentLoadedMs": 709,
+            "loadMs": 1177,
+            "domNodes": 303,
+            "finalUrl": "/trade",
+            "navigationStatus": 200,
+            "usefulMs": 2632.600000000006,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 1770795,
+            "decodedBytes": 11362574,
+            "requestCount": 64,
+            "ttfbMs": 308,
+            "fcpMs": 808,
+            "domContentLoadedMs": 680,
+            "loadMs": 1080,
+            "domNodes": 304,
+            "finalUrl": "/trade",
+            "navigationStatus": 200,
+            "usefulMs": 2660.3000000000175,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          }
+        ],
+        "warm": {
+          "ttfbMs": {
+            "p50": 104,
+            "p95": 129,
+            "n": 5
+          },
+          "fcpMs": {
+            "p50": 200,
+            "p95": 244,
+            "n": 5
+          },
+          "usefulMs": {
+            "p50": 1009.1000000000058,
+            "p95": 1989.9000000000233,
+            "n": 5
+          },
+          "domContentLoadedMs": {
+            "p50": 170,
+            "p95": 192,
+            "n": 5
+          },
+          "loadMs": {
+            "p50": 226,
+            "p95": 280,
+            "n": 5
+          },
+          "encodedBytes": {
+            "p50": 2559428,
+            "p95": 2559428,
+            "n": 5
+          },
+          "decodedBytes": {
+            "p50": 11362574,
+            "p95": 11362574,
+            "n": 5
+          },
+          "requestCount": {
+            "p50": 69,
+            "p95": 69,
+            "n": 5
+          },
+          "domNodes": {
+            "p50": 312,
+            "p95": 312,
+            "n": 5
+          },
+          "usefulMissing": 0,
+          "errors": 0,
+          "expected": 5,
+          "observed": 5,
+          "valid": true,
+          "unavailable": 0
+        },
+        "warmAttempts": [
+          {
+            "encodedBytes": 2367342,
+            "decodedBytes": 11170488,
+            "requestCount": 60,
+            "ttfbMs": 99,
+            "fcpMs": 220,
+            "domContentLoadedMs": 192,
+            "loadMs": 226,
+            "domNodes": 312,
+            "finalUrl": "/trade",
+            "navigationStatus": 200,
+            "usefulMs": 989.3999999999942,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 2559428,
+            "decodedBytes": 11362574,
+            "requestCount": 69,
+            "ttfbMs": 104,
+            "fcpMs": 200,
+            "domContentLoadedMs": 170,
+            "loadMs": 201,
+            "domNodes": 310,
+            "finalUrl": "/trade",
+            "navigationStatus": 200,
+            "usefulMs": 1009.1000000000058,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 2559428,
+            "decodedBytes": 11362574,
+            "requestCount": 69,
+            "ttfbMs": 129,
+            "fcpMs": 244,
+            "domContentLoadedMs": 181,
+            "loadMs": 280,
+            "domNodes": 312,
+            "finalUrl": "/trade",
+            "navigationStatus": 200,
+            "usefulMs": 1544.5,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 2559428,
+            "decodedBytes": 11362574,
+            "requestCount": 64,
+            "ttfbMs": 108,
+            "fcpMs": 184,
+            "domContentLoadedMs": 167,
+            "loadMs": 239,
+            "domNodes": 312,
+            "finalUrl": "/trade",
+            "navigationStatus": 200,
+            "usefulMs": 1008.1999999999825,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 2559428,
+            "decodedBytes": 11362574,
+            "requestCount": 69,
+            "ttfbMs": 104,
+            "fcpMs": 188,
+            "domContentLoadedMs": 156,
+            "loadMs": 224,
+            "domNodes": 303,
+            "finalUrl": "/trade",
+            "navigationStatus": 200,
+            "usefulMs": 1989.9000000000233,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          }
+        ],
+        "observedTargets": {
+          "coldP95Within3000Ms": true,
+          "warmP95Within1000Ms": false,
+          "everyObservedUsefulWithin5000Ms": true,
+          "normalNavigationP95": null,
+          "normalNavigationReason": "not_measured"
+        }
+      },
+      "mobile /rankings": {
+        "viewport": "mobile",
+        "path": "/rankings",
+        "readySelector": ".ds-table-wrap table tbody tr.rankings-row-clickable",
+        "readyMeans": "a board row \u2014 the player table has data",
+        "cold": {
+          "ttfbMs": {
+            "p50": 284,
+            "p95": 293,
+            "n": 5
+          },
+          "fcpMs": {
+            "p50": 772,
+            "p95": 800,
+            "n": 5
+          },
+          "usefulMs": {
+            "p50": 2218.7999999999884,
+            "p95": 3156.7000000000116,
+            "n": 5
+          },
+          "domContentLoadedMs": {
+            "p50": 668,
+            "p95": 679,
+            "n": 5
+          },
+          "loadMs": {
+            "p50": 1082,
+            "p95": 1107,
+            "n": 5
+          },
+          "encodedBytes": {
+            "p50": 1500150,
+            "p95": 2185999,
+            "n": 5
+          },
+          "decodedBytes": {
+            "p50": 8543054,
+            "p95": 11688260,
+            "n": 5
+          },
+          "requestCount": {
+            "p50": 84,
+            "p95": 84,
+            "n": 5
+          },
+          "domNodes": {
+            "p50": 1506,
+            "p95": 1572,
+            "n": 5
+          },
+          "usefulMissing": 0,
+          "errors": 0,
+          "expected": 5,
+          "observed": 5,
+          "valid": true,
+          "unavailable": 0
+        },
+        "coldAttempts": [
+          {
+            "encodedBytes": 2185999,
+            "decodedBytes": 11688260,
+            "requestCount": 84,
+            "ttfbMs": 282,
+            "fcpMs": 700,
+            "domContentLoadedMs": 572,
+            "loadMs": 1071,
+            "domNodes": 1572,
+            "finalUrl": "/rankings",
+            "navigationStatus": 200,
+            "usefulMs": 3156.7000000000116,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 1497497,
+            "decodedBytes": 8533439,
+            "requestCount": 83,
+            "ttfbMs": 280,
+            "fcpMs": 772,
+            "domContentLoadedMs": 668,
+            "loadMs": 1070,
+            "domNodes": 1504,
+            "finalUrl": "/rankings",
+            "navigationStatus": 200,
+            "usefulMs": 2102.399999999994,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 1500150,
+            "decodedBytes": 8543054,
+            "requestCount": 84,
+            "ttfbMs": 284,
+            "fcpMs": 668,
+            "domContentLoadedMs": 663,
+            "loadMs": 1107,
+            "domNodes": 1506,
+            "finalUrl": "/rankings",
+            "navigationStatus": 200,
+            "usefulMs": 2633.3000000000175,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 1499435,
+            "decodedBytes": 8543054,
+            "requestCount": 63,
+            "ttfbMs": 293,
+            "fcpMs": 800,
+            "domContentLoadedMs": 675,
+            "loadMs": 1092,
+            "domNodes": 1506,
+            "finalUrl": "/rankings",
+            "navigationStatus": 200,
+            "usefulMs": 2213.5,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 2185999,
+            "decodedBytes": 11688260,
+            "requestCount": 84,
+            "ttfbMs": 289,
+            "fcpMs": 792,
+            "domContentLoadedMs": 679,
+            "loadMs": 1082,
+            "domNodes": 1572,
+            "finalUrl": "/rankings",
+            "navigationStatus": 200,
+            "usefulMs": 2218.7999999999884,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          }
+        ],
+        "warm": {
+          "ttfbMs": {
+            "p50": 99,
+            "p95": 105,
+            "n": 5
+          },
+          "fcpMs": {
+            "p50": 196,
+            "p95": 264,
+            "n": 5
+          },
+          "usefulMs": {
+            "p50": 1490.3999999999942,
+            "p95": 1604.1000000000058,
+            "n": 5
+          },
+          "domContentLoadedMs": {
+            "p50": 166,
+            "p95": 238,
+            "n": 5
+          },
+          "loadMs": {
+            "p50": 223,
+            "p95": 289,
+            "n": 5
+          },
+          "encodedBytes": {
+            "p50": 5346829,
+            "p95": 5347714,
+            "n": 5
+          },
+          "decodedBytes": {
+            "p50": 11687109,
+            "p95": 11687994,
+            "n": 5
+          },
+          "requestCount": {
+            "p50": 82,
+            "p95": 83,
+            "n": 5
+          },
+          "domNodes": {
+            "p50": 1573,
+            "p95": 1582,
+            "n": 5
+          },
+          "usefulMissing": 0,
+          "errors": 0,
+          "expected": 5,
+          "observed": 5,
+          "valid": true,
+          "unavailable": 0
+        },
+        "warmAttempts": [
+          {
+            "encodedBytes": 2192893,
+            "decodedBytes": 8533173,
+            "requestCount": 82,
+            "ttfbMs": 99,
+            "fcpMs": 192,
+            "domContentLoadedMs": 166,
+            "loadMs": 185,
+            "domNodes": 1513,
+            "finalUrl": "/rankings",
+            "navigationStatus": 200,
+            "usefulMs": 1487.8999999999942,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 2192893,
+            "decodedBytes": 8533173,
+            "requestCount": 82,
+            "ttfbMs": 98,
+            "fcpMs": 180,
+            "domContentLoadedMs": 140,
+            "loadMs": 188,
+            "domNodes": 1515,
+            "finalUrl": "/rankings",
+            "navigationStatus": 200,
+            "usefulMs": 1073.7999999999884,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 5347714,
+            "decodedBytes": 11687994,
+            "requestCount": 83,
+            "ttfbMs": 103,
+            "fcpMs": 264,
+            "domContentLoadedMs": 238,
+            "loadMs": 289,
+            "domNodes": 1582,
+            "finalUrl": "/rankings",
+            "navigationStatus": 200,
+            "usefulMs": 1604.1000000000058,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 5347714,
+            "decodedBytes": 11687994,
+            "requestCount": 83,
+            "ttfbMs": 105,
+            "fcpMs": 196,
+            "domContentLoadedMs": 166,
+            "loadMs": 223,
+            "domNodes": 1574,
+            "finalUrl": "/rankings",
+            "navigationStatus": 200,
+            "usefulMs": 1490.3999999999942,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 5346829,
+            "decodedBytes": 11687109,
+            "requestCount": 82,
+            "ttfbMs": 99,
+            "fcpMs": 200,
+            "domContentLoadedMs": 161,
+            "loadMs": 236,
+            "domNodes": 1573,
+            "finalUrl": "/rankings",
+            "navigationStatus": 200,
+            "usefulMs": 1501.1000000000058,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          }
+        ],
+        "observedTargets": {
+          "coldP95Within3000Ms": false,
+          "warmP95Within1000Ms": false,
+          "everyObservedUsefulWithin5000Ms": true,
+          "normalNavigationP95": null,
+          "normalNavigationReason": "not_measured"
+        }
+      },
+      "mobile /trade": {
+        "viewport": "mobile",
+        "path": "/trade",
+        "readySelector": ".trade-controls",
+        "readyMeans": "visible controls and an eligible result for the fixed a search",
+        "cold": {
+          "ttfbMs": {
+            "p50": 278,
+            "p95": 284,
+            "n": 5
+          },
+          "fcpMs": {
+            "p50": 776,
+            "p95": 780,
+            "n": 5
+          },
+          "usefulMs": {
+            "p50": 2617.899999999994,
+            "p95": 2628.5,
+            "n": 5
+          },
+          "domContentLoadedMs": {
+            "p50": 660,
+            "p95": 665,
+            "n": 5
+          },
+          "loadMs": {
+            "p50": 1052,
+            "p95": 1072,
+            "n": 5
+          },
+          "encodedBytes": {
+            "p50": 1353528,
+            "p95": 1416423,
+            "n": 5
+          },
+          "decodedBytes": {
+            "p50": 8425175,
+            "p95": 8488067,
+            "n": 5
+          },
+          "requestCount": {
+            "p50": 50,
+            "p95": 51,
+            "n": 5
+          },
+          "domNodes": {
+            "p50": 293,
+            "p95": 295,
+            "n": 5
+          },
+          "usefulMissing": 0,
+          "errors": 0,
+          "expected": 5,
+          "observed": 5,
+          "valid": true,
+          "unavailable": 0
+        },
+        "coldAttempts": [
+          {
+            "encodedBytes": 1353528,
+            "decodedBytes": 8425175,
+            "requestCount": 50,
+            "ttfbMs": 278,
+            "fcpMs": 776,
+            "domContentLoadedMs": 660,
+            "loadMs": 1052,
+            "domNodes": 293,
+            "finalUrl": "/trade",
+            "navigationStatus": 200,
+            "usefulMs": 2624,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 1286640,
+            "decodedBytes": 8298602,
+            "requestCount": 37,
+            "ttfbMs": 277,
+            "fcpMs": 768,
+            "domContentLoadedMs": 663,
+            "loadMs": 1072,
+            "domNodes": 233,
+            "finalUrl": "/trade",
+            "navigationStatus": 200,
+            "usefulMs": 2128.5,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 1416423,
+            "decodedBytes": 8488067,
+            "requestCount": 51,
+            "ttfbMs": 284,
+            "fcpMs": 780,
+            "domContentLoadedMs": 665,
+            "loadMs": 1047,
+            "domNodes": 294,
+            "finalUrl": "/trade",
+            "navigationStatus": 200,
+            "usefulMs": 2617.899999999994,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 1226956,
+            "decodedBytes": 8298602,
+            "requestCount": 37,
+            "ttfbMs": 275,
+            "fcpMs": 760,
+            "domContentLoadedMs": 649,
+            "loadMs": 1065,
+            "domNodes": 233,
+            "finalUrl": "/trade",
+            "navigationStatus": 200,
+            "usefulMs": 2108.600000000006,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 1353530,
+            "decodedBytes": 8425175,
+            "requestCount": 50,
+            "ttfbMs": 278,
+            "fcpMs": 776,
+            "domContentLoadedMs": 659,
+            "loadMs": 1049,
+            "domNodes": 295,
+            "finalUrl": "/trade",
+            "navigationStatus": 200,
+            "usefulMs": 2628.5,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          }
+        ],
+        "warm": {
+          "ttfbMs": {
+            "p50": 98,
+            "p95": 100,
+            "n": 5
+          },
+          "fcpMs": {
+            "p50": 176,
+            "p95": 196,
+            "n": 5
+          },
+          "usefulMs": {
+            "p50": 967.5,
+            "p95": 2497,
+            "n": 5
+          },
+          "domContentLoadedMs": {
+            "p50": 158,
+            "p95": 175,
+            "n": 5
+          },
+          "loadMs": {
+            "p50": 194,
+            "p95": 208,
+            "n": 5
+          },
+          "encodedBytes": {
+            "p50": 2137717,
+            "p95": 2137906,
+            "n": 5
+          },
+          "decodedBytes": {
+            "p50": 8477997,
+            "p95": 8478186,
+            "n": 5
+          },
+          "requestCount": {
+            "p50": 53,
+            "p95": 54,
+            "n": 5
+          },
+          "domNodes": {
+            "p50": 295,
+            "p95": 303,
+            "n": 5
+          },
+          "usefulMissing": 0,
+          "errors": 0,
+          "expected": 5,
+          "observed": 5,
+          "valid": true,
+          "unavailable": 0
+        },
+        "warmAttempts": [
+          {
+            "encodedBytes": 2137717,
+            "decodedBytes": 8477997,
+            "requestCount": 53,
+            "ttfbMs": 97,
+            "fcpMs": 152,
+            "domContentLoadedMs": 153,
+            "loadMs": 208,
+            "domNodes": 295,
+            "finalUrl": "/trade",
+            "navigationStatus": 200,
+            "usefulMs": 1015.8000000000175,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 2137717,
+            "decodedBytes": 8477997,
+            "requestCount": 53,
+            "ttfbMs": 99,
+            "fcpMs": 188,
+            "domContentLoadedMs": 175,
+            "loadMs": 200,
+            "domNodes": 303,
+            "finalUrl": "/trade",
+            "navigationStatus": 200,
+            "usefulMs": 955.1999999999825,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 2137906,
+            "decodedBytes": 8478186,
+            "requestCount": 54,
+            "ttfbMs": 98,
+            "fcpMs": 176,
+            "domContentLoadedMs": 165,
+            "loadMs": 191,
+            "domNodes": 292,
+            "finalUrl": "/trade",
+            "navigationStatus": 200,
+            "usefulMs": 2497,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 2137717,
+            "decodedBytes": 8477997,
+            "requestCount": 53,
+            "ttfbMs": 100,
+            "fcpMs": 196,
+            "domContentLoadedMs": 142,
+            "loadMs": 194,
+            "domNodes": 298,
+            "finalUrl": "/trade",
+            "navigationStatus": 200,
+            "usefulMs": 967.5,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          },
+          {
+            "encodedBytes": 2135523,
+            "decodedBytes": 8475803,
+            "requestCount": 48,
+            "ttfbMs": 98,
+            "fcpMs": 176,
+            "domContentLoadedMs": 158,
+            "loadMs": 181,
+            "domNodes": 288,
+            "finalUrl": "/trade",
+            "navigationStatus": 200,
+            "usefulMs": 954.6000000000058,
+            "readyReason": null,
+            "terminalState": "useful",
+            "unavailableObservedMs": null
+          }
+        ],
+        "observedTargets": {
+          "coldP95Within3000Ms": true,
+          "warmP95Within1000Ms": false,
+          "everyObservedUsefulWithin5000Ms": true,
+          "normalNavigationP95": null,
+          "normalNavigationReason": "not_measured"
+        }
+      }
+    },
+    "protocol": {
+      "cold": "fresh browser context per attempt",
+      "warm": "second document navigation in same context; HTTP cache warm, not SPA navigation",
+      "useful": "visible data-bearing probe; trade includes fixed a search",
+      "browserVersion": "153.0.8010.12",
+      "nodeVersion": "v20.20.2",
+      "authMode": "production-cookie",
+      "verificationSourceSha": "fdd57814d3d92173810468418fd31cdb5846c6f7",
+      "deployedRevision": null,
+      "profile": "unthrottled",
+      "viewports": {
+        "desktop": {
+          "width": 1366,
+          "height": 900
+        },
+        "mobile": {
+          "width": 390,
+          "height": 844
+        }
+      },
+      "percentile": "nearest-rank",
+      "observationTimeoutMs": 45000,
+      "sampleLimitation": "bounded samples; five observations do not establish a robust tail percentile",
+      "notMeasured": [
+        "normal SPA navigation",
+        "prefetched navigation",
+        "slowed profile",
+        "field performance"
+      ]
+    },
+    "collectionValid": true,
+    "observedTargetsPass": false,
+    "campaignAcceptance": "not_established"
+  },
+  "independentReview": {
+    "status": "APPROVE_BASELINE_ACCOUNTING_NOT_ACCEPTANCE",
+    "reviewer": "/root/report_regression",
+    "sealedAtUtc": "2026-09-26T21:30:14.863536+00:00",
+    "reportSha256": "18bb35af6a7183c9d30573a51de87b0f853e2a232d38e205775d28833b9eed5e",
+    "attempts": 40,
+    "independentRecomputationMismatches": [],
+    "routes": {
+      "desktop /rankings": {
+        "phases": {
+          "cold": {
+            "usefulMsInRecordedOrder": [
+              6692.099999999977,
+              2634,
+              2624.7000000000116,
+              2212.8000000000175,
+              2331
+            ],
+            "p50": 2624.7000000000116,
+            "p95": 6692.099999999977,
+            "first": 6692.099999999977,
+            "laterRange": [
+              2212.8000000000175,
+              2634
+            ],
+            "requestCountRange": [
+              78,
+              96
+            ],
+            "encodedBodyBytesRange": [
+              1579323,
+              2553601
+            ],
+            "decodedBodyBytesRange": [
+              11067500,
+              14508096
+            ]
+          },
+          "warm": {
+            "usefulMsInRecordedOrder": [
+              1071.1999999999825,
+              1519,
+              1470.3999999999942,
+              1610.3999999999942,
+              1568.6000000000058
+            ],
+            "p50": 1519,
+            "p95": 1610.3999999999942,
+            "first": 1071.1999999999825,
+            "laterRange": [
+              1470.3999999999942,
+              1610.3999999999942
+            ],
+            "requestCountRange": [
+              95,
+              96
+            ],
+            "encodedBodyBytesRange": [
+              2550129,
+              5704949
+            ],
+            "decodedBodyBytesRange": [
+              11353275,
+              14508095
+            ]
+          }
+        },
+        "recomputedGates": {
+          "coldP95Within3000Ms": false,
+          "warmP95Within1000Ms": false,
+          "everyObservedUsefulWithin5000Ms": false,
+          "normalNavigationP95": null,
+          "normalNavigationReason": "not_measured"
+        }
+      },
+      "desktop /trade": {
+        "phases": {
+          "cold": {
+            "usefulMsInRecordedOrder": [
+              2222.6999999999825,
+              2720.2999999999884,
+              2133.600000000006,
+              2632.600000000006,
+              2660.3000000000175
+            ],
+            "p50": 2632.600000000006,
+            "p95": 2720.2999999999884,
+            "first": 2222.6999999999825,
+            "laterRange": [
+              2133.600000000006,
+              2720.2999999999884
+            ],
+            "requestCountRange": [
+              58,
+              64
+            ],
+            "encodedBodyBytesRange": [
+              1696080,
+              1798742
+            ],
+            "decodedBodyBytesRange": [
+              11259913,
+              11362574
+            ]
+          },
+          "warm": {
+            "usefulMsInRecordedOrder": [
+              989.3999999999942,
+              1009.1000000000058,
+              1544.5,
+              1008.1999999999825,
+              1989.9000000000233
+            ],
+            "p50": 1009.1000000000058,
+            "p95": 1989.9000000000233,
+            "first": 989.3999999999942,
+            "laterRange": [
+              1008.1999999999825,
+              1989.9000000000233
+            ],
+            "requestCountRange": [
+              60,
+              69
+            ],
+            "encodedBodyBytesRange": [
+              2367342,
+              2559428
+            ],
+            "decodedBodyBytesRange": [
+              11170488,
+              11362574
+            ]
+          }
+        },
+        "recomputedGates": {
+          "coldP95Within3000Ms": true,
+          "warmP95Within1000Ms": false,
+          "everyObservedUsefulWithin5000Ms": true,
+          "normalNavigationP95": null,
+          "normalNavigationReason": "not_measured"
+        }
+      },
+      "mobile /rankings": {
+        "phases": {
+          "cold": {
+            "usefulMsInRecordedOrder": [
+              3156.7000000000116,
+              2102.399999999994,
+              2633.3000000000175,
+              2213.5,
+              2218.7999999999884
+            ],
+            "p50": 2218.7999999999884,
+            "p95": 3156.7000000000116,
+            "first": 3156.7000000000116,
+            "laterRange": [
+              2102.399999999994,
+              2633.3000000000175
+            ],
+            "requestCountRange": [
+              63,
+              84
+            ],
+            "encodedBodyBytesRange": [
+              1497497,
+              2185999
+            ],
+            "decodedBodyBytesRange": [
+              8533439,
+              11688260
+            ]
+          },
+          "warm": {
+            "usefulMsInRecordedOrder": [
+              1487.8999999999942,
+              1073.7999999999884,
+              1604.1000000000058,
+              1490.3999999999942,
+              1501.1000000000058
+            ],
+            "p50": 1490.3999999999942,
+            "p95": 1604.1000000000058,
+            "first": 1487.8999999999942,
+            "laterRange": [
+              1073.7999999999884,
+              1604.1000000000058
+            ],
+            "requestCountRange": [
+              82,
+              83
+            ],
+            "encodedBodyBytesRange": [
+              2192893,
+              5347714
+            ],
+            "decodedBodyBytesRange": [
+              8533173,
+              11687994
+            ]
+          }
+        },
+        "recomputedGates": {
+          "coldP95Within3000Ms": false,
+          "warmP95Within1000Ms": false,
+          "everyObservedUsefulWithin5000Ms": true,
+          "normalNavigationP95": null,
+          "normalNavigationReason": "not_measured"
+        }
+      },
+      "mobile /trade": {
+        "phases": {
+          "cold": {
+            "usefulMsInRecordedOrder": [
+              2624,
+              2128.5,
+              2617.899999999994,
+              2108.600000000006,
+              2628.5
+            ],
+            "p50": 2617.899999999994,
+            "p95": 2628.5,
+            "first": 2624,
+            "laterRange": [
+              2108.600000000006,
+              2628.5
+            ],
+            "requestCountRange": [
+              37,
+              51
+            ],
+            "encodedBodyBytesRange": [
+              1226956,
+              1416423
+            ],
+            "decodedBodyBytesRange": [
+              8298602,
+              8488067
+            ]
+          },
+          "warm": {
+            "usefulMsInRecordedOrder": [
+              1015.8000000000175,
+              955.1999999999825,
+              2497,
+              967.5,
+              954.6000000000058
+            ],
+            "p50": 967.5,
+            "p95": 2497,
+            "first": 1015.8000000000175,
+            "laterRange": [
+              954.6000000000058,
+              2497
+            ],
+            "requestCountRange": [
+              48,
+              54
+            ],
+            "encodedBodyBytesRange": [
+              2135523,
+              2137906
+            ],
+            "decodedBodyBytesRange": [
+              8475803,
+              8478186
+            ]
+          }
+        },
+        "recomputedGates": {
+          "coldP95Within3000Ms": true,
+          "warmP95Within1000Ms": false,
+          "everyObservedUsefulWithin5000Ms": true,
+          "normalNavigationP95": null,
+          "normalNavigationReason": "not_measured"
+        }
+      }
+    },
+    "collectionValid": true,
+    "observedTargetsPass": false,
+    "limitations": [
+      "Nearest-rank p95 of five samples is their maximum; bounded observations are not a stable field tail estimate.",
+      "Cold means fresh browser context, not restarted/cold backend. Warm is second full-document navigation, not SPA/prefetched navigation. Auth status request runs before measured navigation and can itself warm server paths.",
+      "Useful timestamp is performance.now sampled after Playwright predicate resolves, not exact first paint; host/automation polling and trade fill/search interaction are included. Rankings proves visible nonzero row count, not semantic all-row parity.",
+      "Resource body sizes are navigation plus completed Resource Timing entries sampled after useful and load wait. They are not transferSize, wire bytes actually downloaded on cache hits, individual API payload sizes, or necessarily all in-flight requests. requestCount excludes navigation and is not identical to total HTTP request count.",
+      "No resource URLs, bodies or per-endpoint attribution exist in this report. Aggregate payload alone cannot assign latency cause.",
+      "Zero reported attempt errors does not prove zero page console errors; this collector does not capture them.",
+      "Unthrottled viewport-only mobile; slowed mobile, normal/prefetched navigation, field Web Vitals and loaded deployed revision remain unmeasured. verificationSourceSha identifies the measurement code, not deployed product.",
+      "First desktop rankings cold attempt is retained, not discarded as contamination. Its cause cannot be inferred from ordering or aggregate counters."
+    ],
+    "sourceReview": [
+      "frontend/scripts/measure-route-baselines.mjs:120-229,259-309",
+      "tests/e2e/helpers/journey.js:601-617"
+    ],
+    "noNewExecution": "No browser, benchmark, production request or code edit; independent offline arithmetic only."
+  },
+  "operational": "Real guest login and always-revoke steps succeeded; no deployment overlap in observed run. First foundation merged afterward; this remains the pre-release baseline. Loaded production revision unproven."
+}

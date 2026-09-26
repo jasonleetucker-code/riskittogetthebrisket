@@ -1,10 +1,11 @@
+import vm from "node:vm";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { parseArgs, summarise, failedSample, measureOnce, collectAttempt, targetVerdicts, productionAuth, authenticateProduction } from "../../frontend/scripts/measure-route-baselines.mjs";
+import { parseArgs, summarise, failedSample, measureOnce, collectAttempt, targetVerdicts, productionAuth, authenticateProduction, installBaselineDiagnostics } from "../../frontend/scripts/measure-route-baselines.mjs";
 const { baselineUsefulState } = createRequire(import.meta.url)("./helpers/journey.js");
 
 test("arguments reject vacuous or unknown runs and routes", () => {
@@ -142,4 +143,103 @@ test("production session uses real status only, disables redirects and retains a
   assert.ok(!JSON.stringify(outcome).includes("test_token"));
   ctx.request.get=async()=>({status:()=>200,body:async()=>Buffer.from('{"authenticated":true,"authMethod":"password"}')});
   assert.equal(await authenticateProduction(ctx,auth),false);
+});
+
+function diagnosticRealm(enabled = true, observerFailure = false) {
+  let tick = 0;
+  class FakeResponse { json(...args) { this.args = args; if (this.syncFailure) throw this.syncFailure; if (this.failure) return Promise.reject(this.failure); return this.promise; } }
+  class FakeRequest { constructor(url) { this.url=url; } }
+  const response = new FakeResponse();
+  response.promise = Promise.resolve({private:"SECRET_SENTINEL"});
+  const fetchPromise = Promise.resolve(response);
+  let nativeCalls = 0;
+  const nativeFetch = function (...args) { nativeCalls++; this.capturedArgs = args; if (nativeFetch.failure) throw nativeFetch.failure; return fetchPromise; };
+  let observer;
+  class Observer {
+    constructor(callback) {this.callback=callback;this.pending=[];observer=this;}
+    observe() { if (observerFailure) throw Error("SECRET_SENTINEL"); }
+    takeRecords() {if (observerFailure) throw Error("failed observer used"); const entries=this.pending;this.pending=[];return entries;}
+  }
+  const context = vm.createContext({URL,Request:FakeRequest,Response:FakeResponse,PerformanceObserver:Observer,
+    location:{origin:"https://chaseupside.com"},performance:{now:()=>++tick/10,addEventListener:()=>{}},fetch:nativeFetch});
+  const before = FakeResponse.prototype.json;
+  vm.runInContext(`(${installBaselineDiagnostics.toString()})(${enabled})`, context);
+  return {context,response,fetchPromise,nativeFetch,before,FakeResponse,get nativeCalls(){return nativeCalls;},get observer(){return observer;}};
+}
+
+test("diagnostics default off leaves native functions untouched", () => {
+  const realm=diagnosticRealm(false);
+  assert.equal(realm.context.fetch,realm.nativeFetch);
+  assert.equal(realm.FakeResponse.prototype.json,realm.before);
+  assert.equal(realm.context.__baselineDiagnosticsSnapshot,undefined);
+  assert.equal(parseArgs([]).diagnostics,false);
+  assert.throws(()=>parseArgs(["--diagnostics","yes"]),/invalid_arguments/);
+});
+
+test("diagnostics preserve fetch and JSON promise identities, values, receiver and privacy", async () => {
+  const r=diagnosticRealm();
+  const promise=r.context.fetch("https://chaseupside.com/api/dynasty-data?view=array&private=SECRET_SENTINEL",{headers:{secret:"SECRET_SENTINEL"}});
+  assert.equal(promise,r.fetchPromise);
+  assert.equal(await promise,r.response);
+  const json=r.response.json("native_argument");
+  assert.equal(json,r.response.promise);
+  assert.equal((await json).private,"SECRET_SENTINEL");
+  assert.equal(r.response.args[0],"native_argument");
+  r.observer.pending=[{name:"https://chaseupside.com/api/data?view=full&secret=SECRET_SENTINEL",startTime:1.1,responseStart:2.2,responseEnd:3.3,encodedBodySize:123,decodedBodySize:456}];
+  const data=r.context.__baselineDiagnosticsSnapshot();
+  assert.equal(r.nativeCalls,1);assert.equal(data.events[0].category,"data");assert.equal(data.events[0].view,"array");
+  assert.equal(data.resources[0].receipt,3.3);assert.equal(data.resources[0].view,"full");
+  assert.equal(data.pendingFetch,0);assert.equal(data.pendingJson,0);
+  assert.ok(!JSON.stringify(data).includes("SECRET_SENTINEL"));
+  assert.ok(!JSON.stringify(data).includes("https:"));
+  assert.equal(data.jsonDurationMeaning,"body_plus_parse_plus_scheduling");
+});
+
+test("diagnostics preserve rejected JSON reason and enforce event/resource bounds", async () => {
+  const r=diagnosticRealm();await r.context.fetch("/api/auth/status");
+  const error=Error("SECRET_SENTINEL");r.response.failure=error;
+  await assert.rejects(r.response.json(),value=>value===error);
+  r.response.failure=null;
+  for(let i=0;i<300;i++) await r.context.fetch("/api/unknown?secret=SECRET_SENTINEL");
+  r.observer.pending=Array.from({length:600},()=>({name:"https://external.invalid/SECRET_SENTINEL",startTime:1,responseStart:2,responseEnd:3,encodedBodySize:0,decodedBodySize:0}));
+  const data=r.context.__baselineDiagnosticsSnapshot();
+  assert.equal(data.events.length,512);assert.ok(data.dropped>0);
+  assert.equal(data.resources.length,512);assert.equal(data.resourceDropped,88);
+  assert.ok(!JSON.stringify(data).includes("SECRET_SENTINEL"));
+});
+
+test("diagnostics preserve synchronous throw identity and classify unknown views without text", () => {
+  const r=diagnosticRealm();const error=Error("SECRET_SENTINEL");r.nativeFetch.failure=error;
+  assert.throws(()=>r.context.fetch("/api/data?view=SECRET_SENTINEL"),value=>value===error);
+  r.response.syncFailure=error;
+  assert.throws(()=>r.response.json(),value=>value===error);
+  const data=r.context.__baselineDiagnosticsSnapshot();
+  assert.equal(data.events[0].view,"unknown");assert.equal(data.pendingFetch,0);assert.equal(data.pendingJson,0);
+  assert.equal(data.unattributedJson,1);assert.ok(!JSON.stringify(data).includes("SECRET_SENTINEL"));
+});
+
+test("diagnostic missing resource timings are explicit and workflow opt-in defaults off", () => {
+  const r=diagnosticRealm();
+  r.observer.pending=[{name:"/api/data?view=unrecognized",startTime:NaN,responseStart:0,responseEnd:0,encodedBodySize:0,decodedBodySize:0}];
+  const data=r.context.__baselineDiagnosticsSnapshot();
+  assert.equal(data.invalid,1);assert.equal(data.resourceTimingUnavailable,1);assert.equal(data.resources[0].start,null);
+  assert.equal(data.resources[0].view,"unknown");
+  const workflow=fs.readFileSync(new URL("../../.github/workflows/v1-authenticated-verification.yml",import.meta.url),"utf8");
+  assert.match(workflow,/baseline_diagnostics:[\s\S]*?type: boolean[\s\S]*?default: false/);
+  assert.ok(workflow.includes('--diagnostics "$BASELINE_DIAGNOSTICS"'));
+});
+
+test("live user state endpoint is settings, including private query suppression", async () => {
+  const r=diagnosticRealm();await r.context.fetch("/api/user/state?owner=SECRET_SENTINEL");
+  const snapshot=r.context.__baselineDiagnosticsSnapshot();
+  assert.equal(snapshot.events[0].category,"settings");
+  assert.ok(!JSON.stringify(snapshot).includes("SECRET_SENTINEL"));
+});
+test("resource observer initialization failure is unavailable without reading failed observer", () => {
+  const r=diagnosticRealm(true,true);
+  const snapshot=r.context.__baselineDiagnosticsSnapshot();
+  assert.equal(snapshot.resourceObserverAvailable,false);
+  assert.equal(snapshot.invalid,1);
+  assert.equal(snapshot.resources.length,0);
+  assert.ok(!JSON.stringify(snapshot).includes("SECRET_SENTINEL"));
 });

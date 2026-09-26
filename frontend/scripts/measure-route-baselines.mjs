@@ -98,11 +98,12 @@ const VIEWPORTS = {
 };
 
 export function parseArgs(argv) {
-  const out = { runs: 5, viewport: "both", routes: null, json: null, timeout: 45_000, auth: "local-test" };
+  const out = { runs: 5, viewport: "both", routes: null, json: null, timeout: 45_000, auth: "local-test", diagnostics: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (!["--runs", "--viewport", "--routes", "--json", "--timeout", "--auth"].includes(a) || !argv[i + 1] || argv[i + 1].startsWith("--")) throw new Error("invalid_arguments");
-    if (a === "--auth") out.auth = argv[++i];
+    if (!["--runs", "--viewport", "--routes", "--json", "--timeout", "--auth", "--diagnostics"].includes(a) || !argv[i + 1] || argv[i + 1].startsWith("--")) throw new Error("invalid_arguments");
+    if (a === "--diagnostics") { const value = argv[++i]; if (!["true", "false"].includes(value)) throw Error("invalid_arguments"); out.diagnostics = value === "true"; }
+    else if (a === "--auth") out.auth = argv[++i];
     else if (a === "--runs") out.runs = Number(argv[++i]);
     else if (a === "--viewport") out.viewport = argv[++i];
     else if (a === "--routes") out.routes = argv[++i].split(",").map((s) => s.trim());
@@ -115,6 +116,84 @@ export function parseArgs(argv) {
       (out.routes && (!out.routes.length || new Set(out.routes).size !== out.routes.length ||
        out.routes.some(path => !ROUTES.some(route => route.path === path))))) throw new Error("invalid_arguments");
   return out;
+}
+
+/** Injected only by explicit lab opt-in; never changes native promise/object identity. */
+export function installBaselineDiagnostics(enabled = false) {
+  if (!enabled) return;
+  const cap = 512, events = [], resources = [], labels = new WeakMap();
+  let dropped = 0, invalid = 0, resourceDropped = 0, resourceBufferFull = 0, sequence = 0, pendingFetch = 0, pendingJson = 0, unattributedJson = 0, resourceTimingUnavailable = 0;
+  const finite = n => typeof n === "number" && Number.isFinite(n) && n >= 0 ? n : null;
+  function classify(input) {
+    let category = "other", view = "unknown";
+    try {
+      const value = typeof input === "string" ? input : input instanceof Request ? input.url : input instanceof URL ? input.href : "";
+      const url = new URL(value, location.origin);
+      if (url.origin === location.origin) {
+        if (["/api/data", "/api/dynasty-data"].includes(url.pathname)) {
+          category = "data";
+          const value = url.searchParams.get("view");
+          view = ["array", "compact", "runtime", "startup", "full"].includes(value) ? value : "unknown";
+        } else if (url.pathname === "/api/auth/status") category = "auth";
+        else if (["/api/user/state", "/api/settings"].includes(url.pathname)) category = "settings";
+        else if (url.pathname === "/api/leagues") category = "leagues";
+        else if (url.pathname.startsWith("/api/")) category = "other_api";
+      }
+    } catch { invalid++; }
+    return { category, view };
+  }
+  function record(stage, label, start, end = null) {
+    if (events.length >= cap) { dropped++; return; }
+    if (finite(start) === null || (end !== null && finite(end) === null)) { invalid++; return; }
+    events.push({ stage, ...label, start, end });
+  }
+  function ingest(entries) {
+    for (const entry of entries) {
+      if (resources.length >= cap) { resourceDropped++; continue; }
+      const label = classify(entry.name);
+      const row = { ...label, start: finite(entry.startTime), headers: finite(entry.responseStart), receipt: finite(entry.responseEnd), encodedBytes: finite(entry.encodedBodySize), decodedBytes: finite(entry.decodedBodySize) };
+      if (Object.values(row).some(value => value === null)) invalid++;
+      if (!row.headers || !row.receipt) resourceTimingUnavailable++;
+      resources.push(row);
+    }
+  }
+  let observer = null;
+  try {
+    observer = new PerformanceObserver(list => ingest(list.getEntries()));
+    observer.observe({ type: "resource", buffered: true });
+    performance.addEventListener("resourcetimingbufferfull", () => { resourceBufferFull++; });
+  } catch { observer = null; invalid++; }
+  const nativeFetch = globalThis.fetch;
+  globalThis.fetch = function (...args) {
+    const start = performance.now(), label = { ...classify(args[0]), id: ++sequence };
+    record("fetch_start", label, start); pendingFetch++;
+    let result;
+    try { result = Reflect.apply(nativeFetch, this, args); }
+    catch (error) { pendingFetch--; record("fetch_throw", label, start, performance.now()); throw error; }
+    result.then(response => {
+      pendingFetch--; labels.set(response, label); record("fetch_headers", label, start, performance.now());
+    }, () => { pendingFetch--; record("fetch_rejected", label, start, performance.now()); });
+    return result;
+  };
+  const nativeJson = Response.prototype.json;
+  Response.prototype.json = function (...args) {
+    const start = performance.now(), label = labels.get(this) || {category:"other",view:"unknown",id:0};
+    if (!labels.has(this)) unattributedJson++;
+    record("json_start", label, start); pendingJson++;
+    let result;
+    try { result = Reflect.apply(nativeJson, this, args); }
+    catch (error) { pendingJson--; record("json_throw", label, start, performance.now()); throw error; }
+    result.then(() => { pendingJson--; record("json_complete", label, start, performance.now()); },
+      () => { pendingJson--; record("json_rejected", label, start, performance.now()); });
+    return result;
+  };
+  globalThis.__baselineDiagnosticsSnapshot = () => {
+    if (observer) ingest(observer.takeRecords());
+    return { observedAt: performance.now(), events: events.map(row => ({...row})), resources: resources.map(row => ({...row})),
+      dropped, invalid, resourceDropped, resourceBufferFull, pendingFetch, pendingJson, unattributedJson, resourceTimingUnavailable,
+      resourceObserverAvailable: observer !== null,
+      jsonDurationMeaning: "body_plus_parse_plus_scheduling", resourceCorrelation: "category_only_not_exact_request_join" };
+  };
 }
 
 /** p-th percentile by nearest-rank; null for an empty sample rather than 0. */
@@ -131,12 +210,13 @@ function pct(values, p) {
  * Timing comes from the page's own Navigation Timing / paint entries,
  * not from wall-clock around `goto`, so harness overhead is excluded.
  */
-export async function measureOnce(page, route, timeoutMs, origin = PAGE_ORIGIN) {
+export async function measureOnce(page, route, timeoutMs, origin = PAGE_ORIGIN, diagnostics = false) {
 
   let readyReason = null;
   let usefulMs = null;
   let terminalState = "missing";
   let navigationStatus = null;
+  let usefulDiagnostics = null;
   try {
     const response = await page.goto(`${origin}${route.path}`, {
       waitUntil: "commit",
@@ -148,7 +228,13 @@ export async function measureOnce(page, route, timeoutMs, origin = PAGE_ORIGIN) 
     if (new URL(page.url()).origin !== new URL(origin).origin || new URL(page.url()).pathname !== route.path) return failedSample("route_mismatch");
     try {
       terminalState = await baselineUsefulState(page, route.path, timeoutMs);
-      if (terminalState === "useful") usefulMs = await page.evaluate(() => performance.now());
+      if (terminalState === "useful") {
+        if (diagnostics) {
+          const boundary = await page.evaluate(() => ({ time: performance.now(), diagnostics: globalThis.__baselineDiagnosticsSnapshot?.() ?? null }));
+          usefulMs = boundary.time;
+          usefulDiagnostics = boundary.diagnostics;
+        } else usefulMs = await page.evaluate(() => performance.now());
+      }
       else readyReason = terminalState;
     } catch {
       terminalState = "missing";
@@ -200,6 +286,7 @@ export async function measureOnce(page, route, timeoutMs, origin = PAGE_ORIGIN) 
   return {
     ...nav,
     navigationStatus,
+    ...(diagnostics ? { usefulDiagnostics, postLoadDiagnostics: await page.evaluate(() => globalThis.__baselineDiagnosticsSnapshot?.() ?? null) } : {}),
     usefulMs,
     readyReason,
     terminalState,
@@ -258,11 +345,12 @@ export async function authenticateProduction(ctx, auth) {
 }
 
 /** Every requested cold/warm attempt survives session, navigation and cleanup failure. */
-export async function collectAttempt(browser, viewport, route, timeout, auth = {mode: "local-test", origin: PAGE_ORIGIN}) {
+export async function collectAttempt(browser, viewport, route, timeout, auth = {mode: "local-test", origin: PAGE_ORIGIN}, diagnostics = false) {
   let ctx;
   const result = { cold: failedSample("attempt_failed"), warm: failedSample("attempt_failed") };
   try {
     ctx = await browser.newContext({ baseURL: API, viewport: VIEWPORTS[viewport], isMobile: viewport === "mobile", hasTouch: viewport === "mobile" });
+    if (diagnostics) await ctx.addInitScript(installBaselineDiagnostics, true);
     let authenticated = false;
     if (auth.mode === "production-cookie") {
       authenticated = await authenticateProduction(ctx, auth);
@@ -277,8 +365,8 @@ export async function collectAttempt(browser, viewport, route, timeout, auth = {
       result.warm = { ...result.cold };
     } else {
       const page = await ctx.newPage();
-      result.cold = await measureOnce(page, route, timeout, auth.origin);
-      result.warm = await measureOnce(page, route, timeout, auth.origin);
+      result.cold = await measureOnce(page, route, timeout, auth.origin, diagnostics);
+      result.warm = await measureOnce(page, route, timeout, auth.origin, diagnostics);
     }
   } catch {
     // Fixed errors already initialized; retain any completed cold observation.
@@ -328,7 +416,7 @@ export async function main(argv = process.argv.slice(2)) {
       cold: "fresh browser context per attempt",
       warm: "second document navigation in same context; HTTP cache warm, not SPA navigation",
       useful: "visible data-bearing probe; trade includes fixed a search",
-      browserVersion: browser.version(), nodeVersion: process.version, authMode: auth.mode,
+      browserVersion: browser.version(), nodeVersion: process.version, diagnostics: args.diagnostics, observerEffect: args.diagnostics ? "requires_serial_on_off_control" : "collector_disabled", authMode: auth.mode,
       verificationSourceSha: /^[a-f0-9]{40}$/.test(process.env.GITHUB_SHA || "") ? process.env.GITHUB_SHA : null,
       deployedRevision: null,
       profile: "unthrottled", viewports: VIEWPORTS,
@@ -342,7 +430,7 @@ export async function main(argv = process.argv.slice(2)) {
       for (const route of routes) {
         const cold = [], warm = [];
         for (let i = 0; i < args.runs; i++) {
-          const attempt = await collectAttempt(browser, vp, route, args.timeout, auth);
+          const attempt = await collectAttempt(browser, vp, route, args.timeout, auth, args.diagnostics);
           cold.push(attempt.cold);
           warm.push(attempt.warm);
         }
