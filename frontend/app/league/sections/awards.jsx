@@ -23,6 +23,7 @@ import {
   renderAwardValue,
 } from "../shared.jsx";
 import { TradeCard } from "./activity.jsx";
+import { AwardStandings } from "./award-standings.jsx";
 import styles from "./awards.module.css";
 
 // Award keys whose ``value`` payload carries a player. Player awards render
@@ -510,18 +511,21 @@ function RaceCard({ race, managers, onNavigate, featured = false }) {
       {race.awaitingEvidence ? (
         <p className={styles.raceAwaiting}>{awaitingCopy(race.awaitingReason)}</p>
       ) : (
-        <ol className={styles.leaderList}>
-          {race.leaders.slice(0, 3).map((leader) => (
-            <LeaderRow
-              key={leader.ownerId || leader.value?.playerId || `${race.key}-${leader.rank}`}
-              awardKey={race.key}
-              leader={leader}
-              managers={managers}
-              onNavigate={onNavigate}
-              compact
-            />
-          ))}
-        </ol>
+        <>
+          <ol className={styles.leaderList}>
+            {race.leaders.slice(0, 3).map((leader) => (
+              <LeaderRow
+                key={leader.ownerId || leader.value?.playerId || `${race.key}-${leader.rank}`}
+                awardKey={race.key}
+                leader={leader}
+                managers={managers}
+                onNavigate={onNavigate}
+                compact
+              />
+            ))}
+          </ol>
+          <AwardStandings award={race} formatMetric={raceMetric} onNavigate={onNavigate} />
+        </>
       )}
     </article>
   );
@@ -776,7 +780,7 @@ function AwardsSection({ managers, data, onNavigate }) {
                 const histCount = (historyByKey.get(a.key) || []).length;
                 const isBestTrade = a.key === "best_trade_of_the_year" && a.value?.trade;
                 const isPlayer = PLAYER_AWARD_KEYS.has(a.key);
-                return (
+                const card = (
                   <div
                     key={a.key}
                     className={styles.awardCard}
@@ -817,6 +821,17 @@ function AwardsSection({ managers, data, onNavigate }) {
                     <div className={styles.historyLink}>
                       Award history →
                     </div>
+                  </div>
+                );
+                // A current-season award with no race of its own (highest
+                // week, best trade, points king…) carries its standings on
+                // the award itself. They sit BESIDE the card — the card is
+                // the history button, and controls may not nest.
+                if (!Array.isArray(a.standings) || a.standings.length === 0) return card;
+                return (
+                  <div key={a.key} className={styles.awardCardWithStandings}>
+                    {card}
+                    <AwardStandings award={a} formatMetric={raceMetric} onNavigate={onNavigate} />
                   </div>
                 );
             };

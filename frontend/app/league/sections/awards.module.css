@@ -475,6 +475,145 @@
   }
 }
 
+/* ── Expand standings: the ranking behind one award ──
+   Compact ranked rows, never a desktop table squeezed onto a phone:
+   rank | identity (wraps between words) | metric, with eligibility and the
+   secondary line wrapping beneath. */
+.standings {
+  margin-top: var(--space-2);
+  min-width: 0;
+}
+
+.standingsToggle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px var(--space-2);
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 0;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-align: left;
+}
+
+.standingsToggle:focus-visible,
+.standingsOwner:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.standingsCount {
+  color: var(--text-tertiary);
+  font-family: var(--font-data);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-regular, 400);
+}
+
+.standingsList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.standingsList[hidden] {
+  display: none;
+}
+
+.standingsRow {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 2px var(--space-2);
+  padding: 6px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.standingsRow[data-eligible="false"] .standingsName,
+.standingsRow[data-eligible="false"] .standingsMetric {
+  color: var(--text-secondary);
+}
+
+.standingsRank {
+  color: var(--text-tertiary);
+  font-family: var(--font-data);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.standingsIdentity {
+  min-width: 0;
+}
+
+.standingsName {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.3;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.standingsOwner {
+  cursor: pointer;
+}
+
+.standingsOwner:hover {
+  color: var(--accent);
+}
+
+.standingsMeta {
+  display: block;
+  margin-top: 1px;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-2xs);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.standingsMetric {
+  color: var(--text-secondary);
+  font-family: var(--font-data);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.standingsFlags {
+  grid-column: 2 / -1;
+  font-size: var(--font-size-2xs);
+}
+
+.standingsIneligible {
+  color: var(--warning-text, var(--text-secondary));
+  font-weight: var(--font-weight-semibold);
+}
+
+.standingsAwardRank {
+  color: var(--text-tertiary);
+}
+
+/* Current-season award cards with no race keep their history button; the
+   standings sit beside the card, never inside it (no nested controls). */
+.awardCardWithStandings {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 @media (max-width: 640px) {
   .toolbar {
     align-items: stretch;
