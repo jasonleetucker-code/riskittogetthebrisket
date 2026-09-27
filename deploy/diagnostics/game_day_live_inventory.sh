@@ -106,8 +106,8 @@ if ticks.exists():
             for k, v in (t.get("leagues") or {}).items()
         }
         print(
-            t.get("startedAt"), "->", t.get("finishedAt"), t.get("outcome"),
-            "exit", t.get("exitCode"), "phase", (t.get("cadence") or {}).get("phase"),
+            t.get("started_at"), "->", t.get("finished_at"), t.get("outcome"),
+            "exit", t.get("exit_code"), "phase", (t.get("cadence") or {}).get("phase"),
             "req", len(t.get("requests") or []), "err", t.get("error"), leagues,
         )
 else:
