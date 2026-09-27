@@ -285,3 +285,18 @@ test("production preflight classifies only fixed outcomes and numeric statuses",
   const bodyFailure = {addCookies:async()=>{},request:{get:async()=>({status:()=>200,body:async()=>{throw Error("SECRET_SENTINEL")}})}};
   assert.deepEqual(await productionPreflight(bodyFailure,auth),{ok:false,outcome:"transport_failure",httpStatus:200});
 });
+
+test("known Rankings enrichment categories omit private query values and reject lookalike paths", async () => {
+  for (const [path, category] of [
+    ["/api/bdvm/values?leagueKey=SECRET_SENTINEL", "bdvm_values"],
+    ["/api/news?owner=SECRET_SENTINEL", "news"],
+    ["/api/news/SECRET_SENTINEL", "other_api"],
+    ["https://example.com/api/bdvm/values?owner=SECRET_SENTINEL", "other"],
+  ]) {
+    const r = diagnosticRealm();
+    await r.context.fetch(path);
+    const snapshot = r.context.__baselineDiagnosticsSnapshot();
+    assert.equal(snapshot.events[0].category, category);
+    assert.ok(!JSON.stringify(snapshot).includes("SECRET_SENTINEL"));
+  }
+});

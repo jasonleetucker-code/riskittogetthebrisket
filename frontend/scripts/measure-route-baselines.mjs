@@ -139,6 +139,8 @@ export function installBaselineDiagnostics(enabled = false) {
         } else if (url.pathname === "/api/auth/status") category = "auth";
         else if (["/api/user/state", "/api/settings"].includes(url.pathname)) category = "settings";
         else if (url.pathname === "/api/leagues") category = "leagues";
+        else if (url.pathname === "/api/bdvm/values") category = "bdvm_values";
+        else if (url.pathname === "/api/news") category = "news";
         else if (url.pathname.startsWith("/api/")) category = "other_api";
       }
     } catch { invalid++; }
