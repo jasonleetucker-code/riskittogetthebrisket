@@ -96,3 +96,24 @@ test('forecast failed banner is unavailable while ordinary computing stays pendi
  assert.deepEqual(await page.evaluate(routeUsefulSnapshot,'/game-day'),{state:'unavailable',detail:'forecast_failed'});
  }finally{await browser.close();}
 });
+
+
+test('Rankings and Trade fixed polling retains real Chromium visibility and search predicates',async()=>{
+ const browser=await chromium.launch({executablePath:process.env.PW_CHROMIUM_PATH || (fs.existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe') ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : undefined)});
+ try {
+  const page=await browser.newPage();
+  await page.setContent('<div class="ds-table-wrap"><table aria-rowcount="2"><tbody><tr class="rankings-row-clickable" style="display:none"><td>Fixture</td></tr></tbody></table></div>');
+  await assert.rejects(baselineUsefulState(page,'/rankings',250),/useful_timeout/);
+  await page.evaluate(()=>setTimeout(()=>document.querySelector('tr').style.display='',30));
+  assert.equal(await baselineUsefulState(page,'/rankings',5000),'useful');
+  await page.evaluate(()=>document.querySelector('table').setAttribute('aria-rowcount','1'));
+  assert.equal(await baselineUsefulState(page,'/rankings',5000),'invalid_data');
+  await page.setContent('<div class="trade-controls">Controls</div><input class="trade-side-search-input"><button class="trade-side-search-result" style="visibility:hidden">Fixture</button>');
+  await assert.rejects(baselineUsefulState(page,'/trade',1000),/useful_timeout/);
+  assert.equal(await page.locator('input').inputValue(),'a');
+  await page.locator('input').fill('');
+  await page.evaluate(()=>document.querySelector('input').addEventListener('input',event=>{if(event.target.value==='a')setTimeout(()=>document.querySelector('button').style.visibility='visible',30)}));
+  assert.equal(await baselineUsefulState(page,'/trade',5000),'useful');
+  assert.equal(await page.locator('input').inputValue(),'a');
+ } finally {await browser.close();}
+});

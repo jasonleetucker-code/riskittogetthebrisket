@@ -70,7 +70,7 @@ import { chromium } from "playwright";
 
 const require = createRequire(import.meta.url);
 // One owner for "what marks this route ready" — the e2e suite's table.
-const { SEL, baselineUsefulState } = require("../../tests/e2e/helpers/journey.js");
+const { SEL, baselineUsefulState, BASELINE_READINESS_PROTOCOL } = require("../../tests/e2e/helpers/journey.js");
 
 const API = process.env.E2E_BASE_URL || "http://127.0.0.1:8000";
 const PAGE_ORIGIN = process.env.E2E_PAGE_ORIGIN || "http://127.0.0.1:3000";
@@ -220,7 +220,8 @@ function pct(values, p) {
  * One navigation. Returns timings, or a null usefulMs plus a reason.
  *
  * Timing comes from the page's own Navigation Timing / paint entries,
- * not from wall-clock around `goto`, so harness overhead is excluded.
+ * not from wall-clock around `goto`. Useful-state timing still includes the
+ * readiness probe's driver/RPC scheduling and observation lag.
  */
 export async function measureOnce(page, route, timeoutMs, origin = PAGE_ORIGIN, diagnostics = false) {
 
@@ -466,6 +467,8 @@ export async function main(argv = process.argv.slice(2)) {
       cold: "fresh browser context per attempt",
       warm: "second document navigation in same context; HTTP cache warm, not SPA navigation",
       useful: "visible data-bearing probe; trade includes fixed a search",
+      coreReadinessObservation: BASELINE_READINESS_PROTOCOL,
+      readinessScope: "rankings/trade DOM visibility; includes driver/RPC observation lag, not paint time",
       browserVersion: browser.version(), nodeVersion: process.version, diagnostics: args.diagnostics, observerEffect: args.diagnostics ? "requires_serial_on_off_control" : "collector_disabled", authMode: auth.mode,
       verificationSourceSha: /^[a-f0-9]{40}$/.test(process.env.GITHUB_SHA || "") ? process.env.GITHUB_SHA : null,
       deployedRevision: null,

@@ -1,0 +1,79 @@
+{
+  "scope": "Readiness observation correction only; no product speed or campaign acceptance",
+  "verdict": "APPROVE",
+  "tests": {
+    "command": "Node20 --test tests/e2e/route-baseline-unit.test.mjs tests/e2e/route-useful-state.test.mjs",
+    "passed": 39,
+    "failed": 0,
+    "skipped": 0,
+    "durationMs": 9111.1714
+  },
+  "matchedControl": {
+    "cases": 12,
+    "failures": 0,
+    "beforeMaxObservedLagMs": 496,
+    "afterMaxObservedLagMs": 28.799999952316284,
+    "byRoute": {
+      "/rankings": {
+        "count": 6,
+        "minLagMs": 12.099999904632568,
+        "maxLagMs": 27
+      },
+      "/trade": {
+        "count": 6,
+        "minLagMs": 6.200000047683716,
+        "maxLagMs": 28.799999952316284
+      }
+    },
+    "artifacts": [
+      {
+        "file": "readiness-detection-lag-control.mjs",
+        "sha256": "5093afa820208763fa8302ac379abb7c6060107531516c7e3c66dfef64737b07"
+      },
+      {
+        "file": "readiness-detection-lag-control.json",
+        "sha256": "d23f8a45c5cc7ac475918ade50563f1655d9c071d32ff50a3ff332a69a4095e1"
+      },
+      {
+        "file": "readiness-detection-lag-control-fixed.json",
+        "sha256": "500f01dc45b91e114d4723b15a359398c1006130e322922c989fcb75ade8af17"
+      }
+    ]
+  },
+  "finalReview": {
+    "verdict": "APPROVE",
+    "completedUtc": "2026-09-27T13:50:56.07439-04:00",
+    "priorReceiptSha256": "a61bfeee0eedc4f683ae4fe83a644406b76440ef0e55c1b9a6a1b0baf3ae4e54",
+    "files": [
+      {
+        "path": "frontend/scripts/measure-route-baselines.mjs",
+        "sha256": "a6971595cbae283050e877a2d55971a9200483d2cc5d8cd9eed804e914ffefda"
+      },
+      {
+        "path": "tests/e2e/helpers/journey.js",
+        "sha256": "2e638937515653a6898af1070e66be81c7ab47fcff15cad2a9f93828032f722e"
+      },
+      {
+        "path": "tests/e2e/route-baseline-unit.test.mjs",
+        "sha256": "511469b26fabf9966552e9c6588370876e26e6d2d582f97e02650c53ba5b18a5"
+      },
+      {
+        "path": "tests/e2e/route-useful-state.test.mjs",
+        "sha256": "1494945e608dd107135243b3542c211ab371bd74962037b7d576ab48c7687d55"
+      },
+      {
+        "path": "config/ci/release_gate_classification.json",
+        "sha256": "2167bfe5c390f0240141852a5bc29437a41d021a374b364e96abfdae84e122ec"
+      }
+    ],
+    "deltaReview": [
+      "Runner final comment now truthfully includes readiness driver/RPC observation lag; no executable change since matched control.",
+      "Protocol imports same frozen helper constant and writes coreReadinessObservation/readinessScope metadata.",
+      "Three newly introduced Game Day diagnostic steps classified blocking, no existing gates relaxed; names match current workflow."
+    ],
+    "validation": "Independent 39 tests and matched 12-case control retained; root reports 10 workflow/classification checks and planning passed, not independently rerun.",
+    "limitations": "Prior receipt limitations retained. This approves measurement correction/integration only, not product speed or production/campaign acceptance."
+  },
+  "receiptSha256": "c59093e4702691f9f4f5c76d5347424e28f39e0a26acc9b48a03ea6b4b1da837",
+  "limitation": "Synthetic DOM control only; historical production timings remain unchanged. Fresh production acceptance required."
+}

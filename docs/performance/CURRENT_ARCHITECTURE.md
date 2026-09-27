@@ -412,3 +412,52 @@ and only the largest demonstrated remaining owner. Other routes stay gated.
 The paced workflow retains its existing45-minute job timeout. The122-minute
 conservative credential bound is not a promise that a worst-case run can finish
 within that cap; any timeout/interruption remains incomplete evidence.
+
+### September 27 — production byte reduction verified; useful state still gated
+
+#1501 deployment36331036284 succeeded: remote checkout
+`7e4a12d991682cc3c435286a54a1b9ae7583e32c`, health200 at16:43:46Z and30/30
+smokes at16:44:05Z. The main BDVM supporting response is now234,337 decoded bytes
+and33,038 cold encoded bytes, down from3,155,119 and688,535 respectively
+(92.57% decoded and95.20% encoded reduction). News accounts for47,045 decoded
+bytes in the attributed earlier supporting traffic. Pending bodies remain missing;
+cached encoded sizes are not wire-transfer measurements. The main data response
+still contains approximately7.20MB decoded. The projection retains full/default
+BDVM behavior and does not reduce its full engine computation or cache allocation.
+
+The paced diagnostic run36331359050 recorded40/40 useful observations and all
+cold sample p95s below3s, warm below2s. Its diagnostics-disabled control
+36335065855 also recorded40/40, but failed the current milestone:
+
+| Route/profile | Cold p95 ms | Warm document p95 ms |
+| --- | ---: | ---: |
+| Rankings desktop | 3379.4 | 2057.3 |
+| Rankings mobile | 3822.2 | 2036.7 |
+| Trade desktop | 4361.8 | 2557.4 |
+| Trade mobile | 3329.5 | 1075.9 |
+
+These are five observations per cell, unthrottled, with60s between fresh contexts;
+warm means a second document navigation. All observed useful times are below5s,
+but this does not pass the cold3s or strict global warm1s gates. The earlier
+conditional progression recommendation is not accepted after this control.
+Field, slowed-mobile, normal SPA and prefetched acceptance remain unmeasured.
+See [sanitized production comparison](evidence/rankings-bdvm-production-2026-09-27.json).
+
+The control shows a shared early navigation/load delay across routes without
+corresponding payload/DOM growth; its precise owner remains unresolved. Separately,
+an actual-runner Chromium control proved up to496ms of readiness polling lag.
+The current bounded correction changes only the existing helper's observation
+wait, preserves readiness predicates and deadlines, and versions the protocol.
+No historical timing is discounted or promoted. Fresh production remeasurement
+must follow independent review. Old-protocol run36337520148 was canceled while
+queued, with no observations. No remaining-route work is released yet.
+
+Main movement `ea5259f98` adds an independent read-only Game Day diagnostic
+workflow/script; inspection found no Rankings/Trade, runner, runtime or serving
+dependency change. It does not invalidate this unit's fixed code checks. This
+campaign neither invokes that workflow nor claims its production results.
+The composed tree was fast-forwarded without touching the dirty candidate. Its
+three new workflow steps were missing required release-gate classifications;
+independent review proved the existing presence test would fail. Three explicit
+`blocking` entries repair that integration prerequisite without changing the
+workflow, its permissions or operations. This is relevant to CI metadata only.

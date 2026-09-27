@@ -55,3 +55,35 @@ pass. The Node/DOM tests run as a blocking E2E workflow step before stack startu
 This expands the existing route denominator; it adds no new diagnostic platform
 and does not establish production acceptance. See the reviewed hash receipt in
 `evidence/route-probes-review-2026-09-26.json`.
+
+## Core readiness observation correction — September 27
+
+The former Rankings/Trade `locator.waitFor` uses Playwright's adaptive polling,
+which eventually checks every 500ms. An independent real-Chromium control through
+the actual `measureOnce` runner measured 11.6–496.0ms between the exact required
+DOM becoming visible and reported readiness. This is observation lag, not proof
+that an equivalent interval can be removed from any historical production sample.
+
+The existing helper now polls the same locators with `isVisible` at a bounded
+16ms interval, sharing the original deadline. Rankings still requires a visible
+first row and finite positive board universe. Trade still requires visible
+controls, the actual fixed `a` search and a visible eligible result. Invalid,
+missing and late observations continue to fail. Public/other route probes are
+unchanged. Reports identify `visible-locator-fixed-poll-v1` in
+`coreReadinessObservation`. Driver round trips and scheduling still affect timing;
+this measures DOM visibility, not paint or physical presentation.
+
+Historical reports retain their original measurements and failures. Only fresh
+production runs using the reviewed correction can establish acceptance. The
+change is a measurement repair, not a product speedup; all performance budgets,
+navigation ordering, context pacing and failure retention remain unchanged.
+
+The independent matched twelve-case Chromium control reduced maximum observed
+detection lag from496.0ms to28.8ms; every case reached the required state. Both
+author and reviewer ran all39 focused Node20/real-browser tests successfully.
+This is a bounded synthetic control, not a universal lag bound or production
+speed claim. The deadline rejects late readiness admission; it is not a process
+watchdog for a stalled browser RPC. Navigation/load retain their existing bounds.
+The [independent review and final hash seal](evidence/readiness-observation-review-2026-09-27.json)
+record the unchanged predicates, tests and limitations. Ten workflow/classification
+checks and planning integrity also pass on the composed current-main tree.
