@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "recordedAtUtc": "2026-09-26T23:41:31.825009+00:00",
+  "disposition": "MERGED_RELEASE_VALIDATION_RECORDED; PERFORMANCE_ACCEPTANCE_INCOMPLETE",
+  "release": {
+    "pullRequest": 1499,
+    "head": "3f4c027f65d9bdc0ae669dbb243819ad7d14ca09",
+    "mergedCommit": "0b92d66fc6875c5487e60fc1d2a41308026b8f2c",
+    "mergedAtUtc": "2026-09-26T23:17:27Z",
+    "testedSyntheticMerge": "3f854632f9b6c5f479f6898fd34986a7a1ca8318",
+    "syntheticParents": {
+      "candidate": "3f4c027f65d9bdc0ae669dbb243819ad7d14ca09",
+      "main": "976109461f42a5705bf7c99676bb9224bdc96fd8"
+    },
+    "actualMergeFirstParent": "cb0aee0babb019cd0465da391c7ac942c7d5a08b"
+  },
+  "validation": {
+    "requiredBackend": {
+      "passed": 12590,
+      "skipped": 43,
+      "deselected": 327,
+      "subtestsPassed": 440,
+      "seconds": 2105.13,
+      "rawLogSha256": "89612821b306dfd4fd56c3031e9ae5458866b2e03952420c17d7d2c93182d6e7"
+    },
+    "frontend": {
+      "files": 189,
+      "passed": 2814,
+      "node": "20.20.2",
+      "productionBuildPassed": true,
+      "unchangedBundleGatesPassed": 14
+    },
+    "browserCI": {
+      "run": 36276854920,
+      "passed": 255,
+      "skipped": 63,
+      "skipBreakdown": {
+        "visualSuiteDisabled": 22,
+        "viewportProjectExclusions": 41
+      },
+      "rawLogSha256": "76542f1115cdb668576d3d1b706830785537ca5ea0ae71a668e4ae759808b818",
+      "limits": [
+        "Seeded1109-player local-CI export and test-only sessions, not deployed useful-state timing.",
+        "Visual snapshots disabled; no screenshot baseline claim.",
+        "Mobile scope smaller than desktop; trade analysis and GameDay replay contain explicit mocks.",
+        "No passed Rankings/Trade browser CSV download equality journey identified.",
+        "APIResponse.body length comparisons are decoded bytes, not compressed wire."
+      ]
+    },
+    "liveDataAdvisory": {
+      "failed": 17,
+      "passed": 285,
+      "skipped": 40,
+      "subtestsPassed": 213,
+      "retainedFailureGroups": {
+        "retired2026RepresentativePicks": 4,
+        "staleAllowlistPresence": 1,
+        "knownPlayerConfidenceBucket": 10,
+        "confidenceFloor": 1,
+        "duplicateLaunchWrapper": 1
+      },
+      "candidateRegressionDisposition": "Same fixed input and23:14UTC clock reproduce identical base/candidate rank,value,confidence,axes,reasons digest; does not clear advisory failures or prove production freshness.",
+      "rankedRows": 740,
+      "highConfidenceRows": 36,
+      "sameRowSha256": "ec5300b0205155c1c7d84d1f65ce488feda2354dd2145c037c535b2863ace8c5",
+      "networkAttempts": 0
+    }
+  },
+  "mainMovement": {
+    "classification": "BENIGN_AUTOMATION_MOVE for fixed-input implementation checks only",
+    "actualVersusSynthetic": "Automated Sharp smoke receipt only, per root integration classification.",
+    "classificationTiming": "Final leaf classification completed immediately after merge, not before merge.",
+    "laterMain": "1b17eaea0",
+    "laterReceiptState": "Unauthenticated/unmeasured; not production health evidence."
+  },
+  "productionSnapshot": {
+    "asOfUtc": "2026-09-26T23:38:00Z",
+    "lastVerifiedIdentity": "7eae987b2f98eefc48758a207f4f85e666997e9a",
+    "pendingDeploymentRun": 36278976584,
+    "pendingIdentity": "0b92d66fc6875c5487e60fc1d2a41308026b8f2c",
+    "compactChangeClaimedDeployed": false,
+    "existingVerification": {
+      "run": 36278712412,
+      "attempt": 1,
+      "passed": 93,
+      "skipped": 26,
+      "failed": 1,
+      "failure": "Mobile public /league activity selected Trades panel remains visibly Loading section after over30seconds; activity request unresolved at cleanup.",
+      "causeLimit": "No response status or transport/backend/provider cause established.",
+      "recoveryCorrection": "Being prepared, not accepted by this record."
+    }
+  },
+  "acceptance": {
+    "mergedIdentityDeploymentVerified": false,
+    "rankingsTradeUsefulStateAccepted": false,
+    "slowedMobileAccepted": false,
+    "publicActivityResolved": false,
+    "siteWidePerformanceAccepted": false,
+    "fieldWebVitalsAccepted": false,
+    "campaignComplete": false
+  },
+  "evidenceReceipts": [
+    {
+      "sha256": "c18e64dd255b6f28bea710b89a1b30254603b436e52fa23ba708525e6e0088a0",
+      "schema": 1,
+      "summary": "Reviewed composed ownership, code and workflow tree"
+    },
+    {
+      "sha256": "02cb065ecd46b7a099bd411b3bfb2f95fecac9567646fd668d70027580d7a25b",
+      "schema": 1,
+      "summary": "Reviewed final documentation-only head"
+    },
+    {
+      "sha256": "aa3766c5c1b63b0249c54515c045c185c697ea2032ca4c5b638b31fe694c2354",
+      "schema": "unversioned JSON receipt",
+      "summary": "Independent scoped synthetic-CI browser correctness review"
+    },
+    {
+      "sha256": "172ff6a7b64b80c30d7e84e8d4290a7490241dd666102a35fa59e4343184259e",
+      "schema": "unversioned JSON receipt",
+      "summary": "Same-input same-clock base/candidate confidence comparison"
+    },
+    {
+      "sha256": "66052627a61d8212adb94af34957043afa798926b3c98764bb26d5e53e5bd326",
+      "schema": "unversioned JSON receipt",
+      "summary": "Actual visible public activity pending failure"
+    }
+  ],
+  "limitations": [
+    "Bookkeeping only; no fresh tests, audits, benchmarks, workflow dispatch or production changes.",
+    "Hashes of referenced raw CI logs checked against reviewed receipt claims.",
+    "Production state and late receipt classification are the root-recorded23:38UTC snapshot, not freshly queried live state.",
+    "Historical local frontend validation and synthetic CI functional checks do not establish deployed latency.",
+    "Private inputs and evidence paths omitted; only digests and sanitized summaries retained."
+  ]
+}
