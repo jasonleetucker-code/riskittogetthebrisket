@@ -1412,3 +1412,16 @@ Rankings/Trade. Repeated observed429preflights justify opt-in inter-context paci
 in the existing runner; retain default0, all failures, exact navigation timing
 and reported protocol differences. No new collector, auth bypass or threshold
 change. Remaining-route work remains gated on this pair.
+
+September 27 subsequent checkpoint: #1501 deployment36331036284 passed health and
+30/30 smokes. Production confirms the BDVM supporting-response reduction from
+3,155,119 to 234,337 decoded bytes. Diagnostics-disabled run36335065855 retains
+40/40 observations but fails the current useful-state milestone (desktop Rankings
+warm2,057.3ms, mobile Rankings warm2,036.7ms, desktop Trade warm2,557.4ms).
+The existing helper's Playwright backoff demonstrably adds up to496ms of detection
+lag in a real-browser control. Correct that wait in the existing framework,
+preserve predicates/deadlines and version the observation protocol, independently
+review, then collect fresh production evidence. No historical discount or threshold
+change is permitted. Queued old-protocol run36337520148 was canceled before any
+observation; #1502 deployment remains separately tracked. Rankings/Trade remain
+the sole current performance critical path.

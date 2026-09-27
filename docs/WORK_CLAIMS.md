@@ -48,7 +48,7 @@ row `done` in your last commit.
 
 | Claim | Paths | Defect ids | Branch | Status |
 |---|---|---|---|---|
-| #1338 Rankings supporting-transfer candidate: prepare an opt-in existing BDVM values projection preserving exact board-consumed fields; retention and release require exact production endpoint attribution and measured reduction. | `server.py`, `src/api/bdvm_api.py`, `tests/bdvm/test_endpoint.py`, `tests/bdvm/test_rankings_projection.py` owned by report_regression; `frontend/app/rankings/page.jsx`, `frontend/app/api/bdvm/values/route.js`, focused BDVM/Rankings/bridge tests owned by main_reconciliation; independent reviewer retention_reproduction; root alone owns records | #1338 | `codex/performance-1338-route-closure` | open — isolated candidate preparation, not a retained performance fix; full response default, canonical calculation, player universe and Trade unchanged. Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c |
+| #1338 Rankings supporting-transfer candidate: prepare an opt-in existing BDVM values projection preserving exact board-consumed fields; retention and release require exact production endpoint attribution and measured reduction. | `server.py`, `src/api/bdvm_api.py`, `tests/bdvm/test_endpoint.py`, `tests/bdvm/test_rankings_projection.py` owned by report_regression; `frontend/app/rankings/page.jsx`, `frontend/app/api/bdvm/values/route.js`, focused BDVM/Rankings/bridge tests owned by main_reconciliation; independent reviewer retention_reproduction; root alone owns records | #1338 | `codex/performance-1338-route-closure` | done — merged in #1501 and deployed as7e4a12d99; production confirms92.57% decoded BDVM reduction. Full response default, canonical calculation, player universe and Trade unchanged; useful-state acceptance remains open. Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c |
 | #1338 production baseline auth preflight failure classification: preserve missing attempts with fixed outcome and numeric status instead of an unassigned boolean; no auth policy, pacing or retry change. | `frontend/scripts/measure-route-baselines.mjs`, `tests/e2e/route-baseline-unit.test.mjs`; main_reconciliation implements, independent review required | #1338, baseline36323800978 | `codex/performance-1338-route-closure` | reviewed —22Node/6workflow tests pass; independent review dc3eca79083b1eb7f91866f482d3d3d009d884ee1393e85d797d9e3c0dfa24e5; no auth policy change. |
 | #1338 observed public League activity request remains pending beyond30s: bounded existing fetch/body/retry deadline and truthful unavailable/LKG recovery. report_regression owns implementation; independent review required. | `frontend/lib/public-league-data.js`, `frontend/app/league/LeagueClient.jsx`, `frontend/__tests__/public-league.test.js`, `frontend/__tests__/components/league-section-lifecycle.test.jsx`; root owns campaign records | #1338, production verification36278712412 | `codex/performance-1338-acceptance` | done — implementation merged #1500 as836f9f628 after exact-head frontend CI; deployed correction acceptance remains pending. Upstream cause unproven. Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c |
 | #1338 measured Rankings/Trade transfer reduction using the existing compact board; preserve popup source tie ordering. | `frontend/lib/device-profile.js`, `frontend/lib/dynasty-data.js`, `src/api/compact_view.py`, focused device/cache/popup/compact tests | #1338 | `codex/performance-1338-closure` | done — implementation merged in the reviewed #1488/#1489/#1491/#1494/#1499 train; production performance acceptance remains open. Historical checkpoint: local validation complete; independent review and deployed useful-state comparison required. Closure priority and deferred adjacent investigations recorded in intake/execution. Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c |
@@ -291,4 +291,28 @@ Root owns workflow/docs; main_reconciliation owns only existing runner and its
 unit tests for opt-in context cooldown(default0), retaining failures and clocks.
 retention_reproduction independently reviews; report_regression verifies existing
 measurements. No product rate-policy change or remaining-route expansion.
+Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
+
+### September 27 — useful-state observation repair
+
+The admission change merged in #1502. #1501 is deployed; its BDVM board response
+is 234,337 decoded bytes versus 3,155,119 before. The subsequent uninstrumented
+production run still fails Rankings/Trade warm acceptance. No remaining-route
+work is released by the earlier instrumented pass of the intermediate milestone.
+
+Active branch: `codex/performance-1338-useful-state`. Root exclusively owns the
+existing runner's protocol declaration, campaign documents and evidence.
+`main_reconciliation` owns `tests/e2e/helpers/journey.js`,
+`tests/e2e/route-baseline-unit.test.mjs` and
+`tests/e2e/route-useful-state.test.mjs`; `retention_reproduction` independently
+reviews and repeats the existing real-browser control. The bounded repair removes
+demonstrated readiness polling lag while preserving visible rows, positive board
+universe, Trade search/results, deadlines and all thresholds. Historical failures
+remain unchanged. No application code or new collector is authorized by this fix.
+
+Root also owns the three explicit `config/ci/release_gate_classification.json`
+entries required by incoming main commit `ea5259f98`. Independent review proved
+their absence blocks integration. The unrelated Game Day workflow/script remains
+owned by its author; this campaign changes neither and performs no operations work.
+
 Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c

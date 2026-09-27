@@ -6,7 +6,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { parseArgs, summarise, failedSample, measureOnce, collectAttempt, targetVerdicts, productionAuth, authenticateProduction, productionPreflight, requiredSessionSeconds, installBaselineDiagnostics } from "../../frontend/scripts/measure-route-baselines.mjs";
-const { baselineUsefulState } = createRequire(import.meta.url)("./helpers/journey.js");
+const { baselineUsefulState, BASELINE_READINESS_PROTOCOL } = createRequire(import.meta.url)("./helpers/journey.js");
 
 test("arguments reject vacuous or unknown runs and routes", () => {
   for (const args of [["--runs","0"],["--runs","NaN"],["--runs","1.5"],["--viewport","tablet"],["--routes","/unknown"],["--routes",""],["--routes","/trade,/trade"],["--timeout","Infinity"],["--what","1"],["--runs"]]) {
@@ -29,10 +29,10 @@ test("HTTP error, redirect and private exception text are rejected", async () =>
   assert.equal(result.error,"navigation_failed"); assert.ok(!JSON.stringify(result).includes("PRIVATE_TOKEN"));
 });
 test("rankings requires visible row and nonzero virtualized universe", async () => {
-  let wait;
-  const page={locator:()=>({first:()=>({waitFor:async options=>{wait=options}})}),evaluate:async()=>0};
+  let probes = 0;
+  const page={locator:()=>({first:()=>({isVisible:async()=>{probes++;return true}})}),evaluate:async()=>0};
   assert.equal(await baselineUsefulState(page,"/rankings",20),"invalid_data");
-  assert.equal(wait.state,"visible");
+  assert.equal(probes,1);
   page.evaluate=async()=>1109;
   assert.equal(await baselineUsefulState(page,"/rankings",20),"useful");
 });
@@ -40,7 +40,7 @@ test("trade control chrome alone is insufficient; missing search result fails", 
   const queries=[];
   const page={locator:selector=>{
     queries.push(selector);
-    const item={waitFor:async()=>{if(selector.includes("search-result"))throw Error("no data")},fill:async()=>{},first(){return this}};
+    const item={isVisible:async()=>{if(selector.includes("search-result"))throw Error("no data");return true},fill:async()=>{},first(){return this}};
     return item;
   }};
   await assert.rejects(baselineUsefulState(page,"/trade",20),/no data/);
@@ -86,7 +86,7 @@ test("HTTP status is retained without a URL and hidden rows are not useful", asy
   const failure = await measureOnce({goto:async()=>({status:()=>503})},{path:"/rankings"},10);
   assert.equal(failure.navigationStatus,503);
   assert.equal(failure.finalUrl,undefined);
-  const hidden = {locator:()=>({first:()=>({waitFor:async ({state})=>{assert.equal(state,"visible");throw Error("hidden")}})})};
+  const hidden = {locator:()=>({first:()=>({isVisible:async()=>{throw Error("hidden")}})})};
   await assert.rejects(baselineUsefulState(hidden,"/rankings",10),/hidden/);
 });
 test("client redirect after useful probe or load is rejected", async () => {
@@ -95,7 +95,7 @@ test("client redirect after useful probe or load is rejected", async () => {
     const page = {
       goto:async()=>({status:()=>200}),
       url:()=>`http://127.0.0.1:3000/${++calls >= redirectAt ? "login" : "rankings"}`,
-      locator:()=>({first:()=>({waitFor:async()=>{}})}),
+      locator:()=>({first:()=>({isVisible:async()=>true})}),
       evaluate:async()=>10,
       waitForLoadState:async()=>{},
     };
@@ -338,4 +338,24 @@ test("cooldown occurs before every context including first and never between col
     const failed=await collectAttempt({newContext:async()=>{calls.push("context");throw Error("private");}},"desktop",{path:"/trade"},10,undefined,false,60000);
     assert.deepEqual(calls,["delay:60000","context"]);assert.equal(failed.cold.error,"attempt_failed");assert.equal(failed.warm.error,"attempt_failed");
   } finally {globalThis.setTimeout=original;}
+});
+
+
+test("fixed readiness polling preserves visibility, exact deadline and positive universe", async () => {
+  assert.deepEqual(BASELINE_READINESS_PROTOCOL,{version:"visible-locator-fixed-poll-v1",pollMs:16});
+  const now=Date.now;let clock=0;Date.now=()=>clock;
+  try {
+    const waits=[];
+    const page={locator:()=>({first(){return this},isVisible:async()=>clock>=32}),waitForTimeout:async ms=>{waits.push(ms);clock+=ms},evaluate:async()=>1109};
+    assert.equal(await baselineUsefulState(page,"/rankings",100),"useful");assert.deepEqual(waits,[16,16]);
+    for(const count of [0,-1,NaN,Infinity]) {clock=32;page.evaluate=async()=>count;assert.equal(await baselineUsefulState(page,"/rankings",100),"invalid_data");}
+    clock=0;waits.length=0;page.locator=()=>({first(){return this},isVisible:async()=>false});
+    await assert.rejects(baselineUsefulState(page,"/rankings",35),/useful_timeout/);assert.deepEqual(waits,[16,16,3]);
+    clock=0;page.locator=()=>({first(){return this},isVisible:async()=>{clock=100;return true}});
+    await assert.rejects(baselineUsefulState(page,"/rankings",100),/useful_timeout/);
+    clock=0;page.locator=()=>({first(){return this},isVisible:async()=>true});page.evaluate=async()=>{clock=100;return 1109};
+    await assert.rejects(baselineUsefulState(page,"/rankings",100),/useful_timeout/);
+    clock=0;const calls=[];page.locator=selector=>({first(){return this},isVisible:async()=>{calls.push(selector);return true},fill:async(q,options)=>{assert.equal(q,"a");assert.equal(options.timeout,100);clock=100}});
+    await assert.rejects(baselineUsefulState(page,"/trade",100),/useful_timeout/);assert.equal(calls.length,1);
+  } finally {Date.now=now;}
 });
