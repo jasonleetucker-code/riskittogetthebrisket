@@ -139,6 +139,8 @@ export function installBaselineDiagnostics(enabled = false) {
         } else if (url.pathname === "/api/auth/status") category = "auth";
         else if (["/api/user/state", "/api/settings"].includes(url.pathname)) category = "settings";
         else if (url.pathname === "/api/leagues") category = "leagues";
+        else if (url.pathname === "/api/bdvm/values") category = "bdvm_values";
+        else if (url.pathname === "/api/news") category = "news";
         else if (url.pathname.startsWith("/api/")) category = "other_api";
       }
     } catch { invalid++; }
@@ -343,15 +345,33 @@ export function productionAuth(env, requiredSeconds, nowSeconds = Date.now() / 1
   return { mode: "production-cookie", origin: env.PROD_ORIGIN, value, expires };
 }
 
+/** Fixed categories only: never retain response contents, credentials or exceptions. */
+export async function productionPreflight(ctx, auth) {
+  let httpStatus = null;
+  const result = (outcome) => ({ ok: outcome === "accepted", outcome, httpStatus });
+  if (Date.now() / 1000 >= auth.expires) return result("expired");
+  try {
+    await ctx.addCookies([{ name: "jason_session", value: auth.value, url: auth.origin, httpOnly: true, secure: true, sameSite: "Lax" }]);
+    const response = await ctx.request.get(`${auth.origin}/api/auth/status`, { timeout: 30000, maxRedirects: 0 });
+    const status = response.status();
+    if (Number.isInteger(status) && status >= 100 && status <= 599) httpStatus = status;
+    if (httpStatus !== 200) return result("http_status");
+    const body = await response.body();
+    if (body.length > 8192) return result("body_oversize");
+    let data;
+    try { data = JSON.parse(body.toString("utf8")); } catch { return result("invalid_json"); }
+    if (!data || typeof data !== "object" || Array.isArray(data)) return result("invalid_shape");
+    if (data.authenticated !== true) return result("unauthenticated");
+    if (data.authMethod !== "guest_pass") return result("wrong_method");
+    return result("accepted");
+  } catch {
+    return result("transport_failure");
+  }
+}
+
+/** Retain the existing boolean admission interface for callers. */
 export async function authenticateProduction(ctx, auth) {
-  if (Date.now() / 1000 >= auth.expires) return false;
-  await ctx.addCookies([{ name: "jason_session", value: auth.value, url: auth.origin, httpOnly: true, secure: true, sameSite: "Lax" }]);
-  const response = await ctx.request.get(`${auth.origin}/api/auth/status`, { timeout: 30000, maxRedirects: 0 });
-  if (response.status() !== 200) return false;
-  const body = await response.body();
-  if (body.length > 8192) return false;
-  const data = JSON.parse(body.toString("utf8"));
-  return data.authenticated === true && data.authMethod === "guest_pass";
+  return (await productionPreflight(ctx, auth)).ok;
 }
 
 /** Every requested cold/warm attempt survives session, navigation and cleanup failure. */
@@ -362,12 +382,14 @@ export async function collectAttempt(browser, viewport, route, timeout, auth = {
     ctx = await browser.newContext({ baseURL: API, viewport: VIEWPORTS[viewport], isMobile: viewport === "mobile", hasTouch: viewport === "mobile" });
     if (diagnostics) await ctx.addInitScript(installBaselineDiagnostics, true);
     let authenticated = false;
+    let authPreflight = null;
     if (route.path === "/league") {
       authenticated = true; // New context, no cookie installation or authentication preflight.
     } else if (auth.mode === "public") {
       authenticated = false;
     } else if (auth.mode === "production-cookie") {
-      authenticated = await authenticateProduction(ctx, auth);
+      authPreflight = await productionPreflight(ctx, auth);
+      authenticated = authPreflight.ok;
     } else {
       const session = await ctx.request.post(`${API}/api/test/create-session`, {
         headers: { Authorization: `Bearer ${SECRET}` }, timeout: 60_000,
@@ -376,6 +398,7 @@ export async function collectAttempt(browser, viewport, route, timeout, auth = {
     }
     if (!authenticated) {
       result.cold = failedSample(auth.mode === "production-cookie" ? "production_auth_failed" : "session_failed");
+      if (authPreflight) result.cold.authPreflight = authPreflight;
       result.warm = { ...result.cold };
     } else {
       const page = await ctx.newPage();

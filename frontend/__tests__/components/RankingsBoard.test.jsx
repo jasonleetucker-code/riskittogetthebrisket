@@ -72,6 +72,11 @@ const ROWS = [
 ];
 
 const openPlayerPopup = vi.fn();
+const bdvm = vi.hoisted(() => ({ data: null, request: vi.fn() }));
+vi.mock("@/components/useBdvm", () => ({ useBdvmEndpoint: (...args) => {
+  bdvm.request(...args);
+  return { data: bdvm.data, failure: null };
+} }));
 
 vi.mock("@/components/useDynastyData", () => ({
   useDynastyData: () => ({
@@ -129,6 +134,8 @@ function renderedNames() {
 
 beforeEach(() => {
   openPlayerPopup.mockClear();
+  bdvm.data = null;
+  bdvm.request.mockClear();
 });
 
 describe("rankings board", () => {
@@ -230,4 +237,38 @@ describe("rankings board", () => {
       screen.getByRole("button", { name: /Reset filters/ }),
     ).toBeInTheDocument();
   });
+});
+
+
+it("opts only rankings into board and preserves full/board gap display, sorting and CSV", async () => {
+  const user = userEvent.setup();
+  const players = ROWS.map((row, i) => ({playerId:row.raw.playerId, name:row.name,
+    market:{gap:[10,0,null,-20][i],marketValue:100}, tradeValue:{balanced:110,contender:120},
+    signal:{signal:"BUY",reason:i===2?"no anchor":"backend reason"},projection:{anyProxy:i===0,fpg:12},raw:{privateDetail:"unused"}}));
+  const full={status:"ok",players};
+  const board={...full,players:players.map(p=>({playerId:p.playerId,name:p.name,market:p.market,
+    tradeValue:{balanced:p.tradeValue.balanced},signal:p.signal,projection:{anyProxy:p.projection.anyProxy}}))};
+  const csvs=[];
+  const create = vi.fn(blob=>{csvs.push(blob);return "blob:test"});
+  vi.stubGlobal("URL",Object.assign(URL,{createObjectURL:create,revokeObjectURL:vi.fn()}));
+  const click=vi.spyOn(HTMLAnchorElement.prototype,"click").mockImplementation(()=>{});
+  const outputs=[];
+  try {
+    for(const payload of [full,board]) {
+      bdvm.data=payload;
+      const mounted=render(<RankingsPage/>);
+      expect(bdvm.request).toHaveBeenLastCalledWith("/api/bdvm/values",{params:{view:"board"}});
+      expect(screen.getByText("+10*").title).toContain("PROXY: fundamental is the reconstructed baseline");
+      expect(screen.getByTitle("no anchor")).toHaveTextContent("—");
+      await user.click(screen.getByRole("button",{name:"Fund gap"}));
+      const names=renderedNames();
+      await user.click(screen.getByRole("button",{name:"Export CSV"}));
+      const text=await new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.readAsText(csvs.at(-1));});
+      outputs.push({names,text,proxy:screen.getByText("+10*").title});
+      expect(names.at(-1)).toBe("Josh Allen");
+      expect(text.split("\n").slice(1).map(line=>line.split(",")[1])).toEqual(names);
+      mounted.unmount();
+    }
+    expect(outputs[1]).toEqual(outputs[0]);
+  } finally {click.mockRestore();vi.unstubAllGlobals();}
 });

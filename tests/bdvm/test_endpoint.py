@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import os
 import unittest
+from copy import deepcopy
+from types import SimpleNamespace
 from unittest import mock
 
 from fastapi.testclient import TestClient
 
 import server
-from src.api import feature_flags
+from src.api import bdvm_api, feature_flags
 
 
 class TestBdvmEndpoint(unittest.TestCase):
@@ -108,6 +110,74 @@ class TestBdvmEndpoint(unittest.TestCase):
             )
         self.assertEqual(resp.status_code, 400)
         self.assertEqual((seen.get("body") or {}).get("leagueKey"), "league_b")
+
+    def test_board_view_preserves_default_cached_result_and_request_scope(self):
+        payload = {
+            "status": "ok",
+            "meta": {"scoringFingerprint": "factual"},
+            "players": [{"playerId": "1", "market": {"gap": 0}, "path": [1, 2]}],
+        }
+        before = deepcopy(payload)
+        contract = {"meta": {"leagueKey": "league_b"}}
+        seen_leagues = []
+
+        def resolve(request):
+            seen_leagues.append(request.query_params.get("leagueKey"))
+            return SimpleNamespace(key="league_b")
+
+        with (
+            mock.patch.object(feature_flags, "is_enabled", return_value=True),
+            mock.patch.object(server, "latest_contract_data", contract),
+            mock.patch.object(server, "_resolve_league_for_request", resolve),
+            mock.patch.object(bdvm_api, "get_bdvm_values", return_value=payload) as compute,
+        ):
+            for view in ("", "&view=full", "&view=board", "&view=full"):
+                response = self.client.get(
+                    f"/api/bdvm/values?leagueKey=league_b&surplusMode=truncated{view}"
+                )
+                self.assertEqual(response.status_code, 200)
+                expected = {**before, "leagueKey": "league_b"}
+                if view == "&view=board":
+                    expected["players"] = [{"playerId": "1", "market": {"gap": 0}}]
+                self.assertEqual(response.json(), expected)
+                self.assertEqual(payload, before)
+            self.assertEqual(seen_leagues, ["league_b"] * 4)
+            self.assertEqual(
+                compute.call_args_list,
+                [mock.call(contract, "league_b", surplus_mode="truncated")] * 4,
+            )
+
+    def test_board_view_no_snapshot_invalid_view_and_wrong_league(self):
+        payload = {"status": "no_projection_snapshot", "players": [], "meta": {"season": 2026}}
+        with (
+            mock.patch.object(feature_flags, "is_enabled", return_value=True),
+            mock.patch.object(server, "latest_contract_data", {"meta": {"leagueKey": "a"}}),
+            mock.patch.object(
+                server, "_resolve_league_for_request", return_value=SimpleNamespace(key="a")
+            ),
+            mock.patch.object(bdvm_api, "get_bdvm_values", return_value=payload) as compute,
+        ):
+            response = self.client.get("/api/bdvm/values?view=board")
+            self.assertEqual(response.json(), {**payload, "leagueKey": "a"})
+            compute.reset_mock()
+            for view in ("unknown", "", "BOARD"):
+                self.assertEqual(self.client.get(f"/api/bdvm/values?view={view}").status_code, 400)
+            compute.assert_not_called()
+            with mock.patch.object(server, "latest_contract_data", {"meta": {"leagueKey": "b"}}):
+                response = self.client.get("/api/bdvm/values?view=board")
+                self.assertEqual(response.status_code, 503)
+                self.assertEqual(response.json()["error"], "data_not_ready")
+            compute.assert_not_called()
+
+    def test_board_view_does_not_bypass_auth_or_flag(self):
+        with mock.patch.object(bdvm_api, "get_bdvm_values") as compute:
+            with mock.patch.object(server, "_is_authenticated", return_value=False):
+                self.assertEqual(self.client.get("/api/bdvm/values?view=board").status_code, 401)
+            with mock.patch.object(feature_flags, "is_enabled", return_value=False):
+                response = self.client.get("/api/bdvm/values?view=board")
+                self.assertEqual(response.status_code, 503)
+                self.assertEqual(response.json()["error"], "feature_disabled")
+            compute.assert_not_called()
 
 
 if __name__ == "__main__":
