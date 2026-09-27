@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { parseArgs, summarise, failedSample, measureOnce, collectAttempt, targetVerdicts, productionAuth, authenticateProduction, productionPreflight, installBaselineDiagnostics } from "../../frontend/scripts/measure-route-baselines.mjs";
+import { parseArgs, summarise, failedSample, measureOnce, collectAttempt, targetVerdicts, productionAuth, authenticateProduction, productionPreflight, requiredSessionSeconds, installBaselineDiagnostics } from "../../frontend/scripts/measure-route-baselines.mjs";
 const { baselineUsefulState } = createRequire(import.meta.url)("./helpers/journey.js");
 
 test("arguments reject vacuous or unknown runs and routes", () => {
@@ -299,4 +299,43 @@ test("known Rankings enrichment categories omit private query values and reject 
     assert.equal(snapshot.events[0].category, category);
     assert.ok(!JSON.stringify(snapshot).includes("SECRET_SENTINEL"));
   }
+});
+
+
+test("context cooldown validates opt-in bounds and preserves default session allowance", () => {
+  assert.equal(parseArgs([]).contextCooldownMs,0);
+  for (const n of ["0","60000"]) assert.equal(parseArgs(["--context-cooldown-ms",n]).contextCooldownMs,Number(n));
+  for (const n of ["-1","1.5","60001","NaN","Infinity"]) assert.throws(()=>parseArgs(["--context-cooldown-ms",n]),/invalid_arguments/);
+  assert.throws(()=>parseArgs(["--context-cooldown-ms"]),/invalid_arguments/);
+  const normal=parseArgs([]), paced=parseArgs(["--context-cooldown-ms","60000"]);
+  assert.equal(requiredSessionSeconds(normal,2,2),6120);
+  assert.equal(requiredSessionSeconds(paced,2,2),7320);
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"baseline-cooldown-"));
+  try {
+    const file=path.join(dir,"cookie");fs.writeFileSync(file,"test_token",{mode:0o600});
+    const env={PROD_ORIGIN:"https://chaseupside.com",PROD_SESSION_COOKIE_FILE:file,PROD_SESSION_EXPIRES_EPOCH:"7300"};
+    assert.throws(()=>productionAuth(env,requiredSessionSeconds(paced,2,2),100),/session_expiry_insufficient/);
+    assert.equal(productionAuth({...env,PROD_SESSION_EXPIRES_EPOCH:"10900"},requiredSessionSeconds(paced,2,2),100).mode,"production-cookie");
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test("cooldown occurs before every context including first and never between cold/warm or retries", async () => {
+  const original=globalThis.setTimeout, calls=[];
+  globalThis.setTimeout=(callback,ms)=>{calls.push(`delay:${ms}`);queueMicrotask(callback);return 0;};
+  const page={goto:async()=>{calls.push("navigation");throw Error("private");}};
+  const context={request:{post:async()=>{calls.push("auth");return {ok:()=>true};}},newPage:async()=>page,close:async()=>calls.push("close")};
+  const browser={newContext:async()=>{calls.push("context");return context;}};
+  try {
+    for(let i=0;i<2;i++) {
+      const pair=await collectAttempt(browser,"desktop",{path:"/trade"},10,undefined,false,60000);
+      assert.equal(pair.cold.error,"navigation_failed");assert.equal(pair.warm.error,"navigation_failed");
+    }
+    assert.deepEqual(calls,Array(2).fill(["delay:60000","context","auth","navigation","navigation","close"]).flat());
+    calls.length=0;
+    await collectAttempt(browser,"desktop",{path:"/trade"},10);
+    assert.deepEqual(calls,["context","auth","navigation","navigation","close"]);
+    calls.length=0;
+    const failed=await collectAttempt({newContext:async()=>{calls.push("context");throw Error("private");}},"desktop",{path:"/trade"},10,undefined,false,60000);
+    assert.deepEqual(calls,["delay:60000","context"]);assert.equal(failed.cold.error,"attempt_failed");assert.equal(failed.warm.error,"attempt_failed");
+  } finally {globalThis.setTimeout=original;}
 });

@@ -57,6 +57,12 @@ on:
         type: boolean
         required: false
         default: false
+      baseline_context_cooldown_ms:
+        description: Pause before each baseline context, outside navigation timing (60000 requires pass_hours >= 3 for core)
+        type: choice
+        required: false
+        default: "0"
+        options: ["0", "60000"]
       baseline_route_set:
         description: Reviewed routes for manual baseline (league is sessionless; Game Day uses the guest profile)
         type: choice
@@ -385,6 +391,7 @@ jobs:
           PROD_SESSION_EXPIRES_EPOCH: ${{ steps.login.outputs.expires_epoch }}
           BASELINE_DIAGNOSTICS: ${{ inputs.baseline_diagnostics && 'true' || 'false' }}
           BASELINE_ROUTE_SET: ${{ inputs.baseline_route_set || 'core' }}
+          BASELINE_CONTEXT_COOLDOWN_MS: ${{ inputs.baseline_context_cooldown_ms || '0' }}
         run: |
           set -Eeuo pipefail
           npm ci
@@ -398,6 +405,7 @@ jobs:
           node frontend/scripts/measure-route-baselines.mjs \
             --auth production-cookie --runs 5 --viewport both --diagnostics "$BASELINE_DIAGNOSTICS" \
             --routes "$routes" --timeout 45000 \
+            --context-cooldown-ms "$BASELINE_CONTEXT_COOLDOWN_MS" \
             --json production-route-baselines.json || rc=$?
           echo "baseline_exit=$rc" >> "$GITHUB_OUTPUT"
           echo "Baseline collection exit: $rc (bounded observations, not campaign acceptance)"

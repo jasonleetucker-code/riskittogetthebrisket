@@ -99,10 +99,10 @@ const VIEWPORTS = {
 };
 
 export function parseArgs(argv) {
-  const out = { runs: 5, viewport: "both", routes: null, json: null, timeout: 45_000, auth: "local-test", diagnostics: false };
+  const out = { runs: 5, viewport: "both", routes: null, json: null, timeout: 45_000, auth: "local-test", diagnostics: false, contextCooldownMs: 0 };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (!["--runs", "--viewport", "--routes", "--json", "--timeout", "--auth", "--diagnostics"].includes(a) || !argv[i + 1] || argv[i + 1].startsWith("--")) throw new Error("invalid_arguments");
+    if (!["--runs", "--viewport", "--routes", "--json", "--timeout", "--auth", "--diagnostics", "--context-cooldown-ms"].includes(a) || !argv[i + 1] || argv[i + 1].startsWith("--")) throw new Error("invalid_arguments");
     if (a === "--diagnostics") { const value = argv[++i]; if (!["true", "false"].includes(value)) throw Error("invalid_arguments"); out.diagnostics = value === "true"; }
     else if (a === "--auth") out.auth = argv[++i];
     else if (a === "--runs") out.runs = Number(argv[++i]);
@@ -110,14 +110,22 @@ export function parseArgs(argv) {
     else if (a === "--routes") out.routes = argv[++i].split(",").map((s) => s.trim());
     else if (a === "--json") out.json = argv[++i];
     else if (a === "--timeout") out.timeout = Number(argv[++i]);
+    else if (a === "--context-cooldown-ms") out.contextCooldownMs = Number(argv[++i]);
   }
   if (!["local-test", "production-cookie", "public"].includes(out.auth) || !Number.isInteger(out.runs) || out.runs < 1 || out.runs > 100 ||
       !["desktop", "mobile", "both"].includes(out.viewport) ||
+      !Number.isInteger(out.contextCooldownMs) || out.contextCooldownMs < 0 || out.contextCooldownMs > 60000 ||
       !Number.isFinite(out.timeout) || out.timeout < 1 || out.timeout > 120000 ||
       (out.routes && (!out.routes.length || new Set(out.routes).size !== out.routes.length ||
        out.routes.some(path => !ROUTES.some(route => route.path === path))))) throw new Error("invalid_arguments");
   if (out.auth === "public" && (!out.routes || out.routes.some(path => path !== "/league"))) throw Error("invalid_arguments");
   return out;
+}
+
+/** Keep the existing conservative navigation allowance and add every planned cooldown. */
+export function requiredSessionSeconds(args, routeCount, viewportCount) {
+  return args.runs * routeCount * viewportCount *
+    (6 * args.timeout / 1000 + 30 + args.contextCooldownMs / 1000) + 120;
 }
 
 /** Injected only by explicit lab opt-in; never changes native promise/object identity. */
@@ -375,10 +383,12 @@ export async function authenticateProduction(ctx, auth) {
 }
 
 /** Every requested cold/warm attempt survives session, navigation and cleanup failure. */
-export async function collectAttempt(browser, viewport, route, timeout, auth = {mode: "local-test", origin: PAGE_ORIGIN}, diagnostics = false) {
+export async function collectAttempt(browser, viewport, route, timeout, auth = {mode: "local-test", origin: PAGE_ORIGIN}, diagnostics = false, contextCooldownMs = 0) {
   let ctx;
   const result = { cold: failedSample("attempt_failed"), warm: failedSample("attempt_failed") };
   try {
+    // Outside both timed navigations; each planned attempt still runs exactly once.
+    if (contextCooldownMs > 0) await new Promise(resolve => setTimeout(resolve, contextCooldownMs));
     ctx = await browser.newContext({ baseURL: API, viewport: VIEWPORTS[viewport], isMobile: viewport === "mobile", hasTouch: viewport === "mobile" });
     if (diagnostics) await ctx.addInitScript(installBaselineDiagnostics, true);
     let authenticated = false;
@@ -444,7 +454,7 @@ export async function main(argv = process.argv.slice(2)) {
   const publicOrigin = process.env.PROD_ORIGIN || PAGE_ORIGIN;
   if (args.auth === "public" && process.env.PROD_ORIGIN && process.env.PROD_ORIGIN !== "https://chaseupside.com") throw Error("invalid_production_configuration");
   const auth = args.auth === "public" ? {mode: "public", origin: publicOrigin} : args.auth === "production-cookie"
-    ? productionAuth(process.env, args.runs * routes.length * viewports.length * (6 * args.timeout / 1000 + 30) + 120)
+    ? productionAuth(process.env, requiredSessionSeconds(args, routes.length, viewports.length))
     : { mode: "local-test", origin: PAGE_ORIGIN };
   const browser = await chromium.launch({
     executablePath: process.env.PW_CHROMIUM_PATH || undefined,
@@ -461,6 +471,8 @@ export async function main(argv = process.argv.slice(2)) {
       deployedRevision: null,
       profile: "unthrottled", viewports: VIEWPORTS,
       percentile: "nearest-rank", observationTimeoutMs: args.timeout,
+      contextCooldownMs: args.contextCooldownMs,
+      contextCooldownScope: "before_each_context_including_first_outside_navigation",
       sampleLimitation: "bounded samples; five observations do not establish a robust tail percentile",
       notMeasured: ["normal SPA navigation", "prefetched navigation", "slowed profile", "field performance"],
     },
@@ -470,7 +482,7 @@ export async function main(argv = process.argv.slice(2)) {
       for (const route of routes) {
         const cold = [], warm = [];
         for (let i = 0; i < args.runs; i++) {
-          const attempt = await collectAttempt(browser, vp, route, args.timeout, auth, args.diagnostics);
+          const attempt = await collectAttempt(browser, vp, route, args.timeout, auth, args.diagnostics, args.contextCooldownMs);
           cold.push(attempt.cold);
           warm.push(attempt.warm);
         }
