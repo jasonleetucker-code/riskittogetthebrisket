@@ -665,21 +665,37 @@ function routeUsefulSnapshot(path) {
 /** Baseline-only probe: navigation plus an actual eligible search result on Trade.
  * Never weakens the journey assertions above. Unsupported routes fail closed.
  */
+const BASELINE_READINESS_PROTOCOL = Object.freeze({ version: "visible-locator-fixed-poll-v1", pollMs: 16 });
+
 async function baselineUsefulState(page, path, timeout) {
   const deadline = Date.now() + timeout;
   const remaining = () => Math.max(1, deadline - Date.now());
+  const checkDeadline = () => {
+    if (Date.now() >= deadline) throw new Error("useful_timeout");
+  };
+  async function waitVisible(locator) {
+    while (Date.now() < deadline) {
+      const visible = await locator.isVisible();
+      checkDeadline();
+      if (visible) return;
+      await page.waitForTimeout(Math.min(BASELINE_READINESS_PROTOCOL.pollMs, remaining()));
+    }
+    throw new Error("useful_timeout");
+  }
   if (path === "/rankings") {
-    await page.locator(SEL.boardRow).first().waitFor({ state: "visible", timeout: remaining() });
+    await waitVisible(page.locator(SEL.boardRow).first());
     const count = await boardRowCount(page);
+    checkDeadline();
     if (!Number.isFinite(count) || count <= 0) return "invalid_data";
     return "useful";
   }
   if (path === "/trade") {
-    await page.locator(SEL.tradeControls).waitFor({ state: "visible", timeout: remaining() });
+    await waitVisible(page.locator(SEL.tradeControls));
     // Fixed, non-private query; any eligible match proves the pool is usable.
     const search = page.locator('.mobile-quick-add-input:visible, .trade-side-search-input:visible').first();
     await search.fill("a", { timeout: remaining() });
-    await page.locator('.trade-side-search-result:visible').first().waitFor({ state: "visible", timeout: remaining() });
+    checkDeadline();
+    await waitVisible(page.locator('.trade-side-search-result:visible').first());
     return "useful";
   }
   if (["/league", "/game-day"].includes(path)) {
@@ -694,6 +710,7 @@ async function baselineUsefulState(page, path, timeout) {
 }
 
 module.exports = {
+  BASELINE_READINESS_PROTOCOL,
   routeUsefulSnapshot,
   baselineUsefulState,
   SEL,

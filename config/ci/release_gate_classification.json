@@ -361,6 +361,15 @@
     "game-day-capture.yml::capture::Summarise": {
       "category": "blocking"
     },
+    "game-day-live-diagnostics.yml::inventory::Checkout": {
+      "category": "blocking"
+    },
+    "game-day-live-diagnostics.yml::inventory::Configure production SSH": {
+      "category": "blocking"
+    },
+    "game-day-live-diagnostics.yml::inventory::Collect Game Day live collector inventory": {
+      "category": "blocking"
+    },
     "health-check.yml::health::Check /api/health": {
       "category": "blocking"
     },
