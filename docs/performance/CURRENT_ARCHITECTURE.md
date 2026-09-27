@@ -347,4 +347,27 @@ workflow tests pass; independent review adds six malformed/cleanup checks.
 Historical four missing observations remain unresolved; no rate-limit cause
 is asserted from their count.
 
+### Rankings/Trade-only critical path — September27 owner refinement
+
+No remaining-route campaign work advances before this route pair's production
+gate. The next measurement attributes the approximately3.20MB auxiliary transfer
+using the existing endpoint categories; no additional observer is introduced.
+An existing-endpoint BDVM projection is being prepared as an unretained candidate:
+the Rankings consumer reads only identity, gap, signal, tooltip and proxy fields.
+Every player and consumed value must remain identical, including missing/zero,
+name fallback, sorting and export order. Full BDVM responses remain the default.
+The candidate cannot be called a performance fix before exact production endpoint
+attribution and measurement. Main compact response/source-audit semantics remain
+untouched; the existing detail endpoints do not supply an equivalent pinned audit.
+
+Deployment36323914004 completed successfully. Remote checkout was836f9f628 at
+14:42:35Z, health answered200 at14:46:45Z and30/30smokes passed at14:47:08Z.
+Its hard backend gate passed12610tests with25skips,327deselections and440subtests;
+the separate advisory lane retains17failures/285passes/40skips. This establishes
+deployment, not Rankings/Trade useful-state acceptance or a passing public activity
+journey. A source-data deployment36325833642 now holds the shared release lock.
+Baseline36325468791 was canceled in the pending slot before measurement; zero
+observations were produced. The replacement baseline36327352667 uses the reviewed
+runner atc23b3a8e1 and records its source identity separately from deployed code.
+
 Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c

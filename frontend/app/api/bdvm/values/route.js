@@ -7,9 +7,9 @@ import { proxyGet } from "@/lib/backend-proxy";
 export async function GET(request) {
   try {
     const searchParams = {};
-    for (const key of ["leagueKey", "surplusMode"]) {
+    for (const key of ["leagueKey", "surplusMode", "view"]) {
       const value = request?.nextUrl?.searchParams?.get(key);
-      if (value) searchParams[key] = value;
+      if (value || (key === "view" && value != null)) searchParams[key] = value;
     }
     const { data, status } = await proxyGet("/api/bdvm/values", {
       cookie: request.headers.get("cookie") || "",

@@ -357,7 +357,7 @@ export default function RankingsPage() {
   // endpoint answers ok (bdvm_engine on + a projection snapshot exists)
   // and vanishes silently on any 503/failure. League-config-scoped data
   // joined onto rows at render time — never stamped into the contract.
-  const { data: bdvmData, failure: bdvmFailure } = useBdvmEndpoint("/api/bdvm/values");
+  const { data: bdvmData, failure: bdvmFailure } = useBdvmEndpoint("/api/bdvm/values", { params: { view: "board" } });
   const bdvmIndex = useMemo(
     () => (!bdvmFailure && bdvmData?.status === "ok" ? buildBdvmIndex(bdvmData) : null),
     [bdvmData, bdvmFailure],

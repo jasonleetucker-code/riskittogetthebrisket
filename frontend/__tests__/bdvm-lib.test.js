@@ -339,3 +339,17 @@ describe("tones and formatting", () => {
     expect(formatBdvmValue(9999.6)).toBe((10000).toLocaleString());
   });
 });
+
+
+it("full and board indexes preserve duplicate overwrite, missing, null and zero identities",()=>{
+ const full={status:"ok",players:[player("Same",{playerId:"0",market:{gap:10,marketValue:3}}),
+ player("Same",{playerId:"0",market:{gap:0,marketValue:0},tradeValue:{balanced:0},projection:{anyProxy:true}}),
+ player("Missing",{playerId:null,market:{gap:null},tradeValue:{},projection:{}})]};
+ const board={...full,players:full.players.map(p=>({playerId:p.playerId,name:p.name,market:p.market,
+ tradeValue:{balanced:p.tradeValue.balanced},signal:p.signal,projection:{anyProxy:p.projection.anyProxy}}))};
+ const before=JSON.stringify(full);const a=buildBdvmIndex(full),b=buildBdvmIndex(board);
+ expect(b).toEqual(a);
+ expect(bdvmEntryForRow(b,{playerId:0,name:"wrong"})).toMatchObject({gap:0,marketValue:0,fundamental:0,anyProxy:true});
+ expect(bdvmEntryForRow(b,{name:"Missing"})).toMatchObject({gap:null,marketValue:null,fundamental:null});
+ expect(bdvmEntryForRow(b,{name:"absent"})).toBeNull();expect(JSON.stringify(full)).toBe(before);
+});

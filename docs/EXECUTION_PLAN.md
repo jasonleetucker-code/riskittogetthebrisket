@@ -94,6 +94,13 @@ bounded to material costs. This refines sequencing; no correctness or performanc
 threshold is waived. The 8–14 MB decoded observation is an aggregate resource total,
 not a proven single API payload size.
 
+September27 refinement: only Rankings/Trade production closure is active in this
+campaign. Verify #1500 deployment, attribute the 3.20 MB auxiliary transfer exactly,
+reduce unnecessary initial bytes/work with parity, and remeasure using the existing
+runner. Intermediate cold<=5s / preferably<=3s and warm1–2s observations do not waive
+the existing global targets. Add regression guards for accepted gains, then resume
+the remaining-route denominator. Other performance investigation is deferred.
+
 The #1338 list is a floor. Investigate newly demonstrated material bottlenecks
 throughout the existing product/runtime/serving/browser system, prioritized by
 user delay, frequency, affected population/routes, severity and implementation

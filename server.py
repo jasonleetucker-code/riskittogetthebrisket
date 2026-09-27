@@ -7333,6 +7333,8 @@ async def get_bdvm_values(request: Request):
         leagueKey     optional — standard resolver
         surplusMode   optional — ``option`` (default) | ``truncated`` |
                       ``plain``; exposes the §3.3 surplus ablation
+        view          optional — ``full`` (default) | ``board``;
+                      board preserves Rankings' consumed player fields
 
     Responses::
 
@@ -7391,6 +7393,13 @@ async def get_bdvm_values(request: Request):
             },
         )
 
+    view = request.query_params.get("view", "full")
+    if view not in ("full", "board"):
+        return JSONResponse(
+            status_code=400,
+            content={"error": "bad_request", "message": "view must be full|board"},
+        )
+
     from src.api import bdvm_api as _bdvm_api  # noqa: PLC0415
 
     try:
@@ -7411,6 +7420,8 @@ async def get_bdvm_values(request: Request):
         )
     payload = dict(payload)
     payload["leagueKey"] = league_cfg.key
+    if view == "board":
+        payload = _bdvm_api.project_bdvm_board(payload)
     return JSONResponse(content=payload)
 
 

@@ -17,6 +17,17 @@ This file is the durable repository record for owner-requested live defects, UX 
 
 ## #1338 expanded performance mandate — owner, 2026-09-26
 
+**Critical-path refinement (2026-09-27):** remain on Rankings/Trade until production
+useful-state acceptance passes. Verify #1500 deployment, identify the exact owner
+of Rankings' measured 3.20 MB supporting transfer, remove or defer unnecessary
+initial bytes/work with semantic parity, and remeasure. Prioritize cold Rankings:
+at most five seconds, preferably three; warm one–two seconds, with Trade staying
+green. Preserve the stricter existing global acceptance targets and report each
+separately rather than converting an intermediate milestone into final acceptance.
+Lock demonstrated gains with regression guards before the remaining-route sweep.
+No new instrumentation unless existing measurements cannot distinguish the next
+owner; no broader campaign work before the first route pair passes.
+
 **Closure priority amendment (2026-09-26):** merge the already-reviewed PR train
 as exact-head gates pass. Use the existing measurement framework to fix the largest
 measured user-visible owner first: production Rankings/Trade useful state and its

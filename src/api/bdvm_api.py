@@ -363,6 +363,38 @@ def _auxiliary_input_report(season: int, actuals_season: int | None) -> dict[str
     return report
 
 
+def project_bdvm_board(payload: dict[str, Any]) -> dict[str, Any]:
+    """Project an accepted valuation for Rankings without changing its owner.
+
+    Keep the envelope and player order, including missing/null properties.
+    Full computation and cache identity remain shared with the default view.
+    """
+    if payload.get("status") != "ok" or not isinstance(payload.get("players"), list):
+        return payload
+    nested_fields = {
+        "market": ("gap", "marketValue"),
+        "tradeValue": ("balanced",),
+        "signal": ("signal", "reason"),
+        "projection": ("anyProxy",),
+    }
+    players = []
+    for player in payload["players"]:
+        if not isinstance(player, Mapping):
+            players.append(player)
+            continue
+        row = {key: player[key] for key in ("playerId", "name") if key in player}
+        for key, fields in nested_fields.items():
+            if key in player:
+                value = player[key]
+                row[key] = (
+                    {field: value[field] for field in fields if field in value}
+                    if isinstance(value, Mapping)
+                    else value
+                )
+        players.append(row)
+    return {**payload, "players": players}
+
+
 def get_bdvm_values(
     contract: Mapping[str, Any],
     league_key: str,
