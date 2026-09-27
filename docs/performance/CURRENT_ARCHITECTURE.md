@@ -309,3 +309,42 @@ This fixes unbounded failure behavior, not the unproven upstream latency owner.
 Hydration, scheduling or component loading can still exceed five seconds; an
 unavailable outcome is never numerical useful-state success. Exact-head CI and
 actual deployed acceptance remain required.
+
+## Production continuation — September27
+
+The compact release deployed successfully at0b92d66fc; the later data-only
+ccfd7a49 deployment passed30smokes and remains the observed application source
+for baseline36323800978. No loaded-memory commit introspection is available.
+PR1500 merged the independently reviewed public League deadline correction as
+836f9f628; deployment and actual correction acceptance remain pending. Its
+189-file/2826-test exact-head frontend CI and14bundle gates passed. Overnight
+main changed110 aggregate data/receipt paths with no frontend implementation
+overlap. The structural source-data revalidation passed1126players/zero errors
+**after merge**, not before; that timing is retained explicitly.
+
+The new diagnostic core baseline fails acceptance. Of40 intended observations,
+36 reached useful state; two failed authentication preflight contexts leave
+four missing cold/warm observations. Desktop Rankings cold/warm p95 is
+6194.3/2054.8ms; desktop Trade2163.6/1136.9; mobile Rankings2619.6/1002.3.
+Mobile Trade's observed2120.6/1015.9 excludes the four missing observations
+and cannot certify that series. No timings or thresholds were substituted.
+
+Each observed main compact response is853369encoded/7189870decoded bytes.
+Rankings additionally receives approximately3.195MB decoded auxiliary API data.
+Cold data admission occurs1068–1133ms after navigation, followed by
+427–709ms body/JSON/scheduling spans. The first desktop Rankings request
+spends3767ms awaiting headers. Inclusive stages are not summed across requests
+or called pure CPU/network time. This run has diagnostics enabled, a scheduled
+Sharp population job active, changed live inputs and only five attempts per
+series. It does not establish a causal before/after speed gain or an idle-host
+comparison. The uninstrumented control remains required.
+
+The existing runner now retains a fixed auth-preflight outcome and numeric
+HTTP status on failed attempts, without credentials, response bodies, retries
+or admission-policy changes. The previous boolean discarded the distinction
+between rejection, expiry and transport/format failure.22Node tests and six
+workflow tests pass; independent review adds six malformed/cleanup checks.
+Historical four missing observations remain unresolved; no rate-limit cause
+is asserted from their count.
+
+Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c

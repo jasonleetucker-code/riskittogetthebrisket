@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { parseArgs, summarise, failedSample, measureOnce, collectAttempt, targetVerdicts, productionAuth, authenticateProduction, installBaselineDiagnostics } from "../../frontend/scripts/measure-route-baselines.mjs";
+import { parseArgs, summarise, failedSample, measureOnce, collectAttempt, targetVerdicts, productionAuth, authenticateProduction, productionPreflight, installBaselineDiagnostics } from "../../frontend/scripts/measure-route-baselines.mjs";
 const { baselineUsefulState } = createRequire(import.meta.url)("./helpers/journey.js");
 
 test("arguments reject vacuous or unknown runs and routes", () => {
@@ -242,4 +242,46 @@ test("resource observer initialization failure is unavailable without reading fa
   assert.equal(snapshot.invalid,1);
   assert.equal(snapshot.resources.length,0);
   assert.ok(!JSON.stringify(snapshot).includes("SECRET_SENTINEL"));
+});
+
+
+test("production preflight classifies only fixed outcomes and numeric statuses", async () => {
+  const auth = {mode: "production-cookie", origin: "https://chaseupside.com", value: "SECRET_SENTINEL", expires: Date.now()/1000 + 3600};
+  const cases = [
+    [429, "SECRET_SENTINEL", "http_status"],
+    [502, "SECRET_SENTINEL", "http_status"],
+    [200, "x".repeat(8193), "body_oversize"],
+    [200, "SECRET_SENTINEL", "invalid_json"],
+    [200, "null", "invalid_shape"],
+    [200, "[]", "invalid_shape"],
+    [200, '{"authenticated":false,"private":"SECRET_SENTINEL"}', "unauthenticated"],
+    [200, '{"authenticated":true,"authMethod":"SECRET_SENTINEL"}', "wrong_method"],
+    [200, '{"authenticated":true,"authMethod":"guest_pass"}', "accepted"],
+  ];
+  for (const [status, body, outcome] of cases) {
+    let calls = 0;
+    const ctx = {addCookies: async()=>{}, request:{get:async()=>{ calls++; return {status:()=>status,body:async()=>Buffer.from(body)}; }},close:async()=>{}};
+    const result = await productionPreflight(ctx,auth);
+    assert.deepEqual(result,{ok:outcome === "accepted",outcome,httpStatus:status});
+    assert.equal(calls,1);
+    assert.ok(!JSON.stringify(result).includes("SECRET_SENTINEL"));
+    if (!result.ok) {
+      const pair = await collectAttempt({newContext:async()=>ctx},"mobile",{path:"/trade"},10,auth);
+      for (const sample of [pair.cold,pair.warm]) {
+        assert.equal(sample.error,"production_auth_failed");
+        assert.deepEqual(sample.authPreflight,result);
+      }
+      assert.equal(calls,2); // One request for each preflight, no hidden retry.
+    }
+  }
+  const expired = await productionPreflight({addCookies:async()=>{throw Error("must_not_call")}}, {...auth,expires:0});
+  assert.deepEqual(expired,{ok:false,outcome:"expired",httpStatus:null});
+  const network = {addCookies:async()=>{},request:{get:async()=>{throw Error("SECRET_SENTINEL")}},close:async()=>{}};
+  assert.deepEqual(await productionPreflight(network,auth),{ok:false,outcome:"transport_failure",httpStatus:null});
+  const failed = await collectAttempt({newContext:async()=>network},"mobile",{path:"/trade"},10,auth);
+  assert.equal(failed.cold.authPreflight.outcome,"transport_failure");
+  assert.equal(failed.warm.error,"production_auth_failed");
+  assert.ok(!JSON.stringify(failed).includes("SECRET_SENTINEL"));
+  const bodyFailure = {addCookies:async()=>{},request:{get:async()=>({status:()=>200,body:async()=>{throw Error("SECRET_SENTINEL")}})}};
+  assert.deepEqual(await productionPreflight(bodyFailure,auth),{ok:false,outcome:"transport_failure",httpStatus:200});
 });
