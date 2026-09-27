@@ -1405,3 +1405,10 @@ Under the continuous campaign this runs **at every unit boundary**, not only at 
 7. when a later section contradicts §0, **mark it superseded in place with the date and the
    reason** rather than deleting it. §2's C1-U6 STOP is the worked example: the closure it records
    is still true, only its forward-looking clause was discharged.
+
+September27 execution update: #1501 merged as7e4a12d991 after exact-head green
+and independent release review. Verify deployment36331036284 and remeasure
+Rankings/Trade. Repeated observed429preflights justify opt-in inter-context pacing
+in the existing runner; retain default0, all failures, exact navigation timing
+and reported protocol differences. No new collector, auth bypass or threshold
+change. Remaining-route work remains gated on this pair.

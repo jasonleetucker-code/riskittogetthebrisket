@@ -281,3 +281,13 @@ in one large file collide on paths and not on meaning.
   report.
 - A session that never fetches sees stale branches. The branch scan is only
   as current as your last `git fetch`.
+
+### September 27 critical-path measurement admission
+
+#1501 merged after independent review/exact-head green; deployment36331036284
+pending. Exact BDVM3.155MB decoded transfer is proven; production gain is not yet.
+Root owns workflow/docs; main_reconciliation owns only existing runner and its
+unit tests for opt-in context cooldown(default0), retaining failures and clocks.
+retention_reproduction independently reviews; report_regression verifies existing
+measurements. No product rate-policy change or remaining-route expansion.
+Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c

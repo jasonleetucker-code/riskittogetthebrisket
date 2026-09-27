@@ -371,3 +371,44 @@ observations were produced. The replacement baseline36327352667 uses the reviewe
 runner atc23b3a8e1 and records its source identity separately from deployed code.
 
 Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
+
+### September 27 — BDVM transfer owner confirmed; #1501 merged
+
+Production report36327352667 identifies BDVM as3,155,119 decoded/688,535 encoded
+bytes and news as47,045/7,065. Three completed mobile Rankings cold BDVM responses
+overlap initial usefulness; some other responses remain pending at the snapshot.
+This demonstrates a material transfer owner, not a causal latency reduction.
+The minimal board projection preserves all Rankings-consumed fields, complete
+player order, gap sorting, exact CSV and tooltip semantics. Full/default BDVM and
+its calculation/cache owner are unchanged; cold compute savings are not claimed.
+
+PR1501 merged as7e4a12d991682cc3c435286a54a1b9ae7583e32c at15:50:36Z after
+independent hash-sealed correctness/release review and all exact-head checks passed.
+CI hard backend:12601passed/43skipped/327deselected/440subtests; advisory live-data
+5failed/287passed/40skipped retained. E2E255passed/63existing skips. Fresh local
+Node20 suite190files/2831tests, build and14unchanged bundle budgets passed.
+Deployment36331036284 is running; deployment and useful-state gains remain pending.
+
+Diagnostics-off control36330458643 has36useful observations and4missing entries
+from two HTTP429preflights. Desktop Rankings cold/warm samplep95=3705.9/2029.7ms;
+mobile Rankings2668.2/1450.9ms; desktop Trade2159.6/1043.5ms; mobile Trade
+2135.3/1016.3ms with only3successful contexts. The diagnostic run additionally
+retains two transport-failure contexts whose exact cause is unknown. Neither run
+passes complete acceptance. Five-attempt summaries are not field percentiles;
+changing live data/cache/host conditions prevent numeric observer-overhead claims.
+
+The existing runner receives an opt-in between-context cooldown to prevent its
+own concentrated public endpoint requests from exhausting the existing per-IP
+limiter. Default0 is preserved; opted-in60s occurs before every fresh context,
+outside both navigation clocks, with no retries or discarded failed attempts.
+The protocol reports it and the conservative session-lifetime bound includes it;
+core collection uses the existing3-hour guest-duration input. Production rate
+limits remain unchanged. This is a measurement-protocol adjustment, not a product
+speed improvement or a waiver. Old fast-sequence failures remain evidence; any
+comparison across cooldown protocols carries that limitation.
+
+Next remains actual #1501 deployment, Rankings/Trade production remeasurement,
+and only the largest demonstrated remaining owner. Other routes stay gated.
+The paced workflow retains its existing45-minute job timeout. The122-minute
+conservative credential bound is not a promise that a worst-case run can finish
+within that cap; any timeout/interruption remains incomplete evidence.
