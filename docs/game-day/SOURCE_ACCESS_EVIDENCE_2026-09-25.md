@@ -66,7 +66,7 @@ kept here only as context, retrieved 2026-09-25, with short excerpts.
 
 | Concern | Owner module | Candidate authorized sources |
 |---|---|---|
-| Live game state (status, period, clock, OT, delay, postponement, final) | `src/nfl_data/live_game_state.py` | ESPN scoreboard; SportsDataIO where configured |
+| Live game state (status, period, clock, OT, delay, postponement, final) | `src/nfl_data/live_game_state.py` | ESPN scoreboard; SportsDataIO where configured; BALLDONTLIE (owner-approved candidate 2026-09-27, shadow only, partial: status + score — `docs/game-day/BALLDONTLIE_LIVE_STATE_EVALUATION.md`) |
 | Factual live player stats and corrections | `src/nfl_data/sleeper_live_stats.py` | Sleeper stats; SportsDataIO where configured |
 | Weekly projection ensemble | `src/ros/projection_ensemble.py` + weekly sources | RotoWire via Sleeper, Fantasy Nerds, SportsDataIO, FantasyPros, DraftSharks, IDP Show where appropriate. Independence is recorded by source family and ancestry, so there is no double counting of an aggregator and its constituents, or of several horizons from one model |
 | Exact league scoring | `src/league_intel/scorer.py` | Stat-level projections are rescored here. Uncovered categories are preserved as uncovered, or estimated by a separately validated estimator labelled as OUR estimate; never zero |

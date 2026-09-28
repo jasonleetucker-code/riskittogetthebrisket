@@ -140,4 +140,13 @@ for key_dir in sorted(p for p in live.iterdir() if p.is_dir() and not p.name.sta
                 for r in rows[-8:]:
                     print("    ", r[:300])
 PYEOF
+
+section "BALLDONTLIE shadow (newest week with a shadow log)"
+SHADOW="$(ls -1t "${LIVE}"/_nfl/*/week_*/shadow_balldontlie.jsonl 2>/dev/null | head -n 1 || true)"
+if [ -n "${SHADOW}" ] && [ -f "${APP_DIR}/scripts/balldontlie_shadow_report.py" ]; then
+  echo "log: ${SHADOW}"
+  (cd "${APP_DIR}" && "${PY}" scripts/balldontlie_shadow_report.py --season 0 --week 0 --path "${SHADOW}") || true
+else
+  echo "no shadow log (flag off, key absent, or not yet deployed)"
+fi
 exit 0

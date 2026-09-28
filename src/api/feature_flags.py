@@ -479,6 +479,17 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # without a request.  Enable: RISKIT_FEATURE_SPORTSDATAIO_LIVE_GAME_STATE=1
     # + restart (the collector reads it next tick).
     "sportsdataio_live_game_state": False,
+    # Game Day live game state from BALLDONTLIE (owner-approved candidate,
+    # 2026-09-27) — ``src/nfl_data/balldontlie_live_game_state.py``, a
+    # PROVIDER behind ``src/nfl_data/live_game_state.py``.  SHADOW ONLY: the
+    # collector records each observation and compares it with the provider
+    # it actually selected (``game_day_live.collect_shadow_live_state``); it
+    # is never selected and never reaches a forecast.  A PARTIAL provider on
+    # the free tier (lifecycle + score, no period/clock).  Default OFF: it
+    # needs the owner-installed ``BALLDONTLIE_API_KEY``.  Enable shadow:
+    # RISKIT_FEATURE_BALLDONTLIE_LIVE_GAME_STATE=1 + key (the collector reads
+    # both next tick).  Evaluation: docs/game-day/BALLDONTLIE_LIVE_STATE_EVALUATION.md.
+    "balldontlie_live_game_state": False,
     # C5-PROJ-C keyed WEEKLY projection sources (2026-09-25): Fantasy Nerds
     # (``src/ros/fantasynerds_weekly_projections.py``, key
     # FANTASYNERDS_API_KEY) and SportsDataIO
@@ -692,6 +703,10 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # ``live_game_state.fetch_live_game_state(provider="sportsdataio")`` by
     # the Game Day live collector's ESPN-failure fallback.  Defaults False.
     "sportsdataio_live_game_state": LIVE,
+    # ``src/nfl_data/balldontlie_live_game_state.py`` — reached through
+    # ``live_game_state.fetch_live_game_state(provider="balldontlie")`` by the
+    # Game Day live collector's SHADOW capture.  Defaults False.
+    "balldontlie_live_game_state": LIVE,
     # The two keyed weekly sources: built and tested, not yet consumed by
     # any route/script/engine (the Game Day consumer wires them). Default
     # False, and they also need their credential env var.

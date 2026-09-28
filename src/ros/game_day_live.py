@@ -579,6 +579,8 @@ def _players_db_path() -> Path:
 
 SOURCE_ESPN = "espn_scoreboard"
 SOURCE_SDIO = "sportsdataio_scores"
+#: SHADOW-only live-state provider (never selected): BALLDONTLIE games.
+SOURCE_BDL = "balldontlie_games"
 #: TickReport key naming which provider supplied this tick's live state.
 SOURCE_LIVE_SELECTION = "live_game_state"
 SOURCE_LIVE_STATS = "sleeper_live_stats"
@@ -2312,13 +2314,25 @@ class Clients:
     #: ``.available``, ``.health_state`` and ``.reasons`` — checked BEFORE
     #: any fallback request, so an absent key or an off flag costs nothing.
     fallback_capability: Callable[[bool | None], Any] | None = None
+    #: SHADOW live-state provider (BALLDONTLIE): read every due tick when
+    #: eligible, recorded and compared with the selected provider, NEVER
+    #: selected and never part of lineage or a forecast.
+    shadow_scoreboard: Callable[[int, int], Any] | None = None
+    #: ``() -> capability`` with ``.eligible`` / ``.reasons``, checked before
+    #: any shadow request.
+    shadow_capability: Callable[[], Any] | None = None
 
 
 def default_clients() -> Clients:
     from src.api import league_registry
     from src.api import matchup_intel as mi
+    from src.nfl_data import balldontlie_live_game_state as bdl
     from src.nfl_data import sportsdataio_live_game_state as sdio
-    from src.nfl_data.live_game_state import PROVIDER_SPORTSDATAIO, fetch_live_game_state
+    from src.nfl_data.live_game_state import (
+        PROVIDER_BALLDONTLIE,
+        PROVIDER_SPORTSDATAIO,
+        fetch_live_game_state,
+    )
     from src.nfl_data.sleeper_live_stats import fetch_live_week_stats
     from src.public_league import sleeper_client
     from src.ros.sleeper_weekly_projections import fetch_weekly_projection_rows
@@ -2353,6 +2367,10 @@ def default_clients() -> Clients:
             provider=PROVIDER_SPORTSDATAIO, season=int(season), week=int(week), season_type=2
         ),
         fallback_capability=lambda last_healthy: sdio.capability(last_healthy=last_healthy),
+        shadow_scoreboard=lambda season, week: fetch_live_game_state(
+            provider=PROVIDER_BALLDONTLIE, season=int(season), week=int(week), season_type=2
+        ),
+        shadow_capability=bdl.capability,
     )
 
 
@@ -2539,6 +2557,10 @@ def _run_tick_locked(
     )
     espn_source = live_sources["espnScoreboard"]
     report.sources[SOURCE_ESPN] = espn_source
+    # Shadow: recorded and compared, never selected, never in live_sources.
+    report.sources[SOURCE_BDL] = collect_shadow_live_state(
+        clients, health, budget, season=season, week=week, clock=clock, selected=snapshot
+    )
     report.sources[SOURCE_SDIO] = live_sources["sportsDataIoScores"]
     report.sources[SOURCE_LIVE_SELECTION] = live_sources["liveGameState"]
 
@@ -2889,6 +2911,80 @@ def collect_live_game_state(
         "liveGameState": unavailable,
         "espnScoreboard": espn_source,
         "sportsDataIoScores": sdio_source,
+    }
+
+
+def shadow_log_path(season: int, week: int) -> Path:
+    """Per-week shadow comparison evidence (kept past raw-observation retention)."""
+    return league_week_dir(NFL_KEY, season, week) / "shadow_balldontlie.jsonl"
+
+
+def collect_shadow_live_state(
+    clients: Clients,
+    health: dict[str, Any],
+    budget: RequestBudget,
+    *,
+    season: int,
+    week: int,
+    clock: Callable[[], float],
+    selected: Any,
+) -> dict[str, Any]:
+    """One SHADOW read of BALLDONTLIE, recorded and compared.  Never selects.
+
+    The observation goes to its own log (``balldontlie_games``) and one
+    comparison record per tick to :func:`shadow_log_path` — against the
+    snapshot the collector actually selected this tick, whichever provider
+    that was (``referenceProvider``), or none.  Nothing here reaches
+    ``live_sources``, lineage, an input fingerprint or a forecast.  An
+    ineligible provider (flag off, no key) costs no request.
+    """
+    stamp: dict[str, Any] = {
+        "source": "balldontlie:games",
+        "provider": "balldontlie",
+        "role": "shadow",
+    }
+    if clients.shadow_scoreboard is None:
+        return {**stamp, "status": "not_configured"}
+    cap = clients.shadow_capability() if clients.shadow_capability is not None else None
+    if cap is not None and not cap.eligible:
+        return {**stamp, "status": "unavailable", "reasons": list(cap.reasons)}
+    if _source_backoff(health, SOURCE_BDL, clock()) is not None:
+        return {**stamp, "status": "skipped_backoff"}
+    if not budget.take(SOURCE_BDL):
+        return {**stamp, "status": "budget_exhausted"}
+    from src.nfl_data.live_game_state import compare_snapshots
+
+    started = clock()
+    shadow = clients.shadow_scoreboard(season, week)
+    fetch_seconds = round(clock() - started, 3)
+    status, meta, content = scoreboard_to_observation(shadow)
+    observation_log(NFL_KEY, season, week, SOURCE_BDL).append(
+        fetched_at=meta["observedAt"], status=status, meta=meta, content=content
+    )
+    error = str(meta.get("error") or "")
+    if status == "ok":
+        _record_health(health, SOURCE_BDL, True, clock())
+    elif status != "disabled" and not error.startswith("credential_missing"):
+        _record_health(health, SOURCE_BDL, False, clock(), error)
+    comparison = compare_snapshots(shadow, selected)
+    try:
+        _append_line(
+            shadow_log_path(season, week),
+            {
+                "observedAt": meta["observedAt"],
+                "fetchSeconds": fetch_seconds,
+                "httpStatus": meta.get("httpStatus"),
+                **comparison,
+            },
+        )
+    except OSError:
+        pass
+    return {
+        **_live_state_stamp(shadow),
+        "role": "shadow",
+        "fetchSeconds": fetch_seconds,
+        "referenceProvider": comparison["referenceProvider"],
+        "gamesCompared": sum(1 for g in comparison["games"] if g.get("reference")),
     }
 
 
