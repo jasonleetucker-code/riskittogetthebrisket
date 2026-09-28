@@ -159,6 +159,13 @@ MAX_REQUESTS_PER_TICK = 30
 #: skipped for ``min(60 * 2**(n - threshold), 600)`` seconds.
 BACKOFF_FAILURE_THRESHOLD = 3
 BACKOFF_MAX_SECONDS = 600.0
+#: While a game this week has kicked off with no published result, the
+#: nflverse schedule (the source of finals when no live feed answers) is
+#: refreshed at most this often.  Its default cache is 24 h, and before this
+#: nothing refreshed it for Game Day: on 2026-09-28 Sunday night's LA @ DEN
+#: final stayed "status unknown" ~20 h after it ended and paused every
+#: forecast involving its players.
+SCHEDULE_RESULT_REFRESH_SECONDS = 900.0
 #: Sleeper asks for the players DB at most daily.
 PLAYERS_DB_MAX_AGE_SECONDS = 24 * 3600.0
 PLAYERS_DB_MISSING_RETRY_SECONDS = 3600.0
@@ -590,6 +597,7 @@ SOURCE_LIVE_SELECTION = "live_game_state"
 SOURCE_LIVE_STATS = "sleeper_live_stats"
 SOURCE_WEEKLY = "sleeper_weekly_projections"
 SOURCE_LEAGUE = "sleeper_league_week"
+SOURCE_SCHEDULE = "nflverse_schedule"
 SOURCE_NFL_STATE = "sleeper_nfl_state"
 
 _GAME_DT_FIELDS = ("kickoff",)
@@ -2336,6 +2344,10 @@ class Clients:
     #: ``.available``, ``.health_state`` and ``.reasons`` — checked BEFORE
     #: any fallback request, so an absent key or an off flag costs nothing.
     fallback_capability: Callable[[bool | None], Any] | None = None
+    #: ``(season, max_age_seconds) -> bool``: refresh the nflverse schedule
+    #: cache through its one owner (``src.nfl_data.ingest.fetch_schedules``)
+    #: when older than ``max_age_seconds``; True when rows are available.
+    schedule_refresh: Callable[[int, float], bool] | None = None
     #: SHADOW live-state provider (BALLDONTLIE): read every due tick when
     #: eligible, recorded and compared with the selected provider, NEVER
     #: selected and never part of lineage or a forecast.
@@ -2393,7 +2405,14 @@ def default_clients() -> Clients:
             provider=PROVIDER_BALLDONTLIE, season=int(season), week=int(week), season_type=2
         ),
         shadow_capability=bdl.capability,
+        schedule_refresh=_refresh_schedule_cache,
     )
+
+
+def _refresh_schedule_cache(season: int, max_age_seconds: float) -> bool:
+    from src.nfl_data import ingest
+
+    return bool(ingest.fetch_schedules([int(season)], max_age_seconds=max_age_seconds))
 
 
 @dataclass
@@ -2607,6 +2626,19 @@ def _run_tick_locked(
     report.sources[SOURCE_LIVE_SELECTION] = live_sources["liveGameState"]
 
     schedule_rows, schedule_observed_at, _ = clients.schedule(season)
+    refreshed, schedule_stamp = maybe_refresh_schedule(
+        clients,
+        health,
+        budget,
+        schedule_rows,
+        schedule_observed_at,
+        season=season,
+        week=week,
+        now=clock(),
+    )
+    if refreshed:
+        schedule_rows, schedule_observed_at, _ = clients.schedule(season)
+    report.sources[SOURCE_SCHEDULE] = schedule_stamp
     evidence = observed_evidence(schedule_rows, snapshot, season=season, week=week, now=clock())
     windows = windows_from_evidence(evidence)
     final_first_seen = _record_finals(gstate, windows, season=season, week=week, now=tick_start)
@@ -2954,6 +2986,56 @@ def collect_live_game_state(
         "espnScoreboard": espn_source,
         "sportsDataIoScores": sdio_source,
     }
+
+
+def maybe_refresh_schedule(
+    clients: Clients,
+    health: dict[str, Any],
+    budget: RequestBudget,
+    rows: Sequence[Mapping[str, Any]],
+    observed_at: float | None,
+    *,
+    season: int,
+    week: int,
+    now: float,
+) -> tuple[bool, dict[str, Any]]:
+    """Refresh the schedule cache while a finished game's result is missing.
+
+    With no live feed, a game's FINAL comes only from the nflverse schedule's
+    published result; a kicked-off game without one stays ``unknown`` and
+    pauses every forecast touching its players.  So while such a game exists
+    this week, and the cached copy is older than
+    :data:`SCHEDULE_RESULT_REFRESH_SECONDS`, refetch it through the one owner.
+    Nothing is inferred from wall time: a game becomes final only when the
+    source publishes its result.  ``(refreshed, stamp)``; never raises.
+    """
+    from src.ros.game_day_week import schedule_games
+
+    stamp: dict[str, Any] = {"source": "nflverse:schedules"}
+    pending = [
+        g.game_id
+        for g in schedule_games(rows or (), season=season, week=week, now=now)
+        if g.state == "unknown" and g.kickoff_at is not None and g.kickoff_at <= now
+    ]
+    age = (now - observed_at) if observed_at is not None else None
+    stamp.update(resultsPending=pending, ageSeconds=None if age is None else round(age, 1))
+    if not pending:
+        return False, {**stamp, "status": "not_needed"}
+    if age is not None and age < SCHEDULE_RESULT_REFRESH_SECONDS:
+        return False, {**stamp, "status": "recent_enough"}
+    if clients.schedule_refresh is None:
+        return False, {**stamp, "status": "not_configured"}
+    if _source_backoff(health, SOURCE_SCHEDULE, now) is not None:
+        return False, {**stamp, "status": "skipped_backoff"}
+    if not budget.take(SOURCE_SCHEDULE):
+        return False, {**stamp, "status": "budget_exhausted"}
+    try:
+        ok = bool(clients.schedule_refresh(season, SCHEDULE_RESULT_REFRESH_SECONDS))
+        error = None if ok else "no_rows"
+    except Exception as exc:  # noqa: BLE001 — a refresh reports, never fails the tick
+        ok, error = False, type(exc).__name__
+    _record_health(health, SOURCE_SCHEDULE, ok, now, error)
+    return ok, {**stamp, "status": "refreshed" if ok else "error", "error": error}
 
 
 def shadow_log_path(season: int, week: int) -> Path:

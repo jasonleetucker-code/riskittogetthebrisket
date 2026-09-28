@@ -397,6 +397,8 @@ reason named in `freshness.reasons` (`live_game_state.espn:…`,
 `live_game_state.sportsdataio:…`). The request-path seam
 (`matchup_intel._observe_live_state`) is still ESPN-only.
 
+**Schedule results refresh while a final is missing (2026-09-28).** With no live feed, a game's FINAL comes only from the nflverse schedule's published result (a kicked-off game without one stays `unknown`, never a wall-clock final). Game Day reads that schedule cache-only, and its 24 h cache was refreshed by nothing Game Day controlled, so Sunday night's LA @ DEN final stayed "status unknown" ~20 h after it ended and paused every forecast involving its players. The live collector (`game_day_live.maybe_refresh_schedule`) now refreshes it through the one owner (`ingest.fetch_schedules(max_age_seconds=…)`, which can only shorten the TTL) while such a game exists this week, at most every `SCHEDULE_RESULT_REFRESH_SECONDS` (900 s), under the tick budget and a persisted backoff; the request path stays cache-only.
+
 **BALLDONTLIE — shadow only (2026-09-27).** A third provider
 (`src/nfl_data/balldontlie_live_game_state.py`, flag
 `balldontlie_live_game_state`, default OFF, key `BALLDONTLIE_API_KEY`) is read
