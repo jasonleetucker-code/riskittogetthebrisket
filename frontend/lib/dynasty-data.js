@@ -37,6 +37,9 @@
 // returns an empty rows array) rather than silently re-computing.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// The active-league key and the early head-script request share one owner.
+import { LEAGUE_LOCAL_KEY, takeEarlyContract } from "./early-contract.js";
+
 const OFFENSE = new Set(["QB", "RB", "WR", "TE"]);
 const IDP = new Set(["DL", "DE", "DT", "LB", "DB", "CB", "S", "EDGE"]);
 // Positions that may never enter the ranked board or user-facing surfaces.
@@ -1519,7 +1522,6 @@ let _inflightOverrideResult = null; // { key, base, promise }
 // ``useLeague`` here because this module is imported by
 // ``useLeague`` itself (via ``_resetBaseContractCache``); localStorage
 // is the cycle-safe way to share the value.
-const LEAGUE_LOCAL_KEY = "next_active_league_v1";
 
 function _readActiveLeagueKey() {
   if (typeof window === "undefined") return "";
@@ -1540,6 +1542,9 @@ export function _resetBaseContractCache() {
   _inflightBaseContract = null;
   _cachedOverrideResult = null;
   _inflightOverrideResult = null;
+  // An early request issued under the previous league/session is spent, not
+  // adopted later.
+  takeEarlyContract("");
 }
 
 // Login/logout must drop cached private payloads immediately — the
@@ -1579,7 +1584,10 @@ async function _fetchBaseContract() {
   if (_inflightBaseContract && _inflightBaseContract.key === cacheKey) {
     return _inflightBaseContract.promise;
   }
-  const promise = _fetchBaseContractNetwork(leagueKey, view, cacheKey);
+  // The document head may already have this exact request in flight
+  // (lib/early-contract.js); adopt it instead of issuing a second one.
+  const early = takeEarlyContract(cacheKey);
+  const promise = _fetchBaseContractNetwork(leagueKey, view, cacheKey, early);
   _inflightBaseContract = { key: cacheKey, promise };
   try {
     return await promise;
@@ -1590,7 +1598,7 @@ async function _fetchBaseContract() {
   }
 }
 
-async function _fetchBaseContractNetwork(leagueKey, view, cacheKey) {
+async function _fetchBaseContractNetwork(leagueKey, view, cacheKey, early = null) {
   // Append leagueKey so the server can stamp ``meta.leagueKey`` and
   // ``meta.sleeperDataReady`` correctly on the response.  When the
   // active league shares the scoring profile with the loaded
@@ -1614,7 +1622,7 @@ async function _fetchBaseContractNetwork(leagueKey, view, cacheKey) {
   // navigation past the in-memory TTL.
   let res;
   try {
-    res = await fetch(url, { cache: "no-cache" });
+    res = await (early ? early.promise : fetch(url, { cache: "no-cache" }));
   } catch (netErr) {
     // No status at all: the request never reached a server. That is a
     // DIFFERENT state from every HTTP failure below and used to be
@@ -1669,7 +1677,9 @@ async function _fetchBaseContractNetwork(leagueKey, view, cacheKey) {
   if (wrapped && wrapped.data) {
     _cachedBaseContract = wrapped;
     _cachedBaseContractKey = cacheKey;
-    _cachedBaseContractAt = Date.now();
+    // An adopted early response is as old as its arrival, not its adoption.
+    const arrived = early ? early.arrivedAt() : undefined;
+    _cachedBaseContractAt = arrived !== undefined ? Math.min(Date.now(), arrived) : Date.now();
   }
   return wrapped;
 }
