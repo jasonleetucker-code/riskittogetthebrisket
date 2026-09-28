@@ -624,6 +624,53 @@ class TestCollectorTick:
         state = live.load_league_state("dynasty_new", SEASON, WEEK)
         assert state["lastTickOk"] is False and state["refreshStartedAt"] is None
 
+    def test_a_failed_host_state_read_retries_in_a_minute_not_an_idle_hour(self):
+        # 2026-09-27: one Sleeper connection reset on /state/nfl at 12:39 ET
+        # was read as "no week" and parked the collector until 1:39 ET —
+        # across every 1 PM kickoff.  A failed read is a failure, not an
+        # answer: retry on the live cadence and say so in the exit code.
+        world = FixtureWorld("real_halftime")
+        clients = world.clients()
+        clients.nfl_state = lambda: None
+        start = world.clock()
+        report = live.run_tick(clients=clients, clock=world.clock, force=True)
+        assert (report.outcome, report.exit_code) == ("nfl_state_unavailable", 1)
+        assert report.error == "sleeper_nfl_state_unavailable"
+        gstate = live.load_collector_state()
+        assert live._epoch(gstate["nextDueAt"]) == pytest.approx(start + live.CADENCE_LIVE_SECONDS)
+        assert gstate["sourceHealth"][live.SOURCE_NFL_STATE]["consecutiveFailures"] == 1
+        # The next minute's firing is due, and a healthy host resumes at once.
+        world.clock.ts = start + live.CADENCE_LIVE_SECONDS
+        assert live.tick_due(world.clock())
+        assert world.tick().outcome == "ran"
+        health = live.load_collector_state()["sourceHealth"][live.SOURCE_NFL_STATE]
+        assert health["consecutiveFailures"] == 0
+
+    def test_a_host_state_outage_backs_off_but_never_to_an_idle_hour(self):
+        world = FixtureWorld("real_halftime")
+        clients = world.clients()
+        clients.nfl_state = lambda: None
+        waits = []
+        for _ in range(8):
+            start = world.clock()
+            live.run_tick(clients=clients, clock=world.clock, force=True)
+            due = live._epoch(live.load_collector_state()["nextDueAt"])
+            waits.append(due - start)
+            world.clock.ts = due
+        assert waits[0] == pytest.approx(live.CADENCE_LIVE_SECONDS)
+        assert waits == sorted(waits), "the backoff never shortens mid-outage"
+        assert max(waits) <= live.BACKOFF_MAX_SECONDS < live.CADENCE_IDLE_SECONDS
+
+    def test_a_host_that_states_no_week_still_idles(self):
+        world = FixtureWorld("real_halftime")
+        clients = world.clients()
+        clients.nfl_state = lambda: {"season": "2026", "week": None, "season_type": "regular"}
+        start = world.clock()
+        report = live.run_tick(clients=clients, clock=world.clock, force=True)
+        assert (report.outcome, report.exit_code) == ("no_week", 2)
+        due = live._epoch(live.load_collector_state()["nextDueAt"])
+        assert due == pytest.approx(start + live.CADENCE_IDLE_SECONDS)
+
     def test_out_of_season_is_nothing_to_do(self):
         world = FixtureWorld("real_halftime")
         clients = world.clients()
@@ -693,13 +740,48 @@ class TestServing:
         world = FixtureWorld("real_halftime")
         world.tick()
         gen_id = live.load_generation("dynasty_main", SEASON, WEEK)["generationId"]
-        later = world.clock() + 600  # collector ticked 10 min ago: still active
+        # Past the live 180 s budget, but the collector ticked inside budget +
+        # one live tick: it is still keeping up, so no request-path compute.
+        later = world.clock() + 200
         payload = _serve(now=later)
         fresh = payload["freshness"]
         assert fresh["state"] == "stale"
         assert fresh["generationId"] == gen_id
-        assert fresh["payloadAgeSeconds"] == pytest.approx(600.0, abs=1.0)
+        assert fresh["payloadAgeSeconds"] == pytest.approx(200.0, abs=1.0)
+        assert "backgroundCompute" not in fresh
         assert payload["team"]["players"], "stale is served, never blanked"
+
+    def test_a_collector_falling_behind_during_live_games_is_refreshed_at_once(self):
+        # The 2026-09-27 case: games live, the collector's last tick 10+ min
+        # ago.  Waiting out COLLECTOR_ABSENT_AFTER_SECONDS (2h10m) served a
+        # 51-minute-old generation; the stale generation must be served AND
+        # refreshed in the background now.
+        world = FixtureWorld("real_halftime")
+        world.tick()
+        gen_id = live.load_generation("dynasty_main", SEASON, WEEK)["generationId"]
+        with mock.patch.object(
+            matchup_intel, "_fetch_league_week", side_effect=RuntimeError("network down")
+        ):
+            payload = _serve(now=world.clock() + 600, fetch_error=False)
+            assert live.wait_for_background(timeout=60)
+        fresh = payload["freshness"]
+        assert fresh["state"] == "stale" and fresh["generationId"] == gen_id
+        assert fresh["phase"] == "live"
+        assert fresh["backgroundCompute"]["reason"] == "collector_absent_generation_stale"
+        assert payload["team"]["players"], "stale is served, never blanked"
+
+    def test_collector_absence_follows_the_served_budget_up_to_the_ceiling(self):
+        state = {"lastTickFinishedAt": live._iso(1_000.0)}
+        live_budget = 3 * live.CADENCE_LIVE_SECONDS
+        edge = 1_000.0 + live_budget + live.COLLECTOR_LATE_SLACK_SECONDS
+        assert live.collector_active(state, edge, live_budget)
+        assert not live.collector_active(state, edge + 1, live_budget)
+        idle_budget = 3 * live.CADENCE_IDLE_SECONDS
+        ceiling = 1_000.0 + live.COLLECTOR_ABSENT_AFTER_SECONDS
+        assert live.collector_active(state, ceiling, idle_budget)
+        assert not live.collector_active(state, ceiling + 1, idle_budget)
+        assert live.collector_active(state, ceiling)
+        assert not live.collector_active({}, 1_000.0, live_budget)
 
     def test_refresh_in_progress_is_reported(self):
         world = FixtureWorld("real_halftime")

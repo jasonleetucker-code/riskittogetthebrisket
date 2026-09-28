@@ -204,7 +204,10 @@ describe("freshness line (the U5 collector block)", () => {
     expect(STALE.freshness.state).toBe("stale");
     const line = freshnessLine(STALE);
     expect(line.stale).toBe(true);
-    expect(line.text).toMatch(/^Stale · as of .*\(2 h old\) · past its 3 min freshness budget$/);
+    // Two hours behind while games are live: the server refreshes it itself.
+    expect(line.text).toMatch(
+      /^Stale · as of .*\(2 h old\) · past its 3 min freshness budget · refresh running$/,
+    );
   });
 
   it("names a degraded, background-computed answer and a running refresh", () => {

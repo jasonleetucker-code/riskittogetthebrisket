@@ -131,8 +131,12 @@ LIVE_WINDOW_AFTER_KICKOFF_SECONDS = 6 * 3600.0
 #: ``game_day_week.LIVE_STATE_MAX_AGE_SECONDS``.
 STALE_AFTER_INTERVALS = 3.0
 #: The collector is "absent" for a league-week when it has not ticked it
-#: for this long (two idle intervals plus slack).
+#: for this long (two idle intervals plus slack) — the ceiling.  Inside a
+#: shorter freshness budget it is absent sooner: see :func:`collector_active`.
 COLLECTOR_ABSENT_AFTER_SECONDS = 2 * CADENCE_IDLE_SECONDS + 600.0
+#: How late past the served cadence's stale budget a collector may be before
+#: the serving path stops waiting for it: one live tick.
+COLLECTOR_LATE_SLACK_SECONDS = CADENCE_LIVE_SECONDS
 
 #: Weekly projections: re-fetched this often while a kickoff is near …
 WEEKLY_NEAR_KICKOFF_INTERVAL_SECONDS = 600.0
@@ -586,6 +590,7 @@ SOURCE_LIVE_SELECTION = "live_game_state"
 SOURCE_LIVE_STATS = "sleeper_live_stats"
 SOURCE_WEEKLY = "sleeper_weekly_projections"
 SOURCE_LEAGUE = "sleeper_league_week"
+SOURCE_NFL_STATE = "sleeper_nfl_state"
 
 _GAME_DT_FIELDS = ("kickoff",)
 #: Per-game fields that are the SNAPSHOT's clock, not the game's content —
@@ -1789,12 +1794,27 @@ def _release_lock() -> None:
         pass
 
 
-def collector_active(state: Mapping[str, Any], now: float) -> bool:
-    """Has the collector ticked this league-week recently (or is it ticking)?"""
+def collector_active(
+    state: Mapping[str, Any], now: float, stale_after_seconds: float | None = None
+) -> bool:
+    """Has the collector ticked this league-week recently (or is it ticking)?
+
+    "Recently" is relative to the freshness budget being served: while games
+    are live (a 180 s budget) a collector that has not ticked for the budget
+    plus one live tick is not keeping up, and the serving path must refresh
+    the stale generation itself rather than wait up to
+    :data:`COLLECTOR_ABSENT_AFTER_SECONDS` (2h10m) for it.  Without a budget,
+    or when the budget is longer, that ceiling applies.
+    """
     if state.get("refreshStartedAt") and lock_is_fresh(now):
         return True
     last = _epoch(state.get("lastTickFinishedAt"))
-    return last is not None and now - last <= COLLECTOR_ABSENT_AFTER_SECONDS
+    if last is None:
+        return False
+    window = COLLECTOR_ABSENT_AFTER_SECONDS
+    if stale_after_seconds is not None and stale_after_seconds > 0:
+        window = min(window, float(stale_after_seconds) + COLLECTOR_LATE_SLACK_SECONDS)
+    return now - last <= window
 
 
 # ── Serving (the API path) ───────────────────────────────────────────────
@@ -1928,7 +1948,9 @@ def serve_league_render(
     key = background_key(**params)
     if gen is not None and gen.get("draws") == draws and gen.get("seed") == seed:
         fresh = _generation_freshness(gen, state, now)
-        if fresh["state"] != "stale" or collector_active(state, now):
+        if fresh["state"] != "stale" or collector_active(
+            state, now, fresh.get("staleAfterSeconds")
+        ):
             return gen["render"], fresh
         bg = ensure_background_compute(
             key, reason="collector_absent_generation_stale", now=now, **params
@@ -2376,7 +2398,9 @@ def default_clients() -> Clients:
 
 @dataclass
 class TickReport:
-    outcome: str  # "ran" | "not_due" | "locked" | "out_of_season" | "no_week" | "error"
+    #: "ran" | "not_due" | "locked" | "out_of_season" | "no_week" |
+    #: "nfl_state_unavailable" | "error"
+    outcome: str
     exit_code: int
     season: int | None = None
     week: int | None = None
@@ -2538,8 +2562,26 @@ def _run_tick_locked(
         )
         _atomic_write_json(collector_state_path(), gstate)
 
-    budget.take("sleeper_nfl_state")
-    nfl = clients.nfl_state() or {}
+    budget.take(SOURCE_NFL_STATE)
+    nfl = clients.nfl_state()
+    if not isinstance(nfl, Mapping):
+        # A FAILED read of the host's state is not the host saying "no week".
+        # Treating it as ``no_week`` parked the collector for a whole idle
+        # hour: on 2026-09-27 one Sleeper connection reset at 12:39 ET slept
+        # it straight through the 1 PM kickoffs, and production served a
+        # 51-minute-old generation against a 3-minute budget.  Retry on the
+        # finest cadence, under the persisted per-source backoff, and exit 1
+        # so the unit reports the failure instead of hiding it as "nothing
+        # to do".
+        _record_health(health, SOURCE_NFL_STATE, False, tick_start, "fetch_failed")
+        retry_at = tick_start + CADENCE_LIVE_SECONDS
+        backoff_until = _source_backoff(health, SOURCE_NFL_STATE, tick_start)
+        if backoff_until is not None:
+            retry_at = max(retry_at, backoff_until)
+        report.error = "sleeper_nfl_state_unavailable"
+        _finish("nfl_state_unavailable", 1, retry_at, gstate.get("cadence"))
+        return
+    _record_health(health, SOURCE_NFL_STATE, True, tick_start)
     season_type = str(nfl.get("season_type") or "")
     try:
         season, week = int(nfl.get("season")), int(nfl.get("week"))
