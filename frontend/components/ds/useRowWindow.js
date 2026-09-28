@@ -142,18 +142,30 @@ export function useRowWindow({
   hasBefore,
   hasAfter,
   overscan = DEFAULT_OVERSCAN,
+  // Windowing is REQUESTED but not yet engaged (the column widths are still
+  // being frozen). Only then is a row read inside the commit: see `measure`.
+  armed = false,
 }) {
   // ── Measurement buffers ───────────────────────────────────────────
   //
-  // `burst` holds the `offsetTop` of every row mounted in ONE layout. It
-  // is drained and cleared on the next animation frame, which is what
-  // keeps it single-layout: an `offsetTop` is only comparable with
-  // another taken while the same spacer heights were in place, and the
-  // spacers change every time the window moves. Deltas within a burst are
-  // safe (both rows shift by the same spacer amount); deltas ACROSS
-  // bursts are not, and mixing them would corrupt the map with a number
-  // that looks like a very tall row.
-  const burst = useRef(new Map());
+  // Two buffers, each SINGLE-LAYOUT, and never paired with each other: an
+  // `offsetTop` is only comparable with another taken while the same spacer
+  // heights were in place, and the spacers change every time the window
+  // moves. Deltas within one layout are safe (both rows shift by the same
+  // spacer amount); deltas across layouts are not, and mixing them would
+  // corrupt the map with a number that looks like a very tall row.
+  //
+  //   * `pending` — rows mounted while windowing is ON (element → index). Their
+  //     offsets are read in the next animation frame, all in one pass with no
+  //     writes between.
+  //   * `snapshot` — offsets read INSIDE the commit while windowing is armed
+  //     but not engaged: the first full, unwindowed board. That commit's
+  //     column freeze forces the very same layout, so the read is free, and it
+  //     is the only time every row's geometry exists at once.
+  const pending = useRef(new Map());
+  const snapshot = useRef(new Map());
+  const armedRef = useRef(armed);
+  armedRef.current = armed;
   // Drained deltas, classified. These accumulate: a height learned at the
   // top of the board is still true at the bottom, so the map only ever
   // gets better.
@@ -250,55 +262,98 @@ export function useRowWindow({
     });
   }, [rowCount, overscan]);
 
-  /** Record a mounted row's offset. Called from each row's ref. */
-  const measure = useCallback((index, el) => {
-    // Unmounting is not a measurement going away — the height it taught
-    // us is still true of the layout, and it lives in `samples`.
-    if (!el) return;
-    burst.current.set(index, el.offsetTop);
-    if (drainPending.current) return;
-    drainPending.current = true;
-    requestAnimationFrame(() => {
-      drainPending.current = false;
-      const kinds = blockKindsRef.current;
-      const entries = burst.current;
-      burst.current = new Map();
-      if (!kinds || entries.size < 2) return;
-
-      const buckets = ["plain", "before", "after"];
-      const previousMedians = buckets.map((key) => median(samples.current[key]));
-      const seen = [...entries.keys()].sort((a, b) => a - b);
-      let added = false;
-      for (let k = 0; k + 1 < seen.length; k += 1) {
-        const i = seen[k];
-        // Only CONSECUTIVE indices give a usable delta: with a gap
-        // between them the distance spans rows nobody measured.
-        if (seen[k + 1] !== i + 1) continue;
-        const delta = entries.get(i + 1) - entries.get(i);
-        if (!(delta > 0)) continue;
-        // The delta covers row i plus everything rendered before row
-        // i+1 — so it is classified by i's own after-row and i+1's
-        // before-row. Deltas carrying BOTH are discarded rather than
-        // guessed apart; they are rare (one expansion at a time) and a
-        // wrong split would poison two medians instead of none.
-        const hasB = kinds.before[i + 1] === 1;
-        const hasA = kinds.after[i] === 1;
-        if (hasB && hasA) continue;
-        const bucket = hasB ? "before" : hasA ? "after" : "plain";
-        const arr = samples.current[bucket];
-        arr.push(delta);
-        // Bounded so a long session cannot grow these without limit.
-        if (arr.length > MAX_SAMPLES) arr.shift();
-        added = true;
-      }
-      // Geometry depends only on these medians. Publishing identical
-      // measurements rerenders the table, reattaches its row refs, and
-      // schedules another identical measurement on the next frame.
-      if (added && buckets.some((key, i) => median(samples.current[key]) !== previousMedians[i])) {
-        setMeasureEpoch((n) => n + 1);
-      }
-    });
+  /** Learn classified deltas from ONE layout's offsets (index → offsetTop). */
+  const learn = useCallback((entries, kinds) => {
+    let added = false;
+    const seen = [...entries.keys()].sort((a, b) => a - b);
+    for (let k = 0; k + 1 < seen.length; k += 1) {
+      const i = seen[k];
+      // Only CONSECUTIVE indices give a usable delta: with a gap
+      // between them the distance spans rows nobody measured.
+      if (seen[k + 1] !== i + 1) continue;
+      const delta = entries.get(i + 1) - entries.get(i);
+      if (!(delta > 0)) continue;
+      // The delta covers row i plus everything rendered before row
+      // i+1 — so it is classified by i's own after-row and i+1's
+      // before-row. Deltas carrying BOTH are discarded rather than
+      // guessed apart; they are rare (one expansion at a time) and a
+      // wrong split would poison two medians instead of none.
+      const hasB = kinds.before[i + 1] === 1;
+      const hasA = kinds.after[i] === 1;
+      if (hasB && hasA) continue;
+      const bucket = hasB ? "before" : hasA ? "after" : "plain";
+      const arr = samples.current[bucket];
+      arr.push(delta);
+      // Bounded so a long session cannot grow these without limit.
+      if (arr.length > MAX_SAMPLES) arr.shift();
+      added = true;
+    }
+    return added;
   }, []);
+
+  /** Record a mounted row for measurement. Called from each row's ref.
+   *
+   * WHERE the `offsetTop` read happens is the whole point. A ref callback runs
+   * inside React's commit, so a read there forces a synchronous layout of the
+   * table — once per commit, and again for every synchronous re-render in the
+   * same task. Measured on /rankings at 4x CPU, the windowed commits' reads
+   * were the largest app-owned cost after the data arrived (~300 ms of a
+   * ~1.1–1.3 s window). So:
+   *
+   *   * windowing ON: record the element; read it in the frame drain.
+   *   * windowing ARMED, not yet engaged: read now. This is the first full,
+   *     unwindowed board, whose column freeze forces this same layout in this
+   *     same commit anyway, and those rows unmount before any frame.
+   *   * otherwise (a table that never windows): nothing at all.
+   */
+  const measure = useCallback(
+    (index, el) => {
+      // Unmounting is not a measurement going away — the height it taught
+      // us is still true of the layout, and it lives in `samples`.
+      if (!el) return;
+      if (blockKindsRef.current) {
+        // Keyed by ELEMENT so a row re-indexed by a later commit in the same
+        // frame (a re-sort) keeps only its latest index.
+        pending.current.set(el, index);
+      } else if (armedRef.current) {
+        snapshot.current.set(index, el.offsetTop);
+      } else {
+        return;
+      }
+      if (drainPending.current) return;
+      drainPending.current = true;
+      requestAnimationFrame(() => {
+        drainPending.current = false;
+        const kinds = blockKindsRef.current;
+        const recorded = pending.current;
+        const snap = snapshot.current;
+        pending.current = new Map();
+        snapshot.current = new Map();
+        if (!kinds) return;
+        // One read pass, no writes in between: every offset comes from the
+        // same layout. A row unmounted since it was recorded has no geometry
+        // and is skipped rather than read as 0.
+        const read = new Map();
+        for (const [node, i] of recorded) {
+          if (node.isConnected) read.set(i, node.offsetTop);
+        }
+        const buckets = ["plain", "before", "after"];
+        const previousMedians = buckets.map((key) => median(samples.current[key]));
+        const addedSnap = snap.size >= 2 && learn(snap, kinds);
+        const addedRead = read.size >= 2 && learn(read, kinds);
+        // Geometry depends only on these medians. Publishing identical
+        // measurements rerenders the table, reattaches its row refs, and
+        // schedules another identical measurement on the next frame.
+        if (
+          (addedSnap || addedRead) &&
+          buckets.some((key, i) => median(samples.current[key]) !== previousMedians[i])
+        ) {
+          setMeasureEpoch((n) => n + 1);
+        }
+      });
+    },
+    [learn],
+  );
 
   // Track scroll position of whichever element actually scrolls. The
   // rankings board scrolls the WINDOW (the table has no maxHeight), so a

@@ -387,6 +387,9 @@ export function DataTable({
     // measurement the table is still auto-layout, and windowing it would
     // freeze the WRONG widths — the ones a 60-row sample happens to need.
     enabled: virtualizeReady && Boolean(frozen),
+    // Requested but not engaged: the unwindowed board whose widths are being
+    // frozen right now. Its row geometry is read in that same forced layout.
+    armed: virtualizeReady && !frozen,
     tableRef,
     scrollRef: maxHeight ? wrapRef : null,
     hasBefore,

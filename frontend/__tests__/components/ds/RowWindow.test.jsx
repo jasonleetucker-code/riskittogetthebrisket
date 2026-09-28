@@ -68,8 +68,8 @@ describe("useRowWindow", () => {
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => { frames.push(callback); return frames.length; });
     const { result } = windowFor({ rowCount: 1000 });
     const measure = (height) => {
-      result.current.measure(0, { offsetTop: 0 });
-      result.current.measure(1, { offsetTop: height });
+      result.current.measure(0, { offsetTop: 0, isConnected: true });
+      result.current.measure(1, { offsetTop: height, isConnected: true });
       act(() => frames.splice(0).forEach((callback) => callback()));
     };
     measure(42);
@@ -82,6 +82,130 @@ describe("useRowWindow", () => {
     measure(60);
     measure(60);
     expect(result.current).not.toBe(stable);
+  });
+
+  // The ref callback runs inside React's commit. Reading `offsetTop` there
+  // forced a synchronous layout of the whole table on every commit, before
+  // the browser could paint (~300 ms of the /rankings post-data window at
+  // 4x CPU). The read belongs in the frame drain, in one pass.
+  function rowWithTop(top, reads) {
+    return {
+      isConnected: true,
+      get offsetTop() {
+        reads.push(top);
+        return top;
+      },
+    };
+  }
+
+  it("never reads layout inside the ref callback — only in the frame drain", () => {
+    const frames = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => { frames.push(callback); return frames.length; });
+    const { result } = windowFor({ rowCount: 1000 });
+    const reads = [];
+    result.current.measure(0, rowWithTop(0, reads));
+    result.current.measure(1, rowWithTop(50, reads));
+    expect(reads).toEqual([]);
+    act(() => frames.splice(0).forEach((callback) => callback()));
+    expect(reads.sort((a, b) => a - b)).toEqual([0, 50]);
+    const r = result.current;
+    expect(r.padTop + (r.end - r.start) * 50 + r.padBottom).toBeCloseTo(50000, 0);
+  });
+
+  function hookWith(initial) {
+    return renderHook(
+      (props) => {
+        const tableRef = useRef(fakeTable(0));
+        return useRowWindow({
+          rowCount: 200,
+          tableRef,
+          scrollRef: null,
+          hasBefore: () => false,
+          hasAfter: () => false,
+          ...props,
+        });
+      },
+      { initialProps: initial },
+    );
+  }
+
+  it("a table that never windows reads no layout at all", () => {
+    const frames = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => { frames.push(callback); return frames.length; });
+    const { result } = hookWith({ enabled: false, armed: false });
+    const reads = [];
+    for (let i = 0; i < 200; i += 1) result.current.measure(i, rowWithTop(i * 34, reads));
+    act(() => frames.splice(0).forEach((callback) => callback()));
+    expect(reads).toEqual([]);
+    expect(frames).toEqual([]);
+  });
+
+  it("armed: the unwindowed board is read in its own commit and learned once windowing engages", () => {
+    const frames = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => { frames.push(callback); return frames.length; });
+    const { result, rerender } = hookWith({ enabled: false, armed: true });
+    const reads = [];
+    // The full board mounts while widths are being frozen: read now, in the
+    // layout that commit's column freeze forces anyway.
+    for (let i = 0; i < 200; i += 1) result.current.measure(i, rowWithTop(i * 40, reads));
+    expect(reads).toHaveLength(200);
+    // The freeze re-renders synchronously with windowing on, before the frame.
+    rerender({ enabled: true, armed: false });
+    act(() => frames.splice(0).forEach((callback) => callback()));
+    const r = result.current;
+    expect(r.windowed).toBe(true);
+    expect(r.padTop + (r.end - r.start) * 40 + r.padBottom).toBeCloseTo(200 * 40, 0);
+  });
+
+  it("never pairs a commit-time offset with a frame-time offset from another layout", () => {
+    const frames = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => { frames.push(callback); return frames.length; });
+    const { result, rerender } = hookWith({ enabled: false, armed: true });
+    const reads = [];
+    result.current.measure(5, rowWithTop(0, reads));
+    rerender({ enabled: true, armed: false });
+    const before = result.current;
+    // Row 6 is measured under the windowed layout, where spacers moved it.
+    result.current.measure(6, rowWithTop(500, reads));
+    act(() => frames.splice(0).forEach((callback) => callback()));
+    // A 500 px "row" learned across layouts would reshape the whole map.
+    expect(result.current.padBottom).toBe(before.padBottom);
+    expect(result.current.end).toBe(before.end);
+  });
+
+  it("skips a row detached before the drain instead of reading it as 0", () => {
+    const frames = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => { frames.push(callback); return frames.length; });
+    const { result } = windowFor({ rowCount: 1000 });
+    const before = result.current;
+    const reads = [];
+    const gone = rowWithTop(0, reads);
+    result.current.measure(0, gone);
+    result.current.measure(1, rowWithTop(40, reads));
+    gone.isConnected = false;
+    act(() => frames.splice(0).forEach((callback) => callback()));
+    // The detached row is never read; the one connected row alone cannot
+    // form a delta, so nothing is learned and geometry is unchanged.
+    expect(reads).toEqual([40]);
+    expect(result.current).toBe(before);
+  });
+
+  it("measures a re-indexed row only at its latest index", () => {
+    const frames = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => { frames.push(callback); return frames.length; });
+    const { result } = windowFor({ rowCount: 1000 });
+    const before = result.current;
+    const reads = [];
+    const a = rowWithTop(0, reads);
+    const b = rowWithTop(45, reads);
+    // Commit 1 puts a/b at 7/8 (consecutive); a re-sort in the same frame
+    // moves them to 0/3. Their stale 7/8 pairing must not teach a 45 px row.
+    result.current.measure(7, a);
+    result.current.measure(8, b);
+    result.current.measure(0, a);
+    result.current.measure(3, b);
+    act(() => frames.splice(0).forEach((callback) => callback()));
+    expect(result.current).toBe(before);
   });
 
   it("mounts a viewport's worth of rows, not the whole board", () => {
