@@ -1005,6 +1005,14 @@ Binding; supersedes the 2026-08-13/14 "player MVP has no hard playoff-field / >.
 - **Known partial:** the Honors spec §7 per-franchise-week split for traded players is not yet implemented; the
   player is credited to, and gated on, his most recent franchise (the existing award attribution).
 
+**Owner decision — try BALLDONTLIE as a Game Day live-state provider (2026-09-27).**
+ESPN's scoreboard refuses us (403) and its block is not to be bypassed. Validate BALLDONTLIE NFL's real
+capabilities, build it as an adapter behind the ONE live-state owner (`src/nfl_data/live_game_state.py`), run it
+in SHADOW first (no forecast influence), and promote into the selector only on real live-game evidence. The
+outcome is classified A (full) / B (partial: score + status, no trustworthy clock) / C (unsuitable) from that
+evidence. There is no wall-clock inference; missing stays missing. Sleeper keeps fantasy scoring. SportsDataIO's
+adapter is kept and not activated. Nothing is purchased without owner approval. Record and status:
+`docs/game-day/BALLDONTLIE_LIVE_STATE_EVALUATION.md`.
 
 ## Added 2026-09-26 — Championship / playoff odds methodology: two owner decisions awaiting approval
 

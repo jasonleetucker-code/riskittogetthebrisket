@@ -397,6 +397,14 @@ reason named in `freshness.reasons` (`live_game_state.espn:…`,
 `live_game_state.sportsdataio:…`). The request-path seam
 (`matchup_intel._observe_live_state`) is still ESPN-only.
 
+**BALLDONTLIE — shadow only (2026-09-27).** A third provider
+(`src/nfl_data/balldontlie_live_game_state.py`, flag
+`balldontlie_live_game_state`, default OFF, key `BALLDONTLIE_API_KEY`) is read
+by `game_day_live.collect_shadow_live_state` and compared with whichever
+provider the tick selected; it is NOT in the selection order above and never
+reaches lineage, a fingerprint or a forecast. Free tier = partial (status +
+score, no period/clock). Record: `docs/game-day/BALLDONTLIE_LIVE_STATE_EVALUATION.md`.
+
 **Flags.** `game_day_live_game_state` and `sleeper_weekly_projections` default
 ON since U5 (rollback `RISKIT_FEATURE_GAME_DAY_LIVE_GAME_STATE=0` /
 `RISKIT_FEATURE_SLEEPER_WEEKLY_PROJECTIONS=0` + restart; the collector reads

@@ -201,6 +201,11 @@ single authorization record for the batch; ideas inside it do not get their own 
   **Extension authorized (owner, 2026-09-26):** the League MVP team-success gate (playoff field + above .500;
   League MVP only — OPOY / DPOY / ROY / positional ungated). Contract: `docs/OWNER_REQUESTED_TODO.md`
   ("League MVP requires team success"). No VORP, OPOY / DPOY formula or Manager of the Year change.
+* **Game Day live-state provider trial — authorized (owner, 2026-09-27):** a BALLDONTLIE adapter
+  behind the one live-state owner, shadow collection first (flag default OFF, key
+  `BALLDONTLIE_API_KEY`), promotion into the selector only on live-game evidence. Contract:
+  `docs/OWNER_REQUESTED_TODO.md` ("try BALLDONTLIE"); record
+  `docs/game-day/BALLDONTLIE_LIVE_STATE_EVALUATION.md`. No purchase, no ESPN-block bypass, no simulation change.
 * **Preserved rules:** active WORK_CLAIMS and open-PR file ownership win; `data_contract.py` keeps
   one writer at a time; no second canonical owner; §6 do-not-preempt still applies to anything not
   listed above; KTC Value Adjustment stays a market lens; Hill constants move only through the Hill
