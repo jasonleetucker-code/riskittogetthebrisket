@@ -86,6 +86,9 @@ COMMISSIONER_KINDS = frozenset(
         "adjust_budget",
         "confirm_rules",
         "verify_trade",
+        # Server-issued only (not in the HTTP command allow-list): announces
+        # that the commissioner changed WHO holds a seat.  Moves no money.
+        "note_member_change",
     }
 )
 SYSTEM_KINDS = frozenset({"advance"})
@@ -1113,6 +1116,18 @@ def _cmd_withdraw(s: dict, cmd: dict, now: float, events: list) -> dict:
     return {"ok": True}
 
 
+def _cmd_note_member_change(s: dict, cmd: dict, now: float, events: list) -> dict:
+    seat = cmd.get("seat")
+    if seat is not None:
+        _seat(s, seat)
+    change = str(cmd.get("change") or "removed")
+    if change not in ("removed",):
+        raise AuctionError("bad_change", "unknown membership change")
+    # Public and reason-free: the audit log keeps the reason.
+    _ev(events, "member_changed", "public", seat=seat, change=change)
+    return {"ok": True}
+
+
 def _cmd_pause(s: dict, cmd: dict, now: float, events: list) -> dict:
     if s["status"] not in ("running", "draining"):
         raise AuctionError("not_running", "the room is not running", 409)
@@ -1469,6 +1484,7 @@ _HANDLERS = {
     "bid": _cmd_bid,
     "withdraw": _cmd_withdraw,
     "pause": _cmd_pause,
+    "note_member_change": _cmd_note_member_change,
     "resume": _cmd_resume,
     "adjust_budget": _cmd_adjust_budget,
     "offer_trade": _cmd_offer_trade,

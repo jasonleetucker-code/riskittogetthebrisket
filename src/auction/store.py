@@ -162,6 +162,17 @@ CREATE TABLE IF NOT EXISTS awards (
     PRIMARY KEY (room_id, player_id)
 );
 
+CREATE TABLE IF NOT EXISTS route_receipts (
+    user_id INTEGER NOT NULL,
+    key TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    payload_hash TEXT NOT NULL,
+    status INTEGER NOT NULL,
+    body_json TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    PRIMARY KEY (user_id, key)
+);
+
 CREATE TABLE IF NOT EXISTS audit (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     at REAL NOT NULL,

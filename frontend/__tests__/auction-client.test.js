@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { formatActiveSeconds, parseDollars, sendCommand } from "../lib/auction-client.js";
+import { auctionFetch, formatActiveSeconds, parseDollars, sendCommand } from "../lib/auction-client.js";
 import { isPublicPath, isSelfAuthedPagePath } from "../lib/public-routes.js";
 
 afterEach(() => {
@@ -95,5 +95,22 @@ describe("auction pages are self-authenticated, not public", () => {
     expect(isSelfAuthedPagePath("/auctions")).toBe(false);
     expect(isPublicPath("/auction")).toBe(false);
     expect(isPublicPath("/auction/r_abc")).toBe(false);
+  });
+});
+
+describe("auctionFetch — room-changing POSTs always carry an Idempotency-Key", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it("adds a key to a POST that has none, keeps a caller's key, and adds none to GET", async () => {
+    const seen = [];
+    vi.stubGlobal("fetch", async (_url, init) => {
+      seen.push(init.headers || {});
+      return new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } });
+    });
+    await auctionFetch("/rooms/r1/clock", { method: "POST", body: { advanceSeconds: 60 } });
+    await auctionFetch("/rooms/r1/clock", { method: "POST", body: {}, headers: { "Idempotency-Key": "mine-12345" } });
+    await auctionFetch("/rooms/r1/view");
+    expect(seen[0]["Idempotency-Key"]).toMatch(/^[A-Za-z0-9_-]{8,100}$/);
+    expect(seen[1]["Idempotency-Key"]).toBe("mine-12345");
+    expect(seen[2]["Idempotency-Key"]).toBeUndefined();
   });
 });

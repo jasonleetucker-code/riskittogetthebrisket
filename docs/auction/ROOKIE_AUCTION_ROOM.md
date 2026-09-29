@@ -110,7 +110,14 @@ no Sleeper password is ever requested or stored. Passwords: `hashlib.scrypt` wit
 Sessions: 256-bit tokens, SHA-256 stored, HttpOnly + Secure + SameSite=Strict, 30-day absolute
 expiry, revoked on logout / password change. Invites: commissioner-issued, single-use, expiring,
 optionally handle-locked; token stored hashed and shown once. Every mutation requires a same-origin
-`Origin` and an `Idempotency-Key`; login is rate-limited by the existing throttle.
+`Origin`. Every room-changing mutation requires an `Idempotency-Key` and replays its first answer for a retry:
+room commands (command log + receipts), and room creation, invites, mock clock, clone, reset links and member
+removal (`route_receipts`). Sign-in, notification-preference and device routes are idempotent by construction.
+The client attaches a key to every POST. Login is rate-limited by the existing throttle. The site-owner bridge
+account has no password and can never be given one (`/auth/password` → 409 `site_account`). A sign-in that
+replaces another account's cookie ends that account's session and silences its push devices on that browser.
+Removing a person tells them in their inbox and announces "seat changed hands" to the room (no reason, audited
+separately). CSV exports neutralise spreadsheet formulas in names.
 
 Authorization is derived server-side from membership on every request (including after a long-poll
 wait). Clients never send an actor, seat or role. Public projections and events never contain a

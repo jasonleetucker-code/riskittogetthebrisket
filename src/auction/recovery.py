@@ -93,7 +93,7 @@ def issue_reset(
             " VALUES (?,?,NULL,?,'account','Password reset link issued',"
             "'Your commissioner issued a one-time password reset link for your account. If you did not ask for it, tell them.',"
             "'/auction','{}',?,?,0)",
-            (room_id, member_user_id, f"reset:{int(now)}", now, now),
+            (room_id, member_user_id, f"reset:{secrets.token_hex(8)}", now, now),
         )
     return token
 
@@ -172,6 +172,32 @@ def remove_member(
             action="member_removed",
             detail={"member": member_user_id, "seat": m["seat_id"], "reason": reason[:300]},
         )
+        # The person removed is told in their own inbox (they can no longer
+        # open the room, so a room event alone would never reach them).
+        conn.execute(
+            "INSERT INTO notif_inbox (room_id, user_id, seat_id, logical_key, type, title, body, url, data_json, room_now, created_at, is_mock)"
+            " VALUES (?,?,NULL,?,'account','Removed from an auction room',"
+            "'Your commissioner removed you from this auction room. Your seat, money, bids and players stay with the seat. If this is unexpected, contact them.',"
+            "'/auction','{}',?,?,0)",
+            (room_id, member_user_id, f"removed:{secrets.token_hex(8)}", now, now),
+        )
+    # Everyone in the room sees that the seat changed hands (no reason, no
+    # identity beyond the seat).  A separate committed command so it lands in
+    # the replayable log; the removal above stands even if this fails.
+    try:
+        store.execute(
+            room_id,
+            {
+                "kind": "note_member_change",
+                "seat": m["seat_id"],
+                "change": "removed",
+                "actor": {"role": "commissioner", "user": commissioner_id, "seat": None},
+            },
+            user_id=commissioner_id,
+            now_real=now,
+        )
+    except AuctionError:
+        pass
     return {"seat": m["seat_id"]}
 
 

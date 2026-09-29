@@ -23,6 +23,8 @@ from __future__ import annotations
 
 import asyncio
 import csv
+import functools
+import hashlib
 import io
 import json
 import logging
@@ -164,6 +166,24 @@ def _set_cookie(resp: Response, token: str) -> None:
     )
 
 
+def _retire_presented_session(request: Request, new_user_id: int) -> None:
+    """A sign-in that replaces ANOTHER account's cookie on this browser ends
+    that account's session and silences its push devices here, so the old
+    account's alerts never keep arriving on a browser someone else now uses.
+    The same person signing in again keeps their devices."""
+    token = request.cookies.get(COOKIE_NAME)
+    if not token:
+        return
+    prior = accounts.session_user(get_store(), token, _now())
+    if prior is None or prior.id == new_user_id:
+        return
+    from src.auction import notify
+
+    with get_store().write() as conn:
+        notify.disable_devices_for_session(conn, token, _now())
+    accounts.revoke_session(get_store(), token, _now())
+
+
 def _mutation_guard(request: Request) -> JSONResponse | None:
     gate = _gate()
     if gate:
@@ -171,6 +191,74 @@ def _mutation_guard(request: Request) -> JSONResponse | None:
     if not _origin_ok(request):
         return _err("bad_origin", "cross-origin request refused", 403)
     return None
+
+
+def _idempotent_route(fn):
+    """Room-changing routes outside the command log (room creation, invites,
+    mock clock, clone, reset links, member removal) require an
+    ``Idempotency-Key`` and replay their FIRST answer for a retry with the
+    same key, so a retried mock-clock jump never advances twice and a
+    double-submitted clone never makes two rooms.  Same key, different
+    request: 409.  Server errors (5xx) are not recorded, so they can be
+    retried."""
+
+    @functools.wraps(fn)
+    async def wrapper(*args, **kwargs):
+        request: Request = kwargs["request"]
+        guard = _mutation_guard(request)
+        if guard:
+            return guard
+        key = request.headers.get("idempotency-key") or ""
+        if not _IDEM_RE.match(key):
+            return _err(
+                "idempotency_key_required",
+                "send an Idempotency-Key header (8-100 url-safe chars)",
+                400,
+            )
+        user = await run_in_threadpool(_user, request)
+        if user is None:
+            return await fn(*args, **kwargs)
+        raw = await request.body()
+        scope = f"{request.method} {request.url.path}"
+        digest = hashlib.sha256(scope.encode() + b"\n" + raw).hexdigest()
+
+        def _prior():
+            with get_store().read() as conn:
+                return conn.execute(
+                    "SELECT * FROM route_receipts WHERE user_id=? AND key=?", (user.id, key)
+                ).fetchone()
+
+        prior = await run_in_threadpool(_prior)
+        if prior is not None:
+            if prior["payload_hash"] != digest:
+                return _err(
+                    "idempotency_conflict",
+                    "this Idempotency-Key was used for a different request",
+                    409,
+                )
+            return JSONResponse(
+                status_code=int(prior["status"]),
+                content=json.loads(prior["body_json"]),
+                headers={"Idempotent-Replay": "true"},
+            )
+        resp = await fn(*args, **kwargs)
+        if not isinstance(resp, Response):
+            resp = JSONResponse(resp)
+        if resp.status_code < 500 and isinstance(resp, JSONResponse):
+            body_text = bytes(resp.body).decode("utf-8")
+
+            def _save():
+                with get_store().write() as conn:
+                    conn.execute(
+                        "INSERT OR IGNORE INTO route_receipts (user_id, key, scope, payload_hash, status, body_json, created_at)"
+                        " VALUES (?,?,?,?,?,?,?)",
+                        (user.id, key, scope, digest, resp.status_code, body_text, _now()),
+                    )
+
+            await run_in_threadpool(_save)
+        return resp
+
+    return wrapper
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +308,7 @@ async def auth_login(request: Request):
         rate_limit.login_record_failure(ip, throttle_key)
         return _err("bad_credentials", "Handle or password is incorrect.", 401)
     rate_limit.login_record_success(ip, throttle_key)
+    await run_in_threadpool(_retire_presented_session, request, user.id)
     token = await run_in_threadpool(accounts.issue_session, get_store(), user.id, _now())
     resp = JSONResponse({"user": user.public()})
     _set_cookie(resp, token)
@@ -242,6 +331,7 @@ async def auth_site_owner(request: Request):
         display_name=str(session.get("displayName") or session.get("username")),
         now=_now(),
     )
+    await run_in_threadpool(_retire_presented_session, request, user.id)
     token = await run_in_threadpool(accounts.issue_session, get_store(), user.id, _now())
     resp = JSONResponse({"user": user.public()})
     _set_cookie(resp, token)
@@ -343,6 +433,7 @@ async def invite_claim(request: Request):
         return _auction_error(exc)
     resp = JSONResponse({"user": user.public()})
     if existing is None:
+        await run_in_threadpool(_retire_presented_session, request, user.id)
         token = await run_in_threadpool(accounts.issue_session, get_store(), user.id, _now())
         _set_cookie(resp, token)
     return resp
@@ -378,6 +469,7 @@ async def auction_meta(request: Request):
 
 
 @router.post("/rooms")
+@_idempotent_route
 async def create_room(request: Request):
     guard = _mutation_guard(request)
     if guard:
@@ -713,6 +805,7 @@ async def room_receipt(request: Request, room_id: str, key: str):
 
 
 @router.post("/rooms/{room_id}/invites")
+@_idempotent_route
 async def room_invite(request: Request, room_id: str):
     guard = _mutation_guard(request)
     if guard:
@@ -768,6 +861,7 @@ async def room_invite(request: Request, room_id: str):
 
 
 @router.post("/rooms/{room_id}/clock")
+@_idempotent_route
 async def room_clock(request: Request, room_id: str):
     guard = _mutation_guard(request)
     if guard:
@@ -794,6 +888,7 @@ async def room_clock(request: Request, room_id: str):
 
 
 @router.post("/rooms/{room_id}/clone")
+@_idempotent_route
 async def room_clone(request: Request, room_id: str):
     """A NEW mock run from a room's reviewed configuration.  Never promotes a
     played mock and never touches the source room."""
@@ -843,6 +938,15 @@ async def room_clone(request: Request, room_id: str):
     except AuctionError as exc:
         return _auction_error(exc)
     return {"roomId": new_id}
+
+
+def _csv_safe(v: Any) -> Any:
+    """Names come from league members' own Sleeper display names; a leading
+    = + - @ (or tab/CR) would run as a formula in Excel/Sheets.  Numbers pass
+    through untouched."""
+    if isinstance(v, str) and v[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + v
+    return v
 
 
 @router.get("/rooms/{room_id}/export")
@@ -900,7 +1004,7 @@ async def room_export(request: Request, room_id: str, format: str = "json"):
         w = csv.DictWriter(buf, fieldnames=fields)
         w.writeheader()
         for r in rows:
-            w.writerow(r)
+            w.writerow({k: _csv_safe(v) for k, v in r.items()})
         return Response(
             buf.getvalue(),
             media_type="text/csv",
@@ -1377,6 +1481,7 @@ def _require_commissioner(room_id: str, user: accounts.User) -> dict:
 
 
 @router.post("/rooms/{room_id}/members/{member_id}/reset-link")
+@_idempotent_route
 async def member_reset_link(request: Request, room_id: str, member_id: int):
     guard = _mutation_guard(request)
     if guard:
@@ -1416,6 +1521,7 @@ async def auth_reset(request: Request):
             body.get("password"),
             _now(),
         )
+        await run_in_threadpool(_retire_presented_session, request, user.id)
         token = await run_in_threadpool(accounts.issue_session, get_store(), user.id, _now())
     except AuctionError as exc:
         return _auction_error(exc)
@@ -1425,6 +1531,7 @@ async def auth_reset(request: Request):
 
 
 @router.post("/rooms/{room_id}/members/{member_id}/remove")
+@_idempotent_route
 async def member_remove(request: Request, room_id: str, member_id: int):
     guard = _mutation_guard(request)
     if guard:

@@ -29,6 +29,13 @@ export class AuctionRequestError extends Error {
 }
 
 export async function auctionFetch(path, { method = "GET", body, headers = {}, signal } = {}) {
+  // Every room-changing POST carries an Idempotency-Key (the server requires
+  // one on commands, room creation, invites, mock clock, clone, reset links
+  // and removals). One key per call: a double-click is two requests, but a
+  // transport-level retry of THIS request replays the first answer.
+  if (method !== "GET" && !Object.keys(headers).some((h) => h.toLowerCase() === "idempotency-key")) {
+    headers = { ...headers, "Idempotency-Key": newKey() };
+  }
   const res = await fetch(`${BASE}${path}`, {
     method,
     credentials: "same-origin",

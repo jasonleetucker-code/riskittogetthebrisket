@@ -252,8 +252,17 @@ def set_password(store: Store, user_id: int, new_password: str, now: float) -> N
 
 def change_password(store: Store, user: User, current: str, new_password: str, now: float) -> None:
     with store.read() as conn:
-        row = conn.execute("SELECT pw_hash FROM users WHERE id=?", (user.id,)).fetchone()
-    if row["pw_hash"] and not verify_password(current, row["pw_hash"]):
+        row = conn.execute(
+            "SELECT pw_hash, site_username FROM users WHERE id=?", (user.id,)
+        ).fetchone()
+    # The site-owner bridge account has no password and signs in only through
+    # the site's own session; granting it one would let anyone holding its
+    # cookie mint a permanent login that bypasses the site's auth gate.
+    if row["site_username"] or not row["pw_hash"]:
+        raise AuctionError(
+            "site_account", "this account signs in through the site, not a password", 409
+        )
+    if not verify_password(current, row["pw_hash"]):
         raise AuctionError("bad_credentials", "current password is incorrect", 403)
     set_password(store, user.id, new_password, now)
 
