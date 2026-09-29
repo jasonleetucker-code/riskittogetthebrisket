@@ -148,5 +148,7 @@ fi
 backup_one "$DATA_DIR/user_kv.sqlite"
 backup_one "$DATA_DIR/session_store.sqlite"
 backup_one "$DATA_DIR/guest_passes.sqlite"
+# Rookie auction room store (rooms, command log, awards, private bids, accounts).
+backup_one "$DATA_DIR/auction/auction.sqlite"
 prune
 echo "nightly backup complete: $(date -u +%FT%TZ)"

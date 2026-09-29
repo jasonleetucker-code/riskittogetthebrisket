@@ -119,4 +119,22 @@ export function isPublicPath(pathname) {
   return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
-export { PUBLIC_EXACT, PUBLIC_PREFIXES, PRIVATE_EXCEPTIONS };
+/**
+ * Pages that carry their OWN authentication and are therefore NOT gated by
+ * the site session cookie — and are NOT public either (not in robots, the
+ * sitemap or the logged-out nav; `isPublicPath` stays false for them).
+ *
+ * `/auction` is the rookie auction room.  League-mates and invited mock
+ * participants hold an auction-room session (`cu_auction_session`), not a
+ * site login, so the site-cookie redirect would lock out exactly the people
+ * the room is for.  The page renders its own sign-in, and every byte of
+ * room data is authorised server-side by `/api/auction/*` on each request.
+ */
+const SELF_AUTHED_PAGE_PREFIXES = ["/auction"];
+
+export function isSelfAuthedPagePath(pathname) {
+  if (!pathname) return false;
+  return SELF_AUTHED_PAGE_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
+
+export { PUBLIC_EXACT, PUBLIC_PREFIXES, PRIVATE_EXCEPTIONS, SELF_AUTHED_PAGE_PREFIXES };
