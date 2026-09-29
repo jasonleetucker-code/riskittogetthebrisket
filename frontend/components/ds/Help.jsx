@@ -32,7 +32,7 @@
  */
 "use client";
 
-import React, { useCallback, useEffect, useId, useRef, useState } from "react";
+import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "./Button";
 import { Icon } from "./Icon";
 import { Modal } from "./Dialog";
@@ -44,11 +44,35 @@ import { Modal } from "./Dialog";
  *   children  the explanation
  *   side      "top" | "bottom" — popover edge (default bottom)
  */
+// Minimum gap kept between an open popover and either viewport edge.
+const VIEWPORT_MARGIN = 8;
+
 export function InfoTip({ label, children, side = "bottom", className = "" }) {
   const id = useId();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
   const triggerRef = useRef(null);
+  const popoverRef = useRef(null);
+
+  // Keep the popover on screen.  It is anchored to its trigger's left edge
+  // (or right edge with `ds-infotip--end`), which is right for a trigger
+  // near one side and wrong for one mid-screen on a phone: a 320px popover
+  // from a table header in the middle of a 390px viewport ran off one edge
+  // or the other whichever anchor it used.  Measured once per open, before
+  // paint; nothing moves when it already fits (and jsdom, which has no
+  // layout, measures 0 and so shifts nothing).
+  useLayoutEffect(() => {
+    const el = popoverRef.current;
+    if (!open || !el || typeof window === "undefined") return;
+    el.style.transform = "";
+    const rect = el.getBoundingClientRect();
+    const vw = window.innerWidth || document.documentElement.clientWidth || 0;
+    if (!vw || !rect.width) return;
+    let shift = 0;
+    if (rect.right > vw - VIEWPORT_MARGIN) shift = vw - VIEWPORT_MARGIN - rect.right;
+    if (rect.left + shift < VIEWPORT_MARGIN) shift = VIEWPORT_MARGIN - rect.left;
+    if (shift) el.style.transform = `translateX(${Math.round(shift)}px)`;
+  }, [open]);
 
   const close = useCallback(
     ({ refocus = false } = {}) => {
@@ -94,6 +118,7 @@ export function InfoTip({ label, children, side = "bottom", className = "" }) {
       </button>
       {open ? (
         <span
+          ref={popoverRef}
           id={id}
           role="region"
           aria-label={label}

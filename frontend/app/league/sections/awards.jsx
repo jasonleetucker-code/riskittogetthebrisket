@@ -24,6 +24,7 @@ import {
 } from "../shared.jsx";
 import { TradeCard } from "./activity.jsx";
 import { AwardStandings } from "./award-standings.jsx";
+import { AwardsHowItWorks } from "@/components/help/AwardsHelp";
 import styles from "./awards.module.css";
 
 // Award keys whose ``value`` payload carries a player. Player awards render
@@ -739,6 +740,7 @@ function AwardsSection({ managers, data, onNavigate }) {
         <Card
           title="Awards race snapshot"
           subtitle="The weekly leaderboard: player races first, manager and team honors below."
+          action={<AwardsHowItWorks />}
         >
           <div className={styles.toolbar} data-html2canvas-ignore>
             <p className={styles.toolbarCopy}>
@@ -780,7 +782,7 @@ function AwardsSection({ managers, data, onNavigate }) {
             <RaceGroup
               kicker="01"
               title="Player Awards"
-              note="Top three · realized starter value"
+              note="Top three so far"
               races={groupedRaces.players}
               managers={managers}
               onNavigate={onNavigate}
@@ -810,14 +812,23 @@ function AwardsSection({ managers, data, onNavigate }) {
         </Card>
       )}
 
+      {/* Final means Sleeper status "complete" — the same rule the franchise
+          page's "Awards won" counts by.  `isComplete` is also true during
+          "post_season", when playoff-dependent awards are still undecided,
+          so it cannot say "complete" on its own. */}
       {featured && (
         <Card
           title={`${featured.season} awards`}
           subtitle={
-            (featured.isComplete ? "Season complete" : "Season in progress") +
+            (featured.seasonStatus === "complete"
+              ? "Season complete"
+              : featured.isComplete
+                ? "Playoffs underway · current leaders, not final"
+                : "Season in progress · current leaders, not final") +
             " · tap an award for its full history" +
             (upcoming ? ` · ${upcoming} hasn't started yet` : "")
           }
+          action={<AwardsHowItWorks />}
         >
           {featured.hasPlayerScoring === false && (
             <div style={{ fontSize: "0.7rem", color: "var(--subtext)", marginBottom: 8 }}>
@@ -837,7 +848,13 @@ function AwardsSection({ managers, data, onNavigate }) {
           {(featured.awards || []).length === 0 ? (
             <EmptyState
               title="No awards yet"
-              message="Awards will appear once the season has enough games / transactions / trades on record."
+              message={
+                // The backend states WHY (awardsUnavailable) when the season
+                // has not played a game — say that instead of a generic line.
+                featured.awardsUnavailable
+                  ? "This season hasn't played a game yet, so there is nothing to award."
+                  : "Awards will appear once the season has enough games / transactions / trades on record."
+              }
             />
           ) : (() => {
             const groups = groupAwards(featured.awards || []);
@@ -921,8 +938,12 @@ function AwardsSection({ managers, data, onNavigate }) {
                 />
                 <AwardGroup
                   kicker="Postseason"
-                  title="Later This Season"
-                  meta="Playoff honors stay secondary until the bracket begins"
+                  title={featured.isComplete ? "Postseason" : "Later This Season"}
+                  meta={
+                    featured.isComplete
+                      ? "Playoff honors"
+                      : "Playoff honors stay secondary until the bracket begins"
+                  }
                   awards={groups.postseason}
                   renderAward={renderCard}
                   later

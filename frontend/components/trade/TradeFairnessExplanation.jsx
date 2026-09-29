@@ -5,6 +5,17 @@ import { RANKING_SOURCES } from "@/lib/dynasty-data";
 import { percentageGap } from "@/lib/trade-logic";
 
 /**
+ * WHAT THE NUMBERS ARE (corrected 2026-09-29).  The headline percentage is
+ * the VA-adjusted gap between the two PACKAGES (each side lists what it
+ * sends, so the bigger package is the side giving up more).  The per-source
+ * figures are RAW sums of `sourceRankMeta[key].valueContribution` — no
+ * Value Adjustment — and every contributing source key is cited on its own
+ * (correlated sources are not collapsed into one family here).  The copy
+ * says both things instead of implying the per-source numbers are the
+ * verdict's own basis.  The previous docstring claimed this read "the same
+ * field TradeSourceBreakdown uses"; the breakdown prefers native KTC/DLF
+ * values, so the two can differ.
+ *
  * TradeFairnessExplanation — 1-2 sentence prose summary that lives
  * between the TradeMeter (verdict bar) and the TradeSourceBreakdown
  * (per-vendor table).  Operationalises the source-disagreement
@@ -124,10 +135,10 @@ export default function TradeFairnessExplanation({ sides, sideTotals }) {
       // a single source over the blend.
       const biggest = byMagnitude[0];
       if (!biggest || Math.abs(biggest.gap) < MIN_NOTABLE_GAP) {
-        return "Sources broadly agree — every covered board has this trade close to even.";
+        return "The packages are within 3% after Value Adjustment, and every covered source has them close to even.";
       }
       const winnerLabel = biggest.gap > 0 ? labelA : labelB;
-      return `Sources broadly agree this trade is fair. Biggest single disagreement: ${biggest.label} has ${winnerLabel} up by ${Math.round(Math.abs(biggest.gap)).toLocaleString()}.`;
+      return `The packages are within 3% after Value Adjustment. Biggest single-source difference (raw, before Value Adjustment): ${biggest.label} values ${winnerLabel}'s package ${Math.round(Math.abs(biggest.gap)).toLocaleString()} higher.`;
     }
 
     // Lean trade — driver = source most aligned with the overall
@@ -145,19 +156,19 @@ export default function TradeFairnessExplanation({ sides, sideTotals }) {
     if (aligned.length === 0) {
       // Edge case: overall gap exists but no individual source has a
       // gap aligned with it (could happen with weights / VA effects).
-      return `${winnerLabel} leans by ${pctGap}%. The advantage comes from cumulative differences across sources rather than one big driver.`;
+      return `${winnerLabel}'s package is worth ${pctGap}% more after Value Adjustment. No single source drives it; the difference is spread across sources.`;
     }
 
     const driver = aligned[0];
     let parts = [
-      `${winnerLabel} leans by ${pctGap}%.`,
-      `${driver.label} is the biggest driver — they have ${winnerLabel} up by ${Math.round(Math.abs(driver.gap)).toLocaleString()}.`,
+      `${winnerLabel}'s package is worth ${pctGap}% more after Value Adjustment.`,
+      `${driver.label} is the biggest driver — it values ${winnerLabel}'s package ${Math.round(Math.abs(driver.gap)).toLocaleString()} higher (raw).`,
     ];
 
     if (dissenting.length > 0) {
       const dissenter = dissenting[0];
       parts.push(
-        `${dissenter.label} disagrees and has ${otherLabel} winning by ${Math.round(Math.abs(dissenter.gap)).toLocaleString()}.`,
+        `${dissenter.label} disagrees and values ${otherLabel}'s package ${Math.round(Math.abs(dissenter.gap)).toLocaleString()} higher.`,
       );
     }
 

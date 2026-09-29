@@ -43,6 +43,13 @@ import {
   pendingForecast,
   withheldProbabilityReasons,
 } from "@/lib/game-day-view";
+import {
+  BeatMedianTip,
+  GameDayHowItWorks,
+  ProjectedFinishTip,
+  ScoreNowTip,
+  WinChanceTip,
+} from "@/components/help/GameDayHelp";
 import styles from "./game-day.module.css";
 
 const STATE_TONE = { live: "info", final: "neutral", pregame: "neutral" };
@@ -209,6 +216,7 @@ export default function MatchupHero({ payload, refreshing, onRefresh }) {
           {fresh.text}
         </span>
         <span className={styles.heroStatusSpacer} />
+        <GameDayHowItWorks />
         {onRefresh ? (
           // Not `loading`: that disables the button, and disabling a focused
           // control drops keyboard focus mid-refresh.
@@ -226,14 +234,31 @@ export default function MatchupHero({ payload, refreshing, onRefresh }) {
         <thead>
           <tr>
             <th scope="col">Team</th>
-            {mode !== "pregame" ? <th scope="col">{mode === "final" ? "Final score" : "Score now"}</th> : null}
+            {mode === "final" ? <th scope="col">Final score</th> : null}
+            {mode !== "pregame" && mode !== "final" ? (
+              <th scope="col">
+                Score now
+                <ScoreNowTip bestBall={p.lineage?.bestBall} />
+              </th>
+            ) : null}
             {mode === "final" ? (
               <th scope="col">Result</th>
             ) : (
               <>
-                <th scope="col">Projected finish</th>
-                <th scope="col">Win chance</th>
-                {medianShown ? <th scope="col">Beat median</th> : null}
+                <th scope="col">
+                  Projected finish
+                  <ProjectedFinishTip bestBall={p.lineage?.bestBall} />
+                </th>
+                <th scope="col">
+                  Win chance
+                  <WinChanceTip className="ds-infotip--end" />
+                </th>
+                {medianShown ? (
+                  <th scope="col">
+                    Beat median
+                    <BeatMedianTip className="ds-infotip--end" />
+                  </th>
+                ) : null}
               </>
             )}
           </tr>
@@ -285,7 +310,16 @@ export default function MatchupHero({ payload, refreshing, onRefresh }) {
             <p key={line}>{line}</p>
           ))}
           {mode === "live" ? (
-            <p>Points already scored are shown; nothing is estimated for football we cannot see.</p>
+            <>
+              <p>Points already scored are shown; nothing is estimated for football we cannot see.</p>
+              {/* matchup_intel.can_simulate reads EVERY roster in the league,
+                  so the reason above can name a game neither team here
+                  plays in. */}
+              <p>
+                The forecast pauses for the whole league, not just this matchup: every
+                team&apos;s score feeds the same simulation.
+              </p>
+            </>
           ) : null}
         </Banner>
       ) : null}
