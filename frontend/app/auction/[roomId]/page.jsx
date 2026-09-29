@@ -24,6 +24,7 @@ import {
   useNowTicker,
 } from "@/lib/auction-client";
 import { notifyApi, refreshBinding } from "@/lib/auction-notify";
+import { Members, PointsForOrder, Preflight, RulesConfirmation } from "@/components/auction/CommissionerTools";
 import styles from "../auction.module.css";
 
 // Code-split: the optimizer loads only for seat holders, after the room paints.
@@ -746,6 +747,12 @@ function Commissioner({ view, roomId, onAccepted }) {
   const [inviteHandle, setInviteHandle] = useState("");
   const [reason, setReason] = useState("");
   const [err, setErr] = useState(null);
+  const [meta, setMeta] = useState(null);
+  useEffect(() => {
+    auctionFetch("/meta")
+      .then(setMeta)
+      .catch(() => setMeta(null));
+  }, []);
   const setup = pub.status === "setup";
   const humans = new Set((view.commissioner?.members || []).map((m) => m.seat_id).filter(Boolean));
 
@@ -867,6 +874,10 @@ function Commissioner({ view, roomId, onAccepted }) {
           </>
         ) : null}
 
+        <Preflight roomId={roomId} revision={view.revision} />
+        <PointsForOrder view={view} roomId={roomId} run={run} />
+        <RulesConfirmation view={view} run={run} meta={meta} />
+        <Members view={view} roomId={roomId} />
         {(view.commissioner?.pendingTrades || []).map((t) => (
           <div key={t.id} className={styles.col}>
             <p>

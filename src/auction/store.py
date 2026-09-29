@@ -737,6 +737,9 @@ def open_store(path: Path | None = None) -> Store:
         from src.auction import notify
 
         notify.ensure_schema(conn)
+        from src.auction import recovery
+
+        recovery.ensure_schema(conn)
         conn.execute(
             "INSERT OR IGNORE INTO meta (key, value) VALUES ('schema_version', ?)",
             (str(SCHEMA_VERSION),),

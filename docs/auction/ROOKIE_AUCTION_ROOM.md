@@ -153,14 +153,16 @@ path), virtual clock jumps, clone-to-new-run. A played mock is never promoted.
 ## 7. Milestones
 
 - **A — rules engine:** DONE.
-- **B — first playable persistent mock:** DONE (this record).
-- **C — multi-user + Perfect Draft:** invitations/seat permissions/12-user operation are in B; still
-  to do: Perfect Draft adapter reading the room's `spendable`/purchases/leading prices/own maxima
-  (same available balance as the room — owner clarification), auction-dollar trades, mobile pass.
-- **D — notifications & recovery:** Web Push (reuse `src/api/push_delivery.py`) + in-app inbox with
-  deadline-revision-keyed last-hour reminders; tighter off-host backup cadence; audited corrections.
-- **E — rehearsal & release readiness:** adversarial audit, accelerated full drafts, multi-day real
-  clock mocks, owner rule confirmation, launch checklist.
+- **B — first playable persistent mock:** DONE (#1523).
+- **AUC-002 — notifications:** DONE in code (#1524); real-phone delivery awaits the owner's devices.
+- **C — multi-user + Perfect Draft:** DONE (#1526): invitations/seat permissions/12 users, private Perfect
+  Draft advice on the same spendable ledger (§11), auction-dollar trades (§11), mobile layout checked at 375px.
+- **D — notifications & recovery:** DONE in code (readiness PR): reset links, seat replacement, hourly
+  verified backups, outage pause, audited commissioner corrections (budget adjust, trade verification,
+  member removal).
+- **E — rehearsal & release readiness:** tooling DONE (preflight, rule-confirmation screen, points-for
+  preview, duration simulator, launch checklist `docs/auction/LAUNCH_CHECKLIST.md`); the human rehearsals
+  and owner decisions in that checklist remain.
 
 ## 8. Unresolved (owner decisions — none block mocks)
 
@@ -233,3 +235,37 @@ person turns on "[MOCK] pushes", and then capped at 30/hour. Bots have no accoun
 Required real-device rehearsal (owner): iPhone Home Screen + Android Chrome; locked screen/background;
 denied permission; restart/retry; duplicate delivery; expired subscription; overnight hold; deadline
 extension; then nomination turn → push → tap → authenticated room, outbid, leading-again and a $0 win.
+
+## 11. Perfect Draft advice and trades (milestone C)
+
+**Advice** reuses `lib/perfect-draft.js::optimizeDraft` and the canonical roster-context builder
+(`src/api/draft_optimizer_api.get_roster_context`) through `GET /api/auction/rooms/{id}/advice-context`,
+which serves the caller's OWN seat only and applies the same league gate as `/api/draft/roster-context`.
+`lib/auction-advice.js` maps the room: budget = the server's `spendable` (AUC-001); lots led or won are held
+(money and roster room, via `applyDraftProgress`); open lots ≥ price + $1; un-nominated rookies priced by a
+labelled value-share estimate; unvalued rookies left out. It runs in the manager's browser, is lazy-loaded,
+keeps its strategy on the device, and never bids. The inherited $1 floors in the canonical owner
+(`priceBand`, `contestedPrice`, the /draft panel's price) were removed — $0 is a real price.
+
+**Trades** (engine-owned): versioned offers; open offers do NOT reserve money; settlement is atomic and
+re-checks spendable money and lot ownership; won players move with dollars (`winner` history kept, `owner`
+moves); external assets are a note that requires audited commissioner verification; no acceptance during a
+pause; received money reactivates capped proxies.
+
+## 12. Readiness tooling (milestones D/E)
+
+- **Reset links** (`recovery.issue_reset` / `POST /auth/reset`): single-use, 24 h, hashed, audited; the member's
+  inbox records the issue; use revokes every session (silencing their devices). A commissioner-issued link
+  could be used by the commissioner — inherent, so it is audited and announced, not hidden.
+- **Replace a person**: removes the member (audited reason); the SEAT keeps its money, bids and players; a
+  fresh invite binds the new person.
+- **Preflight**: seats claimed, budgets + provenance, pool approval, rule confirmations, order basis, push keys,
+  last verified backup, room type.
+- **Points-for preview**: reads Sleeper, states the season and whether it is final, flags ties; applying is a
+  separate audited `set_order`.
+- **Hourly verified backups**: `scripts/auction_backup_verify.py` via the `dynasty-auction-backup` timer —
+  online copy → restore into a scratch store → replay every room → keep + record. On-host.
+- **Duration** (`scripts/auction_simulate.py`, 12 seeded bots, proposed official timing): median ≈ 31.3
+  calendar days (30.5–31.5, 3 rooms); ≈ 31.5 with up to 6 active hours of nomination latency. The 65-hour lot
+  clock, not nomination speed, sets the length, because 12 lots run in parallel. Bots do not bid late, so real
+  late-bid extensions make ~31 days a floor, not a forecast.
