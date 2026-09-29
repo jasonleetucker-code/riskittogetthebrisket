@@ -113,7 +113,7 @@ export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
           pill when backend returns 503.  Wrapped in ResilientSection
           so an MC-panel crash doesn't take down the trade meter. */}
       <ResilientSection name="Monte Carlo panel">
-        <MonteCarloButton sides={sides} />
+        <MonteCarloButton sides={sides} sidesSend={sidesSend} />
       </ResilientSection>
     </div>
   );

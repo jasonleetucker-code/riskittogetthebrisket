@@ -54,7 +54,7 @@ import styles from "./game-day.module.css";
 
 const STATE_TONE = { live: "info", final: "neutral", pregame: "neutral" };
 
-function ScoreCell({ side, mode }) {
+function ScoreCell({ side, mode, managed = false }) {
   if (mode === "pregame") return null;
   const lineup = side?.actualLineup;
   const sn = side?.scoreNow;
@@ -83,7 +83,10 @@ function ScoreCell({ side, mode }) {
   if (differs) {
     const other = formatPoints(mode === "final" ? ours : host);
     if (other !== null) {
-      notes.push(mode === "final" ? `Best-ball lineup ${other}` : `Sleeper shows ${other}`);
+      // A managed league's lineup is the submitted one, not a best-ball
+      // re-pick (game_day_week.actual_lineup's managed branch).
+      const ours = managed ? "Our lineup total" : "Best-ball lineup";
+      notes.push(mode === "final" ? `${ours} ${other}` : `Sleeper shows ${other}`);
     }
   }
   return (
@@ -163,7 +166,7 @@ function OutcomeCells({ side, mode, medianShown, pending }) {
   );
 }
 
-function SideRow({ side, role, mode, medianShown, selected, pending }) {
+function SideRow({ side, role, mode, medianShown, selected, pending, managed }) {
   return (
     <tr className={selected ? styles.selectedRow : undefined}>
       <th scope="row" className={styles.sideCell}>
@@ -177,7 +180,7 @@ function SideRow({ side, role, mode, medianShown, selected, pending }) {
           </span>
         ) : null}
       </th>
-      <ScoreCell side={side} mode={mode} />
+      <ScoreCell side={side} mode={mode} managed={managed} />
       <OutcomeCells side={side} mode={mode} medianShown={medianShown} pending={pending} />
     </tr>
   );
@@ -270,6 +273,7 @@ export default function MatchupHero({ payload, refreshing, onRefresh }) {
             mode={mode}
             medianShown={medianShown}
             pending={pending !== null}
+            managed={p.lineage?.bestBall === false}
             selected
           />
           {opponent ? (
@@ -279,6 +283,7 @@ export default function MatchupHero({ payload, refreshing, onRefresh }) {
               mode={mode}
               medianShown={medianShown}
               pending={pending !== null}
+              managed={p.lineage?.bestBall === false}
             />
           ) : null}
         </tbody>

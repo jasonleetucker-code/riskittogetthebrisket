@@ -10,8 +10,11 @@
  *                    lineup (src/ros/lineup.py), managed leagues use the
  *                    submitted starters.  Scores of record are Sleeper's
  *                    player points (src/ros/game_day_live.py).
- *   Projected finish src/ros/game_day_sim.py — mean of 10,000 simulated
- *                    final totals; P10–P90 is the 80% range.  Remaining
+ *   Projected finish src/ros/game_day_sim.py — mean of the simulated final
+ *                    totals; P10–P90 is the 80% range.  The served draw
+ *                    count is matchup_intel.DEFAULT_DRAWS (2,000 today, NOT
+ *                    game_day_sim's 10,000 default) and Data info prints
+ *                    the real number, so this copy states no count.  Remaining
  *                    production = weekly projection (locked at kickoff;
  *                    preseason average as the fallback) × share of
  *                    regulation left (game_day_week.py).  Players are drawn
@@ -61,7 +64,8 @@ export function ProjectedFinishTip({ bestBall, className }) {
   return (
     <InfoTip label="Projected finish" className={className}>
       <p>
-        The average final score over 10,000 simulated weeks: points already scored plus
+        The average final score over thousands of simulated weeks (the exact count is under
+        Data info): points already scored plus
         each player&apos;s remaining projection, counted for {lineupWords(bestBall)}.
         The 80% range is the 10th to 90th percentile of those simulations.
       </p>
@@ -159,7 +163,7 @@ export function GameDayHowItWorks() {
 
       <h3>Win chance and median</h3>
       <p>
-        Win chance is the share of 10,000 simulated weeks this team finishes strictly
+        Win chance is the share of simulated weeks in which this team finishes strictly
         ahead of its opponent. Beat median, shown only in leagues with a weekly median
         game, is the share of the same simulated weeks it finishes strictly above that
         week&apos;s league median. Both are model estimates whose accuracy against real

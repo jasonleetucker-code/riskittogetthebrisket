@@ -26,11 +26,16 @@ import {
   WinChanceTip,
 } from "@/components/help/GameDayHelp";
 import { AwardsHowItWorks } from "@/components/help/AwardsHelp";
+import { _renderPlainSummary } from "@/components/ui/MonteCarloButton";
 import { SimulationPanel, confidenceMeta, SUGGESTION_RAIL_LABELS } from "@/app/trade/trade-sections";
 
 async function openHelp(user, buttonName, dialogName) {
   await user.click(screen.getByRole("button", { name: buttonName }));
-  return screen.getByRole("dialog", { name: dialogName });
+  const dialog = screen.getByRole("dialog", { name: dialogName });
+  // The trade body is code-split (React.lazy) to keep /trade under its
+  // chunk budget; wait for real content rather than the skeleton.
+  await within(dialog).findAllByRole("heading", { level: 3 });
+  return dialog;
 }
 
 const sides = [
@@ -70,9 +75,23 @@ describe("trade verdict wording follows the side model", () => {
       />,
     );
     const note = screen.getByRole("note");
-    expect(note.textContent).toContain("Side A's package is worth 20% more after Value Adjustment.");
+    expect(note.textContent).toContain("Side A's package is worth 20% more after adjustments.");
     expect(note.textContent).toContain("(raw)");
     expect(note.textContent).not.toMatch(/leans by|winning by/);
+  });
+});
+
+describe("Monte Carlo summary on /trade names the package, not a winner", () => {
+  it("a bigger Side A package means Side B receives more", () => {
+    const s = _renderPlainSummary({ winProbA: 0.9, nSims: 2000 }, sides, true);
+    expect(s.headline).toBe("Side A's package is clearly worth more.");
+    expect(s.subline).toContain("Side B would receive more value");
+    expect(s.tone).toBe("strong");
+  });
+  it("keeps the original wording off /trade", () => {
+    expect(_renderPlainSummary({ winProbA: 0.9, nSims: 2000 }, sides).headline).toBe(
+      "Side A is the clear winner.",
+    );
   });
 });
 
@@ -224,6 +243,15 @@ describe("Game Day tips", () => {
     expect(screen.getByRole("region", { name: "Beat median" }).textContent).toContain(
       "a tie, not a win",
     );
+  });
+
+  it("states no simulation count (the served count lives in Data info)", async () => {
+    // matchup_intel.DEFAULT_DRAWS (2,000) is what is served, not
+    // game_day_sim's 10,000 default; a literal here drifted once already.
+    const user = userEvent.setup();
+    render(<GameDayHowItWorks />);
+    const dialog = await openHelp(user, /How this works/, "How Game Day works");
+    expect(dialog.textContent).not.toMatch(/\d[\d,]* simulated weeks/);
   });
 
   it("How it works: pauses are league-wide and nothing is set on Sleeper", async () => {
