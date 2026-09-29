@@ -1,15 +1,15 @@
 {
- "generatedAt": "2026-09-29T13:23:12.707743+00:00",
+ "generatedAt": "2026-09-29T19:42:08.302208+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 2065,
+ "calls": 2067,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 2042,
+ "v2Same": 2044,
  "v2WouldChange": 23,
  "v2Examples": [
   {
@@ -175,7 +175,7 @@
   {
    "name": "Jamarion Miller",
    "pos": "",
-   "served": "12103",
+   "served": "13403",
    "engineV2": null,
    "v2Method": "none",
    "v2Reason": "no_candidate"
