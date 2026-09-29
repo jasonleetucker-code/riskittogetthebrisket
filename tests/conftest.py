@@ -5,6 +5,7 @@ from __future__ import annotations
 import itertools
 import os
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 
@@ -346,3 +347,19 @@ def pytest_collection_modifyitems(config, items):
             continue
         if fname in _LIVEDATA_MODULES:
             item.add_marker(pytest.mark.livedata)
+
+
+@pytest.fixture(autouse=True)
+def _reset_overlay_content_memos():
+    """``server``'s overlay content identity memos are process-global and
+    keyed by (leagueId, overlayFetchedAt).  Production mints a unique stamp
+    per fetch, but tests reuse fixed stamps with different content, so a
+    memo left by one test would hand the next one a stale fingerprint.
+    Cleared only when ``server`` is already imported -- never imports it."""
+    srv = sys.modules.get("server")
+    if srv is not None:
+        for name in ("_OVERLAY_CONTENT_FP", "_OVERLAY_FP_LAST_SEEN"):
+            memo = getattr(srv, name, None)
+            if isinstance(memo, dict):
+                memo.clear()
+    yield
