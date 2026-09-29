@@ -131,20 +131,32 @@ def test_the_run_timeout_still_applies(monkeypatch):
     assert unwound.is_set()
 
 
-def test_cancelling_the_scrape_cancels_the_scraper_coroutine(monkeypatch):
+def _cancellable_scrape(monkeypatch):
     started = threading.Event()
-    cancelled = threading.Event()
+    state = {"cancelled": False, "lock_held_while_unwinding": None}
 
     async def run(progress_callback=None):
         started.set()
         try:
-            await asyncio.sleep(30)
+            while True:
+                await asyncio.sleep(0.05)
         except asyncio.CancelledError:
-            cancelled.set()  # Playwright's ``async with`` unwinds here
+            state["cancelled"] = True  # Playwright's ``async with`` unwinds here
+            time.sleep(0.3)  # unwinding takes a moment (closing the browser)
+            state["lock_held_while_unwinding"] = server.scrape_run_lock.locked()
             raise
 
     monkeypatch.setattr(server, "_import_scraper_module", lambda: _scraper(run))
     monkeypatch.setattr(server, "send_alert", lambda *a, **k: None)
+    return started, state
+
+
+def _scraper_threads_alive():
+    return [t for t in threading.enumerate() if t.name == "scraper-run" and t.is_alive()]
+
+
+def test_cancelling_the_scrape_cancels_the_scraper_coroutine(monkeypatch):
+    started, state = _cancellable_scrape(monkeypatch)
 
     async def scenario():
         scrape = asyncio.create_task(server.run_scraper(trigger="test"))
@@ -157,11 +169,41 @@ def test_cancelling_the_scrape_cancels_the_scraper_coroutine(monkeypatch):
         return "returned"
 
     t0 = time.monotonic()
-    outcome = asyncio.run(scenario())
-    assert cancelled.is_set(), "the scraper coroutine was never cancelled"
+    assert asyncio.run(scenario()) == "cancelled"
+    assert state["cancelled"], "the scraper coroutine was never cancelled"
     assert time.monotonic() - t0 < 10
-    assert outcome in {"cancelled", "returned"}
+    assert not _scraper_threads_alive()
+    # The scrape still owned the lock while it unwound; released after.
+    assert state["lock_held_while_unwinding"] is True
     assert not server.scrape_run_lock.locked()
+
+
+def test_a_second_cancel_during_shutdown_still_cancels_the_worker(monkeypatch):
+    """Lifespan shutdown cancels the scrape task, then the server runner
+    cancels every remaining task again: the second cancel must neither skip
+    the worker cancel nor return before the worker has unwound."""
+    started, state = _cancellable_scrape(monkeypatch)
+
+    async def scenario():
+        scrape = asyncio.create_task(server.run_scraper(trigger="test"))
+        assert await asyncio.to_thread(started.wait, 5)
+        scrape.cancel()
+        await asyncio.sleep(0)
+        scrape.cancel()
+        await asyncio.sleep(0)
+        scrape.cancel()
+        try:
+            await scrape
+        except asyncio.CancelledError:
+            return "cancelled"
+        return "returned"
+
+    t0 = time.monotonic()
+    assert asyncio.run(scenario()) == "cancelled"
+    assert state["cancelled"], "a repeated cancel skipped cancelling the worker"
+    assert time.monotonic() - t0 < 10
+    assert not _scraper_threads_alive()
+    assert state["lock_held_while_unwinding"] is True
 
 
 def test_a_worker_thread_loop_can_spawn_subprocesses():

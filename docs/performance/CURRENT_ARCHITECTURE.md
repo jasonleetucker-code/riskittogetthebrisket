@@ -475,14 +475,19 @@ every scheduled scrape (~2 h) and every restart. Same defect class as the import
 2026-09-16 (`_import_scraper_module`, 144 s), one phase later.
 
 **Change** (`server.py::_run_scraper_off_loop`): `scraper.run()` executes on its own event
-loop in a worker thread. Progress payloads are marshalled back with `call_soon_threadsafe`
-(FIFO, applied before the worker's completion is delivered), so `scrape_status` stays
-single-threaded and ordered. The run timeout is applied inside the worker loop as before;
-cancelling the scrape cancels the scraper task in its loop so Playwright unwinds.
+loop in a dedicated `scraper-run` thread (not the shared default executor). Progress payloads
+are marshalled back with `call_soon_threadsafe` (FIFO, applied before the worker's completion
+is delivered), so `scrape_status` stays single-threaded and ordered. The run timeout is
+applied inside the worker loop as before. Cancelling the scrape -- any number of times, as
+shutdown does (lifespan, then the server runner) -- cancels the scraper task in its loop and
+does not return until the worker has unwound, so `scrape_run_lock` and the Chromium reaper in
+`_finalize_scrape_run` never act under a live scrape. Independent review found the first
+version returned early on a second cancel (reproduced); fixed and pinned by a double-cancel
+test.
 
-**What it does not remove.** The synchronous span still competes for the GIL: requests
-during a scrape can be slower, and a single long C-level call (e.g. `json.dump` of the
-dashboard) still holds the GIL for its own duration. Full process isolation is the next step
+**What it does not remove.** The synchronous span still competes for the GIL, so requests
+during a scrape can be slower, and any single long C-level call inside it holds the GIL for
+its own duration. Full process isolation is the next step
 if production remeasurement shows residual stalls. New concurrency this introduces, checked:
 the one request-time reader of scraper output files
 (`_latest_cached_contract_from_disk`, cold start only) already skips unreadable files to the

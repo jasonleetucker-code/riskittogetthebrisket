@@ -1584,9 +1584,10 @@ async def _run_scraper_off_loop(scraper, worker_id: str, timeout: float):
     Progress payloads are marshalled back with ``call_soon_threadsafe``:
     FIFO on this loop, applied before the worker's completion is delivered,
     so ``scrape_status`` stays single-threaded and in order.  The timeout
-    is applied inside the worker loop, exactly as before; cancelling this
-    coroutine cancels the scraper task in its loop (so Playwright closes
-    its browser) and waits for it to unwind.
+    is applied inside the worker loop, exactly as before.  Cancelling this
+    coroutine -- any number of times -- cancels the scraper task in its loop
+    (so Playwright closes its browser at its next ``await``) and does not
+    return until the worker has unwound.
     """
     main_loop = asyncio.get_running_loop()
     handle: dict = {}
@@ -1603,28 +1604,65 @@ async def _run_scraper_off_loop(scraper, worker_id: str, timeout: float):
             raise asyncio.CancelledError
         return await asyncio.wait_for(scraper.run(progress_callback=_progress), timeout=timeout)
 
+    future = main_loop.create_future()
+
+    def _settle(result, exc):
+        if future.done():
+            return
+        if isinstance(exc, asyncio.CancelledError):
+            future.cancel()
+        elif exc is not None:
+            future.set_exception(exc)
+        else:
+            future.set_result(result)
+
     def _worker():
         try:
-            return asyncio.run(_inner())
+            outcome = (asyncio.run(_inner()), None)
+        except BaseException as exc:  # noqa: BLE001 -- delivered to the awaiting coroutine
+            outcome = (None, exc)
         finally:
             ready.set()
+        try:
+            main_loop.call_soon_threadsafe(_settle, *outcome)
+        except RuntimeError:
+            pass  # the server loop is already closed (process exit)
 
-    future = main_loop.run_in_executor(None, _worker)
+    def _cancel_worker():
+        # Race-free without waiting: the worker publishes its loop/task and
+        # sets ``ready`` BEFORE it reads ``cancelled``, and we set
+        # ``cancelled`` before reading ``ready`` -- so either the worker
+        # sees the flag, or its task gets cancelled here (or both).
+        handle["cancelled"] = True
+        if not ready.is_set():
+            return
+        loop, task = handle.get("loop"), handle.get("task")
+        if loop is None or task is None:
+            return
+        try:
+            loop.call_soon_threadsafe(task.cancel)
+        except RuntimeError:
+            pass  # the worker loop already finished
+
+    # A dedicated thread, not the shared default executor: the run holds it
+    # for minutes (up to the timeout), and every ``asyncio.to_thread`` in the
+    # server shares that pool.
+    threading.Thread(target=_worker, name="scraper-run", daemon=False).start()
     try:
         return await asyncio.shield(future)
     except asyncio.CancelledError:
-        handle["cancelled"] = True
-        await asyncio.to_thread(ready.wait, 5)
-        loop, task = handle.get("loop"), handle.get("task")
-        if loop is not None and task is not None and not loop.is_closed():
+        # Shutdown cancels more than once (lifespan, then the server runner).
+        # Re-deliver on every cancel and do not return until the worker has
+        # unwound: returning early would release ``scrape_run_lock`` and let
+        # ``_finalize_scrape_run`` reap Chromium under a live scrape.
+        _cancel_worker()
+        while not future.done():
             try:
-                loop.call_soon_threadsafe(task.cancel)
-            except RuntimeError:
-                pass  # the worker loop already finished
-        try:
-            await future
-        except BaseException:  # noqa: BLE001 -- unwinding; the cancel is re-raised
-            pass
+                await asyncio.shield(future)
+            except asyncio.CancelledError:
+                _cancel_worker()
+            except BaseException:  # noqa: BLE001 -- unwinding; the cancel is re-raised
+                break
         raise
 
 
@@ -3103,7 +3141,9 @@ def _record_source_dataset_state() -> None:
 async def run_scraper(trigger: str = "manual") -> dict | None:
     """
     Import and run the scraper, returning the dashboard JSON dict.
-    Runs in the same event loop as the server.
+    ``scraper.run()`` itself executes on its own loop in a worker thread
+    (``_run_scraper_off_loop``); the rest of this coroutine runs on the
+    server loop.
     """
     global latest_data
     _reconcile_orphaned_running_state()
