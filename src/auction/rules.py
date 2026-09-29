@@ -58,6 +58,7 @@ PROPOSED_RULE_KEYS: dict[str, str] = {
     "money_spent_end": "All money spent = every settled balance is $0: stop new nominations, drain open auctions normally, then complete",
     "rights_exhausted_end": "When every nomination opportunity is used or passed, drain open auctions and finish with unspent balances disclosed",
     "commissioner_corrections": "Commissioner corrections are audited compensating events with a reason; never deletion; never revealing hidden maxima",
+    "open_trade_offers": "An open auction-dollar trade offer does NOT reserve money; acceptance settles atomically and re-checks spendable money (after leading-bid reservations) and ownership, and fails if either no longer holds",
 }
 
 TIMING_PRESETS: dict[str, dict[str, Any]] = {
