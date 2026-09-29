@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import time
 import unittest
 
 try:
@@ -59,6 +60,17 @@ class PublicOverviewMemoTests(unittest.TestCase):
         # test process; neither inherit nor leak it.
         rate_limit.reset_for_tests()
         self.addCleanup(rate_limit.reset_for_tests)
+        # Quiesce first.  A background snapshot refresh left running by an
+        # earlier test builds the contract with the REAL (uncounted) builder
+        # and seeds these memos when it lands; landing after the clears below
+        # would serve this test from a build it never counted (seen in CI's
+        # full suite: 0 builds where 1 was expected).  Wait for it, then pin
+        # a fresh snapshot so no new refresh starts mid-test.
+        self._wait_for_snapshot_refresh()
+        if self.server._public_league_cache.get("snapshot") is None:
+            self.server._get_public_snapshot()
+        self.server._public_league_cache["fetched_at"] = time.time()
+        self._wait_for_snapshot_refresh()
         with self.server._PUBLIC_CONTRACT_BYTES_LOCK:
             self.server._PUBLIC_CONTRACT_BYTES_CACHE.clear()
         self.server._PUBLIC_OVERVIEW_CACHE.clear()
@@ -71,6 +83,14 @@ class PublicOverviewMemoTests(unittest.TestCase):
             return self._real(*args, **kwargs)
 
         self.server.build_public_contract = counting
+
+    def _wait_for_snapshot_refresh(self) -> None:
+        deadline = time.monotonic() + 30
+        while self.server._public_league_cache.get("refreshing") and time.monotonic() < deadline:
+            time.sleep(0.02)
+        self.assertFalse(
+            self.server._public_league_cache.get("refreshing"), "snapshot refresh never finished"
+        )
 
     def tearDown(self) -> None:
         self.server.build_public_contract = self._real
