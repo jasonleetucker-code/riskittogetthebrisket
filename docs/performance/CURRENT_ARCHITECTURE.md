@@ -556,3 +556,35 @@ remeasurement decides whether the outliers are gone; a chunked or out-of-process
 the next candidate if they are not. Independent review: request-changes, four findings
 (test clock, older-generation overwrite, cache lifetime of superseded bytes, cancelled-task
 bookkeeping), all applied and sabotage-verified.
+
+### September 29 — the scraper's run phase moved off the event loop
+
+**Measured defect.** Production probes of `/api/health` (healthy round trip ~0.4 s) timed
+out with no response at **20 s** (21:46:47 UTC) and **40 s** (22:52:49, three minutes after a
+restart) on 2026-09-28. Scrape telemetry places the cause: `Dynasty Scraper.py::run` is
+`async def`, but between its `health_report` and `build_payload` phases it runs ~3,000 lines
+(3649-6712) of synchronous merge/normalization with no `await` — **~68 s** in the telemetry
+of 2026-09-24 (`health_report` 11:12:56 -> `build_payload` 11:14:05). `run_scraper` awaited it
+on the server's single event-loop thread, so every request went unserved for that span, on
+every scheduled scrape (~2 h) and every restart. Same defect class as the import phase fixed
+2026-09-16 (`_import_scraper_module`, 144 s), one phase later.
+
+**Change** (`server.py::_run_scraper_off_loop`): `scraper.run()` executes on its own event
+loop in a dedicated `scraper-run` thread (not the shared default executor). Progress payloads
+are marshalled back with `call_soon_threadsafe` (FIFO, applied before the worker's completion
+is delivered), so `scrape_status` stays single-threaded and ordered. The run timeout is
+applied inside the worker loop as before. Cancelling the scrape -- any number of times, as
+shutdown does (lifespan, then the server runner) -- cancels the scraper task in its loop and
+does not return until the worker has unwound, so `scrape_run_lock` and the Chromium reaper in
+`_finalize_scrape_run` never act under a live scrape. Independent review found the first
+version returned early on a second cancel (reproduced); fixed and pinned by a double-cancel
+test.
+
+**What it does not remove.** The synchronous span still competes for the GIL, so requests
+during a scrape can be slower, and any single long C-level call inside it holds the GIL for
+its own duration. Full process isolation is the next step
+if production remeasurement shows residual stalls. New concurrency this introduces, checked:
+the one request-time reader of scraper output files
+(`_latest_cached_contract_from_disk`, cold start only) already skips unreadable files to the
+next-older export; all other readers run at startup or after the scrape returns.
+
