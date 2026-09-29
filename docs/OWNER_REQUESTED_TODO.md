@@ -984,7 +984,19 @@ Owner-approved; the authorization record is the League Hub Awards pointer in `do
     recorded the conflict between the clarification (League MVP gated on a playoff-field, above-.500 franchise) and
     the 2026-08-14 amendment (no hard gate). The owner ruled for the gate on League MVP only.
 
-**Owner decision — trade stack effect converts at the league pool rate (2026-09-29).**
+**Owner directive — draft-capital stack effect WITHDRAWN from trade totals; informational only (2026-09-29).**
+Active; supersedes the two same-day entries directly below (kept for history). The stack effect must not affect
+side totals, the verdict, fairness classification, multi-team comparisons, side flows, balancer suggestions, or any
+recommendation driven by package totals. Adjusted package total = raw canonical package value + Value Adjustment.
+The stack effect stays visible, labelled "experimental, not calibrated. Not included in the totals or verdict." No
+zero clamp; no quick recalibration. Implemented by #1527 (guard: `frontend/__tests__/trade-stack-withdrawn.test.js`).
+Future rebuild recorded in Calculator Ideas as issue #1529 — planning position **LATER** (depends on a canonical
+draft-year universe and canonical pick ownership), **NOT AUTHORIZED**; prerequisites S1-S8 and the validation plan
+live there. The league-pool-rate attempt is historical evidence of an insufficient calibration, not an accepted
+method. The Rookie Auction Room's dollar ledger is a separate concept and is not affected.
+
+**Owner decision — trade stack effect converts at the league pool rate (2026-09-29).** *(Superseded the same day —
+see the directive above.)*
 Owner report: the trade meter showed Side A at -2,603 after two 2029 late picks moved to it. Cause: the draft-capital
 stack effect converted league-wide auction-dollar premium shifts into board points at the moved picks' OWN rate (a
 $1-$2 late pick ~1,000+ points per $ vs ~44 for a first), on whole-dollar-rounded effective power -- flagged in the

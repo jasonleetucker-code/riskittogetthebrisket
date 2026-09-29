@@ -1624,29 +1624,6 @@ describe("computeSideFlows", () => {
     expect(flows[2]).toEqual({ given: 0, received: 0, net: 0, adjustment: 0 });
   });
 
-  it("folds the stack premium into net (3-team, stack-aware verdict)", () => {
-    const PK = makeRow("2026 Pick 1.01", 5000, "PICK", "pick");
-    const sides = [
-      { id: 0, label: "A", assets: [PK], destinations: { "2026 Pick 1.01": 1 } },
-      { id: 1, label: "B", assets: [makeRow("WR1", 4000, "WR")], destinations: { WR1: 2 } },
-      { id: 2, label: "C", assets: [makeRow("RB1", 3000, "RB")], destinations: { RB1: 0 } },
-    ];
-    const ctx = {
-      sideTeams: ["TA", "TB", "TC"],
-      leagueStacks: { TA: 120, TB: 300, TC: 90, TD: 80, TE: 70 },
-      moves: [{ from: 0, to: 1, dollars: 60 }],
-      boardPerDollar: 5000 / 60,
-    };
-    const plain = computeSideFlows(sides, "full");
-    const stacked = computeSideFlows(sides, "full", null, ctx);
-    const stackAdj = computeStackAdjustments(3, ctx);
-    for (let i = 0; i < 3; i++) {
-      expect(stacked[i].net).toBeCloseTo(plain[i].net + stackAdj[i], 6);
-    }
-    // The pick recipient (TB, side 1) gains a real premium delta.
-    expect(stackAdj[1]).not.toBe(0);
-  });
-
   it("NET flow always sums to zero across all sides (conservation)", () => {
     const sides = [
       { id: 0, label: "A", assets: [ALLEN, MAHOMES], destinations: { "Josh Allen": 1, "Patrick Mahomes": 2 } },
@@ -2118,48 +2095,3 @@ describe("computeStackAdjustments", () => {
   });
 });
 
-describe("adjustedSideTotals / multiAdjustedSideTotals with stack", () => {
-  const A = makeRow("Player A", 3000, "WR");
-  const PICK = makeRow("2026 Pick 1.02", 4000, "PICK", "pick");
-
-  it("is backward compatible without a stackContext", () => {
-    const [a, b] = adjustedSideTotals([A], [PICK], "full");
-    expect(a.stackAdjustment).toBe(0);
-    expect(b.stackAdjustment).toBe(0);
-    expect(a.adjusted).toBe(a.raw + a.adjustment);
-    expect(b.adjusted).toBe(b.raw + b.adjustment);
-  });
-
-  it("adjusted = raw + adjustment − stackAdjustment (premium reduces what you give)", () => {
-    // B (side 1) sends the pick to A (side 0); A's stack leapfrogs the
-    // field so A GAINS premium (stackAdjustment[0] > 0).  A benefited
-    // from what it received, so A's giving total must go DOWN, not up.
-    const ctx = {
-      sideTeams: ["A", "B"],
-      leagueStacks: { A: 175, B: 180, C: 95, D: 85, E: 75, F: 65 },
-      moves: [{ from: 1, to: 0, dollars: 20 }],
-      boardPerDollar: 1,
-    };
-    const totals = adjustedSideTotals([A], [PICK], "full", null, ctx);
-    for (const t of totals) {
-      expect(t.adjusted).toBeCloseTo(t.raw + t.adjustment - t.stackAdjustment, 6);
-    }
-    expect(totals[0].stackAdjustment).toBeGreaterThan(0);
-    // A receives the leapfrog pick → A appears to give LESS (favored).
-    expect(totals[0].adjusted).toBeLessThan(totals[0].raw + totals[0].adjustment);
-  });
-
-  it("multiAdjustedSideTotals exposes stackAdjustment for 3 sides", () => {
-    const totals = multiAdjustedSideTotals(
-      [[A], [PICK], [makeRow("Player C", 2000, "RB")]],
-      "full",
-      null,
-      null,
-    );
-    expect(totals).toHaveLength(3);
-    for (const t of totals) {
-      expect(t.stackAdjustment).toBe(0);
-      expect(t.adjusted).toBe(t.raw + t.adjustment);
-    }
-  });
-});

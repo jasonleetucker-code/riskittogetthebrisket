@@ -654,16 +654,21 @@ export function valueAdjustmentFromSideArrays(sidesValues) {
 // capital.  Given the routing (which pick auction-$ moves between which
 // teams), recompute the league's zero-sum effective auction power
 // before/after the trade; each team's CHANGE in premium-over-raw is the
-// stack effect of this trade for that team.  It's returned in
-// board-value units, converted at the LEAGUE DRAFT POOL's board-per-$
-// rate (``poolBoardPerDollar``), so it folds straight into the fairness
-// gap, and surfaced explicitly (never a silent verdict shift).
+// stack effect of this trade for that team, in board-value units at the
+// LEAGUE DRAFT POOL's board-per-$ rate (``poolBoardPerDollar``).
 //
-// The rate used to be this trade's own moved-pick board / dollars.  A
-// cheap late pick then set the exchange rate for the WHOLE league-wide
-// premium shift (~1,000+ points per $ for a $1-$2 pick against ~44 for a
-// first), which drove a side's giving total negative on production
-// (owner report 2026-09-29).  Owner decision the same day: the pool rate.
+// INFORMATIONAL ONLY (owner directive 2026-09-29).  No decision helper in
+// this file consumes it -- side totals, the gap/verdict, side flows,
+// imbalance and balancers are raw + Value Adjustment, and none of them
+// accepts a stack input (pinned by __tests__/trade-stack-withdrawn.test.js).
+// The acceptance audit on #1527 found it dominating whole packages through
+// data seams: 2027 picks counted twice in team stacks, synthesized
+// future-pick dollars, picks "sent" by teams that do not hold them, and a
+// 2026/2027 draft-year split.  The retired per-trade moved-pick rate made a
+// $1 late pick price the whole league-wide premium shift at ~1,000+ points
+// per $; the pool rate fixed that defect and not the others.  It returns to
+// the totals only through a new owner-approved methodology meeting the
+// prerequisites recorded in issue #1529 (Calculator Ideas, NOT AUTHORIZED).
 //
 // stackContext = {
 //   sideTeams:      string[]            // side idx → league team (null = unset)
@@ -715,32 +720,20 @@ export function computeStackAdjustments(numSides, stackContext) {
 
 /**
  * Adjusted per-side totals for 2-team trade display.
- * Each entry is { raw, adjustment, adjusted, stackAdjustment } where
- * `adjusted = raw + adjustment + stackAdjustment`.  The KTC value
- * adjustment only credits the recipient side; the draft-capital stack
- * effect (optional `stackContext`) can credit/debit either side.
+ * Each entry is { raw, adjustment, adjusted } where
+ * `adjusted = raw + adjustment` -- the whole of it.  The KTC value
+ * adjustment only credits the recipient side.  The draft-capital stack
+ * effect is informational only and is not an input here.
  */
-export function adjustedSideTotals(
-  sideA,
-  sideB,
-  valueMode,
-  settings = null,
-  stackContext = null,
-) {
+export function adjustedSideTotals(sideA, sideB, valueMode, settings = null) {
   const rawA = sideTotal(sideA, valueMode, settings);
   const rawB = sideTotal(sideB, valueMode, settings);
   const { adjustment, recipientIdx } = computeValueAdjustment(sideA, sideB, valueMode, settings);
   const adjA = recipientIdx === 0 ? adjustment : 0;
   const adjB = recipientIdx === 1 ? adjustment : 0;
-  const [stackA, stackB] = computeStackAdjustments(2, stackContext);
-  // stackX = the premium team X GAINS from the picks it RECEIVES in
-  // this trade (positive = its stack improved).  A side that benefits
-  // from what it's receiving effectively gives up LESS, so the premium
-  // is SUBTRACTED from that side's giving total — never added to the
-  // side that happened to hold the pick.
   return [
-    { raw: rawA, adjustment: adjA, stackAdjustment: stackA, adjusted: rawA + adjA - stackA },
-    { raw: rawB, adjustment: adjB, stackAdjustment: stackB, adjusted: rawB + adjB - stackB },
+    { raw: rawA, adjustment: adjA, adjusted: rawA + adjA },
+    { raw: rawB, adjustment: adjB, adjusted: rawB + adjB },
   ];
 }
 
@@ -755,38 +748,18 @@ export function adjustedSideTotals(
  * @param {string} valueMode
  * @param {object} [settings]
  */
-export function multiAdjustedSideTotals(
-  sides,
-  valueMode,
-  settings = null,
-  stackContext = null,
-) {
+export function multiAdjustedSideTotals(sides, valueMode, settings = null) {
   const adjustments = computeMultiSideAdjustments(sides, valueMode, settings);
-  const stack = computeStackAdjustments(sides.length, stackContext);
   return sides.map((side, i) => {
     const raw = sideTotal(side, valueMode, settings);
     const adjustment = adjustments[i] || 0;
-    const stackAdjustment = stack[i] || 0;
-    return {
-      raw,
-      adjustment,
-      stackAdjustment,
-      // Premium a side gains from what it receives reduces what it
-      // effectively gives up (see adjustedSideTotals).
-      adjusted: raw + adjustment - stackAdjustment,
-    };
+    return { raw, adjustment, adjusted: raw + adjustment };
   });
 }
 
 /** Gap = Side A adjusted total − Side B adjusted total (KTC-style). */
-export function tradeGapAdjusted(
-  sideA,
-  sideB,
-  valueMode,
-  settings = null,
-  stackContext = null,
-) {
-  const totals = adjustedSideTotals(sideA, sideB, valueMode, settings, stackContext);
+export function tradeGapAdjusted(sideA, sideB, valueMode, settings = null) {
+  const totals = adjustedSideTotals(sideA, sideB, valueMode, settings);
   return totals[0].adjusted - totals[1].adjusted;
 }
 
@@ -1273,7 +1246,6 @@ export function isAssetInTrade(sideA, sideB, key) {
  * @param {string} valueMode
  * @param {object}  [opts]
  * @param {object}  [opts.settings]
- * @param {object}  [opts.stackContext]
  * @param {number}  [opts.maxResults=5]
  * @param {number}  [opts.toSideIdx] — destination for the added asset in
  *        N >= 3 trades; defaults to the side netting the least.
@@ -1284,13 +1256,13 @@ export function isAssetInTrade(sideA, sideB, key) {
  *        nothing in the pool improves it.
  */
 export function findBalancers(sides, behindIdx, rosterRows, valueMode, opts = {}) {
-  const { settings = null, stackContext = null, maxResults = 5 } = opts;
+  const { settings = null, maxResults = 5 } = opts;
   if (!Array.isArray(sides) || sides.length < 2) return [];
   if (!Number.isInteger(behindIdx) || behindIdx < 0 || behindIdx >= sides.length) {
     return [];
   }
 
-  const before = tradeImbalance(sides, valueMode, settings, stackContext);
+  const before = tradeImbalance(sides, valueMode, settings);
   if (before.imbalance < VERDICT_NEAR_EVEN) return [];
 
   // In an N >= 3 trade an added asset needs somewhere to go.  Default to
@@ -1316,7 +1288,7 @@ export function findBalancers(sides, behindIdx, rosterRows, valueMode, opts = {}
         destinations: { ...(side?.destinations || {}), [tradeEntryKey(row)]: toSideIdx },
       };
     });
-    return tradeImbalance(next, valueMode, settings, stackContext);
+    return tradeImbalance(next, valueMode, settings);
   };
 
   const scored = [];
@@ -1472,12 +1444,7 @@ export function computeSideFlowAssets(sides) {
  * @param {object} [settings]
  * @returns {{given: number, received: number, net: number}[]}
  */
-export function computeSideFlows(
-  sides,
-  valueMode,
-  settings = null,
-  stackContext = null,
-) {
+export function computeSideFlows(sides, valueMode, settings = null) {
   const n = Array.isArray(sides) ? sides.length : 0;
   const result = [];
   for (let i = 0; i < n; i++) result.push({ given: 0, received: 0, net: 0, adjustment: 0 });
@@ -1537,13 +1504,8 @@ export function computeSideFlows(
       result[dest].received += value;
     }
   }
-  // Fold the draft-capital stack premium into net so the multi-team
-  // verdict bar (which renders from net, not adjusted totals) reflects
-  // the same stack-aware result as the 2-team path.  A team's premium
-  // from the picks it receives is extra value it nets.
-  const stack = computeStackAdjustments(n, stackContext);
   for (let i = 0; i < n; i++) {
-    result[i].net = result[i].received - result[i].given + (stack[i] || 0);
+    result[i].net = result[i].received - result[i].given;
   }
   return result;
 }
@@ -1558,39 +1520,27 @@ export function computeSideFlows(
  * VA-inclusive and this is the one place the imbalance is defined.
  *
  * Returns ``{ imbalance, nets, gap }``:
- *   - ``nets``  — per-side net flow (received − given + stack)
+ *   - ``nets``  — per-side net flow (received − given)
  *   - ``gap``   — the signed 2-team gap (side A minus side B), or
  *                 ``null`` for N >= 3 where "which side is ahead" is not
  *                 a single signed number
  *   - ``imbalance`` — magnitude, comparable across N: ``|gap|`` for
  *                 N = 2, ``max(net) - min(net)`` for N >= 3.
  *
- * KNOWN, PRE-EXISTING, OUT OF SCOPE: the draft-capital stack term is
- * accounted differently by the two paths — ``adjustedSideTotals``
- * debits BOTH sides' stack into the gap while a net flow credits only
- * the side's own.  That difference predates this function, is zero for
- * every trade with no pick routing, and belongs to whoever revisits the
- * stack model.  With no ``stackContext`` the N = 2 identity
+ * The draft-capital stack effect is not an input (informational only,
+ * owner directive 2026-09-29), so the N = 2 identity
  * ``nets[1] === tradeGapAdjusted(A, B)`` holds exactly, and a test pins it.
  */
-export function tradeImbalance(
-  sides,
-  valueMode,
-  settings = null,
-  stackContext = null,
-) {
+export function tradeImbalance(sides, valueMode, settings = null) {
   const n = Array.isArray(sides) ? sides.length : 0;
   if (n < 2) return { imbalance: 0, nets: [], gap: null };
-  const nets = computeSideFlows(sides, valueMode, settings, stackContext).map(
-    (f) => f.net,
-  );
+  const nets = computeSideFlows(sides, valueMode, settings).map((f) => f.net);
   if (n === 2) {
     const gap = tradeGapAdjusted(
       Array.isArray(sides[0]?.assets) ? sides[0].assets : [],
       Array.isArray(sides[1]?.assets) ? sides[1].assets : [],
       valueMode,
       settings,
-      stackContext,
     );
     return { imbalance: Math.abs(gap), nets, gap };
   }

@@ -325,9 +325,9 @@ export default function TradePage() {
   // dominating whole packages (a side at -963; a 5,487 package to 317)
   // through data seams -- 2027 picks counted twice, synthesized
   // future-pick dollars, picks "sent" by teams that do not hold them --
-  // not through the trade.  It returns to the totals only once rebuilt
-  // as an adjustment scoped to the moved picks' own value.  Picks still
-  // need a resolved team on every side they touch for the note.
+  // not through the trade.  It returns to the totals only through an
+  // owner-approved methodology meeting issue #1529's prerequisites.  Picks
+  // still need a resolved team on every side they touch for the note.
   const [draftCapital, setDraftCapital] = useState(null);
   useEffect(() => {
     let alive = true;
@@ -726,7 +726,7 @@ export default function TradePage() {
     }
     return sidesWithOverrides.map((s) => {
       const raw = sideTotal(s.assets, valueMode, settings);
-      return { raw, adjustment: 0, stackAdjustment: 0, adjusted: raw };
+      return { raw, adjustment: 0, adjusted: raw };
     });
   }, [sidesWithOverrides, valueMode, settings]);
 
@@ -2088,16 +2088,17 @@ export default function TradePage() {
           {stackNote && stackNote.some((v) => Math.round(v) !== 0) ? (
             <p
               className={styles.controlsNote}
-              title="Change in each team's zero-sum effective auction power from this pick swap, in board-value units. Not calibrated: it is not included in the side totals or the verdict above."
+              title="Change in each team's zero-sum effective auction power from this pick swap, in board-value units. Experimental and not calibrated, so it is kept out of the package totals, the verdict and the balancing suggestions."
             >
-              Draft-capital stack effect (not calibrated — not included in the totals or
-              verdict) —{" "}
+              <strong>Experimental context</strong> — Draft-capital stack effect
+              (experimental, not calibrated):{" "}
               {stackNote
                 .map((raw, i) => {
                   const v = Math.round(raw);
                   return `Side ${sides[i]?.label ?? i + 1}: ${v > 0 ? "+" : ""}${v}`;
                 })
                 .join(" · ")}
+              . Not included in the totals or verdict.
             </p>
           ) : null}
 
@@ -2209,7 +2210,7 @@ export default function TradePage() {
                       }}
                     />
                   </div>
-                  <div className={`verdict ${colorFromGap(pwGap)}`}>
+                  <div className={`verdict ${colorFromGap(pwGap)}`} data-trade-gap={pwGap}>
                     {verdictFromGap(pwGap)}
                     {pctGap > 0 ? ` (${pctGap}%)` : ""}
                   </div>

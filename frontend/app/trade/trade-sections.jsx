@@ -1199,7 +1199,15 @@ export function SideCard({
             </Button>
           ) : null}
         </div>
-        <div className={styles.sideTotals}>
+        {/* Exact numbers for production arithmetic checks
+            (tests/e2e/specs/prod-auth/trade-stack-withdrawn.spec.js):
+            adjusted = raw + adjustment, nothing else. */}
+        <div
+          className={styles.sideTotals}
+          data-side-total={total.adjusted}
+          data-side-raw={total.raw}
+          data-side-va={total.adjustment}
+        >
           <div className={styles.sideTotal}>
             {Math.round(total.adjusted).toLocaleString()}
           </div>
