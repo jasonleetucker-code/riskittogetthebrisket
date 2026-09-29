@@ -82,8 +82,9 @@ finalized: actual qualification + winning final record). Canonical rule: `docs/B
 §3–§6.
 
 Offensive / Defensive Player of the Year, the Rookie of the Year awards and the positional awards do **not**
-inherit the gate. Manager of the Year keeps its separately validated team-success eligibility. GM/Executive and
-player performance awards remain conceptually separate.
+inherit the gate. ~~Manager of the Year keeps its separately validated team-success eligibility. GM/Executive and
+player performance awards remain conceptually separate.~~ *(Superseded 2026-09-28: ONE unified Manager of the Year,
+no team-success gate, GM/Executive of the Year retired as a separate award — `docs/awards/MANAGER_OF_THE_YEAR_METHODOLOGY.md`.)*
 
 ---
 

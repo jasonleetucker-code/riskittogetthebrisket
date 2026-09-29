@@ -1590,6 +1590,30 @@ def _vorp_board(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """``(vorp rows, excluded positions)`` for one season.
 
+    Thin wrapper over :func:`_vorp_board_with_levels`, which additionally
+    returns the per-position replacement level the board was measured
+    against (the unified Manager of the Year reads that level; see
+    ``manager_of_the_year``).  Identical rows and exclusions.
+    """
+    rows, exclusions, _levels = _vorp_board_with_levels(
+        snapshot, season, regular_season_only=regular_season_only
+    )
+    return rows, exclusions
+
+
+def _vorp_board_with_levels(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    *,
+    regular_season_only: bool,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, float | None]]:
+    """``(vorp rows, excluded positions, replacement level per position)``.
+
+    The third element maps every position that had a started player to its
+    replacement points-per-game, or ``None`` when the position was excluded
+    (unmeasurable -- never 0).  It is the SAME number each VORP row's
+    ``replacementPerGame`` is rounded from; nothing is recomputed.
+
     Replacement-level baseline is per-position (per-game), so injured
     starters who scored a lot per game still rate fairly against
     healthier-but-thinner peers.
@@ -1608,7 +1632,7 @@ def _vorp_board(
     """
     totals = _player_starter_totals(snapshot, season, regular_season_only=regular_season_only)
     if not totals:
-        return [], []
+        return [], [], {}
 
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for rec in totals.values():
@@ -1648,6 +1672,7 @@ def _vorp_board(
     as_of_week = _as_of_week(season)
     out: list[dict[str, Any]] = []
     exclusions: list[dict[str, Any]] = []
+    levels: dict[str, float | None] = {}
     for pos, rows in grouped.items():
         slots = starter_slots.get(pos, 0)
         pool_rows = replacement_pool.get(pos) or []
@@ -1661,6 +1686,7 @@ def _vorp_board(
             if has_bench
             else None
         )
+        levels[pos] = replacement_per_game
         if replacement_per_game is None:
             exclusions.append(
                 {
@@ -1705,7 +1731,7 @@ def _vorp_board(
             )
     out.sort(key=lambda r: -r["vorp"])
     exclusions.sort(key=lambda e: _position_sort_key(e["position"]))
-    return out, exclusions
+    return out, exclusions, levels
 
 
 def _vorp_rows(

@@ -201,6 +201,13 @@ single authorization record for the batch; ideas inside it do not get their own 
   **Extension authorized (owner, 2026-09-26):** the League MVP team-success gate (playoff field + above .500;
   League MVP only — OPOY / DPOY / ROY / positional ungated). Contract: `docs/OWNER_REQUESTED_TODO.md`
   ("League MVP requires team success"). No VORP, OPOY / DPOY formula or Manager of the Year change.
+  **Extension authorized (owner, 2026-09-28): Unified Manager of the Year** — ONE `manager_of_the_year` award,
+  candidate `0.40A + 0.25T + 0.15W + 0.10D + 0.10P`, no playoff/record gate, net-value T/W/D accounting, provisional
+  `/0.90` score before P is final, frozen methodology, 2024/2025/2026 replay, sensitivity + anti-gaming tests, one UI
+  card. Contract: `docs/OWNER_REQUESTED_TODO.md` ("ONE unified Manager of the Year"); record
+  `docs/awards/MANAGER_OF_THE_YEAR_METHODOLOGY.md`. Authorizes implementation, tests, replay and a reviewed
+  candidate only: official historical winners are not rewritten and methodology promotion stays an owner decision.
+  No League MVP / OPOY / DPOY / ROY / positional / Champion / Trader / Waiver King change.
 * **Game Day live-state provider trial — authorized (owner, 2026-09-27):** a BALLDONTLIE adapter
   behind the one live-state owner, shadow collection first (flag default OFF, key
   `BALLDONTLIE_API_KEY`), promotion into the selector only on live-game evidence. Contract:

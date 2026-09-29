@@ -303,7 +303,7 @@ Trade only, not for protection or LOCK/EXCLUDE. Both are fixed on `main` by this
 | spec | destination |
 |---|---|
 | `AI_FRONT_OFFICE_INTELLIGENCE_SPEC.md` | `C7-AI-01`…`C7-AI-05`, `C7-ALERT-01` |
-| `BRISKET_HONORS_ELIGIBILITY_SPEC.md` | `C9-AWARD-02` — **League MVP gate reinstated by owner decision 2026-09-26** (the 2026-08-14 supersession is itself superseded); OPOY/DPOY/ROY/positional ungated; MOTY preserved |
+| `BRISKET_HONORS_ELIGIBILITY_SPEC.md` | `C9-AWARD-02` — **League MVP gate reinstated by owner decision 2026-09-26** (the 2026-08-14 supersession is itself superseded); OPOY/DPOY/ROY/positional ungated; MOTY gate + GMOTY separation **superseded 2026-09-28** by the unified Manager of the Year (`docs/awards/MANAGER_OF_THE_YEAR_METHODOLOGY.md`) |
 | `CANONICAL_WEEKLY_POWER_RANKINGS_SPEC.md` | `C5-POW-01` |
 | `COMPETITOR_REUSE_POLICY.md` | `C0-GOV-08` — scope-bounded to design patterns, not data rights |
 | `GAME_DAY_PROBABILITY_SPEC.md` | `C5-GD-01` |
@@ -410,7 +410,8 @@ dropped: every branch-side entry either resolved to its canonical identifier or 
    (2026-08-13), which had superseded the Honors spec's gate. **Superseded by the owner decision of 2026-09-26:**
    League MVP requires playoff-field membership + a record above .500 again
    (`docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` §3–§6); OPOY / DPOY / ROY / positional awards stay ungated.
-   **Manager of the Year is NOT superseded** — its team-success eligibility rule stands. → `C9-AWARD-02`.
+   ~~**Manager of the Year is NOT superseded** — its team-success eligibility rule stands.~~ **Superseded 2026-09-28:**
+   ONE unified Manager of the Year with no team-success gate (`docs/awards/MANAGER_OF_THE_YEAR_METHODOLOGY.md`). → `C9-AWARD-02`.
 3. **`src/news/unified_signal_engine.py` is "the single entry point for every BUY/SELL/HOLD decision."** A
    docstring ownership claim in a module with zero callers, while six other emitters serve production.
    **Superseded** — the claim is retired and a real reconciler is scope. → `C6-SIG-01`.

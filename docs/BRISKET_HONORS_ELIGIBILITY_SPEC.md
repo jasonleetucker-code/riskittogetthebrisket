@@ -12,9 +12,16 @@
 > with one binding supersession — "player MVP has no hard playoff-field or >.500 eligibility gate", citing
 > `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` §7 — which the owner reversed on 2026-09-26. Kept for provenance only.
 >
-> **Manager of the Year is NOT superseded.** It may retain an appropriately validated team-success eligibility
+> ~~**Manager of the Year is NOT superseded.** It may retain an appropriately validated team-success eligibility
 > rule, exactly as this document states. GM/Executive and player-performance awards stay conceptually separate.
-> No newer owner instruction touches MOTY, so this document remains canonical for it.
+> No newer owner instruction touches MOTY, so this document remains canonical for it.~~
+>
+> **OWNER DECISION — 2026-09-28 (binding; supersedes §8, §9, §13 items 8–9 and the MOTY/GM lines of §14 for
+> Manager of the Year only).** Manager of the Year and GM of the Year are ONE award, `manager_of_the_year`:
+> `0.40·A + 0.25·T + 0.15·W + 0.10·D + 0.10·P` with **no** playoff-field, above-.500, standings or rebuild gate.
+> GM/Executive of the Year is retired as a separate overall award (its metrics are the T/W/D inputs). League MVP
+> keeps this document's §3–§6 gate unchanged. Canonical record: `docs/awards/MANAGER_OF_THE_YEAR_METHODOLOGY.md`;
+> intake: `docs/OWNER_REQUESTED_TODO.md` ("ONE unified Manager of the Year"). §8/§9 below are kept for provenance.
 
 
 **Status:** CANONICAL DETAILED PRODUCT/METHODOLOGY SPEC SUPPLEMENT  
@@ -144,7 +151,7 @@ This prevents a late trade from laundering an entire season of production from a
 
 ---
 
-## 8. Manager of the Year eligibility
+## 8. Manager of the Year eligibility — SUPERSEDED 2026-09-28 (no gate; see banner)
 
 Manager of the Year is a **competition-performance** award and should use the same baseline team-success eligibility gate:
 
@@ -174,7 +181,7 @@ Do not double-count the eligibility condition as a large extra bonus inside the 
 
 ---
 
-## 9. GM of the Year — deliberately NO playoff/winning-record gate
+## 9. GM of the Year — SUPERSEDED 2026-09-28 (merged into the unified Manager of the Year; see banner)
 
 GM of the Year measures **roster construction / asset management**, not simply whether the current team won games.
 
