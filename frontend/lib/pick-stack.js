@@ -97,6 +97,47 @@ export function buildSlotDollarGrid(draftCapital) {
   return grid;
 }
 
+// The league draft pool's exchange rate between auction dollars and
+// board value: sum of the board values of the draft's own picks divided
+// by the dollars those same picks carry.  ONE rate per league board, so
+// the picks a particular trade happens to move cannot set it (owner
+// decision 2026-09-29: the previous per-trade rate priced every dollar
+// of league-wide premium at a $1 sixth-rounder's ~1,300 points per $).
+// Each pick resolves to its slot row ("2027 Pick 5.03"), else its tier
+// row ("2027 Mid 5th"); a pick with no positive dollars or no board row
+// is left out of BOTH sums.  ``null`` when nothing pairs -- the stack
+// effect is then withheld, never priced at a guessed rate.
+export function poolBoardPerDollar(draftCapital, boardValueByName, teamsPerRound = 12) {
+  const picks = draftCapital?.picks;
+  if (!Array.isArray(picks) || typeof boardValueByName !== "function") return null;
+  const fallbackYear = Number(draftCapital?.season);
+  const ord = (r) => `${r}${["th", "st", "nd", "rd"][r] || "th"}`;
+  let board = 0;
+  let dollars = 0;
+  for (const p of picks) {
+    const year = Number(p?.season ?? fallbackYear);
+    const round = Number(p?.round);
+    const slot = Number(p?.pickInRound ?? p?.slot);
+    const dollar = Number(p?.dollarValue);
+    if (!year || !round || !slot || !(Number.isFinite(dollar) && dollar > 0)) continue;
+    let value = Number(boardValueByName(`${year} Pick ${round}.${String(slot).padStart(2, "0")}`));
+    if (!(Number.isFinite(value) && value > 0)) {
+      const tier = ["early", "mid", "late"].find((t) => {
+        const [lo, hi] = tierSlotRange(t, teamsPerRound);
+        return slot >= lo && slot <= hi;
+      });
+      if (tier) {
+        const word = tier[0].toUpperCase() + tier.slice(1);
+        value = Number(boardValueByName(`${year} ${word} ${ord(round)}`));
+      }
+    }
+    if (!(Number.isFinite(value) && value > 0)) continue;
+    board += value;
+    dollars += dollar;
+  }
+  return dollars > 0 && board > 0 ? board / dollars : null;
+}
+
 // The draft year the stack anchors on: the UPCOMING draft.  That is the
 // backend's ``pickClassLifecycle.firstActiveClass`` (#1414 / #1442) — the
 // board's active draft year stepped past any retired class, derived by

@@ -984,6 +984,15 @@ Owner-approved; the authorization record is the League Hub Awards pointer in `do
     recorded the conflict between the clarification (League MVP gated on a playoff-field, above-.500 franchise) and
     the 2026-08-14 amendment (no hard gate). The owner ruled for the gate on League MVP only.
 
+**Owner decision — trade stack effect converts at the league pool rate (2026-09-29).**
+Owner report: the trade meter showed Side A at -2,603 after two 2029 late picks moved to it. Cause: the draft-capital
+stack effect converted league-wide auction-dollar premium shifts into board points at the moved picks' OWN rate (a
+$1-$2 late pick ~1,000+ points per $ vs ~44 for a first), on whole-dollar-rounded effective power -- flagged in the
+2026-08-04 decision-intelligence audit and never fixed. Owner choice (of: league pool rate / remove from the verdict /
+cap at the picks' value): **the league pool rate** -- sum of the board values of the draft's own picks divided by the
+dollars those picks carry; no pool rate means the stack effect is withheld, never a guessed rate. Premiums are computed
+on unrounded effective power (rounding is display-only).
+
 **Owner correction — award record eligibility is .500 OR BETTER (2026-09-29).**
 Binding; immediate; supersedes the record half of the 2026-09-26 League MVP decision below and every earlier
 "above .500" / "strictly greater than .500" / ".500 is not a winning record" statement.

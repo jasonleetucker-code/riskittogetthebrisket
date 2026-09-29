@@ -10,7 +10,7 @@
 // relative imports, but vitest's node environment does not — the
 // missing extension silently broke the entire trade-logic test suite
 // (including the KTC-VA parity pins) until the 2026-07-25 audit (F-4).
-import { effectiveAuctionPower } from "./auction-power.js";
+import { effectiveAuctionPowerExact } from "./auction-power.js";
 import { MARKET_GAP_MIN_VALUE_RATIO } from "./thresholds.js";
 import {
   canAddEntry,
@@ -655,28 +655,37 @@ export function valueAdjustmentFromSideArrays(sidesValues) {
 // teams), recompute the league's zero-sum effective auction power
 // before/after the trade; each team's CHANGE in premium-over-raw is the
 // stack effect of this trade for that team.  It's returned in
-// board-value units (converted via the trade's own pick board-$ ratio)
-// so it folds straight into the fairness gap, and surfaced explicitly
-// (never a silent verdict shift).
+// board-value units, converted at the LEAGUE DRAFT POOL's board-per-$
+// rate (``poolBoardPerDollar``), so it folds straight into the fairness
+// gap, and surfaced explicitly (never a silent verdict shift).
+//
+// The rate used to be this trade's own moved-pick board / dollars.  A
+// cheap late pick then set the exchange rate for the WHOLE league-wide
+// premium shift (~1,000+ points per $ for a $1-$2 pick against ~44 for a
+// first), which drove a side's giving total negative on production
+// (owner report 2026-09-29).  Owner decision the same day: the pool rate.
 //
 // stackContext = {
-//   sideTeams:   string[]            // side idx → league team (null = unset)
-//   leagueStacks:{ [team]: number }  // auction $ for every league team
-//   moves:       [{ from, to, dollars, board }]  // from/to are side idx
+//   sideTeams:      string[]            // side idx → league team (null = unset)
+//   leagueStacks:   { [team]: number }  // auction $ for every league team
+//   moves:          [{ from, to, dollars }]  // from/to are side idx
+//   boardPerDollar: number              // league pool rate; absent → withheld
 // }
 // Returns number[] (board-unit stack adjustment per side); zeros when
 // the context is absent/insufficient.
 export function computeStackAdjustments(numSides, stackContext) {
   const zeros = Array(numSides).fill(0);
   if (!stackContext) return zeros;
-  const { sideTeams, leagueStacks, moves } = stackContext;
+  const { sideTeams, leagueStacks, moves, boardPerDollar } = stackContext;
   if (!Array.isArray(sideTeams) || !leagueStacks || !Array.isArray(moves)) {
     return zeros;
   }
   if (moves.length === 0) return zeros;
+  // No pool rate → no defensible conversion: the effect is withheld.
+  const k = Number(boardPerDollar);
+  if (!(Number.isFinite(k) && k > 0)) return zeros;
 
   const post = { ...leagueStacks };
-  let sumBoard = 0;
   let sumDollars = 0;
   for (const mv of moves) {
     const fromT = sideTeams[mv.from];
@@ -687,14 +696,15 @@ export function computeStackAdjustments(numSides, stackContext) {
     if (!(toT in post)) post[toT] = 0;
     post[fromT] -= d;
     post[toT] += d;
-    sumBoard += Number(mv.board) || 0;
     sumDollars += d;
   }
   if (sumDollars <= 0) return zeros;
-  const k = sumBoard / sumDollars; // $ → board-value units
 
-  const before = effectiveAuctionPower(leagueStacks);
-  const after = effectiveAuctionPower(post);
+  // Unrounded: the premium CHANGE is a difference of two effective
+  // values, and whole-dollar rounding would dominate it (see
+  // effectiveAuctionPowerExact).
+  const before = effectiveAuctionPowerExact(leagueStacks);
+  const after = effectiveAuctionPowerExact(post);
   return sideTeams.map((team) => {
     if (team == null || !(team in leagueStacks)) return 0;
     const premiumBefore = (before[team] || 0) - (leagueStacks[team] || 0);

@@ -13,7 +13,6 @@ import {
   multiAdjustedSideTotals,
   sideTotal,
   defaultDestination,
-  effectiveValue,
   findBalancers,
   isTradeableBoardRow,
   parsePickToken,
@@ -36,6 +35,7 @@ import {
   buildSlotDollarGrid,
   buildLeagueStacks,
   pickStackAnchorYear,
+  poolBoardPerDollar,
 } from "@/lib/pick-stack";
 import { valuationBasisLabel, valuationBasisOf } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
@@ -673,16 +673,12 @@ export default function TradePage() {
           to = Number.isInteger(dest) ? dest : defaultDestination(i, n);
         }
         if (to == null || to === i || to < 0 || to >= n) continue;
-        moves.push({
-          from: i,
-          to,
-          dollars: pickAuctionDollars(a.name, ctx),
-          board: effectiveValue(a, valueMode, settings),
-        });
+        moves.push({ from: i, to, dollars: pickAuctionDollars(a.name, ctx) });
       }
     });
     if (moves.length === 0) return null;
-    return { sideTeams: sideTeamNames, leagueStacks, moves };
+    const boardPerDollar = poolBoardPerDollar(draftCapital, boardValueByName, teamsPerRound);
+    return { sideTeams: sideTeamNames, leagueStacks, moves, boardPerDollar };
   }, [
     draftCapital,
     sleeperTeams,
@@ -694,8 +690,6 @@ export default function TradePage() {
     pickAliases,
     sidesWithOverrides,
     sideTeamNames,
-    valueMode,
-    settings,
   ]);
 
   // ── Computed totals for all sides ────────────────────────────────────

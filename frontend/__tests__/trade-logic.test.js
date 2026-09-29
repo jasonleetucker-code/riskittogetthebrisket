@@ -1634,7 +1634,8 @@ describe("computeSideFlows", () => {
     const ctx = {
       sideTeams: ["TA", "TB", "TC"],
       leagueStacks: { TA: 120, TB: 300, TC: 90, TD: 80, TE: 70 },
-      moves: [{ from: 0, to: 1, dollars: 60, board: 5000 }],
+      moves: [{ from: 0, to: 1, dollars: 60 }],
+      boardPerDollar: 5000 / 60,
     };
     const plain = computeSideFlows(sides, "full");
     const stacked = computeSideFlows(sides, "full", null, ctx);
@@ -1983,7 +1984,8 @@ describe("multi-team total calculations", () => {
 //
 // computeStackAdjustments recomputes zero-sum effective auction power
 // before/after the routed pick-$ swap and returns each side's change
-// in premium, in board-value units (× the trade's board-$ ratio).
+// in premium, in board-value units (× the LEAGUE POOL's board-$ rate,
+// ``boardPerDollar`` -- owner decision 2026-09-29).
 
 describe("computeStackAdjustments", () => {
   it("returns zeros without a context", () => {
@@ -2006,9 +2008,21 @@ describe("computeStackAdjustments", () => {
     const ctx = {
       sideTeams: [null, "B"],
       leagueStacks: { A: 175, B: 180, C: 95, D: 85 },
-      moves: [{ from: 1, to: 0, dollars: 20, board: 20 }],
+      moves: [{ from: 1, to: 0, dollars: 20 }],
+      boardPerDollar: 1,
     };
     expect(computeStackAdjustments(2, ctx)).toEqual([0, 0]);
+  });
+
+  it("withholds the effect when there is no pool rate", () => {
+    const base = {
+      sideTeams: ["A", "B"],
+      leagueStacks: { A: 175, B: 180, C: 95, D: 85, E: 75, F: 65 },
+      moves: [{ from: 1, to: 0, dollars: 20 }],
+    };
+    for (const boardPerDollar of [undefined, null, 0, -5, Number.NaN]) {
+      expect(computeStackAdjustments(2, { ...base, boardPerDollar })).toEqual([0, 0]);
+    }
   });
 
   it("a pick that leapfrogs the field credits the receiver, debits the sender", () => {
@@ -2017,30 +2031,90 @@ describe("computeStackAdjustments", () => {
     const ctx = {
       sideTeams: ["A", "B"],
       leagueStacks: { A: 175, B: 180, C: 95, D: 85, E: 75, F: 65 },
-      moves: [{ from: 1, to: 0, dollars: 20, board: 20 }],
+      moves: [{ from: 1, to: 0, dollars: 20 }],
+      boardPerDollar: 1,
     };
     const [adjA, adjB] = computeStackAdjustments(2, ctx);
     expect(adjA).toBeGreaterThan(0);
     expect(adjB).toBeLessThan(0);
-    // k = board/dollars = 1 here, so the magnitudes are real premium $.
+    // A rate of 1 here, so the magnitudes are real premium $.
     expect(Math.abs(adjA)).toBeGreaterThan(1);
   });
 
-  it("scales by the trade's board-$ ratio (k)", () => {
+  it("scales by the league pool rate", () => {
     const base = {
       sideTeams: ["A", "B"],
       leagueStacks: { A: 175, B: 180, C: 95, D: 85, E: 75, F: 65 },
+      moves: [{ from: 1, to: 0, dollars: 20 }],
     };
-    const k1 = computeStackAdjustments(2, {
-      ...base,
-      moves: [{ from: 1, to: 0, dollars: 20, board: 20 }],
-    });
-    const k10 = computeStackAdjustments(2, {
-      ...base,
-      moves: [{ from: 1, to: 0, dollars: 20, board: 200 }],
-    });
-    // Same $ swap, 10× the board value per $ → 10× the board-unit adj.
+    const k1 = computeStackAdjustments(2, { ...base, boardPerDollar: 1 });
+    const k10 = computeStackAdjustments(2, { ...base, boardPerDollar: 10 });
     expect(k10[0]).toBeCloseTo(k1[0] * 10, 4);
+  });
+
+  it("the moved picks' own board value no longer sets the rate", () => {
+    // The retired rate was moved board / moved dollars: a $1 pick worth
+    // 1,300 board points priced the whole league-wide premium shift at
+    // 1,300 per $.  The pool rate ignores what the trade happens to move.
+    const base = {
+      sideTeams: ["A", "B"],
+      leagueStacks: { A: 175, B: 180, C: 95, D: 85, E: 75, F: 65 },
+      boardPerDollar: 150,
+    };
+    const cheap = computeStackAdjustments(2, {
+      ...base,
+      moves: [{ from: 1, to: 0, dollars: 20, board: 26000 }],
+    });
+    const dear = computeStackAdjustments(2, {
+      ...base,
+      moves: [{ from: 1, to: 0, dollars: 20, board: 900 }],
+    });
+    expect(cheap).toEqual(dear);
+  });
+
+  it("uses unrounded effective power (no whole-dollar rounding noise)", () => {
+    // Moving a fraction of a dollar moves the premium by a fraction of a
+    // dollar -- not by a whole rounding step.
+    const ctx = {
+      sideTeams: ["A", "B"],
+      leagueStacks: { A: 175, B: 180, C: 95, D: 85, E: 75, F: 65 },
+      moves: [{ from: 1, to: 0, dollars: 0.25 }],
+      boardPerDollar: 1,
+    };
+    const [adjA] = computeStackAdjustments(2, ctx);
+    expect(Math.abs(adjA)).toBeLessThan(0.25);
+  });
+
+  it("production league, two late picks: never outweighs what the side gives", () => {
+    // 2026-09-29 dynasty_main upcoming-draft stacks; owner report: Side A
+    // went to -2,603 when two 2029 late picks ($2, $1 at the anchor)
+    // moved to it.  At a league pool rate the effect is a fraction of
+    // those picks' own dollars, whichever two teams trade.
+    const leagueStacks = {
+      "Chargers Team Doctor": 327, CollinFoz: 101, "JerryJones and the Boyz": 0,
+      "Medical Murrayjuana": 541, "Pop Trunk": 2, PorchHonkey: 8, "Queso Fresco": 7,
+      "Rage Against The Achane ": 89, "The fags": 6, "Theres always next year ": 0,
+      "Unsolicited Diggs Pics ": 4, jstuedle: 115,
+    };
+    const rate = 150;
+    const moved = 3;
+    const teams = Object.keys(leagueStacks);
+    for (const a of teams) {
+      for (const b of teams) {
+        if (a === b) continue;
+        const [adjA, adjB] = computeStackAdjustments(2, {
+          sideTeams: [a, b],
+          leagueStacks,
+          moves: [
+            { from: 1, to: 0, dollars: 2 },
+            { from: 1, to: 0, dollars: 1 },
+          ],
+          boardPerDollar: rate,
+        });
+        expect(Math.abs(adjA)).toBeLessThan(moved * rate);
+        expect(Math.abs(adjB)).toBeLessThan(moved * rate);
+      }
+    }
   });
 });
 
@@ -2063,7 +2137,8 @@ describe("adjustedSideTotals / multiAdjustedSideTotals with stack", () => {
     const ctx = {
       sideTeams: ["A", "B"],
       leagueStacks: { A: 175, B: 180, C: 95, D: 85, E: 75, F: 65 },
-      moves: [{ from: 1, to: 0, dollars: 20, board: 20 }],
+      moves: [{ from: 1, to: 0, dollars: 20 }],
+      boardPerDollar: 1,
     };
     const totals = adjustedSideTotals([A], [PICK], "full", null, ctx);
     for (const t of totals) {
