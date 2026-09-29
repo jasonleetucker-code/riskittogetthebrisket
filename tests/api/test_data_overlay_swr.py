@@ -271,3 +271,48 @@ def test_a_background_encode_never_overwrites_a_newer_generation(monkeypatch):
     assert stale.headers["X-Overlay-Encode"] == "stale-while-revalidate"
     assert server._OVERLAY_RESPONSE_CACHE[key][3] == v3
     assert not server._OVERLAY_REFRESHING
+
+
+def test_an_unchanged_overlay_keeps_its_bytes_and_etag(swr_case):
+    """A refresh that changes nothing but the per-fetch stamps must not mint
+    a new generation: clients revalidate to a 304 instead of re-downloading
+    the whole board (the warm Rankings/Trade outlier, production 2026-09-29)."""
+    _, _, refresh_overlay, calls = swr_case
+
+    async def steps(get, drain):
+        first = await get()
+        refresh_overlay(["rb", "wr"])  # same rosters, new fetch stamp
+        again = await get()
+        revalidated = await get({"If-None-Match": first.headers["etag"]})
+        return first, again, revalidated
+
+    first, again, revalidated = _run(steps)
+    assert again.content == first.content
+    assert again.headers["etag"] == first.headers["etag"]
+    assert "x-overlay-encode" not in again.headers  # a plain hit, not a stale serve
+    assert revalidated.status_code == 304
+    assert len(calls) == 1
+
+
+def test_the_stale_bound_measures_from_the_last_confirmation(swr_case):
+    """Content first observed 40 min ago but CONFIRMED a minute ago is still
+    inside the owner's window when it is superseded; the bound follows the
+    confirmation, not the first sighting."""
+    _, _, refresh_overlay, calls = swr_case
+
+    async def steps(get, drain):
+        refresh_overlay(["rb", "wr"], seconds_ago=40 * 60)
+        first = await get()
+        refresh_overlay(["rb", "wr"], seconds_ago=60)  # re-confirmed, unchanged
+        await get()
+        refresh_overlay(["wr"])  # now it changes
+        stale = await get()
+        await drain()
+        fresh = await get()
+        return first, stale, fresh
+
+    first, stale, fresh = _run(steps)
+    assert stale.content == first.content
+    assert stale.headers["x-overlay-encode"] == "stale-while-revalidate"
+    assert _served_players(fresh) == ["wr"]
+    assert len(calls) == 2

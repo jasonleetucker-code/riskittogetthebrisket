@@ -393,6 +393,17 @@ _OVERLAY_RESPONSE_CACHE_MAX = 32
 # references to the tasks (the event loop only holds weak ones).
 _OVERLAY_REFRESHING: set = set()
 _OVERLAY_REFRESH_TASKS: set = set()
+# Overlay CONTENT identity (see ``_overlay_content_identity``):
+# (sleeperLeagueId, overlayFetchedAt) -> content fingerprint, and
+# fingerprint -> the latest ``overlayFetchedAt`` that observed it.
+_OVERLAY_CONTENT_FP: dict = {}
+_OVERLAY_FP_LAST_SEEN: dict = {}
+_OVERLAY_CONTENT_MEMO_MAX = 64
+# Stamped fresh on EVERY overlay fetch whether or not anything changed:
+# the fetch time, and the trade window's "now minus N days" edge.  (A trade
+# ageing out of the window changes ``trades`` itself, so the content
+# identity still moves when the window matters.)
+_OVERLAY_PER_FETCH_KEYS = frozenset({"overlayFetchedAt", "tradeWindowStart", "tradeWindowCutoffMs"})
 # ``POST /api/rankings/overrides`` response memo.  Nearly every client
 # posts the identical stock body ({"tep_multiplier": 1.15} — the
 # /settings default), so one cached entry serves the whole user base
@@ -4100,6 +4111,49 @@ def _client_ip_from_request(request: Request) -> str:
     return client.host if client else ""
 
 
+def _overlay_content_identity(overlay: dict) -> str | None:
+    """Fingerprint of everything an overlay observation contributes to the
+    ``/api/data`` response EXCEPT the per-fetch stamps.
+
+    Every 15-min overlay refresh restamps ``overlayFetchedAt`` (and the trade
+    window edge) even when no roster, trade or setting changed.  Versioning
+    the encoded response by fetch time therefore minted new bytes and a new
+    ETag each refresh, so every client re-downloaded the whole multi-MB board
+    (a warm Rankings/Trade load paying a full body transfer instead of a 304)
+    to learn nothing.  Versioned by content, an unchanged overlay keeps its
+    encoded generation: the served ``overlayFetchedAt`` is then the time that
+    content was FIRST observed -- older than its latest confirmation, which
+    understates freshness and never overstates it.
+
+    Memoized per (league, observation), so the hash runs once per refresh,
+    not per request.  Also records, per fingerprint, the latest observation
+    that confirmed it (``_OVERLAY_FP_LAST_SEEN``), which is what a
+    stale-while-revalidate bound must measure from.  ``None`` (uncacheable)
+    when the observation carries no fetch stamp.
+    """
+    fetched_at = overlay.get("overlayFetchedAt")
+    if not fetched_at:
+        return None
+    memo_key = (overlay.get("leagueId"), fetched_at)
+    fp = _OVERLAY_CONTENT_FP.get(memo_key)
+    if fp is None:
+        body = {k: v for k, v in overlay.items() if k not in _OVERLAY_PER_FETCH_KEYS}
+        fp = hashlib.sha256(
+            json.dumps(
+                body, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str
+            ).encode("utf-8")
+        ).hexdigest()
+        if len(_OVERLAY_CONTENT_FP) >= _OVERLAY_CONTENT_MEMO_MAX:
+            _OVERLAY_CONTENT_FP.clear()
+        _OVERLAY_CONTENT_FP[memo_key] = fp
+    seen = _OVERLAY_FP_LAST_SEEN.get(fp)
+    if seen is None or str(fetched_at) > str(seen):
+        if seen is None and len(_OVERLAY_FP_LAST_SEEN) >= _OVERLAY_CONTENT_MEMO_MAX:
+            _OVERLAY_FP_LAST_SEEN.clear()
+        _OVERLAY_FP_LAST_SEEN[fp] = fetched_at
+    return fp
+
+
 def _overlay_encode_lock(cache_key) -> asyncio.Lock:
     """Return the per-key single-flight lock, creating it on first use."""
     lock = _OVERLAY_ENCODE_LOCKS.get(cache_key)
@@ -4508,11 +4562,12 @@ async def get_data(request: Request):
             suffix = "overlay" if sleeper_matches else "cross-league-overlay"
             headers["X-Payload-View"] = f"{payload_view_name}-{suffix}"
             # Cache-key is stable across overlay refreshes: only the base
-            # league/view context determines the key. Version info
-            # (overlayFetchedAt + payloadETag) is stored inside the cache
-            # entry and checked on hit; stale versions are re-encoded in
-            # place, bounding memory to one generation per slot.
+            # league/view context determines the key. Version info (overlay
+            # CONTENT identity + payloadETag + ...) is stored inside the
+            # cache entry and checked on hit; stale versions are re-encoded
+            # in place, bounding memory to one generation per slot.
             overlay_fetched_at = overlay.get("overlayFetchedAt")
+            overlay_content = _overlay_content_identity(overlay)
             overlay_cache_key = (
                 (
                     "overlay",
@@ -4521,7 +4576,7 @@ async def get_data(request: Request):
                     payload_view_name,
                     bool(sleeper_matches),
                 )
-                if (overlay_fetched_at and payload_etag and canonical_etag)
+                if (overlay_fetched_at and overlay_content and payload_etag and canonical_etag)
                 else None
             )
             # Registry context can change without an overlay observation or
@@ -4532,8 +4587,8 @@ async def get_data(request: Request):
                 json.dumps(roster_settings, sort_keys=True, separators=(",", ":")).encode("utf-8")
             ).hexdigest()
             overlay_version = (
-                (overlay_fetched_at, payload_etag, canonical_etag, context_digest)
-                if overlay_cache_key
+                (overlay_content, payload_etag, canonical_etag, context_digest)
+                if (overlay_cache_key and overlay_content)
                 else None
             )
             canonical_rows = canonical.get("playersArray") if isinstance(canonical, dict) else None
@@ -4551,15 +4606,18 @@ async def get_data(request: Request):
 
             def stale_servable(cached_version):
                 # Only the overlay OBSERVATION may lag: same board, same
-                # canonical rows, same roster rules, and the old
-                # observation still inside the overlay owner's own
-                # stale-serve window.  Anything else encodes on request.
+                # canonical rows, same roster rules, and the cached content
+                # last CONFIRMED by an observation still inside the overlay
+                # owner's own stale-serve window.  Anything else encodes on
+                # request.
                 return (
                     isinstance(cached_version, tuple)
                     and overlay_version is not None
                     and len(cached_version) == len(overlay_version)
                     and cached_version[1:] == overlay_version[1:]
-                    and _sleeper_overlay.overlay_observation_servable(cached_version[0])
+                    and _sleeper_overlay.overlay_observation_servable(
+                        _OVERLAY_FP_LAST_SEEN.get(cached_version[0])
+                    )
                 )
 
             return await _serialize_overlaid_response(

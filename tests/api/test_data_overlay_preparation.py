@@ -137,6 +137,8 @@ def overlay_case(request, monkeypatch):
     monkeypatch.setattr(server, "latest_data_etag", "canonical-A")
     monkeypatch.setattr(server, "_OVERLAY_RESPONSE_CACHE", {})
     monkeypatch.setattr(server, "_OVERLAY_ENCODE_LOCKS", {})
+    monkeypatch.setattr(server, "_OVERLAY_CONTENT_FP", {})
+    monkeypatch.setattr(server, "_OVERLAY_FP_LAST_SEEN", {})
     return contract, settings, overlay
 
 
