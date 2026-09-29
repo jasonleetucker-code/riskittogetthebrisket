@@ -173,9 +173,63 @@ disaster-recovery window; whether open trade offers reserve money (milestone C).
 | Id | Owner instruction | State |
 |---|---|---|
 | AUC-001 | Leading bids reserve money (2026-09-29) | IMPLEMENTED + tested (§2 Money); Perfect Draft adapter must read the same `spendable` (milestone C) |
-| AUC-002 | Draft notifications: native Web Push, no SMS bill (2026-09-29) | PLANNED — next unit. Design commitments: reuse the existing push/email/manifest/service-worker owners (one transport: VAPID Web Push via pywebpush); notifications derived from the NET before/after diff of each committed transaction (never from intermediate proxy-cascade steps); outbox rows committed in the same transaction as the auction event, delivered by the runtime worker afterwards; reminders keyed to (auction, deadline revision); quiet hours 21:00-08:00 America/New_York with 08:00 re-evaluation; mocks on a fake transport unless a human tester opts in to labelled [MOCK] pushes; device tests on a real iPhone (Home Screen) and Android Chrome reported as simulated / service-accepted / device-observed / user-confirmed. To be included in the future Prompt 2 audit. |
+| AUC-002 | Draft notifications: native Web Push, no SMS bill (2026-09-29) | IMPLEMENTED (branch `claude/rookie-auction-notifications`) — see §10. Device delivery NOT yet observed on a real phone. |
 
-Known engine note for AUC-002: the room's current `outbid` activity event is emitted per resolution
-step inside a proxy cascade. It is private to the displaced seat and never exposes a maximum, but a
-seat can in principle be displaced and restored within one committed transaction. AUC-002 replaces
-it with a net per-transaction diff (the same one that drives notifications).
+The engine's `outbid` / `leading_again` events are now NET per committed transaction (AUC-002), pinned
+by a fuzz property over every command in 40 random rooms (sabotage-verified).
+
+## 10. Notifications (AUC-002)
+
+**One transport per channel, all reused.** Web Push via `src/api/push_delivery.py`
+(`send_push_detailed`: same pywebpush + VAPID keys as the site, plus HTTP status, `Retry-After` and a
+per-message TTL), the site's `frontend/public/sw.js` + manifest, and the site's SMTP sender for an
+optional, verified, explicitly-consented email backup. No SMS, no OneSignal/FCM SDK, no extra phone app,
+no paid service.
+
+| Piece | Owner |
+|---|---|
+| Event → notification mapping, prefs, devices, inbox/outbox, reminders, dispatcher | `src/auction/notify.py` |
+| Recording INSIDE the auction transaction (SAVEPOINT; a fault cannot reject a bid) | `Store.execute` → `notify.record_transition` |
+| Delivery worker (every ~2 s) + reminder scan (every ~14 s), never inside a bid | `src/auction/runtime.py` |
+| HTTP: `/api/auction/notify/*`, `/rooms/{id}/watch` | `src/auction/api.py` |
+| Setup page `/auction/notifications`, room inbox panel, watch toggles | `frontend/app/auction/**`, `frontend/lib/auction-notify.js` |
+
+**Truth rules.** Alerts come from the net committed transition (A $50 vs B $39 → A at $40 sends nothing to
+A). "Leading again" is sent when a SEPARATE event restores a former leader (a rival's action, or a capped
+proxy reactivating after money frees) and not for the seat's own retake. Text uses public facts only; no
+maximum or strategy ever appears; generic lock-screen previews are optional. Every message is timestamped,
+and each is re-checked against the current room right before sending (still outbid? still your turn? same
+deadline? seat still yours?) — stale ones are recorded `stale`, not sent.
+
+**Time.** "1 active hour left" is computed on the auction clock and states the truthful closing time
+("closes Wed 8:30 AM ET (bidding pauses 9 PM–8 AM ET)"). Reminders are keyed by (lot, deadline), so an
+extension/settlement/pause makes the old one unmatchable; at most two last-hour reminders per lot per
+person. Reminders are only generated while the room is active. Ordinary alerts recorded during the pause are
+held to 08:00 ET and re-checked then; an obsolete "your turn"/"ending soon" is dropped.
+
+**Delivery.** Outbox rows per (logical event, channel, device); unique keys give logical and per-device
+dedup; the phone collapses duplicates by tag. Bounded retry with exponential backoff, provider
+`Retry-After` honoured, 404/410 disables the subscription, short TTL per type, stuck sends reclaimed after
+2 min (at-least-once), every state observable (`/notify/state` → "Recent deliveries").
+
+**Identity/privacy.** Subscriptions are bound to the signed-in auction account AND the session that
+registered them; sign-out, password change and expiry silence the device; the same phone switching accounts
+moves the subscription. Endpoints must be https on a known push service (FCM, Mozilla, Apple, Windows) —
+no arbitrary URL, no SSRF. Taps open only same-origin paths and never act. Email is opt-in, verified, and
+rate-capped (`RISKIT_AUCTION_EMAIL_DAILY_CAP`, with a recovery reserve). No SMS fallback.
+
+**Mocks.** Inbox rows are always recorded (labelled `[MOCK]`); external pushes are suppressed unless that
+person turns on "[MOCK] pushes", and then capped at 30/hour. Bots have no accounts, so they never notify.
+
+**Evidence classes (honest):**
+
+| Class | Status |
+|---|---|
+| Simulated (fake transport, real store/engine) | 29 tests in `tests/auction/test_notifications.py` + SW/platform tests |
+| Browser, desktop pane | Durable inbox, net outbid, [MOCK] labels, blocked-permission state and recovery copy observed on a local harness |
+| Service-accepted | NOT yet — requires production VAPID keys + a real subscription |
+| Device-observed / user-confirmed | NOT yet — requires the owner's iPhone (Home Screen app) and an Android Chrome phone. The setup page records a "Yes, I saw it" confirmation per test. |
+
+Required real-device rehearsal (owner): iPhone Home Screen + Android Chrome; locked screen/background;
+denied permission; restart/retry; duplicate delivery; expired subscription; overnight hold; deadline
+extension; then nomination turn → push → tap → authenticated room, outbid, leading-again and a $0 win.
