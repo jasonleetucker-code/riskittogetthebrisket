@@ -70,7 +70,7 @@ export const VALUE_EXPLAINERS = {
       "Rank (#) is the player's place on the board sorted by value; value is how much. Two neighbours can be a few points or a whole tier apart — the value tells you which.",
     detail: [
       "Rank is an ordinal. Value is the magnitude it is sorted from. Use value to judge a trade; use rank to find a player.",
-      "Only the top of the board receives a rank. Players past the rank limit can still carry a value — they show a value with no rank rather than a made-up one.",
+      "Only the top of the board receives an official rank. Players past the rank limit can still carry a value; Rankings lists them below in value order with a display position, which is not an official rank.",
       "Position rank (e.g. QB3) is the same ordering within one position. Tier breaks mark natural value cliffs detected on the board.",
       "Consensus is the mean of each source's effective rank. It is a diagnostic, not the rank: the rank comes from the blended value, which weighs sources differently.",
     ],
@@ -82,7 +82,7 @@ export const VALUE_EXPLAINERS = {
       "Our Value is a long-horizon dynasty market value, not a points projection. Rest-of-season outlook and projections are separate numbers and never change it.",
     detail: [
       "Only sources verified as dynasty boards feed this value. Redraft, rest-of-season, weekly and DFS rankings are never blended into it — even from a provider we otherwise use.",
-      "Short-term context (rest-of-season strength, realized points, BDVM fundamentals) appears in its own sections, labelled as such. It explains the player; it does not re-price him.",
+      "Rest-of-season strength and realized points (short-term) and BDVM fundamentals (a separate projection-based value) appear in their own sections, labelled as such. They explain the player; they do not re-price him.",
     ],
     owner: "CLAUDE.md — Source-domain boundaries",
   },
@@ -112,10 +112,11 @@ export const VALUE_EXPLAINERS = {
   missingConfidence: {
     title: "When confidence is missing",
     short:
-      "'None' is not a low grade — it means there was no evidence to grade, or the value was derived rather than observed. An unpriced player has no value at all, never zero.",
+      "'None' is not a low grade — it means there was no evidence to grade. An unpriced player has no value at all, never zero.",
     detail: [
       "'None — unpriced': no canonical value exists for this asset. It is shown as not priced, never as 0.",
-      "'None — priced but not assessed' and the derived bases (for example a future pick valued from a neighbouring year or round) carry a value, but no direct market evidence was available to grade it.",
+      "'None — priced but not assessed': the asset carries a value, but no evidence family voted on it.",
+      "A value derived rather than observed — for example a future pick valued from a neighbouring year or round — is graded Low, and its label says what it was derived from.",
       "A quarantined row was degraded by a data-quality flag: its confidence is lowered, not raised, and it is kept visible rather than removed.",
     ],
     owner: "src/api/confidence.py — CONFIDENCE_BASES",
@@ -127,8 +128,8 @@ export const VALUE_EXPLAINERS = {
     detail: [
       "Two clocks answer different questions. Last fetched is when we last downloaded a source successfully. Content as of is when the source's own board last changed — that is what ages it.",
       "Each source keeps full weight for one normal publishing interval — learned from its own change history where there is enough, a configured starting value where there is not. After that its weight fades smoothly, converging to about half per further missed interval.",
-      "A stale source can still appear in the breakdown, but with less say in the value. Far enough past its rhythm it stops voting entirely — dropped, never counted as zero.",
-      "When most of a player's usual authority is stale, or one source carries most of the weight, the row is marked Degraded or Severely degraded. Separately, a source whose last fetch is past its budget, or whose content has lost more than half its weight to age, does not count as fresh evidence in the confidence freshness check.",
+      "A stale source can still appear in the breakdown, but with less say in the value. Far enough past its rhythm it stops voting entirely — listed as not voting, never counted as zero.",
+      "When a player's sources keep noticeably less than their usual authority (from staleness, health or coverage), or one source carries most of the weight, the row is marked Degraded or Severely degraded. Separately, a source whose last fetch is past its budget, or whose content has lost more than half its weight to age, does not count as fresh evidence in the confidence freshness check.",
     ],
     owner: "src/sources/freshness.py; docs/sources/SOURCE_FRESHNESS_WEIGHTING.md",
   },
@@ -137,7 +138,7 @@ export const VALUE_EXPLAINERS = {
     short:
       "Every source that voted is listed with its contribution. KTC Market is shown as a benchmark only — KTC Crowd and KTC Trades are the two KTC inputs that vote.",
     detail: [
-      "The source breakdown lists each registered dynasty source that priced this player, on the shared 1–9,999 scale (a vendor's native number in brackets where it differs).",
+      "The source breakdown lists each registered dynasty source whose value voted for this player, on the shared 1–9,999 scale (a vendor's native number in brackets where it differs). Sources that did not vote — too stale, or dropped as an outlier — are listed under source freshness instead.",
       "KTC Market — KTC's own published Crowd+Trades number — is compared against our value to find market gaps. It is never blended in.",
     ],
     owner: "src/sources/ktc_market.py; src/api/data_contract.py — _RANKING_SOURCES",
@@ -165,11 +166,13 @@ const CONFIDENCE_SHORT = { high: "High", medium: "Med", low: "Low", none: "None"
 const CONFIDENCE_BASIS_NOTES = {
   evidence_gate: "Graded by the five evidence checks.",
   pick_dispersion: "Graded by how closely the pick markets agree.",
-  derived_round_step: "Value derived from the same year's nearest priced round — no direct market evidence to grade.",
-  derived_year_step: "Value derived from the nearest published year — no direct market evidence to grade.",
-  derived_rookie_tether: "Value inherited from the rookie at this draft slot — no direct pick evidence to grade.",
-  derived_tier_values: "Value derived from tier values — no direct market evidence to grade.",
-  derived_two_way_boost: "Value set from the player's other-position market — graded separately.",
+  // The derived bases are stamped bucket "low" by the backend (not
+  // "none"): a derived value carries a grade, and says how it was made.
+  derived_round_step: "Value derived from the same year's nearest priced round, so it is graded Low.",
+  derived_year_step: "Value derived from the nearest priced year, so it is graded Low.",
+  derived_rookie_tether: "Value inherited from the rookie at this draft slot.",
+  derived_tier_values: "Value derived from tier values, so it is graded Low.",
+  derived_two_way_boost: "Value set from the player's other-position market.",
   unpriced: "No canonical value exists for this asset.",
   no_evidence: "A value exists, but no evidence family voted on it.",
   quarantine_degraded: "Lowered by a data-quality flag.",
@@ -296,38 +299,59 @@ export function rowSourceFreshness(row, rawData) {
   const meta = row.sourceRankMeta || raw.sourceRankMeta || {};
   const board = rawData?.sourceWeighting?.sources || {};
   const fetched = rawData?.dataFreshness?.sourceTimestamps || {};
+  const excludedList = Array.isArray(raw.freshnessExcludedSources)
+    ? raw.freshnessExcludedSources
+    : Array.isArray(row.freshnessExcludedSources)
+      ? row.freshnessExcludedSources
+      : [];
+  const excludedSet = new Set(excludedList);
   const out = [];
   const seen = new Set();
-  const build = (key, m, excluded) => {
+  const build = (key, m) => {
     const subset = subsetFor(row, board[key]);
+    // The backend keeps a zero-weight (stale / unhealthy) observation in
+    // sourceRankMeta with appliedWeight 0.0 and contributedToBlend false
+    // — it did NOT vote, and its 0.0 is not a weight to display.
+    const excluded = m?.contributedToBlend === false || excludedSet.has(key);
+    const outlierDropped = !excluded && Boolean(m?.hampelDropped);
+    // The compact view (src/api/compact_view.py _SLIM_SOURCE_RANK_META_FIELDS)
+    // keeps only valueContribution / appliedWeight / effectiveWeight /
+    // method per source, so the row-level freshness factor and the
+    // outlier / exclusion stamps are ABSENT there — not "full freshness".
+    // `weight` is stamped on every full-view entry, so it tells the views
+    // apart; without it, row-level detail is unknown.
+    const detailed = Boolean(m) && ("weight" in m || "freshness" in m || "contributedToBlend" in m);
     const rowFreshness = Number(m?.freshness);
-    const subsetFreshness = Number(subset?.freshness);
     const applied = Number(m?.appliedWeight);
     const base = Number(m?.baseWeight ?? m?.weight ?? board[key]?.baseWeight);
+    const boardAge = Number(subset?.ageHours);
     return {
       key,
       label: SOURCE_LABELS[key] || key,
-      voting: !excluded && !m?.hampelDropped,
-      excluded: Boolean(excluded),
-      outlierDropped: Boolean(m?.hampelDropped),
+      voting: !excluded && !outlierDropped,
+      excluded,
+      excludedReason: excluded ? m?.excludedReason || "freshness_or_health_zero_weight" : null,
+      outlierDropped,
       // Family cap: correlated members of one provider family share one
       // provider's vote, so a fresh member can still carry < its base.
       familyShared: Number.isFinite(Number(m?.familyAdjustment)) && Number(m.familyAdjustment) < 1,
       appliedWeight: excluded ? null : Number.isFinite(applied) ? applied : null,
       baseWeight: Number.isFinite(base) ? base : null,
-      // Row-level factor is stamped only when it was reduced; otherwise
-      // the row votes at the source's board-level freshness.
-      freshness: Number.isFinite(rowFreshness)
-        ? rowFreshness
-        : Number.isFinite(subsetFreshness)
-          ? subsetFreshness
-          : null,
-      ageHours: Number.isFinite(Number(m?.freshnessAgeHours))
-        ? Number(m.freshnessAgeHours)
-        : Number.isFinite(Number(subset?.ageHours))
-          ? Number(subset.ageHours)
-          : null,
-      state: excluded ? "QUARANTINED" : subset?.state || null,
+      // THIS ROW's freshness factor. The backend stamps it only when it
+      // reduced the row's weight, so a voting row with no stamp voted at
+      // full freshness (1). Board-level state can differ for batch-style
+      // sources, whose rows age on their own clock.
+      rowFreshness: excluded
+        ? null
+        : Number.isFinite(rowFreshness)
+          ? rowFreshness
+          : detailed
+            ? 1
+            : null,
+      rowDetailAvailable: detailed,
+      // Board-level (source) clock and state — what "content as of" means.
+      boardState: subset?.state || null,
+      boardAgeHours: Number.isFinite(boardAge) ? boardAge : null,
       contentAsOf: subset?.sourceDataAsOf || null,
       lastFetchedAt: fetched[key]?.mtime || null,
     };
@@ -335,16 +359,11 @@ export function rowSourceFreshness(row, rawData) {
   for (const [key, m] of Object.entries(meta)) {
     if (isNonVotingSourceKey(key)) continue;
     seen.add(key);
-    out.push(build(key, m, false));
+    out.push(build(key, m));
   }
-  const excluded = Array.isArray(raw.freshnessExcludedSources)
-    ? raw.freshnessExcludedSources
-    : Array.isArray(row.freshnessExcludedSources)
-      ? row.freshnessExcludedSources
-      : [];
-  for (const key of excluded) {
+  for (const key of excludedList) {
     if (seen.has(key) || isNonVotingSourceKey(key)) continue;
-    out.push(build(key, meta[key] || {}, true));
+    out.push(build(key, null));
   }
   return out.sort((a, b) => {
     if (a.voting !== b.voting) return a.voting ? -1 : 1;

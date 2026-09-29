@@ -245,7 +245,6 @@ describe("rankings board", () => {
   it("describes confidence with the current rule, not the retired spread rule", () => {
     render(<RankingsPage />);
     expect(screen.queryByText("2+ src, tight")).toBeNull();
-    expect(screen.getByText("every check high")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "What is confidence?" }).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "What is Value?" })).toBeInTheDocument();
   });

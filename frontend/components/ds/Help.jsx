@@ -150,7 +150,7 @@ export function HelpModal({
           className="ds-help-body ds-focusable"
           tabIndex={0}
           role="region"
-          aria-label={title}
+          aria-label={`${title} — details`}
         >
           {children}
         </div>

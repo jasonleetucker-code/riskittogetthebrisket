@@ -46,6 +46,30 @@ Files: `before/results.json`, `after/results.json` (per-page axe + facts),
   `rankings-windowing` had 2 first-load failures with backend 502/503 in the
   console under concurrent load; both passed on rerun (reported, not hidden).
 
+## Independent review round (applied)
+
+A fresh reviewer checked every explainer sentence against the backend owners.
+Applied: stale/unhealthy sources the backend keeps in `sourceRankMeta` with
+`appliedWeight: 0.0` + `contributedToBlend: false` now read "not voting", never
+"weight 0"; the breakdown leaves out non-voting and Hampel-dropped observations;
+derived picks read "Derived value" with their basis (not a blend); a tethered
+slot pick's reconcile stage names its rookie; derived confidence bases are
+described as graded Low (the backend stamps "low", not "none"); the off-cap
+rank copy matches the display-order label; the Degraded threshold and
+board-vs-row freshness are worded exactly; duplicate "What is confidence?"
+names and block-in-inline tip nesting removed. After screenshots and axe are
+from the final build.
+
+**Found, not fixed (serving/perf lane):** the compact view
+(`src/api/compact_view.py::_SLIM_SOURCE_RANK_META_FIELDS`, used by /rankings on
+desktop and every route on mobile) keeps only `valueContribution`,
+`appliedWeight`, `effectiveWeight` and `method` per source. On that view the
+row-level freshness factor, `familyAdjustment`, `contributedToBlend` and
+`hampelDropped` are absent, so the Player File on mobile shows the applied
+weight and board-level source clocks, says the per-player factor is not in this
+view, and cannot mark a Hampel-dropped source. Carrying those five small stamps
+is a backend payload decision.
+
 ## Not verified here (NV)
 
 Production screenshots/behaviour, WebKit/Safari, real screen-reader output,

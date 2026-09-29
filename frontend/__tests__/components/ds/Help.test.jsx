@@ -148,7 +148,7 @@ describe("HelpModal", () => {
     );
     await user.click(screen.getByRole("button", { name: /How this works/ }));
     const dialog = screen.getByRole("dialog", { name: "How rankings work" });
-    const region = within(dialog).getByRole("region", { name: "How rankings work" });
+    const region = within(dialog).getByRole("region", { name: "How rankings work — details" });
     expect(region).toHaveAttribute("tabindex", "0");
     expect(region).toHaveTextContent("Blend, then curve.");
   });

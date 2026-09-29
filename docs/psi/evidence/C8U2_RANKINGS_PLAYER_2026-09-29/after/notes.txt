@@ -2,9 +2,9 @@ AXE desktop garrett market: 0 violations
 AXE desktop infotip open: 0 violations
 desktop InfoTip: Enter opened region=1; Escape returned focus to "What is Our Value?"
 AXE desktop how-it-works dialog: 0 violations
-desktop dialog: initial focus=BUTTON ; Tab -> DIV role=region label=How rankings work; PageDown scrollTop 20 -> 598; Escape restored focus to "How rankings work"
+desktop dialog: initial focus=BUTTON ; Tab -> DIV role=region label=How rankings work — details; PageDown scrollTop 20 -> 598; Escape restored focus to "How rankings work"
 AXE mobile garrett market: 0 violations
 AXE mobile infotip open: 0 violations
 mobile InfoTip: Enter opened region=1; Escape returned focus to "What is Our Value?"
 AXE mobile how-it-works dialog: 0 violations
-mobile dialog: initial focus=BUTTON ; Tab -> DIV role=region label=How rankings work; PageDown scrollTop 20 -> 595; Escape restored focus to "How rankings work"
+mobile dialog: initial focus=BUTTON ; Tab -> DIV role=region label=How rankings work — details; PageDown scrollTop 20 -> 595; Escape restored focus to "How rankings work"

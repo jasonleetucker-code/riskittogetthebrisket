@@ -164,42 +164,76 @@ const RAW = {
 };
 
 describe("rowSourceFreshness", () => {
+  // Shaped like the backend: a freshness/health-excluded observation is
+  // KEPT in sourceRankMeta with appliedWeight 0.0 + contributedToBlend
+  // false (data_contract.py), and also named in freshnessExcludedSources.
   const row = {
     assetClass: "offense",
     sourceRankMeta: {
       idpShowCombined: { appliedWeight: 0.0642, weight: 1, freshness: 0.0642, freshnessAgeHours: 972.4 },
       ktcCrowdSfTep: { appliedWeight: 0.5, weight: 1, familyAdjustment: 0.5 },
+      dlfSf: {
+        valueContribution: 9999,
+        appliedWeight: 0,
+        weight: 1,
+        freshness: 0,
+        contributedToBlend: false,
+        excludedReason: "freshness_or_health_zero_weight",
+      },
     },
     // Non-voting keys the contract also stamps must never be listed.
     raw: { freshnessExcludedSources: ["dlfSf", "ktcCrowdTradesSfTep"] },
   };
 
-  it("selects row weight, board clock/state and last fetch per voting source", () => {
+  it("selects row weight/freshness, board clock/state and last fetch per voting source", () => {
     const items = rowSourceFreshness(row, RAW);
     const idp = items.find((s) => s.key === "idpShowCombined");
     expect(idp.voting).toBe(true);
     expect(idp.appliedWeight).toBeCloseTo(0.0642);
-    expect(idp.freshness).toBeCloseTo(0.0642);
-    expect(idp.state).toBe("SEVERELY_STALE");
+    expect(idp.rowFreshness).toBeCloseTo(0.0642);
+    expect(idp.boardState).toBe("SEVERELY_STALE");
     expect(idp.contentAsOf).toBe("2026-08-19T17:50:16Z");
     expect(idp.lastFetchedAt).toBe("2026-09-29T10:32:14Z");
     const ktc = items.find((s) => s.key === "ktcCrowdSfTep");
-    // No row-level factor stamped → the board-level (full) freshness.
-    expect(ktc.freshness).toBe(1);
+    // No row-level stamp → the row voted at full freshness (the backend
+    // stamps the factor only when it reduced the weight).
+    expect(ktc.rowFreshness).toBe(1);
     expect(ktc.familyShared).toBe(true);
   });
 
-  it("lists a freshness-quarantined source as not voting, and never a non-voting key", () => {
+  it("lists an excluded source as not voting — never as a weight of 0 — and never a non-voting key", () => {
     const items = rowSourceFreshness(row, RAW);
     const dlf = items.find((s) => s.key === "dlfSf");
-    expect(dlf).toBeDefined();
     expect(dlf.voting).toBe(false);
     expect(dlf.excluded).toBe(true);
     expect(dlf.appliedWeight).toBeNull(); // not 0
-    expect(dlf.state).toBe("QUARANTINED");
+    expect(dlf.rowFreshness).toBeNull();
+    expect(dlf.boardState).toBe("QUARANTINED");
     expect(items.some((s) => s.key === "ktcCrowdTradesSfTep")).toBe(false);
-    // voting sources first, heaviest first
+    // listed once, voting sources first, heaviest first
     expect(items.map((s) => s.key)).toEqual(["ktcCrowdSfTep", "idpShowCombined", "dlfSf"]);
+  });
+
+  it("on the compact view's slim meta, row-level freshness is UNKNOWN — not full freshness", () => {
+    // src/api/compact_view.py keeps only these four fields per source.
+    const items = rowSourceFreshness(
+      { sourceRankMeta: { idpShowCombined: { valueContribution: 4184, appliedWeight: 0.0642, effectiveWeight: 1, method: "x" } } },
+      RAW,
+    );
+    expect(items[0].rowFreshness).toBeNull();
+    expect(items[0].rowDetailAvailable).toBe(false);
+    expect(items[0].appliedWeight).toBeCloseTo(0.0642);
+    expect(items[0].boardState).toBe("SEVERELY_STALE");
+  });
+
+  it("marks a Hampel-dropped observation as dropped, not voting", () => {
+    const items = rowSourceFreshness(
+      { sourceRankMeta: { draftSharksIdp: { appliedWeight: 1, hampelDropped: true } } },
+      RAW,
+    );
+    expect(items[0].voting).toBe(false);
+    expect(items[0].outlierDropped).toBe(true);
+    expect(items[0].excluded).toBe(false);
   });
 });
 

@@ -237,7 +237,7 @@ export function MobileSourceStrip({ row, formatSourceCell }) {
   );
 }
 
-/// ── Expanded row: source audit panel ─────────────────────────────────
+// ── Expanded row: source audit panel ─────────────────────────────────
 // Renders backend audit stamps verbatim.
 //
 // 2026-09-29 (C8-U2): moved off the legacy ``source-audit-*`` classes in

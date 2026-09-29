@@ -38,8 +38,10 @@ export function ExplainTip({ topic, label, side = "bottom", className = "" }) {
   const entry = VALUE_EXPLAINERS[topic];
   if (!entry) return null;
   return (
+    // Plain text, not a <p>: the tip sits inside headings, stat labels
+    // and paragraphs, where a block child is invalid nesting.
     <InfoTip label={label || entry.title} side={side} className={className}>
-      <p>{entry.short}</p>
+      {entry.short}
     </InfoTip>
   );
 }
@@ -107,12 +109,14 @@ export function ConfidenceEvidence({ row }) {
     : [];
   return (
     <div className={styles.evidence}>
-      <p className={styles.evidenceLabel}>
+      <div className={styles.evidenceLabel}>
+        {/* No second tip here: the Confidence tile directly above already
+            carries it, and two "What is confidence?" buttons on one page
+            would share an accessible name. */}
         <span className={styles.level} data-level={c.level}>
           {c.label}
         </span>
-        <ExplainTip topic={c.level === "none" ? "missingConfidence" : "confidence"} />
-      </p>
+      </div>
       {c.basisNote ? <p className={styles.muted}>{c.basisNote}</p> : null}
       {axes.length > 0 ? (
         <dl className={styles.axes}>
@@ -197,35 +201,44 @@ export function SourceFreshnessList({ row, rawData }) {
             : ""}
         </p>
       ) : null}
+      {items.some((s) => !s.excluded && !s.rowDetailAvailable) ? (
+        <p className={styles.muted}>
+          This lighter data view carries each source&rsquo;s applied weight but not its
+          per-player freshness factor or outlier flag, so those are not shown here.
+        </p>
+      ) : null}
       <ul className={styles.sourceList}>
         {items.map((s) => {
           const contentAt = formatInstant(s.contentAsOf);
-          const age = formatHours(s.ageHours);
+          const age = formatHours(s.boardAgeHours);
           const fetched = formatAgo(s.lastFetchedAt);
-          const reduced = s.freshness != null && s.freshness < 0.995;
+          const reduced = s.rowFreshness != null && s.rowFreshness < 0.995;
           return (
             <li key={s.key} className={styles.sourceItem} data-voting={s.voting ? "true" : "false"}>
               <div className={styles.sourceLine}>
                 <span className={styles.sourceName}>{s.label}</span>
                 <span className={styles.sourceWeight}>
                   {s.excluded
-                    ? "not voting — too stale"
+                    ? "not voting — stale or unhealthy source"
                     : s.outlierDropped
                       ? "dropped as an outlier"
                       : s.appliedWeight != null
-                        ? `weight ${formatWeight(s.appliedWeight)}${s.baseWeight != null ? ` of ${formatWeight(s.baseWeight)}` : ""}`
+                        ? `weight ${formatWeight(s.appliedWeight)}${s.baseWeight != null ? ` of ${formatWeight(s.baseWeight)}` : ""}${reduced ? ` · freshness ×${s.rowFreshness.toFixed(2)} here` : ""}`
                         : "weight not published"}
                 </span>
               </div>
               <div className={styles.sourceMeta}>
-                {s.state ? (
-                  <span data-state={s.state}>
-                    {SOURCE_FRESHNESS_STATE_LABELS[s.state] || s.state}
+                {/* Board-level facts about the SOURCE; the weight above is
+                    this player's. Batch-style sources age per row, so the
+                    two can differ. */}
+                <span>{"Source: "}</span>
+                {s.boardState ? (
+                  <span data-state={s.boardState}>
+                    {SOURCE_FRESHNESS_STATE_LABELS[s.boardState] || s.boardState}
                   </span>
                 ) : (
-                  <span>Freshness not measured</span>
+                  <span>freshness not measured</span>
                 )}
-                {reduced ? <span> · freshness ×{s.freshness.toFixed(2)}</span> : null}
                 {s.familyShared ? <span> · shares one vote with its provider family</span> : null}
                 <span>
                   {" · content as of "}

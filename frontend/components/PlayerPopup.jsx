@@ -650,8 +650,32 @@ export function computeValueChain(row) {
     }
   }
 
+  if (published === null) return [];
+
+  // A pick whose value was DERIVED (no market row) is not a blend at all;
+  // say what it was derived from instead of describing a blend.
+  const provenance = row.raw?.pickValueProvenance || row.pickValueProvenance || null;
+  const derivedDescription = DERIVED_PICK_DESCRIPTIONS[provenance?.class];
+  if (derivedDescription) {
+    const basis = Array.isArray(provenance.basis)
+      ? provenance.basis.join(", ")
+      : provenance.basis;
+    return [
+      {
+        key: "derived",
+        label: "Derived value",
+        description: `${derivedDescription}${basis ? ` Basis: ${basis}.` : ""}`,
+        value: published,
+        delta: null,
+      },
+    ];
+  }
+
   if (stages.length === 0) {
-    if (published === null) return stages;
+    // Flat blend. The haircut note keys on the backend's own stamp when
+    // the payload carries it; otherwise it states the RULE for a
+    // single-source row rather than asserting it fired.
+    const haircut = row.raw?.singleSourceValuePenaltyApplied === true;
     stages.push({
       key: "blend",
       label: "Blended value",
@@ -660,9 +684,16 @@ export function computeValueChain(row) {
         "player: value-based markets vote with their own values, ranking " +
         "sources through the Hill curve, each vote weighted by its source's " +
         "freshness, with correlated boards sharing one vote." +
-        (row.isSingleSource
-          ? " Only one source covers this player — a player resting on one " +
-            "evidence family keeps 30% of the blended value."
+        (haircut
+          ? " Only one evidence family covers this player, so the board " +
+            "keeps 30% of the blended value (single-source haircut)."
+          : row.isSingleSource
+            ? " Only one source covers this player — a player resting on " +
+              "one evidence family keeps 30% of the blended value."
+            : "") +
+        (row.twoWayPlayerBoost
+          ? " Two-way player: the published value is the higher of his " +
+            "offense value and his other-position market value."
           : ""),
       value: published,
       delta: null,
@@ -672,21 +703,34 @@ export function computeValueChain(row) {
 
   // Reconcile to the published value when a later pass moved it.
   const last = stages[stages.length - 1].value;
-  if (published !== null && Math.abs(published - last) > 1) {
+  if (Math.abs(published - last) > 1) {
+    const tether =
+      provenance?.class === "rookie_pool_tether" && provenance.basis
+        ? `Priced from the rookie at this draft slot (${provenance.basis}) after the blend.`
+        : "Set by a board pass after the blend — for example a pick " +
+          "priced from the rookie at its slot, or a two-way player's " +
+          "other-position market.";
     stages.push({
       key: "published",
       label: "Published value",
-      description:
-        "Set by a board pass after the blend — for example the " +
-        "single-source haircut, a pick priced from the rookie at its " +
-        "slot, or a two-way player's other-position market. This is the " +
-        "value every tool uses.",
+      description: `${tether} This is the value every tool uses.`,
       value: published,
       delta: published - last,
     });
   }
   return stages;
 }
+
+// pickValueProvenance classes that carry a DERIVED value (C1-U6); see
+// src/api/data_contract.py::_complete_future_pick_values.
+const DERIVED_PICK_DESCRIPTIONS = {
+  derived_year_step:
+    "No market prices this year yet; derived from the nearest priced year using the measured year-to-year step.",
+  derived_round_step:
+    "No market prices this round; derived from the same year's nearest priced round using the board's own round step.",
+  derived_uniform_tier_ev:
+    "A pick whose slot is not yet known; the average of that year and round's early, mid and late values.",
+};
 
 /**
  * Ownership: which team holds this player + their depth-chart slot.
@@ -794,6 +838,12 @@ export function computeSiteDetails(row, siteKeys = []) {
   const rows = candidateKeys
     .map((key) => {
       if (isNonVotingSourceKey(key)) return null;
+      // An observation that did not vote on THIS row — stale/unhealthy
+      // (contributedToBlend false, appliedWeight 0) or dropped by the
+      // Hampel outlier filter — still carries a valueContribution stamp.
+      // It is listed under source freshness, not in the breakdown of
+      // what the value was built from.
+      if (meta[key]?.contributedToBlend === false || meta[key]?.hampelDropped) return null;
       const src = sourceByKey[key];
       const label = src?.columnLabel || src?.displayName || key;
       // Vendor-native value for rank-signal sources (FC crowd value,

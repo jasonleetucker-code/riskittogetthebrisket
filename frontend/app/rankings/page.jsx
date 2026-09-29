@@ -1584,9 +1584,10 @@ export default function RankingsPage() {
       {!loading && !error && rows.length > 0 && (
         <div className={styles.trustStrip}>
           <StatTile label="Players" value={trustStats.total.toLocaleString()} />
-          {/* "2+ src, tight" described the retired spread rule; HIGH now
-              means every evidence check is high. The tip carries the
-              current definition from the one explanation owner. */}
+          {/* "2+ src, tight" described the retired spread rule. The tip
+              carries the current definition from the one explanation
+              owner (players: weakest of five checks; picks: market
+              agreement) instead of a one-line caption that fits neither. */}
           <StatTile
             label={
               <>
@@ -1595,7 +1596,6 @@ export default function RankingsPage() {
               </>
             }
             value={trustStats.high.toLocaleString()}
-            meta="every check high"
           />
           <StatTile label="Medium" value={trustStats.medium.toLocaleString()} />
           {/* MISSING IS NEVER ZERO: an asset with no evidence to grade

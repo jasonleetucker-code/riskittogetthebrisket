@@ -171,6 +171,17 @@ describe("compact source inventory", () => {
     expect(keys).not.toContain("ktcCrowdTradesSfTep");
     expect(keys).not.toContain("ktc");
   });
+
+  it("leaves out observations that did not vote on this row (stale / unhealthy, Hampel-dropped)", () => {
+    const row = {
+      sourceRankMeta: {
+        idpTradeCalc: { valueContribution: 5405, appliedWeight: 1 },
+        dlfIdp: { valueContribution: 3721, appliedWeight: 0, contributedToBlend: false, excludedReason: "freshness_or_health_zero_weight" },
+        draftSharksIdp: { valueContribution: 1950, appliedWeight: 1, hampelDropped: true },
+      },
+    };
+    expect(computeSiteDetails(row).map(({ key }) => key)).toEqual(["idpTradeCalc"]);
+  });
 });
 
 // The Player File and the popup both title this "how we arrived at Our
@@ -231,6 +242,32 @@ describe("value chain truthfulness", () => {
     expect(last.key).toBe("published");
     expect(last.value).toBe(4100);
     expect(last.delta).toBe(200);
+  });
+
+  it("a derived pick says what it was derived from instead of describing a blend", () => {
+    const chain = computeValueChain({
+      assetClass: "pick",
+      rankDerivedValue: 1835,
+      alphaShrinkage: null,
+      raw: { pickValueProvenance: { class: "derived_round_step", basis: "2027 Early 4th" } },
+    });
+    expect(chain).toHaveLength(1);
+    expect(chain[0].label).toBe("Derived value");
+    expect(chain[0].description).toMatch(/2027 Early 4th/);
+    expect(chain[0].value).toBe(1835);
+  });
+
+  it("a tethered slot pick's reconcile stage names the rookie it was priced from", () => {
+    const chain = computeValueChain({
+      assetClass: "pick",
+      rankDerivedValue: 7793,
+      anchorValue: 8015,
+      alphaShrinkage: 0.1,
+      raw: { pickValueProvenance: { class: "rookie_pool_tether", basis: "Jeremiyah Love" } },
+    });
+    const last = chain[chain.length - 1];
+    expect(last.key).toBe("published");
+    expect(last.description).toMatch(/Jeremiyah Love/);
   });
 
   it("an unpriced row has no chain rather than a chain ending on 0", () => {
