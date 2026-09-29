@@ -19,9 +19,18 @@ class SingleComputationTests(unittest.TestCase):
     def test_vorp_board_is_built_once_per_season(self):
         snapshot = build_test_snapshot()
         begun = [s for s in snapshot.seasons if awards._has_begun(s)]
-        with mock.patch.object(awards, "_vorp_board", wraps=awards._vorp_board) as spy:
+        # The board is computed by ``_vorp_board_with_levels`` (which also
+        # hands the unified Manager of the Year its replacement levels);
+        # ``_vorp_board`` is a wrapper over it and must not run a second pass.
+        with (
+            mock.patch.object(
+                awards, "_vorp_board_with_levels", wraps=awards._vorp_board_with_levels
+            ) as spy,
+            mock.patch.object(awards, "_vorp_board", wraps=awards._vorp_board) as wrapper,
+        ):
             awards.build_section(snapshot)
         self.assertEqual(spy.call_count, len(begun))
+        self.assertEqual(wrapper.call_count, 0)
 
     def test_trade_and_waiver_rows_are_built_once_per_season(self):
         snapshot = build_test_snapshot()

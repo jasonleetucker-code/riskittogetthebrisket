@@ -143,7 +143,7 @@ intent in the repository and win over anything older they contradict.
 
 ### Public, storytelling, intelligence
 - `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` — **canonical League MVP gate (reinstated by owner decision 2026-09-26)**; its Manager of the Year §8 gate and GM §9 are **superseded 2026-09-28** *(#809)*
-- `docs/awards/MANAGER_OF_THE_YEAR_METHODOLOGY.md` — **canonical unified Manager of the Year methodology (owner decision 2026-09-28)**: candidate v1, frozen parameters, coverage audit, replay, owner decisions OD-MOTY-1…6
+- `docs/awards/MANAGER_OF_THE_YEAR_METHODOLOGY.md` — **canonical unified Manager of the Year methodology (owner decision 2026-09-28)**: candidate v1, frozen parameters, coverage audit, replay, owner decisions OD-MOTY-1…7
 - `docs/UPSIDE_REPORT_WEEKLY_SHOWCASE_SPEC.md` *(#809)*
 - `docs/UPSIDE_REPORT_PRESEASON_KICKOFF_EDITION_SPEC.md` — the Tuesday-before-Week-1 requirement and the immutable preseason baseline *(#809)*
 - `docs/WEEKLY_REPORT_STUDIO_MANUAL_AI_ARCHITECTURE_2026-08-14.md` — **binding, issue #829, decisions 47–55**

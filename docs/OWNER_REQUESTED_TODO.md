@@ -1035,7 +1035,7 @@ roster/asset management.
 - **Historical records:** official past winners are not rewritten. A season whose evidence cannot support a fully
   comparable result is published as partial / candidate, not official.
 - **Methodology record:** `docs/awards/MANAGER_OF_THE_YEAR_METHODOLOGY.md` (frozen before results were computed,
-  with the coverage audit, the replay and the remaining owner decisions OD-MOTY-1…6).
+  with the coverage audit, the replay and the remaining owner decisions OD-MOTY-1…7).
 - **Authorization pointer:** `docs/EXECUTION_PLAN.md`, League Hub Awards, "Unified Manager of the Year".
 
 **Owner decision — try BALLDONTLIE as a Game Day live-state provider (2026-09-27).**

@@ -171,6 +171,16 @@ export function renderAwardValue(key, value) {
     case "top_nfl_team":
       return `${value.team} · ${fmtNumber(value.points, 1)} starter pts`;
     case "manager_of_the_year": {
+      // Unified method: backend score + component scores (0-100), formatted only.
+      if (value.score !== undefined && value.score !== null) {
+        const c = value.components || {};
+        const parts = ["A", "T", "W", "D", "P"]
+          .filter((k) => c[k] !== null && c[k] !== undefined)
+          .map((k) => `${k} ${fmtNumber(c[k], 0)}`)
+          .join(" · ");
+        const tag = value.status === "provisional" ? " (provisional)" : "";
+        return `Score ${fmtNumber(value.score, 1)}${tag}${parts ? ` · ${parts}` : ""}`;
+      }
       const finish = value.finishRank ? ` · #${value.finishRank} finish` : "";
       return `Score ${fmtNumber(value.compositeScore, 3)}${finish} · ${value.wins}-${value.losses} · ${fmtNumber(value.pointsFor, 1)} PF`;
     }

@@ -951,6 +951,36 @@ def _channel_score(
     return production, PARTIAL
 
 
+def rank_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Rank scored rows at full precision; return ``(scored, unscored)``.
+
+    Exact ties break on (1) the combined T/W/D weighted contribution, then
+    (2) A; a tie on all three is an honest shared rank (``tied: True``).
+    Never owner id, name or input order -- the sort key contains none of
+    them, and rows still equal on it share one rank number.
+    """
+    scored = [r for r in rows if r.get("score") is not None]
+    unscored = [r for r in rows if r.get("score") is None]
+
+    def _key(r: dict[str, Any]) -> tuple[float, float, float]:
+        return (r["score"], r["management"], r["components"]["A"]["score"])
+
+    scored.sort(key=lambda r: tuple(-x for x in _key(r)))
+    prev = None
+    for i, r in enumerate(scored):
+        r.pop("tied", None)
+        if prev is not None and _key(r) == _key(prev):
+            r["rank"] = prev["rank"]
+            r["tied"] = True
+            prev["tied"] = True
+        else:
+            r["rank"] = i + 1
+        prev = r
+    for r in unscored:
+        r["rank"] = None
+    return scored, unscored
+
+
 def build_season(
     snapshot: PublicLeagueSnapshot,
     season: SeasonSnapshot,
@@ -1092,20 +1122,7 @@ def build_season(
             row["score"] = earned / NON_POSTSEASON_WEIGHT
         row["contributions"] = contrib
 
-    scored = [r for r in rows if r.get("score") is not None]
-    unscored = [r for r in rows if r.get("score") is None]
-    # Full precision; exact ties -> management contribution -> A -> shared.
-    scored.sort(key=lambda r: (-r["score"], -r["management"], -r["components"]["A"]["score"]))
-    prev_key = None
-    for i, r in enumerate(scored):
-        key = (r["score"], r["management"], r["components"]["A"]["score"])
-        if prev_key is not None and key == prev_key:
-            r["rank"] = scored[i - 1]["rank"]
-            r["tied"] = True
-            scored[i - 1]["tied"] = True
-        else:
-            r["rank"] = i + 1
-        prev_key = key
+    scored, unscored = rank_rows(rows)
     for r in scored + unscored:
         r["displayName"] = metrics.display_name_for(snapshot, r["ownerId"])
         r["explanation"] = _explain(r)
@@ -1131,32 +1148,52 @@ def build_season(
         and postseason_final
         and coverage_status == COMPLETE
     )
-    return {
-        "methodVersion": METHOD_VERSION,
-        "season": season.season,
-        "status": FINAL if postseason_final else PROVISIONAL,
-        "official": official,
-        "asOfWeek": max(facts.weeks) if facts.weeks else 0,
-        "weeksInWindow": n_weeks,
-        "weights": dict(WEIGHTS),
-        "rows": scored + unscored,
-        "coverage": {
-            "status": coverage_status,
-            "reasons": reasons,
-            "baseline": ledger["basis"],
-            "tradeFutureValue": {
-                k: v for k, v in fv.items() if k in ("status", "reason", "trades", "valuedTrades")
+    return _published(
+        {
+            "methodVersion": METHOD_VERSION,
+            "season": season.season,
+            "status": FINAL if postseason_final else PROVISIONAL,
+            "official": official,
+            "asOfWeek": max(facts.weeks) if facts.weeks else 0,
+            "weeksInWindow": n_weeks,
+            "weights": dict(WEIGHTS),
+            "rows": scored + unscored,
+            "coverage": {
+                "status": coverage_status,
+                "reasons": reasons,
+                "baseline": ledger["basis"],
+                "tradeFutureValue": {
+                    k: v
+                    for k, v in fv.items()
+                    if k in ("status", "reason", "trades", "valuedTrades")
+                },
+                "reconciliation": recon,
+                "counts": ledger.get("counts", {}),
+                "drafts": ledger["drafts"],
+                "postseason": p_meta["status"],
             },
-            "reconciliation": recon,
-            "counts": ledger.get("counts", {}),
-            "drafts": ledger["drafts"],
-            "postseason": p_meta["status"],
-        },
-        "parameters": {
-            "kappa": KAPPA,
-            "sigmaWeek": sigma,
-            "futureValuePctScale": FV_PCT_SCALE,
-            "productionShare": PRODUCTION_SHARE,
-            "draftBandSize": DRAFT_BAND_SIZE,
-        },
-    }
+            "parameters": {
+                "kappa": KAPPA,
+                "sigmaWeek": sigma,
+                "futureValuePctScale": FV_PCT_SCALE,
+                "productionShare": PRODUCTION_SHARE,
+                "draftBandSize": DRAFT_BAND_SIZE,
+            },
+        }
+    )
+
+
+#: Decimal places published.  Ranking already happened at full precision
+#: (``rank_rows``); the payload carries the rank, so rounding what is
+#: DISPLAYED cannot reorder anyone.  1e-4 on a 0-100 scale.
+PUBLISHED_DECIMALS = 4
+
+
+def _published(obj: Any) -> Any:
+    if isinstance(obj, float):
+        return round(obj, PUBLISHED_DECIMALS)
+    if isinstance(obj, dict):
+        return {k: _published(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_published(v) for v in obj]
+    return obj

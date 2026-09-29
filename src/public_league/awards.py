@@ -41,7 +41,7 @@ import math
 from collections import defaultdict
 from typing import Any
 
-from . import award_eligibility, metrics
+from . import award_eligibility, manager_of_the_year, metrics
 from .draft import _pick_ownership_map, pick_weight
 from .playoff_structure import resolve_playoff_structure
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
@@ -1279,6 +1279,159 @@ def _manager_of_the_year_scores(
     return rows
 
 
+def _legacy_moty_value(r: dict[str, Any]) -> dict[str, Any]:
+    """The legacy composite's published value -- unchanged, kept for the
+    official record of every completed season (see ``_moty_is_live``)."""
+    return {
+        "compositeScore": r["compositeScore"],
+        "wins": r["wins"],
+        "losses": r["losses"],
+        "winPct": r["winPct"],
+        "pointsFor": r["pointsFor"],
+        "finishRank": r["finishRank"],
+        "tradePointsGained": r["tradePointsGained"],
+        "waiverPointsGained": r["waiverPointsGained"],
+    }
+
+
+def _unified_moty_value(evaluation: dict[str, Any]):
+    """Value builder for one unified Manager of the Year row.
+
+    Backend numbers only -- the page renders them and computes nothing.
+    ``score`` is full precision; the component scores and contributions are
+    the published 0-100 / weighted numbers (the full raw evidence lives in
+    the season's ``managerOfTheYear`` block).
+    """
+    status = evaluation["status"]
+    as_of = evaluation.get("asOfWeek")
+
+    def _build(r: dict[str, Any]) -> dict[str, Any]:
+        comp = r["components"]
+        return {
+            "score": r["score"],
+            "status": status,
+            "earnedOf90": r.get("earnedOf90"),
+            "contributions": r.get("contributions"),
+            "components": {k: comp[k]["score"] for k in ("A", "T", "W", "D", "P")},
+            "methodVersion": evaluation["methodVersion"],
+            "asOfWeek": as_of,
+        }
+
+    return _build
+
+
+def _moty_is_live(evaluation: dict[str, Any] | None) -> bool:
+    """Does the unified method decide this season's Manager of the Year card?
+
+    Yes while the season is PROVISIONAL (postseason pending: a live leader
+    is not an official record) or once the unified result is OFFICIAL.  A
+    finalized season that has not been promoted keeps its existing official
+    winner (the legacy composite) and carries the unified result as a
+    labelled candidate -- historical trophy records are never rewritten by
+    a methodology change (owner decision 2026-09-28; methodology §9).
+    """
+    if not evaluation or not any(r.get("score") is not None for r in evaluation["rows"]):
+        return False
+    return evaluation["status"] == manager_of_the_year.PROVISIONAL or bool(evaluation["official"])
+
+
+def _moty_candidate_summary(evaluation: dict[str, Any], legacy_owner: str) -> dict[str, Any] | None:
+    scored = [r for r in evaluation["rows"] if r.get("score") is not None]
+    if not scored:
+        return None
+    leader = scored[0]
+    return {
+        "methodVersion": evaluation["methodVersion"],
+        "status": evaluation["status"],
+        "official": False,
+        "coverage": evaluation["coverage"]["status"],
+        "ownerId": leader["ownerId"],
+        "displayName": leader["displayName"],
+        "score": leader["score"],
+        "tiedWith": [r["ownerId"] for r in scored[1:] if r.get("rank") == 1],
+        "wouldChangeWinner": bool(legacy_owner) and leader["ownerId"] != legacy_owner,
+    }
+
+
+def _manager_of_the_year_award(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    rows: dict[str, Any],
+) -> dict[str, Any] | None:
+    """The season's Manager of the Year card (unified or legacy official)."""
+    evaluation = rows.get("moty_unified")
+    if _moty_is_live(evaluation):
+        award = _award_from_row(
+            snapshot,
+            season,
+            evaluation["rows"],
+            "manager_of_the_year",
+            "Manager of the Year",
+            _unified_moty_value(evaluation),
+            evidence=lambda r: r.get("score") is not None,
+        )
+        if award and not award.get("awaitingEvidence"):
+            award["methodVersion"] = evaluation["methodVersion"]
+            award["provisional"] = evaluation["status"] == manager_of_the_year.PROVISIONAL
+            award["official"] = bool(evaluation["official"])
+            tied = [
+                r["ownerId"]
+                for r in evaluation["rows"][1:]
+                if r.get("rank") == 1 and r["ownerId"] != award["ownerId"]
+            ]
+            if tied:
+                award["tiedWith"] = tied
+        return award
+    award = _award_from_row(
+        snapshot,
+        season,
+        rows["moty"],
+        "manager_of_the_year",
+        "Manager of the Year",
+        _legacy_moty_value,
+    )
+    if award and evaluation:
+        candidate = _moty_candidate_summary(evaluation, award.get("ownerId") or "")
+        if candidate is not None:
+            award["unifiedCandidate"] = candidate
+    return award
+
+
+def _manager_of_the_year_race(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    rows: dict[str, Any],
+) -> dict[str, Any] | None:
+    """The Manager of the Year race / finalists: unified while live, else the
+    legacy ranking that decided the official winner.  No eligibility gate:
+    every manager is ranked, so nobody is ever "outside the race"."""
+    evaluation = rows.get("moty_unified")
+    if _moty_is_live(evaluation):
+        race = _build_race(
+            snapshot,
+            season,
+            "manager",
+            "manager_of_the_year",
+            "Manager of the Year Race",
+            evaluation["rows"],
+            _unified_moty_value(evaluation),
+            evidence=lambda r: r.get("score") is not None,
+        )
+        if race is not None:
+            race["methodVersion"] = evaluation["methodVersion"]
+            race["provisional"] = evaluation["status"] == manager_of_the_year.PROVISIONAL
+        return race
+    return _build_race(
+        snapshot,
+        season,
+        "manager",
+        "manager_of_the_year",
+        "Manager of the Year Race",
+        rows["moty"],
+        _legacy_moty_value,
+    )
+
+
 def _player_starter_totals(
     snapshot: PublicLeagueSnapshot,
     season: SeasonSnapshot,
@@ -2305,7 +2458,12 @@ def _roster_id_for_owner(season: SeasonSnapshot, owner_id: str) -> int | None:
 
 
 # ── shared per-season row sets ────────────────────────────────────────────
-def _season_row_sets(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> dict[str, Any]:
+def _season_row_sets(
+    snapshot: PublicLeagueSnapshot,
+    season: SeasonSnapshot,
+    *,
+    valuation_factory: Any = None,
+) -> dict[str, Any]:
     """Every candidate row set the awards pass AND the races pass read.
 
     Both passes used to compute each of these independently, so a build
@@ -2319,7 +2477,9 @@ def _season_row_sets(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> 
     lookup = _RosterWeekLookup(season)
     trader_rows, best_trade = _trader_of_the_year_scores(snapshot, season, lookup)
     waiver_rows = _waiver_king_scores(snapshot, season, lookup)
-    vorp_rows, vorp_exclusions = _vorp_board(snapshot, season, regular_season_only=True)
+    vorp_rows, vorp_exclusions, vorp_levels = _vorp_board_with_levels(
+        snapshot, season, regular_season_only=True
+    )
     mvp_gate = _league_mvp_gate(snapshot, season)
     return {
         "trader": trader_rows,
@@ -2333,7 +2493,13 @@ def _season_row_sets(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> 
         "offense": _top_offense_scores(snapshot, season),
         "defense": _top_defense_scores(snapshot, season),
         "nfl_team": _top_nfl_team_scores(snapshot, season),
+        # Legacy composite: still the OFFICIAL basis of every completed
+        # season's winner until the unified methodology is promoted.
         "moty": _manager_of_the_year_scores(snapshot, season, trader_rows, waiver_rows),
+        # Unified Manager of the Year (owner decision 2026-09-28) -- candidate.
+        "moty_unified": manager_of_the_year.build_season(
+            snapshot, season, vorp_levels, valuation_factory=valuation_factory
+        ),
         "player_by_pos": _top_player_per_position_scores(
             snapshot, season, regular_season_only=True
         ),
@@ -2542,26 +2708,7 @@ def _activity_awards_for_season(
                 "value": {"team": top_team["team"], "points": top_team["points"]},
             }
         )
-    moty_rows = rows["moty"]
-    _add(
-        _award_from_row(
-            snapshot,
-            season,
-            moty_rows,
-            "manager_of_the_year",
-            "Manager of the Year",
-            lambda r: {
-                "compositeScore": r["compositeScore"],
-                "wins": r["wins"],
-                "losses": r["losses"],
-                "winPct": r["winPct"],
-                "pointsFor": r["pointsFor"],
-                "finishRank": r["finishRank"],
-                "tradePointsGained": r["tradePointsGained"],
-                "waiverPointsGained": r["waiverPointsGained"],
-            },
-        )
-    )
+    _add(_manager_of_the_year_award(snapshot, season, rows))
 
     # ── Player awards (top scorer per position, regular-season starter-only) ──
     player_rows_by_pos = rows["player_by_pos"]
@@ -3118,27 +3265,7 @@ def _current_season_races(
                 ),
             }
         )
-    moty_rows = rows["moty"]
-    _add(
-        _build_race(
-            snapshot,
-            season,
-            "manager",
-            "manager_of_the_year",
-            "Manager of the Year Race",
-            moty_rows,
-            lambda r: {
-                "compositeScore": r["compositeScore"],
-                "wins": r["wins"],
-                "losses": r["losses"],
-                "winPct": r["winPct"],
-                "pointsFor": r["pointsFor"],
-                "finishRank": r["finishRank"],
-                "tradePointsGained": r["tradePointsGained"],
-                "waiverPointsGained": r["waiverPointsGained"],
-            },
-        )
-    )
+    _add(_manager_of_the_year_race(snapshot, season, rows))
 
     # ── Player-award races (top 5 per position) ──
     player_rows_by_pos = rows["player_by_pos"]
@@ -3259,7 +3386,19 @@ def _has_begun(s: SeasonSnapshot) -> bool:
     return s.is_complete or _has_played_games(s)
 
 
-def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
+def build_section(
+    snapshot: PublicLeagueSnapshot,
+    *,
+    valuation_factory: Any = None,
+) -> dict[str, Any]:
+    """The awards section.
+
+    ``valuation_factory`` (optional) is the public activity feed's as-of
+    valuation resolver factory (``public_contract`` threads the same one).
+    Only the unified Manager of the Year's trade future-value channel reads
+    it, server-side; no raw value reaches the payload.  Without it that
+    channel reports ``unavailable`` -- every other award is independent of it.
+    """
     by_season: list[dict[str, Any]] = []
     races_by_season: dict[str, list[dict[str, Any]]] = {}
     # The season whose races are live — the one whose race-less awards also
@@ -3311,7 +3450,7 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
 
         canonical = _season_canonical_awards(snapshot, season, with_standings=season is live_season)
         # One row-set computation feeds both the awards and the races pass.
-        season_rows = _season_row_sets(snapshot, season)
+        season_rows = _season_row_sets(snapshot, season, valuation_factory=valuation_factory)
         activity_based = _activity_awards_for_season(snapshot, season, prev, season_rows)
         # Per-season races double as that year's "finalists" board so the
         # award-history modal can show the ranked runner-ups, not just the
@@ -3324,6 +3463,9 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         # (see _vorp_board): absent from every VORP award and race, and
         # said so here rather than published as 0 or measured against itself.
         row["vorpExclusions"] = [dict(e) for e in season_rows["vorp_exclusions"]]
+        # The unified Manager of the Year evaluation behind the card: every
+        # manager, every component, raw evidence and coverage.
+        row["managerOfTheYear"] = season_rows["moty_unified"]
         by_season.append(row)
 
     featured = next(
@@ -3366,4 +3508,5 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
         "hottestRace": hottest,
         "descriptions": AWARD_DESCRIPTIONS,
         "vorpCalcVersion": _VORP_CALC_VERSION,
+        "motyMethodVersion": manager_of_the_year.METHOD_VERSION,
     }

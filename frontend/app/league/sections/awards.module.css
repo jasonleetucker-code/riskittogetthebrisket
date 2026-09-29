@@ -693,3 +693,196 @@
     break-inside: avoid;
   }
 }
+
+/* ── Unified Manager of the Year card (owner decision 2026-09-28) ── */
+.motyWide {
+  grid-column: 1 / -1;
+  background: var(--surface-1);
+}
+
+.motyPanel {
+  min-width: 0;
+  padding: var(--space-3);
+  border-top: 1px solid var(--border-default);
+}
+
+.motyHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.motyKicker {
+  color: var(--text-tertiary);
+  font-family: var(--font-data);
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.motyName {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.motyScore {
+  flex-shrink: 0;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.motyScoreValue {
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.motyScoreMax {
+  margin-left: 4px;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+}
+
+.motyStatus,
+.motyExplain {
+  margin: var(--space-2) 0 0;
+  color: var(--text-secondary);
+  font-family: var(--font-prose);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+}
+
+.motyExplain {
+  color: var(--text-primary);
+}
+
+.motyComponents {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--space-2) var(--space-3);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.motyComponent {
+  min-width: 0;
+}
+
+.motyComponentTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.motyComponentLabel {
+  font-weight: 600;
+}
+
+.motyComponentValue {
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.motyComponentMax {
+  color: var(--text-tertiary);
+}
+
+.motyBar {
+  height: 6px;
+  margin-top: 4px;
+  overflow: hidden;
+  background: var(--border-subtle);
+  border-radius: 3px;
+}
+
+.motyBarFill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.motyRaw {
+  margin-top: 4px;
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.motyPartial {
+  font-style: italic;
+}
+
+.motyCoverage {
+  margin-top: var(--space-3);
+  padding: var(--space-2);
+  border: 1px dashed var(--border-default);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
+}
+
+.motyCoverage ul {
+  margin: 4px 0 0;
+  padding-left: 1.1em;
+}
+
+.motyCoverageTitle {
+  font-weight: 600;
+}
+
+.motyAll {
+  margin-top: var(--space-3);
+  font-size: var(--font-size-xs);
+}
+
+.motyAll summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.motyAll summary:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.motyTableWrap {
+  margin-top: var(--space-2);
+  overflow-x: auto;
+}
+
+.motyTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.motyTable th,
+.motyTable td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.motyTable th[scope="row"],
+.motyTable thead th:nth-child(2) {
+  text-align: left;
+  font-family: var(--font-prose);
+  font-weight: 600;
+}
+
+.motyFooter {
+  margin-top: var(--space-3);
+  color: var(--text-tertiary);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+}
