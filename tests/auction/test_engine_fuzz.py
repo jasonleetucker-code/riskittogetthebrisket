@@ -80,10 +80,25 @@ def test_random_rooms_hold_invariants_and_replay(seed):
             }
         else:
             c = {"kind": "advance", "actor": {"role": "system"}}
+        before_leaders = {a["id"]: a["leader"] for a in engine.open_auctions(s)}
         try:
-            s, _, _ = engine.apply_command(s, c, now)
+            s2, _, events = engine.apply_command(s, c, now)
         except AuctionError:
             continue
+        # Leadership events are NET per committed transaction (AUC-002).
+        # (Lots that closed during this command's time advance are excluded.)
+        changed = {
+            aid
+            for aid, lead in before_leaders.items()
+            if s2["auctions"][aid]["status"] == "open" and s2["auctions"][aid]["leader"] != lead
+        }
+        assert {e["data"]["auction"] for e in events if e["type"] == "outbid"} == changed
+        assert all(
+            e["vis"] == f"seat:{before_leaders[e['data']['auction']]}"
+            for e in events
+            if e["type"] == "outbid"
+        )
+        s = s2
         log.append((c, now))
         _fixed_point(s)
         for a in s["auctions"].values():

@@ -204,8 +204,9 @@ self.addEventListener("push", (event) => {
   }
   const title = String(payload.title || "Chase Upside").slice(0, 120);
   const body = String(payload.body || "").slice(0, 300);
-  const url = typeof payload.url === "string" ? payload.url : "/";
+  const url = safeNotificationPath(payload.url);
   const tag = typeof payload.tag === "string" ? payload.tag : undefined;
+  const timestamp = Number.isFinite(payload.ts) ? payload.ts : undefined;
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
@@ -214,13 +215,16 @@ self.addEventListener("push", (event) => {
       data: { url },
       tag,
       renotify: !!tag,
+      timestamp,
     }),
   );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = (event.notification.data && event.notification.data.url) || "/";
+  // Only ever open a same-origin PATH.  A tap navigates; it never acts
+  // (no bid, no trade acceptance) — the page it opens is authenticated.
+  const target = safeNotificationPath(event.notification.data && event.notification.data.url);
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       for (const c of clients) {
@@ -238,6 +242,13 @@ self.addEventListener("notificationclick", (event) => {
     }),
   );
 });
+
+function safeNotificationPath(raw) {
+  if (typeof raw !== "string" || !raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\")) {
+    return "/";
+  }
+  return raw.slice(0, 300);
+}
 
 async function offlineFallback() {
   const shell = await caches.match("/");

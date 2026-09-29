@@ -253,9 +253,17 @@ async def auth_logout(request: Request):
     guard = _mutation_guard(request)
     if guard:
         return guard
-    await run_in_threadpool(
-        accounts.revoke_session, get_store(), request.cookies.get(COOKIE_NAME), _now()
-    )
+    token = request.cookies.get(COOKIE_NAME)
+
+    def _signout():
+        from src.auction import notify
+
+        with get_store().write() as conn:
+            # This device stops receiving this account's alerts on sign-out.
+            notify.disable_devices_for_session(conn, token, _now())
+        accounts.revoke_session(get_store(), token, _now())
+
+    await run_in_threadpool(_signout)
     resp = JSONResponse({"ok": True})
     resp.delete_cookie(COOKIE_NAME, path="/")
     return resp
@@ -869,3 +877,344 @@ async def room_export(request: Request, room_id: str, format: str = "json"):
             if s["opening_budget"] is not None
         },
     }
+
+
+# ---------------------------------------------------------------------------
+# Notifications (AUC-002) — account/device scoped, never by a client username
+# ---------------------------------------------------------------------------
+
+
+def _mask_email(e: str) -> str:
+    name, _, domain = e.partition("@")
+    return (name[:2] + "…@" + domain) if domain else "…"
+
+
+@router.get("/notify/state")
+async def notify_state(request: Request):
+    gate = _gate()
+    if gate:
+        return gate
+    try:
+        user = _require_user(request)
+    except AuctionError as exc:
+        return _auction_error(exc)
+    from src.api import push_delivery
+    from src.auction import notify
+
+    def _read():
+        with get_store().read() as conn:
+            em = conn.execute(
+                "SELECT email, verified_at FROM notif_email WHERE user_id=?", (user.id,)
+            ).fetchone()
+            return {
+                "pushConfigured": push_delivery.is_configured(),
+                "publicKey": push_delivery.public_key() if push_delivery.is_configured() else None,
+                "prefs": notify.get_prefs(conn, user.id),
+                "labels": notify.PREF_LABELS,
+                "devices": notify.list_devices(conn, user.id, _now()),
+                "email": None
+                if em is None
+                else {"address": _mask_email(em["email"]), "verified": bool(em["verified_at"])},
+                "recent": notify.delivery_status(conn, user.id),
+            }
+
+    return JSONResponse(await run_in_threadpool(_read), headers={"Cache-Control": "no-store"})
+
+
+@router.post("/notify/devices")
+async def notify_register(request: Request):
+    guard = _mutation_guard(request)
+    if guard:
+        return guard
+    from src.auction import notify
+
+    try:
+        user = _require_user(request)
+        body = await _json_body(request)
+        token = request.cookies.get(COOKIE_NAME)
+
+        def _reg():
+            with get_store().write() as conn:
+                return notify.register_device(
+                    conn,
+                    user_id=user.id,
+                    session_token=token,
+                    sub=body.get("subscription"),
+                    label=str(body.get("label") or ""),
+                    platform=str(body.get("platform") or ""),
+                    now=_now(),
+                )
+
+        device_id = await run_in_threadpool(_reg)
+    except AuctionError as exc:
+        return _auction_error(exc)
+    return {"deviceId": device_id}
+
+
+@router.post("/notify/devices/disable")
+async def notify_disable(request: Request):
+    guard = _mutation_guard(request)
+    if guard:
+        return guard
+    from src.auction import notify
+
+    try:
+        user = _require_user(request)
+        body = await _json_body(request)
+        dev = body.get("deviceId")
+        dev = dev if isinstance(dev, int) and not isinstance(dev, bool) else None
+
+        def _dis():
+            with get_store().write() as conn:
+                return notify.disable_device(
+                    conn,
+                    user_id=user.id,
+                    device_id=dev,
+                    endpoint=str(body.get("endpoint") or "") or None,
+                    reason="user_disabled",
+                    now=_now(),
+                )
+
+        n = await run_in_threadpool(_dis)
+    except AuctionError as exc:
+        return _auction_error(exc)
+    return {"disabled": n}
+
+
+@router.post("/notify/prefs")
+async def notify_prefs(request: Request):
+    guard = _mutation_guard(request)
+    if guard:
+        return guard
+    from src.auction import notify
+
+    try:
+        user = _require_user(request)
+        body = await _json_body(request)
+
+        def _set():
+            with get_store().write() as conn:
+                return notify.set_prefs(conn, user.id, body.get("prefs") or {}, _now())
+
+        prefs = await run_in_threadpool(_set)
+    except AuctionError as exc:
+        return _auction_error(exc)
+    return {"prefs": prefs}
+
+
+@router.post("/notify/test")
+async def notify_test(request: Request):
+    guard = _mutation_guard(request)
+    if guard:
+        return guard
+    from src.auction import notify
+
+    try:
+        user = _require_user(request)
+        body = await _json_body(request)
+        dev = body.get("deviceId")
+        dev = dev if isinstance(dev, int) and not isinstance(dev, bool) else None
+        ids = await run_in_threadpool(
+            lambda: notify.queue_test(get_store(), user_id=user.id, device_id=dev, now_real=_now())
+        )
+    except AuctionError as exc:
+        return _auction_error(exc)
+    return {
+        "outboxIds": ids,
+        "note": "Queued. 'Accepted' only means the browser's push service took it; please confirm whether it appeared on the device.",
+    }
+
+
+@router.post("/notify/test/confirm")
+async def notify_test_confirm(request: Request):
+    guard = _mutation_guard(request)
+    if guard:
+        return guard
+    try:
+        user = _require_user(request)
+        body = await _json_body(request)
+        oid = body.get("outboxId")
+        if isinstance(oid, bool) or not isinstance(oid, int):
+            raise AuctionError("bad_request", "outboxId required")
+
+        def _conf():
+            with get_store().write() as conn:
+                row = conn.execute(
+                    "SELECT id FROM notif_outbox WHERE id=? AND user_id=?", (oid, user.id)
+                ).fetchone()
+                if row is None:
+                    raise AuctionError("not_found", "no such test notification", 404)
+                conn.execute(
+                    "INSERT INTO notif_test_confirm (user_id, outbox_id, seen, note, confirmed_at) VALUES (?,?,?,?,?)",
+                    (
+                        user.id,
+                        oid,
+                        int(bool(body.get("seen"))),
+                        str(body.get("note") or "")[:300],
+                        _now(),
+                    ),
+                )
+
+        await run_in_threadpool(_conf)
+    except AuctionError as exc:
+        return _auction_error(exc)
+    return {"ok": True}
+
+
+@router.get("/notify/inbox")
+async def notify_inbox(request: Request, roomId: str | None = None):
+    gate = _gate()
+    if gate:
+        return gate
+    from src.auction import notify
+
+    try:
+        user = _require_user(request)
+        if roomId:
+            await run_in_threadpool(_member_or_admin, roomId, user)
+    except AuctionError as exc:
+        return _auction_error(exc)
+
+    def _read():
+        with get_store().read() as conn:
+            items = notify.inbox(conn, user.id, room_id=roomId)
+            unread = conn.execute(
+                "SELECT COUNT(*) FROM notif_inbox WHERE user_id=? AND read_at IS NULL", (user.id,)
+            ).fetchone()[0]
+        return {"items": items, "unread": unread}
+
+    return JSONResponse(await run_in_threadpool(_read), headers={"Cache-Control": "no-store"})
+
+
+@router.post("/notify/inbox/read")
+async def notify_inbox_read(request: Request):
+    guard = _mutation_guard(request)
+    if guard:
+        return guard
+    try:
+        user = _require_user(request)
+        body = await _json_body(request)
+        ids = [
+            i for i in (body.get("ids") or []) if isinstance(i, int) and not isinstance(i, bool)
+        ][:500]
+        mark_all = bool(body.get("all"))
+
+        def _mark():
+            now = _now()
+            with get_store().write() as conn:
+                if mark_all:
+                    conn.execute(
+                        "UPDATE notif_inbox SET read_at=? WHERE user_id=? AND read_at IS NULL",
+                        (now, user.id),
+                    )
+                for i in ids:
+                    conn.execute(
+                        "UPDATE notif_inbox SET read_at=? WHERE id=? AND user_id=? AND read_at IS NULL",
+                        (now, i, user.id),
+                    )
+
+        await run_in_threadpool(_mark)
+    except AuctionError as exc:
+        return _auction_error(exc)
+    return {"ok": True}
+
+
+@router.post("/notify/email")
+async def notify_email(request: Request):
+    guard = _mutation_guard(request)
+    if guard:
+        return guard
+    from src.auction import notify
+
+    try:
+        user = _require_user(request)
+        body = await _json_body(request)
+        srv = sys.modules.get("server") or sys.modules.get("__main__")
+        if getattr(srv, "_deliver_email_smtp", None) is None:
+            raise AuctionError(
+                "email_not_configured", "email is not configured on this server", 503
+            )
+        address = str(body.get("email") or "").strip()
+
+        def _start():
+            with get_store().write() as conn:
+                return notify.start_email_verification(conn, user.id, address, _now())
+
+        token = await run_in_threadpool(_start)
+        link = f"{request.headers.get('origin', '')}/auction/notifications?verify={token}"
+        ok, _err_code = await run_in_threadpool(
+            notify._send_email,
+            address,
+            "Verify your email for Chase Upside auction alerts",
+            "Open this link while signed in to confirm this address for auction email backup:\n\n"
+            f"{link}\n\nIf you did not ask for this, ignore this email.",
+        )
+        if not ok:
+            raise AuctionError("email_send_failed", "the verification email could not be sent", 502)
+    except AuctionError as exc:
+        return _auction_error(exc)
+    return {"ok": True}
+
+
+@router.post("/notify/email/verify")
+async def notify_email_verify(request: Request):
+    guard = _mutation_guard(request)
+    if guard:
+        return guard
+    from src.auction import notify
+
+    try:
+        user = _require_user(request)
+        body = await _json_body(request)
+
+        def _ver():
+            with get_store().write() as conn:
+                return notify.verify_email(conn, user.id, str(body.get("token") or ""), _now())
+
+        ok = await run_in_threadpool(_ver)
+    except AuctionError as exc:
+        return _auction_error(exc)
+    if not ok:
+        return _err("verify_failed", "that verification link is invalid or expired", 400)
+    return {"ok": True}
+
+
+@router.post("/rooms/{room_id}/watch")
+async def room_watch(request: Request, room_id: str):
+    guard = _mutation_guard(request)
+    if guard:
+        return guard
+    try:
+        user = _require_user(request)
+        await run_in_threadpool(_member_or_admin, room_id, user)
+        body = await _json_body(request)
+        aid = str(body.get("auction") or "")
+        state, _, _ = get_store().load(room_id)
+        if aid not in state["auctions"]:
+            raise AuctionError("unknown_auction", "no such auction", 404)
+        on = bool(body.get("on", True))
+
+        def _w():
+            with get_store().write() as conn:
+                if on:
+                    conn.execute(
+                        "INSERT OR IGNORE INTO notif_watch (room_id, user_id, auction_id, created_at) VALUES (?,?,?,?)",
+                        (room_id, user.id, aid, _now()),
+                    )
+                else:
+                    conn.execute(
+                        "DELETE FROM notif_watch WHERE room_id=? AND user_id=? AND auction_id=?",
+                        (room_id, user.id, aid),
+                    )
+                return [
+                    r["auction_id"]
+                    for r in conn.execute(
+                        "SELECT auction_id FROM notif_watch WHERE room_id=? AND user_id=?",
+                        (room_id, user.id),
+                    )
+                ]
+
+        watched = await run_in_threadpool(_w)
+    except AuctionError as exc:
+        return _auction_error(exc)
+    return {"watched": watched}
