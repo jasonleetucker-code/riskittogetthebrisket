@@ -36,6 +36,8 @@ log = logging.getLogger("auction.runtime")
 TICK_SECONDS = 1.0
 BOT_EVERY_TICKS = 2
 HEARTBEAT_EVERY_TICKS = 15
+NOTIFY_EVERY_TICKS = 2
+REMINDER_EVERY_TICKS = 14  # even, so it lands on a notify tick
 MAX_BOT_COMMANDS_PER_ROOM = 6
 
 
@@ -82,6 +84,19 @@ def _run_bots(now_real: float) -> None:
                 continue
 
 
+def _notifications(now_real: float, *, scan: bool) -> None:
+    """AUC-002: reminders from current state, then deliver what is due.
+
+    Runs here — never inside a bid transaction.  A slow or failing push
+    service delays a notification; it cannot delay or reject a bid."""
+    from src.auction import notify
+
+    store = get_store()
+    if scan:
+        notify.run_reminder_scan(store, now_real)
+    notify.dispatch_once(store, now_real)
+
+
 def _heartbeat(now_real: float) -> None:
     store = get_store()
     store.heartbeat([r["id"] for r in store.active_rooms()], now_real)
@@ -104,6 +119,8 @@ async def _loop() -> None:
             await run_in_threadpool(_advance_due, now)
             if tick % BOT_EVERY_TICKS == 0:
                 await run_in_threadpool(_run_bots, now)
+            if tick % NOTIFY_EVERY_TICKS == 0:
+                await run_in_threadpool(_notifications, now, scan=tick % REMINDER_EVERY_TICKS == 0)
             if tick % HEARTBEAT_EVERY_TICKS == 0:
                 await run_in_threadpool(_heartbeat, now)
         except asyncio.CancelledError:

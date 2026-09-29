@@ -23,6 +23,7 @@ import {
   useAuctionRoom,
   useNowTicker,
 } from "@/lib/auction-client";
+import { notifyApi, refreshBinding } from "@/lib/auction-notify";
 import styles from "../auction.module.css";
 
 function useCommand(roomId, onAccepted) {
@@ -158,6 +159,15 @@ function OpenAuctions({ view, players, roomId, now, onAccepted }) {
   const open = pub.auctions.filter((a) => a.status === "open");
   const canBid = Boolean(view.me.seat) && !pub.paused && pub.active_now && ["running", "draining"].includes(pub.status);
   const [withdrawing, setWithdrawing] = useState(null);
+  const [watched, setWatched] = useState(() => new Set());
+  const toggleWatch = async (aid) => {
+    try {
+      const out = await notifyApi.watch(roomId, aid, !watched.has(aid));
+      setWatched(new Set(out.watched));
+    } catch {
+      /* non-binding convenience; the lot is unaffected */
+    }
+  };
   const withdraw = async (aid) => {
     setWithdrawing(aid);
     try {
@@ -222,6 +232,9 @@ function OpenAuctions({ view, players, roomId, now, onAccepted }) {
                     </td>
                     <td className={styles.num}>
                       {view.me.seat ? <BidCell a={a} mine={mine} roomId={roomId} disabled={!canBid} onAccepted={onAccepted} /> : "—"}
+                      <Button size="sm" variant="ghost" aria-pressed={watched.has(a.id)} onClick={() => toggleWatch(a.id)}>
+                        {watched.has(a.id) ? "Watching" : "Watch"}
+                      </Button>
                       {mine && mine.active && !leading ? (
                         <Button size="sm" variant="ghost" onClick={() => withdraw(a.id)} loading={withdrawing === a.id} disabled={!canBid}>
                           Turn proxy off
@@ -500,6 +513,50 @@ function Activity({ view, players }) {
   );
 }
 
+function Inbox({ roomId, revision }) {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    notifyApi
+      .inbox(roomId)
+      .then(setData)
+      .catch(() => setData(null));
+  }, [roomId, revision]);
+  if (!data) return null;
+  const unreadHere = data.items.filter((i) => !i.read_at).length;
+  return (
+    <Panel
+      title={`Your alerts${unreadHere ? ` (${unreadHere} new)` : ""}`}
+      dense
+      actions={
+        <div className={styles.row}>
+          {unreadHere ? (
+            <Button size="sm" variant="ghost" onClick={() => notifyApi.markRead({ ids: data.items.map((i) => i.id) }).then(() => notifyApi.inbox(roomId).then(setData))}>
+              Mark read
+            </Button>
+          ) : null}
+          <Button size="sm" variant="ghost" as={Link} href="/auction/notifications">
+            Phone alerts
+          </Button>
+        </div>
+      }
+    >
+      {data.items.length === 0 ? (
+        <p className={styles.muted}>Nothing yet. Alerts for your seat are kept here even when your phone is off.</p>
+      ) : (
+        <ul className={styles.feed}>
+          {data.items.map((i) => (
+            <li key={i.id}>
+              <time>{formatRoomTime(i.room_now)}</time>
+              <strong>{i.title}</strong> — {i.body}
+              {!i.read_at ? <Badge tone="accent">new</Badge> : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
 function Rules({ view }) {
   const r = view.public.rules;
   return (
@@ -740,6 +797,10 @@ export default function AuctionRoomPage() {
   const now = useNowTicker(1000);
 
   useEffect(() => {
+    refreshBinding();
+  }, []);
+
+  useEffect(() => {
     if (!roomId) return;
     auctionFetch(`/rooms/${encodeURIComponent(roomId)}/pool`)
       .then(setPool)
@@ -805,6 +866,7 @@ export default function AuctionRoomPage() {
         </div>
         <div className={styles.col}>
           <MyMoney view={view} />
+          <Inbox roomId={roomId} revision={view.revision} />
           <Budgets view={view} />
           {view.me.role === "commissioner" ? <Commissioner view={view} roomId={roomId} onAccepted={onAccepted} /> : null}
           <Rules view={view} />

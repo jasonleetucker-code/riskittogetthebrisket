@@ -408,6 +408,41 @@ class Store:
                                 d["at"],
                             ),
                         )
+                # AUC-002: inbox/outbox rows commit WITH the auction event,
+                # under a savepoint — a notification fault can never reject
+                # a valid bid or roll back a sale.
+                conn.execute("SAVEPOINT notify")
+                try:
+                    from src.auction import notify
+
+                    notify.record_transition(
+                        conn,
+                        room_id=room_id,
+                        room_type=row["room_type"],
+                        offset=float(row["clock_offset"]) if row["room_type"] == "mock" else 0.0,
+                        before=state,
+                        after=new_state,
+                        events=events,
+                        revision=revision,
+                        room_now=now,
+                        now_real=now_real,
+                        actor_seat=(cmd.get("actor") or {}).get("seat"),
+                    )
+                    conn.execute("RELEASE notify")
+                except Exception as exc:  # noqa: BLE001
+                    conn.execute("ROLLBACK TO notify")
+                    conn.execute("RELEASE notify")
+                    self.audit(
+                        conn,
+                        now_real=now_real,
+                        user_id=None,
+                        room_id=room_id,
+                        action="notification_record_failed",
+                        detail={
+                            "error": f"{type(exc).__name__}: {exc}"[:300],
+                            "revision": revision,
+                        },
+                    )
             if idem_key is not None and user_id is not None:
                 conn.execute(
                     "INSERT INTO idempotency (room_id, user_id, key, payload_hash, revision, status, result_json,"
@@ -699,6 +734,9 @@ def open_store(path: Path | None = None) -> Store:
     conn = store.connect()
     try:
         conn.executescript(_SCHEMA)
+        from src.auction import notify
+
+        notify.ensure_schema(conn)
         conn.execute(
             "INSERT OR IGNORE INTO meta (key, value) VALUES ('schema_version', ?)",
             (str(SCHEMA_VERSION),),

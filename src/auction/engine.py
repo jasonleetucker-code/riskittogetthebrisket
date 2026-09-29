@@ -373,9 +373,6 @@ def _cascade(state: dict, start: Iterable[str], now: float, events: list) -> set
         a["leader"], a["price"] = winner, price
         changed.add(aid)
         if winner != old_leader:
-            _ev(
-                events, "outbid", f"seat:{old_leader}", auction=aid, player=a["player"], price=price
-            )
             # Displaced seat's money is free again: its other conditional
             # maxima may now be affordable.
             for other in open_auctions(state):
@@ -516,6 +513,9 @@ def _open_auction(
         "closed_at": None,
         "winner": None,
         "extensions": 0,
+        # Every seat that has held the lead at the END of a committed
+        # transaction (drives the net "leading again" alert).
+        "led_by": [right["seat"]],
     }
     state["auctions"][aid] = auction
     state["auction_order"].append(aid)
@@ -748,8 +748,13 @@ def apply_command(state: dict, cmd: dict, now: float) -> tuple[dict, dict, list[
     if kind == "pause" and cmd.get("at") is not None:
         advance_to = min(now, float(cmd["at"]))
     _advance(s, advance_to, events)
+    # Leadership is reported NET per committed transaction: an intermediate
+    # proxy-cascade step that displaces and then restores a seat is not an
+    # "outbid" (owner rule, AUC-002).
+    leaders_before = {a["id"]: a["leader"] for a in open_auctions(s)}
     handler = _HANDLERS[kind]
     result = handler(s, cmd, now, events) or {}
+    _emit_net_leadership(s, leaders_before, now, events)
     if kind != "advance":
         _refresh_window(s, now, events)
         _check_completion(s, now, events)
@@ -757,6 +762,27 @@ def apply_command(state: dict, cmd: dict, now: float) -> tuple[dict, dict, list[
     if events:
         s["last_event_at"] = now
     return s, result, events
+
+
+def _emit_net_leadership(s: dict, leaders_before: dict, now: float, events: list) -> None:
+    for aid, before in leaders_before.items():
+        a = s["auctions"][aid]
+        if a["status"] != "open" or a["leader"] == before:
+            continue
+        after = a["leader"]
+        led_by = a.setdefault("led_by", [a["nominator"]])
+        _ev(events, "outbid", f"seat:{before}", auction=aid, player=a["player"], price=a["price"])
+        if after in led_by:
+            _ev(
+                events,
+                "leading_again",
+                f"seat:{after}",
+                auction=aid,
+                player=a["player"],
+                price=a["price"],
+            )
+        if after not in led_by:
+            led_by.append(after)
 
 
 def _cmd_advance(s: dict, cmd: dict, now: float, events: list) -> dict:

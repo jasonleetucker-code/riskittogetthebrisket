@@ -74,6 +74,9 @@ function SignIn({ siteOwnerAvailable, onDone }) {
         <p className={styles.muted}>
           New here? Open the invitation link your commissioner sent you to set up your account and claim your seat.
         </p>
+        <p className={styles.muted}>
+          Site owner? <Link href="/login?next=%2Fauction">Sign in to Chase Upside</Link> first, then use Continue as site owner.
+        </p>
       </form>
     </Panel>
   );
@@ -232,6 +235,10 @@ export default function AuctionLobbyPage() {
       {me && !me.user ? <SignIn siteOwnerAvailable={me.siteOwnerAvailable} onDone={load} /> : null}
       {me?.user ? (
         <>
+          <Banner tone="info" title="Phone alerts">
+            Get your turn, outbid and last-hour alerts on your phone — no extra app, no text plan.{" "}
+            <Link href="/auction/notifications">Set up alerts</Link>
+          </Banner>
           <Panel title="Your rooms" flush>
             {me.rooms.length === 0 ? (
               <EmptyState title="No rooms yet" description={me.user.isSiteAdmin ? "Create a mock room below." : "Ask your commissioner for an invitation link."} />
