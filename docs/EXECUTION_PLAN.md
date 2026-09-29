@@ -198,7 +198,8 @@ single authorization record for the batch; ideas inside it do not get their own 
   (b) Expand standings — every current-season award race shows its canonical top-12 ranking from the
   backend. Contract: `docs/OWNER_REQUESTED_TODO.md` ("Awards: 2026 Waiver King eligibility +
   Expand standings"). No formula, VORP, scoring or award-set change.
-  **Extension authorized (owner, 2026-09-26):** the League MVP team-success gate (playoff field + above .500;
+  **Extension authorized (owner, 2026-09-26):** the League MVP team-success gate (playoff field + ~~above .500~~ .500 or better — owner correction
+  2026-09-29, authorized for immediate release;
   League MVP only — OPOY / DPOY / ROY / positional ungated). Contract: `docs/OWNER_REQUESTED_TODO.md`
   ("League MVP requires team success"). No VORP, OPOY / DPOY formula or Manager of the Year change.
 * **Game Day live-state provider trial — authorized (owner, 2026-09-27):** a BALLDONTLIE adapter

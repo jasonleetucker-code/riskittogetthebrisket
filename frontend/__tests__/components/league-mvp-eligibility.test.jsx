@@ -1,7 +1,7 @@
 /**
  * League MVP team-success gate — the race explains itself (owner decision
  * 2026-09-26). League MVP lists only players on a team in playoff position
- * with a winning record, says so, and names the best performers it keeps
+ * with a .500-or-better record, says so, and names the best performers it keeps
  * out. OPOY / DPOY carry no eligibility block and show none of this copy.
  */
 import { render, within } from "@testing-library/react";
@@ -21,13 +21,13 @@ function leader(pid, name, ownerId = "owner-D") {
 }
 
 const eligibility = {
-  rule: "playoff_field_and_winning_record",
+  rule: "playoff_field_and_record_500_or_better",
   verified: true,
   basis: "current_standings",
   playoffTeams: 7,
   outsideTheRace: [
     { playerId: "rb1", playerName: "Star Back", position: "RB", vorp: 114, reason: "team_outside_playoff_field" },
-    { playerId: "rb2", playerName: "Even Back", position: "RB", vorp: 108, reason: "team_record_not_above_500" },
+    { playerId: "rb2", playerName: "Low Back", position: "RB", vorp: 108, reason: "team_record_below_500" },
   ],
 };
 
@@ -54,9 +54,9 @@ describe("League MVP eligibility copy", () => {
   it("states the rule and names who is outside the race, with why", () => {
     const { container } = render(<AwardsSection managers={managers} data={data} onNavigate={vi.fn()} />);
     const mvp = card(container, "league_mvp");
-    expect(within(mvp).getByText(/Eligible: players on a team in playoff position with a winning record/)).toBeInTheDocument();
+    expect(within(mvp).getByText(/Eligible: players on a team in playoff position with a .500-or-better record/)).toBeInTheDocument();
     expect(mvp.querySelector("[data-mvp-outside]").textContent).toBe(
-      "Outside the race: Star Back (team outside the playoff field), Even Back (team not above .500)",
+      "Outside the race: Star Back (team outside the playoff field), Low Back (team below .500)",
     );
     expect(mvp.textContent).toContain("Eligible Back");
   });
@@ -75,7 +75,7 @@ describe("League MVP eligibility copy", () => {
 
   it("the finalized basis says 'made the playoffs'; unverified says nothing it cannot back", () => {
     expect(mvpEligibilityNote({ ...eligibility, basis: "final_bracket" })).toBe(
-      "Eligible: players on a team that made the playoffs with a winning record.",
+      "Eligible: players on a team that made the playoffs with a .500-or-better record.",
     );
     expect(mvpEligibilityNote({ verified: false })).toBeNull();
     expect(mvpOutsideNote({ outsideTheRace: [] })).toBeNull();
@@ -97,7 +97,7 @@ describe("League MVP eligibility copy", () => {
     };
     const { container } = render(<AwardsSection managers={managers} data={awaiting} onNavigate={vi.fn()} />);
     expect(card(container, "league_mvp").textContent).toContain(
-      "No team is in playoff position with a winning record yet",
+      "No team is in playoff position with a .500-or-better record yet",
     );
   });
 });

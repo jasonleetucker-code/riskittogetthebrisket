@@ -55,7 +55,7 @@ AWARD_DESCRIPTIONS: dict[str, str] = {
     "manager_of_the_year": "The league's best manager this season.",
     "league_mvp": (
         "The league's Most Valuable Player — elite production for a team in "
-        "playoff position with a winning record."
+        "playoff position with a .500-or-better record."
     ),
     "off_mvp": "The best offensive player of the season.",
     "def_mvp": "The best defensive player of the season.",
@@ -1723,7 +1723,10 @@ def _vorp_rows(
 # ``_season_row_sets``) pass it in instead of recomputing it per award.
 #: Why a franchise's players are outside the League MVP race.
 MVP_OUTSIDE_PLAYOFF_FIELD = "team_outside_playoff_field"
-MVP_RECORD_NOT_ABOVE_500 = "team_record_not_above_500"
+#: Owner correction 2026-09-29: the record half is ".500 OR BETTER", so the
+#: only record failure is BELOW .500 (the old "not above .500" code and
+#: wording are retired: a .500 team is eligible on record).
+MVP_RECORD_BELOW_500 = "team_record_below_500"
 
 
 def _league_mvp_gate(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> dict[str, Any]:
@@ -1732,7 +1735,13 @@ def _league_mvp_gate(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> 
     Owner decision 2026-09-26 (supersedes the 2026-08-13/14 "no hard gate"
     rule; ``docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md`` §3–§5): League MVP is
     elite performance on a SUCCESSFUL fantasy team. A franchise is eligible
-    only when it is BOTH in the championship playoff field AND above .500.
+    only when it is BOTH in the championship playoff field AND .500 or
+    better (owner correction 2026-09-29, superseding "above .500": exactly
+    .500 counts). The record test is exact integer arithmetic over the
+    host's own W/L/T -- ``2*wins + ties >= games`` is ``winPct >= .500``
+    with a tie as half a win, the canonical standings semantics -- and
+    requires ``games > 0``, so a franchise with no decisions never qualifies
+    from a fabricated .500.
 
     * live season — the field is the first ``playoff_teams`` of the
       canonical standings order (``metrics.season_standings``: the host's
@@ -1750,7 +1759,7 @@ def _league_mvp_gate(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> 
     """
     standings = metrics.season_standings(season, snapshot.managers)
     gate: dict[str, Any] = {
-        "rule": "playoff_field_and_winning_record",
+        "rule": "playoff_field_and_record_500_or_better",
         "verified": False,
         "basis": None,
         "playoffTeams": None,
@@ -1775,12 +1784,12 @@ def _league_mvp_gate(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> 
         gate.update(basis="current_standings", playoffTeams=structure.teams)
     for r in standings:
         in_field = r["ownerId"] in qualified
-        winning = r["games"] > 0 and r["winPct"] > 0.5
+        record_ok = r["games"] > 0 and 2 * r["wins"] + r["ties"] >= r["games"]
         reason = None
         if not in_field:
             reason = MVP_OUTSIDE_PLAYOFF_FIELD
-        elif not winning:
-            reason = MVP_RECORD_NOT_ABOVE_500
+        elif not record_ok:
+            reason = MVP_RECORD_BELOW_500
         gate["teams"][r["ownerId"]] = {
             "eligible": reason is None,
             "reason": reason,

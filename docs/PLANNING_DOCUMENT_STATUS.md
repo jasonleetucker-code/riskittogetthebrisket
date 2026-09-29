@@ -113,7 +113,7 @@ intent in the repository and win over anything older they contradict.
 - `docs/PROJECTION_ENSEMBLE_PLAN_2026-08-15.md` — **binding owner projection-source/methodology refinement, issue #854.** Build a multi-source weekly/ROS/full-season projection evidence layer for offense and IDP; initial desired families are CBS, NFL Fantasy, FantasyPros, DraftSharks, Mike Clay/ESPN and IDP Show where applicable; rescore raw projected football stats through exact league scoring; preserve source lineage/independence; archive forecasts before outcomes; backtest simple family-level ensembles before learned weighting; keep the entire lane separate from canonical dynasty value. It maps primarily to `C5-ROS-01` and authorizes no implementation.
 - `docs/MULTI_FORMAT_SOURCE_NORMALIZATION_SPEC.md` *(#809)*
 - `docs/REDRAFT_ROS_INTELLIGENCE_SPEC.md` *(#809)*
-- `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` — its §7 "no player-MVP gate" was itself **superseded by the owner decision of 2026-09-26** (League MVP requires playoff field + >.500) *(#816)*
+- `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` — its §7 "no player-MVP gate" was itself **superseded by the owner decision of 2026-09-26** (League MVP requires playoff field + .500 or better — record half corrected 2026-09-29 from >.500) *(#816)*
 - `docs/PLAYOFF_PREDICTOR_SPEC.md` *(#809)*
 - `docs/CANONICAL_WEEKLY_POWER_RANKINGS_SPEC.md` *(#809)*
 - `docs/GAME_DAY_PROBABILITY_SPEC.md` *(#809)*

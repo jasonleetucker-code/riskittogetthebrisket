@@ -191,7 +191,7 @@ Create one current-season Power engine distinct from Team Strength, Playoff Pred
 
 Build objective institutional awards on top of canonical realized scoring and the canonical Player Impact family. Realized Lineup VORP remains the dominance foundation; MVP must additionally use continuous and actual standings-value evidence rather than an arbitrary team-success eligibility shortcut. Postseason/championship awards, MOTY vs GMOTY separation, top races, immutable historical methodology, and no fabricated retro inputs remain required.
 
-**Binding change (owner decision 2026-09-26, supersedes the 2026-08-13 "no hard gate" rule):** League MVP requires meaningful team success — playoff-field membership + >.500 (`docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` §3–§6). OPOY / DPOY / ROY / positional awards do not inherit it; Manager of the Year keeps its own validated team-success eligibility.
+**Binding change (owner decision 2026-09-26, supersedes the 2026-08-13 "no hard gate" rule):** League MVP requires meaningful team success — playoff-field membership + .500 or better (`docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` §3–§6) *(record half corrected 2026-09-29: .500 or better — exactly .500 counts)*. OPOY / DPOY / ROY / positional awards do not inherit it; ~~Manager of the Year keeps its own validated team-success eligibility.~~ *Superseded: unified Manager of the Year has no playoff or record gate.*
 
 **Full binding specs:** reconciliation §6.4 + `PLAYER_IMPACT_WAR_MVP_SPEC.md`.
 

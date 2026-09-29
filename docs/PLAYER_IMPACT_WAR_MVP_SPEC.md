@@ -7,7 +7,8 @@
 > passed (#837, `79f47ff`). This spec's closing sequencing caution is satisfied, not pending.
 >
 > **OWNER DECISION — 2026-09-26:** §7 below is **superseded**. League MVP **does** require team success (the
-> playoff-field + >.500 gate in `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` §3–§4 is canonical again); OPOY, DPOY,
+> playoff-field + .500-or-better gate in `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` §3–§4 is canonical again;
+> record half corrected 2026-09-29 from >.500); OPOY, DPOY,
 > ROY and positional awards do not inherit it.
 
 
@@ -122,8 +123,8 @@ The report may show both the point delta and whether those points flipped H2H an
 
 **Owner decision 2026-09-26 (binding; supersedes the 2026-08-13 text of this section):** League MVP
 **requires meaningful team success.** A player is in the League MVP race only when the credited fantasy
-franchise is in the championship playoff field **and** above .500 — live: current standings position under the
-league's real qualification rules; finalized: actual playoff qualification plus a winning final record. The full
+franchise is in the championship playoff field **and** .500 or better — live: current standings position under the
+league's real qualification rules; finalized: actual playoff qualification plus a .500-or-better final record *(record half corrected 2026-09-29: .500 or better — exactly .500 counts)*. The full
 rule is `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` §3–§6.
 
 League MVP = elite player performance on a successful fantasy team. **Offensive / Defensive Player of the Year**

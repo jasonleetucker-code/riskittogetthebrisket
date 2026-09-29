@@ -1,8 +1,27 @@
 # Brisket Honors — MVP / Manager Eligibility Rules
 
+> **OWNER CORRECTION — 2026-09-29 (binding; immediate; supersedes the record half of every rule below).**
+> For any award that actually has a record eligibility requirement, **.500 OR BETTER qualifies**: official
+> regular-season winning percentage **>= .500** under the league's canonical standings semantics (a tie counts
+> as half a win). **Exactly .500 counts** (6-6, 7-7, 8-8 qualify); below .500 does not (6-7, 7-8). Every earlier
+> statement in this file that a franchise must be "above .500", "strictly greater than .500", or that "a .500
+> record is not a winning record" is **SUPERSEDED** and kept only for provenance. Today the only award with a
+> record requirement is **League MVP**; its separate playoff-field requirement is **unchanged** (in the field +
+> .500 or better = eligible; outside the field = ineligible regardless of record). A franchise with no decisions
+> never qualifies from a fabricated .500; unverifiable standings stay UNVERIFIED. Implemented in
+> `src/public_league/awards.py::_league_mvp_gate` (`2*wins + ties >= games`, `games > 0`; ineligibility reason
+> `team_record_below_500`, which replaced `team_record_not_above_500`). No published League MVP winner changed
+> (2024/2025 finalized and the 2026 live race, both live leagues; replay 2026-09-29).
+>
+> **Manager of the Year has NO record or playoff gate.** The owner's unified Manager of the Year direction
+> (one combined award; no separate GM award; no playoff-qualification requirement; no winning-record requirement;
+> a manager below .500 may win) supersedes this file's §8 Manager eligibility rules and the note below that said
+> "Manager of the Year is NOT superseded". The unified method itself is a validation track (PR #1513), not a
+> promoted award; `main`'s current Manager of the Year composite has no eligibility gate.
+
 > **OWNER DECISION — 2026-09-26 (binding; supersedes the 2026-08-14 amendment below).** League MVP
 > **requires meaningful team success**: this document's §3 (live) and §4 (finalized) gate is the canonical rule
-> again — the credited franchise must be in the championship playoff field **and** above .500. Offensive and
+> again — the credited franchise must be in the championship playoff field **and** ~~above .500~~ .500 or better (record half corrected 2026-09-29). Offensive and
 > Defensive Player of the Year, both Rookie of the Year awards and the positional awards **do not** inherit it
 > (§10, §14). League MVP = elite player performance on a successful fantasy team; OPOY / DPOY = the best
 > offensive / defensive individual performance regardless of the fantasy team's record. Implemented in
@@ -12,9 +31,10 @@
 > with one binding supersession — "player MVP has no hard playoff-field or >.500 eligibility gate", citing
 > `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` §7 — which the owner reversed on 2026-09-26. Kept for provenance only.
 >
-> **Manager of the Year is NOT superseded.** It may retain an appropriately validated team-success eligibility
+> ~~**Manager of the Year is NOT superseded.** It may retain an appropriately validated team-success eligibility
 > rule, exactly as this document states. GM/Executive and player-performance awards stay conceptually separate.
-> No newer owner instruction touches MOTY, so this document remains canonical for it.
+> No newer owner instruction touches MOTY, so this document remains canonical for it.~~ *Superseded by the
+> owner's unified Manager of the Year direction (no playoff or record gate; see the 2026-09-29 banner above).*
 
 
 **Status:** CANONICAL DETAILED PRODUCT/METHODOLOGY SPEC SUPPLEMENT  
@@ -31,9 +51,9 @@ The fantasy-league **Most Valuable Player** should not simply be the player with
 
 For League MVP specifically, meaningful team success is an eligibility requirement:
 
-> A player should only be in the MVP race when the fantasy team receiving that player's credited contribution is both **currently in a championship-playoff qualifying position** and has a **winning record** under the league's actual standings rules.
+> A player should only be in the MVP race when the fantasy team receiving that player's credited contribution is both **currently in a championship-playoff qualifying position** and has a **.500-or-better record** under the league's actual standings rules. *(Record wording corrected 2026-09-29; originally "a winning record".)*
 
-The same basic competitive-success gate should apply to **Manager of the Year** (or an equivalent future Coach of the Year award if that is ever separately approved), because that award is explicitly about competition performance.
+~~The same basic competitive-success gate should apply to **Manager of the Year** (or an equivalent future Coach of the Year award if that is ever separately approved), because that award is explicitly about competition performance.~~ *Superseded: unified Manager of the Year has no playoff or record gate.*
 
 The gate should **not** automatically apply to GM of the Year, OPOY/DPOY, rookie awards, positional awards, or other honors whose purpose is different.
 
@@ -65,9 +85,9 @@ Use the latest **completed/finalized scoring period**, not an in-progress Sunday
 A player-franchise contribution is MVP-eligible only when that fantasy franchise satisfies BOTH:
 
 1. **Current playoff-field requirement:** the franchise is currently in a seed/position that would qualify for the league's championship playoff field under the league's actual qualification rules if the regular season ended at that completed scoring period; AND
-2. **Winning-record requirement:** the franchise's official regular-season winning percentage is **strictly greater than .500** under the league's actual standings system.
+2. **Record requirement (.500 or better):** the franchise's official regular-season winning percentage is **greater than or equal to .500** under the league's actual standings system. A .500 record satisfies the record requirement.
 
-A .500 record is not a winning record.
+~~2. Winning-record requirement: strictly greater than .500. A .500 record is not a winning record.~~ *Superseded 2026-09-29 by the owner correction above.*
 
 Do not define the playoff field as a fixed top-N percentage of teams. Derive it from the requested league's actual configuration and qualification rules.
 
@@ -75,7 +95,7 @@ Do not use the canonical Playoff Predictor's probability as the eligibility gate
 
 If no candidate satisfies both conditions, report the live League MVP race as **NO ELIGIBLE CANDIDATE / RACE NOT CURRENTLY ACTIVE** rather than silently widening the field.
 
-The UI should be able to say why an otherwise high-scoring player is not currently eligible, e.g. `Team outside current playoff field` or `Team record is not above .500`.
+The UI should be able to say why an otherwise high-scoring player is not currently eligible, e.g. `Team outside current playoff field` or `Team record is below .500`. A .500 team must never receive the below-.500 reason.
 
 ---
 
@@ -84,7 +104,7 @@ The UI should be able to say why an otherwise high-scoring player is not current
 For the finalized League MVP award, a player-franchise contribution is eligible only if the associated fantasy franchise:
 
 1. **actually qualified for the championship playoffs**, using the finalized season's real bracket/qualification result; AND
-2. finished the regular season with an official winning percentage **strictly greater than .500**.
+2. finished the regular season with an official winning percentage **greater than or equal to .500** (.500 or better; exactly .500 counts — corrected 2026-09-29 from "strictly greater than .500").
 
 The final award must not substitute a late-season projection for actual qualification.
 
@@ -92,9 +112,9 @@ League MVP remains fundamentally a **regular-season player award** unless a futu
 
 ---
 
-## 5. Winning record must follow host standings semantics
+## 5. The record requirement must follow host standings semantics
 
-`winning record` means the league's actual official standings performance, not simply head-to-head wins divided by weeks.
+The record requirement (".500 or better"; this section previously said "winning record") means the league's actual official standings performance, not simply head-to-head wins divided by weeks.
 
 For leagues with an extra weekly result against the league median/all-play threshold:
 
@@ -144,9 +164,14 @@ This prevents a late trade from laundering an entire season of production from a
 
 ---
 
-## 8. Manager of the Year eligibility
+## 8. Manager of the Year eligibility — SUPERSEDED
 
-Manager of the Year is a **competition-performance** award and should use the same baseline team-success eligibility gate:
+> **Superseded by the owner's unified Manager of the Year direction:** one combined award, no separate GM award,
+> **no playoff-qualification requirement and no record requirement** — a manager below .500 may win if the complete
+> formula ranks them first. The unified method is a validation track (PR #1513), not a promoted award. The text
+> below is kept for provenance only and is not an active rule.
+
+~~Manager of the Year is a **competition-performance** award and should use the same baseline team-success eligibility gate:~~
 
 ### Live race
 A manager is eligible only when, as of the latest finalized scoring period, the manager's team:
@@ -175,6 +200,9 @@ Do not double-count the eligibility condition as a large extra bonus inside the 
 ---
 
 ## 9. GM of the Year — deliberately NO playoff/winning-record gate
+
+> **Superseded as a separate award** by the unified Manager of the Year direction (GM-style roster/asset
+> metrics become inputs to the one combined award, which also has no playoff or record gate). Kept for provenance.
 
 GM of the Year measures **roster construction / asset management**, not simply whether the current team won games.
 
@@ -236,7 +264,7 @@ For live League MVP and Manager of the Year races:
 - do not constantly flicker eligibility from partial/in-progress weekly scores;
 - do not use playoff odds as a secret eligibility threshold.
 
-If an eligible team falls out of the playoff field or to .500/below after a finalized week, its candidate leaves the active MVP/Manager race until eligibility is regained.
+If an eligible team falls out of the playoff field or below .500 after a finalized week, its candidate leaves the active League MVP race until eligibility is regained (a team at exactly .500 stays eligible on record; corrected 2026-09-29). Manager of the Year has no such gate.
 
 ---
 
@@ -267,13 +295,13 @@ Before this eligibility system is considered complete:
 
 1. derive playoff-qualification and record semantics from the canonical league-settings/standings owner rather than hard-coding team counts;
 2. test a normal H2H league and a league-median league;
-3. prove a player on a .500 team is not League MVP eligible;
+3. prove a player on a .500 team **is** eligible on record and a player on a below-.500 team is not (corrected 2026-09-29; originally "prove a player on a .500 team is not League MVP eligible");
 4. prove a player on a winning team outside the current playoff field is not live MVP eligible;
 5. prove a player on an in-field winning team is eligible;
 6. prove final MVP eligibility uses actual playoff qualification rather than predicted probability;
 7. test a traded player whose VORP spans eligible and ineligible fantasy franchises and prove contribution is attributed correctly;
-8. prove Manager of the Year uses the competition-success eligibility gate;
-9. prove GM of the Year does **not** inherit the gate;
+8. ~~prove Manager of the Year uses the competition-success eligibility gate;~~ superseded — prove unified Manager of the Year has **no** record or playoff gate (a below-.500 manager is not excluded);
+9. prove GM-style metrics do **not** inherit the gate;
 10. prove OPOY/DPOY/ROY/positional awards do not silently inherit it;
 11. verify median-game records are not omitted or double-counted;
 12. verify live races use latest finalized week rather than partial current-week standings;
@@ -286,12 +314,12 @@ Before this eligibility system is considered complete:
 
 **League MVP team-success eligibility:** OWNER-APPROVED / FINAL DIRECTION (re-confirmed 2026-09-26). **Implemented 2026-09-26** in
 `src/public_league/awards.py::_league_mvp_gate` for live (§3: canonical standings order × the league's own
-`playoff_teams`, host records incl. median games, strictly above .500) and finalized seasons (§4: actual winners-
+`playoff_teams`, host records incl. median games, .500 or better since the 2026-09-29 correction — previously strictly above .500) and finalized seasons (§4: actual winners-
 bracket membership + final record); unverifiable fields report `mvp_eligibility_unverified`, an empty eligible
 pool reports `no_eligible_mvp_candidate`, and the race publishes the best performers kept out with the reason
 (§11). **Partial:** §7's per-franchise-week attribution for traded players is not yet implemented — a player is
 credited to his most recent franchise (the existing award attribution) and gated on it.  
-**Manager of the Year team-success eligibility:** OWNER-APPROVED / FINAL DIRECTION.  
+**Manager of the Year team-success eligibility:** ~~OWNER-APPROVED / FINAL DIRECTION.~~ SUPERSEDED — unified Manager of the Year has no playoff or record gate.  
 **GM of the Year playoff/winning-record gate:** EXPLICITLY NOT APPLIED.  
 **OPOY/DPOY/ROY/positional playoff/winning-record gate:** EXPLICITLY NOT APPLIED BY DEFAULT.  
 **Realized Lineup VORP player-performance foundation:** APPROVED CANONICAL DIRECTION, subject to historical-truth/coverage validation.  

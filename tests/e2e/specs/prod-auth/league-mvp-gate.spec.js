@@ -28,7 +28,12 @@ test.describe("League MVP team-success gate (production)", () => {
     expect(mvp, "a live League MVP race (or its explicit awaiting state)").toBeTruthy();
     const elig = mvp.eligibility;
     expect(elig, "the race publishes its eligibility rule").toBeTruthy();
-    expect(elig.rule).toBe("playoff_field_and_winning_record");
+    expect(elig.rule).toBe("playoff_field_and_record_500_or_better");
+    // Owner correction 2026-09-29: ".500 or better". The retired
+    // "not above .500" reason must never be published again.
+    for (const o of elig.outsideTheRace || []) {
+      expect(o.reason).not.toBe("team_record_not_above_500");
+    }
 
     const outsideIds = new Set((elig.outsideTheRace || []).map((o) => o.playerId));
     for (const s of mvp.standings || []) {
@@ -58,7 +63,7 @@ test.describe("League MVP team-success gate (production)", () => {
     const mvpCard = page.locator('article[data-award-key="league_mvp"]');
     await expect(mvpCard).toBeVisible({ timeout: 60_000 });
     if (elig.verified) {
-      await expect(mvpCard.locator("[data-mvp-eligibility]")).toContainText("winning record");
+      await expect(mvpCard.locator("[data-mvp-eligibility]")).toContainText(".500-or-better record");
     }
     for (const key of ["off_mvp", "def_mvp"]) {
       const c = page.locator(`article[data-award-key="${key}"]`);
