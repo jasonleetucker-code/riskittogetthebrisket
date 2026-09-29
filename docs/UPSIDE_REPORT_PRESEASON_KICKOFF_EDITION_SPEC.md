@@ -74,7 +74,7 @@ The canonical Power owner should use an explicitly preseason-capable composition
 
 Include a compact **Preseason MVP Forecast** when the canonical Awards/Honors and projection systems can support it defensibly.
 
-This is a forecast, **not the official in-season MVP standings**. Before games are played, actual MVP eligibility requirements such as playoff position and winning record cannot yet be satisfied.
+This is a forecast, **not the official in-season MVP standings**. Before games are played, actual MVP eligibility requirements such as playoff position and a .500-or-better record cannot yet be satisfied.
 
 Preferred presentation:
 
