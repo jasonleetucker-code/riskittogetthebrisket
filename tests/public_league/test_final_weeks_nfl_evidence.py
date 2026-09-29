@@ -25,15 +25,26 @@ from tests.public_league.test_final_weeks import _FULL, _season, _week
 pytestmark = pytest.mark.nfl_week_evidence
 
 
-def _game(week, away, home, score=None, game_type="REG", season=2026):
+def _game(
+    week, away, home, score=None, game_type="REG", season=2026, day="2026-09-27", time="13:00"
+):
+    away_score = None if score is None else score[0]
+    home_score = None if score is None else score[1]
+    try:
+        result = home_score - away_score
+    except TypeError:
+        result = None
     return {
         "season": season,
         "week": week,
         "game_type": game_type,
+        "gameday": day,
+        "gametime": time,
         "away_team": away,
         "home_team": home,
-        "away_score": None if score is None else score[0],
-        "home_score": None if score is None else score[1],
+        "away_score": away_score,
+        "home_score": home_score,
+        "result": result,
     }
 
 
@@ -49,6 +60,11 @@ _MONDAY_FINAL = [
     _game(3, "LA", "DEN", (26, 30)),
     _game(3, "PHI", "CHI", (24, 21)),
 ]
+
+
+@pytest.fixture(autouse=True)
+def _fresh_schedule_memo(monkeypatch):
+    monkeypatch.setattr(metrics, "_NFL_SCHEDULE_MEMO", {})
 
 
 @pytest.fixture
@@ -102,6 +118,7 @@ def test_completed_seasons_are_untouched_by_the_nfl_half(schedule):
         ([_game(4, "A", "B", (1, 0))], None),  # nothing listed for week 3
         ([_game(3, "A", "B", ("", 3))], False),  # blank score is not a score
         ([_game(3, "A", "B", (math.nan, 3))], False),  # NaN is not a score
+        ([_game(3, "A", "B", day="2099-01-01")], False),  # not kicked off yet
         ([_game(3, "A", "B", (0, 0))], True),  # 0-0 is a real (odd) final
         ([_game(3, "A", "B", (1, 0)), _game(3, "C", "D", game_type="POST")], True),
         ([_game(3, "A", "B", (1, 0), season=2025)], None),  # other season's rows
@@ -134,3 +151,26 @@ def test_the_schedule_is_read_cache_only(monkeypatch):
     monkeypatch.setattr(ingest, "fetch_schedules", record)
     metrics.nfl_week_games_final(2026, 3)
     assert calls and calls[0].get("cache_only") is True
+
+
+def test_a_complete_season_needs_no_nfl_evidence(schedule):
+    # Past years' schedules are not guaranteed to be cached; a season the
+    # host marks complete has no week in progress (same rule as final_weeks).
+    season = _week3_all_rosters_scored()
+    season.league["status"] = "complete"
+    assert metrics.final_regular_season_weeks(season) == [1, 2, 3]
+
+
+def test_the_schedule_is_read_once_per_memo_window(monkeypatch):
+    reads = []
+
+    from src.nfl_data import ingest
+
+    def record(years, **kwargs):
+        reads.append(years)
+        return _MONDAY_FINAL
+
+    monkeypatch.setattr(ingest, "fetch_schedules", record)
+    for _ in range(20):
+        assert metrics.nfl_week_games_final(2026, 3) is True
+    assert len(reads) == 1
