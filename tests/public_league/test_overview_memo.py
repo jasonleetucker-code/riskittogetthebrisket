@@ -148,6 +148,24 @@ class PublicOverviewMemoTests(unittest.TestCase):
             self.server._PUBLIC_LEAGUE_CACHE_TTL_SECONDS = ttl
         self.assertEqual(self.calls["n"], 2)
 
+    def test_an_entry_outlives_its_snapshot_window_until_the_next_generation(self) -> None:
+        # Past ONE snapshot window the snapshot is stale and a background
+        # rebuild is on its way; the memo must still answer, or every
+        # cycle puts the full build back on the landing page's request path.
+        import time as _time
+
+        self.assertEqual(self.client.get("/api/public/league/overview").status_code, 200)
+        ttl = self.server._PUBLIC_LEAGUE_CACHE_TTL_SECONDS
+        key, payload, _ = self.server._PUBLIC_OVERVIEW_CACHE["overview"]
+        self.server._PUBLIC_OVERVIEW_CACHE["overview"] = (key, payload, _time.monotonic() - ttl - 1)
+        self.assertIs(self.server._memoized_overview(key), payload)
+        self.server._PUBLIC_OVERVIEW_CACHE["overview"] = (
+            key,
+            payload,
+            _time.monotonic() - 2 * ttl - 1,
+        )
+        self.assertIsNone(self.server._memoized_overview(key))
+
     def test_an_older_build_never_replaces_a_newer_one(self) -> None:
         server = self.server
         server._remember_overview(("G2",), {"g": 2}, started_at=200.0)
