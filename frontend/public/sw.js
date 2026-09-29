@@ -244,10 +244,16 @@ self.addEventListener("notificationclick", (event) => {
 });
 
 function safeNotificationPath(raw) {
-  if (typeof raw !== "string" || !raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\")) {
+  // Resolve exactly as the browser will, then require our own origin — a
+  // string prefix check is not enough ("/\t/evil.com" resolves off-origin).
+  if (typeof raw !== "string" || raw.length > 300) return "/";
+  try {
+    const u = new URL(raw, self.location.origin);
+    if (u.origin !== self.location.origin) return "/";
+    return u.pathname + u.search + u.hash;
+  } catch {
     return "/";
   }
-  return raw.slice(0, 300);
 }
 
 async function offlineFallback() {

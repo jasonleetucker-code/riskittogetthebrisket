@@ -63,6 +63,9 @@ describe("service worker notification taps open only same-origin paths", () => {
     ["https://evil.example.com/x", "/"],
     ["//evil.example.com/x", "/"],
     ["javascript:alert(1)", "/"],
+    ["/\t/evil.example.com", "/"],
+    ["/\\evil.example.com", "/"],
+    ["/auction/r_1?x=1#lot", "/auction/r_1?x=1#lot"],
     [undefined, "/"],
   ])("%s → %s", async (given, expected) => {
     const { listeners, self } = loadSW();

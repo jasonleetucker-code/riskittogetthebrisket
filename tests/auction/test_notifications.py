@@ -475,3 +475,25 @@ def test_inbox_rows_are_json_safe_and_engine_state_unchanged(world):
     assert before == after  # reminders never mutate the auction
     json.dumps(_inbox(st, 1))
     assert engine.check_invariants(after) is None
+
+
+def test_removed_member_gets_no_more_room_alerts(world):
+    """Review finding 7: a removed watcher kept getting last-hour alerts."""
+    st, users, tokens = world
+    _device(st, 4, tokens[4])
+    room = _room(st, seats_to_users=users)
+    notify.dispatch_once(st, NOON + 1, sender=FakePush())  # flush turn alerts
+    aid = _cmd(st, room, "S3", "nominate", player="P1")["result"]["auction"]
+    with st.write() as conn:
+        conn.execute(
+            "INSERT INTO notif_watch (room_id, user_id, auction_id, created_at) VALUES (?,?,?,?)",
+            (room, 4, aid, NOON),
+        )
+        conn.execute("UPDATE members SET removed_at=? WHERE room_id=? AND user_id=4", (NOON, room))
+    state, _, _ = st.load(room)
+    t = state["auctions"][aid]["deadline"] - 1800
+    notify.run_reminder_scan(st, t)
+    assert _inbox(st, 4, "last_hour") == []
+    push = FakePush()
+    notify.dispatch_once(st, t + 1, sender=push)
+    assert not push.calls

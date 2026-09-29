@@ -786,7 +786,9 @@ def scan_reminders(
     users = _seat_users(conn, room["id"])
     watchers: dict[str, set[int]] = {}
     for w in conn.execute(
-        "SELECT user_id, auction_id FROM notif_watch WHERE room_id=?", (room["id"],)
+        "SELECT w.user_id, w.auction_id FROM notif_watch w JOIN members m ON m.room_id = w.room_id"
+        " AND m.user_id = w.user_id AND m.removed_at IS NULL WHERE w.room_id=?",
+        (room["id"],),
     ):
         watchers.setdefault(w["auction_id"], set()).add(int(w["user_id"]))
     made = 0
@@ -991,12 +993,16 @@ def dispatch_once(store, now_real: float, *, sender=None, email_sender=None) -> 
         with store.read() as conn:
             prefs = get_prefs(conn, row["user_id"])
             member = None
+            is_member = True
             if row["room_id"]:
                 m = conn.execute(
                     "SELECT seat_id FROM members WHERE room_id=? AND user_id=? AND removed_at IS NULL",
                     (row["room_id"], row["user_id"]),
                 ).fetchone()
                 member = m["seat_id"] if m else None
+                # A removed member gets nothing more from this room — not even
+                # public-fact reminders for lots they once watched.
+                is_member = m is not None
                 if row["room_id"] not in states:
                     rr = conn.execute(
                         "SELECT state_json FROM rooms WHERE id=?", (row["room_id"],)
@@ -1019,6 +1025,10 @@ def dispatch_once(store, now_real: float, *, sender=None, email_sender=None) -> 
             else:
                 recent = 0
         data = json.loads(row["data_json"])
+        if row["room_id"] and not is_member:
+            _finish(store, row["id"], status="stale")
+            stats["stale"] += 1
+            continue
         if row["room_id"] and not still_relevant(
             row["type"], data, states.get(row["room_id"]), row["seat_id"], member
         ):
