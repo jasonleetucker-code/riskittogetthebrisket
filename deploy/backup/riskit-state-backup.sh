@@ -418,6 +418,10 @@ backup_sqlite "${DATA_DIR}/retention/evidence.sqlite"
 backup_sqlite "${DATA_DIR}/retention/league_events.sqlite"
 backup_sqlite "${DATA_DIR}/retention/acquisition.sqlite"
 backup_sqlite "${DATA_DIR}/board_history.sqlite"
+# Rookie auction room (src/auction/store.py): rooms, accepted-command log,
+# awards, private proxy state, accounts. Online backup — never a raw file
+# copy, which would ignore the WAL.
+backup_sqlite "${DATA_DIR}/auction/auction.sqlite"
 backup_file   "${DATA_DIR}/rank_history.jsonl"
 
 backup_dir "${DATA_DIR}/public_league"

@@ -61,7 +61,12 @@
 // payload after deployment, and the rankings UI interpreted its
 // missing score fields as real zeroes.  The version bump evicts every
 // such payload already stored on visitors' devices.
-const CACHE_VERSION = "chaseupside-v8";
+// v9: /api/auction/ added to NEVER_CACHE.  The rookie auction room's
+// responses carry private balances, private maximum bids and live room
+// state; the network-first fallback would otherwise store them at rest
+// and could replay a stale balance offline as if it were current.  The
+// bump evicts anything already stored.
+const CACHE_VERSION = "chaseupside-v9";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const PUBLIC_LEAGUE_CACHE = `${CACHE_VERSION}-public-league`;
@@ -87,6 +92,11 @@ const NEVER_CACHE = [
   // payload's caching now.
   "/api/data",
   "/api/dynasty-data",
+  // Rookie auction room: private bids/balances + authoritative live
+  // state.  Never at rest, never replayed offline.  The pages too: invite,
+  // reset and email-verification URLs carry one-time tokens.
+  "/api/auction/",
+  "/auction",
 ];
 
 function isNeverCache(url) {

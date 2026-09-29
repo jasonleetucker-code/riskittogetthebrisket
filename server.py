@@ -3784,6 +3784,16 @@ async def lifespan(app: FastAPI):
     # 3. Start the recurring schedule
     scheduler_task = asyncio.create_task(schedule_loop())
     uptime_task = asyncio.create_task(uptime_watchdog_loop())
+    # Rookie auction room runtime (closes, bots, heartbeat, outage pause).
+    # Correctness never depends on it — every command settles what is due
+    # first — and a failure here must never block the site from starting.
+    try:
+        from src.auction import runtime as _auction_runtime
+
+        auction_task = _auction_runtime.start()
+    except Exception as exc:  # noqa: BLE001
+        log.error("auction runtime failed to start: %s", exc)
+        auction_task = None
     # Public league snapshot warmup — kicks a background rebuild if
     # no persisted snapshot was loaded at boot.  Name is resolved at
     # call time (Python late-binding), so the fact that the function
@@ -3822,6 +3832,8 @@ async def lifespan(app: FastAPI):
     scrape_task.cancel()
     scheduler_task.cancel()
     uptime_task.cancel()
+    if auction_task is not None:
+        auction_task.cancel()
     log.info("Server shutting down")
 
 
@@ -3857,6 +3869,15 @@ app.include_router(_ros_router)
 from src.consensus_edge.api import router as _consensus_edge_router  # noqa: E402
 
 app.include_router(_consensus_edge_router)
+
+# Rookie auction room (owner directive 2026-09-29).  Self-contained router
+# with its OWN identity layer and store (``src/auction/``); it authenticates
+# every request itself, so its prefix is exempt from ``_private_api_gate``
+# below.  Mock rooms only until the owner separately approves an official
+# launch.  Rollback: RISKIT_FEATURE_ROOKIE_AUCTION=0 + restart.
+from src.auction.api import router as _auction_router  # noqa: E402
+
+app.include_router(_auction_router)
 
 
 @app.middleware("http")
@@ -3982,6 +4003,11 @@ _PUBLIC_API_PREFIXES = (
     # /api/public/league.  Generation remains admin-only via the POST
     # endpoint's own _require_admin_session check.
     "/api/league/articles",
+    # Rookie auction room: league-mates and invited mock participants hold
+    # an AUCTION session, not a site session.  Every handler under this
+    # prefix authenticates and authorises itself, deny-by-default
+    # (``src/auction/api.py``).
+    "/api/auction",
 )
 
 
