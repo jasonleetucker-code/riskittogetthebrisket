@@ -345,6 +345,12 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # Rollback: RISKIT_FEATURE_PERFECT_DRAFT=0 and restart (flag reads
     # are cached per process).
     "perfect_draft": True,
+    # Rookie auction room (``src/auction/``, owner directive 2026-09-29).
+    # Default ON for MOCK rooms: the router refuses to create an official
+    # room at all until the owner separately approves launch.  Off → every
+    # /api/auction/* route 503s feature_disabled and the runtime loop does
+    # not start.  Rollback: RISKIT_FEATURE_ROOKIE_AUCTION=0 and restart.
+    "rookie_auction": True,
     # Consensus Edge — the unified buy/sell board.  DEFAULT **OFF**.
     #
     # It was flipped ON on 2026-08-04 on the strength of a top-20 study
@@ -627,6 +633,9 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # off → 503 feature_disabled (and the /draft panel vanishes), on →
     # the roster context the client optimizer runs against.
     "perfect_draft": LIVE,
+    # rookie_auction gates the /api/auction/* router mounted in server.py
+    # and the auction runtime loop started in lifespan.
+    "rookie_auction": LIVE,
     # consensus_edge gates the /api/consensus-edge/* router mounted in
     # server.py: off → 503 feature_disabled, on → the board.
     "consensus_edge": LIVE,
