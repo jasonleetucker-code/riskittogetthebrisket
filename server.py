@@ -11242,19 +11242,75 @@ def _cached_public_contract_bytes(snapshot):
         return _PUBLIC_CONTRACT_BYTES_CACHE.get(_public_contract_cache_key(snapshot))
 
 
-def _store_public_contract_bytes(snapshot, contract) -> bytes:
+def _store_public_contract_bytes(snapshot, contract, key=None) -> bytes:
     """Encode ``contract`` exactly like ``JSONResponse.render`` and
-    memoize the bytes under the snapshot's generation key."""
+    memoize the bytes under the snapshot's generation key.
+
+    ``key`` lets a caller store under the key it captured BEFORE building,
+    so a private-board publish mid-build cannot file the result under the
+    newer generation."""
     raw = json.dumps(contract, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode(
         "utf-8"
     )
-    key = _public_contract_cache_key(snapshot)
+    if key is None:
+        key = _public_contract_cache_key(snapshot)
     with _PUBLIC_CONTRACT_BYTES_LOCK:
         if len(_PUBLIC_CONTRACT_BYTES_CACHE) >= _PUBLIC_CONTRACT_BYTES_MAX:
             for k in [k for k in _PUBLIC_CONTRACT_BYTES_CACHE if k != key]:
                 del _PUBLIC_CONTRACT_BYTES_CACHE[k]
         _PUBLIC_CONTRACT_BYTES_CACHE[key] = raw
     return raw
+
+
+# ``GET /api/public/league/overview`` — the public /league page's first
+# request — built EVERY public section (awards included, which the heavy
+# cache memoizes everywhere else) and kept only the overview: the full
+# contract's work on every request, 2-8 s TTFB in production on 2026-09-28.
+# The overview is the same object the full contract carries in
+# ``sections["overview"]`` (same builders, same order), so one build per
+# generation now serves both: it fills this memo AND the contract bytes
+# memo above, under the same generation key, single-flighted.
+_PUBLIC_OVERVIEW_CACHE: dict = {}
+_public_overview_async_lock: asyncio.Lock | None = None
+
+
+def _overview_payload_from_contract(contract: dict) -> dict:
+    """The ``build_section_payload(snapshot, "overview")`` shape, taken
+    from an already-built full contract."""
+    payload = {
+        "contractVersion": contract["contractVersion"],
+        "league": contract["league"],
+        "section": "overview",
+        "data": contract["sections"]["overview"],
+    }
+    assert_public_payload_safe(payload)
+    return payload
+
+
+async def _get_public_overview_payload(snapshot, *, bypass_cache: bool = False):
+    """Per-generation memo for the overview section (see above)."""
+    global _public_overview_async_lock
+    key = _public_contract_cache_key(snapshot)
+    hit = _PUBLIC_OVERVIEW_CACHE.get("overview")
+    if not bypass_cache and hit is not None and hit[0] == key:
+        return hit[1]
+    if _public_overview_async_lock is None:
+        _public_overview_async_lock = asyncio.Lock()
+    async with _public_overview_async_lock:
+        hit = _PUBLIC_OVERVIEW_CACHE.get("overview")
+        if not bypass_cache and hit is not None and hit[0] == key:
+            return hit[1]
+
+        def _build():
+            contract = build_public_contract(
+                snapshot, activity_valuation=_build_public_activity_valuation()
+            )
+            _store_public_contract_bytes(snapshot, contract, key=key)
+            return _overview_payload_from_contract(contract)
+
+        payload = await run_in_threadpool(_build)
+        _PUBLIC_OVERVIEW_CACHE["overview"] = (key, payload)
+        return payload
 
 
 _public_league_cache: dict = {
@@ -11875,6 +11931,7 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
         contract_bytes = None
         if _PUBLIC_LEAGUE_PERSIST and snapshot.seasons:
             try:
+                generation_key = _public_contract_cache_key(snapshot)
                 contract = build_public_contract(
                     snapshot,
                     activity_valuation=_build_public_activity_valuation(),
@@ -11883,7 +11940,14 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
                 # Seed the response-bytes memo with this build — the
                 # contract used to be assembled here and then THROWN
                 # AWAY while every request rebuilt it from scratch.
-                contract_bytes = len(_store_public_contract_bytes(snapshot, contract))
+                contract_bytes = len(
+                    _store_public_contract_bytes(snapshot, contract, key=generation_key)
+                )
+                # ... and the overview memo: the same build answers it.
+                _PUBLIC_OVERVIEW_CACHE["overview"] = (
+                    generation_key,
+                    _overview_payload_from_contract(contract),
+                )
                 _public_league_metrics["last_contract_bytes"] = contract_bytes
             except Exception as exc:  # noqa: BLE001
                 logging.warning("Failed to persist public_league snapshot: %s", exc)
@@ -12479,6 +12543,8 @@ async def get_public_league_section(
                 section,
                 activity_valuation=_build_public_activity_valuation(),
             )
+        elif section == "overview":
+            payload = await _get_public_overview_payload(snapshot, bypass_cache=bool(refresh))
         else:
             # Every other section still runs its build in the worker so a
             # heavier-than-expected builder can't block the event loop.
