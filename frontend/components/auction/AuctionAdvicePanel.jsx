@@ -24,6 +24,8 @@ const REASONS = {
   perfect_draft_disabled: "Perfect Draft is switched off.",
   no_board_loaded: "No player board is loaded right now.",
   context_error: "Roster context failed to load.",
+  roster_context_incomplete: "Roster context is incomplete (open roster spots unknown), so no plan is shown.",
+  room_pool_unknown: "The room's total money is unknown, so prices cannot be estimated.",
 };
 
 function storageKey(roomId, seat) {

@@ -71,3 +71,21 @@ describe("buildAdviceInput", () => {
     expect(JSON.stringify(out.input)).not.toMatch(/max"/);
   });
 });
+
+describe("missing inputs withhold advice (never zero)", () => {
+  it("unknown open roster spots", () => {
+    const out = buildAdviceInput({ view: view(), pool, adviceCtx: { context: { cutLadder: { rungs: [] } }, boardValues: {} }, applyDraftProgress });
+    expect(out.input).toBeNull();
+    expect(out.reason).toBe("roster_context_incomplete");
+  });
+  it("unknown room pool", () => {
+    const v = view();
+    delete v.public.total_opening_pool;
+    expect(buildAdviceInput({ view: v, pool, adviceCtx: ctx, applyDraftProgress }).reason).toBe("room_pool_unknown");
+  });
+  it("unknown budget", () => {
+    const v = view();
+    v.me.private.spendable = null;
+    expect(buildAdviceInput({ view: v, pool, adviceCtx: ctx, applyDraftProgress }).reason).toBe("budget_missing");
+  });
+});

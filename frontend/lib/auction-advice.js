@@ -38,9 +38,16 @@ export function buildAdviceInput({ view, pool, adviceCtx, strategy = "balanced",
   const me = view?.me?.private;
   const seat = view?.me?.seat;
   if (!pub || !me || !seat || !pool) return { input: null, reason: "no_seat" };
-  if (me.spendable == null) return { input: null, reason: "budget_missing" };
+  // MISSING IS NEVER ZERO: an unknown budget, pool or roster size withholds
+  // advice; it is never planned against as $0 / 0 spots.
+  const budget = Number(me.spendable);
+  if (me.spendable == null || !Number.isFinite(budget)) return { input: null, reason: "budget_missing" };
   const ctx = adviceCtx?.context || null;
   if (!ctx) return { input: null, reason: adviceCtx?.reason || "no_roster_context" };
+  const openSpots = Number(ctx.openRosterSpots);
+  if (ctx.openRosterSpots == null || !Number.isFinite(openSpots)) return { input: null, reason: "roster_context_incomplete" };
+  const roomMoney = Number(pub.total_opening_pool);
+  if (pub.total_opening_pool == null || !Number.isFinite(roomMoney)) return { input: null, reason: "room_pool_unknown" };
 
   const values = adviceCtx?.boardValues || {};
   const sellable = Math.max(1, (pub.rules?.rounds || 6) * (pub.seats?.length || 12));
@@ -50,7 +57,6 @@ export function buildAdviceInput({ view, pool, adviceCtx, strategy = "balanced",
     .sort((a, b) => b - a)
     .slice(0, sellable);
   const denom = valued.reduce((s, v) => s + v, 0);
-  const roomMoney = Math.max(0, Number(pub.total_opening_pool) || 0);
   const estimate = (v) => (denom > 0 ? Math.round((roomMoney * v) / denom) : null);
 
   const byPlayer = new Map(pub.auctions.map((a) => [a.player, a]));
@@ -86,7 +92,7 @@ export function buildAdviceInput({ view, pool, adviceCtx, strategy = "balanced",
   }
 
   const progress = applyDraftProgress({
-    openRosterSpots: ctx.openRosterSpots || 0,
+    openRosterSpots: openSpots,
     cutLadder: ctx.cutLadder?.rungs || ctx.cutLadder || [],
     waiverLadder: ctx.waiverLadder || null,
     rookiesBought: held.length,
@@ -99,7 +105,7 @@ export function buildAdviceInput({ view, pool, adviceCtx, strategy = "balanced",
     progress,
     input: {
       rookies: candidates,
-      budget: Math.max(0, Number(me.spendable) || 0),
+      budget: Math.max(0, budget),
       cutLadder: progress.cutLadder,
       openRosterSpots: progress.openRosterSpots,
       waiverValues: ctx.waiverValues || {},
