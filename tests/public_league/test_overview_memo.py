@@ -12,7 +12,10 @@ Pinned here:
     1. Repeat requests for one generation build once, identical bytes.
     2. That build also serves ``GET /api/public/league`` (no second build).
     3. A new private-board generation and a new VORP calc version miss.
-    4. ``?refresh=1`` bypasses the memo read.
+    4. Only an AUTHORIZED ``?refresh`` bypasses the memo read (B8).
+    5b. Entries age out with the snapshot refresh window; an older build
+        never replaces a newer one; a bad value elsewhere in the contract
+        cannot fail the overview.
     5. The memoized overview equals a direct ``build_section_payload``.
     6. Concurrent misses build once.
 """
@@ -109,10 +112,75 @@ class PublicOverviewMemoTests(unittest.TestCase):
             awards_module._VORP_CALC_VERSION = old
         self.assertEqual(self.calls["n"], 2)
 
-    def test_refresh_bypasses_the_memo_read(self) -> None:
+    def test_an_authorized_refresh_bypasses_the_memo_read(self) -> None:
         self.assertEqual(self.client.get("/api/public/league/overview").status_code, 200)
-        self.assertEqual(self.client.get("/api/public/league/overview?refresh=1").status_code, 200)
+        real_auth = self.server._authorized_force_refresh
+        self.server._authorized_force_refresh = lambda request, refresh: bool(refresh)
+        try:
+            r = self.client.get("/api/public/league/overview?refresh=1")
+        finally:
+            self.server._authorized_force_refresh = real_auth
+        self.assertEqual(r.status_code, 200)
         self.assertEqual(self.calls["n"], 2)
+
+    def test_an_anonymous_refresh_reads_the_memo(self) -> None:
+        # B8: anonymous ``?refresh`` (any spelling) must not queue full builds.
+        self.assertEqual(self.client.get("/api/public/league/overview").status_code, 200)
+        for flag in ("1", "0", "yes"):
+            r = self.client.get(f"/api/public/league/overview?refresh={flag}")
+            self.assertEqual(r.status_code, 200)
+        self.assertEqual(self.calls["n"], 1)
+
+    def test_entries_expire_with_the_snapshot_refresh_window(self) -> None:
+        # Inputs outside the key (file-backed power data) may not freeze
+        # while snapshot rebuilds fail: entries age out.
+        self.assertEqual(self.client.get("/api/public/league/overview").status_code, 200)
+        ttl = self.server._PUBLIC_LEAGUE_CACHE_TTL_SECONDS
+        self.server._PUBLIC_LEAGUE_CACHE_TTL_SECONDS = 0
+        try:
+            self.assertEqual(self.client.get("/api/public/league/overview").status_code, 200)
+            self.assertIsNone(
+                self.server._cached_public_contract_bytes(
+                    self.server._public_league_cache["snapshot"]
+                )
+            )
+        finally:
+            self.server._PUBLIC_LEAGUE_CACHE_TTL_SECONDS = ttl
+        self.assertEqual(self.calls["n"], 2)
+
+    def test_an_older_build_never_replaces_a_newer_one(self) -> None:
+        server = self.server
+        server._remember_overview(("G2",), {"g": 2}, started_at=200.0)
+        server._remember_overview(("G1",), {"g": 1}, started_at=100.0)
+        self.assertEqual(server._PUBLIC_OVERVIEW_CACHE["overview"][0], ("G2",))
+        snapshot = server._public_league_cache["snapshot"] or object()
+        with server._PUBLIC_CONTRACT_BYTES_LOCK:
+            server._PUBLIC_CONTRACT_BYTES_CACHE.clear()
+        for i in range(server._PUBLIC_CONTRACT_BYTES_MAX):
+            server._store_public_contract_bytes(
+                snapshot, {"i": i}, key=("K", i), started_at=10.0 + i
+            )
+        # A late, OLD build of a fresh key evicts the oldest entry, never the newest.
+        server._store_public_contract_bytes(
+            snapshot, {"late": 1}, key=("K", "late"), started_at=11.5
+        )
+        keys = set(server._PUBLIC_CONTRACT_BYTES_CACHE)
+        self.assertIn(("K", server._PUBLIC_CONTRACT_BYTES_MAX - 1), keys)
+        self.assertNotIn(("K", 0), keys)
+        # And an older build of the SAME key does not replace the newer bytes.
+        server._store_public_contract_bytes(snapshot, {"old": 1}, key=("K", 3), started_at=1.0)
+        self.assertEqual(server._PUBLIC_CONTRACT_BYTES_CACHE[("K", 3)][1], 13.0)
+
+    def test_an_unencodable_value_elsewhere_does_not_fail_the_overview(self) -> None:
+        server = self.server
+        contract = {
+            "contractVersion": "v",
+            "league": {"name": "L"},
+            "sections": {"overview": {"ok": True}, "luck": {"bad": float("nan")}},
+        }
+        server._seed_public_generation(object(), contract, ("K", "nan"), started_at=1e12)
+        self.assertEqual(server._PUBLIC_OVERVIEW_CACHE["overview"][1]["data"], {"ok": True})
+        self.assertNotIn(("K", "nan"), server._PUBLIC_CONTRACT_BYTES_CACHE)
 
     def test_a_snapshot_rebuild_seeds_the_overview_memo(self) -> None:
         # Cold snapshot: the rebuild's persist step builds the contract once;
