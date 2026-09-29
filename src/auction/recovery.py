@@ -154,6 +154,10 @@ def remove_member(
             "UPDATE members SET removed_at=? WHERE room_id=? AND user_id=?",
             (now, room_id, member_user_id),
         )
+        # Their watches go with them (review finding 7); the seat keeps its lots.
+        conn.execute(
+            "DELETE FROM notif_watch WHERE room_id=? AND user_id=?", (room_id, member_user_id)
+        )
         # Any unused invite for that seat is revoked too; a fresh one is issued deliberately.
         if m["seat_id"]:
             conn.execute(
