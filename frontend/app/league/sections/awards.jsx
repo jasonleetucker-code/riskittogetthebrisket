@@ -277,7 +277,7 @@ const AWAITING_COPY = {
   no_scored_week_since_any_add: "No scored week since any add yet",
   no_value_above_replacement: "No starter finished above replacement",
   no_qualifying_evidence: "No qualifying result yet",
-  no_eligible_mvp_candidate: "No team is in playoff position with a winning record yet",
+  no_eligible_mvp_candidate: "No team is in playoff position with a .500-or-better record yet",
   mvp_eligibility_unverified: "Playoff field can't be verified yet — eligibility unavailable",
 };
 
@@ -299,20 +299,27 @@ export function vorpExclusionNote(exclusions) {
   return `${positions.join(", ")} excluded — ${why}`;
 }
 
-// League MVP's team-success gate (owner decision 2026-09-26): the race lists
-// only players on a team in playoff position AND above .500. The backend
+// League MVP's team-success gate (owner decision 2026-09-26; record half
+// corrected 2026-09-29 to ".500 or better" — exactly .500 counts): the race
+// lists only players on a team in playoff position AND at .500 or better. The
+// backend
 // publishes the rule and the best performers it keeps out, so a missing
 // star reads as "outside the race", never as a data gap. OPOY / DPOY carry
 // no such block and show nothing here.
 const MVP_OUTSIDE_WHY = {
   team_outside_playoff_field: "team outside the playoff field",
-  team_record_not_above_500: "team not above .500",
+  team_record_below_500: "team below .500",
+  team_record_unavailable: "no decided games yet",
 };
 
 export function mvpEligibilityNote(eligibility) {
   if (!eligibility || eligibility.verified !== true) return null;
   const basis = eligibility.basis === "final_bracket" ? "that made the playoffs" : "in playoff position";
-  return `Eligible: players on a team ${basis} with a winning record.`;
+  // Caption the rule the payload was actually built under: an older backend
+  // (deploy skew) published the strict "winning record" boundary.
+  const record =
+    eligibility.rule === "playoff_field_and_winning_record" ? "a winning record" : "a .500-or-better record";
+  return `Eligible: players on a team ${basis} with ${record}.`;
 }
 
 export function mvpOutsideNote(eligibility) {

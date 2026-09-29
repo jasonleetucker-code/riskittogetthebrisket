@@ -8,6 +8,7 @@ results stay consistent across cards.
 
 from __future__ import annotations
 
+import time
 from collections import defaultdict
 from typing import Any, Iterable
 
@@ -184,6 +185,69 @@ def week_is_fully_scored(
     return all(is_scored(e) for e in entries)
 
 
+#: year -> (monotonic read time, rows).  One contract build calls the
+#: finished-week rule ~100 times; without this each would re-read and
+#: JSON-parse the year's schedule.  30 s is far below any cadence the
+#: schedule changes on, and a lagging read can only WITHHOLD a week (schedule
+#: data only moves toward "final"), never admit one early.
+_NFL_SCHEDULE_MEMO: dict[int, tuple[float, list[dict[str, Any]]]] = {}
+_NFL_SCHEDULE_MEMO_SECONDS = 30.0
+
+
+def _nfl_schedule_rows(season_year: int) -> list[dict[str, Any]]:
+    """The nflverse schedule through its canonical owner, cache-only: this
+    runs on request paths and must never fetch.  Any failure is an empty
+    answer, which ``nfl_week_games_final`` reports as UNKNOWN."""
+    now = time.monotonic()
+    hit = _NFL_SCHEDULE_MEMO.get(season_year)
+    if hit is not None and now - hit[0] < _NFL_SCHEDULE_MEMO_SECONDS:
+        return hit[1]
+    try:
+        from src.nfl_data import ingest  # noqa: PLC0415
+
+        rows = list(ingest.fetch_schedules([int(season_year)], cache_only=True) or [])
+    except Exception:  # noqa: BLE001
+        rows = []
+    _NFL_SCHEDULE_MEMO[season_year] = (now, rows)
+    return rows
+
+
+def nfl_week_games_final(season_year: Any, week: int) -> bool | None:
+    """Has every game of NFL regular-season ``week`` finished?
+
+    Tri-state, like ``last_scored_week``:
+
+    * ``True`` — the schedule lists the week's games and every one is
+      ``completed``;
+    * ``False`` — at least one listed game is not (not started, or kicked
+      off with no published result: in progress or postponed);
+    * ``None`` — UNKNOWN: no schedule, or no games listed for that week.
+
+    Per-game state is Game Day's canonical reading of the same nflverse rows
+    (``game_day_week.schedule_games``: both scores AND the result published,
+    past kickoff, ``game_type == "REG"``), so "is this NFL game final" has one
+    definition.  ``now`` only sanity-checks that a completed game's kickoff
+    is in the past; nothing here infers completion from the clock.
+
+    This is evidence from the NFL side, independent of fantasy scoring.  It
+    is what tells a fully-scored-LOOKING league week from a finished one: on
+    the evening of Sunday 2026-09-27 every roster in ``dynasty_main`` had
+    non-zero week-3 points while Monday Night Football (PHI @ CHI) was still
+    unplayed, and ``week_is_fully_scored`` alone read the week as final.
+    """
+    try:
+        year = int(season_year)
+        wk = int(week)
+    except (TypeError, ValueError):
+        return None
+    from src.ros.game_day_week import schedule_games  # noqa: PLC0415
+
+    games = schedule_games(_nfl_schedule_rows(year), season=year, week=wk, now=time.time())
+    if not games:
+        return None
+    return all(game.state == "completed" for game in games)
+
+
 def final_regular_season_weeks(season: SeasonSnapshot) -> list[int]:
     """Regular-season weeks whose scoring is FINISHED.
 
@@ -202,14 +266,24 @@ def final_regular_season_weeks(season: SeasonSnapshot) -> list[int]:
       "hasn't played yet" (measured: the four zero rosters in live week 2
       carried a literal ``0.0``, not ``null``).
     * **data completeness** — every roster reporting a real score, in the
-      expected number of rows (``week_is_fully_scored``).  This admits a
-      genuinely finished week when the host clock lags a refresh cycle.
+      expected number of rows (``week_is_fully_scored``), AND every NFL game
+      of that week published final (``nfl_week_games_final is True``).
+      This admits a genuinely finished week when the host clock lags a
+      refresh cycle.  The NFL half is required because non-zero scores for
+      every roster are NOT proof of a finished week: after Sunday's games
+      every roster can have points while Monday's game is unplayed
+      (2026-09-27, week 3 read as final before Monday Night Football).  An
+      unknown NFL answer withholds the week until the host clock admits it.
 
     An in-progress week fails both, which is the point.  Both failing is
     also why the return is a WITHHOLDING rather than a guess: an
     unverifiable week is simply absent, never assumed complete.
     """
     horizon = last_scored_week(season)
+    # A season the host marks ``complete`` has no week left in progress
+    # (same rule as ``final_weeks``), so its fully-scored weeks need no NFL
+    # evidence -- and past years' schedules are not guaranteed to be cached.
+    complete = str(season.league.get("status") or "").lower() == "complete"
     out: list[int] = []
     for wk in season.regular_season_weeks:
         if horizon is not None and wk <= horizon:
@@ -218,7 +292,7 @@ def final_regular_season_weeks(season: SeasonSnapshot) -> list[int]:
         if week_is_fully_scored(
             season.matchups_by_week.get(wk) or [],
             expected_rosters=season.num_teams or None,
-        ):
+        ) and (complete or nfl_week_games_final(season.season, wk) is True):
             out.append(wk)
     return out
 

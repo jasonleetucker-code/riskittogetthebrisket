@@ -984,17 +984,40 @@ Owner-approved; the authorization record is the League Hub Awards pointer in `do
     recorded the conflict between the clarification (League MVP gated on a playoff-field, above-.500 franchise) and
     the 2026-08-14 amendment (no hard gate). The owner ruled for the gate on League MVP only.
 
+**Owner correction — award record eligibility is .500 OR BETTER (2026-09-29).**
+Binding; immediate; supersedes the record half of the 2026-09-26 League MVP decision below and every earlier
+"above .500" / "strictly greater than .500" / ".500 is not a winning record" statement.
+- For any award that ACTUALLY has a record eligibility requirement, the franchise qualifies on record when its
+  official regular-season winning percentage is **>= .500** under the league's canonical standings semantics (a tie
+  counts as half a win). Exactly .500 counts (6-6, 7-7, 8-8); below .500 does not (6-7, 7-8). Zero decisions never
+  qualify from a fabricated .500; missing/unverified standings stay unverified.
+- Today only **League MVP** has a record requirement. Its playoff-field requirement is unchanged: in the field +
+  .500 or better = eligible; outside the field = ineligible regardless of record.
+- **Manager of the Year has no record gate** (and no playoff gate) under the owner's unified Manager of the Year
+  direction, which the owner restated in this same 2026-09-29 instruction (first given 2026-09-28): one combined
+  award, no separate overall GM award, no playoff-qualification requirement, no winning-record requirement — a
+  manager below .500 may win if the complete formula ranks them first. The unified method itself remains a
+  validation track (PR #1513, not promoted). This correction must not add a gate. No other award (OPOY, DPOY, ROY, positional, Points King, Trader,
+  Waiver King, Champion, Playoff MVP, statistical awards) gains a record gate.
+- Reason code `team_record_not_above_500` is retired for `team_record_below_500` (UI: "team below .500"); a .500
+  team never receives it. A franchise with no decided games gets `team_record_unavailable` (UI: "no decided games
+  yet") — never "below .500". Canonical rule: `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` (2026-09-29 banner).
+- Replay 2026-09-29: no published League MVP winner changed in either live league (2024, 2025 finalized; the 2026
+  live leader is unchanged). Live race MEMBERSHIP widens as intended — .500 teams' players now race (e.g. a 2-2
+  team's star moves from "outside the race" into the standings).
+
 **Owner decision — League MVP requires team success (2026-09-26).**
 Binding; supersedes the 2026-08-13/14 "player MVP has no hard playoff-field / >.500 gate" rule wherever it appears
 (`docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` §7, `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §2, the Honors spec's
 2026-08-14 amendment, the spec index, manifest and sync records — all reconciled in the same change).
 - **League MVP** = elite player performance on a successful fantasy team. Eligible only when the credited fantasy
-  franchise is BOTH in the championship playoff field AND above .500:
+  franchise is BOTH in the championship playoff field AND above .500 *(record half superseded 2026-09-29:
+  .500 or better — see the correction above)*:
   - **live** — in a qualifying position under the league's real rules if the season ended at the latest
     completed scoring period (canonical standings order × the league's own `playoff_teams`), with an official
-    regular-season winning percentage strictly above .500 (host W/L/T, median games counted as the host counts
+    regular-season winning percentage ~~strictly above .500~~ .500 or better (host W/L/T, median games counted as the host counts
     them);
-  - **finalized** — actually qualified for the championship playoffs (real bracket) and finished above .500.
+  - **finalized** — actually qualified for the championship playoffs (real bracket) and finished ~~above .500~~ .500 or better.
   - An unknown field is `mvp_eligibility_unverified`; nobody eligible is `no_eligible_mvp_candidate`. Never a
     widened field.
 - **Not gated:** Offensive / Defensive Player of the Year (the best individual performances regardless of the
