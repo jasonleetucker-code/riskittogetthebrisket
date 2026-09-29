@@ -252,7 +252,7 @@ class _Surplus:
 # ── The window ledger ────────────────────────────────────────────────────
 @dataclass
 class _Event:
-    time: int
+    time: int  # chronological sequence number within the window
     leg: int
     channel: str
     adds: dict[str, int]
@@ -277,12 +277,27 @@ def _window_transactions(season: SeasonSnapshot) -> list[dict[str, Any]]:
                 continue
             if str(tx.get("type") or "").lower() not in _TX_CHANNEL:
                 continue
-            leg = _int(tx.get("leg")) or _int(week) or 0
-            if leg >= start:
+            leg = _int(tx.get("leg"))
+            if leg is None:
+                leg = _int(week)
+            if leg is None or leg >= start:
+                # No placeable week -> not in any window (never "week 0").
                 continue
             out.append({**tx, "_leg": leg})
-    out.sort(key=lambda t: (_int(t.get("created")) or 0, str(t.get("transaction_id") or "")))
+    out.sort(key=_tx_order)
     return out
+
+
+def _tx_order(tx: dict[str, Any]) -> tuple[int, bool, int, str]:
+    """Chronological order: leg, then timestamp (untimed moves first within
+    their leg -- a sort position, never a value), then id."""
+    created = _int(tx.get("created"))
+    return (
+        tx["_leg"],
+        created is not None,
+        created if created is not None else 0,
+        str(tx.get("transaction_id") or ""),
+    )
 
 
 def _as_rid_map(raw: Any) -> dict[str, int]:
@@ -329,8 +344,26 @@ def _startup_draft_id(season: SeasonSnapshot) -> str | None:
     ]
     if not candidates:
         return None
-    first = min(candidates, key=lambda d: _int(d.get("start_time")) or 0)
+
+    def _start(d: dict[str, Any]) -> tuple[bool, int]:
+        st = _int(d.get("start_time"))
+        return (st is None, st if st is not None else 0)
+
+    first = min(candidates, key=_start)
     return str(first.get("draft_id") or "")
+
+
+def _auction_order(p: dict[str, Any]) -> tuple[bool, int, bool, int]:
+    """Price rank: most expensive first; an unknown price or pick number
+    sorts LAST (a sort position, never a price)."""
+    amount = _int((p.get("metadata") or {}).get("amount"))
+    pick = _int(p.get("pick_no"))
+    return (
+        amount is None,
+        -amount if amount is not None else 0,
+        pick is None,
+        pick if pick is not None else 0,
+    )
 
 
 def _window_selections(
@@ -360,18 +393,15 @@ def _window_selections(
         if is_auction:
             ranked = sorted(
                 picks,
-                key=lambda p: (
-                    -(_int((p.get("metadata") or {}).get("amount")) or 0),
-                    _int(p.get("pick_no")) or 0,
-                ),
+                key=_auction_order,
             )
             rank_of = {id(p): i + 1 for i, p in enumerate(ranked)}
         for p in picks:
             rid = _int(p.get("roster_id"))
             if rid is None:
                 continue
-            k = rank_of[id(p)] if is_auction else (_int(p.get("pick_no")) or 0)
-            if k <= 0:
+            k = rank_of.get(id(p)) if is_auction else _int(p.get("pick_no"))
+            if k is None or k <= 0:
                 continue
             selections.append(
                 _Selection(
@@ -527,9 +557,12 @@ def _bracket_finish(season: SeasonSnapshot) -> dict[str, Any]:
     elim_round: dict[int, int] = {}
     for m in path:
         loser = _int(m.get("l"))
-        rnd = _int(m.get("r")) or 0
-        if loser is not None:
-            elim_round[loser] = max(rnd, elim_round.get(loser, 0))
+        if loser is None:
+            continue
+        rnd = _int(m.get("r"))
+        if rnd is None:  # an elimination we cannot place in a round
+            return {"resolved": False, "entrants": sorted(entrants), "finish": {}}
+        elim_round[loser] = max(rnd, elim_round.get(loser, rnd))
     finish: dict[int, float] = {champion: 1.0}
     groups: dict[int, list[int]] = defaultdict(list)
     for rid in entrants:
@@ -606,14 +639,15 @@ def management_ledger(
     txs = _window_transactions(season)
     events = [
         _Event(
-            time=_int(tx.get("created")) or 0,
+            # Position in the window's chronological order (_tx_order).
+            time=seq,
             leg=tx["_leg"],
             channel=_TX_CHANNEL[str(tx.get("type")).lower()],
             adds=_as_rid_map(tx.get("adds")),
             drops=_as_rid_map(tx.get("drops")),
             tx=tx,
         )
-        for tx in txs
+        for seq, tx in enumerate(txs)
     ]
     ledger = _Ledger(events)
     selections, draft_diag, draft_meta = _window_selections(snapshot, season)
@@ -728,7 +762,10 @@ def management_ledger(
             if draft is None or rnd is None or origin is None:
                 unpriced_current += 1
                 continue
-            teams = draft["teams"] or season.num_teams or 1
+            teams = draft["teams"] if draft["teams"] else season.num_teams
+            if not teams:
+                unpriced_current += 1
+                continue
             slot = _int((draft.get("draftOrder") or {}).get(owner_user.get(origin, "")))
             if slot is None:
                 slot = (teams + 1) // 2
@@ -778,7 +815,9 @@ def _faab_by_roster(season: SeasonSnapshot) -> tuple[dict[int, float], dict[int,
                     spent[rid] += bid
         elif ttype == "trade":
             for move in tx.get("waiver_budget") or []:
-                amount = _float(move.get("amount")) or 0.0
+                amount = _float(move.get("amount"))
+                if amount is None:  # unknown amount: reported nowhere, never 0
+                    continue
                 rec, snd = _int(move.get("receiver")), _int(move.get("sender"))
                 if rec is not None:
                     traded[rec] += amount
