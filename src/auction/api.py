@@ -1359,3 +1359,137 @@ async def room_advice_context(request: Request, room_id: str):
     out["context"] = ctx.get("context") if isinstance(ctx, dict) and "context" in ctx else ctx
     out["status"] = "ok" if out["context"] else "values_only"
     return JSONResponse(out, headers={"Cache-Control": "no-store"})
+
+
+# ---------------------------------------------------------------------------
+# Commissioner recovery tools, preflight, points-for preview (milestone D/E)
+# ---------------------------------------------------------------------------
+
+
+def _require_commissioner(room_id: str, user: accounts.User) -> dict:
+    member = _member_or_admin(room_id, user)
+    if member["role"] != "commissioner":
+        raise AuctionError("forbidden", "commissioner only", 403)
+    return member
+
+
+@router.post("/rooms/{room_id}/members/{member_id}/reset-link")
+async def member_reset_link(request: Request, room_id: str, member_id: int):
+    guard = _mutation_guard(request)
+    if guard:
+        return guard
+    from src.auction import recovery
+
+    try:
+        user = _require_user(request)
+        await run_in_threadpool(_require_commissioner, room_id, user)
+        token = await run_in_threadpool(
+            lambda: recovery.issue_reset(
+                get_store(),
+                room_id=room_id,
+                member_user_id=member_id,
+                commissioner_id=user.id,
+                now=_now(),
+            )
+        )
+    except AuctionError as exc:
+        return _auction_error(exc)
+    return {"resetPath": f"/auction/reset?token={token}", "expiresInHours": 24}
+
+
+@router.post("/auth/reset")
+async def auth_reset(request: Request):
+    guard = _mutation_guard(request)
+    if guard:
+        return guard
+    from src.auction import recovery
+
+    try:
+        body = await _json_body(request)
+        user = await run_in_threadpool(
+            recovery.use_reset,
+            get_store(),
+            str(body.get("token") or ""),
+            body.get("password"),
+            _now(),
+        )
+        token = await run_in_threadpool(accounts.issue_session, get_store(), user.id, _now())
+    except AuctionError as exc:
+        return _auction_error(exc)
+    resp = JSONResponse({"user": user.public()})
+    _set_cookie(resp, token)
+    return resp
+
+
+@router.post("/rooms/{room_id}/members/{member_id}/remove")
+async def member_remove(request: Request, room_id: str, member_id: int):
+    guard = _mutation_guard(request)
+    if guard:
+        return guard
+    from src.auction import recovery
+
+    try:
+        user = _require_user(request)
+        await run_in_threadpool(_require_commissioner, room_id, user)
+        body = await _json_body(request)
+        out = await run_in_threadpool(
+            lambda: recovery.remove_member(
+                get_store(),
+                room_id=room_id,
+                member_user_id=member_id,
+                commissioner_id=user.id,
+                reason=str(body.get("reason") or ""),
+                now=_now(),
+            )
+        )
+    except AuctionError as exc:
+        return _auction_error(exc)
+    return out
+
+
+@router.get("/rooms/{room_id}/preflight")
+async def room_preflight(request: Request, room_id: str):
+    gate = _gate()
+    if gate:
+        return gate
+    from src.auction import recovery
+
+    try:
+        user = _require_user(request)
+        await run_in_threadpool(_require_commissioner, room_id, user)
+        out = await run_in_threadpool(recovery.preflight, get_store(), room_id, _now())
+    except AuctionError as exc:
+        return _auction_error(exc)
+    return JSONResponse(out, headers={"Cache-Control": "no-store"})
+
+
+@router.get("/rooms/{room_id}/points-for-preview")
+async def room_pf_preview(request: Request, room_id: str):
+    gate = _gate()
+    if gate:
+        return gate
+    from src.auction import recovery
+
+    try:
+        user = _require_user(request)
+        await run_in_threadpool(_require_commissioner, room_id, user)
+        state, _, _ = get_store().load(room_id)
+        if not state.get("league_key"):
+            raise AuctionError("no_league", "this room's seats are not league rosters", 409)
+        from src.api import league_registry
+
+        league_id = league_registry.get_sleeper_league_id(state["league_key"])
+        if not league_id:
+            raise AuctionError("no_league", "the room's league is not configured", 409)
+        out = await run_in_threadpool(recovery.points_for_preview, league_id)
+    except AuctionError as exc:
+        return _auction_error(exc)
+    by_roster = {s.get("roster_id"): s for s in state["seats"]}
+    out["seatOrder"] = [
+        by_roster[r["roster_id"]]["id"] for r in out["order"] if r["roster_id"] in by_roster
+    ]
+    out["seatNames"] = {s["id"]: s["name"] for s in state["seats"]}
+    for r in out["order"]:
+        r.pop("owner_id", None)  # no Sleeper ids to the UI
+    out["complete"] = len(out["seatOrder"]) == len(state["seats"]) and not out["missing"]
+    return out
