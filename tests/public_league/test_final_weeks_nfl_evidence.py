@@ -174,3 +174,53 @@ def test_the_schedule_is_read_once_per_memo_window(monkeypatch):
     for _ in range(20):
         assert metrics.nfl_week_games_final(2026, 3) is True
     assert len(reads) == 1
+
+
+def test_sunday_afternoon_with_night_and_monday_games_remaining(schedule):
+    # Early/late Sunday windows final; SNF has a future kickoff, MNF too.
+    schedule.extend(
+        [
+            _game(3, "ATL", "GB", (35, 14)),
+            _game(3, "LA", "DEN", time="16:25"),  # kicked off, no result yet
+            _game(3, "KC", "BUF", day="2099-09-27", time="20:20"),
+            _game(3, "PHI", "CHI", day="2099-09-28", time="20:15"),
+        ]
+    )
+    season = _week3_all_rosters_scored(last_scored_leg=2)
+    assert metrics.final_regular_season_weeks(season) == [1, 2]
+
+
+def test_a_postponed_game_keeps_the_week_open(schedule):
+    # Kicked off (or scheduled) in the past with no result ever published --
+    # the BUF @ CIN 2022 shape. Unknown game state is not final.
+    schedule.extend([_game(3, "ATL", "GB", (35, 14)), _game(3, "BUF", "CIN")])
+    season = _week3_all_rosters_scored(last_scored_leg=2)
+    assert metrics.nfl_week_games_final(2026, 3) is False
+    assert metrics.final_regular_season_weeks(season) == [1, 2]
+
+
+def test_a_real_zero_point_roster_in_a_final_week_is_admitted_by_the_host_clock(schedule):
+    # The data proof cannot tell a genuine 0.0 from "hasn't played"; the
+    # host clock can, and a missing score is never read as zero.
+    schedule.extend(_MONDAY_FINAL)
+    season = _season(
+        {1: _week(*_FULL), 2: _week(*_FULL), 3: _week(110.0, 0.0, 120.0, 90.0)},
+        last_scored_leg=2,
+    )
+    assert metrics.final_regular_season_weeks(season) == [1, 2]  # withheld, not guessed
+    season.league["settings"]["last_scored_leg"] = 3
+    assert metrics.final_regular_season_weeks(season) == [1, 2, 3]
+
+
+def test_playoff_weeks_still_need_the_host_clock(schedule):
+    # final_weeks: a playoff week is final on the host clock alone, never on
+    # the NFL half -- a playoff week legitimately has fewer rows.
+    schedule.extend([_game(15, "A", "B", (1, 0))])
+    season = _season(
+        {14: _week(*_FULL), 15: _week(110.0, 100.0)},
+        last_scored_leg=14,
+        playoff_week_start=15,
+    )
+    assert 15 not in metrics.final_weeks(season)
+    season.league["settings"]["last_scored_leg"] = 15
+    assert 15 in metrics.final_weeks(season)
