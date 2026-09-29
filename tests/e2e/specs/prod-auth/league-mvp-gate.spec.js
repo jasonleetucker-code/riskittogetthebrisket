@@ -34,6 +34,14 @@ test.describe("League MVP team-success gate (production)", () => {
     for (const o of elig.outsideTheRace || []) {
       expect(o.reason).not.toBe("team_record_not_above_500");
     }
+    // The boundary itself, on production data: every franchise the gate
+    // publishes as below .500 really is (2W + T < G), so no .500-or-better
+    // team can carry that reason.
+    for (const o of elig.outsideTheRace || []) {
+      if (o.reason !== "team_record_below_500") continue;
+      const [w, l, tie = 0] = String(o.record).split("-").map(Number);
+      expect(2 * w + tie, `${o.playerName}'s team ${o.record} labelled below .500`).toBeLessThan(w + l + tie);
+    }
 
     const outsideIds = new Set((elig.outsideTheRace || []).map((o) => o.playerId));
     for (const s of mvp.standings || []) {

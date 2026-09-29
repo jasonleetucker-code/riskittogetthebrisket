@@ -308,12 +308,17 @@ export function vorpExclusionNote(exclusions) {
 const MVP_OUTSIDE_WHY = {
   team_outside_playoff_field: "team outside the playoff field",
   team_record_below_500: "team below .500",
+  team_record_unavailable: "no decided games yet",
 };
 
 export function mvpEligibilityNote(eligibility) {
   if (!eligibility || eligibility.verified !== true) return null;
   const basis = eligibility.basis === "final_bracket" ? "that made the playoffs" : "in playoff position";
-  return `Eligible: players on a team ${basis} with a .500-or-better record.`;
+  // Caption the rule the payload was actually built under: an older backend
+  // (deploy skew) published the strict "winning record" boundary.
+  const record =
+    eligibility.rule === "playoff_field_and_winning_record" ? "a winning record" : "a .500-or-better record";
+  return `Eligible: players on a team ${basis} with ${record}.`;
 }
 
 export function mvpOutsideNote(eligibility) {

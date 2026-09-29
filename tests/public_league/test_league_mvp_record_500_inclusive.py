@@ -82,10 +82,13 @@ def test_ties_follow_the_canonical_standings_half_win(record, ties, eligible):
 
 
 def test_zero_games_never_qualifies_from_a_fabricated_500():
+    # No decided games: not eligible, and NOT called "below .500" either --
+    # the record is unavailable, which is a different, truthful reason.
     gate = _gate({2: (0, 0)})
     team = gate["teams"]["owner-B"]
     assert team["eligible"] is False
-    assert team["reason"] == awards.MVP_RECORD_BELOW_500
+    assert team["reason"] == awards.MVP_RECORD_UNAVAILABLE == "team_record_unavailable"
+    assert team["reason"] != awards.MVP_RECORD_BELOW_500
 
 
 def test_a_500_team_outside_the_playoff_field_is_still_ineligible():

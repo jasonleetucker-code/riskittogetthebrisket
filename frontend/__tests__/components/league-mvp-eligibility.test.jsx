@@ -78,6 +78,17 @@ describe("League MVP eligibility copy", () => {
       "Eligible: players on a team that made the playoffs with a .500-or-better record.",
     );
     expect(mvpEligibilityNote({ verified: false })).toBeNull();
+    // A payload built under the retired strict rule is captioned truthfully.
+    expect(mvpEligibilityNote({ ...eligibility, rule: "playoff_field_and_winning_record" })).toBe(
+      "Eligible: players on a team in playoff position with a winning record.",
+    );
+    expect(
+      mvpOutsideNote({
+        outsideTheRace: [
+          { playerId: "x", playerName: "New Back", reason: "team_record_unavailable" },
+        ],
+      }),
+    ).toBe("Outside the race: New Back (no decided games yet)");
     expect(mvpOutsideNote({ outsideTheRace: [] })).toBeNull();
   });
 

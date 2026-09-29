@@ -10,13 +10,15 @@
 > .500 or better = eligible; outside the field = ineligible regardless of record). A franchise with no decisions
 > never qualifies from a fabricated .500; unverifiable standings stay UNVERIFIED. Implemented in
 > `src/public_league/awards.py::_league_mvp_gate` (`2*wins + ties >= games`, `games > 0`; ineligibility reason
-> `team_record_below_500`, which replaced `team_record_not_above_500`). No published League MVP winner changed
-> (2024/2025 finalized and the 2026 live race, both live leagues; replay 2026-09-29).
+> `team_record_below_500`, which replaced `team_record_not_above_500`; a franchise with no decided games is
+> `team_record_unavailable`, never "below .500"). No published League MVP winner changed (2024/2025 finalized; the
+> 2026 live leader unchanged, both live leagues; replay 2026-09-29); live race membership widens as intended.
 >
 > **Manager of the Year has NO record or playoff gate.** The owner's unified Manager of the Year direction
 > (one combined award; no separate GM award; no playoff-qualification requirement; no winning-record requirement;
 > a manager below .500 may win) supersedes this file's §8 Manager eligibility rules and the note below that said
-> "Manager of the Year is NOT superseded". The unified method itself is a validation track (PR #1513), not a
+> "Manager of the Year is NOT superseded". Recorded in `docs/OWNER_REQUESTED_TODO.md` ("Owner correction — award
+> record eligibility is .500 OR BETTER", 2026-09-29), where the owner restated it. The unified method itself is a validation track (PR #1513), not a
 > promoted award; `main`'s current Manager of the Year composite has no eligibility gate.
 
 > **OWNER DECISION — 2026-09-26 (binding; supersedes the 2026-08-14 amendment below).** League MVP

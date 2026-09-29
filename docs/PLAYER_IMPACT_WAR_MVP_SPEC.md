@@ -219,6 +219,6 @@ Before production promotion, pin at minimum:
 
 ## 13. Done criteria / sequencing
 
-Done requires one canonical replacement-baseline owner, trusted B7 realized scoring, one canonical best-ball solver, league standings rules from canonical config, one weekly player-impact contract shared by Awards/UPP/Upside Report, immutable provenance/history, the League MVP playoff-field + >.500 gate applied to League MVP only (owner decision 2026-09-26), final deterministic MVP aggregation validated + owner-approved, and representative production weeks independently reproduced.
+Done requires one canonical replacement-baseline owner, trusted B7 realized scoring, one canonical best-ball solver, league standings rules from canonical config, one weekly player-impact contract shared by Awards/UPP/Upside Report, immutable provenance/history, the League MVP playoff-field + .500-or-better gate (corrected 2026-09-29 from >.500) applied to League MVP only (owner decision 2026-09-26), final deterministic MVP aggregation validated + owner-approved, and representative production weeks independently reproduced.
 
 Do **not** interrupt the active B fast lane to implement this full feature family. B7 exact scoring is a prerequisite foundation; the complete Player Impact / WAR / Awards integration belongs in the mandatory post-B C-series replan, where this file is binding owner intent.

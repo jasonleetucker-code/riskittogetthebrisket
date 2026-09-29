@@ -994,11 +994,17 @@ Binding; immediate; supersedes the record half of the 2026-09-26 League MVP deci
 - Today only **League MVP** has a record requirement. Its playoff-field requirement is unchanged: in the field +
   .500 or better = eligible; outside the field = ineligible regardless of record.
 - **Manager of the Year has no record gate** (and no playoff gate) under the owner's unified Manager of the Year
-  direction; this correction must not add one. No other award (OPOY, DPOY, ROY, positional, Points King, Trader,
+  direction, which the owner restated in this same 2026-09-29 instruction (first given 2026-09-28): one combined
+  award, no separate overall GM award, no playoff-qualification requirement, no winning-record requirement — a
+  manager below .500 may win if the complete formula ranks them first. The unified method itself remains a
+  validation track (PR #1513, not promoted). This correction must not add a gate. No other award (OPOY, DPOY, ROY, positional, Points King, Trader,
   Waiver King, Champion, Playoff MVP, statistical awards) gains a record gate.
-- Reason code `team_record_not_above_500` is retired for `team_record_below_500` ("Team record is below .500");
-  a .500 team never receives it. Canonical rule: `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` (2026-09-29 banner).
-- Replay 2026-09-29: no published League MVP winner changed in either live league (2024, 2025, 2026 live race).
+- Reason code `team_record_not_above_500` is retired for `team_record_below_500` (UI: "team below .500"); a .500
+  team never receives it. A franchise with no decided games gets `team_record_unavailable` (UI: "no decided games
+  yet") — never "below .500". Canonical rule: `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` (2026-09-29 banner).
+- Replay 2026-09-29: no published League MVP winner changed in either live league (2024, 2025 finalized; the 2026
+  live leader is unchanged). Live race MEMBERSHIP widens as intended — .500 teams' players now race (e.g. a 2-2
+  team's star moves from "outside the race" into the standings).
 
 **Owner decision — League MVP requires team success (2026-09-26).**
 Binding; supersedes the 2026-08-13/14 "player MVP has no hard playoff-field / >.500 gate" rule wherever it appears

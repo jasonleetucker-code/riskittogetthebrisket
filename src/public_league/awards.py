@@ -1493,7 +1493,7 @@ _FLEX_RBWR_POOL = 84  # top 84 RB+WR by starter points (TEs excluded)
 #: Bumped whenever the VORP formula or its week-eligibility gating
 #: changes, so a stale cached payload (see server.py's public-contract
 #: byte cache) can never silently outlive a correctness fix.
-_VORP_CALC_VERSION = "2026-09-26-league-mvp-team-success-gate"
+_VORP_CALC_VERSION = "2026-09-29-league-mvp-record-500-or-better"
 
 
 def _dynamic_starter_slots(season: SeasonSnapshot) -> dict[str, int]:
@@ -1727,6 +1727,10 @@ MVP_OUTSIDE_PLAYOFF_FIELD = "team_outside_playoff_field"
 #: only record failure is BELOW .500 (the old "not above .500" code and
 #: wording are retired: a .500 team is eligible on record).
 MVP_RECORD_BELOW_500 = "team_record_below_500"
+#: A franchise with no decided games has no record yet: it is not below
+#: .500 and must not be called so. It is outside the race (a fabricated
+#: .500 never qualifies), with a truthful reason.
+MVP_RECORD_UNAVAILABLE = "team_record_unavailable"
 
 
 def _league_mvp_gate(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> dict[str, Any]:
@@ -1784,11 +1788,12 @@ def _league_mvp_gate(snapshot: PublicLeagueSnapshot, season: SeasonSnapshot) -> 
         gate.update(basis="current_standings", playoffTeams=structure.teams)
     for r in standings:
         in_field = r["ownerId"] in qualified
-        record_ok = r["games"] > 0 and 2 * r["wins"] + r["ties"] >= r["games"]
         reason = None
         if not in_field:
             reason = MVP_OUTSIDE_PLAYOFF_FIELD
-        elif not record_ok:
+        elif r["games"] <= 0:
+            reason = MVP_RECORD_UNAVAILABLE
+        elif 2 * r["wins"] + r["ties"] < r["games"]:
             reason = MVP_RECORD_BELOW_500
         gate["teams"][r["ownerId"]] = {
             "eligible": reason is None,

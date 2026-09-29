@@ -235,7 +235,7 @@ Create one canonical player-impact engine with four distinct season metrics:
 
 The same remove-and-re-solve primitive owns **Game Changer Points** for The Upside Report. Counterfactual league-median results must recompute the median using the changed score. Negative impact is valid; missing evidence is unavailable, never zero.
 
-These metrics become first-class player-season statistics on appropriate UPP/history surfaces and deterministic inputs to Awards. MVP must use xWAR + VORP + actual WAR as complementary evidence; do not reduce MVP to a single raw leader. League MVP's playoff-field + >.500 eligibility gate (owner decision 2026-09-26) applies to League MVP only. Final deterministic MVP aggregation requires methodology validation and owner approval.
+These metrics become first-class player-season statistics on appropriate UPP/history surfaces and deterministic inputs to Awards. MVP must use xWAR + VORP + actual WAR as complementary evidence; do not reduce MVP to a single raw leader. League MVP's playoff-field + .500-or-better eligibility gate (record half corrected 2026-09-29 from >.500) (owner decision 2026-09-26) applies to League MVP only. Final deterministic MVP aggregation requires methodology validation and owner approval.
 
 **Full binding spec:** `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md`.
 
