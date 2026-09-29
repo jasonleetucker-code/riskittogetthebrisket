@@ -40,7 +40,9 @@ States: IMPLEMENTED → MOCK READY → HUMAN REHEARSAL PASSED → LIVE-READY →
 - [x] Notifications (AUC-002): inbox, outbox, Web Push via existing VAPID owner, email opt-in.
 - [x] Perfect Draft advice (same spendable ledger), auction-dollar trades.
 - [x] Hourly verified backup timer (`dynasty-auction-backup`), preflight, duration simulator.
-- [ ] Independent adversarial review findings resolved (see PR notes).
+- [x] Independent adversarial review (2026-09-29): 7 confirmed defects + hardening items resolved, each with a
+      regression test (`tests/auction/test_review_regressions.py`, notification/SW tests). Money rules held under the
+      reviewer's own 600-run fuzz. A second review after the owner's rehearsal is recommended.
 - [ ] Deployed and verified on production (mock rooms) — `https://chaseupside.com/auction`.
 - [ ] Production VAPID keys confirmed present (`/auction/notifications` shows "configured").
 
