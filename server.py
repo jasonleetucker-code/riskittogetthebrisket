@@ -1544,24 +1544,88 @@ def _finalize_scrape_run(worker_id: str) -> None:
     _sync_scrape_alias_fields()
 
 
-def _build_scrape_progress_callback(worker_id: str):
-    async def _on_progress(payload: dict):
-        if scrape_status.get("worker_id") != worker_id:
-            return
-        if not isinstance(payload, dict):
-            return
-        _update_scrape_progress(
-            step=payload.get("step"),
-            source=payload.get("source"),
-            step_index=payload.get("step_index"),
-            step_total=payload.get("step_total"),
-            event=payload.get("event"),
-            message=payload.get("message"),
-            level=payload.get("level", "info"),
-            meta=payload.get("meta"),
-        )
+def _apply_scrape_progress(worker_id: str, payload) -> None:
+    """Apply one scraper progress payload to ``scrape_status``.
 
-    return _on_progress
+    Runs on the server's event-loop thread only: ``scrape_status`` is read
+    by request handlers there, so it is never mutated from a worker thread.
+    """
+    if scrape_status.get("worker_id") != worker_id:
+        return
+    if not isinstance(payload, dict):
+        return
+    _update_scrape_progress(
+        step=payload.get("step"),
+        source=payload.get("source"),
+        step_index=payload.get("step_index"),
+        step_total=payload.get("step_total"),
+        event=payload.get("event"),
+        message=payload.get("message"),
+        level=payload.get("level", "info"),
+        meta=payload.get("meta"),
+    )
+
+
+async def _run_scraper_off_loop(scraper, worker_id: str, timeout: float):
+    """Run ``scraper.run()`` on its OWN event loop in a worker thread.
+
+    ``Dynasty Scraper.py::run`` is ``async def`` but, after the browser
+    phase, runs ~3,000 lines of synchronous merge/normalization with no
+    ``await`` (``health_report`` -> ``build_payload``: ~68 s measured in
+    production telemetry, 2026-09-24).  Awaited directly, that whole span
+    ran on this server's single event-loop thread, so every request --
+    ``/api/health`` included -- went unanswered for it: production probes
+    timed out at 20 s and 40 s during scheduled and startup scrapes.  Same
+    defect class as ``_import_scraper_module`` (2026-09-16), one phase later.
+
+    In a worker thread the synchronous span competes for the GIL (the
+    interpreter switches threads every few ms) instead of owning the loop.
+
+    Progress payloads are marshalled back with ``call_soon_threadsafe``:
+    FIFO on this loop, applied before the worker's completion is delivered,
+    so ``scrape_status`` stays single-threaded and in order.  The timeout
+    is applied inside the worker loop, exactly as before; cancelling this
+    coroutine cancels the scraper task in its loop (so Playwright closes
+    its browser) and waits for it to unwind.
+    """
+    main_loop = asyncio.get_running_loop()
+    handle: dict = {}
+    ready = threading.Event()
+
+    def _progress(payload):
+        main_loop.call_soon_threadsafe(_apply_scrape_progress, worker_id, payload)
+
+    async def _inner():
+        handle["loop"] = asyncio.get_running_loop()
+        handle["task"] = asyncio.current_task()
+        ready.set()
+        if handle.get("cancelled"):
+            raise asyncio.CancelledError
+        return await asyncio.wait_for(scraper.run(progress_callback=_progress), timeout=timeout)
+
+    def _worker():
+        try:
+            return asyncio.run(_inner())
+        finally:
+            ready.set()
+
+    future = main_loop.run_in_executor(None, _worker)
+    try:
+        return await asyncio.shield(future)
+    except asyncio.CancelledError:
+        handle["cancelled"] = True
+        await asyncio.to_thread(ready.wait, 5)
+        loop, task = handle.get("loop"), handle.get("task")
+        if loop is not None and task is not None and not loop.is_closed():
+            try:
+                loop.call_soon_threadsafe(task.cancel)
+            except RuntimeError:
+                pass  # the worker loop already finished
+        try:
+            await future
+        except BaseException:  # noqa: BLE001 -- unwinding; the cancel is re-raised
+            pass
+        raise
 
 
 def _scrape_status_payload() -> dict:
@@ -3094,13 +3158,10 @@ async def run_scraper(trigger: str = "manual") -> dict | None:
                 message="Executing scraper.run()",
             )
 
-            progress_callback = _build_scrape_progress_callback(worker_id)
-
-            # Top-level run timeout guard so a wedged scraper cannot hold running=True forever.
-            result = await asyncio.wait_for(
-                scraper.run(progress_callback=progress_callback),
-                timeout=SCRAPE_RUN_TIMEOUT_SECONDS,
-            )
+            # Off the event loop -- see _run_scraper_off_loop.  The top-level
+            # run timeout still bounds a wedged scraper so it cannot hold
+            # running=True forever.
+            result = await _run_scraper_off_loop(scraper, worker_id, SCRAPE_RUN_TIMEOUT_SECONDS)
 
             _update_scrape_progress(
                 step="validate",
