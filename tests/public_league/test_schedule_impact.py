@@ -136,6 +136,9 @@ class OracleTests(unittest.TestCase):
                 )
 
     def test_eight_team_lab_identity_expected_is_all_play_over_seven(self) -> None:
+        # Consistency check of the lab's stated identity, NOT oracle evidence:
+        # with no ties this is the production formula restated.  The
+        # independent oracle is the exhaustive 6-team enumeration above.
         rng = random.Random(7)
         scores = [[rng.uniform(70, 160) for _ in range(8)] for _ in range(7)]  # no ties
         cal = _one_factorizations(8)[123]
@@ -429,3 +432,91 @@ def _snap_with_registry(snap):
             [{"league": season.league, "users": season.users, "rosters": season.rosters}]
         ),
     )
+
+
+class ReviewRegressionTests(unittest.TestCase):
+    """Independent review of #1531 (REJECT) -- each must-fix pinned."""
+
+    def test_a_broken_matchup_is_partial_not_a_bye(self) -> None:
+        # Roster 2's partner row is missing from matchup 1 (singleton group).
+        weeks = {1: _week([(1, 1, 120.0), (3, 2, 90.0), (4, 2, 80.0)])}
+        weeks[1].append({"roster_id": 2, "matchup_id": 9, "points": 100.0})
+        snap = _snap(median=0, records={i: (0, 0, 0) for i in range(1, 5)}, weeks=weeks)
+        c = si.season_contract(snap, snap.seasons[0])
+        self.assertEqual(c["state"], si.STATE_PARTIAL)
+        self.assertTrue(any(i.endswith("unpaired:o1") for i in c["issues"]))
+        self.assertIn("o1", c["teamsWithoutEvaluableGames"])
+
+    def test_a_three_team_matchup_is_unsupported(self) -> None:
+        weeks = {1: _week([(1, 1, 120.0), (2, 1, 100.0), (3, 1, 90.0), (4, 2, 80.0)])}
+        snap = _snap(median=0, records={i: (0, 0, 0) for i in range(1, 5)}, weeks=weeks)
+        c = si.season_contract(snap, snap.seasons[0])
+        self.assertEqual(c["state"], si.STATE_UNSUPPORTED)
+        self.assertEqual(c["teams"], [])
+
+    def test_a_real_bye_is_recorded_per_team(self) -> None:
+        weeks = {1: _week([(1, 1, 120.0), (2, 1, 100.0), (3, 2, 90.0), (4, 2, 80.0)])}
+        weeks[2] = _week([(1, 1, 70.0), (3, 1, 130.0)]) + [
+            {"roster_id": 2, "matchup_id": None, "points": 110.0},
+            {"roster_id": 4, "matchup_id": None, "points": 60.0},
+        ]
+        snap = _snap(median=0, records={i: (0, 0, 0) for i in range(1, 5)}, weeks=weeks)
+        c = si.season_contract(snap, snap.seasons[0])
+        self.assertEqual(c["state"], si.STATE_COMPLETE)
+        o2 = next(t for t in c["teams"] if t["ownerId"] == "o2")
+        self.assertEqual((o2["games"], o2["byeWeeks"]), (1, [2]))
+
+    def test_an_impossible_median_record_is_never_published(self) -> None:
+        # The reviewer's probe: host records whose H2H half disagrees with the
+        # scores produced a "complete" median record of -1 wins.
+        snap = _snap(
+            median=1,
+            records={1: (1, 3, 0), 2: (2, 2, 0), 3: (3, 1, 0), 4: (2, 2, 0)},
+            weeks=AdapterTests.WEEKS,
+        )
+        c = si.season_contract(snap, snap.seasons[0])
+        for t in c["teams"]:
+            m = t["medianComponent"]
+            if m["state"] == "complete":
+                self.assertTrue(all(m[k] >= 0 for k in ("wins", "losses", "ties")))
+        o1 = next(t for t in c["teams"] if t["ownerId"] == "o1")
+        self.assertEqual(o1["medianComponent"]["reason"], "official_record_inconsistent")
+
+    def test_the_median_component_matches_the_scores_when_published(self) -> None:
+        # Fully consistent host records: H2H + score-derived median.
+        snap = _snap(
+            median=1,
+            records={1: (2, 2, 0), 2: (3, 1, 0), 3: (3, 1, 0), 4: (0, 4, 0)},
+            weeks=AdapterTests.WEEKS,
+        )
+        c = si.season_contract(snap, snap.seasons[0])
+        got = {t["ownerId"]: t["medianComponent"] for t in c["teams"]}
+        self.assertEqual(got["o2"], {"state": "complete", "wins": 2, "losses": 0, "ties": 0})
+        self.assertTrue(all(m["state"] == "complete" for m in got.values()))
+
+    def test_generation_id_covers_the_official_record(self) -> None:
+        a = _snap(median=0, records={i: (1, 1, 0) for i in range(1, 5)}, weeks=AdapterTests.WEEKS)
+        b = _snap(median=0, records={i: (2, 0, 0) for i in range(1, 5)}, weeks=AdapterTests.WEEKS)
+        ga = si.season_contract(a, a.seasons[0])["generationId"]
+        gb = si.season_contract(b, b.seasons[0])["generationId"]
+        self.assertNotEqual(ga, gb)
+
+    def test_public_block_carries_no_weekly_rows(self) -> None:
+        snap = _snap(
+            median=0, records={i: (1, 1, 0) for i in range(1, 5)}, weeks=AdapterTests.WEEKS
+        )
+        block = si.build_block(snap)
+        self.assertIsNone(block["bySeason"]["2026"]["weeks"])
+
+    def test_a_schedule_failure_does_not_take_down_the_luck_section(self) -> None:
+        from unittest import mock
+
+        from src.public_league import luck
+
+        snap = _snap(
+            median=0, records={i: (1, 1, 0) for i in range(1, 5)}, weeks=AdapterTests.WEEKS
+        )
+        with mock.patch.object(si, "build_block", side_effect=RuntimeError("boom")):
+            sec = luck.build_section(snap)
+        self.assertEqual(sec["scheduleImpact"]["state"], "failed")
+        self.assertTrue(sec["byOwnerSeason"])

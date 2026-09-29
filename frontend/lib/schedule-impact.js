@@ -79,26 +79,49 @@ export function interpretation(row) {
       ? "the schedule helped"
       : dir === "down"
         ? "the schedule cost them"
-        : "about what those scores earn against an average opponent";
+        : "about what those scores average against an equally likely opponent";
   return (
     `${actual} head-to-head wins. The same weekly scores average ${expected} ` +
     `against an equally likely opponent each week (${impact} schedule wins — ${tail}).`
   );
 }
 
-/** Honest copy for every non-complete contract state. */
+/** Record sort key: win share with ties as half, so 5-1 ranks above 5-3. */
+export function recordSortValue(row) {
+  const r = row?.officialRecord;
+  if (!r) return null;
+  const games = r.wins + r.losses + r.ties;
+  return games ? (r.wins + 0.5 * r.ties) / games : null;
+}
+
+/** "1 game not counted" when games were excluded for this team. */
+export function excludedNote(row) {
+  const weeks = Array.isArray(row?.excludedWeeks) ? row.excludedWeeks : [];
+  if (weeks.length === 0) return null;
+  const n = weeks.length;
+  return `${n} game${n === 1 ? "" : "s"} not counted (week${n === 1 ? "" : "s"} ${weeks.join(", ")})`;
+}
+
+/** Honest copy for every non-complete contract state, by its actual reason. */
 export function stateNotice(contract) {
   if (!contract) return { tone: "info", text: "Schedule impact is not available yet." };
   switch (contract.state) {
     case "complete":
       return null;
-    case "partial":
+    case "failed":
+      return { tone: "warning", text: "Schedule impact could not be calculated right now." };
+    case "partial": {
+      const missing = Array.isArray(contract.teamsWithoutEvaluableGames)
+        ? contract.teamsWithoutEvaluableGames.length
+        : 0;
       return {
         tone: "warning",
         text:
-          "Some games could not be evaluated (a score is missing), so they are left " +
-          "out. Totals cover only the games shown.",
+          "Some games could not be evaluated (a score or a matchup row is missing), so they are " +
+          "left out; each affected team is marked." +
+          (missing ? ` ${missing} team${missing === 1 ? " has" : "s have"} no countable game.` : ""),
       };
+    }
     case "unsupported":
       return {
         tone: "warning",
@@ -108,9 +131,12 @@ export function stateNotice(contract) {
       };
     case "unavailable":
     default:
-      return {
-        tone: "info",
-        text: "No finished regular-season weeks yet — schedule impact appears after week 1 is final.",
-      };
+      if (contract.reason === "no_finalized_weeks") {
+        return {
+          tone: "info",
+          text: "No finished regular-season weeks yet — schedule impact appears once a week is final.",
+        };
+      }
+      return { tone: "info", text: "No game in this season could be evaluated, so no schedule impact is shown." };
   }
 }

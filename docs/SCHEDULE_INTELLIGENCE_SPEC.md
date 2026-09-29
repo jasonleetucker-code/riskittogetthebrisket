@@ -61,10 +61,12 @@ scheduleImpact(i | equal_opponent_v1) = actual − expected
   expected credits equal actual credits equal the number of games, so schedule
   impact sums to zero.
 
-**Why this is exact for round-robin calendars.** Every labelled single round-robin
-calendar gives each team a uniformly distributed opponent in each week (permuting
-week labels maps calendars onto each other). So the mean actual credits across all
-such calendars equals `Σ_w allPlayRate`. Weekly independence is not required.
+**Why this is also exact over round-robin calendars.** Under the uniform
+distribution *over* all labelled single round-robin calendars, each team's week-w
+opponent is uniform (permuting week labels maps calendars onto each other). So the
+mean actual credits across all such calendars equals `Σ_w allPlayRate`. Weekly
+independence is not required. Any one calendar on its own is not uniform; the
+claim is about the average over the calendar space.
 
 The test oracle checks this by full enumeration: every labelled calendar of a
 6-team league (6 one-factorizations × 5! = 720). It never calls the module's
@@ -73,7 +75,8 @@ formula.
 **Lab fixture.** An 8-team, 7-week single round robin has 6,240 unordered round
 partitions × 7! = 31,449,600 calendars. The partition count is verified by
 enumeration in CI; the 31.4M calendars are not. In that complete league,
-expected credits equal all-play wins divided by 7. The lab's other percentages,
+expected credits equal all-play wins divided by 7 (a consistency check of the
+stated identity, not oracle evidence). The lab's other percentages,
 team count, length and tiebreaks are not generalized to real leagues.
 
 ## 4. Median games and official records
@@ -82,12 +85,20 @@ team count, length and tiebreaks are not generalized to real leagues.
   median result, so median results pass through every schedule-only analysis
   unchanged and are never attributed to schedule.
 - The official record is the host's (median included).
-- The median component is reported only when `official games = H2H games ×
-  (2 with the median game, 1 without)` over the same finalized weeks. Otherwise it
-  is `unavailable` with a reason:
+- The median component is published only when both hold:
+  1. `official games = H2H games × (2 with the median game, 1 without)` over the
+     same finalized weeks;
+  2. host record − head-to-head record equals the median results derived from
+     the fixed scores (each score against the median of every score posted that
+     week: `>` win, `<` loss, `==` tie), every part within `0..H2H games`, with no
+     excluded game.
+- Otherwise it is `unavailable` with a reason:
   - `official_record_unaligned`;
+  - `official_record_inconsistent`;
   - `median_setting_unknown`;
   - `official_record_missing`.
+- A disagreement (stat correction, commissioner edit, tie rule) is never
+  attributed to the median game.
 - Player-contribution counterfactuals (Milestone E) are different: they change
   a team score and therefore the median, which must be recalculated.
 
@@ -97,12 +108,13 @@ Every surface reads this contract. None recomputes it.
 
 Contract fields:
 - `state`: `complete` | `partial` | `unavailable` | `unsupported`;
-- `issues`, `reason`;
+- `issues`, `reason`, `teamsWithoutEvaluableGames`;
 - `season`, `leagueId`, `cutoffWeek`, `finalizedWeeks`;
 - `model` (id, baseline, fixed, varies, distribution, method, notA);
-- `algorithmVersion`, `scoreHash`, `configHash` (median flag, team count), `generationId`;
+- `algorithmVersion`, `scoreHash`, `configHash` (median flag, team count);
+- `generationId` (covers algorithm, model, league, season, scores, config and official records);
 - `teams[]`;
-- `weeks[]` (current season only).
+- `weeks[]` (available from `season_contract`; not published until a surface renders it).
 
 Each `teams[]` row has:
 - identity: `teamKey`, `ownerId` (null for an orphan roster), `rosterId`, `orphanRoster`, `displayName`, `teamName`;
@@ -110,7 +122,8 @@ Each `teams[]` row has:
 - all-play: `allPlayWins`/`allPlayLosses`/`allPlayTies`, `allPlayRate`;
 - expectation and impact: `equalOpponentExpectedH2HCredits`, `scheduleImpact`;
 - points and opponent strength: `pointsFor`, `pointsFaced`, `pointsFacedVsField`, `avgOpponentScorePercentile`;
-- records: `officialRecord`, `medianComponent`.
+- records: `officialRecord`, `medianComponent`;
+- coverage: `byeWeeks`, `excludedWeeks`.
 
 Each `weeks[]` row has:
 - `week`, `teamKey`, `score`, `opponentKey`, `opponentScore`;
@@ -129,12 +142,20 @@ pointsFacedVsField      = opponent score − mean of this team's eligible oppone
 **Rules:**
 - Finalized weeks only, through `metrics.final_regular_season_weeks`.
 - An in-progress week never contributes.
-- A missing score is missing: that game is left out and the state is `partial`.
+- The adapter groups matchups itself, because `metrics.matchup_pairs` silently
+  drops any group that is not exactly two rows:
+  - a group of three or more is `unsupported`;
+  - a group whose partner row is missing (`unpaired`), and a game with a missing
+    score, are left out, marked per team in `excludedWeeks`, and make the state
+    `partial`;
+  - a scored team with no `matchup_id` is a real bye (`byeWeeks`).
 - An ownerless (orphan) roster is a real participant, keyed `roster:<id>`.
 
 **Exposure:** `luck.scheduleImpact = {currentSeason, bySeason}` on the existing
 public `luck` section. That is an aggregate league outcome of the same class as
-the already-public expected wins. Weekly rows are included for the current season.
+the already-public expected wins. Season summaries only: measured about 24 KB per
+league for three seasons. A failure computing it yields `{state: "failed"}` and
+never takes the Luck section down.
 
 ## 6. Surfaces
 
@@ -185,7 +206,16 @@ Across both leagues × 2024–2026:
 - expected credits agree within Luck's 2-decimal rounding (≤ 0.0045), except
   `dynasty_new` 2024 (see below);
 - impact sums to zero;
-- `dynasty_main`'s median component is fully derived for every team.
+- the score-derived median rule matches the host for every team in
+  `dynasty_main` 2026 (12/12) and 2024 (10/10).
+
+**`dynasty_main` 2025's median component is withheld.** The host record disagrees
+with the score reconstruction for 8 of 10 teams by about one game (for example 21-5
+official vs 22-4 from scores). Neither a median nor a mean rule reconciles it;
+likely causes are post-final stat corrections or commissioner edits. So that
+season's median component is `unavailable: official_record_inconsistent` rather
+than blamed on the median game. Schedule impact itself is unaffected, because it
+uses head-to-head games only.
 
 **`dynasty_new` 2024 disagrees by up to 0.68.** That season has two orphan
 rosters. `luck.py` drops them from all-play rivals but counts games against them
@@ -193,11 +223,14 @@ in actual wins, so its expected and actual cover different game sets. This
 module keeps them as participants. This is a pre-existing `luck.py` defect,
 recorded in #1530.
 
-**Tests:** `tests/public_league/test_schedule_impact.py` (exhaustive oracle,
-invariants, byes, ties, missing, unsupported, relabelling, orphan rosters,
-adapter) and `frontend/__tests__/components/schedule-impact.test.jsx`. Four
-sabotages go red and restore green:
+**Tests:** `tests/public_league/test_schedule_impact.py` (exhaustive 6-team
+oracle; invariants, byes, ties, missing, unsupported, relabelling, orphan rosters,
+adapter grouping, median cross-check, generation id, failure isolation) and
+`frontend/__tests__/components/schedule-impact.test.jsx`. Six sabotages go red and
+restore green:
 - reversed sign;
 - self as opponent;
 - a bye team counted as an opponent;
-- a median record derived from misaligned totals.
+- a median record derived from misaligned totals;
+- broken matchups dropped silently;
+- a median record published by subtraction alone.

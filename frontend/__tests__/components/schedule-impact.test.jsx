@@ -12,8 +12,10 @@ import {
   ScheduleImpactTable,
 } from "@/components/league/ScheduleImpact";
 import {
+  excludedNote,
   fmtRecord,
   fmtSignedCredits,
+  recordSortValue,
   impactDirection,
   interpretation,
   stateNotice,
@@ -91,7 +93,20 @@ describe("lib/schedule-impact formatting", () => {
     expect(stateNotice({ state: "complete" })).toBeNull();
     expect(stateNotice({ state: "partial" }).text).toMatch(/left out/);
     expect(stateNotice({ state: "unsupported" }).text).toMatch(/not supported/);
-    expect(stateNotice({ state: "unavailable" }).text).toMatch(/week 1 is final/);
+    expect(stateNotice({ state: "unavailable", reason: "no_finalized_weeks" }).text).toMatch(/once a week is final/);
+    // A past season with no evaluable game must not claim week 1 is pending.
+    expect(stateNotice({ state: "unavailable", reason: "no_evaluable_games" }).text).toMatch(/could be evaluated/);
+    expect(stateNotice({ state: "failed" }).text).toMatch(/could not be calculated/);
+    expect(stateNotice({ state: "partial", teamsWithoutEvaluableGames: ["x"] }).text).toMatch(/1 team has no countable game/);
+  });
+
+  it("sorts records by win share and names excluded games", () => {
+    expect(recordSortValue({ officialRecord: { wins: 5, losses: 1, ties: 0 } })).toBeGreaterThan(
+      recordSortValue({ officialRecord: { wins: 5, losses: 3, ties: 0 } }),
+    );
+    expect(recordSortValue({ officialRecord: null })).toBeNull();
+    expect(excludedNote({ excludedWeeks: [2] })).toBe("1 game not counted (week 2)");
+    expect(excludedNote({ excludedWeeks: [] })).toBeNull();
   });
 });
 
@@ -113,6 +128,13 @@ describe("ScheduleImpactTable", () => {
     // Official record and head-to-head record are both shown, separately.
     expect(within(bodyRows[0]).getByText("4-2")).toBeTruthy();
     expect(within(bodyRows[0]).getByText("2-1")).toBeTruthy();
+    // The expected-wins column names its baseline.
+    expect(within(block).getByText("Exp. wins (equal opp.)")).toBeTruthy();
+  });
+
+  it("marks a team whose games were left out", () => {
+    render(<ScheduleImpactTable contract={contract([team("A", { excludedWeeks: [3] })], { state: "partial" })} />);
+    expect(screen.getByText("1 game not counted (week 3)")).toBeTruthy();
   });
 
   it("direction is carried by a glyph and a data attribute, not colour alone", () => {
@@ -123,9 +145,9 @@ describe("ScheduleImpactTable", () => {
   });
 
   it("unavailable: says so and renders no table (never zeros)", () => {
-    render(<ScheduleImpactTable contract={contract([], { state: "unavailable" })} />);
+    render(<ScheduleImpactTable contract={contract([], { state: "unavailable", reason: "no_finalized_weeks" })} />);
     const block = screen.getByTestId("schedule-impact");
-    expect(within(block).getByText(/week 1 is final/)).toBeTruthy();
+    expect(within(block).getByText(/once a week is final/)).toBeTruthy();
     expect(within(block).queryByRole("table")).toBeNull();
   });
 

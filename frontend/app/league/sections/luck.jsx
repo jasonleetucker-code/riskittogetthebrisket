@@ -311,7 +311,10 @@ export default function LuckSection({ data, managers }) {
   // Schedule Intelligence (canonical contract; the same numbers every
   // surface reads).  Current season with every team.
   const schedule = data?.scheduleImpact;
-  const scheduleContract = schedule?.bySeason?.[schedule?.currentSeason] || null;
+  const scheduleContract =
+    schedule?.state === "failed"
+      ? { state: "failed" }
+      : schedule?.bySeason?.[schedule?.currentSeason] || null;
 
   return (
     <section>

@@ -13,6 +13,7 @@
 
 import { Banner, DataTable, HelpModal } from "@/components/ds";
 import {
+  excludedNote,
   fmtCredits,
   fmtRate,
   fmtRecord,
@@ -21,6 +22,7 @@ import {
   interpretation,
   medianRecord,
   officialRecord,
+  recordSortValue,
   stateNotice,
   teamLabel,
 } from "@/lib/schedule-impact";
@@ -91,12 +93,18 @@ function columns() {
       header: "Team",
       accessor: (r) => teamLabel(r),
       sortable: true,
-      render: (r) => <span className={styles.team}>{teamLabel(r)}</span>,
+      render: (r) => (
+        <span>
+          <span className={styles.team}>{teamLabel(r)}</span>
+          {excludedNote(r) ? <span className={`${styles.muted} ${styles.note}`}>{excludedNote(r)}</span> : null}
+        </span>
+      ),
     },
     {
       key: "official",
       header: "Record",
-      accessor: (r) => (r.officialRecord ? r.officialRecord.wins : null),
+      accessor: (r) => officialRecord(r),
+      sortAccessor: (r) => recordSortValue(r),
       sortable: true,
       numeric: true,
       headerInfo: "The official league record, including any median games.",
@@ -129,7 +137,7 @@ function columns() {
     },
     {
       key: "expected",
-      header: "Exp. wins",
+      header: "Exp. wins (equal opp.)",
       accessor: (r) => r.equalOpponentExpectedH2HCredits,
       sortable: true,
       numeric: true,
@@ -211,7 +219,7 @@ export function ScheduleImpactSummary({ row, contract }) {
           </dd>
         </div>
         <div>
-          <dt>Expected H2H wins</dt>
+          <dt>Expected H2H wins (equal-opponent)</dt>
           <dd>{fmtCredits(row.equalOpponentExpectedH2HCredits)}</dd>
         </div>
         <div>

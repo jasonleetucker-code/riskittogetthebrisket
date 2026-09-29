@@ -21,9 +21,10 @@ Scores are FIXED observations.  Only the head-to-head opponent is hypothetical.
 
 The named model is ``equal_opponent_v1``: in each finalized week, each
 eligible opponent is equally likely.  Under that model the expectation above
-is EXACT (no sampling), and it does not require weeks to be independent —
-every labelled single round-robin calendar gives each team a uniformly
-distributed opponent in each week, which the test oracle verifies by full
+is EXACT (no sampling), and it does not require weeks to be independent.
+It is also the exact expectation under the uniform distribution OVER all
+labelled single round-robin calendars (averaged over those calendars, each
+team's week-w opponent is uniform), which the test oracle verifies by full
 enumeration.  League-VALID calendar models (repeat opponents, divisions,
 timing-only swaps) are Milestone B and carry their own model ids; nothing
 here claims to be one.
@@ -94,6 +95,12 @@ class WeekInput:
     week: int
     scores: Mapping[str, float]
     pairs: Sequence[tuple[str, str]]
+    #: Teams that scored and had no matchup (a real bye).
+    byes: Sequence[str] = ()
+    #: Structure the adapter could not turn into pairs: ``group_size:<n>:...``
+    #: (more than two teams in one matchup -> unsupported) or
+    #: ``unpaired:<team>`` (a matchup whose partner row is missing -> partial).
+    structural_issues: Sequence[str] = ()
 
 
 def _week_issues(week: WeekInput) -> tuple[list[str], list[tuple[str, str]]]:
@@ -101,6 +108,7 @@ def _week_issues(week: WeekInput) -> tuple[list[str], list[tuple[str, str]]]:
     issues: list[str] = []
     seen: dict[str, int] = {}
     evaluable: list[tuple[str, str]] = []
+    issues.extend(week.structural_issues)
     for a, b in week.pairs:
         if a == b:
             issues.append(f"self_matchup:{a}")
@@ -108,7 +116,10 @@ def _week_issues(week: WeekInput) -> tuple[list[str], list[tuple[str, str]]]:
         for t in (a, b):
             seen[t] = seen.get(t, 0) + 1
         if a not in week.scores or b not in week.scores:
-            issues.append(f"missing_score:{a if a not in week.scores else b}")
+            for t in (a, b):
+                if t not in week.scores:
+                    issues.append(f"missing_score:{t}")
+            issues.append(f"game_excluded:{a}:{b}")
             continue
         evaluable.append((a, b))
     multi = sorted(t for t, n in seen.items() if n > 1)
@@ -139,14 +150,24 @@ def compute_schedule_impact(weeks: Sequence[WeekInput]) -> dict[str, Any]:
     teams: dict[str, dict[str, Any]] = {}
     week_rows: list[dict[str, Any]] = []
     unsupported = False
+    excluded: dict[str, list[int]] = {}
+    byes: dict[str, list[int]] = {}
 
     for wk in ordered:
         issues, evaluable = _week_issues(wk)
-        if any(i.startswith(("self_matchup", "multiple_games")) for i in issues):
+        if any(i.startswith(("self_matchup", "multiple_games", "group_size")) for i in issues):
             unsupported = True
         all_issues.extend(f"week{wk.week}:{i}" for i in issues)
         if unsupported:
             continue
+        for i in issues:
+            if i.startswith("game_excluded:"):
+                for t in i.split(":")[1:]:
+                    excluded.setdefault(t, []).append(wk.week)
+            elif i.startswith("unpaired:"):
+                excluded.setdefault(i.split(":", 1)[1], []).append(wk.week)
+        for t in wk.byes:
+            byes.setdefault(t, []).append(wk.week)
         eligible = sorted({t for pair in evaluable for t in pair})
         opponent = {}
         for a, b in evaluable:
@@ -237,6 +258,9 @@ def compute_schedule_impact(weeks: Sequence[WeekInput]) -> dict[str, Any]:
             "weeks": [],
         }
 
+    for key, t in teams.items():
+        t["excludedWeeks"] = sorted(excluded.get(key, []))
+        t["byeWeeks"] = sorted(byes.get(key, []))
     for t in teams.values():
         ap_n = t["allPlayWins"] + t["allPlayLosses"] + t["allPlayTies"]
         t["allPlayRate"] = (t["allPlayWins"] + 0.5 * t["allPlayTies"]) / ap_n if ap_n else None
@@ -250,6 +274,8 @@ def compute_schedule_impact(weeks: Sequence[WeekInput]) -> dict[str, Any]:
     return {
         "state": state,
         "issues": all_issues,
+        # A team every one of whose games was excluded has no row; name it.
+        "teamsWithoutEvaluableGames": sorted(set(excluded) - set(teams)),
         "teams": teams,
         "weeks": sorted(week_rows, key=lambda r: (r["week"], r["teamKey"])),
         "finalizedWeeks": [w.week for w in ordered],
@@ -296,14 +322,41 @@ def season_week_inputs(
             key = _team_key(registry, season.league_id, entry.get("roster_id"))
             if key:
                 scores[key] = float(metrics.matchup_points(entry))
+        # Grouped here rather than through ``metrics.matchup_pairs``, which
+        # silently drops any group that is not exactly two rows -- a broken
+        # matchup would then look like a bye and the season like complete.
+        groups: dict[Any, list[str]] = {}
+        bye_teams: list[str] = []
+        for entry in entries:
+            key = _team_key(registry, season.league_id, entry.get("roster_id"))
+            if not key:
+                continue
+            mid = entry.get("matchup_id")
+            if mid is None:
+                if entry.get("points") is not None:
+                    bye_teams.append(key)
+                continue
+            groups.setdefault(mid, []).append(key)
         pairs: list[tuple[str, str]] = []
-        for a, b in metrics.matchup_pairs(entries):
-            ka = _team_key(registry, season.league_id, a.get("roster_id"))
-            kb = _team_key(registry, season.league_id, b.get("roster_id"))
-            if ka and kb:
-                pairs.append((ka, kb))
+        structural: list[str] = []
+        for mid in sorted(groups, key=str):
+            members = groups[mid]
+            if len(members) == 2:
+                pairs.append((members[0], members[1]))
+            elif len(members) == 1:
+                structural.append(f"unpaired:{members[0]}")
+            else:
+                structural.append(f"group_size:{len(members)}:{','.join(sorted(members))}")
         if scores:
-            out.append(WeekInput(week=wk, scores=scores, pairs=pairs))
+            out.append(
+                WeekInput(
+                    week=wk,
+                    scores=scores,
+                    pairs=pairs,
+                    byes=tuple(sorted(bye_teams)),
+                    structural_issues=tuple(structural),
+                )
+            )
     return out
 
 
@@ -312,18 +365,36 @@ def _digest(obj: Any) -> str:
     return hashlib.sha256(raw).hexdigest()[:16]
 
 
+def _score_median_records(inputs: Sequence[WeekInput]) -> dict[str, dict[str, int]]:
+    """Median-game results derived from the fixed scores: each team-week
+    against the median of every score posted that week (>: win, <: loss,
+    ==: tie).  Used only to CROSS-CHECK the host record; a disagreement makes
+    the median component unavailable rather than published."""
+    import statistics
+
+    out: dict[str, dict[str, int]] = {}
+    for wk in inputs:
+        if len(wk.scores) < 2:
+            continue
+        med = statistics.median(float(v) for v in wk.scores.values())
+        for team, score in wk.scores.items():
+            rec = out.setdefault(team, {"wins": 0, "losses": 0, "ties": 0})
+            score = float(score)
+            rec["wins" if score > med else "losses" if score < med else "ties"] += 1
+    return out
+
+
 def _official_records(season: SeasonSnapshot, registry: Any) -> dict[str, dict[str, Any]]:
+    """The host's official record per team.  A roster whose settings carry no
+    record is left out (``official_record_missing``), never read as 0-0."""
     out: dict[str, dict[str, Any]] = {}
     for roster in season.rosters or []:
         oid = _team_key(registry, season.league_id, roster.get("roster_id"))
-        if not oid:
+        settings = roster.get("settings") or {}
+        if not oid or not all(k in settings for k in ("wins", "losses")):
             continue
         rec = metrics.regular_season_settings_record(roster)
-        out[oid] = {
-            "wins": int(rec.get("wins") or 0),
-            "losses": int(rec.get("losses") or 0),
-            "ties": int(rec.get("ties") or 0),
-        }
+        out[oid] = {"wins": rec["wins"], "losses": rec["losses"], "ties": rec["ties"]}
     return out
 
 
@@ -340,6 +411,7 @@ def season_contract(
     core = compute_schedule_impact(inputs)
     median = metrics.median_game_enabled(season)
     official = _official_records(season, registry)
+    score_median = _score_median_records(inputs) if median else {}
 
     rows: list[dict[str, Any]] = []
     for oid, t in core["teams"].items():
@@ -357,12 +429,24 @@ def season_contract(
                 # never derive a median record from misaligned totals.
                 component = {"state": "unavailable", "reason": "official_record_unaligned"}
             elif median:
-                component = {
-                    "state": "complete",
+                derived = {
                     "wins": rec["wins"] - t["h2hWins"],
                     "losses": rec["losses"] - t["h2hLosses"],
                     "ties": rec["ties"] - t["h2hTies"],
                 }
+                from_scores = score_median.get(oid)
+                if (
+                    all(0 <= v <= h2h_games for v in derived.values())
+                    and from_scores is not None
+                    and from_scores == derived
+                    and not t["excludedWeeks"]
+                ):
+                    component = {"state": "complete", **derived}
+                else:
+                    # The host's head-to-head half differs from the scores
+                    # (stat correction, commissioner edit, tie rule) -- never
+                    # blame that difference on the median game.
+                    component = {"state": "unavailable", "reason": "official_record_inconsistent"}
             else:
                 component = {"state": "not_applicable"}
         if oid.startswith("roster:"):
@@ -401,11 +485,23 @@ def season_contract(
     )
     config = {"medianGame": median, "teams": len(season.rosters or [])}
     config_hash = _digest(config)
-    generation = _digest([ALGORITHM_VERSION, MODEL_EQUAL_OPPONENT, score_hash, config_hash])
+    official_hash = _digest(sorted(official.items()))
+    generation = _digest(
+        [
+            ALGORITHM_VERSION,
+            MODEL_EQUAL_OPPONENT,
+            season.league_id,
+            season.season,
+            score_hash,
+            config_hash,
+            official_hash,
+        ]
+    )
     return {
         "state": core["state"],
         "issues": core.get("issues", []),
         "reason": core.get("reason"),
+        "teamsWithoutEvaluableGames": core.get("teamsWithoutEvaluableGames", []),
         "season": season.season,
         "leagueId": season.league_id,
         "cutoffWeek": (core.get("finalizedWeeks") or [None])[-1],
@@ -422,14 +518,15 @@ def season_contract(
 
 
 def build_block(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
-    """The public block: the current season with weekly detail, and every
-    covered season's summary rows (historical pages)."""
+    """The public block: every covered season's contract (summary rows;
+    weekly detail is available from ``season_contract`` but not published
+    until a surface uses it)."""
     current = snapshot.current_season
     by_season = {}
     for season in snapshot.seasons:
-        by_season[season.season] = season_contract(
-            snapshot, season, include_weeks=current is not None and season is current
-        )
+        # Weekly rows (~60 KB for a finished 12-team season) stay off the
+        # public payload until a surface renders them (team pages, C).
+        by_season[season.season] = season_contract(snapshot, season, include_weeks=False)
     return {
         "currentSeason": current.season if current else None,
         "bySeason": by_season,
