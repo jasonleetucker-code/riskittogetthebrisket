@@ -464,7 +464,7 @@ Awards include MVP, OPOY, DPOY, OROY, DROY, positional awards, Postseason MVP, C
 
 2024 and 2025 are explicitly approved for retroactive inaugural awards using the same methodology adopted for the first live 2026 awards.
 
-Manager of the Year and GM/Executive of the Year must remain conceptually distinct and historically tested before inaugural finalization. Detailed initial formulas and validation requirements live in `OWNER_PRODUCT_BACKLOG_SPEC.md` §10.5.
+~~Manager of the Year and GM/Executive of the Year must remain conceptually distinct and historically tested before inaugural finalization. Detailed initial formulas and validation requirements live in `OWNER_PRODUCT_BACKLOG_SPEC.md` §10.5.~~ **Superseded 2026-09-28 (owner):** ONE unified Manager of the Year — competition AND roster/asset management, `0.40·A + 0.25·T + 0.15·W + 0.10·D + 0.10·P`, no playoff/record gate; GM/Executive of the Year is retired as a separate overall award. Record: `docs/awards/MANAGER_OF_THE_YEAR_METHODOLOGY.md`.
 
 ---
 

@@ -128,8 +128,9 @@ rule is `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` §3–§6.
 
 League MVP = elite player performance on a successful fantasy team. **Offensive / Defensive Player of the Year**
 are the best offensive / defensive individual performances regardless of the fantasy team's record; they, the
-Rookie of the Year awards and the positional awards do **not** inherit the gate. Manager of the Year keeps its
-own separately validated team-success logic. The gate is an eligibility rule over the canonical player-impact
+Rookie of the Year awards and the positional awards do **not** inherit the gate. ~~Manager of the Year keeps its
+own separately validated team-success logic.~~ *(Superseded 2026-09-28: the unified Manager of the Year has no
+team-success gate — `docs/awards/MANAGER_OF_THE_YEAR_METHODOLOGY.md`.)* The gate is an eligibility rule over the canonical player-impact
 metric; it never changes the metric.
 
 *Superseded (2026-08-13):* "League MVP has no hard playoff-field or >.500 team-record eligibility requirement;

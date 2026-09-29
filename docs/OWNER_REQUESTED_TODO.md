@@ -1005,6 +1005,39 @@ Binding; supersedes the 2026-08-13/14 "player MVP has no hard playoff-field / >.
 - **Known partial:** the Honors spec §7 per-franchise-week split for traded players is not yet implemented; the
   player is credited to, and gated on, his most recent franchise (the existing award attribution).
 
+**Owner decision — ONE unified Manager of the Year (2026-09-28).**
+Binding. Manager of the Year and GM of the Year are the same person running the same franchise, so they are ONE
+award: **Manager of the Year** (existing key `manager_of_the_year` kept) — competitive performance AND
+roster/asset management.
+- **Candidate formula:** `MOTY = 0.40·A + 0.25·T + 0.15·W + 0.10·D + 0.10·P` (each 0–100). A = regular-season
+  all-play; T = net trade value added; W = net waiver/FA and roster-management value added; D = draft value added
+  relative to opportunity; P = championship-playoff achievement (P = 0 for non-playoff managers, who stay fully
+  eligible). Before P is final: `(0.40A + 0.25T + 0.15W + 0.10D) / 0.90`, labelled "Provisional score —
+  postseason component pending." The weights are award policy, **not** validated; they must not be tuned to crown
+  a manager.
+- **No gate:** no playoff-field, winning-record, standings, all-play-threshold or contender/rebuilder requirement.
+  Remove any live-race "outside the race" label based only on team success.
+- **Accounting:** T/W/D measure NET value created (outgoing cost, missing-is-never-zero, no double counting across
+  channels, round trips cannot manufacture value, no activity bonus, missing ≠ no activity), with production and
+  future-value evidence kept separate; normalization is frozen, documented, bounded and monotonic (no min-max).
+- **Supersedes, for this award only (explicitly, not deleted):**
+  - the separate **Manager / GM-of-the-Year** proposal (`docs/OWNER_PRODUCT_BACKLOG_SPEC.md` §10.5,
+    `docs/MASTER_PRODUCT_PLAN.md` "Manager of the Year and GM/Executive of the Year must remain conceptually
+    distinct") — GM/Executive of the Year is retired from active planning as an overall award; its metrics
+    survive as the T/W/D inputs;
+  - the **Manager playoff-field requirement** and the **Manager above-.500 requirement**
+    (`docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` §8 and every "Manager of the Year keeps its validated
+    team-success eligibility" line);
+  - the previously proposed **65/15/20 competition-only formula** (proposed to the owner outside the repository;
+    no repository record carried it) and the Honors spec §8 exploratory 30/25/20/15/10 competition formula.
+- **Not changed:** League MVP keeps its team-success gate (2026-09-26 decision above). OPOY/DPOY, Rookie, positional,
+  Champion, Trader of the Year, Waiver King and every other award are unchanged.
+- **Historical records:** official past winners are not rewritten. A season whose evidence cannot support a fully
+  comparable result is published as partial / candidate, not official.
+- **Methodology record:** `docs/awards/MANAGER_OF_THE_YEAR_METHODOLOGY.md` (frozen before results were computed,
+  with the coverage audit, the replay and the remaining owner decisions OD-MOTY-1…7).
+- **Authorization pointer:** `docs/EXECUTION_PLAN.md`, League Hub Awards, "Unified Manager of the Year".
+
 **Owner decision — try BALLDONTLIE as a Game Day live-state provider (2026-09-27).**
 ESPN's scoreboard refuses us (403) and its block is not to be bypassed. Validate BALLDONTLIE NFL's real
 capabilities, build it as an adapter behind the ONE live-state owner (`src/nfl_data/live_game_state.py`), run it

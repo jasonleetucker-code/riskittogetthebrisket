@@ -501,7 +501,12 @@ Do not conflate the two.
 
 Show raw points as supporting context, but VORP determines the winner.
 
-## 10.5 Manager of the Year vs GM/Executive of the Year
+## 10.5 Manager of the Year vs GM/Executive of the Year — SUPERSEDED 2026-09-28
+
+> **Superseded by the owner decision of 2026-09-28** (`docs/OWNER_REQUESTED_TODO.md`, "ONE unified Manager of the
+> Year"): the two are ONE award, `manager_of_the_year` = `0.40·A + 0.25·T + 0.15·W + 0.10·D + 0.10·P`, no
+> playoff/record gate. The separation, the "trade and waiver value do not enter MOTY" rule and both exploratory
+> weight sets below are kept for provenance only. Canonical record: `docs/awards/MANAGER_OF_THE_YEAR_METHODOLOGY.md`.
 
 These must be meaningfully distinct. The same manager may fairly win both, but they must not be duplicate formulas.
 

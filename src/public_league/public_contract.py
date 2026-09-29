@@ -428,6 +428,16 @@ def _build_activity_section(
     return activity.build_section(snapshot, valuation_factory=activity_valuation)
 
 
+def _build_awards_section(
+    snapshot: PublicLeagueSnapshot,
+    activity_valuation: activity._ResolverFactory | None,
+) -> dict[str, Any]:
+    """Awards, with the activity feed's as-of valuation factory threaded to
+    the unified Manager of the Year's trade future-value channel (the only
+    award that reads it; raw values never reach the payload)."""
+    return awards.build_section(snapshot, valuation_factory=activity_valuation)
+
+
 def build_section_payload(
     snapshot: PublicLeagueSnapshot,
     section: str,
@@ -460,6 +470,8 @@ def build_section_payload(
         for key, builder in _SECTION_BUILDERS.items():
             if key == "activity":
                 sections[key] = _build_activity_section(snapshot, activity_valuation)
+            elif key == "awards":
+                sections[key] = _build_awards_section(snapshot, activity_valuation)
             elif key == "franchise":
                 # awards is built earlier in the dict order; reuse it so
                 # franchise can list each manager's awards without a
@@ -472,6 +484,8 @@ def build_section_payload(
         section_body = _build_overview(snapshot, sections)
     elif section == "activity":
         section_body = _build_activity_section(snapshot, activity_valuation)
+    elif section == "awards":
+        section_body = _build_awards_section(snapshot, activity_valuation)
     elif section in _SECTION_BUILDERS:
         section_body = _SECTION_BUILDERS[section](snapshot)
     elif section == "teamAssignment":
@@ -509,6 +523,8 @@ def build_public_contract(
     for key, builder in _SECTION_BUILDERS.items():
         if key == "activity":
             sections[key] = _build_activity_section(snapshot, activity_valuation)
+        elif key == "awards":
+            sections[key] = _build_awards_section(snapshot, activity_valuation)
         elif key == "franchise":
             # Same reuse as ``build_section_payload``'s overview walk:
             # awards is built earlier in the dict order, and franchise

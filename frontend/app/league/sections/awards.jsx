@@ -24,6 +24,7 @@ import {
 } from "../shared.jsx";
 import { TradeCard } from "./activity.jsx";
 import { AwardStandings } from "./award-standings.jsx";
+import { ManagerOfTheYearBreakdown } from "./manager-of-the-year.jsx";
 import styles from "./awards.module.css";
 
 // Award keys whose ``value`` payload carries a player. Player awards render
@@ -136,6 +137,11 @@ function raceMetric(awardKey, value = {}) {
     case "top_db":
       return `${fmtPoints(value.starterPoints)} starter pts`;
     case "manager_of_the_year":
+      // Unified method (backend `score`, 0-100) or the legacy composite that
+      // decided a completed season's official winner.
+      if (value.score !== undefined && value.score !== null) {
+        return `${fmtNumber(value.score, 1)}${value.status === "provisional" ? " prov." : ""}`;
+      }
       return `${fmtNumber(value.compositeScore, 3)} score`;
     case "top_offense":
       return `${fmtNumber(value.offensePoints, 1)} pts`;
@@ -498,6 +504,16 @@ function AwardHistoryModal({ awardKey, label, description, history, managers, on
                 {award.value && (
                   <div style={{ fontFamily: "var(--mono)", fontSize: "0.76rem", color: "var(--cyan)", marginTop: 6 }}>
                     {renderAwardValue(award.key, award.value)}
+                  </div>
+                )}
+                {award.unifiedCandidate && (
+                  <div
+                    style={{ fontSize: "0.7rem", color: "var(--subtext)", marginTop: 4 }}
+                    data-moty-candidate
+                  >
+                    Unified method (candidate, not official): {award.unifiedCandidate.displayName}
+                    {" · "}
+                    {fmtNumber(award.unifiedCandidate.score, 1)}
                   </div>
                 )}
                 {award.key === "best_trade_of_the_year" && award.value?.trade && (
@@ -888,6 +904,25 @@ function AwardsSection({ managers, data, onNavigate }) {
                     </div>
                   </div>
                 );
+                // Manager of the Year: the one overall management card. Its
+                // backend breakdown sits BESIDE the history button (controls
+                // may not nest) and spans the grid.
+                if (a.key === "manager_of_the_year" && featured.managerOfTheYear) {
+                  const live = !a.unifiedCandidate;
+                  return (
+                    <div key={a.key} className={`${styles.awardCardWithStandings} ${styles.motyWide}`}>
+                      {card}
+                      <ManagerOfTheYearBreakdown
+                        evaluation={featured.managerOfTheYear}
+                        focusOwnerId={live ? a.ownerId : a.unifiedCandidate?.ownerId}
+                        officialName={live ? null : a.displayName}
+                      />
+                      {Array.isArray(a.standings) && a.standings.length > 0 && (
+                        <AwardStandings award={a} formatMetric={raceMetric} onNavigate={onNavigate} />
+                      )}
+                    </div>
+                  );
+                }
                 // A current-season award with no race of its own (highest
                 // week, best trade, points king…) carries its standings on
                 // the award itself. They sit BESIDE the card — the card is
