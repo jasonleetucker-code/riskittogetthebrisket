@@ -2608,16 +2608,19 @@ def build_pregame_projection_archive(
     # pregame.  A player seen only after a KNOWN kickoff is not unverified:
     # he is listed in noPreKickoffObservation and no row is kept for him.
     unknown = set(lock.unknown_kickoff)
-    last_by_pid: dict[str, _ArchiveRow] = {}
+    last_by_pid: dict[str, tuple[float, _ArchiveRow]] = {}
     for item in rows:
         if item.sleeper_player_id not in unknown:
             continue
+        stamp = _epoch(item.observed_at)
+        if stamp is None:
+            continue  # unorderable: never ranked as the epoch
         prev = last_by_pid.get(item.sleeper_player_id)
-        if prev is None or (_epoch(item.observed_at) or 0) >= (_epoch(prev.observed_at) or 0):
-            last_by_pid[item.sleeper_player_id] = item
+        if prev is None or stamp >= prev[0]:
+            last_by_pid[item.sleeper_player_id] = (stamp, item)
     unverified = {
         pid: {"observedAt": it.observed_at, "fetchUrl": it.url, "row": it.row}
-        for pid, it in sorted(last_by_pid.items())
+        for pid, (_, it) in sorted(last_by_pid.items())
     }
     return {
         "schemaVersion": PREGAME_ARCHIVE_SCHEMA,
