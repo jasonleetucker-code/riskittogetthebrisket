@@ -48,7 +48,7 @@ vi.mock("next/link", () => ({
   ),
 }));
 
-import PlayerPopup, { computeSiteDetails } from "@/components/PlayerPopup";
+import PlayerPopup, { computeSiteDetails, computeValueChain } from "@/components/PlayerPopup";
 import { getSiteKeys } from "@/lib/dynasty-data";
 
 beforeEach(() => {
@@ -150,5 +150,90 @@ describe("compact source inventory", () => {
     ]);
     expect(details.find(({ key }) => key === "unknownSource").label).toBe("unknownSource");
     expect(computeSiteDetails(row, getSiteKeys({}))).not.toEqual(details);
+  });
+
+  // 2026-09-29: the breakdown listed ktcSfTep (a historical non-voting
+  // fallback) and ktcCrowdTradesSfTep (the KTC Market BENCHMARK) under
+  // raw keys, beside the real KTC Crowd / Trades inputs — measured on
+  // Josh Allen's live row.
+  it("lists only sources that voted — never the KTC Market benchmark or KTC fallbacks", () => {
+    const row = {
+      sourceRankMeta: {
+        ktcCrowdSfTep: { valueContribution: 9997 },
+        ktcTradesSfTep: { valueContribution: 9999 },
+      },
+      canonicalSites: { ktcSfTep: 9997, ktc: 9990 },
+      rawSourceValues: { ktcSfTep: 9997, ktcCrowdTradesSfTep: 9645 },
+    };
+    const keys = computeSiteDetails(row).map(({ key }) => key);
+    expect(keys).toEqual(expect.arrayContaining(["ktcCrowdSfTep", "ktcTradesSfTep"]));
+    expect(keys).not.toContain("ktcSfTep");
+    expect(keys).not.toContain("ktcCrowdTradesSfTep");
+    expect(keys).not.toContain("ktc");
+  });
+});
+
+// The Player File and the popup both title this "how we arrived at Our
+// Value", so the chain must END on the published value.
+describe("value chain truthfulness", () => {
+  it("an offense row (flat blend, α = 0) is one Blended value stage equal to the published value", () => {
+    // Josh Allen, live 2026-09-29: anchorValue 9989 is a diagnostic stamp
+    // on offense rows; the old chain presented it as the derivation.
+    const chain = computeValueChain({
+      assetClass: "offense",
+      rankDerivedValue: 9978,
+      anchorValue: 9989,
+      subgroupBlendValue: 9976,
+      subgroupDelta: -13,
+      alphaShrinkage: 0,
+    });
+    expect(chain).toHaveLength(1);
+    expect(chain[0].label).toBe("Blended value");
+    expect(chain[0].value).toBe(9978);
+    expect(chain.some((s) => /IDPTC|Anchor/.test(`${s.label} ${s.description}`))).toBe(false);
+  });
+
+  it("a single-source offense row states the single-source rule and still ends on its value", () => {
+    const chain = computeValueChain({
+      assetClass: "offense",
+      rankDerivedValue: 672,
+      anchorValue: 2242,
+      alphaShrinkage: 0,
+      isSingleSource: true,
+    });
+    expect(chain.map((s) => s.value)).toEqual([672]);
+    expect(chain[0].description).toMatch(/30%/);
+  });
+
+  it("an IDP row keeps the anchor + α-shrunk subgroup stages and ends on its value", () => {
+    // Myles Garrett, live 2026-09-29.
+    const chain = computeValueChain({
+      assetClass: "idp",
+      rankDerivedValue: 5223,
+      anchorValue: 5331,
+      subgroupBlendValue: 4252,
+      subgroupDelta: -1079,
+      alphaShrinkage: 0.1,
+    });
+    expect(chain.map((s) => s.key)).toEqual(["anchor", "subgroup"]);
+    expect(chain[chain.length - 1].value).toBe(5223);
+  });
+
+  it("reconciles a later board pass with a Published value stage instead of stopping short", () => {
+    // e.g. a pick tethered to the rookie at its slot after the blend.
+    const chain = computeValueChain({
+      assetClass: "pick",
+      rankDerivedValue: 4100,
+      anchorValue: 3900,
+      alphaShrinkage: 0.1,
+    });
+    const last = chain[chain.length - 1];
+    expect(last.key).toBe("published");
+    expect(last.value).toBe(4100);
+    expect(last.delta).toBe(200);
+  });
+
+  it("an unpriced row has no chain rather than a chain ending on 0", () => {
+    expect(computeValueChain({ assetClass: "offense", rankDerivedValue: null, alphaShrinkage: 0 })).toEqual([]);
   });
 });

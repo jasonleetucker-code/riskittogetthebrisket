@@ -89,9 +89,12 @@ const JOSH = makePlayer({
   canonicalTierId: 1,
   age: 30,
   yearsExp: 8,
-  canonicalSites: { ktcSfTep: 9300, idpTradeCalc: 9100 },
+  // ktcCrowdSfTep, not ktcSfTep: since the 2026-09-23 KTC split the
+  // historical ktcSfTep board is a non-voting fallback and the source
+  // breakdown lists only sources that voted.
+  canonicalSites: { ktcCrowdSfTep: 9300, idpTradeCalc: 9100 },
   sourceRankMeta: {
-    ktcSfTep: { valueContribution: 9300 },
+    ktcCrowdSfTep: { valueContribution: 9300 },
     idpTradeCalc: { valueContribution: 9100 },
   },
   raw: { playerId: "4984", team: "BUF" },
@@ -227,6 +230,39 @@ describe("Player File — missing / unresolved states", () => {
     expect(screen.queryByText("#0")).toBeNull();
   });
 
+  it("an ungraded player still shows a Confidence tile reading None — never a vanished tile", () => {
+    const ungraded = makePlayer({
+      name: "No Grade",
+      canonicalConsensusRank: 400,
+      rankDerivedValue: 1500,
+      values: { full: 1500 },
+      confidenceBucket: "none",
+      confidenceLabel: "",
+      raw: { playerId: "7777", team: "FA" },
+    });
+    mockParams = { playerId: "7777" };
+    mockApp = populated([JOSH, ungraded]);
+    render(<PlayerFilePage />);
+    expect(tileValue("Confidence")).toBe("None — not assessed");
+    expect(screen.getByRole("button", { name: "What is confidence?" })).toBeInTheDocument();
+  });
+
+  it("an off-cap player's board position is labelled display order, not an official rank", () => {
+    const offCap = makePlayer({
+      name: "Deep Value",
+      canonicalConsensusRank: null,
+      computedConsensusRank: 983,
+      rankDerivedValue: 672,
+      values: { full: 672 },
+      raw: { playerId: "13342", team: "KC" },
+    });
+    mockParams = { playerId: "13342" };
+    mockApp = populated([JOSH, offCap]);
+    render(<PlayerFilePage />);
+    expect(tileValue("Overall rank")).toBe("#983");
+    expect(screen.getByText("display order — not officially ranked")).toBeInTheDocument();
+  });
+
   it("an unresolvable link renders an honest not-found state with a way back", () => {
     mockParams = { playerId: "no-such-player" };
     const { container } = render(<PlayerFilePage />);
@@ -234,5 +270,92 @@ describe("Player File — missing / unresolved states", () => {
     expect(screen.getByRole("link", { name: "Back to Rankings" })).toHaveAttribute("href", "/rankings");
     expect(container.querySelector("section.psi-editorial")).not.toBeNull();
     expect(screen.queryByRole("tablist")).toBeNull();
+  });
+});
+
+// Explainability (C8-U2, 2026-09-29): the Player File must answer, from
+// the UI, what the value means, why the confidence is what it is, how
+// fresh each source is (last fetched vs content), and where the numbers
+// came from — using the backend's own stamps.
+describe("Player File — explanations", () => {
+  const STALE_JOSH = {
+    ...JOSH,
+    confidenceBucket: "low",
+    confidenceLabel: "Low — limited by freshness",
+    ktcMarket: { value: 9645, available: true },
+    sourceRankMeta: {
+      ktcCrowdSfTep: { valueContribution: 9300, appliedWeight: 1, weight: 1 },
+      idpShowCombined: {
+        valueContribution: 9100,
+        appliedWeight: 0.0642,
+        weight: 1,
+        freshness: 0.0642,
+        freshnessAgeHours: 972.4,
+      },
+    },
+    rawSourceValues: { ktcCrowdTradesSfTep: 9645 },
+    raw: {
+      playerId: "4984",
+      team: "BUF",
+      confidenceAxes: { independence: "high", coverage: "high", freshness: "low", applicability: "high", agreement: "high" },
+      confidenceReasons: ["11 of 14 contributing families are past their staleness budget"],
+      confidenceBasis: "evidence_gate",
+      retainedAuthority: 0.9332,
+      sourceWeightState: "NORMAL",
+      freshnessExcludedSources: [],
+    },
+  };
+  const RAW = {
+    sleeper: { teams: [] },
+    generatedAt: "2026-09-29T12:25:51Z",
+    scrapeTimestamp: "2026-09-29T06:16:45Z",
+    methodology: { overallRankLimit: 800 },
+    dataFreshness: {
+      generatedAt: "2026-09-29T12:25:51Z",
+      sourceTimestamps: { idpShowCombined: { mtime: "2026-09-29T10:32:14Z" } },
+    },
+    sourceWeighting: {
+      sources: {
+        idpShowCombined: {
+          subsets: { players: { sourceDataAsOf: "2026-08-19T17:50:16Z", ageHours: 972.4, freshness: 0.0642, state: "SEVERELY_STALE" } },
+        },
+      },
+    },
+  };
+
+  beforeEach(() => {
+    mockApp = { ...populated([STALE_JOSH, LAMAR]), rawData: RAW };
+  });
+
+  it("explains Our Value, rank and confidence beside the numbers", () => {
+    render(<PlayerFilePage />);
+    expect(screen.getByRole("button", { name: "What is Our Value?" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "What is rank vs value?" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "What is confidence?" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "How values work" })).toBeInTheDocument();
+  });
+
+  it("shows why the confidence is what it is, from the backend's checks and reasons", () => {
+    render(<PlayerFilePage />);
+    const overview = screen.getByRole("tabpanel", { name: "Overview" });
+    expect(within(overview).getByText("11 of 14 contributing families are past their staleness budget")).toBeInTheDocument();
+    expect(within(overview).getByText("Freshness")).toBeInTheDocument();
+  });
+
+  it("the Market tab separates the KTC Market benchmark and shows per-source freshness", async () => {
+    const user = userEvent.setup();
+    render(<PlayerFilePage />);
+    await user.click(screen.getByRole("tab", { name: "Market" }));
+    const market = screen.getByRole("tabpanel", { name: "Market" });
+    // benchmark named as such, not inside the voting breakdown
+    expect(within(market).getByText(/KTC Market benchmark/)).toBeInTheDocument();
+    expect(within(market).queryByText("ktcCrowdTradesSfTep")).toBeNull();
+    // a stale source still appears, with its reduced weight and state
+    expect(within(market).getByText("Severely stale")).toBeInTheDocument();
+    expect(within(market).getByText(/weight 0\.06 of 1/)).toBeInTheDocument();
+    expect(within(market).getByText(/keeps 93% of its sources/)).toBeInTheDocument();
+    // two clocks: board built vs the scrape it came from
+    expect(within(market).getByText(/Board built/)).toBeInTheDocument();
+    expect(within(market).getByText(/from the scrape of/)).toBeInTheDocument();
   });
 });

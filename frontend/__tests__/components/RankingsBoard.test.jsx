@@ -84,7 +84,11 @@ vi.mock("@/components/useDynastyData", () => ({
     error: "",
     source: "test",
     rows: ROWS,
-    rawData: { dataFreshness: { generatedAt: "2026-07-26T00:00:00Z" } },
+    rawData: {
+      dataFreshness: { generatedAt: "2026-07-26T00:00:00Z" },
+      // Board built from an EARLIER scrape — the two clocks differ.
+      scrapeTimestamp: "2026-07-25T18:00:00Z",
+    },
   }),
 }));
 vi.mock("@/components/AppShell", () => ({
@@ -216,6 +220,41 @@ describe("rankings board", () => {
 
     await user.click(within(screen.getAllByRole("row")[1]).getByText("WR"));
     expect(screen.queryByText(/Source Audit:/)).toBeNull();
+  });
+
+  // C8-U2 2026-09-29: the expanded row rendered through the legacy
+  // `source-audit-*` globals — the retired dark terminal palette — and
+  // measured 283 axe color-contrast nodes at 1366px on the live board.
+  it("the expanded audit panel renders on the editorial module, not the legacy dark classes", async () => {
+    const user = userEvent.setup();
+    render(<RankingsPage />);
+    await user.click(within(screen.getAllByRole("row")[1]).getByText("WR"));
+    expect(document.querySelector(".source-audit-panel")).toBeNull();
+    expect(document.querySelector("[class*='source-audit-']")).toBeNull();
+    const auditRow = document.querySelector("tr.rankings-audit-row");
+    expect(auditRow.className).toMatch(/auditRow/);
+  });
+
+  it("names the board-built and scrape clocks instead of calling build time 'Last scraped'", () => {
+    render(<RankingsPage />);
+    expect(screen.queryByText(/Last scraped/)).toBeNull();
+    expect(screen.getByText(/Board built/)).toBeInTheDocument();
+    expect(screen.getByText(/from the scrape of/)).toBeInTheDocument();
+  });
+
+  it("describes confidence with the current rule, not the retired spread rule", () => {
+    render(<RankingsPage />);
+    expect(screen.queryByText("2+ src, tight")).toBeNull();
+    expect(screen.getByText("every check high")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "What is confidence?" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "What is Value?" })).toBeInTheDocument();
+  });
+
+  it("keeps the primary value on the phone board: Consensus (a diagnostic) hides below md", () => {
+    render(<RankingsPage />);
+    const firstRow = screen.getAllByRole("row")[1];
+    expect(firstRow.querySelector("td[data-col='score']").className).toMatch(/ds-col-hide-md/);
+    expect(firstRow.querySelector("td[data-col='value']").className).not.toMatch(/ds-col-hide/);
   });
 
   it("a player-name click opens the profile instead of expanding the row", async () => {
