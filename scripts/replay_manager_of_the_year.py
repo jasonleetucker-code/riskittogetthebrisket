@@ -341,7 +341,7 @@ def replay(snapshot) -> dict[str, Any]:
                 "couldLeadUnderSomeT": [
                     r["ownerId"]
                     for r in ranked
-                    if rank_value(ranked[0]) - rank_value(r) < 100.0 * moty.WEIGHTS["T"]
+                    if rank_value(ranked[0]) - rank_value(r) <= 100.0 * moty.WEIGHTS["T"]
                 ],
             }
 

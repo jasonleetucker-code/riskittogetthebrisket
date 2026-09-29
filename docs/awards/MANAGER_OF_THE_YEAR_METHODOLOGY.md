@@ -217,7 +217,9 @@ trade_future_value_{partial|unavailable}` — and the P-channel is published onl
 (`productionScore`), excluded from every total. (v1 used `T = P-channel` here; the replay showed that scores one
 side of every exchange — §11.4.) A season with **no** window trades has nothing unmeasured and is complete by
 construction (T = 50) whether or not a valuation source is supplied. FAAB moved in trades is reported
-(`faabTradedNet`), not converted.
+(`faabTradedNet`), not converted — and because FAAB has no approved value basis (OD-MOTY-2), a trade that moves
+FAAB counts as **unvalued** in the FV-channel (never "valued without its FAAB half"), so a season with one cannot
+reach a complete T.
 Forced roster-space drops caused by a trade land in W (the drop's channel); the canonical roster-capacity owner
 lives in `src/trade`, which the public package may not import. No trade-count bonus.
 
@@ -392,6 +394,10 @@ measured (that lane is recorded on the production host; the repo holds only the 
 | waiver acquisition cost / FAAB cost | `settings.waiver_bid` on completed claims | measurable (2,859 spent) | measurable (1,732) | measurable (683) — value conversion: no approved basis (OD-MOTY-2) |
 | roster improvement | weekly `players` + `players_points` (RLS, §5.1) | measurable (unobservable weeks counted) | measurable | measurable |
 | acquisition efficiency | derivable (surplus per FAAB $) | context only, no validated scoring basis | same | same |
+
+Counts: the feed counts every completed trade filed in a league (2024: 29, 2026: 69 at 2026-09-29); the MOTY
+window counts those with `leg < playoff_week_start` in the 2026-09-26 snapshot (2024: 28 — one trade was filed in
+the postseason; 2026: 67 — two week-3 trades came later). Either way no valuation exists before the floor.
 
 **Per component** (M = measurable, P = partially measurable, N = not measurable)
 
@@ -572,8 +578,8 @@ a win-now trade is not given full production credit while surrendered future ass
 ### 11.5 The exact rule (v1.1)
 
 1. **T is scored iff** its production half is measurable **and** the season's T FV-channel is `complete` (every
-   window trade valued at its own instant by the canonical as-of resolver) — then `T = 0.5·P + 0.5·FV`. A season
-   with zero window trades is complete by construction.
+   window trade valued at its own instant by the canonical as-of resolver; a trade moving FAAB is unvalued) — then
+   `T = 0.5·P + 0.5·FV`. A season with zero window trades is complete by construction.
 2. **Otherwise T is unavailable**: `score = null`, `coverage = "unavailable"`, `unscoredReason =
    "trade_future_value_<status>"` (or `production_unmeasurable`); `productionScore` and every raw T field stay
    published as context and are excluded from every total. `coverage.reasons` gains `trade_component_unscored`.
@@ -584,14 +590,14 @@ a win-now trade is not given full production credit while surrendered future ass
 4. **Ranking.** `scoreBasis = full` ranks on the score; `incomplete` ranks on `measuredPoints` (ties: W+D
    contribution, then A, then a shared rank). The basis is season-wide; the two are never mixed.
 5. **Uncertainty.** On an incomplete basis `unscoredTradeRange.couldLeadUnderSomeT` lists every manager within
-   `100·WEIGHTS["T"]` measured points of the leader; `leaderDetermined` is true only when that list has one entry.
+   (≤) `100·WEIGHTS["T"]` measured points of the leader; `leaderDetermined` is true only when that list has one entry.
 6. **Presentation.** `promotion = "not_promoted"`; the unified result never decides the card or race (§9); the UI
    labels it "Validation track — PARTIAL / NOT PROMOTED", shows "X / 65 measured pts" (never "/ 100"), shows T as
    "not scored" with its production half labelled context, and states the undecided range.
 
 ## 12. Tests and verification
 
-* `tests/public_league/test_manager_of_the_year.py` — 49 tests. The §14 regressions (v1): normalization (zero →
+* `tests/public_league/test_manager_of_the_year.py` — 50 tests. The §14 regressions (v1): normalization (zero →
   50, bounded, monotonic, symmetric, unscalable → None); non-playoff manager can win; exceptional champion can win;
   championship worth at most 10; no "outside the race" field; all-play independent of the schedule; tie / zero /
   negative / missing-week semantics; no-trade exactly neutral; bad trades negative and mirrored; star for excessive
@@ -608,12 +614,13 @@ a win-now trade is not given full production credit while surrendered future ass
   source is supplied, the scored T.
   **v1.1 additions:** a missing valuation makes T unavailable (never the production half); T unavailable → no
   score, measured points = 0.40A + 0.15W + 0.10D (+ 0.10P) out of 75 (65 provisional), nothing redistributed,
-  validation rank, `unscoredTradeRange` names who could lead; a rebuilding trade's unmeasurable side moves nothing;
+  validation rank, `unscoredTradeRange` names who could lead, the tie-break carries no T; a rebuilding trade's
+  unmeasurable side moves nothing; a FAAB trade is unvalued;
   a no-trade season needs no valuation source; incomplete-basis ties; a **below-.500** manager (0-4 head-to-head,
   verified from the host matchups) is not excluded by record and can win; the unpromoted method never decides the
   card or race in any season, including a fully scored live provisional season; promotion is the one switch.
-* **Sabotage (v1.1): 11/11 mutations turned the named tests red** — production-only T scored as T; T production
-  counted in measured points; T's weight redistributed (renormalized to /100); no-trade season treated as
+* **Sabotage (v1.1): 13/13 mutations turned the named tests red** — production-only T scored as T; T production
+  counted in measured points; T production in the incomplete tie-break; a FAAB trade valued without its FAAB half; T's weight redistributed (renormalized to /100); no-trade season treated as
   unavailable; promotion reported; unpromoted provisional result decides the live card; a record gate (below .500
   excluded); a playoff gate (non-playoff unscored); UI badges an unpromoted result Final/Provisional; UI shows the
   production half as T; UI shows measured points as a /100 score. (v1's 16 engine/award and 3 frontend mutations

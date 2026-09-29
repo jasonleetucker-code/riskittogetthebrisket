@@ -850,6 +850,15 @@ def _faab_by_roster(season: SeasonSnapshot) -> tuple[dict[int, float], dict[int,
     return spent, traded
 
 
+def _moves_faab(tx: dict[str, Any]) -> bool:
+    """Does this trade move FAAB (any nonzero or unknown amount)?"""
+    for move in tx.get("waiver_budget") or []:
+        amount = _float((move or {}).get("amount"))
+        if amount is None or amount != 0:
+            return True
+    return False
+
+
 def trade_future_value(
     snapshot: PublicLeagueSnapshot,
     season: SeasonSnapshot,
@@ -889,6 +898,11 @@ def trade_future_value(
     normalized = []
     requests = []
     for tx in trades:
+        if _moves_faab(tx):
+            # FAAB is one side of this exchange and has no approved value
+            # basis (OD-MOTY-2): the trade cannot be valued, never "valued
+            # without its FAAB half".
+            continue
         norm = _normalize_trade(snapshot, season, tx)
         if not norm:
             continue
@@ -1058,8 +1072,10 @@ def _rank_value(r: dict[str, Any]) -> float | None:
 def rank_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Rank scored rows at full precision; return ``(scored, unscored)``.
 
-    Exact ties break on (1) the combined T/W/D weighted contribution, then
-    (2) A; a tie on all three is an honest shared rank (``tied: True``).
+    Exact ties break on (1) the combined management contribution (T+W+D on
+    a ``full`` basis; W+D on an ``incomplete`` one -- an unscored T never
+    breaks a tie), then (2) A; a tie on all three is an honest shared rank
+    (``tied: True``).
     Never owner id, name or input order -- the sort key contains none of
     them, and rows still equal on it share one rank number.
     """
@@ -1298,7 +1314,8 @@ def build_season(
     if basis == BASIS_INCOMPLETE:
         t_max = 100.0 * WEIGHTS["T"]
         top = _rank_value(scored[0])
-        could_lead = [r["ownerId"] for r in scored if top - _rank_value(r) < t_max]
+        # <=: a manager exactly t_max behind can tie and win the tie-break.
+        could_lead = [r["ownerId"] for r in scored if top - _rank_value(r) <= t_max]
         unscored_range = {
             "tMaxPoints": t_max,
             "couldLeadUnderSomeT": could_lead,

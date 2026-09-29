@@ -685,13 +685,16 @@ class TradeUnavailableTests(_Case):
         )
         self.assertAlmostEqual(inc["measurablePoints"], 75.0)
         self.assertEqual(inc["unscoredComponents"], ["T"])
+        # The tie-break carries no T either: management = W + D contributions.
+        con = seller["contributions"]
+        self.assertAlmostEqual(seller["management"], con["W"] + con["D"])
         self.assertIn("not scored", seller["explanation"])
         # Whoever the unscored T (up to 25 pts) could put first is named.
         rng = ev["unscoredTradeRange"]
         self.assertEqual(rng["tMaxPoints"], 25.0)
         top = ev["rows"][0]["incomplete"]["measuredPoints"]
         expect = [
-            r["ownerId"] for r in ev["rows"] if top - r["incomplete"]["measuredPoints"] < 25.0
+            r["ownerId"] for r in ev["rows"] if top - r["incomplete"]["measuredPoints"] <= 25.0
         ]
         self.assertEqual(rng["couldLeadUnderSomeT"], expect)
         self.assertEqual(rng["leaderDetermined"], len(expect) == 1)
@@ -714,6 +717,25 @@ class TradeUnavailableTests(_Case):
         base = row(without, 1)["contributions"]
         expect = sum(base[k] for k in ("A", "W", "D", "P"))
         self.assertAlmostEqual(seller["incomplete"]["measuredPoints"], expect)
+
+    def test_a_faab_trade_is_not_valued_without_its_faab_half(self):
+        # Player-for-FAAB: every PLAYER resolves, but FAAB has no approved
+        # value basis (OD-MOTY-2), so the trade is unvalued and T unavailable.
+        lg = League(weeks=4, points={"r1p0": 25.0})
+        lg.trade(
+            2,
+            1,
+            ["r1p0"],
+            2,
+            [],
+            waiver_budget=[{"sender": 2, "receiver": 1, "amount": 40}],
+        )
+        ev = evaluate(lg, valuation_factory=flat_valuation())
+        fv = ev["coverage"]["tradeFutureValue"]
+        self.assertEqual((fv["trades"], fv["valuedTrades"]), (1, 0))
+        self.assertEqual(fv["status"], "unavailable")
+        self.assertIsNone(score(ev, 1, "T"))
+        self.assertEqual(ev["scoreBasis"], "incomplete")
 
     def test_no_trades_needs_no_valuation_source(self):
         ev = evaluate(League(weeks=4))
