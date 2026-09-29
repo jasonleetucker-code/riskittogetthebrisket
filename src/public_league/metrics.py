@@ -184,6 +184,74 @@ def week_is_fully_scored(
     return all(is_scored(e) for e in entries)
 
 
+def _score_present(value: Any) -> bool:
+    if value is None or isinstance(value, bool):
+        return False
+    if isinstance(value, str) and not value.strip():
+        return False
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return False
+    return number == number  # NaN is "not published", not a score
+
+
+def _nfl_schedule_rows(season_year: int) -> list[dict[str, Any]]:
+    """The nflverse schedule through its canonical owner, cache-only: this
+    runs on request paths and must never fetch.  Any failure is an empty
+    answer, which ``nfl_week_games_final`` reports as UNKNOWN."""
+    try:
+        from src.nfl_data import ingest  # noqa: PLC0415
+
+        return list(ingest.fetch_schedules([int(season_year)], cache_only=True) or [])
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def nfl_week_games_final(season_year: Any, week: int) -> bool | None:
+    """Has every game of NFL regular-season ``week`` published a final score?
+
+    Tri-state, like ``last_scored_week``:
+
+    * ``True`` — the schedule lists the week's games and every one carries
+      both scores;
+    * ``False`` — at least one listed game has no result yet (not played,
+      in progress, or postponed);
+    * ``None`` — UNKNOWN: no schedule, or no games listed for that week.
+
+    This is evidence from the NFL side, independent of fantasy scoring.
+    It is what lets a fully-scored-LOOKING league week be told apart from a
+    finished one: on the evening of Sunday 2026-09-27 every roster in
+    ``dynasty_main`` had non-zero week-3 points while Monday Night Football
+    (PHI @ CHI) was still unplayed, and ``week_is_fully_scored`` alone read
+    the week as final.
+    """
+    try:
+        year = int(season_year)
+        wk = int(week)
+    except (TypeError, ValueError):
+        return None
+    games = [
+        row
+        for row in _nfl_schedule_rows(year)
+        if str(row.get("game_type") or "REG").upper() == "REG"
+        and _as_int(row.get("week")) == wk
+        and _as_int(row.get("season"), year) == year
+    ]
+    if not games:
+        return None
+    return all(
+        _score_present(g.get("home_score")) and _score_present(g.get("away_score")) for g in games
+    )
+
+
+def _as_int(value: Any, default: int | None = None) -> int | None:
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
 def final_regular_season_weeks(season: SeasonSnapshot) -> list[int]:
     """Regular-season weeks whose scoring is FINISHED.
 
@@ -202,8 +270,14 @@ def final_regular_season_weeks(season: SeasonSnapshot) -> list[int]:
       "hasn't played yet" (measured: the four zero rosters in live week 2
       carried a literal ``0.0``, not ``null``).
     * **data completeness** — every roster reporting a real score, in the
-      expected number of rows (``week_is_fully_scored``).  This admits a
-      genuinely finished week when the host clock lags a refresh cycle.
+      expected number of rows (``week_is_fully_scored``), AND every NFL game
+      of that week published final (``nfl_week_games_final is True``).
+      This admits a genuinely finished week when the host clock lags a
+      refresh cycle.  The NFL half is required because non-zero scores for
+      every roster are NOT proof of a finished week: after Sunday's games
+      every roster can have points while Monday's game is unplayed
+      (2026-09-27, week 3 read as final before Monday Night Football).  An
+      unknown NFL answer withholds the week until the host clock admits it.
 
     An in-progress week fails both, which is the point.  Both failing is
     also why the return is a WITHHOLDING rather than a guess: an
@@ -215,9 +289,12 @@ def final_regular_season_weeks(season: SeasonSnapshot) -> list[int]:
         if horizon is not None and wk <= horizon:
             out.append(wk)
             continue
-        if week_is_fully_scored(
-            season.matchups_by_week.get(wk) or [],
-            expected_rosters=season.num_teams or None,
+        if (
+            week_is_fully_scored(
+                season.matchups_by_week.get(wk) or [],
+                expected_rosters=season.num_teams or None,
+            )
+            and nfl_week_games_final(season.season, wk) is True
         ):
             out.append(wk)
     return out
