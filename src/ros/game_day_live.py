@@ -175,6 +175,14 @@ LOCK_STALE_SECONDS = 900.0
 #: Raw observation logs are kept this many weeks back (generations, their
 #: index and the league-week state are kept for the whole season).
 RAW_RETENTION_WEEKS = 4
+#: The pregame weekly-projection archive (see :func:`build_pregame_projection_archive`):
+#: one immutable file per NFL week, OUTSIDE ``observations/`` so the raw prune
+#: never reaches it.  Kept this many seasons back -- measured 2026-09-29 on a
+#: real week: 2,154 projected players, 1.7 MB JSON, 0.2 MB gzipped, so about
+#: 3.7 MB per 18-week season and under 40 MB at this bound.
+PREGAME_ARCHIVE_NAME = "pregame_projections.json.gz"
+PREGAME_ARCHIVE_SCHEMA = 1
+PREGAME_ARCHIVE_SEASONS = 10
 #: Keyframe every N content-bearing records so a damaged line only breaks
 #: its own segment of a delta chain.
 KEYFRAME_EVERY = 100
@@ -2481,11 +2489,224 @@ def _log_tick(report: TickReport) -> None:
         )
 
 
+# ── Pregame weekly-projection archive ───────────────────────────────────
+
+
+class PregameArchiveUnavailable(RuntimeError):
+    """The archive cannot be built from verified evidence (e.g. no kickoffs)."""
+
+
+def pregame_archive_path(season: int, week: int) -> Path:
+    return league_week_dir(NFL_KEY, season, week) / PREGAME_ARCHIVE_NAME
+
+
+def _archive_schedule_rows(season: int) -> list[dict[str, Any]]:
+    """The nflverse schedule through its canonical owner, cache-only: the
+    archive runs inside the collector tick and must never fetch."""
+    from src.nfl_data import ingest
+
+    return list(ingest.fetch_schedules([int(season)], cache_only=True) or [])
+
+
+@dataclass(frozen=True)
+class _ArchiveRow:
+    """The four attributes ``lock_baseline_at_kickoff`` reads, carrying the
+    RAW provider row -- so the canonical per-player pre-kickoff selection is
+    reused without rescoring anything under a league card."""
+
+    sleeper_player_id: str
+    game_id: str
+    observed_at: str
+    provider_updated_at: str | None
+    row: Mapping[str, Any]
+    url: str
+
+
+def build_pregame_projection_archive(
+    season: int,
+    week: int,
+    *,
+    schedule_rows: Sequence[Mapping[str, Any]],
+    now: float,
+) -> dict[str, Any] | None:
+    """What Calculator knew BEFORE kickoff: per player, the raw Sleeper weekly
+    projection row from the last successful fetch at or before that player's
+    game kickoff.
+
+    Selection is the canonical ``sleeper_weekly_projections.lock_baseline_at_kickoff``
+    (observed time, never the provider's ``updated_at``); kickoffs are the
+    canonical ``matchup_intel.kickoffs_for_week`` over the nflverse schedule,
+    joined per row by NFL team exactly as the Game Day estimate adapter does.
+    Every value is the row as observed -- nothing is rescored, re-derived or
+    replaced with a later model.  ``None`` when the week has no stored
+    projection fetch; :class:`PregameArchiveUnavailable` when kickoffs cannot
+    be established (the caller then keeps the raw log).
+    """
+    from src.api import matchup_intel as mi
+    from src.ros.game_day_estimates import _normalize_team
+    from src.ros.sleeper_weekly_projections import _ms_to_iso, lock_baseline_at_kickoff
+
+    fetches = [
+        f
+        for f in load_weekly_history(season, week)
+        if getattr(f, "status", None) == "ok" and getattr(f, "observed_at", None)
+    ]
+    if not fetches:
+        return None
+    kick_by_team = mi.kickoffs_for_week(
+        list(schedule_rows), None, season=int(season), week=int(week), now=float(now)
+    )
+    if not kick_by_team:
+        raise PregameArchiveUnavailable("kickoffs_unknown")
+    rows: list[_ArchiveRow] = []
+    for fetch in fetches:
+        for raw in fetch.rows:
+            pid, gid = raw.get("player_id"), raw.get("game_id")
+            if pid is None or not gid:
+                continue
+            rows.append(
+                _ArchiveRow(
+                    sleeper_player_id=str(pid),
+                    game_id=str(gid),
+                    observed_at=str(fetch.observed_at),
+                    provider_updated_at=_ms_to_iso(raw.get("updated_at")),
+                    row=dict(raw),
+                    url=str(fetch.url or ""),
+                )
+            )
+    kickoffs: dict[str, str] = {}
+    for item in rows:
+        team = item.row.get("team")
+        stamp = kick_by_team.get(_normalize_team(team)) if team else None
+        if stamp is not None:
+            kickoffs.setdefault(item.game_id, _iso(stamp))
+    lock = lock_baseline_at_kickoff(rows, kickoffs, now=_iso(now))
+    players = {
+        pid: {
+            "observedAt": entry.observation.observed_at,
+            "kickoffAt": entry.kickoff_at,
+            "fetchUrl": entry.observation.url,
+            "row": entry.observation.row,
+        }
+        for pid, entry in lock.baselines.items()
+    }
+    # A player whose kickoff cannot be established keeps his LAST observed
+    # row, labelled as timing-unverified -- preserved, never passed off as
+    # pregame.
+    last_by_pid: dict[str, _ArchiveRow] = {}
+    for item in rows:
+        if item.sleeper_player_id in players:
+            continue
+        prev = last_by_pid.get(item.sleeper_player_id)
+        if prev is None or (_epoch(item.observed_at) or 0) >= (_epoch(prev.observed_at) or 0):
+            last_by_pid[item.sleeper_player_id] = item
+    unverified = {
+        pid: {"observedAt": it.observed_at, "fetchUrl": it.url, "row": it.row}
+        for pid, it in sorted(last_by_pid.items())
+    }
+    return {
+        "schemaVersion": PREGAME_ARCHIVE_SCHEMA,
+        "kind": "pregame_weekly_projections",
+        "season": int(season),
+        "week": int(week),
+        "archivedAt": _iso(now),
+        "source": SOURCE_WEEKLY,
+        "provenance": "sleeper:projections (RotoWire via Sleeper); model per row in row.company",
+        "selectionRule": (
+            "per player: the last ok fetch whose observedAt <= that player's NFL game kickoff "
+            "(sleeper_weekly_projections.lock_baseline_at_kickoff; kickoffs from "
+            "matchup_intel.kickoffs_for_week over the nflverse schedule, joined by row.team)"
+        ),
+        "scoring": (
+            "raw provider stat lines in Sleeper's stat vocabulary, league-independent; "
+            "league-scored baselines are each league-week's generations.jsonl"
+        ),
+        "fetchesConsidered": len(fetches),
+        "players": players,
+        "timingUnverified": unverified,
+        "noPreKickoffObservation": sorted(lock.no_pre_kickoff_observation),
+        "postKickoffObservationsIgnored": lock.post_kickoff_observations_ignored,
+    }
+
+
+def _read_pregame_archive(path: Path) -> dict[str, Any] | None:
+    import gzip
+
+    try:
+        with gzip.open(path, "rt", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, ValueError, EOFError):
+        return None
+    if not isinstance(data, dict) or data.get("schemaVersion") != PREGAME_ARCHIVE_SCHEMA:
+        return None
+    return data
+
+
+def _write_pregame_archive(path: Path, payload: Mapping[str, Any]) -> None:
+    """gzip + atomic replace, never exposing a partial file."""
+    import gzip
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    blob = gzip.compress(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+    )
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_bytes(blob)
+    tmp.replace(path)
+
+
+#: A week whose archive could not be established is retried at most this
+#: often -- the prune runs every collector tick.
+_PREGAME_ARCHIVE_RETRY_SECONDS = 3600.0
+_pregame_archive_failed_at: dict[tuple[int, int], float] = {}
+
+
+def ensure_pregame_archive(season: int, week: int, *, now: float | None = None) -> bool:
+    """True when the week's raw weekly-projection log may be pruned: the
+    archive already exists and reads back, or there was nothing to preserve,
+    or it was just built, written and verified.  False (keep the raw log)
+    whenever that cannot be established -- fail closed.  An existing archive
+    is never rewritten."""
+    path = pregame_archive_path(season, week)
+    if path.exists():
+        return _read_pregame_archive(path) is not None
+    if not observation_log(NFL_KEY, season, week, SOURCE_WEEKLY).log_path.exists():
+        return True
+    now = time.time() if now is None else now
+    failed_at = _pregame_archive_failed_at.get((season, week))
+    if failed_at is not None and now - failed_at < _PREGAME_ARCHIVE_RETRY_SECONDS:
+        return False
+    ok = False
+    try:
+        payload = build_pregame_projection_archive(
+            season, week, schedule_rows=_archive_schedule_rows(season), now=now
+        )
+        if payload is None:
+            ok = True
+        else:
+            _write_pregame_archive(path, payload)
+            back = _read_pregame_archive(path)
+            ok = back is not None and len(back.get("players") or {}) == len(payload["players"])
+    except Exception:  # noqa: BLE001 -- any failure keeps the raw evidence
+        ok = False
+    if ok:
+        _pregame_archive_failed_at.pop((season, week), None)
+    else:
+        _pregame_archive_failed_at[(season, week)] = now
+    return ok
+
+
 def prune_retention(season: int, week: int) -> list[str]:
     """Delete raw observation logs older than :data:`RAW_RETENTION_WEEKS`.
 
     Keeps ``generation.json``, ``generations.jsonl`` and ``state.json`` for
     every league-week (the week's final answer and its calibration index).
+
+    For the NFL-wide pseudo-league, a week's raw logs are deleted only after
+    :func:`ensure_pregame_archive` has preserved what Calculator knew before
+    kickoff (owner authorization 2026-09-29); if that cannot be established
+    the raw logs stay.  The archive itself lives outside ``observations/``
+    and is dropped only past :data:`PREGAME_ARCHIVE_SEASONS` seasons.
     """
     import shutil
 
@@ -2507,8 +2728,14 @@ def prune_retention(season: int, week: int) -> list[str]:
                 old = s < season or (s == season and w < week - RAW_RETENTION_WEEKS)
                 obs = week_dir / "observations"
                 if old and obs.is_dir():
+                    if key_dir.name == NFL_KEY and not ensure_pregame_archive(s, w):
+                        continue  # fail closed: keep the raw evidence
                     shutil.rmtree(obs, ignore_errors=True)
                     removed.append(str(obs))
+                archive = week_dir / PREGAME_ARCHIVE_NAME
+                if archive.exists() and s < season - PREGAME_ARCHIVE_SEASONS:
+                    archive.unlink(missing_ok=True)
+                    removed.append(str(archive))
     return removed
 
 

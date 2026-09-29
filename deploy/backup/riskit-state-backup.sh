@@ -39,7 +39,7 @@
 #     (C1-RET-01).  PRIVATE: contains our leagues' own claim history.
 #   * data/identity/             — identity resolution reports
 #     (C1-RET-07)
-#   * data/game_day/             — Game Day pre-game prediction snapshots
+#   * data/game_day/             — Game Day pre-game prediction snapshots + the pregame weekly-projection archive (live/_nfl/*/week_*/pregame_projections.json.gz)
 #     (C5-GD-02).  THE most irreplaceable artifact in this list, and the
 #     only one whose loss window is measured in hours: a pregame capture
 #     records the state that produced a prediction BEFORE the outcome was
