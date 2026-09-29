@@ -1,6 +1,6 @@
 # Rookie Auction Room — feature record
 
-**Status:** IMPLEMENTED → **MOCK READY** (milestone B). Official launch: **OFF**.
+**Status:** **MOCK READY — deployed 2026-09-29** at https://chaseupside.com/auction (#1523 `db03f2a`, #1524 `2021c43`, #1526 `32a978f`, #1528 `00d60e0`). Official launch: **OFF**. Next state (HUMAN REHEARSAL PASSED) needs the owner's rehearsal — see `LAUNCH_CHECKLIST.md`.
 State ladder (never collapsed): IMPLEMENTED → MOCK READY → HUMAN REHEARSAL PASSED → LIVE-READY → OWNER LAUNCH APPROVED.
 
 **Authority:** owner directive 2026-09-29 ("Build Chase Upside's shared slow rookie auction room —

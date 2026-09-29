@@ -43,8 +43,15 @@ States: IMPLEMENTED → MOCK READY → HUMAN REHEARSAL PASSED → LIVE-READY →
 - [x] Independent adversarial review (2026-09-29): 7 confirmed defects + hardening items resolved, each with a
       regression test (`tests/auction/test_review_regressions.py`, notification/SW tests). Money rules held under the
       reviewer's own 600-run fuzz. A second review after the owner's rehearsal is recommended.
-- [ ] Deployed and verified on production (mock rooms) — `https://chaseupside.com/auction`.
-- [ ] Production VAPID keys confirmed present (`/auction/notifications` shows "configured").
+- [x] Deployed and verified on production (mock rooms) — `https://chaseupside.com/auction` (2026-09-29: page and
+      API live, room data requires an auction sign-in, cross-origin writes refused, SW v9 never caches auction data).
+- [ ] **Production VAPID keys — NOT configured (measured 2026-09-29: `/api/push/public-key` → 503
+      `push_not_configured`).** Without them no phone push is possible (the in-app inbox still works). Owner action:
+      generate a key pair with the one-liner in `.env.example` (Web Push section), add `VAPID_PUBLIC_KEY`,
+      `VAPID_PRIVATE_KEY` and `VAPID_CONTACT=mailto:<a real address>` to `/home/dynasty/trade-calculator/.env`
+      on the box, then restart the backend service. Free and self-signed — no account, no subscription.
+- [ ] Hourly verified-backup timer running on the box (`systemctl status <service>-auction-backup.timer`;
+      preflight shows the last verified backup once it has run).
 
 ## D. Launch-day runbook (once A–C are done)
 
