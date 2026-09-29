@@ -1,0 +1,392 @@
+{
+  "label": "after",
+  "at": "2026-09-29T12:52:46.748Z",
+  "runs": [
+    {
+      "page": "rankings",
+      "vp": "desktop",
+      "violations": []
+    },
+    {
+      "page": "rankings-facts",
+      "vp": "desktop",
+      "facts": {
+        "eyebrow": "Chase Upside Consensus / Updated 27m ago",
+        "rows": 30,
+        "zeroVals": 0,
+        "visibleHeaders": [
+          "#",
+          "Tier",
+          "Player",
+          "Pos",
+          "Consensus",
+          "Value",
+          "Sources",
+          "Confidence",
+          "Edge",
+          "Signal"
+        ]
+      }
+    },
+    {
+      "page": "rankings-expand",
+      "vp": "desktop",
+      "facts": {
+        "expandedAria": null
+      }
+    },
+    {
+      "page": "rankings-expanded",
+      "vp": "desktop",
+      "violations": []
+    },
+    {
+      "page": "howitworks",
+      "vp": "desktop",
+      "facts": {
+        "text": "How rankings work\nWhat Our Value means\n\nOur Value is the canonical dynasty value on a 1–9,999 scale — one number per player, the same number Rankings, the Trade Calculator and the Player File read. Higher is more valuable.\n\nIt blends every registered dynasty source that covers the player. Value-based markets (KTC Crowd, KTC Trades, IDP Trade Calculator) vote with their own values rescaled to 9,999; ranking sources are converted from rank to value through the Hill curve so the two kinds are comparable.\n\nThe votes are combined with a count-aware weighted mean-median, so a single outlying source moves it little. A player (not a pick) backed by only one evidence family keeps 30% of the blended value — the single-source haircut.\n\nIf you change source weights, the same backend pipeline recomputes the board with your weights; the Custom mix badge on Rankings says when that is active.\n\nMethodology source: src/api/data_contract.py — _compute_unified_rankings\n\nRank vs value\n\nRank (#) is the player's place on the board sorted by value; value is how much. Two neighbours can be a few points or a whole tier apart — the value tells you which.\n\nRank is an ordinal. Value is the magnitude it is sorted from. Use value to judge a trade; use rank to find a player.\n\nOnly the top of the board receives a rank. Players past the rank limit can still carry a value — they show a value with no rank rather than a made-up one.\n\nPosition rank (e.g. QB3) is the same ordering within one position. Tier breaks mark natural value cliffs detected on the board.\n\nConsensus is the mean of each source's effective rank. It is a diagnostic, not the rank: the rank comes from the blended value, which weighs sources differently.\n\nOn this board the top 800 receive an official rank.\n\nMethodology source: src/api/data_contract.py — OVERALL_RANK_LIMIT, canonicalTierId\n\nDynasty value vs projection\n\nOur Value is a long-horizon dynasty market value, not a points projection. Rest-of-season outlook and projections are separate numbers and never change it.\n\nOnly sources verified as dynasty boards feed this value. Redraft, rest-of-season, weekly and DFS rankings are never blended into it — even from a provider we otherwise use.\n\nShort-term context (rest-of-season strength, realized points, BDVM fundamentals) appears in its own sections, labelled as such. It explains the player; it does not re-price him.\n\nMethodology source: CLAUDE.md — Source-domain boundaries\n\nLeague and scoring context\n\nScoring decides which board you see; your league decides ownership, roster fit and recommendations. League roster scarcity is not applied to this value.\n\nThe board is built for one scoring setup. Leagues are allowed to share it only when their actual scoring settings are proven identical; if yours cannot be proven identical, the site declines to serve this board for it instead of guessing.\n\nTight-end values are placed on one TE-premium basis for every league. Your league's own TE premium does not re-price the board.\n\nWh"
+      }
+    },
+    {
+      "page": "howitworks-modal",
+      "vp": "desktop",
+      "violations": [
+        {
+          "id": "scrollable-region-focusable",
+          "impact": "serious",
+          "nodes": 1,
+          "sample": [
+            ".ds-dialog__body"
+          ]
+        }
+      ]
+    },
+    {
+      "page": "popup",
+      "vp": "desktop",
+      "violations": []
+    },
+    {
+      "page": "popup",
+      "vp": "desktop",
+      "facts": {
+        "text": "Josh Allen\nQB\nBUF\nage 30\n8 yr exp\nRank #1\nOwned by\nBlaine\n· QB1 on roster\nFull profile\nWatch\nCompare\nOUR VALUE\n9,978\nROS · no data yet\nValue chain — how we got 9,978\n1 stage\nValue history unavailable.\n\nNEWS (1)\n\n1h\nCBS Sports\nINFO\nNFL MVP race entering Week 4: Josh Allen stays No. 1, but the field is closing fast\n\nSOURCE BREAKDOWN\n\nKTC Trades\n9,999\nDLF SF\n9,999\nFC\n9,999 (11,344)\nFN\n9,999 (9,871)\nPFK\n9,999 (9,999)\nDD\n9,999 (10,200)\nFP SF\n9,999\nFitzmaurice\n9,999 (100)\nBoone\n9,999 (141)\nDS\n9,999\nKTC Crowd\n9,997\nIDPTC\n9,996\nDN SF-TEP\n9,883 (10,018)\nOTC\n9,752 (94.2)\nFF\n9,617\nIDP Show Combined\n9,486\n\nStrong consensus (CV 2%) — sources agree closely\n\n16 sources contributing · Tier 1"
+      }
+    },
+    {
+      "page": "player-allen",
+      "vp": "desktop",
+      "violations": []
+    },
+    {
+      "page": "player-allen",
+      "vp": "desktop",
+      "facts": {
+        "h1": "Josh Allen",
+        "tiles": [
+          "Our Value9,978",
+          "Overall rank#1",
+          "Position rankQB1",
+          "ConfidenceLow — limited by freshness",
+          "Sources16Tier 1"
+        ],
+        "text": "PLAYER FILE / QB — BUF\n\nJosh Allen\n\nOwned by Blaine · QB1 on roster\n\nWatch\nCompare\nOpen in Trade Calculator\nHow values work\nQB\nBUF\nage 30\n8 yr exp\nOUR VALUE\n9,978\nOVERALL RANK\n#1\nPOSITION RANK\nQB1\nCONFIDENCE\nLow — limited by freshness\nSOURCES\n16\nTier 1\nOverview\nMarket\nTrades\nPerformance\nIntel\nValue chain\n\nHow we arrived at Our Value\n\n1\nBlended value\nCount-aware weighted mean-median over every source that priced this player: value-based markets vote with their own values, ranking sources through the Hill curve, each vote weighted by its source's freshness, with correlated boards sharing one vote.\n9,978\nWhy this confidence\n\nThe evidence checks behind the value, weakest first in the label\n\nLow — limited by freshness\n\nGraded by the five evidence checks.\n\nIndependence\nHigh\nCoverage\nHigh\nFreshness\nLow\nApplicability\nHigh\nAgreement\nHigh\n14 independent evidence families\n11 of 14 contributing families are past their staleness budget\nAll 14 families price within 15% of the published value\nRank history\n\n180-day trajectory\n\nValue history unavailable."
+      }
+    },
+    {
+      "page": "player-allen-market",
+      "vp": "desktop",
+      "violations": []
+    },
+    {
+      "page": "player-allen-performance",
+      "vp": "desktop",
+      "violations": []
+    },
+    {
+      "page": "player-allen-intel",
+      "vp": "desktop",
+      "violations": []
+    },
+    {
+      "page": "player-garrett",
+      "vp": "desktop",
+      "violations": []
+    },
+    {
+      "page": "player-garrett",
+      "vp": "desktop",
+      "facts": {
+        "h1": "Myles Garrett",
+        "tiles": [
+          "Our Value5,223",
+          "Overall rank#61",
+          "Position rankDL3",
+          "ConfidenceLow — limited by freshness",
+          "Sources5Tier 12"
+        ],
+        "text": "PLAYER FILE / DL — LAR\n\nMyles Garrett\n\nOwned by Brent · DL2 on roster\n\nWatch\nCompare\nOpen in Trade Calculator\nHow values work\nDL\nLAR\nage 30\n9 yr exp\nOUR VALUE\n5,223\nOVERALL RANK\n#61\nPOSITION RANK\nDL3\nCONFIDENCE\nLow — limited by freshness\nSOURCES\n5\nTier 12\nOverview\nMarket\nTrades\nPerformance\nIntel\nValue chain\n\nHow we arrived at Our Value\n\n1\nAnchor value\nThe anchor market's value for this asset — the baseline the other sources adjust\n5,331\n2\nSubgroup adjustment ×0.10\nSubgroup blend 4252 − anchor 5331 = Δ-1079; shrunk by α=0.10\n5,223\n108\nWhy this confidence\n\nThe evidence checks behind the value, weakest first in the label\n\nLow — limited by freshness\n\nGraded by the five evidence checks.\n\nIndependence\nMedium\nCoverage\nHigh\nFreshness\nLow\nApplicability\nHigh\nAgreement\nMedium\n4 independent evidence families\nCovers 4 of 5 eligible evidence families\n3 of 4 contributing families are past their staleness budget\n2 of 4 families price within 15% of the published value\nRank history\n\n180-day trajectory\n\nValue history unavailable."
+      }
+    },
+    {
+      "page": "player-longname",
+      "vp": "desktop",
+      "violations": []
+    },
+    {
+      "page": "player-longname",
+      "vp": "desktop",
+      "facts": {
+        "h1": "John Michael Gyllenborg",
+        "tiles": [
+          "Our Value672",
+          "Overall rank#983display order — not officially ranked",
+          "Position rankTE84",
+          "ConfidenceLow — limited by independence, coverage, freshness, agreement",
+          "Sources1"
+        ],
+        "text": "PLAYER FILE / TE — KC\n\nJohn Michael Gyllenborg\n\nUnrostered in your league\n\nWatch\nCompare\nOpen in Trade Calculator\nHow values work\nTE\nKC\nage 24\nrookie year\nROOKIE\nOUR VALUE\n672\nOVERALL RANK\n#983\ndisplay order — not officially ranked\nPOSITION RANK\nTE84\nCONFIDENCE\nLow — limited by independence, coverage, freshness, agreement\nSOURCES\n1\nOverview\nMarket\nTrades\nPerformance\nIntel\nValue chain\n\nHow we arrived at Our Value\n\n1\nBlended value\nCount-aware weighted mean-median over every source that priced this player: value-based markets vote with their own values, ranking sources through the Hill curve, each vote weighted by its source's freshness, with correlated boards sharing one vote. Only one source covers this player — a player resting on one evidence family keeps 30% of the blended value.\n672\nWhy this confidence\n\nThe evidence checks behind the value, weakest first in the label\n\nLow — limited by independence, coverage, freshness, agreement\n\nGraded by the five evidence checks.\n\nIndependence\nLow\nCoverage\nLow\nFreshness\nLow\nApplicability\nHigh\nAgreement\nLow\n1 independent evidence family — too few to corroborate\nCovers 1 of 14 eligible evidence families\n1 of 1 contributing families is past their staleness budget\n0 of 1 families price within 15% of the published value\nRank history\n\n180-day trajectory\n\nValue history unavailable."
+      }
+    },
+    {
+      "page": "player-notfound",
+      "vp": "desktop",
+      "violations": []
+    },
+    {
+      "page": "player-notfound",
+      "vp": "desktop",
+      "facts": {
+        "tiles": [],
+        "text": "Player not found\n\nNo player on the current board matches this link — it may be misspelled, or the player may not be ranked today.\n\nBack to Rankings"
+      }
+    },
+    {
+      "page": "console",
+      "vp": "desktop",
+      "facts": {
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)"
+        ]
+      }
+    },
+    {
+      "page": "rankings",
+      "vp": "mobile",
+      "violations": []
+    },
+    {
+      "page": "rankings-facts",
+      "vp": "mobile",
+      "facts": {
+        "eyebrow": "Chase Upside Consensus / Updated 27m ago",
+        "rows": 24,
+        "zeroVals": 0,
+        "visibleHeaders": [
+          "#",
+          "Player",
+          "Pos",
+          "Value"
+        ]
+      }
+    },
+    {
+      "page": "rankings-expand",
+      "vp": "mobile",
+      "facts": {
+        "expandedAria": null
+      }
+    },
+    {
+      "page": "rankings-expanded",
+      "vp": "mobile",
+      "violations": []
+    },
+    {
+      "page": "howitworks",
+      "vp": "mobile",
+      "facts": {
+        "text": "How rankings work\nWhat Our Value means\n\nOur Value is the canonical dynasty value on a 1–9,999 scale — one number per player, the same number Rankings, the Trade Calculator and the Player File read. Higher is more valuable.\n\nIt blends every registered dynasty source that covers the player. Value-based markets (KTC Crowd, KTC Trades, IDP Trade Calculator) vote with their own values rescaled to 9,999; ranking sources are converted from rank to value through the Hill curve so the two kinds are comparable.\n\nThe votes are combined with a count-aware weighted mean-median, so a single outlying source moves it little. A player (not a pick) backed by only one evidence family keeps 30% of the blended value — the single-source haircut.\n\nIf you change source weights, the same backend pipeline recomputes the board with your weights; the Custom mix badge on Rankings says when that is active.\n\nMethodology source: src/api/data_contract.py — _compute_unified_rankings\n\nRank vs value\n\nRank (#) is the player's place on the board sorted by value; value is how much. Two neighbours can be a few points or a whole tier apart — the value tells you which.\n\nRank is an ordinal. Value is the magnitude it is sorted from. Use value to judge a trade; use rank to find a player.\n\nOnly the top of the board receives a rank. Players past the rank limit can still carry a value — they show a value with no rank rather than a made-up one.\n\nPosition rank (e.g. QB3) is the same ordering within one position. Tier breaks mark natural value cliffs detected on the board.\n\nConsensus is the mean of each source's effective rank. It is a diagnostic, not the rank: the rank comes from the blended value, which weighs sources differently.\n\nOn this board the top 800 receive an official rank.\n\nMethodology source: src/api/data_contract.py — OVERALL_RANK_LIMIT, canonicalTierId\n\nDynasty value vs projection\n\nOur Value is a long-horizon dynasty market value, not a points projection. Rest-of-season outlook and projections are separate numbers and never change it.\n\nOnly sources verified as dynasty boards feed this value. Redraft, rest-of-season, weekly and DFS rankings are never blended into it — even from a provider we otherwise use.\n\nShort-term context (rest-of-season strength, realized points, BDVM fundamentals) appears in its own sections, labelled as such. It explains the player; it does not re-price him.\n\nMethodology source: CLAUDE.md — Source-domain boundaries\n\nLeague and scoring context\n\nScoring decides which board you see; your league decides ownership, roster fit and recommendations. League roster scarcity is not applied to this value.\n\nThe board is built for one scoring setup. Leagues are allowed to share it only when their actual scoring settings are proven identical; if yours cannot be proven identical, the site declines to serve this board for it instead of guessing.\n\nTight-end values are placed on one TE-premium basis for every league. Your league's own TE premium does not re-price the board.\n\nWh"
+      }
+    },
+    {
+      "page": "howitworks-modal",
+      "vp": "mobile",
+      "violations": [
+        {
+          "id": "scrollable-region-focusable",
+          "impact": "serious",
+          "nodes": 1,
+          "sample": [
+            ".ds-dialog__body"
+          ]
+        }
+      ]
+    },
+    {
+      "page": "popup",
+      "vp": "mobile",
+      "violations": []
+    },
+    {
+      "page": "popup",
+      "vp": "mobile",
+      "facts": {
+        "text": "Josh Allen\nQB\nBUF\nage 30\n8 yr exp\nRank #1\nOwned by\nBlaine\n· QB1 on roster\nFull profile\nWatch\nCompare\nOUR VALUE\n9,978\nROS · no data yet\nValue chain — how we got 9,978\n1 stage\nValue history unavailable.\n\nNEWS (1)\n\n1h\nCBS Sports\nINFO\nNFL MVP race entering Week 4: Josh Allen stays No. 1, but the field is closing fast\n\nSOURCE BREAKDOWN\n\nKTC Trades\n9,999\nDLF SF\n9,999\nFC\n9,999 (11,344)\nFN\n9,999 (9,871)\nPFK\n9,999 (9,999)\nDD\n9,999 (10,200)\nFP SF\n9,999\nFitzmaurice\n9,999 (100)\nBoone\n9,999 (141)\nDS\n9,999\nKTC Crowd\n9,997\nIDPTC\n9,996\nDN SF-TEP\n9,883 (10,018)\nOTC\n9,752 (94.2)\nFF\n9,617\nIDP Show Combined\n9,486\n\nStrong consensus (CV 2%) — sources agree closely\n\n16 sources contributing · Tier 1"
+      }
+    },
+    {
+      "page": "player-allen",
+      "vp": "mobile",
+      "violations": []
+    },
+    {
+      "page": "player-allen",
+      "vp": "mobile",
+      "facts": {
+        "h1": "Josh Allen",
+        "tiles": [
+          "Our Value9,978",
+          "Overall rank#1",
+          "Position rankQB1",
+          "ConfidenceLow — limited by freshness",
+          "Sources16Tier 1"
+        ],
+        "text": "PLAYER FILE / QB — BUF\n\nJosh Allen\n\nOwned by Blaine · QB1 on roster\n\nWatch\nCompare\nOpen in Trade Calculator\nHow values work\nQB\nBUF\nage 30\n8 yr exp\nOUR VALUE\n9,978\nOVERALL RANK\n#1\nPOSITION RANK\nQB1\nCONFIDENCE\nLow — limited by freshness\nSOURCES\n16\nTier 1\nOverview\nMarket\nTrades\nPerformance\nIntel\nValue chain\n\nHow we arrived at Our Value\n\n1\nBlended value\nCount-aware weighted mean-median over every source that priced this player: value-based markets vote with their own values, ranking sources through the Hill curve, each vote weighted by its source's freshness, with correlated boards sharing one vote.\n9,978\nWhy this confidence\n\nThe evidence checks behind the value, weakest first in the label\n\nLow — limited by freshness\n\nGraded by the five evidence checks.\n\nIndependence\nHigh\nCoverage\nHigh\nFreshness\nLow\nApplicability\nHigh\nAgreement\nHigh\n14 independent evidence families\n11 of 14 contributing families are past their staleness budget\nAll 14 families price within 15% of the published value\nRank history\n\n180-day trajectory\n\nValue history unavailable."
+      }
+    },
+    {
+      "page": "player-allen-market",
+      "vp": "mobile",
+      "violations": []
+    },
+    {
+      "page": "player-allen-performance",
+      "vp": "mobile",
+      "violations": []
+    },
+    {
+      "page": "player-allen-intel",
+      "vp": "mobile",
+      "violations": []
+    },
+    {
+      "page": "player-garrett",
+      "vp": "mobile",
+      "violations": []
+    },
+    {
+      "page": "player-garrett",
+      "vp": "mobile",
+      "facts": {
+        "h1": "Myles Garrett",
+        "tiles": [
+          "Our Value5,223",
+          "Overall rank#61",
+          "Position rankDL3",
+          "ConfidenceLow — limited by freshness",
+          "Sources5Tier 12"
+        ],
+        "text": "PLAYER FILE / DL — LAR\n\nMyles Garrett\n\nOwned by Brent · DL2 on roster\n\nWatch\nCompare\nOpen in Trade Calculator\nHow values work\nDL\nLAR\nage 30\n9 yr exp\nOUR VALUE\n5,223\nOVERALL RANK\n#61\nPOSITION RANK\nDL3\nCONFIDENCE\nLow — limited by freshness\nSOURCES\n5\nTier 12\nOverview\nMarket\nTrades\nPerformance\nIntel\nValue chain\n\nHow we arrived at Our Value\n\n1\nAnchor value\nThe anchor market's value for this asset — the baseline the other sources adjust\n5,331\n2\nSubgroup adjustment ×0.10\nSubgroup blend 4252 − anchor 5331 = Δ-1079; shrunk by α=0.10\n5,223\n108\nWhy this confidence\n\nThe evidence checks behind the value, weakest first in the label\n\nLow — limited by freshness\n\nGraded by the five evidence checks.\n\nIndependence\nMedium\nCoverage\nHigh\nFreshness\nLow\nApplicability\nHigh\nAgreement\nMedium\n4 independent evidence families\nCovers 4 of 5 eligible evidence families\n3 of 4 contributing families are past their staleness budget\n2 of 4 families price within 15% of the published value\nRank history\n\n180-day trajectory\n\nValue history unavailable."
+      }
+    },
+    {
+      "page": "player-longname",
+      "vp": "mobile",
+      "violations": []
+    },
+    {
+      "page": "player-longname",
+      "vp": "mobile",
+      "facts": {
+        "h1": "John Michael Gyllenborg",
+        "tiles": [
+          "Our Value672",
+          "Overall rank#983display order — not officially ranked",
+          "Position rankTE84",
+          "ConfidenceLow — limited by independence, coverage, freshness, agreement",
+          "Sources1"
+        ],
+        "text": "PLAYER FILE / TE — KC\n\nJohn Michael Gyllenborg\n\nUnrostered in your league\n\nWatch\nCompare\nOpen in Trade Calculator\nHow values work\nTE\nKC\nage 24\nrookie year\nROOKIE\nOUR VALUE\n672\nOVERALL RANK\n#983\ndisplay order — not officially ranked\nPOSITION RANK\nTE84\nCONFIDENCE\nLow — limited by independence, coverage, freshness, agreement\nSOURCES\n1\nOverview\nMarket\nTrades\nPerformance\nIntel\nValue chain\n\nHow we arrived at Our Value\n\n1\nBlended value\nCount-aware weighted mean-median over every source that priced this player: value-based markets vote with their own values, ranking sources through the Hill curve, each vote weighted by its source's freshness, with correlated boards sharing one vote. Only one source covers this player — a player resting on one evidence family keeps 30% of the blended value.\n672\nWhy this confidence\n\nThe evidence checks behind the value, weakest first in the label\n\nLow — limited by independence, coverage, freshness, agreement\n\nGraded by the five evidence checks.\n\nIndependence\nLow\nCoverage\nLow\nFreshness\nLow\nApplicability\nHigh\nAgreement\nLow\n1 independent evidence family — too few to corroborate\nCovers 1 of 14 eligible evidence families\n1 of 1 contributing families is past their staleness budget\n0 of 1 families price within 15% of the published value\nRank history\n\n180-day trajectory\n\nValue history unavailable."
+      }
+    },
+    {
+      "page": "player-notfound",
+      "vp": "mobile",
+      "violations": []
+    },
+    {
+      "page": "player-notfound",
+      "vp": "mobile",
+      "facts": {
+        "tiles": [],
+        "text": "Player not found\n\nNo player on the current board matches this link — it may be misspelled, or the player may not be ranked today.\n\nBack to Rankings"
+      }
+    },
+    {
+      "page": "console",
+      "vp": "mobile",
+      "facts": {
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)",
+          "Failed to load resource: the server responded with a status of 404 (Not Found)"
+        ]
+      }
+    }
+  ]
+}
