@@ -152,6 +152,52 @@ describe("no frontend caller feeds the stack into a decision", () => {
     expect(offenders).toEqual([]);
   });
 
+  // Whole-file identifier rule: the stack model may be touched on /trade
+  // ONLY inside the STACK-NOTE-ONLY fences (the model's memo, the note memo
+  // and the note JSX).  Anything else -- subtracting the note from a total,
+  // passing it to a component as a prop, a new inline "adjusted - stack" --
+  // mentions one of these names outside a fence and fails here.
+  const STACK_NAMES =
+    /\b(stackContext|stackNote|stackAdjustments?|computeStackAdjustments|leagueStacks|boardPerDollar|poolBoardPerDollar|buildLeagueStacks|pickAuctionDollars|effectiveAuctionPower\w*)\b/;
+  const stripImports = (src) => src.replace(/^import[\s\S]*?from\s+["'][^"']+["'];?$/gm, "");
+  const stripFences = (src) =>
+    src.replace(/STACK-NOTE-ONLY:BEGIN[\s\S]*?STACK-NOTE-ONLY:END/g, "");
+
+  it("/trade touches the stack model only inside STACK-NOTE-ONLY fences", () => {
+    const page = readFileSync(join(root, "app", "trade", "page.jsx"), "utf8");
+    expect((page.match(/STACK-NOTE-ONLY:BEGIN/g) || []).length).toBe(2);
+    const outside = stripFences(stripImports(page));
+    const hits = outside.split(/\r?\n/).filter((l) => STACK_NAMES.test(l));
+    expect(hits).toEqual([]);
+  });
+
+  it("no other frontend file consumes the stack model", () => {
+    const owners = new Set(
+      [["lib", "trade-logic.js"], ["lib", "pick-stack.js"], ["lib", "auction-power.js"], ["app", "trade", "page.jsx"]].map(
+        (parts) => join(root, ...parts),
+      ),
+    );
+    // The league Draft Capital page and its simulator show effective auction
+    // POWER in dollars -- a display lens with no trade verdict; they may
+    // use the power function, never the trade stack adjustment.
+    const powerLens = new Set(
+      [["app", "league", "sections", "draft-capital.jsx"], ["app", "league", "sections", "_trade-simulator.jsx"]].map(
+        (parts) => join(root, ...parts),
+      ),
+    );
+    const TRADE_STACK = /\b(stackContext|stackNote|stackAdjustments?|computeStackAdjustments|leagueStacks|boardPerDollar|poolBoardPerDollar)\b/;
+    const offenders = [];
+    for (const f of files) {
+      if (owners.has(f)) continue;
+      const src = stripImports(readFileSync(f, "utf8"));
+      const re = powerLens.has(f) ? TRADE_STACK : STACK_NAMES;
+      src.split(/\r?\n/).forEach((l, i) => {
+        if (re.test(l)) offenders.push(`${f}:${i + 1}: ${l.trim().slice(0, 100)}`);
+      });
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it("/trade still computes the stack effect -- for the labelled note only", () => {
     const page = readFileSync(join(root, "app", "trade", "page.jsx"), "utf8");
     expect(page).toMatch(/computeStackAdjustments\(sidesWithOverrides\.length, stackContext\)/);

@@ -1217,7 +1217,9 @@ export function SideCard({
               title="Consolidation / roster-spot premium: the side with fewer pieces frees a roster spot, so KTC-style math adds this bonus on top of the raw total."
             >
               Raw {Math.round(total.raw).toLocaleString()} + VA{" "}
-              {Math.round(total.adjustment).toLocaleString()}
+              {/* Shown as the difference of the rounded figures so the visible
+                  parts always add up to the headline exactly. */}
+              {(Math.round(total.adjusted) - Math.round(total.raw)).toLocaleString()}
             </div>
           ) : (
             <div className={styles.sideTotalMeta}>

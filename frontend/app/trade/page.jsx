@@ -621,6 +621,9 @@ export default function TradePage() {
     }));
   }, [sides, valueOverrides]);
 
+  // STACK-NOTE-ONLY:BEGIN -- the informational stack model.  Nothing in
+  // this region may feed a total, the verdict, flows or balancers
+  // (owner directive 2026-09-29; __tests__/trade-stack-withdrawn.test.js).
   // League stacks + routed pick-$ moves for the effective-power lens.
   // null whenever the lens can't / shouldn't apply (no draft data, no
   // picks, or the team gate is unmet) → verdict stays pure board value.
@@ -700,6 +703,13 @@ export default function TradePage() {
     sideTeamNames,
   ]);
 
+  // The withdrawn stack effect, per side, for the labelled note only.
+  const stackNote = useMemo(
+    () => (stackContext ? computeStackAdjustments(sidesWithOverrides.length, stackContext) : null),
+    [stackContext, sidesWithOverrides.length],
+  );
+  // STACK-NOTE-ONLY:END
+
   // ── Computed totals for all sides ────────────────────────────────────
   // Both 2-team and N-team trades use the KTC-style Value Adjustment.
   // For N ≥ 3, each side's VA is computed against the merged opposition
@@ -729,12 +739,6 @@ export default function TradePage() {
       return { raw, adjustment: 0, adjusted: raw };
     });
   }, [sidesWithOverrides, valueMode, settings]);
-
-  // The withdrawn stack effect, per side, for the labelled note only.
-  const stackNote = useMemo(
-    () => (stackContext ? computeStackAdjustments(sidesWithOverrides.length, stackContext) : null),
-    [stackContext, sidesWithOverrides.length],
-  );
 
   // Per-side flow totals: given / received / net.  In 2-team trades
   // the destinations map is ignored (assets implicitly go to the other
@@ -2084,7 +2088,7 @@ export default function TradePage() {
             settings={settings}
           />
 
-          {/* Withdrawn stack effect: shown, labelled, and NOT in the totals. */}
+          {/* STACK-NOTE-ONLY:BEGIN — withdrawn stack effect: shown, labelled, NOT in the totals. */}
           {stackNote && stackNote.some((v) => Math.round(v) !== 0) ? (
             <p
               className={styles.controlsNote}
@@ -2101,6 +2105,7 @@ export default function TradePage() {
               . Not included in the totals or verdict.
             </p>
           ) : null}
+          {/* STACK-NOTE-ONLY:END */}
 
 
           {/* The plain-English reading of the meter above — it explains

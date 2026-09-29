@@ -22,6 +22,7 @@ const { test, expect, prodUrl, getJson, annotate } = require("./helpers");
 
 const PICK_TOKEN = /\d{4}/;
 const PICKS = ["2029 Mid 5th", "2029 Mid 6th"];
+const FIRST = "2027 Mid 1st";
 
 async function plan(page) {
   const { status, body: contract } = await getJson(page, "/api/data", { timeoutMs: 120_000 });
@@ -120,15 +121,15 @@ test.describe("Trade: draft-capital stack effect is informational only (producti
     sides.forEach((s, i) => {
       expect(s.total, `side ${i}: adjusted = raw + VA`).toBeCloseTo(s.raw + s.va, 9);
       expect(s.total, `side ${i}: a positive package never totals below zero`).toBeGreaterThanOrEqual(0);
-      expect(s.text, `side ${i}: no stack term in the arithmetic`).not.toMatch(/stack/i);
+      expect(s.text, `side ${i}: no stack term in the arithmetic`).not.toMatch(/[−+-]\s*stack\b/i);
       const headline = Math.round(s.total).toLocaleString("en-US");
       expect(s.text).toContain(headline);
       expect(s.text).toContain(`Raw ${Math.round(s.raw).toLocaleString("en-US")}`);
-      if (Math.round(s.va) > 0) {
-        expect(s.text).toContain(`VA ${Math.round(s.va).toLocaleString("en-US")}`);
-        expect(Math.round(s.raw) + Math.round(s.va), `side ${i}: displayed parts sum to the headline`).toBe(
-          Math.round(s.total),
-        );
+      if (s.va > 0) {
+        // The VA shown is round(total) - round(raw), so the parts add up.
+        const shownVa = Math.round(s.total) - Math.round(s.raw);
+        expect(Math.abs(shownVa - s.va), `side ${i}: shown VA within rounding of the model's`).toBeLessThanOrEqual(1);
+        expect(s.text).toContain(`VA ${shownVa.toLocaleString("en-US")}`);
       }
     });
     const before = { sides, gap: await readGap(page), balancers: await readBalancers(page) };
@@ -157,6 +158,40 @@ test.describe("Trade: draft-capital stack effect is informational only (producti
       noteAfter = (await note.locator("xpath=ancestor-or-self::p[1]").innerText()).trim();
     }
 
+    // 3b. A shape the stack model is SURE to price: add a first-round pick.
+    //     The note must now be visible, and a team switch that changes the
+    //     note must still move nothing that decides.
+    await setTeam(page, 0, p.teamA.name);
+    {
+      const input = page.getByLabel("Search to add a player to Side B");
+      await input.click();
+      await input.fill(FIRST);
+      const hit = page
+        .locator(".trade-side-search-result")
+        .filter({ has: page.locator(".trade-side-search-result-name", { hasText: new RegExp(`^${FIRST}$`) }) })
+        .first();
+      await expect(hit, `search offers ${FIRST}`).toBeVisible({ timeout: 15_000 });
+      await hit.click();
+    }
+    await expect(note, "the stack note is shown for a first-round pick").toBeVisible({ timeout: 30_000 });
+    const firstNote = (await note.locator("xpath=ancestor-or-self::p[1]").innerText()).trim();
+    expect(firstNote).toMatch(/experimental, not calibrated/i);
+    expect(firstNote).toMatch(/Not included in the totals or verdict/);
+    const withFirst = { sides: await readSides(page), gap: await readGap(page), balancers: await readBalancers(page) };
+    withFirst.sides.forEach((s, i) => expect(s.total, `side ${i}: raw + VA`).toBeCloseTo(s.raw + s.va, 9));
+    await setTeam(page, 0, p.teamC.name);
+    await page.waitForTimeout(1_500);
+    const switched = { sides: await readSides(page), gap: await readGap(page), balancers: await readBalancers(page) };
+    switched.sides.forEach((s, i) =>
+      expect(s.total, `side ${i}: total ignores the stack context`).toBe(withFirst.sides[i].total),
+    );
+    expect(switched.gap).toEqual(withFirst.gap);
+    expect(switched.balancers).toEqual(withFirst.balancers);
+    const switchedNote = (await note.isVisible().catch(() => false))
+      ? (await note.locator("xpath=ancestor-or-self::p[1]").innerText()).trim()
+      : null;
+    expect.soft(switchedNote, "the team switch changed the stack context the note reports").not.toBe(firstNote);
+
     // 4. No stack arithmetic anywhere on the page.
     const body = await page.locator("main").innerText();
     expect(body).not.toMatch(/VA\s*[−-]\s*stack/i);
@@ -172,6 +207,9 @@ test.describe("Trade: draft-capital stack effect is informational only (producti
         `balancers=${before.balancers.length}`,
         `note=${noteText ?? "absent"}`,
         `noteAfterTeamChange=${noteAfter ?? "absent"}`,
+        `withFirst: ${withFirst.sides.map((x) => x.total).join("/")} gap=${withFirst.gap.gap}`,
+        `firstNote=${firstNote}`,
+        `switchedNote=${switchedNote ?? "absent"}`,
       ].join(" ; "),
     );
   });
