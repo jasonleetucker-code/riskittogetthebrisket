@@ -1699,6 +1699,29 @@ def fetch_sleeper_teams_overlay(
     return payload
 
 
+def overlay_observation_servable(fetched_at: Any, *, now: float | None = None) -> bool:
+    """Whether an overlay observed at ``fetched_at`` may still be served.
+
+    The ONE statement of this module's freshness contract for callers that
+    hold an overlay-derived artifact (``server.py`` keeps encoded
+    ``/api/data`` bytes): an observation is servable while it is younger
+    than ``_STALE_SERVE_MAX_SEC`` -- the same ceiling
+    ``fetch_sleeper_overlay`` applies to its own stale-serve.  Fails
+    closed: a missing, unparseable, zone-less or future stamp is NOT
+    servable, so an unknown age can never extend the window.
+    """
+    if not isinstance(fetched_at, str) or not fetched_at:
+        return False
+    try:
+        observed = _dt.datetime.fromisoformat(fetched_at.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if observed.tzinfo is None:
+        return False
+    age = (time.time() if now is None else now) - observed.timestamp()
+    return 0.0 <= age < _STALE_SERVE_MAX_SEC
+
+
 def invalidate_overlay_cache(sleeper_league_id: str | None = None) -> None:
     """Drop cached overlay(s).  ``None`` clears everything."""
     with _CACHE_LOCK:

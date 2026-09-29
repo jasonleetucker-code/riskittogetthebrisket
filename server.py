@@ -388,6 +388,11 @@ _OVERLAY_RESPONSE_CACHE: dict = {}
 # dict needs no extra synchronization.
 _OVERLAY_ENCODE_LOCKS: dict = {}
 _OVERLAY_RESPONSE_CACHE_MAX = 32
+# Background re-encodes started by the stale-while-revalidate branch of
+# ``_serialize_overlaid_response``: slot keys with one in flight, and strong
+# references to the tasks (the event loop only holds weak ones).
+_OVERLAY_REFRESHING: set = set()
+_OVERLAY_REFRESH_TASKS: set = set()
 # ``POST /api/rankings/overrides`` response memo.  Nearly every client
 # posts the identical stock body ({"tep_multiplier": 1.15} — the
 # /settings default), so one cached entry serves the whole user base
@@ -4125,8 +4130,55 @@ def _evict_overlay_cache_if_oversized(keep_key) -> None:
         del _OVERLAY_ENCODE_LOCKS[k]
 
 
+def _kick_overlay_reencode(cache_key, stale_entry, overlay_version, encode) -> None:
+    """Start at most one background re-encode of ``cache_key`` at
+    ``overlay_version`` (stale-while-revalidate for the overlay memo).
+
+    Takes the same per-key lock as a request-path miss, so it can never
+    run beside another encode of the slot, and re-checks the slot under
+    it: the result is stored only while the slot still holds
+    ``stale_entry``, the generation this task was started to replace, so
+    it can never overwrite a newer generation a request-path miss stored
+    first (e.g. after a board publish).  A failure is logged and leaves
+    the previous generation in place; the next request retries (or, once
+    the caller's bound expires, encodes on the request path as before).
+    """
+    if cache_key in _OVERLAY_REFRESHING:
+        return
+    _OVERLAY_REFRESHING.add(cache_key)
+
+    async def _reencode():
+        try:
+            async with _overlay_encode_lock(cache_key):
+                if _OVERLAY_RESPONSE_CACHE.get(cache_key) is not stale_entry:
+                    return
+                entry = await run_in_threadpool(encode)
+                if _OVERLAY_RESPONSE_CACHE.get(cache_key) is stale_entry:
+                    _OVERLAY_RESPONSE_CACHE[cache_key] = entry
+        except Exception as exc:  # noqa: BLE001
+            log.warning("overlay background re-encode failed for %s: %s", cache_key, exc)
+
+    def _done(task):
+        # In the done-callback, not a ``finally``: a task cancelled before
+        # its first step never runs its body, and a stuck key would pin
+        # the slot to its stale generation for the rest of the window.
+        _OVERLAY_REFRESH_TASKS.discard(task)
+        _OVERLAY_REFRESHING.discard(cache_key)
+
+    task = asyncio.get_running_loop().create_task(_reencode())
+    _OVERLAY_REFRESH_TASKS.add(task)
+    task.add_done_callback(_done)
+
+
 async def _serialize_overlaid_response(
-    request, scrubbed, headers, cache_key, overlay_version=None, *, prepare=None
+    request,
+    scrubbed,
+    headers,
+    cache_key,
+    overlay_version=None,
+    *,
+    prepare=None,
+    stale_servable=None,
 ):
     """Serialize a live-overlay / cross-league ``/api/data`` response
     without blocking the event loop.
@@ -4148,6 +4200,17 @@ async def _serialize_overlaid_response(
     Version info (overlay_version tuple) is stored inside the cache entry.
     On cache hit, stale versions are re-encoded and replace the prior
     generation in the same slot, bounding memory to at most one per slot.
+
+    ``stale_servable(cached_version)`` opts a caller into
+    stale-while-revalidate: when the slot holds a DIFFERENT version for
+    which it returns true, that previous generation is served as-is and
+    ONE background task re-encodes the current version into the slot.
+    The caller owns the bound (the overlay path allows it only when the
+    board, canonical rows and roster rules are unchanged and the old
+    observation is inside the overlay owner's own stale-serve window), so
+    this never serves anything the overlay owner itself would not.
+    Without it, or when it returns false, a version mismatch encodes on
+    the request exactly as before.
     """
 
     def _encode():
@@ -4165,7 +4228,13 @@ async def _serialize_overlaid_response(
         entry = _OVERLAY_RESPONSE_CACHE.get(cache_key)
         # Check freshness: if cached version doesn't match current, treat as miss
         if entry is not None and entry[3] != overlay_version:
-            entry = None
+            if stale_servable is not None and stale_servable(entry[3]):
+                _kick_overlay_reencode(cache_key, entry, overlay_version, _encode)
+                headers["X-Overlay-Encode"] = "stale-while-revalidate"
+                # Already superseded: never let the browser reuse it.
+                headers["Cache-Control"] = "private, no-cache"
+            else:
+                entry = None
         if entry is None:
             async with _overlay_encode_lock(cache_key):
                 # Re-check: another coroutine may have encoded this key
@@ -4480,6 +4549,19 @@ async def get_data(request: Request):
                 except Exception as exc:  # noqa: BLE001
                     log.warning("optimalLineup re-stamp failed for %s: %s", league_cfg.key, exc)
 
+            def stale_servable(cached_version):
+                # Only the overlay OBSERVATION may lag: same board, same
+                # canonical rows, same roster rules, and the old
+                # observation still inside the overlay owner's own
+                # stale-serve window.  Anything else encodes on request.
+                return (
+                    isinstance(cached_version, tuple)
+                    and overlay_version is not None
+                    and len(cached_version) == len(overlay_version)
+                    and cached_version[1:] == overlay_version[1:]
+                    and _sleeper_overlay.overlay_observation_servable(cached_version[0])
+                )
+
             return await _serialize_overlaid_response(
                 request,
                 scrubbed,
@@ -4487,6 +4569,7 @@ async def get_data(request: Request):
                 overlay_cache_key,
                 overlay_version,
                 prepare=prepare_lineups,
+                stale_servable=stale_servable,
             )
 
         if not sleeper_matches:

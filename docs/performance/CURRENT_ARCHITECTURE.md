@@ -462,6 +462,101 @@ independent review proved the existing presence test would fail. Three explicit
 `blocking` entries repair that integration prerequisite without changing the
 workflow, its permissions or operations. This is relevant to CI metadata only.
 
+### September 28 — Claude takeover: fresh post-#1503 baseline, first-useful-state owners, #1510
+
+Main movement since #1503 (`8a32eed68`): two correctness/product commits (#1504 Game Day
+collector host-read repair; #1509 BALLDONTLIE shadow adapter, default OFF) confined to the
+Game Day collector, live-state adapters, one flag and their tests — no Rankings/Trade,
+`/api/data`, runner or serving dependency — plus 42 automated data refreshes. Neither
+invalidates this unit's measurements.
+
+**Fresh baseline, current main, corrected observer** — run 36479010660 (verification source
+`12835ae3a`; `visible-locator-fixed-poll-v1`; diagnostics off; 60 s context pacing;
+40/40 useful, 0 missing; a post-deploy Sharp bootstrap job was running on the host):
+
+| Series | Cold p50 / p95 ms | Warm p50 / p95 ms |
+| --- | ---: | ---: |
+| Rankings desktop | 2879 / 4741 | 1249 / 1849 |
+| Rankings mobile | 2574 / 3079 | 709 / 876 |
+| Trade desktop | 2399 / 2518 | 690 / 1283 |
+| Trade mobile | 2396 / 2427 | 445 / 581 |
+
+Five observations per cell; not field percentiles. Fails cold <=3 s (Rankings desktop,
+marginally mobile) and warm <=1 s (Rankings desktop, Trade desktop).
+
+**Owner attribution** (paced diagnostic run 36331359050 re-read per attempt, plus local
+production-build profiling): the board request starts ~960-1,080 ms into a cold load (after
+every chunk downloads and React hydrates) although the HTML arrives at ~290 ms; body transfer
+is ~450-550 ms cold; `JSON.parse` of the 7.2 MB compact board is ~18 ms and `buildRows`
+2-7 ms locally (~90 ms combined on the runner) — the payload's parse/materialize cost is NOT
+the owner. After the data arrives, desktop Rankings spends ~500-600 ms (runner, warm) building
+and laying out the 200-row first commit: a local A/B at 2x CPU measured warm 1127 ms at 200
+initial rows vs 669/645 ms at 60/40 rows. Rows are lean (~30 nodes, 10 cells); the cost is auto
+table layout, which the column-width freeze needs — 40-row and 200-row frozen widths differ by
+up to 36 px, so rendering fewer rows first would shift columns after paint.
+
+**#1510 (merge `5273395b7`)**: (1) the board request starts during HTML parse on /rankings and
+/trade (`lib/early-contract.js`, adopted at most once by the fetch layer, arrival-stamped
+freshness, in-flight adoption at any age); (2) windowed row geometry is read in the frame drain
+instead of inside React's commit (the armed first-board read, which shares the freeze's forced
+layout, is kept). Local A/B under 100 ms emulated latency: cold median 3538 -> 3020 ms desktop
+1x, 4446 -> 3744 desktop 4x, 4526 -> 3888 mobile 4x; warm 2189 -> 1994 ms at 4x. Independent
+review approved; three should-fixes applied.
+
+**Evidenced candidates not yet changed** (each with its own measurement):
+* Public `/api/public/league/overview` rebuilds on every request (no memo): production TTFB
+  2.0-7.9 s vs 0.37 s health; local 0.38-0.65 s per request.
+* Every CSV-only data refresh (10-12/day) runs a forced `npm ci` + `next build` (~2 min CPU)
+  on the production host, restarts both services and rebuilds the temporal ledger (~2 min).
+* Backend event-loop starvation under concurrent CPU-bound work (GIL), measured locally with a
+  loop-lag watchdog; the deploy-validation timing test
+  `test_event_loop_stays_responsive_during_each_fetch_main` flaked on it (run 36487258010).
+* `/api/news` was ruled OUT: its per-request digest costs 0.2-0.6 ms.
+
+**#1510 production remeasurement** — run 36495127028 (deployed `5273395b7`, same observer,
+pacing and route set, 40/40 useful):
+
+| Series | Cold p50 / p95 ms | Warm p50 / p95 ms |
+| --- | ---: | ---: |
+| Rankings desktop | 2598 / 2796 | 959 / 2032 |
+| Rankings mobile | 2218 / 2377 | 911 / 2008 |
+| Trade desktop | 2088 / 2269 | 551 / 935 |
+| Trade mobile | 1953 / 2058 | 569 / 1812 |
+
+Every cold cell now meets <=3 s. What still fails is a single ~1.8-2.0 s warm outlier per
+cell against p50s of 0.55-0.96 s: bimodal, not a slow distribution.
+
+### September 29 — encoded overlay response: stale-while-revalidate
+
+**Owner of the warm outliers.** Rankings and Trade read `/api/dynasty-data?view=compact`,
+which splices the live Sleeper roster overlay onto the precomputed board and memoizes the
+encoded bytes per (league, view) slot under version
+`(overlayFetchedAt, payloadETag, canonicalETag, rosterRulesDigest)`. The overlay owner
+refreshes every 15 min, so every refresh made the NEXT request re-run the lineup solve, the
+multi-MB `json.dumps` (C encoder, GIL held throughout) and gzip on the request path. Locally
+`/api/data` measured p50 10 ms against p90 896 ms and max 4.7 s over the same interval —
+the same bimodal shape as production.
+
+**Change** (`server.py::_serialize_overlaid_response`, `_kick_overlay_reencode`;
+`sleeper_overlay.overlay_observation_servable`): when ONLY the overlay observation differs
+and the cached generation's observation is inside the overlay owner's own 30-min
+stale-serve ceiling (`_STALE_SERVE_MAX_SEC`), the previous encoded generation is served with
+`Cache-Control: private, no-cache` and `X-Overlay-Encode: stale-while-revalidate`, and ONE
+background task re-encodes under the same per-key lock. A new board, new canonical rows,
+new roster rules, or an observation past the window still encodes on the request exactly as
+before; missing/unparseable/zone-less/future stamps fail closed. The background result is
+stored only while the slot still holds the generation it was started to replace, so it can
+never overwrite a newer one. Nothing is served that the overlay owner itself would not
+serve; the body carries its own `overlayFetchedAt`.
+
+**Known limit, stated rather than hidden.** The background encode still holds the GIL for
+the length of `json.dumps`, so requests arriving during that window can stall; the change
+removes the encode from the triggering request, not from the process. Production
+remeasurement decides whether the outliers are gone; a chunked or out-of-process encode is
+the next candidate if they are not. Independent review: request-changes, four findings
+(test clock, older-generation overwrite, cache lifetime of superseded bytes, cancelled-task
+bookkeeping), all applied and sabotage-verified.
+
 ### September 29 — the scraper's run phase moved off the event loop
 
 **Measured defect.** Production probes of `/api/health` (healthy round trip ~0.4 s) timed
