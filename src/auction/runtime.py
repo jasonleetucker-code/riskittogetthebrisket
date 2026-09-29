@@ -40,40 +40,14 @@ MAX_BOT_COMMANDS_PER_ROOM = 6
 
 
 def outage_check(now_real: float) -> list[str]:
+    """Startup pass: every running room gets the same guard commands use."""
     store = get_store()
     paused = []
     for row in store.active_rooms():
-        state, _, _ = store.load(row["id"])
-        if state.get("paused"):
-            continue
-        threshold = float(state["rules"].get("outage_threshold_seconds") or 300)
-        hb = row["last_heartbeat"]
-        if hb is None or now_real - float(hb) <= threshold:
-            continue
         try:
-            store.execute(
-                row["id"],
-                {
-                    "kind": "pause",
-                    "actor": {
-                        "role": "commissioner",
-                        "user": None,
-                        "seat": None,
-                        "system": "outage",
-                    },
-                    "pause_kind": "outage",
-                    "reason": f"Service was unreachable for {int((now_real - float(hb)) // 60)} minutes; clocks frozen at the last confirmed moment.",
-                },
-                user_id=None,
-                now_real=now_real,
-                at_real=float(hb),
-            )
-            paused.append(row["id"])
-            log.warning(
-                "auction: outage pause applied to %s (heartbeat gap %.0fs)",
-                row["id"],
-                now_real - float(hb),
-            )
+            if store.outage_guard(row["id"], now_real, force=True):
+                paused.append(row["id"])
+                log.warning("auction: outage pause applied to %s", row["id"])
         except AuctionError as exc:
             log.error("auction: outage pause failed for %s: %s", row["id"], exc.message)
     return paused

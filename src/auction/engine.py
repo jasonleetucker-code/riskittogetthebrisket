@@ -294,6 +294,35 @@ def _awarded_or_open_players(state: dict) -> set[str]:
 # ---------------------------------------------------------------------------
 
 
+def priority_at(bid: dict, level: int) -> int:
+    """Tie priority of ``bid`` at ``level``: the EARLIEST accepted bid since
+    which this seat has continuously held a maximum >= ``level``.
+
+    A raise therefore earns new priority only for the NEW, higher levels
+    ("not retroactively from an earlier low bid"), while a seat that already
+    stood at a level keeps its priority there through later raises and
+    reductions.  A withdrawal breaks continuity (history restarts).
+    """
+    hist = bid.get("hist") or [[int(bid["max"]), int(bid["seq"])]]
+    best = None
+    for mx, seq in reversed(hist):
+        if int(mx) < level:
+            break
+        best = int(seq)
+    return best if best is not None else int(bid["seq"])
+
+
+def _set_max(a: dict, seat_id: str, new_max: int, seq: int, now: float) -> None:
+    old = a["bids"].get(seat_id)
+    hist = (
+        list(old.get("hist") or [[int(old["max"]), int(old["seq"])]])
+        if old and old["active"]
+        else []
+    )
+    hist.append([new_max, seq])
+    a["bids"][seat_id] = {"max": new_max, "seq": seq, "active": True, "at": now, "hist": hist[-50:]}
+
+
 def _resolve_one(state: dict, auction: dict) -> tuple[str, int]:
     """Winner/price for one auction under CURRENT capacities."""
     price = int(auction["price"])
@@ -310,7 +339,7 @@ def _resolve_one(state: dict, auction: dict) -> tuple[str, int]:
                 )
         elif eff < price:
             continue
-        cands.append((eff, int(bid["seq"]), seat_id))
+        cands.append((eff, priority_at(bid, eff), seat_id))
     cands.sort(key=lambda c: (-c[0], c[1]))
     win_eff, _, winner = cands[0]
     if len(cands) == 1:
@@ -481,7 +510,9 @@ def _open_auction(
         "deadline": schedule.add_active(win, now, int(state["rules"]["auction_active_seconds"])),
         "remaining": None,
         # The nomination itself is a binding $0 bid by the nominator.
-        "bids": {right["seat"]: {"max": 0, "seq": seq, "active": True, "at": now}},
+        "bids": {
+            right["seat"]: {"max": 0, "seq": seq, "active": True, "at": now, "hist": [[0, seq]]}
+        },
         "closed_at": None,
         "winner": None,
         "extensions": 0,
@@ -784,8 +815,13 @@ def _cmd_confirm_rules(s: dict, cmd: dict, now: float, events: list) -> dict:
 def _cmd_set_seat(s: dict, cmd: dict, now: float, events: list) -> dict:
     seat = _seat(s, str(cmd.get("seat")))
     patch = cmd.get("patch") or {}
+    if not isinstance(patch, dict):
+        raise AuctionError("bad_request", "patch must be an object")
     if s["status"] == "setup":
         allowed = {"name", "team", "opening_budget", "budget_source", "is_bot", "bot_seed"}
+    elif s["room_type"] == "mock":
+        # Mock rooms may hand a bot seat to a person mid-run (or back).
+        allowed = {"name", "is_bot"}
     else:
         allowed = {"name"}
     bad = set(patch) - allowed
@@ -802,7 +838,8 @@ def _cmd_set_seat(s: dict, cmd: dict, now: float, events: list) -> dict:
         elif k == "is_bot":
             v = bool(v)
         elif k == "bot_seed":
-            v = int(v)
+            if isinstance(v, bool) or not isinstance(v, int):
+                raise AuctionError("bad_request", "bot_seed must be an integer")
         seat[k] = v
     _ev(
         events,
@@ -841,6 +878,7 @@ def _cmd_start(s: dict, cmd: dict, now: float, events: list) -> dict:
             "missing_budgets", f"budgets missing for {missing}; correct them before starting", 409
         )
     if s["room_type"] == "official":
+        _require_binding_shape(s)
         unconfirmed = unconfirmed_rules(s["rules"])
         if unconfirmed:
             raise AuctionError("rules_unconfirmed", f"confirm rules first: {unconfirmed}", 409)
@@ -863,6 +901,32 @@ def _cmd_start(s: dict, cmd: dict, now: float, events: list) -> dict:
         rule_version=s["rules"].get("rule_version"),
     )
     return {"ok": True}
+
+
+def _require_binding_shape(s: dict) -> None:
+    """An OFFICIAL room must match the owner's binding rules exactly."""
+    r = s["rules"]
+    w = window_of(r)
+    problems = []
+    if len(s["seats"]) != 12:
+        problems.append("12 seats")
+    if int(r["rounds"]) != 6:
+        problems.append("6 rounds")
+    if int(r["max_open"]) != 12:
+        problems.append("12 open lots")
+    if not (
+        w.enabled
+        and w.tz == "America/New_York"
+        and w.start_seconds == 8 * 3600
+        and w.end_seconds == 21 * 3600
+    ):
+        problems.append("activity 8 AM-9 PM America/New_York")
+    if problems:
+        raise AuctionError(
+            "binding_rules",
+            f"an official room must use the owner's rules: {', '.join(problems)}",
+            409,
+        )
 
 
 def _cmd_nominate(s: dict, cmd: dict, now: float, events: list) -> dict:
@@ -945,13 +1009,32 @@ def _cmd_bid(s: dict, cmd: dict, now: float, events: list) -> dict:
         raise AuctionError("below_price", f"the current price is ${price}", 409)
     if existing and existing["active"] and int(existing["max"]) == new_max:
         return {"ok": True, "noop": True, **_my_status(s, seat_id, a)}
-    seq = _next_seq(s)
-    a["bids"][seat_id] = {"max": new_max, "seq": seq, "active": True, "at": now}
-    s["bid_log"].append(
-        {"seq": seq, "at": now, "seat": seat_id, "auction": aid, "max": new_max, "kind": "max"}
-    )
-    changed = _cascade(s, [aid], now, events)
-    _publish_changes(s, changed, now, events)
+    if is_leader:
+        # The current leader changing their OWN private maximum is not a
+        # competitive action: it never re-resolves the lot, never moves the
+        # public price, never extends the clock ("bidding against your own
+        # earlier maximum never raises your price").  Tie priority per level
+        # is kept by ``priority_at``.
+        seq = _next_seq(s)
+        _set_max(a, seat_id, new_max, seq, now)
+        s["bid_log"].append(
+            {
+                "seq": seq,
+                "at": now,
+                "seat": seat_id,
+                "auction": aid,
+                "max": new_max,
+                "kind": "leader_max",
+            }
+        )
+    else:
+        seq = _next_seq(s)
+        _set_max(a, seat_id, new_max, seq, now)
+        s["bid_log"].append(
+            {"seq": seq, "at": now, "seat": seat_id, "auction": aid, "max": new_max, "kind": "max"}
+        )
+        changed = _cascade(s, [aid], now, events)
+        _publish_changes(s, changed, now, events)
     status = _my_status(s, seat_id, a)
     _ev(events, "bid_accepted", f"seat:{seat_id}", auction=aid, max=new_max, **status)
     return {"ok": True, **status}
@@ -1029,9 +1112,10 @@ def _cmd_resume(s: dict, cmd: dict, now: float, events: list) -> dict:
         floor = (
             int(s["rules"]["resume_min_active_seconds"]) if s["paused"]["kind"] == "outage" else 0
         )
-    floor = int(floor)
-    if floor < 0:
-        raise AuctionError("bad_time", "min remaining must be >= 0")
+    if isinstance(floor, bool) or not isinstance(floor, int) or not (0 <= floor <= 10 * 24 * 3600):
+        raise AuctionError(
+            "bad_time", "min remaining must be a whole number of seconds, 0 to 10 days"
+        )
     start = now
     for a in open_auctions(s):
         rem = max(float(a["remaining"] or 0.0), float(floor))

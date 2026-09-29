@@ -183,6 +183,7 @@ class Store:
         self._lock = threading.RLock()
         self._revisions: dict[str, int] = {}
         self._listeners: list = []
+        self._outage_checked: set[str] = set()
 
     # -- connection -------------------------------------------------------
 
@@ -304,6 +305,7 @@ class Store:
         now_real: float,
         idem_key: str | None = None,
         at_real: float | None = None,
+        _guard: bool = True,
     ) -> dict:
         """Apply one command atomically.  Returns ``{status, result, revision, replayed}``.
 
@@ -311,6 +313,8 @@ class Store:
         returns the ORIGINAL outcome (accepted or rejected) without applying
         anything again; the same key with a different payload is a 409.
         """
+        if _guard:
+            self.outage_guard(room_id, now_real)
         payload_hash = _hash_payload(cmd)
         with self.write() as conn:
             row = conn.execute("SELECT * FROM rooms WHERE id=?", (room_id,)).fetchone()
@@ -350,13 +354,15 @@ class Store:
             if new_state != state:
                 revision += 1
                 conn.execute(
-                    "UPDATE rooms SET state_json=?, revision=?, status=?, next_due=?, last_heartbeat=? WHERE id=?",
+                    # NOT last_heartbeat: only the runtime's liveness beat is
+                    # evidence the room was reachable; a command committed right
+                    # after a restart must not erase the outage it follows.
+                    "UPDATE rooms SET state_json=?, revision=?, status=?, next_due=? WHERE id=?",
                     (
                         json.dumps(new_state, sort_keys=True),
                         revision,
                         new_state["status"],
                         engine.next_due_time(new_state),
-                        now_real,
                         room_id,
                     ),
                 )
@@ -420,6 +426,59 @@ class Store:
         # Committed.  Only now is it safe to announce.
         self._notify(room_id, revision)
         return {"status": status, "result": result, "revision": revision, "replayed": False}
+
+    def outage_guard(self, room_id: str, now_real: float, *, force: bool = False) -> bool:
+        """Pause a running room whose liveness beat is older than its outage
+        threshold, AS OF that last beat — before anything else touches it.
+
+        Runs before the first command on each room in this process (and at
+        runtime startup with ``force``), so no command can settle lots whose
+        clocks ran while nobody could reach the service, and no rejection can
+        be recorded against an outage window that is about to be undone.
+        """
+        if room_id in self._outage_checked and not force:
+            return False
+        with self._lock:
+            if room_id in self._outage_checked and not force:
+                return False
+            try:
+                row = self.room_row(room_id)
+            except AuctionError:
+                return False
+            state = json.loads(row["state_json"])
+            hb = row["last_heartbeat"]
+            threshold = float(state["rules"].get("outage_threshold_seconds") or 300)
+            paused = False
+            if (
+                state["status"] in ("running", "draining")
+                and not state["paused"]
+                and hb is not None
+                and now_real - float(hb) > threshold
+            ):
+                self.execute(
+                    room_id,
+                    {
+                        "kind": "pause",
+                        "actor": {
+                            "role": "commissioner",
+                            "user": None,
+                            "seat": None,
+                            "system": "outage",
+                        },
+                        "pause_kind": "outage",
+                        "reason": (
+                            f"Service was unreachable for about {int((now_real - float(hb)) // 60)} minutes; "
+                            "clocks froze at the last confirmed moment."
+                        ),
+                    },
+                    user_id=None,
+                    now_real=now_real,
+                    at_real=float(hb),
+                    _guard=False,
+                )
+                paused = True
+            self._outage_checked.add(room_id)
+            return paused
 
     def receipt(self, room_id: str, user_id: int, key: str) -> dict | None:
         with self.read() as conn:
@@ -608,10 +667,20 @@ def db_path() -> Path:
     return Path(raw) if raw else DEFAULT_DB_PATH
 
 
+def _markers(path: Path) -> list[Path]:
+    # One beside the database and one in the directory ABOVE it, so losing
+    # the whole store directory (a clean, a re-provisioned volume) still
+    # finds a marker and refuses rather than starting an empty store.
+    return [
+        path.parent / MARKER_NAME,
+        path.parent.parent / f".auction_store_{path.parent.name}_{path.name}.initialized",
+    ]
+
+
 def open_store(path: Path | None = None) -> Store:
     path = Path(path) if path else db_path()
-    marker = path.parent / MARKER_NAME
-    if marker.exists():
+    markers = _markers(path)
+    if any(m.exists() for m in markers):
         if not path.exists():
             raise StoreUnavailable(
                 f"auction store marker present but {path} is missing — refusing to create an empty store"
@@ -640,8 +709,12 @@ def open_store(path: Path | None = None) -> Store:
         )
     finally:
         conn.close()
-    if not marker.exists():
-        marker.write_text(f"initialized {time.time()}\n", encoding="utf-8")
+    for m in markers:
+        if not m.exists():
+            try:
+                m.write_text(f"initialized {time.time()} {path}\n", encoding="utf-8")
+            except OSError:  # pragma: no cover - read-only parent
+                pass
     return store
 
 

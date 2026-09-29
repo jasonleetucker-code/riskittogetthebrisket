@@ -132,6 +132,8 @@ def validate_rules(rules: dict[str, Any]) -> None:
         raise ValueError("seat_count too large")
     if rules.get("rounds", 0) > 20:
         raise ValueError("rounds too large")
+    if rules.get("max_open", 0) > 12:
+        raise ValueError("at most 12 simultaneously open lots (owner rule)")
     if rules.get("tie_rule") != "earliest_accepted":
         raise ValueError("only the earliest_accepted tie rule is implemented")
     window_of(rules)

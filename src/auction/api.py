@@ -517,7 +517,11 @@ def _view(room_id: str, user: accounts.User, member: dict, now_real: float) -> d
             "user": user.public(),
             "role": member.get("role"),
             "seat": seat,
-            "private": engine.seat_private_view(state, seat, room_now) if seat else None,
+            # Only the seat's own manager (or the commissioner's OWN seat)
+            # ever receives that seat's private state.
+            "private": engine.seat_private_view(state, seat, room_now)
+            if seat and member.get("role") in ("manager", "commissioner")
+            else None,
         },
         "events": store.events_for(room_id, vis=vis, limit=150),
         "budgetProvenance": state.get("budget_provenance"),
@@ -678,6 +682,19 @@ async def room_invite(request: Request, room_id: str):
             seat = next((s for s in state["seats"] if s["id"] == seat_id), None)
             if seat is None:
                 raise AuctionError("unknown_seat", "no such seat", 404)
+            if seat["is_bot"]:
+                raise AuctionError(
+                    "bot_seat",
+                    "that seat is played by a bot — turn the bot off for it first",
+                    409,
+                )
+        ttl_hours = body.get("ttlHours", 168)
+        if (
+            isinstance(ttl_hours, bool)
+            or not isinstance(ttl_hours, (int, float))
+            or not (1 <= float(ttl_hours) <= 720)
+        ):
+            raise AuctionError("bad_request", "ttlHours must be 1-720")
         token = await run_in_threadpool(
             lambda: accounts.create_invite(
                 get_store(),
@@ -692,7 +709,7 @@ async def room_invite(request: Request, room_id: str):
                 intended_sleeper_user_id=(seat or {}).get("sleeper_user_id")
                 if state["room_type"] == "official"
                 else None,
-                ttl_seconds=int(float(body.get("ttlHours") or 168) * 3600),
+                ttl_seconds=int(float(ttl_hours) * 3600),
             )
         )
     except AuctionError as exc:
@@ -786,7 +803,7 @@ async def room_export(request: Request, room_id: str, format: str = "json"):
         return gate
     try:
         user = _require_user(request)
-        await run_in_threadpool(_member_or_admin, room_id, user)
+        member = await run_in_threadpool(_member_or_admin, room_id, user)
         state, revision, offset = get_store().load(room_id)
     except AuctionError as exc:
         return _auction_error(exc)
@@ -808,8 +825,16 @@ async def room_export(request: Request, room_id: str, format: str = "json"):
                 "pos": p.get("pos"),
                 "winnerSeat": a["winner"],
                 "winner": w["name"],
-                "winnerSleeperUserId": w.get("sleeper_user_id"),
-                "winnerRosterId": w.get("roster_id"),
+                # Sleeper identifiers are for the commissioner's roster
+                # reconciliation only.
+                **(
+                    {
+                        "winnerSleeperUserId": w.get("sleeper_user_id"),
+                        "winnerRosterId": w.get("roster_id"),
+                    }
+                    if member["role"] == "commissioner"
+                    else {}
+                ),
                 "price": a["price"],
                 "nominator": seats[a["nominator"]]["name"],
                 "closedAt": datetime.fromtimestamp(a["closed_at"], timezone.utc).isoformat(),

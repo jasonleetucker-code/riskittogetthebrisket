@@ -284,6 +284,10 @@ def add_member(
 ) -> None:
     if role not in ("commissioner", "manager", "observer"):
         raise AuctionError("bad_role", "unknown role")
+    if role == "observer" and seat_id is not None:
+        # An observer never holds a seat: a seat carries that seat's private
+        # maxima, and only its own manager may read them.
+        raise AuctionError("bad_role", "observers cannot hold a seat")
     if seat_id is not None:
         taken = conn.execute(
             "SELECT user_id FROM members WHERE room_id=? AND seat_id=? AND removed_at IS NULL",
@@ -292,14 +296,23 @@ def add_member(
         if taken and int(taken["user_id"]) != user_id:
             raise AuctionError("seat_taken", "that seat already has a manager", 409)
     existing = conn.execute(
-        "SELECT role, seat_id FROM members WHERE room_id=? AND user_id=?", (room_id, user_id)
+        "SELECT role, seat_id, removed_at FROM members WHERE room_id=? AND user_id=?",
+        (room_id, user_id),
     ).fetchone()
+    if existing and existing["removed_at"] is None:
+        # A current member can never be moved onto another seat by claiming an
+        # invite — that is how a commissioner (or a manager opening a leaked
+        # link) would silently start acting for someone else's seat.
+        raise AuctionError(
+            "already_member",
+            "you already belong to this room; an invitation is for someone new",
+            409,
+        )
     if existing:
-        # Commissioner stays commissioner even if also taking a seat.
-        new_role = "commissioner" if existing["role"] == "commissioner" else role
+        # A previously REMOVED member rejoining through a fresh invitation.
         conn.execute(
             "UPDATE members SET role=?, seat_id=?, removed_at=NULL WHERE room_id=? AND user_id=?",
-            (new_role, seat_id if seat_id is not None else existing["seat_id"], room_id, user_id),
+            (role, seat_id, room_id, user_id),
         )
     else:
         conn.execute(
@@ -332,6 +345,8 @@ def create_invite(
         raise AuctionError("bad_role", "invites are for managers or observers")
     if role == "manager" and not seat_id:
         raise AuctionError("seat_required", "a manager invite must name a seat")
+    if role == "observer" and seat_id:
+        raise AuctionError("bad_role", "observers cannot hold a seat")
     ttl_seconds = max(3600, min(int(ttl_seconds), 30 * 86400))
     token = secrets.token_urlsafe(32)
     with store.write() as conn:
@@ -421,7 +436,7 @@ def claim_invite(
                 (
                     h,
                     str(display_name or h)[:60],
-                    inv["intended_sleeper_user_id"],
+                    None,  # Sleeper identity is not verifiable here; the SEAT carries it
                     hash_password(pw),
                     now,
                     now,

@@ -93,8 +93,10 @@ const NEVER_CACHE = [
   "/api/data",
   "/api/dynasty-data",
   // Rookie auction room: private bids/balances + authoritative live
-  // state.  Never at rest, never replayed offline.
+  // state.  Never at rest, never replayed offline.  The pages too: invite,
+  // reset and email-verification URLs carry one-time tokens.
   "/api/auction/",
+  "/auction",
 ];
 
 function isNeverCache(url) {

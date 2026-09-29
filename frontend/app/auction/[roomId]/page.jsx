@@ -663,7 +663,10 @@ function Commissioner({ view, roomId, onAccepted }) {
             <Select
               value={inviteSeat}
               onChange={(e) => setInviteSeat(e.target.value)}
-              options={[{ value: "", label: "Observer (no seat)" }, ...pub.seats.map((s) => ({ value: s.id, label: `${s.id} · ${s.name}` }))]}
+              options={[
+                { value: "", label: "Observer (no seat)" },
+                ...pub.seats.filter((s) => !s.is_bot).map((s) => ({ value: s.id, label: `${s.id} · ${s.name}` })),
+              ]}
             />
           </Field>
           <Field label="Lock to handle (optional)">
