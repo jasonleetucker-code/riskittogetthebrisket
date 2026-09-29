@@ -162,6 +162,7 @@ DEFAULT_PREFS: dict[str, bool] = {
     "new_nomination": False,
     "other_purchase": False,
     "fifteen_min": False,
+    "daily_summary": False,
     # Delivery options.
     "generic_previews": False,
     "quiet_hours": True,
@@ -183,6 +184,7 @@ PREF_LABELS: dict[str, str] = {
     "new_nomination": "Every new nomination",
     "other_purchase": "Other managers' purchases",
     "fifteen_min": "15 active minutes left on involved lots",
+    "daily_summary": "Morning (8 AM) and evening (8:45 PM ET) summary of your lots, money and turn",
     "generic_previews": "Generic lock-screen previews (hide player names and prices)",
     "quiet_hours": "Hold ordinary alerts during the 9 PM–8 AM pause",
     "email_backup": "Also email me (verified address only)",
@@ -204,6 +206,7 @@ TYPE_PREF = {
     "new_nomination": "new_nomination",
     "other_purchase": "other_purchase",
     "trade": "trade",
+    "daily_summary": "daily_summary",
     "test": None,
 }
 
@@ -216,6 +219,7 @@ TTL_SECONDS = {
     "won": 12 * 3600,
     "last_hour": 3600,
     "fifteen_min": 15 * 60,
+    "daily_summary": 2 * 3600,
     "budget": 12 * 3600,
     "commissioner": 12 * 3600,
     "room_status": 12 * 3600,
@@ -528,6 +532,28 @@ def compose(ntype: str, state: dict, data: dict, room_now: float) -> tuple[str, 
             "complete": "Auction complete",
             "draining": "Final lots",
         }.get(kind, "Auction update"), text
+    if ntype == "trade":
+        kind = data.get("kind")
+        if kind == "offered":
+            return (
+                "New trade offer",
+                f"{room}: you have a trade offer ({data.get('trade')}) as of {at}. Review it in the room.",
+            )
+        if kind == "completed":
+            delta = data.get("dollars")
+            money = (
+                f" Your balance changed by ${delta}." if isinstance(delta, int) and delta else ""
+            )
+            return "Trade completed", f"{room}: trade {data.get('trade')} settled at {at}.{money}"
+        return "Trade update", f"{room}: trade {data.get('trade')} is {kind} as of {at}."
+    if ntype == "daily_summary":
+        which = "Morning" if data.get("slot") == "am" else "Evening"
+        turn = " It is your nomination turn." if data.get("on_clock") else ""
+        return (
+            f"{which} auction summary",
+            f"{room} at {at}: you lead {data.get('leading')} lot(s) (${data.get('committed')} reserved), "
+            f"${data.get('spendable')} spendable, outbid on {data.get('outbid')} lot(s) you bid on.{turn}",
+        )
     if ntype == "test":
         return (
             "Chase Upside test notification",
@@ -755,6 +781,27 @@ def record_transition(
                 f"budget:r{revision}",
                 {"amount": d["amount"], "reason": d.get("reason")},
             )
+        elif et == "trade_offered" and seat:
+            put(seat, "trade", f"tradeoffer:{d['trade']}", {"kind": "offered", "trade": d["trade"]})
+        elif et == "trade_completed":
+            for s_ in d.get("seats") or []:
+                put(
+                    s_,
+                    "trade",
+                    f"tradedone:{d['trade']}",
+                    {
+                        "kind": "completed",
+                        "trade": d["trade"],
+                        "dollars": (d.get("dollars") or {}).get(s_),
+                    },
+                )
+        elif et in ("trade_declined", "trade_cancelled", "trade_awaiting_verification") and seat:
+            put(
+                seat,
+                "trade",
+                f"{et}:{d['trade']}",
+                {"kind": et.replace("trade_", ""), "trade": d["trade"]},
+            )
         elif et == "seat_changed" and "opening_budget" in (d.get("after") or {}):
             put(d["seat"], "commissioner", f"seat:r{revision}", {"reason": d.get("reason")})
     return made
@@ -830,6 +877,44 @@ def scan_reminders(
                     now_real=now_real,
                 ):
                     made += 1
+    # Optional daily summaries (off by default): 08:00-08:30 and 20:45-21:00 ET,
+    # one per person per slot per day, built from the seat's OWN view only.
+    local = datetime.fromtimestamp(room_now, NY)
+    minute = local.hour * 60 + local.minute
+    slot = (
+        "am"
+        if 8 * 60 <= minute < 8 * 60 + 30
+        else "pm"
+        if 20 * 60 + 45 <= minute < 21 * 60
+        else None
+    )
+    if slot:
+        for seat, uid in users.items():
+            mine = [a for a in engine.open_auctions(state) if seat in a["bids"]]
+            view = engine.seat_private_view(state, seat, room_now)
+            right = view.get("on_clock")
+            if enqueue(
+                conn,
+                room_id=room["id"],
+                room_type=room["room_type"],
+                state=state,
+                user_id=uid,
+                seat_id=seat,
+                ntype="daily_summary",
+                logical_key=f"summary:{local.date().isoformat()}:{slot}",
+                data={
+                    "slot": slot,
+                    "leading": sum(1 for a in mine if a["leader"] == seat),
+                    "outbid": sum(1 for a in mine if a["leader"] != seat),
+                    "committed": view["committed"],
+                    "spendable": view["spendable"],
+                    "on_clock": bool(right),
+                },
+                room_now=room_now,
+                offset=offset,
+                now_real=now_real,
+            ):
+                made += 1
     for r in engine._window_rights(state):
         if r["window_at"] is None or r["deadline"] is None or r["seat"] not in users:
             continue

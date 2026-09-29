@@ -71,6 +71,26 @@ def test_random_rooms_hold_invariants_and_replay(seed):
                 "auction": a["id"],
             }
         elif roll < 0.9:
+            trades = [t for t in (s.get("trades") or {}).values() if t["status"] == "open"]
+            if trades and rng.random() < 0.6:
+                t = rng.choice(trades)
+                c = {
+                    "kind": "respond_trade",
+                    "actor": {"role": "manager", "seat": t["to"]},
+                    "trade": t["id"],
+                    "version": 1,
+                    "accept": rng.random() < 0.8,
+                }
+            else:
+                a_, b_ = rng.sample(seats, 2)
+                c = {
+                    "kind": "offer_trade",
+                    "actor": {"role": "manager", "seat": a_},
+                    "to": b_,
+                    "give_dollars": rng.randint(0, 8),
+                    "get_dollars": rng.randint(0, 3),
+                }
+        elif roll < 0.93:
             c = {
                 "kind": "adjust_budget",
                 "actor": {"role": "commissioner"},
