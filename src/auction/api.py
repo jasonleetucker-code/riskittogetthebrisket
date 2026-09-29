@@ -37,7 +37,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 
-from src.auction import accounts, engine, sources
+from src.auction import accounts, engine, feedback, sources
 from src.auction.engine import AuctionError
 from src.auction.rules import BINDING_OWNER_RULES, PROPOSED_RULE_KEYS, TIMING_PRESETS, default_rules
 from src.auction.store import StoreUnavailable, get_store, new_room_id
@@ -371,6 +371,9 @@ async def auction_meta(request: Request):
         "proposedRules": PROPOSED_RULE_KEYS,
         "presets": {k: {kk: vv for kk, vv in v.items()} for k, v in TIMING_PRESETS.items()},
         "officialLaunchEnabled": False,
+        # The deployed commit (a public repo), so rehearsal evidence and
+        # defect reports can name exactly which code they ran against.
+        "codeSha": feedback.code_sha(),
     }
 
 
@@ -1493,3 +1496,60 @@ async def room_pf_preview(request: Request, room_id: str):
         r.pop("owner_id", None)  # no Sleeper ids to the UI
     out["complete"] = len(out["seatOrder"]) == len(state["seats"]) and not out["missing"]
     return out
+
+
+# ---------------------------------------------------------------------------
+# Rehearsal problem reports — traceable to room, revision, rules and code SHA
+# ---------------------------------------------------------------------------
+
+
+@router.post("/rooms/{room_id}/reports")
+async def room_report(request: Request, room_id: str):
+    guard = _mutation_guard(request)
+    if guard:
+        return guard
+    key = request.headers.get("idempotency-key") or ""
+    if not _IDEM_RE.match(key):
+        return _err(
+            "idempotency_key_required", "send an Idempotency-Key header (8-100 url-safe chars)", 400
+        )
+    try:
+        user = _require_user(request)
+        member = await run_in_threadpool(_member_or_admin, room_id, user)
+        body = await _json_body(request)
+        report = await run_in_threadpool(
+            lambda: feedback.file_report(
+                get_store(),
+                room_id=room_id,
+                user_id=user.id,
+                member=member,
+                idem_key=key,
+                body=body,
+                user_agent=request.headers.get("user-agent"),
+                now_real=_now(),
+            )
+        )
+    except AuctionError as exc:
+        return _auction_error(exc)
+    return report
+
+
+@router.get("/rooms/{room_id}/reports")
+async def room_reports(request: Request, room_id: str):
+    gate = _gate()
+    if gate:
+        return gate
+    try:
+        user = _require_user(request)
+        member = await run_in_threadpool(_member_or_admin, room_id, user)
+        reports = await run_in_threadpool(
+            lambda: feedback.list_reports(
+                get_store(),
+                room_id=room_id,
+                user_id=user.id,
+                see_all=member["role"] == "commissioner",
+            )
+        )
+    except AuctionError as exc:
+        return _auction_error(exc)
+    return {"reports": reports, "codeSha": feedback.code_sha()}

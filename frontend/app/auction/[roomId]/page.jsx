@@ -25,6 +25,7 @@ import {
 } from "@/lib/auction-client";
 import { notifyApi, refreshBinding } from "@/lib/auction-notify";
 import { Members, PointsForOrder, Preflight, RulesConfirmation } from "@/components/auction/CommissionerTools";
+import ReportProblem from "@/components/auction/ReportProblem";
 import styles from "../auction.module.css";
 
 // Code-split: the optimizer loads only for seat holders, after the room paints.
@@ -1061,6 +1062,7 @@ export default function AuctionRoomPage() {
           <Budgets view={view} />
           {view.me.role === "commissioner" ? <Commissioner view={view} roomId={roomId} onAccepted={onAccepted} /> : null}
           <Rules view={view} />
+          <ReportProblem view={view} players={players} roomId={roomId} />
         </div>
       </div>
     </section>

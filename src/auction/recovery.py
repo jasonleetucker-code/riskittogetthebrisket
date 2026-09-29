@@ -276,7 +276,9 @@ def preflight(store: Store, room_id: str, now_real: float) -> dict:
         if any(i["status"] == "warn" for i in items)
         else "ok"
     )
-    return {"status": worst, "items": items, "checkedAt": now_real}
+    from src.auction import feedback
+
+    return {"status": worst, "items": items, "checkedAt": now_real, "codeSha": feedback.code_sha()}
 
 
 def points_for_preview(league_id: str) -> dict:
