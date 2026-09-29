@@ -992,6 +992,16 @@ $1-$2 late pick ~1,000+ points per $ vs ~44 for a first), on whole-dollar-rounde
 cap at the picks' value): **the league pool rate** -- sum of the board values of the draft's own picks divided by the
 dollars those picks carry; no pool rate means the stack effect is withheld, never a guessed rate. Premiums are computed
 on unrounded effective power (rounding is display-only).
+- **Superseding interim (same day), after the #1527 acceptance audit** (the owner required a full decomposition before
+  calling it fixed): the audit found the swings driven by data seams, not the rate -- the upcoming draft year differs
+  between draft capital (2027) and the board's pick lifecycle (2026); 2027 picks are counted twice in team stacks;
+  future-pick auction dollars are synthesized; picks can be "sent" by teams that do not hold them. Under the pool
+  rate an early pick from a $0 team still took a side to -963. **Owner decision: the stack effect is OUT of side
+  totals, the verdict, side flows and balancer suggestions now**, shown only as a labelled not-calibrated note.
+- **Owner principle for its return:** the stack term is an adjustment to package value and must not become the
+  dominant source of value merely because low-dollar picks are involved. It returns to the totals only once rebuilt
+  as an adjustment scoped to the moved picks' own value, with the seams fixed (draft-year universe, double count,
+  unowned picks); future-pick pricing and the conversion rate remain open model work. No arbitrary clamp.
 
 **Owner correction — award record eligibility is .500 OR BETTER (2026-09-29).**
 Binding; immediate; supersedes the record half of the 2026-09-26 League MVP decision below and every earlier

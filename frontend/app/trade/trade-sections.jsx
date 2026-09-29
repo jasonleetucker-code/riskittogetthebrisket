@@ -874,7 +874,7 @@ export function PickTeamSelectors({
       dense
       title="Draft-capital stacks"
       headingLevel={2}
-      subtitle="Picks are in this trade — their worth depends on each team's stack. Select the team on each side."
+      subtitle="Picks are in this trade. Select the team on each side to see the draft-capital stack note (not included in the verdict)."
     >
       <div className={styles.pickTeams}>
         {sides.map((s, i) => (
@@ -896,8 +896,8 @@ export function PickTeamSelectors({
       </div>
       {stackGateUnmet ? (
         <Banner tone="info">
-          Verdict is showing pure board value. Assign a team to every side a
-          pick is traded to or from to apply the draft-capital stack effect.
+          Assign a team to every side a pick is traded to or from to see the
+          draft-capital stack note. The verdict does not use it.
         </Banner>
       ) : null}
     </Panel>
