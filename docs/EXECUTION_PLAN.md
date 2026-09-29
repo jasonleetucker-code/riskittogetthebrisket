@@ -207,6 +207,8 @@ single authorization record for the batch; ideas inside it do not get their own 
   card. Contract: `docs/OWNER_REQUESTED_TODO.md` ("ONE unified Manager of the Year"); record
   `docs/awards/MANAGER_OF_THE_YEAR_METHODOLOGY.md`. Authorizes implementation, tests, replay and a reviewed
   candidate only: official historical winners are not rewritten and methodology promotion stays an owner decision.
+  **Owner direction 2026-09-29:** validation track, PARTIAL / NOT PROMOTED — the unified result never decides the
+  card or race; unmeasurable components (T's future-value half) are unavailable, not scored (methodology v1.1).
   No League MVP / OPOY / DPOY / ROY / positional / Champion / Trader / Waiver King change.
 * **Game Day live-state provider trial — authorized (owner, 2026-09-27):** a BALLDONTLIE adapter
   behind the one live-state owner, shadow collection first (flag default OFF, key

@@ -1280,8 +1280,10 @@ def _manager_of_the_year_scores(
 
 
 def _legacy_moty_value(r: dict[str, Any]) -> dict[str, Any]:
-    """The legacy composite's published value -- unchanged, kept for the
-    official record of every completed season (see ``_moty_is_live``)."""
+    """The legacy composite's published value -- unchanged.  It remains the
+    Manager of the Year card and race in EVERY season (the live one
+    included) until the unified method is promoted (see ``_moty_is_live``);
+    it has no playoff or record gate."""
     return {
         "compositeScore": r["compositeScore"],
         "wins": r["wins"],
@@ -1323,32 +1325,43 @@ def _unified_moty_value(evaluation: dict[str, Any]):
 def _moty_is_live(evaluation: dict[str, Any] | None) -> bool:
     """Does the unified method decide this season's Manager of the Year card?
 
-    Yes while the season is PROVISIONAL (postseason pending: a live leader
-    is not an official record) or once the unified result is OFFICIAL.  A
-    finalized season that has not been promoted keeps its existing official
-    winner (the legacy composite) and carries the unified result as a
-    labelled candidate -- historical trophy records are never rewritten by
-    a methodology change (owner decision 2026-09-28; methodology §9).
+    Only once the unified result is OFFICIAL -- i.e. the owner has promoted
+    the methodology (``OFFICIAL_FROM_SEASON``) AND the season's coverage is
+    complete (methodology §9).  Until then it is a VALIDATION TRACK in
+    every season, the live one included (owner direction 2026-09-29: never
+    present the candidate as official; PARTIAL / NOT PROMOTED): the card and
+    race keep the existing method and carry the unified evaluation beside
+    them as a labelled candidate.  Historical trophy records are never
+    rewritten by a methodology change.
     """
     if not evaluation or not any(r.get("score") is not None for r in evaluation["rows"]):
         return False
-    return evaluation["status"] == manager_of_the_year.PROVISIONAL or bool(evaluation["official"])
+    return bool(evaluation["official"])
 
 
 def _moty_candidate_summary(evaluation: dict[str, Any], legacy_owner: str) -> dict[str, Any] | None:
-    scored = [r for r in evaluation["rows"] if r.get("score") is not None]
-    if not scored:
+    """The unified validation-track leader, labelled.  ``score`` exists only
+    on a ``full`` basis; on an ``incomplete`` one (T unavailable) the leader
+    is ranked on measured points out of the measurable points, and that is
+    what is published."""
+    ranked = [r for r in evaluation["rows"] if r.get("rank") is not None]
+    if not ranked:
         return None
-    leader = scored[0]
+    leader = ranked[0]
+    inc = leader.get("incomplete") or {}
     return {
         "methodVersion": evaluation["methodVersion"],
         "status": evaluation["status"],
         "official": False,
+        "promotion": evaluation.get("promotion", manager_of_the_year.NOT_PROMOTED),
         "coverage": evaluation["coverage"]["status"],
+        "scoreBasis": evaluation.get("scoreBasis"),
         "ownerId": leader["ownerId"],
         "displayName": leader["displayName"],
-        "score": leader["score"],
-        "tiedWith": [r["ownerId"] for r in scored[1:] if r.get("rank") == 1],
+        "score": leader.get("score"),
+        "measuredPoints": inc.get("measuredPoints"),
+        "measurablePoints": inc.get("measurablePoints"),
+        "tiedWith": [r["ownerId"] for r in ranked[1:] if r.get("rank") == 1],
         "wouldChangeWinner": bool(legacy_owner) and leader["ownerId"] != legacy_owner,
     }
 
@@ -2496,7 +2509,8 @@ def _season_row_sets(
         # Legacy composite: still the OFFICIAL basis of every completed
         # season's winner until the unified methodology is promoted.
         "moty": _manager_of_the_year_scores(snapshot, season, trader_rows, waiver_rows),
-        # Unified Manager of the Year (owner decision 2026-09-28) -- candidate.
+        # Unified Manager of the Year (owner decision 2026-09-28) --
+        # validation track, PARTIAL / NOT PROMOTED (never decides the card).
         "moty_unified": manager_of_the_year.build_season(
             snapshot, season, vorp_levels, valuation_factory=valuation_factory
         ),

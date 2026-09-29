@@ -57,6 +57,18 @@ SD of the season's official regular-season team-week scores.
 
 Everything that is not measurable for a season is reported as such
 (``coverage``); nothing missing is silently 0 or 50.
+
+**T is scored only when BOTH of its halves are measurable (v1.1,
+OD-MOTY-7).**  A trade exchanges this season's production for future value
+(picks, young players); production-only T scores one side of that exchange
+and so penalizes every rebuilding trade.  While the future-value channel
+is incomplete for the season, T is UNAVAILABLE: its production half is
+published as raw context (``productionScore``) and excluded from every
+total.  The row then carries no Manager of the Year score -- only an
+``incomplete`` block (the frozen weights applied to the measured
+components, out of the points those components can earn; nothing is
+reweighted) and a validation rank on it.  This is a VALIDATION TRACK:
+``official`` stays False and ``promotion`` is ``not_promoted``.
 """
 
 from __future__ import annotations
@@ -75,7 +87,7 @@ from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 # docs/awards/MANAGER_OF_THE_YEAR_METHODOLOGY.md §6.  Changing one is a
 # methodology change: bump METHOD_VERSION.
 
-METHOD_VERSION = "moty-unified-v1-2026-09-28"
+METHOD_VERSION = "moty-unified-v1.1-2026-09-29"
 
 #: Owner-proposed award-policy weights (NOT statistically validated).
 WEIGHTS: dict[str, float] = {"A": 0.40, "T": 0.25, "W": 0.15, "D": 0.10, "P": 0.10}
@@ -136,6 +148,18 @@ NOT_IMPLEMENTED = "not_implemented"
 PENDING = "pending"
 FINAL = "final"
 PROVISIONAL = "provisional"
+
+#: Score bases.  ``full`` -- every component scored, the MOTY score exists.
+#: ``incomplete`` -- T is unavailable season-wide: no MOTY score, only the
+#: measured points (frozen weights x measured components) and a validation
+#: rank.  ``none`` -- nothing rankable.
+BASIS_FULL = "full"
+BASIS_INCOMPLETE = "incomplete"
+BASIS_NONE = "none"
+
+#: Promotion state of this methodology (never automatic; OD-MOTY-1).
+NOT_PROMOTED = "not_promoted"
+PROMOTED = "promoted"
 
 ValuationFactory = Callable[[Iterable[tuple[dict[str, Any], Any]]], Callable[..., Any]]
 
@@ -845,14 +869,23 @@ def trade_future_value(
     from .activity import _normalize_trade
 
     trades = [tx for tx in _window_transactions(season) if str(tx.get("type")).lower() == "trade"]
+    if not trades:
+        # Nothing was exchanged, so no side is unmeasured: complete by
+        # construction, whether or not a valuation source is supplied.
+        return {
+            "status": COMPLETE,
+            "reason": "no_trades",
+            "trades": 0,
+            "valuedTrades": 0,
+            "byOwner": {},
+        }
     if valuation_factory is None:
         return {
             "status": UNAVAILABLE,
             "reason": "valuation_source_not_supplied",
             "trades": len(trades),
+            "valuedTrades": 0,
         }
-    if not trades:
-        return {"status": COMPLETE, "reason": "no_trades", "trades": 0, "byOwner": {}}
     normalized = []
     requests = []
     for tx in trades:
@@ -928,7 +961,12 @@ def _explain(row: dict[str, Any]) -> str:
         else:
             parts.append("Below-average weekly performance")
     t = comp["T"]
-    if t["score"] is not None:
+    if t["score"] is None and t.get("coverage") == UNAVAILABLE:
+        if t["raw"]["trades"] == 0 and not t["raw"].get("draftPickExpectationNet"):
+            parts.append("no trades")
+        else:
+            parts.append("trades not scored (their future-value side can't be measured)")
+    elif t["score"] is not None:
         if t["raw"]["trades"] == 0:
             parts.append("no trades")
         elif t["score"] >= 70:
@@ -983,11 +1021,38 @@ def _explain(row: dict[str, Any]) -> str:
 def _channel_score(
     production: float | None, future: float | None, fv_complete: bool
 ) -> tuple[float | None, str]:
+    """W / D: production is the scored measure; their future-value halves
+    are not implemented (labelled ``partial``, methodology §5.6-§5.7)."""
     if production is None:
         return None, UNAVAILABLE
     if fv_complete and future is not None:
         return PRODUCTION_SHARE * production + (1 - PRODUCTION_SHARE) * future, COMPLETE
     return production, PARTIAL
+
+
+def _trade_score(
+    production: float | None, future: float | None, fv_complete: bool
+) -> tuple[float | None, str]:
+    """T: scored ONLY when both halves are measurable (v1.1, OD-MOTY-7).
+
+    A trade's future-value side is the counter-consideration for the
+    production it gives up, so a production-only T is not a partial trade
+    score -- it is a one-sided one.  Without a complete future-value
+    channel T is UNAVAILABLE (never the production half standing in).
+    """
+    if production is None or not fv_complete or future is None:
+        return None, UNAVAILABLE
+    return PRODUCTION_SHARE * production + (1 - PRODUCTION_SHARE) * future, COMPLETE
+
+
+def _rank_value(r: dict[str, Any]) -> float | None:
+    """The number a row is ranked on: the MOTY score on a ``full`` basis,
+    the measured points on an ``incomplete`` one (never mixed: T
+    availability is season-wide)."""
+    if r.get("score") is not None:
+        return r["score"]
+    inc = r.get("incomplete")
+    return inc.get("measuredPoints") if isinstance(inc, dict) else None
 
 
 def rank_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -998,11 +1063,11 @@ def rank_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[di
     Never owner id, name or input order -- the sort key contains none of
     them, and rows still equal on it share one rank number.
     """
-    scored = [r for r in rows if r.get("score") is not None]
-    unscored = [r for r in rows if r.get("score") is None]
+    scored = [r for r in rows if _rank_value(r) is not None]
+    unscored = [r for r in rows if _rank_value(r) is None]
 
     def _key(r: dict[str, Any]) -> tuple[float, float, float]:
-        return (r["score"], r["management"], r["components"]["A"]["score"])
+        return (_rank_value(r), r["management"], r["components"]["A"]["score"])
 
     scored.sort(key=lambda r: tuple(-x for x in _key(r)))
     prev = None
@@ -1068,12 +1133,23 @@ def build_season(
             else (0.0 if fv_complete else None)
         )
         t_fv = normalize_future_value_pct(fv_pct) if (fv_complete and fv_pct is not None) else None
-        t_score, t_cov = _channel_score(t_prod, t_fv, fv_complete)
+        t_score, t_cov = _trade_score(t_prod, t_fv, fv_complete)
         comp["T"] = {
             "score": t_score,
             "coverage": t_cov,
+            # Context only when T is unavailable: the measured production
+            # half, never a stand-in for the trade score.
             "productionScore": t_prod,
             "futureValueScore": t_fv,
+            "unscoredReason": (
+                None
+                if t_score is not None
+                else (
+                    "production_unmeasurable"
+                    if t_prod is None
+                    else f"trade_future_value_{fv['status']}"
+                )
+            ),
             "raw": {
                 "netSurplus": t.net,
                 "acquiredSurplus": t.credit,
@@ -1146,15 +1222,35 @@ def build_season(
     for row in rows:
         comp = row["components"]
         vals = {k: comp[k]["score"] for k in ("A", "T", "W", "D")}
-        if any(v is None for v in vals.values()):
+        row["incomplete"] = None
+        if any(vals[k] is None for k in ("A", "W", "D")) or (
+            vals["T"] is None and comp["T"]["productionScore"] is None
+        ):
             row.update(score=None, earnedOf90=None, contributions=None, management=None)
+            continue
+        p_score = comp["P"]["score"] if postseason_final else None
+        if vals["T"] is None:
+            # T unavailable: no MOTY score.  The frozen weights applied to
+            # what WAS measured, out of what those components can earn --
+            # T's 25 points are missing, not redistributed.
+            contrib = {k: (None if k == "T" else WEIGHTS[k] * vals[k]) for k in vals}
+            contrib["P"] = WEIGHTS["P"] * p_score if p_score is not None else None
+            measured = [k for k in ("A", "T", "W", "D", "P") if contrib[k] is not None]
+            row.update(score=None, earnedOf90=None, contributions=contrib)
+            row["management"] = contrib["W"] + contrib["D"]
+            row["incomplete"] = {
+                "measuredPoints": sum(contrib[k] for k in measured),
+                "measurablePoints": 100.0 * sum(WEIGHTS[k] for k in measured),
+                "measuredComponents": measured,
+                "unscoredComponents": [k for k in ("A", "T", "W", "D", "P") if k not in measured],
+            }
             continue
         contrib = {k: WEIGHTS[k] * vals[k] for k in vals}
         earned = sum(contrib.values())
         row["earnedOf90"] = earned
         row["management"] = contrib["T"] + contrib["W"] + contrib["D"]
-        if postseason_final and comp["P"]["score"] is not None:
-            contrib["P"] = WEIGHTS["P"] * comp["P"]["score"]
+        if p_score is not None:
+            contrib["P"] = WEIGHTS["P"] * p_score
             row["score"] = earned + contrib["P"]
         else:
             contrib["P"] = None
@@ -1168,6 +1264,8 @@ def build_season(
     reasons = []
     if not fv_complete:
         reasons.append(f"trade_future_value_{fv['status']}")
+    if any(r["components"]["T"]["score"] is None for r in rows):
+        reasons.append("trade_component_unscored")
     reasons.append("waiver_future_value_not_implemented")
     reasons.append("draft_future_value_not_implemented")
     if ledger["basis"] == "unavailable":
@@ -1187,12 +1285,36 @@ def build_season(
         and postseason_final
         and coverage_status == COMPLETE
     )
+    if any(r.get("score") is not None for r in scored):
+        basis = BASIS_FULL
+    elif scored:
+        basis = BASIS_INCOMPLETE
+    else:
+        basis = BASIS_NONE
+    # On an incomplete basis the unscored T (worth up to 100*WEIGHTS["T"])
+    # could reorder anyone within that many measured points of the leader:
+    # say who, instead of implying the evidence decided the order.
+    unscored_range = None
+    if basis == BASIS_INCOMPLETE:
+        t_max = 100.0 * WEIGHTS["T"]
+        top = _rank_value(scored[0])
+        could_lead = [r["ownerId"] for r in scored if top - _rank_value(r) < t_max]
+        unscored_range = {
+            "tMaxPoints": t_max,
+            "couldLeadUnderSomeT": could_lead,
+            "leaderDetermined": len(could_lead) == 1,
+        }
     return _published(
         {
             "methodVersion": METHOD_VERSION,
             "season": season.season,
             "status": FINAL if postseason_final else PROVISIONAL,
             "official": official,
+            # Validation track until the owner promotes it (OD-MOTY-1); an
+            # incomplete basis can never be official (coverage != complete).
+            "promotion": PROMOTED if official else NOT_PROMOTED,
+            "scoreBasis": basis,
+            "unscoredTradeRange": unscored_range,
             "asOfWeek": max(facts.weeks) if facts.weeks else 0,
             "weeksInWindow": n_weeks,
             "weights": dict(WEIGHTS),

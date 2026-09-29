@@ -46,6 +46,23 @@ def score(evaluation: dict, rid: int, channel: str):
     return row(evaluation, rid)["components"][channel]["score"]
 
 
+def tprod(evaluation: dict, rid: int):
+    """T's PRODUCTION half: the ledger measurement the §14 trade regressions
+    pin.  (T itself is scored only when its future-value half is complete.)"""
+    return row(evaluation, rid)["components"]["T"]["productionScore"]
+
+
+def flat_valuation(value: float = 1000.0):
+    """A valuation source that prices every asset at the same value, so the
+    trade future-value channel is COMPLETE and neutral (FV = 50)."""
+
+    def factory(requests):
+        list(requests)
+        return lambda asset, instant: value
+
+    return factory
+
+
 class NormalizationTests(_Case):
     def test_zero_net_value_is_exactly_the_midpoint(self):
         self.assertEqual(moty.normalize_management(0.0, 13, 50.0), 50.0)
@@ -85,18 +102,50 @@ class NoGateTests(_Case):
         lg.bracket = [{"r": 1, "t1": 1, "t2": 2, "w": 1, "l": 2, "p": 1}]
         return lg
 
-    def test_non_playoff_below_500_manager_can_win(self):
+    def test_non_playoff_manager_can_win(self):
         lg = self._league()
         # Manager 4 also wins a trade clearly; the bracket champion does not.
         lg.points = {"r3p0": 30.0, "r4p0": 11.0}
         lg.trade(1, 4, ["r4p0"], 3, ["r3p0"])
-        ev = evaluate(lg)
+        ev = evaluate(lg, valuation_factory=flat_valuation())
         self.assertEqual(ev["status"], "final")
+        self.assertEqual(ev["scoreBasis"], "full")
         top = ev["rows"][0]
         self.assertEqual(top["ownerId"], owner(4))
         self.assertEqual(top["components"]["P"]["score"], 0.0)
         self.assertFalse(top["components"]["P"]["madePlayoffs"])
         self.assertEqual(len([r for r in ev["rows"] if r["score"] is not None]), 4)
+
+    def test_below_500_manager_is_not_excluded_by_record_and_can_win(self):
+        # Manager 3 is the league's second-best scorer every week but always
+        # meets manager 4, the best: a 0-4 head-to-head record.  No record
+        # (or playoff) rule may exclude or discount them -- all-play and
+        # management decide.
+        lg = self._league()
+        for wk in range(1, 5):
+            for rid, pts in ((1, 120.0), (2, 110.0), (3, 145.0), (4, 150.0)):
+                lg.team_points[(wk, rid)] = pts
+        lg.pairings = {wk: [(3, 4), (1, 2)] for wk in range(1, 5)}
+        lg.points = {"fa1": 40.0, "d1": 40.0, "r4p0": 30.0}
+        lg.waiver(1, 3, add="fa1")  # a productive pickup
+        lg.draft([(3, "d1", 21)])  # a strong pick against a band-3 expectation
+        lg.free_agent(1, 4, drop="r4p0")  # manager 4 releases a producer...
+        lg.free_agent(1, 1, add="r4p0")  # ...who is rostered elsewhere
+        snapshot, season = lg.build()
+        for wk in range(1, 5):  # manager 3's host record is 0-4
+            by_rid = {e["roster_id"]: e for e in season.matchups_by_week[wk]}
+            self.assertLess(by_rid[3]["points"], by_rid[4]["points"])
+            self.assertEqual(by_rid[3]["matchup_id"], by_rid[4]["matchup_id"])
+        for r in season.rosters:
+            if r["roster_id"] == 3:
+                r["settings"] = {"wins": 0, "losses": 4, "ties": 0}
+        ev = moty.build_season(snapshot, season, LEVELS)
+        top = ev["rows"][0]
+        self.assertEqual(top["ownerId"], owner(3))
+        self.assertEqual(top["rank"], 1)
+        self.assertIsNotNone(top["score"])
+        self.assertFalse(top["components"]["P"]["madePlayoffs"])
+        self.assertEqual({r["rank"] is not None for r in ev["rows"]}, {True})
 
     def test_exceptional_champion_can_win(self):
         lg = self._league()
@@ -171,8 +220,13 @@ class TradeTests(_Case):
         # weeks 2-4: o1 gains 2/wk, loses 15/wk.
         self.assertAlmostEqual(raw(ev, 1, "T")["netSurplus"], 3 * (2 - 15))
         self.assertAlmostEqual(raw(ev, 2, "T")["netSurplus"], 3 * (15 - 2))
-        self.assertLess(score(ev, 1, "T"), 50.0)
-        self.assertAlmostEqual(score(ev, 1, "T") + score(ev, 2, "T"), 100.0)
+        self.assertLess(tprod(ev, 1), 50.0)
+        self.assertAlmostEqual(tprod(ev, 1) + tprod(ev, 2), 100.0)
+        # With a neutral, complete future-value channel the trade score is
+        # the same verdict, halved toward the midpoint.
+        full = evaluate(lg, valuation_factory=flat_valuation())
+        self.assertLess(score(full, 1, "T"), 50.0)
+        self.assertAlmostEqual(score(full, 1, "T") + score(full, 2, "T"), 100.0)
 
     def test_star_acquired_for_excessive_capital_is_not_automatically_good(self):
         lg = League(
@@ -182,7 +236,7 @@ class TradeTests(_Case):
         lg.trade(1, 1, ["r1p0", "r1p1", "r1p2"], 2, ["r2p0"])
         ev = evaluate(lg)
         self.assertAlmostEqual(raw(ev, 1, "T")["netSurplus"], 4 * (25 - 30))
-        self.assertLess(score(ev, 1, "T"), 50.0)
+        self.assertLess(tprod(ev, 1), 50.0)
 
     def test_round_trip_cannot_manufacture_value(self):
         lg = League(weeks=6, points={"r1p0": 20.0, "r2p0": 20.0})
@@ -192,7 +246,7 @@ class TradeTests(_Case):
         ev = evaluate(lg)
         for rid in (1, 2):
             self.assertEqual(raw(ev, rid, "T")["netSurplus"], 0.0)
-            self.assertEqual(score(ev, rid, "T"), 50.0)
+            self.assertEqual(tprod(ev, rid), 50.0)
 
     def test_reacquisition_credits_only_the_weeks_away(self):
         lg = League(weeks=5, points={"r1p0": 20.0, "r2p0": 30.0})
@@ -210,7 +264,9 @@ class TradeTests(_Case):
             lg.trade(leg, 1, [f"r1p{leg - 1}"], 2, [f"r2p{leg - 1}"])
         ev = evaluate(lg)
         self.assertEqual(raw(ev, 1, "T")["trades"], 3)
-        self.assertEqual(score(ev, 1, "T"), 50.0)
+        self.assertEqual(tprod(ev, 1), 50.0)
+        full = evaluate(lg, valuation_factory=flat_valuation())
+        self.assertEqual(score(full, 1, "T"), 50.0)
 
 
 class WaiverTests(_Case):
@@ -554,14 +610,131 @@ class FutureValueTests(_Case):
         t = row(ev, 1)["components"]["T"]
         self.assertIn(ev["coverage"]["tradeFutureValue"]["status"], ("partial", "unavailable"))
         self.assertIsNone(t["futureValueScore"])
-        self.assertEqual(t["coverage"], "partial")
-        self.assertEqual(t["score"], t["productionScore"])
+        # The production half is NOT the trade score (v1.1, OD-MOTY-7).
+        self.assertIsNone(t["score"])
+        self.assertEqual(t["coverage"], "unavailable")
+        self.assertIsNotNone(t["productionScore"])
+        self.assertTrue(t["unscoredReason"].startswith("trade_future_value_"))
         self.assertTrue(any(r.startswith("trade_future_value_") for r in ev["coverage"]["reasons"]))
+        self.assertIn("trade_component_unscored", ev["coverage"]["reasons"])
 
     def test_no_valuation_source_is_reported_unavailable(self):
         ev = evaluate(self._rebuild_league())
         self.assertEqual(ev["coverage"]["tradeFutureValue"]["status"], "unavailable")
         self.assertEqual(ev["coverage"]["status"], "partial")
+
+
+class TradeUnavailableTests(_Case):
+    """While T's future-value half cannot be measured, T is UNAVAILABLE --
+    never its production half standing in -- and there is no MOTY score:
+    only the measured points and a validation rank (methodology §11.5)."""
+
+    def _rebuilder(self, *, trade: bool, final: bool = True):
+        # Fixed team scores: A cannot move, so any difference is T's doing.
+        lg = League(weeks=4, points={"r1p0": 30.0, "r2p0": 10.0})
+        for wk in range(1, 5):
+            for rid in range(1, 5):
+                lg.team_points[(wk, rid)] = 100.0 + 10 * rid
+        if final:
+            lg.bracket = [{"r": 1, "t1": 3, "t2": 4, "w": 4, "l": 3, "p": 1}]
+        else:
+            lg.status = "in_season"
+        if trade:
+            # Manager 1 sells a producer for a future first: a rebuild.
+            lg.trade(
+                2,
+                1,
+                ["r1p0"],
+                2,
+                ["r2p0"],
+                draft_picks=[
+                    {
+                        "season": "2026",
+                        "round": 1,
+                        "roster_id": 2,
+                        "owner_id": 1,
+                        "previous_owner_id": 2,
+                    }
+                ],
+            )
+        return lg
+
+    def test_production_only_trade_is_never_the_trade_score(self):
+        ev = evaluate(self._rebuilder(trade=True))
+        self.assertEqual(ev["coverage"]["tradeFutureValue"]["status"], "unavailable")
+        self.assertEqual(ev["scoreBasis"], "incomplete")
+        self.assertEqual(ev["promotion"], "not_promoted")
+        self.assertFalse(ev["official"])
+        for r in ev["rows"]:
+            t = r["components"]["T"]
+            self.assertIsNone(t["score"])
+            self.assertEqual(t["coverage"], "unavailable")
+            self.assertIsNone(r["score"])  # no MOTY score without T
+            self.assertIsNone(r["contributions"]["T"])
+            self.assertIsNotNone(r["rank"])  # a validation rank on measured points
+        seller = row(ev, 1)
+        self.assertLess(seller["components"]["T"]["productionScore"], 50.0)  # context only
+        inc = seller["incomplete"]
+        c = seller["components"]
+        self.assertAlmostEqual(
+            inc["measuredPoints"],
+            0.40 * c["A"]["score"]
+            + 0.15 * c["W"]["score"]
+            + 0.10 * c["D"]["score"]
+            + 0.10 * c["P"]["score"],
+        )
+        self.assertAlmostEqual(inc["measurablePoints"], 75.0)
+        self.assertEqual(inc["unscoredComponents"], ["T"])
+        self.assertIn("not scored", seller["explanation"])
+        # Whoever the unscored T (up to 25 pts) could put first is named.
+        rng = ev["unscoredTradeRange"]
+        self.assertEqual(rng["tMaxPoints"], 25.0)
+        top = ev["rows"][0]["incomplete"]["measuredPoints"]
+        expect = [
+            r["ownerId"] for r in ev["rows"] if top - r["incomplete"]["measuredPoints"] < 25.0
+        ]
+        self.assertEqual(rng["couldLeadUnderSomeT"], expect)
+        self.assertEqual(rng["leaderDetermined"], len(expect) == 1)
+
+    def test_provisional_incomplete_is_out_of_the_65_measurable_points(self):
+        ev = evaluate(self._rebuilder(trade=True, final=False))
+        self.assertEqual(ev["status"], "provisional")
+        inc = row(ev, 1)["incomplete"]
+        self.assertAlmostEqual(inc["measurablePoints"], 65.0)
+        self.assertEqual(inc["unscoredComponents"], ["T", "P"])
+        self.assertIsNone(row(ev, 1)["earnedOf90"])
+
+    def test_rebuilding_trade_is_not_penalized_by_its_unmeasurable_side(self):
+        with_trade = evaluate(self._rebuilder(trade=True))
+        without = evaluate(self._rebuilder(trade=False))
+        self.assertEqual(without["scoreBasis"], "full")  # no trades -> T measurable
+        self.assertIsNone(without["unscoredTradeRange"])
+        seller = row(with_trade, 1)
+        # Same A, W, D, P: the one-sided production loss moves nothing.
+        base = row(without, 1)["contributions"]
+        expect = sum(base[k] for k in ("A", "W", "D", "P"))
+        self.assertAlmostEqual(seller["incomplete"]["measuredPoints"], expect)
+
+    def test_no_trades_needs_no_valuation_source(self):
+        ev = evaluate(League(weeks=4))
+        self.assertEqual(ev["coverage"]["tradeFutureValue"]["status"], "complete")
+        self.assertEqual(ev["scoreBasis"], "full")
+        for rid in range(1, 5):
+            self.assertEqual(score(ev, rid, "T"), 50.0)
+
+    def test_incomplete_ties_break_on_measured_management_then_all_play(self):
+        rows = [
+            {
+                "ownerId": oid,
+                "score": None,
+                "incomplete": {"measuredPoints": 50.0},
+                "management": mgmt,
+                "components": {"A": {"score": a}},
+            }
+            for oid, mgmt, a in (("z", 10.0, 40.0), ("a", 12.0, 30.0), ("m", 10.0, 45.0))
+        ]
+        scored, _ = moty.rank_rows(rows)
+        self.assertEqual([r["ownerId"] for r in scored], ["a", "m", "z"])
 
 
 class OtherAwardsUnchangedTests(_Case):
@@ -596,6 +769,62 @@ class OtherAwardsUnchangedTests(_Case):
             mvp_a = [x for x in a["awards"] if x["key"] == "league_mvp"]
             mvp_b = [x for x in b["awards"] if x["key"] == "league_mvp"]
             self.assertEqual(mvp_a, mvp_b)
+
+    def test_unpromoted_method_never_decides_the_card_or_race(self):
+        """Validation track (owner direction 2026-09-29): in EVERY season --
+        the live one included -- the card and race keep the existing method
+        and the unified result rides beside it, labelled not promoted."""
+        snapshot = build_test_snapshot()
+        section = awards.build_section(snapshot)
+        seen = 0
+        for season_row in section["bySeason"]:
+            ev = season_row.get("managerOfTheYear")
+            if not ev:
+                continue
+            self.assertFalse(ev["official"])
+            self.assertEqual(ev["promotion"], "not_promoted")
+            award = next(
+                (a for a in season_row["awards"] if a["key"] == "manager_of_the_year"), None
+            )
+            if award is None:
+                continue
+            seen += 1
+            self.assertIn("compositeScore", award["value"])
+            self.assertNotIn("score", award["value"])
+            self.assertNotIn("provisional", award)
+            if "unifiedCandidate" in award:
+                self.assertFalse(award["unifiedCandidate"]["official"])
+                self.assertEqual(award["unifiedCandidate"]["promotion"], "not_promoted")
+        self.assertGreater(seen, 0)
+        for race in section["awardRaces"]:
+            if race["key"] != "manager_of_the_year":
+                continue
+            self.assertNotIn("methodVersion", race)
+            for leader in race.get("leaders") or []:
+                self.assertIn("compositeScore", leader["value"])
+
+    def test_live_provisional_season_is_not_presented_as_official(self):
+        """Even a FULLY scored live season (no trades -> T measurable) keeps
+        the existing method's card and race until promotion."""
+        lg = League(weeks=4, status="in_season")
+        snapshot, season = lg.build()
+        ev = moty.build_season(snapshot, season, LEVELS)
+        self.assertEqual((ev["status"], ev["scoreBasis"]), ("provisional", "full"))
+        self.assertFalse(awards._moty_is_live(ev))
+        rows = {
+            "moty": awards._manager_of_the_year_scores(snapshot, season, [], []),
+            "moty_unified": ev,
+        }
+        award = awards._manager_of_the_year_award(snapshot, season, rows)
+        self.assertIn("compositeScore", award["value"])
+        self.assertNotIn("provisional", award)
+        self.assertEqual(award["unifiedCandidate"]["promotion"], "not_promoted")
+        self.assertFalse(award["unifiedCandidate"]["official"])
+        race = awards._manager_of_the_year_race(snapshot, season, rows)
+        self.assertNotIn("methodVersion", race)
+        # Promotion is the ONE switch: an official evaluation decides the card.
+        promoted = dict(ev, official=True, promotion="promoted")
+        self.assertTrue(awards._moty_is_live(promoted))
 
     def test_completed_season_keeps_its_official_legacy_winner(self):
         snapshot = build_test_snapshot()

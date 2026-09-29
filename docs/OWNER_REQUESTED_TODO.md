@@ -1037,6 +1037,13 @@ roster/asset management.
 - **Methodology record:** `docs/awards/MANAGER_OF_THE_YEAR_METHODOLOGY.md` (frozen before results were computed,
   with the coverage audit, the replay and the remaining owner decisions OD-MOTY-1…7).
 - **Authorization pointer:** `docs/EXECUTION_PLAN.md`, League Hub Awards, "Unified Manager of the Year".
+- **Owner direction 2026-09-29 (binding): VALIDATION TRACK.** Do not promote the unified award as official because
+  tests pass; label it PARTIAL / NOT PROMOTED until net trade / waiver / draft value accounting is defensible. No
+  playoff-qualification or winning-record gate (a below-.500 manager is never excluded by record). Do not tune
+  weights until a preferred manager wins. Do not invent historical values or use today's values as if known at the
+  time: a component (or a trade's future-value side) that cannot be measured is UNAVAILABLE, not scored —
+  implemented as methodology v1.1 (T unavailable while its future-value half is incomplete; measured points only,
+  nothing redistributed), record §9 / §11.0 / §11.5; open owner decisions OD-MOTY-1…10.
 
 **Owner decision — try BALLDONTLIE as a Game Day live-state provider (2026-09-27).**
 ESPN's scoreboard refuses us (403) and its block is not to be bypassed. Validate BALLDONTLIE NFL's real

@@ -19,6 +19,13 @@ Nothing here changes a parameter: sensitivity runs are counterfactual
 re-scorings of the same frozen raw measurements.  Methodology record:
 ``docs/awards/MANAGER_OF_THE_YEAR_METHODOLOGY.md``.
 
+v1.1 (OD-MOTY-7): while T's future-value half is unmeasurable, T is
+UNAVAILABLE and a season has no MOTY score -- rows are ranked on MEASURED
+points (frozen weights x A/W/D[/P]) out of the measurable points.  The
+report says so per season, prints the margin between the top two against
+T's 25 unscored points (whether ANY value of T could reorder them), and
+shows the v1 counterfactual (production-only T scored) for comparison.
+
     python scripts/replay_manager_of_the_year.py \
         [--snapshot PATH] [--nfl-players PATH] [--json OUT]
 """
@@ -26,7 +33,6 @@ re-scorings of the same frozen raw measurements.  Methodology record:
 from __future__ import annotations
 
 import argparse
-import copy
 import json
 import math
 import sys
@@ -87,26 +93,45 @@ def kendall_tau(order_a: list[str], order_b: list[str]) -> float | None:
 
 
 # ── re-scoring helpers (counterfactual views of the same raw measurements) ─
+def rank_value(r: dict[str, Any]) -> float | None:
+    if r.get("score") is not None:
+        return r["score"]
+    return (r.get("incomplete") or {}).get("measuredPoints")
+
+
+def ranked_order(evaluation: dict[str, Any]) -> list[str]:
+    return [r["ownerId"] for r in evaluation["rows"] if r.get("rank") is not None]
+
+
 def rescore(
     evaluation: dict[str, Any],
     *,
     weights: dict[str, float] | None = None,
     kappa: float | None = None,
     raw_override: dict[str, dict[str, float]] | None = None,
+    production_only_t: bool = False,
 ) -> list[tuple[str, float]]:
-    """Order of managers under altered weights / KAPPA / raw nets."""
+    """Order of managers under altered weights / KAPPA / raw nets.
+
+    On an ``incomplete`` basis T is excluded (as the engine excludes it) and
+    rows order on measured points.  ``production_only_t`` reproduces the
+    retired v1 behaviour (T := its production half) for comparison only.
+    """
     weights = weights or moty.WEIGHTS
     sigma = evaluation["parameters"]["sigmaWeek"]
     weeks = evaluation["weeksInWindow"]
     final = evaluation["status"] == moty.FINAL
     out = []
     for r in evaluation["rows"]:
-        if r.get("score") is None:
+        if r.get("rank") is None:
             continue
         comp = r["components"]
+        t_scored = comp["T"]["score"] is not None or production_only_t
         vals = {}
         for k in COMPONENTS:
             s = comp[k]["score"]
+            if k == "T" and s is None and production_only_t:
+                s = comp["T"]["productionScore"]
             if k in ("T", "W", "D") and (kappa is not None or raw_override):
                 key = "netSurplusVsExpectation" if k == "D" else "netSurplus"
                 net = (raw_override or {}).get(r["ownerId"], {}).get(k, comp[k]["raw"][key])
@@ -115,7 +140,10 @@ def rescore(
                 use_k = kappa if kappa is not None else moty.KAPPA
                 s = 50.0 + 50.0 * math.tanh((net / weeks) / (use_k * sigma))
             vals[k] = s
-        if final:
+        if not t_scored:
+            keys = ("A", "W", "D", "P") if final else ("A", "W", "D")
+            total = sum(weights[k] * vals[k] for k in keys)  # measured points
+        elif final:
             total = sum(weights[k] * vals[k] for k in COMPONENTS)
         else:
             nonp = sum(weights[k] for k in ("A", "T", "W", "D"))
@@ -204,11 +232,14 @@ def replay(snapshot) -> dict[str, Any]:
         legacy_score = {r["ownerId"]: r["compositeScore"] for r in legacy}
         standings = {r["ownerId"]: r for r in metrics.season_standings(season, snapshot.managers)}
 
-        order = [r["ownerId"] for r in evaluation["rows"] if r.get("score") is not None]
+        order = ranked_order(evaluation)
         sens: dict[str, Any] = {"weights": [], "kappa": [], "draftLoso": None, "waiverImpute": None}
         base_winner = order[0] if order else None
+        t_unscored = evaluation.get("scoreBasis") == moty.BASIS_INCOMPLETE
         for k in COMPONENTS:
             if k == "P" and evaluation["status"] != moty.FINAL:
+                continue
+            if k == "T" and t_unscored:
                 continue
             for delta in (-0.05, 0.05):
                 w = perturbed_weights(k, delta)
@@ -241,7 +272,7 @@ def replay(snapshot) -> dict[str, Any]:
             if table:
                 with annual_table(table):
                     loso = moty.build_season(snapshot, season, levels)
-                alt_order = [r["ownerId"] for r in loso["rows"] if r.get("score") is not None]
+                alt_order = ranked_order(loso)
                 sens["draftLoso"] = {
                     "table": table,
                     "calibratedOn": [s.season for s in others],
@@ -287,33 +318,32 @@ def replay(snapshot) -> dict[str, Any]:
             "kendallTau": kendall_tau(order, [o for o, _ in alt]),
         }
 
-        # Proposed repair OD-MOTY-7 (NOT the frozen v1 method): trades that
-        # moved a FUTURE pick have no measurable future-value side while the
-        # FV-channel is incomplete, so drop them from T's production channel
-        # too (their players' weeks become unexplained -> excluded, never 0).
-        stripped = copy.deepcopy(season)
-        removed = 0
-        for wk, txs in list(stripped.transactions_by_week.items()):
-            keep = []
-            for tx in txs or []:
-                if str(tx.get("type")).lower() == "trade" and any(
-                    str(pk.get("season")) != str(season.season)
-                    for pk in tx.get("draft_picks") or []
-                ):
-                    removed += 1
-                    continue
-                keep.append(tx)
-            stripped.transactions_by_week[wk] = keep
-        repaired = moty.build_season(snapshot, stripped, levels)
-        rep_order = [r["ownerId"] for r in repaired["rows"] if r.get("score") is not None]
-        sens["excludeFuturePickTrades"] = {
-            "tradesExcluded": removed,
-            "winner": rep_order[0] if rep_order else None,
-            "winnerChanged": bool(rep_order) and rep_order[0] != base_winner,
-            "kendallTau": kendall_tau(order, rep_order),
-            "T": {r["ownerId"]: r["components"]["T"]["score"] for r in repaired["rows"]},
-            "score": {r["ownerId"]: r.get("score") for r in repaired["rows"]},
+        # v1 counterfactual (RETIRED behaviour, for comparison only): the
+        # production half of T scored as if it were the trade score.
+        v1 = rescore(evaluation, production_only_t=True)
+        sens["v1ProductionOnlyT"] = {
+            "winner": v1[0][0] if v1 else None,
+            "winnerChanged": bool(v1) and v1[0][0] != base_winner,
+            "kendallTau": kendall_tau(order, [o for o, _ in v1]),
         }
+        # Can the unscored T reorder the top two?  T is worth up to
+        # 100 * WEIGHTS["T"] points; if the measured margin is smaller, the
+        # leader is NOT determined by the evidence -- any T could flip it.
+        ranked = [r for r in evaluation["rows"] if r.get("rank") is not None]
+        if t_unscored and len(ranked) >= 2:
+            margin = rank_value(ranked[0]) - rank_value(ranked[1])
+            sens["tUnscoredLeaderMargin"] = {
+                "margin": margin,
+                "tMaxPoints": 100.0 * moty.WEIGHTS["T"],
+                "leaderRobustToAnyT": margin > 100.0 * moty.WEIGHTS["T"],
+                # Everyone whose measured points are within T's range of the
+                # leader could lead for SOME value of the unscored T.
+                "couldLeadUnderSomeT": [
+                    r["ownerId"]
+                    for r in ranked
+                    if rank_value(ranked[0]) - rank_value(r) < 100.0 * moty.WEIGHTS["T"]
+                ],
+            }
 
         # OD-MOTY-3 diagnostic: share of T/W credit earned in weeks the player
         # was in the counted (starting) lineup vs depth weeks.
@@ -340,7 +370,7 @@ def replay(snapshot) -> dict[str, Any]:
         sens["creditCountedShare"] = counted / (counted + depth) if counted + depth else None
 
         # Anti-gaming diagnostics.
-        scored = [r for r in evaluation["rows"] if r.get("score") is not None]
+        scored = [r for r in evaluation["rows"] if r.get("rank") is not None]
         diag = {}
         if len(scored) >= 3:
             trades = [r["components"]["T"]["raw"]["trades"] for r in scored]
@@ -361,8 +391,10 @@ def replay(snapshot) -> dict[str, Any]:
             ]
             with_band = [(b, r) for b, r in zip(mean_band, scored) if b is not None]
             diag = {
-                "spearman_trades_vs_T": spearman(
-                    trades, [r["components"]["T"]["score"] for r in scored]
+                # T production half (context): T itself is unscored on an
+                # incomplete basis.
+                "spearman_trades_vs_T_production": spearman(
+                    trades, [r["components"]["T"]["productionScore"] for r in scored]
                 ),
                 "spearman_waiverMoves_vs_W": spearman(
                     moves, [r["components"]["W"]["score"] for r in scored]
@@ -375,7 +407,7 @@ def replay(snapshot) -> dict[str, Any]:
                     [r["management"] for r in scored],
                 ),
                 "spearman_unified_vs_legacy": spearman(
-                    [r["score"] for r in scored],
+                    [rank_value(r) for r in scored],
                     [legacy_score.get(r["ownerId"], 0.0) for r in scored],
                 ),
                 "nonPlayoffInTop3": [
@@ -398,8 +430,10 @@ def replay(snapshot) -> dict[str, Any]:
                     "rank": r.get("rank"),
                     "tied": bool(r.get("tied")),
                     "score": r.get("score"),
+                    "incomplete": r.get("incomplete"),
                     "earnedOf90": r.get("earnedOf90"),
                     "components": {k: r["components"][k]["score"] for k in COMPONENTS},
+                    "tProduction": r["components"]["T"]["productionScore"],
                     "contributions": r.get("contributions"),
                     "raw": {
                         "T_net": r["components"]["T"]["raw"]["netSurplus"],
@@ -421,6 +455,8 @@ def replay(snapshot) -> dict[str, Any]:
                 "season": season.season,
                 "status": evaluation["status"],
                 "official": evaluation["official"],
+                "promotion": evaluation.get("promotion"),
+                "scoreBasis": evaluation.get("scoreBasis"),
                 "asOfWeek": evaluation["asOfWeek"],
                 "coverage": evaluation["coverage"],
                 "parameters": evaluation["parameters"],
@@ -443,7 +479,8 @@ def print_report(result: dict[str, Any], names: dict[str, str]) -> None:
     for s in result["seasons"]:
         cov = s["coverage"]
         print(
-            f"\n## {s['season']} — {s['status']} (as of week {s['asOfWeek']}), coverage {cov['status']}"
+            f"\n## {s['season']} — {s['status']} (as of week {s['asOfWeek']}), coverage {cov['status']}, "
+            f"basis {s['scoreBasis']}, {s['promotion']}"
         )
         print(f"reasons: {', '.join(cov['reasons'])}")
         print(
@@ -451,27 +488,45 @@ def print_report(result: dict[str, Any], names: dict[str, str]) -> None:
             f"· waiver/FA {cov['counts'].get('waiverMoves')} · trade FV {cov['tradeFutureValue']}"
         )
         print(
-            "| # | manager | rec | legacy (rank) | A | T | W | D | P | contrib A/T/W/D/P | score | T net | W net | D net | unobs |"
+            "| # | manager | rec | legacy (rank) | A | T | T prod (context) | W | D | P "
+            "| contrib A/T/W/D/P | score or measured/measurable | T net | W net | D net | unobs |"
         )
-        print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
+        print("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|")
         for r in s["rows"]:
             c = r["components"]
             con = r["contributions"] or {}
             contrib = "/".join(
-                _fmt(con.get(k)) if con.get(k) is not None else "pend" for k in COMPONENTS
+                _fmt(con.get(k))
+                if con.get(k) is not None
+                else ("n/s" if k == "T" and c["T"] is None else "pend")
+                for k in COMPONENTS
+            )
+            inc = r.get("incomplete")
+            total = (
+                _fmt(r["score"], 2)
+                if r["score"] is not None
+                else (
+                    f"{_fmt(inc['measuredPoints'], 2)}/{_fmt(inc['measurablePoints'], 0)}"
+                    if inc
+                    else "—"
+                )
             )
             rank = "—" if r["rank"] is None else (f"T{r['rank']}" if r["tied"] else str(r["rank"]))
             print(
                 f"| {rank} | {r['displayName']} | {r['record']} | {_fmt(r['legacyScore'], 3)} ({r['legacyRank']}) "
-                f"| {_fmt(c['A'])} | {_fmt(c['T'])} | {_fmt(c['W'])} | {_fmt(c['D'])} | {_fmt(c['P'])} "
-                f"| {contrib} | {_fmt(r['score'], 2)} | {_fmt(r['raw']['T_net'])} | {_fmt(r['raw']['W_net'])} "
+                f"| {_fmt(c['A'])} | {'n/s' if c['T'] is None else _fmt(c['T'])} | {_fmt(r['tProduction'])} "
+                f"| {_fmt(c['W'])} | {_fmt(c['D'])} | {_fmt(c['P'])} "
+                f"| {contrib} | {total} | {_fmt(r['raw']['T_net'])} | {_fmt(r['raw']['W_net'])} "
                 f"| {_fmt(r['raw']['D_net'])} | {r['raw']['unobservedWeeks']} |"
             )
         lw, uw = (
             names.get(s["legacyWinner"], s["legacyWinner"]),
             names.get(s["unifiedWinner"], s["unifiedWinner"]),
         )
-        print(f"legacy winner: {lw} · unified winner: {uw} · changed: {s['winnerChanged']}")
+        print(
+            f"legacy (existing method) leader: {lw} · unified validation leader: {uw} · "
+            f"differs: {s['winnerChanged']}"
+        )
         sens = s["sensitivity"]
         flips = [x for x in sens["weights"] if x["winnerChanged"]]
         taus = [x["kendallTau"] for x in sens["weights"] if x["kendallTau"] is not None]
@@ -499,12 +554,18 @@ def print_report(result: dict[str, Any], names: dict[str, str]) -> None:
             f"W unobserved weeks imputed at {_fmt(x['meanObservedChargePerWeek'], 2)}/wk: winner "
             f"{names.get(x['winner'], x['winner'])} (changed {x['winnerChanged']}), tau {_fmt(x['kendallTau'], 2)}"
         )
-        x = sens["excludeFuturePickTrades"]
+        x = sens["v1ProductionOnlyT"]
         print(
-            f"proposed repair OD-MOTY-7 (exclude {x['tradesExcluded']} future-pick trades from T): winner "
-            f"{names.get(x['winner'], x['winner'])} (changed {x['winnerChanged']}), tau {_fmt(x['kendallTau'], 2)}; "
-            "T: " + ", ".join(f"{names.get(o, o)} {_fmt(v)}" for o, v in x["T"].items())
+            f"v1 counterfactual (production-only T scored, RETIRED): leader "
+            f"{names.get(x['winner'], x['winner'])} (changed {x['winnerChanged']}), tau {_fmt(x['kendallTau'], 2)}"
         )
+        x = sens.get("tUnscoredLeaderMargin")
+        if x:
+            print(
+                f"top-two margin {_fmt(x['margin'], 2)} measured pts vs T's {_fmt(x['tMaxPoints'], 0)} unscored pts: "
+                f"leader robust to any T = {x['leaderRobustToAnyT']}; could lead under some T: "
+                + ", ".join(names.get(o, o) for o in x["couldLeadUnderSomeT"])
+            )
         print(
             f"T/W credit earned in counted-lineup weeks: {_fmt((sens['creditCountedShare'] or 0) * 100)}%"
         )

@@ -511,9 +511,15 @@ function AwardHistoryModal({ awardKey, label, description, history, managers, on
                     style={{ fontSize: "0.7rem", color: "var(--subtext)", marginTop: 4 }}
                     data-moty-candidate
                   >
-                    Unified method (candidate, not official): {award.unifiedCandidate.displayName}
+                    Unified method (validation track — PARTIAL / NOT PROMOTED, not official):{" "}
+                    {award.unifiedCandidate.displayName}
                     {" · "}
-                    {fmtNumber(award.unifiedCandidate.score, 1)}
+                    {award.unifiedCandidate.score != null
+                      ? fmtNumber(award.unifiedCandidate.score, 1)
+                      : `${fmtNumber(award.unifiedCandidate.measuredPoints, 1)} of ${fmtNumber(
+                          award.unifiedCandidate.measurablePoints,
+                          0,
+                        )} measured pts (trades not scored)`}
                   </div>
                 )}
                 {award.key === "best_trade_of_the_year" && award.value?.trade && (

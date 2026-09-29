@@ -1,15 +1,19 @@
-# Unified Manager of the Year — methodology record (v1 candidate)
+# Unified Manager of the Year — methodology record (VALIDATION TRACK)
 
-**Status:** CANDIDATE METHODOLOGY — implemented, replayed, **not promoted**; one pathology open (§11.4, OD-MOTY-7). Official historical winners are
-unchanged (§9).
-**Method version:** `moty-unified-v1-2026-09-28`
+**Status:** **VALIDATION TRACK — PARTIAL / NOT PROMOTED.** Implemented and replayed; **not** the official award in
+any season (§9). Owner direction 2026-09-29: keep it a validation track until net trade / waiver / draft value
+accounting is defensible; do not promote because tests pass; do not tune weights toward a preferred winner.
+**Method version:** `moty-unified-v1.1-2026-09-29` (v1 `moty-unified-v1-2026-09-28` + the OD-MOTY-7 rule of §11.5:
+T is **unavailable**, not production-only, while its future-value half cannot be measured).
 **Owner decision:** 2026-09-28, recorded in `docs/OWNER_REQUESTED_TODO.md` ("ONE unified Manager of the Year").
 **Implementation:** `src/public_league/manager_of_the_year.py` (engine), wired through
 `src/public_league/awards.py` (the canonical awards owner), rendered by
-`frontend/app/league/sections/awards.jsx` (`ManagerOfTheYearCard`).
+`frontend/app/league/sections/manager-of-the-year.jsx` beside the existing Manager of the Year card.
 **Freeze:** every definition and parameter in §1–§8 was written and committed **before** any season's
 Manager of the Year result was computed. The replay (§11) was run afterwards against the frozen code. A change
-to anything in §1–§8 is a methodology change and bumps the method version.
+to anything in §1–§8 is a methodology change and bumps the method version — v1.1 is exactly such a change, made
+because the v1 replay exposed OD-MOTY-7 (§11.4), and it was decided from the evidence audit (§11.0), **not** from
+who wins (the leaders are unchanged by it in every season).
 
 The weights are the owner's proposed award-policy weights. They are **not** statistically validated, and a
 plausible-looking winner list is not validation (§11.4).
@@ -36,11 +40,20 @@ earnedOf90       =  0.40·A + 0.25·T + 0.15·W + 0.10·D                   (pub
 * **Provisional** — P pending (the championship final has no winner yet). Label: *"Provisional score — postseason
   component pending."* The same division applies to every manager; there is no per-manager reweighting.
 * **Final** — the final has a winner; the full formula applies.
-* **Unscored** — any of A/T/W/D is unmeasurable for that manager (e.g. no finished week yet): the row publishes
+* **Unscored** — any of A/W/D is unmeasurable for that manager (e.g. no finished week yet): the row publishes
   its components and no score. Never 0, never 50.
+* **Incomplete** (v1.1) — T is **unavailable** for the season (its future-value half cannot be measured, §5.5 /
+  §11.5). No Manager of the Year score exists. Each row publishes `incomplete = {measuredPoints,
+  measurablePoints, measuredComponents, unscoredComponents}`: the frozen weights applied to the components that
+  **were** measured, out of the points those components can earn (65 while P is pending, 75 once P is final).
+  T's 25 points are **missing, not redistributed** — nothing is divided by 0.75. Rows get a *validation* rank on
+  `measuredPoints` (same denominator for every manager, because T availability is season-wide), and the
+  evaluation publishes `unscoredTradeRange` — every manager the unscored T (up to 25 points) could put first.
+* **Promotion** — `promotion: not_promoted` until the owner promotes the method (OD-MOTY-1); `official` is true
+  only for a promoted season with complete coverage and a final P.
 * **Coverage** — `complete` only when every channel below is fully measurable for the season; otherwise
   `partial`, with machine-readable reasons (§8).
-* **Official** — see §9. In v1 every season's unified result is a **candidate**.
+* **Official** — see §9. Every season's unified result is a **validation-track candidate** (PARTIAL / NOT PROMOTED).
 
 Contributions are published per component (out of 40 / 25 / 15 / 10 / 10). Ranking uses full precision; only
 display rounds.
@@ -198,8 +211,13 @@ values never leave the backend (public/private boundary): only the normalized ch
 are published. Acquisition-time advantage only; later value drift is not credited (it would mix model-wide
 inflation into managerial value and double-count surplus the P-channel already measures).
 
-`T = 0.5 · P-channel + 0.5 · FV-channel` when the FV-channel is complete for the season (the 50/50 candidate);
-otherwise `T = P-channel`, labelled `partial`. FAAB moved in trades is reported (`faabTradedNet`), not converted.
+`T = 0.5 · P-channel + 0.5 · FV-channel` when the FV-channel is complete for the season (the 50/50 candidate).
+**Otherwise T is UNAVAILABLE (v1.1)** — `score: null`, `coverage: unavailable`, `unscoredReason:
+trade_future_value_{partial|unavailable}` — and the P-channel is published only as labelled context
+(`productionScore`), excluded from every total. (v1 used `T = P-channel` here; the replay showed that scores one
+side of every exchange — §11.4.) A season with **no** window trades has nothing unmeasured and is complete by
+construction (T = 50) whether or not a valuation source is supplied. FAAB moved in trades is reported
+(`faabTradedNet`), not converted.
 Forced roster-space drops caused by a trade land in W (the drop's channel); the canonical roster-capacity owner
 lives in `src/trade`, which the public package may not import. No trade-count bonus.
 
@@ -275,7 +293,8 @@ no decision-time values). W is labelled `partial`.
 | production share inside a two-channel subscore | 0.5 | `PRODUCTION_SHARE` |
 | draft band size | 10 picks | `DRAFT_BAND_SIZE` |
 | annual / startup expectation tables | §5.6 | `ANNUAL_BAND_EXPECTATION`, `STARTUP_BAND_EXPECTATION` |
-| first official season | none (candidate only) | `OFFICIAL_FROM_SEASON = None` |
+| first official season | none (validation track only) | `OFFICIAL_FROM_SEASON = None` |
+| T while its FV half is incomplete | **unavailable** (v1.1); nothing redistributed | `_trade_score`, `BASIS_INCOMPLETE` |
 
 ## 7. Ties
 
@@ -285,9 +304,11 @@ tie on all three is an honest shared rank (`tied: true`). Never owner id, name o
 ## 8. Coverage and uncertainty (published per season and per channel)
 
 * `coverage.status` — `complete` or `partial`; `coverage.reasons` names each gap:
-  `trade_future_value_{unavailable|partial}`, `waiver_future_value_not_implemented`,
+  `trade_future_value_{unavailable|partial}`, `trade_component_unscored` (v1.1), `waiver_future_value_not_implemented`,
   `draft_future_value_not_implemented`, `window_baseline_unavailable`, `ledger_reconciliation_gaps`.
 * `coverage.tradeFutureValue` — status, trades, valuedTrades.
+* `scoreBasis` — `full` | `incomplete` | `none`; `promotion` — `not_promoted` | `promoted`;
+  `unscoredTradeRange` — on an incomplete basis, `{tMaxPoints, couldLeadUnderSomeT, leaderDetermined}`.
 * `coverage.reconciliation` — player-weeks the ledger could not explain (held without an acquisition event;
   missing without an exit event), and roster-weeks absent.
 * per manager, per channel — `coverage`, `productionScore`, `futureValueScore`, and `unobservedWeeks`.
@@ -297,22 +318,25 @@ tie on all three is an honest shared rank (`tied: true`). Never owner id, name o
 
 ## 9. Official vs candidate; historical records
 
-`OFFICIAL_FROM_SEASON = None`. Therefore:
+`OFFICIAL_FROM_SEASON = None`. Therefore, in **every** season (v1.1, owner direction 2026-09-29):
 
-* **Completed seasons (2024, 2025)** keep their existing official Manager of the Year winner (the legacy
-  composite, `awards._manager_of_the_year_scores`) exactly as published before this unit. The unified result is
-  attached to that award as `unifiedCandidate` and published in the season's `managerOfTheYear` block, labelled
-  candidate. No trophy record is rewritten.
-* **The live season (2026)** — its race and award card show the unified **provisional** score (a live leader is
-  not an official record), with the method version and the candidate label.
+* The Manager of the Year **card and race** are the existing method's (the legacy composite,
+  `awards._manager_of_the_year_scores` — no playoff or record gate), byte-identical to `main`. Completed seasons
+  keep their existing official winner; the live season's race is the existing race. (v1 let the unified
+  *provisional* result drive the live 2026 card and race; that presented an unpromoted candidate as the award and
+  is withdrawn.)
+* The unified evaluation rides **beside** the card as `unifiedCandidate` (award) and the season's
+  `managerOfTheYear` block, labelled **"Validation track — PARTIAL / NOT PROMOTED"**, never "Final", never
+  "Provisional score", never a score out of 100 while T is unavailable.
 * Promotion is a deliberate edit of `OFFICIAL_FROM_SEASON` (and a method-version bump if anything else changes),
   after owner review of this record — never automatic. A season is official only when its coverage is `complete`
-  and P is final.
+  and P is final. `_moty_is_live` is the one switch and is test-pinned.
 
 ## 10. Remaining owner decisions
 
 * **OD-MOTY-1 — promotion.** Whether (and from which season) the unified award becomes official, and whether
-  2024/2025 may ever be re-awarded under it given their permanent `partial` coverage (§11.1).
+  2024/2025/2026 may ever be re-awarded under it: under current evidence none of them can reach `complete`
+  (§11.0), so under §9 none can become official.
 * **OD-MOTY-2 — FAAB.** Keep FAAB as context only (v1), or approve a conversion basis for a scored cost.
 * **OD-MOTY-3 — counted vs depth surplus.** v1 credits above-replacement depth weeks; scoring only counted starts
   needs a per-week slot-structure and game-time-holding record the evidence does not have for 2025.
@@ -321,15 +345,71 @@ tie on all three is an honest shared rank (`tied: true`). Never owner id, name o
 * **OD-MOTY-5 — unobserved surrendered weeks.** Materialize weekly scores for unrostered players (host stat lines
   scored under the league card) so W's charge side is complete, or accept the documented bias (§11.3).
 * **OD-MOTY-6 — future-value channels.** Public/private boundary: the FV-channel publishes only derived scores.
-  Approve the T FV-channel for scoring once a season has complete decision-time coverage (first possible: 2027),
-  and decide whether W/D future value should be built.
-* **OD-MOTY-7 — T without its future-value half (found in the replay, §11.4).** Production-only T penalizes
-  rebuilding trades and rewards win-now trades whose surrendered picks cannot be valued. Choose a repair (§11.4)
-  before the unified race is released publicly or promoted.
+  Approve the T FV-channel for scoring once a season has complete decision-time coverage (first possible: 2027 —
+  §11.0), and decide whether W/D future value should be built.
+* **OD-MOTY-7 — T without its future-value half.** *Interim rule applied in v1.1 (§11.5): T unavailable, measured
+  points + validation rank, nothing redistributed.* The owner confirms or replaces it.
+* **OD-MOTY-8 — the outer result while T is unavailable (new).** v1.1 publishes **no** Manager of the Year score
+  and ranks on measured points out of 65/75. The owner decides whether that validation rank may be shown to the
+  league at all (it is labelled and never official, but the top two are within T's 25 points in every replayed
+  season, so the evidence does not decide the leader — §11.2), or whether the card should show the components only.
+* **OD-MOTY-9 — W and D are still production-only (new).** Their future-value halves are not implemented (§5.6,
+  §5.7). v1.1 keeps them scored, labelled `partial`, because unlike a trade their unmeasured side is not the
+  counter-consideration of an exchange (a waiver claim's cost is FAAB + a roster spot, reported; a draft pick is
+  measured against its own slot's production expectation). A rebuilding manager who drops veterans for stashes is
+  still charged in W. The owner decides whether W/D must meet the same "both halves or unavailable" bar as T.
+* **OD-MOTY-10 — the card while the method is unpromoted (new).** v1.1 keeps the existing (legacy composite) card
+  and race in every season, as on `main`. The owner decides whether that stays, or the card shows "awaiting a
+  validated method" instead.
 
 ## 11. Data / coverage audit and historical replay
 
-§11.1 is the Phase 1 audit (evidence inventory; no scores). §11.2–§11.4 are appended after the freeze.
+§11.0 is the 2026-09-29 evidence audit behind v1.1 (what historical evidence actually exists, measured). §11.1 is
+the Phase 1 audit (evidence inventory; no scores). §11.2–§11.5 are appended after the freeze.
+
+### 11.0 Evidence audit — what can be measured, per season and component (2026-09-29)
+
+Sources: the canonical history owner (`src/history/store.py` — `HISTORY_FLOOR = "2026-07-14"`, permanent: writes
+before it are refused; `src/history/asof.py::batch_known_before` — instant-strict, never selects a later
+observation, answers `before_history_boundary` / `no_prior_observation`), the as-of trade resolver
+(`src/api/public_activity_valuation.build_asof_valuation`, which the MOTY FV-channel reuses verbatim), the public
+snapshot (2026-09-26T07:15Z), `exports/archive/`, and the **production** public activity feed
+(`GET /api/public/league/activity`, generated 2026-09-29T12:23Z), whose per-side trade grades are exactly
+`build_asof_valuation` run against the production temporal ledger — the one place the canonical-board lane can be
+measured (that lane is recorded on the production host; the repo holds only the archive's vendor/scraper lanes).
+
+**Evidence items**
+
+| evidence | owner / source | 2024 | 2025 | 2026 |
+|---|---|---|---|---|
+| historical valuation snapshots | temporal ledger; `exports/archive/` (131 bundles, 77 consecutive dates 2026-07-14 → 2026-09-28, no gaps; raw vendor + scraper-blend values) | none (before floor) | none | from 2026-07-14 only; generic-grade future-pick rows ("2027 Round 1") only from C1-U6 (2026-08-16) |
+| trade package value at trade time | `build_asof_valuation` → `asof.batch_known_before` (measured on production) | **0 / 29** trades (all `before_history_boundary`) | **0 / 124** | **25 / 69**: 37 offseason trades (2026-01-06 → 07-13) 0 valued; 32 post-floor: 25 valued, 7 not (2026-07-31 → 08-15, every miss a generic-grade future pick — 36 pick assets); every trade from 2026-08-16 on valued (19 / 19) |
+| player value at acquisition time | same | none | none | trades: every post-floor player resolved (0 player misses); waiver/FA adds: 131 of 221 window adds post-floor, ≤ 80 with a prior-day archived vendor value (upper bound; canonical lane not readable offline); 90 pre-floor adds: none |
+| pick value at trade time | canonical board pick rows via `MarketPickRef` generic grade | none | none | none before 2026-08-16; resolved after |
+| future-pick ownership over time | snapshot trade `draft_picks` moves + `traded_picks` | reconstructable (17 future picks traded) | reconstructable (122) | reconstructable (54) |
+| draft outcomes | snapshot drafts + weekly `players_points` | measurable (startup 240 + annual 100) | measurable (annual 70) | measurable (auction 84; 2 finished weeks) |
+| draft value at decision time (pick / rookie) | temporal ledger | none | none | none (May auction precedes the floor) |
+| waiver acquisition cost / FAAB cost | `settings.waiver_bid` on completed claims | measurable (2,859 spent) | measurable (1,732) | measurable (683) — value conversion: no approved basis (OD-MOTY-2) |
+| roster improvement | weekly `players` + `players_points` (RLS, §5.1) | measurable (unobservable weeks counted) | measurable | measurable |
+| acquisition efficiency | derivable (surplus per FAAB $) | context only, no validated scoring basis | same | same |
+
+**Per component** (M = measurable, P = partially measurable, N = not measurable)
+
+| component | 2024 | 2025 | 2026 |
+|---|---|---|---|
+| A — all-play | **M** (130/130 team-weeks) | **M** (130/130) | **M** (24/24 at week 2) |
+| T — production half | **M** (4 unobservable charge weeks) | **M** (102) | **M** (4) |
+| T — future-value half | **N** (0/28 window trades; permanent) | **N** (0/124; permanent) | **P → never complete** (25/69; the 44 unvalued are permanent: 37 before the floor + 7 before generic pick grades were recorded) |
+| W — waiver / roster | **P**: production M (364 unobservable charge weeks); FAAB reported, not convertible; future value N | **P** (833); FV N | **P** (118); FV partially observable (≤ 80/221 adds), no method |
+| D — draft | **P**: production vs slot expectation M (in-sample table); decision-time value N | **P** (in-sample) | **P** (out-of-sample table); decision-time value N |
+| P — postseason | **M** (resolved, 5 entrants) | **M** | pending (7 entrants) |
+
+**Conclusion.** No complete, defensible trade value is supported for any replayed season: 2024/2025 have no
+decision-time valuations at all and never will (the floor is permanent; today's values may not stand in), and
+2026's offseason trades and its pre-2026-08-16 pick trades are permanently unvaluable, so 2026's FV-channel can
+never be complete. The first season whose whole window can be valued is **2027** (its window opens after the 2026
+championship, after both the floor and C1-U6), subject to OD-MOTY-6. Therefore T is made **unavailable** rather
+than scored (§11.5) — the task's "if not supported" branch. No other component changed.
 
 ### 11.1 Coverage audit (Phase 1)
 
@@ -354,7 +434,7 @@ cross-checked against a fresh 2026-09-29 pull for 2024/2025 (identical).
 | FAAB | budget 1000; 2,859 spent; 125 traded | budget 200; 1,732 spent; 4 FAAB trades | budget 100; 683 spent; 5 traded |
 | surrendered-player weeks unobservable (charge side) | W 364 · T 4 | W 833 · T 102 | W 118 · T 4 |
 | drafted-player weeks unobservable | 368 of 4,420 | 59 of 910 | 18 of 168 |
-| decision-time dynasty valuations (temporal ledger, floor 2026-07-14) | **none** | **none** | 30 of 67 window trades after the floor; the 37 offseason trades and the May auction precede it |
+| decision-time dynasty valuations (temporal ledger, floor 2026-07-14) | **none** | **none** | 30 of 67 window trades after the floor (timestamp count; measured resolution 25 of 69 — §11.0); the 37 offseason trades and the May auction precede it |
 | decision-time pick valuations | none | none | none for the May 2026 draft; post-floor future picks only |
 | scoring settings | current card only; `players_points` are the host's scores at the time | same | same |
 | winners bracket | resolved, 5 entrants | resolved, 5 entrants | pending (7 entrants) |
@@ -366,164 +446,188 @@ decision-time valuations do not exist and today's rankings may not stand in for 
 partial (the offseason trades precede the history floor). Every season is therefore `partial`, and no season can
 produce a fully comparable official winner under v1.
 
-### 11.2 Historical replay (run after the freeze, against the frozen v1 code)
+### 11.2 Historical replay — v1.1 (T unavailable)
 
-Command: `python scripts/replay_manager_of_the_year.py --snapshot data/public_league/snapshot.json` (the
-2026-09-26 snapshot, so 2026 is exactly the host-finalized weeks 1–2). No valuation source is supplied offline,
-so the trade future-value channel reports `unavailable` in every season — which is also its production answer
-for 2024/2025, and a `partial` answer for 2026 (30 of 67 window trades post-date the history floor). Columns:
-record, legacy composite (legacy rank), component scores 0–100, contributions out of 40/25/15/10/10, unified
-score, raw nets in replacement-level-surplus points, unobservable player-weeks. "pend" = P pending.
+Command: `python scripts/replay_manager_of_the_year.py --snapshot data/public_league/snapshot.json` against the
+2026-09-26T07:15Z snapshot (so 2026 is exactly the host-finalized weeks 1–2). Offline no valuation source is
+supplied, so T's FV-channel reports `unavailable`; the production answer is `unavailable` for 2024/2025 and
+`partial` (25/69) for 2026 — both make T unavailable under §11.5, so **the offline replay is the production
+result**. Columns: record, legacy composite (legacy rank), component scores 0–100 ("n/s" = not scored), the
+production half of T as labelled context, measured points / measurable points, raw nets in
+replacement-level-surplus points, unobservable player-weeks. "pend" = P pending. v1's tables (production-only T
+scored) are in this file's history at commit `526c6659c`.
 
-#### 2026 — provisional (as of week 2), coverage partial
+#### 2026 — provisional (as of week 2), basis incomplete, not_promoted
 
-| # | manager | rec | legacy (rank) | A | T | W | D | P | contrib A/T/W/D/P | score | T net | W net | D net | unobs |
+| # | manager | rec | legacy (rank) | A | T | T production (context, not scored) | W | D | P | measured / measurable | T net | W net | D net | unobs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | Brent | 3-1 | 0.779 (1) | 95.5 | 67.6 | 93.5 | 50.0 | — | 38.2/16.9/14.0/5.0/pend | 82.33 | 22.1 | 80.1 | 0.0 | 17 |
-| 2 | Eric | 2-2 | 0.583 (4) | 59.1 | 99.1 | 81.0 | 50.0 | — | 23.6/24.8/12.1/5.0/pend | 72.84 | 141.6 | 43.5 | 0.0 | 13 |
-| 3 | Joey | 4-0 | 0.763 (2) | 81.8 | 53.0 | 43.7 | 62.6 | — | 32.7/13.2/6.6/6.3/pend | 65.33 | 3.6 | -7.6 | 15.5 | 4 |
-| 4 | Kich | 2-2 | 0.546 (5) | 63.6 | 51.0 | 74.1 | 27.2 | — | 25.5/12.7/11.1/2.7/pend | 57.82 | 1.2 | 31.6 | -29.6 | 17 |
-| 5 | jstuedle | 1-3 | 0.369 (10) | 50.0 | 50.0 | 92.4 | 41.2 | — | 20.0/12.5/13.9/4.1/pend | 56.09 | 0.0 | 75.2 | -10.7 | 2 |
-| 6 | Jason | 3-1 | 0.511 (6) | 59.1 | 47.4 | 71.2 | 14.4 | — | 23.6/11.9/10.7/1.4/pend | 52.90 | -3.1 | 27.2 | -53.5 | 6 |
-| 7 | Ty | 2-2 | 0.380 (8) | 40.9 | 81.0 | 50.0 | 31.0 | — | 16.4/20.2/7.5/3.1/pend | 52.45 | 43.5 | 0.0 | -24.0 | 4 |
-| 8 | Blaine | 1-3 | 0.378 (9) | 13.6 | 80.3 | 91.3 | 35.4 | — | 5.5/20.1/13.7/3.5/pend | 47.53 | 42.3 | 70.8 | -18.0 | 7 |
-| 9 | Ed | 2-2 | 0.460 (7) | 45.5 | 34.6 | 54.2 | 46.6 | — | 18.2/8.7/8.1/4.7/pend | 44.03 | -19.1 | 5.0 | -4.1 | 30 |
-| 10 | MaKayla | 3-1 | 0.610 (3) | 50.0 | 8.8 | 68.9 | 35.9 | — | 20.0/2.2/10.3/3.6/pend | 40.16 | -70.1 | 23.9 | -17.4 | 25 |
-| 11 | Collin | 1-3 | 0.258 (11) | 27.3 | 24.9 | 27.9 | 44.3 | — | 10.9/6.2/4.2/4.4/pend | 28.62 | -33.2 | -28.5 | -6.9 | 15 |
-| 12 | Roy | 0-4 | 0.145 (12) | 13.6 | 1.5 | 64.3 | 38.0 | — | 5.5/0.4/9.6/3.8/pend | 21.41 | -125.7 | 17.6 | -14.7 | 2 |
+| 1 | Brent | 3-1 | 0.779 (1) | 95.5 | n/s | 67.6 | 93.5 | 50.0 | pend | 57.20 / 65 | 22.1 | 80.1 | 0.0 | 17 |
+| 2 | Joey | 4-0 | 0.763 (2) | 81.8 | n/s | 53.0 | 43.7 | 62.6 | pend | 45.55 / 65 | 3.6 | -7.6 | 15.5 | 4 |
+| 3 | Eric | 2-2 | 0.583 (4) | 59.1 | n/s | 99.1 | 81.0 | 50.0 | pend | 40.78 / 65 | 141.6 | 43.5 | 0.0 | 13 |
+| 4 | Kich | 2-2 | 0.546 (5) | 63.6 | n/s | 51.0 | 74.1 | 27.2 | pend | 39.29 / 65 | 1.2 | 31.6 | -29.6 | 17 |
+| 5 | jstuedle | 1-3 | 0.369 (10) | 50.0 | n/s | 50.0 | 92.4 | 41.2 | pend | 37.98 / 65 | 0.0 | 75.2 | -10.7 | 2 |
+| 6 | Jason | 3-1 | 0.511 (6) | 59.1 | n/s | 47.4 | 71.2 | 14.4 | pend | 35.75 / 65 | -3.1 | 27.2 | -53.5 | 6 |
+| 7 | MaKayla | 3-1 | 0.610 (3) | 50.0 | n/s | 8.8 | 68.9 | 35.9 | pend | 33.93 / 65 | -70.1 | 23.9 | -17.4 | 25 |
+| 8 | Ed | 2-2 | 0.460 (7) | 45.5 | n/s | 34.6 | 54.2 | 46.6 | pend | 30.97 / 65 | -19.1 | 5.0 | -4.1 | 30 |
+| 9 | Ty | 2-2 | 0.380 (8) | 40.9 | n/s | 81.0 | 50.0 | 31.0 | pend | 26.97 / 65 | 43.5 | 0.0 | -24.0 | 4 |
+| 10 | Blaine | 1-3 | 0.378 (9) | 13.6 | n/s | 80.3 | 91.3 | 35.4 | pend | 22.70 / 65 | 42.3 | 70.8 | -18.0 | 7 |
+| 11 | Collin | 1-3 | 0.258 (11) | 27.3 | n/s | 24.9 | 27.9 | 44.3 | pend | 19.53 / 65 | -33.2 | -28.5 | -6.9 | 15 |
+| 12 | Roy | 0-4 | 0.145 (12) | 13.6 | n/s | 1.5 | 64.3 | 38.0 | pend | 18.89 / 65 | -125.7 | 17.6 | -14.7 | 2 |
 
-Legacy winner: Brent · unified winner: Brent · changed: False
-#### 2025 — final (as of week 13), coverage partial
+Validation leader: **Brent** (existing method: Brent). Top-two margin 11.66 measured pts < T's 25 unscored pts → **leader not determined by the evidence**; could lead under some T: Brent, Joey, Eric, Kich, jstuedle, Jason, MaKayla.
 
-| # | manager | rec | legacy (rank) | A | T | W | D | P | contrib A/T/W/D/P | score | T net | W net | D net | unobs |
+#### 2025 — final (as of week 13), basis incomplete, not_promoted
+
+| # | manager | rec | legacy (rank) | A | T | T production (context, not scored) | W | D | P | measured / measurable | T net | W net | D net | unobs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | Brent | 21-5 | 0.963 (1) | 83.8 | 95.9 | 98.5 | 45.4 | 80.0 | 33.5/24.0/14.8/4.5/8.0 | 84.80 | 515.0 | 675.7 | -29.9 | 196 |
-| 2 | Ed | 15-11 | 0.764 (2) | 53.0 | 82.7 | 86.7 | 52.3 | 100.0 | 21.2/20.7/13.0/5.2/10.0 | 70.10 | 254.7 | 304.4 | 15.0 | 137 |
-| 3 | Joey | 15-11 | 0.630 (4) | 54.7 | 72.6 | 77.6 | 49.2 | 50.0 | 21.9/18.1/11.6/4.9/5.0 | 61.58 | 158.2 | 202.1 | -5.0 | 81 |
-| 4 | MaKayla | 15-11 | 0.654 (3) | 55.6 | 42.1 | 87.4 | 42.4 | 50.0 | 22.2/10.5/13.1/4.2/5.0 | 55.10 | -51.9 | 315.8 | -49.9 | 84 |
-| 5 | Kich | 11-15 | 0.420 (7) | 47.9 | 79.9 | 81.3 | 30.8 | 0.0 | 19.1/20.0/12.2/3.1/0.0 | 54.40 | 224.7 | 239.1 | -131.7 | 83 |
-| 6 | Eric | 8-18 | 0.341 (8) | 41.0 | 79.7 | 91.5 | 40.5 | 0.0 | 16.4/19.9/13.7/4.0/0.0 | 54.11 | 222.5 | 386.8 | -62.6 | 130 |
-| 7 | Ty | 15-11 | 0.507 (6) | 47.9 | 34.5 | 72.5 | 53.0 | 20.0 | 19.1/8.6/10.9/5.3/2.0 | 45.94 | -104.4 | 157.8 | 19.2 | 40 |
-| 8 | Roy | 10-16 | 0.295 (9) | 43.6 | 29.7 | 85.9 | 45.9 | 0.0 | 17.4/7.4/12.9/4.6/0.0 | 42.34 | -140.0 | 294.2 | -26.7 | 35 |
-| 9 | Collin | 13-13 | 0.513 (5) | 41.0 | 17.8 | 92.4 | 47.4 | 0.0 | 16.4/4.5/13.9/4.7/0.0 | 39.45 | -249.0 | 405.5 | -17.0 | 68 |
-| 10 | Jason | 7-19 | 0.144 (10) | 31.6 | 1.6 | 84.3 | 35.0 | 0.0 | 12.6/0.4/12.6/3.5/0.0 | 29.19 | -675.1 | 273.9 | -100.5 | 140 |
+| 1 | Brent | 21-5 | 0.963 (1) | 83.8 | n/s | 95.9 | 98.5 | 45.4 | 80.0 | 60.81 / 75 | 515.0 | 675.7 | -29.9 | 196 |
+| 2 | Ed | 15-11 | 0.764 (2) | 53.0 | n/s | 82.7 | 86.7 | 52.3 | 100.0 | 49.43 / 75 | 254.7 | 304.4 | 15.0 | 137 |
+| 3 | MaKayla | 15-11 | 0.654 (3) | 55.6 | n/s | 42.1 | 87.4 | 42.4 | 50.0 | 44.58 / 75 | -51.9 | 315.8 | -49.9 | 84 |
+| 4 | Joey | 15-11 | 0.630 (4) | 54.7 | n/s | 72.6 | 77.6 | 49.2 | 50.0 | 43.44 / 75 | 158.2 | 202.1 | -5.0 | 81 |
+| 5 | Ty | 15-11 | 0.507 (6) | 47.9 | n/s | 34.5 | 72.5 | 53.0 | 20.0 | 37.32 / 75 | -104.4 | 157.8 | 19.2 | 40 |
+| 6 | Collin | 13-13 | 0.513 (5) | 41.0 | n/s | 17.8 | 92.4 | 47.4 | 0.0 | 35.00 / 75 | -249.0 | 405.5 | -17.0 | 68 |
+| 7 | Roy | 10-16 | 0.295 (9) | 43.6 | n/s | 29.7 | 85.9 | 45.9 | 0.0 | 34.91 / 75 | -140.0 | 294.2 | -26.7 | 35 |
+| 8 | Kich | 11-15 | 0.420 (7) | 47.9 | n/s | 79.9 | 81.3 | 30.8 | 0.0 | 34.42 / 75 | 224.7 | 239.1 | -131.7 | 83 |
+| 9 | Eric | 8-18 | 0.341 (8) | 41.0 | n/s | 79.7 | 91.5 | 40.5 | 0.0 | 34.19 / 75 | 222.5 | 386.8 | -62.6 | 130 |
+| 10 | Jason | 7-19 | 0.144 (10) | 31.6 | n/s | 1.6 | 84.3 | 35.0 | 0.0 | 28.80 / 75 | -675.1 | 273.9 | -100.5 | 140 |
 
-Legacy winner: Brent · unified winner: Brent · changed: False
-#### 2024 — final (as of week 13), coverage partial
+Validation leader: **Brent** (existing method: Brent). Top-two margin 11.39 measured pts < T's 25 unscored pts → **leader not determined by the evidence**; could lead under some T: Brent, Ed, MaKayla, Joey, Ty.
 
-| # | manager | rec | legacy (rank) | A | T | W | D | P | contrib A/T/W/D/P | score | T net | W net | D net | unobs |
+#### 2024 — final (as of week 13), basis incomplete, not_promoted
+
+| # | manager | rec | legacy (rank) | A | T | T production (context, not scored) | W | D | P | measured / measurable | T net | W net | D net | unobs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | Ty | 21-5 | 0.841 (1) | 81.2 | 66.1 | 93.9 | 98.3 | 50.0 | 32.5/16.5/14.1/9.8/5.0 | 77.92 | 95.0 | 389.3 | 572.9 | 68 |
-| 2 | Roy | 17-9 | 0.785 (2) | 66.7 | 49.1 | 94.4 | 63.6 | 80.0 | 26.7/12.3/14.2/6.4/8.0 | 67.47 | -4.9 | 401.5 | 79.5 | 144 |
-| 3 | Joey | 14-12 | 0.654 (3) | 53.0 | 50.0 | 85.2 | 79.1 | 100.0 | 21.2/12.5/12.8/7.9/10.0 | 64.38 | 0.0 | 248.3 | 189.0 | 104 |
-| 4 | MaKayla | 15-11 | 0.626 (4) | 55.6 | 57.3 | 87.0 | 62.5 | 50.0 | 22.2/14.3/13.0/6.2/5.0 | 60.84 | 41.7 | 270.1 | 72.4 | 86 |
-| 5 | Ed | 12-14 | 0.455 (5) | 42.7 | 70.1 | 85.6 | 12.0 | 20.0 | 17.1/17.5/12.8/1.2/2.0 | 50.66 | 121.4 | 253.4 | -283.7 | 44 |
-| 6 | Collin | 10-16 | 0.325 (8) | 52.1 | 47.6 | 78.7 | 59.5 | 0.0 | 20.9/11.9/11.8/6.0/0.0 | 50.50 | -13.9 | 185.9 | 54.9 | 40 |
-| 7 | Jason | 11-15 | 0.364 (7) | 41.0 | 51.1 | 88.9 | 46.5 | 0.0 | 16.4/12.8/13.3/4.7/0.0 | 47.17 | 6.1 | 296.1 | -19.7 | 138 |
-| 8 | Eric | 9-17 | 0.258 (9) | 38.5 | 43.4 | 88.9 | 14.2 | 0.0 | 15.4/10.8/13.3/1.4/0.0 | 40.98 | -37.8 | 295.5 | -255.6 | 81 |
-| 9 | Bwalk903 | 11-15 | 0.374 (6) | 37.6 | 50.9 | 70.4 | 7.9 | 0.0 | 15.0/12.7/10.6/0.8/0.0 | 39.11 | 4.9 | 123.1 | -349.2 | 28 |
-| 10 | SheriffB | 10-16 | 0.156 (10) | 31.6 | 27.7 | 50.0 | 91.0 | 0.0 | 12.6/6.9/7.5/9.1/0.0 | 36.17 | -136.5 | 0.0 | 329.1 | 4 |
+| 1 | Ty | 21-5 | 0.841 (1) | 81.2 | n/s | 66.1 | 93.9 | 98.3 | 50.0 | 61.39 / 75 | 95.0 | 389.3 | 572.9 | 68 |
+| 2 | Roy | 17-9 | 0.785 (2) | 66.7 | n/s | 49.1 | 94.4 | 63.6 | 80.0 | 55.19 / 75 | -4.9 | 401.5 | 79.5 | 144 |
+| 3 | Joey | 14-12 | 0.654 (3) | 53.0 | n/s | 50.0 | 85.2 | 79.1 | 100.0 | 51.88 / 75 | 0.0 | 248.3 | 189.0 | 104 |
+| 4 | MaKayla | 15-11 | 0.626 (4) | 55.6 | n/s | 57.3 | 87.0 | 62.5 | 50.0 | 46.51 / 75 | 41.7 | 270.1 | 72.4 | 86 |
+| 5 | Collin | 10-16 | 0.325 (8) | 52.1 | n/s | 47.6 | 78.7 | 59.5 | 0.0 | 38.61 / 75 | -13.9 | 185.9 | 54.9 | 40 |
+| 6 | Jason | 11-15 | 0.364 (7) | 41.0 | n/s | 51.1 | 88.9 | 46.5 | 0.0 | 34.40 / 75 | 6.1 | 296.1 | -19.7 | 138 |
+| 7 | Ed | 12-14 | 0.455 (5) | 42.7 | n/s | 70.1 | 85.6 | 12.0 | 20.0 | 33.13 / 75 | 121.4 | 253.4 | -283.7 | 44 |
+| 8 | Eric | 9-17 | 0.258 (9) | 38.5 | n/s | 43.4 | 88.9 | 14.2 | 0.0 | 30.14 / 75 | -37.8 | 295.5 | -255.6 | 81 |
+| 9 | SheriffB | 10-16 | 0.156 (10) | 31.6 | n/s | 27.7 | 50.0 | 91.0 | 0.0 | 29.25 / 75 | -136.5 | 0.0 | 329.1 | 4 |
+| 10 | Bwalk903 | 11-15 | 0.374 (6) | 37.6 | n/s | 50.9 | 70.4 | 7.9 | 0.0 | 26.39 / 75 | 4.9 | 123.1 | -349.2 | 28 |
 
-Legacy winner: Ty · unified winner: Ty · changed: False
+Validation leader: **Ty** (existing method: Ty). Top-two margin 6.20 measured pts < T's 25 unscored pts → **leader not determined by the evidence**; could lead under some T: Ty, Roy, Joey, MaKayla, Collin.
 
+**Who leads, honestly.** 2024 Ty, 2025 Brent, 2026-to-date Brent — the same managers the existing method names —
+but in **no** season does the evidence decide it: the top-two margin (6.2 / 11.4 / 11.7 measured points) is smaller
+than T's 25 unscored points, and 5 / 5 / 7 managers could lead for some value of T. The validation rank is a
+statement about A, W, D and P only.
 
-**Winners.** Unchanged in every season: 2024 Ty (legacy and unified), 2025 Brent (both), 2026-to-date Brent (both,
-provisional). **Rank changes** come from what the legacy composite did not measure (it min-max'd raw points
-gained from trades/waivers, ignored outgoing players after they left, drafting and future value, and rewarded
-record and finish twice):
+**v1 → v1.1.** Removing the one-sided T changes no leader (the v1 counterfactual keeps Ty / Brent / Brent) but
+reorders the field (Kendall τ vs v1: 0.87 / 0.64 / 0.82). The OD-MOTY-7 counterexamples no longer carry a trade
+penalty: Roy 2026 (T-production 1.5 — context only) is last on A (0-4, all-play 13.6), not on trades; Jason 2025
+(T-production 1.6) is last on A (7-19, all-play 31.6); Brent 2025's T-production 95.9 no longer adds ~24 points.
 
-* 2025 — Kich 7th → 5th and Eric 8th → 6th (both non-playoff: T ≈ 80 and W 81–92 outweigh P = 0, ahead of
-  playoff team Ty); Collin 5th → 9th (T 17.8: −249 net surplus from trades); MaKayla 3rd → 4th.
-* 2024 — Collin 8th → 6th (non-playoff, 0.16 behind playoff team Ed); Bwalk903 6th → 9th (D 7.9: −349 vs slot
-  expectation); SheriffB stays 10th with D 91.0.
-* 2026 — Eric 4th → 2nd (T 99.1, W 81.0); MaKayla 3rd → 10th (T 8.8: −70 net surplus after two weeks);
-  jstuedle 10th → 5th (W 92.4).
-
-No non-playoff manager reached the top three in 2024 or 2025; the synthetic tests show one can when the formula
-places them first.
-
-### 11.3 Sensitivity (counterfactual re-scorings of the same frozen raw measurements)
+### 11.3 Sensitivity (counterfactual re-scorings of the same frozen raw measurements, v1.1)
 
 | perturbation | 2024 | 2025 | 2026 (wk 2) |
 |---|---|---|---|
-| each weight ±0.05 (others rescaled) | 0/10 winner changes, min τ 0.91 | 0/10, min τ 0.91 | 0/8 (P pending), min τ 0.97 |
-| KAPPA 0.25 / 1.0 | no change, τ 0.96 / 0.96 | no change, τ 0.91 / 1.00 | no change, τ 0.94 / 0.94 |
-| draft table leave-one-season-out | no change, τ 0.96 | no change, τ 1.00 | (table already out-of-sample) |
-| W unobservable weeks imputed at the mean observed charge (1.99–2.38 pts/wk) | no change, τ 1.00 | no change, τ 1.00 | no change, τ 0.97 |
-| **proposed repair OD-MOTY-7** (drop trades that moved a future pick from T) | no change, τ 0.96 | no change, **τ 0.73** | **leader → Eric**, τ 0.82 |
+| each measured weight ±0.05 (others rescaled; T skipped — unscored) | 0/8 leader changes, min τ 0.91 | 0/8, min τ 0.91 | 0/6 (P pending), min τ 0.97 |
+| KAPPA 0.25 / 1.0 | no change, τ 1.00 / 0.96 | no change, τ 0.91 / 0.91 | no change, τ 0.97 / 0.97 |
+| draft table leave-one-season-out | no change, τ 1.00 | no change, τ 0.96 | no change, τ 1.00 |
+| W unobservable weeks imputed at the mean observed charge (2.24 / 2.38 / 1.99 pts/wk) | no change, τ 0.91 | no change, τ 0.96 | no change, τ 0.91 |
+| v1 counterfactual (production-only T scored — retired) | same leader, τ 0.87 | same leader, τ 0.64 | same leader, τ 0.82 |
+| **any value of the unscored T** (top-two margin vs 25) | **not robust** (6.2) | **not robust** (11.4) | **not robust** (11.7) |
 | share of T/W credit earned in counted-lineup weeks (OD-MOTY-3) | 58.6% (manager-set lineups) | 94.8% | 89.0% |
 
-The winners are stable to every weight, scale, calibration and imputation perturbation tested. They are **not**
-stable to the treatment of future-pick trades — §11.4.
+The measured part is stable to every weight, scale, calibration and imputation perturbation tested. The leader is
+**not** stable to the unmeasured part, which is exactly why no score is published.
 
-### 11.4 Anti-gaming results and the one pathology found
+### 11.4 Anti-gaming results and the pathology found in v1
 
-Real data (Spearman ρ, 2024 / 2025 / 2026):
+Real data (Spearman ρ, 2024 / 2025 / 2026, v1.1):
 
-* **Trade volume does not buy T:** ρ(trade count, T) = 0.41 / −0.14 / −0.31.
+* **Trade volume does not buy T-production:** ρ(trade count, T-production) = 0.40 / −0.14 / −0.31 (T itself is
+  unscored).
 * **Waiver volume correlates with W:** ρ(waiver/FA moves, W) = 0.67 / 0.70 / 0.70. A move earns only what its
   player produces above replacement (a no-value move earns exactly 0 — tested), so this is active managers
-  finding production, not a per-move bonus. W carries 15%, and the imputation stress does not move a winner.
+  finding production, not a per-move bonus. W carries 15%, and the imputation stress does not move a leader.
   Reported, not hidden.
 * **Draft position does not buy D:** ρ(mean draft band, D) = 0.25 / −0.01 / −0.01.
-* **A vs management:** ρ = 0.93 / 0.62 / 0.32. 2024 is structural: the inaugural roster is built entirely by the
-  startup draft, so construction and competition coincide.
-* **Unified vs legacy:** ρ = 0.92 / 0.83 / 0.70.
+* **A vs management (W + D):** ρ = 0.82 / 0.23 / 0.30. 2024 is structural: the inaugural roster is built entirely
+  by the startup draft, so construction and competition coincide.
+* **Unified (measured points) vs legacy:** ρ = 0.81 / 0.95 / 0.84.
 
-**Pathology (OD-MOTY-7) — exact counterexamples.** With the trade future-value channel unavailable, T is
-production-only, so a rebuilding trade is scored on the only side that can be measured:
+**Pathology (OD-MOTY-7) — found in the v1 replay.** With the trade future-value channel unavailable, v1 scored T
+production-only, i.e. a rebuilding trade on the only side that could be measured:
 
 * **2026, Roy** (0-4 at week 2): 10 window trades, 19 players out / 8 in, **11 future firsts received, 0 sent** →
-  T 1.5 (−125.7 net surplus in two weeks); summary "trades that cost value".
-* **2025, Jason** (7-19): 99 trades, future picks 76 received / 32 sent (firsts 15 / 7) → T 1.6 (−675 net).
-* Mirror image: **2025, Brent** sent 14 future picks (3 firsts), received 3 → T 95.9.
+  v1 T 1.5 (−125.7 net surplus in two weeks); summary "trades that cost value".
+* **2025, Jason** (7-19): 99 trades, future picks 76 received / 32 sent (firsts 15 / 7) → v1 T 1.6 (−675 net).
+* Mirror image: **2025, Brent** sent 14 future picks (3 firsts), received 3 → v1 T 95.9.
 
-This is what directive §5 forbids ("a rebuilding trade is not penalized because a received pick scored 0
-points; a win-now trade is not given full production credit while surrendered future assets vanish"). The
-production channel is correct; the defect is scoring T while its future-value half is missing. v1 is frozen,
-so the policy is **not** changed here. Proposed repairs, for owner decision:
+Directive §5 forbids exactly this ("a rebuilding trade is not penalized because a received pick scored 0 points;
+a win-now trade is not given full production credit while surrendered future assets vanish"). Repairs weighed:
 
-1. *Exclude future-pick trades from T until the FV-channel is complete* (the replayed repair above): symmetric,
-   missing-not-zero; it reshuffles 2025 (τ 0.73), changes the 2026 leader, and does not fully rescue Roy (T 10.8 —
-   his player-for-player trades also lost surplus).
-2. *Do not score T for a season whose FV-channel is incomplete* (declared season-wide, published as
-   `T: unavailable`; the outer formula needs an owner rule for the missing 25%).
-3. *Accept v1* with the published partial-coverage label.
+1. *Exclude future-pick trades from T* — **rejected.** It leaves the same asymmetry in player-for-player trades
+   (a young player's future value is unmeasured too: Roy stayed at T 10.8 under it), and it changed the 2026 leader
+   by deleting evidence rather than by measuring anything.
+2. *Do not score T for a season whose FV-channel is incomplete* — **applied (v1.1, §11.5)**, with the owner rule
+   for the missing 25% it needed made explicit and conservative: no score, measured points out of the measurable
+   points, nothing redistributed (OD-MOTY-8).
+3. *Accept v1* — rejected: it presents a one-sided T as the trade score.
 
-2024/2025 can never have decision-time valuations, so repairs 1–2 are the only way their T satisfies §5.
-**Recommendation: do not release the live 2026 unified race publicly until OD-MOTY-7 is decided.** Historical
-seasons are unaffected either way: their official winners stay legacy.
+### 11.5 The exact rule (v1.1)
+
+1. **T is scored iff** its production half is measurable **and** the season's T FV-channel is `complete` (every
+   window trade valued at its own instant by the canonical as-of resolver) — then `T = 0.5·P + 0.5·FV`. A season
+   with zero window trades is complete by construction.
+2. **Otherwise T is unavailable**: `score = null`, `coverage = "unavailable"`, `unscoredReason =
+   "trade_future_value_<status>"` (or `production_unmeasurable`); `productionScore` and every raw T field stay
+   published as context and are excluded from every total. `coverage.reasons` gains `trade_component_unscored`.
+3. **Row result.** A, W or D unmeasurable → unscored (unchanged). Else if T is unavailable → `score = null`,
+   `earnedOf90 = null`, `contributions.T = null`, `incomplete = {measuredPoints = Σ WEIGHTS[k]·k over the measured
+   components (A, W, D, and P once final), measurablePoints = 100·Σ WEIGHTS[k] over the same (65 / 75),
+   measuredComponents, unscoredComponents}`. Else the §2 formula.
+4. **Ranking.** `scoreBasis = full` ranks on the score; `incomplete` ranks on `measuredPoints` (ties: W+D
+   contribution, then A, then a shared rank). The basis is season-wide; the two are never mixed.
+5. **Uncertainty.** On an incomplete basis `unscoredTradeRange.couldLeadUnderSomeT` lists every manager within
+   `100·WEIGHTS["T"]` measured points of the leader; `leaderDetermined` is true only when that list has one entry.
+6. **Presentation.** `promotion = "not_promoted"`; the unified result never decides the card or race (§9); the UI
+   labels it "Validation track — PARTIAL / NOT PROMOTED", shows "X / 65 measured pts" (never "/ 100"), shows T as
+   "not scored" with its production half labelled context, and states the undecided range.
 
 ## 12. Tests and verification
 
-* `tests/public_league/test_manager_of_the_year.py` — 41 tests: normalization (zero → 50, bounded, monotonic,
-  symmetric, unscalable → None); non-playoff / below-.500 manager can win; exceptional champion can win;
+* `tests/public_league/test_manager_of_the_year.py` — 49 tests. The §14 regressions (v1): normalization (zero →
+  50, bounded, monotonic, symmetric, unscalable → None); non-playoff manager can win; exceptional champion can win;
   championship worth at most 10; no "outside the race" field; all-play independent of the schedule; tie / zero /
-  negative / missing-week semantics; no-trade exactly neutral; bad trades negative and mirrored; star for
-  excessive capital negative; round trips and re-acquisition cannot manufacture value; trade count earns nothing;
-  drop/re-add cycling neutral with unknown weeks counted; no-value pickups earn nothing; expensive vs cheap
-  equivalent pickups (same score, distinguished raw cost and summary); dropping a productive player is charged;
-  1.01 not automatically best; no picks neutral; traded pick not credited twice; drafted-then-traded player keeps
-  D; auction price-rank bands; the channel sum telescopes to `u(R) − u(B0) − E`; best-ball start/sit earns
-  nothing; no postseason management weeks; missing history ≠ no trades; inaugural baseline; a stat correction
-  changes exactly the affected result; actual-bracket P (same-stage ties, no bye wins, placement games ignored);
-  unresolved bracket pending + provisional; final formula; exact ties (management → A → shared; never id/order);
-  trade future value (future picks are not zero benefit; both sides valued at the trade's instant; a missing
-  valuation → no fake precision; no source → unavailable); every other award byte-identical (League MVP asserted
-  by name); completed seasons keep their legacy official winner.
-* **Sabotage:** 16 engine/award mutations — gross incoming, re-credited re-acquisition, no slot expectation, pick
-  expectation not moved, unobservable as zero, placement tie-breaks, unresolved bracket as zero, owner-id
-  tie-break, postseason moves, missing history as no trades, FV ignored, partial FV scored, FAAB converted,
-  min-max, MOTY mutating shared data, completed season re-awarded — **16/16 turned the named tests red**. Two
-  first-draft mutations were ineffective (they hit redundant code) and were replaced; recorded, not counted.
-  Frontend 3/3 (raw metric from the wrong field, breakdown removed, contribution recomputed client-side).
-* `frontend/__tests__/components/manager-of-the-year-card.test.jsx` — 6 tests (backend numbers only,
-  40/25/15/10/10 contributions, provisional/candidate labels, coverage and unobservable weeks, tied ranks, one
-  card beside — not inside — the history button, no GM card).
-* Real snapshot: every award other than Manager of the Year is byte-identical to `main` (full-section diff).
-* Performance: awards section build (3 seasons, real snapshot) median 0.250 s → 0.306 s (+56 ms), once per
-  snapshot generation (heavy-section and contract-bytes caches), never per request. Awards payload +55 KB raw /
-  +10 KB gzip.
+  negative / missing-week semantics; no-trade exactly neutral; bad trades negative and mirrored; star for excessive
+  capital negative; round trips and re-acquisition cannot manufacture value; trade count earns nothing; drop/re-add
+  cycling neutral with unknown weeks counted; no-value pickups earn nothing; expensive vs cheap equivalent pickups;
+  dropping a productive player is charged; 1.01 not automatically best; no picks neutral; traded pick not credited
+  twice; drafted-then-traded player keeps D; auction price-rank bands; the channel sum telescopes to
+  `u(R) − u(B0) − E`; best-ball start/sit earns nothing; no postseason management weeks; missing history ≠ no
+  trades; inaugural baseline; a stat correction changes exactly the affected result; actual-bracket P; unresolved
+  bracket pending + provisional; final formula; exact ties; trade future value (future picks are not zero benefit;
+  both sides valued at the trade's instant; no source → unavailable); every other award byte-identical (League MVP
+  asserted by name); completed seasons keep their legacy official winner. The trade regressions now pin T's
+  **production half** (`productionScore`) — the ledger they always tested — and, where a neutral complete valuation
+  source is supplied, the scored T.
+  **v1.1 additions:** a missing valuation makes T unavailable (never the production half); T unavailable → no
+  score, measured points = 0.40A + 0.15W + 0.10D (+ 0.10P) out of 75 (65 provisional), nothing redistributed,
+  validation rank, `unscoredTradeRange` names who could lead; a rebuilding trade's unmeasurable side moves nothing;
+  a no-trade season needs no valuation source; incomplete-basis ties; a **below-.500** manager (0-4 head-to-head,
+  verified from the host matchups) is not excluded by record and can win; the unpromoted method never decides the
+  card or race in any season, including a fully scored live provisional season; promotion is the one switch.
+* **Sabotage (v1.1): 11/11 mutations turned the named tests red** — production-only T scored as T; T production
+  counted in measured points; T's weight redistributed (renormalized to /100); no-trade season treated as
+  unavailable; promotion reported; unpromoted provisional result decides the live card; a record gate (below .500
+  excluded); a playoff gate (non-playoff unscored); UI badges an unpromoted result Final/Provisional; UI shows the
+  production half as T; UI shows measured points as a /100 score. (v1's 16 engine/award and 3 frontend mutations
+  are recorded in this file's history.)
+* `frontend/__tests__/components/manager-of-the-year-card.test.jsx` — 8 tests (validation label and never
+  official; measured points / 65 with T not scored and its production half as labelled context; undecided range;
+  unpromoted final season beside the official winner; the promoted shape's 40/25/15/10/10 contributions and
+  provisional label; coverage and unobservable weeks; tied ranks; the existing method's card with the validation
+  breakdown beside — not inside — the history button, no GM card).
+* Real snapshot: every award other than Manager of the Year is byte-identical with and without the unified engine,
+  and the Manager of the Year card and race are byte-identical to the legacy card in all three seasons (the
+  unified result is only the added `unifiedCandidate`).
+* Performance: awards section build (3 seasons, real snapshot) 0.19 s (single run; v1 measured median 0.306 s), once per snapshot generation (heavy-section
+  and contract-bytes caches), never per request.
 
 ## 13. Known canonical-owner finding (not changed here)
 
@@ -531,3 +635,5 @@ seasons are unaffected either way: their official winners stay legacy.
 its data-completeness proof (all 12 rosters had non-zero Sunday scores while Monday night was unplayed; host
 `last_scored_leg` = 2). Every awards, Luck and Power consumer inherits it; this unit uses the canonical rule
 unchanged and replays 2026 from the week-2 snapshot. Owner: `src/public_league/metrics.py` (separate claim).
+PR #1517 ("a week is final only when its NFL games are") repairs it; it was **open, not merged** when v1.1 was
+replayed (2026-09-29), so the replay uses the week-2 snapshot and must be re-run once #1517 lands on `main`.
