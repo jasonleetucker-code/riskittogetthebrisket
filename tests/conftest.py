@@ -298,6 +298,45 @@ def pytest_configure(config):
         "data-coupled — runs as a non-blocking advisory CI tier, not "
         "the hard gate (see _LIVEDATA_MODULES in tests/conftest.py).",
     )
+    config.addinivalue_line(
+        "markers",
+        "nfl_week_evidence: the test exercises the REAL NFL-week-final "
+        "evidence in metrics.final_regular_season_weeks instead of the "
+        "suite-wide 'every NFL week is final' stand-in (see "
+        "_synthetic_seasons_have_finished_nfl_weeks in tests/conftest.py).",
+    )
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _synthetic_seasons_have_finished_nfl_weeks():
+    """Synthetic league fixtures model FINISHED weeks but carry no NFL
+    schedule, and ``metrics.final_regular_season_weeks`` now requires NFL
+    evidence (every game of the week final) before its data-completeness
+    proof admits a week -- an unknown answer withholds it.  Without a
+    stand-in every such fixture would lose all its weeks.  The stand-in
+    says "the NFL side of every week is final", which is what those
+    fixtures model.  Session-scoped because unittest classes compute in
+    ``setUpClass``, before function fixtures run.  Tests of the rule itself
+    opt out with ``@pytest.mark.nfl_week_evidence`` (see below)."""
+    from src.public_league import metrics
+
+    real = metrics.nfl_week_games_final
+    metrics.nfl_week_games_final = lambda season_year, week: True
+    try:
+        yield real
+    finally:
+        metrics.nfl_week_games_final = real
+
+
+@pytest.fixture(autouse=True)
+def _real_nfl_week_evidence_when_marked(
+    request, monkeypatch, _synthetic_seasons_have_finished_nfl_weeks
+):
+    if request.node.get_closest_marker("nfl_week_evidence") is None:
+        return
+    from src.public_league import metrics
+
+    monkeypatch.setattr(metrics, "nfl_week_games_final", _synthetic_seasons_have_finished_nfl_weeks)
 
 
 def pytest_collection_modifyitems(config, items):
