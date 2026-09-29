@@ -11,7 +11,7 @@
  */
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { Badge, Banner, Button, EmptyState, Field, Input, PageHeader, Panel, Select } from "@/components/ds";
 import {
   auctionFetch,
@@ -25,6 +25,11 @@ import {
 } from "@/lib/auction-client";
 import { notifyApi, refreshBinding } from "@/lib/auction-notify";
 import styles from "../auction.module.css";
+
+// Code-split: the optimizer loads only for seat holders, after the room paints.
+// React.lazy, not next/dynamic (see CLAUDE.md "Perfect Draft": next/dynamic
+// moved Next's loadable runtime into every page's shared chunk).
+const AuctionAdvicePanel = lazy(() => import("@/components/auction/AuctionAdvicePanel"));
 
 function useCommand(roomId, onAccepted) {
   const [pending, setPending] = useState(null);
@@ -586,6 +591,153 @@ function Rules({ view }) {
   );
 }
 
+function Trades({ view, players, roomId }) {
+  const pub = view.public;
+  const me = view.me.private;
+  const seat = view.me.seat;
+  const { run, pending, msg } = useCommand(roomId);
+  const [form, setForm] = useState({ to: "", give: "", get: "", giveLots: [], getLots: [], note: "", hours: "24" });
+  if (!me || !seat) return null;
+  const seatName = Object.fromEntries(pub.seats.map((s) => [s.id, s.name]));
+  const owned = (sid) => pub.auctions.filter((a) => a.status === "closed" && a.owner === sid);
+  const lotName = (aid) => {
+    const a = pub.auctions.find((x) => x.id === aid);
+    return a ? players?.[a.player]?.name || a.player : aid;
+  };
+  const canAct = !pub.paused && pub.active_now && ["running", "draining"].includes(pub.status);
+  const trades = me.trades || [];
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const toggleLot = (k, aid) =>
+    setForm((f) => ({ ...f, [k]: f[k].includes(aid) ? f[k].filter((x) => x !== aid) : [...f[k], aid] }));
+  const submit = async (e) => {
+    e.preventDefault();
+    const give = form.give === "" ? 0 : parseDollars(form.give);
+    const get = form.get === "" ? 0 : parseDollars(form.get);
+    if (give == null || get == null || !form.to) return;
+    const out = await run("offer", {
+      kind: "offer_trade",
+      to: form.to,
+      give_dollars: give,
+      get_dollars: get,
+      give_lots: form.giveLots,
+      get_lots: form.getLots,
+      external_note: form.note,
+      expires_hours: Number(form.hours) || 24,
+    });
+    if (out) setForm({ to: "", give: "", get: "", giveLots: [], getLots: [], note: "", hours: "24" });
+  };
+  const describe = (t) => {
+    const parts = [];
+    if (t.give_dollars) parts.push(`${seatName[t.from]} sends $${t.give_dollars}`);
+    if (t.get_dollars) parts.push(`${seatName[t.to]} sends $${t.get_dollars}`);
+    if (t.give_lots.length) parts.push(`${seatName[t.from]} sends ${t.give_lots.map(lotName).join(", ")}`);
+    if (t.get_lots.length) parts.push(`${seatName[t.to]} sends ${t.get_lots.map(lotName).join(", ")}`);
+    if (t.external_note) parts.push(`outside the room: ${t.external_note}`);
+    return parts.join(" · ");
+  };
+  return (
+    <Panel
+      title="Trades"
+      dense
+      subtitle="Auction dollars and players won here. Offers do not reserve money: both sides' spendable money is re-checked when it settles."
+    >
+      <div className={styles.col}>
+        {trades.length ? (
+          <ul className={styles.feed}>
+            {trades.map((t) => (
+              <li key={t.id}>
+                <strong>{t.id}</strong> {describe(t)} — <Badge>{t.status.replace(/_/g, " ")}</Badge>
+                {t.status === "open" && t.to === seat ? (
+                  <span className={styles.row}>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      disabled={!canAct || Boolean(pending)}
+                      onClick={() => run("accept", { kind: "respond_trade", trade: t.id, version: t.version, accept: true })}
+                    >
+                      Accept
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={Boolean(pending)}
+                      onClick={() => run("decline", { kind: "respond_trade", trade: t.id, version: t.version, accept: false })}
+                    >
+                      Decline
+                    </Button>
+                  </span>
+                ) : null}
+                {["open", "awaiting_verification"].includes(t.status) && t.from === seat ? (
+                  <Button size="sm" variant="ghost" disabled={Boolean(pending)} onClick={() => run("cancel", { kind: "cancel_trade", trade: t.id })}>
+                    Withdraw
+                  </Button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className={styles.muted}>No trades yet.</p>
+        )}
+        <form onSubmit={submit} className={styles.col}>
+          <div className={styles.formGrid}>
+            <Field label="Trade with">
+              <Select
+                value={form.to}
+                onChange={set("to")}
+                options={[
+                  { value: "", label: "Choose a manager" },
+                  ...pub.seats.filter((s) => s.id !== seat).map((s) => ({ value: s.id, label: s.name })),
+                ]}
+              />
+            </Field>
+            <Field label="You send ($)" hint={`Spendable now: $${me.spendable}`}>
+              <Input inputMode="numeric" data-numeric value={form.give} onChange={set("give")} placeholder="0" />
+            </Field>
+            <Field label="You receive ($)">
+              <Input inputMode="numeric" data-numeric value={form.get} onChange={set("get")} placeholder="0" />
+            </Field>
+            <Field label="Expires after (hours)">
+              <Input inputMode="numeric" data-numeric value={form.hours} onChange={set("hours")} />
+            </Field>
+          </div>
+          {owned(seat).length ? (
+            <fieldset className={styles.row}>
+              <legend className={styles.muted}>Players you send</legend>
+              {owned(seat).map((a) => (
+                <label key={a.id} className={styles.row}>
+                  <input type="checkbox" checked={form.giveLots.includes(a.id)} onChange={() => toggleLot("giveLots", a.id)} /> {lotName(a.id)}
+                </label>
+              ))}
+            </fieldset>
+          ) : null}
+          {form.to && owned(form.to).length ? (
+            <fieldset className={styles.row}>
+              <legend className={styles.muted}>Players you receive</legend>
+              {owned(form.to).map((a) => (
+                <label key={a.id} className={styles.row}>
+                  <input type="checkbox" checked={form.getLots.includes(a.id)} onChange={() => toggleLot("getLots", a.id)} /> {lotName(a.id)}
+                </label>
+              ))}
+            </fieldset>
+          ) : null}
+          <Field
+            label="Anything outside this room (optional)"
+            hint="For example a Sleeper veteran or a future pick. The commissioner must verify that side before any dollars move."
+          >
+            <Input value={form.note} onChange={set("note")} maxLength={300} />
+          </Field>
+          <div>
+            <Button type="submit" disabled={!canAct || !form.to || Boolean(pending)} loading={pending === "offer"}>
+              Send offer
+            </Button>
+          </div>
+        </form>
+        {msg ? <Banner tone={msg.tone}>{msg.text}</Banner> : null}
+      </div>
+    </Panel>
+  );
+}
+
 function Commissioner({ view, roomId, onAccepted }) {
   const pub = view.public;
   const { run, pending, msg } = useCommand(roomId, onAccepted);
@@ -715,6 +867,28 @@ function Commissioner({ view, roomId, onAccepted }) {
           </>
         ) : null}
 
+        {(view.commissioner?.pendingTrades || []).map((t) => (
+          <div key={t.id} className={styles.col}>
+            <p>
+              <strong>Verify {t.id}</strong>: outside-the-room side is &ldquo;{t.external_note}&rdquo;. Dollars: {t.from} sends ${t.give_dollars},{" "}
+              {t.to} sends ${t.get_dollars}.
+            </p>
+            <div className={styles.row}>
+              <Button size="sm" disabled={!reason.trim()} onClick={() => run("verify", { kind: "verify_trade", trade: t.id, approve: true, reason })}>
+                Verified — settle
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={!reason.trim()}
+                onClick={() => run("verify", { kind: "verify_trade", trade: t.id, approve: false, reason })}
+              >
+                Reject
+              </Button>
+              <span className={styles.muted}>Record how you verified it in the reason field below.</span>
+            </div>
+          </div>
+        ))}
         <div className={styles.formGrid}>
           <Field label="Invite a seat" hint="Single-use link, expires in 7 days. A handle lock makes it usable only by that handle.">
             <Select
@@ -866,7 +1040,13 @@ export default function AuctionRoomPage() {
         </div>
         <div className={styles.col}>
           <MyMoney view={view} />
+          {view.me.seat && players && pub.status !== "setup" && pub.status !== "complete" ? (
+            <Suspense fallback={null}>
+              <AuctionAdvicePanel view={view} pool={players} roomId={roomId} />
+            </Suspense>
+          ) : null}
           <Inbox roomId={roomId} revision={view.revision} />
+          {view.me.seat && pub.status !== "setup" ? <Trades view={view} players={players} roomId={roomId} /> : null}
           <Budgets view={view} />
           {view.me.role === "commissioner" ? <Commissioner view={view} roomId={roomId} onAccepted={onAccepted} /> : null}
           <Rules view={view} />
