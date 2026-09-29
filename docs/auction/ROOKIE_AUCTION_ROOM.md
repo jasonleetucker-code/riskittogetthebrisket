@@ -170,12 +170,18 @@ Official values for every `PROPOSED_RULE_KEYS` entry; the 2027 points-for nomina
 supplies it; 2026 partial PF is not assumed final); the official 2027 rookie pool; acceptance of the
 disaster-recovery window; whether open trade offers reserve money (milestone C).
 
-## 9. Follow-up decision register
+## 9. Decision register (living — owner ideas during rehearsal land here)
 
-| Id | Owner instruction | State |
-|---|---|---|
-| AUC-001 | Leading bids reserve money (2026-09-29) | IMPLEMENTED + tested (§2 Money); Perfect Draft adapter must read the same `spendable` (milestone C) |
-| AUC-002 | Draft notifications: native Web Push, no SMS bill (2026-09-29) | IMPLEMENTED (branch `claude/rookie-auction-notifications`) — see §10. Device delivery NOT yet observed on a real phone. |
+Every new owner idea gets the next AUC id, the owner's exact wording, one classification, and the regression or
+rehearsal case that proves it. Classes: **RULE CLARIFICATION** · **MOCK UX** · **LIVE-REQUIRED** (the real
+2027 draft cannot operate correctly or safely without it) · **NOT REQUIRED FOR LAUNCH** · **FUTURE IDEA**. Only
+LIVE-REQUIRED items join the launch denominator. The test for that class is "does the real 2027 draft need this
+to operate correctly or safely?"
+
+| Id | Owner instruction (date) | Class | State | Proof |
+|---|---|---|---|---|
+| AUC-001 | "Leading bids reserve money" (2026-09-29) | LIVE-REQUIRED | IMPLEMENTED + tested (§2 Money); Perfect Draft reads the same `spendable` (§11) | `test_leading_bid_reservation.py`, `test_engine_fuzz.py`, independent audit (Phase 2) |
+| AUC-002 | Draft notifications: native Web Push, no SMS bill (2026-09-29) | LIVE-REQUIRED | IMPLEMENTED (§10); device delivery NOT yet observed | `test_notifications.py`; real-device evidence per `LAUNCH_CHECKLIST.md` §A |
 
 The engine's `outbid` / `leading_again` events are now NET per committed transaction (AUC-002), pinned
 by a fuzz property over every command in 40 random rooms (sabotage-verified).
@@ -269,3 +275,12 @@ pause; received money reactivates capped proxies.
   calendar days (30.5–31.5, 3 rooms); ≈ 31.5 with up to 6 active hours of nomination latency. The 65-hour lot
   clock, not nomination speed, sets the length, because 12 lots run in parallel. Bots do not bid late, so real
   late-bid extensions make ~31 days a floor, not a forecast.
+
+## 13. Rehearsal problem reports (Phase 2)
+
+`src/auction/feedback.py` + `POST/GET /api/auction/rooms/{id}/reports` + the room's **Report a problem** panel.
+A report stores the person's words plus what the server knew: room, committed revision, room clock, rules
+version, pool version, the lot (if named) and the deployed commit (`git rev-parse HEAD`, or `RISKIT_CODE_SHA`).
+Reporter sees their own; the commissioner sees all. It is not a room command, so the revision does not move.
+It is idempotent and same-origin. `/meta` and preflight also publish `codeSha`. Rooms are never deleted, so a
+failed run stays replayable. Owner-facing steps: `REHEARSAL_GUIDE.md`.
