@@ -11308,15 +11308,29 @@ def _build_public_activity_valuation():
 #
 # Cache contract:
 #   key:  (snapshot.root_league_id, snapshot.generated_at,
-#          latest_data_etag) — ``generated_at`` is re-stamped on every
-#          snapshot rebuild (natural invalidation), and the private
-#          contract etag is in the key because the activity-feed trade
-#          grades derive from the private board's generation.
-#   value: the encoded response bytes (byte-compatible with
-#          ``JSONResponse.render``).
-#   TTL:  none (generation-keyed); bound 4 entries.
-#   staleness: none beyond the existing 300s snapshot SWR window —
-#          identical payload freshness to the uncached path.
+#          latest_data_etag, VORP calc version) — ``generated_at`` is
+#          re-stamped on every snapshot rebuild (natural invalidation),
+#          and the private contract etag is in the key because the
+#          activity-feed trade grades derive from the private board's
+#          generation.
+#   value: (encoded response bytes — byte-compatible with
+#          ``JSONResponse.render`` — , build start on the monotonic clock).
+#   age:  an entry also expires ``2 * _PUBLIC_LEAGUE_CACHE_TTL_SECONDS`` after
+#          its build started — twice the snapshot window, so the entry
+#          outlives its snapshot's staleness long enough for the background
+#          rebuild to seed the next generation (a one-window bound expired
+#          exactly as the snapshot went stale and put the full build back on
+#          the request path once per cycle).  The key does NOT cover every input: the
+#          overview's power leader (``power_v2.build_section``) reads the
+#          file-backed ROS team-strength artifact and weekly power
+#          publications, behind a wall-clock freshness gate.  While
+#          snapshot rebuilds succeed the snapshot TTL already bounds that;
+#          while they FAIL, ``generated_at`` never moves, so without the
+#          age bound those inputs would freeze.  The age bound keeps them
+#          within two snapshot refresh windows.
+#   order: a store never replaces an entry whose build started later;
+#          eviction drops the oldest builds first.
+#   bound: 4 entries.
 _PUBLIC_CONTRACT_BYTES_CACHE: dict = {}
 _PUBLIC_CONTRACT_BYTES_LOCK = threading.Lock()
 _PUBLIC_CONTRACT_BYTES_MAX = 4
@@ -11338,24 +11352,135 @@ def _public_contract_cache_key(snapshot):
     )
 
 
+def _public_memo_entry_fresh(started_at: float) -> bool:
+    return (time.monotonic() - started_at) < 2 * _PUBLIC_LEAGUE_CACHE_TTL_SECONDS
+
+
 def _cached_public_contract_bytes(snapshot):
     with _PUBLIC_CONTRACT_BYTES_LOCK:
-        return _PUBLIC_CONTRACT_BYTES_CACHE.get(_public_contract_cache_key(snapshot))
+        entry = _PUBLIC_CONTRACT_BYTES_CACHE.get(_public_contract_cache_key(snapshot))
+    if entry is None or not _public_memo_entry_fresh(entry[1]):
+        return None
+    return entry[0]
 
 
-def _store_public_contract_bytes(snapshot, contract) -> bytes:
+def _store_public_contract_bytes(snapshot, contract, key=None, started_at=None) -> bytes:
     """Encode ``contract`` exactly like ``JSONResponse.render`` and
-    memoize the bytes under the snapshot's generation key."""
+    memoize the bytes under the snapshot's generation key.
+
+    Callers that build pass the ``key`` and ``started_at`` they captured
+    BEFORE building, so a private-board publish mid-build cannot file the
+    result under the newer generation, and an older build finishing last
+    cannot replace a newer one."""
     raw = json.dumps(contract, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode(
         "utf-8"
     )
-    key = _public_contract_cache_key(snapshot)
+    if key is None:
+        key = _public_contract_cache_key(snapshot)
+    if started_at is None:
+        started_at = time.monotonic()
     with _PUBLIC_CONTRACT_BYTES_LOCK:
-        if len(_PUBLIC_CONTRACT_BYTES_CACHE) >= _PUBLIC_CONTRACT_BYTES_MAX:
-            for k in [k for k in _PUBLIC_CONTRACT_BYTES_CACHE if k != key]:
-                del _PUBLIC_CONTRACT_BYTES_CACHE[k]
-        _PUBLIC_CONTRACT_BYTES_CACHE[key] = raw
+        current = _PUBLIC_CONTRACT_BYTES_CACHE.get(key)
+        if current is not None and current[1] > started_at:
+            return raw
+        while (
+            key not in _PUBLIC_CONTRACT_BYTES_CACHE
+            and len(_PUBLIC_CONTRACT_BYTES_CACHE) >= _PUBLIC_CONTRACT_BYTES_MAX
+        ):
+            oldest = min(
+                _PUBLIC_CONTRACT_BYTES_CACHE, key=lambda k: _PUBLIC_CONTRACT_BYTES_CACHE[k][1]
+            )
+            del _PUBLIC_CONTRACT_BYTES_CACHE[oldest]
+        _PUBLIC_CONTRACT_BYTES_CACHE[key] = (raw, started_at)
     return raw
+
+
+# ``GET /api/public/league/overview`` — the public /league page's first
+# request — built EVERY public section (awards included, which the heavy
+# cache memoizes everywhere else) and kept only the overview: the full
+# contract's work on every request, 2-8 s TTFB in production on 2026-09-28.
+# The overview is the same object the full contract carries in
+# ``sections["overview"]`` (same builders, same order), so one build per
+# generation now serves both: it fills this memo AND the contract bytes
+# memo above, under the same generation key and age bound, single-flighted.
+# Value: (key, payload, build start on the monotonic clock).
+_PUBLIC_OVERVIEW_CACHE: dict = {}
+_PUBLIC_OVERVIEW_LOCK = threading.Lock()  # stores come from pool + rebuild threads
+_public_overview_async_lock: asyncio.Lock | None = None
+
+
+def _overview_payload_from_contract(contract: dict) -> dict:
+    """The ``build_section_payload(snapshot, "overview")`` shape, taken
+    from an already-built full contract."""
+    payload = {
+        "contractVersion": contract["contractVersion"],
+        "league": contract["league"],
+        "section": "overview",
+        "data": contract["sections"]["overview"],
+    }
+    assert_public_payload_safe(payload)
+    return payload
+
+
+def _remember_overview(key, payload, started_at: float) -> None:
+    with _PUBLIC_OVERVIEW_LOCK:
+        current = _PUBLIC_OVERVIEW_CACHE.get("overview")
+        if current is not None and current[2] > started_at:
+            return  # a newer build already landed; never replace it with an older one
+        _PUBLIC_OVERVIEW_CACHE["overview"] = (key, payload, started_at)
+
+
+def _memoized_overview(key):
+    hit = _PUBLIC_OVERVIEW_CACHE.get("overview")
+    if hit is not None and hit[0] == key and _public_memo_entry_fresh(hit[2]):
+        return hit[1]
+    return None
+
+
+def _seed_public_generation(snapshot, contract, key, started_at: float):
+    """File one built contract under both memos; returns
+    ``(overview_payload, encoded_bytes_or_None)``.  The overview comes
+    first and does not depend on the full-contract encode: a value in some
+    OTHER section that cannot be encoded fails only the full contract."""
+    overview = _overview_payload_from_contract(contract)
+    _remember_overview(key, overview, started_at)
+    try:
+        raw = _store_public_contract_bytes(snapshot, contract, key=key, started_at=started_at)
+    except Exception as exc:  # noqa: BLE001
+        logging.warning("public contract bytes not memoized: %s", exc)
+        raw = None
+    return overview, raw
+
+
+async def _get_public_overview_payload(snapshot, *, bypass_cache: bool = False):
+    """Per-generation memo for the overview section (see above).
+
+    ``bypass_cache`` must come from ``_authorized_force_refresh``: an
+    anonymous ``?refresh`` never bypasses, or any caller could queue full
+    builds behind this lock."""
+    global _public_overview_async_lock
+    key = _public_contract_cache_key(snapshot)
+    if not bypass_cache:
+        hit = _memoized_overview(key)
+        if hit is not None:
+            return hit
+    if _public_overview_async_lock is None:
+        _public_overview_async_lock = asyncio.Lock()
+    async with _public_overview_async_lock:
+        if not bypass_cache:
+            hit = _memoized_overview(key)
+            if hit is not None:
+                return hit
+        started_at = time.monotonic()
+
+        def _build():
+            contract = build_public_contract(
+                snapshot, activity_valuation=_build_public_activity_valuation()
+            )
+            overview, _ = _seed_public_generation(snapshot, contract, key, started_at)
+            return overview
+
+        return await run_in_threadpool(_build)
 
 
 _public_league_cache: dict = {
@@ -11976,15 +12101,20 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
         contract_bytes = None
         if _PUBLIC_LEAGUE_PERSIST and snapshot.seasons:
             try:
+                generation_key = _public_contract_cache_key(snapshot)
+                generation_started = time.monotonic()
                 contract = build_public_contract(
                     snapshot,
                     activity_valuation=_build_public_activity_valuation(),
                 )
                 public_snapshot_store.persist_snapshot(snapshot, contract=contract)
-                # Seed the response-bytes memo with this build — the
-                # contract used to be assembled here and then THROWN
-                # AWAY while every request rebuilt it from scratch.
-                contract_bytes = len(_store_public_contract_bytes(snapshot, contract))
+                # Seed both response memos with this build — the contract
+                # used to be assembled here and then THROWN AWAY while every
+                # request rebuilt it from scratch.
+                _, seeded = _seed_public_generation(
+                    snapshot, contract, generation_key, generation_started
+                )
+                contract_bytes = len(seeded) if seeded is not None else None
                 _public_league_metrics["last_contract_bytes"] = contract_bytes
             except Exception as exc:  # noqa: BLE001
                 logging.warning("Failed to persist public_league snapshot: %s", exc)
@@ -12160,9 +12290,15 @@ async def get_public_league(request: Request, refresh: str = ""):
         # Serve pre-encoded bytes for the current (snapshot, private
         # contract) generation — see _PUBLIC_CONTRACT_BYTES_CACHE.
         # ``?refresh=1`` bypasses the read (still repopulates).
-        cached = None if refresh else _cached_public_contract_bytes(snapshot)
+        cached = (
+            None
+            if _authorized_force_refresh(request, refresh)
+            else _cached_public_contract_bytes(snapshot)
+        )
         if cached is not None:
             return cached
+        key = _public_contract_cache_key(snapshot)
+        started_at = time.monotonic()
         payload = build_public_contract(
             snapshot,
             activity_valuation=_build_public_activity_valuation(),
@@ -12171,7 +12307,9 @@ async def get_public_league(request: Request, refresh: str = ""):
         # runs the full recursive walk internally before returning
         # (public_contract.py); the second walk was pure duplicate cost
         # over a multi-MB tree.
-        return _store_public_contract_bytes(snapshot, payload)
+        raw = _store_public_contract_bytes(snapshot, payload, key=key, started_at=started_at)
+        _remember_overview(key, _overview_payload_from_contract(payload), started_at)
+        return raw
 
     try:
         raw = await run_in_threadpool(_build)
@@ -12579,6 +12717,10 @@ async def get_public_league_section(
                 snapshot,
                 section,
                 activity_valuation=_build_public_activity_valuation(),
+            )
+        elif section == "overview":
+            payload = await _get_public_overview_payload(
+                snapshot, bypass_cache=_authorized_force_refresh(request, refresh)
             )
         else:
             # Every other section still runs its build in the worker so a

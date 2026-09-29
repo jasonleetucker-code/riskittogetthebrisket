@@ -408,9 +408,10 @@ dropped: every branch-side entry either resolved to its canonical identifier or 
    → `C1-PICK-01`. Both records are patched on `main` by this PR.
 2. **Player MVP has no hard playoff-field or >.500 gate.** In `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` §7
    (2026-08-13), which had superseded the Honors spec's gate. **Superseded by the owner decision of 2026-09-26:**
-   League MVP requires playoff-field membership + a record above .500 again
+   League MVP requires playoff-field membership + a record ~~above .500~~ .500 or better (corrected 2026-09-29) again
    (`docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` §3–§6); OPOY / DPOY / ROY / positional awards stay ungated.
-   **Manager of the Year is NOT superseded** — its team-success eligibility rule stands. → `C9-AWARD-02`.
+   ~~**Manager of the Year is NOT superseded** — its team-success eligibility rule stands.~~ *Superseded:
+   unified Manager of the Year has no playoff or record gate.* → `C9-AWARD-02`.
 3. **`src/news/unified_signal_engine.py` is "the single entry point for every BUY/SELL/HOLD decision."** A
    docstring ownership claim in a module with zero callers, while six other emitters serve production.
    **Superseded** — the claim is retired and a real reconciler is scope. → `C6-SIG-01`.
