@@ -130,6 +130,15 @@ for key_dir in sorted(p for p in live.iterdir() if p.is_dir() and not p.name.sta
                         f"   generation (mtime {now - gpath.stat().st_mtime:.0f}s ago):",
                         {k: g.get(k) for k in ("generationId", "sequence", "producer", "computedAt", "inputsFetchedAt", "schemaVersion", "draws", "seed")},
                     )
+                    # Per-game evidence state the page renders from (team -> state),
+                    # e.g. whether a finished game is "completed" or still "unknown".
+                    ev = ((g.get("render") or {}).get("lineage") or {}).get("gameEvidence") or {}
+                    if isinstance(ev, dict):
+                        states = {}
+                        for team, e in sorted(ev.items()):
+                            st = e.get("state") if isinstance(e, dict) else None
+                            states.setdefault(str(st), []).append(team)
+                        print("   gameEvidence states:", states)
                 except Exception as exc:  # noqa: BLE001
                     print("   generation unreadable", exc)
             show(wk / "state.json", ["generationId", "lastVerifiedAt", "lastTickFinishedAt", "lastTickOk", "lastTickOutcome", "lastError", "refreshStartedAt", "latestInputFingerprint", "cadence"])
