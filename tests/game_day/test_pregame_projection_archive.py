@@ -10,12 +10,14 @@ log is kept instead.
 
 from __future__ import annotations
 
+import dataclasses
 import gzip
 import json
 
 import pytest
 
 from src.ros import game_day_live as live
+from src.ros.sleeper_weekly_projections import row_refusal_reason
 from tests.game_day.test_game_day_replay import (
     PRE_KICKOFF_FETCH,
     REAL_FETCH,
@@ -33,11 +35,13 @@ TNF_TEAMS = {"ATL", "GB"}  # kicked off 2026-09-25T00:15Z, between the two fetch
 @pytest.fixture(autouse=True)
 def _fresh_state(monkeypatch):
     live._weekly_history_cache.clear()
-    live._pregame_archive_failed_at.clear()
     monkeypatch.setattr(live, "_archive_schedule_rows", lambda season: list(SCHEDULE))
     yield
     live._weekly_history_cache.clear()
-    live._pregame_archive_failed_at.clear()
+
+
+def _valid(row) -> bool:
+    return row_refusal_reason(row, season=SEASON, week=WEEK) is None
 
 
 def _record(*fetches) -> None:
@@ -61,8 +65,8 @@ def test_the_archive_keeps_each_players_last_pre_kickoff_row_unchanged():
     archive = live.build_pregame_projection_archive(SEASON, WEEK, schedule_rows=SCHEDULE, now=NOW)
     players = archive["players"]
 
-    pre_by_pid = {str(r["player_id"]): r for r in PRE_KICKOFF_FETCH.rows}
-    real_by_pid = {str(r["player_id"]): r for r in REAL_FETCH.rows}
+    pre_by_pid = {str(r["player_id"]): r for r in PRE_KICKOFF_FETCH.rows if _valid(r)}
+    real_by_pid = {str(r["player_id"]): r for r in REAL_FETCH.rows if _valid(r)}
     tnf = [pid for pid, r in real_by_pid.items() if r.get("team") in TNF_TEAMS]
     sunday = [pid for pid, r in real_by_pid.items() if r.get("team") not in TNF_TEAMS]
     assert tnf and sunday
@@ -82,6 +86,14 @@ def test_the_archive_keeps_each_players_last_pre_kickoff_row_unchanged():
         assert players[pid]["row"] == real_by_pid[pid]  # raw provider row, not rescored
         assert players[pid]["kickoffAt"].startswith("2026-09-2")
     assert archive["postKickoffObservationsIgnored"] > 0
+    # Placeholder rows the scoring path refuses are counted, never archived.
+    refused = [r for r in REAL_FETCH.rows if not _valid(r)]
+    assert refused and sum(archive["refusedRows"].values()) >= len(refused)
+    assert not any(
+        str(r["player_id"]) in players for r in refused if str(r["player_id"]) not in pre_by_pid
+    )
+    # Known post-kickoff-only players are not "timing unverified".
+    assert not set(archive["noPreKickoffObservation"]) & set(archive["timingUnverified"])
     assert archive["season"] == SEASON and archive["week"] == WEEK
     assert archive["source"] == live.SOURCE_WEEKLY
     assert archive["schemaVersion"] == live.PREGAME_ARCHIVE_SCHEMA
@@ -160,3 +172,51 @@ def test_league_logs_prune_unchanged_and_archives_are_bounded_by_season():
     assert path.exists()
     live.prune_retention(SEASON + live.PREGAME_ARCHIVE_SEASONS + 1, 1)
     assert not path.exists()
+
+
+def test_an_emptied_later_row_never_displaces_an_earlier_valid_projection():
+    sunday = next(r for r in REAL_FETCH.rows if _valid(r) and r.get("team") not in TNF_TEAMS)
+    pid = str(sunday["player_id"])
+    early = dataclasses.replace(PRE_KICKOFF_FETCH, rows=(sunday,))
+    emptied = dict(sunday, stats={})
+    later = dataclasses.replace(REAL_FETCH, rows=(emptied,))
+    _record(early, later)
+
+    archive = live.build_pregame_projection_archive(SEASON, WEEK, schedule_rows=SCHEDULE, now=NOW)
+
+    assert archive["players"][pid]["row"] == sunday
+    assert archive["refusedRows"] == {"placeholder_no_projection": 1}
+
+
+def test_a_failure_is_persisted_and_throttled_across_processes(monkeypatch):
+    _record(PRE_KICKOFF_FETCH, REAL_FETCH)
+    calls = []
+
+    def no_schedule(season):
+        calls.append(season)
+        return []
+
+    monkeypatch.setattr(live, "_archive_schedule_rows", no_schedule)
+    assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW) is False
+    marker = live._pregame_failure_path(SEASON, WEEK)
+    stored = json.loads(marker.read_text())
+    assert "kickoffs_unknown" in stored["reason"]
+
+    live._weekly_history_cache.clear()  # a fresh collector process
+    assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW + 60) is False
+    assert calls == [SEASON]  # throttled from disk, not rebuilt
+
+    monkeypatch.setattr(live, "_archive_schedule_rows", lambda season: list(SCHEDULE))
+    assert live.ensure_pregame_archive(SEASON, WEEK, now=NOW + 3601) is True
+    assert not marker.exists()
+
+
+def test_a_damaged_weekly_log_is_kept_not_treated_as_empty():
+    log = live.observation_log(live.NFL_KEY, SEASON, WEEK, live.SOURCE_WEEKLY)
+    log.log_path.parent.mkdir(parents=True, exist_ok=True)
+    log.log_path.write_text("not json\n")
+
+    live.prune_retention(SEASON, WEEK + live.RAW_RETENTION_WEEKS + 1)
+
+    assert log.log_path.exists()
+    assert not live.pregame_archive_path(SEASON, WEEK).exists()

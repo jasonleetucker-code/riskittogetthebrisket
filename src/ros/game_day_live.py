@@ -2544,7 +2544,11 @@ def build_pregame_projection_archive(
     """
     from src.api import matchup_intel as mi
     from src.ros.game_day_estimates import _normalize_team
-    from src.ros.sleeper_weekly_projections import _ms_to_iso, lock_baseline_at_kickoff
+    from src.ros.sleeper_weekly_projections import (
+        _ms_to_iso,
+        lock_baseline_at_kickoff,
+        row_refusal_reason,
+    )
 
     fetches = [
         f
@@ -2554,19 +2558,28 @@ def build_pregame_projection_archive(
     if not fetches:
         return None
     kick_by_team = mi.kickoffs_for_week(
-        list(schedule_rows), None, season=int(season), week=int(week), now=float(now)
+        list(schedule_rows),
+        _last_scoreboard(season, week),
+        season=int(season),
+        week=int(week),
+        now=float(now),
     )
     if not kick_by_team:
         raise PregameArchiveUnavailable("kickoffs_unknown")
     rows: list[_ArchiveRow] = []
+    refused: dict[str, int] = {}
     for fetch in fetches:
         for raw in fetch.rows:
-            pid, gid = raw.get("player_id"), raw.get("game_id")
-            if pid is None or not gid:
+            # Only rows the scoring path would accept: an emptied placeholder
+            # must never displace an earlier valid pregame projection.
+            reason = row_refusal_reason(raw, season=int(season), week=int(week))
+            if reason is not None:
+                refused[reason] = refused.get(reason, 0) + 1
                 continue
+            pid, gid = raw.get("player_id"), raw.get("game_id")
             rows.append(
                 _ArchiveRow(
-                    sleeper_player_id=str(pid),
+                    sleeper_player_id=str(pid).strip(),
                     game_id=str(gid),
                     observed_at=str(fetch.observed_at),
                     provider_updated_at=_ms_to_iso(raw.get("updated_at")),
@@ -2592,10 +2605,12 @@ def build_pregame_projection_archive(
     }
     # A player whose kickoff cannot be established keeps his LAST observed
     # row, labelled as timing-unverified -- preserved, never passed off as
-    # pregame.
+    # pregame.  A player seen only after a KNOWN kickoff is not unverified:
+    # he is listed in noPreKickoffObservation and no row is kept for him.
+    unknown = set(lock.unknown_kickoff)
     last_by_pid: dict[str, _ArchiveRow] = {}
     for item in rows:
-        if item.sleeper_player_id in players:
+        if item.sleeper_player_id not in unknown:
             continue
         prev = last_by_pid.get(item.sleeper_player_id)
         if prev is None or (_epoch(item.observed_at) or 0) >= (_epoch(prev.observed_at) or 0):
@@ -2615,18 +2630,34 @@ def build_pregame_projection_archive(
         "selectionRule": (
             "per player: the last ok fetch whose observedAt <= that player's NFL game kickoff "
             "(sleeper_weekly_projections.lock_baseline_at_kickoff; kickoffs from "
-            "matchup_intel.kickoffs_for_week over the nflverse schedule, joined by row.team)"
+            "matchup_intel.kickoffs_for_week over the nflverse schedule and the week's last "
+            "observed scoreboard, joined by row.team); only rows "
+            "sleeper_weekly_projections.row_refusal_reason accepts"
         ),
         "scoring": (
             "raw provider stat lines in Sleeper's stat vocabulary, league-independent; "
             "league-scored baselines are each league-week's generations.jsonl"
         ),
         "fetchesConsidered": len(fetches),
+        "refusedRows": dict(sorted(refused.items())),
         "players": players,
         "timingUnverified": unverified,
         "noPreKickoffObservation": sorted(lock.no_pre_kickoff_observation),
         "postKickoffObservationsIgnored": lock.post_kickoff_observations_ignored,
     }
+
+
+def _last_scoreboard(season: int, week: int) -> Any:
+    """The week's last ok stored scoreboard (observed kickoffs override the
+    schedule exactly as on the live path), or ``None``."""
+    try:
+        observations = observation_log(NFL_KEY, season, week, SOURCE_ESPN).observations()
+    except Exception:  # noqa: BLE001 -- the schedule alone still decides
+        return None
+    if not observations:
+        return None
+    last = observations[-1]
+    return scoreboard_from_observation(last.meta, last.content)
 
 
 def _read_pregame_archive(path: Path) -> dict[str, Any] | None:
@@ -2656,9 +2687,15 @@ def _write_pregame_archive(path: Path, payload: Mapping[str, Any]) -> None:
 
 
 #: A week whose archive could not be established is retried at most this
-#: often -- the prune runs every collector tick.
+#: often.  The collector is a fresh process every minute, so the last
+#: failure is kept ON DISK beside the week (it also makes a retained raw log
+#: visible to an operator).
 _PREGAME_ARCHIVE_RETRY_SECONDS = 3600.0
-_pregame_archive_failed_at: dict[tuple[int, int], float] = {}
+PREGAME_ARCHIVE_FAILURE_NAME = "pregame_projections.retained.json"
+
+
+def _pregame_failure_path(season: int, week: int) -> Path:
+    return league_week_dir(NFL_KEY, season, week) / PREGAME_ARCHIVE_FAILURE_NAME
 
 
 def ensure_pregame_archive(season: int, week: int, *, now: float | None = None) -> bool:
@@ -2668,32 +2705,61 @@ def ensure_pregame_archive(season: int, week: int, *, now: float | None = None) 
     whenever that cannot be established -- fail closed.  An existing archive
     is never rewritten."""
     path = pregame_archive_path(season, week)
-    if path.exists():
-        return _read_pregame_archive(path) is not None
-    if not observation_log(NFL_KEY, season, week, SOURCE_WEEKLY).log_path.exists():
-        return True
     now = time.time() if now is None else now
-    failed_at = _pregame_archive_failed_at.get((season, week))
-    if failed_at is not None and now - failed_at < _PREGAME_ARCHIVE_RETRY_SECONDS:
+    marker = _pregame_failure_path(season, week)
+    if path.exists():
+        if _read_pregame_archive(path) is not None:
+            return True
+        _mark_pregame_failure(marker, now, "archive_unreadable")
         return False
-    ok = False
+    log = observation_log(NFL_KEY, season, week, SOURCE_WEEKLY)
+    if not log.log_path.exists():
+        return True
+    prior = _read_json(marker)
+    if isinstance(prior, dict):
+        failed_at = _epoch(prior.get("failedAt"))
+        if failed_at is not None and now - failed_at < _PREGAME_ARCHIVE_RETRY_SECONDS:
+            return False
+    reason = None
     try:
         payload = build_pregame_projection_archive(
             season, week, schedule_rows=_archive_schedule_rows(season), now=now
         )
         if payload is None:
-            ok = True
+            # Nothing to preserve only when the log PROVABLY holds no ok
+            # fetch: a non-empty log that replays to nothing is damage.
+            if log.log_path.stat().st_size > 0 and not log.observations(ok_only=False):
+                reason = "weekly_log_unreadable"
         else:
             _write_pregame_archive(path, payload)
             back = _read_pregame_archive(path)
-            ok = back is not None and len(back.get("players") or {}) == len(payload["players"])
-    except Exception:  # noqa: BLE001 -- any failure keeps the raw evidence
-        ok = False
-    if ok:
-        _pregame_archive_failed_at.pop((season, week), None)
-    else:
-        _pregame_archive_failed_at[(season, week)] = now
-    return ok
+            if back is None or any(
+                len(back.get(k) or {}) != len(payload[k]) for k in ("players", "timingUnverified")
+            ):
+                reason = "archive_readback_mismatch"
+    except Exception as exc:  # noqa: BLE001 -- any failure keeps the raw evidence
+        reason = f"{type(exc).__name__}: {exc}"[:300]
+    if reason is not None:
+        _mark_pregame_failure(marker, now, reason)
+        return False
+    marker.unlink(missing_ok=True)
+    return True
+
+
+def _mark_pregame_failure(marker: Path, now: float, reason: str) -> None:
+    """Log and persist why a week's raw observations are being kept."""
+    import logging
+
+    logging.getLogger(__name__).warning(
+        "game day: keeping raw observations for %s -- pregame projection archive not "
+        "established (%s)",
+        marker.parent,
+        reason,
+    )
+    try:
+        _atomic_write_json(marker, {"failedAt": _iso(now), "reason": reason})
+    except OSError:
+        pass
 
 
 def prune_retention(season: int, week: int) -> list[str]:
