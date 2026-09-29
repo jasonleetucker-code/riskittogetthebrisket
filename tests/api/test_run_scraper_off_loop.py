@@ -87,19 +87,23 @@ def test_progress_reaches_scrape_status_on_the_loop_thread_in_order(monkeypatch)
 
     monkeypatch.setattr(server, "_update_scrape_progress", recording)
 
+    ran_on: list[int] = []
+
     async def run(progress_callback=None):
-        worker = threading.get_ident()
+        # Recorded here, not read from run_scraper's return value: the
+        # publish guard may legitimately serve the previous board instead.
+        ran_on.append(threading.get_ident())
         for i in range(25):
             progress_callback({"step": "scrape", "source": f"s{i}", "event": "phase_start"})
-        return dict(_RESULT, _worker=worker)
+        return dict(_RESULT)
 
     monkeypatch.setattr(server, "_import_scraper_module", lambda: _scraper(run))
 
     async def scenario():
         return threading.get_ident(), await server.run_scraper(trigger="test")
 
-    loop_thread, result = asyncio.run(scenario())
-    assert result["_worker"] != loop_thread, "scraper.run() executed on the loop thread"
+    loop_thread, _ = asyncio.run(scenario())
+    assert ran_on and ran_on[0] != loop_thread, "scraper.run() executed on the loop thread"
     sources = [s for s, _ in applied]
     ours = [s for s in sources if s and s.startswith("s") and s[1:].isdigit()]
     assert ours == [f"s{i}" for i in range(25)]
