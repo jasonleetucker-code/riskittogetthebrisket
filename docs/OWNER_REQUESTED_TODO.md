@@ -984,6 +984,17 @@ Owner-approved; the authorization record is the League Hub Awards pointer in `do
     recorded the conflict between the clarification (League MVP gated on a playoff-field, above-.500 franchise) and
     the 2026-08-14 amendment (no hard gate). The owner ruled for the gate on League MVP only.
 
+**Owner directive — Schedule Intelligence (2026-09-29).** Calculator Ideas record: issue #1530 (ordered
+portfolio A–E with owners, dependencies, surfaces, NOW/NEXT/LATER/BLOCKED) and
+`docs/SCHEDULE_INTELLIGENCE_SPEC.md`. One canonical schedule-analysis owner
+(`src/public_league/schedule_impact.py`) answers "how good were the performances, what happened, and how
+differently could the same performances have turned out under another defensible schedule" across League
+Hub, team pages, Power Rankings (context only), recaps, share cards, history, a Hard Luck distinction, the
+Schedule Multiverse, swaps, retrospective playoff sensitivity and player impact / MVP (shadow). Read-only
+retrospective analysis — NOT the removed schedule generator (X-01). Official Power Rankings and MVP formula
+changes stay gated; MVP eligibility (.500 or better) and ungated Unified Manager of the Year are preserved.
+Authorization: `docs/EXECUTION_PLAN.md` §0.
+
 **Owner correction — award record eligibility is .500 OR BETTER (2026-09-29).**
 Binding; immediate; supersedes the record half of the 2026-09-26 League MVP decision below and every earlier
 "above .500" / "strictly greater than .500" / ".500 is not a winning record" statement.

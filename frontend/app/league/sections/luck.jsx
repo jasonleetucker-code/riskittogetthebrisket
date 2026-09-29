@@ -13,6 +13,7 @@
 // pure materializer.
 
 import { useMemo, useState } from "react";
+import { ScheduleImpactTable } from "@/components/league/ScheduleImpact";
 import {
   Avatar,
   Card,
@@ -307,8 +308,14 @@ export default function LuckSection({ data, managers }) {
     new Set(seasonRows.map((r) => r.season))
   ).sort((a, b) => Number(b) - Number(a));
 
+  // Schedule Intelligence (canonical contract; the same numbers every
+  // surface reads).  Current season with every team.
+  const schedule = data?.scheduleImpact;
+  const scheduleContract = schedule?.bySeason?.[schedule?.currentSeason] || null;
+
   return (
     <section>
+      {schedule ? <ScheduleImpactTable contract={scheduleContract} /> : null}
       {/* Headline cards */}
       <div
         className="card"

@@ -380,7 +380,13 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     current_season_rows = [r for r in season_rows if r["season"] == current_season_year]
     current_season_rows.sort(key=lambda r: (-r["luckDelta"], r["ownerId"]))
 
+    # Schedule Intelligence (Milestone A): the canonical schedule-impact
+    # contract rides on this public section rather than a new one.  Imported
+    # here because ``schedule_impact`` builds on this module's primitives.
+    from . import schedule_impact
+
     return {
+        "scheduleImpact": schedule_impact.build_block(snapshot),
         "seasonsCovered": [s.season for s in snapshot.seasons],
         "currentSeason": current_season_year,
         "byOwnerCareer": career_rows,
