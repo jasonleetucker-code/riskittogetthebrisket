@@ -520,3 +520,24 @@ class ReviewRegressionTests(unittest.TestCase):
             sec = luck.build_section(snap)
         self.assertEqual(sec["scheduleImpact"]["state"], "failed")
         self.assertTrue(sec["byOwnerSeason"])
+
+
+class ReviewRoundTwoTests(unittest.TestCase):
+    def test_no_score_and_no_matchup_is_missing_not_a_bye(self) -> None:
+        weeks = {1: _week([(1, 1, 120.0), (2, 1, 100.0)])}
+        weeks[1] += [
+            {"roster_id": 3, "matchup_id": None, "points": 90.0},
+            {"roster_id": 4, "matchup_id": None, "points": None},
+        ]
+        snap = _snap(median=0, records={i: (0, 0, 0) for i in range(1, 5)}, weeks=weeks)
+        snap.seasons[0].league["settings"]["last_scored_leg"] = 1
+        c = si.season_contract(snap, snap.seasons[0])
+        self.assertEqual(c["state"], si.STATE_PARTIAL)
+        self.assertTrue(any(i.endswith("unscored:o4") for i in c["issues"]))
+        o3 = (
+            next(t for t in c["teams"] if t["ownerId"] == "o3")
+            if any(t["ownerId"] == "o3" for t in c["teams"])
+            else None
+        )
+        self.assertIsNone(o3)  # a bye team has no head-to-head row
+        self.assertIn("o4", c["teamsWithoutEvaluableGames"])

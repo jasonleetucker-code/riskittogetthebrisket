@@ -164,7 +164,7 @@ def compute_schedule_impact(weeks: Sequence[WeekInput]) -> dict[str, Any]:
             if i.startswith("game_excluded:"):
                 for t in i.split(":")[1:]:
                     excluded.setdefault(t, []).append(wk.week)
-            elif i.startswith("unpaired:"):
+            elif i.startswith(("unpaired:", "unscored:")):
                 excluded.setdefault(i.split(":", 1)[1], []).append(wk.week)
         for t in wk.byes:
             byes.setdefault(t, []).append(wk.week)
@@ -327,6 +327,7 @@ def season_week_inputs(
         # matchup would then look like a bye and the season like complete.
         groups: dict[Any, list[str]] = {}
         bye_teams: list[str] = []
+        structural: list[str] = []
         for entry in entries:
             key = _team_key(registry, season.league_id, entry.get("roster_id"))
             if not key:
@@ -335,10 +336,13 @@ def season_week_inputs(
             if mid is None:
                 if entry.get("points") is not None:
                     bye_teams.append(key)
+                else:
+                    # Neither a score nor a matchup in a finalized week is
+                    # missing data, not a quiet bye.
+                    structural.append(f"unscored:{key}")
                 continue
             groups.setdefault(mid, []).append(key)
         pairs: list[tuple[str, str]] = []
-        structural: list[str] = []
         for mid in sorted(groups, key=str):
             members = groups[mid]
             if len(members) == 2:
@@ -347,7 +351,7 @@ def season_week_inputs(
                 structural.append(f"unpaired:{members[0]}")
             else:
                 structural.append(f"group_size:{len(members)}:{','.join(sorted(members))}")
-        if scores:
+        if scores or structural:
             out.append(
                 WeekInput(
                     week=wk,

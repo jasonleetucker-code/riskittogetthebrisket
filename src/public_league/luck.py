@@ -36,6 +36,7 @@ Output shape
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from typing import Any
 
@@ -386,6 +387,9 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     try:
         schedule_block = schedule_impact.build_block(snapshot)
     except Exception:  # noqa: BLE001 -- surfaced as an explicit state
+        logging.getLogger(__name__).exception(
+            "schedule impact failed; Luck section served without it"
+        )
         schedule_block = {"currentSeason": None, "bySeason": {}, "state": "failed"}
 
     return {

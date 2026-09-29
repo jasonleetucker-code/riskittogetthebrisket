@@ -13,6 +13,7 @@
 
 import { Banner, DataTable, HelpModal } from "@/components/ds";
 import {
+  byeNote,
   excludedNote,
   fmtCredits,
   fmtRate,
@@ -97,6 +98,7 @@ function columns() {
         <span>
           <span className={styles.team}>{teamLabel(r)}</span>
           {excludedNote(r) ? <span className={`${styles.muted} ${styles.note}`}>{excludedNote(r)}</span> : null}
+          {byeNote(r) ? <span className={`${styles.muted} ${styles.note}`}>{byeNote(r)}</span> : null}
         </span>
       ),
     },

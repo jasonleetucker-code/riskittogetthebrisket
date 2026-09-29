@@ -102,6 +102,13 @@ export function excludedNote(row) {
   return `${n} game${n === 1 ? "" : "s"} not counted (week${n === 1 ? "" : "s"} ${weeks.join(", ")})`;
 }
 
+/** "Bye: week 5" when the team had no head-to-head game in a finalized week. */
+export function byeNote(row) {
+  const weeks = Array.isArray(row?.byeWeeks) ? row.byeWeeks : [];
+  if (weeks.length === 0) return null;
+  return `Bye: week${weeks.length === 1 ? "" : "s"} ${weeks.join(", ")}`;
+}
+
 /** Honest copy for every non-complete contract state, by its actual reason. */
 export function stateNotice(contract) {
   if (!contract) return { tone: "info", text: "Schedule impact is not available yet." };

@@ -12,6 +12,7 @@ import {
   ScheduleImpactTable,
 } from "@/components/league/ScheduleImpact";
 import {
+  byeNote,
   excludedNote,
   fmtRecord,
   fmtSignedCredits,
@@ -107,6 +108,8 @@ describe("lib/schedule-impact formatting", () => {
     expect(recordSortValue({ officialRecord: null })).toBeNull();
     expect(excludedNote({ excludedWeeks: [2] })).toBe("1 game not counted (week 2)");
     expect(excludedNote({ excludedWeeks: [] })).toBeNull();
+    expect(byeNote({ byeWeeks: [5] })).toBe("Bye: week 5");
+    expect(byeNote({ byeWeeks: [] })).toBeNull();
   });
 });
 
