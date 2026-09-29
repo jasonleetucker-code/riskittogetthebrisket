@@ -4121,9 +4121,10 @@ def _overlay_content_identity(overlay: dict) -> str | None:
     ETag each refresh, so every client re-downloaded the whole multi-MB board
     (a warm Rankings/Trade load paying a full body transfer instead of a 304)
     to learn nothing.  Versioned by content, an unchanged overlay keeps its
-    encoded generation: the served ``overlayFetchedAt`` is then the time that
-    content was FIRST observed -- older than its latest confirmation, which
-    understates freshness and never overstates it.
+    encoded generation: the served ``overlayFetchedAt`` is then the
+    observation at the slot's last encode (re-encoded on a board publish,
+    a roster-rule change, eviction or restart) -- older than its latest
+    confirmation, which understates freshness and never overstates it.
 
     Memoized per (league, observation), so the hash runs once per refresh,
     not per request.  Also records, per fingerprint, the latest observation
@@ -4138,11 +4139,15 @@ def _overlay_content_identity(overlay: dict) -> str | None:
     fp = _OVERLAY_CONTENT_FP.get(memo_key)
     if fp is None:
         body = {k: v for k, v in overlay.items() if k not in _OVERLAY_PER_FETCH_KEYS}
-        fp = hashlib.sha256(
-            json.dumps(
-                body, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str
-            ).encode("utf-8")
-        ).hexdigest()
+        try:
+            fp = hashlib.sha256(
+                json.dumps(
+                    body, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str
+                ).encode("utf-8")
+            ).hexdigest()
+        except Exception as exc:  # noqa: BLE001 -- unhashable shape: uncacheable, fail closed
+            log.warning("overlay content identity unavailable: %s", exc)
+            return None
         if len(_OVERLAY_CONTENT_FP) >= _OVERLAY_CONTENT_MEMO_MAX:
             _OVERLAY_CONTENT_FP.clear()
         _OVERLAY_CONTENT_FP[memo_key] = fp
@@ -4583,8 +4588,20 @@ async def get_data(request: Request):
             # board publication. Capture it once for both identity and solve;
             # meta already belongs to the requested league, including fallback.
             roster_settings = capture_contract_roster_settings(scrubbed)
+            # The scoring-profile LABEL is stamped into ``meta`` per request,
+            # so it belongs to the version too: the overlay's fetch time used
+            # to refresh it implicitly every ~15 min, and the content
+            # identity no longer does.
             context_digest = hashlib.sha256(
-                json.dumps(roster_settings, sort_keys=True, separators=(",", ":")).encode("utf-8")
+                json.dumps(
+                    {
+                        "rosterSettings": roster_settings,
+                        "scoringProfile": league_cfg.scoring_profile,
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    default=str,
+                ).encode("utf-8")
             ).hexdigest()
             overlay_version = (
                 (overlay_content, payload_etag, canonical_etag, context_digest)

@@ -612,7 +612,10 @@ site).
 overlay's CONTENT (everything except the three per-fetch stamps), memoized per observation
 (2.7 ms once per refresh per league on a real 317 KB overlay; a hit is ~3 us). Unchanged content
 keeps its bytes and ETag -> warm loads revalidate to a 304. The served `overlayFetchedAt` is then
-when that content was FIRST observed, which understates freshness and never overstates it. The
+the observation at the slot's last encode (a board publish, roster-rule change, eviction or
+restart re-encodes), which understates freshness and never overstates it. The scoring-profile
+label stamped into `meta` joined the version, since fetch time no longer refreshes it implicitly
+(independent review, approve with should-fixes applied). The
 #1512 stale-serve bound now measures from the content's LAST confirmation
 (`_OVERLAY_FP_LAST_SEEN`), not its first sighting.
 
