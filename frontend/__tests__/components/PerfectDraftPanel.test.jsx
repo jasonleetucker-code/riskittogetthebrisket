@@ -714,3 +714,15 @@ describe("the team it asks about", () => {
     expect(teamSelect).toHaveValue("Beta");
   });
 });
+
+describe("expectedPrice — an estimate, never an invented floor", () => {
+  it("keeps a real $0 estimate, prefers the live price, and leaves a missing one unpriced", async () => {
+    const { expectedPrice } = await import("../../components/draft/PerfectDraftPanel.jsx");
+    expect(expectedPrice({ inflatedFair: 0, preDraft: 9 })).toBe(0);
+    expect(expectedPrice({ inflatedFair: 12.4, preDraft: 9 })).toBe(12);
+    expect(expectedPrice({ preDraft: 7 })).toBe(7);
+    expect(expectedPrice({})).toBeNull();
+    expect(expectedPrice({ inflatedFair: null, preDraft: "" })).toBeNull();
+    expect(expectedPrice({ inflatedFair: -3 })).toBeNull();
+  });
+});

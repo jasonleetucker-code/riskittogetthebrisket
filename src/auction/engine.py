@@ -70,6 +70,9 @@ SEAT_KINDS = frozenset(
         "withdraw",
         "pass_nomination",
         "set_queue",
+        "offer_trade",
+        "respond_trade",
+        "cancel_trade",
     }
 )
 COMMISSIONER_KINDS = frozenset(
@@ -82,6 +85,7 @@ COMMISSIONER_KINDS = frozenset(
         "resume",
         "adjust_budget",
         "confirm_rules",
+        "verify_trade",
     }
 )
 SYSTEM_KINDS = frozenset({"advance"})
@@ -1219,6 +1223,239 @@ def _cmd_adjust_budget(s: dict, cmd: dict, now: float, events: list) -> dict:
     return {"ok": True, "balance": after}
 
 
+# ---------------------------------------------------------------------------
+# In-room auction-dollar trades (milestone C)
+# ---------------------------------------------------------------------------
+#
+# Rules (proposed, visible in the room):
+# * Both parties agree to the SAME immutable terms: an offer has an id and a
+#   version; acceptance must name both.  Changing terms means a new offer.
+# * Open offers do NOT reserve money.  Affordability and ownership are
+#   re-checked atomically at settlement; a trade that no longer fits fails.
+# * Only SPENDABLE money moves — dollars reserved by a current lead cannot be
+#   sent (AUC-001).
+# * Room assets (players won in this room) can move with the dollars in the
+#   same transition.  EXTERNAL assets (Sleeper veterans, future picks) are a
+#   note only: such a trade waits for the commissioner to verify the external
+#   side, and only then do in-room dollars move.  This is not a two-system
+#   atomic trade and never claims to be.
+# * Binding like a bid: no acceptance during the nightly pause or a room pause.
+
+TRADE_MAX_HOURS = 7 * 24
+
+
+def _trades(s: dict) -> dict:
+    return s.setdefault("trades", {})
+
+
+def lot_owner(a: dict) -> str | None:
+    return a.get("owner") or a.get("winner")
+
+
+def _check_lots(s: dict, seat: str, lots: list) -> list[str]:
+    if not isinstance(lots, list) or len(lots) > 20:
+        raise AuctionError("bad_trade", "lots must be a list of at most 20 won lots")
+    clean = []
+    for aid in lots:
+        a = s["auctions"].get(str(aid))
+        if not a or a["status"] != "closed" or lot_owner(a) != seat:
+            raise AuctionError("bad_trade", f"{aid} is not a won player owned by {seat}", 409)
+        if str(aid) not in clean:
+            clean.append(str(aid))
+    return clean
+
+
+def _cmd_offer_trade(s: dict, cmd: dict, now: float, events: list) -> dict:
+    _require_running(s, now)
+    me = cmd["actor"]["seat"]
+    to = str(cmd.get("to") or "")
+    _seat(s, to)
+    if to == me:
+        raise AuctionError("bad_trade", "you cannot trade with yourself")
+    give = _require_dollars(cmd.get("give_dollars", 0), "give_dollars")
+    get = _require_dollars(cmd.get("get_dollars", 0), "get_dollars")
+    give_lots = _check_lots(s, me, cmd.get("give_lots") or [])
+    get_lots = _check_lots(s, to, cmd.get("get_lots") or [])
+    note = str(cmd.get("external_note") or "").strip()[:300]
+    if not (give or get or give_lots or get_lots or note):
+        raise AuctionError("bad_trade", "an offer must move something")
+    hours = cmd.get("expires_hours", 24)
+    if (
+        isinstance(hours, bool)
+        or not isinstance(hours, (int, float))
+        or not (1 <= hours <= TRADE_MAX_HOURS)
+    ):
+        raise AuctionError("bad_trade", f"expiry must be 1-{TRADE_MAX_HOURS} hours")
+    tid = f"T{s.get('next_trade', 1)}"
+    s["next_trade"] = s.get("next_trade", 1) + 1
+    _trades(s)[tid] = {
+        "id": tid,
+        "version": 1,
+        "from": me,
+        "to": to,
+        "give_dollars": give,
+        "get_dollars": get,
+        "give_lots": give_lots,
+        "get_lots": get_lots,
+        "external_note": note,
+        "status": "open",
+        "created_at": now,
+        "expires_at": now + float(hours) * 3600,
+        "resolved_at": None,
+        "reason": None,
+    }
+    _ev(events, "trade_offered", f"seat:{to}", trade=tid, **{"from": me})
+    _ev(events, "trade_offered_by_you", f"seat:{me}", trade=tid, to=to)
+    return {"ok": True, "trade": tid}
+
+
+def _open_trade(s: dict, tid: str, now: float) -> dict:
+    t = _trades(s).get(str(tid))
+    if t is None:
+        raise AuctionError("unknown_trade", "no such trade", 404)
+    if t["status"] == "open" and now >= t["expires_at"]:
+        t["status"] = "expired"
+        t["resolved_at"] = t["expires_at"]
+    return t
+
+
+def _settle_trade(s: dict, t: dict, now: float, events: list) -> None:
+    a, b = t["from"], t["to"]
+    # Re-check EVERYTHING against the room as it is now.
+    if spendable(s, a) < t["give_dollars"]:
+        raise AuctionError(
+            "trade_unaffordable", f"{a} no longer has ${t['give_dollars']} spendable", 409
+        )
+    if spendable(s, b) < t["get_dollars"]:
+        raise AuctionError(
+            "trade_unaffordable", f"{b} no longer has ${t['get_dollars']} spendable", 409
+        )
+    _check_lots(s, a, t["give_lots"])
+    _check_lots(s, b, t["get_lots"])
+    net_a = t["get_dollars"] - t["give_dollars"]
+    if net_a:
+        s["ledger"].append(
+            {
+                "seq": _next_seq(s),
+                "seat": a,
+                "kind": "transfer",
+                "amount": net_a,
+                "reason": f"trade {t['id']}",
+                "at": now,
+            }
+        )
+        s["ledger"].append(
+            {
+                "seq": _next_seq(s),
+                "seat": b,
+                "kind": "transfer",
+                "amount": -net_a,
+                "reason": f"trade {t['id']}",
+                "at": now,
+            }
+        )
+    for aid in t["give_lots"]:
+        s["auctions"][aid]["owner"] = b
+    for aid in t["get_lots"]:
+        s["auctions"][aid]["owner"] = a
+    t["status"] = "completed"
+    t["resolved_at"] = now
+    _ev(
+        events,
+        "trade_completed",
+        "public",
+        trade=t["id"],
+        seats=[a, b],
+        dollars={a: -t["give_dollars"] + t["get_dollars"], b: t["give_dollars"] - t["get_dollars"]},
+        lots={a: t["get_lots"], b: t["give_lots"]},
+        external=bool(t["external_note"]),
+    )
+    # Money received can reactivate that seat's capped proxies.
+    gainer = a if net_a > 0 else b if net_a < 0 else None
+    if gainer and s["status"] in ("running", "draining") and not s["paused"]:
+        start = [x["id"] for x in open_auctions(s) if x["leader"] != gainer and gainer in x["bids"]]
+        changed = _cascade(s, start, now, events)
+        _publish_changes(s, changed, now, events)
+
+
+def _cmd_respond_trade(s: dict, cmd: dict, now: float, events: list) -> dict:
+    me = cmd["actor"]["seat"]
+    t = _open_trade(s, cmd.get("trade"), now)
+    if t["to"] != me:
+        raise AuctionError("forbidden", "only the receiving manager can answer this offer", 403)
+    if t["status"] != "open":
+        raise AuctionError("trade_closed", f"this offer is {t['status']}", 409)
+    if cmd.get("version") != t["version"]:
+        raise AuctionError("trade_changed", "the terms changed — review the current offer", 409)
+    if not cmd.get("accept"):
+        t["status"] = "declined"
+        t["resolved_at"] = now
+        _ev(events, "trade_declined", f"seat:{t['from']}", trade=t["id"])
+        return {"ok": True, "status": "declined"}
+    _require_running(s, now)
+    if t["external_note"]:
+        # Affordability is still checked now so an impossible trade is not queued.
+        if spendable(s, t["from"]) < t["give_dollars"] or spendable(s, t["to"]) < t["get_dollars"]:
+            raise AuctionError(
+                "trade_unaffordable", "not enough spendable money for these terms", 409
+            )
+        t["status"] = "awaiting_verification"
+        _ev(
+            events,
+            "trade_awaiting_verification",
+            "commissioner",
+            trade=t["id"],
+            note=t["external_note"],
+        )
+        _ev(events, "trade_awaiting_verification", f"seat:{t['from']}", trade=t["id"])
+        return {"ok": True, "status": "awaiting_verification"}
+    _settle_trade(s, t, now, events)
+    return {"ok": True, "status": "completed"}
+
+
+def _cmd_cancel_trade(s: dict, cmd: dict, now: float, events: list) -> dict:
+    me = cmd["actor"]["seat"]
+    t = _open_trade(s, cmd.get("trade"), now)
+    if t["from"] != me:
+        raise AuctionError("forbidden", "only the offering manager can withdraw this offer", 403)
+    if t["status"] not in ("open", "awaiting_verification"):
+        raise AuctionError("trade_closed", f"this offer is {t['status']}", 409)
+    t["status"] = "cancelled"
+    t["resolved_at"] = now
+    _ev(events, "trade_cancelled", f"seat:{t['to']}", trade=t["id"])
+    return {"ok": True}
+
+
+def _cmd_verify_trade(s: dict, cmd: dict, now: float, events: list) -> dict:
+    t = _open_trade(s, cmd.get("trade"), now)
+    if t["status"] != "awaiting_verification":
+        raise AuctionError("trade_closed", f"this trade is {t['status']}", 409)
+    reason = str(cmd.get("reason") or "").strip()
+    if not reason:
+        raise AuctionError("reason_required", "record how the external side was verified")
+    if not cmd.get("approve"):
+        t["status"] = "rejected"
+        t["resolved_at"] = now
+        t["reason"] = reason[:300]
+        _ev(events, "trade_rejected", "public", trade=t["id"], reason=t["reason"])
+        return {"ok": True, "status": "rejected"}
+    _require_running(s, now)
+    t["reason"] = reason[:300]
+    _settle_trade(s, t, now, events)
+    return {"ok": True, "status": "completed"}
+
+
+def trades_for_seat(s: dict, seat: str, now: float) -> list[dict]:
+    out = []
+    for t in _trades(s).values():
+        if seat in (t["from"], t["to"]):
+            view = dict(t)
+            if view["status"] == "open" and now >= view["expires_at"]:
+                view["status"] = "expired"
+            out.append(view)
+    return sorted(out, key=lambda t: -t["created_at"])
+
+
 _HANDLERS = {
     "advance": _cmd_advance,
     "configure": _cmd_configure,
@@ -1234,6 +1471,10 @@ _HANDLERS = {
     "pause": _cmd_pause,
     "resume": _cmd_resume,
     "adjust_budget": _cmd_adjust_budget,
+    "offer_trade": _cmd_offer_trade,
+    "respond_trade": _cmd_respond_trade,
+    "cancel_trade": _cmd_cancel_trade,
+    "verify_trade": _cmd_verify_trade,
 }
 
 
@@ -1258,6 +1499,8 @@ def check_invariants(s: dict) -> None:
                 raise AssertionError(f"{a['id']} price above leader maximum")
         elif a["winner"] is None:
             raise AssertionError(f"{a['id']} closed without a winner")
+        elif lot_owner(a) not in {x["id"] for x in s["seats"]}:
+            raise AssertionError(f"{a['id']} owned by an unknown seat")
         if int(a["price"]) < 0:
             raise AssertionError("negative price")
     if open_count > int(s["rules"]["max_open"]):
@@ -1296,6 +1539,7 @@ def public_view(s: dict, now: float) -> dict:
                 "price": a["price"],
                 "leader": a["leader"] if a["status"] == "open" else None,
                 "winner": a["winner"],
+                "owner": lot_owner(a) if a["status"] == "closed" else None,
                 "deadline": a["deadline"],
                 "remaining_active_seconds": remaining,
                 "opened_at": a["opened_at"],
@@ -1371,6 +1615,24 @@ def public_view(s: dict, now: float) -> dict:
             for r in s["rights"]
         ],
         "total_opening_pool": total_opening_pool(s),
+        "completed_trades": [
+            {
+                k: t[k]
+                for k in (
+                    "id",
+                    "from",
+                    "to",
+                    "give_dollars",
+                    "get_dollars",
+                    "give_lots",
+                    "get_lots",
+                    "resolved_at",
+                )
+            }
+            | {"external": bool(t["external_note"])}
+            for t in (s.get("trades") or {}).values()
+            if t["status"] == "completed"
+        ],
         "started_at": s["started_at"],
         "completed_at": s["completed_at"],
         "now": now,
@@ -1422,6 +1684,7 @@ def seat_private_view(s: dict, seat_id: str, now: float) -> dict:
         ),
         "my_bids": mine,
         "queue": q,
+        "trades": trades_for_seat(s, seat_id, now),
         "on_clock": None
         if right is None or right["window_at"] is None
         else {

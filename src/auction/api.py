@@ -464,6 +464,9 @@ async def create_room(request: Request):
             created_at=_now(),
         )
         state["budget_provenance"] = provenance
+        # Which league's rosters these seats are, so Perfect Draft advice can
+        # refuse a board loaded for a different league (never a chimera).
+        state["league_key"] = _league_key_of(contract) if seat_source == "league" else None
         store = get_store()
         await run_in_threadpool(store.create_room, state, created_by=user.id, now_real=_now())
 
@@ -483,6 +486,21 @@ async def create_room(request: Request):
     except AuctionError as exc:
         return _auction_error(exc)
     return {"roomId": room_id, "budgetProvenance": provenance}
+
+
+def _league_key_of(contract) -> str | None:
+    """The league whose rosters the loaded board carries: its own stamp, else
+    the registry default (the league the server loads), else unknown."""
+    key = ((contract or {}).get("meta") or {}).get("leagueKey")
+    if key:
+        return str(key)
+    try:
+        from src.api import league_registry
+
+        default = league_registry.get_default_league()
+        return default.key if default else None
+    except Exception:  # noqa: BLE001
+        return None
 
 
 async def _draft_capital_payload(request: Request) -> dict:
@@ -536,7 +554,15 @@ def _view(room_id: str, user: accounts.User, member: dict, now_real: float) -> d
     }
     if is_commish:
         members, invites = accounts.room_members(store, room_id)
-        out["commissioner"] = {"members": members, "invites": invites}
+        out["commissioner"] = {
+            "members": members,
+            "invites": invites,
+            "pendingTrades": [
+                t
+                for t in (state.get("trades") or {}).values()
+                if t["status"] == "awaiting_verification"
+            ],
+        }
     return out
 
 
@@ -612,6 +638,18 @@ _ALLOWED_FIELDS: dict[str, tuple[str, ...]] = {
     "pause": ("reason",),
     "resume": ("reason", "min_remaining_active_seconds"),
     "adjust_budget": ("seat", "amount", "reason"),
+    "offer_trade": (
+        "to",
+        "give_dollars",
+        "get_dollars",
+        "give_lots",
+        "get_lots",
+        "external_note",
+        "expires_hours",
+    ),
+    "respond_trade": ("trade", "version", "accept"),
+    "cancel_trade": ("trade",),
+    "verify_trade": ("trade", "approve", "reason"),
 }
 
 
@@ -833,12 +871,17 @@ async def room_export(request: Request, room_id: str, format: str = "json"):
                 "pos": p.get("pos"),
                 "winnerSeat": a["winner"],
                 "winner": w["name"],
+                "currentOwner": seats[engine.lot_owner(a)]["name"],
                 # Sleeper identifiers are for the commissioner's roster
                 # reconciliation only.
                 **(
                     {
                         "winnerSleeperUserId": w.get("sleeper_user_id"),
                         "winnerRosterId": w.get("roster_id"),
+                        "currentOwnerSleeperUserId": seats[engine.lot_owner(a)].get(
+                            "sleeper_user_id"
+                        ),
+                        "currentOwnerRosterId": seats[engine.lot_owner(a)].get("roster_id"),
                     }
                     if member["role"] == "commissioner"
                     else {}
@@ -1218,3 +1261,101 @@ async def room_watch(request: Request, room_id: str):
     except AuctionError as exc:
         return _auction_error(exc)
     return {"watched": watched}
+
+
+# ---------------------------------------------------------------------------
+# Perfect Draft advice context (milestone C) — the caller's OWN seat only
+# ---------------------------------------------------------------------------
+
+
+@router.get("/rooms/{room_id}/advice-context")
+async def room_advice_context(request: Request, room_id: str):
+    """Roster context for Perfect Draft, for the CALLER's seat only.
+
+    Reuses ``src/api/draft_optimizer_api.get_roster_context`` (the same owner
+    ``/api/draft/roster-context`` serves) — no second roster engine.  League
+    mates hold no site session, so this is the only way their advice can see
+    their roster.  It never accepts a team parameter: the seat comes from
+    server-side membership, so nobody can read a rival's cut ladder.
+
+    Advice failing is reported, never blocking: the room works without it.
+    """
+    gate = _gate()
+    if gate:
+        return gate
+    try:
+        user = _require_user(request)
+        member = await run_in_threadpool(_member_or_admin, room_id, user)
+        state, _, _ = get_store().load(room_id)
+    except AuctionError as exc:
+        return _auction_error(exc)
+    seat_id = member.get("seat_id")
+    out: dict[str, Any] = {
+        "status": "unavailable",
+        "reason": None,
+        "context": None,
+        "boardValues": {},
+        "valuesAsOf": None,
+    }
+    if not seat_id:
+        out["reason"] = "no_seat"
+        return out
+    seat = next((s for s in state["seats"] if s["id"] == seat_id), None)
+    srv = sys.modules.get("server") or sys.modules.get("__main__")
+    contract = getattr(srv, "latest_contract_data", None)
+    try:
+        from src.api import feature_flags
+
+        if not feature_flags.is_enabled("perfect_draft"):
+            out["reason"] = "perfect_draft_disabled"
+            return out
+    except Exception:  # noqa: BLE001
+        pass
+    if not contract:
+        out["reason"] = "no_board_loaded"
+        return out
+    meta = contract.get("meta") or {}
+    # Current canonical values for this room's frozen pool (advice may refresh
+    # values; accepted bids, budgets and the pool never change because of it).
+    wanted = set(state["pool"]["players"])
+    values = {}
+    for row in contract.get("playersArray") or []:
+        pid = str(row.get("playerId") or "")
+        if pid in wanted:
+            v = row.get("rankDerivedValue")
+            if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
+                values[pid] = float(v)
+    out["boardValues"] = values
+    out["valuesAsOf"] = meta.get("generatedAt") or contract.get("scrapeTimestamp")
+    if not seat or not seat.get("sleeper_user_id") or not state.get("league_key"):
+        out["reason"] = "seat_has_no_league_roster"
+        out["status"] = "values_only"
+        return out
+    # Same rule as /api/draft/roster-context: refuse only when the loaded board
+    # DECLARES another league.  The builder then also refuses a seat whose
+    # Sleeper owner is not on the loaded rosters (``unknown_team``).
+    if meta.get("leagueKey") and str(meta.get("leagueKey")) != str(state["league_key"]):
+        out["reason"] = "board_is_for_another_league"
+        out["status"] = "values_only"
+        return out
+    try:
+        from src.api import draft_optimizer_api
+
+        ctx = await run_in_threadpool(
+            draft_optimizer_api.get_roster_context,
+            contract,
+            state["league_key"],
+            owner_id=str(seat["sleeper_user_id"]),
+        )
+    except ValueError as exc:
+        out["reason"] = str(exc)[:80]
+        out["status"] = "values_only"
+        return out
+    except Exception as exc:  # noqa: BLE001 - advice never takes the room down
+        log.warning("auction advice context failed: %s", exc)
+        out["reason"] = "context_error"
+        out["status"] = "values_only"
+        return out
+    out["context"] = ctx.get("context") if isinstance(ctx, dict) and "context" in ctx else ctx
+    out["status"] = "ok" if out["context"] else "values_only"
+    return JSONResponse(out, headers={"Cache-Control": "no-store"})
