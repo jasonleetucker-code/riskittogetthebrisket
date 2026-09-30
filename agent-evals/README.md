@@ -114,7 +114,14 @@ changed files between the artifact's pinned `repo_head_start` and `repo_head_end
 (`git diff --name-only --no-renames`, no shell, 30 s timeout, output capped). The
 declared `changed_files` must then equal that set exactly, and the case's path
 globs are judged on the actual diff. A run that reports success while its diff
-touches a forbidden path fails.
+touches a forbidden path fails; so does one whose pinned diff cannot be
+established for any reason (unresolvable revision, past the 5,000-file / 4 MiB
+bound, git failure, timeout) -- it never falls back to the self-report.
+
+**Grade against a clean clone you control**, not the evaluated agent's working
+copy: the repository's config, attributes and objects are trusted, and the run may
+have edited its own checkout. An unusable `--repo` or missing git is a grading
+error (exit 2), not a pass.
 
 Limits, stated plainly:
 
@@ -122,11 +129,12 @@ Limits, stated plainly:
   repository. It does not prove the run authored them, that they are the commits
   it worked on, or that the change is correct.
 - Revisions must be full 40-character lowercase SHAs (schema pattern); anything
-  else is a malformed artifact. A well-formed revision the repository cannot
-  resolve fails the grade as unverifiable. Absent revisions leave the check
-  `NOT_CHECKED` unless `--require-verified-diff` is given.
-- Artifacts are untrusted data: bounded at 1 MiB, never executed, no declared
-  path is opened, and nothing is fetched over the network.
+  else is a malformed artifact. Absent revisions leave the check `NOT_CHECKED`
+  unless `--require-verified-diff` is given.
+- Artifacts are untrusted data: bounded at 1 MiB, never executed, and no declared
+  path is opened. Git runs with lazy fetch, transports, prompts, optional locks and
+  fsmonitor disabled, so a pinned missing object in a partial clone cannot trigger
+  a fetch or a configured upload-pack command.
 - Test results are still `DECLARED` (a flag such as `regression_test_added`).
   Tying test evidence to the exact checked revision through a trusted runner or
   independently retrieved CI records is the next unit, not done here.

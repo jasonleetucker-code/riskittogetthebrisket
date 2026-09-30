@@ -28,7 +28,7 @@ from graders.deterministic import (  # noqa: E402
     grade_file,
     load_case,
 )
-from graders.diff_evidence import changed_files_between  # noqa: E402
+from graders.diff_evidence import DiffEvidence, changed_files_between  # noqa: E402
 
 CASE_ID = "trivial-doc-fix-does-not-load-unrelated-skill"
 
@@ -192,9 +192,56 @@ def test_rename_counts_both_paths_regardless_of_git_config(tmp_path):
     assert diff.files == ("Dynasty Scraper.py", "scraper.py")
 
 
-def test_unavailable_repository_is_not_checked(repo, tmp_path):
-    diff = changed_files_between(tmp_path / "missing", repo["base"], repo["honest"])
-    assert diff.reason == "repository_unavailable"
+def test_unusable_repository_is_a_grading_error_not_a_pass(repo, tmp_path):
+    path = _write(tmp_path, _artifact(repo["base"], repo["honest"]))
+    not_git = tmp_path / "plain"
+    not_git.mkdir()
+    for bad in (tmp_path / "missing", not_git):
+        assert changed_files_between(bad, repo["base"], repo["honest"]).reason == (
+            "repository_unavailable"
+        )
+        with pytest.raises(CaseError, match="repository_unavailable"):
+            grade_file(CASE_ID, path, repo=bad)
+
+
+@pytest.mark.parametrize("reason", ["diff_exceeds_bound", "git_diff_failed", "git_timeout"])
+def test_pinned_diff_that_cannot_be_established_fails_without_strict_flag(repo, reason):
+    # An artifact must not escape the scope check by pinning a diff past the bound.
+    case = load_case(CASE_ID)
+    diff = DiffEvidence(None, repo["base"], repo["violating"], reason)
+    result = grade(case, _artifact(repo["base"], repo["violating"]), diff=diff)
+    assert not result.passed
+    assert _levels(result)["changed_files_claim"] == NOT_CHECKED
+    assert any(reason in f for f in result.failures)
+
+
+def test_duplicate_declared_entries_are_flagged(repo, tmp_path):
+    artifact = _artifact(
+        repo["base"],
+        repo["honest"],
+        changed=["src/utils/name_clean.py", "./src/utils/name_clean.py"],
+    )
+    result = grade_file(CASE_ID, _write(tmp_path, artifact), repo=repo["root"])
+    assert any("listed more than once" in f for f in result.failures)
+
+
+def test_git_runs_hardened_against_fetches_and_repository_hooks(repo, monkeypatch):
+    import graders.diff_evidence as runner
+
+    calls = []
+    real_run = subprocess.run
+
+    def recording_run(argv, **kwargs):
+        calls.append((argv, kwargs.get("env") or {}))
+        return real_run(argv, **kwargs)
+
+    monkeypatch.setattr(runner.subprocess, "run", recording_run)
+    assert changed_files_between(repo["root"], repo["base"], repo["honest"]).established
+    assert calls
+    for argv, env in calls:
+        assert argv[:5] == ["git", "-c", "core.fsmonitor=false", "-c", "protocol.allow=never"]
+        assert env.get("GIT_NO_LAZY_FETCH") == "1"
+        assert env.get("GIT_TERMINAL_PROMPT") == "0"
 
 
 def test_oversized_or_non_object_artifacts_are_refused(repo, tmp_path):

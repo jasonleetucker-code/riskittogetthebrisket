@@ -4,23 +4,34 @@ This is the only place agent-evals reads anything beyond the case and artifact
 JSON. It exists so one grading check -- "which files did this run change?" --
 can be answered from the repository instead of from the run's own report.
 
-Trust boundary. The repository path comes from the operator running the
-grader. Everything taken from the run artifact is untrusted: the two revision
-strings must be full 40-character lowercase hex (so they cannot be read by git
-as options, ranges or refs), and nothing else from the artifact reaches git.
+Trust boundary. The repository -- its path, ``.git/config``, attributes and
+object store -- is trusted and comes from the operator. Grade against a clean
+clone the operator controls, never the evaluated agent's own working copy,
+which the run may have edited. Everything taken from the run artifact is
+untrusted: the two revision strings must be full 40-character lowercase hex (so
+they cannot be read by git as options, ranges or refs), and nothing else from
+the artifact reaches git.
 No declared path is ever opened or read, no command embedded in a transcript
-is executed, nothing is fetched over the network, git runs without a shell
-under a timeout, and output is capped.
+is executed, git runs without a shell under a timeout with lazy fetching,
+transports, prompts, optional locks and fsmonitor disabled (so a pinned but
+missing object in a partial clone cannot trigger a fetch), and output is
+capped.
 
 What a successful result proves: the tree difference between two commits that
 exist in this repository. It does not prove the run authored those commits,
 that the commits are the ones the run actually worked on, or that the change
 behaves correctly. A missing or unresolvable revision is reported as
 unverified, never as a pass.
+
+Reasons split by who can cause them. ``no_pinned_revisions``: the artifact made
+no claim. ``OPERATOR_FAULTS``: the supplied repository or git is unusable --
+a grading error, not a grade. Anything else: the artifact pinned revisions
+whose diff could not be established, which the grader treats as a failure.
 """
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from dataclasses import dataclass
@@ -30,6 +41,13 @@ FULL_SHA = re.compile(r"[0-9a-f]{40}")
 GIT_TIMEOUT_SECONDS = 30
 MAX_CHANGED_FILES = 5000
 MAX_OUTPUT_BYTES = 4 * 1024 * 1024
+OPERATOR_FAULTS = frozenset({"repository_unavailable", "git_unavailable"})
+_HARDENED_ENV = {
+    "GIT_NO_LAZY_FETCH": "1",
+    "GIT_TERMINAL_PROMPT": "0",
+    "GIT_OPTIONAL_LOCKS": "0",
+}
+_HARDENED_CONFIG = ("-c", "core.fsmonitor=false", "-c", "protocol.allow=never")
 
 
 @dataclass(frozen=True)
@@ -52,10 +70,11 @@ def is_full_sha(value) -> bool:
 
 def _git(repo: Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["git", "-C", str(repo), *args],
+        ["git", *_HARDENED_CONFIG, "-C", str(repo), *args],
         capture_output=True,
         timeout=GIT_TIMEOUT_SECONDS,
         check=False,
+        env={**os.environ, **_HARDENED_ENV},
     )
 
 
@@ -75,6 +94,8 @@ def changed_files_between(
     if not repo.is_dir():
         return DiffEvidence(None, base, head, "repository_unavailable")
     try:
+        if _git(repo, "rev-parse", "--git-dir").returncode != 0:
+            return DiffEvidence(None, base, head, "repository_unavailable")
         for sha in (base, head):
             if not _commit_exists(repo, sha):
                 return DiffEvidence(None, base, head, "revision_not_in_repository")
@@ -82,8 +103,10 @@ def changed_files_between(
         result = _git(
             repo, "diff", "--name-only", "-z", "--no-renames", "--no-ext-diff", base, head, "--"
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except OSError:
         return DiffEvidence(None, base, head, "git_unavailable")
+    except subprocess.TimeoutExpired:
+        return DiffEvidence(None, base, head, "git_timeout")
     if result.returncode != 0:
         return DiffEvidence(None, base, head, "git_diff_failed")
     if len(result.stdout) > MAX_OUTPUT_BYTES:

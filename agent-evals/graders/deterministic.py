@@ -39,7 +39,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .diff_evidence import DiffEvidence, changed_files_between, is_full_sha
+from .diff_evidence import OPERATOR_FAULTS, DiffEvidence, changed_files_between, is_full_sha
 
 CASES_DIR = Path(__file__).resolve().parent.parent / "cases"
 
@@ -76,9 +76,11 @@ MAX_ARTIFACT_BYTES = 1024 * 1024
 DECLARED = "DECLARED"
 VERIFIED_AGAINST_ARTIFACT = "VERIFIED_AGAINST_ARTIFACT"
 NOT_CHECKED = "NOT_CHECKED"
-# The artifact asserted a revision that the supplied repository cannot resolve:
-# a discrepancy in its own right, not merely missing evidence.
-_ASSERTED_REVISION_UNRESOLVED = {"revision_not_full_sha", "revision_not_in_repository"}
+# The one lenient reason: the artifact pinned no revisions, so it made no diff claim.
+# Once it pins revisions, failing to establish their diff for any reason -- an
+# unresolvable revision, a diff past the bound, a git failure -- fails the grade;
+# otherwise an oversized or broken diff would fall back to the self-report.
+_NO_DIFF_CLAIM = "no_pinned_revisions"
 
 
 class CaseError(ValueError):
@@ -245,16 +247,18 @@ def grade(
         evidence.append(
             {"check": "changed_files_claim", "level": NOT_CHECKED, "reason": diff.reason}
         )
-        if diff.reason in _ASSERTED_REVISION_UNRESOLVED:
+        if diff.reason != _NO_DIFF_CLAIM:
             failures.append(
-                f"pinned revisions {diff.base!r}..{diff.head!r} could not be resolved in the "
-                f"supplied repository ({diff.reason}); the changed-file claim is unverifiable"
+                f"diff for pinned revisions {diff.base!r}..{diff.head!r} could not be "
+                f"established ({diff.reason}); the changed-file claim is unverifiable"
             )
         elif require_verified_diff:
             failures.append(f"changed-file claim could not be verified: {diff.reason}")
     else:
         evidence.append({"check": "changed_files_claim", "level": VERIFIED_AGAINST_ARTIFACT})
         actual, declared = set(diff.files), set(declared_files)
+        for path in sorted({p for p in declared_files if declared_files.count(p) > 1}):
+            failures.append(f"declared changed file {path!r} is listed more than once")
         for path in sorted(actual - declared):
             failures.append(f"changed file {path!r} is in the actual diff but was not declared")
         for path in sorted(declared - actual):
@@ -262,7 +266,7 @@ def grade(
 
     # Scope is judged on the actual diff whenever it was established.
     scope_verified = diff is not None and diff.established
-    changed_files = list(diff.files) if scope_verified else declared_files
+    changed_files = list(diff.files) if scope_verified else artifact.get("changed_files") or []
     allowed_globs = grading.get("allowed_path_globs")
     if allowed_globs or grading.get("forbidden_path_globs"):
         evidence.append(
@@ -328,4 +332,6 @@ def grade_file(
         diff = changed_files_between(
             Path(repo), artifact.get("repo_head_start"), artifact.get("repo_head_end")
         )
+        if diff.reason in OPERATOR_FAULTS:
+            raise CaseError(f"{repo}: cannot verify against this repository ({diff.reason})")
     return grade(case, artifact, diff=diff, require_verified_diff=require_verified_diff)
