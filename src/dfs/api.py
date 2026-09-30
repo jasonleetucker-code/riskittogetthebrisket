@@ -1037,6 +1037,90 @@ async def entries_parse(request: Request):
     return _ok(parsed)
 
 
+async def _late_swap_inputs(request: Request):
+    """(owner, ruleset, athletes, parsed entries, clock, clock source) or an error response."""
+    from datetime import datetime, timezone
+
+    from src.dfs.entries import parse_entries
+
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    snap = await run_in_threadpool(store.get_snapshot, owner, str(body.get("snapshotId") or ""))
+    if snap is None:
+        return _err("NOT_FOUND", "No such slate.", 404)
+    rs = get_ruleset(snap["ruleset"].split("@", 1)[0])
+    if rs is None or rs.key != snap["ruleset"]:
+        return _err(
+            "RULESET_SUPERSEDED", "This slate's rule-set version is no longer current.", 409
+        )
+    clock_source = "server"
+    now = datetime.now(timezone.utc)
+    if body.get("asOf") is not None:
+        # A what-if clock ("plan as of 4:05 PM") — labelled, never the default.
+        try:
+            now = datetime.fromisoformat(str(body["asOf"]).replace("Z", "+00:00"))
+        except ValueError:
+            now = None  # type: ignore[assignment]
+        if now is None or now.tzinfo is None:
+            return _err("INVALID_CLOCK", "asOf must be an ISO time with a timezone.", 422)
+        clock_source = "owner_supplied"
+    athletes = _athletes_from(snap["body"]["athletes"])
+    try:
+        parsed = parse_entries(body.get("entriesCsv") or "", rs, athletes)
+    except ImportError_ as exc:
+        return _entries_error(exc)
+    return rs, athletes, parsed, now, clock_source
+
+
+@router.post("/late-swap")
+async def late_swap_plan(request: Request):
+    """Plan late swaps for the owner's imported entries.  Recommends; never submits."""
+    got = await _late_swap_inputs(request)
+    if isinstance(got, JSONResponse):
+        return got
+    rs, athletes, parsed, now, clock_source = got
+    from src.dfs.lateswap import plan_late_swap
+
+    plan = await run_in_threadpool(plan_late_swap, rs, athletes, parsed["entries"], now)
+    return _ok(
+        {**plan, "clockSource": clock_source, "layoutVerification": parsed["layoutVerification"]}
+    )
+
+
+@router.post("/late-swap/export")
+async def late_swap_export(request: Request):
+    """The planned final lineups as an entry file the owner uploads themselves."""
+    got = await _late_swap_inputs(request)
+    if isinstance(got, JSONResponse):
+        return got
+    rs, athletes, parsed, now, clock_source = got
+    from src.dfs.lateswap import export_late_swap, plan_late_swap
+
+    plan = await run_in_threadpool(plan_late_swap, rs, athletes, parsed["entries"], now)
+    try:
+        text, report = export_late_swap(rs, plan, parsed["entries"], athletes)
+    except ImportError_ as exc:
+        return _entries_error(exc)
+    if not report["written"]:
+        return _err("NOTHING_TO_EXPORT", "No entry could be planned.", 409, report)
+    return Response(
+        content=text,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{rs.platform}-{rs.sport}-{rs.format}-LATE-SWAP-UNVERIFIED-FORMAT.csv"',
+            "Cache-Control": "no-store",
+            "X-DFS-Export-Verified": "false",
+            "X-DFS-Clock-Source": clock_source,
+            "X-DFS-Entries-Written": str(len(report["written"])),
+            "X-DFS-Entries-Skipped": str(len(report["skipped"])),
+        },
+    )
+
+
 @router.post("/builds/{build_id}/export-entries")
 async def export_build_into_entries(build_id: str, request: Request):
     """Fill this build's lineups into the owner's existing entry IDs (re-validated)."""

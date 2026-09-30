@@ -15,7 +15,7 @@ kept in the right-hand column so no requirement lost its home. Requirement IDs:
 | **D** Intelligence layer | Projections, distributions, ownership, sportsbook markets, news, podcast evidence, freshness, disagreement | P3 | NEXT (research can run in parallel) | Correct timing, identity, rights, controlled influence |
 | **E** Field / contest models | Conditional ownership, opponent lineups, field strength, duplication, ties, exact payout engine (payout/tie math already built in B) | P4 | LATER | Calibration + field-fit reports; labels accurate |
 | **F** Contest-aware optimization | Optimal Lineup on the strongest validated method, cash vs GPP, exact-contest EV, joint portfolio, recommended entry count | P5 | LATER / BLOCKED on D+E | Cash vs GPP genuinely differ; zero entries allowed; limitations disclosed |
-| **G** Late swap / live | Entry import, locked-slot preservation, swap recommendations, repair, rooting view, updated exports | P6 | LATER | Locked slots never move |
+| **G** Late swap / live | Entry import, locked-slot preservation, swap recommendations, repair, rooting view, updated exports | P6 | **FOUNDATION BUILT** (`claude/dfs-multisport`: DK entries, pins, swaps, export); live scoring, rooting view, cross-entry coordination remain | Locked slots never move |
 | **H** Learning / validation | Contest result + field archive, replay, source evaluation, calibration, attribution, drift, champion/challenger | P7 | LATER | Leakage-resistant, reproducible; no self-promotion |
 | **P8** Production acceptance | Security/rights, performance, restore, docs, rollout, the owner's core workflow proven in production | P8 | LATER | Owner scenario (addendum §30) passes on the deployed site |
 

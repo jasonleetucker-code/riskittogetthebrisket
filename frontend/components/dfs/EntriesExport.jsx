@@ -11,6 +11,7 @@
 import React, { useState } from "react";
 import { Banner, Button, Field } from "@/components/ds";
 import { errorMessage } from "@/lib/dfs";
+import { errorBody, saveResponseAsFile } from "@/lib/dfs-download";
 import styles from "./dfs-workspace.module.css";
 
 export default function EntriesExport({ buildId }) {
@@ -34,27 +35,12 @@ export default function EntriesExport({ buildId }) {
         body: JSON.stringify({ entriesCsv }),
       });
       if (!res.ok) {
-        let body = null;
-        try {
-          body = await res.json();
-        } catch {
-          body = null;
-        }
-        setError(errorMessage(body, "The entry file could not be filled."));
+        setError(errorMessage(await errorBody(res), "The entry file could not be filled."));
         return;
       }
       const assigned = Number(res.headers.get("x-dfs-entries-assigned") || 0);
       const untouched = Number(res.headers.get("x-dfs-entries-untouched") || 0);
-      const blob = await res.blob();
-      const name = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") || "")?.[1] || "entries.csv";
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      await saveResponseAsFile(res, "entries.csv");
       setDone({ assigned, untouched });
     } catch {
       setError("The entry file could not be read.");

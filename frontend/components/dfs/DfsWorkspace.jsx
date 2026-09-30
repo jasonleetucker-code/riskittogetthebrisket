@@ -59,6 +59,7 @@ const RuleBuilder = lazy(() => import("./RuleBuilder"));
 const TeamStacks = lazy(() => import("./TeamStacks"));
 const PlayerPool = lazy(() => import("./PlayerPool"));
 const EntriesExport = lazy(() => import("./EntriesExport"));
+const LateSwap = lazy(() => import("./LateSwap"));
 
 async function api(path, init) {
   const res = await fetch(`/api/dfs${path}`, {
@@ -764,6 +765,14 @@ export default function DfsWorkspace() {
           {build && slateMatches ? (
             <Panel title="5 · Result">
               <BuildResult build={build} ruleset={ruleset} />
+            </Panel>
+          ) : null}
+
+          {slate && slateMatches && ruleset?.platform === "draftkings" ? (
+            <Panel title="6 · Late swap">
+              <Suspense fallback={null}>
+                <LateSwap snapshotId={slate.snapshotId} athletes={slate.athletes} />
+              </Suspense>
             </Panel>
           ) : null}
         </>

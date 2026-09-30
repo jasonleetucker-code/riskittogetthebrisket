@@ -111,6 +111,11 @@ class Constraints:
     stacks: list[Stack] = field(default_factory=list)
     conditionals: list[Conditional] = field(default_factory=list)
     team_stacks: list[TeamStack] = field(default_factory=list)
+    # Slot index → player fixed IN THAT SLOT (late swap: the game has started).
+    # Set programmatically by the late-swap planner, never from a build body.
+    # A pinned player may lack a projection: they are not a choice, so their
+    # objective term is a constant, and the lineup total reports as unknown.
+    slot_pins: dict[int, str] = field(default_factory=dict)
     # Owner FORECAST edits for this build (points).  Replace the source
     # projection in the objective AND in the reported totals; recorded as the
     # owner's, never written back to the slate.
@@ -458,6 +463,9 @@ def validate_lineup(
         elif len(games) < ruleset.min_games:
             errors.append(f"players from fewer than {ruleset.min_games} games")
     if c is not None:
+        for s_idx, pid in c.slot_pins.items():
+            if s_idx >= len(assignment) or assignment[s_idx][1] != pid:
+                errors.append(f"pinned player {pid} moved out of slot {s_idx + 1}")
         missing_locks = [p for p in c.locks if p not in ids]
         if missing_locks:
             errors.append(f"locked players missing: {missing_locks}")
@@ -623,6 +631,15 @@ def _build(
         tag = f"lock:{pid}"
         if on(tag):
             rows.append((y(index[pid]), 1, 1, tag))
+    for s_idx, pid in sorted(c.slot_pins.items()):
+        tag = f"pin:{s_idx}"
+        if not on(tag):
+            continue
+        i = index.get(pid)
+        pair_vars = [v for v, (pi, ps) in enumerate(pairs) if pi == i and ps == s_idx]
+        # No legal (player, slot) pair → an empty row with lb 1: infeasible,
+        # and isolation names this pin.
+        rows.append(({v: 1.0 for v in pair_vars}, 1, 1, tag))
     if due and on("min_exposure"):
         for pid in sorted(due):
             rows.append((y(index[pid]), 1, 1, "min_exposure"))
@@ -785,6 +802,7 @@ def _owner_items(
     due: frozenset[str] = frozenset(),
 ) -> list[str]:
     items = [f"lock:{p}" for p in c.locks]
+    items += [f"pin:{s}" for s in sorted(c.slot_pins)]
     if c.excludes:
         items.append("excludes")
     if c.salary_min is not None:
@@ -822,6 +840,10 @@ def describe_item(
     if kind == "lock":
         a = pool_by_id.get(ref)
         return f"Lock {a.name if a else ref}"
+    if kind == "pin":
+        pid = c.slot_pins.get(int(ref), "")
+        a = pool_by_id.get(pid)
+        return f"Keep {a.name if a else pid} in slot {int(ref) + 1} (game started)"
     if kind == "group":
         g = c.groups[int(ref)]
         return f"{g.label} (min {g.min}, max {g.max})"
@@ -956,7 +978,14 @@ def _lineup_payload(
         "players": players,
         "salary": salary,
         "salaryRemaining": ruleset.salary_cap - salary,
-        "projection": round(sum(p["slotProjection"] for p in players), 2),
+        # Missing is never zero: one unprojected (pinned) player makes the
+        # total unknown; the known part is published separately.
+        "projection": None
+        if any(p["slotProjection"] is None for p in players)
+        else round(sum(p["slotProjection"] for p in players), 2),
+        "projectionKnownPart": round(
+            sum(p["slotProjection"] for p in players if p["slotProjection"] is not None), 2
+        ),
         # Same players in different flex slots score identically: that is ONE
         # scoring identity.  The slot map is kept separately because late-swap
         # flexibility can still differ between assignments.
@@ -1006,13 +1035,20 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
     forecast = {
         a.player_id: c.projection_overrides.get(a.player_id, a.projection) for a in athletes
     }
-    pool = [a for a in athletes if forecast[a.player_id] is not None]
-    excluded_unprojected = [a.player_id for a in athletes if forecast[a.player_id] is None]
+    pinned = set(c.slot_pins.values())
+    pool = [a for a in athletes if forecast[a.player_id] is not None or a.player_id in pinned]
+    excluded_unprojected = [
+        a.player_id for a in athletes if forecast[a.player_id] is None and a.player_id not in pinned
+    ]
     # Unrounded: the solver optimizes exactly the forecasts it was given, tilted
     # by any owner selection boost (which never enters a reported total).
     objective = [
-        float(forecast[a.player_id]) * (1.0 + c.boosts.get(a.player_id, 0.0)) for a in pool
-    ]  # type: ignore[arg-type]
+        # A pinned player with no forecast is not a choice: constant 0 term.
+        0.0
+        if forecast[a.player_id] is None
+        else float(forecast[a.player_id]) * (1.0 + c.boosts.get(a.player_id, 0.0))  # type: ignore[arg-type]
+        for a in pool
+    ]
     pool_by_id = {a.player_id: a for a in pool}
     caps = exposure_bounds(c, pool)
     mins = exposure_minimums(c, pool)

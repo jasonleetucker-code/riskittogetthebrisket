@@ -154,3 +154,66 @@ def test_build_exports_into_existing_entries_and_never_touches_unresolved_ones(c
         ).status_code
         == 404
     )
+
+
+def test_late_swap_api_plans_from_the_entry_file_and_exports_without_submitting(client):
+    h = {"x-user": "a"}
+    snap = client.post(
+        "/api/dfs/slates",
+        json={
+            "salaryCsv": (FIX / "synthetic_dk_nfl_classic_salaries.csv").read_text(
+                encoding="utf-8"
+            ),
+            "projectionCsv": (FIX / "synthetic_dk_nfl_classic_projections.csv").read_text(
+                encoding="utf-8"
+            ),
+        },
+        headers=h,
+    ).json()
+    athletes = {a["player_id"]: a for a in snap["athletes"]}
+    # A legal lineup deliberately built from the LOWEST projections, so swaps exist.
+    flipped = client.post(
+        "/api/dfs/builds",
+        json={
+            "snapshotId": snap["snapshotId"],
+            "objective": "projection_baseline",
+            "constraints": {
+                "lineups": 1,
+                "projectionOverrides": {
+                    pid: -(a["projection"] or 0) for pid, a in athletes.items()
+                },
+            },
+        },
+        headers=h,
+    ).json()
+    poor = [p["playerId"] for p in flipped["result"]["lineups"][0]["players"]]
+    entries_csv = "\n".join(
+        [
+            HEAD,
+            "7001,GPP,77,$5.00," + ",".join(poor) + ",,",
+            "7002,GPP,77,$5.00,nope123" + "," * 8 + ",,",
+        ]
+    )
+    body = {
+        "snapshotId": snap["snapshotId"],
+        "entriesCsv": entries_csv,
+        "asOf": "2026-10-04T18:00:00Z",
+    }
+    plan = client.post("/api/dfs/late-swap", json=body, headers=h).json()
+    assert plan["submitted"] is False and plan["clockSource"] == "owner_supplied"
+    e1, e2 = plan["entries"]
+    assert e2["status"] == "entry_unresolved"
+    assert e1["status"] == "swap_recommended"
+    early = [i for i, pid in enumerate(poor) if athletes[pid]["game"] == "AAA@BBB"]
+    assert early, "fixture should put some of the poor lineup in the 1 PM game"
+    for i in early:
+        assert e1["finalLineup"][i] == poor[i]
+    r = client.post("/api/dfs/late-swap/export", json=body, headers=h)
+    assert r.status_code == 200 and r.headers["x-dfs-export-verified"] == "false"
+    assert r.headers["x-dfs-entries-written"] == "1" and r.headers["x-dfs-entries-skipped"] == "1"
+    rows = list(csv.reader(io.StringIO(r.text)))
+    assert rows[1][0] == "7001" and rows[1][4:] == e1["finalLineup"]
+
+    bad = client.post("/api/dfs/late-swap", json={**body, "asOf": "2026-10-04T18:00:00"}, headers=h)
+    assert bad.status_code == 422 and bad.json()["error"] == "INVALID_CLOCK"
+    assert client.post("/api/dfs/late-swap", json=body, headers={"x-user": "b"}).status_code == 404
