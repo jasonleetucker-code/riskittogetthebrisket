@@ -72,13 +72,13 @@ vocabulary: **SLICE1** (implemented + tested on `claude/dfs-foundation`, PR #153
 | DFS-§19-03 | Entry lifecycle (draft → submitted → settled) | P6 | LATER | `submitted: false` only |
 | DFS-§19-04 | Late swap with locked slot immutability | G | PARTIAL (foundation) | `src/dfs/lateswap.py` + `/api/dfs/late-swap[/export]`: locked AND unknown-start slots pinned in their exact slot; only proven-open players swap in; exact vs slot-aware brute force; a tie/reshuffle is `keep`, not a swap; unresolved entries untouched; server clock by default, owner what-if clock labelled; DK entry file out, nothing submitted. Per-entry (not coordinated across entries), projection objective only; FanDuel entry files, live scoring, rooting view: NEXT |
 | DFS-§20-01 | Live / rooting view | P6 | LATER | |
-| DFS-§20-02 | Settlement reconciliation, calibration, replay, champion/challenger | P7 | LATER | |
+| DFS-§20-02 | Settlement reconciliation, calibration, replay, champion/challenger | H | PARTIAL (results foundation) | `src/dfs/results.py` + `/api/dfs/results`: DK contest-standings import (layout assumed); realized %Drafted/FPTS joined by name+position (ambiguous quarantined); field duplication histogram; imported ownership + projections evaluated (bias/MAE/RMSE, ownership bands); absent players excluded and counted, never 0%; evidence claim `shadow` — nothing reweighted or promoted; "7 · Results" panel. Settlement/ROI reconciliation, replay, champion/challenger: NEXT |
 | DFS-§21-01 | Typed APIs + structured error codes | P1 | SLICE1 | `RULESET_UNVERIFIED`, `INFEASIBLE` (as status), `CAPABILITY_UNAVAILABLE`, `LOCKED_PLAYER_UNPROJECTED`, … |
 | DFS-§21-02 | Persistent background jobs (progress/cancel/restart) | P3 | NEXT | Builds are synchronous inside a ≤60 s solver budget today |
 | DFS-§21-03 | Developer CLI on the same business logic | P2 | NEXT | |
 | DFS-§22-01 | PSI Direction A, DS primitives, tokens only | P1 | SLICE1 | `.psi-editorial`, `components/ds`, no raw colours |
-| DFS-§22-02 | Accessibility (keyboard, SR labels, non-colour status) + mobile | P1 | PARTIAL | Component tests; axe/E2E + production screenshots pending |
-| DFS-§22-03 | Performance budgets measured | P1 | PARTIAL | `/dfs` skips the dynasty contract prefetch; bundle size + useful-state measurement pending |
+| DFS-§22-02 | Accessibility (keyboard, SR labels, non-colour status) + mobile | P1 | PARTIAL | Component tests + Playwright axe (WCAG 2.1 A/AA) journey spec on desktop + mobile (`tests/e2e/specs/dfs-workspace.spec.js`); production screenshots pending |
+| DFS-§22-03 | Performance budgets measured | P1 | PARTIAL | `/dfs` skips the dynasty contract prefetch; `/dfs` page chunk budget 34 KB enforced by `check-bundle-sizes.mjs` (23.3 KB after splitting every post-import panel out); useful-state timing pending |
 | DFS-§23-01 | Auth on every route/job/export; cross-user tests | P1 | SLICE1 | |
 | DFS-§23-02 | Untrusted-file defences (size, header, formula-safe IDs) | P1 | SLICE1 | XML/archives/audio N/A until those inputs exist |
 | DFS-§23-03 | Spending ceilings, research-only mode, cost dashboard | P5 | PARTIAL | Research mode is the only mode that builds today |
