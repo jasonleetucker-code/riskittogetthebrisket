@@ -497,3 +497,22 @@ def test_removed_member_gets_no_more_room_alerts(world):
     push = FakePush()
     notify.dispatch_once(st, t + 1, sender=push)
     assert not push.calls
+
+
+def test_daily_summary_is_opt_in_once_per_slot_and_private(world):
+    st, users, tokens = world
+    room = _room(st, seats_to_users=users)
+    aid = _cmd(st, room, "S3", "nominate", player="P1")["result"]["auction"]
+    _cmd(st, room, "S1", "bid", auction=aid, max=77)
+    morning = et(2026, 10, 6, 8, 5)
+    notify.run_reminder_scan(st, morning)
+    assert _inbox(st, 1, "daily_summary") == []  # off by default
+    with st.write() as conn:
+        notify.set_prefs(conn, 1, {"daily_summary": True}, NOON)
+    notify.run_reminder_scan(st, morning)
+    notify.run_reminder_scan(st, morning + 60)
+    rows = _inbox(st, 1, "daily_summary")
+    assert len(rows) == 1 and "you lead 1 lot(s)" in rows[0]["body"]
+    assert "$77" not in rows[0]["body"]  # never a maximum
+    notify.run_reminder_scan(st, et(2026, 10, 6, 12, 0))  # outside the slots
+    assert len(_inbox(st, 1, "daily_summary")) == 1

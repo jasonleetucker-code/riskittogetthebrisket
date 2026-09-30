@@ -114,6 +114,8 @@ export function byeNote(row) {
  * A lookup only: the block is the canonical contract, nothing is recomputed.
  */
 export function teamRowFor(block, season, ownerId) {
+  // Orphan rosters carry ownerId null: a missing id must never match them.
+  if (!ownerId) return null;
   const contract = block?.bySeason?.[String(season)];
   if (!contract || !Array.isArray(contract.teams)) return null;
   return contract.teams.find((t) => t.ownerId === ownerId) || null;

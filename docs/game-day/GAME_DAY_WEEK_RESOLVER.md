@@ -261,12 +261,51 @@ and the games that have none.
 | `<leagueKey>/<season>/week_<n>/generations.jsonl` | one row per published generation, append-only: id, `supersedes`, `producer`, `inputFingerprint`, `leagueObservationSeq`, and per roster the AS-KNOWN win % / beat-median % / expected final / host score / `pointsBanked` / `scoreNow` (`load_generation_history`) |
 | `<leagueKey>/<season>/week_<n>/state.json` | last tick, `lastVerifiedAt`, cadence, timings, refresh-in-progress, `statCorrections` |
 | `_collector/state.json`, `_collector/ticks.jsonl`, `_collector/tick.lock` | next due time, source health/backoff, tick log (trimmed), lock |
+| `_nfl/<season>/week_<n>/pregame_projections.json.gz` | the pregame weekly-projection archive (below) — written once, never rewritten |
 
 Observation logs are append-only keyed-delta JSONL (`keyframe` / `delta` /
 `unchanged` / `failure`; a keyframe every 100 records), with a `.head.json`
 cache rebuilt from the log whenever it disagrees. A torn trailing write is cut
 back rather than glued onto. Raw logs are pruned after 4 weeks; generations,
 their index and state are kept for the season.
+
+**Pregame weekly-projection archive** (owner authorization 2026-09-29, #1519
+G1). The 4-week prune used to destroy the only record of what the Sleeper weekly
+projection said *before* kickoff. Before an old NFL week's `observations/` is
+deleted, `ensure_pregame_archive` writes `pregame_projections.json.gz` beside it:
+per player, the RAW provider row from the last `ok` fetch at or before that
+player's own game kickoff, selected by the canonical
+`sleeper_weekly_projections.lock_baseline_at_kickoff` (observed time, never the
+provider's `updated_at`) over only the rows the scoring path accepts
+(`row_refusal_reason`, the same per-row rule `build_weekly_observations` applies —
+an emptied placeholder can never displace an earlier valid projection; refusals
+are counted in `refusedRows`), with kickoffs from
+`matchup_intel.kickoffs_for_week` over the cached nflverse schedule plus the
+week's last stored scoreboard (observed kickoffs override the schedule as on the
+live path), joined by the row's NFL team. No second projection owner; nothing is
+rescored or re-derived. Each entry keeps
+`observedAt`, `kickoffAt`, `fetchUrl` and the row as fetched (player id, game id,
+team/opponent, `company` = the provider model, `updated_at`, raw stat line);
+the file carries season/week, source, provenance, the selection rule, schema
+version and `archivedAt`. Players seen only after kickoff are listed in
+`noPreKickoffObservation` with no row kept (no baseline is invented); only a
+player whose kickoff cannot be joined at all keeps his last row, under
+`timingUnverified`, never passed off as pregame. Rows
+are league-independent stat lines; the league-scored as-known baselines already
+live in each league-week's `generations.jsonl`.
+
+It is **fail closed**: if the archive cannot be built, written and read back
+(no cached schedule, unreadable existing file, a weekly log that exists but
+replays to nothing), the raw log is kept, a warning is logged, and
+`pregame_projections.retained.json` beside the week records when and why — the
+collector is a fresh process every minute, so that file is also what limits
+retries to hourly. An existing archive is never rewritten from
+later evidence. Archives are kept `PREGAME_ARCHIVE_SEASONS` = 10 seasons back.
+Measured size: one real week (2,154 projected players) is 1.7 MB as JSON and
+~0.2 MB gzipped, so ~3.7 MB per 18-week season and under 40 MB at the bound.
+Backup: `deploy/backup/riskit-state-backup.sh` already backs up the whole
+`data/game_day` tree nightly, archives included; restore is the same tree copy.
+Pinned by `tests/game_day/test_pregame_projection_archive.py`.
 
 **Generations.** `generation.json` holds the input as-of stamps per source,
 the resolved state (every team's `TeamWeek`, opponents, host scores), the

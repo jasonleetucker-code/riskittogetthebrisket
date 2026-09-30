@@ -7,6 +7,7 @@ import {
   pickAuctionDollars,
   buildLeagueStacks,
   pickStackAnchorYear,
+  poolBoardPerDollar,
 } from "@/lib/pick-stack";
 
 describe("parsePickAsset", () => {
@@ -232,5 +233,40 @@ describe("pickStackAnchorYear", () => {
     // discount.
     const horizonCtx = { ...ctx, currentDraftYear: contract.currentDraftYear };
     expect(pickAuctionDollars("2028 Early 1st", horizonCtx)).toBeCloseTo(105, 6);
+  });
+});
+
+describe("poolBoardPerDollar (league pool $ -> board rate)", () => {
+  const dc = {
+    season: 2027,
+    picks: [
+      { round: 1, pickInRound: 1, dollarValue: 100 },
+      { round: 1, pickInRound: 12, dollarValue: 50 },
+      { round: 6, pickInRound: 5, dollarValue: 1 },
+      { round: 6, pickInRound: 6, dollarValue: 0 }, // unpriced: excluded
+    ],
+  };
+  const board = {
+    "2027 Pick 1.01": 6000,
+    "2027 Late 1st": 4000, // no slot row for 1.12 -> tier row
+    "2027 Pick 6.05": 1000,
+    "2027 Pick 6.06": 900,
+  };
+  const lookup = (n) => board[n] || 0;
+
+  it("sums board over dollars for the draft's own picks, slot then tier", () => {
+    expect(poolBoardPerDollar(dc, lookup, 12)).toBeCloseTo((6000 + 4000 + 1000) / 151, 9);
+  });
+
+  it("leaves a pick with no board row out of BOTH sums", () => {
+    const partial = (n) => (n === "2027 Pick 6.05" ? 0 : lookup(n));
+    expect(poolBoardPerDollar(dc, partial, 12)).toBeCloseTo((6000 + 4000) / 150, 9);
+  });
+
+  it("is null when nothing pairs (the stack effect is then withheld)", () => {
+    expect(poolBoardPerDollar(dc, () => 0, 12)).toBeNull();
+    expect(poolBoardPerDollar({ picks: [] }, lookup, 12)).toBeNull();
+    expect(poolBoardPerDollar(null, lookup, 12)).toBeNull();
+    expect(poolBoardPerDollar(dc, null, 12)).toBeNull();
   });
 });
