@@ -21,6 +21,8 @@
  *   My Team  — "what do I do with my roster?"
  *   Market   — "what is the market doing that I can exploit?"
  *   League   — "how is my league doing?"  Public, community-facing.
+ *   DFS      — "what lineup should I enter?"  Daily fantasy; separate
+ *              from dynasty value by design.
  *
  * This replaced a grouping that had drifted: three tools whose names
  * all meant "finder" sat adjacent in one menu, player-value views
@@ -257,6 +259,24 @@ export const NAV_MODEL = [
         label: "Scoring Comparison",
         hint: "Your league's scoring vs a standard baseline",
         keywords: ["league comp", "baseline", "settings"],
+      },
+    ],
+  },  // DFS — "what lineup should I enter tonight?"  A separate product
+  // family from dynasty (owner directive 2026-09-30, docs/dfs/README.md):
+  // its own group so its data and vocabulary never read as part of the
+  // dynasty board. Future DFS surfaces (contests, research, results) join
+  // this group rather than new top-level entries.
+  {
+    key: "dfs",
+    label: "DFS",
+    href: "/dfs",
+    hint: "Daily fantasy lineups",
+    items: [
+      {
+        href: "/dfs",
+        label: "DFS Workspace",
+        hint: "Import a slate, set your rules, build and export lineups",
+        keywords: ["dfs", "daily fantasy", "draftkings", "fanduel", "optimizer", "lineup", "salary"],
       },
     ],
   },

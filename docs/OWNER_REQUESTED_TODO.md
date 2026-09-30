@@ -1228,3 +1228,9 @@ authorization: `docs/EXECUTION_PLAN.md` "Served build identity — owner authori
 | Remaining Part H.5 queue (typed contract slice, provenance views, parser replay, declarative boundaries, request/snapshot identity) | NOT AUTHORIZED — backlog only |
 | Pin the box to the guarded SHA on manual deploys (`deploy.yml` passes the raw `deploy_ref`; the box resolves a branch name after its own fetch, so a manual deploy of `main` can ship a newer commit than the guard and validate job judged — found by the build-identity review; the new check now reports it) | NOT AUTHORIZED — follow-up, changes deploy behaviour |
 
+## Added 2026-09-30 — DFS: dedicated daily-fantasy section (owner directive)
+
+| Priority | Issue | Area | Required outcome | Status |
+|---|---|---|---|---|
+| P1 owner build directive | Owner directive, 2026-09-30 | DFS (new product family; `docs/dfs/`) | A contest-aware DFS decision system inside ChaseUpside for NFL/NBA/NHL/MMA on DraftKings/FanDuel: sport → platform → slate → contest → objective → build N or recommend a count → full manual constraints → Optimal Lineup / Build Portfolio → explanations + uncertainty → valid exports → permitted late swap → results review. Research every supplied website (74), sportsbook (6) and podcast (29) seed; no guaranteed-profit claims; honest capability states; DFS isolated from dynasty valuation; no purchases, wagering, contest entry or account automation. Zero-loss requirement map `docs/dfs/TRACEABILITY.md`; phases `docs/dfs/ROADMAP.md`. | PHASE 1 SLICE BUILT on `claude/dfs-foundation` (NFL DK/FD research mode, owner file imports, MILP baseline, exports); rule/export verification OWNER-BLOCKED (official pages refused automated access 2026-09-30) |
+

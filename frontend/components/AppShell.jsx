@@ -157,6 +157,10 @@ const NO_PLAYER_DATA_ROUTE_PREFIXES = [
   "/admin",
   "/tools/source-health",
   "/tools/ros-data-health",
+  // /dfs reads only /api/dfs/* (its own slate snapshots) — no useApp() /
+  // useDynastyData() consumer in its tree, and DFS data is deliberately
+  // separate from the dynasty board.
+  "/dfs",
 ];
 
 function isNoPlayerDataRoute(pathname) {
