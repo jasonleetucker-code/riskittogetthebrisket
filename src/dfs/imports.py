@@ -82,6 +82,11 @@ class SlateAthlete:
     # None = no ownership forecast for this athlete — never 0%.
     ownership: float | None = None
     ownership_source: str | None = None
+    # Owner-imported outcome DISTRIBUTION around the projection:
+    # {"sd": float|None, "quantiles": {"0.1": v, ...}, "floor"/"ceiling": raw
+    # values kept verbatim when their percentile was not stated}.  None = no
+    # distribution supplied — never a zero-width one.
+    distribution: dict[str, Any] | None = None
 
     @property
     def identity(self) -> str:
@@ -392,9 +397,93 @@ def _col(header: list[str], candidates: tuple[str, ...]) -> str | None:
     return None
 
 
-def apply_projection_csv(athletes: list[SlateAthlete], text: str) -> dict[str, Any]:
-    """Join an owner projection CSV onto ``athletes`` in place; return the identity report."""
-    return _join_values(athletes, text, kind="projection")
+_SD_COLUMNS = ("stdev", "std", "sd", "std dev", "standard deviation", "stddev")
+_FLOOR_COLUMNS = ("floor",)
+_CEIL_COLUMNS = ("ceiling", "ceil")
+_PCT_COLUMN = re.compile(r"^p(\d{1,2})$")
+
+
+def apply_projection_csv(
+    athletes: list[SlateAthlete],
+    text: str,
+    *,
+    floor_percentile: int | None = None,
+    ceiling_percentile: int | None = None,
+) -> dict[str, Any]:
+    """Join an owner projection CSV onto ``athletes`` in place; return the identity report.
+
+    Optional distribution columns ride the same identity join: ``stdev`` and
+    percentile columns ``p10``…``p90`` are unambiguous; ``floor``/``ceiling``
+    mean different percentiles at different vendors, so they become quantiles
+    only when the owner states which (``floor_percentile`` / ``ceiling_percentile``)
+    — otherwise they are kept verbatim, labelled unassigned, and no model reads them.
+    """
+    for name, v in (
+        ("floorPercentile", floor_percentile),
+        ("ceilingPercentile", ceiling_percentile),
+    ):
+        if v is not None and (isinstance(v, bool) or not isinstance(v, int) or not 1 <= v <= 99):
+            raise ImportError_(
+                "INVALID_PERCENTILE", f"{name} must be a whole percentile from 1 to 99."
+            )
+    if (
+        floor_percentile is not None
+        and ceiling_percentile is not None
+        and floor_percentile >= ceiling_percentile
+    ):
+        raise ImportError_(
+            "INVALID_PERCENTILE", "The floor percentile must be below the ceiling percentile."
+        )
+    return _join_values(
+        athletes,
+        text,
+        kind="projection",
+        percentiles=(floor_percentile, ceiling_percentile),
+    )
+
+
+def _distribution_from_row(
+    r: dict[str, str], header: list[str], percentiles: tuple[int | None, int | None]
+) -> tuple[dict[str, Any] | None, str | None]:
+    """(distribution, invalid reason).  (None, None) = the row supplied none."""
+    sd_col = _col(header, _SD_COLUMNS)
+    floor_col = _col(header, _FLOOR_COLUMNS)
+    ceil_col = _col(header, _CEIL_COLUMNS)
+    quantiles: dict[float, float] = {}
+    for h in header:
+        m = _PCT_COLUMN.match(h.strip().lower())
+        if m and 1 <= int(m.group(1)) <= 99:
+            v = _float_or_none(r.get(h))
+            if v is not None:
+                quantiles[int(m.group(1)) / 100] = v
+    sd = _float_or_none(r.get(sd_col)) if sd_col else None
+    floor = _float_or_none(r.get(floor_col)) if floor_col else None
+    ceiling = _float_or_none(r.get(ceil_col)) if ceil_col else None
+    if sd is None and floor is None and ceiling is None and not quantiles:
+        return None, None
+    if sd is not None and sd < 0:
+        return None, "negative_standard_deviation"
+    if floor is not None and ceiling is not None and floor > ceiling:
+        return None, "floor_above_ceiling"
+    unassigned: dict[str, float] = {}
+    for raw, pct, key in ((floor, percentiles[0], "floor"), (ceiling, percentiles[1], "ceiling")):
+        if raw is None:
+            continue
+        if pct is None:
+            unassigned[key] = raw
+            continue
+        q = pct / 100
+        if q in quantiles and quantiles[q] != raw:
+            return None, f"{key}_disagrees_with_p{pct}"
+        quantiles[q] = raw
+    ordered = sorted(quantiles.items())
+    if any(b[1] < a[1] for a, b in zip(ordered, ordered[1:])):
+        return None, "quantiles_not_increasing"
+    return {
+        "sd": sd,
+        "quantiles": {f"{q:.2f}": v for q, v in ordered},
+        "unassigned": unassigned,
+    }, None
 
 
 _OWN_COLUMNS = ("ownership", "own", "own%", "ownership %", "projected ownership", "pown", "pown%")
@@ -419,7 +508,12 @@ def apply_ownership_csv(athletes: list[SlateAthlete], text: str, unit: str) -> d
 
 
 def _join_values(
-    athletes: list[SlateAthlete], text: str, *, kind: str, scale: float = 1.0
+    athletes: list[SlateAthlete],
+    text: str,
+    *,
+    kind: str,
+    scale: float = 1.0,
+    percentiles: tuple[int | None, int | None] = (None, None),
 ) -> dict[str, Any]:
     header, rows = _read_csv(text)
     proj_col = _col(header, _PROJ_COLUMNS if kind == "projection" else _OWN_COLUMNS)
@@ -447,6 +541,8 @@ def _join_values(
         by_name_team.setdefault((normalize_player_name(a.name), a.team), []).append(a)
 
     matched: dict[str, tuple[float, str]] = {}
+    dists: dict[str, dict[str, Any] | None] = {}
+    dist_invalid: list[dict[str, Any]] = []
     unmatched: list[dict[str, Any]] = []
     ambiguous: list[dict[str, Any]] = []
     invalid: list[dict[str, Any]] = []
@@ -511,13 +607,20 @@ def _join_values(
         if target is None:
             unmatched.append({"row": i, "name": label[:80], "reason": "no_slate_athlete"})
             continue
+        dist = None
+        if kind == "projection":
+            dist, bad = _distribution_from_row(r, header, percentiles)
+            if bad:
+                # The projection still stands; only the distribution is refused.
+                dist_invalid.append({"row": i, "playerId": target.player_id, "reason": bad})
         prior = matched.get(target.identity)
-        if prior is not None and prior[0] != value:
+        if prior is not None and (prior[0] != value or dists.get(target.identity) != dist):
             conflicts.append(
                 {"row": i, "playerId": target.player_id, "reason": "two_rows_disagree"}
             )
             continue
         matched[target.identity] = (value, method or "")
+        dists[target.identity] = dist
 
     # Two disagreeing rows for one athlete → that athlete is unresolved, never first-wins.
     for c in conflicts:
@@ -529,6 +632,7 @@ def _join_values(
         if kind == "projection":
             a.projection, a.projection_match = hit
             a.projection_source = "owner_import"
+            a.distribution = dists.get(a.identity)
         else:
             a.ownership = round(hit[0] * scale, 4)
             a.ownership_source = "owner_import"
@@ -541,6 +645,25 @@ def _join_values(
         "conflicts": conflicts[:200],
         "athletesWithoutProjection": sum(1 for a in athletes if a.projection is None),
         "athletesWithoutOwnership": sum(1 for a in athletes if a.ownership is None),
+        **(
+            {
+                "distribution": {
+                    "withStdev": sum(
+                        1 for a in athletes if a.distribution and a.distribution["sd"] is not None
+                    ),
+                    "withQuantiles": sum(
+                        1 for a in athletes if a.distribution and a.distribution["quantiles"]
+                    ),
+                    "withUnassignedFloorCeiling": sum(
+                        1 for a in athletes if a.distribution and a.distribution["unassigned"]
+                    ),
+                    "percentiles": {"floor": percentiles[0], "ceiling": percentiles[1]},
+                    "invalid": dist_invalid[:200],
+                }
+            }
+            if kind == "projection"
+            else {}
+        ),
     }
 
 

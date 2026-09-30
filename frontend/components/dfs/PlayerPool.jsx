@@ -28,6 +28,26 @@ function ProjectionCell({ athlete }) {
   );
 }
 
+/** Owner-imported outcome range, shown as imported; unlabelled floor/ceiling says so. */
+function RangeCell({ d }) {
+  if (!d) return <span className={styles.missing}>—</span>;
+  const qs = Object.entries(d.quantiles || {});
+  if (qs.length >= 2) {
+    const [[lo, lv], [hi, hv]] = [qs[0], qs[qs.length - 1]];
+    const pct = (q) => `p${Math.round(Number(q) * 100)}`;
+    return <span className="ds-mono" title={`${pct(lo)} to ${pct(hi)}`}>{`${lv}–${hv}`}</span>;
+  }
+  if (d.sd != null) return <span className="ds-mono">±{d.sd}</span>;
+  if (d.unassigned?.floor != null || d.unassigned?.ceiling != null) {
+    return (
+      <span className={styles.missing} title="Floor/ceiling percentiles not stated — kept, not used">
+        {d.unassigned.floor ?? "?"}–{d.unassigned.ceiling ?? "?"} ?
+      </span>
+    );
+  }
+  return <span className={styles.missing}>—</span>;
+}
+
 export default function PlayerPool({
   athletes,
   rules,
@@ -51,6 +71,13 @@ export default function PlayerPool({
     { key: "team", header: "Team", hideBelow: "sm", accessor: (a) => `${a.team}${a.opponent ? ` v ${a.opponent}` : ""}` },
     { key: "salary", header: "Salary", numeric: true, render: (a) => formatSalary(a.salary) },
     { key: "projection", header: "Proj", numeric: true, render: (a) => <ProjectionCell athlete={a} /> },
+    {
+      key: "range",
+      header: "Range",
+      sortable: false,
+      hideBelow: "md",
+      render: (a) => <RangeCell d={a.distribution} />,
+    },
     {
       key: "ownership",
       header: "Own%",

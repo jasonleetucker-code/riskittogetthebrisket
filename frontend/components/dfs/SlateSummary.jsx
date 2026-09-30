@@ -15,6 +15,7 @@ import styles from "./dfs-workspace.module.css";
 const FRESHNESS_LABELS = {
   salary: "Salary",
   projection: "Projections",
+  distribution: "Outcome ranges",
   ownership: "Ownership",
   sportsbook: "Sportsbook",
   news: "News",

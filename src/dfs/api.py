@@ -220,7 +220,12 @@ def _snapshot_body(
     try:
         proj_report = None
         if body.get("projectionCsv"):
-            proj_report = apply_projection_csv(athletes, body["projectionCsv"])
+            proj_report = apply_projection_csv(
+                athletes,
+                body["projectionCsv"],
+                floor_percentile=body.get("floorPercentile"),
+                ceiling_percentile=body.get("ceilingPercentile"),
+            )
         averaged = apply_platform_average(athletes) if body.get("usePlatformAverage") else 0
         own_report = None
         if body.get("ownershipCsv"):
@@ -348,6 +353,7 @@ def _freshness(created: str, body: dict[str, Any]) -> list[dict[str, Any]]:
             if projected
             else "Import projections; missing players are left out, never scored 0.",
         },
+        _distribution_freshness(created, athletes),
         _ownership_freshness(created, body, none),
         {
             "class": "sportsbook",
@@ -382,6 +388,30 @@ def _freshness(created: str, body: dict[str, Any]) -> list[dict[str, Any]]:
             "note": none,
         },
     ]
+
+
+def _distribution_freshness(created: str, athletes: list[dict[str, Any]]) -> dict[str, Any]:
+    usable = sum(
+        1
+        for a in athletes
+        if (d := a.get("distribution")) and (d.get("sd") is not None or d.get("quantiles"))
+    )
+    unassigned = sum(1 for a in athletes if (d := a.get("distribution")) and d.get("unassigned"))
+    note = None
+    if not usable:
+        note = "No outcome ranges imported: builds use the mean projection only."
+    if unassigned:
+        note = (
+            f"{unassigned} floor/ceiling value(s) kept but unused: say which percentiles they are."
+        )
+    return {
+        "class": "distribution",
+        "state": "as_imported" if usable else "unavailable",
+        "source": "owner_import" if usable else None,
+        "asOf": created if usable else None,
+        "coverage": f"{usable} of {len(athletes)}" if usable else None,
+        "note": note,
+    }
 
 
 def _ownership_freshness(created: str, body: dict[str, Any], none: str) -> dict[str, Any]:

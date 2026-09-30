@@ -343,6 +343,8 @@ export default function DfsWorkspace() {
   const [useAverage, setUseAverage] = useState(false);
   const [ownershipText, setOwnershipText] = useState("");
   const [ownershipUnit, setOwnershipUnit] = useState("percent");
+  // "" = the file's floor/ceiling percentiles are not stated: kept, never modelled.
+  const [rangePct, setRangePct] = useState("");
   const [slate, setSlate] = useState(null);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState(null);
@@ -424,6 +426,7 @@ export default function DfsWorkspace() {
         ownershipCsv: ownershipText || undefined,
         ownershipUnit: ownershipText ? ownershipUnit : undefined,
         usePlatformAverage: useAverage,
+        ...(rangePct ? { floorPercentile: Number(rangePct), ceilingPercentile: 100 - Number(rangePct) } : {}),
       }),
     });
     setImporting(false);
@@ -571,6 +574,16 @@ export default function DfsWorkspace() {
                   onChange={(e) => setProjectionText(e.target.value)}
                   rows={4}
                   spellCheck={false}
+                />
+              </Field>
+              <Field label="Floor / Ceiling columns are" hint="Optional StDev and P10…P90 columns need no label.">
+                <Select
+                  value={rangePct}
+                  onChange={(e) => setRangePct(e.target.value)}
+                  options={[
+                    { value: "", label: "Not stated (kept, not used)" },
+                    ...["10", "15", "20", "25"].map((p) => ({ value: p, label: `${p}th / ${100 - Number(p)}th percentile` })),
+                  ]}
                 />
               </Field>
               <Field label="Projected ownership (CSV, optional)" hint="Columns: ID or Name + Team, and Own%. Players not listed stay unknown, never 0%.">

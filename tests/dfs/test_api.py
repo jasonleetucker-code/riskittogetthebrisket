@@ -244,3 +244,23 @@ def test_nan_and_malformed_bodies_never_poison_a_stored_build(client):
     )
     assert r.status_code == 422 and r.json()["error"] == "INVALID_CONSTRAINT"
     assert client.get("/api/dfs/builds", headers={"x-user": "alice"}).json()["builds"] == []
+
+
+def test_distribution_import_is_reported_in_freshness_and_bad_labels_are_422(client):
+    proj = (FIX / "synthetic_dk_nfl_classic_projections.csv").read_text(encoding="utf-8")
+    snap = _slate(client).json()
+    row = next(f for f in snap["freshness"] if f["class"] == "distribution")
+    assert row["state"] == "unavailable" and row["coverage"] is None  # none supplied ≠ zero-width
+
+    lines = proj.strip().splitlines()
+    with_sd = "\n".join([lines[0] + ",Floor,Ceiling"] + [ln + ",1,30" for ln in lines[1:]]) + "\n"
+    snap = _slate(client, projectionCsv=with_sd).json()
+    row = next(f for f in snap["freshness"] if f["class"] == "distribution")
+    assert row["state"] == "unavailable" and "say which percentiles" in row["note"]
+
+    snap = _slate(client, projectionCsv=with_sd, floorPercentile=15, ceilingPercentile=85).json()
+    row = next(f for f in snap["freshness"] if f["class"] == "distribution")
+    assert row["state"] == "as_imported" and row["coverage"].startswith("84 of")
+
+    r = _slate(client, projectionCsv=with_sd, floorPercentile=85, ceilingPercentile=15)
+    assert r.status_code == 422 and r.json()["error"] == "INVALID_PERCENTILE"
