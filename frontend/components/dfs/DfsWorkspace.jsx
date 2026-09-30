@@ -52,6 +52,10 @@ import styles from "./dfs-workspace.module.css";
 // pulls Next's loadable runtime into every page's shared chunk). Keeps the
 // contest editor out of the /dfs initial chunk and its 34 KB budget.
 const ContestPanel = lazy(() => import("./ContestPanel"));
+const ProviderSlates = lazy(() => import("./SlateSources"));
+const DetectedFile = lazy(() => import("./SlateSources").then((m) => ({ default: m.DetectedFile })));
+
+const ImportSummary = lazy(() => import("./SlateSummary"));
 
 async function api(path, init) {
   const res = await fetch(`/api/dfs${path}`, {
@@ -101,72 +105,6 @@ function ProjectionCell({ athlete }) {
         </abbr>
       ) : null}
     </span>
-  );
-}
-
-function ImportSummary({ slate }) {
-  const cov = slate.coverage;
-  const pr = slate.projectionReport;
-  const rejected = slate.importReport?.rejected || [];
-  return (
-    <div className={styles.summary} aria-live="polite">
-      <dl className={styles.facts}>
-        <div>
-          <dt>Players</dt>
-          <dd className="ds-mono">{cov.athletes}</dd>
-        </div>
-        <div>
-          <dt>With projection</dt>
-          <dd className="ds-mono">{cov.projected}</dd>
-        </div>
-        <div>
-          <dt>No projection</dt>
-          <dd className="ds-mono">{cov.unprojected}</dd>
-        </div>
-        <div>
-          <dt>Games</dt>
-          <dd className="ds-mono">{slate.games.length}</dd>
-        </div>
-        <div>
-          <dt>Snapshot</dt>
-          <dd className="ds-mono" title={slate.contentHash}>
-            {slate.contentHash.slice(0, 10)}
-          </dd>
-        </div>
-      </dl>
-      {rejected.length ? (
-        <Banner tone="warning" title={`${rejected.length} salary row(s) not imported`}>
-          <ul className={styles.list}>
-            {rejected.slice(0, 8).map((r) => (
-              <li key={`${r.row}-${r.reason}`}>
-                Row {r.row}: {r.reason.replaceAll("_", " ")}
-              </li>
-            ))}
-          </ul>
-        </Banner>
-      ) : null}
-      {pr && (pr.unmatched.length || pr.ambiguous.length || pr.conflicts.length || pr.invalid.length) ? (
-        <Banner tone="warning" title="Some projection rows were not applied">
-          <p>
-            Unresolved identities are held back, never guessed: {pr.unmatched.length} unmatched,{" "}
-            {pr.ambiguous.length} ambiguous, {pr.conflicts.length} conflicting, {pr.invalid.length} blank or non-numeric.
-          </p>
-          <ul className={styles.list}>
-            {[...pr.ambiguous, ...pr.unmatched, ...pr.conflicts].slice(0, 8).map((r) => (
-              <li key={`${r.row}-${r.reason}`}>
-                Row {r.row} {r.name ? `(${r.name})` : ""}: {r.reason.replaceAll("_", " ")}
-              </li>
-            ))}
-          </ul>
-        </Banner>
-      ) : null}
-      {slate.platformAverageApplied ? (
-        <p className={styles.note}>
-          {slate.platformAverageApplied} player(s) use the platform season average because you opted in. It is a
-          past-performance observation, not a projection.
-        </p>
-      ) : null}
-    </div>
   );
 }
 
@@ -617,6 +555,13 @@ export default function DfsWorkspace() {
                 />
               </Field>
             </div>
+            <Suspense fallback={null}>
+              <DetectedFile
+                text={salaryText}
+                context={{ platform, sport, format: row?.format || format }}
+                onSwitch={changeContext}
+              />
+            </Suspense>
             <label className={styles.check}>
               <input type="checkbox" checked={useAverage} onChange={(e) => setUseAverage(e.target.checked)} />
               Where a player has no projection, use the platform season average (labelled “avg”; it is not a
@@ -632,7 +577,22 @@ export default function DfsWorkspace() {
                 {importError}
               </Banner>
             ) : null}
-            {slateMatches ? <ImportSummary slate={slate} /> : null}
+            <Suspense fallback={null}>
+              <ProviderSlates
+                sport={sport}
+                platform={platform}
+                onImported={(snap) => {
+                  setSlate(snap);
+                  setRules({ locks: [], excludes: [] });
+                  setBuild(null);
+                }}
+              />
+            </Suspense>
+            {slateMatches ? (
+              <Suspense fallback={null}>
+                <ImportSummary slate={slate} />
+              </Suspense>
+            ) : null}
           </Panel>
 
           <Panel

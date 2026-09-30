@@ -90,6 +90,9 @@ class Contest:
     ladder: list[PayoutBand] = field(default_factory=list)
     platform_contest_id: str | None = None
     notes: str | None = None
+    # The slate (player pool) this contest is played on.  Slate != contest:
+    # many contests share one slate.  None = not linked yet.
+    slate_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -212,6 +215,14 @@ def _bands_from_json(raw: Any) -> list[PayoutBand]:
     return out
 
 
+def _slate_id(raw: Any) -> str | None:
+    if raw in (None, ""):
+        return None
+    if not isinstance(raw, str) or not re.fullmatch(r"snap_[0-9a-f]{20}", raw):
+        raise ContestError("INVALID_CONTEST", "slateId is not a slate id.")
+    return raw
+
+
 def parse_contest(raw: dict[str, Any]) -> Contest:
     """Owner payload → :class:`Contest`.  Structural errors raise; review findings go to the report."""
     if not isinstance(raw, dict):
@@ -258,6 +269,7 @@ def parse_contest(raw: dict[str, Any]) -> Contest:
         ladder=ladder,
         platform_contest_id=str(pcid) if pcid is not None else None,
         notes=(str(raw.get("notes"))[:500] if raw.get("notes") else None),
+        slate_id=_slate_id(raw.get("slateId")),
     )
 
 

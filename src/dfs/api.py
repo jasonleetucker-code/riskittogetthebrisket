@@ -41,7 +41,6 @@ from src.dfs.contests import (
 )
 from src.dfs.export import ExportError, build_upload_csv
 from src.dfs.imports import (
-    SALARY_PARSERS,
     ImportError_,
     SlateAthlete,
     apply_platform_average,
@@ -50,6 +49,8 @@ from src.dfs.imports import (
 )
 from src.dfs.optimizer import ConstraintError, optimize, parse_constraints, solver_version
 from src.dfs.rules import capability_matrix, get_ruleset, load_rulesets
+from src.dfs.slate import CanonicalSlate, canonical_from_platform_file, detect_platform_file
+from src.dfs import providers as dfs_providers
 
 log = logging.getLogger("dfs.api")
 
@@ -71,7 +72,7 @@ OBJECTIVES = [
         "label": "Contest-aware (cash / GPP)",
         "available": False,
         "description": "Requires validated outcome distributions, an opponent-field model and the contest's "
-        "payout ladder. Not built yet (docs/dfs/ROADMAP.md, DFS-P4/P5). Never substituted silently.",
+        "payout ladder. Not built yet (docs/dfs/ROADMAP.md, Phases D-F). Never substituted silently.",
     },
 ]
 
@@ -186,22 +187,36 @@ def _athletes_from(body: list[dict[str, Any]]) -> list[SlateAthlete]:
     return [SlateAthlete(**a) for a in body]
 
 
-@router.post("/slates")
-async def create_slate(request: Request):
+@router.post("/slates/detect")
+async def detect_slate(request: Request):
+    """Recognise a platform file without saving anything."""
     owner = _owner(request)
     if isinstance(owner, JSONResponse):
         return owner
     body = await _json_body(request)
     if isinstance(body, JSONResponse):
         return body
-    rs = get_ruleset(str(body.get("ruleset") or ""))
-    if rs is None:
-        return _err("RULESET_UNKNOWN", "Choose a supported platform, sport and format.", 400)
-    parser = SALARY_PARSERS.get(rs.salary_import)
-    if parser is None:
-        return _err("RULESET_UNVERIFIED", "No salary importer exists for this rule set.", 409)
     try:
-        athletes, report = parser(body.get("salaryCsv") or "")
+        det = detect_platform_file(body.get("salaryCsv") or "")
+    except ImportError_ as exc:
+        return _err(exc.code, exc.message, 422, exc.detail)
+    row = next(
+        (
+            r
+            for r in capability_matrix()
+            if (r["platform"], r["sport"], r["format"]) == (det.platform, det.sport, det.format)
+        ),
+        None,
+    )
+    return _ok({"detection": det.to_dict(), "capability": row})
+
+
+def _snapshot_body(
+    slate: CanonicalSlate, rs: Any, extra: dict[str, Any], body: dict[str, Any]
+) -> dict[str, Any] | JSONResponse:
+    """Canonical slate (+ optional owner projections) → the immutable snapshot body."""
+    athletes = slate.athletes
+    try:
         proj_report = None
         if body.get("projectionCsv"):
             proj_report = apply_projection_csv(athletes, body["projectionCsv"])
@@ -209,22 +224,138 @@ async def create_slate(request: Request):
     except ImportError_ as exc:
         return _err(exc.code, exc.message, 422, exc.detail)
     if not athletes:
-        return _err(
-            "EMPTY_SLATE", "No usable players were found in the salary file.", 422, report.to_dict()
-        )
-    off_ruleset = sorted({p for a in athletes for p in a.positions} - rs.positions)
-    snapshot_body = {
+        return _err("EMPTY_SLATE", "No usable players were found.", 422, extra.get("importReport"))
+    cap_check = None
+    if slate.source_salary_cap is not None:
+        cap_check = {
+            "source": slate.source_salary_cap,
+            "ruleset": rs.salary_cap,
+            "agrees": slate.source_salary_cap == rs.salary_cap,
+        }
+    return {
         "ruleset": rs.key,
-        "label": str(body.get("label") or "")[:80] or None,
+        "label": (str(body.get("label") or "")[:80] or slate.name),
+        "slate": slate.header(),
         "athletes": [a.to_dict() for a in athletes],
-        "importReport": report.to_dict(),
+        "importReport": extra.get("importReport"),
+        "providerReport": extra.get("providerReport"),
+        "eligibilityCrossCheck": extra.get("eligibilityCrossCheck"),
+        "salaryCapCrossCheck": cap_check,
         "projectionReport": proj_report,
         "platformAverageApplied": averaged,
-        "positionsNotInRuleset": off_ruleset,
+        "positionsNotInRuleset": sorted({p for a in athletes for p in a.positions} - rs.positions),
     }
+
+
+async def _save_snapshot(owner: str, rs: Any, snapshot_body: dict[str, Any]) -> JSONResponse:
     h = content_hash({"ruleset": rs.key, "athletes": snapshot_body["athletes"]})
     meta = await run_in_threadpool(store.put_snapshot, owner, rs.key, h, snapshot_body)
     return _ok(_snapshot_view(meta["id"], meta["createdAt"], h, snapshot_body), 201)
+
+
+@router.post("/slates")
+async def create_slate(request: Request):
+    """Official platform salary file → canonical slate snapshot.
+
+    With ``ruleset`` the file must match that platform/sport/format
+    (``CSV_WRONG_PLATFORM`` otherwise); without it the file is auto-detected.
+    """
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    expected = None
+    if body.get("ruleset"):
+        chosen = get_ruleset(str(body["ruleset"]))
+        if chosen is None:
+            return _err("RULESET_UNKNOWN", "Choose a supported platform, sport and format.", 400)
+        expected = (chosen.platform, chosen.sport, chosen.format)
+    try:
+        slate, rs, extra = canonical_from_platform_file(
+            body.get("salaryCsv") or "", expected, str(body.get("label") or "")[:80] or None
+        )
+    except ImportError_ as exc:
+        status = 409 if exc.code == "CSV_WRONG_PLATFORM" else 422
+        return _err(exc.code, exc.message, status, exc.detail)
+    snapshot_body = _snapshot_body(slate, rs, extra, body)
+    if isinstance(snapshot_body, JSONResponse):
+        return snapshot_body
+    return await _save_snapshot(owner, rs, snapshot_body)
+
+
+def _freshness(created: str, body: dict[str, Any]) -> list[dict[str, Any]]:
+    """Per information class: where it came from, as of when, and how much it covers.
+
+    A class with no connected source says so; it is never shown as current.
+    """
+    slate = body.get("slate") or {}
+    prov = slate.get("provenance") or {}
+    athletes = body.get("athletes") or []
+    projected = sum(1 for a in athletes if a.get("projection") is not None)
+    sources = sorted({a.get("projection_source") for a in athletes if a.get("projection_source")})
+    none = "No source connected yet."
+    return [
+        {
+            "class": "salary",
+            "state": "as_imported",
+            "source": prov.get("adapter") or "platform file",
+            "asOf": prov.get("importedAt") or created,
+            "coverage": f"{len(athletes)} players",
+            "note": "A file or feed snapshot: salaries can change after this time.",
+        },
+        {
+            "class": "projection",
+            "state": "as_imported" if projected else "unavailable",
+            "source": ", ".join(sources) or None,
+            "asOf": created if projected else None,
+            "coverage": f"{projected} of {len(athletes)}",
+            "note": None
+            if projected
+            else "Import projections; missing players are left out, never scored 0.",
+        },
+        {
+            "class": "ownership",
+            "state": "unavailable",
+            "source": None,
+            "asOf": None,
+            "coverage": None,
+            "note": none,
+        },
+        {
+            "class": "sportsbook",
+            "state": "unavailable",
+            "source": None,
+            "asOf": None,
+            "coverage": None,
+            "note": none,
+        },
+        {
+            "class": "news",
+            "state": "unavailable",
+            "source": None,
+            "asOf": None,
+            "coverage": None,
+            "note": none,
+        },
+        {
+            "class": "lineups_status",
+            "state": "unavailable",
+            "source": None,
+            "asOf": None,
+            "coverage": None,
+            "note": none,
+        },
+        {
+            "class": "podcast",
+            "state": "unavailable",
+            "source": None,
+            "asOf": None,
+            "coverage": None,
+            "note": none,
+        },
+    ]
 
 
 def _snapshot_view(sid: str, created: str, h: str, body: dict[str, Any]) -> dict[str, Any]:
@@ -238,12 +369,17 @@ def _snapshot_view(sid: str, created: str, h: str, body: dict[str, Any]) -> dict
         "contentHash": h,
         "ruleset": rs.to_public() if rs else {"key": body["ruleset"]},
         "label": body.get("label"),
+        "slate": body.get("slate"),
         "athletes": athletes,
         "games": games,
         "importReport": body.get("importReport"),
+        "providerReport": body.get("providerReport"),
+        "eligibilityCrossCheck": body.get("eligibilityCrossCheck"),
+        "salaryCapCrossCheck": body.get("salaryCapCrossCheck"),
         "projectionReport": body.get("projectionReport"),
         "platformAverageApplied": body.get("platformAverageApplied", 0),
         "positionsNotInRuleset": body.get("positionsNotInRuleset", []),
+        "freshness": _freshness(created, body),
         "coverage": {
             "athletes": len(athletes),
             "projected": sum(1 for a in athletes if a.get("projection") is not None),
@@ -447,6 +583,27 @@ def _contest_view(body: dict[str, Any]) -> tuple[Any, dict[str, Any]] | JSONResp
     return contest, report
 
 
+async def _check_slate_link(owner: str, contest: Any) -> JSONResponse | None:
+    """A contest may point only at the owner's own slate, for the same platform/sport/format."""
+    if contest.slate_id is None:
+        return None
+    snap = await run_in_threadpool(store.get_snapshot, owner, contest.slate_id)
+    if snap is None:
+        return _err("NOT_FOUND", "The linked slate does not exist.", 404)
+    rs = get_ruleset(snap["ruleset"].split("@", 1)[0])
+    if rs is None or (rs.platform, rs.sport, rs.format) != (
+        contest.platform,
+        contest.sport,
+        contest.format,
+    ):
+        return _err(
+            "INVALID_CONTEST",
+            "The contest and the linked slate are for different platforms, sports or formats.",
+            422,
+        )
+    return None
+
+
 def _spend_limit(body: dict[str, Any]) -> int | None | JSONResponse:
     raw = body.get("spendLimit")
     if raw in (None, ""):
@@ -472,6 +629,9 @@ async def contest_validate(request: Request):
     if isinstance(spend, JSONResponse):
         return spend
     contest, report = view
+    bad = await _check_slate_link(owner, contest)
+    if bad is not None:
+        return bad
     return _ok(
         {
             "contest": contest.to_dict(),
@@ -493,6 +653,9 @@ async def contest_save(request: Request):
     if isinstance(view, JSONResponse):
         return view
     contest, report = view
+    bad = await _check_slate_link(owner, contest)
+    if bad is not None:
+        return bad
     cid = body.get("contestId")
     if cid is not None and not isinstance(cid, str):
         return _err("INVALID_CONTEST", "contestId must be a string.", 400)
@@ -570,6 +733,7 @@ def _contest_payload(d: dict[str, Any]) -> dict[str, Any]:
         "ladderSource": d["ladder_source"],
         "platformContestId": d["platform_contest_id"],
         "notes": d["notes"],
+        "slateId": d.get("slate_id"),
         "ladder": [
             {
                 "minRank": b["min_rank"],
@@ -581,3 +745,99 @@ def _contest_payload(d: dict[str, Any]) -> dict[str, Any]:
             for b in d["ladder"]
         ],
     }
+
+
+# ── providers (owner addendum: platform / slate ingestion, DFS-ADD-02/24) ─
+
+PROVIDERS_PATH = Path(__file__).resolve().parents[2] / "config" / "dfs" / "providers.json"
+
+
+@router.get("/providers")
+async def providers_view(request: Request):
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    data = json.loads(PROVIDERS_PATH.read_text(encoding="utf-8"))
+    return _ok(
+        {
+            "providers": data["providers"],
+            "matrix": data["matrix"],
+            "checkedOn": data.get("checkedOn"),
+            "status": {"sportsdataio": dfs_providers.provider_status()},
+        }
+    )
+
+
+def _provider_err(exc: "dfs_providers.ProviderError") -> JSONResponse:
+    return _err(
+        exc.code,
+        exc.message,
+        exc.status,
+        {
+            "fallback": "Download the platform's salary CSV and import it — that path is always available."
+        },
+    )
+
+
+@router.get("/provider-slates")
+async def provider_slates(request: Request, sport: str = "", date: str = "", platform: str = ""):
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    try:
+        raw = await run_in_threadpool(dfs_providers.fetch_slates, sport, date)
+    except dfs_providers.ProviderError as exc:
+        return _provider_err(exc)
+    summaries = [dfs_providers.slate_summary(r) for r in raw if isinstance(r, dict)]
+    if platform:
+        summaries = [x for x in summaries if x["platform"] == platform]
+    return _ok({"provider": "sportsdataio", "sport": sport, "date": date, "slates": summaries})
+
+
+@router.post("/provider-slates/import")
+async def provider_slate_import(request: Request):
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    sport, date = str(body.get("sport") or ""), str(body.get("date") or "")
+    try:
+        raw = await run_in_threadpool(dfs_providers.fetch_slates, sport, date)
+        match = [
+            r
+            for r in raw
+            if isinstance(r, dict) and r.get("SlateID") == body.get("providerSlateId")
+        ]
+        if not match:
+            return _err("NOT_FOUND", "That slate is not in the provider's list for this date.", 404)
+        slate, report = dfs_providers.canonical_from_sportsdataio(match[0], sport)
+    except dfs_providers.ProviderError as exc:
+        return _provider_err(exc)
+    row = next(
+        (
+            r
+            for r in capability_matrix()
+            if (r["platform"], r["sport"], r["format"])
+            == (slate.platform, slate.sport, slate.format)
+        ),
+        None,
+    )
+    rs = get_ruleset(row["ruleset"].split("@", 1)[0]) if row and row["ruleset"] else None
+    if rs is None:
+        return _err(
+            "UNSUPPORTED_FORMAT",
+            f"The provider slate is {slate.platform} {slate.sport.upper()} {slate.format}, whose rules are not encoded yet.",
+            422,
+        )
+    from src.dfs.slate import eligibility_cross_check
+
+    extra = {
+        "providerReport": report,
+        "eligibilityCrossCheck": eligibility_cross_check(slate.athletes, rs),
+    }
+    snapshot_body = _snapshot_body(slate, rs, extra, body)
+    if isinstance(snapshot_body, JSONResponse):
+        return snapshot_body
+    return await _save_snapshot(owner, rs, snapshot_body)

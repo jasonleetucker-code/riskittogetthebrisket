@@ -7,7 +7,11 @@ Open **DFS → DFS Workspace** (`/dfs`). Sign-in required.
    *Not available yet* (no rules encoded — nothing can be built). Today only NFL Classic on
    DraftKings and FanDuel can build.
 2. **Import the slate.** Download the platform's salary / player-list CSV for your contest and
-   choose it (or paste it). Add your projection CSV: columns `ID` (platform player ID) or
+   choose it (or paste it). The page tells you what the file is (e.g. *Detected: FanDuel · NFL ·
+   Classic*) and offers to switch if it does not match your selection — it never switches on its
+   own. A licensed feed (SportsDataIO) can load slates automatically once it is connected; today
+   it shows *not connected* and the file path is the one that works. After import, *Data
+   freshness* shows each kind of information and whether it is available. Add your projection CSV: columns `ID` (platform player ID) or
    `Name` + `Team` (+ optional `Position`), and `Projection`. Rows that match two players, match
    nobody, or disagree with each other are listed and **not** applied. Optionally tick *use the
    platform season average* for players you have no projection for — it is labelled "avg" and is

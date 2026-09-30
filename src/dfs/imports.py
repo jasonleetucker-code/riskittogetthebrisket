@@ -67,6 +67,12 @@ class SlateAthlete:
     projection: float | None = None
     projection_source: str | None = None
     projection_match: str | None = None
+    # Roster slots the PLATFORM says this athlete may fill (its own labels,
+    # e.g. ["RB", "FLEX"]).  Evidence, not rules: it is cross-checked against
+    # the rule set, never used to override it.
+    eligible_slots: list[str] = field(default_factory=list)
+    # Every source column this adapter does not consume, verbatim.
+    extra: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -224,6 +230,8 @@ def parse_draftkings_salaries(text: str) -> tuple[list[SlateAthlete], ImportRepo
                 # DK publishes no games-played count, so an average of exactly
                 # 0 cannot be told apart from "has not played": treat as missing.
                 platform_average=avg if avg not in (None, 0.0) else None,
+                eligible_slots=_slots(r.get("Roster Position")),
+                extra=_extra(r, DK_COLUMNS),
             )
         )
     report.rows_used = len(out)
@@ -281,10 +289,54 @@ def parse_fanduel_players(text: str) -> tuple[list[SlateAthlete], ImportReport]:
                 salary=salary,
                 status=(r.get("Injury Indicator") or "").strip() or None,
                 platform_average=avg if (avg is not None and (played or 0) > 0) else None,
+                eligible_slots=_slots(r.get("Roster Position")),
+                extra=_extra(r, FD_COLUMNS),
             )
         )
     report.rows_used = len(out)
     return out, report
+
+
+DK_COLUMNS = frozenset(
+    [
+        "Position",
+        "Name + ID",
+        "Name",
+        "ID",
+        "Roster Position",
+        "Salary",
+        "Game Info",
+        "TeamAbbrev",
+        "AvgPointsPerGame",
+    ]
+)
+FD_COLUMNS = frozenset(
+    [
+        "Id",
+        "Position",
+        "First Name",
+        "Nickname",
+        "Last Name",
+        "FPPG",
+        "Played",
+        "Salary",
+        "Game",
+        "Team",
+        "Opponent",
+        "Injury Indicator",
+        "Injury Details",
+        "Tier",
+        "Roster Position",
+    ]
+)
+
+
+def _slots(raw: str | None) -> list[str]:
+    return [s.strip().upper() for s in (raw or "").split("/") if s.strip()]
+
+
+def _extra(row: dict[str, str], known: frozenset[str]) -> dict[str, str]:
+    return {k[:60]: v[:200] for k, v in row.items() if k not in known and k and v}
 
 
 SALARY_PARSERS = {
