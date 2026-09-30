@@ -205,3 +205,30 @@ def test_leading_dash_ids_are_rejected_at_import():
     text = "Position,Name,ID,Salary,Game Info,TeamAbbrev\nQB,X,-A1,5000,AAA@BBB 10/04/2026 01:00PM ET,AAA\n"
     athletes, report = parse_draftkings_salaries(text)
     assert athletes == [] and report.rejected[0]["reason"] == "invalid_or_missing_player_id"
+
+
+# ── owner-imported projected ownership ────────────────────────────────
+
+
+def test_ownership_needs_a_stated_unit_and_missing_is_never_zero():
+    from src.dfs.imports import apply_ownership_csv
+
+    athletes, _ = parse_draftkings_salaries(_dk_text())
+    with pytest.raises(ImportError_) as exc:
+        apply_ownership_csv(athletes, "ID,Own%\n900001,35\n", unit="")
+    assert exc.value.code == "OWNERSHIP_UNIT_REQUIRED"
+    report = apply_ownership_csv(
+        athletes, "ID,Own%\n900001,35%\n900002,0.5\n900003,140\n", unit="percent"
+    )
+    a1, a2, a3 = athletes[0], athletes[1], athletes[2]
+    assert (a1.ownership, a2.ownership, a3.ownership) == (35.0, 0.5, None)
+    assert report["invalid"][0]["reason"] == "ownership_out_of_range_for_unit"
+    assert athletes[4].ownership is None  # not in the file: unknown, not 0%
+
+
+def test_fraction_unit_is_scaled_to_percent():
+    from src.dfs.imports import apply_ownership_csv
+
+    athletes, _ = parse_draftkings_salaries(_dk_text())
+    apply_ownership_csv(athletes, "ID,Ownership\n900001,0.35\n", unit="fraction")
+    assert athletes[0].ownership == 35.0

@@ -78,6 +78,10 @@ class SlateAthlete:
     # group_key are the same athlete: at most one may be rostered, and a
     # projection for one applies to all.  None = this row stands alone.
     group_key: str | None = None
+    # Owner-imported PROJECTED ownership, in percent of lineups (0–100).
+    # None = no ownership forecast for this athlete — never 0%.
+    ownership: float | None = None
+    ownership_source: str | None = None
 
     @property
     def identity(self) -> str:
@@ -390,8 +394,35 @@ def _col(header: list[str], candidates: tuple[str, ...]) -> str | None:
 
 def apply_projection_csv(athletes: list[SlateAthlete], text: str) -> dict[str, Any]:
     """Join an owner projection CSV onto ``athletes`` in place; return the identity report."""
+    return _join_values(athletes, text, kind="projection")
+
+
+_OWN_COLUMNS = ("ownership", "own", "own%", "ownership %", "projected ownership", "pown", "pown%")
+
+
+def apply_ownership_csv(athletes: list[SlateAthlete], text: str, unit: str) -> dict[str, Any]:
+    """Join an owner PROJECTED-ownership CSV (same identity rules as projections).
+
+    ``unit`` must be stated — ``percent`` (35 = 35%) or ``fraction`` (0.35 =
+    35%) — because 0.35 is ambiguous and guessing would silently mis-scale the
+    whole field by 100x.  Values are stored as percent.  Missing stays None.
+    """
+    if unit not in ("percent", "fraction"):
+        raise ImportError_(
+            "OWNERSHIP_UNIT_REQUIRED",
+            "Say whether ownership is in percent (35) or a fraction (0.35).",
+        )
+    report = _join_values(
+        athletes, text, kind="ownership", scale=100.0 if unit == "fraction" else 1.0
+    )
+    return report
+
+
+def _join_values(
+    athletes: list[SlateAthlete], text: str, *, kind: str, scale: float = 1.0
+) -> dict[str, Any]:
     header, rows = _read_csv(text)
-    proj_col = _col(header, _PROJ_COLUMNS)
+    proj_col = _col(header, _PROJ_COLUMNS if kind == "projection" else _OWN_COLUMNS)
     id_col = _col(header, _ID_COLUMNS)
     name_col = _col(header, ("name", "player", "player name"))
     team_col = _col(header, ("team", "teamabbrev", "tm"))
@@ -399,7 +430,9 @@ def apply_projection_csv(athletes: list[SlateAthlete], text: str) -> dict[str, A
     if proj_col is None:
         raise ImportError_(
             "HEADER_MISMATCH",
-            "Projection file needs a projection column (one of: projection, proj, fpts, points).",
+            "Projection file needs a projection column (one of: projection, proj, fpts, points)."
+            if kind == "projection"
+            else "Ownership file needs an ownership column (e.g. ownership, own%, pown%).",
             {"found": header[:40]},
         )
     if id_col is None and not (name_col and team_col):
@@ -419,8 +452,17 @@ def apply_projection_csv(athletes: list[SlateAthlete], text: str) -> dict[str, A
     invalid: list[dict[str, Any]] = []
     conflicts: list[dict[str, Any]] = []
     for i, r in enumerate(rows, start=2):
-        value = _float_or_none(r.get(proj_col))
+        raw_value = r.get(proj_col)
+        if kind == "ownership" and isinstance(raw_value, str):
+            raw_value = raw_value.strip().rstrip("%")
+        value = _float_or_none(raw_value)
         label = r.get(name_col, "") if name_col else r.get(id_col or "", "")
+        if kind == "ownership" and value is not None and not 0 <= value * scale <= 100:
+            # Out of range for the STATED unit: most often the unit is wrong.
+            invalid.append(
+                {"row": i, "name": label[:80], "reason": "ownership_out_of_range_for_unit"}
+            )
+            continue
         if value is None:
             invalid.append(
                 {"row": i, "name": label[:80], "reason": "projection_not_numeric_or_blank"}
@@ -482,9 +524,14 @@ def apply_projection_csv(athletes: list[SlateAthlete], text: str) -> dict[str, A
         matched.pop(by_id[c["playerId"]].identity, None)
     for a in athletes:
         hit = matched.get(a.identity)
-        if hit is not None:
+        if hit is None:
+            continue
+        if kind == "projection":
             a.projection, a.projection_match = hit
             a.projection_source = "owner_import"
+        else:
+            a.ownership = round(hit[0] * scale, 4)
+            a.ownership_source = "owner_import"
     return {
         "rowsRead": len(rows),
         "matched": len(matched),
@@ -493,6 +540,7 @@ def apply_projection_csv(athletes: list[SlateAthlete], text: str) -> dict[str, A
         "invalid": invalid[:200],
         "conflicts": conflicts[:200],
         "athletesWithoutProjection": sum(1 for a in athletes if a.projection is None),
+        "athletesWithoutOwnership": sum(1 for a in athletes if a.ownership is None),
     }
 
 

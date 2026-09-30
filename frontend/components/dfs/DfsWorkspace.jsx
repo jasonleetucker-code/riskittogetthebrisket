@@ -326,6 +326,8 @@ export default function DfsWorkspace() {
   const [salaryText, setSalaryText] = useState("");
   const [projectionText, setProjectionText] = useState("");
   const [useAverage, setUseAverage] = useState(false);
+  const [ownershipText, setOwnershipText] = useState("");
+  const [ownershipUnit, setOwnershipUnit] = useState("percent");
   const [slate, setSlate] = useState(null);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState(null);
@@ -400,6 +402,8 @@ export default function DfsWorkspace() {
         ruleset: ruleset.id,
         salaryCsv: salaryText,
         projectionCsv: projectionText || undefined,
+        ownershipCsv: ownershipText || undefined,
+        ownershipUnit: ownershipText ? ownershipUnit : undefined,
         usePlatformAverage: useAverage,
       }),
     });
@@ -535,6 +539,19 @@ export default function DfsWorkspace() {
                   onChange={(e) => setProjectionText(e.target.value)}
                   rows={4}
                   spellCheck={false}
+                />
+              </Field>
+              <Field label="Projected ownership (CSV, optional)" hint="Columns: ID or Name + Team, and Own%. Players not listed stay unknown, never 0%.">
+                <input type="file" accept=".csv,text/csv" onChange={(e) => onFile(e, setOwnershipText)} />
+              </Field>
+              <Field label="Ownership values are">
+                <Select
+                  value={ownershipUnit}
+                  onChange={(e) => setOwnershipUnit(e.target.value)}
+                  options={[
+                    { value: "percent", label: "Percent (35 = 35%)" },
+                    { value: "fraction", label: "Fraction (0.35 = 35%)" },
+                  ]}
                 />
               </Field>
             </div>

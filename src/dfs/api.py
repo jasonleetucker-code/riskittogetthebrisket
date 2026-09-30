@@ -43,6 +43,7 @@ from src.dfs.export import ExportError, build_upload_csv
 from src.dfs.imports import (
     ImportError_,
     SlateAthlete,
+    apply_ownership_csv,
     apply_platform_average,
     apply_projection_csv,
     content_hash,
@@ -221,6 +222,12 @@ def _snapshot_body(
         if body.get("projectionCsv"):
             proj_report = apply_projection_csv(athletes, body["projectionCsv"])
         averaged = apply_platform_average(athletes) if body.get("usePlatformAverage") else 0
+        own_report = None
+        if body.get("ownershipCsv"):
+            own_report = apply_ownership_csv(
+                athletes, body["ownershipCsv"], str(body.get("ownershipUnit") or "")
+            )
+            own_report["marginalCheck"] = _ownership_marginals(athletes, rs)
     except ImportError_ as exc:
         return _err(exc.code, exc.message, 422, exc.detail)
     if not athletes:
@@ -242,8 +249,34 @@ def _snapshot_body(
         "eligibilityCrossCheck": extra.get("eligibilityCrossCheck"),
         "salaryCapCrossCheck": cap_check,
         "projectionReport": proj_report,
+        "ownershipReport": own_report,
         "platformAverageApplied": averaged,
         "positionsNotInRuleset": sorted({p for a in athletes for p in a.positions} - rs.positions),
+    }
+
+
+def _ownership_marginals(athletes: list[SlateAthlete], rs: Any) -> dict[str, Any]:
+    """Projected ownership must sum to ~100% per roster slot (e.g. 900% for nine slots).
+
+    Only meaningful with full coverage; a partial file is reported as partial,
+    never extrapolated.  Showdown rows (CPT vs FLEX) are summed per row label.
+    """
+    covered = [a for a in athletes if a.ownership is not None]
+    expected = 100.0 * len(rs.slots)
+    total = round(sum(a.ownership for a in covered), 2)  # type: ignore[misc]
+    if len(covered) < len(athletes):
+        state = "partial_coverage"
+    elif abs(total - expected) <= 0.15 * expected:
+        state = "plausible"
+    else:
+        state = "implausible"
+    return {
+        "covered": len(covered),
+        "athletes": len(athletes),
+        "totalPercent": total,
+        "expectedPercent": expected,
+        "state": state,
+        "note": "Marginal ownership is a diagnostic; it is not a joint lineup probability.",
     }
 
 
@@ -315,14 +348,7 @@ def _freshness(created: str, body: dict[str, Any]) -> list[dict[str, Any]]:
             if projected
             else "Import projections; missing players are left out, never scored 0.",
         },
-        {
-            "class": "ownership",
-            "state": "unavailable",
-            "source": None,
-            "asOf": None,
-            "coverage": None,
-            "note": none,
-        },
+        _ownership_freshness(created, body, none),
         {
             "class": "sportsbook",
             "state": "unavailable",
@@ -358,6 +384,29 @@ def _freshness(created: str, body: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def _ownership_freshness(created: str, body: dict[str, Any], none: str) -> dict[str, Any]:
+    athletes = body.get("athletes") or []
+    owned = sum(1 for a in athletes if a.get("ownership") is not None)
+    if not owned:
+        return {
+            "class": "ownership",
+            "state": "unavailable",
+            "source": None,
+            "asOf": None,
+            "coverage": None,
+            "note": none,
+        }
+    check = (body.get("ownershipReport") or {}).get("marginalCheck") or {}
+    return {
+        "class": "ownership",
+        "state": "as_imported",
+        "source": "owner_import (projected)",
+        "asOf": created,
+        "coverage": f"{owned} of {len(athletes)}",
+        "note": f"Marginal total {check.get('totalPercent')}% vs {check.get('expectedPercent')}% expected: {check.get('state')}.",
+    }
+
+
 def _snapshot_view(sid: str, created: str, h: str, body: dict[str, Any]) -> dict[str, Any]:
     rs_id = body["ruleset"].split("@", 1)[0]
     rs = get_ruleset(rs_id)
@@ -377,6 +426,7 @@ def _snapshot_view(sid: str, created: str, h: str, body: dict[str, Any]) -> dict
         "eligibilityCrossCheck": body.get("eligibilityCrossCheck"),
         "salaryCapCrossCheck": body.get("salaryCapCrossCheck"),
         "projectionReport": body.get("projectionReport"),
+        "ownershipReport": body.get("ownershipReport"),
         "platformAverageApplied": body.get("platformAverageApplied", 0),
         "positionsNotInRuleset": body.get("positionsNotInRuleset", []),
         "freshness": _freshness(created, body),

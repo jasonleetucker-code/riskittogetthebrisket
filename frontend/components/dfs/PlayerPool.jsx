@@ -41,6 +41,14 @@ export default function PlayerPool({ athletes, rules, setRules, overrides, setOv
     { key: "salary", header: "Salary", numeric: true, render: (a) => formatSalary(a.salary) },
     { key: "projection", header: "Proj", numeric: true, render: (a) => <ProjectionCell athlete={a} /> },
     {
+      key: "ownership",
+      header: "Own%",
+      numeric: true,
+      hideBelow: "sm",
+      accessor: (a) => a.ownership,
+      render: (a) => (a.ownership == null ? <span className={styles.missing}>—</span> : `${a.ownership.toFixed(1)}%`),
+    },
+    {
       key: "value",
       header: "Pts/$1K",
       numeric: true,

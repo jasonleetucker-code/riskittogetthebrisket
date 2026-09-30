@@ -434,3 +434,37 @@ def test_end_to_end_slate_contest_projections_constraints_build_validate_export_
         assert validate_lineup(list(zip(rows[0], row)), rs, by_id) == []
         assert qb in row
     assert len({tuple(sorted(r)) for r in rows[1:]}) == 5
+
+
+def test_ownership_marginals_and_freshness(client):
+    athletes_csv = (FIX / "synthetic_dk_nfl_classic_salaries.csv").read_text(encoding="utf-8")
+    ids = [line.split(",")[3] for line in athletes_csv.splitlines()[1:]]
+    even = 900.0 / len(ids)  # nine slots -> 900% total when every athlete is covered
+    own = "ID,Own%\n" + "\n".join(f"{pid},{even:.4f}" for pid in ids)
+    snap = client.post(
+        "/api/dfs/slates",
+        json={"salaryCsv": athletes_csv, "ownershipCsv": own, "ownershipUnit": "percent"},
+        headers={"x-user": "a"},
+    ).json()
+    check = snap["ownershipReport"]["marginalCheck"]
+    assert check["state"] == "plausible" and check["expectedPercent"] == 900.0
+    fresh = {f["class"]: f for f in snap["freshness"]}
+    assert (
+        fresh["ownership"]["state"] == "as_imported" and "plausible" in fresh["ownership"]["note"]
+    )
+
+    half = "ID,Own%\n" + "\n".join(f"{pid},{even:.4f}" for pid in ids[: len(ids) // 2])
+    snap = client.post(
+        "/api/dfs/slates",
+        json={"salaryCsv": athletes_csv, "ownershipCsv": half, "ownershipUnit": "percent"},
+        headers={"x-user": "a"},
+    ).json()
+    assert (
+        snap["ownershipReport"]["marginalCheck"]["state"] == "partial_coverage"
+    )  # never extrapolated
+    bad = client.post(
+        "/api/dfs/slates",
+        json={"salaryCsv": athletes_csv, "ownershipCsv": own},
+        headers={"x-user": "a"},
+    )
+    assert bad.status_code == 422 and bad.json()["error"] == "OWNERSHIP_UNIT_REQUIRED"
