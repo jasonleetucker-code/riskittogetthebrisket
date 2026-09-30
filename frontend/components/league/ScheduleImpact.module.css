@@ -111,3 +111,24 @@
   text-transform: none;
   letter-spacing: 0;
 }
+
+/* Week-order distribution (Schedule Multiverse, Milestone B). */
+.distCell {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dist {
+  display: block;
+}
+
+.distBar {
+  fill: var(--subtext);
+  opacity: 0.45;
+}
+
+.distActual {
+  fill: var(--text);
+}

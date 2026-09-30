@@ -159,7 +159,7 @@ never takes the Luck section down.
 
 ## 5b. Model `timing_only_v1` (Milestone B core — concept D)
 
-`src/public_league/schedule_timing.py`. Not yet published on any surface.
+`src/public_league/schedule_timing.py`. Published on the Luck tab (Schedule Multiverse).
 
 - **Fixed:** every team-week score, points for, median results, and the set of
   weekly pairings actually played — so each team's opponent multiset, divisions,
@@ -209,7 +209,7 @@ never takes the Luck section down.
 | Schedule share card (separate from the full-league rankings card) | C | not started |
 | Historical season views (bySeason already in the contract) | C1 / C | team page season-results "Schedule" column per past season (C1); league-wide historical view not started |
 | Hard Luck statistical distinction | C | not started (coordinate with the awards claim) |
-| Schedule Multiverse (read-only) | B | not started |
+| Schedule Multiverse (read-only) | B | implemented: Luck tab "Same opponents, different weeks" table beside the equal-opponent table (H2H, order effect, average across all week orders, exact spread with the actual total marked, more/fewer shares) + method disclosure; honest notices for unsupported / unavailable seasons |
 | Valid schedule-slot swaps, retrospective playoff sensitivity | D | not started |
 | `scheduleNeutralRealizedWAR` → MVP candidate (shadow) | E | blocked on C5-WAR-01 |
 
