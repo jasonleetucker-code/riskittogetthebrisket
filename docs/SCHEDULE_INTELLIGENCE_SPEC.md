@@ -183,6 +183,14 @@ never takes the Luck section down.
 - **Fails closed:** a bye that changes a team's game count under reordering makes
   that team `unavailable`; multiple games per team-week, self-pairings and
   missing scores make the season `unsupported`.
+- **Contract:** each season row carries `timingOnly` (expected credits, impact,
+  explicit-direction tail probabilities, central 80%, exact min/max and the compact
+  distribution as `[credits, probability]` pairs); the season carries the model,
+  permuted weeks and `totalCalendars`. The generation id includes the timing
+  algorithm version. A failure yields `{state: "failed"}` for the timing block only.
+  Cost on the real `dynasty_main` snapshot: 1.16 s on the first build per process
+  (three seasons), 0.01 s cached (keyed by the season's score hash); the public
+  block grows from ~24 KB to ~42 KB uncompressed.
 - **Evidence:** brute force over every ordering (6 teams × 6 weeks, with and
   without ties) matches the exact distributions to 1e-12; the sampler matches
   exhaustive enumeration within 5 SE; league credit totals are conserved.

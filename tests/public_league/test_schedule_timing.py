@@ -181,3 +181,20 @@ def test_fourteen_week_season_is_exact_and_bounded():
     for row in out["teams"].values():
         assert row["calendarsCounted"] == math.factorial(14)
     assert elapsed < 60
+
+
+def test_generation_id_pins_the_timing_algorithm_version():
+    from src.public_league import schedule_impact, schedule_timing
+
+    assert schedule_impact.TIMING_ALGORITHM_VERSION == schedule_timing.ALGORITHM_VERSION
+
+
+def test_summary_cache_returns_identical_result():
+    from src.public_league.schedule_timing import timing_summary
+
+    weeks = _season(6, 5, 41)
+    a = timing_summary(weeks, cache_key="k41")
+    assert timing_summary(weeks, cache_key="k41") is a
+    assert a == timing_summary(weeks)
+    row = next(iter(a["teams"].values()))
+    assert sum(p for _, p in row["distribution"]) == pytest.approx(1.0, abs=1e-5)

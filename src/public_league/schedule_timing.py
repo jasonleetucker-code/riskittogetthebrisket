@@ -238,6 +238,56 @@ def compute_timing_only(weeks: Sequence[WeekInput]) -> dict[str, Any]:
     }
 
 
+_SUMMARY_CACHE: dict[str, dict[str, Any]] = {}
+_SUMMARY_CACHE_MAX = 64
+
+
+def timing_summary(weeks: Sequence[WeekInput], cache_key: str | None = None) -> dict[str, Any]:
+    """The published per-team timing-only summary (compact distributions).
+
+    ``cache_key`` must identify the exact inputs (the caller's score hash);
+    a finished season's result never changes, so it is computed once per
+    process rather than on every snapshot rebuild."""
+    key = f"{ALGORITHM_VERSION}:{cache_key}" if cache_key else None
+    if key and key in _SUMMARY_CACHE:
+        return _SUMMARY_CACHE[key]
+    full = compute_timing_only(weeks)
+    teams: dict[str, Any] = {}
+    for team, row in full.get("teams", {}).items():
+        if row.get("state") != "complete":
+            teams[team] = {"state": row.get("state"), "reason": row.get("reason")}
+            continue
+        teams[team] = {
+            "state": "complete",
+            "expectedCredits": round(row["timingOnlyExpectedCredits"], 4),
+            "impact": round(row["timingOnlyImpact"], 4),
+            "probBelowActual": round(row["probBelowActual"], 6),
+            "probEqualActual": round(row["probEqualActual"], 6),
+            "probAboveActual": round(row["probAboveActual"], 6),
+            "central80": row["central80"],
+            "minCredits": row["minCredits"],
+            "maxCredits": row["maxCredits"],
+            # [credits, probability] pairs, ascending credits.
+            "distribution": [
+                [d["credits"], round(d["probability"], 6)] for d in row["distribution"]
+            ],
+        }
+    out = {
+        "state": full["state"],
+        "reason": full.get("reason"),
+        "model": TIMING_MODEL,
+        "algorithmVersion": ALGORITHM_VERSION,
+        "permutedWeeks": full.get("permutedWeeks", []),
+        "totalCalendars": full.get("totalCalendars"),
+        "teams": teams,
+    }
+    if key:
+        if len(_SUMMARY_CACHE) >= _SUMMARY_CACHE_MAX:
+            _SUMMARY_CACHE.pop(next(iter(_SUMMARY_CACHE)))
+        _SUMMARY_CACHE[key] = out
+    return out
+
+
 def sample_finishes(
     weeks: Sequence[WeekInput],
     *,

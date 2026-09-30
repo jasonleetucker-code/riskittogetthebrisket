@@ -45,12 +45,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
 from . import metrics
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
+
+_LOG = logging.getLogger(__name__)
 
 ALGORITHM_VERSION = "schedule-impact-2026.09-a1"
 MODEL_EQUAL_OPPONENT = "equal_opponent_v1"
@@ -402,6 +405,23 @@ def _official_records(season: SeasonSnapshot, registry: Any) -> dict[str, dict[s
     return out
 
 
+#: Mirrors ``schedule_timing.ALGORITHM_VERSION`` (pinned by a test); kept
+#: here so the generation id does not need the deferred import.
+TIMING_ALGORITHM_VERSION = "schedule-timing-2026.09-b1"
+
+
+def _timing_block(inputs: list[WeekInput], score_hash: str) -> dict[str, Any]:
+    """Timing-only summaries; a failure here must never cost the season its
+    equal-opponent contract."""
+    from . import schedule_timing  # deferred: schedule_timing imports this module
+
+    try:
+        return schedule_timing.timing_summary(inputs, cache_key=score_hash)
+    except Exception:  # noqa: BLE001 -- isolate the second model
+        _LOG.exception("timing_only_v1 failed")
+        return {"state": "failed", "teams": {}}
+
+
 def season_contract(
     snapshot: PublicLeagueSnapshot,
     season: SeasonSnapshot,
@@ -479,14 +499,20 @@ def season_contract(
                 "medianComponent": component,
             }
         )
-    rows.sort(key=lambda r: (-r["scheduleImpact"], r["teamKey"]))
-
     score_hash = _digest(
         [
             (w.week, sorted(w.scores.items()), sorted(tuple(sorted(p)) for p in w.pairs))
             for w in inputs
         ]
     )
+    # Milestone B (timing_only_v1): same finalized weeks, same scores; a
+    # different model id, published beside -- never blended into -- the
+    # equal-opponent numbers above.
+    timing = _timing_block(inputs, score_hash)
+    for row in rows:
+        row["timingOnly"] = timing["teams"].get(row["teamKey"])
+    rows.sort(key=lambda r: (-r["scheduleImpact"], r["teamKey"]))
+
     config = {"medianGame": median, "teams": len(season.rosters or [])}
     config_hash = _digest(config)
     official_hash = _digest(sorted(official.items()))
@@ -494,6 +520,7 @@ def season_contract(
         [
             ALGORITHM_VERSION,
             MODEL_EQUAL_OPPONENT,
+            TIMING_ALGORITHM_VERSION,
             season.league_id,
             season.season,
             score_hash,
@@ -517,6 +544,7 @@ def season_contract(
         "config": config,
         "generationId": generation,
         "teams": rows,
+        "timingOnly": {k: v for k, v in timing.items() if k != "teams"},
         "weeks": core["weeks"] if include_weeks else None,
     }
 
