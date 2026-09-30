@@ -6,7 +6,7 @@ import { useDynastyData } from "@/components/useDynastyData";
 import {
   VALUE_MODES,
   STORAGE_KEY,
-  verdictFromGap,
+  meterVerdict,
   colorFromGap,
   verdictBarPosition,
   adjustedSideTotals,
@@ -59,6 +59,7 @@ import { useTeam } from "@/components/useTeam";
 import SharedTradeMeter from "@/components/trade/TradeMeter";
 import TradeWarRoom from "@/components/trade/TradeWarRoom";
 import TradeFairnessExplanation from "@/components/trade/TradeFairnessExplanation";
+import { TradeVerdictHelp } from "@/components/help/TradeHelp";
 import {
   Banner,
   Button,
@@ -2079,13 +2080,19 @@ export default function TradePage() {
           {/* ── VERDICT ──────────────────────────────────────────
               The answer, and the one number this page exists to
               produce. */}
-          {/* Fairness verdict + the explanations behind it. */}
+          {/* Fairness verdict + the explanations behind it.  `sidesSend`:
+              every side lists what that team sends, so the meter names the
+              bigger PACKAGE and the team that receives it. */}
+          <div className={styles.verdictHelpRow}>
+            <TradeVerdictHelp />
+          </div>
           <TradeMeter
             sides={sides}
             sideTotals={sideTotals}
             flows={sideFlows}
             valueMode={valueMode}
             settings={settings}
+            sidesSend
           />
 
           {/* STACK-NOTE-ONLY:BEGIN — withdrawn stack effect: shown, labelled, NOT in the totals. */}
@@ -2215,8 +2222,10 @@ export default function TradePage() {
                       }}
                     />
                   </div>
+                  {/* Same vocabulary as the meter's badge — one set of
+                      verdict words per page (meterVerdict, 350/900/1800). */}
                   <div className={`verdict ${colorFromGap(pwGap)}`} data-trade-gap={pwGap}>
-                    {verdictFromGap(pwGap)}
+                    {meterVerdict(Math.abs(pwGap)).label}
                     {pctGap > 0 ? ` (${pctGap}%)` : ""}
                   </div>
                   <div className={styles.controlsNote}>

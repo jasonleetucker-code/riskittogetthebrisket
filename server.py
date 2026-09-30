@@ -3784,6 +3784,16 @@ async def lifespan(app: FastAPI):
     # 3. Start the recurring schedule
     scheduler_task = asyncio.create_task(schedule_loop())
     uptime_task = asyncio.create_task(uptime_watchdog_loop())
+    # Rookie auction room runtime (closes, bots, heartbeat, outage pause).
+    # Correctness never depends on it — every command settles what is due
+    # first — and a failure here must never block the site from starting.
+    try:
+        from src.auction import runtime as _auction_runtime
+
+        auction_task = _auction_runtime.start()
+    except Exception as exc:  # noqa: BLE001
+        log.error("auction runtime failed to start: %s", exc)
+        auction_task = None
     # Public league snapshot warmup — kicks a background rebuild if
     # no persisted snapshot was loaded at boot.  Name is resolved at
     # call time (Python late-binding), so the fact that the function
@@ -3822,6 +3832,8 @@ async def lifespan(app: FastAPI):
     scrape_task.cancel()
     scheduler_task.cancel()
     uptime_task.cancel()
+    if auction_task is not None:
+        auction_task.cancel()
     log.info("Server shutting down")
 
 
@@ -3857,6 +3869,15 @@ app.include_router(_ros_router)
 from src.consensus_edge.api import router as _consensus_edge_router  # noqa: E402
 
 app.include_router(_consensus_edge_router)
+
+# Rookie auction room (owner directive 2026-09-29).  Self-contained router
+# with its OWN identity layer and store (``src/auction/``); it authenticates
+# every request itself, so its prefix is exempt from ``_private_api_gate``
+# below.  Mock rooms only until the owner separately approves an official
+# launch.  Rollback: RISKIT_FEATURE_ROOKIE_AUCTION=0 + restart.
+from src.auction.api import router as _auction_router  # noqa: E402
+
+app.include_router(_auction_router)
 
 
 @app.middleware("http")
@@ -3982,6 +4003,11 @@ _PUBLIC_API_PREFIXES = (
     # /api/public/league.  Generation remains admin-only via the POST
     # endpoint's own _require_admin_session check.
     "/api/league/articles",
+    # Rookie auction room: league-mates and invited mock participants hold
+    # an AUCTION session, not a site session.  Every handler under this
+    # prefix authenticates and authorises itself, deny-by-default
+    # (``src/auction/api.py``).
+    "/api/auction",
 )
 
 
@@ -12076,8 +12102,6 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
                 error=str(exc),
             )
             raise
-        finally:
-            _public_league_cache["refreshing"] = False
 
         # A zero-season snapshot is a FAILURE, not a result.
         #
@@ -12163,16 +12187,15 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
         _public_league_cache["last_failure_error"] = None
 
         elapsed = round(time.time() - started, 4)
-        _public_league_cache["snapshot"] = snapshot
-        _public_league_cache["snapshot_league_id"] = league_id
-        _public_league_cache["fetched_at"] = time.time()
-        _public_league_metrics["rebuild_count"] += 1
-        _public_league_metrics["total_rebuild_seconds"] += elapsed
-        _public_league_metrics["last_rebuild_seconds"] = elapsed
-        _public_league_metrics["last_rebuild_iso"] = _utc_now_iso()
-        _public_league_metrics["last_season_count"] = len(snapshot.seasons)
-        _public_league_metrics["last_manager_count"] = len(snapshot.managers.by_owner_id)
 
+        # Seed both response memos BEFORE the new snapshot is published.
+        # Published first, every request in the ~10-20 s this build takes
+        # saw the NEW generation key with nothing memoized under it and
+        # built the whole contract inline — racing this very build for the
+        # GIL.  That was the overview's p95 (11.9 s, max 23 s, measured
+        # 2026-09-29 after #1515): one miss per snapshot cycle.  Until the
+        # swap below, requests keep serving the previous generation, which
+        # is still memoized (entries live two snapshot windows).
         contract_bytes = None
         if _PUBLIC_LEAGUE_PERSIST and snapshot.seasons:
             try:
@@ -12194,6 +12217,16 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
             except Exception as exc:  # noqa: BLE001
                 logging.warning("Failed to persist public_league snapshot: %s", exc)
 
+        _public_league_cache["snapshot"] = snapshot
+        _public_league_cache["snapshot_league_id"] = league_id
+        _public_league_cache["fetched_at"] = time.time()
+        _public_league_metrics["rebuild_count"] += 1
+        _public_league_metrics["total_rebuild_seconds"] += elapsed
+        _public_league_metrics["last_rebuild_seconds"] = elapsed
+        _public_league_metrics["last_rebuild_iso"] = _utc_now_iso()
+        _public_league_metrics["last_season_count"] = len(snapshot.seasons)
+        _public_league_metrics["last_manager_count"] = len(snapshot.managers.by_owner_id)
+
         _log_public_league_event(
             "rebuild_complete",
             trigger=trigger,
@@ -12205,6 +12238,11 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
         )
         return snapshot
     finally:
+        # Cleared only once the rebuild is over -- INCLUDING the contract
+        # build and the publish above.  Cleared right after the upstream
+        # fetch (as it was), it announced "done" while this thread was still
+        # building, so a second refresh could be scheduled mid-build.
+        _public_league_cache["refreshing"] = False
         _public_league_refresh_lock.release()
 
 

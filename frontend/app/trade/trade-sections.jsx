@@ -37,13 +37,17 @@ import {
   getPlayerEdge,
 } from "@/lib/trade-logic";
 import { groupSideEntries, tradeEntryKey, tradeEntryLabel } from "@/lib/trade-assets";
+import { ValueAdjustmentTip } from "@/components/help/TradeHelp";
 import styles from "./trade.module.css";
 
 // ── Shared bits ───────────────────────────────────────────────────────
 
 export const SUGGESTION_RAIL_LABELS = {
-  sellHigh: { label: "Sell High", hint: "These pieces have peaked — convert before the market cools." },
-  buyLow: { label: "Buy Low", hint: "Undervalued by the consensus right now." },
+  // Hints describe what the generators in src/trade/suggestions.py actually
+  // do. Neither one detects a value peak or an undervalued player: both
+  // pair depth at a position you are deep in with a need elsewhere.
+  sellHigh: { label: "Sell High", hint: "Move depth from a position you are deep at for help where you are thin." },
+  buyLow: { label: "Buy Low", hint: "Target a starter at a position you need, paid for from your surplus." },
   consolidation: { label: "Consolidation", hint: "Trade a pile of assets for a single anchor." },
   positionalUpgrades: { label: "Upgrade", hint: "Direct positional swaps that net you value." },
 };
@@ -69,10 +73,15 @@ export function fairnessTone(f) {
   return "negative";
 }
 
+// `_confidence_from_sources` (src/trade/suggestions.py) buckets a SOURCE
+// COUNT (6+ / 3-5 / fewer) — the thinner-covered piece of a sell-high or
+// buy-low swap, the target of a consolidation or upgrade. It does not
+// measure whether those sources agree, so the label names coverage, not
+// consensus.
 export function confidenceMeta(c) {
-  if (c === "high") return { label: "High consensus", tone: "positive" };
-  if (c === "medium") return { label: "Moderate consensus", tone: "warning" };
-  return { label: "Low consensus", tone: "neutral" };
+  if (c === "high") return { label: "6+ sources", tone: "positive" };
+  if (c === "medium") return { label: "3–5 sources", tone: "warning" };
+  return { label: "Under 3 sources", tone: "neutral" };
 }
 
 export function edgeMeta(edge) {
@@ -401,6 +410,16 @@ export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) 
             />
           </div>
 
+          {/* What Before/After/Change ARE (src/api/trade_simulator.py
+              _aggregate): a plain sum of canonical board values — no Value
+              Adjustment, unpriced players as 0, and no forced release
+              subtracted.  Next to a VA-adjusted meter that is a different
+              quantity, so it is named. */}
+          <p className={styles.suggestMeta}>
+            Roster totals: summed board values, before Value Adjustment. A
+            forced release is not subtracted here.
+          </p>
+
           <div className={styles.simPosGrid} style={{ marginTop: "var(--space-3)" }}>
             {["QB", "RB", "WR", "TE"].map((pos) => {
               const row = simResult.delta?.byPosition?.[pos];
@@ -477,6 +496,9 @@ export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) 
                 (rc.forcedDropValue != null
                   ? ` — ${Math.round(rc.forcedDropValue).toLocaleString()} value released`
                   : "") +
+                (rc.unpricedForcedDrops > 0
+                  ? ` (plus ${rc.unpricedForcedDrops} unpriced, not counted)`
+                  : "") +
                 (rc.forcedDropsAreUpperBound ? " (worst case; taxi occupancy uncertain)" : "") +
                 (rc.ladderExhausted ? " — no fully legal cleanup found" : "")}
               {rc.forcedDrops.length > 0 ? (
@@ -489,6 +511,16 @@ export function SimulationPanel({ simResult, simError, selectedTeam, onReset }) 
                   ))}
                 </ul>
               ) : null}
+            </Banner>
+          ) : null}
+
+          {/* The simulator publishes {unavailable, notes} when capacity
+              could not be computed.  Rendering nothing would read exactly
+              like "fits" — absent and zero must not look the same. */}
+          {rc && rc.unavailable ? (
+            <Banner tone="neutral" title="Roster capacity">
+              Roster capacity could not be checked for this trade, so any forced
+              release is unknown — not zero.
             </Banner>
           ) : null}
 
@@ -1211,21 +1243,20 @@ export function SideCard({
           <div className={styles.sideTotal}>
             {Math.round(total.adjusted).toLocaleString()}
           </div>
-          {total.adjustment > 0 ? (
-            <div
-              className={styles.sideTotalMeta}
-              title="Consolidation / roster-spot premium: the side with fewer pieces frees a roster spot, so KTC-style math adds this bonus on top of the raw total."
-            >
-              Raw {Math.round(total.raw).toLocaleString()} + VA{" "}
-              {/* Shown as the difference of the rounded figures so the visible
-                  parts always add up to the headline exactly. */}
-              {(Math.round(total.adjusted) - Math.round(total.raw)).toLocaleString()}
-            </div>
-          ) : (
-            <div className={styles.sideTotalMeta}>
-              Raw {Math.round(total.raw).toLocaleString()}
-            </div>
-          )}
+          {/* The headline total is raw + VA -- nothing else (adjustedSideTotals;
+              the draft-capital stack effect is informational only and is shown
+              separately under the meter).  VA is shown as the difference of the
+              rounded figures, so the visible parts always add up to the headline.
+              The retired `title=` said VA was a roster-spot bonus for the side
+              with fewer pieces — ktcAdjustPackage credits concentration, fires on
+              equal counts too, and a hover title never reached touch users. */}
+          <div className={styles.sideTotalMeta}>
+            Raw {Math.round(total.raw).toLocaleString()}
+            {total.adjustment > 0
+              ? ` + VA ${(Math.round(total.adjusted) - Math.round(total.raw)).toLocaleString()}`
+              : ""}
+            {total.adjustment > 0 ? <ValueAdjustmentTip /> : null}
+          </div>
           {unpriced.length ? (
             <div
               className={styles.sideTotalMeta}

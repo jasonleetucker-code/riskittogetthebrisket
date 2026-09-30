@@ -61,7 +61,12 @@
 // payload after deployment, and the rankings UI interpreted its
 // missing score fields as real zeroes.  The version bump evicts every
 // such payload already stored on visitors' devices.
-const CACHE_VERSION = "chaseupside-v8";
+// v9: /api/auction/ added to NEVER_CACHE.  The rookie auction room's
+// responses carry private balances, private maximum bids and live room
+// state; the network-first fallback would otherwise store them at rest
+// and could replay a stale balance offline as if it were current.  The
+// bump evicts anything already stored.
+const CACHE_VERSION = "chaseupside-v9";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const PUBLIC_LEAGUE_CACHE = `${CACHE_VERSION}-public-league`;
@@ -87,6 +92,11 @@ const NEVER_CACHE = [
   // payload's caching now.
   "/api/data",
   "/api/dynasty-data",
+  // Rookie auction room: private bids/balances + authoritative live
+  // state.  Never at rest, never replayed offline.  The pages too: invite,
+  // reset and email-verification URLs carry one-time tokens.
+  "/api/auction/",
+  "/auction",
 ];
 
 function isNeverCache(url) {
@@ -194,8 +204,9 @@ self.addEventListener("push", (event) => {
   }
   const title = String(payload.title || "Chase Upside").slice(0, 120);
   const body = String(payload.body || "").slice(0, 300);
-  const url = typeof payload.url === "string" ? payload.url : "/";
+  const url = safeNotificationPath(payload.url);
   const tag = typeof payload.tag === "string" ? payload.tag : undefined;
+  const timestamp = Number.isFinite(payload.ts) ? payload.ts : undefined;
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
@@ -204,13 +215,16 @@ self.addEventListener("push", (event) => {
       data: { url },
       tag,
       renotify: !!tag,
+      timestamp,
     }),
   );
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = (event.notification.data && event.notification.data.url) || "/";
+  // Only ever open a same-origin PATH.  A tap navigates; it never acts
+  // (no bid, no trade acceptance) — the page it opens is authenticated.
+  const target = safeNotificationPath(event.notification.data && event.notification.data.url);
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       for (const c of clients) {
@@ -228,6 +242,19 @@ self.addEventListener("notificationclick", (event) => {
     }),
   );
 });
+
+function safeNotificationPath(raw) {
+  // Resolve exactly as the browser will, then require our own origin — a
+  // string prefix check is not enough ("/\t/evil.com" resolves off-origin).
+  if (typeof raw !== "string" || raw.length > 300) return "/";
+  try {
+    const u = new URL(raw, self.location.origin);
+    if (u.origin !== self.location.origin) return "/";
+    return u.pathname + u.search + u.hash;
+  } catch {
+    return "/";
+  }
+}
 
 async function offlineFallback() {
   const shell = await caches.match("/");
