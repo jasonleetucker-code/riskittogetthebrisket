@@ -284,3 +284,21 @@ def test_builds_carry_an_outcome_range_only_when_every_player_has_one(client):
             assert "independent" in b["limits"][0]
         else:
             assert "import player ranges" in b["limits"][0]
+
+
+def test_multi_lineup_builds_carry_a_portfolio_summary_single_builds_do_not(client):
+    snap = _slate(client).json()
+    for n, has in ((1, False), (3, True)):
+        b = client.post(
+            "/api/dfs/builds",
+            json={
+                "snapshotId": snap["snapshotId"],
+                "objective": "projection_baseline",
+                "constraints": {"lineups": n},
+            },
+            headers={"x-user": "alice"},
+        ).json()
+        p = b["result"]["portfolio"]
+        assert (p is not None) == has
+        if has:
+            assert p["lineups"] == 3 and sum(r["lineups"] for r in p["stackShapes"]) == 3

@@ -60,6 +60,7 @@ const TeamStacks = lazy(() => import("./TeamStacks"));
 const PlayerPool = lazy(() => import("./PlayerPool"));
 const EntriesExport = lazy(() => import("./EntriesExport"));
 const LateSwap = lazy(() => import("./LateSwap"));
+const PortfolioSummary = lazy(() => import("./PortfolioSummary"));
 
 async function api(path, init) {
   const res = await fetch(`/api/dfs${path}`, {
@@ -273,7 +274,7 @@ function BuildResult({ build, ruleset }) {
       ))}
       {r.built > 1 ? (
         <DataTable
-          caption="Exposure across the built lineups"
+          caption="Player exposure across the built lineups"
           columns={[
             { key: "name", header: "Player" },
             { key: "count", header: "Lineups", numeric: true },
@@ -286,6 +287,11 @@ function BuildResult({ build, ruleset }) {
           density="compact"
           defaultSort={{ key: "count", direction: "desc" }}
         />
+      ) : null}
+      {r.portfolio ? (
+        <Suspense fallback={null}>
+          <PortfolioSummary portfolio={r.portfolio} />
+        </Suspense>
       ) : null}
       {r.built ? (
         <div className={styles.exportRow}>

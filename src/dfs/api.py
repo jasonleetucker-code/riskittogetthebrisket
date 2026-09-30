@@ -49,6 +49,7 @@ from src.dfs.imports import (
     content_hash,
 )
 from src.dfs.outcomes import attach_outcomes
+from src.dfs.portfolio import summarize as summarize_portfolio
 from src.dfs.optimizer import ConstraintError, optimize, parse_constraints, solver_version
 from src.dfs.rules import capability_matrix, get_ruleset, load_rulesets
 from src.dfs.slate import CanonicalSlate, canonical_from_platform_file, detect_platform_file
@@ -529,6 +530,7 @@ async def create_build(request: Request):
         constraints = parse_constraints(body.get("constraints"), rs, athletes)
         result = await run_in_threadpool(optimize, rs, athletes, constraints)
         with_range = attach_outcomes(result, athletes)
+        result["portfolio"] = summarize_portfolio(result["lineups"])
     except ConstraintError as exc:
         return _err(exc.code, exc.message, 422, exc.detail)
     except ImportError as exc:  # scipy missing on this host
