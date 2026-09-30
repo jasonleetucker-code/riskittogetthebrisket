@@ -1,6 +1,6 @@
 # Signals Fantasy — data integration and product-capability record (2026-09-30)
 
-**Owner direction:** #1555, extended 2026-09-30. Signals is a comprehensive integration
+**Owner direction:** #1555, extended 2026-09-30 ([extension record](https://github.com/jasonleetucker-code/riskittogetthebrisket/issues/1555#issuecomment-5920621510)). Signals is a comprehensive integration
 workstream whose intended destination is an **active, validated Calculator source**
 (activation stage 5 where justified). That supersedes the earlier optional/benchmark-only
 destination. The earlier record's access, validation, privacy and lineage requirements are
@@ -23,8 +23,8 @@ itself displayed the data. Nothing behind authentication was accessed.
 
 ## 2. Access and rights boundary
 
-- **Terms (effective 2026-08-31):**
-  - Automated tools that "access or extract data" require prior written consent.
+- **Terms (effective 2026-08-31), paraphrased from a summarizing fetch (not verbatim):**
+  - Automated tools that access or extract data require prior written consent.
   - Reverse engineering and commercial exploitation are prohibited.
   - Account credentials may not be shared.
   - AI-generated output may not be commercially redistributed without consent.
@@ -182,9 +182,10 @@ separately from its correlation with families already in the pool.
 
 > Subject: Written consent request — automated access for a private dynasty analysis tool
 >
-> I subscribe (or will subscribe) to Signals and run a private, single-user dynasty
-> analysis tool. Your Terms require prior written consent for automated access. I am asking
-> for consent covering:
+> I subscribe (or will subscribe) to Signals and run a private dynasty analysis site
+> (login required; used by me and a small number of invited league members; not public, no
+> advertising, no resale). Your Terms require prior written consent for automated access. I am
+> asking for consent covering:
 > 1. **Datasets:** dynasty and IDP dynasty boards (public and my league-adjusted values),
 >    rookie/future pick values, prospect boards, and redraft/ROS projections for my own
 >    leagues.
@@ -193,11 +194,16 @@ separately from its correlation with families already in the pool.
 > 3. **Frequency:** at most once per publication (daily or weekly as you publish), with
 >    conservative rate limits.
 > 4. **Retention:** historical snapshots kept privately to measure changes over time.
-> 5. **Derived values:** your values used as one input among many in my private valuation
->    model, and as a displayed "second opinion" visible only to me.
-> 6. **Display:** no public display, redistribution or commercial use without separate
->    agreement.
+> 5. **Derived values:** your values used as one input among many in the site's valuation
+>    model, whose blended values are shown to its logged-in users, and optionally shown
+>    directly as a labelled "second opinion" to those same logged-in users. Please say
+>    which of these you permit.
+> 6. **Display:** nothing public; no redistribution of your raw values or commercial use
+>    without separate agreement.
 > 7. **Clarification:** which datasets rebuild weekly vs daily, and whether an owner-exported
 >    CSV imported into a personal tool is within personal use.
 
-The owner must send it himself. No commercial terms are accepted on his behalf.
+The owner must send it himself, after confirming the audience description in points 1 and
+5 matches how the site is actually used. The intended stage-5 destination (an active source)
+means blended values reach every logged-in user, not only the owner. No commercial terms
+are accepted on his behalf.

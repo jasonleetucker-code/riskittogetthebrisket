@@ -83,6 +83,11 @@
      "rank": null,
      "value": 5320
     },
+    "leave_out_set:pre_season_data": {
+     "delta": 0,
+     "rank": null,
+     "value": 5643
+    },
     "leave_out_source:dlfIdp": {
      "delta": 0,
      "rank": null,
@@ -389,6 +394,11 @@
     "leave_out_family:ktcCrowd": {
      "delta": 0,
      "rank": 33,
+     "value": 6411
+    },
+    "leave_out_set:pre_season_data": {
+     "delta": 0,
+     "rank": 34,
      "value": 6411
     },
     "leave_out_source:dlfIdp": {
@@ -944,6 +954,11 @@
      "rank": 26,
      "value": 6891
     },
+    "leave_out_set:pre_season_data": {
+     "delta": -10,
+     "rank": 29,
+     "value": 6776
+    },
     "leave_out_source:dlfIdp": {
      "delta": 0,
      "rank": 28,
@@ -1492,6 +1507,11 @@
      "delta": 31,
      "rank": 95,
      "value": 4195
+    },
+    "leave_out_set:pre_season_data": {
+     "delta": -66,
+     "rank": 101,
+     "value": 4098
     },
     "leave_out_source:dlfIdp": {
      "delta": 0,
@@ -2089,6 +2109,11 @@
      "rank": 55,
      "value": 5374
     },
+    "leave_out_set:pre_season_data": {
+     "delta": -13,
+     "rank": 58,
+     "value": 5324
+    },
     "leave_out_source:dlfIdp": {
      "delta": 0,
      "rank": 55,
@@ -2641,6 +2666,11 @@
      "delta": 13,
      "rank": 154,
      "value": 3299
+    },
+    "leave_out_set:pre_season_data": {
+     "delta": 196,
+     "rank": 142,
+     "value": 3482
     },
     "leave_out_source:dlfIdp": {
      "delta": 0,
@@ -3235,6 +3265,11 @@
      "rank": 17,
      "value": 7779
     },
+    "leave_out_set:pre_season_data": {
+     "delta": 85,
+     "rank": 16,
+     "value": 7904
+    },
     "leave_out_source:dlfIdp": {
      "delta": 0,
      "rank": 16,
@@ -3790,6 +3825,11 @@
      "rank": 242,
      "value": 2493
     },
+    "leave_out_set:pre_season_data": {
+     "delta": 60,
+     "rank": 235,
+     "value": 2567
+    },
     "leave_out_source:dlfIdp": {
      "delta": 0,
      "rank": 239,
@@ -4299,6 +4339,11 @@
      "delta": 0,
      "rank": 102,
      "value": 4024
+    },
+    "leave_out_set:pre_season_data": {
+     "delta": -3,
+     "rank": 106,
+     "value": 4021
     },
     "leave_out_source:dlfIdp": {
      "delta": -30,
@@ -4849,6 +4894,11 @@
      "rank": 282,
      "value": 2225
     },
+    "leave_out_set:pre_season_data": {
+     "delta": 39,
+     "rank": 279,
+     "value": 2267
+    },
     "leave_out_source:dlfIdp": {
      "delta": 0,
      "rank": 287,
@@ -5153,6 +5203,11 @@
      "value": 5928
     },
     "leave_out_family:ktcCrowd": {
+     "delta": 0,
+     "rank": 42,
+     "value": 5928
+    },
+    "leave_out_set:pre_season_data": {
      "delta": 0,
      "rank": 42,
      "value": 5928
@@ -5464,6 +5519,7 @@
    "rowsWithBothKtcDropped": 1
   }
  },
+ "boardRows": 1041,
  "counterfactualBoard": {
   "freshness_weighting_off": {
    "byGroup": {
@@ -6234,6 +6290,116 @@
    "rowsChanged": 530,
    "rowsCompared": 1041,
    "top200MembershipChanges": 4
+  },
+  "leave_out_set:pre_season_data": {
+   "byGroup": {
+    "IDP": {
+     "changed": 297,
+     "maxAbs": 1526,
+     "medianAbs": 12,
+     "p90Abs": 586
+    },
+    "QB": {
+     "changed": 69,
+     "maxAbs": 801,
+     "medianAbs": 22,
+     "p90Abs": 99
+    },
+    "RB": {
+     "changed": 105,
+     "maxAbs": 266,
+     "medianAbs": 22,
+     "p90Abs": 68
+    },
+    "TE": {
+     "changed": 73,
+     "maxAbs": 221,
+     "medianAbs": 34,
+     "p90Abs": 94
+    },
+    "WR": {
+     "changed": 154,
+     "maxAbs": 801,
+     "medianAbs": 29.5,
+     "p90Abs": 83
+    }
+   },
+   "kind": "source_override",
+   "largestMoves": [
+    {
+     "asset": "Cedric Gray",
+     "delta": 1526,
+     "group": "IDP",
+     "rankAfter": 83,
+     "rankBefore": 177
+    },
+    {
+     "asset": "Keionte Scott",
+     "delta": -1348,
+     "group": "IDP",
+     "rankAfter": null,
+     "rankBefore": 364
+    },
+    {
+     "asset": "Caleb Banks",
+     "delta": -913,
+     "group": "IDP",
+     "rankAfter": null,
+     "rankBefore": 670
+    },
+    {
+     "asset": "Lathan Ransom",
+     "delta": -896,
+     "group": "IDP",
+     "rankAfter": null,
+     "rankBefore": 685
+    },
+    {
+     "asset": "Nick Martin",
+     "delta": -895,
+     "group": "IDP",
+     "rankAfter": null,
+     "rankBefore": 686
+    },
+    {
+     "asset": "Ivan Pace",
+     "delta": -891,
+     "group": "IDP",
+     "rankAfter": null,
+     "rankBefore": 689
+    },
+    {
+     "asset": "Kenneth Grant",
+     "delta": -891,
+     "group": "IDP",
+     "rankAfter": null,
+     "rankBefore": 687
+    },
+    {
+     "asset": "Isaiah McDuffie",
+     "delta": -885,
+     "group": "IDP",
+     "rankAfter": null,
+     "rankBefore": 693
+    },
+    {
+     "asset": "Dorian Williams",
+     "delta": -884,
+     "group": "IDP",
+     "rankAfter": null,
+     "rankBefore": 695
+    },
+    {
+     "asset": "Shemar Stewart",
+     "delta": -877,
+     "group": "IDP",
+     "rankAfter": null,
+     "rankBefore": 701
+    }
+   ],
+   "rowsChanged": 698,
+   "rowsCompared": 1041,
+   "top200MembershipChanges": 6
   },
   "leave_out_source:dlfIdp": {
    "byGroup": {
@@ -8648,12 +8814,130 @@
  },
  "interpretation": "Counterfactual deltas are single-change sensitivities through a nonlinear pipeline; they are not additive contribution shares.",
  "pins": {
-  "codeRevision": "7ef1782cec4b9692167bc092c4f71a0bb2fa71c0",
+  "codeRevision": "6185e8bc5424fbb5d67ccaf0aca3d3f9b12da15a",
+  "config": {
+   "config/bdvm/event_types_v1.json": "a3b40bc5b0699d5a40d6fd48b466f803c788c3ac4e00ea0f43817fc70082c14c",
+   "config/bdvm/params_v1.json": "1b641fb0eed514fe1ce4c0952fbdbdb97dc78b5ea1fbf235634ddcd24a021147",
+   "config/bdvm/pick_outcomes_v1.json": "5af5e5bcd171a6d68f7824d1079c846bebf65c42a28f7a8fb44fe1ca13bff7a6",
+   "config/bridges/bridges_v1.json": "16da3208b40e65b1e8a2e47d0e5072f807e4dd9cdabf84555d63eab3bb581160",
+   "config/ci/release_gate_classification.json": "78521d112a8e81c2c7cfa474d5da2b1fd72884da169e2a6521c92a9bcdb8f137",
+   "config/coercion_baseline.json": "7aa7db318be317f74ea79ddcd602c76ad2c691a803336ebf43c6bdb1ee7d2b79",
+   "config/confidence/gate_v1.json": "fcb4846670a7cb2b56c19a4b1b6f9c4b2ee96b675f35cf888193bb7dd1d1a79b",
+   "config/consensus_edge/params_v1.json": "890d54132a63e5522f7cde38e74a18113f60b338ff1e205fe2922f798798ac04",
+   "config/dfs/presets.json": "69fc9429d5704f5ee8245fc4f5439cc08b4669e37d9531a50b6bb7ca44fd4b82",
+   "config/dfs/providers.json": "8b0092510358ec94a38d15e294625a1eb4d88db8c2525c118383adf9780faf6b",
+   "config/dfs/rulesets.json": "f455c12f3bf2fe4854a80601017513fde92a1e36a20543f26e7810aea48a95f4",
+   "config/dfs/source_seeds.json": "1f9f4354f484eb64ea5cecfd96c394d6b65f2e5d632eb9efc68171f2105e0cc4",
+   "config/espn_schema_baseline.json": "39efbd12c9af9845bcfb3086ed0c94ac7b2fb2bbebb3df3abf4bcd9b6e9ca958",
+   "config/identity/id_overrides.json": "cdaf9f2749a2a57ee72303da0544451ed553f5ef34c22fbd4efd86a4e5b27392",
+   "config/league_comparison.json": "9a021d66b4284274ebbb031c3ad65f70ff1d13d79e81e0ca20f87c5a019e89aa",
+   "config/league_intel/dynasty_new/sleeper_league_snapshot_2026-08-25.json": "537122e8442f9bc6b569ff4c84c14bf42070ae544872a997a7f2d416864d5071",
+   "config/league_intel/sleeper_league_snapshot_2026-07-26.json": "81c6c6c0dde12952c3c0032e533e92292e93bd588832ab825b760899ae7fe962",
+   "config/leagues/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "config/leagues/README.md": "47b437463084015faa923a21958e939e86d6e29d5ab54884413834b426458a21",
+   "config/leagues/award_eligibility_overrides.json": "b456c4707cfac1474eee9923e1e9321c0939d74f219b711642d2af84774b518e",
+   "config/leagues/default_superflex_idp.template.json": "85437b5718dd0e6770370089d440c46c4ed7a0661fc9d06a858ab4f10d7c480e",
+   "config/leagues/owner_names.json": "853c9332e7a236ff28d80bd2180ab29c95ca03b9e82c2c7ad492595c33a08b06",
+   "config/leagues/registry.json": "ef61b7719df83dfec76a0b21f170d38ba9d55ecacca0080325e263fa7c219766",
+   "config/model_registry/hill_autopilot_policy.json": "63cc861479808252d44f35ffe16af58722ddaf1b94d0bd48e000e1e64abd3f5f",
+   "config/model_registry/hill_autopilot_runs.jsonl": "a685d949dc985ab8617b4d229f75f3d3ae3e5efd6371ec69a93c29da242f0bff",
+   "config/model_registry/hill_scope_masters.json": "6740a880cee8f2744f04b0fd99f9e8f6cb50e00decae4f393628c9f04e521f39",
+   "config/power/attested/dynasty_main_2026_week_00.json": "9d7cc617762301dadcaa06191e9633cbdc697946f969310bf62beb51656a6005",
+   "config/projections/source_capability_census.json": "b47d7396cefeee2b733257dd96e90e894135c93a673fb23ab6fb9944d249e6c1",
+   "config/roster_intel/meaningful_core.json": "62e04092c107d5313d984ac88c6a74ecda44321a04c2257dd9cdcab3a40770a0",
+   "config/sharp/curated_universe.json": "398510e998bf1f675d982b22f26947eecf7f7aeabb0502d95beb853abea1d9c0",
+   "config/sharp/discovery_seeds.json": "a7fc8059a5f45f7344acfd1154a32d52ae25959e110230684236c6128f6d8590",
+   "config/sharp/ffpc_asset_mappings.json": "e3566b3a06430868d71e9287dfd6c6c520a3da027aabea01951d407ee131dc2f",
+   "config/sharp/ffpc_sources.json": "f1b286ee6709b0d9493ce72c9aa88e255e48ecc766f718a29d91a3c3c220becb",
+   "config/sharp/scoring_v2.json": "9a5af740ae9f13adffb2f63a80f2844cfb64e0cd253b8a0ec62482973570b626",
+   "config/sharp/workbooks/dynasty_fantasy_football_sharps_100.xlsx": "3f032b006b0f44b069fb83dde5eb23f6cffe9f9dfd12fb42d72fe17bbedd014d",
+   "config/source_staleness.json": "6a0b926cb03ec9ac6d8a0dcc18e511ddfdac88123f258ad627074feb9db62d22",
+   "config/sources/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "config/sources/dlf_sources.template.json": "3845d2d85a9eb46d3fb452ee84118cf84b8f8939932cb42262e491955ff2e864",
+   "config/sources/freshness_v1.json": "3ccf97aff37d6ea5166001669fd7408d5ba4ab458b3ec92888641fdb2445c681",
+   "config/steward/contracts.schema.json": "521d2f57dcfc1285a5bbd06182fc70948808467d7f6e9a84d3c38c01315421ea",
+   "config/steward/routing.json": "db3e2a9a911eb70c26192aaf9847064d258e78adb59b46903a66fa94bd0ef902",
+   "config/team_assignment.json": "a318ea0c3ce03b7826fc06d4eedf44945f5a0d24299f4c84394b8445e5f18938",
+   "config/thresholds.json": "d90b241f01127a0402a4adf7b870445b1577988ef156fc996c754cc37729b2d8",
+   "config/tiers/thresholds.json": "b535c97465766b354de3d84a96ec385bc1707a51aab452da9b036cf4df40709b",
+   "config/trade/analyze_trade.json": "dc8e05b4825f521f1c17a266843b37199ebecc8203b505aa87b9ec78286792b3",
+   "config/trade/faab.json": "4a7d3b20f839aee4e5b0ba62b2f9d1ff3637a29714a593d810d6ac120694e637",
+   "config/trade/team_impact.json": "65a13865aec0b92d8d55fe8f3f25769f973d8dbc77bb2f16fc4f6e8a56bc9729",
+   "config/weights/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+   "config/weights/default_weights.json": "fd937579d42898a347d60c4d09fa927874a51411b25543b3505f3a724c039ea7",
+   "config/weights/pick_year_discount.json": "071d34f9000632dc551d5b57b0dbc8c22b0870edac2586a5c66af36d0e961a79",
+   "config/weights/source_row_floors.json": "f242b931113d111f4e9399cdcbb2502ecb35cb2f4bce82d9137523629720a542",
+   "config/weights/te_premium_curve.json": "2dd219751770f3fe6ca3af938f0b3525c5a9aec96548976605e77803d92f0bac",
+   "config/weights/top50_coverage_floors.json": "67056b2cf5335f20928ef2bd9fc82f3015e87b028d6ba8bd6a09904db6abc923"
+  },
   "contractVersion": "2026-03-10.v2",
+  "fetchStamps": {
+   "dlfIdp_last_success": "1790800052",
+   "dlfRookieIdp_last_success": "1790800052",
+   "dlfRookieSf_last_success": "1790800052",
+   "dlfSf_last_success": "1790800052",
+   "dlfValuesSfTep_last_success": "1790800052",
+   "dlf_last_success": "1790800052",
+   "draftSharksIdp_last_success": "1790797446",
+   "draftSharksRos_last_success": "1790797459",
+   "draftSharks_last_success": "1790797446",
+   "dynastyDaddySf_last_success": "1790797288",
+   "dynastyDaddy_last_success": "1790797288",
+   "dynastyNerdsSfTep_last_success": "1790797462",
+   "fantasyCalc_last_success": "1790797288",
+   "fantasyNavigatorSf_last_success": "1790797290",
+   "fantasyProsFitzmaurice_last_success": "1790797461",
+   "fantasyProsIdp_last_success": "1790797464",
+   "fantasyProsSf_last_success": "1790797462",
+   "flockFantasyRookies_last_success": "1790773448",
+   "flockFantasySfRookies_last_success": "1790773448",
+   "flockFantasySf_last_success": "1790797292",
+   "flockFantasy_last_success": "1790797292",
+   "idpShowCombined_last_success": "1790793133",
+   "idpShow_last_success": "1790793133",
+   "idpTradeCalc_last_success": "1790797287",
+   "ktcCrowdSfTep_last_success": "1790797287",
+   "ktcCrowdTradesSfTep_last_success": "1790797287",
+   "ktcSfTep_last_success": "1790797287",
+   "ktcTradesSfTep_last_success": "1790797287",
+   "ktc_last_success": "1790797287",
+   "otcffbSf_last_success": "1790797289",
+   "pfkDynasty_last_success": "1790797291",
+   "sleeper_last_success": "1790797138.7385306",
+   "yahooBoone_last_success": "1790797468"
+  },
   "flags": {
+   "balldontlie_live_game_state": false,
+   "bdvm_engine": true,
+   "consensus_edge": false,
+   "depth_chart_validation": false,
+   "dfs_sportsdataio_slates": false,
+   "dfs_workspace": true,
+   "dynamic_source_weights": false,
+   "espn_injury_feed": false,
+   "fantasynerds_weekly_projections": false,
+   "game_day_live_game_state": true,
+   "host_native_scoring": false,
+   "idp_scoring_fit": true,
+   "ledger_rank_change": true,
+   "monte_carlo_trade": true,
+   "multi_bridge_ladder": false,
+   "nfl_data_ingest": true,
+   "perfect_draft": true,
+   "positional_tiers": false,
+   "realized_points_api": true,
+   "reception_scoring_fit": true,
+   "rookie_auction": true,
+   "sleeper_weekly_projections": true,
    "source_family_cap": true,
    "source_freshness_weighting": true,
-   "te_basis_conversion": true
+   "sportsdataio_live_game_state": false,
+   "sportsdataio_weekly_projections": false,
+   "te_basis_conversion": true,
+   "unified_id_mapper": false,
+   "usage_signals": false,
+   "value_confidence_intervals": false,
+   "waiver_live_opportunity": true
   },
   "freshnessConfig": "3ccf97aff37d6ea5166001669fd7408d5ba4ab458b3ec92888641fdb2445c681",
   "freshnessState": {
@@ -8686,6 +8970,46 @@
    "k": 2.75,
    "minN": 4,
    "minThreshold": 1000.0
+  },
+  "liveLeagueContext": [
+   {
+    "args": [],
+    "result": {
+     "bonus_rec_te": 0.0,
+     "fetched_from_sleeper": true,
+     "roster_count": 12
+    }
+   },
+   {
+    "args": [
+     12
+    ],
+    "result": {
+     "bonus_rec_te": 0.0,
+     "fetched_from_sleeper": true,
+     "roster_count": 12
+    }
+   },
+   {
+    "args": [
+     12
+    ],
+    "result": {
+     "bonus_rec_te": 0.0,
+     "fetched_from_sleeper": true,
+     "roster_count": 12
+    }
+   }
+  ],
+  "localLeagueSnapshots": {
+   "files": {
+    "draft_classes_1312006700437352448.json": "acf3a512b18223a4c72cf33f887f2c66cf8c655b326d4e6a78d504bbac13383c",
+    "draft_classes_1320092771247222784.json": "5899a826fa9b5b5dab7fb6560572fd101d55b75d664c759f9daa791b248cde43",
+    "scoring_1312006700437352448.json": "1d786cd19cf2bf0253dae8315a0d6b29976d00071a9c5f2b4381eb529d34dc79",
+    "scoring_1320092771247222784.json": "abca7371e9983dd773477e434498282280524ffd77b558117af38b50a87fb3dc"
+   },
+   "note": "gitignored; a checkout without them keeps completed-draft picks (1131 vs 1041 rows on 2026-09-30)",
+   "tracked": false
   },
   "payload": {
    "path": "exports\\latest\\dynasty_data_2026-09-30.json",

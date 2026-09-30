@@ -1,9 +1,10 @@
 # Value replay
 
-- Code revision: `7ef1782cec4b9692167bc092c4f71a0bb2fa71c0` (source tree dirty: False)
+- Code revision: `6185e8bc5424fbb5d67ccaf0aca3d3f9b12da15a` (source tree dirty: False)
 - Payload: `exports\latest\dynasty_data_2026-09-30.json` sha256 `69a0f4b4e26486c1…`, scrape `2026-09-30T13:04:04.598312+00:00`
-- Flags: {'source_freshness_weighting': True, 'source_family_cap': True, 'te_basis_conversion': True}; outlier filter {'k': 2.75, 'minN': 4, 'minThreshold': 1000.0}; single-source retention 0.3
-- 30 source CSVs and 24 freshness-state files hashed in the JSON.
+- Flags: {'multi_bridge_ladder': False, 'source_freshness_weighting': True, 'source_family_cap': True, 'ledger_rank_change': True, 'unified_id_mapper': False, 'nfl_data_ingest': True, 'realized_points_api': True, 'value_confidence_intervals': False, 'positional_tiers': False, 'usage_signals': False, 'espn_injury_feed': False, 'depth_chart_validation': False, 'monte_carlo_trade': True, 'dynamic_source_weights': False, 'te_basis_conversion': True, 'idp_scoring_fit': True, 'reception_scoring_fit': True, 'bdvm_engine': True, 'perfect_draft': True, 'rookie_auction': True, 'dfs_workspace': True, 'dfs_sportsdataio_slates': False, 'consensus_edge': False, 'host_native_scoring': False, 'waiver_live_opportunity': True, 'game_day_live_game_state': True, 'sleeper_weekly_projections': True, 'sportsdataio_live_game_state': False, 'balldontlie_live_game_state': False, 'fantasynerds_weekly_projections': False, 'sportsdataio_weekly_projections': False}; outlier filter {'k': 2.75, 'minN': 4, 'minThreshold': 1000.0}; single-source retention 0.3
+- 30 source CSVs, 24 freshness-state files, 53 config files and 4 local (gitignored) league snapshots hashed in the JSON; live Sleeper league context recorded.
+- Board rows: 1041.
 
 > Counterfactual deltas are single-change sensitivities through a nonlinear pipeline; they are not additive contribution shares.
 
@@ -32,6 +33,7 @@ Value **3286**, overall rank 156, position rank 45, confidence high. Outlier-dro
 
 Counterfactual sensitivities (value delta, rank after):
 
+- `leave_out_set:pre_season_data`: +196 → 3482 (rank 142)
 - `native_values_as_ranks`: +158 → 3444 (rank 121)
 - `hampel_off`: +120 → 3406 (rank 145)
 - `leave_out_source:dynastyNerdsSfTep`: +31 → 3317 (rank 157)
@@ -101,6 +103,7 @@ Counterfactual sensitivities (value delta, rank after):
 - `leave_out_source:idpTradeCalc`: +50 → 6836 (rank 29)
 - `leave_out_source:pfkDynasty`: +50 → 6836 (rank 28)
 - `leave_out_family:fantasyPros`: -21 → 6765 (rank 29)
+- `leave_out_set:pre_season_data`: -10 → 6776 (rank 29)
 - `leave_out_source:flockFantasySf`: +5 → 6791 (rank 27)
 - `leave_out_source:yahooBoone`: +5 → 6791 (rank 29)
 - `leave_out_family:flockFantasy`: +5 → 6791 (rank 27)
@@ -133,6 +136,7 @@ Value **2228**, overall rank 285, position rank 33, confidence medium. Outlier-d
 Counterfactual sensitivities (value delta, rank after):
 
 - `native_values_as_ranks`: -168 → 2060 (rank 265)
+- `leave_out_set:pre_season_data`: +39 → 2267 (rank 279)
 - `leave_out_source:yahooBoone`: +32 → 2260 (rank 283)
 - `leave_out_source:ktcTradesSfTep`: -30 → 2198 (rank 286)
 - `leave_out_source:fantasyCalc`: +29 → 2257 (rank 283)
@@ -183,6 +187,7 @@ Value **4164**, overall rank 98, position rank 22, confidence high. Outlier-drop
 Counterfactual sensitivities (value delta, rank after):
 
 - `native_values_as_ranks`: -130 → 4034 (rank 92)
+- `leave_out_set:pre_season_data`: -66 → 4098 (rank 101)
 - `leave_out_source:idpTradeCalc`: -60 → 4104 (rank 106)
 - `leave_out_source:yahooBoone`: -60 → 4104 (rank 100)
 - `leave_out_source:ktcTradesSfTep`: -58 → 4106 (rank 99)
@@ -241,6 +246,7 @@ Counterfactual sensitivities (value delta, rank after):
 - `leave_out_source:fantasyProsIdp`: -21 → 4003 (rank 107)
 - `leave_out_family:fantasyPros`: -21 → 4003 (rank 108)
 - `leave_out_source:idpShowCombined`: -3 → 4021 (rank 105)
+- `leave_out_set:pre_season_data`: -3 → 4021 (rank 106)
 - `leave_out_source:dlfRookieIdp`: -2 → 4022 (rank 105)
 
 ## Michael Mayer (TE, offense)
@@ -270,6 +276,7 @@ Counterfactual sensitivities (value delta, rank after):
 
 - `native_values_as_ranks`: -116 → 2391 (rank 214)
 - `leave_out_source:ktcTradesSfTep`: -61 → 2446 (rank 247)
+- `leave_out_set:pre_season_data`: +60 → 2567 (rank 235)
 - `hampel_off`: +57 → 2564 (rank 234)
 - `leave_out_source:pfkDynasty`: -56 → 2451 (rank 251)
 - `leave_out_source:dynastyNerdsSfTep`: +52 → 2559 (rank 238)
@@ -364,6 +371,7 @@ Value **7819**, overall rank 16, position rank 4, confidence high. Outlier-dropp
 Counterfactual sensitivities (value delta, rank after):
 
 - `native_values_as_ranks`: +222 → 8041 (rank 17)
+- `leave_out_set:pre_season_data`: +85 → 7904 (rank 16)
 - `leave_out_source:pfkDynasty`: -65 → 7754 (rank 18)
 - `leave_out_source:yahooBoone`: +64 → 7883 (rank 16)
 - `leave_out_source:draftSharks`: +62 → 7881 (rank 16)
@@ -422,6 +430,7 @@ Counterfactual sensitivities (value delta, rank after):
 - `leave_out_source:draftSharksIdp`: -24 → 5313 (rank 58)
 - `freshness_weighting_off`: -23 → 5314 (rank 57)
 - `leave_out_source:dynastyDaddySf`: +23 → 5360 (rank 57)
+- `leave_out_set:pre_season_data`: -13 → 5324 (rank 58)
 - `leave_out_family:dlf`: +12 → 5349 (rank 56)
 - `leave_out_source:flockFantasySf`: -11 → 5326 (rank 58)
 - `leave_out_source:ktcTradesSfTep`: -11 → 5326 (rank 58)
@@ -492,6 +501,7 @@ Counterfactual sensitivities (value delta, rank after):
 | `leave_out_family:fantasyPros` | source_override | 618 | 8 |
 | `leave_out_family:flockFantasy` | source_override | 400 | 4 |
 | `leave_out_family:ktcCrowd` | source_override | 530 | 4 |
+| `leave_out_set:pre_season_data` | source_override | 698 | 6 |
 
 Outlier-filter drops by source: {'draftSharks': 45, 'draftSharksIdp': 22, 'fantasyProsIdp': 13, 'yahooBoone': 13, 'pfkDynasty': 10, 'ktcCrowdSfTep': 10, 'idpShowCombined': 9, 'dlfSf': 7, 'fantasyProsSf': 6, 'dynastyNerdsSfTep': 5, 'idpTradeCalc': 5, 'fantasyNavigatorSf': 4, 'fantasyProsFitzmaurice': 3, 'fantasyCalc': 2, 'ktcTradesSfTep': 2, 'dynastyDaddySf': 2, 'dlfIdp': 1, 'otcffbSf': 1, 'flockFantasySf': 1}.
 
