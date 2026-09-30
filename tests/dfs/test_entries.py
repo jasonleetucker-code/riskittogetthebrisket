@@ -442,3 +442,37 @@ def test_simulate_refuses_missing_ranges_and_runs_with_flagged_priors(client):
     assert again["portfolio"] == out["portfolio"]  # seeded: identical
     too_big = client.post("/api/dfs/simulate", json={**base, "sims": 999_999}, headers=h)
     assert too_big.status_code == 400
+
+
+def test_portfolio_endpoint_returns_a_frozen_decision_and_validates_inputs(client):
+    h = {"x-user": "a"}
+    snap = client.post(
+        "/api/dfs/slates",
+        json={
+            "salaryCsv": (FIX / "synthetic_dk_nfl_classic_salaries.csv").read_text(
+                encoding="utf-8"
+            ),
+            "projectionCsv": (FIX / "synthetic_dk_nfl_classic_projections.csv").read_text(
+                encoding="utf-8"
+            ),
+        },
+        headers=h,
+    ).json()
+    contest = _saved_contest(client, h, capacity=300)
+    body = {
+        "snapshotId": snap["snapshotId"],
+        "contestId": contest["contestId"],
+        "entries": 2,
+        "sims": 200,
+        "fieldSample": 300,
+        "allowPriors": True,
+    }
+    r = client.post("/api/dfs/portfolio", json=body, headers=h)
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["decisionId"].startswith("decision_") and out["timing"] == "pre_lock"
+    assert "enters nothing" in out["note"] or "nothing is entered" in out["note"]
+    bad = client.post("/api/dfs/portfolio", json={**body, "objective": "kelly"}, headers=h)
+    assert bad.status_code == 400
+    lg = client.post("/api/dfs/portfolio", json={**body, "objective": "log_growth"}, headers=h)
+    assert lg.status_code == 400  # a bankroll is required

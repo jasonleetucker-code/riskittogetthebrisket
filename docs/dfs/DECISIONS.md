@@ -274,3 +274,25 @@ twice; in a symmetric 8-entry contest P(win) = 1/8 ± 0.02 and EV = pool/8 withi
 **What it is NOT.** A model output under stated assumptions (priors for spreads and correlations,
 modelled ownership and field). It is not evidence of profitability; that needs the backtest harness
 and, beyond it, forward results.
+
+## ADR-DFS-019 — Portfolio: sample-optimal candidates, greedy on simulated payouts, conservative entry count (2026-09-30)
+
+**Context.** Entries in one contest share outcomes, so a portfolio's value is not the sum of its
+lineups' rankings. The objective is a choice (profit vs bankroll growth vs downside), and the EV
+estimates are themselves uncertain.
+
+**Decision.** `src/dfs/portfolio_opt.py`. Candidates = projected-points baseline builds + MILP
+solutions on sampled joint outcome draws ("sample-optimal", serial through the pinned solver
+thread), capped at 80. Each is simulated alone against the SAME field and draws, then chosen
+greedily under `ev`, `log_growth` (requires a bankroll larger than the fees) or `mean_downside`,
+honouring exposure caps and the contest's entry ceiling (`contests.entry_upper_bound`). The
+recommended entry count stops at the first entry whose marginal expected profit has a lower 90%
+bound ≤ 0 — never more than requested or allowed. No Kelly sizing. The chosen set is re-simulated
+jointly; a PAIRED comparison with the same-size projected-points portfolio (same draws) reports the
+difference and its SE; the decision (selected, rejected with reasons, objective, inputs digest,
+timing) is frozen in `pit`. `POST /api/dfs/portfolio`, bounded; nothing is entered or submitted.
+
+**Known approximation.** Greedy selection scores each candidate alone (ignoring rank interaction
+with our other entries); the final numbers come from the joint re-simulation. The baseline
+comparison is WITHIN the model: it shows the optimizer does what the model rewards, not that the
+model is right — that is the backtest's job.
