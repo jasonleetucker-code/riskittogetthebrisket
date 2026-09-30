@@ -73,24 +73,41 @@ def structural_baseline(
     value = [a.projection / (a.salary / 1000) for a in modelled]
     zv, zp = _z(value), _z([a.projection for a in modelled])
     weight = [math.exp(p["bv"] * v + p["bp"] * q) for v, q in zip(zv, zp)]
-    own = [0.0] * len(modelled)
+    # Per-slot shares: each slot's 100% lives on the players eligible for IT.
+    shares: list[dict[int, float]] = []
     for slot in ruleset.slots:
         idx = [i for i, a in enumerate(modelled) if ruleset.eligible(a, slot)]
         total = sum(weight[i] for i in idx)
-        if total <= 0:
-            continue
-        for i in idx:
-            own[i] += weight[i] / total
-    # Cap at one appearance per lineup; hand the excess to uncapped players pro rata.
-    for _ in range(20):
-        excess = sum(max(0.0, o - 1.0) for o in own)
-        if excess < 1e-12:
+        shares.append({i: weight[i] / total for i in idx} if total > 0 else {})
+    # Cap at one appearance per lineup.  A capped player's surplus in a slot goes
+    # only to uncapped players eligible for THAT slot, so every slot still sums to
+    # 100% and a position's total stays exact (one QB slot => QBs total 100%).
+    # (Redistributing pro rata over everyone leaked a WR's surplus into QBs: 116%.)
+    capped: set[int] = set()
+    for _ in range(50):
+        totals = [0.0] * len(modelled)
+        for sh in shares:
+            for i, v in sh.items():
+                totals[i] += v
+        over = [i for i, t in enumerate(totals) if t > 1.0 + 1e-12]
+        if not over:
             break
-        own = [min(o, 1.0) for o in own]
-        free = [i for i, o in enumerate(own) if o < 1.0]
-        base = sum(weight[i] for i in free)
-        for i in free:
-            own[i] += excess * weight[i] / base
+        for i in over:
+            capped.add(i)
+            keep = 1.0 / totals[i]
+            for sh in shares:
+                if i not in sh:
+                    continue
+                freed = sh[i] * (1.0 - keep)
+                sh[i] *= keep
+                others = [j for j in sh if j not in capped]
+                base = sum(weight[j] for j in others)
+                for j in others:
+                    sh[j] += freed * weight[j] / base
+    own = [0.0] * len(modelled)
+    for sh in shares:
+        for i, v in sh.items():
+            own[i] += v
     for a, o in zip(modelled, own):
         out[a.player_id] = round(100.0 * o, 4)
     return out
