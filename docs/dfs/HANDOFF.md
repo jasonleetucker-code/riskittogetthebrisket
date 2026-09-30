@@ -53,10 +53,10 @@ checkout's.
   mount-test failures were a FastAPI 0.135 vs 0.141 introspection difference, not contamination.
 - One unexplained single failure of `test_full_flow_research_build_and_export`, seen under heavy
   local CPU load (a concurrent full-suite run). It could not be reproduced in 3 clean runs.
-- Twice on 2026-09-30, `pytest tests/dfs` on multisport ended in a native crash dump (pytest's
-  faulthandler printing a stack: a C-level fault, not a test failure). The next 16 runs were clean.
-  Suspect: the HiGHS solver (scipy) under concurrent load, on Windows. Not yet diagnosed; if it
-  recurs, keep the FULL output (the top names the faulting test and thread) before re-running.
+- FIXED (#1534, `bb7046b9d`): the intermittent native crash of `pytest tests/dfs` was HiGHS
+  (scipy.optimize.milp) being called from different threads — a Windows access violation in a
+  frameless native thread, ~1 run in 5. Every solve now runs on one long-lived `dfs-highs`
+  thread; 20/20 clean runs after, and a test pins solves to that thread.
 
 ## Owner actions that unblock the most
 
