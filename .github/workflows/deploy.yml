@@ -477,6 +477,8 @@ jobs:
           fi
           echo "Deploying:      ${TARGET_SHA}"
           echo "In production:  ${LAST_DEPLOYED:-<none recorded>}"
+          # Exported before any early exit below, for the post-deploy build check.
+          echo "DEPLOY_TARGET_SHA=${TARGET_SHA}" >> "$GITHUB_ENV"
 
           if [[ -z "${LAST_DEPLOYED}" ]]; then
             echo "::notice title=No deploy baseline::No last-successful-deploy commit recorded; skipping the ancestry check. This is expected on a first deploy."
@@ -838,6 +840,31 @@ jobs:
           # remote script already succeeded.
           check_endpoint "/api/health" "200|503"
           check_endpoint "/api/status" 200
+
+          # Deployed is not verified: the process must report the commit this
+          # workflow shipped (``build.commit``, read once at import by
+          # src/api/build_identity.py). A mismatch means the old process is still
+          # serving or a different tree was checked out; ``null`` means the box
+          # cannot say, which is not a pass either.
+          if [[ -z "${DEPLOY_TARGET_SHA:-}" ]]; then
+            echo "::error title=No deploy target recorded::DEPLOY_TARGET_SHA is empty; cannot verify the served build."
+            FAIL=$((FAIL + 1))
+          else
+            _served=""
+            for _attempt in 1 2 3 4 5 6; do
+              _served="$(curl --silent --globoff --max-time 15 "${URL}/api/status" \
+                | jq -r '.build.commit // empty' 2>/dev/null || true)"
+              [[ -n "${_served}" ]] && break
+              sleep 5
+            done
+            if [[ "${_served}" == "${DEPLOY_TARGET_SHA}" ]]; then
+              echo "PASS build.commit == ${DEPLOY_TARGET_SHA}"
+              PASS=$((PASS + 1))
+            else
+              echo "::error title=Served build mismatch::/api/status reports build.commit '${_served:-<none>}', but this deploy shipped ${DEPLOY_TARGET_SHA}."
+              FAIL=$((FAIL + 1))
+            fi
+          fi
           # /api/data is intentionally gated by _private_api_gate in
           # server.py — an unauthenticated probe MUST return 401.
           # Expecting 401 here verifies the auth gate is active; a 200
