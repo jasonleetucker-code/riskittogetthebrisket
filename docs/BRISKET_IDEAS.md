@@ -310,6 +310,68 @@ The agent is responsible for the repository bookkeeping. The owner should not ha
 
 The agent should report what durable record was updated and whether the idea is NOW, NEXT, LATER, BLOCKED, PAUSED, or already covered — without turning capture into unauthorized implementation.
 
+## 13. Perishable-evidence capture audit — 2026-09-29
+
+**Owner directive (2026-09-29):** identify data that will be "impossible to recreate later"; where a needed
+stream is not preserved, record it here with the minimum capture path; prefer capturing now over
+reconstructing with hindsight. Intake pointer: `docs/OWNER_REQUESTED_TODO.md` (2026-09-29 entry).
+
+**Authority:** planning record only. Capture is not implementation authorization; every gap below is
+`NOT AUTHORIZED` until `docs/EXECUTION_PLAN.md` says otherwise. It creates no second history system: each
+capture path extends an existing owner (`src/history/`, `docs/retention/RETENTION_REGISTER.md` /
+`deploy/backup/riskit-state-backup.sh`, `src/ros/game_day_live.py`, `src/source_archive/`,
+`src/retention/evidence_store.py`). Planning tier: §8 tier 4 (time-sensitive / irrecoverable evidence).
+
+**Method.** Each stream was checked against its writer, schedule (`deploy/systemd/*.timer.template`, all
+reconciled by `deploy/deploy.sh` on every deploy; `.github/workflows/`; the `server.py` 2 h scrape loop),
+retention/prune code and the nightly backup set (`riskit-state-backup.sh`, 14 daily generations). Repo facts
+only: on-box file sizes, row counts and timer run state were **not** observed in this unit (UNVERIFIED).
+
+### 13.1 Already preserved — no action
+
+| Stream | Owner · cadence · retention |
+|---|---|
+| Trade-time player + pick values; served board per generation | `src/history/` temporal ledger (`record_contract` at every fresh box scrape, 2 h; append-only, indefinite; floor 2026-07-14; picks first-class, C1-HIST-02). Raw evidence feeds besides: `board_history.sqlite` daily (C1-RET-02), `rank_history.jsonl` (C1-RET-03), git-tracked `exports/archive/` (every zip 14 d, one per day 365 d on disk, all commits in git history) and `CSVs/site_raw/*.csv` (every committed source-board change in git history). Backup gap: G7. |
+| Own-league trades / waiver moves | `league_events.sqlite` (C1-RET-06) + `acquisition.sqlite` (C1-ACQ-01), captured before our window cutoff; backed up. |
+| FAAB bids incl. failed claims | `dynasty-faab-history` daily 07:40 UTC → `data/faab/bid_history_<leagueKey>.json` with failed bids; Sleeper is host of record over the league chain. Crowd FAAB rolling window: C1-RET-01, 3-hourly accumulator, backed up. |
+| Scoring card history | C1-RET-04 `evidence.sqlite`, per observation, before overwrite; backed up. |
+| Weekly rosters / lineups as scored | Sleeper matchups (`players`/`starters`/`players_points` per week) are host of record and re-fetchable over the league chain; Game Day pregame capture (`dynasty-game-day-capture`, 4-hourly, first capture stands, IR/taxi buckets read from the payload) and generations add the pregame roster state. |
+| Game Day predictions | `data/game_day/predictions/` (C5-GD-02, append-only) and `data/game_day/live/**/generations.jsonl` + `state.json` (never pruned; league-scored per-player pregame baselines for rostered players); `data/game_day/` backed up. Raw feed logs: G1. |
+| Power Rankings publications | `data/ros/power_snapshots/<league>/<season>/week_NN.json`, immutable, git-tracked. |
+| Playoff / title odds | `data/ros/sims/*.json`, rewritten every 2 h by the refresh runner; each commit in git history (155 commits to `latest_playoff.json` in 30 days). Runner-computed; equality with the box-served payload UNVERIFIED. |
+| ROS / redraft source boards | `data/ros/sources/` + `data/ros/aggregate/history/`, git-tracked every 2 h. |
+| Trending adds; sharp cohort market | C1-RET-05 + hourly `dynasty-trending-history-refresh`; `data/intel/` ledger (daily crawls, sharp transactions 4×/day), backed up as a directory. |
+| playerctx; nflverse stats, PBP, depth charts | C1-RET-08 weekly; nflverse is an external historical archive (re-fetchable, not perishable; stat corrections go through Game Day's corrections path). |
+
+### 13.2 Gaps — minimum capture path
+
+| # | Stream | Status | Owner / evidence | What is lost | Minimum capture path (existing owner) | Storage | Unblocks |
+|---|---|---|---|---|---|---|---|
+| **G1** | Pregame weekly projections (Sleeper, the only live weekly family) | **PARTIAL — active loss clock** | `game_day_live.py` logs every `sleeper_weekly_projections` fetch append-only, then `prune_retention` deletes each league-week's `observations/` after `RAW_RETENTION_WEEKS = 4`, on every collector tick. The 14-day backup rotation does not extend it | Full-NFL raw stat lines, unrostered players and intra-week movement up to kickoff. Week 1 logs are deleted at the first tick of Week 6 (≈2026-10-13, depends on Sleeper's week flip), then one week per week. Generations keep only league-scored baselines for rostered players | Exempt `_nfl/<season>/week_N/observations/sleeper_weekly_projections.*` from `prune_retention`, or first write the kickoff-locked subset (`matchup_intel._prune_weekly_history`, already the "last pre-kickoff read" rule) beside `generations.jsonl`. One owner, one path; no new store | UNVERIFIED — measure `du` on the box before choosing between full log and locked subset | #854 / C5-ROS-01 projection-family scorecards (Adaptive Learning candidate 2); C5-GD calibration baseline provenance; MVP xWAR no-lookahead for waiver/unrostered players |
+| **G2** | KTC Trade Database (real market trades) | **NOT PRESERVED** | C4-MTL-02 ABSENT; producer retired 2026-08-18; ~200-entry rolling window (measured that day) | Every trade that scrolls out of the window, permanently | Accumulator on the C1-RET-01 pattern (`fetch_crowd_faab.py`: dedupe by KTC row `id`, merge, never truncate) under `data/`, added to the backup set and the retention register. Capture only, no consumer, never a vote | Small (≈200 rows per window); turnover rate UNVERIFIED, so it sets the cadence | C4-MTL-01/03 comparable trades, C7-DESK-01 real-trade evidence, C7-AI-03 liquidity, market calibration. Needs endpoint-level intake confirmation; whether the 2026-09-25 source attestation covers this endpoint is UNVERIFIED |
+| **G3** | KTC non-selected format variants (SF base / TE+ / TE+++; 1QB UNVERIFIED) | **NOT PRESERVED** | The scraper already receives `superflexValues.{base,tep,tepp,teppp}` in the payload it parses (`Dynasty Scraper.py` ~L1835–1941) and keeps the selected mode. C1-SRC-01's `src/source_archive/` has one caller, `scripts/fetch_dynasty_nerds_idp.py`, which is not scheduled | Same-day paired format evidence. KTC publishes current values only | Call `source_archive.archive_board` from the KTC parse for the unselected variants: zero extra requests, one provider family (the C1-SRC-01 rule). Add `data/source_archive/boards.sqlite` to the backup | ≈4 × one board per scrape; UNVERIFIED | #809 multi-format archive, TE-basis / format-curve calibration. Archive is never production eligibility |
+| **G4** | As-known injury / news state | **PARTIAL** | `refresh_injury_feed.py` (4-hourly, ESPN) overwrites `injuries_prior.json` and keeps only transition events in `data/bdvm/events/<season>.json` (not backed up). Sleeper players DB (`injury_status`, practice participation) is overwritten daily. `/api/news` items are in-memory, 7-day window, never persisted; BDVM news events prune at 90 d | Status as known at kickoff and at decision time; which headlines existed when. Official weekly designations stay recoverable from nflverse (2026 in-season availability UNVERIFIED) | (a) have the injury refresh append each fetched snapshot to a dated append-only log instead of only overwriting the prior; (b) persist `/api/news` item metadata (id, provider, published/fetched time, headline, URL, matched player ids; no article bodies) at the aggregator's refresh | Small: status deltas plus headline metadata | Injury-aware Game Day / MVP retrospectives, C7-ALERT-01 / C6-ANA-01 signal evaluation, FAAB opportunity backtests |
+| **G5** | Draft-time state (board + roster context at draft start) | **PARTIAL** | C7-DRAFT-02 (`RET`): `backtest_perfect_draft.py --record-snapshot` exists and is manual only. Board values are recoverable as `nearest-prior` (≤ one scrape) from the temporal ledger; roster context, cut ladder, waiver levels and the plan are not | The Perfect Draft backtest inputs. Next exposure is the 2027 rookie auction, so not urgent now | Timer-driven `record_snapshot` when the league's Sleeper draft reports `pre_draft` with a near start time, first capture stands (the `game_day_capture` pattern). Must be live before the 2027 draft | Small | Perfect Draft backtest (currently `BLOCKED`, exit 2), live-auction calibration |
+| **G6** | League settings beyond the scoring card | **PARTIAL** | C1-RET-04 records `scoring_settings` only. `roster_positions` and `settings` (playoff teams, median game, waiver budget, taxi/IR slots) live in the overwritten `public_league/snapshot.json`. Completed seasons are re-fetchable via the league chain | Mid-season commissioner changes | Observe a content-addressed settings payload in `evidence.sqlite` at the same `write_scoring_snapshot` site (the C1-RET-04 observation model, unobserved stays unobserved) | Negligible | Median-game / playoff methodology per week, roster-capacity history, trade replay legality at the time |
+| **G7** | Backup coverage of existing append-only stores | **PARTIAL** | Not in `riskit-state-backup.sh`: `data/temporal_ledger.sqlite`, `data/consensus_edge.sqlite`, `data/source_archive/boards.sqlite`, `data/bdvm/` (dated projection snapshots incl. Mike Clay, plus events) | Box loss erases them. The ledger rebuilds at daily fidelity from git-tracked `exports/archive/` (idempotent backfill); Clay snapshots and Consensus Edge label history do not | Add `backup_sqlite` / `backup_dir` lines in the one backup owner, plus a retention-register addendum (the 2026-09-04 `data/game_day/` precedent) | Size UNVERIFIED | Durability for C1-HIST-01, C6-FRESH, BDVM and Consensus Edge evaluation |
+| G8 | Recommendations and decisions as served (finder, suggestions, FAAB, Perfect Draft plan) | NOT PRESERVED | Already recorded as `ADAPTIVE_LEARNING_2026-09-26.md` §6 item 8 and R14 CANDIDATE | — | No new record; pointer only | — | C7-DESK-01, C10-ML-01 |
+
+### 13.3 Already lost — recorded, never backfilled as exact
+
+- Board and value history before 2026-07-14 (`HISTORY_FLOOR`); queries answer `before_history_boundary`.
+- `dynasty_new` has no Week-0 preseason Power snapshot (`dynasty_main` has `week_00.json`), so its Week-1
+  movement baseline was never captured.
+- The C9-UR-02 preseason baseline window (Tuesday before Week 1) has passed and the manifest records the row
+  ABSENT. Its inputs survive (ledger, `dynasty_main` Power Week 0), so any baseline built now is
+  `nearest-prior`, not an exact contemporaneous edition.
+- Analyst ledger (`src/analyst/`, C6-ANA-01): the store exists, but no scheduled producer was found, so
+  nothing is accumulating.
+
+**Suggested order (planning only).** G1 (dated deadline) → G7 (config-only) → G3 (zero extra network) →
+G4 → G2 (endpoint intake) → G6 → G5 (before the 2027 draft). Parallel class: G1 is `SERIAL_CANONICAL_OWNER` on
+`src/ros/game_day_live.py` (active Game Day claims); G7 owns `deploy/backup/`; G3 owns the KTC parse in
+`Dynasty Scraper.py`. These are otherwise `SAFE_PARALLEL`. UI: none; these are evidence-only units.
+
 ---
 
 **Related:** issue #1412 · `docs/OWNER_REQUESTED_TODO.md` · `docs/PLANNING_DOCUMENT_STATUS.md` · `docs/MASTER_PRODUCT_PLAN.md` · `docs/EXECUTION_PLAN.md` · `docs/WORK_CLAIMS.md`.
