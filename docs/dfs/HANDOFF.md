@@ -9,58 +9,68 @@ Order: `ROADMAP.md` (Phases A–H).
 
 | Branch | PR | Contents | State |
 |---|---|---|---|
-| `claude/dfs-foundation` | #1534 → `main` | P0 registration, rules registry, owner CSV imports, MILP baseline, builds, export, `/dfs` page, source seeds, review fixes | Open; Auto-fix on; CI was re-running after the coercion-gate fix |
-| `claude/dfs-contests` | stacked on #1534 | Phase B contests (ladders, exact ties, rake/overlay, entry cap, presets, Contest panel); addendum reconciliation; Phase A canonical slate + platform-file detection + SportsDataIO adapter (flag OFF) + provider matrix + freshness + contest↔slate link | Open as a stacked PR; retarget to `main` after #1534 merges |
+| `claude/dfs-foundation` | #1534 → `main` | P0 registration, rules registry, owner CSV imports, MILP baseline, builds, export, `/dfs` page, source seeds, review fixes | Open; Auto-fix on; Validate PR re-running after the `app.openapi()` mount-test fix |
+| `claude/dfs-contests` | #1535, stacked on #1534 | Phase B contests (ladders, exact ties, rake/overlay, entry cap, presets, Contest panel); addendum reconciliation; Phase A canonical slate + platform-file detection + SportsDataIO adapter (flag OFF) + provider matrix + freshness + contest↔slate link | Open; retarget to `main` after #1534 merges |
+| `claude/dfs-multisport` | stacked on #1535 (pushed; PR after #1535 lands) | See "multisport contents" below | Local + remote |
 
-Worktrees used: `C:\Users\jason\code\chaseupside-dfs` (#1534) and
-`C:\Users\jason\code\chaseupside-dfs-contests` (stacked), each with `frontend/node_modules` as a
-junction to the main checkout's.
+Worktrees: `C:\Users\jason\code\chaseupside-dfs` (#1534), `…\chaseupside-dfs-contests` (#1535),
+`…\chaseupside-dfs-next` (multisport); each with `frontend/node_modules` as a junction to the main
+checkout's.
 
-| `claude/dfs-multisport` | stacked on #1535 (pushed; PR after #1535 lands on `main`) | NBA + NHL classic (DK+FD), DK NFL Showdown Captain, DK MMA Classic — all unverified research mode; Phase B completion (Quick/Exact/Import modes, top-1% concentration, payout curve, contest/preset on builds + disclosures); Phase C conditional rules + rule builder, projection overrides vs boosts; DK entry-file import + export into entry IDs; owner-imported projected ownership; evidence-claim policy core; 29 podcast seeds resolved; /dfs Playwright a11y spec (+2 defects fixed); pool table code-split | Local + remote; 165 backend / 46+ frontend DFS tests, E2E green |
+### multisport contents
+
+- Rule sets (all UNVERIFIED, research mode): NBA + NHL classic (DK + FD), DK NFL Showdown Captain,
+  DK MMA Classic.
+- Phase B: Quick / Exact / Import contest modes, top-1% concentration, payout curve, contest/preset
+  on builds + disclosures.
+- Phase C: conditional rules + rule builder; projection overrides vs selection boosts; salary range;
+  per-player min/max exposure (ADR-DFS-011); sport-neutral team/game stacks (`teamStacks`).
+- Phase D: owner-imported projected ownership; owner-imported outcome distributions (StDev,
+  P10…P90; Floor/Ceiling only with stated percentiles); evidence-claim policy core; all 109 source
+  seeds resolved (podcasts, websites, sportsbooks — `SOURCES.md` §5–7).
+- Phase G foundation: DK entry-file import/export; late swap (`src/dfs/lateswap.py`,
+  `/api/dfs/late-swap[/export]`, locked + unknown-start slots pinned, only proven-open players in).
+- UI: Playwright a11y spec for `/dfs`; code-split pool / rule builder / team stacks / late swap.
 
 ## Proven (with evidence)
 
-- `pytest tests/dfs` 108 passed (incl. brute-force MILP parity on DK + FD rules, $1,000/$100 → $550
-  tie fixture, rake-vs-overlay states, provider failure states, key-never-in-URL, the §29
-  end-to-end fixture: slate → contest → projections → constraints → 5 lineups → export →
-  re-import + independent validation).
-- Frontend DFS tests 32 passed; full vitest 197 files green on #1534; `next build` + all bundle
-  budgets green (`/dfs` 29.6 KB / 34).
-- Real-browser runs on `next start` + the worktree backend (local E2E test session, synthetic
-  slates): #1534 build/export flow; stacked branch: detection chip, platform switch, import,
-  eligibility-disagreement banner, freshness table, provider "not connected" + CSV fallback.
+- `pytest tests/dfs` 197 passed on multisport. Includes:
+  - brute-force MILP parity: DK + FD NFL, NBA, NHL, MMA, Showdown, team stacks (NHL 4-3 on both
+    infeasible and binding seeds), late swap against a slot-aware brute force;
+  - the $1,000/$100 → $550 tie fixture;
+  - the §29 end-to-end fixture.
+- Frontend: 995 component + lib tests green. `next build` + bundle budgets green (`/dfs` 32.5 KB of 34).
+- Later test directories run locally on #1534: 6 failures, none DFS-caused (Windows-only on untouched
+  code, or suite-order flakes that pass alone).
 
 ## Not proven / open
 
-- Nothing is deployed. No production screenshots; no axe/E2E spec for `/dfs` yet.
-- Rule sets and upload formats unverified (official pages refuse automated access).
+- Nothing is deployed. No production screenshots.
+- Rule sets and upload / entry-file formats are unverified (official pages refuse automated access).
 - SportsDataIO coverage is documented, not verified (no key; paid; owner approval).
-- Windows-only: `tests/api/test_feature_flag_reachability.py` fails on untouched `main` too
-  (path separators); Linux CI is authoritative.
-- The #1534 mount-test failures were a FastAPI 0.135 (local) vs 0.141 (CI) introspection difference,
-  reproduced deterministically and fixed (probe reads `app.openapi()`); the general TEST ISOLATION
-  audit item stays open at low priority in `docs/OWNER_REQUESTED_TODO.md`. Keep local FastAPI at CI's
-  pinned `~=0.141.1`.
-
-- `/dfs` page chunk 30.0 KB of 34: the pool table, Contest panel, sources, summary and rule
-  builder are all code-split; the page chunk holds only the flow shell and build/result.
+- Windows-only failures on untouched `main` are listed in memory; Linux CI is authoritative.
+- TEST ISOLATION debt stays open at low priority (`docs/OWNER_REQUESTED_TODO.md`). The #1534
+  mount-test failures were a FastAPI 0.135 vs 0.141 introspection difference, not contamination.
+- One unexplained single failure of `test_full_flow_research_build_and_export`, seen under heavy
+  local CPU load (a concurrent full-suite run). It could not be reproduced in 3 clean runs.
 
 ## Owner actions that unblock the most
 
-1. Confirm DK/FD NFL rules, or drop real salary files + blank upload templates into
+1. Confirm DK/FD rules, or drop real salary files + blank upload/entry templates into
    `tests/dfs/fixtures/templates/`.
-2. Decide on a SportsDataIO DFS plan (price/licence unknown); if approved, set
-   `SPORTSDATAIO_API_KEY` on the box and `RISKIT_FEATURE_DFS_SPORTSDATAIO_SLATES=1`.
-3. Name any projection sources you are licensed to use.
+2. Decide on a SportsDataIO DFS plan and/or a licensed odds aggregator (price/licence unknown). If
+   approved, set keys on the box (never committed).
+3. Name any projection sources you are licensed to use, and which percentiles their floor/ceiling are.
+4. Clarify 6 unresolved website seeds: LineupIQ, Bet The Line, Sharp AI Proptimizer, NFL Data Edge,
+   SportsPredict, Prediktor.
 
 ## Next dependency-ready batch
 
-- **A:** NHL + NBA classic rule sets (unverified until evidence) so their files build; Showdown
-  / MVP captain rules; entry-file import (entry IDs) for export and late swap.
-- **B:** quick-contest mode UI (preset picker), top-1% concentration + payout-curve chart,
-  record the contest version on each build.
-- **C:** ~~min exposure, if-then groups, salary-left range~~ (built); team/game stacks built; NHL line stacks need line data.
-- **UI (Lane 6):** strategy / lineup-count chips on the home flow, mobile pass, axe + E2E spec.
+- **G:** FanDuel entry files; live scoring + rooting view; cross-entry-coordinated late swap.
+- **E:** field / duplication models from imported ownership + distributions, with calibration reports
+  before any contest-EV claim.
+- **C:** NHL line stacks (needs line data).
+- **UI (Lane 6):** strategy / lineup-count chips on the home flow; E2E coverage of late swap.
 
 ## Commands
 
@@ -69,7 +79,7 @@ python -m pytest tests/dfs -q
 ```
 
 ```bash
-cd frontend && npx vitest run __tests__/dfs-lib.test.js __tests__/dfs-bridge-route.test.js __tests__/components/dfs-workspace.test.jsx __tests__/components/dfs-contest-panel.test.jsx __tests__/components/dfs-slate-sources.test.jsx
+cd frontend && npx vitest run __tests__/dfs-lib.test.js __tests__/components
 ```
 
 ```bash
