@@ -61,6 +61,13 @@ from src.auction import schedule
 from src.auction.rules import MAX_DOLLARS, unconfirmed_rules, validate_rules, window_of
 
 STATE_SCHEMA = 1
+# Behaviour revision of the engine, stamped on every NEW room.  Rooms created
+# before a revision keep the behaviour they were played under, so replaying
+# their command log still reproduces their stored state exactly (the hourly
+# backup verifier replays every room).  Rev 2 (Phase 2 audit): lossless
+# max-history compression; budget credits in a pause / quiet hours re-resolve
+# at the next active moment.
+ENGINE_REV = 2
 _CASCADE_BOUND = 100_000
 
 SEAT_KINDS = frozenset(
@@ -160,6 +167,7 @@ def new_room_state(
         raise AuctionError("bad_pool", "rookie pool is empty")
     state = {
         "schema": STATE_SCHEMA,
+        "engine_rev": ENGINE_REV,
         "room_id": room_id,
         "name": str(name)[:120],
         "room_type": room_type,
@@ -319,7 +327,13 @@ def priority_at(bid: dict, level: int) -> int:
     return best if best is not None else int(bid["seq"])
 
 
-def _set_max(a: dict, seat_id: str, new_max: int, seq: int, now: float) -> None:
+def _engine_rev(s: dict) -> int:
+    return int(s.get("engine_rev") or 1)
+
+
+def _set_max(
+    a: dict, seat_id: str, new_max: int, seq: int, now: float, *, legacy: bool = False
+) -> None:
     old = a["bids"].get(seat_id)
     hist = (
         list(old.get("hist") or [[int(old["max"]), int(old["seq"])]])
@@ -327,7 +341,9 @@ def _set_max(a: dict, seat_id: str, new_max: int, seq: int, now: float) -> None:
         else []
     )
     hist.append([new_max, seq])
-    if len(hist) > _HIST_COMPRESS_AT:
+    if legacy:
+        hist = hist[-50:]  # rev-1 rooms: the behaviour they were played under
+    elif len(hist) > _HIST_COMPRESS_AT:
         hist = _compress_hist(hist)
     a["bids"][seat_id] = {"max": new_max, "seq": seq, "active": True, "at": now, "hist": hist}
 
@@ -645,7 +661,11 @@ def _advance(state: dict, now: float, events: list) -> bool:
         t, _, kind, ident = due[0]
         progressed = True
         if kind == "reresolve":
+            # Leadership can change here (unlike a close), so report it NET
+            # like any command does: the displaced leader is told.
+            before = {a["id"]: a["leader"] for a in open_auctions(state)}
             _run_deferred_reresolve(state, t, events)
+            _emit_net_leadership(state, before, t, events)
         elif kind == "close":
             _close_auction(state, state["auctions"][ident], t, events)
         elif kind == "timeout":
@@ -1097,7 +1117,7 @@ def _cmd_bid(s: dict, cmd: dict, now: float, events: list) -> dict:
         # earlier maximum never raises your price").  Tie priority per level
         # is kept by ``priority_at``.
         seq = _next_seq(s)
-        _set_max(a, seat_id, new_max, seq, now)
+        _set_max(a, seat_id, new_max, seq, now, legacy=_engine_rev(s) < 2)
         s["bid_log"].append(
             {
                 "seq": seq,
@@ -1110,7 +1130,7 @@ def _cmd_bid(s: dict, cmd: dict, now: float, events: list) -> dict:
         )
     else:
         seq = _next_seq(s)
-        _set_max(a, seat_id, new_max, seq, now)
+        _set_max(a, seat_id, new_max, seq, now, legacy=_engine_rev(s) < 2)
         s["bid_log"].append(
             {"seq": seq, "at": now, "seat": seat_id, "auction": aid, "max": new_max, "kind": "max"}
         )
@@ -1284,7 +1304,10 @@ def _cmd_adjust_budget(s: dict, cmd: dict, now: float, events: list) -> dict:
         after=after,
         reason=reason[:300],
     )
-    if amount > 0 and s["status"] in ("running", "draining"):
+    if amount > 0 and s["status"] in ("running", "draining") and _engine_rev(s) < 2:
+        if not s["paused"]:  # rev-1 rooms: the behaviour they were played under
+            _reresolve_seat(s, seat_id, now, events)
+    elif amount > 0 and s["status"] in ("running", "draining"):
         if s["paused"] or not schedule.is_active(_window(s), now):
             # Nothing binding moves while the room is paused or inside quiet
             # hours: the money is credited now, and the seat's capped proxies

@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import queue
 import os
 import secrets
 import sqlite3
@@ -188,6 +189,9 @@ class StoreUnavailable(RuntimeError):
     """Storage is missing or unreadable after having existed — fail closed."""
 
 
+_READ_POOL_MAX = 8
+
+
 class Store:
     def __init__(self, path: Path):
         self.path = Path(path)
@@ -196,8 +200,8 @@ class Store:
         self._listeners: list = []
         self._outage_checked: set[str] = set()
         self._wconn: sqlite3.Connection | None = None
-        self._local = threading.local()
-        self._readers: list[sqlite3.Connection] = []
+        self._rev_lock = threading.Lock()
+        self._pool: queue.SimpleQueue[sqlite3.Connection] = queue.SimpleQueue()
         # Changes with every process that opens the store (a restart, or a
         # restore from backup).  Revisions can go BACKWARDS across a restore;
         # clients compare this epoch so they adopt the restored snapshot
@@ -249,20 +253,32 @@ class Store:
 
     @contextmanager
     def read(self) -> Iterator[sqlite3.Connection]:
-        conn = getattr(self._local, "conn", None)
-        if conn is None:
-            conn = self._local.conn = self.connect()
-            with self._lock:
-                self._readers.append(conn)
-        yield conn
+        # A small pool, not one per thread: the ASGI threadpool retires idle
+        # workers, and per-thread connections would outlive them.
+        try:
+            conn = self._pool.get_nowait()
+        except queue.Empty:
+            conn = self.connect()
+        try:
+            yield conn
+        finally:
+            if conn.in_transaction:  # never hand out a connection mid-read-txn
+                conn.close()
+            elif self._pool.qsize() < _READ_POOL_MAX:
+                self._pool.put(conn)
+            else:
+                conn.close()
 
     def close(self) -> None:
         """Release every cached connection (scratch/restored stores, tests)."""
         with self._lock:
-            conns = [c for c in [self._wconn, *self._readers] if c is not None]
+            conns = [self._wconn] if self._wconn is not None else []
             self._wconn = None
-            self._readers = []
-            self._local = threading.local()
+            while True:
+                try:
+                    conns.append(self._pool.get_nowait())
+                except queue.Empty:
+                    break
         for c in conns:
             try:
                 c.close()
@@ -273,7 +289,15 @@ class Store:
         self._listeners.append(fn)
 
     def _notify(self, room_id: str, revision: int) -> None:
-        self._revisions[room_id] = revision
+        # Monotonic: listeners run after the lock is released, so a slower
+        # thread may announce an OLDER revision after a newer one.  Letting it
+        # overwrite would make long-polls answer instantly in a spin until the
+        # next commit.  (A restore starts a new process: the map starts empty.)
+        with self._rev_lock:
+            prev = self._revisions.get(room_id)
+            if prev is not None and revision <= prev:
+                return
+            self._revisions[room_id] = revision
         for fn in list(self._listeners):
             try:
                 fn(room_id, revision)

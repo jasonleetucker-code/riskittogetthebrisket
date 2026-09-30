@@ -193,14 +193,22 @@ def _mutation_guard(request: Request) -> JSONResponse | None:
     return None
 
 
-def _idempotent_route(fn):
+_RECEIPT_TTL_SECONDS = 7 * 24 * 3600
+_IN_PROGRESS = 0  # route_receipts.status while the first request is running
+
+
+def _idempotent_route(fn=None, *, secret_response: bool = False):
     """Room-changing routes outside the command log (room creation, invites,
     mock clock, clone, reset links, member removal) require an
-    ``Idempotency-Key`` and replay their FIRST answer for a retry with the
-    same key, so a retried mock-clock jump never advances twice and a
-    double-submitted clone never makes two rooms.  Same key, different
-    request: 409.  Server errors (5xx) are not recorded, so they can be
-    retried."""
+    ``Idempotency-Key``.  The key is CLAIMED atomically before the route runs,
+    so two concurrent requests with one key can never both act: the second
+    gets 409 ``in_progress`` while the first runs, then the first answer.
+    Same key, different request: 409.  A 5xx or exception releases the claim
+    so it can be retried.  ``secret_response`` routes (invite / reset links:
+    the token is shown ONCE and stored only hashed) keep no copy of the body;
+    a replay answers 409 ``already_issued`` instead of re-disclosing it."""
+    if fn is None:
+        return functools.partial(_idempotent_route, secret_response=secret_response)
 
     @functools.wraps(fn)
     async def wrapper(*args, **kwargs):
@@ -221,14 +229,26 @@ def _idempotent_route(fn):
         raw = await request.body()
         scope = f"{request.method} {request.url.path}"
         digest = hashlib.sha256(scope.encode() + b"\n" + raw).hexdigest()
+        now = _now()
 
-        def _prior():
-            with get_store().read() as conn:
-                return conn.execute(
+        def _claim():
+            with get_store().write() as conn:
+                conn.execute(
+                    "DELETE FROM route_receipts WHERE created_at < ?", (now - _RECEIPT_TTL_SECONDS,)
+                )
+                prior = conn.execute(
                     "SELECT * FROM route_receipts WHERE user_id=? AND key=?", (user.id, key)
                 ).fetchone()
+                if prior is not None:
+                    return dict(prior)
+                conn.execute(
+                    "INSERT INTO route_receipts (user_id, key, scope, payload_hash, status, body_json, created_at)"
+                    " VALUES (?,?,?,?,?,?,?)",
+                    (user.id, key, scope, digest, _IN_PROGRESS, "", now),
+                )
+                return None
 
-        prior = await run_in_threadpool(_prior)
+        prior = await run_in_threadpool(_claim)
         if prior is not None:
             if prior["payload_hash"] != digest:
                 return _err(
@@ -236,26 +256,53 @@ def _idempotent_route(fn):
                     "this Idempotency-Key was used for a different request",
                     409,
                 )
+            if int(prior["status"]) == _IN_PROGRESS:
+                return _err(
+                    "in_progress",
+                    "this request is already being processed — try again shortly",
+                    409,
+                )
             return JSONResponse(
                 status_code=int(prior["status"]),
                 content=json.loads(prior["body_json"]),
                 headers={"Idempotent-Replay": "true"},
             )
-        resp = await fn(*args, **kwargs)
+
+        def _release():
+            with get_store().write() as conn:
+                conn.execute("DELETE FROM route_receipts WHERE user_id=? AND key=?", (user.id, key))
+
+        try:
+            resp = await fn(*args, **kwargs)
+        except BaseException:
+            await run_in_threadpool(_release)
+            raise
         if not isinstance(resp, Response):
             resp = JSONResponse(resp)
-        if resp.status_code < 500 and isinstance(resp, JSONResponse):
-            body_text = bytes(resp.body).decode("utf-8")
+        if resp.status_code >= 500 or not isinstance(resp, JSONResponse):
+            await run_in_threadpool(_release)
+            return resp
+        if secret_response and resp.status_code < 400:
+            status, body_text = (
+                409,
+                json.dumps(
+                    {
+                        "error": "already_issued",
+                        "message": "This request already created a link. Links are shown once — create a new one if it was lost.",
+                    }
+                ),
+            )
+        else:
+            status, body_text = resp.status_code, bytes(resp.body).decode("utf-8")
 
-            def _save():
-                with get_store().write() as conn:
-                    conn.execute(
-                        "INSERT OR IGNORE INTO route_receipts (user_id, key, scope, payload_hash, status, body_json, created_at)"
-                        " VALUES (?,?,?,?,?,?,?)",
-                        (user.id, key, scope, digest, resp.status_code, body_text, _now()),
-                    )
+        def _save():
+            with get_store().write() as conn:
+                conn.execute(
+                    "UPDATE route_receipts SET status=?, body_json=? WHERE user_id=? AND key=?",
+                    (status, body_text, user.id, key),
+                )
 
-            await run_in_threadpool(_save)
+        await run_in_threadpool(_save)
         return resp
 
     return wrapper
@@ -808,7 +855,7 @@ async def room_receipt(request: Request, room_id: str, key: str):
 
 
 @router.post("/rooms/{room_id}/invites")
-@_idempotent_route
+@_idempotent_route(secret_response=True)
 async def room_invite(request: Request, room_id: str):
     guard = _mutation_guard(request)
     if guard:
@@ -1499,7 +1546,7 @@ def _require_commissioner(room_id: str, user: accounts.User) -> dict:
 
 
 @router.post("/rooms/{room_id}/members/{member_id}/reset-link")
-@_idempotent_route
+@_idempotent_route(secret_response=True)
 async def member_reset_link(request: Request, room_id: str, member_id: int):
     guard = _mutation_guard(request)
     if guard:

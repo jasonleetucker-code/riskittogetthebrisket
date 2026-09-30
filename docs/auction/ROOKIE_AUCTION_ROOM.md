@@ -149,6 +149,10 @@ Archives are written as `.partial`, fsynced, then renamed, so a killed run never
 a verified name. Every archive is restored into a scratch store and every room replayed before it is kept. The
 host-loss row is an **owner decision** before LIVE-READY (`LAUNCH_CHECKLIST.md` §B).
 
+**Engine revisions.** Every new room is stamped `engine_rev` (now 2). A room keeps the behaviour it was played
+under, so the hourly verifier's replay of an older room still reproduces its stored state exactly. Rev 2
+changed only two things: lossless tie-priority history, and deferring pause/quiet-hour budget re-resolution.
+
 **Restore procedure** (never two writers): stop `dynasty.service`, move `data/auction/auction.sqlite*` aside,
 `gunzip -c data/auction/backups/auction-<stamp>.sqlite.gz > data/auction/auction.sqlite`, start the service. The
 restored rooms come up paused as of their last heartbeat if the gap exceeds 5 min. Open browser tabs adopt the

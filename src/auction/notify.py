@@ -1138,6 +1138,7 @@ def dispatch_once(store, now_real: float, *, sender=None, email_sender=None) -> 
     rows = claim_due(store, now_real)
     states: dict[str, dict | None] = {}
     for row in rows:
+        delivered = False
         try:
             with store.read() as conn:
                 prefs = get_prefs(conn, row["user_id"])
@@ -1206,6 +1207,7 @@ def dispatch_once(store, now_real: float, *, sender=None, email_sender=None) -> 
                     topic=None,
                 )
                 if res.get("ok"):
+                    delivered = True
                     _finish(
                         store,
                         row["id"],
@@ -1254,6 +1256,7 @@ def dispatch_once(store, now_real: float, *, sender=None, email_sender=None) -> 
                 p = _payload(row, prefs)
                 ok, err = email_sender(em["email"], p["title"], f"{p['body']}\n\nOpen: {p['url']}")
                 if ok:
+                    delivered = True
                     with store.write() as conn:
                         conn.execute(
                             "INSERT INTO notif_email_log (user_id, kind, sent_at) VALUES (?,?,?)",
@@ -1268,7 +1271,16 @@ def dispatch_once(store, now_real: float, *, sender=None, email_sender=None) -> 
             # after claim_due marked every row 'sending', and it sorts first
             # again on reclaim: everyone else's alerts wait on it until TTL.
             log.exception("auction notification %s failed to dispatch", row["id"])
-            _retry_or_fail(store, row, {"error": repr(exc)}, now_real, stats)
+            if delivered:
+                # The provider already accepted it: never send it again, even
+                # though bookkeeping after the send failed.
+                try:
+                    _finish(store, row["id"], status="sent", sent_at=now_real, last_error=None)
+                except Exception:  # noqa: BLE001
+                    log.exception("auction notification %s: could not record 'sent'", row["id"])
+                stats["sent"] += 1
+            else:
+                _retry_or_fail(store, row, {"error": repr(exc)}, now_real, stats)
     return stats
 
 
