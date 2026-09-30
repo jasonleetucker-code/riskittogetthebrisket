@@ -376,3 +376,69 @@ def test_results_import_scores_the_duplication_baseline_on_observed_copies(clien
     assert dup["state"] == "evaluated" and dup["n"] == 1
     assert dup["calibration"][0]["observedMeanCopies"] == 3.0
     assert "forecastOwnership" not in r["ownershipEvaluation"]  # stored record stays compact
+
+
+def _saved_contest(client, h, capacity=500):
+    return client.post(
+        "/api/dfs/contests",
+        json={
+            "contest": {
+                "name": "Sim GPP",
+                "platform": "draftkings",
+                "sport": "nfl",
+                "format": "classic",
+                "entryFee": "5",
+                "capacity": capacity,
+                "tieRule": "split_positions",
+                "payoutText": "1 $500\n2 $200\n3-10 $50\n11-100 $8",
+            }
+        },
+        headers=h,
+    ).json()
+
+
+def test_simulate_refuses_missing_ranges_and_runs_with_flagged_priors(client):
+    h = {"x-user": "a"}
+    snap = client.post(
+        "/api/dfs/slates",
+        json={
+            "salaryCsv": (FIX / "synthetic_dk_nfl_classic_salaries.csv").read_text(
+                encoding="utf-8"
+            ),
+            "projectionCsv": (FIX / "synthetic_dk_nfl_classic_projections.csv").read_text(
+                encoding="utf-8"
+            ),
+        },
+        headers=h,
+    ).json()
+    build = client.post(
+        "/api/dfs/builds",
+        json={
+            "snapshotId": snap["snapshotId"],
+            "objective": "projection_baseline",
+            "constraints": {"lineups": 2},
+        },
+        headers=h,
+    ).json()
+    contest = _saved_contest(client, h)
+    base = {
+        "buildId": build["buildId"],
+        "contestId": contest["contestId"],
+        "sims": 200,
+        "fieldSample": 300,
+    }
+    refused = client.post("/api/dfs/simulate", json=base, headers=h)
+    assert refused.status_code == 422 and refused.json()["error"] == "OUTCOME_RANGE_MISSING"
+    r = client.post("/api/dfs/simulate", json={**base, "allowPriors": True, "seed": 7}, headers=h)
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert len(out["perLineup"]) == 2 and out["fieldSize"] == 500 and out["sims"] == 200
+    assert any("uncalibrated spread priors" in a for a in out["assumptions"])
+    assert out["inputs"]["ownershipMethods"] == {"structural_baseline": 84}
+    assert out["perLineup"][0]["duplication"]["state"] == "estimated"
+    again = client.post(
+        "/api/dfs/simulate", json={**base, "allowPriors": True, "seed": 7}, headers=h
+    ).json()
+    assert again["portfolio"] == out["portfolio"]  # seeded: identical
+    too_big = client.post("/api/dfs/simulate", json={**base, "sims": 999_999}, headers=h)
+    assert too_big.status_code == 400

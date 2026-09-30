@@ -1108,6 +1108,85 @@ async def ownership_forecast(request: Request):
     return _ok(fc)
 
 
+@router.post("/simulate")
+async def simulate_build(request: Request):
+    """Contest Monte Carlo for a build's lineups in one exact contest (bounded; model output only)."""
+    from src.dfs import pipeline
+    from src.dfs.contests import contest_from_dict
+
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+
+    def bounded(key: str, default: int, hi: int) -> int | None:
+        v = body.get(key, default)
+        return v if isinstance(v, int) and not isinstance(v, bool) and 1 <= v <= hi else None
+
+    sims = bounded("sims", 1000, pipeline.API_MAX_SIMS)
+    sample = bounded("fieldSample", 2000, pipeline.API_MAX_FIELD_SAMPLE)
+    seed = bounded("seed", 1, 2**31 - 1)
+    if sims is None or sample is None or seed is None:
+        return _err(
+            "INVALID_BODY",
+            f"sims 1..{pipeline.API_MAX_SIMS}, fieldSample 1..{pipeline.API_MAX_FIELD_SAMPLE}, seed a positive integer.",
+            400,
+        )
+    b = await run_in_threadpool(store.get_build, owner, str(body.get("buildId") or ""))
+    if b is None:
+        return _err("NOT_FOUND", "No such build.", 404)
+    snap = await run_in_threadpool(store.get_snapshot, owner, b["snapshot"]["id"])
+    rs = get_ruleset(b["ruleset"]["key"].split("@", 1)[0])
+    if snap is None or rs is None or rs.key != b["ruleset"]["key"]:
+        return _err(
+            "RULESET_SUPERSEDED",
+            "This build's slate or rule-set version is no longer current.",
+            409,
+        )
+    ctx = await _build_context(owner, {"contestId": body.get("contestId")}, snap, rs)
+    if isinstance(ctx, JSONResponse):
+        return ctx
+    rec = await run_in_threadpool(store.get_contest, owner, str(body.get("contestId") or ""))
+    if rec is None:
+        return _err("NOT_FOUND", "Choose a saved contest to simulate against.", 404)
+    lineups = [tuple(p["playerId"] for p in lu["players"]) for lu in b["result"]["lineups"]]
+    if not lineups:
+        return _err("NOTHING_TO_SIMULATE", "This build has no lineups.", 409)
+
+    def run():
+        prep = pipeline.prepare(
+            owner,
+            snap,
+            rs,
+            contest_from_dict(rec["contest"]),
+            body.get("asOf") or pit.now(),
+            sims=sims,
+            field_sample=sample,
+            seed=seed,
+            allow_priors=bool(body.get("allowPriors")),
+            must_cover={p for lu in lineups for p in lu},
+        )
+        return pipeline.simulate_lineups(prep, lineups)
+
+    try:
+        out = await run_in_threadpool(run)
+    except pipeline.PipelineError as exc:
+        return _err(exc.code, exc.message, 422, exc.detail)
+    except pit.PitError as exc:
+        return _err(
+            exc.code, exc.message, 409 if exc.code in ("AFTER_LOCK", "LOCK_UNKNOWN") else 422
+        )
+    out["buildId"] = b["buildId"]
+    out["contest"] = {
+        "contestId": body.get("contestId"),
+        "version": rec["version"],
+        "name": rec["contest"]["name"],
+    }
+    return _ok(out)
+
+
 @router.post("/results")
 async def import_results(request: Request):
     """Import a finished contest's standings for one slate and evaluate the owner's forecasts."""
