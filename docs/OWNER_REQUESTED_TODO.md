@@ -1150,3 +1150,10 @@ clocks, one-active-hour extension, 13-active-hour nomination timeout with audite
 tie rule, withdrawal policy, outage policy, six-rounds = six nomination opportunities) are listed in
 `src/auction/rules.py::PROPOSED_RULE_KEYS` and must be confirmed together on the room's
 rule-confirmation screen before an official room can start. They do not block mocks.
+
+## Added 2026-09-30 — DFS: dedicated daily-fantasy section (owner directive)
+
+| Priority | Issue | Area | Required outcome | Status |
+|---|---|---|---|---|
+| P1 owner build directive | Owner directive, 2026-09-30 | DFS (new product family; `docs/dfs/`) | A contest-aware DFS decision system inside ChaseUpside for NFL/NBA/NHL/MMA on DraftKings/FanDuel: sport → platform → slate → contest → objective → build N or recommend a count → full manual constraints → Optimal Lineup / Build Portfolio → explanations + uncertainty → valid exports → permitted late swap → results review. Research every supplied website (74), sportsbook (6) and podcast (29) seed; no guaranteed-profit claims; honest capability states; DFS isolated from dynasty valuation; no purchases, wagering, contest entry or account automation. Zero-loss requirement map `docs/dfs/TRACEABILITY.md`; phases `docs/dfs/ROADMAP.md`. | PHASE 1 SLICE BUILT on `claude/dfs-foundation` (NFL DK/FD research mode, owner file imports, MILP baseline, exports); rule/export verification OWNER-BLOCKED (official pages refused automated access 2026-09-30) |
+

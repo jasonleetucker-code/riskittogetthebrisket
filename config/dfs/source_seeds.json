@@ -1,0 +1,3086 @@
+{
+ "_comment": "DFS source seed registry (owner directive 2026-09-30, docs/dfs/SOURCES.md). Every supplied name is preserved verbatim with a stable seedId. A seed is NOT an integration: accessState stays 'unverified' until evidence is recorded. Aliases/duplicates are resolved by setting aliasOf — never by deleting an entry.",
+ "schemaVersion": 1,
+ "accessStates": [
+  "unverified",
+  "available_public",
+  "available_authorized_paid",
+  "manual_import_only",
+  "permission_required",
+  "blocked",
+  "inactive",
+  "out_of_scope",
+  "unresolved_identity"
+ ],
+ "sourceCategories": [
+  "unknown",
+  "native_dfs_projection",
+  "stat_role_projection",
+  "ownership_field_forecast",
+  "sportsbook_market",
+  "prop_model",
+  "raw_stats_official",
+  "editorial_commentary",
+  "redistributor_aggregator",
+  "optimizer_tool",
+  "podcast"
+ ],
+ "websites": [
+  {
+   "seedId": "A-001",
+   "suppliedName": "RotoGrinders",
+   "id": "web.rotogrinders",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-002",
+   "suppliedName": "RotoWire",
+   "id": "web.rotowire",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-003",
+   "suppliedName": "FantasyCruncher",
+   "id": "web.fantasycruncher",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-004",
+   "suppliedName": "LineStar",
+   "id": "web.linestar",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-005",
+   "suppliedName": "SaberSim",
+   "id": "web.sabersim",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-006",
+   "suppliedName": "Stokastic",
+   "id": "web.stokastic",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-007",
+   "suppliedName": "DFS Army",
+   "id": "web.dfs-army",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-008",
+   "suppliedName": "DFS Hero",
+   "id": "web.dfs-hero",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-009",
+   "suppliedName": "DFS Degen",
+   "id": "web.dfs-degen",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-010",
+   "suppliedName": "PayDirt",
+   "id": "web.paydirt",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-011",
+   "suppliedName": "Occupy Fantasy",
+   "id": "web.occupy-fantasy",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-012",
+   "suppliedName": "Fantasy Alarm",
+   "id": "web.fantasy-alarm",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-013",
+   "suppliedName": "FantasyLabs",
+   "id": "web.fantasylabs",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-014",
+   "suppliedName": "THE SOLVER",
+   "id": "web.the-solver",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-015",
+   "suppliedName": "Run The Sims",
+   "id": "web.run-the-sims",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-016",
+   "suppliedName": "LineupIQ",
+   "id": "web.lineupiq",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-017",
+   "suppliedName": "Fantasy Team Advisors",
+   "id": "web.fantasy-team-advisors",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-018",
+   "suppliedName": "Fantasy Team Advice",
+   "id": "web.fantasy-team-advice",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-019",
+   "suppliedName": "FantasyData",
+   "id": "web.fantasydata",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-020",
+   "suppliedName": "Daily Fantasy Fuel",
+   "id": "web.daily-fantasy-fuel",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-021",
+   "suppliedName": "DraftEdge",
+   "id": "web.draftedge",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-022",
+   "suppliedName": "DailyAmbush",
+   "id": "web.dailyambush",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-023",
+   "suppliedName": "RotoBaller",
+   "id": "web.rotoballer",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-024",
+   "suppliedName": "RotoQL",
+   "id": "web.rotoql",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-025",
+   "suppliedName": "DraftDashboard",
+   "id": "web.draftdashboard",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-026",
+   "suppliedName": "FTN",
+   "id": "web.ftn",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-027",
+   "suppliedName": "Establish The Run",
+   "id": "web.establish-the-run",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-028",
+   "suppliedName": "SportsLine",
+   "id": "web.sportsline",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-029",
+   "suppliedName": "KJPI Analytics",
+   "id": "web.kjpi-analytics",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-030",
+   "suppliedName": "FanDuel Research",
+   "id": "web.fanduel-research",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-031",
+   "suppliedName": "numberFire",
+   "id": "web.numberfire",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-032",
+   "suppliedName": "FanScout",
+   "id": "web.fanscout",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-033",
+   "suppliedName": "NHLProjections.com",
+   "id": "web.nhlprojections-com",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-034",
+   "suppliedName": "5V5 Hockey",
+   "id": "web.5v5-hockey",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-035",
+   "suppliedName": "Diamond DFS",
+   "id": "web.diamond-dfs",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-036",
+   "suppliedName": "4for4",
+   "id": "web.4for4",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-037",
+   "suppliedName": "Footballguys",
+   "id": "web.footballguys",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-038",
+   "suppliedName": "FantasyPros",
+   "id": "web.fantasypros",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-039",
+   "suppliedName": "FantasySportsEdge",
+   "id": "web.fantasysportsedge",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-040",
+   "suppliedName": "One Week Season",
+   "id": "web.one-week-season",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-041",
+   "suppliedName": "Fantasy Points",
+   "id": "web.fantasy-points",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-042",
+   "suppliedName": "Fantasy Guru",
+   "id": "web.fantasy-guru",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-043",
+   "suppliedName": "DFS Kitchen",
+   "id": "web.dfs-kitchen",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-044",
+   "suppliedName": "DailyFantasy.tips",
+   "id": "web.dailyfantasy-tips",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-045",
+   "suppliedName": "CeeGeeDFS",
+   "id": "web.ceegeedfs",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-046",
+   "suppliedName": "Statz.ai",
+   "id": "web.statz-ai",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-047",
+   "suppliedName": "BankrollSZN",
+   "id": "web.bankrollszn",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-048",
+   "suppliedName": "Bet The Line",
+   "id": "web.bet-the-line",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-049",
+   "suppliedName": "Run Pure Sports",
+   "id": "web.run-pure-sports",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-050",
+   "suppliedName": "PFF",
+   "id": "web.pff",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-051",
+   "suppliedName": "BetQL",
+   "id": "web.betql",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-052",
+   "suppliedName": "Dimers",
+   "id": "web.dimers",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-053",
+   "suppliedName": "EV Analytics",
+   "id": "web.ev-analytics",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-054",
+   "suppliedName": "THE BLITZ",
+   "id": "web.the-blitz",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-055",
+   "suppliedName": "Rithmm",
+   "id": "web.rithmm",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-056",
+   "suppliedName": "VSiN",
+   "id": "web.vsin",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-057",
+   "suppliedName": "Opta",
+   "id": "web.opta",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-058",
+   "suppliedName": "Sharp AI Proptimizer",
+   "id": "web.sharp-ai-proptimizer",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-059",
+   "suppliedName": "Opening Line Analytics",
+   "id": "web.opening-line-analytics",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-060",
+   "suppliedName": "NFL Data Edge",
+   "id": "web.nfl-data-edge",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-061",
+   "suppliedName": "MySpariEdge",
+   "id": "web.myspariedge",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-062",
+   "suppliedName": "WinForge",
+   "id": "web.winforge",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-063",
+   "suppliedName": "SportsPredict",
+   "id": "web.sportspredict",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-064",
+   "suppliedName": "PlayerProps.ai",
+   "id": "web.playerprops-ai",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-065",
+   "suppliedName": "Unabated",
+   "id": "web.unabated",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-066",
+   "suppliedName": "SportsBettingDime",
+   "id": "web.sportsbettingdime",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-067",
+   "suppliedName": "Courtside",
+   "id": "web.courtside",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-068",
+   "suppliedName": "ClutchNBA",
+   "id": "web.clutchnba",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-069",
+   "suppliedName": "Prediktor",
+   "id": "web.prediktor",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-070",
+   "suppliedName": "BettingPros",
+   "id": "web.bettingpros",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-071",
+   "suppliedName": "Action Network",
+   "id": "web.action-network",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-072",
+   "suppliedName": "Outlier",
+   "id": "web.outlier",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-073",
+   "suppliedName": "Props.Cash",
+   "id": "web.props-cash",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "A-074",
+   "suppliedName": "OddsJam",
+   "id": "web.oddsjam",
+   "seedKind": "website",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  }
+ ],
+ "sportsbooks": [
+  {
+   "seedId": "B-001",
+   "suppliedName": "DraftKings",
+   "id": "book.draftkings",
+   "seedKind": "sportsbook",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "B-002",
+   "suppliedName": "FanDuel",
+   "id": "book.fanduel",
+   "seedKind": "sportsbook",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "B-003",
+   "suppliedName": "BetMGM",
+   "id": "book.betmgm",
+   "seedKind": "sportsbook",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "B-004",
+   "suppliedName": "Caesars Sportsbook",
+   "id": "book.caesars-sportsbook",
+   "seedKind": "sportsbook",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "B-005",
+   "suppliedName": "bet365",
+   "id": "book.bet365",
+   "seedKind": "sportsbook",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "B-006",
+   "suppliedName": "Hard Rock Bet",
+   "id": "book.hard-rock-bet",
+   "seedKind": "sportsbook",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  }
+ ],
+ "podcasts": [
+  {
+   "seedId": "C-001",
+   "suppliedName": "Fantasy Footballers DFS & Betting",
+   "id": "pod.fantasy-footballers-dfs-betting",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-002",
+   "suppliedName": "DFS Army Podcast",
+   "id": "pod.dfs-army-podcast",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-003",
+   "suppliedName": "Spike Week",
+   "id": "pod.spike-week",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-004",
+   "suppliedName": "Print Factory | Run Pure Sports",
+   "id": "pod.print-factory-run-pure-sports",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-005",
+   "suppliedName": "Stokastic Daily Fantasy NFL",
+   "id": "pod.stokastic-daily-fantasy-nfl",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-006",
+   "suppliedName": "Stokastic Daily Fantasy Sports",
+   "id": "pod.stokastic-daily-fantasy-sports",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-007",
+   "suppliedName": "Stokastic Daily Fantasy NBA",
+   "id": "pod.stokastic-daily-fantasy-nba",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-008",
+   "suppliedName": "Stokastic Daily Fantasy NHL",
+   "id": "pod.stokastic-daily-fantasy-nhl",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-009",
+   "suppliedName": "RotoGrinders Daily Fantasy Football",
+   "id": "pod.rotogrinders-daily-fantasy-football",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-010",
+   "suppliedName": "RotoGrinders Daily Fantasy 6 Pack / Beer’s Six Pack",
+   "id": "pod.rotogrinders-daily-fantasy-6-pack-beers-six-pack",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-011",
+   "suppliedName": "DFS MVP — 4for4",
+   "id": "pod.dfs-mvp-4for4",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-012",
+   "suppliedName": "Establish The Run Fantasy Football",
+   "id": "pod.establish-the-run-fantasy-football",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-013",
+   "suppliedName": "One Week Season",
+   "id": "pod.one-week-season",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-014",
+   "suppliedName": "The Swolecast — Fantasy Football DFS and Best Ball NFL",
+   "id": "pod.the-swolecast-fantasy-football-dfs-and-best-ball-nfl",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-015",
+   "suppliedName": "Pat Mayo Experience",
+   "id": "pod.pat-mayo-experience",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-016",
+   "suppliedName": "Establish the Edge Fantasy Football",
+   "id": "pod.establish-the-edge-fantasy-football",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-017",
+   "suppliedName": "Ship Chasing",
+   "id": "pod.ship-chasing",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-018",
+   "suppliedName": "Establish The Run NBA",
+   "id": "pod.establish-the-run-nba",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-019",
+   "suppliedName": "RotoWire Fantasy Basketball Podcast",
+   "id": "pod.rotowire-fantasy-basketball-podcast",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-020",
+   "suppliedName": "NHL Fantasy on Ice",
+   "id": "pod.nhl-fantasy-on-ice",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-021",
+   "suppliedName": "RotoWire Fantasy Hockey Podcast",
+   "id": "pod.rotowire-fantasy-hockey-podcast",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-022",
+   "suppliedName": "MMA Gambling Podcast — SGPN",
+   "id": "pod.mma-gambling-podcast-sgpn",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-023",
+   "suppliedName": "Dog or Pass Podcast",
+   "id": "pod.dog-or-pass-podcast",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-024",
+   "suppliedName": "The Propcast — A Prop Betting Podcast",
+   "id": "pod.the-propcast-a-prop-betting-podcast",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-025",
+   "suppliedName": "DFS Office Hours — Presented by SaberSim.com",
+   "id": "pod.dfs-office-hours-presented-by-sabersim-com",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-026",
+   "suppliedName": "Theory of DFS — Daily Fantasy Sports Strategy",
+   "id": "pod.theory-of-dfs-daily-fantasy-sports-strategy",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-027",
+   "suppliedName": "FanDuel Research Podcasts",
+   "id": "pod.fanduel-research-podcasts",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-028",
+   "suppliedName": "Fantasy Football Today DFS — CBS Sports",
+   "id": "pod.fantasy-football-today-dfs-cbs-sports",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  },
+  {
+   "seedId": "C-029",
+   "suppliedName": "DFS Coach Talk Podcast",
+   "id": "pod.dfs-coach-talk-podcast",
+   "seedKind": "podcast",
+   "canonicalIdentity": null,
+   "officialDomain": null,
+   "aliasOf": null,
+   "sourceCategory": "unknown",
+   "independenceGroup": null,
+   "sports": [],
+   "accessState": "unverified",
+   "acquisitionMethod": null,
+   "license": {
+    "assessed": false,
+    "permittedUses": []
+   },
+   "connector": {
+    "state": "none",
+    "lastSuccess": null,
+    "lastMeaningfulUpdate": null
+   },
+   "verification": {
+    "checkedOn": null,
+    "evidence": [],
+    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+   }
+  }
+ ]
+}

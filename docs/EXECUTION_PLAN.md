@@ -62,6 +62,26 @@ foundation once. Preserve small, reviewable PR boundaries within the combined ph
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
 
+## DFS — owner directive, 2026-09-30 (build now, research-mode first)
+
+The owner authorizes building a dedicated **DFS** section of ChaseUpside (`/dfs` route family,
+normal navigation) for **NFL, NBA, NHL and MMA/UFC** on **DraftKings and FanDuel**: contest and
+rule contracts, owner-controlled construction, projections/ensembles, source and podcast evidence,
+ownership/field/duplication models, contest-aware optimization, portfolios and entry counts,
+exports, late swap, live/rooting views, settlement and evaluation — delivered in verified phases
+(`docs/dfs/ROADMAP.md`, requirement map `docs/dfs/TRACEABILITY.md`, index `docs/dfs/README.md`).
+The owner's full mandate is the requirements source; prior-conversation claims are hypotheses to
+reverify.
+
+Binding boundaries: DFS projections/salaries/ownership/outputs never enter canonical dynasty
+valuation, source weights, curves or rankings (typed sharing of seasonal evidence only through an
+approved contract); missing ≠ zero; unresolved identity is quarantined; unverified platform rules
+fail closed for money-ready use (research mode stays available and labelled); evaluation never
+self-promotes a model. **Not authorized:** purchases, paid subscriptions or billable trials,
+sportsbook wagering, contest entry, deposits/withdrawals, platform account automation, or
+bypassing access controls. Existing review/CI/merge/deploy gates apply unchanged. Lane 6 (PSI
+Direction A) stays active in every DFS batch. First slice: `claude/dfs-foundation`.
+
 ## Rookie Auction Room — owner directive, 2026-09-29 (mock-first, live-gated)
 
 The owner authorizes implementing Chase Upside's shared slow rookie auction room now, so the owner,

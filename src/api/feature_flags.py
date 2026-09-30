@@ -9,14 +9,14 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-15 of the 26 entries in ``_DEFAULTS`` below are ``True`` —
+16 of the 27 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
 ``perfect_draft``, ``ledger_rank_change``, ``waiver_live_opportunity``,
 ``source_freshness_weighting``, ``source_family_cap``,
-``game_day_live_game_state``, ``sleeper_weekly_projections`` and
-``rookie_auction`` — several with comments
+``game_day_live_game_state``, ``sleeper_weekly_projections``,
+``rookie_auction`` and ``dfs_workspace`` — several with comments
 recording that the enabled default is deliberate.
 
 **No live gate sits outside this registry any more.**  The last one —
@@ -352,6 +352,12 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # /api/auction/* route 503s feature_disabled and the runtime loop does
     # not start.  Rollback: RISKIT_FEATURE_ROOKIE_AUCTION=0 and restart.
     "rookie_auction": True,
+    # DFS workspace (``src/dfs/``, owner directive 2026-09-30).  Private
+    # /api/dfs/* router: slate import, projection-baseline lineup builds and
+    # upload-CSV export.  Additive — it reads and writes only data/dfs/ and
+    # never touches the dynasty board.  Off → every /api/dfs/* route 503s
+    # FEATURE_DISABLED.  Rollback: RISKIT_FEATURE_DFS_WORKSPACE=0 + restart.
+    "dfs_workspace": True,
     # Consensus Edge — the unified buy/sell board.  DEFAULT **OFF**.
     #
     # It was flipped ON on 2026-08-04 on the strength of a top-20 study
@@ -637,6 +643,8 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # rookie_auction gates the /api/auction/* router mounted in server.py
     # and the auction runtime loop started in lifespan.
     "rookie_auction": LIVE,
+    # dfs_workspace gates the /api/dfs/* router mounted in server.py.
+    "dfs_workspace": LIVE,
     # consensus_edge gates the /api/consensus-edge/* router mounted in
     # server.py: off → 503 feature_disabled, on → the board.
     "consensus_edge": LIVE,

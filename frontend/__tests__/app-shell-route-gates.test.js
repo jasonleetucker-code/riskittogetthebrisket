@@ -90,6 +90,11 @@ describe("the two routes deliberately NOT gated", () => {
     expect(privateDataEnabled("/tools/trade-coverage")).toBe(true);
   });
 
+  it("gates /dfs, which reads only /api/dfs/* and never the dynasty board", () => {
+    expect(isNoPlayerDataRoute("/dfs")).toBe(true);
+    expect(privateDataEnabled("/dfs")).toBe(false);
+  });
+
   it("gates the other /tools health pages, which read /api/status instead", () => {
     expect(privateDataEnabled("/tools/source-health")).toBe(false);
     expect(privateDataEnabled("/tools/ros-data-health")).toBe(false);

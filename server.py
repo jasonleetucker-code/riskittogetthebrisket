@@ -3879,6 +3879,16 @@ from src.auction.api import router as _auction_router  # noqa: E402
 
 app.include_router(_auction_router)
 
+# DFS workspace (owner directive 2026-09-30, docs/dfs/README.md).  Private:
+# /api/dfs/* stays behind ``_private_api_gate`` and every handler also
+# resolves its owner from this process's session store, scoping every
+# record by owner.  Isolated from dynasty valuation — reads/writes only
+# ``data/dfs/``.  Rollback: RISKIT_FEATURE_DFS_WORKSPACE=0 + restart.
+from src.dfs import api as _dfs_api  # noqa: E402
+
+_dfs_api.configure_session_resolver(lambda request: _get_auth_session(request))
+app.include_router(_dfs_api.router)
+
 
 @app.middleware("http")
 async def _count_requests(request: Request, call_next):

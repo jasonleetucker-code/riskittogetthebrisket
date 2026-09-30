@@ -26,7 +26,7 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    `src/api/feature_flags.py`. Env override via `RISKIT_FEATURE_<NAME>=1`
    (or `=0` to disable).
 
-   **Defaults are per-flag.** As of 2026-09-25, 15 of the 26 entries in
+   **Defaults are per-flag.** As of 2026-09-30, 16 of the 27 entries in
    `_DEFAULTS` ship enabled — `ledger_rank_change` (registered closing
    F-24: the ledger-derived `rankChange` derivation, previously an
    invisible direct env read), `bdvm_engine`, `te_basis_conversion`
@@ -40,7 +40,8 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    the family-head selection), `game_day_live_game_state` and
    `sleeper_weekly_projections` (Game Day U5: the shared live collector owns
    their cadence), `rookie_auction` (mock-only rookie auction room; the API
-   refuses official rooms until owner launch approval) — several
+   refuses official rooms until owner launch approval), `dfs_workspace`
+   (private DFS workspace; reads/writes only `data/dfs/`) — several
    with comments
    recording that the enabled default is deliberate. For those, the env
    var is a rollback lever rather than an opt-in.

@@ -47,6 +47,7 @@ const ROUTES_THAT_MUST_BE_REACHABLE = [
   "/league/activity",
   "/league/insider-trading",
   "/league-comparison",
+  "/dfs",
   "/players/compare",
   "/settings",
   "/more",

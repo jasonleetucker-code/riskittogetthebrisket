@@ -1,0 +1,98 @@
+{
+  "_comment": "DFS contest rule sets + capability matrix (owner directive 2026-09-30, docs/dfs/README.md). A rule set is VERSIONED and carries its own verification state. 'unverified' rule sets may power research-mode builds only; money-ready optimization and verified exports fail closed until verification.state == 'verified' with official evidence. Never edit a released version in place: add a new version and supersede.",
+  "schemaVersion": 1,
+  "rulesets": [
+    {
+      "id": "draftkings.nfl.classic",
+      "version": "2026.1",
+      "platform": "draftkings",
+      "sport": "nfl",
+      "format": "classic",
+      "label": "DraftKings NFL Classic",
+      "salaryCap": 50000,
+      "slots": [
+        {"name": "QB", "eligible": ["QB"]},
+        {"name": "RB", "eligible": ["RB"]},
+        {"name": "RB", "eligible": ["RB"]},
+        {"name": "WR", "eligible": ["WR"]},
+        {"name": "WR", "eligible": ["WR"]},
+        {"name": "WR", "eligible": ["WR"]},
+        {"name": "TE", "eligible": ["TE"]},
+        {"name": "FLEX", "eligible": ["RB", "WR", "TE"]},
+        {"name": "DST", "eligible": ["DST"]}
+      ],
+      "maxPlayersPerTeam": null,
+      "minTeams": null,
+      "minGames": 2,
+      "salaryImport": "draftkings_salary_csv_v1",
+      "export": {
+        "format": "draftkings_lineup_upload_v1",
+        "header": ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "FLEX", "DST"],
+        "cell": "platform_player_id",
+        "verification": {
+          "state": "unverified",
+          "blocker": "No official DraftKings upload template has been round-trip tested in this repo yet. Owner action: download a blank lineup-upload template for a real NFL Classic contest and add it as tests/dfs/fixtures/templates/draftkings_nfl_classic_upload.csv."
+        }
+      },
+      "verification": {
+        "state": "unverified",
+        "checkedOn": "2026-09-30",
+        "evidence": [],
+        "blocker": "https://www.draftkings.com/help/rules/nfl returned HTTP 403 to automated fetch and the built-in browser refused the domain under its safety policy (2026-09-30). The roster/cap values here are the commonly documented Classic shape and have NOT been checked against the official page. Owner action: confirm against the official rules page (or supply an official salary/upload template) so this version can be marked verified.",
+        "unverifiedFields": ["salaryCap", "slots", "minGames", "maxPlayersPerTeam"]
+      }
+    },
+    {
+      "id": "fanduel.nfl.classic",
+      "version": "2026.1",
+      "platform": "fanduel",
+      "sport": "nfl",
+      "format": "classic",
+      "label": "FanDuel NFL Full Roster",
+      "salaryCap": 60000,
+      "slots": [
+        {"name": "QB", "eligible": ["QB"]},
+        {"name": "RB", "eligible": ["RB"]},
+        {"name": "RB", "eligible": ["RB"]},
+        {"name": "WR", "eligible": ["WR"]},
+        {"name": "WR", "eligible": ["WR"]},
+        {"name": "WR", "eligible": ["WR"]},
+        {"name": "TE", "eligible": ["TE"]},
+        {"name": "FLEX", "eligible": ["RB", "WR", "TE"]},
+        {"name": "DEF", "eligible": ["D"]}
+      ],
+      "maxPlayersPerTeam": 4,
+      "minTeams": 3,
+      "minGames": null,
+      "salaryImport": "fanduel_player_list_csv_v1",
+      "export": {
+        "format": "fanduel_lineup_upload_v1",
+        "header": ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "FLEX", "DEF"],
+        "cell": "platform_player_id",
+        "verification": {
+          "state": "unverified",
+          "blocker": "No official FanDuel upload template has been round-trip tested in this repo yet. Owner action: download a blank lineup-upload template for a real NFL contest and add it as tests/dfs/fixtures/templates/fanduel_nfl_classic_upload.csv."
+        }
+      },
+      "verification": {
+        "state": "unverified",
+        "checkedOn": "2026-09-30",
+        "evidence": [],
+        "blocker": "https://www.fanduel.com/rules returned HTTP 403 to automated fetch (2026-09-30). The roster/cap/team values here are the commonly documented Full Roster shape and have NOT been checked against the official page. Owner action: confirm against the official rules page (or supply an official player-list/upload template) so this version can be marked verified.",
+        "unverifiedFields": ["salaryCap", "slots", "maxPlayersPerTeam", "minTeams"]
+      }
+    }
+  ],
+  "capabilities": [
+    {"platform": "draftkings", "sport": "nfl", "format": "classic", "ruleset": "draftkings.nfl.classic"},
+    {"platform": "fanduel", "sport": "nfl", "format": "classic", "ruleset": "fanduel.nfl.classic"},
+    {"platform": "draftkings", "sport": "nfl", "format": "showdown_captain", "ruleset": null, "reason": "Showdown Captain rules (captain salary/points multiplier) not encoded yet — DFS-RULES-02."},
+    {"platform": "fanduel", "sport": "nfl", "format": "single_game_mvp", "ruleset": null, "reason": "Single-game MVP rules not encoded yet — DFS-RULES-02."},
+    {"platform": "draftkings", "sport": "nba", "format": "classic", "ruleset": null, "reason": "NBA rule set not encoded yet — DFS-RULES-03. NBA season has not started (2026-09-30)."},
+    {"platform": "fanduel", "sport": "nba", "format": "classic", "ruleset": null, "reason": "NBA rule set not encoded yet — DFS-RULES-03."},
+    {"platform": "draftkings", "sport": "nhl", "format": "classic", "ruleset": null, "reason": "NHL rule set not encoded yet — DFS-RULES-04. NHL regular season has not started (2026-09-30)."},
+    {"platform": "fanduel", "sport": "nhl", "format": "classic", "ruleset": null, "reason": "NHL rule set not encoded yet — DFS-RULES-04."},
+    {"platform": "draftkings", "sport": "mma", "format": "classic", "ruleset": null, "reason": "MMA rule set not encoded yet — DFS-RULES-05."},
+    {"platform": "fanduel", "sport": "mma", "format": "classic", "ruleset": null, "reason": "Whether FanDuel currently offers MMA DFS is unverified — DFS-RULES-05. Not advertised until verified."}
+  ]
+}
