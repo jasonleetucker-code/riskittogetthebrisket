@@ -9,9 +9,9 @@ Order: `ROADMAP.md` (Phases A–H).
 
 | Branch | PR | Contents | State |
 |---|---|---|---|
-| `claude/dfs-foundation` | #1534 → `main` | P0 registration, rules registry, owner CSV imports, MILP baseline, builds, export, `/dfs` page, source seeds, review fixes | Open; Auto-fix on; Validate PR re-running after the `app.openapi()` mount-test fix |
-| `claude/dfs-contests` | #1535, stacked on #1534 | Phase B contests (ladders, exact ties, rake/overlay, entry cap, presets, Contest panel); addendum reconciliation; Phase A canonical slate + platform-file detection + SportsDataIO adapter (flag OFF) + provider matrix + freshness + contest↔slate link | Open; retarget to `main` after #1534 merges |
-| `claude/dfs-multisport` | stacked on #1535 (pushed; PR after #1535 lands) | See "multisport contents" below | Local + remote |
+| `claude/dfs-foundation` | #1534 → `main` | P0 registration, rules registry, owner CSV imports, MILP baseline, builds, export, `/dfs` page, source seeds, review fixes, HiGHS single-thread fix | **MERGED** 2026-09-30 (`1fdd9b8fe`) after a green release candidate |
+| `claude/dfs-contests` | #1535 → `main` | Phase B contests; addendum reconciliation; Phase A canonical slate + detection + SportsDataIO adapter (flag OFF) + provider matrix + freshness + contest↔slate link | Retargeted to `main`; release candidate running |
+| `claude/dfs-multisport` | #1546, stacked on #1535 | See "multisport contents" below | Open; retarget to `main` after #1535 merges |
 
 Worktrees: `C:\Users\jason\code\chaseupside-dfs` (#1534), `…\chaseupside-dfs-contests` (#1535),
 `…\chaseupside-dfs-next` (multisport); each with `frontend/node_modules` as a junction to the main
