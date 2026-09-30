@@ -14,6 +14,7 @@ import styles from "./dfs-workspace.module.css";
 
 const EntriesExport = lazy(() => import("./EntriesExport"));
 const PortfolioSummary = lazy(() => import("./PortfolioSummary"));
+const ContestModel = lazy(() => import("./ContestModel"));
 
 function LineupTable({ lineup, cap }) {
   const columns = [
@@ -121,7 +122,7 @@ function ExportButton({ buildId }) {
   );
 }
 
-export default function BuildResult({ build, ruleset }) {
+export default function BuildResult({ build, ruleset, athletes }) {
   const r = build.result;
   const conflict = r.shortfall?.conflict;
   return (
@@ -207,6 +208,11 @@ export default function BuildResult({ build, ruleset }) {
       {r.portfolio ? (
         <Suspense fallback={null}>
           <PortfolioSummary portfolio={r.portfolio} />
+        </Suspense>
+      ) : null}
+      {r.built ? (
+        <Suspense fallback={null}>
+          <ContestModel build={build} snapshotId={build.snapshot?.id} athletes={athletes} />
         </Suspense>
       ) : null}
       {r.built ? (

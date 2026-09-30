@@ -336,3 +336,14 @@ def test_ownership_forecast_endpoint_is_as_of_and_refuses_after_lock(client):
         headers=h,
     )
     assert bad.status_code == 400
+
+
+def test_evaluations_endpoint_is_owner_scoped_and_validates_kind(client):
+    from src.dfs import pit
+
+    pit.record_evaluation("user:alice", "ownership", "srcA", {"sport": "nfl"}, 12, {"mae": 3.0}, {})
+    h = {"x-user": "alice"}
+    out = client.get("/api/dfs/evaluations", headers=h).json()
+    assert out["total"] == 1 and out["evaluations"][0]["n"] == 12
+    assert client.get("/api/dfs/evaluations", headers={"x-user": "bob"}).json()["total"] == 0
+    assert client.get("/api/dfs/evaluations?kind=secrets", headers=h).status_code == 400

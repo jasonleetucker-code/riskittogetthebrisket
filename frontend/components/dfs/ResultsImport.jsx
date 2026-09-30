@@ -8,7 +8,7 @@
  * weight or model.  The server computes; this renders.  Lazily loaded.
  */
 
-import React, { useState } from "react";
+import React, { Suspense, lazy, useState } from "react";
 import { Banner, DataTable, Field, Input } from "@/components/ds";
 import { errorMessage } from "@/lib/dfs";
 import { errorBody } from "@/lib/dfs-download";
@@ -68,6 +68,8 @@ function Settlement({ s }) {
     </>
   );
 }
+
+const Scorecards = lazy(() => import("./Scorecards"));
 
 export default function ResultsImport({ snapshotId, contestId }) {
   const [username, setUsername] = useState("");
@@ -160,6 +162,9 @@ export default function ResultsImport({ snapshotId, contestId }) {
             </p>
           ) : null}
           <p className={styles.note}>The results-file layout is not yet verified against an official template.</p>
+          <Suspense fallback={null}>
+            <Scorecards resultIds={result.resultId ? [result.resultId] : []} />
+          </Suspense>
         </>
       ) : null}
       {error ? (

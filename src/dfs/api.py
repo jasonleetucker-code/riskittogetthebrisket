@@ -1320,6 +1320,19 @@ async def run_backtest(request: Request):
     return _ok(out)
 
 
+@router.get("/evaluations")
+async def list_evaluations(request: Request):
+    """Stored forecast / model evaluations (scorecards), each with its sample size."""
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    kind = request.query_params.get("kind")
+    if kind is not None and kind not in ("ownership", "duplication", "backtest"):
+        return _err("INVALID_QUERY", "kind must be ownership, duplication or backtest.", 400)
+    rows = await run_in_threadpool(pit.list_evaluations, owner, kind)
+    return _ok({"evaluations": rows[-200:], "total": len(rows)})
+
+
 @router.post("/results")
 async def import_results(request: Request):
     """Import a finished contest's standings for one slate and evaluate the owner's forecasts."""
