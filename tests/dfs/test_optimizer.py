@@ -401,3 +401,74 @@ def test_conditional_input_is_validated():
     ):
         with pytest.raises(ConstraintError):
             parse_constraints(bad, DK, pool)
+
+
+# ── owner forecast overrides vs selection boosts (DFS-§8-08) ──────────
+
+
+def test_override_is_a_forecast_used_in_totals_and_never_written_back():
+    pool = _pool(41)
+    res, ids = _unconstrained_ids(pool)
+    outsider = next(a for a in pool if a.player_id not in ids and a.positions[0] == "WR")
+    before = outsider.projection
+    c = parse_constraints({"projectionOverrides": {outsider.player_id: 60.0}}, DK, pool)
+    got = optimize(DK, pool, c)
+    row = next(p for p in got["lineups"][0]["players"] if p["playerId"] == outsider.player_id)
+    assert (
+        row["ownerOverride"] == 60.0
+        and row["projection"] == before
+        and row["slotProjection"] == 60.0
+    )
+    assert outsider.projection == before  # the slate's forecast is untouched
+    assert got["lineups"][0]["projection"] == pytest.approx(
+        sum(p["slotProjection"] for p in got["lineups"][0]["players"])
+    )
+
+
+def test_override_can_supply_a_missing_forecast():
+    pool = _pool(42)
+    pool[0].projection = None
+    c = parse_constraints(
+        {"projectionOverrides": {pool[0].player_id: 30.0}, "locks": [pool[0].player_id]}, DK, pool
+    )
+    got = optimize(DK, pool, c)
+    assert got["built"] == 1 and pool[0].player_id not in got["excludedUnprojected"]
+
+
+def test_boost_tilts_selection_but_never_enters_the_reported_total():
+    pool = _pool(43)
+    res, ids = _unconstrained_ids(pool)
+    base_total = res["lineups"][0]["projection"]
+    outsiders = sorted(
+        (a for a in pool if a.player_id not in ids and a.positions[0] in ("WR", "RB", "TE")),
+        key=lambda a: -a.projection,
+    )
+    flipped = None
+    for o in outsiders:
+        got = optimize(DK, pool, parse_constraints({"boosts": {o.player_id: 0.5}}, DK, pool))
+        if o.player_id in {p["playerId"] for p in got["lineups"][0]["players"]}:
+            flipped = (o, got)
+            break
+    assert flipped is not None, "fixture must contain a boost that changes selection (non-vacuous)"
+    o, got = flipped
+    lu = got["lineups"][0]
+    assert lu["projection"] < base_total  # the boost bought a worse FORECAST, as the owner chose
+    assert lu["projection"] == pytest.approx(
+        sum(p["projection"] for p in lu["players"])
+    )  # unboosted
+    row = next(p for p in lu["players"] if p["playerId"] == o.player_id)
+    assert row["preferenceBoost"] == 0.5 and row["slotProjection"] == row["projection"]
+
+
+def test_override_and_boost_inputs_are_bounded():
+    pool = _pool(44)
+    pid = pool[0].player_id
+    for bad in (
+        {"boosts": {pid: 2}},
+        {"boosts": {pid: True}},
+        {"projectionOverrides": {pid: "12"}},
+        {"projectionOverrides": {"nope": 5}},
+        {"projectionOverrides": {pid: float("nan")}},
+    ):
+        with pytest.raises(ConstraintError):
+            parse_constraints(bad, DK, pool)

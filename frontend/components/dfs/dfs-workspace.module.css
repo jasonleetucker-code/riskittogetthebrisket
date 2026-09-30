@@ -262,6 +262,10 @@
   font-size: var(--font-size-sm);
 }
 
+.cellInput {
+  width: 5rem;
+}
+
 .provenance summary {
   cursor: pointer;
   font-size: var(--font-size-sm);

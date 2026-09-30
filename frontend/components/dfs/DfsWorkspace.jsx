@@ -29,6 +29,7 @@ import {
   PLATFORMS,
   SPORTS,
   buildConstraints,
+  ownerAdjustments,
   capabilitiesFor,
   errorMessage,
   exposureCountFor,
@@ -122,10 +123,14 @@ function LineupTable({ lineup, cap }) {
       numeric: true,
       sortable: false,
       // The slot's multiplier (Showdown captain 1.5×) is shown, never hidden in the number.
-      render: (p) =>
-        p.slotMultiplier && p.slotMultiplier !== 1
-          ? `${formatPoints(p.slotProjection)} (${formatPoints(p.projection)} × ${p.slotMultiplier})`
-          : formatPoints(p.slotProjection ?? p.projection),
+      render: (p) => {
+        const base = p.ownerOverride != null ? p.ownerOverride : p.projection;
+        const shown =
+          p.slotMultiplier && p.slotMultiplier !== 1
+            ? `${formatPoints(p.slotProjection)} (${formatPoints(base)} × ${p.slotMultiplier})`
+            : formatPoints(p.slotProjection ?? p.projection);
+        return p.ownerOverride != null ? `${shown} · yours` : shown;
+      },
     },
   ];
   return (
@@ -345,6 +350,8 @@ export default function DfsWorkspace() {
   const [buildError, setBuildError] = useState(null);
   const [buildContext, setBuildContext] = useState({ contestId: null, presetId: null });
   const [groupRules, setGroupRules] = useState([]);
+  const [overrides, setOverrides] = useState({});
+  const [boosts, setBoosts] = useState({});
 
   useEffect(() => {
     const stored = readStoredContext();
@@ -382,6 +389,8 @@ export default function DfsWorkspace() {
     setBuildError(null);
     setBuildContext({ contestId: null, presetId: null });
     setGroupRules([]);
+    setOverrides({});
+    setBoosts({});
   }, []);
 
   const onFile = async (e, setter) => {
@@ -416,6 +425,8 @@ export default function DfsWorkspace() {
     setSlate(body);
     setRules({ locks: [], excludes: [] });
     setGroupRules([]);
+    setOverrides({});
+    setBoosts({});
   };
 
   const runBuild = async (lineupsOverride) => {
@@ -424,6 +435,13 @@ export default function DfsWorkspace() {
     const extra = rulesToConstraints(groupRules);
     if (extra.groups.length) payload.groups = extra.groups;
     if (extra.conditionals.length) payload.conditionals = extra.conditionals;
+    const adj = ownerAdjustments(overrides, boosts);
+    if (Object.keys(adj.errors).length) {
+      setBuildError(Object.values(adj.errors)[0]);
+      return;
+    }
+    if (Object.keys(adj.payload.projectionOverrides).length) payload.projectionOverrides = adj.payload.projectionOverrides;
+    if (Object.keys(adj.payload.boosts).length) payload.boosts = adj.payload.boosts;
     if (Object.keys(errors).length) {
       setBuildError(Object.values(errors)[0]);
       return;
@@ -467,6 +485,38 @@ export default function DfsWorkspace() {
       hideBelow: "md",
       accessor: (a) => pointsPerK(a),
       render: (a) => (pointsPerK(a) == null ? "—" : pointsPerK(a).toFixed(2)),
+    },
+    {
+      key: "override",
+      header: "Your proj",
+      sortable: false,
+      hideBelow: "md",
+      render: (a) => (
+        <Input
+          data-numeric
+          inputMode="decimal"
+          className={styles.cellInput}
+          aria-label={`Your projection for ${a.name} (replaces the forecast for this build)`}
+          value={overrides[a.player_id] ?? ""}
+          onChange={(e) => setOverrides((m) => ({ ...m, [a.player_id]: e.target.value }))}
+        />
+      ),
+    },
+    {
+      key: "boost",
+      header: "Boost %",
+      sortable: false,
+      hideBelow: "md",
+      render: (a) => (
+        <Input
+          data-numeric
+          inputMode="decimal"
+          className={styles.cellInput}
+          aria-label={`Selection boost % for ${a.name} (preference only, not a forecast)`}
+          value={boosts[a.player_id] ?? ""}
+          onChange={(e) => setBoosts((m) => ({ ...m, [a.player_id]: e.target.value }))}
+        />
+      ),
     },
     {
       key: "rule",
@@ -616,6 +666,8 @@ export default function DfsWorkspace() {
                   setSlate(snap);
                   setRules({ locks: [], excludes: [] });
                   setGroupRules([]);
+                  setOverrides({});
+                  setBoosts({});
                   setBuild(null);
                 }}
               />

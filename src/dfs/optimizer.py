@@ -94,6 +94,13 @@ class Constraints:
     groups: list[Group] = field(default_factory=list)
     stacks: list[Stack] = field(default_factory=list)
     conditionals: list[Conditional] = field(default_factory=list)
+    # Owner FORECAST edits for this build (points).  Replace the source
+    # projection in the objective AND in the reported totals; recorded as the
+    # owner's, never written back to the slate.
+    projection_overrides: dict[str, float] = field(default_factory=dict)
+    # Owner SELECTION preferences (fraction, e.g. 0.10 = +10%).  Tilt the
+    # objective only; reported projections stay the unboosted forecast.
+    boosts: dict[str, float] = field(default_factory=dict)
     lineups: int = 1
     min_unique: int = 1
     max_exposure: float | None = None
@@ -211,6 +218,23 @@ def parse_constraints(
                 gmax,
             )
         )
+    for key, target, lo, hi, what in (
+        ("projectionOverrides", c.projection_overrides, -50.0, 500.0, "points"),
+        ("boosts", c.boosts, -0.5, 0.5, "a fraction between -0.5 and 0.5"),
+    ):
+        m = raw.get(key) or {}
+        if not isinstance(m, dict):
+            raise ConstraintError("INVALID_CONSTRAINT", f"{key} must map player ID to a number.")
+        for pid, v in m.items():
+            if pid not in ids:
+                raise ConstraintError(
+                    "INVALID_CONSTRAINT",
+                    f"{key} names a player not on this slate.",
+                    {"unknown": [pid]},
+                )
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or not lo <= v <= hi:
+                raise ConstraintError("INVALID_CONSTRAINT", f"{key}[{pid}] must be {what}.")
+            target[pid] = float(v)
     for i, r in enumerate(raw.get("conditionals") or []):
         if not isinstance(r, dict):
             raise ConstraintError("INVALID_CONSTRAINT", "conditionals entries must be objects.")
@@ -732,12 +756,17 @@ def isolate_conflict(
 
 
 def _lineup_payload(
-    assignment: list[tuple[str, str]], pool_by_id: dict[str, SlateAthlete], ruleset: RuleSet
+    assignment: list[tuple[str, str]],
+    pool_by_id: dict[str, SlateAthlete],
+    ruleset: RuleSet,
+    c: Constraints | None = None,
 ) -> dict[str, Any]:
     players = []
     for slot_name, pid in assignment:
         a = pool_by_id[pid]
         mult = ruleset.points_multiplier(slot_name)
+        override = c.projection_overrides.get(pid) if c else None
+        used = override if override is not None else a.projection
         players.append(
             {
                 "slot": slot_name,
@@ -751,13 +780,15 @@ def _lineup_payload(
                 "projection": a.projection,
                 # The stored projection is never changed; the slot's multiplier
                 # (captain 1.5x) is applied here, visibly, exactly once.
+                "ownerOverride": override,
+                "preferenceBoost": (c.boosts.get(pid) if c else None),
                 "slotMultiplier": mult,
-                "slotProjection": round(a.projection * mult, 2)
-                if a.projection is not None
-                else None,
+                # Forecast actually used (owner override if any) × slot multiplier.
+                # Boosts are NOT in here: they tilted selection, not the forecast.
+                "slotProjection": round(used * mult, 2) if used is not None else None,
                 "projectionSource": a.projection_source,
-                "pointsPerK": round(a.projection / (a.salary / 1000), 3)
-                if a.salary and a.projection is not None
+                "pointsPerK": round(used / (a.salary / 1000), 3)
+                if a.salary and used is not None
                 else None,
             }
         )
@@ -784,7 +815,9 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
     started = time.monotonic()
     deadline = started + c.time_budget_s
     by_id = {a.player_id: a for a in athletes}
-    unprojected_locks = [p for p in c.locks if by_id[p].projection is None]
+    unprojected_locks = [
+        p for p in c.locks if by_id[p].projection is None and p not in c.projection_overrides
+    ]
     if unprojected_locks:
         raise ConstraintError(
             "LOCKED_PLAYER_UNPROJECTED",
@@ -799,10 +832,18 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
             "GAME_UNKNOWN",
             "Some players have no game, so the rule set's minimum-games rule cannot be enforced. Re-import the full platform file.",
         )
-    pool = [a for a in athletes if a.projection is not None]
-    excluded_unprojected = [a.player_id for a in athletes if a.projection is None]
-    # Unrounded: the solver optimizes exactly the projections it was given.
-    objective = [float(a.projection) for a in pool]  # type: ignore[arg-type]
+    # An owner override supplies a forecast, so an overridden athlete is
+    # projected even if the source had none (missing stays missing otherwise).
+    forecast = {
+        a.player_id: c.projection_overrides.get(a.player_id, a.projection) for a in athletes
+    }
+    pool = [a for a in athletes if forecast[a.player_id] is not None]
+    excluded_unprojected = [a.player_id for a in athletes if forecast[a.player_id] is None]
+    # Unrounded: the solver optimizes exactly the forecasts it was given, tilted
+    # by any owner selection boost (which never enters a reported total).
+    objective = [
+        float(forecast[a.player_id]) * (1.0 + c.boosts.get(a.player_id, 0.0)) for a in pool
+    ]  # type: ignore[arg-type]
     pool_by_id = {a.player_id: a for a in pool}
     caps = exposure_bounds(c, pool)
     counts: dict[str, int] = {}
@@ -870,7 +911,7 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
             stop = {"reason": "solver_result_invalid", "errors": errors}
             statuses[-1] = "unavailable"
             break
-        payload = _lineup_payload(assignment, pool_by_id, ruleset)
+        payload = _lineup_payload(assignment, pool_by_id, ruleset, c)
         payload["index"] = k + 1
         payload["status"] = status
         lineups.append(payload)

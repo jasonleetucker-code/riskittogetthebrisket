@@ -245,3 +245,27 @@ export function rulesToConstraints(rules) {
   }
   return { groups, conditionals };
 }
+
+/**
+ * Owner forecast overrides and selection boosts → backend payload.
+ * Blank means "none" (absent), never 0. Boosts are entered as percentages
+ * (−50…50) and sent as fractions. Returns { payload, errors }.
+ */
+export function ownerAdjustments(overrides, boosts) {
+  const errors = {};
+  const projectionOverrides = {};
+  const boostMap = {};
+  for (const [pid, raw] of Object.entries(overrides || {})) {
+    if (raw === "" || raw == null) continue;
+    const v = Number(raw);
+    if (!Number.isFinite(v) || v < -50 || v > 500) errors[pid] = "Projection must be a number from -50 to 500.";
+    else projectionOverrides[pid] = v;
+  }
+  for (const [pid, raw] of Object.entries(boosts || {})) {
+    if (raw === "" || raw == null) continue;
+    const v = Number(raw);
+    if (!Number.isFinite(v) || v < -50 || v > 50) errors[pid] = "Boost must be a percentage from -50 to 50.";
+    else if (v !== 0) boostMap[pid] = v / 100;
+  }
+  return { payload: { projectionOverrides, boosts: boostMap }, errors };
+}

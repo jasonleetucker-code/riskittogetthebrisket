@@ -176,3 +176,18 @@ describe("dfs lib — contests", () => {
     expect(presetsForShape(ps, "tournament").map((p) => p.id)).toEqual(["a", "b"]);
   });
 });
+
+describe("dfs lib — owner overrides vs boosts", () => {
+  it("sends overrides as points and boosts as fractions; blank is absent, never 0", async () => {
+    const { ownerAdjustments } = await import("@/lib/dfs");
+    const { payload, errors } = ownerAdjustments({ a: "22.5", b: "" }, { a: "10", c: "0", d: "" });
+    expect(errors).toEqual({});
+    expect(payload).toEqual({ projectionOverrides: { a: 22.5 }, boosts: { a: 0.1 } });
+  });
+
+  it("refuses out-of-range or non-numeric entries", async () => {
+    const { ownerAdjustments } = await import("@/lib/dfs");
+    expect(ownerAdjustments({ a: "abc" }, {}).errors.a).toBeTruthy();
+    expect(ownerAdjustments({}, { a: "75" }).errors.a).toBeTruthy();
+  });
+});

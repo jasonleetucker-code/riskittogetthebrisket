@@ -43,7 +43,7 @@ vocabulary: **SLICE1** (implemented + tested on `claude/dfs-foundation`, PR #153
 | DFS-§8-05 | Sport-specific stacks (NBA/NHL/MMA) | P2 | NEXT | |
 | DFS-§8-06 | Exposure semantics + integer rounding shown | P1 | SLICE1 (max, floor) | Min exposure + scoped exposure pending (needs joint portfolio) |
 | DFS-§8-07 | Minimal conflicting subset, no hidden relaxation | P1 | SLICE1 | Deletion filter over owner items |
-| DFS-§8-08 | Editable forecasts vs preference boosts kept separate | P2 | NEXT | |
+| DFS-§8-08 | Editable forecasts vs preference boosts kept separate | C | SLICE4 | `projectionOverrides` = owner forecast (used in objective AND totals, marked 'yours', never written back, can supply a missing forecast); `boosts` = selection preference (objective only; reported totals stay unboosted). Both tested non-vacuously; per-row inputs on /dfs |
 | DFS-§8-09 | Bulk edit, undo/redo, presets, scenario copies, diff | P2 | NEXT | |
 | DFS-§8-10 | Natural-language control compiled to schema with preview | P5 | LATER | |
 | DFS-§9-01 | Typed versioned entities (Source… AuditEvent) | P0–P7 | PARTIAL | Slate/athlete/ruleset/snapshot/build exist; rest per phase |

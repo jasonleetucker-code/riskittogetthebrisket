@@ -40,6 +40,9 @@ junction to the main checkout's.
 - Test-isolation debt (non-blocking): the shared-`server.app` contaminator seen in #1534's CI is
   unidentified, not disproven — tracked in `docs/OWNER_REQUESTED_TODO.md` ("TEST ISOLATION").
 
+- `/dfs` page chunk at 32.7 KB of its 34 KB budget: code-split the player-pool table next
+  (the Contest panel, sources, summary and rule builder are already lazy).
+
 ## Owner actions that unblock the most
 
 1. Confirm DK/FD NFL rules, or drop real salary files + blank upload templates into
