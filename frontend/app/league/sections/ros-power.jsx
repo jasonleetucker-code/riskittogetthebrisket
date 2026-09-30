@@ -521,6 +521,14 @@ export default function RosPowerSection({ managers } = {}) {
   const [oddsError, setOddsError] = useState(() => _oddsCache.error);
   const [shareOpen, setShareOpen] = useState(false);
   const [schedule, setSchedule] = useState(() => _scheduleCache.block);
+  // Context column only when the contract actually answered; a failed block
+  // is named below the table instead of rendering a column of dashes.
+  const scheduleFailed = schedule?.state === "failed";
+  const scheduleShown = Boolean(schedule) && !scheduleFailed;
+  // Key on the ranking's own season (the two should agree; if they do not,
+  // the lookup misses and shows "—" rather than another season's number).
+  const scheduleSeason = data?.asOfSeason ?? schedule?.currentSeason ?? null;
+  const scheduleSeasonContract = scheduleShown ? schedule?.bySeason?.[String(scheduleSeason)] : null;
 
   useEffect(() => {
     let active = true;
@@ -758,7 +766,7 @@ export default function RosPowerSection({ managers } = {}) {
               >
                 Record
               </th>
-              {schedule ? (
+              {scheduleShown ? (
                 <th
                   style={{ textAlign: "right", padding: "4px 8px" }}
                   title="Schedule impact: actual head-to-head wins minus the wins the same scores average against an equally likely opponent each week. Context only -- it is not part of the power score."
@@ -779,7 +787,7 @@ export default function RosPowerSection({ managers } = {}) {
               <RankingRow
                 key={row.ownerId || i}
                 row={row}
-                scheduleRow={schedule ? teamRowFor(schedule, schedule.currentSeason, row.ownerId) : undefined}
+                scheduleRow={scheduleShown ? teamRowFor(schedule, scheduleSeason, row.ownerId) : undefined}
                 managers={managers}
                 weights={row.weightsApplied || effectiveWeights}
                 expanded={expanded === i}
@@ -793,6 +801,19 @@ export default function RosPowerSection({ managers } = {}) {
             ))}
           </tbody>
         </table>
+        {scheduleShown ? (
+          <p style={{ fontSize: "0.72rem", color: "var(--subtext)", margin: "8px 0 0" }}>
+            Schedule: actual head-to-head wins minus the wins the same scores average against an
+            equally likely opponent. Context only — not part of the power score.
+            {scheduleSeasonContract?.state === "partial"
+              ? " Some games could not be evaluated this season and are left out."
+              : ""}
+          </p>
+        ) : scheduleFailed ? (
+          <p style={{ fontSize: "0.72rem", color: "var(--subtext)", margin: "8px 0 0" }}>
+            Schedule context could not be calculated right now; the rankings are unaffected.
+          </p>
+        ) : null}
       </Card>
 
       <Card

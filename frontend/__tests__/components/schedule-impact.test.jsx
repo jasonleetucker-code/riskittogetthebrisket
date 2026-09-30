@@ -212,4 +212,10 @@ describe("teamRowFor (lookup only)", () => {
     expect(teamRowFor(block, "2026", "Z")).toBeNull();
     expect(teamRowFor(null, "2026", "A")).toBeNull();
   });
+  it("never matches an orphan roster (ownerId null) for a missing owner id", () => {
+    const orphan = { ...team("roster:3"), ownerId: null, orphanRoster: true };
+    const b = { currentSeason: "2024", bySeason: { 2024: { teams: [orphan] } } };
+    expect(teamRowFor(b, "2024", null)).toBeNull();
+    expect(teamRowFor(b, "2024", undefined)).toBeNull();
+  });
 });

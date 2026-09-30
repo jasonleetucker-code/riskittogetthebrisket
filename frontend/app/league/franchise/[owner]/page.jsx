@@ -12,6 +12,7 @@ import ShareButton from "../../ShareButton.jsx";
 import RosterComparePanel from "@/components/RosterComparePanel";
 import { ImpactValue, ScheduleImpactSummary } from "@/components/league/ScheduleImpact";
 import { teamRowFor } from "@/lib/schedule-impact";
+import { fetchBackendJson } from "@/lib/server-backend";
 
 function _backend() {
   const base = process.env.BACKEND_API_URL || "http://127.0.0.1:8000";
@@ -37,16 +38,11 @@ async function fetchFranchise(ownerId) {
 // Schedule Intelligence: the canonical schedule-impact contract rides on
 // the public luck section.  Fetched server-side with the same cache window;
 // a failure only hides the schedule context, never the franchise page.
+// Bounded (fetchBackendJson's visitor budget) so a slow luck section can
+// never hold the whole document.
 async function fetchScheduleBlock() {
-  const url = `${_backend()}/api/public/league/luck`;
-  try {
-    const res = await fetch(url, { next: { revalidate: 60 } });
-    if (!res.ok) return null;
-    const body = await res.json();
-    return body?.data?.scheduleImpact || null;
-  } catch {
-    return null;
-  }
+  const body = await fetchBackendJson("/api/public/league/luck", { revalidate: 60 });
+  return body?.data?.scheduleImpact || null;
 }
 
 export async function generateMetadata({ params }) {
@@ -89,8 +85,16 @@ export default async function FranchisePage({ params }) {
   const fr = data?.franchiseDetail || data?.data?.detail?.[ownerId] || null;
   const managers = buildManagerLookup(data?.league);
   const scheduleSeason = schedule?.currentSeason || null;
-  const scheduleContract = scheduleSeason ? schedule?.bySeason?.[scheduleSeason] || null : null;
+  const scheduleContract =
+    schedule?.state === "failed"
+      ? { state: "failed" }
+      : scheduleSeason
+        ? schedule?.bySeason?.[scheduleSeason] || null
+        : null;
   const scheduleRow = teamRowFor(schedule, scheduleSeason, ownerId);
+  // Per-season column only when the contract answered; a failed block is
+  // explained once, in the card, not as a column of dashes.
+  const seasonColumn = Boolean(schedule) && schedule.state !== "failed";
 
   if (!fr) {
     return (
@@ -228,7 +232,7 @@ export default async function FranchisePage({ params }) {
                 <th style={{ textAlign: "right" }}>PA</th>
                 <th style={{ textAlign: "right" }}>Seed</th>
                 <th style={{ textAlign: "right" }}>Final</th>
-                {schedule ? (
+                {seasonColumn ? (
                   <th style={{ textAlign: "right" }} title="Actual head-to-head wins minus the wins the same scores average against an equally likely opponent each week.">
                     Schedule
                   </th>
@@ -251,10 +255,15 @@ export default async function FranchisePage({ params }) {
                   </td>
                   <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{r.standing}</td>
                   <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{r.finalPlace ?? "—"}</td>
-                  {schedule ? (
+                  {seasonColumn ? (
                     <td style={{ textAlign: "right" }}>
                       {teamRowFor(schedule, r.season, ownerId) ? (
-                        <ImpactValue value={teamRowFor(schedule, r.season, ownerId).scheduleImpact} />
+                        <span>
+                          <ImpactValue value={teamRowFor(schedule, r.season, ownerId).scheduleImpact} />
+                          {schedule.bySeason?.[String(r.season)]?.state === "partial" ? (
+                            <span style={{ color: "var(--subtext)", fontSize: "0.72rem" }}> (partial)</span>
+                          ) : null}
+                        </span>
                       ) : (
                         "—"
                       )}

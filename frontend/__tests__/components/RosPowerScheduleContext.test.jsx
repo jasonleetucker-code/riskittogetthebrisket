@@ -31,6 +31,7 @@ vi.mock("../../app/league/shared-server.jsx", () => ({
 const ROWS = [
   { ownerId: "o1", displayName: "Alice", teamName: "A Team", rank: 1, powerScore: 92.1, record: "2-1" },
   { ownerId: "o2", displayName: "Bob", teamName: "B Team", rank: 2, powerScore: 80.4, record: "1-2" },
+  { ownerId: "o3", displayName: "Cara", teamName: "C Team", rank: 3, powerScore: 71.9, record: "1-2" },
 ];
 
 function power() {
@@ -67,22 +68,34 @@ function scheduleTeam(ownerId, impact, extra = {}) {
   };
 }
 
-function serve({ withSchedule }) {
+// Impact order deliberately runs AGAINST rank order (and is not its exact
+// reverse either), so sorting the table by schedule impact in EITHER
+// direction changes it -- the invariance test must catch both.
+const IMPACTS = { o1: -0.4, o2: 0.8, o3: 0.1 };
+
+function serve({ withSchedule, failed = false, season = "2026" }) {
   global.fetch = vi.fn((url) => {
     const u = String(url);
     let body = power();
     if (u.includes("playoffOdds")) body = { owners: [] };
     if (u.includes("/luck")) {
-      body = withSchedule
-        ? {
-            data: {
-              scheduleImpact: {
-                currentSeason: "2026",
-                bySeason: { 2026: { state: "complete", teams: [scheduleTeam("o1", 0.8), scheduleTeam("o2", -0.4)] } },
+      body = failed
+        ? { data: { scheduleImpact: { currentSeason: null, bySeason: {}, state: "failed" } } }
+        : withSchedule
+          ? {
+              data: {
+                scheduleImpact: {
+                  currentSeason: season,
+                  bySeason: {
+                    [season]: {
+                      state: "complete",
+                      teams: Object.entries(IMPACTS).map(([o, v]) => scheduleTeam(o, v)),
+                    },
+                  },
+                },
               },
-            },
-          }
-        : { data: {} };
+            }
+          : { data: {} };
     }
     return Promise.resolve({ ok: true, json: () => Promise.resolve(body) });
   });
@@ -122,6 +135,32 @@ describe("Power Rankings schedule context", () => {
     expect(tableSnapshot()).toEqual(without);
     expect(screen.getByText("+0.8")).toBeTruthy();
     expect(screen.getByText("−0.4")).toBeTruthy();
+    expect(screen.getByText(/Context only — not part of the power score/)).toBeTruthy();
+  });
+
+  it("a failed schedule block adds no column and says so, ranks unchanged", async () => {
+    serve({ withSchedule: false });
+    let Section = await renderFresh();
+    const first = render(<Section />);
+    await waitFor(() => expect(screen.getAllByText("Alice").length).toBeGreaterThan(0));
+    const without = tableSnapshot();
+    first.unmount();
+
+    serve({ withSchedule: true, failed: true });
+    Section = await renderFresh();
+    render(<Section />);
+    await waitFor(() => expect(screen.getByText(/could not be calculated right now/)).toBeTruthy());
+    expect(screen.queryByText("Schedule")).toBeNull();
+    expect(tableSnapshot()).toEqual(without);
+  });
+
+  it("looks up the ranking's own season, never another season's numbers", async () => {
+    serve({ withSchedule: true, season: "2025" });
+    const Section = await renderFresh();
+    render(<Section />);
+    await waitFor(() => expect(screen.getByText("Schedule")).toBeTruthy());
+    expect(screen.queryByText("+0.8")).toBeNull();
+    expect(screen.queryByText("−0.4")).toBeNull();
   });
 
   it("the expanded row explains the schedule context as not part of the score", async () => {
@@ -130,7 +169,7 @@ describe("Power Rankings schedule context", () => {
     render(<Section />);
     await waitFor(() => expect(screen.getByText("+0.8")).toBeTruthy());
     fireEvent.click(screen.getAllByText("Alice")[0]);
-    await waitFor(() => expect(screen.getByText(/not part of the power score/)).toBeTruthy());
-    expect(screen.getByText(/equally likely opponent/)).toBeTruthy();
+    await waitFor(() => expect(screen.getByText(/Schedule context \(not part of the power score\)/)).toBeTruthy());
+    expect(screen.getByText(/Schedule context \(not part of the power score\)/).textContent).toMatch(/equally likely opponent/);
   });
 });
