@@ -61,7 +61,7 @@ vocabulary: **SLICE1** (implemented + tested on `claude/dfs-foundation`, PR #153
 | DFS-§13-03 | NHL line/PP/goalie model | P4 | LATER | |
 | DFS-§13-04 | MMA joint fight model | P4 | LATER | |
 | DFS-§14-01 | Sportsbook/prop intelligence, de-vig, consensus | P3/P4 | BLOCKED(licensed odds feed not identified) | |
-| DFS-§15-01 | Podcast discovery → transcripts → claims → controlled use | P3 | NEXT | 29 seeds registered |
+| DFS-§15-01 | Podcast discovery → transcripts → claims → controlled use | D | PARTIAL (SLICE4 claim core) | `src/dfs/evidence.py`: schema + policy every extractor must pass — conditional inactive until resolved, preference/popularity cannot carry numbers, intervals are attributed ranges, post-lock/retrospective/promotion excluded, independence counted by primary source, retraction/supersession without deletion, no look-ahead, injection-inert; model use capped at shadow. Feed discovery research in progress; acquisition/transcription NEXT |
 | DFS-§16-01 | Ownership / field / duplication models | P4 | LATER | |
 | DFS-§17-01 | Deterministic MILP baseline with exact small-case agreement | P1 | SLICE1 | Brute-force parity tests (DK + FD rules) |
 | DFS-§17-02 | Joint outcome simulation, exact payout/ties ($1,000/$100 → $550) | P4 | PARTIAL (SLICE2) | Exact rank payout + split-position ties in integer cents, fractional cents reported exactly, unknown tie rule → unavailable ($550 fixture green). Joint simulation still LATER |
