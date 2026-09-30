@@ -63,7 +63,7 @@
      "https://en.wikipedia.org/wiki/RotoGrinders",
      "search:Stokastic DFS acquired Better Collective"
     ],
-    "notes": "Owner: Better Collective (60% May 2019, remaining 40% Nov 2021; source: Wikipedia). Site footer states only 'RotoGrinders 2026 Copyright'. NFL DFS projections page credits an in-house analyst (Chris Gimino), includes a pOWN column and 'Download as CSV' (premium-gated). Premium page says LineupHQ can import/blend data from any source. Same parent (Better Collective) as FantasyLabs (A-013) and Action Network; not an alias. Pricing page shows only paid plans (RG DFS, RG MVP, RG Props, single sport); free editorial content exists on site. prop_model inferred from the 'RG Props' tier name only. SimLabs sims mentioned on homepage.",
+    "notes": "Owner: Better Collective (60% May 2019, remaining 40% Nov 2021; source: Wikipedia). Site footer states only 'RotoGrinders 2026 Copyright'. NFL DFS projections page credits an in-house analyst (Chris Gimino), includes a pOWN column and 'Download as CSV' (premium-gated). Premium page says LineupHQ can import/blend data from any source. Same parent (Better Collective) as FantasyLabs (A-013) and Action Network; not an alias. Pricing page shows only paid plans (RG DFS, RG MVP, RG Props, single sport); free editorial content exists on site. prop_model inferred from the 'RG Props' tier name only. SimLabs sims mentioned on homepage. 2026-09-30: /lineups/{nfl,nba,nhl} are server-rendered (starting-lineup / goalie candidates); projections render client-side and the CSV download is premium — neither is collected. No connector yet (DFS-AUTO-22).",
     "method": "Research agents (public pages + search), 2026-09-30. Search-snippet-only claims are labelled in notes."
    },
    "categories": [
@@ -84,6 +84,11 @@
    "api": {
     "state": "csv_export_documented",
     "docsUrl": null
+   },
+   "ownerAuthorization": {
+    "statedOn": "2026-09-30",
+    "scope": "owner states explicit permission to use RotoGrinders; applied only to content served without login, respecting robots.txt (disallows query strings and .csv) — no premium, paywall or login bypass",
+    "redistribution": "not established"
    }
   },
   {
@@ -1083,12 +1088,13 @@
     "note": "Terms, API access and redistribution rights NOT assessed. No subscription is held."
    },
    "connector": {
-    "state": "manual_adapter",
+    "state": "scheduled_adapter",
     "module": "src/dfs/sources_dff.py",
-    "lastSuccess": "2026-09-30T20:20:00+00:00",
+    "lastSuccess": "2026-09-30T20:42:09+00:00",
     "lastMeaningfulUpdate": null,
     "provides": [
-     "projection",
+     "platform week-pool salary + position (DFS-AUTO-03)",
+     "projection (one family)",
      "context: spread / over-under / implied team total",
      "injury flag"
     ],
@@ -1101,8 +1107,12 @@
      "draftkings",
      "fanduel"
     ],
-    "cadence": "manual, cached 15 min",
-    "pointInTime": "recorded at fetch time (page states no publish time)"
+    "cadence": "dynasty-dfs-auto-refresh timer every 10 min; refreshed by time to lock (2 h / 30 min / 10 min); page cached 15 min",
+    "pointInTime": "page's own 'Updated At' stamp (publish time) recorded beside fetch time",
+    "modules": [
+     "src/dfs/sources_dff.py",
+     "src/dfs/auto/live.py"
+    ]
    },
    "verification": {
     "checkedOn": "2026-09-30",
@@ -1112,7 +1122,7 @@
      "https://www.dailyfantasyfuel.com/robots.txt (disallows /lineup/* only; checked 2026-09-30)",
      "https://www.dailyfantasyfuel.com/nfl/projections/draftkings (HTTP 200, 435 rows parsed by the adapter, 2026-09-30)"
     ],
-    "notes": "Site says projections are hand-cut in-house rather than purely model-based. No parent company disclosed. Also MLB, WNBA, Golf; PrizePicks/Underdog/Pick6 prop tools. Lineup export to DK/FD is a lineup-upload feature, not a projection data export.",
+    "notes": "Site says projections are hand-cut in-house rather than purely model-based. No parent company disclosed. Also MLB, WNBA, Golf; PrizePicks/Underdog/Pick6 prop tools. Lineup export to DK/FD is a lineup-upload feature, not a projection data export. Its 'hand-cut in-house' projections are treated as a family separate from RotoWire (Sleeper's model); that independence is the site's own statement, not verified.",
     "method": "Research agents (public pages + search), 2026-09-30. Search-snippet-only claims are labelled in notes."
    },
    "categories": [

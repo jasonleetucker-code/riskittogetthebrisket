@@ -125,6 +125,8 @@ function ExportButton({ buildId }) {
 export default function BuildResult({ build, ruleset, athletes }) {
   const r = build.result;
   const conflict = r.shortfall?.conflict;
+  // Automatic slates carry ChaseUpside ids (the server refuses their upload export too).
+  const syntheticIds = (athletes || []).some((a) => String(a.player_id || "").startsWith("auto-"));
   return (
     <div className={styles.result}>
       <div className={styles.resultHead}>
@@ -215,7 +217,14 @@ export default function BuildResult({ build, ruleset, athletes }) {
           <ContestModel build={build} snapshotId={build.snapshot?.id} athletes={athletes} />
         </Suspense>
       ) : null}
-      {r.built ? (
+      {r.built && syntheticIds ? (
+        <p className={styles.note} role="note">
+          Built on an automatic slate: its players carry ChaseUpside IDs, not the platform&apos;s, so no upload file is
+          offered. Enter these lineups by hand, or load the platform&apos;s salary file under Advanced and rebuild for an
+          upload-ready file.
+        </p>
+      ) : null}
+      {r.built && !syntheticIds ? (
         <div className={styles.exportRow}>
           <ExportButton buildId={build.buildId} />
           <p className={styles.note}>
@@ -226,7 +235,7 @@ export default function BuildResult({ build, ruleset, athletes }) {
           </p>
         </div>
       ) : null}
-      {r.built ? (
+      {r.built && !syntheticIds ? (
         <Suspense fallback={null}>
           <EntriesExport buildId={build.buildId} />
         </Suspense>

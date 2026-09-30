@@ -154,3 +154,36 @@ statistically meaningful evidence ≠ live profitability.
 | DFS-MOD-15 | Rule provenance (platform, sport, format, version, source, verification status, last checked) | PARTIAL | `config/dfs/rulesets.json` verification blocks + `tests/dfs/test_rule_provenance.py` (evidence required to verify; none verified today, pinned). Official rules still unverifiable by agents (403) |
 | DFS-MOD-16 | UI: slate / contest / model health / portfolio / results review with progressive disclosure | PARTIAL | Lazy `ContestModel.jsx` (simulate a build, contest-aware portfolio: EV ± MC error, cash/win, expected copies, assumptions, within-model baseline, decision id — "model output, not evidence") and `Scorecards.jsx` (stored evaluations with n + small-sample flag, backtest replay) + `GET /api/dfs/evaluations`; component tests + Playwright axe/journey green; `/dfs` chunk unchanged at 23.3 KB. Ownership/freshness model-health summary on the slate view still pending |
 | DFS-MOD-17 | Performance/safety: seeds, bounded simulations, timeouts, cache keys, no request-thread solver concurrency, upload limits | PARTIAL | ADR-DFS-012 pinned solver thread + structural test; seeded + bounded simulation/field/portfolio/backtest inputs; per-route upload caps under nginx 25 MB; background jobs (`src/dfs/jobs.py`, ADR-DFS-023) for long backtests. Simulation result caching keyed by inputs digest + model versions: pending |
+
+## Zero manual CSV imports — permanent owner requirement (third directive, 2026-09-30)
+
+Primary workflow: open `/dfs` → pick platform / sport / slate → optimize → export, with nothing
+downloaded or uploaded. Manual files = fallback / override / testing, under *Advanced*. ADR-DFS-024.
+Status words as above. Intake: `docs/OWNER_REQUESTED_TODO.md` (P0 row); plan: `docs/EXECUTION_PLAN.md`.
+
+| ID | Requirement | Status | Implementation / evidence |
+|---|---|---|---|
+| DFS-AUTO-01 | Product contract changed: automated data first, manual second (intake, Calculator Ideas, plan, roadmap, guide, ADR, UI copy) | DONE | OWNER_REQUESTED_TODO P0 row; EXECUTION_PLAN paragraph; ADR-DFS-024; ROADMAP phase AUTO; USER_GUIDE step 2; BRISKET_IDEAS; `AutoSlates.jsx` + *Advanced* disclosure |
+| DFS-AUTO-02 | Slate auto-discovery per platform (Main / Early / Late / Primetime / single-game / full) | PARTIAL | `auto/nfl.derive_slates` — NFL classic windows DERIVED from the schedule, labelled unverified; single-game (Showdown) slates not derived yet; platform slate lists have no permitted source |
+| DFS-AUTO-03 | Automated salaries, positions, eligibility per platform | PARTIAL | NFL DK + FD from DFF week pools (`auto/nfl.build_pool`; DK `DST` / FD `D`); NBA/NHL/MMA → AUTO-19/20 |
+| DFS-AUTO-04 | Scheduled refresh on the existing scheduler | DONE (deploy pending) | `deploy/systemd/dynasty-dfs-auto-refresh.*` via `install_simple_timer`; `scripts/refresh_dfs_auto_slates.py` (exit 0/1/2); timer wiring test green |
+| DFS-AUTO-05 | Games, teams, start times, lock from the schedule owner | DONE (NFL) | `nfl_data.ingest.fetch_schedules`; ET → UTC; a row without a kickoff time is dropped, never guessed |
+| DFS-AUTO-06 | Identity through the Calculator owner; ambiguity quarantined | DONE (NFL) | `resolve_canonical_v2`; quarantine list in `poolReport`; live 2026-09-30: 401 resolved, 32 team defenses, 2 unresolved of 435 (DK) |
+| DFS-AUTO-07 | Freshness states CURRENT / AGING / STALE / UNAVAILABLE / DEGRADED / SOURCE_ERROR | DONE | `auto/refresh.freshness`; `tests/dfs/test_auto_nfl.py` |
+| DFS-AUTO-08 | Cadence by time to lock; locked slates frozen | DONE | `auto/refresh.cadence` (2 h / 30 min / 10 min / none) |
+| DFS-AUTO-09 | Raw-stat projections rescored per platform scoring | PARTIAL | `auto/scoring_cards.py` + the existing scorer; cards UNVERIFIED (official pages refuse agents); bonus approximation disclosed |
+| DFS-AUTO-10 | Independent-family ensemble, no double counting | PARTIAL | DFF + Sleeper/RotoWire; one vote per family; DFF's independence from RotoWire is DFF's own claim, unverified; per-family values + disagreement on every athlete |
+| DFS-AUTO-11 | Injury / role engine | PARTIAL | Sleeper `injury_status` + DFF flag; Out/IR/PUP/Suspended withheld (never 0); no role/usage model |
+| DFS-AUTO-12 | Sportsbook / prop evidence, controlled | BLOCKED | Context only (DFF spread/total, nflverse lines), never a projection input. A licensed odds/props feed is paid → owner approval |
+| DFS-AUTO-13 | UX: pre-populated `/dfs`; manual import under *Advanced* | DONE | `AutoSlates.jsx` opens Main (else the next unlocked slate); `DfsWorkspace.jsx` *Advanced · Data overrides / manual import*; vitest |
+| DFS-AUTO-14 | Never fake data; missing ≠ zero; derivations labelled | DONE | unpriced rows refused; unprojected left out; `derived_from_schedule`; synthetic ids labelled + export-refused |
+| DFS-AUTO-15 | Layered fallback: licensed feed → automatic → owner file | PARTIAL | automatic + owner file live; licensed feed adapter exists, OFF (paid) |
+| DFS-AUTO-16 | Preload / cache; no fetch on the request path | DONE | system snapshots; a request only lists / clones; a due refresh is a background job |
+| DFS-AUTO-17 | Point-in-time archive of every automatic build | DONE | `pit.capture_snapshot` (`via: auto_refresh`); DFF page SHA-256 + publish stamp in provenance |
+| DFS-AUTO-18 | Upload-ready exports without manual files | BLOCKED | No permitted free source publishes DK/FD player ids. Unblock: the owner approves a licensed slate feed (SportsDataIO DFS slates), or loads the platform file. Refused as `PLATFORM_IDS_UNAVAILABLE` meanwhile |
+| DFS-AUTO-19 | NBA + NHL automation | LATER | DFF has NBA/NHL DK+FD pages (the adapter parses them); needs a per-sport schedule/start-time source + slate windows |
+| DFS-AUTO-20 | MMA automation | BLOCKED | No permitted fight-card + salary source found |
+| DFS-AUTO-21 | Per-source rights / cost records + provider matrix | DONE | `config/dfs/source_seeds.json`; `docs/dfs/SOURCES.md` §9 |
+| DFS-AUTO-22 | RotoGrinders (owner permission) | PARTIAL | Permission recorded on A-001 (login-free, robots-respecting only); `/lineups/*` pages are the candidate for NBA/NHL starters; no connector yet |
+| DFS-AUTO-23 | Owner acceptance: Sunday DK NFL Main with nothing downloaded or uploaded | PARTIAL | Proven against live sources locally (2026-09-30: DK Main week 4 = 12 games, 330 players, 330 projected, optimal lineup built) and in `tests/dfs/test_auto_api.py`; production proof after deploy |
+| DFS-AUTO-24 | Optimizer not regressed; tests | DONE | all `tests/dfs` green; the optimizer consumes the automatic slate unchanged |

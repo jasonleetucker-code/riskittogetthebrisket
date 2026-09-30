@@ -20,6 +20,8 @@
  * ───────────────
  *   axe WCAG 2.0/2.1 A+AA   zero violations: honest "not available" state
  *                           (MMA), imported slate, built lineup
+ *   auto panel              the automatic-slate panel renders an honest state first
+ *                           (DFS-AUTO-13); manual files sit under Advanced
  *   journey                 import → player pool → Optimal Lineup → a legal
  *                           lineup with the upload-CSV action, labelled
  *                           not contest-evaluated
@@ -59,6 +61,40 @@ async function openWorkspace(page) {
   await expect(page.getByText(/Research only — rules unverified|Not available yet/).first()).toBeVisible({ timeout: 30_000 });
 }
 
+// Manual files live under Advanced since the zero-upload requirement (DFS-AUTO-13). It opens by
+// itself when no automatic slate exists; otherwise the owner opens it.
+async function openAdvanced(page) {
+  const box = page.getByLabel("Salary CSV text");
+  if (!(await box.isVisible())) {
+    await page.getByText("Advanced · Data overrides / manual import").click();
+  }
+  await expect(box).toBeVisible({ timeout: 15_000 });
+}
+
+test("the automatic slate panel comes first and always says what it has (DFS-AUTO)", async ({ authedPage: page }, testInfo) => {
+  await openWorkspace(page);
+  await page.getByRole("radio", { name: "NFL" }).click();
+  await page.getByRole("radio", { name: "DraftKings" }).click();
+  // One of the honest states — a slate list, a refresh in progress, or unavailable (with the
+  // manual path offered) — never a blank panel and never an upload prompt first.
+  await expect(
+    page
+      .getByRole("list", { name: "DraftKings slates" })
+      .or(page.getByText(/Fetching DraftKings slates now|No automatic DraftKings slates|Automatic slates unavailable/))
+      .first(),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Advanced · Data overrides / manual import")).toBeVisible();
+  // When the stack has automatic slates, the owner's acceptance path must work with nothing
+  // uploaded: a slate opens by itself and its player pool renders.
+  if (await page.getByRole("list", { name: "DraftKings slates" }).isVisible()) {
+    await expect(page.getByRole("button", { name: "In use" })).toBeVisible({ timeout: 30_000 });
+    const pool = page.getByRole("table", { name: /Slate player pool/ });
+    await expect(pool).toBeVisible({ timeout: 30_000 });
+    await expect(pool.getByRole("row")).not.toHaveCount(1);
+  }
+  await scan(page, testInfo, "dfs-auto-panel");
+});
+
 test("an unsupported sport shows an honest state, not fake controls", async ({ authedPage: page }, testInfo) => {
   await openWorkspace(page);
   await page.getByRole("radio", { name: "FanDuel" }).click();
@@ -72,6 +108,7 @@ test("import a slate, build the optimal lineup, and keep the page accessible", a
   await openWorkspace(page);
   await page.getByRole("radio", { name: "NFL" }).click();
   await page.getByRole("radio", { name: "DraftKings" }).click();
+  await openAdvanced(page);
   await page.getByLabel("Salary CSV text").fill(SALARIES);
   await page.getByLabel("Projection CSV text").fill(PROJECTIONS);
   await expect(page.getByText("Detected: DraftKings · NFL · Classic")).toBeVisible({ timeout: 15_000 });

@@ -94,7 +94,7 @@ the DFS platforms; that is recorded as `corporateParent`, not as a data dependen
 
 | Data type | Connected today | Researched, not connected (why) | PIT usefulness |
 |---|---|---|---|
-| Salaries / roster eligibility | Official DK/FD salary CSVs (owner upload) | SportsDataIO DFS slates (paid; key not provisioned; flag OFF) | High — the file IS the pre-lock slate |
+| Salaries / roster eligibility | **Automatic (NFL DK+FD):** Daily Fantasy Fuel week pools via `src/dfs/auto` (DFS-AUTO-03); official DK/FD salary CSVs (owner upload, *Advanced*) | SportsDataIO DFS slates (paid; key not provisioned; flag OFF) — the only path to platform player ids | High — recorded with the page's own publish stamp |
 | Projections | Owner CSV import; **Daily Fantasy Fuel** (`src/dfs/sources_dff.py`, NFL/NBA/NHL, DK/FD) | Free/freemium pages (CeeGeeDFS, Fantasy Team Advice CSV, DraftEdge, RotoBaller…), paid (RotoGrinders, FantasyLabs, Stokastic, SaberSim, ETR…) — not yet adapted | Only as fetched: recorded at fetch time |
 | Ownership (projected) | Owner CSV import | CeeGeeDFS (free), Fantasy Team Advice (freemium CSV), paid ownership (RotoGrinders pOWN, FantasyLabs, Stokastic, SaberSim) | Critical input; realized ownership comes from standings |
 | Betting lines / game environment | **Daily Fantasy Fuel** page context (spread, over/under, implied team total) | Licensed odds APIs (The Odds API, OpticOdds/OddsJam, SportsDataIO) — paid, owner approval; books' own sites barred by terms | High for ownership features; recorded at fetch time |
@@ -114,3 +114,27 @@ the DFS platforms; that is recorded as `corporateParent`, not as a data dependen
   realized ownership. Free alternative: start recording DFF + owner imports now, so history accrues.
 - **SportsDataIO DFS slates** (adapter built, flag OFF): automatic slate loading. Free alternative:
   official CSV upload (works today).
+
+## 9. Provider matrix for the zero-upload workflow (DFS-AUTO-21, 2026-09-30)
+
+States: **FREE** (no cost, permitted path in use or usable), **ALREADY AVAILABLE** (a Calculator owner
+already collects it), **PAID** (needs a subscription — owner approval, nothing purchased), **UNKNOWN**
+(terms or coverage unresolved → research-only), **NOT PERMITTED** (terms, robots, login or private
+endpoints bar it).
+
+| Data | Source | State | Used by `/dfs` today | Notes |
+|---|---|---|---|---|
+| NFL schedule, kickoff, lock | nflverse (`nfl_data.ingest`) | ALREADY AVAILABLE | yes | per-season file 404s, the combined `games.csv` rung answers (pre-existing `url_stale` warning) |
+| NFL DK/FD pool, salary, position | Daily Fantasy Fuel (A-020) | FREE (owner-authorised) | yes | week pool; slate windows derived; no platform ids |
+| NBA/NHL DK/FD pool, salary | Daily Fantasy Fuel (A-020) | FREE (owner-authorised) | not yet (DFS-AUTO-19) | pages parse; per-sport schedule needed |
+| MMA pool, salary | — | UNKNOWN | no (DFS-AUTO-20) | no permitted source found |
+| DK/FD platform player ids, official slate lists | SportsDataIO DFS slates | PAID | no (DFS-AUTO-18) | adapter built, flag OFF |
+| DK/FD platform player ids, slate lists | DraftKings / FanDuel lobbies or private JSON | NOT PERMITTED | never | owner constraint |
+| NFL projections (stat lines, rescored) | Sleeper weekly (RotoWire model) | ALREADY AVAILABLE | yes | flag `sleeper_weekly_projections` |
+| NFL projections (fantasy points) | Daily Fantasy Fuel | FREE (owner-authorised) | yes | "hand-cut in-house" (site's claim) |
+| Projections (keyed) | SportsDataIO / Fantasy Nerds weekly | PAID | no | Calculator lanes exist, flags off |
+| Projections, starting lineups | RotoGrinders (A-001) | FREE for login-free pages (owner permission) / PAID for premium | no (DFS-AUTO-22) | projections render client-side; CSV premium; `/lineups/*` server-rendered |
+| Injury status | Sleeper directory; DFF flag | ALREADY AVAILABLE / FREE | yes | Out/IR withheld |
+| Game lines (spread / total) | DFF page context; nflverse | FREE / ALREADY AVAILABLE | context only | never a projection input |
+| Player props, live odds | licensed aggregators (The Odds API, OpticOdds, SportsDataIO) | PAID | no (DFS-AUTO-12) | books' own sites barred by terms |
+| Ownership projections | CeeGeeDFS, Fantasy Team Advice; paid (RotoGrinders pOWN, FantasyLabs, Stokastic) | UNKNOWN / PAID | no | structural baseline + field-implied challenger instead |

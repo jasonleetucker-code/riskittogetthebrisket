@@ -43,7 +43,7 @@ export default function SourcePulls({ snapshotId, sport }) {
 
   return (
     <div className={styles.providerBox}>
-      <Button variant="ghost" onClick={pull} loading={busy}>
+      <Button variant="ghost" className={styles.wrapBtn} onClick={pull} loading={busy}>
         Pull Daily Fantasy Fuel projections + game lines
       </Button>
       {out ? (

@@ -9,6 +9,7 @@ kept in the right-hand column so no requirement lost its home. Requirement IDs:
 | Phase | Goal | Was | Position | Gate |
 |---|---|---|---|---|
 | **P0** Audit & contracts | Mandate + addendum registered, owners mapped, flags, ADRs, zero-loss map | P0 | **DONE** (#1534) | No duplicate engines; every requirement tracked |
+| **AUTO** Automated data first (permanent owner requirement, 2026-09-30) | Zero manual CSV imports in the primary workflow: automatic slates, salaries, schedule, identity, status, projections, freshness; manual files under *Advanced* | new | **NFL DK+FD SLICE BUILT** (`claude/dfs-auto`, ADR-DFS-024, DFS-AUTO-01..24); NBA/NHL LATER, MMA + platform ids + odds BLOCKED | Owner opens `/dfs` on a Sunday and builds a DK NFL Main lineup with nothing downloaded or uploaded |
 | **A** Platform / slate foundation | Canonical slate model; DraftKings + FanDuel adapters with auto-detection; licensed slate feed (SportsDataIO) adapter; CSV import + export; provider × platform × sport capability matrix; scoring/roster contracts | P1 + P2 (rules) | **NOW** — slice 3 | A real slate loads (feed or official CSV) into ONE canonical model; unsupported/unverified combinations fail with named states |
 | **B** Contest profile | Quick (preset), exact (editor + payout parser), imported contest; rake/overlay; field size / max entries; contest ↔ slate link | P2 (contests) | **SLICE BUILT** (`claude/dfs-contests`); import + slate link + quick-mode UI remain | Exact economics correct on fixtures; presets never pose as exact contests |
 | **C** Base optimizer | Legal lineups, mean-projection baseline, locks/excludes/groups/stacks/exposures, fixed N, export | P1 | **BUILT** (#1534); min/max exposure, conditional rules, salary range, overrides/boosts and sport-neutral team/game stacks (NHL 3-2 / 4-3, NBA game stacks) built on `claude/dfs-multisport`; NHL LINE stacks remain (need line data no licensed feed supplies yet) | Load slate → contest → projections → constraints → N lineups → validate → export, proven end to end |
@@ -22,7 +23,17 @@ kept in the right-hand column so no requirement lost its home. Requirement IDs:
 Advanced work is never discarded when the order changes: the MILP, contest economics and
 presets already built are reconnected to the canonical slate as Phase A lands (addendum §27).
 
-## Current slice (Phase A, slice 3) — on `claude/dfs-contests`
+## Current slice — zero-upload NFL (phase AUTO) — on `claude/dfs-auto`
+
+- `src/dfs/auto/`: schedule-derived NFL slates for DraftKings and FanDuel, DFF week-pool salaries,
+  Sleeper/RotoWire stat lines rescored per platform + DFF as a second family, canonical identity,
+  injury withholding, freshness states, time-to-lock cadence, `system:auto` snapshots + PIT ledger.
+- `dynasty-dfs-auto-refresh` timer; `GET /api/dfs/auto/slates`, `POST /api/dfs/auto/slates/select`.
+- UI: automatic slates first (Main opens by default); manual import under *Advanced*.
+- Upload files refused on automatic slates (`PLATFORM_IDS_UNAVAILABLE`) until platform ids have a
+  permitted source.
+
+## Earlier slice (Phase A, slice 3) — on `claude/dfs-contests`
 
 - Canonical slate model (`src/dfs/slate.py`) that every downstream system reads.
 - Platform-file adapters with **auto-detection** of platform, sport and format; explicit
@@ -39,7 +50,7 @@ presets already built are reconnected to the canonical slate as Phase A lands (a
 
 | Item | Blocker | Unblock |
 |---|---|---|
-| Automatic slate loading (NFL/NBA/NHL) | No licensed feed key; price/licence unknown | Owner approves a SportsDataIO plan and sets `SPORTSDATAIO_API_KEY` (never committed) |
+| Automatic slate loading | **NFL DK+FD now automatic without a feed** (DFS-AUTO); NBA/NHL need a per-sport schedule source; UPLOAD-READY automatic slates need platform ids, which no permitted free source publishes | NBA/NHL: next slice. Upload-ready: owner approves a SportsDataIO plan and sets `SPORTSDATAIO_API_KEY` (never committed) |
 | MMA automatic slates | No documented licensed DK/FD MMA salary feed | Research continues; official CSV is the supported path |
 | Money-ready builds | Rule sets unverified (official pages refuse automated access) | Owner confirms rules or supplies official salary + upload templates |
 | Verified exports | No official upload template fixture | Templates in `tests/dfs/fixtures/templates/` |

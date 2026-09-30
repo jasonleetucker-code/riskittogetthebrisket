@@ -50,6 +50,7 @@ Stacked PR chain, each on the previous; merge in order once `main` holds #1546:
 | #1558 | `claude/dfs-fanduel` | J — FanDuel parity + rule provenance | 284 |
 | #1559 | `claude/dfs-sources` | K — Daily Fantasy Fuel adapter (first connected source) | 288 |
 | #1560 | `claude/dfs-jobs` | L — background jobs + pinned route surface | 295 |
+| (next) | `claude/dfs-auto` | M — zero-upload primary workflow: automatic NFL DK+FD slates (ADR-DFS-024, DFS-AUTO-01..24) | 318 |
 
 Worktree: `C:\Users\jason\code\chaseupside-dfs-model` (branches switch in place).
 Evidence classes, kept apart: every model here has UNIT / SYNTHETIC evidence only. No historical
@@ -85,6 +86,10 @@ salary-infeasible; fixed-order field sampling was badly biased).
 
 ## Owner actions that unblock the most
 
+0. **Zero-upload workflow (DFS-AUTO):** automatic slates cannot produce UPLOAD files — DK/FD player
+   ids have no permitted free source. Approve a licensed DFS slate feed (SportsDataIO DFS slates;
+   price not verified, nothing purchased) or keep using the platform file under *Advanced* for the
+   final upload. Say whether your RotoGrinders permission covers premium (paid) data you hold.
 1. Confirm DK/FD rules, or drop real salary files + blank upload/entry templates into
    `tests/dfs/fixtures/templates/`.
 2. Decide on a SportsDataIO DFS plan and/or a licensed odds aggregator (price/licence unknown). If

@@ -8,15 +8,23 @@ Open **DFS → DFS Workspace** (`/dfs`). Sign-in required.
    DraftKings and FanDuel, and DraftKings NFL Showdown, can build (all research-only). In Showdown
    the captain's 1.5× is shown next to the number, and the same player can never be captain and
    flex. DraftKings MMA builds too (research-only; add an 'if A then not B' rule if you do not want both fighters from one bout). FanDuel MMA and other single-game files are recognised but cannot be built yet.
-2. **Import the slate.** Download the platform's salary / player-list CSV for your contest and
-   choose it (or paste it). The page tells you what the file is (e.g. *Detected: FanDuel · NFL ·
-   Classic*) and offers to switch if it does not match your selection — it never switches on its
-   own. A licensed feed (SportsDataIO) can load slates automatically once it is connected; today
-   it shows *not connected* and the file path is the one that works. After import, *Data
-   freshness* shows each kind of information and whether it is available. Add your projection CSV: columns `ID` (platform player ID) or
-   `Name` + `Team` (+ optional `Position`), and `Projection`. Rows that match two players, match
-   nobody, or disagree with each other are listed and **not** applied. Optionally tick *use the
-   platform season average* for players you have no projection for — it is labelled "avg" and is
+2. **Pick a slate — nothing to download.** For NFL on DraftKings or FanDuel, *Slate* already lists
+   this week's slates (Main, Early, Afternoon, Primetime, Full week), each with its lock time, games,
+   players, how many are projected, and a freshness badge (*Current*, *Aging*, *Stale*, *Degraded*,
+   *Source error*). Main opens by default. Salaries, positions, games, kickoffs, injury status and
+   projections are filled in automatically and refresh on their own — more often as lock
+   approaches. The game set of each slate is derived from the NFL schedule (the platforms' own slate
+   lists are not available to us), and the badge says when a source is missing or failed. Players
+   ruled Out / IR are left unprojected so no lineup can include them; nobody is ever scored 0 for
+   missing data. **One limit:** automatic slates use our own player IDs, so they build, simulate and
+   late-swap normally but cannot produce a DraftKings / FanDuel upload file.
+   **Advanced · Data overrides / manual import** (optional) is where the old path lives: the
+   platform's salary / player-list CSV (which IS upload-ready — the page tells you what the file is,
+   e.g. *Detected: FanDuel · NFL · Classic*, and offers to switch if it does not match), your own
+   projection CSV (`ID` or `Name` + `Team` + `Projection`; rows that match two players, nobody, or
+   disagree are listed and not applied), ownership, and the licensed-feed loader (not connected).
+   NBA, NHL and MMA still need the platform file here for now. Optionally tick *use the platform
+   season average* for players you have no projection for — it is labelled "avg" and is
    not a forecast. Players with no projection are never counted as 0; they are left out.
 3. **Describe the contest (optional today).** In *Contest*, enter the fee, capacity, current
    entries, your entry limit and existing entries, whether prizes are guaranteed, the tie rule,

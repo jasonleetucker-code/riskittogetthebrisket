@@ -358,6 +358,65 @@ def _freshness(created: str, body: dict[str, Any]) -> list[dict[str, Any]]:
     projected = sum(1 for a in athletes if a.get("projection") is not None)
     sources = sorted({a.get("projection_source") for a in athletes if a.get("projection_source")})
     none = "No source connected yet."
+    rows = _freshness_rows(created, body, prov, athletes, projected, sources, none)
+    if prov.get("sourceKind") == "auto_derived":
+        rows = _auto_freshness(rows, prov, athletes, projected)
+    return rows
+
+
+def _auto_freshness(
+    rows: list[dict[str, Any]], prov: dict[str, Any], athletes: list[dict[str, Any]], projected: int
+) -> list[dict[str, Any]]:
+    """An automatically populated slate: each class says which source filled it, as of when."""
+    src = prov.get("sources") or {}
+    sal = src.get("salaries") or {}
+    proj = src.get("projections") or {}
+    families = [k for k, v in proj.items() if (v or {}).get("state") == "ok"]
+    statused = sum(1 for a in athletes if a.get("status"))
+    replace = {
+        "salary": {
+            "state": "automatic",
+            "source": f"{sal.get('source')} (platform week pool)",
+            "asOf": sal.get("publishedAt") or sal.get("fetchedAt"),
+            "coverage": f"{len(athletes)} players",
+            "note": "Slate game set derived from the schedule (unverified); platform player IDs "
+            "unavailable, so upload files are refused for this slate.",
+        },
+        "projection": {
+            "state": "automatic" if projected else "unavailable",
+            "source": " + ".join(families) or None,
+            "asOf": src.get("builtAt"),
+            "coverage": f"{projected} of {len(athletes)}",
+            "note": "Independent families, rescored per platform from stat lines where available. "
+            "Players ruled out are left unprojected, never scored 0.",
+        },
+        "sportsbook": {
+            "state": "context_only",
+            "source": "dailyfantasyfuel spread/total + nflverse lines",
+            "asOf": sal.get("publishedAt") or sal.get("fetchedAt"),
+            "coverage": None,
+            "note": "Shown as game context; not an input to any projection here.",
+        },
+        "lineups_status": {
+            "state": "automatic" if statused else "unavailable",
+            "source": (src.get("status") or {}).get("source"),
+            "asOf": src.get("builtAt"),
+            "coverage": f"{statused} flagged",
+            "note": "Injury designations; a player listed Out/IR is withheld from builds.",
+        },
+    }
+    return [replace.get(r["class"], r) | {"class": r["class"]} for r in rows]
+
+
+def _freshness_rows(
+    created: str,
+    body: dict[str, Any],
+    prov: dict[str, Any],
+    athletes: list[dict[str, Any]],
+    projected: int,
+    sources: list[str],
+    none: str,
+) -> list[dict[str, Any]]:
     return [
         {
             "class": "salary",
@@ -1033,6 +1092,87 @@ async def provider_slate_import(request: Request):
     if isinstance(snapshot_body, JSONResponse):
         return snapshot_body
     return await _save_snapshot(owner, rs, snapshot_body)
+
+
+# ── automated slates (DFS-AUTO: zero-upload primary workflow) ──────────
+
+
+@router.get("/auto/slates")
+async def auto_slates(request: Request):
+    """Automatically populated slates, each with its freshness.  When anything is
+    due, a background refresh is queued (the page never waits on a scrape)."""
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    from src.dfs.auto import SYSTEM_OWNER
+    from src.dfs.auto import live as auto_live  # registers the refresh job
+    from src.dfs.auto import refresh as auto_refresh
+
+    if not auto_live.enabled():
+        return _err(
+            "FEATURE_DISABLED",
+            "Automatic slates are switched off; load the platform file under Advanced.",
+            503,
+        )
+    sport = request.query_params.get("sport") or "nfl"
+    platform = request.query_params.get("platform") or None
+    if sport != "nfl":
+        return _ok(
+            {
+                "sport": sport,
+                "state": "UNAVAILABLE",
+                "slates": [],
+                "reason": "Automatic slates are live for NFL only; this sport still needs its "
+                "platform file (Advanced).",
+            }
+        )
+    if platform is not None and platform not in ("draftkings", "fanduel"):
+        return _err("INVALID_QUERY", "platform must be draftkings or fanduel.", 400)
+    refresh_job = None
+    if await run_in_threadpool(auto_refresh.is_due, "nfl"):
+        try:
+            refresh_job = (
+                await run_in_threadpool(dfs_jobs.submit, SYSTEM_OWNER, "dfs_auto_refresh", {})
+            )["state"]
+        except dfs_jobs.JobError as exc:
+            refresh_job = exc.code  # QUEUE_FULL = one is already running
+    out = await run_in_threadpool(auto_refresh.list_slates, "nfl", platform)
+    out["refreshQueued"] = refresh_job
+    return _ok(out)
+
+
+@router.post("/auto/slates/select")
+async def auto_slate_select(request: Request):
+    """Put an automatic slate into the owner's workspace (an owner-scoped copy, so
+    every build, simulation and portfolio stays private and reproducible)."""
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    from src.dfs.auto import SYSTEM_OWNER
+    from src.dfs.auto import live as auto_live
+    from src.dfs.auto import refresh as auto_refresh
+
+    if not auto_live.enabled():
+        return _err("FEATURE_DISABLED", "Automatic slates are switched off.", 503)
+    row = await run_in_threadpool(auto_refresh.get_row, str(body.get("autoSlateId") or ""))
+    if row is None:
+        return _err("NOT_FOUND", "No such automatic slate.", 404)
+    src_snap = await run_in_threadpool(store.get_snapshot, SYSTEM_OWNER, row["snapshotId"])
+    if src_snap is None:
+        return _err("NOT_FOUND", "The automatic slate's data is missing; refresh again.", 404)
+    rs = get_ruleset(src_snap["ruleset"].split("@", 1)[0])
+    if rs is None or rs.key != src_snap["ruleset"]:
+        return _err("RULESET_SUPERSEDED", "This slate was built under an older rule set.", 409)
+    existing = await run_in_threadpool(store.find_snapshot, owner, src_snap["contentHash"], rs.key)
+    if existing:
+        snap = await run_in_threadpool(store.get_snapshot, owner, existing)
+        view = _snapshot_view(snap["id"], snap["createdAt"], snap["contentHash"], snap["body"])
+        view["reused"] = True
+        return _ok(view)
+    return await _save_snapshot(owner, rs, src_snap["body"])
 
 
 # ── entry files (existing platform entries; nothing is ever submitted) ────

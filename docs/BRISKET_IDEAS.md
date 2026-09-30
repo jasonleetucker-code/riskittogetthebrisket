@@ -296,6 +296,7 @@ Orderliness means fewer conflicting truths, not fewer historical records.
 | “Which canonical owner/foundation should handle it?” | `docs/MASTER_PRODUCT_PLAN.md`, architecture records, combined-phase replan |
 | “Can several items be built together?” | this file + `docs/BACKLOG_REPLAN_2026-09-10.md` |
 | “Where is the DFS plan?” | `docs/dfs/README.md` → `ROADMAP.md` / `TRACEABILITY.md` (supporting detail for the one intake entry, not a second backlog) |
+| “Does DFS need CSV uploads?” | **No — permanent owner requirement (2026-09-30):** automated data first, manual files second. `/dfs` opens on automatically populated slates; manual import is fallback / override under *Advanced* (`docs/dfs/DECISIONS.md` ADR-DFS-024, `TRACEABILITY.md` DFS-AUTO-01..24) |
 | “Is it authorized now?” | **`docs/EXECUTION_PLAN.md` only** |
 | “Who is editing it?” | `docs/WORK_CLAIMS.md`, open PRs and branches |
 | “How do branches/merges work?” | `ASSISTANT_COORDINATION.md` |
