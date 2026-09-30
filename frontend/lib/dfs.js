@@ -136,10 +136,19 @@ export function buildConstraints(form, rules) {
     else payload[key] = v;
   }
   if (form.stack) {
-    const minSecondary = wholeOrNull(form.stackMin) ?? 1;
-    const bringBack = wholeOrNull(form.stackBringBack) ?? 0;
-    if (Number.isNaN(minSecondary) || Number.isNaN(bringBack) || minSecondary < 0 || bringBack < 0) {
-      errors.stack = "Stack counts must be whole numbers.";
+    // Blank is not a count: the form starts at 1 / 0, so a blank field was
+    // cleared on purpose and must be re-entered rather than guessed.
+    const minSecondary = wholeOrNull(form.stackMin);
+    const bringBack = wholeOrNull(form.stackBringBack);
+    if (
+      minSecondary === null ||
+      bringBack === null ||
+      Number.isNaN(minSecondary) ||
+      Number.isNaN(bringBack) ||
+      minSecondary < 0 ||
+      bringBack < 0
+    ) {
+      errors.stack = "Enter whole numbers for both stack counts.";
     } else {
       payload.stacks = [
         {

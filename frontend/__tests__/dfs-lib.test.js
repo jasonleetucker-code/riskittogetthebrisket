@@ -60,6 +60,11 @@ describe("dfs lib — owner controls", () => {
     expect(buildConstraints({ lineups: "3", maxExposurePct: "140" }, {}).errors.maxExposurePct).toBeTruthy();
   });
 
+  it("never fills a blank stack count with a default", () => {
+    const { errors } = buildConstraints({ lineups: "1", stack: true, stackMin: "", stackBringBack: "0" }, {});
+    expect(errors.stack).toBeTruthy();
+  });
+
   it("shows the exposure count the backend will enforce (rounded down)", () => {
     expect(exposureCountFor(50, 3)).toBe(1);
     expect(exposureCountFor(35, 20)).toBe(7);
