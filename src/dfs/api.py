@@ -915,3 +915,82 @@ async def provider_slate_import(request: Request):
     if isinstance(snapshot_body, JSONResponse):
         return snapshot_body
     return await _save_snapshot(owner, rs, snapshot_body)
+
+
+# ── entry files (existing platform entries; nothing is ever submitted) ────
+
+
+def _entries_error(exc: ImportError_) -> JSONResponse:
+    return _err(exc.code, exc.message, 422, exc.detail)
+
+
+@router.post("/entries/parse")
+async def entries_parse(request: Request):
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    snap = await run_in_threadpool(store.get_snapshot, owner, str(body.get("snapshotId") or ""))
+    if snap is None:
+        return _err("NOT_FOUND", "No such slate.", 404)
+    rs = get_ruleset(snap["ruleset"].split("@", 1)[0])
+    if rs is None:
+        return _err(
+            "RULESET_SUPERSEDED", "This slate's rule-set version is no longer current.", 409
+        )
+    from src.dfs.entries import parse_entries
+
+    try:
+        parsed = parse_entries(
+            body.get("entriesCsv") or "", rs, _athletes_from(snap["body"]["athletes"])
+        )
+    except ImportError_ as exc:
+        return _entries_error(exc)
+    return _ok(parsed)
+
+
+@router.post("/builds/{build_id}/export-entries")
+async def export_build_into_entries(build_id: str, request: Request):
+    """Fill this build's lineups into the owner's existing entry IDs (re-validated)."""
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    b = await run_in_threadpool(store.get_build, owner, build_id)
+    if b is None:
+        return _err("NOT_FOUND", "No such build.", 404)
+    rs = get_ruleset(b["ruleset"]["key"].split("@", 1)[0])
+    if rs is None or rs.key != b["ruleset"]["key"]:
+        return _err(
+            "RULESET_SUPERSEDED", "The rule-set version this build used is no longer current.", 409
+        )
+    snap = await run_in_threadpool(store.get_snapshot, owner, b["snapshot"]["id"])
+    if snap is None:
+        return _err("NOT_FOUND", "The slate behind this build is missing.", 404)
+    from src.dfs.entries import export_into_entries, parse_entries
+
+    athletes = _athletes_from(snap["body"]["athletes"])
+    try:
+        parsed = parse_entries(body.get("entriesCsv") or "", rs, athletes)
+        text, report = export_into_entries(rs, b["result"]["lineups"], parsed["entries"], athletes)
+    except ImportError_ as exc:
+        return _entries_error(exc)
+    if not report["assigned"]:
+        return _err(
+            "NOTHING_TO_EXPORT", "No usable entries or no lineups to place in them.", 409, report
+        )
+    return Response(
+        content=text,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{rs.platform}-{rs.sport}-{rs.format}-{build_id}-ENTRIES-UNVERIFIED-FORMAT.csv"',
+            "Cache-Control": "no-store",
+            "X-DFS-Export-Verified": "false",
+            "X-DFS-Entries-Assigned": str(len(report["assigned"])),
+            "X-DFS-Entries-Untouched": str(len(report["untouchedEntries"])),
+        },
+    )

@@ -56,6 +56,7 @@ const DetectedFile = lazy(() => import("./SlateSources").then((m) => ({ default:
 const ImportSummary = lazy(() => import("./SlateSummary"));
 const RuleBuilder = lazy(() => import("./RuleBuilder"));
 const PlayerPool = lazy(() => import("./PlayerPool"));
+const EntriesExport = lazy(() => import("./EntriesExport"));
 
 async function api(path, init) {
   const res = await fetch(`/api/dfs${path}`, {
@@ -274,6 +275,11 @@ function BuildResult({ build, ruleset }) {
             Downloading submits nothing; you upload it yourself.
           </p>
         </div>
+      ) : null}
+      {r.built && build.ruleset?.key?.startsWith("draftkings.") ? (
+        <Suspense fallback={null}>
+          <EntriesExport buildId={build.buildId} />
+        </Suspense>
       ) : null}
       <details className={styles.provenance}>
         <summary>Provenance and limits</summary>
