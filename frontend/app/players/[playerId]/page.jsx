@@ -54,6 +54,14 @@ import {
 } from "@/components/PlayerPopup";
 import { getPlayerEdge } from "@/lib/trade-logic";
 import { resolvedRank } from "@/lib/dynasty-data";
+import { confidenceDisplay } from "@/lib/value-explainers";
+import {
+  BoardClocks,
+  ConfidenceEvidence,
+  ExplainTip,
+  SourceFreshnessList,
+  ValueExplainHelp,
+} from "@/components/ValueExplain";
 import styles from "./player-file.module.css";
 
 function findRowByPlayerId(rows, rawParam) {
@@ -131,6 +139,7 @@ export default function PlayerFilePage() {
   const valueChain = useMemo(() => computeValueChain(row), [row]);
   const siteDetails = useMemo(() => computeSiteDetails(row, []), [row]);
   const consensusText = useMemo(() => computeConsensusText(siteDetails), [siteDetails]);
+  const confidence = useMemo(() => confidenceDisplay(row), [row]);
 
   // Every return path — including these early ones — renders inside
   // the same .psi-editorial-scoped section. A first version returned
@@ -230,6 +239,7 @@ export default function PlayerFilePage() {
             <Button as={Link} href="/trade" size="sm" variant="primary">
               Open in Trade Calculator
             </Button>
+            <ValueExplainHelp methodology={rawData?.methodology} />
           </div>
         }
       />
@@ -254,14 +264,49 @@ export default function PlayerFilePage() {
       </div>
 
       <div className={styles.summaryStrip}>
+        {/* Each headline number carries its own short explanation (one
+            copy owner: lib/value-explainers.js); the long form is the
+            "How values work" dialog in the header. */}
         <StatTile
           size="lg"
-          label="Our Value"
+          label={
+            <>
+              Our Value
+              <ExplainTip topic="value" label="Our Value" />
+            </>
+          }
           value={value != null ? value.toLocaleString() : "not priced"}
         />
-        {rank < Infinity && <StatTile label="Overall rank" value={`#${rank}`} />}
+        {rank < Infinity && (
+          <StatTile
+            label={
+              <>
+                Overall rank
+                <ExplainTip topic="rankVsValue" label="rank vs value" />
+              </>
+            }
+            value={`#${rank}`}
+            // Past the backend's rank limit the board shows a DISPLAY
+            // position (value order), not an official rank — say so
+            // rather than present #983 as if it were one.
+            meta={row.canonicalConsensusRank == null ? "display order — not officially ranked" : undefined}
+          />
+        )}
         {positionRank != null && <StatTile label="Position rank" value={`${row.pos}${positionRank}`} />}
-        {row.confidenceLabel && <StatTile label="Confidence" value={row.confidenceLabel} />}
+        {/* Always rendered: a missing grade reads "None — …", never an
+            absent tile a reader could mistake for "not applicable". */}
+        <StatTile
+          label={
+            <>
+              Confidence
+              <ExplainTip
+                topic={confidence.level === "none" ? "missingConfidence" : "confidence"}
+                label="confidence"
+              />
+            </>
+          }
+          value={confidence.label}
+        />
         {row.siteCount > 0 && (
           <StatTile
             label="Sources"
@@ -314,6 +359,13 @@ export default function PlayerFilePage() {
               ))}
             </Panel>
           )}
+          <Panel
+            title="Why this confidence"
+            subtitle="The evidence checks behind the value; the label names the limiting ones"
+            dense
+          >
+            <ConfidenceEvidence row={row} />
+          </Panel>
           <Panel title="Rank history" subtitle="180-day trajectory" flush>
             <PlayerRankHistoryChart row={row} />
           </Panel>
@@ -351,6 +403,33 @@ export default function PlayerFilePage() {
               description="No ranking source has this player priced individually today."
             />
           )}
+          {/* KTC Market is the benchmark our value is compared against —
+              shown under its own name, never inside the breakdown of
+              sources that voted. An uncovered asset says so; no 0. */}
+          {row.ktcMarket && (
+            <p className={styles.benchmark}>
+              KTC Market benchmark:{" "}
+              {Number(row.ktcMarket.value) > 0
+                ? Math.round(Number(row.ktcMarket.value)).toLocaleString()
+                : "not covered by KTC"}
+              <span className={styles.benchmarkNote}>
+                {" "}— KTC&rsquo;s own published Crowd+Trades number, for comparison only; it is not blended into Our Value.
+              </span>
+              <ExplainTip topic="provenance" label="where values come from" side="top" />
+            </p>
+          )}
+          <Panel
+            title={
+              <>
+                Source freshness
+                <ExplainTip topic="freshness" label="source freshness" />
+              </>
+            }
+            subtitle={<BoardClocks rawData={rawData} tip={false} />}
+            dense
+          >
+            <SourceFreshnessList row={row} rawData={rawData} />
+          </Panel>
           {row?.assetClass === "pick" &&
             Number.isFinite(row?.pickProjectedDraftValue) &&
             Number(row?.pickProjectedDraftValueGain) > 0 && (

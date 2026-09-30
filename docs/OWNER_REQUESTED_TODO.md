@@ -1179,6 +1179,27 @@ Owner requested that the scoring-comparison work begin taking **2026 scoring** i
 - **Status.** Not observed in production (production shows `countedWeeks` [1, 2] with 4-game records). Needs an
   authorization pointer before implementation.
 
+## Added 2026-09-29 — perishable-evidence capture audit (owner directive)
+Owner instruction: identify any data that will be impossible to recreate later. When a needed evidence stream is not
+being preserved, record it in Calculator Ideas / the canonical backlog with the minimum required capture path.
+**Prefer capturing perishable evidence now over reconstructing it later with hindsight.**
+- **Durable record:** `docs/BRISKET_IDEAS.md` §13. It holds the preserved-stream table, gaps G1–G8 (owner, what is
+  lost, minimum capture path) and the already-lost list. It is not a second backlog.
+- **Gaps map to existing native owners; no new ID is minted:**
+  - G1 raw Sleeper weekly projections pruned after 4 weeks → `C5-GD-02` / `C5-ROS-01` (#854). This is the only gap
+    with a dated loss clock: Week 1 raw logs go at the first collector tick of Week 6, ≈2026-10-13.
+  - G2 KTC Trade Database window → `C4-MTL-02`.
+  - G3 KTC unselected format variants → `C1-SRC-01`.
+  - G4 as-known injury/news → `C6-ANA-01` / `C7-ALERT-01`.
+  - G5 draft-time state → `C7-DRAFT-02`.
+  - G6 league settings beyond scoring → `C1-RET-04` / `C1-HIST-01`.
+  - G7 backup coverage → `docs/retention/RETENTION_REGISTER.md`.
+  - G8 served recommendations → the existing R14 / Adaptive Learning record.
+- **Planning position:** G1 is NEXT (dated). G7, G3 and G4 are NEXT. G2 and G6 are LATER. G5 is LATER but must land
+  before the 2027 rookie auction.
+- **Authority:** all gaps are **NOT AUTHORIZED**. Capture is not implementation authorization, and
+  `docs/EXECUTION_PLAN.md` is unchanged.
+
 ## Added 2026-09-29 — Rookie Auction Room: build it now, mock-first, live-gated (owner directive)
 
 | Priority | Issue | Area | Required outcome | Status |
