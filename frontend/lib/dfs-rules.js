@@ -36,3 +36,28 @@ export function ruleError(rule) {
   }
   return null;
 }
+
+/**
+ * Team / game stack draft → validated backend entry, or { error }.
+ * "At least `count` teams (or games) each supplying `size`+ players", with an
+ * optional position filter. Blank counts are errors, never defaults.
+ */
+export function teamStackEntry(draft, slotCount) {
+  const size = Number(draft.size);
+  const count = Number(draft.count);
+  if (!Number.isInteger(size) || size < 2 || size > slotCount) return { error: `Players per stack must be a whole number from 2 to ${slotCount}.` };
+  if (!Number.isInteger(count) || count < 1) return { error: "Number of stacks must be a whole number of at least 1." };
+  if (size * count > slotCount) return { error: `${count} × ${size} players is more than a ${slotCount}-player lineup.` };
+  const scope = draft.scope === "game" ? "game" : "team";
+  const positions = draft.positions || [];
+  const who = positions.length ? ` (${positions.join("/")})` : "";
+  return {
+    entry: {
+      label: `${count > 1 ? `${count} × ` : ""}${size}-player ${scope} stack${who}`,
+      scope,
+      size,
+      count,
+      positions,
+    },
+  };
+}

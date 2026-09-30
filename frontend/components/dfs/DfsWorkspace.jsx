@@ -56,6 +56,7 @@ const DetectedFile = lazy(() => import("./SlateSources").then((m) => ({ default:
 
 const ImportSummary = lazy(() => import("./SlateSummary"));
 const RuleBuilder = lazy(() => import("./RuleBuilder"));
+const TeamStacks = lazy(() => import("./TeamStacks"));
 const PlayerPool = lazy(() => import("./PlayerPool"));
 const EntriesExport = lazy(() => import("./EntriesExport"));
 
@@ -352,6 +353,7 @@ export default function DfsWorkspace() {
   const [buildError, setBuildError] = useState(null);
   const [buildContext, setBuildContext] = useState({ contestId: null, presetId: null });
   const [groupRules, setGroupRules] = useState([]);
+  const [teamStacks, setTeamStacks] = useState([]);
   const [overrides, setOverrides] = useState({});
   const [boosts, setBoosts] = useState({});
   const [exposure, setExposure] = useState({});
@@ -392,6 +394,7 @@ export default function DfsWorkspace() {
     setBuildError(null);
     setBuildContext({ contestId: null, presetId: null });
     setGroupRules([]);
+    setTeamStacks([]);
     setOverrides({});
     setBoosts({});
     setExposure({});
@@ -431,6 +434,7 @@ export default function DfsWorkspace() {
     setSlate(body);
     setRules({ locks: [], excludes: [] });
     setGroupRules([]);
+    setTeamStacks([]);
     setOverrides({});
     setBoosts({});
     setExposure({});
@@ -442,6 +446,7 @@ export default function DfsWorkspace() {
     const extra = rulesToConstraints(groupRules);
     if (extra.groups.length) payload.groups = extra.groups;
     if (extra.conditionals.length) payload.conditionals = extra.conditionals;
+    if (teamStacks.length) payload.teamStacks = teamStacks;
     const adj = ownerAdjustments(overrides, boosts);
     if (Object.keys(adj.errors).length) {
       setBuildError(Object.values(adj.errors)[0]);
@@ -612,6 +617,8 @@ export default function DfsWorkspace() {
                   setSlate(snap);
                   setRules({ locks: [], excludes: [] });
                   setGroupRules([]);
+                  setTeamStacks([]);
+    setTeamStacks([]);
                   setOverrides({});
                   setBoosts({});
                   setExposure({});
@@ -717,6 +724,13 @@ export default function DfsWorkspace() {
               ) : null}
               <Suspense fallback={null}>
                 <RuleBuilder athletes={athletes} rules={groupRules} onChange={setGroupRules} />
+                <TeamStacks
+                  stacks={teamStacks}
+                  onChange={setTeamStacks}
+                  athletes={athletes}
+                  slotCount={ruleset?.slots?.length || 0}
+                  singleGame={ruleset?.eligibilityBasis === "platform_slots"}
+                />
               </Suspense>
               <div className={styles.actions}>
                 <Button variant="primary" onClick={() => runBuild(1)} loading={building}>

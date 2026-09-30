@@ -85,6 +85,22 @@ class Stack:
 
 
 @dataclass
+class TeamStack:
+    """At least ``count`` distinct teams (or games) each supplying ``size``+ players.
+
+    Sport-neutral: an NHL 3-2 build is two of these, an NBA game stack is one
+    with ``scope="game"``.  ``positions`` limits which players count (empty =
+    all).  Players with no known team/game never count toward one.
+    """
+
+    label: str
+    scope: str  # "team" | "game"
+    size: int
+    count: int = 1
+    positions: list[str] = field(default_factory=list)
+
+
+@dataclass
 class Constraints:
     locks: list[str] = field(default_factory=list)
     excludes: list[str] = field(default_factory=list)
@@ -94,6 +110,7 @@ class Constraints:
     groups: list[Group] = field(default_factory=list)
     stacks: list[Stack] = field(default_factory=list)
     conditionals: list[Conditional] = field(default_factory=list)
+    team_stacks: list[TeamStack] = field(default_factory=list)
     # Owner FORECAST edits for this build (points).  Replace the source
     # projection in the objective AND in the reported totals; recorded as the
     # owner's, never written back to the slate.
@@ -312,6 +329,44 @@ def parse_constraints(
                 bring_back=_int(s.get("bringBack", 0), "bringBack", 0, size, allow_none=False) or 0,
             )
         )
+    for i, s in enumerate(raw.get("teamStacks") or []):
+        if not isinstance(s, dict):
+            raise ConstraintError("INVALID_CONSTRAINT", "teamStacks entries must be objects.")
+        scope = s.get("scope", "team")
+        if scope not in ("team", "game"):
+            raise ConstraintError(
+                "INVALID_CONSTRAINT", f"team stack {i + 1}: scope must be 'team' or 'game'."
+            )
+        if scope == "game" and ruleset.eligibility_basis == "platform_slots":
+            # A single-game slate is one game: a game stack is every lineup.
+            raise ConstraintError(
+                "INVALID_CONSTRAINT", "Game stacks do not apply to a single-game slate."
+            )
+        positions = s.get("positions") or []
+        if not isinstance(positions, list) or not {str(p).upper() for p in positions} <= set(
+            ruleset.positions
+        ):
+            raise ConstraintError(
+                "INVALID_CONSTRAINT",
+                f"team stack {i + 1}: positions must come from this rule set.",
+                {"positions": sorted(ruleset.positions)},
+            )
+        st_size = _int(s.get("size"), "size", 2, size, allow_none=False) or 2
+        st_count = _int(s.get("count", 1), "count", 1, size, allow_none=False) or 1
+        if st_size * st_count > size:
+            raise ConstraintError(
+                "INVALID_CONSTRAINT",
+                f"team stack {i + 1}: {st_count} × {st_size} players is more than a {size}-player lineup.",
+            )
+        c.team_stacks.append(
+            TeamStack(
+                label=str(s.get("label") or f"{st_size}-player {scope} stack")[:60],
+                scope=scope,
+                size=st_size,
+                count=st_count,
+                positions=[str(p).upper() for p in positions],
+            )
+        )
     return c
 
 
@@ -444,6 +499,17 @@ def validate_lineup(
                     opp = sum(1 for b in athletes if a.opponent and b.team == a.opponent)
                     if opp < s.bring_back:
                         errors.append(f"{s.label}: {a.name} has {opp} bring-back players")
+        for t in c.team_stacks:
+            tally: dict[str, int] = {}
+            for a in athletes:
+                key = a.team if t.scope == "team" else a.game
+                if key and (not t.positions or set(a.positions) & set(t.positions)):
+                    tally[key] = tally.get(key, 0) + 1
+            met = sum(1 for n in tally.values() if n >= t.size)
+            if met < t.count:
+                errors.append(
+                    f"{t.label}: {met} {t.scope}(s) with {t.size}+ players, {t.count} required"
+                )
     return errors
 
 
@@ -618,6 +684,28 @@ def _build(
                     add_y(acc, j, 1.0)
                 add_y(acc, i, -float(st.bring_back))
                 rows.append((acc, 0, math.inf, tag))
+    for ti, ts in enumerate(c.team_stacks):
+        tag = f"teamstack:{ti}"
+        if not on(tag):
+            continue
+        buckets = teams if ts.scope == "team" else games
+        wanted = set(ts.positions)
+        w_vars = []
+        for key, members in buckets.items():
+            if not key:
+                continue  # an unknown team/game is not a team
+            counted = [i for i in members if not wanted or set(pool[i].positions) & wanted]
+            if len(counted) < ts.size:
+                continue
+            w = extra
+            extra += 1
+            w_vars.append(w)
+            acc = {w: -float(ts.size)}
+            for i in counted:
+                add_y(acc, i, 1.0)
+            rows.append((acc, 0, math.inf, tag))
+        # With too few eligible buckets this row is unsatisfiable: reported, not skipped.
+        rows.append(({w: 1.0 for w in w_vars}, ts.count, math.inf, tag))
     if on("uniqueness"):
         size = len(ruleset.slots)
         for prev in previous:
@@ -708,6 +796,7 @@ def _owner_items(
     items += [f"group:{i}" for i in range(len(c.groups))]
     items += [f"stack:{i}" for i in range(len(c.stacks))]
     items += [f"cond:{i}" for i in range(len(c.conditionals))]
+    items += [f"teamstack:{i}" for i in range(len(c.team_stacks))]
     if previous:
         items.append("uniqueness")
     if exhausted:
@@ -748,6 +837,10 @@ def describe_item(
             if x
         )
         return f"{r.label}: if {names(r.when)} then {bounds} of {names(r.then)}"
+    if kind == "teamstack":
+        t = c.team_stacks[int(ref)]
+        who = f" ({'/'.join(t.positions)})" if t.positions else ""
+        return f"{t.label}: at least {t.count} {t.scope}(s) with {t.size}+ players{who}"
     if kind == "stack":
         s = c.stacks[int(ref)]
         return (

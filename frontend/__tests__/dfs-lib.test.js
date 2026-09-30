@@ -221,3 +221,20 @@ describe("dfs lib — salary range", () => {
     expect("salaryMax" in buildConstraints({ lineups: "1", salaryMax: "" }, {}).payload).toBe(false);
   });
 });
+
+describe("dfs rules — team / game stacks", () => {
+  it("builds a labelled entry and refuses blank or impossible counts", async () => {
+    const { teamStackEntry } = await import("@/lib/dfs-rules");
+    expect(teamStackEntry({ scope: "team", size: "3", count: "1", positions: ["C", "W"] }, 9).entry).toEqual({
+      label: "3-player team stack (C/W)",
+      scope: "team",
+      size: 3,
+      count: 1,
+      positions: ["C", "W"],
+    });
+    expect(teamStackEntry({ scope: "game", size: "2", count: "2", positions: [] }, 8).entry.label).toBe("2 × 2-player game stack");
+    expect(teamStackEntry({ size: "", count: "1" }, 9).error).toBeTruthy();
+    expect(teamStackEntry({ size: "1", count: "1" }, 9).error).toBeTruthy();
+    expect(teamStackEntry({ size: "5", count: "2" }, 9).error).toMatch(/more than a 9-player lineup/);
+  });
+});

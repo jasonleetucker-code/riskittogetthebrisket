@@ -44,7 +44,7 @@ def _pool(seed: int, positions: list[list[str]], cap_scale: float) -> list[Slate
     return out
 
 
-def _brute(rs, pool):
+def _brute(rs, pool, c=None):
     """Best legal total by exhaustive slot assignment (sets deduplicated)."""
     by_id = {a.player_id: a for a in pool}
     best = None
@@ -58,7 +58,7 @@ def _brute(rs, pool):
                 return
             seen.add(key)
             assignment = list(zip([s.name for s in rs.slots], chosen))
-            if validate_lineup(assignment, rs, by_id):
+            if validate_lineup(assignment, rs, by_id, c):
                 return
             tot = round(sum(by_id[p].projection for p in chosen), 2)
             if best is None or tot > best:
@@ -207,3 +207,38 @@ def test_dk_mma_matches_brute_force_and_imposes_no_unverified_bout_rule():
     c = parse_constraints({"conditionals": [{"when": [a], "then": [b], "thenMax": 0}]}, rs, pool)
     ids = {p["playerId"] for p in optimize(rs, pool, c)["lineups"][0]["players"]}
     assert not {a, b} <= ids
+
+
+def test_nhl_skater_4_3_stack_matches_brute_force_both_ways():
+    """A 4-3 skater stack: one team with 4+ skaters and a second team with 3+.
+
+    Exercised on seeds where it is infeasible (reported, never relaxed) AND
+    where it binds (costs points versus the free optimum) — neither vacuous.
+    """
+    rs = get_ruleset("draftkings.nhl.classic")
+    skaters = ["C", "W", "D"]
+    outcomes = set()
+    for seed in range(3):
+        pool = _pool(seed, [["C"]] * 3 + [["W"]] * 4 + [["D"]] * 3 + [["G"]] * 2, 1.0)
+        c = parse_constraints(
+            {
+                "teamStacks": [
+                    {"scope": "team", "size": 4, "count": 1, "positions": skaters},
+                    {"scope": "team", "size": 3, "count": 2, "positions": skaters},
+                ]
+            },
+            rs,
+            pool,
+        )
+        res = optimize(rs, pool, c)
+        expected = _brute(rs, pool, c)
+        if expected is None:
+            assert res["status"] == "infeasible"
+            assert res["shortfall"]["conflict"]["state"] == "isolated"
+            outcomes.add("infeasible")
+            continue
+        assert res["status"] == "optimal"
+        assert res["lineups"][0]["projection"] == pytest.approx(expected, abs=1e-6)
+        if expected < _brute(rs, pool):
+            outcomes.add("binding")
+    assert outcomes == {"infeasible", "binding"}

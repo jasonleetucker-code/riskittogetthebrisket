@@ -115,6 +115,7 @@ class RuleSet:
             "label": self.label,
             "salaryCap": self.salary_cap,
             "slots": [{"name": s.name, "eligible": list(s.eligible)} for s in self.slots],
+            "eligibilityBasis": self.eligibility_basis,
             "maxPlayersPerTeam": self.max_players_per_team,
             "minTeams": self.min_teams,
             "minGames": self.min_games,

@@ -535,3 +535,93 @@ def test_conflicting_minimums_are_isolated_and_reported_unmet_not_relaxed():
     assert res["shortfall"]["conflict"]["items"] == ["min_exposure"]
     assert "Minimum exposures due" in res["shortfall"]["conflict"]["described"][0]
     assert {u["playerId"] for u in res["minimumExposureUnmet"]} == set(qbs)
+
+
+# ── Team / game stacks (sport-neutral) ───────────────────────────────────
+
+
+def _team_tally(lineup, pool_by_id, scope="team", positions=None):
+    out = {}
+    for p in lineup["players"]:
+        a = pool_by_id[p["playerId"]]
+        if positions and not set(a.positions) & set(positions):
+            continue
+        key = a.team if scope == "team" else a.game
+        out[key] = out.get(key, 0) + 1
+    return sorted(out.values(), reverse=True)
+
+
+@pytest.mark.parametrize("seed", [41, 42, 43])
+def test_team_stack_matches_brute_force(seed):
+    pool = _pool(seed)
+    raw = {"teamStacks": [{"scope": "team", "size": 3, "count": 1}]}
+    c = parse_constraints(raw, DK, pool)
+    res = optimize(DK, pool, c)
+    best = _brute_with(DK, pool, c)
+    by_id = {a.player_id: a for a in pool}
+    assert best is not None  # non-vacuity: these seeds have a stacked lineup
+    assert res["built"] == 1
+    assert res["lineups"][0]["projection"] == pytest.approx(best, abs=1e-6)
+    assert _team_tally(res["lineups"][0], by_id)[0] >= 3
+
+
+def test_team_stack_binds_and_is_not_vacuous():
+    pool = _pool(44)
+    by_id = {a.player_id: a for a in pool}
+    free = optimize(DK, pool, parse_constraints({}, DK, pool))["lineups"][0]
+    need = _team_tally(free, by_id)[0] + 1  # one more than the free optimum naturally stacks
+    c = parse_constraints({"teamStacks": [{"scope": "team", "size": need}]}, DK, pool)
+    res = optimize(DK, pool, c)
+    assert res["built"] == 1
+    assert _team_tally(res["lineups"][0], by_id)[0] >= need
+    assert res["lineups"][0]["projection"] < free["projection"]  # it cost points: it bound
+    assert not validate_lineup(
+        [(p["slot"], p["playerId"]) for p in res["lineups"][0]["players"]], DK, by_id, c
+    )
+
+
+def test_two_stacks_and_game_scope_with_positions():
+    pool = _pool(45)
+    by_id = {a.player_id: a for a in pool}
+    c = parse_constraints(
+        {
+            "teamStacks": [
+                {"scope": "game", "size": 4, "count": 2, "positions": ["WR", "RB", "TE", "QB"]}
+            ]
+        },
+        DK,
+        pool,
+    )
+    res = optimize(DK, pool, c)
+    assert res["built"] == 1
+    tally = _team_tally(res["lineups"][0], by_id, "game", ["WR", "RB", "TE", "QB"])
+    assert len([n for n in tally if n >= 4]) >= 2
+
+
+def test_impossible_team_stack_is_isolated_not_dropped():
+    pool = _pool(46)
+    # One QB slot and QB is not FLEX-eligible: no lineup can hold two QBs.
+    c = parse_constraints(
+        {"teamStacks": [{"scope": "team", "size": 2, "positions": ["QB"], "label": "QB pair"}]},
+        DK,
+        pool,
+    )
+    res = optimize(DK, pool, c)
+    assert res["built"] == 0
+    assert res["shortfall"]["conflict"]["items"] == ["teamstack:0"]
+    assert "QB pair" in res["shortfall"]["conflict"]["described"][0]
+
+
+@pytest.mark.parametrize(
+    "stack",
+    [
+        {"scope": "league", "size": 3},
+        {"size": 1},
+        {"size": 5, "count": 2},  # 10 > 9 slots
+        {"size": 3, "positions": ["G"]},
+        "3",
+    ],
+)
+def test_team_stack_input_is_validated(stack):
+    with pytest.raises(ConstraintError):
+        parse_constraints({"teamStacks": [stack]}, DK, _pool(47))
