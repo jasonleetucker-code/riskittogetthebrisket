@@ -35,6 +35,8 @@ junction to the main checkout's.
 - SportsDataIO coverage is documented, not verified (no key; paid; owner approval).
 - Windows-only: `tests/api/test_feature_flag_reachability.py` fails on untouched `main` too
   (path separators); Linux CI is authoritative.
+- Test-isolation debt (non-blocking): the shared-`server.app` contaminator seen in #1534's CI is
+  unidentified, not disproven — tracked in `docs/OWNER_REQUESTED_TODO.md` ("TEST ISOLATION").
 
 ## Owner actions that unblock the most
 

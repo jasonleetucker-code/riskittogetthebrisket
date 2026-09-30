@@ -101,7 +101,7 @@ as above; **SLICE3** = Phase A slice on `claude/dfs-contests`.
 | DFS-ADD-05 | First-class export: IDs, slot order, locks, entry IDs, validation, duplicates, limits, explicit support | A/C/G | PARTIAL (SLICE1) | Re-validated new-lineup export; entry-ID export needs entry-file import (G); verified only with official templates |
 | DFS-ADD-06 | Canonical DFS slate model; providers map into it; downstream never reads provider objects | A | SLICE3 | `src/dfs/slate.py` |
 | DFS-ADD-07 | Slate != contest; canonical contest profile tied to a slate | B | PARTIAL (SLICE2 profile, SLICE3 link) | Contest family taxonomy (satellite/qualifier/league) NEXT |
-| DFS-ADD-08 | Three contest-creation modes: quick (preset), exact (editor), import | B | PARTIAL | Exact = SLICE2; quick = presets exist, UI selection NEXT; import BLOCKED(no verified contest-file layout) |
+| DFS-ADD-08 | Three contest-creation modes: quick (preset), exact (editor), import | B | PARTIAL | Exact = SLICE2; quick = presets exist (now incl. medium-field GPP, satellite, qualifier, custom — 15 total), UI selection NEXT; import BLOCKED(no verified contest-file layout) |
 | DFS-ADD-09 | Payout editor shows totals, implied rake, cash %, first-place and top-1% concentration, curve chart, errors | B | PARTIAL (SLICE2) | Top-1% concentration + curve visualization NEXT |
 | DFS-ADD-10 | Contest-aware objective uses distributions/ownership/duplication/payouts; disclose fallbacks | F | BLOCKED(D+E) | `contest_ev` refuses; fallback disclosed |
 | DFS-ADD-11 | Optimal Lineup knows platform/sport/slate/contest/field/payout/limits/model confidence; never silently median-maximizes | F | PARTIAL | Baseline labelled; contest link on builds NEXT |

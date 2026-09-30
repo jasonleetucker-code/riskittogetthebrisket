@@ -313,4 +313,4 @@ def test_contest_must_name_a_registered_capability(client):
 
 
 def test_presets_endpoint(client):
-    assert len(client.get("/api/dfs/presets", headers={"x-user": "a"}).json()["presets"]) == 11
+    assert len(client.get("/api/dfs/presets", headers={"x-user": "a"}).json()["presets"]) == 15
