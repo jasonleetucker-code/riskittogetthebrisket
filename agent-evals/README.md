@@ -172,6 +172,10 @@ Limits, stated plainly:
   reason (`ci_gate_changed_in_run`, `ci_base_not_trusted`, `ci_base_unproven`,
   `workflow_identity_unverified`, `no_ci_run_for_revision`, …), failing only with
   `--require-verified-ci`. Missing `gh` or a bad slug is a grading error (exit 2).
+- **The trust anchor must be out of the evaluated agent's reach.** Everything
+  above assumes the agent cannot write `--trusted-ref`. If it can push to that
+  branch (unprotected `main`, direct-push authority), it can land a gate edit there
+  first and branch from it; pass instead a full SHA recorded before the run.
 - Residual CI limits: `CI_GATE_GLOBS` is a maintained list, not a proof that
   nothing else can influence a gate; a `pull_request` run tested the merge
   with the base as it stood then, not the commit alone; tests the run edited are

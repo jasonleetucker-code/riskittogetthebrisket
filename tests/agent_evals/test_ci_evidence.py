@@ -37,6 +37,7 @@ WORKFLOW = ".github/workflows/pr-validation.yml"
 CHECK = f"ci_workflow:{WORKFLOW}"
 TRUSTED = "refs/heads/main"
 PR = 41
+REPO_ID = 1176743558
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "missing_never_zero_pass.json"
 CODE = {"src/ros/playoff_sim.py": "a\n", "tests/ros/test_playoff_sim.py": "a\n"}
 
@@ -98,10 +99,14 @@ def _run(head, conclusion="success", *, event="pull_request", **k):
         "run_started_at": k.get("started", "2026-09-30T12:00:00Z"),
         "created_at": k.get("started", "2026-09-30T12:00:00Z"),
         "run_attempt": k.get("attempt", 1),
-        "repository": {"full_name": SLUG},
-        "head_repository": {"full_name": k.get("head_repo", SLUG)},
+        "repository": {"full_name": SLUG, "id": REPO_ID},
+        "head_repository": {"full_name": k.get("head_repo", SLUG), "id": REPO_ID},
         "pull_requests": [
-            {"number": PR, "base": {"ref": b}, "head": {"sha": k.get("pr_head", head)}}
+            {
+                "number": PR,
+                "base": {"ref": b, "repo": {"id": k.get("base_repo_id", REPO_ID)}},
+                "head": {"sha": k.get("pr_head", head), "repo": {"id": REPO_ID}},
+            }
             for b in k.get("bases", ("main",))
         ],
     }
@@ -265,6 +270,12 @@ def test_pr_entries_for_another_head_do_not_prove_the_base():
     head = "a" * 40
     moved_on = _run(head, pr_head="b" * 40)
     assert _verdict(head, moved_on)[1].startswith("ci_base_unproven")
+
+
+def test_pr_into_another_repository_of_the_fork_network_is_refused():
+    head = "a" * 40
+    into_fork = _run(head, base_repo_id=999)  # base.ref "main", but another repo's main
+    assert _verdict(head, into_fork) == ("not_checked", "ci_response_malformed")
 
 
 def test_malformed_run_fields_are_not_a_crash():

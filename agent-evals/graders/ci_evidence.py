@@ -88,10 +88,23 @@ def _gh_json(endpoint: str, run):
         return None, "ci_response_malformed"
 
 
+def _repo_id(record, key):
+    value = record.get(key)
+    repo_id = value.get("id") if isinstance(value, dict) else None
+    return repo_id if isinstance(repo_id, int) else None
+
+
 def _pulls_for_head(record, head) -> list[dict] | None:
-    """The run's PR entries whose own head is ``head``; ``None`` if malformed."""
+    """The run's PR entries whose own head is ``head``; ``None`` if malformed.
+
+    Each entry's base and head repositories must be the run's own repository (by
+    id -- run records carry no ``full_name`` there); a PR into another repository
+    of the fork network would otherwise pass on ``base.ref`` alone, and its number
+    would name an unrelated PR here.
+    """
     pulls = record.get("pull_requests", [])
-    if not isinstance(pulls, list):
+    run_repo = _repo_id(record, "repository")
+    if not isinstance(pulls, list) or run_repo is None:
         return None
     matching = []
     for pull in pulls:
@@ -105,8 +118,11 @@ def _pulls_for_head(record, head) -> list[dict] | None:
             and isinstance(pull_head, dict)
         ):
             return None
-        if pull_head.get("sha") == head:
-            matching.append(pull)
+        if pull_head.get("sha") != head:
+            continue
+        if _repo_id(base, "repo") != run_repo or _repo_id(pull_head, "repo") != run_repo:
+            return None
+        matching.append(pull)
     return matching
 
 
