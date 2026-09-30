@@ -27,6 +27,18 @@ export const BDVM_SURPLUS_MODES = [
 ];
 
 /**
+ * Explanation for the pick field the API names `median`.  It is NOT a
+ * median: src/bdvm/picks.py sets it to the value of the prior
+ * pick-outcome table's "mid" bucket (for an early 1st, P(hit) is above
+ * 50%, so the true median is the hit outcome).  Surfaces label the
+ * column "Mid outcome" and attach this text; the API field name is
+ * unchanged.  One copy, shared by /bdvm and /draft.
+ */
+export const BDVM_PICK_MID_OUTCOME_INFO =
+  "Value of the middle outcome bucket in the prior pick-outcome table — " +
+  "not the median of the distribution.";
+
+/**
  * Classify a non-2xx BDVM response into the states the page renders
  * distinctly. The three 503 variants carry different `error` codes and
  * MUST be told apart: flag-off is an expected configuration, not a

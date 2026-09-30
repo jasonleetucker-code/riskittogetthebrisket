@@ -1263,6 +1263,7 @@ export default function RankingsPage() {
         hideBelow: "md",
         width: 110,
         headerInfo:
+          "Fundamental value (BDVM) · provisional priors — not the market board. " +
           "BDVM fundamental value (balanced) minus market anchor — " +
           "positive means the market underprices the player. " +
           "A trailing * marks a proxy-backed fundamental: no real " +
