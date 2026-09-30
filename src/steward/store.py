@@ -9,6 +9,11 @@ from pathlib import Path
 
 LAYERS = {"working", "episodic", "semantic", "owner"}
 AUTHORITY = {"observation": 0, "verified": 1, "repository": 2, "owner": 3}
+RAW_EVIDENCE_REQUIRED = frozenset({"source", "at", "repo_head", "content", "complete"})
+# Optional structured attribution inside the evidence JSON envelope (no SQL migration).
+# Only supplied, known values are recorded; absent means unattributed, never inferred.
+PRODUCER_FIELDS = frozenset({"session_id", "provider", "model"})
+PRODUCER_MAX_CHARS = 200
 
 
 class ConflictError(ValueError):
@@ -17,6 +22,45 @@ class ConflictError(ValueError):
 
 def encode(value):
     return json.dumps(value, sort_keys=True, allow_nan=False)
+
+
+def validate_raw_evidence(payload) -> None:
+    """The one raw-evidence contract; every insertion path goes through it."""
+    if (
+        not isinstance(payload, dict)
+        or not RAW_EVIDENCE_REQUIRED <= payload.keys()
+        or not payload["source"]
+        or not payload["repo_head"]
+    ):
+        raise ValueError(
+            "raw evidence requires source, time, revision, content and excerpt coverage"
+        )
+    if "producer" not in payload:
+        return
+    producer = payload["producer"]
+    if not isinstance(producer, dict) or not producer:
+        raise ValueError("producer must be a non-empty object of known attribution fields")
+    unknown = producer.keys() - PRODUCER_FIELDS
+    if unknown:
+        raise ValueError(f"producer has unknown fields {sorted(unknown)}")
+    for key, value in producer.items():
+        if not isinstance(value, str) or not value.strip() or len(value) > PRODUCER_MAX_CHARS:
+            raise ValueError(
+                f"producer.{key} must be a non-blank string of at most {PRODUCER_MAX_CHARS} "
+                "characters; omit fields that are not known"
+            )
+
+
+def producer_attribution(payload: dict) -> dict:
+    """Explicit attribution state of stored raw evidence.
+
+    Records written before structured attribution existed, or without it, are
+    ``unattributed``; free-text ``source`` is never parsed for a session or model.
+    """
+    producer = payload.get("producer")
+    if not isinstance(producer, dict) or not producer:
+        return {"status": "unattributed"}
+    return {"status": "attributed", **{k: producer[k] for k in sorted(producer)}}
 
 
 class StewardStore:
@@ -85,16 +129,13 @@ class StewardStore:
             self.connection.execute("BEGIN IMMEDIATE")
             return self._write(name, payload, expected_revision)
 
+    def _insert_evidence(self, evidence_id: str, payload: dict):
+        validate_raw_evidence(payload)
+        self.connection.execute("INSERT INTO evidence VALUES (?,?)", (evidence_id, encode(payload)))
+
     def append_evidence(self, evidence_id: str, payload: dict):
-        required = {"source", "at", "repo_head", "content", "complete"}
-        if not required <= payload.keys() or not payload["source"] or not payload["repo_head"]:
-            raise ValueError(
-                "raw evidence requires source, time, revision, content and excerpt coverage"
-            )
         with self.connection:
-            self.connection.execute(
-                "INSERT INTO evidence VALUES (?,?)", (evidence_id, encode(payload))
-            )
+            self._insert_evidence(evidence_id, payload)
 
     def _remember(self, record: dict, *, expected_revision: int) -> int:
         required = {
@@ -159,7 +200,7 @@ class StewardStore:
         """Commit one continuity generation or nothing, including both CAS checks."""
         with self.connection:
             self.connection.execute("BEGIN IMMEDIATE")
-            self.connection.execute("INSERT INTO evidence VALUES (?,?)", (evidence_id, encode(raw)))
+            self._insert_evidence(evidence_id, raw)
             self._write("campaign", checkpoint, expected_campaign)
             self._remember(knowledge, expected_revision=expected_knowledge)
 

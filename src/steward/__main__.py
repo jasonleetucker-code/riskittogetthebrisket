@@ -186,6 +186,10 @@ def main(argv=None):
         "--save", action="store_true", help="persist observations and append a run receipt"
     )
     brief.add_argument("--available-model", action="append", default=[])
+    # Structured attribution of the saved evidence. Supply only what is actually known;
+    # omitted fields stay absent and the record reads as unattributed.
+    for field in ("session-id", "provider", "model"):
+        brief.add_argument(f"--producer-{field}")
     route = sub.add_parser("route")
     route.add_argument("task", type=Path)
     route.add_argument("--owner", type=Path)
@@ -288,6 +292,17 @@ def main(argv=None):
                     "content": {"receipt": receipt, "report": result, "github": remote},
                     "complete": True,
                 }
+                producer = {
+                    key: value
+                    for key, value in (
+                        ("session_id", args.producer_session_id),
+                        ("provider", args.producer_provider),
+                        ("model", args.producer_model),
+                    )
+                    if value is not None
+                }
+                if producer:
+                    raw["producer"] = producer
                 prior_revision, prior = store.read("campaign")
                 if prior_revision != result["state_revision"]:
                     raise ValueError("campaign changed during report; rerun before saving")
