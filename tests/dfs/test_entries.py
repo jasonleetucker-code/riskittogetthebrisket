@@ -343,3 +343,36 @@ def test_results_import_scores_ownership_forecasts_as_of_lock(client):
     ev = r["ownershipEvaluation"]
     assert ev["state"] == "evaluated" and ev["structuralBaseline"]["n"] == 1
     assert ev["structuralBaseline"]["smallSample"] is True
+
+
+def test_results_import_scores_the_duplication_baseline_on_observed_copies(client):
+    from types import SimpleNamespace
+
+    from tests.dfs.test_results import _file, _lineup_text
+
+    h = {"x-user": "a"}
+    snap = client.post(
+        "/api/dfs/slates",
+        json={
+            "salaryCsv": (FIX / "synthetic_dk_nfl_classic_salaries.csv").read_text(
+                encoding="utf-8"
+            ),
+            "projectionCsv": (FIX / "synthetic_dk_nfl_classic_projections.csv").read_text(
+                encoding="utf-8"
+            ),
+        },
+        headers=h,
+    ).json()
+    athletes = [SimpleNamespace(**a) for a in snap["athletes"]]
+    text, _ids = _lineup_text(athletes)
+    qb = next(a for a in athletes if a.positions == ["QB"])
+    standings = _file(athletes, [[qb.name, "QB", "30%", "20"]], [text, text, text])
+    r = client.post(
+        "/api/dfs/results",
+        json={"snapshotId": snap["snapshotId"], "standingsCsv": standings},
+        headers=h,
+    ).json()
+    dup = r["duplicationEvaluation"]
+    assert dup["state"] == "evaluated" and dup["n"] == 1
+    assert dup["calibration"][0]["observedMeanCopies"] == 3.0
+    assert "forecastOwnership" not in r["ownershipEvaluation"]  # stored record stays compact

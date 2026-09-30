@@ -64,6 +64,7 @@ def test_realized_join_quarantine_duplication_and_absent_is_not_zero():
     assert f["entries"] == 3 and f["resolvedLineups"] == 3
     assert sorted(f["sample"][0]["lineup"]) == sorted(ids)  # FLEX resolved via the unique name
     d = parsed["duplication"]
+    sample = d.pop("fitSample")
     assert d == {
         "lineupsCompared": 3,
         "distinctLineups": 1,
@@ -71,6 +72,8 @@ def test_realized_join_quarantine_duplication_and_absent_is_not_zero():
         "histogram": {"3": 1},
         "maxCopies": 3,
     }
+    assert sample["repeated"] == [{"players": sorted(ids), "count": 3, "weight": 1.0}]
+    assert sample["singles"] == [] and sample["repeatedTruncated"] is False
 
 
 def test_two_slate_athletes_the_join_cannot_separate_are_quarantined():

@@ -361,6 +361,11 @@ def evaluate_against_results(
         "structuralBaseline": base_card,
         "forecast": scored,
         "stored": len(stored),
+        "refs": refs,
+        # The as-of-lock forecast itself, for downstream evaluations (duplication).
+        "forecastOwnership": {
+            pid: r["ownership"] for pid, r in fc["players"].items() if r["ownership"] is not None
+        },
         "note": "Scored as-of lock. One slate is one sample of players, not evidence that any method is better.",
     }
 

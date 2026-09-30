@@ -229,3 +229,22 @@ reported as `fieldFit`. The field is a weighted sample of ≤ 20,000 lineups.
 - Hence `field.implied_ownership` — ownership read off a generated field — is feasible by
   construction and is registered as the ownership CHALLENGER to the structural baseline. Whether it
   predicts real ownership better is unknown until settled contests are scored.
+
+## ADR-DFS-017 — Duplication: naive baseline kept; zero-truncated log-linear challenger (2026-09-30)
+
+**Context.** A GPP win shared with ten identical lineups pays a tenth. The textbook estimate
+(`N × Π ownership`) ignores that fields crowd onto max-salary builds and that ownership forecasts are
+noisy, but it is the benchmark anything better must beat.
+
+**Decision.** `src/dfs/duplication.py`. Naive `N·Π own` is always reported. The challenger
+`E = N·exp(a)·Π own^b·exp(c·salary_left_$1K)` nests the naive model (`a=0, b=1, c=0`) and is fitted
+by **zero-truncated Poisson** MLE (a results file lists only lineups someone entered, so treating
+absent lineups as zeros would bias every parameter), with bounded parameters and inverse-rate
+weights for sampled singletons. Results imports now keep a compact duplication fit sample (every
+repeated lineup + a seeded 2,000 singleton sample) and score the naive baseline against observed
+copies with the AS-OF-LOCK ownership forecast (never realized ownership), storing log-likelihood and
+calibration bands in `pit`.
+
+**Evidence.** Synthetic recovery only: from 60k simulated lineups (truncated to those that appear)
+the fit recovers `b`, `c` within ±0.08 and beats naive on a separate holdout. No real contest has
+been scored yet; the fitted model stays a challenger until `pit.promote` sees a holdout win.

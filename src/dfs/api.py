@@ -30,6 +30,7 @@ import json
 from decimal import Decimal
 from pathlib import Path
 
+from src.dfs import duplication as dfs_duplication
 from src.dfs import ownership as dfs_ownership
 from src.dfs import pit, store
 from src.dfs.contests import (
@@ -1162,14 +1163,27 @@ async def import_results(request: Request):
             422,
             {"quarantined": parsed["quarantined"][:20]},
         )
+    own_eval = await run_in_threadpool(
+        dfs_ownership.evaluate_against_results, owner, snap, rs, parsed["realized"]
+    )
+    dup_eval = {"state": "unavailable", "reason": "no pre-lock ownership forecast"}
+    if own_eval.get("state") == "evaluated" and parsed.get("duplication"):
+        field_size = sum(c for _, c in parsed["pointsCounts"]) + parsed["unscoredEntries"]
+        rows = dfs_duplication.rows_from_result(
+            parsed["duplication"].get("fitSample"),
+            own_eval["forecastOwnership"],
+            {a.player_id: a.salary for a in athletes},
+            rs.salary_cap,
+            field_size,
+        )
+        dup_eval = dfs_duplication.evaluate_result(owner, own_eval["scope"], own_eval["refs"], rows)
     record = {
         **parsed,
         "evaluation": evaluate(athletes, parsed["realized"]),
         # DFS-MOD-02/10: each source, the ensemble and the structural baseline,
         # each forecast as of lock, scored against realized ownership.
-        "ownershipEvaluation": await run_in_threadpool(
-            dfs_ownership.evaluate_against_results, owner, snap, rs, parsed["realized"]
-        ),
+        "ownershipEvaluation": {k: v for k, v in own_eval.items() if k != "forecastOwnership"},
+        "duplicationEvaluation": dup_eval,
         "settlement": (
             settle(
                 contest,
