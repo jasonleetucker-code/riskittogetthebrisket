@@ -23,7 +23,7 @@ vocabulary: **SLICE1** (implemented + tested on `claude/dfs-foundation`, PR #153
 | DFS-§5-01 | Capability gating per platform × sport × format × rule version | P1 | SLICE1 | `capability_matrix()`; `RULESET_SUPERSEDED` on version drift |
 | DFS-§5-02 | Verified rule sets with official evidence; fail closed for money mode | P1 | BLOCKED(official pages refused automated access) | `RULESET_UNVERIFIED` enforced; owner verification needed |
 | DFS-§5-03 | Showdown / single-game / captain / MVP | P2 | NEXT | DFS-RULES-02 |
-| DFS-§5-04 | NBA, NHL, MMA rule sets | P2 | NEXT | DFS-RULES-03/04/05 (NHL/NBA seasons start in October) |
+| DFS-§5-04 | NBA, NHL, MMA rule sets | A | PARTIAL (SLICE4, `claude/dfs-multisport`) | DK + FD NBA and NHL classic encoded as UNVERIFIED research-mode rule sets (solver exact vs brute force on all four, non-vacuity guarded; platform-file roster slots cross-checked on import). MMA still NEXT (no roster rules encoded; files are recognised) |
 | DFS-§5-05 | Contest import/editor, payout ladder validation, rake, overlays, hypothetical profiles | P2 | SLICE2 (manual + pasted ladder) | `src/dfs/contests.py`: separate dimensions, integer cents, overlap/capacity errors, gap/inversion review flags (never rewritten), rake vs overlay vs underfill vs unknown, hypothetical suppresses exact EV; versioned per-owner storage. Platform/provider contest import still NEXT |
 | DFS-§5-06 | Scoring contracts (weights, bonuses, rounding) versioned | P2 | NEXT | Needed before own-model projections (P3/P4) |
 | DFS-§6-01 | "Optimal Lineup" one-click with validate → snapshot → solve → explain → save | P1 | SLICE1 (baseline objective) | Button runs the projection baseline explicitly; result names objective, status, snapshot hash, solver |
@@ -90,7 +90,7 @@ vocabulary: **SLICE1** (implemented + tested on `claude/dfs-foundation`, PR #153
 ## Owner addendum 2026-09-30 — Platform / Slate / Contest integration
 
 Additive; nothing above is superseded except the phase ORDER (see `ROADMAP.md`). Status vocabulary
-as above; **SLICE3** = Phase A slice on `claude/dfs-contests`.
+as above; **SLICE3** = Phase A slice on `claude/dfs-contests`; **SLICE4** = NBA/NHL rule sets on `claude/dfs-multisport`.
 
 | ID | Requirement (compressed) | Phase | Status | Evidence / next action |
 |---|---|---|---|---|

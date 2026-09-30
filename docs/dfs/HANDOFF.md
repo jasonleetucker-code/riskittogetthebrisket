@@ -16,6 +16,8 @@ Worktrees used: `C:\Users\jason\code\chaseupside-dfs` (#1534) and
 `C:\Users\jason\code\chaseupside-dfs-contests` (stacked), each with `frontend/node_modules` as a
 junction to the main checkout's.
 
+| `claude/dfs-multisport` | stacked on #1535 | NBA + NHL classic rule sets for DK + FD (unverified, research mode); brute-force parity + non-vacuity guard | Local; PR after #1535 lands |
+
 ## Proven (with evidence)
 
 - `pytest tests/dfs` 108 passed (incl. brute-force MILP parity on DK + FD rules, $1,000/$100 → $550

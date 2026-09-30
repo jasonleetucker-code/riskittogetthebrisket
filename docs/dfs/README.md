@@ -14,7 +14,8 @@ not a second backlog.
 | `/dfs` route, DFS nav group, private auth | implemented + tested | `frontend/app/dfs/`, `frontend/lib/nav-model.js` |
 | Platform × sport × format capability matrix with honest readiness | implemented + tested | `config/dfs/rulesets.json`, `src/dfs/rules.py` |
 | DraftKings NFL Classic + FanDuel NFL Full Roster rule sets | encoded, **unverified** (research only) | same |
-| NBA / NHL / MMA, Showdown / single-game | registered as `not_implemented` with reasons | same |
+| NBA + NHL classic (DK + FD) | encoded, **unverified** (research only; branch `claude/dfs-multisport`) | same |
+| MMA, Showdown / single-game | registered as `not_implemented` with reasons; files recognised | same |
 | Owner-imported salary files (DK, FD) + projection CSV, identity quarantine | implemented + tested | `src/dfs/imports.py` |
 | Immutable per-owner slate snapshots + builds | implemented + tested | `src/dfs/store.py` (`data/dfs/`) |
 | Deterministic MILP optimizer (projection baseline), locks/excludes/salary/team/groups/QB stacks/bring-back, exactly-N with uniqueness + exposure caps, conflict isolation | implemented + tested (brute-force agreement) | `src/dfs/optimizer.py` |
