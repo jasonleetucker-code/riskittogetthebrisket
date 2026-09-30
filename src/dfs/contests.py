@@ -353,6 +353,10 @@ def validate_contest(c: Contest) -> dict[str, Any]:
     first = next((b for b in bands if b.min_rank == 1 and b.kind == "cash"), None)
     first_share = Fraction(first.prize_cents, cash_total) if first and cash_total else None
     min_cash = min((b.prize_cents for b in bands if b.kind == "cash"), default=None)
+    top_share = None
+    if c.capacity and cash_total and not errors:
+        top_k = max(1, -(-c.capacity // 100))  # ceil(1% of capacity)
+        top_share = sum(prize_at(bands, r) for r in range(1, top_k + 1)) / cash_total
     return {
         "ok": not errors,
         "errors": errors,
@@ -365,6 +369,8 @@ def validate_contest(c: Contest) -> dict[str, Any]:
             "firstPlaceCents": first.prize_cents if first else None,
             "firstPlaceShareOfCash": float(first_share) if first_share is not None else None,
             "minCashCents": min_cash,
+            "topOnePercentShareOfCash": top_share,
+            "curve": payout_curve(bands) if not errors else [],
             "payoutShape": _classify_shape(c, paid, first_share),
             "economics": economics(c, cash_total, None if unvalued else value_total),
             "exactEvAllowed": not errors and c.ladder_source != "hypothetical" and not unvalued,
@@ -417,6 +423,31 @@ def economics(c: Contest, cash_total: int, value_total: int | None) -> dict[str,
             note="Whether prizes are guaranteed is unknown, so no overlay is claimed.",
         )
     return out
+
+
+def payout_curve(ladder: list[PayoutBand], points: int = 48) -> list[dict[str, int]]:
+    """Cash prize by rank at up to ``points`` log-spaced ranks across the paid places.
+
+    Log spacing because ladders are top-heavy: rank 1 and rank 5,000 both need
+    to be visible.  Every point is an exact ladder value, never interpolated.
+    """
+    cash = [b for b in ladder if b.kind == "cash" and b.max_rank >= b.min_rank]
+    if not cash:
+        return []
+    last = max(b.max_rank for b in cash)
+    ranks: set[int] = {1, last}
+    for b in cash:
+        ranks.update((b.min_rank, b.max_rank))
+    step = last ** (1 / max(1, points - 1)) if last > 1 else 1
+    r = 1.0
+    while r <= last and len(ranks) < points * 2:
+        ranks.add(int(r))
+        r = r * step if step > 1 else r + 1
+    chosen = sorted(ranks)
+    if len(chosen) > points:
+        idx = [round(i * (len(chosen) - 1) / (points - 1)) for i in range(points)]
+        chosen = sorted({chosen[i] for i in idx} | {1, last})
+    return [{"rank": k, "prizeCents": prize_at(cash, k)} for k in chosen]
 
 
 # ── exact payouts ─────────────────────────────────────────────────────

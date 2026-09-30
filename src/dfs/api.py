@@ -440,6 +440,9 @@ async def create_build(request: Request):
             409,
             {"verification": rs.verification, "exportVerification": rs.export.get("verification")},
         )
+    context = await _build_context(owner, body, snap, rs)
+    if isinstance(context, JSONResponse):
+        return context
     athletes = _athletes_from(snap["body"]["athletes"])
     try:
         constraints = parse_constraints(body.get("constraints"), rs, athletes)
@@ -489,9 +492,80 @@ async def create_build(request: Request):
             else "Rule set verified.",
         ],
         "submitted": False,
+        "contest": context["contest"],
+        "preset": context["preset"],
+        "disclosures": context["disclosures"],
     }
     saved = await run_in_threadpool(store.put_build, owner, snap["id"], record)
     return _ok(saved, 201)
+
+
+async def _build_context(
+    owner: str, body: dict[str, Any], snap: dict[str, Any], rs: Any
+) -> dict[str, Any] | JSONResponse:
+    """The contest / preset a build was made FOR, and what the build could not do about it.
+
+    Recorded for provenance and disclosed — this build still maximizes projected
+    points; it never pretends to have evaluated the contest.
+    """
+    contest_view = None
+    preset_view = None
+    disclosures: list[str] = []
+    cid = body.get("contestId")
+    if cid is not None:
+        if not isinstance(cid, str):
+            return _err("INVALID_CONTEST", "contestId must be a string.", 400)
+        rec = await run_in_threadpool(store.get_contest, owner, cid)
+        if rec is None:
+            return _err("NOT_FOUND", "No such contest.", 404)
+        c = rec["contest"]
+        if (c["platform"], c["sport"], c["format"]) != (rs.platform, rs.sport, rs.format):
+            return _err(
+                "INVALID_CONTEST",
+                "That contest is for a different platform, sport or format than this slate.",
+                422,
+            )
+        if c.get("slate_id") and c["slate_id"] != snap["id"]:
+            return _err("INVALID_CONTEST", "That contest is linked to a different slate.", 422)
+        derived = rec["report"]["derived"]
+        contest_view = {
+            "contestId": cid,
+            "version": rec["version"],
+            "name": c["name"],
+            "payoutShape": derived["payoutShape"]["shape"],
+            "exactEvAllowed": derived["exactEvAllowed"],
+            "evaluated": False,
+        }
+        disclosures.append(
+            "Contest-aware evaluation is unavailable (no validated outcome, ownership or field model yet): "
+            f"lineups maximize projected points. \"{c['name']}\" is recorded for provenance only."
+        )
+        if not derived["exactEvAllowed"]:
+            disclosures.append(
+                "This contest's payout data is incomplete or hypothetical, so exact contest value could not be computed even with those models."
+            )
+    pid = body.get("presetId")
+    if pid is not None:
+        data = json.loads(PRESETS_PATH.read_text(encoding="utf-8"))
+        preset = next((p for p in data["presets"] if p["id"] == pid), None)
+        if preset is None:
+            return _err("INVALID_PRESET", "Unknown strategy preset.", 400)
+        preset_view = {
+            "id": pid,
+            "version": preset["version"],
+            "label": preset["label"],
+            "validationState": preset["validationState"],
+        }
+        if preset["validationState"] != "validated":
+            disclosures.append(
+                f"The {preset['label']} strategy is not available yet ({preset['unsupportedReason']}) — "
+                "built with the transparent projection baseline instead."
+            )
+    if contest_view is None and preset_view is None:
+        disclosures.append(
+            "No contest or strategy selected: lineups maximize projected points only."
+        )
+    return {"contest": contest_view, "preset": preset_view, "disclosures": disclosures}
 
 
 @router.get("/builds")

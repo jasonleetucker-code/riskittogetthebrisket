@@ -230,6 +230,14 @@
   border-top: 1px solid var(--border-strong);
 }
 
+.curve {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 .provenance summary {
   cursor: pointer;
   font-size: var(--font-size-sm);

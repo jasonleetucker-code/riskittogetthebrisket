@@ -219,6 +219,15 @@ function BuildResult({ build, ruleset }) {
         </span>
       </div>
       <p className={styles.note}>{statusCopy(r.status, r.built)}</p>
+      {build.disclosures?.length ? (
+        <Banner tone="info" title={build.contest ? `Built for: ${build.contest.name}` : build.preset ? `Built for: ${build.preset.label}` : "What this build is"}>
+          <ul className={styles.list}>
+            {build.disclosures.map((d) => (
+              <li key={d}>{d}</li>
+            ))}
+          </ul>
+        </Banner>
+      ) : null}
       {r.built > 1 ? <p className={styles.note}>{build.methodNote}</p> : null}
       {r.shortfall ? (
         <Banner
@@ -332,6 +341,7 @@ export default function DfsWorkspace() {
   const [building, setBuilding] = useState(false);
   const [build, setBuild] = useState(null);
   const [buildError, setBuildError] = useState(null);
+  const [buildContext, setBuildContext] = useState({ contestId: null, presetId: null });
 
   useEffect(() => {
     const stored = readStoredContext();
@@ -367,6 +377,7 @@ export default function DfsWorkspace() {
     if (next.format) setFormat(next.format);
     setBuild(null);
     setBuildError(null);
+    setBuildContext({ contestId: null, presetId: null });
   }, []);
 
   const onFile = async (e, setter) => {
@@ -418,6 +429,8 @@ export default function DfsWorkspace() {
         objective: "projection_baseline",
         mode: "research",
         constraints: payload,
+        contestId: buildContext.contestId || undefined,
+        presetId: buildContext.presetId || undefined,
       }),
     });
     setBuilding(false);
@@ -617,6 +630,7 @@ export default function DfsWorkspace() {
                 platform={platform}
                 sport={sport}
                 format={row?.format || format}
+                onContextChange={setBuildContext}
               />
             </Suspense>
           </Panel>
