@@ -139,27 +139,32 @@ Limits, stated plainly:
 - Test results: a self-reported flag such as `regression_test_added` stays
   `DECLARED`. A case can list `required_ci_workflows`; with `--ci-repo owner/name`
   each is checked against GitHub Actions' own records for the pinned
-  `repo_head_end` (read-only `gh api`, two fixed endpoints: workflow runs for that
-  SHA, and the PRs GitHub associates with it). Only the operator repository's own
+  `repo_head_end` (read-only `gh api`, one fixed endpoint: the workflow runs for
+  that SHA). Only the operator repository's own
   `push` / `pull_request` runs for that exact `head_sha` count; the run that
   started last decides. A failed run fails the grade even when the artifact
   declares success.
 - A green run counts as `VERIFIED_AGAINST_ARTIFACT` only when the bytes that ran
   are proven trusted: with `--repo` and `--trusted-ref` (e.g. `origin/main`), the
   gate machinery at the revision (workflows, `scripts/ci_*`, `scripts/check_*`,
-  `conftest.py`, `pyproject.toml`, requirements, frontend build config — the list
-  is `CI_GATE_GLOBS` in `graders/diff_evidence.py`) must be unchanged relative to
-  `merge-base(trusted ref, revision)`. That point comes from the trusted ref, never
-  from the artifact's own `repo_head_start`, which could be chosen to hide an
-  earlier edit. A `pull_request` run executes the workflow from the merge with the
-  PR's base, so every PR associated with the revision must target
-  `--ci-base-branch` (default `main`). Otherwise the check is `NOT_CHECKED` with the
+  `conftest.py`, `pyproject.toml`, `ruff.toml`, requirements and lockfiles,
+  frontend build config — the list is `CI_GATE_GLOBS` in `graders/diff_evidence.py`)
+  must be unchanged relative to trusted history as it stood before the revision
+  arrived: `merge-base(trusted ref, revision)` while unmerged, the first parent of
+  the merge commit that brought it in once merged, and refused
+  (`revision_on_trusted_first_parent_line` / `revision_is_trusted_tip`) for a
+  commit pushed straight onto the trusted ref. That point never comes from the
+  artifact's own `repo_head_start`, which could be chosen to hide an earlier edit.
+  A `pull_request` run executes the workflow from the merge with the PR's base, so
+  the deciding run's own `pull_requests` record must name only `--ci-base-branch`
+  (default `main`). GitHub clears that record once the PR is merged or closed, so a
+  PR run verifies only while its PR is open; afterwards it is `ci_base_unproven`
+  (commit-level PR listings are not used: they omit closed PRs). Otherwise the check is `NOT_CHECKED` with the
   reason (`ci_gate_changed_in_run`, `ci_base_not_trusted`, `ci_base_unproven`,
   `workflow_identity_unverified`, `no_ci_run_for_revision`, …), failing only with
   `--require-verified-ci`. Missing `gh` or a bad slug is a grading error (exit 2).
 - Residual CI limits: `CI_GATE_GLOBS` is a maintained list, not a proof that
-  nothing else can influence a gate; PR bases are read at grading time, so a PR
-  retargeted after its run is not detected; a `pull_request` run tested the merge
+  nothing else can influence a gate; a `pull_request` run tested the merge
   with the base as it stood then, not the commit alone; tests the run edited are
   part of what was tested; `gh` and `git` are resolved from `PATH` (on Windows the
   current directory too), and `GH_HOST` is honoured as operator configuration —

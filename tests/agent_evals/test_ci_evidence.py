@@ -98,15 +98,16 @@ def _run(head, conclusion="success", *, event="pull_request", **k):
         "run_attempt": k.get("attempt", 1),
         "repository": {"full_name": SLUG},
         "head_repository": {"full_name": k.get("head_repo", SLUG)},
+        "pull_requests": [{"base": {"ref": b}} for b in k.get("bases", ("main",))],
     }
 
 
-def _fetcher(*runs, bases=("main",)):
+def _fetcher(*runs):
     calls = []
 
     def fetch(slug, head):
         calls.append((slug, head))
-        return CiRuns(tuple(runs), head, None, slug, tuple(bases))
+        return CiRuns(tuple(runs), head, None, slug)
 
     fetch.calls = calls
     return fetch
@@ -141,18 +142,13 @@ def _runs_body(runs, total=None):
     return json.dumps({"total_count": count, "workflow_runs": runs}).encode(), 0
 
 
-def _pulls_body(*bases):
-    return json.dumps([{"base": {"ref": b}} for b in bases]).encode(), 0
-
-
-def test_fetch_reads_two_fixed_endpoints_for_the_pinned_revision():
+def test_fetch_reads_one_fixed_endpoint_for_the_pinned_revision():
     sha = "a" * 40
-    gh = FakeGh(_runs_body([_run(sha)]), _pulls_body("main"))
+    gh = FakeGh(_runs_body([_run(sha)]))
     result = fetch_workflow_runs(SLUG, sha, run=gh)
-    assert len(result.runs) == 1 and result.pull_bases == ("main",) and result.slug == SLUG
+    assert len(result.runs) == 1 and result.slug == SLUG
     assert [argv for argv, _ in gh.argv] == [
         ["gh", "api", f"repos/o/r/actions/runs?head_sha={sha}&per_page=100"],
-        ["gh", "api", f"repos/o/r/commits/{sha}/pulls?per_page=100"],
     ]
     assert all("shell" not in kwargs and kwargs["timeout"] > 0 for _, kwargs in gh.argv)
 
@@ -184,8 +180,6 @@ def test_revisions_that_are_not_full_shas_never_reach_gh(head):
         ([(b'{"workflow_runs": 5, "total_count": 5}', 0)], None, "ci_response_malformed"),
         ([_runs_body([_run("a" * 40)], total=250)], None, "ci_listing_truncated"),
         ([(b" " * (2 * 1024 * 1024 + 1), 0)], None, "ci_unavailable"),
-        ([_runs_body([]), (b"", 1)], None, "ci_unavailable"),
-        ([_runs_body([]), (b'[{"base": 3}]', 0)], None, "ci_response_malformed"),
     ],
 )
 def test_unusable_responses_are_never_partial_evidence(responses, raises, reason):
@@ -196,8 +190,8 @@ def test_unusable_responses_are_never_partial_evidence(responses, raises, reason
 # --- verdicts ---------------------------------------------------------------------
 
 
-def _verdict(head, *runs, bases=("main",)):
-    return workflow_verdict(CiRuns(runs, head, None, SLUG, bases), WORKFLOW, trusted_base="main")
+def _verdict(head, *runs):
+    return workflow_verdict(CiRuns(runs, head, None, SLUG), WORKFLOW, trusted_base="main")
 
 
 def test_verdict_counts_only_this_repository_this_revision_and_trusted_events():
@@ -218,14 +212,20 @@ def test_the_run_that_started_last_decides():
     assert _verdict(head, _run(head, "failure"))[0] == "failure"
 
 
-def test_pr_runs_need_every_associated_pr_to_target_the_trusted_base():
+def test_pr_runs_are_bound_to_the_deciding_runs_own_pr_base():
     head = "a" * 40
-    assert _verdict(head, _run(head), bases=("main", "claude/x"))[1].startswith(
+    assert _verdict(head, _run(head, bases=("main", "claude/x")))[1].startswith(
         "ci_base_not_trusted"
     )
-    assert _verdict(head, _run(head), bases=())[1].startswith("ci_base_unproven")
+    # Closed-PR attack: the weakened PR into claude/x is closed, so GitHub empties its
+    # run's pull_requests; it started last, so it decides -- and cannot be verified.
+    trusted_older = _run(head, id=1, started="2026-09-30T10:00:00Z")
+    weakened_closed = _run(head, id=2, started="2026-09-30T11:00:00Z", bases=())
+    assert _verdict(head, trusted_older, weakened_closed)[1].startswith("ci_base_unproven")
+    malformed = {**_run(head), "pull_requests": [{"base": "main"}]}
+    assert _verdict(head, malformed) == ("not_checked", "ci_response_malformed")
     # A push run executes the workflow at head_sha itself; no PR base is involved.
-    assert _verdict(head, _run(head, event="push"), bases=())[0] == "success"
+    assert _verdict(head, _run(head, event="push", bases=()))[0] == "success"
 
 
 def test_malformed_run_fields_are_not_a_crash():
@@ -244,6 +244,41 @@ def test_gate_changes_are_measured_from_the_trusted_ref_not_the_artifact_start(r
     assert gate_changes(repo["root"], "main", repo["skip_all"]).files == ("tests/conftest.py",)
     assert gate_changes(repo["root"], "--output=x", repo["fixed"]).reason == "trusted_ref_invalid"
     assert gate_changes(repo["root"], "nope", repo["fixed"]).reason == "trusted_ref_unresolvable"
+
+
+def test_merged_revision_is_compared_with_trusted_history_before_the_merge(tmp_path):
+    root = tmp_path / "merged"
+    root.mkdir()
+    _git(root, "init", "-q")
+    _git(root, "checkout", "-q", "-b", "main")
+    _commit(root, {**CODE, WORKFLOW: "on: pull_request\n"}, "base")
+    _git(root, "checkout", "-q", "-b", "work")
+    weakened_head = _commit(root, {WORKFLOW: "exit 0\n", "src/ros/playoff_sim.py": "b\n"}, "w")
+    _git(root, "checkout", "-q", "-b", "clean", "main")
+    clean_head = _commit(root, {"tests/ros/test_playoff_sim.py": "c\n"}, "clean")
+    _git(root, "checkout", "-q", "main")
+    _commit(root, {"unrelated.txt": "x\n"}, "main moves on")
+    for branch in ("work", "clean"):
+        _git(
+            root,
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@e.invalid",
+            "merge",
+            "-q",
+            "--no-ff",
+            "--no-edit",
+            branch,
+        )
+    # Both heads are now ancestors of main; merge-base(main, head) would be head itself.
+    assert gate_changes(root, "main", weakened_head).files == (WORKFLOW,)
+    assert gate_changes(root, "main", clean_head).files == ()
+    # A commit pushed straight onto main cannot be separated from trusted history.
+    tip = _commit(root, {"src/ros/playoff_sim.py": "d\n"}, "direct push")
+    assert gate_changes(root, "main", tip).reason == "revision_is_trusted_tip"
+    _commit(root, {"more.txt": "y\n"}, "later")
+    assert gate_changes(root, "main", tip).reason == "revision_on_trusted_first_parent_line"
 
 
 # --- grading ----------------------------------------------------------------------
@@ -284,7 +319,7 @@ def test_conftest_edit_is_a_gate_change(repo, tmp_path):
 
 
 def test_pr_run_against_an_untrusted_base_does_not_verify(repo, tmp_path):
-    fetch = _fetcher(_run(repo["fixed"]), bases=("claude/weakened",))
+    fetch = _fetcher(_run(repo["fixed"], bases=("claude/weakened",)))
     path = _artifact(tmp_path, repo["base"], repo["fixed"], ["src/ros/playoff_sim.py"])
     assert _entry(_grade(repo, path, fetch))["reason"].startswith("ci_base_not_trusted")
 

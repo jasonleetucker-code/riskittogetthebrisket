@@ -17,13 +17,16 @@ artifact's own ``repo_head_start``):
   ``head_repository``), for that exact ``head_sha``;
 * a ``push`` run executes the workflow file at ``head_sha`` itself;
 * a ``pull_request`` run executes the workflow from the merge of ``head_sha``
-  with the PR's base, so every PR GitHub associates with the revision must
-  target the trusted base branch -- a PR aimed at a branch carrying a weakened
-  workflow would otherwise run that copy under the same ``head_sha``.
+  with the PR's base, so the deciding run's OWN ``pull_requests`` record must
+  name only the trusted base branch -- a PR aimed at a branch carrying a weakened
+  workflow would otherwise run that copy under the same ``head_sha``. The base
+  is never taken from a commit-level PR listing: GitHub omits closed-unmerged PRs
+  there, so closing the weakened PR would hide it. GitHub empties a run's
+  ``pull_requests`` once its PR is merged or closed, so a pull_request run can
+  be verified only while its PR is open; afterwards it is ``ci_base_unproven``.
 
-Residual limits, stated rather than hidden: the base is read at grading time, so
-a PR retargeted after its run is not detected; and a pull_request run tests the
-merge with the base as it stood when the run started, not the commit alone.
+Residual limit: a pull_request run tested the merge with the base as it stood
+when the run started, not the commit alone.
 """
 
 from __future__ import annotations
@@ -46,13 +49,12 @@ TRUSTED_EVENTS = frozenset({"push", "pull_request"})
 
 @dataclass(frozen=True)
 class CiRuns:
-    """``runs`` / ``pull_bases`` are set only when retrieved completely."""
+    """``runs`` is set only when the listing was retrieved completely."""
 
     runs: tuple[dict, ...] | None
     head: str | None
     reason: str | None = None
     slug: str | None = None
-    pull_bases: tuple[str, ...] | None = None
 
 
 def valid_slug(repo_slug) -> bool:
@@ -79,7 +81,7 @@ def _gh_json(endpoint: str, run):
 
 
 def fetch_workflow_runs(repo_slug: str, head, *, run=subprocess.run) -> CiRuns:
-    """Every workflow run, and every associated PR base, GitHub records for ``head``."""
+    """Every workflow run GitHub records for ``head`` in ``repo_slug``."""
     if not valid_slug(repo_slug):
         return CiRuns(None, head, "ci_repository_invalid")
     if head is None:
@@ -100,21 +102,26 @@ def fetch_workflow_runs(repo_slug: str, head, *, run=subprocess.run) -> CiRuns:
     if total != len(runs):
         # A partial listing could omit the newest run for a workflow.
         return CiRuns(None, head, "ci_listing_truncated", repo_slug)
-    pulls, reason = _gh_json(f"repos/{repo_slug}/commits/{head}/pulls?per_page={PER_PAGE}", run)
-    if reason:
-        return CiRuns(None, head, reason, repo_slug)
-    if not isinstance(pulls, list) or len(pulls) >= PER_PAGE:
-        return CiRuns(None, head, "ci_response_malformed", repo_slug)
-    try:
-        bases = tuple(str(p["base"]["ref"]) for p in pulls)
-    except (KeyError, TypeError):
-        return CiRuns(None, head, "ci_response_malformed", repo_slug)
-    return CiRuns(tuple(runs), head, None, repo_slug, bases)
+    return CiRuns(tuple(runs), head, None, repo_slug)
 
 
 def _full_name(record, key):
     value = record.get(key)
     return value.get("full_name") if isinstance(value, dict) else None
+
+
+def _run_pull_bases(record) -> list[str] | None:
+    pulls = record.get("pull_requests", [])
+    if not isinstance(pulls, list):
+        return None
+    bases = []
+    for pull in pulls:
+        base = pull.get("base") if isinstance(pull, dict) else None
+        ref = base.get("ref") if isinstance(base, dict) else None
+        if not isinstance(ref, str):
+            return None
+        bases.append(ref)
+    return bases
 
 
 def workflow_verdict(runs: CiRuns, workflow_path: str, *, trusted_base: str) -> tuple[str, str]:
@@ -148,9 +155,12 @@ def workflow_verdict(runs: CiRuns, workflow_path: str, *, trusted_base: str) -> 
     if latest.get("status") != "completed":
         return "not_checked", f"ci_run_incomplete: {detail}"
     if latest["event"] == "pull_request":
-        if not runs.pull_bases:
+        bases = _run_pull_bases(latest)
+        if bases is None:
+            return "not_checked", "ci_response_malformed"
+        if not bases:
             return "not_checked", f"ci_base_unproven: {detail}"
-        untrusted = sorted(set(runs.pull_bases) - {trusted_base})
+        untrusted = sorted(set(bases) - {trusted_base})
         if untrusted:
             return "not_checked", f"ci_base_not_trusted: {detail} has PR base(s) {untrusted}"
     if latest.get("conclusion") == "success":

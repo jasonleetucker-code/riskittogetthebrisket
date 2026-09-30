@@ -139,11 +139,21 @@ CI_GATE_GLOBS = (
     "setup.cfg",
     "tox.ini",
     "requirements*.txt",
+    "ruff.toml",
+    ".ruff.toml",
+    "package.json",
+    "package-lock.json",
+    "*.npmrc",
     "frontend/package.json",
     "frontend/package-lock.json",
     "frontend/scripts/*",
     "frontend/vitest.config.*",
     "frontend/vite.config.*",
+    "frontend/next.config.*",
+    "frontend/tsconfig*.json",
+    "frontend/jsconfig.json",
+    "frontend/.eslintrc*",
+    "frontend/eslint.config.*",
 )
 TRUSTED_REF = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/-]*")
 
@@ -151,9 +161,14 @@ TRUSTED_REF = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/-]*")
 def gate_changes(repo: Path, trusted_ref, head, extra: tuple[str, ...] = ()) -> DiffEvidence:
     """Gate files ``head`` changed relative to trusted history.
 
-    The comparison point is ``merge-base(trusted_ref, head)``, computed from the
-    operator's trusted ref -- never the artifact's own ``repo_head_start``, which
-    could be chosen to hide an earlier edit. ``files`` lists only gate paths.
+    The comparison point is trusted history as it stood BEFORE ``head`` arrived,
+    computed from the operator's trusted ref -- never the artifact's own
+    ``repo_head_start``, which could be chosen to hide an earlier edit. For an
+    unmerged head that is ``merge-base(trusted_ref, head)``. Once ``head`` is merged,
+    that merge-base is ``head`` itself and would compare it with itself, so the point
+    becomes the first parent of the merge commit that brought it in. A head pushed
+    straight onto the trusted ref's first-parent line cannot be separated from
+    trusted history and is refused. ``files`` lists only gate paths.
     """
     if not isinstance(trusted_ref, str) or not TRUSTED_REF.fullmatch(trusted_ref):
         return DiffEvidence(None, trusted_ref, head, "trusted_ref_invalid")
@@ -161,11 +176,34 @@ def gate_changes(repo: Path, trusted_ref, head, extra: tuple[str, ...] = ()) -> 
         return DiffEvidence(None, trusted_ref, head, "revision_not_full_sha")
     repo = Path(repo)
     try:
-        base = _git(repo, "merge-base", "--end-of-options", trusted_ref, head)
-        if base.returncode != 0:
+        tip = _git(repo, "rev-parse", "--verify", "--end-of-options", f"{trusted_ref}^{{commit}}")
+        trusted = tip.stdout.decode("ascii", "replace").strip()
+        if tip.returncode != 0 or not is_full_sha(trusted):
             return DiffEvidence(None, trusted_ref, head, "trusted_ref_unresolvable")
+        if _git(repo, "merge-base", "--is-ancestor", head, trusted).returncode == 0:
+            chain = _git(
+                repo,
+                "rev-list",
+                "--first-parent",
+                "--ancestry-path",
+                "--reverse",
+                f"{head}..{trusted}",
+            )
+            first = chain.stdout.decode("ascii", "replace").split()
+            if chain.returncode != 0 or not first:
+                return DiffEvidence(None, trusted_ref, head, "revision_is_trusted_tip")
+            parent = _git(repo, "rev-parse", "--verify", f"{first[0]}^1")
+            pre = parent.stdout.decode("ascii", "replace").strip()
+            if parent.returncode != 0 or not is_full_sha(pre):
+                return DiffEvidence(None, trusted_ref, head, "trusted_ref_unresolvable")
+            if _git(repo, "merge-base", "--is-ancestor", head, pre).returncode == 0:
+                return DiffEvidence(
+                    None, trusted_ref, head, "revision_on_trusted_first_parent_line"
+                )
+            trusted = pre
+        base = _git(repo, "merge-base", trusted, head)
         merge_base = base.stdout.decode("ascii", "replace").strip()
-        if not is_full_sha(merge_base):
+        if base.returncode != 0 or not is_full_sha(merge_base):
             return DiffEvidence(None, trusted_ref, head, "trusted_ref_unresolvable")
         result = _git(
             repo,
