@@ -88,8 +88,10 @@ structured attribution: any non-empty subset of `session_id`, `provider`,
 omit what is not known. `brief --save` accepts `--producer-session-id`,
 `--producer-provider` and `--producer-model`. `store.producer_attribution`
 reads records without the object — including every row written before it
-existed — as explicitly `unattributed`; free-text `source` is never parsed for
-a session or model, and historical rows are never rewritten.
+existed — as explicitly `unattributed`; a stored producer that fails the
+contract reads as `unattributed` with reason `malformed_producer`. Free-text
+`source` is never parsed for a session or model, and historical rows are never
+rewritten.
 Knowledge input: `id, layer, topic, summary, authority, evidence_ids,
 repo_head, at`, with optional `supersedes`. Authorities are observation,
 verified, repository and owner; they describe recorded evidence, not runtime
