@@ -12102,8 +12102,6 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
                 error=str(exc),
             )
             raise
-        finally:
-            _public_league_cache["refreshing"] = False
 
         # A zero-season snapshot is a FAILURE, not a result.
         #
@@ -12189,16 +12187,15 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
         _public_league_cache["last_failure_error"] = None
 
         elapsed = round(time.time() - started, 4)
-        _public_league_cache["snapshot"] = snapshot
-        _public_league_cache["snapshot_league_id"] = league_id
-        _public_league_cache["fetched_at"] = time.time()
-        _public_league_metrics["rebuild_count"] += 1
-        _public_league_metrics["total_rebuild_seconds"] += elapsed
-        _public_league_metrics["last_rebuild_seconds"] = elapsed
-        _public_league_metrics["last_rebuild_iso"] = _utc_now_iso()
-        _public_league_metrics["last_season_count"] = len(snapshot.seasons)
-        _public_league_metrics["last_manager_count"] = len(snapshot.managers.by_owner_id)
 
+        # Seed both response memos BEFORE the new snapshot is published.
+        # Published first, every request in the ~10-20 s this build takes
+        # saw the NEW generation key with nothing memoized under it and
+        # built the whole contract inline — racing this very build for the
+        # GIL.  That was the overview's p95 (11.9 s, max 23 s, measured
+        # 2026-09-29 after #1515): one miss per snapshot cycle.  Until the
+        # swap below, requests keep serving the previous generation, which
+        # is still memoized (entries live two snapshot windows).
         contract_bytes = None
         if _PUBLIC_LEAGUE_PERSIST and snapshot.seasons:
             try:
@@ -12220,6 +12217,16 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
             except Exception as exc:  # noqa: BLE001
                 logging.warning("Failed to persist public_league snapshot: %s", exc)
 
+        _public_league_cache["snapshot"] = snapshot
+        _public_league_cache["snapshot_league_id"] = league_id
+        _public_league_cache["fetched_at"] = time.time()
+        _public_league_metrics["rebuild_count"] += 1
+        _public_league_metrics["total_rebuild_seconds"] += elapsed
+        _public_league_metrics["last_rebuild_seconds"] = elapsed
+        _public_league_metrics["last_rebuild_iso"] = _utc_now_iso()
+        _public_league_metrics["last_season_count"] = len(snapshot.seasons)
+        _public_league_metrics["last_manager_count"] = len(snapshot.managers.by_owner_id)
+
         _log_public_league_event(
             "rebuild_complete",
             trigger=trigger,
@@ -12231,6 +12238,11 @@ def _rebuild_public_snapshot(league_id: str, *, trigger: str = "sync"):
         )
         return snapshot
     finally:
+        # Cleared only once the rebuild is over -- INCLUDING the contract
+        # build and the publish above.  Cleared right after the upstream
+        # fetch (as it was), it announced "done" while this thread was still
+        # building, so a second refresh could be scheduled mid-build.
+        _public_league_cache["refreshing"] = False
         _public_league_refresh_lock.release()
 
 
