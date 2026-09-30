@@ -8,10 +8,12 @@ owner-scoped, as every DFS record does.
 
 Behaviour:
 
-* **manual and cached** — fetched only when the owner asks, at most once per
-  ``MIN_REFETCH_S`` per page (served from the on-disk cache otherwise), with a
-  descriptive User-Agent and a timeout; no scheduled scraping, no retries in a
-  loop, no evasion of any access control;
+* **cached and paced** — fetched when the owner asks (``pull``) or by the
+  automatic slate refresh (``src/dfs/auto``, DFS-AUTO-04: a 10-minute timer that
+  refreshes by time to lock — 2 h / 30 min / 10 min), and never more than once
+  per ``MIN_REFETCH_S`` per page (served from the on-disk cache otherwise), with a
+  descriptive User-Agent and a timeout; no retries in a loop, no evasion of any
+  access control;
 * **provenance** — URL, fetch time, HTTP status and the SHA-256 of the raw page
   travel with every observation;
 * **parse** — only the documented row attributes (name, team, opponent,
@@ -108,6 +110,25 @@ def fetch(sport: str, platform: str, *, now: float | None = None) -> dict[str, A
 def _num(v: str | None) -> float | None:
     try:
         return float(v) if v not in (None, "") else None
+    except ValueError:
+        return None
+
+
+_UPDATED = re.compile(r'<time[^>]*datetime="([^"]+)"[^>]*data-type="updated"', re.S)
+
+
+def page_updated_at(page_html: str) -> str | None:
+    """The page's own "Updated At" stamp (UTC ISO), or None when absent — the
+    source's PUBLISH time, which beats our fetch time as point-in-time evidence."""
+    m = _UPDATED.search(page_html)
+    if not m:
+        return None
+    try:
+        return (
+            datetime.fromisoformat(m.group(1).replace("Z", "+00:00"))
+            .astimezone(timezone.utc)
+            .isoformat()
+        )
     except ValueError:
         return None
 

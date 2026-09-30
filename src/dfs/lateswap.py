@@ -22,6 +22,7 @@ import io
 from datetime import datetime, timezone
 from typing import Any
 
+from src.dfs.auto import PlatformIdsUnavailable, refuse_synthetic_ids
 from src.dfs.entries import DK_EXPORT_LAYOUT, LAYOUT_VERIFICATION, export_row
 from src.dfs.imports import ImportError_, SlateAthlete
 from src.dfs.optimizer import ConstraintError, Constraints, optimize, validate_lineup
@@ -231,6 +232,10 @@ def export_late_swap(
             raise ImportError_(
                 "LINEUP_INVALID_AT_EXPORT", f"Entry {p['entryId']} is not valid.", {"errors": errs}
             )
+        try:
+            refuse_synthetic_ids(final)
+        except PlatformIdsUnavailable as exc:
+            raise ImportError_(exc.code, exc.message, exc.detail) from exc
         e = {"entry_id": p["entryId"], **meta.get(p["entryId"], {})}
         w.writerow(export_row(e, final, layout))
         written.append(p["entryId"])

@@ -1179,6 +1179,9 @@ main() {
   # whether it is due (src/ros/game_day_live.py).  Public endpoints, no creds.
   install_simple_timer "game-day-live" "Game Day live collector (observations + generations)"
   install_simple_timer "auction-backup" "rookie auction store hourly verified backup (backup + restore + replay check)"
+  # DFS-AUTO: automatic DraftKings/FanDuel slates, no uploads (src/dfs/auto/refresh.py).
+  # Fires every 10 minutes; the tick decides whether anything is due.  No creds.
+  install_simple_timer "dfs-auto-refresh" "DFS automatic slate refresh (schedule + salaries + projections)"
 
   # ── daemon-reload and enable ────────────────────────────────────────────
   # ce_needs_install was missing from this list. Every other timer's

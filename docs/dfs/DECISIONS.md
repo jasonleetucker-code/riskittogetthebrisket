@@ -370,3 +370,58 @@ the worker; jobs a previous process left `running`/`queued` are marked `interrup
 job and the synchronous endpoint call the same function. `POST /api/dfs/jobs` (kind `backtest`) →
 202; `GET /api/dfs/jobs/{id}`, owner-scoped. In-process by design: a multi-process deployment would
 need a shared queue — revisit only if the box runs several backend workers.
+
+## ADR-DFS-024 — Automated data first, manual files second: the zero-upload primary workflow (2026-09-30)
+
+**Context.** Permanent owner requirement (third directive, 2026-09-30): *the primary DFS workflow must
+require zero manual CSV imports.* Opening `/dfs` shows populated slates; manual import survives only
+as fallback / override / testing, under *Advanced*. Constraints kept from the directive: no private
+DraftKings / FanDuel endpoints, no prohibited scraping, no login / paywall / anti-bot bypass, no
+purchase without owner approval, never fake data.
+
+**Audit (what existed).** DFS (#1534/#1535) read slates only from official CSVs or a default-OFF
+SportsDataIO feed. The Calculator already owned: the nflverse schedule (`nfl_data.ingest`), Sleeper
+weekly projections as RAW stat lines (RotoWire model) with an exact per-card scorer
+(`ros.sleeper_weekly_projections` + `league_intel.scorer`), canonical identity
+(`identity.resolution.resolve_canonical_v2`), the Sleeper directory (injury status), systemd timer
+templates, and freshness conventions. No odds feed, no NBA/NHL/MMA schedule, no DK/FD data anywhere.
+
+**Decision.** `src/dfs/auto/` owns automated DFS data; NFL DraftKings + FanDuel first:
+
+* **Pool + salary** from the owner-authorised Daily Fantasy Fuel platform pages (A-020): the week's
+  classic pool with each platform's salary and position; DFF's own "Updated At" stamp is its as-of.
+* **Slates DERIVED from the schedule** — Main (Sunday 1:00–4:25 ET), Early, Afternoon, Primetime,
+  Full week; a window with fewer than 2 games, or identical to a bigger one, is dropped. Labelled
+  `derived_from_schedule` everywhere: the platforms' own slate lists have no permitted source.
+  Salaries are assumed identical across a week's classic slates (labelled).
+* **Projections**: independent families, never averaged across scoring systems. DFF (its own
+  "hand-cut" model) + Sleeper/RotoWire stat lines RESCORED under DraftKings / FanDuel cards
+  (`scoring_cards.py`, unverified; yardage bonuses scored on the average line, so biased low —
+  disclosed). Ensemble: n=1 passthrough, n=2 mean, n≥3 median. An all-zero provider line is
+  excluded (it is not a forecast of 0). A player the directory lists Out / IR / PUP / Suspended is
+  WITHHELD (unprojected, so the optimizer cannot pick him), never scored 0.
+* **Identity** through the canonical owner; ambiguous or unresolved names keep their salary row but
+  join no directory data, and are listed as quarantined.
+* **Storage**: every changed build is an ordinary immutable snapshot under the `system:auto`
+  namespace plus a point-in-time ledger capture (`via: auto_refresh`); an unchanged build only
+  advances "last checked". Selecting a slate CLONES it into the owner's namespace (idempotent by
+  content hash), so builds, simulations and late swap stay owner-scoped and reproducible.
+* **Refresh**: `dynasty-dfs-auto-refresh` timer every 10 min runs `scripts/refresh_dfs_auto_slates.py`;
+  due by time to lock (more than 24 h: 2 h; 3–24 h: 30 min; under 3 h: 10 min; locked: never). A page
+  view that finds slates due queues a background job — the request never waits on a fetch.
+* **Freshness** per slate: CURRENT / AGING (older than cadence) / STALE (older than 2× cadence) /
+  DEGRADED (a family or the identity input missing) / SOURCE_ERROR (last attempt failed; last good
+  data kept) / UNAVAILABLE.
+* **Exports**: automatic athletes carry synthetic `auto-…` ids. Every upload writer (build export,
+  entries fill, late-swap export) refuses them with `PLATFORM_IDS_UNAVAILABLE` — an upload file with
+  invented ids would be worse than none. Upload-ready needs the platform's own file (Advanced) or a
+  licensed slate feed (SportsDataIO — paid; owner approval required, not purchased).
+
+**Rejected.** Scraping DK/FD lobbies or their private JSON (prohibited); DFF's AJAX slate picker
+(an undocumented internal endpoint); RotoGrinders projections (client-rendered; the CSV is premium).
+The owner's RotoGrinders permission is recorded (A-001) and applies to login-free,
+robots-respecting pages only.
+
+**Consequences.** `/dfs` populates a real NFL slate for both platforms with nothing downloaded. Open
+gaps are DFS-AUTO rows: platform ids (BLOCKED), NBA/NHL (LATER — DFF pages exist, a schedule source
+is needed), MMA (BLOCKED — no source), licensed odds/props (BLOCKED — paid).

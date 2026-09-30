@@ -10,6 +10,8 @@ from __future__ import annotations
 from src.dfs import api
 
 EXPECTED = {
+    "GET /api/dfs/auto/slates",
+    "POST /api/dfs/auto/slates/select",
     "GET /api/dfs/builds",
     "GET /api/dfs/builds/{build_id}",
     "GET /api/dfs/builds/{build_id}/export",

@@ -646,7 +646,11 @@ def capture_snapshot(owner: str, snapshot: dict[str, Any]) -> dict[str, Any]:
     """
     slate = index_slate(owner, snapshot)
     at = _utc(snapshot["createdAt"])
-    prov = {"via": "owner_import", "snapshotContentHash": snapshot["contentHash"]}
+    auto = ((snapshot["body"].get("slate") or {}).get("provenance") or {}).get(
+        "sourceKind"
+    ) == "auto_derived"
+    via = "auto_refresh" if auto else "owner_import"
+    prov = {"via": via, "snapshotContentHash": snapshot["contentHash"]}
     obs = []
     for a in snapshot["body"].get("athletes") or []:
         pid = a["player_id"]
@@ -678,7 +682,7 @@ def capture_snapshot(owner: str, snapshot: dict[str, Any]) -> dict[str, Any]:
                 {
                     "playerId": pid,
                     "kind": "distribution",
-                    "source": "owner_import",
+                    "source": via,
                     "observedAt": at,
                     "value": a["distribution"],
                     "provenance": prov,
@@ -689,7 +693,7 @@ def capture_snapshot(owner: str, snapshot: dict[str, Any]) -> dict[str, Any]:
                 {
                     "playerId": pid,
                     "kind": "status",
-                    "source": "platform_file",
+                    "source": "auto_status" if auto else "platform_file",
                     "observedAt": at,
                     "value": a["status"],
                     "provenance": prov,

@@ -112,6 +112,17 @@ def get_snapshot(owner: str, sid: str) -> dict[str, Any] | None:
     }
 
 
+def find_snapshot(owner: str, content_hash: str, ruleset: str) -> str | None:
+    """The newest snapshot this owner already holds with identical content, if any."""
+    with _lock, _connect() as conn:
+        row = conn.execute(
+            "SELECT id FROM dfs_snapshots WHERE owner=? AND content_hash=? AND ruleset=? "
+            "ORDER BY created_at DESC LIMIT 1",
+            (owner, content_hash, ruleset),
+        ).fetchone()
+    return row[0] if row else None
+
+
 def put_build(owner: str, snapshot_id: str, body: dict[str, Any]) -> dict[str, Any]:
     bid = "build_" + uuid.uuid4().hex[:20]
     created = now_iso()

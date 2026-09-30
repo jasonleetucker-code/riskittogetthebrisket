@@ -9,14 +9,14 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-17 of the 32 entries in ``_DEFAULTS`` below are ``True`` —
+18 of the 33 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
 ``perfect_draft``, ``ledger_rank_change``, ``waiver_live_opportunity``,
 ``source_freshness_weighting``, ``source_family_cap``, ``source_universe_freshness``,
 ``game_day_live_game_state``, ``sleeper_weekly_projections``,
-``rookie_auction`` and ``dfs_workspace`` — several with comments
+``rookie_auction``, ``dfs_workspace`` and ``dfs_auto_slates`` — several with comments
 recording that the enabled default is deliberate.
 
 **No live gate sits outside this registry any more.**  The last one —
@@ -374,6 +374,15 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # CSV remains the path.  Enable only after owner approval of the plan:
     # RISKIT_FEATURE_DFS_SPORTSDATAIO_SLATES=1 + the key + restart.
     "dfs_sportsdataio_slates": False,
+    # DFS automatic slates (``src/dfs/auto/``, permanent owner requirement
+    # 2026-09-30: zero manual CSV imports).  NFL DraftKings + FanDuel slates
+    # derived from the schedule, priced from the owner-authorised Daily
+    # Fantasy Fuel pages, projected from independent families.  Additive: it
+    # writes only data/dfs/ (system:auto snapshots) and never touches the
+    # dynasty board.  Off → /api/dfs/auto/slates answers FEATURE_DISABLED,
+    # queues no refresh, and the timer tick exits 2; the manual file path is
+    # unaffected.  Rollback: RISKIT_FEATURE_DFS_AUTO_SLATES=0 + restart.
+    "dfs_auto_slates": True,
     # Consensus Edge — the unified buy/sell board.  DEFAULT **OFF**.
     #
     # It was flipped ON on 2026-08-04 on the strength of a top-20 study
@@ -664,6 +673,9 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # dfs_sportsdataio_slates gates src/dfs/providers.py, reached through the
     # /api/dfs/provider-slates* routes mounted in server.py.
     "dfs_sportsdataio_slates": LIVE,
+    # dfs_auto_slates gates src/dfs/auto (the /api/dfs/auto/* routes mounted
+    # in server.py, and scripts/refresh_dfs_auto_slates.py on its timer).
+    "dfs_auto_slates": LIVE,
     # consensus_edge gates the /api/consensus-edge/* router mounted in
     # server.py: off → 503 feature_disabled, on → the board.
     "consensus_edge": LIVE,
@@ -686,6 +698,9 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # ``data_contract._compute_unified_rankings``, which reaches a request
     # through ``/api/data`` and every engine that reads the board.
     "source_family_cap": LIVE,
+    # source_universe_freshness caps each row's freshness clock at its own asset
+    # universe's broad-change clock on mixed offense+IDP boards (#1555 V2-1).
+    "source_universe_freshness": LIVE,
     # host_native_scoring gates the stat vocabulary
     # ``league_comparison.sleeper_stats.fetch_sleeper_weekly_stats``
     # emits, which reaches a request through ``historical_stats`` →
