@@ -1134,7 +1134,7 @@ which shipped on two surfaces at once.
 * **Raw canonical value** — ``rankDerivedValue``.  One number per asset,
   owned by ``_compute_unified_rankings``.  Value Adjustment never mutates it;
   a player is worth the same whatever package he is in.
-* **Adjusted side total** — ``raw + VA − stack``.  The comparison quantity
+* **Adjusted side total** — ``raw + VA``, nothing else.  The comparison quantity
   for ONE specific pairing of packages.  It is a property of the trade, not
   of any asset in it, and it is what every fairness verdict, meter and gap
   in this repo is measured on.
@@ -1179,10 +1179,18 @@ and for N = 2 the identity ``nets[1] === tradeGapAdjusted(A, B)`` holds exactly
 (pinned by test).  Caveat that travels with the number: the multi-side VA is a
 **structural extension** of a 2-side calibration, not a separately fit model.
 
-Known, pre-existing, NOT fixed here: the draft-capital stack term is accounted
-differently by the two paths — ``adjustedSideTotals`` debits both sides' stack
-into the gap while a net flow credits only the side's own.  Zero for every
-trade with no pick routing; it belongs to whoever revisits the stack model.
+**The draft-capital stack effect is INFORMATIONAL ONLY** (owner directive
+2026-09-29, #1527).  ``computeStackAdjustments`` still computes it for a
+labelled "experimental, not calibrated" note on /trade, but no decision helper
+accepts it: side totals, the gap/verdict, side flows, ``tradeImbalance`` and
+``findBalancers`` are raw + VA.  Its acceptance audit found it dominating whole
+packages through data seams (2027 picks counted twice in team stacks,
+synthesized future-pick dollars, picks "sent" by teams that do not hold them, a
+2026/2027 draft-year split); a league-pool conversion rate fixed only the
+self-referential-rate defect and still produced a −963 side.  It returns to the
+totals only through an owner-approved methodology meeting issue #1529's
+prerequisites.  ``frontend/__tests__/trade-stack-withdrawn.test.js`` fails if
+it re-enters any decision path — updating it IS that methodology decision.
 
 Owners:
 

@@ -1,6 +1,6 @@
 {
  "note": "Known missing-data coercions on decision paths, recorded so the gate can block NEW ones while the remediation batches burn these down. Each batch deletes its findings' entries. Do not add to this file to make a build pass.",
- "count": 654,
+ "count": 651,
  "violations": [
   "frontend/lib/auction-power.js::const raw = names.map((n) => Number(totalsObj[n]) || 0);",
   "frontend/lib/bdvm.js::assetCount: _num(r?.assetCount) ?? 0,",
@@ -187,10 +187,7 @@
   "frontend/lib/trade-logic.js::const d = Number(mv.dollars) || 0;",
   "frontend/lib/trade-logic.js::const premiumAfter = (after[team] || 0) - (post[team] || 0);",
   "frontend/lib/trade-logic.js::const premiumBefore = (before[team] || 0) - (leagueStacks[team] || 0);",
-  "frontend/lib/trade-logic.js::const stackAdjustment = stack[i] || 0;",
-  "frontend/lib/trade-logic.js::result[i].net = result[i].received - result[i].given + (stack[i] || 0);",
   "frontend/lib/trade-logic.js::return Number(row.values?.[valueMode] || 0);",
-  "frontend/lib/trade-logic.js::sumBoard += Number(mv.board) || 0;",
   "frontend/lib/trade-share.js::const version = Number(parsed.v) || 1;",
   "frontend/lib/value-history.js::const rSpan = rMax - rMin || 1;",
   "frontend/lib/value-history.js::const tSpan = tMax - tMin || 1;",
