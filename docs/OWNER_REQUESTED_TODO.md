@@ -1213,3 +1213,18 @@ clocks, one-active-hour extension, 13-active-hour nomination timeout with audite
 tie rule, withdrawal policy, outage policy, six-rounds = six nomination opportunities) are listed in
 `src/auction/rules.py::PROPOSED_RULE_KEYS` and must be confirmed together on the room's
 rule-confirmation screen before an official room can start. They do not block mocks.
+
+## Added 2026-09-30 — harness recommendations accepted ("Whatever you recommend")
+
+The owner accepted the recommendations that closed the 2026-09-30 harness reconciliation
+(full record: `docs/engineering/AGENT_HARNESS_EXTERNAL_GUIDANCE_RECONCILIATION_2026-09-12.md` Part H;
+authorization: `docs/EXECUTION_PLAN.md` "Served build identity — owner authorization, 2026-09-30").
+
+| Item | Disposition |
+|---|---|
+| Merge the reviewed harness PRs #1536 (Steward evidence validation + record) and #1542 (CI-backed test evidence) once green | ACCEPTED — normal protected path |
+| Served build identity: `/api/status` reports the running commit; the deploy smoke test fails on a mismatch (Part H.5 item 1, Priority 3) | AUTHORIZED — branch `claude/served-build-identity` |
+| Re-run the closed PR #1344 CLAUDE.md/skill progressive-disclosure audit | DEFERRED — high collision with active lanes, low current value; revisit when the active lanes quiet |
+| Remaining Part H.5 queue (typed contract slice, provenance views, parser replay, declarative boundaries, request/snapshot identity) | NOT AUTHORIZED — backlog only |
+| Pin the box to the guarded SHA on manual deploys (`deploy.yml` passes the raw `deploy_ref`; the box resolves a branch name after its own fetch, so a manual deploy of `main` can ship a newer commit than the guard and validate job judged — found by the build-identity review; the new check now reports it) | NOT AUTHORIZED — follow-up, changes deploy behaviour |
+
