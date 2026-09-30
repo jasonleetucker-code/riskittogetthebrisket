@@ -10,6 +10,7 @@
  */
 import { Icon, Panel, PlayerNameButton, canonicalPlayerId } from "@/components/ds";
 import { RANKING_SOURCES } from "@/lib/dynasty-data";
+import { formatHours, rowAuthority } from "@/lib/value-explainers";
 import SourceContributionBars from "@/components/graphs/SourceContributionBars";
 import SourceAgreementRadar from "@/components/graphs/SourceAgreementRadar";
 import styles from "./board.module.css";
@@ -40,24 +41,44 @@ const srcLabel = (key) =>
 // with a comment is how the rank-form pair drifted in the first place.
 // When the payload has no methodology block we omit the line entirely —
 // showing nothing beats showing a number that disagrees with the board.
-export function MethodologySection({ methodology } = {}) {
+//
+// 2026-09-29: the confidence line read `methodology.confidenceBuckets`,
+// a key the contract stopped publishing when B11 replaced the spread
+// rule with the five-axis gate (`methodology.confidenceGate`). Every
+// board therefore took the fallback, which still described the RETIRED
+// spread signal. It now names the gate's axes from the contract. The
+// plain-language explanation of each step lives in
+// lib/value-explainers.js, rendered beside this list.
+export function MethodologySection({ methodology, sourceWeighting } = {}) {
   const sourceNames = RANKING_SOURCES.map((s) => s.displayName).join(", ");
   const formula = methodology?.formula;
-  const buckets = methodology?.confidenceBuckets;
+  const gate = methodology?.confidenceGate;
+  const axisNames = gate?.axes ? Object.keys(gate.axes) : [];
+  const rankLimit = Number(methodology?.overallRankLimit);
+  const weighting = sourceWeighting?.formula;
   return (
     <ol className={styles.methodologyList}>
-      <li><strong>Source ingestion</strong> — Raw values from {sourceNames}.</li>
-      <li><strong>Per-source ranking</strong> — Each player ranked within each source by raw value (highest = rank 1).</li>
-      <li><strong>Rank normalization</strong> — Per-source ranks converted to 1–9,999 values via Hill-curve formula so sources are comparable.</li>
-      <li><strong>Blended ranking</strong> — Multi-source players get averaged normalized values. Single-source players keep their one value.</li>
-      <li><strong>Unified sort</strong> — All players sorted by blended value into one board. Top 800 get a consensus rank.</li>
+      <li><strong>Source ingestion</strong> — Dynasty values and ranks from {sourceNames}. KTC Market is a benchmark and never one of them.</li>
+      <li><strong>Shared rank scale</strong> — Each source&rsquo;s rank for the player is placed on one shared scale; position-only IDP lists are first translated onto the full IDP board.</li>
+      <li><strong>Rank to value</strong> — Rank-based sources are converted to 1–9,999 values through the Hill curve; the value-based markets (KTC Crowd, KTC Trades, IDP Trade Calculator) are rescaled directly.</li>
+      <li>
+        <strong>Weighting</strong> — Each vote is weighted by how fresh, healthy and complete its source is
+        {weighting ? <> ({weighting})</> : null}; correlated boards from one provider family share one vote.
+      </li>
+      <li><strong>Blend</strong> — Outliers are filtered, then a count-aware weighted mean-median combines the votes. IDP players and picks blend toward an anchor market; offense uses a flat blend. A player backed by one evidence family keeps 30% of the blend.</li>
+      <li>
+        <strong>Unified sort</strong> — Every asset is sorted by value into one board
+        {Number.isFinite(rankLimit) && rankLimit > 0
+          ? <>; the top {rankLimit.toLocaleString()} receive an official rank.</>
+          : "."}
+      </li>
       <li><strong>Tier detection</strong> — Natural value clusters detected via gap analysis. Tier breaks appear where adjacent players have unusually large value gaps.</li>
       <li>
-        <strong>Confidence scoring</strong>
-        {buckets ? (
-          <> — High = {buckets.high}. Medium = {buckets.medium}. Low = {buckets.low}.</>
+        <strong>Confidence</strong>
+        {axisNames.length > 0 ? (
+          <> — Graded on {axisNames.join(", ")}; the overall level is the weakest of them.</>
         ) : (
-          <> — multi-source agreement, measured on the backend&rsquo;s spread signal.</>
+          <> — Graded by the backend evidence checks; the overall level is the weakest of them.</>
         )}
       </li>
       <li><strong>Identity validation</strong> — Post-ranking pass checks for entity resolution problems. Flagged rows are quarantined (confidence degraded, not removed).</li>
@@ -217,32 +238,52 @@ export function MobileSourceStrip({ row, formatSourceCell }) {
 }
 
 // ── Expanded row: source audit panel ─────────────────────────────────
-// Renders backend audit stamps verbatim. Keeps the legacy
-// ``source-audit-*`` classes (globals.css) — the panel's internal
-// grid/badge styling is unchanged in R2; the R5 CSS purge migrates it.
-export function SourceAuditPanel({ row, val, edge, confExplain }) {
-  const audit = row.sourceAudit || row.raw?.sourceAudit || {};
+// Renders backend audit stamps verbatim.
+//
+// 2026-09-29 (C8-U2): moved off the legacy ``source-audit-*`` classes in
+// globals.css onto this module's tokens. Those classes carry the retired
+// dark terminal palette (a translucent slate row background, muted grey
+// labels at 0.66rem, 6px cards), so on the PSI editorial page the
+// expanded row rendered as a dark slab: 283 axe color-contrast nodes at
+// 1366px and 217 at 390px on the populated board, and card text
+// ("Not expected for this position", ``csv_combined_cross_market``)
+// overflowed its column. The legacy selectors stay in globals.css until
+// their last consumer is proven gone (this panel no longer uses them).
+function auditReasonText(reason) {
+  if (reason === "fully_matched") return "All expected sources matched";
+  if (reason === "structurally_single_source") return "Only one source structurally covers this player";
+  if (reason === "matching_failure_other_sources_eligible") return "Matching failure — expected source(s) did not match";
+  if (reason === "partial_coverage") return "Some expected sources missing";
+  if (reason === "no_source_match") return "No source matched";
+  return reason || "";
+}
+
+function AuditField({ label, children }) {
   return (
-    <div className="source-audit-panel">
-      <div className="source-audit-header">
+    <div className={styles.auditField}>
+      <span className={styles.auditLabel}>{label}</span>
+      <span className={styles.auditVal}>{children}</span>
+    </div>
+  );
+}
+
+export function SourceAuditPanel({ row, val, edge, confidence }) {
+  const audit = row.sourceAudit || row.raw?.sourceAudit || {};
+  const authority = rowAuthority(row);
+  return (
+    <div className={styles.auditPanel}>
+      <div className={styles.auditHeader}>
         <strong>Source Audit: {row.name}</strong>
-        <span className="muted" style={{ marginLeft: 12 }}>
-          {audit.reason === "fully_matched" ? "All expected sources matched" :
-           audit.reason === "structurally_single_source" ? "Only one source structurally covers this player" :
-           audit.reason === "matching_failure_other_sources_eligible" ? "Matching failure — expected source(s) did not match" :
-           audit.reason === "partial_coverage" ? "Some expected sources missing" :
-           audit.reason === "no_source_match" ? "No source matched" :
-           audit.reason || ""}
-        </span>
+        <span className={styles.auditReason}>{auditReasonText(audit.reason)}</span>
         {audit.allowlistReason && (
-          <span className="source-audit-allowlist" title="Allowlisted reason">
+          <span className={styles.auditAllowlist} title="Allowlisted reason">
             {audit.allowlistReason}
           </span>
         )}
       </div>
 
       {/* Per-source detail grid */}
-      <div className="source-audit-grid">
+      <div className={styles.auditGrid}>
         {RANKING_SOURCES.map((src) => {
           const siteVal = row.canonicalSites?.[src.key];
           const hasVal = siteVal != null && Number.isFinite(Number(siteVal)) && Number(siteVal) > 0;
@@ -253,87 +294,67 @@ export function SourceAuditPanel({ row, val, edge, confExplain }) {
           const isExpected = (audit.expectedSources || []).includes(src.key);
           const isMatched = (audit.matchedSources || []).includes(src.key);
           const isUnmatched = (audit.unmatchedSources || []).includes(src.key);
+          const status = isMatched ? "matched" : isUnmatched ? "missing" : isExpected ? "expected" : "n/a";
+          const freshness = Number(meta?.freshness);
 
           return (
-            <div key={src.key} className={`source-audit-card ${hasVal ? "source-audit-card-active" : "source-audit-card-missing"}`}>
-              <div className="source-audit-card-header">
+            <div
+              key={src.key}
+              className={`${styles.auditCard}${hasVal ? "" : ` ${styles.auditCardMissing}`}`}
+            >
+              <div className={styles.auditCardHeader}>
                 <strong>{src.columnLabel}</strong>
-                <span className={`badge ${isMatched ? "badge-green" : isUnmatched ? "badge-red" : isExpected ? "badge-amber" : "badge-muted"}`} style={{ fontSize: "0.6rem" }}>
-                  {isMatched ? "matched" : isUnmatched ? "missing" : isExpected ? "expected" : "n/a"}
+                <span className={styles.auditStatus} data-status={status}>
+                  {status}
                 </span>
               </div>
               {hasVal ? (
-                <div className="source-audit-card-body">
-                  <div className="source-audit-field">
-                    <span className="source-audit-label">{src.isRankSignal ? "Rank" : "Value"}</span>
-                    <span className="source-audit-val">
-                      {src.isRankSignal
-                        ? `#${origRk != null ? origRk : "—"}`
-                        : Math.round(Number(siteVal)).toLocaleString()
-                      }
-                    </span>
-                  </div>
-                  {eRank != null && (
-                    <div className="source-audit-field">
-                      <span className="source-audit-label">Eff. Rank</span>
-                      <span className="source-audit-val">#{eRank}</span>
-                    </div>
-                  )}
+                <div className={styles.auditCardBody}>
+                  <AuditField label={src.isRankSignal ? "Rank" : "Value"}>
+                    {src.isRankSignal
+                      ? `#${origRk != null ? origRk : "—"}`
+                      : Math.round(Number(siteVal)).toLocaleString()}
+                  </AuditField>
+                  {eRank != null && <AuditField label="Eff. rank">#{eRank}</AuditField>}
                   {meta?.valueContribution != null && (
-                    <div className="source-audit-field">
-                      <span className="source-audit-label">Hill Value</span>
-                      <span className="source-audit-val">{meta.valueContribution.toLocaleString()}</span>
-                    </div>
+                    <AuditField label="Hill value">{meta.valueContribution.toLocaleString()}</AuditField>
                   )}
                   {/* `effectiveWeight` is the depth-scaled coverage
                       DIAGNOSTIC (declared x min(1, depth/60)). The
                       contract says so in as many words — "never applied
                       to the blend" (data_contract.py) — and
                       docs/open-modeling-decisions.md decision #1 is the
-                      measured call NOT to apply it. Labelling it
-                      "Weight" told the reader it was the number doing
-                      the work. The number that IS applied is
-                      `appliedWeight`, stamped right beside it, so show
-                      that one first and mark the other as diagnostic. */}
+                      measured call NOT to apply it. The number that IS
+                      applied is `appliedWeight`, so show that one first
+                      and mark the other as diagnostic. */}
                   {meta?.appliedWeight != null && (
-                    <div className="source-audit-field">
-                      <span className="source-audit-label">Weight (applied)</span>
-                      <span className="source-audit-val">{meta.appliedWeight}</span>
-                    </div>
+                    <AuditField label="Weight (applied)">{meta.appliedWeight}</AuditField>
+                  )}
+                  {/* Row-level content freshness — stamped only when it
+                      reduced this source's weight on this row. */}
+                  {Number.isFinite(freshness) && (
+                    <AuditField label="Freshness">
+                      ×{freshness.toFixed(2)}
+                      {formatHours(meta?.freshnessAgeHours)
+                        ? ` · ${formatHours(meta.freshnessAgeHours)} old`
+                        : ""}
+                    </AuditField>
                   )}
                   {meta?.effectiveWeight != null && (
-                    <div className="source-audit-field">
-                      <span className="source-audit-label">Coverage wt (diagnostic)</span>
-                      <span className="source-audit-val">{meta.effectiveWeight}</span>
-                    </div>
+                    <AuditField label="Coverage wt (diagnostic)">{meta.effectiveWeight}</AuditField>
                   )}
-                  {meta?.method && (
-                    <div className="source-audit-field">
-                      <span className="source-audit-label">Method</span>
-                      <span className="source-audit-val">{meta.method}</span>
-                    </div>
-                  )}
+                  {meta?.method && <AuditField label="Method">{meta.method}</AuditField>}
                   {matchDetail?.matchedName && (
-                    <div className="source-audit-field">
-                      <span className="source-audit-label">Matched As</span>
-                      <span className="source-audit-val">{matchDetail.matchedName}</span>
-                    </div>
+                    <AuditField label="Matched as">{matchDetail.matchedName}</AuditField>
                   )}
-                  {matchDetail?.via && (
-                    <div className="source-audit-field">
-                      <span className="source-audit-label">Via</span>
-                      <span className="source-audit-val">{matchDetail.via}</span>
-                    </div>
-                  )}
+                  {matchDetail?.via && <AuditField label="Via">{matchDetail.via}</AuditField>}
                 </div>
               ) : (
-                <div className="source-audit-card-body source-audit-missing-body">
-                  <span className="muted">
-                    {isUnmatched ? "Expected but did not match" :
-                     !isExpected ? "Not expected for this position" :
-                     "No data"}
-                  </span>
-                </div>
+                <p className={styles.auditMissing}>
+                  {isUnmatched ? "Expected but did not match" :
+                   !isExpected ? "Not expected for this position" :
+                   "No data"}
+                </p>
               )}
             </div>
           );
@@ -353,11 +374,17 @@ export function SourceAuditPanel({ row, val, edge, confExplain }) {
       </div>
 
       {/* Summary row — mirrors the main table header labels */}
-      <div className="source-audit-summary">
+      <div className={styles.auditSummary}>
         <span><strong>Rank:</strong> {row.rank ? `#${row.rank}` : "— (unranked)"} (final ordinal — the engine&apos;s opinion)</span>
-        <span><strong>Consensus:</strong> {row.blendedSourceRank?.toFixed(1) ?? "—"} (mean of per-source effective ranks — orthogonal to Rank; gaps reveal blend arbitration)</span>
-        <span><strong>Value:</strong> {val.toLocaleString()} (Hill curve, 1–9,999 scale)</span>
-        <span><strong>Confidence:</strong> {confExplain}</span>
+        <span><strong>Consensus:</strong> {row.blendedSourceRank?.toFixed(1) ?? "—"} (mean of per-source effective ranks — a diagnostic; the rank comes from the blended value)</span>
+        <span><strong>Value:</strong> {val.toLocaleString()} (1–9,999 scale)</span>
+        <span><strong>Confidence:</strong> {confidence?.label || "—"}</span>
+        {authority?.retained != null && (
+          <span>
+            <strong>Source authority:</strong> {Math.round(authority.retained * 100)}% retained
+            {authority.stateLabel ? ` (${authority.stateLabel})` : ""}
+          </span>
+        )}
         <span><strong>Edge:</strong> {edge.label} — {edge.title}</span>
         {row.sourceRankSpread != null && (
           <span><strong>Source spread:</strong> {Math.round(row.sourceRankSpread)} ordinal ranks between the highest and lowest source</span>
@@ -369,6 +396,13 @@ export function SourceAuditPanel({ row, val, edge, confExplain }) {
           <span><strong>Flags:</strong> {row.anomalyFlags.join(", ")}</span>
         )}
       </div>
+      {confidence?.reasons?.length > 0 && (
+        <ul className={styles.auditReasons} aria-label="Why this confidence">
+          {confidence.reasons.map((r) => (
+            <li key={r}>{r}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
