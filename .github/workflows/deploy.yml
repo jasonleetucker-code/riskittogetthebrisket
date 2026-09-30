@@ -477,6 +477,8 @@ jobs:
           fi
           echo "Deploying:      ${TARGET_SHA}"
           echo "In production:  ${LAST_DEPLOYED:-<none recorded>}"
+          # Exported before any early exit below, for the post-deploy build check.
+          echo "DEPLOY_TARGET_SHA=${TARGET_SHA}" >> "$GITHUB_ENV"
 
           if [[ -z "${LAST_DEPLOYED}" ]]; then
             echo "::notice title=No deploy baseline::No last-successful-deploy commit recorded; skipping the ancestry check. This is expected on a first deploy."
@@ -838,6 +840,45 @@ jobs:
           # remote script already succeeded.
           check_endpoint "/api/health" "200|503"
           check_endpoint "/api/status" 200
+
+          # Deployed is not verified: the process must report the commit this
+          # workflow shipped (``build.commit``, read once at import by
+          # src/api/build_identity.py). A mismatch means the old process is still
+          # serving or a different tree was checked out; ``null`` means the box
+          # cannot say, which is not a pass either.
+          if [[ -z "${DEPLOY_TARGET_SHA:-}" ]]; then
+            echo "::error title=No deploy target recorded::DEPLOY_TARGET_SHA is empty; cannot verify the served build."
+            FAIL=$((FAIL + 1))
+          else
+            # Only an UNREADABLE status (e.g. the startup scrape's blocking
+            # browser phase) is retried; a readable build block -- a commit, or
+            # null with its reason -- decides at once, so a stale process fails fast.
+            _build=""
+            for _attempt in $(seq 1 20); do
+              _build="$(curl --silent --globoff --max-time 15 "${URL}/api/status" \
+                | jq -c '.build // empty' 2>/dev/null || true)"
+              [[ -n "${_build}" ]] && break
+              sleep 10
+            done
+            _note=""
+            if [[ -z "${_build}" ]]; then
+              _note=" (status unreadable after retries)"
+              _build="{}"
+            fi
+            _served="$(jq -r '.commit // empty' <<<"${_build}" 2>/dev/null || true)"
+            _why="$(jq -r '.unavailable_reason // empty' <<<"${_build}" 2>/dev/null || true)"
+            [[ -n "${_why}" ]] && _note=" (${_why})"
+            if [[ -n "${_served}" && "${_served}" == "${DEPLOY_TARGET_SHA}" ]]; then
+              echo "PASS build.commit == ${DEPLOY_TARGET_SHA}"
+              PASS=$((PASS + 1))
+            else
+              # For a manual deploy by branch name the box resolves the name
+              # after its own fetch, so it can ship a newer commit than the
+              # guard resolved: the message names what the guard resolved.
+              echo "::error title=Served build mismatch::/api/status reports build.commit '${_served:-<none>}'${_note}; the deploy guard resolved ${DEPLOY_TARGET_SHA}."
+              FAIL=$((FAIL + 1))
+            fi
+          fi
           # /api/data is intentionally gated by _private_api_gate in
           # server.py — an unauthenticated probe MUST return 401.
           # Expecting 401 here verifies the auth gate is active; a 200

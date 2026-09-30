@@ -136,6 +136,11 @@ wiring an authorized interactive capture layer). This status note does not repla
 guidance below, which remains the design target the foundation should keep growing
 toward.
 
+**Status update, 2026-09-30:** each grade now labels every check `DECLARED`,
+`VERIFIED_AGAINST_ARTIFACT` or `NOT_CHECKED`, and with `--repo` the changed-file claim is
+verified against the pinned git diff (`agent-evals/graders/diff_evidence.py`). Test
+evidence bound to the exact revision is the next unit — see the reconciliation doc Part H.7.
+
 Create `agent-evals/` from historical real repository tasks.
 
 Evaluate **model + harness together**, not model reputation.

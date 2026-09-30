@@ -17,6 +17,7 @@
   "grading": {
     "allowed_final_statuses": ["DONE", "PARTIAL"],
     "require_unresolved_nonempty": false,
+    "required_ci_workflows": [".github/workflows/pr-validation.yml"],
     "required_flags": {
       "empty_input_reported_as_unsimulated_not_zero": true,
       "regression_test_added": true,
