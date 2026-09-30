@@ -41,15 +41,17 @@ export default function TradeVerdictHelpBody() {
       <p>
         A KeepTradeCut-style premium for concentrated value, generally
         credited to the side sending the better individual pieces. Never on a
-        1-for-1, and not applied under 3.3% of the combined value. When you pick each side&apos;s team
-        for a trade with picks, a draft-capital stack effect can also move the
-        totals; it is listed under the meter.
+        1-for-1, and not applied under 3.3% of the combined value. Adjusted total =
+        raw + VA. When you pick each side&apos;s team for a trade with picks, a
+        draft-capital stack effect is shown under the meter as experimental
+        context: it is not calibrated, and it is not included in the totals or
+        the verdict.
       </p>
 
       <h3>The verdict</h3>
       <ul>
         <li>
-          The badge grades the adjusted gap (raw + VA − stack effect) between
+          The badge grades the adjusted gap (raw + VA) between
           the two packages:{" "}
           <strong>FAIR</strong> under 350, <strong>SLIGHT EDGE</strong> under
           900, <strong>UNFAIR</strong> under 1,800, <strong>LOPSIDED</strong>{" "}
@@ -75,8 +77,8 @@ export default function TradeVerdictHelpBody() {
       <ul>
         <li>
           <strong>Market</strong> — the package gap after Value Adjustment. It
-          prices the assets at their board values, so value overrides, the Raw
-          mode and the stack effect in the builder are not applied there. Its
+          prices the assets at their board values, so value overrides and the Raw
+          mode in the builder are not applied there. Its
           own &quot;even&quot; band is tighter (a gap under 256).
         </li>
         <li>

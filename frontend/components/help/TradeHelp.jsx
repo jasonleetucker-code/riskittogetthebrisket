@@ -53,8 +53,9 @@ export function ValueAdjustmentTip() {
       </p>
       <p>
         Never applied to a 1-for-1, and not applied when it would be under
-        3.3% of the two packages combined. Adjusted total = raw + VA, less any
-        draft-capital stack effect listed under the meter.
+        3.3% of the two packages combined. Adjusted total = raw + VA. The
+        draft-capital stack effect is experimental and not calibrated, so it is
+        shown separately and is not included in the total or the verdict.
       </p>
     </InfoTip>
   );
