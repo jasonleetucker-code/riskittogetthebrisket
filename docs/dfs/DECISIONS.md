@@ -180,3 +180,26 @@ the scorecards (MAE, RMSE, bias, Spearman, bucket calibration, top-10 overlap, b
 A challenger (a refitted baseline or a new source mix) is promoted only through `pit.promote` with
 ≥ 150 holdout players and an MAE at least 0.25 points better than the incumbent, on a window after
 registration.
+
+## ADR-DFS-015 — Joint outcomes by Gaussian copula over each player's own marginal (2026-09-30)
+
+**Context.** GPP value lives in the tails and in how players move together; a mean projection and
+independent sampling both miss it. The data available per player differ (an imported StDev,
+imported percentiles, or nothing), and the correlations are sport-specific.
+
+**Decision.** `src/dfs/distributions.py`: a canonical `PlayerDistribution` (mean used, sd,
+quantiles, family, basis, uncalibrated flag) with marginals `normal` (imported sd), `quantile`
+(piecewise-linear inverse CDF through imported percentiles, tails extended at most one outer-segment
+width) and `prior` (sport/position coefficient-of-variation priors — only when explicitly allowed,
+always flagged; none for MMA, which is bimodal). No range → no distribution. Joint sampling is a
+Gaussian copula: correlated normals (matrix repaired to the nearest valid correlation, repair
+reported) → uniforms → each player's own inverse CDF, so marginals are exact and dependence comes only
+from `src/dfs/correlation.py`. Rows of one athlete (Showdown CPT/FLEX) share a draw. Seeded, bounded
+(`MAX_SIMS` 20k, `MAX_PLAYERS` 1k), numpy/scipy.special only — never the MILP (ADR-DFS-012).
+`correlation.py` has one module per sport behind `pairs()`, all declared conservative PRIORS
+(`correlation.priors@1.0.0`) — directions from DFS game logic, magnitudes shrunk; a fitted model
+replaces a module through the registry, never by editing constants in place.
+
+**Evidence standard.** A normal-copula dependence is a modelling assumption (tail dependence is
+understated). Whether correlated sampling improves contest-outcome calibration over independent
+sampling is exactly what the backtest harness must show before it is claimed.
