@@ -56,7 +56,7 @@ vocabulary: **SLICE1** (implemented + tested on `claude/dfs-foundation`, PR #153
 | DFS-§10-04 | No paywall/CAPTCHA/bot evasion; no billable trials without approval | all | SLICE1 | Honoured: 403s recorded as blockers, not bypassed |
 | DFS-§11-01 | Event-driven freshness, dependency graph, rebuild recommendations | P3 | NEXT | Requires background jobs (DFS-§21-02) |
 | DFS-§12-01 | Projection ensemble with held-out weights, horizons, selection-bias checks | P3/P4 | LATER | Owner imports only today |
-| DFS-§12-02 | Outcome distributions (not just means) | D | PARTIAL (owner-imported) | StDev + P10…P90 columns ride the projection identity join; Floor/Ceiling become quantiles ONLY when the owner states their percentiles (vendors differ), otherwise kept verbatim and unused; invalid ranges refused while the mean stands; freshness row + Range column. Modelled distributions and their use by contest simulation: Phase E/F |
+| DFS-§12-02 | Outcome distributions (not just means) | D | PARTIAL (owner-imported) | StDev + P10…P90 columns ride the projection identity join; Floor/Ceiling become quantiles ONLY when the owner states their percentiles (vendors differ), otherwise kept verbatim and unused; invalid ranges refused while the mean stands; freshness row + Range column. Each built lineup carries an `outcome` (p10/p50/p90, `src/dfs/outcomes.py`): normal approximation, players independent (disclosed: stacks swing more), `unavailable` if any player lacks a range — never zero width. Correlation-aware and modelled distributions, and their use by contest simulation: Phase E/F |
 | DFS-§13-01 | NFL outcome model | P4 | LATER | |
 | DFS-§13-02 | NBA minutes/rotation model | P4 | LATER | |
 | DFS-§13-03 | NHL line/PP/goalie model | P4 | LATER | |

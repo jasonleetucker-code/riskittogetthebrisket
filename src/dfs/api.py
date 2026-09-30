@@ -48,6 +48,7 @@ from src.dfs.imports import (
     apply_projection_csv,
     content_hash,
 )
+from src.dfs.outcomes import attach_outcomes
 from src.dfs.optimizer import ConstraintError, optimize, parse_constraints, solver_version
 from src.dfs.rules import capability_matrix, get_ruleset, load_rulesets
 from src.dfs.slate import CanonicalSlate, canonical_from_platform_file, detect_platform_file
@@ -527,6 +528,7 @@ async def create_build(request: Request):
     try:
         constraints = parse_constraints(body.get("constraints"), rs, athletes)
         result = await run_in_threadpool(optimize, rs, athletes, constraints)
+        with_range = attach_outcomes(result, athletes)
     except ConstraintError as exc:
         return _err(exc.code, exc.message, 422, exc.detail)
     except ImportError as exc:  # scipy missing on this host
@@ -571,7 +573,13 @@ async def create_build(request: Request):
         "constraintsHash": content_hash(body.get("constraints") or {}),
         "result": result,
         "limits": [
-            "Projections are only as good as their source; this build does not estimate uncertainty.",
+            "Projections are only as good as their source."
+            + (
+                " Outcome ranges come from your imported player ranges, assume players are independent "
+                "(stacked lineups really swing more) and use a normal approximation."
+                if with_range
+                else " No outcome range: import player ranges (StDev or percentiles) to see one."
+            ),
             "No ownership, duplication, field or payout modelling — no ROI or EV is implied.",
             "Rule set not verified against official platform rules — research only."
             if rs.readiness != "money_ready"

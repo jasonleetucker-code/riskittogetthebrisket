@@ -129,6 +129,12 @@ function LineupTable({ lineup, cap }) {
         rowKey={(p) => `${p.slot}-${p.playerId}`}
         density="compact"
       />
+      {lineup.outcome?.state === "available" ? (
+        <p className={styles.note}>
+          Likely range {formatPoints(lineup.outcome.p10)}–{formatPoints(lineup.outcome.p90)} points (p10–p90, from your
+          imported ranges; players treated as independent, so stacks swing more).
+        </p>
+      ) : null}
       <p className={styles.lineupTotals}>
         <span>
           Projected <strong className="ds-mono">{formatPoints(lineup.projection)}</strong>

@@ -264,3 +264,23 @@ def test_distribution_import_is_reported_in_freshness_and_bad_labels_are_422(cli
 
     r = _slate(client, projectionCsv=with_sd, floorPercentile=85, ceilingPercentile=15)
     assert r.status_code == 422 and r.json()["error"] == "INVALID_PERCENTILE"
+
+
+def test_builds_carry_an_outcome_range_only_when_every_player_has_one(client):
+    proj = (FIX / "synthetic_dk_nfl_classic_projections.csv").read_text(encoding="utf-8")
+    lines = proj.strip().splitlines()
+    with_sd = "\n".join([lines[0] + ",StDev"] + [ln + ",5" for ln in lines[1:]]) + "\n"
+    for csv_text, expected in ((proj, "unavailable"), (with_sd, "available")):
+        snap = _slate(client, projectionCsv=csv_text).json()
+        b = client.post(
+            "/api/dfs/builds",
+            json={"snapshotId": snap["snapshotId"], "objective": "projection_baseline"},
+            headers={"x-user": "alice"},
+        ).json()
+        out = b["result"]["lineups"][0]["outcome"]
+        assert out["state"] == expected
+        if expected == "available":
+            assert out["p10"] < out["p50"] < out["p90"] and out["sd"] == 15.0  # sqrt(9 x 25)
+            assert "independent" in b["limits"][0]
+        else:
+            assert "import player ranges" in b["limits"][0]
