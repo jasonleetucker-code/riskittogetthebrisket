@@ -38,6 +38,7 @@ def test_every_flag_defaults_off_except_safe_additive():
         "realized_points_api",  # endpoint-only, inert until called
         "rookie_auction",  # own router + own store; mock rooms only; moves no existing number
         "dfs_workspace",  # own private router + own store under data/dfs/; never reads or writes the dynasty board
+        "dfs_auto_slates",  # automatic DFS slates; writes only data/dfs/ (system:auto); manual path unaffected
         "value_confidence_intervals",  # additive valueBand field
         "positional_tiers",  # additive tierId field
         "usage_signals",  # freshness + starter-guarded

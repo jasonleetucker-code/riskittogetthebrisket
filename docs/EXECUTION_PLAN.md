@@ -111,6 +111,16 @@ licensed slate feeds where verified, official CSV import/export, slate ≠ conte
 dependency on unofficial DraftKings/FanDuel endpoints, scraping or account automation. Licensed
 feed subscriptions (e.g. SportsDataIO) still need separate owner approval before any spend.
 
+
+**Permanent requirement (owner, 2026-09-30, third directive): automated data first, manual file
+fallback second.** The primary DFS workflow must need no downloaded or uploaded files: the site
+acquires, normalizes, refreshes and displays slates, salaries, eligibility, schedules, projections,
+injury and market context automatically, with honest freshness, from legitimate sources only
+(the addendum's ban on unofficial DK/FD endpoints, scraping and account automation stands). Manual
+import remains an emergency fallback / override under "Advanced". Authorized now: the automated
+vertical slice (NFL DK + FD first), reusing Calculator's Game Day weekly-projection lane, identity
+owner, scheduler conventions and freshness vocabulary. Not authorized: purchasing or activating any
+paid feed. Requirement IDs DFS-AUTO-01..24 (`docs/dfs/TRACEABILITY.md`).
 ## Rookie Auction Room — owner directive, 2026-09-29 (mock-first, live-gated)
 
 The owner authorizes implementing Chase Upside's shared slow rookie auction room now, so the owner,

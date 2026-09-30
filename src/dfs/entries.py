@@ -24,6 +24,7 @@ import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from src.dfs.auto import PlatformIdsUnavailable, refuse_synthetic_ids
 from src.dfs.contests import ContestError, dollars_to_cents
 from src.dfs.imports import ImportError_, SlateAthlete, _read_csv
 from src.dfs.optimizer import validate_lineup
@@ -252,6 +253,10 @@ def export_into_entries(
                 f"Lineup {lu.get('index')} is no longer valid.",
                 {"errors": errs},
             )
+        try:
+            refuse_synthetic_ids([pid for _, pid in assignment])
+        except PlatformIdsUnavailable as exc:
+            raise ImportError_(exc.code, exc.message, exc.detail) from exc
         w.writerow(export_row(e, [pid for _, pid in assignment], layout))
         assigned.append({"entryId": e["entry_id"], "lineupIndex": lu.get("index")})
     return out.getvalue(), {

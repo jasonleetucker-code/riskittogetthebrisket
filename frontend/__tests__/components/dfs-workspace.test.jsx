@@ -87,7 +87,7 @@ describe("DfsWorkspace", () => {
 
   it("imports a slate, never renders a missing projection as zero, and blocks locking it", async () => {
     fetch.mockImplementation(async (url) => {
-      if (/\/api\/dfs\/(presets|contests|providers|slates\/detect)$/.test(String(url))) return jsonResponse(200, BACKGROUND);
+      if (/\/api\/dfs\/(presets|contests|providers|slates\/detect|auto\/slates\?.*)$/.test(String(url))) return jsonResponse(200, BACKGROUND);
       if (String(url).endsWith("/capabilities")) return jsonResponse(200, CAPS);
       if (String(url).endsWith("/slates")) return jsonResponse(201, SLATE);
       throw new Error(`unexpected ${url}`);
@@ -108,7 +108,7 @@ describe("DfsWorkspace", () => {
   it("builds via the explicit baseline objective and surfaces the unverified export format", async () => {
     const calls = [];
     fetch.mockImplementation(async (url, init) => {
-      if (/\/api\/dfs\/(presets|contests|providers|slates\/detect)$/.test(String(url))) return jsonResponse(200, BACKGROUND);
+      if (/\/api\/dfs\/(presets|contests|providers|slates\/detect|auto\/slates\?.*)$/.test(String(url))) return jsonResponse(200, BACKGROUND);
       calls.push({ url: String(url), body: init?.body ? JSON.parse(init.body) : null });
       if (String(url).endsWith("/capabilities")) return jsonResponse(200, CAPS);
       if (String(url).endsWith("/slates")) return jsonResponse(201, SLATE);
@@ -165,7 +165,7 @@ describe("DfsWorkspace", () => {
 
   it("shows an export refusal instead of saving the error as a file", async () => {
     fetch.mockImplementation(async (url) => {
-      if (/\/api\/dfs\/(presets|contests|providers|slates\/detect)$/.test(String(url))) return jsonResponse(200, BACKGROUND);
+      if (/\/api\/dfs\/(presets|contests|providers|slates\/detect|auto\/slates\?.*)$/.test(String(url))) return jsonResponse(200, BACKGROUND);
       const u = String(url);
       if (u.endsWith("/capabilities")) return jsonResponse(200, CAPS);
       if (u.endsWith("/slates")) return jsonResponse(201, SLATE);
@@ -197,7 +197,7 @@ describe("DfsWorkspace", () => {
 
   it("explains an infeasible build with the conflicting constraints", async () => {
     fetch.mockImplementation(async (url) => {
-      if (/\/api\/dfs\/(presets|contests|providers|slates\/detect)$/.test(String(url))) return jsonResponse(200, BACKGROUND);
+      if (/\/api\/dfs\/(presets|contests|providers|slates\/detect|auto\/slates\?.*)$/.test(String(url))) return jsonResponse(200, BACKGROUND);
       if (String(url).endsWith("/capabilities")) return jsonResponse(200, CAPS);
       if (String(url).endsWith("/slates")) return jsonResponse(201, SLATE);
       return jsonResponse(201, {
@@ -243,7 +243,7 @@ describe("DfsWorkspace — Showdown captain display", () => {
   it("shows the captain multiplier explicitly instead of hiding it in the total", async () => {
     fetch.mockImplementation(async (url) => {
       const u = String(url);
-      if (/\/api\/dfs\/(presets|contests|providers|slates\/detect)$/.test(u)) return jsonResponse(200, BACKGROUND);
+      if (/\/api\/dfs\/(presets|contests|providers|slates\/detect|auto\/slates\?.*)$/.test(u)) return jsonResponse(200, BACKGROUND);
       if (u.endsWith("/capabilities")) return jsonResponse(200, CAPS);
       if (u.endsWith("/slates")) return jsonResponse(201, SLATE);
       return jsonResponse(201, {
@@ -334,5 +334,63 @@ describe("DfsWorkspace — contest context reaches the build", () => {
     const buildCall = calls.find((c) => c.u.endsWith("/builds"));
     expect(buildCall.body.presetId).toBe("large_field_gpp");
     expect(buildCall.body.contestId).toBeUndefined();
+  });
+
+  it("opens with the automatic Main slate — no file, no upload — and offers no upload export on it", async () => {
+    const calls = [];
+    const AUTO = {
+      ...SLATE,
+      snapshotId: "snap_auto",
+      contentHash: "autohash",
+      slate: { format: "classic", provenance: { sourceKind: "auto_derived", platformIds: "unavailable" } },
+      athletes: [
+        { player_id: "auto-QB1", name: "Auto QB", positions: ["QB"], team: "AAA", opponent: "BBB", salary: 7000, projection: 20.5, projection_source: "auto_ensemble:dailyfantasyfuel+sleeper_rotowire" },
+      ],
+      coverage: { athletes: 1, projected: 1, unprojected: 0 },
+    };
+    const LIST = {
+      state: "AVAILABLE",
+      derivationNote: "Game set derived from the NFL schedule.",
+      slates: [
+        { autoSlateId: "draftkings:nfl:2026:w4:early", platform: "draftkings", slateKey: "early", label: "DraftKings NFL Early · Week 4", lockAt: "2026-10-04T17:00:00+00:00", contentHash: "x", summary: { games: 8, players: 220, projected: 220 }, freshness: { state: "CURRENT", locked: false, ageMinutes: 3, degraded: [] } },
+        { autoSlateId: "draftkings:nfl:2026:w4:main", platform: "draftkings", slateKey: "main", label: "DraftKings NFL Main · Week 4", lockAt: "2026-10-04T17:00:00+00:00", contentHash: "autohash", summary: { games: 12, players: 330, projected: 330 }, freshness: { state: "CURRENT", locked: false, ageMinutes: 3, degraded: [] } },
+      ],
+    };
+    fetch.mockImplementation(async (url, init) => {
+      const u = String(url);
+      calls.push({ u, body: init?.body ? JSON.parse(init.body) : null });
+      if (/\/api\/dfs\/(presets|contests|providers)$/.test(u)) return jsonResponse(200, BACKGROUND);
+      if (u.includes("/auto/slates?")) return jsonResponse(200, LIST);
+      if (u.endsWith("/auto/slates/select")) return jsonResponse(201, AUTO);
+      if (u.endsWith("/capabilities")) return jsonResponse(200, CAPS);
+      if (u.endsWith("/builds")) {
+        return jsonResponse(201, {
+          buildId: "build_auto",
+          createdAt: "2026-09-30T12:00:00+00:00",
+          researchOnly: true,
+          solver: "HiGHS",
+          ruleset: { key: RULESET.key, exportVerification: "unverified" },
+          snapshot: { id: "snap_auto", contentHash: "autohash" },
+          constraintsHash: "0123456789abcdef",
+          limits: [],
+          result: {
+            status: "optimal", requested: 1, built: 1, shortfall: null, elapsedMs: 5, exposure: [],
+            lineups: [{ index: 1, projection: 20.5, salary: 7000, salaryRemaining: 43000, players: [{ slot: "QB", playerId: "auto-QB1", name: "Auto QB", team: "AAA", opponent: "BBB", salary: 7000, projection: 20.5 }] }],
+          },
+        });
+      }
+      return jsonResponse(200, BACKGROUND);
+    });
+    render(<DfsWorkspace />);
+    // Main is opened by default (not the first-listed Early), with no file chosen.
+    await screen.findByRole("table", { name: /Slate player pool/ });
+    const select = calls.find((c) => c.u.endsWith("/auto/slates/select"));
+    expect(select.body).toEqual({ autoSlateId: "draftkings:nfl:2026:w4:main" });
+    expect(calls.some((c) => c.u.endsWith("/slates") && c.body)).toBe(false);
+    expect(screen.getByRole("button", { name: "In use" })).toBeDisabled();
+    expect(screen.getByText("Advanced · Data overrides / manual import")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Optimal Lineup" }));
+    expect(await screen.findByText(/no upload file is/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Download upload CSV" })).toBeNull();
   });
 });

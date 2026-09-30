@@ -18,6 +18,7 @@ import io
 import re
 from typing import Any
 
+from src.dfs.auto import PlatformIdsUnavailable, refuse_synthetic_ids
 from src.dfs.imports import SlateAthlete
 from src.dfs.optimizer import validate_lineup
 from src.dfs.rules import RuleSet
@@ -52,6 +53,10 @@ def build_upload_csv(
                 {"errors": errors},
             )
         ids = [pid for _, pid in assignment]
+        try:
+            refuse_synthetic_ids(ids)
+        except PlatformIdsUnavailable as exc:
+            raise ExportError(exc.code, exc.message, exc.detail) from exc
         if not all(_SAFE_ID.match(pid) for pid in ids):
             raise ExportError(
                 "UNSAFE_PLAYER_ID",

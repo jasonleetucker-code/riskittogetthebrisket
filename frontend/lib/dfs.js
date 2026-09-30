@@ -299,3 +299,55 @@ export function exposureAdjustments(exposure) {
   }
   return { payload: { playerMinExposure, playerMaxExposure }, errors };
 }
+
+// ── automatic slates (DFS-AUTO) ───────────────────────────────────────────
+
+const FRESHNESS = {
+  CURRENT: { status: "positive", label: "Current" },
+  AGING: { status: "warning", label: "Aging" },
+  STALE: { status: "negative", label: "Stale" },
+  DEGRADED: { status: "warning", label: "Degraded" },
+  SOURCE_ERROR: { status: "negative", label: "Source error" },
+  UNAVAILABLE: { status: "neutral", label: "Unavailable" },
+};
+
+/** Backend freshness state → indicator tone + label (an unknown state is never shown as current). */
+export function freshnessCopy(state) {
+  return FRESHNESS[state] || { status: "neutral", label: String(state || "Unknown") };
+}
+
+/** A slate the refresh populated (synthetic platform ids: builds yes, upload files no). */
+export function isAutoSlate(slate) {
+  return slate?.slate?.provenance?.sourceKind === "auto_derived";
+}
+
+/**
+ * The slate to open by default: Main if it has not locked, else the next slate to
+ * lock, else nothing.  Never a locked slate — it cannot be entered any more.
+ */
+export function pickDefaultAutoSlate(slates, platform) {
+  const open = (slates || []).filter((s) => s.platform === platform && !s.freshness?.locked);
+  return open.find((s) => s.slateKey === "main") || open[0] || null;
+}
+
+/** "Sun 1:00 PM ET" — lock times are shown in the platforms' own Eastern clock. */
+export function formatLockEt(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const when = d.toLocaleString("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${when} ET`;
+}
+
+/** "12 min ago" / "3 h ago" from a minutes count. */
+export function formatAge(minutes) {
+  if (minutes == null || !Number.isFinite(minutes)) return "—";
+  if (minutes < 1) return "just now";
+  if (minutes < 90) return `${Math.round(minutes)} min ago`;
+  return `${Math.round(minutes / 60)} h ago`;
+}

@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * DfsWorkspace — the /dfs workflow: context → slate import → player pool
- * controls → build → results/export.
+ * DfsWorkspace — the /dfs workflow: context → slate (automatic by default;
+ * manual files under Advanced) → player pool controls → build → results/export.
  *
  * Display layer only (see lib/dfs.js): the backend owns rules, identity,
  * the solver and every number here.  Capability honesty is structural:
@@ -47,6 +47,7 @@ import styles from "./dfs-workspace.module.css";
 // pulls Next's loadable runtime into every page's shared chunk). Keeps the
 // contest editor out of the /dfs initial chunk and its 34 KB budget.
 const ContestPanel = lazy(() => import("./ContestPanel"));
+const AutoSlates = lazy(() => import("./AutoSlates"));
 const ProviderSlates = lazy(() => import("./SlateSources"));
 const DetectedFile = lazy(() => import("./SlateSources").then((m) => ({ default: m.DetectedFile })));
 
@@ -123,6 +124,9 @@ export default function DfsWorkspace() {
   const [overrides, setOverrides] = useState({});
   const [boosts, setBoosts] = useState({});
   const [exposure, setExposure] = useState({});
+  // Advanced (manual files) opens itself when there is no automatic slate to offer.
+  const [autoUnavailable, setAutoUnavailable] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   useEffect(() => {
     const stored = readStoredContext();
@@ -176,6 +180,19 @@ export default function DfsWorkspace() {
     }
   };
 
+  const applySlate = useCallback((snap) => {
+    if (snap?.slate?.format) setFormat(snap.slate.format);
+    setSlate(snap);
+    setRules({ locks: [], excludes: [] });
+    setGroupRules([]);
+    setTeamStacks([]);
+    setOverrides({});
+    setBoosts({});
+    setExposure({});
+    setBuild(null);
+    setBuildError(null);
+  }, []);
+
   const importSlate = async () => {
     if (!ruleset) return;
     setImporting(true);
@@ -198,13 +215,7 @@ export default function DfsWorkspace() {
       setImportError(errorMessage(body, "Import failed."));
       return;
     }
-    setSlate(body);
-    setRules({ locks: [], excludes: [] });
-    setGroupRules([]);
-    setTeamStacks([]);
-    setOverrides({});
-    setBoosts({});
-    setExposure({});
+    applySlate(body);
   };
 
   const runBuild = async (lineupsOverride) => {
@@ -314,95 +325,108 @@ export default function DfsWorkspace() {
         />
       ) : (
         <>
-          <Panel title="1 · Import slate" subtitle={`${ruleset.label} · ${ruleset.version} · cap ${formatSalary(ruleset.salaryCap)}`}>
-            <div className={styles.importGrid}>
-              <Field label={`${PLATFORMS.find((p) => p.value === platform)?.label} salary file (CSV)`} hint="Export it from the contest's lineup page, then choose it or paste it.">
-                <input type="file" accept=".csv,text/csv" onChange={(e) => onFile(e, setSalaryText)} />
-              </Field>
-              <Field label="Projections (CSV, optional)" hint="Columns: ID or Name + Team, and Projection.">
-                <input type="file" accept=".csv,text/csv" onChange={(e) => onFile(e, setProjectionText)} />
-              </Field>
-              <Field label="Salary CSV text">
-                <textarea
-                  className={`ds-input ${styles.textarea}`}
-                  value={salaryText}
-                  onChange={(e) => setSalaryText(e.target.value)}
-                  rows={4}
-                  spellCheck={false}
-                />
-              </Field>
-              <Field label="Projection CSV text">
-                <textarea
-                  className={`ds-input ${styles.textarea}`}
-                  value={projectionText}
-                  onChange={(e) => setProjectionText(e.target.value)}
-                  rows={4}
-                  spellCheck={false}
-                />
-              </Field>
-              <Field label="Floor / Ceiling columns are" hint="Optional StDev and P10…P90 columns need no label.">
-                <Select
-                  value={rangePct}
-                  onChange={(e) => setRangePct(e.target.value)}
-                  options={[
-                    { value: "", label: "Not stated (kept, not used)" },
-                    ...["10", "15", "20", "25"].map((p) => ({ value: p, label: `${p}th / ${100 - Number(p)}th percentile` })),
-                  ]}
-                />
-              </Field>
-              <Field label="Projected ownership (CSV, optional)" hint="Columns: ID or Name + Team, and Own%. Players not listed stay unknown, never 0%.">
-                <input type="file" accept=".csv,text/csv" onChange={(e) => onFile(e, setOwnershipText)} />
-              </Field>
-              <Field label="Ownership values are">
-                <Select
-                  value={ownershipUnit}
-                  onChange={(e) => setOwnershipUnit(e.target.value)}
-                  options={[
-                    { value: "percent", label: "Percent (35 = 35%)" },
-                    { value: "fraction", label: "Fraction (0.35 = 35%)" },
-                  ]}
-                />
-              </Field>
-            </div>
-            <Suspense fallback={null}>
-              <DetectedFile
-                text={salaryText}
-                context={{ platform, sport, format: row?.format || format }}
-                onSwitch={changeContext}
-              />
-            </Suspense>
-            <label className={styles.check}>
-              <input type="checkbox" checked={useAverage} onChange={(e) => setUseAverage(e.target.checked)} />
-              Where a player has no projection, use the platform season average (labelled “avg”; it is not a
-              forecast)
-            </label>
-            <div className={styles.actions}>
-              <Button variant="primary" onClick={importSlate} loading={importing} disabled={!salaryText.trim()}>
-                Import slate
-              </Button>
-            </div>
-            {importError ? (
-              <Banner tone="negative" title="Import refused">
-                {importError}
-              </Banner>
-            ) : null}
-            <Suspense fallback={null}>
-              <ProviderSlates
+          <Panel
+            title="1 · Slate"
+            subtitle={`${ruleset.label} · ${ruleset.version} · cap ${formatSalary(ruleset.salaryCap)}`}
+          >
+            <Suspense fallback={<p className={styles.note}>Loading slates…</p>}>
+              <AutoSlates
                 sport={sport}
                 platform={platform}
-                onImported={(snap) => {
-                  setSlate(snap);
-                  setRules({ locks: [], excludes: [] });
-                  setGroupRules([]);
-                  setTeamStacks([]);
-    setTeamStacks([]);
-                  setOverrides({});
-                  setBoosts({});
-                  setExposure({});
-                  setBuild(null);
-                }}
+                selectedHash={slate?.contentHash}
+                onSelected={applySlate}
+                onAvailability={(available) => setAutoUnavailable(!available)}
               />
             </Suspense>
+            <details
+              className={styles.advanced}
+              open={advancedOpen || autoUnavailable}
+              onToggle={(e) => setAdvancedOpen(e.currentTarget.open)}
+            >
+              <summary>Advanced · Data overrides / manual import</summary>
+              <p className={styles.note}>
+                Optional. Load the platform&apos;s own salary file for an upload-ready slate, or your own projections
+                and ownership. The automatic slate above needs none of this.
+              </p>
+              <div className={styles.importGrid}>
+                <Field label={`${PLATFORMS.find((p) => p.value === platform)?.label} salary file (CSV)`} hint="Export it from the contest's lineup page, then choose it or paste it.">
+                  <input type="file" accept=".csv,text/csv" onChange={(e) => onFile(e, setSalaryText)} />
+                </Field>
+                <Field label="Projections (CSV, optional)" hint="Columns: ID or Name + Team, and Projection.">
+                  <input type="file" accept=".csv,text/csv" onChange={(e) => onFile(e, setProjectionText)} />
+                </Field>
+                <Field label="Salary CSV text">
+                  <textarea
+                    className={`ds-input ${styles.textarea}`}
+                    value={salaryText}
+                    onChange={(e) => setSalaryText(e.target.value)}
+                    rows={4}
+                    spellCheck={false}
+                  />
+                </Field>
+                <Field label="Projection CSV text">
+                  <textarea
+                    className={`ds-input ${styles.textarea}`}
+                    value={projectionText}
+                    onChange={(e) => setProjectionText(e.target.value)}
+                    rows={4}
+                    spellCheck={false}
+                  />
+                </Field>
+                <Field label="Floor / Ceiling columns are" hint="Optional StDev and P10…P90 columns need no label.">
+                  <Select
+                    value={rangePct}
+                    onChange={(e) => setRangePct(e.target.value)}
+                    options={[
+                      { value: "", label: "Not stated (kept, not used)" },
+                      ...["10", "15", "20", "25"].map((p) => ({ value: p, label: `${p}th / ${100 - Number(p)}th percentile` })),
+                    ]}
+                  />
+                </Field>
+                <Field label="Projected ownership (CSV, optional)" hint="Columns: ID or Name + Team, and Own%. Players not listed stay unknown, never 0%.">
+                  <input type="file" accept=".csv,text/csv" onChange={(e) => onFile(e, setOwnershipText)} />
+                </Field>
+                <Field label="Ownership values are">
+                  <Select
+                    value={ownershipUnit}
+                    onChange={(e) => setOwnershipUnit(e.target.value)}
+                    options={[
+                      { value: "percent", label: "Percent (35 = 35%)" },
+                      { value: "fraction", label: "Fraction (0.35 = 35%)" },
+                    ]}
+                  />
+                </Field>
+              </div>
+              <Suspense fallback={null}>
+                <DetectedFile
+                  text={salaryText}
+                  context={{ platform, sport, format: row?.format || format }}
+                  onSwitch={changeContext}
+                />
+              </Suspense>
+              <label className={styles.check}>
+                <input type="checkbox" checked={useAverage} onChange={(e) => setUseAverage(e.target.checked)} />
+                Where a player has no projection, use the platform season average (labelled “avg”; it is not a
+                forecast)
+              </label>
+              <div className={styles.actions}>
+                <Button variant="primary" onClick={importSlate} loading={importing} disabled={!salaryText.trim()}>
+                  Import slate
+                </Button>
+              </div>
+              {importError ? (
+                <Banner tone="negative" title="Import refused">
+                  {importError}
+                </Banner>
+              ) : null}
+              <Suspense fallback={null}>
+                <ProviderSlates
+                  sport={sport}
+                  platform={platform}
+                  onImported={applySlate}
+                />
+              </Suspense>
+            </details>
             {slateMatches ? (
               <Suspense fallback={null}>
                 <ImportSummary slate={slate} />

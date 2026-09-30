@@ -366,6 +366,15 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # CSV remains the path.  Enable only after owner approval of the plan:
     # RISKIT_FEATURE_DFS_SPORTSDATAIO_SLATES=1 + the key + restart.
     "dfs_sportsdataio_slates": False,
+    # DFS automatic slates (``src/dfs/auto/``, permanent owner requirement
+    # 2026-09-30: zero manual CSV imports).  NFL DraftKings + FanDuel slates
+    # derived from the schedule, priced from the owner-authorised Daily
+    # Fantasy Fuel pages, projected from independent families.  Additive: it
+    # writes only data/dfs/ (system:auto snapshots) and never touches the
+    # dynasty board.  Off → /api/dfs/auto/slates answers FEATURE_DISABLED,
+    # queues no refresh, and the timer tick exits 2; the manual file path is
+    # unaffected.  Rollback: RISKIT_FEATURE_DFS_AUTO_SLATES=0 + restart.
+    "dfs_auto_slates": True,
     # Consensus Edge — the unified buy/sell board.  DEFAULT **OFF**.
     #
     # It was flipped ON on 2026-08-04 on the strength of a top-20 study
@@ -656,6 +665,9 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # dfs_sportsdataio_slates gates src/dfs/providers.py, reached through the
     # /api/dfs/provider-slates* routes mounted in server.py.
     "dfs_sportsdataio_slates": LIVE,
+    # dfs_auto_slates gates src/dfs/auto (the /api/dfs/auto/* routes mounted
+    # in server.py, and scripts/refresh_dfs_auto_slates.py on its timer).
+    "dfs_auto_slates": LIVE,
     # consensus_edge gates the /api/consensus-edge/* router mounted in
     # server.py: off → 503 feature_disabled, on → the board.
     "consensus_edge": LIVE,
