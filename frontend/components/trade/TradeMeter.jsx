@@ -21,17 +21,25 @@ import { meterVerdict, percentageGap } from "@/lib/trade-logic";
 import { MonteCarloButton } from "@/components/ui";
 import ResilientSection from "@/components/ResilientSection";
 
-export default function TradeMeter({ sides, sideTotals, flows }) {
+export default function TradeMeter({ sides, sideTotals, flows, sidesSend = false }) {
   const sideCount = sides.length;
   if (sideCount === 2) {
-    return <TradeMeterTwoTeam sides={sides} sideTotals={sideTotals} />;
+    return <TradeMeterTwoTeam sides={sides} sideTotals={sideTotals} sidesSend={sidesSend} />;
   }
   return (
     <TradeMeterMultiTeam sides={sides} sideTotals={sideTotals} flows={flows} />
   );
 }
 
-export function TradeMeterTwoTeam({ sides, sideTotals }) {
+/**
+ * `sidesSend` — each side lists what that team SENDS (true on /trade:
+ * `computeSideFlowAssets` routes every 2-team asset to the other side).
+ * Then the bigger package is the side giving up more, so "Side A wins"
+ * would name the team that overpays; the copy names the package and the
+ * team that receives it instead.  /waivers (Drop vs Add, not an exchange)
+ * leaves it off and keeps its original wording.
+ */
+export function TradeMeterTwoTeam({ sides, sideTotals, sidesSend = false }) {
   const pwA = sideTotals[0]?.adjusted || 0;
   const pwB = sideTotals[1]?.adjusted || 0;
   const gap = pwA - pwB;
@@ -55,9 +63,10 @@ export function TradeMeterTwoTeam({ sides, sideTotals }) {
     : "Side B";
   let winnerText = "Even";
   if (pctGap >= 3) {
-    winnerText = gap > 0
-      ? `${labelA} wins by ${pctGap}%`
-      : `${labelB} wins by ${pctGap}%`;
+    const [big, small] = gap > 0 ? [labelA, labelB] : [labelB, labelA];
+    winnerText = sidesSend
+      ? `${big}'s package is worth ${pctGap}% more — ${small} receives more value`
+      : `${big} wins by ${pctGap}%`;
   }
 
   return (
@@ -104,7 +113,7 @@ export function TradeMeterTwoTeam({ sides, sideTotals }) {
           pill when backend returns 503.  Wrapped in ResilientSection
           so an MC-panel crash doesn't take down the trade meter. */}
       <ResilientSection name="Monte Carlo panel">
-        <MonteCarloButton sides={sides} />
+        <MonteCarloButton sides={sides} sidesSend={sidesSend} />
       </ResilientSection>
     </div>
   );
