@@ -13,7 +13,6 @@ import {
   multiAdjustedSideTotals,
   sideTotal,
   defaultDestination,
-  effectiveValue,
   findBalancers,
   isTradeableBoardRow,
   parsePickToken,
@@ -29,6 +28,7 @@ import {
   SIDE_LABELS,
   MAX_SIDES,
   MIN_SIDES,
+  computeStackAdjustments,
 } from "@/lib/trade-logic";
 import {
   parsePickAsset,
@@ -36,6 +36,7 @@ import {
   buildSlotDollarGrid,
   buildLeagueStacks,
   pickStackAnchorYear,
+  poolBoardPerDollar,
 } from "@/lib/pick-stack";
 import { valuationBasisLabel, valuationBasisOf } from "@/lib/dynasty-data";
 import { useSettings } from "@/components/useSettings";
@@ -312,15 +313,22 @@ export default function TradePage() {
     return m;
   }, [pickEntriesByTeam]);
 
-  // ── Stack-aware trade verdicts ───────────────────────────────────────
+  // ── Draft-capital stack effect (WITHDRAWN from the verdict) ─────────
   // A pick's worth depends on the receiving team's existing draft
   // capital.  We pull the league's draft-capital ($1200) board, value
   // every pick in the trade (tier picks = slot-average — see
-  // lib/pick-stack), recompute zero-sum effective auction power
-  // before/after the routed swap, and fold each team's change in
-  // premium into its side total.  Picks REQUIRE a resolved team on
-  // every side they touch; until then the verdict falls back to pure
-  // board value with a prompt.
+  // lib/pick-stack) and recompute zero-sum effective auction power
+  // before/after the routed swap.
+  //
+  // Owner decision 2026-09-29: the result is shown as a labelled,
+  // not-calibrated NOTE and is NOT folded into side totals, the verdict,
+  // side flows or balancer suggestions.  The #1527 audit measured it
+  // dominating whole packages (a side at -963; a 5,487 package to 317)
+  // through data seams -- 2027 picks counted twice, synthesized
+  // future-pick dollars, picks "sent" by teams that do not hold them --
+  // not through the trade.  It returns to the totals only through an
+  // owner-approved methodology meeting issue #1529's prerequisites.  Picks
+  // still need a resolved team on every side they touch for the note.
   const [draftCapital, setDraftCapital] = useState(null);
   useEffect(() => {
     let alive = true;
@@ -614,9 +622,13 @@ export default function TradePage() {
     }));
   }, [sides, valueOverrides]);
 
+  // STACK-NOTE-ONLY:BEGIN -- the informational stack model.  Nothing in
+  // this region may feed a total, the verdict, flows or balancers
+  // (owner directive 2026-09-29; __tests__/trade-stack-withdrawn.test.js).
   // League stacks + routed pick-$ moves for the effective-power lens.
   // null whenever the lens can't / shouldn't apply (no draft data, no
-  // picks, or the team gate is unmet) → verdict stays pure board value.
+  // picks, or the team gate is unmet) → no note is shown.  The verdict
+  // never reads this in any case.
   const stackContext = useMemo(() => {
     if (!draftCapital || !sleeperTeams || !tradeHasPicks || stackGateUnmet) {
       return null;
@@ -674,16 +686,12 @@ export default function TradePage() {
           to = Number.isInteger(dest) ? dest : defaultDestination(i, n);
         }
         if (to == null || to === i || to < 0 || to >= n) continue;
-        moves.push({
-          from: i,
-          to,
-          dollars: pickAuctionDollars(a.name, ctx),
-          board: effectiveValue(a, valueMode, settings),
-        });
+        moves.push({ from: i, to, dollars: pickAuctionDollars(a.name, ctx) });
       }
     });
     if (moves.length === 0) return null;
-    return { sideTeams: sideTeamNames, leagueStacks, moves };
+    const boardPerDollar = poolBoardPerDollar(draftCapital, boardValueByName, teamsPerRound);
+    return { sideTeams: sideTeamNames, leagueStacks, moves, boardPerDollar };
   }, [
     draftCapital,
     sleeperTeams,
@@ -695,17 +703,22 @@ export default function TradePage() {
     pickAliases,
     sidesWithOverrides,
     sideTeamNames,
-    valueMode,
-    settings,
   ]);
+
+  // The withdrawn stack effect, per side, for the labelled note only.
+  const stackNote = useMemo(
+    () => (stackContext ? computeStackAdjustments(sidesWithOverrides.length, stackContext) : null),
+    [stackContext, sidesWithOverrides.length],
+  );
+  // STACK-NOTE-ONLY:END
 
   // ── Computed totals for all sides ────────────────────────────────────
   // Both 2-team and N-team trades use the KTC-style Value Adjustment.
   // For N ≥ 3, each side's VA is computed against the merged opposition
   // (every other side's assets flattened) — see
-  // ``computeMultiSideAdjustments`` in trade-logic.js.  ``stackContext``
-  // (when present) additionally folds the draft-capital stack effect
-  // into each side's adjusted total.
+  // ``computeMultiSideAdjustments`` in trade-logic.js.  The draft-capital
+  // stack effect is deliberately NOT passed (withdrawn from the verdict,
+  // see above): every total here is raw + Value Adjustment.
   const sideTotals = useMemo(() => {
     if (sidesWithOverrides.length === 2) {
       const [a, b] = adjustedSideTotals(
@@ -713,7 +726,6 @@ export default function TradePage() {
         sidesWithOverrides[1].assets,
         valueMode,
         settings,
-        stackContext,
       );
       return [a, b];
     }
@@ -722,23 +734,21 @@ export default function TradePage() {
         sidesWithOverrides.map((s) => s.assets),
         valueMode,
         settings,
-        stackContext,
       );
     }
     return sidesWithOverrides.map((s) => {
       const raw = sideTotal(s.assets, valueMode, settings);
-      return { raw, adjustment: 0, stackAdjustment: 0, adjusted: raw };
+      return { raw, adjustment: 0, adjusted: raw };
     });
-  }, [sidesWithOverrides, valueMode, settings, stackContext]);
+  }, [sidesWithOverrides, valueMode, settings]);
 
   // Per-side flow totals: given / received / net.  In 2-team trades
   // the destinations map is ignored (assets implicitly go to the other
   // side).  In 3+-team trades each asset's destination drives the NET
   // flow, which is what the multi-team fairness bar renders.
   const sideFlows = useMemo(
-    () =>
-      computeSideFlows(sidesWithOverrides, valueMode, settings, stackContext),
-    [sidesWithOverrides, valueMode, settings, stackContext],
+    () => computeSideFlows(sidesWithOverrides, valueMode, settings),
+    [sidesWithOverrides, valueMode, settings],
   );
 
   // Per-side incoming / outgoing asset lists.  This is the
@@ -848,7 +858,6 @@ export default function TradePage() {
     // (defect #800).
     const list = findBalancers(sidesWithOverrides, behindSideIdx, pool, valueMode, {
       settings,
-      stackContext,
     });
     return { list, teamName };
   }, [
@@ -856,7 +865,6 @@ export default function TradePage() {
     sides,
     sidesWithOverrides,
     settings,
-    stackContext,
     valueMode,
     inferTeamForSide,
     balancerPool,
@@ -885,7 +893,6 @@ export default function TradePage() {
     const { pool, teamName } = balancerPool(bestIdx, underpayingTeam);
     const suggestions = findBalancers(sidesWithOverrides, bestIdx, pool, valueMode, {
       settings,
-      stackContext,
       toSideIdx: worstIdx,
     });
     return {
@@ -900,7 +907,6 @@ export default function TradePage() {
     sidesWithOverrides,
     sideFlows,
     settings,
-    stackContext,
     valueMode,
     inferTeamForSide,
     balancerPool,
@@ -2090,23 +2096,24 @@ export default function TradePage() {
             sidesSend
           />
 
-          {/* Stack-effect transparency — never a silent verdict shift. */}
-          {stackContext &&
-          sideTotals.some((t) => Math.round(t?.stackAdjustment || 0) !== 0) ? (
+          {/* STACK-NOTE-ONLY:BEGIN — withdrawn stack effect: shown, labelled, NOT in the totals. */}
+          {stackNote && stackNote.some((v) => Math.round(v) !== 0) ? (
             <p
               className={styles.controlsNote}
-              title="Change in each team's zero-sum effective auction power from this pick swap, in board-value units. A stack that pulls clear of the field gains; an already-dominant stack saturates."
+              title="Change in each team's zero-sum effective auction power from this pick swap, in board-value units. Experimental and not calibrated, so it is kept out of the package totals, the verdict and the balancing suggestions."
             >
-              Draft-capital stack effect (subtracted from what that side
-              sends) —{" "}
-              {sideTotals
-                .map((t, i) => {
-                  const v = Math.round(t?.stackAdjustment || 0);
+              <strong>Experimental context</strong> — Draft-capital stack effect
+              (experimental, not calibrated):{" "}
+              {stackNote
+                .map((raw, i) => {
+                  const v = Math.round(raw);
                   return `Side ${sides[i]?.label ?? i + 1}: ${v > 0 ? "+" : ""}${v}`;
                 })
                 .join(" · ")}
+              . Not included in the totals or verdict.
             </p>
           ) : null}
+          {/* STACK-NOTE-ONLY:END */}
 
 
           {/* The plain-English reading of the meter above — it explains
@@ -2218,7 +2225,7 @@ export default function TradePage() {
                   </div>
                   {/* Same vocabulary as the meter's badge — one set of
                       verdict words per page (meterVerdict, 350/900/1800). */}
-                  <div className={`verdict ${colorFromGap(pwGap)}`}>
+                  <div className={`verdict ${colorFromGap(pwGap)}`} data-trade-gap={pwGap}>
                     {meterVerdict(Math.abs(pwGap)).label}
                     {pctGap > 0 ? ` (${pctGap}%)` : ""}
                   </div>
