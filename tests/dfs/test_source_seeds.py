@@ -20,7 +20,9 @@ def test_every_supplied_seed_is_preserved_with_a_stable_id():
     assert len(set(seed_ids)) == len(seed_ids) == 109
     assert len(set(ids)) == len(ids)
     names = {e["suppliedName"] for e in data["podcasts"]}
-    assert "RotoGrinders Daily Fantasy 6 Pack / Beer’s Six Pack" in names  # verbatim, curly apostrophe kept
+    assert (
+        "RotoGrinders Daily Fantasy 6 Pack / Beer’s Six Pack" in names
+    )  # verbatim, curly apostrophe kept
 
 
 def test_no_seed_claims_verified_access_without_evidence():
@@ -34,4 +36,6 @@ def test_no_seed_claims_verified_access_without_evidence():
             if e["connector"]["state"] != "none":
                 assert e["connector"]["lastSuccess"], e["suppliedName"]
             if e["aliasOf"] is not None:
-                assert e["aliasOf"] in {x["id"] for kk in ("websites", "sportsbooks", "podcasts") for x in data[kk]}
+                assert e["aliasOf"] in {
+                    x["id"] for kk in ("websites", "sportsbooks", "podcasts") for x in data[kk]
+                }

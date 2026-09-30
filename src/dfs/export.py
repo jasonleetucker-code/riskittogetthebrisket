@@ -22,7 +22,8 @@ from src.dfs.imports import SlateAthlete
 from src.dfs.optimizer import validate_lineup
 from src.dfs.rules import RuleSet
 
-_SAFE_ID = re.compile(r"^[0-9A-Za-z\-]{1,40}$")
+# First character alphanumeric: a leading "-" or "=" is read as a formula by spreadsheets.
+_SAFE_ID = re.compile(r"^[0-9A-Za-z][0-9A-Za-z\-]{0,39}$")
 
 
 class ExportError(ValueError):

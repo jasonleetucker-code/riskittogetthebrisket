@@ -55,4 +55,11 @@ describe("/api/dfs bridge", () => {
     expect(res.headers.get("content-disposition")).toContain("x.csv");
     expect(res.headers.get("x-dfs-export-verified")).toBe("false");
   });
+
+  it("refuses dot segments instead of resolving out of /api/dfs", async () => {
+    const req = new Request("http://127.0.0.1:3765/api/dfs/x", { headers: { cookie: "c=1" } });
+    const res = await GET(req, params(["..", "data"]));
+    expect(res.status).toBe(404);
+    expect(fetch).not.toHaveBeenCalled();
+  });
 });

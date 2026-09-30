@@ -41,6 +41,7 @@ import {
   readinessCopy,
   rulesetFor,
   setPlayerRule,
+  singleLineupForm,
   statusCopy,
   statusTone,
   writeStoredContext,
@@ -196,6 +197,60 @@ function LineupTable({ lineup, cap }) {
   );
 }
 
+/**
+ * Fetch-then-save, not a bare <a download>: an export can be refused at
+ * export time (rule set superseded, lineup no longer valid), and a plain
+ * link would save that JSON refusal as if it were the CSV.
+ */
+function ExportButton({ buildId }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const onClick = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/dfs/builds/${buildId}/export`, { credentials: "same-origin", cache: "no-store" });
+      if (!res.ok) {
+        let body = null;
+        try {
+          body = await res.json();
+        } catch {
+          body = null;
+        }
+        setError(errorMessage(body, "Export refused."));
+        return;
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("content-disposition") || "";
+      const name = /filename="([^"]+)"/.exec(disposition)?.[1] || `${buildId}.csv`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError("The export could not be downloaded.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <Button variant="primary" onClick={onClick} loading={busy}>
+        Download upload CSV
+      </Button>
+      {error ? (
+        <Banner tone="negative" title="Export refused">
+          {error}
+        </Banner>
+      ) : null}
+    </>
+  );
+}
+
 function BuildResult({ build, ruleset }) {
   const r = build.result;
   const conflict = r.shortfall?.conflict;
@@ -210,7 +265,7 @@ function BuildResult({ build, ruleset }) {
           Highest projected points · not contest-evaluated · {build.solver} · {r.elapsedMs} ms
         </span>
       </div>
-      <p className={styles.note}>{statusCopy(r.status)}</p>
+      <p className={styles.note}>{statusCopy(r.status, r.built)}</p>
       {r.built > 1 ? <p className={styles.note}>{build.methodNote}</p> : null}
       {r.shortfall ? (
         <Banner
@@ -260,9 +315,7 @@ function BuildResult({ build, ruleset }) {
       ) : null}
       {r.built ? (
         <div className={styles.exportRow}>
-          <Button as="a" variant="primary" href={`/api/dfs/builds/${build.buildId}/export`} download>
-            Download upload CSV
-          </Button>
+          <ExportButton buildId={build.buildId} />
           <p className={styles.note}>
             {build.ruleset.exportVerification === "verified"
               ? "Format verified against the platform template."
@@ -397,7 +450,7 @@ export default function DfsWorkspace() {
   };
 
   const runBuild = async (lineupsOverride) => {
-    const effective = lineupsOverride ? { ...form, lineups: String(lineupsOverride) } : form;
+    const effective = lineupsOverride === 1 ? singleLineupForm(form) : form;
     const { payload, errors } = buildConstraints(effective, rules);
     if (Object.keys(errors).length) {
       setBuildError(Object.values(errors)[0]);
@@ -629,7 +682,7 @@ export default function DfsWorkspace() {
                 <Field label="Min unique players vs other lineups">
                   <Input data-numeric inputMode="numeric" value={form.minUnique} onChange={(e) => setForm({ ...form, minUnique: e.target.value })} />
                 </Field>
-                <Field label="Max exposure %" hint={exposureNote || "Locked players are exempt."}>
+                <Field label="Max exposure %" hint={exposureNote || "Portfolio builds only; locked players are exempt."}>
                   <Input data-numeric inputMode="decimal" value={form.maxExposurePct} onChange={(e) => setForm({ ...form, maxExposurePct: e.target.value })} />
                 </Field>
                 <Field label="Min salary">

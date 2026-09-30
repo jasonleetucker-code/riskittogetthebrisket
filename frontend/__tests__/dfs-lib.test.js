@@ -8,6 +8,8 @@ import {
   pointsPerK,
   readinessCopy,
   setPlayerRule,
+  singleLineupForm,
+  statusCopy,
   statusTone,
 } from "@/lib/dfs";
 
@@ -85,5 +87,20 @@ describe("dfs lib — capability display", () => {
     expect(statusTone("optimal")).toBe("positive");
     expect(statusTone("partial")).toBe("warning");
     expect(statusTone("infeasible")).toBe("negative");
+  });
+});
+
+describe("dfs lib — single lineup vs portfolio", () => {
+  it("drops portfolio-only controls for a single lineup", () => {
+    const f = singleLineupForm({ lineups: "20", maxExposurePct: "50", minUnique: "3", salaryMin: "49000" });
+    expect(f).toMatchObject({ lineups: "1", maxExposurePct: "", minUnique: "", salaryMin: "49000" });
+    const { payload } = buildConstraints(f, {});
+    expect(payload.maxExposure).toBeUndefined();
+    expect(payload.lineups).toBe(1);
+  });
+
+  it("does not claim a sequential set is jointly optimal", () => {
+    expect(statusCopy("optimal", 20)).toMatch(/not jointly optimized/);
+    expect(statusCopy("optimal", 1)).toMatch(/no higher projected total/);
   });
 });

@@ -16,6 +16,10 @@ const BACKEND = (process.env.BACKEND_API_URL || "http://127.0.0.1:8000").replace
 
 async function forward(request, { params }) {
   const { path = [] } = await params;
+  // No dot segments: new URL() would resolve them out of /api/dfs/.
+  if (path.some((seg) => seg === "." || seg === ".." || seg === "")) {
+    return NextResponse.json({ error: "NOT_FOUND", message: "No such DFS route." }, { status: 404 });
+  }
   const incoming = new URL(request.url);
   const target = new URL(`/api/dfs/${path.map(encodeURIComponent).join("/")}`, BACKEND);
   target.search = incoming.search;

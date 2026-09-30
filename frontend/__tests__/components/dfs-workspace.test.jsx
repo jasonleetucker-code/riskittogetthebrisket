@@ -139,15 +139,47 @@ describe("DfsWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Import slate" }));
     await screen.findByRole("table", { name: /Slate player pool/ });
     fireEvent.click(screen.getByRole("button", { name: "Optimal Lineup" }));
-    await waitFor(() => expect(screen.getByRole("link", { name: "Download upload CSV" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Download upload CSV" })).toBeInTheDocument());
     const buildCall = calls.find((c) => c.url.endsWith("/builds"));
     expect(buildCall.body.objective).toBe("projection_baseline");
     expect(buildCall.body.mode).toBe("research");
     expect(buildCall.body.constraints.lineups).toBe(1);
+    // Portfolio-only controls are not sent with a single-lineup build.
+    expect("maxExposure" in buildCall.body.constraints).toBe(false);
     expect(screen.getByText(/not contest-evaluated/)).toBeInTheDocument();
     expect(screen.getByText(/not yet verified against an official platform template/)).toBeInTheDocument();
     expect(screen.getByText(/Downloading submits nothing/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Download upload CSV" })).toHaveAttribute("href", "/api/dfs/builds/build_1/export");
+  });
+
+  it("shows an export refusal instead of saving the error as a file", async () => {
+    fetch.mockImplementation(async (url) => {
+      const u = String(url);
+      if (u.endsWith("/capabilities")) return jsonResponse(200, CAPS);
+      if (u.endsWith("/slates")) return jsonResponse(201, SLATE);
+      if (u.endsWith("/export")) return jsonResponse(409, { error: "RULESET_SUPERSEDED", message: "The rule-set version this build used is no longer current." });
+      return jsonResponse(201, {
+        buildId: "build_3",
+        createdAt: "2026-09-30T12:00:00+00:00",
+        researchOnly: true,
+        solver: "HiGHS",
+        ruleset: { key: RULESET.key, exportVerification: "unverified" },
+        snapshot: { contentHash: "abcdef0123456789" },
+        constraintsHash: "0123456789abcdef",
+        limits: [],
+        result: {
+          status: "optimal", requested: 1, built: 1, shortfall: null, elapsedMs: 3, exposure: [],
+          lineups: [{ index: 1, projection: 20.5, salary: 7000, salaryRemaining: 43000, players: [{ slot: "QB", playerId: "1", name: "Syn QB", team: "AAA", salary: 7000, projection: 20.5 }] }],
+        },
+      });
+    });
+    render(<DfsWorkspace />);
+    await screen.findByText(/Research only/);
+    fireEvent.change(screen.getByLabelText("Salary CSV text"), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Import slate" }));
+    await screen.findByRole("table", { name: /Slate player pool/ });
+    fireEvent.click(screen.getByRole("button", { name: "Optimal Lineup" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Download upload CSV" }));
+    expect(await screen.findByText("The rule-set version this build used is no longer current.")).toBeInTheDocument();
   });
 
   it("explains an infeasible build with the conflicting constraints", async () => {

@@ -249,3 +249,54 @@ def test_min_games_rule_fails_closed_when_game_unknown():
     with pytest.raises(ConstraintError) as exc:
         optimize(DK, pool, parse_constraints({}, DK, pool))
     assert exc.value.code == "GAME_UNKNOWN"
+
+
+# ── review findings (independent review, 2026-09-30) ──────────────────
+
+
+def test_objective_is_not_rounded_before_solving():
+    pool = _pool(21)
+    wrs = [a for a in pool if a.positions == ["WR"]]
+    for a in wrs:
+        a.projection = 1.0
+    wrs[0].projection, wrs[1].projection = 30.001, 30.004
+    wrs[0].salary = wrs[1].salary = 3000
+    # At most one of the two near-identical WRs: the unrounded objective
+    # must pick 30.004 over 30.001 (rounded to 2 dp they would tie).
+    c = parse_constraints(
+        {"groups": [{"players": [wrs[0].player_id, wrs[1].player_id], "max": 1}]}, DK, pool
+    )
+    ids = {p["playerId"] for p in optimize(DK, pool, c)["lineups"][0]["players"]}
+    assert wrs[1].player_id in ids and wrs[0].player_id not in ids
+
+
+def test_lock_exhausted_by_exposure_is_infeasible_not_timed_out():
+    pool = _pool(22)
+    pid = pool[0].player_id
+    res = optimize(
+        DK, pool, parse_constraints({"locks": [pid], "playerMaxExposure": {pid: 0.5}}, DK, pool)
+    )
+    assert res["status"] == "infeasible" and res["shortfall"]["reason"] == "infeasible"
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        [1],
+        {"groups": [{"players": [[1]], "min": 1}]},
+        {"maxExposure": 10**400},
+        {"lineups": 10**400},
+        {"lineups": float("inf")},
+    ],
+)
+def test_malformed_constraints_are_refused_not_crashed(raw):
+    pool = _pool(23)
+    with pytest.raises(ConstraintError):
+        parse_constraints(raw, DK, pool)
+
+
+def test_game_unknown_only_matters_for_selectable_players():
+    pool = _pool(24)
+    pool[3].game = None
+    res = optimize(DK, pool, parse_constraints({"excludes": [pool[3].player_id]}, DK, pool))
+    assert res["built"] == 1

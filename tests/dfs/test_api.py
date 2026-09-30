@@ -172,3 +172,44 @@ def test_server_mounts_dfs_behind_the_private_gate():
     assert "/api/dfs/capabilities" in paths
     with TestClient(server.app) as c:
         assert c.get("/api/dfs/capabilities").status_code == 401
+
+
+def test_guest_pass_sessions_are_scoped_per_pass_not_shared():
+    from src.dfs.api import owner_key
+
+    assert (
+        owner_key({"username": "guest", "auth_method": "guest_pass", "guest_pass_id": 7})
+        == "guest-pass:7"
+    )
+    assert (
+        owner_key({"username": "guest", "auth_method": "guest_pass", "guest_pass_id": 8})
+        == "guest-pass:8"
+    )
+    refused = owner_key({"username": "guest", "auth_method": "guest_pass"})
+    assert refused.status_code == 403
+    assert owner_key({"username": "jason", "auth_method": "password"}) == "user:jason"
+
+
+def test_nan_and_malformed_bodies_never_poison_a_stored_build(client):
+    snap = _slate(client).json()
+    raw = (
+        '{"snapshotId": "%s", "objective": "projection_baseline", "constraints": {"maxExposure": NaN}}'
+        % snap["snapshotId"]
+    )
+    r = client.post(
+        "/api/dfs/builds",
+        content=raw,
+        headers={"x-user": "alice", "content-type": "application/json"},
+    )
+    assert r.status_code == 400 and r.json()["error"] == "INVALID_JSON"
+    r = client.post(
+        "/api/dfs/builds",
+        json={
+            "snapshotId": snap["snapshotId"],
+            "objective": "projection_baseline",
+            "constraints": [1],
+        },
+        headers={"x-user": "alice"},
+    )
+    assert r.status_code == 422 and r.json()["error"] == "INVALID_CONSTRAINT"
+    assert client.get("/api/dfs/builds", headers={"x-user": "alice"}).json()["builds"] == []

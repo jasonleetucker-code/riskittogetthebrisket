@@ -170,8 +170,20 @@ const STATUS_COPY = {
   unavailable: "The solver could not produce a trustworthy result.",
 };
 
-export function statusCopy(status) {
+export function statusCopy(status, built = 1) {
+  if (status === "optimal" && built > 1) {
+    return "Each lineup is optimal given the ones before it: no higher projected total exists for it under the rules, your constraints and the uniqueness/exposure limits set by earlier lineups. The set as a whole is built in sequence, not jointly optimized.";
+  }
   return STATUS_COPY[status] || "Unknown solver status.";
+}
+
+/**
+ * A single-lineup build ignores portfolio-only controls: an exposure cap of
+ * p% over ONE lineup floors to zero appearances and would make every
+ * unlocked player ineligible.
+ */
+export function singleLineupForm(form) {
+  return { ...form, lineups: "1", maxExposurePct: "", minUnique: "" };
 }
 
 export function statusTone(status) {

@@ -196,7 +196,7 @@ def parse_draftkings_salaries(text: str) -> tuple[list[SlateAthlete], ImportRepo
         salary = _int_salary(r.get("Salary", ""))
         positions = [p.strip().upper() for p in r.get("Position", "").split("/") if p.strip()]
         team = normalize_team(r.get("TeamAbbrev"))
-        if not re.fullmatch(r"[0-9A-Za-z\-]{1,40}", pid):
+        if not re.fullmatch(r"[0-9A-Za-z][0-9A-Za-z\-]{0,39}", pid):
             report.reject(i, "invalid_or_missing_player_id", r)
             continue
         if pid in seen:
@@ -252,7 +252,7 @@ def parse_fanduel_players(text: str) -> tuple[list[SlateAthlete], ImportReport]:
             r.get("Nickname", "").strip()
             or f"{r.get('First Name', '').strip()} {r.get('Last Name', '').strip()}".strip()
         )
-        if not re.fullmatch(r"[0-9A-Za-z\-]{1,40}", pid):
+        if not re.fullmatch(r"[0-9A-Za-z][0-9A-Za-z\-]{0,39}", pid):
             report.reject(i, "invalid_or_missing_player_id", r)
             continue
         if pid in seen:
@@ -345,7 +345,22 @@ def apply_projection_csv(athletes: list[SlateAthlete], text: str) -> dict[str, A
         target: SlateAthlete | None = None
         method = None
         if id_col and r.get(id_col, "").strip():
+            # A supplied platform ID is authoritative: an ID that is not on
+            # this slate is unmatched (never re-tried by name, which could
+            # attach it to someone else), and an ID whose name column names
+            # a different player is quarantined rather than trusted.
             target = by_id.get(r[id_col].strip())
+            if target is None:
+                unmatched.append(
+                    {"row": i, "name": label[:80], "reason": "platform_id_not_on_slate"}
+                )
+                continue
+            if name_col and r.get(name_col, "").strip():
+                if normalize_player_name(r[name_col]) != normalize_player_name(target.name):
+                    conflicts.append(
+                        {"row": i, "playerId": target.player_id, "reason": "id_name_mismatch"}
+                    )
+                    continue
             method = "platform_id"
         if target is None and name_col and team_col:
             cands = by_name_team.get(

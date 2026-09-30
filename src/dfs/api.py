@@ -98,10 +98,35 @@ def _owner(request: Request) -> str | JSONResponse:
     if not _flag_enabled():
         return _err("FEATURE_DISABLED", "The DFS workspace is switched off.", 503)
     session = _session_resolver(request) if _session_resolver else None
-    owner = str((session or {}).get("username") or "").strip()
-    if not owner:
+    return owner_key(session)
+
+
+def owner_key(session: dict | None) -> str | JSONResponse:
+    """The storage owner for a session.
+
+    A username is NOT always a person: every guest-pass session carries the
+    literal username ``"guest"``.  Keying on it would put every guest in one
+    shared namespace, so guests are keyed by their pass id and refused when
+    the session cannot say which pass it came from.
+    """
+    session = session or {}
+    username = str(session.get("username") or "").strip()
+    if not username:
         return _err("AUTH_REQUIRED", "Sign-in required.", 401)
-    return owner
+    if session.get("auth_method") == "guest_pass" or username.lower() == "guest":
+        pass_id = session.get("guest_pass_id")
+        if not isinstance(pass_id, int) or isinstance(pass_id, bool) or pass_id <= 0:
+            return _err(
+                "GUEST_UNSCOPED",
+                "This guest session cannot be tied to a single guest pass, so DFS records cannot be kept private to it.",
+                403,
+            )
+        return f"guest-pass:{pass_id}"
+    return f"user:{username}"
+
+
+def _reject_constant(name: str) -> Any:
+    raise ValueError(f"non-JSON constant {name}")
 
 
 async def _json_body(request: Request) -> dict[str, Any] | JSONResponse:
@@ -111,7 +136,9 @@ async def _json_body(request: Request) -> dict[str, Any] | JSONResponse:
     try:
         import json
 
-        body = json.loads(raw or b"{}")
+        # NaN / Infinity are not JSON: accepted, they would be stored verbatim
+        # and then fail every later render of the record.
+        body = json.loads(raw or b"{}", parse_constant=_reject_constant)
     except ValueError:
         return _err("INVALID_JSON", "Body must be JSON.", 400)
     if not isinstance(body, dict):
@@ -184,7 +211,7 @@ async def create_slate(request: Request):
         "positionsNotInRuleset": off_ruleset,
     }
     h = content_hash({"ruleset": rs.key, "athletes": snapshot_body["athletes"]})
-    meta = store.put_snapshot(owner, rs.key, h, snapshot_body)
+    meta = await run_in_threadpool(store.put_snapshot, owner, rs.key, h, snapshot_body)
     return _ok(_snapshot_view(meta["id"], meta["createdAt"], h, snapshot_body), 201)
 
 
@@ -218,7 +245,7 @@ async def read_slate(snapshot_id: str, request: Request):
     owner = _owner(request)
     if isinstance(owner, JSONResponse):
         return owner
-    snap = store.get_snapshot(owner, snapshot_id)
+    snap = await run_in_threadpool(store.get_snapshot, owner, snapshot_id)
     if snap is None:
         return _err("NOT_FOUND", "No such slate.", 404)
     return _ok(_snapshot_view(snap["id"], snap["createdAt"], snap["contentHash"], snap["body"]))
@@ -247,7 +274,7 @@ async def create_build(request: Request):
     mode = body.get("mode", "research")
     if mode not in ("research", "money"):
         return _err("INVALID_MODE", "mode must be 'research' or 'money'.", 400)
-    snap = store.get_snapshot(owner, str(body.get("snapshotId") or ""))
+    snap = await run_in_threadpool(store.get_snapshot, owner, str(body.get("snapshotId") or ""))
     if snap is None:
         return _err("NOT_FOUND", "No such slate.", 404)
     rs = get_ruleset(snap["ruleset"].split("@", 1)[0])
@@ -324,7 +351,7 @@ async def builds(request: Request):
     owner = _owner(request)
     if isinstance(owner, JSONResponse):
         return owner
-    return _ok({"builds": store.list_builds(owner)})
+    return _ok({"builds": await run_in_threadpool(store.list_builds, owner)})
 
 
 @router.get("/builds/{build_id}")
@@ -332,7 +359,7 @@ async def read_build(build_id: str, request: Request):
     owner = _owner(request)
     if isinstance(owner, JSONResponse):
         return owner
-    b = store.get_build(owner, build_id)
+    b = await run_in_threadpool(store.get_build, owner, build_id)
     if b is None:
         return _err("NOT_FOUND", "No such build.", 404)
     return _ok(b)
@@ -343,7 +370,7 @@ async def export_build(build_id: str, request: Request):
     owner = _owner(request)
     if isinstance(owner, JSONResponse):
         return owner
-    b = store.get_build(owner, build_id)
+    b = await run_in_threadpool(store.get_build, owner, build_id)
     if b is None:
         return _err("NOT_FOUND", "No such build.", 404)
     rs = get_ruleset(b["ruleset"]["key"].split("@", 1)[0])
@@ -351,7 +378,7 @@ async def export_build(build_id: str, request: Request):
         return _err(
             "RULESET_SUPERSEDED", "The rule-set version this build used is no longer current.", 409
         )
-    snap = store.get_snapshot(owner, b["snapshot"]["id"])
+    snap = await run_in_threadpool(store.get_snapshot, owner, b["snapshot"]["id"])
     if snap is None:
         return _err("NOT_FOUND", "The slate behind this build is missing.", 404)
     lineups = b["result"]["lineups"]

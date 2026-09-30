@@ -185,3 +185,23 @@ def test_dfs_never_imports_dynasty_valuation_owners():
                 names = [node.module]
             for n in names:
                 assert not n.startswith(_FORBIDDEN), f"{path.name} imports {n}"
+
+
+def test_supplied_id_is_authoritative_in_projection_join():
+    athletes, _ = parse_draftkings_salaries(_dk_text())
+    a0 = athletes[0]
+    text = (
+        "ID,Name,Team,Projection\n"
+        f"{a0.player_id},Someone Else,{a0.team},10\n"  # id names a different player
+        f"123456789,{athletes[1].name},{athletes[1].team},11\n"  # id not on slate: no name fallback
+    )
+    report = apply_projection_csv(athletes, text)
+    assert athletes[0].projection is None and athletes[1].projection is None
+    assert report["conflicts"][0]["reason"] == "id_name_mismatch"
+    assert report["unmatched"][0]["reason"] == "platform_id_not_on_slate"
+
+
+def test_leading_dash_ids_are_rejected_at_import():
+    text = "Position,Name,ID,Salary,Game Info,TeamAbbrev\nQB,X,-A1,5000,AAA@BBB 10/04/2026 01:00PM ET,AAA\n"
+    athletes, report = parse_draftkings_salaries(text)
+    assert athletes == [] and report.rejected[0]["reason"] == "invalid_or_missing_player_id"

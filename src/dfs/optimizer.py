@@ -41,6 +41,7 @@ MAX_LINEUPS = 150
 DEFAULT_TIME_BUDGET_S = 30.0
 MAX_TIME_BUDGET_S = 60.0
 MAX_ISOLATION_ITEMS = 40
+ISOLATION_BUDGET_S = 10.0
 
 
 class ConstraintError(ValueError):
@@ -89,7 +90,9 @@ def _int(raw: Any, name: str, lo: int, hi: int, allow_none: bool = True) -> int 
         if allow_none:
             return None
         raise ConstraintError("INVALID_CONSTRAINT", f"{name} is required.")
-    if isinstance(raw, bool) or not isinstance(raw, (int, float)) or not float(raw).is_integer():
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        raise ConstraintError("INVALID_CONSTRAINT", f"{name} must be a whole number.")
+    if isinstance(raw, float) and (not math.isfinite(raw) or not raw.is_integer()):
         raise ConstraintError("INVALID_CONSTRAINT", f"{name} must be a whole number.")
     v = int(raw)
     if v < lo or v > hi:
@@ -98,12 +101,8 @@ def _int(raw: Any, name: str, lo: int, hi: int, allow_none: bool = True) -> int 
 
 
 def _pct(raw: Any, name: str) -> float:
-    if (
-        isinstance(raw, bool)
-        or not isinstance(raw, (int, float))
-        or not math.isfinite(raw)
-        or not 0 <= raw <= 1
-    ):
+    # Compare before any float() so an arbitrarily large JSON integer cannot overflow.
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)) or not 0 <= raw <= 1:
         raise ConstraintError("INVALID_CONSTRAINT", f"{name} must be a fraction between 0 and 1.")
     return float(raw)
 
@@ -112,7 +111,10 @@ def parse_constraints(
     raw: dict[str, Any] | None, ruleset: RuleSet, pool: list[SlateAthlete]
 ) -> Constraints:
     """Validate the owner's constraint payload against the rule set and pool."""
-    raw = raw or {}
+    if raw is None:
+        raw = {}
+    if not isinstance(raw, dict):
+        raise ConstraintError("INVALID_CONSTRAINT", "constraints must be an object.")
     ids = {a.player_id for a in pool}
     size = len(ruleset.slots)
 
@@ -171,7 +173,11 @@ def parse_constraints(
         if not isinstance(g, dict):
             raise ConstraintError("INVALID_CONSTRAINT", "groups entries must be objects.")
         players = g.get("players") or []
-        if not isinstance(players, list) or not players or any(p not in ids for p in players):
+        if (
+            not isinstance(players, list)
+            or not players
+            or not all(isinstance(p, str) and p in ids for p in players)
+        ):
             raise ConstraintError(
                 "INVALID_CONSTRAINT", f"group {i + 1} must list players on this slate."
             )
@@ -671,14 +677,18 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
             "A locked player has no projection. Add a projection for them or remove the lock — missing is never scored as zero.",
             {"players": [{"playerId": p, "name": by_id[p].name} for p in unprojected_locks]},
         )
-    if ruleset.min_games and any(a.game is None for a in athletes if a.projection is not None):
+    excluded = set(c.excludes)
+    if ruleset.min_games and any(
+        a.game is None for a in athletes if a.projection is not None and a.player_id not in excluded
+    ):
         raise ConstraintError(
             "GAME_UNKNOWN",
             "Some players have no game, so the rule set's minimum-games rule cannot be enforced. Re-import the full platform file.",
         )
     pool = [a for a in athletes if a.projection is not None]
     excluded_unprojected = [a.player_id for a in athletes if a.projection is None]
-    objective = [round(float(a.projection), 2) for a in pool]  # type: ignore[arg-type]
+    # Unrounded: the solver optimizes exactly the projections it was given.
+    objective = [float(a.projection) for a in pool]  # type: ignore[arg-type]
     pool_by_id = {a.player_id: a for a in pool}
     caps = exposure_bounds(c, pool)
     counts: dict[str, int] = {}
@@ -694,6 +704,7 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
         exhausted = {pid for pid, cap in caps.items() if counts.get(pid, 0) >= cap}
         locked_exhausted = sorted(set(c.locks) & exhausted)
         if locked_exhausted:
+            statuses.append("infeasible")  # proven without a solve, not a timeout
             stop = {
                 "reason": "infeasible",
                 "conflict": {
@@ -710,8 +721,16 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
             if status == "infeasible":
                 stop = {
                     "reason": "infeasible",
+                    # Isolation gets its own bounded budget (ISOLATION_BUDGET_S)
+                    # beyond the build budget; it only ever runs after a proven
+                    # infeasibility, and the response reports its elapsed time.
                     "conflict": isolate_conflict(
-                        ruleset, pool, c, previous, exhausted, deadline + 10.0
+                        ruleset,
+                        pool,
+                        c,
+                        previous,
+                        exhausted,
+                        max(deadline, time.monotonic()) + ISOLATION_BUDGET_S,
                     ),
                 }
             else:
