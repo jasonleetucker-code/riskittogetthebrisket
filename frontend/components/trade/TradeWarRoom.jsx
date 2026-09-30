@@ -284,8 +284,8 @@ function Details({ analysis, raw }) {
             Adjusted totals: you get {formatValue(market.receivingAdjusted) ?? "—"}, you give{" "}
             {formatValue(market.sendingAdjusted) ?? "—"} ({market.magnitude || "—"} gap). KTC VA is a
             separate market lens; roster fit never changes an asset&apos;s value. It prices every asset at
-            its board value, so value overrides, the Raw value mode and the draft-capital stack effect in the
-            builder are not applied here.
+            its board value, so value overrides and the Raw value mode in the builder are not applied
+            here.
           </p>
         </section>
         {basis.source ? (

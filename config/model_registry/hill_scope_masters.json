@@ -1,7 +1,7 @@
 {
   "modelId": "hill_scope_masters",
   "schemaVersion": 1,
-  "updatedAt": "2026-09-30T06:08:04.698383+00:00",
+  "updatedAt": "2026-09-30T13:10:08.110560+00:00",
   "championVersion": 2,
   "versions": [
     {
@@ -12928,6 +12928,160 @@
         "criterionUnits": "points on the 0-9999 value scale (lower is better)",
         "perSource": {
           "FantasyCalc": 648.2584,
+          "FantasyNavigator": 824.3672,
+          "OTCFFB": 595.139,
+          "PFKDynasty": 434.4201
+        },
+        "perSourceRows": {
+          "FantasyCalc": 397,
+          "FantasyNavigator": 400,
+          "OTCFFB": 370,
+          "PFKDynasty": 400
+        },
+        "skipped": {},
+        "params": {
+          "c": 0.066,
+          "s": 1.085
+        },
+        "holdoutSources": [
+          "FantasyCalc",
+          "FantasyNavigator",
+          "OTCFFB",
+          "PFKDynasty"
+        ],
+        "trainingSources": [
+          "DraftSharks",
+          "DynastyDaddy",
+          "DynastyNerds",
+          "Fitzmaurice",
+          "KTC",
+          "YahooBoone"
+        ],
+        "_semantics": {
+          "measures": "generalization across dynasty markets \u2014 whether a curve fitted to the training boards also describes boards it never saw",
+          "doesNotMeasure": "accuracy against reality; every holdout board is another consensus market correlated with the training boards, and no ground truth for dynasty value exists"
+        }
+      },
+      "qualified": true,
+      "confidence": "measured",
+      "notes": [
+        "rejected: Hill Autopilot downstream board-impact gate blocked promotion"
+      ],
+      "promotedAt": null,
+      "retiredAt": null,
+      "appliedAt": null,
+      "scopeValidation": {}
+    },
+    {
+      "modelId": "hill_scope_masters",
+      "version": 170,
+      "params": {
+        "HILL_GLOBAL_PERCENTILE_C": 0.066,
+        "HILL_GLOBAL_PERCENTILE_S": 0.705,
+        "HILL_PERCENTILE_C": 0.068,
+        "HILL_PERCENTILE_S": 1.1,
+        "IDP_HILL_PERCENTILE_C": 0.036,
+        "IDP_HILL_PERCENTILE_S": 0.805,
+        "HILL_ROOKIE_PERCENTILE_C": 0.025,
+        "HILL_ROOKIE_PERCENTILE_S": 0.83
+      },
+      "fittedAt": "2026-09-30T13:10:03.673502+00:00",
+      "producer": "scripts/fit_hill_curve_percentile.py @ 10c9d7429",
+      "status": "challenger",
+      "trainingInputs": {
+        "DraftSharks": "sha256:f591d3d5c5bdd013",
+        "DynastyDaddy": "sha256:399f0eb5b268b8ff",
+        "DynastyNerds": "sha256:96c1e6c9d1dd4a9e",
+        "Fitzmaurice": "sha256:d398e8a676fdbeb8",
+        "GLOBAL:IDPTradeCalc": "sha256:75abdac13302fb85",
+        "IDP:DraftSharks-IDP": "sha256:2eccf4cd00e0e6e7",
+        "KTC": "sha256:c208f1c542e97e74",
+        "YahooBoone": "sha256:2003a09a82f88cc5",
+        "boardSnapshot": "sha256:8e5c0f2491bc5fdd"
+      },
+      "holdout": {
+        "criterion": 634.7886,
+        "measuredAt": "2026-09-30T13:10:03.676629+00:00",
+        "criterionName": "mean_per_source_rmse",
+        "criterionUnits": "points on the 0-9999 value scale (lower is better)",
+        "perSource": {
+          "FantasyCalc": 661.2085,
+          "FantasyNavigator": 842.4483,
+          "OTCFFB": 624.5302,
+          "PFKDynasty": 410.9676
+        },
+        "perSourceRows": {
+          "FantasyCalc": 397,
+          "FantasyNavigator": 400,
+          "OTCFFB": 370,
+          "PFKDynasty": 400
+        },
+        "skipped": {},
+        "params": {
+          "c": 0.068,
+          "s": 1.1
+        },
+        "holdoutSources": [
+          "FantasyCalc",
+          "FantasyNavigator",
+          "OTCFFB",
+          "PFKDynasty"
+        ],
+        "trainingSources": [
+          "DraftSharks",
+          "DynastyDaddy",
+          "DynastyNerds",
+          "Fitzmaurice",
+          "KTC",
+          "YahooBoone"
+        ],
+        "_semantics": {
+          "measures": "generalization across dynasty markets \u2014 whether a curve fitted to the training boards also describes boards it never saw",
+          "doesNotMeasure": "accuracy against reality; every holdout board is another consensus market correlated with the training boards, and no ground truth for dynasty value exists"
+        }
+      },
+      "qualified": true,
+      "confidence": "measured",
+      "notes": [],
+      "promotedAt": null,
+      "retiredAt": null,
+      "appliedAt": null,
+      "scopeValidation": {}
+    },
+    {
+      "modelId": "hill_scope_masters",
+      "version": 171,
+      "params": {
+        "HILL_GLOBAL_PERCENTILE_C": 0.112,
+        "HILL_GLOBAL_PERCENTILE_S": 0.725,
+        "HILL_PERCENTILE_C": 0.066,
+        "HILL_PERCENTILE_S": 1.085,
+        "HILL_ROOKIE_PERCENTILE_C": 0.153,
+        "HILL_ROOKIE_PERCENTILE_S": 0.885,
+        "IDP_HILL_PERCENTILE_C": 0.083,
+        "IDP_HILL_PERCENTILE_S": 1.11
+      },
+      "fittedAt": "unknown",
+      "producer": "Hill Autopilot OFFENSE composite from raw v141",
+      "status": "rejected",
+      "trainingInputs": {
+        "DraftSharks": "sha256:f591d3d5c5bdd013",
+        "DynastyDaddy": "sha256:399f0eb5b268b8ff",
+        "DynastyNerds": "sha256:96c1e6c9d1dd4a9e",
+        "Fitzmaurice": "sha256:d398e8a676fdbeb8",
+        "GLOBAL:IDPTradeCalc": "sha256:75abdac13302fb85",
+        "IDP:DraftSharks-IDP": "sha256:2eccf4cd00e0e6e7",
+        "KTC": "sha256:c208f1c542e97e74",
+        "YahooBoone": "sha256:2003a09a82f88cc5",
+        "boardSnapshot": "sha256:8e5c0f2491bc5fdd"
+      },
+      "holdout": {
+        "criterion": 622.7873,
+        "measuredAt": "2026-09-30T13:10:04.834403+00:00",
+        "criterionName": "mean_per_source_rmse",
+        "criterionUnits": "points on the 0-9999 value scale (lower is better)",
+        "perSource": {
+          "FantasyCalc": 637.2228,
           "FantasyNavigator": 824.3672,
           "OTCFFB": 595.139,
           "PFKDynasty": 434.4201
