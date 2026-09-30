@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-16 of the 27 entries in ``_DEFAULTS`` below are ``True`` —
+16 of the 28 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -358,6 +358,14 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # never touches the dynasty board.  Off → every /api/dfs/* route 503s
     # FEATURE_DISABLED.  Rollback: RISKIT_FEATURE_DFS_WORKSPACE=0 + restart.
     "dfs_workspace": True,
+    # DFS licensed slate feed (``src/dfs/providers.py``, owner addendum
+    # 2026-09-30): SportsDataIO DfsSlatesByDate → canonical slate.  DEFAULT
+    # OFF: the feed is paid, no SPORTSDATAIO_API_KEY is provisioned, and its
+    # DraftKings/FanDuel coverage is documented but not verified.  Off → the
+    # provider endpoints answer PROVIDER_UNAVAILABLE and the official platform
+    # CSV remains the path.  Enable only after owner approval of the plan:
+    # RISKIT_FEATURE_DFS_SPORTSDATAIO_SLATES=1 + the key + restart.
+    "dfs_sportsdataio_slates": False,
     # Consensus Edge — the unified buy/sell board.  DEFAULT **OFF**.
     #
     # It was flipped ON on 2026-08-04 on the strength of a top-20 study
@@ -645,6 +653,9 @@ _GATE_STATUS: Final[dict[str, str]] = {
     "rookie_auction": LIVE,
     # dfs_workspace gates the /api/dfs/* router mounted in server.py.
     "dfs_workspace": LIVE,
+    # dfs_sportsdataio_slates gates src/dfs/providers.py, reached through the
+    # /api/dfs/provider-slates* routes mounted in server.py.
+    "dfs_sportsdataio_slates": LIVE,
     # consensus_edge gates the /api/consensus-edge/* router mounted in
     # server.py: off → 503 feature_disabled, on → the board.
     "consensus_edge": LIVE,

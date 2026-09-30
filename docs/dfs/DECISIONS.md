@@ -59,3 +59,32 @@ application's normal navigation"); desktop top-bar fit needs visual verification
 Projection rows join by platform ID, else by `name_clean.normalize_player_name` + team (+ position).
 Ambiguous and disagreeing rows are quarantined. Cross-provider canonical identity (Phase 3) must
 extend `src/identity/`, not create a DFS-local matcher.
+
+## ADR-DFS-008 — Contests: separate dimensions, integer cents, nothing assumed (2026-09-30)
+
+A contest's roster format, entry restriction (`maxEntriesPerUser`), guarantee status and payout
+shape are independent fields; the shape (`head_to_head` / `fifty_fifty` / `double_up` /
+`multiplier` / `tournament`) is DERIVED from the ladder and is descriptive only. Money is integer
+cents end to end (Decimal at the edges, never float). The tie rule defaults to `unknown`, which
+makes tied payouts unavailable rather than assuming split-positions; a non-whole-cent split is
+returned as an exact fraction because the platform's rounding is unverified. An underfilled
+contest is an `overlay` only when `guaranteed is True` and prizes exceed fees actually collected.
+The entry cap is a hard constraint that needs an explicit spend limit; the recommended count is a
+separate, still-unavailable answer. Contests are versioned per owner (append-only), so builds can
+later cite the exact version they were evaluated against.
+
+## ADR-DFS-009 — Slates come through adapters into one canonical model; no unofficial endpoints (2026-09-30, owner addendum)
+
+`src/dfs/slate.py::CanonicalSlate` is the only slate shape downstream code reads. Adapters map
+into it: official platform files (auto-detected from their own header, position set and roster
+labels) and licensed feeds (`src/dfs/providers.py`). Unofficial DraftKings / FanDuel endpoints,
+scraping and account automation are never a production dependency. A provider's schema being
+PUBLISHED is recorded as `documented`, never `verified`; only observed data with evidence
+promotes a cell. The SportsDataIO adapter reuses the repo's existing `SPORTSDATAIO_API_KEY`
+header convention and is flag-gated OFF. Detection refuses rather than guesses: ambiguous
+position sets are `UNSUPPORTED_SLATE`, a file for another platform is `CSV_WRONG_PLATFORM`, a
+recognised-but-unencoded combination (MMA, Showdown, NBA, NHL today) is `UNSUPPORTED_FORMAT`
+with what was recognised. The platform's own per-player roster slots are cross-checked against
+the encoded rule set and any disagreement is shown, never auto-resolved — that is how an
+unverified rule set accumulates evidence.
+

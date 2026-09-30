@@ -142,7 +142,7 @@ def test_import_errors_are_structured(client):
         json={"ruleset": "draftkings.nfl.classic", "salaryCsv": "a,b\n1,2\n"},
         headers={"x-user": "alice"},
     )
-    assert r.status_code == 422 and r.json()["error"] == "HEADER_MISMATCH"
+    assert r.status_code == 422 and r.json()["error"] == "UNSUPPORTED_SLATE"
     r = client.post(
         "/api/dfs/slates", json={"ruleset": "nope", "salaryCsv": "x"}, headers={"x-user": "alice"}
     )

@@ -105,6 +105,12 @@ sportsbook wagering, contest entry, deposits/withdrawals, platform account autom
 bypassing access controls. Existing review/CI/merge/deploy gates apply unchanged. Lane 6 (PSI
 Direction A) stays active in every DFS batch. First slice: `claude/dfs-foundation`.
 
+**Addendum, same day (owner):** platform + slate ingestion is first-class and comes first
+(Phases A–H in `docs/dfs/ROADMAP.md`): canonical slate model, DraftKings/FanDuel adapters,
+licensed slate feeds where verified, official CSV import/export, slate ≠ contest. No production
+dependency on unofficial DraftKings/FanDuel endpoints, scraping or account automation. Licensed
+feed subscriptions (e.g. SportsDataIO) still need separate owner approval before any spend.
+
 ## Rookie Auction Room — owner directive, 2026-09-29 (mock-first, live-gated)
 
 The owner authorizes implementing Chase Upside's shared slow rookie auction room now, so the owner,

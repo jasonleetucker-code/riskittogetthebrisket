@@ -177,6 +177,59 @@
   color: var(--text-secondary);
 }
 
+.subhead {
+  margin: var(--space-2) 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  font-family: var(--font-data);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.detected {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.providerBox {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.freshness {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.freshness caption {
+  text-align: left;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-data);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  padding-bottom: var(--space-1);
+}
+
+.freshness th,
+.freshness td {
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+
+.freshness thead th {
+  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+  border-top: 1px solid var(--border-strong);
+}
+
 .provenance summary {
   cursor: pointer;
   font-size: var(--font-size-sm);

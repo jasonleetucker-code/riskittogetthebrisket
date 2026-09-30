@@ -1,0 +1,381 @@
+{
+ "_comment": "DFS strategy presets (owner directive 2026-09-30, DFS-§6-03). A preset states its objective and the models it needs. validationState stays 'unsupported' until those models are built and validated; selecting one never silently runs the projection baseline. Dimensions compose (payout shape x entry restriction); they are not one enum.",
+ "schemaVersion": 1,
+ "presets": [
+  {
+   "id": "h2h",
+   "version": "2026.1",
+   "label": "Head-to-head",
+   "dimensions": {
+    "payoutShape": "head_to_head",
+    "entryRestriction": "single_entry"
+   },
+   "objective": {
+    "id": "p_beat_opponent",
+    "description": "Maximize the probability of outscoring the specific opponent (ties per the contest's tie rule)."
+   },
+   "requiredModels": [
+    "outcome_distribution",
+    "joint_correlation",
+    "opponent_lineup_or_field_model"
+   ],
+   "hardConstraints": [],
+   "suggestedConstraints": [],
+   "validationState": "unsupported",
+   "unsupportedReason": "Needs outcome_distribution, joint_correlation, opponent_lineup_or_field_model — none validated yet (roadmap P4/P5).",
+   "baselineFallback": "projection_baseline — available only by explicit choice, labelled not contest-evaluated.",
+   "notes": "Not 'minimum variance': the target is the opponent's score distribution."
+  },
+  {
+   "id": "fifty_fifty",
+   "version": "2026.1",
+   "label": "50/50",
+   "dimensions": {
+    "payoutShape": "fifty_fifty",
+    "entryRestriction": "any"
+   },
+   "objective": {
+    "id": "p_cash",
+    "description": "Maximize P(score ≥ the cash line), where the cash line is the paid-place boundary of the modelled field."
+   },
+   "requiredModels": [
+    "outcome_distribution",
+    "joint_correlation",
+    "field_model"
+   ],
+   "hardConstraints": [],
+   "suggestedConstraints": [],
+   "validationState": "unsupported",
+   "unsupportedReason": "Needs outcome_distribution, joint_correlation, field_model — none validated yet (roadmap P4/P5).",
+   "baselineFallback": "projection_baseline — available only by explicit choice, labelled not contest-evaluated.",
+   "notes": "Payout and tie treatment differ from double-up; kept separate."
+  },
+  {
+   "id": "double_up",
+   "version": "2026.1",
+   "label": "Double-up",
+   "dimensions": {
+    "payoutShape": "double_up",
+    "entryRestriction": "any"
+   },
+   "objective": {
+    "id": "p_cash",
+    "description": "Maximize P(score ≥ the cash line) at the double-up paid share."
+   },
+   "requiredModels": [
+    "outcome_distribution",
+    "joint_correlation",
+    "field_model"
+   ],
+   "hardConstraints": [],
+   "suggestedConstraints": [],
+   "validationState": "unsupported",
+   "unsupportedReason": "Needs outcome_distribution, joint_correlation, field_model — none validated yet (roadmap P4/P5).",
+   "baselineFallback": "projection_baseline — available only by explicit choice, labelled not contest-evaluated.",
+   "notes": "Different paid share and prize from 50/50."
+  },
+  {
+   "id": "multiplier",
+   "version": "2026.1",
+   "label": "Multiplier (3x/5x/10x)",
+   "dimensions": {
+    "payoutShape": "multiplier",
+    "entryRestriction": "any"
+   },
+   "objective": {
+    "id": "p_cash",
+    "description": "Maximize P(finishing inside the paid places) — a higher, narrower cash line."
+   },
+   "requiredModels": [
+    "outcome_distribution",
+    "joint_correlation",
+    "field_model"
+   ],
+   "hardConstraints": [],
+   "suggestedConstraints": [],
+   "validationState": "unsupported",
+   "unsupportedReason": "Needs outcome_distribution, joint_correlation, field_model — none validated yet (roadmap P4/P5).",
+   "baselineFallback": "projection_baseline — available only by explicit choice, labelled not contest-evaluated.",
+   "notes": "Rewards more upside than 50/50 because fewer places pay."
+  },
+  {
+   "id": "small_field_gpp",
+   "version": "2026.1",
+   "label": "Small-field GPP",
+   "dimensions": {
+    "payoutShape": "tournament",
+    "entryRestriction": "any"
+   },
+   "objective": {
+    "id": "expected_net_payout",
+    "description": "Maximize E[payout] − fee under this ladder, the modelled field and duplication."
+   },
+   "requiredModels": [
+    "outcome_distribution",
+    "joint_correlation",
+    "ownership_forecast",
+    "field_model",
+    "duplication_model"
+   ],
+   "hardConstraints": [],
+   "suggestedConstraints": [],
+   "validationState": "unsupported",
+   "unsupportedReason": "Needs outcome_distribution, joint_correlation, ownership_forecast, field_model, duplication_model — none validated yet (roadmap P4/P5).",
+   "baselineFallback": "projection_baseline — available only by explicit choice, labelled not contest-evaluated.",
+   "notes": "No universal ownership target or stack count is assumed."
+  },
+  {
+   "id": "large_field_gpp",
+   "version": "2026.1",
+   "label": "Large-field GPP",
+   "dimensions": {
+    "payoutShape": "tournament",
+    "entryRestriction": "any"
+   },
+   "objective": {
+    "id": "expected_net_payout",
+    "description": "Maximize E[payout] − fee; top-heavy ladders make duplication and joint outcomes decisive."
+   },
+   "requiredModels": [
+    "outcome_distribution",
+    "joint_correlation",
+    "ownership_forecast",
+    "field_model",
+    "duplication_model"
+   ],
+   "hardConstraints": [],
+   "suggestedConstraints": [],
+   "validationState": "unsupported",
+   "unsupportedReason": "Needs outcome_distribution, joint_correlation, ownership_forecast, field_model, duplication_model — none validated yet (roadmap P4/P5).",
+   "baselineFallback": "projection_baseline — available only by explicit choice, labelled not contest-evaluated.",
+   "notes": "Alternatives offered as explicit choices: P(top 1%), P(first), risk-constrained return."
+  },
+  {
+   "id": "single_entry",
+   "version": "2026.1",
+   "label": "Single-entry",
+   "dimensions": {
+    "payoutShape": "any",
+    "entryRestriction": "single_entry"
+   },
+   "objective": {
+    "id": "expected_net_payout",
+    "description": "One lineup evaluated alone against the field."
+   },
+   "requiredModels": [
+    "outcome_distribution",
+    "joint_correlation",
+    "ownership_forecast",
+    "field_model",
+    "duplication_model"
+   ],
+   "hardConstraints": [],
+   "suggestedConstraints": [],
+   "validationState": "unsupported",
+   "unsupportedReason": "Needs outcome_distribution, joint_correlation, ownership_forecast, field_model, duplication_model — none validated yet (roadmap P4/P5).",
+   "baselineFallback": "projection_baseline — available only by explicit choice, labelled not contest-evaluated.",
+   "notes": "Entry restriction is a dimension, not a contest type."
+  },
+  {
+   "id": "three_max",
+   "version": "2026.1",
+   "label": "3-max",
+   "dimensions": {
+    "payoutShape": "any",
+    "entryRestriction": "max_3"
+   },
+   "objective": {
+    "id": "portfolio_expected_net_payout",
+    "description": "Up to 3 entries evaluated jointly (own-entry ties and rank interactions included)."
+   },
+   "requiredModels": [
+    "outcome_distribution",
+    "joint_correlation",
+    "ownership_forecast",
+    "field_model",
+    "duplication_model"
+   ],
+   "hardConstraints": [],
+   "suggestedConstraints": [],
+   "validationState": "unsupported",
+   "unsupportedReason": "Needs outcome_distribution, joint_correlation, ownership_forecast, field_model, duplication_model — none validated yet (roadmap P4/P5).",
+   "baselineFallback": "projection_baseline — available only by explicit choice, labelled not contest-evaluated.",
+   "notes": "Does not auto-fill every allowed slot."
+  },
+  {
+   "id": "twenty_max",
+   "version": "2026.1",
+   "label": "20-max",
+   "dimensions": {
+    "payoutShape": "any",
+    "entryRestriction": "max_20"
+   },
+   "objective": {
+    "id": "portfolio_expected_net_payout",
+    "description": "Up to 20 entries selected jointly from a candidate pool."
+   },
+   "requiredModels": [
+    "outcome_distribution",
+    "joint_correlation",
+    "ownership_forecast",
+    "field_model",
+    "duplication_model"
+   ],
+   "hardConstraints": [],
+   "suggestedConstraints": [],
+   "validationState": "unsupported",
+   "unsupportedReason": "Needs outcome_distribution, joint_correlation, ownership_forecast, field_model, duplication_model — none validated yet (roadmap P4/P5).",
+   "baselineFallback": "projection_baseline — available only by explicit choice, labelled not contest-evaluated.",
+   "notes": "Does not auto-fill every allowed slot."
+  },
+  {
+   "id": "one_fifty_max",
+   "version": "2026.1",
+   "label": "150-max",
+   "dimensions": {
+    "payoutShape": "any",
+    "entryRestriction": "max_150"
+   },
+   "objective": {
+    "id": "portfolio_expected_net_payout",
+    "description": "Up to 150 entries selected jointly; recommended count may be far below 150 or zero."
+   },
+   "requiredModels": [
+    "outcome_distribution",
+    "joint_correlation",
+    "ownership_forecast",
+    "field_model",
+    "duplication_model"
+   ],
+   "hardConstraints": [],
+   "suggestedConstraints": [],
+   "validationState": "unsupported",
+   "unsupportedReason": "Needs outcome_distribution, joint_correlation, ownership_forecast, field_model, duplication_model — none validated yet (roadmap P4/P5).",
+   "baselineFallback": "projection_baseline — available only by explicit choice, labelled not contest-evaluated.",
+   "notes": "Does not auto-fill every allowed slot."
+  },
+  {
+   "id": "single_game",
+   "version": "2026.1",
+   "label": "Single-game / Showdown",
+   "dimensions": {
+    "payoutShape": "any",
+    "entryRestriction": "any"
+   },
+   "objective": {
+    "id": "format_specific",
+    "description": "Captain/MVP multiplier rules change scoring identity; needs its own rule set first."
+   },
+   "requiredModels": [
+    "outcome_distribution",
+    "joint_correlation",
+    "ownership_forecast",
+    "field_model",
+    "duplication_model",
+    "showdown_ruleset"
+   ],
+   "hardConstraints": [],
+   "suggestedConstraints": [],
+   "validationState": "unsupported",
+   "unsupportedReason": "Needs outcome_distribution, joint_correlation, ownership_forecast, field_model, duplication_model, showdown_ruleset — none validated yet (roadmap P4/P5).",
+   "baselineFallback": "projection_baseline — available only by explicit choice, labelled not contest-evaluated.",
+   "notes": "Blocked additionally on DFS-RULES-02."
+  },
+  {
+   "id": "medium_field_gpp",
+   "version": "2026.1",
+   "label": "Medium-field GPP",
+   "dimensions": {
+    "payoutShape": "tournament",
+    "entryRestriction": "any"
+   },
+   "objective": {
+    "id": "expected_net_payout",
+    "description": "Maximize E[payout] − fee for a mid-sized field under the actual ladder and duplication."
+   },
+   "requiredModels": [
+    "outcome_distribution",
+    "joint_correlation",
+    "ownership_forecast",
+    "field_model",
+    "duplication_model"
+   ],
+   "hardConstraints": [],
+   "suggestedConstraints": [],
+   "validationState": "unsupported",
+   "unsupportedReason": "Needs outcome_distribution, joint_correlation, ownership_forecast, field_model, duplication_model — none validated yet (roadmap Phases D–F).",
+   "baselineFallback": "projection_baseline — available only by explicit choice, labelled not contest-evaluated.",
+   "notes": "Field size comes from the contest, not from this label."
+  },
+  {
+   "id": "satellite",
+   "version": "2026.1",
+   "label": "Satellite",
+   "dimensions": {
+    "payoutShape": "any",
+    "entryRestriction": "any"
+   },
+   "objective": {
+    "id": "p_finish_in_ticket_places",
+    "description": "Maximize P(finishing inside the ticket-paying places); every qualifying place pays the same ticket."
+   },
+   "requiredModels": [
+    "outcome_distribution",
+    "joint_correlation",
+    "field_model"
+   ],
+   "hardConstraints": [],
+   "suggestedConstraints": [],
+   "validationState": "unsupported",
+   "unsupportedReason": "Needs outcome_distribution, joint_correlation, field_model — none validated yet (roadmap Phases D–F).",
+   "baselineFallback": "projection_baseline — available only by explicit choice, labelled not contest-evaluated.",
+   "notes": "Ticket value is the owner's stated value; a ticket is not cash."
+  },
+  {
+   "id": "qualifier",
+   "version": "2026.1",
+   "label": "Qualifier",
+   "dimensions": {
+    "payoutShape": "any",
+    "entryRestriction": "any"
+   },
+   "objective": {
+    "id": "p_finish_in_qualifying_places",
+    "description": "Maximize P(qualifying) for the downstream event; the downstream event's value is separate evidence."
+   },
+   "requiredModels": [
+    "outcome_distribution",
+    "joint_correlation",
+    "field_model"
+   ],
+   "hardConstraints": [],
+   "suggestedConstraints": [],
+   "validationState": "unsupported",
+   "unsupportedReason": "Needs outcome_distribution, joint_correlation, field_model — none validated yet (roadmap Phases D–F).",
+   "baselineFallback": "projection_baseline — available only by explicit choice, labelled not contest-evaluated.",
+   "notes": "Downstream-event value is never assumed."
+  },
+  {
+   "id": "custom",
+   "version": "2026.1",
+   "label": "Custom",
+   "dimensions": {
+    "payoutShape": "any",
+    "entryRestriction": "any"
+   },
+   "objective": {
+    "id": "owner_selected",
+    "description": "The owner picks the objective explicitly (e.g. P(cash), P(top 1%), E[payout], risk-constrained)."
+   },
+   "requiredModels": [
+    "outcome_distribution"
+   ],
+   "hardConstraints": [],
+   "suggestedConstraints": [],
+   "validationState": "unsupported",
+   "unsupportedReason": "Needs outcome_distribution — none validated yet (roadmap Phases D–F).",
+   "baselineFallback": "projection_baseline — available only by explicit choice, labelled not contest-evaluated.",
+   "notes": "No default objective is implied."
+  }
+ ]
+}
