@@ -91,26 +91,49 @@ export function _payloadFromSides(sides, valueMode, settings) {
 }
 
 
-function _renderPlainSummary(result, sides) {
+export function _renderPlainSummary(result, sides, sidesSend = false) {
   const winA = (result.winProbA != null ? result.winProbA : (result.winPct || 0) / 100);
   const pct = Math.round(winA * 100);
   const sims = (result.nSims || 0).toLocaleString();
 
-  let headline, subline;
-  if (pct >= 80) {
+  // `winProbA` is how often Side A's TOTAL came out bigger.  On /trade
+  // (`sidesSend`) each side lists what that team sends, so a bigger Side A
+  // is Side A giving up more — calling it the "winner" named the team that
+  // overpays.  There the copy names the package and who receives it.
+  let headline, subline, tone;
+  if (sidesSend) {
+    const lead = pct >= 50 ? "A" : "B";
+    const other = lead === "A" ? "B" : "A";
+    const share = lead === "A" ? pct : 100 - pct;
+    if (pct >= 40 && pct < 60) {
+      headline = "Coin flip.";
+      tone = "even";
+      subline = `Side A's package came out bigger in ${pct}% of ${sims} simulations.`;
+    } else {
+      const strong = pct >= 80 || pct < 20;
+      headline = `Side ${lead}'s package is ${strong ? "clearly" : "probably"} worth more.`;
+      tone = strong ? "strong" : "lean";
+      subline = `It came out bigger in ${share}% of ${sims} simulations — Side ${other} would receive more value.`;
+    }
+  } else if (pct >= 80) {
     headline = "Side A is the clear winner.";
+    tone = "strong";
     subline = `Side A came out ahead in ${pct}% of ${sims} simulations.`;
   } else if (pct >= 60) {
     headline = "Side A is favored.";
+    tone = "lean";
     subline = `Side A won ${pct}% of ${sims} simulations.`;
   } else if (pct >= 40) {
     headline = "Coin flip.";
+    tone = "even";
     subline = `Side A won ${pct}% of ${sims} simulations — no clear winner.`;
   } else if (pct >= 20) {
     headline = "Side B is favored.";
+    tone = "lean";
     subline = `Side B won ${100 - pct}% of ${sims} simulations.`;
   } else {
     headline = "Side B is the clear winner.";
+    tone = "strong";
     subline = `Side B came out ahead in ${100 - pct}% of ${sims} simulations.`;
   }
 
@@ -137,11 +160,11 @@ function _renderPlainSummary(result, sides) {
     }
   }
 
-  return { headline, subline, deltaLine, rangeLine };
+  return { headline, subline, tone, deltaLine, rangeLine };
 }
 
 
-export default function MonteCarloButton({ sides, valueMode = "full" }) {
+export default function MonteCarloButton({ sides, valueMode = "full", sidesSend = false }) {
   const { settings } = useSettings();
   const [state, setState] = useState("idle");
   const [result, setResult] = useState(null);
@@ -198,7 +221,7 @@ export default function MonteCarloButton({ sides, valueMode = "full" }) {
     );
   }
 
-  const summary = state === "ok" && result ? _renderPlainSummary(result, sides) : null;
+  const summary = state === "ok" && result ? _renderPlainSummary(result, sides, sidesSend) : null;
   const synthetic = Number(result?.bandSources?.synthetic_flat_15pct) || 0;
   const va = result?.vaAdjustment;
   const vaText =
@@ -235,11 +258,9 @@ export default function MonteCarloButton({ sides, valueMode = "full" }) {
             style={{
               fontSize: "1rem", fontWeight: 700, marginBottom: 6,
               color:
-                summary.headline.startsWith("Side A is the clear") ||
-                summary.headline.startsWith("Side B is the clear")
+                summary.tone === "strong"
                   ? "var(--green)"
-                  : summary.headline.startsWith("Side A is favored") ||
-                    summary.headline.startsWith("Side B is favored")
+                  : summary.tone === "lean"
                   ? "var(--cyan)"
                   : "var(--subtext)",
             }}
