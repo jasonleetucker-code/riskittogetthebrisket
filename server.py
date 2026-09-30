@@ -393,6 +393,17 @@ _OVERLAY_RESPONSE_CACHE_MAX = 32
 # references to the tasks (the event loop only holds weak ones).
 _OVERLAY_REFRESHING: set = set()
 _OVERLAY_REFRESH_TASKS: set = set()
+# Overlay CONTENT identity (see ``_overlay_content_identity``):
+# (sleeperLeagueId, overlayFetchedAt) -> content fingerprint, and
+# fingerprint -> the latest ``overlayFetchedAt`` that observed it.
+_OVERLAY_CONTENT_FP: dict = {}
+_OVERLAY_FP_LAST_SEEN: dict = {}
+_OVERLAY_CONTENT_MEMO_MAX = 64
+# Stamped fresh on EVERY overlay fetch whether or not anything changed:
+# the fetch time, and the trade window's "now minus N days" edge.  (A trade
+# ageing out of the window changes ``trades`` itself, so the content
+# identity still moves when the window matters.)
+_OVERLAY_PER_FETCH_KEYS = frozenset({"overlayFetchedAt", "tradeWindowStart", "tradeWindowCutoffMs"})
 # ``POST /api/rankings/overrides`` response memo.  Nearly every client
 # posts the identical stock body ({"tep_multiplier": 1.15} — the
 # /settings default), so one cached entry serves the whole user base
@@ -3773,6 +3784,16 @@ async def lifespan(app: FastAPI):
     # 3. Start the recurring schedule
     scheduler_task = asyncio.create_task(schedule_loop())
     uptime_task = asyncio.create_task(uptime_watchdog_loop())
+    # Rookie auction room runtime (closes, bots, heartbeat, outage pause).
+    # Correctness never depends on it — every command settles what is due
+    # first — and a failure here must never block the site from starting.
+    try:
+        from src.auction import runtime as _auction_runtime
+
+        auction_task = _auction_runtime.start()
+    except Exception as exc:  # noqa: BLE001
+        log.error("auction runtime failed to start: %s", exc)
+        auction_task = None
     # Public league snapshot warmup — kicks a background rebuild if
     # no persisted snapshot was loaded at boot.  Name is resolved at
     # call time (Python late-binding), so the fact that the function
@@ -3811,6 +3832,8 @@ async def lifespan(app: FastAPI):
     scrape_task.cancel()
     scheduler_task.cancel()
     uptime_task.cancel()
+    if auction_task is not None:
+        auction_task.cancel()
     log.info("Server shutting down")
 
 
@@ -3846,6 +3869,15 @@ app.include_router(_ros_router)
 from src.consensus_edge.api import router as _consensus_edge_router  # noqa: E402
 
 app.include_router(_consensus_edge_router)
+
+# Rookie auction room (owner directive 2026-09-29).  Self-contained router
+# with its OWN identity layer and store (``src/auction/``); it authenticates
+# every request itself, so its prefix is exempt from ``_private_api_gate``
+# below.  Mock rooms only until the owner separately approves an official
+# launch.  Rollback: RISKIT_FEATURE_ROOKIE_AUCTION=0 + restart.
+from src.auction.api import router as _auction_router  # noqa: E402
+
+app.include_router(_auction_router)
 
 
 @app.middleware("http")
@@ -3971,6 +4003,11 @@ _PUBLIC_API_PREFIXES = (
     # /api/public/league.  Generation remains admin-only via the POST
     # endpoint's own _require_admin_session check.
     "/api/league/articles",
+    # Rookie auction room: league-mates and invited mock participants hold
+    # an AUCTION session, not a site session.  Every handler under this
+    # prefix authenticates and authorises itself, deny-by-default
+    # (``src/auction/api.py``).
+    "/api/auction",
 )
 
 
@@ -4098,6 +4135,54 @@ def _client_ip_from_request(request: Request) -> str:
             return last
     client = request.client
     return client.host if client else ""
+
+
+def _overlay_content_identity(overlay: dict) -> str | None:
+    """Fingerprint of everything an overlay observation contributes to the
+    ``/api/data`` response EXCEPT the per-fetch stamps.
+
+    Every 15-min overlay refresh restamps ``overlayFetchedAt`` (and the trade
+    window edge) even when no roster, trade or setting changed.  Versioning
+    the encoded response by fetch time therefore minted new bytes and a new
+    ETag each refresh, so every client re-downloaded the whole multi-MB board
+    (a warm Rankings/Trade load paying a full body transfer instead of a 304)
+    to learn nothing.  Versioned by content, an unchanged overlay keeps its
+    encoded generation: the served ``overlayFetchedAt`` is then the
+    observation at the slot's last encode (re-encoded on a board publish,
+    a roster-rule change, eviction or restart) -- older than its latest
+    confirmation, which understates freshness and never overstates it.
+
+    Memoized per (league, observation), so the hash runs once per refresh,
+    not per request.  Also records, per fingerprint, the latest observation
+    that confirmed it (``_OVERLAY_FP_LAST_SEEN``), which is what a
+    stale-while-revalidate bound must measure from.  ``None`` (uncacheable)
+    when the observation carries no fetch stamp.
+    """
+    fetched_at = overlay.get("overlayFetchedAt")
+    if not fetched_at:
+        return None
+    memo_key = (overlay.get("leagueId"), fetched_at)
+    fp = _OVERLAY_CONTENT_FP.get(memo_key)
+    if fp is None:
+        body = {k: v for k, v in overlay.items() if k not in _OVERLAY_PER_FETCH_KEYS}
+        try:
+            fp = hashlib.sha256(
+                json.dumps(
+                    body, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str
+                ).encode("utf-8")
+            ).hexdigest()
+        except Exception as exc:  # noqa: BLE001 -- unhashable shape: uncacheable, fail closed
+            log.warning("overlay content identity unavailable: %s", exc)
+            return None
+        if len(_OVERLAY_CONTENT_FP) >= _OVERLAY_CONTENT_MEMO_MAX:
+            _OVERLAY_CONTENT_FP.clear()
+        _OVERLAY_CONTENT_FP[memo_key] = fp
+    seen = _OVERLAY_FP_LAST_SEEN.get(fp)
+    if seen is None or str(fetched_at) > str(seen):
+        if seen is None and len(_OVERLAY_FP_LAST_SEEN) >= _OVERLAY_CONTENT_MEMO_MAX:
+            _OVERLAY_FP_LAST_SEEN.clear()
+        _OVERLAY_FP_LAST_SEEN[fp] = fetched_at
+    return fp
 
 
 def _overlay_encode_lock(cache_key) -> asyncio.Lock:
@@ -4508,11 +4593,12 @@ async def get_data(request: Request):
             suffix = "overlay" if sleeper_matches else "cross-league-overlay"
             headers["X-Payload-View"] = f"{payload_view_name}-{suffix}"
             # Cache-key is stable across overlay refreshes: only the base
-            # league/view context determines the key. Version info
-            # (overlayFetchedAt + payloadETag) is stored inside the cache
-            # entry and checked on hit; stale versions are re-encoded in
-            # place, bounding memory to one generation per slot.
+            # league/view context determines the key. Version info (overlay
+            # CONTENT identity + payloadETag + ...) is stored inside the
+            # cache entry and checked on hit; stale versions are re-encoded
+            # in place, bounding memory to one generation per slot.
             overlay_fetched_at = overlay.get("overlayFetchedAt")
+            overlay_content = _overlay_content_identity(overlay)
             overlay_cache_key = (
                 (
                     "overlay",
@@ -4521,19 +4607,31 @@ async def get_data(request: Request):
                     payload_view_name,
                     bool(sleeper_matches),
                 )
-                if (overlay_fetched_at and payload_etag and canonical_etag)
+                if (overlay_fetched_at and overlay_content and payload_etag and canonical_etag)
                 else None
             )
             # Registry context can change without an overlay observation or
             # board publication. Capture it once for both identity and solve;
             # meta already belongs to the requested league, including fallback.
             roster_settings = capture_contract_roster_settings(scrubbed)
+            # The scoring-profile LABEL is stamped into ``meta`` per request,
+            # so it belongs to the version too: the overlay's fetch time used
+            # to refresh it implicitly every ~15 min, and the content
+            # identity no longer does.
             context_digest = hashlib.sha256(
-                json.dumps(roster_settings, sort_keys=True, separators=(",", ":")).encode("utf-8")
+                json.dumps(
+                    {
+                        "rosterSettings": roster_settings,
+                        "scoringProfile": league_cfg.scoring_profile,
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    default=str,
+                ).encode("utf-8")
             ).hexdigest()
             overlay_version = (
-                (overlay_fetched_at, payload_etag, canonical_etag, context_digest)
-                if overlay_cache_key
+                (overlay_content, payload_etag, canonical_etag, context_digest)
+                if (overlay_cache_key and overlay_content)
                 else None
             )
             canonical_rows = canonical.get("playersArray") if isinstance(canonical, dict) else None
@@ -4551,15 +4649,18 @@ async def get_data(request: Request):
 
             def stale_servable(cached_version):
                 # Only the overlay OBSERVATION may lag: same board, same
-                # canonical rows, same roster rules, and the old
-                # observation still inside the overlay owner's own
-                # stale-serve window.  Anything else encodes on request.
+                # canonical rows, same roster rules, and the cached content
+                # last CONFIRMED by an observation still inside the overlay
+                # owner's own stale-serve window.  Anything else encodes on
+                # request.
                 return (
                     isinstance(cached_version, tuple)
                     and overlay_version is not None
                     and len(cached_version) == len(overlay_version)
                     and cached_version[1:] == overlay_version[1:]
-                    and _sleeper_overlay.overlay_observation_servable(cached_version[0])
+                    and _sleeper_overlay.overlay_observation_servable(
+                        _OVERLAY_FP_LAST_SEEN.get(cached_version[0])
+                    )
                 )
 
             return await _serialize_overlaid_response(

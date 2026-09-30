@@ -588,3 +588,38 @@ the one request-time reader of scraper output files
 (`_latest_cached_contract_from_disk`, cold start only) already skips unreadable files to the
 next-older export; all other readers run at startup or after the scrape returns.
 
+### September 29 — #1512 production remeasurement; the overlay ETag owner
+
+**#1512 remeasured** (deployed `204a16848`): baseline 36524497676 (plain) and diagnostic
+36527088254, same observer, pacing and route set. Mobile improved (Trade warm 524-629 ms, p95
+629; Rankings warm p95 2008 -> 1164 in the plain run, 776 in the diagnostic run). Desktop
+Rankings still missed: warm attempts [2357, 900, 1004, 2279, 1100] (plain) and
+[884, 1644, 992, 853, 827] (diagnostic); desktop Trade one 1364 ms warm outlier. The page itself
+loads in ~300-400 ms in every attempt, fast or slow: the extra time is after the load event.
+
+**Attribution.** In the diagnostic outlier (1644 ms) the board request took 488 ms to headers
+(normally 130-200) and 613 ms for body + parse (normally 90-150): a FULL re-download on a warm
+load that normally revalidates to a zero-body 304. The response's ETag had changed. Every
+15-min overlay refresh restamps `overlayFetchedAt` and the trade-window edge
+(`tradeWindowStart` / `tradeWindowCutoffMs`, "now minus 365 days") even when no roster, trade or
+setting changed, and the encoded response was versioned by fetch time, so each refresh minted
+new bytes and every client re-downloaded the whole board to learn nothing. The outlier rate
+fits: ~2-3 per ~25-min baseline, about one per overlay refresh. The client reads none of those
+three fields; `cache: "no-cache"` stays (it is the logout-replay guard, documented at the call
+site).
+
+**Change** (`server.py::_overlay_content_identity`): the encoded response is versioned by the
+overlay's CONTENT (everything except the three per-fetch stamps), memoized per observation
+(2.7 ms once per refresh per league on a real 317 KB overlay; a hit is ~3 us). Unchanged content
+keeps its bytes and ETag -> warm loads revalidate to a 304. The served `overlayFetchedAt` is then
+the observation at the slot's last encode (a board publish, roster-rule change, eviction or
+restart re-encodes), which understates freshness and never overstates it. The scoring-profile
+label stamped into `meta` joined the version, since fetch time no longer refreshes it implicitly
+(independent review, approve with should-fixes applied). The
+#1512 stale-serve bound now measures from the content's LAST confirmation
+(`_OVERLAY_FP_LAST_SEEN`), not its first sighting.
+
+**Still open for desktop Rankings warm**: with the data in hand at ~450-520 ms, useful state
+lands at ~830-1000 ms -- the 200-row first render (~400-500 ms) keeps desktop Rankings warm at
+the 1 s budget edge even without outliers.
+
