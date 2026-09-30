@@ -782,10 +782,14 @@ class Harness:
                 "bots": False,
                 "seed": self.a.seed,
             }
-            r = await oc.post("/api/auction/rooms", json=body)
+            r = await oc.post(
+                "/api/auction/rooms", json=body, headers={"Idempotency-Key": new_key()}
+            )
             if r.status_code != 200:
                 body["seatSource"] = "generic"
-                r = await oc.post("/api/auction/rooms", json=body)
+                r = await oc.post(
+                    "/api/auction/rooms", json=body, headers={"Idempotency-Key": new_key()}
+                )
             if r.status_code != 200:
                 raise RuntimeError(f"create room failed: {r.status_code} {r.text[:200]}")
             self.room = r.json()["roomId"]
@@ -820,6 +824,7 @@ class Harness:
                 r = await oc.post(
                     f"/api/auction/rooms/{self.room}/invites",
                     json={"seat": f"S{i + 1}", "intendedHandle": handle, "ttlHours": 2},
+                    headers={"Idempotency-Key": new_key()},
                 )
                 if r.status_code != 200:
                     raise RuntimeError(f"invite failed: {r.status_code} {r.text[:200]}")
@@ -1196,6 +1201,7 @@ class Harness:
                     f"/api/auction/rooms/{self.room}/clock",
                     "clock_jump",
                     json={"advanceSeconds": self.a.clock_jump_seconds},
+                    headers={"Idempotency-Key": new_key()},
                 )
                 self.clock_jumps.append((now() - t0, st))
         finally:

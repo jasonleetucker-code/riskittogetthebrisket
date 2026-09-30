@@ -74,6 +74,7 @@ def run(db: Path, dest: Path, keep: int) -> int:
                     failures.append((rid, rep))
             except Exception as exc:  # noqa: BLE001 - report every room
                 failures.append((rid, repr(exc)))
+        restored.close()  # release the scratch copy before it is archived/removed
         target = dest / f"auction-{stamp}.sqlite.gz"
         if failures:
             bad = dest / f"auction-{stamp}.sqlite.FAILED"

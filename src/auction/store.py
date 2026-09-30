@@ -195,6 +195,9 @@ class Store:
         self._revisions: dict[str, int] = {}
         self._listeners: list = []
         self._outage_checked: set[str] = set()
+        self._wconn: sqlite3.Connection | None = None
+        self._local = threading.local()
+        self._readers: list[sqlite3.Connection] = []
         # Changes with every process that opens the store (a restart, or a
         # restore from backup).  Revisions can go BACKWARDS across a restore;
         # clients compare this epoch so they adopt the restored snapshot
@@ -214,28 +217,57 @@ class Store:
         conn.execute("PRAGMA busy_timeout=15000")
         return conn
 
+    # Connections are reused rather than opened per call: opening one (plus
+    # its PRAGMAs) cost ~7 ms p50 / ~35 ms p95 under a 12-manager burst, on
+    # every session lookup, view and long-poll wake.  One writer connection
+    # (only ever used under ``_lock``) and one autocommit reader per thread;
+    # an autocommit SELECT always sees the latest committed revision.
+
     @contextmanager
     def write(self) -> Iterator[sqlite3.Connection]:
         with self._lock:
-            conn = self.connect()
+            conn = self._wconn
+            if conn is None:
+                conn = self._wconn = self.connect()
+            conn.execute("BEGIN IMMEDIATE")
             try:
-                conn.execute("BEGIN IMMEDIATE")
+                yield conn
+            except BaseException:
                 try:
-                    yield conn
-                except BaseException:
                     conn.execute("ROLLBACK")
-                    raise
+                except sqlite3.Error:
+                    # A connection that cannot roll back is not reused.
+                    self._wconn = None
+                    conn.close()
+                raise
+            try:
                 conn.execute("COMMIT")
-            finally:
+            except sqlite3.Error:
+                self._wconn = None
                 conn.close()
+                raise
 
     @contextmanager
     def read(self) -> Iterator[sqlite3.Connection]:
-        conn = self.connect()
-        try:
-            yield conn
-        finally:
-            conn.close()
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = self._local.conn = self.connect()
+            with self._lock:
+                self._readers.append(conn)
+        yield conn
+
+    def close(self) -> None:
+        """Release every cached connection (scratch/restored stores, tests)."""
+        with self._lock:
+            conns = [c for c in [self._wconn, *self._readers] if c is not None]
+            self._wconn = None
+            self._readers = []
+            self._local = threading.local()
+        for c in conns:
+            try:
+                c.close()
+            except sqlite3.Error:
+                pass
 
     def on_commit(self, fn) -> None:
         self._listeners.append(fn)
