@@ -32,6 +32,31 @@ checkout's.
   `/api/dfs/late-swap[/export]`, locked + unknown-start slots pinned, only proven-open players in).
 - UI: Playwright a11y spec for `/dfs`; code-split pool / rule builder / team stacks / late swap.
 
+## Contest-aware modelling phase (2026-09-30, second directive)
+
+Stacked PR chain, each on the previous; merge in order once `main` holds #1546:
+
+| PR | Branch | Slice | Tests at head |
+|---|---|---|---|
+| #1547 | `claude/dfs-pit` | A — point-in-time ledger, models, decisions, evaluations | 231 |
+| #1548 | `claude/dfs-ownership` | B — ownership baseline + ensemble + metrics (+ capped-surplus fix) | 243 |
+| #1549 | `claude/dfs-sim` | C — outcome distributions + copula + sport correlation priors | 249 |
+| #1550 | `claude/dfs-field` | D — field generator + field fit (+ implied-ownership challenger) | 256 |
+| #1551 | `claude/dfs-dup` | E — duplication baseline + zero-truncated challenger | 260 |
+| #1553 | `claude/dfs-contestsim` | F — contest Monte Carlo + pipeline + `/simulate` | 266 |
+| #1554 | `claude/dfs-portfolio` | G — portfolio optimizer + `/portfolio` | 271 |
+| #1556 | `claude/dfs-backtest` | H — chronological backtest + `/backtest` | 277 |
+| #1557 | `claude/dfs-ui` | I — contest-model + scorecard UI | 278 |
+| #1558 | `claude/dfs-fanduel` | J — FanDuel parity + rule provenance | 284 |
+| #1559 | `claude/dfs-sources` | K — Daily Fantasy Fuel adapter (first connected source) | 288 |
+| #1560 | `claude/dfs-jobs` | L — background jobs + pinned route surface | 295 |
+
+Worktree: `C:\Users\jason\code\chaseupside-dfs-model` (branches switch in place).
+Evidence classes, kept apart: every model here has UNIT / SYNTHETIC evidence only. No historical
+contest has been replayed (none imported), no forward test exists, and nothing is shown to be
+profitable. Negative findings recorded in ADR-DFS-016 (structural ownership targets are
+salary-infeasible; fixed-order field sampling was badly biased).
+
 ## Proven (with evidence)
 
 - `pytest tests/dfs` 202 passed on multisport. Includes:

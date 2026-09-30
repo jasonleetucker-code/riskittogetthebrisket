@@ -515,3 +515,46 @@ def test_backtest_endpoint_scores_a_settled_contest_and_bounds_its_inputs(client
         headers=h,
     )
     assert too_many.status_code == 400
+
+
+def test_backtest_job_is_queued_and_completes(client):
+    from src.dfs import jobs
+
+    h = {"x-user": "a"}
+    snap = client.post(
+        "/api/dfs/slates",
+        json={
+            "salaryCsv": (FIX / "synthetic_dk_nfl_classic_salaries.csv").read_text(
+                encoding="utf-8"
+            ),
+            "projectionCsv": (FIX / "synthetic_dk_nfl_classic_projections.csv").read_text(
+                encoding="utf-8"
+            ),
+        },
+        headers=h,
+    ).json()
+    qb = next(a for a in snap["athletes"] if a["positions"] == ["QB"])
+    head = (
+        "Rank,EntryId,EntryName,TimeRemaining,Points,Lineup,,Player,Roster Position,%Drafted,FPTS"
+    )
+    res = client.post(
+        "/api/dfs/results",
+        json={
+            "snapshotId": snap["snapshotId"],
+            "standingsCsv": f"{head}\n,,,,,,,{qb['name']},QB,40%,25\n",
+        },
+        headers=h,
+    ).json()
+    r = client.post(
+        "/api/dfs/jobs",
+        json={"kind": "backtest", "params": {"items": [{"resultId": res["resultId"]}]}},
+        headers=h,
+    )
+    assert r.status_code == 202
+    jobs.wait_idle()
+    job = client.get(f"/api/dfs/jobs/{r.json()['jobId']}", headers=h).json()
+    assert job["state"] == "done" and job["result"]["contests"] == 1
+    assert (
+        client.get(f"/api/dfs/jobs/{r.json()['jobId']}", headers={"x-user": "b"}).status_code == 404
+    )
+    assert client.post("/api/dfs/jobs", json={"kind": "mine_bitcoin"}, headers=h).status_code == 400

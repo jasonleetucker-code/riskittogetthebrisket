@@ -32,6 +32,7 @@ from pathlib import Path
 
 from src.dfs import duplication as dfs_duplication
 from src.dfs import ownership as dfs_ownership
+from src.dfs import jobs as dfs_jobs
 from src.dfs import pit, store
 from src.dfs.contests import (
     ContestError,
@@ -1277,17 +1278,9 @@ async def build_contest_portfolio(request: Request):
     return _ok(out)
 
 
-@router.post("/backtest")
-async def run_backtest(request: Request):
-    """Chronological point-in-time replay over the owner's settled contests (historical evidence)."""
-    from src.dfs import backtest, pipeline
+def _backtest_params(body: dict[str, Any]) -> dict[str, Any] | JSONResponse:
+    from src.dfs import pipeline
 
-    owner = _owner(request)
-    if isinstance(owner, JSONResponse):
-        return owner
-    body = await _json_body(request)
-    if isinstance(body, JSONResponse):
-        return body
     items = body.get("items") or []
     replay = bool(body.get("replayPortfolio"))
     limit = 10 if replay else 200
@@ -1303,21 +1296,89 @@ async def run_backtest(request: Request):
         isinstance(sample, int) and 1 <= sample <= pipeline.API_MAX_FIELD_SAMPLE
     ):
         return _err("INVALID_BODY", "sims / fieldSample out of range.", 400)
+    return {
+        "items": [
+            {
+                "resultId": i["resultId"],
+                **({"contestId": i["contestId"]} if isinstance(i.get("contestId"), str) else {}),
+            }
+            for i in items
+        ],
+        "replayPortfolio": replay,
+        "entries": int(body.get("entries") or 3),
+        "sims": sims,
+        "fieldSample": sample,
+        "allowPriors": bool(body.get("allowPriors")),
+    }
+
+
+def _backtest_job(owner: str, p: dict[str, Any]) -> dict[str, Any]:
+    from src.dfs import backtest
+
+    return backtest.run(
+        owner,
+        p["items"],
+        replay_portfolio=p["replayPortfolio"],
+        entries=p["entries"],
+        sims=p["sims"],
+        field_sample=p["fieldSample"],
+        allow_priors=p["allowPriors"],
+    )
+
+
+dfs_jobs.register("backtest")(_backtest_job)
+
+
+@router.post("/backtest")
+async def run_backtest(request: Request):
+    """Chronological point-in-time replay over the owner's settled contests (historical evidence).
+
+    Synchronous and bounded; long replays belong in ``POST /api/dfs/jobs`` (kind ``backtest``).
+    """
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    params = _backtest_params(body)
+    if isinstance(params, JSONResponse):
+        return params
     try:
-        out = await run_in_threadpool(
-            lambda: backtest.run(
-                owner,
-                items,
-                replay_portfolio=replay,
-                entries=int(body.get("entries") or 3),
-                sims=sims,
-                field_sample=sample,
-                allow_priors=bool(body.get("allowPriors")),
-            )
-        )
+        out = await run_in_threadpool(_backtest_job, owner, params)
     except pit.PitError as exc:
         return _err(exc.code, exc.message, 422)
     return _ok(out)
+
+
+@router.post("/jobs")
+async def submit_job(request: Request):
+    """Queue long DFS work; answers 202 with a job id to poll."""
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    if body.get("kind") != "backtest":
+        return _err("UNKNOWN_JOB_KIND", "Supported job kinds: backtest.", 400)
+    params = _backtest_params(body.get("params") or {})
+    if isinstance(params, JSONResponse):
+        return params
+    try:
+        job = await run_in_threadpool(dfs_jobs.submit, owner, "backtest", params)
+    except dfs_jobs.JobError as exc:
+        return _err(exc.code, exc.message, 429 if exc.code == "QUEUE_FULL" else 400)
+    return _ok(job, 202)
+
+
+@router.get("/jobs/{job_id}")
+async def read_job(job_id: str, request: Request):
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    job = await run_in_threadpool(dfs_jobs.get, owner, job_id)
+    return _ok(job) if job else _err("NOT_FOUND", "No such job.", 404)
 
 
 @router.get("/evaluations")
