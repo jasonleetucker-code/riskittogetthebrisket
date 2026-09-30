@@ -53,12 +53,18 @@ _HARDENED_CONFIG = ("-c", "core.fsmonitor=false", "-c", "protocol.allow=never")
 
 @dataclass(frozen=True)
 class DiffEvidence:
-    """``files`` is set only when the diff was actually established."""
+    """``files`` is set only when the diff was actually established.
+
+    For gate checks, ``stale_files`` also lists gate paths whose content at ``head``
+    differs from trusted history as it stood before ``head`` arrived -- including
+    gates trusted history updated after the branch point.
+    """
 
     files: tuple[str, ...] | None
     base: str | None
     head: str | None
     reason: str | None = None
+    stale_files: tuple[str, ...] | None = None
 
     @property
     def established(self) -> bool:
@@ -155,7 +161,10 @@ CI_GATE_GLOBS = (
     "frontend/.eslintrc*",
     "frontend/eslint.config.*",
 )
-TRUSTED_REF = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/-]*")
+# A trusted ref must be unambiguous: a full SHA, or a fully qualified branch or
+# remote-tracking ref. A short name such as ``origin/main`` can be shadowed by a
+# pushed tag (refs/tags wins lookup); tags are excluded for the same reason.
+TRUSTED_REF = re.compile(r"refs/(heads|remotes)/[A-Za-z0-9][A-Za-z0-9._/-]*")
 
 
 def gate_changes(repo: Path, trusted_ref, head, extra: tuple[str, ...] = ()) -> DiffEvidence:
@@ -170,7 +179,9 @@ def gate_changes(repo: Path, trusted_ref, head, extra: tuple[str, ...] = ()) -> 
     straight onto the trusted ref's first-parent line cannot be separated from
     trusted history and is refused. ``files`` lists only gate paths.
     """
-    if not isinstance(trusted_ref, str) or not TRUSTED_REF.fullmatch(trusted_ref):
+    if not isinstance(trusted_ref, str) or not (
+        is_full_sha(trusted_ref) or (TRUSTED_REF.fullmatch(trusted_ref) and ".." not in trusted_ref)
+    ):
         return DiffEvidence(None, trusted_ref, head, "trusted_ref_invalid")
     if not is_full_sha(head):
         return DiffEvidence(None, trusted_ref, head, "revision_not_full_sha")
@@ -205,24 +216,29 @@ def gate_changes(repo: Path, trusted_ref, head, extra: tuple[str, ...] = ()) -> 
         merge_base = base.stdout.decode("ascii", "replace").strip()
         if base.returncode != 0 or not is_full_sha(merge_base):
             return DiffEvidence(None, trusted_ref, head, "trusted_ref_unresolvable")
-        result = _git(
-            repo,
-            "diff",
-            "--name-only",
-            "-z",
-            "--no-renames",
-            "--no-ext-diff",
-            merge_base,
-            head,
-            "--",
-        )
+        diffs = []
+        for start in (merge_base, trusted):
+            result = _git(
+                repo,
+                "diff",
+                "--name-only",
+                "-z",
+                "--no-renames",
+                "--no-ext-diff",
+                start,
+                head,
+                "--",
+            )
+            if result.returncode != 0 or len(result.stdout) > MAX_OUTPUT_BYTES:
+                return DiffEvidence(None, trusted_ref, head, "git_diff_failed")
+            diffs.append(result.stdout.decode("utf-8", "surrogateescape").split("\0"))
     except OSError:
         return DiffEvidence(None, trusted_ref, head, "git_unavailable")
     except subprocess.TimeoutExpired:
         return DiffEvidence(None, trusted_ref, head, "git_timeout")
-    if result.returncode != 0 or len(result.stdout) > MAX_OUTPUT_BYTES:
-        return DiffEvidence(None, trusted_ref, head, "git_diff_failed")
-    changed = [p for p in result.stdout.decode("utf-8", "surrogateescape").split("\0") if p]
     globs = CI_GATE_GLOBS + tuple(extra)
-    gated = sorted(p for p in changed if any(fnmatch.fnmatch(p, g) for g in globs))
-    return DiffEvidence(tuple(gated), merge_base, head)
+
+    def gated(paths):
+        return tuple(sorted(p for p in paths if p and any(fnmatch.fnmatch(p, g) for g in globs)))
+
+    return DiffEvidence(gated(diffs[0]), merge_base, head, stale_files=gated(diffs[1]))

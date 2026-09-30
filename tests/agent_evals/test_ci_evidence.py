@@ -35,6 +35,8 @@ CASE_ID = "missing-never-zero-ros-playoff-odds"
 SLUG = "o/r"
 WORKFLOW = ".github/workflows/pr-validation.yml"
 CHECK = f"ci_workflow:{WORKFLOW}"
+TRUSTED = "refs/heads/main"
+PR = 41
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "missing_never_zero_pass.json"
 CODE = {"src/ros/playoff_sim.py": "a\n", "tests/ros/test_playoff_sim.py": "a\n"}
 
@@ -98,23 +100,26 @@ def _run(head, conclusion="success", *, event="pull_request", **k):
         "run_attempt": k.get("attempt", 1),
         "repository": {"full_name": SLUG},
         "head_repository": {"full_name": k.get("head_repo", SLUG)},
-        "pull_requests": [{"base": {"ref": b}} for b in k.get("bases", ("main",))],
+        "pull_requests": [
+            {"number": PR, "base": {"ref": b}, "head": {"sha": k.get("pr_head", head)}}
+            for b in k.get("bases", ("main",))
+        ],
     }
 
 
-def _fetcher(*runs):
+def _fetcher(*runs, retargeted=None):
     calls = []
 
     def fetch(slug, head):
         calls.append((slug, head))
-        return CiRuns(tuple(runs), head, None, slug)
+        return CiRuns(tuple(runs), head, None, slug, retargeted or {PR: False})
 
     fetch.calls = calls
     return fetch
 
 
 def _grade(repo, path, fetch, **extra):
-    options = {"repo": repo["root"], "ci_repo": SLUG, "trusted_ref": "main", "fetch_runs": fetch}
+    options = {"repo": repo["root"], "ci_repo": SLUG, "trusted_ref": TRUSTED, "fetch_runs": fetch}
     return grade_file(CASE_ID, path, **{**options, **extra})
 
 
@@ -142,15 +147,34 @@ def _runs_body(runs, total=None):
     return json.dumps({"total_count": count, "workflow_runs": runs}).encode(), 0
 
 
-def test_fetch_reads_one_fixed_endpoint_for_the_pinned_revision():
+def _timeline(*events):
+    return json.dumps([{"event": e} for e in events]).encode(), 0
+
+
+def test_fetch_reads_fixed_endpoints_for_the_pinned_revision_and_its_prs():
     sha = "a" * 40
-    gh = FakeGh(_runs_body([_run(sha)]))
+    gh = FakeGh(_runs_body([_run(sha)]), _timeline("labeled", "committed"))
     result = fetch_workflow_runs(SLUG, sha, run=gh)
-    assert len(result.runs) == 1 and result.slug == SLUG
+    assert len(result.runs) == 1 and result.slug == SLUG and result.retargeted == {PR: False}
     assert [argv for argv, _ in gh.argv] == [
         ["gh", "api", f"repos/o/r/actions/runs?head_sha={sha}&per_page=100"],
+        ["gh", "api", f"repos/o/r/issues/{PR}/timeline?per_page=100"],
     ]
     assert all("shell" not in kwargs and kwargs["timeout"] > 0 for _, kwargs in gh.argv)
+
+
+def test_pr_base_history_is_read_not_assumed():
+    sha = "a" * 40
+    moved = fetch_workflow_runs(
+        SLUG, sha, run=FakeGh(_runs_body([_run(sha)]), _timeline("base_ref_changed"))
+    )
+    assert moved.retargeted == {PR: True}
+    unread = fetch_workflow_runs(SLUG, sha, run=FakeGh(_runs_body([_run(sha)]), (b"", 1)))
+    assert unread.retargeted == {PR: None}
+    long = fetch_workflow_runs(
+        SLUG, sha, run=FakeGh(_runs_body([_run(sha)]), _timeline(*["labeled"] * 100))
+    )
+    assert long.retargeted == {PR: None}  # possibly truncated: unknown, never "unchanged"
 
 
 @pytest.mark.parametrize(
@@ -190,8 +214,9 @@ def test_unusable_responses_are_never_partial_evidence(responses, raises, reason
 # --- verdicts ---------------------------------------------------------------------
 
 
-def _verdict(head, *runs):
-    return workflow_verdict(CiRuns(runs, head, None, SLUG), WORKFLOW, trusted_base="main")
+def _verdict(head, *runs, retargeted=None):
+    ci = CiRuns(runs, head, None, SLUG, {PR: False} if retargeted is None else retargeted)
+    return workflow_verdict(ci, WORKFLOW, trusted_base="main")[:2]
 
 
 def test_verdict_counts_only_this_repository_this_revision_and_trusted_events():
@@ -222,10 +247,24 @@ def test_pr_runs_are_bound_to_the_deciding_runs_own_pr_base():
     trusted_older = _run(head, id=1, started="2026-09-30T10:00:00Z")
     weakened_closed = _run(head, id=2, started="2026-09-30T11:00:00Z", bases=())
     assert _verdict(head, trusted_older, weakened_closed)[1].startswith("ci_base_unproven")
-    malformed = {**_run(head), "pull_requests": [{"base": "main"}]}
+    malformed = {**_run(head), "pull_requests": [{"number": PR, "base": "main"}]}
     assert _verdict(head, malformed) == ("not_checked", "ci_response_malformed")
     # A push run executes the workflow at head_sha itself; no PR base is involved.
     assert _verdict(head, _run(head, event="push", bases=()))[0] == "success"
+
+
+def test_retargeted_or_unreadable_pr_history_is_not_trusted():
+    head = "a" * 40
+    # Opened against a weakened branch, run green, then retargeted to main.
+    assert _verdict(head, _run(head), retargeted={PR: True})[1].startswith("ci_base_retargeted")
+    assert _verdict(head, _run(head), retargeted={PR: None})[1].startswith("ci_base_unproven")
+    assert _verdict(head, _run(head), retargeted={})[1].startswith("ci_base_unproven")
+
+
+def test_pr_entries_for_another_head_do_not_prove_the_base():
+    head = "a" * 40
+    moved_on = _run(head, pr_head="b" * 40)
+    assert _verdict(head, moved_on)[1].startswith("ci_base_unproven")
 
 
 def test_malformed_run_fields_are_not_a_crash():
@@ -238,12 +277,55 @@ def test_malformed_run_fields_are_not_a_crash():
 
 
 def test_gate_changes_are_measured_from_the_trusted_ref_not_the_artifact_start(repo):
-    hidden = gate_changes(repo["root"], "main", repo["hidden"])
+    hidden = gate_changes(repo["root"], TRUSTED, repo["hidden"])
     assert hidden.files == (WORKFLOW,)  # visible though the artifact would start after it
-    assert gate_changes(repo["root"], "main", repo["fixed"]).files == ()
-    assert gate_changes(repo["root"], "main", repo["skip_all"]).files == ("tests/conftest.py",)
-    assert gate_changes(repo["root"], "--output=x", repo["fixed"]).reason == "trusted_ref_invalid"
-    assert gate_changes(repo["root"], "nope", repo["fixed"]).reason == "trusted_ref_unresolvable"
+    assert gate_changes(repo["root"], TRUSTED, repo["fixed"]).files == ()
+    assert gate_changes(repo["root"], TRUSTED, repo["skip_all"]).files == ("tests/conftest.py",)
+    assert gate_changes(repo["root"], TRUSTED, repo["fixed"]).stale_files == ()
+
+
+@pytest.mark.parametrize(
+    "ref",
+    ["main", "origin/main", "--output=x", "refs/tags/main", "refs/heads/../x", "HEAD", "main@{1}"],
+)
+def test_trusted_ref_must_be_unambiguous(repo, ref):
+    # A short name can be shadowed by a pushed tag (refs/tags wins lookup).
+    assert gate_changes(repo["root"], ref, repo["fixed"]).reason == "trusted_ref_invalid"
+
+
+def test_a_tag_named_like_the_trusted_ref_cannot_shadow_it(tmp_path):
+    root = tmp_path / "shadow"
+    root.mkdir()
+    _git(root, "init", "-q")
+    _git(root, "checkout", "-q", "-b", "main")
+    _commit(root, {**CODE, WORKFLOW: "on: pull_request\n"}, "base")
+    _git(root, "checkout", "-q", "-b", "work")
+    weakened = _commit(root, {WORKFLOW: "exit 0\n"}, "weaken")
+    head = _commit(root, {"src/ros/playoff_sim.py": "b\n"}, "fix")
+    _git(root, "tag", "main", weakened)  # a pushed tag shadowing the short name
+    assert gate_changes(root, TRUSTED, head).files == (WORKFLOW,)
+    assert gate_changes(root, "refs/heads/nope", head).reason == "trusted_ref_unresolvable"
+
+
+def test_push_run_from_a_stale_branch_runs_a_stale_gate(tmp_path):
+    root = tmp_path / "stale"
+    root.mkdir()
+    _git(root, "init", "-q")
+    _git(root, "checkout", "-q", "-b", "main")
+    _commit(root, {**CODE, WORKFLOW: "old gate\n"}, "base")
+    _git(root, "checkout", "-q", "-b", "work")
+    head = _commit(root, {"src/ros/playoff_sim.py": "b\n"}, "fix")
+    _git(root, "checkout", "-q", "main")
+    _commit(root, {WORKFLOW: "strengthened gate\n"}, "main tightens the gate")
+    gates = gate_changes(root, TRUSTED, head)
+    assert gates.files == () and gates.stale_files == (WORKFLOW,)
+    path = _artifact(tmp_path, head, head, [])
+    options = {"repo": root, "ci_repo": SLUG, "trusted_ref": TRUSTED}
+    push = grade_file(CASE_ID, path, fetch_runs=_fetcher(_run(head, event="push")), **options)
+    assert _entry(push)["reason"].startswith("ci_gate_stale")
+    # A PR run merges with the current base, so the tightened gate is what ran.
+    pr = grade_file(CASE_ID, path, fetch_runs=_fetcher(_run(head)), **options)
+    assert _entry(pr)["level"] == VERIFIED_AGAINST_ARTIFACT
 
 
 def test_merged_revision_is_compared_with_trusted_history_before_the_merge(tmp_path):
@@ -272,13 +354,13 @@ def test_merged_revision_is_compared_with_trusted_history_before_the_merge(tmp_p
             branch,
         )
     # Both heads are now ancestors of main; merge-base(main, head) would be head itself.
-    assert gate_changes(root, "main", weakened_head).files == (WORKFLOW,)
-    assert gate_changes(root, "main", clean_head).files == ()
+    assert gate_changes(root, TRUSTED, weakened_head).files == (WORKFLOW,)
+    assert gate_changes(root, TRUSTED, clean_head).files == ()
     # A commit pushed straight onto main cannot be separated from trusted history.
     tip = _commit(root, {"src/ros/playoff_sim.py": "d\n"}, "direct push")
-    assert gate_changes(root, "main", tip).reason == "revision_is_trusted_tip"
+    assert gate_changes(root, TRUSTED, tip).reason == "revision_is_trusted_tip"
     _commit(root, {"more.txt": "y\n"}, "later")
-    assert gate_changes(root, "main", tip).reason == "revision_on_trusted_first_parent_line"
+    assert gate_changes(root, TRUSTED, tip).reason == "revision_on_trusted_first_parent_line"
 
 
 # --- grading ----------------------------------------------------------------------
@@ -329,7 +411,7 @@ def test_without_trusted_history_a_green_run_stays_unverified(repo, tmp_path):
     path = _artifact(tmp_path, repo["base"], repo["fixed"], ["src/ros/playoff_sim.py"])
     no_ref = _grade(repo, path, fetch, trusted_ref=None)
     assert _entry(no_ref)["reason"] == "workflow_identity_unverified"
-    no_repo = grade_file(CASE_ID, path, ci_repo=SLUG, trusted_ref="main", fetch_runs=fetch)
+    no_repo = grade_file(CASE_ID, path, ci_repo=SLUG, trusted_ref=TRUSTED, fetch_runs=fetch)
     assert _entry(no_repo)["reason"] == "workflow_identity_unverified"
 
 

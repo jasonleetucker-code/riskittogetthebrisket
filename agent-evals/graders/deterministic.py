@@ -339,11 +339,14 @@ def grade(
     for workflow in grading.get("required_ci_workflows") or []:
         check = f"ci_workflow:{workflow}"
         if ci is None:
-            verdict, detail = "not_checked", "no_ci_repository"
+            verdict, detail, event = "not_checked", "no_ci_repository", None
         else:
-            verdict, detail = workflow_verdict(ci, workflow, trusted_base=trusted_base)
-        # The judge's identity: the gate machinery at the revision must match trusted
-        # history, measured from the operator's trusted ref, not the artifact's start.
+            verdict, detail, event = workflow_verdict(ci, workflow, trusted_base=trusted_base)
+        # The judge's identity: the gate machinery that ran must match trusted history,
+        # measured from the operator's trusted ref, not the artifact's start. A PR run
+        # merges with the current base, so only the run's own gate edits matter; a push
+        # run executes the revision's own files, so they must equal trusted history as
+        # it stood before the revision arrived (a stale branch runs a stale gate).
         if verdict == "success":
             if gates is None:
                 verdict, detail = "not_checked", "workflow_identity_unverified"
@@ -351,6 +354,8 @@ def grade(
                 verdict, detail = "not_checked", f"workflow_identity_unverified: {gates.reason}"
             elif gates.files:
                 verdict, detail = "not_checked", f"ci_gate_changed_in_run: {list(gates.files)}"
+            elif event == "push" and gates.stale_files:
+                verdict, detail = "not_checked", f"ci_gate_stale: {list(gates.stale_files)}"
         if verdict == "success":
             evidence.append({"check": check, "level": VERIFIED_AGAINST_ARTIFACT})
         elif verdict == "failure":

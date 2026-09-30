@@ -53,7 +53,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--ci-repo", help="GitHub owner/name whose Actions records to read.")
     parser.add_argument(
-        "--trusted-ref", help="Trusted git ref in --repo (e.g. origin/main) for gate identity."
+        "--trusted-ref",
+        help="Trusted ref in --repo for gate identity: a full SHA or refs/remotes/... / "
+        "refs/heads/... (e.g. refs/remotes/origin/main); short names can be shadowed by tags.",
     )
     parser.add_argument(
         "--ci-base-branch", default="main", help="Branch PR runs must target (default main)."
