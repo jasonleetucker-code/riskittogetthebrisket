@@ -158,3 +158,25 @@ frozen with the as-of inputs digest and labelled `pre_lock` only when made befor
 **Consequence.** Every later model (ownership, field, duplication, contest simulation, portfolio)
 reads inputs through `as_of` and writes decisions/evaluations here, so a backtest can prove it saw
 no post-lock information.
+
+## ADR-DFS-014 — Ownership: structural baseline + source ensemble, scored per component (2026-09-30)
+
+**Context.** Ownership drives field simulation and duplication. Third-party projections vary in
+quality, update times, and availability; averaging them blindly hides a stale or poor source, and
+with no data at all there must still be a baseline to beat.
+
+**Decision.** `src/dfs/ownership.py`. (1) A structural baseline that needs no external data: each
+roster slot's 100% spread over eligible players by `exp(bv·z(pts/$1K) + bp·z(projection))`, capped at
+100%, totalling exactly 100% × slots; `bv = bp = 1` are declared UNCALIBRATED priors;
+`fit_structural` refits them only on settled slates (training error is labelled as such). (2) A
+source ensemble over values held as-of T: equal weights until a source has ≥ 60 scored players,
+then inverse historical MAE; values older than 24 h at T are flagged stale and not used as current.
+(3) Owner overrides, labelled. Every player row names its method. Results imports score each
+source, the ensemble and the baseline against realized %Drafted, each forecast as of LOCK, and store
+the scorecards (MAE, RMSE, bias, Spearman, bucket calibration, top-10 overlap, bootstrap CI, n) in
+`pit` scoped by sport / platform / format / slate size.
+
+**Evidence standard.** Nothing here is shown to be accurate yet: there is no settled historical data.
+A challenger (a refitted baseline or a new source mix) is promoted only through `pit.promote` with
+≥ 150 holdout players and an MAE at least 0.25 points better than the incumbent, on a window after
+registration.

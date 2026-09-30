@@ -30,6 +30,7 @@ import json
 from decimal import Decimal
 from pathlib import Path
 
+from src.dfs import ownership as dfs_ownership
 from src.dfs import pit, store
 from src.dfs.contests import (
     ContestError,
@@ -1066,6 +1067,46 @@ async def entries_parse(request: Request):
     return _ok(parsed)
 
 
+@router.post("/ownership/forecast")
+async def ownership_forecast(request: Request):
+    """Projected ownership for one slate as of a time before lock (default: now)."""
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    snap = await run_in_threadpool(store.get_snapshot, owner, str(body.get("snapshotId") or ""))
+    if snap is None:
+        return _err("NOT_FOUND", "No such slate.", 404)
+    rs = get_ruleset(snap["ruleset"].split("@", 1)[0])
+    if rs is None:
+        return _err(
+            "RULESET_SUPERSEDED", "This slate's rule-set version is no longer current.", 409
+        )
+    overrides = body.get("overrides") or {}
+    if not isinstance(overrides, dict) or not all(
+        isinstance(v, (int, float)) and not isinstance(v, bool) and 0 <= v <= 100
+        for v in overrides.values()
+    ):
+        return _err("INVALID_BODY", "overrides must map player ID to a percent from 0 to 100.", 400)
+    if await run_in_threadpool(pit.get_slate, owner, snap["id"]) is None:
+        await run_in_threadpool(pit.capture_snapshot, owner, snap)
+    try:
+        fc = await run_in_threadpool(
+            lambda: dfs_ownership.forecast(
+                owner, snap, rs, body.get("asOf") or pit.now(), overrides=overrides
+            )
+        )
+    except pit.PitError as exc:
+        return _err(
+            exc.code, exc.message, 409 if exc.code in ("AFTER_LOCK", "LOCK_UNKNOWN") else 422
+        )
+    except ValueError:
+        return _err("INVALID_CLOCK", "asOf must be an ISO time with a timezone.", 422)
+    return _ok(fc)
+
+
 @router.post("/results")
 async def import_results(request: Request):
     """Import a finished contest's standings for one slate and evaluate the owner's forecasts."""
@@ -1124,6 +1165,11 @@ async def import_results(request: Request):
     record = {
         **parsed,
         "evaluation": evaluate(athletes, parsed["realized"]),
+        # DFS-MOD-02/10: each source, the ensemble and the structural baseline,
+        # each forecast as of lock, scored against realized ownership.
+        "ownershipEvaluation": await run_in_threadpool(
+            dfs_ownership.evaluate_against_results, owner, snap, rs, parsed["realized"]
+        ),
         "settlement": (
             settle(
                 contest,
