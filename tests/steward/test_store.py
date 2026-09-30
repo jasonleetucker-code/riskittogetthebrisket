@@ -148,6 +148,9 @@ MALFORMED_PRODUCER = {
     "null_value": {"model": None},
     "non_string": {"session_id": 7},
     "overlong": {"session_id": "x" * 201},
+    "padded": {"model": "  m  "},
+    "invisible": {"model": "\u200b"},
+    "control_character": {"provider": "a\nb"},
 }
 
 
@@ -277,3 +280,18 @@ def test_history_rows_are_immutable(tmp_path):
     with pytest.raises(sqlite3.IntegrityError):
         store.connection.execute("DELETE FROM history")
     store.close()
+
+
+def test_stored_producer_is_rechecked_not_trusted_on_read():
+    from src.steward.store import producer_attribution
+
+    assert producer_attribution({**evidence(), "producer": {"model": "x" * 200}}) == {
+        "status": "attributed",
+        "model": "x" * 200,
+    }
+    for stored in ({"foo": 1}, {"model": ""}, "claude", [], {}):
+        assert producer_attribution({**evidence(), "producer": stored}) == {
+            "status": "unattributed",
+            "reason": "malformed_producer",
+        }
+    assert producer_attribution(["not", "an", "object"]) == {"status": "unattributed"}

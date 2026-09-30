@@ -56,6 +56,8 @@ def test_brief_save_records_only_supplied_producer_fields(tmp_path, capsys):
     state.close()
     with pytest.raises(ValueError, match="producer"):
         main(base + ["--producer-model", ""])
+    with pytest.raises(SystemExit):
+        main(["--repo", str(ROOT), "--state", str(path), "brief", "--producer-model", "m"])
     state = StewardStore(path)
     assert state.read("campaign") == before
     assert state.connection.execute("SELECT COUNT(*) FROM evidence").fetchone()[0] == 2

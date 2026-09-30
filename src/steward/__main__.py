@@ -247,6 +247,10 @@ def main(argv=None):
             or movement["classification"] in {"UNKNOWN_REQUIRES_INSPECTION", "RELEVANT_BASE_MOVE"}
             else 0
         )
+    if args.command == "brief" and not args.save:
+        producer_flags = (args.producer_session_id, args.producer_provider, args.producer_model)
+        if any(flag is not None for flag in producer_flags):
+            parser.error("--producer-* attribution is recorded only with --save")
     if args.command == "context":
         print(json.dumps(context(repo, args.paths, max_chars=args.max_chars), indent=2))
         return 0

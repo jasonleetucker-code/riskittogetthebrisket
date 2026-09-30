@@ -44,22 +44,42 @@ def validate_raw_evidence(payload) -> None:
     if unknown:
         raise ValueError(f"producer has unknown fields {sorted(unknown)}")
     for key, value in producer.items():
-        if not isinstance(value, str) or not value.strip() or len(value) > PRODUCER_MAX_CHARS:
+        if not _attribution_value(value):
             raise ValueError(
-                f"producer.{key} must be a non-blank string of at most {PRODUCER_MAX_CHARS} "
-                "characters; omit fields that are not known"
+                f"producer.{key} must be a non-blank, unpadded, printable string of at most "
+                f"{PRODUCER_MAX_CHARS} characters; omit fields that are not known"
             )
 
 
-def producer_attribution(payload: dict) -> dict:
+def _attribution_value(value) -> bool:
+    return (
+        isinstance(value, str)
+        and bool(value)
+        and value == value.strip()
+        and value.isprintable()
+        and len(value) <= PRODUCER_MAX_CHARS
+    )
+
+
+def producer_attribution(payload) -> dict:
     """Explicit attribution state of stored raw evidence.
 
     Records written before structured attribution existed, or without it, are
     ``unattributed``; free-text ``source`` is never parsed for a session or model.
+    Stored rows are re-checked rather than trusted: before every insert path was
+    validated, a row could carry a producer this contract would refuse, and that
+    reads as unattributed rather than as attribution.
     """
-    producer = payload.get("producer")
-    if not isinstance(producer, dict) or not producer:
+    producer = payload.get("producer") if isinstance(payload, dict) else None
+    if producer is None:
         return {"status": "unattributed"}
+    if (
+        not isinstance(producer, dict)
+        or not producer
+        or producer.keys() - PRODUCER_FIELDS
+        or not all(_attribution_value(v) for v in producer.values())
+    ):
+        return {"status": "unattributed", "reason": "malformed_producer"}
     return {"status": "attributed", **{k: producer[k] for k in sorted(producer)}}
 
 
