@@ -244,3 +244,61 @@ def test_nan_and_malformed_bodies_never_poison_a_stored_build(client):
     )
     assert r.status_code == 422 and r.json()["error"] == "INVALID_CONSTRAINT"
     assert client.get("/api/dfs/builds", headers={"x-user": "alice"}).json()["builds"] == []
+
+
+def test_distribution_import_is_reported_in_freshness_and_bad_labels_are_422(client):
+    proj = (FIX / "synthetic_dk_nfl_classic_projections.csv").read_text(encoding="utf-8")
+    snap = _slate(client).json()
+    row = next(f for f in snap["freshness"] if f["class"] == "distribution")
+    assert row["state"] == "unavailable" and row["coverage"] is None  # none supplied ≠ zero-width
+
+    lines = proj.strip().splitlines()
+    with_sd = "\n".join([lines[0] + ",Floor,Ceiling"] + [ln + ",1,30" for ln in lines[1:]]) + "\n"
+    snap = _slate(client, projectionCsv=with_sd).json()
+    row = next(f for f in snap["freshness"] if f["class"] == "distribution")
+    assert row["state"] == "unavailable" and "say which percentiles" in row["note"]
+
+    snap = _slate(client, projectionCsv=with_sd, floorPercentile=15, ceilingPercentile=85).json()
+    row = next(f for f in snap["freshness"] if f["class"] == "distribution")
+    assert row["state"] == "as_imported" and row["coverage"].startswith("84 of")
+
+    r = _slate(client, projectionCsv=with_sd, floorPercentile=85, ceilingPercentile=15)
+    assert r.status_code == 422 and r.json()["error"] == "INVALID_PERCENTILE"
+
+
+def test_builds_carry_an_outcome_range_only_when_every_player_has_one(client):
+    proj = (FIX / "synthetic_dk_nfl_classic_projections.csv").read_text(encoding="utf-8")
+    lines = proj.strip().splitlines()
+    with_sd = "\n".join([lines[0] + ",StDev"] + [ln + ",5" for ln in lines[1:]]) + "\n"
+    for csv_text, expected in ((proj, "unavailable"), (with_sd, "available")):
+        snap = _slate(client, projectionCsv=csv_text).json()
+        b = client.post(
+            "/api/dfs/builds",
+            json={"snapshotId": snap["snapshotId"], "objective": "projection_baseline"},
+            headers={"x-user": "alice"},
+        ).json()
+        out = b["result"]["lineups"][0]["outcome"]
+        assert out["state"] == expected
+        if expected == "available":
+            assert out["p10"] < out["p50"] < out["p90"] and out["sd"] == 15.0  # sqrt(9 x 25)
+            assert "independent" in b["limits"][0]
+        else:
+            assert "import player ranges" in b["limits"][0]
+
+
+def test_multi_lineup_builds_carry_a_portfolio_summary_single_builds_do_not(client):
+    snap = _slate(client).json()
+    for n, has in ((1, False), (3, True)):
+        b = client.post(
+            "/api/dfs/builds",
+            json={
+                "snapshotId": snap["snapshotId"],
+                "objective": "projection_baseline",
+                "constraints": {"lineups": n},
+            },
+            headers={"x-user": "alice"},
+        ).json()
+        p = b["result"]["portfolio"]
+        assert (p is not None) == has
+        if has:
+            assert p["lineups"] == 3 and sum(r["lineups"] for r in p["stackShapes"]) == 3

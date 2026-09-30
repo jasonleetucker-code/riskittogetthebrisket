@@ -63,12 +63,43 @@ class Group:
 
 
 @dataclass
+class Conditional:
+    """If ANY of ``when`` is rostered, the count from ``then`` must lie in [then_min, then_max].
+
+    "If A then B" = then [B] min 1; "if A then not B" = then [B] max 0;
+    "if A then at least 2 of group G" = then G min 2.
+    """
+
+    label: str
+    when: list[str]
+    then: list[str]
+    then_min: int | None = None
+    then_max: int | None = None
+
+
+@dataclass
 class Stack:
     label: str
     primary: list[str]
     secondary: list[str]
     min_secondary: int = 1
     bring_back: int = 0
+
+
+@dataclass
+class TeamStack:
+    """At least ``count`` distinct teams (or games) each supplying ``size``+ players.
+
+    Sport-neutral: an NHL 3-2 build is two of these, an NBA game stack is one
+    with ``scope="game"``.  ``positions`` limits which players count (empty =
+    all).  Players with no known team/game never count toward one.
+    """
+
+    label: str
+    scope: str  # "team" | "game"
+    size: int
+    count: int = 1
+    positions: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -80,10 +111,26 @@ class Constraints:
     max_per_team: int | None = None
     groups: list[Group] = field(default_factory=list)
     stacks: list[Stack] = field(default_factory=list)
+    conditionals: list[Conditional] = field(default_factory=list)
+    team_stacks: list[TeamStack] = field(default_factory=list)
+    # Slot index → player fixed IN THAT SLOT (late swap: the game has started).
+    # Set programmatically by the late-swap planner, never from a build body.
+    # A pinned player may lack a projection: they are not a choice, so their
+    # objective term is a constant, and the lineup total reports as unknown.
+    slot_pins: dict[int, str] = field(default_factory=dict)
+    # Owner FORECAST edits for this build (points).  Replace the source
+    # projection in the objective AND in the reported totals; recorded as the
+    # owner's, never written back to the slate.
+    projection_overrides: dict[str, float] = field(default_factory=dict)
+    # Owner SELECTION preferences (fraction, e.g. 0.10 = +10%).  Tilt the
+    # objective only; reported projections stay the unboosted forecast.
+    boosts: dict[str, float] = field(default_factory=dict)
     lineups: int = 1
     min_unique: int = 1
     max_exposure: float | None = None
     player_max_exposure: dict[str, float] = field(default_factory=dict)
+    # Owner MINIMUM share of the N lineups a player must appear in.
+    player_min_exposure: dict[str, float] = field(default_factory=dict)
     time_budget_s: float = DEFAULT_TIME_BUDGET_S
 
 
@@ -159,6 +206,26 @@ def parse_constraints(
                 {"unknown": [pid]},
             )
         c.player_max_exposure[pid] = _pct(v, f"playerMaxExposure[{pid}]")
+    pmin = raw.get("playerMinExposure") or {}
+    if not isinstance(pmin, dict):
+        raise ConstraintError(
+            "INVALID_CONSTRAINT", "playerMinExposure must map player ID → fraction."
+        )
+    for pid, v in pmin.items():
+        if pid not in ids:
+            raise ConstraintError(
+                "INVALID_CONSTRAINT",
+                "playerMinExposure names a player not on this slate.",
+                {"unknown": [pid]},
+            )
+        c.player_min_exposure[pid] = _pct(v, f"playerMinExposure[{pid}]")
+    min_and_excluded = sorted(set(c.player_min_exposure) & set(c.excludes))
+    if min_and_excluded:
+        raise ConstraintError(
+            "INVALID_CONSTRAINT",
+            "A player cannot have a minimum exposure and be excluded.",
+            {"players": min_and_excluded},
+        )
     budget = raw.get("timeBudgetSeconds")
     if budget is not None:
         if (
@@ -197,6 +264,55 @@ def parse_constraints(
                 gmax,
             )
         )
+    for key, target, lo, hi, what in (
+        ("projectionOverrides", c.projection_overrides, -50.0, 500.0, "points"),
+        ("boosts", c.boosts, -0.5, 0.5, "a fraction between -0.5 and 0.5"),
+    ):
+        m = raw.get(key) or {}
+        if not isinstance(m, dict):
+            raise ConstraintError("INVALID_CONSTRAINT", f"{key} must map player ID to a number.")
+        for pid, v in m.items():
+            if pid not in ids:
+                raise ConstraintError(
+                    "INVALID_CONSTRAINT",
+                    f"{key} names a player not on this slate.",
+                    {"unknown": [pid]},
+                )
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or not lo <= v <= hi:
+                raise ConstraintError("INVALID_CONSTRAINT", f"{key}[{pid}] must be {what}.")
+            target[pid] = float(v)
+    for i, r in enumerate(raw.get("conditionals") or []):
+        if not isinstance(r, dict):
+            raise ConstraintError("INVALID_CONSTRAINT", "conditionals entries must be objects.")
+        when, then = r.get("when") or [], r.get("then") or []
+        for name, lst in (("when", when), ("then", then)):
+            if (
+                not isinstance(lst, list)
+                or not lst
+                or not all(isinstance(p, str) and p in ids for p in lst)
+            ):
+                raise ConstraintError(
+                    "INVALID_CONSTRAINT", f"rule {i + 1} '{name}' must list players on this slate."
+                )
+        if set(when) & set(then):
+            raise ConstraintError(
+                "INVALID_CONSTRAINT", f"rule {i + 1}: a player cannot be in both 'when' and 'then'."
+            )
+        tmin = _int(r.get("thenMin"), f"rule {i + 1} thenMin", 0, size)
+        tmax = _int(r.get("thenMax"), f"rule {i + 1} thenMax", 0, size)
+        if tmin is None and tmax is None:
+            raise ConstraintError("INVALID_CONSTRAINT", f"rule {i + 1} needs thenMin or thenMax.")
+        if tmin is not None and tmax is not None and tmin > tmax:
+            raise ConstraintError("INVALID_CONSTRAINT", f"rule {i + 1}: thenMin exceeds thenMax.")
+        c.conditionals.append(
+            Conditional(
+                label=str(r.get("label") or f"Rule {i + 1}")[:60],
+                when=list(dict.fromkeys(when)),
+                then=list(dict.fromkeys(then)),
+                then_min=tmin,
+                then_max=tmax,
+            )
+        )
     for i, s in enumerate(raw.get("stacks") or []):
         if not isinstance(s, dict):
             raise ConstraintError("INVALID_CONSTRAINT", "stacks entries must be objects.")
@@ -220,6 +336,44 @@ def parse_constraints(
                 bring_back=_int(s.get("bringBack", 0), "bringBack", 0, size, allow_none=False) or 0,
             )
         )
+    for i, s in enumerate(raw.get("teamStacks") or []):
+        if not isinstance(s, dict):
+            raise ConstraintError("INVALID_CONSTRAINT", "teamStacks entries must be objects.")
+        scope = s.get("scope", "team")
+        if scope not in ("team", "game"):
+            raise ConstraintError(
+                "INVALID_CONSTRAINT", f"team stack {i + 1}: scope must be 'team' or 'game'."
+            )
+        if scope == "game" and ruleset.eligibility_basis == "platform_slots":
+            # A single-game slate is one game: a game stack is every lineup.
+            raise ConstraintError(
+                "INVALID_CONSTRAINT", "Game stacks do not apply to a single-game slate."
+            )
+        positions = s.get("positions") or []
+        if not isinstance(positions, list) or not {str(p).upper() for p in positions} <= set(
+            ruleset.positions
+        ):
+            raise ConstraintError(
+                "INVALID_CONSTRAINT",
+                f"team stack {i + 1}: positions must come from this rule set.",
+                {"positions": sorted(ruleset.positions)},
+            )
+        st_size = _int(s.get("size"), "size", 2, size, allow_none=False) or 2
+        st_count = _int(s.get("count", 1), "count", 1, size, allow_none=False) or 1
+        if st_size * st_count > size:
+            raise ConstraintError(
+                "INVALID_CONSTRAINT",
+                f"team stack {i + 1}: {st_count} × {st_size} players is more than a {size}-player lineup.",
+            )
+        c.team_stacks.append(
+            TeamStack(
+                label=str(s.get("label") or f"{st_size}-player {scope} stack")[:60],
+                scope=scope,
+                size=st_size,
+                count=st_count,
+                positions=[str(p).upper() for p in positions],
+            )
+        )
     return c
 
 
@@ -238,6 +392,24 @@ def exposure_bounds(c: Constraints, pool: list[SlateAthlete]) -> dict[str, int]:
             pct = c.max_exposure
         if pct is not None:
             out[a.player_id] = int(math.floor(pct * n + 1e-9))
+    return out
+
+
+def exposure_minimums(c: Constraints, pool: list[SlateAthlete]) -> dict[str, int]:
+    """Integer MIN-appearance count per player for ``c.lineups`` lineups.
+
+    ``ceil(pct × N)`` — a floor is never rounded DOWN below what the owner
+    asked for (the mirror of ``exposure_bounds``).  Zero-count minimums are
+    dropped: they constrain nothing.
+    """
+    n = c.lineups
+    out: dict[str, int] = {}
+    ids = {a.player_id for a in pool}
+    for pid, pct in c.player_min_exposure.items():
+        if pid in ids:
+            k = int(math.ceil(pct * n - 1e-9))
+            if k > 0:
+                out[pid] = k
     return out
 
 
@@ -260,6 +432,9 @@ def validate_lineup(
     ids = [pid for _, pid in assignment]
     if len(set(ids)) != len(ids):
         errors.append("a player appears twice")
+    people = [pool_by_id[pid].identity for pid in ids if pid in pool_by_id]
+    if len(set(people)) != len(people):
+        errors.append("one athlete is rostered twice (e.g. as captain and in flex)")
     athletes = []
     for (slot_name, pid), slot in zip(assignment, ruleset.slots):
         a = pool_by_id.get(pid)
@@ -269,7 +444,7 @@ def validate_lineup(
         athletes.append(a)
         if slot_name != slot.name:
             errors.append(f"slot order mismatch at {slot.name}")
-        if not set(a.positions) & set(slot.eligible):
+        if not ruleset.eligible(a, slot):
             errors.append(f"{a.name} ({'/'.join(a.positions)}) is not eligible for {slot.name}")
     if len(athletes) != len(assignment):
         return errors
@@ -290,6 +465,9 @@ def validate_lineup(
         elif len(games) < ruleset.min_games:
             errors.append(f"players from fewer than {ruleset.min_games} games")
     if c is not None:
+        for s_idx, pid in c.slot_pins.items():
+            if s_idx >= len(assignment) or assignment[s_idx][1] != pid:
+                errors.append(f"pinned player {pid} moved out of slot {s_idx + 1}")
         missing_locks = [p for p in c.locks if p not in ids]
         if missing_locks:
             errors.append(f"locked players missing: {missing_locks}")
@@ -307,6 +485,13 @@ def validate_lineup(
                 errors.append(f"{g.label}: {n} < min {g.min}")
             if g.max is not None and n > g.max:
                 errors.append(f"{g.label}: {n} > max {g.max}")
+        for r in c.conditionals:
+            if set(r.when) & set(ids):
+                n = sum(1 for p in ids if p in r.then)
+                if r.then_min is not None and n < r.then_min:
+                    errors.append(f"{r.label}: {n} < {r.then_min} required")
+                if r.then_max is not None and n > r.then_max:
+                    errors.append(f"{r.label}: {n} > {r.then_max} allowed")
         for s in c.stacks:
             for a in athletes:
                 if not set(a.positions) & set(s.primary):
@@ -324,6 +509,17 @@ def validate_lineup(
                     opp = sum(1 for b in athletes if a.opponent and b.team == a.opponent)
                     if opp < s.bring_back:
                         errors.append(f"{s.label}: {a.name} has {opp} bring-back players")
+        for t in c.team_stacks:
+            tally: dict[str, int] = {}
+            for a in athletes:
+                key = a.team if t.scope == "team" else a.game
+                if key and (not t.positions or set(a.positions) & set(t.positions)):
+                    tally[key] = tally.get(key, 0) + 1
+            met = sum(1 for n in tally.values() if n >= t.size)
+            if met < t.count:
+                errors.append(
+                    f"{t.label}: {met} {t.scope}(s) with {t.size}+ players, {t.count} required"
+                )
     return errors
 
 
@@ -344,6 +540,7 @@ def _build(
     previous: list[list[str]],
     exhausted: set[str],
     active_items: set[str] | None,
+    due: frozenset[str] = frozenset(),
 ) -> _Model:
     """Build rows.  ``active_items`` None = all owner items; otherwise only those tags."""
 
@@ -358,7 +555,7 @@ def _build(
         if a.player_id in banned:
             continue
         for s, slot in enumerate(ruleset.slots):
-            if set(a.positions) & set(slot.eligible):
+            if ruleset.eligible(a, slot):
                 pairs.append((i, s))
     n = len(pairs)
     by_athlete: dict[int, list[int]] = {}
@@ -381,6 +578,17 @@ def _build(
     for i in by_athlete:
         if len(by_athlete[i]) > 1:
             rows.append((y(i), 0, 1, "rule"))
+    # Several rows of one athlete (Showdown CPT + FLEX): at most one of them.
+    groups: dict[str, list[int]] = {}
+    for i in by_athlete:
+        groups.setdefault(pool[i].identity, []).append(i)
+    for members in groups.values():
+        if len(members) > 1:
+            acc: dict[int, float] = {}
+            for i in members:
+                for v in by_athlete[i]:
+                    acc[v] = 1.0
+            rows.append((acc, 0, 1, "rule"))
     salary_row: dict[int, float] = {}
     for i in by_athlete:
         add_y(salary_row, i, float(pool[i].salary))
@@ -425,6 +633,18 @@ def _build(
         tag = f"lock:{pid}"
         if on(tag):
             rows.append((y(index[pid]), 1, 1, tag))
+    for s_idx, pid in sorted(c.slot_pins.items()):
+        tag = f"pin:{s_idx}"
+        if not on(tag):
+            continue
+        i = index.get(pid)
+        pair_vars = [v for v, (pi, ps) in enumerate(pairs) if pi == i and ps == s_idx]
+        # No legal (player, slot) pair → an empty row with lb 1: infeasible,
+        # and isolation names this pin.
+        rows.append(({v: 1.0 for v in pair_vars}, 1, 1, tag))
+    if due and on("min_exposure"):
+        for pid in sorted(due):
+            rows.append((y(index[pid]), 1, 1, "min_exposure"))
     for gi, g in enumerate(c.groups):
         tag = f"group:{gi}"
         if not on(tag):
@@ -436,6 +656,31 @@ def _build(
         rows.append(
             (acc, -math.inf if g.min is None else g.min, math.inf if g.max is None else g.max, tag)
         )
+    for ri, r in enumerate(c.conditionals):
+        tag = f"cond:{ri}"
+        if not on(tag):
+            continue
+        then_idx = [index[p] for p in r.then if p in index]
+        for pid in r.when:
+            if pid not in index:
+                continue
+            w = index[pid]
+            if r.then_min is not None and r.then_min > 0:
+                # Σ then − min·y_w ≥ 0  (binding only when w is rostered)
+                acc = {}
+                for j in then_idx:
+                    add_y(acc, j, 1.0)
+                add_y(acc, w, -float(r.then_min))
+                rows.append((acc, 0, math.inf, tag))
+            if r.then_max is not None:
+                # Σ then + (|then| − max)·y_w ≤ |then|  (slack when w is not rostered)
+                big = max(0, len(then_idx) - r.then_max)
+                if big:
+                    acc = {}
+                    for j in then_idx:
+                        add_y(acc, j, 1.0)
+                    add_y(acc, w, float(big))
+                    rows.append((acc, -math.inf, float(len(then_idx)), tag))
     for si, st in enumerate(c.stacks):
         tag = f"stack:{si}"
         if not on(tag):
@@ -458,6 +703,28 @@ def _build(
                     add_y(acc, j, 1.0)
                 add_y(acc, i, -float(st.bring_back))
                 rows.append((acc, 0, math.inf, tag))
+    for ti, ts in enumerate(c.team_stacks):
+        tag = f"teamstack:{ti}"
+        if not on(tag):
+            continue
+        buckets = teams if ts.scope == "team" else games
+        wanted = set(ts.positions)
+        w_vars = []
+        for key, members in buckets.items():
+            if not key:
+                continue  # an unknown team/game is not a team
+            counted = [i for i in members if not wanted or set(pool[i].positions) & wanted]
+            if len(counted) < ts.size:
+                continue
+            w = extra
+            extra += 1
+            w_vars.append(w)
+            acc = {w: -float(ts.size)}
+            for i in counted:
+                add_y(acc, i, 1.0)
+            rows.append((acc, 0, math.inf, tag))
+        # With too few eligible buckets this row is unsatisfiable: reported, not skipped.
+        rows.append(({w: 1.0 for w in w_vars}, ts.count, math.inf, tag))
     if on("uniqueness"):
         size = len(ruleset.slots)
         for prev in previous:
@@ -556,8 +823,14 @@ def solver_version() -> str:
         return "unavailable"
 
 
-def _owner_items(c: Constraints, previous: list[list[str]], exhausted: set[str]) -> list[str]:
+def _owner_items(
+    c: Constraints,
+    previous: list[list[str]],
+    exhausted: set[str],
+    due: frozenset[str] = frozenset(),
+) -> list[str]:
     items = [f"lock:{p}" for p in c.locks]
+    items += [f"pin:{s}" for s in sorted(c.slot_pins)]
     if c.excludes:
         items.append("excludes")
     if c.salary_min is not None:
@@ -568,21 +841,56 @@ def _owner_items(c: Constraints, previous: list[list[str]], exhausted: set[str])
         items.append("max_per_team")
     items += [f"group:{i}" for i in range(len(c.groups))]
     items += [f"stack:{i}" for i in range(len(c.stacks))]
+    items += [f"cond:{i}" for i in range(len(c.conditionals))]
+    items += [f"teamstack:{i}" for i in range(len(c.team_stacks))]
     if previous:
         items.append("uniqueness")
     if exhausted:
         items.append("exposure")
+    if due:
+        items.append("min_exposure")
     return items
 
 
-def describe_item(tag: str, c: Constraints, pool_by_id: dict[str, SlateAthlete]) -> str:
+def describe_item(
+    tag: str,
+    c: Constraints,
+    pool_by_id: dict[str, SlateAthlete],
+    due: frozenset[str] = frozenset(),
+) -> str:
     kind, _, ref = tag.partition(":")
+    if tag == "min_exposure":
+        names = ", ".join(sorted(pool_by_id[p].name if p in pool_by_id else p for p in due))
+        return (
+            f"Minimum exposures due in this lineup ({names}) — every remaining lineup must "
+            "include them to reach their minimum"
+        )
     if kind == "lock":
         a = pool_by_id.get(ref)
         return f"Lock {a.name if a else ref}"
+    if kind == "pin":
+        pid = c.slot_pins.get(int(ref), "")
+        a = pool_by_id.get(pid)
+        return f"Keep {a.name if a else pid} in slot {int(ref) + 1} (game started)"
     if kind == "group":
         g = c.groups[int(ref)]
         return f"{g.label} (min {g.min}, max {g.max})"
+    if kind == "cond":
+        r = c.conditionals[int(ref)]
+        names = lambda ps: ", ".join(pool_by_id[p].name if p in pool_by_id else p for p in ps[:4])  # noqa: E731
+        bounds = " and ".join(
+            x
+            for x in (
+                f"at least {r.then_min}" if r.then_min is not None else "",
+                f"at most {r.then_max}" if r.then_max is not None else "",
+            )
+            if x
+        )
+        return f"{r.label}: if {names(r.when)} then {bounds} of {names(r.then)}"
+    if kind == "teamstack":
+        t = c.team_stacks[int(ref)]
+        who = f" ({'/'.join(t.positions)})" if t.positions else ""
+        return f"{t.label}: at least {t.count} {t.scope}(s) with {t.size}+ players{who}"
     if kind == "stack":
         s = c.stacks[int(ref)]
         return (
@@ -606,15 +914,16 @@ def isolate_conflict(
     previous: list[list[str]],
     exhausted: set[str],
     deadline: float,
+    due: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
     """Deletion filter: a minimal set of owner items that is infeasible with the official rules."""
-    items = _owner_items(c, previous, exhausted)
+    items = _owner_items(c, previous, exhausted, due)
 
     def feasible(active: set[str]) -> bool | None:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             return None
-        m = _build(ruleset, pool, c, previous, exhausted, active)
+        m = _build(ruleset, pool, c, previous, exhausted, active, due)
         status, _ = _solve(m, [0.0] * len(m.pairs), min(remaining, 5.0))
         if status in ("optimal", "timed_out_with_feasible_result"):
             return True
@@ -653,11 +962,17 @@ def isolate_conflict(
 
 
 def _lineup_payload(
-    assignment: list[tuple[str, str]], pool_by_id: dict[str, SlateAthlete], ruleset: RuleSet
+    assignment: list[tuple[str, str]],
+    pool_by_id: dict[str, SlateAthlete],
+    ruleset: RuleSet,
+    c: Constraints | None = None,
 ) -> dict[str, Any]:
     players = []
     for slot_name, pid in assignment:
         a = pool_by_id[pid]
+        mult = ruleset.points_multiplier(slot_name)
+        override = c.projection_overrides.get(pid) if c else None
+        used = override if override is not None else a.projection
         players.append(
             {
                 "slot": slot_name,
@@ -669,9 +984,17 @@ def _lineup_payload(
                 "game": a.game,
                 "salary": a.salary,
                 "projection": a.projection,
+                # The stored projection is never changed; the slot's multiplier
+                # (captain 1.5x) is applied here, visibly, exactly once.
+                "ownerOverride": override,
+                "preferenceBoost": (c.boosts.get(pid) if c else None),
+                "slotMultiplier": mult,
+                # Forecast actually used (owner override if any) × slot multiplier.
+                # Boosts are NOT in here: they tilted selection, not the forecast.
+                "slotProjection": round(used * mult, 2) if used is not None else None,
                 "projectionSource": a.projection_source,
-                "pointsPerK": round(a.projection / (a.salary / 1000), 3)
-                if a.salary and a.projection is not None
+                "pointsPerK": round(used / (a.salary / 1000), 3)
+                if a.salary and used is not None
                 else None,
             }
         )
@@ -683,7 +1006,14 @@ def _lineup_payload(
         "players": players,
         "salary": salary,
         "salaryRemaining": ruleset.salary_cap - salary,
-        "projection": round(sum(p["projection"] for p in players), 2),
+        # Missing is never zero: one unprojected (pinned) player makes the
+        # total unknown; the known part is published separately.
+        "projection": None
+        if any(p["slotProjection"] is None for p in players)
+        else round(sum(p["slotProjection"] for p in players), 2),
+        "projectionKnownPart": round(
+            sum(p["slotProjection"] for p in players if p["slotProjection"] is not None), 2
+        ),
         # Same players in different flex slots score identically: that is ONE
         # scoring identity.  The slot map is kept separately because late-swap
         # flexibility can still differ between assignments.
@@ -698,12 +1028,27 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
     started = time.monotonic()
     deadline = started + c.time_budget_s
     by_id = {a.player_id: a for a in athletes}
-    unprojected_locks = [p for p in c.locks if by_id[p].projection is None]
+    unprojected_locks = [
+        p for p in c.locks if by_id[p].projection is None and p not in c.projection_overrides
+    ]
     if unprojected_locks:
         raise ConstraintError(
             "LOCKED_PLAYER_UNPROJECTED",
             "A locked player has no projection. Add a projection for them or remove the lock — missing is never scored as zero.",
             {"players": [{"playerId": p, "name": by_id[p].name} for p in unprojected_locks]},
+        )
+    unprojected_mins = [
+        p
+        for p in c.player_min_exposure
+        if c.player_min_exposure[p] > 0
+        and by_id[p].projection is None
+        and p not in c.projection_overrides
+    ]
+    if unprojected_mins:
+        raise ConstraintError(
+            "MIN_EXPOSURE_PLAYER_UNPROJECTED",
+            "A player with a minimum exposure has no projection. Add a projection or remove the minimum — missing is never scored as zero.",
+            {"players": [{"playerId": p, "name": by_id[p].name} for p in unprojected_mins]},
         )
     excluded = set(c.excludes)
     if ruleset.min_games and any(
@@ -713,23 +1058,58 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
             "GAME_UNKNOWN",
             "Some players have no game, so the rule set's minimum-games rule cannot be enforced. Re-import the full platform file.",
         )
-    pool = [a for a in athletes if a.projection is not None]
-    excluded_unprojected = [a.player_id for a in athletes if a.projection is None]
-    # Unrounded: the solver optimizes exactly the projections it was given.
-    objective = [float(a.projection) for a in pool]  # type: ignore[arg-type]
+    # An owner override supplies a forecast, so an overridden athlete is
+    # projected even if the source had none (missing stays missing otherwise).
+    forecast = {
+        a.player_id: c.projection_overrides.get(a.player_id, a.projection) for a in athletes
+    }
+    pinned = set(c.slot_pins.values())
+    pool = [a for a in athletes if forecast[a.player_id] is not None or a.player_id in pinned]
+    excluded_unprojected = [
+        a.player_id for a in athletes if forecast[a.player_id] is None and a.player_id not in pinned
+    ]
+    # Unrounded: the solver optimizes exactly the forecasts it was given, tilted
+    # by any owner selection boost (which never enters a reported total).
+    objective = [
+        # A pinned player with no forecast is not a choice: constant 0 term.
+        0.0
+        if forecast[a.player_id] is None
+        else float(forecast[a.player_id]) * (1.0 + c.boosts.get(a.player_id, 0.0))  # type: ignore[arg-type]
+        for a in pool
+    ]
     pool_by_id = {a.player_id: a for a in pool}
     caps = exposure_bounds(c, pool)
+    mins = exposure_minimums(c, pool)
+    over = sorted(p for p, k in mins.items() if p in caps and k > caps[p])
+    if over:
+        raise ConstraintError(
+            "INVALID_CONSTRAINT",
+            f"A minimum exposure is above that player's maximum for {c.lineups} lineup(s).",
+            {
+                "players": [
+                    {"playerId": p, "name": pool_by_id[p].name, "min": mins[p], "max": caps[p]}
+                    for p in over
+                ]
+            },
+        )
     counts: dict[str, int] = {}
     lineups: list[dict[str, Any]] = []
     previous: list[list[str]] = []
     statuses: list[str] = []
     stop: dict[str, Any] | None = None
+    due: frozenset[str] = frozenset()
     for k in range(c.lineups):
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             stop = {"reason": "time_budget_exhausted"}
             break
         exhausted = {pid for pid, cap in caps.items() if counts.get(pid, 0) >= cap}
+        # Latest-deadline construction: a minimum is forced only when every
+        # remaining lineup (this one included) must carry the player.  Earlier
+        # lineups stay the owner's best by projection; a player the optimizer
+        # picks on its own merits never needs forcing.
+        left = c.lineups - k
+        due = frozenset(p for p, need in mins.items() if need - counts.get(p, 0) >= left)
         locked_exhausted = sorted(set(c.locks) & exhausted)
         if locked_exhausted:
             statuses.append("infeasible")  # proven without a solve, not a timeout
@@ -741,9 +1121,17 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
                 },
             }
             break
-        model = _build(ruleset, pool, c, previous, exhausted, None)
+        model = _build(ruleset, pool, c, previous, exhausted, None, due)
         # The objective indexes (athlete, slot) pairs, not athletes.
-        status, x = _solve(model, [objective[i] for i, _s in model.pairs], remaining)
+        # Slot multipliers (Showdown captain) apply here, once, at the slot.
+        status, x = _solve(
+            model,
+            [
+                objective[i] * ruleset.points_multiplier(ruleset.slots[s].name)
+                for i, s in model.pairs
+            ],
+            remaining,
+        )
         statuses.append(status)
         if x is None:
             if status == "infeasible":
@@ -759,6 +1147,7 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
                         previous,
                         exhausted,
                         max(deadline, time.monotonic()) + ISOLATION_BUDGET_S,
+                        due,
                     ),
                 }
             else:
@@ -772,11 +1161,14 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
                 if len(ids - set(prev)) < c.min_unique:
                     errors.append("uniqueness rule violated")
                     break
+        missing_due = sorted(due - {pid for _, pid in assignment})
+        if missing_due:
+            errors.append(f"minimum-exposure players missing: {missing_due}")
         if errors:
             stop = {"reason": "solver_result_invalid", "errors": errors}
             statuses[-1] = "unavailable"
             break
-        payload = _lineup_payload(assignment, pool_by_id, ruleset)
+        payload = _lineup_payload(assignment, pool_by_id, ruleset, c)
         payload["index"] = k + 1
         payload["status"] = status
         lineups.append(payload)
@@ -786,7 +1178,7 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
             counts[pid] = counts.get(pid, 0) + 1
     if stop and stop.get("conflict", {}).get("items"):
         stop["conflict"]["described"] = [
-            describe_item(t, c, by_id) for t in stop["conflict"]["items"]
+            describe_item(t, c, by_id, due) for t in stop["conflict"]["items"]
         ]
     if not lineups:
         overall = statuses[-1] if statuses else "timed_out"
@@ -806,8 +1198,16 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
                 "count": cnt,
                 "share": round(cnt / n_built, 4) if n_built else None,
                 "cap": caps.get(pid),
+                "min": mins.get(pid),
             }
         )
+    # A minimum is a statement about all N lineups; a partial build reports
+    # which ones it did not reach rather than claiming them.
+    unmet = [
+        {"playerId": p, "name": pool_by_id[p].name, "min": k, "count": counts.get(p, 0)}
+        for p, k in sorted(mins.items())
+        if counts.get(p, 0) < k
+    ]
     return {
         "status": overall,
         "requested": c.lineups,
@@ -818,6 +1218,8 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
         "lineups": lineups,
         "exposure": exposure,
         "exposureCaps": {pid: cap for pid, cap in caps.items()},
+        "exposureMinimums": dict(mins),
+        "minimumExposureUnmet": unmet,
         "excludedUnprojected": excluded_unprojected,
         "elapsedMs": int((time.monotonic() - started) * 1000),
     }

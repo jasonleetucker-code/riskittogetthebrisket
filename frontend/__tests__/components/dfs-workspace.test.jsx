@@ -238,3 +238,101 @@ describe("DfsWorkspace", () => {
     expect(await screen.findByText("The DFS workspace is switched off.")).toBeInTheDocument();
   });
 });
+
+describe("DfsWorkspace — Showdown captain display", () => {
+  it("shows the captain multiplier explicitly instead of hiding it in the total", async () => {
+    fetch.mockImplementation(async (url) => {
+      const u = String(url);
+      if (/\/api\/dfs\/(presets|contests|providers|slates\/detect)$/.test(u)) return jsonResponse(200, BACKGROUND);
+      if (u.endsWith("/capabilities")) return jsonResponse(200, CAPS);
+      if (u.endsWith("/slates")) return jsonResponse(201, SLATE);
+      return jsonResponse(201, {
+        buildId: "build_sd",
+        createdAt: "2026-09-30T12:00:00+00:00",
+        researchOnly: true,
+        solver: "HiGHS",
+        ruleset: { key: RULESET.key, exportVerification: "unverified" },
+        snapshot: { contentHash: "abcdef0123456789" },
+        constraintsHash: "0123456789abcdef",
+        limits: [],
+        result: {
+          status: "optimal",
+          requested: 1,
+          built: 1,
+          shortfall: null,
+          elapsedMs: 4,
+          exposure: [],
+          lineups: [
+            {
+              index: 1,
+              projection: 30.75,
+              salary: 9000,
+              salaryRemaining: 41000,
+              players: [
+                { slot: "CPT", playerId: "8000", name: "Syn QB", team: "AAA", salary: 9000, projection: 20.5, slotMultiplier: 1.5, slotProjection: 30.75 },
+              ],
+            },
+          ],
+        },
+      });
+    });
+    render(<DfsWorkspace />);
+    await screen.findByText(/Research only/);
+    fireEvent.change(screen.getByLabelText("Salary CSV text"), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Import slate" }));
+    await screen.findByRole("table", { name: /Slate player pool/ });
+    fireEvent.click(screen.getByRole("button", { name: "Optimal Lineup" }));
+    expect(await screen.findByText("30.75 (20.50 × 1.5)")).toBeInTheDocument();
+  });
+});
+
+describe("DfsWorkspace — contest context reaches the build", () => {
+  it("sends the chosen preset and renders the build's disclosures", async () => {
+    const calls = [];
+    fetch.mockImplementation(async (url, init) => {
+      const u = String(url);
+      calls.push({ u, body: init?.body ? JSON.parse(init.body) : null });
+      if (u.endsWith("/presets"))
+        return jsonResponse(200, {
+          presets: [
+            {
+              id: "large_field_gpp",
+              label: "Large-field GPP",
+              dimensions: { payoutShape: "tournament" },
+              objective: { description: "E[payout]" },
+              unsupportedReason: "Needs a field model.",
+            },
+          ],
+        });
+      if (/\/api\/dfs\/(contests|providers|slates\/detect)$/.test(u)) return jsonResponse(200, BACKGROUND);
+      if (u.endsWith("/capabilities")) return jsonResponse(200, CAPS);
+      if (u.endsWith("/slates")) return jsonResponse(201, SLATE);
+      return jsonResponse(201, {
+        buildId: "build_ctx",
+        createdAt: "2026-09-30T12:00:00+00:00",
+        researchOnly: true,
+        solver: "HiGHS",
+        ruleset: { key: RULESET.key, exportVerification: "unverified" },
+        snapshot: { contentHash: "abcdef0123456789" },
+        constraintsHash: "0123456789abcdef",
+        limits: [],
+        preset: { id: "large_field_gpp", label: "Large-field GPP" },
+        disclosures: ["The Large-field GPP strategy is not available yet — built with the transparent projection baseline instead."],
+        result: { status: "optimal", requested: 1, built: 0, shortfall: null, elapsedMs: 1, exposure: [], lineups: [] },
+      });
+    });
+    render(<DfsWorkspace />);
+    await screen.findByText(/Research only/);
+    fireEvent.click(await screen.findByRole("radio", { name: "Quick" }));
+    fireEvent.change(await screen.findByLabelText("Contest type"), { target: { value: "large_field_gpp" } });
+    fireEvent.change(screen.getByLabelText("Salary CSV text"), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Import slate" }));
+    await screen.findByRole("table", { name: /Slate player pool/ });
+    fireEvent.click(screen.getByRole("button", { name: "Optimal Lineup" }));
+    expect(await screen.findByText("Built for: Large-field GPP")).toBeInTheDocument();
+    expect(screen.getByText(/built with the transparent projection baseline instead/)).toBeInTheDocument();
+    const buildCall = calls.find((c) => c.u.endsWith("/builds"));
+    expect(buildCall.body.presetId).toBe("large_field_gpp");
+    expect(buildCall.body.contestId).toBeUndefined();
+  });
+});

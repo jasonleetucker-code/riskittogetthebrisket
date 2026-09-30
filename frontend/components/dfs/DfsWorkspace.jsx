@@ -15,7 +15,6 @@ import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from
 import {
   Banner,
   Button,
-  DataTable,
   EmptyState,
   Field,
   Input,
@@ -29,21 +28,17 @@ import {
   PLATFORMS,
   SPORTS,
   buildConstraints,
+  exposureAdjustments,
+  ownerAdjustments,
   capabilitiesFor,
   errorMessage,
   exposureCountFor,
-  filterAthletes,
-  formatPoints,
   formatSalary,
-  pointsPerK,
-  positionsIn,
   readStoredContext,
+  rulesToConstraints,
   readinessCopy,
   rulesetFor,
-  setPlayerRule,
   singleLineupForm,
-  statusCopy,
-  statusTone,
   writeStoredContext,
 } from "@/lib/dfs";
 import styles from "./dfs-workspace.module.css";
@@ -56,6 +51,12 @@ const ProviderSlates = lazy(() => import("./SlateSources"));
 const DetectedFile = lazy(() => import("./SlateSources").then((m) => ({ default: m.DetectedFile })));
 
 const ImportSummary = lazy(() => import("./SlateSummary"));
+const RuleBuilder = lazy(() => import("./RuleBuilder"));
+const TeamStacks = lazy(() => import("./TeamStacks"));
+const PlayerPool = lazy(() => import("./PlayerPool"));
+const LateSwap = lazy(() => import("./LateSwap"));
+const ResultsImport = lazy(() => import("./ResultsImport"));
+const BuildResult = lazy(() => import("./BuildResult"));
 
 async function api(path, init) {
   const res = await fetch(`/api/dfs${path}`, {
@@ -87,221 +88,12 @@ const EMPTY_FORM = {
   minUnique: "1",
   maxExposurePct: "",
   salaryMin: "",
+  salaryMax: "",
   maxPerTeam: "",
   stack: false,
   stackMin: "1",
   stackBringBack: "0",
 };
-
-function ProjectionCell({ athlete }) {
-  const p = formatPoints(athlete.projection);
-  if (p === null) return <span className={styles.missing}>No projection</span>;
-  return (
-    <span className="ds-mono">
-      {p}
-      {athlete.projection_source === "platform_season_average" ? (
-        <abbr className={styles.sourceMark} title="Platform season average — an observation, not a forecast">
-          {" "}avg
-        </abbr>
-      ) : null}
-    </span>
-  );
-}
-
-function LineupTable({ lineup, cap }) {
-  const columns = [
-    { key: "slot", header: "Slot", sortable: false },
-    { key: "name", header: "Player", sortable: false },
-    { key: "team", header: "Team", sortable: false, hideBelow: "sm", render: (p) => `${p.team}${p.opponent ? ` v ${p.opponent}` : ""}` },
-    { key: "salary", header: "Salary", numeric: true, sortable: false, render: (p) => formatSalary(p.salary) },
-    { key: "projection", header: "Proj", numeric: true, sortable: false, render: (p) => formatPoints(p.projection) },
-  ];
-  return (
-    <div className={styles.lineup}>
-      <DataTable
-        caption={`Lineup ${lineup.index}: ${formatPoints(lineup.projection)} projected points, ${formatSalary(lineup.salary)} of ${formatSalary(cap)}`}
-        columns={columns}
-        rows={lineup.players}
-        rowKey={(p) => `${p.slot}-${p.playerId}`}
-        density="compact"
-      />
-      <p className={styles.lineupTotals}>
-        <span>
-          Projected <strong className="ds-mono">{formatPoints(lineup.projection)}</strong>
-        </span>
-        <span>
-          Salary <strong className="ds-mono">{formatSalary(lineup.salary)}</strong>
-        </span>
-        <span>
-          Remaining <strong className="ds-mono">{formatSalary(lineup.salaryRemaining)}</strong>
-        </span>
-      </p>
-    </div>
-  );
-}
-
-/**
- * Fetch-then-save, not a bare <a download>: an export can be refused at
- * export time (rule set superseded, lineup no longer valid), and a plain
- * link would save that JSON refusal as if it were the CSV.
- */
-function ExportButton({ buildId }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-  const onClick = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/dfs/builds/${buildId}/export`, { credentials: "same-origin", cache: "no-store" });
-      if (!res.ok) {
-        let body = null;
-        try {
-          body = await res.json();
-        } catch {
-          body = null;
-        }
-        setError(errorMessage(body, "Export refused."));
-        return;
-      }
-      const blob = await res.blob();
-      const disposition = res.headers.get("content-disposition") || "";
-      const name = /filename="([^"]+)"/.exec(disposition)?.[1] || `${buildId}.csv`;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch {
-      setError("The export could not be downloaded.");
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <>
-      <Button variant="primary" onClick={onClick} loading={busy}>
-        Download upload CSV
-      </Button>
-      {error ? (
-        <Banner tone="negative" title="Export refused">
-          {error}
-        </Banner>
-      ) : null}
-    </>
-  );
-}
-
-function BuildResult({ build, ruleset }) {
-  const r = build.result;
-  const conflict = r.shortfall?.conflict;
-  return (
-    <div className={styles.result}>
-      <div className={styles.resultHead}>
-        <StatusIndicator status={statusTone(r.status)}>
-          {r.status.replaceAll("_", " ")} · {r.built} of {r.requested}
-        </StatusIndicator>
-        {build.researchOnly ? <StatusIndicator status="warning">Research only</StatusIndicator> : null}
-        <span className={styles.meta}>
-          Highest projected points · not contest-evaluated · {build.solver} · {r.elapsedMs} ms
-        </span>
-      </div>
-      <p className={styles.note}>{statusCopy(r.status, r.built)}</p>
-      {r.built > 1 ? <p className={styles.note}>{build.methodNote}</p> : null}
-      {r.shortfall ? (
-        <Banner
-          tone={r.built ? "warning" : "negative"}
-          title={r.built ? `${r.shortfall.missing} lineup(s) short` : "No lineup could be built"}
-        >
-          {conflict?.described?.length ? (
-            <>
-              <p>These of your constraints cannot all hold together with the official rules:</p>
-              <ul className={styles.list}>
-                {conflict.described.map((d) => (
-                  <li key={d}>{d}</li>
-                ))}
-              </ul>
-              <p>Nothing was relaxed. Remove or loosen one of them and build again.</p>
-            </>
-          ) : conflict?.message ? (
-            <p>{conflict.message}</p>
-          ) : (
-            <p>Reason: {String(r.shortfall.reason || "unknown").replaceAll("_", " ")}.</p>
-          )}
-        </Banner>
-      ) : null}
-      {r.excludedUnprojected?.length ? (
-        <p className={styles.note}>
-          {r.excludedUnprojected.length} player(s) without a projection were left out — missing is never scored as
-          zero.
-        </p>
-      ) : null}
-      {r.lineups.map((lu) => (
-        <LineupTable key={lu.index} lineup={lu} cap={ruleset?.salaryCap} />
-      ))}
-      {r.built > 1 ? (
-        <DataTable
-          caption="Exposure across the built lineups"
-          columns={[
-            { key: "name", header: "Player" },
-            { key: "count", header: "Lineups", numeric: true },
-            { key: "share", header: "Share", numeric: true, render: (x) => `${Math.round((x.share || 0) * 100)}%` },
-            { key: "cap", header: "Cap", numeric: true, render: (x) => (x.cap == null ? "—" : x.cap) },
-          ]}
-          rows={r.exposure}
-          rowKey={(x) => x.playerId}
-          density="compact"
-          defaultSort={{ key: "count", direction: "desc" }}
-        />
-      ) : null}
-      {r.built ? (
-        <div className={styles.exportRow}>
-          <ExportButton buildId={build.buildId} />
-          <p className={styles.note}>
-            {build.ruleset.exportVerification === "verified"
-              ? "Format verified against the platform template."
-              : "Upload format not yet verified against an official platform template — check it before uploading."}{" "}
-            Downloading submits nothing; you upload it yourself.
-          </p>
-        </div>
-      ) : null}
-      <details className={styles.provenance}>
-        <summary>Provenance and limits</summary>
-        <dl className={styles.facts}>
-          <div>
-            <dt>Build</dt>
-            <dd className="ds-mono">{build.buildId}</dd>
-          </div>
-          <div>
-            <dt>Rule set</dt>
-            <dd className="ds-mono">{build.ruleset.key}</dd>
-          </div>
-          <div>
-            <dt>Snapshot</dt>
-            <dd className="ds-mono" title={build.snapshot.contentHash}>
-              {build.snapshot.contentHash.slice(0, 12)}
-            </dd>
-          </div>
-          <div>
-            <dt>Constraints</dt>
-            <dd className="ds-mono">{build.constraintsHash.slice(0, 12)}</dd>
-          </div>
-          <div>
-            <dt>Built</dt>
-            <dd className="ds-mono">{new Date(build.createdAt).toLocaleString()}</dd>
-          </div>
-        </dl>
-        <ul className={styles.list}>
-          {build.limits.map((l) => (
-            <li key={l}>{l}</li>
-          ))}
-        </ul>
-      </details>
-    </div>
-  );
-}
 
 export default function DfsWorkspace() {
   const [caps, setCaps] = useState(null);
@@ -312,16 +104,24 @@ export default function DfsWorkspace() {
   const [salaryText, setSalaryText] = useState("");
   const [projectionText, setProjectionText] = useState("");
   const [useAverage, setUseAverage] = useState(false);
+  const [ownershipText, setOwnershipText] = useState("");
+  const [ownershipUnit, setOwnershipUnit] = useState("percent");
+  // "" = the file's floor/ceiling percentiles are not stated: kept, never modelled.
+  const [rangePct, setRangePct] = useState("");
   const [slate, setSlate] = useState(null);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState(null);
   const [rules, setRules] = useState({ locks: [], excludes: [] });
-  const [position, setPosition] = useState("ALL");
-  const [query, setQuery] = useState("");
   const [form, setForm] = useState(EMPTY_FORM);
   const [building, setBuilding] = useState(false);
   const [build, setBuild] = useState(null);
   const [buildError, setBuildError] = useState(null);
+  const [buildContext, setBuildContext] = useState({ contestId: null, presetId: null });
+  const [groupRules, setGroupRules] = useState([]);
+  const [teamStacks, setTeamStacks] = useState([]);
+  const [overrides, setOverrides] = useState({});
+  const [boosts, setBoosts] = useState({});
+  const [exposure, setExposure] = useState({});
 
   useEffect(() => {
     const stored = readStoredContext();
@@ -357,6 +157,12 @@ export default function DfsWorkspace() {
     if (next.format) setFormat(next.format);
     setBuild(null);
     setBuildError(null);
+    setBuildContext({ contestId: null, presetId: null });
+    setGroupRules([]);
+    setTeamStacks([]);
+    setOverrides({});
+    setBoosts({});
+    setExposure({});
   }, []);
 
   const onFile = async (e, setter) => {
@@ -380,7 +186,10 @@ export default function DfsWorkspace() {
         ruleset: ruleset.id,
         salaryCsv: salaryText,
         projectionCsv: projectionText || undefined,
+        ownershipCsv: ownershipText || undefined,
+        ownershipUnit: ownershipText ? ownershipUnit : undefined,
         usePlatformAverage: useAverage,
+        ...(rangePct ? { floorPercentile: Number(rangePct), ceilingPercentile: 100 - Number(rangePct) } : {}),
       }),
     });
     setImporting(false);
@@ -390,11 +199,37 @@ export default function DfsWorkspace() {
     }
     setSlate(body);
     setRules({ locks: [], excludes: [] });
+    setGroupRules([]);
+    setTeamStacks([]);
+    setOverrides({});
+    setBoosts({});
+    setExposure({});
   };
 
   const runBuild = async (lineupsOverride) => {
     const effective = lineupsOverride === 1 ? singleLineupForm(form) : form;
     const { payload, errors } = buildConstraints(effective, rules);
+    const extra = rulesToConstraints(groupRules);
+    if (extra.groups.length) payload.groups = extra.groups;
+    if (extra.conditionals.length) payload.conditionals = extra.conditionals;
+    if (teamStacks.length) payload.teamStacks = teamStacks;
+    const adj = ownerAdjustments(overrides, boosts);
+    if (Object.keys(adj.errors).length) {
+      setBuildError(Object.values(adj.errors)[0]);
+      return;
+    }
+    if (Object.keys(adj.payload.projectionOverrides).length) payload.projectionOverrides = adj.payload.projectionOverrides;
+    if (Object.keys(adj.payload.boosts).length) payload.boosts = adj.payload.boosts;
+    // A per-player exposure range only means something across several lineups.
+    if (lineupsOverride !== 1) {
+      const exp = exposureAdjustments(exposure);
+      if (Object.keys(exp.errors).length) {
+        setBuildError(Object.values(exp.errors)[0]);
+        return;
+      }
+      if (Object.keys(exp.payload.playerMinExposure).length) payload.playerMinExposure = exp.payload.playerMinExposure;
+      if (Object.keys(exp.payload.playerMaxExposure).length) payload.playerMaxExposure = exp.payload.playerMaxExposure;
+    }
     if (Object.keys(errors).length) {
       setBuildError(Object.values(errors)[0]);
       return;
@@ -408,6 +243,8 @@ export default function DfsWorkspace() {
         objective: "projection_baseline",
         mode: "research",
         constraints: payload,
+        contestId: buildContext.contestId || undefined,
+        presetId: buildContext.presetId || undefined,
       }),
     });
     setBuilding(false);
@@ -419,59 +256,7 @@ export default function DfsWorkspace() {
   };
 
   const athletes = slate?.athletes || [];
-  const visible = useMemo(() => filterAthletes(athletes, { position, query }), [athletes, position, query]);
-  const lockSet = new Set(rules.locks);
-  const excludeSet = new Set(rules.excludes);
 
-  const poolColumns = [
-    { key: "name", header: "Player", render: (a) => <span className={styles.player}>{a.name}</span> },
-    { key: "positions", header: "Pos", accessor: (a) => a.positions.join("/") },
-    { key: "team", header: "Team", hideBelow: "sm", accessor: (a) => `${a.team}${a.opponent ? ` v ${a.opponent}` : ""}` },
-    { key: "salary", header: "Salary", numeric: true, render: (a) => formatSalary(a.salary) },
-    { key: "projection", header: "Proj", numeric: true, render: (a) => <ProjectionCell athlete={a} /> },
-    {
-      key: "value",
-      header: "Pts/$1K",
-      numeric: true,
-      hideBelow: "md",
-      accessor: (a) => pointsPerK(a),
-      render: (a) => (pointsPerK(a) == null ? "—" : pointsPerK(a).toFixed(2)),
-    },
-    {
-      key: "rule",
-      header: "Rule",
-      sortable: false,
-      render: (a) => {
-        const locked = lockSet.has(a.player_id);
-        const excluded = excludeSet.has(a.player_id);
-        const unprojected = a.projection === null || a.projection === undefined;
-        return (
-          <span className={styles.ruleButtons}>
-            <Button
-              size="sm"
-              variant={locked ? "primary" : "ghost"}
-              aria-pressed={locked}
-              aria-label={`${locked ? "Unlock" : "Lock"} ${a.name}`}
-              disabled={unprojected && !locked}
-              title={unprojected ? "A player needs a projection before they can be locked" : undefined}
-              onClick={() => setRules((r) => setPlayerRule(r, a.player_id, locked ? null : "lock"))}
-            >
-              Lock
-            </Button>
-            <Button
-              size="sm"
-              variant={excluded ? "primary" : "ghost"}
-              aria-pressed={excluded}
-              aria-label={`${excluded ? "Include" : "Exclude"} ${a.name}`}
-              onClick={() => setRules((r) => setPlayerRule(r, a.player_id, excluded ? null : "exclude"))}
-            >
-              Exclude
-            </Button>
-          </span>
-        );
-      },
-    },
-  ];
 
   const nLineups = Number(form.lineups);
   const exposureNote =
@@ -554,6 +339,29 @@ export default function DfsWorkspace() {
                   spellCheck={false}
                 />
               </Field>
+              <Field label="Floor / Ceiling columns are" hint="Optional StDev and P10…P90 columns need no label.">
+                <Select
+                  value={rangePct}
+                  onChange={(e) => setRangePct(e.target.value)}
+                  options={[
+                    { value: "", label: "Not stated (kept, not used)" },
+                    ...["10", "15", "20", "25"].map((p) => ({ value: p, label: `${p}th / ${100 - Number(p)}th percentile` })),
+                  ]}
+                />
+              </Field>
+              <Field label="Projected ownership (CSV, optional)" hint="Columns: ID or Name + Team, and Own%. Players not listed stay unknown, never 0%.">
+                <input type="file" accept=".csv,text/csv" onChange={(e) => onFile(e, setOwnershipText)} />
+              </Field>
+              <Field label="Ownership values are">
+                <Select
+                  value={ownershipUnit}
+                  onChange={(e) => setOwnershipUnit(e.target.value)}
+                  options={[
+                    { value: "percent", label: "Percent (35 = 35%)" },
+                    { value: "fraction", label: "Fraction (0.35 = 35%)" },
+                  ]}
+                />
+              </Field>
             </div>
             <Suspense fallback={null}>
               <DetectedFile
@@ -584,6 +392,12 @@ export default function DfsWorkspace() {
                 onImported={(snap) => {
                   setSlate(snap);
                   setRules({ locks: [], excludes: [] });
+                  setGroupRules([]);
+                  setTeamStacks([]);
+    setTeamStacks([]);
+                  setOverrides({});
+                  setBoosts({});
+                  setExposure({});
                   setBuild(null);
                 }}
               />
@@ -607,37 +421,26 @@ export default function DfsWorkspace() {
                 platform={platform}
                 sport={sport}
                 format={row?.format || format}
+                onContextChange={setBuildContext}
               />
             </Suspense>
           </Panel>
 
           {slateMatches ? (
             <Panel title="3 · Player pool" subtitle={`${rules.locks.length} locked · ${rules.excludes.length} excluded`}>
-              <div className={styles.filters}>
-                <SegmentedControl
-                  label="Position"
-                  options={[{ value: "ALL", label: "All" }, ...positionsIn(athletes).map((p) => ({ value: p, label: p }))]}
-                  value={position}
-                  onChange={setPosition}
+              <Suspense fallback={<p className={styles.note}>Loading player pool…</p>}>
+                <PlayerPool
+                  athletes={athletes}
+                  rules={rules}
+                  setRules={setRules}
+                  overrides={overrides}
+                  setOverrides={setOverrides}
+                  boosts={boosts}
+                  setBoosts={setBoosts}
+                  exposure={exposure}
+                  setExposure={setExposure}
                 />
-                <Input
-                  type="search"
-                  aria-label="Search players"
-                  placeholder="Search player or team"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-              </div>
-              <DataTable
-                caption="Slate player pool"
-                columns={poolColumns}
-                rows={visible}
-                rowKey={(a) => a.player_id}
-                density="compact"
-                defaultSort={{ key: "projection", direction: "desc" }}
-                maxHeight="32rem"
-                emptyState={<EmptyState title="No players match" description="Clear the filter or search." />}
-              />
+              </Suspense>
             </Panel>
           ) : null}
 
@@ -669,6 +472,9 @@ export default function DfsWorkspace() {
                 <Field label="Min salary">
                   <Input data-numeric inputMode="numeric" value={form.salaryMin} onChange={(e) => setForm({ ...form, salaryMin: e.target.value })} />
                 </Field>
+                <Field label="Max salary" hint="Leave salary on the table: cap your own spend below the platform cap.">
+                  <Input data-numeric inputMode="numeric" value={form.salaryMax} onChange={(e) => setForm({ ...form, salaryMax: e.target.value })} />
+                </Field>
                 <Field label="Max players per team">
                   <Input data-numeric inputMode="numeric" value={form.maxPerTeam} onChange={(e) => setForm({ ...form, maxPerTeam: e.target.value })} />
                 </Field>
@@ -692,6 +498,16 @@ export default function DfsWorkspace() {
                   ) : null}
                 </fieldset>
               ) : null}
+              <Suspense fallback={null}>
+                <RuleBuilder athletes={athletes} rules={groupRules} onChange={setGroupRules} />
+                <TeamStacks
+                  stacks={teamStacks}
+                  onChange={setTeamStacks}
+                  athletes={athletes}
+                  slotCount={ruleset?.slots?.length || 0}
+                  singleGame={ruleset?.eligibilityBasis === "platform_slots"}
+                />
+              </Suspense>
               <div className={styles.actions}>
                 <Button variant="primary" onClick={() => runBuild(1)} loading={building}>
                   Optimal Lineup
@@ -710,7 +526,25 @@ export default function DfsWorkspace() {
 
           {build && slateMatches ? (
             <Panel title="5 · Result">
-              <BuildResult build={build} ruleset={ruleset} />
+              <Suspense fallback={null}>
+                <BuildResult build={build} ruleset={ruleset} />
+              </Suspense>
+            </Panel>
+          ) : null}
+
+          {slate && slateMatches && ruleset?.platform === "draftkings" ? (
+            <Panel title="6 · Late swap">
+              <Suspense fallback={null}>
+                <LateSwap snapshotId={slate.snapshotId} athletes={slate.athletes} />
+              </Suspense>
+            </Panel>
+          ) : null}
+
+          {slate && slateMatches && ruleset?.platform === "draftkings" ? (
+            <Panel title="7 · Results">
+              <Suspense fallback={null}>
+                <ResultsImport snapshotId={slate.snapshotId} contestId={buildContext.contestId} />
+              </Suspense>
             </Panel>
           ) : null}
         </>

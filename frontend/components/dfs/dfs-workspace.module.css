@@ -200,6 +200,12 @@
   border-top: 1px solid var(--border-subtle);
 }
 
+.tableScroll {
+  max-width: 100%;
+  overflow-x: auto;
+  background: var(--surface-1);
+}
+
 .freshness {
   width: 100%;
   border-collapse: collapse;
@@ -216,8 +222,20 @@
   padding-bottom: var(--space-1);
 }
 
+/* A plain <table>: neutralize the legacy global th/td rules (globals.css
+   dark sticky header, pointer cursor, nowrap) that ds DataTable overrides
+   for itself — they failed WCAG AA contrast here (axe, dfs-workspace.spec.js). */
 .freshness th,
 .freshness td {
+  background: transparent;
+  position: static;
+  cursor: auto;
+  user-select: auto;
+  white-space: normal;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
   text-align: left;
   padding: var(--space-1) var(--space-2);
   border-top: 1px solid var(--border-subtle);
@@ -226,8 +244,35 @@
 
 .freshness thead th {
   font-weight: var(--font-weight-medium);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   border-top: 1px solid var(--border-strong);
+}
+
+.curve {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.multi {
+  width: 100%;
+  min-height: 8rem;
+  font-size: var(--font-size-sm);
+}
+
+.cellInput {
+  width: 5rem;
+}
+
+.rangeInputs {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.rangeInputs .cellInput {
+  width: 3.5rem;
 }
 
 .provenance summary {

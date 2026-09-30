@@ -15,6 +15,7 @@ import styles from "./dfs-workspace.module.css";
 const FRESHNESS_LABELS = {
   salary: "Salary",
   projection: "Projections",
+  distribution: "Outcome ranges",
   ownership: "Ownership",
   sportsbook: "Sportsbook",
   news: "News",
@@ -25,6 +26,10 @@ const FRESHNESS_LABELS = {
 function Freshness({ rows }) {
   if (!rows?.length) return null;
   return (
+    // Controlled horizontal scroll region (UI contract: tables may scroll
+    // sideways; the PAGE may not). Focusable + labelled so keyboard users can
+    // scroll it too.
+    <div className={styles.tableScroll} role="region" aria-label="Data freshness" tabIndex={0}>
     <table className={styles.freshness}>
       <caption>Data freshness</caption>
       <thead>
@@ -52,6 +57,7 @@ function Freshness({ rows }) {
         ))}
       </tbody>
     </table>
+    </div>
   );
 }
 

@@ -205,3 +205,108 @@ def test_leading_dash_ids_are_rejected_at_import():
     text = "Position,Name,ID,Salary,Game Info,TeamAbbrev\nQB,X,-A1,5000,AAA@BBB 10/04/2026 01:00PM ET,AAA\n"
     athletes, report = parse_draftkings_salaries(text)
     assert athletes == [] and report.rejected[0]["reason"] == "invalid_or_missing_player_id"
+
+
+# ── owner-imported projected ownership ────────────────────────────────
+
+
+def test_ownership_needs_a_stated_unit_and_missing_is_never_zero():
+    from src.dfs.imports import apply_ownership_csv
+
+    athletes, _ = parse_draftkings_salaries(_dk_text())
+    with pytest.raises(ImportError_) as exc:
+        apply_ownership_csv(athletes, "ID,Own%\n900001,35\n", unit="")
+    assert exc.value.code == "OWNERSHIP_UNIT_REQUIRED"
+    report = apply_ownership_csv(
+        athletes, "ID,Own%\n900001,35%\n900002,0.5\n900003,140\n", unit="percent"
+    )
+    a1, a2, a3 = athletes[0], athletes[1], athletes[2]
+    assert (a1.ownership, a2.ownership, a3.ownership) == (35.0, 0.5, None)
+    assert report["invalid"][0]["reason"] == "ownership_out_of_range_for_unit"
+    assert athletes[4].ownership is None  # not in the file: unknown, not 0%
+
+
+def test_fraction_unit_is_scaled_to_percent():
+    from src.dfs.imports import apply_ownership_csv
+
+    athletes, _ = parse_draftkings_salaries(_dk_text())
+    apply_ownership_csv(athletes, "ID,Ownership\n900001,0.35\n", unit="fraction")
+    assert athletes[0].ownership == 35.0
+
+
+# ── Outcome distributions (owner-imported) ───────────────────────────────
+
+
+def test_distribution_rides_the_projection_join_and_is_labelled_honestly():
+    athletes, _ = parse_draftkings_salaries(_dk_text())
+    a, b, c = athletes[0].player_id, athletes[1].player_id, athletes[2].player_id
+    text = f"ID,Proj,StDev,P25,P75,Floor,Ceiling\n{a},20,6.5,15,24,,\n{b},12,,,,4,22\n{c},9,,,,,\n"
+    report = apply_projection_csv(athletes, text)
+    by = {x.player_id: x for x in athletes}
+    assert by[a].distribution == {
+        "sd": 6.5,
+        "quantiles": {"0.25": 15.0, "0.75": 24.0},
+        "unassigned": {},
+    }
+    # Floor/ceiling mean different percentiles at different vendors: kept, not used.
+    assert by[b].distribution == {
+        "sd": None,
+        "quantiles": {},
+        "unassigned": {"floor": 4.0, "ceiling": 22.0},
+    }
+    # No range supplied is None, never a zero-width range.
+    assert by[c].distribution is None and by[c].projection == 9.0
+    d = report["distribution"]
+    assert (d["withStdev"], d["withQuantiles"], d["withUnassignedFloorCeiling"]) == (1, 1, 1)
+
+
+def test_stated_percentiles_turn_floor_and_ceiling_into_quantiles():
+    athletes, _ = parse_draftkings_salaries(_dk_text())
+    b = athletes[1].player_id
+    apply_projection_csv(
+        athletes,
+        f"ID,Proj,Floor,Ceiling\n{b},12,4,22\n",
+        floor_percentile=10,
+        ceiling_percentile=90,
+    )
+    assert athletes[1].distribution["quantiles"] == {"0.10": 4.0, "0.90": 22.0}
+    assert athletes[1].distribution["unassigned"] == {}
+
+
+@pytest.mark.parametrize(
+    "row,reason",
+    [
+        ("12,-1,,", "negative_standard_deviation"),
+        ("12,,20,10", "quantiles_not_increasing"),
+    ],
+)
+def test_invalid_distribution_is_refused_but_the_projection_stands(row, reason):
+    athletes, _ = parse_draftkings_salaries(_dk_text())
+    pid = athletes[0].player_id
+    report = apply_projection_csv(athletes, f"ID,Proj,SD,P20,P80\n{pid},{row}\n")
+    assert athletes[0].projection == 12.0 and athletes[0].distribution is None
+    assert report["distribution"]["invalid"][0]["reason"] == reason
+
+
+def test_floor_above_ceiling_and_bad_percentile_labels_are_refused():
+    athletes, _ = parse_draftkings_salaries(_dk_text())
+    pid = athletes[0].player_id
+    report = apply_projection_csv(athletes, f"ID,Proj,Floor,Ceiling\n{pid},12,30,10\n")
+    assert report["distribution"]["invalid"][0]["reason"] == "floor_above_ceiling"
+    for kwargs in (
+        {"floor_percentile": 0},
+        {"ceiling_percentile": 100},
+        {"floor_percentile": 90, "ceiling_percentile": 10},
+    ):
+        with pytest.raises(ImportError_) as exc:
+            apply_projection_csv(athletes, f"ID,Proj\n{pid},12\n", **kwargs)
+        assert exc.value.code == "INVALID_PERCENTILE"
+
+
+def test_rows_that_agree_on_the_mean_but_not_the_range_are_a_conflict():
+    athletes, _ = parse_draftkings_salaries(_dk_text())
+    pid = athletes[0].player_id
+    report = apply_projection_csv(athletes, f"ID,Proj,SD\n{pid},12,3\n{pid},12,5\n")
+    assert (
+        report["conflicts"] and athletes[0].projection is None and athletes[0].distribution is None
+    )

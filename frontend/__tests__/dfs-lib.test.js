@@ -176,3 +176,65 @@ describe("dfs lib — contests", () => {
     expect(presetsForShape(ps, "tournament").map((p) => p.id)).toEqual(["a", "b"]);
   });
 });
+
+describe("dfs lib — owner overrides vs boosts", () => {
+  it("sends overrides as points and boosts as fractions; blank is absent, never 0", async () => {
+    const { ownerAdjustments } = await import("@/lib/dfs");
+    const { payload, errors } = ownerAdjustments({ a: "22.5", b: "" }, { a: "10", c: "0", d: "" });
+    expect(errors).toEqual({});
+    expect(payload).toEqual({ projectionOverrides: { a: 22.5 }, boosts: { a: 0.1 } });
+  });
+
+  it("refuses out-of-range or non-numeric entries", async () => {
+    const { ownerAdjustments } = await import("@/lib/dfs");
+    expect(ownerAdjustments({ a: "abc" }, {}).errors.a).toBeTruthy();
+    expect(ownerAdjustments({}, { a: "75" }).errors.a).toBeTruthy();
+  });
+});
+
+describe("dfs lib — per-player exposure range", () => {
+  it("sends fractions; blank is absent; min 0 is dropped but max 0 is a real instruction", async () => {
+    const { exposureAdjustments } = await import("@/lib/dfs");
+    const { payload, errors } = exposureAdjustments({
+      a: { min: "30", max: "60" },
+      b: { min: "0", max: "" },
+      c: { min: "", max: "0" },
+      d: {},
+    });
+    expect(errors).toEqual({});
+    expect(payload).toEqual({ playerMinExposure: { a: 0.3 }, playerMaxExposure: { a: 0.6, c: 0 } });
+  });
+
+  it("refuses out-of-range entries and a minimum above the maximum", async () => {
+    const { exposureAdjustments } = await import("@/lib/dfs");
+    expect(exposureAdjustments({ a: { min: "120" } }).errors.a).toBeTruthy();
+    expect(exposureAdjustments({ a: { max: "x" } }).errors.a).toBeTruthy();
+    expect(exposureAdjustments({ a: { min: "70", max: "40" } }).errors.a).toMatch(/above the maximum/);
+  });
+});
+
+describe("dfs lib — salary range", () => {
+  it("sends both ends of the salary range, blank = unconstrained", async () => {
+    const { buildConstraints } = await import("@/lib/dfs");
+    const { payload } = buildConstraints({ lineups: "1", salaryMin: "48000", salaryMax: "49500" }, {});
+    expect(payload).toMatchObject({ salaryMin: 48000, salaryMax: 49500 });
+    expect("salaryMax" in buildConstraints({ lineups: "1", salaryMax: "" }, {}).payload).toBe(false);
+  });
+});
+
+describe("dfs rules — team / game stacks", () => {
+  it("builds a labelled entry and refuses blank or impossible counts", async () => {
+    const { teamStackEntry } = await import("@/lib/dfs-rules");
+    expect(teamStackEntry({ scope: "team", size: "3", count: "1", positions: ["C", "W"] }, 9).entry).toEqual({
+      label: "3-player team stack (C/W)",
+      scope: "team",
+      size: 3,
+      count: 1,
+      positions: ["C", "W"],
+    });
+    expect(teamStackEntry({ scope: "game", size: "2", count: "2", positions: [] }, 8).entry.label).toBe("2 × 2-player game stack");
+    expect(teamStackEntry({ size: "", count: "1" }, 9).error).toBeTruthy();
+    expect(teamStackEntry({ size: "1", count: "1" }, 9).error).toBeTruthy();
+    expect(teamStackEntry({ size: "5", count: "2" }, 9).error).toMatch(/more than a 9-player lineup/);
+  });
+});

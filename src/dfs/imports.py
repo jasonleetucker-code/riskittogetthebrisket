@@ -73,6 +73,24 @@ class SlateAthlete:
     eligible_slots: list[str] = field(default_factory=list)
     # Every source column this adapter does not consume, verbatim.
     extra: dict[str, str] = field(default_factory=dict)
+    # One PERSON can appear as several platform rows (DraftKings Showdown lists
+    # a CPT row and a FLEX row, each with its own ID).  Rows sharing a
+    # group_key are the same athlete: at most one may be rostered, and a
+    # projection for one applies to all.  None = this row stands alone.
+    group_key: str | None = None
+    # Owner-imported PROJECTED ownership, in percent of lineups (0–100).
+    # None = no ownership forecast for this athlete — never 0%.
+    ownership: float | None = None
+    ownership_source: str | None = None
+    # Owner-imported outcome DISTRIBUTION around the projection:
+    # {"sd": float|None, "quantiles": {"0.1": v, ...}, "floor"/"ceiling": raw
+    # values kept verbatim when their percentile was not stated}.  None = no
+    # distribution supplied — never a zero-width one.
+    distribution: dict[str, Any] | None = None
+
+    @property
+    def identity(self) -> str:
+        return self.group_key or self.player_id
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -232,10 +250,33 @@ def parse_draftkings_salaries(text: str) -> tuple[list[SlateAthlete], ImportRepo
                 platform_average=avg if avg not in (None, 0.0) else None,
                 eligible_slots=_slots(r.get("Roster Position")),
                 extra=_extra(r, DK_COLUMNS),
+                group_key=f"{normalize_player_name(r['Name'])}|{team}|{'/'.join(positions)}",
             )
         )
+    _keep_only_captain_groups(out, report)
     report.rows_used = len(out)
     return out, report
+
+
+def _keep_only_captain_groups(athletes: list[SlateAthlete], report: ImportReport) -> None:
+    """A group key is kept only for a genuine captain pair (one CPT row + one FLEX row).
+
+    Anything else sharing a name/team/position — two different people, or a
+    duplicated row — is NOT one athlete: its rows keep separate identities so
+    projection joins stay ambiguous (quarantined) instead of propagating.
+    """
+    groups: dict[str, list[SlateAthlete]] = {}
+    for a in athletes:
+        if a.group_key:
+            groups.setdefault(a.group_key, []).append(a)
+    for key, rows in groups.items():
+        labels = [tuple(sorted(r.eligible_slots)) for r in rows]
+        captain_pair = len(rows) == 2 and sorted(labels) == [("CPT",), ("FLEX",)]
+        if len(rows) == 1 or not captain_pair:
+            for r in rows:
+                r.group_key = None
+            if len(rows) > 1:
+                report.reject(0, "same_name_team_position_not_a_captain_pair", {"key": key[:80]})
 
 
 def parse_fanduel_players(text: str) -> tuple[list[SlateAthlete], ImportReport]:
@@ -356,10 +397,126 @@ def _col(header: list[str], candidates: tuple[str, ...]) -> str | None:
     return None
 
 
-def apply_projection_csv(athletes: list[SlateAthlete], text: str) -> dict[str, Any]:
-    """Join an owner projection CSV onto ``athletes`` in place; return the identity report."""
+_SD_COLUMNS = ("stdev", "std", "sd", "std dev", "standard deviation", "stddev")
+_FLOOR_COLUMNS = ("floor",)
+_CEIL_COLUMNS = ("ceiling", "ceil")
+_PCT_COLUMN = re.compile(r"^p(\d{1,2})$")
+
+
+def apply_projection_csv(
+    athletes: list[SlateAthlete],
+    text: str,
+    *,
+    floor_percentile: int | None = None,
+    ceiling_percentile: int | None = None,
+) -> dict[str, Any]:
+    """Join an owner projection CSV onto ``athletes`` in place; return the identity report.
+
+    Optional distribution columns ride the same identity join: ``stdev`` and
+    percentile columns ``p10``…``p90`` are unambiguous; ``floor``/``ceiling``
+    mean different percentiles at different vendors, so they become quantiles
+    only when the owner states which (``floor_percentile`` / ``ceiling_percentile``)
+    — otherwise they are kept verbatim, labelled unassigned, and no model reads them.
+    """
+    for name, v in (
+        ("floorPercentile", floor_percentile),
+        ("ceilingPercentile", ceiling_percentile),
+    ):
+        if v is not None and (isinstance(v, bool) or not isinstance(v, int) or not 1 <= v <= 99):
+            raise ImportError_(
+                "INVALID_PERCENTILE", f"{name} must be a whole percentile from 1 to 99."
+            )
+    if (
+        floor_percentile is not None
+        and ceiling_percentile is not None
+        and floor_percentile >= ceiling_percentile
+    ):
+        raise ImportError_(
+            "INVALID_PERCENTILE", "The floor percentile must be below the ceiling percentile."
+        )
+    return _join_values(
+        athletes,
+        text,
+        kind="projection",
+        percentiles=(floor_percentile, ceiling_percentile),
+    )
+
+
+def _distribution_from_row(
+    r: dict[str, str], header: list[str], percentiles: tuple[int | None, int | None]
+) -> tuple[dict[str, Any] | None, str | None]:
+    """(distribution, invalid reason).  (None, None) = the row supplied none."""
+    sd_col = _col(header, _SD_COLUMNS)
+    floor_col = _col(header, _FLOOR_COLUMNS)
+    ceil_col = _col(header, _CEIL_COLUMNS)
+    quantiles: dict[float, float] = {}
+    for h in header:
+        m = _PCT_COLUMN.match(h.strip().lower())
+        if m and 1 <= int(m.group(1)) <= 99:
+            v = _float_or_none(r.get(h))
+            if v is not None:
+                quantiles[int(m.group(1)) / 100] = v
+    sd = _float_or_none(r.get(sd_col)) if sd_col else None
+    floor = _float_or_none(r.get(floor_col)) if floor_col else None
+    ceiling = _float_or_none(r.get(ceil_col)) if ceil_col else None
+    if sd is None and floor is None and ceiling is None and not quantiles:
+        return None, None
+    if sd is not None and sd < 0:
+        return None, "negative_standard_deviation"
+    if floor is not None and ceiling is not None and floor > ceiling:
+        return None, "floor_above_ceiling"
+    unassigned: dict[str, float] = {}
+    for raw, pct, key in ((floor, percentiles[0], "floor"), (ceiling, percentiles[1], "ceiling")):
+        if raw is None:
+            continue
+        if pct is None:
+            unassigned[key] = raw
+            continue
+        q = pct / 100
+        if q in quantiles and quantiles[q] != raw:
+            return None, f"{key}_disagrees_with_p{pct}"
+        quantiles[q] = raw
+    ordered = sorted(quantiles.items())
+    if any(b[1] < a[1] for a, b in zip(ordered, ordered[1:])):
+        return None, "quantiles_not_increasing"
+    return {
+        "sd": sd,
+        "quantiles": {f"{q:.2f}": v for q, v in ordered},
+        "unassigned": unassigned,
+    }, None
+
+
+_OWN_COLUMNS = ("ownership", "own", "own%", "ownership %", "projected ownership", "pown", "pown%")
+
+
+def apply_ownership_csv(athletes: list[SlateAthlete], text: str, unit: str) -> dict[str, Any]:
+    """Join an owner PROJECTED-ownership CSV (same identity rules as projections).
+
+    ``unit`` must be stated — ``percent`` (35 = 35%) or ``fraction`` (0.35 =
+    35%) — because 0.35 is ambiguous and guessing would silently mis-scale the
+    whole field by 100x.  Values are stored as percent.  Missing stays None.
+    """
+    if unit not in ("percent", "fraction"):
+        raise ImportError_(
+            "OWNERSHIP_UNIT_REQUIRED",
+            "Say whether ownership is in percent (35) or a fraction (0.35).",
+        )
+    report = _join_values(
+        athletes, text, kind="ownership", scale=100.0 if unit == "fraction" else 1.0
+    )
+    return report
+
+
+def _join_values(
+    athletes: list[SlateAthlete],
+    text: str,
+    *,
+    kind: str,
+    scale: float = 1.0,
+    percentiles: tuple[int | None, int | None] = (None, None),
+) -> dict[str, Any]:
     header, rows = _read_csv(text)
-    proj_col = _col(header, _PROJ_COLUMNS)
+    proj_col = _col(header, _PROJ_COLUMNS if kind == "projection" else _OWN_COLUMNS)
     id_col = _col(header, _ID_COLUMNS)
     name_col = _col(header, ("name", "player", "player name"))
     team_col = _col(header, ("team", "teamabbrev", "tm"))
@@ -367,7 +524,9 @@ def apply_projection_csv(athletes: list[SlateAthlete], text: str) -> dict[str, A
     if proj_col is None:
         raise ImportError_(
             "HEADER_MISMATCH",
-            "Projection file needs a projection column (one of: projection, proj, fpts, points).",
+            "Projection file needs a projection column (one of: projection, proj, fpts, points)."
+            if kind == "projection"
+            else "Ownership file needs an ownership column (e.g. ownership, own%, pown%).",
             {"found": header[:40]},
         )
     if id_col is None and not (name_col and team_col):
@@ -382,13 +541,24 @@ def apply_projection_csv(athletes: list[SlateAthlete], text: str) -> dict[str, A
         by_name_team.setdefault((normalize_player_name(a.name), a.team), []).append(a)
 
     matched: dict[str, tuple[float, str]] = {}
+    dists: dict[str, dict[str, Any] | None] = {}
+    dist_invalid: list[dict[str, Any]] = []
     unmatched: list[dict[str, Any]] = []
     ambiguous: list[dict[str, Any]] = []
     invalid: list[dict[str, Any]] = []
     conflicts: list[dict[str, Any]] = []
     for i, r in enumerate(rows, start=2):
-        value = _float_or_none(r.get(proj_col))
+        raw_value = r.get(proj_col)
+        if kind == "ownership" and isinstance(raw_value, str):
+            raw_value = raw_value.strip().rstrip("%")
+        value = _float_or_none(raw_value)
         label = r.get(name_col, "") if name_col else r.get(id_col or "", "")
+        if kind == "ownership" and value is not None and not 0 <= value * scale <= 100:
+            # Out of range for the STATED unit: most often the unit is wrong.
+            invalid.append(
+                {"row": i, "name": label[:80], "reason": "ownership_out_of_range_for_unit"}
+            )
+            continue
         if value is None:
             invalid.append(
                 {"row": i, "name": label[:80], "reason": "projection_not_numeric_or_blank"}
@@ -421,7 +591,8 @@ def apply_projection_csv(athletes: list[SlateAthlete], text: str) -> dict[str, A
             if pos_col and r.get(pos_col, "").strip():
                 pos = r[pos_col].strip().upper()
                 cands = [c for c in cands if pos in c.positions]
-            if len(cands) == 1:
+            if len({c.identity for c in cands}) == 1 and cands:
+                # Several rows of ONE athlete (e.g. Showdown CPT + FLEX) are one identity.
                 target, method = cands[0], "name_team"
             elif len(cands) > 1:
                 ambiguous.append(
@@ -436,22 +607,35 @@ def apply_projection_csv(athletes: list[SlateAthlete], text: str) -> dict[str, A
         if target is None:
             unmatched.append({"row": i, "name": label[:80], "reason": "no_slate_athlete"})
             continue
-        prior = matched.get(target.player_id)
-        if prior is not None and prior[0] != value:
+        dist = None
+        if kind == "projection":
+            dist, bad = _distribution_from_row(r, header, percentiles)
+            if bad:
+                # The projection still stands; only the distribution is refused.
+                dist_invalid.append({"row": i, "playerId": target.player_id, "reason": bad})
+        prior = matched.get(target.identity)
+        if prior is not None and (prior[0] != value or dists.get(target.identity) != dist):
             conflicts.append(
                 {"row": i, "playerId": target.player_id, "reason": "two_rows_disagree"}
             )
             continue
-        matched[target.player_id] = (value, method or "")
+        matched[target.identity] = (value, method or "")
+        dists[target.identity] = dist
 
     # Two disagreeing rows for one athlete → that athlete is unresolved, never first-wins.
     for c in conflicts:
-        matched.pop(c["playerId"], None)
+        matched.pop(by_id[c["playerId"]].identity, None)
     for a in athletes:
-        hit = matched.get(a.player_id)
-        if hit is not None:
+        hit = matched.get(a.identity)
+        if hit is None:
+            continue
+        if kind == "projection":
             a.projection, a.projection_match = hit
             a.projection_source = "owner_import"
+            a.distribution = dists.get(a.identity)
+        else:
+            a.ownership = round(hit[0] * scale, 4)
+            a.ownership_source = "owner_import"
     return {
         "rowsRead": len(rows),
         "matched": len(matched),
@@ -460,6 +644,26 @@ def apply_projection_csv(athletes: list[SlateAthlete], text: str) -> dict[str, A
         "invalid": invalid[:200],
         "conflicts": conflicts[:200],
         "athletesWithoutProjection": sum(1 for a in athletes if a.projection is None),
+        "athletesWithoutOwnership": sum(1 for a in athletes if a.ownership is None),
+        **(
+            {
+                "distribution": {
+                    "withStdev": sum(
+                        1 for a in athletes if a.distribution and a.distribution["sd"] is not None
+                    ),
+                    "withQuantiles": sum(
+                        1 for a in athletes if a.distribution and a.distribution["quantiles"]
+                    ),
+                    "withUnassignedFloorCeiling": sum(
+                        1 for a in athletes if a.distribution and a.distribution["unassigned"]
+                    ),
+                    "percentiles": {"floor": percentiles[0], "ceiling": percentiles[1]},
+                    "invalid": dist_invalid[:200],
+                }
+            }
+            if kind == "projection"
+            else {}
+        ),
     }
 
 

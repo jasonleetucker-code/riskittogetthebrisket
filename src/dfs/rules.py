@@ -61,6 +61,24 @@ class RuleSet:
     salary_import: str
     export: dict[str, Any]
     verification: dict[str, Any]
+    # "positions": a slot accepts athletes whose POSITIONS intersect its
+    # eligible list (classic).  "platform_slots": a slot accepts the platform
+    # ROW labelled for it (DraftKings Showdown lists each player twice — a CPT
+    # row and a FLEX row, each with its own ID and salary).
+    eligibility_basis: str = "positions"
+    # Points multiplier per slot name, applied once at the slot (never written
+    # into a stored projection).  Salary multipliers are already in the file.
+    slot_points_multipliers: dict[str, float] | None = None
+    # Athlete positions a platform_slots rule set uses (stack rules refer to them).
+    athlete_positions: tuple[str, ...] = ()
+
+    def eligible(self, athlete: Any, slot: "Slot") -> bool:
+        if self.eligibility_basis == "platform_slots":
+            return slot.name in (athlete.eligible_slots or [])
+        return bool(set(athlete.positions) & set(slot.eligible))
+
+    def points_multiplier(self, slot_name: str) -> float:
+        return float((self.slot_points_multipliers or {}).get(slot_name, 1.0))
 
     @property
     def key(self) -> str:
@@ -82,6 +100,8 @@ class RuleSet:
 
     @property
     def positions(self) -> frozenset[str]:
+        if self.eligibility_basis == "platform_slots":
+            return frozenset(self.athlete_positions)
         return frozenset(p for s in self.slots for p in s.eligible)
 
     def to_public(self) -> dict[str, Any]:
@@ -95,6 +115,7 @@ class RuleSet:
             "label": self.label,
             "salaryCap": self.salary_cap,
             "slots": [{"name": s.name, "eligible": list(s.eligible)} for s in self.slots],
+            "eligibilityBasis": self.eligibility_basis,
             "maxPlayersPerTeam": self.max_players_per_team,
             "minTeams": self.min_teams,
             "minGames": self.min_games,
@@ -114,6 +135,30 @@ def _positive_int_or_none(raw: Any, field: str, rid: str) -> int | None:
     if not isinstance(raw, int) or isinstance(raw, bool) or raw <= 0:
         raise RulesetError(f"{rid}: {field} must be a positive integer or null, got {raw!r}")
     return raw
+
+
+def _basis(raw: dict[str, Any], rid: str) -> str:
+    basis = raw.get("eligibilityBasis", "positions")
+    if basis not in ("positions", "platform_slots"):
+        raise RulesetError(f"{rid}: eligibilityBasis must be positions or platform_slots")
+    if basis == "platform_slots" and not raw.get("athletePositions"):
+        raise RulesetError(f"{rid}: a platform_slots rule set must list athletePositions")
+    return basis
+
+
+def _multipliers(raw: dict[str, Any], rid: str, slots: tuple[Slot, ...]) -> dict[str, float] | None:
+    m = raw.get("slotPointsMultipliers")
+    if m is None:
+        return None
+    names = {s.name for s in slots}
+    out = {}
+    for k, v in m.items():
+        if k not in names or isinstance(v, bool) or not isinstance(v, (int, float)) or v <= 0:
+            raise RulesetError(
+                f"{rid}: slotPointsMultipliers must map slot names to positive numbers"
+            )
+        out[k] = float(v)
+    return out
 
 
 def _parse_ruleset(raw: dict[str, Any]) -> RuleSet:
@@ -159,6 +204,9 @@ def _parse_ruleset(raw: dict[str, Any]) -> RuleSet:
         salary_import=str(raw.get("salaryImport") or ""),
         export=export,
         verification=verification,
+        eligibility_basis=_basis(raw, rid),
+        slot_points_multipliers=_multipliers(raw, rid, slots),
+        athlete_positions=tuple(str(p) for p in raw.get("athletePositions") or []),
     )
 
 

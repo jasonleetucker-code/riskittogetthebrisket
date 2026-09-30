@@ -4,8 +4,10 @@ Open **DFS → DFS Workspace** (`/dfs`). Sign-in required.
 
 1. **Pick sport and platform.** The badge says what is possible: *Research only — rules
    unverified* (you can build; the rule set has not been checked against the official page) or
-   *Not available yet* (no rules encoded — nothing can be built). Today only NFL Classic on
-   DraftKings and FanDuel can build.
+   *Not available yet* (no rules encoded — nothing can be built). Today NFL, NBA and NHL Classic on
+   DraftKings and FanDuel, and DraftKings NFL Showdown, can build (all research-only). In Showdown
+   the captain's 1.5× is shown next to the number, and the same player can never be captain and
+   flex. DraftKings MMA builds too (research-only; add an 'if A then not B' rule if you do not want both fighters from one bout). FanDuel MMA and other single-game files are recognised but cannot be built yet.
 2. **Import the slate.** Download the platform's salary / player-list CSV for your contest and
    choose it (or paste it). The page tells you what the file is (e.g. *Detected: FanDuel · NFL ·
    Classic*) and offers to switch if it does not match your selection — it never switches on its

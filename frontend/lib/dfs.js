@@ -128,6 +128,7 @@ export function buildConstraints(form, rules) {
   }
   for (const [key, field] of [
     ["salaryMin", "salaryMin"],
+    ["salaryMax", "salaryMax"],
     ["maxPerTeam", "maxPerTeam"],
   ]) {
     const v = wholeOrNull(form[field]);
@@ -226,4 +227,75 @@ export function writeStoredContext(ctx) {
   } catch {
     /* storage unavailable (private mode) — the page works without it */
   }
+}
+
+// ── group / conditional rules (display + payload shaping only) ──────────
+
+/** Owner rules → backend `groups` + `conditionals`. */
+export function rulesToConstraints(rules) {
+  const groups = [];
+  const conditionals = [];
+  for (const r of rules || []) {
+    const n = Number(r.n);
+    if (r.type === "at_least") groups.push({ label: r.label, players: r.players, min: n });
+    else if (r.type === "at_most") groups.push({ label: r.label, players: r.players, max: n });
+    else if (r.type === "exactly") groups.push({ label: r.label, players: r.players, min: n, max: n });
+    else if (r.type === "if_then") conditionals.push({ label: r.label, when: r.when, then: r.then, thenMin: 1 });
+    else if (r.type === "if_not") conditionals.push({ label: r.label, when: r.when, then: r.then, thenMax: 0 });
+    else if (r.type === "if_then_n") conditionals.push({ label: r.label, when: r.when, then: r.then, thenMin: n });
+  }
+  return { groups, conditionals };
+}
+
+/**
+ * Owner forecast overrides and selection boosts → backend payload.
+ * Blank means "none" (absent), never 0. Boosts are entered as percentages
+ * (−50…50) and sent as fractions. Returns { payload, errors }.
+ */
+export function ownerAdjustments(overrides, boosts) {
+  const errors = {};
+  const projectionOverrides = {};
+  const boostMap = {};
+  for (const [pid, raw] of Object.entries(overrides || {})) {
+    if (raw === "" || raw == null) continue;
+    const v = Number(raw);
+    if (!Number.isFinite(v) || v < -50 || v > 500) errors[pid] = "Projection must be a number from -50 to 500.";
+    else projectionOverrides[pid] = v;
+  }
+  for (const [pid, raw] of Object.entries(boosts || {})) {
+    if (raw === "" || raw == null) continue;
+    const v = Number(raw);
+    if (!Number.isFinite(v) || v < -50 || v > 50) errors[pid] = "Boost must be a percentage from -50 to 50.";
+    else if (v !== 0) boostMap[pid] = v / 100;
+  }
+  return { payload: { projectionOverrides, boosts: boostMap }, errors };
+}
+
+/**
+ * Per-player exposure range (percent of the N lineups) → backend fractions.
+ * Blank = no bound (absent, never 0). A min of 0 constrains nothing and is
+ * dropped; a max of 0 is a real instruction ("in none of them") and is sent.
+ * The server turns them into whole-lineup counts: min rounds UP, max DOWN.
+ */
+export function exposureAdjustments(exposure) {
+  const errors = {};
+  const playerMinExposure = {};
+  const playerMaxExposure = {};
+  for (const [pid, range] of Object.entries(exposure || {})) {
+    const parse = (raw) => (raw === "" || raw == null ? null : Number(raw));
+    const lo = parse(range?.min);
+    const hi = parse(range?.max);
+    const bad = (v) => v !== null && (!Number.isFinite(v) || v < 0 || v > 100);
+    if (bad(lo) || bad(hi)) {
+      errors[pid] = "Exposure must be a percentage from 0 to 100.";
+      continue;
+    }
+    if (lo !== null && hi !== null && lo > hi) {
+      errors[pid] = "Minimum exposure cannot be above the maximum.";
+      continue;
+    }
+    if (lo !== null && lo > 0) playerMinExposure[pid] = lo / 100;
+    if (hi !== null) playerMaxExposure[pid] = hi / 100;
+  }
+  return { payload: { playerMinExposure, playerMaxExposure }, errors };
 }

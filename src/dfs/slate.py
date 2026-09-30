@@ -55,7 +55,11 @@ LAYOUT_VERIFICATION = {
 # of its distinctive positions.
 _SPORT_SIGNATURES: dict[str, list[tuple[str, frozenset[str], frozenset[str]]]] = {
     "draftkings": [
-        ("nfl", frozenset({"QB", "RB", "WR", "TE", "DST"}), frozenset({"QB", "RB", "WR", "TE"})),
+        (
+            "nfl",
+            frozenset({"QB", "RB", "WR", "TE", "K", "DST"}),
+            frozenset({"QB", "RB", "WR", "TE"}),
+        ),
         ("nba", frozenset({"PG", "SG", "SF", "PF", "C"}), frozenset({"PG", "SG", "SF", "PF"})),
         (
             "nhl",
@@ -67,7 +71,7 @@ _SPORT_SIGNATURES: dict[str, list[tuple[str, frozenset[str], frozenset[str]]]] =
     "fanduel": [
         (
             "nfl",
-            frozenset({"QB", "RB", "WR", "TE", "D", "DEF"}),
+            frozenset({"QB", "RB", "WR", "TE", "K", "D", "DEF"}),
             frozenset({"QB", "RB", "WR", "TE"}),
         ),
         ("nba", frozenset({"PG", "SG", "SF", "PF", "C"}), frozenset({"PG", "SG", "SF", "PF"})),
@@ -192,6 +196,10 @@ def eligibility_cross_check(athletes: list[SlateAthlete], ruleset: RuleSet) -> d
     Agreement is evidence FOR an unverified rule set; any disagreement is shown,
     never auto-resolved.
     """
+    if ruleset.eligibility_basis == "platform_slots":
+        # Eligibility IS the platform's row label here: comparing it with itself
+        # would manufacture agreement, so no evidence is claimed.
+        return {"checked": 0, "mismatched": 0, "examples": [], "state": "not_applicable"}
     checked = mismatched = 0
     examples: list[dict[str, Any]] = []
     for a in athletes:

@@ -314,3 +314,105 @@ def test_contest_must_name_a_registered_capability(client):
 
 def test_presets_endpoint(client):
     assert len(client.get("/api/dfs/presets", headers={"x-user": "a"}).json()["presets"]) == 15
+
+
+# ── Phase B completion: concentration, curve, build context ───────────
+
+
+def test_top_one_percent_concentration_and_curve_are_exact():
+    from src.dfs.contests import payout_curve
+
+    c = _contest(capacity=1000, payoutText="1 $5,000\n2-10 $500\n11-200 $25")
+    d = validate_contest(c)["derived"]
+    cash = 500000 + 9 * 50000 + 190 * 2500
+    assert d["cashPrizeCents"] == cash
+    assert d["topOnePercentShareOfCash"] == pytest.approx(
+        (500000 + 9 * 50000) / cash
+    )  # top 10 of 1,000
+    curve = payout_curve(c.ladder)
+    ranks = [p["rank"] for p in curve]
+    assert ranks[0] == 1 and ranks[-1] == 200 and ranks == sorted(ranks)
+    assert {p["prizeCents"] for p in curve} <= {
+        500000,
+        50000,
+        2500,
+    }  # ladder values only, never interpolated
+    assert len(curve) <= 48 + 2
+
+
+def test_concentration_needs_a_capacity():
+    assert (
+        validate_contest(_contest(payoutText="1 100"))["derived"]["topOnePercentShareOfCash"]
+        is None
+    )
+
+
+def test_builds_record_the_contest_and_disclose_that_it_was_not_evaluated(client):
+    fx = Path(__file__).parent / "fixtures"
+    h = {"x-user": "alice"}
+    snap = client.post(
+        "/api/dfs/slates",
+        json={
+            "salaryCsv": (fx / "synthetic_dk_nfl_classic_salaries.csv").read_text(encoding="utf-8"),
+            "projectionCsv": (fx / "synthetic_dk_nfl_classic_projections.csv").read_text(
+                encoding="utf-8"
+            ),
+        },
+        headers=h,
+    ).json()
+    saved = client.post(
+        "/api/dfs/contests", json={"contest": {**CONTEST, "slateId": snap["snapshotId"]}}, headers=h
+    ).json()
+    b = client.post(
+        "/api/dfs/builds",
+        json={
+            "snapshotId": snap["snapshotId"],
+            "objective": "projection_baseline",
+            "contestId": saved["contestId"],
+            "presetId": "large_field_gpp",
+        },
+        headers=h,
+    ).json()
+    assert b["contest"] == {
+        "contestId": saved["contestId"],
+        "version": 1,
+        "name": "Test GPP",
+        "payoutShape": "tournament",
+        "exactEvAllowed": True,
+        "evaluated": False,
+    }
+    assert b["preset"]["id"] == "large_field_gpp"
+    text = " ".join(b["disclosures"])
+    assert "Contest-aware evaluation is unavailable" in text and "projection baseline" in text
+
+    other = client.post(
+        "/api/dfs/contests", json={"contest": {**CONTEST, "platform": "fanduel"}}, headers=h
+    ).json()
+    r = client.post(
+        "/api/dfs/builds",
+        json={
+            "snapshotId": snap["snapshotId"],
+            "objective": "projection_baseline",
+            "contestId": other["contestId"],
+        },
+        headers=h,
+    )
+    assert r.status_code == 422
+    r = client.post(
+        "/api/dfs/builds",
+        json={
+            "snapshotId": snap["snapshotId"],
+            "objective": "projection_baseline",
+            "presetId": "nope",
+        },
+        headers=h,
+    )
+    assert r.status_code == 400
+    plain = client.post(
+        "/api/dfs/builds",
+        json={"snapshotId": snap["snapshotId"], "objective": "projection_baseline"},
+        headers=h,
+    ).json()
+    assert plain["disclosures"] == [
+        "No contest or strategy selected: lineups maximize projected points only."
+    ]

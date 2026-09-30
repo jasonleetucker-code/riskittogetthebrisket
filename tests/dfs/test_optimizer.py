@@ -11,6 +11,7 @@ from src.dfs.imports import SlateAthlete
 from src.dfs.optimizer import (
     ConstraintError,
     exposure_bounds,
+    exposure_minimums,
     optimize,
     parse_constraints,
     validate_lineup,
@@ -300,6 +301,330 @@ def test_game_unknown_only_matters_for_selectable_players():
     pool[3].game = None
     res = optimize(DK, pool, parse_constraints({"excludes": [pool[3].player_id]}, DK, pool))
     assert res["built"] == 1
+
+
+# ── conditional rules (if A then B / not B / at least N of G) ─────────
+
+
+def _brute_with(ruleset, pool, c):
+    by_id = {a.player_id: a for a in pool}
+    by_pos = {}
+    for a in pool:
+        by_pos.setdefault(a.positions[0], []).append(a)
+    best = None
+    for qb in by_pos["QB"]:
+        for d in by_pos["DST"]:
+            for te in by_pos["TE"]:
+                for rbs in itertools.combinations(by_pos["RB"], 2):
+                    for wrs in itertools.combinations(by_pos["WR"], 3):
+                        used = {qb.player_id, d.player_id, te.player_id} | {
+                            x.player_id for x in rbs + wrs
+                        }
+                        for fx in by_pos["RB"] + by_pos["WR"] + by_pos["TE"]:
+                            if fx.player_id in used:
+                                continue
+                            lu = [qb, *rbs, *wrs, te, fx, d]
+                            assignment = list(
+                                zip([s.name for s in ruleset.slots], [a.player_id for a in lu])
+                            )
+                            if validate_lineup(assignment, ruleset, by_id, c):
+                                continue
+                            tot = round(sum(a.projection for a in lu), 2)
+                            best = tot if best is None or tot > best else best
+    return best
+
+
+def _unconstrained_ids(pool):
+    res = optimize(DK, pool, parse_constraints({}, DK, pool))
+    return res, {p["playerId"] for p in res["lineups"][0]["players"]}
+
+
+def test_if_a_then_not_b_is_exact_and_binds():
+    pool = _pool(31)
+    res, ids = _unconstrained_ids(pool)
+    chosen = [p["playerId"] for p in res["lineups"][0]["players"]]
+    a, b = chosen[0], chosen[1]  # both in the unconstrained optimum -> the rule must bind
+    c = parse_constraints({"conditionals": [{"when": [a], "then": [b], "thenMax": 0}]}, DK, pool)
+    got = optimize(DK, pool, c)
+    got_ids = {p["playerId"] for p in got["lineups"][0]["players"]}
+    assert not ({a, b} <= got_ids)
+    assert got["lineups"][0]["projection"] < res["lineups"][0]["projection"]  # it bound
+    assert got["lineups"][0]["projection"] == pytest.approx(_brute_with(DK, pool, c), abs=1e-6)
+
+
+def test_if_a_then_at_least_n_of_group_is_exact():
+    pool = _pool(32)
+    res, ids = _unconstrained_ids(pool)
+    qb = next(p["playerId"] for p in res["lineups"][0]["players"] if p["slot"] == "QB")
+    outsiders = [
+        a.player_id for a in pool if a.player_id not in ids and a.positions[0] in ("WR", "TE")
+    ][:4]
+    c = parse_constraints(
+        {"conditionals": [{"when": [qb], "then": outsiders, "thenMin": 2}]}, DK, pool
+    )
+    got = optimize(DK, pool, c)
+    expected = _brute_with(DK, pool, c)
+    assert got["lineups"][0]["projection"] == pytest.approx(expected, abs=1e-6)
+    got_ids = {p["playerId"] for p in got["lineups"][0]["players"]}
+    assert qb not in got_ids or len(got_ids & set(outsiders)) >= 2
+
+
+def test_conditional_contradiction_is_isolated_to_the_rule_and_lock():
+    pool = _pool(33)
+    wr = [a.player_id for a in pool if a.positions == ["WR"]]
+    c = parse_constraints(
+        {
+            "locks": [wr[0], wr[1]],
+            "conditionals": [
+                {"label": "Never together", "when": [wr[0]], "then": [wr[1]], "thenMax": 0}
+            ],
+        },
+        DK,
+        pool,
+    )
+    res = optimize(DK, pool, c)
+    assert res["status"] == "infeasible"
+    items = set(res["shortfall"]["conflict"]["items"])
+    assert "cond:0" in items and items <= {"cond:0", f"lock:{wr[0]}", f"lock:{wr[1]}"}
+    assert any(
+        d.startswith("Never together: if") for d in res["shortfall"]["conflict"]["described"]
+    )
+
+
+def test_conditional_input_is_validated():
+    pool = _pool(34)
+    a, b = pool[0].player_id, pool[1].player_id
+    for bad in (
+        {"conditionals": [{"when": [a], "then": [a], "thenMax": 0}]},
+        {"conditionals": [{"when": [a], "then": [b]}]},
+        {"conditionals": [{"when": ["nope"], "then": [b], "thenMin": 1}]},
+        {"conditionals": [{"when": [a], "then": [b], "thenMin": 2, "thenMax": 1}]},
+    ):
+        with pytest.raises(ConstraintError):
+            parse_constraints(bad, DK, pool)
+
+
+# ── owner forecast overrides vs selection boosts (DFS-§8-08) ──────────
+
+
+def test_override_is_a_forecast_used_in_totals_and_never_written_back():
+    pool = _pool(41)
+    res, ids = _unconstrained_ids(pool)
+    outsider = next(a for a in pool if a.player_id not in ids and a.positions[0] == "WR")
+    before = outsider.projection
+    c = parse_constraints({"projectionOverrides": {outsider.player_id: 60.0}}, DK, pool)
+    got = optimize(DK, pool, c)
+    row = next(p for p in got["lineups"][0]["players"] if p["playerId"] == outsider.player_id)
+    assert (
+        row["ownerOverride"] == 60.0
+        and row["projection"] == before
+        and row["slotProjection"] == 60.0
+    )
+    assert outsider.projection == before  # the slate's forecast is untouched
+    assert got["lineups"][0]["projection"] == pytest.approx(
+        sum(p["slotProjection"] for p in got["lineups"][0]["players"])
+    )
+
+
+def test_override_can_supply_a_missing_forecast():
+    pool = _pool(42)
+    pool[0].projection = None
+    c = parse_constraints(
+        {"projectionOverrides": {pool[0].player_id: 30.0}, "locks": [pool[0].player_id]}, DK, pool
+    )
+    got = optimize(DK, pool, c)
+    assert got["built"] == 1 and pool[0].player_id not in got["excludedUnprojected"]
+
+
+def test_boost_tilts_selection_but_never_enters_the_reported_total():
+    pool = _pool(43)
+    res, ids = _unconstrained_ids(pool)
+    base_total = res["lineups"][0]["projection"]
+    outsiders = sorted(
+        (a for a in pool if a.player_id not in ids and a.positions[0] in ("WR", "RB", "TE")),
+        key=lambda a: -a.projection,
+    )
+    flipped = None
+    for o in outsiders:
+        got = optimize(DK, pool, parse_constraints({"boosts": {o.player_id: 0.5}}, DK, pool))
+        if o.player_id in {p["playerId"] for p in got["lineups"][0]["players"]}:
+            flipped = (o, got)
+            break
+    assert flipped is not None, "fixture must contain a boost that changes selection (non-vacuous)"
+    o, got = flipped
+    lu = got["lineups"][0]
+    assert lu["projection"] < base_total  # the boost bought a worse FORECAST, as the owner chose
+    assert lu["projection"] == pytest.approx(
+        sum(p["projection"] for p in lu["players"])
+    )  # unboosted
+    row = next(p for p in lu["players"] if p["playerId"] == o.player_id)
+    assert row["preferenceBoost"] == 0.5 and row["slotProjection"] == row["projection"]
+
+
+def test_override_and_boost_inputs_are_bounded():
+    pool = _pool(44)
+    pid = pool[0].player_id
+    for bad in (
+        {"boosts": {pid: 2}},
+        {"boosts": {pid: True}},
+        {"projectionOverrides": {pid: "12"}},
+        {"projectionOverrides": {"nope": 5}},
+        {"projectionOverrides": {pid: float("nan")}},
+    ):
+        with pytest.raises(ConstraintError):
+            parse_constraints(bad, DK, pool)
+
+
+# ── Minimum exposure ─────────────────────────────────────────────────────
+
+
+def _worst_projected(pool, pos):
+    return min((a for a in pool if a.positions == [pos]), key=lambda a: a.projection)
+
+
+def test_min_exposure_rounds_up_and_is_met_by_a_player_the_optimizer_would_skip():
+    pool = _pool(31)
+    weak = _worst_projected(pool, "RB")
+    c = parse_constraints(
+        {"lineups": 5, "minUnique": 1, "playerMinExposure": {weak.player_id: 0.5}}, DK, pool
+    )
+    assert exposure_minimums(c, pool) == {weak.player_id: 3}  # ceil(0.5 * 5), never down to 2
+    unforced = optimize(DK, pool, parse_constraints({"lineups": 5}, DK, pool))
+    assert all(
+        weak.player_id not in {p["playerId"] for p in lu["players"]} for lu in unforced["lineups"]
+    )
+    res = optimize(DK, pool, c)
+    assert res["built"] == 5 and res["minimumExposureUnmet"] == []
+    hits = [weak.player_id in {p["playerId"] for p in lu["players"]} for lu in res["lineups"]]
+    assert sum(hits) >= 3
+    # Latest-deadline construction: the forced appearances sit at the END, so
+    # the first lineups are the owner's best by projection.
+    assert hits[-3:] == [True, True, True]
+    assert res["lineups"][0]["projection"] == unforced["lineups"][0]["projection"]
+
+
+def test_min_above_max_is_refused_before_solving():
+    pool = _pool(32)
+    pid = pool[3].player_id
+    c = parse_constraints(
+        {"lineups": 4, "playerMinExposure": {pid: 0.75}, "playerMaxExposure": {pid: 0.5}}, DK, pool
+    )
+    with pytest.raises(ConstraintError) as e:
+        optimize(DK, pool, c)
+    assert e.value.code == "INVALID_CONSTRAINT" and e.value.detail["players"][0]["min"] == 3
+
+
+def test_min_exposure_player_cannot_be_excluded_or_unprojected():
+    pool = _pool(33)
+    pid = pool[4].player_id
+    with pytest.raises(ConstraintError):
+        parse_constraints({"excludes": [pid], "playerMinExposure": {pid: 0.2}}, DK, pool)
+    pool[4].projection = None
+    with pytest.raises(ConstraintError) as e:
+        optimize(DK, pool, parse_constraints({"playerMinExposure": {pid: 0.2}}, DK, pool))
+    assert e.value.code == "MIN_EXPOSURE_PLAYER_UNPROJECTED"
+
+
+def test_conflicting_minimums_are_isolated_and_reported_unmet_not_relaxed():
+    # Two quarterbacks both required in every lineup cannot share one QB slot.
+    pool = _pool(34)
+    qbs = [a.player_id for a in pool if a.positions == ["QB"]][:2]
+    c = parse_constraints({"lineups": 2, "playerMinExposure": {qbs[0]: 1.0, qbs[1]: 1.0}}, DK, pool)
+    res = optimize(DK, pool, c)
+    assert res["built"] == 0 and res["shortfall"]["reason"] == "infeasible"
+    assert res["shortfall"]["conflict"]["items"] == ["min_exposure"]
+    assert "Minimum exposures due" in res["shortfall"]["conflict"]["described"][0]
+    assert {u["playerId"] for u in res["minimumExposureUnmet"]} == set(qbs)
+
+
+# ── Team / game stacks (sport-neutral) ───────────────────────────────────
+
+
+def _team_tally(lineup, pool_by_id, scope="team", positions=None):
+    out = {}
+    for p in lineup["players"]:
+        a = pool_by_id[p["playerId"]]
+        if positions and not set(a.positions) & set(positions):
+            continue
+        key = a.team if scope == "team" else a.game
+        out[key] = out.get(key, 0) + 1
+    return sorted(out.values(), reverse=True)
+
+
+@pytest.mark.parametrize("seed", [41, 42, 43])
+def test_team_stack_matches_brute_force(seed):
+    pool = _pool(seed)
+    raw = {"teamStacks": [{"scope": "team", "size": 3, "count": 1}]}
+    c = parse_constraints(raw, DK, pool)
+    res = optimize(DK, pool, c)
+    best = _brute_with(DK, pool, c)
+    by_id = {a.player_id: a for a in pool}
+    assert best is not None  # non-vacuity: these seeds have a stacked lineup
+    assert res["built"] == 1
+    assert res["lineups"][0]["projection"] == pytest.approx(best, abs=1e-6)
+    assert _team_tally(res["lineups"][0], by_id)[0] >= 3
+
+
+def test_team_stack_binds_and_is_not_vacuous():
+    pool = _pool(44)
+    by_id = {a.player_id: a for a in pool}
+    free = optimize(DK, pool, parse_constraints({}, DK, pool))["lineups"][0]
+    need = _team_tally(free, by_id)[0] + 1  # one more than the free optimum naturally stacks
+    c = parse_constraints({"teamStacks": [{"scope": "team", "size": need}]}, DK, pool)
+    res = optimize(DK, pool, c)
+    assert res["built"] == 1
+    assert _team_tally(res["lineups"][0], by_id)[0] >= need
+    assert res["lineups"][0]["projection"] < free["projection"]  # it cost points: it bound
+    assert not validate_lineup(
+        [(p["slot"], p["playerId"]) for p in res["lineups"][0]["players"]], DK, by_id, c
+    )
+
+
+def test_two_stacks_and_game_scope_with_positions():
+    pool = _pool(45)
+    by_id = {a.player_id: a for a in pool}
+    c = parse_constraints(
+        {
+            "teamStacks": [
+                {"scope": "game", "size": 4, "count": 2, "positions": ["WR", "RB", "TE", "QB"]}
+            ]
+        },
+        DK,
+        pool,
+    )
+    res = optimize(DK, pool, c)
+    assert res["built"] == 1
+    tally = _team_tally(res["lineups"][0], by_id, "game", ["WR", "RB", "TE", "QB"])
+    assert len([n for n in tally if n >= 4]) >= 2
+
+
+def test_impossible_team_stack_is_isolated_not_dropped():
+    pool = _pool(46)
+    # One QB slot and QB is not FLEX-eligible: no lineup can hold two QBs.
+    c = parse_constraints(
+        {"teamStacks": [{"scope": "team", "size": 2, "positions": ["QB"], "label": "QB pair"}]},
+        DK,
+        pool,
+    )
+    res = optimize(DK, pool, c)
+    assert res["built"] == 0
+    assert res["shortfall"]["conflict"]["items"] == ["teamstack:0"]
+    assert "QB pair" in res["shortfall"]["conflict"]["described"][0]
+
+
+@pytest.mark.parametrize(
+    "stack",
+    [
+        {"scope": "league", "size": 3},
+        {"size": 1},
+        {"size": 5, "count": 2},  # 10 > 9 slots
+        {"size": 3, "positions": ["G"]},
+        "3",
+    ],
+)
+def test_team_stack_input_is_validated(stack):
+    with pytest.raises(ConstraintError):
+        parse_constraints({"teamStacks": [stack]}, DK, _pool(47))
 
 
 def test_every_highs_call_runs_on_the_one_solver_thread(monkeypatch):

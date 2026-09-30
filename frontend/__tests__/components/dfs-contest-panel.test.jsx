@@ -128,3 +128,48 @@ describe("ContestPanel", () => {
     expect(await screen.findByText("Some payout lines could not be read.")).toBeInTheDocument();
   });
 });
+
+describe("ContestPanel — modes, concentration and curve", () => {
+  it("Quick mode picks a preset, lifts it to the build context, and says it is not available yet", async () => {
+    fetch.mockImplementation(async (url) => {
+      const u = String(url);
+      if (u.endsWith("/presets")) return json(200, { presets: PRESETS });
+      return json(200, { contests: [] });
+    });
+    const onContextChange = vi.fn();
+    render(<ContestPanel platform="draftkings" sport="nfl" format="classic" onContextChange={onContextChange} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Quick" }));
+    fireEvent.change(await screen.findByLabelText("Contest type"), { target: { value: "large_field_gpp" } });
+    expect(onContextChange).toHaveBeenLastCalledWith({ contestId: null, presetId: "large_field_gpp" });
+    expect(screen.getByText(/builds use the transparent projection baseline/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "Import" }));
+    expect(screen.getByText(/no DraftKings or FanDuel contest-file layout has been\s+verified/)).toBeInTheDocument();
+  });
+
+  it("shows top-1% concentration and a labelled log-scale payout curve", async () => {
+    fetch.mockImplementation(async (url) => {
+      const u = String(url);
+      if (u.endsWith("/presets")) return json(200, { presets: [] });
+      if (u.endsWith("/contests")) return json(200, { contests: [] });
+      return json(200, {
+        ...REPORT,
+        report: {
+          ...REPORT.report,
+          derived: {
+            ...REPORT.report.derived,
+            topOnePercentShareOfCash: 0.42,
+            curve: [
+              { rank: 1, prizeCents: 500000 },
+              { rank: 10, prizeCents: 50000 },
+              { rank: 200, prizeCents: 2500 },
+            ],
+          },
+        },
+      });
+    });
+    render(<ContestPanel platform="draftkings" sport="nfl" format="classic" />);
+    fireEvent.click(screen.getByRole("button", { name: "Check contest" }));
+    expect(await screen.findByText("42.0%")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Payout curve, log scale: rank 1 pays \$5,000\.00/ })).toBeInTheDocument();
+  });
+});

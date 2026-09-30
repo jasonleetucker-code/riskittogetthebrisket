@@ -43,10 +43,13 @@ from src.dfs.export import ExportError, build_upload_csv
 from src.dfs.imports import (
     ImportError_,
     SlateAthlete,
+    apply_ownership_csv,
     apply_platform_average,
     apply_projection_csv,
     content_hash,
 )
+from src.dfs.outcomes import attach_outcomes
+from src.dfs.portfolio import summarize as summarize_portfolio
 from src.dfs.optimizer import ConstraintError, optimize, parse_constraints, solver_version
 from src.dfs.rules import capability_matrix, get_ruleset, load_rulesets
 from src.dfs.slate import CanonicalSlate, canonical_from_platform_file, detect_platform_file
@@ -142,9 +145,11 @@ def _reject_constant(name: str) -> Any:
     raise ValueError(f"non-JSON constant {name}")
 
 
-async def _json_body(request: Request) -> dict[str, Any] | JSONResponse:
+async def _json_body(
+    request: Request, max_bytes: int = MAX_BODY_BYTES
+) -> dict[str, Any] | JSONResponse:
     raw = await request.body()
-    if len(raw) > MAX_BODY_BYTES:
+    if len(raw) > max_bytes:
         return _err("RESOURCE_BUDGET_EXCEEDED", "Request body too large.", 413)
     try:
         import json
@@ -219,8 +224,19 @@ def _snapshot_body(
     try:
         proj_report = None
         if body.get("projectionCsv"):
-            proj_report = apply_projection_csv(athletes, body["projectionCsv"])
+            proj_report = apply_projection_csv(
+                athletes,
+                body["projectionCsv"],
+                floor_percentile=body.get("floorPercentile"),
+                ceiling_percentile=body.get("ceilingPercentile"),
+            )
         averaged = apply_platform_average(athletes) if body.get("usePlatformAverage") else 0
+        own_report = None
+        if body.get("ownershipCsv"):
+            own_report = apply_ownership_csv(
+                athletes, body["ownershipCsv"], str(body.get("ownershipUnit") or "")
+            )
+            own_report["marginalCheck"] = _ownership_marginals(athletes, rs)
     except ImportError_ as exc:
         return _err(exc.code, exc.message, 422, exc.detail)
     if not athletes:
@@ -242,8 +258,34 @@ def _snapshot_body(
         "eligibilityCrossCheck": extra.get("eligibilityCrossCheck"),
         "salaryCapCrossCheck": cap_check,
         "projectionReport": proj_report,
+        "ownershipReport": own_report,
         "platformAverageApplied": averaged,
         "positionsNotInRuleset": sorted({p for a in athletes for p in a.positions} - rs.positions),
+    }
+
+
+def _ownership_marginals(athletes: list[SlateAthlete], rs: Any) -> dict[str, Any]:
+    """Projected ownership must sum to ~100% per roster slot (e.g. 900% for nine slots).
+
+    Only meaningful with full coverage; a partial file is reported as partial,
+    never extrapolated.  Showdown rows (CPT vs FLEX) are summed per row label.
+    """
+    covered = [a for a in athletes if a.ownership is not None]
+    expected = 100.0 * len(rs.slots)
+    total = round(sum(a.ownership for a in covered), 2)  # type: ignore[misc]
+    if len(covered) < len(athletes):
+        state = "partial_coverage"
+    elif abs(total - expected) <= 0.15 * expected:
+        state = "plausible"
+    else:
+        state = "implausible"
+    return {
+        "covered": len(covered),
+        "athletes": len(athletes),
+        "totalPercent": total,
+        "expectedPercent": expected,
+        "state": state,
+        "note": "Marginal ownership is a diagnostic; it is not a joint lineup probability.",
     }
 
 
@@ -315,14 +357,8 @@ def _freshness(created: str, body: dict[str, Any]) -> list[dict[str, Any]]:
             if projected
             else "Import projections; missing players are left out, never scored 0.",
         },
-        {
-            "class": "ownership",
-            "state": "unavailable",
-            "source": None,
-            "asOf": None,
-            "coverage": None,
-            "note": none,
-        },
+        _distribution_freshness(created, athletes),
+        _ownership_freshness(created, body, none),
         {
             "class": "sportsbook",
             "state": "unavailable",
@@ -358,6 +394,53 @@ def _freshness(created: str, body: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def _distribution_freshness(created: str, athletes: list[dict[str, Any]]) -> dict[str, Any]:
+    usable = sum(
+        1
+        for a in athletes
+        if (d := a.get("distribution")) and (d.get("sd") is not None or d.get("quantiles"))
+    )
+    unassigned = sum(1 for a in athletes if (d := a.get("distribution")) and d.get("unassigned"))
+    note = None
+    if not usable:
+        note = "No outcome ranges imported: builds use the mean projection only."
+    if unassigned:
+        note = (
+            f"{unassigned} floor/ceiling value(s) kept but unused: say which percentiles they are."
+        )
+    return {
+        "class": "distribution",
+        "state": "as_imported" if usable else "unavailable",
+        "source": "owner_import" if usable else None,
+        "asOf": created if usable else None,
+        "coverage": f"{usable} of {len(athletes)}" if usable else None,
+        "note": note,
+    }
+
+
+def _ownership_freshness(created: str, body: dict[str, Any], none: str) -> dict[str, Any]:
+    athletes = body.get("athletes") or []
+    owned = sum(1 for a in athletes if a.get("ownership") is not None)
+    if not owned:
+        return {
+            "class": "ownership",
+            "state": "unavailable",
+            "source": None,
+            "asOf": None,
+            "coverage": None,
+            "note": none,
+        }
+    check = (body.get("ownershipReport") or {}).get("marginalCheck") or {}
+    return {
+        "class": "ownership",
+        "state": "as_imported",
+        "source": "owner_import (projected)",
+        "asOf": created,
+        "coverage": f"{owned} of {len(athletes)}",
+        "note": f"Marginal total {check.get('totalPercent')}% vs {check.get('expectedPercent')}% expected: {check.get('state')}.",
+    }
+
+
 def _snapshot_view(sid: str, created: str, h: str, body: dict[str, Any]) -> dict[str, Any]:
     rs_id = body["ruleset"].split("@", 1)[0]
     rs = get_ruleset(rs_id)
@@ -377,6 +460,7 @@ def _snapshot_view(sid: str, created: str, h: str, body: dict[str, Any]) -> dict
         "eligibilityCrossCheck": body.get("eligibilityCrossCheck"),
         "salaryCapCrossCheck": body.get("salaryCapCrossCheck"),
         "projectionReport": body.get("projectionReport"),
+        "ownershipReport": body.get("ownershipReport"),
         "platformAverageApplied": body.get("platformAverageApplied", 0),
         "positionsNotInRuleset": body.get("positionsNotInRuleset", []),
         "freshness": _freshness(created, body),
@@ -440,10 +524,15 @@ async def create_build(request: Request):
             409,
             {"verification": rs.verification, "exportVerification": rs.export.get("verification")},
         )
+    context = await _build_context(owner, body, snap, rs)
+    if isinstance(context, JSONResponse):
+        return context
     athletes = _athletes_from(snap["body"]["athletes"])
     try:
         constraints = parse_constraints(body.get("constraints"), rs, athletes)
         result = await run_in_threadpool(optimize, rs, athletes, constraints)
+        with_range = attach_outcomes(result, athletes)
+        result["portfolio"] = summarize_portfolio(result["lineups"])
     except ConstraintError as exc:
         return _err(exc.code, exc.message, 422, exc.detail)
     except ImportError as exc:  # scipy missing on this host
@@ -475,6 +564,12 @@ async def create_build(request: Request):
             if constraints.lineups == 1
             else "Lineup k is the highest projected lineup that keeps the uniqueness rule against lineups 1..k-1 "
             "and the exposure caps. The set is built sequentially, not jointly optimized as a portfolio."
+            + (
+                " A minimum exposure is forced only once every remaining lineup must carry the player, so "
+                "forced appearances sit at the end of the set."
+                if constraints.player_min_exposure
+                else ""
+            )
         ),
         "solver": solver_version(),
         "seed": None,
@@ -482,16 +577,93 @@ async def create_build(request: Request):
         "constraintsHash": content_hash(body.get("constraints") or {}),
         "result": result,
         "limits": [
-            "Projections are only as good as their source; this build does not estimate uncertainty.",
+            "Projections are only as good as their source."
+            + (
+                " Outcome ranges come from your imported player ranges, assume players are independent "
+                "(stacked lineups really swing more) and use a normal approximation."
+                if with_range
+                else " No outcome range: import player ranges (StDev or percentiles) to see one."
+            ),
             "No ownership, duplication, field or payout modelling — no ROI or EV is implied.",
             "Rule set not verified against official platform rules — research only."
             if rs.readiness != "money_ready"
             else "Rule set verified.",
         ],
         "submitted": False,
+        "contest": context["contest"],
+        "preset": context["preset"],
+        "disclosures": context["disclosures"],
     }
     saved = await run_in_threadpool(store.put_build, owner, snap["id"], record)
     return _ok(saved, 201)
+
+
+async def _build_context(
+    owner: str, body: dict[str, Any], snap: dict[str, Any], rs: Any
+) -> dict[str, Any] | JSONResponse:
+    """The contest / preset a build was made FOR, and what the build could not do about it.
+
+    Recorded for provenance and disclosed — this build still maximizes projected
+    points; it never pretends to have evaluated the contest.
+    """
+    contest_view = None
+    preset_view = None
+    disclosures: list[str] = []
+    cid = body.get("contestId")
+    if cid is not None:
+        if not isinstance(cid, str):
+            return _err("INVALID_CONTEST", "contestId must be a string.", 400)
+        rec = await run_in_threadpool(store.get_contest, owner, cid)
+        if rec is None:
+            return _err("NOT_FOUND", "No such contest.", 404)
+        c = rec["contest"]
+        if (c["platform"], c["sport"], c["format"]) != (rs.platform, rs.sport, rs.format):
+            return _err(
+                "INVALID_CONTEST",
+                "That contest is for a different platform, sport or format than this slate.",
+                422,
+            )
+        if c.get("slate_id") and c["slate_id"] != snap["id"]:
+            return _err("INVALID_CONTEST", "That contest is linked to a different slate.", 422)
+        derived = rec["report"]["derived"]
+        contest_view = {
+            "contestId": cid,
+            "version": rec["version"],
+            "name": c["name"],
+            "payoutShape": derived["payoutShape"]["shape"],
+            "exactEvAllowed": derived["exactEvAllowed"],
+            "evaluated": False,
+        }
+        disclosures.append(
+            "Contest-aware evaluation is unavailable (no validated outcome, ownership or field model yet): "
+            f"lineups maximize projected points. \"{c['name']}\" is recorded for provenance only."
+        )
+        if not derived["exactEvAllowed"]:
+            disclosures.append(
+                "This contest's payout data is incomplete or hypothetical, so exact contest value could not be computed even with those models."
+            )
+    pid = body.get("presetId")
+    if pid is not None:
+        data = json.loads(PRESETS_PATH.read_text(encoding="utf-8"))
+        preset = next((p for p in data["presets"] if p["id"] == pid), None)
+        if preset is None:
+            return _err("INVALID_PRESET", "Unknown strategy preset.", 400)
+        preset_view = {
+            "id": pid,
+            "version": preset["version"],
+            "label": preset["label"],
+            "validationState": preset["validationState"],
+        }
+        if preset["validationState"] != "validated":
+            disclosures.append(
+                f"The {preset['label']} strategy is not available yet ({preset['unsupportedReason']}) — "
+                "built with the transparent projection baseline instead."
+            )
+    if contest_view is None and preset_view is None:
+        disclosures.append(
+            "No contest or strategy selected: lineups maximize projected points only."
+        )
+    return {"contest": contest_view, "preset": preset_view, "disclosures": disclosures}
 
 
 @router.get("/builds")
@@ -841,3 +1013,249 @@ async def provider_slate_import(request: Request):
     if isinstance(snapshot_body, JSONResponse):
         return snapshot_body
     return await _save_snapshot(owner, rs, snapshot_body)
+
+
+# ── entry files (existing platform entries; nothing is ever submitted) ────
+
+
+def _entries_error(exc: ImportError_) -> JSONResponse:
+    return _err(exc.code, exc.message, 422, exc.detail)
+
+
+@router.post("/entries/parse")
+async def entries_parse(request: Request):
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    snap = await run_in_threadpool(store.get_snapshot, owner, str(body.get("snapshotId") or ""))
+    if snap is None:
+        return _err("NOT_FOUND", "No such slate.", 404)
+    rs = get_ruleset(snap["ruleset"].split("@", 1)[0])
+    if rs is None:
+        return _err(
+            "RULESET_SUPERSEDED", "This slate's rule-set version is no longer current.", 409
+        )
+    from src.dfs.entries import parse_entries
+
+    try:
+        parsed = parse_entries(
+            body.get("entriesCsv") or "", rs, _athletes_from(snap["body"]["athletes"])
+        )
+    except ImportError_ as exc:
+        return _entries_error(exc)
+    return _ok(parsed)
+
+
+@router.post("/results")
+async def import_results(request: Request):
+    """Import a finished contest's standings for one slate and evaluate the owner's forecasts."""
+    from src.dfs.contests import contest_from_dict
+    from src.dfs.results import MAX_RESULTS_BYTES, evaluate, parse_standings
+    from src.dfs.settlement import settle
+
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request, max_bytes=MAX_RESULTS_BYTES + 64 * 1024)
+    if isinstance(body, JSONResponse):
+        return body
+    snap = await run_in_threadpool(store.get_snapshot, owner, str(body.get("snapshotId") or ""))
+    if snap is None:
+        return _err("NOT_FOUND", "No such slate.", 404)
+    rs = get_ruleset(snap["ruleset"].split("@", 1)[0])
+    if rs is None:
+        return _err(
+            "RULESET_SUPERSEDED", "This slate's rule-set version is no longer current.", 409
+        )
+    athletes = _athletes_from(snap["body"]["athletes"])
+    owner_ids = body.get("ownerEntryIds") or []
+    username = body.get("ownerUsername")
+    if not isinstance(owner_ids, list) or not all(isinstance(x, str) for x in owner_ids):
+        return _err("INVALID_BODY", "ownerEntryIds must be a list of entry IDs.", 400)
+    if username is not None and (not isinstance(username, str) or len(username) > 80):
+        return _err("INVALID_BODY", "ownerUsername must be a short string.", 400)
+    contest = None
+    if body.get("contestId") is not None:
+        # Same ownership / platform / slate-link checks a build applies.
+        ctx = await _build_context(owner, {"contestId": body["contestId"]}, snap, rs)
+        if isinstance(ctx, JSONResponse):
+            return ctx
+        rec = await run_in_threadpool(store.get_contest, owner, body["contestId"])
+        contest = contest_from_dict(rec["contest"])
+    try:
+        parsed = await run_in_threadpool(
+            lambda: parse_standings(
+                body.get("standingsCsv") or "",
+                rs,
+                athletes,
+                owner_entry_ids=owner_ids[:1000],
+                owner_username=username,
+            )
+        )
+    except ImportError_ as exc:
+        return _err(exc.code, exc.message, 422, exc.detail)
+    if not parsed["realized"]:
+        return _err(
+            "NO_PLAYERS_MATCHED",
+            "No player in the results file matched this slate.",
+            422,
+            {"quarantined": parsed["quarantined"][:20]},
+        )
+    record = {
+        **parsed,
+        "evaluation": evaluate(athletes, parsed["realized"]),
+        "settlement": (
+            settle(
+                contest,
+                parsed["pointsCounts"],
+                parsed["ownerEntries"],
+                unscored_entries=parsed["unscoredEntries"],
+            )
+            if contest is not None
+            else None
+        ),
+        "evidenceClaim": "shadow",  # evaluation evidence; it changes no model or weight
+    }
+    saved = await run_in_threadpool(store.put_result, owner, snap["id"], record)
+    return _ok(saved, 201)
+
+
+@router.get("/results/{result_id}")
+async def read_result(result_id: str, request: Request):
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    r = await run_in_threadpool(store.get_result, owner, result_id)
+    return _ok(r) if r else _err("NOT_FOUND", "No such result.", 404)
+
+
+async def _late_swap_inputs(request: Request):
+    """(owner, ruleset, athletes, parsed entries, clock, clock source) or an error response."""
+    from datetime import datetime, timezone
+
+    from src.dfs.entries import parse_entries
+
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    snap = await run_in_threadpool(store.get_snapshot, owner, str(body.get("snapshotId") or ""))
+    if snap is None:
+        return _err("NOT_FOUND", "No such slate.", 404)
+    rs = get_ruleset(snap["ruleset"].split("@", 1)[0])
+    if rs is None or rs.key != snap["ruleset"]:
+        return _err(
+            "RULESET_SUPERSEDED", "This slate's rule-set version is no longer current.", 409
+        )
+    clock_source = "server"
+    now = datetime.now(timezone.utc)
+    if body.get("asOf") is not None:
+        # A what-if clock ("plan as of 4:05 PM") — labelled, never the default.
+        try:
+            now = datetime.fromisoformat(str(body["asOf"]).replace("Z", "+00:00"))
+        except ValueError:
+            now = None  # type: ignore[assignment]
+        if now is None or now.tzinfo is None:
+            return _err("INVALID_CLOCK", "asOf must be an ISO time with a timezone.", 422)
+        clock_source = "owner_supplied"
+    athletes = _athletes_from(snap["body"]["athletes"])
+    try:
+        parsed = parse_entries(body.get("entriesCsv") or "", rs, athletes)
+    except ImportError_ as exc:
+        return _entries_error(exc)
+    return rs, athletes, parsed, now, clock_source
+
+
+@router.post("/late-swap")
+async def late_swap_plan(request: Request):
+    """Plan late swaps for the owner's imported entries.  Recommends; never submits."""
+    got = await _late_swap_inputs(request)
+    if isinstance(got, JSONResponse):
+        return got
+    rs, athletes, parsed, now, clock_source = got
+    from src.dfs.lateswap import plan_late_swap
+
+    plan = await run_in_threadpool(plan_late_swap, rs, athletes, parsed["entries"], now)
+    return _ok(
+        {**plan, "clockSource": clock_source, "layoutVerification": parsed["layoutVerification"]}
+    )
+
+
+@router.post("/late-swap/export")
+async def late_swap_export(request: Request):
+    """The planned final lineups as an entry file the owner uploads themselves."""
+    got = await _late_swap_inputs(request)
+    if isinstance(got, JSONResponse):
+        return got
+    rs, athletes, parsed, now, clock_source = got
+    from src.dfs.lateswap import export_late_swap, plan_late_swap
+
+    plan = await run_in_threadpool(plan_late_swap, rs, athletes, parsed["entries"], now)
+    try:
+        text, report = export_late_swap(rs, plan, parsed["entries"], athletes)
+    except ImportError_ as exc:
+        return _entries_error(exc)
+    if not report["written"]:
+        return _err("NOTHING_TO_EXPORT", "No entry could be planned.", 409, report)
+    return Response(
+        content=text,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{rs.platform}-{rs.sport}-{rs.format}-LATE-SWAP-UNVERIFIED-FORMAT.csv"',
+            "Cache-Control": "no-store",
+            "X-DFS-Export-Verified": "false",
+            "X-DFS-Clock-Source": clock_source,
+            "X-DFS-Entries-Written": str(len(report["written"])),
+            "X-DFS-Entries-Skipped": str(len(report["skipped"])),
+        },
+    )
+
+
+@router.post("/builds/{build_id}/export-entries")
+async def export_build_into_entries(build_id: str, request: Request):
+    """Fill this build's lineups into the owner's existing entry IDs (re-validated)."""
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    b = await run_in_threadpool(store.get_build, owner, build_id)
+    if b is None:
+        return _err("NOT_FOUND", "No such build.", 404)
+    rs = get_ruleset(b["ruleset"]["key"].split("@", 1)[0])
+    if rs is None or rs.key != b["ruleset"]["key"]:
+        return _err(
+            "RULESET_SUPERSEDED", "The rule-set version this build used is no longer current.", 409
+        )
+    snap = await run_in_threadpool(store.get_snapshot, owner, b["snapshot"]["id"])
+    if snap is None:
+        return _err("NOT_FOUND", "The slate behind this build is missing.", 404)
+    from src.dfs.entries import export_into_entries, parse_entries
+
+    athletes = _athletes_from(snap["body"]["athletes"])
+    try:
+        parsed = parse_entries(body.get("entriesCsv") or "", rs, athletes)
+        text, report = export_into_entries(rs, b["result"]["lineups"], parsed["entries"], athletes)
+    except ImportError_ as exc:
+        return _entries_error(exc)
+    if not report["assigned"]:
+        return _err(
+            "NOTHING_TO_EXPORT", "No usable entries or no lineups to place in them.", 409, report
+        )
+    return Response(
+        content=text,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{rs.platform}-{rs.sport}-{rs.format}-{build_id}-ENTRIES-UNVERIFIED-FORMAT.csv"',
+            "Cache-Control": "no-store",
+            "X-DFS-Export-Verified": "false",
+            "X-DFS-Entries-Assigned": str(len(report["assigned"])),
+            "X-DFS-Entries-Untouched": str(len(report["untouchedEntries"])),
+        },
+    )

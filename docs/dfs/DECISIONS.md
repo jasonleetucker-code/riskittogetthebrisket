@@ -88,3 +88,51 @@ with what was recognised. The platform's own per-player roster slots are cross-c
 the encoded rule set and any disagreement is shown, never auto-resolved — that is how an
 unverified rule set accumulates evidence.
 
+## ADR-DFS-010 — Showdown: platform rows, athlete identity, multiplier at the slot (2026-09-30)
+
+DraftKings Showdown files list each athlete twice (CPT row with its own ID and 1.5× salary; FLEX
+row). The rule set's `eligibilityBasis: platform_slots` makes each slot accept only rows the
+platform labelled for it. Rows of one athlete share a `group_key`, and the optimizer and the
+independent validator allow at most one row per group. A group is kept ONLY for a genuine
+CPT + FLEX pair; any other name/team/position collision keeps separate identities so projection
+joins stay quarantined. The captain multiplier lives in the rule set (`slotPointsMultipliers`)
+and is applied once — in the objective and in the lineup payload's `slotProjection` — while the
+stored projection is never changed. The platform-slot cross-check is `not_applicable` here
+(comparing the file's labels with themselves would manufacture agreement).
+
+
+## ADR-DFS-011 — Minimum exposure is latest-deadline sequential forcing (2026-09-30)
+
+**Decision.** `playerMinExposure` converts to `ceil(pct × N)` appearances (never rounded down;
+the mirror of the max's floor). While building lineup *k*, a player is forced in only when every
+remaining lineup, this one included, must carry them to reach the minimum. A min above the max, a
+min on an excluded player, and a min on an unprojected player are refused before solving.
+
+**Why.** It keeps the first lineups the owner's best by projection and never forces a player the
+optimizer picks on its own. It is a construction method, not a joint portfolio optimum, and the
+build's `methodNote` says so. Front-loading or even pacing would not remove the failure it has
+(two players competing for one slot both due at once). That failure is reported as an isolated
+`min_exposure` conflict plus `minimumExposureUnmet`; nothing is relaxed. Joint portfolio
+construction belongs to Phase F.
+
+## ADR-DFS-012 — ARCHITECTURAL INVARIANT: every HiGHS solve runs on one pinned thread (2026-09-30)
+
+**Context.** HiGHS (reached through `scipy.optimize.milp`) keeps native worker threads tied to the
+thread that called it. The API ran builds through FastAPI's threadpool, so successive solves came
+from different request threads. The Python process then died with a **Windows access violation in a
+native thread with no Python frame** — about 1 run in 5 of `pytest tests/dfs`, and in production it
+would take down the whole backend process, not one request. It looked like a random flake until the
+faulthandler header was kept.
+
+**Decision (invariant).** No code may call `milp` / HiGHS directly from a request, worker or
+simulation thread. Every solve goes through `src/dfs/optimizer.py::_solver_pool()` — one
+long-lived `dfs-highs` thread — which also serializes solves. Builds are time-budgeted, so
+serialization is acceptable; parallelism, when needed, comes from **processes**, never threads.
+
+**Enforced by.** `tests/dfs/test_optimizer.py::test_every_highs_call_runs_on_the_one_solver_thread`
+(behaviour: solves launched from several threads all execute on `dfs-highs`) and
+`tests/dfs/test_solver_invariant.py` (structure: the only `milp` call site under `src/` is the pool
+submit in `optimizer.py`). Fixed on #1534 (`bb7046b9d`); 20/20 clean suite runs after the fix.
+
+**Consequence.** Field and contest simulation (Monte Carlo) never call the MILP per sample; any
+future solver-heavy job runs in a bounded background worker that still routes through the pool.

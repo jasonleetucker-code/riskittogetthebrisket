@@ -10,7 +10,7 @@
  */
 
 import React, { useEffect, useState } from "react";
-import { Banner, Button, Field, Input, Select, StatusIndicator } from "@/components/ds";
+import { Banner, Button, Field, Input, SegmentedControl, Select, Sparkline, StatusIndicator } from "@/components/ds";
 import { errorMessage } from "@/lib/dfs";
 import {
   EMPTY_CONTEST_FORM,
@@ -46,6 +46,31 @@ function pct(v) {
 function Money({ cents }) {
   const v = formatCents(cents);
   return v === null ? <span className={styles.missing}>unknown</span> : <span className="ds-mono">{v}</span>;
+}
+
+/**
+ * Payout curve with the approved Sparkline primitive (single series, no legend
+ * needed). The y-values are log10(prize) so a top-heavy ladder stays readable;
+ * the label says so, and the text beside it carries the actual numbers. A
+ * larger chart waits on the PSI chart-treatment decision (#1428).
+ */
+function PayoutCurve({ curve }) {
+  const paid = (curve || []).filter((p) => p.prizeCents > 0);
+  if (paid.length < 2) return null;
+  const first = paid[0];
+  const last = paid[paid.length - 1];
+  const label = `Payout curve, log scale: rank ${first.rank} pays ${formatCents(first.prizeCents)}, falling to ${formatCents(
+    last.prizeCents,
+  )} at rank ${last.rank}`;
+  return (
+    <figure className={styles.curve}>
+      <Sparkline values={paid.map((p) => Math.log10(p.prizeCents))} label={label} width={240} height={48} />
+      <figcaption className={styles.note}>
+        Payout by rank (log scale) — {formatCents(first.prizeCents)} for rank {first.rank} down to{" "}
+        {formatCents(last.prizeCents)} at rank {last.rank}.
+      </figcaption>
+    </figure>
+  );
 }
 
 function ContestReport({ result, presets }) {
@@ -104,6 +129,10 @@ function ContestReport({ result, presets }) {
           </dd>
         </div>
         <div>
+          <dt>Top 1% of field takes</dt>
+          <dd className="ds-mono">{pct(d.topOnePercentShareOfCash)}</dd>
+        </div>
+        <div>
           <dt>Economics</dt>
           <dd>
             {economicsCopy(econ.state)}
@@ -112,6 +141,7 @@ function ContestReport({ result, presets }) {
         </div>
       </dl>
       {econ.note ? <p className={styles.note}>{econ.note}</p> : null}
+      <PayoutCurve curve={d.curve} />
       {tie ? (
         <p className={styles.note}>
           Two entries tied for first:{" "}
@@ -160,7 +190,37 @@ function ContestReport({ result, presets }) {
   );
 }
 
-export default function ContestPanel({ platform, sport, format }) {
+const MODES = [
+  { value: "quick", label: "Quick" },
+  { value: "exact", label: "Exact" },
+  { value: "import", label: "Import" },
+];
+
+function QuickContest({ presets, presetId, onPick }) {
+  const chosen = presets.find((p) => p.id === presetId);
+  return (
+    <div>
+      <Field label="Contest type" hint="A general profile — not an exact contest. Exact economics need the Exact mode.">
+        <Select
+          value={presetId || ""}
+          onChange={(e) => onPick(e.target.value || null)}
+          options={[{ value: "", label: "Choose a contest type" }, ...presets.map((p) => ({ value: p.id, label: p.label }))]}
+        />
+      </Field>
+      {chosen ? (
+        <p className={styles.note}>
+          <strong>{chosen.label}</strong>: {chosen.objective.description}{" "}
+          <StatusIndicator status="neutral">Not available yet</StatusIndicator> {chosen.unsupportedReason} Until then,
+          builds use the transparent projection baseline and say so.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+export default function ContestPanel({ platform, sport, format, onContextChange }) {
+  const [mode, setMode] = useState("exact");
+  const [presetId, setPresetId] = useState(null);
   const [form, setForm] = useState(EMPTY_CONTEST_FORM);
   const [spendLimit, setSpendLimit] = useState("");
   const [result, setResult] = useState(null);
@@ -218,6 +278,7 @@ export default function ContestPanel({ platform, sport, format }) {
       return;
     }
     setCurrent({ contestId: r.body.contestId, version: r.body.version });
+    onContextChange?.({ contestId: r.body.contestId, presetId: null });
     await refresh();
     await check();
   };
@@ -228,6 +289,7 @@ export default function ContestPanel({ platform, sport, format }) {
       setForm(EMPTY_CONTEST_FORM);
       setResult(null);
       setNonCash(0);
+      onContextChange?.({ contestId: null, presetId: null });
       return;
     }
     const r = await api(`/contests/${encodeURIComponent(id)}`);
@@ -239,11 +301,34 @@ export default function ContestPanel({ platform, sport, format }) {
     setNonCash(f.nonCashBands);
     setForm(f);
     setCurrent({ contestId: r.body.contestId, version: r.body.version });
+    onContextChange?.({ contestId: r.body.contestId, presetId: null });
     setResult(null);
   };
 
+  const pickPreset = (id) => {
+    setPresetId(id);
+    onContextChange?.({ contestId: null, presetId: id });
+  };
+
+  if (mode !== "exact") {
+    return (
+      <div>
+        <SegmentedControl label="Contest setup" options={MODES} value={mode} onChange={setMode} />
+        {mode === "quick" ? (
+          <QuickContest presets={presets} presetId={presetId} onPick={pickPreset} />
+        ) : (
+          <p className={styles.note} role="note">
+            Importing a platform contest file is not available yet: no DraftKings or FanDuel contest-file layout has been
+            verified. Enter the contest in Exact mode instead.
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div>
+      <SegmentedControl label="Contest setup" options={MODES} value={mode} onChange={setMode} />
       {matchingSaved.length ? (
         <label className={styles.inline}>
           <span>Saved contests</span>
