@@ -64,6 +64,11 @@ TIMING_MODEL = {
     "varies": ["which finalized week each weekly pairing is played in"],
     "distribution": "every ordering of the finalized weeks' pairings is equally likely",
     "method": "exact (per-team distributions); uniform permutation sampling (league-wide finishes)",
+    "assumptions": [
+        "every finalized week's pairing set is movable: Sleeper exposes no pinned-week "
+        "constraint (e.g. a rivalry week), so none is invented",
+        "head-to-head credits only; median-game results are fixed and reported separately",
+    ],
     "notA": ["forecast", "different-opponent model", "schedule to adopt"],
 }
 
