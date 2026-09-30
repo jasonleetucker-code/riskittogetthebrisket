@@ -116,6 +116,7 @@ intent in the repository and win over anything older they contradict.
 - `docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` — its §7 "no player-MVP gate" was itself **superseded by the owner decision of 2026-09-26** (League MVP requires playoff field + .500 or better — record half corrected 2026-09-29 from >.500) *(#816)*
 - `docs/PLAYOFF_PREDICTOR_SPEC.md` *(#809)*
 - `docs/CANONICAL_WEEKLY_POWER_RANKINGS_SPEC.md` *(#809)*
+- `docs/SCHEDULE_INTELLIGENCE_SPEC.md` — **owner directive 2026-09-29, issue #1530.** One canonical schedule-analysis owner (`src/public_league/schedule_impact.py`): read-only retrospective equal-opponent baseline (`equal_opponent_v1`, Milestone A) and later models; context beside, never inside, the official Power Rankings / MVP formulas; not the removed schedule generator (X-01). Authorization lives in `docs/EXECUTION_PLAN.md` §0 *(#1531)*
 - `docs/GAME_DAY_PROBABILITY_SPEC.md` *(#809)*
 - `docs/faab-model.md`, `docs/FAAB_MARKET_SIGNAL_NORMALIZATION_2026-08-14.md` — **binding, issue #830, decisions 56–65**
 - `docs/faab-live-opportunity-model.md` — **binding, extends the two above with the Live Waiver Opportunity layer and the `/suggestions`-vs-`/faab-recommend` unification; does not supersede either**
