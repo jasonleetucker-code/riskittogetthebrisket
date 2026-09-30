@@ -1,4 +1,8 @@
-// Draft-capital "stack" valuation for stack-aware trade verdicts.
+// Draft-capital "stack" valuation.  INFORMATIONAL ONLY: the stack effect
+// is withdrawn from trade totals, the verdict, flows and balancers (owner
+// directive 2026-09-29; __tests__/trade-stack-withdrawn.test.js).  The
+// "fold into a verdict" motivation below is the original design intent,
+// kept as history; the rebuild prerequisites are issue #1529.
 //
 // WHY THIS EXISTS
 // ---------------

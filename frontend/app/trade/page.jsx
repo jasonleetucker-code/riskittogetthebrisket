@@ -627,7 +627,8 @@ export default function TradePage() {
   // (owner directive 2026-09-29; __tests__/trade-stack-withdrawn.test.js).
   // League stacks + routed pick-$ moves for the effective-power lens.
   // null whenever the lens can't / shouldn't apply (no draft data, no
-  // picks, or the team gate is unmet) → verdict stays pure board value.
+  // picks, or the team gate is unmet) → no note is shown.  The verdict
+  // never reads this in any case.
   const stackContext = useMemo(() => {
     if (!draftCapital || !sleeperTeams || !tradeHasPicks || stackGateUnmet) {
       return null;

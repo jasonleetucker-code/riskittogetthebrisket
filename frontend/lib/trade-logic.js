@@ -1215,8 +1215,8 @@ export function isAssetInTrade(sideA, sideB, key) {
  * ──────────────────────────────────────────────────────────────────────
  * Why this simulates instead of matching a value (defect #800)
  * ──────────────────────────────────────────────────────────────────────
- * The gap on screen is the ADJUSTED gap — ``raw + Value Adjustment −
- * stack``, from ``adjustedSideTotals`` / ``tradeImbalance``.  This
+ * The gap on screen is the ADJUSTED gap — ``raw + Value Adjustment``
+ * (the draft-capital stack effect is informational only), from ``adjustedSideTotals`` / ``tradeImbalance``.  This
  * function used to be handed that number and then rank candidates by
  * ``Math.abs(candidate.rawValue − |gap|)``: a RAW player value matched
  * against an ADJUSTED target.
