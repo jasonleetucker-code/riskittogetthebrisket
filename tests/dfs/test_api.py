@@ -302,3 +302,11 @@ def test_multi_lineup_builds_carry_a_portfolio_summary_single_builds_do_not(clie
         assert (p is not None) == has
         if has:
             assert p["lineups"] == 3 and sum(r["lineups"] for r in p["stackShapes"]) == 3
+
+
+def test_slate_import_feeds_the_point_in_time_ledger(client):
+    snap = _slate(client).json()
+    p = snap["pointInTime"]
+    # Earliest kickoff on the fixture: 1:00 PM ET on 10/04/2026 = 17:00 UTC.
+    assert p["lockAt"] == "2026-10-04T17:00:00.000000+00:00"
+    assert p["observations"]["added"] == 84  # one projection per imported athlete

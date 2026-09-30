@@ -30,7 +30,7 @@ import json
 from decimal import Decimal
 from pathlib import Path
 
-from src.dfs import store
+from src.dfs import pit, store
 from src.dfs.contests import (
     ContestError,
     dollars_to_cents,
@@ -292,7 +292,24 @@ def _ownership_marginals(athletes: list[SlateAthlete], rs: Any) -> dict[str, Any
 async def _save_snapshot(owner: str, rs: Any, snapshot_body: dict[str, Any]) -> JSONResponse:
     h = content_hash({"ruleset": rs.key, "athletes": snapshot_body["athletes"]})
     meta = await run_in_threadpool(store.put_snapshot, owner, rs.key, h, snapshot_body)
-    return _ok(_snapshot_view(meta["id"], meta["createdAt"], h, snapshot_body), 201)
+    # Point-in-time ledger (ADR-DFS-013): index the slate and record what was imported, when.
+    pit_record = await run_in_threadpool(
+        pit.capture_snapshot,
+        owner,
+        {
+            "id": meta["id"],
+            "ruleset": rs.key,
+            "contentHash": h,
+            "createdAt": meta["createdAt"],
+            "body": snapshot_body,
+        },
+    )
+    view = _snapshot_view(meta["id"], meta["createdAt"], h, snapshot_body)
+    view["pointInTime"] = {
+        "lockAt": pit_record["slate"]["lockAt"],
+        "observations": pit_record["observations"],
+    }
+    return _ok(view, 201)
 
 
 @router.post("/slates")
