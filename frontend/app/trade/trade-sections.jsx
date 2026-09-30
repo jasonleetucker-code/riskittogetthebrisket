@@ -906,7 +906,7 @@ export function PickTeamSelectors({
       dense
       title="Draft-capital stacks"
       headingLevel={2}
-      subtitle="Picks are in this trade — their worth depends on each team's stack. Select the team on each side."
+      subtitle="Picks are in this trade. Select the team on each side to see the draft-capital stack note (not included in the verdict)."
     >
       <div className={styles.pickTeams}>
         {sides.map((s, i) => (
@@ -928,8 +928,8 @@ export function PickTeamSelectors({
       </div>
       {stackGateUnmet ? (
         <Banner tone="info">
-          Verdict is showing pure board value. Assign a team to every side a
-          pick is traded to or from to apply the draft-capital stack effect.
+          Assign a team to every side a pick is traded to or from to see the
+          draft-capital stack note. The verdict does not use it.
         </Banner>
       ) : null}
     </Panel>
@@ -1231,25 +1231,29 @@ export function SideCard({
             </Button>
           ) : null}
         </div>
-        <div className={styles.sideTotals}>
+        {/* Exact numbers for production arithmetic checks
+            (tests/e2e/specs/prod-auth/trade-stack-withdrawn.spec.js):
+            adjusted = raw + adjustment, nothing else. */}
+        <div
+          className={styles.sideTotals}
+          data-side-total={total.adjusted}
+          data-side-raw={total.raw}
+          data-side-va={total.adjustment}
+        >
           <div className={styles.sideTotal}>
             {Math.round(total.adjusted).toLocaleString()}
           </div>
-          {/* The headline total is raw + VA − stack (adjustedSideTotals);
-              every term that moved it is named here so the parts add up.
-              The retired `title=` said VA was a roster-spot bonus for the
-              side with fewer pieces — ktcAdjustPackage credits
-              concentration, fires on equal counts too, and a hover title
-              never reached touch users. */}
+          {/* The headline total is raw + VA -- nothing else (adjustedSideTotals;
+              the draft-capital stack effect is informational only and is shown
+              separately under the meter).  VA is shown as the difference of the
+              rounded figures, so the visible parts always add up to the headline.
+              The retired `title=` said VA was a roster-spot bonus for the side
+              with fewer pieces — ktcAdjustPackage credits concentration, fires on
+              equal counts too, and a hover title never reached touch users. */}
           <div className={styles.sideTotalMeta}>
             Raw {Math.round(total.raw).toLocaleString()}
             {total.adjustment > 0
-              ? ` + VA ${Math.round(total.adjustment).toLocaleString()}`
-              : ""}
-            {Math.round(total.stackAdjustment || 0) !== 0
-              ? ` ${total.stackAdjustment > 0 ? "−" : "+"} stack ${Math.abs(
-                  Math.round(total.stackAdjustment),
-                ).toLocaleString()}`
+              ? ` + VA ${(Math.round(total.adjusted) - Math.round(total.raw)).toLocaleString()}`
               : ""}
             {total.adjustment > 0 ? <ValueAdjustmentTip /> : null}
           </div>

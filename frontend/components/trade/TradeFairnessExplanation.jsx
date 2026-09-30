@@ -6,7 +6,7 @@ import { percentageGap } from "@/lib/trade-logic";
 
 /**
  * WHAT THE NUMBERS ARE (corrected 2026-09-29).  The headline percentage is
- * the adjusted gap (raw + VA − draft-capital stack) between the two PACKAGES (each side lists what it
+ * the adjusted gap (raw + VA) between the two PACKAGES (each side lists what it
  * sends, so the bigger package is the side giving up more).  The per-source
  * figures are RAW sums of `sourceRankMeta[key].valueContribution` — no
  * Value Adjustment — and every contributing source key is cited on its own

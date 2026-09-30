@@ -984,6 +984,48 @@ Owner-approved; the authorization record is the League Hub Awards pointer in `do
     recorded the conflict between the clarification (League MVP gated on a playoff-field, above-.500 franchise) and
     the 2026-08-14 amendment (no hard gate). The owner ruled for the gate on League MVP only.
 
+**Owner directive — Schedule Intelligence (2026-09-29).** Calculator Ideas record: issue #1530 (ordered
+portfolio A–E with owners, dependencies, surfaces, NOW/NEXT/LATER/BLOCKED) and
+`docs/SCHEDULE_INTELLIGENCE_SPEC.md`. One canonical schedule-analysis owner
+(`src/public_league/schedule_impact.py`) answers "how good were the performances, what happened, and how
+differently could the same performances have turned out under another defensible schedule" across League
+Hub, team pages, Power Rankings (context only), recaps, share cards, history, a Hard Luck distinction, the
+Schedule Multiverse, swaps, retrospective playoff sensitivity and player impact / MVP (shadow). Read-only
+retrospective analysis — NOT the removed schedule generator (X-01). Official Power Rankings and MVP formula
+changes stay gated; MVP eligibility (.500 or better) and ungated Unified Manager of the Year are preserved.
+Authorization: `docs/EXECUTION_PLAN.md` §0.
+
+**Owner directive — draft-capital stack effect WITHDRAWN from trade totals; informational only (2026-09-29).**
+Active; supersedes the two same-day entries directly below (kept for history). The stack effect must not affect
+side totals, the verdict, fairness classification, multi-team comparisons, side flows, balancer suggestions, or any
+recommendation driven by package totals. Adjusted package total = raw canonical package value + Value Adjustment.
+The stack effect stays visible, labelled "experimental, not calibrated. Not included in the totals or verdict." No
+zero clamp; no quick recalibration. Implemented by #1527 (guard: `frontend/__tests__/trade-stack-withdrawn.test.js`).
+Future rebuild recorded in Calculator Ideas as issue #1529 — planning position **LATER** (depends on a canonical
+draft-year universe and canonical pick ownership), **NOT AUTHORIZED**; prerequisites S1-S8 and the validation plan
+live there. The league-pool-rate attempt is historical evidence of an insufficient calibration, not an accepted
+method. The Rookie Auction Room's dollar ledger is a separate concept and is not affected.
+
+**Owner decision — trade stack effect converts at the league pool rate (2026-09-29).** *(Superseded the same day —
+see the directive above.)*
+Owner report: the trade meter showed Side A at -2,603 after two 2029 late picks moved to it. Cause: the draft-capital
+stack effect converted league-wide auction-dollar premium shifts into board points at the moved picks' OWN rate (a
+$1-$2 late pick ~1,000+ points per $ vs ~44 for a first), on whole-dollar-rounded effective power -- flagged in the
+2026-08-04 decision-intelligence audit and never fixed. Owner choice (of: league pool rate / remove from the verdict /
+cap at the picks' value): **the league pool rate** -- sum of the board values of the draft's own picks divided by the
+dollars those picks carry; no pool rate means the stack effect is withheld, never a guessed rate. Premiums are computed
+on unrounded effective power (rounding is display-only).
+- **Superseding interim (same day), after the #1527 acceptance audit** (the owner required a full decomposition before
+  calling it fixed): the audit found the swings driven by data seams, not the rate -- the upcoming draft year differs
+  between draft capital (2027) and the board's pick lifecycle (2026); 2027 picks are counted twice in team stacks;
+  future-pick auction dollars are synthesized; picks can be "sent" by teams that do not hold them. Under the pool
+  rate an early pick from a $0 team still took a side to -963. **Owner decision: the stack effect is OUT of side
+  totals, the verdict, side flows and balancer suggestions now**, shown only as a labelled not-calibrated note.
+- **Owner principle for its return:** the stack term is an adjustment to package value and must not become the
+  dominant source of value merely because low-dollar picks are involved. It returns to the totals only once rebuilt
+  as an adjustment scoped to the moved picks' own value, with the seams fixed (draft-year universe, double count,
+  unowned picks); future-pick pricing and the conversion rate remain open model work. No arbitrary clamp.
+
 **Owner authorization — preserve pregame weekly projections from the Game Day prune (2026-09-29).**
 Authorized now, ahead of the ~2026-10-13 retention deadline (#1519 G1), sequenced after the #1517 → #1518 → #1516
 release queue. Smallest correct change: the raw pre-kickoff Sleeper weekly projection evidence must not be destroyed
