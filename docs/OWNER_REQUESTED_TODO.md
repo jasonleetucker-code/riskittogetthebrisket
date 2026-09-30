@@ -1222,8 +1222,8 @@ authorization: `docs/EXECUTION_PLAN.md` "Served build identity — owner authori
 
 | Item | Disposition |
 |---|---|
-| Merge the reviewed harness PRs #1536 (Steward evidence validation + record) and #1542 (CI-backed test evidence) once green | ACCEPTED — normal protected path |
-| Served build identity: `/api/status` reports the running commit; the deploy smoke test fails on a mismatch (Part H.5 item 1, Priority 3) | AUTHORIZED — branch `claude/served-build-identity` |
+| Merge the reviewed harness PRs #1536 (Steward evidence validation + record) and #1542 (CI-backed test evidence) once green | DONE — both merged after green CI (2026-09-30) |
+| Served build identity: `/api/status` reports the running commit; the deploy smoke test fails on a mismatch (Part H.5 item 1, Priority 3) | DONE — #1543 merged, deployed and production-verified (2026-09-30) |
 | Re-run the closed PR #1344 CLAUDE.md/skill progressive-disclosure audit | DEFERRED — high collision with active lanes, low current value; revisit when the active lanes quiet |
 | Remaining Part H.5 queue (typed contract slice, provenance views, parser replay, declarative boundaries, request/snapshot identity) | NOT AUTHORIZED — backlog only |
 | Pin the box to the guarded SHA on manual deploys (`deploy.yml` passes the raw `deploy_ref`; the box resolves a branch name after its own fetch, so a manual deploy of `main` can ship a newer commit than the guard and validate job judged — found by the build-identity review; the new check now reports it) | NOT AUTHORIZED — follow-up, changes deploy behaviour |

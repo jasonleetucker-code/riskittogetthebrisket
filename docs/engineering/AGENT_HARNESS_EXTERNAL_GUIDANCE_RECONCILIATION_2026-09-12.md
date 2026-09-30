@@ -482,20 +482,33 @@ skill pack (#4, #13); a hardcoded named-model roster (#24, and Part C); a second
 database (#1, #16 — Steward is the one store); an unattended self-promoting harness (#8, as
 in Part G).
 
-### H.7 Next dependency-ready units
+### H.7 Next dependency-ready units — outcome (closed out 2026-09-30)
 
-1. **Test evidence bound to the revision** (`agent-evals/`) — **implemented in PR #1542** via the
-   CI-records route below (four independent review rounds; APPROVE). Original scope: accept test evidence only from a
-   trusted local runner re-executing a case-declared, allowlisted command at the pinned head
-   in a clean clone, or from independently retrieved CI check-runs for that exact SHA
-   (`gh api` read-only, with workflow file and config identity recorded). Label everything
-   else `DECLARED`. No inference.
-2. **Steward → eval bridge**: derive `repo_head_start` / `repo_head_end` / `changed_files`
-   from a saved Steward receipt rather than hand transcription.
-3. Application queue item 1 (served build identity), once owner-authorized.
+1. **Test evidence bound to the revision** — DONE, #1542 merged (`49c65941a`). Implemented
+   through independently retrieved GitHub Actions records, not a local re-execution of
+   agent-authored code. A green run counts only when three things are proven: its
+   provenance; for a PR run, its base (own repository, head-matched, never retargeted, PR
+   still open); and gate identity versus trusted history as it stood before the revision
+   arrived. Four independent review rounds, final APPROVE. Verified live before #1536
+   merged: grading #1536's open-PR head in strict mode reported both
+   `changed_files_claim` and `ci_workflow:.github/workflows/pr-validation.yml` as
+   `VERIFIED_AGAINST_ARTIFACT`. Flags remain `DECLARED` by design.
+2. **Steward → eval bridge** — WITHDRAWN on inspection. Steward receipts record
+   report-only brief runs (`repo_head_start == repo_head_end`), not agent work. And
+   auto-filling `changed_files` from the diff would make the diff check tautological. The
+   grader already derives the actual diff itself; the only honest input is the pinned
+   revisions, which a run must state.
+3. **Served build identity** — DONE and **production-verified**. #1543 merged
+   (`67f300cdb`) under the owner's 2026-09-30 authorization (`docs/EXECUTION_PLAN.md`).
+   The first deploy containing it, run 36744356641 at `850a83a67`, printed
+   `PASS build.commit == 850a83a67…`, and live `/api/status` reports
+   `build.commit = 850a83a67…` (`detached_head`). Unauthorized follow-up recorded in
+   `docs/OWNER_REQUESTED_TODO.md`: pin the box to the guarded SHA on manual
+   branch-name deploys.
 
-External decisions still open: owner authorization for any H.5 slice; whether the
-closed-unmerged PR #1344 progressive-disclosure audit should be re-run.
+Also merged: #1536 (`0ee4f0200`, H.3 plus this record) and #1537 (`6e9f4110b`, H.4). The
+#1344 disclosure-audit re-run is DEFERRED (owner accepted the recommendation). The
+remaining H.5 queue stays unauthorized.
 
 ---
 
