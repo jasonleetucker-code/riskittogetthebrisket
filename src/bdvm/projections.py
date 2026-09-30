@@ -129,6 +129,10 @@ class ConsensusProjection:
     any_proxy: bool
     all_scoring_native: bool
     stale_sources: tuple[str, ...] = ()
+    # (source, reason) per stale record: age_exceeds_stale_after_days,
+    # or an UNKNOWN age — timestamp_unparseable / timestamp_in_future /
+    # snapshot_asof_unparseable.  Unknown age is never fresh.
+    stale_reasons: tuple[tuple[str, str], ...] = ()
     # Sources down-weighted because their stat line's league-scored IDP
     # categories are a strict subset of a peer's (vocabulary-dominated).
     vocabulary_limited: tuple[str, ...] = ()
@@ -184,19 +188,47 @@ def _idp_scoring_vocabulary(
     return frozenset(scored), col_to_cat
 
 
-def _staleness_weight(
-    record_as_of: str, snapshot_as_of: str, params: ParamSet
-) -> tuple[float, bool]:
-    cfg = params["projection_consensus"]
+# Clock-skew slack, not policy: a record stamped up to one calendar day
+# after the snapshot asOf is a same-capture UTC-boundary artifact, not a
+# record from the future.
+_FUTURE_TIMESTAMP_TOLERANCE_DAYS = 1
+
+
+def _parse_iso_day(value: Any) -> date | None:
+    if value is None:
+        return None
     try:
-        d_rec = date.fromisoformat(str(record_as_of)[:10])
-        d_snap = date.fromisoformat(str(snapshot_as_of)[:10])
+        return date.fromisoformat(str(value)[:10])
     except ValueError:
-        return 1.0, False
+        return None
+
+
+def _staleness_weight(
+    record_as_of: str | None, snapshot_as_of: str | None, params: ParamSet
+) -> tuple[float, str | None]:
+    """(weight multiplier, stale reason or None when fresh).
+
+    Age is measured against the snapshot's own asOf.  MISSING IS NEVER
+    FRESH: when the age cannot be measured — an unparseable or absent
+    record timestamp, an unparseable snapshot asOf, or a record dated
+    after the snapshot beyond clock-skew slack — the age is UNKNOWN and
+    the record takes the same stale down-weight a measurably old record
+    takes, with a reason naming why.  Valid timestamps are unchanged.
+    """
+    cfg = params["projection_consensus"]
+    stale_mult = float(cfg["stale_weight_mult"])
+    d_snap = _parse_iso_day(snapshot_as_of)
+    if d_snap is None:
+        return stale_mult, "snapshot_asof_unparseable"
+    d_rec = _parse_iso_day(record_as_of)
+    if d_rec is None:
+        return stale_mult, "timestamp_unparseable"
     age_days = (d_snap - d_rec).days
+    if age_days < -_FUTURE_TIMESTAMP_TOLERANCE_DAYS:
+        return stale_mult, "timestamp_in_future"
     if age_days > int(cfg["stale_after_days"]):
-        return float(cfg["stale_weight_mult"]), True
-    return 1.0, False
+        return stale_mult, "age_exceeds_stale_after_days"
+    return 1.0, None
 
 
 def _cap_weights(weights: list[float], cap_frac: float) -> list[float]:
@@ -246,11 +278,13 @@ def blend_consensus(
 
     scored: list[tuple[ProjectionRecord, float, float, bool]] = []
     stale: list[str] = []
+    stale_reasons: list[tuple[str, str]] = []
     for r in recs:
         fpg, native = r.resolve_fpg(scoring_settings)
-        w, is_stale = _staleness_weight(r.as_of, snapshot_as_of, params)
-        if is_stale:
+        w, stale_reason = _staleness_weight(r.as_of, snapshot_as_of, params)
+        if stale_reason is not None:
             stale.append(r.source)
+            stale_reasons.append((r.source, stale_reason))
         scored.append((r, fpg, w, native))
 
     # Vocabulary-aware down-weighting.  A stat-line record whose
@@ -317,6 +351,7 @@ def blend_consensus(
         any_proxy=any(r.is_proxy for (r, _, _, _) in scored),
         all_scoring_native=all(native for (_, _, _, native) in scored),
         stale_sources=tuple(stale),
+        stale_reasons=tuple(stale_reasons),
         vocabulary_limited=tuple(vocab_limited),
     )
 

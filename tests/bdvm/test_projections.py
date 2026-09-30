@@ -78,6 +78,15 @@ class TestConsensus(unittest.TestCase):
         # stale weight 0.5 → mu = (10 + 0.5*20)/1.5 = 13.333
         self.assertAlmostEqual(c.mu_fpg, 40.0 / 3.0, places=6)
 
+    def test_valid_stale_source_reason_is_age(self):
+        c = blend_consensus(
+            [rec("fresh", 10.0, as_of="2026-07-25"), rec("stale", 20.0, as_of="2026-05-01")],
+            scoring_settings=SCORING,
+            snapshot_as_of="2026-07-27",
+            params=PARAMS,
+        )
+        self.assertEqual(c.stale_reasons, (("stale", "age_exceeds_stale_after_days"),))
+
     def test_single_source_cap_limits_dominance(self):
         # Weight capping only matters with unequal weights (stale mix):
         # one fresh source among 3 stale ones cannot exceed 35% share.
@@ -102,6 +111,78 @@ class TestConsensus(unittest.TestCase):
             params=PARAMS,
         )
         self.assertTrue(c.any_proxy)
+
+
+class TestStalenessFailsClosed(unittest.TestCase):
+    """MISSING IS NEVER FRESH: an age that cannot be measured is UNKNOWN.
+
+    Staleness is measured against the snapshot's own asOf.  A record
+    whose timestamp cannot be parsed, is absent, or sits in the future
+    relative to that asOf has no measurable age, so it takes the same
+    stale down-weight a measurably old source takes and is flagged with
+    a reason — never full weight as though it were current.
+    """
+
+    SNAP = "2026-07-27"
+
+    def _blend(self, recs, snapshot_as_of=None):
+        return blend_consensus(
+            recs,
+            scoring_settings=SCORING,
+            snapshot_as_of=self.SNAP if snapshot_as_of is None else snapshot_as_of,
+            params=PARAMS,
+        )
+
+    def test_malformed_record_timestamp_is_stale_not_fresh(self):
+        c = self._blend(
+            [rec("fresh", 10.0, as_of="2026-07-25"), rec("bad", 20.0, as_of="7/20/2026")]
+        )
+        self.assertIn("bad", c.stale_sources)
+        self.assertIn(("bad", "timestamp_unparseable"), c.stale_reasons)
+        # stale weight 0.5 → mu = (10 + 0.5*20)/1.5, not the full-weight 15.0
+        self.assertAlmostEqual(c.mu_fpg, 40.0 / 3.0, places=6)
+
+    def test_absent_record_timestamp_is_stale_not_fresh(self):
+        for missing in ("", None):
+            with self.subTest(as_of=missing):
+                c = self._blend(
+                    [rec("fresh", 10.0, as_of="2026-07-25"), rec("bad", 20.0, as_of=missing)]
+                )
+                self.assertIn(("bad", "timestamp_unparseable"), c.stale_reasons)
+                self.assertAlmostEqual(c.mu_fpg, 40.0 / 3.0, places=6)
+
+    def test_future_dated_record_is_stale_not_fresh(self):
+        c = self._blend(
+            [rec("fresh", 10.0, as_of="2026-07-25"), rec("future", 20.0, as_of="2026-08-10")]
+        )
+        self.assertIn("future", c.stale_sources)
+        self.assertIn(("future", "timestamp_in_future"), c.stale_reasons)
+        self.assertAlmostEqual(c.mu_fpg, 40.0 / 3.0, places=6)
+
+    def test_one_day_future_is_within_tolerance(self):
+        # Same-day capture across a UTC boundary must not be penalized.
+        c = self._blend(
+            [rec("fresh", 10.0, as_of="2026-07-25"), rec("skew", 20.0, as_of="2026-07-28")]
+        )
+        self.assertEqual(c.stale_sources, ())
+        self.assertAlmostEqual(c.mu_fpg, 15.0, places=6)
+
+    def test_unparseable_snapshot_as_of_makes_every_age_unknown(self):
+        c = self._blend(
+            [rec("a", 10.0, as_of="2026-07-25"), rec("b", 20.0, as_of="2026-07-26")],
+            snapshot_as_of="not-a-date",
+        )
+        self.assertEqual(set(c.stale_sources), {"a", "b"})
+        self.assertEqual(
+            set(c.stale_reasons),
+            {("a", "snapshot_asof_unparseable"), ("b", "snapshot_asof_unparseable")},
+        )
+
+    def test_valid_fresh_timestamps_keep_full_weight(self):
+        c = self._blend([rec("a", 10.0, as_of="2026-07-27"), rec("b", 14.0, as_of="2026-07-06")])
+        self.assertEqual(c.stale_sources, ())
+        self.assertEqual(c.stale_reasons, ())
+        self.assertAlmostEqual(c.mu_fpg, 12.0, places=6)
 
 
 class TestRecordValidation(unittest.TestCase):
