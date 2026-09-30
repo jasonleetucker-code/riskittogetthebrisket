@@ -78,6 +78,7 @@ from src.api.data_contract import (
     validate_api_data_contract,
 )
 from src.api import gameplan as _gameplan
+from src.api.build_identity import PROCESS_BUILD
 from src.api import matchup_intel as _matchup_intel
 from src.api import roster_intelligence as _roster_intelligence
 from src.api import guest_passes as _guest_passes
@@ -5718,6 +5719,9 @@ async def get_status():
     return JSONResponse(
         content={
             **status_payload,
+            # Which commit this process is running, read once at import. Deploy
+            # verification compares it with the commit the workflow shipped.
+            "build": dict(PROCESS_BUILD),
             "contract": {
                 "version": API_DATA_CONTRACT_VERSION,
                 "health": contract_health,

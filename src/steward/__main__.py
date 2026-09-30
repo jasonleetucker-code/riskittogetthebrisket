@@ -186,6 +186,10 @@ def main(argv=None):
         "--save", action="store_true", help="persist observations and append a run receipt"
     )
     brief.add_argument("--available-model", action="append", default=[])
+    # Structured attribution of the saved evidence. Supply only what is actually known;
+    # omitted fields stay absent and the record reads as unattributed.
+    for field in ("session-id", "provider", "model"):
+        brief.add_argument(f"--producer-{field}")
     route = sub.add_parser("route")
     route.add_argument("task", type=Path)
     route.add_argument("--owner", type=Path)
@@ -243,6 +247,10 @@ def main(argv=None):
             or movement["classification"] in {"UNKNOWN_REQUIRES_INSPECTION", "RELEVANT_BASE_MOVE"}
             else 0
         )
+    if args.command == "brief" and not args.save:
+        producer_flags = (args.producer_session_id, args.producer_provider, args.producer_model)
+        if any(flag is not None for flag in producer_flags):
+            parser.error("--producer-* attribution is recorded only with --save")
     if args.command == "context":
         print(json.dumps(context(repo, args.paths, max_chars=args.max_chars), indent=2))
         return 0
@@ -288,6 +296,17 @@ def main(argv=None):
                     "content": {"receipt": receipt, "report": result, "github": remote},
                     "complete": True,
                 }
+                producer = {
+                    key: value
+                    for key, value in (
+                        ("session_id", args.producer_session_id),
+                        ("provider", args.producer_provider),
+                        ("model", args.producer_model),
+                    )
+                    if value is not None
+                }
+                if producer:
+                    raw["producer"] = producer
                 prior_revision, prior = store.read("campaign")
                 if prior_revision != result["state_revision"]:
                     raise ValueError("campaign changed during report; rerun before saving")

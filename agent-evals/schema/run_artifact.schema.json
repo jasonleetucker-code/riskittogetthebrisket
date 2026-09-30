@@ -67,7 +67,8 @@
     },
     "repo_head_start": {
       "type": ["string", "null"],
-      "pattern": "^[0-9a-f]{40}$"
+      "pattern": "^[0-9a-f]{40}$",
+      "description": "Pinned revision the run started from. With run_eval.py --repo, changed_files is verified against the actual diff from this revision to repo_head_end."
     },
     "repo_head_end": {
       "type": ["string", "null"],

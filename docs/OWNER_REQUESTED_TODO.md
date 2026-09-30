@@ -444,7 +444,7 @@ The following existing `T-NEW-*` requirements in `docs/OWNER_REQUESTED_TODO_SPEC
 | P1 Game Day UX | #1335 | Game Day information architecture | Redesign Game Day as a clean live-sports/fantasy command center: compact matchup hero, score/projection/win probability, 3–5 key swing factors, NFL slate as the primary body, progressive disclosure for lineups/best-ball diagnostics/provenance, plain-language states, mobile-first scannability. | PLANNED |
 | P1 public awards UX | Owner directive 2026-09-11 / T-NEW-09 | Awards Hub mobile hierarchy + weekly share snapshot | Make live player races the primary story in a deliberate MVP → OPOY/DPOY → OROY/DROY → positional order; move manager/team awards below; keep playoff/championship honors later-season and visually subordinate until relevant; prevent player/team imagery collisions; and provide a polished top-three-per-race snapshot that can be saved or screenshotted weekly on mobile. Preserve the canonical awards data/methodology and public-safe boundary. | FEATURE_GREEN — `codex/awards-mobile-redesign`; integration/deploy and real-iPhone verification pending |
 | P0 planning/process integrity | #1336 | Owner-intent zero-loss recovery | Reconcile two months of recoverable chat-derived owner intent into this live intake, preserve provenance/supersession, and prevent future “assistant said added but no durable intake entry” failures. | IN PROGRESS |
-| P1 engineering/harness process | Owner directive, 2026-09-12 | Agent-harness external-guidance reconciliation | Reconcile GPT-6 Astra / agent-harness external guidance (official OpenAI Astra post, 15 owner-supplied X posts, owner cost-aware delegation-tree pattern) against current Agent OS/Steward so future agents adopt genuinely new mechanisms once instead of repeatedly rediscovering the same external advice. Full source-by-source matrix, adopted/rejected rationale and deferred work: `docs/engineering/AGENT_HARNESS_EXTERNAL_GUIDANCE_RECONCILIATION_2026-09-12.md`. Built the one concretely missing piece found by the reconciliation, `agent-evals/` (engineering-reliability Priority 8); deferred a small Steward evidence-attribution gap and any CLAUDE.md/skill progressive-disclosure work already owned by PR #1344. Capture only — does not change `docs/EXECUTION_PLAN.md` authorization. | CAPTURED / PARTIAL (agent-evals/ foundation implemented; remaining items deferred per the reconciliation doc) |
+| P1 engineering/harness process | Owner directive, 2026-09-12 | Agent-harness external-guidance reconciliation | Reconcile GPT-6 Astra / agent-harness external guidance (official OpenAI Astra post, 15 owner-supplied X posts, owner cost-aware delegation-tree pattern) against current Agent OS/Steward so future agents adopt genuinely new mechanisms once instead of repeatedly rediscovering the same external advice. Full source-by-source matrix, adopted/rejected rationale and deferred work: `docs/engineering/AGENT_HARNESS_EXTERNAL_GUIDANCE_RECONCILIATION_2026-09-12.md`. Built the one concretely missing piece found by the reconciliation, `agent-evals/` (engineering-reliability Priority 8); deferred a small Steward evidence-attribution gap and any CLAUDE.md/skill progressive-disclosure work already owned by PR #1344. **2026-09-30 extension (owner-supplied architecture review + links 16–25):** same record, Part H — source access vs adoption, a code-backed architecture map, the application-architecture queue mapped to engineering-reliability Priorities 1/2/3/6/10 (not authorized), and two confirmed-gap fixes: Steward raw-evidence validation on every insertion path plus structured producer attribution (closes the deferred attribution item; branch `claude/steward-evidence-validation`) and evidence-backed agent-evals grading of changed files against the pinned diff (branch `claude/agent-evals-diff-evidence`). Capture only — does not change `docs/EXECUTION_PLAN.md` authorization. | CAPTURED / PARTIAL (agent-evals/ foundation implemented; 2026-09-30 fixes in PR; test-evidence binding and the application queue open per Part H.5/H.7) |
 
 ### Recovered product-family pointers
 
@@ -1179,6 +1179,27 @@ Owner requested that the scoring-comparison work begin taking **2026 scoring** i
 - **Status.** Not observed in production (production shows `countedWeeks` [1, 2] with 4-game records). Needs an
   authorization pointer before implementation.
 
+## Added 2026-09-29 — perishable-evidence capture audit (owner directive)
+Owner instruction: identify any data that will be impossible to recreate later. When a needed evidence stream is not
+being preserved, record it in Calculator Ideas / the canonical backlog with the minimum required capture path.
+**Prefer capturing perishable evidence now over reconstructing it later with hindsight.**
+- **Durable record:** `docs/BRISKET_IDEAS.md` §13. It holds the preserved-stream table, gaps G1–G8 (owner, what is
+  lost, minimum capture path) and the already-lost list. It is not a second backlog.
+- **Gaps map to existing native owners; no new ID is minted:**
+  - G1 raw Sleeper weekly projections pruned after 4 weeks → `C5-GD-02` / `C5-ROS-01` (#854). This is the only gap
+    with a dated loss clock: Week 1 raw logs go at the first collector tick of Week 6, ≈2026-10-13.
+  - G2 KTC Trade Database window → `C4-MTL-02`.
+  - G3 KTC unselected format variants → `C1-SRC-01`.
+  - G4 as-known injury/news → `C6-ANA-01` / `C7-ALERT-01`.
+  - G5 draft-time state → `C7-DRAFT-02`.
+  - G6 league settings beyond scoring → `C1-RET-04` / `C1-HIST-01`.
+  - G7 backup coverage → `docs/retention/RETENTION_REGISTER.md`.
+  - G8 served recommendations → the existing R14 / Adaptive Learning record.
+- **Planning position:** G1 is NEXT (dated). G7, G3 and G4 are NEXT. G2 and G6 are LATER. G5 is LATER but must land
+  before the 2027 rookie auction.
+- **Authority:** all gaps are **NOT AUTHORIZED**. Capture is not implementation authorization, and
+  `docs/EXECUTION_PLAN.md` is unchanged.
+
 ## Added 2026-09-29 — Rookie Auction Room: build it now, mock-first, live-gated (owner directive)
 
 | Priority | Issue | Area | Required outcome | Status |
@@ -1192,6 +1213,20 @@ clocks, one-active-hour extension, 13-active-hour nomination timeout with audite
 tie rule, withdrawal policy, outage policy, six-rounds = six nomination opportunities) are listed in
 `src/auction/rules.py::PROPOSED_RULE_KEYS` and must be confirmed together on the room's
 rule-confirmation screen before an official room can start. They do not block mocks.
+
+## Added 2026-09-30 — harness recommendations accepted ("Whatever you recommend")
+
+The owner accepted the recommendations that closed the 2026-09-30 harness reconciliation
+(full record: `docs/engineering/AGENT_HARNESS_EXTERNAL_GUIDANCE_RECONCILIATION_2026-09-12.md` Part H;
+authorization: `docs/EXECUTION_PLAN.md` "Served build identity — owner authorization, 2026-09-30").
+
+| Item | Disposition |
+|---|---|
+| Merge the reviewed harness PRs #1536 (Steward evidence validation + record) and #1542 (CI-backed test evidence) once green | DONE — both merged after green CI (2026-09-30) |
+| Served build identity: `/api/status` reports the running commit; the deploy smoke test fails on a mismatch (Part H.5 item 1, Priority 3) | DONE — #1543 merged, deployed and production-verified (2026-09-30) |
+| Re-run the closed PR #1344 CLAUDE.md/skill progressive-disclosure audit | DEFERRED — high collision with active lanes, low current value; revisit when the active lanes quiet |
+| Remaining Part H.5 queue (typed contract slice, provenance views, parser replay, declarative boundaries, request/snapshot identity) | NOT AUTHORIZED — backlog only |
+| Pin the box to the guarded SHA on manual deploys (`deploy.yml` passes the raw `deploy_ref`; the box resolves a branch name after its own fetch, so a manual deploy of `main` can ship a newer commit than the guard and validate job judged — found by the build-identity review; the new check now reports it) | NOT AUTHORIZED — follow-up, changes deploy behaviour |
 
 ## Added 2026-09-30 — DFS: dedicated daily-fantasy section (owner directive)
 

@@ -99,6 +99,92 @@ underlying work was correct. Closing that gap — confirming a flagged claim aga
 the actual transcript/diff — is a separate, human or independent-reviewer step,
 consistent with `docs/AGENT_OPERATING_SYSTEM.md` §4's "Independent reviewer" role.
 
+### Evidence levels — one check can be established from an artifact
+
+Every check in a grade result carries a level:
+
+| level | meaning |
+|---|---|
+| `DECLARED` | graded on what the run artifact says about itself (status, summary strings, `UNRESOLVED`, flags) |
+| `VERIFIED_AGAINST_ARTIFACT` | graded on an artifact the run did not write |
+| `NOT_CHECKED` | no trusted evidence was available; stated with a reason, never counted as a pass |
+
+With `--repo <local repository>`, `graders/diff_evidence.py` computes the actual
+changed files between the artifact's pinned `repo_head_start` and `repo_head_end`
+(`git diff --name-only --no-renames`, no shell, 30 s timeout, output capped). The
+declared `changed_files` must then equal that set exactly, and the case's path
+globs are judged on the actual diff. A run that reports success while its diff
+touches a forbidden path fails; so does one whose pinned diff cannot be
+established for any reason (unresolvable revision, past the 5,000-file / 4 MiB
+bound, git failure, timeout) -- it never falls back to the self-report.
+
+**Grade against a clean clone you control**, not the evaluated agent's working
+copy: the repository's config, attributes and objects are trusted, and the run may
+have edited its own checkout. An unusable `--repo` or missing git is a grading
+error (exit 2), not a pass.
+
+Limits, stated plainly:
+
+- The diff proves the tree difference between two commits that exist in that
+  repository. It does not prove the run authored them, that they are the commits
+  it worked on, or that the change is correct.
+- Revisions must be full 40-character lowercase SHAs (schema pattern); anything
+  else is a malformed artifact, so SHA-256 repositories are not supported yet
+  (fails closed). Absent revisions leave the check `NOT_CHECKED` unless
+  `--require-verified-diff` is given.
+- Artifacts are untrusted data: bounded at 1 MiB, never executed, and no declared
+  path is opened. Git runs with lazy fetch, transports, prompts, optional locks and
+  fsmonitor disabled, so a pinned missing object in a partial clone cannot trigger
+  a fetch or a configured upload-pack command.
+- Test results: a self-reported flag such as `regression_test_added` stays
+  `DECLARED`. A case can list `required_ci_workflows`; with `--ci-repo owner/name`
+  each is checked against GitHub Actions' own records for the pinned
+  `repo_head_end` (read-only `gh api`: the workflow runs for that SHA, and the
+  timelines of the PRs those runs name). Only the operator repository's own
+  `push` / `pull_request` runs for that exact `head_sha` count; the run that
+  started last decides. A failed run fails the grade even when the artifact
+  declares success.
+- A green run counts as `VERIFIED_AGAINST_ARTIFACT` only when the bytes that ran
+  are proven trusted: with `--repo` and `--trusted-ref` — a full SHA or a fully
+  qualified `refs/remotes/…` / `refs/heads/…` name such as
+  `refs/remotes/origin/main`; short names and tags are refused because a pushed
+  tag can shadow a short name — the
+  gate machinery at the revision (workflows, `scripts/ci_*`, `scripts/check_*`,
+  `conftest.py`, `pyproject.toml`, `ruff.toml`, requirements and lockfiles,
+  frontend build config — the list is `CI_GATE_GLOBS` in `graders/diff_evidence.py`)
+  must be unchanged relative to trusted history as it stood before the revision
+  arrived: `merge-base(trusted ref, revision)` while unmerged, the first parent of
+  the merge commit that brought it in once merged, and refused
+  (`revision_on_trusted_first_parent_line` / `revision_is_trusted_tip`) for a
+  commit pushed straight onto the trusted ref. That point never comes from the
+  artifact's own `repo_head_start`, which could be chosen to hide an earlier edit.
+  A `push` run executes the revision's own files, so its gate files must also
+  equal trusted history as it stood (`ci_gate_stale` for a branch cut before the
+  gate was tightened).
+  A `pull_request` run executes the workflow from the merge with the PR's base.
+  GitHub computes a run's `pull_requests` when queried, from currently open PRs,
+  so it is trusted only when an entry's `head.sha` is the run's SHA, every such
+  entry targets `--ci-base-branch` (default `main`), and that PR's timeline shows
+  no `base_ref_changed` (`ci_base_retargeted`; an unreadable or possibly truncated
+  timeline is `ci_base_unproven`). A merged or closed PR drops out of that record,
+  so a PR run verifies only while its PR is open. Commit-level PR listings are not
+  used: they omit closed PRs. Otherwise the check is `NOT_CHECKED` with the
+  reason (`ci_gate_changed_in_run`, `ci_base_not_trusted`, `ci_base_unproven`,
+  `workflow_identity_unverified`, `no_ci_run_for_revision`, …), failing only with
+  `--require-verified-ci`. Missing `gh` or a bad slug is a grading error (exit 2).
+- **The trust anchor must be out of the evaluated agent's reach.** Everything
+  above assumes the agent cannot write `--trusted-ref`. If it can push to that
+  branch (unprotected `main`, direct-push authority), it can land a gate edit there
+  first and branch from it; pass instead a full SHA recorded before the run.
+- Residual CI limits: `CI_GATE_GLOBS` is a maintained list, not a proof that
+  nothing else can influence a gate; a `pull_request` run tested the merge
+  with the base as it stood then, not the commit alone; tests the run edited are
+  part of what was tested; `gh` and `git` are resolved from `PATH` (on Windows the
+  current directory too), and `GH_HOST` is honoured as operator configuration —
+  run the grader from a trusted directory.
+- One verified check never makes a run verified. The CLI prints
+  `run as a whole: NOT VERIFIED` on every result.
+
 ## Capturing a real run
 
 1. Pick a case: `python agent-evals/run_eval.py --list`.
