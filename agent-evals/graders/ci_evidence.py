@@ -91,7 +91,7 @@ def _gh_json(endpoint: str, run):
 def _repo_id(record, key):
     value = record.get(key)
     repo_id = value.get("id") if isinstance(value, dict) else None
-    return repo_id if isinstance(repo_id, int) else None
+    return repo_id if type(repo_id) is int else None  # not bool
 
 
 def _pulls_for_head(record, head) -> list[dict] | None:
