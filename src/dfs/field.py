@@ -214,3 +214,40 @@ def fit_metrics(
         "distinctLineups": len(dups),
         "sampleDuplicateShare": round(sum(c for c in dups.values() if c > 1) / n, 4),
     }
+
+
+def implied_ownership(
+    athletes: list[Any],
+    ruleset: RuleSet,
+    *,
+    sport: str,
+    weights: dict[str, float],
+    size: int = 4000,
+    seed: int = 0,
+    params: dict[str, Any] | None = None,
+) -> dict[str, float]:
+    """Ownership read off a generated field: FEASIBLE by construction (challenger, DFS-MOD-02).
+
+    The structural baseline spreads each slot's 100% without regard to the
+    salary cap, so its targets can be unreachable together (measured on the NFL
+    fixture: an irreducible ~5.4-point MAE gap no raking closes, while a feasible
+    target rakes to ~0.4).  Sampling legal lineups from the same weights and
+    reading off frequencies respects the cap.  Whether it predicts REAL
+    ownership better is an open question for settled results, not this module.
+    """
+    res = generate(
+        athletes,
+        ruleset,
+        weights,
+        sport=sport,
+        size=size,
+        seed=seed,
+        params={"rake_rounds": 1, **(params or {})},
+    )
+    freq = Counter(x for lu in res.lineups for x in lu)
+    n = max(len(res.lineups), 1)
+    return {
+        a.player_id: round(100.0 * freq.get(a.player_id, 0) / n, 4)
+        for a in athletes
+        if a.player_id in weights
+    }

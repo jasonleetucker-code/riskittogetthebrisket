@@ -40,15 +40,57 @@ def test_every_generated_lineup_is_legal_and_uses_the_salary_floor(slate):
     assert res.fit["salaryUsed"]["p10"] >= floor
 
 
-def test_raking_measurably_closes_the_gap_to_target_ownership(slate):
-    athletes, own = slate
-    naive = field.generate(
-        athletes, DK, own, sport="nfl", size=1500, seed=2, params={"rake_rounds": 1}
+def test_raking_closes_the_gap_to_a_feasible_target(slate):
+    """Raking toward a target a legal field CAN realize (another field's frequencies)."""
+    athletes, _ = slate
+    alt = {
+        k: v
+        for k, v in ownership.structural_baseline(athletes, DK, {"bv": 2.5, "bp": 0.0}).items()
+        if v
+    }
+    feasible = field.implied_ownership(
+        athletes, DK, sport="nfl", weights=alt, size=4000, seed=77, params={"stack_strength": 0.0}
+    )
+    feasible = {k: v for k, v in feasible.items() if v > 0}
+    one = field.generate(
+        athletes,
+        DK,
+        feasible,
+        sport="nfl",
+        size=3000,
+        seed=5,
+        params={"rake_rounds": 1, "stack_strength": 0.0},
     )
     raked = field.generate(
-        athletes, DK, own, sport="nfl", size=1500, seed=2, params={"rake_rounds": 5}
+        athletes,
+        DK,
+        feasible,
+        sport="nfl",
+        size=3000,
+        seed=5,
+        params={"rake_rounds": 4, "stack_strength": 0.0},
     )
-    assert raked.fit["ownershipGap"]["mae"] < naive.fit["ownershipGap"]["mae"]
+    assert raked.fit["ownershipGap"]["mae"] < 0.6 * one.fit["ownershipGap"]["mae"]
+
+
+def test_structural_targets_can_be_infeasible_and_the_gap_is_reported_not_hidden(slate):
+    """Negative finding, pinned: the structural baseline ignores the salary cap, so
+    its targets cannot all be realized together — the residual is reported."""
+    athletes, own = slate
+    res = field.generate(
+        athletes, DK, own, sport="nfl", size=2000, seed=2, params={"rake_rounds": 4}
+    )
+    assert res.fit["ownershipGap"]["mae"] > 2.0
+
+
+def test_implied_ownership_is_feasible_by_construction(slate):
+    athletes, own = slate
+    imp = field.implied_ownership(athletes, DK, sport="nfl", weights=own, size=2000, seed=3)
+    by_id = {a.player_id: a for a in athletes}
+    qb = sum(v for k, v in imp.items() if "QB" in by_id[k].positions)
+    assert qb == pytest.approx(100.0, abs=1e-6) and sum(imp.values()) == pytest.approx(
+        900.0, abs=0.01
+    )
 
 
 def test_stack_strength_is_a_real_switch(slate):
