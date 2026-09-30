@@ -3,9 +3,14 @@
 Extends the existing explain surface (``src/api/source_weighting_explain.py``,
 ``GET /api/players/{player}/value-explain``) with what that view cannot show:
 
-* **Pins** -- the code revision, the raw payload, every source CSV, every
-  freshness-state file, the freshness config and the relevant feature flags, each
-  content-hashed, so a replay states exactly which inputs produced its numbers.
+* **Pins** -- the code revision; the raw payload; every source CSV; every
+  freshness-state file and fetch stamp; every file under ``config/``; the local
+  (gitignored) league snapshots under ``data/leagues/`` -- the draft-class
+  snapshot there decides whether a completed draft's picks retire, which alone
+  moves ~90 board rows; the full feature-flag snapshot; and the live Sleeper league
+  context the build fetched. A replay elsewhere reproduces the board only when
+  these match. The inventory was measured on 2026-09-30 by auditing a build's file
+  reads; it is a manifest of known inputs, not a proof nothing else is read.
 * **Stage outputs** read from the row the canonical pipeline itself stamped
   (``sourceRankMeta``): per-source raw value, transformed value, path
   (value-direct vs rank->Hill), configured and applied weights, freshness,
@@ -43,7 +48,6 @@ from src.api import feature_flags
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REPLAY_SCHEMA = "value-replay/v1"
-_FLAGS = ("source_freshness_weighting", "source_family_cap", "te_basis_conversion")
 _META_FIELDS = (
     "valueContribution",
     "valueContributionPath",
@@ -106,14 +110,26 @@ def _git(*args: str) -> str | None:
 
 
 def pins(payload_path: Path, root: Path = REPO_ROOT) -> dict[str, Any]:
-    """Content identity of every input a local build reads."""
+    """Content identity of the known inputs of a local build (see module docstring)."""
     csv_dir = root / "CSVs" / "site_raw"
     state_dir = root / "data" / "scrape_state"
     config = root / "config" / "sources" / "freshness_v1.json"
+    leagues = root / "data" / "leagues"
     payload = json.loads(payload_path.read_text(encoding="utf-8"))
     return {
         "codeRevision": _git("rev-parse", "HEAD"),
-        "workingTreeDirty": bool(_git("status", "--porcelain", "--", "src", "config", "CSVs")),
+        "workingTreeDirty": bool(
+            _git(
+                "status",
+                "--porcelain",
+                "--",
+                "src",
+                "config",
+                "CSVs",
+                "data/scrape_state",
+                "exports/latest",
+            )
+        ),
         "payload": {
             "path": str(payload_path.relative_to(root))
             if payload_path.is_relative_to(root)
@@ -123,8 +139,24 @@ def pins(payload_path: Path, root: Path = REPO_ROOT) -> dict[str, Any]:
         },
         "sourceCsvs": {p.name: _sha256(p) for p in sorted(csv_dir.glob("*.csv"))},
         "freshnessState": {p.name: _sha256(p) for p in sorted(state_dir.glob("*_dataset.json"))},
+        "fetchStamps": {
+            p.name: p.read_text(encoding="utf-8").strip()
+            for p in sorted(state_dir.glob("*_last_success"))
+        },
         "freshnessConfig": _sha256(config) if config.exists() else None,
-        "flags": {name: feature_flags.is_enabled(name) for name in _FLAGS},
+        "config": {
+            str(p.relative_to(root)).replace("\\", "/"): _sha256(p)
+            for p in sorted((root / "config").rglob("*"))
+            if p.is_file()
+        },
+        "localLeagueSnapshots": {
+            "tracked": False,
+            "files": {p.name: _sha256(p) for p in sorted(leagues.glob("*.json"))}
+            if leagues.is_dir()
+            else {},
+            "note": "gitignored; a checkout without them keeps completed-draft picks (1131 vs 1041 rows on 2026-09-30)",
+        },
+        "flags": feature_flags.snapshot(),
         "contractVersion": dc.CONTRACT_VERSION,
         "hampel": {
             "k": dc._HAMPEL_K,
@@ -204,6 +236,32 @@ def counterfactual_specs(families: Mapping[str, str], keys: list[str]) -> dict[s
     return specs
 
 
+@contextlib.contextmanager
+def _recording_league_context(sink: list) -> Iterator[None]:
+    """Record the live Sleeper league context a build fetches (a network input)."""
+    original = dc._resolve_league_context
+
+    def recording(*args, **kwargs):
+        result = original(*args, **kwargs)
+        sink.append(
+            {
+                "args": [a for a in args if isinstance(a, (str, int, float))],
+                "result": {
+                    k: v
+                    for k, v in (result or {}).items()
+                    if isinstance(v, (str, int, float, bool))
+                },
+            }
+        )
+        return result
+
+    dc._resolve_league_context = recording
+    try:
+        yield
+    finally:
+        dc._resolve_league_context = original
+
+
 def build(raw_payload: Mapping[str, Any], spec: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """One canonical build, optionally under one counterfactual ``spec``."""
     spec = spec or {}
@@ -256,6 +314,11 @@ def asset_view(contract: Mapping[str, Any], name: str) -> dict[str, Any] | None:
 
 def blend_check(row: Mapping[str, Any]) -> dict[str, Any]:
     """Recompute the blend from the stamped survivors, to CHECK the stamps.
+
+    A consistency check, not an independent one: it uses the pipeline's own
+    aggregator over the pipeline's own stamped weights, so it confirms the stamps
+    explain the published number (within 1 point -- the pipeline truncates to int)
+    but cannot detect an error in the weights or the aggregator themselves.
 
     Only meaningful for offense rows (flat blend, no anchor shrinkage); other
     asset classes report ``not_applicable`` rather than a misleading number.
@@ -407,20 +470,26 @@ def replay(
     assets: list[str],
     *,
     counterfactuals: list[str] | None = None,
+    extra_leave_outs: Mapping[str, list[str]] | None = None,
     progress: Callable[[str], None] | None = None,
 ) -> dict[str, Any]:
     """Pinned baseline + named counterfactual rebuilds for ``assets``."""
     raw = json.loads(payload_path.read_text(encoding="utf-8"))
     families = source_families()
-    base = build(raw)
+    live_inputs: list = []
+    with _recording_league_context(live_inputs):
+        base = build(raw)
     keys = sorted(
         {k for r in base.get("playersArray") or [] for k in (r.get("sourceRankMeta") or {})}
     )
     specs = counterfactual_specs(families, keys)
+    for name, members in (extra_leave_outs or {}).items():
+        specs[f"leave_out_set:{name}"] = {"kind": "source_override", "disable": sorted(members)}
     chosen = counterfactuals if counterfactuals is not None else list(specs)
     result: dict[str, Any] = {
         "schema": REPLAY_SCHEMA,
-        "pins": pins(payload_path),
+        "pins": {**pins(payload_path), "liveLeagueContext": live_inputs},
+        "boardRows": len(base.get("playersArray") or []),
         "sourceFamilies": {k: families.get(k, k) for k in keys},
         "assets": {
             name: {"baseline": asset_view(base, name), "counterfactuals": {}} for name in assets

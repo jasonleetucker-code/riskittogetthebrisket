@@ -89,12 +89,30 @@ def test_hampel_off_counterfactual_leaves_no_outlier_drops(raw_payload):
     assert not any(r.get("droppedSources") for r in other["playersArray"])
 
 
-def test_pins_hash_every_input_the_build_reads(raw_payload):
+def test_pins_cover_the_known_input_inventory(raw_payload):
     pinned = vr.pins(raw_payload)
     assert len(pinned["payload"]["sha256"]) == 64
     assert pinned["sourceCsvs"] and all(len(h) == 64 for h in pinned["sourceCsvs"].values())
-    assert pinned["freshnessState"]
-    assert set(pinned["flags"]) >= {"source_freshness_weighting", "source_family_cap"}
+    assert pinned["freshnessState"] and pinned["fetchStamps"]
+    # Inputs a build reads that the first version missed (independent review):
+    for cfg in (
+        "config/model_registry/hill_scope_masters.json",
+        "config/weights/pick_year_discount.json",
+    ):
+        assert cfg in pinned["config"]
+    assert pinned["localLeagueSnapshots"]["tracked"] is False
+    assert set(pinned["flags"]) >= {
+        "source_freshness_weighting",
+        "source_family_cap",
+        "multi_bridge_ladder",
+    }
+
+
+def test_replay_records_the_live_league_context_it_used(raw_payload):
+    result = vr.replay(raw_payload, [], counterfactuals=[])
+    assert isinstance(result["pins"]["liveLeagueContext"], list)
+    assert result["boardRows"] > 0
+    assert dc._resolve_league_context.__name__ != "recording"  # restored
 
 
 def test_family_counterfactuals_exist_only_for_multi_member_families():

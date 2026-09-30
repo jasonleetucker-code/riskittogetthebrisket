@@ -89,8 +89,10 @@ def markdown(result: dict) -> str:
         f"scrape `{pins['payload']['scrapeTimestamp']}`",
         f"- Flags: {pins['flags']}; outlier filter {pins['hampel']}; "
         f"single-source retention {pins['singleSourceRetention']}",
-        f"- {len(pins['sourceCsvs'])} source CSVs and {len(pins['freshnessState'])} freshness-state "
-        "files hashed in the JSON.",
+        f"- {len(pins['sourceCsvs'])} source CSVs, {len(pins['freshnessState'])} freshness-state files, "
+        f"{len(pins['config'])} config files and {len(pins['localLeagueSnapshots']['files'])} local "
+        "(gitignored) league snapshots hashed in the JSON; live Sleeper league context recorded.",
+        f"- Board rows: {result['boardRows']}.",
         "",
         "> " + result["interpretation"],
         "",
@@ -153,6 +155,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--counterfactual", action="append", default=None, help="Limit to these (default all)."
     )
+    parser.add_argument(
+        "--leave-out-set",
+        action="append",
+        default=[],
+        metavar="NAME=src1,src2",
+        help="Add a counterfactual that disables several sources together.",
+    )
     parser.add_argument("--json", type=Path)
     parser.add_argument("--markdown", type=Path)
     args = parser.parse_args(argv)
@@ -164,10 +173,17 @@ def main(argv: list[str] | None = None) -> int:
         assets += [a for a in contrast_set(base) if a not in assets]
     if not assets:
         parser.error("name at least one --asset or pass --contrast")
+    extra = {}
+    for item in args.leave_out_set:
+        name, _, members = item.partition("=")
+        if not name or not members:
+            parser.error(f"--leave-out-set expects NAME=src1,src2, got {item!r}")
+        extra[name] = [m.strip() for m in members.split(",") if m.strip()]
     result = vr.replay(
         payload,
         assets,
         counterfactuals=args.counterfactual,
+        extra_leave_outs=extra,
         progress=lambda name: print(f"  rebuilding: {name}", file=sys.stderr),
     )
     if args.json:
