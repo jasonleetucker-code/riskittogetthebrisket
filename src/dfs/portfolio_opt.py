@@ -290,5 +290,6 @@ def build_portfolio(
         "selection": sel,
         "result": final,
         "vsProjectionBaseline": comparison,
+        "baselineLineups": [list(lineups[i]) for i in base_idx],
         "note": "Decision support only: nothing is entered or submitted. Model output, not evidence of profit.",
     }

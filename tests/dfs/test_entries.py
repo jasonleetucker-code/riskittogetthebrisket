@@ -476,3 +476,42 @@ def test_portfolio_endpoint_returns_a_frozen_decision_and_validates_inputs(clien
     assert bad.status_code == 400
     lg = client.post("/api/dfs/portfolio", json={**body, "objective": "log_growth"}, headers=h)
     assert lg.status_code == 400  # a bankroll is required
+
+
+def test_backtest_endpoint_scores_a_settled_contest_and_bounds_its_inputs(client):
+    h = {"x-user": "a"}
+    snap = client.post(
+        "/api/dfs/slates",
+        json={
+            "salaryCsv": (FIX / "synthetic_dk_nfl_classic_salaries.csv").read_text(
+                encoding="utf-8"
+            ),
+            "projectionCsv": (FIX / "synthetic_dk_nfl_classic_projections.csv").read_text(
+                encoding="utf-8"
+            ),
+        },
+        headers=h,
+    ).json()
+    qb = next(a for a in snap["athletes"] if a["positions"] == ["QB"])
+    head = (
+        "Rank,EntryId,EntryName,TimeRemaining,Points,Lineup,,Player,Roster Position,%Drafted,FPTS"
+    )
+    res = client.post(
+        "/api/dfs/results",
+        json={
+            "snapshotId": snap["snapshotId"],
+            "standingsCsv": f"{head}\n,,,,,,,{qb['name']},QB,40%,25\n",
+        },
+        headers=h,
+    ).json()
+    r = client.post("/api/dfs/backtest", json={"items": [{"resultId": res["resultId"]}]}, headers=h)
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["contests"] == 1 and "never forward evidence" in out["note"]
+    assert out["summary"]["ownership.structural@prior"]["n"] == 1
+    too_many = client.post(
+        "/api/dfs/backtest",
+        json={"items": [{"resultId": "x"}] * 11, "replayPortfolio": True},
+        headers=h,
+    )
+    assert too_many.status_code == 400
