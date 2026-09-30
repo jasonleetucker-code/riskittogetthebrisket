@@ -748,9 +748,11 @@ export function priceBand(price, sigma, z = 0.674) {
   const p = Math.max(0, Number(price) || 0);
   const s = Math.max(0, Number(sigma) || 0);
   return {
-    low: Math.max(1, Math.round(p * Math.exp(-z * s))),
+    // $0 is a legal price in this league (owner rule 2026-09-29): a $0
+    // expectation has a $0 band, never an invented $1 floor.
+    low: Math.max(0, Math.round(p * Math.exp(-z * s))),
     expected: Math.round(p),
-    high: Math.max(1, Math.round(p * Math.exp(z * s))),
+    high: Math.max(0, Math.round(p * Math.exp(z * s))),
   };
 }
 
@@ -1510,6 +1512,7 @@ export function contestedPrice(rookie, basis = "fair") {
   if (raw === null || raw === undefined || raw === "") return fair;
   const rival = Number(raw);
   if (!Number.isFinite(rival) || rival < 0) return fair;
-  // One dollar beats the field; never below $1, which is the auction minimum.
-  return Math.max(1, Math.min(fair, Math.floor(rival) + 1));
+  // One dollar beats the field.  There is no $1 auction minimum — $0 bids and
+  // $0 wins are legal — so a $0 fair price stays $0.
+  return Math.max(0, Math.min(fair, Math.floor(rival) + 1));
 }

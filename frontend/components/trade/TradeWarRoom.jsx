@@ -45,6 +45,7 @@ import {
   unavailableText,
   validAnalyzePayload,
 } from "@/lib/trade-war-room";
+import { RECOMMENDATION_ONLY_TEXT } from "@/components/help/TradeHelp";
 import styles from "./war-room.module.css";
 
 const DEBOUNCE_MS = 700;
@@ -282,7 +283,9 @@ function Details({ analysis, raw }) {
           <p>
             Adjusted totals: you get {formatValue(market.receivingAdjusted) ?? "—"}, you give{" "}
             {formatValue(market.sendingAdjusted) ?? "—"} ({market.magnitude || "—"} gap). KTC VA is a
-            separate market lens; roster fit never changes an asset&apos;s value.
+            separate market lens; roster fit never changes an asset&apos;s value. It prices every asset at
+            its board value, so value overrides and the Raw value mode in the builder are not applied
+            here.
           </p>
         </section>
         {basis.source ? (
@@ -475,7 +478,8 @@ export default function TradeWarRoom({ request, leagueKey = "", useTeamContext =
 
       {state.status === "error" ? (
         <Banner tone="warning">
-          Analysis unavailable right now ({state.error}). The trade values above are unaffected.
+          Analysis unavailable right now ({state.error}). The package totals and verdict below are
+          unaffected.
         </Banner>
       ) : null}
 
@@ -493,6 +497,7 @@ export default function TradeWarRoom({ request, leagueKey = "", useTeamContext =
                 {String(analysis.confidence || "").toLowerCase()} confidence
               </span>
             </p>
+            <p className={styles.answerNote}>{RECOMMENDATION_ONLY_TEXT}</p>
             {analysis.topUncertainty ? (
               <p className={styles.topUncertainty}>
                 <span className={styles.answerLabel}>Biggest uncertainty</span> {analysis.topUncertainty}

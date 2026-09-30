@@ -995,6 +995,46 @@ retrospective analysis — NOT the removed schedule generator (X-01). Official P
 changes stay gated; MVP eligibility (.500 or better) and ungated Unified Manager of the Year are preserved.
 Authorization: `docs/EXECUTION_PLAN.md` §0.
 
+**Owner directive — draft-capital stack effect WITHDRAWN from trade totals; informational only (2026-09-29).**
+Active; supersedes the two same-day entries directly below (kept for history). The stack effect must not affect
+side totals, the verdict, fairness classification, multi-team comparisons, side flows, balancer suggestions, or any
+recommendation driven by package totals. Adjusted package total = raw canonical package value + Value Adjustment.
+The stack effect stays visible, labelled "experimental, not calibrated. Not included in the totals or verdict." No
+zero clamp; no quick recalibration. Implemented by #1527 (guard: `frontend/__tests__/trade-stack-withdrawn.test.js`).
+Future rebuild recorded in Calculator Ideas as issue #1529 — planning position **LATER** (depends on a canonical
+draft-year universe and canonical pick ownership), **NOT AUTHORIZED**; prerequisites S1-S8 and the validation plan
+live there. The league-pool-rate attempt is historical evidence of an insufficient calibration, not an accepted
+method. The Rookie Auction Room's dollar ledger is a separate concept and is not affected.
+
+**Owner decision — trade stack effect converts at the league pool rate (2026-09-29).** *(Superseded the same day —
+see the directive above.)*
+Owner report: the trade meter showed Side A at -2,603 after two 2029 late picks moved to it. Cause: the draft-capital
+stack effect converted league-wide auction-dollar premium shifts into board points at the moved picks' OWN rate (a
+$1-$2 late pick ~1,000+ points per $ vs ~44 for a first), on whole-dollar-rounded effective power -- flagged in the
+2026-08-04 decision-intelligence audit and never fixed. Owner choice (of: league pool rate / remove from the verdict /
+cap at the picks' value): **the league pool rate** -- sum of the board values of the draft's own picks divided by the
+dollars those picks carry; no pool rate means the stack effect is withheld, never a guessed rate. Premiums are computed
+on unrounded effective power (rounding is display-only).
+- **Superseding interim (same day), after the #1527 acceptance audit** (the owner required a full decomposition before
+  calling it fixed): the audit found the swings driven by data seams, not the rate -- the upcoming draft year differs
+  between draft capital (2027) and the board's pick lifecycle (2026); 2027 picks are counted twice in team stacks;
+  future-pick auction dollars are synthesized; picks can be "sent" by teams that do not hold them. Under the pool
+  rate an early pick from a $0 team still took a side to -963. **Owner decision: the stack effect is OUT of side
+  totals, the verdict, side flows and balancer suggestions now**, shown only as a labelled not-calibrated note.
+- **Owner principle for its return:** the stack term is an adjustment to package value and must not become the
+  dominant source of value merely because low-dollar picks are involved. It returns to the totals only once rebuilt
+  as an adjustment scoped to the moved picks' own value, with the seams fixed (draft-year universe, double count,
+  unowned picks); future-pick pricing and the conversion rate remain open model work. No arbitrary clamp.
+
+**Owner authorization — preserve pregame weekly projections from the Game Day prune (2026-09-29).**
+Authorized now, ahead of the ~2026-10-13 retention deadline (#1519 G1), sequenced after the #1517 → #1518 → #1516
+release queue. Smallest correct change: the raw pre-kickoff Sleeper weekly projection evidence must not be destroyed
+by the 4-week raw-log prune. Last valid pre-kickoff snapshot per player/game/week; timestamp, season/week, player and
+game identity, source/provenance and version preserved; never replaced with a later model; no second projection
+owner; bounded retention with measured storage; included in backup/restore; regression proving the prune cannot
+delete it. Not a broadening into the other #1519 gaps. Implementation: `docs/game-day/GAME_DAY_WEEK_RESOLVER.md`
+("Pregame weekly-projection archive").
+
 **Owner correction — award record eligibility is .500 OR BETTER (2026-09-29).**
 Binding; immediate; supersedes the record half of the 2026-09-26 League MVP decision below and every earlier
 "above .500" / "strictly greater than .500" / ".500 is not a winning record" statement.
@@ -1143,9 +1183,9 @@ Owner requested that the scoring-comparison work begin taking **2026 scoring** i
 
 | Priority | Issue | Area | Required outcome | Status |
 |---|---|---|---|---|
-| P1 owner build directive | Owner directive, 2026-09-29 | Rookie auction room (extends `C7-DRAFT-03` / `C7-U12`) | A native shared slow rookie auction hosted by Chase Upside: 12 seats, rookie-only, six rounds, at most 12 open lots, points-for (lowest first) nomination order supplied by the owner, $0 opening bids and $0 wins, whole-dollar private proxy bidding (A $50 vs B $39 → A at $40), per-seat budgets from current 2027 draft capital with commissioner overrides, 8 AM–9 PM America/New_York activity, early end when all money is spent, persistence across restart/deploy, solo/multiplayer mocks incl. invited non-league testers, notifications (esp. last active hour), live Perfect Draft integration. Official launch stays OFF until separate owner approval. Full contract, binding-vs-proposed rules and milestones: `docs/auction/ROOKIE_AUCTION_ROOM.md`. | IN PROGRESS — milestone B (mock ready) implemented |
-| P1 owner clarification | Owner, 2026-09-29 | Rookie auction room — money | LEADING BIDS RESERVE MONEY: $50 unspent while leading at $45 ⇒ only $5 available elsewhere; reserve every current winning price, release on a genuine outbid, convert once on winning; private maxima never execute past the currently affordable amount; two simultaneous requests cannot spend the same dollars; enforced server-side, preserved across restarts; Perfect Draft uses the same available balance; $0 bids remain legal; explicit regression tests for the example. Record: `docs/auction/ROOKIE_AUCTION_ROOM.md` §2 "Money". | IMPLEMENTED in the engine + tested; Perfect Draft adapter pending (milestone C) |
-| P1 owner directive (AUC-002) | Owner, 2026-09-29 | Rookie auction room — notifications | Native standards-based Web Push from the existing server (reuse `src/api/push_delivery.py` / pywebpush + VAPID, `frontend/public/sw.js`, the manifest and the SMTP email owner — ONE transport, no OneSignal/FCM/SMS/paid service), a durable in-app inbox, optional verified-email backup. Device-aware iPhone Home Screen / Android setup, targeted test notification (service-accepted ≠ displayed; tester confirms), status, recovery, preferences. Event set, proxy-truth rule (alerts from the net committed transition — A $50 vs B $39 never alerts A "outbid" then "leading again"), active-hour deadlines + America/New_York quiet hours, deadline-revision-keyed reminders invalidated by extension/settlement/pause, transactional outbox + background worker (never inside the bid transaction), dedup/retry/Retry-After/expired-subscription cleanup, account/device-owned subscriptions with CSRF/SSRF protection, generic lock-screen previews, mocks on a fake transport by default with opt-in labelled [MOCK] pushes. Requires real iPhone Home Screen + Android Chrome device tests reported as simulated / service-accepted / device-observed / user-confirmed. Record: `docs/auction/ROOKIE_AUCTION_ROOM.md` §9 (AUC-002). | PLANNED — next unit after milestone B |
+| P1 owner build directive | Owner directive, 2026-09-29 | Rookie auction room (extends `C7-DRAFT-03` / `C7-U12`) | A native shared slow rookie auction hosted by Chase Upside: 12 seats, rookie-only, six rounds, at most 12 open lots, points-for (lowest first) nomination order supplied by the owner, $0 opening bids and $0 wins, whole-dollar private proxy bidding (A $50 vs B $39 → A at $40), per-seat budgets from current 2027 draft capital with commissioner overrides, 8 AM–9 PM America/New_York activity, early end when all money is spent, persistence across restart/deploy, solo/multiplayer mocks incl. invited non-league testers, notifications (esp. last active hour), live Perfect Draft integration. Official launch stays OFF until separate owner approval. Full contract, binding-vs-proposed rules and milestones: `docs/auction/ROOKIE_AUCTION_ROOM.md`. | MOCK READY — deployed 2026-09-29 (#1523/#1524/#1526/#1528); official launch still owner-gated (see docs/auction/LAUNCH_CHECKLIST.md) |
+| P1 owner clarification | Owner, 2026-09-29 | Rookie auction room — money | LEADING BIDS RESERVE MONEY: $50 unspent while leading at $45 ⇒ only $5 available elsewhere; reserve every current winning price, release on a genuine outbid, convert once on winning; private maxima never execute past the currently affordable amount; two simultaneous requests cannot spend the same dollars; enforced server-side, preserved across restarts; Perfect Draft uses the same available balance; $0 bids remain legal; explicit regression tests for the example. Record: `docs/auction/ROOKIE_AUCTION_ROOM.md` §2 "Money". | IMPLEMENTED + deployed: engine reservation (tested incl. the exact $50/$45 example, a thread race and restart) and Perfect Draft uses the same spendable (#1526) |
+| P1 owner directive (AUC-002) | Owner, 2026-09-29 | Rookie auction room — notifications | Native standards-based Web Push from the existing server (reuse `src/api/push_delivery.py` / pywebpush + VAPID, `frontend/public/sw.js`, the manifest and the SMTP email owner — ONE transport, no OneSignal/FCM/SMS/paid service), a durable in-app inbox, optional verified-email backup. Device-aware iPhone Home Screen / Android setup, targeted test notification (service-accepted ≠ displayed; tester confirms), status, recovery, preferences. Event set, proxy-truth rule (alerts from the net committed transition — A $50 vs B $39 never alerts A "outbid" then "leading again"), active-hour deadlines + America/New_York quiet hours, deadline-revision-keyed reminders invalidated by extension/settlement/pause, transactional outbox + background worker (never inside the bid transaction), dedup/retry/Retry-After/expired-subscription cleanup, account/device-owned subscriptions with CSRF/SSRF protection, generic lock-screen previews, mocks on a fake transport by default with opt-in labelled [MOCK] pushes. Requires real iPhone Home Screen + Android Chrome device tests reported as simulated / service-accepted / device-observed / user-confirmed. Record: `docs/auction/ROOKIE_AUCTION_ROOM.md` §9 (AUC-002). | IMPLEMENTED + deployed (#1524); production VAPID keys NOT configured yet (owner action); real iPhone/Android delivery not yet observed |
 
 Rules the owner has not yet confirmed for an OFFICIAL room (proposed mock defaults: 65 active-hour
 clocks, one-active-hour extension, 13-active-hour nomination timeout with audited pass, earlier-bid
