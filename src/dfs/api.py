@@ -1333,6 +1333,36 @@ async def list_evaluations(request: Request):
     return _ok({"evaluations": rows[-200:], "total": len(rows)})
 
 
+@router.post("/sources/dailyfantasyfuel/pull")
+async def pull_dailyfantasyfuel(request: Request):
+    """Owner-triggered, cached pull of Daily Fantasy Fuel projections + game context for a slate."""
+    from src.dfs import sources_dff
+
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    snap = await run_in_threadpool(store.get_snapshot, owner, str(body.get("snapshotId") or ""))
+    if snap is None:
+        return _err("NOT_FOUND", "No such slate.", 404)
+    rs = get_ruleset(snap["ruleset"].split("@", 1)[0])
+    if rs is None:
+        return _err(
+            "RULESET_SUPERSEDED", "This slate's rule-set version is no longer current.", 409
+        )
+    athletes = _athletes_from(snap["body"]["athletes"])
+    try:
+        out = await run_in_threadpool(
+            sources_dff.pull, owner, snap, rs.sport, rs.platform, athletes
+        )
+    except sources_dff.SourceError as exc:
+        status = 503 if exc.code == "PROVIDER_UNAVAILABLE" else 422
+        return _err(exc.code, exc.message, status)
+    return _ok(out)
+
+
 @router.post("/results")
 async def import_results(request: Request):
     """Import a finished contest's standings for one slate and evaluate the owner's forecasts."""

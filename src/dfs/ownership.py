@@ -370,7 +370,15 @@ def evaluate_against_results(
     }
 
 
+# The owner's own import is the projection the model uses; a pulled source never
+# silently replaces it.  Other sources fill in only where the owner has nothing.
+PROJECTION_PREFERENCE = ("owner_import", "platform_season_average")
+
+
 def _latest_projection(view: dict[str, Any], pid: str) -> float | None:
     got = ((view["players"].get(pid) or {}).get("projection")) or {}
+    for src in PROJECTION_PREFERENCE:
+        if src in got:
+            return float(got[src]["value"])
     latest = max(got.values(), key=lambda v: v["observedAt"], default=None)
     return None if latest is None else float(latest["value"])

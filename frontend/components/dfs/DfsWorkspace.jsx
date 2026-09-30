@@ -51,6 +51,7 @@ const ProviderSlates = lazy(() => import("./SlateSources"));
 const DetectedFile = lazy(() => import("./SlateSources").then((m) => ({ default: m.DetectedFile })));
 
 const ImportSummary = lazy(() => import("./SlateSummary"));
+const SourcePulls = lazy(() => import("./SourcePulls"));
 const RuleBuilder = lazy(() => import("./RuleBuilder"));
 const TeamStacks = lazy(() => import("./TeamStacks"));
 const PlayerPool = lazy(() => import("./PlayerPool"));
@@ -405,6 +406,7 @@ export default function DfsWorkspace() {
             {slateMatches ? (
               <Suspense fallback={null}>
                 <ImportSummary slate={slate} />
+                <SourcePulls snapshotId={slate.snapshotId} sport={ruleset?.sport} />
               </Suspense>
             ) : null}
           </Panel>

@@ -68,9 +68,11 @@ def test_resolved_websites_never_claim_an_authorised_path_we_do_not_hold():
     data = _load()
     by_seed = {e["seedId"]: e for e in data["websites"]}
     for e in data["websites"]:
-        assert e["accessState"] not in ("available_public", "available_authorized_paid"), e[
-            "seedId"
-        ]
+        if e["accessState"] in ("available_public", "available_authorized_paid"):
+            # Only with the owner's recorded authorization AND a working adapter behind it.
+            assert e.get("ownerAuthorization", {}).get("statedOn"), e["seedId"]
+            assert e["connector"]["state"] != "none" and e["connector"]["lastSuccess"], e["seedId"]
+            assert e["ownerAuthorization"]["redistribution"] == "not established"
         assert e["license"]["assessed"] is False and e["license"]["permittedUses"] == []
         if e.get("accessModel") == "paid":
             assert e["accessState"] == "permission_required", e["seedId"]

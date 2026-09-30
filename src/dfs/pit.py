@@ -43,7 +43,8 @@ from typing import Any
 
 from src.dfs import store
 
-OBSERVATION_KINDS = ("projection", "ownership", "distribution", "status")
+# "context": pre-lock game environment (spread, over/under, implied team total) — ownership features.
+OBSERVATION_KINDS = ("projection", "ownership", "distribution", "status", "context")
 MODEL_ROLES = ("challenger", "champion", "shadow", "retired")
 
 _SCHEMA = """

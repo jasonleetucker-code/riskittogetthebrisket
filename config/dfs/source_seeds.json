@@ -1075,23 +1075,42 @@
     "nba",
     "nhl"
    ],
-   "accessState": "manual_import_only",
-   "acquisitionMethod": null,
+   "accessState": "available_public",
+   "acquisitionMethod": "owner_authorized_page_adapter",
    "license": {
     "assessed": false,
     "permittedUses": [],
     "note": "Terms, API access and redistribution rights NOT assessed. No subscription is held."
    },
    "connector": {
-    "state": "none",
-    "lastSuccess": null,
-    "lastMeaningfulUpdate": null
+    "state": "manual_adapter",
+    "module": "src/dfs/sources_dff.py",
+    "lastSuccess": "2026-09-30T20:20:00+00:00",
+    "lastMeaningfulUpdate": null,
+    "provides": [
+     "projection",
+     "context: spread / over-under / implied team total",
+     "injury flag"
+    ],
+    "sports": [
+     "nfl",
+     "nba",
+     "nhl"
+    ],
+    "platforms": [
+     "draftkings",
+     "fanduel"
+    ],
+    "cadence": "manual, cached 15 min",
+    "pointInTime": "recorded at fetch time (page states no publish time)"
    },
    "verification": {
     "checkedOn": "2026-09-30",
     "evidence": [
      "https://www.dailyfantasyfuel.com/",
-     "https://www.dailyfantasyfuel.com/premium"
+     "https://www.dailyfantasyfuel.com/premium",
+     "https://www.dailyfantasyfuel.com/robots.txt (disallows /lineup/* only; checked 2026-09-30)",
+     "https://www.dailyfantasyfuel.com/nfl/projections/draftkings (HTTP 200, 435 rows parsed by the adapter, 2026-09-30)"
     ],
     "notes": "Site says projections are hand-cut in-house rather than purely model-based. No parent company disclosed. Also MLB, WNBA, Golf; PrizePicks/Underdog/Pick6 prop tools. Lineup export to DK/FD is a lineup-upload feature, not a projection data export.",
     "method": "Research agents (public pages + search), 2026-09-30. Search-snippet-only claims are labelled in notes."
@@ -1111,6 +1130,11 @@
    "api": {
     "state": "none_found",
     "docsUrl": null
+   },
+   "ownerAuthorization": {
+    "statedOn": "2026-09-30",
+    "scope": "programmatic collection for the owner's private use",
+    "redistribution": "not established"
    }
   },
   {

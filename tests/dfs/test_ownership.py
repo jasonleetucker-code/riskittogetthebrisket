@@ -209,3 +209,34 @@ def test_capping_keeps_each_positions_total_exact():
     assert total["RB"] + total["WR"] + total["TE"] == pytest.approx(
         700.0, abs=0.01
     )  # 6 slots + FLEX
+
+
+def test_a_pulled_source_never_replaces_the_owners_projection():
+    view = {
+        "players": {
+            "p1": {
+                "projection": {
+                    "owner_import": {
+                        "value": 12.0,
+                        "observedAt": "2026-10-01T00:00:00.000000+00:00",
+                    },
+                    "dailyfantasyfuel": {
+                        "value": 30.0,
+                        "observedAt": "2026-10-03T00:00:00.000000+00:00",
+                    },
+                }
+            },
+            "p2": {
+                "projection": {
+                    "dailyfantasyfuel": {
+                        "value": 9.0,
+                        "observedAt": "2026-10-03T00:00:00.000000+00:00",
+                    }
+                }
+            },
+        }
+    }
+    assert ownership._latest_projection(view, "p1") == 12.0  # newer pulled value does not win
+    assert (
+        ownership._latest_projection(view, "p2") == 9.0
+    )  # fills in only where the owner has nothing
