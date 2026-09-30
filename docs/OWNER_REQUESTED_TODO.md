@@ -984,6 +984,15 @@ Owner-approved; the authorization record is the League Hub Awards pointer in `do
     recorded the conflict between the clarification (League MVP gated on a playoff-field, above-.500 franchise) and
     the 2026-08-14 amendment (no hard gate). The owner ruled for the gate on League MVP only.
 
+**Owner authorization — preserve pregame weekly projections from the Game Day prune (2026-09-29).**
+Authorized now, ahead of the ~2026-10-13 retention deadline (#1519 G1), sequenced after the #1517 → #1518 → #1516
+release queue. Smallest correct change: the raw pre-kickoff Sleeper weekly projection evidence must not be destroyed
+by the 4-week raw-log prune. Last valid pre-kickoff snapshot per player/game/week; timestamp, season/week, player and
+game identity, source/provenance and version preserved; never replaced with a later model; no second projection
+owner; bounded retention with measured storage; included in backup/restore; regression proving the prune cannot
+delete it. Not a broadening into the other #1519 gaps. Implementation: `docs/game-day/GAME_DAY_WEEK_RESOLVER.md`
+("Pregame weekly-projection archive").
+
 **Owner correction — award record eligibility is .500 OR BETTER (2026-09-29).**
 Binding; immediate; supersedes the record half of the 2026-09-26 League MVP decision below and every earlier
 "above .500" / "strictly greater than .500" / ".500 is not a winning record" statement.
