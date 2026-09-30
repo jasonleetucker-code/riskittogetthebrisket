@@ -21,6 +21,7 @@ import {
   interpretation,
   stateNotice,
   teamLabel,
+  teamRowFor,
 } from "@/lib/schedule-impact";
 
 function team(key, over = {}) {
@@ -194,5 +195,21 @@ describe("ScheduleImpactSummary", () => {
   it("no row: honest empty state", () => {
     render(<ScheduleImpactSummary row={null} contract={contract([], { state: "unavailable" })} />);
     expect(screen.getByTestId("schedule-impact-summary").getAttribute("data-state")).toBe("unavailable");
+  });
+});
+
+describe("teamRowFor (lookup only)", () => {
+  const block = {
+    currentSeason: "2026",
+    bySeason: { 2026: { teams: [team("A"), team("B")] }, 2025: { teams: [team("A", { scheduleImpact: -1 })] } },
+  };
+  it("finds a team's row for a season (string or number)", () => {
+    expect(teamRowFor(block, "2026", "B").teamKey).toBe("B");
+    expect(teamRowFor(block, 2025, "A").scheduleImpact).toBe(-1);
+  });
+  it("is null when the season, team or block is absent", () => {
+    expect(teamRowFor(block, "2024", "A")).toBeNull();
+    expect(teamRowFor(block, "2026", "Z")).toBeNull();
+    expect(teamRowFor(null, "2026", "A")).toBeNull();
   });
 });

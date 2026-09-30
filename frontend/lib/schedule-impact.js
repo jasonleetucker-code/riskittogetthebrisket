@@ -109,6 +109,16 @@ export function byeNote(row) {
   return `Bye: week${weeks.length === 1 ? "" : "s"} ${weeks.join(", ")}`;
 }
 
+/**
+ * One team's row from the published block (``luck.scheduleImpact``), or null.
+ * A lookup only: the block is the canonical contract, nothing is recomputed.
+ */
+export function teamRowFor(block, season, ownerId) {
+  const contract = block?.bySeason?.[String(season)];
+  if (!contract || !Array.isArray(contract.teams)) return null;
+  return contract.teams.find((t) => t.ownerId === ownerId) || null;
+}
+
 /** Honest copy for every non-complete contract state, by its actual reason. */
 export function stateNotice(contract) {
   if (!contract) return { tone: "info", text: "Schedule impact is not available yet." };

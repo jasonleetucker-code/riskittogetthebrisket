@@ -10,6 +10,8 @@ import { buildManagerLookup, fmtNumber } from "../../shared-helpers.js";
 import { EmptyState, PageHeader } from "@/components/ui";
 import ShareButton from "../../ShareButton.jsx";
 import RosterComparePanel from "@/components/RosterComparePanel";
+import { ImpactValue, ScheduleImpactSummary } from "@/components/league/ScheduleImpact";
+import { teamRowFor } from "@/lib/schedule-impact";
 
 function _backend() {
   const base = process.env.BACKEND_API_URL || "http://127.0.0.1:8000";
@@ -27,6 +29,21 @@ async function fetchFranchise(ownerId) {
     const res = await fetch(url, { next: { revalidate: 60 } });
     if (!res.ok) return null;
     return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+// Schedule Intelligence: the canonical schedule-impact contract rides on
+// the public luck section.  Fetched server-side with the same cache window;
+// a failure only hides the schedule context, never the franchise page.
+async function fetchScheduleBlock() {
+  const url = `${_backend()}/api/public/league/luck`;
+  try {
+    const res = await fetch(url, { next: { revalidate: 60 } });
+    if (!res.ok) return null;
+    const body = await res.json();
+    return body?.data?.scheduleImpact || null;
   } catch {
     return null;
   }
@@ -68,9 +85,12 @@ export async function generateMetadata({ params }) {
 export default async function FranchisePage({ params }) {
   const { owner } = await params;
   const ownerId = decodeURIComponent(String(owner || ""));
-  const data = await fetchFranchise(ownerId);
+  const [data, schedule] = await Promise.all([fetchFranchise(ownerId), fetchScheduleBlock()]);
   const fr = data?.franchiseDetail || data?.data?.detail?.[ownerId] || null;
   const managers = buildManagerLookup(data?.league);
+  const scheduleSeason = schedule?.currentSeason || null;
+  const scheduleContract = scheduleSeason ? schedule?.bySeason?.[scheduleSeason] || null : null;
+  const scheduleRow = teamRowFor(schedule, scheduleSeason, ownerId);
 
   if (!fr) {
     return (
@@ -152,6 +172,17 @@ export default async function FranchisePage({ params }) {
         </div>
       </Card>
 
+      {schedule ? (
+        <Card title={`Schedule impact${scheduleSeason ? ` — ${scheduleSeason}` : ""}`}>
+          <ScheduleImpactSummary row={scheduleRow} contract={scheduleContract} />
+          <div style={{ fontSize: "0.72rem", marginTop: 8 }}>
+            <Link href="/league?tab=luck" style={{ color: "var(--cyan)" }}>
+              Every team&apos;s schedule impact →
+            </Link>
+          </div>
+        </Card>
+      ) : null}
+
       {fr.draftCapital && (
         <Card title="Draft capital">
           <div style={{ fontSize: "0.78rem", color: "var(--subtext)", marginBottom: 6 }}>
@@ -197,6 +228,11 @@ export default async function FranchisePage({ params }) {
                 <th style={{ textAlign: "right" }}>PA</th>
                 <th style={{ textAlign: "right" }}>Seed</th>
                 <th style={{ textAlign: "right" }}>Final</th>
+                {schedule ? (
+                  <th style={{ textAlign: "right" }} title="Actual head-to-head wins minus the wins the same scores average against an equally likely opponent each week.">
+                    Schedule
+                  </th>
+                ) : null}
               </tr>
             </thead>
             <tbody>
@@ -215,6 +251,15 @@ export default async function FranchisePage({ params }) {
                   </td>
                   <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{r.standing}</td>
                   <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{r.finalPlace ?? "—"}</td>
+                  {schedule ? (
+                    <td style={{ textAlign: "right" }}>
+                      {teamRowFor(schedule, r.season, ownerId) ? (
+                        <ImpactValue value={teamRowFor(schedule, r.season, ownerId).scheduleImpact} />
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>
