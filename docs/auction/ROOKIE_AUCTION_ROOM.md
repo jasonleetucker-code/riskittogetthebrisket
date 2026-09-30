@@ -137,19 +137,35 @@ Acceptance is returned only after COMMIT. Normal restart/crash: zero lost acknow
 (tested: fresh Store over the same file, replay verification). Missing/unreadable store after first
 init ⇒ `StoreUnavailable`, every route 503 — never an empty reseed.
 
-Backups: both nightly jobs (`deploy/backup_user_kv.sh`, `deploy/backup/riskit-state-backup.sh`) take
-an online SQLite backup of the auction DB. **Recovery point for host/disk loss is the last nightly
-backup — up to ~24 h of acknowledged actions could be lost.** That window is acceptable for mocks and
-is NOT acceptable for an official draft without explicit owner acceptance or a tighter off-host
-cadence (milestone D). Restore drill: `tests/auction/test_api_store.py::test_online_backup_restores_onto_a_fresh_environment`.
+Backups (measured in the Phase 2 recovery audit, `tests/auction/test_independent_recovery_audit.py`):
+
+| Failure | Recovery point (RPO) | Recovery time (RTO) |
+|---|---|---|
+| Process crash / restart / deploy | **0**: every acknowledged action is committed before the reply (crash-injected at 9 points) | restart; the room pauses itself only if the service was really unreachable > 5 min |
+| Database corruption on a healthy disk | last **hourly verified** copy (`dynasty-auction-backup.timer`, :17 each hour): ≤ ~72 min | restore + verify ≈ seconds (0.07 s for 2 rooms / 278 KB) |
+| **Host or disk loss** | the last **off-host** copy. Hourly copies live on the same disk. The nightly state backup mirrors off-box **only if** `OFFBOX_RSYNC_DEST` is configured on the box (`deploy/backup/riskit-state-backup.sh`); otherwise **there is no off-host copy at all** | rebuild host + restore |
+
+Archives are written as `.partial`, fsynced, then renamed, so a killed run never leaves a truncated file under
+a verified name. Every archive is restored into a scratch store and every room replayed before it is kept. The
+host-loss row is an **owner decision** before LIVE-READY (`LAUNCH_CHECKLIST.md` §B).
+
+**Restore procedure** (never two writers): stop `dynasty.service`, move `data/auction/auction.sqlite*` aside,
+`gunzip -c data/auction/backups/auction-<stamp>.sqlite.gz > data/auction/auction.sqlite`, start the service. The
+restored rooms come up paused as of their last heartbeat if the gap exceeds 5 min. Open browser tabs adopt the
+restored state automatically (`storeEpoch` in `/view`), even though restored revisions are lower.
 
 ## 5. Live delivery
 
 Revision long-poll (`GET /rooms/{id}/view?after=<rev>&wait=25`). Chosen over SSE/WebSockets because
 production nginx buffers `/api/` and has a 120 s read timeout: a 25 s long-poll needs no proxy change,
 every response is a complete authorised snapshot (no gaps, no replay ordering bugs), and the client
-drops any response older than the revision it holds. Commands never wait for valuation, scrapers or
-Perfect Draft.
+drops any response older than the revision it holds **within the same `storeEpoch`** (a new epoch — restart or
+restore — is adopted even at a lower revision). Commands never wait for valuation, scrapers or Perfect Draft.
+
+**Measured** (12 managers, ~30 tabs, ~23 commands/s, 120 s, local, `scripts/auction_load_rehearsal.py`): bid
+p95 ≈ 0.61 s, accepted state visible to all other managers p95 ≈ 1.1–1.2 s, reconnect p95 ≈ 0.55–0.8 s, zero
+5xx/overspend/duplicate winners/lost acknowledged actions. Production adds nginx and a slower VPS; a real slow
+auction runs far below this burst rate.
 
 ## 6. Mocks
 
@@ -208,6 +224,13 @@ no paid service.
 | Delivery worker (every ~2 s) + reminder scan (every ~14 s), never inside a bid | `src/auction/runtime.py` |
 | HTTP: `/api/auction/notify/*`, `/rooms/{id}/watch` | `src/auction/api.py` |
 | Setup page `/auction/notifications`, room inbox panel, watch toggles | `frontend/app/auction/**`, `frontend/lib/auction-notify.js` |
+
+**Types (the owner's 14, all implemented):** your nomination turn (re-announced on resume if it began while
+paused) · turn about to pass · genuinely outbid · leading again · a standing maximum newly taking the lead after
+money freed (`proxy_leading`, says the money is now reserved) · player won · $0 win · 1 active hour left · deadline
+extended by a late bid (bidders on that lot other than the bidder) · trade offer · dollar trade completed ·
+commissioner pause · resume/recovery · draft completed. A notification that fails to dispatch is retried on its
+own and never blocks anyone else's.
 
 **Truth rules.** Alerts come from the net committed transition (A $50 vs B $39 → A at $40 sends nothing to
 A). "Leading again" is sent when a SEPARATE event restores a former leader (a rival's action, or a capped
