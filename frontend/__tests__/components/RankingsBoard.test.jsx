@@ -310,3 +310,25 @@ it("opts only rankings into board and preserves full/board gap display, sorting 
     expect(outputs[1]).toEqual(outputs[0]);
   } finally {click.mockRestore();vi.unstubAllGlobals();}
 });
+
+it("labels the Fund gap column's fundamental side as provisional BDVM, not the market board", async () => {
+  const user = userEvent.setup();
+  bdvm.data = {
+    status: "ok",
+    players: ROWS.map((row) => ({
+      playerId: row.raw.playerId,
+      name: row.name,
+      market: { gap: 10, marketValue: 100 },
+      tradeValue: { balanced: 110 },
+      signal: { signal: "BUY", reason: "backend reason" },
+      projection: { anyProxy: false },
+    })),
+  };
+  render(<RankingsPage />);
+  const trigger = screen.getByRole("button", { name: "What is Fund gap?" });
+  trigger.focus();
+  await user.keyboard("{Enter}");
+  expect(screen.getByRole("region", { name: "Fund gap" })).toHaveTextContent(
+    "Fundamental value (BDVM) · provisional priors — not the market board.",
+  );
+});
