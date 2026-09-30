@@ -1187,6 +1187,96 @@ async def simulate_build(request: Request):
     return _ok(out)
 
 
+@router.post("/portfolio")
+async def build_contest_portfolio(request: Request):
+    """Contest-aware portfolio: candidates → simulated payouts → objective → frozen decision.
+
+    Decision support only: it enters nothing.  Bounded like ``/simulate``.
+    """
+    from src.dfs import pipeline, portfolio_opt
+    from src.dfs.contests import ContestError, contest_from_dict, dollars_to_cents
+
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+
+    def bounded(key: str, default: int, hi: int) -> int | None:
+        v = body.get(key, default)
+        return v if isinstance(v, int) and not isinstance(v, bool) and 1 <= v <= hi else None
+
+    sims = bounded("sims", 800, pipeline.API_MAX_SIMS)
+    sample = bounded("fieldSample", 1500, pipeline.API_MAX_FIELD_SAMPLE)
+    seed = bounded("seed", 1, 2**31 - 1)
+    entries = bounded("entries", 1, portfolio_opt.MAX_ENTRIES)
+    objective = body.get("objective", "ev")
+    if None in (sims, sample, seed, entries) or objective not in portfolio_opt.OBJECTIVES:
+        return _err(
+            "INVALID_BODY",
+            f"entries 1..{portfolio_opt.MAX_ENTRIES}, sims 1..{pipeline.API_MAX_SIMS}, fieldSample 1.."
+            f"{pipeline.API_MAX_FIELD_SAMPLE}, objective one of {', '.join(portfolio_opt.OBJECTIVES)}.",
+            400,
+        )
+    try:
+        bankroll = dollars_to_cents(body["bankroll"], "Bankroll") if body.get("bankroll") else None
+        spend = (
+            dollars_to_cents(body["spendLimit"], "Spend limit") if body.get("spendLimit") else None
+        )
+    except ContestError as exc:
+        return _err(exc.code, exc.message, 400)
+    snap = await run_in_threadpool(store.get_snapshot, owner, str(body.get("snapshotId") or ""))
+    if snap is None:
+        return _err("NOT_FOUND", "No such slate.", 404)
+    rs = get_ruleset(snap["ruleset"].split("@", 1)[0])
+    if rs is None or rs.key != snap["ruleset"]:
+        return _err(
+            "RULESET_SUPERSEDED", "This slate's rule-set version is no longer current.", 409
+        )
+    ctx = await _build_context(owner, {"contestId": body.get("contestId")}, snap, rs)
+    if isinstance(ctx, JSONResponse):
+        return ctx
+    rec = await run_in_threadpool(store.get_contest, owner, str(body.get("contestId") or ""))
+    if rec is None:
+        return _err("NOT_FOUND", "Choose a saved contest.", 404)
+    athletes = _athletes_from(snap["body"]["athletes"])
+    try:
+        base = parse_constraints(body.get("constraints"), rs, athletes)
+    except ConstraintError as exc:
+        return _err(exc.code, exc.message, 422, exc.detail)
+
+    def run():
+        return portfolio_opt.build_portfolio(
+            owner,
+            snap,
+            rs,
+            contest_from_dict(rec["contest"]),
+            body.get("asOf") or pit.now(),
+            base=base,
+            entries=entries,
+            objective=objective,
+            bankroll=bankroll,
+            sims=sims,
+            field_sample=sample,
+            seed=seed,
+            allow_priors=bool(body.get("allowPriors")),
+            spend_limit_cents=spend,
+        )
+
+    try:
+        out = await run_in_threadpool(run)
+    except pipeline.PipelineError as exc:
+        return _err(exc.code, exc.message, 422, exc.detail)
+    except pit.PitError as exc:
+        return _err(
+            exc.code, exc.message, 409 if exc.code in ("AFTER_LOCK", "LOCK_UNKNOWN") else 422
+        )
+    except ValueError as exc:
+        return _err("INVALID_BODY", str(exc), 400)
+    return _ok(out)
+
+
 @router.post("/results")
 async def import_results(request: Request):
     """Import a finished contest's standings for one slate and evaluate the owner's forecasts."""
