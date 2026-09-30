@@ -106,6 +106,14 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # family-head selection — the registry-first member votes, the rest
     # are stamped supersededBy.
     "source_family_cap": True,
+    # Universe-aware source freshness (#1555 V2-1, 2026-09-30).  ON: a source
+    # whose one board prices offense AND IDP players (IDP Trade Calculator) ages
+    # each row from its own universe's broad-change clock, capped at the source
+    # clock -- an IDP-only publication no longer refreshes unchanged offense rows
+    # (src/sources/freshness.py::SubsetFreshness.universe_clock).  It can only
+    # make evidence OLDER, never fresher.  OFF (RISKIT_FEATURE_SOURCE_UNIVERSE_
+    # FRESHNESS=0 + restart): one clock per subset, the prior behaviour.
+    "source_universe_freshness": True,
     # C1-U4 — ledger-derived rankChange on the canonical contract.  ON
     # derives each ranked row's rankChange from the temporal ledger's
     # previous recorded board; OFF stamps None on every row (deliberately

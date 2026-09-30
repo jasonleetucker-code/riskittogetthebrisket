@@ -10369,6 +10369,37 @@ def _compute_unified_rankings(
         name = str((entry or {}).get("displayName") or nm)
         return re.sub(r"\s+", " ", name.strip().casefold())
 
+    _universe_freshness = _feature_flags.is_enabled("source_universe_freshness")
+    _key_universe_cache: dict[str, dict[str, str]] = {}
+
+    def _row_universe(row: Mapping[str, Any]) -> str:
+        if row.get("assetClass") in ("idp", "offense"):
+            return str(row["assetClass"])
+        pos = str(row.get("position") or "").strip().upper()
+        return (
+            "idp"
+            if pos in {"DL", "LB", "DB", "DE", "DT", "EDGE", "CB", "S", "ILB", "OLB"}
+            else "offense"
+        )
+
+    def _source_key_universe(source_key: str) -> dict[str, str]:
+        """``{row CSV key: universe}`` for every board row this source prices --
+        the population a universe clock is measured over (built once per build)."""
+        if source_key not in _key_universe_cache:
+            mapping: dict[str, str] = {}
+            for candidate in players_array:
+                if source_key not in (candidate.get("sourceRanks") or {}) and source_key not in (
+                    candidate.get("canonicalSiteValues") or {}
+                ):
+                    continue
+                if candidate.get("assetClass") == "pick":
+                    continue
+                key = _row_csv_key(candidate, source_key)
+                if key:
+                    mapping[key] = _row_universe(candidate)
+            _key_universe_cache[source_key] = mapping
+        return _key_universe_cache[source_key]
+
     def _dynamic_weight_factor(
         row: dict[str, Any], source_key: str, is_pick: bool
     ) -> tuple[float, dict[str, Any]]:
@@ -10394,7 +10425,15 @@ def _compute_unified_rankings(
             if sub is not None and sub.style not in (_STYLE_SNAPSHOT, _STYLE_EXPLICIT)
             else None
         )
-        fresh, age = sw.factor_for_row(is_pick=is_pick, row_key=row_key)
+        universe = key_universe = None
+        if _universe_freshness and not is_pick and sub is not None:
+            key_universe = _source_key_universe(source_key)
+            if key_universe:
+                row_key = row_key or _row_csv_key(row, source_key)
+                universe = _row_universe(row)
+        fresh, age = sw.factor_for_row(
+            is_pick=is_pick, row_key=row_key, universe=universe, key_universe=key_universe
+        )
         stamp: dict[str, Any] = {}
         if fresh < 1.0:
             stamp["freshness"] = round(fresh, 4)

@@ -47,7 +47,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
-from src.sources.dataset_state import SUBSET_PICKS, SUBSET_PLAYERS, parse_iso
+from collections import Counter
+
+from src.sources.dataset_state import DEFAULT_POLICY, SUBSET_PICKS, SUBSET_PLAYERS, parse_iso
+
+#: A subset spans several asset universes (offense and IDP players on one board)
+#: only when each universe has at least this many tracked rows.
+UNIVERSE_MIN_ROWS = 5
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = REPO_ROOT / "config" / "sources" / "freshness_v1.json"
@@ -326,12 +332,52 @@ class SubsetFreshness:
     quarantine_below: float = 0.02
     state_bands: tuple[tuple[float, str], ...] = ()
 
-    def row_freshness(self, row_key: str | None) -> tuple[float, float | None]:
+    def universe_clock(self, universe: str, key_universe: Mapping[str, str]) -> datetime | None:
+        """The latest broad change WITHIN one asset universe of this subset.
+
+        A board that prices offense and IDP players together (IDP Trade
+        Calculator) can publish an IDP-only update large enough to count as a
+        broad change for the whole board. Offense rows that did not move gain
+        nothing from it: their universe's clock is the latest time at which at
+        least the broad-change threshold of THAT universe's rows last changed
+        together, read from the per-row clocks the state already keeps.
+
+        ``None`` when the subset does not genuinely span universes (fewer than
+        two universes with ``UNIVERSE_MIN_ROWS`` tracked rows), when per-row
+        clocks are not kept, or when the style's clock is the vendor's own
+        timestamp -- callers then keep the source clock.
+        """
+        if self.style == STYLE_EXPLICIT or not self.row_changed_at:
+            return None
+        per_universe: dict[str, list[datetime]] = {}
+        for key, at in self.row_changed_at.items():
+            u = key_universe.get(key)
+            t = parse_iso(at)
+            if u is not None and t is not None:
+                per_universe.setdefault(u, []).append(t)
+        populated = [u for u, ts in per_universe.items() if len(ts) >= UNIVERSE_MIN_ROWS]
+        if len(populated) < 2 or universe not in per_universe:
+            return None
+        times = per_universe[universe]
+        counts = Counter(times)
+        need = max(DEFAULT_POLICY.min_rows, int(round(DEFAULT_POLICY.min_fraction * len(times))))
+        qualifying = [t for t, n in counts.items() if n >= need]
+        return max(qualifying) if qualifying else None
+
+    def row_freshness(
+        self, row_key: str | None, *, clock_cap: datetime | None = None
+    ) -> tuple[float, float | None]:
         """``(freshness, age_hours)`` for one row.  SNAPSHOT/EXPLICIT styles
-        share the source clock; other styles use the row's own clock."""
+        share the source clock; other styles use the row's own clock.
+
+        ``clock_cap`` (a universe clock) can only make the source clock OLDER:
+        the effective clock is ``min(source clock, cap)``, so this correction
+        never credits a row with fresher evidence than the whole board had."""
         if self.clock_at is None:
             return 1.0, None
         clock = self.clock_at
+        if clock_cap is not None and clock_cap < clock:
+            clock = clock_cap
         if self.style not in (STYLE_SNAPSHOT, STYLE_EXPLICIT) and row_key:
             row_at = parse_iso(self.row_changed_at.get(row_key))
             if row_at is not None and row_at > clock:
@@ -481,12 +527,26 @@ class SourceWeighting:
             SUBSET_PLAYERS
         )
 
-    def factor_for_row(self, *, is_pick: bool, row_key: str | None) -> tuple[float, float | None]:
-        """``(freshness, age_hours)`` for one contract row."""
+    def factor_for_row(
+        self,
+        *,
+        is_pick: bool,
+        row_key: str | None,
+        universe: str | None = None,
+        key_universe: Mapping[str, str] | None = None,
+    ) -> tuple[float, float | None]:
+        """``(freshness, age_hours)`` for one contract row.
+
+        With ``universe`` and ``key_universe`` (row key -> universe for this
+        source's rows), a subset spanning offense and IDP ages each row from its
+        own universe's broad-change clock, capped at the source clock."""
         sub = self.subset_for(is_pick)
         if sub is None:
             return 1.0, None
-        return sub.row_freshness(row_key)
+        cap = None
+        if universe is not None and key_universe:
+            cap = sub.universe_clock(universe, key_universe)
+        return sub.row_freshness(row_key, clock_cap=cap)
 
     def to_dict(self) -> dict[str, Any]:
         return {
