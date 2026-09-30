@@ -83,7 +83,7 @@ describe("public-league service-worker cache", () => {
     expect(fetch).toHaveBeenCalledOnce();
     expect(cache.match).not.toHaveBeenCalled();
     expect(cache.put).toHaveBeenCalledOnce();
-    expect(caches.open).toHaveBeenCalledWith("chaseupside-v8-public-league");
+    expect(caches.open).toHaveBeenCalledWith("chaseupside-v9-public-league");
   });
 
   it("uses the public-league cache only when the network is unavailable", async () => {
@@ -95,6 +95,22 @@ describe("public-league service-worker cache", () => {
 
     await expect(dispatchPublicLeagueFetch(listeners.fetch)).resolves.toBe(cached);
     expect(cache.match).toHaveBeenCalledOnce();
+    expect(cache.put).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("rookie auction room responses are never cached", () => {
+  it.each([
+    "https://chaseupside.com/api/auction/rooms/r_1/view?after=3&wait=25",
+    "https://chaseupside.com/api/auction/auth/me",
+    "https://chaseupside.com/api/auction/rooms/r_1/pool",
+  ])("passes %s straight to the network (no respondWith, no cache)", (href) => {
+    const { cache, caches, listeners } = loadServiceWorker({ cachedResponse: { ok: true }, networkResponse: { ok: true } });
+    const respondWith = vi.fn();
+    listeners.fetch({ request: { method: "GET", url: href }, respondWith });
+    expect(respondWith).not.toHaveBeenCalled();
+    expect(caches.open).not.toHaveBeenCalled();
     expect(cache.put).not.toHaveBeenCalled();
   });
 });

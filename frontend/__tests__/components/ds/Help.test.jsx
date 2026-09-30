@@ -108,6 +108,43 @@ describe("InfoTip", () => {
     await user.keyboard("{Enter}");
     expect(screen.getByText("Body.")).toBeInTheDocument();
   });
+
+  it("shifts a popover that would run off a phone screen back inside it", async () => {
+    // A 320px popover opened from a trigger mid-way across a 390px screen
+    // (a Game Day column header) ran off the right edge.  jsdom has no
+    // layout, so the geometry is stubbed.
+    const user = userEvent.setup();
+    const width = vi.spyOn(window, "innerWidth", "get").mockReturnValue(390);
+    const rect = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue({ left: 200, right: 520, width: 320, top: 0, bottom: 100, height: 100, x: 200, y: 0 });
+    try {
+      render(<InfoTip label="Win chance">Body.</InfoTip>);
+      await user.click(screen.getByRole("button", { name: /Win chance/ }));
+      const region = screen.getByRole("region", { name: "Win chance" });
+      // right edge 520 → 390 - 8 = 382: shift left by 138.
+      expect(region.style.transform).toBe("translateX(-138px)");
+    } finally {
+      width.mockRestore();
+      rect.mockRestore();
+    }
+  });
+
+  it("leaves a popover that already fits exactly where it is", async () => {
+    const user = userEvent.setup();
+    const width = vi.spyOn(window, "innerWidth", "get").mockReturnValue(1366);
+    const rect = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue({ left: 200, right: 520, width: 320, top: 0, bottom: 100, height: 100, x: 200, y: 0 });
+    try {
+      render(<InfoTip label="Tier">Body.</InfoTip>);
+      await user.click(screen.getByRole("button", { name: /Tier/ }));
+      expect(screen.getByRole("region", { name: "Tier" }).style.transform).toBe("");
+    } finally {
+      width.mockRestore();
+      rect.mockRestore();
+    }
+  });
 });
 
 describe("HelpModal", () => {

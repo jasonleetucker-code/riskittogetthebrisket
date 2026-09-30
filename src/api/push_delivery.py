@@ -169,6 +169,79 @@ def send_push(
             return (False, False)
 
 
+def send_push_detailed(
+    sub: dict[str, Any],
+    payload: dict[str, Any],
+    *,
+    ttl: int,
+    urgency: str = "normal",
+    topic: str | None = None,
+) -> dict[str, Any]:
+    """One Web Push send with the provider outcome exposed.
+
+    Same transport, keys and library as ``send_push`` (pywebpush + VAPID) —
+    this is not a second push stack.  It exists because the rookie auction
+    room needs what ``send_push`` deliberately hides: the HTTP status, the
+    provider's ``Retry-After`` for backoff, and a per-message ``ttl``
+    (a "one active hour left" alert must not arrive tomorrow).
+
+    Returns ``{"ok", "gone", "status", "retry_after", "error"}``.  ``ok``
+    means the PUSH SERVICE accepted the message; it is not proof that a
+    device displayed it.
+    """
+    out: dict[str, Any] = {
+        "ok": False,
+        "gone": False,
+        "status": None,
+        "retry_after": None,
+        "error": None,
+    }
+    if not is_configured():
+        out["error"] = "push_not_configured"
+        return out
+    try:
+        from pywebpush import WebPushException, webpush
+    except Exception as exc:  # pragma: no cover
+        out["error"] = f"pywebpush_unavailable: {exc}"
+        return out
+    headers: dict[str, str] = {
+        "Urgency": urgency if urgency in ("very-low", "low", "normal", "high") else "normal"
+    }
+    if topic:
+        headers["Topic"] = topic[:32]
+    with _send_lock:
+        try:
+            resp = webpush(
+                subscription_info={"endpoint": sub["endpoint"], "keys": sub["keys"]},
+                data=json.dumps(payload),
+                vapid_private_key=_private_key_for_pywebpush(),
+                vapid_claims={"sub": _VAPID_CONTACT},
+                ttl=max(0, int(ttl)),
+                headers=headers,
+                timeout=10,
+            )
+            out["status"] = getattr(resp, "status_code", 201)
+            out["ok"] = True
+            return out
+        except WebPushException as exc:
+            resp = exc.response
+            status = getattr(resp, "status_code", 0) if resp is not None else 0
+            out["status"] = status
+            out["error"] = str(exc)[:300]
+            if status in (404, 410):
+                out["gone"] = True
+            if resp is not None:
+                raw = (getattr(resp, "headers", {}) or {}).get("Retry-After")
+                try:
+                    out["retry_after"] = int(raw) if raw is not None else None
+                except (TypeError, ValueError):
+                    out["retry_after"] = None
+            return out
+        except Exception as exc:  # pragma: no cover - network faults
+            out["error"] = f"{type(exc).__name__}: {exc}"[:300]
+            return out
+
+
 def fanout(
     user_state: dict[str, Any],
     *,
