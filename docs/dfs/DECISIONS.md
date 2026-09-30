@@ -357,3 +357,16 @@ at FETCH time. The owner's own imported projection always wins as the model inpu
 Redistribution rights are not established: data stays owner-scoped. Registry entry A-020 records the
 authorization, the adapter and its last success; the registry test allows an "available" access state
 only with both.
+
+## ADR-DFS-023 — Long DFS work runs as bounded background jobs (2026-09-30)
+
+**Context.** Simulation, portfolio and backtest endpoints are bounded, but a backtest replaying ten
+portfolios can outlast a reverse-proxy timeout, and no request should hold an unbounded computation.
+
+**Decision.** `src/dfs/jobs.py`: ONE worker thread in submission order (any MILP still through the
+pinned solver thread, ADR-DFS-012), bounded queue (3 per owner, 20 total → `429 QUEUE_FULL`), jobs
+persisted with owner, state, timestamps and result or error; a failure is recorded, never raised into
+the worker; jobs a previous process left `running`/`queued` are marked `interrupted` on first use. The
+job and the synchronous endpoint call the same function. `POST /api/dfs/jobs` (kind `backtest`) →
+202; `GET /api/dfs/jobs/{id}`, owner-scoped. In-process by design: a multi-process deployment would
+need a shared queue — revisit only if the box runs several backend workers.
