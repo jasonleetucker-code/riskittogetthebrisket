@@ -241,6 +241,11 @@ export function ScheduleImpactSummary({ row, contract }) {
         </div>
       </dl>
       <p className={styles.reading}>{interpretation(row)}</p>
+      {contract?.state === "partial" ? (
+        <p className={`${styles.muted} ${styles.note}`}>
+          {excludedNote(row) || "Some of this season's games could not be evaluated and are left out."}
+        </p>
+      ) : null}
     </section>
   );
 }
