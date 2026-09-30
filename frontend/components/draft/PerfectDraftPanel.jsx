@@ -77,6 +77,20 @@ export function planShape(plan) {
   return "balanced value";
 }
 
+/**
+ * Expected winning price for the optimizer — an ESTIMATE, not a legal minimum.
+ * A real $0 estimate stays $0 (no invented $1 floor); a player with no finite
+ * estimate at all is UNPRICED and left out, never priced at $0 or $1.
+ */
+export function expectedPrice(p) {
+  for (const v of [p?.inflatedFair, p?.preDraft]) {
+    if (v === null || v === undefined || v === "") continue;
+    const n = Number(v);
+    if (Number.isFinite(n) && n >= 0) return Math.round(n);
+  }
+  return null;
+}
+
 export function PerfectDraftPanel({ stats, workspace }) {
   // `myTeamIdx` lives under `settings` — every other reader in the app uses
   // `workspace.settings.myTeamIdx` (draft-logic.js, page.jsx). Reading it off
@@ -131,13 +145,13 @@ export function PerfectDraftPanel({ stats, workspace }) {
   const rookies = useMemo(() => {
     const rows = stats?.enrichedPlayers || [];
     return rows
-      .filter((p) => !p.drafted)
+      .filter((p) => !p.drafted && expectedPrice(p) !== null)
       .map((p) => ({
         id: p.id,
         name: p.name,
         pos: p.pos || "",
         boardValue: Number(p.boardValue) || null,
-        price: Math.max(1, Number(p.inflatedFair) || Number(p.preDraft) || 0),
+        price: expectedPrice(p),
         marketDispersionCV: p.marketDispersionCV,
         singleSource: p.singleSource,
         // Computed on every board render since it was written and, until now,

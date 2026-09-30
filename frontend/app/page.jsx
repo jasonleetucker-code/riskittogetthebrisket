@@ -152,6 +152,17 @@ export default function HomePage() {
     return () => clearTimeout(t);
   }, [authenticated]);
 
+  // The Home Screen app starts at "/" (the manifest's start_url).  Opened
+  // as an installed app WITHOUT a site session, the person is almost
+  // certainly a league-mate using the rookie auction room (its own
+  // sign-in), so take them there instead of the marketing landing.
+  useEffect(() => {
+    if (authenticated !== false || typeof window === "undefined") return;
+    const standalone =
+      (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true;
+    if (standalone) window.location.replace("/auction");
+  }, [authenticated]);
+
   if (authenticated === true) return <AuthenticatedHome />;
   if (authenticated === false || resolveTimedOut) return <LandingHome />;
   // ``null`` = auth still resolving: hold the terminal-shaped shell so

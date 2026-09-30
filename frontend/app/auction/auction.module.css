@@ -1,0 +1,237 @@
+/* Rookie auction room — PSI / Direction A.
+   Page shell mirrors app/game-day/game-day-page.module.css `.page` exactly
+   (full-bleed .psi-editorial canvas; the 420/360 steps mirror .main-shell's
+   own padding steps, as every migrated reference route does). Every colour,
+   space, radius and type size is a semantic token — no raw values. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  background: var(--surface-0);
+  color: var(--text-primary);
+  min-height: 100vh;
+  min-width: 0;
+  margin: calc(-1 * var(--space-lg));
+  padding: var(--space-lg);
+}
+
+@media (max-width: 1024px) {
+  .page {
+    margin: calc(-1 * var(--space-md));
+    padding: var(--space-md);
+  }
+}
+
+@media (max-width: 768px) {
+  .page {
+    margin: calc(-1 * var(--space-sm)) calc(-1 * var(--space-sm))
+      calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md)));
+    padding: var(--space-sm) var(--space-sm)
+      calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + var(--space-md));
+  }
+}
+
+@media (max-width: 420px) {
+  .page {
+    margin: -6px -6px calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px));
+    padding: 6px 6px calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 10px);
+  }
+}
+
+@media (max-width: 360px) {
+  .page {
+    margin: -4px -4px calc(-1 * (var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 8px));
+    padding: 4px 4px calc(var(--mobile-nav-h) + env(safe-area-inset-bottom, 0px) + 8px);
+  }
+}
+
+.hero :global(.ds-page-header__title) {
+  font-family: var(--font-display);
+  font-size: var(--font-size-3xl);
+  font-style: italic;
+}
+.hero :global(.ds-page-header__eyebrow) {
+  font-family: var(--font-data);
+}
+
+/* Status strip: sync health, room state, clock. One ruled line, not tiles. */
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  align-items: baseline;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border-strong);
+  border-bottom: 1px solid var(--border-subtle);
+  font-family: var(--font-data);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+.strip strong {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  margin-right: var(--space-1);
+  background: var(--text-tertiary);
+}
+.dotLive {
+  background: var(--positive);
+}
+.dotWarn {
+  background: var(--warning);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: var(--space-4);
+  align-items: start;
+}
+@media (max-width: 1024px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* Money ledger: definition rows with tabular numerals. */
+.ledger {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+.ledger dt {
+  color: var(--text-secondary);
+}
+.ledger dd {
+  margin: 0;
+  text-align: right;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.ledgerKey dd {
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-lg);
+}
+
+/* Dense tables */
+.tableWrap {
+  overflow-x: auto;
+  min-width: 0;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+.table th {
+  text-align: left;
+  font-family: var(--font-data);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border-strong);
+  white-space: nowrap;
+}
+.table td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+}
+.num {
+  text-align: right !important;
+  font-family: var(--font-data);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.player {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.sub {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+}
+.mine {
+  background: var(--accent-muted);
+}
+.bidForm {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  justify-content: flex-end;
+}
+.bidInput {
+  width: 5.5em;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+.muted {
+  color: var(--text-tertiary);
+  font-size: var(--font-size-sm);
+}
+.feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 420px;
+  overflow-y: auto;
+  font-size: var(--font-size-sm);
+}
+.feed li {
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.feed time {
+  font-family: var(--font-data);
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  margin-right: var(--space-2);
+}
+.rules {
+  margin: 0;
+  padding-left: var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+.rules li {
+  margin-bottom: var(--space-1);
+}
+.secret {
+  font-family: var(--font-data);
+  word-break: break-all;
+  background: var(--surface-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-1);
+}
+.narrow {
+  max-width: 460px;
+}

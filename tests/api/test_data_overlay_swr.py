@@ -271,3 +271,103 @@ def test_a_background_encode_never_overwrites_a_newer_generation(monkeypatch):
     assert stale.headers["X-Overlay-Encode"] == "stale-while-revalidate"
     assert server._OVERLAY_RESPONSE_CACHE[key][3] == v3
     assert not server._OVERLAY_REFRESHING
+
+
+def test_an_unchanged_overlay_keeps_its_bytes_and_etag(swr_case):
+    """A refresh that changes nothing but the per-fetch stamps must not mint
+    a new generation: clients revalidate to a 304 instead of re-downloading
+    the whole board (the warm Rankings/Trade outlier, production 2026-09-29)."""
+    _, _, refresh_overlay, calls = swr_case
+
+    async def steps(get, drain):
+        first = await get()
+        refresh_overlay(["rb", "wr"])  # same rosters, new fetch stamp
+        again = await get()
+        revalidated = await get({"If-None-Match": first.headers["etag"]})
+        return first, again, revalidated
+
+    first, again, revalidated = _run(steps)
+    assert again.content == first.content
+    assert again.headers["etag"] == first.headers["etag"]
+    assert "x-overlay-encode" not in again.headers  # a plain hit, not a stale serve
+    assert revalidated.status_code == 304
+    assert len(calls) == 1
+
+
+def test_the_stale_bound_measures_from_the_last_confirmation(swr_case):
+    """Content first observed 40 min ago but CONFIRMED a minute ago is still
+    inside the owner's window when it is superseded; the bound follows the
+    confirmation, not the first sighting."""
+    _, _, refresh_overlay, calls = swr_case
+
+    async def steps(get, drain):
+        refresh_overlay(["rb", "wr"], seconds_ago=40 * 60)
+        first = await get()
+        refresh_overlay(["rb", "wr"], seconds_ago=60)  # re-confirmed, unchanged
+        await get()
+        refresh_overlay(["wr"])  # now it changes
+        stale = await get()
+        await drain()
+        fresh = await get()
+        return first, stale, fresh
+
+    first, stale, fresh = _run(steps)
+    assert stale.content == first.content
+    assert stale.headers["x-overlay-encode"] == "stale-while-revalidate"
+    assert _served_players(fresh) == ["wr"]
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("trades", [{"leagueId": "L", "week": 3, "timestamp": 1, "sides": []}]),
+        ("waivers", [{"playerId": "wr", "bid": 5}]),
+        ("leagueConfig", {"scoringSettings": {"rec": 0.5}}),
+    ],
+)
+def test_any_content_change_mints_a_new_generation(swr_case, field, value):
+    """Every overlay field that reaches the response is in the identity --
+    not only ``teams``.  ``leagueConfig`` matters most: it decides
+    ``sleeperDataReady`` on the cross-league path."""
+    contract, settings, refresh_overlay, calls = swr_case
+    overlay = server._sleeper_overlay.fetch_sleeper_overlay(sleeper_league_id="x")
+
+    async def steps(get, drain):
+        first = await get()
+        overlay[field] = value
+        refresh_overlay(["rb", "wr"])  # same rosters, new stamp: only `field` differs
+        second = await get()
+        await drain()
+        third = await get()
+        return first, second, third
+
+    first, second, third = _run(steps)
+    assert third.headers["etag"] != first.headers["etag"]
+    assert len(calls) == 2
+
+
+def test_the_scoring_profile_label_is_part_of_the_version(swr_case, monkeypatch):
+    _, _, _, calls = swr_case
+
+    async def steps(get, drain):
+        first = await get()
+        from src.api import league_registry
+
+        real = league_registry.get_league_by_key
+
+        def relabelled(key):
+            league = real(key)
+            if league is None:
+                return league
+            import dataclasses
+
+            return dataclasses.replace(league, scoring_profile="relabelled_profile")
+
+        monkeypatch.setattr(league_registry, "get_league_by_key", relabelled)
+        second = await get()
+        return first, second
+
+    first, second = _run(steps)
+    assert first.headers["etag"] != second.headers["etag"]
+    assert second.json()["meta"]["scoringProfile"] == "relabelled_profile"

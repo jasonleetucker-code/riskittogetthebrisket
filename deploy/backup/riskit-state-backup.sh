@@ -39,7 +39,7 @@
 #     (C1-RET-01).  PRIVATE: contains our leagues' own claim history.
 #   * data/identity/             — identity resolution reports
 #     (C1-RET-07)
-#   * data/game_day/             — Game Day pre-game prediction snapshots
+#   * data/game_day/             — Game Day pre-game prediction snapshots + the pregame weekly-projection archive (live/_nfl/*/week_*/pregame_projections.json.gz)
 #     (C5-GD-02).  THE most irreplaceable artifact in this list, and the
 #     only one whose loss window is measured in hours: a pregame capture
 #     records the state that produced a prediction BEFORE the outcome was
@@ -418,6 +418,10 @@ backup_sqlite "${DATA_DIR}/retention/evidence.sqlite"
 backup_sqlite "${DATA_DIR}/retention/league_events.sqlite"
 backup_sqlite "${DATA_DIR}/retention/acquisition.sqlite"
 backup_sqlite "${DATA_DIR}/board_history.sqlite"
+# Rookie auction room (src/auction/store.py): rooms, accepted-command log,
+# awards, private proxy state, accounts. Online backup — never a raw file
+# copy, which would ignore the WAL.
+backup_sqlite "${DATA_DIR}/auction/auction.sqlite"
 backup_file   "${DATA_DIR}/rank_history.jsonl"
 
 backup_dir "${DATA_DIR}/public_league"
