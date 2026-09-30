@@ -24,7 +24,9 @@ scope are checked against the actual diff between the artifact's pinned
 ``repo_head_start`` and ``repo_head_end`` (graders/diff_evidence.py). Every
 check in a result carries its evidence level -- DECLARED,
 VERIFIED_AGAINST_ARTIFACT or NOT_CHECKED -- so one verified check is never
-read as a verified run.
+read as a verified run. A case's ``required_ci_workflows`` are likewise checked
+against GitHub Actions' own records for the pinned ``repo_head_end``
+(graders/ci_evidence.py) instead of a self-reported "tests passed".
 
 No third-party dependency (e.g. the `jsonschema` package) is used: this
 repository does not currently depend on it, and a hand-rolled structural
@@ -39,6 +41,8 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from . import ci_evidence
+from .ci_evidence import CiRuns, fetch_workflow_runs, workflow_verdict
 from .diff_evidence import OPERATOR_FAULTS, DiffEvidence, changed_files_between, is_full_sha
 
 CASES_DIR = Path(__file__).resolve().parent.parent / "cases"
@@ -160,6 +164,26 @@ def validate_case_shape(case: dict, *, source: str = "<case>") -> None:
     if required_flags is not None and not isinstance(required_flags, dict):
         raise CaseError(f"{source}: grading.required_flags must be an object")
 
+    workflows = grading.get("required_ci_workflows")
+    if workflows is not None and (
+        not isinstance(workflows, list)
+        or not workflows
+        or not all(_is_workflow_path(w) for w in workflows)
+    ):
+        raise CaseError(
+            f"{source}: grading.required_ci_workflows must be a non-empty list of "
+            ".github/workflows/*.yml paths"
+        )
+
+
+def _is_workflow_path(value) -> bool:
+    return (
+        isinstance(value, str)
+        and value.startswith(".github/workflows/")
+        and value.endswith((".yml", ".yaml"))
+        and ".." not in value
+    )
+
 
 def validate_artifact_shape(artifact: dict, *, source: str = "<artifact>") -> None:
     """Minimal structural check mirroring schema/run_artifact.schema.json."""
@@ -195,12 +219,15 @@ def grade(
     *,
     diff: DiffEvidence | None = None,
     require_verified_diff: bool = False,
+    ci: CiRuns | None = None,
+    require_verified_ci: bool = False,
 ) -> GradeResult:
     """Grade one artifact against one case. Pure function, no I/O.
 
     ``diff`` is the trusted runner's result for the artifact's pinned revisions
     (``None`` when no repository was supplied). Without it every check is graded
-    on the artifact's declared state, exactly as before.
+    on the artifact's declared state, exactly as before. ``ci`` is the
+    independently retrieved workflow-run listing for ``repo_head_end``.
     """
     failures: list[str] = []
     evidence: list[dict] = []
@@ -298,6 +325,30 @@ def grade(
                 f"flag {flag_name!r} expected {expected!r}, artifact declared {flags.get(flag_name)!r}"
             )
 
+    for workflow in grading.get("required_ci_workflows") or []:
+        check = f"ci_workflow:{workflow}"
+        if ci is None:
+            verdict, detail = "not_checked", "no_ci_repository"
+        else:
+            verdict, detail = workflow_verdict(ci, workflow)
+        # The judge's identity: a success counts only if the run did not edit it.
+        if verdict == "success":
+            if not scope_verified:
+                verdict, detail = "not_checked", "workflow_identity_unverified"
+            elif workflow in diff.files:
+                verdict, detail = "not_checked", "workflow_changed_in_run"
+        if verdict == "success":
+            evidence.append({"check": check, "level": VERIFIED_AGAINST_ARTIFACT})
+        elif verdict == "failure":
+            evidence.append({"check": check, "level": VERIFIED_AGAINST_ARTIFACT})
+            failures.append(
+                f"CI workflow {workflow} did not succeed at the pinned revision: {detail}"
+            )
+        else:
+            evidence.append({"check": check, "level": NOT_CHECKED, "reason": detail})
+            if require_verified_ci:
+                failures.append(f"CI workflow {workflow} could not be verified: {detail}")
+
     return GradeResult(
         case_id=case["id"], passed=not failures, failures=failures, evidence=evidence
     )
@@ -324,6 +375,9 @@ def grade_file(
     *,
     repo: Path | None = None,
     require_verified_diff: bool = False,
+    ci_repo: str | None = None,
+    require_verified_ci: bool = False,
+    fetch_runs=fetch_workflow_runs,
 ) -> GradeResult:
     case = load_case(case_id)
     artifact = load_artifact(artifact_path)
@@ -334,4 +388,16 @@ def grade_file(
         )
         if diff.reason in OPERATOR_FAULTS:
             raise CaseError(f"{repo}: cannot verify against this repository ({diff.reason})")
-    return grade(case, artifact, diff=diff, require_verified_diff=require_verified_diff)
+    ci = None
+    if ci_repo is not None and case["grading"].get("required_ci_workflows"):
+        ci = fetch_runs(ci_repo, artifact.get("repo_head_end"))
+        if ci.reason in ci_evidence.OPERATOR_FAULTS:
+            raise CaseError(f"{ci_repo}: cannot read CI records ({ci.reason})")
+    return grade(
+        case,
+        artifact,
+        diff=diff,
+        require_verified_diff=require_verified_diff,
+        ci=ci,
+        require_verified_ci=require_verified_ci,
+    )

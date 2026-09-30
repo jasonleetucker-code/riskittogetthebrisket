@@ -136,9 +136,18 @@ Limits, stated plainly:
   path is opened. Git runs with lazy fetch, transports, prompts, optional locks and
   fsmonitor disabled, so a pinned missing object in a partial clone cannot trigger
   a fetch or a configured upload-pack command.
-- Test results are still `DECLARED` (a flag such as `regression_test_added`).
-  Tying test evidence to the exact checked revision through a trusted runner or
-  independently retrieved CI records is the next unit, not done here.
+- Test results: a self-reported flag such as `regression_test_added` stays
+  `DECLARED`. A case can list `required_ci_workflows`; with `--ci-repo owner/name`
+  (and `--repo`), each is checked against GitHub Actions' own workflow-run records
+  for the pinned `repo_head_end` — read-only `gh api` on one fixed endpoint, the
+  newest run for that exact `head_sha` deciding. A failed run fails the grade even
+  when the artifact declares success. A success counts only if the pinned diff
+  proves the run did not edit that workflow file (`workflow_changed_in_run`
+  otherwise); without the diff it is `workflow_identity_unverified`. No run,
+  an unfinished run or a truncated listing stays `NOT_CHECKED` unless
+  `--require-verified-ci`; missing `gh` or a bad slug is a grading error (exit 2).
+  A green workflow proves the workflow passed at that commit, not that the tests
+  are adequate — tests the run edited are part of what was tested.
 - One verified check never makes a run verified. The CLI prints
   `run as a whole: NOT VERIFIED` on every result.
 
