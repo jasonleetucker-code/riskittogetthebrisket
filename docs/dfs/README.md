@@ -19,6 +19,8 @@ not a second backlog.
 | Immutable per-owner slate snapshots + builds | implemented + tested | `src/dfs/store.py` (`data/dfs/`) |
 | Deterministic MILP optimizer (projection baseline), locks/excludes/salary/team/groups/QB stacks/bring-back, exactly-N with uniqueness + exposure caps, conflict isolation | implemented + tested (brute-force agreement) | `src/dfs/optimizer.py` |
 | Upload-CSV export, re-validated at export time | implemented; **format unverified** | `src/dfs/export.py` |
+| Contests: editor, payout-ladder validation, exact tie payouts, rake/overlay states, hard entry cap, versioned saves (branch `claude/dfs-contests`) | implemented + tested | `src/dfs/contests.py`, `frontend/components/dfs/ContestPanel.jsx` |
+| Strategy presets (H2H … 150-max, single-game) — objectives + required models, all `unsupported` until P4 | registered | `config/dfs/presets.json` |
 | Source seed registry — all 74 + 6 + 29 supplied names | registered, all `unverified` | `config/dfs/source_seeds.json` |
 
 Nothing here is contest-aware yet. Every build says `capabilityLevel: "projection_only"`,
@@ -33,6 +35,7 @@ Nothing here is contest-aware yet. Every build says `capabilityLevel: "projectio
 | [`DECISIONS.md`](DECISIONS.md) | ADR-DFS-001… (solver, readiness gating, sequential N, platform average, nav, isolation) |
 | [`SOURCES.md`](SOURCES.md) | Source registry schema, independence policy, acquisition rules, competitor-research protocol |
 | [`USER_GUIDE.md`](USER_GUIDE.md) | How to use the workspace today, CSV formats, what the statuses mean |
+| [`HANDOFF.md`](HANDOFF.md) | Resumable session handoff: branches, PRs, what is proven, exact next commands |
 
 ## Owner actions that unblock the most
 

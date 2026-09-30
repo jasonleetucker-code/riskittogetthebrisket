@@ -177,6 +177,15 @@
   color: var(--text-secondary);
 }
 
+.subhead {
+  margin: var(--space-2) 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  font-family: var(--font-data);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
 .provenance summary {
   cursor: pointer;
   font-size: var(--font-size-sm);

@@ -77,6 +77,7 @@ describe("DfsWorkspace", () => {
 
   it("imports a slate, never renders a missing projection as zero, and blocks locking it", async () => {
     fetch.mockImplementation(async (url) => {
+      if (/\/api\/dfs\/(presets|contests)$/.test(String(url))) return jsonResponse(200, { presets: [], contests: [] });
       if (String(url).endsWith("/capabilities")) return jsonResponse(200, CAPS);
       if (String(url).endsWith("/slates")) return jsonResponse(201, SLATE);
       throw new Error(`unexpected ${url}`);
@@ -97,6 +98,7 @@ describe("DfsWorkspace", () => {
   it("builds via the explicit baseline objective and surfaces the unverified export format", async () => {
     const calls = [];
     fetch.mockImplementation(async (url, init) => {
+      if (/\/api\/dfs\/(presets|contests)$/.test(String(url))) return jsonResponse(200, { presets: [], contests: [] });
       calls.push({ url: String(url), body: init?.body ? JSON.parse(init.body) : null });
       if (String(url).endsWith("/capabilities")) return jsonResponse(200, CAPS);
       if (String(url).endsWith("/slates")) return jsonResponse(201, SLATE);
@@ -153,6 +155,7 @@ describe("DfsWorkspace", () => {
 
   it("shows an export refusal instead of saving the error as a file", async () => {
     fetch.mockImplementation(async (url) => {
+      if (/\/api\/dfs\/(presets|contests)$/.test(String(url))) return jsonResponse(200, { presets: [], contests: [] });
       const u = String(url);
       if (u.endsWith("/capabilities")) return jsonResponse(200, CAPS);
       if (u.endsWith("/slates")) return jsonResponse(201, SLATE);
@@ -184,6 +187,7 @@ describe("DfsWorkspace", () => {
 
   it("explains an infeasible build with the conflicting constraints", async () => {
     fetch.mockImplementation(async (url) => {
+      if (/\/api\/dfs\/(presets|contests)$/.test(String(url))) return jsonResponse(200, { presets: [], contests: [] });
       if (String(url).endsWith("/capabilities")) return jsonResponse(200, CAPS);
       if (String(url).endsWith("/slates")) return jsonResponse(201, SLATE);
       return jsonResponse(201, {

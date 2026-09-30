@@ -26,7 +26,19 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 
+import json
+from decimal import Decimal
+from pathlib import Path
+
 from src.dfs import store
+from src.dfs.contests import (
+    ContestError,
+    dollars_to_cents,
+    entry_upper_bound,
+    parse_contest,
+    tied_payout,
+    validate_contest,
+)
 from src.dfs.export import ExportError, build_upload_csv
 from src.dfs.imports import (
     SALARY_PARSERS,
@@ -399,3 +411,173 @@ async def export_build(build_id: str, request: Request):
             "X-DFS-Export-Verified": "true" if verified else "false",
         },
     )
+
+
+# ── contests + presets (DFS-§5-05, §6-03, §7-03) ─────────────────────────
+
+PRESETS_PATH = Path(__file__).resolve().parents[2] / "config" / "dfs" / "presets.json"
+
+
+@router.get("/presets")
+async def presets(request: Request):
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    data = json.loads(PRESETS_PATH.read_text(encoding="utf-8"))
+    return _ok({"presets": data["presets"]})
+
+
+def _contest_view(body: dict[str, Any]) -> tuple[Any, dict[str, Any]] | JSONResponse:
+    raw = body.get("contest")
+    try:
+        contest = parse_contest(raw)
+    except ContestError as exc:
+        return _err(exc.code, exc.message, 422, exc.detail)
+    known = {(r["platform"], r["sport"], r["format"]) for r in capability_matrix()}
+    if (contest.platform, contest.sport, contest.format) not in known:
+        return _err(
+            "INVALID_CONTEST", "Choose a platform, sport and format from the capability list.", 422
+        )
+    report = validate_contest(contest)
+    report["tiePreview"] = (
+        tied_payout(contest.ladder, 1, 2, contest.tie_rule)
+        if contest.ladder and report["ok"]
+        else None
+    )
+    return contest, report
+
+
+def _spend_limit(body: dict[str, Any]) -> int | None | JSONResponse:
+    raw = body.get("spendLimit")
+    if raw in (None, ""):
+        return None
+    try:
+        return dollars_to_cents(raw, "Spend limit")
+    except ContestError as exc:
+        return _err(exc.code, exc.message, 422, exc.detail)
+
+
+@router.post("/contests/validate")
+async def contest_validate(request: Request):
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    view = _contest_view(body)
+    if isinstance(view, JSONResponse):
+        return view
+    spend = _spend_limit(body)
+    if isinstance(spend, JSONResponse):
+        return spend
+    contest, report = view
+    return _ok(
+        {
+            "contest": contest.to_dict(),
+            "report": report,
+            "entryCap": entry_upper_bound(contest, spend),
+        }
+    )
+
+
+@router.post("/contests")
+async def contest_save(request: Request):
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    view = _contest_view(body)
+    if isinstance(view, JSONResponse):
+        return view
+    contest, report = view
+    cid = body.get("contestId")
+    if cid is not None and not isinstance(cid, str):
+        return _err("INVALID_CONTEST", "contestId must be a string.", 400)
+    saved = await run_in_threadpool(
+        store.put_contest, owner, cid, {"contest": contest.to_dict(), "report": report}
+    )
+    if saved is None:
+        return _err("NOT_FOUND", "No such contest.", 404)
+    return _ok(saved, 201)
+
+
+@router.get("/contests")
+async def contest_list(request: Request):
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    return _ok({"contests": await run_in_threadpool(store.list_contests, owner)})
+
+
+@router.get("/contests/{contest_id}")
+async def contest_read(contest_id: str, request: Request):
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    c = await run_in_threadpool(store.get_contest, owner, contest_id)
+    if c is None:
+        return _err("NOT_FOUND", "No such contest.", 404)
+    return _ok(c)
+
+
+@router.post("/contests/{contest_id}/entry-cap")
+async def contest_entry_cap(contest_id: str, request: Request):
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    spend = _spend_limit(body)
+    if isinstance(spend, JSONResponse):
+        return spend
+    rec = await run_in_threadpool(store.get_contest, owner, contest_id)
+    if rec is None:
+        return _err("NOT_FOUND", "No such contest.", 404)
+    contest = parse_contest(_contest_payload(rec["contest"]))
+    return _ok(
+        {
+            "contestId": contest_id,
+            "version": rec["version"],
+            "entryCap": entry_upper_bound(contest, spend),
+        }
+    )
+
+
+def _cents_str(cents: int) -> str:
+    """Exact decimal dollars for integer cents — money never passes through a float."""
+    return str((Decimal(cents) / 100).quantize(Decimal("0.01")))
+
+
+def _contest_payload(d: dict[str, Any]) -> dict[str, Any]:
+    """Stored (snake_case, cents) contest → the owner payload shape ``parse_contest`` reads."""
+    return {
+        "name": d["name"],
+        "platform": d["platform"],
+        "sport": d["sport"],
+        "format": d["format"],
+        "entryMethod": d["entry_method"],
+        "entryFee": None if d["entry_method"] == "free" else _cents_str(d["entry_fee_cents"]),
+        "capacity": d["capacity"],
+        "currentEntries": d["current_entries"],
+        "guaranteed": d["guaranteed"],
+        "maxEntriesPerUser": d["max_entries_per_user"],
+        "existingUserEntries": d["existing_user_entries"],
+        "tieRule": d["tie_rule"],
+        "ladderSource": d["ladder_source"],
+        "platformContestId": d["platform_contest_id"],
+        "notes": d["notes"],
+        "ladder": [
+            {
+                "minRank": b["min_rank"],
+                "maxRank": b["max_rank"],
+                "prize": _cents_str(b["prize_cents"]),
+                "kind": b["kind"],
+                "value": None if b["value_cents"] is None else _cents_str(b["value_cents"]),
+            }
+            for b in d["ladder"]
+        ],
+    }

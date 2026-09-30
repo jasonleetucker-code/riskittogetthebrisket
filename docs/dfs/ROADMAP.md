@@ -17,9 +17,11 @@ advances in every phase. Requirement IDs: [`TRACEABILITY.md`](TRACEABILITY.md).
 
 ## Next dependency-ready batch (after this PR merges)
 
-- **FOUNDATION / BACKEND:** contest + payout-ladder owner (`src/dfs/contests.py`) with exact
-  tie-splitting (DFS-§5-05, §17-02 fixture $1,000/$100 → $550); NHL + NBA DraftKings/FanDuel
-  classic rule sets (unverified until evidence); background job table for builds (DFS-§21-02).
+- **DONE on `claude/dfs-contests`:** contest + payout-ladder owner with exact tie-splitting
+  ($1,000/$100 → $550), rake/overlay states, hard entry cap, presets registry, Contest panel.
+- **FOUNDATION / BACKEND (next):** link a saved contest version to builds (provenance); NHL + NBA
+  DraftKings/FanDuel classic rule sets (unverified until evidence); background job table for
+  builds (DFS-§21-02); platform contest-file import.
 - **UI:** group/conditional-rule editor, per-player exposure caps, saved-builds list, mobile
   pass + axe E2E spec for `/dfs`.
 - **RESEARCH (time-boxed):** first 20 source seeds resolved to canonical identity / access /

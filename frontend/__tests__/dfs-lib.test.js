@@ -12,6 +12,7 @@ import {
   statusCopy,
   statusTone,
 } from "@/lib/dfs";
+import { contestPayload, contestToForm, formatCents, presetsForShape } from "@/lib/dfs-contests";
 
 describe("dfs lib — missing is never zero", () => {
   it("renders a null projection as absent, not 0", () => {
@@ -107,5 +108,71 @@ describe("dfs lib — single lineup vs portfolio", () => {
   it("does not claim a sequential set is jointly optimal", () => {
     expect(statusCopy("optimal", 20)).toMatch(/not jointly optimized/);
     expect(statusCopy("optimal", 1)).toMatch(/no higher projected total/);
+  });
+});
+
+describe("dfs lib — contests", () => {
+  it("formats integer cents without float money and keeps unknown null", () => {
+    expect(formatCents(100050)).toBe("$1,000.50");
+    expect(formatCents(5)).toBe("$0.05");
+    expect(formatCents(null)).toBe(null);
+    expect(formatCents(1.5)).toBe(null);
+  });
+
+  it("never turns a blank contest field into 0", () => {
+    const form = {
+      name: "x",
+      entryMethod: "cash",
+      entryFee: "",
+      capacity: "",
+      currentEntries: "",
+      guaranteed: "unknown",
+      maxEntriesPerUser: "",
+      existingUserEntries: "",
+      tieRule: "unknown",
+      payoutText: "",
+      hypothetical: false,
+      platformContestId: "",
+    };
+    const p = contestPayload(form, { platform: "draftkings", sport: "nfl", format: "classic" });
+    for (const k of ["entryFee", "capacity", "currentEntries", "maxEntriesPerUser", "existingUserEntries", "guaranteed"]) {
+      expect(p[k]).toBeNull();
+    }
+  });
+
+  it("round-trips a stored contest to the form and flags non-cash bands", () => {
+    const f = contestToForm({
+      name: "M",
+      entry_method: "cash",
+      entry_fee_cents: 2000,
+      capacity: 100,
+      current_entries: null,
+      guaranteed: true,
+      max_entries_per_user: 3,
+      existing_user_entries: 0,
+      tie_rule: "split_positions",
+      ladder_source: "entered",
+      ladder: [
+        { min_rank: 1, max_rank: 1, prize_cents: 100000, kind: "cash" },
+        { min_rank: 2, max_rank: 5, prize_cents: 2050, kind: "cash" },
+        { min_rank: 6, max_rank: 6, prize_cents: 0, kind: "ticket" },
+      ],
+    });
+    expect(f).toMatchObject({
+      entryFee: "20.00",
+      currentEntries: "",
+      guaranteed: "yes",
+      payoutText: "1 1000.00\n2-5 20.50",
+      nonCashBands: 1,
+    });
+  });
+
+  it("offers only presets that fit the derived shape", () => {
+    const ps = [
+      { id: "a", dimensions: { payoutShape: "any" } },
+      { id: "b", dimensions: { payoutShape: "tournament" } },
+      { id: "c", dimensions: { payoutShape: "double_up" } },
+    ];
+    expect(presetsForShape(ps, "tournament").map((p) => p.id)).toEqual(["a", "b"]);
   });
 });

@@ -11,7 +11,7 @@
  * sets are labelled at the context bar, on the build and on the export.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Banner,
   Button,
@@ -47,6 +47,11 @@ import {
   writeStoredContext,
 } from "@/lib/dfs";
 import styles from "./dfs-workspace.module.css";
+
+// Code-split (React.lazy, the Perfect Draft pattern — not next/dynamic, which
+// pulls Next's loadable runtime into every page's shared chunk). Keeps the
+// contest editor out of the /dfs initial chunk and its 34 KB budget.
+const ContestPanel = lazy(() => import("./ContestPanel"));
 
 async function api(path, init) {
   const res = await fetch(`/api/dfs${path}`, {
@@ -630,8 +635,24 @@ export default function DfsWorkspace() {
             {slateMatches ? <ImportSummary slate={slate} /> : null}
           </Panel>
 
+          <Panel
+            title="2 · Contest"
+            subtitle="Payouts, fees, entry limits and your spend limit. Checked by the server; used for contest-aware evaluation once it exists."
+          >
+            {/* Keyed by context: a contest entered for one platform/sport/format is
+                never carried into another (different fees, rules, exports). */}
+            <Suspense fallback={<p className={styles.note}>Loading contest editor…</p>}>
+              <ContestPanel
+                key={`${platform}.${sport}.${row?.format || format}`}
+                platform={platform}
+                sport={sport}
+                format={row?.format || format}
+              />
+            </Suspense>
+          </Panel>
+
           {slateMatches ? (
-            <Panel title="2 · Player pool" subtitle={`${rules.locks.length} locked · ${rules.excludes.length} excluded`}>
+            <Panel title="3 · Player pool" subtitle={`${rules.locks.length} locked · ${rules.excludes.length} excluded`}>
               <div className={styles.filters}>
                 <SegmentedControl
                   label="Position"
@@ -661,7 +682,7 @@ export default function DfsWorkspace() {
           ) : null}
 
           {slateMatches ? (
-            <Panel title="3 · Build">
+            <Panel title="4 · Build">
               <fieldset className={styles.objective}>
                 <legend>Objective</legend>
                 {(caps.objectives || []).map((o) => (
@@ -728,7 +749,7 @@ export default function DfsWorkspace() {
           ) : null}
 
           {build && slateMatches ? (
-            <Panel title="4 · Result">
+            <Panel title="5 · Result">
               <BuildResult build={build} ruleset={ruleset} />
             </Panel>
           ) : null}

@@ -1,7 +1,8 @@
 # DFS — requirement traceability (zero-loss map)
 
 Every requirement in the 2026-09-30 owner mandate has a stable ID `DFS-§<section>-<n>`. Status
-vocabulary: **SLICE1** (implemented + tested on `claude/dfs-foundation`, not yet deployed),
+vocabulary: **SLICE1** (implemented + tested on `claude/dfs-foundation`, PR #1534, not yet deployed),
+**SLICE2** (contests slice, `claude/dfs-contests`, stacked on #1534, not yet deployed),
 **PARTIAL**, **NOW**, **NEXT**, **LATER**, **BLOCKED(<reason>)**. Phases refer to
 [`ROADMAP.md`](ROADMAP.md). A row leaves this table only by supersession, never deletion.
 
@@ -17,24 +18,24 @@ vocabulary: **SLICE1** (implemented + tested on `claude/dfs-foundation`, not yet
 | DFS-§2-02 | Honest "insufficient / unavailable / infeasible / projection-only / stale" states | P1 | SLICE1 | Readiness levels, `CAPABILITY_UNAVAILABLE`, `projection_only`, conflict reports. Stale-build review → DFS-§11 |
 | DFS-§3-01 | Competitive research with evidence levels + adoption matrix | P0/P3 | NEXT | Protocol in `SOURCES.md` §4; no product observed hands-on yet |
 | DFS-§4-01 | DFS in canonical nav, `/dfs` route, auth, mobile parity | P1 | SLICE1 | Nav group "DFS"; canon + reachability tests |
-| DFS-§4-02 | Eight workspace areas sharing one context | P1–P6 | PARTIAL | Overview+Optimizer+Lineups combined on `/dfs`; Contests/Live/Research/Results/Sources pending |
+| DFS-§4-02 | Eight workspace areas sharing one context | P1–P6 | PARTIAL | Overview+Optimizer+Lineups+Contests on `/dfs` (Contest panel keyed by platform×sport×format — SLICE2); Live/Research/Results/Sources pending |
 | DFS-§4-03 | Persistent context selector (sport/platform/format/…); per-format settings | P1 | PARTIAL | Sport/platform/format persisted per viewer; date/slate/contest/objective/build version pending |
 | DFS-§5-01 | Capability gating per platform × sport × format × rule version | P1 | SLICE1 | `capability_matrix()`; `RULESET_SUPERSEDED` on version drift |
 | DFS-§5-02 | Verified rule sets with official evidence; fail closed for money mode | P1 | BLOCKED(official pages refused automated access) | `RULESET_UNVERIFIED` enforced; owner verification needed |
 | DFS-§5-03 | Showdown / single-game / captain / MVP | P2 | NEXT | DFS-RULES-02 |
 | DFS-§5-04 | NBA, NHL, MMA rule sets | P2 | NEXT | DFS-RULES-03/04/05 (NHL/NBA seasons start in October) |
-| DFS-§5-05 | Contest import/editor, payout ladder validation, rake, overlays, hypothetical profiles | P2 | NEXT | New `src/dfs/contests.py` owner |
+| DFS-§5-05 | Contest import/editor, payout ladder validation, rake, overlays, hypothetical profiles | P2 | SLICE2 (manual + pasted ladder) | `src/dfs/contests.py`: separate dimensions, integer cents, overlap/capacity errors, gap/inversion review flags (never rewritten), rake vs overlay vs underfill vs unknown, hypothetical suppresses exact EV; versioned per-owner storage. Platform/provider contest import still NEXT |
 | DFS-§5-06 | Scoring contracts (weights, bonuses, rounding) versioned | P2 | NEXT | Needed before own-model projections (P3/P4) |
 | DFS-§6-01 | "Optimal Lineup" one-click with validate → snapshot → solve → explain → save | P1 | SLICE1 (baseline objective) | Button runs the projection baseline explicitly; result names objective, status, snapshot hash, solver |
 | DFS-§6-02 | Cash/GPP contest-aware objectives | P5 | BLOCKED(needs P4 field + payout models) | `contest_ev` returns 409, never substituted |
-| DFS-§6-03 | Versioned strategy presets (H2H…150-max) | P5 | LATER | |
+| DFS-§6-03 | Versioned strategy presets (H2H…150-max) | P5 | PARTIAL (SLICE2) | `config/dfs/presets.json`: 11 presets with objective + required models, all `unsupported` until P4 models exist; cash and GPP objectives are distinct by test |
 | DFS-§6-04 | Explicit "Highest Projected Points" baseline | P1 | SLICE1 | `objective: projection_baseline` |
 | DFS-§6-05 | Solver status vocabulary + provenance (hashes, seed, budget) | P1 | SLICE1 | `optimal/partial/timed_out_with_feasible_result/infeasible/timed_out/unavailable`; hashes stored |
 | DFS-§6-06 | Lineup explanation + "why not this player?" | P3 | PARTIAL | Pts/$1K, salary left, team counts; constrained-alternative comparison pending |
 | DFS-§6-07 | News invalidation marks old builds for review | P3 | LATER | Needs DFS-§11 event graph |
 | DFS-§7-01 | Build exactly N or explicit shortfall | P1 | SLICE1 | `test_exactly_n_unique_lineups_or_explicit_shortfall` |
 | DFS-§7-02 | Scoring vs assignment identity | P1 | SLICE1 | `scoringIdentity` / `assignmentIdentity` |
-| DFS-§7-03 | Recommended entry count (budget, caps, marginal value, zero allowed) | P5 | BLOCKED(needs contest EV + owner budget input) | |
+| DFS-§7-03 | Recommended entry count (budget, caps, marginal value, zero allowed) | P5 | PARTIAL (SLICE2) | Hard upper bound implemented (min of allowance, open capacity, explicit spend limit; free/ticket handled; zero allowed; budget never inferred). The recommendation itself stays BLOCKED on contest EV |
 | DFS-§8-01 | Locks, excludes, salary min/max, team max | P1 | SLICE1 | Tests |
 | DFS-§8-02 | Groups (at least/at most K) | P1 | SLICE1 (API) | UI editor pending |
 | DFS-§8-03 | Conditional rules (if-A-then-B), mutually exclusive groups | P2 | NEXT | |
@@ -63,7 +64,7 @@ vocabulary: **SLICE1** (implemented + tested on `claude/dfs-foundation`, not yet
 | DFS-§15-01 | Podcast discovery → transcripts → claims → controlled use | P3 | NEXT | 29 seeds registered |
 | DFS-§16-01 | Ownership / field / duplication models | P4 | LATER | |
 | DFS-§17-01 | Deterministic MILP baseline with exact small-case agreement | P1 | SLICE1 | Brute-force parity tests (DK + FD rules) |
-| DFS-§17-02 | Joint outcome simulation, exact payout/ties ($1,000/$100 → $550) | P4 | LATER | |
+| DFS-§17-02 | Joint outcome simulation, exact payout/ties ($1,000/$100 → $550) | P4 | PARTIAL (SLICE2) | Exact rank payout + split-position ties in integer cents, fractional cents reported exactly, unknown tie rule → unavailable ($550 fixture green). Joint simulation still LATER |
 | DFS-§18-01 | Joint portfolio selection + multi-contest allocation | P5 | LATER | |
 | DFS-§19-01 | Salary / projection / template imports with mapping preview | P1 | PARTIAL | Import report today; interactive column mapping pending |
 | DFS-§19-02 | Exports preserving IDs/headers/slots; round-trip vs official templates | P1 | BLOCKED(no official template fixture) | Re-validated at export; labelled unverified |
@@ -80,7 +81,7 @@ vocabulary: **SLICE1** (implemented + tested on `claude/dfs-foundation`, not yet
 | DFS-§23-01 | Auth on every route/job/export; cross-user tests | P1 | SLICE1 | |
 | DFS-§23-02 | Untrusted-file defences (size, header, formula-safe IDs) | P1 | SLICE1 | XML/archives/audio N/A until those inputs exist |
 | DFS-§23-03 | Spending ceilings, research-only mode, cost dashboard | P5 | PARTIAL | Research mode is the only mode that builds today |
-| DFS-§24-xx | Test program items 1–52 | per phase | PARTIAL | Items 2, 8, 9, 10, 11, 12, 13, 14, 15, 29, 32, 43(partial), 44, 47, 51, 52 covered |
+| DFS-§24-xx | Test program items 1–52 | per phase | PARTIAL | Items 2, 8, 9, 10, 11, 12, 13, 14, 15, 20, 21 (cash-line tie), 22, 23, 28 (bound), 29, 32, 43(partial), 44, 47, 51, 52 covered |
 | DFS-§25-01 | Dependency-aware roadmap linked to Calculator Ideas | P0 | SLICE1 | `ROADMAP.md` |
 | DFS-§26-01 | Lane 6 active every batch | all | SLICE1 | `/dfs` UI shipped with the foundation; UI ledger row |
 | DFS-§27-01 | Documentation set + user guide | P0 | SLICE1 | This folder |

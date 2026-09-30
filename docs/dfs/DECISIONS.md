@@ -59,3 +59,17 @@ application's normal navigation"); desktop top-bar fit needs visual verification
 Projection rows join by platform ID, else by `name_clean.normalize_player_name` + team (+ position).
 Ambiguous and disagreeing rows are quarantined. Cross-provider canonical identity (Phase 3) must
 extend `src/identity/`, not create a DFS-local matcher.
+
+## ADR-DFS-008 — Contests: separate dimensions, integer cents, nothing assumed (2026-09-30)
+
+A contest's roster format, entry restriction (`maxEntriesPerUser`), guarantee status and payout
+shape are independent fields; the shape (`head_to_head` / `fifty_fifty` / `double_up` /
+`multiplier` / `tournament`) is DERIVED from the ladder and is descriptive only. Money is integer
+cents end to end (Decimal at the edges, never float). The tie rule defaults to `unknown`, which
+makes tied payouts unavailable rather than assuming split-positions; a non-whole-cent split is
+returned as an exact fraction because the platform's rounding is unverified. An underfilled
+contest is an `overlay` only when `guaranteed is True` and prizes exceed fees actually collected.
+The entry cap is a hard constraint that needs an explicit spend limit; the recommended count is a
+separate, still-unavailable answer. Contests are versioned per owner (append-only), so builds can
+later cite the exact version they were evaluated against.
+
