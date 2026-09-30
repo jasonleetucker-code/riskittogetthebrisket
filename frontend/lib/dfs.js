@@ -128,6 +128,7 @@ export function buildConstraints(form, rules) {
   }
   for (const [key, field] of [
     ["salaryMin", "salaryMin"],
+    ["salaryMax", "salaryMax"],
     ["maxPerTeam", "maxPerTeam"],
   ]) {
     const v = wholeOrNull(form[field]);

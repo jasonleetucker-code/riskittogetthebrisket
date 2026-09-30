@@ -88,6 +88,7 @@ const EMPTY_FORM = {
   minUnique: "1",
   maxExposurePct: "",
   salaryMin: "",
+  salaryMax: "",
   maxPerTeam: "",
   stack: false,
   stackMin: "1",
@@ -658,6 +659,9 @@ export default function DfsWorkspace() {
                 </Field>
                 <Field label="Min salary">
                   <Input data-numeric inputMode="numeric" value={form.salaryMin} onChange={(e) => setForm({ ...form, salaryMin: e.target.value })} />
+                </Field>
+                <Field label="Max salary" hint="Leave salary on the table: cap your own spend below the platform cap.">
+                  <Input data-numeric inputMode="numeric" value={form.salaryMax} onChange={(e) => setForm({ ...form, salaryMax: e.target.value })} />
                 </Field>
                 <Field label="Max players per team">
                   <Input data-numeric inputMode="numeric" value={form.maxPerTeam} onChange={(e) => setForm({ ...form, maxPerTeam: e.target.value })} />

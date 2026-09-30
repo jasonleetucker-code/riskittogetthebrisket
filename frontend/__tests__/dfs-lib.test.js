@@ -191,3 +191,12 @@ describe("dfs lib — owner overrides vs boosts", () => {
     expect(ownerAdjustments({}, { a: "75" }).errors.a).toBeTruthy();
   });
 });
+
+describe("dfs lib — salary range", () => {
+  it("sends both ends of the salary range, blank = unconstrained", async () => {
+    const { buildConstraints } = await import("@/lib/dfs");
+    const { payload } = buildConstraints({ lineups: "1", salaryMin: "48000", salaryMax: "49500" }, {});
+    expect(payload).toMatchObject({ salaryMin: 48000, salaryMax: 49500 });
+    expect("salaryMax" in buildConstraints({ lineups: "1", salaryMax: "" }, {}).payload).toBe(false);
+  });
+});
