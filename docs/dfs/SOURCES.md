@@ -7,7 +7,7 @@
 (`A-001`…, `B-001`…, `C-001`…). Seeds start `accessState: "unverified"` /
 `sourceCategory: "unknown"`: **a seed is a name to investigate, not an integration.**
 `tests/dfs/test_source_seeds.py` pins the counts and refuses any non-`unverified` state or live
-connector without recorded evidence. Websites and podcasts are resolved (§5, §6); sportsbooks are not.
+connector without recorded evidence. All three kinds are resolved (§5–7).
 
 Resolving a seed fills: canonical identity + aliases (`aliasOf`, never deletion), official domain,
 owner, sports/platforms, category, independence group, access state, acquisition method, license
@@ -75,3 +75,15 @@ Edge, SportsPredict, Prediktor — owner clarification needed) and Statz.ai is `
 - **Documented public APIs** (`acquisitionMethod: api_candidate`, terms and keys still required):
   DailyAmbush, Diamond DFS, PFF, Opta, Unabated, OddsJam. **12** sites document a CSV export
   (`owner_csv_export` — the owner exports from their own account and imports the file).
+
+## 7. Sportsbook resolution (2026-09-30)
+
+All 6 books are `permission_required` with `acquisitionMethod: licensed_aggregator_candidate`.
+None publishes a public odds API. The terms we could read (FanDuel general terms; Caesars NV;
+Hard Rock) bar automated access, scraping, or betting bots; DraftKings and bet365 terms returned
+403 and are recorded from search snippets only; BetMGM's sportsbook terms URL 404'd and needs a
+human to locate. Odds can reach ChaseUpside only through a licensed aggregator the owner approves.
+Aggregators documented as carrying these books: The Odds API (all but US bet365), OpticOdds
+(most), SportsDataIO (search-snippet-only). Each book is its own independence group: books price
+independently even where they share a parent. DraftKings and FanDuel are the same companies as
+the DFS platforms; that is recorded as `corporateParent`, not as a data dependency.

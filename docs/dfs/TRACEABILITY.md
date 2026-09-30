@@ -51,7 +51,7 @@ vocabulary: **SLICE1** (implemented + tested on `claude/dfs-foundation`, PR #153
 | DFS-§9-03 | Canonical athlete identity across providers | P3 | NEXT | Must extend `src/identity/`, not a DFS-local owner |
 | DFS-§9-04 | Source-family independence / lineage | P3 | NEXT | Schema fields reserved in `source_seeds.json` |
 | DFS-§10-01 | Register every supplied source/podcast with disposition | P0 | SLICE1 (registered) | 109 seeds, all `unverified` |
-| DFS-§10-02 | Resolve identities, access, license, cost per source | D | PARTIAL | Podcasts 29/29 and websites 74/74 resolved (`SOURCES.md` §5–6: identity, parent, pricing, API/export signal, correlation groups; rights unassessed; 6 identities need owner clarification). Sportsbooks (6) NEXT |
+| DFS-§10-02 | Resolve identities, access, license, cost per source | D | PARTIAL | All 109 seeds resolved (`SOURCES.md` §5–7): podcasts 29, websites 74, sportsbooks 6 (no public odds APIs; terms bar automated access; licensed aggregators only). Rights unassessed everywhere; 6 website identities need owner clarification |
 | DFS-§10-03 | Connector framework (quotas, backoff, circuit breakers, quarantine) | P3 | NEXT | |
 | DFS-§10-04 | No paywall/CAPTCHA/bot evasion; no billable trials without approval | all | SLICE1 | Honoured: 403s recorded as blockers, not bypassed |
 | DFS-§11-01 | Event-driven freshness, dependency graph, rebuild recommendations | P3 | NEXT | Requires background jobs (DFS-§21-02) |
@@ -70,7 +70,7 @@ vocabulary: **SLICE1** (implemented + tested on `claude/dfs-foundation`, PR #153
 | DFS-§19-01 | Salary / projection / template imports with mapping preview | P1 | PARTIAL | Import report today; interactive column mapping pending |
 | DFS-§19-02 | Exports preserving IDs/headers/slots; round-trip vs official templates | P1 | BLOCKED(no official template fixture) | Re-validated at export; labelled unverified |
 | DFS-§19-03 | Entry lifecycle (draft → submitted → settled) | P6 | LATER | `submitted: false` only |
-| DFS-§19-04 | Late swap with locked slot immutability | P6 | LATER | |
+| DFS-§19-04 | Late swap with locked slot immutability | G | PARTIAL (foundation) | `src/dfs/lateswap.py` + `/api/dfs/late-swap[/export]`: locked AND unknown-start slots pinned in their exact slot; only proven-open players swap in; exact vs slot-aware brute force; a tie/reshuffle is `keep`, not a swap; unresolved entries untouched; server clock by default, owner what-if clock labelled; DK entry file out, nothing submitted. Per-entry (not coordinated across entries), projection objective only; FanDuel entry files, live scoring, rooting view: NEXT |
 | DFS-§20-01 | Live / rooting view | P6 | LATER | |
 | DFS-§20-02 | Settlement reconciliation, calibration, replay, champion/challenger | P7 | LATER | |
 | DFS-§21-01 | Typed APIs + structured error codes | P1 | SLICE1 | `RULESET_UNVERIFIED`, `INFEASIBLE` (as status), `CAPABILITY_UNAVAILABLE`, `LOCKED_PLAYER_UNPROJECTED`, … |

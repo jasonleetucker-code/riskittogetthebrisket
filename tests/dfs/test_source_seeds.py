@@ -82,3 +82,16 @@ def test_resolved_websites_never_claim_an_authorised_path_we_do_not_hold():
     assert by_seed["A-001"]["corporateParent"] == by_seed["A-013"]["corporateParent"]
     assert by_seed["A-001"]["independenceGroup"] != by_seed["A-013"]["independenceGroup"]
     assert by_seed["A-046"]["accessState"] == "out_of_scope"
+
+
+def test_sportsbooks_are_reachable_only_through_a_licensed_aggregator():
+    data = _load()
+    for e in data["sportsbooks"]:
+        assert e["sourceCategory"] == "sportsbook_market"
+        assert e["accessState"] == "permission_required", e["seedId"]
+        assert e["acquisitionMethod"] == "licensed_aggregator_candidate"
+        assert e["license"]["assessed"] is False and e["license"]["permittedUses"] == []
+        assert e["verification"]["evidence"]
+    # Each book prices independently: one group per book, never merged.
+    groups = [e["independenceGroup"] for e in data["sportsbooks"]]
+    assert len(set(groups)) == len(groups) == 6

@@ -1,5 +1,5 @@
 {
- "_comment": "DFS source seed registry (owner directive 2026-09-30, docs/dfs/SOURCES.md). Every supplied name is preserved verbatim with a stable seedId. A seed is NOT an integration: accessState stays 'unverified' until evidence is recorded. Aliases/duplicates are resolved by setting aliasOf — never by deleting an entry. Podcasts resolved 2026-09-30 (feed, activity, transcript tags); rights remain unassessed. Websites resolved 2026-09-30: identity, domain, parent, category, pricing model, API/export signal. accessState is our CURRENT authorised path, not the site's openness: paid -> permission_required; free/freemium -> manual_import_only until a terms review is recorded.",
+ "_comment": "DFS source seed registry (owner directive 2026-09-30, docs/dfs/SOURCES.md). Every supplied name is preserved verbatim with a stable seedId. A seed is NOT an integration: accessState stays 'unverified' until evidence is recorded. Aliases/duplicates are resolved by setting aliasOf — never by deleting an entry. Podcasts resolved 2026-09-30 (feed, activity, transcript tags); rights remain unassessed. Websites resolved 2026-09-30: identity, domain, parent, category, pricing model, API/export signal. accessState is our CURRENT authorised path, not the site's openness: paid -> permission_required; free/freemium -> manual_import_only until a terms review is recorded. Sportsbooks resolved 2026-09-30: no public odds APIs; terms bar automated access; licensed aggregators only.",
  "schemaVersion": 1,
  "accessStates": [
   "unverified",
@@ -3826,17 +3826,18 @@
    "suppliedName": "DraftKings",
    "id": "book.draftkings",
    "seedKind": "sportsbook",
-   "canonicalIdentity": null,
-   "officialDomain": null,
+   "canonicalIdentity": "DraftKings Sportsbook",
+   "officialDomain": "sportsbook.draftkings.com",
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
+   "sourceCategory": "sportsbook_market",
+   "independenceGroup": "book.draftkings",
    "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "accessState": "permission_required",
+   "acquisitionMethod": "licensed_aggregator_candidate",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "No odds licence held. Direct collection from the book is barred by its terms; any feed must come from a licensed aggregator the owner approves."
    },
    "connector": {
     "state": "none",
@@ -3844,27 +3845,52 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
-   }
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://sportsbook.draftkings.com/legal/terms-of-use (403)",
+     "https://sportsbook.draftkings.com/legal/on-terms-of-use (403)",
+     "https://the-odds-api.com/sports-odds-data/bookmaker-apis.html",
+     "https://developer.opticodds.com/docs/odds-api-getting-started-guide",
+     "search:DraftKings public odds API developer documentation official"
+    ],
+    "notes": "Research agent 2026-09-30; 403/404 pages recorded as blockers, not worked around.",
+    "method": "public pages + search"
+   },
+   "categories": [
+    "sportsbook_market"
+   ],
+   "corporateParent": "DraftKings Inc.",
+   "api": {
+    "state": "none_found",
+    "docsUrl": null
+   },
+   "terms": {
+    "url": "https://sportsbook.draftkings.com/legal/on-terms-of-use",
+    "automatedAccess": "blocked (403); search-snippet-only: terms prohibit automated means incl. bots, robots, spiders."
+   },
+   "aggregatorsCarrying": [
+    "The Odds API (draftkings)",
+    "OpticOdds",
+    "SportsDataIO (search-snippet-only)"
+   ]
   },
   {
    "seedId": "B-002",
    "suppliedName": "FanDuel",
    "id": "book.fanduel",
    "seedKind": "sportsbook",
-   "canonicalIdentity": null,
-   "officialDomain": null,
+   "canonicalIdentity": "FanDuel Sportsbook",
+   "officialDomain": "sportsbook.fanduel.com",
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
+   "sourceCategory": "sportsbook_market",
+   "independenceGroup": "book.fanduel",
    "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "accessState": "permission_required",
+   "acquisitionMethod": "licensed_aggregator_candidate",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "No odds licence held. Direct collection from the book is barred by its terms; any feed must come from a licensed aggregator the owner approves."
    },
    "connector": {
     "state": "none",
@@ -3872,27 +3898,50 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
-   }
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://www.fanduel.com/terms",
+     "https://account.pa.sportsbook.fanduel.com/terms (403)",
+     "https://the-odds-api.com/sports-odds-data/bookmaker-apis.html",
+     "search:Flutter Entertainment owns FanDuel 100% Boyd Gaming stake acquisition"
+    ],
+    "notes": "Research agent 2026-09-30; 403/404 pages recorded as blockers, not worked around.",
+    "method": "public pages + search"
+   },
+   "categories": [
+    "sportsbook_market"
+   ],
+   "corporateParent": "Flutter Entertainment plc (100% of FanDuel Group since 2025; search-snippet-only)",
+   "api": {
+    "state": "none_found",
+    "docsUrl": null
+   },
+   "terms": {
+    "url": "https://www.fanduel.com/terms",
+    "automatedAccess": "fanduel.com/terms prohibits robots, spiders, scrapers or other automated access without written permission; sportsbook-specific terms returned 403."
+   },
+   "aggregatorsCarrying": [
+    "The Odds API (fanduel)",
+    "SportsDataIO (search-snippet-only)"
+   ]
   },
   {
    "seedId": "B-003",
    "suppliedName": "BetMGM",
    "id": "book.betmgm",
    "seedKind": "sportsbook",
-   "canonicalIdentity": null,
-   "officialDomain": null,
+   "canonicalIdentity": "BetMGM",
+   "officialDomain": "sports.betmgm.com",
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
+   "sourceCategory": "sportsbook_market",
+   "independenceGroup": "book.betmgm",
    "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "accessState": "permission_required",
+   "acquisitionMethod": "licensed_aggregator_candidate",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "No odds licence held. Direct collection from the book is barred by its terms; any feed must come from a licensed aggregator the owner approves."
    },
    "connector": {
     "state": "none",
@@ -3900,27 +3949,51 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
-   }
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://sports.betmgm.com/en/sports/terms-of-use (404)",
+     "https://the-odds-api.com/sports-odds-data/bookmaker-apis.html",
+     "https://developer.opticodds.com/docs/odds-api-getting-started-guide",
+     "search:BetMGM joint venture MGM Resorts Entain 50/50 ownership"
+    ],
+    "notes": "Research agent 2026-09-30; 403/404 pages recorded as blockers, not worked around.",
+    "method": "public pages + search"
+   },
+   "categories": [
+    "sportsbook_market"
+   ],
+   "corporateParent": "BetMGM, LLC — 50/50 JV of MGM Resorts International and Entain plc",
+   "api": {
+    "state": "none_found",
+    "docsUrl": null
+   },
+   "terms": {
+    "url": null,
+    "automatedAccess": "unresolved: sportsbook terms URL 404; a scraping-prohibition snippet had doubtful attribution. Needs a human to locate the state terms."
+   },
+   "aggregatorsCarrying": [
+    "The Odds API (betmgm)",
+    "OpticOdds",
+    "SportsDataIO (search-snippet-only)"
+   ]
   },
   {
    "seedId": "B-004",
    "suppliedName": "Caesars Sportsbook",
    "id": "book.caesars-sportsbook",
    "seedKind": "sportsbook",
-   "canonicalIdentity": null,
-   "officialDomain": null,
+   "canonicalIdentity": "Caesars Sportsbook",
+   "officialDomain": "caesars.com/sportsbook-and-casino",
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
+   "sourceCategory": "sportsbook_market",
+   "independenceGroup": "book.caesars-sportsbook",
    "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "accessState": "permission_required",
+   "acquisitionMethod": "licensed_aggregator_candidate",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "No odds licence held. Direct collection from the book is barred by its terms; any feed must come from a licensed aggregator the owner approves."
    },
    "connector": {
     "state": "none",
@@ -3928,27 +4001,51 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
-   }
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://www.caesars.com/sportsbook-and-casino/nv/support/terms-and-conditions-privacy/",
+     "https://www.caesars.com/corporate/terms-of-service",
+     "https://the-odds-api.com/sports-odds-data/bookmaker-apis.html",
+     "https://developer.opticodds.com/docs/odds-api-getting-started-guide"
+    ],
+    "notes": "Research agent 2026-09-30; 403/404 pages recorded as blockers, not worked around.",
+    "method": "public pages + search"
+   },
+   "categories": [
+    "sportsbook_market"
+   ],
+   "corporateParent": "Caesars Entertainment, Inc. (acquired William Hill 2021; NV operator American Wagering, Inc.)",
+   "api": {
+    "state": "none_found",
+    "docsUrl": null
+   },
+   "terms": {
+    "url": "https://www.caesars.com/sportsbook-and-casino/nv/support/terms-and-conditions-privacy/",
+    "automatedAccess": "NV terms §13 prohibit robots, spiders, scrapers or other automated access; corporate terms also bar web scraping and data extraction."
+   },
+   "aggregatorsCarrying": [
+    "The Odds API (williamhill_us, paid plans)",
+    "OpticOdds",
+    "SportsDataIO (search-snippet-only)"
+   ]
   },
   {
    "seedId": "B-005",
    "suppliedName": "bet365",
    "id": "book.bet365",
    "seedKind": "sportsbook",
-   "canonicalIdentity": null,
-   "officialDomain": null,
+   "canonicalIdentity": "bet365",
+   "officialDomain": "bet365.com (US state subdomains)",
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
+   "sourceCategory": "sportsbook_market",
+   "independenceGroup": "book.bet365",
    "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "accessState": "permission_required",
+   "acquisitionMethod": "licensed_aggregator_candidate",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "No odds licence held. Direct collection from the book is barred by its terms; any feed must come from a licensed aggregator the owner approves."
    },
    "connector": {
     "state": "none",
@@ -3956,27 +4053,49 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
-   }
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://help.oh.bet365.com/s/en-us/terms-and-conditions (403)",
+     "https://developer.opticodds.com/docs/odds-api-getting-started-guide",
+     "https://the-odds-api.com/sports-odds-data/bookmaker-apis.html",
+     "search:bet365 US terms and conditions automated OR robot OR scraping sportsbook"
+    ],
+    "notes": "Research agent 2026-09-30; 403/404 pages recorded as blockers, not worked around.",
+    "method": "public pages + search"
+   },
+   "categories": [
+    "sportsbook_market"
+   ],
+   "corporateParent": "bet365 Group Ltd (US operators: Hillside-branded LLCs; search-snippet-only)",
+   "api": {
+    "state": "none_found",
+    "docsUrl": null
+   },
+   "terms": {
+    "url": "https://help.oh.bet365.com/s/en-us/terms-and-conditions",
+    "automatedAccess": "blocked (403); search-snippet-only: terms prohibit screen scraping and bots."
+   },
+   "aggregatorsCarrying": [
+    "OpticOdds (US vs non-US feed not stated)"
+   ]
   },
   {
    "seedId": "B-006",
    "suppliedName": "Hard Rock Bet",
    "id": "book.hard-rock-bet",
    "seedKind": "sportsbook",
-   "canonicalIdentity": null,
-   "officialDomain": null,
+   "canonicalIdentity": "Hard Rock Bet",
+   "officialDomain": "hardrock.bet",
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
+   "sourceCategory": "sportsbook_market",
+   "independenceGroup": "book.hard-rock-bet",
    "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "accessState": "permission_required",
+   "acquisitionMethod": "licensed_aggregator_candidate",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "No odds licence held. Direct collection from the book is barred by its terms; any feed must come from a licensed aggregator the owner approves."
    },
    "connector": {
     "state": "none",
@@ -3984,10 +4103,31 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
-   }
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://www.hardrockdigital.com/t-cs/",
+     "https://the-odds-api.com/sports-odds-data/bookmaker-apis.html",
+     "search:Hard Rock Digital joint venture Hard Rock International Seminole Tribe owner Hard Rock Bet"
+    ],
+    "notes": "Research agent 2026-09-30; 403/404 pages recorded as blockers, not worked around.",
+    "method": "public pages + search"
+   },
+   "categories": [
+    "sportsbook_market"
+   ],
+   "corporateParent": "Hard Rock Digital (Hard Rock International / Seminole Tribe of Florida)",
+   "api": {
+    "state": "none_found",
+    "docsUrl": null
+   },
+   "terms": {
+    "url": "https://www.hardrockdigital.com/t-cs/",
+    "automatedAccess": "T&Cs §8.1.4 ban automated betting bots; no explicit data-scraping clause found in the parts checked (one state's version)."
+   },
+   "aggregatorsCarrying": [
+    "The Odds API (hardrockbet, region us2)",
+    "OpticOdds (search-snippet-only)"
+   ]
   }
  ],
  "podcasts": [
