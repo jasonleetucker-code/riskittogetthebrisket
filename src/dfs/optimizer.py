@@ -30,7 +30,9 @@ filter over the OWNER's constraints isolates a minimal conflicting subset
 from __future__ import annotations
 
 import math
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -467,6 +469,27 @@ def _build(
     return _Model(pairs=pairs, n_vars=extra, rows=rows)
 
 
+_SOLVER_POOL: ThreadPoolExecutor | None = None
+_SOLVER_POOL_LOCK = threading.Lock()
+
+
+def _solver_pool() -> ThreadPoolExecutor:
+    """ONE long-lived thread that makes every HiGHS call in this process.
+
+    HiGHS keeps native worker threads tied to the thread that called it.
+    Calling it from whichever request thread happened to run a build (FastAPI's
+    threadpool, TestClient portals) crashed the process with a Windows access
+    violation in a thread with no Python frame — reproduced ~1 run in 5 of
+    ``pytest tests/dfs``.  Pinning every solve to one thread also serializes
+    them, which builds tolerate: each is time-budgeted.
+    """
+    global _SOLVER_POOL
+    with _SOLVER_POOL_LOCK:
+        if _SOLVER_POOL is None:
+            _SOLVER_POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix="dfs-highs")
+        return _SOLVER_POOL
+
+
 def _solve(
     model: _Model, objective: list[float], time_limit: float
 ) -> tuple[str, list[float] | None]:
@@ -487,14 +510,19 @@ def _solve(
     A = coo_array((vals, (r_idx, c_idx)), shape=(len(model.rows), model.n_vars)).tocsr()
     cost = np.zeros(model.n_vars)
     cost[: len(objective)] = -np.asarray(objective, dtype=float)
-    res = milp(
-        c=cost,
-        constraints=[
-            LinearConstraint(A, np.asarray(lbs, dtype=float), np.asarray(ubs, dtype=float))
-        ],
-        integrality=np.ones(model.n_vars),
-        bounds=Bounds(0, 1),
-        options={"time_limit": max(0.05, time_limit), "mip_rel_gap": 0.0, "presolve": True},
+    res = (
+        _solver_pool()
+        .submit(
+            milp,
+            c=cost,
+            constraints=[
+                LinearConstraint(A, np.asarray(lbs, dtype=float), np.asarray(ubs, dtype=float))
+            ],
+            integrality=np.ones(model.n_vars),
+            bounds=Bounds(0, 1),
+            options={"time_limit": max(0.05, time_limit), "mip_rel_gap": 0.0, "presolve": True},
+        )
+        .result()
     )
     if res.status == 0 and res.x is not None:
         return "optimal", list(res.x)

@@ -300,3 +300,33 @@ def test_game_unknown_only_matters_for_selectable_players():
     pool[3].game = None
     res = optimize(DK, pool, parse_constraints({"excludes": [pool[3].player_id]}, DK, pool))
     assert res["built"] == 1
+
+
+def test_every_highs_call_runs_on_the_one_solver_thread(monkeypatch):
+    """Solves started from different threads all execute on one pinned thread.
+
+    Calling HiGHS from whichever request thread ran a build crashed the process
+    (Windows access violation in a native thread, ~1 run in 5 of this suite).
+    """
+    import threading
+
+    import scipy.optimize
+
+    seen = []
+    real = scipy.optimize.milp
+
+    def spy(*args, **kwargs):
+        seen.append(threading.current_thread().name)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(scipy.optimize, "milp", spy)
+    pool = _pool(71)
+    c = parse_constraints({}, DK, pool)
+    workers = [threading.Thread(target=optimize, args=(DK, pool, c)) for _ in range(3)]
+    for w in workers:
+        w.start()
+    for w in workers:
+        w.join()
+    optimize(DK, pool, c)
+    assert len(seen) == 4
+    assert len(set(seen)) == 1 and seen[0].startswith("dfs-highs")
