@@ -163,7 +163,7 @@ never takes the Luck section down.
 |---|---|---|
 | League Hub (Luck tab) sortable table + method disclosure | A | implemented (this PR) |
 | Team page compact summary | C1 | implemented: franchise page "Schedule impact" card (record, expected wins with baseline, impact, one reading, link to the league table) |
-| Power Rankings context (display only; formula unchanged) | C | not started |
+| Power Rankings context (display only; formula unchanged) | C1 | implemented: "Schedule" column beside Record + a reading in the expanded breakdown labelled "not part of the power score"; ranks/scores pinned identical with and without it |
 | Weekly recap / Upside Report statements (templated from the contract; an LLM may only narrate) | C | not started |
 | Schedule share card (separate from the full-league rankings card) | C | not started |
 | Historical season views (bySeason already in the contract) | C1 / C | team page season-results "Schedule" column per past season (C1); league-wide historical view not started |

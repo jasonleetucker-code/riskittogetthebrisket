@@ -15,6 +15,8 @@ import { LoadingState, EmptyState } from "@/components/ui";
 import { Card } from "../shared-server.jsx";
 import { Avatar, nameFor } from "../shared.jsx";
 import PlayoffOddsChart from "@/components/graphs/PlayoffOddsChart";
+import { ImpactValue } from "@/components/league/ScheduleImpact";
+import { interpretation, teamRowFor } from "@/lib/schedule-impact";
 
 // Module-level cache so tab-switching doesn't re-fetch on every mount.
 // Same pattern + 30-min TTL that the retired power.jsx used for playoff
@@ -26,6 +28,31 @@ import PlayoffOddsChart from "@/components/graphs/PlayoffOddsChart";
 // Power Ranking — so there is one cache, not one per lens.
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const _cache = { data: null, error: null, inflight: null, fetchedAt: 0 };
+
+// Schedule Intelligence context (display only -- the power formula and
+// ranks are untouched).  The canonical schedule contract rides on the
+// public luck section; one module-scoped fetch per page lifetime window.
+const _scheduleCache = { block: null, fetchedAt: 0, inflight: null };
+
+async function _fetchScheduleBlock() {
+  const c = _scheduleCache;
+  if (c.block && Date.now() - c.fetchedAt < CACHE_TTL_MS) return c.block;
+  if (c.inflight) return c.inflight;
+  c.inflight = fetch("/api/public/league/luck")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((payload) => {
+      const block = payload?.data?.scheduleImpact || null;
+      c.block = block;
+      c.fetchedAt = Date.now();
+      c.inflight = null;
+      return block;
+    })
+    .catch(() => {
+      c.inflight = null;
+      return null;
+    });
+  return c.inflight;
+}
 
 async function _fetchRosPower() {
   const cache = _cache;
@@ -493,6 +520,17 @@ export default function RosPowerSection({ managers } = {}) {
   const [oddsData, setOddsData] = useState(() => _oddsCache.data);
   const [oddsError, setOddsError] = useState(() => _oddsCache.error);
   const [shareOpen, setShareOpen] = useState(false);
+  const [schedule, setSchedule] = useState(() => _scheduleCache.block);
+
+  useEffect(() => {
+    let active = true;
+    _fetchScheduleBlock().then((block) => {
+      if (active) setSchedule(block);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -720,6 +758,14 @@ export default function RosPowerSection({ managers } = {}) {
               >
                 Record
               </th>
+              {schedule ? (
+                <th
+                  style={{ textAlign: "right", padding: "4px 8px" }}
+                  title="Schedule impact: actual head-to-head wins minus the wins the same scores average against an equally likely opponent each week. Context only -- it is not part of the power score."
+                >
+                  Schedule
+                </th>
+              ) : null}
               <th
                 style={{ textAlign: "right", padding: "4px 8px" }}
                 title="Current rank vs. the previous official weekly snapshot"
@@ -733,6 +779,7 @@ export default function RosPowerSection({ managers } = {}) {
               <RankingRow
                 key={row.ownerId || i}
                 row={row}
+                scheduleRow={schedule ? teamRowFor(schedule, schedule.currentSeason, row.ownerId) : undefined}
                 managers={managers}
                 weights={row.weightsApplied || effectiveWeights}
                 expanded={expanded === i}
@@ -800,6 +847,7 @@ function RankingRow({
   onHover,
   hovered,
   sectionGamesUsed,
+  scheduleRow,
 }) {
   const c = row.components || {};
   // A row with no games counted has nothing to average -- fmtRaw already
@@ -857,16 +905,29 @@ function RankingRow({
           {fmtPct(row.rosStrengthPercentile)}
         </td>
         <td style={{ textAlign: "right", fontFamily: "var(--mono)" }}>{row.record || "—"}</td>
+        {scheduleRow !== undefined ? (
+          <td style={{ textAlign: "right" }}>
+            {scheduleRow ? <ImpactValue value={scheduleRow.scheduleImpact} /> : "—"}
+          </td>
+        ) : null}
         <TrendCell deltaValue={trendDeltaValue} emptyLabel={movementEmptyLabel(row, movementBaseline)} />
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={8} style={{ background: "rgba(255,255,255,0.02)", padding: "8px 12px" }}>
+          <td
+            colSpan={scheduleRow !== undefined ? 9 : 8}
+            style={{ background: "rgba(255,255,255,0.02)", padding: "8px 12px" }}
+          >
             <div style={{ fontSize: "0.72rem" }}>
               {Object.entries(COMPONENT_LABELS).map(([key, label]) => (
                 <ComponentBar key={key} label={label} value={c[key]} weight={weights[key] ?? 0} />
               ))}
             </div>
+            {scheduleRow ? (
+              <p style={{ fontSize: "0.72rem", color: "var(--subtext)", margin: "8px 0 0" }}>
+                Schedule context (not part of the power score): {interpretation(scheduleRow)}
+              </p>
+            ) : null}
           </td>
         </tr>
       )}
