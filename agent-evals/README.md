@@ -99,6 +99,40 @@ underlying work was correct. Closing that gap — confirming a flagged claim aga
 the actual transcript/diff — is a separate, human or independent-reviewer step,
 consistent with `docs/AGENT_OPERATING_SYSTEM.md` §4's "Independent reviewer" role.
 
+### Evidence levels — one check can be established from an artifact
+
+Every check in a grade result carries a level:
+
+| level | meaning |
+|---|---|
+| `DECLARED` | graded on what the run artifact says about itself (status, summary strings, `UNRESOLVED`, flags) |
+| `VERIFIED_AGAINST_ARTIFACT` | graded on an artifact the run did not write |
+| `NOT_CHECKED` | no trusted evidence was available; stated with a reason, never counted as a pass |
+
+With `--repo <local repository>`, `graders/diff_evidence.py` computes the actual
+changed files between the artifact's pinned `repo_head_start` and `repo_head_end`
+(`git diff --name-only --no-renames`, no shell, 30 s timeout, output capped). The
+declared `changed_files` must then equal that set exactly, and the case's path
+globs are judged on the actual diff. A run that reports success while its diff
+touches a forbidden path fails.
+
+Limits, stated plainly:
+
+- The diff proves the tree difference between two commits that exist in that
+  repository. It does not prove the run authored them, that they are the commits
+  it worked on, or that the change is correct.
+- Revisions must be full 40-character lowercase SHAs (schema pattern); anything
+  else is a malformed artifact. A well-formed revision the repository cannot
+  resolve fails the grade as unverifiable. Absent revisions leave the check
+  `NOT_CHECKED` unless `--require-verified-diff` is given.
+- Artifacts are untrusted data: bounded at 1 MiB, never executed, no declared
+  path is opened, and nothing is fetched over the network.
+- Test results are still `DECLARED` (a flag such as `regression_test_added`).
+  Tying test evidence to the exact checked revision through a trusted runner or
+  independently retrieved CI records is the next unit, not done here.
+- One verified check never makes a run verified. The CLI prints
+  `run as a whole: NOT VERIFIED` on every result.
+
 ## Capturing a real run
 
 1. Pick a case: `python agent-evals/run_eval.py --list`.
