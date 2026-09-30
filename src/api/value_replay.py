@@ -332,14 +332,17 @@ def blend_check(row: Mapping[str, Any]) -> dict[str, Any]:
     if row.get("assetClass") != "offense":
         return {"status": "not_applicable", "reason": "anchor/pick path"}
     meta = row.get("sourceRankMeta") or {}
+    # An observation without a stamped weight or value is not a voter; it is
+    # excluded, never coerced to zero.
     voters = [
-        (float(m["valueContribution"]), float(m.get("appliedWeight") or 0.0))
+        (float(m["valueContribution"]), float(m["appliedWeight"]))
         for m in meta.values()
         if not m.get("hampelDropped")
         and not m.get("excludedReason")
         and m.get("contributedToBlend") is not False
-        and (m.get("appliedWeight") or 0) > 0
-        and m.get("valueContribution") is not None
+        and isinstance(m.get("appliedWeight"), (int, float))
+        and m["appliedWeight"] > 0
+        and isinstance(m.get("valueContribution"), (int, float))
     ]
     if not voters:
         return {"status": "no_voters"}
