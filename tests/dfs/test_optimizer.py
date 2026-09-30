@@ -625,3 +625,33 @@ def test_impossible_team_stack_is_isolated_not_dropped():
 def test_team_stack_input_is_validated(stack):
     with pytest.raises(ConstraintError):
         parse_constraints({"teamStacks": [stack]}, DK, _pool(47))
+
+
+def test_every_highs_call_runs_on_the_one_solver_thread(monkeypatch):
+    """Solves started from different threads all execute on one pinned thread.
+
+    Calling HiGHS from whichever request thread ran a build crashed the process
+    (Windows access violation in a native thread, ~1 run in 5 of this suite).
+    """
+    import threading
+
+    import scipy.optimize
+
+    seen = []
+    real = scipy.optimize.milp
+
+    def spy(*args, **kwargs):
+        seen.append(threading.current_thread().name)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(scipy.optimize, "milp", spy)
+    pool = _pool(71)
+    c = parse_constraints({}, DK, pool)
+    workers = [threading.Thread(target=optimize, args=(DK, pool, c)) for _ in range(3)]
+    for w in workers:
+        w.start()
+    for w in workers:
+        w.join()
+    optimize(DK, pool, c)
+    assert len(seen) == 4
+    assert len(set(seen)) == 1 and seen[0].startswith("dfs-highs")
