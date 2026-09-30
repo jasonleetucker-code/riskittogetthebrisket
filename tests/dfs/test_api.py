@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -166,12 +167,38 @@ def test_infeasible_constraints_explain_themselves(client):
 
 
 def test_server_mounts_dfs_behind_the_private_gate():
-    import server
+    """The real server registers /api/dfs/* and keeps it private.
 
-    paths = {getattr(r, "path", "") for r in server.app.routes}
-    assert "/api/dfs/capabilities" in paths
-    with TestClient(server.app) as c:
-        assert c.get("/api/dfs/capabilities").status_code == 401
+    Checked in a FRESH interpreter: this suite shares one ``server`` module with
+    hundreds of tests, and on CI an earlier test left ``server.app`` without the
+    DFS routes while this passed locally — in-process state is not evidence of
+    how the process boots.  (A 401 alone proves nothing either: the private gate
+    answers 401 for unknown /api paths too, so the route list is what counts.)
+    """
+    import os
+    import subprocess
+    import sys
+
+    repo = Path(__file__).resolve().parents[2]
+    probe = (
+        "import json, server; "
+        "paths = sorted({getattr(r, 'path', '') for r in server.app.routes if getattr(r, 'path', '').startswith('/api/dfs')}); "
+        "print(json.dumps({'paths': paths, 'public': server._is_public_api_path('/api/dfs/capabilities')}))"
+    )
+    env = {**os.environ, "ALLOW_DEFAULT_LOGIN_DEV": "1", "UPTIME_CHECK_ENABLED": "false"}
+    out = subprocess.run(
+        [sys.executable, "-c", probe],
+        cwd=repo,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert out.returncode == 0, out.stderr[-2000:]
+    result = json.loads(out.stdout.strip().splitlines()[-1])
+    assert "/api/dfs/capabilities" in result["paths"]
+    assert "/api/dfs/builds/{build_id}/export" in result["paths"]
+    assert result["public"] is False
 
 
 def test_guest_pass_sessions_are_scoped_per_pass_not_shared():
