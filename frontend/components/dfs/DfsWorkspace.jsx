@@ -114,7 +114,17 @@ function LineupTable({ lineup, cap }) {
     { key: "name", header: "Player", sortable: false },
     { key: "team", header: "Team", sortable: false, hideBelow: "sm", render: (p) => `${p.team}${p.opponent ? ` v ${p.opponent}` : ""}` },
     { key: "salary", header: "Salary", numeric: true, sortable: false, render: (p) => formatSalary(p.salary) },
-    { key: "projection", header: "Proj", numeric: true, sortable: false, render: (p) => formatPoints(p.projection) },
+    {
+      key: "projection",
+      header: "Proj",
+      numeric: true,
+      sortable: false,
+      // The slot's multiplier (Showdown captain 1.5×) is shown, never hidden in the number.
+      render: (p) =>
+        p.slotMultiplier && p.slotMultiplier !== 1
+          ? `${formatPoints(p.slotProjection)} (${formatPoints(p.projection)} × ${p.slotMultiplier})`
+          : formatPoints(p.slotProjection ?? p.projection),
+    },
   ];
   return (
     <div className={styles.lineup}>

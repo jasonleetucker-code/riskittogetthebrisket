@@ -73,6 +73,15 @@ class SlateAthlete:
     eligible_slots: list[str] = field(default_factory=list)
     # Every source column this adapter does not consume, verbatim.
     extra: dict[str, str] = field(default_factory=dict)
+    # One PERSON can appear as several platform rows (DraftKings Showdown lists
+    # a CPT row and a FLEX row, each with its own ID).  Rows sharing a
+    # group_key are the same athlete: at most one may be rostered, and a
+    # projection for one applies to all.  None = this row stands alone.
+    group_key: str | None = None
+
+    @property
+    def identity(self) -> str:
+        return self.group_key or self.player_id
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -232,10 +241,33 @@ def parse_draftkings_salaries(text: str) -> tuple[list[SlateAthlete], ImportRepo
                 platform_average=avg if avg not in (None, 0.0) else None,
                 eligible_slots=_slots(r.get("Roster Position")),
                 extra=_extra(r, DK_COLUMNS),
+                group_key=f"{normalize_player_name(r['Name'])}|{team}|{'/'.join(positions)}",
             )
         )
+    _keep_only_captain_groups(out, report)
     report.rows_used = len(out)
     return out, report
+
+
+def _keep_only_captain_groups(athletes: list[SlateAthlete], report: ImportReport) -> None:
+    """A group key is kept only for a genuine captain pair (one CPT row + one FLEX row).
+
+    Anything else sharing a name/team/position — two different people, or a
+    duplicated row — is NOT one athlete: its rows keep separate identities so
+    projection joins stay ambiguous (quarantined) instead of propagating.
+    """
+    groups: dict[str, list[SlateAthlete]] = {}
+    for a in athletes:
+        if a.group_key:
+            groups.setdefault(a.group_key, []).append(a)
+    for key, rows in groups.items():
+        labels = [tuple(sorted(r.eligible_slots)) for r in rows]
+        captain_pair = len(rows) == 2 and sorted(labels) == [("CPT",), ("FLEX",)]
+        if len(rows) == 1 or not captain_pair:
+            for r in rows:
+                r.group_key = None
+            if len(rows) > 1:
+                report.reject(0, "same_name_team_position_not_a_captain_pair", {"key": key[:80]})
 
 
 def parse_fanduel_players(text: str) -> tuple[list[SlateAthlete], ImportReport]:
@@ -421,7 +453,8 @@ def apply_projection_csv(athletes: list[SlateAthlete], text: str) -> dict[str, A
             if pos_col and r.get(pos_col, "").strip():
                 pos = r[pos_col].strip().upper()
                 cands = [c for c in cands if pos in c.positions]
-            if len(cands) == 1:
+            if len({c.identity for c in cands}) == 1 and cands:
+                # Several rows of ONE athlete (e.g. Showdown CPT + FLEX) are one identity.
                 target, method = cands[0], "name_team"
             elif len(cands) > 1:
                 ambiguous.append(
@@ -436,19 +469,19 @@ def apply_projection_csv(athletes: list[SlateAthlete], text: str) -> dict[str, A
         if target is None:
             unmatched.append({"row": i, "name": label[:80], "reason": "no_slate_athlete"})
             continue
-        prior = matched.get(target.player_id)
+        prior = matched.get(target.identity)
         if prior is not None and prior[0] != value:
             conflicts.append(
                 {"row": i, "playerId": target.player_id, "reason": "two_rows_disagree"}
             )
             continue
-        matched[target.player_id] = (value, method or "")
+        matched[target.identity] = (value, method or "")
 
     # Two disagreeing rows for one athlete → that athlete is unresolved, never first-wins.
     for c in conflicts:
-        matched.pop(c["playerId"], None)
+        matched.pop(by_id[c["playerId"]].identity, None)
     for a in athletes:
-        hit = matched.get(a.player_id)
+        hit = matched.get(a.identity)
         if hit is not None:
             a.projection, a.projection_match = hit
             a.projection_source = "owner_import"

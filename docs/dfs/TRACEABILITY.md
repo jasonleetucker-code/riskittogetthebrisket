@@ -22,7 +22,7 @@ vocabulary: **SLICE1** (implemented + tested on `claude/dfs-foundation`, PR #153
 | DFS-§4-03 | Persistent context selector (sport/platform/format/…); per-format settings | P1 | PARTIAL | Sport/platform/format persisted per viewer; date/slate/contest/objective/build version pending |
 | DFS-§5-01 | Capability gating per platform × sport × format × rule version | P1 | SLICE1 | `capability_matrix()`; `RULESET_SUPERSEDED` on version drift |
 | DFS-§5-02 | Verified rule sets with official evidence; fail closed for money mode | P1 | BLOCKED(official pages refused automated access) | `RULESET_UNVERIFIED` enforced; owner verification needed |
-| DFS-§5-03 | Showdown / single-game / captain / MVP | P2 | NEXT | DFS-RULES-02 |
+| DFS-§5-03 | Showdown / single-game / captain / MVP | A | PARTIAL (SLICE4) | DK NFL Showdown Captain encoded UNVERIFIED: row-label eligibility (`platform_slots`), one athlete = CPT row + FLEX row (group identity; never both rostered), captain 1.5x applied once at the slot and shown explicitly, stored projection untouched, brute-force parity. FanDuel single-game MVP and other sports' showdown still NEXT (layouts unverified) |
 | DFS-§5-04 | NBA, NHL, MMA rule sets | A | PARTIAL (SLICE4, `claude/dfs-multisport`) | DK + FD NBA and NHL classic encoded as UNVERIFIED research-mode rule sets (solver exact vs brute force on all four, non-vacuity guarded; platform-file roster slots cross-checked on import). MMA still NEXT (no roster rules encoded; files are recognised) |
 | DFS-§5-05 | Contest import/editor, payout ladder validation, rake, overlays, hypothetical profiles | P2 | SLICE2 (manual + pasted ladder) | `src/dfs/contests.py`: separate dimensions, integer cents, overlap/capacity errors, gap/inversion review flags (never rewritten), rake vs overlay vs underfill vs unknown, hypothetical suppresses exact EV; versioned per-owner storage. Platform/provider contest import still NEXT |
 | DFS-§5-06 | Scoring contracts (weights, bonuses, rounding) versioned | P2 | NEXT | Needed before own-model projections (P3/P4) |
@@ -81,7 +81,7 @@ vocabulary: **SLICE1** (implemented + tested on `claude/dfs-foundation`, PR #153
 | DFS-§23-01 | Auth on every route/job/export; cross-user tests | P1 | SLICE1 | |
 | DFS-§23-02 | Untrusted-file defences (size, header, formula-safe IDs) | P1 | SLICE1 | XML/archives/audio N/A until those inputs exist |
 | DFS-§23-03 | Spending ceilings, research-only mode, cost dashboard | P5 | PARTIAL | Research mode is the only mode that builds today |
-| DFS-§24-xx | Test program items 1–52 | per phase | PARTIAL | Items 2, 8, 9, 10, 11, 12, 13, 14, 15, 20, 21 (cash-line tie), 22, 23, 28 (bound), 29, 32, 43(partial), 44, 47, 51, 52 covered |
+| DFS-§24-xx | Test program items 1–52 | per phase | PARTIAL | Items 3 (captain once), 7 (duplicate names / captain rows), 2, 8, 9, 10, 11, 12, 13, 14, 15, 20, 21 (cash-line tie), 22, 23, 28 (bound), 29, 32, 43(partial), 44, 47, 51, 52 covered |
 | DFS-§25-01 | Dependency-aware roadmap linked to Calculator Ideas | P0 | SLICE1 | `ROADMAP.md` |
 | DFS-§26-01 | Lane 6 active every batch | all | SLICE1 | `/dfs` UI shipped with the foundation; UI ledger row |
 | DFS-§27-01 | Documentation set + user guide | P0 | SLICE1 | This folder |

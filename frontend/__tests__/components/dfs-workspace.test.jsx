@@ -238,3 +238,50 @@ describe("DfsWorkspace", () => {
     expect(await screen.findByText("The DFS workspace is switched off.")).toBeInTheDocument();
   });
 });
+
+describe("DfsWorkspace — Showdown captain display", () => {
+  it("shows the captain multiplier explicitly instead of hiding it in the total", async () => {
+    fetch.mockImplementation(async (url) => {
+      const u = String(url);
+      if (/\/api\/dfs\/(presets|contests|providers|slates\/detect)$/.test(u)) return jsonResponse(200, BACKGROUND);
+      if (u.endsWith("/capabilities")) return jsonResponse(200, CAPS);
+      if (u.endsWith("/slates")) return jsonResponse(201, SLATE);
+      return jsonResponse(201, {
+        buildId: "build_sd",
+        createdAt: "2026-09-30T12:00:00+00:00",
+        researchOnly: true,
+        solver: "HiGHS",
+        ruleset: { key: RULESET.key, exportVerification: "unverified" },
+        snapshot: { contentHash: "abcdef0123456789" },
+        constraintsHash: "0123456789abcdef",
+        limits: [],
+        result: {
+          status: "optimal",
+          requested: 1,
+          built: 1,
+          shortfall: null,
+          elapsedMs: 4,
+          exposure: [],
+          lineups: [
+            {
+              index: 1,
+              projection: 30.75,
+              salary: 9000,
+              salaryRemaining: 41000,
+              players: [
+                { slot: "CPT", playerId: "8000", name: "Syn QB", team: "AAA", salary: 9000, projection: 20.5, slotMultiplier: 1.5, slotProjection: 30.75 },
+              ],
+            },
+          ],
+        },
+      });
+    });
+    render(<DfsWorkspace />);
+    await screen.findByText(/Research only/);
+    fireEvent.change(screen.getByLabelText("Salary CSV text"), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Import slate" }));
+    await screen.findByRole("table", { name: /Slate player pool/ });
+    fireEvent.click(screen.getByRole("button", { name: "Optimal Lineup" }));
+    expect(await screen.findByText("30.75 (20.50 × 1.5)")).toBeInTheDocument();
+  });
+});

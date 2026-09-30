@@ -627,6 +627,98 @@
           "minTeams"
         ]
       }
+    },
+    {
+      "id": "draftkings.nfl.showdown_captain",
+      "version": "2026.1",
+      "platform": "draftkings",
+      "sport": "nfl",
+      "format": "showdown_captain",
+      "label": "DraftKings NFL Showdown Captain",
+      "salaryCap": 50000,
+      "slots": [
+        {
+          "name": "CPT",
+          "eligible": [
+            "CPT"
+          ]
+        },
+        {
+          "name": "FLEX",
+          "eligible": [
+            "FLEX"
+          ]
+        },
+        {
+          "name": "FLEX",
+          "eligible": [
+            "FLEX"
+          ]
+        },
+        {
+          "name": "FLEX",
+          "eligible": [
+            "FLEX"
+          ]
+        },
+        {
+          "name": "FLEX",
+          "eligible": [
+            "FLEX"
+          ]
+        },
+        {
+          "name": "FLEX",
+          "eligible": [
+            "FLEX"
+          ]
+        }
+      ],
+      "eligibilityBasis": "platform_slots",
+      "athletePositions": [
+        "QB",
+        "RB",
+        "WR",
+        "TE",
+        "K",
+        "DST"
+      ],
+      "slotPointsMultipliers": {
+        "CPT": 1.5
+      },
+      "maxPlayersPerTeam": 5,
+      "minTeams": 2,
+      "minGames": null,
+      "salaryImport": "draftkings_salary_csv_v1",
+      "export": {
+        "format": "draftkings_lineup_upload_v1",
+        "header": [
+          "CPT",
+          "FLEX",
+          "FLEX",
+          "FLEX",
+          "FLEX",
+          "FLEX"
+        ],
+        "cell": "platform_player_id",
+        "verification": {
+          "state": "unverified",
+          "blocker": "No official Showdown upload template round-trip tested yet. Owner action: add a blank DraftKings NFL Showdown upload template under tests/dfs/fixtures/templates/."
+        }
+      },
+      "verification": {
+        "state": "unverified",
+        "checkedOn": "2026-09-30",
+        "evidence": [],
+        "blocker": "https://www.draftkings.com/help/rules/nfl was not checked (403 to automated fetch; the in-app browser refuses the domain). Captain 1.5x points, 1 CPT + 5 FLEX, both teams represented and the salary cap are the commonly documented Showdown shape, encoded for research mode only. The CPT row's 1.5x salary comes from the platform file itself. Owner action: confirm against the official rules or supply an official Showdown salary file + upload template.",
+        "unverifiedFields": [
+          "salaryCap",
+          "slots",
+          "slotPointsMultipliers",
+          "minTeams",
+          "maxPlayersPerTeam"
+        ]
+      }
     }
   ],
   "capabilities": [
@@ -646,8 +738,7 @@
       "platform": "draftkings",
       "sport": "nfl",
       "format": "showdown_captain",
-      "ruleset": null,
-      "reason": "Showdown Captain rules (captain salary/points multiplier) not encoded yet — DFS-RULES-02."
+      "ruleset": "draftkings.nfl.showdown_captain"
     },
     {
       "platform": "fanduel",

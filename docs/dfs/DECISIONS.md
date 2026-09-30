@@ -88,3 +88,15 @@ with what was recognised. The platform's own per-player roster slots are cross-c
 the encoded rule set and any disagreement is shown, never auto-resolved — that is how an
 unverified rule set accumulates evidence.
 
+## ADR-DFS-010 — Showdown: platform rows, athlete identity, multiplier at the slot (2026-09-30)
+
+DraftKings Showdown files list each athlete twice (CPT row with its own ID and 1.5× salary; FLEX
+row). The rule set's `eligibilityBasis: platform_slots` makes each slot accept only rows the
+platform labelled for it. Rows of one athlete share a `group_key`, and the optimizer and the
+independent validator allow at most one row per group. A group is kept ONLY for a genuine
+CPT + FLEX pair; any other name/team/position collision keeps separate identities so projection
+joins stay quarantined. The captain multiplier lives in the rule set (`slotPointsMultipliers`)
+and is applied once — in the objective and in the lineup payload's `slotProjection` — while the
+stored projection is never changed. The platform-slot cross-check is `not_applicable` here
+(comparing the file's labels with themselves would manufacture agreement).
+

@@ -16,7 +16,7 @@ Worktrees used: `C:\Users\jason\code\chaseupside-dfs` (#1534) and
 `C:\Users\jason\code\chaseupside-dfs-contests` (stacked), each with `frontend/node_modules` as a
 junction to the main checkout's.
 
-| `claude/dfs-multisport` | stacked on #1535 | NBA + NHL classic rule sets for DK + FD (unverified, research mode); brute-force parity + non-vacuity guard | Local; PR after #1535 lands |
+| `claude/dfs-multisport` | stacked on #1535 | NBA + NHL classic rule sets for DK + FD; DK NFL Showdown Captain (row-label eligibility, one athlete per CPT/FLEX pair, 1.5× once); all unverified research mode; brute-force parity + non-vacuity guard | Local; PR after #1535 lands |
 
 ## Proven (with evidence)
 

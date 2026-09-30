@@ -258,6 +258,9 @@ def validate_lineup(
     ids = [pid for _, pid in assignment]
     if len(set(ids)) != len(ids):
         errors.append("a player appears twice")
+    people = [pool_by_id[pid].identity for pid in ids if pid in pool_by_id]
+    if len(set(people)) != len(people):
+        errors.append("one athlete is rostered twice (e.g. as captain and in flex)")
     athletes = []
     for (slot_name, pid), slot in zip(assignment, ruleset.slots):
         a = pool_by_id.get(pid)
@@ -267,7 +270,7 @@ def validate_lineup(
         athletes.append(a)
         if slot_name != slot.name:
             errors.append(f"slot order mismatch at {slot.name}")
-        if not set(a.positions) & set(slot.eligible):
+        if not ruleset.eligible(a, slot):
             errors.append(f"{a.name} ({'/'.join(a.positions)}) is not eligible for {slot.name}")
     if len(athletes) != len(assignment):
         return errors
@@ -356,7 +359,7 @@ def _build(
         if a.player_id in banned:
             continue
         for s, slot in enumerate(ruleset.slots):
-            if set(a.positions) & set(slot.eligible):
+            if ruleset.eligible(a, slot):
                 pairs.append((i, s))
     n = len(pairs)
     by_athlete: dict[int, list[int]] = {}
@@ -379,6 +382,17 @@ def _build(
     for i in by_athlete:
         if len(by_athlete[i]) > 1:
             rows.append((y(i), 0, 1, "rule"))
+    # Several rows of one athlete (Showdown CPT + FLEX): at most one of them.
+    groups: dict[str, list[int]] = {}
+    for i in by_athlete:
+        groups.setdefault(pool[i].identity, []).append(i)
+    for members in groups.values():
+        if len(members) > 1:
+            acc: dict[int, float] = {}
+            for i in members:
+                for v in by_athlete[i]:
+                    acc[v] = 1.0
+            rows.append((acc, 0, 1, "rule"))
     salary_row: dict[int, float] = {}
     for i in by_athlete:
         add_y(salary_row, i, float(pool[i].salary))
@@ -630,6 +644,7 @@ def _lineup_payload(
     players = []
     for slot_name, pid in assignment:
         a = pool_by_id[pid]
+        mult = ruleset.points_multiplier(slot_name)
         players.append(
             {
                 "slot": slot_name,
@@ -641,6 +656,12 @@ def _lineup_payload(
                 "game": a.game,
                 "salary": a.salary,
                 "projection": a.projection,
+                # The stored projection is never changed; the slot's multiplier
+                # (captain 1.5x) is applied here, visibly, exactly once.
+                "slotMultiplier": mult,
+                "slotProjection": round(a.projection * mult, 2)
+                if a.projection is not None
+                else None,
                 "projectionSource": a.projection_source,
                 "pointsPerK": round(a.projection / (a.salary / 1000), 3)
                 if a.salary and a.projection is not None
@@ -655,7 +676,7 @@ def _lineup_payload(
         "players": players,
         "salary": salary,
         "salaryRemaining": ruleset.salary_cap - salary,
-        "projection": round(sum(p["projection"] for p in players), 2),
+        "projection": round(sum(p["slotProjection"] for p in players), 2),
         # Same players in different flex slots score identically: that is ONE
         # scoring identity.  The slot map is kept separately because late-swap
         # flexibility can still differ between assignments.
@@ -715,7 +736,15 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
             break
         model = _build(ruleset, pool, c, previous, exhausted, None)
         # The objective indexes (athlete, slot) pairs, not athletes.
-        status, x = _solve(model, [objective[i] for i, _s in model.pairs], remaining)
+        # Slot multipliers (Showdown captain) apply here, once, at the slot.
+        status, x = _solve(
+            model,
+            [
+                objective[i] * ruleset.points_multiplier(ruleset.slots[s].name)
+                for i, s in model.pairs
+            ],
+            remaining,
+        )
         statuses.append(status)
         if x is None:
             if status == "infeasible":

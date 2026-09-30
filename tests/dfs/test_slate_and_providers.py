@@ -129,7 +129,6 @@ def test_wrong_platform_file_is_refused_not_switched():
     "text,sport",
     [
         (_dk([("F", "F", "AAA"), ("F", "F", "BBB")]), "mma"),
-        (_dk([("QB", "CPT", "AAA"), ("QB", "FLEX", "AAA")]), "nfl"),
     ],
 )
 def test_recognised_but_unencoded_formats_say_so(text, sport):
