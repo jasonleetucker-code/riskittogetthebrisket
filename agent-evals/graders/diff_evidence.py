@@ -31,6 +31,7 @@ whose diff could not be established, which the grader treats as a failure.
 
 from __future__ import annotations
 
+import fnmatch
 import os
 import re
 import subprocess
@@ -117,3 +118,73 @@ def changed_files_between(
     if len(files) > max_files:
         return DiffEvidence(None, base, head, "diff_exceeds_bound")
     return DiffEvidence(tuple(sorted(files)), base, head)
+
+
+# Gate machinery the CI workflows execute or configure (derived from
+# pr-validation.yml / fast-gate.yml). Maintained by hand: a list, not a proof that
+# nothing else can influence a gate. Tests themselves are deliberately absent --
+# tests a run edited are part of what was tested, and its changed-file claim shows them.
+CI_GATE_GLOBS = (
+    ".github/*",
+    "scripts/ci_*",
+    "scripts/check_*",
+    "scripts/audit_status.py",
+    "scripts/validate_api_contract.py",
+    "scripts/tiered_validate.sh",
+    "scripts/format_python_changes.sh",
+    "config/coercion_baseline.json",
+    "*conftest.py",
+    "pyproject.toml",
+    "pytest.ini",
+    "setup.cfg",
+    "tox.ini",
+    "requirements*.txt",
+    "frontend/package.json",
+    "frontend/package-lock.json",
+    "frontend/scripts/*",
+    "frontend/vitest.config.*",
+    "frontend/vite.config.*",
+)
+TRUSTED_REF = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/-]*")
+
+
+def gate_changes(repo: Path, trusted_ref, head, extra: tuple[str, ...] = ()) -> DiffEvidence:
+    """Gate files ``head`` changed relative to trusted history.
+
+    The comparison point is ``merge-base(trusted_ref, head)``, computed from the
+    operator's trusted ref -- never the artifact's own ``repo_head_start``, which
+    could be chosen to hide an earlier edit. ``files`` lists only gate paths.
+    """
+    if not isinstance(trusted_ref, str) or not TRUSTED_REF.fullmatch(trusted_ref):
+        return DiffEvidence(None, trusted_ref, head, "trusted_ref_invalid")
+    if not is_full_sha(head):
+        return DiffEvidence(None, trusted_ref, head, "revision_not_full_sha")
+    repo = Path(repo)
+    try:
+        base = _git(repo, "merge-base", "--end-of-options", trusted_ref, head)
+        if base.returncode != 0:
+            return DiffEvidence(None, trusted_ref, head, "trusted_ref_unresolvable")
+        merge_base = base.stdout.decode("ascii", "replace").strip()
+        if not is_full_sha(merge_base):
+            return DiffEvidence(None, trusted_ref, head, "trusted_ref_unresolvable")
+        result = _git(
+            repo,
+            "diff",
+            "--name-only",
+            "-z",
+            "--no-renames",
+            "--no-ext-diff",
+            merge_base,
+            head,
+            "--",
+        )
+    except OSError:
+        return DiffEvidence(None, trusted_ref, head, "git_unavailable")
+    except subprocess.TimeoutExpired:
+        return DiffEvidence(None, trusted_ref, head, "git_timeout")
+    if result.returncode != 0 or len(result.stdout) > MAX_OUTPUT_BYTES:
+        return DiffEvidence(None, trusted_ref, head, "git_diff_failed")
+    changed = [p for p in result.stdout.decode("utf-8", "surrogateescape").split("\0") if p]
+    globs = CI_GATE_GLOBS + tuple(extra)
+    gated = sorted(p for p in changed if any(fnmatch.fnmatch(p, g) for g in globs))
+    return DiffEvidence(tuple(gated), merge_base, head)

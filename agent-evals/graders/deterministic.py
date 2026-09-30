@@ -26,7 +26,8 @@ check in a result carries its evidence level -- DECLARED,
 VERIFIED_AGAINST_ARTIFACT or NOT_CHECKED -- so one verified check is never
 read as a verified run. A case's ``required_ci_workflows`` are likewise checked
 against GitHub Actions' own records for the pinned ``repo_head_end``
-(graders/ci_evidence.py) instead of a self-reported "tests passed".
+(graders/ci_evidence.py) instead of a self-reported "tests passed"; a success
+counts only when the gate machinery that ran is proven to match trusted history.
 
 No third-party dependency (e.g. the `jsonschema` package) is used: this
 repository does not currently depend on it, and a hand-rolled structural
@@ -43,7 +44,13 @@ from pathlib import Path
 
 from . import ci_evidence
 from .ci_evidence import CiRuns, fetch_workflow_runs, workflow_verdict
-from .diff_evidence import OPERATOR_FAULTS, DiffEvidence, changed_files_between, is_full_sha
+from .diff_evidence import (
+    OPERATOR_FAULTS,
+    DiffEvidence,
+    changed_files_between,
+    gate_changes,
+    is_full_sha,
+)
 
 CASES_DIR = Path(__file__).resolve().parent.parent / "cases"
 
@@ -221,13 +228,17 @@ def grade(
     require_verified_diff: bool = False,
     ci: CiRuns | None = None,
     require_verified_ci: bool = False,
+    gates: DiffEvidence | None = None,
+    trusted_base: str = "main",
 ) -> GradeResult:
     """Grade one artifact against one case. Pure function, no I/O.
 
     ``diff`` is the trusted runner's result for the artifact's pinned revisions
     (``None`` when no repository was supplied). Without it every check is graded
     on the artifact's declared state, exactly as before. ``ci`` is the
-    independently retrieved workflow-run listing for ``repo_head_end``.
+    independently retrieved workflow-run listing for ``repo_head_end``; ``gates``
+    is the gate machinery ``repo_head_end`` changed relative to the operator's
+    trusted ref, and ``trusted_base`` the branch PR runs must have merged against.
     """
     failures: list[str] = []
     evidence: list[dict] = []
@@ -330,13 +341,16 @@ def grade(
         if ci is None:
             verdict, detail = "not_checked", "no_ci_repository"
         else:
-            verdict, detail = workflow_verdict(ci, workflow)
-        # The judge's identity: a success counts only if the run did not edit it.
+            verdict, detail = workflow_verdict(ci, workflow, trusted_base=trusted_base)
+        # The judge's identity: the gate machinery at the revision must match trusted
+        # history, measured from the operator's trusted ref, not the artifact's start.
         if verdict == "success":
-            if not scope_verified:
+            if gates is None:
                 verdict, detail = "not_checked", "workflow_identity_unverified"
-            elif workflow in diff.files:
-                verdict, detail = "not_checked", "workflow_changed_in_run"
+            elif not gates.established:
+                verdict, detail = "not_checked", f"workflow_identity_unverified: {gates.reason}"
+            elif gates.files:
+                verdict, detail = "not_checked", f"ci_gate_changed_in_run: {list(gates.files)}"
         if verdict == "success":
             evidence.append({"check": check, "level": VERIFIED_AGAINST_ARTIFACT})
         elif verdict == "failure":
@@ -377,6 +391,8 @@ def grade_file(
     require_verified_diff: bool = False,
     ci_repo: str | None = None,
     require_verified_ci: bool = False,
+    trusted_ref: str | None = None,
+    trusted_base: str = "main",
     fetch_runs=fetch_workflow_runs,
 ) -> GradeResult:
     case = load_case(case_id)
@@ -388,11 +404,16 @@ def grade_file(
         )
         if diff.reason in OPERATOR_FAULTS:
             raise CaseError(f"{repo}: cannot verify against this repository ({diff.reason})")
-    ci = None
-    if ci_repo is not None and case["grading"].get("required_ci_workflows"):
+    ci = gates = None
+    workflows = case["grading"].get("required_ci_workflows")
+    if ci_repo is not None and workflows:
         ci = fetch_runs(ci_repo, artifact.get("repo_head_end"))
         if ci.reason in ci_evidence.OPERATOR_FAULTS:
             raise CaseError(f"{ci_repo}: cannot read CI records ({ci.reason})")
+        if repo is not None and trusted_ref is not None and is_full_sha(ci.head):
+            gates = gate_changes(Path(repo), trusted_ref, ci.head, tuple(workflows))
+            if gates.reason == "trusted_ref_invalid":
+                raise CaseError(f"{trusted_ref!r}: not a usable trusted ref")
     return grade(
         case,
         artifact,
@@ -400,4 +421,6 @@ def grade_file(
         require_verified_diff=require_verified_diff,
         ci=ci,
         require_verified_ci=require_verified_ci,
+        gates=gates,
+        trusted_base=trusted_base,
     )

@@ -138,16 +138,32 @@ Limits, stated plainly:
   a fetch or a configured upload-pack command.
 - Test results: a self-reported flag such as `regression_test_added` stays
   `DECLARED`. A case can list `required_ci_workflows`; with `--ci-repo owner/name`
-  (and `--repo`), each is checked against GitHub Actions' own workflow-run records
-  for the pinned `repo_head_end` — read-only `gh api` on one fixed endpoint, the
-  newest run for that exact `head_sha` deciding. A failed run fails the grade even
-  when the artifact declares success. A success counts only if the pinned diff
-  proves the run did not edit that workflow file (`workflow_changed_in_run`
-  otherwise); without the diff it is `workflow_identity_unverified`. No run,
-  an unfinished run or a truncated listing stays `NOT_CHECKED` unless
-  `--require-verified-ci`; missing `gh` or a bad slug is a grading error (exit 2).
-  A green workflow proves the workflow passed at that commit, not that the tests
-  are adequate — tests the run edited are part of what was tested.
+  each is checked against GitHub Actions' own records for the pinned
+  `repo_head_end` (read-only `gh api`, two fixed endpoints: workflow runs for that
+  SHA, and the PRs GitHub associates with it). Only the operator repository's own
+  `push` / `pull_request` runs for that exact `head_sha` count; the run that
+  started last decides. A failed run fails the grade even when the artifact
+  declares success.
+- A green run counts as `VERIFIED_AGAINST_ARTIFACT` only when the bytes that ran
+  are proven trusted: with `--repo` and `--trusted-ref` (e.g. `origin/main`), the
+  gate machinery at the revision (workflows, `scripts/ci_*`, `scripts/check_*`,
+  `conftest.py`, `pyproject.toml`, requirements, frontend build config — the list
+  is `CI_GATE_GLOBS` in `graders/diff_evidence.py`) must be unchanged relative to
+  `merge-base(trusted ref, revision)`. That point comes from the trusted ref, never
+  from the artifact's own `repo_head_start`, which could be chosen to hide an
+  earlier edit. A `pull_request` run executes the workflow from the merge with the
+  PR's base, so every PR associated with the revision must target
+  `--ci-base-branch` (default `main`). Otherwise the check is `NOT_CHECKED` with the
+  reason (`ci_gate_changed_in_run`, `ci_base_not_trusted`, `ci_base_unproven`,
+  `workflow_identity_unverified`, `no_ci_run_for_revision`, …), failing only with
+  `--require-verified-ci`. Missing `gh` or a bad slug is a grading error (exit 2).
+- Residual CI limits: `CI_GATE_GLOBS` is a maintained list, not a proof that
+  nothing else can influence a gate; PR bases are read at grading time, so a PR
+  retargeted after its run is not detected; a `pull_request` run tested the merge
+  with the base as it stood then, not the commit alone; tests the run edited are
+  part of what was tested; `gh` and `git` are resolved from `PATH` (on Windows the
+  current directory too), and `GH_HOST` is honoured as operator configuration —
+  run the grader from a trusted directory.
 - One verified check never makes a run verified. The CLI prints
   `run as a whole: NOT VERIFIED` on every result.
 
