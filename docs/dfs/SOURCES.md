@@ -87,3 +87,30 @@ Aggregators documented as carrying these books: The Odds API (all but US bet365)
 (most), SportsDataIO (search-snippet-only). Each book is its own independence group: books price
 independently even where they share a parent. DraftKings and FanDuel are the same companies as
 the DFS platforms; that is recorded as `corporateParent`, not as a data dependency.
+
+## 8. Classification by data type, access and point-in-time usefulness (DFS-MOD-12, 2026-09-30)
+
+"Connected" means a working adapter with a recorded successful pull. Everything else is research.
+
+| Data type | Connected today | Researched, not connected (why) | PIT usefulness |
+|---|---|---|---|
+| Salaries / roster eligibility | Official DK/FD salary CSVs (owner upload) | SportsDataIO DFS slates (paid; key not provisioned; flag OFF) | High — the file IS the pre-lock slate |
+| Projections | Owner CSV import; **Daily Fantasy Fuel** (`src/dfs/sources_dff.py`, NFL/NBA/NHL, DK/FD) | Free/freemium pages (CeeGeeDFS, Fantasy Team Advice CSV, DraftEdge, RotoBaller…), paid (RotoGrinders, FantasyLabs, Stokastic, SaberSim, ETR…) — not yet adapted | Only as fetched: recorded at fetch time |
+| Ownership (projected) | Owner CSV import | CeeGeeDFS (free), Fantasy Team Advice (freemium CSV), paid ownership (RotoGrinders pOWN, FantasyLabs, Stokastic, SaberSim) | Critical input; realized ownership comes from standings |
+| Betting lines / game environment | **Daily Fantasy Fuel** page context (spread, over/under, implied team total) | Licensed odds APIs (The Odds API, OpticOdds/OddsJam, SportsDataIO) — paid, owner approval; books' own sites barred by terms | High for ownership features; recorded at fetch time |
+| Player props | — | Odds aggregators (paid), PropsCash/Outlier-type tools (paid) | Later (projection ensembles) |
+| Injuries / news / starting status | DK file status + DFF injury flag | Team/league reports, SportsDataIO news (paid) | High but fast-moving: needs frequent timestamps |
+| Contest results / realized ownership | Owner-uploaded DK standings; canonical results format (any platform) | No verified FanDuel standings export | The truth side — never an input before lock |
+| Weather | — | Not researched yet (NFL only) | Medium (NFL kickers/passing) |
+| Historical data | Accumulates from owner imports + pulls going forward | Paid historical DFS databases (not researched for price) | Needed for any real backtest |
+
+**Paid data that would materially change what is possible** (nothing purchased; prices NOT verified):
+- **A licensed odds feed** (e.g. The Odds API — public tiered pricing exists; OpticOdds — sales contact):
+  closing/pre-lock lines, totals and player props for every sport. Unlocks: better ownership features,
+  prop-derived projections, a second independent projection signal. Free alternative today: DFF's
+  page context (spread / total / implied), NFL/NBA/NHL only.
+- **A paid projection + ownership source with history** (e.g. RotoGrinders, FantasyLabs, Stokastic): the
+  one thing a backtest cannot conjure — historical PRE-LOCK ownership forecasts to score against
+  realized ownership. Free alternative: start recording DFF + owner imports now, so history accrues.
+- **SportsDataIO DFS slates** (adapter built, flag OFF): automatic slate loading. Free alternative:
+  official CSV upload (works today).

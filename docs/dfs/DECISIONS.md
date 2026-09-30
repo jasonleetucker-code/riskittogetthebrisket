@@ -341,3 +341,19 @@ for every platform; the backend decides what it understands.
 Rule provenance (DFS-MOD-15): a test requires every rule set to carry version, verification state,
 a real `checkedOn` date, and evidence (if verified) or a blocker (if not); a second test pins that NO
 rule set is verified today, so flipping one requires evidence AND a deliberate test change.
+
+## ADR-DFS-022 — First connected source: Daily Fantasy Fuel, manual + cached, never overriding the owner (2026-09-30)
+
+**Context.** The owner authorized programmatic collection from the sources he supplied. Daily Fantasy
+Fuel publishes public per-sport, per-platform projection pages carrying salary, projection and game
+context (spread, over/under, implied team total); robots.txt disallows only `/lineup/*`.
+
+**Decision.** `src/dfs/sources_dff.py`: owner-triggered, cached ≥ 15 minutes per page, descriptive
+User-Agent, timeout, size cap, no retries or evasion; provenance (URL, status, SHA-256) on every
+observation; parse only the documented row attributes; join by name + team + position CONFIRMED by an
+exact salary match (quarantine otherwise); record `projection` and a new `context` observation kind
+at FETCH time. The owner's own imported projection always wins as the model input
+(`ownership.PROJECTION_PREFERENCE`); a pulled source fills in only where the owner has nothing.
+Redistribution rights are not established: data stays owner-scoped. Registry entry A-020 records the
+authorization, the adapter and its last success; the registry test allows an "available" access state
+only with both.
