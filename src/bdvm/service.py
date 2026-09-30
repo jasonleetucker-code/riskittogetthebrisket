@@ -38,6 +38,7 @@ from src.bdvm.pool import build_group_pools
 from src.bdvm.projections import (
     ConsensusProjection,
     ProjectionRecord,
+    _parse_iso_day,
     blend_consensus,
     latest_snapshot_path,
     load_snapshot,
@@ -327,7 +328,9 @@ def run_valuation(
     # time still stands in as the staleness reference (unchanged serving),
     # but the substitution is published rather than passed off as the
     # snapshot's own date: request time is not when the data was captured.
-    as_of_unknown = not snapshot_as_of
+    # A present-but-unparseable asOf is unknown too (every record is then
+    # flagged snapshot_asof_unparseable by the consensus).
+    as_of_unknown = not snapshot_as_of or _parse_iso_day(snapshot_as_of) is None
     snapshot_as_of = snapshot_as_of or as_of[:10]
     meta["projectionSnapshot"] = {
         "path": str(snapshot_path) if snapshot_path else None,

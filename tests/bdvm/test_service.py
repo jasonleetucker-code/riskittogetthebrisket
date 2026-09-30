@@ -346,6 +346,18 @@ class TestIsolationAndModes(unittest.TestCase):
         self.assertEqual(snap["asOf"], payload["meta"]["asOf"][:10])
         self.assertEqual(payload["status"], "ok")
 
+    def test_unparseable_snapshot_asof_is_flagged_unknown(self):
+        """Present but unparseable is as unknown as absent (independent review)."""
+        records = list(PROJECTIONS) + depth_records()
+        with (
+            mock.patch.object(bdvm_service, "latest_snapshot_path", return_value=Path("x.json")),
+            mock.patch.object(bdvm_service, "load_snapshot", return_value=("not-a-date", records)),
+        ):
+            payload = bdvm_service.run_valuation(
+                build_contract(), league_key="dynasty_main", params=PARAMS, season=2026
+            )
+        self.assertTrue(payload["meta"]["projectionSnapshot"]["asOfUnknown"])
+
     def test_stale_reasons_published_per_player(self):
         for p in run()["players"]:
             self.assertIsInstance(p["projection"]["staleReasons"], list)
