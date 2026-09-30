@@ -170,6 +170,12 @@ export function fmtShare(p) {
   return `${Math.round(p * 100)}%`;
 }
 
+/** Win credits exactly: whole numbers bare, half credits (ties) as "5.5". */
+export function fmtExactCredits(v) {
+  if (!isNum(v)) return "—";
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+}
+
 /** Big exact counts, e.g. 6,227,020,800. */
 export function fmtCount(n) {
   return isNum(n) ? Math.round(n).toLocaleString("en-US") : "—";
@@ -185,7 +191,13 @@ export function timingNotice(timing) {
   if (timing.reason === "no_finalized_weeks") {
     return { tone: "info", text: "No finished weeks yet — the week-order view appears once a week is final." };
   }
-  if (timing.reason === "structural_issues") {
+  if (timing.reason === "too_many_weeks_for_exact") {
+    return {
+      tone: "info",
+      text: "This season has more finished weeks than the exact week-order count supports, so it is not shown.",
+    };
+  }
+  if (timing.reason === "structural_issues" || timing.reason === "missing_score") {
     return {
       tone: "warning",
       text: "Some weeks have a missing score or matchup row, so week orders cannot be compared this season.",
@@ -201,7 +213,7 @@ export function timingReading(row) {
   const actual = fmtCredits(row.actualH2HCredits, row.h2hTies ? 1 : 0);
   return (
     `Same opponents, weeks reordered: these scores average ${fmtCredits(t.expectedCredits)} ` +
-    `head-to-head wins (80% of orderings: ${fmtCredits(t.central80?.low, 1)}–${fmtCredits(t.central80?.high, 1)}). ` +
+    `head-to-head wins (at least 80% of orderings: ${fmtCredits(t.central80?.low, 1)}–${fmtCredits(t.central80?.high, 1)}). ` +
     `Against the actual ${actual}, ${fmtShare(t.probAboveActual)} of orderings give more wins and ` +
     `${fmtShare(t.probBelowActual)} give fewer.`
   );

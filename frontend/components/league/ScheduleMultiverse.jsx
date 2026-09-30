@@ -15,6 +15,7 @@ import { Banner, DataTable, HelpModal } from "@/components/ds";
 import {
   fmtCount,
   fmtCredits,
+  fmtExactCredits,
   fmtRecord,
   fmtShare,
   teamLabel,
@@ -172,7 +173,7 @@ function columns() {
           <span className={styles.distCell}>
             <WinDistribution distribution={timing(r).distribution} actual={r.actualH2HCredits} />
             <span className={styles.muted}>
-              {fmtCredits(timing(r).minCredits, 0)}–{fmtCredits(timing(r).maxCredits, 0)}
+              {fmtExactCredits(timing(r).minCredits)}–{fmtExactCredits(timing(r).maxCredits)}
             </span>
           </span>
         ) : (

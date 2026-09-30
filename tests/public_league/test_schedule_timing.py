@@ -198,3 +198,52 @@ def test_summary_cache_returns_identical_result():
     assert a == timing_summary(weeks)
     row = next(iter(a["teams"].values()))
     assert sum(p for _, p in row["distribution"]) == pytest.approx(1.0, abs=1e-5)
+
+
+def test_finish_sampler_refuses_byes():
+    weeks = _season(6, 3, 17)
+    wk = weeks[0]
+    weeks[0] = WeekInput(week=1, scores=wk.scores, pairs=wk.pairs[1:])
+    out = sample_finishes(weeks, samples=100)
+    assert out["state"] == "unavailable"
+    assert out["reason"] == "bye_weeks_change_game_count"
+
+
+def test_too_many_weeks_is_unsupported_not_approximated():
+    from src.public_league.schedule_timing import MAX_EXACT_WEEKS
+
+    out = compute_timing_only(_season(4, MAX_EXACT_WEEKS + 1, 3))
+    assert out["state"] == "unsupported"
+    assert out["reason"] == "too_many_weeks_for_exact"
+    assert out["teams"] == {}
+
+
+def test_tiny_nonzero_share_never_publishes_as_zero():
+    from src.public_league.schedule_timing import _prob
+
+    assert _prob(1 / 87178291200) > 0
+    assert _prob(0.5) == 0.5
+
+
+def test_timing_failure_leaves_the_equal_opponent_contract_intact(monkeypatch):
+    from src.public_league import schedule_impact, schedule_timing
+
+    def boom(*a, **k):
+        raise RuntimeError("sabotage")
+
+    monkeypatch.setattr(schedule_timing, "timing_summary", boom)
+    block = schedule_impact._timing_block(_season(4, 3, 5), "k")
+    assert block == {"state": "failed", "teams": {}}
+
+
+def test_cache_key_covers_structural_issues():
+    from src.public_league.schedule_timing import timing_summary
+
+    base = _season(4, 2, 9)
+    flagged = [
+        WeekInput(week=w.week, scores=w.scores, pairs=w.pairs, structural_issues=("unscored:t0",))
+        for w in base
+    ]
+    ok = timing_summary(base, cache_key="plain")
+    bad = timing_summary(flagged, cache_key="flagged")
+    assert ok["state"] == "complete" and bad["state"] == "unsupported"

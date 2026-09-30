@@ -407,16 +407,16 @@ def _official_records(season: SeasonSnapshot, registry: Any) -> dict[str, dict[s
 
 #: Mirrors ``schedule_timing.ALGORITHM_VERSION`` (pinned by a test); kept
 #: here so the generation id does not need the deferred import.
-TIMING_ALGORITHM_VERSION = "schedule-timing-2026.09-b1"
+TIMING_ALGORITHM_VERSION = "schedule-timing-2026.09-b2"
 
 
-def _timing_block(inputs: list[WeekInput], score_hash: str) -> dict[str, Any]:
+def _timing_block(inputs: list[WeekInput], cache_key: str) -> dict[str, Any]:
     """Timing-only summaries; a failure here must never cost the season its
     equal-opponent contract."""
     from . import schedule_timing  # deferred: schedule_timing imports this module
 
     try:
-        return schedule_timing.timing_summary(inputs, cache_key=score_hash)
+        return schedule_timing.timing_summary(inputs, cache_key=cache_key)
     except Exception:  # noqa: BLE001 -- isolate the second model
         _LOG.exception("timing_only_v1 failed")
         return {"state": "failed", "teams": {}}
@@ -508,7 +508,10 @@ def season_contract(
     # Milestone B (timing_only_v1): same finalized weeks, same scores; a
     # different model id, published beside -- never blended into -- the
     # equal-opponent numbers above.
-    timing = _timing_block(inputs, score_hash)
+    # The cache key must cover everything the timing model reads: scores,
+    # pairs AND structural issues (they decide supported vs unsupported).
+    timing_key = _digest([score_hash, [(w.week, sorted(w.structural_issues)) for w in inputs]])
+    timing = _timing_block(inputs, timing_key)
     for row in rows:
         row["timingOnly"] = timing["teams"].get(row["teamKey"])
     rows.sort(key=lambda r: (-r["scheduleImpact"], r["teamKey"]))

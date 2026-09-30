@@ -175,14 +175,18 @@ never takes the Luck section down.
   `E[X_i] = (1/W) Σ_w Σ_k c(s_iw, s_opp_k(i),w)`. Tail probabilities are
   published with explicit direction (`probBelowActual` / `probEqualActual` /
   `probAboveActual`).
-- **Sampled:** league-wide finishing positions need joint calendars, so they are
+- **Sampled (library only — not published on any surface yet):** league-wide finishing positions need joint calendars, so they are
   drawn from the declared distribution itself (uniform permutations), seeded,
   with per-probability standard errors. Tie order: credits, points for, points
   against (lower first); remaining ties share positions and are reported, never
   broken by an invented host rule.
 - **Fails closed:** a bye that changes a team's game count under reordering makes
-  that team `unavailable`; multiple games per team-week, self-pairings and
+  that team `unavailable` (and the finish sampler refuses the season outright); multiple games per team-week, self-pairings and
   missing scores make the season `unsupported`.
+- **Bounded:** exact counts up to 15 finished weeks (measured first build for 12 teams:
+  14 weeks ~1.2 s, 15 ~2.3 s, 16 ~4.5 s, 17 ~10.8 s); beyond that the season is
+  `unsupported`, never approximated. Probabilities publish at six significant
+  digits so a tiny non-zero share is never shown as 0.
 - **Contract:** each season row carries `timingOnly` (expected credits, impact,
   explicit-direction tail probabilities, central 80%, exact min/max and the compact
   distribution as `[credits, probability]` pairs); the season carries the model,

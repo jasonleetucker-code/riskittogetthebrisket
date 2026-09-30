@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { ScheduleMultiverseTable, WinDistribution } from "@/components/league/ScheduleMultiverse";
-import { fmtShare, timingNotice, timingReading } from "@/lib/schedule-impact";
+import { fmtExactCredits, fmtShare, timingNotice, timingReading } from "@/lib/schedule-impact";
 
 function row(teamKey, name, extra) {
   return {
@@ -49,7 +49,7 @@ const complete = {
   timingOnly: {
     state: "complete",
     model: { id: "timing_only_v1" },
-    algorithmVersion: "schedule-timing-2026.09-b1",
+    algorithmVersion: "schedule-timing-2026.09-b2",
     permutedWeeks: [1, 2, 3],
     totalCalendars: 6227020800,
   },
@@ -78,7 +78,7 @@ describe("Schedule Multiverse", () => {
   it("reads the tails with explicit direction and no false 0%", () => {
     const text = timingReading(complete.teams[0]);
     expect(text).toContain("average 4.1");
-    expect(text).toContain("80% of orderings: 2.0–6.0");
+    expect(text).toContain("at least 80% of orderings: 2.0–6.0");
     expect(text).toContain("1% of orderings give more wins");
     expect(fmtShare(0.004)).toBe("<1%");
     expect(text).toContain("98% give fewer");
@@ -92,5 +92,10 @@ describe("Schedule Multiverse", () => {
     expect(screen.getByText(/missing score or matchup row/)).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
     expect(timingNotice({ state: "failed" }).tone).toBe("warning");
+    expect(timingNotice({ state: "unsupported", reason: "missing_score" }).text).toMatch(/missing score/);
+    expect(timingNotice({ state: "unsupported", reason: "multiple_games_per_week" }).text).toMatch(/format/);
+    expect(timingNotice({ state: "unsupported", reason: "too_many_weeks_for_exact" }).text).toMatch(/more finished weeks/);
+    expect(fmtExactCredits(5.5)).toBe("5.5");
+    expect(fmtExactCredits(6)).toBe("6");
   });
 });

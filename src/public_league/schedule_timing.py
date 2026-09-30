@@ -47,11 +47,14 @@ from .schedule_impact import (
 )
 
 MODEL_TIMING_ONLY = "timing_only_v1"
-ALGORITHM_VERSION = "schedule-timing-2026.09-b1"
-#: Exact per-team distributions are computed up to this many permuted weeks
-#: (2^W DP states); beyond it the distribution is reported unavailable, not
-#: approximated.  A regular season is 13-14 weeks.
-MAX_EXACT_WEEKS = 18
+ALGORITHM_VERSION = "schedule-timing-2026.09-b2"
+#: Exact per-team distributions are computed up to this many permuted weeks;
+#: beyond it the season is reported unsupported, never approximated.  The DP
+#: has 2^W states, measured for 12 teams at 14 weeks ~1.2 s, 15 ~2.3 s,
+#: 16 ~4.5 s, 17 ~10.8 s (first build per process; cached after).  15 keeps
+#: the worst first build inside the 3 s cold budget.  Both live leagues play
+#: 14 regular-season weeks.
+MAX_EXACT_WEEKS = 15
 
 TIMING_MODEL = {
     "id": MODEL_TIMING_ONLY,
@@ -150,6 +153,11 @@ def _exact_distribution(matrix: list[list[float | None]]) -> dict[int, int] | No
         dp = nxt
     (final,) = dp.values()
     return {i: int(c) for i, c in enumerate(final) if c}
+
+
+def _prob(p: float) -> float:
+    """Six significant digits: a tiny non-zero share must never publish as 0."""
+    return float(f"{p:.6g}")
 
 
 def _summarize(counts: dict[int, int], actual_half: int) -> dict[str, Any]:
@@ -261,16 +269,14 @@ def timing_summary(weeks: Sequence[WeekInput], cache_key: str | None = None) -> 
             "state": "complete",
             "expectedCredits": round(row["timingOnlyExpectedCredits"], 4),
             "impact": round(row["timingOnlyImpact"], 4),
-            "probBelowActual": round(row["probBelowActual"], 6),
-            "probEqualActual": round(row["probEqualActual"], 6),
-            "probAboveActual": round(row["probAboveActual"], 6),
+            "probBelowActual": _prob(row["probBelowActual"]),
+            "probEqualActual": _prob(row["probEqualActual"]),
+            "probAboveActual": _prob(row["probAboveActual"]),
             "central80": row["central80"],
             "minCredits": row["minCredits"],
             "maxCredits": row["maxCredits"],
             # [credits, probability] pairs, ascending credits.
-            "distribution": [
-                [d["credits"], round(d["probability"], 6)] for d in row["distribution"]
-            ],
+            "distribution": [[d["credits"], _prob(d["probability"])] for d in row["distribution"]],
         }
     out = {
         "state": full["state"],
@@ -311,6 +317,10 @@ def sample_finishes(
         return {"state": STATE_UNSUPPORTED if ordered else STATE_UNAVAILABLE, "reason": reason}
     pairings = [_pairings(w) for w in ordered]
     teams = sorted({t for p in pairings for t in p})
+    # A bye makes a team's game count depend on the ordering, so standings
+    # across orderings would compare different numbers of games: refuse.
+    if any(t not in m for m in pairings for t in teams):
+        return {"state": STATE_UNAVAILABLE, "reason": "bye_weeks_change_game_count"}
     idx = {t: i for i, t in enumerate(teams)}
     n, W = len(teams), len(ordered)
     extra = np.array([float((other_credits or {}).get(t, 0.0)) for t in teams])
