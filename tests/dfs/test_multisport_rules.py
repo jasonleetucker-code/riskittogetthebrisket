@@ -173,3 +173,37 @@ def test_parity_cases_are_not_vacuous():
         for seed in range(3)
     )
     assert feasible == len(CASES) * 3
+
+
+def test_dk_mma_matches_brute_force_and_imposes_no_unverified_bout_rule():
+    rs = get_ruleset("draftkings.mma.classic")
+    rnd = random.Random(77)
+    pool = []
+    for bout in range(6):
+        for corner in ("A", "B"):
+            pid = f"{bout}{corner}"
+            pool.append(
+                SlateAthlete(
+                    player_id=f"70{bout}{'1' if corner == 'A' else '2'}",
+                    name=f"Syn Fighter {pid}",
+                    positions=["F"],
+                    team=f"F{pid}",
+                    opponent=f"F{bout}{'B' if corner == 'A' else 'A'}",
+                    game=f"F{bout}A@F{bout}B",
+                    salary=rnd.randrange(60, 100) * 100,
+                    projection=round(rnd.uniform(20, 110), 2),
+                )
+            )
+    res = optimize(rs, pool, parse_constraints({}, rs, pool))
+    best = None
+    for combo in itertools.combinations(pool, 6):
+        if sum(a.salary for a in combo) <= rs.salary_cap:
+            tot = round(sum(a.projection for a in combo), 2)
+            best = tot if best is None or tot > best else best
+    assert best is not None and res["status"] == "optimal"
+    assert res["lineups"][0]["projection"] == pytest.approx(best, abs=1e-6)
+    # The owner CAN impose a same-bout exclusion with a conditional rule.
+    a, b = pool[0].player_id, pool[1].player_id
+    c = parse_constraints({"conditionals": [{"when": [a], "then": [b], "thenMax": 0}]}, rs, pool)
+    ids = {p["playerId"] for p in optimize(rs, pool, c)["lineups"][0]["players"]}
+    assert not {a, b} <= ids

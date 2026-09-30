@@ -61,8 +61,9 @@ async function openWorkspace(page) {
 
 test("an unsupported sport shows an honest state, not fake controls", async ({ authedPage: page }, testInfo) => {
   await openWorkspace(page);
+  await page.getByRole("radio", { name: "FanDuel" }).click();
   await page.getByRole("radio", { name: "MMA" }).click();
-  await expect(page.getByText(/MMA on DraftKings is not available yet/)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/MMA on FanDuel is not available yet/)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("button", { name: "Import slate" })).toHaveCount(0);
   await scan(page, testInfo, "dfs-not-available");
 });

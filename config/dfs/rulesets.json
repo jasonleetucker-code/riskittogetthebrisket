@@ -719,6 +719,85 @@
           "maxPlayersPerTeam"
         ]
       }
+    },
+    {
+      "id": "draftkings.mma.classic",
+      "version": "2026.1",
+      "platform": "draftkings",
+      "sport": "mma",
+      "format": "classic",
+      "label": "DraftKings MMA Classic",
+      "salaryCap": 50000,
+      "slots": [
+        {
+          "name": "F",
+          "eligible": [
+            "F"
+          ]
+        },
+        {
+          "name": "F",
+          "eligible": [
+            "F"
+          ]
+        },
+        {
+          "name": "F",
+          "eligible": [
+            "F"
+          ]
+        },
+        {
+          "name": "F",
+          "eligible": [
+            "F"
+          ]
+        },
+        {
+          "name": "F",
+          "eligible": [
+            "F"
+          ]
+        },
+        {
+          "name": "F",
+          "eligible": [
+            "F"
+          ]
+        }
+      ],
+      "maxPlayersPerTeam": null,
+      "minTeams": null,
+      "minGames": null,
+      "salaryImport": "draftkings_salary_csv_v1",
+      "export": {
+        "format": "draftkings_lineup_upload_v1",
+        "header": [
+          "F",
+          "F",
+          "F",
+          "F",
+          "F",
+          "F"
+        ],
+        "cell": "platform_player_id",
+        "verification": {
+          "state": "unverified",
+          "blocker": "No official MMA upload template round-trip tested yet. Owner action: add a blank DraftKings MMA upload template under tests/dfs/fixtures/templates/."
+        }
+      },
+      "verification": {
+        "state": "unverified",
+        "checkedOn": "2026-09-30",
+        "evidence": [],
+        "blocker": "https://www.draftkings.com/help/rules/mma was not checked (the platform's rules pages refuse automated access; 2026-09-30). Six fighter slots under a $50,000 cap is the commonly documented Classic shape, encoded for research mode only. NO same-fight restriction is encoded because whether both fighters of one bout may be rostered is unverified — use an 'if A then not B' rule to impose one. Scoring (strikes, takedowns, finish/round bonuses) is not modelled here: builds use the owner's projections. Owner action: confirm against the official rules or supply an official MMA salary file + upload template.",
+        "unverifiedFields": [
+          "salaryCap",
+          "slots",
+          "minGames",
+          "maxPlayersPerTeam"
+        ]
+      }
     }
   ],
   "capabilities": [
@@ -775,8 +854,7 @@
       "platform": "draftkings",
       "sport": "mma",
       "format": "classic",
-      "ruleset": null,
-      "reason": "MMA rule set not encoded yet — DFS-RULES-05."
+      "ruleset": "draftkings.mma.classic"
     },
     {
       "platform": "fanduel",

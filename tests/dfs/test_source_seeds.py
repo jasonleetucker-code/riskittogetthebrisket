@@ -48,7 +48,9 @@ def test_resolved_podcasts_carry_evidence_and_never_claim_rights():
             continue
         assert e["verification"]["evidence"], e["seedId"]
         if e["accessState"] == "available_public":
-            assert e["feed"]["rssFeedUrl"].startswith("https://") or e["feed"]["rssFeedUrl"].startswith("http://")
+            assert e["feed"]["rssFeedUrl"].startswith("https://") or e["feed"][
+                "rssFeedUrl"
+            ].startswith("http://")
         # A public feed is not a licence to transcribe or retain.
         assert e["license"]["assessed"] is False and e["license"]["permittedUses"] == []
 

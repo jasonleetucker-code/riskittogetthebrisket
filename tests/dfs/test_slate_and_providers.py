@@ -128,7 +128,7 @@ def test_wrong_platform_file_is_refused_not_switched():
 @pytest.mark.parametrize(
     "text,sport",
     [
-        (_dk([("F", "F", "AAA"), ("F", "F", "BBB")]), "mma"),
+        (_fd([("F", "F", "AAA"), ("F", "F", "BBB")]), "mma"),
     ],
 )
 def test_recognised_but_unencoded_formats_say_so(text, sport):
