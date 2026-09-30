@@ -331,6 +331,10 @@ class SubsetFreshness:
     curve: str = "C4"
     quarantine_below: float = 0.02
     state_bands: tuple[tuple[float, str], ...] = ()
+    # universe -> clock, computed once per build for one key->universe map
+    # (the map is fixed within a build; ~7,700 row lookups would otherwise each
+    # re-parse every row clock).
+    _universe_cache: dict = field(default_factory=dict, repr=False, compare=False)
 
     def universe_clock(self, universe: str, key_universe: Mapping[str, str]) -> datetime | None:
         """The latest broad change WITHIN one asset universe of this subset.
@@ -349,6 +353,15 @@ class SubsetFreshness:
         """
         if self.style == STYLE_EXPLICIT or not self.row_changed_at:
             return None
+        # Identity (``is``) of the held map, never ``id()``: a freed map's id can
+        # be reused by a later build's map.
+        if self._universe_cache.get("_map") is not key_universe:
+            self._universe_cache.clear()
+            self._universe_cache["_map"] = key_universe
+            self._universe_cache["_clocks"] = self._universe_clocks(key_universe)
+        return self._universe_cache["_clocks"].get(universe)
+
+    def _universe_clocks(self, key_universe: Mapping[str, str]) -> dict[str, datetime | None]:
         per_universe: dict[str, list[datetime]] = {}
         for key, at in self.row_changed_at.items():
             u = key_universe.get(key)
@@ -356,13 +369,17 @@ class SubsetFreshness:
             if u is not None and t is not None:
                 per_universe.setdefault(u, []).append(t)
         populated = [u for u, ts in per_universe.items() if len(ts) >= UNIVERSE_MIN_ROWS]
-        if len(populated) < 2 or universe not in per_universe:
-            return None
-        times = per_universe[universe]
-        counts = Counter(times)
-        need = max(DEFAULT_POLICY.min_rows, int(round(DEFAULT_POLICY.min_fraction * len(times))))
-        qualifying = [t for t, n in counts.items() if n >= need]
-        return max(qualifying) if qualifying else None
+        if len(populated) < 2:
+            return {}
+        clocks: dict[str, datetime | None] = {}
+        for u, times in per_universe.items():
+            counts = Counter(times)
+            need = max(
+                DEFAULT_POLICY.min_rows, int(round(DEFAULT_POLICY.min_fraction * len(times)))
+            )
+            qualifying = [t for t, n in counts.items() if n >= need]
+            clocks[u] = max(qualifying) if qualifying else None
+        return clocks
 
     def row_freshness(
         self, row_key: str | None, *, clock_cap: datetime | None = None
@@ -450,7 +467,11 @@ def assess_subset(
         # Evaluating a PAST board against today's state: rebuild both clocks
         # from the change history as it stood at ``as_of``.  Per-row clocks
         # cannot be rebuilt (only the latest map is kept), so rows fall back
-        # to the source clock — older, never fresher, than the truth.
+        # to the source clock — older than the truth, EXCEPT on a board that
+        # prices several asset universes: there the universe correction
+        # (``universe_clock``) needs row clocks, so a past offense row keeps the
+        # board clock an IDP-only publication may have moved (a known limit of
+        # replaying past boards against today's state).
         first = parse_iso(st.get("firstObservedAt"))
         past = [
             (t, bool(e.get("broad")))

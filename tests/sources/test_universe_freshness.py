@@ -136,3 +136,12 @@ def test_pipeline_applies_it_only_to_offense_rows_of_mixed_boards():
                 assert f_on == f_off, (row["displayName"], key)
             else:
                 assert f_on <= f_off + 1e-9, (row["displayName"], key)
+
+
+def test_universe_clocks_are_computed_once_per_map_and_refresh_for_a_new_map():
+    sub, universes = _subset()
+    first = sub.universe_clock("offense", universes)
+    sub.row_changed_at["off0"] = "2026-09-29T00:00:00Z"  # ignored: same map, cached
+    assert sub.universe_clock("offense", universes) == first
+    fresh_map = dict(universes)  # a new build's map recomputes
+    assert sub.universe_clock("offense", fresh_map) == first  # one row cannot reach threshold

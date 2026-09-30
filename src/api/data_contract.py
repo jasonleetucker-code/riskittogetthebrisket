@@ -10387,10 +10387,22 @@ def _compute_unified_rankings(
         the population a universe clock is measured over (built once per build)."""
         if source_key not in _key_universe_cache:
             mapping: dict[str, str] = {}
+            # Cheap first pass: most sources price one universe only, and need no
+            # map at all (the universe clock applies only to mixed boards).
+            tally: dict[str, int] = {}
             for candidate in players_array:
-                if source_key not in (candidate.get("sourceRanks") or {}) and source_key not in (
+                if candidate.get("assetClass") != "pick" and source_key in (
                     candidate.get("canonicalSiteValues") or {}
                 ):
+                    u = _row_universe(candidate)
+                    tally[u] = tally.get(u, 0) + 1
+            if sum(1 for n in tally.values() if n >= 5) < 2:
+                _key_universe_cache[source_key] = mapping
+                return mapping
+            for candidate in players_array:
+                # Raw site values are what exist at weighting time (sourceRanks is
+                # written after the blend).
+                if source_key not in (candidate.get("canonicalSiteValues") or {}):
                     continue
                 if candidate.get("assetClass") == "pick":
                     continue
