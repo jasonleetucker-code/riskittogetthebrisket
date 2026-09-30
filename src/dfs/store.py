@@ -47,6 +47,14 @@ CREATE TABLE IF NOT EXISTS dfs_contests (
     PRIMARY KEY (id, version)
 );
 CREATE INDEX IF NOT EXISTS dfs_contests_owner ON dfs_contests(owner, id, version);
+CREATE TABLE IF NOT EXISTS dfs_results (
+    id TEXT PRIMARY KEY,
+    owner TEXT NOT NULL,
+    snapshot_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    body TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS dfs_results_owner ON dfs_results(owner, created_at);
 """
 
 
@@ -214,3 +222,23 @@ def list_contests(owner: str, limit: int = 50) -> list[dict[str, Any]]:
             }
         )
     return out
+
+
+def put_result(owner: str, snapshot_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    rid = "result_" + uuid.uuid4().hex[:20]
+    created = now_iso()
+    body = {**body, "resultId": rid, "createdAt": created, "snapshotId": snapshot_id}
+    with _lock, _connect() as conn:
+        conn.execute(
+            "INSERT INTO dfs_results VALUES (?,?,?,?,?)",
+            (rid, owner, snapshot_id, created, json.dumps(body, separators=(",", ":"))),
+        )
+    return body
+
+
+def get_result(owner: str, rid: str) -> dict[str, Any] | None:
+    with _lock, _connect() as conn:
+        row = conn.execute(
+            "SELECT body FROM dfs_results WHERE id=? AND owner=?", (rid, owner)
+        ).fetchone()
+    return json.loads(row[0]) if row else None

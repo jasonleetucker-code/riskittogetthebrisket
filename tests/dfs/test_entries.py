@@ -217,3 +217,40 @@ def test_late_swap_api_plans_from_the_entry_file_and_exports_without_submitting(
     bad = client.post("/api/dfs/late-swap", json={**body, "asOf": "2026-10-04T18:00:00"}, headers=h)
     assert bad.status_code == 422 and bad.json()["error"] == "INVALID_CLOCK"
     assert client.post("/api/dfs/late-swap", json=body, headers={"x-user": "b"}).status_code == 404
+
+
+def test_results_api_stores_an_evaluation_scoped_to_the_owner(client):
+    h = {"x-user": "a"}
+    proj = (FIX / "synthetic_dk_nfl_classic_projections.csv").read_text(encoding="utf-8")
+    snap = client.post(
+        "/api/dfs/slates",
+        json={
+            "salaryCsv": (FIX / "synthetic_dk_nfl_classic_salaries.csv").read_text(
+                encoding="utf-8"
+            ),
+            "projectionCsv": proj,
+        },
+        headers=h,
+    ).json()
+    qb = next(a for a in snap["athletes"] if a["positions"] == ["QB"])
+    head = (
+        "Rank,EntryId,EntryName,TimeRemaining,Points,Lineup,,Player,Roster Position,%Drafted,FPTS"
+    )
+    text = f"{head}\n,,,,,,,{qb['name']},QB,40%,25\n"
+    r = client.post(
+        "/api/dfs/results", json={"snapshotId": snap["snapshotId"], "standingsCsv": text}, headers=h
+    )
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["evidenceClaim"] == "shadow"
+    assert body["realized"][qb["player_id"]] == {"ownership": 40.0, "points": 25.0}
+    assert body["evaluation"]["projection"]["n"] == 1 and body["evaluation"]["ownership"] is None
+    rid = body["resultId"]
+    assert client.get(f"/api/dfs/results/{rid}", headers=h).status_code == 200
+    assert client.get(f"/api/dfs/results/{rid}", headers={"x-user": "b"}).status_code == 404
+    bad = client.post(
+        "/api/dfs/results",
+        json={"snapshotId": snap["snapshotId"], "standingsCsv": f"{head}\n,,,,,,,Nobody,QB,4%,1\n"},
+        headers=h,
+    )
+    assert bad.status_code == 422 and bad.json()["error"] == "NO_PLAYERS_MATCHED"

@@ -145,9 +145,11 @@ def _reject_constant(name: str) -> Any:
     raise ValueError(f"non-JSON constant {name}")
 
 
-async def _json_body(request: Request) -> dict[str, Any] | JSONResponse:
+async def _json_body(
+    request: Request, max_bytes: int = MAX_BODY_BYTES
+) -> dict[str, Any] | JSONResponse:
     raw = await request.body()
-    if len(raw) > MAX_BODY_BYTES:
+    if len(raw) > max_bytes:
         return _err("RESOURCE_BUDGET_EXCEEDED", "Request body too large.", 413)
     try:
         import json
@@ -1045,6 +1047,57 @@ async def entries_parse(request: Request):
     except ImportError_ as exc:
         return _entries_error(exc)
     return _ok(parsed)
+
+
+@router.post("/results")
+async def import_results(request: Request):
+    """Import a finished contest's standings for one slate and evaluate the owner's forecasts."""
+    from src.dfs.results import MAX_RESULTS_BYTES, evaluate, parse_standings
+
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request, max_bytes=MAX_RESULTS_BYTES + 64 * 1024)
+    if isinstance(body, JSONResponse):
+        return body
+    snap = await run_in_threadpool(store.get_snapshot, owner, str(body.get("snapshotId") or ""))
+    if snap is None:
+        return _err("NOT_FOUND", "No such slate.", 404)
+    rs = get_ruleset(snap["ruleset"].split("@", 1)[0])
+    if rs is None:
+        return _err(
+            "RULESET_SUPERSEDED", "This slate's rule-set version is no longer current.", 409
+        )
+    athletes = _athletes_from(snap["body"]["athletes"])
+    try:
+        parsed = await run_in_threadpool(
+            parse_standings, body.get("standingsCsv") or "", rs, athletes
+        )
+    except ImportError_ as exc:
+        return _err(exc.code, exc.message, 422, exc.detail)
+    if not parsed["realized"]:
+        return _err(
+            "NO_PLAYERS_MATCHED",
+            "No player in the results file matched this slate.",
+            422,
+            {"quarantined": parsed["quarantined"][:20]},
+        )
+    record = {
+        **parsed,
+        "evaluation": evaluate(athletes, parsed["realized"]),
+        "evidenceClaim": "shadow",  # evaluation evidence; it changes no model or weight
+    }
+    saved = await run_in_threadpool(store.put_result, owner, snap["id"], record)
+    return _ok(saved, 201)
+
+
+@router.get("/results/{result_id}")
+async def read_result(result_id: str, request: Request):
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    r = await run_in_threadpool(store.get_result, owner, result_id)
+    return _ok(r) if r else _err("NOT_FOUND", "No such result.", 404)
 
 
 async def _late_swap_inputs(request: Request):
