@@ -36,10 +36,11 @@ Output shape
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from typing import Any
 
-from . import metrics
+from . import metrics, schedule_impact
 from .identity import ManagerRegistry
 from .snapshot import PublicLeagueSnapshot, SeasonSnapshot
 
@@ -380,7 +381,19 @@ def build_section(snapshot: PublicLeagueSnapshot) -> dict[str, Any]:
     current_season_rows = [r for r in season_rows if r["season"] == current_season_year]
     current_season_rows.sort(key=lambda r: (-r["luckDelta"], r["ownerId"]))
 
+    # Schedule Intelligence (Milestone A): the canonical schedule-impact
+    # contract rides on this public section rather than a new one.  A
+    # failure there must not take the Luck section down with it.
+    try:
+        schedule_block = schedule_impact.build_block(snapshot)
+    except Exception:  # noqa: BLE001 -- surfaced as an explicit state
+        logging.getLogger(__name__).exception(
+            "schedule impact failed; Luck section served without it"
+        )
+        schedule_block = {"currentSeason": None, "bySeason": {}, "state": "failed"}
+
     return {
+        "scheduleImpact": schedule_block,
         "seasonsCovered": [s.season for s in snapshot.seasons],
         "currentSeason": current_season_year,
         "byOwnerCareer": career_rows,

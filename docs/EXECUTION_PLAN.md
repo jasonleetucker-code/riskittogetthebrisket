@@ -62,6 +62,29 @@ foundation once. Preserve small, reviewable PR boundaries within the combined ph
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
 
+## Schedule Intelligence — owner directive, 2026-09-29 (#1530)
+
+The owner authorizes building one canonical Schedule Intelligence system and integrating it across
+Calculator: equal-opponent and league-valid schedule baselines, schedule impact in win-credit units,
+opponent difficulty, record/finish/qualification distributions, a read-only Schedule Multiverse,
+valid schedule-slot swaps, retrospective playoff sensitivity, a Hard Luck statistical distinction,
+schedule context on team pages / League Hub / Power Rankings / recaps / share cards / history, and
+a schedule-neutral realized player-impact measure feeding an MVP win-impact candidate. Delivered in
+dependency order (milestones A–E, `docs/SCHEDULE_INTELLIGENCE_SPEC.md`, portfolio #1530), each
+substantial batch with Foundation/Backend + Lane 6 Premium UI + independent verification.
+**Authorized now:** Milestone A (canonical contract, exact equal-opponent baseline, oracle fixtures,
+reusable UI, League Hub table) and, as their dependencies clear, B–D. Milestone E is authorized
+behind `C5-WAR-01` (WAR/WAB are absent on main).
+
+**Not authorized by this directive:** changing the official Power Rankings formula or the official
+League MVP formula (both stay behind the existing owner/methodology gates — candidates ship in
+shadow); any schedule generator, optimizer, adoptable schedule or write to Sleeper (X-01 stands;
+this is read-only retrospective analysis); changing League MVP eligibility (actual playoff field
+and a .500-or-better official record), adding a gate to Unified Manager of the Year, or changing
+OPOY/DPOY/ROY/positional awards; touching dynasty values, Hill curves, consensus weights, pick
+values or trade prices; auto-publishing league messages. Extends `C5-U4` (power context), `C5-U5`
+/ `C9-U2` (WAR, awards) and `C9-U4` (reports) without replacing their gates.
+
 ## Rookie Auction Room — owner directive, 2026-09-29 (mock-first, live-gated)
 
 The owner authorizes implementing Chase Upside's shared slow rookie auction room now, so the owner,
