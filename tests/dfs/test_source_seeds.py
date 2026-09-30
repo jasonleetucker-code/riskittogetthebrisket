@@ -59,3 +59,26 @@ def test_correlated_network_feeds_share_one_independence_group():
     data = _load()
     groups = {e["seedId"]: e["independenceGroup"] for e in data["podcasts"]}
     assert len({groups[s] for s in ("C-005", "C-006", "C-007", "C-008")}) == 1
+
+
+def test_resolved_websites_never_claim_an_authorised_path_we_do_not_hold():
+    """A paid site we do not subscribe to is permission_required, and a public
+    site whose terms were never reviewed is manual-import only — openness of
+    the site is not authorisation for us to acquire from it automatically."""
+    data = _load()
+    by_seed = {e["seedId"]: e for e in data["websites"]}
+    for e in data["websites"]:
+        assert e["accessState"] not in ("available_public", "available_authorized_paid"), e[
+            "seedId"
+        ]
+        assert e["license"]["assessed"] is False and e["license"]["permittedUses"] == []
+        if e.get("accessModel") == "paid":
+            assert e["accessState"] == "permission_required", e["seedId"]
+    # numberFire now redirects into FanDuel Research: one source, not two.
+    assert by_seed["A-031"]["aliasOf"] == by_seed["A-030"]["id"]
+    # Shared DATA collapses independence; shared ownership alone does not.
+    assert by_seed["A-019"]["independenceGroup"] == by_seed["A-025"]["independenceGroup"]
+    assert by_seed["A-053"]["independenceGroup"] == by_seed["A-054"]["independenceGroup"]
+    assert by_seed["A-001"]["corporateParent"] == by_seed["A-013"]["corporateParent"]
+    assert by_seed["A-001"]["independenceGroup"] != by_seed["A-013"]["independenceGroup"]
+    assert by_seed["A-046"]["accessState"] == "out_of_scope"
