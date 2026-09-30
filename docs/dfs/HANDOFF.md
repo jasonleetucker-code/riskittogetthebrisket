@@ -16,7 +16,7 @@ Worktrees used: `C:\Users\jason\code\chaseupside-dfs` (#1534) and
 `C:\Users\jason\code\chaseupside-dfs-contests` (stacked), each with `frontend/node_modules` as a
 junction to the main checkout's.
 
-| `claude/dfs-multisport` | stacked on #1535 | NBA + NHL classic rule sets for DK + FD; DK NFL Showdown Captain (row-label eligibility, one athlete per CPT/FLEX pair, 1.5× once); all unverified research mode; brute-force parity + non-vacuity guard; Phase B completion: Quick/Exact/Import contest modes, top-1% concentration, payout-curve sparkline, contest/preset recorded on builds with disclosures | Local; PR after #1535 lands |
+| `claude/dfs-multisport` | stacked on #1535 (pushed; PR after #1535 lands on `main`) | NBA + NHL classic (DK+FD), DK NFL Showdown Captain, DK MMA Classic — all unverified research mode; Phase B completion (Quick/Exact/Import modes, top-1% concentration, payout curve, contest/preset on builds + disclosures); Phase C conditional rules + rule builder, projection overrides vs boosts; DK entry-file import + export into entry IDs; owner-imported projected ownership; evidence-claim policy core; 29 podcast seeds resolved; /dfs Playwright a11y spec (+2 defects fixed); pool table code-split | Local + remote; 165 backend / 46+ frontend DFS tests, E2E green |
 
 ## Proven (with evidence)
 
