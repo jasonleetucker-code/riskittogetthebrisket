@@ -1178,6 +1178,7 @@ main() {
   # Game Day U5 shared live collector: fires every minute, the tick decides
   # whether it is due (src/ros/game_day_live.py).  Public endpoints, no creds.
   install_simple_timer "game-day-live" "Game Day live collector (observations + generations)"
+  install_simple_timer "auction-backup" "rookie auction store hourly verified backup (backup + restore + replay check)"
 
   # ── daemon-reload and enable ────────────────────────────────────────────
   # ce_needs_install was missing from this list. Every other timer's
