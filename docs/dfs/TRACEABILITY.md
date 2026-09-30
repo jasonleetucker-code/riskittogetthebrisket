@@ -126,3 +126,31 @@ as above; **SLICE3** = Phase A slice on `claude/dfs-contests`; **SLICE4** = NBA/
 | DFS-ADD-29 | Fixtures for DK NFL Classic/Showdown/NBA/NHL/MMA and FD NFL/NBA/NHL/MMA; one true end-to-end fixture before calling the baseline operational | A/C | PARTIAL | Synthetic DK/FD NFL fixtures + e2e API test (import -> build -> export); synthetic detection fixtures for the rest (SLICE3). Real-template fixtures BLOCKED on the owner |
 | DFS-ADD-30 | Owner core workflow (NFL DK Sunday Main -> exact contest -> 20-lineup optimal portfolio -> export) | P8 | LATER | Depends on A (feed or CSV) + B + D-F |
 | DFS-ADD-31 | Continue from current state; concise update | P0 | DONE | This record |
+
+## Contest-aware modelling + evaluation phase (owner directive 2026-09-30, second prompt)
+
+Status words: **DONE** (implemented + tested + evidence), **PARTIAL** (implemented, evidence or scope
+incomplete), **ACTIVE** (in flight), **INTERFACE** (boundary only — no model behind it yet),
+**BLOCKED** (named external blocker), **LATER** (dependency not ready). An interface or stub is never
+DONE. Evidence classes are kept apart: model output ≠ historical backtest ≠ forward test ≠
+statistically meaningful evidence ≠ live profitability.
+
+| ID | Requirement | Status | Implementation / evidence |
+|---|---|---|---|
+| DFS-MOD-01 | Point-in-time data model: slate lock, append-only observations with observed/recorded times, as-of by what was held, truth kept separate | PARTIAL | `src/dfs/pit.py` (ADR-DFS-013), wired into every slate import; `tests/dfs/test_pit.py`. Contest/field/lineup entities reuse existing contest, build and results records; historical contest backfill has no data yet |
+| DFS-MOD-02 | Ownership model: multi-source, freshness, ensembles, overrides, learned model, calibration by sport/platform/format/slate size | LATER | Depends on DFS-MOD-01. Current: single owner-imported source + evaluation in results import |
+| DFS-MOD-03 | Canonical player outcome-distribution interface (mean/median, sd, quantiles, sampling, metadata) | LATER | Current: imported ranges + independent normal lineup range (`outcomes.py`) |
+| DFS-MOD-04 | Sport-specific correlation framework behind one interface (NFL / NBA / NHL / MMA) | LATER | |
+| DFS-MOD-05 | Field lineup generator (legal, ownership-driven, construction tendencies) + field-fit metrics | LATER | |
+| DFS-MOD-06 | Duplication model (naive product baseline + better candidates) calibrated against observed duplication | LATER | Observed duplication histogram already stored by results import |
+| DFS-MOD-07 | Contest Monte Carlo: joint outcomes, field, exact ties/payouts, EV / cash / top-1% / win with uncertainty | LATER | Exact payout + tie math exists (`contests.py`) |
+| DFS-MOD-08 | Portfolio optimization against contest EV with bankroll/entry/exposure constraints (no mechanical Kelly) | LATER | |
+| DFS-MOD-09 | Chronological point-in-time backtest harness; accepted AND rejected decisions; no leakage | LATER | Frozen decisions + as-of exist (DFS-MOD-01) |
+| DFS-MOD-10 | Scorecards: projections, ownership, field, contest, portfolio — always with sample size | LATER | `pit.record_evaluation` stores metrics with n and scope |
+| DFS-MOD-11 | Champion/challenger: versioned models, predefined promotion criteria, shadow, rollback, no fitting-period evidence | PARTIAL | `pit.register_model/promote/rollback` + tests; no model registered yet |
+| DFS-MOD-12 | Source registry classified by data type, access, cadence, latency, cost, reliability, PIT usefulness | LATER | Seeds resolved (`SOURCES.md` §5–7); per-type classification pending |
+| DFS-MOD-13 | Unclear source names re-investigated only if useful; never fabricated | LATER | Six remain `unresolved_identity` |
+| DFS-MOD-14 | FanDuel entries/results/settlement through the SAME models | LATER | After the DK evaluation path |
+| DFS-MOD-15 | Rule provenance (platform, sport, format, version, source, verification status, last checked) | PARTIAL | `config/dfs/rulesets.json` carries `verification` + `checkedOn`; effective-date/version provenance to formalise |
+| DFS-MOD-16 | UI: slate / contest / model health / portfolio / results review with progressive disclosure | LATER | Results panel exists (`ResultsImport.jsx`) |
+| DFS-MOD-17 | Performance/safety: seeds, bounded simulations, timeouts, cache keys, no request-thread solver concurrency, upload limits | PARTIAL | ADR-DFS-012 pinned solver thread + structural test; upload caps; simulation bounds pending |

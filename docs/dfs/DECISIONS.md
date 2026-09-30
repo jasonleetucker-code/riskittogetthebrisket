@@ -136,3 +136,25 @@ submit in `optimizer.py`). Fixed on #1534 (`bb7046b9d`); 20/20 clean suite runs 
 
 **Consequence.** Field and contest simulation (Monte Carlo) never call the MILP per sample; any
 future solver-heavy job runs in a bounded background worker that still routes through the pool.
+
+## ADR-DFS-013 — Point-in-time evidence: its own DFS ledger, as-of by what we HELD (2026-09-30)
+
+**Context.** Evaluating ownership, field and portfolio models honestly requires reconstructing what
+was knowable before lock, separately from what happened. `src/history` already owns as-of semantics
+for dynasty values, but DFS data may never enter dynasty valuation (ADR-DFS-006).
+
+**Decision.** `src/dfs/pit.py`, in the DFS SQLite file, borrowing `src/history`'s rules (a future
+observation is never selectable; missing is stated). Observations are append-only and carry both
+`observed_at` (source publish / export time) and `recorded_at` (when we stored it). `as_of(T)` takes
+the latest value with BOTH ≤ T — what we actually held, which is the only honest input to a
+historical replay. A pre-lock view past lock, or on a slate whose lock is unknown (any unknown start),
+is refused. Owner imports are recorded at IMPORT time, never earlier. Truth (post-lock ownership,
+points, standings, payouts) lives only in results records. Models are versioned with immutable params
+per version, a code SHA, and promotion criteria fixed AT REGISTRATION; `promote()` refuses an
+evaluation window that starts before registration, too few samples, or a failure to beat the
+baseline by the predefined margin; promotions and rollbacks are append-only events. Decisions are
+frozen with the as-of inputs digest and labelled `pre_lock` only when made before a known lock.
+
+**Consequence.** Every later model (ownership, field, duplication, contest simulation, portfolio)
+reads inputs through `as_of` and writes decisions/evaluations here, so a backtest can prove it saw
+no post-lock information.
