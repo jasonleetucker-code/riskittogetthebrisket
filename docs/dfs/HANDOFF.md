@@ -40,8 +40,8 @@ junction to the main checkout's.
 - Test-isolation debt (non-blocking): the shared-`server.app` contaminator seen in #1534's CI is
   unidentified, not disproven — tracked in `docs/OWNER_REQUESTED_TODO.md` ("TEST ISOLATION").
 
-- `/dfs` page chunk at 32.7 KB of its 34 KB budget: code-split the player-pool table next
-  (the Contest panel, sources, summary and rule builder are already lazy).
+- `/dfs` page chunk 30.0 KB of 34: the pool table, Contest panel, sources, summary and rule
+  builder are all code-split; the page chunk holds only the flow shell and build/result.
 
 ## Owner actions that unblock the most
 
