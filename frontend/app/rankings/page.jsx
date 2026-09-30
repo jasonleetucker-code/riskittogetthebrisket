@@ -71,7 +71,6 @@ import {
   DataTable,
   EmptyState,
   FailureState,
-  HelpModal,
   Icon,
   InfoTip,
   Input,
@@ -89,6 +88,8 @@ import { useNews } from "@/components/useNews";
 import { lookupPlayerNews } from "@/lib/player-name-match";
 import { buildPlayerMetaIndex } from "@/lib/news-filters";
 import { formatSourceCell, exportSourceCells } from "./board-utils";
+import { VALUE_EXPLAINERS, confidenceDisplay } from "@/lib/value-explainers";
+import { BoardClocks, ExplainTip, ValueExplainHelp } from "@/components/ValueExplain";
 import {
   MethodologySection,
   TopMoversRail,
@@ -171,18 +172,12 @@ function posMatchesFilter(pos, assetClass, filter, row) {
 }
 
 // Explicit confidence explanation — shared by the Confidence cell and
-// the expanded audit panel.
+// the expanded audit panel. The backend label already names the binding
+// check ("Low — limited by freshness"); the old fallback described the
+// RETIRED spread rule ("2+ sources, tight agreement (spread ≤30)"), so it
+// now comes from the one explanation owner, lib/value-explainers.js.
 function confidenceExplain(row) {
-  return (
-    row.confidenceLabel ||
-    (row.confidenceBucket === "high"
-      ? "2+ sources, tight agreement (spread ≤30)"
-      : row.confidenceBucket === "medium"
-        ? "2+ sources, moderate spread (30-80)"
-        : row.confidenceBucket === "low"
-          ? "Single source or wide disagreement (spread >80)"
-          : "Unranked")
-  );
+  return confidenceDisplay(row).label;
 }
 
 // ── Custom Mix badge ─────────────────────────────────────────────────
@@ -500,13 +495,16 @@ export default function RankingsPage() {
     let high = 0;
     let medium = 0;
     let low = 0;
+    let none = 0;
     let quarantined = 0;
     let multiSource = 0;
     for (const r of eligible) {
       const bucket = r.confidenceBucket;
       if (bucket === "high") high++;
       else if (bucket === "medium") medium++;
-      else if (bucket === "low" || bucket === "none") low++;
+      else if (bucket === "low") low++;
+      // No evidence to grade is not a low grade (C1-U5 confidenceBasis).
+      else none++;
       if (r.quarantined) quarantined++;
       if ((r.sourceCount || 0) >= 2) multiSource++;
     }
@@ -515,6 +513,7 @@ export default function RankingsPage() {
       high,
       medium,
       low,
+      none,
       quarantined,
       multiSource,
     };
@@ -1094,14 +1093,22 @@ export default function RankingsPage() {
         sortable: true,
         numeric: true,
         width: 88,
+        // A diagnostic, not the rank — hidden below md so the phone
+        // board keeps rank, player, position and VALUE on screen; the
+        // number stays in the expanded row's audit summary.
+        hideBelow: "md",
+        // The old copy said a Consensus/# gap meant "the blend penalized
+        // source disagreement" — the λ·MAD penalty that was retired
+        // 2026-04-20. The gap comes from the blend working in value
+        // space with per-source weights.
         headerInfo:
-          "Consensus: decimal mean of each source's effective rank. Orthogonal to #. When Consensus and # disagree, the blend penalized source disagreement. Lower = better.",
+          "Consensus: the mean of each source's effective rank — a diagnostic, lower is better. The # rank comes from the blended value instead, which weighs sources by freshness and family, so the two can differ.",
         render: (row) => (
           <span
             className={styles.consensusCell}
             title={
               row.blendedSourceRank != null
-                ? `Mean source rank ${row.blendedSourceRank.toFixed(2)}. Final rank is ${row.rank ? `#${row.rank}` : "— (unranked)"}. Gap = blend penalty/bonus for source disagreement.`
+                ? `Mean source rank ${row.blendedSourceRank.toFixed(2)}. Final rank is ${row.rank ? `#${row.rank}` : "— (unranked)"}, set by the blended value.`
                 : "No sources ranked this player"
             }
           >
@@ -1116,6 +1123,8 @@ export default function RankingsPage() {
         header: "Value",
         sortable: true,
         numeric: true,
+        headerInfo: VALUE_EXPLAINERS.value.short,
+        headerInfoLabel: "Value",
         render: (row) => {
           const val = Math.round(row.rankDerivedValue || row.values?.full || 0);
           const band = valueBand(val);
@@ -1213,8 +1222,7 @@ export default function RankingsPage() {
         firstDirection: "desc",
         hideBelow: "md",
         align: "center",
-        headerInfo:
-          "High / Medium / Low confidence based on how many sources matched and how tightly they agree.",
+        headerInfo: `${VALUE_EXPLAINERS.confidence.short} ${VALUE_EXPLAINERS.missingConfidence.short}`,
         render: (row) => (
           <span
             className={confidenceBadgeClass(row.confidenceBucket)}
@@ -1398,11 +1406,22 @@ export default function RankingsPage() {
             {/* The nine-step prose lives in a modal now; this toggle
                 owns only the two charts, which are genuinely
                 page-sized and worth a deliberate reveal. */}
-            <HelpModal title="How rankings work" label="How rankings work">
-              {/* Formula + confidence rule come from the contract, not
-                  from a duplicated constant — see MethodologySection. */}
-              <MethodologySection methodology={rawData?.methodology} />
-            </HelpModal>
+            {/* One explanation owner (lib/value-explainers.js) for what
+                a value, rank, confidence and freshness MEAN — shared with
+                the Player File — followed by the pipeline steps, whose
+                formula, rank limit and confidence checks come from the
+                contract rather than a duplicated constant. */}
+            <ValueExplainHelp
+              title="How rankings work"
+              label="How rankings work"
+              methodology={rawData?.methodology}
+            >
+              <h3>Pipeline steps</h3>
+              <MethodologySection
+                methodology={rawData?.methodology}
+                sourceWeighting={rawData?.sourceWeighting}
+              />
+            </ValueExplainHelp>
             <Button
               size="sm"
               variant={showMethodology ? "secondary" : "ghost"}
@@ -1565,13 +1584,27 @@ export default function RankingsPage() {
       {!loading && !error && rows.length > 0 && (
         <div className={styles.trustStrip}>
           <StatTile label="Players" value={trustStats.total.toLocaleString()} />
+          {/* "2+ src, tight" described the retired spread rule. The tip
+              carries the current definition from the one explanation
+              owner (players: weakest of five checks; picks: market
+              agreement) instead of a one-line caption that fits neither. */}
           <StatTile
-            label="High conf"
+            label={
+              <>
+                High conf
+                <ExplainTip topic="confidence" label="confidence" />
+              </>
+            }
             value={trustStats.high.toLocaleString()}
-            meta={<Badge tone="positive">2+ src, tight</Badge>}
           />
           <StatTile label="Medium" value={trustStats.medium.toLocaleString()} />
-          <StatTile label="Low" value={trustStats.low.toLocaleString()} />
+          {/* MISSING IS NEVER ZERO: an asset with no evidence to grade
+              ("none") is not a Low grade, so it is counted apart. */}
+          <StatTile
+            label="Low"
+            value={trustStats.low.toLocaleString()}
+            meta={trustStats.none > 0 ? `+${trustStats.none.toLocaleString()} ungraded` : undefined}
+          />
           <StatTile
             label="Multi-source"
             value={trustStats.multiSource.toLocaleString()}
@@ -1585,14 +1618,12 @@ export default function RankingsPage() {
               ) : undefined
             }
           />
-          {timestamp && (
-            <span
-              className={styles.trustFootnote}
-              title={`Data generated at ${timestamp}`}
-            >
-              Last scraped {relativeUpdated || timestamp}
-            </span>
-          )}
+          {/* Was "Last scraped {generatedAt}". generatedAt is when the
+              BOARD was built, not when sources were scraped — measured
+              locally as "7m ago" while the scrape it was built from
+              (scrapeTimestamp; /api/health data_age_hours) was 6.2h old.
+              Both clocks are shown, named for what they are. */}
+          <BoardClocks rawData={rawData} className={styles.trustFootnote} />
         </div>
       )}
 
@@ -2088,17 +2119,17 @@ export default function RankingsPage() {
                         />
                       </td>
                     </tr>
-                    {/* rankings-audit-row carries the panel's
-                        padding:0 + dark inset from globals.css — the
-                        expansion reads as an inset drawer, not another
-                        table row. */}
-                    <tr className="rankings-audit-row">
+                    {/* rankings-audit-row keeps the padding:0 reset from
+                        globals.css (and is the test hook); styles.auditRow
+                        repaints it on the editorial surface instead of the
+                        legacy dark inset. */}
+                    <tr className={`rankings-audit-row ${styles.auditRow}`}>
                       <td colSpan={totalCols}>
                         <SourceAuditPanel
                           row={row}
                           val={val}
                           edge={marketEdge(row)}
-                          confExplain={confidenceExplain(row)}
+                          confidence={confidenceDisplay(row)}
                         />
                       </td>
                     </tr>

@@ -181,6 +181,19 @@ execution, source activation, or changes to merge/deploy authority.
 Week 1 remains a literal 30-row contract. Runtime entry and state contracts:
 `docs/agent-operating-system/STEWARD_RUNTIME.md`.
 
+## Served build identity — owner authorization, 2026-09-30
+
+The owner accepted the recommendation from the 2026-09-30 harness reconciliation
+(`docs/engineering/AGENT_HARNESS_EXTERNAL_GUIDANCE_RECONCILIATION_2026-09-12.md` Part H.5, item 1;
+owner reply: "Whatever you recommend"). Authorized: one bounded unit, including merge, deploy and
+production verification through the normal protected path — `/api/status` reports the commit the
+running process loaded (`build.commit`, one owner `src/api/build_identity.py`, unknown stays `null`),
+and the Deploy Production smoke test fails when the served build is not the shipped commit.
+Engineering-reliability Priority 3 (+6). Not authorized: the rest of the Part H.5 queue, artifact
+attestation, or any change to what is deployed. Also recorded: the recommended DEFERRAL of re-running
+the closed PR #1344 CLAUDE.md/skill progressive-disclosure audit (high collision with active lanes,
+low current value); it stays open, not dropped.
+
 ## Freshness-aware source weighting + KTC signal separation — owner directive, 2026-09-23
 
 The owner explicitly authorized one bounded valuation unit, including production promotion (merge,

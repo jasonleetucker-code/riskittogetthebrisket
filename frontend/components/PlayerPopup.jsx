@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getPlayerEdge } from "@/lib/trade-logic";
 import { resolvedRank, RANKING_SOURCES } from "@/lib/dynasty-data";
+import { isNonVotingSourceKey } from "@/lib/value-explainers";
 import { buildTeamByPlayer, normalizeName } from "@/lib/waiver-logic";
 import PlayerRankHistoryChart from "@/components/PlayerRankHistoryChart";
 import { useApp } from "@/components/AppShell";
@@ -37,22 +38,19 @@ import styles from "./player-card.module.css";
 const _rosCache = { byName: null, fetchedAt: 0, inflight: null };
 const _ROS_TTL_MS = 30 * 60 * 1000;
 
-// Sources whose raw 0-9999 published board is the user-meaningful
-// display number (e.g. KTC TE++ at keeptradecut.com).  Read from
-// ``row.rawSourceValues`` instead of the Hill-curve
-// ``valueContribution`` so the chip matches the source's website.
-// Mirrors ``_RAW_VALUE_PREFERRED_KEYS`` in
-// ``src/api/source_history.py`` and ``src/api/data_contract.py``.
-const RAW_VALUE_PREFERRED_KEYS = new Set(["ktcSfTep"]);
-
-// Sources retired from the blend whose canonical replacement covers
-// the same signal (e.g. ``ktc`` standard SF, replaced by
-// ``ktcSfTep``).  Still loaded into ``canonicalSiteValues`` for the
-// trade-page arbitrage finder + per-source winner row but should not
-// appear in the popup chip render — emitting both would render two
-// "KTC" chips for every player.  Mirrors
-// ``_RETIRED_FROM_CHART_KEYS`` in ``src/api/source_history.py``.
-const RETIRED_FROM_CHART_KEYS = new Set(["ktc"]);
+// The source breakdown lists what VOTED. Keys the contract publishes
+// but that never vote — the historical KTC fallbacks (``ktc``,
+// ``ktcSfTep``) and the KTC Market benchmark (``ktcCrowdTradesSfTep``,
+// KTC's own Crowd+Trades number) — are excluded via the one
+// non-voting set in lib/value-explainers.js, which mirrors the
+// backend's ``_NON_VOTING_SOURCE_CSV_KEYS`` (parity-tested).
+//
+// 2026-09-29: this used to exclude only ``ktc`` and to PREFER the raw
+// ``ktcSfTep`` value, a rule from before the KTC split (2026-09-23)
+// made ``ktcSfTep`` a non-voting fallback. Josh Allen's breakdown
+// therefore listed "ktcSfTep 9,997" and "ktcCrowdTradesSfTep 9,645"
+// under raw keys beside the real KTC Crowd / KTC Trades inputs — the
+// benchmark presented as a vote.
 
 async function _loadRosValuesByName() {
   const fresh = _rosCache.byName && Date.now() - _rosCache.fetchedAt < _ROS_TTL_MS;
@@ -554,14 +552,31 @@ export function PlayerNewsSection({ playerName, position, team }) {
  * Build the ordered value-chain stages from a player row.
  *
  * Pipeline order (Final Framework live chain,
- * src/api/data_contract.py Phase 3):
- *   1. Anchor value — IDPTC's percentile-Hill value for this player,
- *      or the subgroup-only fallback when IDPTC doesn't rank them.
- *   2. Subgroup adjustment — trimmed mean-median of non-anchor source
- *      values, shrunk by α into the anchor baseline: center =
- *      anchor + α·(subgroup − anchor).  Only emitted when both
- *      anchor and subgroup contribute.
- *   3. Combined output → ``rankDerivedValue``.
+ * src/api/data_contract.py::_compute_unified_rankings):
+ *
+ *   IDP players and picks — the HIERARCHICAL blend (``alphaShrinkage``
+ *   stamped > 0):
+ *     1. Anchor value — the anchor market's value for this asset, or the
+ *        subgroup-only fallback when the anchor doesn't price it.
+ *     2. Subgroup adjustment — weighted mean-median of the non-anchor
+ *        sources, shrunk by α into the anchor: anchor + α·(subgroup −
+ *        anchor). Only emitted when both contribute.
+ *
+ *   Offense — a FLAT blend (the backend stamps ``alphaShrinkage: 0.0``
+ *   to say so): one "Blended value" stage.
+ *
+ *   Then, whenever a later board pass moved the number (single-source
+ *   haircut, pick tethering, two-way boost), a final "Published value"
+ *   stage reconciles the chain to ``rankDerivedValue`` — so the chain
+ *   always ends on the number the page headline shows.
+ *
+ * 2026-09-29 (C8-U2): offense rows carry an ``anchorValue`` DIAGNOSTIC
+ * stamp, and this function used to render it as the whole derivation —
+ * "Anchor value — IDPTC percentile-Hill" for Josh Allen, 9,989, under a
+ * headline Our Value of 9,978. Measured on the local board: 459 of the
+ * 460 offense rows carrying the stamp showed a chain that did not end on
+ * their value (John Michael Gyllenborg: 2,242 vs 672). The flat-blend
+ * signal (α = 0) now decides the shape instead.
  *
  * (The λ·MAD volatility penalty and the IDP calibration post-pass were
  * both retired — ``sourceSpread`` renders as a pure diagnostic.)
@@ -570,79 +585,152 @@ export function computeValueChain(row) {
   if (!row) return [];
 
   const stages = [];
+  const published =
+    Number(row.rankDerivedValue) > 0 ? Math.round(Number(row.rankDerivedValue)) : null;
 
-  // Stage 1 — anchor baseline.  IDPTC's percentile-Hill value.
   const anchor = Number(row.anchorValue) || null;
   const subgroupBlend = Number(row.subgroupBlendValue) || null;
   const subgroupDelta =
     typeof row.subgroupDelta === "number" ? row.subgroupDelta : null;
   const alpha =
     typeof row.alphaShrinkage === "number" ? row.alphaShrinkage : null;
+  // α > 0 is the backend's own statement that this row ran the
+  // hierarchical blend; α = 0 means a flat blend. A payload with no α
+  // stamp falls back to the asset class the backend blends that way.
+  const hierarchical =
+    alpha !== null
+      ? alpha > 0
+      : row.assetClass === "idp" || row.assetClass === "pick";
 
-  if (anchor !== null && anchor > 0) {
-    stages.push({
-      key: "anchor",
-      label: "Anchor value",
-      description:
-        "IDPTC percentile-Hill — the universal offense+IDP baseline",
-      value: Math.round(anchor),
-      delta: null,
-    });
-  } else if (subgroupBlend !== null && subgroupBlend > 0) {
-    // Player only has subgroup coverage (no anchor) — surface the
-    // subgroup blend as the effective baseline.
-    stages.push({
-      key: "subgroup-only",
-      label: "Subgroup baseline",
-      description:
-        "No anchor coverage — trimmed mean-median of subgroup sources",
-      value: Math.round(subgroupBlend),
-      delta: null,
-    });
+  if (hierarchical) {
+    if (anchor !== null && anchor > 0) {
+      stages.push({
+        key: "anchor",
+        label: "Anchor value",
+        description:
+          "The anchor market's value for this asset — the baseline the other sources adjust",
+        value: Math.round(anchor),
+        delta: null,
+      });
+    } else if (subgroupBlend !== null && subgroupBlend > 0) {
+      // Only subgroup coverage (no anchor) — surface the subgroup blend
+      // as the effective baseline.
+      stages.push({
+        key: "subgroup-only",
+        label: "Subgroup baseline",
+        description:
+          "No anchor coverage — weighted mean-median of the other sources",
+        value: Math.round(subgroupBlend),
+        delta: null,
+      });
+    }
+
+    // α-shrunk subgroup adjustment (only when both anchor and subgroup
+    // are present and the adjustment is non-zero).
+    if (
+      anchor !== null &&
+      anchor > 0 &&
+      subgroupBlend !== null &&
+      subgroupDelta !== null &&
+      alpha !== null &&
+      Math.round(alpha * subgroupDelta) !== 0
+    ) {
+      const adjusted = Math.round(anchor + alpha * subgroupDelta);
+      const prior = stages.length ? stages[stages.length - 1].value : null;
+      stages.push({
+        key: "subgroup",
+        label: `Subgroup adjustment ×${alpha.toFixed(2)}`,
+        description:
+          `Subgroup blend ${Math.round(subgroupBlend)} − anchor ` +
+          `${Math.round(anchor)} = Δ${subgroupDelta >= 0 ? "+" : ""}` +
+          `${Math.round(subgroupDelta)}; shrunk by α=${alpha.toFixed(2)}`,
+        value: adjusted,
+        delta: prior !== null ? adjusted - prior : null,
+      });
+    }
   }
 
-  // Stage 2 — α-shrunk subgroup adjustment (only when both anchor and
-  // subgroup are present and the adjustment is non-zero).
-  if (
-    anchor !== null &&
-    anchor > 0 &&
-    subgroupBlend !== null &&
-    subgroupDelta !== null &&
-    alpha !== null &&
-    Math.round(alpha * subgroupDelta) !== 0
-  ) {
-    const adjusted = Math.round(anchor + alpha * subgroupDelta);
-    const prior = stages.length ? stages[stages.length - 1].value : null;
-    stages.push({
-      key: "subgroup",
-      label: `Subgroup adjustment ×${alpha.toFixed(2)}`,
-      description:
-        `Subgroup blend ${Math.round(subgroupBlend)} − anchor ` +
-        `${Math.round(anchor)} = Δ${subgroupDelta >= 0 ? "+" : ""}` +
-        `${Math.round(subgroupDelta)}; shrunk by α=${alpha.toFixed(2)}`,
-      value: adjusted,
-      delta: prior !== null ? adjusted - prior : null,
-    });
+  if (published === null) return [];
+
+  // A pick whose value was DERIVED (no market row) is not a blend at all;
+  // say what it was derived from instead of describing a blend.
+  const provenance = row.raw?.pickValueProvenance || row.pickValueProvenance || null;
+  const derivedDescription = DERIVED_PICK_DESCRIPTIONS[provenance?.class];
+  if (derivedDescription) {
+    const basis = Array.isArray(provenance.basis)
+      ? provenance.basis.join(", ")
+      : provenance.basis;
+    return [
+      {
+        key: "derived",
+        label: "Derived value",
+        description: `${derivedDescription}${basis ? ` Basis: ${basis}.` : ""}`,
+        value: published,
+        delta: null,
+      },
+    ];
   }
 
-  const blended = Number(row.rankDerivedValue) || null;
-  if (blended !== null && blended > 0 && stages.length === 0) {
-    // Offense rows (no anchor/subgroup stamps) — surface the final
-    // blended value as a single "Blended value" chain row.
+  if (stages.length === 0) {
+    // Flat blend. The haircut note keys on the backend's own stamp when
+    // the payload carries it; otherwise it states the RULE for a
+    // single-source row rather than asserting it fired.
+    const haircut = row.raw?.singleSourceValuePenaltyApplied === true;
     stages.push({
       key: "blend",
       label: "Blended value",
       description:
-        "Count-aware mean-median over every source that ranked this " +
-        "player (value-based sources vote with their raw values; " +
-        "rank-only sources go through the Hill curve).",
-      value: Math.round(blended),
+        "Count-aware weighted mean-median over every source that priced this " +
+        "player: value-based markets vote with their own values, ranking " +
+        "sources through the Hill curve, each vote weighted by its source's " +
+        "freshness, with correlated boards sharing one vote." +
+        (haircut
+          ? " Only one evidence family covers this player, so the board " +
+            "keeps 30% of the blended value (single-source haircut)."
+          : row.isSingleSource
+            ? " Only one source covers this player — a player resting on " +
+              "one evidence family keeps 30% of the blended value."
+            : "") +
+        (row.twoWayPlayerBoost
+          ? " Two-way player: the published value is the higher of his " +
+            "offense value and his other-position market value."
+          : ""),
+      value: published,
       delta: null,
     });
+    return stages;
   }
 
+  // Reconcile to the published value when a later pass moved it.
+  const last = stages[stages.length - 1].value;
+  if (Math.abs(published - last) > 1) {
+    const tether =
+      provenance?.class === "rookie_pool_tether" && provenance.basis
+        ? `Priced from the rookie at this draft slot (${provenance.basis}) after the blend.`
+        : "Set by a board pass after the blend — for example a pick " +
+          "priced from the rookie at its slot, or a two-way player's " +
+          "other-position market.";
+    stages.push({
+      key: "published",
+      label: "Published value",
+      description: `${tether} This is the value every tool uses.`,
+      value: published,
+      delta: published - last,
+    });
+  }
   return stages;
 }
+
+// pickValueProvenance classes that carry a DERIVED value (C1-U6); see
+// src/api/data_contract.py::_complete_future_pick_values.
+const DERIVED_PICK_DESCRIPTIONS = {
+  derived_year_step:
+    "No market prices this year yet; derived from the nearest priced year using the measured year-to-year step.",
+  derived_round_step:
+    "No market prices this round; derived from the same year's nearest priced round using the board's own round step.",
+  derived_uniform_tier_ev:
+    "A pick whose slot is not yet known; the average of that year and round's early, mid and late values.",
+};
 
 /**
  * Ownership: which team holds this player + their depth-chart slot.
@@ -749,19 +837,15 @@ export function computeSiteDetails(row, siteKeys = []) {
   );
   const rows = candidateKeys
     .map((key) => {
-      if (RETIRED_FROM_CHART_KEYS.has(key)) return null;
+      if (isNonVotingSourceKey(key)) return null;
+      // An observation that did not vote on THIS row — stale/unhealthy
+      // (contributedToBlend false, appliedWeight 0) or dropped by the
+      // Hampel outlier filter — still carries a valueContribution stamp.
+      // It is listed under source freshness, not in the breakdown of
+      // what the value was built from.
+      if (meta[key]?.contributedToBlend === false || meta[key]?.hampelDropped) return null;
       const src = sourceByKey[key];
       const label = src?.columnLabel || src?.displayName || key;
-      // Raw-preferred sources: read from rawSourceValues first so
-      // the chip matches the source's published board.
-      if (RAW_VALUE_PREFERRED_KEYS.has(key)) {
-        const raw = Number(rawSourceValues[key]);
-        if (Number.isFinite(raw) && raw > 0) {
-          return { key, label, value: raw };
-        }
-        // Fall through to contribution / canonicalSites if the raw
-        // stamp is missing (legacy payload, partial scrape).
-      }
       // Vendor-native value for rank-signal sources (FC crowd value,
       // OTC 0-100, PFK 0-9999, ...).  Display-only annotation — the
       // bar/value stays on the normalized 9,999 contribution scale.
