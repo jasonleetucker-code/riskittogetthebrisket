@@ -24,6 +24,7 @@ import {
 } from "../shared.jsx";
 import { TradeCard } from "./activity.jsx";
 import { AwardStandings } from "./award-standings.jsx";
+import { AwardsHowItWorks } from "@/components/help/AwardsHelp";
 import styles from "./awards.module.css";
 
 // Award keys whose ``value`` payload carries a player. Player awards render
@@ -276,7 +277,7 @@ const AWAITING_COPY = {
   no_scored_week_since_any_add: "No scored week since any add yet",
   no_value_above_replacement: "No starter finished above replacement",
   no_qualifying_evidence: "No qualifying result yet",
-  no_eligible_mvp_candidate: "No team is in playoff position with a winning record yet",
+  no_eligible_mvp_candidate: "No team is in playoff position with a .500-or-better record yet",
   mvp_eligibility_unverified: "Playoff field can't be verified yet — eligibility unavailable",
 };
 
@@ -298,20 +299,27 @@ export function vorpExclusionNote(exclusions) {
   return `${positions.join(", ")} excluded — ${why}`;
 }
 
-// League MVP's team-success gate (owner decision 2026-09-26): the race lists
-// only players on a team in playoff position AND above .500. The backend
+// League MVP's team-success gate (owner decision 2026-09-26; record half
+// corrected 2026-09-29 to ".500 or better" — exactly .500 counts): the race
+// lists only players on a team in playoff position AND at .500 or better. The
+// backend
 // publishes the rule and the best performers it keeps out, so a missing
 // star reads as "outside the race", never as a data gap. OPOY / DPOY carry
 // no such block and show nothing here.
 const MVP_OUTSIDE_WHY = {
   team_outside_playoff_field: "team outside the playoff field",
-  team_record_not_above_500: "team not above .500",
+  team_record_below_500: "team below .500",
+  team_record_unavailable: "no decided games yet",
 };
 
 export function mvpEligibilityNote(eligibility) {
   if (!eligibility || eligibility.verified !== true) return null;
   const basis = eligibility.basis === "final_bracket" ? "that made the playoffs" : "in playoff position";
-  return `Eligible: players on a team ${basis} with a winning record.`;
+  // Caption the rule the payload was actually built under: an older backend
+  // (deploy skew) published the strict "winning record" boundary.
+  const record =
+    eligibility.rule === "playoff_field_and_winning_record" ? "a winning record" : "a .500-or-better record";
+  return `Eligible: players on a team ${basis} with ${record}.`;
 }
 
 export function mvpOutsideNote(eligibility) {
@@ -739,6 +747,7 @@ function AwardsSection({ managers, data, onNavigate }) {
         <Card
           title="Awards race snapshot"
           subtitle="The weekly leaderboard: player races first, manager and team honors below."
+          action={<AwardsHowItWorks />}
         >
           <div className={styles.toolbar} data-html2canvas-ignore>
             <p className={styles.toolbarCopy}>
@@ -780,7 +789,7 @@ function AwardsSection({ managers, data, onNavigate }) {
             <RaceGroup
               kicker="01"
               title="Player Awards"
-              note="Top three · realized starter value"
+              note="Top three so far"
               races={groupedRaces.players}
               managers={managers}
               onNavigate={onNavigate}
@@ -810,14 +819,23 @@ function AwardsSection({ managers, data, onNavigate }) {
         </Card>
       )}
 
+      {/* Final means Sleeper status "complete" — the same rule the franchise
+          page's "Awards won" counts by.  `isComplete` is also true during
+          "post_season", when playoff-dependent awards are still undecided,
+          so it cannot say "complete" on its own. */}
       {featured && (
         <Card
           title={`${featured.season} awards`}
           subtitle={
-            (featured.isComplete ? "Season complete" : "Season in progress") +
+            (featured.seasonStatus === "complete"
+              ? "Season complete"
+              : featured.isComplete
+                ? "Playoffs underway · current leaders, not final"
+                : "Season in progress · current leaders, not final") +
             " · tap an award for its full history" +
             (upcoming ? ` · ${upcoming} hasn't started yet` : "")
           }
+          action={<AwardsHowItWorks />}
         >
           {featured.hasPlayerScoring === false && (
             <div style={{ fontSize: "0.7rem", color: "var(--subtext)", marginBottom: 8 }}>
@@ -837,7 +855,13 @@ function AwardsSection({ managers, data, onNavigate }) {
           {(featured.awards || []).length === 0 ? (
             <EmptyState
               title="No awards yet"
-              message="Awards will appear once the season has enough games / transactions / trades on record."
+              message={
+                // The backend states WHY (awardsUnavailable) when the season
+                // has not played a game — say that instead of a generic line.
+                featured.awardsUnavailable
+                  ? "This season hasn't played a game yet, so there is nothing to award."
+                  : "Awards will appear once the season has enough games / transactions / trades on record."
+              }
             />
           ) : (() => {
             const groups = groupAwards(featured.awards || []);
@@ -921,8 +945,12 @@ function AwardsSection({ managers, data, onNavigate }) {
                 />
                 <AwardGroup
                   kicker="Postseason"
-                  title="Later This Season"
-                  meta="Playoff honors stay secondary until the bracket begins"
+                  title={featured.isComplete ? "Postseason" : "Later This Season"}
+                  meta={
+                    featured.isComplete
+                      ? "Playoff honors"
+                      : "Playoff honors stay secondary until the bracket begins"
+                  }
                   awards={groups.postseason}
                   renderAward={renderCard}
                   later

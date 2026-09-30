@@ -1276,8 +1276,17 @@ describe("opponent-aware pricing", () => {
     expect(contestedPrice({ price: 12, bayesianTopCompetitor: 900 }, "contested")).toBe(12);
   });
 
-  it("never goes below the auction minimum", () => {
+  it("beating a rival with $0 left costs $1", () => {
     expect(contestedPrice({ price: 40, bayesianTopCompetitor: 0 }, "contested")).toBe(1);
+  });
+
+  it("a $0 fair price stays $0 — there is no $1 auction minimum", () => {
+    expect(contestedPrice({ price: 0, bayesianTopCompetitor: 30 }, "contested")).toBe(0);
+    expect(contestedPrice({ price: 0 }, "fair")).toBe(0);
+  });
+
+  it("a $0 expectation has a $0 band", () => {
+    expect(priceBand(0, 0.5)).toEqual({ low: 0, expected: 0, high: 0 });
   });
 
   it("falls back to fair value when no opponent estimate exists", () => {

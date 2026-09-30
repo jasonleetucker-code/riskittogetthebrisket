@@ -36,6 +36,7 @@ def test_every_flag_defaults_off_except_safe_additive():
         "unified_id_mapper",  # no behavior change, read API only
         "nfl_data_ingest",  # guarded import; empty [] if missing
         "realized_points_api",  # endpoint-only, inert until called
+        "rookie_auction",  # own router + own store; mock rooms only; moves no existing number
         "value_confidence_intervals",  # additive valueBand field
         "positional_tiers",  # additive tierId field
         "usage_signals",  # freshness + starter-guarded

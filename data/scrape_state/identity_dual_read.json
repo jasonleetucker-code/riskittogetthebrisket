@@ -1,16 +1,16 @@
 {
- "generatedAt": "2026-09-29T06:16:45.688446+00:00",
+ "generatedAt": "2026-09-30T06:02:25.574324+00:00",
  "servedPolicy": "scraper_sleeper_attach_v1",
  "servedBy": "src.identity.resolution",
  "legacyLadderRetired": true,
  "v2WatchEnabled": true,
  "site": "scraper_sleeper_attach",
- "calls": 2066,
+ "calls": 2068,
  "v1Agree": 0,
  "v1Diverge": 0,
  "v1Examples": [],
- "v2Same": 2043,
- "v2WouldChange": 23,
+ "v2Same": 2046,
+ "v2WouldChange": 22,
  "v2Examples": [
   {
    "name": "Andru Phillips",
@@ -50,14 +50,6 @@
    "served": "10917",
    "engineV2": null,
    "v2Method": "exact_clean:name_pos",
-   "v2Reason": "ambiguous"
-  },
-  {
-   "name": "Devin Neal",
-   "pos": "",
-   "served": "12476",
-   "engineV2": null,
-   "v2Method": "exact_clean:name",
    "v2Reason": "ambiguous"
   },
   {
@@ -175,7 +167,7 @@
   {
    "name": "Jamarion Miller",
    "pos": "",
-   "served": "12103",
+   "served": "13403",
    "engineV2": null,
    "v2Method": "none",
    "v2Reason": "no_candidate"

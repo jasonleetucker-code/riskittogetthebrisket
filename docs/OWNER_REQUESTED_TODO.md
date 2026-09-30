@@ -984,17 +984,49 @@ Owner-approved; the authorization record is the League Hub Awards pointer in `do
     recorded the conflict between the clarification (League MVP gated on a playoff-field, above-.500 franchise) and
     the 2026-08-14 amendment (no hard gate). The owner ruled for the gate on League MVP only.
 
+**Owner authorization — preserve pregame weekly projections from the Game Day prune (2026-09-29).**
+Authorized now, ahead of the ~2026-10-13 retention deadline (#1519 G1), sequenced after the #1517 → #1518 → #1516
+release queue. Smallest correct change: the raw pre-kickoff Sleeper weekly projection evidence must not be destroyed
+by the 4-week raw-log prune. Last valid pre-kickoff snapshot per player/game/week; timestamp, season/week, player and
+game identity, source/provenance and version preserved; never replaced with a later model; no second projection
+owner; bounded retention with measured storage; included in backup/restore; regression proving the prune cannot
+delete it. Not a broadening into the other #1519 gaps. Implementation: `docs/game-day/GAME_DAY_WEEK_RESOLVER.md`
+("Pregame weekly-projection archive").
+
+**Owner correction — award record eligibility is .500 OR BETTER (2026-09-29).**
+Binding; immediate; supersedes the record half of the 2026-09-26 League MVP decision below and every earlier
+"above .500" / "strictly greater than .500" / ".500 is not a winning record" statement.
+- For any award that ACTUALLY has a record eligibility requirement, the franchise qualifies on record when its
+  official regular-season winning percentage is **>= .500** under the league's canonical standings semantics (a tie
+  counts as half a win). Exactly .500 counts (6-6, 7-7, 8-8); below .500 does not (6-7, 7-8). Zero decisions never
+  qualify from a fabricated .500; missing/unverified standings stay unverified.
+- Today only **League MVP** has a record requirement. Its playoff-field requirement is unchanged: in the field +
+  .500 or better = eligible; outside the field = ineligible regardless of record.
+- **Manager of the Year has no record gate** (and no playoff gate) under the owner's unified Manager of the Year
+  direction, which the owner restated in this same 2026-09-29 instruction (first given 2026-09-28): one combined
+  award, no separate overall GM award, no playoff-qualification requirement, no winning-record requirement — a
+  manager below .500 may win if the complete formula ranks them first. The unified method itself remains a
+  validation track (PR #1513, not promoted). This correction must not add a gate. No other award (OPOY, DPOY, ROY, positional, Points King, Trader,
+  Waiver King, Champion, Playoff MVP, statistical awards) gains a record gate.
+- Reason code `team_record_not_above_500` is retired for `team_record_below_500` (UI: "team below .500"); a .500
+  team never receives it. A franchise with no decided games gets `team_record_unavailable` (UI: "no decided games
+  yet") — never "below .500". Canonical rule: `docs/BRISKET_HONORS_ELIGIBILITY_SPEC.md` (2026-09-29 banner).
+- Replay 2026-09-29: no published League MVP winner changed in either live league (2024, 2025 finalized; the 2026
+  live leader is unchanged). Live race MEMBERSHIP widens as intended — .500 teams' players now race (e.g. a 2-2
+  team's star moves from "outside the race" into the standings).
+
 **Owner decision — League MVP requires team success (2026-09-26).**
 Binding; supersedes the 2026-08-13/14 "player MVP has no hard playoff-field / >.500 gate" rule wherever it appears
 (`docs/PLAYER_IMPACT_WAR_MVP_SPEC.md` §7, `docs/C_SERIES_REPLAN_AND_COMPLETION_CONTRACT.md` §2, the Honors spec's
 2026-08-14 amendment, the spec index, manifest and sync records — all reconciled in the same change).
 - **League MVP** = elite player performance on a successful fantasy team. Eligible only when the credited fantasy
-  franchise is BOTH in the championship playoff field AND above .500:
+  franchise is BOTH in the championship playoff field AND above .500 *(record half superseded 2026-09-29:
+  .500 or better — see the correction above)*:
   - **live** — in a qualifying position under the league's real rules if the season ended at the latest
     completed scoring period (canonical standings order × the league's own `playoff_teams`), with an official
-    regular-season winning percentage strictly above .500 (host W/L/T, median games counted as the host counts
+    regular-season winning percentage ~~strictly above .500~~ .500 or better (host W/L/T, median games counted as the host counts
     them);
-  - **finalized** — actually qualified for the championship playoffs (real bracket) and finished above .500.
+  - **finalized** — actually qualified for the championship playoffs (real bracket) and finished ~~above .500~~ .500 or better.
   - An unknown field is `mvp_eligibility_unverified`; nobody eligible is `no_eligible_mvp_candidate`. Never a
     widened field.
 - **Not gated:** Offensive / Defensive Player of the Year (the best individual performances regardless of the
@@ -1125,3 +1157,17 @@ being preserved, record it in Calculator Ideas / the canonical backlog with the 
   before the 2027 rookie auction.
 - **Authority:** all gaps are **NOT AUTHORIZED**. Capture is not implementation authorization, and
   `docs/EXECUTION_PLAN.md` is unchanged.
+
+## Added 2026-09-29 — Rookie Auction Room: build it now, mock-first, live-gated (owner directive)
+
+| Priority | Issue | Area | Required outcome | Status |
+|---|---|---|---|---|
+| P1 owner build directive | Owner directive, 2026-09-29 | Rookie auction room (extends `C7-DRAFT-03` / `C7-U12`) | A native shared slow rookie auction hosted by Chase Upside: 12 seats, rookie-only, six rounds, at most 12 open lots, points-for (lowest first) nomination order supplied by the owner, $0 opening bids and $0 wins, whole-dollar private proxy bidding (A $50 vs B $39 → A at $40), per-seat budgets from current 2027 draft capital with commissioner overrides, 8 AM–9 PM America/New_York activity, early end when all money is spent, persistence across restart/deploy, solo/multiplayer mocks incl. invited non-league testers, notifications (esp. last active hour), live Perfect Draft integration. Official launch stays OFF until separate owner approval. Full contract, binding-vs-proposed rules and milestones: `docs/auction/ROOKIE_AUCTION_ROOM.md`. | MOCK READY — deployed 2026-09-29 (#1523/#1524/#1526/#1528); official launch still owner-gated (see docs/auction/LAUNCH_CHECKLIST.md) |
+| P1 owner clarification | Owner, 2026-09-29 | Rookie auction room — money | LEADING BIDS RESERVE MONEY: $50 unspent while leading at $45 ⇒ only $5 available elsewhere; reserve every current winning price, release on a genuine outbid, convert once on winning; private maxima never execute past the currently affordable amount; two simultaneous requests cannot spend the same dollars; enforced server-side, preserved across restarts; Perfect Draft uses the same available balance; $0 bids remain legal; explicit regression tests for the example. Record: `docs/auction/ROOKIE_AUCTION_ROOM.md` §2 "Money". | IMPLEMENTED + deployed: engine reservation (tested incl. the exact $50/$45 example, a thread race and restart) and Perfect Draft uses the same spendable (#1526) |
+| P1 owner directive (AUC-002) | Owner, 2026-09-29 | Rookie auction room — notifications | Native standards-based Web Push from the existing server (reuse `src/api/push_delivery.py` / pywebpush + VAPID, `frontend/public/sw.js`, the manifest and the SMTP email owner — ONE transport, no OneSignal/FCM/SMS/paid service), a durable in-app inbox, optional verified-email backup. Device-aware iPhone Home Screen / Android setup, targeted test notification (service-accepted ≠ displayed; tester confirms), status, recovery, preferences. Event set, proxy-truth rule (alerts from the net committed transition — A $50 vs B $39 never alerts A "outbid" then "leading again"), active-hour deadlines + America/New_York quiet hours, deadline-revision-keyed reminders invalidated by extension/settlement/pause, transactional outbox + background worker (never inside the bid transaction), dedup/retry/Retry-After/expired-subscription cleanup, account/device-owned subscriptions with CSRF/SSRF protection, generic lock-screen previews, mocks on a fake transport by default with opt-in labelled [MOCK] pushes. Requires real iPhone Home Screen + Android Chrome device tests reported as simulated / service-accepted / device-observed / user-confirmed. Record: `docs/auction/ROOKIE_AUCTION_ROOM.md` §9 (AUC-002). | IMPLEMENTED + deployed (#1524); production VAPID keys NOT configured yet (owner action); real iPhone/Android delivery not yet observed |
+
+Rules the owner has not yet confirmed for an OFFICIAL room (proposed mock defaults: 65 active-hour
+clocks, one-active-hour extension, 13-active-hour nomination timeout with audited pass, earlier-bid
+tie rule, withdrawal policy, outage policy, six-rounds = six nomination opportunities) are listed in
+`src/auction/rules.py::PROPOSED_RULE_KEYS` and must be confirmed together on the room's
+rule-confirmation screen before an official room can start. They do not block mocks.

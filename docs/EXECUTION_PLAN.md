@@ -62,6 +62,21 @@ foundation once. Preserve small, reviewable PR boundaries within the combined ph
 
 # 0. CURRENT AUTHORIZATION — READ THIS FIRST
 
+## Rookie Auction Room — owner directive, 2026-09-29 (mock-first, live-gated)
+
+The owner authorizes implementing Chase Upside's shared slow rookie auction room now, so the owner,
+league-mates and invited mock participants can rehearse before an official rookie draft. Scope:
+the room engine, persistence, scoped auction identity, invitations, mocks with bots and a virtual
+clock, Perfect Draft integration through a narrow adapter, in-room dollar transfers, Web Push/inbox
+notifications, recovery drills and release-readiness rehearsal, delivered as small reviewed PRs
+(milestones A–E in `docs/auction/ROOKIE_AUCTION_ROOM.md`). Same-day owner clarification: leading
+bids reserve money across every lot a manager leads; Perfect Draft uses the same available balance.
+
+**Not authorized without the owner's separate explicit launch approval:** opening an OFFICIAL room,
+distributing official invitations, changing real rosters, spending real draft budgets, or enabling
+live official bidding. No payment processor, deposits, paid services, SMS or native app. Extends
+`C7-DRAFT-03` / `C7-U12`; the Premium UI lane (PSI Direction A) stays active in parallel.
+
 ## Calculator performance architecture — owner directive, 2026-09-26 (#1338)
 
 The owner re-authorizes implementation through normal protected test, review, PR,
@@ -198,7 +213,8 @@ single authorization record for the batch; ideas inside it do not get their own 
   (b) Expand standings — every current-season award race shows its canonical top-12 ranking from the
   backend. Contract: `docs/OWNER_REQUESTED_TODO.md` ("Awards: 2026 Waiver King eligibility +
   Expand standings"). No formula, VORP, scoring or award-set change.
-  **Extension authorized (owner, 2026-09-26):** the League MVP team-success gate (playoff field + above .500;
+  **Extension authorized (owner, 2026-09-26):** the League MVP team-success gate (playoff field + ~~above .500~~ .500 or better — owner correction
+  2026-09-29, authorized for immediate release;
   League MVP only — OPOY / DPOY / ROY / positional ungated). Contract: `docs/OWNER_REQUESTED_TODO.md`
   ("League MVP requires team success"). No VORP, OPOY / DPOY formula or Manager of the Year change.
 * **Game Day live-state provider trial — authorized (owner, 2026-09-27):** a BALLDONTLIE adapter
