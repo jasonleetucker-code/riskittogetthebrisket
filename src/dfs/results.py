@@ -88,6 +88,101 @@ def _is_owner_entry(entry_id: str, entry_name: str, ids: set[str], username: str
     return handle.casefold() == username.strip().casefold()
 
 
+# ChaseUpside's own platform-neutral results format (``canonical_results_v1``):
+# entry rows carry EntryId / EntryName / Rank / Points / Lineup (player IDs in
+# slot order, "|"-separated); player rows carry PlayerId / DraftedPct / FPTS.
+# Players are joined by ID — exact, no name matching.  It is OUR documented
+# format, never presented as a platform export.
+CANONICAL_COLS = (
+    "EntryId",
+    "EntryName",
+    "Rank",
+    "Points",
+    "Lineup",
+    "PlayerId",
+    "DraftedPct",
+    "FPTS",
+)
+
+
+def _parse_canonical(
+    rows, header, ruleset, athletes, owner_entry_ids, owner_username
+) -> dict[str, Any]:
+    col = {h: i for i, h in enumerate(header)}
+    ids = {a.player_id for a in athletes}
+    n_slots = len(ruleset.slots)
+
+    def cell(row, name):
+        i = col[name]
+        return row[i].strip() if i < len(row) else ""
+
+    realized: dict[str, dict[str, Any]] = {}
+    quarantined: list[dict[str, Any]] = []
+    points_counts: dict[float, int] = {}
+    unscored = 0
+    owner_ids = {str(x).strip() for x in (owner_entry_ids or [])}
+    owner_entries: list[dict[str, Any]] = []
+    field: list[dict[str, Any]] = []
+    for r_i, row in enumerate(rows[1:], start=2):
+        pid = cell(row, "PlayerId")
+        if pid:
+            own, pts = _num(cell(row, "DraftedPct"), pct=True), _num(cell(row, "FPTS"))
+            if pid not in ids:
+                quarantined.append({"row": r_i, "name": pid[:40], "reason": "no_slate_athlete"})
+            elif own is None:
+                quarantined.append({"row": r_i, "name": pid[:40], "reason": "drafted_not_numeric"})
+            else:
+                realized[pid] = {"ownership": own, "points": pts}
+        eid = cell(row, "EntryId")
+        if not eid:
+            continue
+        pts = _num(cell(row, "Points"))
+        if pts is None:
+            unscored += 1
+        else:
+            points_counts[pts] = points_counts.get(pts, 0) + 1
+        if _is_owner_entry(eid, cell(row, "EntryName"), owner_ids, owner_username):
+            owner_entries.append(
+                {
+                    "entryId": eid[:40],
+                    "entryName": cell(row, "EntryName")[:80],
+                    "points": pts,
+                    "platformRank": _num(cell(row, "Rank")),
+                }
+            )
+        lineup = [p.strip() for p in cell(row, "Lineup").split("|") if p.strip()]
+        ok = len(lineup) == n_slots and all(p in ids for p in lineup)
+        if len(field) < MAX_FIELD_ENTRIES:
+            field.append(
+                {
+                    "entryId": eid[:40],
+                    "rank": _num(cell(row, "Rank")),
+                    "points": pts,
+                    "state": "resolved" if ok else "unresolved",
+                    "lineup": lineup if ok else [],
+                    "unresolved": [] if ok else [p for p in lineup if p not in ids][:9],
+                }
+            )
+    resolved = [f for f in field if f["state"] == "resolved"]
+    return {
+        "layout": "canonical_results_v1",
+        "layoutVerification": "defined_by_chaseupside",
+        "realized": realized,
+        "quarantined": quarantined[:200],
+        "field": {
+            "entries": len(field),
+            "resolvedLineups": len(resolved),
+            "unresolvedLineups": len(field) - len(resolved),
+            "truncated": len(field) >= MAX_FIELD_ENTRIES,
+            "sample": field[:25],
+        },
+        "pointsCounts": sorted(points_counts.items(), key=lambda kv: -kv[0]),
+        "unscoredEntries": unscored,
+        "ownerEntries": owner_entries,
+        "duplication": duplication([f["lineup"] for f in resolved]),
+    }
+
+
 def parse_standings(
     text: str,
     ruleset: RuleSet,
@@ -96,11 +191,6 @@ def parse_standings(
     owner_entry_ids: list[str] | None = None,
     owner_username: str | None = None,
 ) -> dict[str, Any]:
-    if ruleset.platform != "draftkings":
-        raise ImportError_(
-            "UNSUPPORTED_FORMAT",
-            f"Contest results are only understood for DraftKings so far ({ruleset.platform} is not).",
-        )
     if len(text.encode("utf-8")) > MAX_RESULTS_BYTES:
         raise ImportError_(
             "FILE_TOO_LARGE",
@@ -110,6 +200,15 @@ def parse_standings(
     if not rows:
         raise ImportError_("EMPTY_FILE", "The results file is empty.")
     header = [h.strip() for h in rows[0]]
+    if all(c in header for c in CANONICAL_COLS):
+        return _parse_canonical(rows, header, ruleset, athletes, owner_entry_ids, owner_username)
+    if ruleset.platform != "draftkings":
+        raise ImportError_(
+            "RESULTS_FILE_UNRECOGNISED",
+            f"No verified {ruleset.platform} standings export is known. Provide the results in the "
+            "ChaseUpside canonical results format (columns below).",
+            {"expected": list(CANONICAL_COLS), "found": header[:12]},
+        )
     if header[: len(_ENTRY_COLS)] != _ENTRY_COLS or not all(c in header for c in _PLAYER_COLS):
         raise ImportError_(
             "RESULTS_FILE_UNRECOGNISED",

@@ -22,7 +22,7 @@ import io
 from datetime import datetime, timezone
 from typing import Any
 
-from src.dfs.entries import LAYOUT_VERIFICATION
+from src.dfs.entries import DK_EXPORT_LAYOUT, LAYOUT_VERIFICATION, export_row
 from src.dfs.imports import ImportError_, SlateAthlete
 from src.dfs.optimizer import ConstraintError, Constraints, optimize, validate_lineup
 from src.dfs.rules import RuleSet
@@ -205,15 +205,17 @@ def export_late_swap(
     plan: dict[str, Any],
     entries: list[dict[str, Any]],
     athletes: list[SlateAthlete],
+    layout: dict[str, Any] | None = None,
 ) -> tuple[str, dict[str, Any]]:
-    """Entry file with each planned entry's final lineup.  Unresolved and
+    """Entry file with each planned entry's final lineup (in the file's own layout).  Unresolved and
     unplannable entries are left out and listed — never overwritten."""
     by_id = {a.player_id: a for a in athletes}
     slots = [s.name for s in ruleset.slots]
     meta = {e["entry_id"]: e for e in entries}
     out = io.StringIO()
     w = csv.writer(out, lineterminator="\r\n")
-    w.writerow(["Entry ID", "Contest Name", "Contest ID", "Entry Fee", *slots])
+    layout = layout or {**DK_EXPORT_LAYOUT, "header": DK_EXPORT_LAYOUT["header"] + slots}
+    w.writerow(layout["header"])
     written, skipped = [], []
     for p in plan["entries"]:
         final = p.get("finalLineup")
@@ -229,17 +231,8 @@ def export_late_swap(
             raise ImportError_(
                 "LINEUP_INVALID_AT_EXPORT", f"Entry {p['entryId']} is not valid.", {"errors": errs}
             )
-        e = meta.get(p["entryId"], {})
-        fee = e.get("entry_fee_cents")
-        w.writerow(
-            [
-                p["entryId"],
-                e.get("contest_name") or "",
-                e.get("contest_id") or "",
-                "" if fee is None else f"${fee // 100}.{fee % 100:02d}",
-                *final,
-            ]
-        )
+        e = {"entry_id": p["entryId"], **meta.get(p["entryId"], {})}
+        w.writerow(export_row(e, final, layout))
         written.append(p["entryId"])
     return out.getvalue(), {
         "written": written,

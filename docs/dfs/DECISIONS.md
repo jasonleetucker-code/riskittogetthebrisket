@@ -319,3 +319,25 @@ made after the fact: historical evidence, never forward evidence.
 
 **Test that matters.** A "late" ownership source recorded after lock and matching the truth exactly
 is invisible to the replay: the ensemble's MAE stays > 0.5, and the source never appears.
+
+## ADR-DFS-021 — FanDuel through the same models: header-detected entries, canonical results (2026-09-30)
+
+**Context.** FanDuel must reuse the canonical contest/slate/result/evaluation models, not grow a
+parallel optimizer. No verified FanDuel entry-file or contest-standings layout is available to this
+project, and a guessed layout that silently misreads a file is worse than a refusal.
+
+**Decision.** Entry files: DraftKings keeps its strict documented layout; every other platform is
+parsed HEADER-DETECTED — the entry-ID column and the rule set's slot columns (consecutive, in order)
+found by name, anything else refused (`ENTRY_FILE_UNRECOGNISED`) — labelled
+`<platform>_entries_header_detected_v1`, verification `assumed`, and exported back in the file's OWN
+columns (`exportLayout`). Upload guards (empty, size, malformed, row count) run before any parse.
+Results: a platform-neutral **ChaseUpside canonical results format** (`canonical_results_v1`,
+verification `defined_by_chaseupside`): entry rows `EntryId, EntryName, Rank, Points, Lineup` (player
+IDs in slot order, `|`-separated) and player rows `PlayerId, DraftedPct, FPTS`, joined by ID — exact.
+It feeds the same realized/duplication/settlement/backtest path. A non-DraftKings file in any other
+shape is refused with the canonical columns named. Late swap, results and entry-file panels now show
+for every platform; the backend decides what it understands.
+
+Rule provenance (DFS-MOD-15): a test requires every rule set to carry version, verification state,
+a real `checkedOn` date, and evidence (if verified) or a blocker (if not); a second test pins that NO
+rule set is verified today, so flipping one requires evidence AND a deliberate test change.

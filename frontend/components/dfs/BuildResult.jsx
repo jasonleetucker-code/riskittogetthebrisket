@@ -226,7 +226,7 @@ export default function BuildResult({ build, ruleset, athletes }) {
           </p>
         </div>
       ) : null}
-      {r.built && build.ruleset?.key?.startsWith("draftkings.") ? (
+      {r.built ? (
         <Suspense fallback={null}>
           <EntriesExport buildId={build.buildId} />
         </Suspense>

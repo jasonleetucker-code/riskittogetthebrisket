@@ -532,7 +532,7 @@ export default function DfsWorkspace() {
             </Panel>
           ) : null}
 
-          {slate && slateMatches && ruleset?.platform === "draftkings" ? (
+          {slate && slateMatches ? (
             <Panel title="6 · Late swap">
               <Suspense fallback={null}>
                 <LateSwap snapshotId={slate.snapshotId} athletes={slate.athletes} />
@@ -540,7 +540,7 @@ export default function DfsWorkspace() {
             </Panel>
           ) : null}
 
-          {slate && slateMatches && ruleset?.platform === "draftkings" ? (
+          {slate && slateMatches ? (
             <Panel title="7 · Results">
               <Suspense fallback={null}>
                 <ResultsImport snapshotId={slate.snapshotId} contestId={buildContext.contestId} />

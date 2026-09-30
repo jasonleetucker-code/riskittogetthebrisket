@@ -1504,7 +1504,9 @@ async def late_swap_export(request: Request):
 
     plan = await run_in_threadpool(plan_late_swap, rs, athletes, parsed["entries"], now)
     try:
-        text, report = export_late_swap(rs, plan, parsed["entries"], athletes)
+        text, report = export_late_swap(
+            rs, plan, parsed["entries"], athletes, parsed.get("exportLayout")
+        )
     except ImportError_ as exc:
         return _entries_error(exc)
     if not report["written"]:
@@ -1548,7 +1550,9 @@ async def export_build_into_entries(build_id: str, request: Request):
     athletes = _athletes_from(snap["body"]["athletes"])
     try:
         parsed = parse_entries(body.get("entriesCsv") or "", rs, athletes)
-        text, report = export_into_entries(rs, b["result"]["lineups"], parsed["entries"], athletes)
+        text, report = export_into_entries(
+            rs, b["result"]["lineups"], parsed["entries"], athletes, parsed.get("exportLayout")
+        )
     except ImportError_ as exc:
         return _entries_error(exc)
     if not report["assigned"]:

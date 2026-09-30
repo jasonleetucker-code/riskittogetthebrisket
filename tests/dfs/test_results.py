@@ -110,4 +110,6 @@ def test_wrong_layout_and_other_platforms_are_refused():
     assert exc.value.code == "RESULTS_FILE_UNRECOGNISED"
     with pytest.raises(ImportError_) as exc:
         parse_standings(HEAD + "\n", get_ruleset("fanduel.nfl.classic"), athletes)
-    assert exc.value.code == "UNSUPPORTED_FORMAT"
+    # No verified FanDuel standings export: refused, pointing at the canonical format.
+    assert exc.value.code == "RESULTS_FILE_UNRECOGNISED"
+    assert "PlayerId" in exc.value.detail["expected"]
