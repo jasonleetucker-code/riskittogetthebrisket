@@ -202,6 +202,9 @@ def test_unusable_repository_is_a_grading_error_not_a_pass(repo, tmp_path):
         )
         with pytest.raises(CaseError, match="repository_unavailable"):
             grade_file(CASE_ID, path, repo=bad)
+        # Reported even when the artifact pins no revisions.
+        with pytest.raises(CaseError, match="repository_unavailable"):
+            grade_file(CASE_ID, _write(tmp_path, _artifact(None, None)), repo=bad)
 
 
 @pytest.mark.parametrize("reason", ["diff_exceeds_bound", "git_diff_failed", "git_timeout"])

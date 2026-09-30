@@ -86,16 +86,18 @@ def changed_files_between(
     repo: Path, base, head, *, max_files: int = MAX_CHANGED_FILES
 ) -> DiffEvidence:
     """Changed paths from ``base`` to ``head`` in ``repo``, or why that is unknown."""
-    if base is None or head is None:
-        return DiffEvidence(None, base, head, "no_pinned_revisions")
-    if not (is_full_sha(base) and is_full_sha(head)):
-        return DiffEvidence(None, base, head, "revision_not_full_sha")
+    # The operator's repository is checked first, so a mistyped path is reported even
+    # when the artifact pins nothing.
     repo = Path(repo)
     if not repo.is_dir():
         return DiffEvidence(None, base, head, "repository_unavailable")
     try:
         if _git(repo, "rev-parse", "--git-dir").returncode != 0:
             return DiffEvidence(None, base, head, "repository_unavailable")
+        if base is None or head is None:
+            return DiffEvidence(None, base, head, "no_pinned_revisions")
+        if not (is_full_sha(base) and is_full_sha(head)):
+            return DiffEvidence(None, base, head, "revision_not_full_sha")
         for sha in (base, head):
             if not _commit_exists(repo, sha):
                 return DiffEvidence(None, base, head, "revision_not_in_repository")

@@ -129,8 +129,9 @@ Limits, stated plainly:
   repository. It does not prove the run authored them, that they are the commits
   it worked on, or that the change is correct.
 - Revisions must be full 40-character lowercase SHAs (schema pattern); anything
-  else is a malformed artifact. Absent revisions leave the check `NOT_CHECKED`
-  unless `--require-verified-diff` is given.
+  else is a malformed artifact, so SHA-256 repositories are not supported yet
+  (fails closed). Absent revisions leave the check `NOT_CHECKED` unless
+  `--require-verified-diff` is given.
 - Artifacts are untrusted data: bounded at 1 MiB, never executed, and no declared
   path is opened. Git runs with lazy fetch, transports, prompts, optional locks and
   fsmonitor disabled, so a pinned missing object in a partial clone cannot trigger
