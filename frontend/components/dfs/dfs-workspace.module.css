@@ -327,3 +327,11 @@
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
 }
+
+/* Long labels wrap instead of pushing the page sideways at phone width. */
+.wrapBtn {
+  white-space: normal;
+  max-width: 100%;
+  height: auto;
+  text-align: left;
+}

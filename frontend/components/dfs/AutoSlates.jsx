@@ -141,6 +141,7 @@ export default function AutoSlates({ sport, platform, selectedHash, onSelected, 
               <div>
                 <Button
                   size="sm"
+                  className={styles.wrapBtn}
                   variant={active ? "primary" : "secondary"}
                   onClick={() => select(s.autoSlateId)}
                   loading={busyId === s.autoSlateId}

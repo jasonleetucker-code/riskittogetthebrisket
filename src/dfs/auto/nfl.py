@@ -442,12 +442,29 @@ def slate_body(
             "state": "no_platform_slots",
         },
         "salaryCapCrossCheck": None,
+        # Same shape as a projection-file import (``imports._join_values``): the page
+        # and every consumer read ONE report contract whichever path filled the slate.
         "projectionReport": {
             "source": "auto_ensemble",
+            "rowsRead": report.rows_read,
             "matched": projected,
-            "unmatched": len(athletes) - projected,
+            "unmatched": [
+                {"name": q["name"], "reason": f"identity_{q['state']}"}
+                for q in report.quarantined_identity
+                if q["state"] != "ambiguous"
+            ][:200],
+            "ambiguous": [
+                {"name": q["name"], "candidates": q["candidates"], "reason": "ambiguous_identity"}
+                for q in report.quarantined_identity
+                if q["state"] == "ambiguous"
+            ][:200],
+            "invalid": [],
+            "conflicts": [],
+            "athletesWithoutProjection": len(athletes) - projected,
+            "athletesWithoutOwnership": len(athletes),
             "note": "Automatic: independent projection families, rescored per platform where "
-            "built from stat lines. Players without a projection are left out, never scored 0.",
+            "built from stat lines. Players without a projection are left out, never scored 0. "
+            "Unmatched / ambiguous names keep their salary row; only the directory join is refused.",
         },
         "ownershipReport": None,
         "platformAverageApplied": 0,

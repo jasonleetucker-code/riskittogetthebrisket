@@ -417,3 +417,14 @@ def test_synthetic_ids_are_refused_by_every_upload_writer():
     with pytest.raises(PlatformIdsUnavailable):
         refuse_synthetic_ids(["123", "auto-ABC"])
     refuse_synthetic_ids(["12345", "67890"])  # real platform ids pass
+
+
+def test_projection_report_has_the_file_import_shape():
+    """The page reads one report contract; an automatic slate once crashed it by
+    publishing counts where the file-import report publishes lists."""
+    run_refresh()
+    row = refresh.get_row(f"draftkings:nfl:{SEASON}:w{WEEK}:main")
+    pr = store.get_snapshot(SYSTEM_OWNER, row["snapshotId"])["body"]["projectionReport"]
+    for key in ("unmatched", "ambiguous", "invalid", "conflicts"):
+        assert isinstance(pr[key], list), key
+    assert isinstance(pr["matched"], int)

@@ -84,6 +84,14 @@ test("the automatic slate panel comes first and always says what it has (DFS-AUT
       .first(),
   ).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("Advanced · Data overrides / manual import")).toBeVisible();
+  // When the stack has automatic slates, the owner's acceptance path must work with nothing
+  // uploaded: a slate opens by itself and its player pool renders.
+  if (await page.getByRole("list", { name: "DraftKings slates" }).isVisible()) {
+    await expect(page.getByRole("button", { name: "In use" })).toBeVisible({ timeout: 30_000 });
+    const pool = page.getByRole("table", { name: /Slate player pool/ });
+    await expect(pool).toBeVisible({ timeout: 30_000 });
+    await expect(pool.getByRole("row")).not.toHaveCount(1);
+  }
   await scan(page, testInfo, "dfs-auto-panel");
 });
 
