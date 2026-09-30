@@ -51,7 +51,7 @@ vocabulary: **SLICE1** (implemented + tested on `claude/dfs-foundation`, PR #153
 | DFS-§9-03 | Canonical athlete identity across providers | P3 | NEXT | Must extend `src/identity/`, not a DFS-local owner |
 | DFS-§9-04 | Source-family independence / lineage | P3 | NEXT | Schema fields reserved in `source_seeds.json` |
 | DFS-§10-01 | Register every supplied source/podcast with disposition | P0 | SLICE1 (registered) | 109 seeds, all `unverified` |
-| DFS-§10-02 | Resolve identities, access, license, cost per source | P3 | NEXT | Time-boxed research batches |
+| DFS-§10-02 | Resolve identities, access, license, cost per source | D | PARTIAL | Podcasts: 29/29 resolved (feeds, activity, transcript tags, correlation groups; rights unassessed) — `SOURCES.md` §5. Websites (74) and sportsbooks (6) NEXT in time-boxed batches |
 | DFS-§10-03 | Connector framework (quotas, backoff, circuit breakers, quarantine) | P3 | NEXT | |
 | DFS-§10-04 | No paywall/CAPTCHA/bot evasion; no billable trials without approval | all | SLICE1 | Honoured: 403s recorded as blockers, not bypassed |
 | DFS-§11-01 | Event-driven freshness, dependency graph, rebuild recommendations | P3 | NEXT | Requires background jobs (DFS-§21-02) |

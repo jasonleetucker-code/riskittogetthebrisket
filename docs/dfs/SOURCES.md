@@ -39,3 +39,17 @@ access level, evidence class (`observed_hands_on` / `vendor_docs` / `vendor_mark
 `experiment` / `defer` / `reject`). Never record a paywalled feature as hands-on. Time-boxed
 batches of ~10 products; findings land in `docs/dfs/COMPETITOR_MATRIX.md` (created by the first
 batch — nothing has been observed yet, so no matrix is published with empty claims).
+
+## 5. Podcast resolution (2026-09-30)
+
+All 29 podcast seeds resolved to real public RSS feeds (Apple directory lookup + direct feed fetch;
+two re-verified independently): **23 available_public, 6 inactive**, 0 paywalled, 0 unresolved,
+no two seeds sharing one feed. **4 feeds carry `podcast:transcript` tags** — both RotoGrinders
+shows on every episode (C-009, C-010); Run Pure Sports (C-004) and Ship Chasing (C-017) only on
+older episodes. Stokastic's umbrella feed (C-006) reposts its NFL/NBA/NHL feeds, so the four share
+one independence group. "Theory of DFS" (C-026) is now titled "Unexpected Value". Several seeds are
+season-long or betting shows rather than DFS. **Rights are unassessed for every show**: a public
+feed is not permission to download, transcribe, retain or train on audio; the first acquisition
+step is a terms review per show, starting with the transcript-publishing feeds (which need no
+transcription at all).
+

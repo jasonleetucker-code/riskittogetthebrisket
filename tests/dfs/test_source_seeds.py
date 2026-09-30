@@ -39,3 +39,21 @@ def test_no_seed_claims_verified_access_without_evidence():
                 assert e["aliasOf"] in {
                     x["id"] for kk in ("websites", "sportsbooks", "podcasts") for x in data[kk]
                 }
+
+
+def test_resolved_podcasts_carry_evidence_and_never_claim_rights():
+    data = _load()
+    for e in data["podcasts"]:
+        if e["accessState"] == "unverified":
+            continue
+        assert e["verification"]["evidence"], e["seedId"]
+        if e["accessState"] == "available_public":
+            assert e["feed"]["rssFeedUrl"].startswith("https://") or e["feed"]["rssFeedUrl"].startswith("http://")
+        # A public feed is not a licence to transcribe or retain.
+        assert e["license"]["assessed"] is False and e["license"]["permittedUses"] == []
+
+
+def test_correlated_network_feeds_share_one_independence_group():
+    data = _load()
+    groups = {e["seedId"]: e["independenceGroup"] for e in data["podcasts"]}
+    assert len({groups[s] for s in ("C-005", "C-006", "C-007", "C-008")}) == 1

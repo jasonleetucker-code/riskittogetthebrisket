@@ -1,5 +1,5 @@
 {
- "_comment": "DFS source seed registry (owner directive 2026-09-30, docs/dfs/SOURCES.md). Every supplied name is preserved verbatim with a stable seedId. A seed is NOT an integration: accessState stays 'unverified' until evidence is recorded. Aliases/duplicates are resolved by setting aliasOf — never by deleting an entry.",
+ "_comment": "DFS source seed registry (owner directive 2026-09-30, docs/dfs/SOURCES.md). Every supplied name is preserved verbatim with a stable seedId. A seed is NOT an integration: accessState stays 'unverified' until evidence is recorded. Aliases/duplicates are resolved by setting aliasOf — never by deleting an entry. Podcasts resolved 2026-09-30 (feed, activity, transcript tags); rights remain unassessed.",
  "schemaVersion": 1,
  "accessStates": [
   "unverified",
@@ -2275,17 +2275,20 @@
    "suppliedName": "Fantasy Footballers DFS & Betting",
    "id": "pod.fantasy-footballers-dfs-betting",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "Fantasy Footballers DFS & Betting - Fantasy Football Podcast",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.fantasy-footballers",
+   "sports": [
+    "nfl"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2293,9 +2296,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=Fantasy+Footballers+DFS+%26+Betting&media=podcast&entity=podcast&limit=8&country=US",
+     "https://feeds.simplecast.com/qM3pJCOl"
+    ],
+    "notes": "Feed description: NFL DFS + player props/betting for FanDuel/DraftKings/Underdog, from The Fantasy Footballers. Publisher taken from feed <link> thefantasyfootballers.com and description (\"Fantasy Footballers industry experts\"); Apple artistName is the generic \"Fantasy Football\".",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "The Fantasy Footballers",
+    "rssFeedUrl": "https://feeds.simplecast.com/qM3pJCOl",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/fantasy-footballers-dfs-betting-fantasy-football-podcast/id1269255343?uo=4",
+    "latestEpisodeDate": "2026-09-29",
+    "active": true,
+    "itemCount": 434,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2303,17 +2319,20 @@
    "suppliedName": "DFS Army Podcast",
    "id": "pod.dfs-army-podcast",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "DFS Army Podcast",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.dfs-army",
+   "sports": [
+    "nfl"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2321,9 +2340,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=DFS+Army+Podcast&media=podcast&entity=podcast&limit=8&country=US",
+     "https://feed.podbean.com/dfsarmy/feed.xml"
+    ],
+    "notes": "Feed description is sport-agnostic (\"all things relevant in Daily Fantasy Sports\"); NFL is inferred from the most recent episode titles only. Other sports not verified.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "DFS Army",
+    "rssFeedUrl": "https://feed.podbean.com/dfsarmy/feed.xml",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/dfs-army-podcast/id1107998665?uo=4",
+    "latestEpisodeDate": "2026-09-29",
+    "active": true,
+    "itemCount": 100,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2331,17 +2363,20 @@
    "suppliedName": "Spike Week",
    "id": "pod.spike-week",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "Spike Week",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.spike-week",
+   "sports": [
+    "nfl"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2349,9 +2384,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=Spike+Week&media=podcast&entity=podcast&limit=8&country=US",
+     "https://feeds.transistor.fm/spike-week-fantasy-football-best-ball"
+    ],
+    "notes": "Best ball / fantasy football show that added NFL DFS and betting breakdowns in 2025 per its own description. Apple search also returned an unrelated show \"Another Week In The Books\" - not a match.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "Spike Week",
+    "rssFeedUrl": "https://feeds.transistor.fm/spike-week-fantasy-football-best-ball",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/spike-week/id1581811502?uo=4",
+    "latestEpisodeDate": "2026-09-29",
+    "active": true,
+    "itemCount": 586,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2359,17 +2407,20 @@
    "suppliedName": "Print Factory | Run Pure Sports",
    "id": "pod.print-factory-run-pure-sports",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "Print Factory | Run Pure Sports",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.run-pure",
+   "sports": [
+    "nfl"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2377,9 +2428,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=Print+Factory+Run+Pure+Sports&media=podcast&entity=podcast&limit=8&country=US",
+     "https://www.spreaker.com/show/4398905/episodes/feed"
+    ],
+    "notes": "Feed title is exactly \"Print Factory | Run Pure Sports\" (Spreaker). podcast:transcript tags (SRT/plain/VTT, Spreaker-generated) present on 224 of 613 items, 2023-04-18 through 2026-09-09; none on the 20 most recent items, so coverage is intermittent. Description is sport-agnostic DFS; NFL inferred from recent titles.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "Run Pure Sports",
+    "rssFeedUrl": "https://www.spreaker.com/show/4398905/episodes/feed",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/print-factory-run-pure-sports/id1514259866?uo=4",
+    "latestEpisodeDate": "2026-09-29",
+    "active": true,
+    "itemCount": 613,
+    "transcriptSignal": "podcast_transcript_tag"
    }
   },
   {
@@ -2387,17 +2451,20 @@
    "suppliedName": "Stokastic Daily Fantasy NFL",
    "id": "pod.stokastic-daily-fantasy-nfl",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "Stokastic NFL DFS",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.stokastic",
+   "sports": [
+    "nfl"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2405,9 +2472,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=Stokastic+Daily+Fantasy+NFL&media=podcast&entity=podcast&limit=8&country=US",
+     "https://feeds.acast.com/public/shows/68f140bfc4d0380ae7047822"
+    ],
+    "notes": "Actual title \"Stokastic NFL DFS\" (Acast). Separate feed from C-006, but the C-006 umbrella feed republishes many of the same episodes (327 of 367 titles also appear in C-006 under different GUIDs) - treat as correlated content, not independent evidence.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "Stokastic",
+    "rssFeedUrl": "https://feeds.acast.com/public/shows/68f140bfc4d0380ae7047822",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/stokastic-nfl-dfs/id1528529944?uo=4",
+    "latestEpisodeDate": "2026-09-29",
+    "active": true,
+    "itemCount": 367,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2415,17 +2495,23 @@
    "suppliedName": "Stokastic Daily Fantasy Sports",
    "id": "pod.stokastic-daily-fantasy-sports",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "Stokastic Daily Fantasy",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.stokastic",
+   "sports": [
+    "nfl",
+    "nba",
+    "nhl",
+    "mma"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2433,9 +2519,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=Stokastic+Daily+Fantasy+Sports&media=podcast&entity=podcast&limit=8&country=US",
+     "https://feeds.acast.com/public/shows/68f14037038b2efcd965e992"
+    ],
+    "notes": "Actual title \"Stokastic Daily Fantasy\" (umbrella network feed; description lists MLB, MMA/UFC, NASCAR, NBA, NFL, NHL, PGA). Two Apple IDs (1392662714, 1525149954) point to the same Acast feed. Republishes episodes from the sport-specific Stokastic feeds C-005/C-007/C-008 under different GUIDs (title overlap: NFL 327, NBA 742, NHL 103). Not an alias (distinct feed) but content overlaps heavily. Correlated content: reposts most episodes of C-005/C-007/C-008 under different episode IDs — count once per underlying episode, not per feed.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "Stokastic",
+    "rssFeedUrl": "https://feeds.acast.com/public/shows/68f14037038b2efcd965e992",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/stokastic-daily-fantasy/id1392662714?uo=4",
+    "latestEpisodeDate": "2026-09-30",
+    "active": true,
+    "itemCount": 1840,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2443,17 +2542,20 @@
    "suppliedName": "Stokastic Daily Fantasy NBA",
    "id": "pod.stokastic-daily-fantasy-nba",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "Stokastic NBA DFS",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.stokastic",
+   "sports": [
+    "nba"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2461,9 +2563,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=Stokastic+Daily+Fantasy+NBA&media=podcast&entity=podcast&limit=8&country=US",
+     "https://feeds.acast.com/public/shows/68f140e98139b87ab02d200f"
+    ],
+    "notes": "Actual title \"Stokastic NBA DFS\". Latest episode 2026-06-14 (NBA offseason); not active within 60 days but consistent with seasonal hiatus, not discontinuation - re-check at NBA season start. Most episodes also appear in C-006 umbrella feed. An older, separate \"NBA DFS Slate Starter Podcast\" (Stokastic, last 2022-06-25) exists and is not this seed.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "Stokastic",
+    "rssFeedUrl": "https://feeds.acast.com/public/shows/68f140e98139b87ab02d200f",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/stokastic-nba-dfs/id1525724630?uo=4",
+    "latestEpisodeDate": "2026-06-14",
+    "active": false,
+    "itemCount": 774,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2471,17 +2586,20 @@
    "suppliedName": "Stokastic Daily Fantasy NHL",
    "id": "pod.stokastic-daily-fantasy-nhl",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "Stokastic NHL DFS",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.stokastic",
+   "sports": [
+    "nhl"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2489,9 +2607,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=Stokastic+Daily+Fantasy+NHL&media=podcast&entity=podcast&limit=8&country=US",
+     "https://feeds.acast.com/public/shows/68f1419ba17170c2a9dbf8eb"
+    ],
+    "notes": "Actual title \"Stokastic NHL DFS\". Resumed 2026-09-29 after a gap since 2026-04-29. Some episodes also appear in C-006 umbrella feed.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "Stokastic",
+    "rssFeedUrl": "https://feeds.acast.com/public/shows/68f1419ba17170c2a9dbf8eb",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/stokastic-nhl-dfs/id1526013871?uo=4",
+    "latestEpisodeDate": "2026-09-30",
+    "active": true,
+    "itemCount": 447,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2499,17 +2630,20 @@
    "suppliedName": "RotoGrinders Daily Fantasy Football",
    "id": "pod.rotogrinders-daily-fantasy-football",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "RotoGrinders Daily Fantasy Football",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.rotogrinders",
+   "sports": [
+    "nfl"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2517,9 +2651,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=RotoGrinders+Daily+Fantasy+Football&media=podcast&entity=podcast&limit=8&country=US",
+     "https://www.omnycontent.com/d/playlist/e73c998e-6e60-432f-8610-ae210140c5b1/65831576-2ff7-49de-ba5a-b43d0119eeff/71aedacf-25c4-4ab0-a596-b43d0119ef0b/podcast.rss"
+    ],
+    "notes": "iHeartPodcasts/Omny-hosted RotoGrinders feed. Every item (1244/1244) carries podcast:transcript tags (SRT, VTT, plain text via api.omny.fm), including the newest 2026-09-26. Feed description footer says \"Hosted on Acast\" while the feed URL is Omny - hosting provenance ambiguous.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "iHeartPodcasts",
+    "rssFeedUrl": "https://www.omnycontent.com/d/playlist/e73c998e-6e60-432f-8610-ae210140c5b1/65831576-2ff7-49de-ba5a-b43d0119eeff/71aedacf-25c4-4ab0-a596-b43d0119ef0b/podcast.rss",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/rotogrinders-daily-fantasy-football/id1277263398?uo=4",
+    "latestEpisodeDate": "2026-09-26",
+    "active": true,
+    "itemCount": 1244,
+    "transcriptSignal": "podcast_transcript_tag"
    }
   },
   {
@@ -2527,17 +2674,21 @@
    "suppliedName": "RotoGrinders Daily Fantasy 6 Pack / Beer’s Six Pack",
    "id": "pod.rotogrinders-daily-fantasy-6-pack-beers-six-pack",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "RotoGrinders Daily Fantasy 6 Pack",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.rotogrinders",
+   "sports": [
+    "nfl",
+    "nba"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2545,9 +2696,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=RotoGrinders+Daily+Fantasy+6+Pack+Beer%E2%80%99s+Six+Pack&media=podcast&entity=podcast&limit=8&country=US",
+     "https://www.omnycontent.com/d/playlist/e73c998e-6e60-432f-8610-ae210140c5b1/ff052864-7abf-402a-9ad3-b43c010bb45b/7a10a121-c78b-43af-9348-b43c010bba87/podcast.rss"
+    ],
+    "notes": "Actual title \"RotoGrinders Daily Fantasy 6 Pack\"; episodes are titled \"Beer's ... DFS 6 Pack\" (host Chris \"Beermakersfan\" Prince), so the supplied \"Beer's Six Pack\" is the same show. Three Apple IDs point to one Omny feed. Also covers MLB. All 679 items carry podcast:transcript tags (SRT/VTT/plain).",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "iHeartPodcasts",
+    "rssFeedUrl": "https://www.omnycontent.com/d/playlist/e73c998e-6e60-432f-8610-ae210140c5b1/ff052864-7abf-402a-9ad3-b43c010bb45b/7a10a121-c78b-43af-9348-b43c010bba87/podcast.rss",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/rotogrinders-daily-fantasy-6-pack/id1457995104?uo=4",
+    "latestEpisodeDate": "2026-09-25",
+    "active": true,
+    "itemCount": 679,
+    "transcriptSignal": "podcast_transcript_tag"
    }
   },
   {
@@ -2555,17 +2719,20 @@
    "suppliedName": "DFS MVP — 4for4",
    "id": "pod.dfs-mvp-4for4",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "DFS MVP",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.4for4",
+   "sports": [
+    "nfl"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2573,9 +2740,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=DFS+MVP+%E2%80%94+4for4&media=podcast&entity=podcast&limit=8&country=US",
+     "https://feeds.simplecast.com/GXdl1og5"
+    ],
+    "notes": "Actual title \"DFS MVP\", artist \"4for4 Fantasy Football\". Description is sport-agnostic DFS strategy; NFL inferred from publisher (4for4) and recent titles.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "4for4 Fantasy Football",
+    "rssFeedUrl": "https://feeds.simplecast.com/GXdl1og5",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/dfs-mvp/id1033173832?uo=4",
+    "latestEpisodeDate": "2026-09-25",
+    "active": true,
+    "itemCount": 299,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2583,17 +2763,20 @@
    "suppliedName": "Establish The Run Fantasy Football",
    "id": "pod.establish-the-run-fantasy-football",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "Establish The Run Fantasy Football",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.establish-the-run",
+   "sports": [
+    "nfl"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2601,9 +2784,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=Establish+The+Run+Fantasy+Football&media=podcast&entity=podcast&limit=8&country=US",
+     "https://anchor.fm/s/60e53980/podcast/rss"
+    ],
+    "notes": "Evan Silva / Adam Levitan; fantasy football, DFS, props, betting. Anchor/Spotify-hosted feed. Apple artistName is the generic \"Fantasy Football\" and the feed link is a Spotify for Podcasters page; the show name implies Establish The Run but no publisher field states it, so publisher left null.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": null,
+    "rssFeedUrl": "https://anchor.fm/s/60e53980/podcast/rss",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/establish-the-run-fantasy-football/id1473055758?uo=4",
+    "latestEpisodeDate": "2026-09-29",
+    "active": true,
+    "itemCount": 1013,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2611,17 +2807,20 @@
    "suppliedName": "One Week Season",
    "id": "pod.one-week-season",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "One Week Season",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.one-week-season",
+   "sports": [
+    "nfl"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2629,9 +2828,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=One+Week+Season&media=podcast&entity=podcast&limit=8&country=US",
+     "https://podcasts.helloaudio.fm/podcast/e1a51484-8eb2-49a5-9204-77fae96022eb/L7rzL74lpZ"
+    ],
+    "notes": "Feed hosted on helloaudio.fm (a private-podcast platform) with a token-style URL, but it is publicly listed in the Apple directory and was fetched without auth. Recent items mix crown-marked episodes and \"(FREE PREVIEW)\" episodes, suggesting some items are previews of paid material - full-episode access not verified. Description is only \"We make DFS players better.\"; NFL inferred from titles.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "One Week Season",
+    "rssFeedUrl": "https://podcasts.helloaudio.fm/podcast/e1a51484-8eb2-49a5-9204-77fae96022eb/L7rzL74lpZ",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/one-week-season/id1578909976?uo=4",
+    "latestEpisodeDate": "2026-09-29",
+    "active": true,
+    "itemCount": 696,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2639,17 +2851,20 @@
    "suppliedName": "The Swolecast — Fantasy Football DFS and Best Ball NFL",
    "id": "pod.the-swolecast-fantasy-football-dfs-and-best-ball-nfl",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "The Swolecast - Fantasy Football DFS and Best Ball NFL",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.swolecast",
+   "sports": [
+    "nfl"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2657,9 +2872,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=The+Swolecast+%E2%80%94+Fantasy+Football+DFS+and+Best+Ball+NFL&media=podcast&entity=podcast&limit=8&country=US",
+     "https://feeds.acast.com/public/shows/66d0d91dc56de19e7217629b"
+    ],
+    "notes": "Acast feed; title matches supplied name exactly.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "Swolecast",
+    "rssFeedUrl": "https://feeds.acast.com/public/shows/66d0d91dc56de19e7217629b",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/the-swolecast-fantasy-football-dfs-and-best-ball-nfl/id1509728999?uo=4",
+    "latestEpisodeDate": "2026-09-29",
+    "active": true,
+    "itemCount": 295,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2667,17 +2895,20 @@
    "suppliedName": "Pat Mayo Experience",
    "id": "pod.pat-mayo-experience",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "Pat Mayo Experience",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.pat-mayo",
+   "sports": [
+    "nfl"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2685,9 +2916,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=Pat+Mayo+Experience&media=podcast&entity=podcast&limit=8&country=US",
+     "https://feeds.simplecast.com/09AxY7vG"
+    ],
+    "notes": "Mayo Media Network. Description: NFL + PGA Tour betting/DFS plus pop culture; only NFL is in the scope list. Feed has 2289 items (Apple reports 2000 - Apple cap).",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "Mayo Media Network",
+    "rssFeedUrl": "https://feeds.simplecast.com/09AxY7vG",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/pat-mayo-experience/id593007235?uo=4",
+    "latestEpisodeDate": "2026-09-30",
+    "active": true,
+    "itemCount": 2289,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2695,17 +2939,20 @@
    "suppliedName": "Establish the Edge Fantasy Football",
    "id": "pod.establish-the-edge-fantasy-football",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "Establish the Edge Fantasy Football",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.establish-the-run",
+   "sports": [
+    "nfl"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2713,9 +2960,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=Establish+the+Edge+Fantasy+Football&media=podcast&entity=podcast&limit=8&country=US",
+     "https://rss.buzzsprout.com/1286525.rss"
+    ],
+    "notes": "Establish The Run spin-off (link establishtherun.com); best ball / high-stakes / dynasty focus rather than DFS. Two Apple IDs point to the same Buzzsprout feed. Latest episode 2026-07-24 (68 days before check) - not active within 60 days; may be an offseason-oriented show. Not an alias of C-012 (different feed). Publisher taken from feed <link> establishtherun.com; Apple artistName is the generic \"Fantasy Football\".",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "Establish The Run",
+    "rssFeedUrl": "https://rss.buzzsprout.com/1286525.rss",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/establish-the-edge-fantasy-football/id1572696544?uo=4",
+    "latestEpisodeDate": "2026-07-24",
+    "active": false,
+    "itemCount": 224,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2723,17 +2983,20 @@
    "suppliedName": "Ship Chasing",
    "id": "pod.ship-chasing",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "Ship Chasing",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.ship-chasing",
+   "sports": [
+    "nfl"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2741,9 +3004,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=Ship+Chasing&media=podcast&entity=podcast&limit=8&country=US",
+     "https://anchor.fm/s/f8954374/podcast/rss"
+    ],
+    "notes": "High-stakes fantasy football / best ball / dynasty (not DFS-specific). Spotify-generated podcast:transcript (SRT) tags on 415 of 464 items, 2021-11-17 through 2026-05-28; none on episodes since then, so current-episode transcripts are not present.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "Ship Chasing",
+    "rssFeedUrl": "https://anchor.fm/s/f8954374/podcast/rss",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/ship-chasing/id1521036457?uo=4",
+    "latestEpisodeDate": "2026-09-29",
+    "active": true,
+    "itemCount": 464,
+    "transcriptSignal": "podcast_transcript_tag"
    }
   },
   {
@@ -2751,17 +3027,20 @@
    "suppliedName": "Establish The Run NBA",
    "id": "pod.establish-the-run-nba",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "Establish The Run NBA",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.establish-the-run",
+   "sports": [
+    "nba"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2769,9 +3048,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=Establish+The+Run+NBA&media=podcast&entity=podcast&limit=8&country=US",
+     "https://establishtherunnba.libsyn.com/rss"
+    ],
+    "notes": "Libsyn feed; Drew Dinkmeyer. Feed returns 100 items (Libsyn window); Apple reports 112.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "Establish The Run",
+    "rssFeedUrl": "https://establishtherunnba.libsyn.com/rss",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/establish-the-run-nba/id1523126252?uo=4",
+    "latestEpisodeDate": "2026-09-29",
+    "active": true,
+    "itemCount": 100,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2779,17 +3071,20 @@
    "suppliedName": "RotoWire Fantasy Basketball Podcast",
    "id": "pod.rotowire-fantasy-basketball-podcast",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "RotoWire Fantasy Basketball Podcast",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.rotowire",
+   "sports": [
+    "nba"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2797,9 +3092,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=RotoWire+Fantasy+Basketball+Podcast&media=podcast&entity=podcast&limit=8&country=US",
+     "https://feeds.simplecast.com/hLEKlnEb"
+    ],
+    "notes": "RotoWire; season-long fantasy basketball (not DFS-specific per description).",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "RotoWire.com, Nick Whalen, Alex Barutha, James Anderson, Ken Crites, Shannon McKeown",
+    "rssFeedUrl": "https://feeds.simplecast.com/hLEKlnEb",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/rotowire-fantasy-basketball-podcast/id711225089?uo=4",
+    "latestEpisodeDate": "2026-09-27",
+    "active": true,
+    "itemCount": 1277,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2807,17 +3115,20 @@
    "suppliedName": "NHL Fantasy on Ice",
    "id": "pod.nhl-fantasy-on-ice",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "NHL Fantasy on Ice",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.national-hockey-league",
+   "sports": [
+    "nhl"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2825,9 +3136,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=NHL+Fantasy+on+Ice&media=podcast&entity=podcast&limit=8&country=US",
+     "https://audioboom.com/channels/4975974.rss"
+    ],
+    "notes": "Publisher shown as National Hockey League (NHL.com/Fantasy); covers daily and season-long fantasy hockey plus betting.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "National Hockey League",
+    "rssFeedUrl": "https://audioboom.com/channels/4975974.rss",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/nhl-fantasy-on-ice/id1438995143?uo=4",
+    "latestEpisodeDate": "2026-09-28",
+    "active": true,
+    "itemCount": 500,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2835,17 +3159,20 @@
    "suppliedName": "RotoWire Fantasy Hockey Podcast",
    "id": "pod.rotowire-fantasy-hockey-podcast",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "RotoWire Fantasy Hockey Podcast",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.rotowire",
+   "sports": [
+    "nhl"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2853,9 +3180,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=RotoWire+Fantasy+Hockey+Podcast&media=podcast&entity=podcast&limit=8&country=US",
+     "https://feeds.simplecast.com/jmDAyEW0"
+    ],
+    "notes": "RotoWire; season-long fantasy hockey per description.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "RotoWire.com",
+    "rssFeedUrl": "https://feeds.simplecast.com/jmDAyEW0",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/rotowire-fantasy-hockey-podcast/id1044843952?uo=4",
+    "latestEpisodeDate": "2026-09-29",
+    "active": true,
+    "itemCount": 380,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2863,17 +3203,20 @@
    "suppliedName": "MMA Gambling Podcast — SGPN",
    "id": "pod.mma-gambling-podcast-sgpn",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "MMA Gambling Podcast",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.sports-gambling-podcast-network",
+   "sports": [
+    "mma"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2881,9 +3224,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=MMA+Gambling+Podcast+%E2%80%94+SGPN&media=podcast&entity=podcast&limit=8&country=US",
+     "https://feeds.simplecast.com/NDnnZWQe"
+    ],
+    "notes": "Actual title \"MMA Gambling Podcast\", Sports Gambling Podcast Network (SGPN). MMA betting, not DFS.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "Sports Gambling Podcast Network",
+    "rssFeedUrl": "https://feeds.simplecast.com/NDnnZWQe",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/mma-gambling-podcast/id1561644762?uo=4",
+    "latestEpisodeDate": "2026-09-29",
+    "active": true,
+    "itemCount": 1160,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2891,17 +3247,20 @@
    "suppliedName": "Dog or Pass Podcast",
    "id": "pod.dog-or-pass-podcast",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "Dog or Pass Podcast",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.mayo-media-network",
+   "sports": [
+    "mma"
+   ],
+   "accessState": "inactive",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2909,9 +3268,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=Dog+or+Pass+Podcast&media=podcast&entity=podcast&limit=8&country=US",
+     "https://feeds.simplecast.com/1p5AMLmU"
+    ],
+    "notes": "Mayo Media Network UFC picks/props show. Latest feed episode 2026-06-12 (110 days before check) with none since despite an ongoing UFC schedule - classified inactive for this feed; description says video versions are on the Mayo Media Network YouTube channel, which was not checked. Could be a hiatus rather than discontinuation.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "Mayo Media Network",
+    "rssFeedUrl": "https://feeds.simplecast.com/1p5AMLmU",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/dog-or-pass-podcast/id1529381375?uo=4",
+    "latestEpisodeDate": "2026-06-12",
+    "active": false,
+    "itemCount": 225,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2919,17 +3291,21 @@
    "suppliedName": "The Propcast — A Prop Betting Podcast",
    "id": "pod.the-propcast-a-prop-betting-podcast",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "The Propcast - A Prop Betting Podcast",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.sports-gambling-podcast-network",
+   "sports": [
+    "nfl",
+    "nba"
+   ],
+   "accessState": "available_public",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2937,9 +3313,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=The+Propcast+%E2%80%94+A+Prop+Betting+Podcast&media=podcast&entity=podcast&limit=8&country=US",
+     "https://feeds.simplecast.com/mc2hMWfs"
+    ],
+    "notes": "SGPN prop-betting show; description lists NFL, NBA, MLB props. Betting, not DFS.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "Sports Gambling Podcast Network",
+    "rssFeedUrl": "https://feeds.simplecast.com/mc2hMWfs",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/the-propcast-a-prop-betting-podcast/id1588310353?uo=4",
+    "latestEpisodeDate": "2026-09-29",
+    "active": true,
+    "itemCount": 562,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2947,17 +3336,18 @@
    "suppliedName": "DFS Office Hours — Presented by SaberSim.com",
    "id": "pod.dfs-office-hours-presented-by-sabersim-com",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "DFS Office Hours (Presented by SaberSim.com)",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.sabersim",
    "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "accessState": "inactive",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2965,9 +3355,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=DFS+Office+Hours+%E2%80%94+Presented+by+SaberSim.com&media=podcast&entity=podcast&limit=8&country=US",
+     "https://feeds.castos.com/pg0x1"
+    ],
+    "notes": "Actual title \"DFS Office Hours (Presented by SaberSim.com)\", host Jordan Chand, Castos feed. Latest episode 2026-03-25 (~6 months before check). Description is sport-agnostic (DraftKings/FanDuel/Yahoo DFS Q&A); latest titles are MLB, so no in-scope sport is verified.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "Jordan Chand",
+    "rssFeedUrl": "https://feeds.castos.com/pg0x1",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/dfs-office-hours-presented-by-sabersim-com/id1622441697?uo=4",
+    "latestEpisodeDate": "2026-03-25",
+    "active": false,
+    "itemCount": 365,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -2975,17 +3378,22 @@
    "suppliedName": "Theory of DFS — Daily Fantasy Sports Strategy",
    "id": "pod.theory-of-dfs-daily-fantasy-sports-strategy",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "Unexpected Value - Poker · Daily Fantasy · Sports Betting",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.jordan-cooper",
+   "sports": [
+    "nfl",
+    "nba",
+    "mma"
+   ],
+   "accessState": "inactive",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -2993,9 +3401,24 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=Theory+of+DFS+%E2%80%94+Daily+Fantasy+Sports+Strategy&media=podcast&entity=podcast&limit=8&country=US",
+     "https://feed.podbean.com/unexpectedvalue/feed.xml",
+     "https://itunes.apple.com/search?term=theory+of+dfs&media=podcast&entity=podcast&limit=10",
+     "https://podcasts.apple.com/us/podcast/theory-of-dfs-daily-fantasy-sports-strategy/id1535076826 (seen in web search results; not opened)"
+    ],
+    "notes": "Show was RENAMED: the Apple listing slug and third-party directories still say \"Theory of DFS - Daily Fantasy Sports Strategy\" but the current feed title is \"Unexpected Value - Poker · Daily Fantasy · Sports Betting\" (Jordan Cooper, Podbean). Supplied-name search did not return it; found via \"theory of dfs\" search. Latest episode 2025-10-01 (~1 year before check) -> inactive. Sports taken from host bio in the description (GPP wins in NFL, NBA, MLB, MMA, soccer), not a per-sport content scope.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "Jordan Cooper",
+    "rssFeedUrl": "https://feed.podbean.com/unexpectedvalue/feed.xml",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/unexpected-value-poker-daily-fantasy-sports-betting/id1535076826?uo=4",
+    "latestEpisodeDate": "2025-10-01",
+    "active": false,
+    "itemCount": 117,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -3003,17 +3426,21 @@
    "suppliedName": "FanDuel Research Podcasts",
    "id": "pod.fanduel-research-podcasts",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "FanDuel Research Podcasts",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.fanduel",
+   "sports": [
+    "nfl",
+    "nba"
+   ],
+   "accessState": "inactive",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -3021,9 +3448,23 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=FanDuel+Research+Podcasts&media=podcast&entity=podcast&limit=8&country=US",
+     "https://anchor.fm/s/fa805fac/podcast/rss",
+     "https://www.fanduel.com/research/tv-and-podcast"
+    ],
+    "notes": "FanDuel Research umbrella feed (The Heat Check, The Daily Iso, The Solo Shot); description lists NFL, NBA, MLB, PGA. Latest episode 2025-11-08 (NFL Week 10 2025); fanduel.com/research/tv-and-podcast also shows nothing newer than Nov 2025. A separate FanDuel Research show \"Quick Picks Daily\" (last episode 2026-06-08, Omny feed) appears in Apple search but is not this seed.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "FanDuel Research Podcasts",
+    "rssFeedUrl": "https://anchor.fm/s/fa805fac/podcast/rss",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/fanduel-research-podcasts/id1152759754?uo=4",
+    "latestEpisodeDate": "2025-11-08",
+    "active": false,
+    "itemCount": 2322,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -3031,17 +3472,20 @@
    "suppliedName": "Fantasy Football Today DFS — CBS Sports",
    "id": "pod.fantasy-football-today-dfs-cbs-sports",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "Fantasy Football Today DFS",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.cbs",
+   "sports": [
+    "nfl"
+   ],
+   "accessState": "inactive",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -3049,9 +3493,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=Fantasy+Football+Today+DFS+%E2%80%94+CBS+Sports&media=podcast&entity=podcast&limit=8&country=US",
+     "https://rss.amperwave.net/v2/feed/audacynetwork/fftdfs"
+    ],
+    "notes": "CBS Sports, Audacy/Amperwave feed. Last actual DFS episode 2026-02-05 (Super Bowl LX preview); items after that (to 2026-05-04) are cross-promos for other CBS shows. No 2026 NFL regular-season episodes as of 2026-09-30 -> classified inactive (possibly discontinued or moved).",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "CBS Sports",
+    "rssFeedUrl": "https://rss.amperwave.net/v2/feed/audacynetwork/fftdfs",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/fantasy-football-today-dfs/id1579415837?uo=4",
+    "latestEpisodeDate": "2026-05-04",
+    "active": false,
+    "itemCount": 247,
+    "transcriptSignal": "none_found"
    }
   },
   {
@@ -3059,17 +3516,20 @@
    "suppliedName": "DFS Coach Talk Podcast",
    "id": "pod.dfs-coach-talk-podcast",
    "seedKind": "podcast",
-   "canonicalIdentity": null,
+   "canonicalIdentity": "DFS Coach Talk Podcast",
    "officialDomain": null,
    "aliasOf": null,
-   "sourceCategory": "unknown",
-   "independenceGroup": null,
-   "sports": [],
-   "accessState": "unverified",
-   "acquisitionMethod": null,
+   "sourceCategory": "podcast",
+   "independenceGroup": "pub.coach-joe-sarvadi",
+   "sports": [
+    "nfl"
+   ],
+   "accessState": "inactive",
+   "acquisitionMethod": "rss",
    "license": {
     "assessed": false,
-    "permittedUses": []
+    "permittedUses": [],
+    "note": "Public RSS listing verified; transcription/retention rights NOT assessed."
    },
    "connector": {
     "state": "none",
@@ -3077,9 +3537,22 @@
     "lastMeaningfulUpdate": null
    },
    "verification": {
-    "checkedOn": null,
-    "evidence": [],
-    "notes": "Supplied by the owner 2026-09-30 as a discovery seed. Not researched yet; no availability, ownership, API access, transcript access or independence is asserted."
+    "checkedOn": "2026-09-30",
+    "evidence": [
+     "https://itunes.apple.com/search?term=DFS+Coach+Talk+Podcast&media=podcast&entity=podcast&limit=8&country=US",
+     "https://feeds.redcircle.com/e0cb9c7b-ca9b-45ff-a8e6-e7238a73fe88"
+    ],
+    "notes": "Host Coach (Joe Sarvadi), RedCircle feed. Latest episode 2026-02-07 (Super Bowl LX); no 2026 NFL regular-season episodes -> inactive. Description is multi-slate DFS \"7 days a week\"; NFL inferred from recent titles.",
+    "method": "Apple iTunes Search API directory lookup + direct public RSS fetch (research agent, 2026-09-30); C-001 and C-009 re-fetched independently the same day."
+   },
+   "feed": {
+    "publisher": "Coach (Joe Sarvadi)",
+    "rssFeedUrl": "https://feeds.redcircle.com/e0cb9c7b-ca9b-45ff-a8e6-e7238a73fe88",
+    "directoryUrl": "https://podcasts.apple.com/us/podcast/dfs-coach-talk-podcast/id1499676477?uo=4",
+    "latestEpisodeDate": "2026-02-07",
+    "active": false,
+    "itemCount": 1160,
+    "transcriptSignal": "none_found"
    }
   }
  ]
