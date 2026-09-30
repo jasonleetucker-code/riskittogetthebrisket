@@ -29,6 +29,13 @@ export class AuctionRequestError extends Error {
 }
 
 export async function auctionFetch(path, { method = "GET", body, headers = {}, signal } = {}) {
+  // Every room-changing POST carries an Idempotency-Key (the server requires
+  // one on commands, room creation, invites, mock clock, clone, reset links
+  // and removals). One key per call: a double-click is two requests, but a
+  // transport-level retry of THIS request replays the first answer.
+  if (method !== "GET" && !Object.keys(headers).some((h) => h.toLowerCase() === "idempotency-key")) {
+    headers = { ...headers, "Idempotency-Key": newKey() };
+  }
   const res = await fetch(`${BASE}${path}`, {
     method,
     credentials: "same-origin",
@@ -102,12 +109,17 @@ export function useAuctionRoom(roomId) {
   const [sync, setSync] = useState("connecting");
   const [error, setError] = useState(null);
   const revRef = useRef(-1);
+  const epochRef = useRef(null);
   const kickRef = useRef(0);
   const [kick, setKick] = useState(0);
 
   const accept = useCallback((data) => {
     if (!data || typeof data.revision !== "number") return;
-    if (data.revision < revRef.current) return; // stale / out of order
+    // A new store epoch (server restart or restore from backup) is
+    // authoritative even if its revision is LOWER: a restore rewinds revisions.
+    const newEpoch = data.storeEpoch != null && data.storeEpoch !== epochRef.current;
+    if (!newEpoch && data.revision < revRef.current) return; // stale / out of order
+    if (data.storeEpoch != null) epochRef.current = data.storeEpoch;
     revRef.current = data.revision;
     setView(data);
   }, []);
@@ -119,6 +131,10 @@ export function useAuctionRoom(roomId) {
 
   useEffect(() => {
     if (!roomId) return undefined;
+    // A different room (or a manual refresh) starts from the server's next
+    // authoritative snapshot, never from another room's revision.
+    revRef.current = -1;
+    epochRef.current = null;
     let stopped = false;
     const ctl = new AbortController();
     let failures = 0;

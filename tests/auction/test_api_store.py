@@ -98,6 +98,12 @@ def _owner_client(app):
 
 
 _k = iter(range(10**6))
+_ik = iter(range(10**6))
+
+
+def idem() -> dict:
+    """Same-origin headers plus a fresh Idempotency-Key (room-changing routes require one)."""
+    return {**ORIGIN, "Idempotency-Key": f"route-{next(_ik):08d}"}
 
 
 def _cmd(c, room, body, key=None):
@@ -116,7 +122,7 @@ def _make_room(c, **kw):
         "bots": False,
         **kw,
     }
-    r = c.post("/api/auction/rooms", json=body, headers=ORIGIN)
+    r = c.post("/api/auction/rooms", json=body, headers=idem())
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -166,14 +172,14 @@ def test_league_budget_join_reports_missing_and_blocks_start(env):
 def test_official_rooms_are_launch_gated(env):
     st, app = env
     c = _owner_client(app)
-    r = c.post("/api/auction/rooms", json={"roomType": "official"}, headers=ORIGIN)
+    r = c.post("/api/auction/rooms", json={"roomType": "official"}, headers=idem())
     assert r.status_code == 403 and r.json()["error"] == "official_launch_gated"
 
 
 def test_non_admin_cannot_create_rooms(env):
     st, app = env
     c = TestClient(app)
-    r = c.post("/api/auction/rooms", json={}, headers=ORIGIN)
+    r = c.post("/api/auction/rooms", json={}, headers=idem())
     assert r.status_code == 401
 
 
@@ -190,7 +196,7 @@ def test_invite_claim_bid_and_seat_isolation(env, monkeypatch):
     inv = owner.post(
         f"/api/auction/rooms/{room}/invites",
         json={"seat": "S2", "intendedHandle": "alice"},
-        headers=ORIGIN,
+        headers=idem(),
     ).json()
     token = inv["joinPath"].split("token=")[1]
     peek = TestClient(app).get(f"/api/auction/invites/peek?token={token}").json()
@@ -312,7 +318,7 @@ def test_restart_recovery_replay_and_awards(env):
     # jump the mock clock past the close
     assert (
         c.post(
-            f"/api/auction/rooms/{room}/clock", json={"advanceSeconds": 3600}, headers=ORIGIN
+            f"/api/auction/rooms/{room}/clock", json={"advanceSeconds": 3600}, headers=idem()
         ).status_code
         == 200
     )
@@ -414,7 +420,7 @@ def test_online_backup_restores_onto_a_fresh_environment(env, tmp_path):
     room = _ready_room(c)
     aid = _cmd(c, room, {"kind": "nominate", "player": "991"}).json()["auction"]
     _cmd(c, room, {"kind": "bid", "auction": aid, "max": 30})
-    c.post(f"/api/auction/rooms/{room}/clock", json={"advanceSeconds": 3600}, headers=ORIGIN)
+    c.post(f"/api/auction/rooms/{room}/clock", json={"advanceSeconds": 3600}, headers=idem())
     _cmd(c, room, {"kind": "nominate", "player": "992"})  # an open lot with private state
     restored = tmp_path / "restored" / "auction" / "auction.sqlite"
     restored.parent.mkdir(parents=True)

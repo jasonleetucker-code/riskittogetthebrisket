@@ -110,7 +110,14 @@ no Sleeper password is ever requested or stored. Passwords: `hashlib.scrypt` wit
 Sessions: 256-bit tokens, SHA-256 stored, HttpOnly + Secure + SameSite=Strict, 30-day absolute
 expiry, revoked on logout / password change. Invites: commissioner-issued, single-use, expiring,
 optionally handle-locked; token stored hashed and shown once. Every mutation requires a same-origin
-`Origin` and an `Idempotency-Key`; login is rate-limited by the existing throttle.
+`Origin`. Every room-changing mutation requires an `Idempotency-Key` and replays its first answer for a retry:
+room commands (command log + receipts), and room creation, invites, mock clock, clone, reset links and member
+removal (`route_receipts`). Sign-in, notification-preference and device routes are idempotent by construction.
+The client attaches a key to every POST. Login is rate-limited by the existing throttle. The site-owner bridge
+account has no password and can never be given one (`/auth/password` → 409 `site_account`). A sign-in that
+replaces another account's cookie ends that account's session and silences its push devices on that browser.
+Removing a person tells them in their inbox and announces "seat changed hands" to the room (no reason, audited
+separately). CSV exports neutralise spreadsheet formulas in names.
 
 Authorization is derived server-side from membership on every request (including after a long-poll
 wait). Clients never send an actor, seat or role. Public projections and events never contain a
@@ -130,19 +137,39 @@ Acceptance is returned only after COMMIT. Normal restart/crash: zero lost acknow
 (tested: fresh Store over the same file, replay verification). Missing/unreadable store after first
 init ⇒ `StoreUnavailable`, every route 503 — never an empty reseed.
 
-Backups: both nightly jobs (`deploy/backup_user_kv.sh`, `deploy/backup/riskit-state-backup.sh`) take
-an online SQLite backup of the auction DB. **Recovery point for host/disk loss is the last nightly
-backup — up to ~24 h of acknowledged actions could be lost.** That window is acceptable for mocks and
-is NOT acceptable for an official draft without explicit owner acceptance or a tighter off-host
-cadence (milestone D). Restore drill: `tests/auction/test_api_store.py::test_online_backup_restores_onto_a_fresh_environment`.
+Backups (measured in the Phase 2 recovery audit, `tests/auction/test_independent_recovery_audit.py`):
+
+| Failure | Recovery point (RPO) | Recovery time (RTO) |
+|---|---|---|
+| Process crash / restart / deploy | **0**: every acknowledged action is committed before the reply (crash-injected at 9 points) | restart; the room pauses itself only if the service was really unreachable > 5 min |
+| Database corruption on a healthy disk | last **hourly verified** copy (`dynasty-auction-backup.timer`, :17 each hour): ≤ ~72 min | restore + verify ≈ seconds (0.07 s for 2 rooms / 278 KB) |
+| **Host or disk loss** | the last **off-host** copy. Hourly copies live on the same disk. The nightly state backup mirrors off-box **only if** `OFFBOX_RSYNC_DEST` is configured on the box (`deploy/backup/riskit-state-backup.sh`); otherwise **there is no off-host copy at all** | rebuild host + restore |
+
+Archives are written as `.partial`, fsynced, then renamed, so a killed run never leaves a truncated file under
+a verified name. Every archive is restored into a scratch store and every room replayed before it is kept. The
+host-loss row is an **owner decision** before LIVE-READY (`LAUNCH_CHECKLIST.md` §B).
+
+**Engine revisions.** Every new room is stamped `engine_rev` (now 2). A room keeps the behaviour it was played
+under, so the hourly verifier's replay of an older room still reproduces its stored state exactly. Rev 2
+changed only two things: lossless tie-priority history, and deferring pause/quiet-hour budget re-resolution.
+
+**Restore procedure** (never two writers): stop `dynasty.service`, move `data/auction/auction.sqlite*` aside,
+`gunzip -c data/auction/backups/auction-<stamp>.sqlite.gz > data/auction/auction.sqlite`, start the service. The
+restored rooms come up paused as of their last heartbeat if the gap exceeds 5 min. Open browser tabs adopt the
+restored state automatically (`storeEpoch` in `/view`), even though restored revisions are lower.
 
 ## 5. Live delivery
 
 Revision long-poll (`GET /rooms/{id}/view?after=<rev>&wait=25`). Chosen over SSE/WebSockets because
 production nginx buffers `/api/` and has a 120 s read timeout: a 25 s long-poll needs no proxy change,
 every response is a complete authorised snapshot (no gaps, no replay ordering bugs), and the client
-drops any response older than the revision it holds. Commands never wait for valuation, scrapers or
-Perfect Draft.
+drops any response older than the revision it holds **within the same `storeEpoch`** (a new epoch — restart or
+restore — is adopted even at a lower revision). Commands never wait for valuation, scrapers or Perfect Draft.
+
+**Measured** (12 managers, ~30 tabs, ~23 commands/s, 120 s, local, `scripts/auction_load_rehearsal.py`): bid
+p95 ≈ 0.61 s, accepted state visible to all other managers p95 ≈ 1.1–1.2 s, reconnect p95 ≈ 0.55–0.8 s, zero
+5xx/overspend/duplicate winners/lost acknowledged actions. Production adds nginx and a slower VPS; a real slow
+auction runs far below this burst rate.
 
 ## 6. Mocks
 
@@ -170,12 +197,18 @@ Official values for every `PROPOSED_RULE_KEYS` entry; the 2027 points-for nomina
 supplies it; 2026 partial PF is not assumed final); the official 2027 rookie pool; acceptance of the
 disaster-recovery window; whether open trade offers reserve money (milestone C).
 
-## 9. Follow-up decision register
+## 9. Decision register (living — owner ideas during rehearsal land here)
 
-| Id | Owner instruction | State |
-|---|---|---|
-| AUC-001 | Leading bids reserve money (2026-09-29) | IMPLEMENTED + tested (§2 Money); Perfect Draft adapter must read the same `spendable` (milestone C) |
-| AUC-002 | Draft notifications: native Web Push, no SMS bill (2026-09-29) | IMPLEMENTED (branch `claude/rookie-auction-notifications`) — see §10. Device delivery NOT yet observed on a real phone. |
+Every new owner idea gets the next AUC id, the owner's exact wording, one classification, and the regression or
+rehearsal case that proves it. Classes: **RULE CLARIFICATION** · **MOCK UX** · **LIVE-REQUIRED** (the real
+2027 draft cannot operate correctly or safely without it) · **NOT REQUIRED FOR LAUNCH** · **FUTURE IDEA**. Only
+LIVE-REQUIRED items join the launch denominator. The test for that class is "does the real 2027 draft need this
+to operate correctly or safely?"
+
+| Id | Owner instruction (date) | Class | State | Proof |
+|---|---|---|---|---|
+| AUC-001 | "Leading bids reserve money" (2026-09-29) | LIVE-REQUIRED | IMPLEMENTED + tested (§2 Money); Perfect Draft reads the same `spendable` (§11) | `test_leading_bid_reservation.py`, `test_engine_fuzz.py`, independent audit (Phase 2) |
+| AUC-002 | Draft notifications: native Web Push, no SMS bill (2026-09-29) | LIVE-REQUIRED | IMPLEMENTED (§10); device delivery NOT yet observed | `test_notifications.py`; real-device evidence per `LAUNCH_CHECKLIST.md` §A |
 
 The engine's `outbid` / `leading_again` events are now NET per committed transaction (AUC-002), pinned
 by a fuzz property over every command in 40 random rooms (sabotage-verified).
@@ -195,6 +228,13 @@ no paid service.
 | Delivery worker (every ~2 s) + reminder scan (every ~14 s), never inside a bid | `src/auction/runtime.py` |
 | HTTP: `/api/auction/notify/*`, `/rooms/{id}/watch` | `src/auction/api.py` |
 | Setup page `/auction/notifications`, room inbox panel, watch toggles | `frontend/app/auction/**`, `frontend/lib/auction-notify.js` |
+
+**Types (the owner's 14, all implemented):** your nomination turn (re-announced on resume if it began while
+paused) · turn about to pass · genuinely outbid · leading again · a standing maximum newly taking the lead after
+money freed (`proxy_leading`, says the money is now reserved) · player won · $0 win · 1 active hour left · deadline
+extended by a late bid (bidders on that lot other than the bidder) · trade offer · dollar trade completed ·
+commissioner pause · resume/recovery · draft completed. A notification that fails to dispatch is retried on its
+own and never blocks anyone else's.
 
 **Truth rules.** Alerts come from the net committed transition (A $50 vs B $39 → A at $40 sends nothing to
 A). "Leading again" is sent when a SEPARATE event restores a former leader (a rival's action, or a capped
@@ -269,3 +309,12 @@ pause; received money reactivates capped proxies.
   calendar days (30.5–31.5, 3 rooms); ≈ 31.5 with up to 6 active hours of nomination latency. The 65-hour lot
   clock, not nomination speed, sets the length, because 12 lots run in parallel. Bots do not bid late, so real
   late-bid extensions make ~31 days a floor, not a forecast.
+
+## 13. Rehearsal problem reports (Phase 2)
+
+`src/auction/feedback.py` + `POST/GET /api/auction/rooms/{id}/reports` + the room's **Report a problem** panel.
+A report stores the person's words plus what the server knew: room, committed revision, room clock, rules
+version, pool version, the lot (if named) and the deployed commit (`git rev-parse HEAD`, or `RISKIT_CODE_SHA`).
+Reporter sees their own; the commissioner sees all. It is not a room command, so the revision does not move.
+It is idempotent and same-origin. `/meta` and preflight also publish `codeSha`. Rooms are never deleted, so a
+failed run stays replayable. Owner-facing steps: `REHEARSAL_GUIDE.md`.

@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from src.public_league import sleeper_client
 from tests.auction.test_api_store import (  # noqa: F401 - fixture import
     ORIGIN,
+    idem,
     _cmd,
     _make_room,
     _owner_client,
@@ -17,7 +18,7 @@ from tests.auction.test_api_store import (  # noqa: F401 - fixture import
 
 def _invite_and_claim(app, owner, room, seat, handle):
     inv = owner.post(
-        f"/api/auction/rooms/{room}/invites", json={"seat": seat}, headers=ORIGIN
+        f"/api/auction/rooms/{room}/invites", json={"seat": seat}, headers=idem()
     ).json()
     token = inv["joinPath"].split("token=")[1]
     c = TestClient(app)
@@ -40,11 +41,11 @@ def test_reset_link_flow_revokes_old_sessions(env):  # noqa: F811
     # a manager cannot issue resets
     assert (
         alice.post(
-            f"/api/auction/rooms/{room}/members/{uid}/reset-link", headers=ORIGIN
+            f"/api/auction/rooms/{room}/members/{uid}/reset-link", headers=idem()
         ).status_code
         == 403
     )
-    link = owner.post(f"/api/auction/rooms/{room}/members/{uid}/reset-link", headers=ORIGIN).json()[
+    link = owner.post(f"/api/auction/rooms/{room}/members/{uid}/reset-link", headers=idem()).json()[
         "resetPath"
     ]
     token = link.split("token=")[1]
@@ -85,7 +86,7 @@ def test_site_owner_account_has_no_password_reset(env):  # noqa: F811
     owner = _owner_client(app)
     room = _ready_room(owner)
     me = owner.get("/api/auction/auth/me").json()["user"]["id"]
-    r = owner.post(f"/api/auction/rooms/{room}/members/{me}/reset-link", headers=ORIGIN)
+    r = owner.post(f"/api/auction/rooms/{room}/members/{me}/reset-link", headers=idem())
     assert r.status_code == 409
 
 
@@ -99,19 +100,22 @@ def test_replacing_a_lost_account_keeps_the_seats_money_and_bids(env):  # noqa: 
     before, _, _ = st.load(room)
     assert (
         owner.post(
-            f"/api/auction/rooms/{room}/members/{uid}/remove", json={}, headers=ORIGIN
+            f"/api/auction/rooms/{room}/members/{uid}/remove", json={}, headers=idem()
         ).status_code
         == 400
     )
     r = owner.post(
         f"/api/auction/rooms/{room}/members/{uid}/remove",
         json={"reason": "lost phone + email"},
-        headers=ORIGIN,
+        headers=idem(),
     )
     assert r.status_code == 200 and r.json()["seat"] == "S2"
     assert alice.get(f"/api/auction/rooms/{room}/view").status_code == 403
     after, _, _ = st.load(room)
-    assert after == before  # the seat's money, bids and lead are untouched
+    # The seat's money, bids and lead are untouched; only the public
+    # "seat changed hands" announcement moved the room's last-event stamp.
+    after.pop("last_event_at"), before.pop("last_event_at")
+    assert after == before
     bob, _ = _invite_and_claim(app, owner, room, "S2", "bob")
     view = bob.get(f"/api/auction/rooms/{room}/view").json()
     assert view["me"]["seat"] == "S2" and view["me"]["private"]["my_bids"][0]["max"] == 30

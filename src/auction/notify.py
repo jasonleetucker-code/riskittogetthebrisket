@@ -152,6 +152,7 @@ DEFAULT_PREFS: dict[str, bool] = {
     "turn_expiring": True,
     "outbid": True,
     "leading_again": True,
+    "deadline_extended": True,
     "won": True,
     "last_hour": True,
     "budget": True,
@@ -174,7 +175,8 @@ PREF_LABELS: dict[str, str] = {
     "your_turn": "Your nomination turn (only when you can actually nominate)",
     "turn_expiring": "Your nomination turn is about to pass",
     "outbid": "You were outbid",
-    "leading_again": "You are leading again",
+    "leading_again": "You are leading again (or your standing maximum just took the lead)",
+    "deadline_extended": "A lot you bid on had its closing time extended by a late bid",
     "won": "You won a player (including $0)",
     "last_hour": "Last active bidding hour on lots you bid on, nominated or watch",
     "budget": "Your budget changed",
@@ -197,6 +199,8 @@ TYPE_PREF = {
     "turn_expiring": "turn_expiring",
     "outbid": "outbid",
     "leading_again": "leading_again",
+    "proxy_leading": "leading_again",
+    "deadline_extended": "deadline_extended",
     "won": "won",
     "last_hour": "last_hour",
     "fifteen_min": "fifteen_min",
@@ -216,6 +220,8 @@ TTL_SECONDS = {
     "turn_expiring": 3600,
     "outbid": 2 * 3600,
     "leading_again": 2 * 3600,
+    "proxy_leading": 2 * 3600,
+    "deadline_extended": 2 * 3600,
     "won": 12 * 3600,
     "last_hour": 3600,
     "fifteen_min": 15 * 60,
@@ -492,6 +498,18 @@ def compose(ntype: str, state: dict, data: dict, room_now: float) -> tuple[str, 
         )
     if ntype == "leading_again":
         return f"Leading again: {pl}", f"At {at}, you lead {pl} at ${data.get('price')}."
+    if ntype == "proxy_leading":
+        return (
+            f"Now leading: {pl}",
+            f"At {at}, money freed elsewhere let your standing maximum take the lead on {pl} at "
+            f"${data.get('price')}. That ${data.get('price')} is now reserved.",
+        )
+    if ntype == "deadline_extended":
+        return (
+            f"Clock extended: {pl}",
+            f"A late bid moved {pl} to ${data.get('price')} at {at}. It now closes "
+            f"{_when(data.get('deadline'))} (bidding pauses 9 PM–8 AM ET).",
+        )
     if ntype == "won":
         return f"You won {pl}", f"{pl} sold to you for ${data.get('price')} at {at}."
     if ntype == "other_purchase":
@@ -747,6 +765,36 @@ def record_transition(
                 f"lead:{d['auction']}:r{revision}",
                 {"auction": d["auction"], "price": d["price"]},
             )
+        elif et == "proxy_leading" and seat and seat != actor_seat:
+            # A separate event (money freed) let this seat's standing maximum
+            # take a lot it had never led: its money is newly reserved.
+            put(
+                seat,
+                "proxy_leading",
+                f"plead:{d['auction']}:r{revision}",
+                {"auction": d["auction"], "price": d["price"]},
+            )
+        elif et == "price" and d.get("extended"):
+            a = after["auctions"][d["auction"]]
+            told = {
+                ev2["vis"].split(":", 1)[1]
+                for ev2 in events
+                if ev2["type"] in ("outbid", "leading_again", "proxy_leading")
+                and ev2["data"].get("auction") == d["auction"]
+                and ev2["vis"].startswith("seat:")
+            }
+            involved = [s_ for s_, b in (a.get("bids") or {}).items() if b.get("active")] + [
+                a["nominator"]
+            ]
+            for s_ in dict.fromkeys(involved):
+                if s_ == actor_seat or s_ in told:
+                    continue
+                put(
+                    s_,
+                    "deadline_extended",
+                    f"ext:{d['auction']}:{d['deadline']}",
+                    {"auction": d["auction"], "price": d["price"], "deadline": d["deadline"]},
+                )
         elif et == "sold":
             put(
                 d["seat"],
@@ -774,6 +822,19 @@ def record_transition(
         elif et in ("paused", "resumed", "complete", "draining"):
             for s in all_seats:
                 put(s, "room_status", f"{et}:r{revision}", {"kind": et, "reason": d.get("reason")})
+            if et == "resumed" and after["status"] == "running" and not after["paused"]:
+                # A turn that came on the clock while the room was paused was
+                # never announced; the same logical key makes this a no-op for
+                # a turn that already was.
+                for r in engine._window_rights(after):
+                    if r["window_at"] is None:
+                        continue
+                    put(
+                        r["seat"],
+                        "your_turn",
+                        f"turn:{r['id']}",
+                        {"right": r["id"], "round": r["round"], "deadline": r.get("deadline")},
+                    )
         elif et == "budget_adjusted":
             put(
                 d["seat"],
@@ -972,8 +1033,10 @@ def still_relevant(
         )
     if ntype == "outbid":
         return bool(a) and a["status"] == "open" and a["leader"] != seat
-    if ntype == "leading_again":
+    if ntype in ("leading_again", "proxy_leading"):
         return bool(a) and a["status"] == "open" and a["leader"] == seat
+    if ntype == "deadline_extended":
+        return bool(a) and a["status"] == "open" and a["deadline"] == data.get("deadline")
     if ntype in ("last_hour", "fifteen_min"):
         return (
             bool(a)
@@ -1075,129 +1138,149 @@ def dispatch_once(store, now_real: float, *, sender=None, email_sender=None) -> 
     rows = claim_due(store, now_real)
     states: dict[str, dict | None] = {}
     for row in rows:
-        with store.read() as conn:
-            prefs = get_prefs(conn, row["user_id"])
-            member = None
-            is_member = True
-            if row["room_id"]:
-                m = conn.execute(
-                    "SELECT seat_id FROM members WHERE room_id=? AND user_id=? AND removed_at IS NULL",
-                    (row["room_id"], row["user_id"]),
-                ).fetchone()
-                member = m["seat_id"] if m else None
-                # A removed member gets nothing more from this room — not even
-                # public-fact reminders for lots they once watched.
-                is_member = m is not None
-                if row["room_id"] not in states:
-                    rr = conn.execute(
-                        "SELECT state_json FROM rooms WHERE id=?", (row["room_id"],)
-                    ).fetchone()
-                    states[row["room_id"]] = json.loads(rr["state_json"]) if rr else None
-            device = (
-                conn.execute(
-                    "SELECT * FROM notif_devices WHERE id=?", (row["device_id"],)
-                ).fetchone()
-                if row["device_id"]
-                else None
-            )
-            live_ids = {d["id"] for d in _live_devices(conn, row["user_id"], now_real)}
-            if row["is_mock"]:
-                recent = conn.execute(
-                    "SELECT COUNT(*) FROM notif_outbox o JOIN notif_inbox i ON i.id=o.inbox_id WHERE o.user_id=?"
-                    " AND i.is_mock=1 AND o.status='sent' AND o.sent_at > ?",
-                    (row["user_id"], now_real - 3600),
-                ).fetchone()[0]
-            else:
-                recent = 0
-        data = json.loads(row["data_json"])
-        if row["room_id"] and not is_member:
-            _finish(store, row["id"], status="stale")
-            stats["stale"] += 1
-            continue
-        if row["room_id"] and not still_relevant(
-            row["type"], data, states.get(row["room_id"]), row["seat_id"], member
-        ):
-            _finish(store, row["id"], status="stale")
-            stats["stale"] += 1
-            continue
-        if row["is_mock"] and (not prefs.get("mock_push") or recent >= MOCK_PUSH_PER_HOUR):
-            _finish(store, row["id"], status="suppressed_mock")
-            stats["suppressed"] += 1
-            continue
-        if row["channel"] == "push":
-            if device is None or row["device_id"] not in live_ids:
-                _finish(store, row["id"], status="device_inactive")
-                stats["suppressed"] += 1
-                continue
-            sub = {
-                "endpoint": device["endpoint"],
-                "keys": {"p256dh": device["p256dh"], "auth": device["auth"]},
-            }
-            ttl = max(0, int(row["expires_at"] - now_real))
-            res = sender(
-                sub,
-                _payload(row, prefs),
-                ttl=ttl,
-                urgency=URGENCY.get(row["type"], "normal"),
-                topic=None,
-            )
-            if res.get("ok"):
-                _finish(
-                    store,
-                    row["id"],
-                    status="sent",
-                    sent_at=now_real,
-                    provider_status=res.get("status"),
-                    last_error=None,
-                )
-                with store.write() as conn:
-                    conn.execute(
-                        "UPDATE notif_devices SET last_ok_at=?, last_status='accepted', failures=0 WHERE id=?",
-                        (now_real, device["id"]),
-                    )
-                stats["sent"] += 1
-            elif res.get("gone"):
-                _finish(
-                    store,
-                    row["id"],
-                    status="gone",
-                    provider_status=res.get("status"),
-                    last_error=res.get("error"),
-                )
-                with store.write() as conn:
-                    conn.execute(
-                        "UPDATE notif_devices SET disabled_at=?, disabled_reason='expired_subscription', last_status='gone' WHERE id=?",
-                        (now_real, device["id"]),
-                    )
-                stats["gone"] += 1
-            else:
-                _retry_or_fail(store, row, res, now_real, stats)
-        else:
+        delivered = False
+        try:
             with store.read() as conn:
-                em = conn.execute(
-                    "SELECT email, verified_at FROM notif_email WHERE user_id=?", (row["user_id"],)
-                ).fetchone()
-                quota = email_quota_ok(conn, "notification", now_real)
-            if not em or not em["verified_at"] or not prefs.get("email_backup"):
-                _finish(store, row["id"], status="suppressed_email")
-                stats["suppressed"] += 1
-                continue
-            if not quota:
-                _finish(store, row["id"], status="quota_exhausted")
-                stats["suppressed"] += 1
-                continue
-            p = _payload(row, prefs)
-            ok, err = email_sender(em["email"], p["title"], f"{p['body']}\n\nOpen: {p['url']}")
-            if ok:
-                with store.write() as conn:
+                prefs = get_prefs(conn, row["user_id"])
+                member = None
+                is_member = True
+                if row["room_id"]:
+                    m = conn.execute(
+                        "SELECT seat_id FROM members WHERE room_id=? AND user_id=? AND removed_at IS NULL",
+                        (row["room_id"], row["user_id"]),
+                    ).fetchone()
+                    member = m["seat_id"] if m else None
+                    # A removed member gets nothing more from this room — not even
+                    # public-fact reminders for lots they once watched.
+                    is_member = m is not None
+                    if row["room_id"] not in states:
+                        rr = conn.execute(
+                            "SELECT state_json FROM rooms WHERE id=?", (row["room_id"],)
+                        ).fetchone()
+                        states[row["room_id"]] = json.loads(rr["state_json"]) if rr else None
+                device = (
                     conn.execute(
-                        "INSERT INTO notif_email_log (user_id, kind, sent_at) VALUES (?,?,?)",
-                        (row["user_id"], "notification", now_real),
+                        "SELECT * FROM notif_devices WHERE id=?", (row["device_id"],)
+                    ).fetchone()
+                    if row["device_id"]
+                    else None
+                )
+                live_ids = {d["id"] for d in _live_devices(conn, row["user_id"], now_real)}
+                if row["is_mock"]:
+                    recent = conn.execute(
+                        "SELECT COUNT(*) FROM notif_outbox o JOIN notif_inbox i ON i.id=o.inbox_id WHERE o.user_id=?"
+                        " AND i.is_mock=1 AND o.status='sent' AND o.sent_at > ?",
+                        (row["user_id"], now_real - 3600),
+                    ).fetchone()[0]
+                else:
+                    recent = 0
+            data = json.loads(row["data_json"])
+            if row["room_id"] and not is_member:
+                _finish(store, row["id"], status="stale")
+                stats["stale"] += 1
+                continue
+            if row["room_id"] and not still_relevant(
+                row["type"], data, states.get(row["room_id"]), row["seat_id"], member
+            ):
+                _finish(store, row["id"], status="stale")
+                stats["stale"] += 1
+                continue
+            if row["is_mock"] and (not prefs.get("mock_push") or recent >= MOCK_PUSH_PER_HOUR):
+                _finish(store, row["id"], status="suppressed_mock")
+                stats["suppressed"] += 1
+                continue
+            if row["channel"] == "push":
+                if device is None or row["device_id"] not in live_ids:
+                    _finish(store, row["id"], status="device_inactive")
+                    stats["suppressed"] += 1
+                    continue
+                sub = {
+                    "endpoint": device["endpoint"],
+                    "keys": {"p256dh": device["p256dh"], "auth": device["auth"]},
+                }
+                ttl = max(0, int(row["expires_at"] - now_real))
+                res = sender(
+                    sub,
+                    _payload(row, prefs),
+                    ttl=ttl,
+                    urgency=URGENCY.get(row["type"], "normal"),
+                    topic=None,
+                )
+                if res.get("ok"):
+                    delivered = True
+                    _finish(
+                        store,
+                        row["id"],
+                        status="sent",
+                        sent_at=now_real,
+                        provider_status=res.get("status"),
+                        last_error=None,
                     )
-                _finish(store, row["id"], status="sent", sent_at=now_real, last_error=None)
+                    with store.write() as conn:
+                        conn.execute(
+                            "UPDATE notif_devices SET last_ok_at=?, last_status='accepted', failures=0 WHERE id=?",
+                            (now_real, device["id"]),
+                        )
+                    stats["sent"] += 1
+                elif res.get("gone"):
+                    _finish(
+                        store,
+                        row["id"],
+                        status="gone",
+                        provider_status=res.get("status"),
+                        last_error=res.get("error"),
+                    )
+                    with store.write() as conn:
+                        conn.execute(
+                            "UPDATE notif_devices SET disabled_at=?, disabled_reason='expired_subscription', last_status='gone' WHERE id=?",
+                            (now_real, device["id"]),
+                        )
+                    stats["gone"] += 1
+                else:
+                    _retry_or_fail(store, row, res, now_real, stats)
+            else:
+                with store.read() as conn:
+                    em = conn.execute(
+                        "SELECT email, verified_at FROM notif_email WHERE user_id=?",
+                        (row["user_id"],),
+                    ).fetchone()
+                    quota = email_quota_ok(conn, "notification", now_real)
+                if not em or not em["verified_at"] or not prefs.get("email_backup"):
+                    _finish(store, row["id"], status="suppressed_email")
+                    stats["suppressed"] += 1
+                    continue
+                if not quota:
+                    _finish(store, row["id"], status="quota_exhausted")
+                    stats["suppressed"] += 1
+                    continue
+                p = _payload(row, prefs)
+                ok, err = email_sender(em["email"], p["title"], f"{p['body']}\n\nOpen: {p['url']}")
+                if ok:
+                    delivered = True
+                    with store.write() as conn:
+                        conn.execute(
+                            "INSERT INTO notif_email_log (user_id, kind, sent_at) VALUES (?,?,?)",
+                            (row["user_id"], "notification", now_real),
+                        )
+                    _finish(store, row["id"], status="sent", sent_at=now_real, last_error=None)
+                    stats["sent"] += 1
+                else:
+                    _retry_or_fail(store, row, {"error": err}, now_real, stats)
+        except Exception as exc:  # noqa: BLE001 - one bad row never blocks the batch
+            # Without this boundary one row whose send raises aborts the batch
+            # after claim_due marked every row 'sending', and it sorts first
+            # again on reclaim: everyone else's alerts wait on it until TTL.
+            log.exception("auction notification %s failed to dispatch", row["id"])
+            if delivered:
+                # The provider already accepted it: never send it again, even
+                # though bookkeeping after the send failed.
+                try:
+                    _finish(store, row["id"], status="sent", sent_at=now_real, last_error=None)
+                except Exception:  # noqa: BLE001
+                    log.exception("auction notification %s: could not record 'sent'", row["id"])
                 stats["sent"] += 1
             else:
-                _retry_or_fail(store, row, {"error": err}, now_real, stats)
+                _retry_or_fail(store, row, {"error": repr(exc)}, now_real, stats)
     return stats
 
 

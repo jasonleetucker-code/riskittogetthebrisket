@@ -17,6 +17,7 @@ from src.auction.store import StoreUnavailable, open_store
 from tests.auction.helpers import NOON, cmd, make_room, nominate, started
 from tests.auction.test_api_store import (  # noqa: F401 - fixture import
     ORIGIN,
+    idem,
     _cmd,
     _make_room,
     _owner_client,
@@ -27,7 +28,7 @@ from tests.auction.test_api_store import (  # noqa: F401 - fixture import
 
 def _claim(app, owner, room, seat, handle, role="manager"):
     body = {"seat": seat, "role": role} if seat else {"role": role}
-    r = owner.post(f"/api/auction/rooms/{room}/invites", json=body, headers=ORIGIN)
+    r = owner.post(f"/api/auction/rooms/{room}/invites", json=body, headers=idem())
     return r
 
 
@@ -222,7 +223,7 @@ def test_bad_commissioner_inputs_are_400s_not_500s(env):  # noqa: F811
         _cmd(owner, room, {"kind": "set_seat", "seat": "S2", "patch": ["name"]}).status_code == 400
     )
     r = owner.post(
-        f"/api/auction/rooms/{room}/invites", json={"seat": "S2", "ttlHours": "nan"}, headers=ORIGIN
+        f"/api/auction/rooms/{room}/invites", json={"seat": "S2", "ttlHours": "nan"}, headers=idem()
     )
     assert r.status_code == 400
 
@@ -250,7 +251,7 @@ def test_export_hides_sleeper_ids_from_managers(env):  # noqa: F811
     owner = _owner_client(app)
     room = _ready_room(owner)
     _cmd(owner, room, {"kind": "nominate", "player": "991"})
-    owner.post(f"/api/auction/rooms/{room}/clock", json={"advanceSeconds": 3600}, headers=ORIGIN)
+    owner.post(f"/api/auction/rooms/{room}/clock", json={"advanceSeconds": 3600}, headers=idem())
     inv = _claim(app, owner, room, "S2", None).json()
     token = inv["joinPath"].split("token=")[1]
     mgr = TestClient(app)
