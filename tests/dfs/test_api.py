@@ -310,3 +310,29 @@ def test_slate_import_feeds_the_point_in_time_ledger(client):
     # Earliest kickoff on the fixture: 1:00 PM ET on 10/04/2026 = 17:00 UTC.
     assert p["lockAt"] == "2026-10-04T17:00:00.000000+00:00"
     assert p["observations"]["added"] == 84  # one projection per imported athlete
+
+
+def test_ownership_forecast_endpoint_is_as_of_and_refuses_after_lock(client):
+    snap = _slate(client).json()
+    h = {"x-user": "alice"}
+    r = client.post(
+        "/api/dfs/ownership/forecast",
+        json={"snapshotId": snap["snapshotId"], "asOf": "2026-10-04T16:00:00Z"},
+        headers=h,
+    )
+    assert r.status_code == 200, r.text
+    fc = r.json()
+    assert {p["method"] for p in fc["players"].values()} == {"structural_baseline"}
+    assert abs(fc["totalPercent"] - fc["expectedTotalPercent"]) < 0.01
+    late = client.post(
+        "/api/dfs/ownership/forecast",
+        json={"snapshotId": snap["snapshotId"], "asOf": "2026-10-04T17:00:01Z"},
+        headers=h,
+    )
+    assert late.status_code == 409 and late.json()["error"] == "AFTER_LOCK"
+    bad = client.post(
+        "/api/dfs/ownership/forecast",
+        json={"snapshotId": snap["snapshotId"], "overrides": {"x": 140}},
+        headers=h,
+    )
+    assert bad.status_code == 400

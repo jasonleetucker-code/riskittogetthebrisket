@@ -312,3 +312,34 @@ def test_results_with_a_contest_settle_the_owners_entries_by_username(client):
     assert s["state"] == "complete" and s["entries"] == 2 and s["fieldSizeCheck"] == "agrees"
     assert [row["payout"]["eachCents"] for row in s["rows"]] == [55_000, 0]  # tied 1st/2nd split
     assert s["netCents"] == 55_000 - 1_000
+
+
+def test_results_import_scores_ownership_forecasts_as_of_lock(client):
+    h = {"x-user": "a"}
+    snap = client.post(
+        "/api/dfs/slates",
+        json={
+            "salaryCsv": (FIX / "synthetic_dk_nfl_classic_salaries.csv").read_text(
+                encoding="utf-8"
+            ),
+            "projectionCsv": (FIX / "synthetic_dk_nfl_classic_projections.csv").read_text(
+                encoding="utf-8"
+            ),
+        },
+        headers=h,
+    ).json()
+    qb = next(a for a in snap["athletes"] if a["positions"] == ["QB"])
+    head = (
+        "Rank,EntryId,EntryName,TimeRemaining,Points,Lineup,,Player,Roster Position,%Drafted,FPTS"
+    )
+    r = client.post(
+        "/api/dfs/results",
+        json={
+            "snapshotId": snap["snapshotId"],
+            "standingsCsv": f"{head}\n,,,,,,,{qb['name']},QB,40%,25\n",
+        },
+        headers=h,
+    ).json()
+    ev = r["ownershipEvaluation"]
+    assert ev["state"] == "evaluated" and ev["structuralBaseline"]["n"] == 1
+    assert ev["structuralBaseline"]["smallSample"] is True

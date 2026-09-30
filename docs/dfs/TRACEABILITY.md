@@ -138,7 +138,7 @@ statistically meaningful evidence ≠ live profitability.
 | ID | Requirement | Status | Implementation / evidence |
 |---|---|---|---|
 | DFS-MOD-01 | Point-in-time data model: slate lock, append-only observations with observed/recorded times, as-of by what was held, truth kept separate | PARTIAL | `src/dfs/pit.py` (ADR-DFS-013), wired into every slate import; `tests/dfs/test_pit.py`. Contest/field/lineup entities reuse existing contest, build and results records; historical contest backfill has no data yet |
-| DFS-MOD-02 | Ownership model: multi-source, freshness, ensembles, overrides, learned model, calibration by sport/platform/format/slate size | LATER | Depends on DFS-MOD-01. Current: single owner-imported source + evaluation in results import |
+| DFS-MOD-02 | Ownership model: multi-source, freshness, ensembles, overrides, learned model, calibration by sport/platform/format/slate size | PARTIAL | `src/dfs/ownership.py` (ADR-DFS-014): structural baseline (uncalibrated priors + chronological `fit_structural`), as-of source ensemble (equal → inverse-MAE with evidence), stale flagging, overrides, per-player method; `POST /api/dfs/ownership/forecast`; `tests/dfs/test_ownership.py` incl. parameter recovery and leakage. NO historical accuracy evidence yet; learned features beyond value/projection (Vegas totals, role, news) need data sources (DFS-MOD-12) |
 | DFS-MOD-03 | Canonical player outcome-distribution interface (mean/median, sd, quantiles, sampling, metadata) | LATER | Current: imported ranges + independent normal lineup range (`outcomes.py`) |
 | DFS-MOD-04 | Sport-specific correlation framework behind one interface (NFL / NBA / NHL / MMA) | LATER | |
 | DFS-MOD-05 | Field lineup generator (legal, ownership-driven, construction tendencies) + field-fit metrics | LATER | |
@@ -146,7 +146,7 @@ statistically meaningful evidence ≠ live profitability.
 | DFS-MOD-07 | Contest Monte Carlo: joint outcomes, field, exact ties/payouts, EV / cash / top-1% / win with uncertainty | LATER | Exact payout + tie math exists (`contests.py`) |
 | DFS-MOD-08 | Portfolio optimization against contest EV with bankroll/entry/exposure constraints (no mechanical Kelly) | LATER | |
 | DFS-MOD-09 | Chronological point-in-time backtest harness; accepted AND rejected decisions; no leakage | LATER | Frozen decisions + as-of exist (DFS-MOD-01) |
-| DFS-MOD-10 | Scorecards: projections, ownership, field, contest, portfolio — always with sample size | LATER | `pit.record_evaluation` stores metrics with n and scope |
+| DFS-MOD-10 | Scorecards: projections, ownership, field, contest, portfolio — always with sample size | PARTIAL | `src/dfs/metrics.py` (MAE/RMSE/bias/Spearman/buckets/top-k/bootstrap CI, small-sample flag); ownership scorecards per source/ensemble/baseline stored on every results import. Projection/field/contest/portfolio scorecards pending |
 | DFS-MOD-11 | Champion/challenger: versioned models, predefined promotion criteria, shadow, rollback, no fitting-period evidence | PARTIAL | `pit.register_model/promote/rollback` + tests; no model registered yet |
 | DFS-MOD-12 | Source registry classified by data type, access, cadence, latency, cost, reliability, PIT usefulness | LATER | Seeds resolved (`SOURCES.md` §5–7); per-type classification pending |
 | DFS-MOD-13 | Unclear source names re-investigated only if useful; never fabricated | LATER | Six remain `unresolved_identity` |
