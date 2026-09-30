@@ -16,6 +16,10 @@ no repository, an unreadable file, a symbolic ref that does not resolve -- is
 The commit of a public repository is not private, which is why ``/api/status``
 (public) may carry it. Deploy verification compares it with the commit the
 workflow meant to ship (``.github/workflows/deploy.yml``, post-deploy smoke test).
+
+Not to be confused with script-time provenance such as
+``src/model_registry/hill_masters.py``'s ``git rev-parse``: that records which
+commit produced an artifact, this records which commit a running server loaded.
 """
 
 from __future__ import annotations

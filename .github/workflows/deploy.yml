@@ -850,18 +850,32 @@ jobs:
             echo "::error title=No deploy target recorded::DEPLOY_TARGET_SHA is empty; cannot verify the served build."
             FAIL=$((FAIL + 1))
           else
-            _served=""
-            for _attempt in 1 2 3 4 5 6; do
-              _served="$(curl --silent --globoff --max-time 15 "${URL}/api/status" \
-                | jq -r '.build.commit // empty' 2>/dev/null || true)"
-              [[ -n "${_served}" ]] && break
-              sleep 5
+            # Only an UNREADABLE status (e.g. the startup scrape's blocking
+            # browser phase) is retried; a readable build block -- a commit, or
+            # null with its reason -- decides at once, so a stale process fails fast.
+            _build=""
+            for _attempt in $(seq 1 20); do
+              _build="$(curl --silent --globoff --max-time 15 "${URL}/api/status" \
+                | jq -c '.build // empty' 2>/dev/null || true)"
+              [[ -n "${_build}" ]] && break
+              sleep 10
             done
-            if [[ "${_served}" == "${DEPLOY_TARGET_SHA}" ]]; then
+            _note=""
+            if [[ -z "${_build}" ]]; then
+              _note=" (status unreadable after retries)"
+              _build="{}"
+            fi
+            _served="$(jq -r '.commit // empty' <<<"${_build}" 2>/dev/null || true)"
+            _why="$(jq -r '.unavailable_reason // empty' <<<"${_build}" 2>/dev/null || true)"
+            [[ -n "${_why}" ]] && _note=" (${_why})"
+            if [[ -n "${_served}" && "${_served}" == "${DEPLOY_TARGET_SHA}" ]]; then
               echo "PASS build.commit == ${DEPLOY_TARGET_SHA}"
               PASS=$((PASS + 1))
             else
-              echo "::error title=Served build mismatch::/api/status reports build.commit '${_served:-<none>}', but this deploy shipped ${DEPLOY_TARGET_SHA}."
+              # For a manual deploy by branch name the box resolves the name
+              # after its own fetch, so it can ship a newer commit than the
+              # guard resolved: the message names what the guard resolved.
+              echo "::error title=Served build mismatch::/api/status reports build.commit '${_served:-<none>}'${_note}; the deploy guard resolved ${DEPLOY_TARGET_SHA}."
               FAIL=$((FAIL + 1))
             fi
           fi

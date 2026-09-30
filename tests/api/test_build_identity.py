@@ -108,6 +108,6 @@ def test_deploy_workflow_verifies_the_served_build():
     assert export < guard.index("exit 0"), "target SHA must be exported before any early exit"
     smoke = workflow[workflow.index("- name: Post-deploy smoke test") :]
     smoke = smoke[: smoke.index("\n      - name:", 1)]
-    assert "jq -r '.build.commit // empty'" in smoke
+    assert "jq -c '.build // empty'" in smoke
     assert '"${_served}" == "${DEPLOY_TARGET_SHA}"' in smoke
-    assert "Served build mismatch" in smoke
+    assert "Served build mismatch" in smoke and "unavailable_reason" in smoke
