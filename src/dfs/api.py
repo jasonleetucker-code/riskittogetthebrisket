@@ -1277,6 +1277,49 @@ async def build_contest_portfolio(request: Request):
     return _ok(out)
 
 
+@router.post("/backtest")
+async def run_backtest(request: Request):
+    """Chronological point-in-time replay over the owner's settled contests (historical evidence)."""
+    from src.dfs import backtest, pipeline
+
+    owner = _owner(request)
+    if isinstance(owner, JSONResponse):
+        return owner
+    body = await _json_body(request)
+    if isinstance(body, JSONResponse):
+        return body
+    items = body.get("items") or []
+    replay = bool(body.get("replayPortfolio"))
+    limit = 10 if replay else 200
+    if (
+        not isinstance(items, list)
+        or not 1 <= len(items) <= limit
+        or not all(isinstance(i, dict) and isinstance(i.get("resultId"), str) for i in items)
+    ):
+        return _err("INVALID_BODY", f"items: 1..{limit} objects with a resultId.", 400)
+    sims = body.get("sims", 400)
+    sample = body.get("fieldSample", 800)
+    if not (isinstance(sims, int) and 1 <= sims <= pipeline.API_MAX_SIMS) or not (
+        isinstance(sample, int) and 1 <= sample <= pipeline.API_MAX_FIELD_SAMPLE
+    ):
+        return _err("INVALID_BODY", "sims / fieldSample out of range.", 400)
+    try:
+        out = await run_in_threadpool(
+            lambda: backtest.run(
+                owner,
+                items,
+                replay_portfolio=replay,
+                entries=int(body.get("entries") or 3),
+                sims=sims,
+                field_sample=sample,
+                allow_priors=bool(body.get("allowPriors")),
+            )
+        )
+    except pit.PitError as exc:
+        return _err(exc.code, exc.message, 422)
+    return _ok(out)
+
+
 @router.post("/results")
 async def import_results(request: Request):
     """Import a finished contest's standings for one slate and evaluate the owner's forecasts."""
@@ -1360,6 +1403,11 @@ async def import_results(request: Request):
                 parsed["ownerEntries"],
                 unscored_entries=parsed["unscoredEntries"],
             )
+            if contest is not None
+            else None
+        ),
+        "contestRef": (
+            {"contestId": body["contestId"], "version": rec["version"]}
             if contest is not None
             else None
         ),

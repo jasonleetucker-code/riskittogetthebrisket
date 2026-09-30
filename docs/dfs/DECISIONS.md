@@ -296,3 +296,26 @@ timing) is frozen in `pit`. `POST /api/dfs/portfolio`, bounded; nothing is enter
 with our other entries); the final numbers come from the joint re-simulation. The baseline
 comparison is WITHIN the model: it shows the optimizer does what the model rewards, not that the
 model is right — that is the backtest's job.
+
+## ADR-DFS-020 — Backtest: chronological, pre-lock only, truth after forecasts, counterfactual payouts (2026-09-30)
+
+**Context.** A backtest that can see post-lock ownership, late news, actual points or later
+projection updates proves nothing. A replayed portfolio also needs a realized outcome that does not
+depend on the simulator it is testing.
+
+**Decision.** `src/dfs/backtest.py` + `POST /api/dfs/backtest`. Settled contests are replayed OLDEST
+LOCK FIRST; a slate with an unknown lock is skipped (named). At T = lock every input comes from
+`pit.as_of(T, pre_lock)`; the inputs digest is taken before the result record is opened and re-checked
+after the replay (an explicit error, not an assert). Forecasts: ownership structural prior, field-
+implied challenger, source ensemble; each projection source as held. Optional portfolio replay uses
+the same `portfolio_opt` code as the live endpoint. Scoring after reveal: ownership + projection
+scorecards; replayed optimizer AND same-size projected-points portfolios get COUNTERFACTUAL realized
+payouts — realized lineup points ranked in the contest's real full-field score distribution with
+exact ties (our entries joined in); a lineup with an unscored player is `unscorable`, never 0 points.
+Realized profit is reported per arm with n and a 95% CI (none for n = 1), plus the PAIRED difference;
+predicted EV vs realized payout feeds contest-model calibration. Summaries are stored as `backtest`
+evaluations with the window, for `pit.promote`; nothing is promoted here. Replayed decisions are
+made after the fact: historical evidence, never forward evidence.
+
+**Test that matters.** A "late" ownership source recorded after lock and matching the truth exactly
+is invisible to the replay: the ensemble's MAE stays > 0.5, and the source never appears.
