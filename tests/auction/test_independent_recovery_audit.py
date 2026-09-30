@@ -520,17 +520,6 @@ def test_A6_crash_during_backup_leaves_live_store_and_record_untouched(crash_wor
     assert abv.run(st2.path, dest, keep=48) == 0
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT DEFECT (LOW-MEDIUM): scripts/auction_backup_verify.py writes the gzip straight to "
-        "its final name 'auction-<stamp>.sqlite.gz' (no temp file + rename).  A crash/kill/"
-        "timeout (TimeoutStartSec=600) mid-write leaves a truncated archive that is "
-        "indistinguishable by name from a verified one, counts toward --keep, and is the "
-        "'newest backup' an operator would restore.  Fix: write to '<name>.partial' and "
-        "os.replace() after close + fsync."
-    ),
-)
 def test_A6b_a_killed_backup_never_leaves_a_corrupt_archive_under_a_verified_name(
     crash_world, tmp_path
 ):
@@ -958,19 +947,6 @@ def test_C6b_overnight_outage_pauses_the_room_and_preserves_every_second(tmp_pat
     assert st2.load(room)[0]["paused"] is not None  # still frozen at 10 AM
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT DEFECT (MEDIUM-LOW): the outage guard trusts ONLY rooms.last_heartbeat, which the "
-        "runtime writes every 15 ticks of a SERIAL loop that also runs push delivery (10 s "
-        "timeout x 25 rows per notify tick).  With a slow push service the beat lags for many "
-        "minutes while bids are being accepted; the next ordinary restart (deploy) then "
-        "'outage-pauses' a room that was never unreachable, as of a stale moment, and freezes "
-        "the draft until the commissioner resumes.  Fix (src/auction/store.py outage_guard / "
-        "runtime._loop): treat the latest committed command (commands.created_at) as liveness "
-        "evidence too, and/or run the heartbeat on its own task."
-    ),
-)
 def test_C6c_a_lagging_heartbeat_does_not_fake_an_outage_on_restart(tmp_path):
     st, _ = _new_store(tmp_path)
     room = _mkroom(st)
@@ -1004,17 +980,6 @@ def _capped_state():
     return s, a1
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT DEFECT (MEDIUM): a commissioner budget increase made while the room is PAUSED "
-        "never re-resolves the seat's capped proxies (engine._cmd_adjust_budget skips the "
-        "cascade when paused) and _cmd_resume does not catch up.  The same correction made "
-        "unpaused hands S2 the lot at $21; made during a pause, S1 keeps it at $6 and wins "
-        "if nobody bids again.  Outcome depends on pause timing.  Fix: re-cascade seats with "
-        "ledger changes on resume (src/auction/engine.py _cmd_resume)."
-    ),
-)
 def test_C7_budget_correction_during_a_pause_reactivates_capped_proxies_on_resume():
     s, a1 = _capped_state()
     live, _, _ = _comm(s, "adjust_budget", NOON + 10, seat="S2", amount=100, reason="fix")
@@ -1025,17 +990,6 @@ def test_C7_budget_correction_during_a_pause_reactivates_capped_proxies_on_resum
     assert (p["auctions"][a1]["leader"], p["auctions"][a1]["price"]) == ("S2", 21)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT DEFECT (LOW, owner-confirm): a commissioner budget increase during quiet hours "
-        "re-resolves proxies overnight (engine._cmd_adjust_budget has no quiet-hours gate), so "
-        "leaders and public prices change and 'outbid' alerts are recorded at 22:00, although "
-        "schedule.py states 'outside that window nothing binding happens'.  Trades are gated; "
-        "this path is not.  Fix: defer the cascade to the next active moment or refuse "
-        "positive adjustments in quiet hours."
-    ),
-)
 def test_C7b_budget_correction_in_quiet_hours_does_not_move_leaders_overnight():
     s, a1 = _capped_state()
     night = et(2026, 10, 5, 22, 0)
@@ -1155,16 +1109,6 @@ def test_D_type_draft_completed(tmp_path):
         assert [r for r in _inbox(st, uid, "room_status") if r["title"] == "Auction complete"]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT DEFECT (LOW, gap vs the 14 owner notification types): 'deadline extended' is NOT "
-        "implemented.  engine._publish_changes stamps extended=True on the 'price' event but "
-        "notify.record_transition maps no 'price' event, so a bidder on the lot who is neither "
-        "the actor nor the displaced leader is never told the close moved.  (The last_hour "
-        "re-key on a new deadline is capped at 2 per lot and only fires inside the last hour.)"
-    ),
-)
 def test_D_type_deadline_extended_is_notified(nworld):
     st, room, _ = nworld
     a = M(st, room, "S1", "nominate", NOON, player="P1")["result"]["auction"]
@@ -1177,16 +1121,6 @@ def test_D_type_deadline_extended_is_notified(nworld):
     assert types & {"deadline_extended", "extended", "extension"}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT DEFECT (LOW, proxy/budget-capacity type only PARTIAL): when money frees and a "
-        "seat's capped proxy auto-activates to lead a lot it never led before, that seat's money "
-        "is newly committed with no notification at all (engine._emit_net_leadership only "
-        "emits leading_again for seats already in led_by).  The only capacity signal is the "
-        "'reserved on other lots' suffix on an outbid alert."
-    ),
-)
 def test_D_capped_proxy_first_time_activation_is_notified(nworld):
     st, room, _ = nworld
     a2 = M(st, room, "S1", "nominate", NOON + 1, player="P2")["result"]["auction"]
@@ -1203,17 +1137,6 @@ def test_D_capped_proxy_first_time_activation_is_notified(nworld):
     assert any(r["type"] != "outbid" for r in new), [r["type"] for r in new]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT DEFECT (LOW): a nomination right that comes on the clock inside the same "
-        "transaction as a pause (e.g. the commissioner pauses seconds after a lot's deadline, "
-        "before the worker settled it; or an outage pause settling a lot due before the last "
-        "heartbeat) records its nomination_turn while the post-state is paused, so "
-        "notify.record_transition drops 'your turn' and _cmd_resume never re-emits it.  The "
-        "seat's 13-hour clock then runs after resume with no alert until turn_expiring."
-    ),
-)
 def test_D_your_turn_that_starts_during_a_pause_is_sent_on_resume(tmp_path):
     st, _ = _new_store(tmp_path)
     room = _mkroom(st, seats=4, budgets=[100] * 4, rules_patch={"max_open": 1})
@@ -1274,23 +1197,13 @@ def test_D_push_transport_failure_never_rolls_back_a_bid(nworld):
     def explode(sub, p):
         raise RuntimeError("push library blew up")
 
-    with pytest.raises(RuntimeError):
-        notify.dispatch_once(st, NOON + 400, sender=FakePush(explode))
+    # The exception is contained per row (recorded as a retry), never raised
+    # into the worker, and never touches the room.
+    notify.dispatch_once(st, NOON + 400, sender=FakePush(explode))
     assert _snapshot(st, room) == snap
     assert len(_inbox(st, 1, "outbid")) == 1
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT DEFECT (LOW-MEDIUM): notify.dispatch_once has no per-row exception boundary.  "
-        "One outbox row whose send raises aborts the batch AFTER claim_due marked all 25 rows "
-        "'sending'; they are reclaimed only after 120 s, the poisoned row sorts first again, and "
-        "every other user's alerts are blocked until the poisoned row's TTL (up to 12 h for "
-        "'won').  MAX_ATTEMPTS is never reached because _retry_or_fail is skipped.  Fix: "
-        "try/except around each row in dispatch_once → _retry_or_fail."
-    ),
-)
 def test_D_one_poisoned_outbox_row_does_not_block_other_users(nworld):
     st, room, tokens = nworld
     _device(st, 1, tokens[1])

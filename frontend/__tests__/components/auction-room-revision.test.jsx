@@ -55,7 +55,7 @@ describe("useAuctionRoom never rolls back to an older revision", () => {
   });
 });
 
-describe("AUDIT DEFECTS", () => {
+describe("restore and room switches (audit defects, fixed)", () => {
   // MEDIUM: after a restore from the hourly backup (RPO up to ~1 h) the room's
   // revision goes BACKWARDS (server half: test_E_restore_rewinds_the_revision_
   // clients_already_hold).  /view carries no store epoch, so an open tab drops
@@ -63,23 +63,33 @@ describe("AUDIT DEFECTS", () => {
   // showing bids the restore lost, until the room passes the old revision.
   // Fix: stamp a store/restore epoch in /view (e.g. meta.store_id + a restore
   // generation) and reset revRef when it changes.
-  it.fails("adopts the authoritative snapshot after a restore rewinds the revision", async () => {
+  it("adopts the authoritative snapshot after a restore rewinds the revision", async () => {
     const before = { storeEpoch: "original" };
     const after = { storeEpoch: "restored" };
-    const f = scripted([snap(50, before), snap(12, after), null, snap(12, after)]);
+    const f = scripted([snap(50, before), snap(12, after), snap(11, after)]);
     const { result } = renderHook(() => useAuctionRoom("r_a"));
-    await waitFor(() => expect(f).toHaveBeenCalledTimes(3));
-    expect(result.current.view.revision).toBe(50); // the restored rev 12 was dropped
-    await act(async () => result.current.refresh()); // even a manual refresh
-    await waitFor(() => expect(f).toHaveBeenCalledTimes(5));
+    await waitFor(() => expect(result.current.view?.revision).toBe(12));
+    expect(result.current.view.storeEpoch).toBe("restored");
+    // Within the new epoch the usual rule holds again: older is dropped.
+    await waitFor(() => expect(f).toHaveBeenCalledTimes(4));
     expect(result.current.view.revision).toBe(12);
+    expect(f.urls[3]).toContain("after=12");
+  });
+
+  it("refresh() re-adopts whatever the server now holds", async () => {
+    const f = scripted([snap(50, { storeEpoch: "e1" }), null, snap(12, { storeEpoch: "e1" })]);
+    const { result } = renderHook(() => useAuctionRoom("r_a"));
+    await waitFor(() => expect(result.current.view?.revision).toBe(50));
+    await act(async () => result.current.refresh());
+    await waitFor(() => expect(result.current.view.revision).toBe(12));
+    expect(f.urls[2]).not.toContain("after=");
   });
 
   // LOW / latent: revRef is not reset when roomId changes, so a reused hook
   // instance drops the next room's snapshots whenever its revision is lower.
   // Not reachable from today's UI (room switches use full page loads), but the
   // hook's own contract is wrong.  Fix: reset revRef in the effect on roomId.
-  it.fails("shows the new room after roomId changes", async () => {
+  it("shows the new room after roomId changes", async () => {
     const f = scripted([snap(40), null, snap(3)]);
     const { result, rerender } = renderHook(({ id }) => useAuctionRoom(id), {
       initialProps: { id: "r_a" },

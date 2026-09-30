@@ -630,6 +630,7 @@ def _view(room_id: str, user: accounts.User, member: dict, now_real: float) -> d
         vis.add("commissioner")
     out = {
         "revision": int(row["revision"]),
+        "storeEpoch": store.epoch,
         "serverNow": now_real,
         "roomNow": room_now,
         "clockOffset": float(row["clock_offset"]) if row["room_type"] == "mock" else 0.0,
@@ -679,7 +680,9 @@ async def room_view(request: Request, room_id: str, after: int = -1, wait: float
         if rev is None:
             rev = int(store.room_row(room_id)["revision"])
             store._revisions.setdefault(room_id, rev)
-        while rev is not None and rev <= after and time.monotonic() < deadline:
+        # Wait only while the client is exactly current.  A client AHEAD of the
+        # server (a restore rewound the revision) gets the snapshot at once.
+        while rev is not None and rev == after and time.monotonic() < deadline:
             await asyncio.sleep(0.25)
             if await request.is_disconnected():
                 return Response(status_code=204)

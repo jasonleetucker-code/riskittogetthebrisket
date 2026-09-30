@@ -499,6 +499,8 @@ function describeEvent(e, seatName, players) {
       return `Queued player ${pl(d.player)} skipped — no longer eligible`;
     case "proxy_disabled":
       return `Your proxy on ${d.auction} is off`;
+    case "proxy_leading":
+      return `You lead ${pl(d.player)} at $${d.price}`;
     case "member_changed":
       return `Commissioner changed who holds ${d.seat ? who(d.seat) : "a place in this room"} — the seat keeps its money, bids and players`;
     default:

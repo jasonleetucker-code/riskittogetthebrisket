@@ -111,6 +111,16 @@ async def _loop() -> None:
         return
     except Exception as exc:  # noqa: BLE001
         log.exception("auction runtime startup failed: %s", exc)
+    # Only AFTER the startup outage check: a beat written first would hide
+    # the very gap that check exists to detect.
+    beat = asyncio.create_task(_heartbeat_loop(), name="auction-heartbeat")
+    try:
+        await _tick_forever()
+    finally:
+        beat.cancel()
+
+
+async def _tick_forever() -> None:
     tick = 0
     while True:
         tick += 1
@@ -121,13 +131,24 @@ async def _loop() -> None:
                 await run_in_threadpool(_run_bots, now)
             if tick % NOTIFY_EVERY_TICKS == 0:
                 await run_in_threadpool(_notifications, now, scan=tick % REMINDER_EVERY_TICKS == 0)
-            if tick % HEARTBEAT_EVERY_TICKS == 0:
-                await run_in_threadpool(_heartbeat, now)
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 - the loop must survive
             log.exception("auction runtime tick failed: %s", exc)
         await asyncio.sleep(TICK_SECONDS)
+
+
+async def _heartbeat_loop() -> None:
+    """Liveness on its own task: push delivery (network timeouts) in the main
+    loop can never delay the beat that the startup outage check trusts."""
+    while True:
+        try:
+            await run_in_threadpool(_heartbeat, time.time())
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - the beat must survive
+            log.exception("auction heartbeat failed: %s", exc)
+        await asyncio.sleep(TICK_SECONDS * HEARTBEAT_EVERY_TICKS)
 
 
 def start() -> asyncio.Task | None:

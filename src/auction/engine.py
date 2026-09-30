@@ -574,9 +574,14 @@ def _due_events(state: dict) -> list[tuple[float, int, str, str]]:
     if state["status"] not in ("running", "draining") or state["paused"]:
         return []
     due: list[tuple[float, int, str, str]] = []
+    win = _window(state)
+    deferred = state.get("deferred_reresolve") or []
+    if deferred:
+        # Priority -1: re-resolve before a close due at the same instant.
+        at = max(float(i["at"]) for i in deferred)
+        due.append((schedule.next_active_start(win, at), -1, "reresolve", ""))
     for a in open_auctions(state):
         due.append((a["deadline"], 0, "close", a["id"]))
-    win = _window(state)
     if state["status"] == "running":
         for r in _window_rights(state):
             if r["window_at"] is None:
@@ -591,6 +596,8 @@ def _due_events(state: dict) -> list[tuple[float, int, str, str]]:
 
 
 def _id_order(state: dict, d: tuple) -> int:
+    if d[2] == "reresolve":
+        return 0
     if d[2] == "close":
         return state["auction_order"].index(d[3])
     return [r["id"] for r in state["rights"]].index(d[3])
@@ -609,7 +616,9 @@ def _advance(state: dict, now: float, events: list) -> bool:
             break
         t, _, kind, ident = due[0]
         progressed = True
-        if kind == "close":
+        if kind == "reresolve":
+            _run_deferred_reresolve(state, t, events)
+        elif kind == "close":
             _close_auction(state, state["auctions"][ident], t, events)
         elif kind == "timeout":
             r = _right(state, ident)
@@ -788,7 +797,18 @@ def _emit_net_leadership(s: dict, leaders_before: dict, now: float, events: list
                 player=a["player"],
                 price=a["price"],
             )
-        if after not in led_by:
+        else:
+            # First time this seat leads the lot through the resolver (its own
+            # bid, or its standing maximum after money freed).  The notifier
+            # tells the seat only when someone ELSE's action caused it.
+            _ev(
+                events,
+                "proxy_leading",
+                f"seat:{after}",
+                auction=aid,
+                player=a["player"],
+                price=a["price"],
+            )
             led_by.append(after)
 
 
@@ -1182,6 +1202,13 @@ def _cmd_resume(s: dict, cmd: dict, now: float, events: list) -> dict:
         paused_kind=was["kind"],
         min_remaining_active_seconds=floor,
     )
+    # Corrections credited during the pause take effect now (or at the next
+    # active moment, via the "reresolve" due event, if resumed in quiet hours).
+    if schedule.is_active(win, now):
+        _run_deferred_reresolve(s, now, events)
+    else:
+        for item in s.get("deferred_reresolve") or []:
+            item["at"] = max(float(item["at"]), now)
     return {"ok": True}
 
 
@@ -1229,13 +1256,32 @@ def _cmd_adjust_budget(s: dict, cmd: dict, now: float, events: list) -> dict:
         after=after,
         reason=reason[:300],
     )
-    if amount > 0 and s["status"] in ("running", "draining") and not s["paused"]:
-        start = [
-            a["id"] for a in open_auctions(s) if a["leader"] != seat_id and seat_id in a["bids"]
-        ]
-        changed = _cascade(s, start, now, events)
-        _publish_changes(s, changed, now, events)
+    if amount > 0 and s["status"] in ("running", "draining"):
+        if s["paused"] or not schedule.is_active(_window(s), now):
+            # Nothing binding moves while the room is paused or inside quiet
+            # hours: the money is credited now, and the seat's capped proxies
+            # re-resolve at the next active moment (on resume, or 08:00 ET),
+            # ahead of any close due at that same instant.
+            s.setdefault("deferred_reresolve", []).append({"seat": seat_id, "at": now})
+        else:
+            _reresolve_seat(s, seat_id, now, events)
     return {"ok": True, "balance": after}
+
+
+def _reresolve_seat(s: dict, seat_id: str, now: float, events: list) -> None:
+    """Money freed or credited for ``seat_id``: its capped proxies respond."""
+    start = [a["id"] for a in open_auctions(s) if a["leader"] != seat_id and seat_id in a["bids"]]
+    changed = _cascade(s, start, now, events)
+    _publish_changes(s, changed, now, events)
+
+
+def _run_deferred_reresolve(s: dict, now: float, events: list) -> None:
+    items = s.get("deferred_reresolve") or []
+    if not items:
+        return
+    s["deferred_reresolve"] = []
+    for seat_id in dict.fromkeys(i["seat"] for i in items):
+        _reresolve_seat(s, seat_id, now, events)
 
 
 # ---------------------------------------------------------------------------

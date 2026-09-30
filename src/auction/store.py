@@ -195,6 +195,11 @@ class Store:
         self._revisions: dict[str, int] = {}
         self._listeners: list = []
         self._outage_checked: set[str] = set()
+        # Changes with every process that opens the store (a restart, or a
+        # restore from backup).  Revisions can go BACKWARDS across a restore;
+        # clients compare this epoch so they adopt the restored snapshot
+        # instead of discarding it as "older".
+        self.epoch = secrets.token_hex(6)
 
     # -- connection -------------------------------------------------------
 
@@ -493,6 +498,15 @@ class Store:
                 return False
             state = json.loads(row["state_json"])
             hb = row["last_heartbeat"]
+            # A committed command is proof the service was reachable at that
+            # moment too: a heartbeat lagging behind a busy worker must not
+            # make a restart "outage-pause" a room that was taking bids.
+            with self.read() as conn:
+                last_cmd = conn.execute(
+                    "SELECT MAX(created_at) FROM commands WHERE room_id=?", (room_id,)
+                ).fetchone()[0]
+            if hb is not None and last_cmd is not None:
+                hb = max(float(hb), float(last_cmd))
             threshold = float(state["rules"].get("outage_threshold_seconds") or 300)
             paused = False
             if (
