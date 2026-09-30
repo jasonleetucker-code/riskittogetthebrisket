@@ -29,13 +29,14 @@ import {
 } from "@/lib/schedule-impact";
 import styles from "./ScheduleImpact.module.css";
 
-const GLYPH = { up: "▲", down: "▼", flat: "–", none: "" };
+// Flat carries no glyph: a dash before "0.0" reads as a minus sign.
+const GLYPH = { up: "▲", down: "▼", flat: "", none: "" };
 
 export function ImpactValue({ value }) {
   const dir = impactDirection(value);
   return (
     <span className={`${styles.impact} ${styles[dir] || ""}`} data-direction={dir}>
-      {dir !== "none" ? (
+      {GLYPH[dir] ? (
         <span aria-hidden="true" className={styles.glyph}>
           {GLYPH[dir]}
         </span>
@@ -113,6 +114,15 @@ function columns() {
       render: (r) => officialRecord(r),
     },
     {
+      key: "impact",
+      header: "Schedule",
+      accessor: (r) => r.scheduleImpact,
+      sortable: true,
+      numeric: true,
+      headerInfo: "Actual head-to-head wins minus expected wins.",
+      render: (r) => <ImpactValue value={r.scheduleImpact} />,
+    },
+    {
       key: "h2h",
       header: "H2H",
       accessor: (r) => r.actualH2HCredits,
@@ -139,22 +149,21 @@ function columns() {
     },
     {
       key: "expected",
-      header: "Exp. wins (equal opp.)",
+      // The baseline stays in the header (not only a tooltip), stacked on a
+      // second line so the column is only as wide as its numbers and the
+      // Schedule column still fits at phone width.
+      header: (
+        <span className={styles.stackedHead}>
+          Exp. wins<span className={styles.headSub}>equal opp.</span>
+        </span>
+      ),
+      headerInfoLabel: "Expected wins (equal-opponent baseline)",
       accessor: (r) => r.equalOpponentExpectedH2HCredits,
       sortable: true,
       numeric: true,
       headerInfo:
         "Head-to-head wins the same scores average against an equally likely opponent each week.",
       render: (r) => fmtCredits(r.equalOpponentExpectedH2HCredits),
-    },
-    {
-      key: "impact",
-      header: "Schedule",
-      accessor: (r) => r.scheduleImpact,
-      sortable: true,
-      numeric: true,
-      headerInfo: "Actual head-to-head wins minus expected wins.",
-      render: (r) => <ImpactValue value={r.scheduleImpact} />,
     },
     {
       key: "opp",

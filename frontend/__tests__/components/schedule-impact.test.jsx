@@ -132,7 +132,7 @@ describe("ScheduleImpactTable", () => {
     expect(within(bodyRows[0]).getByText("4-2")).toBeTruthy();
     expect(within(bodyRows[0]).getByText("2-1")).toBeTruthy();
     // The expected-wins column names its baseline.
-    expect(within(block).getByText("Exp. wins (equal opp.)")).toBeTruthy();
+    expect(within(block).getByText("equal opp.")).toBeTruthy();
   });
 
   it("marks a team whose games were left out", () => {
@@ -145,6 +145,13 @@ describe("ScheduleImpactTable", () => {
     const el = container.querySelector("[data-direction]");
     expect(el.getAttribute("data-direction")).toBe("down");
     expect(el.textContent).toContain("▼");
+  });
+
+  it("a flat impact reads as 0.0 with no dash that looks like a minus", () => {
+    const { container } = render(<ImpactValue value={-0.02} />);
+    const el = container.querySelector("[data-direction]");
+    expect(el.getAttribute("data-direction")).toBe("flat");
+    expect(el.textContent).toBe("0.0");
   });
 
   it("unavailable: says so and renders no table (never zeros)", () => {
