@@ -2,7 +2,8 @@
 
 /**
  * PlayerPool — the slate's player table with per-row controls (lock /
- * exclude, the owner's projection override, a selection boost).  Code-split
+ * exclude, the owner's projection override, a selection boost, a per-player
+ * exposure range across the N lineups).  Code-split
  * from the /dfs page chunk (React.lazy).  Display only: projections, salaries
  * and identities come from the slate snapshot; nothing here computes a value.
  */
@@ -27,7 +28,17 @@ function ProjectionCell({ athlete }) {
   );
 }
 
-export default function PlayerPool({ athletes, rules, setRules, overrides, setOverrides, boosts, setBoosts }) {
+export default function PlayerPool({
+  athletes,
+  rules,
+  setRules,
+  overrides,
+  setOverrides,
+  boosts,
+  setBoosts,
+  exposure,
+  setExposure,
+}) {
   const [position, setPosition] = useState("ALL");
   const [query, setQuery] = useState("");
   const visible = useMemo(() => filterAthletes(athletes, { position, query }), [athletes, position, query]);
@@ -87,6 +98,37 @@ export default function PlayerPool({ athletes, rules, setRules, overrides, setOv
           onChange={(e) => setBoosts((m) => ({ ...m, [a.player_id]: e.target.value }))}
         />
       ),
+    },
+    {
+      key: "exposure",
+      header: "Exp % min–max",
+      sortable: false,
+      hideBelow: "md",
+      render: (a) => {
+        const range = exposure[a.player_id] || {};
+        const set = (field) => (e) =>
+          setExposure((m) => ({ ...m, [a.player_id]: { ...(m[a.player_id] || {}), [field]: e.target.value } }));
+        return (
+          <span className={styles.rangeInputs}>
+            <Input
+              data-numeric
+              inputMode="decimal"
+              className={styles.cellInput}
+              aria-label={`Minimum exposure % for ${a.name} across the lineups`}
+              value={range.min ?? ""}
+              onChange={set("min")}
+            />
+            <Input
+              data-numeric
+              inputMode="decimal"
+              className={styles.cellInput}
+              aria-label={`Maximum exposure % for ${a.name} across the lineups`}
+              value={range.max ?? ""}
+              onChange={set("max")}
+            />
+          </span>
+        );
+      },
     },
     {
       key: "rule",

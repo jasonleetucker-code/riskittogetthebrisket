@@ -100,3 +100,17 @@ and is applied once — in the objective and in the lineup payload's `slotProjec
 stored projection is never changed. The platform-slot cross-check is `not_applicable` here
 (comparing the file's labels with themselves would manufacture agreement).
 
+
+## ADR-DFS-011 — Minimum exposure is latest-deadline sequential forcing (2026-09-30)
+
+**Decision.** `playerMinExposure` converts to `ceil(pct × N)` appearances (never rounded down;
+the mirror of the max's floor). While building lineup *k*, a player is forced in only when every
+remaining lineup, this one included, must carry them to reach the minimum. A min above the max, a
+min on an excluded player, and a min on an unprojected player are refused before solving.
+
+**Why.** It keeps the first lineups the owner's best by projection and never forces a player the
+optimizer picks on its own. It is a construction method, not a joint portfolio optimum, and the
+build's `methodNote` says so. Front-loading or even pacing would not remove the failure it has
+(two players competing for one slot both due at once). That failure is reported as an isolated
+`min_exposure` conflict plus `minimumExposureUnmet`; nothing is relaxed. Joint portfolio
+construction belongs to Phase F.

@@ -41,7 +41,7 @@ vocabulary: **SLICE1** (implemented + tested on `claude/dfs-foundation`, PR #153
 | DFS-§8-03 | Conditional rules (if-A-then-B), mutually exclusive groups | C | SLICE4 | if A then B / not B / at least N of group B: MILP big-M rows + independent validator + conflict isolation (`cond:i`), brute-force exact and proven to bind; mutually-exclusive = at most 1 of group |
 | DFS-§8-04 | Stacks: primary/secondary, bring-back | P1 | SLICE1 (QB stack) | Portfolio stack distributions pending |
 | DFS-§8-05 | Sport-specific stacks (NBA/NHL/MMA) | P2 | NEXT | |
-| DFS-§8-06 | Exposure semantics + integer rounding shown | P1 | SLICE1 (max, floor) | Min exposure + scoped exposure pending (needs joint portfolio) |
+| DFS-§8-06 | Exposure semantics + integer rounding shown | P1 | BUILT (max floor, min ceil, per-player range in UI) | Min is latest-deadline sequential forcing (disclosed in `methodNote`); scoped/group exposure pending (joint portfolio, Phase F) |
 | DFS-§8-07 | Minimal conflicting subset, no hidden relaxation | P1 | SLICE1 | Deletion filter over owner items |
 | DFS-§8-08 | Editable forecasts vs preference boosts kept separate | C | SLICE4 | `projectionOverrides` = owner forecast (used in objective AND totals, marked 'yours', never written back, can supply a missing forecast); `boosts` = selection preference (objective only; reported totals stay unboosted). Both tested non-vacuously; per-row inputs on /dfs |
 | DFS-§8-09 | Bulk edit, undo/redo, presets, scenario copies, diff | P2 | NEXT | |

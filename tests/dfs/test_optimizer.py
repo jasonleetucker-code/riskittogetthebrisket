@@ -11,6 +11,7 @@ from src.dfs.imports import SlateAthlete
 from src.dfs.optimizer import (
     ConstraintError,
     exposure_bounds,
+    exposure_minimums,
     optimize,
     parse_constraints,
     validate_lineup,
@@ -472,3 +473,65 @@ def test_override_and_boost_inputs_are_bounded():
     ):
         with pytest.raises(ConstraintError):
             parse_constraints(bad, DK, pool)
+
+
+# ── Minimum exposure ─────────────────────────────────────────────────────
+
+
+def _worst_projected(pool, pos):
+    return min((a for a in pool if a.positions == [pos]), key=lambda a: a.projection)
+
+
+def test_min_exposure_rounds_up_and_is_met_by_a_player_the_optimizer_would_skip():
+    pool = _pool(31)
+    weak = _worst_projected(pool, "RB")
+    c = parse_constraints(
+        {"lineups": 5, "minUnique": 1, "playerMinExposure": {weak.player_id: 0.5}}, DK, pool
+    )
+    assert exposure_minimums(c, pool) == {weak.player_id: 3}  # ceil(0.5 * 5), never down to 2
+    unforced = optimize(DK, pool, parse_constraints({"lineups": 5}, DK, pool))
+    assert all(
+        weak.player_id not in {p["playerId"] for p in lu["players"]} for lu in unforced["lineups"]
+    )
+    res = optimize(DK, pool, c)
+    assert res["built"] == 5 and res["minimumExposureUnmet"] == []
+    hits = [weak.player_id in {p["playerId"] for p in lu["players"]} for lu in res["lineups"]]
+    assert sum(hits) >= 3
+    # Latest-deadline construction: the forced appearances sit at the END, so
+    # the first lineups are the owner's best by projection.
+    assert hits[-3:] == [True, True, True]
+    assert res["lineups"][0]["projection"] == unforced["lineups"][0]["projection"]
+
+
+def test_min_above_max_is_refused_before_solving():
+    pool = _pool(32)
+    pid = pool[3].player_id
+    c = parse_constraints(
+        {"lineups": 4, "playerMinExposure": {pid: 0.75}, "playerMaxExposure": {pid: 0.5}}, DK, pool
+    )
+    with pytest.raises(ConstraintError) as e:
+        optimize(DK, pool, c)
+    assert e.value.code == "INVALID_CONSTRAINT" and e.value.detail["players"][0]["min"] == 3
+
+
+def test_min_exposure_player_cannot_be_excluded_or_unprojected():
+    pool = _pool(33)
+    pid = pool[4].player_id
+    with pytest.raises(ConstraintError):
+        parse_constraints({"excludes": [pid], "playerMinExposure": {pid: 0.2}}, DK, pool)
+    pool[4].projection = None
+    with pytest.raises(ConstraintError) as e:
+        optimize(DK, pool, parse_constraints({"playerMinExposure": {pid: 0.2}}, DK, pool))
+    assert e.value.code == "MIN_EXPOSURE_PLAYER_UNPROJECTED"
+
+
+def test_conflicting_minimums_are_isolated_and_reported_unmet_not_relaxed():
+    # Two quarterbacks both required in every lineup cannot share one QB slot.
+    pool = _pool(34)
+    qbs = [a.player_id for a in pool if a.positions == ["QB"]][:2]
+    c = parse_constraints({"lineups": 2, "playerMinExposure": {qbs[0]: 1.0, qbs[1]: 1.0}}, DK, pool)
+    res = optimize(DK, pool, c)
+    assert res["built"] == 0 and res["shortfall"]["reason"] == "infeasible"
+    assert res["shortfall"]["conflict"]["items"] == ["min_exposure"]
+    assert "Minimum exposures due" in res["shortfall"]["conflict"]["described"][0]
+    assert {u["playerId"] for u in res["minimumExposureUnmet"]} == set(qbs)

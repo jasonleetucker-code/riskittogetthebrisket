@@ -59,7 +59,7 @@ junction to the main checkout's.
   / MVP captain rules; entry-file import (entry IDs) for export and late swap.
 - **B:** quick-contest mode UI (preset picker), top-1% concentration + payout-curve chart,
   record the contest version on each build.
-- **C:** min exposure, if-then groups, salary-left range, NHL/NBA/MMA stack controls.
+- **C:** ~~min exposure, if-then groups, salary-left range~~ (built); NHL/NBA/MMA stack controls remain.
 - **UI (Lane 6):** strategy / lineup-count chips on the home flow, mobile pass, axe + E2E spec.
 
 ## Commands

@@ -192,6 +192,27 @@ describe("dfs lib — owner overrides vs boosts", () => {
   });
 });
 
+describe("dfs lib — per-player exposure range", () => {
+  it("sends fractions; blank is absent; min 0 is dropped but max 0 is a real instruction", async () => {
+    const { exposureAdjustments } = await import("@/lib/dfs");
+    const { payload, errors } = exposureAdjustments({
+      a: { min: "30", max: "60" },
+      b: { min: "0", max: "" },
+      c: { min: "", max: "0" },
+      d: {},
+    });
+    expect(errors).toEqual({});
+    expect(payload).toEqual({ playerMinExposure: { a: 0.3 }, playerMaxExposure: { a: 0.6, c: 0 } });
+  });
+
+  it("refuses out-of-range entries and a minimum above the maximum", async () => {
+    const { exposureAdjustments } = await import("@/lib/dfs");
+    expect(exposureAdjustments({ a: { min: "120" } }).errors.a).toBeTruthy();
+    expect(exposureAdjustments({ a: { max: "x" } }).errors.a).toBeTruthy();
+    expect(exposureAdjustments({ a: { min: "70", max: "40" } }).errors.a).toMatch(/above the maximum/);
+  });
+});
+
 describe("dfs lib — salary range", () => {
   it("sends both ends of the salary range, blank = unconstrained", async () => {
     const { buildConstraints } = await import("@/lib/dfs");

@@ -528,6 +528,12 @@ async def create_build(request: Request):
             if constraints.lineups == 1
             else "Lineup k is the highest projected lineup that keeps the uniqueness rule against lineups 1..k-1 "
             "and the exposure caps. The set is built sequentially, not jointly optimized as a portfolio."
+            + (
+                " A minimum exposure is forced only once every remaining lineup must carry the player, so "
+                "forced appearances sit at the end of the set."
+                if constraints.player_min_exposure
+                else ""
+            )
         ),
         "solver": solver_version(),
         "seed": None,

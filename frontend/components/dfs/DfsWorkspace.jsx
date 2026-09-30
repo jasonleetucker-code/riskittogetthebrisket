@@ -29,6 +29,7 @@ import {
   PLATFORMS,
   SPORTS,
   buildConstraints,
+  exposureAdjustments,
   ownerAdjustments,
   capabilitiesFor,
   errorMessage,
@@ -242,6 +243,17 @@ function BuildResult({ build, ruleset }) {
           )}
         </Banner>
       ) : null}
+      {r.minimumExposureUnmet?.length ? (
+        <Banner tone="warning" title="Minimum exposure not reached">
+          <ul className={styles.list}>
+            {r.minimumExposureUnmet.map((u) => (
+              <li key={u.playerId}>
+                {u.name}: in {u.count} of the built lineups, minimum {u.min} of {r.requested}.
+              </li>
+            ))}
+          </ul>
+        </Banner>
+      ) : null}
       {r.excludedUnprojected?.length ? (
         <p className={styles.note}>
           {r.excludedUnprojected.length} player(s) without a projection were left out — missing is never scored as
@@ -258,6 +270,7 @@ function BuildResult({ build, ruleset }) {
             { key: "name", header: "Player" },
             { key: "count", header: "Lineups", numeric: true },
             { key: "share", header: "Share", numeric: true, render: (x) => `${Math.round((x.share || 0) * 100)}%` },
+            { key: "min", header: "Min", numeric: true, render: (x) => (x.min == null ? "—" : x.min) },
             { key: "cap", header: "Cap", numeric: true, render: (x) => (x.cap == null ? "—" : x.cap) },
           ]}
           rows={r.exposure}
@@ -341,6 +354,7 @@ export default function DfsWorkspace() {
   const [groupRules, setGroupRules] = useState([]);
   const [overrides, setOverrides] = useState({});
   const [boosts, setBoosts] = useState({});
+  const [exposure, setExposure] = useState({});
 
   useEffect(() => {
     const stored = readStoredContext();
@@ -380,6 +394,7 @@ export default function DfsWorkspace() {
     setGroupRules([]);
     setOverrides({});
     setBoosts({});
+    setExposure({});
   }, []);
 
   const onFile = async (e, setter) => {
@@ -418,6 +433,7 @@ export default function DfsWorkspace() {
     setGroupRules([]);
     setOverrides({});
     setBoosts({});
+    setExposure({});
   };
 
   const runBuild = async (lineupsOverride) => {
@@ -433,6 +449,16 @@ export default function DfsWorkspace() {
     }
     if (Object.keys(adj.payload.projectionOverrides).length) payload.projectionOverrides = adj.payload.projectionOverrides;
     if (Object.keys(adj.payload.boosts).length) payload.boosts = adj.payload.boosts;
+    // A per-player exposure range only means something across several lineups.
+    if (lineupsOverride !== 1) {
+      const exp = exposureAdjustments(exposure);
+      if (Object.keys(exp.errors).length) {
+        setBuildError(Object.values(exp.errors)[0]);
+        return;
+      }
+      if (Object.keys(exp.payload.playerMinExposure).length) payload.playerMinExposure = exp.payload.playerMinExposure;
+      if (Object.keys(exp.payload.playerMaxExposure).length) payload.playerMaxExposure = exp.payload.playerMaxExposure;
+    }
     if (Object.keys(errors).length) {
       setBuildError(Object.values(errors)[0]);
       return;
@@ -588,6 +614,7 @@ export default function DfsWorkspace() {
                   setGroupRules([]);
                   setOverrides({});
                   setBoosts({});
+                  setExposure({});
                   setBuild(null);
                 }}
               />
@@ -627,6 +654,8 @@ export default function DfsWorkspace() {
                   setOverrides={setOverrides}
                   boosts={boosts}
                   setBoosts={setBoosts}
+                  exposure={exposure}
+                  setExposure={setExposure}
                 />
               </Suspense>
             </Panel>

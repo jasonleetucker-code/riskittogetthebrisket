@@ -105,6 +105,8 @@ class Constraints:
     min_unique: int = 1
     max_exposure: float | None = None
     player_max_exposure: dict[str, float] = field(default_factory=dict)
+    # Owner MINIMUM share of the N lineups a player must appear in.
+    player_min_exposure: dict[str, float] = field(default_factory=dict)
     time_budget_s: float = DEFAULT_TIME_BUDGET_S
 
 
@@ -180,6 +182,26 @@ def parse_constraints(
                 {"unknown": [pid]},
             )
         c.player_max_exposure[pid] = _pct(v, f"playerMaxExposure[{pid}]")
+    pmin = raw.get("playerMinExposure") or {}
+    if not isinstance(pmin, dict):
+        raise ConstraintError(
+            "INVALID_CONSTRAINT", "playerMinExposure must map player ID → fraction."
+        )
+    for pid, v in pmin.items():
+        if pid not in ids:
+            raise ConstraintError(
+                "INVALID_CONSTRAINT",
+                "playerMinExposure names a player not on this slate.",
+                {"unknown": [pid]},
+            )
+        c.player_min_exposure[pid] = _pct(v, f"playerMinExposure[{pid}]")
+    min_and_excluded = sorted(set(c.player_min_exposure) & set(c.excludes))
+    if min_and_excluded:
+        raise ConstraintError(
+            "INVALID_CONSTRAINT",
+            "A player cannot have a minimum exposure and be excluded.",
+            {"players": min_and_excluded},
+        )
     budget = raw.get("timeBudgetSeconds")
     if budget is not None:
         if (
@@ -311,6 +333,24 @@ def exposure_bounds(c: Constraints, pool: list[SlateAthlete]) -> dict[str, int]:
     return out
 
 
+def exposure_minimums(c: Constraints, pool: list[SlateAthlete]) -> dict[str, int]:
+    """Integer MIN-appearance count per player for ``c.lineups`` lineups.
+
+    ``ceil(pct × N)`` — a floor is never rounded DOWN below what the owner
+    asked for (the mirror of ``exposure_bounds``).  Zero-count minimums are
+    dropped: they constrain nothing.
+    """
+    n = c.lineups
+    out: dict[str, int] = {}
+    ids = {a.player_id for a in pool}
+    for pid, pct in c.player_min_exposure.items():
+        if pid in ids:
+            k = int(math.ceil(pct * n - 1e-9))
+            if k > 0:
+                out[pid] = k
+    return out
+
+
 # ── Independent validator ────────────────────────────────────────────────
 
 
@@ -424,6 +464,7 @@ def _build(
     previous: list[list[str]],
     exhausted: set[str],
     active_items: set[str] | None,
+    due: frozenset[str] = frozenset(),
 ) -> _Model:
     """Build rows.  ``active_items`` None = all owner items; otherwise only those tags."""
 
@@ -516,6 +557,9 @@ def _build(
         tag = f"lock:{pid}"
         if on(tag):
             rows.append((y(index[pid]), 1, 1, tag))
+    if due and on("min_exposure"):
+        for pid in sorted(due):
+            rows.append((y(index[pid]), 1, 1, "min_exposure"))
     for gi, g in enumerate(c.groups):
         tag = f"group:{gi}"
         if not on(tag):
@@ -646,7 +690,12 @@ def solver_version() -> str:
         return "unavailable"
 
 
-def _owner_items(c: Constraints, previous: list[list[str]], exhausted: set[str]) -> list[str]:
+def _owner_items(
+    c: Constraints,
+    previous: list[list[str]],
+    exhausted: set[str],
+    due: frozenset[str] = frozenset(),
+) -> list[str]:
     items = [f"lock:{p}" for p in c.locks]
     if c.excludes:
         items.append("excludes")
@@ -663,11 +712,24 @@ def _owner_items(c: Constraints, previous: list[list[str]], exhausted: set[str])
         items.append("uniqueness")
     if exhausted:
         items.append("exposure")
+    if due:
+        items.append("min_exposure")
     return items
 
 
-def describe_item(tag: str, c: Constraints, pool_by_id: dict[str, SlateAthlete]) -> str:
+def describe_item(
+    tag: str,
+    c: Constraints,
+    pool_by_id: dict[str, SlateAthlete],
+    due: frozenset[str] = frozenset(),
+) -> str:
     kind, _, ref = tag.partition(":")
+    if tag == "min_exposure":
+        names = ", ".join(sorted(pool_by_id[p].name if p in pool_by_id else p for p in due))
+        return (
+            f"Minimum exposures due in this lineup ({names}) — every remaining lineup must "
+            "include them to reach their minimum"
+        )
     if kind == "lock":
         a = pool_by_id.get(ref)
         return f"Lock {a.name if a else ref}"
@@ -709,15 +771,16 @@ def isolate_conflict(
     previous: list[list[str]],
     exhausted: set[str],
     deadline: float,
+    due: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
     """Deletion filter: a minimal set of owner items that is infeasible with the official rules."""
-    items = _owner_items(c, previous, exhausted)
+    items = _owner_items(c, previous, exhausted, due)
 
     def feasible(active: set[str]) -> bool | None:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             return None
-        m = _build(ruleset, pool, c, previous, exhausted, active)
+        m = _build(ruleset, pool, c, previous, exhausted, active, due)
         status, _ = _solve(m, [0.0] * len(m.pairs), min(remaining, 5.0))
         if status in ("optimal", "timed_out_with_feasible_result"):
             return True
@@ -824,6 +887,19 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
             "A locked player has no projection. Add a projection for them or remove the lock — missing is never scored as zero.",
             {"players": [{"playerId": p, "name": by_id[p].name} for p in unprojected_locks]},
         )
+    unprojected_mins = [
+        p
+        for p in c.player_min_exposure
+        if c.player_min_exposure[p] > 0
+        and by_id[p].projection is None
+        and p not in c.projection_overrides
+    ]
+    if unprojected_mins:
+        raise ConstraintError(
+            "MIN_EXPOSURE_PLAYER_UNPROJECTED",
+            "A player with a minimum exposure has no projection. Add a projection or remove the minimum — missing is never scored as zero.",
+            {"players": [{"playerId": p, "name": by_id[p].name} for p in unprojected_mins]},
+        )
     excluded = set(c.excludes)
     if ruleset.min_games and any(
         a.game is None for a in athletes if a.projection is not None and a.player_id not in excluded
@@ -846,17 +922,37 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
     ]  # type: ignore[arg-type]
     pool_by_id = {a.player_id: a for a in pool}
     caps = exposure_bounds(c, pool)
+    mins = exposure_minimums(c, pool)
+    over = sorted(p for p, k in mins.items() if p in caps and k > caps[p])
+    if over:
+        raise ConstraintError(
+            "INVALID_CONSTRAINT",
+            f"A minimum exposure is above that player's maximum for {c.lineups} lineup(s).",
+            {
+                "players": [
+                    {"playerId": p, "name": pool_by_id[p].name, "min": mins[p], "max": caps[p]}
+                    for p in over
+                ]
+            },
+        )
     counts: dict[str, int] = {}
     lineups: list[dict[str, Any]] = []
     previous: list[list[str]] = []
     statuses: list[str] = []
     stop: dict[str, Any] | None = None
+    due: frozenset[str] = frozenset()
     for k in range(c.lineups):
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             stop = {"reason": "time_budget_exhausted"}
             break
         exhausted = {pid for pid, cap in caps.items() if counts.get(pid, 0) >= cap}
+        # Latest-deadline construction: a minimum is forced only when every
+        # remaining lineup (this one included) must carry the player.  Earlier
+        # lineups stay the owner's best by projection; a player the optimizer
+        # picks on its own merits never needs forcing.
+        left = c.lineups - k
+        due = frozenset(p for p, need in mins.items() if need - counts.get(p, 0) >= left)
         locked_exhausted = sorted(set(c.locks) & exhausted)
         if locked_exhausted:
             statuses.append("infeasible")  # proven without a solve, not a timeout
@@ -868,7 +964,7 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
                 },
             }
             break
-        model = _build(ruleset, pool, c, previous, exhausted, None)
+        model = _build(ruleset, pool, c, previous, exhausted, None, due)
         # The objective indexes (athlete, slot) pairs, not athletes.
         # Slot multipliers (Showdown captain) apply here, once, at the slot.
         status, x = _solve(
@@ -894,6 +990,7 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
                         previous,
                         exhausted,
                         max(deadline, time.monotonic()) + ISOLATION_BUDGET_S,
+                        due,
                     ),
                 }
             else:
@@ -907,6 +1004,9 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
                 if len(ids - set(prev)) < c.min_unique:
                     errors.append("uniqueness rule violated")
                     break
+        missing_due = sorted(due - {pid for _, pid in assignment})
+        if missing_due:
+            errors.append(f"minimum-exposure players missing: {missing_due}")
         if errors:
             stop = {"reason": "solver_result_invalid", "errors": errors}
             statuses[-1] = "unavailable"
@@ -921,7 +1021,7 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
             counts[pid] = counts.get(pid, 0) + 1
     if stop and stop.get("conflict", {}).get("items"):
         stop["conflict"]["described"] = [
-            describe_item(t, c, by_id) for t in stop["conflict"]["items"]
+            describe_item(t, c, by_id, due) for t in stop["conflict"]["items"]
         ]
     if not lineups:
         overall = statuses[-1] if statuses else "timed_out"
@@ -941,8 +1041,16 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
                 "count": cnt,
                 "share": round(cnt / n_built, 4) if n_built else None,
                 "cap": caps.get(pid),
+                "min": mins.get(pid),
             }
         )
+    # A minimum is a statement about all N lineups; a partial build reports
+    # which ones it did not reach rather than claiming them.
+    unmet = [
+        {"playerId": p, "name": pool_by_id[p].name, "min": k, "count": counts.get(p, 0)}
+        for p, k in sorted(mins.items())
+        if counts.get(p, 0) < k
+    ]
     return {
         "status": overall,
         "requested": c.lineups,
@@ -953,6 +1061,8 @@ def optimize(ruleset: RuleSet, athletes: list[SlateAthlete], c: Constraints) -> 
         "lineups": lineups,
         "exposure": exposure,
         "exposureCaps": {pid: cap for pid, cap in caps.items()},
+        "exposureMinimums": dict(mins),
+        "minimumExposureUnmet": unmet,
         "excludedUnprojected": excluded_unprojected,
         "elapsedMs": int((time.monotonic() - started) * 1000),
     }

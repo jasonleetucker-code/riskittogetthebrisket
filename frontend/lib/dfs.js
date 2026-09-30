@@ -270,3 +270,32 @@ export function ownerAdjustments(overrides, boosts) {
   }
   return { payload: { projectionOverrides, boosts: boostMap }, errors };
 }
+
+/**
+ * Per-player exposure range (percent of the N lineups) → backend fractions.
+ * Blank = no bound (absent, never 0). A min of 0 constrains nothing and is
+ * dropped; a max of 0 is a real instruction ("in none of them") and is sent.
+ * The server turns them into whole-lineup counts: min rounds UP, max DOWN.
+ */
+export function exposureAdjustments(exposure) {
+  const errors = {};
+  const playerMinExposure = {};
+  const playerMaxExposure = {};
+  for (const [pid, range] of Object.entries(exposure || {})) {
+    const parse = (raw) => (raw === "" || raw == null ? null : Number(raw));
+    const lo = parse(range?.min);
+    const hi = parse(range?.max);
+    const bad = (v) => v !== null && (!Number.isFinite(v) || v < 0 || v > 100);
+    if (bad(lo) || bad(hi)) {
+      errors[pid] = "Exposure must be a percentage from 0 to 100.";
+      continue;
+    }
+    if (lo !== null && hi !== null && lo > hi) {
+      errors[pid] = "Minimum exposure cannot be above the maximum.";
+      continue;
+    }
+    if (lo !== null && lo > 0) playerMinExposure[pid] = lo / 100;
+    if (hi !== null) playerMaxExposure[pid] = hi / 100;
+  }
+  return { payload: { playerMinExposure, playerMaxExposure }, errors };
+}

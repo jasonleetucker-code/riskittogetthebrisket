@@ -266,6 +266,15 @@
   width: 5rem;
 }
 
+.rangeInputs {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.rangeInputs .cellInput {
+  width: 3.5rem;
+}
+
 .provenance summary {
   cursor: pointer;
   font-size: var(--font-size-sm);
