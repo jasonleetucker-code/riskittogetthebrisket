@@ -23,8 +23,13 @@ async function forward(request, { params }) {
   const headers = { Cookie: request.headers.get("cookie") || "" };
   let body;
   if (request.method !== "GET" && request.method !== "HEAD") {
+    // Compare with the Host the BROWSER addressed, not request.url: under
+    // `next start` request.url can carry Next's own bind host (localhost)
+    // while the browser is on 127.0.0.1, which refused same-origin posts.
     const origin = request.headers.get("origin");
-    if (!origin || origin !== incoming.origin) {
+    const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
+    const expected = host ? `${incoming.protocol}//${host}` : incoming.origin;
+    if (!origin || origin !== expected) {
       return NextResponse.json({ error: "BAD_ORIGIN", message: "Cross-origin request refused." }, { status: 403 });
     }
     headers["Content-Type"] = "application/json";
