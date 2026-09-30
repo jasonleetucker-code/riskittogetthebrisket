@@ -322,6 +322,34 @@ class TestIsolationAndModes(unittest.TestCase):
         b = [round(p["fundamental"]["balanced"], 6) for p in plain["players"]]
         self.assertNotEqual(a, b)
 
+    def test_snapshot_asof_provenance_is_published(self):
+        meta = run()["meta"]["projectionSnapshot"]
+        self.assertEqual(meta["asOf"], "2026-07-27")
+        self.assertFalse(meta["asOfUnknown"])
+        self.assertEqual(meta["asOfSource"], "caller")
+
+    def test_snapshot_without_asof_is_flagged_not_passed_off_as_its_date(self):
+        """A snapshot file with no asOf has an UNKNOWN capture date.  The
+        request time still stands in as the staleness reference (serving is
+        unchanged) but the substitution is published, not disguised."""
+        records = list(PROJECTIONS) + depth_records()
+        with (
+            mock.patch.object(bdvm_service, "latest_snapshot_path", return_value=Path("x.json")),
+            mock.patch.object(bdvm_service, "load_snapshot", return_value=("", records)),
+        ):
+            payload = bdvm_service.run_valuation(
+                build_contract(), league_key="dynasty_main", params=PARAMS, season=2026
+            )
+        snap = payload["meta"]["projectionSnapshot"]
+        self.assertTrue(snap["asOfUnknown"])
+        self.assertEqual(snap["asOfSource"], "request_time_fallback")
+        self.assertEqual(snap["asOf"], payload["meta"]["asOf"][:10])
+        self.assertEqual(payload["status"], "ok")
+
+    def test_stale_reasons_published_per_player(self):
+        for p in run()["players"]:
+            self.assertIsInstance(p["projection"]["staleReasons"], list)
+
     def test_no_projection_snapshot_status(self):
         payload = bdvm_service.run_valuation(
             build_contract(),

@@ -299,6 +299,7 @@ def run_valuation(
 
     # ---- projections -----------------------------------------------------
     snapshot_path: Path | None = None
+    as_of_source = "caller" if snapshot_as_of else None
     if projection_records is None:
         snapshot_path = latest_snapshot_path(season)
         if snapshot_path is None:
@@ -317,13 +318,22 @@ def run_valuation(
                 "replacement": {},
             }
         snap_as_of, records = load_snapshot(snapshot_path)
+        if not snapshot_as_of and snap_as_of:
+            as_of_source = "snapshot"
         snapshot_as_of = snapshot_as_of or snap_as_of
     else:
         records = list(projection_records)
+    # A snapshot with no asOf has an UNKNOWN capture date.  The request
+    # time still stands in as the staleness reference (unchanged serving),
+    # but the substitution is published rather than passed off as the
+    # snapshot's own date: request time is not when the data was captured.
+    as_of_unknown = not snapshot_as_of
     snapshot_as_of = snapshot_as_of or as_of[:10]
     meta["projectionSnapshot"] = {
         "path": str(snapshot_path) if snapshot_path else None,
         "asOf": snapshot_as_of,
+        "asOfUnknown": as_of_unknown,
+        "asOfSource": as_of_source or "request_time_fallback",
         "recordCount": len(records),
     }
 
@@ -592,6 +602,9 @@ def run_valuation(
                     "sources": list(blended.sources),
                     "anyProxy": blended.any_proxy,
                     "staleSources": list(blended.stale_sources),
+                    "staleReasons": [
+                        {"source": s, "reason": why} for s, why in blended.stale_reasons
+                    ],
                     "vocabularyLimitedSources": list(blended.vocabulary_limited),
                 },
                 "replacement": {
