@@ -40,6 +40,8 @@ _ENTRY_COLS = ["Rank", "EntryId", "EntryName", "TimeRemaining", "Points", "Lineu
 _PLAYER_COLS = ["Player", "Roster Position", "%Drafted", "FPTS"]
 _OWN_BANDS = [(0, 5), (5, 10), (10, 20), (20, 30), (30, 101)]
 MAX_FIELD_ENTRIES = 250_000
+DUP_SAMPLE_REPEATED = 5_000
+DUP_SAMPLE_SINGLES = 2_000
 # Large-field standings run to tens of MB.  Production nginx refuses bodies over
 # 25 MB (deploy/nginx/chaseupside-proxy.conf), so this stays under it; bigger
 # fields are refused with FILE_TOO_LARGE rather than half-read.
@@ -192,14 +194,30 @@ def duplication(lineups: list[list[str]]) -> dict[str, Any] | None:
         return None
     from collections import Counter
 
+    import random
+
     counts = Counter(frozenset(lu) for lu in lineups)
     hist = Counter(counts.values())  # copies-per-lineup -> how many distinct lineups
+    # Compact FITTING SAMPLE for the duplication model (DFS-MOD-06): every lineup
+    # entered more than once, plus a seeded sample of single-entry lineups carrying
+    # the inverse sampling rate as its weight — so a fit sees the real mix without
+    # storing a 150k-entry field.
+    repeated = [(sorted(k), c) for k, c in counts.items() if c > 1][:DUP_SAMPLE_REPEATED]
+    singles = sorted(sorted(k) for k, c in counts.items() if c == 1)
+    take = min(len(singles), DUP_SAMPLE_SINGLES)
+    picked = random.Random(1729).sample(singles, take) if take else []
+    single_weight = len(singles) / take if take else None
     return {
         "lineupsCompared": len(lineups),
         "distinctLineups": len(counts),
         "entriesInDuplicatedLineups": sum(c for c in counts.values() if c > 1),
         "histogram": {str(k): v for k, v in sorted(hist.items())},
         "maxCopies": max(counts.values()),
+        "fitSample": {
+            "repeated": [{"players": p, "count": c, "weight": 1.0} for p, c in repeated],
+            "singles": [{"players": p, "count": 1, "weight": single_weight} for p in picked],
+            "repeatedTruncated": sum(1 for c in counts.values() if c > 1) > DUP_SAMPLE_REPEATED,
+        },
     }
 
 
