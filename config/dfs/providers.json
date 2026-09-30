@@ -1,0 +1,190 @@
+{
+ "_comment": "DFS slate providers (owner addendum 2026-09-30, docs/dfs/TRACEABILITY.md DFS-ADD). Cell vocabulary: verified (observed with real data) | documented (published schema only) | documented_field_unverified_values | not_documented | unknown. 'documented' is NOT 'verified'. No provider is live until status == 'verified' with evidence. Platform CSV import is the always-available fallback; unofficial DraftKings/FanDuel endpoints are never a production dependency.",
+ "schemaVersion": 1,
+ "checkedOn": "2026-09-30",
+ "providers": [
+  {
+   "id": "sportsdataio",
+   "label": "SportsDataIO DFS slates",
+   "kind": "licensed_feed",
+   "credentialEnv": "SPORTSDATAIO_API_KEY",
+   "credentialHeader": "Ocp-Apim-Subscription-Key",
+   "endpoint": "https://api.sportsdata.io/v3/{sport}/projections/json/DfsSlatesByDate/{date}",
+   "sports": [
+    "nfl",
+    "nba",
+    "nhl"
+   ],
+   "cost": {
+    "model": "paid_subscription",
+    "monthlyUsd": null,
+    "annualUsd": null,
+    "note": "Price not established \u2014 requires a vendor quote. No trial or purchase without owner approval."
+   },
+   "limits": {
+    "requests": null,
+    "note": "Unknown until an account exists."
+   },
+   "license": {
+    "assessed": false,
+    "note": "Terms not reviewed for this use yet."
+   },
+   "reusesOwner": "SPORTSDATAIO_API_KEY convention shared with src/ros/sportsdataio_weekly_projections.py and src/nfl_data/sportsdataio_live_game_state.py"
+  },
+  {
+   "id": "platform_csv",
+   "label": "Official platform salary / entry CSV (owner-downloaded)",
+   "kind": "platform_csv",
+   "sports": [
+    "nfl",
+    "nba",
+    "nhl",
+    "mma"
+   ],
+   "cost": {
+    "model": "free"
+   },
+   "note": "Always-available path. Supported layouts are those with a tested adapter; unverified layouts are reported, never guessed."
+  }
+ ],
+ "matrix": [
+  {
+   "platform": "draftkings",
+   "sport": "nfl",
+   "provider": "sportsdataio",
+   "salaries": "documented",
+   "playerIds": "documented",
+   "slates": "documented",
+   "rosterRules": "documented",
+   "showdown": "documented_field_unverified_values",
+   "ownership": "documented",
+   "historical": "unknown",
+   "status": "blocked",
+   "reason": "Schema documented (DfsSlatesByDate: OperatorSlateID, OperatorPlayerID, OperatorSalary, OperatorRosterSlots, SalaryCap, SlateRosterSlots, OperatorGameType). NOT verified: which operators (DraftKings/FanDuel) a subscription returns, field values, freshness, licence terms and price \u2014 needs SPORTSDATAIO_API_KEY (paid; owner approval).",
+   "evidence": [
+    "https://api.apis.guru/v2/specs/sportsdata.io/nfl-v3-projections/1.0/openapi.json"
+   ],
+   "fallback": "platform_csv"
+  },
+  {
+   "platform": "fanduel",
+   "sport": "nfl",
+   "provider": "sportsdataio",
+   "salaries": "documented",
+   "playerIds": "documented",
+   "slates": "documented",
+   "rosterRules": "documented",
+   "showdown": "documented_field_unverified_values",
+   "ownership": "documented",
+   "historical": "unknown",
+   "status": "blocked",
+   "reason": "Schema documented (DfsSlatesByDate: OperatorSlateID, OperatorPlayerID, OperatorSalary, OperatorRosterSlots, SalaryCap, SlateRosterSlots, OperatorGameType). NOT verified: which operators (DraftKings/FanDuel) a subscription returns, field values, freshness, licence terms and price \u2014 needs SPORTSDATAIO_API_KEY (paid; owner approval).",
+   "evidence": [
+    "https://api.apis.guru/v2/specs/sportsdata.io/nfl-v3-projections/1.0/openapi.json"
+   ],
+   "fallback": "platform_csv"
+  },
+  {
+   "platform": "draftkings",
+   "sport": "nba",
+   "provider": "sportsdataio",
+   "salaries": "documented",
+   "playerIds": "documented",
+   "slates": "documented",
+   "rosterRules": "documented",
+   "showdown": "documented_field_unverified_values",
+   "ownership": "not_documented",
+   "historical": "unknown",
+   "status": "blocked",
+   "reason": "Schema documented (DfsSlatesByDate: OperatorSlateID, OperatorPlayerID, OperatorSalary, OperatorRosterSlots, SalaryCap, SlateRosterSlots, OperatorGameType). NOT verified: which operators (DraftKings/FanDuel) a subscription returns, field values, freshness, licence terms and price \u2014 needs SPORTSDATAIO_API_KEY (paid; owner approval).",
+   "evidence": [
+    "https://api.apis.guru/v2/specs/sportsdata.io/nba-v3-projections/1.0/openapi.json"
+   ],
+   "fallback": "platform_csv"
+  },
+  {
+   "platform": "fanduel",
+   "sport": "nba",
+   "provider": "sportsdataio",
+   "salaries": "documented",
+   "playerIds": "documented",
+   "slates": "documented",
+   "rosterRules": "documented",
+   "showdown": "documented_field_unverified_values",
+   "ownership": "not_documented",
+   "historical": "unknown",
+   "status": "blocked",
+   "reason": "Schema documented (DfsSlatesByDate: OperatorSlateID, OperatorPlayerID, OperatorSalary, OperatorRosterSlots, SalaryCap, SlateRosterSlots, OperatorGameType). NOT verified: which operators (DraftKings/FanDuel) a subscription returns, field values, freshness, licence terms and price \u2014 needs SPORTSDATAIO_API_KEY (paid; owner approval).",
+   "evidence": [
+    "https://api.apis.guru/v2/specs/sportsdata.io/nba-v3-projections/1.0/openapi.json"
+   ],
+   "fallback": "platform_csv"
+  },
+  {
+   "platform": "draftkings",
+   "sport": "nhl",
+   "provider": "sportsdataio",
+   "salaries": "documented",
+   "playerIds": "documented",
+   "slates": "documented",
+   "rosterRules": "documented",
+   "showdown": "documented_field_unverified_values",
+   "ownership": "not_documented",
+   "historical": "unknown",
+   "status": "blocked",
+   "reason": "Schema documented (DfsSlatesByDate: OperatorSlateID, OperatorPlayerID, OperatorSalary, OperatorRosterSlots, SalaryCap, SlateRosterSlots, OperatorGameType). NOT verified: which operators (DraftKings/FanDuel) a subscription returns, field values, freshness, licence terms and price \u2014 needs SPORTSDATAIO_API_KEY (paid; owner approval).",
+   "evidence": [
+    "https://api.apis.guru/v2/specs/sportsdata.io/nhl-v3-projections/1.0/openapi.json"
+   ],
+   "fallback": "platform_csv"
+  },
+  {
+   "platform": "fanduel",
+   "sport": "nhl",
+   "provider": "sportsdataio",
+   "salaries": "documented",
+   "playerIds": "documented",
+   "slates": "documented",
+   "rosterRules": "documented",
+   "showdown": "documented_field_unverified_values",
+   "ownership": "not_documented",
+   "historical": "unknown",
+   "status": "blocked",
+   "reason": "Schema documented (DfsSlatesByDate: OperatorSlateID, OperatorPlayerID, OperatorSalary, OperatorRosterSlots, SalaryCap, SlateRosterSlots, OperatorGameType). NOT verified: which operators (DraftKings/FanDuel) a subscription returns, field values, freshness, licence terms and price \u2014 needs SPORTSDATAIO_API_KEY (paid; owner approval).",
+   "evidence": [
+    "https://api.apis.guru/v2/specs/sportsdata.io/nhl-v3-projections/1.0/openapi.json"
+   ],
+   "fallback": "platform_csv"
+  },
+  {
+   "platform": "draftkings",
+   "sport": "mma",
+   "provider": "sportsdataio",
+   "salaries": "not_documented",
+   "playerIds": "not_documented",
+   "slates": "not_documented",
+   "rosterRules": "not_documented",
+   "showdown": "not_documented",
+   "ownership": "not_documented",
+   "historical": "not_documented",
+   "status": "blocked",
+   "reason": "No SportsDataIO MMA spec exists in the apis.guru catalog (checked 2026-09-30). MMA slates come from the official platform CSV (adapter), until a verified licensed source is found.",
+   "fallback": "platform_csv"
+  },
+  {
+   "platform": "fanduel",
+   "sport": "mma",
+   "provider": "sportsdataio",
+   "salaries": "not_documented",
+   "playerIds": "not_documented",
+   "slates": "not_documented",
+   "rosterRules": "not_documented",
+   "showdown": "not_documented",
+   "ownership": "not_documented",
+   "historical": "not_documented",
+   "status": "blocked",
+   "reason": "No SportsDataIO MMA spec exists in the apis.guru catalog (checked 2026-09-30). MMA slates come from the official platform CSV (adapter), until a verified licensed source is found.",
+   "fallback": "platform_csv"
+  }
+ ]
+}

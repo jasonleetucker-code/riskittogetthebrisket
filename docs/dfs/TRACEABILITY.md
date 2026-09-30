@@ -86,3 +86,42 @@ vocabulary: **SLICE1** (implemented + tested on `claude/dfs-foundation`, PR #153
 | DFS-§26-01 | Lane 6 active every batch | all | SLICE1 | `/dfs` UI shipped with the foundation; UI ledger row |
 | DFS-§27-01 | Documentation set + user guide | P0 | SLICE1 | This folder |
 | DFS-§28-01..14 | Owner acceptance stories | P1–P8 | PARTIAL | Story 1 (partial: honest states for all four sports), 5 (partial), 6, 12 (partial), 13 (partial), 14 |
+
+## Owner addendum 2026-09-30 — Platform / Slate / Contest integration
+
+Additive; nothing above is superseded except the phase ORDER (see `ROADMAP.md`). Status vocabulary
+as above; **SLICE3** = Phase A slice on `claude/dfs-contests`.
+
+| ID | Requirement (compressed) | Phase | Status | Evidence / next action |
+|---|---|---|---|---|
+| DFS-ADD-01 | No production dependency on unofficial DK/FD endpoints, scraping or account automation | all | SLICE1+ (holds) | No such code exists; ADR-DFS-009; official pages' 403s recorded, not bypassed |
+| DFS-ADD-02 | Licensed slate feed (SportsDataIO) evaluated; per platform x sport x field capability matrix | A | PARTIAL (SLICE3) | `config/dfs/providers.json` from the published OpenAPI (NFL/NBA/NHL `DfsSlatesByDate`); every cell `documented`, none `verified` — BLOCKED(no key; paid) |
+| DFS-ADD-03 | MMA via official/user-downloaded CSV until a licensed source is verified | A | SLICE3 | MMA files detected; roster rules still unencoded, so `UNSUPPORTED_FORMAT` names what was recognised |
+| DFS-ADD-04 | First-class platform CSV import: detect platform/sport/format, IDs, names, salaries, eligibility, duplicates, unknown fields, useful errors, no guessing | A | PARTIAL (SLICE1 parse + SLICE3 detection) | Entry/late-swap/result files remain NEXT (G/H) |
+| DFS-ADD-05 | First-class export: IDs, slot order, locks, entry IDs, validation, duplicates, limits, explicit support | A/C/G | PARTIAL (SLICE1) | Re-validated new-lineup export; entry-ID export needs entry-file import (G); verified only with official templates |
+| DFS-ADD-06 | Canonical DFS slate model; providers map into it; downstream never reads provider objects | A | SLICE3 | `src/dfs/slate.py` |
+| DFS-ADD-07 | Slate != contest; canonical contest profile tied to a slate | B | PARTIAL (SLICE2 profile, SLICE3 link) | Contest family taxonomy (satellite/qualifier/league) NEXT |
+| DFS-ADD-08 | Three contest-creation modes: quick (preset), exact (editor), import | B | PARTIAL | Exact = SLICE2; quick = presets exist, UI selection NEXT; import BLOCKED(no verified contest-file layout) |
+| DFS-ADD-09 | Payout editor shows totals, implied rake, cash %, first-place and top-1% concentration, curve chart, errors | B | PARTIAL (SLICE2) | Top-1% concentration + curve visualization NEXT |
+| DFS-ADD-10 | Contest-aware objective uses distributions/ownership/duplication/payouts; disclose fallbacks | F | BLOCKED(D+E) | `contest_ev` refuses; fallback disclosed |
+| DFS-ADD-11 | Optimal Lineup knows platform/sport/slate/contest/field/payout/limits/model confidence; never silently median-maximizes | F | PARTIAL | Baseline labelled; contest link on builds NEXT |
+| DFS-ADD-12 | Fixed-N and recommended-count are separate | C/F | PARTIAL | = DFS-§7-01 (done) / §7-03 (bound done, recommendation blocked) |
+| DFS-ADD-13 | Low-friction DFS home: sport -> platform -> slate -> contest -> strategy -> count -> build | A-F | PARTIAL | Context bar + import + contest exist; provider slate status SLICE3 (shows unavailable); strategy/count chips NEXT |
+| DFS-ADD-14 | Full expert control incl. min exposure, boosts, projection/ownership overrides, notes/tags, salary-left, if-then groups, sport stacks, auto vs manual mode | C | PARTIAL | = DFS-§8 rows |
+| DFS-ADD-15 | Visible freshness per information class | D | PARTIAL (SLICE3 strip) | Salary/projection from the snapshot; odds/ownership/news/podcast shown as unavailable until sources exist |
+| DFS-ADD-16 | Sources separated by function; source != signal | D | PARTIAL | `source_seeds.json` categories + independence groups reserved |
+| DFS-ADD-17 | Podcast pipeline remains part of the optimizer | D | NEXT | = DFS-§15-01 |
+| DFS-ADD-18 | athlete <-> salary <-> game <-> sportsbook market join; market definitions preserved | D | NEXT | Canonical slate carries event IDs for the join |
+| DFS-ADD-19 | Exact contest simulation (payout, cash/top-%/first probabilities, duplicates) with provenance | E/F | LATER | Exact payout/tie math already built |
+| DFS-ADD-20 | Historical contest result import -> DFS field archive; post-lock data never used pre-lock | H | LATER | |
+| DFS-ADD-21 | Result learning loop with champion/challenger | H | LATER | |
+| DFS-ADD-22 | Live / rooting view | G | LATER | = DFS-§20-01 |
+| DFS-ADD-23 | Source-cost registry; incremental value vs cost; no purchase without approval | D | PARTIAL (SLICE3) | `providers.json` cost fields (price unknown, never invented) |
+| DFS-ADD-24 | Source failover; failure never becomes zero projections/ownership/empty salary | A/D | PARTIAL | CSV fallback always available; stale-snapshot policy NEXT |
+| DFS-ADD-25 | PSI UI, dense tables, mobile parity for the core workflow | all | PARTIAL | = DFS-§22 rows |
+| DFS-ADD-26 | No DFS contamination of dynasty valuation | all | SLICE1 (tested) | AST isolation test |
+| DFS-ADD-27 | Roadmap reordered A-H; advanced work preserved | P0 | DONE | `ROADMAP.md` |
+| DFS-ADD-28 | Named failure states (provider unavailable, quota, stale, payout incomplete, identity unresolved, unsupported slate/platform/format, CSV malformed/wrong platform, rules unverified, lock passed, export invalid, sim unavailable, no field data) | A-H | PARTIAL | Built: PROVIDER_UNAVAILABLE, SOURCE_PERMISSION_REQUIRED, PAYOUT_INCOMPLETE, identity quarantine, UNSUPPORTED_SLATE/FORMAT, HEADER_MISMATCH, CSV_WRONG_PLATFORM, RULESET_UNVERIFIED, LINEUP_INVALID_AT_EXPORT, CAPABILITY_UNAVAILABLE. Remaining: QUOTA_EXCEEDED (with the feed), STALE_CRITICAL_INPUT, LOCK_PASSED, NO_FIELD_DATA |
+| DFS-ADD-29 | Fixtures for DK NFL Classic/Showdown/NBA/NHL/MMA and FD NFL/NBA/NHL/MMA; one true end-to-end fixture before calling the baseline operational | A/C | PARTIAL | Synthetic DK/FD NFL fixtures + e2e API test (import -> build -> export); synthetic detection fixtures for the rest (SLICE3). Real-template fixtures BLOCKED on the owner |
+| DFS-ADD-30 | Owner core workflow (NFL DK Sunday Main -> exact contest -> 20-lineup optimal portfolio -> export) | P8 | LATER | Depends on A (feed or CSV) + B + D-F |
+| DFS-ADD-31 | Continue from current state; concise update | P0 | DONE | This record |
