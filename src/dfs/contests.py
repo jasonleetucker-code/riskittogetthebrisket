@@ -100,6 +100,11 @@ class Contest:
         return d
 
 
+def contest_from_dict(d: dict[str, Any]) -> Contest:
+    """Rebuild a stored contest (``Contest.to_dict`` output) — the inverse, nothing more."""
+    return Contest(**{**d, "ladder": [PayoutBand(**b) for b in d.get("ladder") or []]})
+
+
 # ── parsing ───────────────────────────────────────────────────────────
 
 

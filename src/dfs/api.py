@@ -1052,7 +1052,9 @@ async def entries_parse(request: Request):
 @router.post("/results")
 async def import_results(request: Request):
     """Import a finished contest's standings for one slate and evaluate the owner's forecasts."""
+    from src.dfs.contests import contest_from_dict
     from src.dfs.results import MAX_RESULTS_BYTES, evaluate, parse_standings
+    from src.dfs.settlement import settle
 
     owner = _owner(request)
     if isinstance(owner, JSONResponse):
@@ -1069,9 +1071,29 @@ async def import_results(request: Request):
             "RULESET_SUPERSEDED", "This slate's rule-set version is no longer current.", 409
         )
     athletes = _athletes_from(snap["body"]["athletes"])
+    owner_ids = body.get("ownerEntryIds") or []
+    username = body.get("ownerUsername")
+    if not isinstance(owner_ids, list) or not all(isinstance(x, str) for x in owner_ids):
+        return _err("INVALID_BODY", "ownerEntryIds must be a list of entry IDs.", 400)
+    if username is not None and (not isinstance(username, str) or len(username) > 80):
+        return _err("INVALID_BODY", "ownerUsername must be a short string.", 400)
+    contest = None
+    if body.get("contestId") is not None:
+        # Same ownership / platform / slate-link checks a build applies.
+        ctx = await _build_context(owner, {"contestId": body["contestId"]}, snap, rs)
+        if isinstance(ctx, JSONResponse):
+            return ctx
+        rec = await run_in_threadpool(store.get_contest, owner, body["contestId"])
+        contest = contest_from_dict(rec["contest"])
     try:
         parsed = await run_in_threadpool(
-            parse_standings, body.get("standingsCsv") or "", rs, athletes
+            lambda: parse_standings(
+                body.get("standingsCsv") or "",
+                rs,
+                athletes,
+                owner_entry_ids=owner_ids[:1000],
+                owner_username=username,
+            )
         )
     except ImportError_ as exc:
         return _err(exc.code, exc.message, 422, exc.detail)
@@ -1085,6 +1107,16 @@ async def import_results(request: Request):
     record = {
         **parsed,
         "evaluation": evaluate(athletes, parsed["realized"]),
+        "settlement": (
+            settle(
+                contest,
+                parsed["pointsCounts"],
+                parsed["ownerEntries"],
+                unscored_entries=parsed["unscoredEntries"],
+            )
+            if contest is not None
+            else None
+        ),
         "evidenceClaim": "shadow",  # evaluation evidence; it changes no model or weight
     }
     saved = await run_in_threadpool(store.put_result, owner, snap["id"], record)

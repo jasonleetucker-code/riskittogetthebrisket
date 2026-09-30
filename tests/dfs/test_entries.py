@@ -254,3 +254,57 @@ def test_results_api_stores_an_evaluation_scoped_to_the_owner(client):
         headers=h,
     )
     assert bad.status_code == 422 and bad.json()["error"] == "NO_PLAYERS_MATCHED"
+
+
+def test_results_with_a_contest_settle_the_owners_entries_by_username(client):
+    h = {"x-user": "a"}
+    snap = client.post(
+        "/api/dfs/slates",
+        json={
+            "salaryCsv": (FIX / "synthetic_dk_nfl_classic_salaries.csv").read_text(encoding="utf-8"),
+            "projectionCsv": (FIX / "synthetic_dk_nfl_classic_projections.csv").read_text(
+                encoding="utf-8"
+            ),
+        },
+        headers=h,
+    ).json()
+    contest = client.post(
+        "/api/dfs/contests",
+        json={
+            "contest": {
+                "name": "Tiny GPP",
+                "platform": "draftkings",
+                "sport": "nfl",
+                "format": "classic",
+                "entryFee": "5",
+                "capacity": 4,
+                "currentEntries": 4,
+                "tieRule": "split_positions",
+                "payoutText": "1 $1,000\n2 $100",
+            }
+        },
+        headers=h,
+    ).json()
+    qb = next(a for a in snap["athletes"] if a["positions"] == ["QB"])
+    head = "Rank,EntryId,EntryName,TimeRemaining,Points,Lineup,,Player,Roster Position,%Drafted,FPTS"
+    rows = [
+        f"1,11,me (1/2),0,150,,,{qb['name']},QB,40%,25",
+        "1,12,rival,0,150,,,,,,",
+        "3,13,me (2/2),0,90,,,,,,",
+        "4,14,other,0,80,,,,,,",
+    ]
+    r = client.post(
+        "/api/dfs/results",
+        json={
+            "snapshotId": snap["snapshotId"],
+            "standingsCsv": head + "\n" + "\n".join(rows) + "\n",
+            "contestId": contest["contestId"],
+            "ownerUsername": "Me",
+        },
+        headers=h,
+    )
+    assert r.status_code == 201, r.text
+    s = r.json()["settlement"]
+    assert s["state"] == "complete" and s["entries"] == 2 and s["fieldSizeCheck"] == "agrees"
+    assert [row["payout"]["eachCents"] for row in s["rows"]] == [55_000, 0]  # tied 1st/2nd split
+    assert s["netCents"] == 55_000 - 1_000

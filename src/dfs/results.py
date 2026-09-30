@@ -76,7 +76,24 @@ def _resolve(
     return None, ("ambiguous_identity" if ids else "no_slate_athlete")
 
 
-def parse_standings(text: str, ruleset: RuleSet, athletes: list[SlateAthlete]) -> dict[str, Any]:
+def _is_owner_entry(entry_id: str, entry_name: str, ids: set[str], username: str | None) -> bool:
+    if entry_id in ids:
+        return True
+    if not username:
+        return False
+    # DraftKings names multi-entries "user (3/20)"; the handle is the part before " (".
+    handle = entry_name.split(" (", 1)[0].strip()
+    return handle.casefold() == username.strip().casefold()
+
+
+def parse_standings(
+    text: str,
+    ruleset: RuleSet,
+    athletes: list[SlateAthlete],
+    *,
+    owner_entry_ids: list[str] | None = None,
+    owner_username: str | None = None,
+) -> dict[str, Any]:
     if ruleset.platform != "draftkings":
         raise ImportError_(
             "UNSUPPORTED_FORMAT",
@@ -108,6 +125,10 @@ def parse_standings(text: str, ruleset: RuleSet, athletes: list[SlateAthlete]) -
     realized: dict[str, dict[str, Any]] = {}
     quarantined: list[dict[str, Any]] = []
     field: list[dict[str, Any]] = []
+    points_counts: dict[float, int] = {}
+    unscored_entries = 0
+    owner_ids = {str(x).strip() for x in (owner_entry_ids or [])}
+    owner_entries: list[dict[str, Any]] = []
     for r_i, row in enumerate(rows[1:], start=2):
         cell = lambda name: row[col[name]].strip() if col[name] < len(row) else ""  # noqa: E731
         name = cell("Player")
@@ -122,8 +143,24 @@ def parse_standings(text: str, ruleset: RuleSet, athletes: list[SlateAthlete]) -
             else:
                 realized[a.player_id] = {"ownership": own, "points": pts}
         entry = cell("EntryId")
-        if entry and len(field) < MAX_FIELD_ENTRIES:
-            field.append(_field_entry(row, col, idx, one_by_name, slot_labels))
+        if entry:
+            # Every entry's score counts toward rank and ties, lineup readable or not.
+            pts = _num(cell("Points"))
+            if pts is None:
+                unscored_entries += 1
+            else:
+                points_counts[pts] = points_counts.get(pts, 0) + 1
+            if _is_owner_entry(entry, cell("EntryName"), owner_ids, owner_username):
+                owner_entries.append(
+                    {
+                        "entryId": entry[:40],
+                        "entryName": cell("EntryName")[:80],
+                        "points": pts,
+                        "platformRank": _num(cell("Rank")),
+                    }
+                )
+            if len(field) < MAX_FIELD_ENTRIES:
+                field.append(_field_entry(row, col, idx, one_by_name, slot_labels))
     resolved_lineups = sum(1 for f in field if f["state"] == "resolved")
     return {
         "layout": LAYOUT,
@@ -137,6 +174,10 @@ def parse_standings(text: str, ruleset: RuleSet, athletes: list[SlateAthlete]) -
             "truncated": len(field) >= MAX_FIELD_ENTRIES,
             "sample": field[:25],
         },
+        # Full-field score distribution: rank and tie size for any score.
+        "pointsCounts": sorted(points_counts.items(), key=lambda kv: -kv[0]),
+        "unscoredEntries": unscored_entries,
+        "ownerEntries": owner_entries,
         "duplication": duplication([f["lineup"] for f in field if f["state"] == "resolved"]),
     }
 

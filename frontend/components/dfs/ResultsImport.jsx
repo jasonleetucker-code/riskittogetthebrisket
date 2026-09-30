@@ -9,7 +9,7 @@
  */
 
 import React, { useState } from "react";
-import { Banner, DataTable, Field } from "@/components/ds";
+import { Banner, DataTable, Field, Input } from "@/components/ds";
 import { errorMessage } from "@/lib/dfs";
 import { errorBody } from "@/lib/dfs-download";
 import styles from "./dfs-workspace.module.css";
@@ -27,7 +27,50 @@ function Stat({ label, s, unit }) {
   );
 }
 
-export default function ResultsImport({ snapshotId }) {
+function money(cents) {
+  if (cents == null) return "unknown";
+  const sign = cents < 0 ? "-" : "";
+  return `${sign}$${(Math.abs(cents) / 100).toFixed(2)}`;
+}
+
+function Settlement({ s }) {
+  if (!s) return null;
+  if (s.state === "no_owner_entries") return <p className={styles.note}>None of your entries were found in the file.</p>;
+  if (s.state === "unavailable") return <p className={styles.note}>Winnings could not be settled: {s.reason}</p>;
+  return (
+    <>
+      <p className={styles.note}>
+        {s.contestName}: {s.entries} entr{s.entries === 1 ? "y" : "ies"}, fees {money(s.feesCents)}, winnings{" "}
+        {s.state === "complete" ? money(s.knownWinningsCents) : `at least ${money(s.knownWinningsCents)} (${s.entriesWithUnknownPayout} unknown)`}
+        , net {money(s.netCents)}
+        {s.roi != null ? ` (ROI ${Math.round(s.roi * 100)}%)` : ""}.
+        {s.fieldSizeCheck === "disagrees" ? ` The file has ${s.fieldSize} entries but the contest declares ${s.declaredFieldSize} — ranks may be off.` : ""}
+        {s.rankDisagreements ? ` ${s.rankDisagreements} rank(s) differ from the file's own Rank column.` : ""}
+      </p>
+      <DataTable
+        caption="Your entries"
+        columns={[
+          { key: "entryName", header: "Entry" },
+          { key: "points", header: "Points", numeric: true },
+          { key: "rank", header: "Rank", numeric: true, render: (r) => (r.rank == null ? "—" : r.tiedWith ? `${r.rank} (tied)` : r.rank) },
+          {
+            key: "payout",
+            header: "Won",
+            numeric: true,
+            render: (r) =>
+              r.payout.state === "exact" ? money(r.payout.eachCents) : r.payout.state === "noncash" ? "ticket / non-cash" : "unknown",
+          },
+        ]}
+        rows={s.rows}
+        rowKey={(r) => r.entryId}
+        density="compact"
+      />
+    </>
+  );
+}
+
+export default function ResultsImport({ snapshotId, contestId }) {
+  const [username, setUsername] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
@@ -44,7 +87,12 @@ export default function ResultsImport({ snapshotId }) {
         credentials: "same-origin",
         cache: "no-store",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ snapshotId, standingsCsv }),
+        body: JSON.stringify({
+          snapshotId,
+          standingsCsv,
+          ...(contestId ? { contestId } : {}),
+          ...(username.trim() ? { ownerUsername: username.trim() } : {}),
+        }),
       });
       const body = await errorBody(res);
       if (!res.ok) setError(errorMessage(body, "The results file could not be imported."));
@@ -62,6 +110,9 @@ export default function ResultsImport({ snapshotId }) {
   return (
     <fieldset className={styles.objective}>
       <legend>After the slate: results</legend>
+      <Field label="Your platform username (optional)" hint={contestId ? "Settles your entries against the selected contest's payouts." : "Select a contest above to settle winnings."}>
+        <Input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="off" />
+      </Field>
       <Field
         label="Contest standings file (from the platform)"
         hint="Checks how your imported ownership and projections held up. Changes nothing."
@@ -75,6 +126,7 @@ export default function ResultsImport({ snapshotId }) {
       ) : null}
       {ev ? (
         <>
+          <Settlement s={result.settlement} />
           <ul className={styles.list}>
             <Stat label="Projected ownership" s={ev.ownership} unit=" pts" />
             <Stat label="Projections" s={ev.projection} unit=" fpts" />

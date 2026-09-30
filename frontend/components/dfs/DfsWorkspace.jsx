@@ -543,7 +543,7 @@ export default function DfsWorkspace() {
           {slate && slateMatches && ruleset?.platform === "draftkings" ? (
             <Panel title="7 · Results">
               <Suspense fallback={null}>
-                <ResultsImport snapshotId={slate.snapshotId} />
+                <ResultsImport snapshotId={slate.snapshotId} contestId={buildContext.contestId} />
               </Suspense>
             </Panel>
           ) : null}
