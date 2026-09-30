@@ -114,3 +114,25 @@ build's `methodNote` says so. Front-loading or even pacing would not remove the 
 (two players competing for one slot both due at once). That failure is reported as an isolated
 `min_exposure` conflict plus `minimumExposureUnmet`; nothing is relaxed. Joint portfolio
 construction belongs to Phase F.
+
+## ADR-DFS-012 — ARCHITECTURAL INVARIANT: every HiGHS solve runs on one pinned thread (2026-09-30)
+
+**Context.** HiGHS (reached through `scipy.optimize.milp`) keeps native worker threads tied to the
+thread that called it. The API ran builds through FastAPI's threadpool, so successive solves came
+from different request threads. The Python process then died with a **Windows access violation in a
+native thread with no Python frame** — about 1 run in 5 of `pytest tests/dfs`, and in production it
+would take down the whole backend process, not one request. It looked like a random flake until the
+faulthandler header was kept.
+
+**Decision (invariant).** No code may call `milp` / HiGHS directly from a request, worker or
+simulation thread. Every solve goes through `src/dfs/optimizer.py::_solver_pool()` — one
+long-lived `dfs-highs` thread — which also serializes solves. Builds are time-budgeted, so
+serialization is acceptable; parallelism, when needed, comes from **processes**, never threads.
+
+**Enforced by.** `tests/dfs/test_optimizer.py::test_every_highs_call_runs_on_the_one_solver_thread`
+(behaviour: solves launched from several threads all execute on `dfs-highs`) and
+`tests/dfs/test_solver_invariant.py` (structure: the only `milp` call site under `src/` is the pool
+submit in `optimizer.py`). Fixed on #1534 (`bb7046b9d`); 20/20 clean suite runs after the fix.
+
+**Consequence.** Field and contest simulation (Monte Carlo) never call the MILP per sample; any
+future solver-heavy job runs in a bounded background worker that still routes through the pool.

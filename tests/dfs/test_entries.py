@@ -261,7 +261,9 @@ def test_results_with_a_contest_settle_the_owners_entries_by_username(client):
     snap = client.post(
         "/api/dfs/slates",
         json={
-            "salaryCsv": (FIX / "synthetic_dk_nfl_classic_salaries.csv").read_text(encoding="utf-8"),
+            "salaryCsv": (FIX / "synthetic_dk_nfl_classic_salaries.csv").read_text(
+                encoding="utf-8"
+            ),
             "projectionCsv": (FIX / "synthetic_dk_nfl_classic_projections.csv").read_text(
                 encoding="utf-8"
             ),
@@ -286,7 +288,9 @@ def test_results_with_a_contest_settle_the_owners_entries_by_username(client):
         headers=h,
     ).json()
     qb = next(a for a in snap["athletes"] if a["positions"] == ["QB"])
-    head = "Rank,EntryId,EntryName,TimeRemaining,Points,Lineup,,Player,Roster Position,%Drafted,FPTS"
+    head = (
+        "Rank,EntryId,EntryName,TimeRemaining,Points,Lineup,,Player,Roster Position,%Drafted,FPTS"
+    )
     rows = [
         f"1,11,me (1/2),0,150,,,{qb['name']},QB,40%,25",
         "1,12,rival,0,150,,,,,,",
