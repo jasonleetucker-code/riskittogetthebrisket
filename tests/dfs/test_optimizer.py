@@ -300,3 +300,104 @@ def test_game_unknown_only_matters_for_selectable_players():
     pool[3].game = None
     res = optimize(DK, pool, parse_constraints({"excludes": [pool[3].player_id]}, DK, pool))
     assert res["built"] == 1
+
+
+# ── conditional rules (if A then B / not B / at least N of G) ─────────
+
+
+def _brute_with(ruleset, pool, c):
+    by_id = {a.player_id: a for a in pool}
+    by_pos = {}
+    for a in pool:
+        by_pos.setdefault(a.positions[0], []).append(a)
+    best = None
+    for qb in by_pos["QB"]:
+        for d in by_pos["DST"]:
+            for te in by_pos["TE"]:
+                for rbs in itertools.combinations(by_pos["RB"], 2):
+                    for wrs in itertools.combinations(by_pos["WR"], 3):
+                        used = {qb.player_id, d.player_id, te.player_id} | {
+                            x.player_id for x in rbs + wrs
+                        }
+                        for fx in by_pos["RB"] + by_pos["WR"] + by_pos["TE"]:
+                            if fx.player_id in used:
+                                continue
+                            lu = [qb, *rbs, *wrs, te, fx, d]
+                            assignment = list(
+                                zip([s.name for s in ruleset.slots], [a.player_id for a in lu])
+                            )
+                            if validate_lineup(assignment, ruleset, by_id, c):
+                                continue
+                            tot = round(sum(a.projection for a in lu), 2)
+                            best = tot if best is None or tot > best else best
+    return best
+
+
+def _unconstrained_ids(pool):
+    res = optimize(DK, pool, parse_constraints({}, DK, pool))
+    return res, {p["playerId"] for p in res["lineups"][0]["players"]}
+
+
+def test_if_a_then_not_b_is_exact_and_binds():
+    pool = _pool(31)
+    res, ids = _unconstrained_ids(pool)
+    chosen = [p["playerId"] for p in res["lineups"][0]["players"]]
+    a, b = chosen[0], chosen[1]  # both in the unconstrained optimum -> the rule must bind
+    c = parse_constraints({"conditionals": [{"when": [a], "then": [b], "thenMax": 0}]}, DK, pool)
+    got = optimize(DK, pool, c)
+    got_ids = {p["playerId"] for p in got["lineups"][0]["players"]}
+    assert not ({a, b} <= got_ids)
+    assert got["lineups"][0]["projection"] < res["lineups"][0]["projection"]  # it bound
+    assert got["lineups"][0]["projection"] == pytest.approx(_brute_with(DK, pool, c), abs=1e-6)
+
+
+def test_if_a_then_at_least_n_of_group_is_exact():
+    pool = _pool(32)
+    res, ids = _unconstrained_ids(pool)
+    qb = next(p["playerId"] for p in res["lineups"][0]["players"] if p["slot"] == "QB")
+    outsiders = [
+        a.player_id for a in pool if a.player_id not in ids and a.positions[0] in ("WR", "TE")
+    ][:4]
+    c = parse_constraints(
+        {"conditionals": [{"when": [qb], "then": outsiders, "thenMin": 2}]}, DK, pool
+    )
+    got = optimize(DK, pool, c)
+    expected = _brute_with(DK, pool, c)
+    assert got["lineups"][0]["projection"] == pytest.approx(expected, abs=1e-6)
+    got_ids = {p["playerId"] for p in got["lineups"][0]["players"]}
+    assert qb not in got_ids or len(got_ids & set(outsiders)) >= 2
+
+
+def test_conditional_contradiction_is_isolated_to_the_rule_and_lock():
+    pool = _pool(33)
+    wr = [a.player_id for a in pool if a.positions == ["WR"]]
+    c = parse_constraints(
+        {
+            "locks": [wr[0], wr[1]],
+            "conditionals": [
+                {"label": "Never together", "when": [wr[0]], "then": [wr[1]], "thenMax": 0}
+            ],
+        },
+        DK,
+        pool,
+    )
+    res = optimize(DK, pool, c)
+    assert res["status"] == "infeasible"
+    items = set(res["shortfall"]["conflict"]["items"])
+    assert "cond:0" in items and items <= {"cond:0", f"lock:{wr[0]}", f"lock:{wr[1]}"}
+    assert any(
+        d.startswith("Never together: if") for d in res["shortfall"]["conflict"]["described"]
+    )
+
+
+def test_conditional_input_is_validated():
+    pool = _pool(34)
+    a, b = pool[0].player_id, pool[1].player_id
+    for bad in (
+        {"conditionals": [{"when": [a], "then": [a], "thenMax": 0}]},
+        {"conditionals": [{"when": [a], "then": [b]}]},
+        {"conditionals": [{"when": ["nope"], "then": [b], "thenMin": 1}]},
+        {"conditionals": [{"when": [a], "then": [b], "thenMin": 2, "thenMax": 1}]},
+    ):
+        with pytest.raises(ConstraintError):
+            parse_constraints(bad, DK, pool)

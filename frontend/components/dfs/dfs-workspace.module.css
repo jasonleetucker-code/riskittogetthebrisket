@@ -238,6 +238,12 @@
   gap: var(--space-3);
 }
 
+.multi {
+  width: 100%;
+  min-height: 8rem;
+  font-size: var(--font-size-sm);
+}
+
 .provenance summary {
   cursor: pointer;
   font-size: var(--font-size-sm);

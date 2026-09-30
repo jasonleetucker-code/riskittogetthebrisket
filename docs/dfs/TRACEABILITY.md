@@ -37,8 +37,8 @@ vocabulary: **SLICE1** (implemented + tested on `claude/dfs-foundation`, PR #153
 | DFS-§7-02 | Scoring vs assignment identity | P1 | SLICE1 | `scoringIdentity` / `assignmentIdentity` |
 | DFS-§7-03 | Recommended entry count (budget, caps, marginal value, zero allowed) | P5 | PARTIAL (SLICE2) | Hard upper bound implemented (min of allowance, open capacity, explicit spend limit; free/ticket handled; zero allowed; budget never inferred). The recommendation itself stays BLOCKED on contest EV |
 | DFS-§8-01 | Locks, excludes, salary min/max, team max | P1 | SLICE1 | Tests |
-| DFS-§8-02 | Groups (at least/at most K) | P1 | SLICE1 (API) | UI editor pending |
-| DFS-§8-03 | Conditional rules (if-A-then-B), mutually exclusive groups | P2 | NEXT | |
+| DFS-§8-02 | Groups (at least/at most K) | C | SLICE4 | API (SLICE1) + keyboard-native rule builder on /dfs (at least / at most / exactly N) |
+| DFS-§8-03 | Conditional rules (if-A-then-B), mutually exclusive groups | C | SLICE4 | if A then B / not B / at least N of group B: MILP big-M rows + independent validator + conflict isolation (`cond:i`), brute-force exact and proven to bind; mutually-exclusive = at most 1 of group |
 | DFS-§8-04 | Stacks: primary/secondary, bring-back | P1 | SLICE1 (QB stack) | Portfolio stack distributions pending |
 | DFS-§8-05 | Sport-specific stacks (NBA/NHL/MMA) | P2 | NEXT | |
 | DFS-§8-06 | Exposure semantics + integer rounding shown | P1 | SLICE1 (max, floor) | Min exposure + scoped exposure pending (needs joint portfolio) |

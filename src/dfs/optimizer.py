@@ -61,6 +61,21 @@ class Group:
 
 
 @dataclass
+class Conditional:
+    """If ANY of ``when`` is rostered, the count from ``then`` must lie in [then_min, then_max].
+
+    "If A then B" = then [B] min 1; "if A then not B" = then [B] max 0;
+    "if A then at least 2 of group G" = then G min 2.
+    """
+
+    label: str
+    when: list[str]
+    then: list[str]
+    then_min: int | None = None
+    then_max: int | None = None
+
+
+@dataclass
 class Stack:
     label: str
     primary: list[str]
@@ -78,6 +93,7 @@ class Constraints:
     max_per_team: int | None = None
     groups: list[Group] = field(default_factory=list)
     stacks: list[Stack] = field(default_factory=list)
+    conditionals: list[Conditional] = field(default_factory=list)
     lineups: int = 1
     min_unique: int = 1
     max_exposure: float | None = None
@@ -195,6 +211,38 @@ def parse_constraints(
                 gmax,
             )
         )
+    for i, r in enumerate(raw.get("conditionals") or []):
+        if not isinstance(r, dict):
+            raise ConstraintError("INVALID_CONSTRAINT", "conditionals entries must be objects.")
+        when, then = r.get("when") or [], r.get("then") or []
+        for name, lst in (("when", when), ("then", then)):
+            if (
+                not isinstance(lst, list)
+                or not lst
+                or not all(isinstance(p, str) and p in ids for p in lst)
+            ):
+                raise ConstraintError(
+                    "INVALID_CONSTRAINT", f"rule {i + 1} '{name}' must list players on this slate."
+                )
+        if set(when) & set(then):
+            raise ConstraintError(
+                "INVALID_CONSTRAINT", f"rule {i + 1}: a player cannot be in both 'when' and 'then'."
+            )
+        tmin = _int(r.get("thenMin"), f"rule {i + 1} thenMin", 0, size)
+        tmax = _int(r.get("thenMax"), f"rule {i + 1} thenMax", 0, size)
+        if tmin is None and tmax is None:
+            raise ConstraintError("INVALID_CONSTRAINT", f"rule {i + 1} needs thenMin or thenMax.")
+        if tmin is not None and tmax is not None and tmin > tmax:
+            raise ConstraintError("INVALID_CONSTRAINT", f"rule {i + 1}: thenMin exceeds thenMax.")
+        c.conditionals.append(
+            Conditional(
+                label=str(r.get("label") or f"Rule {i + 1}")[:60],
+                when=list(dict.fromkeys(when)),
+                then=list(dict.fromkeys(then)),
+                then_min=tmin,
+                then_max=tmax,
+            )
+        )
     for i, s in enumerate(raw.get("stacks") or []):
         if not isinstance(s, dict):
             raise ConstraintError("INVALID_CONSTRAINT", "stacks entries must be objects.")
@@ -308,6 +356,13 @@ def validate_lineup(
                 errors.append(f"{g.label}: {n} < min {g.min}")
             if g.max is not None and n > g.max:
                 errors.append(f"{g.label}: {n} > max {g.max}")
+        for r in c.conditionals:
+            if set(r.when) & set(ids):
+                n = sum(1 for p in ids if p in r.then)
+                if r.then_min is not None and n < r.then_min:
+                    errors.append(f"{r.label}: {n} < {r.then_min} required")
+                if r.then_max is not None and n > r.then_max:
+                    errors.append(f"{r.label}: {n} > {r.then_max} allowed")
         for s in c.stacks:
             for a in athletes:
                 if not set(a.positions) & set(s.primary):
@@ -448,6 +503,31 @@ def _build(
         rows.append(
             (acc, -math.inf if g.min is None else g.min, math.inf if g.max is None else g.max, tag)
         )
+    for ri, r in enumerate(c.conditionals):
+        tag = f"cond:{ri}"
+        if not on(tag):
+            continue
+        then_idx = [index[p] for p in r.then if p in index]
+        for pid in r.when:
+            if pid not in index:
+                continue
+            w = index[pid]
+            if r.then_min is not None and r.then_min > 0:
+                # Σ then − min·y_w ≥ 0  (binding only when w is rostered)
+                acc = {}
+                for j in then_idx:
+                    add_y(acc, j, 1.0)
+                add_y(acc, w, -float(r.then_min))
+                rows.append((acc, 0, math.inf, tag))
+            if r.then_max is not None:
+                # Σ then + (|then| − max)·y_w ≤ |then|  (slack when w is not rostered)
+                big = max(0, len(then_idx) - r.then_max)
+                if big:
+                    acc = {}
+                    for j in then_idx:
+                        add_y(acc, j, 1.0)
+                    add_y(acc, w, float(big))
+                    rows.append((acc, -math.inf, float(len(then_idx)), tag))
     for si, st in enumerate(c.stacks):
         tag = f"stack:{si}"
         if not on(tag):
@@ -554,6 +634,7 @@ def _owner_items(c: Constraints, previous: list[list[str]], exhausted: set[str])
         items.append("max_per_team")
     items += [f"group:{i}" for i in range(len(c.groups))]
     items += [f"stack:{i}" for i in range(len(c.stacks))]
+    items += [f"cond:{i}" for i in range(len(c.conditionals))]
     if previous:
         items.append("uniqueness")
     if exhausted:
@@ -569,6 +650,18 @@ def describe_item(tag: str, c: Constraints, pool_by_id: dict[str, SlateAthlete])
     if kind == "group":
         g = c.groups[int(ref)]
         return f"{g.label} (min {g.min}, max {g.max})"
+    if kind == "cond":
+        r = c.conditionals[int(ref)]
+        names = lambda ps: ", ".join(pool_by_id[p].name if p in pool_by_id else p for p in ps[:4])  # noqa: E731
+        bounds = " and ".join(
+            x
+            for x in (
+                f"at least {r.then_min}" if r.then_min is not None else "",
+                f"at most {r.then_max}" if r.then_max is not None else "",
+            )
+            if x
+        )
+        return f"{r.label}: if {names(r.when)} then {bounds} of {names(r.then)}"
     if kind == "stack":
         s = c.stacks[int(ref)]
         return (

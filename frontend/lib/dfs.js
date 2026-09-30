@@ -227,3 +227,21 @@ export function writeStoredContext(ctx) {
     /* storage unavailable (private mode) — the page works without it */
   }
 }
+
+// ── group / conditional rules (display + payload shaping only) ──────────
+
+/** Owner rules → backend `groups` + `conditionals`. */
+export function rulesToConstraints(rules) {
+  const groups = [];
+  const conditionals = [];
+  for (const r of rules || []) {
+    const n = Number(r.n);
+    if (r.type === "at_least") groups.push({ label: r.label, players: r.players, min: n });
+    else if (r.type === "at_most") groups.push({ label: r.label, players: r.players, max: n });
+    else if (r.type === "exactly") groups.push({ label: r.label, players: r.players, min: n, max: n });
+    else if (r.type === "if_then") conditionals.push({ label: r.label, when: r.when, then: r.then, thenMin: 1 });
+    else if (r.type === "if_not") conditionals.push({ label: r.label, when: r.when, then: r.then, thenMax: 0 });
+    else if (r.type === "if_then_n") conditionals.push({ label: r.label, when: r.when, then: r.then, thenMin: n });
+  }
+  return { groups, conditionals };
+}

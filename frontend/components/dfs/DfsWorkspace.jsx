@@ -38,6 +38,7 @@ import {
   pointsPerK,
   positionsIn,
   readStoredContext,
+  rulesToConstraints,
   readinessCopy,
   rulesetFor,
   setPlayerRule,
@@ -56,6 +57,7 @@ const ProviderSlates = lazy(() => import("./SlateSources"));
 const DetectedFile = lazy(() => import("./SlateSources").then((m) => ({ default: m.DetectedFile })));
 
 const ImportSummary = lazy(() => import("./SlateSummary"));
+const RuleBuilder = lazy(() => import("./RuleBuilder"));
 
 async function api(path, init) {
   const res = await fetch(`/api/dfs${path}`, {
@@ -342,6 +344,7 @@ export default function DfsWorkspace() {
   const [build, setBuild] = useState(null);
   const [buildError, setBuildError] = useState(null);
   const [buildContext, setBuildContext] = useState({ contestId: null, presetId: null });
+  const [groupRules, setGroupRules] = useState([]);
 
   useEffect(() => {
     const stored = readStoredContext();
@@ -378,6 +381,7 @@ export default function DfsWorkspace() {
     setBuild(null);
     setBuildError(null);
     setBuildContext({ contestId: null, presetId: null });
+    setGroupRules([]);
   }, []);
 
   const onFile = async (e, setter) => {
@@ -411,11 +415,15 @@ export default function DfsWorkspace() {
     }
     setSlate(body);
     setRules({ locks: [], excludes: [] });
+    setGroupRules([]);
   };
 
   const runBuild = async (lineupsOverride) => {
     const effective = lineupsOverride === 1 ? singleLineupForm(form) : form;
     const { payload, errors } = buildConstraints(effective, rules);
+    const extra = rulesToConstraints(groupRules);
+    if (extra.groups.length) payload.groups = extra.groups;
+    if (extra.conditionals.length) payload.conditionals = extra.conditionals;
     if (Object.keys(errors).length) {
       setBuildError(Object.values(errors)[0]);
       return;
@@ -607,6 +615,7 @@ export default function DfsWorkspace() {
                 onImported={(snap) => {
                   setSlate(snap);
                   setRules({ locks: [], excludes: [] });
+                  setGroupRules([]);
                   setBuild(null);
                 }}
               />
@@ -716,6 +725,9 @@ export default function DfsWorkspace() {
                   ) : null}
                 </fieldset>
               ) : null}
+              <Suspense fallback={null}>
+                <RuleBuilder athletes={athletes} rules={groupRules} onChange={setGroupRules} />
+              </Suspense>
               <div className={styles.actions}>
                 <Button variant="primary" onClick={() => runBuild(1)} loading={building}>
                   Optimal Lineup
