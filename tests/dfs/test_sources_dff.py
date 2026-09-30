@@ -123,3 +123,43 @@ def test_failures_are_named_not_hidden(monkeypatch):
     with pytest.raises(sources_dff.SourceError) as exc:
         sources_dff.fetch("mma", "draftkings")
     assert exc.value.code == "UNSUPPORTED_SOURCE_SLATE"
+
+
+def test_pull_endpoint_records_for_the_owner(monkeypatch, tmp_path):
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from src.api import feature_flags
+    from src.dfs import api as dfs_api
+
+    feature_flags.reload()
+    app = FastAPI()
+    app.include_router(dfs_api.router)
+    dfs_api.configure_session_resolver(
+        lambda req: {"username": req.headers["x-user"]} if req.headers.get("x-user") else None
+    )
+    client = TestClient(app)
+    athletes = _athletes()
+    snap = client.post(
+        "/api/dfs/slates",
+        json={
+            "salaryCsv": (FIX / "synthetic_dk_nfl_classic_salaries.csv").read_text(encoding="utf-8")
+        },
+        headers={"x-user": "a"},
+    ).json()
+    monkeypatch.setattr(
+        sources_dff.urllib.request, "urlopen", lambda req, timeout: _Resp(_page(athletes).encode())
+    )
+    r = client.post(
+        "/api/dfs/sources/dailyfantasyfuel/pull",
+        json={"snapshotId": snap["snapshotId"]},
+        headers={"x-user": "a"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["matched"] == len(athletes)
+    other = client.post(
+        "/api/dfs/sources/dailyfantasyfuel/pull",
+        json={"snapshotId": snap["snapshotId"]},
+        headers={"x-user": "b"},
+    )
+    assert other.status_code == 404
