@@ -166,7 +166,19 @@ export function HelpModal({
         {label}
       </Button>
       <Modal open={open} onClose={() => setOpen(false)} title={title}>
-        <div className="ds-help-body">{children}</div>
+        {/* Long methodology scrolls inside the dialog body, and prose has
+            no focusable content — so without a tab stop a keyboard user
+            could not scroll it (axe scrollable-region-focusable, serious,
+            measured on /rankings "How rankings work" 2026-09-29). A
+            focusable, labelled region lets arrow keys / PgDn scroll it. */}
+        <div
+          className="ds-help-body ds-focusable"
+          tabIndex={0}
+          role="region"
+          aria-label={`${title} — details`}
+        >
+          {children}
+        </div>
       </Modal>
     </>
   );

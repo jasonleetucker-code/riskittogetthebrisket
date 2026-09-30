@@ -34,7 +34,9 @@ async function openHelp(user, buttonName, dialogName) {
   const dialog = screen.getByRole("dialog", { name: dialogName });
   // The trade body is code-split (React.lazy) to keep /trade under its
   // chunk budget; wait for real content rather than the skeleton.
-  await within(dialog).findAllByRole("heading", { level: 3 });
+  // Generous timeout: under a loaded full-suite run the lazy chunk can take
+  // longer than findAllByRole's 1 s default (measured flake, 2026-09-30).
+  await within(dialog).findAllByRole("heading", { level: 3 }, { timeout: 10000 });
   return dialog;
 }
 

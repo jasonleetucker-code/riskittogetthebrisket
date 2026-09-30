@@ -484,7 +484,8 @@ in Part G).
 
 ### H.7 Next dependency-ready units
 
-1. **Test evidence bound to the revision** (`agent-evals/`): accept test evidence only from a
+1. **Test evidence bound to the revision** (`agent-evals/`) — **implemented in PR #1542** via the
+   CI-records route below (four independent review rounds; APPROVE). Original scope: accept test evidence only from a
    trusted local runner re-executing a case-declared, allowlisted command at the pinned head
    in a clean clone, or from independently retrieved CI check-runs for that exact SHA
    (`gh api` read-only, with workflow file and config identity recorded). Label everything
