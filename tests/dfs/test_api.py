@@ -169,11 +169,15 @@ def test_infeasible_constraints_explain_themselves(client):
 def test_server_mounts_dfs_behind_the_private_gate():
     """The real server registers /api/dfs/* and keeps it private.
 
-    Checked in a FRESH interpreter: this suite shares one ``server`` module with
-    hundreds of tests, and on CI an earlier test left ``server.app`` without the
-    DFS routes while this passed locally — in-process state is not evidence of
-    how the process boots.  (A 401 alone proves nothing either: the private gate
-    answers 401 for unknown /api paths too, so the route list is what counts.)
+    Checked in a FRESH interpreter, and through ``app.openapi()["paths"]`` —
+    the public answer to "what routes does this app expose" (same method as
+    ``tests/consensus_edge/test_endpoint.py::_registered_paths``).  Walking
+    ``app.routes`` is version-dependent: on FastAPI 0.141 ``include_router``
+    leaves an ``_IncludedRouter`` wrapper with no ``.path``, so a walk sees
+    NO included routes at all.  That — not test-order state — is why this
+    test failed twice in CI (0.141) while passing locally (0.135); reproduced
+    deterministically on 0.141.1.  A bare 401 would prove nothing either: the
+    private gate answers 401 for unknown /api paths too.
     """
     import os
     import subprocess
@@ -182,7 +186,7 @@ def test_server_mounts_dfs_behind_the_private_gate():
     repo = Path(__file__).resolve().parents[2]
     probe = (
         "import json, server; "
-        "paths = sorted({getattr(r, 'path', '') for r in server.app.routes if getattr(r, 'path', '').startswith('/api/dfs')}); "
+        "paths = sorted(p for p in (server.app.openapi().get('paths') or {}) if p.startswith('/api/dfs')); "
         "print(json.dumps({'paths': paths, 'public': server._is_public_api_path('/api/dfs/capabilities')}))"
     )
     env = {**os.environ, "ALLOW_DEFAULT_LOGIN_DEV": "1", "UPTIME_CHECK_ENABLED": "false"}
