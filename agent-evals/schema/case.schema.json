@@ -133,6 +133,15 @@
           },
           "description": "If present, no entry in artifact.changed_files may match any glob here."
         },
+        "required_ci_workflows": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^\\.github/workflows/[^/]+\\.ya?ml$"
+          },
+          "description": "Workflow files that must have concluded success on a GitHub Actions run whose head_sha is the artifact's repo_head_end. Checked only with run_eval.py --ci-repo (and --repo, to prove the run did not edit the workflow); otherwise NOT_CHECKED."
+        },
         "required_flags": {
           "type": "object",
           "additionalProperties": {
