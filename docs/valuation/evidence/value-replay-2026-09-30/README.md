@@ -112,5 +112,5 @@ The IDP and pick rows use the anchor+shrinkage path, so the blend self-check rep
 ## Reproduce
 
 ```bash
-python scripts/value_replay.py --asset "Jalen Coker" --contrast --json replay.json --markdown replay.md
+python scripts/value_replay.py --asset "Jalen Coker" --contrast \n  --leave-out-set pre_season_data=fantasyProsFitzmaurice,yahooBoone,idpShowCombined \n  --json replay.json --markdown replay.md
 ```

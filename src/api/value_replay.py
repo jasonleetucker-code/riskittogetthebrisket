@@ -109,6 +109,22 @@ def _git(*args: str) -> str | None:
     return out.stdout.strip() if out.returncode == 0 else None
 
 
+def _dirty() -> bool | None:
+    if _git("rev-parse", "HEAD") is None:
+        return None
+    out = _git(
+        "status",
+        "--porcelain",
+        "--",
+        "src",
+        "config",
+        "CSVs",
+        "data/scrape_state",
+        "exports/latest",
+    )
+    return None if out is None else bool(out)
+
+
 def pins(payload_path: Path, root: Path = REPO_ROOT) -> dict[str, Any]:
     """Content identity of the known inputs of a local build (see module docstring)."""
     csv_dir = root / "CSVs" / "site_raw"
@@ -118,18 +134,8 @@ def pins(payload_path: Path, root: Path = REPO_ROOT) -> dict[str, Any]:
     payload = json.loads(payload_path.read_text(encoding="utf-8"))
     return {
         "codeRevision": _git("rev-parse", "HEAD"),
-        "workingTreeDirty": bool(
-            _git(
-                "status",
-                "--porcelain",
-                "--",
-                "src",
-                "config",
-                "CSVs",
-                "data/scrape_state",
-                "exports/latest",
-            )
-        ),
+        # None when git cannot answer (e.g. an archive extract): unknown, not clean.
+        "workingTreeDirty": _dirty(),
         "payload": {
             "path": str(payload_path.relative_to(root))
             if payload_path.is_relative_to(root)
