@@ -190,3 +190,22 @@ def test_evaluation_against_results_stores_scoped_scorecards_per_component():
     assert out["structuralBaseline"]["n"] == len(athletes)
     subjects = {e["subject"] for e in pit.list_evaluations("o", "ownership")}
     assert subjects == {"srcA", "model:ownership.structural@prior", "model:ownership.ensemble"}
+
+
+def test_capping_keeps_each_positions_total_exact():
+    """A capped player's surplus stays inside the slots it came from.
+
+    Redistributing it over everyone put a capped WR's surplus into QBs (QB total
+    116% with one QB slot) — an ownership target no legal field can realize.
+    """
+    athletes = _athletes()
+    out = ownership.structural_baseline(athletes, DK, {"bv": 3.0, "bp": 3.0})  # forces caps
+    assert max(out.values()) == pytest.approx(100.0)
+    total = {}
+    for a in athletes:
+        total[a.positions[0]] = total.get(a.positions[0], 0.0) + out[a.player_id]
+    assert total["QB"] == pytest.approx(100.0, abs=0.01)
+    assert total["DST"] == pytest.approx(100.0, abs=0.01)
+    assert total["RB"] + total["WR"] + total["TE"] == pytest.approx(
+        700.0, abs=0.01
+    )  # 6 slots + FLEX
