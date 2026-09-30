@@ -34,7 +34,7 @@ checkout's.
 
 ## Proven (with evidence)
 
-- `pytest tests/dfs` 197 passed on multisport. Includes:
+- `pytest tests/dfs` 202 passed on multisport. Includes:
   - brute-force MILP parity: DK + FD NFL, NBA, NHL, MMA, Showdown, team stacks (NHL 4-3 on both
     infeasible and binding seeds), late swap against a slot-aware brute force;
   - the $1,000/$100 → $550 tie fixture;
@@ -53,6 +53,10 @@ checkout's.
   mount-test failures were a FastAPI 0.135 vs 0.141 introspection difference, not contamination.
 - One unexplained single failure of `test_full_flow_research_build_and_export`, seen under heavy
   local CPU load (a concurrent full-suite run). It could not be reproduced in 3 clean runs.
+- Twice on 2026-09-30, `pytest tests/dfs` on multisport ended in a native crash dump (pytest's
+  faulthandler printing a stack: a C-level fault, not a test failure). The next 16 runs were clean.
+  Suspect: the HiGHS solver (scipy) under concurrent load, on Windows. Not yet diagnosed; if it
+  recurs, keep the FULL output (the top names the faulting test and thread) before re-running.
 
 ## Owner actions that unblock the most
 
