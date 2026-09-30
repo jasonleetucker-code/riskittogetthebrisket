@@ -73,6 +73,12 @@
   color: var(--text-tertiary);
 }
 
+/* "How the verdict works" — one right-aligned trigger above the meter. */
+.verdictHelpRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* ── Status strip (share / import confirmations) ── */
 .statusStrip {
   display: flex;

@@ -238,7 +238,11 @@ export default function DataInfoBody({ payload }) {
 
       <dt>Scoring coverage</dt>
       <dd>
-        {uncovered.length
+        {/* PENDING leaves uncoveredScoringKeys null (coerced to [] above):
+            not read yet is not "everything covered". */}
+        {payload.probabilityState === "PENDING"
+          ? "Not checked yet — the forecast is still computing."
+          : uncovered.length
           ? `No projection covers these league scoring categories: ${uncovered.join(", ")}.`
           : "Every scoring category this league pays is covered by a projection."}
         {imputed.length

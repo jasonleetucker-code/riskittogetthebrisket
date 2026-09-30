@@ -1,0 +1,113 @@
+/* Schedule Intelligence — tokens only (docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md). */
+
+.block {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 20px;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+
+.title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.lede,
+.reading {
+  margin: 0;
+  color: var(--subtext);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.team {
+  font-weight: 600;
+}
+
+.muted {
+  color: var(--subtext);
+}
+
+.provenance {
+  color: var(--subtext);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.impact {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.glyph {
+  font-size: 0.7em;
+}
+
+.up {
+  color: var(--positive-text);
+}
+
+.down {
+  color: var(--negative-text);
+}
+
+.flat,
+.none {
+  color: var(--subtext);
+}
+
+.summary {
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+.figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 0;
+}
+
+.figures dt {
+  color: var(--subtext);
+  font-size: 0.75rem;
+}
+
+.figures dd {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.note {
+  display: block;
+  font-size: 0.75rem;
+}
+
+.stackedHead {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+}
+
+.headSub {
+  font-size: 0.85em;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
