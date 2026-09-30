@@ -32,3 +32,43 @@ def test_resume_inside_quiet_hours_waits_for_8am():
     s, _, _ = _comm(s, "resume", et(2026, 10, 5, 22, 0))
     assert s["auctions"][a1]["leader"] == "S1"
     assert engine.next_due_time(s) == et(2026, 10, 6, 8, 0)
+
+
+def test_max_history_compression_is_lossless_for_tie_priority():
+    """priority_at over the compressed history equals priority_at over the
+    full raw history, at every level, including after further raw appends."""
+    import random
+
+    rng = random.Random(20260929)
+    for _ in range(400):
+        raw = [[rng.randint(0, 60), i] for i in range(rng.randint(1, 140))]
+        comp = engine._compress_hist(raw)
+        extra = [[rng.randint(0, 60), 1000 + i] for i in range(rng.randint(0, 5))]
+        for levels in range(0, 62):
+            full = engine.priority_at({"max": raw[-1][0], "seq": raw[-1][1], "hist": raw}, levels)
+            got = engine.priority_at({"max": raw[-1][0], "seq": raw[-1][1], "hist": comp}, levels)
+            assert got == full
+            raw2, comp2 = raw + extra, comp + extra
+            last = raw2[-1]
+            assert engine.priority_at(
+                {"max": last[0], "seq": last[1], "hist": comp2}, levels
+            ) == engine.priority_at({"max": last[0], "seq": last[1], "hist": raw2}, levels)
+
+
+def test_command_log_time_never_runs_backwards(tmp_path):
+    """A request whose clock was read before it waited for the write lock is
+    applied at the moment the room already reached, never earlier."""
+    from tests.auction.test_independent_recovery_audit import NOON, M, _mkroom, _new_store
+
+    st, _ = _new_store(tmp_path)
+    room = _mkroom(st)
+    a = M(st, room, "S1", "nominate", NOON + 100, player="P1")["result"]["auction"]
+    M(st, room, "S2", "bid", NOON + 50, auction=a, max=5)  # overtaken request
+    with st.read() as conn:
+        times = [
+            r[0]
+            for r in conn.execute(
+                "SELECT room_now FROM commands WHERE room_id=? ORDER BY revision", (room,)
+            )
+        ]
+    assert times == sorted(times) and times[-1] == times[-2]

@@ -327,7 +327,35 @@ def _set_max(a: dict, seat_id: str, new_max: int, seq: int, now: float) -> None:
         else []
     )
     hist.append([new_max, seq])
-    a["bids"][seat_id] = {"max": new_max, "seq": seq, "active": True, "at": now, "hist": hist[-50:]}
+    if len(hist) > _HIST_COMPRESS_AT:
+        hist = _compress_hist(hist)
+    a["bids"][seat_id] = {"max": new_max, "seq": seq, "active": True, "at": now, "hist": hist}
+
+
+# A seat's max history is kept verbatim up to this length (the common case,
+# byte-identical to earlier versions), then compressed LOSSLESSLY.  Truncating
+# it (the old ``hist[-50:]``) dropped the entry that proved a seat's early
+# priority at a level, so an exact tie flipped after 50+ edits.
+_HIST_COMPRESS_AT = 50
+
+
+def _compress_hist(hist: list) -> list:
+    """Keep exactly what ``priority_at`` can observe: for each distinct
+    suffix-minimum level, the earliest entry at which it starts.  Entries are
+    rewritten as ``[suffix_min, seq]`` — increasing in both — which
+    ``priority_at`` reads identically, and which stays correct when raw
+    entries are appended later."""
+    suffix: list[tuple[int, int]] = []
+    low = None
+    for mx, sq in reversed(hist):
+        low = int(mx) if low is None else min(low, int(mx))
+        suffix.append((low, int(sq)))
+    suffix.reverse()
+    out: list[list[int]] = []
+    for level, sq in suffix:
+        if not out or level > out[-1][0]:
+            out.append([level, sq])
+    return out
 
 
 def _resolve_one(state: dict, auction: dict) -> tuple[str, int]:
@@ -1508,7 +1536,8 @@ def _cmd_verify_trade(s: dict, cmd: dict, now: float, events: list) -> dict:
 
 def trades_for_seat(s: dict, seat: str, now: float) -> list[dict]:
     out = []
-    for t in _trades(s).values():
+    # Read-only: a view must never add keys to the state it is shown.
+    for t in (s.get("trades") or {}).values():
         if seat in (t["from"], t["to"]):
             view = dict(t)
             if view["status"] == "open" and now >= view["expires_at"]:

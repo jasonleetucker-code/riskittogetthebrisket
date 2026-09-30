@@ -1248,15 +1248,6 @@ def test_restart_mid_room_preserves_reservations_and_replays(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT DEFECT: a positive commissioner budget adjustment made while the room is PAUSED "
-        "never reactivates the seat's capped proxies (engine._cmd_adjust_budget skips the cascade "
-        "when paused and _cmd_resume never re-resolves), so after resume a lot can close to a "
-        "lower maximum than a rival's now-affordable one."
-    ),
-)
 def test_defect_adjust_during_pause_leaves_capped_proxy_dead():
     r, a = _auc001_base()
     b = r.nominate("S4", "P2")
@@ -1272,14 +1263,6 @@ def test_defect_adjust_during_pause_leaves_capped_proxy_dead():
     assert r.lot(b) == ("S1", 21)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "AUDIT DEFECT: engine._set_max truncates a bid's priority history to hist[-50:], so a "
-        "seat that has held a maximum >= $40 continuously since BEFORE a rival's $40 loses the "
-        "exact tie at $40 after 50+ max edits (earliest accepted max must win)."
-    ),
-)
 def test_defect_priority_history_truncation_flips_an_exact_tie():
     r = Room([200] * 12)
     a = r.nominate("S3", "P1")

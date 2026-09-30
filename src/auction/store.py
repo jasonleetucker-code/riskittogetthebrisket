@@ -356,6 +356,15 @@ class Store:
                     }
             state = json.loads(row["state_json"])
             now = self.room_now(row, now_real)
+            # The request's clock was read before it waited for this lock; the
+            # command log must never run backwards, so a request that was
+            # overtaken is applied at the moment the room had already reached.
+            last = conn.execute(
+                "SELECT room_now FROM commands WHERE room_id=? ORDER BY revision DESC LIMIT 1",
+                (room_id,),
+            ).fetchone()
+            if last is not None and float(last["room_now"]) > now:
+                now = float(last["room_now"])
             if at_real is not None and "at" not in cmd:
                 cmd = {**cmd, "at": self.room_now(row, at_real)}
             revision = int(row["revision"])
