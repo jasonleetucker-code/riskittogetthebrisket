@@ -248,3 +248,29 @@ calibration bands in `pit`.
 **Evidence.** Synthetic recovery only: from 60k simulated lineups (truncated to those that appear)
 the fit recovers `b`, `c` within ±0.08 and beats naive on a separate holdout. No real contest has
 been scored yet; the fitted model stays a challenger until `pit.promote` sees a holdout win.
+
+## ADR-DFS-018 — Contest Monte Carlo on one joint draw; field and ours scored together (2026-09-30)
+
+**Context.** Contest value is rank-dependent: it is set by where our lineup lands against a field
+that shares the same player outcomes, how many identical lineups split the place, and the exact
+ladder. Scoring our lineups against independent draws, or the field independently, erases exactly
+the leverage a GPP strategy is about.
+
+**Decision.** `src/dfs/contestsim.py` (`contest.montecarlo@1.0.0`) + `src/dfs/pipeline.py`. Draw
+all players once per simulation (copula + correlation priors); score the field sample and our
+lineups on that draw; rank by binary search in each simulation's sorted field, scaled M → N; copies
+of our lineup are the field-sample entries that tie it exactly if present, else Poisson draws from
+the duplication model — never both; tied places are split by averaging the prize-by-rank table;
+our entries rank JOINTLY (a portfolio cannot take first twice). Unknown tie rule → split assumed and
+disclosed; non-cash places excluded from cash EV and disclosed. Outputs carry Monte Carlo standard
+errors. `pipeline.prepare` builds every input from what was HELD pre-lock (`pit.as_of`) and refuses
+missing outcome ranges unless flagged priors are explicitly allowed. `POST /api/dfs/simulate` is
+bounded (≤ 2,000 sims, ≤ 3,000 field sample; ~2 s on the fixture).
+
+**Verified exactly / statistically:** a lineup that always wins collects exactly first prize; a
+guaranteed 4-way tie splits places 1–4 exactly; two dominant entries collect 1st + 2nd, never 1st
+twice; in a symmetric 8-entry contest P(win) = 1/8 ± 0.02 and EV = pool/8 within 3 SE.
+
+**What it is NOT.** A model output under stated assumptions (priors for spreads and correlations,
+modelled ownership and field). It is not evidence of profitability; that needs the backtest harness
+and, beyond it, forward results.
