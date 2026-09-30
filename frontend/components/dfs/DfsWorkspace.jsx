@@ -527,7 +527,7 @@ export default function DfsWorkspace() {
           {build && slateMatches ? (
             <Panel title="5 · Result">
               <Suspense fallback={null}>
-                <BuildResult build={build} ruleset={ruleset} />
+                <BuildResult build={build} ruleset={ruleset} athletes={slate?.athletes} />
               </Suspense>
             </Panel>
           ) : null}
