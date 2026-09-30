@@ -203,3 +203,29 @@ replaces a module through the registry, never by editing constants in place.
 **Evidence standard.** A normal-copula dependence is a modelling assumption (tail dependence is
 understated). Whether correlated sampling improves contest-outcome calibration over independent
 sampling is exactly what the backtest harness must show before it is claimed.
+
+## ADR-DFS-016 — Field model: ownership-weighted random-order sampling, raked, fit reported (2026-09-30)
+
+**Context.** Contest value depends on what the OTHER entries look like. Opponents do not optimize
+our projections, so "run our optimizer many times" is the wrong field.
+
+**Decision.** `src/dfs/field.py` (`field.sequential_raked@1.0.0`): each opponent lineup fills slots
+in a RANDOM order, drawing among eligible, unused (identity-aware), budget-feasible players in
+proportion to their weight; positively correlated partners of a pick are boosted by
+`1 + stack_strength·rho` (the correlation priors); the lineup must pass the independent validator
+and use ≥ 97% of the cap (prior). Weights are raked `w *= (target/realized)^0.8` toward the target
+ownership, and the residual gap, salary-used quantiles, stack shapes and in-sample duplication are
+reported as `fieldFit`. The field is a weighted sample of ≤ 20,000 lineups.
+
+**Measured on the synthetic DK NFL fixture (2,000-lineup fields, seed 2):**
+- A FIXED slot order (QB…DST) left the last slot only its cheapest player: the $1,000 DST was drafted
+  97.5% vs a 3.3% target, and raking could not help (weights are moot when one player is affordable).
+  Random order fixed it (sample duplication 16% → ~1%).
+- The structural ownership baseline had a real bug (capped surplus redistributed across positions;
+  QB total 116%) — fixed in PR B with a regression test.
+- Even corrected, structural targets are **salary-infeasible**: an irreducible ~5.4-point MAE gap
+  that raking does not close (5.38 → 5.40 over 1→6 rounds). Against a FEASIBLE target (another
+  field's frequencies) raking works: 1.14 → 0.44 points (sampling noise at this size).
+- Hence `field.implied_ownership` — ownership read off a generated field — is feasible by
+  construction and is registered as the ownership CHALLENGER to the structural baseline. Whether it
+  predicts real ownership better is unknown until settled contests are scored.
