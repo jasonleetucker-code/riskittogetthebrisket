@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import copy
 import json
-import subprocess
+import os
 
 import pytest
 
+from scripts import check_feature_dictionary_lock as chk
 from src.model_registry import feature_dictionary as fd
 
 DOC = json.loads(fd.DEFAULT_DICTIONARY_PATH.read_text(encoding="utf-8"))
@@ -213,31 +214,95 @@ def test_a_lock_naming_one_version_twice_is_rejected():
         fd.build_dictionary(_doc(), lock=lock)
 
 
-def _git(*args: str) -> str | None:
-    try:
-        out = subprocess.run(
-            ["git", *args], cwd=fd.REPO, capture_output=True, text=True, timeout=30
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    return out.stdout if out.returncode == 0 else None
-
-
 def test_the_base_branch_lock_is_a_prefix_of_this_lock():
-    """Append-only across history: every row the base branch locked survives here,
-    unchanged and in order. Best-effort — skipped where the base is not fetched;
-    the lock-only test above is the always-on CI check."""
-    base = None
-    for ref in ("origin/main", "main"):
-        if _git("rev-parse", "--verify", "--quiet", ref):
-            base = (_git("merge-base", "HEAD", ref) or "").strip() or None
-            if base:
-                break
+    """Append-only across history: every row the base locked survives here,
+    unchanged and in order. The logic lives in scripts/check_feature_dictionary_lock.py
+    (push event / on main -> HEAD~1; PR -> merge-base). Locally an unavailable
+    base skips; under CI it FAILS — a gate that cannot find its input has not passed."""
+    base, how = chk.resolve_base()
     if base is None:
-        pytest.skip("no base branch available locally")
-    rel = fd.DEFAULT_LOCK_PATH.relative_to(fd.REPO).as_posix()
-    text = _git("show", f"{base}:{rel}")
-    base_rows = [] if text is None else fd.parse_lock(json.loads(text))
-    assert (
-        fd.parse_lock(LOCK)[: len(base_rows)] == base_rows
-    ), "a lock row present on the base branch was edited, removed or reordered"
+        if os.environ.get("CI"):
+            pytest.fail(f"CI could not resolve a base for the lock-history check: {how}")
+        pytest.skip(f"no base available locally: {how}")
+    result = chk.compare(fd.parse_lock(LOCK), chk.base_lock_rows(base))
+    assert result.ok, f"{result.message} (base {base[:12]}, {how})"
+
+
+# ── the lock-history script, with a fake git ────────────────────────────────
+
+
+class _FakeGit:
+    def __init__(self, revs: dict[str, str], merge_bases: dict[str, str], files=None):
+        self.revs, self.merge_bases, self.files = revs, merge_bases, files or {}
+
+    def __call__(self, *args: str):
+        if args[0] == "rev-parse":
+            ref = args[-1].removesuffix("^{commit}")
+            return (0, self.revs[ref] + "\n") if ref in self.revs else (1, "")
+        if args[0] == "merge-base":
+            mb = self.merge_bases.get(args[2])
+            return (0, mb + "\n") if mb else (1, "")
+        if args[0] == "cat-file":
+            return (0, "") if args[2] in self.files else (128, "")
+        if args[0] == "show":
+            text = self.files.get(args[1])
+            return (0, text) if isinstance(text, str) else (128, "")
+        raise AssertionError(args)
+
+
+_LOCK_REL = fd.DEFAULT_LOCK_PATH.relative_to(fd.REPO).as_posix()
+
+
+def test_on_a_push_event_the_base_is_the_previous_commit():
+    git = _FakeGit({"HEAD": "h", "HEAD~1": "p", "origin/main": "h"}, {"origin/main": "h"})
+    assert chk.resolve_base({"GITHUB_EVENT_NAME": "push"}, git)[0] == "p"
+
+
+def test_when_the_merge_base_is_head_the_base_is_the_previous_commit():
+    git = _FakeGit({"HEAD": "h", "HEAD~1": "p", "origin/main": "h"}, {"origin/main": "h"})
+    assert chk.resolve_base({}, git)[0] == "p"
+
+
+def test_a_pull_request_compares_against_its_base_ref_merge_base():
+    git = _FakeGit(
+        {"HEAD": "h", "HEAD~1": "p", "origin/release": "r", "origin/main": "m"},
+        {"origin/release": "mb-r", "origin/main": "mb-m"},
+    )
+    assert chk.resolve_base({"GITHUB_BASE_REF": "release"}, git)[0] == "mb-r"
+    assert chk.resolve_base({}, git)[0] == "mb-m"
+
+
+def test_a_shallow_push_with_no_previous_commit_has_no_base():
+    git = _FakeGit({"HEAD": "h"}, {})
+    assert chk.resolve_base({"GITHUB_EVENT_NAME": "push"}, git)[0] is None
+
+
+def test_under_ci_a_missing_base_fails_and_locally_it_is_not_checked(monkeypatch):
+    monkeypatch.setattr(chk, "resolve_base", lambda env: (None, "no refs"))
+    assert chk.main([], env={"CI": "true"}) == 1
+    assert chk.main([], env={}) == 2
+
+
+def test_a_base_lock_that_exists_but_cannot_be_read_is_an_error():
+    git = _FakeGit({}, {}, files={f"b:{_LOCK_REL}": None})
+    with pytest.raises(chk.LockCheckError, match="git show"):
+        chk.base_lock_rows("b", git)
+    git = _FakeGit({}, {}, files={f"b:{_LOCK_REL}": "{not json"})
+    with pytest.raises(chk.LockCheckError, match="does not parse"):
+        chk.base_lock_rows("b", git)
+
+
+def test_a_base_without_the_lock_file_has_nothing_to_preserve():
+    assert chk.base_lock_rows("b", _FakeGit({}, {})) is None
+    assert chk.compare(fd.parse_lock(LOCK), None).ok
+
+
+def test_a_commit_rewriting_a_definition_and_its_lock_row_is_caught():
+    """The case the git-free test cannot see: dictionary and lock agree with each
+    other, but the lock row differs from the one the previous commit held."""
+    base = fd.parse_lock(LOCK)
+    rewritten = [(base[0][0], base[0][1], "0" * 64), *base[1:]]
+    result = chk.compare(rewritten, base)
+    assert not result.ok and f"{base[0][0]} v{base[0][1]}" in result.message
+    assert not chk.compare(base[1:], base).ok  # a removed row
+    assert chk.compare([*base, ("new_feature", 1, "f" * 64)], base).ok  # an appended row

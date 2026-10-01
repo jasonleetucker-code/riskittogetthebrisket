@@ -41,10 +41,11 @@ def _receipt(
     kind=lr.KIND_OBSERVATION,
     native="n1",
     body=None,
+    producer="test_producer",
 ):
     return lr.LearningReceipt(
         kind=kind,
-        producer="test_producer",
+        producer=producer,
         native_id=native,
         model_family="test_family",
         model_version_id=lr.model_version_id("test_family", "v1"),
@@ -199,21 +200,125 @@ class TestRoleCannotDodgeTheGuard:
                 )
             )
 
-    def test_a_producer_artifact_on_a_prediction_is_still_accepted(self):
-        artifact = lr.StoreRef(
-            store="robust_filter_shadow_ledger",
-            key="gen:1",
-            role=lr.ROLE_ARTIFACT,
-            known_at=BASE + timedelta(hours=1),
-            fidelity="exact",
-        )
+    def test_a_producers_own_artifact_on_a_prediction_is_still_accepted(self):
+        own = _artifact("source_quality_results", BASE + timedelta(hours=1), produced_for="run-7")
         lr.validate_receipt(
             _receipt(
                 kind=lr.KIND_PREDICTION,
+                producer="source_quality_eval",
+                native="run-7",
                 cutoff=BASE,
-                slots={"inputs": _ref(BASE), "predictionSet": artifact},
+                slots={"inputs": _ref(BASE), "predictionSet": own},
             )
         )
+
+
+def _artifact(store, known_at, *, produced_for=None, key="a#1"):
+    return lr.StoreRef(
+        store=store,
+        key=key,
+        role=lr.ROLE_ARTIFACT,
+        known_at=known_at,
+        fidelity="exact" if known_at is not None else "unavailable",
+        produced_for=produced_for,
+    )
+
+
+class TestArtifactTimeBound:
+    """Round-2 finding 5: the artifact exemption is for the receipt's OWN output
+    only — same (registered-writer) producer AND the same native run."""
+
+    LATE = BASE + timedelta(days=3)
+
+    def _prediction(self, ref, *, producer="test_producer", native="n1"):
+        return _receipt(
+            kind=lr.KIND_PREDICTION,
+            producer=producer,
+            native=native,
+            cutoff=BASE,
+            slots={"inputs": _ref(BASE), "cited": ref},
+        )
+
+    @pytest.mark.parametrize("store", ["model_registry", "source_quality_results"])
+    def test_a_later_artifact_of_another_producer_is_refused(self, store):
+        with pytest.raises(lr.PointInTimeViolation, match="not this receipt's own output"):
+            lr.validate_receipt(self._prediction(_artifact(store, self.LATE, produced_for="n1")))
+
+    def test_a_later_artifact_naming_no_run_is_refused_even_for_its_writer(self):
+        with pytest.raises(lr.PointInTimeViolation):
+            lr.validate_receipt(
+                self._prediction(
+                    _artifact("model_registry", self.LATE),
+                    producer="hill_model_registry",
+                    native="v9",
+                )
+            )
+
+    def test_a_later_artifact_of_a_different_run_is_refused(self):
+        with pytest.raises(lr.PointInTimeViolation):
+            lr.validate_receipt(
+                self._prediction(
+                    _artifact("model_registry", self.LATE, produced_for="v10"),
+                    producer="hill_model_registry",
+                    native="v9",
+                )
+            )
+
+    def test_the_writers_own_later_artifact_for_this_run_is_accepted(self):
+        lr.validate_receipt(
+            self._prediction(
+                _artifact("model_registry", self.LATE, produced_for="v9"),
+                producer="hill_model_registry",
+                native="v9",
+            )
+        )
+
+    @pytest.mark.parametrize("store", ["preregistration", "robust_filter_shadow_ledger"])
+    def test_a_store_with_no_registered_writer_is_never_exempt(self, store):
+        with pytest.raises(lr.PointInTimeViolation):
+            lr.validate_receipt(self._prediction(_artifact(store, self.LATE, produced_for="n1")))
+
+    def test_an_artifact_at_or_before_the_cutoff_needs_no_claim(self):
+        for at in (BASE, BASE - timedelta(days=1)):
+            lr.validate_receipt(self._prediction(_artifact("model_registry", at)))
+
+    def test_an_artifact_with_no_proven_instant_is_not_compared(self):
+        lr.validate_receipt(self._prediction(_artifact("preregistration", None)))
+
+    def test_property_exempt_iff_own_writer_and_own_run(self):
+        rng = random.Random(SEED + 9)
+        producers = ["hill_model_registry", "source_quality_eval", "test_producer"]
+        for _ in range(2000):
+            store = rng.choice(sorted(lr.ARTIFACT_STORES))
+            producer = rng.choice(producers)
+            native = rng.choice(["r1", "r2"])
+            produced_for = rng.choice([None, "r1", "r2"])
+            known = BASE + timedelta(seconds=rng.randrange(-86400, 86400))
+            r = self._prediction(
+                _artifact(store, known, produced_for=produced_for),
+                producer=producer,
+                native=native,
+            )
+            own = produced_for == native and producer in lr.ARTIFACT_STORE_WRITERS[store]
+            if known <= BASE or own:
+                lr.validate_receipt(r)
+            else:
+                with pytest.raises(lr.PointInTimeViolation):
+                    lr.validate_receipt(r)
+
+    def test_produced_for_is_only_for_artifacts(self):
+        with pytest.raises(lr.ReceiptError, match="only an 'artifact'"):
+            lr.StoreRef(
+                store="temporal_ledger",
+                key="k",
+                role=lr.ROLE_INPUT,
+                known_at=BASE,
+                fidelity="exact",
+                produced_for="n1",
+            )
+
+    def test_every_artifact_store_declares_its_writers(self):
+        assert set(lr.ARTIFACT_STORE_WRITERS) == set(lr.ARTIFACT_STORES)
 
 
 class TestOutcomeTiming:
@@ -337,6 +442,57 @@ class TestStore:
             list(rs.iter_receipts(target))
         assert target.exists() == existed  # nothing created
 
+    def test_there_is_no_implicit_temp_dir_allowance(self, tmp_path, monkeypatch):
+        """Round-2 finding 1: without an explicit opt-in a temp path is refused —
+        on a production host that allowance admitted anything in /tmp."""
+        monkeypatch.setattr(rs, "EXTRA_ALLOWED_ROOTS", ())
+        target = tmp_path / "r.sqlite"
+        with pytest.raises(rs.StorePathError, match="outside the repository"):
+            rs.connect(target)
+        assert not target.exists()
+
+    @pytest.mark.parametrize(
+        "rel, allowed",
+        [
+            ("config/receipts.sqlite", False),
+            ("data/temporal_ledger.sqlite", False),
+            ("data/receipts.sqlite", False),
+            ("receipts.sqlite", False),
+            ("data/ros/receipts.sqlite", False),
+            ("data/learning/receipts.sqlite", True),
+            ("data/learning/sub/r.sqlite", True),
+        ],
+    )
+    def test_a_checkout_under_a_temp_dir_gains_nothing(self, tmp_path, monkeypatch, rel, allowed):
+        """Round-2 finding 1: simulate a repo root that itself lives under an
+        allowed temp root. The in-repo rule must run first, so only data/learning
+        is accepted inside it — whatever directory the checkout happens to be in."""
+        repo = tmp_path / "checkout"
+        monkeypatch.setattr(rs, "REPO", repo)
+        monkeypatch.setattr(rs, "STORE_TREE", repo / "data" / "learning")
+        monkeypatch.setattr(rs, "_FORBIDDEN_TREE", repo / "data" / "ros")
+        monkeypatch.setattr(rs, "EXTRA_ALLOWED_ROOTS", (tmp_path,))
+        target = repo / rel
+        if allowed:
+            rs.connect(target).close()
+            assert target.exists()
+        else:
+            with pytest.raises(rs.StorePathError):
+                rs.connect(target)
+            with pytest.raises(rs.StorePathError):
+                list(rs.iter_receipts(target))
+            assert not target.exists()
+        # outside the simulated checkout, the explicit opt-in still applies
+        rs.connect(tmp_path / "elsewhere" / "r.sqlite").close()
+
+    def test_an_opted_in_root_inside_the_repo_is_ignored(self, monkeypatch):
+        monkeypatch.setattr(rs, "EXTRA_ALLOWED_ROOTS", (rs.REPO, rs.REPO / "config"))
+        target = rs.REPO / "config" / "receipts.sqlite"
+        existed = target.exists()
+        with pytest.raises(rs.StorePathError, match="data/learning"):
+            rs.connect(target)
+        assert target.exists() == existed
+
     def test_meta_is_insert_only(self, tmp_path):
         path = tmp_path / "r.sqlite"
         conn = rs.connect(path)
@@ -349,22 +505,57 @@ class TestStore:
                 conn.execute(sql)
         conn.close()
         conn = rs.connect(path)  # reconnecting does not rewrite meta either
-        assert conn.execute("SELECT value FROM meta").fetchall()[0][0] == "1"
+        assert conn.execute("SELECT value FROM meta").fetchall()[0][0] == str(
+            rs.STORE_SCHEMA_VERSION
+        )
         conn.close()
 
-    def test_insert_or_replace_cannot_overwrite_a_receipt(self, tmp_path):
+    @pytest.mark.parametrize("verb", ["INSERT OR REPLACE", "INSERT OR IGNORE", "INSERT"])
+    def test_a_raw_rewrite_aborts_loudly_and_changes_nothing(self, tmp_path, verb):
+        """Round-2 finding 3: a raw insert that bypasses the module must fail, not
+        be silently dropped (the v1 trigger was RAISE(IGNORE))."""
         path = tmp_path / "r.sqlite"
         r = _receipt(body={"v": 1})
         rs.append_receipts([r], path=path)
         conn = rs.connect(path)
-        conn.execute(
-            "INSERT OR REPLACE INTO receipts VALUES (?,'OBSERVATION',1,'p','f',NULL,NULL,NULL,'h','{}','t')",
-            (r.receipt_id,),
-        )
-        conn.commit()
+        with pytest.raises(sqlite3.DatabaseError, match="never replaced"):
+            conn.execute(
+                f"{verb} INTO receipts VALUES (?,'OBSERVATION',1,'p','f',NULL,NULL,NULL,'h','{{}}','t')",
+                (r.receipt_id,),
+            )
         conn.close()
         stored = list(rs.iter_receipts(path))
         assert len(stored) == 1 and stored[0]["body"] == {"v": 1}
+
+    def test_module_rewrites_are_classified_never_dropped(self, tmp_path):
+        path = tmp_path / "r.sqlite"
+        r = _receipt(body={"v": 1})
+        assert rs.append_receipts([r], path=path)["written"] == 1
+        same = rs.append_receipts([_receipt(body={"v": 1})], path=path)
+        assert (same["written"], same["duplicates"], same["contentConflicts"]) == (0, 1, [])
+        clash = rs.append_receipts([_receipt(body={"v": 2})], path=path)
+        assert clash["written"] == 0 and clash["duplicates"] == 0
+        (conflict,) = clash["contentConflicts"]
+        assert conflict["receiptId"] == r.receipt_id
+        assert conflict["storedHash"] == r.content_hash()
+        assert conflict["incomingHash"] == _receipt(body={"v": 2}).content_hash()
+        assert [s["body"] for s in rs.iter_receipts(path)] == [{"v": 1}]
+
+    def test_a_store_of_another_schema_version_is_refused_untouched(self, tmp_path):
+        path = tmp_path / "old.sqlite"
+        raw = sqlite3.connect(str(path))
+        raw.executescript(
+            "CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT);"
+            "INSERT INTO meta VALUES ('schema_version', '1');"
+        )
+        raw.commit()
+        raw.close()
+        with pytest.raises(lr.ReceiptError, match="explicit migration"):
+            rs.connect(path)
+        raw = sqlite3.connect(str(path))
+        names = {r[0] for r in raw.execute("SELECT name FROM sqlite_master")}
+        raw.close()
+        assert "receipts" not in names and "corrections" not in names
 
     def test_default_store_is_gitignored_data_learning(self):
         assert (
@@ -532,3 +723,66 @@ class TestCorrections:
     def test_an_empty_revision_is_refused(self):
         with pytest.raises(lr.ReceiptError, match="revision"):
             lr.validate_receipt(_outcome("  "))
+
+    # ── round-2 finding 4: the database enforces the correction rules itself ──
+
+    def _stored(self, tmp_path, *revisions):
+        path = tmp_path / "r.sqlite"
+        rows = [_outcome(rev) for rev in revisions]
+        rs.append_receipts(rows, path=path)
+        return path, [r.receipt_id for r in rows]
+
+    def _raw_correct(self, path, superseded, superseding):
+        conn = rs.connect(path)
+        try:
+            conn.execute(
+                "INSERT INTO corrections VALUES (?, ?, 'raw', 't')", (superseded, superseding)
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def test_a_raw_two_cycle_is_aborted_by_the_database(self, tmp_path):
+        path, (x, y) = self._stored(tmp_path, None, "r1")
+        self._raw_correct(path, x, y)
+        with pytest.raises(sqlite3.DatabaseError, match="cannot supersede"):
+            self._raw_correct(path, y, x)
+
+    def test_a_raw_superseded_receipt_cannot_supersede(self, tmp_path):
+        path, (a, b, c) = self._stored(tmp_path, None, "r1", "r2")
+        self._raw_correct(path, a, b)
+        with pytest.raises(sqlite3.DatabaseError, match="cannot supersede"):
+            self._raw_correct(path, c, a)
+        self._raw_correct(path, b, c)  # extending at the head is the legitimate move
+
+    def test_a_raw_self_supersession_is_aborted(self, tmp_path):
+        path, (a,) = self._stored(tmp_path, None)
+        with pytest.raises(sqlite3.DatabaseError, match="cannot supersede"):
+            self._raw_correct(path, a, a)
+
+    def test_foreign_keys_are_enforced_on_every_connection(self, tmp_path):
+        path, (a,) = self._stored(tmp_path, None)
+        conn = rs.connect(path)
+        assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+        conn.close()
+        with pytest.raises(sqlite3.IntegrityError, match="FOREIGN KEY"):
+            self._raw_correct(path, a, "rcpt:outcome:not-stored")
+
+    def test_live_only_is_the_newest_revision_in_each_chain(self, tmp_path):
+        path, (r0, r1, r2, loose) = self._stored(tmp_path, None, "rev1", "rev2", "unlinked")
+        rs.record_correction(r0, r1, "first", path=path)
+        rs.record_correction(r1, r2, "second", path=path)
+        live = [r["receiptId"] for r in rs.iter_receipts(path, live_only=True)]
+        # r0 -> r1 -> r2 collapses to r2; an uncorrected revision is its own chain
+        assert sorted(live) == sorted([r2, loose])
+        assert len(list(rs.iter_receipts(path))) == 4  # nothing removed
+        kind_live = {
+            r["receiptId"] for r in rs.iter_receipts(path, kind=lr.KIND_OUTCOME, live_only=True)
+        }
+        assert kind_live == {r2, loose}
+
+    def test_re_recording_an_older_link_after_the_chain_grew_is_a_noop(self, tmp_path):
+        path, (r0, r1, r2) = self._stored(tmp_path, None, "rev1", "rev2")
+        rs.record_correction(r0, r1, "first", path=path)
+        rs.record_correction(r1, r2, "second", path=path)
+        assert rs.record_correction(r0, r1, "first", path=path) == {"recorded": False}

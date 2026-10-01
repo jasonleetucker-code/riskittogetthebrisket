@@ -24,15 +24,29 @@ Invariants enforced here, each pinned by ``tests/model_registry/test_learning_re
   same rule as ``src.history.store.has_time_component`` and
   ``training_run._require_aware``: an unknown instant cannot be proven to precede
   anything.
-* **The role is not the caller's to choose** (A1). ``artifact`` — the one role
-  the time guard does not bound, because a producer's own output is legitimately
-  written after its cutoff — is accepted only for a ref into a producer ARTIFACT
-  store (:data:`ARTIFACT_STORES`). A temporal-ledger, dataset-state, board,
-  panel or repo-file ref can never be an ``artifact``, so a future-dated
-  observation cannot be relabelled past the guard. OBSERVATION and FEATURES
-  receipts — the receipts that describe what fed a model — accept ``input``
-  refs only; no pre-cutoff kind (:data:`PRE_CUTOFF_KINDS`) may carry an
-  ``outcome`` ref.
+* **The role is not the caller's to choose** (A1). ``artifact`` is accepted
+  only for a ref into a producer ARTIFACT store (:data:`ARTIFACT_STORES`). A
+  temporal-ledger, dataset-state, board, panel or repo-file ref can never be an
+  ``artifact``, so a future-dated observation cannot be relabelled past the
+  guard. OBSERVATION and FEATURES receipts — the receipts that describe what fed
+  a model — accept ``input`` refs only; no pre-cutoff kind
+  (:data:`PRE_CUTOFF_KINDS`) may carry an ``outcome`` ref.
+* **An artifact is bounded by the cutoff too, unless it is the receipt's OWN
+  output** (A1). An ``artifact`` ref whose ``knownAt`` falls after the receipt's
+  ``cutoff`` is accepted only when it is the artifact the receipt itself
+  describes being produced — precisely, BOTH of (:func:`is_own_artifact`):
+
+  1. the receipt's ``producer`` is a registered writer of the ref's store
+     (:data:`ARTIFACT_STORE_WRITERS`), and
+  2. the ref's ``producedFor`` equals the receipt's ``nativeId`` — the ref names
+     the very run this receipt describes.
+
+  Anything else — another producer's later registry entry, the same producer's
+  output for a different run, a ref that names no run — is held to the cutoff
+  exactly like an input: a PREDICTION cannot cite a model-registry or
+  source-quality-results entry written after it was made. An artifact ref with
+  no proven ``knownAt`` (``fidelity: unavailable``) asserts no instant and so is
+  not compared.
 * **Corrections are revisions, never overwrites** (plan §19.1 ``outcomeRevision``).
   A receipt's identity is ``(kind, producer, nativeId)`` plus its ``revision``
   when it has one. A corrected outcome is a NEW receipt with a new ``revision``,
@@ -165,6 +179,22 @@ ARTIFACT_STORES: frozenset[str] = frozenset(
     }
 )
 
+#: Which producer writes each artifact store. Only a registered writer can claim
+#: a post-cutoff artifact as its OWN output (see :func:`is_own_artifact`). An
+#: empty set means no producer may: a ``preregistration`` must by definition
+#: precede the cutoff it preregisters, and ``robust_filter_shadow_ledger`` has
+#: no adapter in AL-0 (AL-1a registers its producer here when it adds one).
+#: ``tests/model_registry/test_learning_adapters.py`` pins these names to the
+#: adapters' producer constants.
+ARTIFACT_STORE_WRITERS: Mapping[str, frozenset[str]] = {
+    "model_registry": frozenset({"hill_model_registry"}),
+    "hill_training_run": frozenset({"hill_training_run"}),
+    "source_quality_evaluations": frozenset({"source_quality_eval"}),
+    "source_quality_results": frozenset({"source_quality_eval"}),
+    "robust_filter_shadow_ledger": frozenset(),
+    "preregistration": frozenset(),
+}
+
 #: Kinds whose refs describe what FED a model; every ref must be ``input``.
 INPUT_ONLY_KINDS: frozenset[str] = frozenset({KIND_OBSERVATION, KIND_FEATURES})
 #: Kinds made at or before their cutoff; none may point at an ``outcome``.
@@ -234,6 +264,11 @@ class StoreRef:
     fidelity: str
     basis: str | None = None  # how known_at was established
     revision: str | None = None  # e.g. outcomeRevision: corrections are revisions
+    #: For an ``artifact`` ref only: the producer-native id of the run whose
+    #: output this artifact is. It exempts the ref from the cutoff only when it
+    #: equals the citing receipt's own ``nativeId`` AND that receipt's producer
+    #: writes the store (:func:`is_own_artifact`).
+    produced_for: str | None = None
 
     def __post_init__(self) -> None:
         if self.store not in NATIVE_STORES:
@@ -248,6 +283,11 @@ class StoreRef:
                 f"stores {sorted(ARTIFACT_STORES)} are exempt from the point-in-time guard; "
                 "evidence from any other store is an 'input' or an 'outcome'"
             )
+        if self.produced_for is not None:
+            if self.role != ROLE_ARTIFACT:
+                raise ReceiptError("producedFor names a producing run; only an 'artifact' has one")
+            if not str(self.produced_for).strip():
+                raise ReceiptError("producedFor, when present, must be non-empty")
         if self.fidelity == FIDELITY_RECONSTRUCTED:
             raise ReceiptError(
                 "fidelity 'reconstructed' is refused: no approved reconstruction "
@@ -269,6 +309,7 @@ class StoreRef:
             "fidelity": self.fidelity,
             "basis": self.basis,
             "revision": self.revision,
+            "producedFor": self.produced_for,
         }
 
 
@@ -390,11 +431,26 @@ def _all_refs(receipt: LearningReceipt) -> list[StoreRef]:
     return [*receipt.refs, *(s for s in receipt.slots.values() if isinstance(s, StoreRef))]
 
 
+def is_own_artifact(receipt: LearningReceipt, ref: StoreRef) -> bool:
+    """True iff ``ref`` is the artifact ``receipt`` describes being produced.
+
+    Exactly both: the receipt's producer is a registered writer of the ref's
+    store (:data:`ARTIFACT_STORE_WRITERS`), AND the ref names the receipt's own
+    run (``ref.produced_for == receipt.native_id``)."""
+    return (
+        ref.role == ROLE_ARTIFACT
+        and ref.produced_for is not None
+        and ref.produced_for == receipt.native_id
+        and receipt.producer in ARTIFACT_STORE_WRITERS.get(ref.store, frozenset())
+    )
+
+
 def check_point_in_time(receipt: LearningReceipt) -> None:
     """A1. Nothing known after the cutoff is selectable; no outcome precedes its target.
 
     The declared role is checked against the receipt kind BEFORE any time
-    comparison, so a role cannot be chosen to dodge the comparison."""
+    comparison, so a role cannot be chosen to dodge the comparison. An
+    ``artifact`` is bounded by the cutoff unless :func:`is_own_artifact`."""
     if (
         receipt.cutoff is not None
         and receipt.target_event_at is not None
@@ -428,6 +484,20 @@ def check_point_in_time(receipt: LearningReceipt) -> None:
                 raise PointInTimeViolation(
                     f"input {ref.store}:{ref.key} known at {iso(ref.known_at)} is after the "
                     f"cutoff {iso(receipt.cutoff)}"
+                )
+        elif ref.role == ROLE_ARTIFACT:
+            if (
+                receipt.cutoff is not None
+                and ref.known_at is not None
+                and ref.known_at > receipt.cutoff
+                and not is_own_artifact(receipt, ref)
+            ):
+                writers = sorted(ARTIFACT_STORE_WRITERS.get(ref.store, frozenset()))
+                raise PointInTimeViolation(
+                    f"artifact {ref.store}:{ref.key} known at {iso(ref.known_at)} is after the "
+                    f"cutoff {iso(receipt.cutoff)} and is not this receipt's own output "
+                    f"(producedFor={ref.produced_for!r}, nativeId={receipt.native_id!r}, "
+                    f"producer={receipt.producer!r}, writers of {ref.store!r}: {writers})"
                 )
         elif ref.role == ROLE_OUTCOME:
             if receipt.target_event_at is None:

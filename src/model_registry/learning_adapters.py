@@ -580,6 +580,11 @@ def source_quality_receipts(
         )
         cohorts = []
 
+    # The evaluation run's own identity. The archive line and the results file
+    # are THIS run's output, written at evaluatedAt (after the window cutoff), so
+    # they name the run via producedFor — the only way a post-cutoff artifact is
+    # accepted (learning_receipt.is_own_artifact).
+    eval_native_id = f"{panel}|{code}|{line.get('evaluatedAt')}|{candidate}"
     archive_ref = StoreRef(
         store="source_quality_evaluations",
         key=f"{archive_key}#{candidate}@{line.get('evaluatedAt')}",
@@ -587,6 +592,7 @@ def source_quality_receipts(
         known_at=evaluated_at,
         fidelity="exact",
         basis="the producer's evaluatedAt",
+        produced_for=eval_native_id,
     )
     panel_ref = StoreRef(
         store="source_quality_panel",
@@ -606,6 +612,7 @@ def source_quality_receipts(
                 known_at=evaluated_at,
                 fidelity="exact",
                 basis="the producer's generatedAt",
+                produced_for=eval_native_id,
             )
         )
     prereg_pin = pins.get("preregistration") or {}
@@ -630,7 +637,7 @@ def source_quality_receipts(
 
     ev = EvaluationReceipt(
         producer=SQ_PRODUCER,
-        native_id=f"{panel}|{code}|{line.get('evaluatedAt')}|{candidate}",
+        native_id=eval_native_id,
         model_family=SQ_FAMILY,
         model_version_id=mvid,
         role="challenger",

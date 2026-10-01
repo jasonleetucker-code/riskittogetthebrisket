@@ -86,6 +86,34 @@ class TestRoundTrip:
         stored = list(rs.iter_receipts(tmp_path / "r.sqlite"))
         assert {s["receiptId"]: s for s in stored} == {r.receipt_id: r.to_dict() for r in receipts}
 
+    def test_artifact_store_writers_are_the_adapters_producers(self):
+        from src.model_registry.learning_receipt import ARTIFACT_STORE_WRITERS as W
+
+        assert W["model_registry"] == {la.HILL_REGISTRY_PRODUCER}
+        assert W["hill_training_run"] == {la.HILL_PRODUCER}
+        assert W["source_quality_evaluations"] == {la.SQ_PRODUCER}
+        assert W["source_quality_results"] == {la.SQ_PRODUCER}
+
+    def test_every_post_cutoff_artifact_is_the_receipts_own_output(self, dictionary):
+        """Round-2 finding 5 on real evidence: the source-quality evaluation's
+        archive/results refs post-date its window cutoff and are exempt only
+        because they name that evaluation run."""
+        from src.model_registry.learning_receipt import ROLE_ARTIFACT, is_own_artifact
+
+        late = 0
+        for r in _all_receipts(dictionary):
+            refs = [*r.refs, *(s for s in r.slots.values() if hasattr(s, "role"))]
+            for ref in refs:
+                if (
+                    ref.role == ROLE_ARTIFACT
+                    and r.cutoff is not None
+                    and ref.known_at is not None
+                    and ref.known_at > r.cutoff
+                ):
+                    late += 1
+                    assert is_own_artifact(r, ref), (r.kind, ref.store, ref.key)
+        assert late > 0, "expected the source-quality evaluations to cite post-cutoff output"
+
     def test_adapters_never_mutate_their_input(self, dictionary):
         reg = _load(REGISTRY)
         snap = copy.deepcopy(reg)

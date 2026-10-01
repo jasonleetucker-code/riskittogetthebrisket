@@ -18,6 +18,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # The feature-dictionary lock-history test compares against HEAD~1
+          # when run on main, and FAILS under CI when no base resolves
+          # (scripts/check_feature_dictionary_lock.py). Depth 1 has no HEAD~1.
+          fetch-depth: 2
 
       - name: Set up Python
         uses: actions/setup-python@v7
