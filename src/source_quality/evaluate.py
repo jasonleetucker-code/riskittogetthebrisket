@@ -37,6 +37,7 @@ from src.source_quality import challengers as ch
 from src.source_quality import metrics as mt
 from src.source_quality import panel as pn
 from src.source_quality.bootstrap import block_ids, bootstrap
+from src.sources.ktc_market import KTC_MARKET_KEY
 
 KTC_FAMILIES = frozenset({"ktcCrowd", "ktcTrades"})
 KTC_KEYS = frozenset(
@@ -45,7 +46,7 @@ KTC_KEYS = frozenset(
         "ktcSfTep",
         "ktcCrowdSfTep",
         "ktcTradesSfTep",
-        "ktcCrowdTradesSfTep",
+        KTC_MARKET_KEY,
         "fantasyNavigatorSf",
     }
 )
