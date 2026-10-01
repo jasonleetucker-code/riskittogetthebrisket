@@ -85,7 +85,7 @@ holdout's source tables are views of it. Its rules:
 - every training and holdout population is players-only;
 - only native values teach spacing;
 - no provider family sits on both sides of a split;
-- measured dependence is reported, not confused with ancestry;
+- lineage (proven / measured / suspected / unknown) is read from the lineage owner, and measured dependence is reported, not confused with ancestry;
 - one trainer per family per scope.
 
 **Rank-voter native values train by default (lead decision, 2026-10-01).** Dynasty
@@ -158,18 +158,45 @@ A standing candidate must clear all of these before board-impact evaluation:
 2. **Cross-market breadth**
    - at least 3 holdout boards must improve. Since 2026-10-01 the OFFENSE split has
      exactly 3 boards (FantasyCalc, OTC, PFK), so this gate now means **all three must
-     improve**. Two of them carry a MEASURED dependence on a training family (PFK on
-     `ktcCrowd`, FantasyCalc on `dynastyDaddySf`); that dependence is reported per board
-     (`measuredDependence`) and the mean over boards with none is recorded as
-     `independentCriterion`. Reporting it does not loosen the gate: the threshold stays
-     at 3 boards, and nothing re-weights or drops a dependent board to make it pass.
-     **`independentCriterion` is currently invalid for OTC** (#1599): OTC carries measured
-     dependence on base KTC, Dynasty Daddy and Yahoo/Boone
-     (`docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md`), but
-     `training_manifest._MEASURED_DEPENDENCES` still records only OTC's dependence on
-     FantasyCalc (not a trainer), so `independentCriterion` counts OTC as independent. It is
-     reporting-only and gates nothing, but it must not be read as independent evidence until
-     the manifest consumes the lineage owner instead of a private copy;
+     improve**. Every holdout's relationship with every training family is read from the
+     ONE lineage owner, `config/sources/source_lineage.json` (its `pairReconciliation`
+     categories, validated by `src/sources/source_census.py`), by
+     `training_manifest.holdout_lineage` — there is no private dependence table. A board
+     counts as **independent** only when the owner reconciles it
+     `INDEPENDENT_NO_EVIDENCE` with every training family, naming the family's actual
+     trainer key, and no recorded proven / measured / suspected relation joins it to a
+     member of that family — a relation is never outvoted by a pair verdict (the worse of
+     the two wins, PROVEN > MEASURED > SUSPECTED > INDEPENDENT), and the owner's validator
+     refuses an `INDEPENDENT_NO_EVIDENCE` pair beside a proven or measured relation joining
+     its sources, cited or not. Both read one rule, `source_census.relation_dependence_category`:
+     a measured relation counts only with a positive dependence statistic in its latest
+     measurement (D2 §5; `dlf-ktc-independence`, residual −0.447, counts as nothing), and the
+     validator follows exactly one *identity* hop per side (`IDENTITY_RELATION_KINDS`: one
+     provider's calibration states, payload, page or boards — never scale borrowing or data
+     use). `PROVEN_COMMON_ANCESTRY` excludes the board from the split;
+     `MEASURED_DEPENDENCE` and `SUSPECTED_DEPENDENCE` (the D2 preregistration §5 rule
+     counts suspected relations) keep it in the split, tagged and not independent; and
+     anything the owner cannot answer — an unreadable or invalid lineage file, no
+     reconciled pair, a null category — is `UNKNOWN` and fails closed (not independent).
+     Each scored board's categories are published as `lineageDependence`, the MEASURED
+     subset as `measuredDependence`, and the mean RMSE over independent boards as
+     `independentCriterion`. **Today no OFFENSE holdout is independent**: OTC carries
+     measured dependence on base KTC, Dynasty Daddy and Yahoo/Boone and suspected
+     dependence on Fitzmaurice and Dynasty Nerds (#1599,
+     `docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md`); PFK and FantasyCalc
+     are measured-dependent on `ktcCrowd` / `dynastyDaddySf` and have no reconciled pair
+     for the other trainers. So `independentCriterion` is `null` with
+     `independentCriterionReason: "no_independent_holdout"`, also recorded in every
+     Autopilot run as `holdoutIndependence`. It is **reporting-only**: no readiness or
+     promotion gate reads it, so its absence neither stops nor loosens automatic OFFENSE
+     promotion. The threshold stays at 3 boards, and nothing re-weights or drops a
+     dependent board to make it pass. `manifestHash` covers the holdout labels DERIVED
+     from the lineage file (each board's per-family category), not the file's bytes: an
+     edit that changes an OFFENSE holdout's category makes standing challengers
+     `stale_code_or_manifest` until a refit replaces them, while an unrelated edit (an IDP
+     or DLF pair, prose, a re-measurement that keeps the verdict) does not restart the
+     persistence window. The file's normalized sha256 is still recorded as provenance in
+     the manifest and in every run record (`lineage`, outside `pinsHash`);
    - no holdout board may worsen by more than 10%.
 
 3. **Row health**

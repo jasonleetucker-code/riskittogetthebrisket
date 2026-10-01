@@ -346,6 +346,22 @@ def main() -> int:
         "championCriterion": round(champ_eval.criterion, 4),
         "championPerSource": {k: round(v, 4) for k, v in sorted(champ_eval.per_source.items())},
         "currentRows": dict(champ_eval.per_source_rows),
+        # Reporting only: no gate reads it (``decide`` gates on criterion and
+        # per-source RMSE). Stated so "no independent holdout" is visible in
+        # every run log instead of silently absent.
+        "holdoutIndependence": {
+            "independentBoards": list(champ_eval.independent_boards),
+            "independentCriterion": (
+                None
+                if champ_eval.independent_criterion is None
+                else round(champ_eval.independent_criterion, 4)
+            ),
+            "reason": champ_eval.independent_criterion_reason,
+            "lineageDependence": {
+                k: dict(sorted(v.items())) for k, v in sorted(champ_eval.lineage_dependence.items())
+            },
+            "gatesPromotion": False,
+        },
         "rowHealthDetail": row_health_detail,
         "winnerVersion": decision.winner_version,
         "ready": decision.ready,
