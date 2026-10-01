@@ -26,8 +26,13 @@ linked to the original with :func:`record_correction` — the discipline of
 retained and readable, a receipt cannot supersede itself, a superseded receipt
 cannot supersede (so no cycle can remove evidence), and a receipt is superseded
 at most once (corrections form a chain, never a fork). Every one of those rules
-is ALSO a database trigger, and foreign keys are enforced on every connection,
-so a raw insert cannot record a correction the module would refuse.
+is ALSO a database trigger, so a raw insert cannot record a correction the module
+would refuse. That includes "both receipts exist": the ``REFERENCES`` clauses
+are enforced only on connections that turn ``PRAGMA foreign_keys`` on, which
+:func:`connect` does and a raw ``sqlite3.connect`` (SQLite's default) does not,
+so existence is a trigger too rather than a property of whoever opened the file.
+A dangling link would otherwise make ``live_only`` hide a stored receipt behind
+one that does not exist.
 ``iter_receipts(live_only=True)`` answers with the head of each correction chain.
 
 What the store refuses outright:
@@ -76,7 +81,9 @@ REPO = Path(__file__).resolve().parents[2]
 DEFAULT_STORE_PATH: Path = REPO / "data" / "learning" / "receipts.sqlite"
 #: 2: replace-attempts ABORT (v1 silently ignored them); correction triggers
 #: refuse self-, superseded- and cyclic supersession; foreign keys enforced.
-STORE_SCHEMA_VERSION = 2
+#: 3: a correction naming a receipt that is not stored ABORTs on ANY connection
+#: (a trigger; ``REFERENCES`` binds only connections with foreign_keys on).
+STORE_SCHEMA_VERSION = 3
 
 _FORBIDDEN_TREE = REPO / "data" / "ros"
 #: The only production home of the store.
@@ -141,6 +148,13 @@ BEGIN SELECT RAISE(ABORT, 'receipt corrections are append-only'); END;
 CREATE TRIGGER IF NOT EXISTS corrections_no_replace BEFORE INSERT ON corrections
 WHEN EXISTS (SELECT 1 FROM corrections WHERE superseded_id = NEW.superseded_id)
 BEGIN SELECT RAISE(ABORT, 'a receipt is corrected at most once; correct the newest revision'); END;
+-- Both ends must be stored receipts. REFERENCES alone does not hold on a raw
+-- connection (PRAGMA foreign_keys is off by default), and a dangling link lets
+-- iter_receipts(live_only=True) hide a stored receipt behind a ghost.
+CREATE TRIGGER IF NOT EXISTS corrections_receipts_exist BEFORE INSERT ON corrections
+WHEN NOT EXISTS (SELECT 1 FROM receipts WHERE receipt_id = NEW.superseded_id)
+  OR NOT EXISTS (SELECT 1 FROM receipts WHERE receipt_id = NEW.superseding_id)
+BEGIN SELECT RAISE(ABORT, 'a correction must link two stored receipts'); END;
 -- A superseding receipt must be a chain HEAD (not itself superseded). That alone
 -- makes a cycle impossible: a head has no outgoing supersession, so the receipt
 -- being superseded can never be reached from it. The direct X->Y / Y->X pair and

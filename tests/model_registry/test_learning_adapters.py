@@ -114,6 +114,69 @@ class TestRoundTrip:
                     assert is_own_artifact(r, ref), (r.kind, ref.store, ref.key)
         assert late > 0, "expected the source-quality evaluations to cite post-cutoff output"
 
+    def test_every_artifact_ref_is_own_or_comparable_with_a_cutoff(self, dictionary):
+        """Round-3 finding D3 on real evidence: an artifact that is not the
+        receipt's own output carries a knownAt AND sits on a receipt with a cutoff
+        it does not exceed. No artifact is exempt by its role label alone."""
+        from src.model_registry.learning_receipt import ROLE_ARTIFACT, is_own_artifact
+
+        foreign = 0
+        for r in _all_receipts(dictionary):
+            for ref in [*r.refs, *(s for s in r.slots.values() if hasattr(s, "role"))]:
+                if ref.role != ROLE_ARTIFACT or is_own_artifact(r, ref):
+                    continue
+                foreign += 1
+                assert r.cutoff is not None and ref.known_at is not None, (r.kind, ref.key)
+                assert ref.known_at <= r.cutoff, (r.kind, ref.key)
+        assert foreign > 0, "the source-quality MODEL/CHALLENGER cite the run's archive"
+
+    def test_the_preregistration_is_unobserved_not_an_unprovable_artifact(self, dictionary):
+        """The producer pins the preregistration sha + commit but not its commit
+        time, so it cannot be an artifact; the pin travels in extra, verbatim."""
+        from src.model_registry.learning_receipt import Unobserved
+
+        results = _load(SQ_RESULTS)
+        line = json.loads(SQ_ARCHIVE.read_text(encoding="utf-8").splitlines()[0])
+        receipts = la.source_quality_receipts(
+            line,
+            archive_key=SQ_ARCHIVE_KEY,
+            dictionary=dictionary,
+            results=results,
+            results_key=SQ_RESULTS_KEY,
+        )
+        model, challenger, evaluation = receipts
+        assert isinstance(evaluation.slots["preregistration"], Unobserved)
+        assert not any(ref.store == "preregistration" for ref in evaluation.refs)
+        pin = evaluation.body["extra"]["preregistrationPin"]
+        assert pin["sha256"] == line["preregistrationSha256"]
+        assert pin["commit"] == results["pins"]["preregistration"]["commit"]
+        evaluated_at = la.parse_instant(line["evaluatedAt"], what="evaluatedAt")
+        assert model.cutoff == evaluated_at and challenger.cutoff == evaluated_at
+
+    def test_a_registry_version_with_unrecorded_fitted_at_still_builds(self):
+        """fittedAt 'unknown' (an Autopilot composite): every ref is the
+        receipt's own registry output, so nothing needs an instant it lacks."""
+        reg = _load(REGISTRY)
+        version = dict(reg["versions"][0], fittedAt="unknown")
+        receipts = la.hill_receipts_from_registry_version(
+            version, champion_version=reg["championVersion"]
+        )
+        assert receipts
+        for r in receipts:
+            for ref in [*r.refs, *(s for s in r.slots.values() if hasattr(s, "role"))]:
+                assert ref.known_at is None and ref.produced_for == r.native_id
+
+    def test_the_training_run_artifact_claims_no_write_time_it_does_not_have(self, dictionary):
+        """Minor finding: trainingCutoff bounds the run's INPUTS, not when the
+        record was written, and the record carries no write time."""
+        demo = _load(HILL_DEMO)
+        record = demo["1_twoReplaysOfOnePinSet"]["a"]
+        model = la.hill_receipts_from_training_run(record, dictionary=dictionary)[0]
+        run_ref = model.slots["trainingRun"]
+        assert run_ref.known_at is None and run_ref.fidelity == "unavailable"
+        assert run_ref.produced_for == model.native_id == record["challengerHash"]
+        assert "recordedAt" not in record
+
     def test_adapters_never_mutate_their_input(self, dictionary):
         reg = _load(REGISTRY)
         snap = copy.deepcopy(reg)

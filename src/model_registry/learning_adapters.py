@@ -170,13 +170,25 @@ def hill_receipts_from_training_run(
     cutoff = parse_instant(record["trainingCutoff"], what="trainingCutoff")
     mvid = hill_version_id_for_run(record)
     challenger = str(record["challengerHash"])
+    # When was the run record WRITTEN? Nothing records it: the record is
+    # content-addressed (challengerHash = pins + model), ``recordedAt`` is reserved
+    # in training_run._UNHASHED_FIELDS but never set, and ``trainingCutoff`` is the
+    # INPUT cutoff — a lower bound on the write time, which is the unsafe direction
+    # for a "known at" claim. So the write time is reported as unavailable, and the
+    # ref is accepted only because it is this receipt's OWN output (producedFor =
+    # the challenger hash this MODEL receipt describes; hill_training_run writes
+    # the store), never because of its role label.
     run_ref = StoreRef(
         store="hill_training_run",
         key=f"challenger:{challenger}",
         role=ROLE_ARTIFACT,
-        known_at=cutoff,
-        fidelity="exact",
-        basis="the run record is a function of inputs at or before trainingCutoff",
+        known_at=None,
+        fidelity="unavailable",
+        basis=(
+            "the run record carries no write time (recordedAt is never set); it was written "
+            "at or after trainingCutoff, which bounds its inputs, not its writing"
+        ),
+        produced_for=challenger,
     )
     scopes = {
         scope: {
@@ -270,6 +282,10 @@ def hill_receipts_from_registry_version(
         fitted_at = parse_instant(fitted, what="fittedAt") if fitted else None
     except ReceiptError:
         fitted_at = None  # e.g. 'unknown' on an Autopilot composite
+    # The registry entry for version n is written by the registry producer FOR
+    # version n, so it is the MODEL / CHALLENGER receipts' own output (both carry
+    # nativeId ``v<n>``). That — not the role label — is what lets an entry whose
+    # fittedAt is unrecorded ('unknown' on an Autopilot composite) be cited.
     reg_ref = StoreRef(
         store="model_registry",
         key=f"{HILL_FAMILY}#v{n_version}",
@@ -277,6 +293,7 @@ def hill_receipts_from_registry_version(
         known_at=fitted_at,
         fidelity="exact" if fitted_at else "unavailable",
         basis="registry fittedAt" if fitted_at else f"registry fittedAt is {fitted!r}",
+        produced_for=f"v{n_version}",
     )
     receipts = [
         build_receipt(
@@ -314,12 +331,27 @@ def hill_receipts_from_registry_version(
                 },
             )
         )
-    receipts.append(_hill_evaluation(version, mvid, fitted_at, champion_version, reg_ref))
+    receipts.append(_hill_evaluation(version, mvid, fitted_at, champion_version, fitted))
     return receipts
 
 
-def _hill_evaluation(version, mvid, fitted_at, champion_version, reg_ref) -> LearningReceipt:
+def _hill_evaluation(version, mvid, fitted_at, champion_version, fitted) -> LearningReceipt:
     n_version = int(version["version"])
+    ev_native_id = f"v{n_version}:holdout"
+    # The holdout block of registry version n is written by the registry producer
+    # at fit time FOR this evaluation, so it is the evaluation receipt's own output
+    # (producedFor = this receipt's nativeId). Citing the whole version entry here
+    # would be another receipt's artifact and, with fittedAt unrecorded, could not
+    # be compared with any cutoff.
+    holdout_ref = StoreRef(
+        store="model_registry",
+        key=f"{HILL_FAMILY}#v{n_version}/holdout",
+        role=ROLE_ARTIFACT,
+        known_at=fitted_at,
+        fidelity="exact" if fitted_at else "unavailable",
+        basis="registry fittedAt" if fitted_at else f"registry fittedAt is {fitted!r}",
+        produced_for=ev_native_id,
+    )
     holdout = version.get("holdout") or None
     cohorts: list[CohortResult] = []
     if not holdout:
@@ -382,7 +414,7 @@ def _hill_evaluation(version, mvid, fitted_at, champion_version, reg_ref) -> Lea
     snap = inputs.get("boardSnapshot")
     ev = EvaluationReceipt(
         producer=HILL_REGISTRY_PRODUCER,
-        native_id=f"v{n_version}:holdout",
+        native_id=ev_native_id,
         model_family=HILL_FAMILY,
         model_version_id=mvid,
         role="champion" if champion_version == n_version else "challenger",
@@ -431,7 +463,7 @@ def _hill_evaluation(version, mvid, fitted_at, champion_version, reg_ref) -> Lea
             f"{HILL_POLICY}, recorded here as the producer disposition"
         ),
         family_policy=HILL_POLICY,
-        refs=(reg_ref,),
+        refs=(holdout_ref,),
         extra={
             "producerDisposition": str(version.get("status")),
             "uncertainty": "not computed by src/model_registry/holdout.py",
@@ -616,18 +648,22 @@ def source_quality_receipts(
             )
         )
     prereg_pin = pins.get("preregistration") or {}
-    preregistration = StoreRef(
-        store="preregistration",
-        key=(
-            f"{prereg_pin.get('path')}@sha256:{prereg}#commit={prereg_pin.get('commit')}"
-            if prereg_pin.get("path")
-            else f"preregistration@sha256:{prereg}"
-        ),
-        role=ROLE_ARTIFACT,
-        known_at=None,
-        fidelity="unavailable",
-        basis="the producer pins the preregistration hash (and commit) but not its commit time",
+    # The preregistration is NOT this run's output (no producer writes that store),
+    # so as an artifact it would have to carry a proven knownAt and pass the
+    # point-in-time guard. The producer pins its sha256 and commit sha but not the
+    # commit TIME, and an adapter does not shell out to invent one. So it is
+    # reported unobserved, with the pin carried verbatim in extra.preregistrationPin
+    # — never as an artifact with an unprovable instant.
+    preregistration = Unobserved(
+        "the producer pins the preregistration sha256 (and commit sha) but not its commit "
+        "time; without a provable instant it cannot pass the point-in-time guard as an "
+        "artifact (pin: extra.preregistrationPin)"
     )
+    preregistration_pin = {
+        "sha256": prereg,
+        "path": prereg_pin.get("path"),
+        "commit": prereg_pin.get("commit"),
+    }
     source_hashes: dict[str, Any] = {"panelDigest": panel}
     if pins.get("census"):
         source_hashes["census"] = pins["census"].get("sha256")
@@ -694,16 +730,25 @@ def source_quality_receipts(
             "missingEvidence": list(line.get("missingEvidence") or []),
             "dataWindow": list(window),
             "finalWeightsHash": weights_hash,
+            "preregistrationPin": preregistration_pin,
         },
     )
+    # The archive line is the EVALUATION run's output (producedFor names that run),
+    # not the MODEL's or the CHALLENGER's, so on those receipts it is held to a
+    # cutoff like any other artifact. Their cutoff is evaluatedAt: the weights and
+    # the challenger designation come into existence in the run that writes the
+    # archive, so nothing these receipts assert is known before it. The data
+    # window the weights were fitted on travels in body.dataWindow.
     model = build_receipt(
         kind=KIND_MODEL,
         producer=SQ_PRODUCER,
         native_id=mvid,
         model_family=SQ_FAMILY,
         model_version_id=mvid,
+        cutoff=evaluated_at,
         slots={"evaluationArchive": archive_ref},
         body={
+            "dataWindow": list(window),
             "candidate": candidate,
             "finalWeightsHash": weights_hash,
             "codeRevision": code,
@@ -717,6 +762,7 @@ def source_quality_receipts(
         native_id=f"{mvid}|vs|{SQ_CHAMPION}",
         model_family=SQ_FAMILY,
         model_version_id=mvid,
+        cutoff=evaluated_at,
         slots={"evaluationArchive": archive_ref},
         body={
             "challengerModelVersionId": mvid,

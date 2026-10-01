@@ -282,8 +282,39 @@ class TestArtifactTimeBound:
         for at in (BASE, BASE - timedelta(days=1)):
             lr.validate_receipt(self._prediction(_artifact("model_registry", at)))
 
-    def test_an_artifact_with_no_proven_instant_is_not_compared(self):
-        lr.validate_receipt(self._prediction(_artifact("preregistration", None)))
+    # ── round-3 finding D3: a non-own artifact must be COMPARABLE with a cutoff ──
+
+    @pytest.mark.parametrize("store", sorted(lr.ARTIFACT_STORES))
+    def test_a_non_own_artifact_with_no_proven_instant_is_refused(self, store):
+        """No knownAt asserts no instant, and an instant that cannot be compared
+        cannot be proven to precede the cutoff. Was: silently not compared."""
+        with pytest.raises(lr.PointInTimeViolation, match="no proven knownAt"):
+            lr.validate_receipt(self._prediction(_artifact(store, None)))
+
+    def test_a_non_own_artifact_on_a_receipt_with_no_cutoff_is_refused(self):
+        for at in (BASE, None):
+            r = _receipt(
+                kind=lr.KIND_MODEL,
+                slots={"cited": _artifact("model_registry", at, produced_for="other-run")},
+            )
+            with pytest.raises(lr.PointInTimeViolation, match="no cutoff to bound it"):
+                lr.validate_receipt(r)
+
+    def test_the_writers_own_artifact_may_omit_its_write_time(self):
+        """Only the receipt's own output is exempt — and that exemption is decided
+        by (registered writer, producedFor == nativeId), never by the role label."""
+        own = _artifact("model_registry", None, produced_for="v9")
+        lr.validate_receipt(self._prediction(own, producer="hill_model_registry", native="v9"))
+        lr.validate_receipt(
+            _receipt(
+                kind=lr.KIND_MODEL,
+                producer="hill_model_registry",
+                native="v9",
+                slots={"registryVersion": own},
+            )
+        )
+        with pytest.raises(lr.PointInTimeViolation):  # same ref, another producer
+            lr.validate_receipt(self._prediction(own, producer="test_producer", native="v9"))
 
     def test_property_exempt_iff_own_writer_and_own_run(self):
         rng = random.Random(SEED + 9)
@@ -765,8 +796,31 @@ class TestCorrections:
         conn = rs.connect(path)
         assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
         conn.close()
-        with pytest.raises(sqlite3.IntegrityError, match="FOREIGN KEY"):
+        with pytest.raises(sqlite3.IntegrityError, match="two stored receipts|FOREIGN KEY"):
             self._raw_correct(path, a, "rcpt:outcome:not-stored")
+
+    # ── round-3 finding D4: existence holds on a RAW connection too ──
+
+    def test_a_raw_connection_cannot_link_a_receipt_that_is_not_stored(self, tmp_path):
+        """SQLite enables foreign keys per connection and defaults them OFF, so the
+        REFERENCES clauses bind only connections opened by rs.connect. A raw
+        connection must still be unable to record a correction naming a ghost —
+        otherwise live_only hides the stored receipt behind it."""
+        path, (x,) = self._stored(tmp_path, None)
+        raw = sqlite3.connect(str(path))
+        try:
+            assert raw.execute("PRAGMA foreign_keys").fetchone()[0] == 0
+            for superseded, superseding in ((x, "ghost"), ("ghost", x), ("ghost", "ghost2")):
+                with pytest.raises(sqlite3.IntegrityError, match="two stored receipts"):
+                    raw.execute(
+                        "INSERT INTO corrections VALUES (?, ?, 'raw', 't')",
+                        (superseded, superseding),
+                    )
+            raw.rollback()
+        finally:
+            raw.close()
+        live = {r["receiptId"] for r in rs.iter_receipts(path, live_only=True)}
+        assert live == {x}  # the stored receipt is still live: nothing hid it
 
     def test_live_only_is_the_newest_revision_in_each_chain(self, tmp_path):
         path, (r0, r1, r2, loose) = self._stored(tmp_path, None, "rev1", "rev2", "unlinked")

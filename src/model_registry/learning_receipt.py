@@ -44,9 +44,13 @@ Invariants enforced here, each pinned by ``tests/model_registry/test_learning_re
   Anything else — another producer's later registry entry, the same producer's
   output for a different run, a ref that names no run — is held to the cutoff
   exactly like an input: a PREDICTION cannot cite a model-registry or
-  source-quality-results entry written after it was made. An artifact ref with
-  no proven ``knownAt`` (``fidelity: unavailable``) asserts no instant and so is
-  not compared.
+  source-quality-results entry written after it was made. Because such a ref is
+  held to the cutoff, it must be COMPARABLE with it: a non-own artifact with no
+  proven ``knownAt`` (``fidelity: unavailable``) is refused, and so is a non-own
+  artifact on a receipt with no ``cutoff`` — an instant that cannot be compared
+  cannot be proven to pass, and the role label alone proves nothing. Only the
+  receipt's own output may omit its write time (a content-addressed run record
+  carries none).
 * **Corrections are revisions, never overwrites** (plan §19.1 ``outcomeRevision``).
   A receipt's identity is ``(kind, producer, nativeId)`` plus its ``revision``
   when it has one. A corrected outcome is a NEW receipt with a new ``revision``,
@@ -486,18 +490,29 @@ def check_point_in_time(receipt: LearningReceipt) -> None:
                     f"cutoff {iso(receipt.cutoff)}"
                 )
         elif ref.role == ROLE_ARTIFACT:
-            if (
-                receipt.cutoff is not None
-                and ref.known_at is not None
-                and ref.known_at > receipt.cutoff
-                and not is_own_artifact(receipt, ref)
-            ):
-                writers = sorted(ARTIFACT_STORE_WRITERS.get(ref.store, frozenset()))
+            if is_own_artifact(receipt, ref):
+                continue
+            writers = sorted(ARTIFACT_STORE_WRITERS.get(ref.store, frozenset()))
+            why_not_own = (
+                f"producedFor={ref.produced_for!r}, nativeId={receipt.native_id!r}, "
+                f"producer={receipt.producer!r}, writers of {ref.store!r}: {writers}"
+            )
+            if receipt.cutoff is None:
+                raise PointInTimeViolation(
+                    f"artifact {ref.store}:{ref.key} is not this receipt's own output and the "
+                    f"receipt has no cutoff to bound it ({why_not_own})"
+                )
+            if ref.known_at is None:
+                raise PointInTimeViolation(
+                    f"artifact {ref.store}:{ref.key} is not this receipt's own output and has "
+                    f"no proven knownAt; an unknown instant cannot be proven to precede the "
+                    f"cutoff ({why_not_own})"
+                )
+            if ref.known_at > receipt.cutoff:
                 raise PointInTimeViolation(
                     f"artifact {ref.store}:{ref.key} known at {iso(ref.known_at)} is after the "
                     f"cutoff {iso(receipt.cutoff)} and is not this receipt's own output "
-                    f"(producedFor={ref.produced_for!r}, nativeId={receipt.native_id!r}, "
-                    f"producer={receipt.producer!r}, writers of {ref.store!r}: {writers})"
+                    f"({why_not_own})"
                 )
         elif ref.role == ROLE_OUTCOME:
             if receipt.target_event_at is None:
