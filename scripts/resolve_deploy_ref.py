@@ -16,8 +16,15 @@ Accepted:
   * a full 40-hex SHA that exists as a commit
   * a branch name    -> ``refs/remotes/origin/<name>``
   * a tag name       -> ``refs/tags/<name>`` (annotated tags peel to the commit)
+A full SHA is accepted in either case and normalised to lowercase.
+
 Refused: abbreviated SHAs (their meaning can change as history grows), names
-matching both a branch and a tag (ambiguous), anything outside the grammar.
+matching both a branch and a tag (ambiguous), anything outside the grammar, and
+revision expressions or qualified refs (``origin/main``, ``refs/heads/x``,
+``HEAD~1``) -- pass the plain branch/tag name or the full SHA instead.
+
+Name lookup comes before the abbreviated-SHA check: a hex-looking string that
+IS a branch or tag name (``cafe``) resolves as that ref, exactly as git would.
 
 Writes ``sha``, ``requested`` and ``kind`` to ``$GITHUB_OUTPUT`` when set.
 Exit codes: 0 resolved; 2 invalid input; 3 not found; 4 ambiguous.
@@ -77,7 +84,8 @@ def resolve(repo: Path, requested: str, default: str) -> tuple[str, str]:
             raise ResolveError(3, f"default commit {default} is not in this checkout")
         return default, "default"
     validate_name(requested)
-    if FULL_SHA.fullmatch(requested):
+    if FULL_SHA.fullmatch(requested.lower()):
+        requested = requested.lower()
         if _commit_of(repo, requested) != requested:
             raise ResolveError(3, f"commit {requested} does not exist in this repository")
         return requested, "commit"

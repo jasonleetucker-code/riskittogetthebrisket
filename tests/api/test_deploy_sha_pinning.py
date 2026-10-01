@@ -73,6 +73,18 @@ def test_explicit_full_commit(repo):
     assert resolve(repo["root"], repo["first"], repo["second"]) == (repo["first"], "commit")
 
 
+def test_uppercase_full_sha_is_normalised(repo):
+    assert resolve(repo["root"], repo["first"].upper(), repo["second"]) == (repo["first"], "commit")
+
+
+def test_a_hex_looking_name_that_is_a_branch_resolves_as_the_branch(repo):
+    _git(repo["root"], "update-ref", "refs/remotes/origin/cafe", repo["first"])
+    try:
+        assert resolve(repo["root"], "cafe", repo["second"]) == (repo["first"], "branch")
+    finally:
+        _git(repo["root"], "update-ref", "-d", "refs/remotes/origin/cafe")
+
+
 def test_branch_and_annotated_tag_resolve_to_commits(repo):
     assert resolve(repo["root"], "hotfix", repo["second"]) == (repo["first"], "branch")
     assert resolve(repo["root"], "v1", repo["second"]) == (repo["first"], "tag")
@@ -105,6 +117,8 @@ def test_a_ref_that_moves_after_resolution_does_not_move_the_target(repo):
         ("f" * 40, 3),
         ("abc1234", 2),  # abbreviated SHA refused, not guessed
         ("clash", 4),  # both a branch and a tag
+        ("origin/main", 3),  # qualified refs: pass the plain name
+        ("HEAD~1", 2),  # revision expressions are outside the grammar
     ],
 )
 def test_malformed_missing_abbreviated_and_ambiguous_refs_are_refused(repo, requested, code):
@@ -169,7 +183,13 @@ def test_validate_and_deploy_check_out_the_resolved_sha(workflow):
     assert "git rev-parse HEAD" in _step(validate, "Assert the validated tree")["run"]
     assert deploy["needs"] == ["resolve", "validate"]
     assert deploy["env"]["DEPLOY_TARGET_SHA"] == sha
-    assert _step(deploy, "Checkout")["with"]["ref"] == sha
+    # The deploy job runs the workflow commit's helpers (rollback-safe) and only
+    # asserts the target commit exists; it consumes the target as an id.
+    assert "ref" not in _step(deploy, "Checkout")["with"]
+    assert (
+        'cat-file -e "${DEPLOY_TARGET_SHA}^{commit}"'
+        in _step(deploy, "Assert the resolved target is present")["run"]
+    )
 
 
 def test_guard_and_box_command_never_re_resolve_the_raw_input(workflow):
@@ -194,3 +214,20 @@ def test_rollback_still_needs_explicit_authorization(workflow):
     guard = _step(parsed["jobs"]["deploy"], "Guard against skipping")
     assert guard["env"]["ALLOW_NON_FF"] == "${{ inputs.allow_non_fast_forward }}"
     assert "would move production BACKWARDS" in guard["run"]
+
+
+def test_box_never_falls_back_to_the_branch_for_an_exact_commit():
+    text = (ROOT / "deploy" / "deploy.sh").read_text(encoding="utf-8")
+    fallback = text.index('resolve_git_ref "${DEPLOY_BRANCH}"')
+    refusal = text.index(
+        "Refusing to fall back to DEPLOY_BRANCH='${DEPLOY_BRANCH}': the requested commit is exact."
+    )
+    assert refusal < fallback
+    assert 'git fetch origin "${DEPLOY_REF}"' in text
+
+
+def test_wrapper_refreshes_deploy_sh_from_the_exact_commit(workflow):
+    _, text = workflow
+    assert "fetch --prune --tags origin 2>/dev/null" in text
+    assert r'fetch origin "\${DEPLOY_REF}"' in text
+    assert '--requested="${REQUESTED_REF:-}"' in text

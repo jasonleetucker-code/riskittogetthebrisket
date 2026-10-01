@@ -1136,7 +1136,22 @@ main() {
     exit 1
   fi
 
+  # A full SHA can be absent from branch/tag fetches (deleted branch tip,
+  # old rollback point); ask for it by id before deciding it is missing.
+  if [[ "${fetch_ok}" == "true" ]] && is_full_commit_sha "${DEPLOY_REF}" \
+    && ! git rev-parse --verify --quiet "${DEPLOY_REF}^{commit}" >/dev/null; then
+    git fetch origin "${DEPLOY_REF}" || warn "fetch of commit ${DEPLOY_REF} by id failed."
+  fi
+
   if ! TARGET_REV="$(resolve_git_ref "${DEPLOY_REF}")"; then
+    # A full commit SHA is an exact, validated target (the workflow resolves
+    # every deploy to one). Shipping DEPLOY_BRANCH instead would deploy a tree
+    # nothing validated or guarded and report success -- refuse.
+    if is_full_commit_sha "${DEPLOY_REF}"; then
+      error "Commit ${DEPLOY_REF} is not available on this host even after fetching it by id."
+      error "Refusing to fall back to DEPLOY_BRANCH='${DEPLOY_BRANCH}': the requested commit is exact."
+      exit 1
+    fi
     # Don't fall back to DEPLOY_BRANCH when fetch failed: the local
     # branch ref is potentially stale (the requested SHA may simply be
     # missing from the local repo), and a silent fallback would deploy
