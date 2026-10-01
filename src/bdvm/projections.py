@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from src.bdvm.params import ParamSet
-from src.bdvm.scoring import score_stat_line_per_game, season_line_to_per_game
+from src.bdvm.scoring import score_stat_line_per_game_detailed, season_line_to_per_game
 from src.nfl_data.first_down_rate import with_imputed_first_downs
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -86,35 +86,41 @@ class ProjectionRecord:
 
     def resolve_fpg(self, scoring_settings: Mapping[str, Any]) -> tuple[float, bool]:
         """(fpg under league scoring, scoring_native flag for this value)."""
+        fpg, native, _unscored = self.resolve_fpg_detailed(scoring_settings)
+        return fpg, native
+
+    def resolve_fpg_detailed(
+        self, scoring_settings: Mapping[str, Any]
+    ) -> tuple[float, bool, tuple[str, ...]]:
+        """``resolve_fpg`` plus the league-card keys the stat line could not
+        score (empty for source-scored fpg/fpts, which we did not score)."""
         if self.stat_line is not None:
             per_game = (
                 dict(self.stat_line)
                 if self.stat_basis == "per_game"
                 else season_line_to_per_game(self.stat_line, self.games)
             )
-            return (
-                score_stat_line_per_game(
-                    per_game,
-                    scoring_settings,
-                    position=self.position,
-                    # THE projection boundary.  No projection source
-                    # publishes first downs, and the realized path reads
-                    # them from columns, so scoring a projected line
-                    # as-is drops 22-30% of a player's points — unevenly
-                    # by position, and only for players a real source
-                    # covers, since proxy rows are scored from realized
-                    # stats that DO have the columns.  Imputed from the
-                    # measured one-per-twenty-yards fit; a no-op if the
-                    # source supplied them or the league does not pay
-                    # the bonus.  See src/nfl_data/first_down_rate.py.
-                    impute_first_downs=True,
-                ),
-                True,
+            points, unscored = score_stat_line_per_game_detailed(
+                per_game,
+                scoring_settings,
+                position=self.position,
+                # THE projection boundary.  No projection source
+                # publishes first downs, and the realized path reads
+                # them from columns, so scoring a projected line
+                # as-is drops 22-30% of a player's points — unevenly
+                # by position, and only for players a real source
+                # covers, since proxy rows are scored from realized
+                # stats that DO have the columns.  Imputed from the
+                # measured one-per-twenty-yards fit; a no-op if the
+                # source supplied them or the league does not pay
+                # the bonus.  See src/nfl_data/first_down_rate.py.
+                impute_first_downs=True,
             )
+            return points, True, unscored
         if self.fpg is not None:
-            return float(self.fpg), self.scoring_native
+            return float(self.fpg), self.scoring_native, ()
         assert self.fpts is not None  # guaranteed by __post_init__
-        return float(self.fpts) / self.games, self.scoring_native
+        return float(self.fpts) / self.games, self.scoring_native, ()
 
 
 @dataclass(frozen=True)
@@ -136,6 +142,9 @@ class ConsensusProjection:
     # Sources down-weighted because their stat line's league-scored IDP
     # categories are a strict subset of a peer's (vocabulary-dominated).
     vocabulary_limited: tuple[str, ...] = ()
+    # League-card keys (nonzero rules) that a scored stat line could not
+    # supply: mu is a lower bound by those rules, never silently complete.
+    unscored_keys: tuple[str, ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -279,8 +288,10 @@ def blend_consensus(
     scored: list[tuple[ProjectionRecord, float, float, bool]] = []
     stale: list[str] = []
     stale_reasons: list[tuple[str, str]] = []
+    unscored_union: set[str] = set()
     for r in recs:
-        fpg, native = r.resolve_fpg(scoring_settings)
+        fpg, native, rec_unscored = r.resolve_fpg_detailed(scoring_settings)
+        unscored_union.update(rec_unscored)
         w, stale_reason = _staleness_weight(r.as_of, snapshot_as_of, params)
         if stale_reason is not None:
             stale.append(r.source)
@@ -353,6 +364,7 @@ def blend_consensus(
         stale_sources=tuple(stale),
         stale_reasons=tuple(stale_reasons),
         vocabulary_limited=tuple(vocab_limited),
+        unscored_keys=tuple(sorted(unscored_union)),
     )
 
 

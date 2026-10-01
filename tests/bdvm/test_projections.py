@@ -436,3 +436,40 @@ class TestVocabularyDomination(unittest.TestCase):
         b = _stat_rec("srcB", {**self.CLAY, "def_passes_defended": 5.0})
         c = self._blend([a, b])
         self.assertEqual(c.vocabulary_limited, ())
+
+
+class TestUnscoredCardRulesTravel(unittest.TestCase):
+    """#1555 V3-S: a league-card rule a projected stat line cannot supply (e.g. the
+    reception-distance bonus ``rec_40p``, which only play-by-play feeds carry) used to
+    score a silent zero inside an apparently complete total. The keys now travel with
+    the projection, so the points read as a lower bound by those rules."""
+
+    CARD = {"rec": 1.0, "rec_yd": 0.1, "rec_td": 6.0, "rec_40p": 2.0, "st_tkl_solo": 1.0}
+    WR_LINE = {"receptions": 80, "receiving_yards": 1000, "receiving_tds": 6}
+
+    def _wr(self, source="clay"):
+        return _stat_rec(source, self.WR_LINE, key="wr one", pos="WR")
+
+    def test_unsuppliable_card_rules_are_reported_not_silently_zero(self):
+        fpg, native, unscored = self._wr().resolve_fpg_detailed(self.CARD)
+        self.assertTrue(native)
+        self.assertGreater(fpg, 0)
+        self.assertIn("rec_40p", unscored)
+        # A rule the line DOES supply is not reported.
+        self.assertNotIn("rec", unscored)
+
+    def test_resolve_fpg_is_unchanged_by_the_detail(self):
+        self.assertEqual(
+            self._wr().resolve_fpg(self.CARD), self._wr().resolve_fpg_detailed(self.CARD)[:2]
+        )
+
+    def test_source_scored_points_report_no_keys_we_never_scored(self):
+        self.assertEqual(rec("fp", 12.0).resolve_fpg_detailed(self.CARD)[2], ())
+
+    def test_consensus_carries_the_union_of_its_scored_records(self):
+        recs = [self._wr("clay"), self._wr("idpshow"), rec("fp", 12.0, key="wr one")]
+        blended = blend_consensus(
+            recs, scoring_settings=self.CARD, snapshot_as_of="2026-07-27", params=PARAMS
+        )
+        self.assertIn("rec_40p", blended.unscored_keys)
+        self.assertEqual(list(blended.unscored_keys), sorted(set(blended.unscored_keys)))
