@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-18 of the 35 entries in ``_DEFAULTS`` below are ``True`` —
+18 of the 36 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -126,6 +126,17 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # SPARSE half: one voting family is stamped ``limitedEvidence`` and the
     # 0.30 single-source retention is not applied.
     "joint_sparse_limited_evidence": False,
+    # Sparse-evidence ESTIMATOR (Batch 3 Unit E, 2026-10-01) -- a CHALLENGER,
+    # OFF until a preregistered gate passes and is independently reviewed
+    # (valuation methodology).  ON: the rows the 0.30 single-source retention
+    # would hit keep their one family's observation as central evidence,
+    # bounded above by healthy eligible families that did NOT list the player
+    # (censor-aware, counted by family; src/api/sparse_evidence.py), and carry
+    # an additive ``sparseEvidence`` block.  OFF: the incumbent haircut, byte
+    # for byte.  Evidence: docs/valuation/evidence/sparse-evidence-2026-10-01/.
+    # Rollback if ever switched on: RISKIT_FEATURE_SPARSE_EVIDENCE_ESTIMATOR=0
+    # and restart (flag reads are cached per process).
+    "sparse_evidence_estimator": False,
     # C1-U4 — ledger-derived rankChange on the canonical contract.  ON
     # derives each ranked row's rankChange from the temporal ledger's
     # previous recorded board; OFF stamps None on every row (deliberately
@@ -720,6 +731,10 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # joint_sparse_limited_evidence replaces the single-source haircut with a
     # limitedEvidence stamp in the same function; ships OFF (challenger).
     "joint_sparse_limited_evidence": LIVE,
+    # sparse_evidence_estimator replaces the single-source haircut with a
+    # censor-aware central estimate in the same function, which reaches a
+    # request through ``/api/data``; ships OFF (challenger).
+    "sparse_evidence_estimator": LIVE,
     # host_native_scoring gates the stat vocabulary
     # ``league_comparison.sleeper_stats.fetch_sleeper_weekly_stats``
     # emits, which reaches a request through ``historical_stats`` →

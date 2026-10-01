@@ -1201,6 +1201,10 @@ main() {
   # Hampel filter -> append-only data/robust_filter_shadow/ledger.jsonl + the
   # preregistered evaluation. Writes no served value; never promotes.
   install_simple_timer "joint-filter-shadow" "joint robust-filter shadow ledger (no served-value change)"
+  # Sparse-evidence estimator SHADOW ledger (Batch 3 Unit E): builds the served
+  # board and candidate C in memory, appends both answers to gitignored
+  # data/sparse_evidence_shadow/. Never serves or promotes. No creds.
+  install_simple_timer "sparse-evidence-shadow" "sparse-evidence estimator shadow ledger (incumbent vs candidate C)"
 
   # ── daemon-reload and enable ────────────────────────────────────────────
   # ce_needs_install was missing from this list. Every other timer's
