@@ -381,10 +381,13 @@ _FINDINGS: dict[str, tuple[str, str | None, str | None, str, str]] = {
     ),
     "C20": (
         "V-2",
-        "src/model_registry/holdout.py",
-        '"FantasyCalc": ("CSVs/site_raw/fantasyCalc.csv", "value")',
+        "src/model_registry/training_manifest.py",
+        'BoardSpec("FantasyCalc", "fantasyCalc", "OFFENSE", ROLE_HOLDOUT, "value")',
         OPEN,
-        "All four holdout boards are still registered live blend sources.",
+        "The holdout boards are still registered live blend sources. Since the "
+        "Hill trainer repair (#1588) the holdout role is assigned in the one "
+        "training manifest rather than a literal in holdout.py; the mechanism "
+        "moved, the defect did not (FantasyCalc / OTCFFB / PFKDynasty still vote).",
     ),
     "C21": (
         "V-2b",
