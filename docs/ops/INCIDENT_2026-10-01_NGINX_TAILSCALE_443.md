@@ -80,6 +80,22 @@ passwordless `install` + `systemctl` sudo rules):
 - **Box:** `nginx`, `dynasty`, `dynasty-frontend` active; no warnings in the
   post-recovery window.
 
+### First deploy after restoration (run 36849544325, `a1933e59`)
+
+This was also the first live run of deploy SHA pinning (#1570). One commit carried through
+every stage:
+- resolve: `a1933e59…` (`kind=default`);
+- validated tree: `a1933e59…`;
+- deploy job target: `a1933e59…`;
+- box `Resolved target revision`: `a1933e59…`;
+- `[verify] Public URL reachable`;
+- smoke `PASS build.commit == a1933e59676bb3cddaa53fdfaf78682ccbcfaf6b`.
+
+`/api/status` then served `a1933e59…` on three consecutive reads. A 33-poll
+`/api/health` watch over the deploy saw a single 502 at 12:21:21 UTC, during the
+planned backend restart (12:20:46 → active 12:21:04). Every request since has
+returned 200, and nginx has logged no warnings.
+
 ## Remaining / follow-ups
 
 - **Owner-only check:** authenticated pages could not be exercised by the agent (no
