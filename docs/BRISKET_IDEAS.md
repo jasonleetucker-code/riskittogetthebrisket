@@ -391,8 +391,8 @@ Governance owner `C10-ML-01` + P6. This table is a pointer, not a second backlog
 | AL-5 | playoff / title calibration | `C5-PLAY-01` | NEXT | AUTHORIZED when dependency-ready; D2/D3 owner decisions open |
 
 Authorization covers implementation, never promotion of an unvalidated model. Parallel class: AL-0 is
-`SERIAL_CANONICAL_OWNER` on `src/model_registry/` (behind #1588); AL-2a waits on #1586; AL-3a owns
-`deploy/backup/`. UI: none until measured evidence exists; a later Lane 6 "Model Evidence" surface may report
+`SERIAL_CANONICAL_OWNER` on `src/model_registry/` (behind #1588); AL-2a waits on #1586; AL-3a is the serial owner of
+`deploy/backup/` (AL-0's A9 backup line lands through or after AL-3a's claim). UI: none until measured evidence exists; a later Lane 6 "Model Evidence" surface may report
 sample size, last evaluation cutoff and calibration only.
 
 ---

@@ -5,7 +5,8 @@ on 2026-10-01 by the owner's *Adaptive Learning / Continuous Improvement Master 
 **Implementation authorization:** this file grants none. Since 2026-10-01, `docs/EXECUTION_PLAN.md` §0
 "Adaptive Learning / Continuous Improvement — owner directive, 2026-10-01" authorizes the dependency-ready
 foundation and roadmap units named in §23–§24. It does **not** authorize an unvalidated model to change a
-production output; promotion keeps its P6 evidence gates.  
+production output; promotion keeps its P6 evidence gates. *(Superseded in place: Part I's header read
+"Implementation authorization: NONE" — see §17 S1.)*  
 **Pinned planning baselines:** `d68e7a71ef9b07bb2216c47a729a6cf74c74a760` (Part I, 2026-09-26) ·
 `13870a6d42f665c47cb38ee628757279ff0e0783` (Part II, 2026-10-01)  
 **Primary governance owner:** existing `C10-ML-01` + P6 model/methodology acceptance profile.  
@@ -310,7 +311,7 @@ R14 private decision/offer journal remains a **candidate**, not implementation-a
 
 ### No new native owner created now
 
-The only plausible shared gap is a feature-definition/evaluation receipt manifest. Keep it as a proposed sub-capability under `C10-ML-01` until the first implementation batch proves a separate native row is necessary.
+The only plausible shared gap is a feature-definition/evaluation receipt manifest. Keep it as a proposed sub-capability under `C10-ML-01` until the first implementation batch proves a separate native row is necessary. **[Superseded 2026-10-01 — §17 S3: the versioned feature dictionary is now in AL-0 scope; still no feature store.]**
 
 ## 12. Recommended first implementation batch — NOT AUTHORIZED BY THIS RECORD
 
@@ -461,7 +462,7 @@ fact keeps its deterministic owner, and a learned model is a *consumer* of that 
 | Lineup legality and assignment | `src/ros/lineup.py` (C2-U1) |
 | Roster rules / capacity | `src/trade/roster_capacity.py` |
 | Transaction legality | host of record (Sleeper) + `roster_intel/packages._check_legality` |
-| Source identity / family | `_RANKING_SOURCES` + B10 families (`F-SRC-01`); `config/sources/source_lineage.json` (#1592) |
+| Source identity / family | `_RANKING_SOURCES` + B10 families (`F-SRC-01`); `config/sources/source_lineage.json` (created by #1584; lineage categories extended by #1592) |
 | Timestamps / known-at | `src/history/asof.py`, `src/sources/dataset_state.py` (three clocks) |
 | Provenance | `src/history/provenance.py`, model-registry training fingerprints |
 | Privacy boundaries | `MASTER_PRODUCT_PLAN.md` §5; `F-PRIV-01` |
@@ -714,8 +715,9 @@ and training-manifest precedent. The schema design and preregistration text may 
 - A7 — boundary: an import/write test proves the learning modules cannot write `CANONICAL_VALUE_FIELDS`,
   league config, identity mappings or contract stamps; the served board hash is unchanged.
 - A8 — a drift receipt carries one of the six §20 classes and triggers nothing automatically.
-- A9 — the store is added to `deploy/backup/riskit-state-backup.sh` and the retention register in the same
-  unit (the G7 lesson), or the unit states why it is rebuildable.
+- A9 — the store is added to `deploy/backup/riskit-state-backup.sh` and the retention register (the G7
+  lesson), or the unit states why it is rebuildable. AL-3a is the serial owner of `deploy/backup/`: AL-0's
+  backup line lands through AL-3a's claim when it is active, or after it, never concurrently.
 - A10 — reproducible from pinned inputs; L0/L1 green; planning gates green; independent review.
 
 **Engineering applicability check** (`AI_INSTRUCTIONS.md`; `docs/engineering/ENGINEERING_RELIABILITY_PRIORITIES_2026-09-06.md`):

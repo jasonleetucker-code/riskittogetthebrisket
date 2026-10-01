@@ -463,7 +463,7 @@ implementation; `docs/EXECUTION_PLAN.md` remains the implementation authority.
 | Competitive-posture calibration | `C7-POST-01` | **EXTEND** |
 | Contextual alerts / information acquisition | `C7-ALERT-01` + #1423 | **EXTEND** — bounded bandit/VOI work remains later and separately governed |
 | Private rejected/countered/expired offers and non-actions | research R14 -> `C6-MGR-01` / `C1-HIST-01` | **KEEP CANDIDATE** — no implementation authorization |
-| Shared learned-feature definition manifest | proposed sub-capability of `C10-ML-01` if the first implementation proves it necessary | **REFRAME / NO NEW ID NOW** |
+| Shared learned-feature definition manifest | proposed sub-capability of `C10-ML-01` if the first implementation proves it necessary | **REFRAME / NO NEW ID NOW** — *superseded 2026-10-01: the versioned feature dictionary is now AL-0 scope (see the 2026-10-01 row below; plan §17 S3)* |
 
 **Deterministic boundary.** Scoring arithmetic, league rules, roster/transaction legality, canonical identity,
 ownership, exact lineup eligibility/assignment, provenance/timestamps and missing-vs-zero semantics do not

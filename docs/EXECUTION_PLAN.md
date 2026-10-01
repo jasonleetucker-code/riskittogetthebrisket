@@ -221,7 +221,7 @@ in directive sections 9+, which were truncated in delivery and are pending owner
 | AL-1a–d | Valuation Trust / source learning: Batch 3 outputs as receipts + accumulation; evidence-based base-authority challenger shrunk toward equal-family; utility-decay challenger; cohort reliability | NOW (highest roadmap priority) | AL-0; #1589, #1591, #1592 |
 | AL-2a | target-format evidence census over the completed-trade ledger (report-only) | NOW | #1586 merged |
 | AL-2b → AL-2c | format translator challengers, then the shadow format-aware latent transaction-price model for `dynasty_main` | NOW → NEXT | AL-2a; paired-format evidence |
-| AL-3a | projection archive completeness (every usable pregame/ROS projection captured pre-event; `data/bdvm/` into the backup set) | NOW | none (own claim on `deploy/backup/`) |
+| AL-3a | projection archive completeness (every usable pregame/ROS projection captured pre-event; `data/bdvm/` into the backup set) | NOW | none (own claim on `deploy/backup/`; serial owner — AL-0's A9 backup line lands through or after it) |
 | AL-3b | projection scorecard (raw stats + exact league scoring) vs the equal-family champion | NOW | AL-0 |
 | AL-3c / AL-3d | ensemble reliability challengers; BDVM component calibration + MEASURED/MECHANICAL/PRIOR labels (AL-3d = Batch 3 J2) | NEXT | AL-3b |
 | AL-4a / AL-4b | Game Day calibration scorecard over existing generations; shadow challengers | NEXT | AL-0 |
