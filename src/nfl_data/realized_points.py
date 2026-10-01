@@ -29,7 +29,7 @@ production in any league format):
     Offense:
         pass_yd, pass_td, pass_int, pass_2pt, pass_sack
         rush_yd, rush_td, rush_2pt
-        rec, rec_yd, rec_td, rec_2pt, bonus_rec_te
+        rec, rec_yd, rec_td, rec_2pt, bonus_rec_te, bonus_rec_wr, bonus_rec_rb
         fum_lost
         bonus_pass_yd_300, bonus_pass_yd_400, bonus_rush_yd_100,
         bonus_rush_yd_200, bonus_rec_yd_100, bonus_rec_yd_200
@@ -202,6 +202,15 @@ _FIRST_DOWN_BONUS_KEYS: dict[str, str] = {
     "RB": "bonus_fd_rb",
     "WR": "bonus_fd_wr",
     "TE": "bonus_fd_te",
+}
+
+#: Position-scoped per-reception bonuses — Sleeper's ``bonus_rec_<pos>``
+#: family.  Same shape as ``_FIRST_DOWN_BONUS_KEYS``: the stat is the plain
+#: reception count, the rate is chosen by the receiver's position.
+_RECEPTION_BONUS_KEYS: dict[str, str] = {
+    "RB": "bonus_rec_rb",
+    "WR": "bonus_rec_wr",
+    "TE": "bonus_rec_te",
 }
 
 #: Columns summed to get a player's total first downs.  Mirrored by
@@ -510,6 +519,8 @@ _SLEEPER_KEY_LABELS: dict[str, str] = {
     **{k: label for (k, _c, label) in _TWO_PT_KEYS},
     "pass_inc": "Incompletions",
     "bonus_rec_te": "TE Rec Bonus",
+    "bonus_rec_wr": "WR Rec Bonus",
+    "bonus_rec_rb": "RB Rec Bonus",
     "rec_0_4": "Rec 0-4 yd",
     "rec_5_9": "Rec 5-9 yd",
     "rec_10_19": "Rec 10-19 yd",
@@ -571,8 +582,15 @@ def sleeper_stat_line_from_row(
 
     # Position-scoped rules.  The rate lives on a position-specific KEY,
     # so the position decision belongs here, in normalization.
-    if pos == "TE":
-        _put("bonus_rec_te", _num(stat_row.get("receptions")))
+    #
+    # The reception bonus is one FAMILY (rb / wr / te).  Only the TE member
+    # used to be emitted, so a card paying ``bonus_rec_wr`` (dynasty_main's
+    # live 2026 card: 0.02/rec) scored a silent zero for every receiver —
+    # the coverage probe classified it GAP.  ``receptions`` is the whole
+    # stat; nothing is derived.
+    rec_bonus_key = _RECEPTION_BONUS_KEYS.get(pos)
+    if rec_bonus_key:
+        _put(rec_bonus_key, _num(stat_row.get("receptions")))
     fd_key = _FIRST_DOWN_BONUS_KEYS.get(pos)
     if fd_key:
         first_downs = 0.0

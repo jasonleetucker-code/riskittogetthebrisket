@@ -442,7 +442,8 @@ class TestUnscoredCardRulesTravel(unittest.TestCase):
     """#1555 V3-S: a league-card rule a projected stat line cannot supply (e.g. the
     reception-distance bonus ``rec_40p``, which only play-by-play feeds carry) used to
     score a silent zero inside an apparently complete total. The keys now travel with
-    the projection, so the points read as a lower bound by those rules."""
+    the projection, so the points read as a partial total by those rules (not a
+    lower bound: an omitted rule may be a penalty such as ``pass_int_td``)."""
 
     CARD = {"rec": 1.0, "rec_yd": 0.1, "rec_td": 6.0, "rec_40p": 2.0, "st_tkl_solo": 1.0}
     WR_LINE = {"receptions": 80, "receiving_yards": 1000, "receiving_tds": 6}

@@ -89,9 +89,16 @@ def score_stat_line_per_game_detailed(
     if result is None:  # only when stat_line is empty/falsy
         return 0.0, ()
     # ``unscored``: configured NONZERO card rules whose stat the line could not
-    # supply (reception-distance bonuses, special-teams tackles, play-type first
-    # downs...).  The points are then a LOWER BOUND; the keys travel with them
-    # instead of silently scoring zero.
+    # supply (reception-distance bonuses, special-teams tackles, pick-sixes
+    # thrown...).  The points are then a PARTIAL TOTAL, not a lower bound:
+    # these rules are unscored and their omitted contribution may be positive
+    # or negative (``pass_int_td`` is a penalty).  The keys travel with the
+    # total instead of silently scoring zero.
+    #
+    # Scope: this reports only the play-by-play-only rules realized_points
+    # tracks.  A rule whose stat column the SOURCE never publishes (e.g. Clay
+    # has no fumbles column, so ``fum_lost`` scores nothing) is not reported
+    # here; scripts/bdvm_scoring_census.py measures those per source.
     return float(result.fantasy_points), tuple(sorted({k for k, _r in result.unscored}))
 
 

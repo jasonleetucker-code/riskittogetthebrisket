@@ -1,0 +1,493 @@
+"""BDVM scoring-coverage census: which league-card rules can a projection score?
+
+REPORTING ONLY.  Nothing here changes a projected point, a value, or a
+consensus weight; it measures where the projection lane's per-game totals
+are partial and by how much.
+
+Two layers, deliberately separate:
+
+* **engine** — does ``realized_points`` read the rule at all?  Answered by
+  ``src.nfl_data.scoring_coverage.classify`` (a behavioural probe), never
+  re-derived here.
+* **source vocabulary** — given that the engine reads it, can each
+  projection SOURCE supply the stat?  Answered by the same probe idea:
+  build a stat line carrying exactly the columns a source can emit, then ask
+  BDVM's own scorer (``score_stat_line_per_game_detailed``, first-down
+  imputation on, as the projection boundary runs it) whether the rule moves
+  the score.  The vocabularies are DERIVED by running each adapter's own
+  parser on a synthetic input, so an adapter that starts emitting a new
+  column shows up here without editing a list.
+
+Classification (projection lane, priced positions only):
+
+* ``NOT_APPLICABLE`` — team-defense / kicker rules (BDVM prices neither).
+* ``MAPPING_ERROR`` — the engine ignores a rule whose stat exists (probe
+  verdict ``GAP``), or a declared, host-evidenced column mismapping
+  (:data:`ENGINE_MAPPING_FINDINGS`).
+* ``UNSUPPORTED_VOCABULARY`` — no real projection source covering the
+  affected positions can emit the stat.
+* ``ABSENT_FIELD`` — some covering source emits it and another does not, so
+  players covered only by the latter are partial.
+* ``SUPPORTED`` — every covering source supplies it (``imputed`` noted).
+
+A COUNT of unscored keys is not a share of missing points.  Where realized
+history is supplied, impact is measured as the rule's realized 2025 points
+under the card (signed), its share of the affected families' realized
+points, and the number of players who recorded the stat.  Rules can be
+NEGATIVE (``fum_lost``, ``pass_int_td``): an omitted penalty OVERSTATES a
+partial total, so no partial total is a lower bound.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Callable, Iterable, Mapping
+
+from src.bdvm.scoring import score_stat_line_per_game_detailed
+from src.nfl_data.realized_points import (
+    _FG_BAND_KEYS,
+    _SCORING_KEY_ALIASES,
+    _SIMPLE_KEYS,
+    PBP_SUPPLEMENT_KEYS,
+    PBP_SUPPLEMENT_ROW_KEY,
+    _pbp_supplement_line,
+    compute_weekly_points,
+    sleeper_stat_line_from_row,
+)
+from src.nfl_data.scoring_coverage import _MAXIMAL_ROW, Coverage, classify
+from src.utils.name_clean import POSITION_ALIASES
+
+CENSUS_VERSION = "bdvm-scoring-census.v1"
+
+#: BDVM's priced positions → position family (POSITION_ALIASES vocabulary).
+PRICED_POSITIONS: tuple[str, ...] = ("QB", "RB", "WR", "TE", "DT", "EDGE", "LB", "CB", "S")
+OFFENSE_FAMILIES = frozenset({"QB", "RB", "WR", "TE"})
+IDP_FAMILIES = frozenset({"DL", "LB", "DB"})
+PRICED_FAMILIES = OFFENSE_FAMILIES | IDP_FAMILIES
+
+#: Real (non-proxy) projection sources and the families they cover.
+REAL_SOURCES: dict[str, frozenset[str]] = {
+    "clayOffense": OFFENSE_FAMILIES,
+    "clayIdp": IDP_FAMILIES,
+    "idpShow": IDP_FAMILIES,
+}
+#: Adapter lanes that carry no live data feed but bound what COULD be supplied.
+CAPABILITY_SOURCES: tuple[str, ...] = ("manualCsv", "reconstructedBaseline")
+
+#: Kicker rules: any card key the engine reads off a ``fg_*`` / ``pat_*`` column.
+KICKER_KEYS: frozenset[str] = frozenset(_FG_BAND_KEYS) | frozenset(
+    k for k, (cols, _l) in _SIMPLE_KEYS.items() if all(c.startswith(("fg_", "pat_")) for c in cols)
+)
+
+#: Engine column mismappings established against HOST truth (not a probe
+#: verdict: the engine DOES read the rule, from the wrong column).  Measured
+#: here on realized history when supplied; the evidence string is the host
+#: comparison that established it.
+ENGINE_MAPPING_FINDINGS: dict[str, dict[str, str]] = {
+    "idp_fum_rec": {
+        "engineColumn": "fumble_recovery_own",
+        "hostMatchingColumn": "fumble_recovery_opp",
+        "evidence": (
+            "2025 REG IDP totals vs the Sleeper host's own idp_fum_rec "
+            "(docs/master-site-audit/evidence/W18/sleeper_stats_2025_wk{5,9,14}.json): "
+            "host 20/13/10 vs nflverse fumble_recovery_opp 19/16/9 and "
+            "fumble_recovery_own 0/0/3. A defender recovering the OFFENSE's fumble is "
+            "'opp' from his perspective; the engine reads 'own'."
+        ),
+    },
+    "idp_fum_ret_yd": {
+        "engineColumn": "fumble_recovery_yards_own",
+        "hostMatchingColumn": "fumble_recovery_yards_opp",
+        "evidence": "same column family as idp_fum_rec; IDP yards sit on the _opp column",
+    },
+}
+
+# What a capable projection feed / forecast component would have to supply.
+_REMEDY: dict[str, str] = {
+    "rec_0_4": "per-target depth distribution (a reception-distance forecast); historical PBP can train it but is not a projection",
+    "rec_5_9": "per-target depth distribution (a reception-distance forecast)",
+    "rec_10_19": "per-target depth distribution (a reception-distance forecast)",
+    "rec_20_29": "per-target depth distribution (a reception-distance forecast)",
+    "rec_30_39": "per-target depth distribution (a reception-distance forecast)",
+    "rec_40p": "per-target depth distribution (a reception-distance forecast)",
+    "fum_lost": "a projection feed publishing fumbles lost (Clay's guide has no fumbles column); manual CSV 'fumbles_lost' column is accepted",
+    "pass_2pt": "a projection feed publishing 2-pt conversions",
+    "rush_2pt": "a projection feed publishing 2-pt conversions",
+    "rec_2pt": "a projection feed publishing 2-pt conversions",
+    "pass_int_td": "a pick-six-thrown rate component (no projection feed publishes it)",
+    "kr_yd": "a return-role / return-yards projection",
+    "pr_yd": "a return-role / return-yards projection",
+    "st_td": "a return-TD projection",
+    "punt_ret_td": "a return-TD projection",
+    "kick_ret_td": "a return-TD projection",
+    "st_tkl_solo": "a special-teams snap/tackle projection",
+    "st_ff": "a special-teams forced-fumble projection",
+    "st_fum_rec": "a special-teams fumble-recovery projection",
+    "idp_tkl_loss": "an IDP feed with TFL (IDP Show has it; Clay's guide does not)",
+    "idp_pass_def": "an IDP feed with passes defended (IDP Show has it; Clay's guide does not)",
+    "idp_qb_hit": "an IDP feed with QB hits (IDP Show has it; Clay's guide does not)",
+    "idp_ff": "an IDP feed with forced fumbles (Clay's FF column does not survive text extraction)",
+    "idp_fum_rec": "an IDP feed with fumble recoveries",
+    "idp_def_td": "an IDP feed with defensive TDs",
+    "idp_safe": "an IDP feed with safeties",
+    "idp_sack_yd": "an IDP feed with sack yards (none publishes it)",
+    "idp_int_ret_yd": "an IDP feed with interception return yards (none publishes it)",
+    "idp_fum_ret_yd": "an IDP feed with fumble return yards (none publishes it)",
+    "idp_blk_kick": "an IDP feed with blocked kicks (none publishes it)",
+    "pass_sack": "already in Clay ('Sk')",
+}
+
+
+# ---------------------------------------------------------------------------
+# Source vocabularies — derived by running each adapter's own parser
+# ---------------------------------------------------------------------------
+
+
+def clay_vocabularies() -> tuple[frozenset[str], frozenset[str]]:
+    """(offense columns, IDP columns) the Clay parser emits, probed by parsing a
+    synthetic team page with every number nonzero."""
+    from src.bdvm.clay_projections import parse_clay_text  # noqa: PLC0415
+
+    letters = "abcdefghij"
+    nums = " ".join(str(n) for n in range(1, 17))
+    lines = [f"QB Probe {letters[i // 10]}{letters[i % 10]} {nums}" for i in range(50)]
+    lines.append("LB Probe Defender 900 100 2.0 1.0 5")
+    rows, report = parse_clay_text("\n".join(lines))
+    if not report.get("usable"):
+        raise RuntimeError(f"clay vocabulary probe rejected by the parser: {report}")
+    off: set[str] = set()
+    idp: set[str] = set()
+    for row in rows:
+        (off if row["position"] in OFFENSE_FAMILIES else idp).update(row["stats"])
+    return frozenset(off), frozenset(idp)
+
+
+def idpshow_vocabulary() -> frozenset[str]:
+    """Columns the IDP Show parser emits, probed with one header per semantic field."""
+    from src.bdvm.idpshow_projections import (  # noqa: PLC0415
+        _HEADER_ALIASES,
+        _STAT_FIELDS,
+        parse_projection_csv,
+    )
+
+    headers = ["Player", "Pos"]
+    for field in sorted(_STAT_FIELDS):
+        headers.append(next(h for h, sem in _HEADER_ALIASES.items() if sem == field))
+    row = ["Probe Defender", "LB"] + ["5"] * (len(headers) - 2)
+    rows, report = parse_projection_csv(",".join(headers) + "\n" + ",".join(row) + "\n")
+    if not rows:
+        raise RuntimeError(f"idpShow vocabulary probe rejected by the parser: {report}")
+    return frozenset(rows[0]["stats"])
+
+
+def manual_csv_vocabulary() -> frozenset[str]:
+    """The manual CSV takes ANY numeric column, so its vocabulary is every weekly
+    column the engine reads — but no play-by-play supplement (that rides a
+    nested row key a CSV cell cannot carry)."""
+    return frozenset(k for k in _MAXIMAL_ROW if k not in ("season", "week"))
+
+
+# ---------------------------------------------------------------------------
+# Probes
+# ---------------------------------------------------------------------------
+
+
+def _probe_line(vocab: Iterable[str]) -> dict[str, float]:
+    return {c: float(_MAXIMAL_ROW.get(c) or 50.0) for c in vocab}
+
+
+def source_supply(key: str, vocab: Iterable[str], positions: Iterable[str]) -> str:
+    """``direct`` / ``imputed`` / ``none`` — can a stat line built from ``vocab``
+    move ``key`` at any of ``positions`` through BDVM's projection scorer?"""
+    line = _probe_line(vocab)
+    best = "none"
+    for pos in positions:
+        for impute in (False, True):
+            off, _ = score_stat_line_per_game_detailed(
+                line, {key: 0.0}, position=pos, impute_first_downs=impute
+            )
+            on, _ = score_stat_line_per_game_detailed(
+                line, {key: 7.0}, position=pos, impute_first_downs=impute
+            )
+            if on != off:
+                if not impute:
+                    return "direct"
+                best = "imputed"
+    return best
+
+
+def baseline_supply(key: str) -> str:
+    """The reconstructed baseline scores realized weekly rows + the PBP supplement."""
+    return "direct" if classify(key, pbp_supplement=True) is Coverage.SCORED else "none"
+
+
+def engine_positions(key: str) -> tuple[str, ...]:
+    """Priced positions at which the rule can fire on a maximal realized row."""
+    out = []
+    for pos in PRICED_POSITIONS:
+        row = {**_MAXIMAL_ROW, "position": pos}
+        row[PBP_SUPPLEMENT_ROW_KEY] = {k: 1.0 for k in PBP_SUPPLEMENT_KEYS}
+        off = compute_weekly_points(row, {key: 0.0}, position=pos)
+        on = compute_weekly_points(row, {key: 7.0}, position=pos)
+        if (off.fantasy_points if off else 0.0) != (on.fantasy_points if on else 0.0):
+            out.append(pos)
+    return tuple(out)
+
+
+def _family(position: Any) -> str | None:
+    return POSITION_ALIASES.get(str(position or "").upper())
+
+
+def weight_sign(rate: float) -> str:
+    return "+" if rate > 0 else "-"
+
+
+# ---------------------------------------------------------------------------
+# Realized-history measurement (optional input)
+# ---------------------------------------------------------------------------
+
+
+def measure_realized(
+    weekly_rows: Iterable[Mapping[str, Any]],
+    card: Mapping[str, Any],
+    keys: Iterable[str],
+    *,
+    attach: Callable[[Mapping[str, Any]], Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Per-key realized impact under ``card`` over REG rows.
+
+    Returns ``{"families": {fam: {"players": n, "points": pts}},
+    "keys": {key: {"players": n, "stat": s, "points": p, "byFamily": {...}}},
+    "pbpAttached": bool, "columnTotals": {...}}``.  ``points`` is SIGNED.
+    """
+    keys = list(keys)
+    canon = {k: _SCORING_KEY_ALIASES.get(k, k) for k in keys}
+    rates = {k: float(card.get(k) or 0.0) for k in keys}
+    fam_players: dict[str, set[str]] = {}
+    fam_points: dict[str, float] = {}
+    key_players: dict[str, dict[str, set[str]]] = {k: {} for k in keys}
+    key_stat: dict[str, float] = {k: 0.0 for k in keys}
+    key_fam_pts: dict[str, dict[str, float]] = {k: {} for k in keys}
+    col_totals: dict[str, dict[str, float]] = {}
+    pbp_seen = False
+    for raw in weekly_rows:
+        if str(raw.get("season_type") or "REG").upper() != "REG":
+            continue
+        fam = _family(raw.get("position"))
+        if fam not in PRICED_FAMILIES:
+            continue
+        pid = str(raw.get("player_id") or raw.get("player_display_name") or "")
+        if not pid:
+            continue
+        row = dict(attach(raw) if attach else raw)
+        pos = str(row.get("position") or "").upper()
+        line = sleeper_stat_line_from_row(row, position=pos)
+        supplement = row.get(PBP_SUPPLEMENT_ROW_KEY)
+        if isinstance(supplement, Mapping):
+            pbp_seen = True
+            line.update(_pbp_supplement_line(supplement))
+        fam_players.setdefault(fam, set()).add(pid)
+        rp = compute_weekly_points(row, dict(card), position=pos)
+        fam_points[fam] = fam_points.get(fam, 0.0) + (rp.fantasy_points if rp else 0.0)
+        for finding in ENGINE_MAPPING_FINDINGS.values():
+            for col in (finding["engineColumn"], finding["hostMatchingColumn"]):
+                bucket = col_totals.setdefault(col, {})
+                bucket[fam] = bucket.get(fam, 0.0) + float(row.get(col) or 0.0)
+        for k in keys:
+            stat = float(line.get(canon[k]) or 0.0)
+            finding = ENGINE_MAPPING_FINDINGS.get(k)
+            if finding and fam in IDP_FAMILIES:
+                # Measure what the HOST pays, not what the mismapped engine reads.
+                stat = float(row.get(finding["hostMatchingColumn"]) or 0.0)
+            if not stat:
+                continue
+            key_players[k].setdefault(fam, set()).add(pid)
+            key_stat[k] += stat
+            key_fam_pts[k][fam] = key_fam_pts[k].get(fam, 0.0) + stat * rates[k]
+    return {
+        "pbpAttached": pbp_seen,
+        "families": {
+            f: {"players": len(fam_players[f]), "points": round(fam_points.get(f, 0.0), 2)}
+            for f in sorted(fam_players)
+        },
+        "keys": {
+            k: {
+                "players": len(set().union(*key_players[k].values())) if key_players[k] else 0,
+                "playersByFamily": {f: len(v) for f, v in sorted(key_players[k].items())},
+                "stat": round(key_stat[k], 2),
+                "points": round(sum(key_fam_pts[k].values()), 2),
+                "byFamily": {f: round(v, 2) for f, v in sorted(key_fam_pts[k].items())},
+            }
+            for k in keys
+        },
+        "columnTotals": {
+            c: {f: round(v, 2) for f, v in sorted(t.items())} for c, t in col_totals.items()
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# The census
+# ---------------------------------------------------------------------------
+
+
+def _engine_class(key: str) -> str:
+    return classify(key, pbp_supplement=True).value
+
+
+def census_for_card(
+    card: Mapping[str, Any],
+    *,
+    realized: Mapping[str, Any] | None = None,
+    idp_enabled: bool = True,
+) -> list[dict[str, Any]]:
+    """One row per NONZERO card rule, sorted by priority (highest first).
+
+    ``idp_enabled=False`` (a league that starts no defenders) removes the IDP
+    families from what BDVM prices, so an IDP rule is NOT_APPLICABLE there and
+    a special-teams rule is judged on the offensive feed only."""
+    priced = set(PRICED_FAMILIES if idp_enabled else OFFENSE_FAMILIES)
+    clay_off, clay_idp = clay_vocabularies()
+    vocabs = {
+        "clayOffense": clay_off,
+        "clayIdp": clay_idp,
+        "idpShow": idpshow_vocabulary(),
+        "manualCsv": manual_csv_vocabulary(),
+    }
+    rows: list[dict[str, Any]] = []
+    for key, raw in sorted(card.items()):
+        try:
+            rate = float(raw or 0.0)
+        except (TypeError, ValueError):
+            continue
+        if rate == 0.0:
+            continue
+        engine = _engine_class(key)
+        positions = engine_positions(key) if engine == Coverage.SCORED.value else ()
+        entry: dict[str, Any] = {
+            "key": key,
+            "weight": rate,
+            "weightSign": weight_sign(rate),
+            "engine": engine,
+            "reportedInUnscoredKeys": key in PBP_SUPPLEMENT_KEYS,
+        }
+        if engine == Coverage.NOT_APPLICABLE.value or key in KICKER_KEYS:
+            entry.update(
+                classification="NOT_APPLICABLE",
+                reason="kicker rule" if key in KICKER_KEYS else "team-defense rule",
+            )
+            rows.append(entry)
+            continue
+        measured = (realized or {}).get("keys", {}).get(key)
+        families = sorted(
+            _rule_families(key)
+            & priced
+            & ({f for f in (_family(p) for p in positions)} or set(PRICED_FAMILIES))
+        )
+        if not families and engine != Coverage.GAP.value:
+            entry.update(classification="NOT_APPLICABLE", reason="no priced family in this league")
+            rows.append(entry)
+            continue
+        supply: dict[str, str] = {}
+        for src, covered in REAL_SOURCES.items():
+            if not covered.intersection(families):
+                continue
+            src_positions = [p for p in PRICED_POSITIONS if _family(p) in covered]
+            supply[src] = source_supply(key, vocabs[src], src_positions)
+        capability = {
+            "manualCsv": source_supply(key, vocabs["manualCsv"], PRICED_POSITIONS),
+            "reconstructedBaseline": baseline_supply(key),
+        }
+        if engine == Coverage.GAP.value:
+            classification = "MAPPING_ERROR"
+        elif supply and all(v != "none" for v in supply.values()):
+            classification = "SUPPORTED"
+        elif any(v != "none" for v in supply.values()):
+            classification = "ABSENT_FIELD"
+        else:
+            classification = "UNSUPPORTED_VOCABULARY"
+        missing = [s for s, v in supply.items() if v == "none"]
+        entry.update(
+            classification=classification,
+            affectedFamilies=families,
+            sources=supply,
+            capability=capability,
+            imputed=sorted(s for s, v in supply.items() if v == "imputed"),
+            missingFrom=missing,
+            missingStatistic=_missing_statistic(key),
+            remedy=_REMEDY.get(key) if classification != "SUPPORTED" else None,
+        )
+        finding = ENGINE_MAPPING_FINDINGS.get(key)
+        if finding:
+            entry["baselineMappingError"] = dict(finding)
+        if realized:
+            fam_totals = realized.get("families", {})
+            eligible = sum(fam_totals.get(f, {}).get("players", 0) for f in families)
+            fam_pts = sum(fam_totals.get(f, {}).get("points", 0.0) for f in families)
+            by_fam = (measured or {}).get("byFamily", {})
+            pts = round(sum(by_fam.get(f, 0.0) for f in families), 2)
+            players_by_fam = (measured or {}).get("playersByFamily", {})
+            entry["realized"] = {
+                "eligiblePlayers": eligible,
+                "affectedPlayers": sum(players_by_fam.get(f, 0) for f in families),
+                "stat": measured["stat"] if measured else 0.0,
+                "points": pts,
+                "byFamily": by_fam,
+                "shareOfAffectedFamilyPoints": round(pts / fam_pts, 5) if fam_pts else None,
+                # How much of ``points`` a projected total actually omits.
+                "atRiskBasis": _AT_RISK_BASIS.get(classification, "none"),
+            }
+        rows.append(entry)
+    for e in rows:
+        e["priority"] = _priority(e)
+    rows.sort(key=lambda e: (-e["priority"], e["key"]))
+    return rows
+
+
+#: Player special-teams rules: earned by offensive AND defensive players.
+SPECIAL_TEAMS_KEYS: frozenset[str] = frozenset(
+    {"kr_yd", "pr_yd", "st_td", "punt_ret_td", "kick_ret_td", "st_tkl_solo", "st_ff", "st_fum_rec"}
+)
+
+
+def _rule_families(key: str) -> set[str]:
+    """The families a rule is FOR — which decides which real sources are
+    expected to supply it.  Realized history shows where points actually
+    landed (``realized.byFamily``), but a trick-play pass by a WR or a
+    two-way player's catch does not make a defensive feed responsible for
+    passing yards.  Intersected with the engine-reachable positions."""
+    canon = _SCORING_KEY_ALIASES.get(key, key)
+    if canon.startswith("idp_"):
+        return set(IDP_FAMILIES)
+    if canon in SPECIAL_TEAMS_KEYS:
+        return set(PRICED_FAMILIES)
+    return set(OFFENSE_FAMILIES)
+
+
+_AT_RISK_BASIS: dict[str, str] = {
+    "UNSUPPORTED_VOCABULARY": "full: no real source supplies it, every projected total omits it",
+    "ABSENT_FIELD": "upper_bound: only players covered solely by a source lacking it omit it",
+    "MAPPING_ERROR": "full: the engine reads no column for it",
+}
+
+
+def _missing_statistic(key: str) -> str:
+    canon = _SCORING_KEY_ALIASES.get(key, key)
+    if canon in _SIMPLE_KEYS:
+        return "/".join(_SIMPLE_KEYS[canon][0])
+    if key in PBP_SUPPLEMENT_KEYS:
+        return f"{key} (play-by-play-derived)"
+    return canon
+
+
+def _priority(entry: Mapping[str, Any]) -> float:
+    """|points at risk|: realized |points| for a non-SUPPORTED rule (0 when
+    SUPPORTED or N/A).  For ABSENT_FIELD it is an UPPER bound — only players
+    covered solely by the lacking source are partial.  Without realized data,
+    |weight| as a weak tiebreak (a vocabulary census cannot rank by impact)."""
+    cls = entry.get("classification")
+    if cls in ("SUPPORTED", "NOT_APPLICABLE") and not entry.get("baselineMappingError"):
+        return 0.0
+    realized = entry.get("realized")
+    if realized is not None:
+        return abs(float(realized["points"]))
+    return abs(float(entry.get("weight") or 0.0)) * 1e-6

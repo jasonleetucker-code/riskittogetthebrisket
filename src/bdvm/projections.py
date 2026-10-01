@@ -143,7 +143,9 @@ class ConsensusProjection:
     # categories are a strict subset of a peer's (vocabulary-dominated).
     vocabulary_limited: tuple[str, ...] = ()
     # League-card keys (nonzero rules) that a scored stat line could not
-    # supply: mu is a lower bound by those rules, never silently complete.
+    # supply: mu is a PARTIAL total by those rules, never silently complete.
+    # Not a lower bound — an omitted rule may be a penalty (``pass_int_td``),
+    # so the missing contribution may be positive or negative.
     unscored_keys: tuple[str, ...] = ()
 
 
