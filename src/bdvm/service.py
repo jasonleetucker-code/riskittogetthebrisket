@@ -610,7 +610,8 @@ def run_valuation(
                     ],
                     "vocabularyLimitedSources": list(blended.vocabulary_limited),
                     # Card rules this player's projection could not score: the
-                    # projected points are a lower bound by these rules.
+                    # projected points are a partial total by these rules, whose
+                    # omitted contribution may be positive or negative.
                     "unscoredKeys": list(blended.unscored_keys),
                 },
                 "replacement": {
@@ -730,9 +731,13 @@ def run_valuation(
             unscored_census[key] = unscored_census.get(key, 0) + 1
     payload["meta"]["scoringCoverage"] = {
         "unscoredKeys": dict(sorted(unscored_census.items(), key=lambda kv: (-kv[1], kv[0]))),
+        # The card's own sign per unscored rule, so a reader can tell an omitted
+        # bonus from an omitted penalty.  None when the card does not carry it.
+        "weightSign": {key: _weight_sign(cfg.scoring_settings, key) for key in unscored_census},
         "note": (
             "Nonzero league-card rules a projected stat line could not supply; those "
-            "players' projected points are a lower bound by these rules."
+            "players' projected points are a partial total: these rules are unscored "
+            "and their omitted contribution may be positive or negative (see weightSign)."
         ),
     }
 
@@ -740,6 +745,20 @@ def run_valuation(
         _persist_valuation(payload, league_key=league_key, as_of=as_of)
 
     return payload
+
+
+def _weight_sign(scoring_settings: Mapping[str, Any] | None, key: str) -> str | None:
+    """``"+"`` / ``"-"`` for a nonzero card rate; ``None`` when absent, zero or
+    unreadable — an unknown sign is reported as unknown, never as a bonus."""
+    try:
+        rate = float((scoring_settings or {}).get(key))
+    except (TypeError, ValueError):
+        return None
+    if rate > 0:
+        return "+"
+    if rate < 0:
+        return "-"
+    return None
 
 
 def _persist_valuation(payload: Mapping[str, Any], *, league_key: str, as_of: str) -> Path:

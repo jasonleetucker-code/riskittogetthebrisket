@@ -1,0 +1,3525 @@
+{
+  "censusVersion": "bdvm-scoring-census.v1",
+  "scope": "LOCAL",
+  "scopeNote": "Local census over the real league cards and public nflverse history; no production/owner session was used. Production coverage remains the /api/bdvm/values meta.scoringCoverage block.",
+  "generatedAt": "2026-10-01T09:49:51.773907+00:00",
+  "code": {
+    "sha": "76772b6f33964a1bddec025b26536cf30ca53502",
+    "dirty": false
+  },
+  "realizedInput": {
+    "path": "weekly_2025.json.gz",
+    "sha256": "e4161184920229e7c0210e3293e4746b649b79577822c3f12f5bcdb7c115327c",
+    "season": 2025,
+    "rows": 19422,
+    "status": "19422 nflverse weekly rows, season 2025 + play-by-play supplement",
+    "pbp": {
+      "path": "pbp_weekly_2025.jsonl",
+      "sha256": "f8dc2ce3a2be1a04c95db618faadbf13891752bec9ce5b6dcfc9a1f04b35c2d7"
+    }
+  },
+  "leagues": [
+    {
+      "leagueKey": "dynasty_main",
+      "sleeperLeagueId": "1312006700437352448",
+      "idpEnabled": true,
+      "card": {
+        "file": "scoring_1312006700437352448.json",
+        "sha256": "1d786cd19cf2bf0253dae8315a0d6b29976d00071a9c5f2b4381eb529d34dc79",
+        "fetchedAt": "2026-09-26T07:10:26.355538+00:00",
+        "season": "2026",
+        "fingerprint": "sf1:9e51824690d091f9",
+        "nonzeroRules": 86
+      },
+      "classCounts": {
+        "MAPPING_ERROR": 0,
+        "UNSUPPORTED_VOCABULARY": 21,
+        "ABSENT_FIELD": 7,
+        "SUPPORTED_IMPUTED": 4,
+        "SUPPORTED": 17,
+        "NOT_APPLICABLE": 37
+      },
+      "realizedFamilies": {
+        "DB": {
+          "players": 416,
+          "points": 32117.72
+        },
+        "DL": {
+          "players": 314,
+          "points": 20404.08
+        },
+        "LB": {
+          "players": 304,
+          "points": 27634.32
+        },
+        "QB": {
+          "players": 81,
+          "points": 10449.23
+        },
+        "RB": {
+          "players": 151,
+          "points": 14891.53
+        },
+        "TE": {
+          "players": 137,
+          "points": 7731.12
+        },
+        "WR": {
+          "players": 241,
+          "points": 19993.03
+        }
+      },
+      "engineColumnTotals": {
+        "fumble_recovery_own": {
+          "DB": 9.0,
+          "DL": 3.0,
+          "LB": 4.0,
+          "QB": 86.0,
+          "RB": 48.0,
+          "TE": 19.0,
+          "WR": 37.0
+        },
+        "fumble_recovery_opp": {
+          "DB": 90.0,
+          "DL": 59.0,
+          "LB": 86.0,
+          "QB": 1.0,
+          "RB": 3.0,
+          "TE": 1.0,
+          "WR": 4.0
+        },
+        "fumble_recovery_yards_own": {
+          "DB": 3.0,
+          "DL": 0.0,
+          "LB": 0.0,
+          "QB": -273.0,
+          "RB": 1.0,
+          "TE": 0.0,
+          "WR": -3.0
+        },
+        "fumble_recovery_yards_opp": {
+          "DB": 445.0,
+          "DL": 148.0,
+          "LB": 252.0,
+          "QB": -1.0,
+          "RB": 6.0,
+          "TE": 0.0,
+          "WR": 0.0
+        }
+      },
+      "rules": [
+        {
+          "key": "idp_pass_def",
+          "weight": 5.3,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "ABSENT_FIELD",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB"
+          ],
+          "sources": {
+            "clayIdp": "none",
+            "idpShow": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayIdp"
+          ],
+          "missingStatistic": "idp_pd",
+          "remedy": "an IDP feed with passes defended (IDP Show has it; Clay's guide does not)",
+          "realized": {
+            "eligiblePlayers": 1034,
+            "affectedPlayers": 577,
+            "stat": 2356.0,
+            "points": 12486.8,
+            "byFamily": {
+              "DB": 8326.3,
+              "DL": 1537.0,
+              "LB": 2623.5
+            },
+            "shareOfAffectedFamilyPoints": 0.15578,
+            "atRiskBasis": "upper_bound: only players covered solely by a source lacking it omit it"
+          },
+          "priority": 12486.8
+        },
+        {
+          "key": "idp_tkl_loss",
+          "weight": 4.24,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "ABSENT_FIELD",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB"
+          ],
+          "sources": {
+            "clayIdp": "none",
+            "idpShow": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayIdp"
+          ],
+          "missingStatistic": "idp_tkl_loss",
+          "remedy": "an IDP feed with TFL (IDP Show has it; Clay's guide does not)",
+          "realized": {
+            "eligiblePlayers": 1034,
+            "affectedPlayers": 642,
+            "stat": 2589.0,
+            "points": 10977.36,
+            "byFamily": {
+              "DB": 2153.92,
+              "DL": 4596.16,
+              "LB": 4227.28
+            },
+            "shareOfAffectedFamilyPoints": 0.13695,
+            "atRiskBasis": "upper_bound: only players covered solely by a source lacking it omit it"
+          },
+          "priority": 10977.36
+        },
+        {
+          "key": "idp_qb_hit",
+          "weight": 2.12,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "ABSENT_FIELD",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB"
+          ],
+          "sources": {
+            "clayIdp": "none",
+            "idpShow": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayIdp"
+          ],
+          "missingStatistic": "idp_hit",
+          "remedy": "an IDP feed with QB hits (IDP Show has it; Clay's guide does not)",
+          "realized": {
+            "eligiblePlayers": 1034,
+            "affectedPlayers": 531,
+            "stat": 3037.0,
+            "points": 6438.44,
+            "byFamily": {
+              "DB": 481.24,
+              "DL": 3355.96,
+              "LB": 2601.24
+            },
+            "shareOfAffectedFamilyPoints": 0.08032,
+            "atRiskBasis": "upper_bound: only players covered solely by a source lacking it omit it"
+          },
+          "priority": 6438.44
+        },
+        {
+          "key": "bonus_fd_wr",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED_IMPUTED",
+          "affectedFamilies": [
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "imputed"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [
+            "clayOffense"
+          ],
+          "missingFrom": [],
+          "missingStatistic": "bonus_fd_wr",
+          "remedy": "a projection feed publishing first downs; today imputed from yards by the first-down-rate model",
+          "realized": {
+            "eligiblePlayers": 241,
+            "affectedPlayers": 207,
+            "stat": 3254.0,
+            "points": 3254.0,
+            "byFamily": {
+              "WR": 3254.0
+            },
+            "shareOfAffectedFamilyPoints": 0.16276,
+            "atRiskBasis": "estimated: not omitted \u2014 every covering source supplies it, but at least one only through an imputation (first downs from yards), so these points rest on an estimate rather than a published stat"
+          },
+          "priority": 3254.0
+        },
+        {
+          "key": "bonus_fd_rb",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED_IMPUTED",
+          "affectedFamilies": [
+            "RB"
+          ],
+          "sources": {
+            "clayOffense": "imputed"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [
+            "clayOffense"
+          ],
+          "missingFrom": [],
+          "missingStatistic": "bonus_fd_rb",
+          "remedy": "a projection feed publishing first downs; today imputed from yards by the first-down-rate model",
+          "realized": {
+            "eligiblePlayers": 151,
+            "affectedPlayers": 127,
+            "stat": 2984.0,
+            "points": 2984.0,
+            "byFamily": {
+              "RB": 2984.0
+            },
+            "shareOfAffectedFamilyPoints": 0.20038,
+            "atRiskBasis": "estimated: not omitted \u2014 every covering source supplies it, but at least one only through an imputation (first downs from yards), so these points rest on an estimate rather than a published stat"
+          },
+          "priority": 2984.0
+        },
+        {
+          "key": "rec_10_19",
+          "weight": 0.75,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": true,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none"
+          },
+          "capability": {
+            "manualCsv": "none",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense"
+          ],
+          "missingStatistic": "rec_10_19 (play-by-play-derived)",
+          "remedy": "per-target depth distribution (a reception-distance forecast)",
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 391,
+            "stat": 3312.0,
+            "points": 2478.0,
+            "byFamily": {
+              "DB": 6.0,
+              "RB": 345.75,
+              "TE": 645.0,
+              "WR": 1487.25
+            },
+            "shareOfAffectedFamilyPoints": 0.0467,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 2478.0
+        },
+        {
+          "key": "st_tkl_solo",
+          "weight": 1.33,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": true,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB",
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none",
+            "clayIdp": "none",
+            "idpShow": "none"
+          },
+          "capability": {
+            "manualCsv": "none",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense",
+            "clayIdp",
+            "idpShow"
+          ],
+          "missingStatistic": "st_tkl_solo (play-by-play-derived)",
+          "remedy": "a special-teams snap/tackle projection",
+          "realized": {
+            "eligiblePlayers": 1644,
+            "affectedPlayers": 543,
+            "stat": 1861.0,
+            "points": 2475.13,
+            "byFamily": {
+              "DB": 936.32,
+              "DL": 101.08,
+              "LB": 928.34,
+              "RB": 196.84,
+              "TE": 160.93,
+              "WR": 151.62
+            },
+            "shareOfAffectedFamilyPoints": 0.01858,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 2475.13
+        },
+        {
+          "key": "bonus_fd_qb",
+          "weight": 0.4,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED_IMPUTED",
+          "affectedFamilies": [
+            "QB"
+          ],
+          "sources": {
+            "clayOffense": "imputed"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [
+            "clayOffense"
+          ],
+          "missingFrom": [],
+          "missingStatistic": "bonus_fd_qb",
+          "remedy": "a projection feed publishing first downs; today imputed from yards by the first-down-rate model",
+          "realized": {
+            "eligiblePlayers": 81,
+            "affectedPlayers": 74,
+            "stat": 5705.0,
+            "points": 2282.0,
+            "byFamily": {
+              "QB": 2282.0
+            },
+            "shareOfAffectedFamilyPoints": 0.21839,
+            "atRiskBasis": "estimated: not omitted \u2014 every covering source supplies it, but at least one only through an imputation (first downs from yards), so these points rest on an estimate rather than a published stat"
+          },
+          "priority": 2282.0
+        },
+        {
+          "key": "rec_5_9",
+          "weight": 0.5,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": true,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none"
+          },
+          "capability": {
+            "manualCsv": "none",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense"
+          ],
+          "missingStatistic": "rec_5_9 (play-by-play-derived)",
+          "remedy": "per-target depth distribution (a reception-distance forecast)",
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 403,
+            "stat": 3805.0,
+            "points": 1898.0,
+            "byFamily": {
+              "DB": 4.0,
+              "DL": 0.5,
+              "QB": 0.5,
+              "RB": 383.5,
+              "TE": 546.0,
+              "WR": 968.0
+            },
+            "shareOfAffectedFamilyPoints": 0.03577,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 1898.0
+        },
+        {
+          "key": "kr_yd",
+          "weight": 0.03333333333333333,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB",
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none",
+            "clayIdp": "none",
+            "idpShow": "none"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense",
+            "clayIdp",
+            "idpShow"
+          ],
+          "missingStatistic": "kickoff_return_yards",
+          "remedy": "a return-role / return-yards projection",
+          "realized": {
+            "eligiblePlayers": 1644,
+            "affectedPlayers": 166,
+            "stat": 53869.0,
+            "points": 1795.63,
+            "byFamily": {
+              "DB": 81.73,
+              "LB": 2.4,
+              "RB": 719.13,
+              "WR": 992.37
+            },
+            "shareOfAffectedFamilyPoints": 0.01348,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 1795.63
+        },
+        {
+          "key": "idp_ff",
+          "weight": 4.24,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "ABSENT_FIELD",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB"
+          ],
+          "sources": {
+            "clayIdp": "none",
+            "idpShow": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayIdp"
+          ],
+          "missingStatistic": "idp_ff",
+          "remedy": "an IDP feed with forced fumbles (Clay's FF column does not survive text extraction)",
+          "realized": {
+            "eligiblePlayers": 1034,
+            "affectedPlayers": 258,
+            "stat": 355.0,
+            "points": 1505.2,
+            "byFamily": {
+              "DB": 474.88,
+              "DL": 394.32,
+              "LB": 636.0
+            },
+            "shareOfAffectedFamilyPoints": 0.01878,
+            "atRiskBasis": "upper_bound: only players covered solely by a source lacking it omit it"
+          },
+          "priority": 1505.2
+        },
+        {
+          "key": "bonus_fd_te",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED_IMPUTED",
+          "affectedFamilies": [
+            "TE"
+          ],
+          "sources": {
+            "clayOffense": "imputed"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [
+            "clayOffense"
+          ],
+          "missingFrom": [],
+          "missingStatistic": "bonus_fd_te",
+          "remedy": "a projection feed publishing first downs; today imputed from yards by the first-down-rate model",
+          "realized": {
+            "eligiblePlayers": 137,
+            "affectedPlayers": 110,
+            "stat": 1280.0,
+            "points": 1280.0,
+            "byFamily": {
+              "TE": 1280.0
+            },
+            "shareOfAffectedFamilyPoints": 0.16556,
+            "atRiskBasis": "estimated: not omitted \u2014 every covering source supplies it, but at least one only through an imputation (first downs from yards), so these points rest on an estimate rather than a published stat"
+          },
+          "priority": 1280.0
+        },
+        {
+          "key": "rec_20_29",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": true,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none"
+          },
+          "capability": {
+            "manualCsv": "none",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense"
+          ],
+          "missingStatistic": "rec_20_29 (play-by-play-derived)",
+          "remedy": "per-target depth distribution (a reception-distance forecast)",
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 273,
+            "stat": 983.0,
+            "points": 980.0,
+            "byFamily": {
+              "DB": 3.0,
+              "QB": 1.0,
+              "RB": 85.0,
+              "TE": 241.0,
+              "WR": 653.0
+            },
+            "shareOfAffectedFamilyPoints": 0.01847,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 980.0
+        },
+        {
+          "key": "fum_lost",
+          "weight": -4.0,
+          "weightSign": "-",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense"
+          ],
+          "missingStatistic": "fumbles_lost_total/fumbles_lost",
+          "remedy": "a projection feed publishing fumbles lost (Clay's guide has no fumbles column); manual CSV 'fumbles_lost' column is accepted",
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 155,
+            "stat": 249.0,
+            "points": -964.0,
+            "byFamily": {
+              "DB": -24.0,
+              "DL": -4.0,
+              "LB": -4.0,
+              "QB": -436.0,
+              "RB": -260.0,
+              "TE": -68.0,
+              "WR": -200.0
+            },
+            "shareOfAffectedFamilyPoints": -0.01817,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 964.0
+        },
+        {
+          "key": "idp_sack_yd",
+          "weight": 0.1111111111111111,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB"
+          ],
+          "sources": {
+            "clayIdp": "none",
+            "idpShow": "none"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayIdp",
+            "idpShow"
+          ],
+          "missingStatistic": "idp_sack_yd",
+          "remedy": "an IDP feed with sack yards (none publishes it)",
+          "realized": {
+            "eligiblePlayers": 1034,
+            "affectedPlayers": 417,
+            "stat": 8265.0,
+            "points": 918.34,
+            "byFamily": {
+              "DB": 85.0,
+              "DL": 463.28,
+              "LB": 370.06
+            },
+            "shareOfAffectedFamilyPoints": 0.01146,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 918.34
+        },
+        {
+          "key": "idp_fum_rec",
+          "weight": 3.19,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "ABSENT_FIELD",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB"
+          ],
+          "sources": {
+            "clayIdp": "none",
+            "idpShow": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayIdp"
+          ],
+          "missingStatistic": "idp_fum_rec",
+          "remedy": "an IDP feed with fumble recoveries",
+          "baselineMappingError": {
+            "engineColumn": "fumble_recovery_own",
+            "hostMatchingColumn": "fumble_recovery_opp",
+            "evidence": "2025 REG IDP totals vs the Sleeper host's own idp_fum_rec (docs/master-site-audit/evidence/W18/sleeper_stats_2025_wk{5,9,14}.json): host 20/13/10 vs nflverse fumble_recovery_opp 19/16/9 and fumble_recovery_own 0/0/3. A defender recovering the OFFENSE's fumble is 'opp' from his perspective; the engine reads 'own'."
+          },
+          "realized": {
+            "eligiblePlayers": 1034,
+            "affectedPlayers": 199,
+            "stat": 235.0,
+            "points": 749.65,
+            "byFamily": {
+              "DB": 287.1,
+              "DL": 188.21,
+              "LB": 274.34
+            },
+            "shareOfAffectedFamilyPoints": 0.00935,
+            "atRiskBasis": "upper_bound: only players covered solely by a source lacking it omit it"
+          },
+          "priority": 749.65
+        },
+        {
+          "key": "rec_0_4",
+          "weight": 0.25,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": true,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none"
+          },
+          "capability": {
+            "manualCsv": "none",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense"
+          ],
+          "missingStatistic": "rec_0_4 (play-by-play-derived)",
+          "remedy": "per-target depth distribution (a reception-distance forecast); historical PBP can train it but is not a projection",
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 379,
+            "stat": 2156.0,
+            "points": 536.75,
+            "byFamily": {
+              "DB": 1.25,
+              "DL": 1.0,
+              "QB": 0.75,
+              "RB": 181.75,
+              "TE": 136.5,
+              "WR": 217.75
+            },
+            "shareOfAffectedFamilyPoints": 0.01011,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 536.75
+        },
+        {
+          "key": "idp_int_ret_yd",
+          "weight": 0.1111111111111111,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB"
+          ],
+          "sources": {
+            "clayIdp": "none",
+            "idpShow": "none"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayIdp",
+            "idpShow"
+          ],
+          "missingStatistic": "idp_int_ret_yd",
+          "remedy": "an IDP feed with interception return yards (none publishes it)",
+          "realized": {
+            "eligiblePlayers": 1034,
+            "affectedPlayers": 151,
+            "stat": 4825.0,
+            "points": 536.12,
+            "byFamily": {
+              "DB": 373.0,
+              "DL": 19.56,
+              "LB": 143.56
+            },
+            "shareOfAffectedFamilyPoints": 0.00669,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 536.12
+        },
+        {
+          "key": "rec_40p",
+          "weight": 2.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": true,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none"
+          },
+          "capability": {
+            "manualCsv": "none",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense"
+          ],
+          "missingStatistic": "rec_40p (play-by-play-derived)",
+          "remedy": "per-target depth distribution (a reception-distance forecast)",
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 130,
+            "stat": 227.0,
+            "points": 452.0,
+            "byFamily": {
+              "DB": 2.0,
+              "RB": 56.0,
+              "TE": 40.0,
+              "WR": 356.0
+            },
+            "shareOfAffectedFamilyPoints": 0.00852,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 452.0
+        },
+        {
+          "key": "rec_30_39",
+          "weight": 1.25,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": true,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none"
+          },
+          "capability": {
+            "manualCsv": "none",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense"
+          ],
+          "missingStatistic": "rec_30_39 (play-by-play-derived)",
+          "remedy": "per-target depth distribution (a reception-distance forecast)",
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 175,
+            "stat": 336.0,
+            "points": 418.75,
+            "byFamily": {
+              "DB": 1.25,
+              "QB": 1.25,
+              "RB": 28.75,
+              "TE": 77.5,
+              "WR": 311.25
+            },
+            "shareOfAffectedFamilyPoints": 0.00789,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 418.75
+        },
+        {
+          "key": "pr_yd",
+          "weight": 0.03333333333333333,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB",
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none",
+            "clayIdp": "none",
+            "idpShow": "none"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense",
+            "clayIdp",
+            "idpShow"
+          ],
+          "missingStatistic": "punt_return_yards",
+          "remedy": "a return-role / return-yards projection",
+          "realized": {
+            "eligiblePlayers": 1644,
+            "affectedPlayers": 68,
+            "stat": 8453.0,
+            "points": 281.77,
+            "byFamily": {
+              "DB": 15.57,
+              "RB": 9.7,
+              "WR": 256.5
+            },
+            "shareOfAffectedFamilyPoints": 0.00212,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 281.77
+        },
+        {
+          "key": "idp_blk_kick",
+          "weight": 5.3,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB"
+          ],
+          "sources": {
+            "clayIdp": "none",
+            "idpShow": "none"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayIdp",
+            "idpShow"
+          ],
+          "missingStatistic": "idp_blk_kick",
+          "remedy": "an IDP feed with blocked kicks (none publishes it)",
+          "realized": {
+            "eligiblePlayers": 1034,
+            "affectedPlayers": 36,
+            "stat": 41.0,
+            "points": 217.3,
+            "byFamily": {
+              "DB": 53.0,
+              "DL": 132.5,
+              "LB": 31.8
+            },
+            "shareOfAffectedFamilyPoints": 0.00271,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 217.3
+        },
+        {
+          "key": "idp_def_td",
+          "weight": 6.36,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "ABSENT_FIELD",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB"
+          ],
+          "sources": {
+            "clayIdp": "none",
+            "idpShow": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayIdp"
+          ],
+          "missingStatistic": "idp_def_td",
+          "remedy": "an IDP feed with defensive TDs",
+          "realized": {
+            "eligiblePlayers": 1034,
+            "affectedPlayers": 27,
+            "stat": 28.0,
+            "points": 178.08,
+            "byFamily": {
+              "DB": 120.84,
+              "LB": 57.24
+            },
+            "shareOfAffectedFamilyPoints": 0.00222,
+            "atRiskBasis": "upper_bound: only players covered solely by a source lacking it omit it"
+          },
+          "priority": 178.08
+        },
+        {
+          "key": "st_td",
+          "weight": 6.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB",
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none",
+            "clayIdp": "none",
+            "idpShow": "none"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense",
+            "clayIdp",
+            "idpShow"
+          ],
+          "missingStatistic": "special_teams_tds",
+          "remedy": "a return-TD projection",
+          "realized": {
+            "eligiblePlayers": 1644,
+            "affectedPlayers": 21,
+            "stat": 27.0,
+            "points": 162.0,
+            "byFamily": {
+              "DB": 24.0,
+              "DL": 24.0,
+              "RB": 24.0,
+              "WR": 90.0
+            },
+            "shareOfAffectedFamilyPoints": 0.00122,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 162.0
+        },
+        {
+          "key": "st_ff",
+          "weight": 4.25,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": true,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB",
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none",
+            "clayIdp": "none",
+            "idpShow": "none"
+          },
+          "capability": {
+            "manualCsv": "none",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense",
+            "clayIdp",
+            "idpShow"
+          ],
+          "missingStatistic": "st_ff (play-by-play-derived)",
+          "remedy": "a special-teams forced-fumble projection",
+          "realized": {
+            "eligiblePlayers": 1644,
+            "affectedPlayers": 32,
+            "stat": 32.0,
+            "points": 136.0,
+            "byFamily": {
+              "DB": 42.5,
+              "DL": 4.25,
+              "LB": 72.25,
+              "RB": 12.75,
+              "TE": 4.25
+            },
+            "shareOfAffectedFamilyPoints": 0.00102,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 136.0
+        },
+        {
+          "key": "idp_fum_ret_yd",
+          "weight": 0.1111111111111111,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB"
+          ],
+          "sources": {
+            "clayIdp": "none",
+            "idpShow": "none"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayIdp",
+            "idpShow"
+          ],
+          "missingStatistic": "idp_fum_ret_yd",
+          "remedy": "an IDP feed with fumble return yards (none publishes it)",
+          "baselineMappingError": {
+            "engineColumn": "fumble_recovery_yards_own",
+            "hostMatchingColumn": "fumble_recovery_yards_opp",
+            "evidence": "same column family as idp_fum_rec; IDP yards sit on the _opp column"
+          },
+          "realized": {
+            "eligiblePlayers": 1034,
+            "affectedPlayers": 59,
+            "stat": 845.0,
+            "points": 93.88,
+            "byFamily": {
+              "DB": 49.44,
+              "DL": 16.44,
+              "LB": 28.0
+            },
+            "shareOfAffectedFamilyPoints": 0.00117,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 93.88
+        },
+        {
+          "key": "pass_2pt",
+          "weight": 2.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense"
+          ],
+          "missingStatistic": "pass_2pt",
+          "remedy": "a projection feed publishing 2-pt conversions",
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 30,
+            "stat": 42.0,
+            "points": 84.0,
+            "byFamily": {
+              "QB": 82.0,
+              "RB": 2.0
+            },
+            "shareOfAffectedFamilyPoints": 0.00158,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 84.0
+        },
+        {
+          "key": "rec_2pt",
+          "weight": 2.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense"
+          ],
+          "missingStatistic": "rec_2pt",
+          "remedy": "a projection feed publishing 2-pt conversions",
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 39,
+            "stat": 42.0,
+            "points": 84.0,
+            "byFamily": {
+              "RB": 8.0,
+              "TE": 20.0,
+              "WR": 56.0
+            },
+            "shareOfAffectedFamilyPoints": 0.00158,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 84.0
+        },
+        {
+          "key": "st_fum_rec",
+          "weight": 3.19,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": true,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB",
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none",
+            "clayIdp": "none",
+            "idpShow": "none"
+          },
+          "capability": {
+            "manualCsv": "none",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense",
+            "clayIdp",
+            "idpShow"
+          ],
+          "missingStatistic": "st_fum_rec (play-by-play-derived)",
+          "remedy": "a special-teams fumble-recovery projection",
+          "realized": {
+            "eligiblePlayers": 1644,
+            "affectedPlayers": 26,
+            "stat": 26.0,
+            "points": 82.94,
+            "byFamily": {
+              "DB": 41.47,
+              "DL": 3.19,
+              "LB": 22.33,
+              "RB": 6.38,
+              "TE": 3.19,
+              "WR": 6.38
+            },
+            "shareOfAffectedFamilyPoints": 0.00062,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 82.94
+        },
+        {
+          "key": "pass_int_td",
+          "weight": -2.0,
+          "weightSign": "-",
+          "engine": "scored",
+          "reportedInUnscoredKeys": true,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none"
+          },
+          "capability": {
+            "manualCsv": "none",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense"
+          ],
+          "missingStatistic": "pass_int_td (play-by-play-derived)",
+          "remedy": "a pick-six-thrown rate component (no projection feed publishes it)",
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 24,
+            "stat": 28.0,
+            "points": -56.0,
+            "byFamily": {
+              "QB": -56.0
+            },
+            "shareOfAffectedFamilyPoints": -0.00106,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 56.0
+        },
+        {
+          "key": "idp_safe",
+          "weight": 5.3,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "ABSENT_FIELD",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB"
+          ],
+          "sources": {
+            "clayIdp": "none",
+            "idpShow": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayIdp"
+          ],
+          "missingStatistic": "idp_safe",
+          "remedy": "an IDP feed with safeties",
+          "realized": {
+            "eligiblePlayers": 1034,
+            "affectedPlayers": 9,
+            "stat": 9.0,
+            "points": 47.7,
+            "byFamily": {
+              "DB": 10.6,
+              "DL": 21.2,
+              "LB": 15.9
+            },
+            "shareOfAffectedFamilyPoints": 0.0006,
+            "atRiskBasis": "upper_bound: only players covered solely by a source lacking it omit it"
+          },
+          "priority": 47.7
+        },
+        {
+          "key": "rush_2pt",
+          "weight": 2.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense"
+          ],
+          "missingStatistic": "rush_2pt",
+          "remedy": "a projection feed publishing 2-pt conversions",
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 15,
+            "stat": 17.0,
+            "points": 34.0,
+            "byFamily": {
+              "QB": 12.0,
+              "RB": 22.0
+            },
+            "shareOfAffectedFamilyPoints": 0.00064,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 34.0
+        },
+        {
+          "key": "blk_kick",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "bonus_rec_wr",
+          "weight": 0.02,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "bonus_rec_wr",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 241,
+            "affectedPlayers": 217,
+            "stat": 5977.0,
+            "points": 119.54,
+            "byFamily": {
+              "WR": 119.54
+            },
+            "shareOfAffectedFamilyPoints": 0.00598,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "def_2pt",
+          "weight": 4.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "def_3_and_out",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "def_4_and_stop",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "def_forced_punts",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "def_kr_yd",
+          "weight": 0.01,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "def_pr_yd",
+          "weight": 0.01,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "def_st_ff",
+          "weight": 0.5,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "def_st_fum_rec",
+          "weight": 0.5,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "def_st_td",
+          "weight": 6.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "def_td",
+          "weight": 6.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "fg_ret_yd",
+          "weight": 0.01,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "fgm_yds",
+          "weight": 0.07,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "kicker rule",
+          "priority": 0.0
+        },
+        {
+          "key": "fgmiss_0_19",
+          "weight": -4.55,
+          "weightSign": "-",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "kicker rule",
+          "priority": 0.0
+        },
+        {
+          "key": "fgmiss_20_29",
+          "weight": -3.85,
+          "weightSign": "-",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "kicker rule",
+          "priority": 0.0
+        },
+        {
+          "key": "fgmiss_30_39",
+          "weight": -3.15,
+          "weightSign": "-",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "kicker rule",
+          "priority": 0.0
+        },
+        {
+          "key": "fgmiss_40_49",
+          "weight": -2.45,
+          "weightSign": "-",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "kicker rule",
+          "priority": 0.0
+        },
+        {
+          "key": "fgmiss_50_59",
+          "weight": -1.75,
+          "weightSign": "-",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "kicker rule",
+          "priority": 0.0
+        },
+        {
+          "key": "fgmiss_60p",
+          "weight": -1.05,
+          "weightSign": "-",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "kicker rule",
+          "priority": 0.0
+        },
+        {
+          "key": "fum_rec",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "fum_rec_td",
+          "weight": 6.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "fum_ret_yd",
+          "weight": 0.01,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "idp_int",
+          "weight": 5.3,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB"
+          ],
+          "sources": {
+            "clayIdp": "direct",
+            "idpShow": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "idp_int",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 1034,
+            "affectedPlayers": 221,
+            "stat": 380.0,
+            "points": 2014.0,
+            "byFamily": {
+              "DB": 1494.6,
+              "DL": 74.2,
+              "LB": 445.2
+            },
+            "shareOfAffectedFamilyPoints": 0.02513,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "idp_sack",
+          "weight": 2.92,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB"
+          ],
+          "sources": {
+            "clayIdp": "direct",
+            "idpShow": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "idp_sack",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 1034,
+            "affectedPlayers": 439,
+            "stat": 1277.0,
+            "points": 3728.84,
+            "byFamily": {
+              "DB": 324.12,
+              "DL": 1892.16,
+              "LB": 1512.56
+            },
+            "shareOfAffectedFamilyPoints": 0.04652,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "idp_tkl_ast",
+          "weight": 0.8,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB"
+          ],
+          "sources": {
+            "clayIdp": "direct",
+            "idpShow": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "idp_tkl_ast",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 1034,
+            "affectedPlayers": 983,
+            "stat": 15872.0,
+            "points": 12697.6,
+            "byFamily": {
+              "DB": 4432.0,
+              "DL": 3120.0,
+              "LB": 5145.6
+            },
+            "shareOfAffectedFamilyPoints": 0.15841,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "idp_tkl_solo",
+          "weight": 1.33,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "DB",
+            "DL",
+            "LB"
+          ],
+          "sources": {
+            "clayIdp": "direct",
+            "idpShow": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "idp_tkl_solo",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 1034,
+            "affectedPlayers": 984,
+            "stat": 19564.0,
+            "points": 26020.12,
+            "byFamily": {
+              "DB": 12584.46,
+              "DL": 4644.36,
+              "LB": 8791.3
+            },
+            "shareOfAffectedFamilyPoints": 0.32462,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "int",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "int_ret_yd",
+          "weight": 0.01,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "pass_cmp",
+          "weight": 0.37,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "completions",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 82,
+            "stat": 11214.0,
+            "points": 4149.18,
+            "byFamily": {
+              "QB": 4146.22,
+              "RB": 1.11,
+              "TE": 0.74,
+              "WR": 1.11
+            },
+            "shareOfAffectedFamilyPoints": 0.07819,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "pass_inc",
+          "weight": -0.67,
+          "weightSign": "-",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "pass_inc",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 86,
+            "stat": 6220.0,
+            "points": -4167.4,
+            "byFamily": {
+              "QB": -4158.02,
+              "RB": -2.68,
+              "TE": -4.02,
+              "WR": -2.68
+            },
+            "shareOfAffectedFamilyPoints": -0.07853,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "pass_int",
+          "weight": -4.0,
+          "weightSign": "-",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "passing_interceptions/interceptions",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 63,
+            "stat": 380.0,
+            "points": -1520.0,
+            "byFamily": {
+              "QB": -1512.0,
+              "WR": -8.0
+            },
+            "shareOfAffectedFamilyPoints": -0.02864,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "pass_sack",
+          "weight": -1.0,
+          "weightSign": "-",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "sacks_suffered/sacks",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 69,
+            "stat": 1287.0,
+            "points": -1286.0,
+            "byFamily": {
+              "LB": -1.0,
+              "QB": -1283.0,
+              "RB": -1.0,
+              "WR": -2.0
+            },
+            "shareOfAffectedFamilyPoints": -0.02423,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "pass_td",
+          "weight": 6.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "passing_tds",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 65,
+            "stat": 811.0,
+            "points": 4866.0,
+            "byFamily": {
+              "QB": 4830.0,
+              "RB": 18.0,
+              "TE": 6.0,
+              "WR": 12.0
+            },
+            "shareOfAffectedFamilyPoints": 0.0917,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "pass_yd",
+          "weight": 0.04,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "passing_yards",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 82,
+            "stat": 122366.0,
+            "points": 4894.64,
+            "byFamily": {
+              "QB": 4889.08,
+              "RB": 1.56,
+              "TE": 2.28,
+              "WR": 1.72
+            },
+            "shareOfAffectedFamilyPoints": 0.09224,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "pts_allow",
+          "weight": -1.0,
+          "weightSign": "-",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "pts_allow_0",
+          "weight": 45.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "pts_allow_14_20",
+          "weight": 35.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "pts_allow_1_6",
+          "weight": 35.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "pts_allow_21_27",
+          "weight": 35.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "pts_allow_28_34",
+          "weight": 35.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "pts_allow_35p",
+          "weight": 35.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "pts_allow_7_13",
+          "weight": 35.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "rec",
+          "weight": 0.1,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "receptions",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 461,
+            "stat": 11164.0,
+            "points": 1113.0,
+            "byFamily": {
+              "DB": 2.9,
+              "DL": 0.5,
+              "QB": 0.9,
+              "RB": 227.7,
+              "TE": 286.7,
+              "WR": 597.7
+            },
+            "shareOfAffectedFamilyPoints": 0.02097,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "rec_td",
+          "weight": 6.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "receiving_tds",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 261,
+            "stat": 805.0,
+            "points": 4812.0,
+            "byFamily": {
+              "DB": 6.0,
+              "DL": 12.0,
+              "QB": 12.0,
+              "RB": 600.0,
+              "TE": 1380.0,
+              "WR": 2820.0
+            },
+            "shareOfAffectedFamilyPoints": 0.09068,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "rec_yd",
+          "weight": 0.1,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "receiving_yards",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 460,
+            "stat": 121992.0,
+            "points": 12167.8,
+            "byFamily": {
+              "DB": 30.1,
+              "DL": 1.3,
+              "QB": 3.8,
+              "RB": 1691.8,
+              "TE": 2907.3,
+              "WR": 7564.9
+            },
+            "shareOfAffectedFamilyPoints": 0.2293,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "rush_att",
+          "weight": 0.01,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "carries",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 322,
+            "stat": 14565.0,
+            "points": 145.61,
+            "byFamily": {
+              "DB": 0.03,
+              "LB": 0.01,
+              "QB": 22.15,
+              "RB": 118.49,
+              "TE": 1.15,
+              "WR": 3.82
+            },
+            "shareOfAffectedFamilyPoints": 0.00274,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "rush_td",
+          "weight": 6.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "rushing_tds",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 137,
+            "stat": 506.0,
+            "points": 3036.0,
+            "byFamily": {
+              "QB": 642.0,
+              "RB": 2280.0,
+              "TE": 36.0,
+              "WR": 78.0
+            },
+            "shareOfAffectedFamilyPoints": 0.05721,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "rush_yd",
+          "weight": 0.1,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "rushing_yards",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 318,
+            "stat": 63556.0,
+            "points": 6355.0,
+            "byFamily": {
+              "DB": 0.6,
+              "QB": 968.6,
+              "RB": 5151.0,
+              "TE": 28.6,
+              "WR": 206.8
+            },
+            "shareOfAffectedFamilyPoints": 0.11976,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "sack_yd",
+          "weight": 0.01,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "safe",
+          "weight": 4.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "xpm",
+          "weight": 2.31,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "kicker rule",
+          "priority": 0.0
+        },
+        {
+          "key": "xpmiss",
+          "weight": -3.15,
+          "weightSign": "-",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "kicker rule",
+          "priority": 0.0
+        },
+        {
+          "key": "yds_allow",
+          "weight": -0.05,
+          "weightSign": "-",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        }
+      ]
+    },
+    {
+      "leagueKey": "dynasty_new",
+      "sleeperLeagueId": "1320092771247222784",
+      "idpEnabled": false,
+      "card": {
+        "file": "scoring_1320092771247222784.json",
+        "sha256": "abca7371e9983dd773477e434498282280524ffd77b558117af38b50a87fb3dc",
+        "fetchedAt": "2026-09-26T07:10:29.389066+00:00",
+        "season": "2026",
+        "fingerprint": "sf1:82a5f8ef2bfdb098",
+        "nonzeroRules": 41
+      },
+      "classCounts": {
+        "MAPPING_ERROR": 0,
+        "UNSUPPORTED_VOCABULARY": 7,
+        "ABSENT_FIELD": 0,
+        "SUPPORTED_IMPUTED": 0,
+        "SUPPORTED": 9,
+        "NOT_APPLICABLE": 25
+      },
+      "realizedFamilies": {
+        "DB": {
+          "players": 416,
+          "points": 100.7
+        },
+        "DL": {
+          "players": 314,
+          "points": 42.3
+        },
+        "LB": {
+          "players": 304,
+          "points": 22.0
+        },
+        "QB": {
+          "players": 81,
+          "points": 9242.48
+        },
+        "RB": {
+          "players": 151,
+          "points": 11944.36
+        },
+        "TE": {
+          "players": 137,
+          "points": 8646.68
+        },
+        "WR": {
+          "players": 241,
+          "points": 16702.42
+        }
+      },
+      "engineColumnTotals": {
+        "fumble_recovery_own": {
+          "DB": 9.0,
+          "DL": 3.0,
+          "LB": 4.0,
+          "QB": 86.0,
+          "RB": 48.0,
+          "TE": 19.0,
+          "WR": 37.0
+        },
+        "fumble_recovery_opp": {
+          "DB": 90.0,
+          "DL": 59.0,
+          "LB": 86.0,
+          "QB": 1.0,
+          "RB": 3.0,
+          "TE": 1.0,
+          "WR": 4.0
+        },
+        "fumble_recovery_yards_own": {
+          "DB": 3.0,
+          "DL": 0.0,
+          "LB": 0.0,
+          "QB": -273.0,
+          "RB": 1.0,
+          "TE": 0.0,
+          "WR": -3.0
+        },
+        "fumble_recovery_yards_opp": {
+          "DB": 445.0,
+          "DL": 148.0,
+          "LB": 252.0,
+          "QB": -1.0,
+          "RB": 6.0,
+          "TE": 0.0,
+          "WR": 0.0
+        }
+      },
+      "rules": [
+        {
+          "key": "fum_lost",
+          "weight": -2.0,
+          "weightSign": "-",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense"
+          ],
+          "missingStatistic": "fumbles_lost_total/fumbles_lost",
+          "remedy": "a projection feed publishing fumbles lost (Clay's guide has no fumbles column); manual CSV 'fumbles_lost' column is accepted",
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 155,
+            "stat": 249.0,
+            "points": -482.0,
+            "byFamily": {
+              "DB": -12.0,
+              "DL": -2.0,
+              "LB": -2.0,
+              "QB": -218.0,
+              "RB": -130.0,
+              "TE": -34.0,
+              "WR": -100.0
+            },
+            "shareOfAffectedFamilyPoints": -0.01036,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 482.0
+        },
+        {
+          "key": "st_td",
+          "weight": 6.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense"
+          ],
+          "missingStatistic": "special_teams_tds",
+          "remedy": "a return-TD projection",
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 14,
+            "stat": 27.0,
+            "points": 114.0,
+            "byFamily": {
+              "DB": 24.0,
+              "DL": 24.0,
+              "RB": 24.0,
+              "WR": 90.0
+            },
+            "shareOfAffectedFamilyPoints": 0.00245,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 114.0
+        },
+        {
+          "key": "pass_2pt",
+          "weight": 2.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense"
+          ],
+          "missingStatistic": "pass_2pt",
+          "remedy": "a projection feed publishing 2-pt conversions",
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 30,
+            "stat": 42.0,
+            "points": 84.0,
+            "byFamily": {
+              "QB": 82.0,
+              "RB": 2.0
+            },
+            "shareOfAffectedFamilyPoints": 0.00181,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 84.0
+        },
+        {
+          "key": "rec_2pt",
+          "weight": 2.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense"
+          ],
+          "missingStatistic": "rec_2pt",
+          "remedy": "a projection feed publishing 2-pt conversions",
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 39,
+            "stat": 42.0,
+            "points": 84.0,
+            "byFamily": {
+              "RB": 8.0,
+              "TE": 20.0,
+              "WR": 56.0
+            },
+            "shareOfAffectedFamilyPoints": 0.00181,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 84.0
+        },
+        {
+          "key": "rush_2pt",
+          "weight": 2.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense"
+          ],
+          "missingStatistic": "rush_2pt",
+          "remedy": "a projection feed publishing 2-pt conversions",
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 15,
+            "stat": 17.0,
+            "points": 34.0,
+            "byFamily": {
+              "QB": 12.0,
+              "RB": 22.0
+            },
+            "shareOfAffectedFamilyPoints": 0.00073,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 34.0
+        },
+        {
+          "key": "st_fum_rec",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": true,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none"
+          },
+          "capability": {
+            "manualCsv": "none",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense"
+          ],
+          "missingStatistic": "st_fum_rec (play-by-play-derived)",
+          "remedy": "a special-teams fumble-recovery projection",
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 5,
+            "stat": 26.0,
+            "points": 5.0,
+            "byFamily": {
+              "DB": 13.0,
+              "DL": 1.0,
+              "LB": 7.0,
+              "RB": 2.0,
+              "TE": 1.0,
+              "WR": 2.0
+            },
+            "shareOfAffectedFamilyPoints": 0.00011,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 5.0
+        },
+        {
+          "key": "st_ff",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": true,
+          "classification": "UNSUPPORTED_VOCABULARY",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "none"
+          },
+          "capability": {
+            "manualCsv": "none",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [
+            "clayOffense"
+          ],
+          "missingStatistic": "st_ff (play-by-play-derived)",
+          "remedy": "a special-teams forced-fumble projection",
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 4,
+            "stat": 32.0,
+            "points": 4.0,
+            "byFamily": {
+              "DB": 10.0,
+              "DL": 1.0,
+              "LB": 17.0,
+              "RB": 3.0,
+              "TE": 1.0
+            },
+            "shareOfAffectedFamilyPoints": 9e-05,
+            "atRiskBasis": "full: no real source supplies it, every projected total omits it"
+          },
+          "priority": 4.0
+        },
+        {
+          "key": "blk_kick",
+          "weight": 2.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "bonus_rec_te",
+          "weight": 0.5,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "TE"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "bonus_rec_te",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 137,
+            "affectedPlayers": 122,
+            "stat": 2867.0,
+            "points": 1433.5,
+            "byFamily": {
+              "TE": 1433.5
+            },
+            "shareOfAffectedFamilyPoints": 0.16579,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "def_st_ff",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "def_st_fum_rec",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "def_st_td",
+          "weight": 6.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "def_td",
+          "weight": 6.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "ff",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "fgm_0_19",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "kicker rule",
+          "priority": 0.0
+        },
+        {
+          "key": "fgm_20_29",
+          "weight": 2.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "kicker rule",
+          "priority": 0.0
+        },
+        {
+          "key": "fgm_30_39",
+          "weight": 3.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "kicker rule",
+          "priority": 0.0
+        },
+        {
+          "key": "fgm_40_49",
+          "weight": 4.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "kicker rule",
+          "priority": 0.0
+        },
+        {
+          "key": "fgm_50p",
+          "weight": 5.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "kicker rule",
+          "priority": 0.0
+        },
+        {
+          "key": "fgmiss",
+          "weight": -1.0,
+          "weightSign": "-",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "kicker rule",
+          "priority": 0.0
+        },
+        {
+          "key": "fum_rec",
+          "weight": 2.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "fum_rec_td",
+          "weight": 6.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "int",
+          "weight": 2.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "pass_int",
+          "weight": -1.0,
+          "weightSign": "-",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "passing_interceptions/interceptions",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 63,
+            "stat": 380.0,
+            "points": -380.0,
+            "byFamily": {
+              "QB": -378.0,
+              "WR": -2.0
+            },
+            "shareOfAffectedFamilyPoints": -0.00817,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "pass_td",
+          "weight": 4.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "passing_tds",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 65,
+            "stat": 811.0,
+            "points": 3244.0,
+            "byFamily": {
+              "QB": 3220.0,
+              "RB": 12.0,
+              "TE": 4.0,
+              "WR": 8.0
+            },
+            "shareOfAffectedFamilyPoints": 0.06971,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "pass_yd",
+          "weight": 0.04,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "passing_yards",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 82,
+            "stat": 122366.0,
+            "points": 4894.64,
+            "byFamily": {
+              "QB": 4889.08,
+              "RB": 1.56,
+              "TE": 2.28,
+              "WR": 1.72
+            },
+            "shareOfAffectedFamilyPoints": 0.10518,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "pts_allow_0",
+          "weight": 10.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "pts_allow_14_20",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "pts_allow_1_6",
+          "weight": 7.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "pts_allow_28_34",
+          "weight": -1.0,
+          "weightSign": "-",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "pts_allow_35p",
+          "weight": -4.0,
+          "weightSign": "-",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "pts_allow_7_13",
+          "weight": 4.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "rec",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "receptions",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 461,
+            "stat": 11164.0,
+            "points": 11130.0,
+            "byFamily": {
+              "DB": 29.0,
+              "DL": 5.0,
+              "QB": 9.0,
+              "RB": 2277.0,
+              "TE": 2867.0,
+              "WR": 5977.0
+            },
+            "shareOfAffectedFamilyPoints": 0.23917,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "rec_td",
+          "weight": 6.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "receiving_tds",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 261,
+            "stat": 805.0,
+            "points": 4812.0,
+            "byFamily": {
+              "DB": 6.0,
+              "DL": 12.0,
+              "QB": 12.0,
+              "RB": 600.0,
+              "TE": 1380.0,
+              "WR": 2820.0
+            },
+            "shareOfAffectedFamilyPoints": 0.1034,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "rec_yd",
+          "weight": 0.1,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "receiving_yards",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 460,
+            "stat": 121992.0,
+            "points": 12167.8,
+            "byFamily": {
+              "DB": 30.1,
+              "DL": 1.3,
+              "QB": 3.8,
+              "RB": 1691.8,
+              "TE": 2907.3,
+              "WR": 7564.9
+            },
+            "shareOfAffectedFamilyPoints": 0.26147,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "rush_td",
+          "weight": 6.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "rushing_tds",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 137,
+            "stat": 506.0,
+            "points": 3036.0,
+            "byFamily": {
+              "QB": 642.0,
+              "RB": 2280.0,
+              "TE": 36.0,
+              "WR": 78.0
+            },
+            "shareOfAffectedFamilyPoints": 0.06524,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "rush_yd",
+          "weight": 0.1,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED",
+          "affectedFamilies": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "direct"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [],
+          "missingFrom": [],
+          "missingStatistic": "rushing_yards",
+          "remedy": null,
+          "realized": {
+            "eligiblePlayers": 610,
+            "affectedPlayers": 318,
+            "stat": 63556.0,
+            "points": 6355.0,
+            "byFamily": {
+              "DB": 0.6,
+              "QB": 968.6,
+              "RB": 5151.0,
+              "TE": 28.6,
+              "WR": 206.8
+            },
+            "shareOfAffectedFamilyPoints": 0.13656,
+            "atRiskBasis": "none"
+          },
+          "priority": 0.0
+        },
+        {
+          "key": "sack",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "safe",
+          "weight": 2.0,
+          "weightSign": "+",
+          "engine": "not_applicable",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "team-defense rule",
+          "priority": 0.0
+        },
+        {
+          "key": "xpm",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "kicker rule",
+          "priority": 0.0
+        },
+        {
+          "key": "xpmiss",
+          "weight": -1.0,
+          "weightSign": "-",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "NOT_APPLICABLE",
+          "reason": "kicker rule",
+          "priority": 0.0
+        }
+      ]
+    }
+  ]
+}

@@ -29,7 +29,7 @@ production in any league format):
     Offense:
         pass_yd, pass_td, pass_int, pass_2pt, pass_sack
         rush_yd, rush_td, rush_2pt
-        rec, rec_yd, rec_td, rec_2pt, bonus_rec_te
+        rec, rec_yd, rec_td, rec_2pt, bonus_rec_te, bonus_rec_wr, bonus_rec_rb
         fum_lost
         bonus_pass_yd_300, bonus_pass_yd_400, bonus_rush_yd_100,
         bonus_rush_yd_200, bonus_rec_yd_100, bonus_rec_yd_200
@@ -202,6 +202,37 @@ _FIRST_DOWN_BONUS_KEYS: dict[str, str] = {
     "RB": "bonus_fd_rb",
     "WR": "bonus_fd_wr",
     "TE": "bonus_fd_te",
+}
+
+#: Position-scoped per-reception bonuses — Sleeper's ``bonus_rec_<pos>``
+#: family.  Same shape as ``_FIRST_DOWN_BONUS_KEYS``: the stat is the plain
+#: reception count, the rate is chosen by the receiver's position.
+#:
+#: Host-verified 2026-10-01 against dynasty_main's live card (bonus_rec_wr
+#: 0.02) on 2026 weeks 1-3: the host's own stat lines reproduce
+#: ``players_points`` for 401/401 WR player-weeks WITH the rule and only
+#: 108/401 without it (the 293 with receptions all miss); Sleeper's
+#: ``bonus_rec_<pos>`` stat equals ``rec`` on every RB/WR/TE line; and this
+#: mapping on the nflverse row reproduces the host's bonus on 291/291 joined
+#: WR weeks.  Evidence: docs/research/bdvm-v1/scoring-census-2026-10-01/
+#: host_verification.json; pinned by tests/bdvm/test_position_reception_bonus.py.
+#:
+#: FB is deliberately ABSENT (as it is from ``_FIRST_DOWN_BONUS_KEYS``).
+#: Sleeper's stat feed carries neither ``bonus_rec_rb`` nor ``bonus_fd_rb`` on
+#: an FB's line (2026 wk 2-3: three FB lines with receptions, one with
+#: ``rec_fd`` 1, none carrying either key; likewise the 2025 wk 5/9 FB lines in
+#: docs/master-site-audit/evidence/W18/), so the host does not pay an FB the
+#: RB rate and a raw ``"FB"`` position here earns no RB bonus.  Not verified
+#: against ``players_points`` (no FB with a catch was rostered in those weeks).
+#: Known divergence, NOT changed here: ``src/bdvm/context.TRUE_POSITION_MAP``
+#: maps FB -> RB before the BDVM baseline / actuals call
+#: ``compute_weekly_points``, so on THAT path an FB is paid ``bonus_fd_rb``
+#: (pre-existing) and would be paid ``bonus_rec_rb`` (0.0 on both live cards
+#: today).  Repairing it moves values and needs its own unit.
+_RECEPTION_BONUS_KEYS: dict[str, str] = {
+    "RB": "bonus_rec_rb",
+    "WR": "bonus_rec_wr",
+    "TE": "bonus_rec_te",
 }
 
 #: Columns summed to get a player's total first downs.  Mirrored by
@@ -405,9 +436,11 @@ class RealizedPoints:
 
     Not "the player recorded none" — that is a real zero and is absent
     from this list. This is "no source supplied the number", which makes
-    :attr:`fantasy_points` a lower bound rather than the total. Missing
-    is never zero, so the shortfall travels with the number instead of
-    being silently folded into it.
+    :attr:`fantasy_points` a PARTIAL total rather than the total — not a
+    lower bound: an unscored rule may be a penalty (``pass_int_td``), so
+    the omitted contribution may be positive or negative. Missing is never
+    zero, so the gap travels with the number instead of being silently
+    folded into it.
     """
 
     def to_dict(self) -> dict[str, Any]:
@@ -510,6 +543,8 @@ _SLEEPER_KEY_LABELS: dict[str, str] = {
     **{k: label for (k, _c, label) in _TWO_PT_KEYS},
     "pass_inc": "Incompletions",
     "bonus_rec_te": "TE Rec Bonus",
+    "bonus_rec_wr": "WR Rec Bonus",
+    "bonus_rec_rb": "RB Rec Bonus",
     "rec_0_4": "Rec 0-4 yd",
     "rec_5_9": "Rec 5-9 yd",
     "rec_10_19": "Rec 10-19 yd",
@@ -571,8 +606,15 @@ def sleeper_stat_line_from_row(
 
     # Position-scoped rules.  The rate lives on a position-specific KEY,
     # so the position decision belongs here, in normalization.
-    if pos == "TE":
-        _put("bonus_rec_te", _num(stat_row.get("receptions")))
+    #
+    # The reception bonus is one FAMILY (rb / wr / te).  Only the TE member
+    # used to be emitted, so a card paying ``bonus_rec_wr`` (dynasty_main's
+    # live 2026 card: 0.02/rec) scored a silent zero for every receiver —
+    # the coverage probe classified it GAP.  ``receptions`` is the whole
+    # stat; nothing is derived.
+    rec_bonus_key = _RECEPTION_BONUS_KEYS.get(pos)
+    if rec_bonus_key:
+        _put(rec_bonus_key, _num(stat_row.get("receptions")))
     fd_key = _FIRST_DOWN_BONUS_KEYS.get(pos)
     if fd_key:
         first_downs = 0.0
@@ -930,7 +972,8 @@ def compute_cumulative_points(
             "totalPointsComplete": True,
         }
     # The union, not a sum: one rule unavailable in one week makes the
-    # total a lower bound, and that fact must survive aggregation.
+    # total PARTIAL (not a lower bound — the rule may be a penalty), and
+    # that fact must survive aggregation.
     unscored_rates: dict[str, float] = {}
     for rp in weekly:
         for key, rate in rp.unscored:
