@@ -395,3 +395,16 @@ def test_every_evidence_kind_held_is_published_and_no_applied_weight_is_recomput
         assert isinstance(held, list)
         assert e["evidenceState"] == (held[0] if held else "UNEVALUATED")
         assert "sourceLevelEffectiveWeight" not in (e.get("weighting") or {})
+
+
+def test_lineage_cannot_assert_dynasty_game_type():
+    import copy
+
+    lineage = json.loads(
+        (REPO / "config" / "sources" / "source_lineage.json").read_text(encoding="utf-8")
+    )
+    bad = copy.deepcopy(lineage)
+    next(iter(bad["sources"].values()))["gameType"] = "DYNASTY"
+    assert any(
+        "DYNASTY may only come from the source registry" in e for e in sc.validate_lineage(bad)
+    )

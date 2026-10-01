@@ -106,8 +106,12 @@ def _pins(payload_path: Path) -> dict:
             "path": str((full.get("payload") or {}).get("path")).replace("\\", "/"),
         },
         "freshnessConfig": full.get("freshnessConfig"),
+        # Line endings normalized so a Windows checkout (CRLF) and Linux/CI
+        # record the same hash for the same commit.
         "lineageRegistrySha256": hashlib.sha256(
-            (REPO / "config" / "sources" / "source_lineage.json").read_bytes()
+            (REPO / "config" / "sources" / "source_lineage.json")
+            .read_bytes()
+            .replace(b"\r\n", b"\n")
         ).hexdigest(),
         "contractVersion": full.get("contractVersion"),
         "flags": full.get("flags"),

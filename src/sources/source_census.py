@@ -333,6 +333,12 @@ def validate_lineage(lineage: Mapping[str, Any], repo_root: Path = REPO_ROOT) ->
         if s.get("basis") not in bases:
             errors.append(f"sources.{key}: unknown basis {s.get('basis')!r}")
         _check_evidence(f"sources.{key}", s.get("evidence"))
+        # A lineage entry may record only a NON-dynasty game type (proven by a
+        # relation); DYNASTY is proven by the canonical source registry alone.
+        if s.get("gameType") == "DYNASTY":
+            errors.append(f"sources.{key}: gameType DYNASTY may only come from the source registry")
+        if s.get("gameType") and not s.get("gameTypeEvidence"):
+            errors.append(f"sources.{key}: gameType needs gameTypeEvidence")
     ids: set[str] = set()
     for section in ("relations", "evaluations", "defects"):
         for item in lineage.get(section) or []:
@@ -935,7 +941,7 @@ def build_census(inp: CensusInputs) -> dict[str, Any]:
                     and pipe_rows == vrows
                     and pipe_mean is not None
                     and mean_applied is not None
-                    and abs(pipe_mean - mean_applied) <= 1e-4,
+                    and abs(pipe_mean - mean_applied) <= 1.5e-4,  # both rounded to 4 dp
                     "byUniverse": by_u,
                     "basis": "mean of the appliedWeight the canonical pipeline stamped on each voted row",
                 },
