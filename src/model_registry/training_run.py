@@ -144,19 +144,25 @@ def _sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
+#: Every pinned file (code AND data) is hashed with CRLF normalized to LF.
+#: Git stores these text files with LF and a Windows checkout under
+#: ``core.autocrlf`` rewrites the JSON ones to CRLF, so a raw byte hash made the
+#: SAME evidence hash differently on a laptop and in CI — measured: the board
+#: snapshot and every dataset-state file differed, the CSVs did not. The pin is
+#: of CONTENT, so it must not depend on the checkout's line-ending policy.
+HASH_NORMALIZATION = "crlf_to_lf"
 
 
 def _sha256_text_normalized(path: Path) -> str:
-    """Hash a SOURCE file with line endings normalized.
-
-    A Windows checkout may hold CRLF where CI holds LF; that is the same code."""
+    """Content hash of a pinned file, line endings normalized (see HASH_NORMALIZATION)."""
     return _sha256_bytes(path.read_bytes().replace(b"\r\n", b"\n"))
+
+
+_sha256_file = _sha256_text_normalized
+
+
+def _normalized_size(path: Path) -> int:
+    return len(path.read_bytes().replace(b"\r\n", b"\n"))
 
 
 def code_identity() -> dict[str, Any]:
@@ -237,7 +243,7 @@ def _snapshot_pin(root: Path, snapshot: Path | None, cutoff: datetime) -> tuple[
             "resolved": True,
             "path": rel,
             "sha256": _sha256_file(snapshot),
-            "bytes": snapshot.stat().st_size,
+            "bytes": _normalized_size(snapshot),
             "scrapeTimestamp": raw.get("scrapeTimestamp"),
         },
         inside,
@@ -341,7 +347,7 @@ def _input_pins(
         pins[rel] = {
             **base,
             "sha256": _sha256_file(path),
-            "bytes": path.stat().st_size,
+            "bytes": _normalized_size(path),
             **values.to_pin(),
             "windowRows": trained,
             "datasetState": _dataset_state_pin(root, key, cutoff, cfg_path),
@@ -426,6 +432,7 @@ def execute(
             "refine": "dc in +-{0.001, 0.002}, ds in +-{0.005, 0.01}",
             "masterCombine": "unweighted mean of per-source curves (authority weighting H4: not applied)",
             "constantRounding": {"c": 4, "s": 3},
+            "hashNormalization": HASH_NORMALIZATION,
             "policy": m.policy.to_dict(),
         },
         "perSourceFits": {

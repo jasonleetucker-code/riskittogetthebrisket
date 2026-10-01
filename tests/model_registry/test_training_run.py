@@ -111,6 +111,17 @@ class TestReproducibility:
         other = _build_root(tmp_path / "elsewhere")
         assert _run(other).challenger_hash == run_a.challenger_hash
 
+    def test_checkout_line_endings_are_not_evidence(self, tmp_path, run_a):
+        """A Windows checkout (core.autocrlf) holds CRLF where git and CI hold LF.
+
+        Measured on the first LOCAL demo: the worktree run and its own git replay
+        disagreed because the snapshot and every dataset-state JSON were CRLF on
+        disk. The pin is of content, not of a checkout policy."""
+        crlf = _build_root(tmp_path / "crlf")
+        for path in [crlf / SNAPSHOT_REL, *(crlf / "CSVs/site_raw").glob("*.csv")]:
+            path.write_bytes(path.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
+        assert _run(crlf).challenger_hash == run_a.challenger_hash
+
     def test_changed_evidence_changes_the_challenger(self, tmp_path, run_a):
         moved = _build_root(tmp_path / "moved", bump=500.0)
         assert _run(moved).challenger_hash != run_a.challenger_hash
