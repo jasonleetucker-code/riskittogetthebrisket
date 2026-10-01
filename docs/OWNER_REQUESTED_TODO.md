@@ -1285,3 +1285,23 @@ above) and is not reopened. Record: `docs/sources/SIGNALS_ACCOUNT_CONNECTION.md`
 |---|---|
 | Owner-controlled Signals connection: connect / status / reconnect / disconnect / provision / renew; auth health separate from data freshness; fail-safe renewal and failure classes | IMPLEMENTED on `claude/signals-account-connection` (not merged). Owner's first real sign-in, box provisioning and observed renewal still OWNER-PENDING |
 
+## Added 2026-10-01 — Valuation Trust Program / Batch 3 (owner directive)
+
+The owner's highest priority: values he trusts over any single outside source, earned
+through evidence, never tuned toward KTC, DLF, FantasyCalc or anyone else. The canonical
+market, BDVM fundamentals, the completed-trade market and roster impact remain separate
+concepts. Full unit list and promotion policy: `docs/EXECUTION_PLAN.md` →
+"Valuation Trust Program — Batch 3".
+
+| Item | Disposition |
+|---|---|
+| A source trust census, generated from canonical state (no subjective score) | AUTHORIZED, wave 1 |
+| Replace "dynamic weights" with a leakage-safe source-quality evaluator; equal-family champion; preregistered challengers | AUTHORIZED, wave 2 |
+| Hill trainer / Autopilot substrate repair before any KTC/DLF scale change; then a clean preregistered rerun | AUTHORIZED, wave 1 → 3 |
+| Sparse-evidence estimator: central estimate separate from uncertainty; censor-aware coverage; solves 4600→1380 without the deep-board explosion | AUTHORIZED, wave 2 |
+| Joint robust filter as a real shadow experiment with an archived ledger | AUTHORIZED, wave 2 |
+| Ingestion / lineage integrity sweep across every voting family | AUTHORIZED, wave 2 |
+| Signals authenticated inventory once the owner session exists (second opinion until comparable and evaluated) | AUTHORIZED, access-dependent |
+| Completed-trade market benchmark: KTC Trade Database + Sleeper ledger, dedupe, topology, then a shadow latent-price model | AUTHORIZED, wave 1 (acquisition) |
+| BDVM measured fundamental engine: fumble recovery, source vocabulary, reception-distance and first-down components, horizon-aware projection evaluation, prior calibration | AUTHORIZED, waves 1 and 3 |
+| Market-vs-fundamental disagreement matrix and source trust scorecard (no single magic score) | AUTHORIZED, wave 3 |
