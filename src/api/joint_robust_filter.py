@@ -97,7 +97,9 @@ def joint_robust_filter(
         return FilterResult(tuple(keys), (), None, None, None, {}, "no_positive_weight")
     centre = weighted_median([value_of[key] for key in keys], [w[key] for key in keys])
     deviations = [abs(value_of[key] - centre) for key in keys]
-    scale = weighted_median(deviations, [w[key] for key in keys]) or 0.0
+    scale = weighted_median(deviations, [w[key] for key in keys])
+    if scale is None:  # unreachable: total weight > 0 was checked above
+        return FilterResult(tuple(keys), (), centre, None, None, {}, "no_positive_weight")
     threshold = max(k * scale, min_threshold)
     reasons: dict[str, str] = {}
     candidates = []
