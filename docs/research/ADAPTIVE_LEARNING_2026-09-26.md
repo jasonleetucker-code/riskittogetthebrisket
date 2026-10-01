@@ -1003,7 +1003,7 @@ stage at this reconciliation, from code and production:
 | | format classification / translation | classification MERGED (three dispositions; BROAD_CONTEXT pending); translation **MISSING** | AL-2a′, AL-2b0, AL-2b |
 | | target-league transaction estimate | **MISSING** | AL-2c |
 | | comparison with subsequent evidence | **MISSING** | AL-2c + AL-1 outcome (2) |
-| **PROJECTION** | pregame projection | EXISTS from Week 3 (collector began 2026-09-26; Weeks 1–2 raw never captured — §36) | AL-3a |
+| **PROJECTION** | pregame projection | PARTIAL — our ensemble's pregame estimates for rostered players exist from Week 1 (`data/game_day/predictions/2026/*/week_N/*_pregame.json`, backed up); raw Sleeper weekly projections only from Week 3, and Week 3 itself may be partial (its directory was created 2026-09-25 23:20 UTC, after the Week 3 Thursday game; unverified) — §36 | AL-3a |
 | | actual game result | EXISTS — `src/nfl_data/realized_points.py` | — |
 | | source / stat-category error | **MISSING** | AL-3b |
 | | challenger ensemble | **MISSING** | AL-3c |
@@ -1126,8 +1126,9 @@ collide:
     source-quality evaluator, Hill refits, translator experiments, latent-price experiments; then
     projection-family evaluation, then Game Day calibration. No promotion in AL-1a.
 
-Standing: #1594 (deploy drift-reinstall) merged 2026-10-01 — its drift-reinstall invariant must be observed
-green on the box at the next deploy, not assumed. D2 (#1598) stays evidence only (§35 T7).
+Standing: #1594 (deploy drift-reinstall) merged 2026-10-01 — **a deviation from the owner instruction** not to
+close it until its drift-reinstall invariant is green: it merged on green Linux CI drift tests, before the
+invariant was observed on the box. It must be observed green on the box at the next deploy, not assumed. D2 (#1598) stays evidence only (§35 T7).
 
 **Champion — unchanged:** equal-family base authority; `freshness × health × coverage`; family caps; the current
 Hill champion; the current outlier filter; the current 0.30 sparse retention.

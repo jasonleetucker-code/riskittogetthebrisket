@@ -285,11 +285,13 @@ Hill champion; the current outlier filter; the current 0.30 sparse retention.
 health, ledger / KTC / sparse-shadow timers from actual `systemctl` state; (2) first KTC production capture;
 (3) bootstrap census; (4) per-capture turnover tracking; (5) accumulated census after window turnover;
 (6) BROAD_CONTEXT PR; (7) IDP inventory; (8) translator readiness table; (9) at most one preregistered shadow
-translator; (10) AL-0 merge after round-two review; (11) AL-1a in the order above. AL-P2…AL-P8 run in parallel
+translator; (10) AL-0 merge after round-two review — gated ONLY by that review, CI and grader, never by the
+census/translator steps above (the list is not a dependency chain for AL-0); (11) AL-1a in the order above. AL-P2…AL-P8 run in parallel
 where files do not collide. D2 (#1598) stays evidence only — no promotion of c3, repaired constants, H1–H3 or DLF
 native spacing from OTC alone; if OTC proves not ancestry-safe (#1599), mark #1598's external-validity
-limitation without rewriting it and stop treating OTC as a sole promotion target. #1594 merged; its
-drift-reinstall invariant is verified on the box at the next deploy.
+limitation without rewriting it and stop treating OTC as a sole promotion target. #1594 merged on green
+Linux CI drift tests, before its drift-reinstall invariant was observed on the box — a deviation from
+the owner instruction; the invariant is verified on the box at the next deploy.
 
 **Completion standard (directive §30):** Wave 1 is complete only when the SOURCE, TRADE, PROJECTION and MODEL
 GOVERNANCE loops each run end to end in code on real data (plan §34). A planning record is not completion.
