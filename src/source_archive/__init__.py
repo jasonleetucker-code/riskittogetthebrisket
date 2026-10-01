@@ -71,8 +71,10 @@ from src.source_archive.store import (
     SCHEMA_VERSION,
     ArchivedBoard,
     archive_board,
+    archive_boards,
     coverage,
     read_boards,
+    read_sightings,
 )
 
 __all__ = [
@@ -82,6 +84,8 @@ __all__ = [
     "SCHEMA_VERSION",
     "ArchivedBoard",
     "archive_board",
+    "archive_boards",
     "coverage",
     "read_boards",
+    "read_sightings",
 ]

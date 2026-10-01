@@ -52,6 +52,14 @@ BOUNDARIES (CLAUDE.md "Source-domain boundaries", multi-format archive)
   only entry point the scraper calls. It is time-bounded, catches every
   ``Exception``, logs, and returns a summary; it never raises into
   ``scrape_ktc`` and never mutates the capture the scraper already made.
+  The scraper calls it last, after the KTC results are built, passing what
+  is left of the KTC source limit; below :func:`required_budget_s` it skips
+  before touching the page or the database, so it cannot push ``scrape_ktc``
+  past the outer timeout that would drop every KTC result.
+* **All or nothing, no duplicate copies.** The eight boards are written in
+  one transaction with a bounded lock wait, and a board identical to the
+  latest archived one for its variant is recorded as a sighting instead of
+  a second copy.
 """
 
 from __future__ import annotations
@@ -61,6 +69,7 @@ import hashlib
 import json
 import logging
 import os
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -124,6 +133,31 @@ MIN_PRICED_ROWS = 100
 #: already succeeded when this runs, so the page is loaded; anything slower
 #: than this is a wedged page, and the scrape must not wait on evidence.
 EVALUATE_TIMEOUT_SECONDS = 20.0
+
+#: Upper bound on the TOTAL SQLite lock wait one archive run may spend (the
+#: cadence read and the single all-or-nothing write transaction share it).
+#: The write is synchronous, so an outer ``asyncio`` timeout cannot cancel it
+#: once started; bounding it is what makes the run's worst case computable.
+STORE_TIMEOUT_SECONDS = 5.0
+
+#: Allowance for the non-waiting work: cutting eight boards from ~500 rows,
+#: hashing, and serializing ~1.5 MB of JSON (well under a second), plus
+#: scheduling slack.
+CPU_SLACK_SECONDS = 10.0
+
+
+def required_budget_s(
+    timeout_s: float = EVALUATE_TIMEOUT_SECONDS,
+    store_timeout_s: float = STORE_TIMEOUT_SECONDS,
+) -> float:
+    """Worst-case wall time of one archive run: read + lock wait + slack.
+
+    The scraper runs the archive only when at least this much of its KTC
+    source budget is left, so evidence capture can never push ``scrape_ktc``
+    past the outer source timeout and cost the scrape its KTC board.
+    """
+    return float(timeout_s) + float(store_timeout_s) + CPU_SLACK_SECONDS
+
 
 #: Env switch.  Default ON on the production box; ``0``/``false``/``off``
 #: disables.  On a GitHub Actions runner the default is OFF: the runner is
@@ -391,9 +425,15 @@ def archive_projection(
     page_url: str,
     selected_capture_hashes: Mapping[str, str] | None = None,
     path: Path | None = None,
+    store_timeout_s: float = STORE_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
-    """Cut the boards and append them to the archive.  Raises on failure."""
-    from src.source_archive.store import ARCHIVE_ELIGIBLE, archive_board
+    """Cut the boards and append them to the archive.  Raises on failure.
+
+    All eligible boards go in ONE transaction (all or nothing), and a board
+    identical to the most recent archived board for its variant is recorded
+    as a sighting instead of a second copy (``deduplicated``).
+    """
+    from src.source_archive.store import ARCHIVE_ELIGIBLE, archive_boards
 
     boards, skipped = boards_from_projection(
         projection,
@@ -407,16 +447,24 @@ def archive_projection(
         "payloadHash": payload_hash(projection),
         "archived": [],
         "unchanged": [],
+        "deduplicated": [],
         "conflicts": [],
         "skipped": dict(skipped),
     }
+    eligible = []
     for board in boards:
         if f"{PROVIDER}:{board.format_key}" not in ARCHIVE_ELIGIBLE:
             summary["skipped"][board.format_key] = "not_archive_eligible"
             continue
-        result = archive_board(board, path=path)
+        eligible.append(board)
+    results = archive_boards(
+        eligible, path=path, timeout_s=store_timeout_s, skip_if_latest_identical=True
+    )
+    for board, result in zip(eligible, results):
         if result.get("archived"):
             summary["archived"].append(board.format_key)
+        elif result.get("deduplicated"):
+            summary["deduplicated"].append(board.format_key)
         elif result.get("unchanged"):
             summary["unchanged"].append(board.format_key)
         else:
@@ -430,16 +478,28 @@ def cadence(environ: Mapping[str, str] | None = None) -> str:
     return "every_run" if raw in {"every_run", "every-run", "all"} else "daily"
 
 
-def already_archived_today(captured_at: str, *, path: Path | None = None) -> bool:
+def already_archived_today(
+    captured_at: str,
+    *,
+    path: Path | None = None,
+    store_timeout_s: float = STORE_TIMEOUT_SECONDS,
+) -> bool:
     """True when every variant is already preserved for ``captured_at``'s date.
 
-    A run that archived only part of the ladder (e.g. one variant partial)
-    does not count, so a later run the same day can still complete it.
+    "Preserved" is a stored board OR a sighting (seen unchanged against an
+    earlier board).  A run that archived only part of the ladder (e.g. one
+    variant partial) does not count, so a later run the same day can still
+    complete it.
     """
     from src.source_archive.store import archived_format_keys
 
     have = archived_format_keys(
-        provider=PROVIDER, endpoint=ENDPOINT, captured_date=captured_at[:10], path=path
+        provider=PROVIDER,
+        endpoint=ENDPOINT,
+        captured_date=captured_at[:10],
+        path=path,
+        timeout_s=store_timeout_s,
+        include_sightings=True,
     )
     return set(VARIANT_KEYS).issubset(have)
 
@@ -464,6 +524,8 @@ async def archive_variants_safely(
     selected_capture_hashes: Mapping[str, str] | None = None,
     path: Path | None = None,
     timeout_s: float = EVALUATE_TIMEOUT_SECONDS,
+    store_timeout_s: float = STORE_TIMEOUT_SECONDS,
+    budget_remaining_s: float | None = None,
     environ: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """The scraper's only entry point.  NEVER raises an ``Exception``.
@@ -472,14 +534,37 @@ async def archive_variants_safely(
     selected-board capture and every CSV the scrape writes are untouched
     whatever happens here.  (``asyncio.CancelledError`` is a
     ``BaseException`` and still propagates, as cancellation must.)
+
+    ``budget_remaining_s`` is what is left of the caller's own time limit
+    (for the scraper: the KTC source timeout minus the time already spent in
+    ``scrape_ktc``).  Below :func:`required_budget_s` the run is skipped
+    BEFORE any page read or database access: the archive must never be the
+    thing that pushes its caller past that limit.
     """
     try:
         enabled, why = archive_enabled(environ)
         if not enabled:
             return {"ok": True, "skippedRun": why}
+        needed = required_budget_s(timeout_s, store_timeout_s)
+        if budget_remaining_s is not None and budget_remaining_s < needed:
+            return {
+                "ok": True,
+                "skippedRun": (
+                    f"insufficient_source_budget:remaining={budget_remaining_s:.1f}s"
+                    f"<required={needed:.1f}s"
+                ),
+            }
+        # One shared lock-wait allowance for every store call in this run.
+        store_deadline = time.monotonic() + store_timeout_s
+
+        def _store_left() -> float:
+            return max(0.0, store_deadline - time.monotonic())
+
         when = captured_at or datetime.now(timezone.utc).isoformat()
         rid = run_id or f"ktc:{when}"
-        if cadence(environ) == "daily" and already_archived_today(when, path=path):
+        if cadence(environ) == "daily" and already_archived_today(
+            when, path=path, store_timeout_s=_store_left()
+        ):
             # Decided BEFORE the in-page read: a skipped run transfers nothing.
             return {"ok": True, "skippedRun": "already_archived_today", "runId": rid}
         projection = await asyncio.wait_for(project_format_variants(page), timeout=timeout_s)
@@ -490,6 +575,7 @@ async def archive_variants_safely(
             page_url=str(getattr(page, "url", "") or ""),
             selected_capture_hashes=selected_capture_hashes,
             path=path,
+            store_timeout_s=_store_left(),
         )
         # Drop the only large structure before returning (#1391 posture).
         del projection
@@ -526,6 +612,7 @@ __all__: Sequence[str] = (
     "KtcFormatArchiveError",
     "PROVIDER_FAMILY",
     "VARIANT_KEYS",
+    "STORE_TIMEOUT_SECONDS",
     "already_archived_today",
     "archive_enabled",
     "cadence",
@@ -534,5 +621,6 @@ __all__: Sequence[str] = (
     "boards_from_projection",
     "payload_hash",
     "project_format_variants",
+    "required_budget_s",
     "selected_hashes",
 )

@@ -26,6 +26,7 @@ import ast
 import asyncio
 import copy
 import json
+import os
 import shutil
 import sqlite3
 import subprocess
@@ -143,6 +144,20 @@ _NETWORK_METHODS = (
 )
 
 
+def _node_missing() -> None:
+    """No Node: skip locally, but FAIL under CI.
+
+    Most of this file executes the production projection JavaScript in Node.
+    A CI runner without Node would otherwise skip every one of those tests
+    and report green — a gate that cannot run its input reading exactly like
+    a gate that passed.
+    """
+    msg = "Node is required to execute the production projection JavaScript"
+    if os.environ.get("CI"):
+        pytest.fail(f"{msg} (CI is set, so a missing Node is a failure, not a skip)")
+    pytest.skip(msg)
+
+
 class _CountingPage:
     """Counts ``evaluate`` calls and FAILS on any navigation/network method.
 
@@ -172,7 +187,7 @@ class _CountingPage:
     async def evaluate(self, script):
         node = shutil.which("node")
         if node is None:
-            pytest.skip("Node is required to execute the production projection JavaScript")
+            _node_missing()
         self.evaluate_calls.append(script)
         result = subprocess.run(
             [node, "-e", _NODE_RUNNER],
@@ -385,16 +400,140 @@ class TestAppendOnly:
         kept = {b.format_key: b for b in read_boards(path=db)}["1qb_off"]
         assert kept.rows["Player 0"] == _block("oneQBValues", "off", 0)["value"]
 
-    def test_a_new_run_appends_and_keeps_the_old_one(self, projection, tmp_path):
+    def test_a_new_run_with_new_content_appends_and_keeps_the_old_one(self, projection, tmp_path):
         db = tmp_path / "a.sqlite"
         kfa.archive_projection(
             projection, run_id="ktc:r1", captured_at=CAPTURED_AT, page_url="u", path=db
         )
-        kfa.archive_projection(
-            projection, run_id="ktc:r2", captured_at=CAPTURED_AT, page_url="u", path=db
+        moved = _moved(projection)
+        later = "2026-10-01T21:00:00+00:00"
+        out = kfa.archive_projection(
+            moved, run_id="ktc:r2", captured_at=later, page_url="u", path=db
         )
+        assert out["archived"] == list(kfa.VARIANT_KEYS) and out["deduplicated"] == []
         assert {b.run_id for b in read_boards(path=db)} == {"ktc:r1", "ktc:r2"}
         assert len(read_boards(path=db)) == 16
+
+
+def _moved(projection, delta: float = 7.0):
+    """The same projection with every observed numeric cell shifted, so every
+    variant board's content hash changes (a market that moved)."""
+    out = copy.deepcopy(projection)
+    for row in out["rows"]:
+        row[3] = [c + delta if isinstance(c, (int, float)) else c for c in row[3]]
+    return out
+
+
+# ── 2b. de-duplication across runs; all-or-nothing writes ─────────────────
+
+
+class TestDeduplication:
+    def test_an_identical_ladder_next_day_is_a_sighting_not_a_copy(self, projection, tmp_path):
+        db = tmp_path / "a.sqlite"
+        kfa.archive_projection(
+            projection, run_id="ktc:d1", captured_at=CAPTURED_AT, page_url="u", path=db
+        )
+        nextday = "2026-10-02T01:00:00+00:00"
+        out = kfa.archive_projection(
+            projection, run_id="ktc:d2", captured_at=nextday, page_url="u", path=db
+        )
+        assert out["archived"] == [] and out["deduplicated"] == list(kfa.VARIANT_KEYS)
+        assert len(read_boards(path=db)) == 8  # no second copy of identical content
+        seen = archive_store.read_sightings(run_id="ktc:d2", path=db)
+        assert {s["formatKey"] for s in seen} == set(kfa.VARIANT_KEYS)
+        assert {s["matchedRunId"] for s in seen} == {"ktc:d1"}
+        # "Unchanged" is recorded, so the daily cadence treats day 2 as done.
+        assert kfa.already_archived_today(nextday, path=db) is True
+
+    def test_a_reverted_board_is_stored_again(self, projection, tmp_path):
+        """A -> B -> A: the third run differs from the MOST RECENT board, so it
+        is new evidence, not a duplicate of the first."""
+        db = tmp_path / "a.sqlite"
+        kw = dict(page_url="u", path=db)
+        kfa.archive_projection(
+            projection, run_id="r1", captured_at="2026-10-01T00:00:00+00:00", **kw
+        )
+        kfa.archive_projection(
+            _moved(projection), run_id="r2", captured_at="2026-10-02T00:00:00+00:00", **kw
+        )
+        out = kfa.archive_projection(
+            projection, run_id="r3", captured_at="2026-10-03T00:00:00+00:00", **kw
+        )
+        assert out["archived"] == list(kfa.VARIANT_KEYS)
+        assert len(read_boards(path=db)) == 24
+
+    def test_the_single_board_api_never_deduplicates(self, projection, tmp_path):
+        """``archive_board`` (the Dynasty Nerds IDP caller) keeps exact
+        append-every-board behaviour."""
+        db = tmp_path / "a.sqlite"
+        boards, _ = _boards(projection)
+        archive_store.archive_board(boards[0], path=db)
+        again = replace(boards[0], run_id="other-run")
+        assert archive_store.archive_board(again, path=db) == {
+            "archived": 1,
+            "unchanged": 0,
+            "conflict": None,
+        }
+        assert archive_store.read_sightings(path=db) == []
+
+
+class TestAllOrNothing:
+    def test_a_lock_mid_write_leaves_nothing_for_that_run(self, projection, tmp_path, monkeypatch):
+        db = tmp_path / "a.sqlite"
+        real = archive_store._write_one
+        calls = {"n": 0}
+
+        def flaky(conn, board, **kw):
+            calls["n"] += 1
+            if calls["n"] == 5:  # board 5 of 8
+                raise sqlite3.OperationalError("database is locked")
+            return real(conn, board, **kw)
+
+        monkeypatch.setattr(archive_store, "_write_one", flaky)
+        out = asyncio.run(
+            kfa.archive_variants_safely(
+                _CountingPage(_payload()), captured_at=CAPTURED_AT, path=db, environ=ENV_ON
+            )
+        )
+        assert out["ok"] is False and "locked" in out["error"]
+        assert calls["n"] == 5
+        assert read_boards(path=db) == []  # boards 1-4 rolled back with it
+        assert archive_store.read_sightings(path=db) == []
+
+        # The next run writes the whole ladder once — nothing to duplicate.
+        monkeypatch.setattr(archive_store, "_write_one", real)
+        again = asyncio.run(
+            kfa.archive_variants_safely(
+                _CountingPage(_payload()), captured_at=CAPTURED_AT, path=db, environ=ENV_ON
+            )
+        )
+        assert again["archived"] == list(kfa.VARIANT_KEYS)
+        assert len(read_boards(path=db)) == 8
+
+    def test_a_held_write_lock_is_waited_on_for_a_bounded_time_only(self, projection, tmp_path):
+        import time as _time
+
+        db = tmp_path / "a.sqlite"
+        archive_store.connect(db).close()  # schema in place
+        holder = sqlite3.connect(db, isolation_level=None)
+        holder.execute("BEGIN IMMEDIATE")  # another writer holds the lock
+        try:
+            started = _time.monotonic()
+            with pytest.raises(sqlite3.OperationalError):
+                kfa.archive_projection(
+                    projection,
+                    run_id=RUN_ID,
+                    captured_at=CAPTURED_AT,
+                    page_url="u",
+                    path=db,
+                    store_timeout_s=0.3,
+                )
+            waited = _time.monotonic() - started
+        finally:
+            holder.execute("ROLLBACK")
+            holder.close()
+        assert waited < 3.0, waited
+        assert read_boards(path=db) == []
 
     def test_a_v2_database_migrates_additively(self, tmp_path):
         db = tmp_path / "v2.sqlite"
@@ -469,26 +608,65 @@ class TestNoExtraRequests:
         }
         assert second.evaluate_calls == [] and second.network_calls == []
 
-    def test_next_day_archives_again(self, tmp_path):
+    def test_next_day_reads_again(self, tmp_path):
+        """A new date is read again; identical content is preserved as a
+        sighting rather than a second copy (see TestDeduplication)."""
         db = tmp_path / "a.sqlite"
+        pages = []
         for when in (CAPTURED_AT, "2026-10-02T01:00:00+00:00"):
+            pages.append(_CountingPage(_payload()))
             asyncio.run(
-                kfa.archive_variants_safely(
-                    _CountingPage(_payload()), captured_at=when, path=db, environ=ENV_ON
-                )
+                kfa.archive_variants_safely(pages[-1], captured_at=when, path=db, environ=ENV_ON)
             )
-        assert len({b.run_id for b in read_boards(path=db)}) == 2
+        assert [len(p.evaluate_calls) for p in pages] == [1, 1]
+        observed = {b.run_id for b in read_boards(path=db)} | {
+            s["runId"] for s in archive_store.read_sightings(path=db)
+        }
+        assert len(observed) == 2
 
-    def test_every_run_cadence_archives_each_run(self, tmp_path):
+    def test_every_run_cadence_reads_each_run(self, tmp_path):
         db = tmp_path / "a.sqlite"
         env = {**ENV_ON, kfa.CADENCE_SWITCH: "every_run"}
+        pages = []
         for when in (CAPTURED_AT, "2026-10-01T21:00:00+00:00"):
+            pages.append(_CountingPage(_payload()))
             asyncio.run(
-                kfa.archive_variants_safely(
-                    _CountingPage(_payload()), captured_at=when, path=db, environ=env
-                )
+                kfa.archive_variants_safely(pages[-1], captured_at=when, path=db, environ=env)
             )
-        assert len({b.run_id for b in read_boards(path=db)}) == 2
+        assert [len(p.evaluate_calls) for p in pages] == [1, 1]
+        observed = {b.run_id for b in read_boards(path=db)} | {
+            s["runId"] for s in archive_store.read_sightings(path=db)
+        }
+        assert len(observed) == 2
+
+    def test_insufficient_source_budget_skips_before_any_read_or_write(self, tmp_path):
+        page = _CountingPage(_payload())
+        db = tmp_path / "a.sqlite"
+        out = asyncio.run(
+            kfa.archive_variants_safely(
+                page, captured_at=CAPTURED_AT, path=db, environ=ENV_ON, budget_remaining_s=15.0
+            )
+        )
+        assert out["ok"] is True
+        assert out["skippedRun"].startswith("insufficient_source_budget:remaining=15.0s")
+        assert page.evaluate_calls == [] and not db.exists()
+
+    def test_sufficient_source_budget_archives(self, tmp_path):
+        page = _CountingPage(_payload())
+        db = tmp_path / "a.sqlite"
+        out = asyncio.run(
+            kfa.archive_variants_safely(
+                page,
+                captured_at=CAPTURED_AT,
+                path=db,
+                environ=ENV_ON,
+                budget_remaining_s=kfa.required_budget_s(),
+            )
+        )
+        assert out["archived"] == list(kfa.VARIANT_KEYS)
+
+    def test_the_required_budget_covers_the_read_and_the_lock_wait(self):
+        assert kfa.required_budget_s() >= kfa.EVALUATE_TIMEOUT_SECONDS + kfa.STORE_TIMEOUT_SECONDS
 
     def test_a_partial_day_does_not_block_completion(self, projection, tmp_path):
         db = tmp_path / "a.sqlite"
@@ -740,7 +918,7 @@ class TestFailureIsolation:
         def boom(*_a, **_k):
             raise sqlite3.OperationalError("database is locked")
 
-        monkeypatch.setattr(archive_store, "archive_board", boom)
+        monkeypatch.setattr(archive_store, "archive_boards", boom)
         out = asyncio.run(
             kfa.archive_variants_safely(
                 _CountingPage(_payload()), path=tmp_path / "a.sqlite", environ=ENV_ON
@@ -800,6 +978,190 @@ class TestFailureIsolation:
                     guarded_await = True
         assert guarded_import, "the archive import must be inside try/except Exception"
         assert guarded_await, "the archive call must be awaited inside try/except Exception"
-        assert src.index("_KTC_VALUE_SOURCE_CAPTURES.update(_captures)") < src.index(
-            "await _archive_ktc_format_variants("
+        call = src.index("await _archive_ktc_format_variants(")
+        assert src.index("_KTC_VALUE_SOURCE_CAPTURES.update(_captures)") < call
+        # ...and after the KTC results are fully built, so nothing the archive
+        # does can delay or precede them.
+        assert src.index('match_all(players, name_map, results, site_key="KTC")') < call
+        assert src.index('FULL_DATA["KTC_TEP"] = dict(tep_name_map)') < call
+        assert "budget_remaining_s=_ktc_budget_left" in src[call : call + 400]
+
+
+# ── 7. the archive can never cost the scrape its KTC board ─────────────────
+
+
+def _scrape_ktc_slice(**overrides):
+    """``scrape_ktc`` (+ ``_ktc_source_timeout_s`` / ``_env_int``) lifted out of
+    the scraper with ``ast`` and executed against stubs.
+
+    Importing ``Dynasty Scraper.py`` runs minutes of module-scope work, so this
+    uses the same slice pattern as ``tests/adapters/test_ktc_tep_extraction.py``.
+    Any global the function grows a dependency on raises ``NameError`` here
+    rather than silently testing a stale copy.
+    """
+    import re as _re
+    import time as _time
+    import types
+    from urllib.parse import urlparse
+
+    tree = ast.parse((REPO / "Dynasty Scraper.py").read_text(encoding="utf-8"))
+    wanted = {"scrape_ktc", "_ktc_source_timeout_s", "_env_int"}
+    chunks = []
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in wanted:
+            node.decorator_list = []  # @retry: not under test
+            chunks.append(node)
+    assert {n.name for n in chunks} == wanted, "scraper slice is stale"
+
+    class _Telemetry:
+        def __init__(self):
+            self.steps = []
+
+        def record(self, _event, **fields):
+            self.steps.append(fields)
+
+    ns = {
+        "os": os,
+        "re": _re,
+        "json": json,
+        "time": _time,
+        "asyncio": asyncio,
+        "urlparse": urlparse,
+        "DEBUG": False,
+        "SUPERFLEX": True,
+        "FULL_DATA": {},
+        "KTC_CROWD": kvs.KTC_CROWD,
+        "KtcValueSourceError": kvs.KtcValueSourceError,
+        "_KTC_BLOCKER": None,
+        "_KTC_SITE_RAW_FLOOR": 1,
+        "_KTC_TEP_SITE_RAW_FLOOR": 1,
+        "_KTC_VALUE_SOURCE_CAPTURES": {},
+        "_archive_ktc_format_variants": kfa.archive_variants_safely,
+        "_ktc_selected_hashes": kfa.selected_hashes,
+        "_ktc_extract_tep": lambda *_a, **_k: None,
+        "_telemetry": _Telemetry(),
+        "clean_name": lambda n: str(n).strip(),
+        "get_cached": lambda _key: None,
+        "set_cache": lambda *_a, **_k: None,
+        "page_dump": None,
+    }
+
+    def match_all(players, name_map, results, site_key=None):
+        for p in players:
+            results[p] = name_map.get(p)
+
+    async def safe_goto(*_a, **_k):
+        return True
+
+    ns["match_all"] = match_all
+    ns["safe_goto"] = safe_goto
+    ns.update(overrides)
+    exec(compile(ast.Module(body=chunks, type_ignores=[]), "<scraper-slice>", "exec"), ns)
+    return types.SimpleNamespace(**ns)
+
+
+class _KtcStagePage:
+    """Enough of a Playwright page for ``scrape_ktc`` to reach the capture.
+
+    The archive's in-page read (recognized by its projection script) sleeps
+    for ``archive_read_s`` — long enough that, if the archive ran, the outer
+    KTC limit would fire and drop every KTC result.
+    """
+
+    url = "https://keeptradecut.com/dynasty-rankings?sf=true&tep=0"
+
+    def __init__(self, archive_read_s: float):
+        self.archive_read_s = archive_read_s
+        self.archive_reads = 0
+        self._handlers = []
+
+    def on(self, _event, handler):
+        self._handlers.append(handler)
+
+    async def wait_for_selector(self, *_a, **_k):
+        # Deliver one empty KTC JSON response so the intercept wait ends now.
+        class _Resp:
+            url = "https://keeptradecut.com/api/x"
+            status = 200
+            headers = {"content-type": "application/json"}
+
+            async def json(self):
+                return []
+
+        for h in self._handlers:
+            await h(_Resp())
+
+    async def wait_for_timeout(self, _ms):
+        return None
+
+    async def content(self):
+        return ""
+
+    async def evaluate(self, script, *_a):
+        if "GROUPS" in script:
+            self.archive_reads += 1
+            await asyncio.sleep(self.archive_read_s)
+            return {}
+        return {}
+
+
+def _crowd_capture(captured_at=CAPTURED_AT):
+    import types
+
+    rows = tuple(
+        types.SimpleNamespace(name=f"Player {i}", base_value=9000 - i, tepp_value=9100 - i)
+        for i in range(40)
+    )
+    return types.SimpleNamespace(rows=rows, captured_at=captured_at, content_hash="h")
+
+
+class TestTheArchiveCannotCostTheKtcBoard:
+    PLAYERS = [f"Player {i}" for i in range(40)]
+
+    def _run(self, monkeypatch, tmp_path, *, limit_s, capture_s, archive_read_s):
+        monkeypatch.setenv("SCRAPER_SOURCE_TIMEOUT_KTC", str(limit_s))
+        monkeypatch.setenv(kfa.ENV_SWITCH, "1")
+        monkeypatch.setenv(kfa.CADENCE_SWITCH, "every_run")
+        monkeypatch.setattr(archive_store, "DB_PATH", tmp_path / "boards.sqlite")
+
+        async def capture_all_value_sources(_page):
+            await asyncio.sleep(capture_s)  # the known slow-capture pattern
+            return {kvs.KTC_CROWD: _crowd_capture()}
+
+        mod = _scrape_ktc_slice(capture_all_value_sources=capture_all_value_sources)
+        page = _KtcStagePage(archive_read_s)
+
+        async def orchestrate():
+            # Exactly how the scraper's orchestrator bounds the KTC stage.
+            return await asyncio.wait_for(
+                mod.scrape_ktc(page, self.PLAYERS), timeout=mod._ktc_source_timeout_s()
+            )
+
+        return mod, page, asyncio.run(orchestrate())
+
+    def test_capture_near_the_limit_skips_the_archive_and_ktc_results_survive(
+        self, monkeypatch, tmp_path
+    ):
+        # 3 s KTC limit, 2 s capture: ~1 s left, far below required_budget_s().
+        # If the archive's read (10 s) ran, wait_for would cancel scrape_ktc and
+        # this call would raise TimeoutError instead of returning results.
+        mod, page, results = self._run(
+            monkeypatch, tmp_path, limit_s=3, capture_s=2.0, archive_read_s=10.0
         )
+        assert page.archive_reads == 0
+        assert results == {f"Player {i}": 9000 - i for i in range(40)}
+        assert mod.FULL_DATA["KTC_TEP"]["Player 0"] == 9100
+        done = [s for s in mod._telemetry.steps if s.get("step") == "format_archive_done"]
+        assert done and done[0]["skipped_run"].startswith("insufficient_source_budget")
+        assert not (tmp_path / "boards.sqlite").exists()
+
+    def test_with_budget_to_spare_the_archive_runs_after_the_results(self, monkeypatch, tmp_path):
+        mod, page, results = self._run(
+            monkeypatch, tmp_path, limit_s=300, capture_s=0.0, archive_read_s=0.0
+        )
+        assert page.archive_reads == 1
+        assert results == {f"Player {i}": 9000 - i for i in range(40)}
+        steps = [s.get("step") for s in mod._telemetry.steps]
+        assert steps.index("value_source_capture_done") < steps.index("format_archive_start")
+        start = next(s for s in mod._telemetry.steps if s.get("step") == "format_archive_start")
+        assert 290 < start["budget_left_s"] <= 300

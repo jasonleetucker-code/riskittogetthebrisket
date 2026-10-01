@@ -115,6 +115,30 @@ CREATE INDEX IF NOT EXISTS idx_archive_family
     ON archived_boards(provider_family, captured_date);
 CREATE INDEX IF NOT EXISTS idx_archive_run
     ON archived_boards(run_id);
+CREATE INDEX IF NOT EXISTS idx_archive_latest
+    ON archived_boards(provider, endpoint, format_key, captured_at);
+
+-- Schema v3 (AL-P3).  "We looked, and the board was byte-identical to the
+-- most recent archived board for this variant."  Written ONLY by the opt-in
+-- de-duplicating writer (``archive_boards(..., skip_if_latest_identical=True)``)
+-- INSTEAD of a second full copy of the same content.  So the absence of a new
+-- board on a date never has to be read as "unchanged": for every run the
+-- writer saw, either a board or a sighting exists, and the sighting names the
+-- board that carries the content (``matched_run_id`` / ``matched_captured_at``).
+CREATE TABLE IF NOT EXISTS board_sightings (
+    provider            TEXT NOT NULL,
+    endpoint            TEXT NOT NULL,
+    format_key          TEXT NOT NULL,
+    run_id              TEXT NOT NULL,
+    captured_date       TEXT NOT NULL,
+    captured_at         TEXT NOT NULL,
+    content_hash        TEXT NOT NULL,
+    matched_run_id      TEXT NOT NULL,
+    matched_captured_at TEXT NOT NULL,
+    recorded_at         TEXT NOT NULL,
+
+    PRIMARY KEY (provider, endpoint, format_key, run_id, captured_date)
+);
 """
 
 
@@ -188,7 +212,12 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _ensure_schema(path: Path) -> None:
+#: Default SQLite busy timeout (seconds) per lock acquisition.  A caller with
+#: its own time budget passes a smaller ``timeout_s``.
+DEFAULT_LOCK_TIMEOUT_SECONDS = 5.0
+
+
+def _ensure_schema(path: Path, timeout_s: float = DEFAULT_LOCK_TIMEOUT_SECONDS) -> None:
     key = str(path)
     if _SETUP_DONE.get(key):
         return
@@ -196,7 +225,7 @@ def _ensure_schema(path: Path) -> None:
         if _SETUP_DONE.get(key):
             return
         path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(str(path), timeout=5.0)
+        conn = sqlite3.connect(str(path), timeout=timeout_s)
         try:
             conn.execute("PRAGMA journal_mode=WAL;")
             conn.executescript(_SCHEMA)
@@ -212,10 +241,12 @@ def _ensure_schema(path: Path) -> None:
         _SETUP_DONE[key] = True
 
 
-def connect(path: Path | None = None) -> sqlite3.Connection:
+def connect(
+    path: Path | None = None, *, timeout_s: float = DEFAULT_LOCK_TIMEOUT_SECONDS
+) -> sqlite3.Connection:
     target = path or DB_PATH
-    _ensure_schema(target)
-    return sqlite3.connect(str(target), timeout=5.0)
+    _ensure_schema(target, timeout_s)
+    return sqlite3.connect(str(target), timeout=timeout_s)
 
 
 def _reset_setup_cache_for_tests() -> None:
@@ -223,14 +254,13 @@ def _reset_setup_cache_for_tests() -> None:
         _SETUP_DONE.clear()
 
 
-def archive_board(board: ArchivedBoard, *, path: Path | None = None) -> dict[str, Any]:
-    """Archive one native-format board.
+def _refuse_unless_archivable(board: ArchivedBoard) -> None:
+    """Fail closed on anything not proven ``DYNASTY``, and on an empty board.
 
-    Refuses anything not proven ``DYNASTY`` — the same fail-closed rule
-    the blend gate applies (``C1-SRC-02``). A board we cannot prove is
-    dynasty does not become dynasty by being stored, and quarantining it
-    "for diagnostics" inside the dynasty archive is exactly how it later
-    gets used.
+    The same fail-closed rule the blend gate applies (``C1-SRC-02``). A
+    board we cannot prove is dynasty does not become dynasty by being
+    stored, and quarantining it "for diagnostics" inside the dynasty
+    archive is exactly how it later gets used.
     """
     from src.api.data_contract import GAME_TYPE_DYNASTY, GAME_TYPES
 
@@ -249,61 +279,143 @@ def archive_board(board: ArchivedBoard, *, path: Path | None = None) -> dict[str
     if not board.rows:
         raise ArchiveRefused(f"{board.provider}/{board.format_key}: empty board")
 
-    now = _utc_now()
-    captured_at = board.captured_at or now
-    digest = board.compute_hash()
 
-    conn = connect(path)
+def archive_board(board: ArchivedBoard, *, path: Path | None = None) -> dict[str, Any]:
+    """Archive one native-format board.
+
+    Refuses anything not proven ``DYNASTY`` (:func:`_refuse_unless_archivable`).
+    A one-board :func:`archive_boards` with no cross-run de-duplication, so
+    behaviour is unchanged for its existing callers.
+    """
+    return archive_boards([board], path=path)[0]
+
+
+def archive_boards(
+    boards: list[ArchivedBoard] | tuple[ArchivedBoard, ...],
+    *,
+    path: Path | None = None,
+    timeout_s: float = DEFAULT_LOCK_TIMEOUT_SECONDS,
+    skip_if_latest_identical: bool = False,
+) -> list[dict[str, Any]]:
+    """Archive several boards ALL-OR-NOTHING: one connection, one transaction.
+
+    Every board is validated before the database is touched, so one refused
+    board refuses the batch.  The write lock is taken ONCE (``BEGIN
+    IMMEDIATE``), waiting at most ``timeout_s``; any failure after that — a
+    lock, a full disk, an interrupted write — rolls the whole batch back, so
+    a run is never left half-archived for a later run to duplicate.
+
+    ``skip_if_latest_identical``: a board whose ``content_hash`` equals the
+    most recent archived board for the same (provider, endpoint, format_key)
+    at or before its ``captured_at`` is NOT stored a second time; a
+    ``board_sightings`` row records that this run observed it unchanged and
+    names the board holding the content.  Opt-in, so existing callers keep
+    exact append-every-board behaviour.
+
+    Returns one result dict per input board, in input order.
+    """
+    batch = list(boards)
+    for board in batch:
+        _refuse_unless_archivable(board)
+    if not batch:
+        return []
+
+    now = _utc_now()
+    conn = connect(path, timeout_s=timeout_s)
+    conn.isolation_level = None  # explicit transaction control below
+    results: list[dict[str, Any]] = []
     try:
-        existing = conn.execute(
-            "SELECT content_hash FROM archived_boards WHERE provider = ? AND endpoint = ? "
-            "AND format_key = ? AND run_id = ? AND captured_date = ?",
-            (board.provider, board.endpoint, board.format_key, board.run_id, captured_at[:10]),
-        ).fetchone()
-        if existing is not None:
-            return {
-                "archived": 0,
-                "unchanged": int(existing[0] == digest),
-                "conflict": None if existing[0] == digest else digest,
-            }
-        conn.execute(
-            "INSERT INTO archived_boards (provider, provider_family, endpoint, format_key, "
-            "game_type, run_id, captured_date, captured_at, source_as_of, row_count, "
-            "rows_json, records_json, provenance_json, content_hash, first_seen_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                board.provider,
-                board.provider_family,
-                board.endpoint,
-                board.format_key,
-                board.game_type,
-                board.run_id,
-                captured_at[:10],
-                captured_at,
-                board.source_as_of,
-                len(board.rows),
-                json.dumps(board.rows, sort_keys=True, separators=(",", ":")),
-                (
-                    json.dumps(
-                        [r.to_dict() for r in board.records],
-                        sort_keys=True,
-                        separators=(",", ":"),
-                    )
-                    if board.records
-                    else None
-                ),
-                (
-                    json.dumps(board.provenance, sort_keys=True, separators=(",", ":"))
-                    if board.provenance
-                    else None
-                ),
-                digest,
-                now,
-            ),
-        )
-        conn.commit()
+        conn.execute("BEGIN IMMEDIATE")
+        for board in batch:
+            results.append(_write_one(conn, board, now=now, dedupe=skip_if_latest_identical))
+        conn.execute("COMMIT")
+    except BaseException:
+        if conn.in_transaction:
+            conn.execute("ROLLBACK")
+        raise
     finally:
         conn.close()
+    return results
+
+
+def _write_one(
+    conn: sqlite3.Connection, board: ArchivedBoard, *, now: str, dedupe: bool
+) -> dict[str, Any]:
+    """One board inside the caller's open transaction.  Commits nothing."""
+    captured_at = board.captured_at or now
+    captured_date = captured_at[:10]
+    digest = board.compute_hash()
+    identity = (board.provider, board.endpoint, board.format_key, board.run_id, captured_date)
+
+    existing = conn.execute(
+        "SELECT content_hash FROM archived_boards WHERE provider = ? AND endpoint = ? "
+        "AND format_key = ? AND run_id = ? AND captured_date = ?",
+        identity,
+    ).fetchone()
+    if existing is not None:
+        return {
+            "archived": 0,
+            "unchanged": int(existing[0] == digest),
+            "conflict": None if existing[0] == digest else digest,
+        }
+
+    if dedupe:
+        latest = conn.execute(
+            "SELECT content_hash, run_id, captured_at FROM archived_boards "
+            "WHERE provider = ? AND endpoint = ? AND format_key = ? AND captured_at <= ? "
+            "ORDER BY captured_at DESC LIMIT 1",
+            (board.provider, board.endpoint, board.format_key, captured_at),
+        ).fetchone()
+        if latest is not None and latest[0] == digest:
+            conn.execute(
+                "INSERT OR IGNORE INTO board_sightings (provider, endpoint, format_key, "
+                "run_id, captured_date, captured_at, content_hash, matched_run_id, "
+                "matched_captured_at, recorded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (*identity, captured_at, digest, latest[1], latest[2], now),
+            )
+            return {
+                "archived": 0,
+                "unchanged": 0,
+                "conflict": None,
+                "deduplicated": 1,
+                "matchedRunId": latest[1],
+            }
+
+    conn.execute(
+        "INSERT INTO archived_boards (provider, provider_family, endpoint, format_key, "
+        "game_type, run_id, captured_date, captured_at, source_as_of, row_count, "
+        "rows_json, records_json, provenance_json, content_hash, first_seen_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            board.provider,
+            board.provider_family,
+            board.endpoint,
+            board.format_key,
+            board.game_type,
+            board.run_id,
+            captured_date,
+            captured_at,
+            board.source_as_of,
+            len(board.rows),
+            json.dumps(board.rows, sort_keys=True, separators=(",", ":")),
+            (
+                json.dumps(
+                    [r.to_dict() for r in board.records],
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+                if board.records
+                else None
+            ),
+            (
+                json.dumps(board.provenance, sort_keys=True, separators=(",", ":"))
+                if board.provenance
+                else None
+            ),
+            digest,
+            now,
+        ),
+    )
     return {"archived": 1, "unchanged": 0, "conflict": None}
 
 
@@ -352,28 +464,82 @@ def read_boards(
 
 
 def archived_format_keys(
-    *, provider: str, endpoint: str, captured_date: str, path: Path | None = None
+    *,
+    provider: str,
+    endpoint: str,
+    captured_date: str,
+    path: Path | None = None,
+    timeout_s: float = DEFAULT_LOCK_TIMEOUT_SECONDS,
+    include_sightings: bool = False,
 ) -> set[str]:
     """``format_key``s already archived for one provider/endpoint on one date.
 
     A cheap identity-column read (no ``rows_json``/``records_json`` is loaded),
     so a capture adapter can ask "is today's ladder already preserved?" without
     pulling the archive into memory.  An absent database answers the empty set
-    without creating one.
+    without creating one.  ``include_sightings`` also counts variants a run
+    observed unchanged that day (``board_sightings``): preserved, just not
+    copied a second time.
     """
     target = path or DB_PATH
     if not target.exists():
         return set()
-    conn = connect(target)
+    conn = connect(target, timeout_s=timeout_s)
+    params = (provider, endpoint, captured_date)
     try:
         rows = conn.execute(
             "SELECT DISTINCT format_key FROM archived_boards "
             "WHERE provider = ? AND endpoint = ? AND captured_date = ?",
-            (provider, endpoint, captured_date),
+            params,
         ).fetchall()
+        if include_sightings:
+            rows += conn.execute(
+                "SELECT DISTINCT format_key FROM board_sightings "
+                "WHERE provider = ? AND endpoint = ? AND captured_date = ?",
+                params,
+            ).fetchall()
     finally:
         conn.close()
     return {str(r[0]) for r in rows}
+
+
+def read_sightings(
+    *, provider: str | None = None, run_id: str | None = None, path: Path | None = None
+) -> list[dict[str, Any]]:
+    """``board_sightings`` rows, newest first: runs that saw a board unchanged."""
+    target = path or DB_PATH
+    if not target.exists():
+        return []
+    where, params = [], []
+    if provider:
+        where.append("provider = ?")
+        params.append(provider)
+    if run_id:
+        where.append("run_id = ?")
+        params.append(run_id)
+    clause = f" WHERE {' AND '.join(where)}" if where else ""
+    conn = connect(target)
+    try:
+        rows = conn.execute(
+            "SELECT provider, endpoint, format_key, run_id, captured_at, content_hash, "
+            "matched_run_id, matched_captured_at FROM board_sightings"
+            + clause
+            + " ORDER BY captured_at DESC, format_key ASC",
+            params,
+        ).fetchall()
+    finally:
+        conn.close()
+    keys = (
+        "provider",
+        "endpoint",
+        "formatKey",
+        "runId",
+        "capturedAt",
+        "contentHash",
+        "matchedRunId",
+        "matchedCapturedAt",
+    )
+    return [dict(zip(keys, r)) for r in rows]
 
 
 def coverage(*, path: Path | None = None) -> dict[str, Any]:
