@@ -55,7 +55,7 @@ def _build_root(
             with path.open("w", newline="", encoding="utf-8") as f:
                 w = csv.DictWriter(f, fieldnames=["name", col])
                 w.writeheader()
-                for i, v in enumerate(_board_values(120, 9999.0 + bump, 0.97)):
+                for i, v in enumerate(_board_values(60, 9999.0 + bump, 0.95)):
                     w.writerow({"name": f"{Path(rel).stem} Player {i}", col: v})
                 # A pick row inside the window: must never train.
                 w.writerow({"name": "2027 Early 1st", col: 5000})
@@ -230,7 +230,8 @@ class TestPointInTime:
         later = later_cutoff.record["inputs"]["CSVs/site_raw/dynastyDaddySf.csv"]["datasetState"]
         assert first["ageHours"] == pytest.approx(24.0, abs=0.01)
         assert later["ageHours"] > first["ageHours"]
-        assert first["dataAsOf"] == "2026-09-29T12:00:00+00:00"
+        as_of = datetime.fromisoformat(first["dataAsOf"].replace("Z", "+00:00"))
+        assert as_of == datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
 
     def test_commit_resolution_never_passes_the_cutoff(self):
         head_time = subprocess.run(

@@ -76,7 +76,10 @@ jobs:
           SNAP=""
           for dir in data exports/latest; do
             if [[ -d "$dir" ]]; then
-              CAND=$(ls -1t "$dir"/dynasty_data_*.json 2>/dev/null | head -1 || true)
+              # Newest by the DATE IN THE NAME, not mtime: a fresh checkout
+              # gives every file the same mtime, so `ls -t` order is arbitrary
+              # and a refit could not be replayed from its own record.
+              CAND=$(ls -1 "$dir"/dynasty_data_*.json 2>/dev/null | sort | tail -1 || true)
               if [[ -n "$CAND" ]]; then SNAP="$CAND"; break; fi
             fi
           done
@@ -96,7 +99,10 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          ARGS="--force"
+          # --require-reproducible: the fit is a pinned, point-in-time training
+          # run (cutoff = this commit's time). Inputs that differ from HEAD would
+          # make the challenger impossible to re-derive, so the run refuses.
+          ARGS="--force --require-reproducible"
           if [[ -n "${{ inputs.threshold }}" ]]; then
             ARGS="$ARGS --threshold ${{ inputs.threshold }}"
           fi
@@ -106,6 +112,17 @@ jobs:
           set -e
           echo "exit_code=$CODE" >> "$GITHUB_OUTPUT"
           [[ "$CODE" == "0" || "$CODE" == "1" ]] || exit "$CODE"
+
+      - name: Verify the challenger reproduces from its own pins
+        # Replays the recorded training run from git at its inputsCommit and
+        # cutoff, in a temp tree, and requires the identical challengerHash.
+        # A challenger that cannot be re-derived is not promotable evidence.
+        if: inputs.dry_run != true
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python scripts/hill_training_run.py verify --latest-raw
+          python scripts/hill_training_run.py show --latest-raw --out hill_training_run.json
 
       - name: Candidate tournament + forward gate
         id: autopilot
@@ -142,6 +159,7 @@ jobs:
           set -Eeuo pipefail
           OUT=$(python scripts/model_registry.py register \
             --params /tmp/hill_safe_params.json \
+            --derived-from "${{ steps.autopilot.outputs.winner }}" \
             --producer "Hill Autopilot OFFENSE composite from raw v${{ steps.autopilot.outputs.winner }}")
           echo "$OUT"
           VERSION=$(printf '%s\n' "$OUT" | sed -nE 's/.*registered challenger v([0-9]+).*/\1/p' | tail -1)

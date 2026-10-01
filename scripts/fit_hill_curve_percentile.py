@@ -5,36 +5,24 @@ Framework update (2026-04-20): value-based sources are the training
 set for the rank-to-value conversion system.  Methodology:
 
   Step 1: For each value-based source j, fit its own implied
-          rank-to-value curve f_j(p) where p = (r - 1) / (N_j - 1).
-  Step 2: For each scope (global, offense, IDP), combine the per-
-          source fits into a master curve V*_scope(p) by trimmed
-          mean-median across the percentile grid.
+          rank-to-value curve f_j(p) on the canonical percentile coordinate.
+  Step 2: For each scope (global, offense, IDP, rookie), combine the per-
+          source fits into a master curve V*_scope(p) by the unweighted mean
+          across the percentile grid.
   Step 3: Emit the master (c*, s*) for each scope.
 
-Scope assignments (current registry, expanded 2026-04-21):
+Which boards train which scope is NOT declared here (Batch 3 Unit D,
+2026-10-01). It is read from the one training manifest,
+``src/model_registry/training_manifest.py``, whose paths, signal types and
+provider families are derived from the live source registry. Every population
+it hands this fit is PLAYERS ONLY — KTC's base board used to train OFFENSE with
+36 pick rows inside its top 400 (audit error E3).
 
-  - GLOBAL:   IDPTradeCalc + DraftSharks-Combined
-              (both publish offense + IDP on a single cross-universe
-              value scale — IDPTC natively; DS via the offense-combined
-              page that serves every position from one shared ``3D
-              Value +`` scale.  DS is concat-loaded from its SF + IDP
-              CSVs so the concatenated pool's top value anchors 9999.)
-  - OFFENSE:  KTC, DynastyDaddy, DynastyNerds, YahooBoone,
-              FantasyPros-Fitzmaurice, DraftSharks-SF
-              (offense-only value distributions; Boone/Fitzmaurice are
-              SF-TEP-native, DraftSharks-SF is the league-synced slice
-              from the combined board).
-  - IDP:      IDPTradeCalc's IDP slice + DraftSharks-IDP
-              (IDPTC IDP slice via snapshot position filter; DS IDP
-              directly from its IDP-filtered CSV).
-  - ROOKIE:   KTC + IDPTC rookie slices (unchanged — rookies-only
-              slicing is value-source-agnostic, but we add Boone /
-              Fitzmaurice / DraftSharks rookie slices too when they
-              have ≥10 rookies with values in the latest snapshot).
-
-Replaces the previous "pooled fit" which weighted sources by their
-data-point count.  Per-source-then-combine gives each source equal
-voice, matching the framework's intent.
+``fit_scopes(root=…, snapshot=…)`` is the pure entry point: it reads only files
+under ``root`` (the repo by default; a git-materialized tree for a pinned,
+point-in-time refit — ``src/model_registry/training_run.py``) and returns the
+per-source fits, the scope masters and the eight constants. ``main()`` prints the
+human report around it.
 
 Usage:
     python3 scripts/fit_hill_curve_percentile.py
@@ -43,10 +31,11 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import csv
+import json
 import os
 import sys
 from pathlib import Path
+from typing import Any, Callable
 
 REPO = Path(__file__).resolve().parents[1]
 if str(REPO) not in sys.path:
@@ -57,59 +46,43 @@ from src.canonical.player_valuation import (  # noqa: E402
     training_percentiles,
 )
 from src.canonical.tail_policy import clamp_percentile  # noqa: E402
+from src.model_registry.training_manifest import (  # noqa: E402
+    LOADER_CSV,
+    LOADER_CSV_CONCAT,
+    LOADER_SNAPSHOT_IDP,
+    LOADER_SNAPSHOT_ROOKIE,
+    ROLE_TRAIN,
+    TrainingManifest,
+    default_manifest,
+    load_board_values,
+)
 
-# Value-based sources grouped by scope.  Each entry: (csv_path,
-# value_col, label).  The IDPTC IDP scope contribution is still
-# handled specially via _load_idptc_idp_values() because the IDPTC
-# CSV mixes positions and needs a snapshot-backed position filter;
-# DS IDP has its own pre-filtered CSV so it just rides _load_values.
-GLOBAL_SOURCES: dict[str, tuple[str, str]] = {
-    "IDPTradeCalc": ("CSVs/site_raw/idpTradeCalc.csv", "value"),
-}
-OFFENSE_SOURCES: dict[str, tuple[str, str]] = {
-    "KTC": ("CSVs/site_raw/ktc.csv", "value"),
-    "DynastyDaddy": ("CSVs/site_raw/dynastyDaddySf.csv", "value"),
-    "DynastyNerds": ("CSVs/site_raw/dynastyNerdsSfTep.csv", "Value"),
-    # Added 2026-04-21: three more value-based offense sources that
-    # went live in the April source expansion.  Each is SF-TEP-native
-    # (Boone pulls 2QB + TE-Prem columns; Fitzmaurice uses SF Value +
-    # TEP Value; DraftSharks is league-synced via its WebAssembly
-    # scoring worker).  Tops are ~141 (Boone), ~101 (Fitzmaurice),
-    # ~100 (DS SF) — all normalize to 9999 at the curve's anchor.
-    "YahooBoone": ("CSVs/site_raw/yahooBoone.csv", "boone_value"),
-    "Fitzmaurice": ("CSVs/site_raw/fantasyProsFitzmaurice.csv", "value"),
-    "DraftSharks": ("CSVs/site_raw/draftSharksSf.csv", "3D Value +"),
-}
-# IDP value sources that have pre-filtered per-position CSVs.  IDPTC
-# is NOT in this dict because its CSV is all positions mixed —
-# _load_idptc_idp_values() handles IDPTC's IDP slice via a snapshot
-# position filter instead.
-IDP_CSV_SOURCES: dict[str, tuple[str, str]] = {
-    # DraftSharks IDP slice: every value is on DS's cross-universe
-    # scale (Schwesinger at 44 reflects his cross-universe rank ~36,
-    # not an IDP-only rescale).  Training against the IDP slice
-    # normalizes the slice top to 9999 — same pattern as IDPTC-IDP.
-    "DraftSharks-IDP": ("CSVs/site_raw/draftSharksIdp.csv", "3D Value +"),
-}
+# Derived views of the manifest, kept under their historical names because the
+# B1 pin instrument, the registry provenance and the DLF gate read them.
+_MANIFEST = default_manifest()
+GLOBAL_SOURCES: dict[str, tuple[str, str]] = _MANIFEST.csv_table("GLOBAL", ROLE_TRAIN)
+OFFENSE_SOURCES: dict[str, tuple[str, str]] = _MANIFEST.csv_table("OFFENSE", ROLE_TRAIN)
+IDP_CSV_SOURCES: dict[str, tuple[str, str]] = _MANIFEST.csv_table("IDP", ROLE_TRAIN)
 
 _IDP_POSITIONS: frozenset[str] = frozenset(
     {"DL", "DE", "DT", "EDGE", "NT", "LB", "ILB", "OLB", "MLB", "DB", "CB", "S", "SS", "FS"}
 )
 
+SCOPE_CONSTANT_NAMES: dict[str, tuple[str, str]] = {
+    "GLOBAL": ("HILL_GLOBAL_PERCENTILE_C", "HILL_GLOBAL_PERCENTILE_S"),
+    "OFFENSE": ("HILL_PERCENTILE_C", "HILL_PERCENTILE_S"),
+    "IDP": ("IDP_HILL_PERCENTILE_C", "IDP_HILL_PERCENTILE_S"),
+    "ROOKIE": ("HILL_ROOKIE_PERCENTILE_C", "HILL_ROOKIE_PERCENTILE_S"),
+}
+
+#: Minimum rows before a concatenated or snapshot slice is fitted at all.
+MIN_COMBINED_ROWS = 20
+MIN_ROOKIE_ROWS = 10
+
 
 def _load_values(path: Path, col: str) -> list[float]:
-    vs: list[float] = []
-    with path.open(newline="") as f:
-        for r in csv.DictReader(f):
-            raw = r.get(col)
-            try:
-                v = float(raw) if raw else 0.0
-            except (TypeError, ValueError):
-                continue
-            if v > 0:
-                vs.append(v)
-    vs.sort(reverse=True)
-    return vs
+    """Players-only positive values, descending — the manifest's population rule."""
+    return list(load_board_values(path, col).values)
 
 
 #: Env var that pins the board snapshot this fit trains against.
@@ -118,7 +91,7 @@ def _load_values(path: Path, col: str) -> list[float]:
 SNAPSHOT_ENV_VAR = "RISKIT_FIT_SNAPSHOT"
 
 
-def _latest_snapshot() -> "Path | None":
+def _latest_snapshot(root: Path | None = None) -> "Path | None":
     """Return the ``dynasty_data_*.json`` snapshot this fit trains on.
 
     The snapshot is a MATERIAL model input, not a convenience: it
@@ -129,15 +102,14 @@ def _latest_snapshot() -> "Path | None":
 
     Selection order:
 
-    1. ``$RISKIT_FIT_SNAPSHOT`` if set — an explicit pin, so a
-       challenger-vs-champion comparison can hold the data fixed while
-       the model code changes. Without this the choice is made by
-       **mtime**, which drifts every time the container writes a board,
-       and a refit could silently train on different data than the
-       measurement it is being compared against.
-    2. newest ``data/`` (dev machine),
-    3. newest ``exports/latest/`` (checked into the repo, so CI runs can
-       still fit IDP / rookie scopes off the most recent committed board).
+    1. ``$RISKIT_FIT_SNAPSHOT`` if set — an explicit pin.
+    2. newest ``data/`` snapshot under ``root`` (dev machine),
+    3. newest ``exports/latest/`` snapshot under ``root`` (checked in, so CI
+       can fit IDP / rookie scopes off the most recent committed board).
+
+    "Newest" is by the DATE IN THE FILENAME, not by mtime: a fresh checkout
+    gives every file the same mtime, so mtime order was arbitrary in CI and
+    a refit could not be reproduced from its own record.
 
     A pin that does not exist is fatal rather than a silent fallback —
     quietly training on a different snapshot than the operator named is
@@ -153,27 +125,26 @@ def _latest_snapshot() -> "Path | None":
                 "train on different data than the pin names."
             )
         return pinned
+    base = root or REPO
     for sub in ("data", "exports/latest"):
-        candidates = sorted(
-            (REPO / sub).glob("dynasty_data_*.json"),
-            key=lambda p: p.stat().st_mtime,
-            reverse=True,
-        )
+        candidates = sorted((base / sub).glob("dynasty_data_*.json"), key=lambda p: p.name)
         if candidates:
-            return candidates[0]
+            return candidates[-1]
     return None
 
 
-def _load_idptc_idp_values() -> list[float]:
-    """IDPTC's IDP-slice values in descending order."""
-    import json
-
-    snapshot = _latest_snapshot()
+def _read_snapshot(snapshot: Path | None) -> dict[str, Any] | None:
     if snapshot is None:
+        return None
+    with snapshot.open(encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _load_idptc_idp_values(snapshot: Path | None = None) -> list[float]:
+    """IDPTC's IDP-slice values in descending order (players only by construction)."""
+    raw = _read_snapshot(snapshot if snapshot is not None else _latest_snapshot())
+    if raw is None:
         return []
-    candidates = [snapshot]
-    with candidates[0].open() as f:
-        raw = json.load(f)
     positions = (raw.get("sleeper") or {}).get("positions") or {}
     vs: list[float] = []
     for name, p in (raw.get("players") or {}).items():
@@ -191,41 +162,34 @@ def _load_idptc_idp_values() -> list[float]:
     return vs
 
 
-def _load_draftsharks_combined_values() -> list[float]:
+def _load_draftsharks_combined_values(root: Path | None = None) -> list[float]:
     """DraftSharks offense + IDP combined pool, descending.
 
     DraftSharks publishes every player on a single cross-universe
-    ``3D Value +`` scale (Josh Allen at 100 and Schwesinger at 44 are
-    comparable on the same 0-100 range).  The scraper writes the
-    offense and IDP slices into separate CSVs for downstream scope
-    filtering, but for GLOBAL training we recover the original pool
-    by concatenating both files before normalizing — preserving DS's
-    native cross-universe top anchor (Allen at 100) so the resulting
-    Hill curve matches IDPTC's combined-pool semantics.
+    ``3D Value +`` scale. The scraper writes the offense and IDP slices into
+    separate CSVs; for GLOBAL training the original pool is recovered by
+    concatenating both (the manifest's ``DraftSharks-Combined`` board names
+    them) before normalizing.
     """
-    sf = _load_values(REPO / "CSVs" / "site_raw" / "draftSharksSf.csv", "3D Value +")
-    idp = _load_values(REPO / "CSVs" / "site_raw" / "draftSharksIdp.csv", "3D Value +")
-    combined = sf + idp
+    board = _MANIFEST.board("GLOBAL", "DraftSharks-Combined")
+    base = root or REPO
+    combined: list[float] = []
+    for rel in board.paths:
+        combined.extend(_load_values(base / rel, str(board.value_column)))
     combined.sort(reverse=True)
     return combined
 
 
-def _load_rookie_values(source_key: str) -> list[float]:
-    """Rookie-only values for the given value-based source.
+def _load_rookie_values(source_key: str, snapshot: Path | None = None) -> list[float]:
+    """Rookie-only values for the given value-signal source, descending.
 
-    Filters the latest snapshot to rookies and pulls the source's
-    value from each rookie's ``_canonicalSiteValues`` dict.  Returns
-    descending-sorted values.  Used to build the ROOKIE scope master
-    curve.
+    Reads ``_canonicalSiteValues[source_key]`` of rookie rows. The manifest
+    refuses this slice for a RANK-signal source, whose entry there is a
+    synthetic rank encoding rather than a value.
     """
-    import json
-
-    snapshot = _latest_snapshot()
-    if snapshot is None:
+    raw = _read_snapshot(snapshot if snapshot is not None else _latest_snapshot())
+    if raw is None:
         return []
-    candidates = [snapshot]
-    with candidates[0].open() as f:
-        raw = json.load(f)
     vs: list[float] = []
     for _name, p in (raw.get("players") or {}).items():
         if not (p.get("_isRookie") or p.get("_formatFitRookie")):
@@ -361,13 +325,100 @@ def _fit_scope_master(
     return c, s, mse
 
 
+_SCOPE_REPORT_ORDER: tuple[str, ...] = ("OFFENSE", "GLOBAL", "IDP", "ROOKIE")
+
+
+def _trainer_values(board, root: Path, snapshot: Path | None) -> tuple[list[float], str | None]:
+    """The values one manifest trainer contributes, or ``([], reason)`` to skip it.
+
+    A missing trainer CSV is an error, never a skip: a master silently fitted on
+    five of six declared boards is a different model wearing the same name.
+    """
+    if board.loader == LOADER_CSV:
+        path = root / board.paths[0]
+        if not path.is_file():
+            raise FileNotFoundError(f"trainer {board.scope}:{board.label} CSV missing: {path}")
+        values = _load_values(path, str(board.value_column))[:400]
+        return (values, None) if values else ([], "no values found")
+    if board.loader == LOADER_CSV_CONCAT:
+        for rel in board.paths:
+            if not (root / rel).is_file():
+                raise FileNotFoundError(f"trainer {board.scope}:{board.label} CSV missing: {rel}")
+        values = _load_draftsharks_combined_values(root)
+        if len(values) < MIN_COMBINED_ROWS:
+            return [], f"only {len(values)} total values"
+        return values[:400], None
+    if snapshot is None:
+        return [], "no snapshot available"
+    if board.loader == LOADER_SNAPSHOT_IDP:
+        values = _load_idptc_idp_values(snapshot)
+        return (values, None) if values else ([], "no IDP values in snapshot")
+    if board.loader == LOADER_SNAPSHOT_ROOKIE:
+        values = _load_rookie_values(board.source_key, snapshot)
+        if len(values) < MIN_ROOKIE_ROWS:
+            return [], f"only {len(values)} rookies with values"
+        return values, None
+    raise ValueError(f"unknown loader {board.loader!r}")
+
+
+def fit_scopes(
+    *,
+    root: Path | None = None,
+    snapshot: Path | None = None,
+    manifest: TrainingManifest | None = None,
+    log: Callable[[str], None] | None = None,
+) -> dict[str, Any]:
+    """Fit every scope master from the manifest's trainers under ``root``.
+
+    Pure over its inputs: the same files, snapshot and manifest give the same
+    result byte for byte (``training_run`` hashes it).
+    """
+    m = manifest or _MANIFEST
+    base = root or REPO
+    snap = snapshot if snapshot is not None else _latest_snapshot(base)
+    say = log or (lambda _msg: None)
+
+    per_source: dict[str, list[dict[str, Any]]] = {}
+    skipped: dict[str, dict[str, str]] = {}
+    masters: dict[str, dict[str, float]] = {}
+    constants: dict[str, float] = {}
+    for scope in _SCOPE_REPORT_ORDER:
+        fits: list[dict[str, Any]] = []
+        skipped[scope] = {}
+        say(f"\n{scope} scope:")
+        for board in m.trainers(scope):
+            values, reason = _trainer_values(board, base, snap)
+            pairs = _percentile_pairs(values) if values else []
+            if reason or not pairs:
+                skipped[scope][board.label] = reason or "no usable percentile pairs"
+                say(f"  {board.label:22s}  (skipped: {skipped[scope][board.label]})")
+                continue
+            c, s, mse = _fit(pairs)
+            fits.append({"label": board.label, "c": c, "s": s, "rmse": mse**0.5, "n": len(pairs)})
+            say(
+                f"  {board.label:22s}  n={len(pairs):4d}  c={c:.4f}  s={s:.3f}  "
+                f"rmse={mse ** 0.5:.1f}"
+            )
+        per_source[scope] = fits
+        result = _fit_scope_master(scope, [(f["label"], f["c"], f["s"]) for f in fits])
+        if result is None:
+            continue
+        c, s, mse = result
+        masters[scope] = {"c": c, "s": s, "rmse": mse**0.5}
+        c_name, s_name = SCOPE_CONSTANT_NAMES[scope]
+        constants[c_name] = round(c, 4)
+        constants[s_name] = round(s, 3)
+    return {
+        "perSource": per_source,
+        "skipped": skipped,
+        "masters": masters,
+        "constants": constants,
+        "snapshot": str(snap) if snap is not None else None,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--print-old-style",
-        action="store_true",
-        help="Also print the legacy pooled fit for comparison",
-    )
     parser.add_argument(
         "--json-out",
         type=Path,
@@ -380,151 +431,40 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    def _fit_sources(
-        sources: dict[str, tuple[str, str]],
-        label_prefix: str = "",
-    ) -> list[tuple[str, float, float]]:
-        out: list[tuple[str, float, float]] = []
-        for label, (rel_path, col) in sources.items():
-            values = _load_values(REPO / rel_path, col)
-            if not values:
-                print(f"  {label_prefix}{label}: no values found")
-                continue
-            pairs = _percentile_pairs(values[:400])
-            c, s, mse = _fit(pairs)
-            out.append((label, c, s))
-            print(
-                f"  {label_prefix}{label:18s}  n={len(pairs):4d}  "
-                f"c={c:.4f}  s={s:.3f}  rmse={mse ** 0.5:.1f}"
-            )
-        return out
+    print("Per-source Hill fits (trainers from src/model_registry/training_manifest.py):")
+    result = fit_scopes(log=print)
 
-    print("Per-source Hill fits:\n")
-    print("OFFENSE scope (offense-only value sources):")
-    offense_fits = _fit_sources(OFFENSE_SOURCES, "")
-
-    print("\nGLOBAL scope (combined offense + IDP value sources):")
-    global_fits = _fit_sources(GLOBAL_SOURCES, "")
-    # Add DraftSharks as a combined-pool entry alongside IDPTC.  DS
-    # natively cross-universe → concatenate SF + IDP CSVs, sort
-    # descending, percentile-fit.  Labeled DraftSharks-Combined for
-    # parity with the IDPTradeCalc entry shown above.
-    ds_combined = _load_draftsharks_combined_values()
-    if len(ds_combined) >= 20:
-        pairs = _percentile_pairs(ds_combined[:400])
-        c, s, mse = _fit(pairs)
-        global_fits.append(("DraftSharks-Combined", c, s))
-        print(
-            f"  DraftSharks-Combined  n={len(pairs):4d}  "
-            f"c={c:.4f}  s={s:.3f}  rmse={mse ** 0.5:.1f}"
-        )
-    else:
-        print(f"  DraftSharks-Combined  (only {len(ds_combined)} total " f"values; skipping)")
-
-    print("\nIDP scope (IDP value sources):")
-    idp_values = _load_idptc_idp_values()
-    idp_fits: list[tuple[str, float, float]] = []
-    if idp_values:
-        pairs = _percentile_pairs(idp_values)
-        c, s, mse = _fit(pairs)
-        idp_fits.append(("IDPTradeCalc-IDP", c, s))
-        print(
-            f"  IDPTradeCalc-IDP    n={len(pairs):4d}  c={c:.4f}  "
-            f"s={s:.3f}  rmse={mse ** 0.5:.1f}"
-        )
-    else:
-        print("  IDPTradeCalc-IDP    (no snapshot available)")
-    # Any additional IDP value sources whose CSVs are pre-filtered
-    # to IDP positions (e.g. DraftSharks-IDP) are fit alongside the
-    # IDPTC IDP slice; _fit_scope_master averages them into the IDP
-    # master curve.
-    idp_fits.extend(_fit_sources(IDP_CSV_SOURCES, "  "))
-
-    print("\nROOKIE scope (rookie slices of value-based sources):")
-    rookie_fits: list[tuple[str, float, float]] = []
-    for label, src_key in (
-        ("KTC-Rookie", "ktc"),
-        ("IDPTC-Rookie", "idpTradeCalc"),
-        # Added 2026-04-21: rookie slices from the newly-wired
-        # value sources.  Each rookie slice is normalized so the
-        # slice's top contributes 9999, same as KTC / IDPTC.
-        # Small rookie classes with <10 rookies in a snapshot are
-        # auto-skipped so a sparse source doesn't wreck the master.
-        ("Boone-Rookie", "yahooBoone"),
-        ("Fitzmaurice-Rookie", "fantasyProsFitzmaurice"),
-        ("DraftSharks-Rookie", "draftSharks"),
-    ):
-        rv = _load_rookie_values(src_key)
-        if len(rv) < 10:
-            print(f"  {label:22s}  (only {len(rv)} rookies with values; skipping)")
+    print("\nScope-level master curves (mean of per-source curves):")
+    for scope in _SCOPE_REPORT_ORDER:
+        master = result["masters"].get(scope)
+        if master is None:
+            print(f"  {scope:8s}  (no per-source fits)")
             continue
-        pairs = _percentile_pairs(rv)
-        c, s, mse = _fit(pairs)
-        rookie_fits.append((label, c, s))
-        print(f"  {label:22s}  n={len(pairs):4d}  c={c:.4f}  " f"s={s:.3f}  rmse={mse ** 0.5:.1f}")
-
-    print("\nScope-level master curves (trimmed mean-median across per-source fits):")
-    for scope_label, fits in (
-        ("GLOBAL", global_fits),
-        ("OFFENSE", offense_fits),
-        ("IDP", idp_fits),
-        ("ROOKIE", rookie_fits),
-    ):
-        result = _fit_scope_master(scope_label, fits)
-        if result is None:
-            print(f"  {scope_label:8s}  (no per-source fits)")
-            continue
-        c, s, mse = result
-        print(f"  {scope_label:8s}  c*={c:.4f}  s*={s:.3f}  " f"master-fit rmse={mse ** 0.5:.1f}")
+        print(
+            f"  {scope:8s}  c*={master['c']:.4f}  s*={master['s']:.3f}  "
+            f"master-fit rmse={master['rmse']:.1f}"
+        )
 
     print()
     print("Value at key percentiles for each scope master:")
     ps = (0.0, 0.001, 0.01, 0.02, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.9)
     print("  " + "scope".ljust(8) + "".join(f"{p:>9.3f}" for p in ps))
-    for scope_label, fits in (
-        ("GLOBAL", global_fits),
-        ("OFFENSE", offense_fits),
-        ("IDP", idp_fits),
-        ("ROOKIE", rookie_fits),
-    ):
-        result = _fit_scope_master(scope_label, fits)
-        if result is None:
+    for scope in _SCOPE_REPORT_ORDER:
+        master = result["masters"].get(scope)
+        if master is None:
             continue
-        c, s, _ = result
-        row = "".join(f"{int(_hill(p, c, s)):>9}" for p in ps)
-        print(f"  {scope_label:<8}" + row)
+        row = "".join(f"{int(_hill(p, master['c'], master['s'])):>9}" for p in ps)
+        print(f"  {scope:<8}" + row)
 
     print()
-    print("Suggested constants (src/canonical/player_valuation.py):")
-    out_constants: dict[str, float] = {}
-    for scope_label, fits in (
-        ("GLOBAL", global_fits),
-        ("OFFENSE", offense_fits),
-        ("IDP", idp_fits),
-        ("ROOKIE", rookie_fits),
-    ):
-        result = _fit_scope_master(scope_label, fits)
-        if result is None:
-            continue
-        c, s, _ = result
-        if scope_label == "OFFENSE":
-            c_name, s_name = "HILL_PERCENTILE_C", "HILL_PERCENTILE_S"
-        elif scope_label == "IDP":
-            c_name, s_name = "IDP_HILL_PERCENTILE_C", "IDP_HILL_PERCENTILE_S"
-        elif scope_label == "ROOKIE":
-            c_name, s_name = "HILL_ROOKIE_PERCENTILE_C", "HILL_ROOKIE_PERCENTILE_S"
-        else:
-            c_name, s_name = "HILL_GLOBAL_PERCENTILE_C", "HILL_GLOBAL_PERCENTILE_S"
-        print(f"{c_name}: float = {c:.4f}")
-        print(f"{s_name}: float = {s:.3f}")
-        out_constants[c_name] = round(c, 4)
-        out_constants[s_name] = round(s, 3)
+    print("Suggested constants (src/canonical/player_valuation.py) — a CHALLENGER only:")
+    for name, value in result["constants"].items():
+        literal = f"{value:.4f}" if name.endswith("_C") else f"{value:.3f}"
+        print(f"{name}: float = {literal}")
 
     if args.json_out is not None:
-        import json as _json
-
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
-        args.json_out.write_text(_json.dumps(out_constants, indent=2))
+        args.json_out.write_text(json.dumps(result["constants"], indent=2))
     return 0
 
 

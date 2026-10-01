@@ -92,6 +92,19 @@ def cmd_sources(args: argparse.Namespace) -> int:
             with path.open(encoding="utf-8") as f:
                 rows = str(max(0, sum(1 for _ in f) - 1))
         print(f"{role.label:<20}{role.role:<10}{rows:>7}  {role.path}")
+    from src.model_registry.training_manifest import SCOPES, default_manifest
+
+    manifest = default_manifest()
+    print(f"\nTraining manifest {manifest.manifest_hash()[:16]} (all scopes):")
+    for scope in SCOPES:
+        for b in manifest.boards:
+            if b.scope != scope:
+                continue
+            extra = b.exclusion_reason or ", ".join(
+                f"measured dependence on {d.trainer_family} ({d.metric} {d.value})"
+                for d in b.measured_dependence
+            )
+            print(f"  {scope:<8}{b.label:<22}{b.role:<9}{b.family:<18}{extra}")
     print()
     print(
         "Holdout boards are value-publishing dynasty markets the fit never reads.\n"
@@ -150,8 +163,27 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     return 0
 
 
+def derived_training_run(source: ModelVersion) -> dict | None:
+    """The training run a COMPOSED candidate inherits from the raw version it
+    was composed from (Hill Autopilot's OFFENSE-only composite).
+
+    The composite's OFFENSE c/s are the raw winner's, fitted on exactly these
+    pins; its other scopes are the incumbent's. Recording the source run keeps
+    the composite reproducible to its evidence instead of pinless."""
+    if not source.training_run:
+        return None
+    return {**source.training_run, "composedFrom": source.version}
+
+
 def cmd_register(args: argparse.Namespace) -> int:
     reg = _load_or_seed()
+    training_run = None
+    if getattr(args, "derived_from", None):
+        try:
+            training_run = derived_training_run(reg.get(args.derived_from))
+        except RegistryError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 2
     params = json.loads(Path(args.params).read_text())
     params = {str(k): float(v) for k, v in params.items()}
     missing = [n for n in CONSTANT_NAMES if n not in params]
@@ -174,6 +206,7 @@ def cmd_register(args: argparse.Namespace) -> int:
         status="challenger",
         training_inputs=fingerprint_inputs(_training_input_paths()),
         holdout=result.to_dict(),
+        training_run=training_run,
     )
     reg.add(version)
     reg.save()
@@ -373,6 +406,11 @@ def main() -> int:
     p_reg.add_argument("--params", required=True, help="JSON file of the 8 constants")
     p_reg.add_argument("--producer", help="what produced it")
     p_reg.add_argument("--fitted-at", help="ISO 8601 timestamp")
+    p_reg.add_argument(
+        "--derived-from",
+        type=int,
+        help="registry version whose pinned training run this composed candidate inherits",
+    )
     p_reg.set_defaults(fn=cmd_register)
 
     p_val = sub.add_parser("validate", help="champion vs challenger")
