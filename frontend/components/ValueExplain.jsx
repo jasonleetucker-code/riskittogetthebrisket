@@ -14,6 +14,10 @@
  *   <SourceFreshnessList> one row's sources: weight here, content age, last fetch
  *   <BoardClocks>         "board built … from the scrape of …"
  *
+ * The backend's per-player explanation (value-explain/v2: estimator,
+ * attribution, leave-one-out, per-source clocks and exclusions) renders in
+ * ValueExplainDetail.jsx, lazily loaded by the Player File.
+ *
  * Display only: every number is a backend stamp selected by the lib
  * helpers. Nothing here computes a value, rank, confidence or freshness.
  */
