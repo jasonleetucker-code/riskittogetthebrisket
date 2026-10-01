@@ -122,6 +122,15 @@ def markdown(r: Mapping[str, Any]) -> str:
             row.append(f"{ww.get(f, 1.0):.3f}")
         L.append(f"| `{f}` | " + " | ".join(row) + " |")
     L.append("")
+    for c, w in fw.items():
+        if isinstance(w, dict) and w.get("perUniverse"):
+            L.append(
+                f"{c} column shows its pooled weight (used for keys covering both universes); per universe:"
+            )
+            L.append("")
+            for u, ww in w["perUniverse"].items():
+                L.append(f"- {u}: " + ", ".join(f"`{f}` {v:.3f}" for f, v in sorted(ww.items())))
+            L.append("")
     for c, d in (r.get("finalWeightDiagnostics") or {}).items():
         if isinstance(d, dict) and d.get("reason"):
             L.append(f"- {c}: {d['reason']}")
