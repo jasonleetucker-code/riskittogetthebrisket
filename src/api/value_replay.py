@@ -88,6 +88,7 @@ _ROW_FIELDS = (
     "alphaShrinkage",
     "_blendedValueUncapped",
     "singleSourceValuePenaltyApplied",
+    "sparseEvidence",
     "quarantined",
     "anomalyFlags",
     "ktcMarket",
@@ -418,6 +419,22 @@ def blend_check(row: Mapping[str, Any]) -> dict[str, Any]:
     values = [v for v, _ in voters]
     weights = [w for _, w in voters]
     blended, _ = dc.weighted_count_aware_mean_median_blend(values, weights)
+    sparse = row.get("sparseEvidence")
+    if isinstance(sparse, Mapping):
+        # Sparse-evidence estimate: the voters reproduce the OBSERVED value; the
+        # published value is the estimator's (bounded by absent families), so
+        # each stamp is checked against what it claims, not called a mismatch.
+        observed = sparse.get("observedValue")
+        return {
+            "status": "sparse_estimate"
+            if observed is not None and abs(round(blended) - observed) <= 1
+            else "mismatch",
+            "recomputed": round(blended, 2),
+            "observed": observed,
+            "published": row.get("_blendedValueUncapped"),
+            "centralEstimate": sparse.get("centralEstimate"),
+            "voters": len(voters),
+        }
     if row.get("singleSourceValuePenaltyApplied"):
         blended *= dc._SINGLE_SOURCE_VALUE_RETENTION
     published = row.get("_blendedValueUncapped")

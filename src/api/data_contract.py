@@ -6495,6 +6495,14 @@ def _detect_blend_integrity_violations(
             continue
 
         lo, hi = min(contributions.values()), max(contributions.values())
+        # A sparse-evidence estimate (flag ``sparse_evidence_estimator``) is a
+        # blend over the observation AND its binding censored bounds, so those
+        # bounds are inputs to its hull.  Absent on every other row.
+        sparse = row.get("sparseEvidence")
+        if isinstance(sparse, dict):
+            bounds = [float(b) for b in sparse.get("boundsUsed") or [] if b and b > 0]
+            if bounds:
+                lo = min(lo, min(bounds))
         lo_bound = lo * (1.0 - _BLEND_HULL_EPSILON) - _BLEND_HULL_QUANTIZATION_BELOW
         hi_bound = hi * (1.0 + _BLEND_HULL_EPSILON) + _BLEND_HULL_QUANTIZATION_ABOVE
         if lo_bound <= value <= hi_bound:
@@ -7334,6 +7342,137 @@ _MAD_PENALTY_LAMBDA: float = 0.0
 # exempt: they ride their own CV-based confidence path and a single
 # value-source (KTC per-slot synth) is structurally normal for them.
 _SINGLE_SOURCE_VALUE_RETENTION: float = 0.30
+
+
+def _apply_sparse_evidence_estimator(
+    candidates: list[tuple[int, int, float, float, int, int]],
+    row_normalized: list[tuple[float, int]],
+    players_array: list[dict[str, Any]],
+    row_source_meta: Mapping[int, Mapping[str, Mapping[str, Any]]],
+    active_sources: list[dict[str, Any]],
+    family_by_key: Mapping[str, str],
+    source_weighting: Mapping[str, Any] | None,
+    blend_weight_by_source: Mapping[str, float],
+    freshness_applied: bool,
+    csv_index: Mapping[str, Mapping[str, Any]] | None,
+) -> None:
+    """Sparse-evidence estimator (flag ``sparse_evidence_estimator``, default OFF).
+
+    Replaces the 0.30 single-source retention for the rows it would have hit.
+    ``candidates`` holds ``(row_normalized index, row_idx, observed blend,
+    observed family weight, voting observations, voting families)``. Method and
+    gates: ``src/api/sparse_evidence.py`` and
+    ``docs/valuation/evidence/sparse-evidence-2026-10-01/PREREGISTRATION.md``.
+
+    Reuses only what this build already computed: each source's stamped
+    value contributions (its published depth, per position), the dataset
+    state behind freshness weighting, ``canonicalSiteValues`` presence and the
+    CSV name index. Nothing here re-derives a curve.
+    """
+    from src.api import sparse_evidence as _se  # noqa: PLC0415
+
+    # The smallest contribution each source stamped per position: the value at
+    # its published cutoff for that position.
+    min_contribution: dict[tuple[str, str], float] = {}
+    for idx, metas in row_source_meta.items():
+        row = players_array[idx]
+        if row.get("assetClass") == "pick":
+            continue
+        pos = str(row.get("position") or "").strip().upper()
+        for sk, m in metas.items():
+            vc = m.get("valueContribution") if isinstance(m, Mapping) else None
+            if isinstance(vc, (int, float)) and vc > 0:
+                cell = (sk, pos)
+                if cell not in min_contribution or vc < min_contribution[cell]:
+                    min_contribution[cell] = float(vc)
+
+    status = {
+        str(s.get("key") or ""): _se.source_status(
+            s,
+            (source_weighting or {}).get(str(s.get("key") or "")),
+            base_weight=float(blend_weight_by_source.get(str(s.get("key") or ""), 1.0)),
+            freshness_applied=freshness_applied,
+        )
+        for s in active_sources
+    }
+    # Every name each source published, any position group.
+    name_index: dict[str, set[str]] = {
+        sk: {str(k).split("::", 1)[0] for k in entries}
+        for sk, entries in (csv_index or {}).items()
+        if entries
+    }
+    key_counts: dict[str, int] = {}
+    for row in players_array:
+        if row.get("assetClass") == "pick":
+            continue
+        ck = _canonical_match_key(str(row.get("canonicalName") or row.get("displayName") or ""))
+        if ck:
+            key_counts[ck] = key_counts.get(ck, 0) + 1
+
+    def _family_cap(weights: Mapping[str, float]) -> dict[str, float]:
+        capped, _ = cap_family_weights(weights, base=blend_weight_by_source)
+        return capped
+
+    for norm_idx, row_idx, observed, observed_weight, n_obs, n_families in candidates:
+        row = players_array[row_idx]
+        pos = str(row.get("position") or "").strip().upper()
+        ckey = _canonical_match_key(str(row.get("canonicalName") or row.get("displayName") or ""))
+        sites = row.get("canonicalSiteValues") or {}
+        listed = {
+            family_by_key.get(k, k)
+            for k, v in (sites.items() if isinstance(sites, Mapping) else [])
+            if (v is not None if k in _DS_COMBINED_RANK_KEYS else (_safe_num(v) or 0) > 0)
+        } | {family_by_key.get(k, k) for k in (row_source_meta.get(row_idx) or {})}
+        identity_ok = bool(ckey) and key_counts.get(ckey, 0) == 1
+        identity_ok = identity_ok and not (set(row.get("anomalyFlags") or []) & _QUARANTINE_FLAGS)
+
+        def _name_check(sk: str, _ck: str = ckey) -> str | None:
+            names = name_index.get(sk)
+            if names is None:
+                return _se.REFUSE_NAME_INDEX
+            return _se.REFUSE_NAME_PUBLISHED if _ck in names else None
+
+        bounds, refused = _se.family_bounds(
+            position=pos,
+            is_rookie=bool(row.get("rookie")),
+            listed_families=listed,
+            sources=active_sources,
+            family_of=family_by_key,
+            status=status,
+            min_contribution=min_contribution,
+            name_check=_name_check,
+            scope_eligible=_scope_eligible,
+            identity_ok=identity_ok,
+            family_cap=_family_cap,
+        )
+        est = _se.estimate(
+            observed, observed_weight, bounds, weighted_count_aware_mean_median_blend
+        )
+        row_normalized[norm_idx] = (est.central, row_idx)
+        row["_blendedValueUncapped"] = int(round(est.central)) if est.central > 0 else 0
+        row["sparseEvidence"] = _se.stamp(
+            est,
+            observations=n_obs,
+            voting_families=n_families,
+            effective_families=observed_weight,
+            refused=refused,
+        )
+
+
+def _stamp_sparse_evidence_confidence(players_array: list[dict[str, Any]]) -> None:
+    """Copy the confidence owner's verdict into each ``sparseEvidence`` block.
+
+    Decided in ``src/api/confidence.py`` against the value that shipped; this
+    only records it beside the estimate so the two travel together."""
+    for row in players_array:
+        block = row.get("sparseEvidence")
+        if isinstance(block, dict):
+            block["confidence"] = {
+                "bucket": row.get("confidenceBucket"),
+                "label": row.get("confidenceLabel"),
+                "basis": row.get("confidenceBasis"),
+                "owner": "src/api/confidence.py",
+            }
 
 
 # Registry of sources whose raw per-player CSV value should be used
@@ -10359,6 +10498,11 @@ def _compute_unified_rankings(
     # Sparse half, separately promotable (default OFF): one voting family is
     # stamped ``limitedEvidence`` and the 0.30 retention is not applied.
     _sparse_limited_evidence = _feature_flags.is_enabled("joint_sparse_limited_evidence")
+    # Sparse-evidence estimator (Batch 3 Unit E, default OFF): the rows the 0.30
+    # retention would hit get a censor-aware central estimate instead
+    # (``_apply_sparse_evidence_estimator``, after this loop).  Off = incumbent.
+    _sparse_estimator = _feature_flags.is_enabled("sparse_evidence_estimator")
+    _sparse_candidates: list[tuple[int, int, float, float, int, int]] = []
 
     from src.sources.freshness import (  # noqa: PLC0415
         STYLE_EXPLICIT as _STYLE_EXPLICIT,
@@ -11173,7 +11317,19 @@ def _compute_unified_rankings(
                 "presentFamilies": len(present_families),
                 "challenger": _JOINT_CHALLENGER_VERSION,
             }
-        if not row_is_pick and len(present_families) <= 1 and not _sparse_limited_evidence:
+        if _sparse_estimator and not row_is_pick and len(present_families) <= 1:
+            if blended_value > 0:
+                _sparse_candidates.append(
+                    (
+                        len(row_normalized),
+                        row_idx,
+                        blended_value,
+                        sum(row_weight.get(k, 0.0) for k, _v, _a in family_kept),
+                        len(family_kept),
+                        len(voting_families),
+                    )
+                )
+        elif not row_is_pick and len(present_families) <= 1 and not _sparse_limited_evidence:
             blended_value *= _SINGLE_SOURCE_VALUE_RETENTION
             players_array[row_idx]["_blendedValueUncapped"] = (
                 int(round(blended_value)) if blended_value > 0 else 0
@@ -11181,6 +11337,20 @@ def _compute_unified_rankings(
             players_array[row_idx]["singleSourceValuePenaltyApplied"] = True
 
         row_normalized.append((blended_value, row_idx))
+
+    if _sparse_candidates:
+        _apply_sparse_evidence_estimator(
+            _sparse_candidates,
+            row_normalized,
+            players_array,
+            row_source_meta,
+            active_sources,
+            family_by_key,
+            source_weighting,
+            blend_weight_by_source,
+            _freshness_applied,
+            csv_index,
+        )
 
     # ── Phase 3a: Pick year discount (gated to picks) ──
     # Apply the multiplicative future-year discount BEFORE the global
@@ -11751,6 +11921,8 @@ def _compute_unified_rankings(
     # Written as a general guard over "did the value move", not as a
     # special case for the boost table, so a future override inherits it.
     _restate_confidence_after_override(players_array, row_confidence_inputs, pre_override_values)
+    if _sparse_candidates:
+        _stamp_sparse_evidence_confidence(players_array)
 
     # Offense calibration is deliberately never applied to live values.
     # The offense market is already priced by the blend of KTC / DLF /

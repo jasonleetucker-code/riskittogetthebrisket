@@ -202,6 +202,7 @@ def _estimator(row: Mapping[str, Any], n_voters: int) -> dict[str, Any]:
         "voters": n_voters,
         "singleSourceRetentionApplied": bool(row.get("singleSourceValuePenaltyApplied")),
         "limitedEvidence": row.get("limitedEvidence"),
+        "sparseEvidence": row.get("sparseEvidence"),
         "postBlendOverrides": overrides,
         "anchorValue": row.get("anchorValue"),
         "alphaShrinkage": row.get("alphaShrinkage"),
@@ -213,6 +214,7 @@ def _attribution(estimator: Mapping[str, Any]) -> dict[str, Any]:
         estimator["path"] == "flat_count_aware_blend"
         and estimator["rung"] in ("passthrough", "weighted_mean")
         and not estimator["singleSourceRetentionApplied"]
+        and not estimator.get("sparseEvidence")
         and not estimator["postBlendOverrides"]
     )
     return {
