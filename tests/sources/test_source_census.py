@@ -397,6 +397,117 @@ def test_every_evidence_kind_held_is_published_and_no_applied_weight_is_recomput
         assert "sourceLevelEffectiveWeight" not in (e.get("weighting") or {})
 
 
+def _relation_with_stats(measurements, as_of="2026-10-01"):
+    return {
+        "id": "stats-under-test",
+        "sources": ["otcffbSf", "ktc"],
+        "relation": "measured_dependence",
+        "classification": "measured",
+        "evidence": ["config/sources/source_lineage.json"],
+        "asOf": as_of,
+        "statistics": measurements,
+    }
+
+
+def _m(as_of, status, **values):
+    return {
+        "asOf": as_of,
+        "status": status,
+        "method": "leave-pair-out residual",
+        "window": "w",
+        "n": 100,
+        "values": values or {"residualR": 0.5},
+    }
+
+
+def _stats_errors(statistics, as_of="2026-10-01"):
+    lineage = json.loads(json.dumps(sc.load_lineage()))
+    lineage["relations"].append(_relation_with_stats(statistics, as_of))
+    return [e for e in sc.validate_lineage(lineage, REPO) if "stats-under-test" in e]
+
+
+def test_relation_statistics_are_a_dated_history():
+    good = {
+        "measurements": [
+            _m("2026-08-04", "superseded", residualR=0.329),
+            _m("2026-10-01", "current", residualR=0.654),
+        ]
+    }
+    assert _stats_errors(good) == []
+
+
+def test_flat_statistics_are_refused():
+    # The defect the D2 review found: a bare number beside a refreshed summary.
+    errors = _stats_errors({"residualRho": 0.891})
+    assert any("exactly {'measurements'" in e for e in errors)
+
+
+def test_statistics_need_exactly_one_current_dated_as_the_relation():
+    two = {"measurements": [_m("2026-10-01", "current"), _m("2026-10-01", "current")]}
+    assert any("exactly one measurement must be current" in e for e in _stats_errors(two))
+    none = {"measurements": [_m("2026-08-04", "superseded")]}
+    assert any("exactly one measurement must be current" in e for e in _stats_errors(none))
+    # Refreshing asOf without adding a measurement is refused.
+    stale = {"measurements": [_m("2026-08-04", "current")]}
+    assert any("must carry the relation asOf" in e for e in _stats_errors(stale))
+
+
+def test_a_superseded_measurement_cannot_be_newer_than_the_current_one():
+    bad = {
+        "measurements": [_m("2026-10-02", "superseded"), _m("2026-10-01", "current")],
+    }
+    assert any("newer than the current" in e for e in _stats_errors(bad))
+
+
+def test_measurement_entries_pin_date_method_values_and_a_real_n():
+    entry = _m("2026-10-01", "current")
+    for field, value, needle in (
+        ("asOf", "yesterday", "ISO date"),
+        ("method", "", "method required"),
+        ("values", {}, "values must be a non-empty object"),
+        ("values", {"r": "high"}, "every value must be a number"),
+        ("n", 0, "n must be an int > 0"),
+        ("n", True, "n must be an int > 0"),
+        ("status", "latest", "status must be one of"),
+    ):
+        broken = dict(entry, **{field: value})
+        errors = _stats_errors({"measurements": [broken]})
+        assert any(needle in e for e in errors), (field, errors)
+    # n may be null: unrecorded is distinguishable from a sample size.
+    assert _stats_errors({"measurements": [dict(entry, n=None)]}) == []
+
+
+def test_census_view_carries_only_the_current_measurement():
+    rel = next(r for r in sc.load_lineage()["relations"] if r["id"] == "otc-ktc-dependence")
+    view = sc._relation_view(rel, "otcffbSf")
+    assert view["statistics"]["status"] == "current"
+    assert view["statistics"]["asOf"] == rel["asOf"]
+
+
+def test_otc_holdout_lineage_is_recorded_against_every_offense_trainer():
+    """OTC is a declared OFFENSE Hill holdout; its relation to every OFFENSE
+    trainer must be a recorded, categorised pair (D2 follow-up) — an
+    unmeasured pair must not read as an independent one."""
+    from src.model_registry import training_manifest as tm
+
+    trainers = {
+        s.source_key
+        for s in tm._DEFAULT_SPECS
+        if s.scope == "OFFENSE" and s.requested_role == tm.ROLE_TRAIN
+    }
+    pairs = sc.load_lineage()["pairReconciliation"]
+    covered = {
+        s: p["category"]
+        for p in pairs
+        if "otcffbSf" in p["sources"]
+        for s in p["sources"]
+        if s != "otcffbSf"
+    }
+    missing = trainers - set(covered)
+    assert not missing, f"OTC has no recorded pair with trainers {sorted(missing)}"
+    assert all(covered[t] in sc.LINEAGE_CATEGORIES for t in trainers)
+
+
 def test_lineage_cannot_assert_dynasty_game_type():
     import copy
 
