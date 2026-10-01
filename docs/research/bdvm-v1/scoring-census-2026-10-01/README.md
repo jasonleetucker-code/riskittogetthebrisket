@@ -48,8 +48,10 @@ dynasty_main 2026 weeks 1-3; tolerance 0.011 — the host publishes 2 decimals):
   that carries it (WR 331, RB 167, TE 181; zero exceptions);
 * engine — this mapping on the nflverse row reproduces the host's bonus on
   **291/291** joined WR weeks with receptions (2 not joinable by id or unique
-  name; max |delta| 0.0033). Pinned as a fixture in
-  `tests/bdvm/test_position_reception_bonus.py`.
+  name; max |delta| 0.0033). A 5-row fixture in
+  `tests/bdvm/test_position_reception_bonus.py` pins the arithmetic
+  (receptions × 0.02 against the host's difference); the evidence is
+  `host_verification.json`, not the fixture.
 * FB — Sleeper's stat feed carries neither `bonus_rec_rb` nor `bonus_fd_rb` on
   an FB line (3 FB reception lines, one with `rec_fd` 1), so the host does not
   pay an FB the RB rate; `realized_points` matches (raw `FB` earns neither).
@@ -72,9 +74,14 @@ built from `exports/latest/dynasty_data_2026-09-30.json`):
 Preseason: 911 baseline records' fpg move (max +0.115/game); WR positional
 mean 7.28 to 7.34; every value move of note is a WR (max +50.8, ~+0.8%);
 non-WR rows change rank as WRs pass them (CB/S move under 1 point). In-season:
-WR deltas are small (max 12.5) but non-WR values fall with fpg unchanged —
-consistent with `engine.calibrate` anchoring each strategy to its top asset,
-so a higher top DV rescales everyone else. **Not measured:** Clay / IDP Show
+WR deltas are small (max 12.5) but non-WR values fall with fpg unchanged.
+**Cause NOT verified.** A single top-asset re-anchor (`engine.calibrate`) would
+scale every unchanged row by one factor, and they do not: Purdy, Bowers and
+Fannin all scale by 0.99303 but Gibbs 0.99112, Bijan 0.99087, Jeanty 0.99054,
+while preseason RB/QB/TE move by 0.0. A second, RB-specific effect (possibly
+flex-aware replacement) is likely. The per-strategy anchors and position
+replacement levels before/after were not recorded; until they are, treat any
+explanation as a hypothesis. **Not measured:** Clay / IDP Show
 real projections (no local snapshot — Clay offense moves by the same
 mechanism), rookie draft-slot priors and the player-context feed (network),
 events, and the production snapshot. The production board's actual delta
