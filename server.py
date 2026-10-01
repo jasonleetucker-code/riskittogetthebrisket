@@ -10771,6 +10771,10 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         all_picks.append(
             {
                 "pick": f"{rnd}.{str(slot).zfill(2)}",
+                # The workbook is ONE draft (72 rows = 12 slots x 6 rounds)
+                # for ``league_season``; stamping it per row lets the
+                # season-scoped views read every board the same way.
+                "season": league_season,
                 "round": rnd,
                 "pickInRound": slot,
                 "overallPick": overall_idx + 1,
@@ -10881,7 +10885,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     )
     ktc_count = len([r for r in rookies if not r["name"].startswith("Rookie #")]) if rookies else 0
 
-    return {
+    result = {
         "picks": all_picks,
         "teamTotals": [{"team": t, "auctionDollars": v} for t, v in sorted_teams],
         "totalBudget": total_budget,
@@ -10893,6 +10897,17 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         "ktcTotalFilled": len(rookies),
         "rookieSource": rookie_source,
     }
+    # Per-season views for the /league year selector.  The workbook carries
+    # ONE season, and its team totals are the sheet's Q-column decimals
+    # rounded to the budget (not a sum of the L-column per-pick dollars the
+    # rows display), so that season's capital IS each team's existing total —
+    # handed over explicitly rather than re-summed into a different number.
+    from src.api.draft_capital_years import attach_year_views  # noqa: PLC0415
+
+    return attach_year_views(
+        result,
+        capital_by_team_year={t: {league_season: v} for t, v in team_totals.items()},
+    )
 
 
 @app.get("/api/draft-capital")
