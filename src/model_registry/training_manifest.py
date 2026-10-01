@@ -82,6 +82,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
 from src.identity.picks import is_pick_name
+from src.sources.ktc_market import KTC_MARKET_KEY
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -361,7 +362,7 @@ NOT_HILL_BOARDS: dict[str, str] = {
         "live value voter, eligible native values, NOT selected: KTC Trades as trainer "
         f"or holdout is owner decision H2 ({_H_AUDIT}), deferred"
     ),
-    "ktcCrowdTradesSfTep": "KTC Market: benchmark only, never a vote, never Hill evidence",
+    KTC_MARKET_KEY: "KTC Market: benchmark only, never a vote, never Hill evidence",
     "dlfSf": "rank-only expert board: contributes order, never spacing",
     "dlfRookieSf": "rank-only rookie board: contributes order, never spacing",
     "dlfIdp": "rank-only IDP board: contributes order, never spacing",
