@@ -6,10 +6,11 @@ Synthetic leagues only (no real league id, manager or trade).  What is pinned:
   teams, its own slots and card), never today's registry league;
 * the ``previous_league_id`` chain is walked, stored and resolved, and a
   completed season is fetched once and then frozen;
-* point in time: a capture at or before the trade is exact; one taken after
-  it (a completed season's final settings fetched now) is capped; the
-  registry + scoring card is exact only for a CURRENT-season trade after a
-  FRESH card's capture time;
+* point in time = a BRACKET: a capture at or before the trade is exact only
+  once a later re-fetch confirmed the same payload hash (no later check ->
+  ``format_unconfirmed_after_trade``; a different hash -> changed, capped);
+  one taken after the trade (a completed season's final settings fetched now)
+  is capped; the registry format never certifies anything;
 * an undated legacy snapshot never counts as exact for a later trade;
 * evidence only — nothing here reaches a served value.
 """
@@ -88,20 +89,24 @@ def store(tmp_path):
     return tmp_path / "own_formats.sqlite"
 
 
-def _refresh(store, *, at_ms, http=None):
+def _refresh(store, *, at_ms, http=None, **kw):
     return olfc.refresh_own_league_formats(
-        KEY, root_league_id=CUR, path=store, http_get=http or FakeSleeper(), clock_ms=lambda: at_ms
+        KEY,
+        root_league_id=CUR,
+        path=store,
+        http_get=http or FakeSleeper(),
+        clock_ms=lambda: at_ms,
+        **kw,
     )
 
 
-def _classify(trade, index, *, card=("missing", None, None)):
+def _classify(trade, index):
     return N._own_league_format(
         trade,
         league_key=KEY,
         index=index,
         current_league_id=CUR,
         registry_format=_target,
-        registry_card=lambda: card,
     )
 
 
@@ -140,6 +145,28 @@ class TestChain:
         _refresh(store, at_ms=T_NOW + DAY, http=FakeSleeper(changed))
         caps = olfc.load_index(store).captures[CUR]
         assert [c["capturedMs"] for c in caps] == [T_NOW, T_NOW + DAY]
+
+    def test_max_fetches_caps_the_walk(self, store):
+        res = _refresh(store, at_ms=T_NOW, max_fetches=2)
+        assert res.leagues_fetched == 2 and res.stopped_reason == "budget_exhausted"
+
+    def test_a_malformed_chain_resolves_to_the_earliest_recorded_link(self, store):
+        # A bogus link claiming 2025, written FIRST (lowest rowid, so plain
+        # table order would hand it the season) but recorded LATER in time.
+        conn = olfc.connect(store)
+        try:
+            conn.execute(
+                "INSERT INTO own_league_season_chain "
+                "(league_key, league_id, season, previous_league_id, first_seen_ms) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (KEY, "ZZZ-BOGUS", "2025", None, T_NOW + DAY),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        _refresh(store, at_ms=T_NOW)
+        for _ in range(3):
+            assert olfc.load_index(store).league_for_season(KEY, "2025") == PREV
 
     def test_a_429_stops_the_walk_and_is_not_a_missing_league(self, store):
         def limited(url):
@@ -203,27 +230,49 @@ class TestPastSeason:
 
 
 class TestCurrentSeason:
-    def test_a_trade_after_a_fresh_card_stays_native(self):
+    def test_the_registry_format_never_certifies_anything(self):
+        # No season capture yet: the registry's starters / team count /
+        # roster size are undated config, so even a trade long after the
+        # scoring card was fetched is capped.
         trade = {"sleeperLeagueId": CUR, "season": "2026", "occurredAtMs": T_NOW + HOUR}
-        fmt, src, ev = _classify(trade, olfc.EMPTY_INDEX, card=("fresh", T_NOW, "iso"))
-        assert src == N.FORMAT_SOURCE_REGISTRY and ev["exactAtTradeTime"] is True
+        fmt, src, ev = _classify(trade, olfc.EMPTY_INDEX)
+        assert src == N.FORMAT_SOURCE_REGISTRY_UNPROVEN
+        assert ev["timing"] == N.TIMING_REGISTRY_UNDATED and ev["exactAtTradeTime"] is False
         d = _dispose(fmt, src, ev)
-        assert d["disposition"] == mtf.NATIVE_COMPARABLE and d["formatTimingCap"] is None
+        assert not d["formatAuthority"]["differentAxes"]
+        assert d["disposition"] == mtf.TARGET_UNSUPPORTED
+        assert d["formatTimingCap"] == mtf.TIMING_CAP_UNPROVEN
 
-    def test_a_trade_after_a_season_capture_stays_native(self, store):
+    def test_the_retired_registry_label_fails_closed(self):
+        fmt = _target()
+        d = _dispose(fmt, N.FORMAT_SOURCE_REGISTRY, None)
+        assert d["disposition"] == mtf.TARGET_UNSUPPORTED
+
+    def test_a_season_capture_before_the_trade_is_unconfirmed_until_rechecked(self, store):
         _refresh(store, at_ms=T_NOW)
-        trade = {"sleeperLeagueId": CUR, "season": "2026", "occurredAtMs": T_NOW + DAY}
+        trade = {"sleeperLeagueId": CUR, "season": "2026", "occurredAtMs": T_NOW + HOUR}
         fmt, src, ev = _classify(trade, olfc.load_index(store))
-        assert src == N.FORMAT_SOURCE_SEASON_LEAGUE and ev["exactAtTradeTime"] is True
+        assert src == N.FORMAT_SOURCE_SEASON_LEAGUE and ev["exactAtTradeTime"] is False
+        d = _dispose(fmt, src, ev)
+        assert d["formatTimingCap"] == mtf.TIMING_CAP_UNCONFIRMED_AFTER_TRADE
+        # The next timer run re-fetches the in-season league and sees the
+        # SAME payload: the trade is now bracketed.
+        _refresh(store, at_ms=T_NOW + 6 * HOUR)
+        fmt, src, ev = _classify(trade, olfc.load_index(store))
+        assert ev["exactAtTradeTime"] is True
+        assert ev["confirmationAfterTrade"] == lfc.CONFIRMED
         assert _dispose(fmt, src, ev)["disposition"] == mtf.NATIVE_COMPARABLE
 
-    def test_a_trade_before_the_cards_capture_time_is_capped(self):
-        trade = {"sleeperLeagueId": CUR, "season": "2026", "occurredAtMs": T_NOW - DAY}
-        fmt, src, ev = _classify(trade, olfc.EMPTY_INDEX, card=("fresh", T_NOW, "iso"))
-        assert src == N.FORMAT_SOURCE_REGISTRY_UNPROVEN
-        d = _dispose(fmt, src, ev)
-        assert d["disposition"] == mtf.TARGET_UNSUPPORTED
-        assert d["formatTimingCap"] == mtf.TIMING_CAP_POST_TRADE
+    def test_a_changed_hash_after_the_trade_is_capped(self, store):
+        _refresh(store, at_ms=T_NOW)
+        changed = dict(LEAGUES)
+        changed[CUR] = {**LEAGUES[CUR], "total_rosters": 14}
+        _refresh(store, at_ms=T_NOW + DAY, http=FakeSleeper(changed))
+        trade = {"sleeperLeagueId": CUR, "season": "2026", "occurredAtMs": T_NOW + HOUR}
+        fmt, src, ev = _classify(trade, olfc.load_index(store))
+        assert fmt.teams == 12, "the capture in force at the trade supplies the axes"
+        assert ev["confirmationAfterTrade"] == lfc.CONFIRMATION_CHANGED
+        assert _dispose(fmt, src, ev)["formatTimingCap"] == mtf.TIMING_CAP_CHANGED_AFTER_TRADE
 
     def test_a_trade_before_the_season_capture_is_capped(self, store):
         _refresh(store, at_ms=T_NOW)
@@ -232,17 +281,9 @@ class TestCurrentSeason:
         assert src == N.FORMAT_SOURCE_SEASON_LEAGUE_POST_TRADE
         assert _dispose(fmt, src, ev)["formatTimingCap"] == mtf.TIMING_CAP_POST_TRADE
 
-    @pytest.mark.parametrize("state", ["stale", "missing"])
-    def test_a_card_that_is_not_fresh_never_certifies(self, state):
-        trade = {"sleeperLeagueId": CUR, "season": "2026", "occurredAtMs": T_NOW + HOUR}
-        fmt, src, ev = _classify(trade, olfc.EMPTY_INDEX, card=(state, T_NOW, "iso"))
-        assert src == N.FORMAT_SOURCE_REGISTRY_UNPROVEN
-        assert ev["timing"] == N.TIMING_SCORING_NOT_FRESH
-        assert _dispose(fmt, src, ev)["formatTimingCap"] == mtf.TIMING_CAP_UNPROVEN
-
     def test_an_undated_trade_is_time_unknown(self):
         trade = {"sleeperLeagueId": CUR, "season": "2026", "occurredAtMs": None}
-        fmt, src, ev = _classify(trade, olfc.EMPTY_INDEX, card=("fresh", T_NOW, "iso"))
+        fmt, src, ev = _classify(trade, olfc.EMPTY_INDEX)
         assert _dispose(fmt, src, ev)["formatTimingCap"] == mtf.TIMING_CAP_TIME_UNKNOWN
 
 
@@ -261,10 +302,14 @@ class TestUndatedLegacySnapshot:
             "captureSource": lfc.SOURCE_LEGACY_SNAPSHOT_TIME_UNKNOWN,
             "payload": payload,
         }
-        chosen, timing = lfc.capture_in_force([cap], T_NOW + DAY, season="2026")
+        cap["payloadSha256"] = lfc.payload_sha256(payload)
+        seen = [
+            {"season": "2026", "payloadSha256": cap["payloadSha256"], "observedMs": T_NOW + 2 * DAY}
+        ]
+        chosen, timing, conf = lfc.bracketed_capture([cap], seen, T_NOW + DAY, season="2026")
         assert timing == lfc.TIMING_AT_OR_BEFORE, "nearest-prior selection is unchanged"
-        ev = lfc.evidence_dict(chosen, timing)
-        assert ev["exactAtTradeTime"] is True
+        ev = lfc.evidence_dict(chosen, timing, conf)
+        assert ev["exactAtTradeTime"] is True, "even bracketed..."
         fmt = mtf.format_from_sleeper_league(payload)
         obs = {"formatSource": N.FORMAT_SOURCE_CAPTURE_FULL, "formatEvidence": ev}
         d = mtf.disposition(fmt, _target(), observation=obs)
@@ -276,6 +321,7 @@ class TestUndatedLegacySnapshot:
         ev = {
             "timing": lfc.TIMING_AT_OR_BEFORE,
             "exactAtTradeTime": True,
+            "confirmationAfterTrade": lfc.CONFIRMED,
             "captureSource": lfc.SOURCE_LEGACY_SNAPSHOT,
         }
         assert mtf.format_timing_cap({"formatEvidence": ev}) is None
@@ -310,6 +356,7 @@ def _ingest(acq, tx_id, *, lid, season, ts):
 
 def test_own_league_lane_uses_each_trades_own_season(acq, store, monkeypatch):
     _refresh(store, at_ms=T_NOW)
+    _refresh(store, at_ms=T_NOW + 2 * DAY)  # the re-fetch that brackets t-2026
     _ingest(acq, "t-2025", lid=PREV, season="2025", ts=T_2025)
     _ingest(acq, "t-2026", lid=CUR, season="2026", ts=T_NOW + DAY)
 
@@ -321,7 +368,6 @@ def test_own_league_lane_uses_each_trades_own_season(acq, store, monkeypatch):
     from src.trade import market_trade_ledger
 
     monkeypatch.setattr(reg, "get_league_by_key", lambda k: _Cfg() if k == KEY else None)
-    monkeypatch.setattr(reg, "scoring_evidence_state", lambda cfg: "missing")
     # The ledger row's legacy format summary reads the registry too; it is not
     # what this test is about.
     monkeypatch.setattr(market_trade_ledger, "_format_metadata", lambda key: {})
@@ -371,3 +417,73 @@ def test_own_league_format_capture_cannot_reach_a_served_value():
         assert not any("own_league_format_capture" in i for i in _imports(REPO / value_path))
     targets = set(re.findall(r"INSERT(?:\s+OR\s+IGNORE)?\s+INTO\s+(\w+)", src, re.I))
     assert targets and targets <= set(olfc.WRITE_TABLES), targets
+
+
+# ── the timer pass: shared 429 stop, its own budget ────────────────────────
+
+
+def _crawl_script():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "crawl_sharp_transactions_for_test", REPO / "scripts/crawl_sharp_transactions.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+class _Cfg2:
+    def __init__(self, key):
+        self.key = key
+        self.sleeper_league_id = f"SYN-{key}"
+
+
+class _Spy:
+    def __init__(self, results):
+        self.results = list(results)
+        self.calls: list[tuple[str, int]] = []
+
+    def __call__(self, key, *, root_league_id, sleep_s, max_fetches):
+        self.calls.append((key, max_fetches))
+        res = olfc.OwnLeagueFormatRefresh(league_key=key, root_league_id=root_league_id)
+        res.leagues_fetched, res.stopped_reason = self.results.pop(0)
+        return res
+
+
+class TestTimerPass:
+    def test_skipped_when_the_sharp_format_pass_hit_a_429(self):
+        spy = _Spy([])
+        out = _crawl_script()._capture_own_league_formats(
+            budget=24, sharp_stopped_reason="rate_limited", configs=[_Cfg2("a")], refresh=spy
+        )
+        assert out["skipped"] == "sharp_format_pass_rate_limited"
+        assert spy.calls == [], "no own-league request after a shared-IP 429"
+
+    def test_a_429_inside_stops_the_remaining_leagues(self):
+        spy = _Spy([(1, "rate_limited")])
+        out = _crawl_script()._capture_own_league_formats(
+            budget=24, configs=[_Cfg2("a"), _Cfg2("b")], refresh=spy
+        )
+        assert [c[0] for c in spy.calls] == ["a"]
+        assert out["stoppedReason"] == "rate_limited"
+        assert out["leagues"][1] == {"leagueKey": "b", "skipped": "rate_limited"}
+
+    def test_its_own_budget_is_shared_across_leagues(self):
+        spy = _Spy([(3, "budget_exhausted")])
+        out = _crawl_script()._capture_own_league_formats(
+            budget=3, configs=[_Cfg2("a"), _Cfg2("b")], refresh=spy
+        )
+        assert spy.calls == [("a", 3)]
+        assert out["callsUsed"] == 3
+        assert out["leagues"][1]["skipped"] == "own_league_format_budget_exhausted"
+
+    def test_other_sharp_stops_do_not_skip_it(self):
+        spy = _Spy([(1, None)])
+        out = _crawl_script()._capture_own_league_formats(
+            budget=24,
+            sharp_stopped_reason="consecutive_fetch_failures",
+            configs=[_Cfg2("a")],
+            refresh=spy,
+        )
+        assert spy.calls == [("a", 24)] and out["callsUsed"] == 1

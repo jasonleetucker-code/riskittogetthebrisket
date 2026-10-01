@@ -83,9 +83,10 @@ REL_DISTINCT = "distinct"
 DEFAULT_DAY_TOLERANCE = 1
 
 #: Preference when choosing whose format / sides represent a group: a format
-#: dated AT OR BEFORE the trade first (the own league's fresh registry card or
-#: its season-league capture, then a Sharp host capture in force), then
-#: formats dated only AFTER it (own season-league, own registry, Sharp), then
+#: dated AT OR BEFORE the trade first (the own league's season-league capture,
+#: then a Sharp host capture in force; ``registry_and_scoring_card`` is a
+#: retired label, never produced), then formats dated only AFTER it (own
+#: season-league, own registry, Sharp), then
 #: the partial discovery row, an unresolved own season, then the vendor
 #: summary.  Exact-timed labels outrank post-trade ones so a post-trade member
 #: can never represent — and so cap — a trade another lane dated exactly.

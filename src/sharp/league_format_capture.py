@@ -46,6 +46,32 @@ A payload missing ``roster_positions`` or ``scoring_settings`` is NOT recorded:
 an incomplete object would hash differently from a complete one of the same
 league and manufacture a "settings change" out of a transport difference.
 
+EXACT AT TRADE TIME = A BRACKET
+───────────────────────────────
+The nearest prior capture SELECTS the format a trade is read in
+(:func:`capture_in_force`), but on its own it proves only what the settings
+were when it was taken — a capture months old certifies nothing about a trade
+today.  A trade's format is exact at trade time only when it is BRACKETED:
+
+* a capture at or before the trade, AND
+* a later observation of the same league-season, at or after the trade, that
+  saw the SAME payload hash, with no different hash in between
+  (:func:`confirm_after_trade`).
+
+Every unchanged re-observation is therefore logged, with its payload hash, in
+the append-only ``sharp_league_format_observations`` (throttled to one per
+payload per :data:`OBSERVATION_LOG_MIN_INTERVAL_MS`); a changed payload is a
+new capture row, which is itself an observation.  A different hash after the
+trade → ``changed_after_trade``; nothing yet → ``unconfirmed_after_trade``.
+Both are capped below NATIVE_COMPARABLE by the ledger
+(``market_trade_format.format_timing_cap``) while the in-force capture still
+supplies the axes.  Latency: a Sharp trade becomes exact at the next
+observation of its league — discovery or the roster crawl when they touch it
+(daily), else the catch-up pass's weekly re-check
+(:data:`DEFAULT_REFRESH_AFTER_HOURS`).  The residual, named rather than hidden:
+a change AND a revert both strictly between two observations are invisible to
+any sampler.
+
 WHICH LEAGUES ARE CAPTURED
 ──────────────────────────
 Only DYNASTY leagues (Sleeper ``settings.type == 2``, the code
@@ -68,7 +94,9 @@ capture in force for any trade the ledger still retains; and it is either
 superseded by a later capture of the same league-season or its league has not
 been checked inside the horizon.  So the capture in force NOW for a live league
 is never pruned however old it is (an unchanged league inserts nothing, so its
-one row can legitimately be years old).
+one row can legitimately be years old).  The observation log is pruned in the
+same pass (:func:`prune_observations`): rows older than both the horizon and
+the earliest retained trade, plus a lossless per-run compaction.
 
 LEGACY SNAPSHOTS
 ────────────────
@@ -190,6 +218,19 @@ CREATE TABLE IF NOT EXISTS sharp_league_format_checks (
 );
 CREATE INDEX IF NOT EXISTS idx_slfk_checked ON sharp_league_format_checks(last_checked_ms);
 
+CREATE TABLE IF NOT EXISTS sharp_league_format_observations (
+  observation_id  INTEGER PRIMARY KEY AUTOINCREMENT,
+  league_id       TEXT NOT NULL,
+  season          TEXT,
+  payload_sha256  TEXT NOT NULL,
+  observed_ms     INTEGER NOT NULL,
+  observe_source  TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_slfo_point
+  ON sharp_league_format_observations(league_id, season, payload_sha256, observed_ms);
+CREATE INDEX IF NOT EXISTS idx_slfo_league_time
+  ON sharp_league_format_observations(league_id, observed_ms);
+
 CREATE TABLE IF NOT EXISTS sharp_league_format_migrations (
   name        TEXT PRIMARY KEY,
   applied_ms  INTEGER NOT NULL,
@@ -201,8 +242,22 @@ CREATE TABLE IF NOT EXISTS sharp_league_format_migrations (
 WRITE_TABLES = (
     "sharp_league_format_captures",
     "sharp_league_format_checks",
+    "sharp_league_format_observations",
     "sharp_league_format_migrations",
 )
+
+#: An unchanged re-observation is logged (``sharp_league_format_observations``)
+#: only when no observation of the same payload is newer than this — discovery
+#: can see one league many times in a run (once per member).  Skipping a
+#: same-hash observation can only DELAY a confirmation, never fabricate one:
+#: a differing payload is always recorded (as a capture).
+OBSERVATION_LOG_MIN_INTERVAL_MS = 3_600_000
+
+#: ``formatEvidence.confirmationAfterTrade`` — the bracket's verdict
+#: (:func:`confirm_after_trade`).
+CONFIRMED = "confirmed"
+CONFIRMATION_CHANGED = "changed_after_trade"
+CONFIRMATION_MISSING = "unconfirmed_after_trade"
 
 MIGRATION_LEGACY_SNAPSHOTS = "legacy_discovery_market_format_v1"
 SOURCE_LEGACY_SNAPSHOT = "legacy_discovery_settings_snapshot"
@@ -347,13 +402,22 @@ def record_capture(
     sha = payload_sha256(payload)
     prior = conn.execute(
         """
-        SELECT payload_sha256 FROM sharp_league_format_captures
+        SELECT payload_sha256, captured_ms FROM sharp_league_format_captures
          WHERE league_id = ? AND season IS ? AND captured_ms <= ?
          ORDER BY captured_ms DESC, capture_id DESC LIMIT 1
         """,
         (lid, season, int(captured_ms)),
     ).fetchone()
     if prior is not None and str(prior[0]) == sha:
+        _log_observation(
+            conn,
+            lid,
+            season=season,
+            sha=sha,
+            observed_ms=int(captured_ms),
+            source=source,
+            last_capture_ms=int(prior[1]),
+        )
         _touch_check(conn, lid, checked_ms=captured_ms, result="unchanged", status=status)
         return "unchanged"
     conn.execute(
@@ -375,6 +439,45 @@ def record_capture(
     )
     _touch_check(conn, lid, checked_ms=captured_ms, result="new", status=status)
     return "new"
+
+
+def _log_observation(
+    conn: sqlite3.Connection,
+    league_id: str,
+    *,
+    season: str | None,
+    sha: str,
+    observed_ms: int,
+    source: str,
+    last_capture_ms: int,
+) -> None:
+    """Append one unchanged re-observation (payload hash + instant) to
+    ``sharp_league_format_observations`` -- the evidence the bracket rule
+    (:func:`confirm_after_trade`) reads to prove a format did not change across
+    a trade.  A CHANGED payload is a capture row, which is itself an
+    observation, so only unchanged ones are logged here.  Throttled by
+    :data:`OBSERVATION_LOG_MIN_INTERVAL_MS` against the newest observation of
+    the same payload (capture or log row).  Append-only: never updates."""
+    floor = observed_ms - OBSERVATION_LOG_MIN_INTERVAL_MS
+    if last_capture_ms > floor:
+        return
+    last = conn.execute(
+        """
+        SELECT MAX(observed_ms) FROM sharp_league_format_observations
+         WHERE league_id = ? AND season IS ? AND payload_sha256 = ? AND observed_ms <= ?
+        """,
+        (league_id, season, sha, observed_ms),
+    ).fetchone()
+    if last is not None and last[0] is not None and int(last[0]) > floor:
+        return
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO sharp_league_format_observations
+          (league_id, season, payload_sha256, observed_ms, observe_source)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (league_id, season, sha, observed_ms, source),
+    )
 
 
 def record_captures(
@@ -430,6 +533,30 @@ def load_capture_index(conn: sqlite3.Connection) -> dict[str, list[dict[str, Any
                 "leagueStatus": r[6],
                 "payload": payload,
             }
+        )
+    return out
+
+
+def load_observation_index(conn: sqlite3.Connection) -> dict[str, list[dict[str, Any]]]:
+    """``{league_id: [observation, ...]}`` oldest-first, from the append-only
+    observation log.  ``{}`` when the table is absent (a store no re-check has
+    reached yet) -- every bracket then reads as unconfirmed, never confirmed."""
+    try:
+        rows = conn.execute(
+            """
+            SELECT league_id, season, payload_sha256, observed_ms
+              FROM sharp_league_format_observations
+             ORDER BY league_id, observed_ms, observation_id
+            """
+        ).fetchall()
+    except sqlite3.OperationalError as exc:
+        if "no such table" in str(exc).lower():
+            return {}
+        raise
+    out: dict[str, list[dict[str, Any]]] = {}
+    for lid, season, sha, ms in rows:
+        out.setdefault(str(lid), []).append(
+            {"season": season, "payloadSha256": sha, "observedMs": int(ms)}
         )
     return out
 
@@ -571,6 +698,10 @@ def capture_in_force(
     * no capture → ``(None, None)``: the format stays UNKNOWN.
 
     A capture from a different season than the trade's league is never used.
+
+    This SELECTS the format.  It does not by itself prove the format at trade
+    time: exactness additionally needs a later observation confirming the same
+    payload (the bracket, :func:`confirm_after_trade` / :func:`bracketed_capture`).
     """
     cands = [
         c
@@ -588,13 +719,103 @@ def capture_in_force(
     return cands[0], TIMING_POST_TRADE
 
 
-def evidence_dict(capture: Mapping[str, Any] | None, timing: str | None) -> dict[str, Any]:
-    """The inspectable ``formatEvidence`` an observation carries."""
+def _season_ok(row: Mapping[str, Any], season: str | None) -> bool:
+    return not (season and row.get("season") and str(row.get("season")) != str(season))
+
+
+def confirm_after_trade(
+    capture: Mapping[str, Any],
+    start_ms: int,
+    end_ms: int | None = None,
+    *,
+    captures: Sequence[Mapping[str, Any]] | None = None,
+    observations: Sequence[Mapping[str, Any]] | None = None,
+    season: str | None = None,
+) -> dict[str, Any]:
+    """The BRACKET verdict for an in-force capture: did a later observation of
+    the same league-season confirm the same payload across the trade?
+
+    ``capture`` is the capture in force at ``start_ms`` (the trade, or the
+    earliest instant a day-dated trade can have happened).  ``end_ms`` (default
+    ``start_ms``) is the latest instant the trade can have happened.  Every
+    observation at or after ``start_ms`` -- captures (each is an observation of
+    its payload) and the unchanged re-observation log -- is walked in time
+    order:
+
+    * a DIFFERENT payload hash before a confirming one -> ``changed_after_trade``
+      (the format moved; the in-force capture still describes the axes, but is
+      not proven at trade time);
+    * the first observation at or after ``end_ms`` carrying the SAME hash, with
+      no different hash before it -> ``confirmed``;
+    * neither -> ``unconfirmed_after_trade``.
+
+    At one instant a differing hash sorts first (fails closed).  Residual,
+    named rather than hidden: a change AND a revert both strictly between the
+    capture and the confirming observation are invisible to any sampler -- the
+    two observations agree.
+    """
+    end = int(end_ms if end_ms is not None else start_ms)
+    sha = capture.get("payloadSha256")
+    points: list[tuple[int, bool]] = []
+    for c in captures or ():
+        if _season_ok(c, season) and int(c["capturedMs"]) >= int(start_ms):
+            points.append((int(c["capturedMs"]), c.get("payloadSha256") == sha))
+    for o in observations or ():
+        if _season_ok(o, season) and int(o["observedMs"]) >= int(start_ms):
+            points.append((int(o["observedMs"]), o.get("payloadSha256") == sha))
+    for ms, same in sorted(points):
+        if not same or sha is None:
+            return {"state": CONFIRMATION_CHANGED, "observedMs": ms, "observedAt": _iso(ms)}
+        if ms >= end:
+            return {"state": CONFIRMED, "observedMs": ms, "observedAt": _iso(ms)}
+    return {"state": CONFIRMATION_MISSING, "observedMs": None, "observedAt": None}
+
+
+def bracketed_capture(
+    captures: Sequence[Mapping[str, Any]] | None,
+    observations: Sequence[Mapping[str, Any]] | None,
+    at_ms: int | None,
+    *,
+    season: str | None = None,
+    end_ms: int | None = None,
+) -> tuple[Mapping[str, Any] | None, str | None, dict[str, Any] | None]:
+    """``(capture, timing, confirmation)``: :func:`capture_in_force` SELECTS
+    the format; the bracket (:func:`confirm_after_trade`) decides exactness.
+    ``confirmation`` is ``None`` unless the capture is ``at_or_before_trade``."""
+    cap, timing = capture_in_force(captures, at_ms, season=season)
+    if cap is None or timing != TIMING_AT_OR_BEFORE or at_ms is None:
+        return cap, timing, None
+    return (
+        cap,
+        timing,
+        confirm_after_trade(
+            cap, at_ms, end_ms, captures=captures, observations=observations, season=season
+        ),
+    )
+
+
+def evidence_dict(
+    capture: Mapping[str, Any] | None,
+    timing: str | None,
+    confirmation: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """The inspectable ``formatEvidence`` an observation carries.
+
+    ``exactAtTradeTime`` is the BRACKET: a capture at or before the trade AND
+    a later observation confirming the same payload (``confirmation`` from
+    :func:`confirm_after_trade`).  Without a confirmation it is never exact."""
     if capture is None:
         return {"timing": None, "reason": "no_league_format_capture"}
+    state = confirmation.get("state") if confirmation else None
     return {
         "timing": timing,
-        "exactAtTradeTime": timing == TIMING_AT_OR_BEFORE,
+        "exactAtTradeTime": timing == TIMING_AT_OR_BEFORE and state == CONFIRMED,
+        "confirmationAfterTrade": (
+            (state or CONFIRMATION_MISSING) if timing == TIMING_AT_OR_BEFORE else None
+        ),
+        "confirmedAt": confirmation.get("observedAt")
+        if confirmation and state == CONFIRMED
+        else None,
         "captureId": capture.get("captureId"),
         "capturedAt": capture.get("capturedAt"),
         "captureSource": capture.get("captureSource"),
@@ -1009,7 +1230,102 @@ def prune_captures(
             + ")",
             chunk_ids,
         )
-    if doomed:
+    observations_removed = prune_observations(conn, cutoff_ms=cutoff)
+    if doomed or observations_removed:
         conn.commit()
-        log.info("sharp.league_format_capture: pruned %d captures", len(doomed))
+        log.info(
+            "sharp.league_format_capture: pruned %d captures, %d observations",
+            len(doomed),
+            observations_removed,
+        )
     return len(doomed)
+
+
+def prune_observations(conn: sqlite3.Connection, *, cutoff_ms: int) -> int:
+    """Retention + lossless compaction of the observation log.  Returns rows
+    removed; never commits (``prune_captures`` does); ``0`` when the table is
+    absent.
+
+    1. Rows older than both the horizon and the earliest retained trade go: a
+       confirmation is always at or after its trade.
+    2. Compaction.  A RUN is the stretch from one capture of a league-season
+       to the next.  For the bracket only the LATEST same-payload observation
+       of a run matters (an observation in the run at or after a trade exists
+       iff the latest one is at or after it), so the earlier same-payload rows
+       of each run are dropped.  A row whose payload differs from its run's
+       capture, or that precedes every capture, is always kept -- dropping it
+       could only ever turn a ``changed`` verdict into a ``confirmed`` one.
+    """
+    try:
+        conn.execute("SELECT 1 FROM sharp_league_format_observations LIMIT 1").fetchall()
+    except sqlite3.OperationalError as exc:
+        if "no such table" in str(exc).lower():
+            return 0
+        raise
+    floor = int(cutoff_ms)
+    try:
+        row = conn.execute(
+            "SELECT MIN(COALESCE(t.created_ms, m.ts)) FROM asset_movements m "
+            "LEFT JOIN transactions t ON t.tx_id = m.tx_id WHERE m.tx_type = 'trade'"
+        ).fetchone()
+        if row is not None and row[0] is not None:
+            floor = min(floor, int(row[0]))
+    except sqlite3.OperationalError as exc:
+        if "no such table" not in str(exc).lower():
+            raise
+    removed = conn.execute(
+        "DELETE FROM sharp_league_format_observations WHERE observed_ms < ?", (floor,)
+    ).rowcount
+    league_ids = [
+        str(r[0])
+        for r in conn.execute(
+            "SELECT league_id FROM sharp_league_format_observations "
+            "GROUP BY league_id HAVING COUNT(*) > 1"
+        ).fetchall()
+    ]
+    doomed: list[int] = []
+    for start in range(0, len(league_ids), _PRUNE_CHUNK):
+        chunk = league_ids[start : start + _PRUNE_CHUNK]
+        ph = ",".join("?" for _ in chunk)
+        caps: dict[tuple[str, Any], list[tuple[int, int, str]]] = {}
+        for lid, season, ms, cid, sha in conn.execute(
+            "SELECT league_id, season, captured_ms, capture_id, payload_sha256 "
+            f"FROM sharp_league_format_captures WHERE league_id IN ({ph})",
+            chunk,
+        ).fetchall():
+            caps.setdefault((str(lid), season), []).append((int(ms), int(cid), str(sha)))
+        for runs in caps.values():
+            runs.sort()
+        latest: dict[tuple[str, Any, int], tuple[int, int]] = {}
+        members: dict[tuple[str, Any, int], list[int]] = {}
+        for oid, lid, season, ms, sha in conn.execute(
+            "SELECT observation_id, league_id, season, observed_ms, payload_sha256 "
+            f"FROM sharp_league_format_observations WHERE league_id IN ({ph})",
+            chunk,
+        ).fetchall():
+            runs = caps.get((str(lid), season)) or []
+            run = None
+            for cap_ms, cap_id, cap_sha in runs:
+                if cap_ms <= int(ms):
+                    run = (cap_id, cap_sha)
+                else:
+                    break
+            if run is None or run[1] != str(sha):
+                continue
+            key = (str(lid), season, run[0])
+            members.setdefault(key, []).append(int(oid))
+            cur = latest.get(key)
+            if cur is None or (int(ms), int(oid)) > cur:
+                latest[key] = (int(ms), int(oid))
+        for key, ids in members.items():
+            keep = latest[key][1]
+            doomed.extend(i for i in ids if i != keep)
+    for start in range(0, len(doomed), _PRUNE_CHUNK):
+        chunk_ids = doomed[start : start + _PRUNE_CHUNK]
+        conn.execute(
+            "DELETE FROM sharp_league_format_observations WHERE observation_id IN ("
+            + ",".join("?" for _ in chunk_ids)
+            + ")",
+            chunk_ids,
+        )
+    return int(removed) + len(doomed)

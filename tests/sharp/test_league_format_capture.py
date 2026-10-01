@@ -170,6 +170,140 @@ class TestCaptureInForce:
         assert lfc.evidence_dict(None, None)["timing"] is None
 
 
+# ── the bracket: exact needs a later same-hash observation ───────────────
+
+
+def _c(ms, sha, cid=1, season="2026"):
+    return {"capturedMs": ms, "captureId": cid, "season": season, "payloadSha256": sha}
+
+
+def _o(ms, sha, season="2026"):
+    return {"observedMs": ms, "payloadSha256": sha, "season": season}
+
+
+class TestBracket:
+    def test_capture_before_and_same_hash_check_after_is_confirmed(self):
+        caps = [_c(T0, "A")]
+        cap, timing, conf = lfc.bracketed_capture(caps, [_o(T0 + 2 * DAY, "A")], T0 + DAY)
+        assert timing == lfc.TIMING_AT_OR_BEFORE and conf["state"] == lfc.CONFIRMED
+        ev = lfc.evidence_dict(cap, timing, conf)
+        assert ev["exactAtTradeTime"] is True and ev["confirmedAt"] == lfc._iso(T0 + 2 * DAY)
+
+    def test_a_changed_hash_after_the_trade_is_not_exact(self):
+        caps = [_c(T0, "A", 1), _c(T0 + 2 * DAY, "B", 2)]
+        # Even a later re-observation of A (a revert) does not rescue it: the
+        # first thing seen after the trade was B.
+        cap, timing, conf = lfc.bracketed_capture(caps, [_o(T0 + 3 * DAY, "A")], T0 + DAY)
+        assert cap["captureId"] == 1, "the in-force capture still supplies the axes"
+        assert conf["state"] == lfc.CONFIRMATION_CHANGED
+        assert lfc.evidence_dict(cap, timing, conf)["exactAtTradeTime"] is False
+
+    def test_no_later_check_is_unconfirmed(self):
+        cap, timing, conf = lfc.bracketed_capture([_c(T0, "A")], [_o(T0 - HOUR, "A")], T0 + DAY)
+        assert conf["state"] == lfc.CONFIRMATION_MISSING
+        ev = lfc.evidence_dict(cap, timing, conf)
+        assert ev["exactAtTradeTime"] is False
+        assert ev["confirmationAfterTrade"] == lfc.CONFIRMATION_MISSING
+
+    def test_evidence_without_a_confirmation_is_never_exact(self):
+        cap, timing = lfc.capture_in_force([_c(T0, "A")], T0 + DAY)
+        assert lfc.evidence_dict(cap, timing)["exactAtTradeTime"] is False
+
+    def test_a_tie_at_one_instant_fails_closed(self):
+        caps = [_c(T0, "A", 1), _c(T0 + 2 * DAY, "B", 2)]
+        conf = lfc.confirm_after_trade(
+            caps[0], T0 + DAY, captures=caps, observations=[_o(T0 + 2 * DAY, "A")]
+        )
+        assert conf["state"] == lfc.CONFIRMATION_CHANGED
+
+    def test_another_seasons_observation_never_confirms(self):
+        conf = lfc.confirm_after_trade(
+            _c(T0, "A"),
+            T0 + DAY,
+            observations=[_o(T0 + 2 * DAY, "A", season="2025")],
+            season="2026",
+        )
+        assert conf["state"] == lfc.CONFIRMATION_MISSING
+
+    def test_a_window_needs_a_confirmation_at_or_after_its_end(self):
+        conf = lfc.confirm_after_trade(
+            _c(T0, "A"), T0 + DAY, T0 + 3 * DAY, observations=[_o(T0 + 2 * DAY, "A")]
+        )
+        assert conf["state"] == lfc.CONFIRMATION_MISSING
+        conf = lfc.confirm_after_trade(
+            _c(T0, "A"),
+            T0 + DAY,
+            T0 + 3 * DAY,
+            observations=[_o(T0 + 2 * DAY, "A"), _o(T0 + 3 * DAY, "A")],
+        )
+        assert conf["state"] == lfc.CONFIRMED
+
+
+class TestObservationLog:
+    def _log(self, db):
+        conn = ledger.connect(db)
+        try:
+            return [
+                tuple(r)
+                for r in conn.execute(
+                    "SELECT observed_ms, payload_sha256 FROM sharp_league_format_observations "
+                    "ORDER BY observed_ms"
+                ).fetchall()
+            ]
+        finally:
+            conn.close()
+
+    def test_an_unchanged_reobservation_logs_its_hash_append_only_and_throttled(self, db):
+        conn = _conn(db)
+        try:
+            lfc.record_capture(conn, _league(), captured_ms=T0, source="t")
+            # Inside the throttle window of the capture itself: not logged.
+            lfc.record_capture(conn, _league(), captured_ms=T0 + 60_000, source="t")
+            lfc.record_capture(conn, _league(), captured_ms=T0 + DAY, source="t")
+            lfc.record_capture(conn, _league(), captured_ms=T0 + DAY + 60_000, source="t")
+            lfc.record_capture(conn, _league(), captured_ms=T0 + 2 * DAY, source="t")
+            conn.commit()
+        finally:
+            conn.close()
+        sha = _rows(db)[0]["payload_sha256"]
+        assert self._log(db) == [(T0 + DAY, sha), (T0 + 2 * DAY, sha)]
+
+    def test_module_never_updates_an_observation_row(self):
+        src = (REPO / "src/sharp/league_format_capture.py").read_text(encoding="utf-8")
+        assert not re.search(r"UPDATE\s+sharp_league_format_observations", src, re.I)
+        assert not re.search(r"REPLACE\s+INTO\s+sharp_league_format_observations", src, re.I)
+
+    def test_compaction_keeps_each_runs_latest_observation_and_every_verdict(self, db):
+        ledger.ingest_events(_trade_events("T1", "L1", T0 + DAY), path=db)
+        conn = _conn(db)
+        try:
+            a, b = _league(), _league(roster_positions=OFFENSE_ONLY)
+            lfc.record_capture(conn, a, captured_ms=T0, source="t")
+            for k in (2, 3, 4):
+                lfc.record_capture(conn, a, captured_ms=T0 + k * DAY, source="t")
+            lfc.record_capture(conn, b, captured_ms=T0 + 5 * DAY, source="t")
+            for k in (6, 7):
+                lfc.record_capture(conn, b, captured_ms=T0 + k * DAY, source="t")
+            conn.commit()
+            caps = lfc.load_capture_index(conn)["L1"]
+            before = lfc.load_observation_index(conn)["L1"]
+            verdicts = {
+                t: lfc.bracketed_capture(caps, before, t)[2]["state"]
+                for t in (T0 + DAY, T0 + int(3.5 * DAY), T0 + int(4.5 * DAY), T0 + int(5.5 * DAY))
+            }
+            removed = lfc.prune_observations(conn, cutoff_ms=T0)
+            conn.commit()
+            after = lfc.load_observation_index(conn)["L1"]
+        finally:
+            conn.close()
+        assert removed == 3
+        assert [o["observedMs"] for o in after] == [T0 + 4 * DAY, T0 + 7 * DAY]
+        assert {
+            t: lfc.bracketed_capture(caps, after, t)[2]["state"] for t in verdicts
+        } == verdicts, "compaction is lossless for the bracket"
+        assert verdicts[T0 + int(4.5 * DAY)] == lfc.CONFIRMATION_CHANGED
+
+
 # ── the ledger normalizer consumes them ──────────────────────────────────
 
 
@@ -226,8 +360,11 @@ class TestLedgerUsesCaptureInForceAtTrade:
             conn.close()
         obs, status = _obs(db, "T1")
         assert obs["formatSource"] == "sleeper_league_capture_full"
-        assert obs["formatEvidence"]["exactAtTradeTime"] is True
         assert obs["_format"].idp_enabled is True, "the later offense-only change is not used"
+        # ...but the format CHANGED after the trade, so the prior capture is
+        # not proven at trade time (the bracket): axes kept, exactness not.
+        assert obs["formatEvidence"]["exactAtTradeTime"] is False
+        assert obs["formatEvidence"]["confirmationAfterTrade"] == lfc.CONFIRMATION_CHANGED
         assert status["formatCaptures"]["tradesByFormatSource"] == {
             "sleeper_league_capture_full": 1
         }
@@ -494,22 +631,52 @@ def _group_disposition(obs):
 
 
 class TestFormatTimingCap:
-    def _seed(self, db, *, trade_ms, capture_ms):
+    def _seed(self, db, *, trade_ms, capture_ms, recheck_ms=None, recheck_league=None):
         ledger.ingest_events(_trade_events("T1", "L1", trade_ms), path=db)
         ledger.upsert_leagues([_league_row("L1")], path=db)
         conn = _conn(db)
         try:
             lfc.record_capture(conn, _league(), captured_ms=capture_ms, source="t")
+            if recheck_ms is not None:
+                lfc.record_capture(
+                    conn, recheck_league or _league(), captured_ms=recheck_ms, source="t"
+                )
             conn.commit()
         finally:
             conn.close()
 
-    def test_a_pre_trade_capture_can_reach_native_comparable(self, db):
-        self._seed(db, trade_ms=T0 + DAY, capture_ms=T0)
+    def test_a_bracketed_pre_trade_capture_can_reach_native_comparable(self, db):
+        # Capture before, a re-check after that saw the SAME payload.
+        self._seed(db, trade_ms=T0 + DAY, capture_ms=T0, recheck_ms=T0 + 2 * DAY)
         g, d = _group_disposition(_obs(db, "T1")[0])
         assert g["formatEvidence"]["exactAtTradeTime"] is True, "evidence travels with the group"
+        assert g["formatEvidence"]["confirmationAfterTrade"] == lfc.CONFIRMED
         assert d["disposition"] == mtf.NATIVE_COMPARABLE
         assert d["formatTimingCap"] is None
+
+    def test_a_pre_trade_capture_with_no_later_check_is_unconfirmed(self, db):
+        # However recent the capture, nothing has looked at the league since
+        # the trade: the settings could have changed in between.
+        self._seed(db, trade_ms=T0 + DAY, capture_ms=T0)
+        g, d = _group_disposition(_obs(db, "T1")[0])
+        assert g["formatEvidence"]["confirmationAfterTrade"] == lfc.CONFIRMATION_MISSING
+        assert d["disposition"] == mtf.TARGET_UNSUPPORTED
+        assert d["formatTimingCap"] == mtf.TIMING_CAP_UNCONFIRMED_AFTER_TRADE
+        assert d["formatTimingCap"] == "format_unconfirmed_after_trade"
+
+    def test_a_changed_hash_after_the_trade_is_capped_but_keeps_the_in_force_axes(self, db):
+        self._seed(
+            db,
+            trade_ms=T0 + DAY,
+            capture_ms=T0,
+            recheck_ms=T0 + 2 * DAY,
+            recheck_league=_league(roster_positions=OFFENSE_ONLY),
+        )
+        obs = _obs(db, "T1")[0]
+        assert obs["_format"].idp_enabled is True, "axes from the capture in force"
+        g, d = _group_disposition(obs)
+        assert d["formatTimingCap"] == mtf.TIMING_CAP_CHANGED_AFTER_TRADE
+        assert d["disposition"] == mtf.TARGET_UNSUPPORTED
 
     def test_a_post_trade_capture_is_capped_with_the_reason_recorded(self, db):
         # Identical format, every axis MATCHES — only the timing differs.
@@ -536,7 +703,22 @@ class TestFormatTimingCap:
                 "format_time_unknown",
             ),
             # A label claiming exactness without the flag is not proof.
-            ({"timing": "at_or_before_trade"}, None, "format_capture_timing_unproven"),
+            ({"timing": "at_or_before_trade"}, None, "format_unconfirmed_after_trade"),
+            # Nor is the flag without the bracket's confirmation.
+            (
+                {"timing": "at_or_before_trade", "exactAtTradeTime": True},
+                None,
+                "format_unconfirmed_after_trade",
+            ),
+            (
+                {
+                    "timing": "at_or_before_trade",
+                    "exactAtTradeTime": False,
+                    "confirmationAfterTrade": "changed_after_trade",
+                },
+                None,
+                "format_changed_after_trade",
+            ),
             # A capture-sourced format with NO dated evidence fails closed.
             (None, "sleeper_league_capture_full", "format_capture_timing_unproven"),
             (None, "host_capture_via_discovery", "format_capture_timing_unproven"),
@@ -562,8 +744,9 @@ class TestFormatTimingCap:
 
     def test_own_league_trade_also_seen_by_sharp_post_trade_stays_native(self, db):
         # The same host trade in both lanes: an own-league member whose format
-        # is dated AT OR BEFORE the trade (fresh registry card) represents the
-        # group, so a Sharp member's post-trade capture cannot cap it.
+        # is BRACKETED at the trade (its season capture, confirmed by a later
+        # re-fetch) represents the group, so a Sharp member's post-trade
+        # capture cannot cap it.
         from src.trade import market_trade_groups as grp
 
         self._seed(db, trade_ms=T0, capture_ms=T0 + DAY)
@@ -572,12 +755,13 @@ class TestFormatTimingCap:
             **sharp,
             "observationId": f"{N.SOURCE_OWN_LEAGUE}:dynasty_main:T1",
             "sourceFamily": N.SOURCE_OWN_LEAGUE,
-            "formatSource": "registry_and_scoring_card",
+            "formatSource": N.FORMAT_SOURCE_SEASON_LEAGUE,
             "formatEvidence": {
-                "basis": N.EVIDENCE_BASIS_REGISTRY,
+                "basis": N.EVIDENCE_BASIS_SEASON_LEAGUE,
                 "timing": lfc.TIMING_AT_OR_BEFORE,
                 "exactAtTradeTime": True,
-                "captureSource": "registry_scoring_snapshot",
+                "confirmationAfterTrade": lfc.CONFIRMED,
+                "captureSource": "own_league_season_chain_league_endpoint",
             },
             "_format": _target(),
             "leagueKey": "dynasty_main",
@@ -585,7 +769,7 @@ class TestFormatTimingCap:
         groups = grp.group_observations([sharp, own]).groups
         assert len(groups) == 1
         g = groups[0]
-        assert g["formatSource"] == "registry_and_scoring_card"
+        assert g["formatSource"] == N.FORMAT_SOURCE_SEASON_LEAGUE
         assert g["formatEvidence"]["exactAtTradeTime"] is True
         d = mtf.disposition(g["_format"], _target(), observation=g)
         assert d["disposition"] == mtf.NATIVE_COMPARABLE
@@ -594,6 +778,8 @@ class TestFormatTimingCap:
         assert mtf._TIMING_AT_OR_BEFORE == lfc.TIMING_AT_OR_BEFORE
         assert mtf._TIMING_POST_TRADE == lfc.TIMING_POST_TRADE
         assert mtf._TIMING_TRADE_TIME_UNKNOWN == lfc.TIMING_TRADE_TIME_UNKNOWN
+        assert mtf._CONFIRMED == lfc.CONFIRMED
+        assert mtf._CONFIRMATION_CHANGED == lfc.CONFIRMATION_CHANGED
         assert {
             N.FORMAT_SOURCE_CAPTURE_FULL,
             N.FORMAT_SOURCE_CAPTURE_POST_TRADE,
@@ -626,11 +812,15 @@ class TestKtcHostUpgradeTiming:
             "captureId": 1,
             "leagueId": "L1",
             "season": season,
+            "payloadSha256": lfc.payload_sha256(payload),
             "capturedMs": ms,
             "capturedAt": lfc._iso(ms),
             "captureSource": "t",
             "payload": payload,
         }
+
+    def _seen(self, cap, ms):
+        return {"season": cap["season"], "payloadSha256": cap["payloadSha256"], "observedMs": ms}
 
     def test_a_later_capture_upgrades_but_is_capped(self):
         obs = self._ktc("2026-09-01")
@@ -646,10 +836,25 @@ class TestKtcHostUpgradeTiming:
         d = mtf.disposition(obs["_format"], _target(), observation=obs)
         assert d["formatTimingCap"] == "format_time_unknown"
 
-    def test_a_prior_capture_is_exact_and_season_is_respected(self):
+    def test_a_prior_capture_is_exact_only_when_confirmed_past_the_day_window(self):
+        cap = self._cap(T0)
+        end = N._ktc_conservative_trade_end_ms("2026-12-01")
+        # Confirmed INSIDE the day window: the trade could still be later.
+        early = self._ktc("2026-12-01")
+        N.attach_host_formats(
+            [early],
+            captures={"L1": [cap]},
+            league_seasons={"L1": "2026"},
+            format_observations={"L1": [self._seen(cap, end - HOUR)]},
+        )
+        assert early["formatSource"] == N.FORMAT_SOURCE_KTC_HOST_UPGRADE
+        assert early["formatEvidence"]["exactAtTradeTime"] is False
         obs = self._ktc("2026-12-01")
         N.attach_host_formats(
-            [obs], captures={"L1": [self._cap(T0)]}, league_seasons={"L1": "2026"}
+            [obs],
+            captures={"L1": [cap]},
+            league_seasons={"L1": "2026"},
+            format_observations={"L1": [self._seen(cap, end)]},
         )
         assert obs["formatSource"] == N.FORMAT_SOURCE_KTC_HOST_UPGRADE
         assert obs["formatEvidence"]["exactAtTradeTime"] is True

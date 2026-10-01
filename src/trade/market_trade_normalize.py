@@ -508,6 +508,7 @@ def _sleeper_league_format(
     settings: Any,
     *,
     captures: list[Mapping[str, Any]] | None = None,
+    observations: list[Mapping[str, Any]] | None = None,
     trade_ms: int | None = None,
 ) -> tuple[mtf.TradeMarketFormat, str, dict[str, Any]]:
     """``(format, formatSource, formatEvidence)`` for one Sharp-discovery trade.
@@ -517,6 +518,11 @@ def _sleeper_league_format(
     capture is ``sleeper_league_capture_full``; when only a later capture of the
     same season exists it is used but labelled
     ``sleeper_league_capture_post_trade`` and never presented as exact-at-time.
+    A prior capture is EXACT only when bracketed -- a later observation
+    (``observations``, or a later capture) confirmed the same payload
+    (``league_format_capture.confirm_after_trade``); otherwise the evidence
+    says ``unconfirmed_after_trade`` / ``changed_after_trade`` and the
+    disposition caps it.
     With no capture, only the facts the discovery row itself carries (type,
     best-ball, roster count) are known and everything else is UNKNOWN — never
     inferred from the discovering user.
@@ -529,7 +535,9 @@ def _sleeper_league_format(
     legacy = lfc.legacy_settings_capture(str(league_row.get("league_id") or ""), settings)
     if legacy is not None:
         candidates.append(legacy)
-    cap, timing = lfc.capture_in_force(candidates, trade_ms, season=season)
+    cap, timing, confirmation = lfc.bracketed_capture(
+        candidates, observations, trade_ms, season=season
+    )
     if cap is not None:
         label = (
             FORMAT_SOURCE_CAPTURE_FULL
@@ -539,7 +547,7 @@ def _sleeper_league_format(
         return (
             mtf.format_from_sleeper_league(cap["payload"], captured_at=cap.get("capturedAt")),
             label,
-            lfc.evidence_dict(cap, timing),
+            lfc.evidence_dict(cap, timing, confirmation),
         )
     teams = league_row.get("total_rosters")
     partial = {
@@ -580,6 +588,33 @@ def load_format_captures(ledger_path: Path | None) -> tuple[dict[str, list[dict]
     return index, ("available" if index else "no_captures")
 
 
+def load_format_observations(ledger_path: Path | None) -> dict[str, list[dict]]:
+    """The append-only format OBSERVATION log (unchanged re-observations with
+    their payload hash -- the bracket's confirming evidence), read ``mode=ro``.
+    ``{}`` when unavailable: every bracket then reads unconfirmed (capped),
+    never confirmed."""
+    from src.sharp import league_format_capture as lfc  # noqa: PLC0415
+
+    if ledger_path is None:
+        try:
+            from src.intel import ledger as intel_ledger  # noqa: PLC0415
+
+            ledger_path = intel_ledger.default_path()
+        except Exception:  # noqa: BLE001
+            return {}
+    p = Path(ledger_path)
+    if not p.exists():
+        return {}
+    try:
+        conn = sqlite3.connect(f"file:{p.as_posix()}?mode=ro", uri=True)
+        try:
+            return lfc.load_observation_index(conn)
+        finally:
+            conn.close()
+    except sqlite3.DatabaseError:
+        return {}
+
+
 def load_league_seasons(ledger_path: Path | None) -> dict[str, str]:
     """``{league_id: season}`` from the intel ledger's ``leagues`` table, read
     ``mode=ro``.  Lets a KTC row (which states no season) select only captures
@@ -613,6 +648,7 @@ def sleeper_discovery_observations(
     ledger_path: Path | None = None,
     ctx: IdentityContext,
     captures: Mapping[str, list[dict[str, Any]]] | None = None,
+    observations: Mapping[str, list[dict[str, Any]]] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if ledger_path is None:
         try:
@@ -656,6 +692,8 @@ def sleeper_discovery_observations(
     capture_state = "provided"
     if captures is None:
         captures, capture_state = load_format_captures(p)
+    if observations is None:
+        observations = load_format_observations(p)
 
     grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for m in moves:
@@ -680,6 +718,7 @@ def sleeper_discovery_observations(
             {**lg, "league_id": league_id},
             settings,
             captures=captures.get(league_id),
+            observations=observations.get(league_id),
             trade_ms=int(created) if created is not None else None,
         )
         format_sources[fmt_source] = format_sources.get(fmt_source, 0) + 1
@@ -722,6 +761,7 @@ def sleeper_discovery_observations(
         "formatCaptures": {
             "state": capture_state,
             "leaguesWithCapture": len(captures),
+            "leaguesWithObservations": len(observations),
             "tradesByFormatSource": dict(sorted(format_sources.items())),
         },
     }
@@ -757,41 +797,35 @@ def _own_asset(asset_id: str, asset_kind: str, ctx: IdentityContext) -> dict[str
 #: it does not interpret them.
 FORMAT_SOURCE_SEASON_LEAGUE = "season_league_settings"
 FORMAT_SOURCE_SEASON_LEAGUE_POST_TRADE = "season_league_settings_post_trade"
+#: RETIRED -- no longer produced.  It certified the registry's undated
+#: starters / team count / roster size as exact whenever the scoring card had
+#: been fetched before the trade.  Kept (in ``CAPTURE_FORMAT_SOURCES``) so a
+#: stray row carrying it still fails closed.
 FORMAT_SOURCE_REGISTRY = "registry_and_scoring_card"
 FORMAT_SOURCE_REGISTRY_UNPROVEN = "registry_and_scoring_card_unproven_at_trade"
 FORMAT_SOURCE_SEASON_MISSING = "own_league_season_format_missing"
 
 #: ``formatEvidence.basis`` values for the own-league lane.
 EVIDENCE_BASIS_SEASON_LEAGUE = "season_league_settings"
-EVIDENCE_BASIS_REGISTRY = "registry_and_fresh_scoring_card"
-#: ``formatEvidence.timing`` for a current-season registry format whose
-#: scoring card is not ``fresh`` — capped as unproven, never exact.
-TIMING_SCORING_NOT_FRESH = "scoring_evidence_not_fresh"
-
-
-def _registry_card_capture(cfg: Any) -> tuple[int | None, str | None]:
-    """``(fetchedAt ms, fetchedAt iso)`` of the league's scoring-card snapshot,
-    read without fetching.  ``(None, None)`` when absent or undated."""
-    from src.api import league_registry as reg  # noqa: PLC0415
-
-    try:
-        text = reg.scoring_snapshot_path(cfg.sleeper_league_id).read_text(encoding="utf-8")
-        raw = json.loads(text)
-    except (OSError, ValueError, AttributeError):
-        return None, None
-    fetched = raw.get("fetchedAt") if isinstance(raw, dict) else None
-    return _parse_iso_ms(fetched), (str(fetched) if fetched else None)
+EVIDENCE_BASIS_REGISTRY = "registry_undated"
+#: ``formatEvidence.timing`` for the current-season registry fallback: the
+#: registry's slots and team count carry no date, so it is never exact.
+TIMING_REGISTRY_UNDATED = "registry_settings_undated"
 
 
 def _season_capture_result(
-    cap: Mapping[str, Any], timing: str | None, base: Mapping[str, Any], label: str
+    cap: Mapping[str, Any],
+    timing: str | None,
+    confirmation: Mapping[str, Any] | None,
+    base: Mapping[str, Any],
+    label: str,
 ) -> tuple[mtf.TradeMarketFormat, str, dict[str, Any]]:
     from src.sharp import league_format_capture as lfc  # noqa: PLC0415
 
     status = cap.get("leagueStatus")
     evidence = {
         **base,
-        **lfc.evidence_dict(cap, timing),
+        **lfc.evidence_dict(cap, timing, confirmation),
         "basis": EVIDENCE_BASIS_SEASON_LEAGUE,
         # A completed season's final settings are the best available evidence
         # for that season — NOT proof of the settings at trade time.
@@ -811,7 +845,6 @@ def _own_league_format(
     index: Any,
     current_league_id: str | None,
     registry_format: Callable[[], mtf.TradeMarketFormat],
-    registry_card: Callable[[], tuple[str, int | None, str | None]],
 ) -> tuple[mtf.TradeMarketFormat, str, dict[str, Any]]:
     """``(format, formatSource, formatEvidence)`` for ONE own-league trade, in
     the format of ITS OWN season-league — never today's league by default.
@@ -819,17 +852,22 @@ def _own_league_format(
     1. The trade's season-league: the event's own ``sleeperLeagueId``, else the
        registry chain's league for the trade's ``season``
        (``own_league_season_chain``, walked over ``previous_league_id``).
-    2. That league's dated capture in force (``capture_in_force`` — the Sharp
-       lane's rule).  At or before the trade → ``season_league_settings``,
-       exact.  Only later captures → ``season_league_settings_post_trade``:
-       for a completed season these are its final settings, the best available
-       evidence, but a mid-season change is unknowable from a later fetch, so
-       the timing cap holds the trade below NATIVE_COMPARABLE.
-    3. CURRENT season only (the trade's league IS the registry's league) with
-       no prior capture: the registry plus the scoring card counts as exact
-       only when the card is ``fresh`` AND was fetched at or before the trade
-       (``registry_and_scoring_card``).  Otherwise the same format is used but
-       capped (``registry_and_scoring_card_unproven_at_trade``).
+    2. That league's dated capture in force (``capture_in_force`` -- the Sharp
+       lane's rule).  At or before the trade -> ``season_league_settings``,
+       EXACT only when BRACKETED: a later observation of the same
+       season-league confirmed the same payload
+       (``league_format_capture.confirm_after_trade``); otherwise the evidence
+       says ``unconfirmed_after_trade`` / ``changed_after_trade`` and the
+       timing cap holds it.  Only later captures ->
+       ``season_league_settings_post_trade``: for a completed season these are
+       its final settings, the best available evidence, but a mid-season
+       change is unknowable from a later fetch, so it is capped too.
+    3. CURRENT season (the trade's league IS the registry's league) with no
+       season capture yet: the registry format, always capped
+       (``registry_and_scoring_card_unproven_at_trade``).  Its starters, team
+       count and roster size are undated hand-maintained config -- a fresh
+       scoring card proves only the card -- so it is never exact.  The season
+       capture replaces it after the first timer run.
     4. Anything else: format UNKNOWN (``own_league_season_format_missing``) —
        never today's format standing in for a past season.
     """
@@ -849,49 +887,34 @@ def _own_league_format(
         "season": season,
         "seasonLeagueResolution": resolution or "unresolved",
     }
-    cap, timing = (None, None)
+    cap, timing, confirmation = (None, None, None)
     if lid is not None:
-        cap, timing = lfc.capture_in_force(index.captures.get(lid), trade_ms, season=season)
-    if cap is not None and timing == lfc.TIMING_AT_OR_BEFORE:
-        return _season_capture_result(cap, timing, base, FORMAT_SOURCE_SEASON_LEAGUE)
-    is_current = lid is not None and current_league_id is not None and lid == current_league_id
-    if is_current and trade_ms is not None:
-        evidence_state, card_ms, card_iso = registry_card()
-        if evidence_state == "fresh" and card_ms is not None and card_ms <= trade_ms:
-            return (
-                registry_format(),
-                FORMAT_SOURCE_REGISTRY,
-                {
-                    **base,
-                    "basis": EVIDENCE_BASIS_REGISTRY,
-                    "timing": lfc.TIMING_AT_OR_BEFORE,
-                    "exactAtTradeTime": True,
-                    "capturedAt": card_iso,
-                    "captureSource": "registry_scoring_snapshot",
-                    "scoringEvidence": evidence_state,
-                },
-            )
+        cap, timing, confirmation = lfc.bracketed_capture(
+            index.captures.get(lid),
+            (getattr(index, "observations", None) or {}).get(lid),
+            trade_ms,
+            season=season,
+        )
     if cap is not None:
-        return _season_capture_result(cap, timing, base, FORMAT_SOURCE_SEASON_LEAGUE_POST_TRADE)
+        label = (
+            FORMAT_SOURCE_SEASON_LEAGUE
+            if timing == lfc.TIMING_AT_OR_BEFORE
+            else FORMAT_SOURCE_SEASON_LEAGUE_POST_TRADE
+        )
+        return _season_capture_result(cap, timing, confirmation, base, label)
+    is_current = lid is not None and current_league_id is not None and lid == current_league_id
     if is_current:
-        evidence_state, card_ms, card_iso = registry_card()
-        if trade_ms is None:
-            timing_label = lfc.TIMING_TRADE_TIME_UNKNOWN
-        elif evidence_state != "fresh" or card_ms is None:
-            timing_label = TIMING_SCORING_NOT_FRESH
-        else:
-            timing_label = lfc.TIMING_POST_TRADE
         return (
             registry_format(),
             FORMAT_SOURCE_REGISTRY_UNPROVEN,
             {
                 **base,
                 "basis": EVIDENCE_BASIS_REGISTRY,
-                "timing": timing_label,
+                "timing": (
+                    lfc.TIMING_TRADE_TIME_UNKNOWN if trade_ms is None else TIMING_REGISTRY_UNDATED
+                ),
                 "exactAtTradeTime": False,
-                "capturedAt": card_iso,
-                "captureSource": "registry_scoring_snapshot",
-                "scoringEvidence": evidence_state,
+                "reason": "no_season_league_capture",
             },
         )
     return (
@@ -959,15 +982,6 @@ def own_league_observations(
                 memo["fmt"] = mtf.format_from_registry(key, allow_stale_scoring=allow_stale_scoring)
             return memo["fmt"]
 
-        def _registry_card(
-            cfg: Any = cfg, memo: dict[str, Any] = memo
-        ) -> tuple[str, int | None, str | None]:
-            if "card" not in memo:
-                state = reg.scoring_evidence_state(cfg) if cfg is not None else "missing"
-                ms, iso = _registry_card_capture(cfg) if cfg is not None else (None, None)
-                memo["card"] = (state, ms, iso)
-            return memo["card"]
-
         try:
             rows = market_trades(key, path=acquisition_path)
         except Exception as exc:  # noqa: BLE001
@@ -984,7 +998,6 @@ def own_league_observations(
                 index=format_index,
                 current_league_id=current_lid,
                 registry_format=_registry_format,
-                registry_card=_registry_card,
             )
             format_sources[fmt_source] = format_sources.get(fmt_source, 0) + 1
             out.append(
@@ -1021,6 +1034,7 @@ def own_league_observations(
         "seasonFormats": {
             "state": format_index.state,
             "seasonLeaguesWithCapture": len(format_index.captures),
+            "seasonLeaguesWithObservations": len(getattr(format_index, "observations", {}) or {}),
             "tradesByFormatSource": dict(sorted(format_sources.items())),
         },
     }
@@ -1049,14 +1063,19 @@ def build_observations(
         observations += rows
         status[SOURCE_KTC] = st
     captures: dict[str, list[dict[str, Any]]] = {}
+    format_observations: dict[str, list[dict[str, Any]]] = {}
     league_seasons: dict[str, str] = {}
     if SOURCE_SLEEPER_DISCOVERY in wanted or SOURCE_KTC in wanted:
         captures, _capture_state = load_format_captures(intel_ledger_path)
+        format_observations = load_format_observations(intel_ledger_path)
     if SOURCE_KTC in wanted and captures:
         league_seasons = load_league_seasons(intel_ledger_path)
     if SOURCE_SLEEPER_DISCOVERY in wanted:
         rows, st = sleeper_discovery_observations(
-            ledger_path=intel_ledger_path, ctx=ctx, captures=captures
+            ledger_path=intel_ledger_path,
+            ctx=ctx,
+            captures=captures,
+            observations=format_observations,
         )
         observations += rows
         status[SOURCE_SLEEPER_DISCOVERY] = st
@@ -1070,7 +1089,12 @@ def build_observations(
         )
         observations += rows
         status[SOURCE_OWN_LEAGUE] = st
-    attach_host_formats(observations, captures=captures, league_seasons=league_seasons)
+    attach_host_formats(
+        observations,
+        captures=captures,
+        league_seasons=league_seasons,
+        format_observations=format_observations,
+    )
     for obs in observations:
         obs["marketFormat"] = obs["_format"].to_dict()
     return {
@@ -1096,11 +1120,25 @@ def _ktc_conservative_trade_ms(occurred_date: Any) -> int | None:
     return int((day - timedelta(days=1)).timestamp() * 1000)
 
 
+def _ktc_conservative_trade_end_ms(occurred_date: Any) -> int | None:
+    """The LATEST instant a KTC day-dated trade can have happened (00:00 UTC
+    of the day AFTER the stated date, same one-day tolerance).  A bracket
+    confirmation must be at or after it to cover the whole window."""
+    if not occurred_date:
+        return None
+    try:
+        day = datetime.fromisoformat(str(occurred_date)[:10]).replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    return int((day + timedelta(days=1)).timestamp() * 1000)
+
+
 def attach_host_formats(
     observations: list[dict[str, Any]],
     *,
     captures: Mapping[str, list[Mapping[str, Any]]] | None = None,
     league_seasons: Mapping[str, str] | None = None,
+    format_observations: Mapping[str, list[Mapping[str, Any]]] | None = None,
 ) -> int:
     """Give a vendor observation its HOST-captured format when one exists.
 
@@ -1121,7 +1159,12 @@ def attach_host_formats(
     The upgraded row carries ``formatEvidence`` like any Sharp observation, so
     the disposition's timing cap applies to it: a KTC upgrade from a capture
     taken after the (conservative) trade date, or with no trade date at all,
-    can never be NATIVE_COMPARABLE.
+    can never be NATIVE_COMPARABLE.  A capture in force at the earliest
+    possible trade instant is exact only when BRACKETED across the whole day
+    window: no different payload from that instant on, and a same-payload
+    observation (``format_observations`` or a later capture) at or after the
+    LATEST possible instant.  The fallback index (no ``captures``) carries no
+    observations, so it is never exact.
     """
     from src.sharp import league_format_capture as lfc  # noqa: PLC0415
 
@@ -1145,21 +1188,30 @@ def attach_host_formats(
             continue
         if obs.get("host") != "sleeper":
             continue
-        cap, timing = lfc.capture_in_force(
-            index.get(str(obs["hostLeagueId"])),
+        lid = str(obs["hostLeagueId"])
+        cap, timing, confirmation = lfc.bracketed_capture(
+            index.get(lid),
+            (format_observations or {}).get(lid) if captures else None,
             _ktc_conservative_trade_ms(obs.get("occurredDate")),
-            season=(league_seasons or {}).get(str(obs["hostLeagueId"])),
+            season=(league_seasons or {}).get(lid),
+            end_ms=_ktc_conservative_trade_end_ms(obs.get("occurredDate")),
         )
         if cap is None:
             continue
         if "_format" in cap:
+            # Fallback index: Sharp evidence dicts carry no observation
+            # history, so this can select a format but never prove it.
             fmt = cap["_format"]
             evidence = {k: v for k, v in cap.items() if k not in ("_format", "capturedMs")}
             evidence["timing"] = timing
-            evidence["exactAtTradeTime"] = timing == lfc.TIMING_AT_OR_BEFORE
+            evidence["exactAtTradeTime"] = False
+            evidence["confirmationAfterTrade"] = (
+                lfc.CONFIRMATION_MISSING if timing == lfc.TIMING_AT_OR_BEFORE else None
+            )
+            evidence["confirmedAt"] = None
         else:
             fmt = mtf.format_from_sleeper_league(cap["payload"], captured_at=cap.get("capturedAt"))
-            evidence = lfc.evidence_dict(cap, timing)
+            evidence = lfc.evidence_dict(cap, timing, confirmation)
         obs["vendorFormat"] = obs["_format"].to_dict()
         obs["_format"] = fmt
         obs["formatSource"] = (

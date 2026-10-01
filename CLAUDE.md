@@ -2180,11 +2180,19 @@ already fetch, plus a budgeted `GET /v1/league/{id}` catch-up pass run by the
 transaction-crawl timer (`--format-budget`).  The ledger normalizer picks the
 capture in force at each trade (`capture_in_force`: nearest prior →
 `sleeper_league_capture_full`; only a later one → `…_post_trade`, never exact;
-none → UNKNOWN).  Evidence only — it touches no value.  **Only a capture taken
-at or before the trade can certify NATIVE_COMPARABLE**: `formatEvidence` travels
-onto the group and `market_trade_format.format_timing_cap` holds a post-trade,
-trade-time-unknown or undated capture at TARGET_UNSUPPORTED with the reason named
-(→ BROAD_CONTEXT when that tier lands).  Dynasty leagues only (best ball and
+none → UNKNOWN).  Evidence only — it touches no value.  **Exact at trade time
+is a BRACKET**: a capture at or before the trade AND a later observation, at or
+after the trade, that saw the SAME payload hash with no different hash between
+(`confirm_after_trade`, over the append-only `sharp_league_format_observations`
+log of unchanged re-observations plus later captures).  The nearest prior
+capture alone only SELECTS the axes — a capture months old certifies nothing.
+`formatEvidence` travels onto the group and
+`market_trade_format.format_timing_cap` holds every unproven case at
+TARGET_UNSUPPORTED with the reason named — `format_unconfirmed_after_trade`,
+`format_changed_after_trade`, post-trade, trade-time-unknown, undated snapshot
+(→ BROAD_CONTEXT when that tier lands).  Latency: exact at the league's next
+observation (discovery / roster crawl daily, else the weekly catch-up re-check).
+Residual: a change AND revert strictly between two observations is invisible.  Dynasty leagues only (best ball and
 non-target dynasty formats kept); retention via `prune_captures` from
 `ledger.prune`; the catch-up pass stops on HTTP 429 and must not overlap another
 Sharp timer.
@@ -2197,13 +2205,17 @@ season-league's format with the SAME capture owner functions, in its own
 box-local store (`data/leagues/own_league_format_captures.sqlite`, kept
 indefinitely — the intel ledger's prune would drop completed seasons).  It runs
 as the third pass of the transaction-crawl timer; a completed season is fetched
-once, then frozen.  `market_trade_normalize._own_league_format` decides: a
-season capture at or before the trade → `season_league_settings` (exact); only
-a later one — including a completed season's final settings fetched now, which
-cannot rule out a mid-season change → `…_post_trade` (capped); current season
-only, a FRESH registry card fetched at or before the trade →
-`registry_and_scoring_card` (exact), else `…_unproven_at_trade` (capped); no
-season-league → format UNKNOWN, never today's.  Every own-league label is in
+once, then frozen; the current season is re-fetched every run (own budget,
+`--own-league-format-budget`; skipped when the Sharp pass hit a 429).
+`market_trade_normalize._own_league_format` decides: a season capture at or
+before the trade → `season_league_settings`, exact only under the same BRACKET
+(a later re-fetch confirmed the same hash — ~6 h latency at the 4x/day timer);
+only a later one — including a completed season's final settings fetched now,
+which cannot rule out a mid-season change → `…_post_trade` (capped); current
+season with no season capture yet → the registry format, ALWAYS capped
+(`…_unproven_at_trade` — its slots / team count are undated config; the old
+exact `registry_and_scoring_card` label is retired); no season-league → format
+UNKNOWN, never today's.  Every own-league label is in
 `CAPTURE_FORMAT_SOURCES`, so a row without dated evidence fails closed, and an
 undated legacy snapshot (`…_time_unknown`) is capped even before the trade.
 

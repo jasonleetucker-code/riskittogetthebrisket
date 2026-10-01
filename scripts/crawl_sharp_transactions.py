@@ -40,7 +40,13 @@ transaction pass.
 The same run then captures OUR registered leagues' per-season formats
 (previous_league_id chain; src/trade/own_league_format_capture.py) so the
 ledger classifies own-league trades in their own season's format. Skipped
-with --format-budget 0 or --league.
+with --format-budget 0 or --league, and skipped when the Sharp format pass
+stopped on an HTTP 429 (same public IP -- one shared stop). It spends its OWN
+small budget (--own-league-format-budget, default
+own_league_format_capture.DEFAULT_RUN_BUDGET), NOT --format-budget: the Sharp
+pass routinely spends all of that on its backlog, which would starve the
+current-season re-fetch that confirms own-league trades (the bracket). A 429
+inside the own-league pass stops the remaining own leagues too.
 
 The pass stops at the first HTTP 429 (``stoppedReason: rate_limited``)
 rather than reading it as a deleted league. Every Sharp crawl shares the
@@ -67,7 +73,13 @@ from src.sharp import league_format_capture, transactions  # noqa: E402
 log = logging.getLogger("crawl_sharp_transactions")
 
 
-def _capture_own_league_formats() -> list[dict]:
+def _capture_own_league_formats(
+    *,
+    budget: int,
+    sharp_stopped_reason: str | None = None,
+    configs: list | None = None,
+    refresh=None,
+) -> dict:
     """Per-season format captures for OUR registered leagues (third pass).
 
     The completed-trade ledger classifies each own-league trade in its OWN
@@ -75,25 +87,51 @@ def _capture_own_league_formats() -> list[dict]:
     rather than in its own timer so it shares this timer's slot on the box's
     public IP; it costs one request per league once the completed seasons are
     captured (they are frozen after one fetch).  Never fails the run.
+
+    Shared 429 stop: skipped entirely when the Sharp format pass stopped
+    ``rate_limited``, and a 429 inside it stops the remaining own leagues.
+    ``budget`` is this pass's own request cap, shared across the leagues.
     """
-    from src.api import league_registry  # noqa: PLC0415
     from src.trade import own_league_format_capture  # noqa: PLC0415
 
-    out: list[dict] = []
-    try:
-        configs = list(league_registry.active_leagues())
-    except Exception as exc:  # noqa: BLE001
-        return [{"error": f"registry_unreadable:{type(exc).__name__}: {exc}"}]
-    for cfg in configs:
+    if sharp_stopped_reason == "rate_limited":
+        return {"skipped": "sharp_format_pass_rate_limited", "budget": budget, "leagues": []}
+    if budget <= 0:
+        return {"skipped": "own_league_format_budget_zero", "budget": budget, "leagues": []}
+    refresh = refresh or own_league_format_capture.refresh_own_league_formats
+    if configs is None:
+        from src.api import league_registry  # noqa: PLC0415
+
         try:
-            res = own_league_format_capture.refresh_own_league_formats(
-                cfg.key, root_league_id=cfg.sleeper_league_id, sleep_s=0.12
+            configs = list(league_registry.active_leagues())
+        except Exception as exc:  # noqa: BLE001
+            return {"error": f"registry_unreadable:{type(exc).__name__}: {exc}", "leagues": []}
+    out: list[dict] = []
+    used = 0
+    stopped: str | None = None
+    for cfg in configs:
+        if stopped is not None:
+            out.append({"leagueKey": cfg.key, "skipped": stopped})
+            continue
+        if used >= budget:
+            stopped = "own_league_format_budget_exhausted"
+            out.append({"leagueKey": cfg.key, "skipped": stopped})
+            continue
+        try:
+            res = refresh(
+                cfg.key,
+                root_league_id=cfg.sleeper_league_id,
+                sleep_s=0.12,
+                max_fetches=budget - used,
             )
+            used += int(res.leagues_fetched)
             out.append(res.to_dict())
+            if res.stopped_reason == "rate_limited":
+                stopped = "rate_limited"
         except Exception as exc:  # noqa: BLE001
             log.exception("own-league format capture failed for %s", cfg.key)
             out.append({"leagueKey": cfg.key, "error": f"{type(exc).__name__}: {exc}"})
-    return out
+    return {"budget": budget, "callsUsed": used, "stoppedReason": stopped, "leagues": out}
 
 
 def main() -> int:
@@ -115,6 +153,15 @@ def main() -> int:
         type=int,
         default=league_format_capture.DEFAULT_BUDGET,
         help="Sleeper calls for the league-format capture pass (0 skips it).",
+    )
+    parser.add_argument(
+        "--own-league-format-budget",
+        type=int,
+        default=None,
+        help=(
+            "Sleeper calls for the own-league per-season format pass (separate from "
+            "--format-budget; default own_league_format_capture.DEFAULT_RUN_BUDGET)."
+        ),
     )
     parser.add_argument(
         "--formats-only",
@@ -154,6 +201,7 @@ def main() -> int:
             tx_pending = bool(result.leagues_pending)
 
         format_pending = False
+        sharp_stopped: str | None = None
         if args.format_budget > 0:
             try:
                 fmt = league_format_capture.capture_league_formats(
@@ -162,6 +210,7 @@ def main() -> int:
                 payload["leagueFormats"] = fmt.to_dict()
                 payload["leagueFormatCoverage"] = league_format_capture.capture_coverage()
                 format_pending = bool(fmt.leagues_pending)
+                sharp_stopped = fmt.stopped_reason
             except Exception as exc:  # noqa: BLE001 — never fails the tx pass
                 log.exception("sharp league-format capture pass failed")
                 payload["leagueFormats"] = {"error": f"{type(exc).__name__}: {exc}"}
@@ -169,7 +218,16 @@ def main() -> int:
                     print(json.dumps(payload, indent=2))
                     return 1
             if not args.leagues:
-                payload["ownLeagueFormats"] = _capture_own_league_formats()
+                from src.trade import own_league_format_capture  # noqa: PLC0415
+
+                own_budget = (
+                    args.own_league_format_budget
+                    if args.own_league_format_budget is not None
+                    else own_league_format_capture.DEFAULT_RUN_BUDGET
+                )
+                payload["ownLeagueFormats"] = _capture_own_league_formats(
+                    budget=own_budget, sharp_stopped_reason=sharp_stopped
+                )
         print(json.dumps(payload, indent=2))
         # Partial is normal on a large graph — the next run continues
         # from the cursor, uncrawled leagues first.

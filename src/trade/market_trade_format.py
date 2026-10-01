@@ -703,6 +703,12 @@ DEFAULT_REGISTRY = TranslatorRegistry()
 TIMING_CAP_POST_TRADE = "format_capture_post_trade"
 TIMING_CAP_TIME_UNKNOWN = "format_time_unknown"
 TIMING_CAP_UNPROVEN = "format_capture_timing_unproven"
+#: The bracket (``league_format_capture.confirm_after_trade``): a capture at or
+#: before the trade proves exactness only once a LATER observation confirms the
+#: same payload.  None yet -> unconfirmed; a different payload after the trade
+#: -> changed (the in-force capture still supplies the axes).
+TIMING_CAP_UNCONFIRMED_AFTER_TRADE = "format_unconfirmed_after_trade"
+TIMING_CAP_CHANGED_AFTER_TRADE = "format_changed_after_trade"
 #: A legacy snapshot with no original ``capturedAt`` (capture source ending
 #: ``_time_unknown``).  It is stored at the migration instant — an upper bound
 #: on when it existed, NOT when it was taken — so it can be older than any
@@ -719,6 +725,9 @@ FORMAT_TIMING_AXIS = "formatCaptureTiming"
 _TIMING_AT_OR_BEFORE = "at_or_before_trade"
 _TIMING_POST_TRADE = "post_trade_capture"
 _TIMING_TRADE_TIME_UNKNOWN = "trade_time_unknown"
+#: ``formatEvidence.confirmationAfterTrade`` values (same pinning).
+_CONFIRMED = "confirmed"
+_CONFIRMATION_CHANGED = "changed_after_trade"
 
 #: ``formatSource`` labels whose format came from a DATED host capture, so its
 #: timing must be proven before it can price the target.
@@ -733,6 +742,8 @@ CAPTURE_FORMAT_SOURCES = frozenset(
         # every past season with no timing at all.
         "season_league_settings",
         "season_league_settings_post_trade",
+        # RETIRED label (no longer produced: the registry format is never
+        # exact).  Kept so a stray row carrying it still fails closed.
         "registry_and_scoring_card",
         "registry_and_scoring_card_unproven_at_trade",
         "own_league_season_format_missing",
@@ -757,10 +768,18 @@ def format_timing_cap(observation: Mapping[str, Any] | None) -> str | None:
     capped even when it sits before the trade (``format_capture_undated_snapshot``):
     its stored instant is only an upper bound on when it existed.
 
-    Own-league formats are dated too (the trade's OWN season-league capture, or
-    the registry + a fresh scoring card fetched at or before the trade — see
-    ``market_trade_normalize._own_league_format``); their labels are in
-    :data:`CAPTURE_FORMAT_SOURCES`, so one without evidence fails closed.
+    A capture at or before the trade is exact only when BRACKETED: a later
+    observation confirmed the same payload (``confirmationAfterTrade ==
+    "confirmed"`` AND ``exactAtTradeTime``).  No such observation yet ->
+    ``format_unconfirmed_after_trade``; a different payload after the trade ->
+    ``format_changed_after_trade``.  Evidence claiming exactness without the
+    confirmation is not proof and is capped as unconfirmed.
+
+    Own-league formats are dated too (the trade's OWN season-league capture,
+    under the same bracket — see ``market_trade_normalize._own_league_format``);
+    their labels are in :data:`CAPTURE_FORMAT_SOURCES`, so one without evidence
+    fails closed.  The registry format is never exact: its starters, team count
+    and roster size are undated hand-maintained config.
     Formats that are not dated captures (a vendor summary, a partial discovery
     row) carry no ``formatEvidence`` and are unaffected here.
 
@@ -775,8 +794,13 @@ def format_timing_cap(observation: Mapping[str, Any] | None) -> str | None:
     if timing is not None:
         if str(ev.get("captureSource") or "").endswith(_UNDATED_CAPTURE_SUFFIX):
             return TIMING_CAP_UNDATED_SNAPSHOT
-        if timing == _TIMING_AT_OR_BEFORE and ev.get("exactAtTradeTime") is True:
-            return None
+        if timing == _TIMING_AT_OR_BEFORE:
+            confirmation = ev.get("confirmationAfterTrade")
+            if ev.get("exactAtTradeTime") is True and confirmation == _CONFIRMED:
+                return None
+            if confirmation == _CONFIRMATION_CHANGED:
+                return TIMING_CAP_CHANGED_AFTER_TRADE
+            return TIMING_CAP_UNCONFIRMED_AFTER_TRADE
         if timing == _TIMING_TRADE_TIME_UNKNOWN:
             return TIMING_CAP_TIME_UNKNOWN
         if timing == _TIMING_POST_TRADE:

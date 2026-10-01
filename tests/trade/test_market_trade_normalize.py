@@ -185,6 +185,27 @@ def _trade_events(tx="T1", league="L-SYN-1"):
     ]
 
 
+#: A re-check AFTER every fixture trade (2026-10-03T00:00Z) — the bracket's
+#: confirming observation (``league_format_capture.confirm_after_trade``).
+CONFIRM_MS = 1_790_985_600_000
+
+
+def confirm_formats(intel, leagues, *, at_ms=CONFIRM_MS):
+    """Record a later re-observation of each league's SAME payload, so a
+    capture taken before a fixture trade is bracketed (exact at trade time).
+    Call after ``upsert_leagues`` (the schema step migrates legacy snapshots)."""
+    from src.sharp import league_format_capture as lfc
+
+    conn = ledger.connect(intel)
+    try:
+        lfc.ensure_schema(conn)
+        for lg in leagues:
+            lfc.record_capture(conn, lg, captured_ms=at_ms, source="test_recheck")
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def _league_row(league_id="L-SYN-1", *, captured=True, via="u9"):
     lg = sleeper_league(league_id)
     settings = {"type": 2, "bestBall": 1, "signalEligible": True, "sharpEligible": True}

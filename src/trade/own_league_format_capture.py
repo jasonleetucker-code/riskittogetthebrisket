@@ -31,8 +31,10 @@ snapshots in ``data/leagues/``, gitignored):
 * the capture tables of the Sharp league-format capture owner
   (``src/sharp/league_format_capture.py``), REUSED rather than re-invented:
   ``record_capture`` (append-only, dated, a row only when the payload differs
-  from the capture in force), ``load_capture_index`` and ``capture_in_force``
-  (the nearest-prior / post-trade / time-unknown rule) are called as-is.  Own
+  from the capture in force; an unchanged re-fetch appends its payload hash to
+  the observation log), ``load_capture_index`` / ``load_observation_index``
+  and ``bracketed_capture`` (nearest-prior selection + the bracket) are called
+  as-is.  Own
   leagues are just Sleeper leagues, so the stored payload and the format read
   back from it (``format_from_sleeper_league``) are identical to the Sharp lane.
 
@@ -65,8 +67,15 @@ path may import a format-capture owner (pinned by
 
 POINT-IN-TIME RULE (decided in ``market_trade_normalize._own_league_format``)
 ─────────────────────────────────────────────────────────────────────────────
-A capture describes a trade exactly only when it was taken AT OR BEFORE the
-trade.  A completed season's settings fetched now are the BEST AVAILABLE
+A capture describes a trade exactly only when it is BRACKETED: taken AT OR
+BEFORE the trade, AND a later re-fetch of the same season-league (at or after
+the trade) saw the SAME payload hash (``league_format_capture.
+confirm_after_trade``).  The current season is re-fetched every timer run
+(4x/day), so a current-season trade becomes exact at the next run after it —
+latency up to ~6 h; until then it is capped ``format_unconfirmed_after_trade``.
+A different hash after the trade caps it ``format_changed_after_trade``.  The
+registry format (undated hand-maintained slots / team count) never certifies
+anything; it is only a capped fallback before the first season capture.  A completed season's settings fetched now are the BEST AVAILABLE
 evidence for that season (``season_league_settings``) — Sleeper settings are
 frozen once a league completes — but they are not proof of the settings at
 trade time, because a mid-season change is unknowable from a later fetch.  So
@@ -104,6 +113,14 @@ _FILE_NAME = "own_league_format_captures.sqlite"
 #: Upper bound on chain hops — and so on requests per league per run.  Same
 #: bound ``league_comparison.season_scoring`` uses for the same walk.
 MAX_CHAIN_HOPS = 12
+
+#: Requests the transaction-crawl timer's own-league pass may spend per run,
+#: across ALL registered leagues — a small SEPARATE budget, not
+#: ``--format-budget`` (the Sharp catch-up pass routinely spends all of that on
+#: its backlog, which would starve the current-season re-fetch the bracket
+#: needs).  Steady state is one request per league; a fresh store needs one
+#: per season-league in each chain.
+DEFAULT_RUN_BUDGET = 2 * MAX_CHAIN_HOPS
 
 _CHAIN_SCHEMA = """
 CREATE TABLE IF NOT EXISTS own_league_season_chain (
@@ -187,6 +204,7 @@ def refresh_own_league_formats(
     http_get: Callable[[str], Any] | None = None,
     clock_ms: Callable[[], int] | None = None,
     max_hops: int = MAX_CHAIN_HOPS,
+    max_fetches: int | None = None,
     sleep_s: float = 0.0,
     sleep_fn: Callable[[float], None] = time.sleep,
 ) -> OwnLeagueFormatRefresh:
@@ -196,6 +214,8 @@ def refresh_own_league_formats(
     lock is never held across network I/O.
 
     ``root_league_id`` defaults to the registry's current Sleeper league id.
+    ``max_fetches`` caps the requests this call may make (a shared run budget);
+    reaching it stops the walk with ``stopped_reason="budget_exhausted"``.
     """
     if root_league_id is None:
         from src.api import league_registry  # noqa: PLC0415
@@ -248,6 +268,10 @@ def refresh_own_league_formats(
                 result.outcomes[current] = "frozen_complete"
                 current = _clean_id(chain[current][1])
                 continue
+            if max_fetches is not None and fetches >= max_fetches:
+                result.stopped_reason = "budget_exhausted"
+                result.outcomes[current] = "budget_exhausted"
+                break
             if fetches and sleep_s:
                 sleep_fn(sleep_s)
             try:
@@ -311,6 +335,9 @@ class OwnLeagueFormatIndex:
     #: ``{league_key: {season: league_id}}``.
     seasons: Mapping[str, Mapping[str, str]]
     state: str
+    #: ``{league_id: [observation, ...]}`` oldest-first
+    #: (``lfc.load_observation_index``) — the bracket's confirming re-fetches.
+    observations: Mapping[str, list[dict[str, Any]]] = field(default_factory=dict)
 
     def league_for_season(self, league_key: str, season: Any) -> str | None:
         if season is None:
@@ -334,9 +361,13 @@ def load_index(path: Path | None = None) -> OwnLeagueFormatIndex:
         conn = sqlite3.connect(f"file:{p.as_posix()}?mode=ro", uri=True)
         try:
             captures = lfc.load_capture_index(conn)
+            observations = lfc.load_observation_index(conn)
             try:
+                # Oldest link first, so "first writer wins" below is the
+                # EARLIEST-recorded league for a season, deterministically.
                 rows = conn.execute(
-                    "SELECT league_key, league_id, season FROM own_league_season_chain"
+                    "SELECT league_key, league_id, season FROM own_league_season_chain "
+                    "ORDER BY first_seen_ms, league_key, league_id"
                 ).fetchall()
             except sqlite3.OperationalError as exc:
                 if "no such table" not in str(exc).lower():
@@ -351,11 +382,13 @@ def load_index(path: Path | None = None) -> OwnLeagueFormatIndex:
     seasons: dict[str, dict[str, str]] = {}
     for key, lid, season in rows:
         if key and lid and season:
-            # One league per season in a well-formed chain; first writer wins
-            # on a malformed one rather than silently swapping.
+            # One league per season in a well-formed chain; on a malformed one
+            # the earliest-recorded link wins (rows are ordered by
+            # first_seen_ms) rather than silently swapping.
             seasons.setdefault(str(key), {}).setdefault(str(season), str(lid))
     return OwnLeagueFormatIndex(
         captures=captures,
         seasons=seasons,
         state="available" if captures else "no_captures",
+        observations=observations,
     )
