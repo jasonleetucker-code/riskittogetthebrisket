@@ -46,6 +46,7 @@ from datetime import date
 from typing import Any, Iterable, Mapping, Sequence
 
 from src.identity.picks import parse_market_pick_id
+from src.sources.ktc_market import KTC_MARKET_KEY
 from src.trade.ktc_va import adjusted_pair_totals
 
 TOPO_1_FOR_1 = "two_team_1_for_1"
@@ -65,7 +66,7 @@ FIT_UNSUITABLE = "unsuitable"
 #: used for labelling the report.
 VALUE_DIRECT_SOURCES = ("ktcCrowdSfTep", "ktcTradesSfTep", "idpTradeCalc")
 #: Sources derived (wholly or partly) from KTC's own trade population.
-KTC_TRADE_DERIVED = ("ktcTradesSfTep", "ktcCrowdTradesSfTep", "ktcMarket")
+KTC_TRADE_DERIVED = ("ktcTradesSfTep", KTC_MARKET_KEY, "ktcMarket")
 
 DEFAULT_MAX_BOARD_LAG_DAYS = 7
 
