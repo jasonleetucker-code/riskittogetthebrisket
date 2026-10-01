@@ -1,0 +1,57 @@
+[Unit]
+Description=Weekly point-in-time pick-forecast / team-strength snapshot for __SERVICE_NAME__
+After=network-online.target
+Wants=network-online.target
+
+# AL-P4 (Adaptive Learning directive section 10 + section 21 "capture first";
+# perishable audit docs/BRISKET_IDEAS.md section 13.4). The Pick Projector is
+# computed per request off the CURRENT team_ros_strength, which is overwritten
+# in place, so the state a forecast was made from at week N cannot be rebuilt
+# later. This records, per active league and per Sleeper NFL week, each team's
+# strength / depth / injuries / roster / record / points / all-play /
+# remaining schedule / roster quality / age, current pick ownership by
+# canonical pick id, the forecast the Pick Projector serves with its model
+# identity, and the league's playoff/draft rules -- all read from the existing
+# canonical owners -- to the append-only monthly
+# data/pick_forecast_snapshots/ledger-YYYY-MM.jsonl (scripts/snapshot_pick_forecast.py).
+#
+# CAPTURE ONLY. Nothing reads the store; nothing served changes (team strength
+# is read with persist=False). Missing inputs are recorded as null WITH a
+# reason, never zero. Private and box-local: the directory is gitignored and is
+# NOT under data/ros/, which the scheduled refresh force-adds to git.
+#
+# Idempotent: first write wins per (league, season, season type, week), so a
+# re-run in the same NFL week is a no-op.
+#
+# Exit codes: 0 recorded (or already recorded this week); 1 Sleeper's NFL state
+# unreadable (no week is guessed), no league configured, or a league failed.
+# systemd reports 1 as a unit failure so the journal shows it.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+# The same .env the API reads, so the contract built for roster quality is
+# built under the flags production serves.
+EnvironmentFile=-__APP_DIR__/.env
+Environment=PYTHONUTF8=1
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+# Write scope is the checkout's data/ dir, which always exists. The store
+# (data/pick_forecast_snapshots) is created on first run, so it must not be
+# named here: systemd cannot bind-mount a path that does not exist yet
+# (226/NAMESPACE).
+ReadWritePaths=__APP_DIR__/data
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/snapshot_pick_forecast.py record
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=900
+# Background bookkeeping -- never user-facing.
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target
