@@ -167,7 +167,6 @@ class TestOneManifest:
                 BoardSpec("KTCMarket", KTC_MARKET_KEY, "OFFENSE", "train", "value"),
                 BoardSpec("DynastyDaddy", "dynastyDaddySf", "OFFENSE", "holdout", "value"),
             ),
-            dependences=(),
         )
         (b,) = [b for b in m.boards if b.label == "KTCMarket"]
         assert b.role == "excluded" and "benchmark" in (b.exclusion_reason or "")
@@ -195,9 +194,7 @@ class TestRankOnlyNeverTeachesSpacing:
     def test_a_rank_only_board_is_refused_as_a_trainer(self):
         from src.model_registry.training_manifest import BoardSpec, build_manifest
 
-        m = build_manifest(
-            specs=(BoardSpec("DLFRank", "dlfSf", "OFFENSE", "train", None),), dependences=()
-        )
+        m = build_manifest(specs=(BoardSpec("DLFRank", "dlfSf", "OFFENSE", "train", None),))
         (b,) = m.boards
         assert b.role == "excluded"
         assert b.spacing_evidence == "rank_only"
@@ -209,7 +206,6 @@ class TestRankOnlyNeverTeachesSpacing:
         with pytest.raises(ManifestError):
             build_manifest(
                 specs=(BoardSpec("Boone", "yahooBoone", "OFFENSE", "train", "rank"),),
-                dependences=(),
             )
 
     def test_snapshot_slices_of_rank_signal_sources_are_synthetic_and_refused(self):
@@ -274,7 +270,6 @@ class TestHoldoutFamilies:
                 BoardSpec("FantasyNavigator", "fantasyNavigatorSf", "OFFENSE", "train", "value"),
                 BoardSpec("KTCCrowd", "ktcCrowdSfTep", "OFFENSE", "holdout", "value"),
             ),
-            dependences=(),
         )
         assert m.holdouts("OFFENSE") == ()
 
@@ -284,6 +279,7 @@ class TestHoldoutFamilies:
             evaluate_offense_master(0.11, 1.11, holdout_sources={"FN": fn})
 
     def test_measured_dependence_is_reported_not_confused_with_ancestry(self):
+        """Measured dependence keeps a board IN the split, tagged: it is not ancestry."""
         from src.model_registry.training_manifest import default_manifest
 
         m = default_manifest()
@@ -293,9 +289,11 @@ class TestHoldoutFamilies:
         assert any(
             d.trainer_family == "dynastyDaddySf" for d in held["fantasyCalc"].measured_dependence
         )
-        assert held["otcffbSf"].measured_dependence == ()
 
-    def test_measured_dependence_exclusion_is_an_explicit_policy(self):
+    def test_dependence_exclusion_is_an_explicit_policy(self):
+        """Under ``exclude`` every board that is not lineage-independent leaves the
+        split -- today that is all three OFFENSE holdouts, which is exactly the D2
+        finding that no ancestry-safe board holdout exists."""
         from src.model_registry.training_manifest import (
             HoldoutPolicy,
             TrainingPolicy,
@@ -306,13 +304,14 @@ class TestHoldoutFamilies:
             policy=TrainingPolicy(holdout=HoldoutPolicy(measured_dependence="exclude"))
         )
         held = {b.source_key for b in m.holdouts("OFFENSE")}
-        assert "pfkDynasty" not in held and "fantasyCalc" not in held
-        assert "otcffbSf" in held
+        assert {"pfkDynasty", "fantasyCalc", "otcffbSf"}.isdisjoint(held)
+        reasons = {b.source_key: b.exclusion_reason for b in m.excluded("OFFENSE")}
+        assert reasons["otcffbSf"].startswith("lineage_dependence:")
 
     def test_holdout_result_publishes_independent_and_dependent_views(self):
         result = evaluate_offense_master(0.11, 1.11)
         blob = result.to_dict()
         assert "PFKDynasty" in blob["measuredDependence"]
-        assert "OTCFFB" not in blob["measuredDependence"]
-        assert blob["independentCriterion"] == pytest.approx(result.per_source["OTCFFB"], abs=1e-3)
+        assert "OTCFFB" in blob["measuredDependence"]
+        assert set(blob["lineageDependence"]) == set(blob["perSource"])
         assert set(blob["holdoutFamilies"]) >= {"otcffbSf", "pfkDynasty", "fantasyCalc"}

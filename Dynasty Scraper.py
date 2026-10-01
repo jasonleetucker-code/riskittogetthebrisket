@@ -73,6 +73,19 @@ from src.sources.ktc_value_sources import (  # noqa: E402
     write_capture_artifacts,
 )
 
+# AL-P3: KTC format-variant archive (evidence only — never a vote, never a
+# CSV).  Imported defensively: a broken archive module must not be able to
+# stop this scraper from importing, so absence degrades to "not archived".
+try:
+    from src.sources.ktc_format_archive import (  # noqa: E402
+        archive_variants_safely as _archive_ktc_format_variants,
+        selected_hashes as _ktc_selected_hashes,
+    )
+except Exception as _ktc_fmt_import_exc:  # noqa: BLE001
+    print(f"  [KTC] format-variant archive unavailable: {_ktc_fmt_import_exc}", flush=True)
+    _archive_ktc_format_variants = None
+    _ktc_selected_hashes = None
+
 # ── C1-ID-01: the name-matching primitives this file defined are now
 # owned by the canonical identity package and imported back, so this
 # scraper is an ADAPTER over src/identity rather than a second
@@ -160,6 +173,16 @@ def _env_int(name, default):
     except Exception:
         pass
     return int(default)
+
+
+def _ktc_source_timeout_s():
+    """The KTC stage's outer time limit, in seconds.
+
+    ONE definition, read both by the orchestrator (which wraps
+    ``scrape_ktc`` in ``asyncio.wait_for`` with it) and by ``scrape_ktc``
+    itself (which must not start optional work that cannot finish inside it).
+    """
+    return _env_int("SCRAPER_SOURCE_TIMEOUT_KTC", _env_int("SCRAPER_SOURCE_TIMEOUT_DEFAULT", 300))
 
 
 def _env_str(name, default=""):
@@ -2455,6 +2478,48 @@ async def scrape_ktc(page, players):
                 f"  [KTC] TE+ map skipped — only {len(tep_name_map)} players carried TE+ fields (need ≥25)"
             )
 
+        # AL-P3: preserve the KTC format variants this same loaded page
+        # already carries (1QB + Superflex x Off/TE+/TE++/TE+++) into the
+        # append-only source archive.  One in-page read of ``playersArray``;
+        # zero network requests.  Evidence only: nothing here writes a CSV,
+        # FULL_DATA or anything that votes.
+        #
+        # It runs LAST, after ``results`` is fully built, and only when the
+        # archive's worst case fits in what is left of the KTC source limit.
+        # The orchestrator wraps this whole coroutine in
+        # ``asyncio.wait_for(timeout=source_timeouts["KTC"])`` and a timeout
+        # there drops EVERY KTC result, so evidence capture must never be the
+        # step that crosses it (e.g. after a ~285 s value-source capture).
+        # ``_ktc_t0`` is this function's own start clock — the same one every
+        # ``since_ktc_start_s`` marker reports.  ``archive_variants_safely``
+        # never raises; the extra guard is belt and braces.
+        if _archive_ktc_format_variants is not None:
+            _ktc_budget_left = _ktc_source_timeout_s() - (time.time() - _ktc_t0)
+            _ktc_mark("format_archive_start", budget_left_s=round(_ktc_budget_left, 1))
+            try:
+                _fmt_summary = await _archive_ktc_format_variants(
+                    page,
+                    captured_at=_captures[KTC_CROWD].captured_at,
+                    selected_capture_hashes=_ktc_selected_hashes(_captures),
+                    budget_remaining_s=_ktc_budget_left,
+                )
+            except Exception as _fmt_exc:  # noqa: BLE001
+                _fmt_summary = {"ok": False, "error": f"{type(_fmt_exc).__name__}: {_fmt_exc}"}
+            _ktc_mark(
+                "format_archive_done",
+                ok=bool(_fmt_summary.get("ok")),
+                archived=len(_fmt_summary.get("archived") or ()),
+                deduplicated=len(_fmt_summary.get("deduplicated") or ()),
+                skipped_run=str(_fmt_summary.get("skippedRun") or ""),
+                error=str(_fmt_summary.get("error") or ""),
+            )
+            if not _fmt_summary.get("ok"):
+                print(
+                    f"  [KTC] format-variant archive skipped: {_fmt_summary.get('error')} "
+                    "(scrape unaffected)",
+                    flush=True,
+                )
+
     except Exception as e:
         _ktc_mark("exception", error=f"{type(e).__name__}: {e}")
         print(f"  [KTC error] {e}")
@@ -3226,7 +3291,7 @@ async def run(progress_callback=None):
 
     source_timeout_default = _env_int("SCRAPER_SOURCE_TIMEOUT_DEFAULT", 300)
     source_timeouts = {
-        "KTC": _env_int("SCRAPER_SOURCE_TIMEOUT_KTC", source_timeout_default),
+        "KTC": _ktc_source_timeout_s(),
         "DynastyDaddy": _env_int("SCRAPER_SOURCE_TIMEOUT_DYNASTYDADDY", source_timeout_default),
         "FantasyPros": _env_int("SCRAPER_SOURCE_TIMEOUT_FANTASYPROS", source_timeout_default),
         "DraftSharks": _env_int(
