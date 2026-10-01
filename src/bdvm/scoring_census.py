@@ -62,9 +62,23 @@ from __future__ import annotations
 
 from typing import Any, Callable, Iterable, Mapping
 
-from src.bdvm.scoring import score_stat_line_per_game_detailed
+from src.bdvm.source_vocabulary import (  # noqa: F401  (re-exported: one owner)
+    IDP_FAMILIES,
+    KICKER_KEYS,
+    OFFENSE_FAMILIES,
+    PRICED_FAMILIES,
+    PRICED_POSITIONS,
+    SPECIAL_TEAMS_KEYS,
+    _probe_line,
+    clay_vocabularies,
+    engine_fires,
+    idpshow_vocabulary,
+    manual_csv_vocabulary,
+    source_supply,
+)
+from src.bdvm.source_vocabulary import family_of as _family
+from src.bdvm.source_vocabulary import rule_families as _rule_families
 from src.nfl_data.realized_points import (
-    _FG_BAND_KEYS,
     _SCORING_KEY_ALIASES,
     _SIMPLE_KEYS,
     PBP_SUPPLEMENT_KEYS,
@@ -73,16 +87,9 @@ from src.nfl_data.realized_points import (
     compute_weekly_points,
     sleeper_stat_line_from_row,
 )
-from src.nfl_data.scoring_coverage import _MAXIMAL_ROW, Coverage, classify
-from src.utils.name_clean import POSITION_ALIASES
+from src.nfl_data.scoring_coverage import Coverage, classify
 
 CENSUS_VERSION = "bdvm-scoring-census.v1"
-
-#: BDVM's priced positions → position family (POSITION_ALIASES vocabulary).
-PRICED_POSITIONS: tuple[str, ...] = ("QB", "RB", "WR", "TE", "DT", "EDGE", "LB", "CB", "S")
-OFFENSE_FAMILIES = frozenset({"QB", "RB", "WR", "TE"})
-IDP_FAMILIES = frozenset({"DL", "LB", "DB"})
-PRICED_FAMILIES = OFFENSE_FAMILIES | IDP_FAMILIES
 
 #: Real (non-proxy) projection sources and the families they cover.
 REAL_SOURCES: dict[str, frozenset[str]] = {
@@ -93,33 +100,19 @@ REAL_SOURCES: dict[str, frozenset[str]] = {
 #: Adapter lanes that carry no live data feed but bound what COULD be supplied.
 CAPABILITY_SOURCES: tuple[str, ...] = ("manualCsv", "reconstructedBaseline")
 
-#: Kicker rules: any card key the engine reads off a ``fg_*`` / ``pat_*`` column.
-KICKER_KEYS: frozenset[str] = frozenset(_FG_BAND_KEYS) | frozenset(
-    k for k, (cols, _l) in _SIMPLE_KEYS.items() if all(c.startswith(("fg_", "pat_")) for c in cols)
-)
-
 #: Engine column mismappings established against HOST truth (not a probe
 #: verdict: the engine DOES read the rule, from the wrong column).  Measured
 #: here on realized history when supplied; the evidence string is the host
 #: comparison that established it.
-ENGINE_MAPPING_FINDINGS: dict[str, dict[str, str]] = {
-    "idp_fum_rec": {
-        "engineColumn": "fumble_recovery_own",
-        "hostMatchingColumn": "fumble_recovery_opp",
-        "evidence": (
-            "2025 REG IDP totals vs the Sleeper host's own idp_fum_rec "
-            "(docs/master-site-audit/evidence/W18/sleeper_stats_2025_wk{5,9,14}.json): "
-            "host 20/13/10 vs nflverse fumble_recovery_opp 19/16/9 and "
-            "fumble_recovery_own 0/0/3. A defender recovering the OFFENSE's fumble is "
-            "'opp' from his perspective; the engine reads 'own'."
-        ),
-    },
-    "idp_fum_ret_yd": {
-        "engineColumn": "fumble_recovery_yards_own",
-        "hostMatchingColumn": "fumble_recovery_yards_opp",
-        "evidence": "same column family as idp_fum_rec; IDP yards sit on the _opp column",
-    },
-}
+ENGINE_MAPPING_FINDINGS: dict[str, dict[str, str]] = {}
+# RESOLVED 2026-10-01 (BDVM correctness unit J1): ``idp_fum_rec`` /
+# ``idp_fum_ret_yd`` read ``fumble_recovery_own`` / ``_yards_own``.  The
+# realized engine now reads the opponent-recovery columns minus the
+# play-by-play special-teams recoveries, host-golden 92/92 on rostered
+# dynasty_main 2025 player-weeks — see
+# ``docs/research/bdvm-v1/fumble-recovery-host-golden-2026-10-01/`` and
+# ``tests/nfl_data/test_idp_fumble_recovery_host_golden.py``.  The mechanism
+# stays for the next host-evidenced mismapping.
 
 #: Sleeper's PLAY-TYPE first-down rules (distinct from the position-scoped
 #: ``bonus_fd_*`` family — see realized_points ``_FIRST_DOWN_BONUS_KEYS``).
@@ -185,81 +178,8 @@ _REMEDY: dict[str, str] = {
 
 
 # ---------------------------------------------------------------------------
-# Source vocabularies — derived by running each adapter's own parser
+# Probes (source vocabularies and source_supply live in src.bdvm.source_vocabulary)
 # ---------------------------------------------------------------------------
-
-
-def clay_vocabularies() -> tuple[frozenset[str], frozenset[str]]:
-    """(offense columns, IDP columns) the Clay parser emits, probed by parsing a
-    synthetic team page with every number nonzero."""
-    from src.bdvm.clay_projections import parse_clay_text  # noqa: PLC0415
-
-    letters = "abcdefghij"
-    nums = " ".join(str(n) for n in range(1, 17))
-    lines = [f"QB Probe {letters[i // 10]}{letters[i % 10]} {nums}" for i in range(50)]
-    lines.append("LB Probe Defender 900 100 2.0 1.0 5")
-    rows, report = parse_clay_text("\n".join(lines))
-    if not report.get("usable"):
-        raise RuntimeError(f"clay vocabulary probe rejected by the parser: {report}")
-    off: set[str] = set()
-    idp: set[str] = set()
-    for row in rows:
-        (off if row["position"] in OFFENSE_FAMILIES else idp).update(row["stats"])
-    return frozenset(off), frozenset(idp)
-
-
-def idpshow_vocabulary() -> frozenset[str]:
-    """Columns the IDP Show parser emits, probed with one header per semantic field."""
-    from src.bdvm.idpshow_projections import (  # noqa: PLC0415
-        _HEADER_ALIASES,
-        _STAT_FIELDS,
-        parse_projection_csv,
-    )
-
-    headers = ["Player", "Pos"]
-    for field in sorted(_STAT_FIELDS):
-        headers.append(next(h for h, sem in _HEADER_ALIASES.items() if sem == field))
-    row = ["Probe Defender", "LB"] + ["5"] * (len(headers) - 2)
-    rows, report = parse_projection_csv(",".join(headers) + "\n" + ",".join(row) + "\n")
-    if not rows:
-        raise RuntimeError(f"idpShow vocabulary probe rejected by the parser: {report}")
-    return frozenset(rows[0]["stats"])
-
-
-def manual_csv_vocabulary() -> frozenset[str]:
-    """The manual CSV takes ANY numeric column, so its vocabulary is every weekly
-    column the engine reads — but no play-by-play supplement (that rides a
-    nested row key a CSV cell cannot carry)."""
-    return frozenset(k for k in _MAXIMAL_ROW if k not in ("season", "week"))
-
-
-# ---------------------------------------------------------------------------
-# Probes
-# ---------------------------------------------------------------------------
-
-
-def _probe_line(vocab: Iterable[str]) -> dict[str, float]:
-    return {c: float(_MAXIMAL_ROW.get(c) or 50.0) for c in vocab}
-
-
-def source_supply(key: str, vocab: Iterable[str], positions: Iterable[str]) -> str:
-    """``direct`` / ``imputed`` / ``none`` — can a stat line built from ``vocab``
-    move ``key`` at any of ``positions`` through BDVM's projection scorer?"""
-    line = _probe_line(vocab)
-    best = "none"
-    for pos in positions:
-        for impute in (False, True):
-            off, _ = score_stat_line_per_game_detailed(
-                line, {key: 0.0}, position=pos, impute_first_downs=impute
-            )
-            on, _ = score_stat_line_per_game_detailed(
-                line, {key: 7.0}, position=pos, impute_first_downs=impute
-            )
-            if on != off:
-                if not impute:
-                    return "direct"
-                best = "imputed"
-    return best
 
 
 def baseline_supply(key: str) -> str:
@@ -269,19 +189,7 @@ def baseline_supply(key: str) -> str:
 
 def engine_positions(key: str) -> tuple[str, ...]:
     """Priced positions at which the rule can fire on a maximal realized row."""
-    out = []
-    for pos in PRICED_POSITIONS:
-        row = {**_MAXIMAL_ROW, "position": pos}
-        row[PBP_SUPPLEMENT_ROW_KEY] = {k: 1.0 for k in PBP_SUPPLEMENT_KEYS}
-        off = compute_weekly_points(row, {key: 0.0}, position=pos)
-        on = compute_weekly_points(row, {key: 7.0}, position=pos)
-        if (off.fantasy_points if off else 0.0) != (on.fantasy_points if on else 0.0):
-            out.append(pos)
-    return tuple(out)
-
-
-def _family(position: Any) -> str | None:
-    return POSITION_ALIASES.get(str(position or "").upper())
+    return tuple(pos for pos in PRICED_POSITIONS if engine_fires(key, pos))
 
 
 def weight_sign(rate: float) -> str:
@@ -541,26 +449,6 @@ def census_for_card(
         e["priority"] = _priority(e)
     rows.sort(key=lambda e: (-e["priority"], e["key"]))
     return rows
-
-
-#: Player special-teams rules: earned by offensive AND defensive players.
-SPECIAL_TEAMS_KEYS: frozenset[str] = frozenset(
-    {"kr_yd", "pr_yd", "st_td", "punt_ret_td", "kick_ret_td", "st_tkl_solo", "st_ff", "st_fum_rec"}
-)
-
-
-def _rule_families(key: str) -> set[str]:
-    """The families a rule is FOR — which decides which real sources are
-    expected to supply it.  Realized history shows where points actually
-    landed (``realized.byFamily``), but a trick-play pass by a WR or a
-    two-way player's catch does not make a defensive feed responsible for
-    passing yards.  Intersected with the engine-reachable positions."""
-    canon = _SCORING_KEY_ALIASES.get(key, key)
-    if canon.startswith("idp_"):
-        return set(IDP_FAMILIES)
-    if canon in SPECIAL_TEAMS_KEYS:
-        return set(PRICED_FAMILIES)
-    return set(OFFENSE_FAMILIES)
 
 
 _AT_RISK_BASIS: dict[str, str] = {

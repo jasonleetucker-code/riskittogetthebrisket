@@ -314,10 +314,20 @@ _IDP_KEYS: dict[str, tuple[tuple[str, ...], str]] = {
     "idp_int": (("def_interceptions",), "INT"),
     "idp_int_ret_yd": (("def_interception_yards",), "INT Ret Yds"),
     "idp_ff": (("def_fumbles_forced",), "FF"),
-    # Not def_-prefixed in the unified release.
-    "idp_fum_rec": (("def_fumble_recovery_own", "fumble_recovery_own"), "FR"),
+    # The OPPONENT-recovery columns (not def_-prefixed in the unified
+    # release).  CORRECTED 2026-10-01: these read ``fumble_recovery_own``,
+    # which for a defender is recovering HIS OWN team's fumble — the host
+    # pays nothing for it.  Host-golden over dynasty_main 2025 REG wk 1-18
+    # (public Sleeper API, 244 IDP player-weeks with a recovery on either
+    # side): host ``idp_fum_rec`` == own on 21, opp on 223, and
+    # opp − special-teams recoveries on 244/244; yards == ``_yards_opp`` on
+    # 63/65 (two charting differences), ``_yards_own`` on 0/65.  The
+    # special-teams half is removed in ``_idp_fumble_recovery_view`` — this
+    # table only names the columns (it is also the vocabulary map
+    # ``bdvm.projections`` derives categories from).
+    "idp_fum_rec": (("def_fumble_recovery_opp", "fumble_recovery_opp"), "FR"),
     "idp_fum_ret_yd": (
-        ("def_fumble_recovery_yards_own", "fumble_recovery_yards_own"),
+        ("def_fumble_recovery_yards_opp", "fumble_recovery_yards_opp"),
         "FR Ret Yds",
     ),
     "idp_def_td": (("def_tds",), "Def TD"),
@@ -505,6 +515,46 @@ def _tackle_view(stat_row: dict[str, Any]) -> tuple[float, float, float]:
     return solo, assists, solo + assists
 
 
+#: The host's OWN keys for the two IDP recovery stats.  A row that already
+#: carries them (the league-comparison translation keeps Sleeper's original
+#: keys beside the renamed ones) holds the host's DEFENSIVE count, which is
+#: special-teams-exclusive by the host's own definition.
+_HOST_FUMBLE_RECOVERY_KEYS = ("idp_fum_rec", "idp_fum_ret_yd")
+
+
+def _idp_fumble_recovery_view(stat_row: dict[str, Any]) -> tuple[float, float]:
+    """``(idp_fum_rec, idp_fum_ret_yd)`` for one IDP player-week.
+
+    Sleeper's ``idp_fum_rec`` is a DEFENSIVE recovery of the opponent's
+    fumble.  nflverse files every opponent recovery under
+    ``fumble_recovery_opp`` — defensive AND special-teams (a muffed punt
+    recovered by a gunner) — and the host pays the special-teams ones under a
+    different rule, ``st_fum_rec``.  So:
+
+    * the host's own count on the row, when present, is taken as-is (already
+      special-teams-exclusive; reducing it again would remove that recovery
+      twice);
+    * else, with the play-by-play supplement attached, ``opp − st_fum_rec``
+      — exact against the host on 244 / 244 player-weeks (2025 REG);
+    * else (weekly feed only) ``opp`` whole.  The split is not on the
+      weekly feed, so a special-teams recovery by a defender is paid at the
+      IDP rate here while ``st_fum_rec`` is reported ``unscored`` — 21 of 231
+      IDP opponent recoveries in 2025 REG.  Pinned, not hidden, by
+      ``tests/nfl_data/test_idp_fumble_recovery_host_golden.py``.
+
+    Return yards stay ``fumble_recovery_yards_opp`` whole: the host's
+    ``idp_fum_ret_yd`` equals it on 63 / 65 (two per-play charting
+    differences) and there is no special-teams yardage split to subtract.
+    """
+    if any(stat_row.get(k) is not None for k in _HOST_FUMBLE_RECOVERY_KEYS):
+        return _num(stat_row.get("idp_fum_rec")), _num(stat_row.get("idp_fum_ret_yd"))
+    recoveries = _first_num(stat_row, _IDP_KEYS["idp_fum_rec"][0])
+    supplement = stat_row.get(PBP_SUPPLEMENT_ROW_KEY)
+    if isinstance(supplement, Mapping):
+        recoveries = max(0.0, recoveries - _num(supplement.get("st_fum_rec")))
+    return recoveries, _first_num(stat_row, _IDP_KEYS["idp_fum_ret_yd"][0])
+
+
 #: Per-game tackle-volume thresholds, on COMBINED tackles.
 _IDP_TACKLE_THRESHOLDS: tuple[tuple[str, int, str], ...] = (
     ("idp_tkl_5p", 5, "5+ Tkl"),
@@ -627,6 +677,12 @@ def sleeper_stat_line_from_row(
     if _is_idp_position(pos):
         for key, (columns, _label) in _IDP_KEYS.items():
             _put(key, _first_num(stat_row, columns))
+        # Fumble recoveries are not a plain column read — see the view.
+        line.pop("idp_fum_rec", None)
+        line.pop("idp_fum_ret_yd", None)
+        recoveries, return_yards = _idp_fumble_recovery_view(stat_row)
+        _put("idp_fum_rec", recoveries)
+        _put("idp_fum_ret_yd", return_yards)
         # Summed, not first-present — see ``_IDP_SUM_KEYS``.
         for key, (columns, _label) in _IDP_SUM_KEYS.items():
             _put(key, sum(_num(stat_row.get(col)) for col in columns))
