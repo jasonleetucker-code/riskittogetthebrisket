@@ -2189,6 +2189,24 @@ non-target dynasty formats kept); retention via `prune_captures` from
 `ledger.prune`; the catch-up pass stops on HTTP 429 and must not overlap another
 Sharp timer.
 
+**Own-league trades use THEIR OWN season's format, not today's.**  Sleeper
+chains our leagues year to year under new ids (`dynasty_main` 2025 had 10 teams,
+different slots and `bonus_rec_te` 0.35), so `src/trade/own_league_format_capture.py`
+walks each registry league's `previous_league_id` chain and records every
+season-league's format with the SAME capture owner functions, in its own
+box-local store (`data/leagues/own_league_format_captures.sqlite`, kept
+indefinitely — the intel ledger's prune would drop completed seasons).  It runs
+as the third pass of the transaction-crawl timer; a completed season is fetched
+once, then frozen.  `market_trade_normalize._own_league_format` decides: a
+season capture at or before the trade → `season_league_settings` (exact); only
+a later one — including a completed season's final settings fetched now, which
+cannot rule out a mid-season change → `…_post_trade` (capped); current season
+only, a FRESH registry card fetched at or before the trade →
+`registry_and_scoring_card` (exact), else `…_unproven_at_trade` (capped); no
+season-league → format UNKNOWN, never today's.  Every own-league label is in
+`CAPTURE_FORMAT_SOURCES`, so a row without dated evidence fails closed, and an
+undated legacy snapshot (`…_time_unknown`) is capped even before the trade.
+
 `server.py` calls `_sharp_service.register_http_routes()` explicitly
 after importing the module. The import-time side effect alone is not
 enough: anything that imports `src.sharp.service` before the app exists

@@ -37,6 +37,11 @@ transaction pass.
     python scripts/crawl_sharp_transactions.py --formats-only --format-budget 4000
     python scripts/crawl_sharp_transactions.py --format-stats
 
+The same run then captures OUR registered leagues' per-season formats
+(previous_league_id chain; src/trade/own_league_format_capture.py) so the
+ledger classifies own-league trades in their own season's format. Skipped
+with --format-budget 0 or --league.
+
 The pass stops at the first HTTP 429 (``stoppedReason: rate_limited``)
 rather than reading it as a deleted league. Every Sharp crawl shares the
 box's public IP, so run a large one-shot backfill (``--formats-only
@@ -60,6 +65,35 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.sharp import league_format_capture, transactions  # noqa: E402
 
 log = logging.getLogger("crawl_sharp_transactions")
+
+
+def _capture_own_league_formats() -> list[dict]:
+    """Per-season format captures for OUR registered leagues (third pass).
+
+    The completed-trade ledger classifies each own-league trade in its OWN
+    season-league's format (src/trade/own_league_format_capture.py).  Run here
+    rather than in its own timer so it shares this timer's slot on the box's
+    public IP; it costs one request per league once the completed seasons are
+    captured (they are frozen after one fetch).  Never fails the run.
+    """
+    from src.api import league_registry  # noqa: PLC0415
+    from src.trade import own_league_format_capture  # noqa: PLC0415
+
+    out: list[dict] = []
+    try:
+        configs = list(league_registry.active_leagues())
+    except Exception as exc:  # noqa: BLE001
+        return [{"error": f"registry_unreadable:{type(exc).__name__}: {exc}"}]
+    for cfg in configs:
+        try:
+            res = own_league_format_capture.refresh_own_league_formats(
+                cfg.key, root_league_id=cfg.sleeper_league_id, sleep_s=0.12
+            )
+            out.append(res.to_dict())
+        except Exception as exc:  # noqa: BLE001
+            log.exception("own-league format capture failed for %s", cfg.key)
+            out.append({"leagueKey": cfg.key, "error": f"{type(exc).__name__}: {exc}"})
+    return out
 
 
 def main() -> int:
@@ -134,6 +168,8 @@ def main() -> int:
                 if args.formats_only:
                     print(json.dumps(payload, indent=2))
                     return 1
+            if not args.leagues:
+                payload["ownLeagueFormats"] = _capture_own_league_formats()
         print(json.dumps(payload, indent=2))
         # Partial is normal on a large graph — the next run continues
         # from the cursor, uncrawled leagues first.

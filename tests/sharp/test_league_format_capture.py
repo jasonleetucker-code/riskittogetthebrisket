@@ -549,18 +549,21 @@ class TestFormatTimingCap:
         assert d["disposition"] == mtf.TARGET_UNSUPPORTED
         assert d["formatTimingCap"] == reason
 
-    def test_own_league_registry_format_is_not_capped(self):
-        # The own-league lane carries no formatEvidence: its format is the
-        # registry + live scoring card, not a dated capture.  Unaffected.
+    def test_own_league_registry_format_without_evidence_fails_closed(self):
+        # The own-league registry format used to carry no formatEvidence and
+        # was applied to EVERY past season uncapped.  It is now dated like any
+        # capture (tests/trade/test_own_league_season_format.py), so a row
+        # missing that evidence can no longer certify a native match.
         fmt = mtf.format_from_sleeper_league(sleeper_league("SRC"))
         obs = {"formatSource": "registry_and_scoring_card"}
         d = mtf.disposition(fmt, _target(), observation=obs)
-        assert d["disposition"] == mtf.NATIVE_COMPARABLE and d["formatTimingCap"] is None
+        assert d["disposition"] == mtf.TARGET_UNSUPPORTED
+        assert d["formatTimingCap"] == "format_capture_timing_unproven"
 
     def test_own_league_trade_also_seen_by_sharp_post_trade_stays_native(self, db):
-        # The same host trade in both lanes: the own-league (registry) member
-        # represents the group, so a Sharp member's post-trade capture cannot
-        # cap it — the own-league NATIVE path is untouched.
+        # The same host trade in both lanes: an own-league member whose format
+        # is dated AT OR BEFORE the trade (fresh registry card) represents the
+        # group, so a Sharp member's post-trade capture cannot cap it.
         from src.trade import market_trade_groups as grp
 
         self._seed(db, trade_ms=T0, capture_ms=T0 + DAY)
@@ -570,14 +573,20 @@ class TestFormatTimingCap:
             "observationId": f"{N.SOURCE_OWN_LEAGUE}:dynasty_main:T1",
             "sourceFamily": N.SOURCE_OWN_LEAGUE,
             "formatSource": "registry_and_scoring_card",
+            "formatEvidence": {
+                "basis": N.EVIDENCE_BASIS_REGISTRY,
+                "timing": lfc.TIMING_AT_OR_BEFORE,
+                "exactAtTradeTime": True,
+                "captureSource": "registry_scoring_snapshot",
+            },
             "_format": _target(),
             "leagueKey": "dynasty_main",
         }
-        own.pop("formatEvidence")
         groups = grp.group_observations([sharp, own]).groups
         assert len(groups) == 1
         g = groups[0]
-        assert g["formatSource"] == "registry_and_scoring_card" and g["formatEvidence"] is None
+        assert g["formatSource"] == "registry_and_scoring_card"
+        assert g["formatEvidence"]["exactAtTradeTime"] is True
         d = mtf.disposition(g["_format"], _target(), observation=g)
         assert d["disposition"] == mtf.NATIVE_COMPARABLE
 
@@ -589,7 +598,13 @@ class TestFormatTimingCap:
             N.FORMAT_SOURCE_CAPTURE_FULL,
             N.FORMAT_SOURCE_CAPTURE_POST_TRADE,
             N.FORMAT_SOURCE_KTC_HOST_UPGRADE,
+            N.FORMAT_SOURCE_SEASON_LEAGUE,
+            N.FORMAT_SOURCE_SEASON_LEAGUE_POST_TRADE,
+            N.FORMAT_SOURCE_REGISTRY,
+            N.FORMAT_SOURCE_REGISTRY_UNPROVEN,
+            N.FORMAT_SOURCE_SEASON_MISSING,
         } == set(mtf.CAPTURE_FORMAT_SOURCES)
+        assert lfc.SOURCE_LEGACY_SNAPSHOT_TIME_UNKNOWN.endswith(mtf._UNDATED_CAPTURE_SUFFIX)
 
 
 class TestKtcHostUpgradeTiming:

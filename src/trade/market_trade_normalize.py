@@ -53,7 +53,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
 from src.identity.picks import (
     MarketPickRef,
@@ -752,13 +752,182 @@ def _own_asset(asset_id: str, asset_kind: str, ctx: IdentityContext) -> dict[str
     return _player_asset(ctx.resolve_sleeper_id(sid), vendor_ref=asset_id, label=None, ctx=ctx)
 
 
+#: ``formatSource`` labels for an own-league trade (all carry dated
+#: ``formatEvidence`` — see ``_own_league_format``).  The census counts these;
+#: it does not interpret them.
+FORMAT_SOURCE_SEASON_LEAGUE = "season_league_settings"
+FORMAT_SOURCE_SEASON_LEAGUE_POST_TRADE = "season_league_settings_post_trade"
+FORMAT_SOURCE_REGISTRY = "registry_and_scoring_card"
+FORMAT_SOURCE_REGISTRY_UNPROVEN = "registry_and_scoring_card_unproven_at_trade"
+FORMAT_SOURCE_SEASON_MISSING = "own_league_season_format_missing"
+
+#: ``formatEvidence.basis`` values for the own-league lane.
+EVIDENCE_BASIS_SEASON_LEAGUE = "season_league_settings"
+EVIDENCE_BASIS_REGISTRY = "registry_and_fresh_scoring_card"
+#: ``formatEvidence.timing`` for a current-season registry format whose
+#: scoring card is not ``fresh`` — capped as unproven, never exact.
+TIMING_SCORING_NOT_FRESH = "scoring_evidence_not_fresh"
+
+
+def _registry_card_capture(cfg: Any) -> tuple[int | None, str | None]:
+    """``(fetchedAt ms, fetchedAt iso)`` of the league's scoring-card snapshot,
+    read without fetching.  ``(None, None)`` when absent or undated."""
+    from src.api import league_registry as reg  # noqa: PLC0415
+
+    try:
+        text = reg.scoring_snapshot_path(cfg.sleeper_league_id).read_text(encoding="utf-8")
+        raw = json.loads(text)
+    except (OSError, ValueError, AttributeError):
+        return None, None
+    fetched = raw.get("fetchedAt") if isinstance(raw, dict) else None
+    return _parse_iso_ms(fetched), (str(fetched) if fetched else None)
+
+
+def _season_capture_result(
+    cap: Mapping[str, Any], timing: str | None, base: Mapping[str, Any], label: str
+) -> tuple[mtf.TradeMarketFormat, str, dict[str, Any]]:
+    from src.sharp import league_format_capture as lfc  # noqa: PLC0415
+
+    status = cap.get("leagueStatus")
+    evidence = {
+        **base,
+        **lfc.evidence_dict(cap, timing),
+        "basis": EVIDENCE_BASIS_SEASON_LEAGUE,
+        # A completed season's final settings are the best available evidence
+        # for that season — NOT proof of the settings at trade time.
+        "seasonCompleteAtCapture": (str(status).lower() == "complete") if status else None,
+    }
+    return (
+        mtf.format_from_sleeper_league(cap["payload"], captured_at=cap.get("capturedAt")),
+        label,
+        evidence,
+    )
+
+
+def _own_league_format(
+    trade: Mapping[str, Any],
+    *,
+    league_key: str,
+    index: Any,
+    current_league_id: str | None,
+    registry_format: Callable[[], mtf.TradeMarketFormat],
+    registry_card: Callable[[], tuple[str, int | None, str | None]],
+) -> tuple[mtf.TradeMarketFormat, str, dict[str, Any]]:
+    """``(format, formatSource, formatEvidence)`` for ONE own-league trade, in
+    the format of ITS OWN season-league — never today's league by default.
+
+    1. The trade's season-league: the event's own ``sleeperLeagueId``, else the
+       registry chain's league for the trade's ``season``
+       (``own_league_season_chain``, walked over ``previous_league_id``).
+    2. That league's dated capture in force (``capture_in_force`` — the Sharp
+       lane's rule).  At or before the trade → ``season_league_settings``,
+       exact.  Only later captures → ``season_league_settings_post_trade``:
+       for a completed season these are its final settings, the best available
+       evidence, but a mid-season change is unknowable from a later fetch, so
+       the timing cap holds the trade below NATIVE_COMPARABLE.
+    3. CURRENT season only (the trade's league IS the registry's league) with
+       no prior capture: the registry plus the scoring card counts as exact
+       only when the card is ``fresh`` AND was fetched at or before the trade
+       (``registry_and_scoring_card``).  Otherwise the same format is used but
+       capped (``registry_and_scoring_card_unproven_at_trade``).
+    4. Anything else: format UNKNOWN (``own_league_season_format_missing``) —
+       never today's format standing in for a past season.
+    """
+    from src.sharp import league_format_capture as lfc  # noqa: PLC0415
+
+    raw_ms = trade.get("occurredAtMs")
+    trade_ms = int(raw_ms) if raw_ms is not None else None
+    season = str(trade["season"]).strip() if trade.get("season") is not None else None
+    lid = str(trade.get("sleeperLeagueId") or "").strip() or None
+    resolution = "event_sleeper_league_id" if lid else None
+    if lid is None:
+        lid = index.league_for_season(league_key, season)
+        resolution = "previous_league_id_chain" if lid else None
+    base = {
+        "basis": None,
+        "seasonLeagueId": lid,
+        "season": season,
+        "seasonLeagueResolution": resolution or "unresolved",
+    }
+    cap, timing = (None, None)
+    if lid is not None:
+        cap, timing = lfc.capture_in_force(index.captures.get(lid), trade_ms, season=season)
+    if cap is not None and timing == lfc.TIMING_AT_OR_BEFORE:
+        return _season_capture_result(cap, timing, base, FORMAT_SOURCE_SEASON_LEAGUE)
+    is_current = lid is not None and current_league_id is not None and lid == current_league_id
+    if is_current and trade_ms is not None:
+        evidence_state, card_ms, card_iso = registry_card()
+        if evidence_state == "fresh" and card_ms is not None and card_ms <= trade_ms:
+            return (
+                registry_format(),
+                FORMAT_SOURCE_REGISTRY,
+                {
+                    **base,
+                    "basis": EVIDENCE_BASIS_REGISTRY,
+                    "timing": lfc.TIMING_AT_OR_BEFORE,
+                    "exactAtTradeTime": True,
+                    "capturedAt": card_iso,
+                    "captureSource": "registry_scoring_snapshot",
+                    "scoringEvidence": evidence_state,
+                },
+            )
+    if cap is not None:
+        return _season_capture_result(cap, timing, base, FORMAT_SOURCE_SEASON_LEAGUE_POST_TRADE)
+    if is_current:
+        evidence_state, card_ms, card_iso = registry_card()
+        if trade_ms is None:
+            timing_label = lfc.TIMING_TRADE_TIME_UNKNOWN
+        elif evidence_state != "fresh" or card_ms is None:
+            timing_label = TIMING_SCORING_NOT_FRESH
+        else:
+            timing_label = lfc.TIMING_POST_TRADE
+        return (
+            registry_format(),
+            FORMAT_SOURCE_REGISTRY_UNPROVEN,
+            {
+                **base,
+                "basis": EVIDENCE_BASIS_REGISTRY,
+                "timing": timing_label,
+                "exactAtTradeTime": False,
+                "capturedAt": card_iso,
+                "captureSource": "registry_scoring_snapshot",
+                "scoringEvidence": evidence_state,
+            },
+        )
+    return (
+        mtf.TradeMarketFormat(
+            source=mtf.SOURCE_UNKNOWN,
+            dynasty_state=mtf.DYNASTY,
+            dynasty_basis="registry_league_chain",
+            season=season,
+        ),
+        FORMAT_SOURCE_SEASON_MISSING,
+        {
+            **base,
+            "timing": None,
+            "reason": (
+                "no_season_league_capture" if lid is not None else "season_league_unresolved"
+            ),
+        },
+    )
+
+
 def own_league_observations(
     *,
     league_keys: Iterable[str] | None = None,
     acquisition_path: Path | None = None,
     ctx: IdentityContext,
     allow_stale_scoring: bool = False,
+    format_index: Any = None,
+    own_league_format_path: Path | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Own registered leagues' trades, each in its OWN season's format.
+
+    ``format_index`` (``own_league_format_capture.OwnLeagueFormatIndex``) is
+    loaded read-only from ``own_league_format_path`` (default: the box store)
+    when not supplied.  The point-in-time rule is :func:`_own_league_format`.
+    """
+    from src.trade import own_league_format_capture as olfc  # noqa: PLC0415
     from src.trade.market_trade_ledger import market_trades  # noqa: PLC0415
 
     if league_keys is None:
@@ -773,10 +942,32 @@ def own_league_observations(
 
         if not (Path(RETENTION_DIR) / "acquisition.sqlite").exists():
             return [], {"available": False, "reason": "acquisition_store_missing"}
+    if format_index is None:
+        format_index = olfc.load_index(own_league_format_path)
+    from src.api import league_registry as reg  # noqa: PLC0415
+
     out: list[dict[str, Any]] = []
+    format_sources: dict[str, int] = {}
     league_keys = list(league_keys)
     for key in league_keys:
-        reg_fmt = mtf.format_from_registry(key, allow_stale_scoring=allow_stale_scoring)
+        cfg = reg.get_league_by_key(key)
+        current_lid = str(getattr(cfg, "sleeper_league_id", "") or "").strip() or None
+        memo: dict[str, Any] = {}
+
+        def _registry_format(key: str = key, memo: dict[str, Any] = memo) -> mtf.TradeMarketFormat:
+            if "fmt" not in memo:
+                memo["fmt"] = mtf.format_from_registry(key, allow_stale_scoring=allow_stale_scoring)
+            return memo["fmt"]
+
+        def _registry_card(
+            cfg: Any = cfg, memo: dict[str, Any] = memo
+        ) -> tuple[str, int | None, str | None]:
+            if "card" not in memo:
+                state = reg.scoring_evidence_state(cfg) if cfg is not None else "missing"
+                ms, iso = _registry_card_capture(cfg) if cfg is not None else (None, None)
+                memo["card"] = (state, ms, iso)
+            return memo["card"]
+
         try:
             rows = market_trades(key, path=acquisition_path)
         except Exception as exc:  # noqa: BLE001
@@ -787,6 +978,15 @@ def own_league_observations(
                 [_own_asset(a["assetId"], a["assetKind"], ctx) for a in team["received"]]
                 for _, team in sorted(t["teams"].items())
             ]
+            fmt, fmt_source, fmt_evidence = _own_league_format(
+                t,
+                league_key=key,
+                index=format_index,
+                current_league_id=current_lid,
+                registry_format=_registry_format,
+                registry_card=_registry_card,
+            )
+            format_sources[fmt_source] = format_sources.get(fmt_source, 0) + 1
             out.append(
                 {
                     "observationId": f"{SOURCE_OWN_LEAGUE}:{key}:{tx}",
@@ -803,8 +1003,9 @@ def own_league_observations(
                     "occurredDate": _ms_to_date(t.get("occurredAtMs")),
                     "occurredAtMs": t.get("occurredAtMs"),
                     "timeFidelity": "exact" if t.get("occurredAtMs") is not None else "undated",
-                    "_format": reg_fmt,
-                    "formatSource": "registry_and_scoring_card",
+                    "_format": fmt,
+                    "formatSource": fmt_source,
+                    "formatEvidence": fmt_evidence,
                     "sides": sides,
                     "teamCount": t.get("teamCount", len(sides)),
                     "sideSemantics": "received_per_roster",
@@ -813,7 +1014,16 @@ def own_league_observations(
                     "caveats": ["sleeper_trade_faab_component_not_recorded"],
                 }
             )
-    return out, {"available": True, "trades": len(out), "leagues": list(league_keys)}
+    return out, {
+        "available": True,
+        "trades": len(out),
+        "leagues": list(league_keys),
+        "seasonFormats": {
+            "state": format_index.state,
+            "seasonLeaguesWithCapture": len(format_index.captures),
+            "tradesByFormatSource": dict(sorted(format_sources.items())),
+        },
+    }
 
 
 # ── All lanes ─────────────────────────────────────────────────────────────
@@ -828,6 +1038,7 @@ def build_observations(
     ctx: IdentityContext | None = None,
     lanes: Iterable[str] = (SOURCE_KTC, SOURCE_SLEEPER_DISCOVERY, SOURCE_OWN_LEAGUE),
     allow_stale_scoring: bool = False,
+    own_league_format_path: Path | None = None,
 ) -> dict[str, Any]:
     ctx = ctx if ctx is not None else IdentityContext.load_default()
     wanted = set(lanes)
@@ -855,6 +1066,7 @@ def build_observations(
             acquisition_path=acquisition_path,
             ctx=ctx,
             allow_stale_scoring=allow_stale_scoring,
+            own_league_format_path=own_league_format_path,
         )
         observations += rows
         status[SOURCE_OWN_LEAGUE] = st

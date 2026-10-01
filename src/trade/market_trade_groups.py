@@ -82,18 +82,25 @@ REL_DISTINCT = "distinct"
 #: on day D (UTC) can carry D or D+1.  One day either side, no more.
 DEFAULT_DAY_TOLERANCE = 1
 
-#: Preference when choosing whose format / sides represent a group: the
-#: registry's own league, then a host capture in force at the trade, then a
-#: host capture from after it, then the partial discovery row, then the vendor
-#: summary.  (Representatives are chosen by host transaction id BEFORE this
-#: order, so registry-vs-capture only decides between two host-tx lanes of the
-#: same trade — and the registry is the owner's own league.)
+#: Preference when choosing whose format / sides represent a group: a format
+#: dated AT OR BEFORE the trade first (the own league's fresh registry card or
+#: its season-league capture, then a Sharp host capture in force), then
+#: formats dated only AFTER it (own season-league, own registry, Sharp), then
+#: the partial discovery row, an unresolved own season, then the vendor
+#: summary.  Exact-timed labels outrank post-trade ones so a post-trade member
+#: can never represent — and so cap — a trade another lane dated exactly.
+#: (Representatives are chosen by host transaction id BEFORE this order, so it
+#: only decides between host-tx lanes of the same trade.)
 _FORMAT_PREFERENCE = (
     "registry_and_scoring_card",
+    "season_league_settings",
     "sleeper_league_capture_full",
     "host_capture_via_discovery",
+    "season_league_settings_post_trade",
+    "registry_and_scoring_card_unproven_at_trade",
     "sleeper_league_capture_post_trade",
     "discovery_row_partial",
+    "own_league_season_format_missing",
     "ktc_vendor_settings",
 )
 
