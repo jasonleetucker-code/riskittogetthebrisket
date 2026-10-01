@@ -7,8 +7,10 @@ each adapter's own parser — see ``src/bdvm/scoring_census.py``), the
 classification, affected families, and — when realized history is supplied —
 the rule's measured 2025 impact under that card.
 
-REPORTING ONLY.  It changes no projection, value or snapshot, and it is a
-LOCAL census: no production session is used.  Production
+This SCRIPT is reporting only: it changes no projection, value or snapshot,
+and it is a LOCAL census: no production session is used.  (The unit that
+added it separately changed ``realized_points``'s reception-bonus mapping,
+which DOES move values — see the census README.)  Production
 ``/api/bdvm/values`` publishes ``meta.scoringCoverage`` for the PBP-only rules
 it can see; this census covers the source-vocabulary rules it cannot.
 
@@ -56,6 +58,7 @@ _CLASS_ORDER = (
     "MAPPING_ERROR",
     "UNSUPPORTED_VOCABULARY",
     "ABSENT_FIELD",
+    "SUPPORTED_IMPUTED",
     "SUPPORTED",
     "NOT_APPLICABLE",
 )
@@ -114,7 +117,8 @@ def render_markdown(doc: dict[str, Any]) -> str:
         "",
         "Weights are the card's own rates; `points` are SIGNED realized 2025 REG points "
         "under that card. A partial total is not a lower bound: omitted penalties "
-        "(negative weights) overstate it.",
+        "(negative weights) overstate it. SUPPORTED_IMPUTED points are not omitted; "
+        "they rest on an estimate (first downs imputed from yards).",
         "",
     ]
     for lg in doc["leagues"]:
@@ -139,11 +143,14 @@ def render_markdown(doc: dict[str, Any]) -> str:
                 " +baselineMapErr" if e.get("baselineMappingError") else ""
             )
             share = r.get("shareOfAffectedFamilyPoints")
-            silent = (
-                "reported"
-                if e.get("reportedInUnscoredKeys")
-                else ("SILENT" if e["classification"] != "SUPPORTED" else "")
-            )
+            if e.get("reportedInUnscoredKeys"):
+                silent = "reported"
+            elif e["classification"] == "SUPPORTED_IMPUTED":
+                silent = "IMPUTED (estimated, not omitted)"
+            elif e["classification"] != "SUPPORTED":
+                silent = "SILENT"
+            else:
+                silent = ""
             out.append(
                 f"| {e['priority']:.1f} | `{e['key']}` | {_fmt(e['weight'])} | {cls} | "
                 f"{','.join(e.get('affectedFamilies') or [])} | {src} | {cap} | "

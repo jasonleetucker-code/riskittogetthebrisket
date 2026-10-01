@@ -1,8 +1,20 @@
 """BDVM scoring-coverage census: which league-card rules can a projection score?
 
-REPORTING ONLY.  Nothing here changes a projected point, a value, or a
-consensus weight; it measures where the projection lane's per-game totals
-are partial and by how much.
+This MODULE is reporting only: nothing in it changes a projected point, a
+value, or a consensus weight; it measures where the projection lane's
+per-game totals are partial and by how much.
+
+It is NOT true that the unit which introduced it changed no value.  The same
+unit made ``src/nfl_data/realized_points.py`` emit the whole position-scoped
+reception-bonus family (``bonus_rec_rb`` / ``bonus_rec_wr`` / ``bonus_rec_te``)
+instead of the TE member only.  That flows into every
+``compute_weekly_points`` caller — BDVM projection rescoring, the
+reconstructed baseline, in-season actuals, and
+``league_comparison/scoring_engine.py`` — and on dynasty_main's live card
+(``bonus_rec_wr`` 0.02/rec) every WR gains 0.02 per reception.  Host-verified
+and measured on a before/after BDVM board in
+``docs/research/bdvm-v1/scoring-census-2026-10-01/`` (``host_verification.json``,
+``board_diff.json``).
 
 Two layers, deliberately separate:
 
@@ -25,17 +37,25 @@ Classification (projection lane, priced positions only):
   verdict ``GAP``), or a declared, host-evidenced column mismapping
   (:data:`ENGINE_MAPPING_FINDINGS`).
 * ``UNSUPPORTED_VOCABULARY`` — no real projection source covering the
-  affected positions can emit the stat.
+  affected positions can emit the stat.  Includes the PLAY-TYPE first-down
+  rules (:data:`PLAY_TYPE_FIRST_DOWN_KEYS`): the realized engine also reads
+  no column for them (probe ``GAP``), but for the projection lane the
+  question is the source, and no projection source publishes play-type first
+  downs.  They must never be derived from aggregate yards.
 * ``ABSENT_FIELD`` — some covering source emits it and another does not, so
   players covered only by the latter are partial.
-* ``SUPPORTED`` — every covering source supplies it (``imputed`` noted).
+* ``SUPPORTED_IMPUTED`` — every covering source supplies it, but at least one
+  only through an ESTIMATE (today: ``bonus_fd_*`` from the first-down-rate
+  model on yards).  The points are not omitted; they rest on an imputation,
+  so they are reported apart from directly supplied rules.
+* ``SUPPORTED`` — every covering source supplies it directly.
 
 A COUNT of unscored keys is not a share of missing points.  Where realized
 history is supplied, impact is measured as the rule's realized 2025 points
 under the card (signed), its share of the affected families' realized
 points, and the number of players who recorded the stat.  Rules can be
 NEGATIVE (``fum_lost``, ``pass_int_td``): an omitted penalty OVERSTATES a
-partial total, so no partial total is a lower bound.
+partial total, so a partial total is not a lower bound.
 """
 
 from __future__ import annotations
@@ -101,8 +121,35 @@ ENGINE_MAPPING_FINDINGS: dict[str, dict[str, str]] = {
     },
 }
 
+#: Sleeper's PLAY-TYPE first-down rules (distinct from the position-scoped
+#: ``bonus_fd_*`` family — see realized_points ``_FIRST_DOWN_BONUS_KEYS``).
+#: No projection source publishes first downs by play type, so for the
+#: projection lane these are UNSUPPORTED_VOCABULARY, never a mapping fix:
+#: deriving them from aggregate yards would be a fabricated stat.
+PLAY_TYPE_FIRST_DOWN_KEYS: frozenset[str] = frozenset({"pass_fd", "rush_fd", "rec_fd"})
+
+#: Realized-history measurement only (never a projection input): the nflverse
+#: first-down column and the TD column Sleeper's count excludes.
+_PLAY_TYPE_FD_COLUMNS: dict[str, tuple[str, str]] = {
+    "pass_fd": ("passing_first_downs", "passing_tds"),
+    "rush_fd": ("rushing_first_downs", "rushing_tds"),
+    "rec_fd": ("receiving_first_downs", "receiving_tds"),
+}
+
+_PLAY_TYPE_FD_REMEDY = (
+    "a projection feed publishing first downs BY PLAY TYPE (none does); never "
+    "derive them from aggregate yards or the position-scoped first-down imputation"
+)
+
 # What a capable projection feed / forecast component would have to supply.
 _REMEDY: dict[str, str] = {
+    "pass_fd": _PLAY_TYPE_FD_REMEDY,
+    "rush_fd": _PLAY_TYPE_FD_REMEDY,
+    "rec_fd": _PLAY_TYPE_FD_REMEDY,
+    "bonus_fd_qb": "a projection feed publishing first downs; today imputed from yards by the first-down-rate model",
+    "bonus_fd_rb": "a projection feed publishing first downs; today imputed from yards by the first-down-rate model",
+    "bonus_fd_wr": "a projection feed publishing first downs; today imputed from yards by the first-down-rate model",
+    "bonus_fd_te": "a projection feed publishing first downs; today imputed from yards by the first-down-rate model",
     "rec_0_4": "per-target depth distribution (a reception-distance forecast); historical PBP can train it but is not a projection",
     "rec_5_9": "per-target depth distribution (a reception-distance forecast)",
     "rec_10_19": "per-target depth distribution (a reception-distance forecast)",
@@ -241,6 +288,18 @@ def weight_sign(rate: float) -> str:
     return "+" if rate > 0 else "-"
 
 
+def _num(value: Any) -> float | None:
+    """A finite number, or ``None`` when absent / unreadable.  Missing is
+    reported as missing — never coerced to 0."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        out = float(value)
+    except (TypeError, ValueError):
+        return None
+    return out if out == out and out not in (float("inf"), float("-inf")) else None
+
+
 # ---------------------------------------------------------------------------
 # Realized-history measurement (optional input)
 # ---------------------------------------------------------------------------
@@ -259,15 +318,25 @@ def measure_realized(
     "keys": {key: {"players": n, "stat": s, "points": p, "byFamily": {...}}},
     "pbpAttached": bool, "columnTotals": {...}}``.  ``points`` is SIGNED.
     """
-    keys = list(keys)
+    # A key whose rate is absent/unreadable cannot be measured: it is
+    # reported in ``unmeasuredKeys``, never priced at a rate of 0.
+    rates: dict[str, float] = {}
+    unmeasured: list[str] = []
+    for k in keys:
+        rate = _num(card.get(k))
+        if rate is None:
+            unmeasured.append(k)
+        else:
+            rates[k] = rate
+    keys = list(rates)
     canon = {k: _SCORING_KEY_ALIASES.get(k, k) for k in keys}
-    rates = {k: float(card.get(k) or 0.0) for k in keys}
     fam_players: dict[str, set[str]] = {}
     fam_points: dict[str, float] = {}
     key_players: dict[str, dict[str, set[str]]] = {k: {} for k in keys}
     key_stat: dict[str, float] = {k: 0.0 for k in keys}
     key_fam_pts: dict[str, dict[str, float]] = {k: {} for k in keys}
     col_totals: dict[str, dict[str, float]] = {}
+    col_missing: dict[str, int] = {}
     pbp_seen = False
     for raw in weekly_rows:
         if str(raw.get("season_type") or "REG").upper() != "REG":
@@ -290,15 +359,33 @@ def measure_realized(
         fam_points[fam] = fam_points.get(fam, 0.0) + (rp.fantasy_points if rp else 0.0)
         for finding in ENGINE_MAPPING_FINDINGS.values():
             for col in (finding["engineColumn"], finding["hostMatchingColumn"]):
+                value = _num(row.get(col))
+                if value is None:
+                    # Absent column: counted, not added as a zero.
+                    col_missing[col] = col_missing.get(col, 0) + 1
+                    continue
                 bucket = col_totals.setdefault(col, {})
-                bucket[fam] = bucket.get(fam, 0.0) + float(row.get(col) or 0.0)
+                bucket[fam] = bucket.get(fam, 0.0) + value
         for k in keys:
-            stat = float(line.get(canon[k]) or 0.0)
             finding = ENGINE_MAPPING_FINDINGS.get(k)
             if finding and fam in IDP_FAMILIES:
                 # Measure what the HOST pays, not what the mismapped engine reads.
-                stat = float(row.get(finding["hostMatchingColumn"]) or 0.0)
+                stat = _num(row.get(finding["hostMatchingColumn"]))
+            elif canon[k] in _PLAY_TYPE_FD_COLUMNS:
+                # The engine reads no column for play-type first downs, so the
+                # stat line never carries them.  Measured (realized history
+                # only, never a projection input) the way Sleeper counts them:
+                # nflverse first downs minus that play type's TDs (Sleeper
+                # excludes scoring plays; see realized_points
+                # ``_FIRST_DOWN_TD_COLUMNS``).
+                fd_col, td_col = _PLAY_TYPE_FD_COLUMNS[canon[k]]
+                fd, td = _num(row.get(fd_col)), _num(row.get(td_col))
+                stat = None if fd is None or td is None else max(0.0, fd - td)
+            else:
+                stat = _num(line.get(canon[k]))
             if not stat:
+                # None (stat absent from this row) or a recorded 0: nothing
+                # to add either way, and neither is counted as an occurrence.
                 continue
             key_players[k].setdefault(fam, set()).add(pid)
             key_stat[k] += stat
@@ -322,6 +409,8 @@ def measure_realized(
         "columnTotals": {
             c: {f: round(v, 2) for f, v in sorted(t.items())} for c, t in col_totals.items()
         },
+        "columnRowsMissing": dict(sorted(col_missing.items())),
+        "unmeasuredKeys": sorted(unmeasured),
     }
 
 
@@ -355,11 +444,10 @@ def census_for_card(
     }
     rows: list[dict[str, Any]] = []
     for key, raw in sorted(card.items()):
-        try:
-            rate = float(raw or 0.0)
-        except (TypeError, ValueError):
-            continue
-        if rate == 0.0:
+        rate = _num(raw)
+        if rate is None or rate == 0.0:
+            # Absent / non-numeric values are not rules, and a zero rate
+            # scores nothing; neither is a census row.
             continue
         engine = _engine_class(key)
         positions = engine_positions(key) if engine == Coverage.SCORED.value else ()
@@ -397,10 +485,16 @@ def census_for_card(
             "manualCsv": source_supply(key, vocabs["manualCsv"], PRICED_POSITIONS),
             "reconstructedBaseline": baseline_supply(key),
         }
-        if engine == Coverage.GAP.value:
+        if key in PLAY_TYPE_FIRST_DOWN_KEYS:
+            # Projection lane: no source publishes play-type first downs, so
+            # this is a vocabulary gap whatever the realized engine does.
+            classification = "UNSUPPORTED_VOCABULARY"
+        elif engine == Coverage.GAP.value:
             classification = "MAPPING_ERROR"
         elif supply and all(v != "none" for v in supply.values()):
-            classification = "SUPPORTED"
+            classification = (
+                "SUPPORTED_IMPUTED" if any(v == "imputed" for v in supply.values()) else "SUPPORTED"
+            )
         elif any(v != "none" for v in supply.values()):
             classification = "ABSENT_FIELD"
         else:
@@ -416,6 +510,12 @@ def census_for_card(
             missingStatistic=_missing_statistic(key),
             remedy=_REMEDY.get(key) if classification != "SUPPORTED" else None,
         )
+        if key in PLAY_TYPE_FIRST_DOWN_KEYS:
+            entry["note"] = (
+                "the realized engine also reads no column for this play-type rule "
+                "(probe GAP); realized impact is measured from nflverse first downs "
+                "minus that play type's TDs, the host's counting rule"
+            )
         finding = ENGINE_MAPPING_FINDINGS.get(key)
         if finding:
             entry["baselineMappingError"] = dict(finding)
@@ -464,6 +564,11 @@ def _rule_families(key: str) -> set[str]:
 
 
 _AT_RISK_BASIS: dict[str, str] = {
+    "SUPPORTED_IMPUTED": (
+        "estimated: not omitted — every covering source supplies it, but at least one "
+        "only through an imputation (first downs from yards), so these points rest on "
+        "an estimate rather than a published stat"
+    ),
     "UNSUPPORTED_VOCABULARY": "full: no real source supplies it, every projected total omits it",
     "ABSENT_FIELD": "upper_bound: only players covered solely by a source lacking it omit it",
     "MAPPING_ERROR": "full: the engine reads no column for it",
@@ -482,7 +587,9 @@ def _missing_statistic(key: str) -> str:
 def _priority(entry: Mapping[str, Any]) -> float:
     """|points at risk|: realized |points| for a non-SUPPORTED rule (0 when
     SUPPORTED or N/A).  For ABSENT_FIELD it is an UPPER bound — only players
-    covered solely by the lacking source are partial.  Without realized data,
+    covered solely by the lacking source are partial.  For SUPPORTED_IMPUTED
+    the points are not omitted but rest wholly on an estimate (see
+    ``atRiskBasis``), so they rank by the same magnitude.  Without realized data,
     |weight| as a weak tiebreak (a vocabulary census cannot rank by impact)."""
     cls = entry.get("classification")
     if cls in ("SUPPORTED", "NOT_APPLICABLE") and not entry.get("baselineMappingError"):
@@ -490,4 +597,5 @@ def _priority(entry: Mapping[str, Any]) -> float:
     realized = entry.get("realized")
     if realized is not None:
         return abs(float(realized["points"]))
-    return abs(float(entry.get("weight") or 0.0)) * 1e-6
+    weight = _num(entry.get("weight"))
+    return abs(weight) * 1e-6 if weight is not None else 0.0

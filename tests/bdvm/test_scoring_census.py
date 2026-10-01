@@ -85,7 +85,9 @@ def test_classification_per_rule():
     assert "zero_rated" not in rows  # zero-rated rules cost nothing
     assert rows["rec"]["classification"] == "SUPPORTED"
     assert rows["bonus_rec_wr"]["classification"] == "SUPPORTED"
-    assert rows["bonus_fd_wr"]["classification"] == "SUPPORTED"
+    # Supplied only through the first-down-rate imputation: its own class,
+    # never folded into SUPPORTED.
+    assert rows["bonus_fd_wr"]["classification"] == "SUPPORTED_IMPUTED"
     assert rows["bonus_fd_wr"]["imputed"] == ["clayOffense"]
     assert rows["fum_lost"]["classification"] == "UNSUPPORTED_VOCABULARY"
     assert rows["fum_lost"]["capability"]["manualCsv"] == "direct"
@@ -117,6 +119,98 @@ def test_only_play_by_play_rules_are_reported_by_unscored_keys():
 def test_engine_gap_is_a_mapping_error():
     rows = _by_key(census_for_card({"bonus_invented_rule": 1.0}))
     assert rows["bonus_invented_rule"]["classification"] == "MAPPING_ERROR"
+
+
+@pytest.mark.parametrize("key", ["pass_fd", "rush_fd", "rec_fd"])
+def test_play_type_first_downs_are_a_vocabulary_gap_never_a_mapping_fix(key):
+    """The realized engine reads no column for play-type first downs (probe
+    GAP), but for the PROJECTION lane the question is the source: no source
+    publishes first downs by play type, and deriving them from aggregate
+    yards would fabricate a stat.  So: UNSUPPORTED_VOCABULARY, and the remedy
+    says never to derive them."""
+    row = _by_key(census_for_card({key: 0.5}))[key]
+    assert row["engine"] == "gap"
+    assert row["classification"] == "UNSUPPORTED_VOCABULARY"
+    assert set(row["sources"].values()) == {"none"}
+    assert "never derive" in row["remedy"]
+    assert "aggregate" in row["remedy"]
+
+
+def test_imputed_rule_has_its_own_at_risk_basis_and_ranks_by_magnitude():
+    rows = [
+        {
+            "season": 2025,
+            "week": 1,
+            "season_type": "REG",
+            "player_id": "w1",
+            "position": "WR",
+            "receptions": 5,
+            "receiving_yards": 80,
+            "receiving_first_downs": 4,
+            "receiving_tds": 1,
+        },
+    ]
+    card = {"rec": 1.0, "bonus_fd_wr": 1.0}
+    m = measure_realized(rows, card, card)
+    by = _by_key(census_for_card(card, realized=m))
+    fd = by["bonus_fd_wr"]
+    assert fd["classification"] == "SUPPORTED_IMPUTED"
+    assert fd["realized"]["atRiskBasis"].startswith("estimated")
+    assert fd["priority"] == pytest.approx(abs(fd["realized"]["points"])) and fd["priority"] > 0
+    assert "imputed" in fd["remedy"]
+    assert by["rec"]["priority"] == 0.0  # directly supplied: nothing at risk
+
+
+def test_play_type_first_downs_are_measured_the_host_way():
+    """Realized measurement only: nflverse first downs MINUS that play type's
+    TDs (Sleeper excludes scoring plays).  A missing TD column makes the stat
+    unmeasurable, never "zero TDs"."""
+    rows = [
+        {
+            "season": 2025,
+            "week": 1,
+            "season_type": "REG",
+            "player_id": "r1",
+            "position": "RB",
+            "rushing_first_downs": 5,
+            "rushing_tds": 2,
+        },
+        {
+            "season": 2025,
+            "week": 2,
+            "season_type": "REG",
+            "player_id": "r1",
+            "position": "RB",
+            "rushing_first_downs": 3,
+        },
+    ]
+    m = measure_realized(rows, {"rush_fd": 0.5}, ["rush_fd"])
+    assert m["keys"]["rush_fd"]["stat"] == 3.0
+    assert m["keys"]["rush_fd"]["points"] == 1.5
+
+
+def test_missing_rate_and_missing_columns_are_never_zero():
+    rows = [
+        {
+            "season": 2025,
+            "week": 1,
+            "season_type": "REG",
+            "player_id": "d1",
+            "position": "LB",
+            "def_tackles_solo": 3,
+        }
+    ]
+    m = measure_realized(
+        rows, {"idp_tkl_solo": 1.0, "rec": None, "x": "bad"}, ["idp_tkl_solo", "rec", "x"]
+    )
+    assert m["unmeasuredKeys"] == ["rec", "x"]
+    assert "rec" not in m["keys"]
+    # The engine-finding columns are absent from this row: counted as missing,
+    # not summed as zeros.
+    assert m["columnTotals"] == {}
+    assert m["columnRowsMissing"]["fumble_recovery_opp"] == 1
+    # Non-numeric / absent card values are not census rules at all.
+    assert census_for_card({"rec": None, "x": "bad"}) == []
 
 
 def test_idp_rules_do_not_apply_to_a_league_that_starts_no_defenders():
@@ -263,11 +357,28 @@ def test_service_weight_sign(card, key, expected):
     assert _weight_sign(card, key) == expected
 
 
-def test_no_lower_bound_wording_survives_in_the_bdvm_coverage_surface():
-    for rel in ("src/bdvm/scoring.py", "src/bdvm/projections.py", "src/bdvm/service.py"):
-        text = (REPO_ROOT / rel).read_text(encoding="utf-8").lower()
-        assert "lower bound by" not in text, rel
-        assert "a lower bound;" not in text, rel
+_PARTIAL_TOTAL_SURFACES = (
+    "src/bdvm/scoring.py",
+    "src/bdvm/projections.py",
+    "src/bdvm/service.py",
+    "src/bdvm/baseline.py",
+    "src/bdvm/actuals.py",
+    "src/bdvm/scoring_census.py",
+    "src/nfl_data/realized_points.py",
+    "src/league_comparison/scoring_engine.py",
+)
+
+
+@pytest.mark.parametrize("rel", _PARTIAL_TOTAL_SURFACES)
+def test_no_lower_bound_wording_survives_on_partial_total_surfaces(rel):
+    """Unscored rules can be penalties (``pass_int_td``), so a partial total is
+    never described as a lower bound — every remaining mention must be the
+    negation ("not a lower bound")."""
+    text = " ".join((REPO_ROOT / rel).read_text(encoding="utf-8").lower().split())
+    start = 0
+    while (i := text.find("lower bound", start)) != -1:
+        assert "not" in text[max(0, i - 8) : i], (rel, text[max(0, i - 80) : i + 20])
+        start = i + 1
 
 
 # --------------------------------------------------------------------------

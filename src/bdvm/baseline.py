@@ -92,8 +92,10 @@ def realized_ppg_history(
     points; the per-week result reports them in ``unscored`` either way, so
     the shortfall is visible rather than silent.  A season the producer has
     not built is left alone rather than zeroed — unlike the card resolver,
-    the season is NOT skipped, because a partial line is still a real lower
-    bound while an unknown rule set makes the whole line meaningless.
+    the season is NOT skipped, because a partial line is still a real
+    partial total (its unscored rules are named, and their omitted
+    contribution may be positive or negative — not a lower bound) while an
+    unknown rule set makes the whole line meaningless.
     """
     totals: dict[tuple[str, int], float] = {}
     games: dict[tuple[str, int], int] = {}
@@ -132,8 +134,9 @@ def realized_ppg_history(
         totals[(key, season)] = totals.get((key, season), 0.0) + rp.fantasy_points
         games[(key, season)] = games.get((key, season), 0) + 1
         # Union across weeks — one week that could not supply a rule makes
-        # the season's PPG a lower bound, and that has to survive the
-        # roll-up or the caller sees a complete-looking rate.
+        # the season's PPG partial (not a lower bound: an unscored rule may
+        # be a penalty), and that has to survive the roll-up or the caller
+        # sees a complete-looking rate.
         if rp.unscored:
             bucket = unscored.setdefault((key, season), {})
             for unscored_key, rate in rp.unscored:

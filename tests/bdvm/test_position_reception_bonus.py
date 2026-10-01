@@ -76,3 +76,60 @@ def test_no_double_count_with_te_bonus():
 @pytest.mark.parametrize("key", ["bonus_rec_wr", "bonus_rec_rb", "bonus_rec_te"])
 def test_engine_probe_classifies_every_reception_bonus_scored(key):
     assert classify(key) is Coverage.SCORED
+
+
+# --------------------------------------------------------------------------
+# Host verification — Sleeper's own awarded points, not our assumption
+# --------------------------------------------------------------------------
+
+#: Observed 2026-10-01 from the PUBLIC Sleeper API for dynasty_main (live card
+#: ``rec`` 0.1, ``bonus_rec_wr`` 0.02), 2026 week 1.  ``host`` is the league's
+#: ``players_points``; ``without`` is the host's own stat line rescored by the
+#: golden-validated exact scorer with ``bonus_rec_wr`` zeroed.  Numbers only.
+#: Full run (401 WR player-weeks, 291 joined to nflverse):
+#: docs/research/bdvm-v1/scoring-census-2026-10-01/host_verification.json.
+HOST_OBSERVATIONS = (
+    # (receptions, host players_points, host line rescored WITHOUT the rule)
+    (5, 22.55, 22.45),
+    (5, 13.65, 13.55),
+    (6, 14.37, 14.25),
+    (8, 31.66, 31.50),
+    (8, 37.26, 37.10),
+)
+HOST_TOLERANCE = 0.011  # the host publishes two decimals (same as W18 R4)
+
+
+@pytest.mark.parametrize("receptions,host,without", HOST_OBSERVATIONS)
+def test_engine_reproduces_the_host_awarded_wr_reception_bonus(receptions, host, without):
+    """The host DOES pay ``bonus_rec_wr`` per reception: dropping the rule
+    misses its points, and this mapping (receptions x rate, from the nflverse
+    row) reproduces exactly the part the rule contributes."""
+    host_bonus = host - without
+    assert host_bonus > HOST_TOLERANCE  # without the rule, the host total is missed
+    rp = compute_weekly_points(
+        {"season": 2026, "week": 1, "receptions": receptions},
+        {"bonus_rec_wr": 0.02},
+        position="WR",
+    )
+    assert rp is not None
+    assert rp.fantasy_points == pytest.approx(host_bonus, abs=HOST_TOLERANCE)
+
+
+@pytest.mark.parametrize("key", ["bonus_rec_rb", "bonus_fd_rb"])
+def test_fullback_is_not_paid_the_rb_bonus(key):
+    """Sleeper's stat feed carries neither ``bonus_rec_rb`` nor ``bonus_fd_rb``
+    on an FB's line (host_verification.json ``fbReceptionLines``), so a raw
+    ``FB`` earns no RB-scoped bonus here.  (The BDVM baseline/actuals remap
+    FB -> RB first — a documented divergence, see realized_points.)"""
+    row = {
+        "season": 2026,
+        "week": 2,
+        "receptions": 2,
+        "receiving_yards": 27,
+        "receiving_first_downs": 1,
+        "receiving_tds": 0,
+    }
+    plain = compute_weekly_points(row, {"rec": 1.0}, position="FB")
+    paid = compute_weekly_points(row, {"rec": 1.0, key: 0.5}, position="FB")
+    assert plain is not None and paid is not None
+    assert paid.fantasy_points == pytest.approx(plain.fantasy_points)
