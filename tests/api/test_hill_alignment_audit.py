@@ -270,3 +270,74 @@ def test_disagreement_ranks_are_counted_over_the_same_rows(raw, base):
     assert all(math.isfinite(m) and m > 0 for m in medians)
     rookie = next(s["key"] for s in dc._RANKING_SOURCES if s.get("needs_rookie_translation"))
     assert audit.loo_disagreement(base, base, rookie)["status"] == "non_comparable_rookie_only_list"
+
+
+# ── post-hoc c3 (added at review) ──────────────────────────────────────────────
+
+
+def test_c3_prices_ktc_players_by_players_only_rank_and_keeps_picks_value_direct(raw, base):
+    seams = (dc._partition_value_source_ranges, dc._apply_pick_year_discount_to_blend)
+    with audit.ktc_players_rank_hill_patch() as stats:
+        c3 = vr.build(raw)
+    # Both seams restored, the patch fired, and every rewrite was undone.
+    assert (dc._partition_value_source_ranges, dc._apply_pick_year_discount_to_blend) == seams
+    assert stats["partitionCalls"] == 1
+    assert all(n > 0 for n in stats["rowsRewritten"].values())
+    assert stats["restored"] == sum(stats["rowsRewritten"].values())
+    check = audit.c3_contribution_check(base, c3)
+    assert check["ok"], check
+    for key in audit.KTC_KEYS:
+        assert check[key]["playerRowsMatchHillPlayersOnlyRank"] > 0
+        assert check[key]["pickRowsUnchanged"] > 0
+    # A different board from c2 (players-only rank, picks value-direct) ...
+    c2 = vr.build(raw, vr.native_values_as_ranks_spec())
+    assert vr.board_hash(c3) != vr.board_hash(c2)
+    # ... and outside the patch the incumbent is untouched.
+    assert vr.board_hash(vr.build(raw)) == vr.board_hash(base)
+
+
+def test_c3_vote_is_never_below_hill_at_the_live_rank(raw):
+    with audit.ktc_players_rank_hill_patch():
+        c3 = vr.build(raw)
+    off = curve_for_pool("offense")
+    checked = 0
+    for row in c3["playersArray"]:
+        if row.get("assetClass") != "offense":
+            continue
+        for key in audit.KTC_KEYS:
+            m = (row.get("sourceRankMeta") or {}).get(key)
+            if not m or m.get("valueContributionPath") != "value_direct":
+                continue
+            # Removing picks can only move a player UP, and Hill decreases in rank.
+            assert m["valueContribution"] >= audit.hill_value(m["effectiveRank"], off) - 1
+            checked += 1
+    assert checked > 0
+
+
+# ── DLF native values (added at review) ────────────────────────────────────────
+
+
+def test_dlf_join_probe_stamps_dlf_values_without_moving_the_board(raw, base):
+    if not (audit.REPO_ROOT / audit.DLF_VALUES_CSV_REL).exists():
+        pytest.skip("no DLF Values CSV")
+    before = dict(dc._SOURCE_CSV_PATHS)
+    probe = vr.build(raw, audit.dlf_join_probe_spec())
+    assert dict(dc._SOURCE_CSV_PATHS) == before
+    assert audit.DLF_VALUES not in {s.get("key") for s in dc._RANKING_SOURCES}
+    stamped = [
+        r
+        for r in probe["playersArray"]
+        if (r.get("canonicalSiteValues") or {}).get(audit.DLF_VALUES)
+    ]
+    assert stamped and all(r.get("assetClass") == "offense" for r in stamped)
+    assert vr.board_hash(probe) == vr.board_hash(base)
+
+
+def test_dlf_family_voters_are_the_dlf_rank_family():
+    voters = audit.dlf_family_voters()
+    assert "dlfSf" in voters and audit.DLF_VALUES not in voters
+
+
+def test_post_hoc_additions_are_not_part_of_the_predeclaration():
+    assert "c3_ktc_players_rank_hill" not in audit.DECLARATION["candidates"]
+    assert "c3_ktc_players_rank_hill" in audit.POST_HOC_ADDITIONS["candidates"]
