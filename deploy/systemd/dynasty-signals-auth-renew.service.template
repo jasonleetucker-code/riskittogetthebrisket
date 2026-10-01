@@ -1,0 +1,38 @@
+[Unit]
+Description=Dynasty Trade Calculator Signals session renewal (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+
+# Keeps the owner-connected Signals (signalsfantasy.com) Cognito session
+# renewed between collections and detects a revoked/expired refresh
+# credential early.  Record: docs/sources/SIGNALS_ACCOUNT_CONNECTION.md.
+#
+# The session lives OUTSIDE the checkout at /var/lib/signals-auth (0700 dir,
+# 0600 files), so deploys (git reset --hard in __APP_DIR__) and restarts never
+# touch it.  Renewal takes an exclusive lock and re-reads under it, so this
+# timer and any collector can never spend the same refresh token twice.
+#
+# Exit codes (scripts/signals_connect.py renew):
+#   0 - renewed, not yet due, or no session connected (nothing to do)
+#   1 - transient (network / 5xx / throttled) after bounded retries; the
+#       current access token is still used if it has not expired
+#   2 - stopped: reconnect_required / access_denied / refresh_refused.  No
+#       retry loop and no login email; ONE owner notice per episode goes out
+#       through the existing ops SMTP channel on the next signal-alerts sweep.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/signals_connect.py renew
+StandardOutput=journal
+StandardError=journal
+# One small HTTPS POST to Cognito at most — cheap, never user-facing.
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=180
+
+[Install]
+WantedBy=multi-user.target

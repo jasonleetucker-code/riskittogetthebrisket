@@ -49,6 +49,8 @@ itself displayed the data. Nothing behind authentication was accessed.
   - an owner-controlled login flow, with local ignored storage or an approved secret
     manager;
   - expiry means stopping and reporting, not repeated re-login.
+  - Implemented (2026-10-01): `docs/sources/SIGNALS_ACCOUNT_CONNECTION.md` (observed login
+    mechanism, session store, renewal, failure classes, operations).
 
 **Public pages fetched** (HTTP 200):
 - `/`, `/robots.txt`, `/terms`, `/security`

@@ -1,0 +1,20 @@
+[Unit]
+Description=6-hourly Signals session renewal for __SERVICE_NAME__
+# No Requires= on the service: [Timer] Unit= binds it (same convention as
+# the crowd-faab timer).
+
+[Timer]
+# Every 6 hours.  Signals' access token lifetime is read from each token's
+# own `exp` claim (renewal fires only when within the skew margin of it); the
+# refresh token's lifetime is NOT observable client-side, so a regular renewal
+# is what proves the credential is still alive and what surfaces revocation
+# within hours instead of at the next paid-surface collection.  Four Cognito
+# calls a day at most.  Offset :47 keeps it off the busy top-of-hour slots.
+OnCalendar=*-*-* 00/6:47:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+AccuracySec=1min
+Unit=__SERVICE_NAME__-signals-auth-renew.service
+
+[Install]
+WantedBy=timers.target
