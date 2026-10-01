@@ -554,6 +554,8 @@ forecasts and manager tendencies are private.
   — 2026-10-01: `C10-ML-01` now also carries the Adaptive Learning roadmap units AL-0…AL-5
   (`docs/research/ADAPTIVE_LEARNING_2026-09-26.md` Part II). They are plan-local sub-units of this
   row, not new rows; their authorization lives in `EXECUTION_PLAN.md` §0, not here.
+  Same day, the full re-send (sections 9–31) added AL-0b and AL-6…AL-19 plus the perishable-capture
+  units AL-P1…AL-P8 (plan Part III); same rule — sub-units of their native rows, no new rows here.
 ### C10-U4 — Final gates · **rows** `C10-CLOSE-03` … `C10-CLOSE-07`
   — browser/workflow matrix · background jobs proven · performance gates ·
   security/privacy/auth · final regression

@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import subprocess
 import zipfile
 from collections import Counter, defaultdict
@@ -96,11 +97,172 @@ PAIR_IMPLICATION_AXES: tuple[str, ...] = (
 )
 #: Fields a MEASURED_DEPENDENCE pair must pin (method, window, sample size).
 MEASUREMENT_REQUIRED_FIELDS: tuple[str, ...] = ("method", "window", "n")
+#: A relation's ``statistics.measurements`` history: exactly one ``current``
+#: entry (the newest, dated the relation's ``asOf``); older ones are kept as
+#: ``superseded`` rather than overwritten (by convention: the validator checks
+#: the file's shape, not its history).
+MEASUREMENT_CURRENT = "current"
+MEASUREMENT_STATUSES: tuple[str, ...] = (MEASUREMENT_CURRENT, "superseded")
 
 
 def lineage_category(relation: Mapping[str, Any]) -> str | None:
-    """The lineage category a recorded relation supports (None = unclassified)."""
+    """The lineage category a recorded relation's CLASSIFICATION names (None =
+    unclassified).  A label; whether the relation counts as dependence evidence
+    is :func:`relation_dependence_category`."""
     return CATEGORY_OF_CLASSIFICATION.get(str(relation.get("classification")))
+
+
+#: Proven relation kinds that say two boards are ONE provider's one opinion --
+#: calibration states of one crowd, one payload, one page, one provider's
+#: boards.  Evidence about one member is evidence about the other, so the pair
+#: validator follows exactly one of these hops per side (:func:`identity_peers`).
+#: Every member of such a relation must share one recorded ``provider``
+#: (``validate_lineage`` refuses otherwise), so a kind as generic as
+#: ``derived_from`` cannot chain two providers.
+IDENTITY_RELATION_KINDS: frozenset[str] = frozenset(
+    {
+        "same_provider_same_payload",
+        "calibration_state_of",
+        "derived_from",
+        "same_provider",
+        "same_page_slice",
+        "same_provider_distinct_board",
+    }
+)
+#: A same-provider board of a DIFFERENT game type (``draftsharks-ros-same-provider``).
+#: For DEPENDENCE only it is an identity-like link: one provider's staff and
+#: process stand behind both boards, so it is followed as one hop exactly like
+#: an identity kind and must name one recorded provider (#1601 round-3 review:
+#: excluding it accepted ``draftSharksIdp`` vs ``draftSharksRosSf`` as
+#: INDEPENDENT).  It is deliberately NOT an identity kind for any EVIDENCE or
+#: VOTING purpose: whether a board may vote is the dynasty-only game-type rule
+#: (a lineage ``gameType`` + the canonical source registry -- CLAUDE.md
+#: source-domain boundaries), which never reads this set.  Treating the link as
+#: dependence can only REFUSE an independence verdict; it never makes a redraft
+#: / ROS board count as dynasty evidence.
+CROSS_GAME_TYPE_RELATION_KINDS: frozenset[str] = frozenset({"same_provider_other_game_type"})
+#: Every kind followed as one identity hop when judging DEPENDENCE.
+DEPENDENCE_LINK_RELATION_KINDS: frozenset[str] = (
+    IDENTITY_RELATION_KINDS | CROSS_GAME_TYPE_RELATION_KINDS
+)
+#: Proven relation kinds that describe how a SPECIFIC board is built, not a
+#: shared opinion: scale borrowing ("not shared opinion", per its own record),
+#: use of another provider's data, and a vendor aggregate of unnamed inputs.
+#: They are never followed as a hop.  ``scale_borrowed_from`` and
+#: ``derived_from_unnamed_inputs`` contradict an independence verdict only on a
+#: pair whose own sources they name; ``uses_provider_data`` (see
+#: ``PROVIDER_DATA_RELATION_KINDS``) additionally reaches one identity hop from
+#: its members.  Every proven relation's kind must sit in exactly one of
+#: ``IDENTITY_RELATION_KINDS`` / ``CROSS_GAME_TYPE_RELATION_KINDS`` / this set
+#: (``validate_lineage``), so a new kind is classified deliberately rather than
+#: defaulting into any of them.
+NON_IDENTITY_PROVEN_RELATION_KINDS: frozenset[str] = frozenset(
+    {
+        "scale_borrowed_from",
+        "uses_provider_data",
+        "derived_from_unnamed_inputs",
+    }
+)
+#: Non-identity kinds whose dependence is INHERITED through the used
+#: provider's identity: a board built on provider B's data carries B's opinion,
+#: and B's calibration states / same-payload boards ARE that opinion.  So
+#: ``fn-uses-ktc-data`` (FN, ``ktcCrowdSfTep``) is evidence about FN versus
+#: every KTC sibling, not only versus ``ktcCrowdSfTep`` (#1601 round-3 review).
+#: The relation records no direction, so :func:`relation_reach` takes one
+#: identity hop from EVERY member: required on the provider side, and on the
+#: user side it is the same one-hop-per-side rule measured evidence already
+#: follows.  Conservative: it can only refuse more independence verdicts.
+PROVIDER_DATA_RELATION_KINDS: frozenset[str] = frozenset({"uses_provider_data"})
+#: Substrings naming a DEPENDENCE statistic in a measurement's ``values``: the
+#: leave-pair-out / residual correlations (and partials) the sweeps record.
+#: Raw correlations, value ratios and RMSEs are not dependence statistics --
+#: every dynasty board correlates ~0.9 with every other on raw rank.
+DEPENDENCE_STATISTIC_MARKERS: tuple[str, ...] = ("residual", "partial")
+
+
+def is_identity_relation(relation: Mapping[str, Any]) -> bool:
+    """A proven relation whose kind says its members are one provider's one opinion."""
+    return (
+        lineage_category(relation) == LINEAGE_PROVEN_COMMON_ANCESTRY
+        and str(relation.get("relation")) in IDENTITY_RELATION_KINDS
+    )
+
+
+def is_dependence_link(relation: Mapping[str, Any]) -> bool:
+    """A proven relation followed as one identity hop when judging DEPENDENCE:
+    an identity kind, or a same-provider cross-game-type link
+    (``CROSS_GAME_TYPE_RELATION_KINDS`` -- dependence only, never evidence)."""
+    return (
+        lineage_category(relation) == LINEAGE_PROVEN_COMMON_ANCESTRY
+        and str(relation.get("relation")) in DEPENDENCE_LINK_RELATION_KINDS
+    )
+
+
+def relation_reach(
+    relation: Mapping[str, Any], peers: Mapping[str, set[str]] | None = None
+) -> set[str]:
+    """The sources a relation is evidence about when judging dependence.
+
+    Its own members, plus -- for a ``PROVIDER_DATA_RELATION_KINDS`` relation --
+    one identity hop (:func:`identity_peers`) from each member, so data use of
+    ``ktcCrowdSfTep`` reaches ``ktcTradesSfTep`` / ``ktc`` / ``ktcSfTep`` /
+    ``ktcCrowdTradesSfTep``.  One hop, never the closure.  The single rule the
+    pair validator and the Hill manifest's relation scan both read."""
+    members = {str(x) for x in (relation.get("sources") or [])}
+    if (
+        lineage_category(relation) != LINEAGE_PROVEN_COMMON_ANCESTRY
+        or str(relation.get("relation")) not in PROVIDER_DATA_RELATION_KINDS
+    ):
+        return members
+    out = set(members)
+    for m in members:
+        out.update((peers or {}).get(m, ()))
+    return out
+
+
+def measured_positive_dependence(relation: Mapping[str, Any]) -> bool:
+    """Whether a MEASURED relation's latest recorded measurement shows positive
+    dependence -- the D2 preregistration §5 rule ("measured with a positive
+    dependence in its latest recorded measurement").
+
+    Positive means any dependence statistic (``DEPENDENCE_STATISTIC_MARKERS``)
+    in the ``current`` measurement is > 0.  Literal, deliberately: the
+    leave-pair-out floor is itself about +0.07..+0.10, so a stricter cut would
+    be a new threshold, and the +0.10 / +0.30 rule in
+    ``OTC_LINEAGE_REMEASURE_2026-10-01.md`` was declared post hoc.  Fails
+    closed: no current measurement, one carrying no dependence statistic, or
+    one carrying a non-finite dependence statistic (NaN / inf -- ``nan > 0`` is
+    False, so it would otherwise read as independence) counts as positive -- an
+    unmeasured direction is not independence."""
+    current = current_measurement(relation)
+    if current is None:
+        return True
+    stats = [
+        float(v)
+        for k, v in (current.get("values") or {}).items()
+        if any(mark in str(k).lower() for mark in DEPENDENCE_STATISTIC_MARKERS)
+        and isinstance(v, (int, float))
+        and not isinstance(v, bool)
+    ]
+    if not stats or not all(math.isfinite(v) for v in stats):
+        return True
+    return any(v > 0 for v in stats)
+
+
+def relation_dependence_category(relation: Mapping[str, Any]) -> str | None:
+    """The category a relation counts as when judging DEPENDENCE (None = none).
+
+    The classification's category, except that a ``measured`` relation whose
+    latest measurement shows no positive dependence (``dlf-ktc-independence``,
+    residual -0.447; ``draftsharks-contrarian``, -0.505..-0.382) counts as
+    nothing: it is measured evidence AGAINST dependence, which none of the four
+    categories names (INDEPENDENT_NO_EVIDENCE is the absence of evidence).  Its
+    classification and dated history are unchanged.  The one rule both the pair
+    validator and the Hill manifest's worst-of read."""
+    cat = lineage_category(relation)
+    if cat == LINEAGE_MEASURED_DEPENDENCE and not measured_positive_dependence(relation):
+        return None
+    return cat
 
 
 VOTING = "VOTING"
@@ -398,10 +560,192 @@ def validate_lineage(lineage: Mapping[str, Any], repo_root: Path = REPO_ROOT) ->
                     errors.append(
                         f"relations.{rid}: a measured relation is dependence, not ancestry"
                     )
+            if section == "relations" and item.get("classification") == "proven":
+                kind = str(item.get("relation"))
+                kind_sets = (
+                    IDENTITY_RELATION_KINDS,
+                    CROSS_GAME_TYPE_RELATION_KINDS,
+                    NON_IDENTITY_PROVEN_RELATION_KINDS,
+                )
+                if sum(kind in s for s in kind_sets) != 1:
+                    errors.append(
+                        f"relations.{rid}: proven relation kind {kind!r} must be in exactly one "
+                        "of IDENTITY_RELATION_KINDS / CROSS_GAME_TYPE_RELATION_KINDS / "
+                        "NON_IDENTITY_PROVEN_RELATION_KINDS"
+                    )
+                elif kind in DEPENDENCE_LINK_RELATION_KINDS:
+                    # Fail closed on a missing provider: without this, every
+                    # provider-less source reads as the same "None" provider.
+                    src_map = lineage.get("sources") or {}
+                    member_provs = [
+                        (src_map.get(str(x)) or {}).get("provider")
+                        for x in item.get("sources") or []
+                    ]
+                    provs = {str(p) for p in member_provs}
+                    if any(p is None or p not in providers for p in member_provs):
+                        errors.append(
+                            f"relations.{rid}: identity kind {kind!r} needs every member's "
+                            "recorded provider; a missing or unknown provider cannot prove "
+                            "one provider's one opinion"
+                        )
+                    elif len(provs) != 1:
+                        errors.append(
+                            f"relations.{rid}: identity kind {kind!r} spans providers "
+                            f"{sorted(provs)}; an identity link is one provider's one opinion"
+                        )
             if section == "evaluations" and item.get("kind") not in _EVALUATION_KIND_STATE:
                 errors.append(f"evaluations.{rid}: unknown kind {item.get('kind')!r}")
+            if section == "relations" and "statistics" in item:
+                errors.extend(_validate_statistics(f"relations.{rid}", item))
     errors.extend(_validate_pairs(lineage, ids, _check_evidence))
     return errors
+
+
+def _validate_statistics(where: str, relation: Mapping[str, Any]) -> list[str]:
+    """A relation's statistics are a DATED HISTORY, never a bare number.
+
+    The 2026-10-01 D2 review found summaries refreshed while flat
+    ``statistics`` still carried superseded values (``residualRho`` 0.891 on
+    a relation whose summary said "not reproduced").  So: every measurement
+    pins its date, method and values; exactly one is ``current``, it is the
+    newest, and it carries the relation's own ``asOf``.  Moving ``asOf``
+    without also dating a ``current`` entry to match therefore fails.
+
+    This checks the SHAPE of one file at one commit, nothing more.  It
+    cannot see history: an in-place edit of an entry's values, or deletion
+    of a ``superseded`` entry, passes.  Keeping superseded values is a
+    convention this check makes visible, not one it enforces; an
+    append-only check against the base commit is a recorded follow-up
+    (``docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md``)."""
+    from datetime import date
+
+    errors: list[str] = []
+    stats = relation.get("statistics")
+    if not isinstance(stats, Mapping) or set(stats) != {"measurements"}:
+        return [f"{where}: statistics must be exactly {{'measurements': [...]}}"]
+    entries = stats["measurements"]
+    if not isinstance(entries, list) or not entries:
+        return [f"{where}: statistics.measurements must be a non-empty list"]
+    dated: list[tuple[str, str]] = []
+    for i, m in enumerate(entries):
+        at = f"{where}.statistics.measurements[{i}]"
+        if not isinstance(m, Mapping):
+            errors.append(f"{at}: must be an object")
+            continue
+        try:
+            date.fromisoformat(str(m.get("asOf")))
+        except ValueError:
+            errors.append(f"{at}: asOf must be an ISO date, got {m.get('asOf')!r}")
+            continue
+        if m.get("status") not in MEASUREMENT_STATUSES:
+            errors.append(f"{at}: status must be one of {list(MEASUREMENT_STATUSES)}")
+        if not str(m.get("method") or "").strip():
+            errors.append(f"{at}: method required")
+        values = m.get("values")
+        if not isinstance(values, Mapping) or not values:
+            errors.append(f"{at}: values must be a non-empty object")
+        elif any(isinstance(v, bool) or not isinstance(v, (int, float)) for v in values.values()):
+            errors.append(f"{at}: every value must be a number")
+        elif not all(math.isfinite(v) for v in values.values()):
+            errors.append(f"{at}: every value must be finite (no NaN / inf)")
+        n = m.get("n")
+        if n is not None and (isinstance(n, bool) or not isinstance(n, int) or n <= 0):
+            errors.append(f"{at}: n must be an int > 0 or null (unrecorded), got {n!r}")
+        dated.append((str(m.get("asOf")), str(m.get("status"))))
+    current = [d for d, s in dated if s == MEASUREMENT_CURRENT]
+    if len(current) != 1:
+        errors.append(f"{where}: exactly one measurement must be current, found {len(current)}")
+    else:
+        if current[0] != str(relation.get("asOf")):
+            errors.append(
+                f"{where}: the current measurement ({current[0]}) must carry the relation "
+                f"asOf ({relation.get('asOf')})"
+            )
+        if any(d > current[0] for d, _ in dated):
+            errors.append(f"{where}: a superseded measurement is newer than the current one")
+    return errors
+
+
+def identity_peers(relations: Mapping[Any, Mapping[str, Any]]) -> dict[str, set[str]]:
+    """``{source: every source sharing a DEPENDENCE link with it}`` -- one hop.
+
+    Only :func:`is_dependence_link` relations count: the identity kinds plus the
+    same-provider cross-game-type link (dependence only; see
+    ``CROSS_GAME_TYPE_RELATION_KINDS``).  A proven scale-borrowing relation
+    (``rookie-ladder-borrows-reference-scale``) is "not shared opinion" by its
+    own record, and following it joined the DLF, Flock, KTC and IDPTC groups
+    (#1601 round-2 review).  One hop, never the closure."""
+    peers: dict[str, set[str]] = {}
+    for rel in relations.values():
+        if not is_dependence_link(rel):
+            continue
+        members = {str(x) for x in (rel.get("sources") or [])}
+        for m in members:
+            peers.setdefault(m, set()).update(members - {m})
+    return peers
+
+
+def _independence_contradictions(
+    where: str,
+    pair_sources: Sequence[Any],
+    relations: Mapping[Any, Mapping[str, Any]],
+    peers: Mapping[str, set[str]],
+    skip: set[str],
+) -> list[str]:
+    """Recorded relations that forbid an INDEPENDENT_NO_EVIDENCE pair.
+
+    Absence of evidence cannot coexist with RECORDED evidence, cited or not:
+    otherwise a pair that simply omits the relation joining its own sources
+    relabels a measured dependence as independence (#1601 review).
+
+    * A proven relation, or a measured one with positive dependence
+      (:func:`relation_dependence_category`), contradicts the pair when it
+      touches two DIFFERENT pair sources.
+    * Opinion evidence travels ONE identity hop per side
+      (:func:`identity_peers`): ``ktc`` is a calibration state of
+      ``ktcSfTep``, so a measured PFK~``ktcSfTep`` dependence is evidence about
+      PFK~``ktc``.  Measured and dependence-link relations (identity kinds and
+      the same-provider cross-game-type link) are matched through that hop,
+      and never further.
+    * A non-identity proven relation describes the construction of the boards
+      it names, so it is matched on the pair's own sources: DLF's rookie board
+      borrowing KTC's scale says nothing about DLF's superflex ranking versus
+      KTC.  Data use is the exception (``PROVIDER_DATA_RELATION_KINDS``): it
+      joins a pair when one pair source is a member and another is in its
+      :func:`relation_reach` -- FN using ``ktcCrowdSfTep`` data inherits that
+      crowd's opinion, so FN vs ``ktcTradesSfTep`` / ``ktc`` is refused too.
+    * SUSPECTED relations do not contradict "no evidence"; consumers that need
+      the worse verdict (the Hill manifest) take it themselves."""
+    direct = [{str(x)} for x in pair_sources]
+    reach = [{str(x)} | set(peers.get(str(x), ())) for x in pair_sources]
+    out: list[str] = []
+    for rid, rel in relations.items():
+        if str(rid) in skip:
+            continue  # already judged as a supporting relation of this pair
+        cat = relation_dependence_category(rel)
+        if cat not in (LINEAGE_PROVEN_COMMON_ANCESTRY, LINEAGE_MEASURED_DEPENDENCE):
+            continue
+        members = {str(x) for x in (rel.get("sources") or [])}
+        if cat == LINEAGE_MEASURED_DEPENDENCE or is_dependence_link(rel):
+            hops, left, right = reach, members, members
+        else:
+            # Construction relations: the pair's own sources; data use also
+            # reaches one identity hop from its members (relation_reach).
+            hops, left, right = direct, members, relation_reach(rel, peers)
+        joined = any(
+            a != b
+            for i, ri in enumerate(hops)
+            for j, rj in enumerate(hops)
+            if i != j
+            for a in left & ri
+            for b in right & rj
+        )
+        if joined:
+            out.append(
+                f"{where}: INDEPENDENT_NO_EVIDENCE contradicts recorded relation {rid!r} "
+                f"({rel.get('classification')}) joining the pair's sources"
+            )
+    return out
 
 
 def _validate_pairs(lineage: Mapping[str, Any], ids: set[str], check_evidence: Any) -> list[str]:
@@ -414,6 +758,7 @@ def _validate_pairs(lineage: Mapping[str, Any], ids: set[str], check_evidence: A
         errors.append(f"categories must be exactly {list(LINEAGE_CATEGORIES)}")
     relations = {r.get("id"): r for r in lineage.get("relations") or []}
     known_sources = set((lineage.get("sources") or {}).keys())
+    peers = identity_peers(relations)
     for pair in lineage.get("pairReconciliation") or []:
         pid = pair.get("id")
         where = f"pairReconciliation.{pid}"
@@ -438,6 +783,7 @@ def _validate_pairs(lineage: Mapping[str, Any], ids: set[str], check_evidence: A
         elif cat not in LINEAGE_CATEGORIES:
             errors.append(f"{where}: category must be one of {list(LINEAGE_CATEGORIES)}")
         supporting = []
+        supporting_ids: set[str] = set()
         pair_sources = set(srcs)
         for rid in pair.get("relations") or []:
             if rid not in relations:
@@ -453,7 +799,8 @@ def _validate_pairs(lineage: Mapping[str, Any], ids: set[str], check_evidence: A
                     "sources; a supporting relation must involve at least two"
                 )
                 continue
-            supporting.append(lineage_category(relations[rid]))
+            supporting.append(relation_dependence_category(relations[rid]))
+            supporting_ids.add(str(rid))
         if (
             cat == LINEAGE_PROVEN_COMMON_ANCESTRY
             and LINEAGE_PROVEN_COMMON_ANCESTRY not in supporting
@@ -477,6 +824,10 @@ def _validate_pairs(lineage: Mapping[str, Any], ids: set[str], check_evidence: A
             c in (LINEAGE_PROVEN_COMMON_ANCESTRY, LINEAGE_MEASURED_DEPENDENCE) for c in supporting
         ):
             errors.append(f"{where}: INDEPENDENT_NO_EVIDENCE contradicts a supporting relation")
+        if cat == LINEAGE_INDEPENDENT_NO_EVIDENCE:
+            errors.extend(
+                _independence_contradictions(where, srcs, relations, peers, supporting_ids)
+            )
         impl = pair.get("implications") or {}
         missing_axes = [a for a in PAIR_IMPLICATION_AXES if not impl.get(a)]
         if missing_axes:
@@ -683,6 +1034,15 @@ def _relations_for(key: str, lineage: Mapping[str, Any]) -> list[Mapping[str, An
     return [r for r in (lineage.get("relations") or []) if key in (r.get("sources") or [])]
 
 
+def current_measurement(rel: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The relation's current dated measurement (None when it records none)."""
+    entries = (rel.get("statistics") or {}).get("measurements") or []
+    for m in entries:
+        if isinstance(m, Mapping) and m.get("status") == MEASUREMENT_CURRENT:
+            return dict(m)
+    return None
+
+
 def _relation_view(rel: Mapping[str, Any], key: str) -> dict[str, Any]:
     """Compact per-source pointer; the full relation is in ``lineageRelations``."""
     out = {
@@ -690,8 +1050,14 @@ def _relation_view(rel: Mapping[str, Any], key: str) -> dict[str, Any]:
         "relation": rel.get("relation"),
         "with": [s for s in rel.get("sources") or [] if s != key],
     }
-    if rel.get("statistics"):
-        out["statistics"] = dict(rel["statistics"])
+    current = current_measurement(rel)
+    if current is not None:
+        # A census entry may hold no unexplained None: an unrecorded sample
+        # size is stated as such rather than published as a null.
+        if current.get("n") is None:
+            current.pop("n", None)
+            current["nRecorded"] = False
+        out["statistics"] = current
     return {k: v for k, v in out.items() if v is not None}
 
 

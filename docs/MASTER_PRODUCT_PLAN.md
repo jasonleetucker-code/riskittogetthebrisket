@@ -173,6 +173,14 @@ unknown-vs-zero semantics. They estimate uncertain relationships around those fa
 reevaluation, never automatic retraining or promotion. Detailed plan, owners and units:
 `docs/research/ADAPTIVE_LEARNING_2026-09-26.md` Part II; authorization: `docs/EXECUTION_PLAN.md` §0.
 
+Owner re-send 2026-10-01 (directive §21–§30), binding on every adaptive system: **capture perishable evidence
+first** — modeling can wait, irrecoverable evidence cannot; **rejected challengers are retained evidence**, never
+deleted; a learned influence that changes a user-facing recommendation carries evidence-generated reasons
+(sample size, holdout, cohort), never unexplained "AI"; **random train/test splits are prohibited where time
+ordering matters**; and Adaptive Learning counts as implemented only when the SOURCE, TRADE, PROJECTION and
+MODEL GOVERNANCE feedback loops are closed in code on real data. Autonomous trades, waiver moves and DFS entries
+are not authorized. Plan Part III (§26–§38).
+
 ---
 
 # 4. MASTER FEATURE MAP

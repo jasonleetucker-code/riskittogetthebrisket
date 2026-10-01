@@ -146,6 +146,11 @@ _UNHASHED_FIELDS = frozenset(
         "inputsContentHash",
         "evidenceHash",
         "recordedAt",
+        # The lineage registry's file identity: provenance only. The derived
+        # holdout labels it produced are already inside ``manifestHash``
+        # (``TrainingManifest.hash_payload``), so an unrelated lineage edit
+        # must not move ``pinsHash`` / ``challengerHash`` either.
+        "lineage",
     }
 )
 
@@ -491,6 +496,7 @@ def execute(
     record: dict[str, Any] = {
         "substrateVersion": SUBSTRATE_VERSION,
         "manifestHash": m.manifest_hash(),
+        "lineage": m.lineage.to_dict(),
         "codeSha": code_sha or "unknown",
         "codeHash": code["codeHash"],
         "code": code,

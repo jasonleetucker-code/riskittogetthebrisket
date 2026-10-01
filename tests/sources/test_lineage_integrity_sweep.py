@@ -328,6 +328,181 @@ def test_supporting_relation_must_involve_two_of_the_pairs_own_sources():
     assert _errors_with(_pair()) == []
 
 
+def _independent(pid, sources):
+    return _pair(
+        id=pid,
+        sources=sources,
+        category="INDEPENDENT_NO_EVIDENCE",
+        relations=[],
+        measurement=None,
+    )
+
+
+def _with_pfk_pair_replaced(sources):
+    """The live registry with ``pair-ktc-pfk`` replaced by an uncited INDEPENDENT pair."""
+    sc, lin = _lineage()
+    lin = json.loads(json.dumps(lin))
+    lin["pairReconciliation"] = [
+        p for p in lin["pairReconciliation"] if p["id"] != "pair-ktc-pfk"
+    ] + [_independent("pair-pfk-ktc-independent", sources)]
+    return sc.validate_lineage(lin)
+
+
+def test_independent_pair_cannot_omit_a_recorded_dependence():
+    """#1601 review repro, literally: an INDEPENDENT (pfkDynasty, ktc) pair citing
+    no relation used to validate while ``pfk-ktc-dependence`` records measured
+    dependence of PFK on ``ktcSfTep`` -- which ``ktc-historical-calibration-states``
+    PROVES is the same crowd as ``ktc``. Recorded evidence, cited or not, forbids
+    "no evidence"."""
+    errs = _with_pfk_pair_replaced(["pfkDynasty", "ktc"])
+    assert any("pair-pfk-ktc-independent" in e and "'pfk-ktc-dependence'" in e for e in errs), errs
+
+
+def test_independent_pair_contradicted_directly_by_an_uncited_relation():
+    errs = _with_pfk_pair_replaced(["pfkDynasty", "ktcSfTep"])
+    assert any("pair-pfk-ktc-independent" in e and "'pfk-ktc-dependence'" in e for e in errs), errs
+
+
+def test_independent_pair_beside_a_proven_relation_is_refused():
+    errs = _errors_with(_independent("p", ["ktcCrowdSfTep", "ktcTradesSfTep"]))
+    assert any("'ktc-crowd-trades-same-payload'" in e and "proven" in e for e in errs), errs
+
+
+def test_independent_pair_beside_only_a_suspected_relation_is_allowed():
+    """SUSPECTED is not evidence of dependence strong enough to contradict the
+    absence-of-evidence verdict at validation time (the manifest still takes the
+    worse of the two)."""
+    errs = _errors_with(_independent("p", ["signalsDynasty", "signalsIdpDynasty"]))
+    assert errs == [], errs
+
+
+def test_independent_pair_with_one_shared_source_is_not_contradicted():
+    # fn-ktc-dependence joins fantasyNavigatorSf with ktcCrowdSfTep; a pair on
+    # (fantasyNavigatorSf, draftSharks) shares only one of its sources.
+    errs = _errors_with(_independent("p", ["fantasyNavigatorSf", "draftSharks"]))
+    assert errs == [], errs
+
+
+# ── #1601 round 2: identity hops and measured direction ─────────────────
+
+
+@pytest.mark.parametrize(
+    "sources",
+    [
+        ["dlfSf", "idpTradeCalc"],
+        ["dlfSf", "ktcCrowdSfTep"],
+        ["dlfSf", "ktcSfTep"],
+        ["flockFantasySf", "ktc"],
+        ["flockFantasySf", "dlfSf"],
+    ],
+)
+def test_scale_borrowing_is_not_followed_as_an_identity_hop(sources):
+    """``rookie-ladder-borrows-reference-scale`` is proven but "not shared
+    opinion": following it (DLF rookie -> KTC Crowd -> IDPTC) refused these
+    independence verdicts far from any recorded evidence. Probes, not claims."""
+    errs = _errors_with(_independent("p", sources))
+    assert errs == [], errs
+
+
+def test_identity_hop_still_reaches_a_calibration_state():
+    errs = _errors_with(_independent("p", ["pfkDynasty", "ktc"]))
+    assert any("'pfk-ktc-dependence'" in e for e in errs), errs
+
+
+def test_a_scale_borrowing_relation_still_contradicts_its_own_members():
+    errs = _errors_with(_independent("p", ["dlfRookieSf", "ktcCrowdSfTep"]))
+    assert any("'rookie-ladder-borrows-reference-scale'" in e for e in errs), errs
+
+
+def _with_relation(rel, pair):
+    sc, lin = _lineage()
+    lin = json.loads(json.dumps(lin))
+    lin["relations"].append(rel)
+    lin["pairReconciliation"] = [pair]
+    return sc.validate_lineage(lin)
+
+
+def _synthetic_measured(sources, residual):
+    return {
+        "id": "synthetic-measured",
+        "sources": sources,
+        "relation": "measured_dependence",
+        "classification": "measured",
+        "summary": "synthetic",
+        "evidence": ["config/sources/source_lineage.json"],
+        "asOf": "2026-10-01",
+        "statistics": {
+            "measurements": [
+                {
+                    "asOf": "2026-10-01",
+                    "status": "current",
+                    "method": "m",
+                    "window": "w",
+                    "n": 10,
+                    "values": {"residualR": residual},
+                }
+            ]
+        },
+    }
+
+
+def test_the_identity_hop_stops_after_one_link_per_side():
+    """ktc -[calibration_state_of]- ktcCrowdSfTep -[same_payload]- ktcTradesSfTep.
+    A dependence recorded on ktcTradesSfTep reaches a ktcCrowdSfTep pair (one
+    hop) and NOT a ktc pair (two hops)."""
+    rel = _synthetic_measured(["yahooBoone", "ktcTradesSfTep"], 0.5)
+    one_hop = _with_relation(rel, _independent("p", ["yahooBoone", "ktcCrowdSfTep"]))
+    assert any("'synthetic-measured'" in e for e in one_hop), one_hop
+    two_hops = _with_relation(rel, _independent("p", ["yahooBoone", "ktc"]))
+    assert two_hops == [], two_hops
+
+
+def test_a_measured_relation_counts_only_with_positive_latest_dependence():
+    """D2 §5: "measured with a positive dependence in its latest recorded
+    measurement". ``dlf-ktc-independence`` (residual -0.447) does not block a
+    DLF-KTC independence verdict; the same relation at +0.05 does; with no
+    recorded measurement it fails closed."""
+    sc, lin = _lineage()
+    rels = {r["id"]: r for r in lin["relations"]}
+    assert sc.relation_dependence_category(rels["dlf-ktc-independence"]) is None
+    assert sc.relation_dependence_category(rels["draftsharks-contrarian"]) is None
+    # Raw correlation is not a dependence statistic: FN~KTC residual +0.038 counts.
+    assert sc.relation_dependence_category(rels["fn-ktc-dependence"]) == "MEASURED_DEPENDENCE"
+    pair = _independent("p", ["dlfSf", "ktcSfTep"])
+    assert _with_relation(_synthetic_measured(["dlfSf", "yahooBoone"], -0.2), pair) == []
+    positive = json.loads(json.dumps(rels["dlf-ktc-independence"]))
+    positive["statistics"]["measurements"][-1]["values"] = {"residualVsKtcCrowd": 0.05}
+    lin2 = json.loads(json.dumps(lin))
+    lin2["relations"] = [
+        positive if r["id"] == "dlf-ktc-independence" else r for r in lin2["relations"]
+    ]
+    lin2["pairReconciliation"] = [pair]
+    assert any("'dlf-ktc-independence'" in e for e in sc.validate_lineage(lin2))
+    unmeasured = dict(rels["dlf-ktc-independence"])
+    unmeasured.pop("statistics")
+    assert sc.relation_dependence_category(unmeasured) == "MEASURED_DEPENDENCE"
+
+
+def test_every_proven_relation_kind_is_classified_identity_or_not():
+    sc, lin = _lineage()
+    lin = json.loads(json.dumps(lin))
+    rel = dict(next(r for r in lin["relations"] if r["id"] == "dlf-same-provider"))
+    rel.update(id="x-unclassified", relation="shares_a_spreadsheet")
+    lin["relations"].append(rel)
+    errs = sc.validate_lineage(lin)
+    assert any("x-unclassified" in e and "exactly one" in e for e in errs), errs
+
+
+def test_an_identity_kind_cannot_span_providers():
+    sc, lin = _lineage()
+    lin = json.loads(json.dumps(lin))
+    rel = dict(next(r for r in lin["relations"] if r["id"] == "ktc-market-derived"))
+    rel.update(id="x-cross-provider", sources=["ktcCrowdSfTep", "fantasyCalc"])
+    lin["relations"].append(rel)
+    errs = sc.validate_lineage(lin)
+    assert any("x-cross-provider" in e and "spans providers" in e for e in errs), errs
+
+
 def test_missing_categories_key_is_rejected():
     sc, lin = _lineage()
     lin = json.loads(json.dumps(lin))
@@ -339,6 +514,133 @@ def test_missing_categories_key_is_rejected():
 def test_measurement_n_must_be_a_positive_int(bad_n):
     errs = _errors_with(_pair(measurement={"method": "m", "window": "w", "n": bad_n}))
     assert any("measurement.n must be an int > 0" in e for e in errs), errs
+
+
+# ── #1601 round 3: data use, cross-game-type, missing provider, NaN ─────
+
+
+def _without_relations(drop, pair):
+    sc, lin = _lineage()
+    lin = json.loads(json.dumps(lin))
+    lin["relations"] = [r for r in lin["relations"] if r["id"] not in drop]
+    lin["pairReconciliation"] = [pair]
+    return sc.validate_lineage(lin)
+
+
+@pytest.mark.parametrize(
+    "ktc_key", ["ktcCrowdSfTep", "ktcTradesSfTep", "ktc", "ktcSfTep", "ktcCrowdTradesSfTep"]
+)
+def test_data_use_reaches_every_identity_sibling_of_the_used_provider(ktc_key):
+    """Review repro: with the measured ``fn-ktc-dependence`` removed and only the
+    proven ``fn-uses-ktc-data`` (FN, ``ktcCrowdSfTep``) left, FN vs every KTC
+    sibling must be refused -- a board built on KTC data inherits KTC's opinion,
+    and the siblings ARE that opinion. Before: only ``ktcCrowdSfTep`` refused."""
+    errs = _without_relations(
+        {"fn-ktc-dependence"}, _independent("p", ["fantasyNavigatorSf", ktc_key])
+    )
+    assert any("'fn-uses-ktc-data'" in e for e in errs), errs
+
+
+def test_relation_reach_extends_only_data_use():
+    sc, lin = _lineage()
+    rels = {r["id"]: r for r in lin["relations"]}
+    peers = sc.identity_peers(rels)
+    assert sc.relation_reach(rels["fn-uses-ktc-data"], peers) == {
+        "fantasyNavigatorSf",
+        "ktcCrowdSfTep",
+        "ktcTradesSfTep",
+        "ktcCrowdTradesSfTep",
+        "ktc",
+        "ktcSfTep",
+    }
+    scale = rels["rookie-ladder-borrows-reference-scale"]
+    assert sc.relation_reach(scale, peers) == set(scale["sources"])
+
+
+def test_scale_borrowing_still_needs_both_pair_sources_named():
+    """The narrow rule stays for scale borrowing: ``ktcTradesSfTep`` is a
+    one-hop sibling of the borrowed ``ktcCrowdSfTep`` but not a member."""
+    errs = _errors_with(_independent("p", ["dlfRookieSf", "ktcTradesSfTep"]))
+    assert not any("rookie-ladder-borrows-reference-scale" in e for e in errs), errs
+
+
+def test_same_provider_other_game_type_blocks_independence():
+    """Review repro: ``draftSharksIdp`` vs ``draftSharksRosSf`` was accepted as
+    INDEPENDENT. One provider stands behind both boards, so it is dependence --
+    which never makes the ROS board dynasty evidence (that is the game-type
+    voting rule, which does not read this link)."""
+    errs = _errors_with(_independent("p", ["draftSharksIdp", "draftSharksRosSf"]))
+    assert any("'draftsharks-ros-same-provider'" in e for e in errs), errs
+    errs = _errors_with(_independent("p", ["draftSharks", "draftSharksRosIdp"]))
+    assert any("'draftsharks-ros-same-provider'" in e for e in errs), errs
+
+
+def test_cross_game_type_link_is_dependence_not_identity_or_evidence():
+    sc, lin = _lineage()
+    rel = next(r for r in lin["relations"] if r["id"] == "draftsharks-ros-same-provider")
+    assert sc.is_dependence_link(rel) and not sc.is_identity_relation(rel)
+    assert "same_provider_other_game_type" not in sc.IDENTITY_RELATION_KINDS
+    # The ROS boards' non-dynasty game type is untouched.
+    assert lin["sources"]["draftSharksRosSf"]["gameType"] == "REDRAFT_ROS"
+
+
+def test_a_cross_game_type_link_cannot_span_providers():
+    sc, lin = _lineage()
+    lin = json.loads(json.dumps(lin))
+    rel = dict(next(r for r in lin["relations"] if r["id"] == "draftsharks-ros-same-provider"))
+    rel.update(id="x-cross", sources=["draftSharksRosSf", "fantasyCalc"])
+    lin["relations"].append(rel)
+    errs = sc.validate_lineage(lin)
+    assert any("x-cross" in e and "spans providers" in e for e in errs), errs
+
+
+@pytest.mark.parametrize("missing", ["deleted", "unknown"])
+def test_an_identity_link_between_providerless_sources_is_refused(missing):
+    """Review repro: two sources with no recorded provider both read as
+    ``"None"`` and passed the one-provider check. Fail closed instead."""
+    sc, lin = _lineage()
+    lin = json.loads(json.dumps(lin))
+    for key in ("yahooBoone", "fantasyCalc"):
+        if missing == "deleted":
+            del lin["sources"][key]["provider"]
+        else:
+            lin["sources"][key]["provider"] = "notARegisteredProvider"
+    rel = dict(next(r for r in lin["relations"] if r["id"] == "dlf-same-provider"))
+    rel.update(id="x-providerless", sources=["yahooBoone", "fantasyCalc"])
+    lin["relations"].append(rel)
+    errs = sc.validate_lineage(lin)
+    assert any("x-providerless" in e and "recorded provider" in e for e in errs), errs
+
+
+def test_an_identity_link_naming_an_unregistered_source_is_refused():
+    sc, lin = _lineage()
+    lin = json.loads(json.dumps(lin))
+    rel = dict(next(r for r in lin["relations"] if r["id"] == "dlf-same-provider"))
+    rel.update(id="x-ghost", sources=["ghostBoardA", "ghostBoardB"])
+    lin["relations"].append(rel)
+    errs = sc.validate_lineage(lin)
+    assert any("x-ghost" in e and "recorded provider" in e for e in errs), errs
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_a_non_finite_statistic_is_unmeasurable_and_fails_closed(bad):
+    """``nan > 0`` is False, so an all-NaN measurement used to read as
+    independence. Non-finite is unmeasurable: it counts as dependence, and the
+    validator refuses it in a statistics entry."""
+    sc, _ = _lineage()
+    rel = _synthetic_measured(["yahooBoone", "ktcCrowdSfTep"], bad)
+    assert sc.measured_positive_dependence(rel) is True
+    assert sc.relation_dependence_category(rel) == "MEASURED_DEPENDENCE"
+    errs = _with_relation(rel, _independent("p", ["yahooBoone", "ktcCrowdSfTep"]))
+    assert any("synthetic-measured" in e and "finite" in e for e in errs), errs
+    assert any("'synthetic-measured'" in e and "contradicts" in e for e in errs), errs
+
+
+def test_a_nan_beside_a_negative_statistic_still_fails_closed():
+    sc, _ = _lineage()
+    rel = _synthetic_measured(["yahooBoone", "ktcCrowdSfTep"], -0.3)
+    rel["statistics"]["measurements"][0]["values"]["partialR"] = float("nan")
+    assert sc.measured_positive_dependence(rel) is True
 
 
 def test_fantasy_navigator_pairs_say_input_use_not_derived_values():
