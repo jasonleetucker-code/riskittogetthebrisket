@@ -14,8 +14,9 @@ Wants=network-online.target
 # no workflow or push script force-adds data/sources/, so the store never
 # leaves the box.  Same reasoning as the crowd-FAAB and BDVM timers.
 #
-# Politeness is enforced by the script, not just the schedule: one GET per
-# board per run, conditional (If-None-Match / If-Modified-Since) once a good
+# Politeness is enforced by the script, not just the schedule: a bounded
+# number of GETs per board per run (one normally; at most 5 with the 429 and
+# transient retries), never following redirects, conditional (If-None-Match / If-Modified-Since) once a good
 # release exists, Retry-After honoured on 429, and a 401/403 PERSISTS a stop
 # that later runs obey until an operator runs --clear-stop.
 #
@@ -30,7 +31,12 @@ Type=oneshot
 User=__APP_USER__
 Group=__APP_USER__
 WorkingDirectory=__APP_DIR__
-EnvironmentFile=-__APP_DIR__/.env
+# No EnvironmentFile: this process parses untrusted HTML and needs no secret.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=__APP_DIR__/data/sources/signals
 ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/fetch_signals.py --min-interval-hours 5
 StandardOutput=journal
 StandardError=journal

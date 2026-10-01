@@ -65,6 +65,9 @@ export const VALUE_BASIS = {
   VENDOR_NATIVE: "VENDOR_NATIVE",
   /** No comparable number exists. Never a quantity — never zero. */
   MISSING: "MISSING",
+  /** A positional ordinal + tier with no value scale (Signals' public
+   *  boards). Compatible with NOTHING — never summed, never a vote. */
+  POSITIONAL_RANK_ONLY: "POSITIONAL_RANK_ONLY",
 };
 
 /**
@@ -89,6 +92,7 @@ const COMPATIBLE = {
   [VALUE_BASIS.KTC_NATIVE]: new Set([VALUE_BASIS.KTC_NATIVE]),
   [VALUE_BASIS.VENDOR_NATIVE]: new Set([VALUE_BASIS.VENDOR_NATIVE]),
   [VALUE_BASIS.MISSING]: new Set(),
+  [VALUE_BASIS.POSITIONAL_RANK_ONLY]: new Set(),
 };
 
 export function basesAreCompatible(a, b) {
@@ -478,8 +482,6 @@ export function summariseSide(resolutions) {
  * `src/sources/signals.py`) does the identity join; this only looks rows up
  * and names the state. Missing is a state, never a rank.
  */
-VALUE_BASIS.POSITIONAL_RANK_ONLY = "POSITIONAL_RANK_ONLY";
-COMPATIBLE[VALUE_BASIS.POSITIONAL_RANK_ONLY] = new Set();
 
 /** Payload-level state of a rank-only provider. */
 export const RANK_ONLY_STATE = {
@@ -518,8 +520,12 @@ export function rankOnlyOpinionFor(row, payload) {
   };
   if (!row) return { ...base, status: ASSET_COVERAGE.UNRESOLVED, entry: null };
   const index = payload?.signalsPositionalRank || {};
-  const pid = row.playerId ? `pid:${row.playerId}` : null;
-  const entry = (pid && index[pid]) || index[`name:${row.name}`] || null;
+  // The server only mints `name:` keys for board rows WITHOUT a playerId, so
+  // the name key is consulted only for such rows: a row with a playerId that
+  // did not resolve must never borrow a same-named player's rank.
+  const entry = row.playerId
+    ? index[`pid:${row.playerId}`] || null
+    : index[`name:${row.name}`] || null;
   if (entry) return { ...base, status: ASSET_COVERAGE.NATIVE, entry };
   const boards = payload?.boards || {};
   const board = Object.keys(RANK_ONLY_BOARD_CLASSES).find(

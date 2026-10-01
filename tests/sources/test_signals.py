@@ -375,6 +375,43 @@ def test_row_collapse_quarantines(store):
     assert any("row-count collapse" in e for e in out["errors"])
 
 
+@pytest.mark.parametrize(
+    "location",
+    [
+        "https://signalsfantasy.com/login?next=/rankings/dynasty",
+        "https://evil.example/x",
+        "http://signalsfantasy.com/rankings/dynasty",
+    ],
+)
+def test_redirect_to_an_access_wall_or_other_origin_stops_without_following(store, location):
+    http = FakeHttp({DYN.url: [(302, {"location": location}, b"")]})
+    out = S.collect_board(DYN, store, http=http, now=_clock(T0), sleep=lambda s: None)
+    assert out["outcome"] == "auth_stopped"
+    assert len(http.calls) == 1 and http.calls[0][0] == DYN.url  # never followed
+    assert store.latest(DYN.key) is None
+
+
+def test_same_origin_redirect_is_not_followed_and_not_a_stop(store):
+    http = FakeHttp({DYN.url: [(301, {"location": "/rankings/dynasty/"}, b"")]})
+    out = S.collect_board(DYN, store, http=http, now=_clock(T0), sleep=lambda s: None)
+    assert out["outcome"] == "fetch_failed" and "redirect" in out["reason"]
+    assert not store.fetch_state(DYN.key).get("stoppedAt")
+
+
+def test_oversize_response_fails_once_without_retry(store):
+    http = FakeHttp({DYN.url: [S.BodyTooLarge("too big")]})
+    out = S.collect_board(DYN, store, http=http, now=_clock(T0), sleep=lambda s: None)
+    assert out["outcome"] == "fetch_failed" and out["reason"].startswith("oversize")
+    assert len(http.calls) == 1
+
+
+def test_bounded_gunzip_refuses_a_decompression_bomb(monkeypatch):
+    monkeypatch.setattr(S, "MAX_DECOMPRESSED_BYTES", 1000)
+    with pytest.raises(S.BodyTooLarge):
+        S._bounded_gunzip(gzip.compress(b"x" * 100_000))
+    assert S._bounded_gunzip(gzip.compress(b"ok")) == b"ok"
+
+
 @pytest.mark.parametrize("status", [401, 403])
 def test_auth_failure_stops_and_persists(store, status):
     http = FakeHttp({DYN.url: [(status, {}, b"no")]})

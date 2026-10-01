@@ -61,9 +61,12 @@ import hashlib
 import json
 import os
 import re
+import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
+import zlib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -633,22 +636,73 @@ HttpResponse = tuple[int, dict[str, str], bytes]
 HttpGet = Callable[[str, Mapping[str, str], float], HttpResponse]
 
 
+#: Hard caps on what one response may cost us.  The real pages are ~1 MB.
+MAX_BODY_BYTES = 8 * 1024 * 1024
+MAX_DECOMPRESSED_BYTES = 32 * 1024 * 1024
+
+
+class BodyTooLarge(Exception):
+    """A response exceeded :data:`MAX_BODY_BYTES` / :data:`MAX_DECOMPRESSED_BYTES`."""
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Never follow a redirect: a 3xx is returned to the caller as a status,
+    so a bounce to a login wall or another host cannot be fetched silently."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect)
+
+
+def _bounded_read(stream: Any) -> bytes:
+    body = stream.read(MAX_BODY_BYTES + 1)
+    if len(body) > MAX_BODY_BYTES:
+        raise BodyTooLarge(f"response exceeds {MAX_BODY_BYTES} bytes")
+    return body
+
+
+def _bounded_gunzip(body: bytes) -> bytes:
+    d = zlib.decompressobj(16 + zlib.MAX_WBITS)
+    out = d.decompress(body, MAX_DECOMPRESSED_BYTES + 1)
+    if len(out) > MAX_DECOMPRESSED_BYTES or d.unconsumed_tail:
+        raise BodyTooLarge(f"decompressed response exceeds {MAX_DECOMPRESSED_BYTES} bytes")
+    return out
+
+
 def urllib_get(url: str, headers: Mapping[str, str], timeout: float) -> HttpResponse:
     """Default transport.  Returns ``(status, lowercase headers, body)`` for
-    every HTTP status; raises ``OSError`` only for transport failures."""
+    every HTTP status, including 3xx (redirects are never followed); raises
+    ``OSError`` for transport failures and :class:`BodyTooLarge` past the caps."""
     req = urllib.request.Request(url, headers=dict(headers), method="GET")
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310 - fixed https URLs
+        with _OPENER.open(req, timeout=timeout) as resp:  # noqa: S310 - fixed https URLs
             status = resp.status
             hdrs = {k.lower(): v for k, v in resp.headers.items()}
-            body = resp.read()
+            body = _bounded_read(resp)
     except urllib.error.HTTPError as exc:
         status = exc.code
         hdrs = {k.lower(): v for k, v in (exc.headers or {}).items()}
-        body = exc.read() if exc.fp else b""
+        body = _bounded_read(exc) if exc.fp else b""
     if hdrs.get("content-encoding", "").lower() == "gzip" and body:
-        body = gzip.decompress(body)
+        body = _bounded_gunzip(body)
     return status, hdrs, body
+
+
+_AUTH_PATH_HINTS = ("login", "signin", "sign-in", "auth", "account", "subscribe", "paywall")
+
+
+def _redirect_is_access_wall(source_url: str, location: str | None) -> bool:
+    """A redirect off the board's origin, to a non-https URL, or to an
+    auth/paywall-looking path is treated like 401/403 (stop), never followed."""
+    if not location:
+        return False
+    target = urllib.parse.urlsplit(urllib.parse.urljoin(source_url, location))
+    origin = urllib.parse.urlsplit(source_url)
+    if target.scheme != "https" or target.netloc.lower() != origin.netloc.lower():
+        return True
+    return any(h in target.path.lower() for h in _AUTH_PATH_HINTS)
 
 
 def _retry_after_seconds(value: str | None, now: datetime) -> float | None:
@@ -766,6 +820,10 @@ def collect_board(
     while True:
         try:
             status, resp_headers, body = http(spec.url, headers, HTTP_TIMEOUT_SECONDS)
+        except BodyTooLarge as exc:
+            # Not transient: retrying an oversize page costs the same again.
+            outcome.update(outcome="fetch_failed", reason=f"oversize: {exc}")
+            break
         except OSError as exc:
             status, resp_headers, body = None, {}, b""
             err = f"transport: {exc}"
@@ -802,6 +860,14 @@ def collect_board(
         state["stoppedAt"] = iso(at)
         state["stopReason"] = f"HTTP {status}"
         outcome.update(outcome="auth_stopped", httpStatus=status)
+    elif status is not None and 300 <= status < 400 and status != 304:
+        location = resp_headers.get("location")
+        if _redirect_is_access_wall(spec.url, location):
+            state["stoppedAt"] = iso(at)
+            state["stopReason"] = f"HTTP {status} redirect to an access wall or another origin"
+            outcome.update(outcome="auth_stopped", httpStatus=status)
+        else:
+            outcome.update(outcome="fetch_failed", reason=f"HTTP {status} redirect not followed")
     elif status == 304:
         state["lastVerifiedUnchangedAt"] = iso(at)
         outcome.update(outcome="not_modified")
@@ -1100,8 +1166,19 @@ def _board_status(store: SignalsStore, spec: BoardSpec, at: datetime) -> dict[st
 
 
 #: One-entry memo for the identity join, keyed by the releases' content
-#: hashes plus the identity of the board rows it was joined against.
-_JOIN_MEMO: dict[str, Any] = {"key": None, "result": None}
+#: hashes plus a CONTENT fingerprint of the board rows it was joined against
+#: (never ``id()``, which a freed list can hand to its successor).  Key and
+#: result are replaced together under a lock: request handlers run on
+#: threadpool workers.
+_JOIN_MEMO: tuple[Any, JoinResult] | None = None
+_JOIN_MEMO_LOCK = threading.Lock()
+
+
+def _board_fingerprint(players_array: Sequence[Mapping[str, Any]]) -> str:
+    h = hashlib.sha256()
+    for row in players_array:
+        h.update(f"{row.get('playerId')}|{row.get('displayName')}|{row.get('position')}\n".encode())
+    return h.hexdigest()
 
 
 def _memo_join(
@@ -1109,12 +1186,14 @@ def _memo_join(
     players_array: Sequence[Mapping[str, Any]],
     content_key: tuple[Any, ...],
 ) -> JoinResult:
-    first = players_array[0] if players_array else {}
-    key = (content_key, id(players_array), len(players_array), first.get("displayName"))
-    if _JOIN_MEMO["key"] != key:
-        _JOIN_MEMO["result"] = join_to_board(observations, players_array)
-        _JOIN_MEMO["key"] = key
-    return _JOIN_MEMO["result"]
+    global _JOIN_MEMO
+    key = (content_key, _board_fingerprint(players_array))
+    with _JOIN_MEMO_LOCK:
+        if _JOIN_MEMO is not None and _JOIN_MEMO[0] == key:
+            return _JOIN_MEMO[1]
+        result = join_to_board(observations, players_array)
+        _JOIN_MEMO = (key, result)
+        return result
 
 
 def build_second_opinion_payload(
