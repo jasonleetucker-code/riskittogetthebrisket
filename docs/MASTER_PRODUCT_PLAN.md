@@ -160,6 +160,19 @@ AI/model recommendations must never silently execute league actions. Mutations r
 
 These personalize decisions. They do not change canonical league-wide player values.
 
+## 3.8 Adaptive learning is permanent; facts and rules do not learn
+
+Owner directive 2026-10-01. Calculator preserves what it knew, predicted, recommended, did or did not do, and
+what happened afterward, and improves its models from that point-in-time evidence through champion/challenger
+evaluation (§3.4, P6). This is a shared capability over the existing history, model-registry and domain
+archives, not a separate ML platform per feature and not a generic feature store.
+
+Adaptive systems never rewrite: scoring arithmetic, league settings, player identity, pick ownership, lineup
+legality, roster rules, transaction legality, source identity, timestamps, provenance, privacy boundaries, or
+unknown-vs-zero semantics. They estimate uncertain relationships around those facts. Drift triggers
+reevaluation, never automatic retraining or promotion. Detailed plan, owners and units:
+`docs/research/ADAPTIVE_LEARNING_2026-09-26.md` Part II; authorization: `docs/EXECUTION_PLAN.md` §0.
+
 ---
 
 # 4. MASTER FEATURE MAP
