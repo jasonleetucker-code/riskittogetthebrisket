@@ -59,8 +59,8 @@
     "yahooBoone": {"provider": "yahoo", "basis": "single_expert", "evidence": ["src/api/data_contract.py"]},
     "draftSharks": {"provider": "draftSharks", "basis": "model_projection", "evidence": ["docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md"]},
     "draftSharksIdp": {"provider": "draftSharks", "basis": "model_projection", "evidence": ["docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md"]},
-    "draftSharksRosSf": {"provider": "draftSharks", "basis": "model_projection", "evidence": ["scripts/source_inventory.py"], "notes": "Rest-of-season (redraft) board: seasonal lane only, barred from dynasty values."},
-    "draftSharksRosIdp": {"provider": "draftSharks", "basis": "model_projection", "evidence": ["scripts/source_inventory.py"], "notes": "Rest-of-season (redraft) board: seasonal lane only, barred from dynasty values."},
+    "draftSharksRosSf": {"provider": "draftSharks", "basis": "model_projection", "gameType": "REDRAFT_ROS", "gameTypeEvidence": "relation draftsharks-ros-same-provider (proven)", "evidence": ["scripts/source_inventory.py"], "notes": "Rest-of-season (redraft) board: seasonal lane only, barred from dynasty values."},
+    "draftSharksRosIdp": {"provider": "draftSharks", "basis": "model_projection", "gameType": "REDRAFT_ROS", "gameTypeEvidence": "relation draftsharks-ros-same-provider (proven)", "evidence": ["scripts/source_inventory.py"], "notes": "Rest-of-season (redraft) board: seasonal lane only, barred from dynasty values."},
     "signalsDynasty": {"provider": "signalsFantasy", "basis": "derived_aggregate", "evidence": ["src/sources/signals.py"]},
     "signalsIdpDynasty": {"provider": "signalsFantasy", "basis": "derived_aggregate", "evidence": ["src/sources/signals.py"]}
   },

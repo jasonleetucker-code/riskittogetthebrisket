@@ -373,3 +373,25 @@ def test_cli_writes_json_and_markdown_and_exits_clean(tmp_path):
     assert census["temporalLedger"]["exists"] is False
     assert "| source |" in out_md.read_text(encoding="utf-8")
     assert cli.main(["--payload", str(tmp_path / "nope.json")]) == 2
+
+
+def test_redraft_and_unverified_boards_are_never_dynasty_evaluation_ready(built):
+    _, census = built
+    for key in ("draftSharksRosSf", "draftSharksRosIdp"):
+        if any(e["key"] == key for e in census["sources"]):
+            e = _entry(census, key)
+            assert e["gameType"] == "REDRAFT_ROS"
+            assert "GAME_TYPE_NOT_VERIFIED_DYNASTY" in e["outOfSampleEvaluation"]["blockers"]
+    ready = set(census["summary"]["outOfSampleDataPrerequisitesMet"])
+    for e in census["sources"]:
+        if e.get("gameType") != "DYNASTY":
+            assert e["key"] not in ready, e["key"]
+
+
+def test_every_evidence_kind_held_is_published_and_no_applied_weight_is_recomputed(built):
+    _, census = built
+    for e in census["sources"]:
+        held = e["evidenceHeld"]
+        assert isinstance(held, list)
+        assert e["evidenceState"] == (held[0] if held else "UNEVALUATED")
+        assert "sourceLevelEffectiveWeight" not in (e.get("weighting") or {})

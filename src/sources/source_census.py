@@ -654,6 +654,11 @@ def build_census(inp: CensusInputs) -> dict[str, Any]:
             meta = so.get("metadata") or {}
             e.set("gameType", meta.get("gameType"), "second-opinion metadata declares no game type")
             e.set("gameTypeEvidence", meta.get("gameTypeEvidence"), "no recorded evidence")
+        elif lin is not None and lin.get("gameType"):
+            # Proven by a lineage relation (e.g. Draft Sharks' rest-of-season
+            # boards are REDRAFT_ROS) -- never inferred from a name.
+            e.set("gameType", lin["gameType"])
+            e.set("gameTypeEvidence", lin.get("gameTypeEvidence"), "no recorded evidence")
         else:
             e.set(
                 "gameType", None, "not registered: game type is proven only for registered voters"
@@ -860,11 +865,15 @@ def build_census(inp: CensusInputs) -> dict[str, Any]:
             c = _num(sw.get("coverageFactor"))
             e.set("weighting.healthFactor", h, "health factor not published")
             e.set("weighting.coverageFactor", c, "coverage factor not published")
+            # DIAGNOSTIC ONLY: the product of the published source-level factors
+            # (players subset).  The pipeline NEVER applies this number -- it
+            # weighs per row with per-universe clocks, the picks subset and then
+            # the family cap.  The applied quantity is ``authority.meanAppliedWeight``.
             if src is not None and None not in (base, f_p, h, c):
-                e.set("weighting.sourceLevelEffectiveWeight", round(base * f_p * h * c, 4))  # type: ignore[operator]
+                e.set("weighting.playersSubsetFactorProduct", round(base * f_p * h * c, 4))  # type: ignore[operator]
             else:
                 e.set(
-                    "weighting.sourceLevelEffectiveWeight",
+                    "weighting.playersSubsetFactorProduct",
                     None,
                     "not a model input" if src is None else "a factor is unmeasured",
                 )
@@ -874,7 +883,7 @@ def build_census(inp: CensusInputs) -> dict[str, Any]:
                 "freshnessFactor",
                 "healthFactor",
                 "coverageFactor",
-                "sourceLevelEffectiveWeight",
+                "playersSubsetFactorProduct",
             ):
                 e.set(f"weighting.{f}", None, why)
         if src is not None:
@@ -923,8 +932,10 @@ def build_census(inp: CensusInputs) -> dict[str, Any]:
                     "meanVoteShare": round(p["shareSum"] / vrows, 4) if (p and vrows) else None,
                     "pipelineMeanAppliedWeight": pipe_mean,
                     "matchesPipelineSummary": bool(pipe)
-                    and pipe_mean == mean_applied
-                    and pipe_rows == vrows,
+                    and pipe_rows == vrows
+                    and pipe_mean is not None
+                    and mean_applied is not None
+                    and abs(pipe_mean - mean_applied) <= 1e-4,
                     "byUniverse": by_u,
                     "basis": "mean of the appliedWeight the canonical pipeline stamped on each voted row",
                 },
@@ -1205,10 +1216,16 @@ def build_census(inp: CensusInputs) -> dict[str, Any]:
             "no dataset-state change history for this key",
         )
         if hist:
-            first = min(v[1] for v in hist.values() if v[1])
-            last = max(v[2] for v in hist.values() if v[2])
-            e.set("history.archiveStart", first)
-            e.set("history.archiveSpanDays", _days_between(first, last), "dates unparseable")
+            firsts = [v[1] for v in hist.values() if v[1]]
+            lasts = [v[2] for v in hist.values() if v[2]]
+            first = min(firsts) if firsts else None
+            last = max(lasts) if lasts else None
+            e.set("history.archiveStart", first, "archived versions carry no dates")
+            e.set(
+                "history.archiveSpanDays",
+                _days_between(first, last) if first and last else None,
+                "dates unparseable",
+            )
             e.set("history.pointInTimeValueVersions", max(v[0] for v in hist.values()))
         else:
             e.set(
@@ -1237,6 +1254,10 @@ def build_census(inp: CensusInputs) -> dict[str, Any]:
         # out-of-sample evaluation prerequisites
         blockers: list[str] = []
         caveats: list[str] = []
+        # Unverified game type fails closed: a redraft/ROS board, or one whose
+        # game type was never proven, must never enter a DYNASTY evaluation.
+        if e.data.get("gameType") != "DYNASTY":
+            blockers.append("GAME_TYPE_NOT_VERIFIED_DYNASTY")
         versions = e.data["history"].get("pointInTimeValueVersions")
         if versions is None:
             blockers.append("NO_POINT_IN_TIME_VALUE_ARCHIVE")
@@ -1304,7 +1325,10 @@ def build_census(inp: CensusInputs) -> dict[str, Any]:
         if e.data["lineage"]["measuredDependence"]:
             held.add(EVIDENCE_DEPENDENCE)
         state = next((s for s in EVIDENCE_STATES if s in held), EVIDENCE_UNEVALUATED)
+        # ``evidenceState`` is the DEEPEST examination, not a quality rank;
+        # ``evidenceHeld`` keeps every kind of evidence so none is collapsed.
         e.set("evidenceState", state)
+        e.set("evidenceHeld", [s for s in EVIDENCE_STATES if s in held])
         e.set("evidenceRecords", records)
         defects = [
             {
