@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "_comment": "APPEND-ONLY. One row per (name, version) feature definition ever committed to feature_dictionary.json, pinned at its definitionHash. Never edit, remove or reorder a row: a changed definition is a new version and a new row appended at the end. Validated by src/model_registry/feature_dictionary.py (rule 3a) and tests/model_registry/test_feature_dictionary.py.",
+  "locked": [
+    {
+      "name": "source_board_native_value",
+      "version": 1,
+      "definitionHash": "b310c831899e0ae2960191c53b172ca0e0ffd8747010e15010e4266685684b8a"
+    },
+    {
+      "name": "canonical_training_percentile",
+      "version": 1,
+      "definitionHash": "b6e5fa1a313bf09fec93fb45c5d8b7ff2a028376f723a4f2393cf72191f9c1f0"
+    },
+    {
+      "name": "source_universe_log_rank",
+      "version": 1,
+      "definitionHash": "bc99592da5b7e3372c0058445dc82b1a8c1f60e9c0e1eba057b4d95b0fffb4d4"
+    },
+    {
+      "name": "family_evidence_age_days",
+      "version": 1,
+      "definitionHash": "fc746d318ae6e2d46ffe7137ae03e54259a32bc086161170be4df9bacec94e19"
+    },
+    {
+      "name": "provider_family",
+      "version": 1,
+      "definitionHash": "71f665ebed61ebcef5987e2a34104cf8855c3f005bd2a13ebf0f90dc798521ef"
+    }
+  ]
+}

@@ -18,6 +18,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # The feature-dictionary lock-history test walks the lock's WHOLE
+          # history and FAILS under CI when a shallow boundary cuts it
+          # (scripts/check_feature_dictionary_lock.py), so full history.
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v7
