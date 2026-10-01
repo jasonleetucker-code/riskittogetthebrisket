@@ -48,7 +48,29 @@ repo copies are the source of truth but are inert at runtime.
 
 Timers rendered + enabled by `deploy/install-systemd-service.sh`
 (placeholder substitution — do **not** copy the `*.template` files into
-/etc/systemd/system verbatim):
+/etc/systemd/system verbatim).
+
+**A template edit reaches the box on the next deploy.** `deploy.sh` runs
+the installer on every deploy, and every timer — the
+`install_simple_timer` ones and the dedicated blocks with gates or
+post-install steps alike — goes through one renderer,
+`reconcile_timer_units`: render both templates, `cmp` them against the
+installed files, and rewrite + `daemon-reload` only on a difference
+(logged as `<unit> differs from its template; updating.`; an unchanged
+unit logs `already installed and current.`). Until 2026-10-01 the
+dedicated blocks only asked whether the timer existed, so production was
+still running a `dynasty-bdvm-refresh.service` without its 2026-08-20
+stage-0 input warm and a `dynasty-consensus-edge-snapshot.service` without
+`User=`. A block's gate (cron token, DLF credentials, IDP Show session
+jar, FFPC enablement) still decides whether the installer touches that
+unit at all — a closed gate leaves an installed unit exactly as it is.
+`FORCE_SERVICE_INSTALL=true` still rewrites unconditionally.
+
+The Consensus Edge block also hands `data/consensus_edge.sqlite` and its
+`-wal`/`-shm` sidecars to `APP_USER` (`sudo -n chown`) when they exist and
+are owned by anyone else — they are root-owned on any box that ran the
+pre-`User=` unit. Idempotent, never deletes, never follows a symlink, and
+loud-but-non-fatal if the chown is refused.
 
 | Unit | Purpose | Cadence | Installed when |
 |---|---|---|---|
@@ -56,7 +78,7 @@ Timers rendered + enabled by `deploy/install-systemd-service.sh`
 | `dynasty-signal-alerts.*` | Signal-alert digest sweep | Daily 15:00 | `SIGNAL_ALERT_CRON_TOKEN` in `.env` |
 | `dynasty-custom-alerts.*` | Custom-rule alert sweep | Every 2h | `SIGNAL_ALERT_CRON_TOKEN` in `.env` |
 | `dynasty-dlf-fetch.*` | DLF CSV fetch + push (CI is Cloudflare-blocked) | Every 2h | DLF creds in `.env` |
-| `dynasty-idpshow-fetch.*` | IDP Show rankings fetch + push | Every 2h | always |
+| `dynasty-idpshow-fetch.*` | IDP Show rankings fetch + push | Every 2h | operator-minted `idpshow_session.json` present in the checkout |
 | `dynasty-signals-auth-renew.*` | Renews the owner-connected Signals Cognito session stored outside the checkout at `/var/lib/signals-auth` (`docs/sources/SIGNALS_ACCOUNT_CONNECTION.md`); exit 0 no-op until a session is provisioned | Every 6h at :47 | always (no-op without a session) |
 | `dynasty-playerctx-refresh.*` | Player context (contracts / snap share / depth chart) → `data/playerctx/snapshot.json`, served by `/api/playerctx/player` | Weekly Tue 05:40 UTC | always (public data, no creds) |
 | `dynasty-depth-charts-refresh.*` | Live Waiver Opportunity layer: all-32-team ESPN depth-chart diff → `DEPTH_CHART_PROMOTION`/`DEMOTION` events in `data/bdvm/events/<season>.json`, read by `src/trade/faab_opportunity.py`. Sets `RISKIT_FEATURE_DEPTH_CHART_VALIDATION=1` for its own process only (global default stays off — the gate is SCRIPT_ONLY, not LIVE) | Daily 04:20 UTC | always (public ESPN data, no creds) |

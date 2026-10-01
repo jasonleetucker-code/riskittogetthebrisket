@@ -120,14 +120,26 @@ def test_every_needs_install_flag_reaches_the_daemon_reload() -> None:
 # ── The helper's own contract ────────────────────────────────────────
 
 
+def _function_body(body: str, name: str) -> str:
+    """The text of one top-level bash function, ``name() {`` to ``\\n}\\n``."""
+    return body.split(f"\n{name}() {{", 1)[1].split("\n}\n", 1)[0]
+
+
 def test_the_helper_installs_service_and_timer_and_enables_it() -> None:
-    """Three separate steps, each of which has been forgotten before."""
+    """Three separate steps, each of which has been forgotten before.
+
+    Since 2026-10-01 the write half lives in ``reconcile_timer_units`` —
+    shared with the dedicated per-timer blocks so there is one renderer —
+    and ``install_simple_timer`` is reconcile + enable.
+    """
     body = _installer()
-    helper = body.split("install_simple_timer() {", 1)[1].split("\nmain() {", 1)[0]
-    assert 'INSTALL_BIN}" -m 0644 "${tmp_service}" "${service_path}"' in helper
-    assert 'INSTALL_BIN}" -m 0644 "${tmp_timer}" "${timer_path}"' in helper
-    assert "daemon-reload" in helper
-    assert 'enable --now "${unit_name}.timer"' in helper
+    reconcile = _function_body(body, "reconcile_timer_units")
+    assert 'INSTALL_BIN}" -m 0644 "${tmp_service}" "${service_path}"' in reconcile
+    assert 'INSTALL_BIN}" -m 0644 "${tmp_timer}" "${timer_path}"' in reconcile
+    assert "daemon-reload" in reconcile
+    simple = _function_body(body, "install_simple_timer")
+    assert 'reconcile_timer_units "${stem}" "${label}"' in simple
+    assert 'enable --now "${unit_name}.timer"' in simple
 
 
 def test_the_helper_enables_even_when_the_unit_was_already_on_disk() -> None:
@@ -137,12 +149,66 @@ def test_the_helper_enables_even_when_the_unit_was_already_on_disk() -> None:
     succeed, so short-circuiting the enable behind "did we just write the
     files" would leave a half-installed unit re-reported every deploy.
     """
+    simple = _function_body(_installer(), "install_simple_timer")
+    assert "is-enabled" in simple
+    # The enable check must not depend on whether the files were written.
+    assert "TIMER_UNITS_WRITTEN" not in simple, "the enable check is gated on the write"
+    assert simple.index("reconcile_timer_units") < simple.index("is-enabled")
+
+
+# ── No dedicated block is presence-only any more ─────────────────────
+#
+# Measured on production 2026-10-01: twelve dedicated blocks asked only
+# "does the timer exist?" and logged "already installed; skipping", so a
+# template edit never reached the box. dynasty-bdvm-refresh.service had
+# never received its 2026-08-20 stage-0 ExecStart and
+# dynasty-consensus-edge-snapshot.service still ran as root. The
+# behavioural proof (a real installer run against a temporary host) is
+# tests/deploy/test_installer_timer_drift.py; these structural guards run
+# everywhere, including where that file has to skip.
+
+_DEDICATED_STEMS = (
+    "signal-alerts",
+    "custom-alerts",
+    "bdvm-refresh",
+    "consensus-edge-snapshot",
+    "sharp-discovery",
+    "sharp-records",
+    "sharp-rosters",
+    "ffpc-sharp",
+    "sharp-transactions",
+    "reception-depth",
+    "pbp-weekly",
+    "dlf-fetch",
+    "idpshow-fetch",
+)
+
+
+def test_every_dedicated_block_delegates_to_the_shared_renderer() -> None:
     body = _installer()
-    helper = body.split("install_simple_timer() {", 1)[1].split("\nmain() {", 1)[0]
-    enable_block = helper.split('if [[ "${needs_install}" == "true" ]]; then', 1)[1]
-    # The is-enabled check must sit OUTSIDE the needs_install branch.
-    tail = enable_block.split("\n  fi\n", 1)[1]
-    assert "is-enabled" in tail, "the enable check is nested inside the install branch"
+    for stem in _DEDICATED_STEMS:
+        assert f'reconcile_timer_units "{stem}"' in body, stem
+
+
+def test_no_timer_block_logs_the_presence_only_skip() -> None:
+    """'already installed; skipping' now belongs to the backend and
+    frontend services alone, which keep their own semantics."""
+    code = [line for line in _installer().splitlines() if not line.lstrip().startswith("#")]
+    skips = [line.strip() for line in code if "already installed; skipping" in line]
+    assert len(skips) == 2, skips
+    assert all("Backend service" in s or "Frontend service" in s for s in skips), skips
+
+
+def test_there_is_one_timer_renderer() -> None:
+    """Thirteen copies of the render block are how twelve of them stayed
+    presence-only after the first was fixed. Only the shared renderer and
+    the two playerctx blocks (drift-aware before this change, pinned by
+    test_playerctx_history_timer_is_wired) render a timer template."""
+    render = '-e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \\'
+    count = sum(1 for line in _installer().splitlines() if line.strip() == render)
+    # backend + frontend + reconcile_timer_units (service + timer)
+    # + playerctx-refresh (service + timer) + playerctx-history (service + timer)
+    assert count == 8, f"{count} render commands — a second timer renderer has appeared"
 
 
 def test_every_simple_timer_call_has_both_templates() -> None:

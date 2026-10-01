@@ -141,12 +141,32 @@ def test_the_installer_reloads_systemd_after_writing_this_unit():
 
 def test_the_service_passes_the_app_user_through_the_installer():
     # The template is only as good as its substitution: __APP_USER__ has
-    # to be one of the tokens the installer replaces for this unit.
+    # to be one of the tokens the installer replaces for this unit.  Since
+    # 2026-10-01 the unit is rendered by the shared reconcile_timer_units
+    # (which also rewrites it on drift — the installed unit on production
+    # had stayed at its pre-User= content and run as root).
     body = _INSTALLER.read_text(encoding="utf-8")
-    block = body.split("${ce_service_template}", 1)
-    assert len(block) > 1, "installer does not render the consensus-edge template"
-    preamble = block[0].rsplit("tmp_ce_service", 1)[-1] + block[1][:400]
-    assert "__APP_USER__" in preamble, "the installer never substitutes __APP_USER__ for this unit"
+    assert 'reconcile_timer_units "consensus-edge-snapshot"' in body
+    reconcile = body.split("\nreconcile_timer_units() {", 1)[1].split("\n}\n", 1)[0]
+    service_render = reconcile.split('"${service_template}" > "${tmp_service}"', 1)[0]
+    assert (
+        "__APP_USER__" in service_render.rsplit("sed \\\n", 1)[-1]
+    ), "the shared renderer never substitutes __APP_USER__ into service units"
+
+
+def test_the_installer_hands_the_root_owned_store_to_the_app_user():
+    # The unit ran as root on production and left data/consensus_edge.sqlite
+    # root:root.  Running it as __APP_USER__ without migrating the store
+    # would trade "runs as root" for "cannot write its own database".
+    body = _INSTALLER.read_text(encoding="utf-8")
+    ce_block = body.split('reconcile_timer_units "consensus-edge-snapshot"', 1)[1]
+    ce_block = ce_block.split("\n  fi\n", 1)[0]
+    assert "migrate_consensus_edge_store_ownership" in ce_block
+    fn = body.split("\nmigrate_consensus_edge_store_ownership() {", 1)[1].split("\n}\n", 1)[0]
+    assert 'sudo -n chown "${APP_USER}:${APP_USER}"' in fn
+    assert 'local store="${APP_DIR}/data/consensus_edge.sqlite"' in fn
+    assert '"${store}" "${store}-wal" "${store}-shm"' in fn
+    assert "rm " not in fn and "rm -" not in fn, "the migration must never delete"
 
 
 def test_the_script_exposes_an_argv_injectable_main():
