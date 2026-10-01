@@ -1,25 +1,29 @@
 # BDVM scoring census (LOCAL)
 
-- census: `bdvm-scoring-census.v1` · generated `2026-10-01T09:12:58.843726+00:00`
-- code: `b57bab6f9b5b5a3568e8fc564dcc24fbaec0713d` (dirty=False)
+- census: `bdvm-scoring-census.v1` · generated `2026-10-01T09:49:51.773907+00:00`
+- code: `76772b6f33964a1bddec025b26536cf30ca53502` (dirty=False)
 - realized history: 19422 nflverse weekly rows, season 2025 + play-by-play supplement
 
-Weights are the card's own rates; `points` are SIGNED realized 2025 REG points under that card. A partial total is not a lower bound: omitted penalties (negative weights) overstate it.
+Weights are the card's own rates; `points` are SIGNED realized 2025 REG points under that card. A partial total is not a lower bound: omitted penalties (negative weights) overstate it. SUPPORTED_IMPUTED points are not omitted; they rest on an estimate (first downs imputed from yards).
 
 ## dynasty_main (Sleeper 1312006700437352448)
 
-Card fetched `2026-09-26T07:10:26.355538+00:00`, fingerprint `sf1:9e51824690d091f9`, 86 nonzero rules, idpEnabled=True. Classes: {'MAPPING_ERROR': 0, 'UNSUPPORTED_VOCABULARY': 21, 'ABSENT_FIELD': 7, 'SUPPORTED': 21, 'NOT_APPLICABLE': 37}.
+Card fetched `2026-09-26T07:10:26.355538+00:00`, fingerprint `sf1:9e51824690d091f9`, 86 nonzero rules, idpEnabled=True. Classes: {'MAPPING_ERROR': 0, 'UNSUPPORTED_VOCABULARY': 21, 'ABSENT_FIELD': 7, 'SUPPORTED_IMPUTED': 4, 'SUPPORTED': 17, 'NOT_APPLICABLE': 37}.
 
 | priority | key | weight | class | families | sources | capability | realized pts | affected / eligible | share | silent? |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 12486.8 | `idp_pass_def` | 5.3 | ABSENT_FIELD | DB,DL,LB | clayIdp:none, idpShow:direct | manualCsv:direct, reconstructedBaseline:direct | 12486.8 | 577 / 1034 | 15.58% | SILENT |
 | 10977.4 | `idp_tkl_loss` | 4.24 | ABSENT_FIELD | DB,DL,LB | clayIdp:none, idpShow:direct | manualCsv:direct, reconstructedBaseline:direct | 10977.4 | 642 / 1034 | 13.69% | SILENT |
 | 6438.4 | `idp_qb_hit` | 2.12 | ABSENT_FIELD | DB,DL,LB | clayIdp:none, idpShow:direct | manualCsv:direct, reconstructedBaseline:direct | 6438.44 | 531 / 1034 | 8.03% | SILENT |
+| 3254.0 | `bonus_fd_wr` | 1 | SUPPORTED_IMPUTED | WR | clayOffense:imputed | manualCsv:direct, reconstructedBaseline:direct | 3254 | 207 / 241 | 16.28% | IMPUTED (estimated, not omitted) |
+| 2984.0 | `bonus_fd_rb` | 1 | SUPPORTED_IMPUTED | RB | clayOffense:imputed | manualCsv:direct, reconstructedBaseline:direct | 2984 | 127 / 151 | 20.04% | IMPUTED (estimated, not omitted) |
 | 2478.0 | `rec_10_19` | 0.75 | UNSUPPORTED_VOCABULARY | QB,RB,TE,WR | clayOffense:none | manualCsv:none, reconstructedBaseline:direct | 2478 | 391 / 610 | 4.67% | reported |
 | 2475.1 | `st_tkl_solo` | 1.33 | UNSUPPORTED_VOCABULARY | DB,DL,LB,QB,RB,TE,WR | clayOffense:none, clayIdp:none, idpShow:none | manualCsv:none, reconstructedBaseline:direct | 2475.13 | 543 / 1644 | 1.86% | reported |
+| 2282.0 | `bonus_fd_qb` | 0.4 | SUPPORTED_IMPUTED | QB | clayOffense:imputed | manualCsv:direct, reconstructedBaseline:direct | 2282 | 74 / 81 | 21.84% | IMPUTED (estimated, not omitted) |
 | 1898.0 | `rec_5_9` | 0.5 | UNSUPPORTED_VOCABULARY | QB,RB,TE,WR | clayOffense:none | manualCsv:none, reconstructedBaseline:direct | 1898 | 403 / 610 | 3.58% | reported |
 | 1795.6 | `kr_yd` | 0.0333333 | UNSUPPORTED_VOCABULARY | DB,DL,LB,QB,RB,TE,WR | clayOffense:none, clayIdp:none, idpShow:none | manualCsv:direct, reconstructedBaseline:direct | 1795.63 | 166 / 1644 | 1.35% | SILENT |
 | 1505.2 | `idp_ff` | 4.24 | ABSENT_FIELD | DB,DL,LB | clayIdp:none, idpShow:direct | manualCsv:direct, reconstructedBaseline:direct | 1505.2 | 258 / 1034 | 1.88% | SILENT |
+| 1280.0 | `bonus_fd_te` | 1 | SUPPORTED_IMPUTED | TE | clayOffense:imputed | manualCsv:direct, reconstructedBaseline:direct | 1280 | 110 / 137 | 16.56% | IMPUTED (estimated, not omitted) |
 | 980.0 | `rec_20_29` | 1 | UNSUPPORTED_VOCABULARY | QB,RB,TE,WR | clayOffense:none | manualCsv:none, reconstructedBaseline:direct | 980 | 273 / 610 | 1.85% | reported |
 | 964.0 | `fum_lost` | -4 | UNSUPPORTED_VOCABULARY | QB,RB,TE,WR | clayOffense:none | manualCsv:direct, reconstructedBaseline:direct | -964 | 155 / 610 | -1.82% | SILENT |
 | 918.3 | `idp_sack_yd` | 0.111111 | UNSUPPORTED_VOCABULARY | DB,DL,LB | clayIdp:none, idpShow:none | manualCsv:direct, reconstructedBaseline:direct | 918.34 | 417 / 1034 | 1.15% | SILENT |
@@ -40,10 +44,6 @@ Card fetched `2026-09-26T07:10:26.355538+00:00`, fingerprint `sf1:9e51824690d091
 | 56.0 | `pass_int_td` | -2 | UNSUPPORTED_VOCABULARY | QB,RB,TE,WR | clayOffense:none | manualCsv:none, reconstructedBaseline:direct | -56 | 24 / 610 | -0.11% | reported |
 | 47.7 | `idp_safe` | 5.3 | ABSENT_FIELD | DB,DL,LB | clayIdp:none, idpShow:direct | manualCsv:direct, reconstructedBaseline:direct | 47.7 | 9 / 1034 | 0.06% | SILENT |
 | 34.0 | `rush_2pt` | 2 | UNSUPPORTED_VOCABULARY | QB,RB,TE,WR | clayOffense:none | manualCsv:direct, reconstructedBaseline:direct | 34 | 15 / 610 | 0.06% | SILENT |
-| 0.0 | `bonus_fd_qb` | 0.4 | SUPPORTED | QB | clayOffense:imputed | manualCsv:direct, reconstructedBaseline:direct | 2282 | 74 / 81 | 21.84% |  |
-| 0.0 | `bonus_fd_rb` | 1 | SUPPORTED | RB | clayOffense:imputed | manualCsv:direct, reconstructedBaseline:direct | 2984 | 127 / 151 | 20.04% |  |
-| 0.0 | `bonus_fd_te` | 1 | SUPPORTED | TE | clayOffense:imputed | manualCsv:direct, reconstructedBaseline:direct | 1280 | 110 / 137 | 16.56% |  |
-| 0.0 | `bonus_fd_wr` | 1 | SUPPORTED | WR | clayOffense:imputed | manualCsv:direct, reconstructedBaseline:direct | 3254 | 207 / 241 | 16.28% |  |
 | 0.0 | `bonus_rec_wr` | 0.02 | SUPPORTED | WR | clayOffense:direct | manualCsv:direct, reconstructedBaseline:direct | 119.54 | 217 / 241 | 0.60% |  |
 | 0.0 | `idp_int` | 5.3 | SUPPORTED | DB,DL,LB | clayIdp:direct, idpShow:direct | manualCsv:direct, reconstructedBaseline:direct | 2014 | 221 / 1034 | 2.51% |  |
 | 0.0 | `idp_sack` | 2.92 | SUPPORTED | DB,DL,LB | clayIdp:direct, idpShow:direct | manualCsv:direct, reconstructedBaseline:direct | 3728.84 | 439 / 1034 | 4.65% |  |
@@ -66,7 +66,7 @@ NOT_APPLICABLE (37): `blk_kick`, `def_2pt`, `def_3_and_out`, `def_4_and_stop`, `
 
 ## dynasty_new (Sleeper 1320092771247222784)
 
-Card fetched `2026-09-26T07:10:29.389066+00:00`, fingerprint `sf1:82a5f8ef2bfdb098`, 41 nonzero rules, idpEnabled=False. Classes: {'MAPPING_ERROR': 0, 'UNSUPPORTED_VOCABULARY': 7, 'ABSENT_FIELD': 0, 'SUPPORTED': 9, 'NOT_APPLICABLE': 25}.
+Card fetched `2026-09-26T07:10:29.389066+00:00`, fingerprint `sf1:82a5f8ef2bfdb098`, 41 nonzero rules, idpEnabled=False. Classes: {'MAPPING_ERROR': 0, 'UNSUPPORTED_VOCABULARY': 7, 'ABSENT_FIELD': 0, 'SUPPORTED_IMPUTED': 0, 'SUPPORTED': 9, 'NOT_APPLICABLE': 25}.
 
 | priority | key | weight | class | families | sources | capability | realized pts | affected / eligible | share | silent? |
 |---|---|---|---|---|---|---|---|---|---|---|

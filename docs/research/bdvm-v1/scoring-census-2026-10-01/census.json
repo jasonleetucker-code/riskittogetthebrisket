@@ -2,9 +2,9 @@
   "censusVersion": "bdvm-scoring-census.v1",
   "scope": "LOCAL",
   "scopeNote": "Local census over the real league cards and public nflverse history; no production/owner session was used. Production coverage remains the /api/bdvm/values meta.scoringCoverage block.",
-  "generatedAt": "2026-10-01T09:12:58.843726+00:00",
+  "generatedAt": "2026-10-01T09:49:51.773907+00:00",
   "code": {
-    "sha": "b57bab6f9b5b5a3568e8fc564dcc24fbaec0713d",
+    "sha": "76772b6f33964a1bddec025b26536cf30ca53502",
     "dirty": false
   },
   "realizedInput": {
@@ -35,7 +35,8 @@
         "MAPPING_ERROR": 0,
         "UNSUPPORTED_VOCABULARY": 21,
         "ABSENT_FIELD": 7,
-        "SUPPORTED": 21,
+        "SUPPORTED_IMPUTED": 4,
+        "SUPPORTED": 17,
         "NOT_APPLICABLE": 37
       },
       "realizedFamilies": {
@@ -231,6 +232,78 @@
           "priority": 6438.44
         },
         {
+          "key": "bonus_fd_wr",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED_IMPUTED",
+          "affectedFamilies": [
+            "WR"
+          ],
+          "sources": {
+            "clayOffense": "imputed"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [
+            "clayOffense"
+          ],
+          "missingFrom": [],
+          "missingStatistic": "bonus_fd_wr",
+          "remedy": "a projection feed publishing first downs; today imputed from yards by the first-down-rate model",
+          "realized": {
+            "eligiblePlayers": 241,
+            "affectedPlayers": 207,
+            "stat": 3254.0,
+            "points": 3254.0,
+            "byFamily": {
+              "WR": 3254.0
+            },
+            "shareOfAffectedFamilyPoints": 0.16276,
+            "atRiskBasis": "estimated: not omitted \u2014 every covering source supplies it, but at least one only through an imputation (first downs from yards), so these points rest on an estimate rather than a published stat"
+          },
+          "priority": 3254.0
+        },
+        {
+          "key": "bonus_fd_rb",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED_IMPUTED",
+          "affectedFamilies": [
+            "RB"
+          ],
+          "sources": {
+            "clayOffense": "imputed"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [
+            "clayOffense"
+          ],
+          "missingFrom": [],
+          "missingStatistic": "bonus_fd_rb",
+          "remedy": "a projection feed publishing first downs; today imputed from yards by the first-down-rate model",
+          "realized": {
+            "eligiblePlayers": 151,
+            "affectedPlayers": 127,
+            "stat": 2984.0,
+            "points": 2984.0,
+            "byFamily": {
+              "RB": 2984.0
+            },
+            "shareOfAffectedFamilyPoints": 0.20038,
+            "atRiskBasis": "estimated: not omitted \u2014 every covering source supplies it, but at least one only through an imputation (first downs from yards), so these points rest on an estimate rather than a published stat"
+          },
+          "priority": 2984.0
+        },
+        {
           "key": "rec_10_19",
           "weight": 0.75,
           "weightSign": "+",
@@ -322,6 +395,42 @@
             "atRiskBasis": "full: no real source supplies it, every projected total omits it"
           },
           "priority": 2475.13
+        },
+        {
+          "key": "bonus_fd_qb",
+          "weight": 0.4,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED_IMPUTED",
+          "affectedFamilies": [
+            "QB"
+          ],
+          "sources": {
+            "clayOffense": "imputed"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [
+            "clayOffense"
+          ],
+          "missingFrom": [],
+          "missingStatistic": "bonus_fd_qb",
+          "remedy": "a projection feed publishing first downs; today imputed from yards by the first-down-rate model",
+          "realized": {
+            "eligiblePlayers": 81,
+            "affectedPlayers": 74,
+            "stat": 5705.0,
+            "points": 2282.0,
+            "byFamily": {
+              "QB": 2282.0
+            },
+            "shareOfAffectedFamilyPoints": 0.21839,
+            "atRiskBasis": "estimated: not omitted \u2014 every covering source supplies it, but at least one only through an imputation (first downs from yards), so these points rest on an estimate rather than a published stat"
+          },
+          "priority": 2282.0
         },
         {
           "key": "rec_5_9",
@@ -456,6 +565,42 @@
             "atRiskBasis": "upper_bound: only players covered solely by a source lacking it omit it"
           },
           "priority": 1505.2
+        },
+        {
+          "key": "bonus_fd_te",
+          "weight": 1.0,
+          "weightSign": "+",
+          "engine": "scored",
+          "reportedInUnscoredKeys": false,
+          "classification": "SUPPORTED_IMPUTED",
+          "affectedFamilies": [
+            "TE"
+          ],
+          "sources": {
+            "clayOffense": "imputed"
+          },
+          "capability": {
+            "manualCsv": "direct",
+            "reconstructedBaseline": "direct"
+          },
+          "imputed": [
+            "clayOffense"
+          ],
+          "missingFrom": [],
+          "missingStatistic": "bonus_fd_te",
+          "remedy": "a projection feed publishing first downs; today imputed from yards by the first-down-rate model",
+          "realized": {
+            "eligiblePlayers": 137,
+            "affectedPlayers": 110,
+            "stat": 1280.0,
+            "points": 1280.0,
+            "byFamily": {
+              "TE": 1280.0
+            },
+            "shareOfAffectedFamilyPoints": 0.16556,
+            "atRiskBasis": "estimated: not omitted \u2014 every covering source supplies it, but at least one only through an imputation (first downs from yards), so these points rest on an estimate rather than a published stat"
+          },
+          "priority": 1280.0
         },
         {
           "key": "rec_20_29",
@@ -1340,150 +1485,6 @@
           "reportedInUnscoredKeys": false,
           "classification": "NOT_APPLICABLE",
           "reason": "team-defense rule",
-          "priority": 0.0
-        },
-        {
-          "key": "bonus_fd_qb",
-          "weight": 0.4,
-          "weightSign": "+",
-          "engine": "scored",
-          "reportedInUnscoredKeys": false,
-          "classification": "SUPPORTED",
-          "affectedFamilies": [
-            "QB"
-          ],
-          "sources": {
-            "clayOffense": "imputed"
-          },
-          "capability": {
-            "manualCsv": "direct",
-            "reconstructedBaseline": "direct"
-          },
-          "imputed": [
-            "clayOffense"
-          ],
-          "missingFrom": [],
-          "missingStatistic": "bonus_fd_qb",
-          "remedy": null,
-          "realized": {
-            "eligiblePlayers": 81,
-            "affectedPlayers": 74,
-            "stat": 5705.0,
-            "points": 2282.0,
-            "byFamily": {
-              "QB": 2282.0
-            },
-            "shareOfAffectedFamilyPoints": 0.21839,
-            "atRiskBasis": "none"
-          },
-          "priority": 0.0
-        },
-        {
-          "key": "bonus_fd_rb",
-          "weight": 1.0,
-          "weightSign": "+",
-          "engine": "scored",
-          "reportedInUnscoredKeys": false,
-          "classification": "SUPPORTED",
-          "affectedFamilies": [
-            "RB"
-          ],
-          "sources": {
-            "clayOffense": "imputed"
-          },
-          "capability": {
-            "manualCsv": "direct",
-            "reconstructedBaseline": "direct"
-          },
-          "imputed": [
-            "clayOffense"
-          ],
-          "missingFrom": [],
-          "missingStatistic": "bonus_fd_rb",
-          "remedy": null,
-          "realized": {
-            "eligiblePlayers": 151,
-            "affectedPlayers": 127,
-            "stat": 2984.0,
-            "points": 2984.0,
-            "byFamily": {
-              "RB": 2984.0
-            },
-            "shareOfAffectedFamilyPoints": 0.20038,
-            "atRiskBasis": "none"
-          },
-          "priority": 0.0
-        },
-        {
-          "key": "bonus_fd_te",
-          "weight": 1.0,
-          "weightSign": "+",
-          "engine": "scored",
-          "reportedInUnscoredKeys": false,
-          "classification": "SUPPORTED",
-          "affectedFamilies": [
-            "TE"
-          ],
-          "sources": {
-            "clayOffense": "imputed"
-          },
-          "capability": {
-            "manualCsv": "direct",
-            "reconstructedBaseline": "direct"
-          },
-          "imputed": [
-            "clayOffense"
-          ],
-          "missingFrom": [],
-          "missingStatistic": "bonus_fd_te",
-          "remedy": null,
-          "realized": {
-            "eligiblePlayers": 137,
-            "affectedPlayers": 110,
-            "stat": 1280.0,
-            "points": 1280.0,
-            "byFamily": {
-              "TE": 1280.0
-            },
-            "shareOfAffectedFamilyPoints": 0.16556,
-            "atRiskBasis": "none"
-          },
-          "priority": 0.0
-        },
-        {
-          "key": "bonus_fd_wr",
-          "weight": 1.0,
-          "weightSign": "+",
-          "engine": "scored",
-          "reportedInUnscoredKeys": false,
-          "classification": "SUPPORTED",
-          "affectedFamilies": [
-            "WR"
-          ],
-          "sources": {
-            "clayOffense": "imputed"
-          },
-          "capability": {
-            "manualCsv": "direct",
-            "reconstructedBaseline": "direct"
-          },
-          "imputed": [
-            "clayOffense"
-          ],
-          "missingFrom": [],
-          "missingStatistic": "bonus_fd_wr",
-          "remedy": null,
-          "realized": {
-            "eligiblePlayers": 241,
-            "affectedPlayers": 207,
-            "stat": 3254.0,
-            "points": 3254.0,
-            "byFamily": {
-              "WR": 3254.0
-            },
-            "shareOfAffectedFamilyPoints": 0.16276,
-            "atRiskBasis": "none"
-          },
           "priority": 0.0
         },
         {
@@ -2541,6 +2542,7 @@
         "MAPPING_ERROR": 0,
         "UNSUPPORTED_VOCABULARY": 7,
         "ABSENT_FIELD": 0,
+        "SUPPORTED_IMPUTED": 0,
         "SUPPORTED": 9,
         "NOT_APPLICABLE": 25
       },
