@@ -1168,6 +1168,9 @@ main() {
   install_simple_timer "sharp-activity" "qualified-manager Sleeper activity crawl"
   install_simple_timer "board-snapshot" "canonical board as-of snapshot"
   install_simple_timer "sharp-cohort-snapshot" "daily sharp-cohort baseline"
+  # Signals account session renewal (docs/sources/SIGNALS_ACCOUNT_CONNECTION.md).
+  # A no-op exit 0 until the owner provisions a session to /var/lib/signals-auth.
+  install_simple_timer "signals-auth-renew" "Signals owner-session renewal"
   # Live Waiver Opportunity layer (docs/faab-live-opportunity-model.md):
   # all three feed BDVM structured events / trending history that
   # src/trade/faab_opportunity.py reads.  Public endpoints, no creds.

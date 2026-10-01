@@ -143,7 +143,9 @@ class ConsensusProjection:
     # categories are a strict subset of a peer's (vocabulary-dominated).
     vocabulary_limited: tuple[str, ...] = ()
     # League-card keys (nonzero rules) that a scored stat line could not
-    # supply: mu is a lower bound by those rules, never silently complete.
+    # supply: mu is a PARTIAL total by those rules, never silently complete.
+    # Not a lower bound — an omitted rule may be a penalty (``pass_int_td``),
+    # so the missing contribution may be positive or negative.
     unscored_keys: tuple[str, ...] = ()
 
 
@@ -605,8 +607,10 @@ class RealizedSeason:
     unscored: tuple[tuple[str, float], ...] = ()
     """Configured NONZERO rules no source supplied for this season.
 
-    Non-empty means :attr:`ppg` is a LOWER BOUND, not the player's
-    realized rate. Carried rather than dropped so a baseline built
+    Non-empty means :attr:`ppg` is a PARTIAL rate, not the player's
+    realized rate — and not a lower bound: an unscored rule may be a
+    penalty (``pass_int_td``), so the omitted contribution may be positive
+    or negative. Carried rather than dropped so a baseline built
     without the play-by-play artifact cannot present itself as the same
     quantity as one built with it."""
 

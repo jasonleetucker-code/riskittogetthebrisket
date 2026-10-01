@@ -212,6 +212,78 @@ def _no_hampel(pairs, **_kwargs):
     return list(pairs), []
 
 
+#: Value-direct sources whose vote can be re-expressed as rank->Hill by
+#: removing them from ``_VALUE_BASED_SOURCES``. ``idpTradeCalc`` is NOT one of
+#: them: it is ``is_cross_market`` without a DraftSharks partner, so leaving the
+#: value set re-admits it to Phase 1c ("cross-market combined rank
+#: restoration"), which decodes its NATIVE value as if it were the synthetic
+#: rank encoding (``csv_rank = OFFSET - value / 100``). Every IDPTC row then
+#: lands at rank ~9,900 and votes the tail value (1,174) -- a counterfactual
+#: artifact, not a rank->Hill reading. Measured 2026-10-01
+#: (docs/valuation/evidence/hill-alignment-2026-10-01/). The 2026-09-30
+#: replay's ``native_values_as_ranks`` removed all three and was contaminated
+#: by it; this tuple is the corrected scope.
+RANK_REEXPRESSIBLE_VALUE_SOURCES: tuple[str, ...] = ("ktcCrowdSfTep", "ktcTradesSfTep")
+
+
+def native_values_as_ranks_spec(
+    sources: tuple[str, ...] = RANK_REEXPRESSIBLE_VALUE_SOURCES,
+) -> dict[str, Any]:
+    """Diagnostic: take ``sources`` through rank->Hill instead of value-direct."""
+    unsafe = set(sources) - set(RANK_REEXPRESSIBLE_VALUE_SOURCES)
+    if unsafe:
+        raise ValueError(f"cannot re-express {sorted(unsafe)} as ranks without a Phase 1c decode")
+    return {
+        "kind": "diagnostic_patch",
+        "patch": ("_VALUE_BASED_SOURCES", frozenset(dc._VALUE_BASED_SOURCES - set(sources))),
+    }
+
+
+def hampel_threshold_spec(min_threshold: float, *, mad_scale: float = 1.0) -> dict[str, Any]:
+    """Diagnostic: rerun the per-player outlier filter with another floor.
+
+    The production function binds ``min_threshold`` as a DEFAULT ARGUMENT at
+    definition time, so patching ``_HAMPEL_MIN_THRESHOLD`` would change nothing;
+    the function itself is wrapped. ``mad_scale`` multiplies k (1.4826 turns the
+    raw median absolute deviation into a normal-consistent sigma estimate).
+    """
+    original = dc._hampel_filter_per_player
+
+    def wrapped(pairs, *, k: float = dc._HAMPEL_K, **_kwargs):
+        return original(pairs, k=k * mad_scale, min_threshold=float(min_threshold))
+
+    return {"kind": "diagnostic_patch", "patch": ("_hampel_filter_per_player", wrapped)}
+
+
+def csv_override_spec(paths: Mapping[str, str | Path]) -> dict[str, Any]:
+    """Diagnostic: read ``{source_key: csv_path}`` from other files for one build.
+
+    The CSVs are read at build time (``_enrich_from_source_csvs``), so a
+    transformed copy is the narrowest way to change a source's published values
+    without touching a production seam. The copy keeps the source's signal type.
+    """
+    table = dict(dc._SOURCE_CSV_PATHS)
+    for key, path in paths.items():
+        if key not in table:
+            raise KeyError(f"{key} is not a registered source CSV")
+        cfg = table[key]
+        table[key] = {**cfg, "path": str(path)} if isinstance(cfg, dict) else str(path)
+    return {"kind": "diagnostic_patch", "patch": ("_SOURCE_CSV_PATHS", table)}
+
+
+def board_hash(contract: Mapping[str, Any]) -> str:
+    """Content identity of a built board: every row's (name, value, rank)."""
+    rows = sorted(
+        (
+            str(r.get("displayName")),
+            r.get("rankDerivedValue"),
+            r.get("canonicalConsensusRank"),
+        )
+        for r in contract.get("playersArray") or []
+    )
+    return hashlib.sha256(json.dumps(rows, default=str).encode("utf-8")).hexdigest()
+
+
 def counterfactual_specs(families: Mapping[str, str], keys: list[str]) -> dict[str, dict]:
     """Named single-change rebuilds. ``kind`` says which seam each uses."""
     specs: dict[str, dict] = {
@@ -219,10 +291,7 @@ def counterfactual_specs(families: Mapping[str, str], keys: list[str]) -> dict[s
             "kind": "diagnostic_patch",
             "patch": ("_hampel_filter_per_player", _no_hampel),
         },
-        "native_values_as_ranks": {
-            "kind": "diagnostic_patch",
-            "patch": ("_VALUE_BASED_SOURCES", frozenset()),
-        },
+        "native_values_as_ranks": native_values_as_ranks_spec(),
         "freshness_weighting_off": {
             "kind": "feature_flag",
             "flag": ("source_freshness_weighting", False),
@@ -447,6 +516,7 @@ def native_vs_hill(base: Mapping[str, Any], as_ranks: Mapping[str, Any]) -> dict
     out: dict[str, Any] = {}
     for key in sorted(dc._VALUE_BASED_SOURCES):
         buckets: dict[int, list[float]] = defaultdict(list)
+        rank_moved = 0
         for row in base.get("playersArray") or []:
             meta = (row.get("sourceRankMeta") or {}).get(key) or {}
             other = ((alt.get(row.get("displayName")) or {}).get("sourceRankMeta") or {}).get(
@@ -461,9 +531,20 @@ def native_vs_hill(base: Mapping[str, Any], as_ranks: Mapping[str, Any]) -> dict
                 or not other.get("valueContribution")
             ):
                 continue
+            # The comparison is only "the same observation through its own rank"
+            # if the rebuild kept the rank. A rebuild that re-derived it (the
+            # Phase 1c decode, see RANK_REEXPRESSIBLE_VALUE_SOURCES) is not
+            # comparable and must not be reported as a ratio.
+            if other.get("effectiveRank") != meta.get("effectiveRank"):
+                rank_moved += 1
+                continue
             buckets[(int(rank) - 1) // 50].append(
                 meta["valueContribution"] / other["valueContribution"]
             )
+        if not buckets and not rank_moved:
+            # Not re-expressed by this rebuild (still value-direct): nothing
+            # to compare, which is different from a comparison of zero rows.
+            continue
         out[key] = {
             f"{b * 50 + 1}-{b * 50 + 50}": {
                 "n": len(v),
@@ -471,6 +552,8 @@ def native_vs_hill(base: Mapping[str, Any], as_ranks: Mapping[str, Any]) -> dict
             }
             for b, v in sorted(buckets.items())
         }
+        if rank_moved:
+            out[key]["notComparableRankMoved"] = rank_moved
     return out
 
 

@@ -403,6 +403,10 @@ class TestScoringCoverageCensus(unittest.TestCase):
         payload = run()
         coverage = payload["meta"]["scoringCoverage"]
         self.assertIn("unscoredKeys", coverage)
-        self.assertIn("lower bound", coverage["note"])
+        # Sign-aware: an omitted rule may be a penalty, so "lower bound" is wrong.
+        self.assertNotIn("lower bound", coverage["note"])
+        self.assertIn("partial total", coverage["note"])
+        self.assertIn("positive or negative", coverage["note"])
+        self.assertEqual(set(coverage["weightSign"]), set(coverage["unscoredKeys"]))
         for entry in payload["players"]:
             self.assertIsInstance(entry["projection"]["unscoredKeys"], list)
