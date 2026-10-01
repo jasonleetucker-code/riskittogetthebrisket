@@ -1197,6 +1197,10 @@ main() {
   # from that archive (src/trade/market_trade_report.py).  Its own unit so a
   # rebuild can never eat the fetch's timeout/memory; box-local files only.
   install_simple_timer "market-trade-ledger" "Market Trade Ledger daily rebuild (derived underlying-trade ledger)"
+  # Batch 3 Unit F: the #1571 joint robust filter in SHADOW beside the incumbent
+  # Hampel filter -> append-only data/robust_filter_shadow/ledger.jsonl + the
+  # preregistered evaluation. Writes no served value; never promotes.
+  install_simple_timer "joint-filter-shadow" "joint robust-filter shadow ledger (no served-value change)"
 
   # ── daemon-reload and enable ────────────────────────────────────────────
   # ce_needs_install was missing from this list. Every other timer's

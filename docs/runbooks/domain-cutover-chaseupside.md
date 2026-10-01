@@ -290,8 +290,16 @@ APPDIR=/home/dynasty/trade-calculator
 sudo mkdir -p /etc/nginx/snippets
 sudo install -m 0644 "$APPDIR/deploy/nginx/chaseupside-proxy.conf" \
      /etc/nginx/snippets/chaseupside-proxy.conf
-sudo install -m 0644 "$APPDIR/deploy/nginx/chaseupside.com.conf" \
-     /etc/nginx/sites-available/chaseupside.com
+# :443 binds the box's PUBLIC addresses explicitly (never the wildcard --
+# Tailscale Serve owns :443 on the tailnet address; incident 2026-10-01).
+# Render them from the box's default-route interface, check, then install.
+PUB4=$(ip -4 route get 1.1.1.1 | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}')
+PUB6=$(ip -6 route get 2606:4700:4700::1111 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}')
+echo "public IPv4=${PUB4:?no public IPv4} IPv6=${PUB6:-none}"
+sed -e "s/__PUBLIC_IPV4__/${PUB4}/" "$APPDIR/deploy/nginx/chaseupside.com.conf" > /tmp/chaseupside.com.conf
+if [ -n "${PUB6}" ]; then sed -i "s/__PUBLIC_IPV6__/${PUB6}/" /tmp/chaseupside.com.conf; else sed -i '/__PUBLIC_IPV6__/d' /tmp/chaseupside.com.conf; fi
+! grep -n "__PUBLIC_IPV" /tmp/chaseupside.com.conf
+sudo install -m 0644 /tmp/chaseupside.com.conf /etc/nginx/sites-available/chaseupside.com
 
 # Atomic swap: dynasty out, chaseupside.com in.
 sudo rm -f /etc/nginx/sites-enabled/dynasty
