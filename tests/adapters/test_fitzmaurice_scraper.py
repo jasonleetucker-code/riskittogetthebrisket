@@ -227,3 +227,61 @@ def test_format_columns_never_list_the_cross_format_trade_value(fz_module):
     assert "Trade Value" not in fz_module._POSITION_VALUE_COLUMNS["QB"]
     assert "Trade Value" not in fz_module._POSITION_VALUE_COLUMNS["TE"]
     assert "Value" not in fz_module._POSITION_VALUE_COLUMNS["TE"]
+
+
+# ── main() exit codes (Unit G review, 2026-10-01) ──────────────────────
+#
+# Every refusal preserves last-good.  Structural refusals exit 2 (the
+# schema-regression convention of fetch_fantasypros_idp); a transient chart
+# fetch failure exits 1.  A board is never written without one of the four
+# positions: the vanished rows would read as a vendor publication.
+
+_SF_QB = "Name\tTeam\tTrade Value\tSF Value\nJosh Allen\tBUF\t51\t101\n"
+_RB = "Name\tTeam\tTrade Value\nBijan Robinson\tATL\t90\n"
+_TEP_TE = "Name\tTeam\tTrade Value\tTEP Value\nBrock Bowers\tLV\t69\t82\n"
+_ALL_CHARTS = {"QB": "qb1", "RB": "rb1", "WR": "wr1", "TE": "te1"}
+
+
+def _run_main(fz_module, monkeypatch, tmp_path, *, chart_ids, csv_by_chart):
+    out = tmp_path / "fantasyProsFitzmaurice.csv"
+    out.write_text("last-good\n", encoding="utf-8")
+    monkeypatch.setattr(fz_module, "OUT_PATH", out)
+    monkeypatch.setattr(fz_module, "REPO", tmp_path)
+    # Floor 1 so the refusal under test, not the row floor, decides the exit.
+    monkeypatch.setattr(fz_module, "_FPF_ROW_FLOOR", 1)
+    monkeypatch.setattr(fz_module, "_fetch_article_html", lambda url: "<html></html>")
+    monkeypatch.setattr(fz_module, "_extract_chart_ids_by_position", lambda html: dict(chart_ids))
+    monkeypatch.setattr(fz_module, "_fetch_chart_csv", lambda cid: csv_by_chart.get(cid))
+    monkeypatch.setattr(sys, "argv", ["fetch_fantasypros_fitzmaurice.py", "--url", "https://x"])
+    rc = fz_module.main()
+    return rc, out.read_text(encoding="utf-8")
+
+
+def test_missing_format_column_exits_2_and_preserves_last_good(fz_module, monkeypatch, tmp_path):
+    no_sf = "Name\tTeam\tTrade Value\nJosh Allen\tBUF\t51\n"
+    csvs = {"qb1": no_sf, "rb1": _RB, "wr1": _RB, "te1": _TEP_TE}
+    rc, body = _run_main(fz_module, monkeypatch, tmp_path, chart_ids=_ALL_CHARTS, csv_by_chart=csvs)
+    assert rc == 2
+    assert body == "last-good\n"
+
+
+def test_missing_position_chart_exits_2_and_preserves_last_good(fz_module, monkeypatch, tmp_path):
+    ids = {k: v for k, v in _ALL_CHARTS.items() if k != "TE"}
+    csvs = {"qb1": _SF_QB, "rb1": _RB, "wr1": _RB}
+    rc, body = _run_main(fz_module, monkeypatch, tmp_path, chart_ids=ids, csv_by_chart=csvs)
+    assert rc == 2
+    assert body == "last-good\n"
+
+
+def test_failed_chart_fetch_exits_1_and_never_drops_a_position(fz_module, monkeypatch, tmp_path):
+    csvs = {"qb1": None, "rb1": _RB, "wr1": _RB, "te1": _TEP_TE}
+    rc, body = _run_main(fz_module, monkeypatch, tmp_path, chart_ids=_ALL_CHARTS, csv_by_chart=csvs)
+    assert rc == 1
+    assert body == "last-good\n"
+
+
+def test_complete_board_is_written(fz_module, monkeypatch, tmp_path):
+    csvs = {"qb1": _SF_QB, "rb1": _RB, "wr1": _RB, "te1": _TEP_TE}
+    rc, body = _run_main(fz_module, monkeypatch, tmp_path, chart_ids=_ALL_CHARTS, csv_by_chart=csvs)
+    assert rc == 0
+    assert "Josh Allen" in body and "Brock Bowers" in body

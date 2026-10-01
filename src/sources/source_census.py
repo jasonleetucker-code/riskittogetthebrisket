@@ -408,7 +408,9 @@ def _validate_pairs(lineage: Mapping[str, Any], ids: set[str], check_evidence: A
     """Structural rules for the four-category pair reconciliation."""
     errors: list[str] = []
     declared = lineage.get("categories")
-    if declared is not None and set(declared) != set(LINEAGE_CATEGORIES):
+    # A MISSING key is an error too: the config is the second half of the
+    # vocabulary, not an optional echo of this module.
+    if not isinstance(declared, Mapping) or set(declared) != set(LINEAGE_CATEGORIES):
         errors.append(f"categories must be exactly {list(LINEAGE_CATEGORIES)}")
     relations = {r.get("id"): r for r in lineage.get("relations") or []}
     known_sources = set((lineage.get("sources") or {}).keys())
@@ -436,11 +438,22 @@ def _validate_pairs(lineage: Mapping[str, Any], ids: set[str], check_evidence: A
         elif cat not in LINEAGE_CATEGORIES:
             errors.append(f"{where}: category must be one of {list(LINEAGE_CATEGORIES)}")
         supporting = []
+        pair_sources = set(srcs)
         for rid in pair.get("relations") or []:
             if rid not in relations:
                 errors.append(f"{where}: unknown relation {rid!r}")
-            else:
-                supporting.append(lineage_category(relations[rid]))
+                continue
+            # A relation supports THIS pair only if it is about this pair:
+            # at least two of its sources must be the pair's own.  Without
+            # this a PROVEN (A, B) could cite a relation on (A, C) or (C, D).
+            shared = pair_sources & set(relations[rid].get("sources") or [])
+            if len(shared) < 2:
+                errors.append(
+                    f"{where}: relation {rid!r} involves {sorted(shared)} of the pair's "
+                    "sources; a supporting relation must involve at least two"
+                )
+                continue
+            supporting.append(lineage_category(relations[rid]))
         if (
             cat == LINEAGE_PROVEN_COMMON_ANCESTRY
             and LINEAGE_PROVEN_COMMON_ANCESTRY not in supporting
@@ -453,6 +466,13 @@ def _validate_pairs(lineage: Mapping[str, Any], ids: set[str], check_evidence: A
             missing = [f for f in MEASUREMENT_REQUIRED_FIELDS if meas.get(f) in (None, "")]
             if missing:
                 errors.append(f"{where}: measurement must pin {missing}")
+        meas_any = pair.get("measurement")
+        if isinstance(meas_any, Mapping) and meas_any.get("n") is not None:
+            n = meas_any["n"]
+            # n is a sample size on ANY pair that pins one: a positive int
+            # (bool is an int subclass and is refused; 0 measured nothing).
+            if isinstance(n, bool) or not isinstance(n, int) or n <= 0:
+                errors.append(f"{where}: measurement.n must be an int > 0, got {n!r}")
         if cat == LINEAGE_INDEPENDENT_NO_EVIDENCE and any(
             c in (LINEAGE_PROVEN_COMMON_ANCESTRY, LINEAGE_MEASURED_DEPENDENCE) for c in supporting
         ):

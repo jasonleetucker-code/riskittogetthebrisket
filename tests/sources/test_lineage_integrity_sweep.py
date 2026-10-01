@@ -8,10 +8,10 @@ Two kinds of test live here:
 * consistency guards for statements the sweep found contradicted by live
   code.  Guards for files owned by another active lane
   (``src/api/data_contract.py`` — Batch 3 Unit E; ``scripts/source_inventory.py``
-  — the DLF / source-membership claim) are STRICT xfails: they fail today,
-  and the patch that fixes the statement flips them to XPASS, which strict
-  mode turns into a failure until the marker is removed.  Patch descriptions
-  are in ``docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md`` §7.
+  — the DLF / source-membership claim) are NON-strict xfails naming the
+  owning lane: they fail today, and the owner's patch flips them to XPASS
+  without breaking that lane's CI (remove the marker in the same patch).
+  Patch descriptions are in ``docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md`` §7.
 """
 
 from __future__ import annotations
@@ -304,6 +304,58 @@ def test_unknown_category_and_missing_implication_are_rejected():
     assert any("needs unknownReason" in e for e in _errors_with(_pair(category=None)))
 
 
+def test_supporting_relation_must_involve_two_of_the_pairs_own_sources():
+    # fn-fantasypros-dependence is about (fantasyNavigatorSf, fantasyProsSf):
+    # it shares ONE source with a (ktcCrowdSfTep, fantasyNavigatorSf) pair and
+    # so cannot support it -- nor can a relation on a disjoint pair.
+    one_shared = _pair(
+        sources=["ktcCrowdSfTep", "fantasyNavigatorSf"],
+        relations=["fn-ktc-dependence", "fn-fantasypros-dependence"],
+    )
+    errs = _errors_with(one_shared)
+    assert any("'fn-fantasypros-dependence'" in e and "at least two" in e for e in errs), errs
+    disjoint = _pair(relations=["fc-dd-dependence"])
+    errs = _errors_with(disjoint)
+    assert any("'fc-dd-dependence'" in e and "at least two" in e for e in errs), errs
+    # A PROVEN pair cannot borrow proof from a relation on another pair.
+    borrowed = _pair(
+        sources=["ktcCrowdSfTep", "pfkDynasty"],
+        category="PROVEN_COMMON_ANCESTRY",
+        relations=["pfk-ktc-dependence", "fn-uses-ktc-data"],
+    )
+    errs = _errors_with(borrowed)
+    assert any("needs a supporting proven relation" in e for e in errs), errs
+    assert _errors_with(_pair()) == []
+
+
+def test_missing_categories_key_is_rejected():
+    sc, lin = _lineage()
+    lin = json.loads(json.dumps(lin))
+    del lin["categories"]
+    assert any("categories must be exactly" in e for e in sc.validate_lineage(lin))
+
+
+@pytest.mark.parametrize("bad_n", [0, -3, 1.5, "354", True])
+def test_measurement_n_must_be_a_positive_int(bad_n):
+    errs = _errors_with(_pair(measurement={"method": "m", "window": "w", "n": bad_n}))
+    assert any("measurement.n must be an int > 0" in e for e in errs), errs
+
+
+def test_fantasy_navigator_pairs_say_input_use_not_derived_values():
+    _, lin = _lineage()
+    by_id = {p["id"]: p for p in lin["pairReconciliation"]}
+    ktc = by_id["pair-ktccrowd-fantasynavigator"]
+    assert ktc["category"] == "PROVEN_COMMON_ANCESTRY"
+    assert "fn-fantasypros-dependence" not in ktc["relations"]
+    assert "Proven KTC INPUT USE" in ktc["basis"]
+    assert "NOT KTC-derived values" in ktc["basis"]
+    fp = by_id["pair-fantasynavigator-fantasyprossf"]
+    assert fp["category"] == "MEASURED_DEPENDENCE"
+    assert set(fp["sources"]) == {"fantasyNavigatorSf", "fantasyProsSf"}
+    assert fp["measurement"]["n"] == 354
+    assert "TWO families" in fp["implications"]["familyCap"]
+
+
 def test_independent_no_evidence_cannot_contradict_a_measurement():
     errs = _errors_with(_pair(category="INDEPENDENT_NO_EVIDENCE"))
     assert any("contradicts" in e for e in errs)
@@ -327,11 +379,12 @@ def test_idpshow_fetcher_no_longer_says_the_voting_board_votes_nothing():
 
 
 @pytest.mark.xfail(
-    strict=True,
+    strict=False,
     raises=AssertionError,
     reason=(
-        "scripts/source_inventory.py is owned by the open DLF / source-membership claim; "
-        "patch in INTEGRITY_SWEEP_2026-10-01.md §7 (P3)"
+        "owned by the DLF / source-membership lane (scripts/source_inventory.py); "
+        "non-strict so that lane's patch (INTEGRITY_SWEEP_2026-10-01.md §7 P3) "
+        "does not break its CI"
     ),
 )
 def test_source_inventory_does_not_call_idpshow_a_cut_of_the_combined_board():
@@ -340,9 +393,12 @@ def test_source_inventory_does_not_call_idpshow_a_cut_of_the_combined_board():
 
 
 @pytest.mark.xfail(
-    strict=True,
+    strict=False,
     raises=AssertionError,
-    reason="src/api/data_contract.py is owned by Batch 3 Unit E; patch in INTEGRITY_SWEEP_2026-10-01.md §7 (P1)",
+    reason=(
+        "owned by the Batch 3 Unit E lane (src/api/data_contract.py); non-strict so "
+        "that lane's patch (INTEGRITY_SWEEP_2026-10-01.md §7 P1) does not break its CI"
+    ),
 )
 def test_contract_phase_1c_comment_does_not_claim_the_set_is_empty():
     text = (REPO / "src" / "api" / "data_contract.py").read_text(encoding="utf-8")
@@ -350,9 +406,12 @@ def test_contract_phase_1c_comment_does_not_claim_the_set_is_empty():
 
 
 @pytest.mark.xfail(
-    strict=True,
+    strict=False,
     raises=AssertionError,
-    reason="src/api/data_contract.py is owned by Batch 3 Unit E; patch in INTEGRITY_SWEEP_2026-10-01.md §7 (P2)",
+    reason=(
+        "owned by the Batch 3 Unit E lane (src/api/data_contract.py); non-strict so "
+        "that lane's patch (INTEGRITY_SWEEP_2026-10-01.md §7 P2) does not break its CI"
+    ),
 )
 def test_contract_rookie_ladder_comment_names_the_crowd_ladder_it_uses():
     from src.api.data_contract import ROOKIE_LADDER_PAIRS

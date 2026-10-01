@@ -15,6 +15,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import pytest
+
 from scripts import fetch_fantasypros_idp as fp
 
 
@@ -253,22 +255,55 @@ class TestMainExitCodes(unittest.TestCase):
             self.assertEqual(rc, 2)
 
 
+# PENDING (Batch 3 Unit G review, 2026-10-01).  The duplicate is a real
+# defect, but de-duplicating in the fetcher is NOT freshness-neutral, so the
+# fix is deferred and these tests stay as strict xfails until it lands:
+#
+# * ``dataset_integrity.parse_board`` keys the second occurrence of a name as
+#   ``name#2``.  Dropping those rows (15 of 299 on the 2026-09-30 board, 5%)
+#   clears ``broadChange`` (minRows 5, minFraction 0.02), so the first fetch
+#   after the fix would log a BROAD publication the vendor never made: it
+#   resets ``lastBroadDatasetChangeAt``, raises the source's freshness weight
+#   and writes a false event into its cadence/style history.  Stale would
+#   read as current.  The dataset-state owner has no representation-change
+#   marker to absorb a one-time parser change, and adding one would change
+#   its semantics for every source.
+# * Display metadata also moves: ``data_contract._select_fp_meta`` would stamp
+#   the kept row's family/rank (e.g. Dallas Turner LB/89) on rows that today
+#   carry DL/118, and ``sourceAudit.ambiguous`` flips to false.
+#
+# Recorded as ``fantasypros-idp-dual-family-duplicates`` (open) in
+# ``config/sources/source_lineage.json``.  Remove the markers in the patch
+# that lands the fix together with a freshness-neutral mechanism.
+_PENDING_DEDUPE = pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason=(
+        "pending: FantasyPros IDP dual-family dedupe deferred -- dropping the "
+        "name#2 rows would log a false broad change and reset the freshness clock "
+        "(fantasypros-idp-dual-family-duplicates)"
+    ),
+)
+
+
 class TestOneObservationPerPlayer(unittest.TestCase):
     """Batch 3 Unit G integrity sweep (2026-10-01).
 
     FantasyPros lists dual-eligible edge rushers on BOTH the DL and the LB
-    positional pages.  A player absent from the combined page used to be
-    emitted once per family page with two different effective ranks — 16
-    such duplicates on the 2026-09-23 board (e.g. Dallas Turner: LB page
-    -> 89, DL page -> 118).  One board must carry one observation per
-    player.  The kept row is the better effective rank, which is exactly
-    the entry the contract's highest-value pick already serves, so the
-    repair changes no vote.
+    positional pages.  A player absent from the combined page is emitted
+    once per family page with two different effective ranks -- 15 such
+    duplicates on the 2026-09-30 board (16 on 2026-09-23; e.g. Dallas
+    Turner: LB page -> 89, DL page -> 118).  One board should carry one
+    observation per player.  The contract already serves the better
+    effective rank (its highest-value pick), so the duplicate does not
+    change a vote today -- see the PENDING note above for why the fix is
+    deferred.
     """
 
     def _row(self, name, rank, pos_id):
         return {"name": name, "rank": rank, "pos_id": pos_id, "team": "TST"}
 
+    @_PENDING_DEDUPE
     def test_dual_listed_player_emitted_once_with_best_rank(self):
         combined = [self._row(f"C{i}", i, "LB") for i in range(1, 6)]
         lb_rows = [self._row(f"C{i}", i, "LB") for i in range(1, 6)]
@@ -289,6 +324,7 @@ class TestOneObservationPerPlayer(unittest.TestCase):
         )
         self.assertEqual(edge[0]["effectiveRank"], int(round(best)))
 
+    @_PENDING_DEDUPE
     def test_no_name_appears_twice(self):
         combined = [self._row("A", 1, "LB"), self._row("B", 2, "DE")]
         family_rows = {

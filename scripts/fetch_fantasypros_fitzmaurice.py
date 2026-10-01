@@ -42,6 +42,18 @@ Columns: ``name,team,position,value``.  The ranking pipeline reads
 the ``value`` column via ``_VALUE_ALIASES`` and rescales every
 player linearly so Fitzmaurice's top player contributes 9999.
 
+Exit codes
+----------
+
+* ``0`` — wrote the board (or ``--dry-run``).
+* ``1`` — transient: no article fetched, or a position chart's CSV fetch failed.
+* ``2`` — structural / schema regression: a position chart is missing from
+  the article, a chart lacks its league-format column, or the board is under
+  the contract row floor.  Same convention as ``fetch_fantasypros_idp``.
+
+Every non-zero exit preserves the last-good CSV, and the scheduled refresh's
+``run_fetcher`` warns and skips the ``_last_success`` stamp for any of them.
+
 Run
 ---
 
@@ -371,39 +383,45 @@ def main() -> int:
 
     chart_ids = _extract_chart_ids_by_position(html)
     print(f"[fitzmaurice] detected charts: {chart_ids}")
-    if set(chart_ids) != {"QB", "RB", "WR", "TE"}:
-        missing = sorted({"QB", "RB", "WR", "TE"} - set(chart_ids))
+    # Every position chart is REQUIRED.  A board written without one of
+    # them is not a smaller board: the dataset-state owner would read the
+    # vanished position (~50 QB or ~46 TE rows) as a broad publication the
+    # vendor never made, and the position's votes would disappear while the
+    # source looked freshly published.  Both cases preserve last-good.
+    missing = sorted(set(_POSITION_VALUE_COLUMNS) - set(chart_ids))
+    if missing:
+        # Structural: the article no longer exposes a chart we read
+        # (exit 2, the schema-regression convention of fetch_fantasypros_idp).
         print(
-            f"[fitzmaurice] WARN: missing chart IDs for {missing} — "
-            f"FP article structure may have changed.",
+            f"[fitzmaurice] ERROR: missing chart IDs for {missing} — FP article "
+            f"structure may have changed.  Preserving last-good CSV; not overwriting.",
             file=sys.stderr,
         )
-        if not chart_ids:
-            return 1
+        return 2
 
     all_rows: list[dict] = []
     for position in ("QB", "RB", "WR", "TE"):
-        chart_id = chart_ids.get(position)
-        if chart_id is None:
-            continue
+        chart_id = chart_ids[position]
         csv_text = _fetch_chart_csv(chart_id)
         if csv_text is None:
+            # Transient (network): exit 1, retried by the next refresh.
             print(
-                f"[fitzmaurice] WARN: chart {chart_id} ({position}) "
-                f"fetch failed — dropping {position} from this run.",
+                f"[fitzmaurice] ERROR: chart {chart_id} ({position}) fetch failed — "
+                f"preserving last-good CSV rather than writing a board without {position}.",
                 file=sys.stderr,
             )
-            continue
+            return 1
         try:
             rows = _parse_chart_rows(csv_text, position)
         except FormatColumnMissing as exc:
             # Fail closed: writing the board without this position (or with
             # its 1QB / non-premium number) would publish the wrong format.
+            # Exit 2: a schema regression, as fetch_fantasypros_idp uses.
             print(
                 f"[fitzmaurice] ERROR: {exc} — preserving last-good CSV; not overwriting.",
                 file=sys.stderr,
             )
-            return 1
+            return 2
         print(f"[fitzmaurice] {position} ({chart_id}): parsed {len(rows)} rows")
         all_rows.extend(rows)
 
