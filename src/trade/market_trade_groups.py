@@ -193,16 +193,16 @@ def classify_pair(
             return REL_SAME_HOST_TX, "same platform + league + host transaction id"
         if ta[:2] == tb[:2]:
             return REL_DISTINCT, "same league, different host transaction ids"
+    for x, y in ((a, b), (b, a)):
+        ty = _host_tx(y)
+        if ty and any(tuple(map(str, ref)) == ty for ref in (x.get("crossRefs") or [])):
+            return REL_CROSS_SOURCE, "explicit cross-reference to the host transaction"
     ba, bb = _bare_tx(a), _bare_tx(b)
     if ba and bb and ba == bb and not (ta and tb):
         # The same host transaction id with a league id missing on one side:
         # never DISTINCT (that would count one trade twice); not CONFIRMED either,
         # because the league identity that makes the id a proof is absent.
         return REL_POSSIBLE, "same host transaction id, league id missing on one side"
-    for x, y in ((a, b), (b, a)):
-        ty = _host_tx(y)
-        if ty and any(tuple(map(str, ref)) == ty for ref in (x.get("crossRefs") or [])):
-            return REL_CROSS_SOURCE, "explicit cross-reference to the host transaction"
 
     ha, hb = _host_key(a), _host_key(b)
     if ha and hb and ha != hb:
