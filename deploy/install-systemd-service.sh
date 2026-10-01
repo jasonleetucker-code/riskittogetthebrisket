@@ -1189,6 +1189,10 @@ main() {
   # the authenticated /api/second-opinion/signals (src/sources/signals.py).
   # Public pages, no creds; a 401/403 persists a stop the script obeys.
   install_simple_timer "signals-fetch" "Signals Fantasy public-board collection (non-voting second opinion)"
+  # Sparse-evidence estimator SHADOW ledger (Batch 3 Unit E): builds the served
+  # board and candidate C in memory, appends both answers to gitignored
+  # data/sparse_evidence_shadow/. Never serves or promotes. No creds.
+  install_simple_timer "sparse-evidence-shadow" "sparse-evidence estimator shadow ledger (incumbent vs candidate C)"
 
   # ── daemon-reload and enable ────────────────────────────────────────────
   # ce_needs_install was missing from this list. Every other timer's
