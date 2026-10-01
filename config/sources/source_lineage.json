@@ -1,0 +1,618 @@
+{
+  "schema": "source-lineage/v1",
+  "description": "The NON-DERIVABLE half of the source trust census (src/sources/source_census.py, Batch 3 Unit A): provider identity, evidence basis, recorded ancestry/dependence and recorded source-specific defects. Everything derivable (registration, families, weights, freshness, clocks, coverage, archive depth) is computed from canonical state at census time and must NOT be copied here. Every entry carries evidence pointers (repo paths that exist) and a classification. 'proven' = established by code, payload structure or the vendor's own published statement recorded in the repo. 'measured' = a statistic measured on real boards; it is DEPENDENCE, never common ancestry. 'suspected' = plausible ancestry with no proof; kept separate from proven on purpose. Nothing here decides a value or a weight. Pairs are reconciled into exactly four categories (categories / pairReconciliation; one owner with src/sources/source_census.py::LINEAGE_CATEGORIES): a measurement never becomes PROVEN_COMMON_ANCESTRY, INDEPENDENT_NO_EVIDENCE is absence of evidence, and a null category is UNKNOWN with its reason. Batch 3 Unit G refresh: docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md.",
+  "classifications": ["proven", "measured", "suspected"],
+  "categories": {
+    "PROVEN_COMMON_ANCESTRY": "documented / verified that one provider derives from the other (vendor statement, payload structure or code); needs a supporting 'proven' relation",
+    "MEASURED_DEPENDENCE": "measured statistical dependence with method, window, n and pinned evidence; NOT proof of ancestry",
+    "SUSPECTED_DEPENDENCE": "plausible but unmeasured, or measured too weakly to support MEASURED_DEPENDENCE",
+    "INDEPENDENT_NO_EVIDENCE": "no evidence of dependence: absence of evidence, never proven independence"
+  },
+  "evidenceBases": {
+    "crowd_votes": "crowd keep/trade/cut style votes",
+    "crowd_trade_market": "values implied by a crowd of user trades / trade calculator usage",
+    "trade_derived": "values derived from a large set of completed trades",
+    "expert_consensus": "a panel or consensus of experts",
+    "single_expert": "one named analyst",
+    "publisher_board": "one publisher's hand-maintained board, panel composition not stated",
+    "model_projection": "a projection / model-based value",
+    "derived_aggregate": "re-publishes or aggregates other providers' values",
+    "unknown": "methodology not established by repo evidence"
+  },
+  "providers": {
+    "keepTradeCut": "KeepTradeCut",
+    "idpTradeCalculator": "IDP Trade Calculator",
+    "dynastyLeagueFootball": "Dynasty League Football",
+    "theIdpShow": "The IDP Show",
+    "dynastyNerds": "Dynasty Nerds",
+    "fantasyCalc": "FantasyCalc",
+    "otcFantasyFootball": "OTC Fantasy Football",
+    "fantasyNavigator": "Fantasy Navigator",
+    "playForKeeps": "Play for Keeps",
+    "dynastyDaddy": "Dynasty Daddy",
+    "fantasyPros": "FantasyPros",
+    "flockFantasy": "Flock Fantasy",
+    "yahoo": "Yahoo Sports (Justin Boone)",
+    "draftSharks": "Draft Sharks",
+    "signalsFantasy": "Signals Fantasy"
+  },
+  "sources": {
+    "ktcCrowdSfTep": {"provider": "keepTradeCut", "basis": "crowd_votes", "evidence": ["docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md", "src/sources/ktc_market.py"]},
+    "ktcTradesSfTep": {"provider": "keepTradeCut", "basis": "crowd_trade_market", "evidence": ["docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md", "src/sources/ktc_market.py"]},
+    "ktcCrowdTradesSfTep": {"provider": "keepTradeCut", "basis": "derived_aggregate", "evidence": ["src/sources/ktc_market.py"]},
+    "ktc": {"provider": "keepTradeCut", "basis": "crowd_votes", "evidence": ["scripts/source_inventory.py", "src/api/data_contract.py"]},
+    "ktcSfTep": {"provider": "keepTradeCut", "basis": "crowd_votes", "evidence": ["scripts/source_inventory.py", "src/api/data_contract.py"]},
+    "idpTradeCalc": {"provider": "idpTradeCalculator", "basis": "unknown", "evidence": ["src/api/data_contract.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md"], "notes": "One combined population: offense, IDP and picks on one native 0-9999 scale (registry is_cross_market + extra_scopes). Methodology not disclosed. MEASURED 2026-10-01: at 2 of its 4 post-baseline broad offense batches (2026-06-06 and 2026-08-28, the batch voting today) its non-TE offense values equal KTC's base superflex crowd values from 2-4 days earlier; the other two batches are close but not identical (relation idptc-offense-ktc-value-identity). Its IDP ordering matched The IDP Show IDP-only board within 1-6 hours of 3 of 5 IDP Show publications (relation idptc-idpshow-dependence). Basis stays 'unknown': derivation is not vendor-stated."},
+    "dlfSf": {"provider": "dynastyLeagueFootball", "basis": "expert_consensus", "evidence": ["src/api/data_contract.py", "scripts/fetch_dlf.py"]},
+    "dlfRookieSf": {"provider": "dynastyLeagueFootball", "basis": "expert_consensus", "evidence": ["src/api/data_contract.py", "scripts/fetch_dlf.py"]},
+    "dlfIdp": {"provider": "dynastyLeagueFootball", "basis": "expert_consensus", "evidence": ["src/api/data_contract.py", "scripts/fetch_dlf.py"]},
+    "dlfRookieIdp": {"provider": "dynastyLeagueFootball", "basis": "expert_consensus", "evidence": ["src/api/data_contract.py", "scripts/fetch_dlf.py"]},
+    "dlfValuesSfTep": {"provider": "dynastyLeagueFootball", "basis": "unknown", "evidence": ["docs/sources/DLF_VALUES_GATE_2026-09-25.md"], "notes": "DLF Trade Analyzer Values; a different quantity from DLF Rank (measured, see relation dlf-values-vs-rank)."},
+    "dlfValuesSfTepPicks": {"provider": "dynastyLeagueFootball", "basis": "unknown", "evidence": ["scripts/source_inventory.py"]},
+    "idpShowCombined": {"provider": "theIdpShow", "basis": "derived_aggregate", "evidence": ["src/api/data_contract.py", "scripts/fetch_idpshow.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md"], "notes": "Vendor's own post metadata (read 2026-10-01): titled a combined IDP + offense DYNASTY ranking, and described as built from 'startup ADP and the best dynasty rankings in the industry'. An aggregate of unnamed boards plus startup ADP, not one analyst's board (relation idpshow-combined-vendor-declared-aggregate)."},
+    "idpShow": {"provider": "theIdpShow", "basis": "expert_consensus", "evidence": ["scripts/fetch_idpshow.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md"], "notes": "Vendor's own post metadata (read 2026-10-01): titled an IDP DYNASTY ranking, described as the consensus of two named experts (Adam Marcum, Jon Macri) over 350 defenders."},
+    "dynastyNerdsSfTep": {"provider": "dynastyNerds", "basis": "expert_consensus", "evidence": ["docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md"]},
+    "fantasyCalc": {"provider": "fantasyCalc", "basis": "crowd_trade_market", "evidence": ["docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md"]},
+    "otcffbSf": {"provider": "otcFantasyFootball", "basis": "trade_derived", "evidence": ["docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md"]},
+    "fantasyNavigatorSf": {"provider": "fantasyNavigator", "basis": "derived_aggregate", "evidence": ["scripts/fetch_fantasynavigator.py", "src/api/data_contract.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md"]},
+    "pfkDynasty": {"provider": "playForKeeps", "basis": "publisher_board", "evidence": ["scripts/fetch_pfk.py"]},
+    "dynastyDaddySf": {"provider": "dynastyDaddy", "basis": "crowd_trade_market", "evidence": ["docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md"]},
+    "fantasyProsSf": {"provider": "fantasyPros", "basis": "expert_consensus", "evidence": ["src/api/data_contract.py"]},
+    "fantasyProsIdp": {"provider": "fantasyPros", "basis": "expert_consensus", "evidence": ["src/api/data_contract.py"]},
+    "fantasyProsFitzmaurice": {"provider": "fantasyPros", "basis": "single_expert", "evidence": ["src/api/data_contract.py", "docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md"]},
+    "flockFantasySf": {"provider": "flockFantasy", "basis": "expert_consensus", "evidence": ["src/api/data_contract.py"]},
+    "flockFantasySfRookies": {"provider": "flockFantasy", "basis": "expert_consensus", "evidence": ["src/api/data_contract.py"]},
+    "yahooBoone": {"provider": "yahoo", "basis": "single_expert", "evidence": ["src/api/data_contract.py"]},
+    "draftSharks": {"provider": "draftSharks", "basis": "model_projection", "evidence": ["docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md"]},
+    "draftSharksIdp": {"provider": "draftSharks", "basis": "model_projection", "evidence": ["docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md"]},
+    "draftSharksRosSf": {"provider": "draftSharks", "basis": "model_projection", "gameType": "REDRAFT_ROS", "gameTypeEvidence": "relation draftsharks-ros-same-provider (proven)", "evidence": ["scripts/source_inventory.py"], "notes": "Rest-of-season (redraft) board: seasonal lane only, barred from dynasty values."},
+    "draftSharksRosIdp": {"provider": "draftSharks", "basis": "model_projection", "gameType": "REDRAFT_ROS", "gameTypeEvidence": "relation draftsharks-ros-same-provider (proven)", "evidence": ["scripts/source_inventory.py"], "notes": "Rest-of-season (redraft) board: seasonal lane only, barred from dynasty values."},
+    "signalsDynasty": {"provider": "signalsFantasy", "basis": "derived_aggregate", "evidence": ["src/sources/signals.py"]},
+    "signalsIdpDynasty": {"provider": "signalsFantasy", "basis": "derived_aggregate", "evidence": ["src/sources/signals.py"]}
+  },
+  "relations": [
+    {
+      "id": "ktc-crowd-trades-same-payload",
+      "sources": ["ktcCrowdSfTep", "ktcTradesSfTep"],
+      "relation": "same_provider_same_payload",
+      "classification": "proven",
+      "summary": "Crowd (superflexValues.tepp.value) and Trades (.vftValue) are two value modes of one KTC per-player payload, captured in one fetch. Separate B10 families by owner directive 2026-09-23. Their dependence is now measured (relation ktc-crowd-trades-dependence).",
+      "evidence": ["src/api/data_contract.py", "src/sources/ktc_market.py", "docs/sources/SOURCE_FRESHNESS_WEIGHTING.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "ktc-market-derived",
+      "sources": ["ktcCrowdTradesSfTep", "ktcCrowdSfTep", "ktcTradesSfTep"],
+      "relation": "derived_from",
+      "classification": "proven",
+      "summary": "KTC Market is KTC's own published Crowd+Trades blend (ktc_market.KTC_MARKET_DERIVED_FROM); benchmark only, never a vote.",
+      "evidence": ["src/sources/ktc_market.py"],
+      "asOf": "2026-09-23"
+    },
+    {
+      "id": "ktc-historical-calibration-states",
+      "sources": ["ktc", "ktcSfTep", "ktcCrowdSfTep"],
+      "relation": "calibration_state_of",
+      "classification": "proven",
+      "summary": "ktc (base) and ktcSfTep (TE++) are the historical Crowdsourced pair: calibration states of the same crowd opinion, retired into the ktcCrowd family. ktcSfTep carries the same TE++ crowd values as ktcCrowdSfTep.",
+      "evidence": ["src/api/data_contract.py", "scripts/source_inventory.py"],
+      "asOf": "2026-09-23"
+    },
+    {
+      "id": "fn-uses-ktc-data",
+      "sources": ["fantasyNavigatorSf", "ktcCrowdSfTep"],
+      "relation": "uses_provider_data",
+      "classification": "proven",
+      "summary": "Every Fantasy Navigator row carries a ktc_player_id and the site credits KeepTradeCut as a data source (recorded in the fetcher and registry). Placed in the ktcCrowd family so it can never be a hidden third KTC vote.",
+      "evidence": ["scripts/fetch_fantasynavigator.py", "src/api/data_contract.py"],
+      "asOf": "2026-07-25"
+    },
+    {
+      "id": "fn-ktc-dependence",
+      "sources": ["fantasyNavigatorSf", "ktcCrowdSfTep", "ktcTradesSfTep"],
+      "relation": "measured_dependence",
+      "classification": "measured",
+      "summary": "REFRESHED 2026-10-01 (leave-pair-out residual vs a consensus excluding both members): +0.038 vs KTC Crowd (n=428), +0.191 vs KTC Trades, +0.056 vs KTC Market; raw Spearman 0.905 vs Crowd. Lagged value identity 0 of 437 at any KTC capture in the prior 10 days (median value ratio 0.09: a different curve). Earlier: raw Spearman 0.9395 vs ktcSfTep (2026-08-04). The data-source use is proven (fn-uses-ktc-data); a KTC-tracking ORDER is not supported by the current measurement.",
+      "statistics": {"rawSpearmanVsKtcSfTep": 0.9395, "medianDeviationVsCrowdBaseSf": 0.156, "medianDeviationVsCrowdTepp": 0.166, "medianDeviationVsTradesTepp": 0.188},
+      "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "src/api/data_contract.py", "docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "pfk-ktc-dependence",
+      "sources": ["pfkDynasty", "ktcCrowdSfTep", "ktcTradesSfTep", "ktcSfTep"],
+      "relation": "measured_dependence",
+      "classification": "measured",
+      "summary": "REFRESHED 2026-10-01: leave-pair-out residual +0.687 vs KTC Crowd (n=439) — the strongest offense pair in the whole voting matrix — and +0.382 vs KTC Trades; raw Spearman 0.977. Values are not copies (1 of 447 equal; median ratio 0.62-0.67). Earlier: +0.450 vs ktcSfTep (2026-08-04); held-out Hill RMSE flattered 1.64x by KTC in training (2026-09-24).",
+      "statistics": {"residualRVsKtcSfTep": 0.45, "holdoutRmseFlatteringByKtc": 1.64},
+      "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "pfk-ktc-suspected-ancestry",
+      "sources": ["pfkDynasty", "ktcSfTep"],
+      "relation": "suspected_partial_ancestry",
+      "classification": "suspected",
+      "summary": "PFK also publishes a pfk_ktc_values table that mirrors KTC (we deliberately read pfk_dynasty_rankings instead), so the provider holds KTC data; whether its own board is partly built from KTC is NOT established.",
+      "evidence": ["scripts/fetch_pfk.py", "docs/ROADMAP-competitor-parity.md"],
+      "asOf": "2026-08-04"
+    },
+    {
+      "id": "fc-dd-dependence",
+      "sources": ["fantasyCalc", "dynastyDaddySf"],
+      "relation": "measured_dependence",
+      "classification": "measured",
+      "summary": "REFRESHED 2026-10-01: leave-pair-out residual +0.635 (n=366); raw Spearman 0.963; values not copies (lagged identity <=1.1% within 4 days either direction). Earlier +0.677 (n=254, 2026-08-04). Both are crowd trade-value markets; common ancestry is NOT established and is not asserted.",
+      "statistics": {"residualR": 0.677, "n": 254},
+      "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "otc-fc-dependence",
+      "sources": ["otcffbSf", "fantasyCalc"],
+      "relation": "measured_dependence",
+      "classification": "measured",
+      "summary": "REFRESHED 2026-10-01: leave-pair-out residual +0.511 vs FantasyCalc (n=358). Earlier +0.329 (2026-08-04).",
+      "statistics": {"residualR": 0.329},
+      "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "otc-ktc-dependence",
+      "sources": ["otcffbSf", "ktc", "ktcCrowdSfTep", "ktcTradesSfTep"],
+      "relation": "measured_dependence",
+      "classification": "measured",
+      "summary": "NOT REPRODUCED 2026-10-01: leave-pair-out residual -0.204 vs KTC Crowd and -0.146 vs KTC Trades (n=364); 0 lagged value identity (OTC publishes 0-100). The 2026-07-27 +0.891 vs base KTC came from an instrument whose consensus contained several KTC copies (ktc, ktcSfTep, ...), which manufactures residual agreement for any KTC-adjacent board.",
+      "statistics": {"residualRho": 0.891},
+      "evidence": ["docs/lane4/LANE4_804_CORRELATED_SOURCE_STATUS.md", "scripts/audit/measure_source_correlation.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "idptc-idpshow-dependence",
+      "sources": ["idpTradeCalc", "idpShow", "idpShowCombined"],
+      "relation": "measured_dependence",
+      "classification": "measured",
+      "summary": "REFRESHED 2026-10-01, IDP universe, against the IDP-only board: leave-pair-out residual +0.992 (n=243), raw Spearman 0.998 (n=347), 0.9% discordant pairs. LEAD-LAG at 3 of 5 IDP Show publications: after 2026-07-21, 08-20 and 08-26 the IDP Trade Calculator's first IDP version, 1-6 hours later, matches the new IDP Show ordering exactly or nearly (0.00-0.04% discordant pairs), then drifts by its own small edits (0.9% by 2026-09-23). It did NOT at the other two: after 2026-06-16 its first version (8 days later) was 10.8% discordant, falling to 0.9% before the next publication; after 2026-08-18 its first version (~35 h later) was 3.5% discordant and stayed there until IDP Show republished on 08-20. Direction measured where it holds: IDP Show leads. Against the voting COMBINED board: +0.806 (n=158), 9.2% discordant. Derivation is not vendor-stated (see idptc-idpshow-suspected-ancestry).",
+      "statistics": {"residualR": 0.986, "n": 188, "residualRho20260727": 0.669},
+      "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "docs/lane4/LANE4_804_CORRELATED_SOURCE_STATUS.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "idptc-idpshow-suspected-ancestry",
+      "sources": ["idpTradeCalc", "idpShow", "idpShowCombined"],
+      "relation": "suspected_common_ancestry",
+      "classification": "suspected",
+      "summary": "The IDP Trade Calculator's IDP board follows The IDP Show's IDP-only board (lead-lag measured 2026-10-01: exact or near-exact order identity within hours of 3 of 5 IDP Show publications; not after 2026-06-16 or 2026-08-18). That is the pattern of an IDP board rebuilt from IDP Show's, but no vendor statement says so: ancestry stays SUSPECTED. Consequence if true: IDP Show's opinion reaches IDP rows through two families (idpShow via idpShowCombined, and idpTradeCalc).",
+      "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "scripts/fetch_idpshow.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "idptc-ktc-dependence",
+      "sources": ["idpTradeCalc", "ktcCrowdSfTep", "ktcTradesSfTep", "ktcSfTep"],
+      "relation": "measured_dependence",
+      "classification": "measured",
+      "summary": "REFRESHED 2026-10-01, offense: leave-pair-out residual +0.535 vs KTC Crowd, +0.532 vs Trades (n=430) — damped because the IDP Trade Calculator's offense pool has not changed since 2026-08-28 while KTC moves continuously. See idptc-offense-ktc-value-identity for the batch-level identity.",
+      "statistics": {"residualR": 0.56, "n": 255, "rawSpearman": 0.9844, "medianValueRatio": 1.0},
+      "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "docs/lane4/LANE4_804_CORRELATED_SOURCE_STATUS.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "dlf-same-provider",
+      "sources": ["dlfSf", "dlfRookieSf", "dlfIdp", "dlfRookieIdp", "dlfValuesSfTep", "dlfValuesSfTepPicks"],
+      "relation": "same_provider",
+      "classification": "proven",
+      "summary": "One provider, one login, one fetcher: SF rank, rookie SF, IDP, rookie IDP boards (the voting dlf family) plus the non-voting Trade Analyzer Values and pick values.",
+      "evidence": ["scripts/fetch_dlf.py", "src/api/data_contract.py", "docs/sources/DLF_VALUES_GATE_2026-09-25.md"],
+      "asOf": "2026-09-25"
+    },
+    {
+      "id": "dlf-values-vs-rank",
+      "sources": ["dlfValuesSfTep", "dlfSf"],
+      "relation": "measured_dependence",
+      "classification": "measured",
+      "summary": "DLF Values ordering vs DLF Rank: Spearman 0.970 on 288 matched, 7.1% discordant pairs; values median 8.3% apart from DLF Rank's own rank->Hill value (2026-09-25). Leave-pair-out residual +0.704 (n=284, 2026-10-01). Measured as NOT a duplicate.",
+      "statistics": {"spearman": 0.97, "n": 288, "discordantPairs": 0.071},
+      "evidence": ["docs/sources/DLF_VALUES_GATE_2026-09-25.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "dlf-ktc-independence",
+      "sources": ["dlfSf", "ktcCrowdSfTep", "ktcSfTep"],
+      "relation": "measured_dependence",
+      "classification": "measured",
+      "summary": "REFRESHED 2026-10-01: leave-pair-out residual -0.447 vs KTC Crowd (n=284); earlier -0.412 vs ktcSfTep (2026-08-04). Among the most independent offense signals.",
+      "statistics": {"residualR": -0.412},
+      "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "fantasypros-same-provider",
+      "sources": ["fantasyProsSf", "fantasyProsIdp", "fantasyProsFitzmaurice"],
+      "relation": "same_provider",
+      "classification": "proven",
+      "summary": "SF and IDP consensus boards plus Pat Fitzmaurice's trade value chart, all published by FantasyPros.",
+      "evidence": ["src/api/data_contract.py"],
+      "asOf": "2026-09-24"
+    },
+    {
+      "id": "fitzmaurice-nested-in-fantasypros-consensus",
+      "sources": ["fantasyProsFitzmaurice", "fantasyProsSf"],
+      "relation": "suspected_nested_input",
+      "classification": "suspected",
+      "summary": "Fitzmaurice is a FantasyPros analyst and may be an input to the FantasyPros consensus; NOT established. Leave-pair-out residual 2026-10-01: -0.039 (n=290) — effectively independent. The earlier -0.610 / -0.664 came from a consensus that included both boards and is not reproduced.",
+      "statistics": {"residualR": -0.61, "residualRho20260727": -0.664},
+      "evidence": ["docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md", "docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "docs/lane4/LANE4_804_CORRELATED_SOURCE_STATUS.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "fitzmaurice-nerds-dependence",
+      "sources": ["fantasyProsFitzmaurice", "dynastyNerdsSfTep"],
+      "relation": "measured_dependence",
+      "classification": "measured",
+      "summary": "REFRESHED 2026-10-01: leave-pair-out residual +0.643 (n=274); earlier +0.568 (2026-08-04), +0.681 (2026-07-27). Cross-publisher.",
+      "statistics": {"residualR": 0.568, "residualRho20260727": 0.681},
+      "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "docs/lane4/LANE4_804_CORRELATED_SOURCE_STATUS.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "flock-same-provider",
+      "sources": ["flockFantasySf", "flockFantasySfRookies"],
+      "relation": "same_provider",
+      "classification": "proven",
+      "summary": "Flock Fantasy's veteran superflex board and its rookie (PROSPECTS_SF) board. All 48 captured rookies are also on the veteran board; leave-pair-out residual +0.194 (n=48, 2026-10-01). On 2026-10-01 the PROSPECTS_SF endpoint returned an empty board (data: [], subscribed: false).",
+      "evidence": ["src/api/data_contract.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "draftsharks-same-page",
+      "sources": ["draftSharks", "draftSharksIdp"],
+      "relation": "same_page_slice",
+      "classification": "proven",
+      "summary": "Offense and IDP slices of ONE draftsharks.com dynasty-rankings DOM, re-merged into one combined rank list (ds_combined_rank_partner). The fetcher proves league scoring per pass but never proves the two families share one 3D Value+ scale on a given run (no player appears in both an offense and an IDP pass), while the combined re-rank depends on it.",
+      "evidence": ["src/api/data_contract.py", "docs/sources/DRAFTSHARKS_DYNASTY_INGESTION_REPAIR.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "draftsharks-ros-same-provider",
+      "sources": ["draftSharksRosSf", "draftSharksRosIdp", "draftSharks"],
+      "relation": "same_provider_other_game_type",
+      "classification": "proven",
+      "summary": "Draft Sharks' rest-of-season boards: same provider, REDRAFT/ROS game type, so never a dynasty input.",
+      "evidence": ["src/api/data_contract.py", "scripts/source_inventory.py"],
+      "asOf": "2026-09-24"
+    },
+    {
+      "id": "draftsharks-contrarian",
+      "sources": ["draftSharks"],
+      "relation": "measured_independence",
+      "classification": "measured",
+      "summary": "Residual correlation -0.382 to -0.505 against every other source (2026-08-04): genuinely contrarian, which is also why the outlier filter drops it often.",
+      "statistics": {"residualRMin": -0.505, "residualRMax": -0.382},
+      "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json"],
+      "asOf": "2026-08-04"
+    },
+    {
+      "id": "idpshow-same-provider",
+      "sources": ["idpShowCombined", "idpShow"],
+      "relation": "same_provider_distinct_board",
+      "classification": "proven",
+      "summary": "Same publisher, two DIFFERENT quantities: the combined offense+IDP board (votes; vendor-declared aggregate) and the IDP-only two-expert consensus (non-voting). IDP universe leave-pair-out residual between them +0.796 (n=241, 2026-10-01).",
+      "evidence": ["scripts/fetch_idpshow.py", "src/api/data_contract.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "signals-suspected-market-ancestry",
+      "sources": ["signalsDynasty", "signalsIdpDynasty"],
+      "relation": "suspected_common_ancestry",
+      "classification": "suspected",
+      "summary": "Signals says it aggregates unnamed community dynasty value markets and trade-implied values; treat as correlated with the KTC / FantasyCalc / Dynasty Daddy families until ancestry is disclosed.",
+      "evidence": ["src/sources/signals.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "ktc-crowd-trades-dependence",
+      "sources": ["ktcCrowdSfTep", "ktcTradesSfTep"],
+      "relation": "residual_dependence",
+      "classification": "measured",
+      "summary": "First measurement (2026-10-01): leave-pair-out residual +0.615 (n=449); raw Spearman 0.966 on the captured CSVs and 0.969 on the live page (0.981 in the top 150); 1 of 464 player values identical; Trades/Crowd value ratio median 1.003 (p10 0.865, p90 1.328). Substantially dependent but not one number: two separate families stand by owner directive.",
+      "evidence": ["docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "idptc-offense-ktc-value-identity",
+      "sources": ["idpTradeCalc", "ktc", "ktcCrowdSfTep"],
+      "relation": "value_identity_dependence",
+      "classification": "measured",
+      "summary": "Strong value identity at 2 of the 4 broad offense batches the IDP Trade Calculator published after our first capture (2026-04-16, which has no earlier comparator): its non-TE offense values equal KTC's base superflex crowd values from a capture 2-4 days earlier. 2026-06-06 batch: 286/357 exactly equal (357/357 within 1%) to KTC 2026-06-03. 2026-08-28 batch: 212/359 exact (359/359 within 1%) to KTC 2026-08-26. The other two batches are close but NOT identical: 2026-04-25 69/355 exact (19%; 349/355 within 1%) to KTC 2026-04-19; 2026-07-06 10/358 exact (2.8%; 181/358 within 1%) to KTC 2026-07-02. A live fetch of its Apps Script feed 2026-10-01 still carries the 2026-08-28 values, so the batch voting today is an identity batch. Recorded as measured because the vendor does not state the derivation. The CURRENT offense vote is therefore a lagged copy of KTC Crowd outside the ktcCrowd family cap; that every future batch will be one is not established.",
+      "evidence": ["docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "fn-fantasypros-dependence",
+      "sources": ["fantasyNavigatorSf", "fantasyProsSf"],
+      "relation": "residual_dependence",
+      "classification": "measured",
+      "summary": "Leave-pair-out residual +0.597 (n=354, 2026-10-01) — Fantasy Navigator's strongest dependence in the voting matrix, far above its +0.038 with KTC Crowd. Ancestry not asserted.",
+      "evidence": ["docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "dlf-rookie-vs-sf-dependence",
+      "sources": ["dlfSf", "dlfRookieSf"],
+      "relation": "residual_dependence",
+      "classification": "measured",
+      "summary": "40 of 58 rookie-board players are also on the SF board; their relative order disagrees on 7.4% of pairs (58/780) and the leave-pair-out residual is +0.607 (n=40, 2026-10-01). A separate expert ranking, not a re-cut; same family, so the family cap already limits it to one DLF vote.",
+      "evidence": ["docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "rookie-ladder-borrows-reference-scale",
+      "sources": ["dlfRookieSf", "flockFantasySfRookies", "ktcCrowdSfTep", "dlfRookieIdp", "idpTradeCalc"],
+      "relation": "scale_borrowed_from",
+      "classification": "proven",
+      "summary": "By code (data_contract.ROOKIE_LADDER_PAIRS): DLF's and Flock's rookie boards vote at the combined rank KTC Crowd gives its k-th rookie, and DLF's IDP rookie board at the IDP Trade Calculator's. The rookie boards contribute ORDER; the value SPACING is the reference board's. Scale dependence by construction, not shared opinion.",
+      "evidence": ["src/api/data_contract.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "idpshow-combined-vendor-declared-aggregate",
+      "sources": ["idpShowCombined"],
+      "relation": "derived_from_unnamed_inputs",
+      "classification": "proven",
+      "summary": "The vendor's own post subtitle (public post metadata, read 2026-10-01) says the board is built from 'startup ADP and the best dynasty rankings in the industry'. The voting combined board is therefore an aggregate of unnamed other boards plus startup ADP; which voters it overlaps is not disclosed. Its offense residuals are most dependent on Flock (+0.477, n=344).",
+      "evidence": ["docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "scripts/fetch_idpshow.py"],
+      "asOf": "2026-10-01"
+    }
+  ],
+  "evaluations": [
+    {
+      "id": "hill-loifo-2026-09-24",
+      "kind": "calibration_fit",
+      "sources": ["ktc", "dynastyDaddySf", "dynastyNerdsSfTep", "yahooBoone", "fantasyProsFitzmaurice", "draftSharks", "fantasyCalc", "otcffbSf", "pfkDynasty", "fantasyNavigatorSf"],
+      "summary": "Held-out Hill-curve RMSE (fixed holdout and leave-one-lineage-out). Measures how well a board's value SHAPE fits other boards' curves, not whether the source is useful for predicting future information.",
+      "evidence": ["docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md"],
+      "asOf": "2026-09-24"
+    },
+    {
+      "id": "dlf-values-gate-2026-09-25",
+      "kind": "admission_gate",
+      "sources": ["dlfValuesSfTep"],
+      "summary": "First normalization-gate measurement; DLF Values remain NON-VOTING (capture stability untested: one content version at the time).",
+      "evidence": ["docs/sources/DLF_VALUES_GATE_2026-09-25.md"],
+      "asOf": "2026-09-25"
+    }
+  ],
+  "defects": [
+    {
+      "id": "idpshow-fetcher-comment-stale",
+      "sources": ["idpShowCombined"],
+      "status": "fixed",
+      "summary": "scripts/fetch_idpshow.py said the combined board 'votes NOTHING' and carried the stale 250-row measurement, while idpShowCombined is the provider's sole registered voter. FIXED on claude/lineage-integrity-sweep (Batch 3 Unit G); guarded by tests/sources/test_lineage_integrity_sweep.py.",
+      "evidence": ["scripts/fetch_idpshow.py", "tests/sources/test_lineage_integrity_sweep.py"],
+      "recordedAt": "2026-10-01"
+    },
+    {
+      "id": "idpshow-inventory-reason-contradiction",
+      "sources": ["idpShow"],
+      "status": "open",
+      "summary": "scripts/source_inventory.py gives idpShow's non-voting reason as an 'IDP-only cut of idpShowCombined (same vendor board)', while the fetcher states the combined board is a different quantity and 'not a re-cut'. The non-voting conclusion (one provider, one vote) holds; the stated mechanism is contradicted. Patch P3 in the Unit G sweep report; strict-xfail guard in tests/sources/test_lineage_integrity_sweep.py (file owned by the open DLF / source-membership claim).",
+      "evidence": ["scripts/source_inventory.py", "scripts/fetch_idpshow.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md"],
+      "recordedAt": "2026-10-01"
+    },
+    {
+      "id": "dynastydaddy-ties-ranked-ordinally",
+      "sources": ["dynastyDaddySf"],
+      "status": "open",
+      "summary": "Rows sharing a native value receive DISTINCT ranks (no competition ranking), so the rank vote imposes an order the vendor did not publish. First recorded 2026-08-04 (36 rows); the census re-measures it on every run (csvProfile.tiedValueRowsWithDistinctRanks).",
+      "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "CSVs/site_raw/dynastyDaddySf.csv"],
+      "recordedAt": "2026-08-04"
+    },
+    {
+      "id": "hill-native-value-second-channel",
+      "sources": ["dynastyDaddySf", "dynastyNerdsSfTep", "yahooBoone", "fantasyProsFitzmaurice", "draftSharks"],
+      "status": "open",
+      "summary": "These boards vote as RANKS but train the OFFENSE Hill master through their NATIVE values, an unmeasured second channel of influence over every rank source (Hill audit H3; owned by Batch 3 Unit D).",
+      "evidence": ["docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md"],
+      "recordedAt": "2026-09-24"
+    },
+    {
+      "id": "hill-fn-holdout-while-ktc-trains",
+      "sources": ["fantasyNavigatorSf", "pfkDynasty", "fantasyCalc"],
+      "status": "open",
+      "summary": "Three of four OFFENSE Hill holdouts share measured lineage or dependence with training evidence (Fantasy Navigator / KTC, PFK / KTC, FantasyCalc / Dynasty Daddy), so the holdout is not independent evidence (Hill audit H5/H6; owned by Batch 3 Unit D).",
+      "evidence": ["docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md"],
+      "recordedAt": "2026-09-24"
+    },
+    {
+      "id": "fantasypros-idp-dual-family-duplicates",
+      "sources": ["fantasyProsIdp"],
+      "status": "open",
+      "summary": "Dual-eligible edge rushers listed on both the DL and LB pages and absent from the combined page are written twice with different effective ranks (15 players on the 2026-09-30 board, 16 on 2026-09-23; e.g. Dallas Turner LB 89 and DL 118). No vote changes today: the contract serves the better effective rank. FIX DEFERRED (Unit G review): de-duplicating in the fetcher is not freshness-neutral. dataset_integrity.parse_board keys the second occurrence as 'name#2', so dropping them removes 15 of 299 rows (5%), which clears broadChange (minRows 5, minFraction 0.02): the first fetch after the fix would log a broad publication the vendor never made, reset lastBroadDatasetChangeAt, raise the freshness weight and add a false event to cadence/style history. The dataset-state owner has no one-time representation-change marker. Display metadata would also move (data_contract._select_fp_meta stamps LB/89 instead of DL/118 on DL-listed rows; sourceAudit.ambiguous flips to false). Land the dedupe together with a freshness-neutral mechanism; strict-xfail tests pin the pending fix.",
+      "evidence": ["scripts/fetch_fantasypros_idp.py", "tests/scripts/test_fetch_fantasypros_idp.py", "src/sources/dataset_integrity.py", "src/sources/dataset_state.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md"],
+      "recordedAt": "2026-10-01"
+    },
+    {
+      "id": "fitzmaurice-silent-format-fallback",
+      "sources": ["fantasyProsFitzmaurice"],
+      "status": "fixed",
+      "summary": "A QB chart without 'SF Value' fell back to 'Trade Value' (the 1QB number) and a TE chart without 'TEP Value' to the non-premium number, per ROW, so a renamed or blank cell silently mixed formats under a source declared superflex + TE-premium. Latent (the 2026-10 charts carry both columns). FIXED: the format column is chosen once per chart from the header; QB/TE without it raise and the run preserves last-good; a blank format cell is dropped, never backfilled. These refusals exit 2 (schema regression). Unit G review: a position chart missing from the article (exit 2) or whose CSV fetch fails (exit 1) also refuses, where the run used to drop that whole position and still write if 225+ rows remained, which the dataset state would have read as a broad publication.",
+      "evidence": ["scripts/fetch_fantasypros_fitzmaurice.py", "tests/adapters/test_fitzmaurice_scraper.py"],
+      "recordedAt": "2026-10-01"
+    },
+    {
+      "id": "fantasypros-idp-anchored-inside-combined-range",
+      "sources": ["fantasyProsIdp"],
+      "status": "open",
+      "summary": "24 players absent from the FantasyPros combined IDP page (which ranks 119) are interpolated to effective ranks 89-119 from a positional page, i.e. ahead of players the vendor's own combined board did rank. Whether absence from the combined page implies rank > 119 is a methodology question (owner).",
+      "evidence": ["scripts/fetch_fantasypros_idp.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md"],
+      "recordedAt": "2026-10-01"
+    },
+    {
+      "id": "idptc-autocomplete-case-duplicate",
+      "sources": ["idpTradeCalc"],
+      "status": "open",
+      "summary": "The captured CSV carries 'Demario Douglas' (API sheet) and 'DeMario Douglas' (scraper autocomplete path) with the same value: the autocomplete fallback keys FULL_DATA by the scraper's own spelling without a case-insensitive check. No value impact (the contract keeps the best of one canonical key).",
+      "evidence": ["Dynasty Scraper.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md"],
+      "recordedAt": "2026-10-01"
+    },
+    {
+      "id": "idptc-frozen-current-year-slot-picks",
+      "sources": ["idpTradeCalc"],
+      "status": "open",
+      "summary": "The IDP Trade Calculator still publishes 48 '2026 Pick R.SS' slot rows unchanged since at least 2026-04-16 (1.01 = 8013 < 1.02 = 8323), months after the 2026 rookie draft; a live fetch 2026-10-01 confirms they are the vendor's current rows (genuine non-publication, not a parser or fetch defect). They are the rows that make the data-derived current draft year resolve to 2026 (derive_current_draft_year_from_names); horizon advancement is owner decision #1442.",
+      "evidence": ["src/api/data_contract.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md"],
+      "recordedAt": "2026-10-01"
+    },
+    {
+      "id": "flock-prospects-board-empty",
+      "sources": ["flockFantasySfRookies"],
+      "status": "open",
+      "summary": "2026-10-01: api.flockfantasy.com PROSPECTS_SF returned data: [] with subscribed: false and an empty lastUpdated. The fetcher's 24-row floor refuses it, so the 2026-09-05 board keeps voting at decaying freshness. Cannot distinguish a vendor withdrawal from a new subscriber gate; never bypassed.",
+      "evidence": ["scripts/fetch_flock_fantasy_rookies.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md"],
+      "recordedAt": "2026-10-01"
+    },
+    {
+      "id": "fitzmaurice-datawrapper-version-pinned",
+      "sources": ["fantasyProsFitzmaurice"],
+      "status": "open",
+      "summary": "The fetcher reads datawrapper.dwcdn.net/<chart>/1/dataset.csv; a chart republished as version 2+ would be read stale. The fetch_idpshow.py version resolver is the existing pattern to reuse.",
+      "evidence": ["scripts/fetch_fantasypros_fitzmaurice.py", "scripts/fetch_idpshow.py"],
+      "recordedAt": "2026-10-01"
+    },
+    {
+      "id": "draftsharks-team-column-empty",
+      "sources": ["draftSharks", "draftSharksIdp"],
+      "status": "open",
+      "summary": "The Team column is blank on every captured row (the fetcher's team regex no longer matches the page). Not voted on; display/identity-tiebreak only.",
+      "evidence": ["scripts/fetch_draftsharks.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md"],
+      "recordedAt": "2026-10-01"
+    },
+    {
+      "id": "contract-stale-source-comments",
+      "sources": ["idpShowCombined", "dlfRookieSf", "flockFantasySfRookies", "fantasyProsFitzmaurice", "yahooBoone", "fantasyProsIdp"],
+      "status": "open",
+      "summary": "src/api/data_contract.py comments contradict live code: Phase 1c 'this set is currently EMPTY' (idpShowCombined activates it); rookie ladder 'KTC Crowd+Trades ladder' (code uses ktcCrowdSfTep); Fitzmaurice / yahooBoone registry comments describe value-direct voting (both vote rank); the fantasyProsIdp path comment claims a 'Rank' alias column the fetcher does not write; idpShowCombined game_type_evidence cites the URL path (now provable from the vendor's post title). Patches P1/P2/P4/P5 in the Unit G sweep report; file owned by Batch 3 Unit E.",
+      "evidence": ["src/api/data_contract.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "tests/sources/test_lineage_integrity_sweep.py"],
+      "recordedAt": "2026-10-01"
+    }
+  ],
+  "pairReconciliation": [
+    {
+      "id": "pair-ktccrowd-fantasynavigator",
+      "sources": ["ktcCrowdSfTep", "fantasyNavigatorSf"],
+      "category": "PROVEN_COMMON_ANCESTRY",
+      "relations": ["fn-uses-ktc-data", "fn-ktc-dependence"],
+      "basis": "Proven KTC INPUT USE: Fantasy Navigator rows carry ktc_player_id and the site credits KeepTradeCut as a data source (recorded 2026-07-25; vendor credit not re-read in this sweep). Common ancestry of INPUTS only, NOT KTC-derived values: the measurement refutes value derivation (order residual +0.038 vs KTC Crowd; 0 of 437 values equal at any KTC capture in the prior 10 days). Its strongest measured dependence is FantasyPros SF (pair-fantasynavigator-fantasyprossf).",
+      "measurement": {"method": "leave-pair-out residual correlation of percentile ranks (consensus excludes both members), scripts/audit/lineage_integrity_sweep.py", "window": "captured CSVs at 2026-10-01T15:00Z (each source's latest version, 2026-09-29..2026-09-30)", "n": 428, "statistic": "residual +0.038 vs Crowd, +0.191 vs Trades; 0/437 values equal"},
+      "implications": {"familyCap": "already one B10 family (ktcCrowd); keep. The measured independence of ORDER means the cap may suppress some independent signal — owner methodology question, no change here.", "hillHoldout": "must not be an independent holdout while KTC trains (Unit D derives its exclusion from the manifest); audit C20 stays OPEN while holdout boards vote in the live blend.", "sourceQualityEvaluation": "leave-family-out: never score Fantasy Navigator against a KTC-containing target, nor KTC against it.", "hillTraining": "do not train on it alongside KTC; its curve shape differs from KTC's (H7) but its inputs do not.", "completedTradeEvaluation": "KTC Trade Database trades are KTC-platform trades; Fantasy Navigator's agreement with them is partly inherited and must be reported per family, not as an independent confirmation."},
+      "evidence": ["docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/fetch_fantasynavigator.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "pair-fantasynavigator-fantasyprossf",
+      "sources": ["fantasyNavigatorSf", "fantasyProsSf"],
+      "category": "MEASURED_DEPENDENCE",
+      "relations": ["fn-fantasypros-dependence"],
+      "basis": "Fantasy Navigator's strongest measured dependence in the offense voting matrix (+0.597), far above its +0.038 with KTC Crowd. No vendor statement links the two, so no ancestry is asserted.",
+      "measurement": {"method": "leave-pair-out residual correlation of percentile ranks (consensus excludes both members), scripts/audit/lineage_integrity_sweep.py", "window": "captured CSVs at 2026-10-01T15:00Z (each source's latest version, 2026-09-29..2026-09-30)", "n": 354, "statistic": "residual +0.597 (n=354); raw Spearman 0.970 (n=357)"},
+      "implications": {"familyCap": "separate B10 families (Fantasy Navigator sits in ktcCrowd, FantasyPros SF in the FantasyPros family), so FantasyPros' opinion may reach the blend through TWO families: its own, and ktcCrowd via Fantasy Navigator. Recommendation for owner review only; no family change here.", "hillHoldout": "Fantasy Navigator is a declared OFFENSE holdout. FantasyPros SF does not train; the same provider's Fitzmaurice board does, but FantasyPros SF vs Fitzmaurice measures -0.039 (no dependence), so no train/holdout overlap is measured through this pair.", "sourceQualityEvaluation": "leave-pair-out: neither may serve as the other's target.", "hillTraining": "neither trains a Hill master today; never train both as independent evidence.", "completedTradeEvaluation": "agreement of both with completed trades is not two independent confirmations."},
+      "evidence": ["docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "pair-ktc-pfk",
+      "sources": ["ktcCrowdSfTep", "ktcTradesSfTep", "pfkDynasty"],
+      "category": "MEASURED_DEPENDENCE",
+      "relations": ["pfk-ktc-dependence"],
+      "basis": "Strongest offense dependence in the voting matrix; values are not copies; ancestry stays suspected (PFK holds a KTC mirror table it does not publish as its board; that suspicion is recorded against the historical ktcSfTep key in relation pfk-ktc-suspected-ancestry, so it is not cited as support for this Crowd/Trades pair).",
+      "measurement": {"method": "leave-pair-out residual correlation of percentile ranks (consensus excludes both members), scripts/audit/lineage_integrity_sweep.py", "window": "captured CSVs at 2026-10-01T15:00Z (each source's latest version, 2026-09-29..2026-09-30)", "n": 439, "statistic": "residual +0.687 vs Crowd, +0.382 vs Trades; 1/447 values equal"},
+      "implications": {"familyCap": "separate families today, so the dependent view votes twice; candidate for an owner-reviewed shared or partial cap — no change here.", "hillHoldout": "PFK is a declared OFFENSE holdout while KTC trains: its held-out RMSE is flattered (1.64x leave-lineage-out, 2026-09-24); audit C20 stays OPEN while holdout boards vote in the live blend.", "sourceQualityEvaluation": "leave-lineage-out targets: exclude both KTC families from PFK's target and PFK from theirs.", "hillTraining": "do not promote PFK to trainer while KTC trains without a lineage-aware holdout.", "completedTradeEvaluation": "PFK's fit to KTC-platform completed trades partly reflects its KTC dependence; evaluate jointly with KTC, not as an independent source."},
+      "evidence": ["docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "pair-fantasycalc-dynastydaddy",
+      "sources": ["fantasyCalc", "dynastyDaddySf"],
+      "category": "MEASURED_DEPENDENCE",
+      "relations": ["fc-dd-dependence"],
+      "basis": "Both crowd trade-value markets; dependence stable since 2026-08-04; values not copies; no ancestry asserted.",
+      "measurement": {"method": "leave-pair-out residual correlation of percentile ranks (consensus excludes both members), scripts/audit/lineage_integrity_sweep.py", "window": "captured CSVs at 2026-10-01T15:00Z (each source's latest version, 2026-09-29..2026-09-30)", "n": 366, "statistic": "residual +0.635; lagged value identity <=1.1% within 4 days"},
+      "implications": {"familyCap": "separate families, so one crowd-market view is partially counted twice; owner review candidate — no change here.", "hillHoldout": "FantasyCalc is a declared OFFENSE holdout while Dynasty Daddy trains: not independent evidence; audit C20 stays OPEN while holdout boards vote in the live blend.", "sourceQualityEvaluation": "neither may serve as the other's target; leave-pair-out.", "hillTraining": "training on both would teach one market shape twice; Dynasty Daddy alone trains today.", "completedTradeEvaluation": "agreement between the two with completed trades is not two confirmations."},
+      "evidence": ["docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "pair-fantasypros-fitzmaurice",
+      "sources": ["fantasyProsSf", "fantasyProsFitzmaurice"],
+      "category": "SUSPECTED_DEPENDENCE",
+      "relations": ["fantasypros-same-provider", "fitzmaurice-nested-in-fantasypros-consensus"],
+      "basis": "Same provider (proven) but neither derives from the other by any record; Fitzmaurice may be a consensus input (unproven); the leave-pair-out residual (-0.039, n=290) is too weak to support MEASURED_DEPENDENCE.",
+      "implications": {"familyCap": "already one B10 family (fantasyPros, provider-based); the measurement suggests independent signals, so the cap may discard evidence — owner methodology question.", "hillHoldout": "neither is a holdout.", "sourceQualityEvaluation": "evaluate separately; if nesting is ever proven, neither may be the other's target.", "hillTraining": "Fitzmaurice trains OFFENSE through its native values (the H3 second channel, owned by Unit D); the consensus is rank-only, so nothing is taught twice.", "completedTradeEvaluation": "no special handling."},
+      "evidence": ["docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "pair-dlf-regular-rookie",
+      "sources": ["dlfSf", "dlfRookieSf", "dlfIdp", "dlfRookieIdp"],
+      "category": "MEASURED_DEPENDENCE",
+      "relations": ["dlf-rookie-vs-sf-dependence", "dlf-same-provider", "rookie-ladder-borrows-reference-scale"],
+      "basis": "Same provider (proven). The rookie board is a separate expert ranking, not a re-cut: 7.4% of shared pairs disagree in order. The IDP pair is too small to measure (21 shared).",
+      "measurement": {"method": "leave-pair-out residual correlation of percentile ranks (consensus excludes both members), scripts/audit/lineage_integrity_sweep.py", "window": "captured CSVs at 2026-10-01T15:00Z (each source's latest version, 2026-09-29..2026-09-30)", "n": 40, "statistic": "SF residual +0.607; 58/780 discordant pairs; IDP n=21 (below the 30 minimum)"},
+      "implications": {"familyCap": "one B10 family (dlf); a rookie on both boards is one DLF vote. Correct as is.", "hillHoldout": "neither is a holdout.", "sourceQualityEvaluation": "evaluate as one family; the rookie boards cover rookies only.", "hillTraining": "DLF is rank-only; the rookie boards vote on KTC Crowd's (SF) / IDP Trade Calculator's (IDP) rookie-ladder spacing, so their spacing is the reference board's, not DLF's.", "completedTradeEvaluation": "rookie-heavy trades: DLF counted once."},
+      "evidence": ["docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "pair-draftsharks-offense-idp",
+      "sources": ["draftSharks", "draftSharksIdp"],
+      "category": "PROVEN_COMMON_ANCESTRY",
+      "relations": ["draftsharks-same-page"],
+      "basis": "One draftsharks.com dynasty DOM split by the fetcher and re-merged into one combined rank (code). Dependence is not measurable (disjoint populations). The shared 3D Value+ scale across the two families is NOT re-proven per run.",
+      "implications": {"familyCap": "one B10 family (draftSharks). Correct as is.", "hillHoldout": "neither is a holdout.", "sourceQualityEvaluation": "one board; cross-universe ordering rests on an unverified shared scale, so score offense and IDP separately.", "hillTraining": "the GLOBAL trainer 'DraftSharks-Combined' depends on the unproven shared offense/IDP scale; Unit D should gate it on a per-run scale proof.", "completedTradeEvaluation": "no special handling."},
+      "evidence": ["docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "scripts/fetch_draftsharks.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "pair-ktccrowd-ktctrades",
+      "sources": ["ktcCrowdSfTep", "ktcTradesSfTep"],
+      "category": "PROVEN_COMMON_ANCESTRY",
+      "relations": ["ktc-crowd-trades-same-payload", "ktc-crowd-trades-dependence"],
+      "basis": "Two value modes of one KTC per-player payload (payload structure). Dependence first measured 2026-10-01.",
+      "measurement": {"method": "leave-pair-out residual correlation of percentile ranks (consensus excludes both members), scripts/audit/lineage_integrity_sweep.py", "window": "captured CSVs at 2026-10-01T15:00Z (each source's latest version, 2026-09-29..2026-09-30)", "n": 449, "statistic": "residual +0.615; Spearman 0.966 (live 0.969); 1/464 values equal"},
+      "implications": {"familyCap": "two B10 families by owner directive 2026-09-23 (one provider, two votes); the measured +0.615 is recorded for owner review — no change.", "hillHoldout": "neither is a holdout.", "sourceQualityEvaluation": "leave-provider-out: one KTC mode may never be the other's target.", "hillTraining": "base KTC Crowd trains OFFENSE/ROOKIE; Trades does not — nothing taught twice today.", "completedTradeEvaluation": "the KTC Trade Database is the population KTC's Tradesourced values are built from, so scoring Trades against those trades is IN-SAMPLE; exclude or flag it."},
+      "evidence": ["docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "src/sources/ktc_value_sources.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "pair-idptradecalc-idpshow",
+      "sources": ["idpTradeCalc", "idpShow", "idpShowCombined"],
+      "category": "MEASURED_DEPENDENCE",
+      "relations": ["idptc-idpshow-dependence", "idptc-idpshow-suspected-ancestry"],
+      "basis": "Near order identity plus a measured lead-lag at 3 of 5 IDP Show publications (IDP Show publishes, the IDP Trade Calculator's IDP order matches it within hours; not after 2026-06-16 or 2026-08-18). Derivation is not vendor-stated, so ancestry stays suspected.",
+      "measurement": {"method": "leave-pair-out residual correlation of percentile ranks (consensus excludes both members), scripts/audit/lineage_integrity_sweep.py; plus pairwise order discordance at every IDP Trade Calculator version vs the then-current IDP Show version", "window": "CSV histories 2026-06-03..2026-10-01", "n": 243, "statistic": "IDP-only board residual +0.992, 0.9% discordant; combined board +0.806 (n=158)"},
+      "implications": {"familyCap": "separate families; if derivation is true, IDP Show reaches IDP rows through two families — owner review of an IDP-scoped shared cap.", "hillHoldout": "neither is a holdout.", "sourceQualityEvaluation": "leave-lineage-out: the IDP Trade Calculator's IDP board may not serve as a target for idpShowCombined, or vice versa.", "hillTraining": "the IDP Hill master trains on the IDP Trade Calculator's IDP board (Unit D 'IDPTradeCalc-IDP'), i.e. effectively on IDP Show's ordering.", "completedTradeEvaluation": "IDP trade evaluation against the IDP Trade Calculator is not independent of IDP Show."},
+      "evidence": ["docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "pair-idptradecalc-offense-ktc",
+      "sources": ["idpTradeCalc", "ktcCrowdSfTep"],
+      "category": "MEASURED_DEPENDENCE",
+      "relations": ["idptc-offense-ktc-value-identity", "idptc-ktc-dependence"],
+      "basis": "Batch-level VALUE IDENTITY with KTC base superflex captures 2-4 days earlier at 2 of 4 post-baseline batches, including the 2026-08-28 batch voting today; the other two batches are close but not identical (not vendor-stated, so not proven ancestry). Not owner-named; recorded because it is the strongest lineage finding of the sweep.",
+      "measurement": {"method": "exact integer value equality of non-TE offense rows at each broad batch vs every KTC base-SF capture in the preceding 6 days", "window": "CSV histories 2026-04-16..2026-10-01 (5 batches)", "n": 357, "statistic": "strong at 2 of 4 post-baseline batches: 2026-06-06 286/357 equal, 357/357 within 1%; 2026-08-28 212/359 equal, 359/359 within 1%. Weak: 2026-04-25 69/355 equal (349 within 1%); 2026-07-06 10/358 equal (181 within 1%)"},
+      "implications": {"familyCap": "its current offense vote (the 2026-08-28 identity batch) is a lagged KTC Crowd copy OUTSIDE the ktcCrowd cap (today at ~0.06 authority only because it is stale) — owner review.", "hillHoldout": "not a holdout.", "sourceQualityEvaluation": "its offense board can never be KTC's target or vice versa.", "hillTraining": "the GLOBAL trainer 'IDPTradeCalc' re-teaches KTC's offense curve alongside KTC itself.", "completedTradeEvaluation": "offense agreement with KTC-platform trades is inherited from KTC."},
+      "evidence": ["docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "pair-signals-market-families",
+      "sources": ["signalsDynasty", "signalsIdpDynasty", "ktcCrowdSfTep", "ktcTradesSfTep", "fantasyCalc", "dynastyDaddySf"],
+      "category": null,
+      "unknownReason": "pending authenticated Signals data (Batch 3 Unit H); the public boards are rank-only and too recent for a measurement. Not guessed.",
+      "relations": ["signals-suspected-market-ancestry"],
+      "implications": {"familyCap": "non-voting second opinion; no family until measured.", "hillHoldout": "must not be a holdout until its dependence is measured.", "sourceQualityEvaluation": "excluded from targets and from evaluation until authenticated point-in-time values exist.", "hillTraining": "never a trainer.", "completedTradeEvaluation": "excluded."},
+      "evidence": ["docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "src/sources/signals.py"],
+      "asOf": "2026-10-01"
+    }
+  ]
+}

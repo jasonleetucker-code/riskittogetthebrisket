@@ -107,13 +107,16 @@ def test_weight_sign_travels_and_penalties_are_flagged():
     assert rows["rec"]["weightSign"] == "+"
 
 
-def test_only_play_by_play_rules_are_reported_by_unscored_keys():
-    """Vocabulary gaps such as fum_lost score a SILENT zero today — the census
-    is the surface that names them."""
+def test_source_vocabulary_gaps_are_reported_by_unscored_keys():
+    """Since J1, per-player unscoredKeys carries every rule a record's source
+    cannot publish (tests/bdvm/test_projection_source_vocabulary.py), so a
+    vocabulary gap such as fum_lost is no longer silent; a fully supplied rule
+    is still not reported."""
     rows = _by_key(census_for_card(CARD))
     assert rows["rec_40p"]["reportedInUnscoredKeys"] is True
     assert rows["pass_int_td"]["reportedInUnscoredKeys"] is True
-    assert rows["fum_lost"]["reportedInUnscoredKeys"] is False
+    assert rows["fum_lost"]["reportedInUnscoredKeys"] is True
+    assert rows["rec"]["reportedInUnscoredKeys"] is False
 
 
 def test_engine_gap_is_a_mapping_error():
@@ -205,10 +208,10 @@ def test_missing_rate_and_missing_columns_are_never_zero():
     )
     assert m["unmeasuredKeys"] == ["rec", "x"]
     assert "rec" not in m["keys"]
-    # The engine-finding columns are absent from this row: counted as missing,
-    # not summed as zeros.
+    # No engine finding is declared today (the idp_fum_rec mismapping was
+    # resolved), so no finding column is tallied — and none summed as zero.
     assert m["columnTotals"] == {}
-    assert m["columnRowsMissing"]["fumble_recovery_opp"] == 1
+    assert m["columnRowsMissing"] == {}
     # Non-numeric / absent card values are not census rules at all.
     assert census_for_card({"rec": None, "x": "bad"}) == []
 
@@ -219,11 +222,13 @@ def test_idp_rules_do_not_apply_to_a_league_that_starts_no_defenders():
     assert rows["rec"]["classification"] == "SUPPORTED"
 
 
-def test_declared_baseline_mapping_finding_is_attached():
-    rows = _by_key(census_for_card({"idp_fum_rec": 3.0}))
-    finding = rows["idp_fum_rec"]["baselineMappingError"]
-    assert finding["engineColumn"] == "fumble_recovery_own"
-    assert finding["hostMatchingColumn"] == "fumble_recovery_opp"
+def test_resolved_fumble_recovery_finding_is_no_longer_attached():
+    """The idp_fum_rec / idp_fum_ret_yd mismapping was fixed in the engine
+    (host-golden: tests/nfl_data/test_idp_fumble_recovery_host_golden.py), so
+    the census no longer flags a baseline mapping error for it."""
+    rows = _by_key(census_for_card({"idp_fum_rec": 3.0, "idp_fum_ret_yd": 0.1}))
+    assert "baselineMappingError" not in rows["idp_fum_rec"]
+    assert "baselineMappingError" not in rows["idp_fum_ret_yd"]
 
 
 # --------------------------------------------------------------------------

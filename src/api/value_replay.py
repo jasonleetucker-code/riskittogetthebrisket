@@ -340,7 +340,13 @@ def _recording_league_context(sink: list) -> Iterator[None]:
 
 
 def build(raw_payload: Mapping[str, Any], spec: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    """One canonical build, optionally under one counterfactual ``spec``."""
+    """One canonical build, optionally under one counterfactual ``spec``.
+
+    ``flags`` pins several feature flags for the build (each as ``flag`` does);
+    ``csv_root`` points the build at a repo-shaped historical tree (its
+    ``CSVs/site_raw`` and ``data/scrape_state``) through the contract's own
+    ``csv_root`` seam.
+    """
     spec = spec or {}
     overrides = None
     if spec.get("disable"):
@@ -350,8 +356,12 @@ def build(raw_payload: Mapping[str, Any], spec: Mapping[str, Any] | None = None)
             stack.enter_context(_patched(*spec["patch"]))
         if "flag" in spec:
             stack.enter_context(_flag(*spec["flag"]))
+        for name, enabled in spec.get("flags") or ():
+            stack.enter_context(_flag(name, enabled))
         return dc.build_api_data_contract(
-            json.loads(json.dumps(raw_payload)), source_overrides=overrides
+            json.loads(json.dumps(raw_payload)),
+            source_overrides=overrides,
+            csv_root=spec.get("csv_root"),
         )
 
 

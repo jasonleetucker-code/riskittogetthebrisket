@@ -420,7 +420,7 @@ kind**. Those gate the *ingestion*, which is already live and long-standing — 
 | `C10-CLOSE-05` | Performance gates met everywhere | `docs/GLOBAL_PERFORMANCE_STANDARD.md` | ABSENT | Per contract §13.5 | IMPLEMENT | all | contract | P1 | close | — | measurements |
 | `C10-CLOSE-06` | Security / privacy / auth pass | `F-PRIV-01` | ABSENT | Per contract §13.6 | IMPLEMENT | all | contract | P5 | close | — | audit |
 | `C10-CLOSE-07` | Final regression | — | ABSENT | Per contract §13.7 | IMPLEMENT | all | contract | P1 | close | — | green |
-| `C10-ML-01` | Adaptive source weighting stays off until validated | `src/model_registry/` | ABSENT by design | Champion/challenger; nothing self-promotes | IMPLEMENT | all | appendix D5 | P6 | close | — | promotion record |
+| `C10-ML-01` | Adaptive Learning / Continuous Model Improvement governance — adaptive source weighting stays off until validated (owner directives 2026-09-26, 2026-10-01; plan `docs/research/ADAPTIVE_LEARNING_2026-09-26.md`) | `src/model_registry/` + `src/history/` | PARTIAL — Hill registry + Autopilot are the bounded precedent; the shared learning/evaluation receipt and versioned feature dictionary are ABSENT (unit AL-0, authorized 2026-10-01) | Champion/challenger for every eligible model family; shared receipts over native stores; facts and rules never learn; nothing self-promotes outside an owner-approved per-family policy | IMPLEMENT | all | appendix D5; owner directives 2026-09-26 + 2026-10-01 | P6 | close | — | promotion record + evaluation receipts |
 
 ## F — Foundations already complete (recorded so they cannot be re-litigated or silently regressed)
 

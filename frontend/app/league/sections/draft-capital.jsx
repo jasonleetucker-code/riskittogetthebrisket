@@ -4,12 +4,32 @@
 // Shows the live auction-dollar draft capital board from /api/draft-capital.
 // Purely public data (same endpoint powered the old /draft-capital page).
 // When this tab is the default, /league mobile users land here.
+//
+// Year selector (owner request 2026-10-01): "All Years | <season>...".  The
+// selection lives in the URL (`?year=2027`, owned by LeagueClient), so it
+// survives reload, back/forward and direct links.  The selector changes WHICH
+// picks are shown, never HOW they are valued — per-season capital and ranks
+// are the backend's `teamTotalsByYear` (src/api/draft_capital_years.py), the
+// sum of the same per-pick dollars the All Years total is made of.  See
+// lib/draft-capital-years.js.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { LoadingState, EmptyState } from "@/components/ui";
+import { SegmentedControl } from "@/components/ds/SegmentedControl";
 import { EmptyCard } from "../shared.jsx";
 import { effectiveAuctionPower } from "@/lib/auction-power";
+import {
+  ALL_YEARS,
+  availableDraftCapitalYears,
+  draftCapitalPickLabel,
+  draftCapitalPicksForYear,
+  draftCapitalSlotsAreStandIns,
+  draftCapitalTeamRows,
+  draftCapitalYearSummary,
+  isUnpricedPick,
+  parseDraftCapitalYear,
+} from "@/lib/draft-capital-years";
 
 // Dynamically import the trade simulator so its JS goes into a
 // separate chunk (loaded on demand when DraftCapital tab renders)
@@ -35,7 +55,22 @@ function fmtDollar(v) {
   return `$${Math.round(n)}`;
 }
 
-export default function DraftCapitalSection() {
+// A capital figure that may be UNKNOWN (every pick behind it unpriced).
+// Never rendered as $0 — MISSING IS NEVER ZERO.
+function fmtCapital(v) {
+  const n = typeof v === "number" ? v : NaN;
+  return Number.isFinite(n) ? fmtDollar(n) : "—";
+}
+
+function pickDollar(p) {
+  return isUnpricedPick(p) ? null : (p.adjustedDollarValue ?? p.dollarValue);
+}
+
+function sumPriced(picks) {
+  return (picks || []).reduce((s, p) => s + (pickDollar(p) ?? 0), 0);
+}
+
+export default function DraftCapitalSection({ yearParam = "", setYear } = {}) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -66,6 +101,17 @@ export default function DraftCapitalSection() {
     };
   }, []);
 
+  const years = useMemo(() => availableDraftCapitalYears(data), [data]);
+  const selectedYear = parseDraftCapitalYear(yearParam, years);
+
+  // An invalid or obsolete `?year=` (a retired class, garbage) renders All
+  // Years; once the payload has said which seasons exist, drop the stale
+  // param so a copied link does not carry it forward.
+  useEffect(() => {
+    if (!data || !yearParam || !setYear) return;
+    if (parseDraftCapitalYear(yearParam, years) === null) setYear(null);
+  }, [data, yearParam, years, setYear]);
+
   if (loading) return <LoadingState message="Loading draft capital..." />;
   if (error) {
     return (
@@ -87,10 +133,61 @@ export default function DraftCapitalSection() {
     return scoped.length > 0 ? scoped : all;
   })();
 
+  const slotsAreStandIns = draftCapitalSlotsAreStandIns(data);
+  const multiYear = years.length > 1;
+  const teamRows = draftCapitalTeamRows(data, selectedYear);
+  const summary = draftCapitalYearSummary(data, selectedYear);
+  // Team pick lists show every pick their figure is made of: All Years →
+  // every season's picks (the total spans all of them), a season → its own.
+  const listPicks = draftCapitalPicksForYear(data.picks, selectedYear, data.season);
+  // The round grids below describe ONE draft: the selected season, or the
+  // current season under All Years (unchanged).
+  const gridPicks = selectedYear == null ? currentSeasonPicks : listPicks;
+  const unpricedCount =
+    selectedYear == null
+      ? (data.picks || []).filter(isUnpricedPick).length
+      : (summary?.unpricedPickCount ?? listPicks.filter(isUnpricedPick).length);
+  const viewPickCount = selectedYear == null ? (data.picks || []).length : listPicks.length;
+
+  const scopeLabel =
+    selectedYear != null
+      ? `${selectedYear} picks`
+      : multiYear
+        ? `${years[0]}–${years[years.length - 1]} picks`
+        : `${data.season} draft`;
+  const budgetLabel =
+    selectedYear != null && summary
+      ? `${fmtCapital(summary.totalDollars)} of the $${data.totalBudget} pool`
+      : `$${data.totalBudget} total budget`;
+
+  const yearOptions = [
+    { value: ALL_YEARS, label: "All Years" },
+    ...years.map((y) => ({ value: String(y), label: String(y) })),
+  ];
+
   return (
     <>
       <div className="card" style={{ marginTop: "var(--space-md)" }}>
-        <div style={{ fontWeight: 700, marginBottom: 4 }}>Draft Capital</div>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "var(--space-sm)",
+            marginBottom: 4,
+          }}
+        >
+          <div style={{ fontWeight: 700 }}>Draft Capital</div>
+          {years.length > 0 && (
+            <SegmentedControl
+              label="Draft year"
+              value={selectedYear == null ? ALL_YEARS : String(selectedYear)}
+              onChange={(v) => setYear?.(v === ALL_YEARS ? null : v)}
+              options={yearOptions}
+            />
+          )}
+        </div>
         <div
           style={{
             fontSize: "0.72rem",
@@ -98,9 +195,41 @@ export default function DraftCapitalSection() {
             marginBottom: 10,
           }}
         >
-          {data.season} draft · {data.numTeams} teams · {data.draftRounds}{" "}
-          rounds · ${data.totalBudget} total budget
+          {scopeLabel} · {data.numTeams} teams · {data.draftRounds} rounds ·{" "}
+          {budgetLabel}
         </div>
+        {(selectedYear != null || multiYear || slotsAreStandIns || unpricedCount > 0) && (
+          <ul
+            data-testid="draft-capital-notes"
+            style={{
+              margin: "0 0 10px",
+              paddingLeft: 16,
+              fontSize: "0.66rem",
+              color: "var(--muted)",
+              lineHeight: 1.5,
+            }}
+          >
+            {(selectedYear != null || multiYear) && (
+              <li>
+                One ${data.totalBudget} pool is spread across every listed pick; a
+                year view adds up that year&apos;s share of it. Values are not
+                rescaled per year.
+              </li>
+            )}
+            {slotsAreStandIns && (
+              <li>
+                Estimated: future draft order is not known yet, so picks show
+                their round only and carry that round&apos;s average value.
+              </li>
+            )}
+            {unpricedCount > 0 && (
+              <li style={{ color: "var(--amber)" }}>
+                {unpricedCount} of {viewPickCount} picks could not be priced —
+                left out of the totals, not counted as $0.
+              </li>
+            )}
+          </ul>
+        )}
         <div
           style={{
             fontSize: "0.66rem",
@@ -113,14 +242,24 @@ export default function DraftCapitalSection() {
           <span style={{ color: "var(--cyan)", fontWeight: 700 }}>▲ cyan</span>{" "}
           = effective auction power (stacking-adjusted, zero-sum)
         </div>
-        <TeamTotalsChart
-          teamTotals={data.teamTotals}
-          picks={currentSeasonPicks}
-          totalBudget={data.totalBudget}
-          numTeams={data.numTeams}
-          draftRounds={data.draftRounds}
-          season={data.season}
-        />
+        {selectedYear != null && summary && summary.pickCount === 0 ? (
+          <EmptyState
+            title={`No ${selectedYear} picks`}
+            message={`No team in this league holds a ${selectedYear} pick.`}
+          />
+        ) : (
+          <TeamTotalsChart
+            teamTotals={teamRows}
+            picks={listPicks}
+            totalBudget={data.totalBudget}
+            numTeams={data.numTeams}
+            draftRounds={data.draftRounds}
+            seasonLabel={selectedYear ?? (multiYear ? scopeLabel : data.season)}
+            selectedYear={selectedYear}
+            years={years}
+            slotsAreStandIns={slotsAreStandIns}
+          />
+        )}
       </div>
 
       {/* The Sleeper-derived path builds BOTH the current season and the next
@@ -128,12 +267,13 @@ export default function DraftCapitalSection() {
           and every grid below groups by round with no season filter — so each
           round rendered twice, with duplicate "1.01" labels and a doubled
           round total. The workbook path carries one season and is unaffected,
-          which is why nothing caught it. Filter once, here, and pass the
-          current season's picks down. */}
+          which is why nothing caught it. Filter once, here, and pass ONE
+          season's picks down: the selected year, else the current season. */}
       <PickValueGrid
-        picks={currentSeasonPicks}
+        picks={gridPicks}
         draftRounds={data.draftRounds}
         numTeams={data.numTeams}
+        slotsAreStandIns={slotsAreStandIns}
       />
 
       {/* Future picks — where they land, not what they are worth. The
@@ -143,7 +283,11 @@ export default function DraftCapitalSection() {
 
       <TradeSimulator picks={currentSeasonPicks} teamTotals={data.teamTotals} />
 
-      <PicksByRound picks={currentSeasonPicks} draftRounds={data.draftRounds} />
+      <PicksByRound
+        picks={gridPicks}
+        draftRounds={data.draftRounds}
+        slotsAreStandIns={slotsAreStandIns}
+      />
     </>
   );
 }
@@ -155,20 +299,24 @@ function TeamTotalsChart({
   totalBudget,
   numTeams,
   draftRounds,
-  season,
+  seasonLabel,
+  selectedYear = null,
+  years = [],
+  slotsAreStandIns = false,
 }) {
-  const maxDollars = Math.max(
-    ...(teamTotals || []).map((t) => t.auctionDollars),
-    1,
-  );
+  const rows = teamTotals || [];
+  const known = rows.filter((t) => Number.isFinite(t.auctionDollars));
+  const maxDollars = Math.max(...known.map((t) => t.auctionDollars), 1);
+  const multiYear = years.length > 1;
+  const showBreakdown = selectedYear == null && multiYear;
 
   // Effective auction power is a presentation lens computed client-side
   // from the raw per-team dollars (zero-sum; src/api/auction_power.py
-  // is the source of truth).  No extra backend payload.
+  // is the source of truth).  No extra backend payload.  Computed over
+  // the rows on screen; a team whose capital is unknown is left out
+  // rather than entered as $0.
   const effectiveByTeam = effectiveAuctionPower(
-    Object.fromEntries(
-      (teamTotals || []).map((t) => [t.team, t.auctionDollars || 0]),
-    ),
+    Object.fromEntries(known.map((t) => [t.team, t.auctionDollars])),
   );
 
   return (
@@ -180,17 +328,28 @@ function TeamTotalsChart({
           gap: "var(--space-sm)",
         }}
       >
-        {(teamTotals || []).map((team, i) => {
-          const pct = (team.auctionDollars / maxDollars) * 100;
-          const effectiveDollars = effectiveByTeam[team.team];
-          const teamPicks = (picks || []).filter(
-            (p) => p.currentOwner === team.team,
-          );
+        {rows.map((team, i) => {
+          const capital = team.auctionDollars;
+          const capitalKnown = Number.isFinite(capital);
+          const pct = capitalKnown ? (capital / maxDollars) * 100 : 0;
+          const effectiveDollars = capitalKnown ? effectiveByTeam[team.team] : undefined;
+          const teamPicks = (picks || [])
+            .filter((p) => p.currentOwner === team.team)
+            .sort(
+              (a, b) =>
+                (Number(a.season) || 0) - (Number(b.season) || 0) ||
+                (a.overallPick ?? 0) - (b.overallPick ?? 0),
+            );
           const tradedCount = teamPicks.filter((p) => p.isTraded).length;
+          const unpriced = Number.isFinite(team.unpricedPickCount)
+            ? team.unpricedPickCount
+            : teamPicks.filter(isUnpricedPick).length;
+          const rank = selectedYear == null ? i + 1 : (team.rank ?? "—");
 
           return (
             <div
               key={team.team}
+              data-testid="draft-capital-team-row"
               style={{
                 padding: "var(--space-sm) var(--space-md)",
                 borderRadius: "var(--radius-sm)",
@@ -215,7 +374,7 @@ function TeamTotalsChart({
                     flexShrink: 0,
                   }}
                 >
-                  {i + 1}
+                  {rank}
                 </span>
 
                 <span
@@ -256,19 +415,20 @@ function TeamTotalsChart({
 
                 <span
                   className="font-mono"
+                  title={capitalKnown ? undefined : "None of these picks could be priced"}
                   style={{
                     minWidth: 48,
                     textAlign: "right",
                     fontSize: "0.82rem",
                     fontWeight: 700,
-                    color: "var(--green)",
+                    color: capitalKnown ? "var(--green)" : "var(--muted)",
                   }}
                 >
-                  {fmtDollar(team.auctionDollars)}
+                  {fmtCapital(capital)}
                 </span>
 
                 {Number.isFinite(effectiveDollars) &&
-                  effectiveDollars !== team.auctionDollars && (
+                  effectiveDollars !== capital && (
                     <span
                       className="font-mono"
                       title={
@@ -284,12 +444,12 @@ function TeamTotalsChart({
                         fontSize: "0.74rem",
                         fontWeight: 600,
                         color:
-                          effectiveDollars > team.auctionDollars
+                          effectiveDollars > capital
                             ? "var(--cyan)"
                             : "var(--muted)",
                       }}
                     >
-                      {effectiveDollars > team.auctionDollars ? "▲" : "▼"}
+                      {effectiveDollars > capital ? "▲" : "▼"}
                       {fmtDollar(effectiveDollars)}
                     </span>
                   )}
@@ -298,7 +458,7 @@ function TeamTotalsChart({
                   className="badge badge-cyan"
                   style={{ fontSize: "0.64rem", padding: "1px 6px" }}
                 >
-                  {teamPicks.length}pk
+                  {Number.isFinite(team.pickCount) ? team.pickCount : teamPicks.length}pk
                 </span>
               </div>
 
@@ -311,19 +471,40 @@ function TeamTotalsChart({
                   lineHeight: 1.6,
                 }}
               >
-                {teamPicks.map((p, j) => (
-                  <span key={j}>
-                    {j > 0 && (
-                      <span style={{ margin: "0 2px", opacity: 0.3 }}>·</span>
-                    )}
-                    <span
-                      style={p.isTraded ? { color: "var(--amber)" } : undefined}
-                    >
-                      {p.pick}
-                      {p.isTraded ? "*" : ""}
-                    </span>
+                {teamPicks.length === 0 && (
+                  <span data-testid="draft-capital-no-picks">
+                    {selectedYear != null ? `No ${selectedYear} picks` : "No picks"}
                   </span>
-                ))}
+                )}
+                {teamPicks.map((p, j) => {
+                  const unpricedPick = isUnpricedPick(p);
+                  return (
+                    // inline-block: each pick is a wrap point.  The labels and
+                    // middle-dot separators carry no break opportunity, so a
+                    // long list ran as one unbreakable word past 375px.
+                    <span
+                      key={`${p.season ?? ""}:${p.round}:${p.pick}:${p.originalOwner}:${j}`}
+                      style={{ display: "inline-block" }}
+                    >
+                      {j > 0 && (
+                        <span style={{ margin: "0 2px", opacity: 0.3 }}>·</span>
+                      )}
+                      <span
+                        title={`${p.season ?? ""} round ${p.round}, originally ${p.originalOwner}${
+                          unpricedPick ? " — unpriced" : ""
+                        }`.trim()}
+                        style={p.isTraded ? { color: "var(--amber)" } : undefined}
+                      >
+                        {draftCapitalPickLabel(p, {
+                          slotsAreStandIns,
+                          withSeason: selectedYear == null && multiYear,
+                        })}
+                        {p.isTraded ? "*" : ""}
+                        {unpricedPick ? "?" : ""}
+                      </span>
+                    </span>
+                  );
+                })}
                 {tradedCount > 0 && (
                   <span
                     style={{
@@ -335,7 +516,30 @@ function TeamTotalsChart({
                     ({tradedCount} traded)
                   </span>
                 )}
+                {unpriced > 0 && (
+                  <span style={{ marginLeft: 6 }}>({unpriced} unpriced)</span>
+                )}
               </div>
+
+              {showBreakdown && team.draftCapitalByYear && (
+                <div
+                  className="font-mono"
+                  data-testid="draft-capital-year-breakdown"
+                  style={{
+                    marginTop: 1,
+                    marginLeft: 30,
+                    fontSize: "0.66rem",
+                    color: "var(--subtext)",
+                  }}
+                >
+                  {years
+                    .map((y) => {
+                      const v = team.draftCapitalByYear[String(y)];
+                      return `${y} ${v == null ? "unpriced" : fmtDollar(v)}`;
+                    })
+                    .join(" · ")}
+                </div>
+              )}
             </div>
           );
         })}
@@ -351,14 +555,15 @@ function TeamTotalsChart({
         }}
       >
         ${totalBudget} total budget across {numTeams} teams, {draftRounds}{" "}
-        rounds ({season}). <span style={{ color: "var(--amber)" }}>*</span> =
+        rounds ({seasonLabel}). <span style={{ color: "var(--amber)" }}>*</span> =
         traded pick.
+        {(picks || []).some(isUnpricedPick) && <> ? = unpriced pick.</>}
       </div>
     </div>
   );
 }
 
-function PickValueGrid({ picks, draftRounds, numTeams }) {
+function PickValueGrid({ picks, draftRounds, numTeams, slotsAreStandIns = false }) {
   if (!picks || !picks.length) return null;
   const rounds = [];
   for (let r = 1; r <= (draftRounds || 6); r++) {
@@ -369,6 +574,7 @@ function PickValueGrid({ picks, draftRounds, numTeams }) {
       <div
         style={{
           display: "flex",
+          flexWrap: "wrap",
           alignItems: "baseline",
           gap: "var(--space-sm)",
           marginBottom: "var(--space-sm)",
@@ -378,8 +584,9 @@ function PickValueGrid({ picks, draftRounds, numTeams }) {
           Pick Values
         </span>
         <span className="text-xs muted">
-          Adjusted values used for team totals (expansion picks 1 &amp; 2
-          averaged)
+          {slotsAreStandIns
+            ? "Estimated — draft order not known yet: columns are original-team order and every pick in a round carries that round's value"
+            : "Adjusted values used for team totals (expansion picks 1 & 2 averaged)"}
         </span>
       </div>
       <div className="table-wrap">
@@ -396,7 +603,7 @@ function PickValueGrid({ picks, draftRounds, numTeams }) {
                     minWidth: 44,
                   }}
                 >
-                  Pk {i + 1}
+                  {slotsAreStandIns ? `T${i + 1}` : `Pk ${i + 1}`}
                 </th>
               ))}
               <th style={{ textAlign: "right", fontWeight: 700, minWidth: 50 }}>
@@ -406,10 +613,7 @@ function PickValueGrid({ picks, draftRounds, numTeams }) {
           </thead>
           <tbody>
             {rounds.map((rp, ri) => {
-              const total = rp.reduce(
-                (s, p) => s + (p.adjustedDollarValue ?? p.dollarValue ?? 0),
-                0,
-              );
+              const total = sumPriced(rp);
               return (
                 <tr key={ri}>
                   <td className="font-mono font-bold">R{ri + 1}</td>
@@ -423,7 +627,7 @@ function PickValueGrid({ picks, draftRounds, numTeams }) {
                         color: p.isExpansion ? "var(--amber)" : undefined,
                       }}
                     >
-                      {fmtDollar(p.adjustedDollarValue ?? p.dollarValue)}
+                      {fmtCapital(pickDollar(p))}
                     </td>
                   ))}
                   <td
@@ -442,20 +646,21 @@ function PickValueGrid({ picks, draftRounds, numTeams }) {
   );
 }
 
-function PicksByRound({ picks, draftRounds }) {
+function PicksByRound({ picks, draftRounds, slotsAreStandIns = false }) {
   const rounds = [];
   for (let round = 1; round <= (draftRounds || 4); round++) {
     const roundPicks = (picks || []).filter((p) => p.round === round);
-    const roundTotal = roundPicks.reduce(
-      (s, p) => s + (p.adjustedDollarValue ?? p.dollarValue ?? 0),
-      0,
-    );
-    rounds.push({ round, picks: roundPicks, total: roundTotal });
+    rounds.push({
+      round,
+      picks: roundPicks,
+      total: sumPriced(roundPicks),
+      unpriced: roundPicks.filter(isUnpricedPick).length,
+    });
   }
 
   return (
     <>
-      {rounds.map(({ round, picks: roundPicks, total }) => (
+      {rounds.map(({ round, picks: roundPicks, total, unpriced }) => (
         <div
           key={round}
           className="card"
@@ -475,7 +680,10 @@ function PicksByRound({ picks, draftRounds }) {
             <span className="badge badge-green" style={{ fontSize: "0.64rem" }}>
               {fmtDollar(total)}
             </span>
-            <span className="text-xs muted">{roundPicks.length} picks</span>
+            <span className="text-xs muted">
+              {roundPicks.length} picks
+              {unpriced > 0 ? ` · ${unpriced} unpriced` : ""}
+            </span>
           </div>
           <div className="table-wrap">
             <table>
@@ -490,9 +698,15 @@ function PicksByRound({ picks, draftRounds }) {
               <tbody>
                 {roundPicks.map((pick, idx) => (
                   <tr key={idx}>
-                    <td className="font-mono font-bold">{pick.pick}</td>
+                    <td className="font-mono font-bold">
+                      {draftCapitalPickLabel(pick, { slotsAreStandIns })}
+                    </td>
                     <td className="font-mono font-bold text-green">
-                      {fmtDollar(pick.adjustedDollarValue ?? pick.dollarValue)}
+                      {isUnpricedPick(pick) ? (
+                        <span className="muted">unpriced</span>
+                      ) : (
+                        fmtDollar(pickDollar(pick))
+                      )}
                     </td>
                     <td style={{ fontWeight: 600 }}>{pick.currentOwner}</td>
                     <td>
