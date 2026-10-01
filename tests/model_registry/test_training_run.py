@@ -295,6 +295,30 @@ class TestRegistryAndAutopilot:
         assert not is_tournament_eligible(unrepro)
         assert not is_tournament_eligible(old)
 
+    def test_a_challenger_fitted_under_other_code_or_manifest_is_excluded_not_fatal(self, run_a):
+        """A forward-persisted winner fitted before a fit-code or manifest change
+        cannot be verified by today's code; it is excluded (stale) so the
+        scheduled refit stays live instead of failing verify every run."""
+        from src.model_registry.training_run import (
+            REASON_STALE_CODE_OR_MANIFEST,
+            tournament_exclusion_reason,
+        )
+
+        base = dict(model_id="m", params=run_a.params, fitted_at="x", producer="p")
+        v = ModelVersion(version=7, training_run=run_a.record, **base)
+        code, manifest = run_a.record["codeHash"], run_a.record["manifestHash"]
+        assert tournament_exclusion_reason(v, current_identity=(code, manifest)) != (
+            REASON_STALE_CODE_OR_MANIFEST
+        )
+        assert (
+            tournament_exclusion_reason(v, current_identity=("other-code", manifest))
+            == REASON_STALE_CODE_OR_MANIFEST
+        )
+        assert (
+            tournament_exclusion_reason(v, current_identity=(code, "other-manifest"))
+            == REASON_STALE_CODE_OR_MANIFEST
+        )
+
     def test_autopilot_tournament_skips_legacy_and_duplicate_challengers(self, run_a):
         """A refit on identical pins is the same challenger, not new evidence for the
         parameter-stability gate; a challenger with no pins cannot be reproduced."""

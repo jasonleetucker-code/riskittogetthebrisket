@@ -58,6 +58,8 @@ evidence; the registry records it; Hill Autopilot decides.
 
 from __future__ import annotations
 
+import functools
+
 import hashlib
 import importlib.util
 import json
@@ -695,9 +697,24 @@ def worktree_inputs_state(
 
 REASON_LEGACY_SUBSTRATE = "legacy_substrate"
 REASON_COMPOSITE = "composite_not_a_fit"
+REASON_STALE_CODE_OR_MANIFEST = "stale_code_or_manifest"
 
 
-def tournament_exclusion_reason(version: Any) -> str | None:
+@functools.lru_cache(maxsize=1)
+def current_fit_identity() -> tuple[str, str]:
+    """``(codeHash, manifestHash)`` of the CURRENT tree.  A challenger fitted under
+    other fit code or another derived manifest cannot be verified by today's code
+    (verify replays its inputs but runs today's fitter), so it must not compete --
+    excluding it keeps the scheduled refit live instead of failing verify every run.
+    Cached per process."""
+    from src.model_registry.training_manifest import default_manifest  # noqa: PLC0415
+
+    return str(code_identity()["codeHash"]), str(default_manifest().manifest_hash())
+
+
+def tournament_exclusion_reason(
+    version: Any, *, current_identity: tuple[str, str] | None = None
+) -> str | None:
     """Why a standing challenger may NOT compete, or ``None`` when it may.
 
     * ``legacy_substrate`` — no pins (every pre-repair version), the pre-repair
@@ -706,6 +723,10 @@ def tournament_exclusion_reason(version: Any) -> str | None:
     * ``composite_not_a_fit`` — an Autopilot composite (``composedFrom``): its
       OFFENSE c/s are a raw winner's and its other scopes the incumbent's, so it
       is not an independent fit and must not count as one in the stability gate.
+    * ``stale_code_or_manifest`` — fitted under fit code or a derived manifest that
+      differs from the current tree's: today's ``verify`` cannot reproduce it, so
+      it would fail verify forever and block the scheduled refit.  A fresh
+      challenger on the current code replaces it within one refit.
     * ``offense_not_promotable:...`` — a declared OFFENSE trainer was skipped (a
       missing column, an empty board) or promotability was never recorded: the
       master was fitted on fewer boards than the manifest declares. Missing
@@ -720,6 +741,9 @@ def tournament_exclusion_reason(version: Any) -> str | None:
         return REASON_LEGACY_SUBSTRATE
     if run.get("composedFrom") is not None:
         return REASON_COMPOSITE
+    code_now, manifest_now = current_identity or current_fit_identity()
+    if run.get("codeHash") != code_now or run.get("manifestHash") != manifest_now:
+        return REASON_STALE_CODE_OR_MANIFEST
     offense = (run.get("scopes") or {}).get("OFFENSE") or {}
     if offense.get("promotable") is not True:
         why = offense.get("nonPromotableReasons") or ["promotability_unrecorded"]
