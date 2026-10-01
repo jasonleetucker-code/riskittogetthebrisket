@@ -516,6 +516,35 @@ def _refresh_power_snapshots() -> dict[str, Path]:
     return out
 
 
+def _archive_forecast(
+    league_key: str | None,
+    snap: Any,
+    best_ball: bool,
+    kind: str,
+    doc: dict[str, Any],
+    path: Path,
+) -> None:
+    """Point-in-time forecast archive (``src/ros/forecast_archive.py``). Never raises.
+
+    Capture only: it reads the forecast already written and writes a private
+    archive record plus an identity sidecar; the served sim file is untouched.
+    Identity is collected per forecast, right after that forecast's simulation,
+    so the input hashes describe the files that simulation could have read.
+    """
+    try:
+        from src.ros import forecast_archive  # noqa: PLC0415
+
+        forecast_archive.archive_safely(
+            league_key=league_key,
+            kind=kind,
+            forecast=doc,
+            context=forecast_archive.collect_context(snap, best_ball=best_ball),
+            sim_path=path,
+        )
+    except Exception as exc:  # noqa: BLE001 -- the archive must never fail a refresh
+        LOG.warning("[ros] forecast archive for %s %s failed: %s", league_key, kind, exc)
+
+
 def _refresh_sim_caches_for_league(cfg: Any, default_key: str | None) -> dict[str, Path] | None:
     """Run playoff + championship sims for a single league."""
     try:
@@ -542,13 +571,22 @@ def _refresh_sim_caches_for_league(cfg: Any, default_key: str | None) -> dict[st
         # not passed but we thread it explicitly so the right behavior
         # picks up for each league in the multi-league iteration.
         bb = bool(getattr(cfg, "best_ball", False))
+        # ``computedAt`` is stamped AFTER each simulation returns, exactly as
+        # before this seam existed: the served bytes must not change.
         playoff_payload = playoff_sim.simulate_playoff_odds(snap, best_ball=bb)
-        playoff_path.write_text(json.dumps({"computedAt": _now(), **playoff_payload}, indent=2))
+        playoff_doc = {"computedAt": _now(), **playoff_payload}
+        playoff_path.write_text(json.dumps(playoff_doc, indent=2))
         out["playoff"] = playoff_path
+        # AL-P6: archive each forecast, as written, with its model identity --
+        # only AFTER the served file is on disk, and never able to fail this
+        # refresh (``_archive_forecast`` catches everything).
+        _archive_forecast(cfg.key, snap, bb, "playoff", playoff_doc, playoff_path)
 
         championship_payload = championship.simulate_championship_odds(snap, best_ball=bb)
-        champ_path.write_text(json.dumps({"computedAt": _now(), **championship_payload}, indent=2))
+        champ_doc = {"computedAt": _now(), **championship_payload}
+        champ_path.write_text(json.dumps(champ_doc, indent=2))
         out["championship"] = champ_path
+        _archive_forecast(cfg.key, snap, bb, "championship", champ_doc, champ_path)
 
         LOG.info(
             "[ros] sim-cache %s: wrote playoff + championship",

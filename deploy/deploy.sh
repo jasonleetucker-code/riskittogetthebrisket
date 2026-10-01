@@ -943,6 +943,32 @@ build_temporal_ledger() {
   fi
 }
 
+# Idempotent post-deploy capture of the playoff / title forecasts this deploy
+# shipped (AL-P6, src/ros/forecast_archive.py).  The refresh runner that
+# produces them is ephemeral, so the deployed commit's
+# data/ros/sims/<stem>.json + <stem>.identity.json are joined here into the
+# private, gitignored data/forecast_archive/.  --git-history also recovers
+# forecasts from refreshes whose deploy was skipped or cancelled.  Capture
+# only: it never changes a served file.  Non-fatal — a failure loses nothing
+# that the next deploy's history walk cannot still recover.
+archive_ros_forecasts() {
+  local script="${APP_DIR}/scripts/archive_ros_forecasts.py"
+  if [[ ! -f "${script}" ]]; then
+    log "[forecast-archive] script not present; skipping"
+    return 0
+  fi
+  if [[ -z "${VENV_DIR:-}" || ! -x "${VENV_DIR}/bin/python" ]]; then
+    log "[forecast-archive] virtualenv missing; skipping"
+    return 0
+  fi
+  log "[forecast-archive] archiving published playoff/title forecasts (idempotent)"
+  if "${VENV_DIR}/bin/python" "${script}" --git-history --max-commits 24 >/dev/null 2>&1; then
+    log "[forecast-archive] forecast archive completed"
+  else
+    warn "[forecast-archive] forecast archive exited non-zero — non-fatal"
+  fi
+}
+
 verify_deploy() {
   if [[ -f "${APP_DIR}/deploy/verify-deploy.sh" ]]; then
     log "Running deploy verification script."
@@ -1197,6 +1223,7 @@ main() {
   verify_runtime_state
   reconcile_source_history
   build_temporal_ledger
+  archive_ros_forecasts
   verify_deploy
   record_success_state
 
