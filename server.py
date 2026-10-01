@@ -15307,6 +15307,28 @@ async def run_signal_alerts(request: Request):
         log.warning("source_health_alerts check failed: %s", exc)
         result["sourceStalenessAlerts"] = {"error": str(exc)}
 
+    # Signals owner-session reconnect notice: at most ONE email per failure
+    # episode (revoked/expired refresh credential, access denied), recorded by
+    # the renewal timer in the session store's non-secret status file.  The
+    # notice carries no token.  docs/sources/SIGNALS_ACCOUNT_CONNECTION.md.
+    try:
+        from src.sources import signals_auth as _signals_auth
+
+        from src.utils import owner_notify as _owner_notify
+
+        # Off the event loop: it takes a file lock and may send ntfy/SMTP.
+        # The owner's ntfy webhook (NOTIFY_WEBHOOK_URL, the same path the uptime
+        # probe uses) first; SMTP only as fallback.  One notice per episode.
+        result["signalsAuthNotice"] = await run_in_threadpool(
+            _signals_auth.deliver_reconnect_notice,
+            channels=[("ntfy", _owner_notify.channel())],
+            delivery=_deliver_email_smtp if ALERT_TO else None,
+            to_email=ALERT_TO or None,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("signals auth notice failed: %s", exc)
+        result["signalsAuthNotice"] = {"error": type(exc).__name__}
+
     return JSONResponse(content=result, headers={"Cache-Control": "no-store"})
 
 

@@ -45,6 +45,11 @@ test-results/
 
 # Secrets / sessions / operator credentials
 *_session.json
+# Signals owner session (lives outside the checkout; refused inside it — this
+# is belt-and-braces for a misdirected copy). docs/sources/SIGNALS_ACCOUNT_CONNECTION.md
+signals-auth/
+signals_auth_status.json
+.signals_auth.lock
 *.env
 .env*
 !.env.example

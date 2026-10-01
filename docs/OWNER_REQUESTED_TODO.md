@@ -1271,3 +1271,17 @@ Map: `docs/valuation/VALUATION_ADVANCEMENT_MAP_2026-09-30.md` §G. Signals recor
 | Hill / native-source alignment audit | AUTHORIZED — Unit B (read-only; calibration only as a registry challenger) |
 | BDVM scoring-coverage follow-through (census, sign-aware wording, exact mappings only where fields exist) | AUTHORIZED — Unit D |
 
+## Added 2026-10-01 — Signals account connection — passwordless email login (owner directive)
+
+The Signals account signs in with an emailed one-time code, not a password. Owner directive: an
+owner-controlled connection — the owner signs in in a dedicated browser context; only the
+Signals-specific session is captured and stored outside the checkout on the prod box; renewal is
+unattended with one lock-protected renewal owner; revoked/expired credentials stop collection and send
+one deduplicated reconnect notice; codes, cookies and tokens are never pasted into chat, issues or
+commits and no login email is triggered from code. Permission is already resolved (owner-attested, see
+above) and is not reopened. Record: `docs/sources/SIGNALS_ACCOUNT_CONNECTION.md`.
+
+| Item | Disposition |
+|---|---|
+| Owner-controlled Signals connection: connect / status / reconnect / disconnect / provision / renew; auth health separate from data freshness; fail-safe renewal and failure classes | IMPLEMENTED on `claude/signals-account-connection` (not merged). Owner's first real sign-in, box provisioning and observed renewal still OWNER-PENDING |
+
