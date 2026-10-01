@@ -18,9 +18,14 @@ shape::
 We keep only ``roster_type == "sf_value"`` + ``rank_type == "dynasty"``
 rows (superflex dynasty — the board that matches our league).  NOTE:
 rows carry ``ktc_player_id`` and the site credits KeepTradeCut as a
-data source, so FN's values are KTC-derived and partially correlated
-with our ``ktcSfTep`` vote — this is documented on the registry entry;
-the count-aware blend and Hampel filter tolerate correlated sources.
+data source, which is why the registry places this board in the
+``ktcCrowd`` correlation family (never a hidden third KTC vote).  That
+is PROVEN data-source use, not proven value derivation: measured
+2026-10-01 (``docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md``)
+FN's values are on a different curve (median ratio ~0.09 to KTC, 0 of
+437 shared values equal at any KTC capture in the prior 10 days) and its
+leave-pair-out residual correlation with KTC Crowd is +0.04, against
++0.60 with the FantasyPros superflex board.
 
 Output: ``CSVs/site_raw/fantasyNavigatorSf.csv`` with ``name,value,rank``
 (competition ranks — tied values share a rank, same convention as

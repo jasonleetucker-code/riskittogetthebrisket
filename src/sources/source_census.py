@@ -63,6 +63,46 @@ LINEAGE_PATH = REPO_ROOT / "config" / "sources" / "source_lineage.json"
 
 # ── Closed vocabularies ──────────────────────────────────────────────────
 
+# Lineage categories (owner requirement, Batch 3 Unit G, 2026-10-01).  The
+# ONLY four durable answers to "how do these two sources relate"; defined
+# here and in ``config/sources/source_lineage.json::categories`` (the two are
+# held equal by ``validate_lineage``).  A measurement — however strong —
+# never becomes ancestry: PROVEN_COMMON_ANCESTRY needs a supporting relation
+# classified ``proven`` (vendor statement, payload structure or code).
+# INDEPENDENT_NO_EVIDENCE is the ABSENCE of evidence, not proven independence.
+LINEAGE_PROVEN_COMMON_ANCESTRY = "PROVEN_COMMON_ANCESTRY"
+LINEAGE_MEASURED_DEPENDENCE = "MEASURED_DEPENDENCE"
+LINEAGE_SUSPECTED_DEPENDENCE = "SUSPECTED_DEPENDENCE"
+LINEAGE_INDEPENDENT_NO_EVIDENCE = "INDEPENDENT_NO_EVIDENCE"
+LINEAGE_CATEGORIES: tuple[str, ...] = (
+    LINEAGE_PROVEN_COMMON_ANCESTRY,
+    LINEAGE_MEASURED_DEPENDENCE,
+    LINEAGE_SUSPECTED_DEPENDENCE,
+    LINEAGE_INDEPENDENT_NO_EVIDENCE,
+)
+#: Relation ``classification`` -> lineage category.
+CATEGORY_OF_CLASSIFICATION: dict[str, str] = {
+    "proven": LINEAGE_PROVEN_COMMON_ANCESTRY,
+    "measured": LINEAGE_MEASURED_DEPENDENCE,
+    "suspected": LINEAGE_SUSPECTED_DEPENDENCE,
+}
+#: Every reconciled pair states its consequence for each of these consumers.
+PAIR_IMPLICATION_AXES: tuple[str, ...] = (
+    "familyCap",
+    "hillHoldout",
+    "sourceQualityEvaluation",
+    "hillTraining",
+    "completedTradeEvaluation",
+)
+#: Fields a MEASURED_DEPENDENCE pair must pin (method, window, sample size).
+MEASUREMENT_REQUIRED_FIELDS: tuple[str, ...] = ("method", "window", "n")
+
+
+def lineage_category(relation: Mapping[str, Any]) -> str | None:
+    """The lineage category a recorded relation supports (None = unclassified)."""
+    return CATEGORY_OF_CLASSIFICATION.get(str(relation.get("classification")))
+
+
 VOTING = "VOTING"
 REGISTERED_NO_VOTES = "REGISTERED_NO_VOTES_ON_BOARD"
 NON_VOTING = "NON_VOTING"
@@ -360,6 +400,87 @@ def validate_lineage(lineage: Mapping[str, Any], repo_root: Path = REPO_ROOT) ->
                     )
             if section == "evaluations" and item.get("kind") not in _EVALUATION_KIND_STATE:
                 errors.append(f"evaluations.{rid}: unknown kind {item.get('kind')!r}")
+    errors.extend(_validate_pairs(lineage, ids, _check_evidence))
+    return errors
+
+
+def _validate_pairs(lineage: Mapping[str, Any], ids: set[str], check_evidence: Any) -> list[str]:
+    """Structural rules for the four-category pair reconciliation."""
+    errors: list[str] = []
+    declared = lineage.get("categories")
+    # A MISSING key is an error too: the config is the second half of the
+    # vocabulary, not an optional echo of this module.
+    if not isinstance(declared, Mapping) or set(declared) != set(LINEAGE_CATEGORIES):
+        errors.append(f"categories must be exactly {list(LINEAGE_CATEGORIES)}")
+    relations = {r.get("id"): r for r in lineage.get("relations") or []}
+    known_sources = set((lineage.get("sources") or {}).keys())
+    for pair in lineage.get("pairReconciliation") or []:
+        pid = pair.get("id")
+        where = f"pairReconciliation.{pid}"
+        if not pid or pid in ids:
+            errors.append(f"pairReconciliation: missing or duplicate id {pid!r}")
+        ids.add(str(pid))
+        srcs = pair.get("sources") or []
+        if len(srcs) < 2:
+            errors.append(f"{where}: a pair names at least two sources")
+        for s in srcs:
+            if s not in known_sources:
+                errors.append(f"{where}: unknown source {s!r}")
+        check_evidence(where, pair.get("evidence"))
+        if not pair.get("asOf"):
+            errors.append(f"{where}: asOf required")
+        cat = pair.get("category")
+        if cat is None:
+            # UNKNOWN is not a fifth category: it is the absence of a
+            # category, and must say why.
+            if not pair.get("unknownReason"):
+                errors.append(f"{where}: a null category needs unknownReason")
+        elif cat not in LINEAGE_CATEGORIES:
+            errors.append(f"{where}: category must be one of {list(LINEAGE_CATEGORIES)}")
+        supporting = []
+        pair_sources = set(srcs)
+        for rid in pair.get("relations") or []:
+            if rid not in relations:
+                errors.append(f"{where}: unknown relation {rid!r}")
+                continue
+            # A relation supports THIS pair only if it is about this pair:
+            # at least two of its sources must be the pair's own.  Without
+            # this a PROVEN (A, B) could cite a relation on (A, C) or (C, D).
+            shared = pair_sources & set(relations[rid].get("sources") or [])
+            if len(shared) < 2:
+                errors.append(
+                    f"{where}: relation {rid!r} involves {sorted(shared)} of the pair's "
+                    "sources; a supporting relation must involve at least two"
+                )
+                continue
+            supporting.append(lineage_category(relations[rid]))
+        if (
+            cat == LINEAGE_PROVEN_COMMON_ANCESTRY
+            and LINEAGE_PROVEN_COMMON_ANCESTRY not in supporting
+        ):
+            errors.append(f"{where}: PROVEN_COMMON_ANCESTRY needs a supporting proven relation")
+        if cat == LINEAGE_MEASURED_DEPENDENCE:
+            if LINEAGE_MEASURED_DEPENDENCE not in supporting:
+                errors.append(f"{where}: MEASURED_DEPENDENCE needs a supporting measured relation")
+            meas = pair.get("measurement") or {}
+            missing = [f for f in MEASUREMENT_REQUIRED_FIELDS if meas.get(f) in (None, "")]
+            if missing:
+                errors.append(f"{where}: measurement must pin {missing}")
+        meas_any = pair.get("measurement")
+        if isinstance(meas_any, Mapping) and meas_any.get("n") is not None:
+            n = meas_any["n"]
+            # n is a sample size on ANY pair that pins one: a positive int
+            # (bool is an int subclass and is refused; 0 measured nothing).
+            if isinstance(n, bool) or not isinstance(n, int) or n <= 0:
+                errors.append(f"{where}: measurement.n must be an int > 0, got {n!r}")
+        if cat == LINEAGE_INDEPENDENT_NO_EVIDENCE and any(
+            c in (LINEAGE_PROVEN_COMMON_ANCESTRY, LINEAGE_MEASURED_DEPENDENCE) for c in supporting
+        ):
+            errors.append(f"{where}: INDEPENDENT_NO_EVIDENCE contradicts a supporting relation")
+        impl = pair.get("implications") or {}
+        missing_axes = [a for a in PAIR_IMPLICATION_AXES if not impl.get(a)]
+        if missing_axes:
+            errors.append(f"{where}: implications missing {missing_axes}")
     return errors
 
 
@@ -1402,7 +1523,11 @@ def build_census(inp: CensusInputs) -> dict[str, Any]:
         "weightingFormula": sw_block.get("formula") if isinstance(sw_block, Mapping) else None,
         "boardRows": board["rows"],
         "boardUniverseSizes": board["universeSizes"],
-        "lineageRelations": [dict(r) for r in lineage.get("relations") or []],
+        "lineageRelations": [
+            {**dict(r), "category": lineage_category(r)} for r in lineage.get("relations") or []
+        ],
+        "lineageCategories": list(LINEAGE_CATEGORIES),
+        "lineagePairs": [dict(p) for p in lineage.get("pairReconciliation") or []],
         "sources": entries,
         "summary": summarize(entries),
     }
@@ -1574,17 +1699,40 @@ def census_markdown(census: Mapping[str, Any]) -> str:
         "",
         "`measured` is dependence, never common ancestry; `suspected` is kept apart from `proven`.",
         "",
-        "| relation | class | sources | as of | summary |",
-        "|---|---|---|---|---|",
+        "| relation | class | category | sources | as of | summary |",
+        "|---|---|---|---|---|---|",
     ]
     order = {"proven": 0, "measured": 1, "suspected": 2}
     for r in sorted(
         census.get("lineageRelations") or [], key=lambda r: order.get(r.get("classification"), 9)
     ):
         lines.append(
-            f"| `{r['id']}` | {r.get('classification')} | {', '.join(r.get('sources') or [])} "
+            f"| `{r['id']}` | {r.get('classification')} | {r.get('category') or '—'} | {', '.join(r.get('sources') or [])} "
             f"| {r.get('asOf', '—')} | {r.get('summary', '')} |"
         )
+    pairs = census.get("lineagePairs") or []
+    if pairs:
+        lines += [
+            "",
+            "## Lineage pairs (four categories)",
+            "",
+            "Categories: "
+            + ", ".join(f"`{c}`" for c in census.get("lineageCategories") or [])
+            + ". A measurement never becomes ancestry; `INDEPENDENT_NO_EVIDENCE` is absence "
+            "of evidence; a blank category is UNKNOWN with its reason.",
+            "",
+            "| pair | category | sources | as of | measurement | family cap | Hill holdout |",
+            "|---|---|---|---|---|---|---|",
+        ]
+        for p in pairs:
+            m = p.get("measurement") or {}
+            meas = f"{m.get('statistic', '')} (n={m.get('n')}, {m.get('window')})" if m else "—"
+            impl = p.get("implications") or {}
+            lines.append(
+                f"| `{p['id']}` | {p.get('category') or 'UNKNOWN: ' + str(p.get('unknownReason'))} "
+                f"| {', '.join(p.get('sources') or [])} | {p.get('asOf', '—')} | {meas} "
+                f"| {impl.get('familyCap', '—')} | {impl.get('hillHoldout', '—')} |"
+            )
     defects = {}
     for e in census["sources"]:
         for d in e.get("knownDefects") or []:
