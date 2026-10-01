@@ -288,6 +288,66 @@ def test_discovery_captures_the_real_league_format_without_extra_calls(intel):
     assert not any("/league/L-DISC" == c.split(base)[-1] for c in calls), "no extra league fetch"
 
 
+def _discover_via(intel, user_id, *, lg=None):
+    base = discovery.SLEEPER_BASE
+    lg = lg or sleeper_league("L-DISC")
+
+    def http(url):
+        return {
+            f"{base}/user/{user_id}/leagues/nfl/2026": [lg],
+            f"{base}/league/L-DISC/users": [],
+        }.get(url)
+
+    seeds = {
+        "seedLeagues": [],
+        "seedUsers": [{"userId": user_id}],
+        "traversal": {
+            "maxGenerations": 2,
+            "seasons": ["2026"],
+            "perUserLeagueCap": 40,
+            "maxLeagueRosters": 32,
+            "minLeagueRosters": 6,
+            "callBudgetPerRun": 50,
+            "sleepSecondsBetweenCalls": 0,
+        },
+        "limits": {"maxUsersPerRun": 100, "maxLeaguesPerRun": 100},
+    }
+    return discovery.discover(http_get=http, seeds=seeds, ledger_path=intel)
+
+
+def _disc_settings(intel):
+    conn = ledger.connect(intel)
+    try:
+        return json.loads(
+            conn.execute("SELECT settings_json FROM leagues WHERE league_id='L-DISC'").fetchone()[0]
+        )
+    finally:
+        conn.close()
+
+
+def test_discovery_keeps_first_seen_route_and_records_last_seen_separately(intel):
+    _discover_via(intel, "u1")
+    first = _disc_settings(intel)["discovery"]
+    assert first["viaUserId"] == "u1" and first["lastSeen"]["viaUserId"] == "u1"
+    _discover_via(intel, "u2")  # the same league, reached through another manager
+    again = _disc_settings(intel)["discovery"]
+    assert again["viaUserId"] == "u1", "first-seen provenance is never overwritten"
+    assert again["lastSeen"]["viaUserId"] == "u2"
+
+
+def test_format_capture_failures_are_counted_in_the_result(intel, monkeypatch):
+    from src.trade import market_trade_format as mtf
+
+    def boom(*a, **k):
+        raise ValueError("synthetic capture failure")
+
+    monkeypatch.setattr(mtf, "capture_sleeper_league_format", boom)
+    res = _discover_via(intel, "u1")
+    assert res.market_format_capture_failures == 1
+    assert res.to_dict()["marketFormatCaptureFailures"] == 1
+    assert _disc_settings(intel)["marketFormat"] is None, "discovery itself still succeeds"
+
+
 def test_host_capture_upgrades_a_ktc_row_from_the_same_league(intel):
     ledger.ingest_events(_trade_events(), path=intel)
     ledger.upsert_leagues([_league_row()], path=intel)

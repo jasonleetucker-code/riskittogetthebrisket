@@ -108,6 +108,14 @@ _CHALLENGE_MARKERS = (
 #: quarantine.
 EXPECTED_WINDOW = 200
 
+#: Consecutive quarantined (schema-drift) fetches after which collection
+#: STOPS rather than writing another raw page to the quarantine every run.
+#: One drifted page is evidence worth keeping; the same drift re-fetched every
+#: 30 minutes is a disk leak on a near-full box.  The stop persists like an
+#: access stop and is cleared the same way (``--clear-stop``).
+MAX_CONSECUTIVE_QUARANTINES = 3
+STOP_REASON_SCHEMA_DRIFT = "schema_drift_repeated"
+
 
 # ── Parsing ───────────────────────────────────────────────────────────────
 
@@ -274,7 +282,10 @@ def collect(
     started = now()
     outcome: dict[str, Any] = {"sourceFamily": SOURCE_FAMILY, "url": url}
 
-    if state.get("stoppedAt") and not force:
+    # ``force`` bypasses ONLY the min interval.  A persisted stop (401/403,
+    # access-wall redirect, challenge page, repeated schema drift) is an
+    # operator decision; only ``clear_stop`` (``--clear-stop``) lifts it.
+    if state.get("stoppedAt"):
         outcome.update(
             outcome="stopped",
             reason=f"collection stopped at {state['stoppedAt']} ({state.get('stopReason')}); "
@@ -380,6 +391,19 @@ def collect(
                 },
             )
             outcome.update(outcome="quarantined", errors=page.errors, rawSha256=raw_sha)
+            prior_q = state.get("consecutiveQuarantines")
+            n_q = (prior_q if isinstance(prior_q, int) else 0) + 1
+            state["consecutiveQuarantines"] = n_q
+            outcome["consecutiveQuarantines"] = n_q
+            if n_q >= MAX_CONSECUTIVE_QUARANTINES:
+                state["stoppedAt"] = fetched_at
+                state["stopReason"] = STOP_REASON_SCHEMA_DRIFT
+                outcome["stopped"] = True
+                outcome["reason"] = (
+                    f"{n_q} consecutive quarantined fetches; collection stopped "
+                    f"({STOP_REASON_SCHEMA_DRIFT}) until the parser is fixed and "
+                    "--clear-stop is run"
+                )
         else:
             observations = [
                 archive.RawObservation(
@@ -438,6 +462,7 @@ def collect(
     state["lastOutcome"] = outcome.get("outcome")
     if outcome.get("outcome") in ("archived", "not_modified"):
         state["consecutiveFailures"] = 0
+        state["consecutiveQuarantines"] = 0
     else:
         prior = state.get("consecutiveFailures")
         state["consecutiveFailures"] = (prior if isinstance(prior, int) else 0) + 1
@@ -451,5 +476,6 @@ def clear_stop(root: Path | None = None) -> bool:
         return False
     state.pop("stoppedAt", None)
     state.pop("stopReason", None)
+    state.pop("consecutiveQuarantines", None)
     save_state(state, root)
     return True

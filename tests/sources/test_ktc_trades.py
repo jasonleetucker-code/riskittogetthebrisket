@@ -145,6 +145,60 @@ class TestCollection:
         assert out["outcome"] == "rate_limited"
         assert slept == [1.0, 1.0]
 
+    @pytest.mark.parametrize(
+        "first",
+        [
+            (401, {}, b"no"),
+            (403, {}, b"no"),
+            (200, {}, b"<html><title>Just a moment...</title>cf-challenge</html>"),
+        ],
+    )
+    def test_force_never_bypasses_a_persisted_stop(self, root, first):
+        assert _collect(root, FakeHttp([first]))["outcome"] == "auth_stopped"
+        later = FakeHttp([ok(ktc_page(ROWS))])
+        out = _collect(root, later, at=T0 + timedelta(hours=2), force=True)
+        assert out["outcome"] == "stopped"
+        assert later.calls == [], "--force must not touch the network while stopped"
+        assert K.clear_stop(root) is True
+        assert _collect(root, later, at=T0 + timedelta(hours=3))["outcome"] == "archived"
+
+    def test_force_still_bypasses_the_min_interval(self, root):
+        _collect(root, FakeHttp([ok(ktc_page(ROWS))]))
+        http = FakeHttp([ok(ktc_page(ROWS))])
+        out = _collect(
+            root, http, at=T0 + timedelta(minutes=5), min_interval_minutes=25, force=True
+        )
+        assert out["outcome"] == "archived" and len(http.calls) == 1
+
+    def test_repeated_schema_drift_stops_instead_of_quarantining_forever(self, root):
+        qdir = root / "quarantine" / "ktc"
+        pages = [f"<html><script>var trades = {n};</script></html>" for n in range(10)]
+        outs = []
+        for i in range(K.MAX_CONSECUTIVE_QUARANTINES):
+            outs.append(_collect(root, FakeHttp([ok(pages[i])]), at=T0 + timedelta(minutes=30 * i)))
+        assert [o["outcome"] for o in outs] == ["quarantined"] * K.MAX_CONSECUTIVE_QUARANTINES
+        assert outs[-1].get("stopped") is True
+        state = K.load_state(root)
+        assert state["stopReason"] == K.STOP_REASON_SCHEMA_DRIFT
+        gz_before = len(list(qdir.glob("*.html.gz")))
+        assert gz_before == K.MAX_CONSECUTIVE_QUARANTINES
+        # Later runs (even forced) neither fetch nor write another raw page.
+        later = FakeHttp([ok(pages[9])])
+        out = _collect(root, later, at=T0 + timedelta(hours=5), force=True)
+        assert out["outcome"] == "stopped" and later.calls == []
+        assert len(list(qdir.glob("*.html.gz"))) == gz_before
+        assert K.clear_stop(root) is True
+        assert "consecutiveQuarantines" not in K.load_state(root)
+
+    def test_a_good_fetch_resets_the_quarantine_streak(self, root):
+        bad = ok("<html><script>var trades = 42;</script></html>")
+        _collect(root, FakeHttp([bad]))
+        _collect(root, FakeHttp([ok(ktc_page(ROWS))]), at=T0 + timedelta(minutes=30))
+        assert K.load_state(root)["consecutiveQuarantines"] == 0
+        for i in range(K.MAX_CONSECUTIVE_QUARANTINES - 1):
+            _collect(root, FakeHttp([bad]), at=T0 + timedelta(hours=1 + i))
+        assert not K.load_state(root).get("stoppedAt")
+
     def test_min_interval_skips_without_a_request(self, root):
         http = FakeHttp([ok(ktc_page(ROWS))])
         _collect(root, http)

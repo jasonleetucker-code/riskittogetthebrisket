@@ -8,7 +8,8 @@ there is no hidden single similarity score.
 WHAT IS CONSUMED, NOT REBUILT
 ─────────────────────────────
 * slot rules — ``src.ros.lineup`` (``starter_slots_from_roster_positions``,
-  ``flatten_starter_slots``, ``slot_eligible_positions``, ``lineup_position``);
+  ``resolve_starter_slots`` — the live → registry → refuse truth ladder —,
+  ``slot_eligible_positions``, ``lineup_position``);
   no private slot→position table lives here;
 * scoring identity — ``src.league_comparison.sleeper_scoring``
   (``normalize_scoring_settings``, ``scoring_fingerprint``);
@@ -57,8 +58,8 @@ from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from src.league_comparison.sleeper_scoring import normalize_scoring_settings, scoring_fingerprint
 from src.ros.lineup import (
-    flatten_starter_slots,
     lineup_position,
+    resolve_starter_slots,
     slot_eligible_positions,
     starter_slots_from_roster_positions,
 )
@@ -394,15 +395,25 @@ def format_from_ktc_settings(settings: Mapping[str, Any] | None) -> TradeMarketF
 
 
 def format_from_registry(
-    league_key: str, *, allow_stale_scoring: bool = False
+    league_key: str,
+    *,
+    allow_stale_scoring: bool = False,
+    roster_positions: Sequence[str] | None = None,
 ) -> TradeMarketFormat:
     """The TARGET league's format from the canonical owners.
 
-    Roster slots come from the registry's ``starters``; the scoring card is the
-    league's ACTUAL card snapshot, used only when its evidence is ``fresh``
-    (the same authority rule every scoring gate uses).  A stale or missing card
-    leaves scoring UNKNOWN unless the caller explicitly accepts stale evidence
-    for research, which is stamped on the result.
+    Starter slots come from THE truth ladder,
+    :func:`src.ros.lineup.resolve_starter_slots`: the live host
+    ``roster_positions`` when the caller holds them, else the registry's
+    ``starters``, else REFUSE (demand UNKNOWN — never a literal lineup).  The
+    scoring card is the league's ACTUAL card snapshot, used only when its
+    evidence is ``fresh`` (the same authority rule every scoring gate uses).  A
+    stale or missing card leaves scoring UNKNOWN unless the caller explicitly
+    accepts stale evidence for research, which is stamped on the result.
+
+    Registry DEFAULTS are not facts: ``best_ball`` is known only when the entry
+    states ``bestBall``, and ``idp_enabled`` comes from the resolved lineup, or
+    from a stated ``idpEnabled`` when no lineup resolves — otherwise UNKNOWN.
     """
     from src.api import league_registry as reg  # noqa: PLC0415
 
@@ -410,10 +421,17 @@ def format_from_registry(
     if cfg is None:
         return TradeMarketFormat(source=SOURCE_UNKNOWN)
     rs = dict(cfg.roster_settings or {})
-    slots = flatten_starter_slots(
-        rs.get("starters") if isinstance(rs.get("starters"), dict) else None
+    slots, starter_source = resolve_starter_slots(
+        roster_positions=roster_positions, roster_settings=rs
     )
     demand, idp_tokens = _demand_from_slots(slots) if slots else (None, None)
+    stated = getattr(cfg, "stated_fields", frozenset())
+    if demand is not None:
+        idp_enabled: bool | None = bool(idp_tokens)
+    elif "idpEnabled" in stated:
+        idp_enabled = bool(cfg.idp_enabled)
+    else:
+        idp_enabled = None
     evidence = reg.scoring_evidence_state(cfg)
     card = reg.scoring_settings_for_league(cfg)
     use_card = card is not None and (evidence == "fresh" or allow_stale_scoring)
@@ -425,16 +443,17 @@ def format_from_registry(
         teams=_as_int(rs.get("teamCount")),
         roster_size=_as_int(rs.get("rosterSize")),
         taxi_size=_as_int(rs.get("taxiSize")),
-        best_ball=bool(cfg.best_ball),
+        best_ball=bool(cfg.best_ball) if "bestBall" in stated else None,
         season=None,
         demand=demand,
         total_starters=len(slots) if slots else None,
-        idp_enabled=(bool(idp_tokens) if demand is not None else bool(cfg.idp_enabled)),
+        idp_enabled=idp_enabled,
         idp_slot_tokens=idp_tokens,
         scoring=scoring,
         card_hash=scoring_fingerprint(card) if use_card else None,
         vendor={
             "leagueKey": league_key,
+            "starterSource": starter_source,
             "scoringEvidence": evidence,
             "staleScoringAcceptedForResearch": bool(
                 card is not None and evidence != "fresh" and allow_stale_scoring

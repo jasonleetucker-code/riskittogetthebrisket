@@ -25,7 +25,9 @@ Wants=network-online.target
 # Politeness is enforced by the script: one GET per run, gzip, conditional
 # headers once content exists, no redirect following, Retry-After honoured on
 # 429, and a 401/403/anti-bot page PERSISTS a stop that later runs obey until
-# an operator runs `scripts/fetch_ktc_trades.py --clear-stop`.  The site's
+# an operator runs `scripts/fetch_ktc_trades.py --clear-stop` (`--force` skips
+# only the min interval, never a stop); 3 consecutive quarantined (schema-drift)
+# fetches persist the same kind of stop.  The site's
 # JSON endpoint (POST /dynasty/trade-database/trades) answered 403 and is NOT
 # used.
 #
@@ -50,15 +52,16 @@ ProtectHome=read-only
 # directory on its first run.  Same posture as the curated-sharps unit.
 ReadWritePaths=__APP_DIR__/data
 ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/fetch_ktc_trades.py --min-interval-minutes 25
-# Rebuild the DERIVED canonical underlying-trade ledger + coverage report from
-# the raw archive and the (read-only) Sharp intel ledger.  `-` so a report
-# failure never marks the capture failed; --no-board skips the residual pass
-# (run scripts/market_trade_ledger.py by hand for residuals).
-ExecStartPost=-__VENV_DIR__/bin/python __APP_DIR__/scripts/market_trade_ledger.py --no-board
+# The DERIVED ledger rebuild is NOT chained here any more: it has its own
+# daily unit (dynasty-market-trade-ledger) so it cannot eat this capture's
+# timeout or memory, and the fetch alone keeps the rolling-window cadence.
 StandardOutput=journal
 StandardError=journal
 Nice=10
 IOSchedulingClass=idle
+# One page parsed per run (BodyTooLarge caps the read at 8 MB); 512M is a hard
+# ceiling against a parser regression, not a working-set estimate.
+MemoryMax=512M
 TimeoutStartSec=300
 
 [Install]

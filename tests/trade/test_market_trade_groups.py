@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import random
+import time
+
+import pytest
+
 from src.trade import market_trade_groups as G
 
 
@@ -175,3 +180,183 @@ def test_ktc_provenance_never_adds_a_count():
     s = obs("sleeper:L1:T1", A_FOR_B, src="sleeper_sharp_discovery", tx="T1")
     k = obs("ktc:9", A_FOR_B, crossRefs=[("sleeper", "L1", "T1")])
     assert G.group_observations([s, k]).volume["underlyingTradesUpperBound"] == 1
+
+
+# ── FAAB / partial-record recording gaps (review finding 2) ───────────────
+
+FAAB_CAVEAT = G.FAAB_NOT_RECORDED_CAVEAT
+
+
+def F(amount):  # KTC records FAAB money as an asset
+    return {"kind": "faab", "canonicalId": None, "matchKey": f"faab:{amount}"}
+
+
+def test_ktc_faab_asset_does_not_split_one_trade_from_its_sleeper_record():
+    # Same trade, same league: KTC saw "$10 FAAB" ride along, Sleeper could not.
+    s = obs(
+        "sleeper:L1:T1",
+        [[P("player:1")], [P("player:2")]],
+        src="sleeper_sharp_discovery",
+        tx="T1",
+        caveats=[FAAB_CAVEAT],
+    )
+    k = obs("ktc:9", [[P("player:1")], [P("player:2"), F(10.0)]])
+    assert G.classify_pair(s, k)[0] == G.REL_PROBABLE
+    res = G.group_observations([s, k])
+    assert len(res.groups) == 1 and res.groups[0]["dedupeState"] == G.PROBABLE_DUPLICATE
+
+
+def test_faab_only_side_strips_to_an_empty_side_and_still_matches():
+    s = obs(
+        "sleeper:L1:T1",
+        [[], [P("player:2")]],
+        src="sleeper_sharp_discovery",
+        tx="T1",
+        caveats=[FAAB_CAVEAT],
+    )
+    k = obs("ktc:9", [[P("player:2")], [F(25.0)]])
+    assert G.classify_pair(s, k)[0] == G.REL_PROBABLE
+
+
+def test_faab_is_not_stripped_when_neither_side_lacks_it():
+    a = obs("ktc:1", [[P("player:1")], [P("player:2"), F(10.0)]])
+    b = obs("ktc:2", [[P("player:1")], [P("player:2")]])
+    assert G.classify_pair(a, b)[0] == G.REL_DISTINCT
+
+
+def test_faab_mismatch_without_league_identity_is_possible_not_distinct():
+    s = obs(
+        "sleeper:L1:T1",
+        [[P("player:1")], [P("player:2")]],
+        src="sleeper_sharp_discovery",
+        tx="T1",
+        caveats=[FAAB_CAVEAT],
+    )
+    k = obs("ktc:9", [[P("player:1")], [P("player:2"), F(10.0)]], league=None, host="unknown")
+    assert G.classify_pair(s, k)[0] == G.REL_POSSIBLE
+    res = G.group_observations([s, k])
+    assert {g["dedupeState"] for g in res.groups} == {G.POSSIBLE_OVERLAP}
+
+
+@pytest.mark.parametrize("caveat", ["partial_record_adds_without_sender:1", "released_in_trade:1"])
+def test_partial_record_package_mismatch_is_at_most_possible(caveat):
+    # Sleeper saw only part of the trade (one asset fewer than KTC).
+    s = obs(
+        "sleeper:L1:T1",
+        [[P("player:1")], [P("player:2")]],
+        src="sleeper_sharp_discovery",
+        tx="T1",
+        caveats=[caveat],
+    )
+    k = obs("ktc:9", [[P("player:1"), P("player:3")], [P("player:2")]])
+    rel, evidence = G.classify_pair(s, k)
+    assert rel == G.REL_POSSIBLE, evidence
+    res = G.group_observations([s, k])
+    assert len(res.groups) == 2, "possible overlap is never merged"
+    assert {g["dedupeState"] for g in res.groups} == {G.POSSIBLE_OVERLAP}
+
+
+def test_partial_record_team_count_mismatch_is_not_distinct():
+    s = obs(
+        "sleeper:L1:T1",
+        [[P("player:1")], [P("player:2")]],
+        src="sleeper_sharp_discovery",
+        tx="T1",
+        caveats=["partial_record_adds_without_sender:1"],
+    )
+    k = obs("ktc:9", [[P("player:1")], [P("player:2")], [P("player:3")]])
+    assert G.classify_pair(s, k)[0] == G.REL_POSSIBLE
+
+
+def test_complete_record_package_mismatch_stays_distinct():
+    s = obs("sleeper:L1:T1", [[P("player:1")], [P("player:2")]], tx="T1")
+    k = obs("ktc:9", [[P("player:1"), P("player:3")], [P("player:2")]])
+    assert G.classify_pair(s, k)[0] == G.REL_DISTINCT
+
+
+# ── Blocking: complete and bounded (review finding 1) ─────────────────────
+
+
+def _brute_force_edges(observations, tol=G.DEFAULT_DAY_TOLERANCE):
+    out = set()
+    for i in range(len(observations)):
+        for j in range(i + 1, len(observations)):
+            rel, _ = G.classify_pair(observations[i], observations[j], day_tolerance=tol)
+            if rel != G.REL_DISTINCT:
+                out.add((i, j))
+    return out
+
+
+def test_blocking_drops_no_pair_classify_would_keep():
+    """Property check against a brute-force scan on a dense random sample:
+    every non-DISTINCT pair is a candidate (blocking is exact, not lossy)."""
+    rng = random.Random(1586)
+    assets = [f"player:{n}" for n in range(6)] + ["mpick:2026:r1", "mpick:2027:r1"]
+    leagues = ["L1", "L2", None]
+    caveat_pool = [[], [], [FAAB_CAVEAT], ["partial_record_adds_without_sender:1"]]
+    rows = []
+    for n in range(160):
+        league = rng.choice(leagues)
+        sides = [
+            [P(a) for a in rng.sample(assets, rng.randint(1, 2))],
+            [P(a) for a in rng.sample(assets, rng.randint(0, 2))],
+        ]
+        if rng.random() < 0.2:
+            sides[1].append(F(rng.choice([5.0, 10.0])))
+        if rng.random() < 0.1:
+            sides[0].append(U(f"x{n}"))
+        rows.append(
+            obs(
+                f"o:{n}",
+                sides,
+                league=league,
+                host="sleeper" if league else "unknown",
+                tx=(f"T{rng.randint(0, 40)}" if league and rng.random() < 0.5 else None),
+                date=rng.choice(["2026-10-01", "2026-10-02", "2026-10-04", None]),
+                caveats=rng.choice(caveat_pool),
+            )
+        )
+    expected = _brute_force_edges(rows)
+    assert expected, "non-vacuity: the sample must contain related pairs"
+    candidates = G._candidate_pairs(rows, G.DEFAULT_DAY_TOLERANCE)
+    assert expected <= candidates
+
+
+def test_complexity_guard_20k_rows_sharing_generic_pick_keys():
+    """20k rows that ALL share a generic pick key (the shape that made the
+    asset-keyed blocking O(n^2): ~200M tuples) must stay bounded and fast."""
+    n_rows, n_leagues = 20_000, 2_000
+    rows = []
+    for n in range(n_rows):
+        league = f"L{n % n_leagues}"
+        day = f"2026-09-{1 + (n // n_leagues) % 28:02d}"
+        rows.append(
+            obs(
+                f"ktc:{n}",
+                [[P("mpick:2026:r1"), P(f"player:{n % 977}")], [P(f"player:{(n * 7) % 983}")]],
+                league=league,
+                date=day,
+            )
+        )
+    # Plus 500 league-less rows that share one identical generic package.
+    for n in range(500):
+        rows.append(
+            obs(
+                f"ktc:nl{n}",
+                [[P("mpick:2026:r1")], [P("mpick:2027:r1")]],
+                league=None,
+                host="unknown",
+                date=f"2026-09-{1 + n % 28:02d}",
+            )
+        )
+    t0 = time.perf_counter()
+    candidates = G._candidate_pairs(rows, G.DEFAULT_DAY_TOLERANCE)
+    blocking_s = time.perf_counter() - t0
+    t0 = time.perf_counter()
+    res = G.group_observations(rows)
+    total_s = time.perf_counter() - t0
+    # Asset-keyed blocking produced ~n^2/2 = 210M pairs here.
+    assert len(candidates) < 200_000, len(candidates)
+    assert res.volume["candidatePairsCompared"] == len(candidates)
+    assert res.volume["rawObservations"] == n_rows + 500
+    assert blocking_s < 10 and total_s < 60, (blocking_s, total_s)

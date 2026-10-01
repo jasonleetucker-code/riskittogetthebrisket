@@ -12,6 +12,8 @@
 from __future__ import annotations
 
 import ast
+import fnmatch
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -38,16 +40,157 @@ VALUATION_PATH = (
 )
 
 
-def test_store_paths_are_gitignored():
-    for rel in (
-        "data/market_trades/archive.sqlite",
-        "data/market_trades/underlying_trades.sqlite",
-        "data/market_trades/ktc_fetch_state.json",
-        "data/market_trades/reports/latest.json",
-        "data/market_trades/quarantine/ktc/x.html.gz",
-    ):
-        res = subprocess.run(["git", "check-ignore", "-q", rel], cwd=REPO, capture_output=True)
+STORE_PATHS = (
+    "data/market_trades/archive.sqlite",
+    "data/market_trades/underlying_trades.sqlite",
+    "data/market_trades/.underlying_trades.sqlite.1234.tmp",
+    "data/market_trades/ktc_fetch_state.json",
+    "data/market_trades/reports/latest.json",
+    "data/market_trades/reports/market_trade_ledger_2026-10-01.json",
+    "data/market_trades/quarantine/ktc/x.html.gz",
+)
+
+
+def test_store_paths_are_gitignored_by_the_repos_own_gitignore():
+    """``git check-ignore`` semantics, but the deciding rule must come from a
+    TRACKED ``.gitignore`` in this repo — a developer's global excludes file or
+    ``.git/info/exclude`` would make this pass locally while CI, the box and
+    every other clone publish the store.  ``--no-index`` asks about the rules,
+    not about what happens to be tracked today."""
+    tracked_ignores = set(
+        subprocess.run(
+            ["git", "ls-files", "--", ".gitignore", "*/.gitignore"],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+        ).stdout.split()
+    )
+    assert ".gitignore" in tracked_ignores
+    for rel in STORE_PATHS:
+        res = subprocess.run(
+            ["git", "check-ignore", "-v", "--no-index", rel],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+        )
         assert res.returncode == 0, f"{rel} is not gitignored — a public repo would publish it"
+        # Output: "<source>:<line>:<pattern>\t<path>"; a negated (!) pattern
+        # would mean "explicitly NOT ignored" and never exits 0 here.
+        source = res.stdout.split(":", 1)[0].replace("\\", "/")
+        assert (
+            source in tracked_ignores
+        ), f"{rel} is ignored only by {source!r}, which is not a tracked repo .gitignore"
+
+
+# ── Forced adds: parse the commands, do not grep for a string ─────────────
+
+_SEPARATORS = {"&&", "||", ";", "|", "&"}
+
+
+def _forced_add_pathspecs(text: str) -> list[list[str]]:
+    """Every ``git add`` invocation in shell-ish ``text`` that FORCES past
+    .gitignore, as its pathspec list (``[]`` = no pathspec = whole tree when
+    combined with -A/--all).  Line continuations are joined; comments skipped."""
+    import shlex
+
+    joined = re.sub(r"\\\r?\n", " ", text)
+    out: list[list[str]] = []
+    for line in joined.splitlines():
+        if "git" not in line or "add" not in line or line.lstrip().startswith("#"):
+            continue
+        try:
+            lexer = shlex.shlex(line, posix=True, punctuation_chars=";&|")
+            lexer.whitespace_split = True
+            lexer.commenters = "#"
+            tokens = list(lexer)
+        except ValueError:
+            tokens = line.split()
+        for k in range(len(tokens) - 1):
+            if tokens[k] != "git" or tokens[k + 1] != "add":
+                continue
+            args: list[str] = []
+            for t in tokens[k + 2 :]:
+                if t in _SEPARATORS:
+                    break
+                args.append(t)
+            force = False
+            specs: list[str] = []
+            after_dashdash = False
+            for a in args:
+                if after_dashdash or not a.startswith("-"):
+                    specs.append(a)
+                elif a == "--":
+                    after_dashdash = True
+                elif a == "--force" or (not a.startswith("--") and "f" in a[1:]):
+                    force = True
+            if force:
+                out.append(specs)
+    return out
+
+
+def _spec_could_cover_store(spec: str) -> bool:
+    """Whether a forced pathspec could reach ``data/market_trades/``.  An opaque
+    (variable) pathspec is answered by the caller."""
+    s = spec.strip("\"'")
+    s = s[2:] if s.startswith("./") else s
+    if s.startswith(":/"):
+        s = s[2:]
+    if s in ("", ".", "*", "data", "data/"):
+        return True
+    for target in STORE_PATHS:
+        base = s.rstrip("/")
+        if target == s or target.startswith(base + "/"):
+            return True
+        if any(ch in s for ch in "*?[") and (
+            fnmatch.fnmatch(target, s) or fnmatch.fnmatch(target, base + "/*")
+        ):
+            return True
+    return False
+
+
+def _publishers() -> list[Path]:
+    roots = [REPO / ".github" / "workflows", REPO / "deploy", REPO / "scripts"]
+    files: list[Path] = [p for p in REPO.glob("*.bat")] + [p for p in REPO.glob("*.sh")]
+    for root in roots:
+        for pattern in ("*.y*ml", "*.sh", "*.bat", "*.template"):
+            files.extend(root.rglob(pattern))
+    return sorted(set(files))
+
+
+def _store_publishing_offenders(path: Path, text: str) -> list[str]:
+    found = []
+    for specs in _forced_add_pathspecs(text):
+        if not specs:
+            found.append(f"{path.name}: forced whole-tree add")
+        for spec in specs:
+            if "$" in spec or "`" in spec:
+                # Opaque at rest: acceptable only if nothing in the file could
+                # put the store into the variable.
+                if "market_trades" in text:
+                    found.append(f"{path.name}: forced add of {spec} beside a store reference")
+            elif _spec_could_cover_store(spec):
+                found.append(f"{path.name}: forced add of {spec}")
+    return found
+
+
+def test_forced_add_parser_positive_and_negative_controls():
+    def offends(cmd: str, extra: str = "") -> bool:
+        return bool(_store_publishing_offenders(Path("x.sh"), cmd + "\n" + extra))
+
+    assert offends("git add -f data/")
+    assert offends("git add --force data")
+    assert offends("git add -Af .")
+    assert offends("git add -A --force")
+    assert offends("cd repo && git add -f -- data/*")
+    assert offends("git add -f data/market_trades/archive.sqlite")
+    assert offends('git add -f "data/market_trades/"')
+    assert offends("git add -f \\\n  data/")
+    assert offends('git add -f -- "$p"', "# loops over data/market_trades")
+    assert not offends("git add -f data/scrape_state/")
+    assert not offends("git add data/")  # not forced: .gitignore still applies
+    assert not offends("# git add -f data/")
+    assert not offends("git add -f -- data/ops/sharp-production-smoke.json")
+    assert not offends('git add -f -- "${STAGED[@]}"')
 
 
 def test_nothing_tracks_or_force_adds_the_store():
@@ -55,13 +198,23 @@ def test_nothing_tracks_or_force_adds_the_store():
         ["git", "ls-files", "data/market_trades"], cwd=REPO, capture_output=True, text=True
     ).stdout.strip()
     assert tracked == "", f"tracked trade-ledger files: {tracked}"
-    offenders = []
-    for path in list((REPO / ".github" / "workflows").glob("*.y*ml")) + list(
-        (REPO / "deploy").rglob("*.sh")
-    ):
+    files = _publishers()
+    assert any(p.suffix in (".yml", ".yaml") for p in files), "non-vacuity: workflows scanned"
+    offenders: list[str] = []
+    forced_seen = 0
+    for path in files:
         text = path.read_text(encoding="utf-8", errors="replace")
-        if "market_trades" in text and "git add" in text:
-            offenders.append(str(path.relative_to(REPO)))
+        forced_seen += len(_forced_add_pathspecs(text))
+        offenders += _store_publishing_offenders(path, text)
+    # Non-vacuity: the repo DOES force-add other data/ paths (scrape_state,
+    # ops smoke, dated snapshots); the parser must be seeing them.
+    assert forced_seen >= 3, forced_seen
+    # Python publishers: a subprocess ``git add`` is opaque to the shell parser,
+    # so any such script must not reference the store at all.
+    for path in list((REPO / "scripts").rglob("*.py")) + list((REPO / "deploy").rglob("*.py")):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if re.search(r"[\"']git[\"']\s*,\s*[\"']add[\"']", text) and "market_trades" in text:
+            offenders.append(f"{path.name}: subprocess git add beside a store reference")
     assert not offenders, f"a workflow/script could publish the trade ledger: {offenders}"
 
 

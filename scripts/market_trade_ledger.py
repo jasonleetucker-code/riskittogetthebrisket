@@ -100,8 +100,8 @@ def main() -> int:
         payload["canonicalLedger"] = str(path)
         out_dir = Path(archive.DEFAULT_DIR) / "reports"
         out_dir.mkdir(parents=True, exist_ok=True)
-        # One file per UTC day (the timer rebuilds every 30 minutes; the day's
-        # last build wins) plus latest.json — bounded growth, a daily history.
+        # One file per UTC day (the daily timer builds once; a manual rebuild the
+        # same day wins) plus latest.json — bounded growth, a daily history.
         rpath = out_dir / f"market_trade_ledger_{now.strftime('%Y-%m-%d')}.json"
         payload["reportPath"] = str(rpath)
         body = json.dumps(payload, indent=1, default=str).encode("utf-8")

@@ -414,7 +414,13 @@ def ktc_observations(
             rows = archive.read_identity_snapshot(sha, path=archive_path) if sha else None
             identity_cache[sha] = identity_from_rows(rows or [], source="archived_snapshot")
         out.append(normalize_ktc_row(r, identity_cache[sha], ctx))
-    revised = sum(1 for r in latest.values() if (r.get("revisionCount") or 1) > 1)
+    # A row without a revision count is not counted as revised (unknown is
+    # not "revised"), and no number is fabricated for it.
+    revised = sum(
+        1
+        for r in latest.values()
+        if isinstance(r.get("revisionCount"), int) and r["revisionCount"] > 1
+    )
     return out, {
         "available": True,
         "rawRevisions": len(raws),

@@ -1193,6 +1193,10 @@ main() {
   # Batch 3 Unit I; src/sources/ktc_trades.py).  Public page, no creds; a
   # 401/403/challenge persists a stop the script obeys.  Never moves a value.
   install_simple_timer "ktc-trades" "KTC Trade Database accumulation (Market Trade Ledger raw archive)"
+  # Daily rebuild of the DERIVED underlying-trade ledger + coverage report
+  # from that archive (src/trade/market_trade_report.py).  Its own unit so a
+  # rebuild can never eat the fetch's timeout/memory; box-local files only.
+  install_simple_timer "market-trade-ledger" "Market Trade Ledger daily rebuild (derived underlying-trade ledger)"
 
   # ── daemon-reload and enable ────────────────────────────────────────────
   # ce_needs_install was missing from this list. Every other timer's

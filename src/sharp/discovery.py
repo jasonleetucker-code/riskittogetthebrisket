@@ -164,6 +164,10 @@ class DiscoveryResult:
     frontier_users: list[str] = field(default_factory=list)
     frontier_leagues: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    # Leagues whose host-format capture (for the Market Trade Ledger) failed.
+    # Counted here, not debug-logged only: a silent rise means discovery rows
+    # are losing the format facts the ledger must never infer.
+    market_format_capture_failures: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -181,6 +185,7 @@ class DiscoveryResult:
             "excludedFromSharp": self.excluded_from_sharp,
             "frontierUsers": len(self.frontier_users),
             "frontierLeagues": len(self.frontier_leagues),
+            "marketFormatCaptureFailures": self.market_format_capture_failures,
             "errors": self.errors,
         }
 
@@ -203,7 +208,8 @@ def _league_roster_count_ok(league: dict[str, Any], cfg: dict[str, Any]) -> bool
 
 def _capture_market_format(league: dict[str, Any]) -> dict[str, Any] | None:
     """Host-format capture for the trade ledger; ``None`` on any failure so a
-    format problem can never break discovery itself."""
+    format problem can never break discovery itself (the caller COUNTS the
+    failure in :class:`DiscoveryResult`)."""
     try:
         from datetime import datetime, timezone  # noqa: PLC0415
 
@@ -396,6 +402,9 @@ def discover(
                     )
 
                 settings = lg.get("settings") if isinstance(lg.get("settings"), dict) else {}
+                market_format = _capture_market_format(lg)
+                if market_format is None:
+                    result.market_format_capture_failures += 1
                 leagues_batch.append(
                     {
                         "league_id": lid,
@@ -416,9 +425,12 @@ def discover(
                                 # Ledger (src/trade/market_trade_format.py),
                                 # which must never infer a league's format
                                 # from the manager who led us to it.
-                                "marketFormat": _capture_market_format(lg),
+                                "marketFormat": market_format,
                                 # How the league entered the sample (spec
                                 # §19.1 provenance), not who is a sharp.
+                                # FIRST-seen route; ``_keep_first_seen_
+                                # discovery`` preserves it across re-runs and
+                                # records this run's route as ``lastSeen``.
                                 "discovery": {"generation": gen, "viaUserId": uid},
                             }
                         ),
@@ -443,6 +455,7 @@ def discover(
         if users_batch:
             ledger.upsert_users(users_batch, conn=conn)
         if leagues_batch:
+            _keep_first_seen_discovery(leagues_batch, conn)
             ledger.upsert_leagues(leagues_batch, conn=conn)
         if memberships:
             ledger.upsert_memberships(memberships, conn=conn)
@@ -451,6 +464,55 @@ def discover(
 
     log.info("sharp.discovery: %s", result.to_dict())
     return result
+
+
+def _keep_first_seen_discovery(leagues_batch: list[dict[str, Any]], conn: Any) -> None:
+    """Preserve each league's FIRST-seen discovery route.
+
+    ``upsert_leagues`` replaces ``settings_json`` wholesale, so without this a
+    league re-reached through a different manager would have its §19.1 sample
+    provenance rewritten on every run.  The first-seen ``generation`` /
+    ``viaUserId`` stay at the top of ``discovery`` (what the ledger reads); the
+    current run's route is kept separately as ``lastSeen``.
+    """
+    ids = [str(row["league_id"]) for row in leagues_batch if row.get("league_id")]
+    existing: dict[str, dict[str, Any]] = {}
+    for k in range(0, len(ids), 500):
+        chunk = ids[k : k + 500]
+        marks = ",".join("?" for _ in chunk)
+        try:
+            rows = conn.execute(
+                f"SELECT league_id, settings_json FROM leagues WHERE league_id IN ({marks})",
+                chunk,
+            ).fetchall()
+        except Exception:  # noqa: BLE001 - provenance must never break discovery
+            log.debug("could not read prior discovery provenance", exc_info=True)
+            return
+        for lid, raw in rows:
+            try:
+                prior = json.loads(raw) if raw else {}
+            except (TypeError, ValueError):
+                continue
+            disc = prior.get("discovery") if isinstance(prior, dict) else None
+            if isinstance(disc, dict) and disc.get("viaUserId"):
+                existing[str(lid)] = disc
+    for row in leagues_batch:
+        try:
+            settings = json.loads(row.get("settings_json") or "{}")
+        except (TypeError, ValueError):
+            continue
+        current = settings.get("discovery")
+        if not isinstance(current, dict):
+            continue
+        last = {"generation": current.get("generation"), "viaUserId": current.get("viaUserId")}
+        prior = existing.get(str(row.get("league_id")))
+        first = (
+            {"generation": prior.get("generation"), "viaUserId": prior.get("viaUserId")}
+            if prior
+            else last
+        )
+        settings["discovery"] = {**first, "lastSeen": last}
+        row["settings_json"] = json.dumps(settings)
 
 
 def signal_eligible_league_ids(

@@ -65,6 +65,7 @@ def build_ledger(
     target_format: mtf.TradeMarketFormat | None = None,
     registry: mtf.TranslatorRegistry | None = None,
     lanes: Sequence[str] | None = None,
+    target_roster_positions: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     built = norm.build_observations(
         archive_path=archive_path,
@@ -80,7 +81,11 @@ def build_ledger(
     tgt = (
         target_format
         if target_format is not None
-        else mtf.format_from_registry(target_league, allow_stale_scoring=allow_stale_target_scoring)
+        else mtf.format_from_registry(
+            target_league,
+            allow_stale_scoring=allow_stale_target_scoring,
+            roster_positions=target_roster_positions,
+        )
     )
     for g in grouping.groups:
         fmt = g.get("_format") or mtf.TradeMarketFormat(source=mtf.SOURCE_UNKNOWN)
@@ -112,12 +117,63 @@ def persist_canonical_ledger(
     built_at: str | None = None,
     extra_meta: Mapping[str, Any] | None = None,
 ) -> Path:
-    """Rebuild the derived ledger wholesale; atomic rename into place."""
+    """Rebuild the derived ledger wholesale; atomic rename into place.
+
+    A run killed mid-build (OOM, timeout) cannot unlink its own temp file, so
+    every build first removes stale temp files left by earlier runs, and the
+    temp file is removed on any failure of this one.
+    """
     target = _ledger_path(root)
     target.parent.mkdir(parents=True, exist_ok=True)
+    remove_stale_temp_files(target.parent)
     tmp = target.with_name(f".{target.name}.{os.getpid()}.tmp")
     if tmp.exists():
         tmp.unlink()
+    try:
+        _write_ledger_db(tmp, groups, built_at=built_at, extra_meta=extra_meta)
+        os.replace(tmp, target)
+    finally:
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:  # pragma: no cover
+                pass
+    try:
+        os.chmod(target, 0o600)
+    except OSError:  # pragma: no cover
+        pass
+    return target
+
+
+#: A temp file younger than this may belong to a concurrent manual build and
+#: is left alone; anything older is a killed run's leftover.
+STALE_TEMP_AGE_SECONDS = 15 * 60
+
+
+def remove_stale_temp_files(directory: Path, *, now: float | None = None) -> list[str]:
+    """Delete ``.underlying_trades.sqlite.<pid>.tmp`` files left by killed runs
+    (older than :data:`STALE_TEMP_AGE_SECONDS`).  Returns the names removed."""
+    import time  # noqa: PLC0415
+
+    cutoff = (time.time() if now is None else now) - STALE_TEMP_AGE_SECONDS
+    removed: list[str] = []
+    for p in Path(directory).glob(f".{LEDGER_FILENAME}.*.tmp"):
+        try:
+            if p.stat().st_mtime < cutoff:
+                p.unlink()
+                removed.append(p.name)
+        except OSError:  # pragma: no cover - raced with another cleaner
+            continue
+    return removed
+
+
+def _write_ledger_db(
+    tmp: Path,
+    groups: Sequence[Mapping[str, Any]],
+    *,
+    built_at: str | None,
+    extra_meta: Mapping[str, Any] | None,
+) -> None:
     conn = sqlite3.connect(tmp)
     try:
         conn.executescript(
@@ -184,12 +240,6 @@ def persist_canonical_ledger(
         conn.commit()
     finally:
         conn.close()
-    os.replace(tmp, target)
-    try:
-        os.chmod(target, 0o600)
-    except OSError:  # pragma: no cover
-        pass
-    return target
 
 
 def _date_range(dates: Sequence[str | None]) -> dict[str, Any]:

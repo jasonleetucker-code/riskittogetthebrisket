@@ -1,0 +1,57 @@
+[Unit]
+Description=Dynasty Trade Calculator Market Trade Ledger rebuild (__SERVICE_NAME__)
+After=network-online.target
+
+# Rebuilds the DERIVED canonical underlying-trade ledger
+# (data/market_trades/underlying_trades.sqlite) and its coverage report
+# (data/market_trades/reports/) from the box-local raw evidence: the KTC raw
+# archive (dynasty-ktc-trades), the read-only Sharp intel ledger and the
+# acquisition store.  Owner: src/trade/market_trade_report.py.  Evidence for
+# comps / liquidity / evaluation only — it never moves a canonical value.
+#
+# WHY ITS OWN DAILY UNIT (it used to be the KTC fetch's every-30-minute
+# ExecStartPost):
+#   * nothing reads the derived ledger on a request path or on a schedule —
+#     it is a research artifact whose report is already one file per UTC day,
+#     so 48 rebuilds a day produced one surviving report and 47 discarded ones;
+#   * the raw archive is append-only, so a rebuild can never MISS evidence by
+#     running later; only the KTC FETCH races the rolling window, and it keeps
+#     its every-30-minute cadence untouched;
+#   * a separate unit is a separate failure domain: a slow or memory-hungry
+#     rebuild can no longer eat the fetch's TimeoutStartSec or share its
+#     cgroup, and a killed rebuild cannot fail a capture.
+# 08:52 UTC runs after the day's Sharp discovery (04:20), records (04:50),
+# rosters (05:50) and the 08:20 transactions pass, so it sees fresh formats
+# and the morning's Sleeper-lane trades.
+#
+# Exit codes (scripts/market_trade_ledger.py): 0 built · 1 error · 2 no
+# observations in any lane.  Nothing downstream is user-facing.
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+# No EnvironmentFile: reads box-local files only and needs no secret.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=__APP_DIR__/data
+# --no-board skips the residual pass (run scripts/market_trade_ledger.py by
+# hand for residuals against a board).
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/market_trade_ledger.py --no-board
+StandardOutput=journal
+StandardError=journal
+Nice=10
+IOSchedulingClass=idle
+# Bounded: the grouping is blocked (src/trade/market_trade_groups.py), measured
+# ~1 s and ~50 MB peak for 20k synthetic observations; 1G is a hard ceiling
+# against a regression, not a working-set estimate.  A kill leaves at most one
+# temp file, which the next run removes before building.
+MemoryHigh=768M
+MemoryMax=1G
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target

@@ -29,6 +29,35 @@ THE HIERARCHY, EXACTLY AS §19.5 WRITES IT
 **Never date + package alone.**  Two leagues trading the identical package on
 the same day stay two trades: different host league ids are DISTINCT
 evidence, and a package match with no league identity is at most POSSIBLE.
+
+TWO RECORDING GAPS THAT MUST NOT MANUFACTURE A "DISTINCT"
+────────────────────────────────────────────────────────
+* **FAAB inside a trade.**  KTC records FAAB money as an asset; the Sleeper
+  lanes cannot see it (caveat ``sleeper_trade_faab_component_not_recorded``).
+  When either observation carries that caveat, packages are compared with
+  FAAB stripped from BOTH sides — otherwise the same trade in the same league
+  would read as two different packages and be counted twice.
+* **Partial Sleeper records** (``partial_record_*`` / ``released_in_trade``
+  caveats).  The record is known to be incomplete, so a package mismatch (or
+  a team-count mismatch) against a same-league row that shares an asset is at
+  most POSSIBLE, never DISTINCT.
+
+BLOCKING (why this is not quadratic)
+────────────────────────────────────
+Candidate pairs are generated only where :func:`classify_pair` could answer
+something other than DISTINCT, and the blocks are derived from its rules, so
+blocking drops no pair it would have kept:
+
+* same host transaction / explicit cross-reference — keyed by the host tx;
+* same ``(host, leagueId)`` — dates within the tolerance, and never two rows
+  that both carry a host tx id (same league + two tx ids is DISTINCT);
+* a row with NO host league identity can only be POSSIBLE on a package match,
+  so it is compared only within its FAAB-stripped package signature, dates
+  within the tolerance.
+
+Never by a single shared asset: a generic pick key (``mpick:2026:r1``) sits in
+most trades, and blocking on it was O(n^2) — ~200M candidate tuples at 20k
+rows.
 """
 
 from __future__ import annotations
@@ -70,14 +99,42 @@ def underlying_trade_id_for_host_tx(host: str, league_id: str, tx_id: str) -> st
     return f"utrade:{host}:{league_id}:{tx_id}"
 
 
-def side_signature(side: Sequence[Mapping[str, Any]]) -> tuple[str, ...]:
-    return tuple(sorted(str(a["matchKey"]) for a in side))
+#: Sleeper lanes cannot see FAAB money that changes hands inside a trade.
+FAAB_NOT_RECORDED_CAVEAT = "sleeper_trade_faab_component_not_recorded"
+#: Caveats that say a Sleeper record is incomplete (``_sides_from_movements``).
+PARTIAL_RECORD_CAVEAT_PREFIXES = ("partial_record_", "released_in_trade")
 
 
-def package_signature(obs: Mapping[str, Any]) -> tuple[tuple[str, ...], ...]:
+def _caveats(obs: Mapping[str, Any]) -> list[str]:
+    return [str(c) for c in (obs.get("caveats") or [])]
+
+
+def faab_unrecorded(obs: Mapping[str, Any]) -> bool:
+    return FAAB_NOT_RECORDED_CAVEAT in _caveats(obs)
+
+
+def partial_record(obs: Mapping[str, Any]) -> bool:
+    return any(c.startswith(PARTIAL_RECORD_CAVEAT_PREFIXES) for c in _caveats(obs))
+
+
+def _is_faab(asset: Mapping[str, Any]) -> bool:
+    return asset.get("kind") == "faab" or str(asset.get("matchKey") or "").startswith("faab:")
+
+
+def side_signature(
+    side: Sequence[Mapping[str, Any]], *, strip_faab: bool = False
+) -> tuple[str, ...]:
+    return tuple(sorted(str(a["matchKey"]) for a in side if not (strip_faab and _is_faab(a))))
+
+
+def package_signature(
+    obs: Mapping[str, Any], *, strip_faab: bool = False
+) -> tuple[tuple[str, ...], ...]:
     """Orientation-free: the multiset of side multisets.  A-for-B and B-for-A
-    produce the same signature; empty sides (a team that only gave) count."""
-    return tuple(sorted(side_signature(s) for s in obs["sides"]))
+    produce the same signature; empty sides (a team that only gave) count.
+    ``strip_faab`` drops FAAB money from every side (used when either side of
+    a comparison could not record it)."""
+    return tuple(sorted(side_signature(s, strip_faab=strip_faab) for s in obs["sides"]))
 
 
 def fully_resolved(obs: Mapping[str, Any]) -> bool:
@@ -139,10 +196,15 @@ def classify_pair(
     da, db = _day(a), _day(b)
     if da and db and abs((da - db).days) > day_tolerance:
         return REL_DISTINCT, f"dates {abs((da - db).days)} days apart"
+    partial = partial_record(a) or partial_record(b)
     if a.get("teamCount") and b.get("teamCount") and a["teamCount"] != b["teamCount"]:
-        return REL_DISTINCT, "different number of teams in the transaction"
+        # A partial record may be missing a roster, so its team count is not
+        # evidence of a different trade.
+        if not partial:
+            return REL_DISTINCT, "different number of teams in the transaction"
 
-    same_package = package_signature(a) == package_signature(b)
+    strip = faab_unrecorded(a) or faab_unrecorded(b)
+    same_package = package_signature(a, strip_faab=strip) == package_signature(b, strip_faab=strip)
     both_resolved = fully_resolved(a) and fully_resolved(b)
     dated = da is not None and db is not None
     same_league = ha is not None and ha == hb
@@ -162,6 +224,11 @@ def classify_pair(
         # Same league, overlapping assets, an unresolved reference could be
         # hiding the difference — not provable either way.
         return REL_POSSIBLE, "same league, overlapping assets, unresolved reference"
+    if same_league and partial:
+        # The Sleeper record is known to be incomplete (an add with no sender,
+        # or an asset released inside the trade), so the mismatch may be the
+        # recording gap rather than a different trade.
+        return REL_POSSIBLE, "same league, overlapping assets, partial host record"
     return REL_DISTINCT, "packages differ"
 
 
@@ -191,31 +258,92 @@ class GroupingResult:
     volume: dict[str, Any] = field(default_factory=dict)
 
 
+def _window_partners(
+    i: int,
+    day_i: date | None,
+    by_day: Mapping[date, Sequence[int]],
+    undated: Sequence[int],
+    everyone: Sequence[int],
+    day_tolerance: int,
+) -> Iterable[int]:
+    """Members of one block whose dates could be within the tolerance of row
+    ``i`` (an undated row on either side cannot be ruled out)."""
+    if day_i is None:
+        return everyone
+    out: list[int] = list(undated)
+    for k in range(-day_tolerance, day_tolerance + 1):
+        out.extend(by_day.get(date.fromordinal(day_i.toordinal() + k), ()))
+    return out
+
+
 def _candidate_pairs(
     observations: Sequence[Mapping[str, Any]], day_tolerance: int
 ) -> set[tuple[int, int]]:
-    """Pairs that could relate: same host transaction, or sharing a resolved
-    asset.  Everything else is DISTINCT by construction, so it is not compared
-    (a quadratic scan over a season of trades is not needed to say so)."""
+    """Pairs :func:`classify_pair` could relate; everything else is DISTINCT
+    by construction (see BLOCKING in the module docstring)."""
     pairs: set[tuple[int, int]] = set()
-    by_tx: dict[tuple[str, str, str], list[int]] = {}
-    by_key: dict[str, list[int]] = {}
+
+    def add(i: int, j: int) -> None:
+        if i != j:
+            pairs.add((i, j) if i < j else (j, i))
+
+    days = [_day(o) for o in observations]
+    has_tx = [_host_tx(o) is not None for o in observations]
+
+    # 1. Same host transaction, or an explicit cross-reference to one.
+    by_tx: dict[tuple[str, ...], list[int]] = {}
     for i, obs in enumerate(observations):
         tx = _host_tx(obs)
         if tx:
             by_tx.setdefault(tx, []).append(i)
         for ref in obs.get("crossRefs") or []:
-            by_tx.setdefault(tuple(map(str, ref)), []).append(i)  # type: ignore[arg-type]
-        for k in resolved_keys(obs):
-            by_key.setdefault(k, []).append(i)
-    for bucket in list(by_tx.values()) + list(by_key.values()):
-        if len(bucket) < 2:
-            continue
+            by_tx.setdefault(tuple(map(str, ref)), []).append(i)
+    for bucket in by_tx.values():
         for x in range(len(bucket)):
             for y in range(x + 1, len(bucket)):
-                i, j = bucket[x], bucket[y]
-                if i != j:
-                    pairs.add((min(i, j), max(i, j)))
+                add(bucket[x], bucket[y])
+
+    # 2. Same (host, league), dates within the tolerance.  Two rows that both
+    #    carry a host tx id are skipped: same league + two ids is DISTINCT,
+    #    and the same id was already paired in step 1.
+    # 3. No league identity: only a package match can relate it, so block on
+    #    the FAAB-stripped package signature (a superset of the exact one).
+    by_league: dict[tuple[str, str], list[int]] = {}
+    by_package: dict[tuple[tuple[str, ...], ...], list[int]] = {}
+    for i, obs in enumerate(observations):
+        hk = _host_key(obs)
+        if hk is not None:
+            by_league.setdefault(hk, []).append(i)
+        by_package.setdefault(package_signature(obs, strip_faab=True), []).append(i)
+
+    def index(members: Sequence[int]) -> tuple[dict[date, list[int]], list[int]]:
+        by_day: dict[date, list[int]] = {}
+        undated: list[int] = []
+        for m in members:
+            if days[m] is None:
+                undated.append(m)
+            else:
+                by_day.setdefault(days[m], []).append(m)
+        return by_day, undated
+
+    for members in by_league.values():
+        if len(members) < 2:
+            continue
+        by_day, undated = index(members)
+        for i in members:
+            if has_tx[i]:
+                continue  # its tx-less partners reach it from their own side
+            for j in _window_partners(i, days[i], by_day, undated, members, day_tolerance):
+                add(i, j)
+
+    for members in by_package.values():
+        unkeyed = [m for m in members if _host_key(observations[m]) is None]
+        if not unkeyed or len(members) < 2:
+            continue
+        by_day, undated = index(members)
+        for i in unkeyed:
+            for j in _window_partners(i, days[i], by_day, undated, members, day_tolerance):
+                add(i, j)
     return pairs
 
 
@@ -263,7 +391,8 @@ def group_observations(
     by_id = {str(o["observationId"]): o for o in observations}
 
     edges: list[dict[str, Any]] = []
-    for i, j in sorted(_candidate_pairs(observations, day_tolerance)):
+    candidates = _candidate_pairs(observations, day_tolerance)
+    for i, j in sorted(candidates):
         rel, evidence = classify_pair(observations[i], observations[j], day_tolerance=day_tolerance)
         if rel == REL_DISTINCT:
             continue
@@ -310,16 +439,21 @@ def group_observations(
     for root, members in components.items():
         root_to_gid[root] = _group_id([by_id[m] for m in members])
 
+    internal_by_root: dict[str, list[dict[str, Any]]] = {}
+    external_by_root: dict[str, set[str]] = {}
+    for e in edges:
+        ra, rb = uf.find(e["a"]), uf.find(e["b"])
+        if ra == rb:
+            internal_by_root.setdefault(ra, []).append(e)
+        elif e["relation"] == REL_POSSIBLE:
+            external_by_root.setdefault(ra, set()).add(rb)
+            external_by_root.setdefault(rb, set()).add(ra)
+
     groups: list[dict[str, Any]] = []
     for root, member_ids in components.items():
         members = [by_id[m] for m in sorted(member_ids)]
-        internal = [e for e in edges if uf.find(e["a"]) == root and uf.find(e["b"]) == root]
-        external = [
-            e
-            for e in edges
-            if e["relation"] == REL_POSSIBLE
-            and ((uf.find(e["a"]) == root) ^ (uf.find(e["b"]) == root))
-        ]
+        internal = internal_by_root.get(root, [])
+        external = external_by_root.get(root, set())
         rels = {e["relation"] for e in internal}
         if len(members) > 1:
             state = PROBABLE_DUPLICATE if REL_PROBABLE in rels else CONFIRMED_DUPLICATE
@@ -330,9 +464,7 @@ def group_observations(
         else:
             state = CONFIRMED_UNIQUE
         rep = _representative(members)
-        related = sorted(
-            {root_to_gid[uf.find(e["b"] if uf.find(e["a"]) == root else e["a"])] for e in external}
-        )
+        related = sorted({root_to_gid[other] for other in external})
         flags: dict[str, Any] = {}
         for m in members:
             for k, v in (m.get("vendorFlags") or {}).items():
@@ -390,6 +522,7 @@ def group_observations(
         edges=edges,
         volume={
             "rawObservations": len(ids),
+            "candidatePairsCompared": len(candidates),
             "underlyingTradesPointEstimate": len(groups),
             "underlyingTradesLowerBound": lower,
             "underlyingTradesUpperBound": upper,

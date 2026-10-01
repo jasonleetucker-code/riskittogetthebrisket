@@ -139,6 +139,49 @@ def test_residual_report_excludes_1qb_and_lookahead_boards():
     assert rep["perSource"]["canonical"]["inSampleRisk"] is True
 
 
+@pytest.mark.parametrize(
+    "dynasty_state,reason",
+    [
+        ("redraft", "dynasty_state:redraft"),
+        ("keeper", "dynasty_state:keeper"),
+        (None, "dynasty_state:unknown"),
+    ],
+)
+def test_residuals_admit_dynasty_leagues_only(dynasty_state, reason):
+    fmt = {"general": {"dynastyState": dynasty_state}, "offense": {"superflex": True}}
+    t = trade([[P("player:1")], [P("player:2")]], fmt=fmt)
+    rep = E.residual_report([t], BOARD, board_date=date(2026, 9, 30), sources=["canonical"])
+    assert rep["eligibleTrades"] == 0
+    assert rep["excludedByReason"] == {reason: 1}
+
+
+@pytest.mark.parametrize("state", ["POSSIBLE_OVERLAP", "UNRESOLVED"])
+def test_unproven_unique_groups_never_enter_residual_n(state):
+    ok_t = trade([[P("player:1")], [P("player:2")]])
+    overlap = trade([[P("player:1")], [P("player:2")]], state=state)
+    rep = E.residual_report(
+        [ok_t, overlap], BOARD, board_date=date(2026, 9, 30), sources=["canonical"]
+    )
+    assert rep["eligibleTrades"] == 1
+    assert rep["perSource"]["canonical"]["all"]["n"] == 1
+    assert rep["excludedByReason"] == {f"dedupe_state:{state}": 1}
+
+
+def test_probable_and_confirmed_duplicate_groups_count_once():
+    probable = trade([[P("player:1")], [P("player:2")]], state="PROBABLE_DUPLICATE")
+    rep = E.residual_report([probable], BOARD, board_date=date(2026, 9, 30), sources=["canonical"])
+    assert rep["eligibleTrades"] == 1
+
+
+def test_unknown_board_date_fails_closed_instead_of_skipping_the_lookahead_guard():
+    t = trade([[P("player:1")], [P("player:2")]], d="2026-01-01")
+    ok, why = E.residual_eligible(t, E.classify_topology(t), board_date=None)
+    assert (ok, why) == (False, E.BOARD_DATE_UNKNOWN)
+    rep = E.residual_report([t], BOARD, board_date=None, sources=["canonical"])
+    assert rep["available"] is False and rep["reason"] == E.BOARD_DATE_UNKNOWN
+    assert rep["eligibleTrades"] == 0 and rep["perSource"] == {}
+
+
 def test_latent_readiness_reports_counts_and_builds_no_model():
     t1 = trade([[P("player:1")], [P("player:2")]])
     out = E.latent_fit_readiness([t1, t1])

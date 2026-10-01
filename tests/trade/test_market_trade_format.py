@@ -286,3 +286,60 @@ def test_capture_keeps_host_facts_only():
         F.format_from_sleeper_league(cap).to_dict()["fingerprint"]
         == TARGET.to_dict()["fingerprint"]
     )
+
+
+# ── Target format from the registry (review finding 6) ────────────────────
+
+
+def _registry(monkeypatch, entry):
+    from src.api import league_registry as reg
+
+    cfg = reg._parse_league_entry({"key": "tgt", "sleeperLeagueId": "999", **entry})
+    monkeypatch.setattr(reg, "get_league_by_key", lambda key: cfg if key == "tgt" else None)
+    monkeypatch.setattr(reg, "scoring_evidence_state", lambda c: "missing")
+    monkeypatch.setattr(reg, "scoring_settings_for_league", lambda c: None)
+    return cfg
+
+
+REG_STARTERS = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "SUPER_FLEX": 1, "DL": 2, "LB": 2, "DB": 2}
+
+
+def test_registry_target_uses_the_canonical_starter_ladder(monkeypatch):
+    _registry(monkeypatch, {"rosterSettings": {"starters": REG_STARTERS, "teamCount": 12}})
+    reg_only = F.format_from_registry("tgt")
+    assert reg_only.vendor["starterSource"] == "registry_starters"
+    assert reg_only.total_starters == sum(REG_STARTERS.values())
+    # Live host positions outrank the registry (same ladder as src/ros/lineup).
+    live = F.format_from_registry("tgt", roster_positions=TARGET_POSITIONS)
+    assert live.vendor["starterSource"] == "sleeper_roster_positions"
+    assert live.to_dict()["offense"] == TARGET.to_dict()["offense"]
+
+
+def test_registry_target_refuses_rather_than_inventing_a_lineup(monkeypatch):
+    _registry(monkeypatch, {"rosterSettings": {"teamCount": 12}})
+    f = F.format_from_registry("tgt")
+    assert f.vendor["starterSource"] is None
+    assert f.demand is None and f.total_starters is None and f.superflex is None
+
+
+def test_registry_defaults_are_not_facts(monkeypatch):
+    # Neither bestBall nor idpEnabled stated, and no lineup resolves.
+    _registry(monkeypatch, {"rosterSettings": {"teamCount": 12}})
+    f = F.format_from_registry("tgt")
+    assert f.best_ball is None, "an unstated bestBall default is UNKNOWN, not False"
+    assert f.idp_enabled is None, "an unstated idpEnabled default is UNKNOWN, not False"
+
+
+def test_stated_registry_facts_are_used(monkeypatch):
+    _registry(
+        monkeypatch,
+        {"rosterSettings": {"teamCount": 12}, "bestBall": True, "idpEnabled": True},
+    )
+    f = F.format_from_registry("tgt")
+    assert f.best_ball is True and f.idp_enabled is True
+
+
+def test_resolved_lineup_decides_idp_over_a_stated_flag(monkeypatch):
+    offense_only = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
+    _registry(monkeypatch, {"rosterSettings": {"starters": offense_only}, "idpEnabled": True})
+    assert F.format_from_registry("tgt").idp_enabled is False

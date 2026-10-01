@@ -163,6 +163,45 @@ def test_canonical_ledger_is_separate_from_raw_and_rebuilt_wholesale(env):
     assert A.coverage(N.SOURCE_KTC, path=env["archive"])["observations"] == 2
 
 
+def test_killed_runs_temp_files_are_removed_and_a_failed_build_leaves_none(env, monkeypatch):
+    import os
+    import time
+
+    _seed(env)
+    groups = _build(env)["grouping"].groups
+    root = env["tmp"] / "mt"
+    root.mkdir(parents=True, exist_ok=True)
+    stale = root / f".{R.LEDGER_FILENAME}.99999.tmp"
+    fresh = root / f".{R.LEDGER_FILENAME}.88888.tmp"
+    stale.write_bytes(b"x" * 1024)
+    fresh.write_bytes(b"y")
+    old = time.time() - R.STALE_TEMP_AGE_SECONDS - 60
+    os.utime(stale, (old, old))
+    R.persist_canonical_ledger(groups, root=root)
+    assert not stale.exists(), "a killed run's leftover is removed on the next build"
+    assert fresh.exists(), "a young temp file may be a concurrent manual build"
+
+    # A build that fails mid-write removes its own temp file and leaves the
+    # previous ledger in place.
+    before = (root / R.LEDGER_FILENAME).read_bytes()
+
+    def boom(*a, **k):
+        raise RuntimeError("simulated failure mid-build")
+
+    real = R._write_ledger_db
+
+    def partial_then_boom(tmp, *a, **k):
+        tmp.write_bytes(b"partial")
+        boom()
+
+    monkeypatch.setattr(R, "_write_ledger_db", partial_then_boom)
+    with pytest.raises(RuntimeError):
+        R.persist_canonical_ledger(groups, root=root)
+    monkeypatch.setattr(R, "_write_ledger_db", real)
+    assert not list(root.glob(f".{R.LEDGER_FILENAME}.{os.getpid()}.tmp"))
+    assert (root / R.LEDGER_FILENAME).read_bytes() == before
+
+
 def test_repeat_build_is_deterministic(env):
     _seed(env)
     a = [g["underlyingTradeId"] for g in _build(env)["grouping"].groups]

@@ -295,6 +295,11 @@ def _summarize(rels: Sequence[float]) -> dict[str, Any]:
     }
 
 
+#: Groups whose uniqueness is not proven never enter residual n.
+RESIDUAL_EXCLUDED_DEDUPE_STATES = ("POSSIBLE_OVERLAP", "UNRESOLVED")
+BOARD_DATE_UNKNOWN = "board_date_unknown_lookahead_unverifiable"
+
+
 def residual_eligible(
     trade: Mapping[str, Any],
     topo: Mapping[str, Any],
@@ -302,29 +307,43 @@ def residual_eligible(
     board_date: date | None,
     max_board_lag_days: int = DEFAULT_MAX_BOARD_LAG_DAYS,
 ) -> tuple[bool, str | None]:
+    if board_date is None:
+        # Without the board's date the look-ahead guard cannot run, and a board
+        # built AFTER the trade would grade it with future values.  Fail closed.
+        return False, BOARD_DATE_UNKNOWN
     if topo["topology"] not in (TOPO_1_FOR_1, TOPO_2_FOR_1, TOPO_N_FOR_1, TOPO_MULTI):
         return False, f"topology:{topo['topology']}"
     for flag in ("includes_unresolved", "includes_faab", "includes_startup_pick"):
         if flag in topo["flags"]:
             return False, flag
-    if (trade.get("marketFormat") or {}).get("offense", {}).get("superflex") is not True:
+    state = trade.get("dedupeState")
+    if state in RESIDUAL_EXCLUDED_DEDUPE_STATES:
+        # Not proven unique: it may be the same real trade as another group
+        # already in n, so it is left out of n rather than risk one event
+        # counting twice (§19.6).  Disclosed in excludedByReason.
+        return False, f"dedupe_state:{state}"
+    fmt = trade.get("marketFormat") or {}
+    dynasty_state = (fmt.get("general") or {}).get("dynastyState")
+    if dynasty_state != "dynasty":
+        # The board is a DYNASTY board; a redraft / keeper / unknown-type
+        # trade cleared under a different horizon.  Unknown is not dynasty.
+        return False, f"dynasty_state:{dynasty_state or 'unknown'}"
+    if (fmt.get("offense") or {}).get("superflex") is not True:
         # The board is a SUPERFLEX TE++ board; a 1QB or unknown-QB trade cleared
         # under a different QB economy and grading it here measures the format.
         return False, "board_basis_superflex_mismatch_or_unknown"
-    if board_date is not None:
-        try:
-            d = date.fromisoformat(str(trade.get("occurredDate")))
-        except (TypeError, ValueError):
-            return False, "undated_trade"
-        # The board must be AT OR BEFORE the trade (the information the
-        # managers could have held) and not stale relative to it.  A board
-        # built after the trade is a future snapshot — look-ahead — and is
-        # never used to grade it.
-        lag = (d - board_date).days
-        if lag < 0:
-            return False, "board_after_trade_lookahead"
-        if lag > max_board_lag_days:
-            return False, "board_older_than_max_lag"
+    try:
+        d = date.fromisoformat(str(trade.get("occurredDate")))
+    except (TypeError, ValueError):
+        return False, "undated_trade"
+    # The board must be AT OR BEFORE the trade (the information the managers
+    # could have held) and not stale relative to it.  A board built after the
+    # trade is a future snapshot — look-ahead — and is never used to grade it.
+    lag = (d - board_date).days
+    if lag < 0:
+        return False, "board_after_trade_lookahead"
+    if lag > max_board_lag_days:
+        return False, "board_older_than_max_lag"
     return True, None
 
 
@@ -336,7 +355,25 @@ def residual_report(
     sources: Iterable[str] | None = None,
     max_board_lag_days: int = DEFAULT_MAX_BOARD_LAG_DAYS,
 ) -> dict[str, Any]:
-    """Per-source residual summaries over identifiable trades only."""
+    """Per-source residual summaries over identifiable trades only.
+
+    Refuses to grade at all when ``board_date`` is unknown: the look-ahead
+    guard needs it, and skipping the guard would let a board built after the
+    trade grade it (fail closed, never fail open)."""
+    if board_date is None:
+        return {
+            "available": False,
+            "reason": BOARD_DATE_UNKNOWN,
+            "eligibleTrades": 0,
+            "excludedByReason": {BOARD_DATE_UNKNOWN: len(trades)},
+            "boardDate": None,
+            "maxBoardLagDays": max_board_lag_days,
+            "perSource": {},
+            "notes": [
+                "refused: the board's date is unknown, so a board built after a trade "
+                "cannot be ruled out (look-ahead); supply a dated board"
+            ],
+        }
     eligible: list[Mapping[str, Any]] = []
     excluded: dict[str, int] = {}
     for t in trades:
@@ -393,6 +430,7 @@ def residual_report(
             ),
         }
     return {
+        "available": True,
         "eligibleTrades": len(eligible),
         "excludedByReason": dict(sorted(excluded.items())),
         "boardDate": board_date.isoformat() if board_date else None,
@@ -404,6 +442,7 @@ def residual_report(
             "KTC Trades / KTC Market (and the canonical board, which votes KTC Trades) are partly in-sample on KTC rows; see rowsNotYetConsumedByKtcTrades",
             "isUsedInVft is a PROCESSING flag: measured 2026-10-01, 10 of 200 rows flipped False -> True within ~25 minutes of first appearing, so False mostly means not yet consumed (the latest archived revision governs), not deliberately excluded",
             "rank sources' values are their Hill-transformed votes on the canonical scale, not vendor values",
+            "n counts proven-unique groups only: POSSIBLE_OVERLAP / UNRESOLVED groups are excluded (see excludedByReason dedupe_state:*), and non-dynasty or unknown-type leagues are excluded (dynasty_state:*)",
         ],
     }
 

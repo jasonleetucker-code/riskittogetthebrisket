@@ -12,7 +12,8 @@ fetch is a snapshot; runs accumulate into ``data/market_trades/archive.sqlite``
 stored once; a changed row is kept as a revision.  Owner: src/sources/ktc_trades.py.
 
 Exit codes: 0 archived / not modified / skipped · 1 fetch failed, quarantined
-or stopped (401/403/challenge persists a stop) · 2 rate limited.
+or stopped (401/403/challenge, or 3 consecutive quarantines, persists a stop
+that only --clear-stop lifts; --force bypasses the min interval only) · 2 rate limited.
 """
 
 from __future__ import annotations
@@ -34,7 +35,9 @@ def main() -> int:
     )
     parser.add_argument("--min-interval-minutes", type=float, default=None)
     parser.add_argument(
-        "--force", action="store_true", help="ignore the min interval and a persisted stop"
+        "--force",
+        action="store_true",
+        help="ignore the min interval only; a persisted stop is lifted by --clear-stop alone",
     )
     parser.add_argument("--stats", action="store_true", help="print archive coverage and exit")
     parser.add_argument(
