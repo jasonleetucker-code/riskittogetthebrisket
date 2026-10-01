@@ -31,6 +31,7 @@ import {
   tabPanelId,
 } from "@/components/ds";
 import { useBdvmEndpoint } from "@/components/useBdvm";
+import BdvmScoringNotice from "@/components/BdvmScoringNotice";
 import {
   BDVM_STRATEGIES,
   BDVM_SURPLUS_MODES,
@@ -196,6 +197,14 @@ function ValuesTab({ active, surplusMode, setSurplusMode }) {
               proxy
             </Badge>
           ) : null}
+          {r.unscoredKeys.length > 0 ? (
+            <Badge
+              tone="neutral"
+              title={`Partial total — unscored league rules: ${r.unscoredKeys.join(", ")}. Each may push the true total up or down.`}
+            >
+              partial
+            </Badge>
+          ) : null}
         </span>
       ),
     },
@@ -339,6 +348,11 @@ function ValuesTab({ active, surplusMode, setSurplusMode }) {
           meta={meta.paramSetId}
         />
       </div>
+
+      {/* Card rules the projections could not score: partial totals,
+          signed per rule (never described as a floor). Renders nothing
+          when the census is empty or absent. */}
+      <BdvmScoringNotice payload={data} />
 
       <Panel
         flush

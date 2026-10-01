@@ -24,6 +24,11 @@
 //     than restated (rank limit, scale, freshness formula), so the prose
 //     cannot advertise a number the board is not held to.
 //
+// The per-player backend explanation (GET /api/players/{p}/value-explain,
+// value-explain/v2) has its enum labels in lib/value-explain-contract.js —
+// split out so they ship only in the Player File's lazily loaded
+// explanation chunk instead of in the chunk Rankings shares. Same rules.
+//
 // Canonical owners: src/api/data_contract.py::_compute_unified_rankings
 // (value), src/api/confidence.py (confidence), src/sources/freshness.py +
 // config/sources/freshness_v1.json (freshness weighting),
@@ -275,6 +280,11 @@ export function boardClocks(rawData) {
 const SOURCE_LABELS = Object.fromEntries(
   RANKING_SOURCES.map((s) => [s.key, s.columnLabel || s.displayName || s.key]),
 );
+
+/** Short display label for a registered source key; the key itself otherwise. */
+export function sourceLabel(key) {
+  return SOURCE_LABELS[key] || (key == null ? "" : String(key));
+}
 
 function subsetFor(row, sourceEntry) {
   const subsets = sourceEntry?.subsets || {};
