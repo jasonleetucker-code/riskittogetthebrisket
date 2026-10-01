@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import subprocess
 
 import pytest
 
@@ -214,13 +215,13 @@ def test_a_lock_naming_one_version_twice_is_rejected():
         fd.build_dictionary(_doc(), lock=lock)
 
 
-def test_the_base_branch_lock_is_a_prefix_of_this_lock():
-    """Append-only across history: every row the base locked survives here,
-    unchanged and in order. The logic lives in scripts/check_feature_dictionary_lock.py
-    (push event -> the payload's ``before``; PR -> merge-base; on main -> HEAD~1),
-    and this gate runs exactly that check, so the two cannot disagree. Locally an
-    unavailable base skips (exit 2); under CI it FAILS (exit 1) — a gate that
-    cannot find its input has not passed."""
+def test_the_lock_is_immutable_across_its_whole_history():
+    """Append-only across history: every (name, version) the lock has EVER held,
+    in any commit reachable from HEAD, survives here with its first hash. The
+    logic lives in scripts/check_feature_dictionary_lock.py and this gate runs
+    exactly that check, so the two cannot disagree. Locally an unavailable or
+    shallow history skips (exit 2); under CI it FAILS (exit 1) — a gate that
+    cannot read its input has not passed."""
     code, message = chk.check()
     if code == 2:
         assert not os.environ.get("CI")
@@ -228,195 +229,214 @@ def test_the_base_branch_lock_is_a_prefix_of_this_lock():
     assert code == 0, message
 
 
-# ── the lock-history script, with a fake git ────────────────────────────────
+# ── the lock-history script, against real temporary git repositories ───────
+
+_LOCK_REL = chk.LOCK_REL
 
 
-class _FakeGit:
-    """``commits``: shas that exist (``cat-file -e <sha>^{commit}``); ``files``:
-    ``"<sha>:<path>"`` -> text (``None`` = listed in the tree but unreadable)."""
-
-    def __init__(self, revs: dict[str, str], merge_bases: dict[str, str], files=None, commits=()):
-        self.revs, self.merge_bases, self.files = revs, merge_bases, files or {}
-        self.commits = set(commits) | set(revs.values())
-        self.commits |= {key.split(":", 1)[0] for key in self.files}
-
-    def __call__(self, *args: str):
-        if args[0] == "rev-parse":
-            ref = args[-1].removesuffix("^{commit}")
-            return (0, self.revs[ref] + "\n") if ref in self.revs else (1, "")
-        if args[0] == "merge-base":
-            mb = self.merge_bases.get(args[2])
-            return (0, mb + "\n") if mb else (1, "")
-        if args[0] == "cat-file":
-            sha = args[2].removesuffix("^{commit}")
-            return (0, "") if sha in self.commits else (128, "")
-        if args[0] == "ls-tree":
-            sha, path = args[1], args[3]
-            if sha not in self.commits:
-                return 128, ""
-            return (0, f"100644 blob x\t{path}\n") if f"{sha}:{path}" in self.files else (0, "")
-        if args[0] == "show":
-            text = self.files.get(args[1])
-            return (0, text) if isinstance(text, str) else (128, "")
-        raise AssertionError(args)
+def _h(ch: str) -> str:
+    return ch * 64
 
 
-def _event(tmp_path, payload) -> str:
-    path = tmp_path / "event.json"
-    path.write_text(payload if isinstance(payload, str) else json.dumps(payload), "utf-8")
-    return str(path)
-
-
-_LOCK_REL = fd.DEFAULT_LOCK_PATH.relative_to(fd.REPO).as_posix()
-
-
-def test_on_a_push_event_the_base_is_the_pushs_before_not_head_1(tmp_path):
-    """Round-3 D1: a push of three commits h <- p <- q <- b(before). HEAD~1 is p,
-    which would hide a lock edit made in q; the base is the pre-push tip b."""
-    git = _FakeGit(
-        {"HEAD": "h", "HEAD~1": "p", "origin/main": "h", "b" * 40: "b" * 40},
-        {"origin/main": "h"},
+def _git(repo, *args) -> str:
+    out = subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", *args],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=True,
     )
-    env = {"GITHUB_EVENT_NAME": "push", "GITHUB_EVENT_PATH": _event(tmp_path, {"before": "b" * 40})}
-    assert chk.resolve_base(env, git)[0] == "b" * 40
+    return out.stdout.strip()
 
 
-def test_a_multi_commit_push_editing_the_lock_in_an_earlier_commit_fails(tmp_path, monkeypatch):
-    base_rows = fd.parse_lock(LOCK)
-    tampered = _lock()
-    tampered["locked"][0]["definitionHash"] = "0" * 64
-    before = "b" * 40
-    git = _FakeGit(
-        {"HEAD": "h", "HEAD~1": "p", before: before},
-        {},
-        files={f"{before}:{_LOCK_REL}": json.dumps(LOCK), f"p:{_LOCK_REL}": json.dumps(tampered)},
+def _write_lock(repo, rows) -> None:
+    path = repo / _LOCK_REL
+    path.parent.mkdir(parents=True, exist_ok=True)
+    locked = [{"name": n, "version": v, "definitionHash": h} for n, v, h in rows]
+    path.write_text(json.dumps({"schemaVersion": 1, "locked": locked}, indent=2), "utf-8")
+
+
+def _commit(repo, message: str, rows=None) -> str:
+    if rows is not None:
+        _write_lock(repo, rows)
+    else:
+        (repo / "other.txt").write_text(message, "utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", message)
+    return _git(repo, "rev-parse", "HEAD")
+
+
+@pytest.fixture
+def repo(tmp_path):
+    root = tmp_path / "repo"
+    root.mkdir()
+    _git(root, "init", "-q", "-b", "main")
+    return root
+
+
+def _check(repo, env=None):
+    return chk.check({"CI": "1"} if env is None else env, repo=repo, lock_rel=_LOCK_REL)
+
+
+A1, B1 = ("a", 1, _h("a")), ("b", 1, _h("b"))
+
+
+def test_a_clean_history_with_an_appended_new_version_passes(repo):
+    _commit(repo, "lock", [A1, B1])
+    _commit(repo, "unrelated")
+    _commit(repo, "a v2", [A1, B1, ("a", 2, _h("c"))])
+    code, message = _check(repo)
+    assert code == 0, message
+    _write_lock(repo, [A1, B1, ("a", 2, _h("c")), ("b", 2, _h("d"))])  # uncommitted append
+    assert _check(repo)[0] == 0
+
+
+def test_a_rewrite_followed_by_an_unrelated_commit_is_caught(repo):
+    """The laundering case: P2 rewrites a row (its deploy red or replaced), P3 is
+    unrelated. A single-base check run on P3 compares against P2 and passes."""
+    _commit(repo, "lock", [A1, B1])
+    _commit(repo, "P2 rewrite", [("a", 1, _h("e")), B1])
+    _commit(repo, "P3 unrelated")
+    code, message = _check(repo)
+    assert code == 1 and "a v1 rewritten" in message
+
+
+def test_a_rewrite_that_is_later_restored_is_still_caught(repo):
+    _commit(repo, "lock", [A1, B1])
+    _commit(repo, "rewrite", [("a", 1, _h("e")), B1])
+    _commit(repo, "restore", [A1, B1])
+    assert _check(repo)[0] == 1
+
+
+def test_an_uncommitted_rewrite_is_caught(repo):
+    _commit(repo, "lock", [A1, B1])
+    _write_lock(repo, [A1, ("b", 1, _h("f"))])
+    code, message = _check(repo)
+    assert code == 1 and "b v1 rewritten at working tree" in message
+
+
+def test_a_removed_row_is_caught(repo):
+    _commit(repo, "lock", [A1, B1])
+    _commit(repo, "remove b", [A1])
+    _commit(repo, "unrelated")
+    code, message = _check(repo)
+    assert code == 1 and "b v1 was removed at" in message
+
+
+def test_re_adding_a_removed_row_with_its_original_hash_does_not_repair_the_removal(repo):
+    """Removal is already a violation, seen AT the commit that dropped the row:
+    the re-add restores the same hash in the same position, so neither the
+    hash, the current-lock membership nor the order rule would notice."""
+    _commit(repo, "lock", [A1, B1])
+    removal = _commit(repo, "remove b", [A1])
+    _commit(repo, "re-add b", [A1, B1])
+    code, message = _check(repo)
+    assert code == 1 and f"b v1 was removed at {removal[:12]}" in message
+
+
+def test_a_merge_that_drops_a_side_branch_row_is_caught(repo):
+    """`-s ours` keeps main's lock and silently discards the side branch's row."""
+    _commit(repo, "lock", [A1])
+    _git(repo, "checkout", "-q", "-b", "side")
+    _commit(repo, "side appends c", [A1, ("c", 1, _h("c"))])
+    _git(repo, "checkout", "-q", "main")
+    _commit(repo, "main appends b", [A1, B1])
+    _git(repo, "merge", "-q", "--no-edit", "-s", "ours", "side")
+    code, message = _check(repo)
+    assert code == 1 and "c v1 was removed at" in message
+
+
+def test_a_reordered_lock_is_caught(repo):
+    _commit(repo, "lock", [A1, B1])
+    _commit(repo, "reorder", [B1, A1])
+    code, message = _check(repo)
+    assert code == 1 and "reordered" in message
+
+
+def test_a_new_row_inserted_before_a_locked_row_is_caught(repo):
+    _commit(repo, "lock", [A1, B1])
+    _write_lock(repo, [A1, ("c", 1, _h("c")), B1])
+    code, message = _check(repo)
+    assert code == 1 and "not appended" in message
+
+
+def test_parallel_branches_appending_different_rows_merge_cleanly(repo):
+    _commit(repo, "lock", [A1])
+    _git(repo, "checkout", "-q", "-b", "side")
+    _commit(repo, "side appends c", [A1, ("c", 1, _h("c"))])
+    _git(repo, "checkout", "-q", "main")
+    _commit(repo, "main appends b", [A1, B1])
+    _git(repo, "merge", "-q", "--no-commit", "-s", "ours", "side")
+    _write_lock(repo, [A1, B1, ("c", 1, _h("c"))])
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "merge side")
+    code, message = _check(repo)
+    assert code == 0, message
+
+
+def test_a_rewrite_on_a_merged_side_branch_is_caught(repo):
+    _commit(repo, "lock", [A1, B1])
+    _git(repo, "checkout", "-q", "-b", "side")
+    _commit(repo, "side rewrites a", [("a", 1, _h("e")), B1])
+    _commit(repo, "side restores a", [A1, B1])
+    _git(repo, "checkout", "-q", "main")
+    _commit(repo, "main unrelated")
+    _git(repo, "merge", "-q", "--no-edit", "side")
+    assert _check(repo)[0] == 1
+
+
+def test_history_before_the_lock_existed_passes(repo):
+    _commit(repo, "pre-AL-0")
+    _commit(repo, "lock", [A1])
+    assert _check(repo)[0] == 0
+
+
+def _shallow_clone(src, dest, depth: int):
+    subprocess.run(
+        ["git", "clone", "-q", f"--depth={depth}", src.resolve().as_uri(), str(dest)],
+        capture_output=True,
+        text=True,
+        check=True,
     )
-    monkeypatch.setattr(fd, "load_lock", lambda *a, **k: tampered)
-    env = {
-        "GITHUB_EVENT_NAME": "push",
-        "GITHUB_EVENT_PATH": _event(tmp_path, {"before": before}),
-        "CI": "1",
-    }
-    code, message = chk.check(env, git=git)
-    assert code == 1 and f"{base_rows[0][0]} v{base_rows[0][1]}" in message
-    # what the old HEAD~1 rule would have compared against: the already-edited lock
-    assert chk.compare(fd.parse_lock(tampered), chk.base_lock_rows("p", git)).ok
+    return dest
 
 
-@pytest.mark.parametrize(
-    "event",
-    [None, "{not json", {"ref": "refs/heads/main"}, {"before": ""}, ["before"]],
-    ids=["no-event-path", "unreadable", "no-before", "empty-before", "not-an-object"],
-)
-def test_a_push_without_a_readable_before_has_no_base_and_fails_under_ci(tmp_path, event):
-    git = _FakeGit({"HEAD": "h", "HEAD~1": "p", "origin/main": "h"}, {"origin/main": "h"})
-    env = {"GITHUB_EVENT_NAME": "push"}
-    if event is not None:
-        env["GITHUB_EVENT_PATH"] = _event(tmp_path, event)
-    base, how = chk.resolve_base(env, git)
-    assert base is None, "must never fall back to HEAD~1"
-    assert chk.check({**env, "CI": "true"}, git=git)[0] == 1
-    assert chk.check(env, git=git)[0] == 2
+def test_a_shallow_clone_that_cuts_the_lock_history_fails_closed_under_ci(repo, tmp_path):
+    _commit(repo, "lock", [A1, B1])
+    _commit(repo, "rewrite", [("a", 1, _h("e")), B1])
+    _commit(repo, "unrelated")
+    clone = _shallow_clone(repo, tmp_path / "shallow", 1)
+    code, message = _check(clone)
+    assert code == 1 and "shallow" in message
+    assert _check(clone, env={})[0] == 2  # locally: not checked, never passed
 
 
-def test_a_missing_event_file_fails_closed(tmp_path):
-    git = _FakeGit({"HEAD": "h", "HEAD~1": "p"}, {})
-    env = {
-        "GITHUB_EVENT_NAME": "push",
-        "GITHUB_EVENT_PATH": str(tmp_path / "absent.json"),
-        "CI": "1",
-    }
-    assert chk.resolve_base(env, git)[0] is None
-    assert chk.check(env, git=git)[0] == 1
+def test_a_shallow_clone_whose_boundary_predates_the_lock_is_complete(repo, tmp_path):
+    _commit(repo, "pre-AL-0")
+    _commit(repo, "lock", [A1])
+    _commit(repo, "unrelated")
+    assert _check(_shallow_clone(repo, tmp_path / "d2", 2))[0] == 1  # boundary IS the lock commit
+    assert _check(_shallow_clone(repo, tmp_path / "d3", 3))[0] == 0  # boundary predates it
 
 
-def test_a_push_whose_before_is_not_in_the_checkout_fails_closed(tmp_path):
-    """A shallow clone or a force-push that orphaned ``before``."""
-    git = _FakeGit({"HEAD": "h", "HEAD~1": "p"}, {})
-    env = {"GITHUB_EVENT_NAME": "push", "GITHUB_EVENT_PATH": _event(tmp_path, {"before": "c" * 40})}
-    base, how = chk.resolve_base(env, git)
-    assert base is None and "fetch-depth" in how
-    assert chk.check({**env, "CI": "1"}, git=git)[0] == 1
+def test_no_repository_fails_closed_under_ci(tmp_path):
+    _write_lock(tmp_path, [A1])
+    assert _check(tmp_path)[0] == 1
+    assert _check(tmp_path, env={})[0] == 2
 
 
-@pytest.mark.parametrize("zeros", ["0" * 40, "0" * 64])
-def test_a_push_that_created_the_ref_compares_against_the_merge_base(tmp_path, zeros):
-    git = _FakeGit({"HEAD": "h", "HEAD~1": "p", "origin/main": "m"}, {"origin/main": "mb"})
-    env = {"GITHUB_EVENT_NAME": "push", "GITHUB_EVENT_PATH": _event(tmp_path, {"before": zeros})}
-    base, how = chk.resolve_base(env, git)
-    assert base == "mb" and "created the ref" in how
+def test_a_historical_lock_that_does_not_parse_is_an_error(repo):
+    path = repo / _LOCK_REL
+    path.parent.mkdir(parents=True)
+    path.write_text("{not json", "utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "broken")
+    _commit(repo, "fixed", [A1])
+    code, message = _check(repo, env={})
+    assert code == 1 and "does not parse" in message
 
 
-def test_when_the_merge_base_is_head_the_base_is_the_previous_commit():
-    git = _FakeGit({"HEAD": "h", "HEAD~1": "p", "origin/main": "h"}, {"origin/main": "h"})
-    assert chk.resolve_base({}, git)[0] == "p"
-
-
-def test_a_pull_request_compares_against_its_base_ref_merge_base():
-    git = _FakeGit(
-        {"HEAD": "h", "HEAD~1": "p", "origin/release": "r", "origin/main": "m"},
-        {"origin/release": "mb-r", "origin/main": "mb-m"},
-    )
-    assert chk.resolve_base({"GITHUB_BASE_REF": "release"}, git)[0] == "mb-r"
-    assert chk.resolve_base({}, git)[0] == "mb-m"
-
-
-def test_a_set_base_ref_that_does_not_resolve_is_no_base_not_origin_main():
-    """Round-3 D2: GITHUB_BASE_REF names the PR's base; when it does not resolve,
-    quietly comparing against origin/main would check the wrong branch."""
-    git = _FakeGit({"HEAD": "h", "HEAD~1": "p", "origin/main": "m"}, {"origin/main": "mb-m"})
-    base, how = chk.resolve_base({"GITHUB_BASE_REF": "release"}, git)
-    assert base is None and "release" in how
-    assert chk.check({"GITHUB_BASE_REF": "release", "CI": "1"}, git=git)[0] == 1
-
-
-def test_schedule_and_dispatch_on_main_keep_head_1():
-    """smoke-test (schedule/dispatch, fetch-depth 2) is not a push event."""
-    git = _FakeGit({"HEAD": "h", "HEAD~1": "p", "origin/main": "h"}, {"origin/main": "h"})
-    for event in ("schedule", "workflow_dispatch"):
-        assert chk.resolve_base({"GITHUB_EVENT_NAME": event}, git)[0] == "p"
-
-
-def test_under_ci_a_missing_base_fails_and_locally_it_is_not_checked(monkeypatch):
-    monkeypatch.setattr(chk, "resolve_base", lambda env, git=None: (None, "no refs"))
-    assert chk.main([], env={"CI": "true"}) == 1
+def test_main_reports_the_check(monkeypatch, capsys):
+    monkeypatch.setattr(chk, "check", lambda env=None, **k: (2, "not checked"))
     assert chk.main([], env={}) == 2
-
-
-@pytest.mark.parametrize("bogus", ["0" * 40, "deadbeef" * 5, "not-a-ref"])
-def test_a_bogus_base_is_an_error_never_history_before_the_lock(bogus):
-    """Round-3 D2: `--base 0000…` under CI used to exit 0, because any cat-file
-    failure read as "the base predates the lock"."""
-    git = _FakeGit({"HEAD": "h"}, {})
-    with pytest.raises(chk.LockCheckError, match="not a commit"):
-        chk.base_lock_rows(bogus, git)
-    assert chk.check({"CI": "1"}, base=bogus, git=git)[0] == 1
-    assert chk.check({}, base=bogus, git=git)[0] == 1
-
-
-def test_a_base_lock_that_exists_but_cannot_be_read_is_an_error():
-    git = _FakeGit({}, {}, files={f"b:{_LOCK_REL}": None})
-    with pytest.raises(chk.LockCheckError, match="git show"):
-        chk.base_lock_rows("b", git)
-    git = _FakeGit({}, {}, files={f"b:{_LOCK_REL}": "{not json"})
-    with pytest.raises(chk.LockCheckError, match="does not parse"):
-        chk.base_lock_rows("b", git)
-
-
-def test_a_base_without_the_lock_file_has_nothing_to_preserve():
-    """Only a commit that EXISTS and whose tree lists no lock predates AL-0."""
-    git = _FakeGit({}, {}, commits={"b"})
-    assert chk.base_lock_rows("b", git) is None
-    assert chk.compare(fd.parse_lock(LOCK), None).ok
-    assert chk.check({"CI": "1"}, base="b", git=git)[0] == 0
-
-
-def test_a_commit_rewriting_a_definition_and_its_lock_row_is_caught():
-    """The case the git-free test cannot see: dictionary and lock agree with each
-    other, but the lock row differs from the one the previous commit held."""
-    base = fd.parse_lock(LOCK)
-    rewritten = [(base[0][0], base[0][1], "0" * 64), *base[1:]]
-    result = chk.compare(rewritten, base)
-    assert not result.ok and f"{base[0][0]} v{base[0][1]}" in result.message
-    assert not chk.compare(base[1:], base).ok  # a removed row
-    assert chk.compare([*base, ("new_feature", 1, "f" * 64)], base).ok  # an appended row
+    assert "not checked" in capsys.readouterr().out
