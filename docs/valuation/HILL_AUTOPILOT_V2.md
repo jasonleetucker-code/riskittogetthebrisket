@@ -168,7 +168,12 @@ A standing candidate must clear all of these before board-impact evaluation:
      member of that family — a relation is never outvoted by a pair verdict (the worse of
      the two wins, PROVEN > MEASURED > SUSPECTED > INDEPENDENT), and the owner's validator
      refuses an `INDEPENDENT_NO_EVIDENCE` pair beside a proven or measured relation joining
-     its sources, cited or not. `PROVEN_COMMON_ANCESTRY` excludes the board from the split;
+     its sources, cited or not. Both read one rule, `source_census.relation_dependence_category`:
+     a measured relation counts only with a positive dependence statistic in its latest
+     measurement (D2 §5; `dlf-ktc-independence`, residual −0.447, counts as nothing), and the
+     validator follows exactly one *identity* hop per side (`IDENTITY_RELATION_KINDS`: one
+     provider's calibration states, payload, page or boards — never scale borrowing or data
+     use). `PROVEN_COMMON_ANCESTRY` excludes the board from the split;
      `MEASURED_DEPENDENCE` and `SUSPECTED_DEPENDENCE` (the D2 preregistration §5 rule
      counts suspected relations) keep it in the split, tagged and not independent; and
      anything the owner cannot answer — an unreadable or invalid lineage file, no

@@ -421,6 +421,45 @@ class TestRecordedRelationIsNeverOutvoted:
         )
         assert otc.lineage_independent is True
 
+    @staticmethod
+    def _measured(residual: float) -> dict:
+        return {
+            "id": "r",
+            "classification": "measured",
+            "relation": "measured_dependence",
+            "sources": ["otcffbSf", "draftSharks"],
+            "asOf": "2026-10-01",
+            "statistics": {
+                "measurements": [
+                    {
+                        "asOf": "2026-10-01",
+                        "status": "current",
+                        "method": "m",
+                        "values": {"residualR": residual},
+                    }
+                ]
+            },
+        }
+
+    def test_a_measured_relation_with_no_positive_dependence_decides_nothing(self):
+        """#1601 round 2: ``dlf-ktc-independence`` is classified measured but its
+        latest residual is -0.447. D2 §5 counts a measured relation only "with a
+        positive dependence in its latest recorded measurement" -- the SAME rule
+        the owner's validator reads (``relation_dependence_category``)."""
+        neg = self._measured(-0.447)
+        assert sc.relation_dependence_category(neg) is None
+        otc = _holdout(
+            build_manifest(lineage=_otc_fully_independent_view(relations={"r": neg})), "otcffbSf"
+        )
+        assert otc.lineage_independent is True
+        pos = self._measured(0.038)
+        assert sc.relation_dependence_category(pos) == LINEAGE_MEASURED
+        otc = _holdout(
+            build_manifest(lineage=_otc_fully_independent_view(relations={"r": pos})), "otcffbSf"
+        )
+        (ds,) = [d for d in otc.lineage_dependence if d.trainer_family == "draftSharks"]
+        assert ds.category == LINEAGE_MEASURED and ds.relations == ("r",)
+
     def test_live_labels_are_unchanged_by_the_relation_defence(self):
         """On the real registry every relation agrees with its pair, so the
         defence moves no category (the validator also refuses disagreement)."""

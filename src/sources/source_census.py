@@ -105,8 +105,102 @@ MEASUREMENT_STATUSES: tuple[str, ...] = (MEASUREMENT_CURRENT, "superseded")
 
 
 def lineage_category(relation: Mapping[str, Any]) -> str | None:
-    """The lineage category a recorded relation supports (None = unclassified)."""
+    """The lineage category a recorded relation's CLASSIFICATION names (None =
+    unclassified).  A label; whether the relation counts as dependence evidence
+    is :func:`relation_dependence_category`."""
     return CATEGORY_OF_CLASSIFICATION.get(str(relation.get("classification")))
+
+
+#: Proven relation kinds that say two boards are ONE provider's one opinion --
+#: calibration states of one crowd, one payload, one page, one provider's
+#: boards.  Evidence about one member is evidence about the other, so the pair
+#: validator follows exactly one of these hops per side (:func:`_identity_peers`).
+#: Every member of such a relation must share one recorded ``provider``
+#: (``validate_lineage`` refuses otherwise), so a kind as generic as
+#: ``derived_from`` cannot chain two providers.
+IDENTITY_RELATION_KINDS: frozenset[str] = frozenset(
+    {
+        "same_provider_same_payload",
+        "calibration_state_of",
+        "derived_from",
+        "same_provider",
+        "same_page_slice",
+        "same_provider_distinct_board",
+    }
+)
+#: Proven relation kinds that describe how a SPECIFIC board is built, not a
+#: shared opinion: scale borrowing ("not shared opinion", per its own record),
+#: use of another provider's data, a vendor aggregate of unnamed inputs, and a
+#: same-provider board of a DIFFERENT game type (a redraft / ROS board is never
+#: dynasty evidence -- CLAUDE.md source-domain boundaries).  They are never
+#: followed as a hop, and contradict an independence verdict only on a pair
+#: whose own sources they name.  Every proven relation's kind must sit in
+#: exactly one of these two sets (``validate_lineage``), so a new kind is
+#: classified deliberately rather than defaulting into either.
+NON_IDENTITY_PROVEN_RELATION_KINDS: frozenset[str] = frozenset(
+    {
+        "scale_borrowed_from",
+        "uses_provider_data",
+        "derived_from_unnamed_inputs",
+        "same_provider_other_game_type",
+    }
+)
+#: Substrings naming a DEPENDENCE statistic in a measurement's ``values``: the
+#: leave-pair-out / residual correlations (and partials) the sweeps record.
+#: Raw correlations, value ratios and RMSEs are not dependence statistics --
+#: every dynasty board correlates ~0.9 with every other on raw rank.
+DEPENDENCE_STATISTIC_MARKERS: tuple[str, ...] = ("residual", "partial")
+
+
+def is_identity_relation(relation: Mapping[str, Any]) -> bool:
+    """A proven relation whose kind says its members are one provider's one opinion."""
+    return (
+        lineage_category(relation) == LINEAGE_PROVEN_COMMON_ANCESTRY
+        and str(relation.get("relation")) in IDENTITY_RELATION_KINDS
+    )
+
+
+def measured_positive_dependence(relation: Mapping[str, Any]) -> bool:
+    """Whether a MEASURED relation's latest recorded measurement shows positive
+    dependence -- the D2 preregistration §5 rule ("measured with a positive
+    dependence in its latest recorded measurement").
+
+    Positive means any dependence statistic (``DEPENDENCE_STATISTIC_MARKERS``)
+    in the ``current`` measurement is > 0.  Literal, deliberately: the
+    leave-pair-out floor is itself about +0.07..+0.10, so a stricter cut would
+    be a new threshold, and the +0.10 / +0.30 rule in
+    ``OTC_LINEAGE_REMEASURE_2026-10-01.md`` was declared post hoc.  Fails
+    closed: no current measurement, or one carrying no dependence statistic,
+    counts as positive -- an unmeasured direction is not independence."""
+    current = current_measurement(relation)
+    if current is None:
+        return True
+    stats = [
+        float(v)
+        for k, v in (current.get("values") or {}).items()
+        if any(mark in str(k).lower() for mark in DEPENDENCE_STATISTIC_MARKERS)
+        and isinstance(v, (int, float))
+        and not isinstance(v, bool)
+    ]
+    if not stats:
+        return True
+    return any(v > 0 for v in stats)
+
+
+def relation_dependence_category(relation: Mapping[str, Any]) -> str | None:
+    """The category a relation counts as when judging DEPENDENCE (None = none).
+
+    The classification's category, except that a ``measured`` relation whose
+    latest measurement shows no positive dependence (``dlf-ktc-independence``,
+    residual -0.447; ``draftsharks-contrarian``, -0.505..-0.382) counts as
+    nothing: it is measured evidence AGAINST dependence, which none of the four
+    categories names (INDEPENDENT_NO_EVIDENCE is the absence of evidence).  Its
+    classification and dated history are unchanged.  The one rule both the pair
+    validator and the Hill manifest's worst-of read."""
+    cat = lineage_category(relation)
+    if cat == LINEAGE_MEASURED_DEPENDENCE and not measured_positive_dependence(relation):
+        return None
+    return cat
 
 
 VOTING = "VOTING"
@@ -404,6 +498,25 @@ def validate_lineage(lineage: Mapping[str, Any], repo_root: Path = REPO_ROOT) ->
                     errors.append(
                         f"relations.{rid}: a measured relation is dependence, not ancestry"
                     )
+            if section == "relations" and item.get("classification") == "proven":
+                kind = str(item.get("relation"))
+                if (kind in IDENTITY_RELATION_KINDS) == (
+                    kind in NON_IDENTITY_PROVEN_RELATION_KINDS
+                ):
+                    errors.append(
+                        f"relations.{rid}: proven relation kind {kind!r} must be in exactly one "
+                        "of IDENTITY_RELATION_KINDS / NON_IDENTITY_PROVEN_RELATION_KINDS"
+                    )
+                elif kind in IDENTITY_RELATION_KINDS:
+                    provs = {
+                        str(((lineage.get("sources") or {}).get(str(x)) or {}).get("provider"))
+                        for x in item.get("sources") or []
+                    }
+                    if len(provs) != 1:
+                        errors.append(
+                            f"relations.{rid}: identity kind {kind!r} spans providers "
+                            f"{sorted(provs)}; an identity link is one provider's one opinion"
+                        )
             if section == "evaluations" and item.get("kind") not in _EVALUATION_KIND_STATE:
                 errors.append(f"evaluations.{rid}: unknown kind {item.get('kind')!r}")
             if section == "relations" and "statistics" in item:
@@ -475,16 +588,16 @@ def _validate_statistics(where: str, relation: Mapping[str, Any]) -> list[str]:
     return errors
 
 
-def _proven_peers(relations: Mapping[Any, Mapping[str, Any]]) -> dict[str, set[str]]:
-    """``{source: every source sharing a PROVEN relation with it}`` -- one hop.
+def _identity_peers(relations: Mapping[Any, Mapping[str, Any]]) -> dict[str, set[str]]:
+    """``{source: every source sharing an IDENTITY relation with it}`` -- one hop.
 
-    One hop, never the transitive closure: proven relations of different kinds
-    (KTC calibration states, a rookie ladder borrowing KTC's scale) chain into
-    one component spanning unrelated providers, and that would refuse honest
-    independence verdicts far from any recorded evidence."""
+    Only :func:`is_identity_relation` links count (#1601 round-2 review): a
+    proven scale-borrowing relation (``rookie-ladder-borrows-reference-scale``)
+    is "not shared opinion" by its own record, and following it joined the DLF,
+    Flock, KTC and IDPTC groups.  One hop, never the closure."""
     peers: dict[str, set[str]] = {}
     for rel in relations.values():
-        if lineage_category(rel) != LINEAGE_PROVEN_COMMON_ANCESTRY:
+        if not is_identity_relation(rel):
             continue
         members = {str(x) for x in (rel.get("sources") or [])}
         for m in members:
@@ -496,35 +609,46 @@ def _independence_contradictions(
     where: str,
     pair_sources: Sequence[Any],
     relations: Mapping[Any, Mapping[str, Any]],
-    proven_peers: Mapping[str, set[str]],
+    identity_peers: Mapping[str, set[str]],
     skip: set[str],
 ) -> list[str]:
     """Recorded relations that forbid an INDEPENDENT_NO_EVIDENCE pair.
 
     Absence of evidence cannot coexist with RECORDED evidence, cited or not:
     otherwise a pair that simply omits the relation joining its own sources
-    relabels a measured dependence as independence (#1601 review).  A proven or
-    measured relation contradicts the pair when it touches two DIFFERENT pair
-    sources -- directly, or through a source PROVEN to share ancestry with one
-    of them (``ktc`` is a calibration state of ``ktcSfTep``, so a measured
-    PFK~``ktcSfTep`` dependence is evidence about PFK~``ktc``).  SUSPECTED
-    relations do not contradict "no evidence"; consumers that need the worse
-    verdict (the Hill manifest) take it themselves."""
-    reach = [{str(x)} | set(proven_peers.get(str(x), ())) for x in pair_sources]
+    relabels a measured dependence as independence (#1601 review).
+
+    * A proven relation, or a measured one with positive dependence
+      (:func:`relation_dependence_category`), contradicts the pair when it
+      touches two DIFFERENT pair sources.
+    * Opinion evidence travels ONE identity hop per side
+      (:func:`_identity_peers`): ``ktc`` is a calibration state of
+      ``ktcSfTep``, so a measured PFK~``ktcSfTep`` dependence is evidence about
+      PFK~``ktc``.  Measured and identity relations are matched through that
+      hop, and never further.
+    * A non-identity proven relation (scale borrowing, data use) describes the
+      construction of the boards it names, so it is matched on the pair's own
+      sources only: DLF's rookie board borrowing KTC's scale says nothing about
+      DLF's superflex ranking versus KTC.
+    * SUSPECTED relations do not contradict "no evidence"; consumers that need
+      the worse verdict (the Hill manifest) take it themselves."""
+    direct = [{str(x)} for x in pair_sources]
+    reach = [{str(x)} | set(identity_peers.get(str(x), ())) for x in pair_sources]
     out: list[str] = []
     for rid, rel in relations.items():
         if str(rid) in skip:
             continue  # already judged as a supporting relation of this pair
-        if lineage_category(rel) not in (
-            LINEAGE_PROVEN_COMMON_ANCESTRY,
-            LINEAGE_MEASURED_DEPENDENCE,
-        ):
+        cat = relation_dependence_category(rel)
+        if cat not in (LINEAGE_PROVEN_COMMON_ANCESTRY, LINEAGE_MEASURED_DEPENDENCE):
             continue
+        hops = (
+            reach if (cat == LINEAGE_MEASURED_DEPENDENCE or is_identity_relation(rel)) else direct
+        )
         members = {str(x) for x in (rel.get("sources") or [])}
         joined = any(
             a != b
-            for i, ri in enumerate(reach)
-            for j, rj in enumerate(reach)
+            for i, ri in enumerate(hops)
+            for j, rj in enumerate(hops)
             if i < j
             for a in members & ri
             for b in members & rj
@@ -547,7 +671,7 @@ def _validate_pairs(lineage: Mapping[str, Any], ids: set[str], check_evidence: A
         errors.append(f"categories must be exactly {list(LINEAGE_CATEGORIES)}")
     relations = {r.get("id"): r for r in lineage.get("relations") or []}
     known_sources = set((lineage.get("sources") or {}).keys())
-    proven_peers = _proven_peers(relations)
+    identity_peers = _identity_peers(relations)
     for pair in lineage.get("pairReconciliation") or []:
         pid = pair.get("id")
         where = f"pairReconciliation.{pid}"
@@ -588,7 +712,7 @@ def _validate_pairs(lineage: Mapping[str, Any], ids: set[str], check_evidence: A
                     "sources; a supporting relation must involve at least two"
                 )
                 continue
-            supporting.append(lineage_category(relations[rid]))
+            supporting.append(relation_dependence_category(relations[rid]))
             supporting_ids.add(str(rid))
         if (
             cat == LINEAGE_PROVEN_COMMON_ANCESTRY
@@ -615,7 +739,7 @@ def _validate_pairs(lineage: Mapping[str, Any], ids: set[str], check_evidence: A
             errors.append(f"{where}: INDEPENDENT_NO_EVIDENCE contradicts a supporting relation")
         if cat == LINEAGE_INDEPENDENT_NO_EVIDENCE:
             errors.extend(
-                _independence_contradictions(where, srcs, relations, proven_peers, supporting_ids)
+                _independence_contradictions(where, srcs, relations, identity_peers, supporting_ids)
             )
         impl = pair.get("implications") or {}
         missing_axes = [a for a in PAIR_IMPLICATION_AXES if not impl.get(a)]

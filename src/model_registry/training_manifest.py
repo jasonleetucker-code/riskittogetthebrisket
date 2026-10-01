@@ -404,7 +404,11 @@ def holdout_lineage(
       > INDEPENDENT). The validator already refuses an INDEPENDENT pair beside a
       proven / measured relation; this is the manifest's own defence, so a pair
       that omits the relation joining its sources cannot relabel a recorded
-      dependence as independence (#1601 review);
+      dependence as independence (#1601 review). A MEASURED relation counts only
+      when its latest measurement shows positive dependence
+      (``source_census.relation_dependence_category`` -- the SAME rule the
+      validator reads; ``dlf-ktc-independence``, residual -0.447, counts as
+      nothing);
     * fail closed: an invalid / unreadable registry, an unregistered holdout, a
       family with no reconciled pair or joining relation, or a pair with a null
       category -> UNKNOWN.
@@ -446,7 +450,9 @@ def holdout_lineage(
             else:
                 found.append((str(cat), pid, counter, _CATEGORY_REASON[str(cat)]))
         for rid, rel in sorted(lineage.relations.items()):
-            rel_cat = _sc.lineage_category(rel)
+            # The owner's one dependence rule: a measured relation whose latest
+            # measurement shows no positive dependence counts as nothing.
+            rel_cat = _sc.relation_dependence_category(rel)
             if rel_cat not in _CATEGORY_REASON:
                 continue
             rel_srcs = {str(x) for x in (rel.get("sources") or [])}

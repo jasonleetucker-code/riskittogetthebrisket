@@ -383,6 +383,126 @@ def test_independent_pair_with_one_shared_source_is_not_contradicted():
     assert errs == [], errs
 
 
+# ── #1601 round 2: identity hops and measured direction ─────────────────
+
+
+@pytest.mark.parametrize(
+    "sources",
+    [
+        ["dlfSf", "idpTradeCalc"],
+        ["dlfSf", "ktcCrowdSfTep"],
+        ["dlfSf", "ktcSfTep"],
+        ["flockFantasySf", "ktc"],
+        ["flockFantasySf", "dlfSf"],
+    ],
+)
+def test_scale_borrowing_is_not_followed_as_an_identity_hop(sources):
+    """``rookie-ladder-borrows-reference-scale`` is proven but "not shared
+    opinion": following it (DLF rookie -> KTC Crowd -> IDPTC) refused these
+    independence verdicts far from any recorded evidence. Probes, not claims."""
+    errs = _errors_with(_independent("p", sources))
+    assert errs == [], errs
+
+
+def test_identity_hop_still_reaches_a_calibration_state():
+    errs = _errors_with(_independent("p", ["pfkDynasty", "ktc"]))
+    assert any("'pfk-ktc-dependence'" in e for e in errs), errs
+
+
+def test_a_scale_borrowing_relation_still_contradicts_its_own_members():
+    errs = _errors_with(_independent("p", ["dlfRookieSf", "ktcCrowdSfTep"]))
+    assert any("'rookie-ladder-borrows-reference-scale'" in e for e in errs), errs
+
+
+def _with_relation(rel, pair):
+    sc, lin = _lineage()
+    lin = json.loads(json.dumps(lin))
+    lin["relations"].append(rel)
+    lin["pairReconciliation"] = [pair]
+    return sc.validate_lineage(lin)
+
+
+def _synthetic_measured(sources, residual):
+    return {
+        "id": "synthetic-measured",
+        "sources": sources,
+        "relation": "measured_dependence",
+        "classification": "measured",
+        "summary": "synthetic",
+        "evidence": ["config/sources/source_lineage.json"],
+        "asOf": "2026-10-01",
+        "statistics": {
+            "measurements": [
+                {
+                    "asOf": "2026-10-01",
+                    "status": "current",
+                    "method": "m",
+                    "window": "w",
+                    "n": 10,
+                    "values": {"residualR": residual},
+                }
+            ]
+        },
+    }
+
+
+def test_the_identity_hop_stops_after_one_link_per_side():
+    """ktc -[calibration_state_of]- ktcCrowdSfTep -[same_payload]- ktcTradesSfTep.
+    A dependence recorded on ktcTradesSfTep reaches a ktcCrowdSfTep pair (one
+    hop) and NOT a ktc pair (two hops)."""
+    rel = _synthetic_measured(["yahooBoone", "ktcTradesSfTep"], 0.5)
+    one_hop = _with_relation(rel, _independent("p", ["yahooBoone", "ktcCrowdSfTep"]))
+    assert any("'synthetic-measured'" in e for e in one_hop), one_hop
+    two_hops = _with_relation(rel, _independent("p", ["yahooBoone", "ktc"]))
+    assert two_hops == [], two_hops
+
+
+def test_a_measured_relation_counts_only_with_positive_latest_dependence():
+    """D2 §5: "measured with a positive dependence in its latest recorded
+    measurement". ``dlf-ktc-independence`` (residual -0.447) does not block a
+    DLF-KTC independence verdict; the same relation at +0.05 does; with no
+    recorded measurement it fails closed."""
+    sc, lin = _lineage()
+    rels = {r["id"]: r for r in lin["relations"]}
+    assert sc.relation_dependence_category(rels["dlf-ktc-independence"]) is None
+    assert sc.relation_dependence_category(rels["draftsharks-contrarian"]) is None
+    # Raw correlation is not a dependence statistic: FN~KTC residual +0.038 counts.
+    assert sc.relation_dependence_category(rels["fn-ktc-dependence"]) == "MEASURED_DEPENDENCE"
+    pair = _independent("p", ["dlfSf", "ktcSfTep"])
+    assert _with_relation(_synthetic_measured(["dlfSf", "yahooBoone"], -0.2), pair) == []
+    positive = json.loads(json.dumps(rels["dlf-ktc-independence"]))
+    positive["statistics"]["measurements"][-1]["values"] = {"residualVsKtcCrowd": 0.05}
+    lin2 = json.loads(json.dumps(lin))
+    lin2["relations"] = [
+        positive if r["id"] == "dlf-ktc-independence" else r for r in lin2["relations"]
+    ]
+    lin2["pairReconciliation"] = [pair]
+    assert any("'dlf-ktc-independence'" in e for e in sc.validate_lineage(lin2))
+    unmeasured = dict(rels["dlf-ktc-independence"])
+    unmeasured.pop("statistics")
+    assert sc.relation_dependence_category(unmeasured) == "MEASURED_DEPENDENCE"
+
+
+def test_every_proven_relation_kind_is_classified_identity_or_not():
+    sc, lin = _lineage()
+    lin = json.loads(json.dumps(lin))
+    rel = dict(next(r for r in lin["relations"] if r["id"] == "dlf-same-provider"))
+    rel.update(id="x-unclassified", relation="shares_a_spreadsheet")
+    lin["relations"].append(rel)
+    errs = sc.validate_lineage(lin)
+    assert any("x-unclassified" in e and "exactly one" in e for e in errs), errs
+
+
+def test_an_identity_kind_cannot_span_providers():
+    sc, lin = _lineage()
+    lin = json.loads(json.dumps(lin))
+    rel = dict(next(r for r in lin["relations"] if r["id"] == "ktc-market-derived"))
+    rel.update(id="x-cross-provider", sources=["ktcCrowdSfTep", "fantasyCalc"])
+    lin["relations"].append(rel)
+    errs = sc.validate_lineage(lin)
+    assert any("x-cross-provider" in e and "spans providers" in e for e in errs), errs
+
+
 def test_missing_categories_key_is_rejected():
     sc, lin = _lineage()
     lin = json.loads(json.dumps(lin))
