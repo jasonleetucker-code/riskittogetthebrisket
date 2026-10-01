@@ -67,7 +67,12 @@ jobs:
     # This changes only runner headroom; no test, gate, or tolerance is
     # weakened. Sixty minutes preserves a finite hang bound while allowing
     # the current full suite to complete.
-    timeout-minutes: 60
+    # 60 → 80 (2026-10-01): the full suite now routinely takes 58-60 min
+    # (measured: #1599 58.6 min, #1597 59.4 min on 2026-10-01), and #1597's
+    # rerun-worthy run 36917378085 was cancelled at the 60-minute wall while
+    # still running unit tests. Same rationale as before: runner headroom only;
+    # no test, gate, or tolerance weakened; a finite hang bound is preserved.
+    timeout-minutes: 80
     steps:
       - name: Checkout
         uses: actions/checkout@v7
