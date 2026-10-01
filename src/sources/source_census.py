@@ -96,6 +96,12 @@ PAIR_IMPLICATION_AXES: tuple[str, ...] = (
 )
 #: Fields a MEASURED_DEPENDENCE pair must pin (method, window, sample size).
 MEASUREMENT_REQUIRED_FIELDS: tuple[str, ...] = ("method", "window", "n")
+#: A relation's ``statistics.measurements`` history: exactly one ``current``
+#: entry (the newest, dated the relation's ``asOf``); older ones are kept as
+#: ``superseded`` rather than overwritten (by convention: the validator checks
+#: the file's shape, not its history).
+MEASUREMENT_CURRENT = "current"
+MEASUREMENT_STATUSES: tuple[str, ...] = (MEASUREMENT_CURRENT, "superseded")
 
 
 def lineage_category(relation: Mapping[str, Any]) -> str | None:
@@ -400,7 +406,72 @@ def validate_lineage(lineage: Mapping[str, Any], repo_root: Path = REPO_ROOT) ->
                     )
             if section == "evaluations" and item.get("kind") not in _EVALUATION_KIND_STATE:
                 errors.append(f"evaluations.{rid}: unknown kind {item.get('kind')!r}")
+            if section == "relations" and "statistics" in item:
+                errors.extend(_validate_statistics(f"relations.{rid}", item))
     errors.extend(_validate_pairs(lineage, ids, _check_evidence))
+    return errors
+
+
+def _validate_statistics(where: str, relation: Mapping[str, Any]) -> list[str]:
+    """A relation's statistics are a DATED HISTORY, never a bare number.
+
+    The 2026-10-01 D2 review found summaries refreshed while flat
+    ``statistics`` still carried superseded values (``residualRho`` 0.891 on
+    a relation whose summary said "not reproduced").  So: every measurement
+    pins its date, method and values; exactly one is ``current``, it is the
+    newest, and it carries the relation's own ``asOf``.  Moving ``asOf``
+    without also dating a ``current`` entry to match therefore fails.
+
+    This checks the SHAPE of one file at one commit, nothing more.  It
+    cannot see history: an in-place edit of an entry's values, or deletion
+    of a ``superseded`` entry, passes.  Keeping superseded values is a
+    convention this check makes visible, not one it enforces; an
+    append-only check against the base commit is a recorded follow-up
+    (``docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md``)."""
+    from datetime import date
+
+    errors: list[str] = []
+    stats = relation.get("statistics")
+    if not isinstance(stats, Mapping) or set(stats) != {"measurements"}:
+        return [f"{where}: statistics must be exactly {{'measurements': [...]}}"]
+    entries = stats["measurements"]
+    if not isinstance(entries, list) or not entries:
+        return [f"{where}: statistics.measurements must be a non-empty list"]
+    dated: list[tuple[str, str]] = []
+    for i, m in enumerate(entries):
+        at = f"{where}.statistics.measurements[{i}]"
+        if not isinstance(m, Mapping):
+            errors.append(f"{at}: must be an object")
+            continue
+        try:
+            date.fromisoformat(str(m.get("asOf")))
+        except ValueError:
+            errors.append(f"{at}: asOf must be an ISO date, got {m.get('asOf')!r}")
+            continue
+        if m.get("status") not in MEASUREMENT_STATUSES:
+            errors.append(f"{at}: status must be one of {list(MEASUREMENT_STATUSES)}")
+        if not str(m.get("method") or "").strip():
+            errors.append(f"{at}: method required")
+        values = m.get("values")
+        if not isinstance(values, Mapping) or not values:
+            errors.append(f"{at}: values must be a non-empty object")
+        elif any(isinstance(v, bool) or not isinstance(v, (int, float)) for v in values.values()):
+            errors.append(f"{at}: every value must be a number")
+        n = m.get("n")
+        if n is not None and (isinstance(n, bool) or not isinstance(n, int) or n <= 0):
+            errors.append(f"{at}: n must be an int > 0 or null (unrecorded), got {n!r}")
+        dated.append((str(m.get("asOf")), str(m.get("status"))))
+    current = [d for d, s in dated if s == MEASUREMENT_CURRENT]
+    if len(current) != 1:
+        errors.append(f"{where}: exactly one measurement must be current, found {len(current)}")
+    else:
+        if current[0] != str(relation.get("asOf")):
+            errors.append(
+                f"{where}: the current measurement ({current[0]}) must carry the relation "
+                f"asOf ({relation.get('asOf')})"
+            )
+        if any(d > current[0] for d, _ in dated):
+            errors.append(f"{where}: a superseded measurement is newer than the current one")
     return errors
 
 
@@ -683,6 +754,15 @@ def _relations_for(key: str, lineage: Mapping[str, Any]) -> list[Mapping[str, An
     return [r for r in (lineage.get("relations") or []) if key in (r.get("sources") or [])]
 
 
+def current_measurement(rel: Mapping[str, Any]) -> dict[str, Any] | None:
+    """The relation's current dated measurement (None when it records none)."""
+    entries = (rel.get("statistics") or {}).get("measurements") or []
+    for m in entries:
+        if isinstance(m, Mapping) and m.get("status") == MEASUREMENT_CURRENT:
+            return dict(m)
+    return None
+
+
 def _relation_view(rel: Mapping[str, Any], key: str) -> dict[str, Any]:
     """Compact per-source pointer; the full relation is in ``lineageRelations``."""
     out = {
@@ -690,8 +770,14 @@ def _relation_view(rel: Mapping[str, Any], key: str) -> dict[str, Any]:
         "relation": rel.get("relation"),
         "with": [s for s in rel.get("sources") or [] if s != key],
     }
-    if rel.get("statistics"):
-        out["statistics"] = dict(rel["statistics"])
+    current = current_measurement(rel)
+    if current is not None:
+        # A census entry may hold no unexplained None: an unrecorded sample
+        # size is stated as such rather than published as a null.
+        if current.get("n") is None:
+            current.pop("n", None)
+            current["nRecorded"] = False
+        out["statistics"] = current
     return {k: v for k, v in out.items() if v is not None}
 
 

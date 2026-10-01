@@ -31,6 +31,18 @@ Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 
 ## Holdout used, and why it is the only one
 
+> **Post-hoc invalidation (2026-10-01, PR #1599).** Multi-snapshot re-measurement
+> (`docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md`) records positive measured
+> dependence of OTC on base KTC (+0.45 rank, +0.44 shape-removed value, 21/21 weekly
+> snapshots), on Dynasty Daddy (+0.69) and on Yahoo/Boone (+0.42). Under this
+> preregistration's own §5 rule, OTC is therefore not an eligible holdout for any arm, and
+> **no ancestry-safe board holdout exists**. The verdicts below stand as a record of the
+> frozen run. They measure closeness to a board that depends on the arms' trainers, not to an
+> independent market, and they must not be cited as evidence for promotion. The earlier "not
+> reproduced" result (−0.204 / −0.146) was a depth and TE-basis artifact. The production
+> `independentCriterion` (`holdout.py`) still treats OTC as independent until
+> `_MEASURED_DEPENDENCES` is reconciled.
+
 **OTC (`otcffbSf`) alone.** The preregistered rule excludes any board with a proven,
 suspected, or currently-positive measured relation (per `config/sources/source_lineage.json`
 and the 2026-10-01 integrity sweep) to a board whose spacing either compared arm uses:
@@ -59,6 +71,8 @@ Audit C20 (holdout boards still vote in the live blend) is unaffected and stays 
 ## Verdicts (primary: h = 7 days, OTC curve RMSE, Δ = RMSE_ref − RMSE_arm, > 0 ⇒ arm closer)
 
 Origins 2026-05-15 → 2026-09-22: **131 origins over 131 days** (minimum 84 / 84 met).
+
+*OTC is no longer an eligible holdout: see the post-hoc invalidation above. These verdicts are a record of the frozen run, not promotion evidence.*
 
 | arm pair | question | mean RMSE ref → arm | **Δ [98.75% CI]** | h = 0 / h = 28 Δ | bands 1–50 / 51–100 / 101–200 / 201–400 | **verdict** |
 |---|---|---|---|---|---|---|
