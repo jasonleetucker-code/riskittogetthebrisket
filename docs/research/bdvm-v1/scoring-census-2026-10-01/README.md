@@ -7,7 +7,8 @@ and public nflverse 2025 history. Production coverage is still the
 `/api/bdvm/values` `meta.scoringCoverage` block; this census covers what that
 block cannot see.
 
-Reporting only: nothing here changes a projected point, value or weight.
+The census itself is reporting only. **The unit that produced it is not: it
+changes values** — see [Value change in this unit](#value-change-in-this-unit-disclosed).
 
 ## Reproduce
 
@@ -15,12 +16,69 @@ Reporting only: nothing here changes a projected point, value or weight.
 python scripts/bdvm_scoring_census.py --out-dir docs/research/bdvm-v1/scoring-census-2026-10-01   --leagues-dir <checkout>/data/leagues --weekly-json weekly_2025.json.gz --pbp-dir <pbp dir> --season 2025
 ```
 
-Pins (in `census.json`): code `b57bab6f9` (clean), card sha256 + fingerprint
+Pins (in `census.json`): code `76772b6f3` (clean), card sha256 + fingerprint
 (`sf1:9e51824690d091f9` / `sf1:82a5f8ef2bfdb098`), weekly rows sha256
 `e4161184…327c` (19,422 rows from `stats_player/stats_player_week_2025.csv`),
 PBP supplement sha256 `f8dc2ce3…c2d7` (built by `pbp_weekly.persist_pbp_weekly`,
 986 players). Files: `census.json` (every rule, both leagues), `census.md`
-(full table incl. SUPPORTED and NOT_APPLICABLE).
+(full table incl. SUPPORTED and NOT_APPLICABLE), `host_verification.json` +
+`host_verify.py` (the bonus mapping checked against Sleeper's awarded points),
+`board_diff.json` + `board_diff.py` (before/after BDVM board for that mapping).
+
+## Value change in this unit (disclosed)
+
+`src/nfl_data/realized_points.py` now emits the whole position-scoped
+reception-bonus family (`bonus_rec_rb` / `bonus_rec_wr` / `bonus_rec_te`); it
+used to emit the TE member only. That is a **value change**, not reporting: it
+flows into every `compute_weekly_points` caller — BDVM projection rescoring
+(Clay offense lines carry `receptions`), the reconstructed baseline, in-season
+actuals, and `league_comparison/scoring_engine.py`. On dynasty_main's live card
+(`bonus_rec_wr` 0.02) every WR gains 0.02 per reception: **119.54 realized
+2025 points across 217 of 241 WRs**. dynasty_new's card has no reception
+bonus, so it is unaffected. `bonus_rec_rb`/`_te` are 0.0 on both live cards.
+
+**Host-verified** (`host_verification.json`, public Sleeper API, read-only,
+dynasty_main 2026 weeks 1-3; tolerance 0.011 — the host publishes 2 decimals):
+
+* host rule — the host's own stat lines, scored by the golden-validated exact
+  scorer, reproduce `players_points` for **401/401** WR player-weeks WITH
+  `bonus_rec_wr` and **108/401** without it (all 293 with a reception miss);
+  QB/RB/TE/other match 156/263/179/909 either way;
+* stat identity — Sleeper's `bonus_rec_<pos>` stat equals `rec` on every line
+  that carries it (WR 331, RB 167, TE 181; zero exceptions);
+* engine — this mapping on the nflverse row reproduces the host's bonus on
+  **291/291** joined WR weeks with receptions (2 not joinable by id or unique
+  name; max |delta| 0.0033). Pinned as a fixture in
+  `tests/bdvm/test_position_reception_bonus.py`.
+* FB — Sleeper's stat feed carries neither `bonus_rec_rb` nor `bonus_fd_rb` on
+  an FB line (3 FB reception lines, one with `rec_fd` 1), so the host does not
+  pay an FB the RB rate; `realized_points` matches (raw `FB` earns neither).
+  Not checked against `players_points` (no FB with a catch was rostered). Known
+  pre-existing divergence, **not changed**: BDVM's `TRUE_POSITION_MAP` maps
+  FB to RB before scoring, so the BDVM baseline/actuals pay an FB `bonus_fd_rb`
+  (and would pay `bonus_rec_rb`, 0.0 today). Needs its own unit.
+
+**Before/after BDVM board** (`board_diff.json`, LOCAL, pinned: merge-base
+`61af3f953` copy of `realized_points.py` vs head, same head code otherwise, in
+separate processes; dynasty_main; reconstructed baseline from nflverse
+2023-2025 under the contract's card, PBP supplement for 2025 only; contract
+built from `exports/latest/dynasty_data_2026-09-30.json`):
+
+| board | priced | players changed | rank changes | max abs delta (balanced) | max rank move | top-200 membership |
+|---|---|---|---|---|---|---|
+| preseason | 739 / 739 | 359 | 186 | +50.8 (Puka Nacua 6356 to 6407, rank 6 to 5) | 4 | Jaylen Warren / Josh Downs swap across 200 |
+| in-season (2026 wk 1-3 actuals) | 739 / 739 | 727 | 309 | -77.0 (Jahmyr Gibbs 8667 to 8590, fpg unchanged) | 6 | none |
+
+Preseason: 911 baseline records' fpg move (max +0.115/game); WR positional
+mean 7.28 to 7.34; every value move of note is a WR (max +50.8, ~+0.8%);
+non-WR rows change rank as WRs pass them (CB/S move under 1 point). In-season:
+WR deltas are small (max 12.5) but non-WR values fall with fpg unchanged —
+consistent with `engine.calibrate` anchoring each strategy to its top asset,
+so a higher top DV rescales everyone else. **Not measured:** Clay / IDP Show
+real projections (no local snapshot — Clay offense moves by the same
+mechanism), rookie draft-slot priors and the player-context feed (network),
+events, and the production snapshot. The production board's actual delta
+needs an owner/production session.
 
 ## Method
 
@@ -33,23 +91,32 @@ PBP supplement sha256 `f8dc2ce3…c2d7` (built by `pbp_weekly.persist_pbp_weekly
   column, never the PBP supplement; reconstructed baseline: weekly feed + PBP).
   A rule is "supplied" when BDVM's projection scorer (first-down imputation on)
   moves on a line built from exactly that vocabulary.
-* **Classes** — SUPPORTED (every covering real source supplies it; `imputed`
-  noted) / ABSENT_FIELD (one covering source has it, another does not) /
-  UNSUPPORTED_VOCABULARY (no real source can emit it) / MAPPING_ERROR (engine
-  ignores a rule whose stat exists) / NOT_APPLICABLE (DST, kicker, or IDP in an
-  offense-only league).
+* **Classes** — SUPPORTED (every covering real source supplies it directly) /
+  SUPPORTED_IMPUTED (every covering source supplies it, at least one only via
+  an estimate — today `bonus_fd_*` from yards) / ABSENT_FIELD (one covering
+  source has it, another does not) / UNSUPPORTED_VOCABULARY (no real source can
+  emit it; includes play-type first downs `pass_fd`/`rush_fd`/`rec_fd`, which
+  must never be derived from aggregates) / MAPPING_ERROR (engine ignores a rule
+  whose stat exists) / NOT_APPLICABLE (DST, kicker, or IDP in an offense-only
+  league).
 * **Impact** — realized 2025 REG points under the card, SIGNED, the number of
   players who recorded the stat over the eligible family population, and the
   share of the affected families' realized points. Priority = |points at risk|.
   For ABSENT_FIELD that is an UPPER bound (only players covered solely by Clay
   omit it; per-player source coverage needs the prod snapshot, unavailable
-  locally). A count of missing keys is never used as a share of points.
+  locally). For SUPPORTED_IMPUTED the points are not omitted but rest wholly
+  on an estimate (`atRiskBasis: estimated`). A count of missing keys is never
+  used as a share of points.
 
 ## Headline
 
 * **dynasty_main** (offense 53,065 / IDP 80,156 realized pts): 86 nonzero
-  rules → 21 SUPPORTED, 7 ABSENT_FIELD, 21 UNSUPPORTED_VOCABULARY, 37 N/A,
-  0 MAPPING_ERROR after this unit's fix.
+  rules → 17 SUPPORTED, 4 SUPPORTED_IMPUTED, 7 ABSENT_FIELD,
+  21 UNSUPPORTED_VOCABULARY, 37 N/A, 0 MAPPING_ERROR after this unit's fix.
+  * Offense, **imputed** (not omitted; estimated from yards): `bonus_fd_*` ≈
+    **9,800 realized pts** (WR 3,254 / RB 2,984 / QB 2,282 / TE 1,280) — 16-22%
+    of each family's points rest on the first-down-rate model for a
+    Clay-scored player.
   * Offense, reported in `unscoredKeys`: reception-distance bands + ST tackles +
     pick-six ≈ **+7,250 net (13.7% of offense points)** — the six `rec_*` bands
     alone are 6,764, six times the flat `rec` (1,113).
@@ -60,11 +127,16 @@ PBP supplement sha256 `f8dc2ce3…c2d7` (built by `pbp_weekly.persist_pbp_weekly
     safety ≈ **+32,383 upper bound (40% of IDP points)** — silent per player;
     mitigated only where IDP Show also covers the player (vocabulary down-weight).
   * IDP, UNSUPPORTED and silent: sack yards, INT/FR return yards, blocked kicks.
-* **dynasty_new** (offense 46,536): 41 rules → 9 SUPPORTED, 7 UNSUPPORTED, 25 N/A.
+* **dynasty_new** (offense 46,536): 41 rules → 9 SUPPORTED, 0 SUPPORTED_IMPUTED,
+  7 UNSUPPORTED, 25 N/A.
   Silent net **−166**: `fum_lost` (−482) outweighs ST TD + 2-pt (+316), i.e.
   the projected totals are on net **overstated**, not understated.
 
 ## Priority (non-SUPPORTED, non-N/A rules, by |2025 points at risk|)
+
+The four SUPPORTED_IMPUTED `bonus_fd_*` rules appear in `census.md` at their
+realized magnitude; they are estimated, not omitted, so the omission tables
+below leave them out.
 
 ### dynasty_main (Sleeper 1312006700437352448, IDP)
 | # | rule | weight | class | missing from | 2025 pts (signed) | affected / eligible | share | in unscoredKeys? | capable feed needed |
@@ -116,7 +188,8 @@ PBP supplement sha256 `f8dc2ce3…c2d7` (built by `pbp_weekly.persist_pbp_weekly
    every WR scored a silent zero (and it was not in `unscoredKeys`). All
    sources publish `receptions`; `realized_points` now emits the
    `bonus_rec_rb/_wr/_te` family by position (119.5 realized 2025 pts, 217 WRs).
-   RED-first: `tests/bdvm/test_position_reception_bonus.py`.
+   **Host-verified, and a value change** — see the disclosure section above.
+   RED-first + host fixture: `tests/bdvm/test_position_reception_bonus.py`.
 2. **NOT fixed — `idp_fum_rec` / `idp_fum_ret_yd` read the wrong column on the
    realized path** (affects the reconstructed-baseline proxy and every realized
    consumer, not the projection sources). The engine reads
@@ -147,6 +220,11 @@ PBP supplement sha256 `f8dc2ce3…c2d7` (built by `pbp_weekly.persist_pbp_weekly
   into `unscoredKeys` would need a declared vocabulary on `ProjectionRecord`.
 * Reconstructed-baseline records are fpg-only, so `RealizedSeason.unscored`
   (PBP rules missing for a season) does not reach the consensus `unscoredKeys`.
-* Same "lower bound" wording remains in `src/nfl_data/realized_points.py`
-  (`RealizedPoints.unscored`) and `src/bdvm/baseline.py`; `pass_int_td` makes it
-  equally wrong there (outside this unit's edit list).
+* "Lower bound" wording is gone from every partial-total surface
+  (`realized_points`, `baseline`, `projections`, `actuals`, `scoring`, `service`,
+  `league_comparison/scoring_engine`): `pass_int_td` is a penalty, so a partial
+  total may be over- or understated. Pinned by
+  `test_no_lower_bound_wording_survives_on_partial_total_surfaces`.
+* Play-type first downs (`pass_fd`/`rush_fd`/`rec_fd`, 0.0 on both live cards):
+  UNSUPPORTED_VOCABULARY — no projection publishes them by play type; never
+  derived from aggregates. The realized engine also reads no column for them.
