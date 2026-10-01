@@ -1072,8 +1072,11 @@ main() {
     # deploy those two have not finished yet — an immediate run would
     # collect for an empty cohort and log a misleading zero. The 30-min
     # OnActiveSec in the timer covers deploy day.
-    sudo -n "${SYSTEMCTL_BIN}" enable --now "${sharpros_service_name}.timer"
-    log "Enabled ${sharpros_service_name}.timer"
+    # Guarded like install_simple_timer: under set -e an unguarded enable
+    # failure would abort the whole installer (and the deploy) over one timer.
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${sharpros_service_name}.timer" && \
+      log "Enabled ${sharpros_service_name}.timer" || \
+      log "Note: could not enable ${sharpros_service_name}.timer."
   fi
   if [[ "${ffpc_needs_install}" == "true" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" enable --now "${ffpc_service_name}.timer"
