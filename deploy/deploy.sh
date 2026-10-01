@@ -948,11 +948,21 @@ build_temporal_ledger() {
 # produces them is ephemeral, so the deployed commit's
 # data/ros/sims/<stem>.json + <stem>.identity.json are joined here into the
 # private, gitignored data/forecast_archive/.  --git-history also recovers
-# forecasts from refreshes whose deploy was skipped or cancelled.  Capture
-# only: it never changes a served file.  Non-fatal — a failure loses nothing
-# that the next deploy's history walk cannot still recover.
+# forecasts from refreshes whose deploy was skipped, cancelled or stalled: it
+# walks back until it meets a forecast already archived (500-commit safety
+# cap, ~41 days at the 2h cadence, logged if reached).  Capture only: it never
+# changes a served file.  Non-fatal and bounded (timeout 300) — a failure
+# loses nothing that the next deploy's history walk cannot still recover.
+#
+# Runs AFTER record_success_state, unlike build_temporal_ledger: the ledger is
+# a serving dependency (rankChange reads it), so it must exist before
+# verify_deploy judges the deploy; this archive serves nothing, so it must
+# neither delay verification nor sit inside the window where a failure would
+# trip the ERR trap's auto-rollback.  The `if` keeps a non-zero exit (including
+# timeout's 124) from reaching `set -e` or the trap.
 archive_ros_forecasts() {
   local script="${APP_DIR}/scripts/archive_ros_forecasts.py"
+  local output=""
   if [[ ! -f "${script}" ]]; then
     log "[forecast-archive] script not present; skipping"
     return 0
@@ -962,11 +972,20 @@ archive_ros_forecasts() {
     return 0
   fi
   log "[forecast-archive] archiving published playoff/title forecasts (idempotent)"
-  if "${VENV_DIR}/bin/python" "${script}" --git-history --max-commits 24 >/dev/null 2>&1; then
+  if output="$(timeout 300 "${VENV_DIR}/bin/python" "${script}" --git-history 2>&1)"; then
     log "[forecast-archive] forecast archive completed"
   else
-    warn "[forecast-archive] forecast archive exited non-zero — non-fatal"
+    warn "[forecast-archive] forecast archive exited non-zero (124 = timed out) — non-fatal"
   fi
+  # `if`, not `[[ ]] &&`: a false test as the loop's last command would make
+  # the loop return 1 and trip `set -e` / the ERR trap.
+  local line
+  while IFS= read -r line; do
+    if [[ -n "${line}" ]]; then
+      log "[forecast-archive] ${line}"
+    fi
+  done <<< "${output}"
+  return 0
 }
 
 verify_deploy() {
@@ -1223,9 +1242,9 @@ main() {
   verify_runtime_state
   reconcile_source_history
   build_temporal_ledger
-  archive_ros_forecasts
   verify_deploy
   record_success_state
+  archive_ros_forecasts
 
   log "Deployment succeeded at revision ${TARGET_REV}."
 }

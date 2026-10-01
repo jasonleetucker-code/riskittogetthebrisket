@@ -7,15 +7,20 @@ the box receives each forecast as ``data/ros/sims/<stem>.json`` plus its
 identity sidecar ``<stem>.identity.json`` in the deployed commit. This script
 joins the two into ``data/forecast_archive/`` (gitignored, never committed).
 
-``--git-history`` additionally walks recent commits touching the sim files, so
-a deploy that was skipped or cancelled does not lose the forecasts of the
-refresh it would have shipped. Only commits that carry an identity sidecar are
-archived; earlier commits are counted, never backfilled here.
+A sim file with no sidecar -- on disk or in a commit -- is counted as
+``skipped:pre_archive`` and never archived identity-less, by both paths.
+
+``--git-history`` additionally walks the commits touching the sim files, newest
+first, until it reaches a forecast that was already archived before this run,
+so a deploy that was skipped, cancelled or stalled for days does not lose the
+forecasts of the refreshes it would have shipped. ``--max-commits`` is only a
+safety cap on that walk; hitting it is logged as a warning.
 
 Idempotent: re-archiving a forecast already in the archive writes nothing.
 
-Exit codes: 0 completed (including "nothing new"); 1 at least one forecast
-could not be archived (``error`` counts); 2 bad arguments.
+Prints one line of JSON counts. Exit codes: 0 completed (including "nothing
+new"); 1 at least one forecast could not be archived (``error`` counts); 2 bad
+arguments.
 
 Capture only -- see ``src/ros/forecast_archive.py``.
 """
@@ -24,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 
@@ -42,24 +48,33 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--git-history",
         action="store_true",
-        help="also archive sidecar-bearing forecasts from recent commits",
+        help="also archive sidecar-bearing forecasts from commits since the last archived one",
     )
     parser.add_argument(
         "--max-commits",
         type=int,
-        default=50,
-        help="commits per sim file to walk with --git-history (default 50)",
+        default=forecast_archive.HISTORY_SAFETY_CAP,
+        help=(
+            "safety cap on commits walked per sim file with --git-history "
+            f"(default {forecast_archive.HISTORY_SAFETY_CAP})"
+        ),
     )
     args = parser.parse_args(argv)
     if args.max_commits < 1:
         parser.error("--max-commits must be at least 1")
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(message)s")
 
+    # The history walk's stop condition must be the archive as it stood BEFORE
+    # this run: the published ingest below archives the deploy's own HEAD
+    # forecast, and stopping on that key would skip every commit since the last
+    # deploy (``forecast_archive.ingest_git_history``).
+    prior = forecast_archive.recorded_keys(args.dir)
     summary = {"published": forecast_archive.ingest_published(args.dir)}
     if args.git_history:
         summary["gitHistory"] = forecast_archive.ingest_git_history(
-            args.dir, max_commits=args.max_commits
+            args.dir, max_commits=args.max_commits, stop_keys=prior
         )
-    print(json.dumps(summary, indent=2, sort_keys=True))
+    print(json.dumps(summary, sort_keys=True))
     errors = sum(n for part in summary.values() for k, n in part.items() if k.startswith("error"))
     return 1 if errors else 0
 

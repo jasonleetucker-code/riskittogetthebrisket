@@ -34,6 +34,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+# Imported for its side effect: ``PROCESS_BUILD`` is captured at import, so the
+# forecast archive's code SHA is the commit this process loaded -- the runner's
+# checkout here, the server's start-time commit when ``run_all`` runs in-server.
+from src.api import build_identity as _build_identity  # noqa: F401
 from src.ros import ROS_DATA_DIR
 from src.ros.aggregate import RankedRow, SourceSnapshot, aggregate
 from src.ros.lineup import flatten_starter_slots

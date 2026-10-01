@@ -15,13 +15,17 @@ archiving the same forecast twice, by any transport, writes nothing. Identity
 metadata is NOT part of the key, so the same forecast arriving once with and
 once without its identity sidecar can never become two calibration samples.
 
-**Model identity travels with every record**: code SHA, a hash of the
-simulator parameters actually in force (every module-level constant of the
-producing engines plus the points model it loaded), and hashes of the inputs
-(the league snapshot fields the simulators read, the persisted team-strength
-file, the ROS aggregate and its ``aggregatedAt`` -- the ROS projection snapshot
-id -- and the points-model file). A field that cannot be established is
-``None`` with its reason in ``nullReasons``; nothing is guessed.
+**Model identity travels with every record**: the code SHA, a hash of
+``simParams``, and hashes of the inputs (the league snapshot fields the
+simulators read, the persisted team-strength file, the ROS aggregate and its
+``aggregatedAt`` -- the ROS projection snapshot id -- and the points-model
+file). ``simParams`` is deliberately narrow: the module-level scalar constants
+of ``src.ros.playoff_sim`` and ``src.ros.championship`` plus the points model
+they loaded -- nothing else. Every other piece of code a simulation runs
+(helpers those engines call, lineup / team-strength logic, constants defined
+elsewhere) is pinned by the code SHA, not by ``simParams``. A field that cannot
+be established is ``None`` with its reason in ``nullReasons``; nothing is
+guessed.
 
 **Why the store is not under ``data/ros/``**: the scheduled-refresh workflow
 ``git add -f``s the whole of ``data/ros/`` (``.github/workflows/scheduled-refresh.yml``),
@@ -38,7 +42,21 @@ file it describes -- no forecast bytes are duplicated into git -- and on the
 production box ``scripts/archive_ros_forecasts.py`` (run by ``deploy/deploy.sh``
 after each deploy) joins sim file + sidecar into the private archive. A sidecar
 whose ``forecastSha256`` does not match the sim file beside it is never trusted:
-the forecast is archived with its identity ``None`` and the reason named.
+the forecast is archived with its identity ``None`` and the reason named. A sim
+file with NO sidecar is not archived at all (``skipped:pre_archive``) on either
+box-side path: it predates the producer (or its sidecar write failed), and
+because identity is not part of the key, archiving it identity-less would fix
+that forecast's identity as ``None`` forever -- a later, labelled backfill could
+never relabel it.
+
+**Which users write the store.** On production every writer runs as the one
+box user ``APP_USER`` (``dynasty``): ``deploy/deploy.sh`` runs as it, and the
+API service that can call ``run_all`` is rendered from
+``deploy/systemd/dynasty.service.template`` with ``User=__APP_USER__`` /
+``Group=__APP_USER__`` substituted from the same ``APP_USER`` the deploy
+carries. So a directory created by either is appendable by the other. A box
+that splits those users must give ``data/forecast_archive/`` a shared group
+before the first run; nothing here changes ownership.
 
 Nothing here may fail a refresh: :func:`archive_safely` and
 :func:`write_identity_sidecar_safely` catch, log and continue.
@@ -114,15 +132,30 @@ def _module_constants(module: ModuleType) -> dict[str, Any]:
 
 
 def _code_identity(nulls: dict[str, str]) -> dict[str, Any]:
-    try:
-        from src.api.build_identity import resolve_build_identity  # noqa: PLC0415
+    """The commit of the code that produced the forecast: the PROCESS's build.
 
-        build = resolve_build_identity(REPO_ROOT)
+    ``PROCESS_BUILD`` (``src/api/build_identity.py``) is ``HEAD`` read once per
+    process -- the same owner ``/api/status`` reports as ``build.commit``.
+    Inside the API server (``src/ros/api.py`` -> ``run_all``) that is the commit
+    the server loaded at start; reading ``HEAD`` at call time instead would
+    report a later checkout the running code never loaded. On the refresh
+    runner (``python -m src.ros.scrape``) the process is the one-shot run and
+    ``src.ros.scrape`` imports the owner at module load, so ``PROCESS_BUILD``
+    there IS the runner's checkout ``HEAD``.
+    """
+    try:
+        from src.api.build_identity import PROCESS_BUILD  # noqa: PLC0415
+
+        build = dict(PROCESS_BUILD)
     except Exception as exc:  # noqa: BLE001
         build = {"commit": None, "commit_source": None, "unavailable_reason": f"error:{exc}"}
     if build.get("commit") is None:
         nulls["model.codeSha"] = str(build.get("unavailable_reason") or "unknown")
-    return {"codeSha": build.get("commit"), "codeShaSource": build.get("commit_source")}
+    return {
+        "codeSha": build.get("commit"),
+        "codeShaSource": build.get("commit_source"),
+        "codeShaCapturedAt": build.get("process_started_at"),
+    }
 
 
 def _sim_params(best_ball: bool | None, nulls: dict[str, str]) -> dict[str, Any] | None:
@@ -510,6 +543,7 @@ def sidecar_path(sim_path: Path) -> Path:
 
 def write_identity_sidecar_safely(sim_path: Path, identity: Mapping[str, Any]) -> bool:
     """Write ``identity`` beside the sim file it describes. False on any failure."""
+    tmp: Path | None = None
     try:
         target = sidecar_path(sim_path)
         tmp = target.with_name(target.name + ".tmp")
@@ -521,6 +555,14 @@ def write_identity_sidecar_safely(sim_path: Path, identity: Mapping[str, Any]) -
     except Exception as exc:  # noqa: BLE001 -- the archive must never fail a refresh
         LOG.warning("[ros] forecast identity sidecar for %s not written: %s", sim_path, exc)
         return False
+    finally:
+        # ``data/ros/`` is force-added wholesale by the refresh workflow, so a
+        # temp file left behind by a failed write or replace would be committed.
+        if tmp is not None:
+            try:
+                tmp.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 def archive_safely(
@@ -558,13 +600,9 @@ def archive_safely(
 
 
 def _identity_for(
-    forecast: Mapping[str, Any], sidecar_text: str | None, *, league_key: str | None, kind: str
+    forecast: Mapping[str, Any], sidecar_text: str, *, league_key: str | None, kind: str
 ) -> dict[str, Any]:
     """The sidecar identity when it provably describes ``forecast``; else unidentified."""
-    if sidecar_text is None:
-        return unidentified(
-            league_key=league_key, kind=kind, forecast=forecast, reason="identity_sidecar_missing"
-        )
     try:
         identity = json.loads(sidecar_text)
     except ValueError:
@@ -583,6 +621,35 @@ def _identity_for(
     return identity
 
 
+def _prepare_record(
+    sim_text: str,
+    sidecar_text: str | None,
+    *,
+    league_key: str | None,
+    kind: str,
+    transport: str,
+) -> tuple[str, dict[str, Any] | None]:
+    """``(status, record)``: a record to append, or ``None`` and why it was skipped.
+
+    A MISSING sidecar is ``skipped:pre_archive`` -- the one rule both box-side
+    transports share (see the module docstring for why it is not archived
+    identity-less). A sidecar that is present but unreadable or describes a
+    different forecast still archives the forecast, with identity ``None`` and
+    the reason named: the producer existed, so the forecast is archive-era
+    evidence and its broken identity is the recorded fact.
+    """
+    if sidecar_text is None:
+        return "skipped:pre_archive", None
+    try:
+        forecast = json.loads(sim_text)
+    except ValueError:
+        return "skipped:forecast_unreadable", None
+    if not isinstance(forecast, dict) or not forecast.get("computedAt"):
+        return "skipped:not_a_forecast", None
+    identity = _identity_for(forecast, sidecar_text, league_key=league_key, kind=kind)
+    return "ready", assemble_record(identity, forecast, transport=transport)
+
+
 def ingest_text(
     sim_text: str,
     sidecar_text: str | None,
@@ -593,14 +660,11 @@ def ingest_text(
     base: Path = DEFAULT_DIR,
 ) -> str:
     """Archive one published forecast. Returns ``written`` / ``duplicate`` / ``skipped:<why>``."""
-    try:
-        forecast = json.loads(sim_text)
-    except ValueError:
-        return "skipped:forecast_unreadable"
-    if not isinstance(forecast, dict) or not forecast.get("computedAt"):
-        return "skipped:not_a_forecast"
-    identity = _identity_for(forecast, sidecar_text, league_key=league_key, kind=kind)
-    record = assemble_record(identity, forecast, transport=transport)
+    status, record = _prepare_record(
+        sim_text, sidecar_text, league_key=league_key, kind=kind, transport=transport
+    )
+    if record is None:
+        return status
     return "written" if append_record(base, record) else "duplicate"
 
 
@@ -619,7 +683,12 @@ def published_paths() -> list[tuple[str, str, Path]]:
 
 
 def ingest_published(base: Path = DEFAULT_DIR) -> dict[str, int]:
-    """Archive the forecasts currently on disk beside their sidecars."""
+    """Archive the forecasts currently on disk beside their sidecars.
+
+    A sim file with no sidecar beside it (every one on the first deploy after
+    this archive merges) counts as ``skipped:pre_archive``, exactly as the git
+    history walk counts the same commit.
+    """
     counts: dict[str, int] = {}
     for league_key, kind, path in published_paths():
         try:
@@ -657,50 +726,93 @@ def _git(*args: str) -> str | None:
     return done.stdout if done.returncode == 0 else None
 
 
-def ingest_git_history(base: Path = DEFAULT_DIR, *, max_commits: int = 50) -> dict[str, int]:
-    """Recover forecasts a skipped or cancelled deploy never placed on disk.
+#: Safety cap on the history walk, per sim file. The walk normally stops long
+#: before it: at the first commit whose forecast was already archived. 500
+#: commits is ~41 days at the 2-hourly refresh cadence.
+HISTORY_SAFETY_CAP = 500
 
-    Walks the last ``max_commits`` commits touching each published sim file.
+
+def ingest_git_history(
+    base: Path = DEFAULT_DIR,
+    *,
+    max_commits: int = HISTORY_SAFETY_CAP,
+    stop_keys: set[str] | None = None,
+) -> dict[str, int]:
+    """Recover forecasts a skipped, cancelled or stalled deploy never placed on disk.
+
+    Walks the commits touching each published sim file, newest first, until it
+    reaches a commit whose forecast key is in ``stop_keys`` -- the keys archived
+    BEFORE this run (default: the archive as it stands when the walk starts).
+    Every earlier run walked back to an archived key too, so everything older
+    is already in the archive. ``stop_keys`` must be a snapshot taken before any
+    ingest of this run: a key archived moments ago by :func:`ingest_published`
+    (the deploy's own HEAD forecast) proves nothing about the commits between it
+    and the last deploy, and stopping on it would lose exactly the stalled-deploy
+    window this walk exists to recover.
+
+    ``max_commits`` is only a safety cap. Reaching it without meeting an
+    archived key is logged as a warning and counted (``warning:cap_reached``) --
+    older forecasts may remain unrecovered. On the very first run nothing is
+    archived yet, so the walk runs to the cap through pre-archive history.
+
     Only commits that ALSO carry the identity sidecar are archived: those were
     produced by this archive's producer. Earlier commits are counted as
     ``skipped:pre_archive`` -- backfilling them is a separate, labelled unit,
     never folded in here.
     """
+    prior = recorded_keys(base) if stop_keys is None else set(stop_keys)
     counts: dict[str, int] = {}
+
+    def bump(status: str) -> None:
+        counts[status] = counts.get(status, 0) + 1
+
     for league_key, kind, path in published_paths():
         try:
             rel = path.resolve().relative_to(REPO_ROOT).as_posix()
             side_rel = sidecar_path(path).resolve().relative_to(REPO_ROOT).as_posix()
         except ValueError:
-            counts["error:outside_repository"] = counts.get("error:outside_repository", 0) + 1
+            bump("error:outside_repository")
             continue
         log = _git("log", f"--max-count={int(max_commits)}", "--format=%H", "--", rel)
         if log is None:
-            counts["error:git_log"] = counts.get("error:git_log", 0) + 1
+            bump("error:git_log")
             continue
-        for sha in log.split():
+        shas = log.split()
+        reached_archived = False
+        pre_archive = 0
+        for sha in shas:
             side = _git("show", f"{sha}:{side_rel}")
             if side is None:
-                status = "skipped:pre_archive"
-            else:
-                sim = _git("show", f"{sha}:{rel}")
-                try:
-                    status = (
-                        "skipped:absent"
-                        if sim is None
-                        else ingest_text(
-                            sim,
-                            side,
-                            league_key=league_key,
-                            kind=kind,
-                            transport=TRANSPORT_GIT_HISTORY,
-                            base=base,
-                        )
-                    )
-                except Exception as exc:  # noqa: BLE001
-                    LOG.warning(
-                        "[ros] forecast git ingest %s %s %s: %s", league_key, kind, sha, exc
-                    )
-                    status = "error"
-            counts[status] = counts.get(status, 0) + 1
+                bump("skipped:pre_archive")
+                pre_archive += 1
+                continue
+            sim = _git("show", f"{sha}:{rel}")
+            if sim is None:
+                bump("skipped:absent")
+                continue
+            try:
+                status, record = _prepare_record(
+                    sim, side, league_key=league_key, kind=kind, transport=TRANSPORT_GIT_HISTORY
+                )
+                if record is not None:
+                    if record["key"] in prior:
+                        reached_archived = True
+                        bump("stopped:already_archived")
+                        break
+                    status = "written" if append_record(base, record) else "duplicate"
+            except Exception as exc:  # noqa: BLE001
+                LOG.warning("[ros] forecast git ingest %s %s %s: %s", league_key, kind, sha, exc)
+                status = "error"
+            bump(status)
+        if not reached_archived and len(shas) >= int(max_commits):
+            LOG.warning(
+                "[ros] forecast git ingest %s %s: safety cap of %d commits reached before an "
+                "already-archived forecast (%d of them pre-archive); older forecasts may be "
+                "unrecovered -- rerun with a larger --max-commits",
+                league_key,
+                kind,
+                int(max_commits),
+                pre_archive,
+            )
+            bump("warning:cap_reached")
     return counts

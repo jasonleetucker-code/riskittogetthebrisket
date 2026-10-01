@@ -15,8 +15,11 @@ Pins, without network or a live board:
 
 from __future__ import annotations
 
+import importlib.util
 import json
+import logging
 import re
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -201,8 +204,8 @@ def test_rearchiving_the_same_forecast_is_a_no_op(ros_tmp):
 
 
 def test_identity_is_not_part_of_the_key(ros_tmp):
-    """The same forecast arriving without its sidecar is the SAME calibration
-    sample, never a second one."""
+    """The same forecast arriving with an untrustworthy sidecar (identity
+    ``None``) is the SAME calibration sample, never a second one."""
     doc = _doc(PLAYOFF_PAYLOAD)
     context = forecast_archive.collect_context(_snapshot(), best_ball=True)
     forecast_archive.archive_safely(
@@ -210,7 +213,7 @@ def test_identity_is_not_part_of_the_key(ros_tmp):
     )
     status = forecast_archive.ingest_text(
         json.dumps(doc),
-        None,
+        "{not json",
         league_key="dynasty_main",
         kind="playoff",
         transport=forecast_archive.TRANSPORT_PUBLISHED_FILE,
@@ -344,8 +347,8 @@ def test_missing_identity_is_none_with_a_reason_never_fabricated(ros_tmp, monkey
     (ros_tmp.ros / "aggregate" / "latest.json").unlink()
     (ros_tmp.ros / "team_strength" / "latest.json").unlink()
     monkeypatch.setattr(
-        "src.api.build_identity.resolve_build_identity",
-        lambda root: {"commit": None, "commit_source": None, "unavailable_reason": "no_repository"},
+        "src.api.build_identity.PROCESS_BUILD",
+        {"commit": None, "commit_source": None, "unavailable_reason": "no_repository"},
     )
     bare = SimpleNamespace(root_league_id="L", generated_at=None, seasons=[], current_season=None)
     context = forecast_archive.collect_context(bare, best_ball=None)
@@ -364,18 +367,62 @@ def test_missing_identity_is_none_with_a_reason_never_fabricated(ros_tmp, monkey
     assert identity["nSimulations"] is None and nulls["nSimulations"] == "absent_from_forecast"
 
 
-def test_code_sha_is_the_checkout_commit(ros_tmp):
-    from src.api.build_identity import resolve_build_identity
+def test_code_sha_is_the_process_build_commit(ros_tmp):
+    from src.api.build_identity import PROCESS_BUILD
 
-    expected = resolve_build_identity(REPO_ROOT)["commit"]
     context = forecast_archive.collect_context(_snapshot(), best_ball=True)
-    assert context["model"]["codeSha"] == expected
+    assert context["model"]["codeSha"] == PROCESS_BUILD["commit"]
+    assert context["model"]["codeShaCapturedAt"] == PROCESS_BUILD["process_started_at"]
+
+
+def test_code_sha_does_not_follow_head_drift_after_the_process_loaded(ros_tmp, monkeypatch):
+    """In-server ``run_all``: a checkout after the server started (not yet
+    followed by a restart) must not be claimed as the code that ran."""
+    from src.api import build_identity
+
+    loaded = {
+        "commit": "a" * 40,
+        "commit_source": "refs/heads/main",
+        "unavailable_reason": None,
+        "process_started_at": "2026-10-01T00:00:00+00:00",
+    }
+    monkeypatch.setattr(build_identity, "PROCESS_BUILD", loaded)
+    monkeypatch.setattr(
+        build_identity,
+        "resolve_build_identity",
+        lambda root: {"commit": "b" * 40, "commit_source": "drifted", "unavailable_reason": None},
+    )
+    model = forecast_archive.collect_context(_snapshot(), best_ball=True)["model"]
+    assert model["codeSha"] == "a" * 40
+    assert model["codeShaSource"] == "refs/heads/main"
+    assert model["codeShaCapturedAt"] == "2026-10-01T00:00:00+00:00"
+
+
+def test_scrape_captures_the_build_identity_at_module_load():
+    """The runner's ``PROCESS_BUILD`` is taken when ``src.ros.scrape`` loads,
+    not lazily at the first forecast."""
+    import sys
+
+    assert "src.api.build_identity" in sys.modules
+    assert "from src.api import build_identity" in Path(scrape.__file__).read_text(encoding="utf-8")
+
+
+def test_missing_sidecar_is_pre_archive_and_writes_nothing(ros_tmp):
+    status = forecast_archive.ingest_text(
+        json.dumps(_doc(PLAYOFF_PAYLOAD)),
+        None,
+        league_key="dynasty_main",
+        kind="playoff",
+        transport=forecast_archive.TRANSPORT_PUBLISHED_FILE,
+        base=ros_tmp.archive,
+    )
+    assert status == "skipped:pre_archive"
+    assert list(forecast_archive.iter_records(ros_tmp.archive)) == []
 
 
 @pytest.mark.parametrize(
     ("sidecar", "reason"),
     [
-        (None, "identity_sidecar_missing"),
         ("{not json", "identity_sidecar_unreadable"),
         (json.dumps({"schema": "something-else"}), "identity_sidecar_unreadable"),
     ],
@@ -451,14 +498,22 @@ def test_git_history_archives_only_sidecar_bearing_commits(ros_tmp, monkeypatch)
     assert rec["model"] == json.loads(json.dumps(new_side["model"]))
 
     again = forecast_archive.ingest_git_history(ros_tmp.archive, max_commits=5)
-    assert again == {"duplicate": 1, "skipped:pre_archive": 1}
+    assert again == {"stopped:already_archived": 1}
 
 
 def test_ingest_published_archives_what_the_deploy_shipped(ros_tmp, monkeypatch):
     sims = ros_tmp.ros / "sims"
     sims.mkdir()
     sim = sims / "latest_playoff.json"
-    sim.write_text(json.dumps(_doc(PLAYOFF_PAYLOAD), indent=2))
+    doc = _doc(PLAYOFF_PAYLOAD)
+    sim.write_text(json.dumps(doc, indent=2))
+    context = forecast_archive.collect_context(_snapshot(), best_ball=True)
+    forecast_archive.write_identity_sidecar_safely(
+        sim,
+        forecast_archive.build_identity(
+            league_key="dynasty_main", kind="playoff", forecast=doc, context=context
+        ),
+    )
     missing = sims / "latest_championship.json"
     monkeypatch.setattr(
         forecast_archive,
@@ -473,6 +528,160 @@ def test_ingest_published_archives_what_the_deploy_shipped(ros_tmp, monkeypatch)
         "duplicate": 1,
         "skipped:absent": 1,
     }
+
+
+def test_first_deploy_without_sidecars_archives_nothing(ros_tmp, monkeypatch):
+    """The first deploy after merge ships committed sim files with no sidecar.
+    Archiving them identity-less would freeze their identity as None forever
+    (identity is not part of the key), so they are pre-archive, exactly as the
+    git history walk classifies the same commit."""
+    sims = ros_tmp.ros / "sims"
+    sims.mkdir()
+    playoff = sims / "latest_playoff.json"
+    champ = sims / "latest_championship.json"
+    playoff.write_text(json.dumps(_doc(PLAYOFF_PAYLOAD), indent=2))
+    champ.write_text(json.dumps(_doc(CHAMP_PAYLOAD), indent=2))
+    monkeypatch.setattr(
+        forecast_archive,
+        "published_paths",
+        lambda: [("dynasty_main", "playoff", playoff), ("dynasty_main", "championship", champ)],
+    )
+    assert forecast_archive.ingest_published(ros_tmp.archive) == {"skipped:pre_archive": 2}
+    assert list(forecast_archive.iter_records(ros_tmp.archive)) == []
+    assert not (ros_tmp.archive / forecast_archive.INDEX_NAME).exists()
+
+    # Once the producer has written the sidecar, the same forecast archives
+    # WITH its identity -- nothing identity-less is in the way.
+    context = forecast_archive.collect_context(_snapshot(), best_ball=True)
+    doc = json.loads(playoff.read_text())
+    identity = forecast_archive.build_identity(
+        league_key="dynasty_main", kind="playoff", forecast=doc, context=context
+    )
+    forecast_archive.write_identity_sidecar_safely(playoff, identity)
+    assert forecast_archive.ingest_published(ros_tmp.archive) == {
+        "written": 1,
+        "skipped:pre_archive": 1,
+    }
+    (rec,) = forecast_archive.iter_records(ros_tmp.archive)
+    assert rec["model"] == json.loads(json.dumps(identity["model"]))
+
+
+def test_sidecar_temp_file_never_survives_a_failed_replace(ros_tmp, monkeypatch):
+    sims = ros_tmp.ros / "sims"
+    sims.mkdir()
+    sim = sims / "latest_playoff.json"
+    sim.write_text("{}")
+
+    def boom(src, dst):
+        raise OSError("replace failed")
+
+    monkeypatch.setattr(forecast_archive.os, "replace", boom)
+    assert forecast_archive.write_identity_sidecar_safely(sim, {"schema": "x"}) is False
+    assert sorted(p.name for p in sims.iterdir()) == ["latest_playoff.json"]
+
+
+# ── git history against a REAL repository ───────────────────────────
+
+
+def _run_git(repo: Path, *args: str) -> str:
+    done = subprocess.run(
+        ["git", *args], cwd=repo, capture_output=True, text=True, encoding="utf-8", check=True
+    )
+    return done.stdout
+
+
+@pytest.fixture
+def git_repo(tmp_path, ros_tmp, monkeypatch):
+    """A real repository holding one published sim file, plus helpers."""
+    repo = tmp_path / "repo"
+    sims = repo / "data" / "ros" / "sims"
+    sims.mkdir(parents=True)
+    _run_git(repo, "init", "-q")
+    sim = sims / "latest_playoff.json"
+    monkeypatch.setattr(forecast_archive, "REPO_ROOT", repo.resolve())
+    monkeypatch.setattr(
+        forecast_archive, "published_paths", lambda: [("dynasty_main", "playoff", sim)]
+    )
+    context = forecast_archive.collect_context(_snapshot(), best_ball=True)
+    counter = iter(range(1, 10_000))
+
+    def commit(*, with_sidecar: bool) -> str:
+        n = next(counter)
+        doc = {**_doc(PLAYOFF_PAYLOAD), "computedAt": f"2026-09-{n:02d}T12:00:00+00:00"}
+        sim.write_bytes(json.dumps(doc).encode("utf-8"))
+        side = forecast_archive.sidecar_path(sim)
+        if with_sidecar:
+            identity = forecast_archive.build_identity(
+                league_key="dynasty_main", kind="playoff", forecast=doc, context=context
+            )
+            side.write_bytes(json.dumps(identity).encode("utf-8"))
+        elif side.exists():
+            side.unlink()
+        _run_git(repo, "add", "-A")
+        _run_git(
+            repo,
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-qm",
+            f"refresh {n}",
+        )
+        return doc["computedAt"]
+
+    return SimpleNamespace(repo=repo, sim=sim, commit=commit, archive=ros_tmp.archive)
+
+
+def _archived_stamps(archive: Path) -> list[str]:
+    return sorted(r["computedAt"] for r in forecast_archive.iter_records(archive))
+
+
+def test_real_git_history_walks_back_to_the_last_archived_forecast(git_repo):
+    pre = [git_repo.commit(with_sidecar=False) for _ in range(2)]
+    first = [git_repo.commit(with_sidecar=True) for _ in range(3)]
+    counts = forecast_archive.ingest_git_history(git_repo.archive)
+    # Nothing archived yet: the walk runs through all history, under the cap.
+    assert counts == {"written": 3, "skipped:pre_archive": 2}
+    assert _archived_stamps(git_repo.archive) == first
+    assert not set(pre) & set(_archived_stamps(git_repo.archive))
+
+    # Deploys stall for far longer than the old 24-commit window: 30 refreshes.
+    stalled = [git_repo.commit(with_sidecar=True) for _ in range(30)]
+    counts = forecast_archive.ingest_git_history(git_repo.archive)
+    assert counts == {"written": 30, "stopped:already_archived": 1}
+    assert _archived_stamps(git_repo.archive) == sorted(first + stalled)
+
+    # Nothing new: the walk stops at the newest commit.
+    assert forecast_archive.ingest_git_history(git_repo.archive) == {"stopped:already_archived": 1}
+
+
+def test_real_git_history_warns_when_the_safety_cap_is_hit(git_repo, caplog):
+    for _ in range(4):
+        git_repo.commit(with_sidecar=True)
+    with caplog.at_level(logging.WARNING, logger="ros.forecast_archive"):
+        counts = forecast_archive.ingest_git_history(git_repo.archive, max_commits=3)
+    assert counts == {"written": 3, "warning:cap_reached": 1}
+    assert any("safety cap of 3 commits" in r.getMessage() for r in caplog.records)
+
+
+def test_published_ingest_of_head_does_not_stop_the_history_walk(git_repo):
+    """The deploy archives its own HEAD forecast first; the walk's stop
+    condition is the archive BEFORE this run, so the stalled window between the
+    last deploy and HEAD is still recovered."""
+    earlier = git_repo.commit(with_sidecar=True)
+    assert forecast_archive.ingest_git_history(git_repo.archive) == {"written": 1}
+    stalled = [git_repo.commit(with_sidecar=True) for _ in range(5)]
+
+    spec = importlib.util.spec_from_file_location(
+        "archive_ros_forecasts_under_test", REPO_ROOT / "scripts" / "archive_ros_forecasts.py"
+    )
+    script = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(script)
+    assert script.main(["--dir", str(git_repo.archive), "--git-history"]) == 0
+    assert _archived_stamps(git_repo.archive) == sorted([earlier, *stalled])
 
 
 # ── where the store lives ───────────────────────────────────────────
