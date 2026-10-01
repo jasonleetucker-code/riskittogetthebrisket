@@ -475,6 +475,68 @@ def _validate_statistics(where: str, relation: Mapping[str, Any]) -> list[str]:
     return errors
 
 
+def _proven_peers(relations: Mapping[Any, Mapping[str, Any]]) -> dict[str, set[str]]:
+    """``{source: every source sharing a PROVEN relation with it}`` -- one hop.
+
+    One hop, never the transitive closure: proven relations of different kinds
+    (KTC calibration states, a rookie ladder borrowing KTC's scale) chain into
+    one component spanning unrelated providers, and that would refuse honest
+    independence verdicts far from any recorded evidence."""
+    peers: dict[str, set[str]] = {}
+    for rel in relations.values():
+        if lineage_category(rel) != LINEAGE_PROVEN_COMMON_ANCESTRY:
+            continue
+        members = {str(x) for x in (rel.get("sources") or [])}
+        for m in members:
+            peers.setdefault(m, set()).update(members - {m})
+    return peers
+
+
+def _independence_contradictions(
+    where: str,
+    pair_sources: Sequence[Any],
+    relations: Mapping[Any, Mapping[str, Any]],
+    proven_peers: Mapping[str, set[str]],
+    skip: set[str],
+) -> list[str]:
+    """Recorded relations that forbid an INDEPENDENT_NO_EVIDENCE pair.
+
+    Absence of evidence cannot coexist with RECORDED evidence, cited or not:
+    otherwise a pair that simply omits the relation joining its own sources
+    relabels a measured dependence as independence (#1601 review).  A proven or
+    measured relation contradicts the pair when it touches two DIFFERENT pair
+    sources -- directly, or through a source PROVEN to share ancestry with one
+    of them (``ktc`` is a calibration state of ``ktcSfTep``, so a measured
+    PFK~``ktcSfTep`` dependence is evidence about PFK~``ktc``).  SUSPECTED
+    relations do not contradict "no evidence"; consumers that need the worse
+    verdict (the Hill manifest) take it themselves."""
+    reach = [{str(x)} | set(proven_peers.get(str(x), ())) for x in pair_sources]
+    out: list[str] = []
+    for rid, rel in relations.items():
+        if str(rid) in skip:
+            continue  # already judged as a supporting relation of this pair
+        if lineage_category(rel) not in (
+            LINEAGE_PROVEN_COMMON_ANCESTRY,
+            LINEAGE_MEASURED_DEPENDENCE,
+        ):
+            continue
+        members = {str(x) for x in (rel.get("sources") or [])}
+        joined = any(
+            a != b
+            for i, ri in enumerate(reach)
+            for j, rj in enumerate(reach)
+            if i < j
+            for a in members & ri
+            for b in members & rj
+        )
+        if joined:
+            out.append(
+                f"{where}: INDEPENDENT_NO_EVIDENCE contradicts recorded relation {rid!r} "
+                f"({rel.get('classification')}) joining the pair's sources"
+            )
+    return out
+
+
 def _validate_pairs(lineage: Mapping[str, Any], ids: set[str], check_evidence: Any) -> list[str]:
     """Structural rules for the four-category pair reconciliation."""
     errors: list[str] = []
@@ -485,6 +547,7 @@ def _validate_pairs(lineage: Mapping[str, Any], ids: set[str], check_evidence: A
         errors.append(f"categories must be exactly {list(LINEAGE_CATEGORIES)}")
     relations = {r.get("id"): r for r in lineage.get("relations") or []}
     known_sources = set((lineage.get("sources") or {}).keys())
+    proven_peers = _proven_peers(relations)
     for pair in lineage.get("pairReconciliation") or []:
         pid = pair.get("id")
         where = f"pairReconciliation.{pid}"
@@ -509,6 +572,7 @@ def _validate_pairs(lineage: Mapping[str, Any], ids: set[str], check_evidence: A
         elif cat not in LINEAGE_CATEGORIES:
             errors.append(f"{where}: category must be one of {list(LINEAGE_CATEGORIES)}")
         supporting = []
+        supporting_ids: set[str] = set()
         pair_sources = set(srcs)
         for rid in pair.get("relations") or []:
             if rid not in relations:
@@ -525,6 +589,7 @@ def _validate_pairs(lineage: Mapping[str, Any], ids: set[str], check_evidence: A
                 )
                 continue
             supporting.append(lineage_category(relations[rid]))
+            supporting_ids.add(str(rid))
         if (
             cat == LINEAGE_PROVEN_COMMON_ANCESTRY
             and LINEAGE_PROVEN_COMMON_ANCESTRY not in supporting
@@ -548,6 +613,10 @@ def _validate_pairs(lineage: Mapping[str, Any], ids: set[str], check_evidence: A
             c in (LINEAGE_PROVEN_COMMON_ANCESTRY, LINEAGE_MEASURED_DEPENDENCE) for c in supporting
         ):
             errors.append(f"{where}: INDEPENDENT_NO_EVIDENCE contradicts a supporting relation")
+        if cat == LINEAGE_INDEPENDENT_NO_EVIDENCE:
+            errors.extend(
+                _independence_contradictions(where, srcs, relations, proven_peers, supporting_ids)
+            )
         impl = pair.get("implications") or {}
         missing_axes = [a for a in PAIR_IMPLICATION_AXES if not impl.get(a)]
         if missing_axes:

@@ -405,7 +405,9 @@ def evaluate_offense_master(
     # Lineage comes from the ONE owner (config/sources/source_lineage.json, read
     # and validated by training_manifest.holdout_lineage) -- never a private copy.
     # The training families are the ones actually supplied here, so a custom
-    # training set is judged against its own trainers.
+    # training set is judged against its own trainers. Keys come from file paths
+    # here; build_manifest uses training_manifest.trainer_lineage_keys -- the two
+    # are pinned equal for every CSV trainer in tests/model_registry.
     trainers_by_family: dict[str, set[str]] = {}
     for p, _ in training.values():
         key = source_key_for_path(p)

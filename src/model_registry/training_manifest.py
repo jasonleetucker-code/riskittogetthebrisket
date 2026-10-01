@@ -185,12 +185,21 @@ class BoardSpec:
 
 # ── lineage: read from the one owner, never restated ────────────────────────
 
-#: The lineage registry the manifest reads. Its normalized bytes are part of
-#: ``manifest_hash`` (``TrainingManifest.to_dict()["lineage"]["sha256"]``), so a
-#: lineage edit makes every standing challenger ``stale_code_or_manifest`` —
-#: deliberately: a challenger's independence labels must name the exact lineage
-#: record they were computed from.
+#: The lineage registry the manifest reads. Its normalized sha256 is RECORDED
+#: provenance (``TrainingManifest.to_dict()["lineage"]``, and the run record's
+#: ``lineage``) but is deliberately NOT inside ``manifest_hash``: only the
+#: per-board labels DERIVED from it are (``_HASHED_DEPENDENCE_FIELDS``). An edit
+#: that changes no Hill holdout's category -- an IDP or DLF pair, a prose fix, a
+#: re-measurement that keeps the verdict -- must not stale every OFFENSE
+#: challenger and restart the Autopilot persistence window (#1601 review); an
+#: edit that changes a holdout's category does.
 LINEAGE_REL = "config/sources/source_lineage.json"
+
+#: The fields of one :class:`LineageDependence` that enter ``manifest_hash``:
+#: exactly what the fit or the evaluation reads (the category decides exclusion
+#: and ``independentCriterion`` membership). Reasons, pair / relation ids and
+#: current measurements are provenance, recorded in ``to_dict`` but unhashed.
+_HASHED_DEPENDENCE_FIELDS: tuple[str, ...] = ("trainerFamily", "category", "independent")
 
 #: The four lineage categories are owned by ``src.sources.source_census``
 #: (``LINEAGE_CATEGORIES``). ``UNKNOWN`` is not a fifth category: it is the
@@ -214,6 +223,9 @@ _CATEGORY_SEVERITY: dict[str, int] = {
     LINEAGE_UNKNOWN: 1,
     LINEAGE_INDEPENDENT: 0,
 }
+
+#: Internal marker distinguishing a deciding relation from a deciding pair.
+_RELATION_TAG = "relation:"
 
 _CATEGORY_REASON: dict[str, str] = {
     LINEAGE_PROVEN: "proven_common_ancestry",
@@ -273,11 +285,17 @@ def load_lineage_view(path: Path | None = None) -> LineageView:
         errors = tuple(_sc.validate_lineage(data))
     except Exception as exc:  # noqa: BLE001 - an unvalidatable registry fails closed
         errors = (f"validation_crashed: {type(exc).__name__}: {exc}",)
-    pairs = tuple(p for p in (data.get("pairReconciliation") or []) if isinstance(p, Mapping))
-    relations = {
-        str(r.get("id")): r for r in (data.get("relations") or []) if isinstance(r, Mapping)
-    }
-    return LineageView(rel, digest, not errors, errors, pairs, relations)
+    if errors:
+        # An invalid registry vouches for nothing: no pairs or relations are
+        # carried, so no consumer can read a label out of it by accident.
+        return LineageView(rel, digest, False, errors)
+    raw_pairs = data.get("pairReconciliation") or []
+    raw_relations = data.get("relations") or []
+    if not isinstance(raw_pairs, list) or not isinstance(raw_relations, list):
+        return LineageView(rel, digest, False, ("pairReconciliation/relations must be lists",))
+    pairs = tuple(p for p in raw_pairs if isinstance(p, Mapping))
+    relations = {str(r.get("id")): r for r in raw_relations if isinstance(r, Mapping)}
+    return LineageView(rel, digest, True, (), pairs, relations)
 
 
 @lru_cache(maxsize=1)
@@ -296,8 +314,12 @@ class LineageDependence:
     reason: str
     #: ``pairReconciliation`` ids that decided the category.
     pairs: tuple[str, ...] = ()
-    #: Training-family source keys those pairs name.
+    #: Training-family source keys those pairs (or relations) name.
     counterparts: tuple[str, ...] = ()
+    #: Recorded proven / measured / suspected relation ids that decided the
+    #: category directly (a relation joining the two sources is at least as
+    #: dependent as any pair verdict; see :func:`holdout_lineage`).
+    relations: tuple[str, ...] = ()
     #: ``{relation id: its current measurement}`` for the deciding pairs' relations.
     current_measurements: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
 
@@ -314,6 +336,7 @@ class LineageDependence:
             "reason": self.reason,
             "pairs": list(self.pairs),
             "counterparts": list(self.counterparts),
+            "relations": list(self.relations),
             "currentMeasurements": {
                 k: dict(v) for k, v in sorted(self.current_measurements.items())
             },
@@ -375,8 +398,16 @@ def holdout_lineage(
       measured relation counts). A measurement too weak to be dependence is
       reconciled SUSPECTED by the category's own definition, so a pair the owner
       reconciles MEASURED_DEPENDENCE IS the positive-dependence verdict;
+    * a recorded relation is never outvoted by a pair: every proven / measured /
+      suspected relation joining the holdout and a member of the family competes
+      with the pair verdicts on the same ordering (PROVEN > MEASURED > SUSPECTED
+      > INDEPENDENT). The validator already refuses an INDEPENDENT pair beside a
+      proven / measured relation; this is the manifest's own defence, so a pair
+      that omits the relation joining its sources cannot relabel a recorded
+      dependence as independence (#1601 review);
     * fail closed: an invalid / unreadable registry, an unregistered holdout, a
-      family with no reconciled pair, or a pair with a null category -> UNKNOWN.
+      family with no reconciled pair or joining relation, or a pair with a null
+      category -> UNKNOWN.
     """
     out: list[LineageDependence] = []
     for fam in sorted(trainers_by_family):
@@ -414,21 +445,42 @@ def holdout_lineage(
                 continue
             else:
                 found.append((str(cat), pid, counter, _CATEGORY_REASON[str(cat)]))
+        for rid, rel in sorted(lineage.relations.items()):
+            rel_cat = _sc.lineage_category(rel)
+            if rel_cat not in _CATEGORY_REASON:
+                continue
+            rel_srcs = {str(x) for x in (rel.get("sources") or [])}
+            if source_key not in rel_srcs:
+                continue
+            counter = tuple(sorted(x for x in rel_srcs if x != source_key and family_of(x) == fam))
+            if counter:
+                found.append(
+                    (
+                        rel_cat,
+                        f"{_RELATION_TAG}{rid}",
+                        counter,
+                        f"relation_{_CATEGORY_REASON[rel_cat]}",
+                    )
+                )
         if not found:
             out.append(LineageDependence(source_key, fam, LINEAGE_UNKNOWN, "no_reconciled_pair"))
             continue
         top = max(_CATEGORY_SEVERITY[c] for c, _, _, _ in found)
         winners = [f for f in found if _CATEGORY_SEVERITY[f[0]] == top]
-        pair_ids = tuple(sorted({w[1] for w in winners}))
-        measurements: dict[str, dict[str, Any]] = {}
+        pair_ids = tuple(sorted({w[1] for w in winners if not w[1].startswith(_RELATION_TAG)}))
+        rel_ids = tuple(
+            sorted({w[1][len(_RELATION_TAG) :] for w in winners if w[1].startswith(_RELATION_TAG)})
+        )
+        deciding_relations = set(rel_ids)
         for pair in lineage.pairs:
-            if str(pair.get("id")) not in pair_ids:
-                continue
-            for rid in pair.get("relations") or []:
-                rel = lineage.relations.get(str(rid))
-                m = _current_measurement(rel) if rel is not None else None
-                if m is not None:
-                    measurements[str(rid)] = m
+            if str(pair.get("id")) in pair_ids:
+                deciding_relations.update(str(r) for r in (pair.get("relations") or []))
+        measurements: dict[str, dict[str, Any]] = {}
+        for rid in sorted(deciding_relations):
+            rel = lineage.relations.get(rid)
+            m = _current_measurement(rel) if rel is not None else None
+            if m is not None:
+                measurements[rid] = m
         out.append(
             LineageDependence(
                 source_key=source_key,
@@ -437,6 +489,7 @@ def holdout_lineage(
                 reason=";".join(sorted({w[3] for w in winners})),
                 pairs=pair_ids,
                 counterparts=tuple(sorted({k for w in winners for k in w[2]})),
+                relations=rel_ids,
                 current_measurements=measurements,
             )
         )
@@ -725,8 +778,8 @@ class ManifestBoard:
 class TrainingManifest:
     boards: tuple[ManifestBoard, ...]
     policy: TrainingPolicy
-    #: The lineage registry the holdout labels were derived from; its identity
-    #: (normalized sha256 + validity) is inside ``manifest_hash``.
+    #: The lineage registry the holdout labels were derived from. Recorded in
+    #: ``to_dict`` as provenance; NOT inside ``manifest_hash`` (see ``LINEAGE_REL``).
     lineage: LineageView = field(default_factory=lambda: LineageView(LINEAGE_REL, None, False, ()))
 
     def _select(self, scope: str, role: str) -> tuple[ManifestBoard, ...]:
@@ -789,8 +842,22 @@ class TrainingManifest:
             "boards": [b.to_dict() for b in sorted(self.boards, key=lambda b: (b.scope, b.label))],
         }
 
+    def hash_payload(self) -> dict[str, Any]:
+        """``to_dict`` minus lineage provenance: what ``manifest_hash`` covers.
+
+        The lineage file's identity is dropped and each board's lineage entries
+        keep only ``_HASHED_DEPENDENCE_FIELDS``, so the hash moves exactly when a
+        derived holdout label the fit or evaluation reads moves."""
+        blob = self.to_dict()
+        blob.pop("lineage")
+        for b in blob["boards"]:
+            b["lineageDependence"] = [
+                {k: d[k] for k in _HASHED_DEPENDENCE_FIELDS} for d in b["lineageDependence"]
+            ]
+        return blob
+
     def manifest_hash(self) -> str:
-        return hashlib.sha256(_canonical_json(self.to_dict()).encode("utf-8")).hexdigest()
+        return hashlib.sha256(_canonical_json(self.hash_payload()).encode("utf-8")).hexdigest()
 
 
 def _canonical_json(obj: Any) -> str:
@@ -912,7 +979,7 @@ def build_manifest(
                     f"and {b.label}); same-source calibration states are one vote"
                 )
             train_families[b.family] = b.label
-            trainer_keys.setdefault(b.family, set()).update({b.source_key, *b.path_keys})
+            trainer_keys.setdefault(b.family, set()).update(trainer_lineage_keys(b))
         for b in scoped:
             if b.role != ROLE_HOLDOUT:
                 out.append(b)
@@ -958,6 +1025,15 @@ def build_manifest(
                 continue
             out.append(replace(b, lineage_dependence=tags))
     return TrainingManifest(boards=tuple(out), policy=pol, lineage=lin)
+
+
+def trainer_lineage_keys(board: ManifestBoard) -> frozenset[str]:
+    """The source keys a trainer board stands for in lineage lookups.
+
+    ``holdout.evaluate_offense_master`` derives the same set from file paths
+    (``source_key_for_path``); ``tests/model_registry`` pins that the two agree
+    for every CSV trainer."""
+    return frozenset({board.source_key, *board.path_keys})
 
 
 @lru_cache(maxsize=1)

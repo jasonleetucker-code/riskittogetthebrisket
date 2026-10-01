@@ -164,7 +164,11 @@ A standing candidate must clear all of these before board-impact evaluation:
      `training_manifest.holdout_lineage` — there is no private dependence table. A board
      counts as **independent** only when the owner reconciles it
      `INDEPENDENT_NO_EVIDENCE` with every training family, naming the family's actual
-     trainer key. `PROVEN_COMMON_ANCESTRY` excludes the board from the split;
+     trainer key, and no recorded proven / measured / suspected relation joins it to a
+     member of that family — a relation is never outvoted by a pair verdict (the worse of
+     the two wins, PROVEN > MEASURED > SUSPECTED > INDEPENDENT), and the owner's validator
+     refuses an `INDEPENDENT_NO_EVIDENCE` pair beside a proven or measured relation joining
+     its sources, cited or not. `PROVEN_COMMON_ANCESTRY` excludes the board from the split;
      `MEASURED_DEPENDENCE` and `SUSPECTED_DEPENDENCE` (the D2 preregistration §5 rule
      counts suspected relations) keep it in the split, tagged and not independent; and
      anything the owner cannot answer — an unreadable or invalid lineage file, no
@@ -181,9 +185,13 @@ A standing candidate must clear all of these before board-impact evaluation:
      Autopilot run as `holdoutIndependence`. It is **reporting-only**: no readiness or
      promotion gate reads it, so its absence neither stops nor loosens automatic OFFENSE
      promotion. The threshold stays at 3 boards, and nothing re-weights or drops a
-     dependent board to make it pass. The lineage file's normalized sha256 is part of
-     `manifestHash`, so a lineage edit makes standing challengers `stale_code_or_manifest`
-     until a refit on the new lineage replaces them;
+     dependent board to make it pass. `manifestHash` covers the holdout labels DERIVED
+     from the lineage file (each board's per-family category), not the file's bytes: an
+     edit that changes an OFFENSE holdout's category makes standing challengers
+     `stale_code_or_manifest` until a refit replaces them, while an unrelated edit (an IDP
+     or DLF pair, prose, a re-measurement that keeps the verdict) does not restart the
+     persistence window. The file's normalized sha256 is still recorded as provenance in
+     the manifest and in every run record (`lineage`, outside `pinsHash`);
    - no holdout board may worsen by more than 10%.
 
 3. **Row health**

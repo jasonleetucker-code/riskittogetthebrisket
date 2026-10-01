@@ -328,6 +328,61 @@ def test_supporting_relation_must_involve_two_of_the_pairs_own_sources():
     assert _errors_with(_pair()) == []
 
 
+def _independent(pid, sources):
+    return _pair(
+        id=pid,
+        sources=sources,
+        category="INDEPENDENT_NO_EVIDENCE",
+        relations=[],
+        measurement=None,
+    )
+
+
+def _with_pfk_pair_replaced(sources):
+    """The live registry with ``pair-ktc-pfk`` replaced by an uncited INDEPENDENT pair."""
+    sc, lin = _lineage()
+    lin = json.loads(json.dumps(lin))
+    lin["pairReconciliation"] = [
+        p for p in lin["pairReconciliation"] if p["id"] != "pair-ktc-pfk"
+    ] + [_independent("pair-pfk-ktc-independent", sources)]
+    return sc.validate_lineage(lin)
+
+
+def test_independent_pair_cannot_omit_a_recorded_dependence():
+    """#1601 review repro, literally: an INDEPENDENT (pfkDynasty, ktc) pair citing
+    no relation used to validate while ``pfk-ktc-dependence`` records measured
+    dependence of PFK on ``ktcSfTep`` -- which ``ktc-historical-calibration-states``
+    PROVES is the same crowd as ``ktc``. Recorded evidence, cited or not, forbids
+    "no evidence"."""
+    errs = _with_pfk_pair_replaced(["pfkDynasty", "ktc"])
+    assert any("pair-pfk-ktc-independent" in e and "'pfk-ktc-dependence'" in e for e in errs), errs
+
+
+def test_independent_pair_contradicted_directly_by_an_uncited_relation():
+    errs = _with_pfk_pair_replaced(["pfkDynasty", "ktcSfTep"])
+    assert any("pair-pfk-ktc-independent" in e and "'pfk-ktc-dependence'" in e for e in errs), errs
+
+
+def test_independent_pair_beside_a_proven_relation_is_refused():
+    errs = _errors_with(_independent("p", ["ktcCrowdSfTep", "ktcTradesSfTep"]))
+    assert any("'ktc-crowd-trades-same-payload'" in e and "proven" in e for e in errs), errs
+
+
+def test_independent_pair_beside_only_a_suspected_relation_is_allowed():
+    """SUSPECTED is not evidence of dependence strong enough to contradict the
+    absence-of-evidence verdict at validation time (the manifest still takes the
+    worse of the two)."""
+    errs = _errors_with(_independent("p", ["signalsDynasty", "signalsIdpDynasty"]))
+    assert errs == [], errs
+
+
+def test_independent_pair_with_one_shared_source_is_not_contradicted():
+    # fn-ktc-dependence joins fantasyNavigatorSf with ktcCrowdSfTep; a pair on
+    # (fantasyNavigatorSf, draftSharks) shares only one of its sources.
+    errs = _errors_with(_independent("p", ["fantasyNavigatorSf", "draftSharks"]))
+    assert errs == [], errs
+
+
 def test_missing_categories_key_is_rejected():
     sc, lin = _lineage()
     lin = json.loads(json.dumps(lin))

@@ -19,7 +19,9 @@ Pinned here:
 * PROVEN ancestry across families excludes the board from the split;
 * with no independent holdout, ``independentCriterion`` is ``None`` with the
   reason ``no_independent_holdout`` -- and no Autopilot gate reads it;
-* the lineage file is inside ``manifestHash``, so editing it stales challengers.
+* a recorded relation is never outvoted by a pair (#1601 review);
+* ``manifestHash`` covers the DERIVED holdout labels, not the lineage file's
+  bytes: a label change stales challengers, an unrelated lineage edit does not.
 
 No network. Assertions on the live lineage file are about the categories it
 records, never about RMSE levels.
@@ -343,30 +345,224 @@ class TestNoIndependentHoldout:
         assert '"gatesPromotion": False' in text
 
 
+# ── recorded relations are never outvoted by a pair ────────────────────────
+
+
+def _live_lineage_data() -> dict:
+    import json
+
+    return json.loads((REPO / tm.LINEAGE_REL).read_text(encoding="utf-8"))
+
+
+def _unvalidated_view(data: dict) -> LineageView:
+    """A view of ``data`` marked valid WITHOUT running the validator, so the
+    manifest's own defence is tested independently of the owner's."""
+    return LineageView(
+        "synthetic",
+        "x" * 64,
+        True,
+        (),
+        tuple(data["pairReconciliation"]),
+        {r["id"]: r for r in data["relations"]},
+    )
+
+
+class TestRecordedRelationIsNeverOutvoted:
+    def test_review_repro_pfk_stays_dependent_on_ktc(self):
+        """#1601 review: replace ``pair-ktc-pfk`` with an INDEPENDENT
+        (pfkDynasty, ktc) pair that cites nothing. ``pfk-ktc-dependence`` still
+        records measured dependence, so PFK must not read independent of KTC."""
+        data = _live_lineage_data()
+        data["pairReconciliation"] = [
+            p for p in data["pairReconciliation"] if p["id"] != "pair-ktc-pfk"
+        ] + [_pair("pair-pfk-ktc-independent", ["pfkDynasty", "ktc"], LINEAGE_INDEPENDENT)]
+        # The owner refuses the file ...
+        assert any("pair-pfk-ktc-independent" in e for e in sc.validate_lineage(data))
+        # ... and the manifest, handed it anyway, still takes the worse verdict.
+        pfk = _holdout(build_manifest(lineage=_unvalidated_view(data)), "pfkDynasty")
+        (ktc,) = [d for d in pfk.lineage_dependence if d.trainer_family == "ktcCrowd"]
+        assert ktc.category == LINEAGE_MEASURED
+        assert "pfk-ktc-dependence" in ktc.relations
+        assert ktc.pairs == ()  # the INDEPENDENT pair lost
+        assert ktc.reason == "relation_measured_dependence"
+        assert pfk.lineage_independent is False
+
+    def test_suspected_relation_beats_an_independent_pair(self):
+        rel = {"id": "r", "classification": "suspected", "sources": ["otcffbSf", "draftSharks"]}
+        view = _otc_fully_independent_view(relations={"r": rel})
+        otc = _holdout(build_manifest(lineage=view), "otcffbSf")
+        cats = {d.trainer_family: d for d in otc.lineage_dependence}
+        assert cats["draftSharks"].category == LINEAGE_SUSPECTED
+        assert cats["draftSharks"].relations == ("r",)
+        assert otc.lineage_independent is False
+
+    def test_proven_relation_beats_a_measured_pair_and_excludes(self):
+        rel = {"id": "r", "classification": "proven", "sources": ["otcffbSf", "draftSharks"]}
+        view = _view(
+            *[p for p in _otc_fully_independent_view().pairs if p["sources"][1] != "draftSharks"],
+            _pair("m", ["otcffbSf", "draftSharks"], LINEAGE_MEASURED),
+            relations={"r": rel},
+        )
+        otc = _holdout(build_manifest(lineage=view), "otcffbSf")
+        assert otc.role == "excluded"
+        (ds,) = [d for d in otc.lineage_dependence if d.trainer_family == "draftSharks"]
+        assert ds.category == LINEAGE_PROVEN and ds.relations == ("r",)
+
+    def test_a_relation_with_no_reconciled_pair_is_not_unknown(self):
+        rel = {"id": "r", "classification": "measured", "sources": ["otcffbSf", "draftSharks"]}
+        otc = _holdout(build_manifest(lineage=_view(relations={"r": rel})), "otcffbSf")
+        (ds,) = [d for d in otc.lineage_dependence if d.trainer_family == "draftSharks"]
+        assert ds.category == LINEAGE_MEASURED
+
+    def test_a_relation_not_naming_the_holdout_decides_nothing(self):
+        rel = {"id": "r", "classification": "proven", "sources": ["fantasyCalc", "draftSharks"]}
+        otc = _holdout(
+            build_manifest(lineage=_otc_fully_independent_view(relations={"r": rel})), "otcffbSf"
+        )
+        assert otc.lineage_independent is True
+
+    def test_live_labels_are_unchanged_by_the_relation_defence(self):
+        """On the real registry every relation agrees with its pair, so the
+        defence moves no category (the validator also refuses disagreement)."""
+        pairs = {p["id"]: p for p in sc.load_lineage()["pairReconciliation"]}
+        for b in default_manifest().holdouts("OFFENSE"):
+            for d in b.lineage_dependence:
+                if d.pairs:
+                    assert {pairs[p]["category"] for p in d.pairs} == {d.category}, (b.label, d)
+
+
+# ── fail closed on a crashing validator ────────────────────────────────────
+
+
+class TestLineageViewNeverRaises:
+    def test_validation_crash_fails_closed(self, monkeypatch):
+        def boom(_data):
+            raise KeyError("synthetic")
+
+        monkeypatch.setattr(sc, "validate_lineage", boom)
+        view = load_lineage_view()
+        assert view.valid is False
+        assert view.errors and view.errors[0].startswith("validation_crashed: KeyError")
+        assert view.pairs == () and dict(view.relations) == {}
+        m = build_manifest(lineage=view)
+        for b in m.holdouts("OFFENSE"):
+            assert {d.category for d in b.lineage_dependence} == {LINEAGE_UNKNOWN}
+            assert b.lineage_independent is False
+
+    def test_wrong_shaped_sections_never_raise(self, tmp_path, monkeypatch):
+        import json
+
+        p = tmp_path / "lineage.json"
+        data = _live_lineage_data()
+        data["pairReconciliation"] = 5
+        p.write_text(json.dumps(data), encoding="utf-8")
+        # The real validator (crash or error) ...
+        assert load_lineage_view(p).valid is False
+        # ... and a validator that wrongly passes it: the view still refuses.
+        monkeypatch.setattr(sc, "validate_lineage", lambda _d: [])
+        view = load_lineage_view(p)
+        assert view.valid is False and view.pairs == ()
+
+
+# ── trainer keys: one derivation ────────────────────────────────────────────
+
+
+class TestTrainerKeysAgree:
+    def test_holdout_path_keys_equal_manifest_trainer_keys(self):
+        """``holdout.evaluate_offense_master`` keys trainers by file path;
+        ``build_manifest`` by ``trainer_lineage_keys``. They must agree."""
+        m = default_manifest()
+        trainers = [b for s in tm.SCOPES for b in m.trainers(s) if b.paths]
+        assert {b.label for b in m.trainers("OFFENSE")} <= {b.label for b in trainers}
+        for b in trainers:
+            from_paths = {tm.source_key_for_path(p) for p in b.paths}
+            assert from_paths == set(tm.trainer_lineage_keys(b)), b.label
+
+
 # ── hash coverage ───────────────────────────────────────────────────────────
 
 
-class TestLineageIsInsideTheManifestHash:
+def _edited_view(tmp_path, mutate) -> LineageView:
+    import json
+
+    data = _live_lineage_data()
+    mutate(data)
+    p = tmp_path / "lineage.json"
+    p.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    view = load_lineage_view(p)
+    assert view.valid, view.errors
+    return view
+
+
+def _set_pair_category(pid: str, category: str):
+    def mutate(data):
+        (pair,) = [p for p in data["pairReconciliation"] if p["id"] == pid]
+        pair["category"] = category
+        pair.pop("measurement", None)
+
+    return mutate
+
+
+class TestManifestHashCoversDerivedLabelsOnly:
     def test_manifest_records_the_normalized_lineage_sha(self):
         raw = (REPO / tm.LINEAGE_REL).read_bytes().replace(b"\r\n", b"\n")
         blob = default_manifest().to_dict()
         assert blob["lineage"]["sha256"] == hashlib.sha256(raw).hexdigest()
         assert blob["lineage"]["path"] == "config/sources/source_lineage.json"
 
-    def test_a_lineage_byte_change_changes_the_manifest_hash(self, tmp_path):
+    def test_the_lineage_file_identity_is_not_hashed(self):
+        payload = default_manifest().hash_payload()
+        assert "lineage" not in payload
+        for b in payload["boards"]:
+            for d in b["lineageDependence"]:
+                assert set(d) == set(tm._HASHED_DEPENDENCE_FIELDS)
+
+    def test_a_byte_only_lineage_change_keeps_the_hash(self, tmp_path):
         p = tmp_path / "lineage.json"
         p.write_bytes((REPO / tm.LINEAGE_REL).read_bytes() + b"\n")
         edited = load_lineage_view(p)
         assert edited.valid and edited.sha256 != load_lineage_view().sha256
-        assert build_manifest(lineage=edited).manifest_hash() != default_manifest().manifest_hash()
+        m = build_manifest(lineage=edited)
+        assert m.to_dict()["lineage"]["sha256"] == edited.sha256  # still recorded
+        assert m.manifest_hash() == default_manifest().manifest_hash()
 
-    def test_line_endings_alone_do_not_change_the_hash(self, tmp_path):
+    def test_an_unrelated_idp_pair_edit_keeps_the_offense_manifest_hash(self, tmp_path):
+        edited = _edited_view(
+            tmp_path,
+            _set_pair_category("pair-idptradecalc-idpshow", "SUSPECTED_DEPENDENCE"),
+        )
+        assert edited.sha256 != load_lineage_view().sha256
+        assert build_manifest(lineage=edited).manifest_hash() == (
+            default_manifest().manifest_hash()
+        )
+
+    def test_an_edit_that_changes_an_offense_holdout_label_changes_the_hash(self, tmp_path):
+        edited = _edited_view(
+            tmp_path, _set_pair_category("pair-otc-draftsharks", "SUSPECTED_DEPENDENCE")
+        )
+        m = build_manifest(lineage=edited)
+        (ds,) = [
+            d
+            for d in _holdout(m, "otcffbSf").lineage_dependence
+            if d.trainer_family == "draftSharks"
+        ]
+        assert ds.category == LINEAGE_SUSPECTED
+        assert m.manifest_hash() != default_manifest().manifest_hash()
+
+    def test_line_endings_alone_do_not_change_the_sha(self, tmp_path):
         crlf = (REPO / tm.LINEAGE_REL).read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
         p = tmp_path / "lineage.json"
         p.write_bytes(crlf)
         assert load_lineage_view(p).sha256 == load_lineage_view().sha256
 
-    def test_a_challenger_fitted_under_another_lineage_is_stale(self, tmp_path):
+    def test_run_record_lineage_is_provenance_not_pins(self):
+        from src.model_registry.training_run import pins_hash
+
+        record = {"manifestHash": "m", "lineage": {"sha256": "a"}}
+        assert pins_hash(record) == pins_hash({**record, "lineage": {"sha256": "b"}})
+        assert pins_hash(record) != pins_hash({**record, "manifestHash": "n"})
+
+    def test_a_challenger_fitted_under_another_label_set_is_stale(self, tmp_path):
         from src.model_registry.training_run import (
             REASON_STALE_CODE_OR_MANIFEST,
             SUBSTRATE_VERSION,
@@ -374,9 +570,10 @@ class TestLineageIsInsideTheManifestHash:
             tournament_exclusion_reason,
         )
 
-        p = tmp_path / "lineage.json"
-        p.write_bytes((REPO / tm.LINEAGE_REL).read_bytes() + b"\n")
-        old_hash = build_manifest(lineage=load_lineage_view(p)).manifest_hash()
+        edited = _edited_view(
+            tmp_path, _set_pair_category("pair-otc-draftsharks", "SUSPECTED_DEPENDENCE")
+        )
+        old_hash = build_manifest(lineage=edited).manifest_hash()
         code_hash = str(code_identity()["codeHash"])
         version = SimpleNamespace(
             training_run={
