@@ -408,12 +408,16 @@ def holdout_lineage(
       when its latest measurement shows positive dependence
       (``source_census.relation_dependence_category`` -- the SAME rule the
       validator reads; ``dlf-ktc-independence``, residual -0.447, counts as
-      nothing);
+      nothing). A data-use relation joins through the owner's
+      ``source_census.relation_reach`` (one identity hop from its members), so
+      ``fn-uses-ktc-data`` reaches the ``ktcTrades`` family as well as
+      ``ktcCrowd``;
     * fail closed: an invalid / unreadable registry, an unregistered holdout, a
       family with no reconciled pair or joining relation, or a pair with a null
       category -> UNKNOWN.
     """
     out: list[LineageDependence] = []
+    peers = _sc.identity_peers(lineage.relations)
     for fam in sorted(trainers_by_family):
         trainer_keys = set(trainers_by_family[fam])
         if not lineage.valid:
@@ -456,9 +460,18 @@ def holdout_lineage(
             if rel_cat not in _CATEGORY_REASON:
                 continue
             rel_srcs = {str(x) for x in (rel.get("sources") or [])}
-            if source_key not in rel_srcs:
+            # Data use reaches one identity hop from its members (the owner's
+            # relation_reach): FN using ktcCrowdSfTep data is evidence about FN
+            # versus ktcTradesSfTep, i.e. the ktcTrades family too.  Other kinds
+            # reach exactly their members.
+            rel_reach = _sc.relation_reach(rel, peers)
+            if source_key in rel_srcs:
+                others = rel_reach
+            elif source_key in rel_reach:
+                others = rel_srcs
+            else:
                 continue
-            counter = tuple(sorted(x for x in rel_srcs if x != source_key and family_of(x) == fam))
+            counter = tuple(sorted(x for x in others if x != source_key and family_of(x) == fam))
             if counter:
                 found.append(
                     (

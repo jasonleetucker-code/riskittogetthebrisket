@@ -460,6 +460,27 @@ class TestRecordedRelationIsNeverOutvoted:
         (ds,) = [d for d in otc.lineage_dependence if d.trainer_family == "draftSharks"]
         assert ds.category == LINEAGE_MEASURED and ds.relations == ("r",)
 
+    @pytest.mark.parametrize("family", ["ktcCrowd", "ktcTrades"])
+    def test_data_use_reaches_the_used_providers_sibling_families(self, family):
+        """#1601 round 3: with the measured ``fn-ktc-dependence`` removed, the
+        proven ``fn-uses-ktc-data`` (FN, ``ktcCrowdSfTep``) must still mark FN
+        dependent on the ``ktcTrades`` family -- ``ktcTradesSfTep`` is a
+        same-payload sibling of the crowd FN uses (the owner's
+        ``relation_reach``). Before: ``ktcTrades`` read UNKNOWN/no evidence."""
+        data = _live_lineage_data()
+        data["relations"] = [r for r in data["relations"] if r["id"] != "fn-ktc-dependence"]
+        data["pairReconciliation"] = []
+        fam_of = {"ktcCrowdSfTep": "ktcCrowd", "ktcTradesSfTep": "ktcTrades"}
+        trainer = {"ktcCrowd": "ktcCrowdSfTep", "ktcTrades": "ktcTradesSfTep"}[family]
+        (d,) = tm.holdout_lineage(
+            "fantasyNavigatorSf",
+            {family: {trainer}},
+            lineage=_unvalidated_view(data),
+            family_of=lambda k: fam_of.get(k, k),
+        )
+        assert d.category == LINEAGE_PROVEN, d
+        assert "fn-uses-ktc-data" in d.relations
+
     def test_live_labels_are_unchanged_by_the_relation_defence(self):
         """On the real registry every relation agrees with its pair, so the
         defence moves no category (the validator also refuses disagreement)."""
