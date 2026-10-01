@@ -2,20 +2,24 @@
   "cohort": {},
   "credentialRegression": false,
   "ffpcMarket": {},
-  "lastError": null,
+  "lastError": {
+    "attempt": 80,
+    "message": "<urlopen error [Errno 111] Connection refused>",
+    "type": "URLError"
+  },
   "lastMeasuredOn": null,
-  "lastObservedAt": "2026-10-01T04:54:49.529144+00:00",
+  "lastObservedAt": "2026-10-01T09:43:45.801470+00:00",
   "lastObservedOn": "2026-10-01",
   "lastRun": {
-    "attempts": 0,
-    "deployConclusion": "cancelled",
-    "deployHeadSha": "c9a939104af1927b4cbf609f4e46659e6cd16740",
-    "deployRunId": "36810719082",
-    "event": "workflow_run"
+    "attempts": 80,
+    "deployConclusion": "pending",
+    "deployHeadSha": "8633fff33cf1cb2727746fae6abca34995b93ca1",
+    "deployRunId": "",
+    "event": "push"
   },
   "measured": false,
   "schema": 2,
-  "stateFingerprint": "sha256:438bc94bea481fcc7898b74a6ef98e570b925ab3cc47def95ac7e7abc831bfc4",
-  "stateSince": "2026-10-01T04:54:49.529144+00:00",
-  "status": "deploy_superseded"
+  "stateFingerprint": "sha256:aa0261719c3b098ddc47ca455abd941f6b2d08de03fd6e7b4ec32e6ae07f7c8b",
+  "stateSince": "2026-10-01T09:43:45.801470+00:00",
+  "status": "degraded_timeout"
 }
