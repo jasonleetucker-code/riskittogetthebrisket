@@ -63,8 +63,10 @@ Nerds, Yahoo/Boone, Fitzmaurice or Draft Sharks. The lineage owner was also half
    TE values. Last sweep's "not reproduced" (-0.204 / -0.146) was this artifact plus depth.
 
 **Leave-pair-out baseline.** Two residuals against one consensus share its error. That puts a
-positive floor of about 1/(k+1) under the statistic, which is about +0.08 to +0.10 for the 9 to
-12 consensus boards used here. Small positive values must be read against that floor.
+positive floor of about 1/(k+1) under the statistic. The basis-neutral `cpx_lfo` variant uses 9
+to 14 consensus boards (the sweep's `lpo` uses 12 to 17), so the floor is about +0.07 to +0.10;
+treat anything below about +0.09 as indistinguishable from it. Small positive values must be read
+against that floor.
 
 ## Results — OTC vs each Hill trainer (21 snapshots)
 
@@ -113,6 +115,32 @@ there is 0 lagged value identity), and no vendor statement links OTC to any of t
 dependence may be shared evidence rather than lineage, for example trade-informed markets
 reacting to the same trades.
 
+## Limitations (read before quoting a number)
+
+- **Snapshots are autocorrelated.** Each snapshot reads the last committed CSV at or before its
+  instant, so a board that did not republish is read unchanged across several snapshots.
+  Yahoo/Boone has 6 distinct versions in the window, Fitzmaurice 6, Dynasty Nerds 5 (see the
+  "dist. versions" column). "21/21 positive" is a count of snapshots, not 21 independent
+  trials. Only the comparators with 21 distinct versions (base KTC, `ktcSfTep`, Dynasty Daddy,
+  FantasyCalc) come close to weekly-independent evidence, and even they share OTC's own
+  week-to-week persistence.
+- **The 201–400 band is unmeasured.** The common population is about 200 non-TE players per
+  snapshot (n = 201–219). D2 scores OTC's top 400. Dependence outside the shared top ~200 is
+  neither measured nor ruled out.
+- **Rank residuals are not detrended.** A consensus attenuates toward the middle, which can
+  leave a shared rank-dependent residual in both members. The rank statistic does not remove
+  it. The detrended value statistic (cubic in the consensus removed) mitigates it, and the two
+  agree in sign for every MEASURED_DEPENDENCE pair, but the rank column alone carries that
+  bias.
+- **Pair `measurement` blocks are a second copy.** For `pair-otc-ktc`, `pair-otc-ktcsftep`,
+  `pair-otc-dynastydaddy` and `pair-otc-boone`, the pair's `measurement` (method, window, n,
+  statistic text) duplicates the cited relation's current `statistics` entry. They agree today
+  (method, window and n checked by hand at this commit), but no validator enforces it: a
+  general check would fail on two older IDP pairs whose blocks already disagree with their
+  relations, and an opt-in link would change the census payload. Follow-up: make the pair
+  block a pointer to the relation's current measurement, or validate it.
+- **Correlation is not ancestry**, and some of it may be shared evidence (see above).
+
 ## Is OTC an ancestry-safe holdout?
 
 **No, not for any current OFFENSE trainer set, and therefore not for D2.** No ancestry is proven.
@@ -124,8 +152,15 @@ measured relation to a board an arm trains on. OTC is now excluded:
 - **Dynasty Daddy** (C0, M1, M3). Measured dependence in 21 of 21 snapshots, and still positive
   after partialling out FantasyCalc.
 - **Yahoo/Boone** (M1 "five"). Measured dependence in 21 of 21.
-- **Fitzmaurice** and **Dynasty Nerds** (M1 "five"). Weak suspected dependence, which is
-  excluding under the D2 rule.
+- **Fitzmaurice** and **Dynasty Nerds** (M1 "five"). These do **not** exclude under the D2
+  rule as recorded. The D2 rule keys on lineage *relations*, and `pair-otc-fitzmaurice` /
+  `pair-otc-dynastynerds` cite none (`relations: []`); only their pair category says
+  `SUSPECTED_DEPENDENCE`. The evidence is also weak: Fitzmaurice's +0.15 rank median (and
+  Nerds' +0.15 detrended-value median) sits within roughly one snapshot-spread of the
+  leave-pair-out floor (about 1/(k+1) with k = 9 to 14 correlated consensus boards, effectively
+  +0.09), on 6 and 5 distinct comparator versions. Read SUSPECTED here as "not shown
+  independent", not as measured dependence. M1 "five" is excluded anyway, by Yahoo/Boone and
+  by base KTC.
 - **Draft Sharks.** No evidence of dependence. This does not rescue anything, because every arm
   also trains on KTC.
 
@@ -144,8 +179,14 @@ reported per family, or a non-KTC trade population is needed.
   and -0.204 / -0.146 (2026-10-01, single snapshot) on `otc-ktc-dependence`, and 0.329
   (2026-08-04) and +0.511 (2026-10-01 sweep) on `otc-fc-dependence`. The same applies to the ten
   other relations whose `statistics` lagged their summaries.
-- **Validator.** `source_census._validate_statistics` enforces that shape. A refresh can no longer
-  move `asOf` without adding a measurement, and it cannot overwrite an old value.
+- **Validator.** `source_census._validate_statistics` enforces the file's SHAPE at one commit:
+  every entry is dated, has a method, numeric values and a valid status; exactly one entry is
+  `current`; it carries the relation's `asOf`; and no superseded entry is newer. So moving
+  `asOf` without also dating a `current` entry to match fails. It checks one file, not history:
+  it cannot detect an in-place edit of the current entry's values (or of a superseded entry's),
+  and it cannot detect a superseded entry being deleted. Follow-up: an append-only check
+  against the base commit, in the pattern of `scripts/check_feature_dictionary_lock.py`
+  (AL-0), failing closed in CI.
 - **Relation changes.** `otc-ktc-dependence` is re-measured and now names `ktcSfTep`.
   `otc-fc-dependence` is refreshed. `otc-dd-dependence` and `otc-boone-dependence` are new.
 - **Pairs.** `pair-otc-ktc`, `pair-otc-ktcsftep`, `pair-otc-dynastydaddy`, `pair-otc-boone`,
@@ -158,6 +199,28 @@ reported per family, or a non-KTC trade population is needed.
 - **Recorded verdicts on other pairs** (PFK-KTC +0.687, Fitzmaurice-Nerds +0.643, and others) are
   not re-classified. Their controls suggest they are partly the depth artifact. That review is a
   separate unit, and notes are attached to their current measurements.
-- **`training_manifest._MEASURED_DEPENDENCES`** still carries 0.33 / 0.677 / 0.45. It is a
-  second copy of dependence numbers inside the Hill manifest, and editing it could change
-  manifest hashes. It is out of scope for an evidence-only change.
+- **`training_manifest._MEASURED_DEPENDENCES`** still carries 0.33 / 0.677 / 0.45. See the next
+  section: this leaves production evidence stale.
+
+## Production `independentCriterion` is stale (open, follow-up named)
+
+Hill Autopilot's holdout result publishes `independentCriterion`
+(`src/model_registry/holdout.py`, `HoldoutResult.independent_criterion`): the mean RMSE over
+holdout boards with no recorded measured dependence on a training family. Which boards count
+comes from `src/model_registry/training_manifest.py::_MEASURED_DEPENDENCES`, a private copy of
+dependence numbers. It records OTC's only dependence as on FantasyCalc (0.33), which is not a
+trainer, so **`independentCriterion` still treats OTC as independent**. After this
+re-measurement that is false: OTC depends on base KTC, Dynasty Daddy and Yahoo/Boone, all
+training families.
+
+- **Impact.** `independentCriterion` is reporting-only. The breadth gate still requires every
+  holdout board to improve and does not read it, so nothing is promoted on it. But it sits on
+  the promotion path as the field a reader uses to discount flattered boards, and today it
+  reports false evidence.
+- **Why not fixed here.** Editing `_MEASURED_DEPENDENCES` changes the training-manifest hash,
+  which is a separate, reviewed change.
+- **Follow-up.** `training_manifest` must consume the lineage owner
+  (`config/sources/source_lineage.json`, via `src/sources/source_census.py`) instead of keeping a
+  private copy, so a lineage re-measurement cannot leave the manifest behind again. Until then,
+  `docs/valuation/HILL_AUTOPILOT_V2.md` (readiness criterion 2) marks `independentCriterion` as
+  invalid for OTC.

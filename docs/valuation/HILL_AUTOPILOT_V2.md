@@ -162,7 +162,14 @@ A standing candidate must clear all of these before board-impact evaluation:
      `ktcCrowd`, FantasyCalc on `dynastyDaddySf`); that dependence is reported per board
      (`measuredDependence`) and the mean over boards with none is recorded as
      `independentCriterion`. Reporting it does not loosen the gate: the threshold stays
-     at 3 boards, and nothing re-weights or drops a dependent board to make it pass;
+     at 3 boards, and nothing re-weights or drops a dependent board to make it pass.
+     **`independentCriterion` is currently invalid for OTC** (#1599): OTC carries measured
+     dependence on base KTC, Dynasty Daddy and Yahoo/Boone
+     (`docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md`), but
+     `training_manifest._MEASURED_DEPENDENCES` still records only OTC's dependence on
+     FantasyCalc (not a trainer), so `independentCriterion` counts OTC as independent. It is
+     reporting-only and gates nothing, but it must not be read as independent evidence until
+     the manifest consumes the lineage owner instead of a private copy;
    - no holdout board may worsen by more than 10%.
 
 3. **Row health**

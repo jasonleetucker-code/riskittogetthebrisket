@@ -98,7 +98,8 @@ PAIR_IMPLICATION_AXES: tuple[str, ...] = (
 MEASUREMENT_REQUIRED_FIELDS: tuple[str, ...] = ("method", "window", "n")
 #: A relation's ``statistics.measurements`` history: exactly one ``current``
 #: entry (the newest, dated the relation's ``asOf``); older ones are kept as
-#: ``superseded`` rather than overwritten.
+#: ``superseded`` rather than overwritten (by convention: the validator checks
+#: the file's shape, not its history).
 MEASUREMENT_CURRENT = "current"
 MEASUREMENT_STATUSES: tuple[str, ...] = (MEASUREMENT_CURRENT, "superseded")
 
@@ -418,9 +419,15 @@ def _validate_statistics(where: str, relation: Mapping[str, Any]) -> list[str]:
     ``statistics`` still carried superseded values (``residualRho`` 0.891 on
     a relation whose summary said "not reproduced").  So: every measurement
     pins its date, method and values; exactly one is ``current``, it is the
-    newest, and it carries the relation's own ``asOf``.  A refresh therefore
-    cannot move ``asOf`` without adding a measurement, and an older value is
-    kept as ``superseded`` instead of being overwritten."""
+    newest, and it carries the relation's own ``asOf``.  Moving ``asOf``
+    without also dating a ``current`` entry to match therefore fails.
+
+    This checks the SHAPE of one file at one commit, nothing more.  It
+    cannot see history: an in-place edit of an entry's values, or deletion
+    of a ``superseded`` entry, passes.  Keeping superseded values is a
+    convention this check makes visible, not one it enforces; an
+    append-only check against the base commit is a recorded follow-up
+    (``docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md``)."""
     from datetime import date
 
     errors: list[str] = []
