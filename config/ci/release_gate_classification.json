@@ -583,6 +583,12 @@
     "refit-hill-curves.yml::refit::Trigger deploy after canonical promotion": {
       "category": "blocking"
     },
+    "refit-hill-curves.yml::refit::Verify the challenger reproduces from its own pins": {
+      "category": "blocking"
+    },
+    "refit-hill-curves.yml::refit::Verify the tournament winner reproduces from its own pins": {
+      "category": "blocking"
+    },
     "release-candidate.yml::candidate::API data contract check (structural lane)": {
       "category": "blocking"
     },
