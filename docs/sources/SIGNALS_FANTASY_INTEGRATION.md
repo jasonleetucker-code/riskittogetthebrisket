@@ -76,9 +76,9 @@ unseen.
 
 | Dataset | Where (claimed) | Scope | Units / format | Cadence (claimed) | Disposition |
 |---|---|---|---|---|---|
-| Offense dynasty board — public | `/rankings/dynasty` | public | positional rank + tier (S+…C); **no values**; stamped "Published …" and "Market data through …" | weekly rebuild (board page) vs daily engine (methodology) — **unresolved** | permission-blocked (automation); benchmark-only candidate as **ordering**, never cross-position prices |
+| Offense dynasty board — public | `/rankings/dynasty` | public | positional rank + tier (S+…C); **no values**; stamped "Published …" and "Market data through …" | weekly rebuild (board page) vs daily engine (methodology) — **unresolved** | **stage 2 collector + stage 3 rank-only second opinion implemented (Unit A, §8)**; non-voting, positional **ordering** only, never cross-position prices |
 | Offense dynasty values — league-adjusted | in-app | paid account | value scale; SF/TEP/custom scoring/roster/depth adjusted | "daily" (trade page, formats page) | permission-blocked |
-| IDP dynasty board — public | `/rankings/idp-dynasty` | public | true positions CB/S/DT/DE/LB; "MKT" positional label (meaning unconfirmed) | weekly (board) / "in progress" (methodology) | permission-blocked |
+| IDP dynasty board — public | `/rankings/idp-dynasty` | public | true positions CB/S/DT/DE/LB; "MKT" positional label (meaning unconfirmed) | weekly (board) / "in progress" (methodology) | **stage 2 collector + stage 3 rank-only second opinion implemented (Unit A, §8)**; "MKT" = Signals' stated market positional rank (from the badge title) |
 | IDP dynasty values — league-adjusted | in-app | paid (Fanatic) | value scale | unclear | permission-blocked |
 | Redraft / ROS / weekly projections (+IDP stat lines) | in-app; `/methodology/redraft` | paid | full stat lines scored per league | daily in season | permission-blocked; **external-projection baseline only**, never fundamentals |
 | Devy + IDP prospect boards, grades, confidence, projected draft capital | `/rankings`, `/formats/devy` | boards public (not yet read); grades paid | grade + confidence | weekly | permission-blocked; contextual-only (vendor grades are model outputs, not scouting facts) |
@@ -207,3 +207,102 @@ The owner must send it himself, after confirming the audience description in poi
 5 matches how the site is actually used. The intended stage-5 destination (an active source)
 means blended values reach every logged-in user, not only the owner. No commercial terms
 are accepted on his behalf.
+
+## 8. Collection and stage evidence (Unit A, 2026-10-01)
+
+Scope of this section: the two **public** dynasty boards only, collected read-only under
+the owner's attestation of 2026-10-01. No login, no paid surface, no bypass. The access
+and rights record itself is §1/§2.
+
+### 8.1 What was built
+
+| Piece | Where |
+|---|---|
+| One owner: parser, store, collection, identity join, serving payload | `src/sources/signals.py` |
+| Thin CLI fetcher (exit 0 ok / 1 failed or stopped / 2 quarantined) | `scripts/fetch_signals.py` |
+| Box timer, every 6 h (`--min-interval-hours 5`) | `deploy/systemd/dynasty-signals-fetch.{service,timer}.template`, wired via `install_simple_timer` |
+| Authenticated endpoint (no public allowlist entry) | `GET /api/second-opinion/signals` in `server.py` |
+| Rank-only basis + per-asset state | `frontend/lib/second-opinions.js` (`POSITIONAL_RANK_ONLY`, `rankOnlyOpinionFor`) |
+| Display under the Second Opinions table | `frontend/components/trade/SignalsRankOpinion.jsx` |
+| Tests (labelled synthetic markup, no network) | `tests/sources/test_signals.py`, `frontend/__tests__/components/signals-rank-opinion.test.jsx` |
+
+- **Storage:** `data/sources/signals/<board>/`, holding `raw/<sha256>.html.gz`,
+  `releases/<contentSha>.json`, `quarantine/`, `latest.json`, `fetch_state.json` and
+  `dataset_state.json`. `data/` is gitignored, and no workflow or push script force-adds
+  `data/sources/`. Collection runs only on the box, never in GitHub Actions, whose output
+  is public.
+- **Freshness:** reuses `src/sources/dataset_state.observe`, so the three-clock model,
+  health and row-collapse rules are the shared ones.
+- **Release identity:** a normalized content hash over the rows plus the page's
+  Published and market-through stamps. The Nuxt build id and `prerenderedAt` change on
+  every site deploy without the rankings changing, so they are excluded.
+- **Identity:** `CONTRACT_CSV_JOIN_V1`, using the contract's own key functions, made
+  stricter. Each entry is keyed by Signals' TRUE position group, with no `name_star` or
+  `single_group` fallback. Collisions and homonyms are quarantined with reasons and are
+  never best-guessed.
+- **Not touched:** `_RANKING_SOURCES`, the game-type gate, the blend, confidence and any
+  canonical field. A test pins that no `signals*` key is registered.
+
+### 8.2 Real capture (local run, 2026-10-01 ~09:03 UTC)
+
+| | `/rankings/dynasty` | `/rankings/idp-dynasty` |
+|---|---|---|
+| Rows / sections | 800 — QB 200, RB 200, WR 200, TE 200 (matches each section's declared count) | 1,072 — CB 244, S 171, DT 235, DE 215, LB 207 (matches) |
+| Tiers seen | S+ … B (9 bands) | S+ … F (12 bands) |
+| Market badge present | 359 / 800 (441 null — no badge on the page) | 967 / 1,072 (105 null) |
+| Published (page `<time>`) | 2026-10-01T01:31:48.554Z | 2026-10-01T01:31:48.554Z |
+| Market data through | 2026-09-30 | 2026-09-30 |
+| `prerenderedAt` (build stamp) | 2026-10-01T01:37:41.697Z | 2026-10-01T01:37:41.857Z |
+| `Last-Modified` | Thu, 01 Oct 2026 01:38:26 GMT | same |
+| Drift errors / warnings | 0 / 0 | 0 / 0 |
+| Page cadence claim | "Rebuilt weekly after the market and model refreshes." | "Rebuilt weekly after the IDP and market refreshes." |
+
+- **Conditional GET verified live.** A second run sent `If-None-Match` and
+  `If-Modified-Since`, received 304 on both boards, and created no release. The
+  information clock did not move.
+- **Identity against the 2026-09-30 export board (1,131 rows):**
+  - Resolved: 757 of 1,872 (offense 344, IDP 413).
+  - Ambiguous: 6. These are real homonyms on the IDP board (Byron Murphy CB/DT,
+    Byron Young DE/DT, Jordan Phillips DT×2).
+  - Unresolved: 1,109. Of these, 1,105 are `no_board_row`, with median positional rank
+    144 because Signals ranks deeper than our board; only 1 sits in a top-24 positional
+    rank. The other 4 are `position_group_mismatch`, including Travis Hunter (CB vs our
+    WR row) and Justin Jefferson LB, who was correctly not joined to the WR.
+- **Privacy:** `git status --ignored` shows `data/sources/` as ignored, and no raw page,
+  release or cookie is staged. The store is 1.9 MB.
+
+### 8.3 Activation stage per dataset
+
+| Dataset | Stage | Evidence |
+|---|---|---|
+| Offense dynasty board (public) | **2 — real authorized observations ingested, validated, replayable** | §8.2 capture; raw page + normalized release stored privately and replayable through the deterministic parser |
+| IDP dynasty board (public) | **2** | same |
+| Both, as a visible second opinion | **3 — implemented, not yet deployed/verified** | authenticated endpoint plus the /trade rank-only line ("positional rank only · not counted"), with explicit not-collected / not-ranked / out-of-scope states. Stage 3 becomes VERIFIED after merge, deploy, timer enable and an observed authenticated response on production |
+
+### 8.4 Cadence evidence
+
+One observation so far. Both boards carry the same Published stamp
+(2026-10-01T01:31:48Z), and Last-Modified is about 6.5 minutes after it (the static
+rebuild). The page text says the boards are "rebuilt weekly", while the methodology pages
+claim daily models. That conflict stays **unresolved**: the 6-hourly conditional checks
+will accumulate Published / Last-Modified / content-change history in each board's
+`dataset_state.json`. The faster claim is still not assumed.
+
+### 8.5 What remains for stage 4/5
+
+- The public boards have **no native value scale** and no cross-position ordering. They
+  are therefore **not eligible** for canonical participation. Converting positional
+  ordinals into prices would invent methodology.
+- Native or league-adjusted values exist only in paid, authenticated surfaces. Reaching
+  them is an **access dependency**: it needs an owner-controlled session. Permission is
+  not the blocker.
+- Any future value participation still needs the lineage and family-cap review in §3.
+
+### 8.6 Not done here
+
+- Box backup of `data/sources/signals/` is not covered: it is not in
+  `riskit-state-backup`.
+- The `/rankings` page shows nothing yet; only /trade renders the line.
+- `rankOnlyOpinionFor` does not distinguish identity-quarantined rows from unranked
+  rows; both read "not ranked / unresolved". The server's `identity` block lists the
+  reasons.
