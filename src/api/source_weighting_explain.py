@@ -196,17 +196,21 @@ def _estimator(row: Mapping[str, Any], n_voters: int) -> dict[str, Any]:
         overrides.append("two_way_player_boost")
     if path == "rookie_pool_tether":
         overrides.append("rookie_pool_tether")
-    return {
+    out = {
         "path": path,
         "rung": _rung(n_voters),
         "voters": n_voters,
         "singleSourceRetentionApplied": bool(row.get("singleSourceValuePenaltyApplied")),
         "limitedEvidence": row.get("limitedEvidence"),
-        "sparseEvidence": row.get("sparseEvidence"),
         "postBlendOverrides": overrides,
         "anchorValue": row.get("anchorValue"),
         "alphaShrinkage": row.get("alphaShrinkage"),
     }
+    # Flag ``sparse_evidence_estimator`` (default OFF) stamps this block; with
+    # the flag off the key is absent, so the explain output is unchanged.
+    if "sparseEvidence" in row:
+        out["sparseEvidence"] = row.get("sparseEvidence")
+    return out
 
 
 def _attribution(estimator: Mapping[str, Any]) -> dict[str, Any]:

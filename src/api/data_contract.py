@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import bisect
 from copy import deepcopy
+from dataclasses import dataclass
 import json
 import logging
 import math
@@ -4019,6 +4020,151 @@ def _compute_identity_confidence(
     return 0.70, "name_only"
 
 
+@dataclass(frozen=True)
+class _IdentityPositionFlags:
+    """The identity / position checks of :func:`_validate_and_quarantine_rows`.
+
+    ``flags_by_index`` maps a ``players_array`` index to the flags those checks
+    raise on it, in the order the quarantine pass appends them.  Only rows with
+    at least one flag appear.
+    """
+
+    flags_by_index: dict[int, list[str]]
+    collision_pairs: list[dict[str, Any]]
+    duplicate_identity_pairs: list[dict[str, Any]]
+
+
+def _identity_position_flags(players_array: list[dict[str, Any]]) -> _IdentityPositionFlags:
+    """Checks 0, 1, 2 and 4 of :func:`_validate_and_quarantine_rows`, pure.
+
+    The ONE definition of the identity / position quarantine rules.  The
+    quarantine pass applies these flags; the sparse-evidence estimator
+    (flag ``sparse_evidence_estimator``) calls this same function BEFORE the
+    flags exist, so a row that will be quarantined for identity or position is
+    refused a censored bound rather than bounded first and quarantined after.
+    Everything it reads (names, ``position``, ``canonicalSiteValues``) is
+    settled before ``_compute_unified_rankings`` runs, so both callers see the
+    same answer.  It mutates nothing.
+    """
+    from src.utils.name_clean import canonical_position_group  # noqa: PLC0415
+
+    flags_by_index: dict[int, list[str]] = {}
+
+    def _add(idx: int, flag: str) -> None:
+        row_flags = flags_by_index.setdefault(idx, [])
+        if flag not in row_flags:
+            row_flags.append(flag)
+
+    # ── Build indexes for collision detection ──
+    norm_name_to_rows: dict[str, list[int]] = {}
+    posaware_to_rows: dict[str, list[int]] = {}
+
+    for idx, row in enumerate(players_array):
+        name = row.get("canonicalName") or row.get("displayName") or ""
+        norm = _normalize_for_collision(name)
+        if norm:
+            norm_name_to_rows.setdefault(norm, []).append(idx)
+        pos = row.get("position")
+        if norm and pos:
+            grp = canonical_position_group(pos)
+            posaware_to_rows.setdefault(f"{norm}::{grp}", []).append(idx)
+
+    collision_pairs: list[dict[str, Any]] = []
+    duplicate_identity_pairs: list[dict[str, Any]] = []
+
+    # ── Check 0: position-aware duplicate identity ──
+    # Same canonical key with identical position group means we
+    # genuinely created two rows for the same player.  This is the
+    # entity-resolution duplicate the build-time assertion test will
+    # also surface.
+    for posaware, indices in posaware_to_rows.items():
+        if len(indices) < 2:
+            continue
+        names_involved = sorted({str(players_array[i].get("canonicalName") or "") for i in indices})
+        duplicate_identity_pairs.append(
+            {
+                "canonicalKey": posaware,
+                "names": names_involved,
+            }
+        )
+        for i in indices:
+            _add(i, "duplicate_canonical_identity")
+
+    # ── Check 1: Cross-universe name collisions ──
+    # Same normalized name in both offense + IDP rows — usually two
+    # distinct people who happen to share a surname/initials.  We
+    # surface them for visibility but only quarantine when the
+    # collision is a *known* entity confusion (see
+    # :data:`OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS`).
+    for norm, indices in norm_name_to_rows.items():
+        if len(indices) < 2:
+            continue
+        asset_classes = {players_array[i].get("assetClass") for i in indices}
+        if "offense" in asset_classes and "idp" in asset_classes:
+            names_involved = [players_array[i].get("canonicalName") for i in indices]
+            collision_pairs.append(
+                {
+                    "normalizedName": norm,
+                    "names": names_involved,
+                    "assetClasses": list(asset_classes),
+                }
+            )
+            for i in indices:
+                _add(i, "name_collision_cross_universe")
+
+    # ── Check 2: Position-source contradiction ──
+    # A row gets flagged when the position family disagrees with the set
+    # of source keys carrying positive values on the row.  The flag is
+    # suppressed when:
+    #   (a) the row is a verified cross-universe name collision (see
+    #       OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS) AND the collision flag
+    #       has already been applied in Check 1 — in that case the
+    #       contradiction is an expected consequence of the grafted
+    #       join, and quarantining via two flags would inflate false
+    #       positives in downstream reports.
+    #   (b) the row already carries `name_collision_cross_universe`
+    #       from Check 1.  The collision flag is itself a quarantine
+    #       signal, so we don't need to pile contradictions on top.
+    for idx, row in enumerate(players_array):
+        pos = str(row.get("position") or "").strip().upper()
+        canonical_sites = row.get("canonicalSiteValues") or {}
+
+        has_off_val = any(
+            (_to_int_or_none(canonical_sites.get(k)) or 0) > 0 for k in _OFFENSE_SIGNAL_KEYS
+        )
+        has_idp_val = any(
+            (_to_int_or_none(canonical_sites.get(k)) or 0) > 0 for k in _IDP_SIGNAL_KEYS
+        )
+
+        has_collision = "name_collision_cross_universe" in (
+            list(row.get("anomalyFlags") or []) + flags_by_index.get(idx, [])
+        )
+        name = row.get("canonicalName") or ""
+        is_known_collision = has_collision and name in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS
+
+        # Offense position but only IDP values.
+        if pos in _OFFENSE_POSITIONS and has_idp_val and not has_off_val:
+            if not (has_collision or is_known_collision):
+                _add(idx, "position_source_contradiction")
+
+        # IDP position but only offense values.
+        if pos in _IDP_POSITIONS and has_off_val and not has_idp_val:
+            if not (has_collision or is_known_collision):
+                _add(idx, "position_source_contradiction")
+
+    # ── Check 4: Unsupported position ──
+    for idx, row in enumerate(players_array):
+        pos = str(row.get("position") or "").strip().upper()
+        if pos and pos not in _SUPPORTED_BOARD_POSITIONS and pos not in _KICKER_POSITIONS:
+            _add(idx, "unsupported_position")
+
+    return _IdentityPositionFlags(
+        flags_by_index={i: f for i, f in flags_by_index.items() if f},
+        collision_pairs=collision_pairs,
+        duplicate_identity_pairs=duplicate_identity_pairs,
+    )
+
+
 def _validate_and_quarantine_rows(
     players_array: list[dict[str, Any]],
 ) -> dict[str, Any]:
@@ -4062,122 +4208,17 @@ def _validate_and_quarantine_rows(
 
     Returns a validation summary dict for payload-level reporting.
     """
-    from src.utils.name_clean import canonical_position_group  # noqa: PLC0415
-
-    # ── Build indexes for collision detection ──
-    norm_name_to_rows: dict[str, list[int]] = {}
-    posaware_to_rows: dict[str, list[int]] = {}
-
-    for idx, row in enumerate(players_array):
-        name = row.get("canonicalName") or row.get("displayName") or ""
-        norm = _normalize_for_collision(name)
-        if norm:
-            norm_name_to_rows.setdefault(norm, []).append(idx)
-        pos = row.get("position")
-        if norm and pos:
-            grp = canonical_position_group(pos)
-            posaware_to_rows.setdefault(f"{norm}::{grp}", []).append(idx)
-
+    identity = _identity_position_flags(players_array)
+    for idx, row_flags in identity.flags_by_index.items():
+        row = players_array[idx]
+        flags = row.get("anomalyFlags") or []
+        for flag in row_flags:
+            if flag not in flags:
+                flags.append(flag)
+        row["anomalyFlags"] = flags
+    collision_pairs = identity.collision_pairs
+    duplicate_identity_pairs = identity.duplicate_identity_pairs
     quarantine_count = 0
-    collision_pairs: list[dict[str, Any]] = []
-    duplicate_identity_pairs: list[dict[str, Any]] = []
-
-    # ── Check 0: position-aware duplicate identity ──
-    # Same canonical key with identical position group means we
-    # genuinely created two rows for the same player.  This is the
-    # entity-resolution duplicate the build-time assertion test will
-    # also surface.
-    for posaware, indices in posaware_to_rows.items():
-        if len(indices) < 2:
-            continue
-        names_involved = sorted({str(players_array[i].get("canonicalName") or "") for i in indices})
-        duplicate_identity_pairs.append(
-            {
-                "canonicalKey": posaware,
-                "names": names_involved,
-            }
-        )
-        for i in indices:
-            row = players_array[i]
-            flags = row.get("anomalyFlags") or []
-            if "duplicate_canonical_identity" not in flags:
-                flags.append("duplicate_canonical_identity")
-                row["anomalyFlags"] = flags
-
-    # ── Check 1: Cross-universe name collisions ──
-    # Same normalized name in both offense + IDP rows — usually two
-    # distinct people who happen to share a surname/initials.  We
-    # surface them for visibility but only quarantine when the
-    # collision is a *known* entity confusion (see
-    # :data:`OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS`).
-    for norm, indices in norm_name_to_rows.items():
-        if len(indices) < 2:
-            continue
-        asset_classes = {players_array[i].get("assetClass") for i in indices}
-        if "offense" in asset_classes and "idp" in asset_classes:
-            names_involved = [players_array[i].get("canonicalName") for i in indices]
-            collision_pairs.append(
-                {
-                    "normalizedName": norm,
-                    "names": names_involved,
-                    "assetClasses": list(asset_classes),
-                }
-            )
-            for i in indices:
-                row = players_array[i]
-                flags = row.get("anomalyFlags") or []
-                if "name_collision_cross_universe" not in flags:
-                    flags.append("name_collision_cross_universe")
-                    row["anomalyFlags"] = flags
-
-    # ── Check 2: Position-source contradiction ──
-    # A row gets flagged when the position family disagrees with the set
-    # of source keys carrying positive values on the row.  The flag is
-    # suppressed when:
-    #   (a) the row is a verified cross-universe name collision (see
-    #       OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS) AND the collision flag
-    #       has already been applied in Check 1 — in that case the
-    #       contradiction is an expected consequence of the grafted
-    #       join, and quarantining via two flags would inflate false
-    #       positives in downstream reports.
-    #   (b) the row already carries `name_collision_cross_universe`
-    #       from Check 1.  The collision flag is itself a quarantine
-    #       signal, so we don't need to pile contradictions on top.
-    for idx, row in enumerate(players_array):
-        pos = str(row.get("position") or "").strip().upper()
-        canonical_sites = row.get("canonicalSiteValues") or {}
-
-        has_off_val = any(
-            (_to_int_or_none(canonical_sites.get(k)) or 0) > 0 for k in _OFFENSE_SIGNAL_KEYS
-        )
-        has_idp_val = any(
-            (_to_int_or_none(canonical_sites.get(k)) or 0) > 0 for k in _IDP_SIGNAL_KEYS
-        )
-
-        current_flags = row.get("anomalyFlags") or []
-        has_collision = "name_collision_cross_universe" in current_flags
-        name = row.get("canonicalName") or ""
-        is_known_collision = has_collision and name in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS
-
-        # Offense position but only IDP values.
-        if pos in _OFFENSE_POSITIONS and has_idp_val and not has_off_val:
-            if has_collision or is_known_collision:
-                pass
-            else:
-                flags = current_flags
-                if "position_source_contradiction" not in flags:
-                    flags.append("position_source_contradiction")
-                    row["anomalyFlags"] = flags
-
-        # IDP position but only offense values.
-        if pos in _IDP_POSITIONS and has_off_val and not has_idp_val:
-            if has_collision or is_known_collision:
-                pass
-            else:
-                flags = current_flags
-                if "position_source_contradiction" not in flags:
-                    flags.append("position_source_contradiction")
-                    row["anomalyFlags"] = flags
 
     # ── Check 3: Near-name value mismatch across universes ──
     # REMOVED: the historical "same surname + cross universe + value
@@ -4185,15 +4226,6 @@ def _validate_and_quarantine_rows(
     # legitimate distinct people.  Real entity collisions are now
     # caught by the position-aware duplicate-identity check above.
     near_name_pairs: list[dict[str, Any]] = []
-
-    # ── Check 4: Unsupported position ──
-    for idx, row in enumerate(players_array):
-        pos = str(row.get("position") or "").strip().upper()
-        if pos and pos not in _SUPPORTED_BOARD_POSITIONS and pos not in _KICKER_POSITIONS:
-            flags = row.get("anomalyFlags") or []
-            if "unsupported_position" not in flags:
-                flags.append("unsupported_position")
-                row["anomalyFlags"] = flags
 
     # ── Check 5: No valid source values but has derived value ──
     for idx, row in enumerate(players_array):
@@ -6497,7 +6529,10 @@ def _detect_blend_integrity_violations(
         lo, hi = min(contributions.values()), max(contributions.values())
         # A sparse-evidence estimate (flag ``sparse_evidence_estimator``) is a
         # blend over the observation AND its binding censored bounds, so those
-        # bounds are inputs to its hull.  Absent on every other row.
+        # bounds are inputs to its hull.  Absent on every other row.  Reached
+        # only by rows with >= 2 positive contributions (the guard above): a
+        # one-observation sparse row is NOT hull-checked here; its estimate is
+        # held inside [min bound, observation] by ``sparse_evidence.estimate``.
         sparse = row.get("sparseEvidence")
         if isinstance(sparse, dict):
             bounds = [float(b) for b in sparse.get("boundsUsed") or [] if b and b > 0]
@@ -7402,6 +7437,37 @@ def _apply_sparse_evidence_estimator(
         for sk, entries in (csv_index or {}).items()
         if entries
     }
+    # The same names bucketed by everything after the first name, so a
+    # first-name variant ("matt x" / "matthew x") can be looked up without a
+    # scan, and every Sleeper id a source's entries carry.  Matching itself is
+    # ``name_clean.is_first_name_variant`` -- no rule is defined here.
+    from src.utils.name_clean import is_first_name_variant  # noqa: PLC0415
+
+    names_by_tail: dict[str, dict[tuple[str, ...], set[str]]] = {}
+    for sk, names in name_index.items():
+        buckets = names_by_tail.setdefault(sk, {})
+        for nm in names:
+            parts = nm.split()
+            if len(parts) >= 2:
+                buckets.setdefault(tuple(parts[1:]), set()).add(nm)
+    ids_by_source: dict[str, set[str]] = {
+        sk: {
+            str(e.get("sleeperId")).strip()
+            for e in entries.values()
+            if isinstance(e, Mapping) and str(e.get("sleeperId") or "").strip()
+        }
+        for sk, entries in (csv_index or {}).items()
+        if entries
+    }
+    # Rows the quarantine pass WILL flag for identity or position, decided by the
+    # same function that pass applies (``_identity_position_flags``).  Anomaly
+    # flags do not exist yet at this point in the build, so reading them would
+    # be a guard that never fires.
+    pending_identity_flags = {
+        idx: sorted(set(flags) & _QUARANTINE_FLAGS)
+        for idx, flags in _identity_position_flags(players_array).flags_by_index.items()
+        if set(flags) & _QUARANTINE_FLAGS
+    }
     key_counts: dict[str, int] = {}
     for row in players_array:
         if row.get("assetClass") == "pick":
@@ -7481,14 +7547,33 @@ def _apply_sparse_evidence_estimator(
             )
             if listed_not_voting.get(fam) != _se.LISTED_OUTLIER:
                 listed_not_voting[fam] = reason
-        identity_ok = bool(ckey) and key_counts.get(ckey, 0) == 1
-        identity_ok = identity_ok and not (set(row.get("anomalyFlags") or []) & _QUARANTINE_FLAGS)
+        pending_flags = pending_identity_flags.get(row_idx, [])
+        identity_ok = bool(ckey) and key_counts.get(ckey, 0) == 1 and not pending_flags
+        identity_reason = _se.REFUSE_PENDING_QUARANTINE if pending_flags else _se.REFUSE_IDENTITY
+        row_sid = str(row.get("playerId") or "").strip()
+        ck_parts = ckey.split()
+        ck_tail = tuple(ck_parts[1:]) if len(ck_parts) >= 2 else None
 
-        def _name_check(sk: str, _ck: str = ckey) -> str | None:
+        def _name_check(
+            sk: str,
+            _ck: str = ckey,
+            _sid: str = row_sid,
+            _tail: tuple[str, ...] | None = ck_tail,
+        ) -> str | None:
             names = name_index.get(sk)
             if names is None:
                 return _se.REFUSE_NAME_INDEX
-            return _se.REFUSE_NAME_PUBLISHED if _ck in names else None
+            if _ck in names:
+                return _se.REFUSE_NAME_PUBLISHED
+            # A V1 join miss must not become an absence: the source carries this
+            # player's Sleeper id, or a first-name variant of the name.
+            if _sid and _sid in ids_by_source.get(sk, ()):
+                return _se.REFUSE_IDENTITY_VARIANT
+            if _tail is not None and any(
+                is_first_name_variant(_ck, nm) for nm in names_by_tail.get(sk, {}).get(_tail, ())
+            ):
+                return _se.REFUSE_IDENTITY_VARIANT
+            return None
 
         bounds, refused = _se.family_bounds(
             position=pos,
@@ -7501,6 +7586,7 @@ def _apply_sparse_evidence_estimator(
             name_check=_name_check,
             scope_eligible=_scope_eligible,
             identity_ok=identity_ok,
+            identity_reason=identity_reason,
             family_cap=_family_cap,
         )
         est = _se.estimate(
@@ -7525,6 +7611,7 @@ def _apply_sparse_evidence_estimator(
             evidence=evidence,
             observed_family=",".join(sorted(voting_family_set)) or None,
             ineligible_listings=ineligible_listings,
+            pending_quarantine_flags=pending_flags,
         )
 
 

@@ -302,6 +302,61 @@ def test_a_name_the_source_published_but_did_not_attach_is_not_an_absence():
     assert block["refusedFamilies"]["ktcTrades"] == se.REFUSE_NAME_PUBLISHED
 
 
+def test_a_first_name_variant_in_the_source_is_not_an_absence():
+    """A V1 join miss (Matt / Matthew, outside the alias table) never binds."""
+    rows = _board()[:2] + [_row("Matt Solo", "WR", ktcCrowdSfTep=5000)]
+    index = _index(
+        ("ktcCrowdSfTep", ["Anchor QB", "Floor WR", "Matt Solo"]),
+        ("ktcTradesSfTep", ["Anchor QB", "Floor WR", "Matthew Solo"]),
+        ("idpTradeCalc", ["Anchor QB", "Floor WR"]),
+    )
+    got = _run(rows, csv_index=index)["Matt Solo"]
+    block = got["sparseEvidence"]
+    assert block["refusedFamilies"]["ktcTrades"] == se.REFUSE_IDENTITY_VARIANT
+    assert [c["family"] for c in block["censoredFamiliesUsed"]] == ["idpTradeCalc"]
+    assert got["rankDerivedValue"] == 3500  # one bound (n=2 mean of 5000, 2000), never two
+
+
+def test_a_source_carrying_the_rows_sleeper_id_is_not_an_absence():
+    rows = _board()[:2] + [_row("Solo WR", "WR", ktcCrowdSfTep=5000)]
+    rows[2]["playerId"] = "9999"
+    index = _index(*_LISTED)
+    # The source spells him differently, but its entry carries his Sleeper id.
+    index["ktcTradesSfTep"]["solo wideout::*"] = {
+        "displayName": "Solo Wideout",
+        "sleeperId": "9999",
+    }
+    block = _run(rows, csv_index=index)["Solo WR"]["sparseEvidence"]
+    assert block["refusedFamilies"]["ktcTrades"] == se.REFUSE_IDENTITY_VARIANT
+    assert [c["family"] for c in block["censoredFamiliesUsed"]] == ["idpTradeCalc"]
+
+
+def test_one_member_publishing_the_name_refuses_the_whole_family():
+    """A family is one opinion: a member that may list the player (published
+    name or identity variant) refuses the family's bound, even when another
+    member is a healthy witness and even when the publishing member is stale."""
+    for named in (se.REFUSE_NAME_PUBLISHED, se.REFUSE_IDENTITY_VARIANT):
+        bounds, refused = se.family_bounds(
+            position="WR",
+            is_rookie=False,
+            listed_families=set(),
+            sources=[_src("a1"), _src("a2"), _src("b")],
+            family_of={"a1": "A", "a2": "A", "b": "B"},
+            status={
+                "a1": se.SourceStatus(False, se.REFUSE_STALE, 0.0),
+                "a2": se.SourceStatus(True, None, 1.0),
+                "b": se.SourceStatus(True, None, 1.0),
+            },
+            min_contribution={("a1", "WR"): 1000.0, ("a2", "WR"): 1500.0, ("b", "WR"): 800.0},
+            name_check=lambda k, _n=named: _n if k == "a1" else None,
+            scope_eligible=dc._scope_eligible,
+            identity_ok=True,
+            family_cap=lambda w: dc.cap_family_weights(w)[0],
+        )
+        assert set(bounds) == {"B"}
+        assert refused == {"A": named}
+
+
 def test_no_name_index_means_identity_is_unprovable():
     got = _run(_board(), csv_index={"ktcCrowdSfTep": {"solo wr::*": {}}})
     block = got["Solo WR"]["sparseEvidence"]
@@ -310,12 +365,58 @@ def test_no_name_index_means_identity_is_unprovable():
     assert got["Solo WR"]["rankDerivedValue"] == 5000
 
 
-def test_quarantined_or_duplicate_identity_produces_no_bound():
-    rows = _board()
-    rows[2]["anomalyFlags"] = ["duplicate_canonical_identity"]
-    block = _run(rows)["Solo WR"]["sparseEvidence"]
-    assert set(block["refusedFamilies"].values()) == {se.REFUSE_IDENTITY}
+def test_a_row_the_quarantine_pass_will_flag_gets_no_bound_through_the_real_pipeline():
+    """Anomaly flags do not exist yet when the estimator runs, so the guard must
+    ask the quarantine pass's OWN predicate, not read flags nobody has set.
 
+    A WR priced only by IDP Trade Calc (an IDP signal key) is a position-source
+    contradiction.  Before the fix both healthy absent offense families bound it
+    at their WR cutoff (5000 -> 2500) and only afterwards was it quarantined.
+    """
+    rows = _board()[:2] + [_row("Mislabel WR", "WR", idpTradeCalc=5000)]
+    index = _index(
+        ("ktcCrowdSfTep", ["Anchor QB", "Floor WR"]),
+        ("ktcTradesSfTep", ["Anchor QB", "Floor WR"]),
+        ("idpTradeCalc", ["Anchor QB", "Floor WR", "Mislabel WR"]),
+    )
+    got = _run(rows, csv_index=index)["Mislabel WR"]
+    # Nothing hand-set: no row carries a flag when the estimator runs.
+    block = got["sparseEvidence"]
+    assert block["pendingQuarantineFlags"] == ["position_source_contradiction"]
+    assert {"ktcCrowd", "ktcTrades"} <= set(block["refusedFamilies"])
+    assert set(block["refusedFamilies"].values()) == {se.REFUSE_PENDING_QUARANTINE}
+    assert block["censoredFamiliesUsed"] == []
+    assert block["evidenceState"] == se.EV_IDENTITY
+    assert got["rankDerivedValue"] == 5000  # the observation, never bounded
+
+    # ... and the quarantine pass then flags exactly what the guard predicted.
+    dc._validate_and_quarantine_rows(rows)
+    row = next(r for r in rows if r["canonicalName"] == "Mislabel WR")
+    assert row["quarantined"] is True
+    assert "position_source_contradiction" in row["anomalyFlags"]
+
+
+def test_the_guard_and_the_quarantine_pass_share_one_predicate():
+    """``_validate_and_quarantine_rows`` applies exactly ``_identity_position_flags``."""
+    rows = _board() + [
+        _row("Mislabel WR", "WR", idpTradeCalc=5000),
+        _row("Odd K", "XX", ktcCrowdSfTep=100),
+        _row("Twin WR", "WR", ktcCrowdSfTep=100),
+        _row("Twin WR", "WR", ktcCrowdSfTep=90),
+    ]
+    predicted = dc._identity_position_flags(rows).flags_by_index
+    dc._validate_and_quarantine_rows(rows)
+    for idx, row in enumerate(rows):
+        quarantine_flags = set(row.get("anomalyFlags") or []) & dc._QUARANTINE_FLAGS
+        assert quarantine_flags == set(predicted.get(idx, [])) & dc._QUARANTINE_FLAGS, idx
+    assert {f for flags in predicted.values() for f in flags} >= {
+        "position_source_contradiction",
+        "unsupported_position",
+        "duplicate_canonical_identity",
+    }
+
+
+def test_duplicate_identity_produces_no_bound():
     # Two board rows share the name: an absence cannot be pinned on either.
     rows = _board() + [_row("Solo WR", "LB", idpTradeCalc=1500)]
     _run(rows)
@@ -534,3 +635,21 @@ def test_board_every_block_names_its_evidence_state(boards):
         assert not absent & set(block["listedNotVotingFamilies"])
         assert block["observedFamily"] not in absent
     assert states, "archive should exercise the single-family path"
+
+
+def test_flag_off_adds_no_key_to_the_explain_or_replay_views(boards):
+    """OFF output is byte-identical everywhere, not only on the board: the
+    explain estimator and the replay asset view carry ``sparseEvidence`` only
+    when a row was stamped (flag ON)."""
+    from src.api.source_weighting_explain import player_explain  # noqa: PLC0415
+
+    off, on = boards
+    row_off = next(r for r in off["playersArray"] if r.get("singleSourceValuePenaltyApplied"))
+    name = row_off["displayName"]
+    row_on = next(r for r in on["playersArray"] if r.get("displayName") == name)
+
+    assert "sparseEvidence" not in player_explain(off, row_off, {})["estimator"]
+    assert "sparseEvidence" not in vr.asset_view(off, name)
+    # ON: the block travels with both views.
+    assert player_explain(on, row_on, {})["estimator"]["sparseEvidence"] == row_on["sparseEvidence"]
+    assert vr.asset_view(on, name)["sparseEvidence"] == row_on["sparseEvidence"]

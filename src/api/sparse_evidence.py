@@ -67,6 +67,18 @@ REFUSE_POSITION_UNRANKED = "position_unranked_by_source"
 REFUSE_NAME_PUBLISHED = "name_published_but_not_attached"
 REFUSE_IDENTITY = "row_identity_unproven"
 REFUSE_NAME_INDEX = "source_name_index_unavailable"
+# The source's index carries this player's Sleeper id, or a first-name variant
+# of his name (``name_clean.is_first_name_variant``): a join miss, not an absence.
+REFUSE_IDENTITY_VARIANT = "possible_identity_variant"
+# The quarantine pass WILL flag the row for identity or position
+# (``data_contract._identity_position_flags``); refused before it is bounded.
+REFUSE_PENDING_QUARANTINE = "row_will_be_quarantined_identity_or_position"
+
+#: Name-check refusals that say a member may have LISTED the player.  A family
+#: is one opinion, so one such member refuses the whole family's bound.
+FAMILY_WIDE_IDENTITY_REFUSALS: frozenset[str] = frozenset(
+    {REFUSE_NAME_PUBLISHED, REFUSE_IDENTITY_VARIANT}
+)
 
 # -- Evidence states: the CERTAINTY half (never moves the central value) --
 #
@@ -103,6 +115,8 @@ REFUSAL_CATEGORY: dict[str, str] = {
     REFUSE_IDENTITY: EV_IDENTITY,
     REFUSE_NAME_PUBLISHED: EV_IDENTITY,
     REFUSE_NAME_INDEX: EV_IDENTITY,
+    REFUSE_IDENTITY_VARIANT: EV_IDENTITY,
+    REFUSE_PENDING_QUARANTINE: EV_IDENTITY,
 }
 
 # Why a family that LISTED the player did not vote.  A listing is never an
@@ -194,16 +208,21 @@ def family_bounds(
     scope_eligible: Callable[[str, str, str | None], bool],
     identity_ok: bool,
     family_cap: Callable[[Mapping[str, float]], Mapping[str, float]],
+    identity_reason: str = REFUSE_IDENTITY,
 ) -> tuple[dict[str, FamilyBound], dict[str, str]]:
     """Censored upper bounds, one per absent family (preregistration W2-W8).
 
     Returns ``(bounds, refused)``: ``refused`` names every absent eligible
     family that produced no bound, with the first member's reason (families
     whose every member is out of scope are not listed -- they could never have
-    covered the row).
+    covered the row). ``identity_reason`` names why ``identity_ok`` is false.
+    A member whose name check says it may have listed the player
+    (:data:`FAMILY_WIDE_IDENTITY_REFUSALS`) refuses its whole family: a listing
+    by one member is a listing by the family.
     """
     per_family: dict[str, list[tuple[str, float, float]]] = {}
     refused: dict[str, str] = {}
+    blocked: dict[str, str] = {}
     for src in sources:
         key = str(src.get("key") or "")
         family = family_of.get(key, key)
@@ -214,8 +233,13 @@ def family_bounds(
             continue
         reason: str | None = None
         st = status.get(key)
+        # Asked of EVERY eligible member, healthy or not: a stale member that
+        # published the player's name still means the family may list him.
+        named = name_check(key) if identity_ok else None
+        if named in FAMILY_WIDE_IDENTITY_REFUSALS:
+            blocked.setdefault(family, named)
         if not identity_ok:
-            reason = REFUSE_IDENTITY
+            reason = identity_reason
         elif src.get("needs_rookie_translation") and not is_rookie:
             reason = REFUSE_ROOKIE_ONLY
         elif src.get("excludes_rookies") and is_rookie:
@@ -225,15 +249,19 @@ def family_bounds(
         elif (key, position) not in min_contribution:
             reason = REFUSE_POSITION_UNRANKED
         else:
-            reason = name_check(key)
+            reason = named
         if reason is not None:
             refused.setdefault(family, reason)
             continue
         per_family.setdefault(family, []).append(
             (key, float(min_contribution[(key, position)]), st.weight)
         )
+    # A possible listing outranks every other member's reason.
+    refused.update(blocked)
     bounds: dict[str, FamilyBound] = {}
     for family, members in per_family.items():
+        if family in blocked:
+            continue
         refused.pop(family, None)
         capped = family_cap({k: w for k, _u, w in members})
         bounds[family] = FamilyBound(
@@ -382,6 +410,7 @@ def stamp(
     evidence: Evidence | None = None,
     observed_family: str | None = None,
     ineligible_listings: Iterable[str] = (),
+    pending_quarantine_flags: Iterable[str] = (),
 ) -> dict[str, Any]:
     """The additive per-row ``sparseEvidence`` block."""
     certainty: dict[str, Any] = {}
@@ -433,6 +462,9 @@ def stamp(
             {"family": b.family, "bound": int(round(b.bound))} for b in est.nonbinding
         ],
         "refusedFamilies": dict(sorted(refused.items())),
+        # Identity / position quarantine flags the build WILL raise on this row
+        # (decided before the bound, by the quarantine pass's own predicate).
+        "pendingQuarantineFlags": sorted(pending_quarantine_flags),
         # Filled from src/api/confidence.py's verdict once it is assessed.
         "confidence": None,
     }

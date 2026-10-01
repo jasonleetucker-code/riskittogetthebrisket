@@ -316,17 +316,23 @@ def main() -> int:
         and r.get("assetClass") != "pick"
         and r.get("rankDerivedValue") != (C.get(n) or {}).get("rankDerivedValue")
     ]
+
+    def _delta(a: Any, b: Any) -> int | None:
+        # Missing is never zero: an unpriced side has no delta, it is reported
+        # as missing (None) and sorts after every measured move.
+        return None if a is None or b is None else b - a
+
     moves = sorted(
         (
             (
                 n,
                 _group(inc[n]),
-                (C[n].get("rankDerivedValue") or 0) - (inc[n].get("rankDerivedValue") or 0),
+                _delta(inc[n].get("rankDerivedValue"), C[n].get("rankDerivedValue")),
             )
             for n in inc
             if n in C and inc[n].get("rankDerivedValue") != C[n].get("rankDerivedValue")
         ),
-        key=lambda t: -abs(t[2]),
+        key=lambda t: (t[2] is None, -abs(t[2] or 0)),
     )[:10]
 
     # ── witness census (source-level) ──

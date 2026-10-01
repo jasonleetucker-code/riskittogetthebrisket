@@ -134,6 +134,8 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # (censor-aware, counted by family; src/api/sparse_evidence.py), and carry
     # an additive ``sparseEvidence`` block.  OFF: the incumbent haircut, byte
     # for byte.  Evidence: docs/valuation/evidence/sparse-evidence-2026-10-01/.
+    # Rollback if ever switched on: RISKIT_FEATURE_SPARSE_EVIDENCE_ESTIMATOR=0
+    # and restart (flag reads are cached per process).
     "sparse_evidence_estimator": False,
     # C1-U4 — ledger-derived rankChange on the canonical contract.  ON
     # derives each ranked row's rankChange from the temporal ledger's

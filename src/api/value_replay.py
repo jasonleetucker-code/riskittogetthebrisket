@@ -88,12 +88,13 @@ _ROW_FIELDS = (
     "alphaShrinkage",
     "_blendedValueUncapped",
     "singleSourceValuePenaltyApplied",
-    "sparseEvidence",
     "quarantined",
     "anomalyFlags",
     "ktcMarket",
     "pickValueProvenance",
 )
+#: Row fields a view carries only when the row has them.
+_OPTIONAL_ROW_FIELDS = ("sparseEvidence",)
 
 
 def _sha256(path: Path) -> str:
@@ -374,6 +375,9 @@ def asset_view(contract: Mapping[str, Any], name: str) -> dict[str, Any] | None:
     if row is None:
         return None
     view = {k: row.get(k) for k in _ROW_FIELDS}
+    # Only when stamped (flag ``sparse_evidence_estimator``, default OFF), so a
+    # flag-off view carries exactly the keys it always did.
+    view.update({k: row[k] for k in _OPTIONAL_ROW_FIELDS if k in row})
     view["positionRank"] = _position_ranks(rows).get(name)
     meta = row.get("sourceRankMeta") or {}
     view["sources"] = {
