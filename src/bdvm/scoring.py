@@ -97,8 +97,9 @@ def score_stat_line_per_game_detailed(
     #
     # Scope: this reports only the play-by-play-only rules realized_points
     # tracks.  A rule whose stat column the SOURCE never publishes (e.g. Clay
-    # has no fumbles column, so ``fum_lost`` scores nothing) is not reported
-    # here; scripts/bdvm_scoring_census.py measures those per source.
+    # has no fumbles column, so ``fum_lost`` scores nothing) is added per
+    # record by ``src.bdvm.source_vocabulary.record_coverage`` — the consensus
+    # ``unscored_keys`` and the service payload carry both.
     return float(result.fantasy_points), tuple(sorted({k for k, _r in result.unscored}))
 
 
