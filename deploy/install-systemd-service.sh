@@ -1189,6 +1189,10 @@ main() {
   # the authenticated /api/second-opinion/signals (src/sources/signals.py).
   # Public pages, no creds; a 401/403 persists a stop the script obeys.
   install_simple_timer "signals-fetch" "Signals Fantasy public-board collection (non-voting second opinion)"
+  # KTC Trade Database -> append-only raw trade archive (Market Trade Ledger,
+  # Batch 3 Unit I; src/sources/ktc_trades.py).  Public page, no creds; a
+  # 401/403/challenge persists a stop the script obeys.  Never moves a value.
+  install_simple_timer "ktc-trades" "KTC Trade Database accumulation (Market Trade Ledger raw archive)"
 
   # ── daemon-reload and enable ────────────────────────────────────────────
   # ce_needs_install was missing from this list. Every other timer's

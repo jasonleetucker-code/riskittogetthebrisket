@@ -201,6 +201,22 @@ def _league_roster_count_ok(league: dict[str, Any], cfg: dict[str, Any]) -> bool
     return lo <= n <= hi
 
 
+def _capture_market_format(league: dict[str, Any]) -> dict[str, Any] | None:
+    """Host-format capture for the trade ledger; ``None`` on any failure so a
+    format problem can never break discovery itself."""
+    try:
+        from datetime import datetime, timezone  # noqa: PLC0415
+
+        from src.trade.market_trade_format import capture_sleeper_league_format  # noqa: PLC0415
+
+        return capture_sleeper_league_format(
+            league, captured_at=datetime.now(timezone.utc).isoformat()
+        )
+    except Exception:  # noqa: BLE001
+        log.debug("market format capture failed for a league", exc_info=True)
+        return None
+
+
 def discover(
     *,
     http_get: HttpGet | None = None,
@@ -394,6 +410,16 @@ def discover(
                                 "signalEligible": signal_ok,
                                 "sharpEligible": sharp_ok,
                                 "ageSeasons": league_filter.league_age_seasons(lg),
+                                # The league's REAL format, from the league
+                                # object this call already returned — no
+                                # extra request.  Read by the Market Trade
+                                # Ledger (src/trade/market_trade_format.py),
+                                # which must never infer a league's format
+                                # from the manager who led us to it.
+                                "marketFormat": _capture_market_format(lg),
+                                # How the league entered the sample (spec
+                                # §19.1 provenance), not who is a sharp.
+                                "discovery": {"generation": gen, "viaUserId": uid},
                             }
                         ),
                     }

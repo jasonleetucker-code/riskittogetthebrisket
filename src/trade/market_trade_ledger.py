@@ -1,5 +1,17 @@
 """The Market Trade Ledger — C4-MTL-01, own-league lane.
 
+FAMILY MAP (Batch 3 Unit I, 2026-10-01): this module remains the own-league
+lane.  The broad-market lanes it anticipated now exist beside it and consume
+its output rather than re-reading acquisition:
+``src/sources/ktc_trades.py`` (KTC Trade Database capture, owner-authorized
+2026-09-30) -> ``market_trade_archive`` (append-only raw observations) ->
+``market_trade_normalize`` (canonical identities, every lane in one shape) ->
+``market_trade_groups`` (§19 underlying-trade dedupe) ->
+``market_trade_format`` (format fingerprint + target dispositions) ->
+``market_trade_eval`` (topology + residual harness).  None of them writes a
+canonical value.  The "C4-MTL-02 is gated" notes below predate that owner
+decision and are kept as history.
+
 WHAT THIS IS, AND WHAT IT DELIBERATELY IS NOT YET
 ───────────────────────────────────────────────────
 ``docs/MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC.md`` describes a ledger of
@@ -128,6 +140,11 @@ def market_trades(league_key: str, *, path: Path | None = None) -> list[dict[str
             {
                 "leagueKey": league_key,
                 "sourceRef": source_ref,
+                # The HOST league id the transaction was recorded under —
+                # with ``sourceRef`` it is the Sleeper (league, transaction)
+                # identity the cross-source dedupe confirms on.  ``None`` when
+                # the event predates the column: unknown, not guessed.
+                "sleeperLeagueId": primary.get("sleeper_league_id"),
                 "season": primary["season"],
                 "week": primary["week"],
                 "occurredAtMs": primary["occurred_at_ms"],

@@ -1,0 +1,20 @@
+[Unit]
+Description=Every-30-minute KTC Trade Database accumulation for __SERVICE_NAME__
+# Deliberately NO Requires= on the service here: [Timer] Unit= already binds
+# it, and a [Unit] Requires= would start the service on every boot regardless
+# of OnCalendar and let a service failure stop the timer itself.
+
+[Timer]
+# Cadence is set by the SIZE OF THE ROLLING WINDOW (200 rows), not by how fast
+# prices move.  Measured 2026-10-01: ~80 trades/hour at midday in season, so
+# the window lasts ~2.5h; 30 minutes keeps a wide margin.  Offsets :07/:37 stay
+# off the top of the hour, where the 2-hourly scrape and most timers sit, and
+# off :25 where crowd-faab (the sibling KTC waiver-database fetch) runs.
+OnCalendar=*-*-* *:07,37:00 UTC
+RandomizedDelaySec=120
+Persistent=true
+AccuracySec=1min
+Unit=__SERVICE_NAME__-ktc-trades.service
+
+[Install]
+WantedBy=timers.target
