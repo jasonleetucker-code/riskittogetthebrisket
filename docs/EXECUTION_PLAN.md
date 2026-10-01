@@ -197,6 +197,24 @@ execution, source activation, or changes to merge/deploy authority.
 Week 1 remains a literal 30-row contract. Runtime entry and state contracts:
 `docs/agent-operating-system/STEWARD_RUNTIME.md`.
 
+## #1555 Batch 2 — owner directive, 2026-10-01
+
+Signals permission resolved by owner attestation (*"I have explicit permission to use signals how I see
+fit"*). Authorized:
+- Signals read-only collection, normalization, private retention, analysis and authenticated displays,
+  under the existing private/public boundary.
+- Manual-deploy SHA pinning (decision C).
+- A disabled/shadow joint outlier + sparse-source challenger (decision B).
+- The read-only Hill / native-source audit.
+- BDVM scoring-coverage follow-through.
+- Lane 6 information-age, provenance and scoring-coverage UI.
+
+Bounded non-promotional units may be implemented, independently reviewed, merged and deployed when gates
+pass (decision E). Not authorized: self-promotion of an unvalidated model or weight change (candidate-
+specific owner approval stays in force), Hill constant edits outside the Hill Autopilot / model registry,
+purchases, paid trials, access-control bypass, and exposure of raw paid / league-private data. Map and
+claims: `docs/valuation/VALUATION_ADVANCEMENT_MAP_2026-09-30.md` §G.
+
 ## Valuation advancement + comprehensive Signals — owner directive, 2026-09-30 (#1555)
 
 The owner directed the valuation-advancement program in #1555 (incorporated into #792) and extended it

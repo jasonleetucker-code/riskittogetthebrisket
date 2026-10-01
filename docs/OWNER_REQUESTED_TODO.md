@@ -1226,7 +1226,7 @@ authorization: `docs/EXECUTION_PLAN.md` "Served build identity — owner authori
 | Served build identity: `/api/status` reports the running commit; the deploy smoke test fails on a mismatch (Part H.5 item 1, Priority 3) | DONE — #1543 merged, deployed and production-verified (2026-09-30) |
 | Re-run the closed PR #1344 CLAUDE.md/skill progressive-disclosure audit | DEFERRED — high collision with active lanes, low current value; revisit when the active lanes quiet |
 | Remaining Part H.5 queue (typed contract slice, provenance views, parser replay, declarative boundaries, request/snapshot identity) | NOT AUTHORIZED — backlog only |
-| Pin the box to the guarded SHA on manual deploys (`deploy.yml` passes the raw `deploy_ref`; the box resolves a branch name after its own fetch, so a manual deploy of `main` can ship a newer commit than the guard and validate job judged — found by the build-identity review; the new check now reports it) | NOT AUTHORIZED — follow-up, changes deploy behaviour |
+| Pin the box to the guarded SHA on manual deploys (`deploy.yml` passes the raw `deploy_ref`; the box resolves a branch name after its own fetch, so a manual deploy of `main` can ship a newer commit than the guard and validate job judged — found by the build-identity review; the new check now reports it) | AUTHORIZED 2026-10-01 (owner decision C) — Batch 2 Integration unit |
 
 ## Added 2026-09-30 — DFS: dedicated daily-fantasy section (owner directive)
 
@@ -1248,8 +1248,26 @@ statuses and next batch: `docs/valuation/VALUATION_ADVANCEMENT_MAP_2026-09-30.md
 | Keep three capabilities distinct: fundamental dynasty value, market price, roster-specific trade impact (#792) | CAPTURED — map §C |
 | Reproducible current-value evidence, Coker first, with contrasts; never hard-code a Coker increase or target KTC/Signals agreement | IMPLEMENTED — pinned replay + evidence (map V1) |
 | KeepTradeCut: owner holds permission to scrape all KTC data — record as owner-reported authorization, stop treating as absent, invent no document | RECORDED — spec §19.2, manifest `F-EXT-01` COMPLETE |
-| Signals is a comprehensive data-integration workstream aimed at an active validated source (stage 5 where justified), plus a separate product-capability workstream; supersedes the optional/benchmark-only destination while keeping its access/validation/privacy/lineage rules | CAPTURED — stage 1; live collection BLOCKED on Signals' written consent (permission-request draft prepared for the owner to send) |
+| Signals is a comprehensive data-integration workstream aimed at an active validated source (stage 5 where justified), plus a separate product-capability workstream; supersedes the optional/benchmark-only destination while keeping its access/validation/privacy/lineage rules | CAPTURED — permission RESOLVED 2026-10-01 (owner-attested; the permission request is superseded, never sent); collection in Batch 2 Unit A |
 | Source-integrity leads (cross-subset freshness, information age, weight-blind outlier filter, lineage, native-vs-rank scale, confidence haircut, ingestion integrity) | TRIAGED — statuses in map §D; V2-1 DONE (#1565, production-verified 2026-10-01); others sequenced in map §G |
 | BDVM formula/semantics audit (pick median, malformed timestamps, placeholders, overlapping risks, market dependence) | DOCUMENTED — map §E; timestamp fail-open fixed and pick labels corrected (own PRs) |
 | Independent fundamentals baseline, own completed-trade price model, three-part decision UX, evaluation | CAPTURED — map V5–V8; V5 milestone defined |
 | Permanent parallel Premium UI each batch | ACTIVE — BDVM truthful labels (Lane 6) |
+
+## Added 2026-10-01 — #1555 Batch 2: authorized Signals integration, valuation reliability, scoring coverage, Lane 6
+
+Owner statement (2026-10-01): *"I have explicit permission to use signals how I see fit."* This is recorded
+as owner-attested Signals authorization; no permission document or provider correspondence is invented.
+Map: `docs/valuation/VALUATION_ADVANCEMENT_MAP_2026-09-30.md` §G. Signals record:
+`docs/sources/SIGNALS_FANTASY_INTEGRATION.md` §1/§2.
+
+| Item | Disposition |
+|---|---|
+| (A) Build Signals toward an active validated source: real ingestion + truthful second opinion; numeric participation through promotion stages | AUTHORIZED — Unit A |
+| (B) Outlier handling + sparse-source confidence are one pipeline problem; "one family ⇒ 30% of the estimate" rejected; express thin coverage as uncertainty | AUTHORIZED — Unit C, disabled/shadow challenger; promotion needs candidate approval |
+| (C) Manual-deploy SHA pinning — one resolved immutable commit through validation, build, guard, deploy and verification | AUTHORIZED — Integration unit (supersedes the 2026-09-30 "not authorized" follow-up) |
+| (D) Lane 6 active in parallel: information age, provenance, BDVM partial-scoring notice, Signals second opinion | AUTHORIZED — Lane 6 unit |
+| (E) Implement, test, independently review, merge and deploy bounded non-promotional units when gates pass; candidate-specific approval for new canonical models/weights stays in force | RECORDED |
+| Hill / native-source alignment audit | AUTHORIZED — Unit B (read-only; calibration only as a registry challenger) |
+| BDVM scoring-coverage follow-through (census, sign-aware wording, exact mappings only where fields exist) | AUTHORIZED — Unit D |
+
