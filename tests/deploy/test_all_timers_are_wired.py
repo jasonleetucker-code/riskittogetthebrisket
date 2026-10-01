@@ -341,8 +341,24 @@ class TestAShippedTimerIsKeptCURRENT:
 
     def test_the_installer_compares_content_not_just_presence(self):
         text = _INSTALLER.read_text(encoding="utf-8")
-        assert 'cmp -s "${tmp_timer}" "${timer_path}"' in text
-        assert 'cmp -s "${tmp_service}" "${service_path}"' in text
+        assert 'installed_matches "${tmp_timer}" "${timer_path}"' in text
+        assert 'installed_matches "${tmp_service}" "${service_path}"' in text
+        helper = text.split("\ninstalled_matches() {", 1)[1].split("\n}\n", 1)[0]
+        assert 'cmp -s "${rendered}" "${installed}"' in helper
+
+    def test_no_comparison_runs_under_sudo(self):
+        """The box's NOPASSWD surface is systemctl/journalctl/install/chown.
+        A ``sudo -n cmp`` is refused, the refusal reads as drift, and every
+        deploy rewrites (and re-kicks) every unit compared that way —
+        measured on deploy run 36881631608.  Reads are unprivileged."""
+        text = _INSTALLER.read_text(encoding="utf-8")
+        code = [ln for ln in text.splitlines() if not ln.lstrip().startswith("#")]
+        offenders = [
+            ln.strip()
+            for ln in code
+            if re.search(r"sudo -n (cmp|diff|cat|test|stat|grep|head|readlink)\b", ln)
+        ]
+        assert offenders == [], offenders
 
     def test_deploy_reaches_the_installer_for_shipped_timers(self):
         """deploy.sh deliberately does NOT re-derive currency — a second

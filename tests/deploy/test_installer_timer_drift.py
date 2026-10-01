@@ -22,16 +22,21 @@ This file drives the REAL installer end to end against a throwaway host.
 The only things faked are the commands that would touch a real init
 system or real ownership:
 
-* ``sudo`` — a pass-through that redirects ``/etc/…`` and ``/var/lib/…``
-  into the temporary root and records every invocation in order;
+* ``sudo`` — enforces the production NOPASSWD allowlist (systemctl,
+  journalctl, install, chown; anything else is refused with "a password
+  is required"), redirects ``/etc/…`` and ``/var/lib/…`` into the
+  temporary root, and records every invocation in order;
+* ``cmp`` — the real cmp, with ``/etc/…`` relocated into the temporary
+  root (path translation only; it is never reachable through sudo);
 * ``systemctl`` — ``cat`` answers from the temporary unit directory,
   ``enable`` records enablement, everything is logged;
 * ``install`` — copies into the temporary root, ignoring ``-o``/``-g``;
 * ``chown`` / ``stat`` — an ownership ledger, because an unprivileged test
   cannot actually make a file root-owned and then give it away.
 
-``sed``, ``cmp``, ``mktemp`` and ``grep`` are the real binaries, so the
-render-and-compare logic under test is the production logic.
+``sed``, ``mktemp`` and ``grep`` are the real binaries and ``cmp`` is the
+real comparison, so the render-and-compare logic under test is the
+production logic.
 
 These tests need bash plus a real ``systemctl`` and ``install`` binary on
 disk (the installer's sudo-binary resolver checks ``-x`` on absolute
@@ -88,14 +93,27 @@ LEGACY_STEMS = (
 GATED_STEMS = ("signal-alerts", "custom-alerts", "dlf-fetch", "idpshow-fetch", "ffpc-sharp")
 
 
+# The production NOPASSWD surface, and nothing wider: the box user may sudo
+# exactly these four binaries (deploy/reconcile-runtime-controls.sh's
+# _RC_SUDO_ALLOWED).  Anything else is refused the way real sudo refuses
+# it under -n.  A pass-through sudo is what let `sudo -n cmp` ship: the
+# refusal read as drift on the box and rewrote every unit every deploy,
+# while this harness happily ran cmp and reported "current".
 FAKE_SUDO = r"""#!/usr/bin/env bash
 [[ "${1:-}" == "-n" ]] && shift
 printf '%s\n' "$*" >> "${FAKE_STATE}/sudo.log"
 cmd="${1:-}"; shift || true
+case "${cmd##*/}" in
+  systemctl|journalctl|install|chown) ;;
+  *)
+    printf '%s\n' "${cmd}" >> "${FAKE_STATE}/sudo_refused.log"
+    echo "sudo: a password is required" >&2
+    exit 1 ;;
+esac
 case "${cmd}" in
   /bin/systemctl|/usr/bin/systemctl|systemctl) cmd="${FAKE_BIN}/systemctl" ;;
   /usr/bin/install|/bin/install|install) cmd="${FAKE_BIN}/install" ;;
-  chown) cmd="${FAKE_BIN}/chown" ;;
+  /bin/chown|/usr/bin/chown|chown) cmd="${FAKE_BIN}/chown" ;;
 esac
 args=()
 for a in "$@"; do
@@ -129,6 +147,7 @@ esac
 """
 
 FAKE_INSTALL = r"""#!/usr/bin/env bash
+[[ "${1:-}" == "--version" ]] && exit 0  # the installer's sudo-binary resolver probe
 printf '%s\n' "$*" >> "${FAKE_STATE}/install.log"
 make_dir=false; files=()
 while (( $# )); do
@@ -146,6 +165,7 @@ cp "${files[0]}" "${files[1]}"
 # Ownership ledger: unknown paths read as root:root (what production had),
 # chown records the new owner, stat reads it back.
 FAKE_CHOWN = r"""#!/usr/bin/env bash
+[[ "${1:-}" == "--version" ]] && exit 0  # the installer's sudo-binary resolver probe
 printf '%s\n' "$*" >> "${FAKE_STATE}/chown.log"
 [[ -n "${FAKE_CHOWN_FAIL:-}" ]] && exit 1
 owner="$1"; shift
@@ -159,6 +179,27 @@ if [[ "${1:-}" == "-c" && "${2:-}" == "%U:%G" && $# -eq 3 ]]; then
   exit 0
 fi
 exec /usr/bin/stat "$@"
+"""
+
+# The installer compares rendered units against the installed ones with an
+# UNPRIVILEGED `cmp` (the box refuses `sudo -n cmp`).  The only thing this
+# wrapper changes is WHERE `/etc/…` lives — it relocates into the temporary
+# root, exactly as the fake sudo does for privileged writes — then runs the
+# real cmp.  It grants no privilege: a `sudo -n cmp` still hits the
+# allowlist above and is refused.
+FAKE_CMP = r"""#!/usr/bin/env bash
+printf '%s\n' "$*" >> "${FAKE_STATE}/cmp.log"
+args=()
+for a in "$@"; do
+  case "${a}" in
+    /etc/*|/var/lib/*) a="${FAKE_ROOT}${a}" ;;
+  esac
+  args+=("${a}")
+done
+for real in /usr/bin/cmp /bin/cmp; do
+  [[ -x "${real}" ]] && exec "${real}" "${args[@]}"
+done
+exit 2
 """
 
 
@@ -182,6 +223,7 @@ class Host:
             ("install", FAKE_INSTALL),
             ("chown", FAKE_CHOWN),
             ("stat", FAKE_STAT),
+            ("cmp", FAKE_CMP),
         ):
             path = self.bin / name
             path.write_text(body, encoding="utf-8", newline="\n")
@@ -212,7 +254,14 @@ class Host:
 
     # ── running ──
     def run(self, **extra_env: str) -> subprocess.CompletedProcess:
-        for log in ("sudo.log", "systemctl.log", "install.log", "chown.log"):
+        for log in (
+            "sudo.log",
+            "sudo_refused.log",
+            "systemctl.log",
+            "install.log",
+            "chown.log",
+            "cmp.log",
+        ):
             (self.state / log).write_text("", encoding="utf-8")
         env = {
             "PATH": f"{self.bin}:{os.environ.get('PATH', '/usr/bin:/bin')}",
@@ -315,16 +364,71 @@ def test_the_consensus_edge_rewrite_runs_as_the_app_user(drifted_host):
     assert f"Group={APP_USER}" in lines
 
 
-def test_a_current_unit_is_left_alone(tmp_path):
-    """Reconciling every deploy must be a no-op on an up-to-date box."""
-    host = Host(tmp_path)
+@pytest.fixture(scope="module")
+def current_host(tmp_path_factory):
+    """Install everything, then run the installer again with nothing changed."""
+    host = Host(tmp_path_factory.mktemp("current"))
     host.open_all_gates()
     _ok(host.run())
     output = _ok(host.run())
+    return host, output
+
+
+def test_a_current_unit_is_left_alone(current_host):
+    """Reconciling every deploy must be a no-op on an up-to-date box: no
+    rewrite, no reload, no enable, no kick for any legacy unit."""
+    host, output = current_host
     installs = "\n".join(host.log("install.log"))
+    calls = host.log("systemctl.log")
     for stem in LEGACY_STEMS:
-        assert f"{SERVICE_NAME}-{stem}.service" not in installs, f"{stem} rewritten with no drift"
-        assert f"{SERVICE_NAME}-{stem} already installed and current." in output
+        unit = f"{SERVICE_NAME}-{stem}"
+        assert f"{unit}.service" not in installs, f"{stem} rewritten with no drift"
+        assert f"{unit}.timer" not in installs, f"{stem} timer rewritten with no drift"
+        assert f"{unit} already installed and current." in output
+        assert f"{unit} differs from its template" not in output
+        assert not any(c.startswith("enable") and f"{unit}.timer" in c for c in calls), stem
+        assert not any(c.startswith("start") and f"{unit}." in c for c in calls), stem
+    assert "daemon-reload" not in calls
+
+
+def test_an_up_to_date_box_writes_nothing_and_kicks_nothing(current_host):
+    """The whole installer, not just the legacy blocks: zero rewrites.
+
+    Production regression this pins: `sudo -n cmp` is refused on the box,
+    the refusal read as drift, and every deploy rewrote and daemon-reloaded
+    ~16 simple timers — and, once the legacy blocks shared that compare,
+    would have re-kicked the Consensus Edge snapshot (overwriting the day's
+    07:30 board) and a 30-minute sharp-discovery crawl on every deploy."""
+    host, output = current_host
+    assert host.log("install.log") == [], "an up-to-date box had files (re)installed"
+    calls = host.log("systemctl.log")
+    assert "daemon-reload" not in calls
+    assert [c for c in calls if c.startswith(("enable", "start", "restart"))] == []
+    assert "differs from its template" not in output
+    assert "changed; rewriting" not in output
+
+
+def test_no_comparison_asks_sudo_for_a_refused_command(current_host, drifted_host):
+    """Every privileged call stays inside the NOPASSWD allowlist — on the
+    steady-state run and on the drift run alike."""
+    for host, _ in (current_host, drifted_host):
+        assert host.log("sudo_refused.log") == []
+        assert host.log("cmp.log"), "the unprivileged compare never ran"
+
+
+def test_a_target_the_compare_cannot_read_still_counts_as_drift(tmp_path):
+    """The safe direction survives the move off sudo: a target the compare
+    cannot read (here: gone, with its timer still registered) is
+    reinstalled, never assumed current."""
+    host = Host(tmp_path)
+    host.open_all_gates()
+    _ok(host.run())
+    host.service("sharp-discovery").unlink()
+    output = _ok(host.run())
+    assert f"{SERVICE_NAME}-sharp-discovery differs from its template; updating." in output
+    assert host.service("sharp-discovery").read_text(encoding="utf-8") == host.rendered_service(
+        "sharp-discovery"
+    )
 
 
 # ── Gates are unchanged ──────────────────────────────────────────────────
@@ -405,6 +509,17 @@ def test_root_owned_store_files_are_handed_to_the_app_user(tmp_path):
     assert all(line.startswith(f"{APP_USER}:{APP_USER} ") for line in host.log("chown.log"))
 
 
+def test_chown_is_invoked_by_absolute_path(tmp_path):
+    """The NOPASSWD rule names a binary; a bare `sudo -n chown` relies on
+    sudo's secure_path lookup landing on that exact binary."""
+    host = Host(tmp_path)
+    _seed_store(host, "consensus_edge.sqlite")
+    _ok(host.run())
+    chowns = [c for c in host.log("sudo.log") if c.split(" ", 1)[0].endswith("chown")]
+    assert chowns, "no chown reached sudo"
+    assert all(c.split(" ", 1)[0] in ("/bin/chown", "/usr/bin/chown") for c in chowns), chowns
+
+
 def test_the_migration_is_idempotent(tmp_path):
     host = Host(tmp_path)
     _seed_store(host, "consensus_edge.sqlite", "consensus_edge.sqlite-wal")
@@ -446,7 +561,11 @@ def test_ownership_is_fixed_before_the_first_run_as_the_app_user(tmp_path):
     _seed_store(host, "consensus_edge.sqlite")
     _ok(host.run())
     sudo = host.log("sudo.log")
-    chown_at = next(i for i, c in enumerate(sudo) if c.startswith("chown "))
+    chown_at = next(
+        i
+        for i, c in enumerate(sudo)
+        if c.split(" ", 1)[0].endswith("/chown") and "--version" not in c
+    )
     kick_at = next(
         i
         for i, c in enumerate(sudo)

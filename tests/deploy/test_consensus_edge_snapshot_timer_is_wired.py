@@ -163,7 +163,11 @@ def test_the_installer_hands_the_root_owned_store_to_the_app_user():
     ce_block = ce_block.split("\n  fi\n", 1)[0]
     assert "migrate_consensus_edge_store_ownership" in ce_block
     fn = body.split("\nmigrate_consensus_edge_store_ownership() {", 1)[1].split("\n}\n", 1)[0]
-    assert 'sudo -n chown "${APP_USER}:${APP_USER}"' in fn
+    # By absolute path: the NOPASSWD rule names a binary (deploy.sh /
+    # rollback.sh resolve it the same way), never a bare `sudo -n chown`.
+    assert 'sudo -n "${CHOWN_BIN}" "${APP_USER}:${APP_USER}"' in fn
+    assert 'resolve_sudo_nopasswd_binary "chown" /bin/chown /usr/bin/chown' in fn
+    assert "sudo -n chown" not in fn
     assert 'local store="${APP_DIR}/data/consensus_edge.sqlite"' in fn
     assert '"${store}" "${store}-wal" "${store}-shm"' in fn
     assert "rm " not in fn and "rm -" not in fn, "the migration must never delete"

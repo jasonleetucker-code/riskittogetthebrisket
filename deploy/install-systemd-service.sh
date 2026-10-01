@@ -13,6 +13,7 @@ SERVICE_TEMPLATE_PATH="${SERVICE_TEMPLATE_PATH:-${APP_DIR}/deploy/systemd/dynast
 FORCE_SERVICE_INSTALL="${FORCE_SERVICE_INSTALL:-false}"
 SYSTEMCTL_BIN=""
 INSTALL_BIN=""
+CHOWN_BIN=""
 
 log() {
   printf '[systemd-bootstrap] %s\n' "$*"
@@ -60,6 +61,32 @@ resolve_sudo_nopasswd_binary() {
 resolve_and_validate_sudo_binaries() {
   SYSTEMCTL_BIN="$(resolve_sudo_nopasswd_binary "systemctl" /bin/systemctl /usr/bin/systemctl)"
   INSTALL_BIN="$(resolve_sudo_nopasswd_binary "install" /usr/bin/install /bin/install)"
+}
+
+# Does the INSTALLED file already carry exactly the rendered content?
+#
+# UNPRIVILEGED on purpose.  The box user's NOPASSWD surface is exactly
+# systemctl, journalctl, install and chown — `cmp` is NOT in it, so
+# `sudo -n cmp` is refused with "a password is required"
+# (deploy/reconcile-runtime-controls.sh documents the same allowlist and
+# compares without sudo for the same reason).  The refusal used to be
+# read as drift, so EVERY deploy rewrote and daemon-reloaded every unit
+# compared this way and re-fired each one's initial kick — measured on
+# deploy run 36881631608 as `sudo: a password is required` followed by
+# "<unit> differs from its template; updating." for ~16 units.
+#
+# Nothing needs privilege here: units are installed 0644 and logrotate
+# configs are world-readable, so an ordinary read is sufficient and is the
+# truer check (it sees what systemd sees).  A missing or unreadable target
+# makes `cmp` exit 2, which still counts as drift — reinstalling a correct
+# file is harmless, skipping a changed one is the silent failure.
+installed_matches() {
+  local rendered="$1" installed="$2"
+  cmp -s "${rendered}" "${installed}" 2>/dev/null && return 0
+  if [[ -e "${installed}" && ! -r "${installed}" ]]; then
+    log "Note: ${installed} is not readable as $(id -un); treating it as drifted."
+  fi
+  return 1
 }
 
 # Locate an absolute path to the `npm` binary that the dynasty-frontend
@@ -215,14 +242,11 @@ reconcile_timer_units() {
     if [[ "${force_install_on}" == "true" ]]; then
       log "FORCE_SERVICE_INSTALL enabled; rewriting ${service_path} + timer."
       needs_install=true
-    # Content drift. `cmp -s` against the INSTALLED FILES, read through
-    # sudo because /etc/systemd/system is not world-readable on every
-    # box. A read that fails is treated as drift: reinstalling a unit
-    # that was already correct is a no-op, while skipping one that
-    # changed is the silent failure above, so the safe direction is
-    # obvious.
-    elif ! sudo -n cmp -s "${tmp_timer}" "${timer_path}" \
-      || ! sudo -n cmp -s "${tmp_service}" "${service_path}"; then
+    # Content drift, compared WITHOUT sudo — see installed_matches for
+    # why `sudo -n cmp` is refused on the box and what that used to cost.
+    # A missing or unreadable target still counts as drift.
+    elif ! installed_matches "${tmp_timer}" "${timer_path}" \
+      || ! installed_matches "${tmp_service}" "${service_path}"; then
       log "${unit_name} differs from its template; updating."
       needs_install=true
     else
@@ -318,7 +342,14 @@ migrate_consensus_edge_store_ownership() {
     if [[ "${owner}" == "${APP_USER}:${APP_USER}" ]]; then
       continue
     fi
-    if sudo -n chown "${APP_USER}:${APP_USER}" "${path}"; then
+    # By ABSOLUTE path, resolved the way deploy.sh / rollback.sh do it:
+    # the NOPASSWD rule names a binary, not a PATH lookup.  Resolved
+    # lazily (an up-to-date box never reaches here) and non-fatally —
+    # the same "loud, not an outage" posture as a failed chown below.
+    if [[ -z "${CHOWN_BIN}" ]]; then
+      CHOWN_BIN="$(resolve_sudo_nopasswd_binary "chown" /bin/chown /usr/bin/chown)" || CHOWN_BIN=""
+    fi
+    if [[ -n "${CHOWN_BIN}" ]] && sudo -n "${CHOWN_BIN}" "${APP_USER}:${APP_USER}" "${path}"; then
       log "Consensus Edge store: ${path} ${owner:-<unreadable owner>} -> ${APP_USER}:${APP_USER}."
     else
       error "Consensus Edge store: could not chown ${path} to ${APP_USER}:${APP_USER}; the snapshot unit (running as ${APP_USER}) will fail to write it."
@@ -514,8 +545,8 @@ main() {
       if [[ "${force_install_on}" == "true" ]]; then
         log "FORCE_SERVICE_INSTALL enabled; rewriting ${playerctx_service_path} + timer."
         playerctx_needs_install=true
-      elif ! sudo -n cmp -s "${tmp_playerctx_service}" "${playerctx_service_path}" 2>/dev/null \
-        || ! sudo -n cmp -s "${tmp_playerctx_timer}" "${playerctx_timer_path}" 2>/dev/null; then
+      elif ! installed_matches "${tmp_playerctx_service}" "${playerctx_service_path}" \
+        || ! installed_matches "${tmp_playerctx_timer}" "${playerctx_timer_path}"; then
         log "Player-context unit files changed; rewriting ${playerctx_service_path} + timer."
         playerctx_needs_install=true
       else
@@ -595,8 +626,8 @@ main() {
       if [[ "${force_install_on}" == "true" ]]; then
         log "FORCE_SERVICE_INSTALL enabled; rewriting ${pchist_service_path} + timer."
         pchist_needs_install=true
-      elif ! sudo -n cmp -s "${tmp_pchist_service}" "${pchist_service_path}" 2>/dev/null \
-        || ! sudo -n cmp -s "${tmp_pchist_timer}" "${pchist_timer_path}" 2>/dev/null; then
+      elif ! installed_matches "${tmp_pchist_service}" "${pchist_service_path}" \
+        || ! installed_matches "${tmp_pchist_timer}" "${pchist_timer_path}"; then
         log "Player-context retention unit files changed; rewriting."
         pchist_needs_install=true
       else
@@ -1016,13 +1047,26 @@ main() {
     sudo -n "${SYSTEMCTL_BIN}" start --no-block "${sharp_service_name}.service" || \
       log "Note: initial sharp-discovery crawl could not be started; the timer will cover it."
   fi
-  if [[ -f "${sharprec_service_template}" && -f "${sharprec_timer_template}" ]]; then
+  # These three were gated on TEMPLATE PRESENCE, not on a write, so
+  # sharp-records and ffpc-sharp re-kicked a budgeted crawl on EVERY
+  # deploy, and sharp-rosters re-armed its timer.  The kick now follows a
+  # (re)write, like every other block.  A unit that is on disk but not
+  # enabled is still enabled — deploy.sh's detector treats that as
+  # missing — but without a kick (same rule as install_simple_timer).
+  if [[ "${sharprec_needs_install}" == "true" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" enable --now "${sharprec_service_name}.timer"
     log "Enabled ${sharprec_service_name}.timer"
     sudo -n "${SYSTEMCTL_BIN}" start --no-block "${sharprec_service_name}.service" || \
       log "Note: initial sharp-records crawl could not be started; the timer will cover it."
+  elif [[ -f "${sharprec_service_template}" && -f "${sharprec_timer_template}" ]] \
+    && ! sudo -n "${SYSTEMCTL_BIN}" is-enabled "${sharprec_service_name}.timer" >/dev/null 2>&1; then
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${sharprec_service_name}.timer" && \
+      log "Enabled ${sharprec_service_name}.timer" || \
+      log "Note: could not enable ${sharprec_service_name}.timer."
   fi
-  if [[ -f "${sharpros_service_template}" && -f "${sharpros_timer_template}" ]]; then
+  if [[ "${sharpros_needs_install}" == "true" ]] \
+    || { [[ -f "${sharpros_service_template}" && -f "${sharpros_timer_template}" ]] \
+      && ! sudo -n "${SYSTEMCTL_BIN}" is-enabled "${sharpros_service_name}.timer" >/dev/null 2>&1; }; then
     # --now arms the daily timer. No initial kick: this pass collects
     # for the cohort that discovery and records produce, and on a fresh
     # deploy those two have not finished yet — an immediate run would
@@ -1031,11 +1075,16 @@ main() {
     sudo -n "${SYSTEMCTL_BIN}" enable --now "${sharpros_service_name}.timer"
     log "Enabled ${sharpros_service_name}.timer"
   fi
-  if [[ "${ffpc_enabled}" == "true" && -f "${ffpc_service_template}" && -f "${ffpc_timer_template}" ]]; then
+  if [[ "${ffpc_needs_install}" == "true" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" enable --now "${ffpc_service_name}.timer"
     log "Enabled ${ffpc_service_name}.timer"
     sudo -n "${SYSTEMCTL_BIN}" start --no-block "${ffpc_service_name}.service" || \
       log "Note: initial FFPC public crawl could not be started; the timer will cover it."
+  elif [[ "${ffpc_enabled}" == "true" && -f "${ffpc_service_template}" && -f "${ffpc_timer_template}" ]] \
+    && ! sudo -n "${SYSTEMCTL_BIN}" is-enabled "${ffpc_service_name}.timer" >/dev/null 2>&1; then
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${ffpc_service_name}.timer" && \
+      log "Enabled ${ffpc_service_name}.timer" || \
+      log "Note: could not enable ${ffpc_service_name}.timer."
   fi
   if [[ "${sharptx_needs_install}" == "true" ]]; then
     # --now arms the 6-hourly timer.  No initial kick, same reason as
@@ -1082,8 +1131,9 @@ main() {
       continue
     fi
     # Only reinstall when the target is missing OR content differs —
-    # keeps daemon-reload churn to a minimum.
-    if [[ ! -f "${dst}" ]] || ! sudo -n cmp -s "${src}" "${dst}" 2>/dev/null; then
+    # keeps daemon-reload churn to a minimum.  installed_matches covers
+    # both (a missing target is drift) and reads without sudo.
+    if ! installed_matches "${src}" "${dst}"; then
       sudo -n "${INSTALL_BIN}" -m 0644 "${src}" "${dst}"
       log "Installed ${unit}"
       any_backup_installed=true
@@ -1111,7 +1161,7 @@ main() {
   local logrotate_src="${APP_DIR}/deploy/logrotate.conf"
   local logrotate_dst="/etc/logrotate.d/riskit"
   if [[ -f "${logrotate_src}" ]]; then
-    if [[ ! -f "${logrotate_dst}" ]] || ! sudo -n cmp -s "${logrotate_src}" "${logrotate_dst}" 2>/dev/null; then
+    if ! installed_matches "${logrotate_src}" "${logrotate_dst}"; then
       sudo -n "${INSTALL_BIN}" -m 0644 "${logrotate_src}" "${logrotate_dst}"
       log "Installed /etc/logrotate.d/riskit"
     fi
