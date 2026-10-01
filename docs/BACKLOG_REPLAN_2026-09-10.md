@@ -75,6 +75,16 @@ below for the reasoning.
 Everything not listed above keeps its disposition from §4 (the reconciled
 backlog table) and §3 (stale-manifest corrections) unchanged.
 
+## 0.6. Adaptive Learning combined phase — 2026-10-01 (pointer)
+
+Per this document's §9 shared-foundation rule: the owner's 2026-10-01 Adaptive Learning / Continuous
+Improvement Master Roadmap is planned as **one combined phase over one shared foundation**, not as separate
+learning systems per feature. AL-0 (shared learning receipt + evaluation receipt + versioned feature
+dictionary over `src/history/` + `src/model_registry/`) is that foundation; AL-1…AL-5 (source learning,
+completed-trade/IDP, BDVM/projections, Game Day, playoff/title) consume it, each in its own small PR.
+Sequencing and acceptance: `docs/research/ADAPTIVE_LEARNING_2026-09-26.md` §21–§24; authorization:
+`docs/EXECUTION_PLAN.md` §0. This pointer changes no other disposition in this document.
+
 ---
 
 ## 0. Authority reconciliation (read this before anything else)

@@ -197,6 +197,45 @@ execution, source activation, or changes to merge/deploy authority.
 Week 1 remains a literal 30-row contract. Runtime entry and state contracts:
 `docs/agent-operating-system/STEWARD_RUNTIME.md`.
 
+## Adaptive Learning / Continuous Improvement — owner directive, 2026-10-01
+
+**Authorized:** implementing the dependency-ready Adaptive Learning foundations and roadmap units below,
+through the normal protected path (claim, tests, independent review, merge, deploy where the unit ships
+code, production verification). Plan, owners and acceptance: `docs/research/ADAPTIVE_LEARNING_2026-09-26.md`
+Part II (§16–§25). Intake: `docs/OWNER_REQUESTED_TODO.md` (2026-10-01 entry). Governance owner: `C10-ML-01` +
+P6. Unit labels `AL-*` are plan-local, not new manifest IDs.
+
+**Not authorized:** an unvalidated model changing any production output. Methodology promotion keeps its P6
+evidence gates: a preregistered, leakage-safe, independently reviewed gate, then promotion only through that
+model family's explicit policy (Hill Autopilot for Hill; Batch 3 §N for Batch 3 candidates; explicit owner
+approval for every other family). Also not authorized: a generic feature store, separate per-domain ML
+infrastructure, wiring the old `dynamic_source_weights` fitter into production, automatic retraining or
+promotion on drift, R14 private-offer capture (still CANDIDATE), purchases or paid sources, and anything
+in directive sections 9+, which were truncated in delivery and are pending owner re-send.
+
+**Invariant:** facts and rules do not learn (`MASTER_PRODUCT_PLAN.md` §3.8; plan §18).
+
+| unit | scope | priority | depends on |
+|---|---|---|---|
+| **AL-0** | shared learning receipt contract (12 kinds, references into native stores) + evaluation receipt + versioned feature dictionary + two producer adapters (Hill `trainingRun`; one non-Hill shadow/evaluation producer) | **NOW — first foundation unit** | #1588 merged (claims `src/model_registry/`; AL-0 consumes its pins) |
+| AL-1a–d | Valuation Trust / source learning: Batch 3 outputs as receipts + accumulation; evidence-based base-authority challenger shrunk toward equal-family; utility-decay challenger; cohort reliability | NOW (highest roadmap priority) | AL-0; #1589, #1591, #1592 |
+| AL-2a | target-format evidence census over the completed-trade ledger (report-only) | NOW | #1586 merged |
+| AL-2b → AL-2c | format translator challengers, then the shadow format-aware latent transaction-price model for `dynasty_main` | NOW → NEXT | AL-2a; paired-format evidence |
+| AL-3a | projection archive completeness (every usable pregame/ROS projection captured pre-event; `data/bdvm/` into the backup set) | NOW | none (own claim on `deploy/backup/`; serial owner — AL-0's A9 backup line lands through or after it) |
+| AL-3b | projection scorecard (raw stats + exact league scoring) vs the equal-family champion | NOW | AL-0 |
+| AL-3c / AL-3d | ensemble reliability challengers; BDVM component calibration + MEASURED/MECHANICAL/PRIOR labels (AL-3d = Batch 3 J2) | NEXT | AL-3b |
+| AL-4a / AL-4b | Game Day calibration scorecard over existing generations; shadow challengers | NEXT | AL-0 |
+| AL-5a / AL-5b / AL-5c | point-in-time playoff/title forecast archive; season-end calibration; calibration challengers (owner D2/D3 decisions stay open) | NEXT | AL-0 (5b/5c) |
+
+**AL-0 acceptance (A1–A10, plan §23):** point-in-time guard with property tests; append-only, idempotent,
+conflict-surfacing store; missing never zero; feature-dictionary validation; no PROMOTION RECORD or champion
+move written; adapters leave producer outputs byte-identical; import/write boundary keeps the substrate away
+from canonical value, league-config, identity and contract fields (board hash unchanged); drift receipts
+trigger nothing; store backed up and retention-registered; reproducible from pinned inputs; independent review.
+The engineering applicability check is recorded in plan §23.
+
+Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
+
 ## Valuation Trust Program — Batch 3 — owner directive, 2026-10-01
 
 **Authorized.** Objective: Calculator's dynasty values earn trust through evidence. It

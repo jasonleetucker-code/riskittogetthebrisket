@@ -551,6 +551,9 @@ forecasts and manager tendencies are private.
 ### C10-U3 — Prior census + adaptive weighting stays off · **rows** `C10-ML-01`
   — every surviving numerical prior is **validated / deliberately retained with
   bounds / removed**. No consequential magic number survives on seniority.
+  — 2026-10-01: `C10-ML-01` now also carries the Adaptive Learning roadmap units AL-0…AL-5
+  (`docs/research/ADAPTIVE_LEARNING_2026-09-26.md` Part II). They are plan-local sub-units of this
+  row, not new rows; their authorization lives in `EXECUTION_PLAN.md` §0, not here.
 ### C10-U4 — Final gates · **rows** `C10-CLOSE-03` … `C10-CLOSE-07`
   — browser/workflow matrix · background jobs proven · performance gates ·
   security/privacy/auth · final regression

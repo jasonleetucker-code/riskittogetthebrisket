@@ -463,7 +463,7 @@ implementation; `docs/EXECUTION_PLAN.md` remains the implementation authority.
 | Competitive-posture calibration | `C7-POST-01` | **EXTEND** |
 | Contextual alerts / information acquisition | `C7-ALERT-01` + #1423 | **EXTEND** — bounded bandit/VOI work remains later and separately governed |
 | Private rejected/countered/expired offers and non-actions | research R14 -> `C6-MGR-01` / `C1-HIST-01` | **KEEP CANDIDATE** — no implementation authorization |
-| Shared learned-feature definition manifest | proposed sub-capability of `C10-ML-01` if the first implementation proves it necessary | **REFRAME / NO NEW ID NOW** |
+| Shared learned-feature definition manifest | proposed sub-capability of `C10-ML-01` if the first implementation proves it necessary | **REFRAME / NO NEW ID NOW** — *superseded 2026-10-01: the versioned feature dictionary is now AL-0 scope (see the 2026-10-01 row below; plan §17 S3)* |
 
 **Deterministic boundary.** Scoring arithmetic, league rules, roster/transaction legality, canonical identity,
 ownership, exact lineup eligibility/assignment, provenance/timestamps and missing-vs-zero semantics do not
@@ -473,6 +473,26 @@ owners.
 **Promotion boundary.** Continuous capture, evaluation and shadow challengers are the default learning loop.
 Production models do not silently self-modify. Automatic promotion requires a separately owner-approved,
 deterministic, fail-closed policy for that model family plus rollback and a durable promotion record.
+
+## 6.2 2026-10-01 owner directive — Adaptive Learning / Continuous Improvement Master Roadmap
+
+Extends §6.1; still no parallel ML roadmap and no new manifest ID. Detailed record:
+`docs/research/ADAPTIVE_LEARNING_2026-09-26.md` Part II (§16–§25). Unlike §6.1, dependency-ready units are now
+implementation-authorized in `docs/EXECUTION_PLAN.md` §0; promotion keeps its P6 gates. **The message was
+truncated after the heading "9."** Sections 9+ were not received and have no destination until re-sent.
+
+| Directive section | Canonical destination | Disposition |
+|---|---|---|
+| Preamble — facts and rules do not learn | `MASTER_PRODUCT_PLAN.md` §3.8 + the deterministic owners listed in plan §18 | **EXTEND** (binding invariant) |
+| §1 Reconcile first | this subsection, the intake entry, plan Part II | **DONE** |
+| §2 Shared receipt (OBSERVATION … DRIFT), versioned feature dictionary, no feature store | `C10-ML-01` over `src/history/` + `src/model_registry/` (unit AL-0) | **EXTEND** — supersedes §6.1's "feature manifest if proven necessary" row: the dictionary is now in scope |
+| §3 Permanent learning governance, six drift classes | `C10-ML-01` + P6 | **EXTEND** |
+| §4 Valuation Trust / source learning | `F-SRC-01`, `C6-FRESH-01`, `C10-ML-01` via Batch 3 (units A–O) — AL-1 | **EXTEND** — maps #1584, #1588, #1589, #1590, #1591, #1592; no duplicate units |
+| §5 Completed-trade / IDP market, format dispositions, latent price model | `C4-MTL-01`, `C4-MTL-02`, `C4-MTL-03`, `C1-ACQ-01` — AL-2 | **EXTEND** — builds on #1586 (Batch 3 I) |
+| §6 BDVM + projection learning | `C5-BDVM-01`, `C5-ROS-01` (#854), `C5-GD-02` — AL-3 (AL-3d = Batch 3 J2) | **EXTEND** — BDVM stays a separate named concept |
+| §7 Game Day learning | `C5-GD-01`, `C5-GD-02` — AL-4 | **EXTEND** |
+| §8 Playoff / title probability learning | `C5-PLAY-01` — AL-5 | **EXTEND** — D2/D3 owner decisions unchanged |
+| §9+ | — | **NOT RECEIVED** — pending owner re-send |
 
 
 # 7. Result

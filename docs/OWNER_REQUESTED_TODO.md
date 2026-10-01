@@ -1132,6 +1132,7 @@ This is **not** authorization for a monolithic ML platform or for uncontrolled s
 The private decision/offer journal (research R14) remains a **CANDIDATE**, not implementation-authorized scope. It is the clean prospective path for rejected/countered/expired offers and considered-but-not-sent decisions that cannot be inferred from completed trades alone.
 **Detailed reconciliation and proposed first batch:** `docs/research/ADAPTIVE_LEARNING_2026-09-26.md`.
 **Authority boundary:** this entry authorizes durable planning/reconciliation only. It does **not** change production weights, activate sources, promote challengers, auto-retrain a live model, authorize autonomous roster transactions, decide R40/R44, or alter any existing owner-approved methodology. `docs/EXECUTION_PLAN.md` is unchanged and remains the sole implementation authority.
+> **Superseded in part 2026-10-01** by the Adaptive Learning / Continuous Improvement Master Roadmap entry below: the first-wave order above is replaced (Valuation Trust and completed-trade learning first; Game Day and playoff NEXT), and dependency-ready units are now implementation-authorized in `docs/EXECUTION_PLAN.md` §0. The deterministic boundary, the promotion boundary and R14's CANDIDATE status are unchanged. Supersession table: `docs/research/ADAPTIVE_LEARNING_2026-09-26.md` §17.
 
 **Zero-open-PR reconciliation — owner directive 2026-09-26.** Every open PR is merged, or closed with a
 harvest receipt; future scope lives here, in native issues or in specs, never in an open PR.
@@ -1323,3 +1324,33 @@ hard-coded. The selector changes which picks count, never how they are valued.
 | Future picks never imply known slots: Sleeper-derived boards show round only, labelled estimated | IMPLEMENTED |
 | Optional compact per-team year breakdown in All Years | IMPLEMENTED (multi-year boards only) |
 | Real data does not contain 2029 for either live league (dynasty_main workbook covers 2027 only; dynasty_new fallback covers 2027–2028) although Sleeper reports traded 2028/2029 picks and the canonical board prices generic 2027–2029 rows | OWNER DECISION NEEDED — extending either inventory changes how the $1200 pool is spread (All Years totals would move) |
+
+## Added 2026-10-01 — Adaptive Learning / Continuous Improvement Master Roadmap (owner directive)
+
+Owner directive: Adaptive Learning / Continuous Model Improvement becomes a **permanent architectural capability**
+of Calculator. Not "a neural network everywhere": preserve what was known at a point in time, what Calculator
+predicted and recommended, what was done or not done, what happened afterward and how accurate each prediction,
+recommendation, model and source was; then improve future models through controlled champion/challenger
+evaluation (observe → predict → decide → outcome → evaluate → challenger → out-of-sample validation → promote if
+better → monitor). **Facts and rules do not learn.** The directive is explicit owner authorization to implement
+the dependency-ready foundations and roadmap units. It is not authorization for an unvalidated model to change a
+production output; promotion keeps its P6 evidence gates.
+
+**Delivery note:** the message was truncated after the heading "9." Sections 1–8 are recorded. **Sections 9+:
+truncated in delivery — pending owner re-send.** Nothing has been inferred about them.
+
+**Detailed record (incorporation pointer):** `docs/research/ADAPTIVE_LEARNING_2026-09-26.md` Part II (§16–§25),
+extended in place; no competing plan. Authorization: `docs/EXECUTION_PLAN.md` §0, "Adaptive Learning /
+Continuous Improvement — owner directive, 2026-10-01". Governance owner: `C10-ML-01` + P6; no new manifest ID.
+
+| Directive section | Required outcome | Canonical owner | Planning position · authorization |
+|---|---|---|---|
+| §1 Reconcile into the real roadmap | extend the 2026-09-26 plan; no standalone ML backlog | `C10-ML-01` | DONE (this reconciliation) |
+| §2 One shared foundation | common identifiers, contracts and evaluation receipts over native stores (OBSERVATION … DRIFT); versioned feature dictionary; no generic feature store | `src/history/`, `src/model_registry/`, P6 | NOW — AL-0, AUTHORIZED (dependency: #1588) |
+| §3 Permanent learning governance | point-in-time, champion/challenger, shadow first, holdouts, uncertainty + shrinkage, no silent self-promotion, six drift classes (drift → reevaluation, never promotion) | P6, `MASTER_PRODUCT_PLAN.md` §3.4/§3.8 | BINDING now |
+| §4 Valuation Trust / source learning | learn source utility (unique info, lead/lag, noise, cohorts, correlation, decay, transaction fit); evidence-based base authority with shrinkage toward equal-family; never "accuracy = agreement with KTC"; never wire the old dynamic-weight fitter | Batch 3 (`F-SRC-01`, `C6-FRESH-01`) | NOW — AL-1, AUTHORIZED; maps #1584/#1588/#1589/#1590/#1591/#1592 |
+| §5 Completed-trade / IDP market | raw vs unique trades, explicit dedupe states, exact format capture, one disposition per trade, translation hierarchy, shadow format-aware latent price model for `dynasty_main` | `C4-MTL-01/02/03`, `C1-ACQ-01`, `src/sharp/` | NOW — AL-2 after #1586 (format census first), AUTHORIZED |
+| §6 BDVM + projection learning | archive every projection before the event; provider × position × stat × horizon × regime evaluation; equal-family ensemble champion; component calibration; MEASURED/MECHANICAL/PRIOR labels | `C5-BDVM-01`, `C5-ROS-01`/#854, Batch 3 J2 | NOW (archive/eval) / NEXT (ensembles, calibration) — AL-3 |
+| §7 Game Day learning | archive every generation; Brier/log loss/reliability/MAE/interval coverage by game state; shadow challengers; no promotion on one week | `C5-GD-01/02` | NEXT — AL-4 |
+| §8 Playoff / title learning | archive every point-in-time forecast; season-end calibration; calibration challengers before any simulation rebuild | `C5-PLAY-01` | NEXT — AL-5 |
+| §9+ | not received | — | PENDING OWNER RE-SEND |
