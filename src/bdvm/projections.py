@@ -28,6 +28,7 @@ from typing import Any, Iterable, Mapping
 
 from src.bdvm.params import ParamSet
 from src.bdvm.scoring import score_stat_line_per_game_detailed, season_line_to_per_game
+from src.bdvm.source_vocabulary import capability_for, record_coverage, worst_status
 from src.nfl_data.first_down_rate import with_imputed_first_downs
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -59,6 +60,13 @@ class ProjectionRecord:
     is_proxy: bool = False  # True for reconstructed-baseline rows
     proj_high: float | None = None
     proj_low: float | None = None
+    # Card rules a POINTS-only record is known to omit — set at build time by
+    # the producer that scored it (the reconstructed baseline / rookie priors
+    # carry the realized engine's ``unscored`` keys).  ``None`` means the
+    # coverage was never recorded: such a record is reported ``unverifiable``,
+    # never fully scoreable by default.  Ignored for stat-line records, whose
+    # coverage is read off the line (``src.bdvm.source_vocabulary``).
+    declared_unscored: tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
         if self.stat_basis not in _STAT_BASES:
@@ -122,6 +130,19 @@ class ProjectionRecord:
         assert self.fpts is not None  # guaranteed by __post_init__
         return float(self.fpts) / self.games, self.scoring_native, ()
 
+    @property
+    def capability(self):
+        """The declared :class:`~src.bdvm.source_vocabulary.SourceCapability`
+        of this record's source (an explicit ``undeclared`` one when unknown)."""
+        return capability_for(self.source)
+
+    def scoring_coverage(self, scoring_settings: Mapping[str, Any]):
+        """Which nonzero card rules this record's projected points omit —
+        source vocabulary + the engine's own unscored rules (stat lines), the
+        declared realized coverage (proxies), or ``unverifiable``."""
+        _fpg, _native, engine_unscored = self.resolve_fpg_detailed(scoring_settings)
+        return record_coverage(self, scoring_settings, engine_unscored=engine_unscored)
+
 
 @dataclass(frozen=True)
 class ConsensusProjection:
@@ -146,7 +167,15 @@ class ConsensusProjection:
     # supply: mu is a PARTIAL total by those rules, never silently complete.
     # Not a lower bound — an omitted rule may be a penalty (``pass_int_td``),
     # so the missing contribution may be positive or negative.
+    # Includes rules the SOURCE cannot publish (``src.bdvm.source_vocabulary``),
+    # not only the play-by-play-only ones.
     unscored_keys: tuple[str, ...] = ()
+    # Per-record coverage (``RecordCoverage``), one per input record, and the
+    # worst status among them: complete / partial / unverifiable.  A blend
+    # containing an fpg-only record whose coverage was never recorded is
+    # ``unverifiable`` — it cannot be shown fully scoreable.
+    source_coverage: tuple[Any, ...] = ()
+    coverage_status: str = "complete"
 
 
 # ---------------------------------------------------------------------------
@@ -291,9 +320,12 @@ def blend_consensus(
     stale: list[str] = []
     stale_reasons: list[tuple[str, str]] = []
     unscored_union: set[str] = set()
+    coverages = []
     for r in recs:
         fpg, native, rec_unscored = r.resolve_fpg_detailed(scoring_settings)
-        unscored_union.update(rec_unscored)
+        coverage = record_coverage(r, scoring_settings, engine_unscored=rec_unscored)
+        coverages.append(coverage)
+        unscored_union.update(coverage.unscored_keys)
         w, stale_reason = _staleness_weight(r.as_of, snapshot_as_of, params)
         if stale_reason is not None:
             stale.append(r.source)
@@ -367,6 +399,8 @@ def blend_consensus(
         stale_reasons=tuple(stale_reasons),
         vocabulary_limited=tuple(vocab_limited),
         unscored_keys=tuple(sorted(unscored_union)),
+        source_coverage=tuple(coverages),
+        coverage_status=worst_status(c.status for c in coverages),
     )
 
 
@@ -414,6 +448,12 @@ def write_snapshot(
                 "isProxy": r.is_proxy,
                 "projHigh": r.proj_high,
                 "projLow": r.proj_low,
+                # Absent (not []) when never recorded: unknown stays unknown.
+                **(
+                    {"declaredUnscored": list(r.declared_unscored)}
+                    if r.declared_unscored is not None
+                    else {}
+                ),
             }
         )
     payload["recordCount"] = len(payload["records"])
@@ -439,6 +479,11 @@ def load_snapshot(path: Path) -> tuple[str, list[ProjectionRecord]]:
             is_proxy=bool(row.get("isProxy", False)),
             proj_high=row.get("projHigh"),
             proj_low=row.get("projLow"),
+            declared_unscored=(
+                tuple(str(k) for k in row["declaredUnscored"])
+                if isinstance(row.get("declaredUnscored"), list)
+                else None
+            ),
         )
         for row in data.get("records", [])
     ]
@@ -662,6 +707,9 @@ def build_reconstructed_baseline(
         pos_mean = float(positional_means.get(position.upper(), 0.0))
         mu = (1.0 - shrink) * wppg + shrink * pos_mean
         games_proj = min(17.0, max(8.0, avg_games))
+        # The realized engine's own unscored rules for every season this
+        # fpg is built from: the proxy is a partial total by exactly those.
+        declared = tuple(sorted({k for s in usable for k, _rate in s.unscored}))
         out.append(
             ProjectionRecord(
                 source=source,
@@ -673,6 +721,7 @@ def build_reconstructed_baseline(
                 fpg=mu,
                 scoring_native=True,
                 is_proxy=True,
+                declared_unscored=declared,
             )
         )
     return out

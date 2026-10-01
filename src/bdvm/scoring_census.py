@@ -417,6 +417,13 @@ def census_for_card(
             missingFrom=missing,
             missingStatistic=_missing_statistic(key),
             remedy=_REMEDY.get(key) if classification != "SUPPORTED" else None,
+            # Since J1 (2026-10-01) per-player ``unscoredKeys`` carries every
+            # rule a record's SOURCE cannot publish (src.bdvm.source_vocabulary),
+            # not only the play-by-play-only rules — so a source-vocabulary gap
+            # is no longer silent per player.
+            reportedInUnscoredKeys=(
+                key in PBP_SUPPLEMENT_KEYS or bool(missing) or engine == Coverage.GAP.value
+            ),
         )
         if key in PLAY_TYPE_FIRST_DOWN_KEYS:
             entry["note"] = (

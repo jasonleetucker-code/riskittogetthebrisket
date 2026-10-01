@@ -417,8 +417,12 @@ def record_coverage(
     cap = capability_for(record.source)
     if record.stat_line:
         vocab = frozenset(str(k) for k in record.stat_line)
+        families = _relevant_families(str(record.position).upper(), vocab)
         missing = set(_missing_for_vocabulary(vocab, str(record.position).upper(), rules))
-        missing.update(engine_unscored)
+        # The engine reports every nonzero play-by-play rule whatever the
+        # position; a reception-distance band is not a linebacker's omission
+        # (unless the record carries offense columns — a two-way player).
+        missing.update(k for k in engine_unscored if rule_families(k) & families)
         return RecordCoverage(
             source=record.source,
             basis=BASIS_STAT_LINE,
@@ -430,7 +434,9 @@ def record_coverage(
         fam = family_of(record.position)
         families = frozenset({fam}) if fam else frozenset()
         card_keys = {k for k, _r in rules}
-        missing = {k for k in declared if k in card_keys}
+        # Realized rows carry every stat a player recorded, so a proxy is
+        # scoped by its own family (same rule-family scope as above).
+        missing = {k for k in declared if k in card_keys and rule_families(k) & families}
         missing.update(_unreachable_for_families(families, rules))
         return RecordCoverage(
             source=record.source,

@@ -107,13 +107,16 @@ def test_weight_sign_travels_and_penalties_are_flagged():
     assert rows["rec"]["weightSign"] == "+"
 
 
-def test_only_play_by_play_rules_are_reported_by_unscored_keys():
-    """Vocabulary gaps such as fum_lost score a SILENT zero today — the census
-    is the surface that names them."""
+def test_source_vocabulary_gaps_are_reported_by_unscored_keys():
+    """Since J1, per-player unscoredKeys carries every rule a record's source
+    cannot publish (tests/bdvm/test_projection_source_vocabulary.py), so a
+    vocabulary gap such as fum_lost is no longer silent; a fully supplied rule
+    is still not reported."""
     rows = _by_key(census_for_card(CARD))
     assert rows["rec_40p"]["reportedInUnscoredKeys"] is True
     assert rows["pass_int_td"]["reportedInUnscoredKeys"] is True
-    assert rows["fum_lost"]["reportedInUnscoredKeys"] is False
+    assert rows["fum_lost"]["reportedInUnscoredKeys"] is True
+    assert rows["rec"]["reportedInUnscoredKeys"] is False
 
 
 def test_engine_gap_is_a_mapping_error():

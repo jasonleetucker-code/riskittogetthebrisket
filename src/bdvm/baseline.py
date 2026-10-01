@@ -261,6 +261,10 @@ def build_rookie_prior_records(
     counts: dict[tuple[str, str], int] = {}
     pos_sums: dict[str, float] = {}
     pos_counts: dict[str, int] = {}
+    # Realized rules the contributing rookie seasons could not score: the
+    # prior is a mean of partial totals, so it carries their union.
+    unscored: dict[tuple[str, str], set[str]] = {}
+    pos_unscored: dict[str, set[str]] = {}
 
     for key, (pos, seasons) in history.items():
         ctx = context.get(key)
@@ -277,13 +281,16 @@ def build_rookie_prior_records(
         counts[(pos, bucket)] = counts.get((pos, bucket), 0) + 1
         pos_sums[pos] = pos_sums.get(pos, 0.0) + ppg
         pos_counts[pos] = pos_counts.get(pos, 0) + 1
+        missed = {k for k, _rate in rookie_rows[0].unscored}
+        unscored.setdefault((pos, bucket), set()).update(missed)
+        pos_unscored.setdefault(pos, set()).update(missed)
 
-    def _bucket_mean(pos: str, bucket: str) -> float | None:
+    def _bucket_mean(pos: str, bucket: str) -> tuple[float, tuple[str, ...]] | None:
         n = counts.get((pos, bucket), 0)
         if n >= _ROOKIE_MIN_BUCKET_N:
-            return sums[(pos, bucket)] / n
+            return sums[(pos, bucket)] / n, tuple(sorted(unscored.get((pos, bucket), ())))
         if pos_counts.get(pos, 0) >= _ROOKIE_MIN_BUCKET_N:
-            return pos_sums[pos] / pos_counts[pos]
+            return pos_sums[pos] / pos_counts[pos], tuple(sorted(pos_unscored.get(pos, ())))
         return None
 
     records: list[ProjectionRecord] = []
@@ -298,9 +305,10 @@ def build_rookie_prior_records(
         pos = ctx.true_position
         if pos is None:
             continue
-        mu = _bucket_mean(pos, bucket)
-        if mu is None:
+        resolved = _bucket_mean(pos, bucket)
+        if resolved is None:
             continue
+        mu, declared = resolved
         records.append(
             ProjectionRecord(
                 source=source,
@@ -312,6 +320,7 @@ def build_rookie_prior_records(
                 fpg=mu,
                 scoring_native=True,
                 is_proxy=True,
+                declared_unscored=declared,
             )
         )
     summary = {
