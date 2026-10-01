@@ -239,9 +239,9 @@ def main() -> int:
         passthrough = vr.build(raw)
     with vr._flag("sparse_evidence_estimator", True):
         challenger = vr.build(raw)
-    I, A, C = _rows(incumbent), _rows(passthrough), _rows(challenger)
+    inc, A, C = _rows(incumbent), _rows(passthrough), _rows(challenger)
 
-    H = sorted(n for n, r in I.items() if r.get("singleSourceValuePenaltyApplied"))
+    H = sorted(n for n, r in inc.items() if r.get("singleSourceValuePenaltyApplied"))
     prior = json.loads(PRIOR_EVIDENCE.read_text(encoding="utf-8"))
     prior_names = {r["asset"] for r in prior.get("formerHaircutRows") or []}
     prior_value = {r["asset"]: r.get("valueOff") for r in prior.get("formerHaircutRows") or []}
@@ -249,7 +249,7 @@ def main() -> int:
     # ── rows changed, by asset class ──
     changed: dict[str, dict[str, list]] = {"C": defaultdict(list), "A": defaultdict(list)}
     for label, other in (("C", C), ("A", A)):
-        for name, row in I.items():
+        for name, row in inc.items():
             a, b = row.get("rankDerivedValue"), (other.get(name) or {}).get("rankDerivedValue")
             if a != b:
                 changed[label][_group(row)].append(name)
@@ -260,7 +260,7 @@ def main() -> int:
     # ── the former-haircut rows ──
     h_rows = []
     for name in H:
-        i, a, c = I[name], A.get(name) or {}, C.get(name) or {}
+        i, a, c = inc[name], A.get(name) or {}, C.get(name) or {}
         block = c.get("sparseEvidence") or {}
         iv, av, cv = i.get("rankDerivedValue"), a.get("rankDerivedValue"), c.get("rankDerivedValue")
         h_rows.append(
@@ -294,14 +294,14 @@ def main() -> int:
 
     def h_entries(other: dict[str, dict], k: int, ranks: dict[str, dict] | None = None) -> list:
         src = ranks if ranks is not None else other
-        return sorted(n for n in H if _in_top(src.get(n), k) and not _in_top(I.get(n), k))
+        return sorted(n for n in H if _in_top(src.get(n), k) and not _in_top(inc.get(n), k))
 
     withheld_d = {r["asset"] for r in h_rows if r["state"] == "uncorroborated"}
     d_ranks = _ranks_without(C, withheld_d)
 
     # ── picks ──
     pick_changes = []
-    for name, row in I.items():
+    for name, row in inc.items():
         if row.get("assetClass") != "pick":
             continue
         a, b = row.get("rankDerivedValue"), (C.get(name) or {}).get("rankDerivedValue")
@@ -311,7 +311,7 @@ def main() -> int:
 
     nonpick_outside = [
         n
-        for n, r in I.items()
+        for n, r in inc.items()
         if n not in set(H)
         and r.get("assetClass") != "pick"
         and r.get("rankDerivedValue") != (C.get(n) or {}).get("rankDerivedValue")
@@ -320,11 +320,11 @@ def main() -> int:
         (
             (
                 n,
-                _group(I[n]),
-                (C[n].get("rankDerivedValue") or 0) - (I[n].get("rankDerivedValue") or 0),
+                _group(inc[n]),
+                (C[n].get("rankDerivedValue") or 0) - (inc[n].get("rankDerivedValue") or 0),
             )
-            for n in I
-            if n in C and I[n].get("rankDerivedValue") != C[n].get("rankDerivedValue")
+            for n in inc
+            if n in C and inc[n].get("rankDerivedValue") != C[n].get("rankDerivedValue")
         ),
         key=lambda t: -abs(t[2]),
     )[:10]
@@ -419,9 +419,9 @@ def main() -> int:
             "C": "censor-aware family bounds (sparse_evidence_estimator)",
             "D": "C with uncorroborated rows withheld (diagnostic, from C's stamps)",
         },
-        "boardRows": len(I),
+        "boardRows": len(inc),
         "rowsChangedByGroup": changed_summary,
-        "topKChurnVsI": {"C": _churn(I, C), "A": _churn(I, A), "D": _churn(I, d_ranks)},
+        "topKChurnVsI": {"C": _churn(inc, C), "A": _churn(inc, A), "D": _churn(inc, d_ranks)},
         "formerHaircut": {
             "count": len(H),
             "matches1571Names": len(set(H) & prior_names),
