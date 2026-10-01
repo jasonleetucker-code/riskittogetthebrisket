@@ -343,6 +343,15 @@ def build(raw_payload: Mapping[str, Any], spec: Mapping[str, Any] | None = None)
     overrides = None
     if spec.get("disable"):
         overrides = {key: {"include": False} for key in spec["disable"]}
+    if spec.get("weights"):
+        # Candidate base weights through the SAME documented override path a
+        # user weight takes (``_active_sources`` -> declared base weight); a
+        # disabled key stays disabled.  Freshness, health, coverage and the
+        # family cap are still applied by the pipeline on top of these.
+        overrides = dict(overrides or {})
+        for key, weight in spec["weights"].items():
+            if key not in overrides:
+                overrides[key] = {"weight": float(weight)}
     with contextlib.ExitStack() as stack:
         if "patch" in spec:
             stack.enter_context(_patched(*spec["patch"]))
