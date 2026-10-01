@@ -175,6 +175,14 @@ def _host_tx(obs: Mapping[str, Any]) -> tuple[str, str, str] | None:
     return None
 
 
+def _bare_tx(obs: Mapping[str, Any]) -> tuple[str, str] | None:
+    """``(host, hostTxId)`` -- available even when the league id is missing
+    (own-league rows recorded before the ``sleeperLeagueId`` column)."""
+    if obs.get("host") and obs.get("host") != "unknown" and obs.get("hostTxId"):
+        return str(obs["host"]), str(obs["hostTxId"])
+    return None
+
+
 def classify_pair(
     a: Mapping[str, Any], b: Mapping[str, Any], *, day_tolerance: int = DEFAULT_DAY_TOLERANCE
 ) -> tuple[str, str]:
@@ -185,6 +193,12 @@ def classify_pair(
             return REL_SAME_HOST_TX, "same platform + league + host transaction id"
         if ta[:2] == tb[:2]:
             return REL_DISTINCT, "same league, different host transaction ids"
+    ba, bb = _bare_tx(a), _bare_tx(b)
+    if ba and bb and ba == bb and not (ta and tb):
+        # The same host transaction id with a league id missing on one side:
+        # never DISTINCT (that would count one trade twice); not CONFIRMED either,
+        # because the league identity that makes the id a proof is absent.
+        return REL_POSSIBLE, "same host transaction id, league id missing on one side"
     for x, y in ((a, b), (b, a)):
         ty = _host_tx(y)
         if ty and any(tuple(map(str, ref)) == ty for ref in (x.get("crossRefs") or [])):
@@ -296,6 +310,11 @@ def _candidate_pairs(
         tx = _host_tx(obs)
         if tx:
             by_tx.setdefault(tx, []).append(i)
+        bare = _bare_tx(obs)
+        if bare:
+            # Also block by (host, txId) so a row missing its league id still
+            # meets its twin; each bucket holds ~2 rows.
+            by_tx.setdefault(("bare",) + bare, []).append(i)
         for ref in obs.get("crossRefs") or []:
             by_tx.setdefault(tuple(map(str, ref)), []).append(i)
     for bucket in by_tx.values():

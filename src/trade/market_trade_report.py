@@ -327,6 +327,12 @@ def coverage_report(result: Mapping[str, Any]) -> dict[str, Any]:
             1 for g in cross_source if g["dedupeState"] == grp.PROBABLE_DUPLICATE
         ),
         "possibleOverlapGroups": state_count(grp.POSSIBLE_OVERLAP),
+        # Residual dedupe risk made visible: rows the blocking can relate only
+        # through a package match (no league identity), and incomplete records.
+        "observationsWithoutLeagueIdentity": sum(
+            1 for o in observations if grp._host_key(o) is None
+        ),
+        "partialRecordObservations": sum(1 for o in observations if grp.partial_record(o)),
         "unresolvedGroups": state_count(grp.UNRESOLVED),
         "sourceMix": dict(sorted(mix.items())),
         "sleeperSharpDiscoveryLeagueCount": len(sharp_leagues),

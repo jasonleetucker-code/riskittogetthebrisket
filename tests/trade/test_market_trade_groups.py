@@ -360,3 +360,28 @@ def test_complexity_guard_20k_rows_sharing_generic_pick_keys():
     assert res.volume["candidatePairsCompared"] == len(candidates)
     assert res.volume["rawObservations"] == n_rows + 500
     assert blocking_s < 10 and total_s < 60, (blocking_s, total_s)
+
+
+def test_own_league_row_without_league_id_never_splits_from_its_partial_twin():
+    """An own-league row recorded before the sleeperLeagueId column carries the
+    real Sleeper tx id but no league id; its Sharp-discovery twin is a partial
+    record with a different package.  Same tx id must never classify DISTINCT
+    (one trade counted twice) -- at most POSSIBLE, and the two must meet in
+    candidate blocking."""
+    own = obs("own:main:T9", A_FOR_B, src="own_league_sleeper", tx="T9", league=None)
+    twin = obs(
+        "sleeper:L1:T9",
+        [[P("player:1")], [P("player:2")]],
+        src="sleeper_sharp_discovery",
+        tx="T9",
+        caveats=["partial_record_missing_roster"],
+    )
+    relation, _why = G.classify_pair(own, twin)
+    assert relation == G.REL_POSSIBLE
+    res = G.group_observations([own, twin])
+    # Possible overlap: both observations kept, linked, and counted with bounds
+    # (1..2) -- never two confirmed-unique trades.
+    assert {g["dedupeState"] for g in res.groups} == {G.POSSIBLE_OVERLAP}
+    assert res.volume["underlyingTradesLowerBound"] == 1
+    assert res.volume["underlyingTradesUpperBound"] == 2
+    assert res.volume["edgesByRelation"].get(G.REL_POSSIBLE) == 1
