@@ -26,7 +26,7 @@ revision expressions or qualified refs (``origin/main``, ``refs/heads/x``,
 Name lookup comes before the abbreviated-SHA check: a hex-looking string that
 IS a branch or tag name (``cafe``) resolves as that ref, exactly as git would.
 
-Writes ``sha``, ``requested`` and ``kind`` to ``$GITHUB_OUTPUT`` when set.
+Writes ``sha`` and ``kind`` to ``$GITHUB_OUTPUT`` when set.
 Exit codes: 0 resolved; 2 invalid input; 3 not found; 4 ambiguous.
 """
 
@@ -105,7 +105,11 @@ def resolve(repo: Path, requested: str, default: str) -> tuple[str, str]:
         raise ResolveError(
             2, f"{requested!r} looks like an abbreviated SHA; pass the full 40-character SHA"
         )
-    raise ResolveError(3, f"{requested!r} is not a branch, tag or commit in this repository")
+    raise ResolveError(
+        3,
+        f"{requested!r} is not a branch, tag or commit in this repository "
+        "(pass a plain branch/tag name such as 'main', or the full commit SHA)",
+    )
 
 
 def main(argv: list[str] | None = None) -> int:

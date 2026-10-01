@@ -695,12 +695,13 @@ jobs:
           if [[ ! -f "\${APP_DIR}/deploy/deploy.sh" ]]; then
             echo "[remote] deploy/deploy.sh missing before run; attempting git bootstrap."
             git -C "\${APP_DIR}" fetch --prune --tags origin
+            git -C "\${APP_DIR}" fetch origin "\${DEPLOY_REF}" 2>/dev/null || true
+            # DEPLOY_REF is always the resolved full SHA: bootstrap from it or
+            # stop -- never leave the box's tree on the branch instead.
             if git -C "\${APP_DIR}" rev-parse --verify --quiet "\${DEPLOY_REF}^{commit}" >/dev/null; then
               git -C "\${APP_DIR}" checkout --force "\${DEPLOY_REF}"
-            elif git -C "\${APP_DIR}" rev-parse --verify --quiet "origin/\${DEPLOY_BRANCH}^{commit}" >/dev/null; then
-              git -C "\${APP_DIR}" checkout --force "origin/\${DEPLOY_BRANCH}"
             else
-              echo "[remote] Unable to resolve \${DEPLOY_REF} or origin/\${DEPLOY_BRANCH} during bootstrap." >&2
+              echo "[remote] Unable to resolve \${DEPLOY_REF} during bootstrap." >&2
               exit 22
             fi
           fi
@@ -711,8 +712,8 @@ jobs:
           # Write to a temp file first so a failed git-show does not truncate
           # the existing script to zero bytes.
           git -C "\${APP_DIR}" fetch --prune --tags origin 2>/dev/null || true
-          # The target is a full SHA that may sit on no branch or tag (a
-          # deleted branch tip, an old rollback point): fetch it by id.
+          # The target may be absent from the box's last branch/tag fetch:
+          # fetch it by id.
           git -C "\${APP_DIR}" fetch origin "\${DEPLOY_REF}" 2>/dev/null || true
           if git -C "\${APP_DIR}" rev-parse --verify --quiet "\${DEPLOY_REF}^{commit}" >/dev/null 2>&1; then
             _tmp_deploy="\${APP_DIR}/deploy/.deploy.sh.tmp"

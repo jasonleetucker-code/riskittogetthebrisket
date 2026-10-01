@@ -1136,8 +1136,8 @@ main() {
     exit 1
   fi
 
-  # A full SHA can be absent from branch/tag fetches (deleted branch tip,
-  # old rollback point); ask for it by id before deciding it is missing.
+  # A full SHA can be absent from the box's last branch/tag fetch; ask for it
+  # by id before deciding it is missing.
   if [[ "${fetch_ok}" == "true" ]] && is_full_commit_sha "${DEPLOY_REF}" \
     && ! git rev-parse --verify --quiet "${DEPLOY_REF}^{commit}" >/dev/null; then
     git fetch origin "${DEPLOY_REF}" || warn "fetch of commit ${DEPLOY_REF} by id failed."
@@ -1148,7 +1148,11 @@ main() {
     # every deploy to one). Shipping DEPLOY_BRANCH instead would deploy a tree
     # nothing validated or guarded and report success -- refuse.
     if is_full_commit_sha "${DEPLOY_REF}"; then
-      error "Commit ${DEPLOY_REF} is not available on this host even after fetching it by id."
+      if [[ "${fetch_ok}" == "true" ]]; then
+        error "Commit ${DEPLOY_REF} is not available on this host even after fetching it by id."
+      else
+        error "Commit ${DEPLOY_REF} is not available locally and 'git fetch' failed (see the .git/objects warning above)."
+      fi
       error "Refusing to fall back to DEPLOY_BRANCH='${DEPLOY_BRANCH}': the requested commit is exact."
       exit 1
     fi
