@@ -1285,6 +1285,29 @@ above) and is not reopened. Record: `docs/sources/SIGNALS_ACCOUNT_CONNECTION.md`
 |---|---|
 | Owner-controlled Signals connection: connect / status / reconnect / disconnect / provision / renew; auth health separate from data freshness; fail-safe renewal and failure classes | IMPLEMENTED on `claude/signals-account-connection` (not merged). Owner's first real sign-in, box provisioning and observed renewal still OWNER-PENDING |
 
+## Added 2026-10-01 — Valuation Trust Program / Batch 3 (owner directive)
+
+The owner's highest priority: values he trusts over any single outside source, earned
+through evidence, never tuned toward KTC, DLF, FantasyCalc or anyone else. The canonical
+market, BDVM fundamentals, the completed-trade market and roster impact remain separate
+concepts. Full unit list and promotion policy: `docs/EXECUTION_PLAN.md` →
+"Valuation Trust Program — Batch 3".
+
+| Item | Disposition |
+|---|---|
+| A source trust census, generated from canonical state (no subjective score) | AUTHORIZED, wave 1 |
+| Replace "dynamic weights" with a leakage-safe source-quality evaluator; equal-family champion; preregistered challengers | AUTHORIZED, wave 2 |
+| Hill trainer / Autopilot substrate repair before any KTC/DLF scale change; then a clean preregistered rerun | AUTHORIZED, wave 1 → 3 |
+| Sparse-evidence estimator: central estimate separate from uncertainty; censor-aware coverage; solves 4600→1380 without the deep-board explosion | AUTHORIZED, wave 2 |
+| Joint robust filter as a real shadow experiment with an archived ledger | AUTHORIZED, wave 2 |
+| Ingestion / lineage integrity sweep across every voting family | AUTHORIZED, wave 2 |
+| Signals authenticated inventory once the owner session exists (second opinion until comparable and evaluated) | AUTHORIZED, access-dependent |
+| Completed-trade market benchmark: KTC Trade Database + Sleeper ledger, dedupe, topology, then a shadow latent-price model | AUTHORIZED, wave 1 (acquisition) |
+| BDVM measured fundamental engine: fumble recovery, source vocabulary, reception-distance and first-down components, horizon-aware projection evaluation, prior calibration | AUTHORIZED, waves 1 and 3 |
+| Market-vs-fundamental disagreement matrix and source trust scorecard (no single magic score) | AUTHORIZED, wave 3 |
+| ADDENDUM 2026-10-01: Sharp-discovered Sleeper league trades (whole qualifying leagues, not only Sharp managers) feed the Market Trade Ledger alongside KTC, IDP as a first-class objective. Reuse the existing Sharp acquisition owner and its cursors. Real per-league format captured from Sleeper. Raw observations kept apart from canonical underlying trades; `MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC.md` §19 dedupe hierarchy; a shared `underlyingTradeId` so a Sharp trade cannot vote twice; separate reporting of raw / unique / duplicate / probable / possible counts and IDP coverage | AUTHORIZED, Unit I (in progress) |
+| ADDENDUM 2026-10-01: every completed trade is format-normalized or excluded from target-league pricing. Target is `dynasty_main`, read from the canonical league/scoring/roster owners (actual scoring card, never the label). One canonical format fingerprint with inspectable per-dimension comparability. Exactly one disposition each: NATIVE_COMPARABLE, VALIDATED_TRANSFORMABLE or TARGET_UNSUPPORTED. Unknown format is not comparable. No global format multiplier. Translators must validate out of sample (paired same-source markets, then cross-format trades, then BDVM as a structural prior only). Later: a format-aware latent-price shadow model with `transactionMarketValueGeneric` vs `transactionMarketValueTargetLeague`; native evidence dominates translated evidence | AUTHORIZED. Unit I builds the fingerprint, dispositions and plumbing; all non-native observations are TARGET_UNSUPPORTED until a translator validates. Translators and the latent-price model follow as shadow challengers |
+
 ## Added 2026-10-01 — Draft Capital year selector (owner request)
 
 Owner request (2026-10-01): add an "All Years | <years>" selector to the EXISTING Draft Capital page
