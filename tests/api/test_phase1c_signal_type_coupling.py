@@ -10,12 +10,11 @@ Today it escapes Phase 1c only because it is in ``_VALUE_BASED_SOURCES``. Any ch
 that takes it off the value path (the 2026-09-30 replay's first counterfactual did)
 silently prices every IDPTC row near rank 9,900.
 
-This test is the failing-first half of that repair. It is ``xfail(strict=True)``
-because ``src/api/data_contract.py`` belongs to another unit's one-writer slot
-(Batch 3); the exact patch is recorded in
-``docs/valuation/evidence/hill-trainer-repair-2026-10-01/README.md`` §E2. When the
-patch lands this test XPASSes, strict mode fails the suite, and the marker must be
-removed in the same PR — the test then guards the fix.
+Repaired: Phase 1c now selects by the source's CSV signal type
+(``data_contract._csv_signal_for(key) == "rank"``), per the patch recorded in
+``docs/valuation/evidence/hill-trainer-repair-2026-10-01/README.md`` §E2. This test
+was the failing-first ``xfail(strict=True)`` half of that repair; the marker was
+removed with the fix and the test now guards it.
 """
 
 from __future__ import annotations
@@ -56,15 +55,6 @@ def _idptc_effective_ranks(board) -> dict[str, int]:
     }
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "E2: Phase 1c selects rank-decoded cross-market sources by "
-        "`not in _VALUE_BASED_SOURCES` instead of CSV signal type; patch is owned by the "
-        "data_contract one-writer unit (see hill-trainer-repair README §E2)"
-    ),
-)
 def test_a_value_signal_source_off_the_value_path_keeps_its_phase1_rank(raw):
     base = vr.build(raw)
     off = vr.build(

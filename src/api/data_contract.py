@@ -540,9 +540,11 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # DL/LB/DB pages are used only as depth extension via monotone
     # piecewise-linear anchor curves fit from the overlap.  Final
     # effective overall ranks are written to the CSV as
-    # ``effectiveRank``, and the fetch script aliases it to a ``Rank``
-    # column via the _RANK_ALIASES + _NAME_ALIASES handshake below so
-    # the standard rank-signal path picks it up.
+    # ``effectiveRank`` (the fetcher writes no ``Rank`` column), and
+    # ``effectiveRank`` is itself one of the ``_RANK_ALIASES`` the
+    # CSV reader tries, so the standard rank-signal path reads it
+    # directly.  ``originalRank`` (the combined-page rank before
+    # positional-page extension) is not an alias and does not vote.
     "fantasyProsIdp": {
         "path": "CSVs/site_raw/fantasyProsIdp.csv",
         "signal": "rank",
@@ -724,15 +726,16 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "signal": "rank",
     },
     # DraftSharks dynasty rankings — split into offense + IDP CSVs
-    # by scripts/fetch_draftsharks.py.  The scraper reads the single
-    # offense-combined DOM (where every player has a cross-universe
-    # ``3D Value +`` on the same scale — e.g. Carson Schwesinger =
-    # 44 at overall rank 36 among all positions) and writes two
-    # files filtered by position family.  Both CSVs therefore share
-    # the same raw value scale but describe separate pools, which
-    # lets the blend treat DraftSharks as two independent sources
-    # (one offense, one IDP) instead of a single cross-scope source
-    # like IDPTradeCalc.
+    # by scripts/fetch_draftsharks.py.  The scraper harvests one
+    # combined offense+IDP board (where every player has a
+    # cross-universe ``3D Value +`` on the same scale — e.g. Carson
+    # Schwesinger = 44 at overall rank 36 among all positions) and
+    # writes two files filtered by position family.  Both CSVs share
+    # the same raw value scale and ONE correlation group
+    # (``draftSharks``); the registry's ``ds_combined_rank_partner``
+    # pre-pass re-pools their raw values into a single combined rank
+    # list routed to the GLOBAL Hill master, so they are one provider's
+    # cross-market board split for ingestion, not two independent votes.
     "draftSharks": {
         "path": "CSVs/site_raw/draftSharksSf.csv",
         "signal": "value",
@@ -786,6 +789,26 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
 # Enforced at import (``_assert_non_voting_keys_unregistered``): registering
 # any of these would re-count KTC information the model already holds.
 _NON_VOTING_SOURCE_CSV_KEYS: frozenset[str] = frozenset({"ktc", "ktcSfTep", "ktcCrowdTradesSfTep"})
+
+
+def _csv_signal_for(key: str) -> str:
+    """The CSV signal type ``_SOURCE_CSV_PATHS`` declares for ``key``.
+
+    ``"rank"`` / ``"value"`` (a plain-string entry defaults to ``"value"``,
+    the same default ``_enrich_from_source_csvs`` applies), or ``""`` for a
+    key with no CSV entry.  Read at call time, not cached, so a diagnostic
+    replay that patches ``_SOURCE_CSV_PATHS`` sees its own table.
+
+    This — not membership in ``_VALUE_BASED_SOURCES`` — is what says whether
+    a row's ``canonicalSiteValues`` slot holds a synthetic rank encoding
+    (E2, hill-trainer-repair 2026-10-01): a value-signal source taken off
+    the value-direct path still publishes real values.
+    """
+    cfg = _SOURCE_CSV_PATHS.get(key)
+    if isinstance(cfg, dict):
+        return str(cfg.get("signal") or "value").lower()
+    return "value" if cfg else ""
+
 
 # Rank -> synthetic value transform used when a CSV declares signal=rank.
 # The absolute number is irrelevant to the downstream pipeline (it only
@@ -1799,9 +1822,10 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
         "game_type_evidence": (
-            "theidpshow.com/p/combined-idp-offense-dynasty-rankings-fantasy-football — "
-            "the endpoint path itself is the dynasty board, and the publisher's "
-            "redraft/weekly output lives at separate posts that are not fetched"
+            "the vendor's post title, 'Combined IDP + Offense Dynasty Rankings' (public "
+            "post metadata, read 2026-10-01 — docs/sources/integrity/"
+            "INTEGRITY_SWEEP_2026-10-01.md); the publisher's weekly and rest-of-season "
+            "posts are separate and not fetched"
         ),
         "display_name": "The IDP Show — Combined (Adamidp)",
         "column_label": "IDP Show Combined",
@@ -2158,11 +2182,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         #      appropriate value column: ``SF Value`` for QB (Superflex),
         #      ``Trade Value`` for RB/WR, ``TEP Value`` for TE (TE-Premium).
         # Result: ~300 combined rows with a top-of-pool value of ~101
-        # (SF-adjusted QB).  Signal=value so the blend's value-direct
-        # branch scales Fitzmaurice's top to 9999 and every other row
-        # linearly.  Cross-position separation is preserved (e.g. top
-        # QB at SF value 101 beats top WR at 88, scaling to 9999 vs
-        # 8712 on the 9999 scale).
+        # (SF-adjusted QB).  Signal=RANK (PR #216, restored after the
+        # #218 regression — see its ``_SOURCE_CSV_PATHS`` entry): the
+        # 0-~101 values are converted to a cross-position competition
+        # rank, and that ordinal votes through percentile → OFFENSE
+        # Hill.  It is NOT a value-direct source; the published value
+        # survives only in ``sourceNativeValues`` for audit / display.
         #
         # depth=350 reflects the published row count; coverage_weight
         # keeps full weight for rows within depth and degrades past.
@@ -2261,17 +2286,15 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # Superflex + TEP league scoring — so the source is declared
         # ``is_tep_premium=True``.  Roughly 500 combined rows.
         #
-        # Value signal (2026-04-21): the scraper writes Boone's
-        # published trade value in ``boone_value`` (0-~141 scale) plus a
-        # cross-position competition rank in ``rank``.  The blend reads
-        # ``boone_value`` via the value-direct branch, scaling linearly
-        # so Boone's top player contributes 9999 — preserving his
-        # published value structure (e.g. how much further QBs lead WRs)
-        # rather than collapsing to rank-only ordinal info.  The UI
-        # continues to render Boone's published rank via
-        # ``sourceOriginalRanks.yahooBoone`` (the value-signal CSV
-        # loader now also picks up the ``rank`` column so this audit
-        # stamp survives the switch).
+        # Signal=RANK (since 2026-04-22 — see its ``_SOURCE_CSV_PATHS``
+        # entry; the 2026-04-21 value-direct setup this comment used to
+        # describe was reverted after a 47% Hampel drop rate): the
+        # scraper writes Boone's published trade value in
+        # ``boone_value`` (0-~141 scale) plus a cross-position
+        # competition rank in ``rank``, and the blend votes the
+        # ``rank`` column through percentile → OFFENSE Hill.  It is NOT
+        # a value-direct source; ``boone_value`` survives only in
+        # ``sourceNativeValues`` for audit / display.
         #
         # depth=500 mirrors the live row count; ``_expected_sources_for_position``
         # multiplies this by 1.25 so YAHOO_BOONE is not expected for
@@ -2297,14 +2320,18 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
     },
     {
         # DraftSharks offense dynasty board (QB/RB/WR/TE).  The
-        # scraper splits DS's single offense-combined DOM by
-        # position family, so this source is the SF slice of the
-        # ~874-row universe.  461 rows at the April 2026 baseline
-        # (QB=39, RB=73, WR=103, TE=35 visible + hidden depth
-        # prospects below the default DS position-filter cutoff).
-        # Value signal off the ``3D Value +`` column; the blend
-        # normalises via Hill curve over within-source rank so the
-        # 0-100 absolute scale is irrelevant.  DraftSharks IS scraped
+        # scraper harvests ONE combined offense+IDP board from the
+        # te-premium-superflex page (htmx-loaded; when the unfiltered
+        # board lacks IDP it unions the page's own ``fantasyPosition``
+        # passes, gated on identical ``3D Value +`` over the overlap —
+        # see ``scripts/fetch_draftsharks.py``) and splits it by
+        # position family, so this source is the SF slice of that one
+        # board.  Value signal off the ``3D Value +`` column, but the
+        # absolute scale is NOT irrelevant: the
+        # ``ds_combined_rank_partner`` pre-pass pools this CSV's raw
+        # values with ``draftSharksIdp``'s into ONE combined rank list
+        # before the GLOBAL Hill curve, so the offense-vs-IDP ratio on
+        # DS's shared scale decides the combined order.  DraftSharks IS scraped
         # from the TE-PREMIUM superflex board —
         # ``scripts/fetch_draftsharks.py`` ``RANKINGS_URL`` =
         # ``https://www.draftsharks.com/dynasty-rankings/te-premium-superflex``,
@@ -2359,8 +2386,8 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
     },
     {
         # DraftSharks IDP dynasty board (DL/LB/DB).  Mirror of the
-        # ``draftSharks`` offense entry — same scraper scrapes a
-        # single page and writes two CSVs; the IDP CSV carries
+        # ``draftSharks`` offense entry — same scraper harvests one
+        # combined board and writes two CSVs; the IDP CSV carries
         # every DL/LB/DB with their cross-universe ``3D Value +``
         # (e.g. Carson Schwesinger at value 44 as IDP rank 1, NOT
         # the IDP-only-page rescaled 81).  389 rows at the April
@@ -10422,28 +10449,31 @@ def _compute_unified_rankings(
     # natively (i.e. NOT routed through the DS combined-rank pre-pass
     # above) falls into this bucket.
     #
-    # DORMANT AS OF 2026-07-29 (audit): this set is currently EMPTY and
-    # the block below never executes.  All three cross-market sources
-    # are excluded by construction — ``draftSharks`` / ``draftSharksIdp``
-    # are ``ds_combined_rank_partner`` (handled by the pre-pass above)
-    # and ``idpTradeCalc`` is value-direct.  The only members it ever
-    # had were FootballGuys SF + FootballGuys IDP, which are no longer
-    # registered sources.
+    # ACTIVE SINCE 2026-08-20: its only member on the live registry is
+    # ``idpShowCombined``, a rank-signal cross-market source that votes
+    # its own combined offense+IDP CSV rank on the GLOBAL Hill master
+    # (via ``rank_coordinates.native_pool_for_source``).  The other
+    # cross-market sources are excluded by construction —
+    # ``draftSharks`` / ``draftSharksIdp`` are ``ds_combined_rank_partner``
+    # (handled by the pre-pass above) and ``idpTradeCalc`` is a
+    # VALUE-signal source.  Its original members were FootballGuys SF +
+    # FootballGuys IDP, which are no longer registered sources; the logic
+    # is generic, not FBG-specific.
     #
-    # KEPT, not deleted: the logic is generic rather than FBG-specific,
-    # it is guarded by the emptiness check so it costs nothing, and it
-    # would correctly auto-activate for any future rank-signal
-    # cross-market source.  The comment is what was misleading — it
-    # named FBG as a current member long after the source was removed.
+    # Membership is decided by the source's CSV SIGNAL TYPE
+    # (``_csv_signal_for``), never by absence from
+    # ``_VALUE_BASED_SOURCES`` (E2, hill-trainer-repair 2026-10-01).
+    # Decoding ``canonicalSiteValues`` as a rank is only correct when the
+    # slot holds a synthetic rank encoding, which is a property of the
+    # CSV's signal, not of which voting path the source takes.  Keyed on
+    # value-set membership, taking ``idpTradeCalc`` off the value-direct
+    # path silently decoded its real 0-9999 values as ranks (~9,900).
     csv_rank_cross_market_keys: set[str] = {
         str(s.get("key") or "")
         for s in active_sources
         if s.get("is_cross_market")
         and not s.get("ds_combined_rank_partner")
-        # IDPTC is cross-market but value-direct, so no rank override
-        # is needed — its direct-vote path reads canonicalSiteValues
-        # raw values, not the effective rank.
-        and str(s.get("key") or "") not in _VALUE_BASED_SOURCES
+        and _csv_signal_for(str(s.get("key") or "")) == "rank"
     }
     if csv_rank_cross_market_keys:
         for row_idx, row in enumerate(players_array):
@@ -10487,14 +10517,14 @@ def _compute_unified_rankings(
     # rookie-source rank to a combined-pool rank via the reference
     # ladder:
     #
-    #   * ``dlfRookieSf`` (offense rookies) → KTC Crowd+Trades ladder:
+    #   * ``dlfRookieSf`` (offense rookies) → KTC Crowd (``ktcCrowdSfTep``) ladder:
     #     DLF's #1 rookie → the rank KTC gives its #1 rookie.
     #     DLF's #2 rookie → KTC's #2 rookie-slot rank.  Etc.
     #
     #   * ``dlfRookieIdp`` (IDP rookies) → IDPTC ladder:
     #     DLF's #1 IDP rookie → IDPTC's top-rookie rank, etc.
     #
-    #   * ``flockFantasySfRookies`` (offense rookies) → KTC Crowd+Trades ladder:
+    #   * ``flockFantasySfRookies`` (offense rookies) → KTC Crowd (``ktcCrowdSfTep``) ladder:
     #     same shape as dlfRookieSf — Flock's class-only ranks anchor
     #     to KTC's offense rookie ladder.
     #
