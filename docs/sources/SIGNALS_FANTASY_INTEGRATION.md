@@ -1,4 +1,4 @@
-# Signals Fantasy — data integration and product-capability record (2026-09-30)
+# Signals Fantasy — data integration and product-capability record (2026-09-30, updated 2026-10-01)
 
 **Owner direction:** #1555, extended 2026-09-30 ([extension record](https://github.com/jasonleetucker-code/riskittogetthebrisket/issues/1555#issuecomment-5920621510)). Signals is a comprehensive integration
 workstream whose intended destination is an **active, validated Calculator source**
@@ -8,13 +8,16 @@ kept. Map: `docs/valuation/VALUATION_ADVANCEMENT_MAP_2026-09-30.md`.
 
 ## 1. Current status
 
-| Question | Answer |
+Four separate questions, answered separately:
+
+| Question | Answer (2026-10-01) |
 |---|---|
-| Activation stage | **1 — discovered and characterized from public pages.** No real observation ingested. |
-| Affects canonical values now? | **No.** No Signals data exists in any build. |
-| Exact remaining gate | Signals' **prior written consent** for automated access/extraction (Terms §"Prohibited", effective 2026-08-31). Also needed: the owner's active subscription (not confirmed) and an owner-controlled session path. |
-| Owner subscription | intended, **not confirmed** — no plan purchased, no trial started |
-| KTC permission applies? | **No.** It does not transfer. |
+| **Permission** | **Resolved — owner-attested.** The owner stated on 2026-10-01: *"I have explicit permission to use signals how I see fit."* It is recorded as owner-attested authorization for the requested Calculator integration (#1555, 2026-10-01 comment). No permission document or provider correspondence is invented, and no independent legal verification is claimed. |
+| **Technical access** | Public boards: accessible without login. Paid / native-value / league-adjusted / projection surfaces: need an **owner-controlled authenticated session**, which does not exist in this environment. That is an access dependency, not missing permission. No subscription is assumed, purchased or trialled. |
+| **Data availability** | Public dynasty and IDP-dynasty boards publish **positional ordinal rank + tier** only, with no value scale and no cross-position order. Native values and projections exist only behind the account. |
+| **Activation stage** | Advancing under Batch 2 Unit A (§8). Stage 1 (discovered) was reached on 2026-09-30; stages 2–3 for the public boards are recorded in §8 with their evidence. Stages 4–5 (shadow, then active canonical participation) require comparable native dynasty values, which the public boards do not publish. |
+| **Affects canonical values?** | **No.** Public positional ranks are not eligible to vote, and nothing Signals-derived enters `_RANKING_SOURCES`. |
+| **KTC permission applies?** | No. KTC authorization is separate. Signals now has its own owner-attested authorization. |
 
 **Evidence standard.** Everything in §3–§5 comes from the public pages listed in §2,
 fetched once each on 2026-09-30 through a summarizing fetch tool. That means paraphrase,
@@ -23,35 +26,29 @@ itself displayed the data. Nothing behind authentication was accessed.
 
 ## 2. Access and rights boundary
 
-- **Terms (effective 2026-08-31), paraphrased from a summarizing fetch (not verbatim):**
-  - Automated tools that access or extract data require prior written consent.
-  - Reverse engineering and commercial exploitation are prohibited.
-  - Account credentials may not be shared.
-  - AI-generated output may not be commercially redistributed without consent.
-  - API and data export are not addressed.
-- **robots.txt** allows everything except `/admin-control`. **robots.txt does not grant
-  consent.** The Terms govern.
+- **Authorization:** owner-attested on 2026-10-01 (§1). It supersedes the 2026-09-30
+  posture, under which every automated operation was "blocked pending written consent".
+  That posture is kept here as history, not as a live gate. The Terms (effective
+  2026-08-31, paraphrased from a summarizing fetch) require prior written consent for
+  automated access; the owner attests he holds the permission.
+- **Authorized now:** read-only collection of the boards the available access reaches,
+  normalization, private historical retention, analysis, and authenticated Calculator
+  displays.
+- **Privacy boundary, unchanged by permission:**
+  - No raw paid data, league-private payloads, credentials or session material in this
+    public repository, public CI artifacts, logs, shared caches or public `/league`
+    endpoints.
+  - Raw pages and releases live in a gitignored private store on the production box.
+  - Fixtures are sanitized and labelled synthetic.
+- **Operational limits:** bounded requests, conditional GET, backoff, honour 429, stop on
+  401/403 or session expiry, no access-control bypass, no uncontrolled retries, no
+  recurring manual CSV upload as the operating workflow.
 - **Security page:** passwordless email one-time codes; short-lived sessions via AWS
   Cognito; connected platforms read-only (except paid ESPN auto-lineups).
-- **Blocked operations** — each needs written consent, however little it collects:
-  - any scheduled or scripted fetch of public boards;
-  - authenticated automated collection of paid datasets;
-  - scripted CSV export;
-  - storage of Signals data beyond personal use;
-  - any derived value published outside the owner's private Calculator.
-- **Permitted now:**
-  - manual reading of public pages for research;
-  - adapter and contract design;
-  - **labelled synthetic** fixtures;
-  - the draft permission request (§7).
-- Also permitted, **pending confirmation of personal-use scope**: importing a CSV the
-  owner exports manually from his own account for private use. It is disabled until the
-  owner confirms and the §7 request answers whether storing it in Calculator is personal
-  use.
-- **Secrets:** never in chat, issues, fixtures, logs or screenshots. If authorized, use an
-  owner-controlled login flow with local ignored storage or an approved secret manager.
-  401/403 stops collection without retry loops. Expiry means refusing, not re-logging
-  repeatedly.
+- **Secrets:** never in chat, issues, fixtures, logs or screenshots. For paid surfaces:
+  - an owner-controlled login flow, with local ignored storage or an approved secret
+    manager;
+  - expiry means stopping and reporting, not repeated re-login.
 
 **Public pages fetched** (HTTP 200):
 - `/`, `/robots.txt`, `/terms`, `/security`
@@ -77,18 +74,18 @@ unseen.
 | Dataset | Where (claimed) | Scope | Units / format | Cadence (claimed) | Disposition |
 |---|---|---|---|---|---|
 | Offense dynasty board — public | `/rankings/dynasty` | public | positional rank + tier (S+…C); **no values**; stamped "Published …" and "Market data through …" | weekly rebuild (board page) vs daily engine (methodology) — **unresolved** | permission-blocked (automation); benchmark-only candidate as **ordering**, never cross-position prices |
-| Offense dynasty values — league-adjusted | in-app | paid account | value scale; SF/TEP/custom scoring/roster/depth adjusted | "daily" (trade page, formats page) | permission-blocked |
+| Offense dynasty values — league-adjusted | in-app | paid account | value scale; SF/TEP/custom scoring/roster/depth adjusted | "daily" (trade page, formats page) | access-dependent (owner session; permission resolved 2026-10-01) |
 | IDP dynasty board — public | `/rankings/idp-dynasty` | public | true positions CB/S/DT/DE/LB; "MKT" positional label (meaning unconfirmed) | weekly (board) / "in progress" (methodology) | permission-blocked |
-| IDP dynasty values — league-adjusted | in-app | paid (Fanatic) | value scale | unclear | permission-blocked |
-| Redraft / ROS / weekly projections (+IDP stat lines) | in-app; `/methodology/redraft` | paid | full stat lines scored per league | daily in season | permission-blocked; **external-projection baseline only**, never fundamentals |
-| Devy + IDP prospect boards, grades, confidence, projected draft capital | `/rankings`, `/formats/devy` | boards public (not yet read); grades paid | grade + confidence | weekly | permission-blocked; contextual-only (vendor grades are model outputs, not scouting facts) |
-| Rookie / future picks | in-app | paid | same value scale; priced as the 3rd-best class prospect, adjusted | daily (claimed) | permission-blocked |
-| Player cards (fields, history, movement) | in-app | paid | undocumented publicly | — | not exposed publicly; permission-blocked |
+| IDP dynasty values — league-adjusted | in-app | paid (Fanatic) | value scale | unclear | access-dependent (owner session; permission resolved 2026-10-01) |
+| Redraft / ROS / weekly projections (+IDP stat lines) | in-app; `/methodology/redraft` | paid | full stat lines scored per league | daily in season | access-dependent (owner session; permission resolved 2026-10-01); **external-projection baseline only**, never fundamentals |
+| Devy + IDP prospect boards, grades, confidence, projected draft capital | `/rankings`, `/formats/devy` | boards public (not yet read); grades paid | grade + confidence | weekly | access-dependent (owner session; permission resolved 2026-10-01); contextual-only (vendor grades are model outputs, not scouting facts) |
+| Rookie / future picks | in-app | paid | same value scale; priced as the 3rd-best class prospect, adjusted | daily (claimed) | access-dependent (owner session; permission resolved 2026-10-01) |
+| Player cards (fields, history, movement) | in-app | paid | undocumented publicly | — | not exposed publicly; access-dependent (owner session; permission resolved 2026-10-01) |
 | General vs league-adjusted boards; personal overrides; CSV import/export of custom rankings | `/features/rankings` | paid | CSV (fields undocumented) | — | owner-manual export = pending personal-use confirmation; **user edits are never independent evidence** |
-| Trade calculator (itemization, package multipliers, consolidation, both-team lineup impact, league trade history, GO/NO-GO) | `/features/trade-calculator` | free basic, paid depth | — | daily models (claimed) | permission-blocked; product-capability reference (§5) |
-| League / roster diagnostics (archetypes, strengths, age curves, draft capital, playoff odds, portfolio) | `/features/league-analyzer` | paid | — | — | permission-blocked; capability reference |
+| Trade calculator (itemization, package multipliers, consolidation, both-team lineup impact, league trade history, GO/NO-GO) | `/features/trade-calculator` | free basic, paid depth | — | daily models (claimed) | access-dependent (owner session; permission resolved 2026-10-01); product-capability reference (§5) |
+| League / roster diagnostics (archetypes, strengths, age curves, draft capital, playoff odds, portfolio) | `/features/league-analyzer` | paid | — | — | access-dependent (owner session; permission resolved 2026-10-01); capability reference |
 | Draft tools (mocks, live assistant, Chrome overlay) | `/features/draft-assistant` | paid | — | — | out of scope for data; capability reference |
-| Waiver report (FAAB ranges), start/sit, lineup optimizer | `/features/waiver-report`, `/features/start-sit` | free (1 league) / paid | — | weekly | permission-blocked; capability reference |
+| Waiver report (FAAB ranges), start/sit, lineup optimizer | `/features/waiver-report`, `/features/start-sit` | free (1 league) / paid | — | weekly | access-dependent (owner session; permission resolved 2026-10-01); capability reference |
 | Notifications | none described | — | — | — | not exposed |
 | Public API | none described | — | — | — | not exposed |
 | Methodology / source disclosures | `/methodology/*` | public | prose. Unnamed "community dynasty value markets", real startup ADP, trade-implied values from ~7,965 trades, licensed charted data. **KTC/FantasyCalc/Dynasty Daddy never named.** | methodology updated 2026-08-13/14 | ingested as documentation (this record) |
@@ -105,7 +102,7 @@ weekly". Methodology, trade and formats pages say "daily". Per dataset, it is re
 observed publication stamps once collection is authorized, or by first-party clarification
 (§7). The faster claim is not chosen by default.
 
-## 4. Source contract (implemented only after consent; designed now)
+## 4. Source contract (design; implementation in Unit A, §8)
 
 - **Reuse:**
   - canonical registry `_RANKING_SOURCES` (`src/api/data_contract.py`);
@@ -178,7 +175,10 @@ separately from its correlation with families already in the pool.
 - Schema drift is quarantined. Truncated pagination means the release is withheld.
 - One board's failure never marks another board, or the whole run, successful.
 
-## 7. Permission request — DRAFT, not sent (owner decision to send)
+## 7. Permission request — SUPERSEDED 2026-10-01 (historical, never sent)
+
+Superseded by the owner's attestation of explicit permission (§1). It was never sent, and
+no action on it remains. It is kept unedited below as the record of the 2026-09-30 posture.
 
 > Subject: Written consent request — automated access for a private dynasty analysis tool
 >

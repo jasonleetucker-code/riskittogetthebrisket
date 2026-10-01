@@ -55,23 +55,23 @@ permits execution.
 
 | # | Requirement | Canonical owner | Current state (verified) | Gap | Stage | Authority | Claim / PR | Acceptance / release gate | Rollback |
 |---|---|---|---|---|---|---|---|---|---|
-| V1 | Reproducible current-value evidence (Coker + contrasts) | `src/api/value_replay.py` + `scripts/value_replay.py`, extending `source_weighting_explain` | **Implemented** 2026-09-30; stamps explain the published offense value on 406/406 ranked rows (within 1 point, stamp-consistency check); pins include config, fetch stamps, local league snapshots, the flag snapshot and the live league context | Live served response/UI capture needs owner-authenticated read; pins are a known-input manifest, not a proof | **NOW** | campaign lane C | `claude/value-replay-evidence` | tests + pinned evidence `docs/valuation/evidence/value-replay-2026-09-30/` | tooling only |
-| V2-1 | Cross-subset freshness (IDPTC IDP edits refresh offense) | `src/sources/dataset_state.py`, `freshness.py` | **Reproduced** in tracked state (below) | Offense-universe clock from existing per-row times | NEXT (own PR) | lane C | next unit | RED regression; whole-board before/after; flag | flag / `RISKIT_FEATURE_SOURCE_FRESHNESS_WEIGHTING=0` |
+| V1 | Reproducible current-value evidence (Coker + contrasts) | `src/api/value_replay.py` + `scripts/value_replay.py` | **MERGED + DEPLOYED** (#1562, `5385a6907`, in `7db3f3144`); stamps explain published offense values (within 1 point, stamp-consistency) | Live served response capture needs owner auth | DONE (extended by Batch 2 Unit B) | lane C | #1562 | tests + pinned evidence | tooling only |
+| V2-1 | Cross-subset freshness (IDPTC IDP edits refresh offense) | `src/sources/freshness.py` (`universe_clock`) | **MERGED + DEPLOYED + flag LIVE** (#1565, `0c7830a55`) | — | DONE | lane C | #1565 | RED→GREEN, whole-board evidence, review APPROVE | `RISKIT_FEATURE_SOURCE_UNIVERSE_FRESHNESS=0` |
 | V2-2 | Cadence vs information age | `freshness.py` | **Verified** (Coker: three voters carry pre-season data, applied weights 1.0 / 0.5 / 0.057; removing them +196) | Season-event-aware information age; must not teach outages as normal | LATER (methodology) | lane C + owner review | — | challenger report, not auto-promotion | — |
-| V2-3 | Weight-blind outlier filter | `data_contract._hampel_filter_per_player` | **Mechanism verified; latent** (0 of 116 dropping rows removed dominant weight) | Correction must also address the post-filter single-source haircut | LATER | lane C | — | characterization test pinned | — |
+| V2-3 | Weight-blind outlier filter | `data_contract._hampel_filter_per_player` | Mechanism verified; latent on the measured board | **Owner decision B (2026-10-01):** treat it jointly with V2-6, no isolated filter patch | **NOW — Batch 2 Unit C** (disabled/shadow challenger) | Batch 2 decision B + lane C | `claude/joint-outlier-sparse-challenger` | full-pipeline tests, full-board diagnostics, independent review; promotion needs separate candidate approval | flag off = legacy |
 | V2-4 | Lineage / independence | `cap_family_weights`, B10 families, B11 confidence | KTC Crowd and Trades are separate families; KTC Market is benchmark-only (refused at import) | Asset-specific dependencies; IDPTC↔IDP Show; Signals ancestry | LATER | lane C | — | — | — |
-| V2-5 | Native value vs rank→Hill | Hill masters + `_VALUE_BASED_SOURCES` | **Measured:** ranks 51–400, KTC Crowd native sits 14–45% and KTC Trades 22–60% above Hill(own rank); the IDPTC metric (1.8–5.9×) is confounded by its combined-population rank | Cause unknown; belongs to the owner-requested Hill / source-authority alignment audit, which must separate scale from rank population | NEXT | lane C ("Hill / native-source alignment") | — | Hill Autopilot / model registry only | registry rollback |
-| V2-6 | Confidence vs value (single-source haircut) | `_SINGLE_SOURCE_VALUE_RETENTION`, `confidence.py` | Haircut multiplies value by 0.30 | Priors/intervals instead of haircut | LATER (methodology) | owner review | — | — | — |
+| V2-5 | Native value vs rank→Hill | Hill masters + `_VALUE_BASED_SOURCES` | Measured 2026-09-30 (KTC Crowd 14–45%, Trades 22–60% above Hill(own rank); IDPTC confounded by population) | Separate scale / population / disagreement | **NOW — Batch 2 Unit B** (read-only audit) | lane C; calibration only as a Hill Autopilot challenger | `claude/hill-alignment-audit` | pinned audit artifact + one recommendation | none (read-only) |
+| V2-6 | Confidence vs value (single-source haircut) | `_SINGLE_SOURCE_VALUE_RETENTION`, `confidence.py` | Haircut multiplies value by 0.30 | **Owner decision B:** the design principle "one family ⇒ 30% of the estimate" is rejected; express thin coverage as uncertainty | **NOW — Batch 2 Unit C** | Batch 2 decision B | `claude/joint-outlier-sparse-challenger` | as V2-3 | flag off = legacy |
 | V2-7 | Ingestion integrity | `dataset_integrity.py`, source health | existing health/coverage gates | not re-audited this batch | LATER | lane C | — | — | — |
-| V3 | BDVM formulas / semantics | `src/bdvm/` | documented below; leads a–d **verified** | (b) fixed now; (a) labels fixed now; (c)/(d) documented | **NOW** (b, a) / LATER | lane D (b), lane 6 (a) | `claude/bdvm-stale-timestamp-failclosed`, `claude/bdvm-truthful-labels` | RED→GREEN; UI tests | revert |
-| V3-S | Exact scoring coverage | `src/nfl_data/realized_points.py`, `league_intel/scorer.py` | unsupported keys (reception-distance, ST tackles, play-type first downs) score **0 silently** in BDVM projections | Explicit unsupported-key reporting | NEXT | lane D (#802/#854) | — | per-key test vs card | — |
-| V4 | Signals data integration (W1) | canonical source registry + `src/sources/*` | **Discovery done** (public); automated collection **permission-blocked** by Signals terms | Written consent; then adapter, real capture, stages 2–5 | BLOCKED (live) / NOW (design, fixtures) | new source onboarding → campaign lane C once consent exists | `docs/sources/SIGNALS_FANTASY_INTEGRATION.md` | stage gates in that doc | disabled by default |
+| V3 | BDVM formulas / semantics | `src/bdvm/` | leads a–d verified; (b) **MERGED + DEPLOYED** (#1563); (a) labels **MERGED + DEPLOYED** (#1564); (c)/(d) documented | (c)/(d) remain priors | DONE (b, a) / LATER (c, d) | lane D, lane 6 | #1563, #1564 | RED→GREEN; UI tests | revert |
+| V3-S | Exact scoring coverage | `src/bdvm/scoring.py`, `projections.py`, `service.py` | **Unsupported rules are now REPORTED** per player and in `meta.scoringCoverage` (#1566, deployed). Their projected contribution is still unavailable, and the omitted contribution may be positive or negative | Census, exact mappings where fields exist, capable feed for the rest | **NOW — Batch 2 Unit D** | lane D | `claude/bdvm-scoring-census` | pinned census; reporting-only tests | revert |
+| V4 | Signals data integration (W1) | canonical source registry + `src/sources/*` + #791 second opinions | **Permission resolved (owner-attested 2026-10-01).** Public boards accessible; paid surfaces need an owner session (access dependency) | Real capture, second opinion, then shadow eligibility | **NOW — Batch 2 Unit A** | Batch 2 decision A | `claude/signals-adapter` | real capture + replay + labelled second opinion; stage 4/5 need comparable native values | disabled by default |
 | V4-P | Signals product capabilities (W2) | #792, #838/#839/#840, draft/waiver/profile owners | capability matrix written | per-capability units | NEXT/LATER | per owning lane | same doc | per unit | — |
 | V5 | Point-in-time raw data + independent BDVM challenger | `src/history/`, `src/bdvm/` | BDVM universe = market board rows; priors uncalibrated | Baseline milestone (below) | LATER | owner-gated promotion | — | held-out evidence | — |
 | V6 | Own completed-trade market model | CE-01 ledger, `C4-MTL-*` | KTC trade DB lane unblocked by B | Ingestion then latent-price challenger | LATER | lane B/C when scheduled | — | time/league holdouts | — |
 | V7 | Three-part decision UX | #792 | Analyze Trade exists | separate fundamental/market/roster panels; no cross-scale subtraction | LATER | lane B + 6 | — | #792 acceptance | — |
 | V8 | Evaluation / release | this map + CI | — | targets defined before tuning | continuous | — | — | — | — |
-| UI | Value-type labels, honest states | Lane 6 | **NOW:** BDVM truthful labels | explanation/provenance UI once V2 contracts settle | NOW | lane 6 | `claude/bdvm-truthful-labels` | vitest + a11y; real-browser check pending | revert |
+| UI | Value-type labels, information age, scoring coverage, Signals second opinion | Lane 6 | BDVM truthful labels **MERGED + DEPLOYED** (#1564); real-browser check of private pages open | information-age explainer, BDVM partial-scoring notice, Signals second opinion | **NOW — Batch 2 Lane 6** | Batch 2 decision D | `claude/lane6-information-age` | component/contract tests, a11y, browser checks where access exists | revert |
 
 Dedupe (all verified **open** 2026-09-30, none reopened or duplicated): #785 TE premium
 (`F-VAL-01`/`C1-SRC-01`), #790 trade MC (`C3-MC-01`), #791 second opinions
@@ -134,15 +134,13 @@ rookies and sparse players reported separately. No third-party rank or value may
 
 ## F. Signals — summary (full record: `docs/sources/SIGNALS_FANTASY_INTEGRATION.md`)
 
-- **Does Signals affect canonical values now? No.** It is at activation stage 1
-  (discovered and characterized from public pages).
-- **Exact remaining gate:** Signals' **prior written consent for automated access and
-  extraction** (Terms, effective 2026-08-31), plus the owner's active subscription and an
-  owner-controlled session path.
-- After that: stage 2 (real authorized observations ingested and replayable), then the
-  existing source-promotion gates.
-- The public board is order-and-tier only. It is never presented as values or as the
-  league-adjusted product.
+- **Permission: resolved.** Owner-attested on 2026-10-01: *"I have explicit permission to use
+  signals how I see fit."* The 2026-09-30 permission request is superseded and was never sent.
+- **Access:** public boards are reachable without login. Paid, native-value and projection
+  surfaces need an owner-controlled session — an access dependency.
+- **Values:** Signals does not affect canonical values. The public boards are positional
+  rank + tier only, with no native scale, so they are ineligible to vote. Stage evidence is
+  in the Signals record §8 (Batch 2 Unit A).
 
 ## F2. Batch 1 outcomes (closed out 2026-10-01)
 
@@ -156,12 +154,29 @@ rookies and sparse players reported separately. No third-party rank or value may
 
 Production served values for these changes cannot be read without an owner login, so served-value effects are verified only on the pinned rebuild. The facts verified in production are the shipped commit identity and flag state. The census `meta.scoringCoverage` (#1566) on `/api/bdvm/values` will show which card rules the production projections leave unscored, once read with owner auth.
 
-## G. Next dependency-ready batch
+## G. Batch 2 (owner directive 2026-10-01) — units and claims
 
-1. ~~V2-1 cross-subset freshness correction~~ — DONE (#1565, production-verified).
-2. Hill / native-source alignment audit using `board.nativeVsHill` (lane C; Hill Autopilot gates).
-3. ~~Unsupported-scoring-key reporting~~ — DONE (#1566); next, read the production census and decide which rules need a play-by-play-capable projection source (lane D).
-4. Signals: send the prepared permission request (owner action); on consent, build the
-   adapter and fixtures, then do the first real capture.
-5. Lane 6: provenance/information-age display in the existing value explainer, once
-   V2-1/V2-2 settle the contract.
+| Unit | Scope | Branch | Gate |
+|---|---|---|---|
+| Records | permission recorded, stale status corrected, decisions A–E captured | `claude/batch2-records` | governance gates |
+| A | Signals real collection (public dynasty + IDP dynasty boards), identity, private archive, #791 second opinion | `claude/signals-adapter` | real capture; ingestion/privacy review |
+| B | Hill / native-source alignment audit (read-only), one recommendation | `claude/hill-alignment-audit` | pinned artifact; calibration only as a registry challenger |
+| C | Joint outlier / sparse-source challenger, disabled/shadow, legacy reproducible | `claude/joint-outlier-sparse-challenger` | full-board diagnostics; independent review; promotion needs candidate approval |
+| D | BDVM scoring census, sign-aware wording, exact mappings only where fields exist | `claude/bdvm-scoring-census` | pinned local census (no owner session) |
+| Lane 6 | information age + provenance in the value explainer; BDVM partial-scoring notice; Signals second opinion | `claude/lane6-information-age` | a11y, mobile parity, browser checks where access exists |
+| Integration | manual-deploy SHA pinning (owner decision C) | `claude/deploy-sha-pinning` | independent review; workflow tests |
+
+**Owner decisions recorded 2026-10-01:**
+- **(A)** Signals is built toward an active validated source; numeric participation goes
+  through promotion stages.
+- **(B)** Outlier handling and sparse confidence form one pipeline problem; one family does not
+  mean 30% of the estimate.
+- **(C)** Manual-deploy SHA pinning is approved.
+- **(D)** Lane 6 stays active in parallel.
+- **(E)** Bounded non-promotional units may be implemented, reviewed, merged and deployed
+  when gates pass. Candidate-specific approval for new canonical models/weights stays in
+  force.
+
+Kept in their existing backlog positions: V5 independent fundamentals, V6 completed-trade
+estimator, #792 three-part UX.
+
