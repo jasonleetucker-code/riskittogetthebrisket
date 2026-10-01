@@ -440,3 +440,14 @@ def test_main_reports_the_check(monkeypatch, capsys):
     monkeypatch.setattr(chk, "check", lambda env=None, **k: (2, "not checked"))
     assert chk.main([], env={}) == 2
     assert "not checked" in capsys.readouterr().out
+
+
+def test_the_lock_path_is_pinned_so_a_rename_cannot_reset_its_history():
+    """The history check walks one path and git rev-list does not follow renames:
+    moving the lock (and DEFAULT_LOCK_PATH with it) would start a fresh history
+    in which existing rows could be rewritten undetected.  Moving it is therefore
+    a deliberate act that must update this literal in the same change."""
+    from src.model_registry import feature_dictionary as fd
+
+    rel = fd.DEFAULT_LOCK_PATH.relative_to(fd.REPO).as_posix()
+    assert rel == "config/model_registry/feature_dictionary.lock.json"
