@@ -720,3 +720,23 @@ def test_unparsed_http_faults_are_transient_not_tracebacks(store):
     with pytest.raises(SA.SignalsAuthError) as exc:
         SA.renew(store, transport=broken)
     assert exc.value.failure_class == SA.TRANSIENT
+
+
+def test_a_full_disk_after_renewal_still_raises_the_classified_error(store, stub, monkeypatch):
+    SA.import_session(store, capture(access_exp=time.time() - 10))
+
+    def disk_full(*_a, **_k):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(SA.SignalsStore, "write_session", disk_full)
+    monkeypatch.setattr(SA.SignalsStore, "write_status", disk_full)
+    with pytest.raises(SA.SignalsAuthError) as exc:
+        SA.renew(store, endpoint=stub.url)
+    assert exc.value.reason == "persist_failed"
+
+
+def test_the_notice_path_never_creates_a_store(tmp_path):
+    missing = SA.SignalsStore(tmp_path / "never-provisioned")
+    r = SA.deliver_reconnect_notice(store=missing, delivery=None, to_email=None)
+    assert r["state"] == SA.STATE_NOT_CONNECTED
+    assert not (tmp_path / "never-provisioned").exists()

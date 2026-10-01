@@ -850,7 +850,8 @@ def renew(
             # Cognito answered but the new tokens could not be saved.  If the
             # refresh token rotated, the stored one is now spent: say so, so the
             # reconnect notice names the real cause.
-            record_failure(store, TRANSIENT, "persist_failed", now=now_fn())
+            with contextlib.suppress(OSError):  # disk full: the status write fails too
+                record_failure(store, TRANSIENT, "persist_failed", now=now_fn())
             raise SignalsAuthError(TRANSIENT, "persist_failed", type(exc).__name__) from exc
         _record_success(store, now=now_fn(), event="renewed")
         return renewed
@@ -993,11 +994,17 @@ def format_reconnect_notice(episode: dict[str, Any]) -> tuple[str, str]:
     return subject, body
 
 
+#: The notice path never waits long for the lock: a renewal holding it means
+#: "try again next sweep", not "block the caller" (review of #1577).
+NOTICE_LOCK_TIMEOUT_SECONDS = 2.0
+
+
 def deliver_reconnect_notice(
     *,
     store: SignalsStore | None = None,
     delivery: Callable[[str, str, str], bool] | None,
     to_email: str | None,
+    lock_timeout: float = NOTICE_LOCK_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     """Deliver at most ONE notice per open episode.  Never raises.
 
@@ -1009,13 +1016,17 @@ def deliver_reconnect_notice(
         store = store or SignalsStore.open()
     except (StorePathError, OSError) as exc:
         return {"state": "store_unavailable", "error": type(exc).__name__}
+    if not store.root.is_dir():
+        # Never provisioned here: nothing to notify, and the notice path must
+        # not create a store (or a lock file) as a side effect.
+        return {"state": STATE_NOT_CONNECTED, "pending": False}
     # Read under the lock, SEND outside it (a slow mailer must not block
     # renewal), then re-read under the lock and stamp only if the SAME episode
     # is still open.  Writing back the pre-send copy would resurrect a closed
     # episode after a reconnect/renewal and stop collection for good (review of
     # #1577).
     try:
-        with store.lock(DEFAULT_LOCK_TIMEOUT_SECONDS):
+        with store.lock(lock_timeout):
             st = store.read_status()
     except (SignalsAuthError, OSError) as exc:
         return {"state": "store_busy", "error": type(exc).__name__}
@@ -1034,7 +1045,7 @@ def deliver_reconnect_notice(
         except Exception:  # noqa: BLE001 - a mailer fault must never break the sweep
             delivered = False
     try:
-        with store.lock(DEFAULT_LOCK_TIMEOUT_SECONDS):
+        with store.lock(lock_timeout):
             current = store.read_status()
             live = current.get("episode") or {}
             if live.get("id") != episode_id:

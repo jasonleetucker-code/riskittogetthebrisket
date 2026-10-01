@@ -202,8 +202,11 @@ stays unknown until it ends.
 **A renewal that cannot be saved.** If Cognito answers but the new tokens cannot
 be written (disk full, process killed between the response and the save), a
 ROTATED refresh token is lost and the next renewal fails as reused. No code can
-fully prevent that window. A failed save is recorded as `persist_failed`, so the
-reconnect notice names the real cause instead of looking like a revocation.
+fully prevent that window. The renewal reports `persist_failed` (and records it in
+the status file when the disk allows), but the NEXT renewal then fails as
+`refresh_token_reused`, and that is the reason the reconnect notice will show.
+If a notice says the token was reused, check the box's disk and journal for a
+`persist_failed` renewal first.
 
 - **How long it lasts.** Unattended access lasts as long as the Signals app client's
   refresh-token validity, which is configured by Signals and not observable here. Cognito

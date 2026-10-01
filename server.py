@@ -15288,7 +15288,9 @@ async def run_signal_alerts(request: Request):
     try:
         from src.sources import signals_auth as _signals_auth
 
-        result["signalsAuthNotice"] = _signals_auth.deliver_reconnect_notice(
+        # Off the event loop: it takes a file lock and may send SMTP.
+        result["signalsAuthNotice"] = await run_in_threadpool(
+            _signals_auth.deliver_reconnect_notice,
             delivery=_deliver_email_smtp if ALERT_TO else None,
             to_email=ALERT_TO or None,
         )
