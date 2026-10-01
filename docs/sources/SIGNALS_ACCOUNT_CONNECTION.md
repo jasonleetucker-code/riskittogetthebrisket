@@ -199,6 +199,12 @@ stays unknown until it ends.
 
 ## 7. Limitation on unattended access
 
+**A renewal that cannot be saved.** If Cognito answers but the new tokens cannot
+be written (disk full, process killed between the response and the save), a
+ROTATED refresh token is lost and the next renewal fails as reused. No code can
+fully prevent that window. A failed save is recorded as `persist_failed`, so the
+reconnect notice names the real cause instead of looking like a revocation.
+
 - **How long it lasts.** Unattended access lasts as long as the Signals app client's
   refresh-token validity, which is configured by Signals and not observable here. Cognito
   allows 1 hour to 10 years, and its default is 30 days.

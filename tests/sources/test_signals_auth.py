@@ -625,8 +625,8 @@ def test_provision_sends_the_session_on_stdin_only(tmp_path, monkeypatch):
     assert rc == 0
     assert secret.encode() in seen["input"]
     assert all(secret not in part for part in seen["cmd"])
-    assert seen["cmd"][:3] == ["ssh", "-o", "BatchMode=yes"] and seen["cmd"][3] == "chaseupside"
-    assert "import-session" in seen["cmd"][4] and "sudo -n -u dynasty" in seen["cmd"][4]
+    assert seen["cmd"][:5] == ["ssh", "-o", "BatchMode=yes", "--", "chaseupside"]
+    assert "import-session" in seen["cmd"][5] and "sudo -n -u dynasty" in seen["cmd"][5]
     # the box becomes the one renewal owner: local copy removed, NOT revoked
     assert SA.SignalsStore(local).read_session() is None
 
@@ -635,3 +635,88 @@ def test_cli_connect_help():
     r = _cli("connect", "--help")
     assert r.returncode == 0
     assert b"--dry-run" in r.stdout
+
+
+# ── review of #1577 ─────────────────────────────────────────────────────────
+
+
+def _connect_module():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "signals_connect_rev", REPO / "scripts" / "signals_connect.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_a_session_from_another_user_pool_or_client_is_refused(store):
+    foreign = capture(access_exp=time.time() + 3600)
+    foreign["accessToken"] = make_jwt(
+        exp=time.time() + 3600,
+        iss="https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_Other",
+    )
+    with pytest.raises(SA.SignalsAuthError) as exc:
+        SA.import_session(store, foreign)
+    assert exc.value.reason == "capture_foreign_user_pool"
+    assert store.read_session() is None
+
+
+def test_capture_is_taken_only_on_the_signals_origin():
+    mod = _connect_module()
+    assert mod._on_signals_origin("https://webapp.signalsfantasy.com/dashboard")
+    assert not mod._on_signals_origin("https://evil.example/webapp.signalsfantasy.com")
+    assert not mod._on_signals_origin("http://webapp.signalsfantasy.com/")
+
+
+@pytest.mark.parametrize("host", ["-oProxyCommand=calc", "a b", "host;rm", ""])
+def test_provision_refuses_option_like_or_odd_hosts(tmp_path, host):
+    mod = _connect_module()
+    args = mod.build_parser().parse_args(
+        ["--store-dir", str(tmp_path / "s"), "provision", f"--host={host}"]
+    )
+    with pytest.raises(SystemExit):
+        mod.remote_import_command(args)
+
+
+def test_a_reconnect_during_notice_delivery_is_not_undone(store, stub):
+    SA.import_session(store, capture(access_exp=time.time() - 10, refresh="synthetic-refresh-dead"))
+    with pytest.raises(SA.SignalsAuthError):
+        SA.renew(store, endpoint=stub.url)
+    assert SA.status(store)["state"] == SA.RECONNECT_REQUIRED
+
+    def mailer_that_races_a_reconnect(*_a):
+        # The owner reconnects while the email is being sent.
+        SA.import_session(store, capture(access_exp=time.time() + 3600, refresh="synthetic-new"))
+        return True
+
+    r = SA.deliver_reconnect_notice(
+        store=store, delivery=mailer_that_races_a_reconnect, to_email="ops@example.invalid"
+    )
+    assert r.get("episodeClosedDuringSend") is True
+    assert SA.status(store)["state"] != SA.RECONNECT_REQUIRED
+
+
+def test_renew_for_retry_forces_one_attempt_but_honours_a_stop(store, stub):
+    SA.import_session(store, capture(access_exp=time.time() + 3600))
+    before = len(stub.calls)
+    SA.renew_for_retry(store, endpoint=stub.url)  # fresh token, still one real call
+    assert len(stub.calls) == before + 1
+    SA.record_failure(store, SA.RECONNECT_REQUIRED, "refresh_token_revoked", now=time.time())
+    with pytest.raises(SA.SignalsAuthError):
+        SA.renew_for_retry(store, endpoint=stub.url)
+    assert len(stub.calls) == before + 1  # refused without a network call
+
+
+def test_unparsed_http_faults_are_transient_not_tracebacks(store):
+    import http.client
+
+    SA.import_session(store, capture(access_exp=time.time() - 10))
+
+    def broken(*_a, **_k):
+        raise http.client.IncompleteRead(b"")
+
+    with pytest.raises(SA.SignalsAuthError) as exc:
+        SA.renew(store, transport=broken)
+    assert exc.value.failure_class == SA.TRANSIENT

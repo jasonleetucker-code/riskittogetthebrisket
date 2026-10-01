@@ -30,10 +30,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shlex
 import subprocess
 import sys
 import time
+import urllib.parse
 from pathlib import Path
 from typing import Any
 
@@ -163,7 +165,7 @@ def capture_via_browser(
                     captured = page.evaluate(_EXTRACT_JS, SA.AMPLIFY_KEY_PREFIX)
                 except Exception:  # noqa: BLE001 - navigation in progress
                     captured = None
-                if captured:
+                if captured and _on_signals_origin(page.url):
                     return captured
                 page.wait_for_timeout(1500)
             print("Timed out waiting for sign-in. Nothing was stored.")
@@ -242,7 +244,15 @@ def cmd_disconnect(args: argparse.Namespace) -> int:
     return 0
 
 
+def _on_signals_origin(url: str) -> bool:
+    """Capture only while the tab is on the Signals web app itself."""
+    parts = urllib.parse.urlsplit(url or "")
+    return f"{parts.scheme}://{parts.netloc}".lower() == SA.WEBAPP_ORIGIN
+
+
 # ── provisioning ────────────────────────────────────────────────────────────
+
+_SSH_HOST = re.compile(r"[A-Za-z0-9._@-]+")
 
 
 def remote_import_command(args: argparse.Namespace) -> list[str]:
@@ -259,7 +269,9 @@ def remote_import_command(args: argparse.Namespace) -> list[str]:
     if args.sudo_user:
         # Single-quoted so $(id -un) expands as the TARGET user, not the SSH user.
         inner = f"sudo -n -u {q(args.sudo_user)} sh -c {q(inner)}"
-    return ["ssh", "-o", "BatchMode=yes", args.host, inner]
+    if not _SSH_HOST.fullmatch(args.host or "") or args.host.startswith("-"):
+        raise SystemExit(f"refusing --host {args.host!r}: expected an SSH alias or user@host")
+    return ["ssh", "-o", "BatchMode=yes", "--", args.host, inner]
 
 
 def cmd_provision(args: argparse.Namespace) -> int:

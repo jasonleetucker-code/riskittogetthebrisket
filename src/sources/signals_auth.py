@@ -57,6 +57,7 @@ from __future__ import annotations
 import base64
 import contextlib
 import hashlib
+import http.client
 import json
 import os
 import re
@@ -64,6 +65,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+import warnings
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -97,7 +99,8 @@ __all__ = [
 
 #: Where the owner signs in.  The login form is served at the app root.
 WEBAPP_ORIGIN = "https://webapp.signalsfantasy.com"
-#: Shipped Amplify outputs.  Used to VALIDATE a capture, never to mint tokens.
+#: Shipped Amplify outputs.  ENFORCED on every capture (``build_session``): a
+#: session from any other pool or client is refused.  Never used to mint tokens.
 EXPECTED_REGION = "us-east-2"
 EXPECTED_USER_POOL_ID = "us-east-2_Zqml90OCW"
 EXPECTED_CLIENT_ID = "7ud6sc23s8g3td1h5bfho9mua4"
@@ -323,7 +326,15 @@ def default_store_dir() -> Path:
 def resolve_store_dir(explicit: str | os.PathLike[str] | None = None) -> Path:
     """Explicit argument → ``$RISKIT_SIGNALS_AUTH_DIR`` → per-OS default."""
     raw = explicit or os.environ.get(AUTH_DIR_ENV) or default_store_dir()
-    return validate_store_dir(Path(raw))
+    path = validate_store_dir(Path(raw))
+    local = os.environ.get("LOCALAPPDATA")
+    if os.name == "nt" and local and not _is_within(path, Path(local).resolve()):
+        warnings.warn(
+            f"Signals session store {path} is outside %LOCALAPPDATA%; its ACLs are not "
+            "checked on Windows -- make sure it is private to this user.",
+            stacklevel=2,
+        )
+    return path
 
 
 # ── Store ───────────────────────────────────────────────────────────────────
@@ -488,7 +499,12 @@ class SignalsStore:
 _DEVICE_KEYS = ("deviceKey", "deviceGroupKey", "randomPasswordKey")
 
 
-def build_session(captured: dict[str, Any], *, now: float | None = None) -> dict[str, Any]:
+def build_session(
+    captured: dict[str, Any],
+    *,
+    now: float | None = None,
+    allow_foreign_pool: bool = False,
+) -> dict[str, Any]:
     """Validate a raw Amplify capture and build the stored session.
 
     ``captured`` is ``{"clientId", "username", "accessToken", "idToken",
@@ -510,6 +526,14 @@ def build_session(captured: dict[str, Any], *, now: float | None = None) -> dict
     if client_id and claims.get("client_id") and claims["client_id"] != client_id:
         raise SignalsAuthError(RECONNECT_REQUIRED, "capture_client_mismatch")
     _endpoint, region, pool = cognito_endpoint_for(access)
+    # Only SIGNALS' session is accepted: the token must come from the pool and
+    # app client Signals' own shipped config names (review of #1577 -- any
+    # Cognito session used to pass).  ``allow_foreign_pool`` exists for tests.
+    if not allow_foreign_pool:
+        if pool != EXPECTED_USER_POOL_ID:
+            raise SignalsAuthError(RECONNECT_REQUIRED, "capture_foreign_user_pool")
+        if (client_id or claims.get("client_id")) != EXPECTED_CLIENT_ID:
+            raise SignalsAuthError(RECONNECT_REQUIRED, "capture_foreign_client")
     device = {k: captured[k] for k in _DEVICE_KEYS if captured.get(k)}
     return {
         "schemaVersion": SCHEMA_VERSION,
@@ -732,7 +756,7 @@ def _call_refresh(
             code, payload, headers = transport(
                 url, "GetTokensFromRefreshToken", body, HTTP_TIMEOUT_SECONDS
             )
-        except (OSError, urllib.error.URLError) as exc:
+        except (OSError, urllib.error.URLError, http.client.HTTPException) as exc:
             last = (TRANSIENT, f"network_{type(exc).__name__}")
             code, payload, headers = 0, {}, {}
         else:
@@ -782,8 +806,13 @@ def renew(
     endpoint: str | None = None,
     lock_timeout: float = DEFAULT_LOCK_TIMEOUT_SECONDS,
     now_fn: Callable[[], float] = time.time,
+    honor_stop: bool | None = None,
 ) -> dict[str, Any]:
     """Renew under the lock if due (or ``force``).  Returns the session.
+
+    ``honor_stop`` (default: ``not force``) decides whether an open stopping
+    episode refuses the call.  The owner's CLI ``renew --force`` bypasses it on
+    purpose; :func:`renew_for_retry` forces one attempt but still honours it.
 
     Short-circuits WITHOUT a network call while a stopping episode is open —
     a dead refresh token is not retried in a loop, and nothing here can send a
@@ -795,7 +824,9 @@ def renew(
         if session is None:
             raise SignalsAuthError(RECONNECT_REQUIRED, "not_connected")
         st = store.read_status()
-        if not force and st.get("state") in STOPPING_CLASSES:
+        if (not force if honor_stop is None else honor_stop) and st.get(
+            "state"
+        ) in STOPPING_CLASSES:
             episode = st.get("episode") or {}
             raise SignalsAuthError(
                 st["state"], str(episode.get("reason") or "episode_open"), "stopped; owner action"
@@ -813,9 +844,23 @@ def renew(
                 return session  # early renewal failed; the current token still works
             raise
         renewed = _apply_refresh(session, result, now=now_fn())
-        store.write_session(renewed)
+        try:
+            store.write_session(renewed)
+        except OSError as exc:
+            # Cognito answered but the new tokens could not be saved.  If the
+            # refresh token rotated, the stored one is now spent: say so, so the
+            # reconnect notice names the real cause.
+            record_failure(store, TRANSIENT, "persist_failed", now=now_fn())
+            raise SignalsAuthError(TRANSIENT, "persist_failed", type(exc).__name__) from exc
         _record_success(store, now=now_fn(), event="renewed")
         return renewed
+
+
+def renew_for_retry(store: SignalsStore, **kwargs: Any) -> dict[str, Any]:
+    """Exactly one fresh renewal for a 401/403 retry -- even while the
+    current access token still looks fresh -- that still refuses during an open
+    stopping episode.  Pairs with ``classify_data_response``."""
+    return renew(store, force=True, honor_stop=True, **kwargs)
 
 
 def get_access_token(
@@ -964,12 +1009,22 @@ def deliver_reconnect_notice(
         store = store or SignalsStore.open()
     except (StorePathError, OSError) as exc:
         return {"state": "store_unavailable", "error": type(exc).__name__}
-    st = store.read_status()
+    # Read under the lock, SEND outside it (a slow mailer must not block
+    # renewal), then re-read under the lock and stamp only if the SAME episode
+    # is still open.  Writing back the pre-send copy would resurrect a closed
+    # episode after a reconnect/renewal and stop collection for good (review of
+    # #1577).
+    try:
+        with store.lock(DEFAULT_LOCK_TIMEOUT_SECONDS):
+            st = store.read_status()
+    except (SignalsAuthError, OSError) as exc:
+        return {"state": "store_busy", "error": type(exc).__name__}
     episode = st.get("episode")
     if not episode:
         return {"state": st.get("state") or STATE_NOT_CONNECTED, "pending": False}
     if episode.get("noticeDeliveredAt"):
         return {"state": st.get("state"), "pending": False, "episode": episode.get("id")}
+    episode_id = episode.get("id")
     configured = delivery is not None and bool(to_email)
     delivered = False
     if configured:
@@ -978,16 +1033,38 @@ def deliver_reconnect_notice(
             delivered = bool(delivery(to_email, subject, body))
         except Exception:  # noqa: BLE001 - a mailer fault must never break the sweep
             delivered = False
-    episode["noticeAttempts"] = int(episode.get("noticeAttempts") or 0) + (1 if configured else 0)
-    if delivered:
-        episode["noticeDeliveredAt"] = _utc_iso(time.time())
-    st["episode"] = episode
-    with contextlib.suppress(OSError):
-        store.write_status(st)
+    try:
+        with store.lock(DEFAULT_LOCK_TIMEOUT_SECONDS):
+            current = store.read_status()
+            live = current.get("episode") or {}
+            if live.get("id") != episode_id:
+                # Closed (or replaced) while we were sending: change nothing.
+                return {
+                    "state": current.get("state"),
+                    "pending": False,
+                    "delivered": delivered,
+                    "deliveryConfigured": configured,
+                    "episode": episode_id,
+                    "episodeClosedDuringSend": True,
+                }
+            live["noticeAttempts"] = int(live.get("noticeAttempts") or 0) + (1 if configured else 0)
+            if delivered:
+                live["noticeDeliveredAt"] = _utc_iso(time.time())
+            current["episode"] = live
+            store.write_status(current)
+    except (SignalsAuthError, OSError) as exc:
+        # Delivered but not stamped: the next sweep would send again -- make
+        # that visible rather than silent.
+        return {
+            "state": "stamp_failed",
+            "delivered": delivered,
+            "episode": episode_id,
+            "error": type(exc).__name__,
+        }
     return {
-        "state": st.get("state"),
+        "state": current.get("state"),
         "pending": not delivered,
         "delivered": delivered,
         "deliveryConfigured": configured,
-        "episode": episode.get("id"),
+        "episode": episode_id,
     }

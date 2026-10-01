@@ -25,7 +25,16 @@ Type=oneshot
 User=__APP_USER__
 Group=__APP_USER__
 WorkingDirectory=__APP_DIR__
-EnvironmentFile=-__APP_DIR__/.env
+# Least privilege (review of #1577): no .env -- this job needs no app secret,
+# only where the session lives.  It launches no browser, so the usual Chromium
+# sandbox exemption does not apply.  The store is the only writable path
+# ("-" = fine while it does not exist yet: read_session() then no-ops).
+Environment=RISKIT_SIGNALS_AUTH_DIR=/var/lib/signals-auth
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=-/var/lib/signals-auth
 ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/signals_connect.py renew
 StandardOutput=journal
 StandardError=journal
