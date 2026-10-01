@@ -66,7 +66,7 @@ import time
 import urllib.error
 import urllib.request
 import warnings
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -999,19 +999,46 @@ def format_reconnect_notice(episode: dict[str, Any]) -> tuple[str, str]:
 NOTICE_LOCK_TIMEOUT_SECONDS = 2.0
 
 
+#: A sender claims the episode under the lock before sending, so the renewal
+#: timer and the daily sweep can never both send for one episode.  A claim
+#: older than this is considered abandoned (the claimant crashed mid-send).
+NOTICE_CLAIM_TTL_SECONDS = 120.0
+
+#: ``(subject, body) -> delivered``.  Order is preference: the first channel
+#: that delivers ends the episode's notification (fallback, never fan-out).
+NoticeChannel = Callable[[str, str], bool]
+
+
 def deliver_reconnect_notice(
     *,
     store: SignalsStore | None = None,
-    delivery: Callable[[str, str, str], bool] | None,
-    to_email: str | None,
+    channels: Sequence[tuple[str, NoticeChannel | None]] | None = None,
+    delivery: Callable[[str, str, str], bool] | None = None,
+    to_email: str | None = None,
     lock_timeout: float = NOTICE_LOCK_TIMEOUT_SECONDS,
+    now_fn: Callable[[], float] = time.time,
 ) -> dict[str, Any]:
     """Deliver at most ONE notice per open episode.  Never raises.
 
-    ``noticeDeliveredAt`` is stamped only after a delivery succeeded, so an
-    unconfigured mailer does not silently consume the episode (same rule as
-    ``src/api/ops_alerts.py`` audit F-20).
+    ``channels`` are tried in order -- the owner's ntfy webhook first, SMTP as
+    fallback -- and the first success stamps ``noticeDeliveredAt`` and
+    ``noticeDeliveredVia``; no other channel is tried for that episode.  A
+    channel that is ``None`` is unconfigured and skipped.  ``delivery`` +
+    ``to_email`` is the legacy SMTP-only form and becomes one ``email`` channel.
+
+    The stamp is written only after a delivery succeeded, so an unconfigured or
+    unreachable channel never silently consumes the episode (same rule as
+    ``src/api/ops_alerts.py`` audit F-20) -- it is retried by the next caller.
+    The episode is CLAIMED under the lock before sending, so two concurrent
+    callers (renewal timer + daily sweep) cannot both send.  Only a reconnect or
+    a successful renewal closes the episode; a later, independent failure opens
+    a new one, which may notify again.
     """
+    chans: list[tuple[str, NoticeChannel]] = [
+        (name, fn) for name, fn in (channels or []) if fn is not None
+    ]
+    if delivery is not None and to_email:
+        chans.append(("email", lambda subj, body: delivery(to_email, subj, body)))
     try:
         store = store or SignalsStore.open()
     except (StorePathError, OSError) as exc:
@@ -1020,30 +1047,56 @@ def deliver_reconnect_notice(
         # Never provisioned here: nothing to notify, and the notice path must
         # not create a store (or a lock file) as a side effect.
         return {"state": STATE_NOT_CONNECTED, "pending": False}
-    # Read under the lock, SEND outside it (a slow mailer must not block
+    claim = f"{os.getpid()}-{time.monotonic_ns()}"
+    # Claim under the lock, SEND outside it (a slow channel must not block
     # renewal), then re-read under the lock and stamp only if the SAME episode
-    # is still open.  Writing back the pre-send copy would resurrect a closed
-    # episode after a reconnect/renewal and stop collection for good (review of
-    # #1577).
+    # is still open and still ours.  Writing back a pre-send copy would
+    # resurrect a closed episode after a reconnect (review of #1577).
     try:
         with store.lock(lock_timeout):
             st = store.read_status()
+            episode = st.get("episode")
+            if not episode:
+                return {"state": st.get("state") or STATE_NOT_CONNECTED, "pending": False}
+            if episode.get("noticeDeliveredAt"):
+                return {"state": st.get("state"), "pending": False, "episode": episode.get("id")}
+            if not chans:
+                return {
+                    "state": st.get("state"),
+                    "pending": True,
+                    "delivered": False,
+                    "deliveryConfigured": False,
+                    "episode": episode.get("id"),
+                }
+            held = episode.get("noticeClaim") or {}
+            held_at = held.get("at")
+            if held_at is not None and now_fn() - float(held_at) < NOTICE_CLAIM_TTL_SECONDS:
+                return {
+                    "state": st.get("state"),
+                    "pending": True,
+                    "delivered": False,
+                    "claimedElsewhere": True,
+                    "episode": episode.get("id"),
+                }
+            episode["noticeClaim"] = {"id": claim, "at": now_fn()}
+            st["episode"] = episode
+            store.write_status(st)
     except (SignalsAuthError, OSError) as exc:
         return {"state": "store_busy", "error": type(exc).__name__}
-    episode = st.get("episode")
-    if not episode:
-        return {"state": st.get("state") or STATE_NOT_CONNECTED, "pending": False}
-    if episode.get("noticeDeliveredAt"):
-        return {"state": st.get("state"), "pending": False, "episode": episode.get("id")}
     episode_id = episode.get("id")
-    configured = delivery is not None and bool(to_email)
-    delivered = False
-    if configured:
-        subject, body = format_reconnect_notice(episode)
+    subject, body = format_reconnect_notice(episode)
+    delivered_via: str | None = None
+    attempted: list[str] = []
+    for name, fn in chans:
+        attempted.append(name)
         try:
-            delivered = bool(delivery(to_email, subject, body))
-        except Exception:  # noqa: BLE001 - a mailer fault must never break the sweep
-            delivered = False
+            ok = bool(fn(subject, body))
+        except Exception:  # noqa: BLE001 - a channel fault must never break the caller
+            ok = False
+        if ok:
+            delivered_via = name
+            break
+    delivered = delivered_via is not None
     try:
         with store.lock(lock_timeout):
             current = store.read_status()
@@ -1054,21 +1107,30 @@ def deliver_reconnect_notice(
                     "state": current.get("state"),
                     "pending": False,
                     "delivered": delivered,
-                    "deliveryConfigured": configured,
+                    "deliveredVia": delivered_via,
+                    "deliveryConfigured": True,
                     "episode": episode_id,
                     "episodeClosedDuringSend": True,
                 }
-            live["noticeAttempts"] = int(live.get("noticeAttempts") or 0) + (1 if configured else 0)
+            live["noticeAttempts"] = int(live.get("noticeAttempts") or 0) + 1
+            attempts = dict(live.get("noticeChannelAttempts") or {})
+            for name in attempted:
+                attempts[name] = int(attempts.get(name) or 0) + 1
+            live["noticeChannelAttempts"] = attempts
+            if (live.get("noticeClaim") or {}).get("id") == claim:
+                live.pop("noticeClaim", None)
             if delivered:
-                live["noticeDeliveredAt"] = _utc_iso(time.time())
+                live["noticeDeliveredAt"] = _utc_iso(now_fn())
+                live["noticeDeliveredVia"] = delivered_via
             current["episode"] = live
             store.write_status(current)
     except (SignalsAuthError, OSError) as exc:
-        # Delivered but not stamped: the next sweep would send again -- make
-        # that visible rather than silent.
+        # Delivered but not stamped: the claim expires and a later caller may
+        # send again -- make that visible rather than silent.
         return {
             "state": "stamp_failed",
             "delivered": delivered,
+            "deliveredVia": delivered_via,
             "episode": episode_id,
             "error": type(exc).__name__,
         }
@@ -1076,6 +1138,8 @@ def deliver_reconnect_notice(
         "state": current.get("state"),
         "pending": not delivered,
         "delivered": delivered,
-        "deliveryConfigured": configured,
+        "deliveredVia": delivered_via,
+        "channelsAttempted": attempted,
+        "deliveryConfigured": True,
         "episode": episode_id,
     }

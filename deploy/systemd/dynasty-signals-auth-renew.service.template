@@ -30,6 +30,8 @@ WorkingDirectory=__APP_DIR__
 # sandbox exemption does not apply.  The store is the only writable path
 # ("-" = fine while it does not exist yet: read_session() then no-ops).
 Environment=RISKIT_SIGNALS_AUTH_DIR=/var/lib/signals-auth
+# Prompt owner push on a stop: add NOTIFY_WEBHOOK_URL (the uptime probe's ntfy
+# topic) with `systemctl edit` -- never committed here, it is a private topic.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict

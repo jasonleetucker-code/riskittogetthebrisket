@@ -15288,9 +15288,14 @@ async def run_signal_alerts(request: Request):
     try:
         from src.sources import signals_auth as _signals_auth
 
-        # Off the event loop: it takes a file lock and may send SMTP.
+        from src.utils import owner_notify as _owner_notify
+
+        # Off the event loop: it takes a file lock and may send ntfy/SMTP.
+        # The owner's ntfy webhook (NOTIFY_WEBHOOK_URL, the same path the uptime
+        # probe uses) first; SMTP only as fallback.  One notice per episode.
         result["signalsAuthNotice"] = await run_in_threadpool(
             _signals_auth.deliver_reconnect_notice,
+            channels=[("ntfy", _owner_notify.channel())],
             delivery=_deliver_email_smtp if ALERT_TO else None,
             to_email=ALERT_TO or None,
         )

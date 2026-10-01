@@ -740,3 +740,151 @@ def test_the_notice_path_never_creates_a_store(tmp_path):
     r = SA.deliver_reconnect_notice(store=missing, delivery=None, to_email=None)
     assert r["state"] == SA.STATE_NOT_CONNECTED
     assert not (tmp_path / "never-provisioned").exists()
+
+
+# ── ntfy reconnect alerts (owner directive 2026-10-01) ──────────────────────
+
+
+class CountingChannel:
+    """A notice channel that records each delivery attempt."""
+
+    def __init__(self, results=(True,)):
+        self.sent: list[tuple[str, str]] = []
+        self._results = list(results)
+
+    def __call__(self, subject, body):
+        self.sent.append((subject, body))
+        return self._results.pop(0) if self._results else True
+
+
+def _stop(store, stub):
+    SA.import_session(store, capture(access_exp=time.time() - 10, refresh="synthetic-refresh-dead"))
+    with pytest.raises(SA.SignalsAuthError):
+        SA.renew(store, endpoint=stub.url)
+    assert SA.status(store)["state"] == SA.RECONNECT_REQUIRED
+
+
+def test_one_episode_produces_at_most_one_ntfy_alert(store, stub):
+    _stop(store, stub)
+    ntfy, email = CountingChannel(), CountingChannel()
+    first = SA.deliver_reconnect_notice(store=store, channels=[("ntfy", ntfy), ("email", email)])
+    assert first["delivered"] is True and first["deliveredVia"] == "ntfy"
+    # Renewal runs and daily sweeps keep calling: no second alert on any channel.
+    for _ in range(5):
+        with pytest.raises(SA.SignalsAuthError):
+            SA.renew(store, endpoint=stub.url)
+        SA.deliver_reconnect_notice(store=store, channels=[("ntfy", ntfy), ("email", email)])
+    assert len(ntfy.sent) == 1
+    assert email.sent == []  # SMTP is a fallback, not a second notice
+
+
+def test_ntfy_down_falls_back_to_email_and_still_one_notice(store, stub):
+    _stop(store, stub)
+    ntfy, email = CountingChannel(results=(False,)), CountingChannel()
+    r = SA.deliver_reconnect_notice(store=store, channels=[("ntfy", ntfy), ("email", email)])
+    assert r["deliveredVia"] == "email" and len(email.sent) == 1
+    SA.deliver_reconnect_notice(store=store, channels=[("ntfy", ntfy), ("email", email)])
+    assert len(ntfy.sent) == 1 and len(email.sent) == 1
+
+
+def test_an_unreachable_ntfy_does_not_use_up_the_episode_or_raise(store, stub):
+    _stop(store, stub)
+
+    def raising(_s, _b):
+        raise TimeoutError("ntfy unreachable")
+
+    r = SA.deliver_reconnect_notice(store=store, channels=[("ntfy", raising)])
+    assert r["pending"] is True and r["delivered"] is False
+    later = CountingChannel()
+    r = SA.deliver_reconnect_notice(store=store, channels=[("ntfy", later)])
+    assert r["delivered"] is True and len(later.sent) == 1
+
+
+def test_concurrent_senders_cannot_both_alert(store, stub):
+    _stop(store, stub)
+    inner_results: list[dict] = []
+    outer = CountingChannel()
+    inner = CountingChannel()
+
+    def outer_channel(subject, body):
+        # While this sender is mid-send, another process (the sweep) tries too.
+        inner_results.append(SA.deliver_reconnect_notice(store=store, channels=[("ntfy", inner)]))
+        return outer(subject, body)
+
+    SA.deliver_reconnect_notice(store=store, channels=[("ntfy", outer_channel)])
+    assert inner_results[0].get("claimedElsewhere") is True
+    assert len(outer.sent) == 1 and inner.sent == []
+
+
+def test_reconnect_closes_the_episode_so_a_new_failure_alerts_again(store, stub):
+    _stop(store, stub)
+    ntfy = CountingChannel()
+    SA.deliver_reconnect_notice(store=store, channels=[("ntfy", ntfy)])
+    assert len(ntfy.sent) == 1
+    # Owner reconnects: episode closed, nothing pending, no alert.
+    SA.import_session(store, capture(access_exp=time.time() + 3600, refresh="synthetic-fresh"))
+    assert SA.status(store)["state"] != SA.RECONNECT_REQUIRED
+    r = SA.deliver_reconnect_notice(store=store, channels=[("ntfy", ntfy)])
+    assert r["pending"] is False and len(ntfy.sent) == 1
+    # A later, independent failure opens a NEW episode, which may alert once.
+    time.sleep(0.01)
+    SA.record_failure(store, SA.RECONNECT_REQUIRED, "refresh_token_revoked", now=time.time())
+    r = SA.deliver_reconnect_notice(store=store, channels=[("ntfy", ntfy)])
+    assert r["delivered"] is True and len(ntfy.sent) == 2
+    SA.deliver_reconnect_notice(store=store, channels=[("ntfy", ntfy)])
+    assert len(ntfy.sent) == 2
+
+
+def test_the_ntfy_alert_carries_no_secret_or_fingerprint(store, stub):
+    SA.import_session(store, capture(access_exp=time.time() - 10, refresh="synthetic-refresh-dead"))
+    session = store.read_session()
+    with pytest.raises(SA.SignalsAuthError):
+        SA.renew(store, endpoint=stub.url)
+    ntfy = CountingChannel()
+    SA.deliver_reconnect_notice(store=store, channels=[("ntfy", ntfy)])
+    subject, body = ntfy.sent[0]
+    for secret in _secrets(session):
+        assert secret not in subject and secret not in body
+        fp = SA.fingerprint(secret)
+        assert fp is None or (fp not in subject and fp not in body)
+
+
+def test_connect_never_waits_on_or_calls_a_notifier(store, monkeypatch):
+    from src.utils import owner_notify
+
+    def boom(*_a, **_k):
+        raise AssertionError("connect must not contact a notifier")
+
+    monkeypatch.setenv(owner_notify.WEBHOOK_ENV, "https://ntfy.example/t")
+    monkeypatch.setattr(owner_notify, "_urllib_transport", boom)
+    SA.import_session(store, capture(access_exp=time.time() + 3600))
+    assert SA.status(store)["state"] == SA.STATE_HEALTHY
+
+
+def test_the_renewal_run_sends_one_prompt_ntfy_alert(tmp_path, monkeypatch):
+    from src.utils import owner_notify
+
+    mod = _connect_module()
+    store_dir = tmp_path / "box-store"
+    SA.import_session(
+        SA.SignalsStore(store_dir),
+        capture(access_exp=time.time() - 10, refresh="synthetic-refresh-dead"),
+    )
+
+    def revoked(url, target, body, timeout):
+        return (
+            400,
+            {"__type": "NotAuthorizedException", "message": "Refresh Token has been revoked"},
+            {},
+        )
+
+    pushes: list[tuple] = []
+    monkeypatch.setattr(SA, "_urllib_transport", revoked)
+    monkeypatch.setenv(owner_notify.WEBHOOK_ENV, "https://ntfy.example/private-topic")
+    monkeypatch.setattr(owner_notify, "_urllib_transport", lambda *a: pushes.append(a) or 200)
+    assert mod.main(["--store-dir", str(store_dir), "renew"]) == 2
+    assert len(pushes) == 1
+    # Every later timer run while the episode is open: no further push.
+    for _ in range(3):
+        mod.main(["--store-dir", str(store_dir), "renew"])
+    assert len(pushes) == 1

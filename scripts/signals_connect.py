@@ -224,7 +224,24 @@ def cmd_renew(args: argparse.Namespace) -> int:
     try:
         SA.renew(store, force=args.force, skew_seconds=args.skew)
     except SA.SignalsAuthError as exc:
-        _print({"state": exc.failure_class, "reason": exc.reason, "status": SA.status(store)})
+        notice = None
+        if exc.failure_class != SA.TRANSIENT:
+            # Prompt owner push the moment collection stops (the daily sweep is
+            # the backstop and adds SMTP).  Runs after renew() released the
+            # lock; best effort -- an unreachable ntfy never fails this run.
+            from src.utils import owner_notify  # noqa: PLC0415
+
+            notice = SA.deliver_reconnect_notice(
+                store=store, channels=[("ntfy", owner_notify.channel())]
+            )
+        _print(
+            {
+                "state": exc.failure_class,
+                "reason": exc.reason,
+                "status": SA.status(store),
+                "notice": notice,
+            }
+        )
         return 1 if exc.failure_class == SA.TRANSIENT else 2
     _print(SA.status(store))
     return 0

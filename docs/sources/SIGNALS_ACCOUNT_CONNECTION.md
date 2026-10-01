@@ -11,7 +11,7 @@ reopened here.
 | Owner module | `src/sources/signals_auth.py` (store, lock, renewal, failure classes, notice) |
 | Operations CLI | `scripts/signals_connect.py` |
 | Box timer | `deploy/systemd/dynasty-signals-auth-renew.{service,timer}.template` (every 6 h) |
-| Owner notice | `server.py` signal-alerts sweep → existing ops SMTP channel (`ALERT_TO`) |
+| Owner notice | owner ntfy webhook (`NOTIFY_WEBHOOK_URL`, the uptime probe's existing path, via `src/utils/owner_notify.py`) first, SMTP (`ALERT_TO`) as fallback — from the renewal run and the daily sweep |
 | Tests | `tests/sources/test_signals_auth.py` (synthetic tokens, local stub endpoint) |
 | Consumers | none yet. A paid-surface collector calls `get_access_token()`; it does not depend on Unit A's `claude/signals-adapter` code, and that code does not depend on this. |
 
@@ -96,11 +96,42 @@ assumed to be Signals settings:
 | `access_denied` | A data request refused **after** one fresh renewal (`classify_data_response`: a 401/403 means renew-and-retry once, then this) | Stops and notifies. The notice says this is *not* an expired login. | `AUTH_REQUIRED` |
 | `refresh_refused` | Other Cognito 4xx (bad parameter, unknown client/pool, WAF `ForbiddenException`) | Stops and notifies with the provider error type | `AUTH_REQUIRED` |
 
-**Notice.** The daily signal-alerts sweep (15:00 UTC) calls `deliver_reconnect_notice`, which
-sends **at most one email per episode**. `noticeDeliveredAt` is stamped only after a
-successful send, so an unconfigured or failing mailer does not use the episode up (the same
-rule as `ops_alerts` F-20). The email carries the class, reason, start time and the exact
-commands, and no token. A reconnect or import closes the episode (`lastResolvedEpisode`).
+**Notice.** At most **one notice per episode**, on the first channel that delivers:
+
+1. **ntfy**: the owner's existing push channel, `NOTIFY_WEBHOOK_URL`. This is the same
+   variable and plain-text POST that `deploy/monitoring/uptime_check.sh` uses, through the
+   shared `src/utils/owner_notify.py`. It is sent **promptly** by the renewal run that
+   detects the stop, and again by the daily sweep as a backstop.
+2. **SMTP** (`ALERT_TO`): fallback only, from the daily sweep (15:00 UTC), when ntfy is
+   unconfigured or failed.
+
+How a notice is stamped and retried:
+- The sender claims the episode under the store lock before sending, so the renewal timer
+  and the sweep can never both send.
+- `noticeDeliveredAt` / `noticeDeliveredVia` are stamped only after a channel delivered. An
+  unconfigured or unreachable channel is retried later and never uses up the episode.
+- ntfy being down never delays or fails renewal, collection or `connect`. It has a 5 s
+  timeout and never raises.
+- A reconnect, or a successful renewal, closes the episode. A later, independent failure
+  opens a new one, which may notify again.
+
+The notice carries the failure class, the reason, the start time and a non-secret episode
+id: a hash of the class and start time, not of any token. It never carries a token, an
+email code, session contents or a credential fingerprint.
+
+**Configuring ntfy on the box** (the same value the uptime probe uses; the URL is a private
+topic, so treat it as a secret):
+
+```ini
+# sudo systemctl edit dynasty-signals-auth-renew.service   (prompt alert)
+[Service]
+Environment="NOTIFY_WEBHOOK_URL=https://ntfy.sh/<your-private-topic>"
+```
+
+The daily sweep runs in the backend, which reads the app `.env`, so add
+`NOTIFY_WEBHOOK_URL=...` there too. Leave both unset and only SMTP is used. Leave
+everything unset and nothing external is contacted.
+
 **Last-good Signals data is untouched**: this module never writes the collector's store.
 
 ## 5. Operations (PowerShell, from the repo root on the owner's Windows machine)
