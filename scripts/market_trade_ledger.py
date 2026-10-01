@@ -5,12 +5,21 @@
     python scripts/market_trade_ledger.py --no-board          # skip residuals
     python scripts/market_trade_ledger.py --export PATH.json  # residuals vs that raw export
     python scripts/market_trade_ledger.py --allow-stale-target-scoring
+    python scripts/market_trade_ledger.py --census [--out DIR]  # AL-2a census only
 
 Reads (never writes) the raw archive, the intel ledger (read-only) and the
 acquisition store; rebuilds ``data/market_trades/underlying_trades.sqlite``
 wholesale and writes the report to ``data/market_trades/reports/``.  Nothing
 here touches a canonical value.  Report contents are COUNTS — never another
 league's trade contents.
+
+``--census`` is READ-ONLY: it builds the ledger in memory, writes the AL-2a
+target-format evidence census (aggregate, small-cell suppressed) as
+``target_format_census_<UTC date>.json`` + ``.md`` into ``--out`` (default
+``data/market_trades/reports/census/``, gitignored), and neither rebuilds the
+canonical ledger nor writes the coverage report.  ``--archive-path``,
+``--intel-ledger-path``, ``--acquisition-path`` and ``--lanes`` point any mode
+at other stores (synthetic fixtures locally; the box defaults otherwise).
 
 Exit codes: 0 built · 1 error · 2 no observations in any lane.
 """
@@ -34,7 +43,21 @@ def _latest_export(repo: Path) -> Path | None:
     return files[-1] if files else None
 
 
-def main() -> int:
+def write_census(result: dict, out_dir: Path, *, now: datetime) -> tuple[Path, Path]:
+    """Write the publishable AL-2a census (JSON + markdown) into ``out_dir``."""
+    from src.sources.signals import atomic_write_bytes  # noqa: PLC0415
+
+    census = report.build_target_format_census(result)
+    census["generatedAt"] = now.isoformat()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stem = f"target_format_census_{now.strftime('%Y-%m-%d')}"
+    jpath, mpath = out_dir / f"{stem}.json", out_dir / f"{stem}.md"
+    atomic_write_bytes(jpath, json.dumps(census, indent=1, default=str).encode("utf-8"))
+    atomic_write_bytes(mpath, report.census_markdown(census).encode("utf-8"))
+    return jpath, mpath
+
+
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -50,7 +73,21 @@ def main() -> int:
         default=None,
         help="Sleeper /players/nfl dump to resolve identities against (default: the app's cached copy)",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--census",
+        action="store_true",
+        help="write only the AL-2a target-format census (read-only; no ledger rebuild)",
+    )
+    parser.add_argument("--out", type=Path, default=None, help="census output directory")
+    parser.add_argument("--archive-path", type=Path, default=None)
+    parser.add_argument("--intel-ledger-path", type=Path, default=None)
+    parser.add_argument("--acquisition-path", type=Path, default=None)
+    parser.add_argument(
+        "--lanes",
+        default=None,
+        help="comma-separated source lanes (default: all three)",
+    )
+    args = parser.parse_args(argv)
 
     repo = Path(__file__).resolve().parents[1]
     ctx = None
@@ -61,15 +98,30 @@ def main() -> int:
             json.loads(args.player_directory.read_text(encoding="utf-8")),
             source=f"file:{args.player_directory.name}",
         )
+    lanes = [s.strip() for s in args.lanes.split(",") if s.strip()] if args.lanes else None
     try:
         result = report.build_ledger(
             target_league=args.target_league,
             allow_stale_target_scoring=args.allow_stale_target_scoring,
             ctx=ctx,
+            archive_path=args.archive_path,
+            intel_ledger_path=args.intel_ledger_path,
+            acquisition_path=args.acquisition_path,
+            lanes=lanes,
         )
     except Exception as exc:  # noqa: BLE001
         print(f"error: ledger build failed: {exc}", file=sys.stderr)
         return 1
+
+    if args.census:
+        out_dir = args.out or (Path(archive.DEFAULT_DIR) / "reports" / "census")
+        try:
+            jpath, mpath = write_census(result, out_dir, now=datetime.now(timezone.utc))
+        except Exception as exc:  # noqa: BLE001
+            print(f"error: census failed: {exc}", file=sys.stderr)
+            return 1
+        print(json.dumps({"census": str(jpath), "markdown": str(mpath)}, indent=1))
+        return 0 if result["observations"] else 2
 
     contract = None
     board_date: date | None = None

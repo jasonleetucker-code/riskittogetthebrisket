@@ -392,27 +392,11 @@ def test_source_inventory_does_not_call_idpshow_a_cut_of_the_combined_board():
     assert "IDP-only cut of idpShowCombined" not in text
 
 
-@pytest.mark.xfail(
-    strict=False,
-    raises=AssertionError,
-    reason=(
-        "owned by the Batch 3 Unit E lane (src/api/data_contract.py); non-strict so "
-        "that lane's patch (INTEGRITY_SWEEP_2026-10-01.md §7 P1) does not break its CI"
-    ),
-)
 def test_contract_phase_1c_comment_does_not_claim_the_set_is_empty():
     text = (REPO / "src" / "api" / "data_contract.py").read_text(encoding="utf-8")
     assert "this set is currently EMPTY" not in text
 
 
-@pytest.mark.xfail(
-    strict=False,
-    raises=AssertionError,
-    reason=(
-        "owned by the Batch 3 Unit E lane (src/api/data_contract.py); non-strict so "
-        "that lane's patch (INTEGRITY_SWEEP_2026-10-01.md §7 P2) does not break its CI"
-    ),
-)
 def test_contract_rookie_ladder_comment_names_the_crowd_ladder_it_uses():
     from src.api.data_contract import ROOKIE_LADDER_PAIRS
 
