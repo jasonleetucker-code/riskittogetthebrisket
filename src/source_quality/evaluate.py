@@ -76,7 +76,9 @@ CANDIDATES = ("C1_conservative_reliability", "C2_asset_class_reliability", "C3_l
 
 
 def sha256_file(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """Content hash that is stable across checkouts: CRLF is normalized to LF, so
+    a Windows ``core.autocrlf`` working copy hashes like the committed blob."""
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
 def git_head(root: Path) -> str | None:

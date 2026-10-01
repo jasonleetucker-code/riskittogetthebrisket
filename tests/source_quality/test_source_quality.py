@@ -444,3 +444,10 @@ def test_archive_records_are_compact_and_shadow():
     recs = ev.archive_records(result)
     assert recs[0]["status"] == "SHADOW" and recs[0]["preregistrationSha256"] == "p"
     assert len(json.dumps(recs[0])) < 2000
+
+
+def test_pinned_document_hash_is_line_ending_stable(tmp_path):
+    a, b = tmp_path / "a.md", tmp_path / "b.md"
+    a.write_bytes(b"x\ny\n")
+    b.write_bytes(b"x\r\ny\r\n")
+    assert ev.sha256_file(a) == ev.sha256_file(b)
