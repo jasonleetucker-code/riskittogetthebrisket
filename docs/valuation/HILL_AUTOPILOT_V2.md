@@ -75,10 +75,37 @@ That means `ModelRegistry.promote()` independently sees GLOBAL/IDP as
 ROOKIE remains unrouted. It can be fit and monitored but is not an automatic
 production decision.
 
+## Training substrate (Batch 3 Unit D, 2026-10-01)
+
+Which evidence trains and holds out each scope is owned by ONE manifest,
+`src/model_registry/training_manifest.py`. Its paths, signal types, live roles and
+provider families are derived from the live source registry. The fitter's and
+holdout's source tables are views of it. Its rules:
+
+- every training and holdout population is players-only;
+- only native values teach spacing;
+- no provider family sits on both sides of a split;
+- measured dependence is reported, not confused with ancestry;
+- one trainer per family per scope.
+
+Every raw refit is a pinned, point-in-time training run
+(`src/model_registry/training_run.py`), recorded on the challenger as `trainingRun`.
+The run refuses any input observed after its cutoff (HEAD's commit time).
+`scripts/hill_training_run.py verify` replays it from git and must reproduce the same
+`challengerHash`. Evidence and the remaining owner decisions (H1/H2/H3/H4):
+[`evidence/hill-trainer-repair-2026-10-01/README.md`](evidence/hill-trainer-repair-2026-10-01/README.md).
+
 ## Readiness criteria
 
 Policy lives in
 `config/model_registry/hill_autopilot_policy.json`, not in prose.
+
+0. **Reproducible current substrate.** Only a challenger whose `trainingRun` is on the
+   current substrate version and is `reproducible: true` enters the tournament.
+   One whose `challengerHash` repeats an earlier version's is the same challenger and
+   is dropped. Pre-repair challengers (no pins, KTC pick rows in the OFFENSE fit,
+   Fantasy Navigator held out) cannot compete. Promotion therefore waits for fresh
+   substrate-v2 evidence to meet gates 5 and 6 below.
 
 A standing candidate must clear all of these before board-impact evaluation:
 
@@ -88,7 +115,8 @@ A standing candidate must clear all of these before board-impact evaluation:
      incumbent criterion.
 
 2. **Cross-market breadth**
-   - at least 3 holdout boards must improve;
+   - at least 3 holdout boards must improve. Since 2026-10-01 the OFFENSE split has
+     exactly 3 boards (FantasyCalc, OTC, PFK), so all three must improve;
    - no holdout board may worsen by more than 10%.
 
 3. **Row health**
