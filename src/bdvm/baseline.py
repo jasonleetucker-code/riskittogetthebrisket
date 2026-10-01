@@ -205,8 +205,14 @@ def build_baseline_records(
         pbp_for_season=pbp_for_season,
     )
     means = positional_means(history)
+    from src.league_comparison.sleeper_scoring import scoring_fingerprint  # noqa: PLC0415
+
     records = build_reconstructed_baseline(
-        history, season=season, as_of=as_of, positional_means=means
+        history,
+        season=season,
+        as_of=as_of,
+        positional_means=means,
+        card_fingerprint=scoring_fingerprint(dict(scoring_settings)),
     )
     summary = {
         "playersWithHistory": len(history),
@@ -246,6 +252,7 @@ def build_rookie_prior_records(
     history: Mapping[str, tuple[str, list[RealizedSeason]]],
     context: Mapping[str, Any],
     source: str = "rookieDraftSlotPrior",
+    card_fingerprint: str | None = None,
 ) -> tuple[list[ProjectionRecord], dict[str, Any]]:
     """Proxy µ(0) for incoming rookies from historical rookie-season PPG
     by (position, draft-round bucket).
@@ -321,6 +328,7 @@ def build_rookie_prior_records(
                 scoring_native=True,
                 is_proxy=True,
                 declared_unscored=declared,
+                declared_card_fingerprint=card_fingerprint,
             )
         )
     summary = {
@@ -380,11 +388,14 @@ def fetch_and_build_baseline(
             scoring_for_season=scoring_for_season,
             pbp_for_season=pbp_for_season,
         )
+        from src.league_comparison.sleeper_scoring import scoring_fingerprint  # noqa: PLC0415
+
         rookie_records, rookie_summary = build_rookie_prior_records(
             season=season,
             as_of=as_of,
             history=history,
             context=context,
+            card_fingerprint=scoring_fingerprint(dict(scoring_settings)),
         )
         existing = {r.player_key for r in records}
         added = [r for r in rookie_records if r.player_key not in existing]

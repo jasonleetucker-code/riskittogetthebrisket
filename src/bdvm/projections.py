@@ -67,6 +67,9 @@ class ProjectionRecord:
     # never fully scoreable by default.  Ignored for stat-line records, whose
     # coverage is read off the line (``src.bdvm.source_vocabulary``).
     declared_unscored: tuple[str, ...] | None = None
+    # ``scoring_fingerprint`` of the card ``declared_unscored`` was computed
+    # under.  ``None`` = not recorded; such coverage is never claimed complete.
+    declared_card_fingerprint: str | None = None
 
     def __post_init__(self) -> None:
         if self.stat_basis not in _STAT_BASES:
@@ -454,6 +457,11 @@ def write_snapshot(
                     if r.declared_unscored is not None
                     else {}
                 ),
+                **(
+                    {"declaredCardFingerprint": r.declared_card_fingerprint}
+                    if r.declared_card_fingerprint is not None
+                    else {}
+                ),
             }
         )
     payload["recordCount"] = len(payload["records"])
@@ -483,6 +491,9 @@ def load_snapshot(path: Path) -> tuple[str, list[ProjectionRecord]]:
                 tuple(str(k) for k in row["declaredUnscored"])
                 if isinstance(row.get("declaredUnscored"), list)
                 else None
+            ),
+            declared_card_fingerprint=(
+                str(row["declaredCardFingerprint"]) if row.get("declaredCardFingerprint") else None
             ),
         )
         for row in data.get("records", [])
@@ -674,6 +685,7 @@ def build_reconstructed_baseline(
     as_of: str,
     positional_means: Mapping[str, float],
     source: str = "reconstructedBaseline",
+    card_fingerprint: str | None = None,
 ) -> list[ProjectionRecord]:
     """Build proxy projections from realized scoring history.
 
@@ -722,6 +734,7 @@ def build_reconstructed_baseline(
                 scoring_native=True,
                 is_proxy=True,
                 declared_unscored=declared,
+                declared_card_fingerprint=card_fingerprint,
             )
         )
     return out

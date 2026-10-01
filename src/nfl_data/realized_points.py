@@ -321,7 +321,7 @@ _IDP_KEYS: dict[str, tuple[tuple[str, ...], str]] = {
     # (public Sleeper API, 244 IDP player-weeks with a recovery on either
     # side): host ``idp_fum_rec`` == own on 21, opp on 223, and
     # opp − special-teams recoveries on 244/244; yards == ``_yards_opp`` on
-    # 63/65 (two charting differences), ``_yards_own`` on 0/65.  The
+    # 63/65 (two mismatches, cause untraced), ``_yards_own`` on 0/65.  The
     # special-teams half is removed in ``_idp_fumble_recovery_view`` — this
     # table only names the columns (it is also the vocabulary map
     # ``bdvm.projections`` derives categories from).
@@ -540,11 +540,15 @@ def _idp_fumble_recovery_view(stat_row: dict[str, Any]) -> tuple[float, float]:
       weekly feed, so a special-teams recovery by a defender is paid at the
       IDP rate here while ``st_fum_rec`` is reported ``unscored`` — 21 of 231
       IDP opponent recoveries in 2025 REG.  Pinned, not hidden, by
-      ``tests/nfl_data/test_idp_fumble_recovery_host_golden.py``.
+      ``tests/nfl_data/test_idp_fumble_recovery_host_golden.py``.  CAUTION:
+      in this fallback the "unscored" ``st_fum_rec`` recovery has ALREADY
+      been paid (at the IDP rate), so adding it back would count it twice.
 
     Return yards stay ``fumble_recovery_yards_opp`` whole: the host's
-    ``idp_fum_ret_yd`` equals it on 63 / 65 (two per-play charting
-    differences) and there is no special-teams yardage split to subtract.
+    ``idp_fum_ret_yd`` equals it on 63 / 65 and there is no special-teams
+    yardage split to subtract.  The two mismatches (−15 vs 0, 13 vs 11) were
+    NOT traced: per-play charting differences, a special-teams return, or a
+    host floor at 0 for negative returns are all unverified hypotheses.
     """
     if any(stat_row.get(k) is not None for k in _HOST_FUMBLE_RECOVERY_KEYS):
         return _num(stat_row.get("idp_fum_rec")), _num(stat_row.get("idp_fum_ret_yd"))

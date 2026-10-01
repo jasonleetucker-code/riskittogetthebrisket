@@ -180,3 +180,17 @@ def test_league_comparison_translation_scores_the_host_count_once():
     breakdown = {label: pts for label, _stat, pts in out.breakdown}
     assert breakdown["FR"] == pytest.approx(3.0)
     assert breakdown["FR Ret Yds"] == pytest.approx(0.9)
+
+
+def test_weekly_only_fallback_reports_the_special_teams_rule_unscored():
+    """With a card that pays ``st_fum_rec`` and no play-by-play supplement, the
+    special-teams rule must be reported unscored (it cannot be separated), even
+    though the recovery itself was paid at the IDP rate -- see the docstring's
+    double-count caution."""
+    card = {**CARD, "st_fum_rec": 3.3}
+    fx = next(r for r in ROWS if r["host_st_fum_rec"] and r["fumble_recovery_opp"])
+    out = rp.compute_weekly_points(
+        _nflverse_row(fx, with_pbp=False), dict(card), position=fx["position"]
+    )
+    assert out is not None
+    assert "st_fum_rec" in {k for k, _rate in out.unscored}

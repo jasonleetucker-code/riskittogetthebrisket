@@ -172,11 +172,18 @@ class SourceCapability:
     families: frozenset[str]
     imputed: tuple[str, ...] = ()
     note: str = ""
+    # A FIXED-SCHEMA source publishes its whole declared vocabulary for every
+    # record of a family, but its parser may drop zero-valued columns (Clay
+    # keeps only nonzero stats).  For such a source a column absent from one
+    # record is a published ZERO, not an omission.  A per-capture source (the
+    # IDP Show sheet) keeps zeros, so absence there IS an omission.
+    fixed_schema: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "source": self.source,
             "basis": self.basis,
+            "fixedSchema": self.fixed_schema,
             "families": sorted(self.families),
             "vocabularyByFamily": (
                 {f: sorted(v) for f, v in sorted(self.vocabulary_by_family.items())}
@@ -211,6 +218,7 @@ def declared_capabilities() -> dict[str, SourceCapability]:
             },
             families=PRICED_FAMILIES,
             imputed=_FIRST_DOWN_IMPUTED,
+            fixed_schema=True,
             note=(
                 "Mike Clay's ESPN guide: offense pass/rush/receiving lines (no fumbles, "
                 "2-pt, returns, first downs — first downs imputed from yards); IDP "
@@ -417,6 +425,10 @@ def record_coverage(
     cap = capability_for(record.source)
     if record.stat_line:
         vocab = frozenset(str(k) for k in record.stat_line)
+        own_family = family_of(record.position)
+        if cap.fixed_schema and cap.vocabulary_by_family and own_family:
+            # Published zeros the parser dropped are still published.
+            vocab = vocab | cap.vocabulary_by_family.get(own_family, frozenset())
         families = _relevant_families(str(record.position).upper(), vocab)
         missing = set(_missing_for_vocabulary(vocab, str(record.position).upper(), rules))
         # The engine reports every nonzero play-by-play rule whatever the
@@ -431,6 +443,24 @@ def record_coverage(
         )
     declared = getattr(record, "declared_unscored", None)
     if record.is_proxy and record.scoring_native and declared is not None:
+        from src.league_comparison.sleeper_scoring import scoring_fingerprint  # noqa: PLC0415
+
+        built_under = getattr(record, "declared_card_fingerprint", None)
+        current = scoring_fingerprint(dict(scoring_settings)) if scoring_settings else None
+        if built_under is None or current is None or built_under != current:
+            # The declared omissions describe the card the proxy was SCORED
+            # under; under any other (or an unrecorded) card its total is not
+            # this card's partial total, so completeness cannot be claimed.
+            return RecordCoverage(
+                source=record.source,
+                basis=BASIS_REALIZED_PROXY,
+                status=STATUS_UNVERIFIABLE,
+                reason=(
+                    "proxy_card_not_recorded"
+                    if built_under is None
+                    else "proxy_built_under_different_card"
+                ),
+            )
         fam = family_of(record.position)
         families = frozenset({fam}) if fam else frozenset()
         card_keys = {k for k, _r in rules}

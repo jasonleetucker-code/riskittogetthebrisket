@@ -121,7 +121,13 @@ def _idpshow_lb(key="some lb", **extra):
     )
 
 
-def _proxy(key="proxy wr", declared=None):
+def _card_fp(card=None):
+    from src.league_comparison.sleeper_scoring import scoring_fingerprint
+
+    return scoring_fingerprint(dict(card if card is not None else CARD))
+
+
+def _proxy(key="proxy wr", declared=None, card_fp="__card__"):
     return ProjectionRecord(
         source="reconstructedBaseline",
         player_key=key,
@@ -133,6 +139,7 @@ def _proxy(key="proxy wr", declared=None):
         scoring_native=True,
         is_proxy=True,
         declared_unscored=declared,
+        declared_card_fingerprint=_card_fp() if card_fp == "__card__" else card_fp,
     )
 
 
@@ -248,7 +255,11 @@ def test_reconstructed_baseline_declares_its_realized_unscored_rules():
         )
     }
     (record,) = build_reconstructed_baseline(
-        history, season=2026, as_of="2026-07-20", positional_means={"WR": 8.0}
+        history,
+        season=2026,
+        as_of="2026-07-20",
+        positional_means={"WR": 8.0},
+        card_fingerprint=_card_fp(),
     )
     assert record.declared_unscored == ("rec_40p",)
     blended = _blend([record])
@@ -308,3 +319,64 @@ def test_service_publishes_per_player_coverage_and_sign():
     assert meta["playersByStatus"]["unverifiable"] >= 1
     assert "clayProjections" in meta["sourceCapabilities"]
     assert "positive or negative" in meta["note"]
+
+
+# --------------------------------------------------------------------------
+# Review of #1585
+# --------------------------------------------------------------------------
+
+
+def test_a_proxy_built_under_another_card_or_no_card_is_unverifiable():
+    other = {**CARD, "rec": 0.5}
+    built_elsewhere = record_coverage(_proxy(declared=(), card_fp=_card_fp(other)), CARD)
+    assert built_elsewhere.status == "unverifiable"
+    assert built_elsewhere.reason == "proxy_built_under_different_card"
+    unrecorded = record_coverage(_proxy(declared=(), card_fp=None), CARD)
+    assert unrecorded.status == "unverifiable"
+    assert unrecorded.reason == "proxy_card_not_recorded"
+    same = record_coverage(_proxy(declared=(), card_fp=_card_fp()), CARD)
+    assert same.status == "complete"
+
+
+def test_clay_published_zeros_are_not_omissions():
+    wr = ProjectionRecord(
+        source="clayProjections",
+        player_key="clay wr",
+        position="WR",
+        season=2026,
+        as_of="2026-07-20",
+        games=17.0,
+        stat_line={"targets": 120.0, "receptions": 80.0, "receiving_yards": 1000.0},
+    )
+    wr_cov = record_coverage(wr, CARD)
+    for key in ("pass_yd", "pass_td", "pass_int"):
+        assert key not in wr_cov.unscored_keys, key
+    cb = ProjectionRecord(
+        source="clayProjections",
+        player_key="clay cb",
+        position="CB",
+        season=2026,
+        as_of="2026-07-20",
+        games=17.0,
+        stat_line={"def_tackles_solo": 50.0, "def_tackle_assists": 10.0},
+    )
+    cb_cov = record_coverage(cb, CARD)
+    assert "idp_sack" not in cb_cov.unscored_keys
+    assert "idp_int" not in cb_cov.unscored_keys
+    # What Clay genuinely does not publish is still reported.
+    assert "idp_pass_def" in cb_cov.unscored_keys
+    assert "fum_lost" in wr_cov.unscored_keys
+
+
+def test_a_per_capture_source_keeps_absence_as_omission():
+    lb = ProjectionRecord(
+        source="idpShowProjections",
+        player_key="idp lb",
+        position="LB",
+        season=2026,
+        as_of="2026-07-20",
+        games=17.0,
+        stat_line={"def_tackles_solo": 70.0, "def_tackle_assists": 30.0},
+    )
+    cov = record_coverage(lb, CARD)
+    assert "idp_sack" in cov.unscored_keys

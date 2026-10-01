@@ -31,7 +31,7 @@ IDP family counts as one; offense/defense-crossing names are dropped — a WR
 | host `idp_fum_rec` == `fumble_recovery_opp` | 223 / 244 |
 | host `idp_fum_rec` == `opp − st_fum_rec` (host's ST stat) | **244 / 244** |
 | … with the play-by-play-derived `st_fum_rec` | **244 / 244** (PBP ST == host ST on 244/244) |
-| host `idp_fum_ret_yd` == `fumble_recovery_yards_opp` | 63 / 65 (2 per-play charting differences: −15 vs 0, 13 vs 11) |
+| host `idp_fum_ret_yd` == `fumble_recovery_yards_opp` | 63 / 65 (2 mismatches, −15 vs 0 and 13 vs 11; cause NOT traced — charting difference, special-teams return, or a host floor at 0 are unverified hypotheses) |
 | host `idp_fum_ret_yd` == `fumble_recovery_yards_own` | 0 / 65 |
 | host pays both rules on its own line (players_points − rescoring without them == line scored with only them) | 7,140 / 7,140 rostered player-weeks |
 | **engine** vs host-awarded FR points, rostered IDP with any recovery activity — BEFORE | **1 / 92** |
