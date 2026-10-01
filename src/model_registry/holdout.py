@@ -44,48 +44,76 @@ Pure computation over supplied files.  No network.
 
 from __future__ import annotations
 
-import csv
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from src.canonical.player_valuation import PERCENTILE_REFERENCE_N, training_percentiles
 from src.canonical.tail_policy import clamp_percentile
+from src.model_registry.training_manifest import (
+    FIT_TOP_N,
+    MEASURED_DEPENDENCES,
+    ROLE_HOLDOUT,
+    ROLE_TRAIN,
+    MissingColumnError,
+    default_manifest,
+    family_for_path,
+    load_board_values,
+    source_key_for_path,
+)
 
 REPO = Path(__file__).resolve().parents[2]
 
-# Mirrors scripts/fit_hill_curve_percentile.py::OFFENSE_SOURCES.  Kept
-# as a literal rather than imported because that file is a script with
-# side-effecting module scope; a parity test pins the two together so
-# this cannot silently drift.
-OFFENSE_TRAINING_SOURCES: dict[str, tuple[str, str]] = {
-    "KTC": ("CSVs/site_raw/ktc.csv", "value"),
-    "DynastyDaddy": ("CSVs/site_raw/dynastyDaddySf.csv", "value"),
-    "DynastyNerds": ("CSVs/site_raw/dynastyNerdsSfTep.csv", "Value"),
-    "YahooBoone": ("CSVs/site_raw/yahooBoone.csv", "boone_value"),
-    "Fitzmaurice": ("CSVs/site_raw/fantasyProsFitzmaurice.csv", "value"),
-    "DraftSharks": ("CSVs/site_raw/draftSharksSf.csv", "3D Value +"),
-}
-
-# Value-publishing offense boards that the fit does NOT consume.
+# Both lists are DERIVED from the one training manifest
+# (``src/model_registry/training_manifest.py``), whose paths, signal types and
+# provider families come from the live source registry.  They used to be two
+# hand-maintained literals — here and in the fit script — tied together by a
+# text-parsing test and to nothing else (H8).  Fantasy Navigator is no longer a
+# holdout: it is KTC-derived (``ktcCrowd`` family) and KTC trains the curve, so
+# the manifest excludes it as confirmed common ancestry (H5).  KeepTradeCut's own
+# TE++ board stays out for the same reason it always did, now by family rather
+# than by a comment.
 #
-# ktcSfTep is deliberately EXCLUDED despite not appearing in the fit's
-# source dict: it is KeepTradeCut's own SF-TEP board, the same market
-# maker as the ``KTC`` training source.  Treating it as held out would
-# smuggle a training source back in under a different filename, which
-# is the subtler version of the defect this module exists to catch.
-OFFENSE_HOLDOUT_SOURCES: dict[str, tuple[str, str]] = {
-    "FantasyCalc": ("CSVs/site_raw/fantasyCalc.csv", "value"),
-    "OTCFFB": ("CSVs/site_raw/otcffbSf.csv", "value"),
-    "PFKDynasty": ("CSVs/site_raw/pfkDynasty.csv", "value"),
-    "FantasyNavigator": ("CSVs/site_raw/fantasyNavigatorSf.csv", "value"),
-}
+# Built LAZILY, never at import. ``src/api/data_contract.py`` imports this
+# package (outside any try) to stamp ``hillCurves.provenance`` on every
+# ``/api/data`` build; building the manifest reads the live source registry and
+# can raise ``ManifestError`` by design. Built at import, one future registry
+# edit that made ``build_manifest`` raise would have crashed every contract
+# build for a metadata stamp. Importing ``src.model_registry`` therefore costs
+# nothing and cannot fail on the manifest; the tables are built on first use.
 
-# The fit truncates every source to its top 400 before computing
+
+@lru_cache(maxsize=1)
+def _offense_tables() -> tuple[dict[str, tuple[str, str]], dict[str, tuple[str, str]]]:
+    manifest = default_manifest()
+    return manifest.csv_table("OFFENSE", ROLE_TRAIN), manifest.csv_table("OFFENSE", ROLE_HOLDOUT)
+
+
+def offense_training_sources() -> dict[str, tuple[str, str]]:
+    """``{label: (path, value_column)}`` of the OFFENSE trainers (a copy)."""
+    return dict(_offense_tables()[0])
+
+
+def offense_holdout_sources() -> dict[str, tuple[str, str]]:
+    """``{label: (path, value_column)}`` of the OFFENSE holdouts (a copy)."""
+    return dict(_offense_tables()[1])
+
+
+def __getattr__(name: str) -> Any:
+    """``OFFENSE_TRAINING_SOURCES`` / ``OFFENSE_HOLDOUT_SOURCES`` stay importable
+    by name (PEP 562) for their existing consumers, but resolve on first access."""
+    if name == "OFFENSE_TRAINING_SOURCES":
+        return offense_training_sources()
+    if name == "OFFENSE_HOLDOUT_SOURCES":
+        return offense_holdout_sources()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+# The fit truncates every source to its top FIT_TOP_N before computing
 # percentiles.  Matched exactly so train and holdout RMSE are the same
-# quantity measured on different data.
-FIT_TOP_N: int = 400
+# quantity measured on different data.  Owned by the manifest.
 MIN_ROWS_FOR_SCORING: int = 100
 
 
@@ -109,27 +137,19 @@ def source_roles() -> tuple[SourceRole, ...]:
     Exported so a caller can print the split rather than trust it.
     """
     out: list[SourceRole] = []
-    for label, (path, col) in sorted(OFFENSE_TRAINING_SOURCES.items()):
+    for label, (path, col) in sorted(offense_training_sources().items()):
         out.append(SourceRole(label, path, col, "train"))
-    for label, (path, col) in sorted(OFFENSE_HOLDOUT_SOURCES.items()):
+    for label, (path, col) in sorted(offense_holdout_sources().items()):
         out.append(SourceRole(label, path, col, "holdout"))
     return tuple(out)
 
 
 def _load_values(path: Path, column: str) -> list[float]:
-    """Positive values from ``column``, descending.  Mirrors the fit."""
-    values: list[float] = []
-    with path.open(newline="", encoding="utf-8") as f:
-        for row in csv.DictReader(f):
-            raw = row.get(column)
-            try:
-                v = float(raw) if raw not in (None, "") else 0.0
-            except (TypeError, ValueError):
-                continue
-            if v > 0:
-                values.append(v)
-    values.sort(reverse=True)
-    return values
+    """Players-only positive values from ``column``, descending.
+
+    Delegates to the manifest's one population rule, so a holdout can never
+    score a pick row the fit would not have trained on (E3)."""
+    return list(load_board_values(path, column).values)
 
 
 def _percentile_pairs(values: Sequence[float]) -> list[tuple[float, float]]:
@@ -195,6 +215,19 @@ class HoldoutResult:
     params: dict[str, float]
     holdout_labels: tuple[str, ...]
     training_labels: tuple[str, ...]
+    #: label -> provider family, for every SCORED holdout board.
+    holdout_family_by_board: dict[str, str] = field(default_factory=dict)
+    training_families: tuple[str, ...] = ()
+    #: label -> training families the board has a MEASURED dependence on.
+    measured_dependence: dict[str, list[str]] = field(default_factory=dict)
+
+    @property
+    def independent_criterion(self) -> float | None:
+        """Mean RMSE over scored boards with NO measured dependence on a trainer.
+
+        ``None`` — never a number — when every scored board is dependent."""
+        free = [v for k, v in self.per_source.items() if not self.measured_dependence.get(k)]
+        return sum(free) / len(free) if free else None
 
     def to_dict(self) -> dict[str, Any]:
         # ``measuredAt`` exists because the criterion's absolute level
@@ -222,6 +255,16 @@ class HoldoutResult:
             "params": dict(self.params),
             "holdoutSources": list(self.holdout_labels),
             "trainingSources": list(self.training_labels),
+            "holdoutFamilies": sorted(set(self.holdout_family_by_board.values())),
+            "holdoutFamilyByBoard": dict(sorted(self.holdout_family_by_board.items())),
+            "trainingFamilies": list(self.training_families),
+            # Measured dependence is NOT confirmed ancestry (ancestry is refused
+            # outright); it is reported so a reader can discount a board whose
+            # score is partly flattered by its correlate in training.
+            "measuredDependence": dict(sorted(self.measured_dependence.items())),
+            "independentCriterion": (
+                None if self.independent_criterion is None else round(self.independent_criterion, 4)
+            ),
             "_semantics": {
                 "measures": (
                     "generalization across dynasty markets — whether a curve fitted "
@@ -257,8 +300,8 @@ def evaluate_offense_master(
     # saying "I have no held-out data", and falling back to the default
     # set would answer a question they did not ask — with a passing
     # score, which is the exact failure this function exists to refuse.
-    holdout = dict(OFFENSE_HOLDOUT_SOURCES if holdout_sources is None else holdout_sources)
-    training = dict(OFFENSE_TRAINING_SOURCES if training_sources is None else training_sources)
+    holdout = dict(offense_holdout_sources() if holdout_sources is None else holdout_sources)
+    training = dict(offense_training_sources() if training_sources is None else training_sources)
 
     overlap = sorted(set(holdout) & set(training))
     if overlap:
@@ -275,6 +318,20 @@ def evaluate_offense_master(
         )
     if not holdout:
         raise HoldoutError("no holdout sources configured")
+    # The split is by PROVIDER FAMILY too: a held-out board that shares a
+    # family with a training board (Fantasy Navigator vs KTC) is training
+    # evidence under another site's name (H5). Unknown paths are their own
+    # singleton family — unprovable shared ancestry is not assumed.
+    train_families = {family_for_path(p) for p, _ in training.values()}
+    holdout_family = {label: family_for_path(p) for label, (p, _) in holdout.items()}
+    family_overlap = sorted(
+        f"{label}:{fam}" for label, fam in holdout_family.items() if fam in train_families
+    )
+    if family_overlap:
+        raise HoldoutError(
+            f"holdout sources {family_overlap} share a provider family with a training "
+            "source; a derivative board cannot be independent evidence about its ancestor"
+        )
 
     per_source: dict[str, float] = {}
     per_source_rows: dict[str, int] = {}
@@ -285,7 +342,13 @@ def evaluate_offense_master(
         if not path.exists():
             skipped[label] = "csv missing"
             continue
-        values = _load_values(path, column)
+        try:
+            values = _load_values(path, column)
+        except MissingColumnError:
+            # A renamed vendor column is MISSING, not a board of zeros: the
+            # board is skipped with the reason named, never scored as empty.
+            skipped[label] = f"missing_column:{column}"
+            continue
         if len(values) < MIN_ROWS_FOR_SCORING:
             skipped[label] = f"only {len(values)} priced rows (need {MIN_ROWS_FOR_SCORING})"
             continue
@@ -302,6 +365,19 @@ def evaluate_offense_master(
             "report a passing evaluation with no evidence behind it"
         )
 
+    dependence: dict[str, list[str]] = {}
+    for label in per_source:
+        key = source_key_for_path(holdout[label][0])
+        fams = sorted(
+            {
+                d.trainer_family
+                for d in MEASURED_DEPENDENCES
+                if key is not None and d.source_key == key and d.trainer_family in train_families
+            }
+        )
+        if fams:
+            dependence[label] = fams
+
     return HoldoutResult(
         criterion=sum(per_source.values()) / len(per_source),
         per_source=per_source,
@@ -310,4 +386,7 @@ def evaluate_offense_master(
         params={"c": c, "s": s},
         holdout_labels=tuple(sorted(per_source)),
         training_labels=tuple(sorted(training)),
+        holdout_family_by_board={label: holdout_family[label] for label in per_source},
+        training_families=tuple(sorted(train_families)),
+        measured_dependence=dependence,
     )

@@ -108,6 +108,14 @@ class ModelVersion:
     #: Stored rather than recomputed so a reader sees what the gate actually
     #: concluded, not what it would conclude against today's code.
     scope_validation: dict[str, str] = field(default_factory=dict)
+    #: The pinned, point-in-time training run that produced ``params``
+    #: (``src/model_registry/training_run.py``): code identity, manifest hash,
+    #: every input's hash, dataset state, freshness/health/coverage at the
+    #: cutoff, families, populations, configuration and the challenger hash.
+    #: ``None`` for every version recorded before the substrate repair — those
+    #: cannot be reproduced from their own record, and Hill Autopilot does not
+    #: tournament them (``training_run.is_tournament_eligible``).
+    training_run: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
         if self.status not in VERSION_STATUSES:
@@ -141,6 +149,14 @@ class ModelVersion:
         return "measured" if len(sources) >= 3 else "provisional"
 
     def to_dict(self) -> dict[str, Any]:
+        out = self._to_dict_base()
+        # Absent (not null) for pre-repair versions, so re-saving the committed
+        # registry leaves every historical record byte-identical.
+        if self.training_run is None:
+            out.pop("trainingRun")
+        return out
+
+    def _to_dict_base(self) -> dict[str, Any]:
         return {
             "modelId": self.model_id,
             "version": self.version,
@@ -157,6 +173,7 @@ class ModelVersion:
             "retiredAt": self.retired_at,
             "appliedAt": self.applied_at,
             "scopeValidation": dict(self.scope_validation),
+            "trainingRun": self.training_run,
         }
 
     @classmethod
@@ -177,6 +194,7 @@ class ModelVersion:
             scope_validation={
                 str(k): str(v) for k, v in (blob.get("scopeValidation") or {}).items()
             },
+            training_run=blob.get("trainingRun"),
         )
 
 

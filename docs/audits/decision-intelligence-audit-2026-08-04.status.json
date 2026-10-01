@@ -370,17 +370,17 @@
    "complexity": "Medium",
    "auditEvidence": "src/model_registry/holdout.py:74-79 defines the holdout set as FantasyCalc (CSVs/site_raw/fantasyCalc.csv), OTCFFB (otcffbSf.csv), PFKDynasty (pfkDynasty.csv) and FantasyNavigator (fantasyNavigatorSf.csv). All four are registered LIVE BLEND SOURCES: src/api/data_contract.py:1302 (\"key\": \"fantasyCalc\"), :1327 (\"key\": \"otcffbSf\"), :1361 (\"key\": \"fantasyNavigatorSf\"), :1388 (\"key\": \"pfkDynasty\"). I e",
    "auditId": "V-2",
-   "path": "src/model_registry/holdout.py",
-   "signature": "\"FantasyCalc\": (\"CSVs/site_raw/fantasyCalc.csv\", \"value\")",
+   "path": "src/model_registry/training_manifest.py",
+   "signature": "BoardSpec(\"FantasyCalc\", \"fantasyCalc\", \"OFFENSE\", ROLE_HOLDOUT, \"value\")",
    "status": "open",
-   "verifiedBy": "All four holdout boards are still registered live blend sources.",
+   "verifiedBy": "The holdout boards are still registered live blend sources. Since the Hill trainer repair (#1588) the holdout role is assigned in the one training manifest rather than a literal in holdout.py; the mechanism moved, the defect did not (FantasyCalc / OTCFFB / PFKDynasty still vote).",
    "closedBy": null,
    "measuredEffect": null,
    "batch": null,
    "probe": {
     "result": "signature_present",
-    "path": "src/model_registry/holdout.py",
-    "needle": "\"FantasyCalc\": (\"CSVs/site_raw/fantasyCalc.csv\", \"value\")"
+    "path": "src/model_registry/training_manifest.py",
+    "needle": "BoardSpec(\"FantasyCalc\", \"fantasyCalc\", \"OFFENSE\", ROLE_HOLDOUT, \"value\")"
    }
   },
   {

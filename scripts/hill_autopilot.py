@@ -46,6 +46,10 @@ from src.model_registry.holdout import (  # noqa: E402
     HoldoutError,
     evaluate_offense_master,
 )
+from src.model_registry.training_run import (  # noqa: E402
+    run_evidence_hash,
+    tournament_exclusion_reason,
+)
 
 POLICY_PATH = REPO / "config" / "model_registry" / "hill_autopilot_policy.json"
 RUN_LOG = REPO / "config" / "model_registry" / "hill_autopilot_runs.jsonl"
@@ -81,6 +85,41 @@ def _dt(value: str) -> datetime:
     except Exception:
         return datetime(1970, 1, 1, tzinfo=timezone.utc)
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def tournament_versions(versions) -> tuple[list[Any], dict[int, str]]:
+    """Which standing challengers may compete, and why each other one may not.
+
+    * ``legacy_substrate`` — no reproducible training run on the current
+      substrate (every pre-repair version: KTC pick rows in the OFFENSE fit,
+      Fantasy Navigator held out, no pins). It cannot be re-derived from its
+      own record, so it cannot be promoted on the strength of it.
+    * ``composite_not_a_fit`` — an Autopilot composite; not an independent fit.
+    * ``offense_not_promotable:...`` — a declared OFFENSE trainer was skipped.
+    * ``duplicate_of_vN`` — the same EVIDENCE as an earlier version: identical
+      trainer content and identical emitted params (``evidenceHash``). Keyed on
+      evidence, not ``challengerHash``: the challenger hash includes the training
+      cutoff and cutoff-relative freshness ages, so it differs on every run and a
+      refit on unchanged data would otherwise count as a new, independent
+      observation for the parameter-stability gate.
+    """
+    eligible: list[Any] = []
+    excluded: dict[int, str] = {}
+    first_by_evidence: dict[str, int] = {}
+    for v in sorted(versions, key=lambda x: x.version):
+        if v.status != "challenger":
+            continue
+        reason = tournament_exclusion_reason(v)
+        if reason is not None:
+            excluded[v.version] = reason
+            continue
+        digest = run_evidence_hash(v.training_run) or str(v.training_run["challengerHash"])
+        if digest in first_by_evidence:
+            excluded[v.version] = f"duplicate_of_v{first_by_evidence[digest]}"
+            continue
+        first_by_evidence[digest] = v.version
+        eligible.append(v)
+    return eligible, excluded
 
 
 def _score_version(version) -> CandidateScore:
@@ -251,7 +290,8 @@ def main() -> int:
             float(champ.params["HILL_PERCENTILE_C"]),
             float(champ.params["HILL_PERCENTILE_S"]),
         )
-        scores = [_score_version(v) for v in reg.versions if v.status == "challenger"]
+        eligible, excluded_from_tournament = tournament_versions(reg.versions)
+        scores = [_score_version(v) for v in eligible]
     except (HoldoutError, KeyError, ValueError) as exc:
         print(
             f"ERROR: current tournament could not be evaluated: {exc}",
@@ -318,6 +358,23 @@ def main() -> int:
             else None
         ),
         "stableVersions": list(decision.stable_versions),
+        # Compact on purpose: this plan is appended to the run log every ~2h,
+        # and ~170 pre-repair challengers would otherwise repeat in every line.
+        "excludedFromTournament": {
+            "legacySubstrateCount": sum(
+                1 for why in excluded_from_tournament.values() if why == "legacy_substrate"
+            ),
+            "duplicates": {
+                str(k): why
+                for k, why in sorted(excluded_from_tournament.items())
+                if why.startswith("duplicate_of_v")
+            },
+            "otherExclusions": {
+                str(k): why
+                for k, why in sorted(excluded_from_tournament.items())
+                if why != "legacy_substrate" and not why.startswith("duplicate_of_v")
+            },
+        },
         "forwardDays": decision.forward_days,
         "forwardWinRate": decision.forward_win_rate,
         "forwardMedianImprovement": decision.forward_median_improvement,
