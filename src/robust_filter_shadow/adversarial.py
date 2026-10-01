@@ -62,6 +62,8 @@ def run_filters(
     _kept, inc_dropped = dc._hampel_filter_per_player(list(observations))
     surviving_families = {families[s] for s in challenger.kept}
     return {
+        "incumbentCentre": statistics.median(v for _s, v in observations),
+        "challengerCentre": challenger.centre,
         "incumbentDropped": sorted(inc_dropped),
         "challengerDropped": sorted(challenger.dropped),
         "reasons": dict(challenger.reasons),
@@ -115,11 +117,12 @@ def case_a1_trap(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
             row=row["name"],
             fresh=fresh,
             expected=(
-                fresh not in out["challengerDropped"]
-                and out["reasons"].get(fresh) == "dominant_evidence_kept"
-                and out["familiesSurvivingChallenger"] >= 2
+                fresh not in out["challengerDropped"] and out["familiesSurvivingChallenger"] >= 2
             ),
             incumbentDropsFresh=fresh in out["incumbentDropped"],
+            # Which mechanism protected the fresh evidence: the weighted centre
+            # sits on it (never a candidate), or the dominant-evidence rule.
+            freshProtectedBy=out["reasons"].get(fresh) or "weighted_centre",
         )
         results.append(out)
         if len(results) >= CASE_ROWS:
@@ -196,7 +199,10 @@ def case_a3_correlated_family(rows: Sequence[Mapping[str, Any]]) -> dict[str, An
         # Keep exactly two independent families, so the correlated members are
         # a raw-count majority the incumbent's unweighted median can side with.
         keep_independent = [members_by_family[f][0] for f in others[:2]]
-        indep_level = statistics.median(row["obs"][s] for s in keep_independent)
+        a, b = (row["obs"][s] for s in keep_independent)
+        if abs(a - b) / max(a, b) > 0.20:
+            continue  # the independents must agree, or the case tests nothing
+        indep_level = statistics.median((a, b))
         members = sorted(members_by_family[family])
         obs = [(s, row["obs"][s]) for s in keep_independent]
         obs += [(s, min(9999.0, indep_level * 1.6)) for s in members]
@@ -208,9 +214,27 @@ def case_a3_correlated_family(rows: Sequence[Mapping[str, Any]]) -> dict[str, An
             row=row["name"],
             family=family,
             members=members,
-            expected=not set(keep_independent) & set(out["challengerDropped"]),
+            # The capped cluster cannot outvote the independents: no independent
+            # observation dropped, and the challenger's centre is no further
+            # from the independent level than the unweighted median.
+            expected=(
+                not set(keep_independent) & set(out["challengerDropped"])
+                and abs(out["challengerCentre"] - indep_level)
+                <= abs(out["incumbentCentre"] - indep_level) + 1e-9
+            ),
             incumbentDropsIndependent=bool(set(keep_independent) & set(out["incumbentDropped"])),
+            challengerDropsIndependent=bool(set(keep_independent) & set(out["challengerDropped"])),
             challengerDropsCluster=set(members) <= set(out["challengerDropped"]),
+            # Relative criterion: never worse than the incumbent -- no
+            # independent dropped that the incumbent kept, centre no further.
+            challengerNoWorseThanIncumbent=(
+                not (
+                    set(keep_independent)
+                    & set(out["challengerDropped"]) - set(out["incumbentDropped"])
+                )
+                and abs(out["challengerCentre"] - indep_level)
+                <= abs(out["incumbentCentre"] - indep_level) + 1e-9
+            ),
         )
         results.append(out)
         if len(results) >= CASE_ROWS:
@@ -233,8 +257,11 @@ def case_a4_broken_scale(rows: Sequence[Mapping[str, Any]], factor: float) -> di
         if not candidates or len(set(row["families"].values())) < 3:
             continue
         broken = candidates[0]
+        scaled = row["obs"][broken] * factor
+        if not (1.0 <= scaled <= 9999.0):
+            continue  # a clipped value is not a scale break any more
         obs = [(s, v) for s, v in row["obs"].items() if s != broken]
-        obs.append((broken, max(1.0, min(9999.0, row["obs"][broken] * factor))))
+        obs.append((broken, scaled))
         out = run_filters(obs, row["weights"])
         out.update(
             row=row["name"],
@@ -287,7 +314,9 @@ def _tally(name: str, results: list[dict[str, Any]], reasons: Sequence[str]) -> 
     flags = Counter()
     for out in results:
         for key, value in out.items():
-            if key.startswith(("incumbentDrops", "challengerDrops")) and isinstance(value, bool):
+            if key.startswith(
+                ("incumbentDrops", "challengerDrops", "challengerNoWorse")
+            ) and isinstance(value, bool):
                 flags[key] += value
     return {
         "case": name,
@@ -309,7 +338,7 @@ def _copy_tree(root: Path) -> tempfile.TemporaryDirectory:
     return tmp
 
 
-def _scale_rank_csv(path: Path, factor: float, top: int) -> int:
+def _scale_rank_csv(path: Path, factor: float, start: int, stop: int) -> int:
     import csv  # noqa: PLC0415
 
     with path.open(encoding="utf-8", newline="") as fh:
@@ -321,7 +350,7 @@ def _scale_rank_csv(path: Path, factor: float, top: int) -> int:
         (r for r in rows if (r.get(rank_col) or "").strip()), key=lambda r: float(r[rank_col])
     )
     changed = 0
-    for r in ranked[:top]:
+    for r in ranked[start:stop]:
         r[rank_col] = f"{max(1.0, float(r[rank_col]) * factor):.2f}"
         changed += 1
     with path.open("w", encoding="utf-8", newline="") as fh:
@@ -358,6 +387,36 @@ def _age_state(path: Path, cutoff: datetime) -> bool:
     return True
 
 
+def _choose_stale_age(
+    tree: Path, sources: Sequence[str], as_of: datetime | None
+) -> tuple[int | None, dict[str, float]]:
+    """The largest age (days) at which every source still votes (above quarantine)."""
+    from src.sources import freshness as fr  # noqa: PLC0415
+    from src.sources.dataset_state import state_path  # noqa: PLC0415
+
+    if as_of is None:
+        return None, {}
+    cfg = fr.default_config()
+    for age in (30, 21, 14, 10, 7, 5, 4, 3, 2):
+        with tempfile.TemporaryDirectory(prefix="jfs-age-") as scratch:
+            state_dir = Path(scratch)
+            for source in sources:
+                original = state_path(tree / "data" / "scrape_state", source)
+                if original.exists():
+                    shutil.copy(original, state_path(state_dir, source))
+                    _age_state(state_path(state_dir, source), as_of - timedelta(days=age))
+            weights = fr.load_source_weightings(
+                list(sources), state_dir=state_dir, as_of=as_of, cfg=cfg
+            )
+        values = {}
+        for source, sw in weights.items():
+            sub = sw.subset_for(False)
+            values[source] = round(sub.freshness, 4) if sub is not None else 1.0
+        if values and all(cfg.quarantine_below < v < 1.0 for v in values.values()):
+            return age, values
+    return None, {}
+
+
 def _pipeline_tally(
     name: str, base_inc: Mapping, inc: Mapping, ch: Mapping, focus: set[str]
 ) -> dict[str, Any]:
@@ -370,12 +429,12 @@ def _pipeline_tally(
     ch_rows = {str(r.get("displayName")): r for r in ch.get("playersArray") or []}
     affected: Counter[str] = Counter()
     freshness = []
-    for name, row in inc_rows.items():
+    for player, row in inc_rows.items():
         votes = R.voting_observations(row)
         if not R.is_filter_row(row, votes):
             continue
-        ch_dropped = set((ch_rows.get(name) or {}).get("droppedSources") or [])
-        reasons = (ch_rows.get(name) or {}).get("jointFilterReasons") or {}
+        ch_dropped = set((ch_rows.get(player) or {}).get("droppedSources") or [])
+        reasons = (ch_rows.get(player) or {}).get("jointFilterReasons") or {}
         for source in focus & set(votes):
             meta = (row.get("sourceRankMeta") or {}).get(source) or {}
             if meta.get("freshness") is not None:
@@ -383,7 +442,7 @@ def _pipeline_tally(
             # "perturbed" = the vote differs from the unperturbed board's vote.
             prefix = (
                 "perturbed"
-                if base_votes.get(name, {}).get(source) != votes[source]
+                if base_votes.get(player, {}).get(source) != votes[source]
                 else "unchanged"
             )
             affected[f"{prefix}Observations"] += 1
@@ -406,40 +465,85 @@ def full_pipeline_cases(
 ) -> list[dict[str, Any]]:
     results = []
     as_of = dc._payload_as_of(raw)
-    # FP-A4: a broken scale on one rank source (ranks ×5 and ×0.2 for its top 60).
-    for factor in (5.0, 0.2):
+    # FP-A4: a broken scale on one rank source. x5 on its top 60 ranks pushes
+    # those votes DOWN; x0.2 on ranks 150-250 pushes them UP (the top of the
+    # board is pinned near the 9999 ceiling, so it cannot show an upward break).
+    for factor, start, stop in ((5.0, 0, 60), (0.2, 150, 250)):
         tmp = _copy_tree(root)
         try:
             tree = Path(tmp.name)
-            changed = _scale_rank_csv(tree / "CSVs" / "site_raw" / "dlfSf.csv", factor, 60)
+            changed = _scale_rank_csv(tree / "CSVs" / "site_raw" / "dlfSf.csv", factor, start, stop)
             inc, ch = R.build_pair(raw, tree)
             out = _pipeline_tally(f"FP_A4_dlfSf_ranks_x{factor:g}", base_inc, inc, ch, {"dlfSf"})
             out["csvRowsChanged"] = changed
+            out["csvRankSlice"] = [start, stop]
             results.append(out)
         finally:
             tmp.cleanup()
-    # FP-A2: three independent rank sources made stale (state aged 40 days).
-    stale = {"fantasyCalc", "dynastyDaddySf", "pfkDynasty"}
+    # FP-A2: three independent rank sources made stale -- as stale as possible
+    # while still voting (aged until just above the quarantine floor).
+    stale = ("dynastyDaddySf", "fantasyCalc", "pfkDynasty")
     tmp = _copy_tree(root)
     try:
         tree = Path(tmp.name)
-        from src.sources.dataset_state import state_path  # noqa: PLC0415
+        age, freshness = _choose_stale_age(tree, stale, as_of)
+        if age is not None and as_of is not None:
+            from src.sources.dataset_state import state_path  # noqa: PLC0415
 
-        aged = [
-            s
-            for s in sorted(stale)
-            if as_of is not None
-            and _age_state(
-                state_path(tree / "data" / "scrape_state", s), as_of - timedelta(days=40)
-            )
-        ]
+            for source in stale:
+                _age_state(
+                    state_path(tree / "data" / "scrape_state", source),
+                    as_of - timedelta(days=age),
+                )
         inc, ch = R.build_pair(raw, tree)
-        out = _pipeline_tally("FP_A2_three_sources_stale_40d", base_inc, inc, ch, set(aged))
-        out["agedSources"] = aged
+        out = _pipeline_tally("FP_A2_three_sources_stale", base_inc, inc, ch, set(stale))
+        out["agedDays"] = age
+        out["agedFreshness"] = freshness
         results.append(out)
     finally:
         tmp.cleanup()
     return results
+
+
+def dominant_safeguard_reachability(trials: int = 20000, seed: int = 1571) -> dict[str, Any]:
+    """How often ``dominant_evidence_kept`` can decide anything, by random search.
+
+    A finding, not a design: with the weighted median and weighted MAD, an
+    observation holding at least half the evidence weight pulls both the centre
+    and the scale toward itself, so at ``k = 2.75 > 1`` it is (empirically)
+    never outside the threshold -- the rule never fires, and dominant evidence
+    is protected by the weighting itself. At ``k = 0.5`` the branch does fire,
+    which shows it is live code rather than a typo.
+    """
+    import random  # noqa: PLC0415
+
+    def search(k: float) -> dict[str, int]:
+        rng = random.Random(seed)
+        hits = Counter()
+        for _ in range(trials):
+            n = rng.randint(4, 12)
+            obs = [(f"s{i}", rng.uniform(100.0, 9999.0)) for i in range(n)]
+            weights = {
+                key: rng.choice([rng.random(), rng.random() ** 4, 1.0, 0.03]) for key, _ in obs
+            }
+            families = {key: key if rng.random() < 0.7 else "F" for key, _ in obs}
+            result = joint_robust_filter(
+                obs,
+                weights,
+                families,
+                k=k,
+                min_n=dc._HAMPEL_MIN_N,
+                min_threshold=rng.choice([1000.0, 0.0]),
+            )
+            hits.update(result.reasons.values())
+        return {r: hits.get(r, 0) for r in (*R.SAFEGUARD_REASONS, "outlier")}
+
+    return {
+        "trials": trials,
+        "seed": seed,
+        "productionK": {"k": dc._HAMPEL_K, "reasons": search(dc._HAMPEL_K)},
+        "diagnosticK": {"k": 0.5, "reasons": search(0.5)},
+    }
 
 
 def run_all(raw: Mapping[str, Any], root: Path, *, full_pipeline: bool = False) -> dict[str, Any]:
@@ -461,6 +565,7 @@ def run_all(raw: Mapping[str, Any], root: Path, *, full_pipeline: bool = False) 
             "safeguardsFiredOnRealBoard": R.shadow_record(base_inc, base_ch)["safeguardsFired"],
         },
         "functionLevel": cases,
+        "dominantSafeguardReachability": dominant_safeguard_reachability(),
         "allExpected": all(c["rows"] > 0 and c["expectedHeld"] == c["rows"] for c in cases),
     }
     if full_pipeline:

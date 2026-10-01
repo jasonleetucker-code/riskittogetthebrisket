@@ -1189,6 +1189,10 @@ main() {
   # the authenticated /api/second-opinion/signals (src/sources/signals.py).
   # Public pages, no creds; a 401/403 persists a stop the script obeys.
   install_simple_timer "signals-fetch" "Signals Fantasy public-board collection (non-voting second opinion)"
+  # Batch 3 Unit F: the #1571 joint robust filter in SHADOW beside the incumbent
+  # Hampel filter -> append-only data/robust_filter_shadow/ledger.jsonl + the
+  # preregistered evaluation. Writes no served value; never promotes.
+  install_simple_timer "joint-filter-shadow" "joint robust-filter shadow ledger (no served-value change)"
 
   # ── daemon-reload and enable ────────────────────────────────────────────
   # ce_needs_install was missing from this list. Every other timer's
