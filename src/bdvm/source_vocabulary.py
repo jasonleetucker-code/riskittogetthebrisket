@@ -458,6 +458,8 @@ def record_coverage(
                 reason=(
                     "proxy_card_not_recorded"
                     if built_under is None
+                    else "current_card_unverifiable"
+                    if current is None
                     else "proxy_built_under_different_card"
                 ),
             )

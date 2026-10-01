@@ -380,3 +380,23 @@ def test_a_per_capture_source_keeps_absence_as_omission():
     )
     cov = record_coverage(lb, CARD)
     assert "idp_sack" in cov.unscored_keys
+
+
+def test_empty_current_card_has_its_own_reason():
+    cov = record_coverage(_proxy(declared=(), card_fp=_card_fp()), {})
+    assert cov.status == "unverifiable"
+    assert cov.reason in {"current_card_unverifiable", "proxy_card_not_recorded"}
+
+
+def test_season_resolved_cards_that_differ_withhold_the_stamp():
+    from src.bdvm.baseline import _uniform_card_fingerprint
+    from src.bdvm.projections import RealizedSeason
+
+    history = {"p": ("WR", [RealizedSeason(season=2024, ppg=10.0, games=16.0)])}
+    same = _uniform_card_fingerprint(history, CARD, lambda _s: CARD)
+    assert same == _card_fp()
+    differs = _uniform_card_fingerprint(history, CARD, lambda _s: {**CARD, "rec": 0.5})
+    assert differs is None
+    unresolved = _uniform_card_fingerprint(history, CARD, lambda _s: None)
+    assert unresolved is None
+    assert _uniform_card_fingerprint(history, CARD, None) == _card_fp()

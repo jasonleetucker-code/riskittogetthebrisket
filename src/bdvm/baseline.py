@@ -186,6 +186,32 @@ def positional_means(
     return {pos: sums[pos] / counts[pos] for pos in sums if counts[pos] > 0}
 
 
+def _uniform_card_fingerprint(
+    history: Mapping[str, tuple[str, list[RealizedSeason]]],
+    scoring_settings: Mapping[str, Any],
+    scoring_for_season: Callable[[int], Mapping[str, Any] | None] | None,
+) -> str | None:
+    """The card fingerprint to stamp on declared proxy coverage, or ``None``.
+
+    Declared omissions describe ONE card.  When seasons are scored under their
+    own resolved cards (``scoring_for_season``), a rule that is nonzero now but
+    was zero in an earlier season would read as covered; so the stamp is given
+    only when every resolved season card has the current fingerprint, and
+    otherwise ``None`` (the record then reports ``unverifiable``).
+    """
+    from src.league_comparison.sleeper_scoring import scoring_fingerprint  # noqa: PLC0415
+
+    current = scoring_fingerprint(dict(scoring_settings))
+    if current is None or scoring_for_season is None:
+        return current
+    seasons = {s.season for _pos, seasons_ in history.values() for s in seasons_}
+    for season_ in seasons:
+        card = scoring_for_season(season_)
+        if card is None or scoring_fingerprint(dict(card)) != current:
+            return None
+    return current
+
+
 def build_baseline_records(
     *,
     season: int,
@@ -205,14 +231,13 @@ def build_baseline_records(
         pbp_for_season=pbp_for_season,
     )
     means = positional_means(history)
-    from src.league_comparison.sleeper_scoring import scoring_fingerprint  # noqa: PLC0415
-
+    stamp = _uniform_card_fingerprint(history, scoring_settings, scoring_for_season)
     records = build_reconstructed_baseline(
         history,
         season=season,
         as_of=as_of,
         positional_means=means,
-        card_fingerprint=scoring_fingerprint(dict(scoring_settings)),
+        card_fingerprint=stamp,
     )
     summary = {
         "playersWithHistory": len(history),
@@ -388,14 +413,14 @@ def fetch_and_build_baseline(
             scoring_for_season=scoring_for_season,
             pbp_for_season=pbp_for_season,
         )
-        from src.league_comparison.sleeper_scoring import scoring_fingerprint  # noqa: PLC0415
-
         rookie_records, rookie_summary = build_rookie_prior_records(
             season=season,
             as_of=as_of,
             history=history,
             context=context,
-            card_fingerprint=scoring_fingerprint(dict(scoring_settings)),
+            card_fingerprint=_uniform_card_fingerprint(
+                history, scoring_settings, scoring_for_season
+            ),
         )
         existing = {r.player_key for r in records}
         added = [r for r in rookie_records if r.player_key not in existing]
