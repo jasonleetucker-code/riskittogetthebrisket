@@ -695,9 +695,9 @@ backup set changed, so the register records it.
 
 | | |
 |---|---|
-| **Primary store** | `data/learning/receipts.sqlite` (gitignored; refused under `data/ros/`, which the scheduled refresh force-adds) |
+| **Primary store** | `data/learning/receipts.sqlite` (gitignored; the store refuses any path outside `data/learning/` (tests: the temp dir), and `data/ros/` explicitly, which the scheduled refresh force-adds) |
 | **Backup** | `riskit-state-backup.sh` → `sqlite/receipts.sqlite.gz` (online backup, `PRAGMA integrity_check`ed) |
-| **Write owner** | `src/model_registry/receipt_store.py::append_receipts` — INSERT-only; UPDATE / DELETE and `PROMOTION_RECORD` rows are refused by database triggers |
+| **Write owner** | `src/model_registry/receipt_store.py::append_receipts` + `record_correction` — INSERT-only; UPDATE / DELETE / `INSERT OR REPLACE` and `PROMOTION_RECORD` rows are refused by database triggers on `receipts`, `corrections` and `meta`. A corrected outcome is a new revision linked by a `corrections` row; the original is never changed |
 | **Read owner** | `receipt_store.iter_receipts` — operators, tests, and later AL units. **No serving path reads it** |
 | **Retention** | indefinite; append-only |
 | **Privacy class** | **private** — model evaluations, challengers and verdicts are decision intelligence (`MASTER_PRODUCT_PLAN.md` §5) |

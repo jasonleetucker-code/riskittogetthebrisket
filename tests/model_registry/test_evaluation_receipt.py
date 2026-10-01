@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import ast
-from datetime import datetime, timezone
+import dataclasses
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
 
 from src.model_registry import evaluation_receipt as er
 from src.model_registry.learning_receipt import (
+    ROLE_OUTCOME,
     NotApplicable,
+    PointInTimeViolation,
     ReceiptError,
+    StoreRef,
     Unobserved,
     model_version_id,
 )
@@ -157,3 +161,47 @@ class TestVerdictsAndPromotion:
                         "src.model_registry.autopilot",
                         "src.model_registry.versioning",
                     ), f"{rel} imports {node.module}"
+
+
+class TestOutcomeRefs:
+    """Finding 3: the evaluation's target event reaches the learning receipt, so an
+    outcome ref is checked (at/after the target event, never before the cutoff)."""
+
+    TARGET = CUTOFF + timedelta(days=21)
+
+    def _outcome_ref(self, known_at):
+        return StoreRef(
+            store="temporal_ledger",
+            key="canonical_board@2026-10-21",
+            role=ROLE_OUTCOME,
+            known_at=known_at,
+            fidelity="exact",
+            revision="r0",
+        )
+
+    def _with_outcome(self, known_at, target=TARGET):
+        return dataclasses.replace(
+            _eval(_ok()), outcome_set=self._outcome_ref(known_at), target_event_at=target
+        )
+
+    def test_a_real_outcome_dated_after_the_target_event_is_accepted(self):
+        r = self._with_outcome(self.TARGET + timedelta(hours=6)).to_learning_receipt()
+        assert r.target_event_at == self.TARGET
+        assert r.to_dict()["targetEventAt"] == self.TARGET.isoformat()
+        assert r.body["targetEventAt"] == self.TARGET.isoformat()
+        assert r.slots["outcomeSet"].revision == "r0"
+
+    def test_an_outcome_dated_before_the_target_event_is_refused(self):
+        with pytest.raises(PointInTimeViolation, match="precedes its target event"):
+            self._with_outcome(self.TARGET - timedelta(seconds=1)).to_learning_receipt()
+
+    def test_an_outcome_before_the_prediction_cutoff_is_refused(self):
+        # A target set before the cutoff cannot launder an early outcome through.
+        with pytest.raises(PointInTimeViolation, match="precedes the cutoff"):
+            self._with_outcome(
+                CUTOFF - timedelta(days=2), target=CUTOFF - timedelta(days=3)
+            ).to_learning_receipt()
+
+    def test_an_outcome_without_a_target_event_is_refused(self):
+        with pytest.raises(PointInTimeViolation, match="targetEventAt"):
+            self._with_outcome(self.TARGET, target=None).to_learning_receipt()

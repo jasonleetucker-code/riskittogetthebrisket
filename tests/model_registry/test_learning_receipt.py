@@ -101,7 +101,11 @@ class TestPointInTimeProperty:
         rng = random.Random(SEED + 2)
         for _ in range(3000):
             target, known = _instant(rng), _instant(rng)
-            r = _receipt(target=target, slots={"outcome": _ref(known, role=lr.ROLE_OUTCOME)})
+            r = _receipt(
+                kind=lr.KIND_OUTCOME,
+                target=target,
+                slots={"outcome": _ref(known, role=lr.ROLE_OUTCOME)},
+            )
             if known >= target:
                 lr.validate_receipt(r)
             else:
@@ -133,6 +137,101 @@ class TestPointInTimeProperty:
         with pytest.raises(lr.ReceiptError, match="unregistered"):
             lr.StoreRef(
                 store="somewhere_else", key="k", role=lr.ROLE_INPUT, known_at=BASE, fidelity="exact"
+            )
+
+
+class TestRoleCannotDodgeTheGuard:
+    """Finding 2: the A1 guard must not trust the caller-declared role."""
+
+    def test_probe_future_ledger_ref_labelled_artifact_on_a_prediction_is_refused(self):
+        # The reviewer's bypass: a temporal-ledger observation known a day after the
+        # cutoff, labelled 'artifact' so the time guard would skip it.
+        with pytest.raises(lr.ReceiptError, match="cannot be an 'artifact'"):
+            lr.validate_receipt(
+                _receipt(
+                    kind=lr.KIND_PREDICTION,
+                    cutoff=BASE,
+                    slots={"inputs": _ref(BASE + timedelta(days=1), role=lr.ROLE_ARTIFACT)},
+                )
+            )
+
+    @pytest.mark.parametrize(
+        "store",
+        sorted(set(lr.NATIVE_STORES) - lr.ARTIFACT_STORES),
+    )
+    def test_no_evidence_store_may_be_an_artifact(self, store):
+        assert store in {
+            "temporal_ledger",
+            "repo_file",
+            "board_snapshot",
+            "source_quality_panel",
+            "dataset_state",
+        }
+        with pytest.raises(lr.ReceiptError, match="cannot be an 'artifact'"):
+            lr.StoreRef(
+                store=store, key="k", role=lr.ROLE_ARTIFACT, known_at=BASE, fidelity="exact"
+            )
+
+    def test_artifact_stores_are_registered_native_stores(self):
+        assert lr.ARTIFACT_STORES <= set(lr.NATIVE_STORES)
+        assert "temporal_ledger" not in lr.ARTIFACT_STORES
+        assert "dataset_state" not in lr.ARTIFACT_STORES
+
+    @pytest.mark.parametrize("kind", sorted(lr.INPUT_ONLY_KINDS))
+    def test_observation_and_features_accept_inputs_only(self, kind):
+        artifact = lr.StoreRef(
+            store="model_registry",
+            key="m#v1",
+            role=lr.ROLE_ARTIFACT,
+            known_at=BASE + timedelta(days=9),
+            fidelity="exact",
+        )
+        with pytest.raises(lr.PointInTimeViolation, match="must be an 'input'"):
+            lr.validate_receipt(_receipt(kind=kind, cutoff=BASE, slots={"x": artifact}))
+
+    @pytest.mark.parametrize("kind", sorted(lr.PRE_CUTOFF_KINDS))
+    def test_no_pre_cutoff_kind_may_point_at_an_outcome(self, kind):
+        outcome = _ref(BASE + timedelta(days=2), role=lr.ROLE_OUTCOME)
+        with pytest.raises(lr.PointInTimeViolation):
+            lr.validate_receipt(
+                _receipt(
+                    kind=kind, cutoff=BASE, target=BASE + timedelta(days=1), slots={"o": outcome}
+                )
+            )
+
+    def test_a_producer_artifact_on_a_prediction_is_still_accepted(self):
+        artifact = lr.StoreRef(
+            store="robust_filter_shadow_ledger",
+            key="gen:1",
+            role=lr.ROLE_ARTIFACT,
+            known_at=BASE + timedelta(hours=1),
+            fidelity="exact",
+        )
+        lr.validate_receipt(
+            _receipt(
+                kind=lr.KIND_PREDICTION,
+                cutoff=BASE,
+                slots={"inputs": _ref(BASE), "predictionSet": artifact},
+            )
+        )
+
+
+class TestOutcomeTiming:
+    def test_an_outcome_may_not_precede_the_prediction_cutoff(self):
+        with pytest.raises(lr.PointInTimeViolation):
+            lr.validate_receipt(
+                _receipt(
+                    kind=lr.KIND_OUTCOME,
+                    cutoff=BASE,
+                    target=BASE - timedelta(days=1),
+                    slots={"o": _ref(BASE - timedelta(hours=1), role=lr.ROLE_OUTCOME)},
+                )
+            )
+
+    def test_a_target_event_before_the_cutoff_is_refused(self):
+        with pytest.raises(lr.PointInTimeViolation, match="precedes the cutoff"):
+            lr.validate_receipt(
+                _receipt(kind=lr.KIND_OUTCOME, cutoff=BASE, target=BASE - timedelta(seconds=1))
             )
 
 
@@ -225,6 +324,48 @@ class TestStore:
         with pytest.raises(rs.StorePathError):
             rs.connect(rs.REPO / "data" / "ros" / "receipts.sqlite")
 
+    @pytest.mark.parametrize(
+        "rel",
+        ["data/temporal_ledger.sqlite", "data/receipts.sqlite", "config/receipts.sqlite"],
+    )
+    def test_the_store_refuses_any_other_sqlite_path(self, rel):
+        target = rs.REPO / rel
+        existed = target.exists()
+        with pytest.raises(rs.StorePathError, match="data/learning"):
+            rs.connect(target)
+        with pytest.raises(rs.StorePathError):
+            list(rs.iter_receipts(target))
+        assert target.exists() == existed  # nothing created
+
+    def test_meta_is_insert_only(self, tmp_path):
+        path = tmp_path / "r.sqlite"
+        conn = rs.connect(path)
+        for sql in (
+            "UPDATE meta SET value = '99' WHERE key = 'schema_version'",
+            "DELETE FROM meta",
+            "INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_version', '99')",
+        ):
+            with pytest.raises(sqlite3.DatabaseError, match="insert-only"):
+                conn.execute(sql)
+        conn.close()
+        conn = rs.connect(path)  # reconnecting does not rewrite meta either
+        assert conn.execute("SELECT value FROM meta").fetchall()[0][0] == "1"
+        conn.close()
+
+    def test_insert_or_replace_cannot_overwrite_a_receipt(self, tmp_path):
+        path = tmp_path / "r.sqlite"
+        r = _receipt(body={"v": 1})
+        rs.append_receipts([r], path=path)
+        conn = rs.connect(path)
+        conn.execute(
+            "INSERT OR REPLACE INTO receipts VALUES (?,'OBSERVATION',1,'p','f',NULL,NULL,NULL,'h','{}','t')",
+            (r.receipt_id,),
+        )
+        conn.commit()
+        conn.close()
+        stored = list(rs.iter_receipts(path))
+        assert len(stored) == 1 and stored[0]["body"] == {"v": 1}
+
     def test_default_store_is_gitignored_data_learning(self):
         assert (
             rs.DEFAULT_STORE_PATH.relative_to(rs.REPO).as_posix() == "data/learning/receipts.sqlite"
@@ -243,7 +384,7 @@ class TestDrift:
             drift_class=cls,
             signal="coverage fell",
             observed_at=BASE,
-            evidence=[_ref(BASE, role=lr.ROLE_ARTIFACT)],
+            evidence=[_ref(BASE)],
         )
         assert r.kind == lr.KIND_DRIFT
         assert r.body["driftClass"] == cls
@@ -259,7 +400,7 @@ class TestDrift:
                 drift_class="vibes",
                 signal="s",
                 observed_at=BASE,
-                evidence=[_ref(BASE, role=lr.ROLE_ARTIFACT)],
+                evidence=[_ref(BASE)],
             )
 
     def test_drift_needs_evidence(self):
@@ -295,7 +436,99 @@ class TestDrift:
             drift_class="performance",
             signal="holdout error rose",
             observed_at=BASE,
-            evidence=[_ref(BASE, role=lr.ROLE_ARTIFACT)],
+            evidence=[_ref(BASE)],
         )
         out = rs.append_receipts([r], path=tmp_path / "r.sqlite")
         assert out["written"] == 1
+
+
+# ── corrections: revisions, never overwrites ────────────────────────────────
+
+
+def _outcome(revision=None, known=BASE + timedelta(days=2)):
+    return lr.LearningReceipt(
+        kind=lr.KIND_OUTCOME,
+        producer="test_producer",
+        native_id="game-1",
+        model_family="test_family",
+        model_version_id=None,
+        slots={"result": _ref(known, role=lr.ROLE_OUTCOME)},
+        cutoff=BASE,
+        target_event_at=BASE + timedelta(days=1),
+        revision=revision,
+        body={"revision": revision},
+    )
+
+
+class TestCorrections:
+    def test_a_corrected_outcome_is_a_new_receipt_not_a_conflict(self, tmp_path):
+        path = tmp_path / "r.sqlite"
+        orig, fixed = _outcome(), _outcome("stat-correction-1")
+        assert orig.receipt_id != fixed.receipt_id
+        out = rs.append_receipts([orig, fixed], path=path)
+        assert out["written"] == 2 and not out["contentConflicts"]
+        assert rs.record_correction(
+            orig.receipt_id, fixed.receipt_id, "NFL stat correction", path=path
+        ) == {"recorded": True}
+        # idempotent
+        assert rs.record_correction(
+            orig.receipt_id, fixed.receipt_id, "NFL stat correction", path=path
+        ) == {"recorded": False}
+        all_ids = {r["receiptId"] for r in rs.iter_receipts(path)}
+        live_ids = {r["receiptId"] for r in rs.iter_receipts(path, live_only=True)}
+        assert all_ids == {orig.receipt_id, fixed.receipt_id}  # the original is retained
+        assert live_ids == {fixed.receipt_id}
+
+    def test_a_chain_of_corrections_and_no_fork_or_cycle(self, tmp_path):
+        path = tmp_path / "r.sqlite"
+        r0, r1, r2, r3 = _outcome(), _outcome("rev1"), _outcome("rev2"), _outcome("rev3")
+        rs.append_receipts([r0, r1, r2, r3], path=path)
+        rs.record_correction(r0.receipt_id, r1.receipt_id, "first", path=path)
+        with pytest.raises(rs.CorrectionError, match="already superseded"):
+            rs.record_correction(r0.receipt_id, r2.receipt_id, "fork", path=path)
+        with pytest.raises(rs.CorrectionError, match="new, non-empty revision"):
+            rs.record_correction(r1.receipt_id, r0.receipt_id, "back to the original", path=path)
+        rs.record_correction(r1.receipt_id, r2.receipt_id, "second", path=path)
+        with pytest.raises(rs.CorrectionError, match="itself superseded"):
+            rs.record_correction(r3.receipt_id, r1.receipt_id, "cycle", path=path)
+        live = {r["receiptId"] for r in rs.iter_receipts(path, live_only=True)}
+        assert live == {r2.receipt_id, r3.receipt_id}
+
+    @pytest.mark.parametrize("reason", ["", "   "])
+    def test_a_correction_needs_a_reason(self, tmp_path, reason):
+        with pytest.raises(rs.CorrectionError, match="reason"):
+            rs.record_correction("a", "b", reason, path=tmp_path / "r.sqlite")
+
+    def test_a_correction_must_be_a_revision_of_the_same_receipt(self, tmp_path):
+        path = tmp_path / "r.sqlite"
+        orig = _outcome()
+        other = _receipt(native="something-else", body={"x": 1})
+        no_rev = _receipt(kind=lr.KIND_OBSERVATION, native="n9")
+        rs.append_receipts([orig, other, no_rev, _outcome("r1")], path=path)
+        with pytest.raises(rs.CorrectionError, match="same receipt"):
+            rs.record_correction(orig.receipt_id, other.receipt_id, "x", path=path)
+        with pytest.raises(rs.CorrectionError, match="itself"):
+            rs.record_correction(orig.receipt_id, orig.receipt_id, "x", path=path)
+        with pytest.raises(rs.CorrectionError, match="missing"):
+            rs.record_correction(orig.receipt_id, "rcpt:outcome:nope", "x", path=path)
+
+    def test_corrections_are_append_only_in_the_database(self, tmp_path):
+        path = tmp_path / "r.sqlite"
+        orig, fixed = _outcome(), _outcome("r1")
+        rs.append_receipts([orig, fixed], path=path)
+        rs.record_correction(orig.receipt_id, fixed.receipt_id, "fix", path=path)
+        conn = rs.connect(path)
+        with pytest.raises(sqlite3.DatabaseError, match="append-only"):
+            conn.execute("UPDATE corrections SET reason = 'x'")
+        with pytest.raises(sqlite3.DatabaseError, match="append-only"):
+            conn.execute("DELETE FROM corrections")
+        with pytest.raises(sqlite3.DatabaseError, match="at most once"):
+            conn.execute(
+                "INSERT OR REPLACE INTO corrections VALUES (?, ?, 'y', 't')",
+                (orig.receipt_id, fixed.receipt_id),
+            )
+        conn.close()
+
+    def test_an_empty_revision_is_refused(self):
+        with pytest.raises(lr.ReceiptError, match="revision"):
+            lr.validate_receipt(_outcome("  "))

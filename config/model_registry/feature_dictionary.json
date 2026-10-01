@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "dictionaryVersion": 1,
-  "_comment": "Definitions only, never values (AL-0, docs/research/ADAPTIVE_LEARNING_2026-09-26.md section 19.3). Owner: src/model_registry/feature_dictionary.py. A changed definition is a NEW version: add an entry with version+1 and keep the old one; editing an entry in place breaks its definitionHash and fails validation.",
+  "_comment": "Definitions only, never values (AL-0, docs/research/ADAPTIVE_LEARNING_2026-09-26.md section 19.3). Owner: src/model_registry/feature_dictionary.py. A changed definition is a NEW version: add an entry with version+1 and keep the old one; editing an entry in place breaks its definitionHash and fails validation, and recomputing that hash still disagrees with the append-only feature_dictionary.lock.json, where a new version appends a new row.",
   "features": [
     {
       "name": "source_board_native_value",

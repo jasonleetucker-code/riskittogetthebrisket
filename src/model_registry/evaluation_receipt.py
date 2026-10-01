@@ -212,6 +212,12 @@ class EvaluationReceipt:
     proposed_verdict: str
     verdict_basis: str
     champion_model_version_id: str | None = None
+    #: The instant of the event the target measures (e.g. a game's final, the
+    #: end of a forecast horizon). Carried onto the learning receipt's
+    #: ``targetEventAt`` so an ``outcome`` ref is checked as dated at or after
+    #: the target event and not before the prediction cutoff. ``None`` when the
+    #: evaluation has no single target instant — then no outcome ref is accepted.
+    target_event_at: datetime | None = None
     family_policy: str = "explicit owner approval (no automatic policy for this family)"
     refs: Sequence[StoreRef] = ()
     extra: Mapping[str, Any] = field(default_factory=dict)
@@ -245,6 +251,7 @@ class EvaluationReceipt:
             "horizon": self.horizon,
             "cohortKeys": list(self.cohort_keys),
             "cutoff": iso(self.cutoff),
+            "targetEventAt": iso(self.target_event_at),
             "pointInTimeRule": self.point_in_time_rule,
             "featureManifestHash": fmh if isinstance(fmh, str) else fmh.to_dict(),
             "inputPins": _pin_dict(self.input_pins),
@@ -269,6 +276,7 @@ class EvaluationReceipt:
             model_family=self.model_family,
             model_version_id=self.model_version_id,
             cutoff=self.cutoff,
+            target_event_at=self.target_event_at,
             slots={
                 "predictionSet": self.prediction_set,
                 "outcomeSet": self.outcome_set,

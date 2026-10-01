@@ -18,11 +18,28 @@ Invariants enforced here, each pinned by ``tests/model_registry/test_learning_re
 
 * **Point in time** (A1). A reference whose role is ``input`` must carry a proven
   instant at or before the receipt's ``cutoff``; a reference whose role is
-  ``outcome`` must be at or after the receipt's ``targetEventAt``. An instant
+  ``outcome`` must be at or after the receipt's ``targetEventAt`` AND not before
+  its ``cutoff`` (and a target event may not precede the cutoff). An instant
   that cannot be proven (no time component, unparseable, naive) is refused — the
   same rule as ``src.history.store.has_time_component`` and
   ``training_run._require_aware``: an unknown instant cannot be proven to precede
   anything.
+* **The role is not the caller's to choose** (A1). ``artifact`` — the one role
+  the time guard does not bound, because a producer's own output is legitimately
+  written after its cutoff — is accepted only for a ref into a producer ARTIFACT
+  store (:data:`ARTIFACT_STORES`). A temporal-ledger, dataset-state, board,
+  panel or repo-file ref can never be an ``artifact``, so a future-dated
+  observation cannot be relabelled past the guard. OBSERVATION and FEATURES
+  receipts — the receipts that describe what fed a model — accept ``input``
+  refs only; no pre-cutoff kind (:data:`PRE_CUTOFF_KINDS`) may carry an
+  ``outcome`` ref.
+* **Corrections are revisions, never overwrites** (plan §19.1 ``outcomeRevision``).
+  A receipt's identity is ``(kind, producer, nativeId)`` plus its ``revision``
+  when it has one. A corrected outcome is a NEW receipt with a new ``revision``,
+  linked to the original through ``receipt_store.record_correction`` — the
+  precedent is ``src.history.store.record_correction``: append-only, a reason is
+  mandatory, the original stays stored and readable, and a superseded receipt
+  cannot supersede.
 * **Fidelity is the as-of vocabulary** of ``src.history.asof``. ``reconstructed``
   is refused: no approved reconstruction methodology exists (C1-U4), and a
   receipt must never present a re-derived value as an observation.
@@ -126,7 +143,34 @@ NATIVE_STORES: Mapping[str, str] = {
     "robust_filter_shadow_ledger": "src.robust_filter_shadow.ledger",
     # Source dataset state clocks
     "dataset_state": "src.sources.dataset_state",
+    # a producer's preregistration document, pinned by sha256 (and commit) by that producer
+    "preregistration": "the producer's own preregistration pin (e.g. source-quality pins.preregistration)",
 }
+
+#: Stores that hold a PRODUCER'S OWN OUTPUT (plan §19.1: the model registry,
+#: training-run records, evaluation archives and results, shadow ledgers, and the
+#: preregistration a producer pins). Only these may be referenced with role
+#: ``artifact``. Every other store holds evidence that existed in the world —
+#: observations, source data, boards, panels, dataset clocks, repo files — and a
+#: ref into it is an ``input`` (bounded by the cutoff) or an ``outcome`` (bounded
+#: by the target event); it is never exempt from the time guard.
+ARTIFACT_STORES: frozenset[str] = frozenset(
+    {
+        "model_registry",
+        "hill_training_run",
+        "source_quality_evaluations",
+        "source_quality_results",
+        "robust_filter_shadow_ledger",
+        "preregistration",
+    }
+)
+
+#: Kinds whose refs describe what FED a model; every ref must be ``input``.
+INPUT_ONLY_KINDS: frozenset[str] = frozenset({KIND_OBSERVATION, KIND_FEATURES})
+#: Kinds made at or before their cutoff; none may point at an ``outcome``.
+PRE_CUTOFF_KINDS: frozenset[str] = frozenset(
+    {KIND_OBSERVATION, KIND_FEATURES, KIND_PREDICTION, KIND_DECISION}
+)
 
 #: The six drift classes of plan §20 — exactly these, and nothing else.
 DRIFT_CLASSES: tuple[str, ...] = (
@@ -198,6 +242,12 @@ class StoreRef:
             raise ReceiptError("a store reference needs a key")
         if self.role not in REF_ROLES:
             raise ReceiptError(f"unknown reference role {self.role!r}")
+        if self.role == ROLE_ARTIFACT and self.store not in ARTIFACT_STORES:
+            raise ReceiptError(
+                f"a {self.store!r} ref cannot be an 'artifact': only a producer's own artifact "
+                f"stores {sorted(ARTIFACT_STORES)} are exempt from the point-in-time guard; "
+                "evidence from any other store is an 'input' or an 'outcome'"
+            )
         if self.fidelity == FIDELITY_RECONSTRUCTED:
             raise ReceiptError(
                 "fidelity 'reconstructed' is refused: no approved reconstruction "
@@ -302,11 +352,17 @@ class LearningReceipt:
     cutoff: datetime | None = None
     target_event_at: datetime | None = None
     prediction_id: str | None = None
+    #: ``None`` for an original. A correction carries a new, non-empty revision
+    #: (e.g. an ``outcomeRevision``) and therefore a distinct identity.
+    revision: str | None = None
 
     @property
     def receipt_id(self) -> str:
-        """Identity: kind + producer + the producer's native id. No content, no clock."""
-        return f"rcpt:{self.kind.lower()}:{sha256_text(f'{self.kind}|{self.producer}|{self.native_id}')[:32]}"
+        """Identity: kind + producer + native id (+ revision). No content, no clock."""
+        basis = f"{self.kind}|{self.producer}|{self.native_id}"
+        if self.revision is not None:
+            basis += f"|rev={self.revision}"
+        return f"rcpt:{self.kind.lower()}:{sha256_text(basis)[:32]}"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -318,6 +374,7 @@ class LearningReceipt:
             "modelFamily": self.model_family,
             "modelVersionId": self.model_version_id,
             "predictionId": self.prediction_id,
+            "revision": self.revision,
             "cutoff": iso(self.cutoff),
             "targetEventAt": iso(self.target_event_at),
             "slots": {k: slot_to_dict(v) for k, v in sorted(self.slots.items())},
@@ -334,8 +391,29 @@ def _all_refs(receipt: LearningReceipt) -> list[StoreRef]:
 
 
 def check_point_in_time(receipt: LearningReceipt) -> None:
-    """A1. Nothing known after the cutoff is selectable; no outcome precedes its target."""
+    """A1. Nothing known after the cutoff is selectable; no outcome precedes its target.
+
+    The declared role is checked against the receipt kind BEFORE any time
+    comparison, so a role cannot be chosen to dodge the comparison."""
+    if (
+        receipt.cutoff is not None
+        and receipt.target_event_at is not None
+        and receipt.target_event_at < receipt.cutoff
+    ):
+        raise PointInTimeViolation(
+            f"target event {iso(receipt.target_event_at)} precedes the cutoff "
+            f"{iso(receipt.cutoff)}: a prediction cannot be made after the event it predicts"
+        )
     for ref in _all_refs(receipt):
+        if receipt.kind in INPUT_ONLY_KINDS and ref.role != ROLE_INPUT:
+            raise PointInTimeViolation(
+                f"{receipt.kind} ref {ref.store}:{ref.key} is {ref.role!r}; everything an "
+                f"{receipt.kind} receipt points at fed the model and must be an 'input'"
+            )
+        if receipt.kind in PRE_CUTOFF_KINDS and ref.role == ROLE_OUTCOME:
+            raise PointInTimeViolation(
+                f"a {receipt.kind} receipt cannot point at outcome {ref.store}:{ref.key}"
+            )
         if ref.role == ROLE_INPUT:
             if receipt.cutoff is None:
                 raise PointInTimeViolation(
@@ -363,6 +441,11 @@ def check_point_in_time(receipt: LearningReceipt) -> None:
                     f"outcome {ref.store}:{ref.key} dated {iso(ref.known_at)} precedes its "
                     f"target event {iso(receipt.target_event_at)}"
                 )
+            if receipt.cutoff is not None and ref.known_at < receipt.cutoff:
+                raise PointInTimeViolation(
+                    f"outcome {ref.store}:{ref.key} dated {iso(ref.known_at)} precedes the "
+                    f"prediction cutoff {iso(receipt.cutoff)}"
+                )
 
 
 def validate_receipt(receipt: LearningReceipt) -> LearningReceipt:
@@ -378,6 +461,8 @@ def validate_receipt(receipt: LearningReceipt) -> LearningReceipt:
     _token(receipt.model_family, "modelFamily")
     if not str(receipt.native_id or "").strip():
         raise ReceiptError("a receipt needs the producer's native id")
+    if receipt.revision is not None and not str(receipt.revision).strip():
+        raise ReceiptError("a revision, when present, must be non-empty")
     if receipt.model_version_id is not None and not receipt.model_version_id.startswith(
         f"mv:{receipt.model_family}:"
     ):
@@ -414,6 +499,9 @@ def build_drift_receipt(
 ) -> LearningReceipt:
     """A8. One of the six classes; reevaluation is RECOMMENDED; nothing is triggered.
 
+    ``observed_at`` is the receipt's cutoff: drift observed at T may rest only on
+    evidence known at or before T.
+
     The receipt is inert data. This function calls nothing, schedules nothing and
     returns the receipt — drift opens an evaluation cycle only when a human or an
     approved policy reads it (plan §20 rule 7)."""
@@ -428,6 +516,7 @@ def build_drift_receipt(
         native_id=f"{drift_class}|{signal}|{iso(at)}",
         model_family=model_family,
         model_version_id=affected_model_version_id,
+        cutoff=at,
         slots={"evidence": evidence[0]},
         refs=tuple(evidence[1:]),
         body={

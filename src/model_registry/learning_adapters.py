@@ -354,10 +354,16 @@ def _hill_evaluation(version, mvid, fitted_at, champion_version, reg_ref) -> Lea
                 )
         scored = [c for c in cohorts if c.status == "ok"]
         criterion = holdout.get("criterion")
+        scored_ns = [c.n for c in scored]
+        # Missing is never zero: one scored source of unknown size makes the total unknown.
+        total_n = None if any(n is None for n in scored_ns) else sum(scored_ns)
         if scored and isinstance(criterion, (int, float)):
             overall = cohort_result(
                 {"holdoutSource": "ALL"},
-                n=sum(int(c.n or 0) for c in scored),
+                n=total_n,
+                n_reason=(
+                    None if total_n is not None else "a scored holdout source recorded no row count"
+                ),
                 metrics={
                     str(holdout.get("criterionName") or "criterion"): Estimate(
                         point=float(criterion)
@@ -604,7 +610,7 @@ def source_quality_receipts(
         )
     prereg_pin = pins.get("preregistration") or {}
     preregistration = StoreRef(
-        store="repo_file",
+        store="preregistration",
         key=(
             f"{prereg_pin.get('path')}@sha256:{prereg}#commit={prereg_pin.get('commit')}"
             if prereg_pin.get("path")

@@ -21,6 +21,20 @@ Rules (each pinned by ``tests/model_registry/test_feature_dictionary.py``):
    ``version`` breaks the pin and fails validation; two entries with the same
    ``(name, version)`` fail; a model manifest that restates a definition
    differently from the dictionary fails.
+3a. **The pin is not self-certifying.** A hash stored inside the entry it
+   protects can be recomputed by whoever edits the entry, so the dictionary is
+   validated against an APPEND-ONLY LOCK held outside it,
+   ``config/model_registry/feature_dictionary.lock.json``: one
+   ``(name, version) -> definitionHash`` row per definition ever committed. Every
+   dictionary entry must be locked at exactly its hash, and every lock row must
+   still be defined. So an in-place edit with a recomputed hash fails (the lock
+   disagrees), deleting a definition fails (the lock still names it), and
+   deleting a lock row fails (the definition is now unlocked). A changed
+   definition is a NEW version plus a NEW lock row appended at the end; existing
+   rows are never edited, removed or reordered. The lock file is the record a CI
+   test checks without git; ``tests/model_registry/test_feature_dictionary.py``
+   additionally checks, when the base branch is available locally, that the base
+   tree's lock is a prefix of this tree's.
 4. A model's feature manifest that references an undefined ``(name, version)``,
    or a consumer the entry does not allow, fails.
 
@@ -39,7 +53,9 @@ from typing import Any, Mapping, Sequence
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_DICTIONARY_PATH = REPO / "config" / "model_registry" / "feature_dictionary.json"
+DEFAULT_LOCK_PATH = REPO / "config" / "model_registry" / "feature_dictionary.lock.json"
 DICTIONARY_SCHEMA_VERSION: int = 1
+LOCK_SCHEMA_VERSION: int = 1
 
 #: The fields that ARE the definition (and so are hashed into ``definitionHash``).
 DEFINITION_FIELDS: tuple[str, ...] = (
@@ -179,7 +195,73 @@ class FeatureDictionary:
             raise UndefinedFeatureError(f"feature {name!r} v{version} is not defined") from None
 
 
-def build_dictionary(doc: Mapping[str, Any], *, root: Path = REPO) -> FeatureDictionary:
+def parse_lock(lock: Mapping[str, Any]) -> list[tuple[str, int, str]]:
+    """The lock's rows, in append order: ``(name, version, definitionHash)``."""
+    if lock.get("schemaVersion") != LOCK_SCHEMA_VERSION:
+        raise FeatureDictionaryError(
+            f"lock schemaVersion must be {LOCK_SCHEMA_VERSION}, not {lock.get('schemaVersion')!r}"
+        )
+    rows = lock.get("locked")
+    if not isinstance(rows, list) or not rows:
+        raise FeatureDictionaryError("the feature-dictionary lock has no rows")
+    out: list[tuple[str, int, str]] = []
+    seen: set[tuple[str, int]] = set()
+    for row in rows:
+        if not isinstance(row, Mapping) or set(row) != {"name", "version", "definitionHash"}:
+            raise FeatureDictionaryError(
+                f"a lock row is exactly name, version, definitionHash: {row!r}"
+            )
+        name, version, digest = row["name"], row["version"], row["definitionHash"]
+        if (
+            not isinstance(name, str)
+            or isinstance(version, bool)
+            or not isinstance(version, int)
+            or not isinstance(digest, str)
+            or len(digest) != 64
+        ):
+            raise FeatureDictionaryError(f"malformed lock row {row!r}")
+        if (name, version) in seen:
+            raise FeatureRedefinitionError(
+                f"the lock names {name!r} v{version} twice; one version, one definition"
+            )
+        seen.add((name, version))
+        out.append((name, version, digest))
+    return out
+
+
+def check_against_lock(
+    features: Mapping[tuple[str, int], FeatureDefinition], lock: Mapping[str, Any]
+) -> None:
+    """Rule 3a: every definition is locked at its hash and every locked row is defined."""
+    locked = {(n, v): h for n, v, h in parse_lock(lock)}
+    for key, f in sorted(features.items()):
+        if key not in locked:
+            raise FeatureRedefinitionError(
+                f"feature {f.name!r} v{f.version} is not in the append-only lock "
+                f"({DEFAULT_LOCK_PATH.name}); a new definition appends a lock row, and a "
+                "removed lock row cannot be re-added under a different hash"
+            )
+        if locked[key] != f.definition_hash:
+            raise FeatureRedefinitionError(
+                f"feature {f.name!r} v{f.version}: the definition no longer matches the hash "
+                f"locked for it. Recomputing definitionHash does not redefine a version — a "
+                f"changed definition is a NEW version with a NEW lock row."
+            )
+    removed = sorted(set(locked) - set(features))
+    if removed:
+        raise FeatureRedefinitionError(
+            f"locked feature(s) {removed} are no longer defined; a committed definition is "
+            "never removed (consumers and receipts pin it)"
+        )
+
+
+def load_lock(path: Path = DEFAULT_LOCK_PATH) -> dict[str, Any]:
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def build_dictionary(
+    doc: Mapping[str, Any], *, lock: Mapping[str, Any], root: Path = REPO
+) -> FeatureDictionary:
     if doc.get("schemaVersion") != DICTIONARY_SCHEMA_VERSION:
         raise FeatureDictionaryError(
             f"dictionary schemaVersion must be {DICTIONARY_SCHEMA_VERSION}, not {doc.get('schemaVersion')!r}"
@@ -200,14 +282,20 @@ def build_dictionary(doc: Mapping[str, Any], *, root: Path = REPO) -> FeatureDic
                 f"feature {f.name!r} v{f.version} is defined twice; one version, one definition"
             )
         features[f.key] = f
+    check_against_lock(features, lock)
     raw_hash = hashlib.sha256(_canonical(doc).encode("utf-8")).hexdigest()
     return FeatureDictionary(version=version, features=features, raw_hash=raw_hash)
 
 
 def load_dictionary(
-    path: Path = DEFAULT_DICTIONARY_PATH, *, root: Path = REPO
+    path: Path = DEFAULT_DICTIONARY_PATH,
+    *,
+    lock_path: Path = DEFAULT_LOCK_PATH,
+    root: Path = REPO,
 ) -> FeatureDictionary:
-    return build_dictionary(json.loads(Path(path).read_text(encoding="utf-8")), root=root)
+    return build_dictionary(
+        json.loads(Path(path).read_text(encoding="utf-8")), lock=load_lock(lock_path), root=root
+    )
 
 
 def validate_manifest(
