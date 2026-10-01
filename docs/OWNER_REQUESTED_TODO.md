@@ -1307,3 +1307,19 @@ concepts. Full unit list and promotion policy: `docs/EXECUTION_PLAN.md` →
 | Market-vs-fundamental disagreement matrix and source trust scorecard (no single magic score) | AUTHORIZED, wave 3 |
 | ADDENDUM 2026-10-01: Sharp-discovered Sleeper league trades (whole qualifying leagues, not only Sharp managers) feed the Market Trade Ledger alongside KTC, IDP as a first-class objective. Reuse the existing Sharp acquisition owner and its cursors. Real per-league format captured from Sleeper. Raw observations kept apart from canonical underlying trades; `MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC.md` §19 dedupe hierarchy; a shared `underlyingTradeId` so a Sharp trade cannot vote twice; separate reporting of raw / unique / duplicate / probable / possible counts and IDP coverage | AUTHORIZED, Unit I (in progress) |
 | ADDENDUM 2026-10-01: every completed trade is format-normalized or excluded from target-league pricing. Target is `dynasty_main`, read from the canonical league/scoring/roster owners (actual scoring card, never the label). One canonical format fingerprint with inspectable per-dimension comparability. Exactly one disposition each: NATIVE_COMPARABLE, VALIDATED_TRANSFORMABLE or TARGET_UNSUPPORTED. Unknown format is not comparable. No global format multiplier. Translators must validate out of sample (paired same-source markets, then cross-format trades, then BDVM as a structural prior only). Later: a format-aware latent-price shadow model with `transactionMarketValueGeneric` vs `transactionMarketValueTargetLeague`; native evidence dominates translated evidence | AUTHORIZED. Unit I builds the fingerprint, dispositions and plumbing; all non-native observations are TARGET_UNSUPPORTED until a translator validates. Translators and the latent-price model follow as shadow challengers |
+
+## Added 2026-10-01 — Draft Capital year selector (owner request)
+
+Owner request (2026-10-01): add an "All Years | <years>" selector to the EXISTING Draft Capital page
+(`/league?tab=draft-capital`; no new per-year pages). Years are derived from the real pick data, never
+hard-coded. The selector changes which picks count, never how they are valued.
+
+| Item | Disposition |
+|---|---|
+| Year selector on the existing page; default All Years; `?year=` URL state surviving reload/back/forward/direct links; invalid/obsolete year falls back to All Years; legacy `/draft-capital?year=` forwards | IMPLEMENTED — `claude/draft-capital-year-selector` |
+| Available years derived from the pick inventory, following each path's existing retirement policy (workbook: completed-draft bump; fallback: `draft_class_evidence` #1414) | IMPLEMENTED — `availableYears` |
+| Per-year team capital = SUM of the same canonical per-pick dollars (one $1200 pool, never renormalized per year); All Years unchanged; per-year re-rank, totals, bars, pick lists | IMPLEMENTED — `teamTotalsByYear` / `yearSummaries` (`src/api/draft_capital_years.py`) |
+| Unpriced picks stay excluded and visibly counted; an all-unpriced team-year reads "—"/unranked, never $0; zero-pick teams stay with "No {year} picks" | IMPLEMENTED |
+| Future picks never imply known slots: Sleeper-derived boards show round only, labelled estimated | IMPLEMENTED |
+| Optional compact per-team year breakdown in All Years | IMPLEMENTED (multi-year boards only) |
+| Real data does not contain 2029 for either live league (dynasty_main workbook covers 2027 only; dynasty_new fallback covers 2027–2028) although Sleeper reports traded 2028/2029 picks and the canonical board prices generic 2027–2029 rows | OWNER DECISION NEEDED — extending either inventory changes how the $1200 pool is spread (All Years totals would move) |
