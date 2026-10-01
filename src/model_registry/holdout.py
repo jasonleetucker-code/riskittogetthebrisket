@@ -54,13 +54,16 @@ from src.canonical.player_valuation import PERCENTILE_REFERENCE_N, training_perc
 from src.canonical.tail_policy import clamp_percentile
 from src.model_registry.training_manifest import (
     FIT_TOP_N,
-    MEASURED_DEPENDENCES,
+    LINEAGE_MEASURED,
     ROLE_HOLDOUT,
     ROLE_TRAIN,
     MissingColumnError,
+    default_lineage_view,
     default_manifest,
     family_for_path,
+    holdout_lineage,
     load_board_values,
+    registry_view,
     source_key_for_path,
 )
 
@@ -220,14 +223,40 @@ class HoldoutResult:
     training_families: tuple[str, ...] = ()
     #: label -> training families the board has a MEASURED dependence on.
     measured_dependence: dict[str, list[str]] = field(default_factory=dict)
+    #: label -> {training family: lineage category}, from the lineage owner
+    #: (``config/sources/source_lineage.json`` via ``training_manifest.holdout_lineage``).
+    #: A scored board with no entry here is UNKNOWN, never independent.
+    lineage_dependence: dict[str, dict[str, str]] = field(default_factory=dict)
+
+    @property
+    def independent_boards(self) -> tuple[str, ...]:
+        """Scored boards the lineage owner reconciles INDEPENDENT_NO_EVIDENCE with
+        EVERY training family. Fail closed: no recorded lineage is not independence."""
+        from src.model_registry.training_manifest import LINEAGE_INDEPENDENT  # noqa: PLC0415
+
+        return tuple(
+            sorted(
+                label
+                for label in self.per_source
+                if self.lineage_dependence.get(label)
+                and all(c == LINEAGE_INDEPENDENT for c in self.lineage_dependence[label].values())
+            )
+        )
 
     @property
     def independent_criterion(self) -> float | None:
-        """Mean RMSE over scored boards with NO measured dependence on a trainer.
+        """Mean RMSE over the :attr:`independent_boards`.
 
-        ``None`` — never a number — when every scored board is dependent."""
-        free = [v for k, v in self.per_source.items() if not self.measured_dependence.get(k)]
+        ``None`` — never a number — when no scored board is independent; the
+        reason is published as ``independentCriterionReason``. REPORTING ONLY:
+        no Autopilot or promotion gate reads it (``autopilot.decide`` gates on
+        ``criterion`` and ``per_source``)."""
+        free = [self.per_source[k] for k in self.independent_boards]
         return sum(free) / len(free) if free else None
+
+    @property
+    def independent_criterion_reason(self) -> str | None:
+        return None if self.independent_boards else "no_independent_holdout"
 
     def to_dict(self) -> dict[str, Any]:
         # ``measuredAt`` exists because the criterion's absolute level
@@ -262,9 +291,17 @@ class HoldoutResult:
             # outright); it is reported so a reader can discount a board whose
             # score is partly flattered by its correlate in training.
             "measuredDependence": dict(sorted(self.measured_dependence.items())),
+            # Every scored board's category against every training family, as
+            # the lineage owner reconciles it (UNKNOWN = fail closed).
+            "lineageDependence": {
+                k: dict(sorted(v.items())) for k, v in sorted(self.lineage_dependence.items())
+            },
+            "independentBoards": list(self.independent_boards),
             "independentCriterion": (
                 None if self.independent_criterion is None else round(self.independent_criterion, 4)
             ),
+            "independentCriterionReason": self.independent_criterion_reason,
+            "independentCriterionGates": False,
             "_semantics": {
                 "measures": (
                     "generalization across dynasty markets — whether a curve fitted "
@@ -365,16 +402,23 @@ def evaluate_offense_master(
             "report a passing evaluation with no evidence behind it"
         )
 
+    # Lineage comes from the ONE owner (config/sources/source_lineage.json, read
+    # and validated by training_manifest.holdout_lineage) -- never a private copy.
+    # The training families are the ones actually supplied here, so a custom
+    # training set is judged against its own trainers.
+    trainers_by_family: dict[str, set[str]] = {}
+    for p, _ in training.values():
+        key = source_key_for_path(p)
+        trainers_by_family.setdefault(family_for_path(p), set()).update({key} if key else set())
+    reg = registry_view()
+    lineage = default_lineage_view()
     dependence: dict[str, list[str]] = {}
+    lineage_by_board: dict[str, dict[str, str]] = {}
     for label in per_source:
         key = source_key_for_path(holdout[label][0])
-        fams = sorted(
-            {
-                d.trainer_family
-                for d in MEASURED_DEPENDENCES
-                if key is not None and d.source_key == key and d.trainer_family in train_families
-            }
-        )
+        tags = holdout_lineage(key, trainers_by_family, lineage=lineage, family_of=reg.family_of)
+        lineage_by_board[label] = {d.trainer_family: d.category for d in tags}
+        fams = sorted(d.trainer_family for d in tags if d.category == LINEAGE_MEASURED)
         if fams:
             dependence[label] = fams
 
@@ -389,4 +433,5 @@ def evaluate_offense_master(
         holdout_family_by_board={label: holdout_family[label] for label in per_source},
         training_families=tuple(sorted(train_families)),
         measured_dependence=dependence,
+        lineage_dependence=lineage_by_board,
     )

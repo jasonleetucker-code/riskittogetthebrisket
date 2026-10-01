@@ -28,16 +28,22 @@ Derived from source authority, never restated:
   capture) or ``ktc_market.KTC_MARKET_KEY`` (benchmark only);
 * its provider family — ``data_contract.correlation_group_for`` (B10);
 * its game type — the registry's ``game_type``; a key the registry does not
-  carry must cite its evidence, and unverified fails closed.
+  carry must cite its evidence, and unverified fails closed;
+* every holdout's lineage relationship with every training family —
+  ``config/sources/source_lineage.json`` (``pairReconciliation`` categories and
+  the cited relations' ``current`` measurements), validated by
+  ``src.sources.source_census.validate_lineage``. The manifest used to keep a
+  private copy of three residual correlations (``_MEASURED_DEPENDENCES``); it
+  went stale the day OTC was re-measured (#1599) and production's
+  ``independentCriterion`` kept counting OTC as independent. One concept, one
+  owner: the lineage registry answers, this module only reads it.
 
 Declared, because no registry can express them (``_DEFAULT_SPECS``):
 
 * which native-value column a board publishes;
 * which scope it trains or holds out — the methodology choice, kept exactly as
   it was before this unit except where the owner's Section D items force a
-  change (players-only populations; no confirmed-ancestry holdout);
-* measured dependence between boards (``_MEASURED_DEPENDENCES``), with the
-  evidence it was measured from.
+  change (players-only populations; no confirmed-ancestry holdout).
 
 Rules enforced on every build (``build_manifest``), each test-pinned in
 ``tests/model_registry/test_training_manifest.py``:
@@ -54,11 +60,14 @@ Rules enforced on every build (``build_manifest``), each test-pinned in
    "document precisely" branch of owner item 3 — and one policy switch
    (``TrainingPolicy.allow_rank_voter_native_values=False``) restricts
    training to value-signal lineages.
-3. **No family on both sides of a split.** A holdout that shares a provider
-   family with a trainer (confirmed common ancestry) is excluded, in either
-   direction. Measured dependence is a different, weaker statement and is
-   REPORTED on the holdout rather than confused with ancestry; excluding it
-   too is an explicit policy (``HoldoutPolicy(measured_dependence="exclude")``).
+3. **No family on both sides of a split, and no proven ancestry across it.** A
+   holdout that shares a provider family with a trainer — or that the lineage
+   registry reconciles as PROVEN_COMMON_ANCESTRY with a training family — is
+   excluded. MEASURED / SUSPECTED dependence, and UNKNOWN lineage, are weaker
+   statements: the board stays in the split, is tagged, and is NOT independent
+   (it never enters ``independentCriterion``). Excluding those too is an
+   explicit policy (``HoldoutPolicy(measured_dependence="exclude")``). See
+   :func:`holdout_lineage` for the exact rule.
 4. **One vote per family per scope.** Two trainers from one family in one
    scope (e.g. KTC base plus KTC TE++, same-source calibration states) are a
    ManifestError, not a silent double count.
@@ -82,6 +91,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
 
 from src.identity.picks import is_pick_name
+from src.sources import source_census as _sc
 from src.sources.ktc_market import KTC_MARKET_KEY
 
 REPO = Path(__file__).resolve().parents[2]
@@ -91,7 +101,7 @@ REPO = Path(__file__).resolve().parents[2]
 #: records the substrate it was fitted on; Hill Autopilot only tournaments the
 #: current one (``training_run.is_tournament_eligible``).
 SUBSTRATE_VERSION: int = 2
-MANIFEST_SCHEMA_VERSION: int = 1
+MANIFEST_SCHEMA_VERSION: int = 2
 
 #: The fit truncates every CSV board to its top ``FIT_TOP_N`` rows before
 #: computing canonical percentiles; the holdout scores the same window.
@@ -173,30 +183,273 @@ class BoardSpec:
     note: str = ""
 
 
+# ── lineage: read from the one owner, never restated ────────────────────────
+
+#: The lineage registry the manifest reads. Its normalized bytes are part of
+#: ``manifest_hash`` (``TrainingManifest.to_dict()["lineage"]["sha256"]``), so a
+#: lineage edit makes every standing challenger ``stale_code_or_manifest`` —
+#: deliberately: a challenger's independence labels must name the exact lineage
+#: record they were computed from.
+LINEAGE_REL = "config/sources/source_lineage.json"
+
+#: The four lineage categories are owned by ``src.sources.source_census``
+#: (``LINEAGE_CATEGORIES``). ``UNKNOWN`` is not a fifth category: it is the
+#: manifest's fail-closed answer when the registry cannot be read or validated,
+#: names no reconciled pair for a (holdout, trainer family), or reconciles one
+#: with a null category.
+LINEAGE_PROVEN = _sc.LINEAGE_PROVEN_COMMON_ANCESTRY
+LINEAGE_MEASURED = _sc.LINEAGE_MEASURED_DEPENDENCE
+LINEAGE_SUSPECTED = _sc.LINEAGE_SUSPECTED_DEPENDENCE
+LINEAGE_INDEPENDENT = _sc.LINEAGE_INDEPENDENT_NO_EVIDENCE
+LINEAGE_UNKNOWN = "UNKNOWN"
+
+#: Most dependent first. When several reconciled pairs link one holdout to one
+#: training family (OTC vs ``ktc`` and vs ``ktcSfTep``), the most dependent
+#: verdict wins: a known dependence is more informative than an unknown, and an
+#: unknown can never be outvoted by an absence-of-evidence pair.
+_CATEGORY_SEVERITY: dict[str, int] = {
+    LINEAGE_PROVEN: 4,
+    LINEAGE_MEASURED: 3,
+    LINEAGE_SUSPECTED: 2,
+    LINEAGE_UNKNOWN: 1,
+    LINEAGE_INDEPENDENT: 0,
+}
+
+_CATEGORY_REASON: dict[str, str] = {
+    LINEAGE_PROVEN: "proven_common_ancestry",
+    LINEAGE_MEASURED: "measured_dependence",
+    # The D2 preregistration (docs/valuation/evidence/hill-d2-2026-10-01/
+    # PREREGISTRATION.md §5) counts a SUSPECTED relation against a holdout's
+    # independence; HILL_AUTOPILOT_V2 is silent, so the preregistered rule binds.
+    LINEAGE_SUSPECTED: "suspected_dependence",
+    LINEAGE_INDEPENDENT: "independent_no_evidence",
+}
+
+
 @dataclass(frozen=True)
-class MeasuredDependence:
-    """A measured (not ancestral) dependence of one board on a provider family."""
+class LineageView:
+    """The lineage registry as the manifest consumed it: identity + validity."""
+
+    path: str
+    #: sha256 of the file's bytes with CRLF normalized to LF (``None`` when unreadable).
+    sha256: str | None
+    valid: bool
+    errors: tuple[str, ...]
+    pairs: tuple[Mapping[str, Any], ...] = ()
+    relations: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "path": self.path,
+            "sha256": self.sha256,
+            "valid": self.valid,
+            "errorCount": len(self.errors),
+            "errors": list(self.errors[:10]),
+        }
+
+
+def load_lineage_view(path: Path | None = None) -> LineageView:
+    """Read and validate the lineage registry. Never raises: an unreadable or
+    invalid registry is returned ``valid=False`` and every holdout it would have
+    vouched for reads UNKNOWN (fail closed), so a broken lineage file can never
+    make a board look independent -- and can never crash a refit either."""
+    target = Path(path) if path is not None else REPO / LINEAGE_REL
+    try:
+        rel = target.resolve().relative_to(REPO).as_posix()
+    except ValueError:
+        rel = target.as_posix()
+    try:
+        raw = target.read_bytes()
+    except OSError as exc:
+        return LineageView(rel, None, False, (f"unreadable: {type(exc).__name__}",))
+    digest = hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest()
+    try:
+        data = json.loads(raw.decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return LineageView(rel, digest, False, (f"unparsable: {exc}",))
+    if not isinstance(data, Mapping):
+        return LineageView(rel, digest, False, ("top level must be an object",))
+    try:
+        errors = tuple(_sc.validate_lineage(data))
+    except Exception as exc:  # noqa: BLE001 - an unvalidatable registry fails closed
+        errors = (f"validation_crashed: {type(exc).__name__}: {exc}",)
+    pairs = tuple(p for p in (data.get("pairReconciliation") or []) if isinstance(p, Mapping))
+    relations = {
+        str(r.get("id")): r for r in (data.get("relations") or []) if isinstance(r, Mapping)
+    }
+    return LineageView(rel, digest, not errors, errors, pairs, relations)
+
+
+@lru_cache(maxsize=1)
+def default_lineage_view() -> LineageView:
+    return load_lineage_view()
+
+
+@dataclass(frozen=True)
+class LineageDependence:
+    """How one holdout board relates to one training family, per the lineage owner."""
 
     source_key: str
     trainer_family: str
-    metric: str
-    value: float
-    evidence: str
+    #: A ``source_census.LINEAGE_CATEGORIES`` value, or ``LINEAGE_UNKNOWN``.
+    category: str
+    reason: str
+    #: ``pairReconciliation`` ids that decided the category.
+    pairs: tuple[str, ...] = ()
+    #: Training-family source keys those pairs name.
+    counterparts: tuple[str, ...] = ()
+    #: ``{relation id: its current measurement}`` for the deciding pairs' relations.
+    current_measurements: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
+
+    @property
+    def independent(self) -> bool:
+        return self.category == LINEAGE_INDEPENDENT
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "sourceKey": self.source_key,
             "trainerFamily": self.trainer_family,
-            "metric": self.metric,
-            "value": self.value,
-            "evidence": self.evidence,
+            "category": self.category,
+            "independent": self.independent,
+            "reason": self.reason,
+            "pairs": list(self.pairs),
+            "counterparts": list(self.counterparts),
+            "currentMeasurements": {
+                k: dict(v) for k, v in sorted(self.current_measurements.items())
+            },
         }
+
+
+def _current_measurement(relation: Mapping[str, Any]) -> dict[str, Any] | None:
+    m = _sc.current_measurement(relation)
+    if m is None:
+        return None
+    return {k: m.get(k) for k in ("asOf", "method", "window", "n", "values") if k in m}
+
+
+def _pair_speaks_for(pair: Mapping[str, Any], a: str, b: str, lineage: LineageView) -> bool:
+    """Whether a reconciled pair is a statement about sources ``a`` and ``b``.
+
+    A two-source pair is unambiguous. A pair naming more sources is a statement
+    about the sources its cited relations JOIN: ``pair-signals-market-families``
+    lists Signals beside four market boards, and says nothing about FantasyCalc
+    versus KTC Crowd; ``pair-otc-ktc`` cites a relation naming OTC and every KTC
+    key, so it speaks for each of them."""
+    srcs = [str(x) for x in (pair.get("sources") or [])]
+    if len(srcs) == 2:
+        return {a, b} == set(srcs)
+    for rid in pair.get("relations") or []:
+        rel_srcs = set(
+            str(x) for x in ((lineage.relations.get(str(rid)) or {}).get("sources") or [])
+        )
+        if a in rel_srcs and b in rel_srcs:
+            return True
+    return False
+
+
+def holdout_lineage(
+    source_key: str | None,
+    trainers_by_family: Mapping[str, Iterable[str]],
+    *,
+    lineage: LineageView,
+    family_of: Callable[[str], str],
+) -> tuple[LineageDependence, ...]:
+    """One :class:`LineageDependence` per training family, derived from the owner.
+
+    The rule (each clause test-pinned in ``tests/model_registry``):
+
+    * the categories are the lineage owner's ``pairReconciliation`` verdicts;
+      relations supply only the deciding pairs' ``current`` measurements, and
+      decide which members a multi-source pair speaks for (``_pair_speaks_for``);
+    * the unit is the B10 provider family, as everywhere else in this manifest:
+      a reconciled pair naming the holdout and ANY member of a training family
+      speaks for that family (``ktc`` / ``ktcSfTep`` / ``ktcCrowdSfTep`` are
+      calibration states of one crowd). This is conservative: it can only mark
+      MORE boards dependent;
+    * ...except that INDEPENDENT_NO_EVIDENCE only counts when the pair names the
+      family's actual TRAINER key -- absence of evidence about a sibling board is
+      not absence of evidence about the trainer;
+    * several pairs -> the most dependent category wins (``_CATEGORY_SEVERITY``);
+    * PROVEN / MEASURED / SUSPECTED / UNKNOWN are all "not independent". This is
+      the D2 preregistration's §5 rule (a proven, suspected, or positively
+      measured relation counts). A measurement too weak to be dependence is
+      reconciled SUSPECTED by the category's own definition, so a pair the owner
+      reconciles MEASURED_DEPENDENCE IS the positive-dependence verdict;
+    * fail closed: an invalid / unreadable registry, an unregistered holdout, a
+      family with no reconciled pair, or a pair with a null category -> UNKNOWN.
+    """
+    out: list[LineageDependence] = []
+    for fam in sorted(trainers_by_family):
+        trainer_keys = set(trainers_by_family[fam])
+        if not lineage.valid:
+            out.append(LineageDependence(source_key or "", fam, LINEAGE_UNKNOWN, "lineage_invalid"))
+            continue
+        if source_key is None:
+            out.append(LineageDependence("", fam, LINEAGE_UNKNOWN, "holdout_unregistered"))
+            continue
+        found: list[tuple[str, str, tuple[str, ...], str]] = []
+        for pair in lineage.pairs:
+            srcs = [str(x) for x in (pair.get("sources") or [])]
+            if source_key not in srcs:
+                continue
+            counter = tuple(
+                sorted(
+                    x
+                    for x in srcs
+                    if x != source_key
+                    and family_of(x) == fam
+                    and _pair_speaks_for(pair, source_key, x, lineage)
+                )
+            )
+            if not counter:
+                continue
+            pid = str(pair.get("id"))
+            cat = pair.get("category")
+            if cat is None:
+                why = str(pair.get("unknownReason") or "unstated")
+                found.append((LINEAGE_UNKNOWN, pid, counter, f"null_category:{why}"))
+            elif cat not in _CATEGORY_REASON:
+                found.append((LINEAGE_UNKNOWN, pid, counter, f"unknown_category:{cat}"))
+            elif cat == LINEAGE_INDEPENDENT and not (set(counter) & trainer_keys):
+                continue
+            else:
+                found.append((str(cat), pid, counter, _CATEGORY_REASON[str(cat)]))
+        if not found:
+            out.append(LineageDependence(source_key, fam, LINEAGE_UNKNOWN, "no_reconciled_pair"))
+            continue
+        top = max(_CATEGORY_SEVERITY[c] for c, _, _, _ in found)
+        winners = [f for f in found if _CATEGORY_SEVERITY[f[0]] == top]
+        pair_ids = tuple(sorted({w[1] for w in winners}))
+        measurements: dict[str, dict[str, Any]] = {}
+        for pair in lineage.pairs:
+            if str(pair.get("id")) not in pair_ids:
+                continue
+            for rid in pair.get("relations") or []:
+                rel = lineage.relations.get(str(rid))
+                m = _current_measurement(rel) if rel is not None else None
+                if m is not None:
+                    measurements[str(rid)] = m
+        out.append(
+            LineageDependence(
+                source_key=source_key,
+                trainer_family=fam,
+                category=winners[0][0],
+                reason=";".join(sorted({w[3] for w in winners})),
+                pairs=pair_ids,
+                counterparts=tuple(sorted({k for w in winners for k in w[2]})),
+                current_measurements=measurements,
+            )
+        )
+    return tuple(out)
 
 
 @dataclass(frozen=True)
 class HoldoutPolicy:
-    #: ``retain_and_report``: a holdout with measured dependence on a training
-    #: family still scores, tagged. ``exclude``: it is removed from the split.
+    #: ``retain_and_report``: a holdout that is not lineage-independent of every
+    #: training family (MEASURED / SUSPECTED / UNKNOWN) still scores, tagged, and
+    #: is left out of ``independentCriterion``. ``exclude``: it is removed from
+    #: the split. PROVEN common ancestry is excluded under either policy. (The
+    #: field keeps its historical name: it is a recorded policy key.)
     measured_dependence: str = "retain_and_report"
 
     def __post_init__(self) -> None:
@@ -324,33 +577,6 @@ _DEFAULT_SPECS: tuple[BoardSpec, ...] = (
 
 _H_AUDIT = "docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md"
 
-#: Measured dependence, distinct from confirmed common ancestry (which the B10
-#: family already expresses). Residual correlations from the 2026-08-04
-#: decision-intelligence audit, as tabulated in the 2026-09-24 alignment audit.
-_MEASURED_DEPENDENCES: tuple[MeasuredDependence, ...] = (
-    MeasuredDependence(
-        "pfkDynasty",
-        "ktcCrowd",
-        "residual_r",
-        0.45,
-        f"{_H_AUDIT} §2 H6/H7 and §4: PFK holdout RMSE flattered 1.64x by KTC in training",
-    ),
-    MeasuredDependence(
-        "fantasyCalc",
-        "dynastyDaddySf",
-        "residual_r",
-        0.677,
-        f"{_H_AUDIT} §2 H6; docs/audits/decision-intelligence-audit-2026-08-04.registry.json",
-    ),
-    MeasuredDependence(
-        "otcffbSf",
-        "fantasyCalc",
-        "residual_r",
-        0.33,
-        f"{_H_AUDIT} §2 H6 (OTC is the one plausibly independent offense holdout)",
-    ),
-)
-
 #: Every registered source that is NOT a declared Hill board, with the reason.
 NOT_HILL_BOARDS: dict[str, str] = {
     "ktcSfTep": "historical KTC Crowd TE++ capture; same ktcCrowd family as the KTC trainer",
@@ -452,8 +678,25 @@ class ManifestBoard:
     population: str
     universe: str
     exclusion_reason: str | None = None
-    measured_dependence: tuple[MeasuredDependence, ...] = ()
+    #: One entry per training family of the scope (holdouts only), from the
+    #: lineage owner. Empty for trainers and for boards excluded before lineage.
+    lineage_dependence: tuple[LineageDependence, ...] = ()
     note: str = ""
+
+    @property
+    def measured_dependence(self) -> tuple[LineageDependence, ...]:
+        """The MEASURED_DEPENDENCE subset (the historical ``measuredDependence`` view)."""
+        return tuple(d for d in self.lineage_dependence if d.category == LINEAGE_MEASURED)
+
+    @property
+    def dependent_families(self) -> tuple[str, ...]:
+        """Training families this board is NOT lineage-independent of."""
+        return tuple(sorted(d.trainer_family for d in self.lineage_dependence if not d.independent))
+
+    @property
+    def lineage_independent(self) -> bool:
+        """Independent of EVERY training family. No entries is not independence."""
+        return bool(self.lineage_dependence) and all(d.independent for d in self.lineage_dependence)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -473,7 +716,8 @@ class ManifestBoard:
             "population": self.population,
             "universe": self.universe,
             "exclusionReason": self.exclusion_reason,
-            "measuredDependence": [d.to_dict() for d in self.measured_dependence],
+            "lineageIndependent": self.lineage_independent,
+            "lineageDependence": [d.to_dict() for d in self.lineage_dependence],
         }
 
 
@@ -481,6 +725,9 @@ class ManifestBoard:
 class TrainingManifest:
     boards: tuple[ManifestBoard, ...]
     policy: TrainingPolicy
+    #: The lineage registry the holdout labels were derived from; its identity
+    #: (normalized sha256 + validity) is inside ``manifest_hash``.
+    lineage: LineageView = field(default_factory=lambda: LineageView(LINEAGE_REL, None, False, ()))
 
     def _select(self, scope: str, role: str) -> tuple[ManifestBoard, ...]:
         return tuple(b for b in self.boards if b.scope == scope and b.role == role)
@@ -538,6 +785,7 @@ class TrainingManifest:
             "substrateVersion": SUBSTRATE_VERSION,
             "fitTopN": FIT_TOP_N,
             "policy": self.policy.to_dict(),
+            "lineage": self.lineage.to_dict(),
             "boards": [b.to_dict() for b in sorted(self.boards, key=lambda b: (b.scope, b.label))],
         }
 
@@ -635,13 +883,13 @@ def _derive(spec: BoardSpec, reg: RegistryView, policy: TrainingPolicy) -> Manif
 def build_manifest(
     *,
     specs: Iterable[BoardSpec] | None = None,
-    dependences: Iterable[MeasuredDependence] | None = None,
+    lineage: LineageView | None = None,
     policy: TrainingPolicy | None = None,
     registry: RegistryView | None = None,
 ) -> TrainingManifest:
     reg = registry or registry_view()
     pol = policy or TrainingPolicy()
-    deps = tuple(_MEASURED_DEPENDENCES if dependences is None else dependences)
+    lin = lineage if lineage is not None else default_lineage_view()
     boards = [_derive(s, reg, pol) for s in (_DEFAULT_SPECS if specs is None else specs)]
 
     seen: set[tuple[str, str]] = set()
@@ -654,6 +902,7 @@ def build_manifest(
     for scope in SCOPES:
         scoped = [b for b in boards if b.scope == scope]
         train_families: dict[str, str] = {}
+        trainer_keys: dict[str, set[str]] = {}
         for b in scoped:
             if b.role != ROLE_TRAIN:
                 continue
@@ -663,6 +912,7 @@ def build_manifest(
                     f"and {b.label}); same-source calibration states are one vote"
                 )
             train_families[b.family] = b.label
+            trainer_keys.setdefault(b.family, set()).update({b.source_key, *b.path_keys})
         for b in scoped:
             if b.role != ROLE_HOLDOUT:
                 out.append(b)
@@ -679,33 +929,40 @@ def build_manifest(
                     )
                 )
                 continue
-            tags = tuple(
-                d
-                for d in deps
-                if d.source_key == b.source_key and d.trainer_family in train_families
-            )
-            if tags and pol.holdout.measured_dependence == "exclude":
+            tags = holdout_lineage(b.source_key, trainer_keys, lineage=lin, family_of=reg.family_of)
+            proven = [d for d in tags if d.category == LINEAGE_PROVEN]
+            if proven:
+                # Reconciled PROVEN_COMMON_ANCESTRY across families is the same
+                # statement as a shared family: refused under either policy.
                 out.append(
                     replace(
                         b,
                         role=ROLE_EXCLUDED,
-                        measured_dependence=tags,
-                        exclusion_reason="measured_dependence:"
-                        + ",".join(sorted(d.trainer_family for d in tags)),
+                        lineage_dependence=tags,
+                        exclusion_reason="confirmed_common_ancestry:lineage:"
+                        + ",".join(sorted({p for d in proven for p in d.pairs})),
                     )
                 )
                 continue
-            out.append(replace(b, measured_dependence=tags))
-    return TrainingManifest(boards=tuple(out), policy=pol)
+            dependent = [d for d in tags if not d.independent]
+            if dependent and pol.holdout.measured_dependence == "exclude":
+                out.append(
+                    replace(
+                        b,
+                        role=ROLE_EXCLUDED,
+                        lineage_dependence=tags,
+                        exclusion_reason="lineage_dependence:"
+                        + ",".join(f"{d.trainer_family}={d.category}" for d in dependent),
+                    )
+                )
+                continue
+            out.append(replace(b, lineage_dependence=tags))
+    return TrainingManifest(boards=tuple(out), policy=pol, lineage=lin)
 
 
 @lru_cache(maxsize=1)
 def default_manifest() -> TrainingManifest:
     return build_manifest()
-
-
-#: Public view of the declared measured dependences.
-MEASURED_DEPENDENCES: tuple[MeasuredDependence, ...] = _MEASURED_DEPENDENCES
 
 
 def _norm_rel(rel_path: str) -> str:
