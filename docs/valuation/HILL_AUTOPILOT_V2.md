@@ -88,11 +88,52 @@ holdout's source tables are views of it. Its rules:
 - measured dependence is reported, not confused with ancestry;
 - one trainer per family per scope.
 
+**Rank-voter native values train by default (lead decision, 2026-10-01).** Dynasty
+Daddy, Dynasty Nerds, Yahoo/Boone, Fitzmaurice and DraftSharks vote by RANK at serve
+time, but they also publish vendor-native VALUE columns, and those columns are real
+vendor spacing evidence. The manifest trains on them by default
+(`TrainingPolicy.allow_rank_voter_native_values=True`) and every input records its
+`spacingEvidence` (`native_value`; a rank-only board or a synthetic rank encoding can
+never train). The opposite policy — training on value-signal lineages only — is a
+single switch (`allow_rank_voter_native_values=False`) and will be a **preregistered
+arm in the clean D2 rerun**, not an ad-hoc comparison after the fact.
+
 Every raw refit is a pinned, point-in-time training run
-(`src/model_registry/training_run.py`), recorded on the challenger as `trainingRun`.
-The run refuses any input observed after its cutoff (HEAD's commit time).
-`scripts/hill_training_run.py verify` replays it from git and must reproduce the same
-`challengerHash`. Evidence and the remaining owner decisions (H1/H2/H3/H4):
+(`src/model_registry/training_run.py`). The run refuses any input observed after its
+cutoff (HEAD's commit time). A `--cutoff` earlier than HEAD is never fitted from HEAD's
+tree: `auto_refit_hill_curves.py` routes it to a git replay at or before the cutoff,
+and a replay refuses a commit that holds no board snapshot rather than falling through
+to `RISKIT_FIT_SNAPSHOT`. `scripts/hill_training_run.py verify` replays a recorded run
+from git and must reproduce the same `challengerHash` **and the same parameters** (for
+an Autopilot composite: the source run's hash and the OFFENSE pair; its other scopes
+are the incumbent's and no run produced them). The workflow verifies the latest raw
+refit and, before registering a composite, the **tournament winner** it is built from.
+
+Storage and identity:
+
+- The full run record is a committed artifact,
+  `config/model_registry/training_runs/<challengerHash>.json`; the registry entry
+  keeps a compact summary (hashes, the replay pins verify needs, per-scope
+  promotability). `load_training_run` integrity-checks an artifact against its
+  summary. Retention (`prune_training_runs`, run after every recorded refit and as
+  `hill_training_run.py prune`) deletes unreferenced artifacts and those of rejected
+  runs older than 30 days; a pruned run still replays from its summary.
+- `challengerHash` is the run's IDENTITY (it includes the cutoff and cutoff-relative
+  freshness ages, so it differs on every run). `evidenceHash` is what the run is
+  evidence OF: the sorted set of content hashes of the values each trainer fed the
+  fit, plus `modelHash`. Tournament de-duplication and the parameter-stability gate
+  key on `evidenceHash`, so refits on unchanged trainer data count once.
+- A composite (`composedFrom`) re-stamps `modelHash` / `challengerHash` /
+  `evidenceHash` from its own parameters (the source's are kept as `source*`) and is
+  never tournament-eligible.
+- A declared trainer whose value column is absent raises `MissingColumnError` rather
+  than reading as zeros; the fitter skips it with `missing_column:<col>`, the run
+  records the input with `missingColumn` and `rowsRead: null`, and any skipped
+  declared trainer makes that scope `promotable: false`. A non-promotable OFFENSE
+  scope is rejected at refit time and excluded from the tournament. Missing inputs
+  record `rowsRead` / `picksDropped` as `null`, never `0`.
+
+Evidence and the remaining owner decisions (H1/H2/H3/H4):
 [`evidence/hill-trainer-repair-2026-10-01/README.md`](evidence/hill-trainer-repair-2026-10-01/README.md).
 
 ## Readiness criteria
@@ -100,10 +141,10 @@ The run refuses any input observed after its cutoff (HEAD's commit time).
 Policy lives in
 `config/model_registry/hill_autopilot_policy.json`, not in prose.
 
-0. **Reproducible current substrate.** Only a challenger whose `trainingRun` is on the
-   current substrate version and is `reproducible: true` enters the tournament.
-   One whose `challengerHash` repeats an earlier version's is the same challenger and
-   is dropped. Pre-repair challengers (no pins, KTC pick rows in the OFFENSE fit,
+0. **Reproducible current substrate.** Only a raw challenger whose `trainingRun` is on
+   the current substrate version, is `reproducible: true` and has a promotable OFFENSE
+   scope enters the tournament; composites never do. One whose `evidenceHash` repeats
+   an earlier version's is the same evidence and is dropped. Pre-repair challengers (no pins, KTC pick rows in the OFFENSE fit,
    Fantasy Navigator held out) cannot compete. Promotion therefore waits for fresh
    substrate-v2 evidence to meet gates 5 and 6 below.
 
@@ -116,7 +157,12 @@ A standing candidate must clear all of these before board-impact evaluation:
 
 2. **Cross-market breadth**
    - at least 3 holdout boards must improve. Since 2026-10-01 the OFFENSE split has
-     exactly 3 boards (FantasyCalc, OTC, PFK), so all three must improve;
+     exactly 3 boards (FantasyCalc, OTC, PFK), so this gate now means **all three must
+     improve**. Two of them carry a MEASURED dependence on a training family (PFK on
+     `ktcCrowd`, FantasyCalc on `dynastyDaddySf`); that dependence is reported per board
+     (`measuredDependence`) and the mean over boards with none is recorded as
+     `independentCriterion`. Reporting it does not loosen the gate: the threshold stays
+     at 3 boards, and nothing re-weights or drops a dependent board to make it pass;
    - no holdout board may worsen by more than 10%.
 
 3. **Row health**

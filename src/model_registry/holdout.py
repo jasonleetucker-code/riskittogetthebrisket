@@ -46,6 +46,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -56,6 +57,7 @@ from src.model_registry.training_manifest import (
     MEASURED_DEPENDENCES,
     ROLE_HOLDOUT,
     ROLE_TRAIN,
+    MissingColumnError,
     default_manifest,
     family_for_path,
     load_board_values,
@@ -73,9 +75,41 @@ REPO = Path(__file__).resolve().parents[2]
 # the manifest excludes it as confirmed common ancestry (H5).  KeepTradeCut's own
 # TE++ board stays out for the same reason it always did, now by family rather
 # than by a comment.
-_MANIFEST = default_manifest()
-OFFENSE_TRAINING_SOURCES: dict[str, tuple[str, str]] = _MANIFEST.csv_table("OFFENSE", ROLE_TRAIN)
-OFFENSE_HOLDOUT_SOURCES: dict[str, tuple[str, str]] = _MANIFEST.csv_table("OFFENSE", ROLE_HOLDOUT)
+#
+# Built LAZILY, never at import. ``src/api/data_contract.py`` imports this
+# package (outside any try) to stamp ``hillCurves.provenance`` on every
+# ``/api/data`` build; building the manifest reads the live source registry and
+# can raise ``ManifestError`` by design. Built at import, one future registry
+# edit that made ``build_manifest`` raise would have crashed every contract
+# build for a metadata stamp. Importing ``src.model_registry`` therefore costs
+# nothing and cannot fail on the manifest; the tables are built on first use.
+
+
+@lru_cache(maxsize=1)
+def _offense_tables() -> tuple[dict[str, tuple[str, str]], dict[str, tuple[str, str]]]:
+    manifest = default_manifest()
+    return manifest.csv_table("OFFENSE", ROLE_TRAIN), manifest.csv_table("OFFENSE", ROLE_HOLDOUT)
+
+
+def offense_training_sources() -> dict[str, tuple[str, str]]:
+    """``{label: (path, value_column)}`` of the OFFENSE trainers (a copy)."""
+    return dict(_offense_tables()[0])
+
+
+def offense_holdout_sources() -> dict[str, tuple[str, str]]:
+    """``{label: (path, value_column)}`` of the OFFENSE holdouts (a copy)."""
+    return dict(_offense_tables()[1])
+
+
+def __getattr__(name: str) -> Any:
+    """``OFFENSE_TRAINING_SOURCES`` / ``OFFENSE_HOLDOUT_SOURCES`` stay importable
+    by name (PEP 562) for their existing consumers, but resolve on first access."""
+    if name == "OFFENSE_TRAINING_SOURCES":
+        return offense_training_sources()
+    if name == "OFFENSE_HOLDOUT_SOURCES":
+        return offense_holdout_sources()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 # The fit truncates every source to its top FIT_TOP_N before computing
 # percentiles.  Matched exactly so train and holdout RMSE are the same
@@ -103,9 +137,9 @@ def source_roles() -> tuple[SourceRole, ...]:
     Exported so a caller can print the split rather than trust it.
     """
     out: list[SourceRole] = []
-    for label, (path, col) in sorted(OFFENSE_TRAINING_SOURCES.items()):
+    for label, (path, col) in sorted(offense_training_sources().items()):
         out.append(SourceRole(label, path, col, "train"))
-    for label, (path, col) in sorted(OFFENSE_HOLDOUT_SOURCES.items()):
+    for label, (path, col) in sorted(offense_holdout_sources().items()):
         out.append(SourceRole(label, path, col, "holdout"))
     return tuple(out)
 
@@ -266,8 +300,8 @@ def evaluate_offense_master(
     # saying "I have no held-out data", and falling back to the default
     # set would answer a question they did not ask — with a passing
     # score, which is the exact failure this function exists to refuse.
-    holdout = dict(OFFENSE_HOLDOUT_SOURCES if holdout_sources is None else holdout_sources)
-    training = dict(OFFENSE_TRAINING_SOURCES if training_sources is None else training_sources)
+    holdout = dict(offense_holdout_sources() if holdout_sources is None else holdout_sources)
+    training = dict(offense_training_sources() if training_sources is None else training_sources)
 
     overlap = sorted(set(holdout) & set(training))
     if overlap:
@@ -308,7 +342,13 @@ def evaluate_offense_master(
         if not path.exists():
             skipped[label] = "csv missing"
             continue
-        values = _load_values(path, column)
+        try:
+            values = _load_values(path, column)
+        except MissingColumnError:
+            # A renamed vendor column is MISSING, not a board of zeros: the
+            # board is skipped with the reason named, never scored as empty.
+            skipped[label] = f"missing_column:{column}"
+            continue
         if len(values) < MIN_ROWS_FOR_SCORING:
             skipped[label] = f"only {len(values)} priced rows (need {MIN_ROWS_FOR_SCORING})"
             continue

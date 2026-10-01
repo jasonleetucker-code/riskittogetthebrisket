@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import subprocess
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -312,17 +314,32 @@ class TestRegistryAndAutopilot:
         assert [v.version for v in eligible] == [2]
         assert excluded == {1: "legacy_substrate", 3: "duplicate_of_v2"}
 
-    def test_the_raw_refit_records_its_training_run(self, run_a):
+    def test_the_raw_refit_records_its_training_run(self, run_a, tmp_path):
+        """The registry carries the compact summary; the full record is a committed
+        artifact that round-trips exactly (review finding 7)."""
         from scripts.auto_refit_hill_curves import challenger_version
+        from src.model_registry.training_run import (
+            artifact_rel_path,
+            load_training_run,
+            summarize_run,
+        )
 
-        v = challenger_version(version=9, run=run_a, holdout=None, producer="test")
+        v = challenger_version(
+            version=9, run=run_a, holdout=None, producer="test", registry_dir=tmp_path
+        )
         assert v.status == "challenger"
-        assert v.training_run == run_a.record
+        rel = artifact_rel_path(run_a.challenger_hash)
+        assert v.training_run == summarize_run(run_a.record, artifact=rel)
+        assert (tmp_path / rel).is_file()
+        assert load_training_run(v.training_run, registry_dir=tmp_path) == run_a.record
         assert v.params == run_a.params
         assert v.training_inputs  # the legacy fingerprint view is still populated
 
-    def test_a_composite_inherits_its_source_training_run(self, run_a):
+    def test_a_composite_carries_its_source_pins_but_its_own_model_hash(self, run_a):
+        """Review finding 5: the composite's non-OFFENSE params are the incumbent's,
+        so inheriting the raw winner's modelHash/challengerHash was a false claim."""
         from scripts.model_registry import derived_training_run
+        from src.model_registry.training_run import model_hash
 
         src = ModelVersion(
             model_id="m",
@@ -332,6 +349,377 @@ class TestRegistryAndAutopilot:
             producer="p",
             training_run=run_a.record,
         )
-        derived = derived_training_run(src)
-        assert derived["challengerHash"] == run_a.challenger_hash
+        composite = {**run_a.params, "IDP_HILL_PERCENTILE_C": 0.123}
+        derived = derived_training_run(src, composite)
         assert derived["composedFrom"] == 5
+        assert derived["pinsHash"] == run_a.record["pinsHash"]
+        assert derived["sourceChallengerHash"] == run_a.challenger_hash
+        assert derived["sourceModelHash"] == run_a.record["modelHash"]
+        assert derived["modelHash"] == model_hash(composite) != run_a.record["modelHash"]
+        assert derived["challengerHash"] != run_a.challenger_hash
+
+
+# ── PR #1588 independent-review fixes ────────────────────────────────────────
+
+
+def _version(n, record, *, status="challenger", fitted_at="2026-09-30T12:00:00+00:00", params=None):
+    return ModelVersion(
+        model_id="hill_scope_masters",
+        version=n,
+        params=dict(params or {}),
+        fitted_at=fitted_at,
+        producer="p",
+        status=status,
+        training_run=record,
+    )
+
+
+class TestManifestIsLazy:
+    """Finding 1: ``data_contract`` imports ``src.model_registry`` outside any try
+    on every ``/api/data`` build; building the manifest at import meant one future
+    registry edit that made ``build_manifest`` raise would crash every build."""
+
+    def test_importing_the_package_with_a_raising_manifest_does_not_raise(self):
+        code = "\n".join(
+            [
+                "import src.model_registry.training_manifest as tm",
+                "def boom(*a, **k):",
+                "    raise tm.ManifestError('a registry edit broke the manifest')",
+                "tm.build_manifest = boom",
+                "tm.default_manifest = boom",
+                "import src.model_registry as pkg",
+                "from src.model_registry import ModelRegistry, RegistryError",
+                "import src.model_registry.holdout as ho",
+                "try:",
+                "    ho.OFFENSE_HOLDOUT_SOURCES",
+                "except tm.ManifestError:",
+                "    print('LAZY-OK')",
+                "else:",
+                "    print('NOT-LAZY')",
+            ]
+        )
+        proc = subprocess.run(
+            [sys.executable, "-c", code],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            env={**os.environ, "PYTHONUTF8": "1"},
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert proc.stdout.strip().splitlines()[-1] == "LAZY-OK"
+
+    def test_the_tables_still_resolve_by_name(self):
+        from src.model_registry import holdout
+
+        m = default_manifest()
+        assert holdout.OFFENSE_HOLDOUT_SOURCES == m.csv_table("OFFENSE", "holdout")
+        assert holdout.offense_training_sources() == m.csv_table("OFFENSE", "train")
+        with pytest.raises(AttributeError):
+            holdout.NOT_A_TABLE  # noqa: B018
+
+
+class TestEvidenceDedup:
+    """Finding 2: ``challengerHash`` includes the cutoff and cutoff-relative ages,
+    so dedup on it never fired and identical-data refits counted as independent."""
+
+    def test_identical_inputs_at_different_cutoffs_are_one_observation(self, tree, run_a):
+        from scripts.hill_autopilot import tournament_versions
+
+        later = _run(tree, cutoff=CUTOFF + timedelta(hours=6))
+        assert later.challenger_hash != run_a.challenger_hash  # identity differs
+        assert later.record["evidenceHash"] == run_a.record["evidenceHash"]  # evidence does not
+        eligible, excluded = tournament_versions(
+            [_version(2, run_a.record), _version(3, later.record)]
+        )
+        assert [v.version for v in eligible] == [2]
+        assert excluded == {3: "duplicate_of_v2"}
+
+    def test_a_holdout_file_change_is_not_new_training_evidence(self, tmp_path, run_a):
+        root = _build_root(tmp_path / "holdout-moved")
+        otc = root / default_manifest().board("OFFENSE", "OTCFFB").paths[0]
+        otc.write_text(otc.read_text(encoding="utf-8").replace("9999.0", "9000.0"), "utf-8")
+        again = _run(root)
+        assert again.record["pinsHash"] != run_a.record["pinsHash"]
+        assert again.record["evidenceHash"] == run_a.record["evidenceHash"]
+
+    def test_changed_trainer_content_is_new_evidence(self, tmp_path, run_a):
+        from scripts.hill_autopilot import tournament_versions
+
+        moved = _run(_build_root(tmp_path / "trainer-moved", bump=500.0))
+        assert moved.record["evidenceHash"] != run_a.record["evidenceHash"]
+        eligible, _ = tournament_versions([_version(2, run_a.record), _version(3, moved.record)])
+        assert [v.version for v in eligible] == [2, 3]
+
+    def test_evidence_hash_is_recomputable_from_the_record(self, run_a):
+        from src.model_registry.training_run import run_evidence_hash
+
+        stripped = {k: v for k, v in run_a.record.items() if k != "evidenceHash"}
+        assert run_evidence_hash(stripped) == run_a.record["evidenceHash"]
+
+
+class TestCutoffRouting:
+    """Finding 3: ``--cutoff`` without ``--replay-commit`` fitted HEAD's tree while
+    recording an earlier cutoff with ``reproducible: true``."""
+
+    def test_a_cutoff_before_head_is_replayed_from_git(self, monkeypatch):
+        import scripts.auto_refit_hill_curves as ar
+
+        calls: list[dict] = []
+        monkeypatch.setattr(ar, "commit_time", lambda _ref: CUTOFF + timedelta(days=1))
+        monkeypatch.setattr(ar, "replay", lambda **kw: calls.append(kw) or "REPLAYED")
+
+        def _no_tree_fit(**_kw):
+            raise AssertionError("HEAD's tree must not be fitted for an earlier cutoff")
+
+        monkeypatch.setattr(ar, "execute", _no_tree_fit)
+        assert ar.run_training(cutoff=CUTOFF) == "REPLAYED"
+        assert calls == [{"cutoff": CUTOFF}]
+
+    def test_a_cutoff_at_or_after_head_fits_the_clean_tree(self, monkeypatch):
+        import scripts.auto_refit_hill_curves as ar
+        import src.model_registry.hill_masters as hm
+
+        head_time = CUTOFF - timedelta(hours=1)
+        seen: dict = {}
+        monkeypatch.setattr(ar, "commit_time", lambda _ref: head_time)
+        monkeypatch.setattr(ar, "worktree_inputs_state", lambda **_k: ("abc", True, head_time))
+        monkeypatch.setattr(hm, "_resolve_fit_snapshot", lambda _f: None)
+        monkeypatch.setattr(hm, "_fitter_module", lambda: None)
+        monkeypatch.setattr(ar, "replay", lambda **_k: pytest.fail("no replay expected"))
+        monkeypatch.setattr(ar, "execute", lambda **kw: seen.update(kw) or "TREE")
+        assert ar.run_training(cutoff=CUTOFF) == "TREE"
+        assert seen["cutoff"] == CUTOFF and seen["reproducible"] is True
+
+    def test_a_naive_cutoff_is_refused(self):
+        import scripts.auto_refit_hill_curves as ar
+
+        with pytest.raises(TrainingRunError, match="timezone-aware"):
+            ar.run_training(cutoff=CUTOFF.replace(tzinfo=None))
+
+
+class TestMissingColumnIsNotZero:
+    """Finding 4: a renamed vendor column read as 0.0 on every row ("nonpositive"),
+    the trainer was skipped, and the master still entered the tournament."""
+
+    def test_the_loader_raises_on_an_absent_column(self, tmp_path):
+        from src.model_registry.training_manifest import MissingColumnError, load_board_values
+
+        path = tmp_path / "renamed.csv"
+        path.write_text("name,value_v2\nA,10\nB,9\n", encoding="utf-8")
+        with pytest.raises(MissingColumnError) as err:
+            load_board_values(path, "value")
+        assert err.value.column == "value"
+        # A present column with an empty cell is still a row-level non-positive.
+        path.write_text("name,value\nA,10\nB,\n", encoding="utf-8")
+        assert load_board_values(path, "value").nonpositive_dropped == 1
+
+    @pytest.fixture(scope="class")
+    def renamed_run(self, tmp_path_factory):
+        root = _build_root(tmp_path_factory.mktemp("renamed"))
+        rel = default_manifest().board("OFFENSE", "DynastyDaddy").paths[0]
+        path = root / rel
+        path.write_text(
+            path.read_text(encoding="utf-8").replace("name,value", "name,value_v2", 1), "utf-8"
+        )
+        return rel, _run(root)
+
+    def test_a_skipped_declared_trainer_makes_the_scope_non_promotable(self, renamed_run):
+        rel, run = renamed_run
+        offense = run.record["scopes"]["OFFENSE"]
+        assert offense["fitSkipped"] == {"DynastyDaddy": "missing_column:value"}
+        assert offense["promotable"] is False
+        assert offense["nonPromotableReasons"] == [
+            "declared_trainer_skipped:DynastyDaddy:missing_column:value"
+        ]
+        pin = run.record["inputs"][rel]
+        assert pin["missingColumn"] == "value"
+        assert pin["rowsRead"] is None and pin["picksDropped"] is None
+
+    def test_it_cannot_enter_the_tournament(self, renamed_run, run_a):
+        from scripts.hill_autopilot import tournament_versions
+        from src.model_registry.training_run import offense_promotable
+
+        _rel, run = renamed_run
+        assert offense_promotable(run.record)[0] is False
+        assert offense_promotable(run_a.record) == (True, [])
+        eligible, excluded = tournament_versions([_version(2, run.record)])
+        assert eligible == []
+        assert excluded[2].startswith("offense_not_promotable:declared_trainer_skipped:")
+
+    def test_unrecorded_promotability_fails_closed(self, run_a):
+        from src.model_registry.training_run import tournament_exclusion_reason
+
+        record = {**run_a.record, "scopes": {}}
+        assert tournament_exclusion_reason(_version(2, record)).startswith(
+            "offense_not_promotable:promotability_unrecorded"
+        )
+
+    def test_a_holdout_with_an_absent_column_is_skipped_with_the_reason(self, tmp_path):
+        from src.model_registry.holdout import evaluate_offense_master
+
+        def _csv(name, col):
+            lines = [f"name,{col}"] + [f"P{i},{9999 * 0.99**i:.2f}" for i in range(150)]
+            (tmp_path / name).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        _csv("good.csv", "value")
+        _csv("renamed.csv", "value_v2")
+        result = evaluate_offense_master(
+            0.03,
+            1.5,
+            repo_root=tmp_path,
+            holdout_sources={"Good": ("good.csv", "value"), "Renamed": ("renamed.csv", "value")},
+            training_sources={"T": ("train.csv", "value")},
+        )
+        assert result.skipped == {"Renamed": "missing_column:value"}
+        assert set(result.per_source) == {"Good"}
+
+
+class TestCompositeVerification:
+    """Finding 5: composites inherited the raw winner's hashes, ``verify`` compared
+    only hashes, and a composite could compete in later tournaments."""
+
+    def test_verify_compares_parameters_not_only_hashes(self, run_a):
+        from src.model_registry.training_run import verify_against_replay
+
+        assert verify_against_replay(run_a.params, run_a.record, run_a) == []
+        tampered = {**run_a.params, "HILL_PERCENTILE_C": run_a.params["HILL_PERCENTILE_C"] + 0.01}
+        problems = verify_against_replay(tampered, run_a.record, run_a)
+        assert any("modelHash" in p for p in problems)
+        assert any("params differ" in p and "HILL_PERCENTILE_C" in p for p in problems)
+
+    def test_a_composite_verifies_its_source_and_its_offense_pair(self, run_a):
+        from src.model_registry.training_run import compose_run_summary, verify_against_replay
+
+        composite = {**run_a.params, "IDP_HILL_PERCENTILE_C": 0.123}
+        summary = compose_run_summary(run_a.record, source_version=5, params=composite)
+        assert verify_against_replay(composite, summary, run_a) == []
+        moved = {**composite, "HILL_PERCENTILE_S": composite["HILL_PERCENTILE_S"] + 0.1}
+        drifted = compose_run_summary(run_a.record, source_version=5, params=moved)
+        problems = verify_against_replay(moved, drifted, run_a)
+        assert problems and "HILL_PERCENTILE_S" in problems[-1]
+
+    def test_a_composite_never_enters_the_tournament(self, run_a):
+        from scripts.hill_autopilot import tournament_versions
+        from src.model_registry.training_run import compose_run_summary
+
+        summary = compose_run_summary(run_a.record, source_version=5, params=run_a.params)
+        eligible, excluded = tournament_versions([_version(9, summary)])
+        assert eligible == [] and excluded == {9: "composite_not_a_fit"}
+
+
+class TestRunArtifacts:
+    """Finding 7: ~15 KB per record x 12/day in one registry file. The registry
+    keeps a compact summary; the full record is a committed, integrity-checked
+    artifact with retention."""
+
+    def test_round_trip_through_the_registry(self, run_a, tmp_path):
+        from src.model_registry.training_run import (
+            REQUIRED_PIN_FIELDS,
+            load_training_run,
+            write_run_artifact,
+        )
+
+        summary = write_run_artifact(run_a.record, registry_dir=tmp_path)
+        reg = ModelRegistry("hill_scope_masters")
+        reg.add(_version(1, summary, params=run_a.params))
+        path = reg.save(tmp_path)
+        loaded = ModelRegistry.load("hill_scope_masters", tmp_path).get(1)
+        assert loaded.training_run == summary
+        assert (
+            "inputs"
+            not in json.loads(path.read_text(encoding="utf-8"))["versions"][0]["trainingRun"]
+        )
+        assert len(json.dumps(summary)) < 4096
+        full = load_training_run(loaded.training_run, registry_dir=tmp_path)
+        assert full == run_a.record
+        assert all(k in full for k in REQUIRED_PIN_FIELDS)
+        # verify needs only the summary: the replay pins live there.
+        for key in ("inputsCommit", "trainingCutoff", "pinsHash", "challengerHash", "modelHash"):
+            assert key in summary
+        assert summary["snapshot"]["path"] == SNAPSHOT_REL
+
+    def test_a_tampered_artifact_is_refused(self, run_a, tmp_path):
+        from src.model_registry.training_run import load_training_run, write_run_artifact
+
+        summary = write_run_artifact(run_a.record, registry_dir=tmp_path)
+        path = tmp_path / summary["artifact"]
+        blob = json.loads(path.read_text(encoding="utf-8"))
+        blob["config"]["fitTopN"] = 999
+        path.write_text(json.dumps(blob), encoding="utf-8")
+        with pytest.raises(TrainingRunError, match="pinsHash"):
+            load_training_run(summary, registry_dir=tmp_path)
+
+    def test_a_composite_loads_its_source_artifact(self, run_a, tmp_path):
+        from src.model_registry.training_run import (
+            compose_run_summary,
+            load_training_run,
+            write_run_artifact,
+        )
+
+        summary = write_run_artifact(run_a.record, registry_dir=tmp_path)
+        composite = {**run_a.params, "IDP_HILL_PERCENTILE_C": 0.123}
+        derived = compose_run_summary(summary, source_version=5, params=composite)
+        full = load_training_run(derived, registry_dir=tmp_path)
+        assert full["inputs"] == run_a.record["inputs"]
+        assert full["composedFrom"] == 5 and full["modelHash"] == derived["modelHash"]
+
+    def test_retention_keeps_what_can_still_matter(self, run_a, tmp_path):
+        from src.model_registry.training_run import TRAINING_RUNS_DIRNAME, prune_training_runs
+
+        runs = tmp_path / TRAINING_RUNS_DIRNAME
+        runs.mkdir()
+        for name in ("live", "old_rejected", "new_rejected", "orphan", "composite_src"):
+            (runs / f"{name}.json").write_text("{}", encoding="utf-8")
+
+        def ref(name):
+            return {"artifact": f"{TRAINING_RUNS_DIRNAME}/{name}.json"}
+
+        now = datetime(2026, 10, 1, tzinfo=timezone.utc)
+        versions = [
+            _version(1, ref("live"), fitted_at="2026-01-01T00:00:00+00:00"),
+            _version(2, ref("old_rejected"), status="rejected", fitted_at="2026-08-01T00:00:00Z"),
+            _version(3, ref("new_rejected"), status="rejected", fitted_at="2026-09-25T00:00:00Z"),
+            _version(4, ref("composite_src"), status="rejected", fitted_at="2026-08-01T00:00:00Z"),
+            _version(5, {**ref("composite_src"), "composedFrom": 4}, status="champion"),
+            _version(6, None),
+        ]
+        removed = prune_training_runs(versions, registry_dir=tmp_path, now=now, max_age_days=30)
+        assert removed == [
+            f"{TRAINING_RUNS_DIRNAME}/old_rejected.json",
+            f"{TRAINING_RUNS_DIRNAME}/orphan.json",
+        ]
+        assert sorted(p.stem for p in runs.glob("*.json")) == [
+            "composite_src",
+            "live",
+            "new_rejected",
+        ]
+
+
+class TestReplayRefusals:
+    def test_replay_refuses_a_commit_with_no_snapshot(self, monkeypatch, tmp_path):
+        """Finding 9: no snapshot at the commit must not fall through to the
+        operator's ``RISKIT_FIT_SNAPSHOT``."""
+        import src.model_registry.training_run as tr
+
+        decoy = _build_root(tmp_path / "decoy") / SNAPSHOT_REL
+        monkeypatch.setenv("RISKIT_FIT_SNAPSHOT", str(decoy))
+        monkeypatch.setattr(tr, "_snapshot_at", lambda _sha, repo=None: None)
+        monkeypatch.setattr(
+            tr, "execute", lambda **_k: pytest.fail("must refuse before fitting anything")
+        )
+        with pytest.raises(TrainingRunError, match="no board snapshot"):
+            tr.replay(commit="HEAD")
+
+
+class TestMissingInputPins:
+    def test_a_missing_input_records_none_not_zero(self, tmp_path):
+        """Finding 10: an input that was never read read no rows because it was
+        never read — ``None``, not ``0``."""
+        root = _build_root(tmp_path / "missing-holdout")
+        rel = default_manifest().board("OFFENSE", "OTCFFB").paths[0]
+        (root / rel).unlink()
+        pin = _run(root).record["inputs"][rel]
+        assert pin["sha256"] == "missing"
+        assert pin["rowsRead"] is None
+        assert pin["picksDropped"] is None
+        assert pin["playerRows"] is None

@@ -14,7 +14,7 @@ and errors E2/E3 in [`../hill-alignment-2026-10-01/README.md`](../hill-alignment
 | item | owner requirement | where | pinned by |
 |---|---|---|---|
 | 1 | one manifest derived from source authority; trainers, holdouts and Autopilot read it | `src/model_registry/training_manifest.py`; `fit_hill_curve_percentile.OFFENSE/GLOBAL/IDP_CSV_SOURCES` and `holdout.OFFENSE_TRAINING/HOLDOUT_SOURCES` are now views of it | `tests/model_registry/test_training_manifest.py::TestOneManifest` |
-| 2 | every run pins code, inputs, dataset state, as-of, freshness, health, coverage, families, population, game type, cutoff, holdout families, config, output hash | `src/model_registry/training_run.py`; stored as `trainingRun` on the registry challenger (`ModelVersion.training_run`) | `test_training_run.py::TestPins` |
+| 2 | every run pins code, inputs, dataset state, as-of, freshness, health, coverage, families, population, game type, cutoff, holdout families, config, output hash | `src/model_registry/training_run.py`; full record committed as `config/model_registry/training_runs/<challengerHash>.json`, compact summary stored as `trainingRun` on the registry challenger (`ModelVersion.training_run`) | `test_training_run.py::TestPins` |
 | 3 | rank-only evidence never teaches spacing | manifest `spacing_evidence`; rank-only boards and snapshot synthetic encodings are excluded; a rank column declared as a value column is an error | `TestRankOnlyNeverTeachesSpacing` |
 | 4 | no holdout family leakage; measured dependence ≠ ancestry; explicit, tested policy | manifest family rule (both directions); `evaluate_offense_master` refuses a family across the split; `HoldoutPolicy` | `TestHoldoutFamilies` |
 | 5 | OFFENSE population players-only (E3) | one population rule, `training_manifest.load_board_values` (canonical `is_pick_name` + `PICK` position) | `TestPlayersOnlyPopulation` |
@@ -76,15 +76,21 @@ manifest (`1f31e6724c2b…`):
 - A raw refit records `trainingRun`. `--require-reproducible` (set in the workflow)
   refuses inputs that differ from HEAD; the cutoff is HEAD's commit time.
 - New workflow step: `scripts/hill_training_run.py verify --latest-raw` replays the
-  recorded run from git and requires the identical `challengerHash`.
-- `scripts/hill_autopilot.py::tournament_versions` admits only challengers with a
-  reproducible current-substrate run (`training_run.is_tournament_eligible`) and drops
-  a challenger whose `challengerHash` repeats an earlier one (a refit on identical
-  pins is not new stability evidence). **Consequence:** every pre-repair challenger,
+  recorded run from git and requires the identical `challengerHash` and parameters;
+  before a composite is registered the tournament winner is verified the same way
+  (review fix, finding 6).
+- `scripts/hill_autopilot.py::tournament_versions` admits only raw challengers with a
+  reproducible current-substrate run and a promotable OFFENSE scope
+  (`training_run.tournament_exclusion_reason`) and drops a challenger whose
+  `evidenceHash` repeats an earlier one (a refit on identical trainer content is not
+  new stability evidence). Review fix, finding 2: this was keyed on `challengerHash`,
+  which includes the cutoff and so never repeated. **Consequence:** every pre-repair challenger,
   including the pending v171, leaves the tournament. No automatic promotion is
   possible until three new-substrate challengers spanning five days, plus forward
   persistence, accumulate. That is the intended effect of "fix the substrate first".
-- The Autopilot composite inherits the raw winner's run (`register --derived-from`).
+- The Autopilot composite carries the raw winner's pins (`register --derived-from`) with
+  `modelHash` / `challengerHash` re-stamped from its own parameters, and never competes
+  in a tournament (review fix, finding 5).
 
 ## LOCAL reproducibility demonstration
 

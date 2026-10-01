@@ -31,6 +31,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -52,6 +53,7 @@ from src.model_registry.training_manifest import (  # noqa: E402
     LOADER_SNAPSHOT_IDP,
     LOADER_SNAPSHOT_ROOKIE,
     ROLE_TRAIN,
+    MissingColumnError,
     TrainingManifest,
     default_manifest,
     load_board_values,
@@ -333,7 +335,22 @@ def _trainer_values(board, root: Path, snapshot: Path | None) -> tuple[list[floa
 
     A missing trainer CSV is an error, never a skip: a master silently fitted on
     five of six declared boards is a different model wearing the same name.
+
+    A declared value column that is ABSENT from its file (a vendor rename) is a
+    skip with reason ``missing_column:<col>`` — never a board of zeros. The
+    training run records every skipped declared trainer, and a scope with one is
+    NOT promotable (``training_run.tournament_exclusion_reason``), so the master on
+    fewer boards still exists as evidence but cannot win a tournament.
     """
+    try:
+        return _trainer_values_unchecked(board, root, snapshot)
+    except MissingColumnError as exc:
+        return [], f"missing_column:{exc.column}"
+
+
+def _trainer_values_unchecked(
+    board, root: Path, snapshot: Path | None
+) -> tuple[list[float], str | None]:
     if board.loader == LOADER_CSV:
         path = root / board.paths[0]
         if not path.is_file():
@@ -382,9 +399,14 @@ def fit_scopes(
     skipped: dict[str, dict[str, str]] = {}
     masters: dict[str, dict[str, float]] = {}
     constants: dict[str, float] = {}
+    # Content hash of exactly the values each trainer fed the fit. Two refits
+    # whose trainers saw identical values are the SAME evidence, whatever their
+    # cutoff, snapshot scrape time or holdout files (training_run.evidence_hash).
+    content: dict[str, dict[str, str]] = {}
     for scope in _SCOPE_REPORT_ORDER:
         fits: list[dict[str, Any]] = []
         skipped[scope] = {}
+        content[scope] = {}
         say(f"\n{scope} scope:")
         for board in m.trainers(scope):
             values, reason = _trainer_values(board, base, snap)
@@ -393,6 +415,9 @@ def fit_scopes(
                 skipped[scope][board.label] = reason or "no usable percentile pairs"
                 say(f"  {board.label:22s}  (skipped: {skipped[scope][board.label]})")
                 continue
+            content[scope][board.label] = hashlib.sha256(
+                json.dumps(values, separators=(",", ":")).encode("utf-8")
+            ).hexdigest()
             c, s, mse = _fit(pairs)
             fits.append({"label": board.label, "c": c, "s": s, "rmse": mse**0.5, "n": len(pairs)})
             say(
@@ -411,6 +436,7 @@ def fit_scopes(
     return {
         "perSource": per_source,
         "skipped": skipped,
+        "trainingContent": content,
         "masters": masters,
         "constants": constants,
         "snapshot": str(snap) if snap is not None else None,

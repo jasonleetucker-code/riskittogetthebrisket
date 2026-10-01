@@ -6,12 +6,17 @@
     python scripts/hill_training_run.py replay --commit <sha> [--out run.json]
     python scripts/hill_training_run.py replay --cutoff 2026-09-30T13:00:00+00:00
 
-    # re-derive a recorded challenger from its own pins and compare hashes
+    # re-derive a recorded challenger from its own pins and compare hashes AND
+    # parameters (a composite: its source run, and its OFFENSE pair)
     python scripts/hill_training_run.py verify <version>
     python scripts/hill_training_run.py verify --latest-raw
 
-    # write a recorded challenger's training run out as a run artifact
+    # write a recorded challenger's full training run (from its committed
+    # artifact, integrity-checked) out as a file
     python scripts/hill_training_run.py show <version> --out run.json
+
+    # delete run artifacts no registry entry still needs (retention)
+    python scripts/hill_training_run.py prune [--max-age-days 30]
 
 Exit codes: 0 ok / reproduced; 1 a replay did NOT reproduce the recorded
 challenger; 2 error (missing pins, unreadable registry, refused run).
@@ -34,7 +39,13 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from src.model_registry.hill_masters import load_or_seed_registry  # noqa: E402
-from src.model_registry.training_run import TrainingRunError, replay  # noqa: E402
+from src.model_registry.training_run import (  # noqa: E402
+    TrainingRunError,
+    load_training_run,
+    prune_training_runs,
+    replay,
+    verify_against_replay,
+)
 from src.model_registry.versioning import RegistryError  # noqa: E402
 
 RAW_PRODUCER_PREFIX = "scripts/fit_hill_curve_percentile.py"
@@ -93,19 +104,33 @@ def cmd_verify(args: argparse.Namespace) -> int:
         return 2
     snapshot_rel = (run.get("snapshot") or {}).get("path")
     again = replay(commit=commit, cutoff=_cutoff(cutoff), snapshot_rel=snapshot_rel)
-    same = again.challenger_hash == run.get("challengerHash")
-    print(f"v{version.version} recorded  {run.get('challengerHash')}")
+    composed = run.get("composedFrom") is not None
+    target = run.get("sourceChallengerHash") if composed else run.get("challengerHash")
+    print(f"v{version.version} recorded  {target}" + (" (source run)" if composed else ""))
     print(f"v{version.version} replayed  {again.challenger_hash}")
-    if not same:
-        diffs = [
-            k
-            for k in ("manifestHash", "codeHash", "snapshot", "inputs", "params")
-            if (again.record.get(k) if k != "params" else again.params)
-            != (run.get(k) if k != "params" else version.params)
-        ]
-        print(f"NOT REPRODUCED — differing pins: {diffs}", file=sys.stderr)
+    problems = verify_against_replay(version.params, run, again)
+    if problems:
+        try:
+            full = load_training_run(run)
+            pins = [
+                k
+                for k in ("manifestHash", "codeHash", "snapshot", "inputs", "trainingContent")
+                if again.record.get(k) != full.get(k)
+            ]
+        except TrainingRunError as exc:
+            pins = [f"(full record unavailable: {exc})"]
+        for problem in problems:
+            print(f"NOT REPRODUCED — {problem}", file=sys.stderr)
+        print(f"differing pins: {pins}", file=sys.stderr)
         return 1
-    print("REPRODUCED — identical challenger hash from the recorded pins")
+    if composed:
+        print(
+            f"REPRODUCED — composite of raw v{run['composedFrom']}: the source run replays "
+            "to its recorded hash and the OFFENSE pair matches; GLOBAL/IDP/ROOKIE are the "
+            "incumbent's and were not produced by this run"
+        )
+    else:
+        print("REPRODUCED — identical challenger hash and parameters from the recorded pins")
     return 0
 
 
@@ -114,9 +139,18 @@ def cmd_show(args: argparse.Namespace) -> int:
     if not version.training_run:
         print(f"ERROR: v{version.version} carries no training run", file=sys.stderr)
         return 2
-    _write(args.out, version.training_run)
+    record = load_training_run(version.training_run)
+    _write(args.out, record)
     if args.out is None:
-        print(json.dumps(version.training_run, indent=2, sort_keys=True))
+        print(json.dumps(record, indent=2, sort_keys=True))
+    return 0
+
+
+def cmd_prune(args: argparse.Namespace) -> int:
+    removed = prune_training_runs(load_or_seed_registry().versions, max_age_days=args.max_age_days)
+    for rel in removed:
+        print(f"pruned {rel}")
+    print(f"{len(removed)} training-run artifact(s) pruned")
     return 0
 
 
@@ -141,6 +175,10 @@ def main() -> int:
         if name == "show":
             p.add_argument("--out", type=Path)
         p.set_defaults(fn=fn)
+
+    p = sub.add_parser("prune", help="delete run artifacts no registry entry still needs")
+    p.add_argument("--max-age-days", type=float, default=30.0)
+    p.set_defaults(fn=cmd_prune)
 
     args = ap.parse_args()
     if args.cmd in ("verify", "show") and args.version is None and not args.latest_raw:

@@ -51,6 +51,7 @@ from src.model_registry.holdout import (  # noqa: E402
     source_roles,
 )
 from src.model_registry.promotion import decide_promotion  # noqa: E402
+from src.model_registry.training_run import compose_run_summary  # noqa: E402
 from src.model_registry.versioning import (  # noqa: E402
     ModelRegistry,
     ModelVersion,
@@ -163,33 +164,36 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     return 0
 
 
-def derived_training_run(source: ModelVersion) -> dict | None:
-    """The training run a COMPOSED candidate inherits from the raw version it
-    was composed from (Hill Autopilot's OFFENSE-only composite).
+def derived_training_run(source: ModelVersion, params: dict[str, float]) -> dict | None:
+    """The training run a COMPOSED candidate carries from the raw version it was
+    composed from (Hill Autopilot's OFFENSE-only composite).
 
     The composite's OFFENSE c/s are the raw winner's, fitted on exactly these
-    pins; its other scopes are the incumbent's. Recording the source run keeps
-    the composite reproducible to its evidence instead of pinless."""
+    pins, so the pins (and artifact) are the source's; its other scopes are the
+    incumbent's, so ``modelHash`` / ``challengerHash`` / ``evidenceHash`` are
+    re-stamped from the composite's OWN ``params`` (owner:
+    ``training_run.compose_run_summary``). ``composedFrom`` keeps it out of every
+    future tournament."""
     if not source.training_run:
         return None
-    return {**source.training_run, "composedFrom": source.version}
+    return compose_run_summary(source.training_run, source_version=source.version, params=params)
 
 
 def cmd_register(args: argparse.Namespace) -> int:
     reg = _load_or_seed()
-    training_run = None
-    if getattr(args, "derived_from", None):
-        try:
-            training_run = derived_training_run(reg.get(args.derived_from))
-        except RegistryError as exc:
-            print(f"ERROR: {exc}", file=sys.stderr)
-            return 2
     params = json.loads(Path(args.params).read_text())
     params = {str(k): float(v) for k, v in params.items()}
     missing = [n for n in CONSTANT_NAMES if n not in params]
     if missing:
         print(f"ERROR: params missing {missing}", file=sys.stderr)
         return 2
+    training_run = None
+    if getattr(args, "derived_from", None):
+        try:
+            training_run = derived_training_run(reg.get(args.derived_from), params)
+        except RegistryError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 2
 
     try:
         result = evaluate_offense_master(params["HILL_PERCENTILE_C"], params["HILL_PERCENTILE_S"])

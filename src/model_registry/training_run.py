@@ -26,7 +26,24 @@ What a run records (``TrainingRun.record`` — stored on the registry challenger
   families, measured dependences, fit skips;
 * the fit configuration, per-source fits, scope masters;
 * ``modelHash`` (the emitted params), ``pinsHash`` (everything above that is
-  evidence, minus labels and wall-clock), ``challengerHash`` (both).
+  evidence, minus labels and wall-clock), ``challengerHash`` (both);
+* ``trainingContent`` (a content hash of exactly the values each trainer fed the
+  fit), ``inputsContentHash`` (their sorted set) and ``evidenceHash``
+  (``inputsContentHash`` + ``modelHash``).
+
+Identity vs. evidence. ``challengerHash`` is the run's IDENTITY: it includes the
+training cutoff and cutoff-relative freshness ages, so it changes on every run by
+design. ``evidenceHash`` is what the run is EVIDENCE of: two refits whose
+trainers consumed identical values and emitted identical params are one
+observation, not two, and Hill Autopilot's parameter-stability gate counts them
+once (``scripts/hill_autopilot.tournament_versions``).
+
+Storage. The full record is written as a committed artifact
+(``config/model_registry/training_runs/<challengerHash>.json``,
+``write_run_artifact``); the registry keeps only a compact summary
+(``summarize_run``) — the hashes, the replay pins verify needs, and per-scope
+promotability. ``verify`` needs only the summary, so a pruned artifact
+(``prune_training_runs``) loses the audit detail, never reproducibility.
 
 Point in time: a run REFUSES any input observed after its training cutoff — a
 snapshot scraped later, or a dataset state whose data clock is later. A replay
@@ -47,9 +64,9 @@ import json
 import subprocess
 import tempfile
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, Mapping
 
 from src.canonical.player_valuation import PERCENTILE_REFERENCE_N, training_percentiles
 from src.canonical.tail_policy import clamp_percentile
@@ -60,11 +77,13 @@ from src.model_registry.training_manifest import (
     ROLE_EXCLUDED,
     SCOPES,
     SUBSTRATE_VERSION,
+    MissingColumnError,
     TrainingManifest,
     default_manifest,
     load_board_values,
     source_key_for_path,
 )
+from src.model_registry.versioning import DEFAULT_REGISTRY_DIR
 
 REPO = Path(__file__).resolve().parents[2]
 FITTER_PATH = REPO / "scripts" / "fit_hill_curve_percentile.py"
@@ -99,9 +118,12 @@ REQUIRED_PIN_FIELDS: tuple[str, ...] = (
     "config",
     "perSourceFits",
     "masters",
+    "trainingContent",
     "modelHash",
     "pinsHash",
     "challengerHash",
+    "inputsContentHash",
+    "evidenceHash",
 )
 
 #: Labels and provenance pointers: recorded, but not evidence, so not hashed.
@@ -114,9 +136,14 @@ _UNHASHED_FIELDS = frozenset(
         "modelHash",
         "pinsHash",
         "challengerHash",
+        "inputsContentHash",
+        "evidenceHash",
         "recordedAt",
     }
 )
+
+#: The OFFENSE c/s pair — the only scope Hill Autopilot composes into production.
+OFFENSE_PARAMS: tuple[str, str] = ("HILL_PERCENTILE_C", "HILL_PERCENTILE_S")
 
 
 class TrainingRunError(RuntimeError):
@@ -159,6 +186,31 @@ def _sha256_text_normalized(path: Path) -> str:
 
 
 _sha256_file = _sha256_text_normalized
+
+
+def model_hash(params: Mapping[str, float]) -> str:
+    """Hash of a parameter set — what ``modelHash`` must equal for ``params``."""
+    return _sha256_bytes(_canonical_json({str(k): float(v) for k, v in params.items()}).encode())
+
+
+def pins_hash(record: Mapping[str, Any]) -> str:
+    """Hash of everything in a run record that is evidence (labels excluded)."""
+    evidence = {k: v for k, v in record.items() if k not in _UNHASHED_FIELDS}
+    return _sha256_bytes(_canonical_json(evidence).encode("utf-8"))
+
+
+def inputs_content_hash(training_content: Mapping[str, Mapping[str, str]]) -> str:
+    """The sorted SET of trainer content hashes, hashed.
+
+    Only what the fit consumed: holdout files, dataset-state stamps, the snapshot's
+    scrape time and the cutoff cannot change the fitted parameters, so they are
+    not part of the evidence identity."""
+    hashes = sorted({str(h) for per_scope in training_content.values() for h in per_scope.values()})
+    return _sha256_bytes(_canonical_json(hashes).encode("utf-8"))
+
+
+def evidence_hash(inputs_hash: str, model: str) -> str:
+    return _sha256_bytes(f"{inputs_hash}:{model}".encode("utf-8"))
 
 
 def _normalized_size(path: Path) -> int:
@@ -330,15 +382,32 @@ def _input_pins(
             "valueColumn": board.value_column,
         }
         if not path.is_file():
+            # Missing is never zero: an absent file read no rows and dropped no
+            # picks because it was never read, which ``0`` would misstate.
             pins[rel] = {
                 **base,
                 "sha256": "missing",
-                "rowsRead": 0,
-                "picksDropped": 0,
+                "rowsRead": None,
+                "picksDropped": None,
+                "playerRows": None,
                 "datasetState": {"measured": False, "reason": "input missing"},
             }
             continue
-        values = load_board_values(path, str(board.value_column))
+        try:
+            values = load_board_values(path, str(board.value_column))
+        except MissingColumnError as exc:
+            pins[rel] = {
+                **base,
+                "sha256": _sha256_file(path),
+                "bytes": _normalized_size(path),
+                "missingColumn": exc.column,
+                "header": list(exc.header),
+                "rowsRead": None,
+                "picksDropped": None,
+                "playerRows": None,
+                "datasetState": _dataset_state_pin(root, key, cutoff, cfg_path),
+            }
+            continue
         trained = (
             min(len(values.values), FIT_TOP_N)
             if board.loader in (LOADER_CSV, LOADER_CSV_CONCAT)
@@ -358,7 +427,16 @@ def _input_pins(
 def _scope_pins(m: TrainingManifest, fit: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for scope in SCOPES:
+        skipped = dict(sorted((fit.get("skipped") or {}).get(scope, {}).items()))
+        reasons = [f"declared_trainer_skipped:{label}:{why}" for label, why in skipped.items()]
+        if scope not in (fit.get("masters") or {}):
+            reasons.append("no_master_fitted")
         out[scope] = {
+            # A master fitted on fewer boards than the manifest declares is a
+            # different model wearing the same name: it is recorded as evidence
+            # but is NOT promotable (Hill Autopilot excludes it).
+            "promotable": not reasons,
+            "nonPromotableReasons": reasons,
             "trainers": [b.label for b in m.trainers(scope)],
             "holdouts": [b.label for b in m.holdouts(scope)],
             "excluded": {b.label: b.exclusion_reason for b in m.excluded(scope)},
@@ -369,7 +447,7 @@ def _scope_pins(m: TrainingManifest, fit: dict[str, Any]) -> dict[str, Any]:
                 for b in m.holdouts(scope)
                 if b.measured_dependence
             },
-            "fitSkipped": dict(sorted((fit.get("skipped") or {}).get(scope, {}).items())),
+            "fitSkipped": skipped,
         }
     return out
 
@@ -452,13 +530,19 @@ def execute(
             scope: {k: round(v, 6 if k != "rmse" else 3) for k, v in master.items()}
             for scope, master in fit["masters"].items()
         },
+        "trainingContent": {
+            scope: dict(sorted(per.items()))
+            for scope, per in (fit.get("trainingContent") or {}).items()
+        },
     }
-    model_hash = _sha256_bytes(_canonical_json(params).encode("utf-8"))
-    evidence = {k: v for k, v in record.items() if k not in _UNHASHED_FIELDS}
-    pins_hash = _sha256_bytes(_canonical_json(evidence).encode("utf-8"))
-    record["modelHash"] = model_hash
-    record["pinsHash"] = pins_hash
-    record["challengerHash"] = _sha256_bytes(f"{pins_hash}:{model_hash}".encode("utf-8"))
+    model = model_hash(params)
+    pins = pins_hash(record)
+    content = inputs_content_hash(record["trainingContent"])
+    record["modelHash"] = model
+    record["pinsHash"] = pins
+    record["challengerHash"] = _sha256_bytes(f"{pins}:{model}".encode("utf-8"))
+    record["inputsContentHash"] = content
+    record["evidenceHash"] = evidence_hash(content, model)
     return TrainingRun(params=params, record=record)
 
 
@@ -547,6 +631,15 @@ def replay(
     # A verification replays the snapshot its record names; a fresh replay takes
     # the newest snapshot (by the date in its name) present at the commit.
     snap_rel = snapshot_rel or _snapshot_at(sha, repo=repo)
+    if not snap_rel:
+        # Refuse rather than let ``execute`` fall through to the fitter's own
+        # snapshot resolution, which honours ``RISKIT_FIT_SNAPSHOT`` — a file from
+        # the operator's environment, not from the commit, and possibly from after
+        # the cutoff. A replay reads the commit or nothing.
+        raise TrainingRunError(
+            f"no board snapshot ({SNAPSHOT_DIR_REL}/dynasty_data_*.json) exists at "
+            f"commit {sha[:12]}; a replay cannot read a snapshot from outside the commit"
+        )
     keys = {source_key_for_path(rel) for rel in m.input_paths()} | {b.source_key for b in m.boards}
     paths = [
         *m.input_paths(),
@@ -561,7 +654,7 @@ def replay(
             root=root,
             cutoff=cut,
             code_sha=_git("rev-parse", "--short", "HEAD", repo=repo),
-            snapshot=(root / snap_rel) if snap_rel else None,
+            snapshot=root / snap_rel,
             manifest=m,
             inputs_origin=f"git:{sha}",
             inputs_commit=sha,
@@ -600,16 +693,252 @@ def worktree_inputs_state(
 # ── registry / Autopilot ────────────────────────────────────────────────────
 
 
-def is_tournament_eligible(version: Any) -> bool:
-    """Only a reproducible challenger fitted on the CURRENT substrate may compete.
+REASON_LEGACY_SUBSTRATE = "legacy_substrate"
+REASON_COMPOSITE = "composite_not_a_fit"
 
-    A challenger with no pins (every pre-repair version), one fitted on the
-    pre-repair substrate (KTC pick rows in the OFFENSE fit), or one recorded as
-    not reproducible cannot be re-derived from its own record, so it cannot be
-    promoted on the strength of it."""
+
+def tournament_exclusion_reason(version: Any) -> str | None:
+    """Why a standing challenger may NOT compete, or ``None`` when it may.
+
+    * ``legacy_substrate`` — no pins (every pre-repair version), the pre-repair
+      substrate (KTC pick rows in the OFFENSE fit), or recorded not reproducible:
+      it cannot be re-derived from its own record.
+    * ``composite_not_a_fit`` — an Autopilot composite (``composedFrom``): its
+      OFFENSE c/s are a raw winner's and its other scopes the incumbent's, so it
+      is not an independent fit and must not count as one in the stability gate.
+    * ``offense_not_promotable:...`` — a declared OFFENSE trainer was skipped (a
+      missing column, an empty board) or promotability was never recorded: the
+      master was fitted on fewer boards than the manifest declares. Missing
+      evidence is not a smaller, equally valid sample.
+    """
     run = getattr(version, "training_run", None) or {}
-    return (
+    if not (
         run.get("substrateVersion") == SUBSTRATE_VERSION
         and run.get("reproducible") is True
         and bool(run.get("challengerHash"))
-    )
+    ):
+        return REASON_LEGACY_SUBSTRATE
+    if run.get("composedFrom") is not None:
+        return REASON_COMPOSITE
+    offense = (run.get("scopes") or {}).get("OFFENSE") or {}
+    if offense.get("promotable") is not True:
+        why = offense.get("nonPromotableReasons") or ["promotability_unrecorded"]
+        return "offense_not_promotable:" + ";".join(str(r) for r in why)
+    return None
+
+
+def is_tournament_eligible(version: Any) -> bool:
+    """Only a reproducible, promotable raw fit on the CURRENT substrate may compete."""
+    return tournament_exclusion_reason(version) is None
+
+
+def offense_promotable(record: Mapping[str, Any]) -> tuple[bool, list[str]]:
+    """``(promotable, reasons)`` for the OFFENSE scope of a run record or summary."""
+    offense = (record.get("scopes") or {}).get("OFFENSE") or {}
+    if offense.get("promotable") is True:
+        return True, []
+    return False, list(offense.get("nonPromotableReasons") or ["promotability_unrecorded"])
+
+
+def run_evidence_hash(record: Mapping[str, Any]) -> str | None:
+    """The evidence identity of a run record or summary (``None`` if unrecorded)."""
+    if record.get("evidenceHash"):
+        return str(record["evidenceHash"])
+    content, model = record.get("trainingContent"), record.get("modelHash")
+    if isinstance(content, Mapping) and model:
+        return evidence_hash(inputs_content_hash(content), str(model))
+    return None
+
+
+# ── run artifacts: full record on disk, compact summary in the registry ─────
+
+TRAINING_RUNS_DIRNAME = "training_runs"
+ARTIFACT_SCHEMA_VERSION = 1
+
+#: What the registry keeps per version. Everything ``verify``, the tournament and
+#: the composite need; the bulky per-input/per-source detail lives in the artifact.
+SUMMARY_FIELDS: tuple[str, ...] = (
+    "substrateVersion",
+    "manifestHash",
+    "codeSha",
+    "codeHash",
+    "trainingCutoff",
+    "inputsOrigin",
+    "inputsCommit",
+    "reproducible",
+    "modelHash",
+    "pinsHash",
+    "challengerHash",
+    "inputsContentHash",
+    "evidenceHash",
+)
+
+
+def artifact_rel_path(challenger_hash: str) -> str:
+    """Artifact path relative to the registry directory."""
+    return f"{TRAINING_RUNS_DIRNAME}/{challenger_hash}.json"
+
+
+def summarize_run(record: Mapping[str, Any], *, artifact: str | None) -> dict[str, Any]:
+    """The compact registry form of a full run record."""
+    out: dict[str, Any] = {k: record.get(k) for k in SUMMARY_FIELDS}
+    snap = record.get("snapshot") or {}
+    out["snapshot"] = {k: snap[k] for k in ("resolved", "path", "sha256") if k in snap}
+    out["scopes"] = {
+        scope: {
+            "promotable": blob.get("promotable"),
+            "nonPromotableReasons": list(blob.get("nonPromotableReasons") or []),
+        }
+        for scope, blob in (record.get("scopes") or {}).items()
+    }
+    out["artifact"] = artifact
+    out["artifactSchema"] = ARTIFACT_SCHEMA_VERSION
+    return out
+
+
+def write_run_artifact(
+    record: Mapping[str, Any], *, registry_dir: Path | None = None
+) -> dict[str, Any]:
+    """Write the full record as a committed artifact; return the registry summary."""
+    reg_dir = registry_dir or DEFAULT_REGISTRY_DIR
+    rel = artifact_rel_path(str(record["challengerHash"]))
+    path = reg_dir / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="\n") as f:
+        f.write(json.dumps(record, indent=2, sort_keys=True) + "\n")
+    return summarize_run(record, artifact=rel)
+
+
+def load_training_run(
+    summary: Mapping[str, Any], *, registry_dir: Path | None = None
+) -> dict[str, Any]:
+    """The full run record behind a registry summary, integrity-checked.
+
+    A summary without ``artifact`` is already a full inline record and is returned
+    as is. The artifact must hash to the summary's ``pinsHash`` and carry the
+    challenger hash the summary was made from, or this raises — a swapped or
+    edited artifact is never silently trusted."""
+    if not summary.get("artifact"):
+        return dict(summary)
+    path = (registry_dir or DEFAULT_REGISTRY_DIR) / str(summary["artifact"])
+    if not path.is_file():
+        raise TrainingRunError(
+            f"training-run artifact {summary['artifact']} is missing (pruned?); the "
+            "summary's pins still replay, but the full audit record is gone"
+        )
+    record = json.loads(path.read_text(encoding="utf-8"))
+    if pins_hash(record) != summary.get("pinsHash"):
+        raise TrainingRunError(f"{summary['artifact']}: pins do not hash to the summary's pinsHash")
+    expected = summary.get("sourceChallengerHash") or summary.get("challengerHash")
+    if record.get("challengerHash") != expected:
+        raise TrainingRunError(f"{summary['artifact']}: challengerHash does not match the summary")
+    if summary.get("composedFrom") is not None:
+        record = {
+            **record,
+            **{
+                k: summary.get(k)
+                for k in (
+                    "composedFrom",
+                    "sourceModelHash",
+                    "sourceChallengerHash",
+                    "sourceEvidenceHash",
+                    "modelHash",
+                    "challengerHash",
+                    "evidenceHash",
+                )
+            },
+        }
+    return record
+
+
+def compose_run_summary(
+    source: Mapping[str, Any], *, source_version: int, params: Mapping[str, float]
+) -> dict[str, Any]:
+    """The training run a COMPOSED candidate carries (Autopilot's OFFENSE-only composite).
+
+    Its OFFENSE c/s were fitted on exactly the source's pins, so the pins (and
+    the artifact) are the source's. Its parameters are NOT the source's — GLOBAL /
+    IDP / ROOKIE are the incumbent's — so ``modelHash`` (and the hashes built on
+    it) are re-stamped from the composite's OWN params, with the source's kept as
+    ``source*``. Inheriting the raw winner's hashes would let a hash check pass on
+    parameters the run never produced."""
+    model = model_hash(params)
+    content = source.get("inputsContentHash")
+    return {
+        **source,
+        "composedFrom": source_version,
+        "sourceModelHash": source.get("modelHash"),
+        "sourceChallengerHash": source.get("challengerHash"),
+        "sourceEvidenceHash": source.get("evidenceHash"),
+        "modelHash": model,
+        "challengerHash": _sha256_bytes(f"{source.get('pinsHash')}:{model}".encode("utf-8")),
+        "evidenceHash": evidence_hash(str(content), model) if content else None,
+    }
+
+
+def verify_against_replay(
+    version_params: Mapping[str, float],
+    recorded: Mapping[str, Any],
+    again: TrainingRun,
+) -> list[str]:
+    """Every way a replay fails to reproduce a recorded version. Empty = reproduced.
+
+    Parameters are compared, not only hashes: a recorded hash proves what the run
+    produced, and the version's params must BE that — for a raw fit all eight; for
+    a composite the OFFENSE pair (its other scopes are the incumbent's, which no
+    training run produced)."""
+    problems: list[str] = []
+    params = {str(k): float(v) for k, v in version_params.items()}
+    if recorded.get("modelHash") != model_hash(params):
+        problems.append("recorded modelHash is not the hash of this version's own params")
+    if again.record.get("pinsHash") != recorded.get("pinsHash"):
+        problems.append("pinsHash differs: the replayed evidence is not the recorded evidence")
+    if recorded.get("composedFrom") is not None:
+        if again.challenger_hash != recorded.get("sourceChallengerHash"):
+            problems.append("replay does not reproduce the composite's source challengerHash")
+        compare = OFFENSE_PARAMS
+    else:
+        if again.challenger_hash != recorded.get("challengerHash"):
+            problems.append("challengerHash differs")
+        compare = tuple(sorted(set(params) | set(again.params)))
+    diff = [k for k in compare if again.params.get(k) != params.get(k)]
+    if diff:
+        problems.append(f"params differ from the replay: {diff}")
+    return problems
+
+
+def prune_training_runs(
+    versions: Iterable[Any],
+    *,
+    registry_dir: Path | None = None,
+    now: datetime | None = None,
+    max_age_days: float = 30.0,
+) -> list[str]:
+    """Delete run artifacts nothing needs; return the removed relative paths.
+
+    KEPT: any artifact referenced by a version that is not ``rejected`` (a
+    standing challenger, the champion, a retired champion, a composite's source),
+    and a rejected version's artifact while it is younger than ``max_age_days``
+    (an unparseable fit time keeps it — retention fails safe). REMOVED: artifacts
+    no registry entry references, and old rejected runs. A pruned run still
+    replays from its summary; only the audit detail goes."""
+    reg_dir = registry_dir or DEFAULT_REGISTRY_DIR
+    when = now or datetime.now(timezone.utc)
+    keep: set[str] = set()
+    for v in versions:
+        rel = (getattr(v, "training_run", None) or {}).get("artifact")
+        if not rel:
+            continue
+        if v.status != "rejected":
+            keep.add(str(rel))
+            continue
+        fitted = _parse_ts(getattr(v, "fitted_at", None))
+        if fitted is None or when - fitted <= timedelta(days=max_age_days):
+            keep.add(str(rel))
+    removed: list[str] = []
+    for path in sorted((reg_dir / TRAINING_RUNS_DIRNAME).glob("*.json")):
+        rel = f"{TRAINING_RUNS_DIRNAME}/{path.name}"
+        if rel not in keep:
+            path.unlink()
+            removed.append(rel)
+    return removed

@@ -151,6 +151,20 @@ jobs:
           echo "winner=$(jq -r '.winnerVersion // empty' autopilot_plan.json)" >> "$GITHUB_OUTPUT"
           echo "champion=$(jq -r '.championVersion' autopilot_plan.json)" >> "$GITHUB_OUTPUT"
 
+      - name: Verify the tournament winner reproduces from its own pins
+        # The step above verifies the LATEST raw refit; the tournament may pick an
+        # older standing challenger. The candidate composed and promoted below is
+        # built from THIS version's OFFENSE pair, so it is the one that must
+        # replay to its recorded hash and parameters. A failure fails the job
+        # here, before register/promote/apply, and so before any commit.
+        if: steps.autopilot.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          WINNER="${{ steps.autopilot.outputs.winner }}"
+          [[ -n "$WINNER" ]] || { echo "::error title=Hill autopilot::ready without a winner"; exit 1; }
+          python scripts/hill_training_run.py verify "$WINNER"
+
       - name: Register scope-safe candidate
         id: composed
         if: steps.autopilot.outputs.ready == 'true'

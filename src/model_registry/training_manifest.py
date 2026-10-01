@@ -132,6 +132,24 @@ class ManifestError(RuntimeError):
     """A manifest declaration that would make the training substrate incoherent."""
 
 
+class MissingColumnError(ManifestError):
+    """A board's declared value column is absent from its file.
+
+    Raised, never coerced: before this, every row of a renamed vendor column read
+    as ``0.0`` and was counted ``nonpositive``, so the board silently emptied, its
+    trainer was skipped, and a master fitted on fewer boards than declared still
+    entered the tournament. Missing is never zero."""
+
+    def __init__(self, path: Path, column: str, header: Iterable[str]) -> None:
+        self.path = path
+        self.column = column
+        self.header = tuple(header)
+        super().__init__(
+            f"{path.name}: declared value column {column!r} is absent "
+            f"(header: {list(self.header)})"
+        )
+
+
 # ── declarations ─────────────────────────────────────────────────────────────
 
 
@@ -763,11 +781,19 @@ def is_training_pick_row(row: Mapping[str, Any]) -> bool:
 
 
 def load_board_values(path: Path, column: str) -> BoardValues:
-    """Players-only positive values from ``column``, descending (ties keep file order)."""
+    """Players-only positive values from ``column``, descending (ties keep file order).
+
+    Raises :class:`MissingColumnError` when ``column`` is not in the header. A
+    present column with an empty cell is a row-level non-positive value; an
+    absent column is not a board of zeros."""
     pairs: list[tuple[str, float]] = []
     rows = picks = nonpos = bad = 0
     with path.open(newline="", encoding="utf-8-sig") as f:
-        for row in csv.DictReader(f):
+        reader = csv.DictReader(f)
+        header = reader.fieldnames or []
+        if column not in header:
+            raise MissingColumnError(path, column, header)
+        for row in reader:
             rows += 1
             if is_training_pick_row(row):
                 picks += 1

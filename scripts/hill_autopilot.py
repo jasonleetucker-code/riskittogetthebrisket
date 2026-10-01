@@ -46,7 +46,10 @@ from src.model_registry.holdout import (  # noqa: E402
     HoldoutError,
     evaluate_offense_master,
 )
-from src.model_registry.training_run import is_tournament_eligible  # noqa: E402
+from src.model_registry.training_run import (  # noqa: E402
+    run_evidence_hash,
+    tournament_exclusion_reason,
+)
 
 POLICY_PATH = REPO / "config" / "model_registry" / "hill_autopilot_policy.json"
 RUN_LOG = REPO / "config" / "model_registry" / "hill_autopilot_runs.jsonl"
@@ -91,24 +94,30 @@ def tournament_versions(versions) -> tuple[list[Any], dict[int, str]]:
       substrate (every pre-repair version: KTC pick rows in the OFFENSE fit,
       Fantasy Navigator held out, no pins). It cannot be re-derived from its
       own record, so it cannot be promoted on the strength of it.
-    * ``duplicate_of_vN`` — the same ``challengerHash`` as an earlier version:
-      a refit on identical pins is the SAME challenger, not a new, independent
-      observation for the parameter-stability gate to count.
+    * ``composite_not_a_fit`` — an Autopilot composite; not an independent fit.
+    * ``offense_not_promotable:...`` — a declared OFFENSE trainer was skipped.
+    * ``duplicate_of_vN`` — the same EVIDENCE as an earlier version: identical
+      trainer content and identical emitted params (``evidenceHash``). Keyed on
+      evidence, not ``challengerHash``: the challenger hash includes the training
+      cutoff and cutoff-relative freshness ages, so it differs on every run and a
+      refit on unchanged data would otherwise count as a new, independent
+      observation for the parameter-stability gate.
     """
     eligible: list[Any] = []
     excluded: dict[int, str] = {}
-    first_by_hash: dict[str, int] = {}
+    first_by_evidence: dict[str, int] = {}
     for v in sorted(versions, key=lambda x: x.version):
         if v.status != "challenger":
             continue
-        if not is_tournament_eligible(v):
-            excluded[v.version] = "legacy_substrate"
+        reason = tournament_exclusion_reason(v)
+        if reason is not None:
+            excluded[v.version] = reason
             continue
-        digest = str(v.training_run["challengerHash"])
-        if digest in first_by_hash:
-            excluded[v.version] = f"duplicate_of_v{first_by_hash[digest]}"
+        digest = run_evidence_hash(v.training_run) or str(v.training_run["challengerHash"])
+        if digest in first_by_evidence:
+            excluded[v.version] = f"duplicate_of_v{first_by_evidence[digest]}"
             continue
-        first_by_hash[digest] = v.version
+        first_by_evidence[digest] = v.version
         eligible.append(v)
     return eligible, excluded
 
@@ -358,7 +367,12 @@ def main() -> int:
             "duplicates": {
                 str(k): why
                 for k, why in sorted(excluded_from_tournament.items())
-                if why != "legacy_substrate"
+                if why.startswith("duplicate_of_v")
+            },
+            "otherExclusions": {
+                str(k): why
+                for k, why in sorted(excluded_from_tournament.items())
+                if why != "legacy_substrate" and not why.startswith("duplicate_of_v")
             },
         },
         "forwardDays": decision.forward_days,

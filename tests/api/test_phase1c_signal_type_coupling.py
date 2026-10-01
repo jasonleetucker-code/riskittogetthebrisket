@@ -58,6 +58,7 @@ def _idptc_effective_ranks(board) -> dict[str, int]:
 
 @pytest.mark.xfail(
     strict=True,
+    raises=AssertionError,
     reason=(
         "E2: Phase 1c selects rank-decoded cross-market sources by "
         "`not in _VALUE_BASED_SOURCES` instead of CSV signal type; patch is owned by the "

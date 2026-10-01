@@ -229,7 +229,7 @@ def standalone(report):
     for name, (rel, col) in boards.items():
         try:
             bv = fitter._load_values(REPO / rel, col)[: ho.FIT_TOP_N]
-        except OSError:
+        except (OSError, RuntimeError):  # RuntimeError: MissingColumnError (renamed column)
             continue
         if len(bv) >= 50:
             ctx[name] = round(ho._rmse(fitter._percentile_pairs(bv), C_OFF, S_OFF), 1)
