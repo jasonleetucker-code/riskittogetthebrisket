@@ -49,6 +49,13 @@ from src.api.confidence import (  # noqa: E402  — grouped with its siblings
     gate_parameter as _confidence_gate_parameter,
 )
 
+#: #1555 Batch 2 Unit C — the joint outlier/sparse challenger's filter (flag
+#: ``joint_outlier_sparse_challenger``, default OFF).
+from src.api.joint_robust_filter import (  # noqa: E402
+    CHALLENGER_VERSION as _JOINT_CHALLENGER_VERSION,
+    joint_robust_filter as _joint_robust_filter,
+)
+
 _LOGGER = logging.getLogger(__name__)
 
 #: Verified cross-universe name collisions — players whose display name
@@ -7328,6 +7335,7 @@ _MAD_PENALTY_LAMBDA: float = 0.0
 # value-source (KTC per-slot synth) is structurally normal for them.
 _SINGLE_SOURCE_VALUE_RETENTION: float = 0.30
 
+
 # Registry of sources whose raw per-player CSV value should be used
 # as a **direct normalized vote** in the Phase 2-3 blend, instead of
 # being re-modelled through the Hill/scope-master curve.  The user's
@@ -10340,6 +10348,17 @@ def _compute_unified_rankings(
     # Correlated family members all vote under a family cap
     # (``cap_family_weights``); off restores the family-head selection.
     _family_cap_applied = _feature_flags.is_enabled("source_family_cap")
+    # Joint outlier + sparse-evidence challenger (default OFF; see
+    # src/api/joint_robust_filter.py).  Off is the incumbent, byte for byte.
+    # The filter half needs the family cap (it weighs CAPPED evidence); with the
+    # cap rolled back it stands down to the incumbent filter rather than mix two
+    # dependence treatments.
+    _joint_challenger = _family_cap_applied and _feature_flags.is_enabled(
+        "joint_outlier_sparse_challenger"
+    )
+    # Sparse half, separately promotable (default OFF): one voting family is
+    # stamped ``limitedEvidence`` and the 0.30 retention is not applied.
+    _sparse_limited_evidence = _feature_flags.is_enabled("joint_sparse_limited_evidence")
 
     from src.sources.freshness import (  # noqa: PLC0415
         STYLE_EXPLICIT as _STYLE_EXPLICIT,
@@ -10799,9 +10818,29 @@ def _compute_unified_rankings(
         # outliers across the synthetic vs. real-source values.
         hampel_dropped_keys: list[str] = []
         if not row_is_pick and len(all_value_pairs) >= _HAMPEL_MIN_N:
-            kept_pairs, hampel_dropped_keys = _hampel_filter_per_player(
-                [(k, v) for k, v, _ in all_value_pairs], k=_HAMPEL_K
-            )
+            if _joint_challenger:
+                # Evidence weights after the family cap, so correlated members
+                # are one piece of evidence when deciding who is an outlier.
+                _jw, _ = cap_family_weights(
+                    {k: row_weight.get(k, 1.0) for k, _v, _a in all_value_pairs},
+                    base=blend_weight_by_source,
+                )
+                _joint = _joint_robust_filter(
+                    [(k, v) for k, v, _ in all_value_pairs],
+                    _jw,
+                    {k: family_by_key.get(k, k) for k, _v, _a in all_value_pairs},
+                    k=_HAMPEL_K,
+                    min_n=_HAMPEL_MIN_N,
+                    min_threshold=_HAMPEL_MIN_THRESHOLD,
+                )
+                kept_pairs = [(k, v) for k, v, _ in all_value_pairs if k in set(_joint.kept)]
+                hampel_dropped_keys = list(_joint.dropped)
+                if _joint.reasons:
+                    players_array[row_idx]["jointFilterReasons"] = dict(_joint.reasons)
+            else:
+                kept_pairs, hampel_dropped_keys = _hampel_filter_per_player(
+                    [(k, v) for k, v, _ in all_value_pairs], k=_HAMPEL_K
+                )
             if hampel_dropped_keys:
                 kept_set = {k for k, _ in kept_pairs}
                 all_values = [v for k, v, _ in all_value_pairs if k in kept_set]
@@ -11124,7 +11163,17 @@ def _compute_unified_rankings(
         present_families = {family_by_key.get(k, k) for k, _v, _a in family_kept} | {
             family_by_key.get(k, k) for k in freshness_excluded
         }
-        if not row_is_pick and len(present_families) <= 1:
+        voting_families = {family_by_key.get(k, k) for k, _v, _a in family_kept}
+        if _sparse_limited_evidence and not row_is_pick and len(voting_families) <= 1:
+            # Sparse challenger: one VOTING family is limited evidence, stamped
+            # whether or not a stale family is also present (that row takes no
+            # haircut today either; the stamp makes its thinness visible).
+            players_array[row_idx]["limitedEvidence"] = {
+                "votingFamilies": len(voting_families),
+                "presentFamilies": len(present_families),
+                "challenger": _JOINT_CHALLENGER_VERSION,
+            }
+        if not row_is_pick and len(present_families) <= 1 and not _sparse_limited_evidence:
             blended_value *= _SINGLE_SOURCE_VALUE_RETENTION
             players_array[row_idx]["_blendedValueUncapped"] = (
                 int(round(blended_value)) if blended_value > 0 else 0
