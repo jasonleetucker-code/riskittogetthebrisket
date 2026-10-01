@@ -177,16 +177,33 @@ def test_idptc_cannot_be_re_expressed_through_the_value_set():
         vr.native_values_as_ranks_spec(("ktcCrowdSfTep", "idpTradeCalc"))
 
 
-def test_emptying_the_value_set_decodes_idptc_values_as_ranks(raw, base):
-    """Characterizes the artifact: the old patch put every IDPTC row near rank 9,900."""
-    old = vr.build(raw, {"patch": ("_VALUE_BASED_SOURCES", frozenset())})
-    ranks = [
-        r["sourceRankMeta"]["idpTradeCalc"]["effectiveRank"]
-        for r in old["playersArray"]
-        if "idpTradeCalc" in (r.get("sourceRankMeta") or {})
-    ]
-    assert ranks and min(ranks) > 5000
-    assert vr.native_vs_hill(base, old).get("idpTradeCalc", {}).get("notComparableRankMoved")
+def test_emptying_the_value_set_no_longer_decodes_idptc_values_as_ranks(raw, base):
+    """Inverted with the E2 repair. Before it, emptying the value set put every IDPTC
+    row near rank 9,900, because Phase 1c decoded its real values as rank encodings.
+    Phase 1c now selects by CSV signal type, so IDPTC keeps its Phase 1 ordinal and
+    the native-vs-Hill comparison is a like-for-like rank again."""
+    emptied = vr.build(raw, {"patch": ("_VALUE_BASED_SOURCES", frozenset())})
+
+    def ranks(board):
+        return {
+            r["displayName"]: r["sourceRankMeta"]["idpTradeCalc"]["effectiveRank"]
+            for r in board["playersArray"]
+            if "idpTradeCalc" in (r.get("sourceRankMeta") or {})
+        }
+
+    after = ranks(emptied)
+    assert after and max(after.values()) < 5000
+    # Emptying the WHOLE set also moves KTC to rank->Hill. On the 2026-09-30 archive
+    # that leaves four 4th-round pick rows with no sourceRankMeta at all (every
+    # source's slot, not IDPTC's alone; sourceRanks still lists all three), so they
+    # drop out of this map. Every row that still carries IDPTC meta must keep its
+    # Phase 1 ordinal (the full-equality form of this check, with only IDPTC
+    # removed, is tests/api/test_phase1c_signal_type_coupling.py).
+    before = ranks(base)
+    assert {name: before[name] for name in after} == after
+    assert (
+        not vr.native_vs_hill(base, emptied).get("idpTradeCalc", {}).get("notComparableRankMoved")
+    )
 
 
 def test_corrected_patch_keeps_idptc_value_direct_and_ktc_on_its_own_rank(raw, base):
