@@ -416,8 +416,10 @@ def gates(
     plan: Plan,
     dates: Sequence[date],
     c2_enabled: bool,
-    picks_unchanged: Mapping[str, bool],
+    picks_unchanged: Mapping[str, bool | None],
 ) -> dict:
+    """``picks_unchanged[c]``: True / False / None (unknown, see
+    :func:`picks_requirement`); anything but True leaves picks as missing evidence."""
     cfg = plan.metrics
     out = {}
     for c in CANDIDATES:
@@ -464,7 +466,12 @@ def gates(
                 missing.append(f"G2[{s}]: bootstrap undefined")
             elif lo < -se:
                 failed.append(f"G2[{s}]: 90% CI lower bound {lo} < -{se} (material harm)")
-        if not picks_unchanged.get(c, False):
+        pick_ok = picks_unchanged.get(c)
+        if pick_ok is None:
+            missing.append(
+                "G2[PICK]: pick markets are not evaluable and no market-priced pick row was matched on the latest board (unknown: fails closed)"
+            )
+        elif not pick_ok:
             missing.append(
                 "G2[PICK]: pick markets are not evaluable and the candidate changes market-priced pick rows on the latest board"
             )
@@ -594,6 +601,50 @@ def _subset_changes(base: Mapping, other: Mapping, pred: Callable[[Mapping], boo
     }
 
 
+def picks_requirement(market_priced: Mapping[str, Any] | None) -> bool | None:
+    """The G2 picks requirement from ``picksMarketPriced`` impact counts.
+
+    ``True`` only when market-priced pick rows were actually matched AND none
+    changed.  Zero matched rows is UNKNOWN (``None``) -- "no pick row moved"
+    and "no pick row was compared" must not read the same -- and the gate
+    treats it as missing evidence (fails closed).
+    """
+    if not market_priced or not market_priced.get("rows"):
+        return None
+    return market_priced.get("changed") == 0
+
+
+def sparse_changes(
+    base: Mapping, other: Mapping, max_families: int = Plan.sparse_max_families
+) -> dict:
+    """Changes on SPARSE non-pick rows: ``independentSourceCount <= max_families``.
+
+    The threshold is the harness's preregistered sparse stratum
+    (``Plan.sparse_max_families``: at most 3 independent families), applied to
+    the board row's own independent-family count, so the impact report and the
+    harness name the same population.  (The 2026-09-30 run's impact used <= 2;
+    see its report's post-hoc notes.)  A row whose count is MISSING is UNKNOWN,
+    never sparse: it is excluded and counted in ``unknownFamilyCount``.
+    """
+
+    def count(r: Mapping) -> int | None:
+        n = r.get("independentSourceCount")
+        return n if isinstance(n, int) and not isinstance(n, bool) else None
+
+    unknown = sum(
+        1
+        for r in base.get("playersArray") or []
+        if r.get("assetClass") != "pick" and r.get("displayName") and count(r) is None
+    )
+    out = _subset_changes(
+        base,
+        other,
+        lambda r: r.get("assetClass") != "pick"
+        and (count(r) is not None and count(r) <= max_families),
+    )
+    return {**out, "maxFamilies": max_families, "unknownFamilyCount": unknown}
+
+
 def concentration(contract: Mapping) -> dict:
     """Per-family share of applied weight on the rows it voted on, and row HHI."""
     fam_of = registry_families()
@@ -687,12 +738,7 @@ def board_impact(
                 board,
                 lambda r: r.get("assetClass") == "pick" and _pick_class(r) in PICK_MARKET_CLASSES,
             ),
-            "sparse": _subset_changes(
-                champion,
-                board,
-                lambda r: (r.get("independentSourceCount") or 0) <= 2
-                and r.get("assetClass") != "pick",
-            ),
+            "sparse": sparse_changes(champion, board),
             "rookies": _subset_changes(champion, board, lambda r: bool(r.get("rookie"))),
             "concentration": concentration(board),
             "leaveFamilyOut": loo(overrides, board),

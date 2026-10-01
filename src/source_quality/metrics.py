@@ -242,17 +242,20 @@ def stability(
         v = moved[:, j]
         rev[i] = [float((d1[v, j] * d2[v, j]).sum()), float((d1[v, j] ** 2).sum())]
     dates = [m.dates[j] for j in origins]
-    blocks = block_ids(dates, cfg.block_days)
-    self_rev = bootstrap(
-        rev,
-        lambda s: (-s[0] / s[1]) if s[1] > 0 else None,
-        blocks,
-        n_boot=cfg.n_boot,
-        seed=cfg.seed,
-    )
+
+    def _boot(per: np.ndarray, has: np.ndarray, stat, nd: int = 4) -> dict:
+        # Only origins carrying evidence for THIS statistic enter the block count
+        # and the resampling: an empty origin contributes zeros to every sum, so
+        # it changes no point estimate, but an all-empty block would still be
+        # counted as evidence and drawn in replicates (diluting the SE).
+        keep = np.asarray(has, dtype=bool)
+        blk = block_ids([d for d, k in zip(dates, keep) if k], cfg.block_days)
+        return bootstrap(per[keep], stat, blk, n_boot=cfg.n_boot, seed=cfg.seed).as_dict(nd)
+
+    self_rev = _boot(rev, rev[:, 1] > 0, lambda s: (-s[0] / s[1]) if s[1] > 0 else None)
     out: dict = {
         "status": "ok",
-        "selfReversal": self_rev.as_dict(),
+        "selfReversal": self_rev,
         "originsWithAnyMove": int(sum(1 for j in origins if moved[:, j].any())),
         "origins": len(origins),
         "medianAbsMove": round(float(np.median(np.abs(d1[moved]))), 4) if moved.any() else None,
@@ -263,20 +266,14 @@ def stability(
         cpast = co - shifted(co, -cfg.lookback)
         valid = moved & np.isfinite(y) & np.isfinite(cpast)
         st = _ols_date_stats(y, [d1, cpast], valid, origins)
-        out["moveConfirmation"] = bootstrap(
-            st, lambda s: _solve_first(s, 2), blocks, n_boot=cfg.n_boot, seed=cfg.seed
-        ).as_dict()
+        out["moveConfirmation"] = _boot(st, st[:, -1] > 0, lambda s: _solve_first(s, 2))
         big = valid & (np.abs(d1) >= cfg.abandoned_move)
         sgn = np.sign(d1)
         abandoned = big & (sgn * d2 <= -0.5 * np.abs(d1)) & (sgn * y < 0.5 * np.abs(d1))
         ab = np.array([[abandoned[:, j].sum(), big[:, j].sum()] for j in origins], dtype=float)
-        out["abandonedMoveRate"] = bootstrap(
-            ab,
-            lambda s: (s[0] / s[1]) if s[1] > 0 else None,
-            blocks,
-            n_boot=cfg.n_boot,
-            seed=cfg.seed,
-        ).as_dict()
+        out["abandonedMoveRate"] = _boot(
+            ab, ab[:, 1] > 0, lambda s: (s[0] / s[1]) if s[1] > 0 else None
+        )
         out["largeMoves"] = int(ab[:, 1].sum())
     return out
 

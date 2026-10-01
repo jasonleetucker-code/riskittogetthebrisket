@@ -252,6 +252,14 @@ def markdown(r: Mapping[str, Any]) -> str:
                 f"{x['concentration']['maxShareAnyRow']} | {x['concentration']['meanRowHHI']} |"
             )
         L.append("")
+        sp = next(iter(imp["candidates"].values()), {}).get("sparse") or {}
+        if "maxFamilies" in sp:
+            L.append(
+                f"Sparse = non-pick rows with at most {sp['maxFamilies']} independent families "
+                f"(the harness's preregistered sparse threshold); rows with an unknown family "
+                f"count are excluded, not counted as sparse ({sp['unknownFamilyCount']} rows)."
+            )
+            L.append("")
         for c, x in imp["candidates"].items():
             L.append(
                 f"**{c}** rank bands: "

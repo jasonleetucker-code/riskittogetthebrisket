@@ -451,3 +451,109 @@ def test_pinned_document_hash_is_line_ending_stable(tmp_path):
     a.write_bytes(b"x\ny\n")
     b.write_bytes(b"x\r\ny\r\n")
     assert ev.sha256_file(a) == ev.sha256_file(b)
+
+
+# ── review fixes (PR #1589): fail-closed picks / sparse, data cutoff, blocks ──
+
+
+def test_picks_requirement_fails_closed_on_zero_matched_rows(synth):
+    assert ev.picks_requirement({"rows": 0, "changed": 0}) is None
+    assert ev.picks_requirement(None) is None
+    assert ev.picks_requirement({"rows": 72, "changed": 0}) is True
+    assert ev.picks_requirement({"rows": 72, "changed": 19}) is False
+    _, dates, m, X = synth
+    plan = ev.Plan(primary_horizon=7, fold_start=dates[60], fold_days=14, metrics=FAST)
+    variants = {v: frozenset() for v in ("allTargets", "noKtcTargets", "noKtcLineageTargets")}
+    wf = ev.walk_forward(m, X, plan, False, variants)
+    unknown = ev.gates(wf, plan, m.dates, False, {c: None for c in ev.CANDIDATES})
+    for c in ("C1_conservative_reliability", "C3_lead_lag_authority"):
+        g = unknown[c]
+        assert g["disposition"] != "MEETS_PREREGISTERED_GATE"
+        assert any("unknown: fails closed" in s for s in g["missingEvidence"])
+
+
+def _row(name, n, value, cls="player"):
+    r = {"displayName": name, "assetClass": cls, "rankDerivedValue": value}
+    if n is not ...:
+        r["independentSourceCount"] = n
+    return r
+
+
+def test_sparse_impact_treats_missing_family_count_as_unknown_not_sparse():
+    base = {
+        "playersArray": [
+            _row("a", 1, 100),
+            _row("b", 3, 100),
+            _row("c", 4, 100),
+            _row("d", ..., 100),
+            _row("e", None, 100),
+            _row("p", 1, 100, "pick"),
+        ]
+    }
+    other = {"playersArray": [{**r, "rankDerivedValue": 150} for r in base["playersArray"]]}
+    out = ev.sparse_changes(base, other)
+    assert out["maxFamilies"] == ev.Plan().sparse_max_families == 3
+    assert out["rows"] == 2 and out["changed"] == 2  # a (1) and b (3); not c, d, e, p
+    assert out["unknownFamilyCount"] == 2  # d (absent) and e (None)
+
+
+def test_data_through_cuts_the_panel_at_the_end_of_that_day():
+    import importlib.util
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "scripts" / "source_quality_eval.py"
+    spec_ = importlib.util.spec_from_file_location("source_quality_eval_dt", path)
+    mod = importlib.util.module_from_spec(spec_)
+    spec_.loader.exec_module(mod)
+    panel, dates = build_panel(days=40)
+    assert mod.cut_to_data_through(panel, None) is panel
+    cut = mod.cut_to_data_through(panel, dates[20])
+    assert cut.span()[1] == dates[20]
+    assert all(v.known_at <= pn.day_end(dates[20]) for vs in cut.versions.values() for v in vs)
+    assert ev.panel_digest(cut) == ev.panel_digest(panel.truncated(pn.day_end(dates[20])))
+    assert ev.panel_digest(cut) != ev.panel_digest(panel)
+    with pytest.raises(SystemExit):
+        mod.main(["--data-through", "not-a-date", "--readiness-only"])
+
+
+def test_stability_blocks_exclude_origins_without_moves():
+    # One family publishes the SAME board for the first 50 days, then moves:
+    # origins with no own move carry no stability evidence and are not blocks.
+    panel, dates = build_panel(days=100)
+    key = "src_a"
+    vs = panel.versions[key]
+    frozen = [replace(v, rows=vs[0].rows, content_hash=vs[0].content_hash) for v in vs[:50]]
+    p2 = pn.ObservationPanel(list(panel.specs.values()), {**panel.versions, key: frozen + vs[50:]})
+    m = pn.build_matrix(p2, dates)
+    X = m.family_matrix()
+    res = mt.stability(m, X, "a", "OFFENSE", 7, FAST)
+    origins = mt._origins(len(dates), FAST.lookback, 7)
+    xf = X["a"]
+    d1 = xf - mt.shifted(xf, -FAST.lookback)
+    d2 = mt.shifted(xf, 7) - xf
+    moved = np.isfinite(d1) & np.isfinite(d2) & (np.abs(d1) > 1e-9)
+    moved_dates = [dates[j] for j in origins if moved[:, j].any()]
+    expected = len(np.unique(block_ids(moved_dates, FAST.block_days)))
+    all_blocks = len(np.unique(block_ids([dates[j] for j in origins], FAST.block_days)))
+    assert res["selfReversal"]["blocks"] == expected < all_blocks
+    assert res["originsWithAnyMove"] < res["origins"]
+
+
+def test_reachability_oracle_bounds_and_reproduces_walk_forward(synth):
+    from src.source_quality import reachability as rc
+
+    _, dates, m, X = synth
+    plan = ev.Plan(primary_horizon=7, fold_start=dates[60], fold_days=14, metrics=FAST)
+    cells = rc.harness_cells(m, X, plan)
+    variants = {v: frozenset() for v in ("allTargets", "noKtcTargets", "noKtcLineageTargets")}
+    wf = ev.walk_forward(m, X, plan, False, variants)
+    st = wf["sums"]["C1_conservative_reliability"]["allTargets"]["ALL"]
+    assert int(st[:, 2].sum()) == len(cells.y)
+    assert rc.errors(cells, np.ones(len(cells.families))).sum() == pytest.approx(st[:, 0].sum())
+    o = rc.oracle(cells, lo=0.75, hi=1.25, starts=2)
+    assert o["deltaMALE"] >= -1e-12  # the champion is feasible
+    assert all(0.75 - 1e-9 <= w <= 1.25 + 1e-9 for w in o["weights"].values())
+    fixed = rc.oracle(cells, lo=0.75, hi=1.25, fixed=("lead",), starts=2)
+    assert fixed["weights"]["lead"] == 1.0
+    pf = rc.per_fold_oracle(cells, lo=0.75, hi=1.25, starts=2)
+    assert pf["deltaMALE"] >= o["deltaMALE"] - 1e-9  # fold-varying weights bound constant ones

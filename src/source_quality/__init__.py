@@ -18,6 +18,8 @@ Modules:
   (shrunk toward 1.0, capped, family-level).
 * :mod:`evaluate` -- walk-forward evaluation, preregistered gates, whole-board
   impact through the override path, archive records.
+* :mod:`reachability` -- POST-HOC diagnostic only: in-sample oracle bound on
+  the harness gate for a recorded run (changes no gate or disposition).
 """
 
 SCHEMA = "source-quality-eval/v1"

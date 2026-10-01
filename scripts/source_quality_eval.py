@@ -13,6 +13,9 @@ human review.
 
 ``--ledger PATH`` adds the temporal ledger's ``source_value`` lane (production
 box) to the git/CSV history; without it the run uses the repository history.
+``--data-through YYYY-MM-DD`` builds the panel only from versions known by the end
+of that UTC day, so a rerun reproduces a recorded window (its panel digest)
+however many CSV commits have landed since.
 
 Exit codes: 0 evaluation written; 1 refused (e.g. preregistration not committed);
 2 fatal input error.
@@ -27,7 +30,7 @@ import sys
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -62,6 +65,13 @@ def _git(*args: str) -> str:
 def _newest_payload() -> Path | None:
     files = sorted((REPO / "exports/latest").glob("dynasty_data_*.json"))
     return files[-1] if files else None
+
+
+def cut_to_data_through(panel: pn.ObservationPanel, through: date | None) -> pn.ObservationPanel:
+    """The panel as it stood at the END of ``through`` (UTC): every version known
+    later is removed, so a rerun reproduces a recorded window regardless of the
+    CSV commits that landed since.  ``None`` keeps everything."""
+    return panel if through is None else panel.truncated(pn.day_end(through))
 
 
 def source_quality_section(
@@ -159,12 +169,13 @@ def run(
             final_overrides[c] = ch.to_source_overrides(w, fam_of)
 
     impact = None
-    picks_unchanged = {c: False for c in ev.CANDIDATES}
+    # None = unknown (no impact run, or no market-priced pick row matched): fails closed.
+    picks_unchanged: dict[str, bool | None] = {c: None for c in ev.CANDIDATES}
     if payload is not None and payload.exists():
         raw = json.loads(payload.read_text(encoding="utf-8"))
         impact = ev.board_impact(raw, final_overrides, progress=progress)
         for c, r in impact["candidates"].items():
-            picks_unchanged[c] = r["picksMarketPriced"]["changed"] == 0
+            picks_unchanged[c] = ev.picks_requirement(r["picksMarketPriced"])
     result_gates = (
         ev.gates(wf, plan, m.dates, c2["run"], picks_unchanged) if wf.get("status") == "ok" else {}
     )
@@ -247,6 +258,13 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--archive", type=Path, default=None, help="append-only JSONL of candidate evaluations"
     )
+    ap.add_argument(
+        "--data-through",
+        type=date.fromisoformat,
+        default=None,
+        help="YYYY-MM-DD: build the panel only from CSV versions known at or before the end "
+        "of this UTC day (reproducible reruns against a fixed data cutoff)",
+    )
     ap.add_argument("--readiness-only", action="store_true")
     ap.add_argument("--skip-impact", action="store_true")
     ap.add_argument("--allow-uncommitted-prereg", action="store_true", help="tests only")
@@ -271,7 +289,7 @@ def main(argv: list[str] | None = None) -> int:
         for k, vs in pn.versions_from_ledger(args.ledger, specs).items():
             versions[k] = pn._dedupe(list(versions.get(k, [])) + list(vs))
         ledger_used = True
-    panel = pn.ObservationPanel(specs, versions)
+    panel = cut_to_data_through(pn.ObservationPanel(specs, versions), args.data_through)
     span = panel.span()
     if span is None:
         _log("no history")
@@ -341,6 +359,7 @@ def main(argv: list[str] | None = None) -> int:
             },
             "lineage": {"sha256": ev.sha256_file(args.lineage)},
             "ledgerUsed": ledger_used,
+            "dataThrough": args.data_through.isoformat() if args.data_through else None,
         }
     )
     out_dir = args.out_dir or (REPO / "data" / "source_quality")

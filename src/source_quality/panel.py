@@ -9,11 +9,19 @@ removes every later version outright so a learner handed a truncated panel
 cannot see the future even by accident.
 
 Nothing here rebuilds a board.  Observations are parsed from the CSV bytes as
-they were committed: today's Hill curve, today's pipeline and today's identity
-resolver never touch them.  Two unavoidable choices are disclosed instead:
+they were committed: today's Hill curve and today's pipeline never touch them.
+TODAY's name normalizer DOES: :func:`parse_csv` keys every historical row with
+the current ``resolve_canonical_name``, so an alias added to the name registry
+after a version was published is applied to that version retroactively -- a
+mild identity look-ahead.  The 2026-10-01 preregistration names this key in §3
+"Identity", but its "Never reconstructed" bullet ("no archived board is rebuilt
+with today's ... identity resolver") reads as if it were not applied; the
+run's report corrects that in its post-hoc notes.  It changes which rows JOIN across sources (and can create a
+duplicate key, which is then withheld and counted), never a vendor's published
+order -- but it is not strictly as-of.  Two unavoidable choices are disclosed:
 
 * **identity** -- rows are joined across sources by the deterministic
-  ``resolve_canonical_name`` key (no fuzzy matching) plus a universe
+  (current) ``resolve_canonical_name`` key (no fuzzy matching) plus a universe
   (OFFENSE / IDP / PICK).  A source covering several universes without a
   position column (the IDP Trade Calculator) is classified per date by
   co-observation in single-universe sources AS OF THE SAME DATE; a name seen in
