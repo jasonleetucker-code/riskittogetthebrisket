@@ -405,18 +405,27 @@ def evaluation_report(
 # AGGREGATE ONLY: no league id or name, manager/user id, transaction or
 # underlying-trade id, roster or package.  Counts in ``sections`` between 1
 # and ``CENSUS_MIN_CELL - 1`` publish as ``"<5"``; value-keyed distributions
-# (scoring values, starter counts) fold small cells into
-# ``OTHER_SMALL_CELLS`` so a rare value cannot single out a league; medians
-# need at least ``CENSUS_MIN_CELL`` leagues.
+# (scoring values, starter counts) fold any value fewer than
+# ``CENSUS_MIN_CELL`` DISTINCT LEAGUES contribute into ``OTHER_SMALL_CELLS``
+# — trade-level distributions included, so one league with many trades
+# cannot publish its own rare value — and a TE scoring key fewer than
+# ``CENSUS_MIN_CELL`` leagues use is not named; medians need at least
+# ``CENSUS_MIN_CELL`` leagues.
 #
 # UNKNOWN STAYS UNKNOWN — every distribution carries an explicit ``UNKNOWN``
 # cell; an unknowable exact/near comparison is ``UNKNOWN``, never "no match".
+#
+# DYNASTY FAILS CLOSED — EXACT and NEAR both require the ledger's own
+# ``dynastyState`` axis to be MATCH.  An unverified dynasty state is never
+# EXACT or NEAR; a VERIFIED non-dynasty league (redraft, keeper) is
+# ``NOT_DYNASTY``, however closely its lineup and card match.
 
 CENSUS_VERSION = "al2a-target-format-census-v1"
 CENSUS_MIN_CELL = 5
 SUPPRESSED = "<5"
 UNKNOWN_CELL = "UNKNOWN"
 OTHER_SMALL_CELLS = "OTHER_SMALL_CELLS"
+NOT_DYNASTY = "NOT_DYNASTY"
 
 #: "Near" is DESCRIPTIVE ONLY and authorizes nothing: no trade becomes
 #: comparable, transformable or fit-eligible because it is near.  Published
@@ -424,6 +433,10 @@ OTHER_SMALL_CELLS = "OTHER_SMALL_CELLS"
 NEAR_RULE: dict[str, Any] = {
     "authority": "descriptive_only_authorizes_nothing",
     "excludesExact": True,
+    "dynastyState": (
+        "dynastyState axis == MATCH (both sides verified dynasty); UNKNOWN -> UNKNOWN or "
+        "NOT_NEAR, never NEAR; verified non-dynasty -> NOT_DYNASTY, never NEAR"
+    ),
     "axesThatMustMatch": ["dynastyState", "qbDemand", "idpEnabled", "teRosterDemand"],
     "teamCountMaxAbsDiff": 2,
     "totalStartersMaxAbsDiff": 2,
@@ -433,10 +446,15 @@ NEAR_RULE: dict[str, Any] = {
     "unknownOnAnyDimension": "UNKNOWN (never counted as near or as not-near)",
 }
 
-#: "Exact" = factual scoring identity AND starting-lineup identity.  Team
-#: count, roster depth and best-ball are NOT part of it; NATIVE_COMPARABLE
-#: (all 13 axes MATCH) is reported beside it so the difference is visible.
+#: "Exact" = verified dynasty state AND factual scoring identity AND
+#: starting-lineup identity.  Team count, roster depth and best-ball are NOT
+#: part of it; NATIVE_COMPARABLE (all 13 axes MATCH) is reported beside it so
+#: the difference is visible.
 EXACT_RULE: dict[str, Any] = {
+    "dynastyState": (
+        "the ledger's dynastyState axis == MATCH (both sides verified dynasty); UNKNOWN -> "
+        "never EXACT; verified non-dynasty (redraft / keeper) -> NOT_DYNASTY, never EXACT"
+    ),
     "scoringIdentity": "scoring_fingerprint(actual card) equal on both sides",
     "rosterStructureIdentity": [
         "per-family (min,max) starter demand QB/RB/WR/TE/DL/LB/DB",
@@ -445,6 +463,11 @@ EXACT_RULE: dict[str, Any] = {
     ],
     "notIncluded": ["teamCount", "rosterDepth", "bestBall"],
     "unknownOnAnyComponent": "UNKNOWN",
+    "staleTargetScoring": (
+        "a target scoring card accepted although its evidence is not fresh "
+        "(--allow-stale-target-scoring) counts as UNKNOWN here: EXACT and NEAR are refused, "
+        "never reported as a match"
+    ),
 }
 
 #: IDP scoring categories reported per key (Sleeper's key vocabulary).  Any
@@ -496,19 +519,37 @@ def _cell(value: Any) -> str:
     return str(value)
 
 
-def _dist(values: Sequence[Any], *, fold_small: bool = False) -> dict[str, int]:
-    """Counts per value; ``None`` -> ``UNKNOWN`` (never folded).  ``fold_small``
-    folds KNOWN cells below :data:`CENSUS_MIN_CELL` into
-    :data:`OTHER_SMALL_CELLS`."""
+def _dist(
+    values: Sequence[Any],
+    *,
+    fold_small: bool = False,
+    leagues: Sequence[Any] | None = None,
+) -> dict[str, int]:
+    """Counts per value; ``None`` -> ``UNKNOWN`` (never folded).
+
+    ``fold_small`` folds a KNOWN value into :data:`OTHER_SMALL_CELLS` when
+    fewer than :data:`CENSUS_MIN_CELL` DISTINCT LEAGUES contribute it.  Without
+    ``leagues`` every value is its own league (a league-level distribution).
+    With ``leagues`` (parallel to ``values``: a trade-level distribution) the
+    fold counts distinct non-``None`` league keys, never trades; a trade with
+    no league identity contributes no league, so it can never lift a value
+    over the threshold."""
+    if leagues is not None and len(leagues) != len(values):
+        raise ValueError("leagues must be parallel to values")
     out: dict[str, int] = {}
-    for v in values:
+    contributors: dict[str, set[Any]] = {}
+    for i, v in enumerate(values):
         k = _cell(v)
         out[k] = out.get(k, 0) + 1
+        if leagues is None:
+            contributors.setdefault(k, set()).add(i)
+        elif leagues[i] is not None:
+            contributors.setdefault(k, set()).add(leagues[i])
     if fold_small:
         folded: dict[str, int] = {}
         small = 0
         for k, n in out.items():
-            if k != UNKNOWN_CELL and n < CENSUS_MIN_CELL:
+            if k != UNKNOWN_CELL and len(contributors.get(k, ())) < CENSUS_MIN_CELL:
                 small += n
             else:
                 folded[k] = n
@@ -562,12 +603,37 @@ def _lineup_structure(fmt: mtf.TradeMarketFormat) -> tuple | None:
     )
 
 
-def exact_state(src: mtf.TradeMarketFormat, tgt: mtf.TradeMarketFormat) -> bool | None:
-    """:data:`EXACT_RULE`; ``None`` when either component is unknowable."""
+def _dynasty_axis(
+    src: mtf.TradeMarketFormat,
+    tgt: mtf.TradeMarketFormat,
+    axes: Mapping[str, Mapping[str, Any]] | None = None,
+) -> str:
+    """The ledger's OWN ``dynastyState`` axis state — never re-derived here."""
+    if axes is None:
+        axes = mtf.compare_formats(src, tgt)
+    return str(axes["dynastyState"]["state"])
+
+
+def exact_state(
+    src: mtf.TradeMarketFormat,
+    tgt: mtf.TradeMarketFormat,
+    axes: Mapping[str, Mapping[str, Any]] | None = None,
+) -> bool | None:
+    """:data:`EXACT_RULE` as a conjunction: ``False`` when any component is
+    known to differ (a verified non-dynasty league included), else ``None``
+    when any component is unknowable, else ``True``."""
+    dyn = _dynasty_axis(src, tgt, axes)
     a, b = _lineup_structure(src), _lineup_structure(tgt)
-    if src.card_hash is None or tgt.card_hash is None or a is None or b is None:
+    parts: list[bool | None] = [
+        None if dyn == mtf.UNKNOWN else dyn == mtf.MATCH,
+        None if src.card_hash is None or tgt.card_hash is None else src.card_hash == tgt.card_hash,
+        None if a is None or b is None else a == b,
+    ]
+    if any(p is False for p in parts):
+        return False
+    if any(p is None for p in parts):
         return None
-    return src.card_hash == tgt.card_hash and a == b
+    return True
 
 
 def _within(a: int | None, b: int | None, tol: int) -> bool | None:
@@ -581,8 +647,16 @@ def near_state(
     tgt: mtf.TradeMarketFormat,
     axes: Mapping[str, Mapping[str, Any]],
 ) -> str:
-    """``EXACT`` / ``NEAR`` / ``NOT_NEAR`` / ``UNKNOWN`` under :data:`NEAR_RULE`."""
-    if exact_state(src, tgt) is True:
+    """``EXACT`` / ``NEAR`` / ``NOT_NEAR`` / ``NOT_DYNASTY`` / ``UNKNOWN``
+    under :data:`EXACT_RULE` and :data:`NEAR_RULE`.
+
+    A VERIFIED non-dynasty league is :data:`NOT_DYNASTY` before anything else
+    is looked at, so it is never EXACT or NEAR.  An unverified dynasty state is
+    never EXACT or NEAR either: it lands in ``UNKNOWN``, or in ``NOT_NEAR``
+    when another dimension is known to differ."""
+    if _dynasty_axis(src, tgt, axes) == mtf.DIFFERENT:
+        return NOT_DYNASTY
+    if exact_state(src, tgt, axes) is True:
         return "EXACT"
     checks: list[bool | None] = []
     for name in NEAR_RULE["axesThatMustMatch"]:
@@ -683,6 +757,9 @@ def _idp_scoring_similarity(
         "idpLeagues": len(eligible),
         "idpLeaguesWithScoringCard": len(with_card),
         "idpLeaguesWithoutScoringCard": len(eligible) - len(with_card),
+        # Excluded because their IDP state is UNKNOWN — counted, never dropped
+        # silently and never assumed to be non-IDP.
+        "leaguesExcludedIdpEnabledUnknown": sum(1 for f in leagues if f.idp_enabled is None),
     }
     tgt_idp = tgt.scoring_subset(lambda k: k.startswith("idp_"))
     if tgt_idp is None:
@@ -753,30 +830,58 @@ def _league_formats(
     return fmts, pops, multi
 
 
-def _te_block(fmts: Sequence[mtf.TradeMarketFormat]) -> dict[str, Any]:
-    te_keys = sorted({k for f in fmts for k in (f.scoring_subset(mtf._is_te_key) or {})})
+def _league_ids(fmts: Sequence[mtf.TradeMarketFormat], leagues: Sequence[Any] | None) -> list[Any]:
+    """League contributor keys parallel to ``fmts``: the given ones for a
+    trade-level block, else one distinct key per entry (league-level)."""
+    return list(leagues) if leagues is not None else list(range(len(fmts)))
+
+
+def _te_block(
+    fmts: Sequence[mtf.TradeMarketFormat], leagues: Sequence[Any] | None = None
+) -> dict[str, Any]:
+    lids = _league_ids(fmts, leagues)
+    key_users: dict[str, set[Any]] = {}
+    for f, lid in zip(fmts, lids):
+        for k in f.scoring_subset(mtf._is_te_key) or {}:
+            if lid is not None:
+                key_users.setdefault(k, set()).add(lid)
+    # A TE key fewer than CENSUS_MIN_CELL leagues use is not even NAMED: the
+    # key's existence alone would single those leagues out.
+    named = sorted(k for k, u in key_users.items() if len(u) >= CENSUS_MIN_CELL)
+    unnamed = sorted(
+        {k for f in fmts for k in (f.scoring_subset(mtf._is_te_key) or {})} - set(named)
+    )
+    ktc = [(f, lid) for f, lid in zip(fmts, lids) if f.source == mtf.SOURCE_KTC]
     return {
-        "teStarterDemandMinMax": _dist([_demand_cell(f, "TE") for f in fmts], fold_small=True),
+        "teStarterDemandMinMax": _dist(
+            [_demand_cell(f, "TE") for f in fmts], fold_small=True, leagues=lids
+        ),
         "teScoringEdge": _dist([f.te_scoring_edge() for f in fmts]),
         "teScoringKeyValues": {
             key: _dist(
                 [None if f.scoring is None else float(f.scoring.get(key, 0.0)) for f in fmts],
                 fold_small=True,
+                leagues=lids,
             )
-            for key in te_keys
+            for key in named
         },
+        "teScoringKeysFoldedBelowMinLeagues": len(unnamed),
         "vendorTepLevelKtcOnly": _dist(
-            [f.vendor.get("tepLevel") for f in fmts if f.source == mtf.SOURCE_KTC],
+            [f.vendor.get("tepLevel") for f, _ in ktc],
             fold_small=True,
+            leagues=[lid for _, lid in ktc],
         ),
     }
 
 
-def _idp_structure_block(fmts: Sequence[mtf.TradeMarketFormat]) -> dict[str, Any]:
+def _idp_structure_block(
+    fmts: Sequence[mtf.TradeMarketFormat], leagues: Sequence[Any] | None = None
+) -> dict[str, Any]:
+    lids = _league_ids(fmts, leagues)
     return {
-        "idpStarters": _dist([f.idp_starters for f in fmts], fold_small=True),
+        "idpStarters": _dist([f.idp_starters for f in fmts], fold_small=True, leagues=lids),
         "familyDemandMinMax": {
-            fam: _dist([_demand_cell(f, fam) for f in fmts], fold_small=True)
+            fam: _dist([_demand_cell(f, fam) for f in fmts], fold_small=True, leagues=lids)
             for fam in mtf.IDP_FAMILIES
         },
         "idpFlexSlots": _dist(
@@ -785,6 +890,7 @@ def _idp_structure_block(fmts: Sequence[mtf.TradeMarketFormat]) -> dict[str, Any
                 for f in fmts
             ],
             fold_small=True,
+            leagues=lids,
         ),
     }
 
@@ -792,6 +898,7 @@ def _idp_structure_block(fmts: Sequence[mtf.TradeMarketFormat]) -> dict[str, Any
 def target_format_census(result: Mapping[str, Any]) -> dict[str, Any]:
     """The AL-2a census BEFORE small-cell suppression.  Publish only
     :func:`build_target_format_census`."""
+    import dataclasses  # noqa: PLC0415
     import hashlib  # noqa: PLC0415
 
     observations = result["observations"]
@@ -799,6 +906,13 @@ def target_format_census(result: Mapping[str, Any]) -> dict[str, Any]:
     groups = grouping.groups
     tgt: mtf.TradeMarketFormat = result["targetFormat"]
     cov = coverage_report(result)
+    # Only FRESH scoring evidence authorizes reuse.  A stale card accepted for
+    # research is withheld from EXACT / NEAR (fail closed: UNKNOWN, never a
+    # degraded "match"); the acceptance itself is published.
+    stale_target_scoring = tgt.vendor.get("staleScoringAcceptedForResearch") is True
+    match_tgt = (
+        dataclasses.replace(tgt, scoring=None, card_hash=None) if stale_target_scoring else tgt
+    )
 
     def comp(g: Mapping[str, Any]) -> Mapping[str, Mapping[str, Any]]:
         return g.get("comparability") or mtf.compare_formats(_fmt_of(g), tgt)
@@ -856,7 +970,8 @@ def target_format_census(result: Mapping[str, Any]) -> dict[str, Any]:
 
     # ── per-trade facts ─────────────────────────────────────────────────
     idp_flag = {tid(g): "includes_idp_player" in ev.classify_topology(g)["flags"] for g in groups}
-    near_by_trade = {tid(g): near_state(_fmt_of(g), tgt, comp(g)) for g in groups}
+    near_by_trade = {tid(g): near_state(_fmt_of(g), match_tgt, comp(g)) for g in groups}
+    trade_leagues = [_league_key(g) for g in groups]
     by_mix: dict[str, list[Mapping[str, Any]]] = {}
     for g in groups:
         by_mix.setdefault("+".join(g["sourceFamilies"]), []).append(g)
@@ -924,7 +1039,18 @@ def target_format_census(result: Mapping[str, Any]) -> dict[str, Any]:
             ),
         },
         "leagues": {
-            "byState": _dist([near_state(f, tgt, league_axes[k]) for k, f in league_fmt.items()])
+            "byState": _dist(
+                [near_state(f, match_tgt, league_axes[k]) for k, f in league_fmt.items()]
+            )
+        },
+        "staleTargetScoringRefusal": {
+            "refused": stale_target_scoring,
+            "reason": (
+                "target scoring evidence is not fresh and was accepted for research only; "
+                "EXACT and NEAR need a fresh card, so they are withheld (UNKNOWN)"
+                if stale_target_scoring
+                else None
+            ),
         },
     }
 
@@ -936,13 +1062,17 @@ def target_format_census(result: Mapping[str, Any]) -> dict[str, Any]:
         },
         "leagues": leagues["superflex"],
         "qbDemandMinMax": {
-            "trades": _dist([_demand_cell(_fmt_of(g), "QB") for g in groups], fold_small=True),
+            "trades": _dist(
+                [_demand_cell(_fmt_of(g), "QB") for g in groups],
+                fold_small=True,
+                leagues=trade_leagues,
+            ),
             "leagues": _dist([_demand_cell(f, "QB") for f in lfmts], fold_small=True),
         },
         "definition": "superflex = QB eligible for at least 2 starting slots (QB max demand >= 2)",
     }
     te = {
-        "trades": _te_block([_fmt_of(g) for g in groups]),
+        "trades": _te_block([_fmt_of(g) for g in groups], trade_leagues),
         "leagues": _te_block(lfmts),
         "note": (
             "teScoringEdge = te_premium.measure_te_demand(None, card).has_scoring_edge over the "
@@ -964,13 +1094,23 @@ def target_format_census(result: Mapping[str, Any]) -> dict[str, Any]:
         "leaguesByIdpEnabled": leagues["idpEnabled"],
         "starterStructure": {
             "idpLeagues": _idp_structure_block([f for f in lfmts if f.idp_enabled is True]),
-            "tradesInIdpLeagues": _idp_structure_block([_fmt_of(g) for g in idp_league_trades]),
+            "tradesInIdpLeagues": _idp_structure_block(
+                [_fmt_of(g) for g in idp_league_trades],
+                [_league_key(g) for g in idp_league_trades],
+            ),
         },
         "scoringSimilarity": _idp_scoring_similarity(lfmts, tgt),
         "idpScoringAxisAmongIdpLeagueTrades": _dist(
             [comp(g)["idpScoring"]["state"] for g in idp_league_trades]
         ),
     }
+
+    if stale_target_scoring and idp["scoringSimilarity"].get("comparison", {}).get("available"):
+        # Descriptive only, and computed against a card whose evidence is not
+        # fresh: labelled as degraded rather than presented as current.
+        idp["scoringSimilarity"]["comparison"]["degraded"] = (
+            "stale_target_scoring_accepted_for_research"
+        )
 
     # ── per-axis, translator support, month, position ───────────────────
     axis_states = {name: _dist([comp(g)[name]["state"] for g in groups]) for name in mtf.AXES}
@@ -1049,6 +1189,7 @@ def target_format_census(result: Mapping[str, Any]) -> dict[str, Any]:
             "formatFingerprintVersion": mtf.FORMAT_FINGERPRINT_VERSION,
             "underlyingTradeSetSha256": group_pin.hexdigest(),
             "lanes": lane_status,
+            "staleScoringAcceptedForResearch": stale_target_scoring,
         },
         "target": {
             "superflex": tdict["offense"]["superflex"],
@@ -1068,6 +1209,7 @@ def target_format_census(result: Mapping[str, Any]) -> dict[str, Any]:
             "suppressedToken": SUPPRESSED,
             "unknownCell": UNKNOWN_CELL,
             "otherSmallCells": OTHER_SMALL_CELLS,
+            "notDynasty": NOT_DYNASTY,
             "exact": EXACT_RULE,
             "near": NEAR_RULE,
             "broadContext": BROAD_CONTEXT_RULE,
@@ -1118,8 +1260,13 @@ def build_target_format_census(result: Mapping[str, Any]) -> dict[str, Any]:
     census["privacy"] = {
         "aggregateOnly": True,
         "smallCellRule": (
-            f"counts in [1, {CENSUS_MIN_CELL}) publish as {SUPPRESSED!r}; value-keyed small "
-            f"cells fold into {OTHER_SMALL_CELLS!r}; medians need n >= {CENSUS_MIN_CELL}"
+            f"counts in [1, {CENSUS_MIN_CELL}) publish as {SUPPRESSED!r}; in value-keyed "
+            f"distributions (league-level AND trade-level) a value fewer than "
+            f"{CENSUS_MIN_CELL} distinct leagues contribute folds into {OTHER_SMALL_CELLS!r} "
+            "whatever its trade count, and a trade without league identity contributes no "
+            f"league; a TE scoring key fewer than {CENSUS_MIN_CELL} leagues use is not named "
+            f"(counted in teScoringKeysFoldedBelowMinLeagues); medians need n >= "
+            f"{CENSUS_MIN_CELL}"
         ),
         "excluded": [
             "league ids and names",

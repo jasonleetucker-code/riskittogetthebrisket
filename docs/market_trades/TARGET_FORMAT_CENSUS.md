@@ -100,13 +100,19 @@ The AL-2a acceptance in the plan adds a few more sections:
 
 ## Declared definitions (published verbatim in every census)
 
-* **Exact** (`EXACT_RULE`) requires two identities:
+* **Exact** (`EXACT_RULE`) requires three things:
+  * verified dynasty state: the ledger's own `dynastyState` axis is MATCH (both sides
+    verified dynasty);
   * factual scoring identity: equal `scoring_fingerprint` of the actual cards;
   * starting-lineup identity: per-family (min,max) demand, total starters, IDP slot tokens.
 
   Team count, roster depth and best-ball are not part of it. NATIVE_COMPARABLE, which
-  requires all 13 axes to MATCH, is reported beside it. If either component is unknowable,
-  the result is UNKNOWN.
+  requires all 13 axes to MATCH, is reported beside it. If a component is known to differ
+  the result is not exact. If a component is unknowable the result is UNKNOWN.
+* **Not dynasty** (`NOT_DYNASTY`): a league whose game type is VERIFIED as not dynasty
+  (Sleeper `type` 0 = redraft, 1 = keeper). It is never EXACT or NEAR, however closely its
+  lineup and card match. A league whose type is unstated is UNKNOWN, never dynasty: the
+  dynasty lane fails closed.
 * **Near** (`NEAR_RULE`) is **descriptive only and authorizes nothing**. A league is near
   when it is not exact and all of the following hold:
   * `dynastyState`, `qbDemand`, `idpEnabled` and `teRosterDemand` all MATCH;
@@ -114,7 +120,13 @@ The AL-2a acceptance in the plan adds a few more sections:
   * the TE scoring edge is equal;
   * both sides have a scoring card.
 
-  Any unknown dimension makes the result UNKNOWN, never NOT_NEAR.
+  A dimension known to differ makes the result NOT_NEAR. Otherwise any unknown dimension
+  makes it UNKNOWN, never NOT_NEAR.
+* **Stale target scoring.** Only fresh scoring evidence authorizes reuse. When the census
+  runs with `--allow-stale-target-scoring` and the target's card is not fresh, the census
+  publishes `inputs.staleScoringAcceptedForResearch: true` and refuses EXACT and NEAR
+  (`matchToTarget.staleTargetScoringRefusal`). Those comparisons become UNKNOWN. The
+  descriptive IDP scoring comparison is labelled `degraded`.
 * **IDP trade** means at least one player in the trade is DL/LB/DB.
 * **League unit** is a distinct (host, host league id). Own registered leagues that lack a
   host id are keyed by registry key. Trades with no league identity are counted but not
@@ -127,7 +139,8 @@ known bucket or into `OTHER_SMALL_CELLS`. A league whose format was never captur
 `discovery_row_partial`) appears as UNKNOWN on superflex, IDP and TE. Its comparisons are
 UNKNOWN, never "no match". If the target's own scoring card is unknown (stale or missing
 evidence), the IDP scoring comparison refuses with `target_scoring_card_unknown`.
-Unavailable lane counts are `null`, not `0`.
+Leagues whose IDP state is unknown are left out of that comparison and counted in
+`leaguesExcludedIdpEnabledUnknown`. Unavailable lane counts are `null`, not `0`.
 
 ## Privacy (hard rule)
 
@@ -137,15 +150,21 @@ The repository is public. The committed census is **aggregate only**:
   id, roster or per-trade package. `underlyingTradeSetSha256` is a one-way reproducibility
   pin over the whole sorted id set and reveals no individual id.
 * Every count in `sections` from 1 to 4 publishes as `"<5"`.
-* Value-keyed distributions (scoring values, starter counts, (min,max) demand) fold known
-  cells below 5 into `OTHER_SMALL_CELLS`, so a rare value cannot single out a league.
+* Value-keyed distributions (scoring values, starter counts, (min,max) demand) fold a known
+  value into `OTHER_SMALL_CELLS` when fewer than 5 **distinct leagues** contribute it. This
+  applies to trade-level distributions too: the fold counts leagues, never trades. One
+  league with many trades therefore cannot publish its own rare value. A trade with no
+  league identity contributes no league.
+* A TE scoring key that fewer than 5 leagues use is not named. It is counted in
+  `teScoringKeysFoldedBelowMinLeagues`.
 * Medians need n ≥ 5.
 * Known limitation: a suppressed cell can sometimes be bounded by subtracting its siblings
   from a published total (complementary disclosure). Every cell is a format count, never
   an identity.
 * The raw stores and the default output directory are under `data/`, which is gitignored.
-  `tests/trade/test_market_trade_census.py` seeds secret-marked ids and asserts that none
-  of them appears in the JSON or the markdown.
+  `tests/trade/test_market_trade_census.py` seeds realistic id shapes and greps the JSON and
+  the markdown for every one of them verbatim. The shapes are 18-19 digit Sleeper league,
+  user and transaction ids, KTC trade ids, and `ktc:<id>`-style composite keys.
 
 ## BROAD_CONTEXT reconciliation
 

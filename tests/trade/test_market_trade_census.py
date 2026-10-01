@@ -4,10 +4,15 @@ Synthetic lanes only (no real league, manager or trade).  What is pinned:
 
 * every census quantity the owner directive lists is computed;
 * UNKNOWN stays UNKNOWN in every distribution and in exact/near;
-* the publishable output carries no league / user / transaction identifier;
-* counts below the minimum cell are suppressed and rare values folded;
+* the publishable output carries no league / user / transaction identifier
+  (realistic id shapes are planted and grepped for verbatim);
+* counts below the minimum cell are suppressed and rare values folded by
+  DISTINCT LEAGUE count, trade-level distributions included;
+* EXACT / NEAR require a verified dynasty state, and stale target scoring
+  refuses them;
 * dedupe counts are the LEDGER'S OWN groups (no second dedupe);
-* the CLI writes JSON + markdown and rebuilds no canonical ledger.
+* the CLI writes JSON + markdown and nothing else: the canonical ledger and
+  every input store are byte-identical afterwards.
 """
 
 from __future__ import annotations
@@ -34,13 +39,49 @@ from tests.trade.test_market_trade_normalize import _ev
 
 TARGET = F.format_from_sleeper_league(sleeper_league("TGT"))
 
-EXACT_LEAGUES = [f"L-SECRET-EXACT-{i}" for i in range(6)]
-NEAR_LEAGUES = [f"L-SECRET-NEAR-{i}" for i in range(5)]
-OFFENSE_LEAGUE = "L-SECRET-OFF-1QB"
-PARTIAL_LEAGUE = "L-SECRET-PARTIAL"
-SECRET_USER = "MGR-SECRET-OWNER"
-SECRET_VIA = "VIA-SECRET-USER"
-SECRET_MFL = "MFL-SECRET-99"
+# Realistic identifier SHAPES (all invented): Sleeper league / user /
+# transaction ids are 18-19 digit snowflakes; KTC trade ids are plain
+# integers; MFL league ids are 5 digits.  The privacy test greps the published
+# outputs for every one of these exact strings.
+EXACT_LEAGUES = [str(1048293746519283700 + i) for i in range(6)]
+NEAR_LEAGUES = [str(992837465012938400 + i) for i in range(5)]
+OFFENSE_LEAGUE = "1120394857261738496"
+PARTIAL_LEAGUE = "873465019283746512"
+REDRAFT_LEAGUE = "1063829104756382910"
+KEEPER_LEAGUE = "1063829104756382911"
+NO_TYPE_LEAGUE = "1063829104756382912"
+OWNER_IDS = ("604918273645018112", "604918273645018113")
+SECRET_VIA = "731029384756102938"
+SECRET_MFL = "73915"
+EXACT_TX = [str(1101928374655463400 + i) for i in range(6)]
+NEAR_TX = [str(1101928374655463500 + i) for i in range(5)]
+OFFENSE_TX = "1101928374655463600"
+PARTIAL_TX = "1101928374655463700"
+NON_DYNASTY_TX = ("1101928374655463800", "1101928374655463801", "1101928374655463802")
+KTC_TRADE_IDS = (731904561, 731904562, 731904563)
+
+PLANTED_IDS = [
+    *EXACT_LEAGUES,
+    *NEAR_LEAGUES,
+    OFFENSE_LEAGUE,
+    PARTIAL_LEAGUE,
+    REDRAFT_LEAGUE,
+    KEEPER_LEAGUE,
+    NO_TYPE_LEAGUE,
+    *NON_DYNASTY_TX,
+    *OWNER_IDS,
+    SECRET_VIA,
+    SECRET_MFL,
+    *EXACT_TX,
+    *NEAR_TX,
+    OFFENSE_TX,
+    PARTIAL_TX,
+    *(str(t) for t in KTC_TRADE_IDS),
+    # KTC-style composite keys the pipeline builds from those ids
+    *(f"ktc:{t}" for t in KTC_TRADE_IDS),
+    *(f"{N.SOURCE_KTC}:{t}" for t in KTC_TRADE_IDS),
+    *(f"{N.SOURCE_SLEEPER_DISCOVERY}:{lg}" for lg in EXACT_LEAGUES),
+]
 
 
 @pytest.fixture
@@ -49,6 +90,9 @@ def env(tmp_path, monkeypatch):
 
     A._reset_setup_cache_for_tests()
     monkeypatch.setattr(store, "DATA_DIR", tmp_path / "intel")
+    # Every default market-trade path (canonical ledger, reports) resolves
+    # under tmp, so "the ledger was not written" is a real assertion.
+    monkeypatch.setattr(A, "DEFAULT_DIR", tmp_path / "mt")
     ledger.reset_setup_cache()
     intel = tmp_path / "intel" / ledger.LEDGER_FILENAME
     ledger.connect(intel).close()
@@ -58,7 +102,7 @@ def env(tmp_path, monkeypatch):
 
 
 def _events(tx: str, league: str, *, idp: bool = True) -> list[dict]:
-    owner1, owner2 = f"{SECRET_USER}-1", f"{SECRET_USER}-2"
+    owner1, owner2 = OWNER_IDS
     evs = [
         _ev(tx, 2, "add", "1001", league=league, owner=owner2),
         _ev(tx, 1, "drop", "1001", league=league, owner=owner1),
@@ -78,8 +122,10 @@ def _events(tx: str, league: str, *, idp: bool = True) -> list[dict]:
     return evs
 
 
-def _league_row(league_id: str, lg: dict | None, *, teams: int = 12) -> dict:
-    settings: dict = {"type": 2, "bestBall": 1, "discovery": {"viaUserId": SECRET_VIA}}
+def _league_row(league_id: str, lg: dict | None, *, teams: int = 12, ltype: int | None = 2) -> dict:
+    settings: dict = {"bestBall": 1, "discovery": {"viaUserId": SECRET_VIA}}
+    if ltype is not None:
+        settings["type"] = ltype
     if lg is not None:
         settings["marketFormat"] = F.capture_sleeper_league_format(
             lg, captured_at="2026-10-01T00:00:00+00:00"
@@ -92,15 +138,26 @@ def _league_row(league_id: str, lg: dict | None, *, teams: int = 12) -> dict:
     }
 
 
-def _seed(env, *, with_ktc: bool = True) -> None:
+def _seed(env, *, with_ktc: bool = True, non_dynasty: bool = False) -> None:
     rows = []
-    for i, lid in enumerate(EXACT_LEAGUES):
-        ledger.ingest_events(_events(f"TX-SECRET-E{i}", lid), path=env["intel"])
+    for tx, lid in zip(EXACT_TX, EXACT_LEAGUES):
+        ledger.ingest_events(_events(tx, lid), path=env["intel"])
         rows.append(_league_row(lid, sleeper_league(lid)))
     near_scoring = dict(TARGET_SCORING) | {"idp_sack": 4.0}
-    for i, lid in enumerate(NEAR_LEAGUES):
-        ledger.ingest_events(_events(f"TX-SECRET-N{i}", lid), path=env["intel"])
+    for tx, lid in zip(NEAR_TX, NEAR_LEAGUES):
+        ledger.ingest_events(_events(tx, lid), path=env["intel"])
         rows.append(_league_row(lid, sleeper_league(lid, scoring=near_scoring)))
+    if non_dynasty:
+        # Identical lineup AND card to the target — only the game type differs
+        # (redraft, keeper) or is unstated.  None of them may ever be EXACT.
+        for tx, lid, ltype in zip(
+            NON_DYNASTY_TX, (REDRAFT_LEAGUE, KEEPER_LEAGUE, NO_TYPE_LEAGUE), (0, 1, None)
+        ):
+            lg = sleeper_league(lid, ltype=0 if ltype is None else ltype)
+            if ltype is None:
+                del lg["settings"]["type"]
+            ledger.ingest_events(_events(tx, lid), path=env["intel"])
+            rows.append(_league_row(lid, lg, ltype=ltype))
     off = sleeper_league(
         OFFENSE_LEAGUE,
         roster_positions=["QB", "RB", "RB", "WR", "WR", "WR", "TE", "FLEX"] + ["BN"] * 15,
@@ -108,18 +165,19 @@ def _seed(env, *, with_ktc: bool = True) -> None:
         teams=10,
         best_ball=0,
     )
-    ledger.ingest_events(_events("TX-SECRET-O", OFFENSE_LEAGUE, idp=False), path=env["intel"])
+    ledger.ingest_events(_events(OFFENSE_TX, OFFENSE_LEAGUE, idp=False), path=env["intel"])
     rows.append(_league_row(OFFENSE_LEAGUE, off, teams=10))
     # A discovery league whose format was never captured: everything UNKNOWN.
-    ledger.ingest_events(_events("TX-SECRET-P", PARTIAL_LEAGUE), path=env["intel"])
+    ledger.ingest_events(_events(PARTIAL_TX, PARTIAL_LEAGUE), path=env["intel"])
     rows.append(_league_row(PARTIAL_LEAGUE, None))
     ledger.upsert_leagues(rows, path=env["intel"])
     if not with_ktc:
         return
     index = KTC_INDEX + [{"playerName": "Echo Edge", "playerID": 21, "position": "DL"}]
-    dup = ktc_row(501, [11, 902], [21], settings=ktc_settings(EXACT_LEAGUES[0]))
-    mfl = ktc_row(502, [13], [12], settings=ktc_settings(SECRET_MFL, platform="mfl", qbs=1))
-    nolg = ktc_row(503, [14], [12], settings=ktc_settings("") | {"id": None})
+    t_dup, t_mfl, t_nolg = KTC_TRADE_IDS
+    dup = ktc_row(t_dup, [11, 902], [21], settings=ktc_settings(EXACT_LEAGUES[0]))
+    mfl = ktc_row(t_mfl, [13], [12], settings=ktc_settings(SECRET_MFL, platform="mfl", qbs=1))
+    nolg = ktc_row(t_nolg, [14], [12], settings=ktc_settings("") | {"id": None})
     f = A.FetchRecord(
         fetch_id="f1",
         source_family=N.SOURCE_KTC,
@@ -250,26 +308,23 @@ def test_dedupe_counts_are_the_ledgers_own_groups(built):
     assert c["sections"]["dispositions"] == dict(sorted(cov["dispositions"].items()))
 
 
+def _assert_no_planted_ids(text: str) -> None:
+    for s in [*PLANTED_IDS, "utrade:", "Echo Edge", "Alpha Receiver", "player:"]:
+        assert s not in text, f"identifier leaked into the census: {s}"
+
+
+def test_planted_ids_reach_the_unpublished_result(built):
+    # Guards the grep below: the ids ARE in the pipeline's own data, so their
+    # absence from the outputs is the census's doing, not the fixture's.
+    raw = json.dumps([R._jsonable_group(g) for g in built["grouping"].groups], default=str)
+    for s in (EXACT_LEAGUES[0], NEAR_TX[0], str(KTC_TRADE_IDS[0]), SECRET_MFL):
+        assert s in raw
+
+
 def test_publishable_census_contains_no_identifiers(built):
     pub = R.build_target_format_census(built)
-    blob = json.dumps(pub, default=str) + R.census_markdown(pub)
-    secrets = [
-        *EXACT_LEAGUES,
-        *NEAR_LEAGUES,
-        OFFENSE_LEAGUE,
-        PARTIAL_LEAGUE,
-        SECRET_USER,
-        SECRET_VIA,
-        SECRET_MFL,
-        "TX-SECRET",
-        "SECRET",
-        "utrade:",
-        "Echo Edge",
-        "Alpha Receiver",
-        "player:",
-    ]
-    for s in secrets:
-        assert s not in blob, f"identifier leaked into the census: {s}"
+    _assert_no_planted_ids(json.dumps(pub, default=str))
+    _assert_no_planted_ids(R.census_markdown(pub))
     assert pub["privacy"]["aggregateOnly"] is True
 
 
@@ -334,18 +389,43 @@ def test_broad_context_is_reported_not_invented(built):
 
 def test_census_writes_nothing_to_the_ledger_and_is_deterministic(env):
     _seed(env)
+    # The env fixture points the default ledger dir at tmp, so this checks the
+    # path a real rebuild would write.
+    assert R._ledger_path() == env["tmp"] / "mt" / R.LEDGER_FILENAME
     a = R.build_target_format_census(_build(env))
     b = R.build_target_format_census(_build(env))
     assert a == b
-    assert not (env["tmp"] / "mt" / R.LEDGER_FILENAME).exists()
+    assert not R._ledger_path().exists()
     assert a["inputs"]["underlyingTradeSetSha256"] == b["inputs"]["underlyingTradeSetSha256"]
+
+
+def _snapshot(root) -> dict[str, tuple[int, int, bytes]]:
+    import hashlib
+
+    return {
+        str(p.relative_to(root)): (
+            p.stat().st_size,
+            p.stat().st_mtime_ns,
+            hashlib.sha256(p.read_bytes()).digest(),
+        )
+        for p in sorted(root.rglob("*"))
+        if p.is_file()
+    }
 
 
 def test_cli_census_writes_json_and_markdown(env, tmp_path):
     import importlib.util
+    import os
     from pathlib import Path
 
     _seed(env)
+    # A pre-existing canonical ledger at the default path the CLI would
+    # rebuild: --census must leave its bytes and mtime untouched.
+    ledger_file = R._ledger_path()
+    assert ledger_file == tmp_path / "mt" / R.LEDGER_FILENAME
+    ledger_file.parent.mkdir(parents=True, exist_ok=True)
+    ledger_file.write_bytes(b"pre-existing canonical ledger sentinel")
+    os.utime(ledger_file, ns=(1_700_000_000_000_000_000, 1_700_000_000_000_000_000))
     spec = importlib.util.spec_from_file_location(
         "mtl_cli", Path(__file__).resolve().parents[2] / "scripts" / "market_trade_ledger.py"
     )
@@ -356,6 +436,8 @@ def test_cli_census_writes_json_and_markdown(env, tmp_path):
 
     directory.write_text(json.dumps(DIRECTORY), encoding="utf-8")
     out = tmp_path / "census_out"
+    before = _snapshot(tmp_path)
+    ledger_before = (ledger_file.read_bytes(), ledger_file.stat().st_mtime_ns)
     rc = mod.main(
         [
             "--census",
@@ -381,10 +463,146 @@ def test_cli_census_writes_json_and_markdown(env, tmp_path):
     assert payload["censusVersion"] == R.CENSUS_VERSION
     # An unknown target league: every comparison is UNKNOWN, never a match.
     assert payload["sections"]["matchToTarget"]["trades"]["byState"] == {"UNKNOWN": 15}
-    assert "SECRET" not in jsons[0].read_text(encoding="utf-8")
-    assert "SECRET" not in mds[0].read_text(encoding="utf-8")
+    _assert_no_planted_ids(jsons[0].read_text(encoding="utf-8"))
+    _assert_no_planted_ids(mds[0].read_text(encoding="utf-8"))
     assert mds[0].read_text(encoding="utf-8").startswith("# Target-format evidence census")
-    assert not (tmp_path / "mt" / R.LEDGER_FILENAME).exists()
+
+    # READ-ONLY: the canonical ledger is byte- and mtime-identical, every input
+    # store is unchanged, and the ONLY new files are the two census outputs.
+    assert (ledger_file.read_bytes(), ledger_file.stat().st_mtime_ns) == ledger_before
+    after = _snapshot(tmp_path)
+    assert {k: after[k] for k in before} == before
+    new = set(after) - set(before)
+    # Opening an input SQLite store to READ it may leave reader sidecars; an
+    # empty -wal proves no page was written.  Nothing else may appear.
+    sidecars = {k for k in new if k.endswith(("-wal", "-shm"))}
+    for k in sidecars:
+        assert Path(tmp_path / k[: -len("-wal")]).name in {
+            env["intel"].name,
+            env["archive"].name,
+        }, k
+        if k.endswith("-wal"):
+            assert after[k][0] == 0, f"{k} holds WAL frames: something was written"
+    assert new - sidecars == {
+        str(jsons[0].relative_to(tmp_path)),
+        str(mds[0].relative_to(tmp_path)),
+    }
+
+
+@pytest.mark.parametrize("ltype", [0, 1, None], ids=["redraft", "keeper", "missing_type"])
+def test_non_dynasty_or_unverified_league_is_never_exact_or_near(ltype):
+    lg = sleeper_league("X", ltype=0 if ltype is None else ltype)
+    if ltype is None:
+        del lg["settings"]["type"]
+    src = F.format_from_sleeper_league(lg)
+    # Same card and lineup as the target: only the game type differs / is unknown.
+    assert src.card_hash == TARGET.card_hash
+    axes = F.compare_formats(src, TARGET)
+    state = R.near_state(src, TARGET, axes)
+    assert state not in ("EXACT", "NEAR")
+    if ltype is None:
+        assert axes["dynastyState"]["state"] == F.UNKNOWN
+        assert R.exact_state(src, TARGET) is None
+        assert state == R.UNKNOWN_CELL
+    else:
+        assert axes["dynastyState"]["state"] == F.DIFFERENT
+        assert R.exact_state(src, TARGET) is False
+        assert state == R.NOT_DYNASTY
+    # ... and a verified dynasty twin of the same league IS exact.
+    twin = F.format_from_sleeper_league(sleeper_league("X"))
+    assert R.near_state(twin, TARGET, F.compare_formats(twin, TARGET)) == "EXACT"
+
+
+def test_non_dynasty_leagues_stay_out_of_exact_counts(env):
+    _seed(env, non_dynasty=True)
+    c = R.target_format_census(_build(env))
+    m = c["sections"]["matchToTarget"]
+    assert m["trades"]["byState"]["EXACT"] == 6
+    assert m["trades"]["byState"]["NEAR"] == 5
+    assert m["trades"]["byState"][R.NOT_DYNASTY] == 2  # redraft + keeper
+    assert m["trades"]["byState"][R.UNKNOWN_CELL] == 2  # partial + missing type
+    assert m["trades"]["exactIdpTrades"] == 6
+    assert m["trades"]["exactAndNativeComparable"] == 6
+    assert m["leagues"]["byState"] == {
+        "EXACT": 6,
+        "NEAR": 5,
+        "NOT_NEAR": 2,
+        R.NOT_DYNASTY: 2,
+        R.UNKNOWN_CELL: 2,
+    }
+    rules = c["definitions"]
+    assert "dynastyState" in rules["exact"] and "dynastyState" in rules["near"]
+    _assert_no_planted_ids(json.dumps(R.build_target_format_census(_build(env)), default=str))
+
+
+def test_trade_level_fold_counts_distinct_leagues_not_trades():
+    # One league with six trades at a rare value: folded despite six trades.
+    values = ["3-3"] * 6 + ["1-2"] * 5 + ["9-9"] * 7 + [None]
+    leagues = [("sleeper", "A")] * 6 + [("sleeper", str(i)) for i in range(5)] + [None] * 7
+    leagues += [("sleeper", "B")]
+    assert R._dist(values, fold_small=True, leagues=leagues) == {
+        "1-2": 5,
+        R.OTHER_SMALL_CELLS: 13,  # 6 one-league trades + 7 trades with no league identity
+        R.UNKNOWN_CELL: 1,
+    }
+    with pytest.raises(ValueError):
+        R._dist(["a"], fold_small=True, leagues=[])
+
+
+def test_rare_te_scoring_key_is_not_named():
+    rare = dict(TARGET_SCORING) | {"bonus_rec_te": 0.5}
+    fmts = [F.format_from_sleeper_league(sleeper_league(str(i), scoring=rare)) for i in range(4)]
+    fmts += [F.format_from_sleeper_league(sleeper_league(str(10 + i))) for i in range(5)]
+    league_level = R._te_block(fmts)
+    assert "bonus_rec_te" not in league_level["teScoringKeyValues"]
+    assert "bonus_fd_te" in league_level["teScoringKeyValues"]  # all 9 leagues use it
+    assert league_level["teScoringKeysFoldedBelowMinLeagues"] == 1
+    # Trade level: four leagues with many trades each still do not name the key.
+    trade_fmts = [f for f in fmts[:4] for _ in range(3)] + fmts[4:]
+    trade_leagues = [i for i in range(4) for _ in range(3)] + list(range(10, 15))
+    trade_level = R._te_block(trade_fmts, trade_leagues)
+    assert "bonus_rec_te" not in trade_level["teScoringKeyValues"]
+    assert trade_level["teScoringKeysFoldedBelowMinLeagues"] == 1
+
+
+def test_stale_target_scoring_refuses_exact_and_near(env):
+    import dataclasses
+
+    _seed(env)
+    stale = dataclasses.replace(
+        TARGET,
+        vendor=dict(TARGET.vendor)
+        | {"scoringEvidence": "stale", "staleScoringAcceptedForResearch": True},
+    )
+    result = R.build_ledger(
+        archive_path=env["archive"],
+        intel_ledger_path=env["intel"],
+        league_keys=[],
+        ctx=ctx(),
+        target_format=stale,
+        lanes=(N.SOURCE_KTC, N.SOURCE_SLEEPER_DISCOVERY),
+    )
+    c = R.target_format_census(result)
+    assert c["inputs"]["staleScoringAcceptedForResearch"] is True
+    m = c["sections"]["matchToTarget"]
+    assert m["staleTargetScoringRefusal"]["refused"] is True
+    assert "EXACT" not in m["trades"]["byState"] and "NEAR" not in m["trades"]["byState"]
+    assert "EXACT" not in m["leagues"]["byState"] and "NEAR" not in m["leagues"]["byState"]
+    assert m["trades"]["exactIdpTrades"] == 0
+    sim = c["sections"]["idp"]["scoringSimilarity"]["comparison"]
+    assert sim["degraded"] == "stale_target_scoring_accepted_for_research"
+    # Fresh evidence: nothing refused.
+    fresh = R.target_format_census(_build(env))
+    assert fresh["inputs"]["staleScoringAcceptedForResearch"] is False
+    assert fresh["sections"]["matchToTarget"]["staleTargetScoringRefusal"]["refused"] is False
+
+
+def test_idp_unknown_leagues_excluded_from_similarity_are_counted(built):
+    s = R.target_format_census(built)["sections"]
+    sim = s["idp"]["scoringSimilarity"]
+    # The partial league (format never captured) has an UNKNOWN IDP state: it
+    # is excluded from the similarity block and COUNTED, not dropped silently.
+    assert sim["leaguesExcludedIdpEnabledUnknown"] == s["leagues"]["idpEnabled"]["UNKNOWN"] == 1
 
 
 def test_target_positions_fixture_is_the_dynasty_main_shape():
