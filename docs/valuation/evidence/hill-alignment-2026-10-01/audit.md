@@ -4,13 +4,13 @@ Schema `hill-alignment-audit/v1`; declaration sha256 `543fd3a3b7a56423…`; inva
 
 ## Pins
 
-- code revision `6b0bbf2bad24db82867cb5974e5830302102fc37` (dirty: False)
+- code revision `169f0895dc4a153efe65e782693115b71667a795` (inputs dirty: False; full tracked tree dirty: False)
 - payload `exports\latest\dynasty_data_2026-09-30.json` sha256 `69a0f4b4e26486c1…`, scrape 2026-09-30T13:04:04.598312+00:00
 - source CSVs: 30 hashed; config files: 53; freshness state files: 24
 - local league snapshots: 0 file(s) (gitignored; none = tracked-input build, completed-draft picks kept)
 - live league context: [{"args": [], "result": {"roster_count": 12, "bonus_rec_te": 0.0, "fetched_from_sleeper": true}}, {"args": [12], "result": {"roster_count": 12, "bonus_rec_te": 0.0, "fetched_from_sleeper": true}}, {"args": [12], "result": {"roster_count": 12, "bonus_rec_te": 0.0, "fetched_from_sleeper": true}}]
 - board rows 1131; incumbent board sha256 `9090458d00c39f5c…`
-- invariants: `{"rebuild_is_identical": true, "direct_hill_matches_pipeline_rank_hill": {"agree": 832, "disagree": 0}, "hampel_1000_variant_equals_incumbent": true, "csv_patch_identity_rows_changed": 0}`
+- invariants: `{"rebuild_is_identical": true, "direct_hill_matches_pipeline_rank_hill": {"agree": 832, "disagree": 0}, "hampel_1000_variant_equals_incumbent": true, "csv_patch_identity_rows_changed": 0, "c3_patch": {"partitionCalls": 2, "rowsRewritten": {"ktcCrowdSfTep": 924, "ktcTradesSfTep": 924}, "outOfRangeRewritten": 0, "restored": 1848, "contributionCheck": {"ktcCrowdSfTep": {"playerRowsMatchHillPlayersOnlyRank": 462, "playerRowsMismatch": 0, "pickRowsUnchanged": 36, "pickRowsChanged": 0}, "ktcTradesSfTep": {"playerRowsMatchHillPlayersOnlyRank": 462, "playerRowsMismatch": 0, "pickRowsUnchanged": 36, "pickRowsChanged": 0}, "publishedSiteValuesDiffering": 0, "ok": true}}, "c3_patch_restored_after_build": true, "dlf_join_probe_board_unchanged": true}`
 
 ## A. Scale vs population (offense rows, median ratio, n)
 
@@ -517,9 +517,10 @@ c1 own-curve fits: `{"ktcCrowdSfTep": {"n": 400, "c": 0.112, "s": 0.91, "rmse": 
 
 | candidate | rows changed | median Δ% | p90 Δ% | max Δ% | top-25/50/100/200 kept | KTC excl. (crowd/trades) | KTC leverage p90 | sparse changed / median Δ% | struct. errors | build s | gates |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| incumbent | 0 | 0.000 | 0.000 | 0.000 | 25/50/100/200 | 10/2 | 0.060 | 0 / 0.000 | 0 | 0.992 | — |
-| c1_ktc_scale_map | 598 | 0.007 | 0.098 | 0.405 | 25/48/100/195 | 5/1 | 0.086 | 2 / 0.206 | 0 | 1.391 | {"board_impact": true, "no_new_structural_errors": true, "leverage": false, "cost": true} |
-| c2_ktc_rank_hill | 598 | 0.013 | 0.084 | 0.341 | 25/48/98/195 | 6/1 | 0.062 | 2 / 0.218 | 0 | 1.141 | {"board_impact": true, "no_new_structural_errors": true, "leverage": true, "cost": true} |
+| incumbent | 0 | 0.000 | 0.000 | 0.000 | 25/50/100/200 | 10/2 | 0.060 | 0 / 0.000 | 0 | 0.677 | — |
+| c1_ktc_scale_map | 598 | 0.007 | 0.098 | 0.405 | 25/48/100/195 | 5/1 | 0.086 | 2 / 0.206 | 0 | 1.123 | {"board_impact": true, "no_new_structural_errors": true, "leverage": false, "cost": false} |
+| c2_ktc_rank_hill | 598 | 0.013 | 0.084 | 0.341 | 25/48/98/195 | 6/1 | 0.062 | 2 / 0.218 | 0 | 0.741 | {"board_impact": true, "no_new_structural_errors": true, "leverage": true, "cost": true} |
+| c3_ktc_players_rank_hill (POST-HOC) | 527 | 0.001 | 0.049 | 0.410 | 25/48/98/198 | 3/1 | 0.053 | 2 / 0.297 | 0 | 0.916 | {"board_impact": true, "no_new_structural_errors": true, "leverage": true, "cost": true} |
 
 Players only (pick rows removed from both boards — a reporting cut):
 
@@ -528,24 +529,102 @@ Players only (pick rows removed from both boards — a reporting cut):
 | incumbent | 0.000 | 0.000 | 0.000 | 25 | 100 | 0.0 | 0.0 |
 | c1_ktc_scale_map | 0.001 | 0.062 | 0.405 | 25 | 100 | 12.0 | 25.0 |
 | c2_ktc_rank_hill | 0.002 | 0.066 | 0.318 | 25 | 99 | 14.5 | 31.0 |
+| c3_ktc_players_rank_hill | 0.002 | 0.053 | 0.410 | 25 | 100 | 11.0 | 22.0 |
+
+Pick rows (value units):
+
+| candidate | changed | median abs Δ | max abs Δ |
+|---|---|---|---|
+| incumbent | 0 | 0 | 0 |
+| c1_ktc_scale_map | 139 | 144 | 557 |
+| c2_ktc_rank_hill | 139 | 330 | 814 |
+| c3_ktc_players_rank_hill | 67 | 41 | 174 |
+
+c3 vs c2: rows changed 555, top-200 membership changes 8; players only `{"rows": 969, "unpricedFraction": 0.0, "medianAbsPctValueChange": 0.0, "p90AbsPctValueChange": 0.017074117190531625, "maxAbsPctValueChange": 0.08391608391608392, "medianAbsRankShift": 9.0, "p90AbsRankShift": 15.0, "top25Overlap": 25, "top100Overlap": 99}`; pick rows `{"changed": 115, "medianAbsDelta": 470, "maxAbsDelta": 814}`
+
+Post-hoc additions (sha256 `c10a02d1a1ae3455…`): `{"addedAt": "independent review of PR #1573, 2026-10-01", "candidates": {"c3_ktc_players_rank_hill": "the README section 4 recommendation as written: KTC Crowd and KTC Trades PLAYER rows vote Hill_OFFENSE(players-only rank) -- the rank among the board's offense players that source covers, picks removed; KTC PICK rows stay value-direct. Phase 1 ordinals (and therefore the rookie ladders that read KTC Crowd's rank) are untouched. Replay-only patch; same metrics and gates as c1/c2."}, "dlf_native": "dlfValuesSfTep gets the Part A scale-band treatment (vendor rank and board players-only rank, OFFENSE master, same verdict rule) and the Part B rank-space treatment against (i) the incumbent (already leave-DLF-Values-out, but holds DLF Rank) and (ii) a board without the whole DLF family; stability from the CSV's git history under the same <= 0.10 rule. The join is the production CSV join, run in one diagnostic build.", "evidentialWeight": "post-hoc: chosen after seeing c2; a pass is weaker evidence than a predeclared pass, a failure is not weakened"}`
 
 Regression examples (value / rank / KTC dropped):
 
-| asset | incumbent | c1_ktc_scale_map | c2_ktc_rank_hill |
+| asset | incumbent | c1_ktc_scale_map | c2_ktc_rank_hill | c3_ktc_players_rank_hill |
+|---|---|---|---|---|
+| Jalen Coker | 3288 / 155 / ktcCrowdSfTep,ktcTradesSfTep | 3372 / 140 / ktcCrowdSfTep | 3443 / 131 / - | 3447 / 134 / - |
+| Ladd McConkey | 5561 / 48 / - | 5519 / 51 / - | 5491 / 50 / - | 5496 / 51 / - |
+| Quinshon Judkins | 4908 / 69 / - | 4864 / 69 / - | 4830 / 67 / - | 4839 / 68 / - |
+| MarShawn Lloyd | 2497 / 239 / - | 2381 / 246 / - | 2372 / 242 / - | 2378 / 251 / - |
+| Travis Hunter | 4024 / 103 / - | 4024 / 101 / - | 4024 / 98 / - | 4024 / 102 / - |
+| Michael Mayer | 2470 / 245 / - | 2431 / 237 / - | 2392 / 239 / - | 2436 / 241 / - |
+| Aidan Hutchinson | 6411 / 34 / - | 6411 / 34 / - | 6411 / 34 / - | 6411 / 35 / - |
+| Will Anderson | 5928 / 42 / - | 5928 / 42 / - | 5928 / 42 / - | 5928 / 42 / - |
+| Jeremiyah Love | 7859 / 16 / - | 7869 / 16 / - | 8033 / 17 / - | 8033 / 17 / - |
+| Fernando Mendoza | 5332 / 57 / - | 5298 / 58 / - | 5276 / 57 / - | 5282 / 59 / - |
+| 2026 Pick 1.01 | 7859 / None / - | 7869 / None / - | 8033 / None / - | 8033 / None / - |
+| 2026 Pick 1.02 | 5332 / None / - | 5298 / None / - | 5276 / None / - | 5282 / None / - |
+| 2027 Round 1 | 5643 / None / - | 5524 / None / - | 5458 / None / - | 5643 / None / - |
+
+## DLF native values (non-voting; added at review)
+
+non-voting (not in _RANKING_SOURCES); measurement only. Vendor rows 323; joined rows by class `{"offense": 323}`; offense rows on the board 323; CSV sha256 `38284bc9f52a8929…`.
+
+verdict: `{"bandsOutsideTolerance": ["51-100", "101-200", "201-300", "301-400"], "scaleMismatchConfirmed": true, "populationShare": null, "populationShareNote": "undefined: DLF Values has no live rank (it does not vote)"}`
+
+| band | ratioPop | ratioVendor | populationFactor |
 |---|---|---|---|
-| Jalen Coker | 3288 / 155 / ktcCrowdSfTep,ktcTradesSfTep | 3372 / 140 / ktcCrowdSfTep | 3443 / 131 / - |
-| Ladd McConkey | 5561 / 48 / - | 5519 / 51 / - | 5491 / 50 / - |
-| Quinshon Judkins | 4908 / 69 / - | 4864 / 69 / - | 4830 / 67 / - |
-| MarShawn Lloyd | 2497 / 239 / - | 2381 / 246 / - | 2372 / 242 / - |
-| Travis Hunter | 4024 / 103 / - | 4024 / 101 / - | 4024 / 98 / - |
-| Michael Mayer | 2470 / 245 / - | 2431 / 237 / - | 2392 / 239 / - |
-| Aidan Hutchinson | 6411 / 34 / - | 6411 / 34 / - | 6411 / 34 / - |
-| Will Anderson | 5928 / 42 / - | 5928 / 42 / - | 5928 / 42 / - |
-| Jeremiyah Love | 7859 / 16 / - | 7869 / 16 / - | 8033 / 17 / - |
-| Fernando Mendoza | 5332 / 57 / - | 5298 / 58 / - | 5276 / 57 / - |
-| 2026 Pick 1.01 | 7859 / None / - | 7869 / None / - | 8033 / None / - |
-| 2026 Pick 1.02 | 5332 / None / - | 5298 / None / - | 5276 / None / - |
-| 2027 Round 1 | 5643 / None / - | 5524 / None / - | 5458 / None / - |
+| 1-50 | 0.827 (n 50) | 0.827 (n 50) | 1.000 (n 50) |
+| 51-100 | 0.492 (n 50) | 0.492 (n 50) | 1.000 (n 50) |
+| 101-200 | 0.183 (n 100) | 0.183 (n 100) | 1.000 (n 100) |
+| 201-300 | 0.041 (n 100) | 0.041 (n 100) | 1.000 (n 100) |
+| 301-400 | 0.009 (n 23) | 0.009 (n 23) | 1.000 (n 23) |
+| 401+ | — | — | — |
+
+by position (population-correct ratio):
+
+| group | median | p25 | p75 | n |
+|---|---|---|---|---|
+| QB | 0.262 | 0.038 | 0.699 | 57 |
+| RB | 0.145 | 0.048 | 0.412 | 91 |
+| TE | 0.094 | 0.057 | 0.311 | 47 |
+| WR | 0.124 | 0.048 | 0.394 | 128 |
+
+Rank space (DLF family voters disabled for the LOO board: ['dlfIdp', 'dlfRookieIdp', 'dlfRookieSf', 'dlfSf']):
+
+| comparison | rows | rank ratio 1-50 | 51-100 | 101-200 | 201-300 | 301-400 | share >41% off |
+|---|---|---|---|---|---|---|---|
+| vsIncumbent_containsDlfRank | 323 | 1.000 | 0.965 | 0.946 | 0.984 | 1.039 | 0.056 |
+| vsNoDlfFamily | 323 | 1.000 | 0.975 | 0.955 | 0.983 | 1.039 | 0.059 |
+
+vsIncumbent_containsDlfRank: value split, log2(native/board) = scale + order-on-Hill
+
+| band | nativeOverLoo | scaleTerm | orderTermOnHill |
+|---|---|---|---|
+| 1-50 | 0.837 (n 50) | 0.827 (n 50) | 1.005 (n 50) |
+| 51-100 | 0.483 (n 50) | 0.492 (n 50) | 0.987 (n 50) |
+| 101-200 | 0.164 (n 100) | 0.183 (n 100) | 0.962 (n 100) |
+| 201-300 | 0.039 (n 100) | 0.041 (n 100) | 0.944 (n 100) |
+| 301-400 | 0.008 (n 23) | 0.009 (n 23) | 0.927 (n 23) |
+| 401+ | — | — | — |
+
+vsNoDlfFamily: value split, log2(native/board) = scale + order-on-Hill
+
+| band | nativeOverLoo | scaleTerm | orderTermOnHill |
+|---|---|---|---|
+| 1-50 | 0.836 (n 50) | 0.827 (n 50) | 1.011 (n 50) |
+| 51-100 | 0.484 (n 50) | 0.492 (n 50) | 0.983 (n 50) |
+| 101-200 | 0.165 (n 100) | 0.183 (n 100) | 0.958 (n 100) |
+| 201-300 | 0.039 (n 100) | 0.041 (n 100) | 0.946 (n 100) |
+| 301-400 | 0.008 (n 23) | 0.009 (n 23) | 0.927 (n 23) |
+| 401+ | — | — | — |
+
+### DLF Values stability (git history) — stable: **True**
+
+days (UTC): 20260925, 20260926, 20260927, 20260928, 20260929; distinct content versions: 5
+
+| band | days | min | max | range |
+|---|---|---|---|---|
+| 51-100 | 5 | 0.492 | 0.502 | 0.01 |
+| 101-200 | 5 | 0.182 | 0.183 | 0.001 |
+| 201-300 | 5 | 0.041 | 0.042 | 0.001 |
+| 301-400 | 5 | 0.009 | 0.009 | 0.0 |
 
 ## E. Point-in-time holdout (archive)
 

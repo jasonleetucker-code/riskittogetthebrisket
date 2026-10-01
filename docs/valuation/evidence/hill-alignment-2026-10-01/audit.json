@@ -70,8 +70,17 @@
   "holdout": "point-in-time only where the archive genuinely carries the inputs: exports/archive zips carry the KTC Crowd / KTC Trades / IDPTC CSVs, not every voter, so a full point-in-time BOARD rebuild is out of reach here; the scale ratio and the c1 map are tested forward in time (fit on day d, scored on d+7)"
  },
  "declarationSha256": "543fd3a3b7a56423647e8d326881dd14b2a14321d8bc317d08e17403470e390a",
+ "postHocAdditions": {
+  "addedAt": "independent review of PR #1573, 2026-10-01",
+  "candidates": {
+   "c3_ktc_players_rank_hill": "the README section 4 recommendation as written: KTC Crowd and KTC Trades PLAYER rows vote Hill_OFFENSE(players-only rank) -- the rank among the board's offense players that source covers, picks removed; KTC PICK rows stay value-direct. Phase 1 ordinals (and therefore the rookie ladders that read KTC Crowd's rank) are untouched. Replay-only patch; same metrics and gates as c1/c2."
+  },
+  "dlf_native": "dlfValuesSfTep gets the Part A scale-band treatment (vendor rank and board players-only rank, OFFENSE master, same verdict rule) and the Part B rank-space treatment against (i) the incumbent (already leave-DLF-Values-out, but holds DLF Rank) and (ii) a board without the whole DLF family; stability from the CSV's git history under the same <= 0.10 rule. The join is the production CSV join, run in one diagnostic build.",
+  "evidentialWeight": "post-hoc: chosen after seeing c2; a pass is weaker evidence than a predeclared pass, a failure is not weakened"
+ },
+ "postHocAdditionsSha256": "c10a02d1a1ae3455126f410f6158566c69131ebdb0bb29306601813fac8d665c",
  "pins": {
-  "codeRevision": "6b0bbf2bad24db82867cb5974e5830302102fc37",
+  "codeRevision": "169f0895dc4a153efe65e782693115b71667a795",
   "workingTreeDirty": false,
   "payload": {
    "path": "exports\\latest\\dynasty_data_2026-09-30.json",
@@ -303,7 +312,8 @@
      "fetched_from_sleeper": true
     }
    }
-  ]
+  ],
+  "fullTreeDirty": false
  },
  "boardRows": 1131,
  "outputs": {
@@ -4246,8 +4256,13 @@
      "medianAbsPctChanged": 0.0,
      "maxAbsPctChanged": 0.0
     },
+    "pickRows": {
+     "changed": 0,
+     "medianAbsDelta": 0,
+     "maxAbsDelta": 0
+    },
     "structuralErrors": 0,
-    "buildSeconds": 0.992,
+    "buildSeconds": 0.677,
     "assets": {
      "Jalen Coker": {
       "value": 3288,
@@ -4517,8 +4532,13 @@
      "medianAbsPctChanged": 0.2057,
      "maxAbsPctChanged": 0.2128
     },
+    "pickRows": {
+     "changed": 139,
+     "medianAbsDelta": 144,
+     "maxAbsDelta": 557
+    },
     "structuralErrors": 0,
-    "buildSeconds": 1.391,
+    "buildSeconds": 1.123,
     "assets": {
      "Jalen Coker": {
       "value": 3372,
@@ -4592,9 +4612,10 @@
      "board_impact": true,
      "no_new_structural_errors": true,
      "leverage": false,
-     "cost": true
+     "cost": false
     },
-    "eligible": false
+    "eligible": false,
+    "postHoc": false
    },
    "c2_ktc_rank_hill": {
     "boardSha256": "6b0ec18721b4a9c8fe732dd9581a8012d663f69cab1e46982f37876e7ef25142",
@@ -4796,8 +4817,13 @@
      "medianAbsPctChanged": 0.2182,
      "maxAbsPctChanged": 0.3184
     },
+    "pickRows": {
+     "changed": 139,
+     "medianAbsDelta": 330,
+     "maxAbsDelta": 814
+    },
     "structuralErrors": 0,
-    "buildSeconds": 1.141,
+    "buildSeconds": 0.741,
     "assets": {
      "Jalen Coker": {
       "value": 3443,
@@ -4871,8 +4897,891 @@
      "leverage": true,
      "cost": true
     },
-    "eligible": true
+    "eligible": true,
+    "postHoc": false
+   },
+   "c3_ktc_players_rank_hill": {
+    "boardSha256": "5c9791d8166c7da7877a1cfd8f6c7c39a84aca796aca3feef3d370232b063714",
+    "boardImpact": {
+     "pass": true,
+     "gates": {
+      "same_row_set": true,
+      "unpriced": true,
+      "median_value_change": true,
+      "p90_value_change": true,
+      "max_value_change": true,
+      "top25_overlap": true,
+      "top100_overlap": true,
+      "median_rank_shift": true,
+      "p90_rank_shift": true
+     },
+     "metrics": {
+      "rows": 1131,
+      "unpricedFraction": 0.0,
+      "medianAbsPctValueChange": 0.0010326810196084344,
+      "p90AbsPctValueChange": 0.048943270300333706,
+      "maxAbsPctValueChange": 0.4096,
+      "medianAbsRankShift": 10.0,
+      "p90AbsRankShift": 22.0,
+      "top25Overlap": 25,
+      "top100Overlap": 98
+     }
+    },
+    "boardImpactPlayersOnly": {
+     "rows": 969,
+     "unpricedFraction": 0.0,
+     "medianAbsPctValueChange": 0.0020421013703021177,
+     "p90AbsPctValueChange": 0.05255905511811024,
+     "maxAbsPctValueChange": 0.4096,
+     "medianAbsRankShift": 11.0,
+     "p90AbsRankShift": 22.0,
+     "top25Overlap": 25,
+     "top100Overlap": 100
+    },
+    "boardDiff": {
+     "rowsCompared": 1131,
+     "rowsChanged": 527,
+     "byGroup": {
+      "PICK": {
+       "changed": 67,
+       "medianAbs": 41,
+       "p90Abs": 87,
+       "maxAbs": 174
+      },
+      "QB": {
+       "changed": 72,
+       "medianAbs": 60.0,
+       "p90Abs": 105,
+       "maxAbs": 267
+      },
+      "RB": {
+       "changed": 124,
+       "medianAbs": 56.0,
+       "p90Abs": 102,
+       "maxAbs": 187
+      },
+      "TE": {
+       "changed": 75,
+       "medianAbs": 89,
+       "p90Abs": 149,
+       "maxAbs": 391
+      },
+      "WR": {
+       "changed": 189,
+       "medianAbs": 64,
+       "p90Abs": 130,
+       "maxAbs": 345
+      }
+     },
+     "top200MembershipChanges": 4,
+     "largestMoves": [
+      {
+       "asset": "Darren Waller",
+       "group": "TE",
+       "delta": -391,
+       "rankBefore": 274,
+       "rankAfter": 344
+      },
+      {
+       "asset": "Justin Jefferson",
+       "group": "WR",
+       "delta": 345,
+       "rankBefore": 15,
+       "rankAfter": 14
+      },
+      {
+       "asset": "CeeDee Lamb",
+       "group": "WR",
+       "delta": 311,
+       "rankBefore": 18,
+       "rankAfter": 16
+      },
+      {
+       "asset": "Jeremy Ruckert",
+       "group": "TE",
+       "delta": -276,
+       "rankBefore": 525,
+       "rankAfter": 687
+      },
+      {
+       "asset": "Jared Goff",
+       "group": "QB",
+       "delta": -267,
+       "rankBefore": 63,
+       "rankAfter": 69
+      },
+      {
+       "asset": "Amon-Ra St. Brown",
+       "group": "WR",
+       "delta": 258,
+       "rankBefore": 12,
+       "rankAfter": 9
+      },
+      {
+       "asset": "Malik Heath",
+       "group": "WR",
+       "delta": 256,
+       "rankBefore": null,
+       "rankAfter": null
+      },
+      {
+       "asset": "Colston Loveland",
+       "group": "TE",
+       "delta": 229,
+       "rankBefore": 21,
+       "rankAfter": 20
+      },
+      {
+       "asset": "Brock Wright",
+       "group": "TE",
+       "delta": -219,
+       "rankBefore": 521,
+       "rankAfter": 649
+      },
+      {
+       "asset": "Tre' Harris",
+       "group": "WR",
+       "delta": -209,
+       "rankBefore": 259,
+       "rankAfter": 288
+      }
+     ]
+    },
+    "topOverlap": {
+     "25": 25,
+     "50": 48,
+     "100": 98,
+     "200": 198
+    },
+    "outliers": {
+     "ktcDropsByLiveRankBand": {
+      "1-50": 4
+     },
+     "observationsExcluded": 171,
+     "rowsWithAnyExclusion": 123,
+     "ktcCrowd": 3,
+     "ktcTrades": 1,
+     "bothKtc": 0,
+     "idpTradeCalc": 11,
+     "bySource": {
+      "draftSharks": 55,
+      "draftSharksIdp": 22,
+      "yahooBoone": 14,
+      "fantasyProsIdp": 13,
+      "idpShowCombined": 11,
+      "idpTradeCalc": 11,
+      "pfkDynasty": 8,
+      "fantasyProsSf": 8,
+      "fantasyProsFitzmaurice": 6,
+      "dynastyNerdsSfTep": 5,
+      "dlfSf": 5,
+      "ktcCrowdSfTep": 3,
+      "fantasyNavigatorSf": 2,
+      "dynastyDaddySf": 2,
+      "flockFantasySf": 2,
+      "dlfIdp": 1,
+      "ktcTradesSfTep": 1,
+      "fantasyCalc": 1,
+      "otcffbSf": 1
+     }
+    },
+    "ktcLeverage": {
+     "rows": 462,
+     "median": 0.0175,
+     "p90": 0.0529,
+     "max": 2.6047
+    },
+    "sparseRows": {
+     "sparseRows": 127,
+     "changed": 2,
+     "medianAbsPctChanged": 0.2968,
+     "maxAbsPctChanged": 0.4096
+    },
+    "pickRows": {
+     "changed": 67,
+     "medianAbsDelta": 41,
+     "maxAbsDelta": 174
+    },
+    "structuralErrors": 0,
+    "buildSeconds": 0.916,
+    "assets": {
+     "Jalen Coker": {
+      "value": 3447,
+      "rank": 134,
+      "ktcDropped": []
+     },
+     "Ladd McConkey": {
+      "value": 5496,
+      "rank": 51,
+      "ktcDropped": []
+     },
+     "Quinshon Judkins": {
+      "value": 4839,
+      "rank": 68,
+      "ktcDropped": []
+     },
+     "MarShawn Lloyd": {
+      "value": 2378,
+      "rank": 251,
+      "ktcDropped": []
+     },
+     "Travis Hunter": {
+      "value": 4024,
+      "rank": 102,
+      "ktcDropped": []
+     },
+     "Michael Mayer": {
+      "value": 2436,
+      "rank": 241,
+      "ktcDropped": []
+     },
+     "Aidan Hutchinson": {
+      "value": 6411,
+      "rank": 35,
+      "ktcDropped": []
+     },
+     "Will Anderson": {
+      "value": 5928,
+      "rank": 42,
+      "ktcDropped": []
+     },
+     "Jeremiyah Love": {
+      "value": 8033,
+      "rank": 17,
+      "ktcDropped": []
+     },
+     "Fernando Mendoza": {
+      "value": 5282,
+      "rank": 59,
+      "ktcDropped": []
+     },
+     "2026 Pick 1.01": {
+      "value": 8033,
+      "rank": null,
+      "ktcDropped": []
+     },
+     "2026 Pick 1.02": {
+      "value": 5282,
+      "rank": null,
+      "ktcDropped": []
+     },
+     "2027 Round 1": {
+      "value": 5643,
+      "rank": null,
+      "ktcDropped": []
+     }
+    },
+    "gates": {
+     "board_impact": true,
+     "no_new_structural_errors": true,
+     "leverage": true,
+     "cost": true
+    },
+    "eligible": true,
+    "postHoc": true
    }
+  },
+  "c3VsC2": {
+   "rowsChanged": 555,
+   "top200MembershipChanges": 8,
+   "playersOnly": {
+    "rows": 969,
+    "unpricedFraction": 0.0,
+    "medianAbsPctValueChange": 0.0,
+    "p90AbsPctValueChange": 0.017074117190531625,
+    "maxAbsPctValueChange": 0.08391608391608392,
+    "medianAbsRankShift": 9.0,
+    "p90AbsRankShift": 15.0,
+    "top25Overlap": 25,
+    "top100Overlap": 99
+   },
+   "pickRows": {
+    "changed": 115,
+    "medianAbsDelta": 470,
+    "maxAbsDelta": 814
+   }
+  }
+ },
+ "dlfNative": {
+  "role": "non-voting (not in _RANKING_SOURCES); measurement only",
+  "vendorRows": 323,
+  "joinedRowsByAssetClass": {
+   "offense": 323
+  },
+  "joinedOffenseRowsOnBoard": 323,
+  "byBand": {
+   "ratioPop": {
+    "1-50": {
+     "n": 50,
+     "median": 0.827,
+     "p25": 0.737,
+     "p75": 0.893,
+     "meanLog2": -0.2957
+    },
+    "51-100": {
+     "n": 50,
+     "median": 0.492,
+     "p25": 0.409,
+     "p75": 0.604,
+     "meanLog2": -1.0347
+    },
+    "101-200": {
+     "n": 100,
+     "median": 0.183,
+     "p25": 0.109,
+     "p75": 0.261,
+     "meanLog2": -2.5591
+    },
+    "201-300": {
+     "n": 100,
+     "median": 0.041,
+     "p25": 0.022,
+     "p75": 0.057,
+     "meanLog2": -4.7921
+    },
+    "301-400": {
+     "n": 23,
+     "median": 0.009,
+     "p25": 0.003,
+     "p75": 0.011,
+     "meanLog2": -7.7489
+    }
+   },
+   "ratioVendor": {
+    "1-50": {
+     "n": 50,
+     "median": 0.827,
+     "p25": 0.737,
+     "p75": 0.893,
+     "meanLog2": -0.2957
+    },
+    "51-100": {
+     "n": 50,
+     "median": 0.492,
+     "p25": 0.409,
+     "p75": 0.604,
+     "meanLog2": -1.0347
+    },
+    "101-200": {
+     "n": 100,
+     "median": 0.183,
+     "p25": 0.109,
+     "p75": 0.261,
+     "meanLog2": -2.5591
+    },
+    "201-300": {
+     "n": 100,
+     "median": 0.041,
+     "p25": 0.022,
+     "p75": 0.057,
+     "meanLog2": -4.7921
+    },
+    "301-400": {
+     "n": 23,
+     "median": 0.009,
+     "p25": 0.003,
+     "p75": 0.011,
+     "meanLog2": -7.7489
+    }
+   },
+   "populationFactor": {
+    "1-50": {
+     "n": 50,
+     "median": 1.0,
+     "p25": 1.0,
+     "p75": 1.0,
+     "meanLog2": 0.0
+    },
+    "51-100": {
+     "n": 50,
+     "median": 1.0,
+     "p25": 1.0,
+     "p75": 1.0,
+     "meanLog2": 0.0
+    },
+    "101-200": {
+     "n": 100,
+     "median": 1.0,
+     "p25": 1.0,
+     "p75": 1.0,
+     "meanLog2": 0.0
+    },
+    "201-300": {
+     "n": 100,
+     "median": 1.0,
+     "p25": 1.0,
+     "p75": 1.0,
+     "meanLog2": 0.0
+    },
+    "301-400": {
+     "n": 23,
+     "median": 1.0,
+     "p25": 1.0,
+     "p75": 1.0,
+     "meanLog2": 0.0
+    }
+   }
+  },
+  "byPosition": {
+   "QB": {
+    "n": 57,
+    "median": 0.262,
+    "p25": 0.038,
+    "p75": 0.699,
+    "meanLog2": -2.7342
+   },
+   "RB": {
+    "n": 91,
+    "median": 0.145,
+    "p25": 0.048,
+    "p75": 0.412,
+    "meanLog2": -3.3092
+   },
+   "TE": {
+    "n": 47,
+    "median": 0.094,
+    "p25": 0.057,
+    "p75": 0.311,
+    "meanLog2": -3.1034
+   },
+   "WR": {
+    "n": 128,
+    "median": 0.124,
+    "p25": 0.048,
+    "p75": 0.394,
+    "meanLog2": -2.9454
+   }
+  },
+  "byCoverage": {
+   "5-8": {
+    "n": 4,
+    "median": 0.012,
+    "p25": 0.009,
+    "p75": 0.014,
+    "meanLog2": -6.8161
+   },
+   "9+": {
+    "n": 319,
+    "median": 0.145,
+    "p25": 0.051,
+    "p75": 0.479,
+    "meanLog2": -2.9862
+   }
+  },
+  "verdict": {
+   "bandsOutsideTolerance": [
+    "51-100",
+    "101-200",
+    "201-300",
+    "301-400"
+   ],
+   "scaleMismatchConfirmed": true,
+   "populationShare": null,
+   "populationShareNote": "undefined: DLF Values has no live rank (it does not vote)"
+  },
+  "familyVotersDisabledForLoo": [
+   "dlfIdp",
+   "dlfRookieIdp",
+   "dlfRookieSf",
+   "dlfSf"
+  ],
+  "disagreement": {
+   "vsIncumbent_containsDlfRank": {
+    "rows": 323,
+    "looUnpriced": 0,
+    "rankRatioByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 1.0,
+      "p25": 0.89,
+      "p75": 1.121,
+      "meanLog2": -0.0084
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.965,
+      "p25": 0.898,
+      "p75": 1.037,
+      "meanLog2": -0.0191
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.946,
+      "p25": 0.884,
+      "p75": 1.042,
+      "meanLog2": -0.0373
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.984,
+      "p25": 0.928,
+      "p75": 1.081,
+      "meanLog2": 0.0287
+     },
+     "301-400": {
+      "n": 23,
+      "median": 1.039,
+      "p25": 0.997,
+      "p75": 1.108,
+      "meanLog2": 0.1012
+     }
+    },
+    "shareRankOffByMoreThan41pct": 0.056,
+    "valueSplitByBand": {
+     "nativeOverLoo": {
+      "1-50": {
+       "n": 50,
+       "median": 0.837,
+       "p25": 0.741,
+       "p75": 0.914,
+       "meanLog2": -0.289
+      },
+      "51-100": {
+       "n": 50,
+       "median": 0.483,
+       "p25": 0.384,
+       "p75": 0.591,
+       "meanLog2": -1.0833
+      },
+      "101-200": {
+       "n": 100,
+       "median": 0.164,
+       "p25": 0.104,
+       "p75": 0.243,
+       "meanLog2": -2.6446
+      },
+      "201-300": {
+       "n": 100,
+       "median": 0.039,
+       "p25": 0.02,
+       "p75": 0.053,
+       "meanLog2": -4.9249
+      },
+      "301-400": {
+       "n": 23,
+       "median": 0.008,
+       "p25": 0.003,
+       "p75": 0.011,
+       "meanLog2": -7.9039
+      }
+     },
+     "scaleTerm": {
+      "1-50": {
+       "n": 50,
+       "median": 0.827,
+       "p25": 0.737,
+       "p75": 0.893,
+       "meanLog2": -0.2957
+      },
+      "51-100": {
+       "n": 50,
+       "median": 0.492,
+       "p25": 0.409,
+       "p75": 0.604,
+       "meanLog2": -1.0347
+      },
+      "101-200": {
+       "n": 100,
+       "median": 0.183,
+       "p25": 0.109,
+       "p75": 0.261,
+       "meanLog2": -2.5591
+      },
+      "201-300": {
+       "n": 100,
+       "median": 0.041,
+       "p25": 0.022,
+       "p75": 0.057,
+       "meanLog2": -4.7921
+      },
+      "301-400": {
+       "n": 23,
+       "median": 0.009,
+       "p25": 0.003,
+       "p75": 0.011,
+       "meanLog2": -7.7489
+      }
+     },
+     "orderTermOnHill": {
+      "1-50": {
+       "n": 50,
+       "median": 1.005,
+       "p25": 0.973,
+       "p75": 1.039,
+       "meanLog2": 0.0067
+      },
+      "51-100": {
+       "n": 50,
+       "median": 0.987,
+       "p25": 0.935,
+       "p75": 1.02,
+       "meanLog2": -0.0486
+      },
+      "101-200": {
+       "n": 100,
+       "median": 0.962,
+       "p25": 0.896,
+       "p75": 1.019,
+       "meanLog2": -0.0855
+      },
+      "201-300": {
+       "n": 100,
+       "median": 0.944,
+       "p25": 0.859,
+       "p75": 1.001,
+       "meanLog2": -0.1328
+      },
+      "301-400": {
+       "n": 23,
+       "median": 0.927,
+       "p25": 0.845,
+       "p75": 0.984,
+       "meanLog2": -0.155
+      }
+     }
+    }
+   },
+   "vsNoDlfFamily": {
+    "rows": 323,
+    "looUnpriced": 0,
+    "rankRatioByBand": {
+     "1-50": {
+      "n": 50,
+      "median": 1.0,
+      "p25": 0.874,
+      "p75": 1.125,
+      "meanLog2": 0.0104
+     },
+     "51-100": {
+      "n": 50,
+      "median": 0.975,
+      "p25": 0.89,
+      "p75": 1.065,
+      "meanLog2": -0.0204
+     },
+     "101-200": {
+      "n": 100,
+      "median": 0.955,
+      "p25": 0.884,
+      "p75": 1.042,
+      "meanLog2": -0.0395
+     },
+     "201-300": {
+      "n": 100,
+      "median": 0.983,
+      "p25": 0.922,
+      "p75": 1.089,
+      "meanLog2": 0.0309
+     },
+     "301-400": {
+      "n": 23,
+      "median": 1.039,
+      "p25": 0.998,
+      "p75": 1.135,
+      "meanLog2": 0.1061
+     }
+    },
+    "shareRankOffByMoreThan41pct": 0.059,
+    "valueSplitByBand": {
+     "nativeOverLoo": {
+      "1-50": {
+       "n": 50,
+       "median": 0.836,
+       "p25": 0.745,
+       "p75": 0.928,
+       "meanLog2": -0.2874
+      },
+      "51-100": {
+       "n": 50,
+       "median": 0.484,
+       "p25": 0.382,
+       "p75": 0.589,
+       "meanLog2": -1.0817
+      },
+      "101-200": {
+       "n": 100,
+       "median": 0.165,
+       "p25": 0.106,
+       "p75": 0.244,
+       "meanLog2": -2.6464
+      },
+      "201-300": {
+       "n": 100,
+       "median": 0.039,
+       "p25": 0.02,
+       "p75": 0.054,
+       "meanLog2": -4.9278
+      },
+      "301-400": {
+       "n": 23,
+       "median": 0.008,
+       "p25": 0.003,
+       "p75": 0.011,
+       "meanLog2": -7.9019
+      }
+     },
+     "scaleTerm": {
+      "1-50": {
+       "n": 50,
+       "median": 0.827,
+       "p25": 0.737,
+       "p75": 0.893,
+       "meanLog2": -0.2957
+      },
+      "51-100": {
+       "n": 50,
+       "median": 0.492,
+       "p25": 0.409,
+       "p75": 0.604,
+       "meanLog2": -1.0347
+      },
+      "101-200": {
+       "n": 100,
+       "median": 0.183,
+       "p25": 0.109,
+       "p75": 0.261,
+       "meanLog2": -2.5591
+      },
+      "201-300": {
+       "n": 100,
+       "median": 0.041,
+       "p25": 0.022,
+       "p75": 0.057,
+       "meanLog2": -4.7921
+      },
+      "301-400": {
+       "n": 23,
+       "median": 0.009,
+       "p25": 0.003,
+       "p75": 0.011,
+       "meanLog2": -7.7489
+      }
+     },
+     "orderTermOnHill": {
+      "1-50": {
+       "n": 50,
+       "median": 1.011,
+       "p25": 0.974,
+       "p75": 1.046,
+       "meanLog2": 0.0082
+      },
+      "51-100": {
+       "n": 50,
+       "median": 0.983,
+       "p25": 0.925,
+       "p75": 1.021,
+       "meanLog2": -0.047
+      },
+      "101-200": {
+       "n": 100,
+       "median": 0.958,
+       "p25": 0.892,
+       "p75": 1.014,
+       "meanLog2": -0.0873
+      },
+      "201-300": {
+       "n": 100,
+       "median": 0.946,
+       "p25": 0.846,
+       "p75": 1.005,
+       "meanLog2": -0.1357
+      },
+      "301-400": {
+       "n": 23,
+       "median": 0.927,
+       "p25": 0.831,
+       "p75": 0.995,
+       "meanLog2": -0.153
+      }
+     }
+    }
+   }
+  },
+  "csvSha256": "38284bc9f52a8929cd865cf15a218a724820959b6ad782984b0e542bb8eac187",
+  "stability": {
+   "days": 5,
+   "distinctContentVersions": 5,
+   "pins": {
+    "20260925": {
+     "commit": "744ca99b8269c010a51e1c514aa8530082b5c499",
+     "sha256": "4534f8a9231b778ce4566fce4ebb9e8656010d0ec344e3f8429f0af01f97cc74"
+    },
+    "20260926": {
+     "commit": "ebc28b5363627dfc369e7c976e254a728e316753",
+     "sha256": "13e084da9fe571f4e8893855691fea9f20d697ac1b2c447af758a6bea2a180e5"
+    },
+    "20260927": {
+     "commit": "ccfd7a49f86fdfdef411986982fffe994548d09b",
+     "sha256": "06dbe8b0723a83bba36d6704105be47c1cfd989f737c339b4de92c5d2fd5da5a"
+    },
+    "20260928": {
+     "commit": "dde7a13d453a2accc2ce8457530a2b876a138e10",
+     "sha256": "ac9bd5a686f2e3c08dc18f8cae504b7d2ade5999ee0f08902bd8ca69f92cc72c"
+    },
+    "20260929": {
+     "commit": "7d8831f5ba67b4409e2f558de68c4ceab001e99f",
+     "sha256": "38284bc9f52a8929cd865cf15a218a724820959b6ad782984b0e542bb8eac187"
+    }
+   },
+   "dailyMedianScaleRatioByBand": {
+    "20260925": {
+     "51-100": 0.502,
+     "101-200": 0.182,
+     "201-300": 0.042,
+     "301-400": 0.009
+    },
+    "20260926": {
+     "51-100": 0.502,
+     "101-200": 0.182,
+     "201-300": 0.041,
+     "301-400": 0.009
+    },
+    "20260927": {
+     "51-100": 0.502,
+     "101-200": 0.182,
+     "201-300": 0.041,
+     "301-400": 0.009
+    },
+    "20260928": {
+     "51-100": 0.494,
+     "101-200": 0.182,
+     "201-300": 0.041,
+     "301-400": 0.009
+    },
+    "20260929": {
+     "51-100": 0.492,
+     "101-200": 0.183,
+     "201-300": 0.041,
+     "301-400": 0.009
+    }
+   },
+   "rangeByBand": {
+    "51-100": {
+     "days": 5,
+     "min": 0.492,
+     "max": 0.502,
+     "range": 0.01
+    },
+    "101-200": {
+     "days": 5,
+     "min": 0.182,
+     "max": 0.183,
+     "range": 0.001
+    },
+    "201-300": {
+     "days": 5,
+     "min": 0.041,
+     "max": 0.042,
+     "range": 0.001
+    },
+    "301-400": {
+     "days": 5,
+     "min": 0.009,
+     "max": 0.009,
+     "range": 0.0
+    }
+   },
+   "stable": true
   }
  },
  "holdout": {
@@ -5990,7 +6899,34 @@
    "disagree": 0
   },
   "hampel_1000_variant_equals_incumbent": true,
-  "csv_patch_identity_rows_changed": 0
+  "csv_patch_identity_rows_changed": 0,
+  "c3_patch": {
+   "partitionCalls": 2,
+   "rowsRewritten": {
+    "ktcCrowdSfTep": 924,
+    "ktcTradesSfTep": 924
+   },
+   "outOfRangeRewritten": 0,
+   "restored": 1848,
+   "contributionCheck": {
+    "ktcCrowdSfTep": {
+     "playerRowsMatchHillPlayersOnlyRank": 462,
+     "playerRowsMismatch": 0,
+     "pickRowsUnchanged": 36,
+     "pickRowsChanged": 0
+    },
+    "ktcTradesSfTep": {
+     "playerRowsMatchHillPlayersOnlyRank": 462,
+     "playerRowsMismatch": 0,
+     "pickRowsUnchanged": 36,
+     "pickRowsChanged": 0
+    },
+    "publishedSiteValuesDiffering": 0,
+    "ok": true
+   }
+  },
+  "c3_patch_restored_after_build": true,
+  "dlf_join_probe_board_unchanged": true
  },
  "invariantsOk": true
 }

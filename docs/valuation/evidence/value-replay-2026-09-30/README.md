@@ -1,5 +1,13 @@
 # Value replay evidence — Jalen Coker and contrasts (2026-09-30)
 
+> **Erratum (2026-10-01).** The "KTC native values taken as ranks" counterfactual below
+> was contaminated: it emptied `_VALUE_BASED_SOURCES`, so IDPTC's native value was decoded
+> as a rank (~9,900). Its "910 rows; 34 top-200 changes", the "+158" and the "IDPTC
+> 1.8–5.9×" figure are artifacts. Corrected on the tracked-inputs 1131-row build: 598 rows,
+> 10 top-200 changes, Coker +155, and IDPTC's live ratio 0.87–1.16. The KTC 14–45% / 22–60%
+> figures stand as measured but include a population term. See
+> `docs/valuation/evidence/hill-alignment-2026-10-01/README.md` §3 A and §5 E1.
+
 **What this is:** a pinned local rebuild of the canonical board through the production
 pipeline (`scripts/value_replay.py`, `src/api/value_replay.py`), with single-change
 counterfactual rebuilds. Machine-readable: [`replay.json`](replay.json). Tables:

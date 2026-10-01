@@ -82,6 +82,14 @@ IMPLEMENTED), #839 meaningful core (`C2-CORE-01`), #840 competitive posture
 
 ## D. Audit leads — status
 
+> **Erratum (2026-10-01), V2-5.** The V2-5 row in §C cites "IDPTC 1.8–5.9×" from the
+> 2026-09-30 replay, and the V2-5 lead below rests on that replay's measurement. The same
+> replay's KTC-as-ranks counterfactual cites "910 rows; 34 top-200 changes". Both came from a contaminated counterfactual that also
+> decoded IDPTC's native value as a rank. Corrected: IDPTC's live ratio is 0.87–1.16, and
+> the KTC-only counterfactual changes 598 rows with 10 top-200 changes. The KTC ranges
+> stand but include a 4–10-point population term. Record:
+> `docs/valuation/evidence/hill-alignment-2026-10-01/README.md` §3 A and §5 E1.
+
 | Lead | Status | Evidence |
 |---|---|---|
 | Coker exact live value/rank | **STILL UNKNOWN for the served response**; rebuild = 3286 / rank 156 / WR45 | replay pins; production `/api/data` needs owner auth |
