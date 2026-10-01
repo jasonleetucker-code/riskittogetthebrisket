@@ -197,6 +197,22 @@ execution, source activation, or changes to merge/deploy authority.
 Week 1 remains a literal 30-row contract. Runtime entry and state contracts:
 `docs/agent-operating-system/STEWARD_RUNTIME.md`.
 
+## Valuation advancement + comprehensive Signals — owner directive, 2026-09-30 (#1555)
+
+The owner directed the valuation-advancement program in #1555 (incorporated into #792) and extended it
+with a comprehensive Signals integration. It executes through EXISTING authority, not a new grant: the
+2026-09-24 Calculator completion campaign lanes C (freshness + valuation hardening, including Hill /
+native-source alignment), D (scoring/projection correctness) and 6 (Premium UI) cover implementation,
+tests, review, merge, deploy and production verification of reproduced-defect corrections and the
+replay tooling through the normal protected path, each as its own reviewable unit with whole-board
+evidence and a rollback. Not authorized by this entry: methodology replacement without validation,
+production promotion of challengers or new sources outside their gates, Hill constant edits outside
+the Hill Autopilot / model registry, purchases, or new deploy-policy changes (manual-deploy SHA pinning
+stays approval-gated). Signals live collection is BLOCKED on Signals' prior written consent; discovery,
+adapter design and labelled synthetic fixtures proceed. KeepTradeCut: owner-reported authorization to
+scrape all KTC data is recorded (manifest `F-EXT-01`). Map and next batch:
+`docs/valuation/VALUATION_ADVANCEMENT_MAP_2026-09-30.md`.
+
 ## Served build identity — owner authorization, 2026-09-30
 
 The owner accepted the recommendation from the 2026-09-30 harness reconciliation

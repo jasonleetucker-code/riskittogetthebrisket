@@ -281,7 +281,7 @@ in production rather than merely deployed.*
 | id | capability | owner | status | final | disposition | deps | source | prof | lane | flag | evidence |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `C4-MTL-01` | Market Trade Ledger / Trade Database (CE-01) | *(new)* | ABSENT | Normalized multi-lane ledger; format metadata; cross-source dedup with unresolved-stays-unresolved | IMPLEMENT | `C1-ID-01`, `C1-ACQ-01` | `docs/MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC.md` | P2 | mkt | — | ledger + dedup test |
-| `C4-MTL-02` | KTC Trade Database ingestion lane | `C4-MTL-01` | ABSENT — **FUTURE, NOT PRODUCTION.** The broken producer was retired 2026-08-18 (zero consumers: the trade list reached only `len()` for a status count). Live shape measured that day so C4-U3 need not rediscover it: inline `var trades` on `/dynasty/trade-database`, a 200-entry rolling window, no XHR/fetch/htmx, `?sf=`/`?tep=` do NOT filter server-side; row keys `id` / `date` / `teamOne` / `teamTwo` / `settings`; sides carry `place` + `playerIds`; settings carry `id` / `teams` / `qBs` / `ppr` / `tep` / `is2TE` / `passTDPoints` / `leagueStartingLineup.position[]`. Identity is solved — `src/sources/ktc_identity.parse_ktc_identity` classifies **all 259 distinct references** (508 player refs, 299 picks, 1 FAAB amount, 0 unresolved) | Ingested within the granted permission scope, KTC-labelled provenance | IMPLEMENT | `C4-MTL-01`, `F-EXT-01` | spec §19.2 | P3 | mkt | `EXT` `OD-01` | grant artifact captured |
+| `C4-MTL-02` | KTC Trade Database ingestion lane | `C4-MTL-01` | ABSENT — **FUTURE, NOT PRODUCTION.** The broken producer was retired 2026-08-18 (zero consumers: the trade list reached only `len()` for a status count). Live shape measured that day so C4-U3 need not rediscover it: inline `var trades` on `/dynasty/trade-database`, a 200-entry rolling window, no XHR/fetch/htmx, `?sf=`/`?tep=` do NOT filter server-side; row keys `id` / `date` / `teamOne` / `teamTwo` / `settings`; sides carry `place` + `playerIds`; settings carry `id` / `teams` / `qBs` / `ppr` / `tep` / `is2TE` / `passTDPoints` / `leagueStartingLineup.position[]`. Identity is solved — `src/sources/ktc_identity.parse_ktc_identity` classifies **all 259 distinct references** (508 player refs, 299 picks, 1 FAAB amount, 0 unresolved) | Ingested within the granted permission scope, KTC-labelled provenance | IMPLEMENT | `C4-MTL-01`, `F-EXT-01` | spec §19.2 | P3 | mkt | `EXT` `OD-01` | owner-reported authorization recorded (2026-09-30) |
 | `C4-MTL-03` | Comparable-trade matching | `C4-MTL-01` | ABSENT | Indexed, format-aware, recency-aware; no naive raw-trade averaging into canonical value | IMPLEMENT | `C4-MTL-01` | spec | P2 | mkt | — | latency + relevance |
 | `C4-KTC-01` | KTC playerID → identity: one owner | `src/sources/ktc_identity.py` | **REPAIRED 2026-08-18.** Owner prefers `allPlayerSearchValues` (~1,997 entries) over `playersArray` (500 entries); measured on identical live HTML the live producer keeps **200/200** claims vs 150/200 and names **124/200** drops vs 94. Picks classified (vendor `position: RDP` + three observed label shapes), FAAB amounts classified, `-1` named as the no-drop sentinel; id collisions fail closed; **no `Player#<id>` fabrication anywhere**. The scraper's dead crowd producers were retired rather than repaired (see `C4-MTL-02`), so `KTC_ID_TO_NAME` / `KTC_CROWD_DATA` / `ktcIdMap` are deleted. Known deferred second derivation: `scrape_ktc` Strategy 2 still builds its own id→name map to join the value-history API — board-affecting, pinned by `tests/sources/test_ktc_identity.py::KNOWN_DEFERRED_DERIVATIONS`, needs its own measured unit | Joinable names | REPAIR | `C1-ID-01` | W05-F005 | P3 | mkt | — | join rate: 200/200 · board inertness 0/0/0/0 |
 | `C4-FAAB-01` | FAAB Market Heat + normalized external evidence (CE-19) | `src/trade/faab_engine.py` | ABSENT (extension) | Bounded ~10% heat cap; four populations stay separate; percent-of-**original**-budget normalization; $0 bids are real, missing budgets are not | IMPLEMENT | `C4-MTL-01` | `docs/FAAB_MARKET_SIGNAL_NORMALIZATION_2026-08-14.md`, decisions 56–65 | P2 | mkt | — | backtest |
@@ -375,8 +375,8 @@ The spec's prohibition on "imputed-through-our-own-values" approval bites on **c
 asset the external board does not price cannot be given a value from our board and then counted as external
 approval. Running the market's own published algorithm over the market's own published values is not imputation.
 
-What *is* genuinely open is narrower and is tracked separately: KTC data use rests on an owner-reported permission
-whose grant artifact is not in the repository (`F-EXT-01`, `OD-01`), and **IDPTC has no authorization record of any
+What *is* genuinely open is narrower and is tracked separately: KTC data use rests on an owner-reported permission,
+which the owner confirmed on 2026-09-30 as the recorded authorization for all KTC data (`F-EXT-01`, #1555), and **IDPTC has no authorization record of any
 kind**. Those gate the *ingestion*, which is already live and long-standing — not the feature's arithmetic.
 
 ## C8 — Premium Sports Intelligence production migration
@@ -437,7 +437,7 @@ kind**. Those gate the *ingestion*, which is already live and long-standing — 
 | `F-MISS-01` | Missing is never zero, on display | display owners | COMPLETE (#836) | Every new surface | COMPLETE-ALREADY | B ledger | P1 | #836 tests |
 | `F-FAAB-01` | One FAAB engine | `src/trade/faab_engine.py` | COMPLETE | Extended by `C4-FAAB-01` | COMPLETE-ALREADY | `docs/faab-model.md` | P2 | 247 tests |
 | `F-ROS-01` | ROS projections | `src/ros/` | COMPLETE | Doc refresh | COMPLETE-ALREADY | `docs/ros-engine.md` | P2 | existing |
-| `F-EXT-01` | KTC data-use permission record | `docs/MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC.md` §19.2 | PARTIAL — owner-reported; the grant artifact (evidence, contact, scope, method, rate, attribution, redistribution, revocation) is **not in the repository** | Artifact captured | OWNER-DECISION | #809 | P5 | `OD-01` |
+| `F-EXT-01` | KTC data-use permission record | `docs/MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC.md` §19.2 | COMPLETE — **owner decision 2026-09-30 (#1555):** owner-reported authorization to scrape all KTC data is the recorded authorization; no artifact is required and none is invented; not a formula disclosure; does not extend to other providers | Owner-reported authorization recorded | OWNER-DECISION | #809, #1555 | P5 | `OD-01` |
 | `F-EXT-02` | IDPTC authorization | — | **ABSENT — no record of any kind**, while IDPTC is the sole IDP market anchor and a co-equal approval authority in the Best Trade spec | Recorded or the dependency re-scoped | OWNER-DECISION | audit 2 | P5 | `OD-01` |
 | `F-EXT-03` | Credentialed / paywall-adjacent source posture | DLF, DraftSharks, IDP Show, Flock | PARTIAL — 7 source keys behind credentials, zero recorded authorization; the repo's one written terms posture is applied to FFPC alone | Consistent posture | OWNER-DECISION | audit 2 §23 | P5 | `OD-01` |
 
@@ -470,7 +470,7 @@ kind**. Those gate the *ingestion*, which is already live and long-standing — 
 | Duplicate clusters resolved | 4 (CE namespace · ledger 102–104 ≡ #835 · Best Trade dual record · Trade Trees dual identity) |
 | Explicitly superseded owner rules | 6 (2028/2029 unpriced posture · player-MVP no-gate rule (reversed by the owner 2026-09-26; the League MVP gate stands) · `unified_signal_engine` ownership claim · Best Trade `no draft picks` · Best Trade exact-equal-player-count · **fixed meaningful-core positional caps, superseded by #839's `ceil(1.5 × real starter demand)`** — see `docs/C_SERIES_DIRECTIVE_RECONCILIATION_2026-08-17.md` §4.1) |
 | Owner-rejected / paused / not-scope rows | 7 (`X-01`…`X-07`) |
-| External blockers | 3 (`F-EXT-01`, `F-EXT-02`, `F-EXT-03` — all one owner decision, `OD-01`) |
+| External blockers | 2 (`F-EXT-02`, `F-EXT-03` — one owner decision, `OD-01`; `F-EXT-01` resolved by owner decision 2026-09-30) |
 | Owner decisions required | 7 (§6) |
 | Rows flagged `BLOCK-C` | **0** |
 | Rows flagged `RET` (irreversible evidence) | **12** — `C1-RET-01`…`C1-RET-08` (phase C1, the authorized C1A tranche) plus `C4-FAAB-02`, `C5-GD-02`, `C7-DRAFT-02`, `C9-UR-02`, which are flagged so collection starts as early as their phase allows but are **not** part of the C1A tranche |
@@ -484,7 +484,7 @@ default, consequences, and whether each blocks C1.
 
 | id | question | blocks C1? |
 |---|---|---|
-| `OD-01` | External source authorization: capture the KTC grant artifact, obtain or forgo an IDPTC record, and set one posture for the credentialed sources | **No** |
+| `OD-01` | External source authorization: ~~capture the KTC grant artifact~~ (KTC resolved by owner decision 2026-09-30, #1555), obtain or forgo an IDPTC record, and set one posture for the credentialed sources | **No** |
 | `OD-02` | Is authenticated trade submission (CE-11) required for C completion, or an approved later capability? | **No** |
 | `OD-03` | Analyst Intelligence cost posture — podcast/YouTube infrastructure and any paid transcription/API spend | **No** |
 | `OD-04` | DraftSharks: re-mint, accept degradation, or retire | **No** |
