@@ -1,13 +1,4 @@
 {
-  "permissions": {
-    "allow": [
-      "Bash(git grep *)",
-      "Bash(git merge-base *)",
-      "Bash(git ls-tree *)",
-      "Bash(gh run watch *)",
-      "Bash(bash -n *)"
-    ]
-  },
   "hooks": {
     "SessionStart": [
       {
