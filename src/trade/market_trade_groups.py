@@ -82,11 +82,17 @@ REL_DISTINCT = "distinct"
 #: on day D (UTC) can carry D or D+1.  One day either side, no more.
 DEFAULT_DAY_TOLERANCE = 1
 
-#: Preference when choosing whose format / sides represent a group: host
-#: capture beats registry beats vendor summary.
+#: Preference when choosing whose format / sides represent a group: the
+#: registry's own league, then a host capture in force at the trade, then a
+#: host capture from after it, then the partial discovery row, then the vendor
+#: summary.  (Representatives are chosen by host transaction id BEFORE this
+#: order, so registry-vs-capture only decides between two host-tx lanes of the
+#: same trade — and the registry is the owner's own league.)
 _FORMAT_PREFERENCE = (
-    "host_capture_via_discovery",
     "registry_and_scoring_card",
+    "sleeper_league_capture_full",
+    "host_capture_via_discovery",
+    "sleeper_league_capture_post_trade",
     "discovery_row_partial",
     "ktc_vendor_settings",
 )

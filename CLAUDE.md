@@ -2171,6 +2171,17 @@ around:
   league id meant a budget-capped run re-collected the same prefix
   forever and never reached the tail.
 
+**League FORMAT captures for the completed-trade ledger** live in
+`src/sharp/league_format_capture.py` — the one owner of "what format was this
+Sharp league in, and when did we see it".  Append-only, dated, hashed rows
+(`sharp_league_format_captures`; a mid-season settings change is a NEW row,
+never an overwrite) recorded from league objects discovery and the roster crawl
+already fetch, plus a budgeted `GET /v1/league/{id}` catch-up pass run by the
+transaction-crawl timer (`--format-budget`).  The ledger normalizer picks the
+capture in force at each trade (`capture_in_force`: nearest prior →
+`sleeper_league_capture_full`; only a later one → `…_post_trade`, never exact;
+none → UNKNOWN).  Evidence only — it touches no value.
+
 `server.py` calls `_sharp_service.register_http_routes()` explicitly
 after importing the module. The import-time side effect alone is not
 enough: anything that imports `src.sharp.service` before the app exists

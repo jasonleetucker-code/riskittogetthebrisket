@@ -51,7 +51,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -494,18 +494,52 @@ def _sides_from_movements(
     return sides, caveats
 
 
+#: ``formatSource`` labels for a Sharp-discovery trade.  The census counts
+#: these; it does not interpret them.
+FORMAT_SOURCE_CAPTURE_FULL = "sleeper_league_capture_full"
+FORMAT_SOURCE_CAPTURE_POST_TRADE = "sleeper_league_capture_post_trade"
+FORMAT_SOURCE_PARTIAL = "discovery_row_partial"
+#: A KTC row upgraded to a host capture in force at its trade date.
+FORMAT_SOURCE_KTC_HOST_UPGRADE = "host_capture_via_discovery"
+
+
 def _sleeper_league_format(
-    league_row: Mapping[str, Any], settings: Any
-) -> tuple[mtf.TradeMarketFormat, str]:
-    """The host-captured format when discovery recorded one; otherwise only the
-    facts the discovery row itself carries (type, best-ball, roster count) and
-    UNKNOWN for everything else — never inferred from the discovering user."""
+    league_row: Mapping[str, Any],
+    settings: Any,
+    *,
+    captures: list[Mapping[str, Any]] | None = None,
+    trade_ms: int | None = None,
+) -> tuple[mtf.TradeMarketFormat, str, dict[str, Any]]:
+    """``(format, formatSource, formatEvidence)`` for one Sharp-discovery trade.
+
+    The format is the host league's DATED capture in force at the trade's
+    timestamp (``league_format_capture.capture_in_force``): the nearest prior
+    capture is ``sleeper_league_capture_full``; when only a later capture of the
+    same season exists it is used but labelled
+    ``sleeper_league_capture_post_trade`` and never presented as exact-at-time.
+    With no capture, only the facts the discovery row itself carries (type,
+    best-ball, roster count) are known and everything else is UNKNOWN — never
+    inferred from the discovering user.
+    """
+    from src.sharp import league_format_capture as lfc  # noqa: PLC0415
+
     settings = settings if isinstance(settings, dict) else {}
-    captured = settings.get("marketFormat")
-    if isinstance(captured, dict) and captured.get("roster_positions"):
+    season = str(league_row.get("season")) if league_row.get("season") else None
+    candidates = list(captures or [])
+    legacy = lfc.legacy_settings_capture(str(league_row.get("league_id") or ""), settings)
+    if legacy is not None:
+        candidates.append(legacy)
+    cap, timing = lfc.capture_in_force(candidates, trade_ms, season=season)
+    if cap is not None:
+        label = (
+            FORMAT_SOURCE_CAPTURE_FULL
+            if timing == lfc.TIMING_AT_OR_BEFORE
+            else FORMAT_SOURCE_CAPTURE_POST_TRADE
+        )
         return (
-            mtf.format_from_sleeper_league(captured, captured_at=captured.get("capturedAt")),
-            "host_capture_via_discovery",
+            mtf.format_from_sleeper_league(cap["payload"], captured_at=cap.get("capturedAt")),
+            label,
+            lfc.evidence_dict(cap, timing),
         )
     teams = league_row.get("total_rosters")
     partial = {
@@ -513,11 +547,44 @@ def _sleeper_league_format(
         "season": league_row.get("season"),
         "settings": {"type": settings.get("type"), "best_ball": settings.get("bestBall")},
     }
-    return mtf.format_from_sleeper_league(partial), "discovery_row_partial"
+    return (
+        mtf.format_from_sleeper_league(partial),
+        FORMAT_SOURCE_PARTIAL,
+        lfc.evidence_dict(None, None),
+    )
+
+
+def load_format_captures(ledger_path: Path | None) -> tuple[dict[str, list[dict]], str]:
+    """The dated league-format capture index, read through a ``mode=ro``
+    connection (never migrating), plus a state label for lane status."""
+    from src.sharp import league_format_capture as lfc  # noqa: PLC0415
+
+    if ledger_path is None:
+        try:
+            from src.intel import ledger as intel_ledger  # noqa: PLC0415
+
+            ledger_path = intel_ledger.default_path()
+        except Exception:  # noqa: BLE001
+            return {}, "ledger_path_unresolvable"
+    p = Path(ledger_path)
+    if not p.exists():
+        return {}, "intel_ledger_missing"
+    try:
+        conn = sqlite3.connect(f"file:{p.as_posix()}?mode=ro", uri=True)
+        try:
+            index = lfc.load_capture_index(conn)
+        finally:
+            conn.close()
+    except sqlite3.DatabaseError as exc:
+        return {}, f"capture_table_unreadable:{exc}"
+    return index, ("available" if index else "no_captures")
 
 
 def sleeper_discovery_observations(
-    *, ledger_path: Path | None = None, ctx: IdentityContext
+    *,
+    ledger_path: Path | None = None,
+    ctx: IdentityContext,
+    captures: Mapping[str, list[dict[str, Any]]] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if ledger_path is None:
         try:
@@ -558,12 +625,16 @@ def sleeper_discovery_observations(
             conn.close()
     except sqlite3.DatabaseError as exc:
         return [], {"available": False, "reason": f"intel_ledger_unreadable:{exc}"}
+    capture_state = "provided"
+    if captures is None:
+        captures, capture_state = load_format_captures(p)
 
     grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for m in moves:
         grouped.setdefault((str(m["league_id"]), str(m["tx_id"])), []).append(m)
 
     out: list[dict[str, Any]] = []
+    format_sources: dict[str, int] = {}
     for (league_id, tx_id), group in grouped.items():
         lg = leagues.get(league_id) or {}
         try:
@@ -577,7 +648,13 @@ def sleeper_discovery_observations(
             group, lambda m: _sleeper_asset(m["asset_id"], m["asset_type"], ctx)
         )
         caveats.append("sleeper_trade_faab_component_not_recorded")
-        fmt, fmt_source = _sleeper_league_format(lg, settings)
+        fmt, fmt_source, fmt_evidence = _sleeper_league_format(
+            {**lg, "league_id": league_id},
+            settings,
+            captures=captures.get(league_id),
+            trade_ms=int(created) if created is not None else None,
+        )
+        format_sources[fmt_source] = format_sources.get(fmt_source, 0) + 1
         out.append(
             {
                 "observationId": f"{SOURCE_SLEEPER_DISCOVERY}:{league_id}:{tx_id}",
@@ -595,6 +672,7 @@ def sleeper_discovery_observations(
                 "timeFidelity": "exact" if created is not None else "undated",
                 "_format": fmt,
                 "formatSource": fmt_source,
+                "formatEvidence": fmt_evidence,
                 "sampleProvenance": {
                     "lane": "sharp_discovery_graph",
                     "discovery": settings.get("discovery") if isinstance(settings, dict) else None,
@@ -609,7 +687,16 @@ def sleeper_discovery_observations(
                 "caveats": caveats,
             }
         )
-    return out, {"available": True, "trades": len(out), "leagues": len({k[0] for k in grouped})}
+    return out, {
+        "available": True,
+        "trades": len(out),
+        "leagues": len({k[0] for k in grouped}),
+        "formatCaptures": {
+            "state": capture_state,
+            "leaguesWithCapture": len(captures),
+            "tradesByFormatSource": dict(sorted(format_sources.items())),
+        },
+    }
 
 
 # ── Own-league lane (C4-MTL-01) ──────────────────────────────────────────
@@ -722,8 +809,13 @@ def build_observations(
         rows, st = ktc_observations(archive_path=archive_path, ctx=ctx)
         observations += rows
         status[SOURCE_KTC] = st
+    captures: dict[str, list[dict[str, Any]]] = {}
+    if SOURCE_SLEEPER_DISCOVERY in wanted or SOURCE_KTC in wanted:
+        captures, _capture_state = load_format_captures(intel_ledger_path)
     if SOURCE_SLEEPER_DISCOVERY in wanted:
-        rows, st = sleeper_discovery_observations(ledger_path=intel_ledger_path, ctx=ctx)
+        rows, st = sleeper_discovery_observations(
+            ledger_path=intel_ledger_path, ctx=ctx, captures=captures
+        )
         observations += rows
         status[SOURCE_SLEEPER_DISCOVERY] = st
     if SOURCE_OWN_LEAGUE in wanted:
@@ -735,7 +827,7 @@ def build_observations(
         )
         observations += rows
         status[SOURCE_OWN_LEAGUE] = st
-    attach_host_formats(observations)
+    attach_host_formats(observations, captures=captures)
     for obs in observations:
         obs["marketFormat"] = obs["_format"].to_dict()
     return {
@@ -745,30 +837,100 @@ def build_observations(
     }
 
 
-def attach_host_formats(observations: list[dict[str, Any]]) -> int:
+def _ktc_conservative_trade_ms(occurred_date: Any) -> int | None:
+    """The EARLIEST instant a KTC day-dated trade can have happened.
+
+    KTC dates are day granularity in an unstated timezone (the grouping layer
+    allows one day either side), so a capture counts as in force for a KTC
+    trade only if it precedes 00:00 UTC of the day BEFORE the stated date.
+    """
+    if not occurred_date:
+        return None
+    try:
+        day = datetime.fromisoformat(str(occurred_date)[:10]).replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    return int((day - timedelta(days=1)).timestamp() * 1000)
+
+
+def attach_host_formats(
+    observations: list[dict[str, Any]],
+    *,
+    captures: Mapping[str, list[Mapping[str, Any]]] | None = None,
+) -> int:
     """Give a vendor observation its HOST-captured format when one exists.
 
-    A KTC row names its Sleeper league id; if the discovery graph captured
-    that league's real roster slots and scoring card, those host facts are a
-    stronger statement of format than the vendor's summary.  The vendor format
-    is kept beside it (``vendorFormat``).  Returns how many were upgraded.
+    A KTC row names its Sleeper league id; if the Sharp crawls captured that
+    league's real roster slots and scoring card, those host facts are a
+    stronger statement of format than the vendor's summary.  The Sharp lane's
+    timing rule applies: a capture in force at the (conservative) trade date
+    upgrades the row as ``host_capture_via_discovery``; a capture only from
+    AFTER the trade upgrades it as ``sleeper_league_capture_post_trade``, never
+    as exact-at-time.  The vendor format is kept beside it (``vendorFormat``).
+    Returns how many were upgraded.
+
+    ``captures`` is the dated capture index (``load_format_captures``); without
+    one, the legacy capture snapshots the Sharp observations in this batch were
+    built from are used.
     """
-    host: dict[tuple[str, str], mtf.TradeMarketFormat] = {}
-    for obs in observations:
-        if obs.get("formatSource") == "host_capture_via_discovery" and obs.get("hostLeagueId"):
-            host[(obs["host"], str(obs["hostLeagueId"]))] = obs["_format"]
+    from src.sharp import league_format_capture as lfc  # noqa: PLC0415
+
+    index: dict[str, list[Mapping[str, Any]]] = {}
+    if captures:
+        index = {str(k): list(v) for k, v in captures.items()}
+    else:
+        for obs in observations:
+            ev = obs.get("formatEvidence") or {}
+            if obs["sourceFamily"] != SOURCE_SLEEPER_DISCOVERY or not ev.get("timing"):
+                continue
+            captured_ms = _parse_iso_ms(ev.get("capturedAt"))
+            if captured_ms is None:
+                continue
+            index.setdefault(str(obs["hostLeagueId"]), []).append(
+                {**ev, "capturedMs": captured_ms, "_format": obs["_format"]}
+            )
     upgraded = 0
     for obs in observations:
         if obs["sourceFamily"] != SOURCE_KTC or not obs.get("hostLeagueId"):
             continue
-        fmt = host.get((obs["host"], str(obs["hostLeagueId"])))
-        if fmt is None:
+        if obs.get("host") != "sleeper":
             continue
+        cap, timing = lfc.capture_in_force(
+            index.get(str(obs["hostLeagueId"])),
+            _ktc_conservative_trade_ms(obs.get("occurredDate")),
+        )
+        if cap is None:
+            continue
+        if "_format" in cap:
+            fmt = cap["_format"]
+            evidence = {k: v for k, v in cap.items() if k not in ("_format", "capturedMs")}
+            evidence["timing"] = timing
+            evidence["exactAtTradeTime"] = timing == lfc.TIMING_AT_OR_BEFORE
+        else:
+            fmt = mtf.format_from_sleeper_league(cap["payload"], captured_at=cap.get("capturedAt"))
+            evidence = lfc.evidence_dict(cap, timing)
         obs["vendorFormat"] = obs["_format"].to_dict()
         obs["_format"] = fmt
-        obs["formatSource"] = "host_capture_via_discovery"
+        obs["formatSource"] = (
+            FORMAT_SOURCE_KTC_HOST_UPGRADE
+            if timing == lfc.TIMING_AT_OR_BEFORE
+            else FORMAT_SOURCE_CAPTURE_POST_TRADE
+        )
+        obs["formatEvidence"] = evidence
         upgraded += 1
     return upgraded
+
+
+def _parse_iso_ms(value: Any) -> int | None:
+    if not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return int(dt.timestamp() * 1000)
 
 
 def identity_summary(observations: Iterable[Mapping[str, Any]]) -> dict[str, Any]:

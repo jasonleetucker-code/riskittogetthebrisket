@@ -312,13 +312,30 @@ def format_from_sleeper_league(
 def capture_sleeper_league_format(league: Mapping[str, Any], *, captured_at: str) -> dict[str, Any]:
     """The persistable subset of a Sleeper league object.
 
-    Called by the Sharp discovery crawl (``src/sharp/discovery.py``) on the
-    league objects it ALREADY fetched — no extra request.  Only host facts are
-    kept: roster slots, the numeric scoring card, and the settings keys the
-    format reads.  Nothing about the discovering manager is stored here.
+    Persisted, append-only and dated, by the Sharp league-format capture owner
+    (``src/sharp/league_format_capture.py``) from league objects the Sharp
+    crawls fetch — mostly ones they ALREADY fetched (discovery's
+    ``/user/{id}/leagues``, the roster crawl's ``/league/{id}``).  Only host
+    facts are kept: roster slots, the numeric scoring card, and the settings
+    keys that describe the league's format and context.  Nothing about the
+    discovering manager is stored here.
     """
     settings = league.get("settings") if isinstance(league.get("settings"), Mapping) else {}
-    keep = ("type", "best_ball", "num_teams", "taxi_slots", "reserve_slots", "bench_lock")
+    keep = (
+        "type",
+        "best_ball",
+        "num_teams",
+        "taxi_slots",
+        "taxi_years",
+        "reserve_slots",
+        "bench_lock",
+        "max_keepers",
+        "playoff_teams",
+        "waiver_type",
+        "waiver_budget",
+        "trade_deadline",
+        "draft_rounds",
+    )
     return {
         "capturedAt": captured_at,
         "season": league.get("season"),

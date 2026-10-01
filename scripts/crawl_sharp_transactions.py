@@ -23,6 +23,20 @@ Both sides of every trade are recorded; the board filters to the
 QUALIFIED cohort at read time. See src/sharp/transactions.py for why
 that ordering is deliberate.
 
+LEAGUE FORMAT CAPTURE (second pass, same run)
+After the transaction pass, a separately budgeted pass records each
+trade-bearing / sharp-eligible league's point-in-time FORMAT (roster
+slots, scoring card, settings) from ``GET /v1/league/{id}`` into the
+append-only capture table the completed-trade ledger reads
+(src/sharp/league_format_capture.py). Never-captured leagues first, then
+the oldest check; a captured league is re-checked at most weekly and a
+``complete`` league never. A failure here is reported, never fails the
+transaction pass.
+
+    python scripts/crawl_sharp_transactions.py --format-budget 0       # skip it
+    python scripts/crawl_sharp_transactions.py --formats-only --format-budget 4000
+    python scripts/crawl_sharp_transactions.py --format-stats
+
 Exit codes: 0 success, 1 failure, 2 budget exhausted with leagues left.
 """
 
@@ -36,7 +50,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.sharp import transactions  # noqa: E402
+from src.sharp import league_format_capture, transactions  # noqa: E402
 
 log = logging.getLogger("crawl_sharp_transactions")
 
@@ -55,6 +69,22 @@ def main() -> int:
         action="store_true",
         help="Report crawl coverage and exit without fetching anything.",
     )
+    parser.add_argument(
+        "--format-budget",
+        type=int,
+        default=league_format_capture.DEFAULT_BUDGET,
+        help="Sleeper calls for the league-format capture pass (0 skips it).",
+    )
+    parser.add_argument(
+        "--formats-only",
+        action="store_true",
+        help="Run only the league-format capture pass (backfill).",
+    )
+    parser.add_argument(
+        "--format-stats",
+        action="store_true",
+        help="Report league-format capture coverage and exit without fetching.",
+    )
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
 
@@ -67,18 +97,40 @@ def main() -> int:
         if args.stats:
             print(json.dumps(transactions.crawl_coverage(), indent=2))
             return 0
+        if args.format_stats:
+            print(json.dumps(league_format_capture.capture_coverage(), indent=2))
+            return 0
 
-        kwargs = {}
-        if args.budget is not None:
-            kwargs["budget"] = args.budget
-        result = transactions.crawl_transactions(league_ids=args.leagues, **kwargs)
+        payload: dict = {}
+        tx_pending = False
+        if not args.formats_only:
+            kwargs = {}
+            if args.budget is not None:
+                kwargs["budget"] = args.budget
+            result = transactions.crawl_transactions(league_ids=args.leagues, **kwargs)
+            payload = result.to_dict()
+            payload["coverage"] = transactions.crawl_coverage()
+            tx_pending = bool(result.leagues_pending)
 
-        payload = result.to_dict()
-        payload["coverage"] = transactions.crawl_coverage()
+        format_pending = False
+        if args.format_budget > 0:
+            try:
+                fmt = league_format_capture.capture_league_formats(
+                    league_ids=args.leagues, budget=args.format_budget
+                )
+                payload["leagueFormats"] = fmt.to_dict()
+                payload["leagueFormatCoverage"] = league_format_capture.capture_coverage()
+                format_pending = bool(fmt.leagues_pending)
+            except Exception as exc:  # noqa: BLE001 — never fails the tx pass
+                log.exception("sharp league-format capture pass failed")
+                payload["leagueFormats"] = {"error": f"{type(exc).__name__}: {exc}"}
+                if args.formats_only:
+                    print(json.dumps(payload, indent=2))
+                    return 1
         print(json.dumps(payload, indent=2))
         # Partial is normal on a large graph — the next run continues
         # from the cursor, uncrawled leagues first.
-        return 2 if result.leagues_pending else 0
+        return 2 if (tx_pending or format_pending) else 0
     except Exception:  # noqa: BLE001
         log.exception("sharp transaction crawl failed")
         return 1
