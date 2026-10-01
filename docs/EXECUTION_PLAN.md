@@ -197,6 +197,59 @@ execution, source activation, or changes to merge/deploy authority.
 Week 1 remains a literal 30-row contract. Runtime entry and state contracts:
 `docs/agent-operating-system/STEWARD_RUNTIME.md`.
 
+## Valuation Trust Program — Batch 3 — owner directive, 2026-10-01
+
+**Authorized.** Objective: Calculator's dynasty values earn trust through evidence. It
+combines independent evidence, measures which evidence has been useful, handles
+stale, thin and correlated evidence honestly, keeps a separate fundamental model, and
+validates itself against future information and real completed trades.
+
+Four concepts are kept apart, never circular, and never averaged into one hidden
+number:
+
+- canonical market value;
+- independent fundamental value (BDVM);
+- the observed transaction market;
+- roster-specific impact.
+
+**Units (owner directive, Sections A–P):**
+
+| unit | scope | wave |
+|---|---|---|
+| A — source trust census | generated from canonical registries / dataset state / temporal ledger; every voting source + KTC Market + Signals; no subjective score | 1 |
+| D — Hill trainer / Autopilot repair | one source/trainer manifest; full pins; rank-only teaches order not spacing; family-aware holdouts (Fantasy Navigator never an independent KTC holdout); reproducible point-in-time refit | 1 |
+| J1 — BDVM correctness | fumble-recovery own/opp resolved by host-golden test (+ IDP Show adapter); `ProjectionRecord` source vocabulary/capability → per-player `unscoredKeys` | 1 |
+| I — completed-trade ledger | KTC Trade Database append-only raw archive + Sleeper transactions → canonical identities → underlying-trade groups with overlap uncertainty; evaluation harness first, no value rewrites | 1 |
+| G — ingestion / lineage integrity | per-family format / parser / identity / coverage / clocks / lineage revalidation, named open questions | 2 |
+| B/C — source-quality evaluator + weight challengers | leakage-safe, point-in-time, leave-family-out targets; lead/lag, transaction fit, stability, event response, fundamental foresight (secondary); preregistered gates; equal-family champion | 2 |
+| E — sparse-evidence estimator | central estimate vs uncertainty; censor-aware coverage only where semantics support it; must solve 4600→1380 without the ×3.33 deep-board explosion | 2 (data_contract writer) |
+| F — joint robust-filter shadow ledger | the #1571 filter half runs in shadow on every production board with an archived comparison | 2 |
+| D2 — clean Hill/KTC/DLF rerun | preregistered after D; KTC c3 / DLF Rank / DLF native spacing | 3 |
+| H — Signals authenticated inventory | when the owner session exists; second opinion until it is comparable and evaluated | when access exists |
+| J2 — BDVM projection challengers | reception-distance and first-down components, horizon-aware projection evaluation, prior calibration | 3 |
+| K/L — disagreement matrix + source trust scorecard | research-only; no blended number | 3 |
+| O — recurring evidence accumulation | automatic evaluation artifacts; no self-promotion | with each unit |
+
+**Promotion policy (Section N).**
+- Objective correctness fixes merge normally after tests and review.
+- Methodology candidates stay shadowed until a **preregistered, leakage-safe,
+  independently reviewed** gate passes. Such a pass is authorized to promote through
+  the model registry or feature-flag path, with a before/after board, rollback and an
+  ongoing shadow comparison.
+- Near-ties keep the incumbent. Gates are never lowered.
+- Never in this batch:
+  - activate the old `dynamic_source_weights`;
+  - ship the haircut removal alone;
+  - promote KTC c3 on the earlier post-hoc run;
+  - let Signals vote merely because authentication works;
+  - let completed trades rewrite values before dedupe and topology are validated;
+  - let BDVM become canonical market value.
+
+`data_contract.py` keeps one writer at a time. Units run in separate worktrees and PRs;
+there is no single "valuation rewrite" PR.
+
+Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
+
 ## #1555 Batch 2 — owner directive, 2026-10-01
 
 Signals permission resolved by owner attestation (*"I have explicit permission to use signals how I see
