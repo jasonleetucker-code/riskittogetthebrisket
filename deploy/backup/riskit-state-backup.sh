@@ -51,6 +51,11 @@
 #     PRIVATE: real rosters and per-player point estimates for our own
 #     leagues; same rules as league_events.sqlite — never committed,
 #     never force-added to the public repository.
+#   * data/learning/receipts.sqlite — Adaptive Learning AL-0 receipts
+#     (src/model_registry/receipt_store.py): the append-only record of what
+#     each model was evaluated on and how it did.  PRIVATE decision
+#     intelligence; same rules as league_events.sqlite.  Not a RET row —
+#     see the 2026-10-01 addendum in docs/retention/RETENTION_REGISTER.md.
 #   * data/playerctx/history/    — dated playerctx snapshots
 #     (C1-RET-08).  The directory ONLY: data/playerctx/ next door holds
 #     a 38 MB depth-chart CSV and a 14 MB Sleeper dump, both
@@ -422,6 +427,11 @@ backup_sqlite "${DATA_DIR}/board_history.sqlite"
 # awards, private proxy state, accounts. Online backup — never a raw file
 # copy, which would ignore the WAL.
 backup_sqlite "${DATA_DIR}/auction/auction.sqlite"
+# Adaptive Learning AL-0 receipts (src/model_registry/receipt_store.py):
+# append-only MODEL / FEATURES / CHALLENGER / EVALUATION / DRIFT receipts that
+# point into native stores. PRIVATE decision intelligence (never under data/ros/,
+# never committed). Online backup — the store runs in WAL mode.
+backup_sqlite "${DATA_DIR}/learning/receipts.sqlite"
 backup_file   "${DATA_DIR}/rank_history.jsonl"
 
 backup_dir "${DATA_DIR}/public_league"

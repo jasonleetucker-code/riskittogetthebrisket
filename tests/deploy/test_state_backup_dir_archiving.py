@@ -152,5 +152,7 @@ def test_the_retention_artifacts_are_in_the_backup_list():
         # Sleeper, so a generation that omits it is not a backup of
         # irreplaceable state.
         'backup_dir "${DATA_DIR}/game_day"',
+        # AL-0 (plan §23 A9): the append-only learning-receipt store.
+        'backup_sqlite "${DATA_DIR}/learning/receipts.sqlite"',
     ):
         assert expected in body, f"missing from the backup list: {expected}"
