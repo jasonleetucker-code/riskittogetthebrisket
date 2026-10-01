@@ -386,6 +386,15 @@ def _build_rows(
         )
 
     # 2. Depth-extension rows from individual pages.
+    #
+    # ONE observation per player.  FantasyPros lists dual-eligible edge
+    # rushers on BOTH the DL and the LB page, so a player absent from the
+    # combined page can be anchored once per family page with two
+    # different effective ranks (16 such duplicates on the 2026-09-23
+    # board; Batch 3 Unit G integrity sweep).  Keep the better effective
+    # rank — the entry the contract's highest-value pick already served —
+    # so de-duplicating changes no vote.
+    extension: dict[str, dict[str, Any]] = {}
     for fam, rows in family_rows.items():
         anchors = anchors_by_family.get(fam) or []
         for row in rows:
@@ -399,19 +408,21 @@ def _build_rows(
                 eff = 1
             if eff > _EXTRAPOLATION_CAP:
                 eff = _EXTRAPOLATION_CAP
-            out.append(
-                {
-                    "name": row["name"],
-                    "originalRank": int(row["rank"]),
-                    "effectiveRank": eff,
-                    "derivationMethod": "anchored_from_individual",
-                    "family": fam,
-                    "normalizedValue": _hill_curve_value(eff),
-                    "matchedSourceName": row["name"],
-                    "position": row["pos_id"],
-                    "team": row["team"],
-                }
-            )
+            prior = extension.get(row["name"])
+            if prior is not None and prior["effectiveRank"] <= eff:
+                continue
+            extension[row["name"]] = {
+                "name": row["name"],
+                "originalRank": int(row["rank"]),
+                "effectiveRank": eff,
+                "derivationMethod": "anchored_from_individual",
+                "family": fam,
+                "normalizedValue": _hill_curve_value(eff),
+                "matchedSourceName": row["name"],
+                "position": row["pos_id"],
+                "team": row["team"],
+            }
+    out.extend(extension.values())
 
     out.sort(key=lambda r: (r["effectiveRank"], r["name"]))
     return out, anchors_by_family

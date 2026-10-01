@@ -253,5 +253,52 @@ class TestMainExitCodes(unittest.TestCase):
             self.assertEqual(rc, 2)
 
 
+class TestOneObservationPerPlayer(unittest.TestCase):
+    """Batch 3 Unit G integrity sweep (2026-10-01).
+
+    FantasyPros lists dual-eligible edge rushers on BOTH the DL and the LB
+    positional pages.  A player absent from the combined page used to be
+    emitted once per family page with two different effective ranks — 16
+    such duplicates on the 2026-09-23 board (e.g. Dallas Turner: LB page
+    -> 89, DL page -> 118).  One board must carry one observation per
+    player.  The kept row is the better effective rank, which is exactly
+    the entry the contract's highest-value pick already serves, so the
+    repair changes no vote.
+    """
+
+    def _row(self, name, rank, pos_id):
+        return {"name": name, "rank": rank, "pos_id": pos_id, "team": "TST"}
+
+    def test_dual_listed_player_emitted_once_with_best_rank(self):
+        combined = [self._row(f"C{i}", i, "LB") for i in range(1, 6)]
+        lb_rows = [self._row(f"C{i}", i, "LB") for i in range(1, 6)]
+        lb_rows.append(self._row("Edge Guy", 6, "DE"))
+        dl_rows = [
+            self._row("C1", 1, "LB"),
+            self._row("C5", 2, "LB"),
+            self._row("Edge Guy", 9, "DE"),
+        ]
+        family_rows = {"LB": lb_rows, "DL": dl_rows}
+        rows, _anchors = fp._build_rows(combined, family_rows)
+        edge = [r for r in rows if r["name"] == "Edge Guy"]
+        self.assertEqual(len(edge), 1, edge)
+        by_name = {r["name"]: r for r in combined}
+        best = min(
+            fp._interpolate(6.0, fp._build_anchor_curve(lb_rows, by_name)),
+            fp._interpolate(9.0, fp._build_anchor_curve(dl_rows, by_name)),
+        )
+        self.assertEqual(edge[0]["effectiveRank"], int(round(best)))
+
+    def test_no_name_appears_twice(self):
+        combined = [self._row("A", 1, "LB"), self._row("B", 2, "DE")]
+        family_rows = {
+            "LB": [self._row("A", 1, "LB"), self._row("X", 2, "DE")],
+            "DL": [self._row("B", 1, "DE"), self._row("X", 2, "DE")],
+        }
+        rows, _ = fp._build_rows(combined, family_rows)
+        names = [r["name"] for r in rows]
+        self.assertEqual(len(names), len(set(names)), names)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -74,13 +74,26 @@ _FPF_ROW_FLOOR: int = 225
 # Per-position column to use for our Superflex + TE-Premium league.
 # Keys are the position label we stamp onto each row; values are
 # the CSV column-name alternatives we search for in priority order
-# (the first present column wins).
+# (the first column PRESENT IN THE HEADER wins, once per chart).
+#
+# QB and TE list ONLY their league-format columns.  On FantasyPros' QB
+# chart ``Trade Value`` is the 1QB number, and on the TE chart it is the
+# non-premium number, so neither may stand in for the format value: a
+# chart that does not publish the format column is refused
+# (FormatColumnMissing) and the last-good CSV is preserved, rather than a
+# 1QB / non-TEP board being written under a source the registry declares
+# superflex + TE-premium (Batch 3 Unit G integrity sweep, 2026-10-01).
 _POSITION_VALUE_COLUMNS = {
-    "QB": ("SF Value", "Superflex Value", "2QB Value", "Trade Value"),
+    "QB": ("SF Value", "Superflex Value", "2QB Value"),
     "RB": ("Trade Value", "Value"),
     "WR": ("Trade Value", "Value"),
-    "TE": ("TEP Value", "TE Premium Value", "Trade Value", "Value"),
+    "TE": ("TEP Value", "TE Premium Value"),
 }
+
+
+class FormatColumnMissing(RuntimeError):
+    """A chart does not publish the league-format value column for its position."""
+
 
 # Datawrapper chart IDs sometimes appear multiple times per article;
 # we only want the four rankings tables.  Identify them by matching
@@ -231,6 +244,15 @@ def _parse_chart_rows(csv_text: str, position: str) -> list[dict]:
     # Datawrapper's CSV is tab-separated despite the .csv extension.
     rdr = csv.DictReader(csv_text.splitlines(), delimiter="\t")
     col_choices = _POSITION_VALUE_COLUMNS.get(position, ("Trade Value",))
+    header = [str(c).strip() for c in (rdr.fieldnames or [])]
+    # One column per CHART, decided from the header.  A row whose cell in
+    # that column is blank has no published value in this format: it is
+    # dropped (missing), never backfilled from another format's column.
+    value_col = next((c for c in col_choices if c in header), None)
+    if value_col is None:
+        raise FormatColumnMissing(
+            f"{position} chart publishes none of {list(col_choices)} (header {header})"
+        )
     rows_out: list[dict] = []
     for row in rdr:
         name = (row.get("Name") or row.get("name") or "").strip()
@@ -240,13 +262,8 @@ def _parse_chart_rows(csv_text: str, position: str) -> list[dict]:
         if name.lower().startswith("all other "):
             continue
         team = (row.get("Team") or row.get("team") or "").strip()
-        raw_val: str | None = None
-        for col in col_choices:
-            if col in row and row[col] not in (None, ""):
-                raw_val = str(row[col]).strip()
-                if raw_val:
-                    break
-        if raw_val is None:
+        raw_val = str(row.get(value_col) or "").strip()
+        if not raw_val:
             continue
         try:
             val = int(float(raw_val))
@@ -377,7 +394,16 @@ def main() -> int:
                 file=sys.stderr,
             )
             continue
-        rows = _parse_chart_rows(csv_text, position)
+        try:
+            rows = _parse_chart_rows(csv_text, position)
+        except FormatColumnMissing as exc:
+            # Fail closed: writing the board without this position (or with
+            # its 1QB / non-premium number) would publish the wrong format.
+            print(
+                f"[fitzmaurice] ERROR: {exc} — preserving last-good CSV; not overwriting.",
+                file=sys.stderr,
+            )
+            return 1
         print(f"[fitzmaurice] {position} ({chart_id}): parsed {len(rows)} rows")
         all_rows.extend(rows)
 

@@ -186,3 +186,44 @@ def test_position_value_columns_registered_for_all_four(fz_module):
     # point of the per-position priority list.
     assert fz_module._POSITION_VALUE_COLUMNS["QB"][0] == "SF Value"
     assert fz_module._POSITION_VALUE_COLUMNS["TE"][0] == "TEP Value"
+
+
+# ── Format integrity (Batch 3 Unit G, 2026-10-01) ─────────────────────
+#
+# The league is Superflex + TE-premium.  FantasyPros publishes the 1QB
+# number under ``Trade Value`` on the QB chart and the non-premium number
+# under ``Trade Value`` on the TE chart.  Reading either one into a board
+# the registry declares SF / TEP is a silent FORMAT substitution, so the
+# format column is chosen once per chart from the HEADER and is never
+# backfilled per row from another format's column.
+
+
+def test_qb_chart_without_superflex_column_is_refused(fz_module):
+    no_sf = "Name\tTeam\tTrade Value\tValue Change\nJosh Allen\tBUF\t51\t-\n"
+    with pytest.raises(fz_module.FormatColumnMissing):
+        fz_module._parse_chart_rows(no_sf, "QB")
+
+
+def test_te_chart_without_premium_column_is_refused(fz_module):
+    no_tep = "Name\tTeam\tTrade Value\tValue Change\nBrock Bowers\tLV\t69\t-\n"
+    with pytest.raises(fz_module.FormatColumnMissing):
+        fz_module._parse_chart_rows(no_tep, "TE")
+
+
+def test_blank_format_cell_is_dropped_not_backfilled_from_1qb(fz_module):
+    # SF Value present in the header but blank for one row: that row has
+    # no published superflex value, so it is MISSING -- never the 1QB 46.
+    tsv = (
+        "Name\tTeam\tTrade Value\tSF Value\tValue Change\n"
+        "Josh Allen\tBUF\t51\t101\t-\n"
+        "Jayden Daniels\tWAS\t46\t\t-\n"
+    )
+    rows = fz_module._parse_chart_rows(tsv, "QB")
+    assert [r["name"] for r in rows] == ["Josh Allen"]
+    assert rows[0]["value"] == 101
+
+
+def test_format_columns_never_list_the_cross_format_trade_value(fz_module):
+    assert "Trade Value" not in fz_module._POSITION_VALUE_COLUMNS["QB"]
+    assert "Trade Value" not in fz_module._POSITION_VALUE_COLUMNS["TE"]
+    assert "Value" not in fz_module._POSITION_VALUE_COLUMNS["TE"]
