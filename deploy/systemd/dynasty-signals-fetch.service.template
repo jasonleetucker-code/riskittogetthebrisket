@@ -36,7 +36,10 @@ NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=__APP_DIR__/data/sources/signals
+# Write scope is the checkout's data/ dir, which always exists.  Naming the
+# store itself (data/sources/signals) failed with 226/NAMESPACE on the first
+# run: systemd cannot bind-mount a path the collector has not created yet.
+ReadWritePaths=__APP_DIR__/data
 ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/fetch_signals.py --min-interval-hours 5
 StandardOutput=journal
 StandardError=journal
