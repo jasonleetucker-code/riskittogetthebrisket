@@ -286,7 +286,10 @@ def append_record(base: Path, record: Mapping[str, Any]) -> bool:
         fh.write(line + "\n")
         fh.flush()
         os.fsync(fh.fileno())
+    index_torn = index.exists() and index.stat().st_size > 0 and not _ends_with_newline(index)
     with index.open("a", encoding="utf-8") as fh:
+        if index_torn:  # a crash mid-append: never glue the next key onto a partial one
+            fh.write("\n")
         for k in sorted(known) if seed else ():
             fh.write(k + "\n")
         fh.write(str(key) + "\n")

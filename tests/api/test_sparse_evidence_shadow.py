@@ -281,3 +281,17 @@ def test_cli_without_a_payload_is_a_soft_failure(tmp_path, monkeypatch):
     monkeypatch.setattr(shadow, "newest_live_payload", lambda _root: None)
     assert cli.main(["record", "--dir", str(tmp_path)]) == 1
     assert not any(Path(tmp_path).iterdir())
+
+
+def test_a_torn_index_line_never_swallows_the_next_key(tmp_path):
+    """A crash mid-append to ledger.keys leaves a partial line; the next key must
+    land on its own line so it is recognised (no duplicate on a re-record)."""
+    rec_a = {"key": "board-a", "recordedAt": "2026-10-01T08:05:00+00:00"}
+    rec_b = {"key": "board-b", "recordedAt": "2026-10-01T20:05:00+00:00"}
+    assert shadow.append_record(tmp_path, rec_a)
+    index = shadow.index_path(tmp_path)
+    with index.open("a", encoding="utf-8") as fh:
+        fh.write("board-tor")  # torn: no trailing newline
+    assert shadow.append_record(tmp_path, rec_b)
+    assert "board-b" in shadow.recorded_keys(tmp_path)
+    assert not shadow.append_record(tmp_path, rec_b)
