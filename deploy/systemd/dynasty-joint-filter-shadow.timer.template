@@ -1,5 +1,5 @@
 [Unit]
-Description=Joint robust-filter shadow ledger (every 6h) for __SERVICE_NAME__
+Description=Joint robust-filter shadow ledger (twice daily, 07:55 and 19:55 UTC) for __SERVICE_NAME__
 # No Requires= on the service: [Timer] Unit= already binds it, and a
 # Requires= here would start the service on every boot and let a service
 # failure stop the timer. Persistent=true is the catch-up.

@@ -35,6 +35,17 @@ today's pipeline code**. It is never what production served that day.
   outcome code relative to the other.
   - All 133 records carry `workingTreeDirty: false` and one
     `pipelineFingerprint`.
+  - That fingerprint is the **original, narrower** one: it hashes only
+    `data_contract.py`, `joint_robust_filter.py`, `player_valuation.py` and
+    `freshness_v1.json`. After PR #1590's review the fingerprint was widened
+    to every input that shapes a vote or its weight (`te_premium.py`,
+    `tail_policy.py`, `rank_coordinates.py`, `idp_backbone.py`,
+    `sources/freshness.py`, `sources/dataset_state.py`, every
+    `config/weights/*.json`). The committed evidence was not rewritten. Since
+    all 133 boards were rebuilt in one run at one code revision, the narrower
+    hash does not weaken the pairing here. It does mean these records, and any
+    live record written before the change, never pair with records written
+    after it.
   - Local `data/leagues` snapshots are hashed in each record.
 - **Variants.** Two builds per board on identical inputs. Only the challenger
   flag differs.
@@ -186,18 +197,34 @@ Full-pipeline cases, run through `csv_root` trees:
 
 ## Disposition
 
-**Filter half: NOT BETTER. Not promotion-eligible on this evidence.** Near-ties
-keep the incumbent.
+**Filter half: preregistered verdict INCONCLUSIVE. The challenger is NOT
+promoted and stays shadowed.** Near-ties keep the incumbent (§5).
 
-The preregistered verdict is INCONCLUSIVE, but it is **not** "insufficient":
+The verdict is the §5 rule applied as written, and nothing below upgrades it:
 
-- the minimum sample is met;
-- the 95% interval for Δ, [−0.009, +0.013], already sits nine times inside the
-  preregistered minimum effect of interest (±0.10).
+- It is not PROMOTION-ELIGIBLE: Δ lower95 is −0.0091, not > 0.
+- It is not NOT BETTER either. §5 needs Δ upper95 < 0 **or** G1 lower95 > 0;
+  the actual values are Δ upper95 +0.0133 and G1 lower95 −0.0015.
+- The minimum sample is met, so it is not INSUFFICIENT.
 
-So the archive does answer the question. On the full population, the challenger
-does not preserve subsequently useful evidence more often than the incumbent by
-any margin the rule cares about. It is equivalent within ±0.10, not better.
+**Equivalence is not a preregistered reading.** The ±0.10 "minimum effect of
+interest" in §5 was preregistered **only** to project how much more data an
+undecided answer needs. It is not an equivalence margin, and §5 has no
+equivalence verdict. Any statement such as "Δ's interval sits inside ±0.10" is a
+**post-hoc deviation** from the preregistration and carries two caveats that
+make it weak:
+
+- **The outcome barely moves.** Mean *m* is about 0 in every group (K 0.007,
+  X 0.002, R 0.0045): the independent consensus closes almost none of any gap
+  over 3–21 days. A narrow interval around 0 on a measure with that little
+  range reflects low power and low range of the outcome, not demonstrated
+  equivalence of the two filters.
+- **The intervals are probably too narrow.** The primary bootstrap resamples
+  only **6 week-blocks** (percentile intervals from 6 clusters are known to
+  under-cover), and the h = 7 outcome windows of consecutive origin days
+  **overlap**, so neighbouring blocks are not independent. The reported 95%
+  intervals likely understate the real uncertainty. That is a further reason
+  not to read INCONCLUSIVE as anything stronger.
 
 What would change this:
 
@@ -219,6 +246,11 @@ What would change this:
     The live ledger therefore mainly answers census questions on real
     production boards: drop rates, disagreement, and whether a safeguard ever
     fires.
+  - A panel is named by its full input identity: payload, code revision,
+    fingerprint, CSV tree and dataset-state tree. A CSV refreshed between two
+    runs on the same payload gives a new panel and a new record, not a
+    conflict. The same full identity with different content still fails
+    closed (exit 2).
   - It never writes a served value.
 - **Decisive re-test.** Re-run
   `python scripts/joint_filter_shadow.py backfill --include-degraded` followed
@@ -249,6 +281,15 @@ python scripts/joint_filter_shadow.py summary
   board-scale votes: independent of the disputed family, not of the shared Hill
   transform.
 - **Short archive.** 43 complete days gives only 6 week-blocks at h = 7 and 4
-  at h = 21.
+  at h = 21. Percentile intervals from that few clusters, over overlapping
+  outcome windows, are probably too narrow (see Disposition).
+- **The minimum sample counts board-observations, not independent ones.** The
+  380 K / 701 X observations count every (origin day, player, source) pair. A
+  disagreement that persists for a week is counted on each of its days, so
+  the independent sample is much smaller than the counts suggest.
+- **S2's episode dedupe is approximate.** It drops an observation only when
+  the same (player, source, side) was an *evaluable* observation on the
+  previous origin day. A run whose previous day had no evaluable target is
+  counted again, so S2 can under-deduplicate.
 
 Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
