@@ -46,6 +46,47 @@ A payload missing ``roster_positions`` or ``scoring_settings`` is NOT recorded:
 an incomplete object would hash differently from a complete one of the same
 league and manufacture a "settings change" out of a transport difference.
 
+WHICH LEAGUES ARE CAPTURED
+──────────────────────────
+Only DYNASTY leagues (Sleeper ``settings.type == 2``, the code
+``src/intel/league_filter.py`` keys on), plus leagues whose type is not stated
+(the payload is what would classify them).  Redraft and keeper leagues are
+checked and skipped (``not_dynasty``): the ledger's ``dynastyState`` axis can
+never MATCH them, so storing their 3-6 KB payloads would only grow the ledger.
+This is deliberately a DYNASTY filter, not a target-format filter: non-target
+dynasty formats (1QB, offense-only, other team counts) are kept for
+BROAD_CONTEXT and translator research.  Best ball is NOT a filter either — it
+is a format axis, and the owner's own target league is a dynasty best-ball
+league.
+
+RETENTION
+─────────
+:func:`prune_captures` (run from ``src/intel/ledger.prune``, the ledger's one
+retention pass) removes a capture only when ALL of: it is older than the
+movement retention horizon (``ledger.MOVEMENT_RETENTION_DAYS``); it is not the
+capture in force for any trade the ledger still retains; and it is either
+superseded by a later capture of the same league-season or its league has not
+been checked inside the horizon.  So the capture in force NOW for a live league
+is never pruned however old it is (an unchanged league inserts nothing, so its
+one row can legitimately be years old).
+
+LEGACY SNAPSHOTS
+────────────────
+Between #1586 and this owner, discovery wrote ``settings_json.marketFormat``,
+and ``ledger.upsert_leagues`` replaces ``settings_json`` wholesale on every
+re-discovery.  :func:`migrate_legacy_settings_snapshots` (one-shot, idempotent,
+run by :func:`ensure_schema`, which discovery calls BEFORE it upserts leagues)
+copies each snapshot into the capture table at its original ``capturedAt`` so
+the earlier date survives the overwrite.
+
+RATE LIMITS
+───────────
+The catch-up pass stops at the first HTTP 429 (``stopped_reason =
+"rate_limited"``) and never mistakes it for a deleted league.  It shares the
+box's public IP with every other Sharp crawl, so a large one-shot backfill
+(``--formats-only --format-budget 4000``) must not be run while another Sharp
+timer (discovery, records, rosters, transactions) is running.
+
 WHAT THIS DOES NOT DO
 ─────────────────────
 It computes no format axis (``src/trade/market_trade_format.py`` does, through
@@ -85,10 +126,33 @@ DEFAULT_SLEEP_S = 0.12
 #: near-static in season; discovery and the roster crawl re-capture for free
 #: in between whenever they touch the league.
 DEFAULT_REFRESH_AFTER_HOURS = 168
-#: Consecutive fetch failures that stop a pass: a run of ``None`` is far more
-#: likely Sleeper refusing us (rate limit, outage) than a run of deleted
-#: leagues, and spending the rest of the budget on it would only make it worse.
+#: Consecutive fetch ERRORS (transport failure / unexpected status) that stop
+#: a pass: a run of them is far more likely an outage than a run of bad ids,
+#: and spending the rest of the budget on it would only make it worse.  A
+#: deleted league (200 + ``null``, or 404) is an ANSWER, not an error, and does
+#: not count; a 429 stops the pass at once (``rate_limited``).
 MAX_CONSECUTIVE_FAILURES = 10
+
+RESULT_NOT_DYNASTY = "not_dynasty"
+RESULT_NOT_FOUND = "not_found"
+#: Check results that settle a never-captured league until its refresh window
+#: (it was looked at and has nothing to capture), instead of re-fetching it on
+#: every pass.
+_SETTLED_RESULTS = frozenset({RESULT_NOT_DYNASTY, RESULT_NOT_FOUND})
+
+
+class RateLimited(RuntimeError):
+    """Sleeper answered HTTP 429.  Raised by the pass's fetcher to stop it."""
+
+
+class _FetchErrorMarker:
+    def __repr__(self) -> str:  # pragma: no cover — debugging aid
+        return "FETCH_ERROR"
+
+
+#: What a pass fetcher returns for a transport failure / unexpected status —
+#: distinct from ``None``, which means the league does not exist.
+FETCH_ERROR = _FetchErrorMarker()
 
 #: A league whose last observed status is ``complete`` is frozen: its season
 #: is over and its settings no longer govern any trade.  Captured once, it
@@ -114,6 +178,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_slfc_point
   ON sharp_league_format_captures(league_id, season, payload_sha256, captured_ms);
 CREATE INDEX IF NOT EXISTS idx_slfc_league_time
   ON sharp_league_format_captures(league_id, captured_ms);
+CREATE INDEX IF NOT EXISTS idx_slfc_captured
+  ON sharp_league_format_captures(captured_ms);
 
 CREATE TABLE IF NOT EXISTS sharp_league_format_checks (
   league_id        TEXT PRIMARY KEY,
@@ -123,18 +189,42 @@ CREATE TABLE IF NOT EXISTS sharp_league_format_checks (
   last_error       TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_slfk_checked ON sharp_league_format_checks(last_checked_ms);
+
+CREATE TABLE IF NOT EXISTS sharp_league_format_migrations (
+  name        TEXT PRIMARY KEY,
+  applied_ms  INTEGER NOT NULL,
+  detail      TEXT
+);
 """
 
 #: The only tables this module writes.  Pinned by a structural test.
-WRITE_TABLES = ("sharp_league_format_captures", "sharp_league_format_checks")
+WRITE_TABLES = (
+    "sharp_league_format_captures",
+    "sharp_league_format_checks",
+    "sharp_league_format_migrations",
+)
+
+MIGRATION_LEGACY_SNAPSHOTS = "legacy_discovery_market_format_v1"
+SOURCE_LEGACY_SNAPSHOT = "legacy_discovery_settings_snapshot"
+#: A legacy snapshot with no ``capturedAt``: stored at the MIGRATION instant,
+#: which is an upper bound on when it was taken (it existed by then).  A trade
+#: after that instant genuinely had it in force; a trade before it reads as
+#: post-trade.  Never placed earlier than can be proven.
+SOURCE_LEGACY_SNAPSHOT_TIME_UNKNOWN = "legacy_discovery_settings_snapshot_time_unknown"
 
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
     """Additive ``CREATE TABLE IF NOT EXISTS`` — deliberately NOT wired to
     ``ledger.SCHEMA_VERSION``: a version bump runs ``_migrate`` and its table
-    clears on every deployed ledger, to add two tables nothing else reads.
-    (Same posture as ``roster_store.ensure_roster_schema``.)"""
+    clears on every deployed ledger, to add tables nothing else reads.
+    (Same posture as ``roster_store.ensure_roster_schema``.)
+
+    Also runs the one-shot legacy-snapshot migration
+    (:func:`migrate_legacy_settings_snapshots`), which commits itself the one
+    time it does work.  ``executescript`` commits too, so call this ONCE per
+    run, before any transaction that must stay open — never per league."""
     conn.executescript(_SCHEMA)
+    migrate_legacy_settings_snapshots(conn)
 
 
 def _iso(ms: int) -> str:
@@ -211,6 +301,17 @@ def _touch_check(
     )
 
 
+def capture_exclusion_reason(league: Mapping[str, Any]) -> str | None:
+    """``"not_dynasty"`` for a league whose stated Sleeper type is redraft or
+    keeper; ``None`` (capture it) for dynasty and for an unstated type."""
+    from src.intel import league_filter  # noqa: PLC0415
+
+    lt = league_filter.league_type(dict(league))
+    if lt is None or lt == league_filter.LEAGUE_TYPE_DYNASTY:
+        return None
+    return RESULT_NOT_DYNASTY
+
+
 def record_capture(
     conn: sqlite3.Connection,
     league: Mapping[str, Any],
@@ -223,7 +324,8 @@ def record_capture(
 
     ``"new"`` (a dated row was appended), ``"unchanged"`` (identical to the
     capture in force at ``captured_ms``), ``"incomplete"`` (not a full format
-    statement — nothing recorded) or ``"no_league_id"``.
+    statement — nothing recorded), ``"not_dynasty"`` (a redraft / keeper
+    league — checked, nothing recorded) or ``"no_league_id"``.
 
     Never commits: the caller owns its transaction, so a crawl keeps its own
     commit cadence.  The schema must already exist (:func:`ensure_schema`).
@@ -233,6 +335,10 @@ def record_capture(
         return "no_league_id"
     status_raw = league.get("status")
     status = str(status_raw).strip() if status_raw else None
+    excluded = capture_exclusion_reason(league)
+    if excluded is not None:
+        _touch_check(conn, lid, checked_ms=captured_ms, result=excluded, status=status)
+        return excluded
     payload = capture_payload(league)
     if payload is None:
         _touch_check(conn, lid, checked_ms=captured_ms, result="incomplete", status=status)
@@ -328,18 +434,106 @@ def load_capture_index(conn: sqlite3.Connection) -> dict[str, list[dict[str, Any
     return out
 
 
-def legacy_settings_capture(league_id: str, settings: Mapping[str, Any]) -> dict[str, Any] | None:
-    """A pre-capture-table ``settings_json.marketFormat`` snapshot (written by
-    discovery between #1586 and this change) as a dated candidate, so it obeys
-    the same timing rule as every other capture.  ``None`` if absent/undated."""
+def _legacy_snapshot(settings: Any) -> tuple[dict[str, Any], int | None, str | None] | None:
+    """``(payload, captured_ms | None, season)`` of a legacy
+    ``settings_json.marketFormat`` snapshot, or ``None`` when absent."""
     mf = settings.get("marketFormat") if isinstance(settings, Mapping) else None
     if not isinstance(mf, Mapping) or not mf.get("roster_positions"):
         return None
-    ms = _parse_iso_ms(mf.get("capturedAt"))
-    if ms is None:
-        return None
     payload = {k: v for k, v in mf.items() if k != "capturedAt"}
     season = str(mf.get("season")).strip() if mf.get("season") is not None else None
+    return payload, _parse_iso_ms(mf.get("capturedAt")), (season or None)
+
+
+def migrate_legacy_settings_snapshots(
+    conn: sqlite3.Connection, *, now_ms: int | None = None
+) -> dict[str, int] | None:
+    """One-shot, idempotent copy of every legacy ``marketFormat`` snapshot still
+    in ``leagues.settings_json`` into the capture table, at its ORIGINAL
+    ``capturedAt`` — before a re-discovery's wholesale ``settings_json``
+    overwrite can erase the earlier date.
+
+    Returns the counts the one time it runs, ``None`` once already applied.
+    A snapshot without ``capturedAt`` is stored at the migration instant (an
+    upper bound — see :data:`SOURCE_LEGACY_SNAPSHOT_TIME_UNKNOWN`).  A snapshot
+    missing roster slots or the scoring card is skipped, by the same
+    completeness rule :func:`record_capture` applies.  Re-running inserts
+    nothing (``INSERT OR IGNORE`` on the point key), and the marker row makes
+    every later call a single primary-key read.
+    """
+    done = conn.execute(
+        "SELECT 1 FROM sharp_league_format_migrations WHERE name = ?",
+        (MIGRATION_LEGACY_SNAPSHOTS,),
+    ).fetchone()
+    if done is not None:
+        return None
+    now = int(now_ms if now_ms is not None else time.time() * 1000)
+    try:
+        rows = conn.execute(
+            "SELECT league_id, season, settings_json FROM leagues "
+            "WHERE settings_json LIKE '%marketFormat%'"
+        ).fetchall()
+    except sqlite3.OperationalError as exc:
+        if "no such table" not in str(exc).lower():
+            raise
+        rows = []
+    counts = {"copied": 0, "copiedTimeUnknown": 0, "skippedIncomplete": 0, "unparseable": 0}
+    for league_id, league_season, settings_json in rows:
+        try:
+            settings = json.loads(settings_json or "{}")
+        except (TypeError, ValueError):
+            counts["unparseable"] += 1
+            continue
+        snap = _legacy_snapshot(settings)
+        if snap is None:
+            continue
+        payload, ms, season = snap
+        if not payload.get("roster_positions") or not payload.get("scoring_settings"):
+            counts["skippedIncomplete"] += 1
+            continue
+        source = SOURCE_LEGACY_SNAPSHOT
+        if ms is None:
+            ms, source = now, SOURCE_LEGACY_SNAPSHOT_TIME_UNKNOWN
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO sharp_league_format_captures
+              (league_id, season, payload_sha256, captured_ms, capture_source,
+               league_status, payload_json)
+            VALUES (?, ?, ?, ?, ?, NULL, ?)
+            """,
+            (
+                str(league_id),
+                season or (str(league_season) if league_season else None),
+                payload_sha256(payload),
+                int(ms),
+                source,
+                json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str),
+            ),
+        )
+        counts["copied" if source == SOURCE_LEGACY_SNAPSHOT else "copiedTimeUnknown"] += 1
+    conn.execute(
+        "INSERT OR IGNORE INTO sharp_league_format_migrations (name, applied_ms, detail) "
+        "VALUES (?, ?, ?)",
+        (MIGRATION_LEGACY_SNAPSHOTS, now, json.dumps(counts, sort_keys=True)),
+    )
+    conn.commit()
+    if any(counts.values()):
+        log.info("sharp.league_format_capture: legacy snapshot migration %s", counts)
+    return counts
+
+
+def legacy_settings_capture(league_id: str, settings: Mapping[str, Any]) -> dict[str, Any] | None:
+    """A pre-capture-table ``settings_json.marketFormat`` snapshot (written by
+    discovery between #1586 and this change) as a dated candidate, so it obeys
+    the same timing rule as every other capture.  ``None`` if absent/undated.
+
+    Read-side fallback for a ledger the migration has not reached yet; once
+    migrated the same snapshot is also a capture row (same payload, same
+    instant — the stored row wins the tie in :func:`capture_in_force`)."""
+    snap = _legacy_snapshot(settings)
+    if snap is None or snap[1] is None:
+        return None
+    payload, ms, season = snap
     return {
         "captureId": None,
         "leagueId": str(league_id),
@@ -351,6 +545,14 @@ def legacy_settings_capture(league_id: str, settings: Mapping[str, Any]) -> dict
         "leagueStatus": None,
         "payload": payload,
     }
+
+
+def _capture_order(c: Mapping[str, Any]) -> tuple[int, bool, int]:
+    """Oldest first; at the same instant a STORED row (``captureId`` set) sorts
+    after a read-side legacy candidate (``captureId`` None), so the stored row
+    wins the tie.  The missing id is ordered by the boolean, not coerced."""
+    cid = c.get("captureId")
+    return (int(c["capturedMs"]), cid is not None, int(cid) if cid is not None else -1)
 
 
 def capture_in_force(
@@ -377,7 +579,7 @@ def capture_in_force(
     ]
     if not cands:
         return None, None
-    cands = sorted(cands, key=lambda c: (int(c["capturedMs"]), c.get("captureId") or 0))
+    cands = sorted(cands, key=_capture_order)
     if at_ms is None:
         return cands[0], TIMING_TRADE_TIME_UNKNOWN
     prior = [c for c in cands if int(c["capturedMs"]) <= int(at_ms)]
@@ -412,6 +614,8 @@ class FormatCaptureResult:
     captures_new: int = 0
     captures_unchanged: int = 0
     incomplete_payloads: int = 0
+    not_dynasty: int = 0
+    not_found: int = 0
     fetch_failures: int = 0
     leagues_pending: int = 0
     calls_used: int = 0
@@ -427,6 +631,8 @@ class FormatCaptureResult:
             "capturesNew": self.captures_new,
             "capturesUnchanged": self.captures_unchanged,
             "incompletePayloads": self.incomplete_payloads,
+            "notDynasty": self.not_dynasty,
+            "notFound": self.not_found,
             "fetchFailures": self.fetch_failures,
             "leaguesPending": self.leagues_pending,
             "callsUsed": self.calls_used,
@@ -437,11 +643,23 @@ class FormatCaptureResult:
 
 
 def _default_http_get(url: str) -> Any:
-    # Same client the records and roster crawls use: a paced batch job must
-    # not ride the user-request circuit breaker (see ``records.py``).
+    """The pass's fetcher: the league payload, ``None`` for a league that does
+    not exist (200 + ``null`` / 404), :data:`FETCH_ERROR` for a transport
+    failure or unexpected status, and :class:`RateLimited` raised on a 429.
+
+    Same client the records and roster crawls use (a paced batch job must not
+    ride the user-request circuit breaker — see ``records.py``), through its
+    status-classifying variant so a 429 never reads as a deleted league."""
     from src.public_league import sleeper_client  # noqa: PLC0415
 
-    return sleeper_client._request_json(url)
+    kind, payload = sleeper_client.request_json_classified(url)
+    if kind == sleeper_client.FETCH_RATE_LIMITED:
+        raise RateLimited(url)
+    if kind == sleeper_client.FETCH_ERROR:
+        return FETCH_ERROR
+    if kind == sleeper_client.FETCH_NOT_FOUND:
+        return None
+    return payload
 
 
 def _target_league_ids(conn: sqlite3.Connection, *, ledger_path: Path | None) -> list[str]:
@@ -460,11 +678,12 @@ def _target_league_ids(conn: sqlite3.Connection, *, ledger_path: Path | None) ->
     return sorted(with_trades | eligible)
 
 
-def _check_state(conn: sqlite3.Connection) -> dict[str, tuple[int, str | None]]:
+def _check_state(conn: sqlite3.Connection) -> dict[str, tuple[int, str | None, str | None]]:
     return {
-        str(r[0]): (int(r[1]), r[2])
+        str(r[0]): (int(r[1]), r[2], r[3])
         for r in conn.execute(
-            "SELECT league_id, last_checked_ms, last_status FROM sharp_league_format_checks"
+            "SELECT league_id, last_checked_ms, last_status, last_result "
+            "FROM sharp_league_format_checks"
         ).fetchall()
     }
 
@@ -481,18 +700,22 @@ def _captured_league_ids(conn: sqlite3.Connection) -> set[str]:
 def due_league_ids(
     league_ids: Sequence[str],
     *,
-    checks: Mapping[str, tuple[int, str | None]],
+    checks: Mapping[str, tuple[Any, ...]],
     captured: set[str],
     now_ms: int,
     refresh_after_hours: float,
 ) -> list[str]:
     """Which leagues a pass should look at, in fair order.
 
-    Never-captured leagues are always due.  A captured league is due once its
-    last check is older than ``refresh_after_hours`` — unless its last observed
-    status is ``complete`` (frozen season).  Ordering is the shared
-    ``record_queue.prioritize_league_ids``: never-checked first, then the
-    oldest check, ties by id.
+    Never-captured leagues are due — unless their last check SETTLED them
+    (``not_dynasty`` / ``not_found``: looked at, nothing to capture), in which
+    case they follow the refresh rule below like a captured league.  A captured
+    league is due once its last check is older than ``refresh_after_hours`` —
+    unless its last observed status is ``complete`` (frozen season).  Ordering
+    is the shared ``record_queue.prioritize_league_ids``: never-checked first,
+    then the oldest check, ties by id.
+
+    ``checks`` values are ``(last_checked_ms, last_status[, last_result])``.
     """
     from src.sharp import record_queue  # noqa: PLC0415
 
@@ -500,13 +723,14 @@ def due_league_ids(
     due: list[str] = []
     for lid in league_ids:
         state = checks.get(lid)
-        if lid not in captured:
-            due.append(lid)
-            continue
         if state is None:
             due.append(lid)
             continue
-        last_ms, status = state
+        last_ms, status = state[0], state[1]
+        last_result = state[2] if len(state) > 2 else None
+        if lid not in captured and last_result not in _SETTLED_RESULTS:
+            due.append(lid)
+            continue
         if status and str(status).lower() in _FROZEN_STATUSES:
             continue
         if last_ms <= cutoff:
@@ -531,8 +755,12 @@ def capture_league_formats(
 
     Never raises on a fetch failure: the league is recorded as checked-and-
     failed (so the fair queue rotates past it) and the pass continues, up to
-    :data:`MAX_CONSECUTIVE_FAILURES` in a row.  Commits per league, so the
-    SQLite writer lock is never held across network I/O.
+    :data:`MAX_CONSECUTIVE_FAILURES` errors in a row.  A league that does not
+    exist (``None`` from the fetcher) is recorded ``not_found`` and is not an
+    error.  A 429 (:class:`RateLimited` from the fetcher) stops the pass at
+    once with ``stopped_reason="rate_limited"`` and leaves the league due.
+    Commits per league, so the SQLite writer lock is never held across network
+    I/O.  Must not overlap another Sharp crawl (shared public IP).
     """
     from src.intel import crawler  # noqa: PLC0415
 
@@ -570,9 +798,22 @@ def capture_league_formats(
                 result.budget_exhausted = True
                 result.leagues_pending = len(due) - idx
                 break
-            league = b.get(f"{SLEEPER_BASE}/league/{lid}")
+            try:
+                league = b.get(f"{SLEEPER_BASE}/league/{lid}")
+            except RateLimited:
+                result.stopped_reason = "rate_limited"
+                result.errors.append(f"rate_limited:{lid}")
+                result.leagues_pending = len(due) - idx
+                break
             fetched_ms = tick()
             result.leagues_checked += 1
+            if league is None:
+                # An answer, not a failure: the league id no longer exists.
+                result.not_found += 1
+                _touch_check(conn, lid, checked_ms=fetched_ms, result=RESULT_NOT_FOUND, status=None)
+                conn.commit()
+                consecutive = 0
+                continue
             if not isinstance(league, dict) or str(league.get("league_id") or lid) != lid:
                 result.fetch_failures += 1
                 result.errors.append(f"league_fetch_failed:{lid}")
@@ -601,6 +842,8 @@ def capture_league_formats(
                 result.captures_unchanged += 1
             elif outcome == "incomplete":
                 result.incomplete_payloads += 1
+            elif outcome == RESULT_NOT_DYNASTY:
+                result.not_dynasty += 1
             conn.commit()
         conn.commit()
     finally:
@@ -652,3 +895,121 @@ def capture_coverage(*, ledger_path: Path | None = None) -> dict[str, Any]:
         "captureRowsBySource": by_source,
         "oldestCheckMs": int(oldest[0]) if oldest and oldest[0] is not None else None,
     }
+
+
+# ── retention ─────────────────────────────────────────────────────────────
+
+_PRUNE_CHUNK = 400
+
+
+def prune_captures(
+    conn: sqlite3.Connection,
+    *,
+    now_ms: int | None = None,
+    retention_days: int | None = None,
+) -> int:
+    """Remove captures no retained trade and no live league needs.  Returns
+    the number of capture rows removed; ``0`` on a ledger with no capture table
+    (never creates it).
+
+    A capture is removed only when ALL hold:
+
+    1. ``captured_ms`` is older than the horizon (``retention_days``, default
+       ``ledger.MOVEMENT_RETENTION_DAYS`` — the same horizon ``ledger.prune``
+       drops movements at; this runs after it);
+    2. it is not the capture :func:`capture_in_force` selects for any trade the
+       ledger still holds in that league (the reader's exact rule: trade time
+       ``created_ms`` falling back to the movement ``ts``, the league's
+       season);
+    3. it is superseded by a later capture of the same league-season, OR the
+       league has not been checked inside the horizon.  The capture in force
+       NOW for a league still being looked at is kept however old it is — an
+       unchanged league inserts nothing, so its single row can be years old.
+
+    Commits when it removes anything.
+    """
+    days = int(retention_days if retention_days is not None else ledger.MOVEMENT_RETENTION_DAYS)
+    now = int(now_ms if now_ms is not None else time.time() * 1000)
+    cutoff = now - days * 24 * 3600 * 1000
+    try:
+        league_ids = [
+            str(r[0])
+            for r in conn.execute(
+                "SELECT DISTINCT league_id FROM sharp_league_format_captures WHERE captured_ms < ?",
+                (cutoff,),
+            ).fetchall()
+        ]
+    except sqlite3.OperationalError as exc:
+        if "no such table" in str(exc).lower():
+            return 0
+        raise
+    doomed: list[int] = []
+    for start in range(0, len(league_ids), _PRUNE_CHUNK):
+        chunk = league_ids[start : start + _PRUNE_CHUNK]
+        ph = ",".join("?" for _ in chunk)
+        caps: dict[str, list[dict[str, Any]]] = {}
+        for r in conn.execute(
+            "SELECT capture_id, league_id, season, captured_ms FROM sharp_league_format_captures "
+            f"WHERE league_id IN ({ph})",
+            chunk,
+        ).fetchall():
+            caps.setdefault(str(r[1]), []).append(
+                {"captureId": int(r[0]), "season": r[2], "capturedMs": int(r[3])}
+            )
+        seasons = {
+            str(r[0]): (str(r[1]) if r[1] else None)
+            for r in conn.execute(
+                f"SELECT league_id, season FROM leagues WHERE league_id IN ({ph})", chunk
+            ).fetchall()
+        }
+        trades: dict[str, list[int | None]] = {}
+        for r in conn.execute(
+            "SELECT m.league_id, COALESCE(t.created_ms, MIN(m.ts)) "
+            "FROM asset_movements m LEFT JOIN transactions t ON t.tx_id = m.tx_id "
+            f"WHERE m.tx_type = 'trade' AND m.league_id IN ({ph}) "
+            "GROUP BY m.league_id, m.tx_id",
+            chunk,
+        ).fetchall():
+            trades.setdefault(str(r[0]), []).append(int(r[1]) if r[1] is not None else None)
+        checked = {
+            str(r[0]): int(r[1])
+            for r in conn.execute(
+                "SELECT league_id, last_checked_ms FROM sharp_league_format_checks "
+                f"WHERE league_id IN ({ph})",
+                chunk,
+            ).fetchall()
+        }
+        for lid in chunk:
+            league_caps = caps.get(lid) or []
+            keep: set[int] = set()
+            for trade_ms in trades.get(lid, ()):
+                cap, _timing = capture_in_force(league_caps, trade_ms, season=seasons.get(lid))
+                if cap is not None:
+                    keep.add(int(cap["captureId"]))
+            if checked.get(lid, -1) >= cutoff:
+                latest: dict[Any, dict[str, Any]] = {}
+                for c in league_caps:
+                    cur = latest.get(c["season"])
+                    if cur is None or (c["capturedMs"], c["captureId"]) > (
+                        cur["capturedMs"],
+                        cur["captureId"],
+                    ):
+                        latest[c["season"]] = c
+                keep.update(int(c["captureId"]) for c in latest.values())
+            doomed.extend(
+                int(c["captureId"])
+                for c in league_caps
+                if c["capturedMs"] < cutoff and int(c["captureId"]) not in keep
+            )
+    for start in range(0, len(doomed), _PRUNE_CHUNK):
+        chunk_ids = doomed[start : start + _PRUNE_CHUNK]
+        conn.execute(
+            "DELETE FROM sharp_league_format_captures WHERE capture_id IN ("
+            + ",".join("?" for _ in chunk_ids)
+            + ")",
+            chunk_ids,
+        )
+    if doomed:
+        conn.commit()
+        log.info("sharp.league_format_capture: pruned %d captures", len(doomed))
+    return len(doomed)

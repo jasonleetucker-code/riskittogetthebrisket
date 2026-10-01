@@ -2180,7 +2180,14 @@ already fetch, plus a budgeted `GET /v1/league/{id}` catch-up pass run by the
 transaction-crawl timer (`--format-budget`).  The ledger normalizer picks the
 capture in force at each trade (`capture_in_force`: nearest prior →
 `sleeper_league_capture_full`; only a later one → `…_post_trade`, never exact;
-none → UNKNOWN).  Evidence only — it touches no value.
+none → UNKNOWN).  Evidence only — it touches no value.  **Only a capture taken
+at or before the trade can certify NATIVE_COMPARABLE**: `formatEvidence` travels
+onto the group and `market_trade_format.format_timing_cap` holds a post-trade,
+trade-time-unknown or undated capture at TARGET_UNSUPPORTED with the reason named
+(→ BROAD_CONTEXT when that tier lands).  Dynasty leagues only (best ball and
+non-target dynasty formats kept); retention via `prune_captures` from
+`ledger.prune`; the catch-up pass stops on HTTP 429 and must not overlap another
+Sharp timer.
 
 `server.py` calls `_sharp_service.register_http_routes()` explicitly
 after importing the module. The import-time side effect alone is not

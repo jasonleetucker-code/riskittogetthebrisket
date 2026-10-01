@@ -115,11 +115,23 @@ class TestAppendOnlyCapture:
             conn.close()
         assert _rows(db) == []
 
-    def test_module_never_updates_or_deletes_a_capture_row(self):
+    def test_module_never_updates_a_capture_row_and_deletes_only_in_retention(self):
         src = (REPO / "src/sharp/league_format_capture.py").read_text(encoding="utf-8")
         assert not re.search(r"UPDATE\s+sharp_league_format_captures", src, re.I)
-        assert not re.search(r"DELETE\s+FROM\s+sharp_league_format_captures", src, re.I)
         assert not re.search(r"REPLACE\s+INTO\s+sharp_league_format_captures", src, re.I)
+        # The ONE delete is the retention pass; nothing else may remove a row.
+        tree = ast.parse(src)
+        deleting = {
+            node.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef)
+            and re.search(
+                r"DELETE\s+FROM\s+sharp_league_format_captures",
+                ast.get_source_segment(src, node) or "",
+                re.I,
+            )
+        }
+        assert deleting == {"prune_captures"}, deleting
 
 
 # ── selection: nearest prior; a future capture is never exact ────────────
@@ -311,15 +323,24 @@ class TestIdpFirstClass:
 
 
 class FakeLeagues:
-    def __init__(self, leagues=None, fail=()):
+    """``fail`` -> transport error, ``missing`` -> league does not exist
+    (Sleeper's 200 + null), ``rate_limit`` -> HTTP 429."""
+
+    def __init__(self, leagues=None, fail=(), missing=(), rate_limit=()):
         self.leagues = leagues or {}
         self.fail = set(fail)
+        self.missing = set(missing)
+        self.rate_limit = set(rate_limit)
         self.calls: list[str] = []
 
     def __call__(self, url):
         self.calls.append(url)
         lid = url.rsplit("/", 1)[-1]
+        if lid in self.rate_limit:
+            raise lfc.RateLimited(url)
         if lid in self.fail:
+            return lfc.FETCH_ERROR
+        if lid in self.missing:
             return None
         return self.leagues.get(lid) or _league(lid)
 
@@ -454,3 +475,500 @@ def test_captures_cannot_reach_a_served_value():
 def test_target_positions_fixture_is_the_idp_target():
     # Guard for the IDP test above: the comparison target really is IDP.
     assert {"DL", "LB", "DB"} <= set(TARGET_POSITIONS)
+
+
+# ── review fix 1: a post-trade capture can never be NATIVE_COMPARABLE ────
+
+
+def _target():
+    return mtf.format_from_sleeper_league(sleeper_league("TGT"))
+
+
+def _group_disposition(obs):
+    from src.trade import market_trade_groups as grp
+
+    groups = grp.group_observations([obs]).groups
+    assert len(groups) == 1
+    g = groups[0]
+    return g, mtf.disposition(g["_format"], _target(), observation=g)
+
+
+class TestFormatTimingCap:
+    def _seed(self, db, *, trade_ms, capture_ms):
+        ledger.ingest_events(_trade_events("T1", "L1", trade_ms), path=db)
+        ledger.upsert_leagues([_league_row("L1")], path=db)
+        conn = _conn(db)
+        try:
+            lfc.record_capture(conn, _league(), captured_ms=capture_ms, source="t")
+            conn.commit()
+        finally:
+            conn.close()
+
+    def test_a_pre_trade_capture_can_reach_native_comparable(self, db):
+        self._seed(db, trade_ms=T0 + DAY, capture_ms=T0)
+        g, d = _group_disposition(_obs(db, "T1")[0])
+        assert g["formatEvidence"]["exactAtTradeTime"] is True, "evidence travels with the group"
+        assert d["disposition"] == mtf.NATIVE_COMPARABLE
+        assert d["formatTimingCap"] is None
+
+    def test_a_post_trade_capture_is_capped_with_the_reason_recorded(self, db):
+        # Identical format, every axis MATCHES — only the timing differs.
+        self._seed(db, trade_ms=T0, capture_ms=T0 + DAY)
+        g, d = _group_disposition(_obs(db, "T1")[0])
+        assert not d["formatAuthority"]["differentAxes"]
+        assert not d["formatAuthority"]["unknownAxes"]
+        assert d["disposition"] == mtf.TARGET_UNSUPPORTED
+        assert d["formatTimingCap"] == mtf.TIMING_CAP_POST_TRADE == "format_capture_post_trade"
+        assert d["formatAuthority"]["formatTimingCap"] == "format_capture_post_trade"
+        assert d["strongestUnsupportedAxis"] == mtf.FORMAT_TIMING_AXIS
+
+    @pytest.mark.parametrize(
+        "evidence, source, reason",
+        [
+            (
+                {"timing": "post_trade_capture", "exactAtTradeTime": False},
+                None,
+                "format_capture_post_trade",
+            ),
+            (
+                {"timing": "trade_time_unknown", "exactAtTradeTime": False},
+                None,
+                "format_time_unknown",
+            ),
+            # A label claiming exactness without the flag is not proof.
+            ({"timing": "at_or_before_trade"}, None, "format_capture_timing_unproven"),
+            # A capture-sourced format with NO dated evidence fails closed.
+            (None, "sleeper_league_capture_full", "format_capture_timing_unproven"),
+            (None, "host_capture_via_discovery", "format_capture_timing_unproven"),
+        ],
+    )
+    def test_no_unproven_timing_ever_reaches_native(self, evidence, source, reason):
+        fmt = mtf.format_from_sleeper_league(sleeper_league("SRC"))
+        obs = {"formatEvidence": evidence, "formatSource": source}
+        d = mtf.disposition(fmt, _target(), observation=obs)
+        assert d["disposition"] == mtf.TARGET_UNSUPPORTED
+        assert d["formatTimingCap"] == reason
+
+    def test_own_league_registry_format_is_not_capped(self):
+        # The own-league lane carries no formatEvidence: its format is the
+        # registry + live scoring card, not a dated capture.  Unaffected.
+        fmt = mtf.format_from_sleeper_league(sleeper_league("SRC"))
+        obs = {"formatSource": "registry_and_scoring_card"}
+        d = mtf.disposition(fmt, _target(), observation=obs)
+        assert d["disposition"] == mtf.NATIVE_COMPARABLE and d["formatTimingCap"] is None
+
+    def test_own_league_trade_also_seen_by_sharp_post_trade_stays_native(self, db):
+        # The same host trade in both lanes: the own-league (registry) member
+        # represents the group, so a Sharp member's post-trade capture cannot
+        # cap it — the own-league NATIVE path is untouched.
+        from src.trade import market_trade_groups as grp
+
+        self._seed(db, trade_ms=T0, capture_ms=T0 + DAY)
+        sharp = _obs(db, "T1")[0]
+        own = {
+            **sharp,
+            "observationId": f"{N.SOURCE_OWN_LEAGUE}:dynasty_main:T1",
+            "sourceFamily": N.SOURCE_OWN_LEAGUE,
+            "formatSource": "registry_and_scoring_card",
+            "_format": _target(),
+            "leagueKey": "dynasty_main",
+        }
+        own.pop("formatEvidence")
+        groups = grp.group_observations([sharp, own]).groups
+        assert len(groups) == 1
+        g = groups[0]
+        assert g["formatSource"] == "registry_and_scoring_card" and g["formatEvidence"] is None
+        d = mtf.disposition(g["_format"], _target(), observation=g)
+        assert d["disposition"] == mtf.NATIVE_COMPARABLE
+
+    def test_timing_vocabulary_matches_the_capture_owner(self):
+        assert mtf._TIMING_AT_OR_BEFORE == lfc.TIMING_AT_OR_BEFORE
+        assert mtf._TIMING_POST_TRADE == lfc.TIMING_POST_TRADE
+        assert mtf._TIMING_TRADE_TIME_UNKNOWN == lfc.TIMING_TRADE_TIME_UNKNOWN
+        assert {
+            N.FORMAT_SOURCE_CAPTURE_FULL,
+            N.FORMAT_SOURCE_CAPTURE_POST_TRADE,
+            N.FORMAT_SOURCE_KTC_HOST_UPGRADE,
+        } == set(mtf.CAPTURE_FORMAT_SOURCES)
+
+
+class TestKtcHostUpgradeTiming:
+    def _ktc(self, occurred="2026-09-25"):
+        return {
+            "observationId": "ktc:1",
+            "sourceFamily": N.SOURCE_KTC,
+            "host": "sleeper",
+            "hostLeagueId": "L1",
+            "occurredDate": occurred,
+            "_format": mtf.TradeMarketFormat(source=mtf.SOURCE_KTC),
+            "formatSource": "ktc_vendor_settings",
+        }
+
+    def _cap(self, ms, season="2026"):
+        payload = lfc.capture_payload(_league())
+        payload["season"] = season
+        return {
+            "captureId": 1,
+            "leagueId": "L1",
+            "season": season,
+            "capturedMs": ms,
+            "capturedAt": lfc._iso(ms),
+            "captureSource": "t",
+            "payload": payload,
+        }
+
+    def test_a_later_capture_upgrades_but_is_capped(self):
+        obs = self._ktc("2026-09-01")
+        N.attach_host_formats([obs], captures={"L1": [self._cap(T0)]})
+        assert obs["formatSource"] == N.FORMAT_SOURCE_CAPTURE_POST_TRADE
+        d = mtf.disposition(obs["_format"], _target(), observation=obs)
+        assert d["disposition"] == mtf.TARGET_UNSUPPORTED
+        assert d["formatTimingCap"] == "format_capture_post_trade"
+
+    def test_an_undated_ktc_row_is_time_unknown(self):
+        obs = self._ktc(None)
+        N.attach_host_formats([obs], captures={"L1": [self._cap(T0)]})
+        d = mtf.disposition(obs["_format"], _target(), observation=obs)
+        assert d["formatTimingCap"] == "format_time_unknown"
+
+    def test_a_prior_capture_is_exact_and_season_is_respected(self):
+        obs = self._ktc("2026-12-01")
+        N.attach_host_formats(
+            [obs], captures={"L1": [self._cap(T0)]}, league_seasons={"L1": "2026"}
+        )
+        assert obs["formatSource"] == N.FORMAT_SOURCE_KTC_HOST_UPGRADE
+        assert obs["formatEvidence"]["exactAtTradeTime"] is True
+        other = self._ktc("2026-12-01")
+        N.attach_host_formats(
+            [other], captures={"L1": [self._cap(T0, season="2025")]}, league_seasons={"L1": "2026"}
+        )
+        assert other["formatSource"] == "ktc_vendor_settings", "another season's capture is unused"
+
+
+# ── review fix 2: no write lock held across the roster crawl's fetches ──
+
+
+def test_roster_crawl_holds_no_write_lock_across_network_calls(tmp_path):
+    import sqlite3
+
+    from tests.sharp.test_roster_collect import fake_http, league_payload, seed_sleeper_membership
+
+    from src.sharp import roster_collect as rc
+
+    path = tmp_path / "ledger.sqlite3"
+    seed_sleeper_membership(path)
+    inner = fake_http(league=league_payload())
+    locked_at: list[str] = []
+    probed: list[str] = []
+
+    def probing_http(url):
+        # Another writer must be able to take the lock at every fetch.
+        other = sqlite3.connect(str(path), timeout=0)
+        try:
+            other.execute("BEGIN IMMEDIATE")
+            other.rollback()
+        except sqlite3.OperationalError:
+            locked_at.append(url)
+        finally:
+            other.close()
+        probed.append(url)
+        return inner(url)
+
+    rc.collect_sleeper_rosters(
+        manager_keys=["sleeper:u1"],
+        http_get=probing_http,
+        ledger_path=path,
+        sleep_fn=lambda _s: None,
+        now_ms=T0,
+    )
+    assert any(u.endswith("/rosters") for u in probed), "the fetch after the capture was probed"
+    assert locked_at == [], f"writer lock held during: {locked_at}"
+    conn = ledger.connect(path)
+    try:
+        assert conn.execute("SELECT COUNT(*) FROM sharp_league_format_captures").fetchone()[0] == 1
+    finally:
+        conn.close()
+
+
+# ── review fix 3: 429 is not a deleted league ────────────────────────────
+
+
+class TestRateLimitAndNotFound:
+    def test_a_429_stops_the_pass_at_once_and_leaves_the_league_due(self, db):
+        _seed_trade_leagues(db, ["L1", "L2", "L3"])
+        http = FakeLeagues(rate_limit={"L2"})
+        res = _pass(db, http)
+        assert res.stopped_reason == "rate_limited"
+        assert [c.rsplit("/", 1)[-1] for c in http.calls] == ["L1", "L2"]
+        assert res.leagues_pending == 2 and res.fetch_failures == 0
+        # L2 was never marked checked: the next pass starts there.
+        http2 = FakeLeagues()
+        _pass(db, http2, now_ms=T0 + 10 * DAY + HOUR)
+        assert [c.rsplit("/", 1)[-1] for c in http2.calls] == ["L2", "L3"]
+
+    def test_deleted_leagues_are_answers_not_failures(self, db):
+        ids = [f"L{i:02d}" for i in range(15)]
+        _seed_trade_leagues(db, ids)
+        res = _pass(db, FakeLeagues(missing=ids))
+        assert res.stopped_reason is None, "15 deleted leagues must not trip the failure stop"
+        assert res.not_found == 15 and res.fetch_failures == 0
+        # Settled until the refresh window — not re-fetched every pass.
+        assert _pass(db, FakeLeagues(), now_ms=T0 + 11 * DAY).leagues_due == 0
+
+    def test_classified_client_distinguishes_429_404_null_and_error(self, monkeypatch):
+        from src.public_league import sleeper_client as sc
+
+        class Resp:
+            def __init__(self, status, body=None, bad=False):
+                self.status_code, self._body, self._bad = status, body, bad
+
+            def json(self):
+                if self._bad:
+                    raise ValueError("bad json")
+                return self._body
+
+        answers = {
+            "u429": Resp(429),
+            "u404": Resp(404),
+            "unull": Resp(200, None),
+            "u500": Resp(500),
+            "ubad": Resp(200, bad=True),
+            "uok": Resp(200, {"league_id": "X"}),
+        }
+
+        class Session:
+            def get(self, url, timeout):
+                return answers[url.rsplit("/", 1)[-1]]
+
+        monkeypatch.setattr(sc, "_get_session", lambda: Session())
+        sc.reset_request_cache()
+        kinds = {k: sc.request_json_classified(f"https://x.test/{k}")[0] for k in answers}
+        assert kinds == {
+            "u429": sc.FETCH_RATE_LIMITED,
+            "u404": sc.FETCH_NOT_FOUND,
+            "unull": sc.FETCH_NOT_FOUND,
+            "u500": sc.FETCH_ERROR,
+            "ubad": sc.FETCH_ERROR,
+            "uok": sc.FETCH_OK,
+        }
+        # The legacy helper other callers rely on is unchanged: None for all non-200.
+        sc.reset_request_cache()
+        assert sc._request_json("https://x.test/u429") is None
+        sc.reset_request_cache()
+
+    def test_default_fetcher_raises_on_429_and_marks_errors(self, monkeypatch):
+        from src.public_league import sleeper_client as sc
+
+        monkeypatch.setattr(
+            sc, "request_json_classified", lambda url: (sc.FETCH_RATE_LIMITED, None)
+        )
+        with pytest.raises(lfc.RateLimited):
+            lfc._default_http_get("u")
+        monkeypatch.setattr(sc, "request_json_classified", lambda url: (sc.FETCH_ERROR, None))
+        assert lfc._default_http_get("u") is lfc.FETCH_ERROR
+        monkeypatch.setattr(sc, "request_json_classified", lambda url: (sc.FETCH_NOT_FOUND, None))
+        assert lfc._default_http_get("u") is None
+
+
+# ── review fix 4: dynasty-only captures + retention ──────────────────────
+
+
+class TestDynastyOnlyCaptures:
+    @pytest.mark.parametrize(
+        "ltype, best_ball, expected",
+        [(2, 1, "new"), (2, 0, "new"), (0, 0, "not_dynasty"), (1, 0, "not_dynasty")],
+    )
+    def test_only_dynasty_payloads_are_stored(self, db, ltype, best_ball, expected):
+        conn = _conn(db)
+        try:
+            lg = _league(ltype=ltype, best_ball=best_ball)
+            assert lfc.record_capture(conn, lg, captured_ms=T0, source="t") == expected
+            conn.commit()
+        finally:
+            conn.close()
+        assert len(_rows(db)) == (1 if expected == "new" else 0)
+
+    def test_unstated_type_is_kept_for_classification(self, db):
+        conn = _conn(db)
+        try:
+            lg = _league()
+            lg["settings"].pop("type")
+            assert lfc.record_capture(conn, lg, captured_ms=T0, source="t") == "new"
+            conn.commit()
+        finally:
+            conn.close()
+
+    def test_non_target_dynasty_formats_are_kept(self, db):
+        conn = _conn(db)
+        try:
+            one_qb = ["QB", "RB", "RB", "WR", "WR", "TE", "FLEX", "BN", "BN"]
+            assert (
+                lfc.record_capture(
+                    conn, _league(roster_positions=one_qb), captured_ms=T0, source="t"
+                )
+                == "new"
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def test_a_redraft_league_is_checked_once_then_settled(self, db):
+        _seed_trade_leagues(db, ["R1"])
+        res = _pass(db, FakeLeagues({"R1": _league("R1", ltype=0)}))
+        assert res.not_dynasty == 1 and _rows(db) == []
+        assert _pass(db, FakeLeagues(), now_ms=T0 + 11 * DAY).leagues_due == 0
+
+
+def _check(conn, lid, ms):
+    lfc._touch_check(conn, lid, checked_ms=ms, result="unchanged", status="in_season")
+
+
+class TestCaptureRetention:
+    NOW = T0 + 600 * DAY
+    OLD = T0  # 600 days before NOW: beyond the 400-day horizon
+
+    def _setup(self, db):
+        # LA: a retained trade at NOW-10d; captures at OLD (superseded) and
+        # OLD+100d (the one in force for the trade).
+        ledger.ingest_events(_trade_events("TA", "LA", self.NOW - 10 * DAY), path=db)
+        ledger.upsert_leagues([_league_row("LA")], path=db)
+        conn = _conn(db)
+        try:
+            for lid, ms, rec in (
+                ("LA", self.OLD, {"rec": 1.0}),
+                ("LA", self.OLD + 100 * DAY, {"rec": 0.5}),
+                ("LB", self.OLD, {"rec": 1.0}),  # live league, no trades
+                ("LC", self.OLD, {"rec": 1.0}),  # dead league, no trades
+                ("LD", self.NOW - DAY, {"rec": 1.0}),  # recent: always kept
+            ):
+                lfc.record_capture(conn, _league(lid, scoring=rec), captured_ms=ms, source="t")
+            _check(conn, "LA", self.NOW - DAY)
+            _check(conn, "LB", self.NOW - DAY)
+            _check(conn, "LC", self.OLD + DAY)
+            conn.commit()
+        finally:
+            conn.close()
+
+    def test_prune_keeps_what_is_in_force_and_drops_the_rest(self, db):
+        self._setup(db)
+        conn = ledger.connect(db)
+        try:
+            removed = lfc.prune_captures(conn, now_ms=self.NOW)
+        finally:
+            conn.close()
+        kept = {(r["league_id"], r["captured_ms"]) for r in _rows(db)}
+        assert removed == 2
+        assert kept == {
+            ("LA", self.OLD + 100 * DAY),  # in force for the retained trade
+            ("LB", self.OLD),  # the format in force now for a live league
+            ("LD", self.NOW - DAY),
+        }
+        # The retained trade still reads the same capture after pruning.
+        obs, _ = _obs(db, "TA")
+        assert obs["formatSource"] == "sleeper_league_capture_full"
+
+    def test_ledger_prune_runs_capture_retention(self, db):
+        self._setup(db)
+        ledger.prune(now_ms=self.NOW, path=db)
+        assert len(_rows(db)) == 3
+
+    def test_prune_on_a_ledger_without_the_table_is_a_noop(self, db):
+        conn = ledger.connect(db)
+        try:
+            assert lfc.prune_captures(conn, now_ms=self.NOW) == 0
+            assert not conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE name = 'sharp_league_format_captures'"
+            ).fetchone()
+        finally:
+            conn.close()
+
+
+# ── review fix 5: legacy settings snapshots survive re-discovery ────────
+
+
+def _legacy_settings(captured_at, **mf_overrides):
+    payload = lfc.capture_payload(_league())
+    mf = {**payload, **mf_overrides}
+    if captured_at is not None:
+        mf["capturedAt"] = captured_at
+    return json.dumps({"type": 2, "bestBall": 1, "marketFormat": mf})
+
+
+class TestLegacySnapshotMigration:
+    def _seed_legacy(self, db, settings_json):
+        ledger.upsert_leagues(
+            [
+                {
+                    "league_id": "L1",
+                    "season": "2026",
+                    "total_rosters": 12,
+                    "settings_json": settings_json,
+                }
+            ],
+            path=db,
+        )
+
+    def test_snapshot_is_copied_at_its_original_time_and_survives_overwrite(self, db):
+        self._seed_legacy(db, _legacy_settings(lfc._iso(T0)))
+        ledger.ingest_events(_trade_events("T1", "L1", T0 + DAY), path=db)
+        conn = ledger.connect(db)
+        try:
+            lfc.ensure_schema(conn)
+            assert lfc.migrate_legacy_settings_snapshots(conn) is None, "one-shot"
+        finally:
+            conn.close()
+        rows = _rows(db)
+        assert [(r["captured_ms"], r["capture_source"]) for r in rows] == [
+            (T0, lfc.SOURCE_LEGACY_SNAPSHOT)
+        ]
+        # Re-discovery overwrites settings_json without marketFormat ...
+        self._seed_legacy(db, json.dumps({"type": 2, "bestBall": 1}))
+        # ... and the trade still reads the earlier-dated capture.
+        obs, _ = _obs(db, "T1")
+        assert obs["formatSource"] == "sleeper_league_capture_full"
+        assert obs["formatEvidence"]["capturedAt"] == lfc._iso(T0)
+
+    def test_migration_is_idempotent(self, db):
+        self._seed_legacy(db, _legacy_settings(lfc._iso(T0)))
+        for _ in range(3):
+            conn = ledger.connect(db)
+            try:
+                lfc.ensure_schema(conn)
+                conn.execute("DELETE FROM sharp_league_format_migrations")
+                conn.commit()
+                lfc.migrate_legacy_settings_snapshots(conn)
+            finally:
+                conn.close()
+        assert len(_rows(db)) == 1
+
+    def test_undated_snapshot_is_stored_at_the_migration_bound(self, db):
+        self._seed_legacy(db, _legacy_settings(None))
+        conn = ledger.connect(db)
+        try:
+            conn.executescript(lfc._SCHEMA)  # tables only — run the migration by hand
+            counts = lfc.migrate_legacy_settings_snapshots(conn, now_ms=T0 + 5 * DAY)
+        finally:
+            conn.close()
+        assert counts["copiedTimeUnknown"] == 1
+        rows = _rows(db)
+        assert rows[0]["captured_ms"] == T0 + 5 * DAY
+        assert rows[0]["capture_source"] == lfc.SOURCE_LEGACY_SNAPSHOT_TIME_UNKNOWN
+
+    def test_discovery_migrates_before_it_overwrites_settings(self, db):
+        from tests.sharp.test_discovery import FakeSleeper, seeds, user
+
+        from src.sharp import discovery
+
+        self._seed_legacy(db, _legacy_settings(lfc._iso(T0)))
+        lg = _league()
+        lg["name"] = "League L1"
+        http = FakeSleeper(
+            {
+                f"{discovery.SLEEPER_BASE}/league/L0/users": [user("u1")],
+                f"{discovery.SLEEPER_BASE}/user/u1/leagues/nfl/2026": [lg],
+                f"{discovery.SLEEPER_BASE}/league/L1/users": [],
+            }
+        )
+        discovery.discover(http_get=http, seeds=seeds(seed_leagues=["L0"]), ledger_path=db)
+        sources = sorted(r["capture_source"] for r in _rows(db))
+        assert lfc.SOURCE_LEGACY_SNAPSHOT in sources, sources

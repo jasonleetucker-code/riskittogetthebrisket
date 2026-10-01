@@ -514,6 +514,9 @@ def group_observations(
                 "teamCount": rep.get("teamCount"),
                 "sides": rep["sides"],
                 "formatSource": rep.get("formatSource"),
+                # Travels WITH the format it dates: ``disposition`` reads it to
+                # keep a post-trade / undated capture off NATIVE_COMPARABLE.
+                "formatEvidence": rep.get("formatEvidence"),
                 "_format": rep.get("_format"),
                 "marketFormat": rep.get("marketFormat"),
                 "vendorFlags": flags,

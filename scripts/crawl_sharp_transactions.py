@@ -37,6 +37,13 @@ transaction pass.
     python scripts/crawl_sharp_transactions.py --formats-only --format-budget 4000
     python scripts/crawl_sharp_transactions.py --format-stats
 
+The pass stops at the first HTTP 429 (``stoppedReason: rate_limited``)
+rather than reading it as a deleted league. Every Sharp crawl shares the
+box's public IP, so run a large one-shot backfill (``--formats-only
+--format-budget 4000``) only while NO other Sharp timer is running
+(discovery 04:20, records 04:50, rosters 05:50, and this transaction
+timer itself) -- check ``systemctl list-timers 'dynasty-sharp-*'`` first.
+
 Exit codes: 0 success, 1 failure, 2 budget exhausted with leagues left.
 """
 

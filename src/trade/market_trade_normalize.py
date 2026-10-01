@@ -580,6 +580,34 @@ def load_format_captures(ledger_path: Path | None) -> tuple[dict[str, list[dict]
     return index, ("available" if index else "no_captures")
 
 
+def load_league_seasons(ledger_path: Path | None) -> dict[str, str]:
+    """``{league_id: season}`` from the intel ledger's ``leagues`` table, read
+    ``mode=ro``.  Lets a KTC row (which states no season) select only captures
+    of its Sleeper league's own season.  ``{}`` when unavailable — the
+    season filter then simply does not apply, it is never guessed."""
+    if ledger_path is None:
+        try:
+            from src.intel import ledger as intel_ledger  # noqa: PLC0415
+
+            ledger_path = intel_ledger.default_path()
+        except Exception:  # noqa: BLE001
+            return {}
+    p = Path(ledger_path)
+    if not p.exists():
+        return {}
+    try:
+        conn = sqlite3.connect(f"file:{p.as_posix()}?mode=ro", uri=True)
+        try:
+            rows = conn.execute(
+                "SELECT league_id, season FROM leagues WHERE season IS NOT NULL"
+            ).fetchall()
+        finally:
+            conn.close()
+    except sqlite3.DatabaseError:
+        return {}
+    return {str(r[0]): str(r[1]) for r in rows if r[0] and r[1]}
+
+
 def sleeper_discovery_observations(
     *,
     ledger_path: Path | None = None,
@@ -810,8 +838,11 @@ def build_observations(
         observations += rows
         status[SOURCE_KTC] = st
     captures: dict[str, list[dict[str, Any]]] = {}
+    league_seasons: dict[str, str] = {}
     if SOURCE_SLEEPER_DISCOVERY in wanted or SOURCE_KTC in wanted:
         captures, _capture_state = load_format_captures(intel_ledger_path)
+    if SOURCE_KTC in wanted and captures:
+        league_seasons = load_league_seasons(intel_ledger_path)
     if SOURCE_SLEEPER_DISCOVERY in wanted:
         rows, st = sleeper_discovery_observations(
             ledger_path=intel_ledger_path, ctx=ctx, captures=captures
@@ -827,7 +858,7 @@ def build_observations(
         )
         observations += rows
         status[SOURCE_OWN_LEAGUE] = st
-    attach_host_formats(observations, captures=captures)
+    attach_host_formats(observations, captures=captures, league_seasons=league_seasons)
     for obs in observations:
         obs["marketFormat"] = obs["_format"].to_dict()
     return {
@@ -857,6 +888,7 @@ def attach_host_formats(
     observations: list[dict[str, Any]],
     *,
     captures: Mapping[str, list[Mapping[str, Any]]] | None = None,
+    league_seasons: Mapping[str, str] | None = None,
 ) -> int:
     """Give a vendor observation its HOST-captured format when one exists.
 
@@ -871,7 +903,13 @@ def attach_host_formats(
 
     ``captures`` is the dated capture index (``load_format_captures``); without
     one, the legacy capture snapshots the Sharp observations in this batch were
-    built from are used.
+    built from are used.  ``league_seasons`` (``load_league_seasons``) restricts
+    a KTC row to captures of its league's own season where that season is known.
+
+    The upgraded row carries ``formatEvidence`` like any Sharp observation, so
+    the disposition's timing cap applies to it: a KTC upgrade from a capture
+    taken after the (conservative) trade date, or with no trade date at all,
+    can never be NATIVE_COMPARABLE.
     """
     from src.sharp import league_format_capture as lfc  # noqa: PLC0415
 
@@ -898,6 +936,7 @@ def attach_host_formats(
         cap, timing = lfc.capture_in_force(
             index.get(str(obs["hostLeagueId"])),
             _ktc_conservative_trade_ms(obs.get("occurredDate")),
+            season=(league_seasons or {}).get(str(obs["hostLeagueId"])),
         )
         if cap is None:
             continue

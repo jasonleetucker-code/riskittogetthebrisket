@@ -223,12 +223,6 @@ def _record_market_formats(
         return
     from src.sharp import league_format_capture as lfc  # noqa: PLC0415
 
-    try:
-        lfc.ensure_schema(conn)
-    except Exception:  # noqa: BLE001
-        log.warning("league format capture schema unavailable", exc_info=True)
-        result.market_format_capture_failures += len(observed)
-        return
     for league, captured_ms in observed:
         try:
             outcome = lfc.record_capture(
@@ -239,6 +233,22 @@ def _record_market_formats(
             result.market_format_capture_failures += 1
             continue
         result.market_format_captures[outcome] = result.market_format_captures.get(outcome, 0) + 1
+
+
+def _ensure_format_capture_schema(conn: Any) -> bool:
+    """Create the capture tables and run the one-shot legacy-snapshot
+    migration BEFORE ``upsert_leagues`` runs: that upsert replaces
+    ``settings_json`` wholesale, so migrating afterwards would lose every
+    earlier-dated ``marketFormat`` snapshot a re-discovered league carried."""
+    from src.sharp import league_format_capture as lfc  # noqa: PLC0415
+
+    try:
+        lfc.ensure_schema(conn)
+        conn.commit()
+        return True
+    except Exception:  # noqa: BLE001
+        log.warning("league format capture schema unavailable", exc_info=True)
+        return False
 
 
 def discover(
@@ -469,6 +479,7 @@ def discover(
     # nothing rather than duplicating.
     conn = ledger.connect(ledger_path)
     try:
+        capture_schema_ok = _ensure_format_capture_schema(conn)
         if users_batch:
             ledger.upsert_users(users_batch, conn=conn)
         if leagues_batch:
@@ -476,7 +487,10 @@ def discover(
             ledger.upsert_leagues(leagues_batch, conn=conn)
         if memberships:
             ledger.upsert_memberships(memberships, conn=conn)
-        _record_market_formats(format_observed, conn, result)
+        if capture_schema_ok:
+            _record_market_formats(format_observed, conn, result)
+        else:
+            result.market_format_capture_failures += len(format_observed)
         conn.commit()
     finally:
         conn.close()

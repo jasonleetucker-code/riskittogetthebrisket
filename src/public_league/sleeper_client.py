@@ -174,6 +174,56 @@ def _request_json(url: str, timeout: float = _DEFAULT_TIMEOUT) -> Any:
     return payload
 
 
+#: Outcome kinds of :func:`request_json_classified`.
+FETCH_OK = "ok"
+FETCH_NOT_FOUND = "not_found"
+FETCH_RATE_LIMITED = "rate_limited"
+FETCH_ERROR = "error"
+
+
+def request_json_classified(url: str, timeout: float = _DEFAULT_TIMEOUT) -> tuple[str, Any]:
+    """``(kind, payload)`` for one GET — the variant for paced batch crawls
+    that must tell "Sleeper refused us" apart from "this object is gone".
+
+    :func:`_request_json` maps every non-200 to ``None``, so a 429 reads
+    exactly like a deleted league; its other callers rely on that and are left
+    alone.  Here:
+
+    * ``ok`` — 200 with a non-null JSON body;
+    * ``not_found`` — 200 with a JSON ``null`` body (Sleeper's answer for a
+      league id that does not exist) or a 404;
+    * ``rate_limited`` — HTTP 429;
+    * ``error`` — transport failure, any other status, or an undecodable body.
+
+    Shares the response cache with :func:`_request_json` for ``ok`` answers only.
+    """
+    cached = _cache_get(url)
+    if cached is not None:
+        return FETCH_OK, cached
+    try:
+        resp = _get_session().get(url, timeout=timeout)
+    except Exception as exc:  # noqa: BLE001 — every transport failure is an error
+        log.warning("sleeper_client GET failed for %s: %s", url, exc)
+        return FETCH_ERROR, None
+    if resp.status_code == 429:
+        log.warning("sleeper_client GET %s rate limited (429)", url)
+        return FETCH_RATE_LIMITED, None
+    if resp.status_code == 404:
+        return FETCH_NOT_FOUND, None
+    if resp.status_code != 200:
+        log.warning("sleeper_client GET %s returned status %d", url, resp.status_code)
+        return FETCH_ERROR, None
+    try:
+        payload = resp.json()
+    except ValueError as exc:
+        log.warning("sleeper_client JSON decode failed for %s: %s", url, exc)
+        return FETCH_ERROR, None
+    if payload is None:
+        return FETCH_NOT_FOUND, None
+    _cache_put(url, payload)
+    return FETCH_OK, payload
+
+
 def fetch_nfl_state() -> dict[str, Any] | None:
     """Sleeper's own ``/state/nfl``: the host's answer to "what season and
     week is it right now".

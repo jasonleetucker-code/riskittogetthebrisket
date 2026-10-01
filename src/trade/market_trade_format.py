@@ -699,6 +699,70 @@ class TranslatorRegistry:
 DEFAULT_REGISTRY = TranslatorRegistry()
 
 
+#: Format-timing caps (see :func:`format_timing_cap`).
+TIMING_CAP_POST_TRADE = "format_capture_post_trade"
+TIMING_CAP_TIME_UNKNOWN = "format_time_unknown"
+TIMING_CAP_UNPROVEN = "format_capture_timing_unproven"
+#: Pseudo-axis named as ``strongestUnsupportedAxis`` when every real axis
+#: MATCHES and only the timing cap keeps the trade off NATIVE_COMPARABLE.
+FORMAT_TIMING_AXIS = "formatCaptureTiming"
+
+#: ``formatEvidence.timing`` values written by the capture owner
+#: (``src/sharp/league_format_capture.py`` — pinned equal by a test; not
+#: imported, so the format owner keeps no dependency on the Sharp crawl).
+_TIMING_AT_OR_BEFORE = "at_or_before_trade"
+_TIMING_POST_TRADE = "post_trade_capture"
+_TIMING_TRADE_TIME_UNKNOWN = "trade_time_unknown"
+
+#: ``formatSource`` labels whose format came from a DATED host capture, so its
+#: timing must be proven before it can price the target.
+CAPTURE_FORMAT_SOURCES = frozenset(
+    {
+        "sleeper_league_capture_full",
+        "sleeper_league_capture_post_trade",
+        "host_capture_via_discovery",
+    }
+)
+
+
+def format_timing_cap(observation: Mapping[str, Any] | None) -> str | None:
+    """The reason a format may NOT be NATIVE_COMPARABLE because of WHEN it was
+    observed, or ``None`` when timing does not cap it.
+
+    A host capture describes a trade only if it was taken AT OR BEFORE the
+    trade.  A capture from after the trade (``format_capture_post_trade``), one
+    whose trade time is unknown (``format_time_unknown``), or a capture-sourced
+    format carrying no dated evidence at all (``format_capture_timing_unproven``
+    — fails closed) is future leakage if allowed to certify a native match:
+    the league could have changed format in between.  Such trades stay
+    TARGET_UNSUPPORTED with the reason named; their axes are still computed
+    and published, and they are kept for broad research.
+
+    Formats that are not dated captures (the registry + live scoring card of
+    the owner's own league, a vendor summary, a partial discovery row) carry no
+    ``formatEvidence`` and are unaffected here.
+
+    NOTE: when the owner-directed BROAD_CONTEXT tier lands (a separate PR),
+    timing-capped trades move from TARGET_UNSUPPORTED to BROAD_CONTEXT — never
+    to NATIVE_COMPARABLE.
+    """
+    if observation is None:
+        return None
+    ev = observation.get("formatEvidence")
+    timing = ev.get("timing") if isinstance(ev, Mapping) else None
+    if timing is not None:
+        if timing == _TIMING_AT_OR_BEFORE and ev.get("exactAtTradeTime") is True:
+            return None
+        if timing == _TIMING_TRADE_TIME_UNKNOWN:
+            return TIMING_CAP_TIME_UNKNOWN
+        if timing == _TIMING_POST_TRADE:
+            return TIMING_CAP_POST_TRADE
+        return TIMING_CAP_UNPROVEN
+    if observation.get("formatSource") in CAPTURE_FORMAT_SOURCES:
+        return TIMING_CAP_UNPROVEN
+    return None
+
+
 def disposition(
     src: TradeMarketFormat,
     tgt: TradeMarketFormat,
@@ -706,16 +770,36 @@ def disposition(
     observation: Mapping[str, Any] | None = None,
     registry: TranslatorRegistry | None = None,
 ) -> dict[str, Any]:
-    """Exactly one target-pricing disposition, with every axis attached."""
+    """Exactly one target-pricing disposition, with every axis attached.
+
+    Pass the ``observation`` (or group) the format belongs to: its
+    ``formatEvidence`` decides the timing cap (:func:`format_timing_cap`).  A
+    capped format is never NATIVE_COMPARABLE; the cap reason is published as
+    ``formatTimingCap`` and inside ``formatAuthority``.
+    """
     reg = registry if registry is not None else DEFAULT_REGISTRY
     axes = compare_formats(src, tgt)
     authority = format_authority(axes)
+    timing_cap = format_timing_cap(observation)
+    authority["formatTimingCap"] = timing_cap
+    if timing_cap is not None:
+        # Timing is checked BEFORE any translator: a post-trade capture cannot
+        # be made comparable by transforming it either.
+        return {
+            "disposition": TARGET_UNSUPPORTED,
+            "strongestUnsupportedAxis": strongest_unsupported_axis(axes) or FORMAT_TIMING_AXIS,
+            "comparability": axes,
+            "formatAuthority": authority,
+            "formatTimingCap": timing_cap,
+            "translation": None,
+        }
     if not authority["differentAxes"] and not authority["unknownAxes"]:
         return {
             "disposition": NATIVE_COMPARABLE,
             "strongestUnsupportedAxis": None,
             "comparability": axes,
             "formatAuthority": authority,
+            "formatTimingCap": None,
             "translation": None,
         }
     translator = reg.validated_for(src, tgt)
@@ -726,6 +810,7 @@ def disposition(
             "strongestUnsupportedAxis": strongest_unsupported_axis(axes),
             "comparability": axes,
             "formatAuthority": authority,
+            "formatTimingCap": None,
             "translation": {
                 "originalObservationId": observation.get("underlyingTradeId")
                 or observation.get("observationId"),
@@ -743,6 +828,7 @@ def disposition(
         "strongestUnsupportedAxis": strongest_unsupported_axis(axes),
         "comparability": axes,
         "formatAuthority": authority,
+        "formatTimingCap": None,
         "translation": None,
     }
 

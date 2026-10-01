@@ -233,16 +233,39 @@ def league_format(league: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
+def _ensure_format_capture_schema(conn, result) -> bool:
+    """Create the league-format capture tables ONCE per run, before the league
+    loop.  ``ensure_schema`` is an ``executescript`` (which commits) plus a
+    one-shot migration, so it must never run per league.  ``False`` (captures
+    skipped for this run, recorded as an error) when it fails."""
+    try:
+        from src.sharp import league_format_capture as lfc  # noqa: PLC0415
+
+        lfc.ensure_schema(conn)
+        conn.commit()
+        return True
+    except Exception:  # noqa: BLE001 — format evidence is additive here
+        log.warning("sharp.roster_collect: league format capture schema failed", exc_info=True)
+        result.errors.append("format_capture_schema_failed")
+        return False
+
+
 def _record_format_capture(conn, league: dict[str, Any], league_id: str, result) -> None:
     """Append the dated league-format capture the trade ledger reads
     (``src/sharp/league_format_capture.py``) from the ``/league/{id}`` payload
     this pass ALREADY fetched — no extra request.  Best-effort by construction:
     a capture problem is recorded as an error and never costs a roster
-    observation."""
+    observation.
+
+    COMMITS (or rolls back) before returning: the capture write must not leave
+    a transaction open across the ``/rosters`` fetch, the pacing sleep and the
+    next league's fetch — on the shared WAL ledger that would hold the SQLite
+    writer lock across network I/O and block every other writer.  Nothing else
+    in this loop writes before the end-of-run ``record_rosters``, so this
+    commit carries only the capture."""
     try:
         from src.sharp import league_format_capture as lfc  # noqa: PLC0415
 
-        lfc.ensure_schema(conn)
         lfc.record_capture(
             conn,
             league,
@@ -250,9 +273,14 @@ def _record_format_capture(conn, league: dict[str, Any], league_id: str, result)
             source=lfc.SOURCE_ROSTER_CRAWL,
             league_id=str(league_id),
         )
+        conn.commit()
     except Exception:  # noqa: BLE001 — format evidence is additive here
         log.warning("sharp.roster_collect: league format capture failed", exc_info=True)
         result.errors.append(f"format_capture_failed:{league_id}")
+        try:
+            conn.rollback()
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def _contention(roster: dict[str, Any]) -> str:
@@ -510,6 +538,7 @@ def collect_sleeper_rosters(
         pool = set(manager_keys)
         observations: list[roster_store.RosterObservation] = []
         fetched: dict[str, dict[str, Any]] = {}
+        capture_formats = _ensure_format_capture_schema(conn, result)
 
         for league_id in _collection_order(list(by_league), conn=conn):
             member_keys = by_league[league_id]
@@ -522,7 +551,8 @@ def collect_sleeper_rosters(
                 result.errors.append(f"league_fetch_failed:{league_id}")
                 continue
             result.leagues_examined += 1
-            _record_format_capture(conn, league, league_id, result)
+            if capture_formats:
+                _record_format_capture(conn, league, league_id, result)
 
             rosters = b.get(f"{SLEEPER_BASE}/league/{league_id}/rosters")
             if not isinstance(rosters, list):
