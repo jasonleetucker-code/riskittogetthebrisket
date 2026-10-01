@@ -215,8 +215,13 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
       intentRef.current = { tab: normalized, deadline: performance.now() + RESOLVED_DEADLINE_MS };
     }
     setActiveTabState(normalized);
+    // `?year=` belongs to the Draft Capital tab only; leaving it drops it.
+    const params =
+      normalized === "draft-capital"
+        ? extraParams
+        : { [DRAFT_CAPITAL_YEAR_PARAM]: null, ...extraParams };
     router.replace(
-      leagueTabHref(normalized, searchParams.toString(), extraParams),
+      leagueTabHref(normalized, searchParams.toString(), params),
       { scroll: false },
     );
   }, [router, searchParams]);

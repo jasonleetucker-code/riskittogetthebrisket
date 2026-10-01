@@ -19,6 +19,13 @@ team's existing ``auctionDollars`` (pinned by tests), and a season the
 builders give a small share of the pool reads small rather than being
 inflated to look like a full draft.
 
+**A partially priced season ranks on its PRICED dollars.**  Unpriced picks
+(``dollarValue: null``) are excluded from a season's sum exactly as the
+builders already exclude them from ``auctionDollars``, and counted in
+``unpricedPickCountByYear`` so the row can say so.  Dollars are non-negative,
+so a team's priced sum is a floor on what a fully priced season would show;
+its rank is a rank of priced capital, not of all capital.
+
 **Available years are DATA, not a list.**  ``availableYears`` is the set of
 seasons the builder's pick inventory actually contains.  Which seasons those
 are is decided upstream by the existing retirement policy of each path — the
@@ -192,19 +199,20 @@ def attach_year_views(
         # Priced capital descending; a team whose capital is unknown sinks
         # below every known figure (including a true zero).  Name breaks ties
         # so the order is deterministic.
-        rows.sort(
-            key=lambda r: (
-                r["auctionDollars"] is None,
-                -(r["auctionDollars"] or 0),
-                r["team"].casefold(),
-            )
+        known = sorted(
+            (r for r in rows if r["auctionDollars"] is not None),
+            key=lambda r: (-r["auctionDollars"], r["team"].casefold()),
         )
+        unknown = sorted(
+            (r for r in rows if r["auctionDollars"] is None), key=lambda r: r["team"].casefold()
+        )
+        rows = known + unknown
         for i, r in enumerate(rows, start=1):
             r["rank"] = i if r["auctionDollars"] is not None else None
         by_year[key] = rows
         season_picks = sum(r["pickCount"] for r in rows)
         season_unpriced = sum(r["unpricedPickCount"] for r in rows)
-        total = sum(r["auctionDollars"] or 0 for r in rows)
+        total = sum(r["auctionDollars"] for r in rows if r["auctionDollars"] is not None)
         summaries[key] = {
             "totalDollars": int(total) if float(total).is_integer() else round(total, 2),
             "pickCount": season_picks,
