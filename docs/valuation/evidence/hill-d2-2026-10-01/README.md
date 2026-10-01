@@ -42,6 +42,18 @@ and the 2026-10-01 integrity sweep) to a board whose spacing either compared arm
   recorded OTC↔KTC relation is *not reproduced* (−0.204 / −0.146). Under a strict reading
   that counts the stale relation, **no** ancestry-safe holdout exists at all.
 
+  **Thin basis (post-hoc review note, 2026-10-01).** OTC was cleared on ONE snapshot
+  (2026-10-01), measured against KTC Crowd and KTC Trades only. Base `ktc` — the board that
+  carried the recorded +0.891 and that trains C0, M1 and M2 — was not re-measured as a named
+  pair (only lagged value identity was checked), and OTC was never measured as a named pair
+  against Dynasty Daddy, Dynasty Nerds, Yahoo/Boone, Fitzmaurice or Draft Sharks, so "no
+  relation" there means *unmeasured*, not *measured independent*; an indirect
+  OTC → FantasyCalc → Dynasty Daddy path also exists. The lineage owner is half-updated:
+  `config/sources/source_lineage.json` still carries `statistics.residualRho` 0.891
+  (`otc-ktc-dependence`) and 0.329 (`otc-fc-dependence`) beside refreshed summaries. If a
+  refreshed measurement against base KTC comes back positive, every verdict below loses its
+  holdout.
+
 Audit C20 (holdout boards still vote in the live blend) is unaffected and stays OPEN.
 
 ## Verdicts (primary: h = 7 days, OTC curve RMSE, Δ = RMSE_ref − RMSE_arm, > 0 ⇒ arm closer)
@@ -59,6 +71,14 @@ Origins 2026-05-15 → 2026-09-22: **131 origins over 131 days** (minimum 84 / 8
 Sensitivity S3 (origins ≥ 2026-07-30, after OTC was used once to select C0; n = 55):
 Q1 +297.1 [+292.9, +301.3], Q2 +698.9 [+657.8, +740.0], Q3 −18.9 [−22.1, −15.7],
 Q4 −861.3 [−891.6, −831.0]. Same verdict pattern.
+
+**Champion lookahead (post-hoc review note).** S3 addresses the *selection* exposure only.
+Champion v2 was fitted on 2026-07-28, so for 74 of the 131 origins C0 (and therefore the
+c3 arm in Q1, which composes on C0) uses data dated after the origin. OTC's spacing barely
+moves day to day, so selecting on the 07-29 OTC board is close to selecting on every OTC
+board and a post-selection window cannot remove that bias. It inflates Q1 toward c3 and
+makes Q2 conservative. Q1's *direction* is supported independently by S1 (c3 under M1,
+which was never selected on OTC: +1020).
 
 ### What each verdict means, and what it does not
 
