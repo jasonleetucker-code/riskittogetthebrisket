@@ -7,7 +7,8 @@ Wants=network-online.target
 # code -- the incumbent (flag sparse_evidence_estimator OFF: the 0.30
 # single-source retention, what production serves) and candidate C (flag ON:
 # censor-aware family bounds) -- and appends one line per board to the
-# append-only ledger data/sparse_evidence_shadow/ledger.jsonl: payload hash,
+# append-only monthly ledger data/sparse_evidence_shadow/ledger-YYYY-MM.jsonl
+# (idempotency from the ledger.keys index): payload hash, payload age,
 # code revision, each scoped row's evidenceState, C's estimate / interval /
 # bounds and the incumbent value. Evidence for a future re-preregistered
 # candidate (docs/valuation/evidence/sparse-evidence-2026-10-01/README.md).
@@ -27,7 +28,10 @@ Wants=network-online.target
 #   0 - recorded (or already recorded)
 #   1 - soft failure (no payload found, write error)
 #   2 - a built contract came back structurally wrong
-# systemd reports 1 and 2 as unit failures so the journal shows them.
+#   3 - the freshest payload (by its own scrapeTimestamp) is older than the
+#       6 h scrape-cadence budget, or states no scrape time: the feed may have
+#       stopped, so nothing is recorded rather than "already recorded"
+# systemd reports 1, 2 and 3 as unit failures so the journal shows them.
 
 [Service]
 Type=oneshot
