@@ -1069,8 +1069,11 @@ def deliver_reconnect_notice(
                     "episode": episode.get("id"),
                 }
             held = episode.get("noticeClaim") or {}
-            held_at = held.get("at")
-            if held_at is not None and now_fn() - float(held_at) < NOTICE_CLAIM_TTL_SECONDS:
+            try:
+                held_at = float(held["at"]) if held.get("at") is not None else None
+            except (TypeError, ValueError):
+                held_at = None  # unparseable (hand-edited) claim: treat as expired
+            if held_at is not None and now_fn() - held_at < NOTICE_CLAIM_TTL_SECONDS:
                 return {
                     "state": st.get("state"),
                     "pending": True,
@@ -1098,7 +1101,10 @@ def deliver_reconnect_notice(
             break
     delivered = delivered_via is not None
     try:
-        with store.lock(lock_timeout):
+        # Recording a SENT notice waits the full lock timeout (both callers run
+        # off the event loop): giving up after the short claim timeout would
+        # leave the send unrecorded and let it repeat once the claim expires.
+        with store.lock(max(lock_timeout, DEFAULT_LOCK_TIMEOUT_SECONDS)):
             current = store.read_status()
             live = current.get("episode") or {}
             if live.get("id") != episode_id:

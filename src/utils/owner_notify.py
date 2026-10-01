@@ -11,7 +11,9 @@ Rules:
 
 * **Never raises.**  A notification is best-effort: an unreachable ntfy server
   returns ``False`` and must never delay or fail the caller's real work.
-* **Short timeout** (:data:`DEFAULT_TIMEOUT_SECONDS`).
+* **Short timeout** (:data:`DEFAULT_TIMEOUT_SECONDS`), applied per socket
+  operation by urllib -- not a hard wall-clock cap (DNS is not covered), so
+  callers keep their own outer bound (e.g. a systemd ``TimeoutStartSec``).
 * **The URL is treated as a secret.**  A private ntfy topic name is a bearer
   credential for that topic, so it is never logged, printed or returned.
 * **https only** (plus http to loopback, for a self-hosted relay on the box).

@@ -888,3 +888,13 @@ def test_the_renewal_run_sends_one_prompt_ntfy_alert(tmp_path, monkeypatch):
     for _ in range(3):
         mod.main(["--store-dir", str(store_dir), "renew"])
     assert len(pushes) == 1
+
+
+def test_a_malformed_claim_never_crashes_the_notice_path(store, stub):
+    _stop(store, stub)
+    st = store.read_status()
+    st["episode"]["noticeClaim"] = {"id": "x", "at": "not-a-number"}
+    store.write_status(st)
+    ntfy = CountingChannel()
+    r = SA.deliver_reconnect_notice(store=store, channels=[("ntfy", ntfy)])
+    assert r["delivered"] is True and len(ntfy.sent) == 1
