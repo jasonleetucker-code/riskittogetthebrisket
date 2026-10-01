@@ -59,8 +59,8 @@ today.  A trade's format is exact at trade time only when it is BRACKETED:
   (:func:`confirm_after_trade`).
 
 Every unchanged re-observation is therefore logged, with its payload hash, in
-the append-only ``sharp_league_format_observations`` (throttled to one per
-payload per :data:`OBSERVATION_LOG_MIN_INTERVAL_MS`); a changed payload is a
+the append-only ``sharp_league_format_observations`` (near-duplicate repeats within
+:data:`OBSERVATION_LOG_MIN_INTERVAL_MS` of each other are collapsed); a changed payload is a
 new capture row, which is itself an observation.  A different hash after the
 trade → ``changed_after_trade``; nothing yet → ``unconfirmed_after_trade``.
 Both are capped below NATIVE_COMPARABLE by the ledger
@@ -247,11 +247,16 @@ WRITE_TABLES = (
 )
 
 #: An unchanged re-observation is logged (``sharp_league_format_observations``)
-#: only when no observation of the same payload is newer than this — discovery
-#: can see one league many times in a run (once per member).  Skipping a
-#: same-hash observation can only DELAY a confirmation, never fabricate one:
-#: a differing payload is always recorded (as a capture).
-OBSERVATION_LOG_MIN_INTERVAL_MS = 3_600_000
+#: only when no observation of the same payload is newer than this.  It exists
+#: only to collapse the near-simultaneous repeats of one crawl pass (discovery
+#: sees a league once per member, seconds apart).  It is deliberately SHORT:
+#: a suppressed same-hash observation is the only evidence that could confirm a
+#: trade falling inside the window, and a league that is never observed again
+#: (e.g. frozen ``complete``) would lose that confirmation permanently.  The
+#: residual is therefore a trade inside a 2-minute window after a same-hash
+#: observation of a league never seen again -- fail-closed (unconfirmed), never
+#: fabricated: a differing payload is always recorded (as a capture).
+OBSERVATION_LOG_MIN_INTERVAL_MS = 120_000
 
 #: ``formatEvidence.confirmationAfterTrade`` — the bracket's verdict
 #: (:func:`confirm_after_trade`).
