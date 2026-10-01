@@ -45,12 +45,28 @@ SAFEGUARD_REASONS = ("dominant_evidence_kept", "kept_to_avoid_single_family")
 #: Files whose content decides the board-scale votes the evaluation compares
 #: across boards. Two records with different fingerprints were built by
 #: different value code / curves, so their votes are not on one scale.
+#:
+#: Widened 2026-10-01 (PR #1590 review): the first version covered only the
+#: first four entries and missed the TE basis conversion, the tail policy, the
+#: rank-coordinate / IDP-backbone translation, the freshness and dataset-state
+#: owners and the weight configs -- all of which shape a vote or its weight.
+#: Records written before the widening carry the narrower fingerprint and so
+#: never pair with records written after it.
 FINGERPRINT_FILES = (
     "src/api/data_contract.py",
     "src/api/joint_robust_filter.py",
     "src/canonical/player_valuation.py",
     "config/sources/freshness_v1.json",
+    "src/league_intel/te_premium.py",
+    "src/canonical/tail_policy.py",
+    "src/canonical/rank_coordinates.py",
+    "src/canonical/idp_backbone.py",
+    "src/sources/freshness.py",
+    "src/sources/dataset_state.py",
 )
+#: Every file matching these joins the fingerprint too, so a weight config
+#: added later is covered without editing this list.
+FINGERPRINT_GLOBS = ("config/weights/*.json",)
 
 
 def variant_specs(csv_root: Path | str | None = None) -> tuple[dict, dict]:
@@ -310,13 +326,45 @@ def tree_sha256(root: Path, relative_dirs: Iterable[str], pattern: str = "*") ->
     return digest.hexdigest() if found else None
 
 
+def fingerprint_paths(repo_root: Path) -> list[str]:
+    """Repo-relative paths the fingerprint covers: the fixed list, then each glob."""
+    rels = list(FINGERPRINT_FILES)
+    for pattern in FINGERPRINT_GLOBS:
+        matched = sorted(
+            p.relative_to(repo_root).as_posix() for p in repo_root.glob(pattern) if p.is_file()
+        )
+        rels.extend(r for r in matched if r not in rels)
+    return rels
+
+
 def pipeline_fingerprint(repo_root: Path) -> str:
-    """sha256 over :data:`FINGERPRINT_FILES` -- which value code produced the votes."""
+    """sha256 over :func:`fingerprint_paths` -- which value code produced the votes."""
     digest = hashlib.sha256()
-    for rel in FINGERPRINT_FILES:
+    for rel in fingerprint_paths(repo_root):
         path = repo_root / rel
         digest.update(f"{rel}\0{file_sha256(path) if path.exists() else 'missing'}\n".encode())
     return digest.hexdigest()
+
+
+#: Pins that, with the payload hash, identify a panel's inputs. A panel is the
+#: pre-filter votes of one build, so it is a function of the payload, the value
+#: code (revision + fingerprint) and the CSV / dataset-state trees the build
+#: read. All of them are in the record key as well: differing inputs are
+#: distinct panels, never a conflict.
+PANEL_IDENTITY_PINS = (
+    "codeRevision",
+    "pipelineFingerprint",
+    "csvTreeSha256",
+    "stateTreeSha256",
+)
+
+
+def panel_identity(board: Mapping[str, Any], pins: Mapping[str, Any]) -> dict[str, str]:
+    """The full input identity of one board's observation panel."""
+    return {
+        "payloadSha256": str(board.get("payloadSha256")),
+        **{k: str(pins.get(k)) for k in PANEL_IDENTITY_PINS},
+    }
 
 
 def record_key(record: Mapping[str, Any]) -> str:

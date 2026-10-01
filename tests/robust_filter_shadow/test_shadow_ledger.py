@@ -180,15 +180,119 @@ def test_a_torn_last_line_is_skipped_and_never_rewritten(tmp_path):
     assert len(list(L.iter_records(path))) == 2
 
 
+def _identity(**overrides):
+    pins = {
+        "codeRevision": "c" * 40,
+        "pipelineFingerprint": "f" * 64,
+        "csvTreeSha256": "1" * 64,
+        "stateTreeSha256": "2" * 64,
+        **overrides,
+    }
+    return R.panel_identity({"payloadSha256": "a" * 64}, pins)
+
+
 def test_panels_are_write_once(tmp_path):
     panel = {"rows": {"Alpha": {"c": "offense", "o": {"dlfSf": 5000}}}}
-    p1, written = L.write_panel(tmp_path, "a" * 64, "f" * 64, panel)
+    p1, written = L.write_panel(tmp_path, _identity(), panel)
     assert written
-    p2, written_again = L.write_panel(tmp_path, "a" * 64, "f" * 64, panel)
+    p2, written_again = L.write_panel(tmp_path, _identity(), panel)
     assert (p2, written_again) == (p1, False)
     assert L.read_panel(p1) == panel
+    # Same FULL identity, different content: the build is not a function of its
+    # pinned inputs -- still fail-closed.
     with pytest.raises(L.PanelConflict):
-        L.write_panel(tmp_path, "a" * 64, "f" * 64, {"rows": {}})
+        L.write_panel(tmp_path, _identity(), {"rows": {}})
+
+
+def test_panel_identity_covers_every_input_in_the_record_key():
+    # Each input that is in the record key and shapes the votes is in the panel
+    # identity, so a change in any one of them names a different panel.
+    base = L.panel_name(_identity())
+    for pin in R.PANEL_IDENTITY_PINS:
+        assert L.panel_name(_identity(**{pin: "9" * 64})) != base, pin
+    # ... and every panel-identity pin is in the record key, so one record never
+    # points at two different panels.
+    for pin in R.PANEL_IDENTITY_PINS:
+        a = R.record_key({"pins": {pin: "x"}, "board": {"payloadSha256": "a" * 64}})
+        b = R.record_key({"pins": {pin: "y"}, "board": {"payloadSha256": "a" * 64}})
+        assert a != b, pin
+
+
+def test_a_refreshed_csv_on_the_same_payload_is_a_new_panel_not_a_conflict(tmp_path):
+    """PR #1590 review finding 2.
+
+    ``record`` builds the exports/latest payload against the LIVE CSVs and
+    scrape state. A box timer can refresh a CSV between two runs on the same
+    payload; the votes then differ. Under the old (payload, fingerprint) panel
+    name that raised PanelConflict before the record was appended -- the record
+    was lost and the unit exited 2 every run until the payload changed.
+    """
+    path = L.ledger_path(tmp_path)
+    board = {"payloadSha256": "a" * 64}
+    pins_before = {
+        "codeRevision": "c" * 40,
+        "pipelineFingerprint": "f" * 64,
+        "csvTreeSha256": "1" * 64,
+        "stateTreeSha256": "2" * 64,
+    }
+    pins_after = {**pins_before, "csvTreeSha256": "3" * 64}  # a CSV was refreshed
+    written = []
+    for pins, vote in ((pins_before, 5000), (pins_after, 5200)):
+        panel = {"rows": {"Alpha": {"c": "offense", "o": {"dlfSf": vote}}}}
+        rec = R.assemble_record(
+            mode=R.MODE_LIVE,
+            board=board,
+            pins=pins,
+            comparison={"counts": {}, "rows": []},
+            recorded_at="2026-10-01T00:00:00Z",
+        )
+        panel_path, _ = L.write_panel(tmp_path, R.panel_identity(board, pins), panel)
+        rec["panel"] = panel_path.name
+        written.append(L.append_record(path, rec))
+    assert written == [True, True]
+    records = list(L.iter_records(path))
+    assert len(records) == 2
+    assert records[0]["panel"] != records[1]["panel"]
+    votes = [
+        L.read_panel(tmp_path / L.PANEL_DIR / r["panel"])["rows"]["Alpha"]["o"]["dlfSf"]
+        for r in records
+    ]
+    assert votes == [5000, 5200]
+
+
+def test_pipeline_fingerprint_covers_the_vote_shaping_inputs():
+    """PR #1590 review finding 3: everything that shapes a vote or its weight."""
+    covered = set(R.fingerprint_paths(REPO))
+    required = {
+        "src/api/data_contract.py",
+        "src/api/joint_robust_filter.py",
+        "src/canonical/player_valuation.py",
+        "config/sources/freshness_v1.json",
+        "src/league_intel/te_premium.py",
+        "src/canonical/tail_policy.py",
+        "src/sources/freshness.py",
+        "src/sources/dataset_state.py",
+    }
+    assert required <= covered, required - covered
+    weights = {p.relative_to(REPO).as_posix() for p in (REPO / "config" / "weights").glob("*.json")}
+    assert weights and weights <= covered, weights - covered
+    for rel in covered:
+        assert (REPO / rel).is_file(), f"fingerprint names a missing file: {rel}"
+
+
+def test_pipeline_fingerprint_moves_when_a_weight_config_changes(tmp_path):
+    for rel in R.FINGERPRINT_FILES:
+        target = tmp_path / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("x", encoding="utf-8")
+    weights = tmp_path / "config" / "weights" / "te_premium_curve.json"
+    weights.parent.mkdir(parents=True, exist_ok=True)
+    weights.write_text("{}", encoding="utf-8")
+    before = R.pipeline_fingerprint(tmp_path)
+    weights.write_text('{"a": 1}', encoding="utf-8")
+    assert R.pipeline_fingerprint(tmp_path) != before
+    (tmp_path / "src/league_intel/te_premium.py").write_text("y", encoding="utf-8")
+    assert R.pipeline_fingerprint(tmp_path) != before
 
 
 # ── the incumbent shadow build IS the served board ──────────────────────

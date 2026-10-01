@@ -207,11 +207,9 @@ def record_board(
     rec = R.assemble_record(
         mode=mode, board=board, pins=pins, comparison=comparison, recorded_at=_now()
     )
-    path, _written_panel = L.write_panel(
-        base, board["payloadSha256"], pins["pipelineFingerprint"], panel
-    )
+    path, _written_panel = L.write_panel(base, R.panel_identity(board, pins), panel)
     rec["panel"] = str(path.relative_to(base)).replace("\\", "/")
-    # Panel path is derived from identity fields already in the key; re-key is unnecessary.
+    # Panel identity is a subset of the fields already in the key; re-key is unnecessary.
     written = L.append_record(L.ledger_path(base), rec)
     return rec, written
 
