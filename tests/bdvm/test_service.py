@@ -396,3 +396,13 @@ class TestPersistence(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestScoringCoverageCensus(unittest.TestCase):
+    def test_meta_publishes_the_unscored_rule_census(self):
+        payload = run()
+        coverage = payload["meta"]["scoringCoverage"]
+        self.assertIn("unscoredKeys", coverage)
+        self.assertIn("lower bound", coverage["note"])
+        for entry in payload["players"]:
+            self.assertIsInstance(entry["projection"]["unscoredKeys"], list)

@@ -609,6 +609,9 @@ def run_valuation(
                         {"source": s, "reason": why} for s, why in blended.stale_reasons
                     ],
                     "vocabularyLimitedSources": list(blended.vocabulary_limited),
+                    # Card rules this player's projection could not score: the
+                    # projected points are a lower bound by these rules.
+                    "unscoredKeys": list(blended.unscored_keys),
                 },
                 "replacement": {
                     "group": v.group,
@@ -718,6 +721,19 @@ def run_valuation(
         "players": players_out,
         "picks": picks_out,
         "unpriced": unpriced,
+    }
+    # Board-level census of card rules the projections could not score, so one
+    # glance shows which league rules every projected value silently omits.
+    unscored_census: dict[str, int] = {}
+    for entry in players_out:
+        for key in (entry.get("projection") or {}).get("unscoredKeys") or []:
+            unscored_census[key] = unscored_census.get(key, 0) + 1
+    payload["meta"]["scoringCoverage"] = {
+        "unscoredKeys": dict(sorted(unscored_census.items(), key=lambda kv: (-kv[1], kv[0]))),
+        "note": (
+            "Nonzero league-card rules a projected stat line could not supply; those "
+            "players' projected points are a lower bound by these rules."
+        ),
     }
 
     if write_snapshot_files:
