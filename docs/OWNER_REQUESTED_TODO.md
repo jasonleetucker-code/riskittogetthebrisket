@@ -1307,7 +1307,7 @@ concepts. Full unit list and promotion policy: `docs/EXECUTION_PLAN.md` →
 | BDVM measured fundamental engine: fumble recovery, source vocabulary, reception-distance and first-down components, horizon-aware projection evaluation, prior calibration | AUTHORIZED, waves 1 and 3 |
 | Market-vs-fundamental disagreement matrix and source trust scorecard (no single magic score) | AUTHORIZED, wave 3 |
 | ADDENDUM 2026-10-01: Sharp-discovered Sleeper league trades (whole qualifying leagues, not only Sharp managers) feed the Market Trade Ledger alongside KTC, IDP as a first-class objective. Reuse the existing Sharp acquisition owner and its cursors. Real per-league format captured from Sleeper. Raw observations kept apart from canonical underlying trades; `MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC.md` §19 dedupe hierarchy; a shared `underlyingTradeId` so a Sharp trade cannot vote twice; separate reporting of raw / unique / duplicate / probable / possible counts and IDP coverage | AUTHORIZED, Unit I (in progress) |
-| ADDENDUM 2026-10-01: every completed trade is format-normalized or excluded from target-league pricing. Target is `dynasty_main`, read from the canonical league/scoring/roster owners (actual scoring card, never the label). One canonical format fingerprint with inspectable per-dimension comparability. Exactly one disposition each: NATIVE_COMPARABLE, VALIDATED_TRANSFORMABLE or TARGET_UNSUPPORTED. Unknown format is not comparable. No global format multiplier. Translators must validate out of sample (paired same-source markets, then cross-format trades, then BDVM as a structural prior only). Later: a format-aware latent-price shadow model with `transactionMarketValueGeneric` vs `transactionMarketValueTargetLeague`; native evidence dominates translated evidence | AUTHORIZED. Unit I builds the fingerprint, dispositions and plumbing; all non-native observations are TARGET_UNSUPPORTED until a translator validates. Translators and the latent-price model follow as shadow challengers |
+| ADDENDUM 2026-10-01: every completed trade is format-normalized or excluded from target-league pricing. Target is `dynasty_main`, read from the canonical league/scoring/roster owners (actual scoring card, never the label). One canonical format fingerprint with inspectable per-dimension comparability. Exactly one disposition each: NATIVE_COMPARABLE, VALIDATED_TRANSFORMABLE or TARGET_UNSUPPORTED. Unknown format is not comparable. No global format multiplier. Translators must validate out of sample (paired same-source markets, then cross-format trades, then BDVM as a structural prior only). Later: a format-aware latent-price shadow model with `transactionMarketValueGeneric` vs `transactionMarketValueTargetLeague`; native evidence dominates translated evidence | AUTHORIZED. Unit I builds the fingerprint, dispositions and plumbing; all non-native observations are TARGET_UNSUPPORTED until a translator validates. Translators and the latent-price model follow as shadow challengers *Superseded in part, 2026-10-01 (continuation instructions): four dispositions — BROAD_CONTEXT added for verified-dynasty trades whose material format dimension differs or is unknown (`targetPriceAuthority = 0`), TARGET_UNSUPPORTED narrowed to hard insufficiency; its own PR after the bootstrap census (plan §35 T1).* |
 
 ## Added 2026-10-01 — Draft Capital year selector (owner request)
 
@@ -1338,6 +1338,8 @@ production output; promotion keeps its P6 evidence gates.
 
 **Delivery note:** the message was truncated after the heading "9." Sections 1–8 are recorded. **Sections 9+:
 truncated in delivery — pending owner re-send.** Nothing has been inferred about them.
+**Update, same day: RECEIVED.** The owner re-sent the full directive; sections 9–31 are recorded in the next
+entry and reconciled in plan Part III. The marker above is kept for traceability.
 
 **Detailed record (incorporation pointer):** `docs/research/ADAPTIVE_LEARNING_2026-09-26.md` Part II (§16–§25),
 extended in place; no competing plan. Authorization: `docs/EXECUTION_PLAN.md` §0, "Adaptive Learning /
@@ -1353,4 +1355,45 @@ Continuous Improvement — owner directive, 2026-10-01". Governance owner: `C10-
 | §6 BDVM + projection learning | archive every projection before the event; provider × position × stat × horizon × regime evaluation; equal-family ensemble champion; component calibration; MEASURED/MECHANICAL/PRIOR labels | `C5-BDVM-01`, `C5-ROS-01`/#854, Batch 3 J2 | NOW (archive/eval) / NEXT (ensembles, calibration) — AL-3 |
 | §7 Game Day learning | archive every generation; Brier/log loss/reliability/MAE/interval coverage by game state; shadow challengers; no promotion on one week | `C5-GD-01/02` | NEXT — AL-4 |
 | §8 Playoff / title learning | archive every point-in-time forecast; season-end calibration; calibration challengers before any simulation rebuild | `C5-PLAY-01` | NEXT — AL-5 |
-| §9+ | not received | — | PENDING OWNER RE-SEND |
+| §9+ | not received at first delivery — **RECEIVED by re-send 2026-10-01** | see the next entry | RECONCILED — next entry ("sections 9–31 + continuation instructions") |
+
+## Added 2026-10-01 — Adaptive Learning master roadmap, sections 9–31 + continuation instructions (owner re-send)
+
+The owner re-sent the full Adaptive Learning / Continuous Improvement Master Roadmap. Sections 1–8 are identical
+to the entry above. Sections 9–31 and the accompanying continuation instructions are new, and the continuation
+instructions are binding campaign sequencing. **Product vision, verbatim in substance:** Calculator should
+accumulate *experience*, not merely features: every week, game, projection, trade, bid, draft, source update and
+settled decision should let it evaluate its own assumptions. It is a continuously measured, evidence-driven
+Calculator that gets harder to fool, not an opaque AI that changes numbers on its own.
+
+**Detailed record (incorporation pointer):** `docs/research/ADAPTIVE_LEARNING_2026-09-26.md` **Part III (§26–§38)**,
+extended in place. Perishable-evidence audit: `docs/BRISKET_IDEAS.md` §13.4. Authorization:
+`docs/EXECUTION_PLAN.md` §0, "Adaptive Learning — sections 9–31, Wave 1 and campaign sequencing (owner re-send,
+2026-10-01)". Governance owner `C10-ML-01` + P6; no new manifest ID.
+
+| Directive section | Required outcome | Canonical owner | Planning position · authorization |
+|---|---|---|---|
+| §9 Power | descriptive and predictive objectives kept separate; evaluate components vs future outcomes; never sacrifice the public narrative contract | `C5-POW-01` | Wave 2 — AL-7 |
+| §10 Future picks | calibrated slot distribution; prospective evaluation; empirical annual discount curve | `C1-PICK-03` | Wave 2 — AL-6; capture AL-P4 in Wave 1 |
+| §11 FAAB / waiver market | clearing-price learning, hierarchical manager → league → market, unseen losing bids never zero, four populations separate | `C4-FAAB-01/02` | Wave 3 — AL-8 |
+| §12 Rookie auction | pre-sale state + clearing price; price curves, premiums, nomination and budget effects | `C7-DRAFT-02/03` | Wave 3 — AL-9 |
+| §13 Sharp / Manager Scout | Sharp Score weights as champion, validated vs future outcomes; behavioral learning; sparse shrinkage; accepted trades alone cannot calibrate acceptance | `C4-SHARP-01`, `C6-MGR-01` | Wave 3 — AL-10 / AL-11 (R14 stays CANDIDATE) |
+| §14 Trade recommendations | decision-time archive; multi-dimension outcome evaluation; never train to reproduce future canonical values | `C7-DESK-01` | Wave 3 — AL-13; capture AL-P5 in Wave 1 |
+| §15 Roster utility | solver stays deterministic; learn contribution distributions without a new value engine | `C2-STR-01`, `C2-REPL-01` | Wave 3 — AL-12 |
+| §16 Player development | point-in-time role / breakout / survival models vs future usage; may support BDVM, never market observations | `C6-UPP-01`, `C1-RET-08` | Wave 4 — AL-14 |
+| §17 Analyst reliability | outcome resolution; reliability by analyst × claim type × horizon; content lineage; no universal score | `C6-ANA-01` | Wave 4 — AL-15 |
+| §18 DFS | complete `docs/dfs/ROADMAP.md` Phase H; no second DFS learning system; chronological contest holdouts | `src/dfs/` | Wave 4 — AL-16 (pointer) |
+| §19 Alerts | learn actionability, never engagement; fewer, better alerts | `C7-ALERT-01` | Wave 4 — AL-17 |
+| §20 Adaptive acquisition | learned scheduling bounded by hard maximum-age floors | freshness owners | Wave 4 — AL-18 |
+| §21 Perishable data is a critical path | extend the existing audit; capture first | `docs/BRISKET_IDEAS.md` §13.4 | Wave 1 item 4 — AL-P1…AL-P8 ranked; AUTHORIZED, not yet built |
+| §22 Model Lab | backend / internal contract first; no confusing metrics for ordinary users; Lane 6 for user-facing confidence | `C10-ML-01` | Wave 1 item 5 — AL-0b |
+| §23 Roadmap order | Waves 1–4, Wave 1 = Valuation Trust, completed trades + KTC + Sharp/Sleeper IDP, format normalization, Wave-1 perishable gaps, shared receipts, BDVM/projection archive | plan §28 | RECORDED |
+| §24 Cadence | per family: observation / settlement / evaluation / refit / drift / promotion authority; retrain on evidence, never on a clock | plan §29 | BINDING |
+| §25 Rejected challengers | retained as evidence with config, fingerprint, results, why it failed, cohort effects | plan §30 | BINDING (AL-0 / AL-1a) |
+| §26 Explanation | learned influence changes carry evidence-generated reasons; Lane 6 displays | plan §31 | BINDING |
+| §27 Testing / safety | standing test checklist; random split prohibited where time ordering matters | plan §32 | BINDING |
+| §28 Authority | authorizes capture, receipts, evaluation, shadow challengers, scorecards, drift, domain loops, roadmap units; NOT autonomous trades / waivers / DFS entries, hidden recommendation changes, self-promotion, new paid data | `EXECUTION_PLAN.md` §0 | RECORDED |
+| §29 Style | small coherent PRs: FOUNDATION / VALUATION / PROJECTIONS-BDVM / INTEGRATION / UI-Lane 6; independent math and privacy review | plan §32 | BINDING |
+| §30 Completion standard | four closed loops in code on real data: SOURCE, TRADE, PROJECTION, MODEL GOVERNANCE | plan §34 | BINDING — none closed for a non-Hill family today |
+| §31 Session deliverables | reconcile, audit, begin Wave 1, review, PRs, merge non-promotional work, keep challengers shadowed, continue | this reconciliation + campaign | IN PROGRESS |
+| Continuation instructions | deploy verification → first KTC capture → bootstrap census → accumulated census after window turnover → BROAD_CONTEXT PR (four dispositions) → IDP inventory → translator readiness table → ≤ 1 preregistered shadow translator → AL-0 after round-two review → AL-1a | plan §37 | AUTHORIZED campaign order |

@@ -1,7 +1,8 @@
 # Calculator Adaptive Learning / Continuous Model Improvement — 2026-09-26
 
 **Status:** OWNER-DIRECTED PLANNING / RECONCILIATION — **the one Adaptive Learning plan.** Extended in place
-on 2026-10-01 by the owner's *Adaptive Learning / Continuous Improvement Master Roadmap* (Part II, §16–§25).  
+on 2026-10-01 by the owner's *Adaptive Learning / Continuous Improvement Master Roadmap* (Part II, §16–§25),
+and again the same day by the full re-send of that directive's sections 9–31 (Part III, §26–§38).  
 **Implementation authorization:** this file grants none. Since 2026-10-01, `docs/EXECUTION_PLAN.md` §0
 "Adaptive Learning / Continuous Improvement — owner directive, 2026-10-01" authorizes the dependency-ready
 foundation and roadmap units named in §23–§24. It does **not** authorize an unvalidated model to change a
@@ -15,6 +16,10 @@ production output; promotion keeps its P6 evidence gates. *(Superseded in place:
 > **Reading order.** Part I (§1–§15) is the 2026-09-26 reconciliation and stays valid except where §17 marks a
 > clause superseded. Part II (§16–§25) is the 2026-10-01 master roadmap: the shared learning receipt, the
 > governance rules, the five roadmap areas with owners and dependencies, and the first foundation unit.
+> Part III (§26–§38) reconciles directive sections 9–31: the remaining domains mapped to their native owners,
+> the Wave 1–4 roadmap order, per-family learning cadence, rejected-challenger retention, explanation and test
+> requirements, authority, the Model Lab contract, the four-closed-loop completion standard, the campaign
+> sequencing from the continuation instructions, and the extended perishable-evidence audit.
 
 ## 1. Owner-language definition
 
@@ -412,6 +417,9 @@ This record does **not** decide:
 - **Truncated in delivery:** the message ended after the heading "9." **Sections 9 onward were not received.**
   Nothing in this record infers their content. They are tracked as *pending owner re-send*. Any of them may
   add, refine or override Part II; when re-sent they are reconciled here under the same rules.
+  - **RESOLVED 2026-10-01 (later the same day):** the owner re-sent the directive in full. Sections 1–8 are
+    identical to what Part II records; sections 9–31 and binding continuation instructions are reconciled in
+    **Part III (§26–§38)** below. The original marker above is kept for traceability.
 - **Authority, in substance:** the directive is explicit owner authorization to *implement* the
   dependency-ready Adaptive Learning foundations and roadmap units. It is **not** blanket authorization for an
   unvalidated model to silently change production outputs. Methodology promotion keeps its existing evidence
@@ -447,6 +455,9 @@ instruction. Superseded text stays in place for traceability.
 Not superseded: R14 (private rejected/countered offers, considered-but-not-sent) stays a **CANDIDATE**. The
 receipt's NON-ACTION kind (§19) represents only what is *legitimately observable* through an existing owner;
 it does not authorize R14 capture. Sections 9+ might address this; until they are received, R14 is unchanged.
+*Update 2026-10-01 (Part III §27, §35):* §13 of the re-send says rejected / countered / expired offers are
+needed for calibrated acceptance probability **"when legitimately available"**, and §28 does not list private
+offer capture among the authorized work. R14 therefore stays a **CANDIDATE**; nothing changed.
 
 ## 18. Invariant — facts and rules do not learn
 
@@ -759,7 +770,8 @@ and training-manifest precedent. The schema design and preregistration text may 
 
 ## 25. Unresolved — Part II
 
-- Sections 9+ of the directive were not received (pending owner re-send).
+- Sections 9+ of the directive were not received (pending owner re-send). **RESOLVED 2026-10-01:** received
+  and reconciled in Part III; Part III §38 carries the current unresolved list.
 - No per-model-family automatic-promotion policy exists outside Hill Autopilot and Batch 3 §N. A family without
   one promotes only by explicit owner approval.
 - The D2 / D3 playoff methodology decisions remain open (OWNER_REQUESTED_TODO 2026-09-26). The "league settings
@@ -771,3 +783,365 @@ and training-manifest precedent. The schema design and preregistration text may 
   sparse until a separately authorized capture unit lands.
 - Production observation of the pregame projection archive and of the backup set is UNVERIFIED in this
   planning unit.
+
+---
+
+# Part III — Directive sections 9–31 and continuation instructions (owner re-send, 2026-10-01)
+
+## 26. Provenance and precedence of the re-send
+
+- **Source:** the owner re-sent the full *Calculator — Adaptive Learning / Continuous Improvement Master
+  Roadmap* in chat on 2026-10-01, after #1593 had recorded sections 1–8 from the truncated first delivery.
+  Sections 1–8 in the re-send are identical in substance to Part II, so Part II stands unchanged. Sections
+  9–31 and the accompanying **continuation instructions** (operational, binding for this campaign) are new.
+  Intake pointer: `docs/OWNER_REQUESTED_TODO.md`, entry "Added 2026-10-01 — Adaptive Learning master roadmap,
+  sections 9–31 + continuation instructions (owner re-send)".
+- **Precedence:** `MASTER_PRODUCT_PLAN.md` §2 rule 1 (the most recent explicit owner instruction wins) and the
+  dated-instruction practice of `C_SERIES_DIRECTIVE_RECONCILIATION_2026-08-17.md` §4. Where Part III and Part II
+  disagree, Part III wins; §35 lists every such case. Superseded text stays in place.
+- **Authority:** §28 of the directive (recorded in §32 below) authorizes planning reconciliation, required
+  archive/capture work, shared learning receipts, evaluation infrastructure, shadow challengers, scorecards,
+  drift monitoring, domain evaluation loops and dependency-ready roadmap units. It authorizes no autonomous
+  league action, no hidden recommendation change, no self-promotion outside approved gates and no new paid
+  data. `docs/EXECUTION_PLAN.md` §0 remains the only authorization record; this file grants nothing itself.
+- **Vision, preserved:** Calculator should accumulate *experience*, not merely features. Every week, game,
+  projection, trade, bid, draft, source update and settled decision should let it evaluate its own
+  assumptions. The goal is not an opaque AI that changes numbers on its own but a continuously measured,
+  evidence-driven Calculator that gets harder to fool as it gathers real outcomes, built once and shared by
+  every eligible system.
+
+## 27. Domain map — directive sections 9–20
+
+Every domain maps to an existing canonical owner. None gets its own ML stack: each consumes the AL-0 receipt
+(§19) and its native store. Unit labels are plan-local (no new manifest IDs); the wave is from §28 below.
+
+| § | Domain and the directive's binding constraints | Canonical owner (code · manifest row) | What exists today | Gaps named by this reconciliation | Wave · unit |
+|---|---|---|---|---|---|
+| 9 | **Power Rankings.** Two separate objectives: DESCRIPTIVE (who has been strongest) and PREDICTIVE (which components forecast). Never optimize the public ranking for prediction and destroy its narrative contract. Evaluate points, all-play, record, recent form, roster strength, health, schedule/luck components against future outcomes | `src/ros/power_v2.py` + `src/public_league/power.py` (**DUPLICATED**, `C5-POW-01`); snapshots `src/ros/power_snapshots.py` → `data/ros/power_snapshots/` | immutable weekly publications (git-tracked) | no component-vs-future-outcome evaluation; two engines must consolidate before a learned forward-looking contribution has one place to land; the descriptive contract is not written down as a test | Wave 2 · **AL-7** (validation only; consolidation stays `C5-POW-01`) |
+| 10 | **Future draft picks.** Replace early/mid/late with a calibrated distribution (P(early/mid/late), preferably the slot distribution); preserve team strength, points, all-play, record, roster quality, age, depth, injuries, remaining schedule, ownership and draft rules at each timestamp; evaluate prospectively; learn the empirical annual discount curve instead of a fixed discount | `src/ros/pick_projection.py` (`C1-PICK-03`, PARTIAL — point estimate); pick identity `src/identity/picks.py`; values `src/api/pick_value_resolution.py`; year step `config/weights/pick_year_discount.json::derivedYearModel` (PRIOR) | point forecast; vendor year-step PRIOR | no point-in-time forecast archive (§36); no slot-distribution model; the discount curve is a PRIOR extrapolation, never fit to realized outcomes | Wave 2 · **AL-6** (capture half is Wave 1, §36) |
+| 11 | **FAAB / waiver market.** Learn the league's economics: clearing-price distributions, aggressiveness, positional and timing premiums, budget-state effects, manager aggressiveness. Hierarchical: manager → league → broader prior; sparse managers shrink. Never turn unseen losing bids into zero. Keep the four populations separate (own league, Sharp leagues, external market, platform trending) | `src/trade/faab_engine.py` (`F-FAAB-01`, `C4-FAAB-01`); history `scripts/fetch_faab_history.py` / `src/trade/faab_history.py` (`C4-FAAB-02`); crowd `src/trade/faab_comparability.py` (`C1-RET-01`); shadow log `src/trade/faab_shadow.py` | zero-inflated lognormal rivals fitted to league history; crowd and own-league kept apart; backtest script | recommendation-at-decision-time archive (G8); losing-bid observability is host-limited (§36); no hierarchical manager layer | Wave 3 · **AL-8** |
+| 12 | **Rookie auction.** Before each sale: projected price, tier, budgets, nominations, needs, values, market sources, stage; after: clearing price. Learn price curves, position/tier premiums, nomination-order and scarcity effects, budget pressure, manager tendencies. Eventually show fundamental estimate, expected clearing price, range, pressure, confidence | Perfect Draft `src/draft/` + `frontend/lib/perfect-draft.js` (`C7-DRAFT-03`); pre-auction snapshot `scripts/backtest_perfect_draft.py --record-snapshot` (`C7-DRAFT-02`, manual); room engine `src/auction/` (store `data/auction/auction.sqlite`); Sleeper `metadata.amount` (`src/public_league/draft.py`) | room command log + awards persisted and backed up; realized Sleeper prices readable | the pre-sale state (board + roster context + plan) is captured only by hand (G5); backtest BLOCKED (exit 2) until it is | Wave 3 · **AL-9** (capture half before the 2027 auction, §36) |
+| 13 | **Sharp Score / Manager Scout.** The hand-set Sharp Score weights are the champion, not assumed optimal; test whether its characteristics predict future useful outcomes (performance, roster-value development, trade outcomes, consistency, titles, longevity), cautious about causality; challenger methodologies. Manager Scout learns behavior (picks vs youth, contend/rebuild, consolidation, depth, position demand, moving elite QBs / IDPs, FAAB aggression, acceptance when observable). Sparse managers shrink heavily. Accepted trades alone cannot calibrate an acceptance probability | Sharp `src/sharp/score.py` + `config/sharp/scoring_v2.json` + `src/sharp/cohort.py` (`C4-SHARP-01`); evidence `src/sharp/platform_records.py`, `data/intel/ledger.sqlite3`; Manager Scout `src/intel/` (`C6-MGR-01`, ABSENT) | daily cohort snapshots (`data/sharp/cohort/`), records/rosters/activity crawls | no evaluation of Sharp characteristics vs later outcomes; no behavioral model; rejected/countered offers are not legitimately observable for other leagues (R14 stays CANDIDATE for our own) | Wave 3 · **AL-10** (Sharp Score validation), **AL-11** (Manager Scout behavior) |
+| 14 | **Trade recommendations.** No single "who won" label. Archive the decision-time state (canonical values, transaction-market estimate, BDVM, roster marginal impact, contend/rebuild state, alternatives, recommendation, confidence); evaluate later on explicit dimensions (market value, realized scoring, lineup contribution, roster improvement, liquidity, picks, competitive path). Never train a model to reproduce future canonical values | `src/trade/finder.py`, `src/trade/suggestions.py`, `src/trade/angle.py`, `src/trade/trade_simulator.py`; decision contract `C7-DESK-01` (ABSENT); history `C3-REPLAY-01` / `C3-AGE-01` | nothing preserved at decision time (G8) | the decision-time archive is the whole gap; outcomes exist (temporal ledger, realized points, rosters) | Wave 3 · **AL-13** (capture half is Wave 1, §36) |
+| 15 | **Roster utility / team strength.** The lineup solver stays deterministic. Learn distributions around future contribution: replacement value, starter displacement, depth insurance, injury resilience, scarcity, age effects, concentration risk. Improve Team Strength / Weakness and roster marginal impact without a new player-value engine | `src/ros/lineup.py` (`C2-LINE-01`, deterministic, never learns); strength `src/roster_intel/strength.py` (`C2-STR-01`), weakness `C2-WEAK-01`, replacement `C2-REPL-01` (DUPLICATED), simulation `C2-SIM-01` | exact solver; measured endogenous starters (`league_intel/replacement.py`) | roster snapshots + projections exist only partly point-in-time (Game Day pregame for rostered players); no distribution model; `C2-REPL-01` consolidation precedes | Wave 3 · **AL-12** |
+| 16 | **Player development / role transition.** Preserve snaps, routes, targets, carries, aDOT, air yards, first downs, pass-rush opportunity, depth chart, injuries, transactions, age, draft capital, team context. Point-in-time models for breakout, role expansion/loss, starter probability, decline, career survival, evaluated against future usage. May support BDVM; must never become market-price observations | `src/playerctx/` (`C1-RET-08` weekly history); nflverse stats/PBP/depth charts (`src/nfl_data/`, `dynasty-pbp-weekly`, `dynasty-depth-charts-refresh`, `dynasty-reception-depth`); profile `C6-UPP-01`; BDVM `C5-BDVM-01` | weekly playerctx snapshots (backed up); nflverse is an external historical archive | point-in-time depth-chart state is overwritten daily (§36); no role model | Wave 4 · **AL-14** |
+| 17 | **Analyst / podcast / news reliability.** Add outcome resolution to the point-in-time ledger. Reliability by analyst × claim type × position × horizon × team × event type; no universal analyst score; calibration and sample size; content lineage so syndicated statements are one information event | `src/analyst/` (`C6-ANA-01`); take freshness `C6-FRESH-01`; podcast/YouTube/X `C6-POD-01` / `C6-YT-01` / `C6-X-01` | store + as-of + claim/stance code | no scheduled producer (nothing accumulates, §36); no outcome resolution; content-lineage dedupe is specified but absent | Wave 4 · **AL-15** |
+| 18 | **DFS.** Do **not** create another DFS learning system: complete `docs/dfs/ROADMAP.md` Phase H. Per slate preserve source + ensemble projections, projected and actual ownership, salary, lineup distributions, correlation, duplication estimate, optimizer recommendation, contest, entries, scoring, placements, payouts. Evaluate sources, ownership, distributions, correlation, field, duplication, stacks, portfolio, late swap, contest selection, entry count. Never optimize on ROI from a few slates; chronological contest holdouts | `src/dfs/` Phase H harness — `pit.py` (point-in-time ledger, MOD-01), `backtest.py` (MOD-09), `metrics.py` (MOD-10), champion/challenger gates (MOD-11), `settlement.py`, `results.py` | harness built; **zero settled contests** (ROADMAP Phase H "HARNESS BUILT, NO DATA") | settled-contest evidence (actual ownership, placements, payouts) does not exist; slate-level raw inputs partly overwritten (§36) | Wave 4 · **AL-16** = a pointer to DFS Phase H, not a new unit or system |
+| 19 | **Alerts.** Learn ACTIONABILITY, not engagement; never optimize for clicks. Preserve alert, reason, urgency, deadline, whether action occurred, outcome. Objective: fewer, better alerts | Edge Alerts `C7-ALERT-01` (ABSENT) over `C6-SIG-01`; existing emitters `src/api/bdvm_signal_alerts.py`, signal-alerts and custom-alerts sweeps | per-user alert state in `user_kv` (latest state, not an event log) | no alert-event archive with action/outcome join | Wave 4 · **AL-17** |
+| 20 | **Adaptive source acquisition.** Learn when each source changes, event-triggered patterns, information per fetch, request cost, failure/rate-limit behavior, downstream value of freshness; schedule intelligently. Critical deadlines impose safe maximum ages; a learned schedule may never miss required freshness through overconfidence | freshness `src/sources/freshness.py` + `config/sources/freshness_v1.json`; clocks `src/sources/dataset_state.py`; content staleness `config/source_staleness.json`; watchdog `scripts/watchdog_freshness*`; timers `deploy/systemd/` | cadence-relative freshness; content vs fetch clocks separated; source-CSV git history doubles as a change log | per-fetch change/no-change log is not persisted as one series (§36); no learned scheduler; maximum-age floors are not written as a contract a scheduler must satisfy | Wave 4 · **AL-18** |
+
+Wave 4 item 24 — **personalized models** — is **AL-19**, gated on explicit, resettable per-user evidence; nothing
+personal is learned from implicit behavior.
+
+## 28. Roadmap order — Waves 1–4 (directive §23)
+
+The order serves the owner's current priority: **make Calculator's trade values as trustworthy as possible.**
+Parallelize perishable capture and independent domain work where safe; serialize shared canonical owners.
+Existing AL labels from #1593 are kept wherever they map; new labels continue the series.
+
+| Wave | Directive item | Unit label(s) | Native owner | Status at reconciliation (2026-10-01) |
+|---|---|---|---|---|
+| **1 — NOW** | 1. Valuation Trust / source-quality learning | AL-1a–d | Batch 3 (`F-SRC-01`, `C6-FRESH-01`) | #1584/#1589/#1590/#1591/#1592 merged; equal-family champion retained; AL-1a waits on AL-0 |
+| 1 | 2. Completed-trade ledger + KTC + Sharp/Sleeper IDP transaction market | AL-2 ops (first production capture + censuses), AL-2a (done, #1595), AL-2a′ BROAD_CONTEXT, AL-2a″ IDP inventory | `C4-MTL-01/02`, `C1-ACQ-01`, `src/sharp/` | #1586 merged but **not yet running in production** (box serves `ed48d54ab`, §36) |
+| 1 | 3. Format-aware trade normalization | AL-2b0 translator readiness table, AL-2b (≤ 1 preregistered shadow translator), AL-2c (latent price, shadow) | `C4-MTL-03` | AL-2b0 after the accumulated census |
+| 1 | 4. Perishable-evidence capture gaps required by Wave 1 | AL-P1 … AL-P8 (§36.3, ranked) | each stream's existing owner | audited in §36; none implemented by this planning PR |
+| 1 | 5. Shared receipts / model-registry extensions | AL-0 (#1597, in round-two review), **AL-0b Model Lab backend contract** (§33) | `src/model_registry/` + `src/history/` (`C10-ML-01`) | AL-0 open, unmerged |
+| 1 | 6. BDVM / projection point-in-time archive + evaluation foundation | AL-3a (archive completeness + `data/bdvm/` backup), AL-3b (scorecard vs equal-family champion) | `C5-BDVM-01`, `C5-ROS-01`, `C5-GD-02` | pregame archive merged (#1525); AL-3a/3b not started |
+| **2 — NEXT** | 7. Projection-family evaluation + learned ensemble challengers | AL-3c | `C5-ROS-01` | after AL-3b |
+| 2 | 8. BDVM parameter / stat-model calibration | AL-3d (= Batch 3 J2) | `C5-BDVM-01` | after AL-3b |
+| 2 | 9. Game Day calibration | AL-4a / AL-4b | `C5-GD-01/02` | after AL-0 |
+| 2 | 10. Playoff / title calibration | AL-5a / AL-5b / AL-5c | `C5-PLAY-01` | AL-5a capture moves into Wave 1 item 4 as AL-P6 (§36.3); 5b/5c NEXT |
+| 2 | 11. Future-pick probability model | AL-6 | `C1-PICK-03` | capture half AL-P4 in Wave 1 |
+| 2 | 12. Power predictive-component validation | AL-7 | `C5-POW-01` | — |
+| **3 — NEXT/LATER** | 13. FAAB clearing-price learning | AL-8 | `C4-FAAB-01/02` | — |
+| 3 | 14. Rookie auction learning | AL-9 | `C7-DRAFT-02/03` | capture half before the 2027 auction |
+| 3 | 15. Sharp Score validation | AL-10 | `C4-SHARP-01` | — |
+| 3 | 16. Manager Scout behavioral learning | AL-11 | `C6-MGR-01` | — |
+| 3 | 17. Roster utility distributions | AL-12 | `C2-STR-01`, `C2-REPL-01` | — |
+| 3 | 18. Trade recommendation evaluation | AL-13 | `C7-DESK-01` | capture half AL-P5 in Wave 1 |
+| **4 — LATER** | 19. Player development / role transitions | AL-14 | `C6-UPP-01`, `C1-RET-08` | — |
+| 4 | 20. Analyst intelligence reliability | AL-15 | `C6-ANA-01` | — |
+| 4 | 21. Full DFS Phase H learning once settlement data exists | AL-16 → `docs/dfs/ROADMAP.md` Phase H | `src/dfs/` | — |
+| 4 | 22. Alert actionability learning | AL-17 | `C7-ALERT-01` | — |
+| 4 | 23. Adaptive acquisition scheduling | AL-18 | freshness owners | — |
+| 4 | 24. Personalized models (explicit, resettable evidence only) | AL-19 | — | — |
+
+**Reconciling the #1593 AL-0…AL-5 labels.** AL-0 stays the first foundation unit and is Wave 1 item 5. AL-1 is
+Wave 1 item 1. AL-2 spans Wave 1 items 2 and 3. AL-3a/AL-3b are Wave 1 item 6; AL-3c/AL-3d are Wave 2 items 7 and
+8. AL-4 and AL-5 stay NEXT (Wave 2 items 9 and 10), except the AL-5a forecast *capture*, which the audit (§36)
+moves forward because playoff forecasts are perishable. Part II §22's priority order AL-0 → AL-1 → AL-2 → AL-3
+→ AL-4 → AL-5 is unchanged.
+
+## 29. Automatic learning cadence per model family (directive §24)
+
+**Rule.** Do not retrain because a clock fired. A family evaluates, or refits a challenger, only when one of
+these holds: enough new observations accumulated; a new settlement cohort exists; drift was detected (§20);
+the season regime changed; or a material methodology candidate is ready. Observation and settlement can be
+scheduled; evaluation and refit are *triggered*. **Promotion authority is never a cadence.**
+
+| Model family | Observation cadence (existing owner) | Outcome settlement | Evaluation trigger | Challenger refit trigger | Drift check | Promotion authority |
+|---|---|---|---|---|---|---|
+| Source quality / weights (AL-1) | every board scrape, 2 h (temporal ledger; source-CSV git history) | rolling, per horizon (future board, completed trades once AL-2c exists) | new horizon cohort settled | material candidate or source drift | each scrape: content staleness + lineage sweep | Batch 3 §N |
+| Hill masters | each material market refresh (~2 h) | dynasty holdout boards (`src/model_registry/holdout.py`) | every refit | material refresh | holdout history | **Hill Autopilot** (OFFENSE only) + human `promote`/`apply` |
+| Sparse evidence (E) / robust filter (F) | 2× daily shadow (`dynasty-sparse-evidence-shadow` 08,20:05 UTC; `dynasty-joint-filter-shadow` 07,19:55 UTC) | later boards | preregistered sample reached | candidate ready | per run | Batch 3 §N |
+| Completed-trade translators / latent price (AL-2b/2c) | KTC capture every 30 min (`dynasty-ktc-trades`, :07/:37); ledger daily (`dynasty-market-trade-ledger`, 08:52 UTC) | subsequent completed trades in the target format | ≥ 1 complete window turnover with no gap, then each new target-format holdout cohort | axis becomes identifiable | per capture: window overlap / turnover / gap flag | Batch 3 §N; never rewrites canonical value before dedupe + topology validate |
+| Projections (AL-3) | pre-kickoff archive (Game Day collector); weekly BDVM snapshot (Tue) | weekly realized points after the stat-correction window | weekly settlement cohort | sample-gated per position × category | weekly coverage/ancestry | owner approval (no family policy yet) |
+| BDVM components (AL-3d) | weekly snapshot | season / horizon outcomes | seasonal cohort | candidate ready | per snapshot | owner approval |
+| Game Day (AL-4) | every generation (live collector, per minute in windows) | finals + correction window | weekly | sample-gated by game state | weekly reliability | owner approval |
+| Playoff / title (AL-5) | every 2 h sim (once archived, AL-P6) | season end | season end (in-season: reliability only) | before any simulation rebuild | weekly | owner approval; D2/D3 open |
+| Future picks (AL-6) | weekly forecast (once archived, AL-P4) | actual draft slot after the season | season end | season end | weekly | owner approval |
+| Power predictive components (AL-7) | weekly publication | following weeks' outcomes | season / half-season | candidate ready | weekly | owner approval; descriptive contract untouchable |
+| FAAB (AL-8) | daily history + 3-hourly crowd | weekly waiver run | settlement cohort | sample-gated per manager | weekly behavioral | owner approval |
+| Rookie auction (AL-9) | per sale (room log / Sleeper) | the sale itself | per auction | per auction | per auction | owner approval |
+| Sharp Score (AL-10) / Manager Scout (AL-11) | daily crawls + cohort snapshot | season outcomes, later roster value | season end | season end | monthly behavioral | owner approval |
+| Roster utility (AL-12) / trade rec (AL-13) | weekly rosters; per served recommendation (once AL-P5 lands) | weeks → seasons | settlement cohort per horizon | candidate ready | weekly | owner approval |
+| Player development (AL-14) | weekly playerctx + nflverse | following weeks' usage | weekly / seasonal | candidate ready | regime (preseason / in-season) | owner approval |
+| Analyst (AL-15) | per claim (once a producer exists) | horizon-dependent resolution | per resolved cohort | — | per source | owner approval |
+| DFS Phase H (AL-16) | per slate | contest settlement | chronological contest cohort | sample-gated | per slate | Phase H gates (MOD-11) |
+| Alerts (AL-17) | per alert | action / outcome window | monthly | candidate ready | monthly | owner approval |
+| Acquisition scheduling (AL-18) | per fetch | next fetches | monthly | candidate ready | per run | owner approval; maximum-age floors are hard constraints |
+
+Families without an explicit policy promote only by explicit owner approval (§20 rule 6).
+
+## 30. Rejected challengers are retained evidence (directive §25)
+
+Never delete a failed model's evidence because it lost. Every challenger keeps: candidate config; training /
+input fingerprint; evaluation results (with `n`, intervals and preregistration hash); **why it failed**; and
+which cohorts it helped or hurt. This is what stops the system rediscovering the same bad idea six months later.
+
+- **Mechanism:** the AL-0 evaluation receipt (§19.2) plus a PROMOTION RECORD whose disposition may be
+  `rejected` or `retained_champion`. The store is append-only (A2); there is no delete path. Rejection reasons
+  and per-cohort deltas are first-class fields, not prose.
+- **Precedents already on `main`:** Hill challenger records in `config/model_registry/`; Batch 3 evidence
+  directories under `docs/valuation/evidence/` (#1589 equal-family champion retained; #1590 INCONCLUSIVE; #1591
+  flag OFF, fails preregistered G2c; #1598 D2 evidence only). AL-1a back-fills these as receipts.
+- **Acceptance (folded into AL-0 / AL-1a):** a test proves no code path deletes or overwrites a challenger
+  receipt; the Model Lab (§33) lists rejected challengers beside running ones.
+
+## 31. Explanation and user trust (directive §26)
+
+When a learned model eventually changes a user-facing recommendation, the user must be able to see why — never
+"unexplained AI magic". Examples the owner gave, kept as the target register:
+
+- "FantasyCalc currently receives slightly lower influence here because this observation is old and its recent
+  incremental predictive evidence for this population is weak."
+- "IDP Show receives increased projection influence for LB tackle forecasts because its held-out error has
+  been lower over the validated sample."
+- "Transaction value confidence is low: only 3 target-comparable IDP trades exist; 14 additional trades
+  required format transformation."
+- "Game Day 71% is calibrated from 486 comparable archived states."
+
+Requirement: every promoted learned influence carries machine-readable reasons (the evidence class, sample
+size, holdout window, cohort and evaluation cutoff) from its receipts, so the explanation is generated from
+evidence rather than written by hand. The display belongs to **Lane 6** where user-facing confidence,
+provenance and explanation already live; no new surface ships until the contract is stable. Development
+metrics are not shown to ordinary league users without a product reason (§33).
+
+## 32. Testing, authority and implementation style (directive §27–§29)
+
+**Tests (§27) — a standing checklist for every AL unit.** Each PR states, per item, `APPLY` (with the test) or
+`N/A` (with the reason): point-in-time integrity; no future leakage; deterministic replay; input / model
+fingerprints; missingness; sparse samples; corrupted observations; duplicate evidence; correlated evidence;
+source lineage; format mismatch; regime change; rollback; champion / challenger isolation; promotion gates.
+**A random train/test split is prohibited wherever temporal ordering matters** — holdouts are chronological,
+league, player, source-family or contest-chronological (§20 rule 4). AL-0's A1–A10 already cover the first
+five; the rest bind the domain units that consume it.
+
+**Authority (§28).**
+
+| Authorized | Not authorized |
+|---|---|
+| planning reconciliation | autonomous trades |
+| required archive / capture work | autonomous waiver claims or drops |
+| shared learning receipts | autonomous DFS entries |
+| evaluation infrastructure | hidden recommendation changes |
+| shadow challengers, scorecards, drift monitoring | self-promotion of a model outside its approved gate |
+| domain-specific evaluation loops | spending on new paid data or services without separate authorization |
+| dependency-ready units in the §28 roadmap | — |
+
+Objective correctness fixes merge after normal gates. **Learned numerical methodology changes require the
+existing P6 / model-registry acceptance process.**
+
+**Style (§29).** No whole-roadmap PR. First the reconciled execution map (this Part), then dependency-ready Wave 1
+units in small coherent PRs, grouped as: FOUNDATION (shared receipt / evaluation / registry extension);
+VALUATION (source quality + completed trades + translation); PROJECTIONS / BDVM (prediction archive +
+evaluation); INTEGRATION (connect the foundation to each native owner); UI / LANE 6 (explanation, provenance,
+status wherever the contract is stable). Independent mathematical review for material learned-model changes;
+security / privacy review for behavioral or private evidence; personal-league and private data stay private.
+
+## 33. Model Lab — backend contract (directive §22) · unit AL-0b
+
+A **backend / internal contract first**, not a public UI. It answers, per model family: MODEL (champion
+version); CHALLENGERS (running candidates); DATA (training / evaluation window); SAMPLE SIZE; LAST EVALUATED;
+METRICS; CALIBRATION; DRIFT; PROMOTION STATUS; ROLLBACK VERSION; DATA QUALITY / COVERAGE.
+
+- **Scope:** a read-only, typed view assembled from AL-0 receipts and `src/model_registry/` — no new store, no
+  second registry. Missing fields are explicit (`unobserved`, `insufficient_sample`), never 0.
+- **Exposure:** private / admin. It may later back an owner-facing admin page; ordinary league users do not see
+  development metrics without a clear product reason. User-facing confidence / provenance stays Lane 6.
+- **Depends on:** AL-0 merged. **Acceptance:** every family with at least one receipt appears with all eleven
+  fields populated or explicitly unobserved; rejected challengers listed (§30); the import / write boundary of
+  A7 holds; the payload is never served on a public route.
+
+## 34. Completion standard — four closed loops (directive §30)
+
+"Adaptive Learning" is **not** implemented because a planning document exists. The roadmap foundation is
+complete only when at least the first real closed feedback loops exist in code, on actual data where enough
+exists (synthetic fixtures prove mechanics only). Wave 1 acceptance must demonstrate all four. State of each
+stage at this reconciliation, from code and production:
+
+| Loop | Stage | State 2026-10-01 | Closing unit |
+|---|---|---|---|
+| **SOURCE** | historical source observation | EXISTS — temporal ledger + source-CSV git history | — |
+| | future evaluation target | EXISTS — #1589 leave-family-out / lead-lag targets | — |
+| | source scorecard | EXISTS (report) — #1589 evaluator | AL-1a (as receipts) |
+| | challenger weighting | EXISTS (shadow) — #1589 weight challengers | AL-1b |
+| | held-out comparison | EXISTS — #1589 walk-forward | — |
+| | promotion / rejection record | **MISSING** as a durable registry disposition | AL-0 + AL-1a |
+| **TRADE** | raw completed trades | CODE MERGED (#1586); **not capturing in production** (box at `ed48d54ab`) | AL-2 ops (deploy + first capture) |
+| | deduplicated underlying transactions | CODE MERGED (#1586 §19 groups) | — |
+| | format classification / translation | classification MERGED (three dispositions; BROAD_CONTEXT pending); translation **MISSING** | AL-2a′, AL-2b0, AL-2b |
+| | target-league transaction estimate | **MISSING** | AL-2c |
+| | comparison with subsequent evidence | **MISSING** | AL-2c + AL-1 outcome (2) |
+| **PROJECTION** | pregame projection | EXISTS from Week 3 (collector began 2026-09-26; Weeks 1–2 raw never captured — §36) | AL-3a |
+| | actual game result | EXISTS — `src/nfl_data/realized_points.py` | — |
+| | source / stat-category error | **MISSING** | AL-3b |
+| | challenger ensemble | **MISSING** | AL-3c |
+| | held-out comparison | **MISSING** | AL-3c |
+| **MODEL GOVERNANCE** | model version | EXISTS for Hill (`src/model_registry/versioning.py`); partial elsewhere (BDVM `modelVersion`/`paramSetId`) | AL-0 |
+| | evaluation | EXISTS for Hill (#1588 holdouts) | AL-0 |
+| | challenger | EXISTS for Hill | AL-0 |
+| | registry disposition | EXISTS for Hill only | AL-0 |
+| | reproducible rollback | EXISTS for Hill (`scripts/model_registry.py`) | AL-0 / AL-0b |
+
+**Verdict:** no loop is closed in code for a non-Hill family today. The Hill governance loop is the only closed
+loop, and only for Hill. Wave 1 is complete when SOURCE, TRADE, PROJECTION and GOVERNANCE each run end to end on
+real data, with the gaps above closed and evidenced.
+
+## 35. What Part III supersedes or refines
+
+| # | Earlier clause | 2026-10-01 re-send / continuation | Disposition |
+|---|---|---|---|
+| T1 | Part II §21.2 and the 2026-10-01 Batch 3 addendum (intake): "exactly one of NATIVE_COMPARABLE / VALIDATED_TRANSFORMABLE / TARGET_UNSUPPORTED"; "every non-native trade is TARGET_UNSUPPORTED until a translator validates" | Continuation: **four** dispositions — NATIVE_COMPARABLE; VALIDATED_TRANSFORMABLE (none merely because the class exists); **BROAD_CONTEXT** (verified dynasty, trustworthy identity and topology, a material format dimension differs / is unknown / untranslated; `targetPriceAuthority = 0`); TARGET_UNSUPPORTED narrowed to **hard insufficiency** (redraft; keeper for the current dynasty lane; unknown / unverified dynasty; unusable transaction identity; analysis-blocking unresolved assets; invalid topology; other hard integrity failure) | **Superseded.** Implemented as its own PR (AL-2a′) after the bootstrap census; until then the code emits three and the census labels the gap. Regression: the former #1595 verified-dynasty-candidate population maps to BROAD_CONTEXT unless another hard failure applies. No canonical value change |
+| T2 | Part II §21.1 AL-1a: "register Batch 3 evaluator outputs (#1589, #1590, #1591) as receipts" | AL-1a wires prospective receipts to the sparse-evidence shadow, robust-filter shadow, source-quality evaluator, Hill refits, translator experiments and latent-price experiments; then projection-family evaluation and Game Day calibration. No promotion in AL-1a | **Refined** (wider producer list, same unit) |
+| T3 | Part II §21.5 / §22: AL-5a forecast archive is NEXT, "commit history mitigates meanwhile" | §21 lists playoff probabilities as high-priority perishable evidence: capture first | **Refined.** AL-5a capture moves into Wave 1 as AL-P6 (§36.3); AL-5b/5c stay NEXT |
+| T4 | Part II §22: AL-3b "NOW" | Wave 1 item 6 = archive **and evaluation foundation**; item 7 (Wave 2) = learned ensemble challengers | **Consistent.** AL-3b (scorecard vs equal-family champion) stays Wave 1; AL-3c is Wave 2 |
+| T5 | Part II §14: "autonomous roster transactions" listed as not decided | §28: autonomous trades, waiver claims / drops and DFS entries are explicitly **not authorized** | **Refined** (now explicit) |
+| T6 | Part II §17 note on R14 | §13 needs rejected / countered / expired offers "when legitimately available"; §28 does not authorize private-offer capture | **Unchanged** — R14 stays CANDIDATE |
+| T7 | #1598 (D2) recorded OTC as an ancestry-safe holdout | Continuation: D2 stays evidence only; no promotion of c3 / repaired constants / H1–H3 / DLF native spacing from OTC alone; if OTC is not ancestry-safe, do **not** rewrite #1598 — mark its external-validity limitation and stop treating OTC as a valid sole promotion target (#1599 re-measures) | **Recorded.** Hill-vs-trade evaluation later, on the populated ledger, with no evidence reuse; package residuals only where topology permits |
+
+## 36. Perishable-evidence audit — extended (directive §21)
+
+"Before building sophisticated models, audit whether their required historical evidence is being preserved. If
+something will disappear, CAPTURE FIRST." The durable audit record is `docs/BRISKET_IDEAS.md` §13 (2026-09-29),
+**extended in place by §13.4** with this pass. Summary here; method, evidence and the full table there.
+
+### 36.1 Production facts (read-only box check, 2026-10-01)
+
+- The box serves `ed48d54ab` (#1589). #1586's `dynasty-ktc-trades` / `dynasty-market-trade-ledger` timers and
+  #1591's `dynasty-sparse-evidence-shadow` are **not installed**; `data/market_trades/` does not exist. The KTC
+  Trade Database is therefore **not being captured in production**.
+- The nightly root backup (`riskit-state-backup.service`) runs a **stale root-owned copy** of the backup script
+  that lacks the acquisition, auction and `game_day` lines; those streams are protected today only by the
+  post-deploy generation. `temporal_ledger.sqlite` (1.49 GB), `consensus_edge.sqlite`, `data/bdvm/` and
+  `data/dfs/` are in no generation.
+- The Game Day collector's first NFL week directory is Week 3 (created 2026-09-26): Sleeper pregame weekly
+  projections for 2026 Weeks 1–2 were never captured.
+
+### 36.2 Verdicts (full evidence: `docs/BRISKET_IDEAS.md` §13.4)
+
+| Stream | Verdict | Owner | Gap |
+|---|---|---|---|
+| Pregame projections — Sleeper weekly | PARTIAL | `src/ros/game_day_live.py` (#1525) | Weeks 1–2 lost; first archive build (Week-8 prune) not yet observed |
+| Pregame projections — BDVM season snapshots | AT_RISK | `scripts/refresh_bdvm_projections.py` | not backed up |
+| KTC Trade Database | AT_RISK | `src/sources/ktc_trades.py`, `src/trade/market_trade_archive.py` (#1586) | not running in production; not in backup |
+| Sharp / Sleeper trades | PARTIAL | `src/intel/ledger.py`, `src/sharp/` | 400-day prune; tar of a live WAL database |
+| Source boards / change clocks | PRESERVED | `CSVs/site_raw`, `src/sources/dataset_state.py` | history lives in version control only |
+| KTC unselected format variants | NOT_CAPTURED | `src/source_archive/` | no scheduled caller (G3) |
+| Game Day predictions | PRESERVED | `src/ros/game_day_archive.py`, live generations | nightly backup copy stale |
+| Playoff / title probabilities | PARTIAL | `src/ros/scrape.py` → `data/ros/sims/` | overwritten; commit-only history; no model identity |
+| Power snapshots | PRESERVED | `src/ros/power_snapshots.py` | — |
+| FAAB losing bids | PRESERVED (failed claims) / NOT_OBSERVABLE (rival bids) | `src/trade/faab_history.py` | host-limited; never imputed |
+| Rookie auction sales | PARTIAL | `src/auction/store.py`, `src/public_league/draft.py` | pre-sale state manual (G5) |
+| Pick forecasts | NOT_CAPTURED | `src/ros/pick_projection.py` | computed per request; team-strength input overwritten |
+| Recommendations | NOT_CAPTURED | finder / suggestions / angle / FAAB / Perfect Draft | nothing persisted at decision time (G8) |
+| Analyst claims | NOT_CAPTURED | `src/analyst/` | no producer |
+| DFS projections / salaries | AT_RISK | `src/dfs/auto/refresh.py` | not backed up |
+| DFS ownership / settlements | NOT_CAPTURED / NOT_OBSERVABLE | `src/dfs/results.py` | owner upload only; Phase H has no data |
+
+### 36.3 Ranked Wave 1 capture units
+
+Authorized as Wave 1 item 4; **not implemented by this planning PR**. Exact scope per unit in
+`docs/BRISKET_IDEAS.md` §13.4.
+
+1. **AL-P1** — KTC Trade DB production capture: finish the deploy chain, verify the timers, record the first
+   capture, back up `data/market_trades/archive.sqlite`.
+2. **AL-P2** — Backup coverage (G7 widened): market-trade archive, Consensus Edge, `data/bdvm`, `data/dfs`,
+   shadow ledgers, `data/learning`, the temporal ledger (or a written rebuild rationale), online intel backup;
+   reinstall the stale root copy and prove the nightly generation. Serial owner of `deploy/backup/` (= AL-3a's
+   backup half).
+3. **AL-P3** — KTC unselected format variants into `src/source_archive/` (paired-format evidence for AL-2b).
+4. **AL-P4** — Pick forecast + team-strength weekly snapshot (feeds AL-6).
+5. **AL-P5** — Recommendation / decision receipts at serve time (after AL-0; feeds AL-8, AL-9, AL-13).
+6. **AL-P6** — Playoff / title dated forecast archive with model identity (= AL-5a capture).
+7. **AL-P7** — Sharp trade retention past the 400-day prune.
+8. **AL-P8** — Projection archive completeness verification (= AL-3a archive half).
+
+Outside Wave 1: analyst claims (AL-15), DFS settlements (Phase H), G4 injury / news, G5 draft-time state
+(before the 2027 auction), G6 league settings.
+
+## 37. Campaign sequencing — continuation instructions (binding for this campaign)
+
+Recorded as current sequencing in `docs/EXECUTION_PLAN.md` §0. In order, with parallel lanes where files do not
+collide:
+
+1. **Deploy verification.** Finish the deploy chain; verify the served SHA, health, and the ledger / KTC /
+   sparse-shadow timers from actual `systemctl` state. *(At reconciliation the box served `ed48d54ab` — #1589 —
+   and `dynasty-ktc-trades`, `dynasty-market-trade-ledger` and `dynasty-sparse-evidence-shadow` were not
+   installed; `dynasty-joint-filter-shadow` was installed and had not yet fired.)*
+2. **First KTC production capture.** Record raw / new / known / resolution / unresolved / format coverage. No
+   canonical value change.
+3. **Bootstrap census**, labelled **"BOOTSTRAP / INITIAL COVERAGE"**. No translator is fit from it.
+4. **Collector age ≠ market sparsity.** Per capture, track cumulative unique KTC trade ids, window overlap and
+   turnover; flag coverage gaps.
+5. **Accumulated census**, labelled **"ACCUMULATED COVERAGE — POST WINDOW TURNOVER"**, using identical census
+   code, after at least one complete observed window turnover with no gap. The earliest census usable for AL-2b
+   identifiability.
+6. **BROAD_CONTEXT PR (AL-2a′)** after the bootstrap census, with the owner's exact four-disposition definitions
+   (§35 T1) and the regression test. No canonical value change.
+7. **IDP market inventory (AL-2a″)** reported separately in every accumulated census.
+8. **Translator readiness table (AL-2b0)** per axis — 1QB↔SF, 1TE↔2TE, TE scoring edge, team count, roster
+   depth, total IDP starter depth, DL/LB/DB structure, selected IDP scoring families — reporting one-axis-
+   different unique trades, distinct leagues, asset overlap with target-format observations, time coverage,
+   target-format holdout sample and confounding; each axis classified **READY_FOR_PREREGISTERED_TEST /
+   PROMISING_BUT_CONFOUNDED / INSUFFICIENT_SAMPLE / NOT_IDENTIFIABLE**. No subjective score.
+9. **At most ONE shadow translator (AL-2b)**, only if an axis is identifiable; preregistered; compares A exclude /
+   B naive / C candidate; success only on real held-out target-like trades, **never against current Calculator
+   values**. BDVM ratio only as a tested structural prior carrying coverage and uncertainty.
+10. **AL-0 (#1597)** merges only after round-two review approves: store path restricted to `data/learning` with
+    explicit test injection; the feature lock compares against a real prior baseline and fails closed;
+    conflicting inserts surface; correction chains acyclic, latest = latest valid revision; artifact `knownAt`
+    passes the temporal guard. No production writer yet.
+11. **AL-1a order** after AL-0: prospective receipts for sparse-evidence shadow, robust-filter shadow,
+    source-quality evaluator, Hill refits, translator experiments, latent-price experiments; then
+    projection-family evaluation, then Game Day calibration. No promotion in AL-1a.
+
+Standing: #1594 (deploy drift-reinstall) merged 2026-10-01 — its drift-reinstall invariant must be observed
+green on the box at the next deploy, not assumed. D2 (#1598) stays evidence only (§35 T7).
+
+**Champion — unchanged:** equal-family base authority; `freshness × health × coverage`; family caps; the current
+Hill champion; the current outlier filter; the current 0.30 sparse retention.
+
+## 38. Unresolved — Part III
+
+- The four Wave 1 loops (§34) are open; only Hill's governance loop is closed.
+- Production lags `main`: the box served `ed48d54ab` at reconciliation, so #1586's KTC capture has not started
+  and every KTC Trade Database window that rolls out before it does is lost (§36).
+- BROAD_CONTEXT (§35 T1) is a recorded owner definition, not yet code.
+- No per-family promotion policy exists outside Hill Autopilot and Batch 3 §N; every other family promotes only
+  by explicit owner approval.
+- FAAB losing bids for rivals and other leagues' rejected / countered offers are host-limited (NOT_OBSERVABLE);
+  never imputed.
+- `C5-POW-01`, `C5-PLAY-01` and `C2-REPL-01` remain DUPLICATED; their learned units (AL-7, AL-5, AL-12) land on
+  the consolidated owner, not on either duplicate.
+- The capture units AL-P1…AL-P8 (§36.3) are authorized as Wave 1 work but not implemented by this planning PR.

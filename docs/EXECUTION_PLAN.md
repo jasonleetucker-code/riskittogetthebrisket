@@ -212,6 +212,8 @@ approval for every other family). Also not authorized: a generic feature store, 
 infrastructure, wiring the old `dynamic_source_weights` fitter into production, automatic retraining or
 promotion on drift, R14 private-offer capture (still CANDIDATE), purchases or paid sources, and anything
 in directive sections 9+, which were truncated in delivery and are pending owner re-send.
+*Update, same day:* sections 9–31 were re-sent and are reconciled; their authorization is the next section
+("Adaptive Learning — sections 9–31, Wave 1 and campaign sequencing").
 
 **Invariant:** facts and rules do not learn (`MASTER_PRODUCT_PLAN.md` §3.8; plan §18).
 
@@ -233,6 +235,64 @@ move written; adapters leave producer outputs byte-identical; import/write bound
 from canonical value, league-config, identity and contract fields (board hash unchanged); drift receipts
 trigger nothing; store backed up and retention-registered; reproducible from pinned inputs; independent review.
 The engineering applicability check is recorded in plan §23.
+
+Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
+
+## Adaptive Learning — sections 9–31, Wave 1 and campaign sequencing (owner re-send, 2026-10-01)
+
+The owner re-sent the full directive the same day. Sections 9–31 and the continuation instructions are reconciled
+in `docs/research/ADAPTIVE_LEARNING_2026-09-26.md` Part III (§26–§38); intake: `docs/OWNER_REQUESTED_TODO.md`
+("sections 9–31 + continuation instructions"); perishable audit: `docs/BRISKET_IDEAS.md` §13.4. This section
+**extends** the one above; nothing in it relaxes a gate.
+
+**Authorized (directive §28):** planning reconciliation; required archive / capture work; shared learning receipts;
+evaluation infrastructure; shadow challengers; scorecards; drift monitoring; domain evaluation loops; the
+dependency-ready Wave 1 units below, and later-wave units when dependency-ready (plan §28). Objective correctness
+fixes merge after normal gates.
+
+**Not authorized:** autonomous trades; autonomous waiver claims or drops; autonomous DFS entries; hidden
+recommendation changes; self-promotion of any model outside its approved gate; spending on new paid data or
+services; R14 private-offer capture (still CANDIDATE). **Learned numerical methodology changes require the
+existing P6 / model-registry acceptance process** — no promotion authority is created here.
+
+**Champion — unchanged:** equal-family base authority; `freshness × health × coverage`; family caps; the current
+Hill champion; the current outlier filter; the current 0.30 sparse retention.
+
+**Wave 1 units (NOW).** Labels are plan-local; no new manifest IDs.
+
+| unit | scope | depends on | acceptance |
+|---|---|---|---|
+| **AL-P1** | KTC Trade DB production capture: deploy `main` ≥ #1586, verify `dynasty-ktc-trades` / `dynasty-market-trade-ledger` from `systemctl`, first capture, archive backed up | deploy chain | served SHA ≥ #1586; timers firing; first-capture record (raw / new / known / resolution / unresolved / format coverage); archive in the backup set + retention register; board hash unchanged |
+| **AL-P2** | backup coverage (G7 widened) — market-trade archive, Consensus Edge, `data/bdvm`, `data/dfs`, shadow ledgers, `data/learning`, temporal ledger or written rebuild rationale, online intel; reinstall the stale root-owned copy | none (serial owner of `deploy/backup/`, = AL-3a's backup half; AL-0's A9 line lands through it) | the nightly generation (not only the post-deploy one) proven to contain every listed artifact; restore proof green |
+| **AL-P3** | KTC unselected format variants → `src/source_archive/` (G3) | AL-P2 for backup | zero extra requests; one provider family; archive never production-eligible; board hash unchanged |
+| AL-P4 | dated private pick-forecast + team-strength snapshot | none | first-write-wins per (league, season, week); model identity; backed up |
+| AL-P5 | decision / recommendation receipts at serve time (finder, suggestions, angle, FAAB, Perfect Draft server half) | AL-0 | private store; producer outputs byte-identical; NON-ACTION only where observable |
+| AL-P6 | playoff / title dated forecast archive with model identity (= AL-5a capture) | none | write-once; commit-history backfill labelled `nearest-prior` |
+| AL-P7 | Sharp trade retention past the 400-day intel prune | none | no Sharp trade movement deleted without an append-only copy |
+| AL-P8 | projection archive completeness (= AL-3a archive half) | none | first `pregame_projections.json.gz` build observed on the box; Weeks 1–2 recorded as lost |
+| AL-0 | shared receipt + evaluation receipt + feature dictionary (#1597) | #1588 (merged); **round-two review** | A1–A10 (section above) **plus** the round-two conditions: store restricted to `data/learning` with explicit test injection; feature lock compares a real prior baseline and fails closed; conflicting inserts surface; correction chains acyclic, latest = latest valid revision; artifact `knownAt` passes the temporal guard. No production writer yet |
+| AL-0b | Model Lab backend contract (internal, read-only, no UI) | AL-0 | eleven fields per family populated or explicitly unobserved; rejected challengers listed; never on a public route |
+| AL-1a | prospective receipts for sparse-evidence shadow, robust-filter shadow, source-quality evaluator, Hill refits, translator and latent-price experiments; then projection-family evaluation, then Game Day calibration | AL-0 | every producer round-trips into receipts; nothing promotes |
+| AL-1b–d | base-authority challenger; utility-decay challenger; cohort reliability | AL-1a | per plan §24; promotion only via Batch 3 §N |
+| AL-2 ops | first production capture; **BOOTSTRAP / INITIAL COVERAGE** census; per-capture cumulative unique trade ids, window overlap, turnover, gap flags; **ACCUMULATED COVERAGE — POST WINDOW TURNOVER** census (identical code) after ≥ 1 complete gap-free window turnover | AL-P1 | no translator fit from the bootstrap census; collector age never reported as market sparsity; IDP inventory in every accumulated census |
+| AL-2a′ | BROAD_CONTEXT disposition, own PR, owner's four definitions verbatim (plan §35 T1) | bootstrap census | regression: the former #1595 verified-dynasty-candidate population maps to BROAD_CONTEXT unless another hard failure applies; `targetPriceAuthority = 0`; no canonical value change |
+| AL-2b0 | translator readiness table per axis (1QB↔SF, 1TE↔2TE, TE scoring edge, team count, roster depth, total IDP starter depth, DL/LB/DB structure, selected IDP scoring families) | accumulated census | each axis READY_FOR_PREREGISTERED_TEST / PROMISING_BUT_CONFOUNDED / INSUFFICIENT_SAMPLE / NOT_IDENTIFIABLE from counts, never a subjective score |
+| AL-2b | **at most one** preregistered shadow translator, only on an identifiable axis | AL-2b0 | A exclude / B naive / C candidate scored on real held-out target-like trades, never against current Calculator values; BDVM ratio only as a tested structural prior |
+| AL-2c | shadow latent transaction-price model | AL-2b | shadow only; native dominates translated |
+| AL-3a / AL-3b | projection archive completeness; scorecard vs the equal-family champion | AL-3a none; AL-3b AL-0 | per plan §24 |
+
+**Campaign sequencing (continuation instructions — current order):** (1) deploy verification — served SHA,
+health, ledger / KTC / sparse-shadow timers from actual `systemctl` state; (2) first KTC production capture;
+(3) bootstrap census; (4) per-capture turnover tracking; (5) accumulated census after window turnover;
+(6) BROAD_CONTEXT PR; (7) IDP inventory; (8) translator readiness table; (9) at most one preregistered shadow
+translator; (10) AL-0 merge after round-two review; (11) AL-1a in the order above. AL-P2…AL-P8 run in parallel
+where files do not collide. D2 (#1598) stays evidence only — no promotion of c3, repaired constants, H1–H3 or DLF
+native spacing from OTC alone; if OTC proves not ancestry-safe (#1599), mark #1598's external-validity
+limitation without rewriting it and stop treating OTC as a sole promotion target. #1594 merged; its
+drift-reinstall invariant is verified on the box at the next deploy.
+
+**Completion standard (directive §30):** Wave 1 is complete only when the SOURCE, TRADE, PROJECTION and MODEL
+GOVERNANCE loops each run end to end in code on real data (plan §34). A planning record is not completion.
 
 Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 
