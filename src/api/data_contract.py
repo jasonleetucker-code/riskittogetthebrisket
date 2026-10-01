@@ -7345,7 +7345,7 @@ _SINGLE_SOURCE_VALUE_RETENTION: float = 0.30
 
 
 def _apply_sparse_evidence_estimator(
-    candidates: list[tuple[int, int, float, float, int, int]],
+    candidates: list[tuple[int, int, float, float, int, int, int, tuple[str, ...]]],
     row_normalized: list[tuple[float, int]],
     players_array: list[dict[str, Any]],
     row_source_meta: Mapping[int, Mapping[str, Mapping[str, Any]]],
@@ -7360,8 +7360,9 @@ def _apply_sparse_evidence_estimator(
 
     Replaces the 0.30 single-source retention for the rows it would have hit.
     ``candidates`` holds ``(row_normalized index, row_idx, observed blend,
-    observed family weight, voting observations, voting families)``. Method and
-    gates: ``src/api/sparse_evidence.py`` and
+    observed family weight, voting observations, voting families, present
+    families, voting source keys)``. Method and gates:
+    ``src/api/sparse_evidence.py`` and
     ``docs/valuation/evidence/sparse-evidence-2026-10-01/PREREGISTRATION.md``.
 
     Reuses only what this build already computed: each source's stamped
@@ -7413,16 +7414,73 @@ def _apply_sparse_evidence_estimator(
         capped, _ = cap_family_weights(weights, base=blend_weight_by_source)
         return capped
 
-    for norm_idx, row_idx, observed, observed_weight, n_obs, n_families in candidates:
+    registry = {str(s.get("key") or ""): s for s in _RANKING_SOURCES}
+    active_keys = {str(s.get("key") or "") for s in active_sources}
+
+    def _source_covers(key: str, position: str) -> bool:
+        src = registry.get(key)
+        if not src:
+            return False
+        scopes = [src.get("scope")] + list(src.get("extra_scopes") or [])
+        return any(_scope_eligible(position, str(sc), src.get("position_group")) for sc in scopes)
+
+    def _listed_value(key: str, value: Any) -> bool:
+        # The ``sourcePresence`` rule: a DraftSharks combined-rank key is listed
+        # when present at all; any other key only with a positive number.  A
+        # missing or non-numeric value is NOT a listing (never coerced to 0).
+        if key in _DS_COMBINED_RANK_KEYS:
+            return value is not None
+        number = _safe_num(value)
+        return number is not None and number > 0
+
+    for (
+        norm_idx,
+        row_idx,
+        observed,
+        observed_weight,
+        n_obs,
+        n_families,
+        n_present,
+        voting_keys,
+    ) in candidates:
         row = players_array[row_idx]
         pos = str(row.get("position") or "").strip().upper()
         ckey = _canonical_match_key(str(row.get("canonicalName") or row.get("displayName") or ""))
         sites = row.get("canonicalSiteValues") or {}
-        listed = {
-            family_by_key.get(k, k)
+        listed_keys = {
+            k
             for k, v in (sites.items() if isinstance(sites, Mapping) else [])
-            if (v is not None if k in _DS_COMBINED_RANK_KEYS else (_safe_num(v) or 0) > 0)
-        } | {family_by_key.get(k, k) for k in (row_source_meta.get(row_idx) or {})}
+            if _listed_value(k, v)
+        } | set(row_source_meta.get(row_idx) or {})
+        listed = {family_by_key.get(k, k) for k in listed_keys}
+        voting_family_set = {family_by_key.get(k, k) for k in voting_keys}
+        # Families that LISTED the player but did not vote, and why.  A listing
+        # is never an absence: these can never become censored bounds.
+        dropped = set(row.get("droppedSources") or [])
+        fresh_excluded = set(row.get("freshnessExcludedSources") or [])
+        listed_not_voting: dict[str, str] = {}
+        ineligible_listings: list[str] = []
+        for k in sorted(listed_keys):
+            fam = family_by_key.get(k, k)
+            if fam in voting_family_set:
+                continue
+            if not _source_covers(k, pos):
+                # A value under this name from a board that cannot rank this
+                # position (an offense board beside a DB) is a name shared with
+                # another player -- not a listing of this one.  Reported only.
+                ineligible_listings.append(k)
+                continue
+            reason = (
+                _se.LISTED_OUTLIER
+                if k in dropped
+                else _se.LISTED_FRESHNESS
+                if k in fresh_excluded
+                else _se.LISTED_INACTIVE
+                if k not in active_keys
+                else _se.LISTED_NOT_VOTING
+            )
+            if listed_not_voting.get(fam) != _se.LISTED_OUTLIER:
+                listed_not_voting[fam] = reason
         identity_ok = bool(ckey) and key_counts.get(ckey, 0) == 1
         identity_ok = identity_ok and not (set(row.get("anomalyFlags") or []) & _QUARANTINE_FLAGS)
 
@@ -7448,6 +7506,14 @@ def _apply_sparse_evidence_estimator(
         est = _se.estimate(
             observed, observed_weight, bounds, weighted_count_aware_mean_median_blend
         )
+        evidence = _se.classify(
+            observed=observed,
+            present_families=n_present,
+            observations=n_obs,
+            listed_not_voting=listed_not_voting,
+            est=est,
+            refused=refused,
+        )
         row_normalized[norm_idx] = (est.central, row_idx)
         row["_blendedValueUncapped"] = int(round(est.central)) if est.central > 0 else 0
         row["sparseEvidence"] = _se.stamp(
@@ -7456,6 +7522,9 @@ def _apply_sparse_evidence_estimator(
             voting_families=n_families,
             effective_families=observed_weight,
             refused=refused,
+            evidence=evidence,
+            observed_family=",".join(sorted(voting_family_set)) or None,
+            ineligible_listings=ineligible_listings,
         )
 
 
@@ -10502,7 +10571,7 @@ def _compute_unified_rankings(
     # retention would hit get a censor-aware central estimate instead
     # (``_apply_sparse_evidence_estimator``, after this loop).  Off = incumbent.
     _sparse_estimator = _feature_flags.is_enabled("sparse_evidence_estimator")
-    _sparse_candidates: list[tuple[int, int, float, float, int, int]] = []
+    _sparse_candidates: list[tuple[int, int, float, float, int, int, int, tuple[str, ...]]] = []
 
     from src.sources.freshness import (  # noqa: PLC0415
         STYLE_EXPLICIT as _STYLE_EXPLICIT,
@@ -11327,6 +11396,8 @@ def _compute_unified_rankings(
                         sum(row_weight.get(k, 0.0) for k, _v, _a in family_kept),
                         len(family_kept),
                         len(voting_families),
+                        len(present_families),
+                        tuple(k for k, _v, _a in family_kept),
                     )
                 )
         elif not row_is_pick and len(present_families) <= 1 and not _sparse_limited_evidence:

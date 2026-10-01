@@ -28,6 +28,14 @@ Method (candidate C):
   end of the identified set, not an invented last-place rank and not a shrink
   toward zero. The lower end is not identified and is published as such.
 
+Central value and certainty are separate (owner directive, 2026-10-01).
+``state`` says what happened to the VALUE (bounded / bound non-binding / no
+witness). ``evidenceState`` (:func:`classify`) says WHY the row rests on one
+family and how much its absences can say -- the CERTAINTY half. It never moves
+the central value; confidence is still decided only by ``src/api/confidence.py``.
+The state matrix and its treatments are pinned by
+``tests/api/test_sparse_evidence_state_matrix.py``.
+
 The module is pure: the pipeline hands it the facts it already computed
 (source pool contributions, dataset state, presence) and the blend function.
 """
@@ -59,6 +67,65 @@ REFUSE_POSITION_UNRANKED = "position_unranked_by_source"
 REFUSE_NAME_PUBLISHED = "name_published_but_not_attached"
 REFUSE_IDENTITY = "row_identity_unproven"
 REFUSE_NAME_INDEX = "source_name_index_unavailable"
+
+# -- Evidence states: the CERTAINTY half (never moves the central value) --
+#
+# Out of the estimator's scope (no block is ever stamped on these rows):
+EV_NO_EVIDENCE = "no_usable_evidence"  # nothing priced it: unpriced, never 0
+EV_INDEPENDENT = "independent_families"  # >= 2 present families: not sparse
+# In scope (one present family), in precedence order:
+EV_OUTLIER_REMOVED = "one_family_after_outlier_removal"  # others LISTED it, then filtered
+EV_LISTED_FILTERED = "one_family_after_listing_filtered"  # others LISTED it, did not vote
+EV_CENSORED = "absent_from_deeper_boards"  # a healthy board reaching below x omits it
+EV_BEYOND_SHALLOW = "beyond_shallower_boards"  # healthy boards omit it, cutoffs above x
+EV_SAME_FAMILY = "one_family_multiple_members"  # n observations, one opinion
+EV_IDENTITY = "absent_families_identity_unresolved"
+EV_STALE = "absent_families_stale"
+EV_UNHEALTHY = "absent_families_unhealthy"
+EV_UNVERIFIED = "absent_families_unverified"
+EV_NO_COVERAGE = "absent_families_do_not_cover_position"
+EV_MIXED = "absent_families_uninformative_mixed"
+EV_SOLE = "sole_eligible_family"  # no other active family could have listed it
+
+#: Every refusal reason, grouped by what it says about the absence. None of
+#: these is evidence about the player; the grouping only names WHY not.
+REFUSAL_CATEGORY: dict[str, str] = {
+    REFUSE_STALE: EV_STALE,
+    REFUSE_UNHEALTHY: EV_UNHEALTHY,
+    REFUSE_COVERAGE: EV_UNHEALTHY,
+    REFUSE_UNMEASURED: EV_UNVERIFIED,
+    REFUSE_NOT_DYNASTY: EV_UNVERIFIED,
+    REFUSE_INACTIVE: EV_UNVERIFIED,
+    REFUSE_POSITION_UNRANKED: EV_NO_COVERAGE,
+    REFUSE_ROOKIE_ONLY: EV_NO_COVERAGE,
+    REFUSE_EXCLUDES_ROOKIES: EV_NO_COVERAGE,
+    REFUSE_SCOPE: EV_NO_COVERAGE,
+    REFUSE_IDENTITY: EV_IDENTITY,
+    REFUSE_NAME_PUBLISHED: EV_IDENTITY,
+    REFUSE_NAME_INDEX: EV_IDENTITY,
+}
+
+# Why a family that LISTED the player did not vote.  A listing is never an
+# absence, so none of these can produce a censored bound.
+LISTED_OUTLIER = "outlier_removed"
+LISTED_FRESHNESS = "freshness_excluded"
+LISTED_INACTIVE = "source_inactive"  # switched off by a source override
+LISTED_NOT_VOTING = "listed_not_voting"
+
+IN_SCOPE_STATES: tuple[str, ...] = (
+    EV_OUTLIER_REMOVED,
+    EV_LISTED_FILTERED,
+    EV_CENSORED,
+    EV_BEYOND_SHALLOW,
+    EV_SAME_FAMILY,
+    EV_IDENTITY,
+    EV_STALE,
+    EV_UNHEALTHY,
+    EV_UNVERIFIED,
+    EV_NO_COVERAGE,
+    EV_MIXED,
+    EV_SOLE,
+)
 
 #: The freshness band a board must be in to bound anything (the existing top
 #: band of ``config/sources/freshness_v1.json`` -- not a new threshold).
@@ -232,6 +299,79 @@ def estimate(
     )
 
 
+@dataclass(frozen=True)
+class Evidence:
+    """The certainty classification of one row (see :func:`classify`)."""
+
+    state: str
+    causes: tuple[str, ...]
+    listed_not_voting: dict[str, str]
+    refusal_categories: dict[str, str]
+    eligible_absent_families: int
+
+
+def classify(
+    *,
+    observed: float,
+    present_families: int,
+    observations: int,
+    listed_not_voting: Mapping[str, str],
+    est: Estimate | None,
+    refused: Mapping[str, str],
+) -> Evidence:
+    """Name the row's evidence state -- the certainty half, kept off the value.
+
+    ``observed`` is the one family's blend, ``present_families`` the pipeline's
+    own count (voting + freshness-excluded families), ``observations`` the
+    voting observations, ``listed_not_voting`` the families that LISTED the
+    player but did not vote (``{family: LISTED_*}``), ``est`` the central
+    estimate (its binding / non-binding bounds) and ``refused`` the absent
+    eligible families that produced no bound (``{family: REFUSE_*}``).
+
+    Precedence (the first that applies is ``state``; every one that applies is
+    in ``causes``): a listing filtered away; a binding censor; a non-binding
+    censor (the player sits beyond boards shallower than its observation);
+    several observations of one family; the absences' refusal category (one
+    category names it, several are ``EV_MIXED``); no other eligible family.
+    """
+    categories = {f: REFUSAL_CATEGORY.get(r, EV_MIXED) for f, r in refused.items()}
+    binding = list(est.binding) if est is not None else []
+    nonbinding = list(est.nonbinding) if est is not None else []
+    eligible_absent = len(binding) + len(nonbinding) + len(refused)
+    if observations <= 0 or observed <= 0:
+        return Evidence(EV_NO_EVIDENCE, (EV_NO_EVIDENCE,), {}, categories, eligible_absent)
+    if present_families >= 2:
+        return Evidence(EV_INDEPENDENT, (EV_INDEPENDENT,), {}, categories, eligible_absent)
+    causes: list[str] = []
+    reasons = set(listed_not_voting.values())
+    if LISTED_OUTLIER in reasons:
+        causes.append(EV_OUTLIER_REMOVED)
+    if reasons - {LISTED_OUTLIER}:
+        causes.append(EV_LISTED_FILTERED)
+    if binding:
+        causes.append(EV_CENSORED)
+    if nonbinding:
+        causes.append(EV_BEYOND_SHALLOW)
+    if observations >= 2:
+        causes.append(EV_SAME_FAMILY)
+    refusal_states = sorted(set(categories.values()))
+    causes.extend(refusal_states)
+    if not listed_not_voting and eligible_absent == 0:
+        causes.append(EV_SOLE)
+    primary = next((c for c in causes if c not in refusal_states and c != EV_SOLE), None)
+    if primary is None and refusal_states:
+        primary = refusal_states[0] if len(refusal_states) == 1 else EV_MIXED
+    if primary is None:
+        primary = EV_SOLE
+    return Evidence(
+        primary,
+        tuple(causes),
+        dict(sorted(listed_not_voting.items())),
+        dict(sorted(categories.items())),
+        eligible_absent,
+    )
+
+
 def stamp(
     est: Estimate,
     *,
@@ -239,12 +379,31 @@ def stamp(
     voting_families: int,
     effective_families: float,
     refused: Mapping[str, str],
+    evidence: Evidence | None = None,
+    observed_family: str | None = None,
+    ineligible_listings: Iterable[str] = (),
 ) -> dict[str, Any]:
     """The additive per-row ``sparseEvidence`` block."""
+    certainty: dict[str, Any] = {}
+    if evidence is not None:
+        certainty = {
+            # The CERTAINTY half: why one family, and what the absences can say.
+            # Never an input to ``centralEstimate``.
+            "evidenceState": evidence.state,
+            "evidenceCauses": list(evidence.causes),
+            "observedFamily": observed_family,
+            "listedNotVotingFamilies": evidence.listed_not_voting,
+            "refusalCategories": evidence.refusal_categories,
+            "eligibleAbsentFamilyCount": evidence.eligible_absent_families,
+            # Values under this name from boards that cannot rank the position:
+            # a shared name, not a listing.  Reported, never a cause or a bound.
+            "ineligibleSourceListings": sorted(ineligible_listings),
+        }
     return {
         "estimator": ESTIMATOR_VERSION,
         "state": est.state,
         "reason": est.reason,
+        **certainty,
         # Truncated exactly as ``rankDerivedValue`` is, so the two agree.
         "centralEstimate": int(est.central),
         "observedValue": int(round(est.observed)),

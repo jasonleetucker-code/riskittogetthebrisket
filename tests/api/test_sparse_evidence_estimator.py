@@ -506,3 +506,31 @@ def test_board_estimates_stay_inside_their_inputs(boards):
             assert row["rankDerivedValue"] == max(dc._CANONICAL_VALUE_MIN, block["centralEstimate"])
         assert block["confidence"]["bucket"] == row.get("confidenceBucket")
     assert not any(r.get("blendIntegrityViolation") for r in on["playersArray"])
+
+
+def test_board_every_block_names_its_evidence_state(boards):
+    """The certainty half on a real board: every in-scope row is classified, and
+    the classification agrees with the value mechanism that ran."""
+    _off, on = boards
+    states = []
+    for row in on["playersArray"]:
+        block = row.get("sparseEvidence")
+        if not block:
+            continue
+        state = block["evidenceState"]
+        states.append(state)
+        assert state in se.IN_SCOPE_STATES, row.get("displayName")
+        assert state in block["evidenceCauses"] or state == se.EV_MIXED
+        assert block["observedFamily"]
+        if block["censoredFamiliesUsed"]:
+            assert se.EV_CENSORED in block["evidenceCauses"]
+        if block["nonBindingFamilies"]:
+            assert se.EV_BEYOND_SHALLOW in block["evidenceCauses"]
+        assert set(block["refusalCategories"]) == set(block["refusedFamilies"])
+        # A listed family is never also an absent one.
+        absent = {c["family"] for c in block["censoredFamiliesUsed"]}
+        absent |= {c["family"] for c in block["nonBindingFamilies"]}
+        absent |= set(block["refusedFamilies"])
+        assert not absent & set(block["listedNotVotingFamilies"])
+        assert block["observedFamily"] not in absent
+    assert states, "archive should exercise the single-family path"
