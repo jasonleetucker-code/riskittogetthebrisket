@@ -1189,6 +1189,14 @@ main() {
   # the authenticated /api/second-opinion/signals (src/sources/signals.py).
   # Public pages, no creds; a 401/403 persists a stop the script obeys.
   install_simple_timer "signals-fetch" "Signals Fantasy public-board collection (non-voting second opinion)"
+  # KTC Trade Database -> append-only raw trade archive (Market Trade Ledger,
+  # Batch 3 Unit I; src/sources/ktc_trades.py).  Public page, no creds; a
+  # 401/403/challenge persists a stop the script obeys.  Never moves a value.
+  install_simple_timer "ktc-trades" "KTC Trade Database accumulation (Market Trade Ledger raw archive)"
+  # Daily rebuild of the DERIVED underlying-trade ledger + coverage report
+  # from that archive (src/trade/market_trade_report.py).  Its own unit so a
+  # rebuild can never eat the fetch's timeout/memory; box-local files only.
+  install_simple_timer "market-trade-ledger" "Market Trade Ledger daily rebuild (derived underlying-trade ledger)"
   # Batch 3 Unit F: the #1571 joint robust filter in SHADOW beside the incumbent
   # Hampel filter -> append-only data/robust_filter_shadow/ledger.jsonl + the
   # preregistered evaluation. Writes no served value; never promotes.
