@@ -685,3 +685,30 @@ not production evidence. Do not read it as a proven backup.
 The same split the section above draws still applies and is not resolved
 here: the deploy user's fallback lineage is proven, the **root-owned nightly**
 is not, and installing this row changes neither.
+
+---
+
+## Addendum — `data/learning/receipts.sqlite` joined the backup set, 2026-10-01
+
+**Not a C1A row**, for the same reason as the Game Day addendum above: the
+backup set changed, so the register records it.
+
+| | |
+|---|---|
+| **Primary store** | `data/learning/receipts.sqlite` (gitignored; refused under `data/ros/`, which the scheduled refresh force-adds) |
+| **Backup** | `riskit-state-backup.sh` → `sqlite/receipts.sqlite.gz` (online backup, `PRAGMA integrity_check`ed) |
+| **Write owner** | `src/model_registry/receipt_store.py::append_receipts` — INSERT-only; UPDATE / DELETE and `PROMOTION_RECORD` rows are refused by database triggers |
+| **Read owner** | `receipt_store.iter_receipts` — operators, tests, and later AL units. **No serving path reads it** |
+| **Retention** | indefinite; append-only |
+| **Privacy class** | **private** — model evaluations, challengers and verdicts are decision intelligence (`MASTER_PRODUCT_PLAN.md` §5) |
+| **Restore / replay** | restore the gz. Every receipt AL-0 itself derives is re-derivable from committed evidence (the Hill registry, the Hill trainer-repair demo, the #1589 source-quality archive) by `src/model_registry/learning_adapters.py`, byte-identically. Receipts that later units point at perishable stores (pregame captures, rolling windows) are not, which is why the store is backed up rather than declared rebuildable |
+| **Health signal** | none yet: nothing writes the store on production in AL-0. A scheduled writer (AL-1a accumulation) adds its own signal |
+
+Owner unit: Adaptive Learning AL-0 (`docs/EXECUTION_PLAN.md` §0;
+`docs/research/ADAPTIVE_LEARNING_2026-09-26.md` §23 A9). AL-3a is the serial
+owner of `deploy/backup/`; no AL-3a claim was active when this line landed.
+
+**Evidence status: NONE MEASURED.** No production generation has been observed
+containing `receipts.sqlite.gz`, because no production writer exists yet. The row
+is pinned in the script by `tests/deploy/test_state_backup_dir_archiving.py` — a
+repository fact, not production evidence.
