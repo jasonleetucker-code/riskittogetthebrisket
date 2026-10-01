@@ -93,6 +93,8 @@ _ROW_FIELDS = (
     "ktcMarket",
     "pickValueProvenance",
 )
+#: Row fields a view carries only when the row has them.
+_OPTIONAL_ROW_FIELDS = ("sparseEvidence",)
 
 
 def _sha256(path: Path) -> str:
@@ -392,6 +394,9 @@ def asset_view(contract: Mapping[str, Any], name: str) -> dict[str, Any] | None:
     if row is None:
         return None
     view = {k: row.get(k) for k in _ROW_FIELDS}
+    # Only when stamped (flag ``sparse_evidence_estimator``, default OFF), so a
+    # flag-off view carries exactly the keys it always did.
+    view.update({k: row[k] for k in _OPTIONAL_ROW_FIELDS if k in row})
     view["positionRank"] = _position_ranks(rows).get(name)
     meta = row.get("sourceRankMeta") or {}
     view["sources"] = {
@@ -437,6 +442,22 @@ def blend_check(row: Mapping[str, Any]) -> dict[str, Any]:
     values = [v for v, _ in voters]
     weights = [w for _, w in voters]
     blended, _ = dc.weighted_count_aware_mean_median_blend(values, weights)
+    sparse = row.get("sparseEvidence")
+    if isinstance(sparse, Mapping):
+        # Sparse-evidence estimate: the voters reproduce the OBSERVED value; the
+        # published value is the estimator's (bounded by absent families), so
+        # each stamp is checked against what it claims, not called a mismatch.
+        observed = sparse.get("observedValue")
+        return {
+            "status": "sparse_estimate"
+            if observed is not None and abs(round(blended) - observed) <= 1
+            else "mismatch",
+            "recomputed": round(blended, 2),
+            "observed": observed,
+            "published": row.get("_blendedValueUncapped"),
+            "centralEstimate": sparse.get("centralEstimate"),
+            "voters": len(voters),
+        }
     if row.get("singleSourceValuePenaltyApplied"):
         blended *= dc._SINGLE_SOURCE_VALUE_RETENTION
     published = row.get("_blendedValueUncapped")

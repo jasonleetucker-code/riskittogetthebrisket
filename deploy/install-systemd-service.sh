@@ -13,6 +13,7 @@ SERVICE_TEMPLATE_PATH="${SERVICE_TEMPLATE_PATH:-${APP_DIR}/deploy/systemd/dynast
 FORCE_SERVICE_INSTALL="${FORCE_SERVICE_INSTALL:-false}"
 SYSTEMCTL_BIN=""
 INSTALL_BIN=""
+CHOWN_BIN=""
 
 log() {
   printf '[systemd-bootstrap] %s\n' "$*"
@@ -60,6 +61,32 @@ resolve_sudo_nopasswd_binary() {
 resolve_and_validate_sudo_binaries() {
   SYSTEMCTL_BIN="$(resolve_sudo_nopasswd_binary "systemctl" /bin/systemctl /usr/bin/systemctl)"
   INSTALL_BIN="$(resolve_sudo_nopasswd_binary "install" /usr/bin/install /bin/install)"
+}
+
+# Does the INSTALLED file already carry exactly the rendered content?
+#
+# UNPRIVILEGED on purpose.  The box user's NOPASSWD surface is exactly
+# systemctl, journalctl, install and chown — `cmp` is NOT in it, so
+# `sudo -n cmp` is refused with "a password is required"
+# (deploy/reconcile-runtime-controls.sh documents the same allowlist and
+# compares without sudo for the same reason).  The refusal used to be
+# read as drift, so EVERY deploy rewrote and daemon-reloaded every unit
+# compared this way and re-fired each one's initial kick — measured on
+# deploy run 36881631608 as `sudo: a password is required` followed by
+# "<unit> differs from its template; updating." for ~16 units.
+#
+# Nothing needs privilege here: units are installed 0644 and logrotate
+# configs are world-readable, so an ordinary read is sufficient and is the
+# truer check (it sees what systemd sees).  A missing or unreadable target
+# makes `cmp` exit 2, which still counts as drift — reinstalling a correct
+# file is harmless, skipping a changed one is the silent failure.
+installed_matches() {
+  local rendered="$1" installed="$2"
+  cmp -s "${rendered}" "${installed}" 2>/dev/null && return 0
+  if [[ -e "${installed}" && ! -r "${installed}" ]]; then
+    log "Note: ${installed} is not readable as $(id -un); treating it as drifted."
+  fi
+  return 1
 }
 
 # Locate an absolute path to the `npm` binary that the dynasty-frontend
@@ -137,28 +164,44 @@ escape_sed_replacement() {
   printf '%s' "$1" | sed -e 's/[\\/&]/\\&/g'
 }
 
-# ── Generic timer installer ─────────────────────────────────────────────
-# Every timer below main()'s backend/frontend sections is a hand-written
-# block, and each new one is another chance to forget a block entirely.
-# Three had been forgotten by 2026-08-05: crowd-faab, sharp-activity and
-# board-snapshot all shipped BOTH templates while nothing installed them,
-# so their producers never ran on prod and every deploy still reported
-# success.  Same shape as the 2026-07-30 finding one screen down, where
-# nine timer pairs shipped and two were installed.
+# ── Timer unit reconciliation (the ONE renderer for dynasty-* timers) ────
+# `reconcile_timer_units` renders one timer's service + timer templates,
+# compares them with what is installed, and rewrites both only on a real
+# difference.  It is the single place this installer turns a timer
+# template into a unit file.  Two callers:
 #
-# Worse than "does not run": deploy.sh's missing-timer detector globs the
-# SAME directory to decide whether to invoke this script, so an unwired
-# template is reported missing on EVERY deploy, which runs this installer
-# to fix it, which does not install it.  A permanent loop, silent because
-# it only warns.
+#   * `install_simple_timer` (below) — render, reconcile, enable.  For any
+#     timer whose install is nothing more than that.
+#   * the dedicated per-timer blocks in main() — timers with real special
+#     cases (credential gating, an initial kick, a /var/lib seed, an
+#     ownership migration).  They keep their gate and their post-install
+#     steps, and delegate ONLY the render/compare/write here.
 #
-# This helper covers any timer whose install is just "render the two
-# templates, enable it".  Timers with real special cases — credential
-# gating, an initial kick, a /var/lib seed — keep their dedicated blocks.
-# `tests/deploy/test_all_timers_are_wired.py` asserts every shipped
-# template is reached by one route or the other, so the next timer added
-# cannot go missing quietly.
-install_simple_timer() {
+# Why the dedicated blocks delegate (2026-10-01).  Each used to ask "does
+# the timer exist?" and, when it did, log "already installed; skipping"
+# unless FORCE_SERVICE_INSTALL was set — so EDITING THE TEMPLATE HAD NO
+# EFFECT ON THE BOX, the same hole this helper was written to close for
+# the simple timers.  Measured on production 2026-10-01, rendering every
+# template and comparing it with /etc/systemd/system found two units
+# frozen at their first-install content:
+#
+#   * dynasty-bdvm-refresh.service lacked the stage-0
+#     `refresh_bdvm_inputs.py` ExecStart added on 2026-08-20, so the BDVM
+#     player context had never been materialised and /api/bdvm/* ran on
+#     neutral priors;
+#   * dynasty-consensus-edge-snapshot.service lacked User=/Group=,
+#     EnvironmentFile and journal output — it ran as root and left a
+#     root-owned data/consensus_edge.sqlite the API cannot open read-write.
+#
+# Both deploys had reported success.
+#
+# Result: sets TIMER_UNITS_WRITTEN=true when it wrote the unit files (new
+# install, FORCE_SERVICE_INSTALL, or content drift), false otherwise.  A
+# global rather than an exit status, because every caller runs under
+# `set -e` and a non-zero "nothing to do" would abort the install.
+TIMER_UNITS_WRITTEN=false
+
+reconcile_timer_units() {
   local stem="$1" label="$2"
   local service_template="${APP_DIR}/deploy/systemd/dynasty-${stem}.service.template"
   local timer_template="${APP_DIR}/deploy/systemd/dynasty-${stem}.timer.template"
@@ -166,6 +209,7 @@ install_simple_timer() {
   local service_path="/etc/systemd/system/${unit_name}.service"
   local timer_path="/etc/systemd/system/${unit_name}.timer"
 
+  TIMER_UNITS_WRITTEN=false
   [[ -f "${service_template}" && -f "${timer_template}" ]] || return 0
 
   # RENDER FIRST, THEN DECIDE. The old order asked "does a unit exist?"
@@ -198,16 +242,15 @@ install_simple_timer() {
     if [[ "${force_install_on}" == "true" ]]; then
       log "FORCE_SERVICE_INSTALL enabled; rewriting ${service_path} + timer."
       needs_install=true
-    # Content drift. `cmp -s` against the INSTALLED FILES, read through
-    # sudo because /etc/systemd/system is not world-readable on every
-    # box. A read that fails is treated as drift: reinstalling a unit
-    # that was already correct is a no-op, while skipping one that
-    # changed is the silent failure above, so the safe direction is
-    # obvious.
-    elif ! sudo -n cmp -s "${tmp_timer}" "${timer_path}" \
-      || ! sudo -n cmp -s "${tmp_service}" "${service_path}"; then
+    # Content drift, compared WITHOUT sudo — see installed_matches for
+    # why `sudo -n cmp` is refused on the box and what that used to cost.
+    # A missing or unreadable target still counts as drift.
+    elif ! installed_matches "${tmp_timer}" "${timer_path}" \
+      || ! installed_matches "${tmp_service}" "${service_path}"; then
       log "${unit_name} differs from its template; updating."
       needs_install=true
+    else
+      log "${unit_name} already installed and current."
     fi
   else
     log "Installing ${label} service + timer."
@@ -217,13 +260,47 @@ install_simple_timer() {
   if [[ "${needs_install}" == "true" ]]; then
     sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_service}" "${service_path}"
     sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_timer}" "${timer_path}"
-    # Reload here rather than joining the shared reload below: enabling a
-    # unit systemd has not re-read is the ce_needs_install failure — the
-    # fix deployed, reported as deployed, and not running.
+    # Reload here rather than relying only on the shared reload in main():
+    # enabling a unit systemd has not re-read is the ce_needs_install
+    # failure — the fix deployed, reported as deployed, and not running.
     sudo -n "${SYSTEMCTL_BIN}" daemon-reload
     log "Installed ${unit_name}.service + .timer"
+    TIMER_UNITS_WRITTEN=true
   fi
   rm -f "${tmp_service}" "${tmp_timer}"
+}
+
+# ── Generic timer installer ─────────────────────────────────────────────
+# Every timer below main()'s backend/frontend sections used to be a
+# hand-written block, and each new one is another chance to forget a block
+# entirely.  Three had been forgotten by 2026-08-05: crowd-faab,
+# sharp-activity and board-snapshot all shipped BOTH templates while
+# nothing installed them, so their producers never ran on prod and every
+# deploy still reported success.  Same shape as the 2026-07-30 finding one
+# screen down, where nine timer pairs shipped and two were installed.
+#
+# Worse than "does not run": deploy.sh's missing-timer detector globs the
+# SAME directory to decide whether to invoke this script, so an unwired
+# template is reported missing on EVERY deploy, which runs this installer
+# to fix it, which does not install it.  A permanent loop, silent because
+# it only warns.
+#
+# This helper covers any timer whose install is just "render the two
+# templates, enable it".  Timers with real special cases — credential
+# gating, an initial kick, a /var/lib seed — keep their dedicated blocks,
+# which share `reconcile_timer_units` above for the unit files themselves.
+# `tests/deploy/test_all_timers_are_wired.py` asserts every shipped
+# template is reached by one route or the other, so the next timer added
+# cannot go missing quietly.
+install_simple_timer() {
+  local stem="$1" label="$2"
+  local service_template="${APP_DIR}/deploy/systemd/dynasty-${stem}.service.template"
+  local timer_template="${APP_DIR}/deploy/systemd/dynasty-${stem}.timer.template"
+  local unit_name="${SERVICE_NAME}-${stem}"
+
+  [[ -f "${service_template}" && -f "${timer_template}" ]] || return 0
+
+  reconcile_timer_units "${stem}" "${label}"
 
   # Enablement is checked SEPARATELY, and not only when we just wrote the
   # files.  deploy.sh's detector treats installed-but-disabled as missing,
@@ -236,6 +313,48 @@ install_simple_timer() {
       log "Note: could not enable ${unit_name}.timer."
     fi
   fi
+}
+
+# ── Consensus Edge store ownership migration ────────────────────────────
+# The consensus-edge snapshot unit ran as root until its installed unit
+# was brought current (see reconcile_timer_units), so on a box that ran it
+# the store and its SQLite sidecars are root:root.  Once the unit runs as
+# APP_USER it cannot write them — and snapshot.connect() opens read-write,
+# so neither can the API.  Hand exactly these three files to APP_USER.
+#
+# Idempotent: a file already owned by APP_USER:APP_USER is left alone, so
+# an up-to-date box makes no sudo call at all.  Never deletes, never
+# creates, never follows a symlink, never touches any other path.  A
+# failed chown is LOUD but not fatal: consensus_edge is flag-OFF, and
+# failing a production deploy over a dormant feature's store would trade a
+# contained defect for an outage.  The unit's own failure in the journal
+# then names the same problem.
+migrate_consensus_edge_store_ownership() {
+  local store="${APP_DIR}/data/consensus_edge.sqlite"
+  local path owner
+  for path in "${store}" "${store}-wal" "${store}-shm"; do
+    [[ -e "${path}" || -L "${path}" ]] || continue
+    if [[ -L "${path}" || ! -f "${path}" ]]; then
+      error "Consensus Edge store: ${path} is not a regular file; ownership left unchanged."
+      continue
+    fi
+    owner="$(stat -c '%U:%G' "${path}" 2>/dev/null || true)"
+    if [[ "${owner}" == "${APP_USER}:${APP_USER}" ]]; then
+      continue
+    fi
+    # By ABSOLUTE path, resolved the way deploy.sh / rollback.sh do it:
+    # the NOPASSWD rule names a binary, not a PATH lookup.  Resolved
+    # lazily (an up-to-date box never reaches here) and non-fatally —
+    # the same "loud, not an outage" posture as a failed chown below.
+    if [[ -z "${CHOWN_BIN}" ]]; then
+      CHOWN_BIN="$(resolve_sudo_nopasswd_binary "chown" /bin/chown /usr/bin/chown)" || CHOWN_BIN=""
+    fi
+    if [[ -n "${CHOWN_BIN}" ]] && sudo -n "${CHOWN_BIN}" "${APP_USER}:${APP_USER}" "${path}"; then
+      log "Consensus Edge store: ${path} ${owner:-<unreadable owner>} -> ${APP_USER}:${APP_USER}."
+    else
+      error "Consensus Edge store: could not chown ${path} to ${APP_USER}:${APP_USER}; the snapshot unit (running as ${APP_USER}) will fail to write it."
+    fi
+  done
 }
 
 main() {
@@ -355,8 +474,6 @@ main() {
   local alerts_service_template="${APP_DIR}/deploy/systemd/dynasty-signal-alerts.service.template"
   local alerts_timer_template="${APP_DIR}/deploy/systemd/dynasty-signal-alerts.timer.template"
   local alerts_service_name="${SERVICE_NAME}-signal-alerts"
-  local alerts_service_path="/etc/systemd/system/${alerts_service_name}.service"
-  local alerts_timer_path="/etc/systemd/system/${alerts_service_name}.timer"
   local alerts_needs_install=false
   local has_cron_token=false
 
@@ -364,36 +481,11 @@ main() {
     has_cron_token=true
   fi
 
+  # Gate unchanged; the unit files go through the shared drift-aware
+  # renderer so a template edit reaches the box (reconcile_timer_units).
   if [[ -f "${alerts_service_template}" && -f "${alerts_timer_template}" && "${has_cron_token}" == "true" ]]; then
-    if sudo -n "${SYSTEMCTL_BIN}" cat "${alerts_service_name}.timer" >/dev/null 2>&1; then
-      if [[ "${force_install_on}" == "true" ]]; then
-        log "FORCE_SERVICE_INSTALL enabled; rewriting ${alerts_service_path} + timer."
-        alerts_needs_install=true
-      else
-        log "Signal-alerts timer already installed; skipping."
-      fi
-    else
-      log "Installing signal-alerts service + timer."
-      alerts_needs_install=true
-    fi
-
-    if [[ "${alerts_needs_install}" == "true" ]]; then
-      local tmp_alerts_service tmp_alerts_timer
-      tmp_alerts_service="$(mktemp)"
-      tmp_alerts_timer="$(mktemp)"
-      trap 'rm -f "${tmp_unit:-}" "${tmp_frontend:-}" "${tmp_alerts_service:-}" "${tmp_alerts_timer:-}"' EXIT
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
-        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
-        "${alerts_service_template}" > "${tmp_alerts_service}"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        "${alerts_timer_template}" > "${tmp_alerts_timer}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_alerts_service}" "${alerts_service_path}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_alerts_timer}" "${alerts_timer_path}"
-      log "Installed ${alerts_service_name}.service + .timer"
-    fi
+    reconcile_timer_units "signal-alerts" "signal-alerts"
+    alerts_needs_install="${TIMER_UNITS_WRITTEN}"
   elif [[ -f "${alerts_service_template}" && "${has_cron_token}" != "true" ]]; then
     log "Signal-alerts timer skipped: SIGNAL_ALERT_CRON_TOKEN not set in ${APP_DIR}/.env."
   fi
@@ -405,40 +497,11 @@ main() {
   local custom_alerts_service_template="${APP_DIR}/deploy/systemd/dynasty-custom-alerts.service.template"
   local custom_alerts_timer_template="${APP_DIR}/deploy/systemd/dynasty-custom-alerts.timer.template"
   local custom_alerts_service_name="${SERVICE_NAME}-custom-alerts"
-  local custom_alerts_service_path="/etc/systemd/system/${custom_alerts_service_name}.service"
-  local custom_alerts_timer_path="/etc/systemd/system/${custom_alerts_service_name}.timer"
   local custom_alerts_needs_install=false
 
   if [[ -f "${custom_alerts_service_template}" && -f "${custom_alerts_timer_template}" && "${has_cron_token}" == "true" ]]; then
-    if sudo -n "${SYSTEMCTL_BIN}" cat "${custom_alerts_service_name}.timer" >/dev/null 2>&1; then
-      if [[ "${force_install_on}" == "true" ]]; then
-        log "FORCE_SERVICE_INSTALL enabled; rewriting ${custom_alerts_service_path} + timer."
-        custom_alerts_needs_install=true
-      else
-        log "Custom-alerts timer already installed; skipping."
-      fi
-    else
-      log "Installing custom-alerts service + timer."
-      custom_alerts_needs_install=true
-    fi
-
-    if [[ "${custom_alerts_needs_install}" == "true" ]]; then
-      local tmp_custom_alerts_service tmp_custom_alerts_timer
-      tmp_custom_alerts_service="$(mktemp)"
-      tmp_custom_alerts_timer="$(mktemp)"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
-        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
-        "${custom_alerts_service_template}" > "${tmp_custom_alerts_service}"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        "${custom_alerts_timer_template}" > "${tmp_custom_alerts_timer}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_custom_alerts_service}" "${custom_alerts_service_path}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_custom_alerts_timer}" "${custom_alerts_timer_path}"
-      rm -f "${tmp_custom_alerts_service}" "${tmp_custom_alerts_timer}"
-      log "Installed ${custom_alerts_service_name}.service + .timer"
-    fi
+    reconcile_timer_units "custom-alerts" "custom-alerts"
+    custom_alerts_needs_install="${TIMER_UNITS_WRITTEN}"
   fi
 
   # ── Player-context refresh timer (prod-side producer) ──────────────────
@@ -482,8 +545,8 @@ main() {
       if [[ "${force_install_on}" == "true" ]]; then
         log "FORCE_SERVICE_INSTALL enabled; rewriting ${playerctx_service_path} + timer."
         playerctx_needs_install=true
-      elif ! sudo -n cmp -s "${tmp_playerctx_service}" "${playerctx_service_path}" 2>/dev/null \
-        || ! sudo -n cmp -s "${tmp_playerctx_timer}" "${playerctx_timer_path}" 2>/dev/null; then
+      elif ! installed_matches "${tmp_playerctx_service}" "${playerctx_service_path}" \
+        || ! installed_matches "${tmp_playerctx_timer}" "${playerctx_timer_path}"; then
         log "Player-context unit files changed; rewriting ${playerctx_service_path} + timer."
         playerctx_needs_install=true
       else
@@ -563,8 +626,8 @@ main() {
       if [[ "${force_install_on}" == "true" ]]; then
         log "FORCE_SERVICE_INSTALL enabled; rewriting ${pchist_service_path} + timer."
         pchist_needs_install=true
-      elif ! sudo -n cmp -s "${tmp_pchist_service}" "${pchist_service_path}" 2>/dev/null \
-        || ! sudo -n cmp -s "${tmp_pchist_timer}" "${pchist_timer_path}" 2>/dev/null; then
+      elif ! installed_matches "${tmp_pchist_service}" "${pchist_service_path}" \
+        || ! installed_matches "${tmp_pchist_timer}" "${pchist_timer_path}"; then
         log "Player-context retention unit files changed; rewriting."
         pchist_needs_install=true
       else
@@ -595,41 +658,14 @@ main() {
   local bdvm_service_template="${APP_DIR}/deploy/systemd/dynasty-bdvm-refresh.service.template"
   local bdvm_timer_template="${APP_DIR}/deploy/systemd/dynasty-bdvm-refresh.timer.template"
   local bdvm_service_name="${SERVICE_NAME}-bdvm-refresh"
-  local bdvm_service_path="/etc/systemd/system/${bdvm_service_name}.service"
-  local bdvm_timer_path="/etc/systemd/system/${bdvm_service_name}.timer"
   local bdvm_needs_install=false
 
+  # Drift-aware since 2026-10-01: production's installed unit had stayed
+  # at its first-install content and never received the stage-0
+  # refresh_bdvm_inputs.py ExecStart (see reconcile_timer_units).
   if [[ -f "${bdvm_service_template}" && -f "${bdvm_timer_template}" ]]; then
-    if sudo -n "${SYSTEMCTL_BIN}" cat "${bdvm_service_name}.timer" >/dev/null 2>&1; then
-      if [[ "${force_install_on}" == "true" ]]; then
-        log "FORCE_SERVICE_INSTALL enabled; rewriting ${bdvm_service_path} + timer."
-        bdvm_needs_install=true
-      else
-        log "BDVM-refresh timer already installed; skipping."
-      fi
-    else
-      log "Installing BDVM projection refresh service + timer."
-      bdvm_needs_install=true
-    fi
-
-  if [[ "${bdvm_needs_install}" == "true" ]]; then
-      local tmp_bdvm_service tmp_bdvm_timer
-      tmp_bdvm_service="$(mktemp)"
-      tmp_bdvm_timer="$(mktemp)"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
-        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
-        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
-        "${bdvm_service_template}" > "${tmp_bdvm_service}"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        "${bdvm_timer_template}" > "${tmp_bdvm_timer}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_bdvm_service}" "${bdvm_service_path}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_bdvm_timer}" "${bdvm_timer_path}"
-      rm -f "${tmp_bdvm_service}" "${tmp_bdvm_timer}"
-      log "Installed ${bdvm_service_name}.service + .timer"
-    fi
+    reconcile_timer_units "bdvm-refresh" "BDVM projection refresh"
+    bdvm_needs_install="${TIMER_UNITS_WRITTEN}"
   fi
 
   # ── Consensus Edge daily board snapshot ───────────────────────────────
@@ -645,41 +681,19 @@ main() {
   local ce_service_template="${APP_DIR}/deploy/systemd/dynasty-consensus-edge-snapshot.service.template"
   local ce_timer_template="${APP_DIR}/deploy/systemd/dynasty-consensus-edge-snapshot.timer.template"
   local ce_service_name="${SERVICE_NAME}-consensus-edge-snapshot"
-  local ce_service_path="/etc/systemd/system/${ce_service_name}.service"
-  local ce_timer_path="/etc/systemd/system/${ce_service_name}.timer"
   local ce_needs_install=false
 
+  # Drift-aware since 2026-10-01: production's installed unit predated
+  # the template's User=/Group= and ran as root (see
+  # reconcile_timer_units).  The ownership migration runs AFTER the unit
+  # is current and BEFORE the initial kick at the bottom of main(), so
+  # the first run as APP_USER finds a store it can write.  It runs on
+  # every install (not only when the unit was rewritten) because it is
+  # idempotent and a chown that failed once must be retried next deploy.
   if [[ -f "${ce_service_template}" && -f "${ce_timer_template}" ]]; then
-    if sudo -n "${SYSTEMCTL_BIN}" cat "${ce_service_name}.timer" >/dev/null 2>&1; then
-      if [[ "${force_install_on}" == "true" ]]; then
-        log "FORCE_SERVICE_INSTALL enabled; rewriting ${ce_service_path} + timer."
-        ce_needs_install=true
-      else
-        log "Consensus Edge snapshot timer already installed; skipping."
-      fi
-    else
-      log "Installing Consensus Edge snapshot service + timer."
-      ce_needs_install=true
-    fi
-
-    if [[ "${ce_needs_install}" == "true" ]]; then
-      local tmp_ce_service tmp_ce_timer
-      tmp_ce_service="$(mktemp)"
-      tmp_ce_timer="$(mktemp)"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
-        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
-        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
-        "${ce_service_template}" > "${tmp_ce_service}"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        "${ce_timer_template}" > "${tmp_ce_timer}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_ce_service}" "${ce_service_path}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_ce_timer}" "${ce_timer_path}"
-      rm -f "${tmp_ce_service}" "${tmp_ce_timer}"
-      log "Installed ${ce_service_name}.service + .timer"
-    fi
+    reconcile_timer_units "consensus-edge-snapshot" "Consensus Edge snapshot"
+    ce_needs_install="${TIMER_UNITS_WRITTEN}"
+    migrate_consensus_edge_store_ownership
   fi
 
   # ── Sharp Tracker manager-discovery timer ─────────────────────────────
@@ -696,41 +710,11 @@ main() {
   local sharp_service_template="${APP_DIR}/deploy/systemd/dynasty-sharp-discovery.service.template"
   local sharp_timer_template="${APP_DIR}/deploy/systemd/dynasty-sharp-discovery.timer.template"
   local sharp_service_name="${SERVICE_NAME}-sharp-discovery"
-  local sharp_service_path="/etc/systemd/system/${sharp_service_name}.service"
-  local sharp_timer_path="/etc/systemd/system/${sharp_service_name}.timer"
   local sharp_needs_install=false
 
   if [[ -f "${sharp_service_template}" && -f "${sharp_timer_template}" ]]; then
-    if sudo -n "${SYSTEMCTL_BIN}" cat "${sharp_service_name}.timer" >/dev/null 2>&1; then
-      if [[ "${force_install_on}" == "true" ]]; then
-        log "FORCE_SERVICE_INSTALL enabled; rewriting ${sharp_service_path} + timer."
-        sharp_needs_install=true
-      else
-        log "Sharp-discovery timer already installed; skipping."
-      fi
-    else
-      log "Installing Sharp Tracker manager-discovery service + timer."
-      sharp_needs_install=true
-    fi
-
-    if [[ "${sharp_needs_install}" == "true" ]]; then
-      local tmp_sharp_service tmp_sharp_timer
-      tmp_sharp_service="$(mktemp)"
-      tmp_sharp_timer="$(mktemp)"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
-        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
-        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
-        "${sharp_service_template}" > "${tmp_sharp_service}"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        "${sharp_timer_template}" > "${tmp_sharp_timer}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_sharp_service}" "${sharp_service_path}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_sharp_timer}" "${sharp_timer_path}"
-      rm -f "${tmp_sharp_service}" "${tmp_sharp_timer}"
-      log "Installed ${sharp_service_name}.service + .timer"
-    fi
+    reconcile_timer_units "sharp-discovery" "Sharp Tracker manager-discovery"
+    sharp_needs_install="${TIMER_UNITS_WRITTEN}"
   fi
 
   # ── Sharp Tracker season-records timer ─────────────────────────────
@@ -747,41 +731,11 @@ main() {
   local sharprec_service_template="${APP_DIR}/deploy/systemd/dynasty-sharp-records.service.template"
   local sharprec_timer_template="${APP_DIR}/deploy/systemd/dynasty-sharp-records.timer.template"
   local sharprec_service_name="${SERVICE_NAME}-sharp-records"
-  local sharprec_service_path="/etc/systemd/system/${sharprec_service_name}.service"
-  local sharprec_timer_path="/etc/systemd/system/${sharprec_service_name}.timer"
   local sharprec_needs_install=false
 
   if [[ -f "${sharprec_service_template}" && -f "${sharprec_timer_template}" ]]; then
-    if sudo -n "${SYSTEMCTL_BIN}" cat "${sharprec_service_name}.timer" >/dev/null 2>&1; then
-      if [[ "${force_install_on}" == "true" ]]; then
-        log "FORCE_SERVICE_INSTALL enabled; rewriting ${sharprec_service_path} + timer."
-        sharprec_needs_install=true
-      else
-        log "Sharp-records timer already installed; skipping."
-      fi
-    else
-      log "Installing Sharp Tracker season-records service + timer."
-      sharprec_needs_install=true
-    fi
-
-    if [[ "${sharprec_needs_install}" == "true" ]]; then
-      local tmp_sharprec_service tmp_sharprec_timer
-      tmp_sharprec_service="$(mktemp)"
-      tmp_sharprec_timer="$(mktemp)"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
-        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
-        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
-        "${sharprec_service_template}" > "${tmp_sharprec_service}"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        "${sharprec_timer_template}" > "${tmp_sharprec_timer}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_sharprec_service}" "${sharprec_service_path}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_sharprec_timer}" "${sharprec_timer_path}"
-      rm -f "${tmp_sharprec_service}" "${tmp_sharprec_timer}"
-      log "Installed ${sharprec_service_name}.service + .timer"
-    fi
+    reconcile_timer_units "sharp-records" "Sharp Tracker season-records"
+    sharprec_needs_install="${TIMER_UNITS_WRITTEN}"
   fi
 
 
@@ -797,41 +751,11 @@ main() {
   local sharpros_service_template="${APP_DIR}/deploy/systemd/dynasty-sharp-rosters.service.template"
   local sharpros_timer_template="${APP_DIR}/deploy/systemd/dynasty-sharp-rosters.timer.template"
   local sharpros_service_name="${SERVICE_NAME}-sharp-rosters"
-  local sharpros_service_path="/etc/systemd/system/${sharpros_service_name}.service"
-  local sharpros_timer_path="/etc/systemd/system/${sharpros_service_name}.timer"
   local sharpros_needs_install=false
 
   if [[ -f "${sharpros_service_template}" && -f "${sharpros_timer_template}" ]]; then
-    if sudo -n "${SYSTEMCTL_BIN}" cat "${sharpros_service_name}.timer" >/dev/null 2>&1; then
-      if [[ "${force_install_on}" == "true" ]]; then
-        log "FORCE_SERVICE_INSTALL enabled; rewriting ${sharpros_service_path} + timer."
-        sharpros_needs_install=true
-      else
-        log "Sharp-rosters timer already installed; skipping."
-      fi
-    else
-      log "Installing Sharp roster collection service + timer."
-      sharpros_needs_install=true
-    fi
-
-    if [[ "${sharpros_needs_install}" == "true" ]]; then
-      local tmp_sharpros_service tmp_sharpros_timer
-      tmp_sharpros_service="$(mktemp)"
-      tmp_sharpros_timer="$(mktemp)"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
-        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
-        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
-        "${sharpros_service_template}" > "${tmp_sharpros_service}"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        "${sharpros_timer_template}" > "${tmp_sharpros_timer}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_sharpros_service}" "${sharpros_service_path}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_sharpros_timer}" "${sharpros_timer_path}"
-      rm -f "${tmp_sharpros_service}" "${tmp_sharpros_timer}"
-      log "Installed ${sharpros_service_name}.service + .timer"
-    fi
+    reconcile_timer_units "sharp-rosters" "Sharp roster collection"
+    sharpros_needs_install="${TIMER_UNITS_WRITTEN}"
   fi
 
 
@@ -839,8 +763,6 @@ main() {
   local ffpc_service_template="${APP_DIR}/deploy/systemd/dynasty-ffpc-sharp.service.template"
   local ffpc_timer_template="${APP_DIR}/deploy/systemd/dynasty-ffpc-sharp.timer.template"
   local ffpc_service_name="${SERVICE_NAME}-ffpc-sharp"
-  local ffpc_service_path="/etc/systemd/system/${ffpc_service_name}.service"
-  local ffpc_timer_path="/etc/systemd/system/${ffpc_service_name}.timer"
   local ffpc_needs_install=false
   local ffpc_enabled=false
   if [[ -f "${APP_DIR}/config/sharp/ffpc_sources.json" ]] && \
@@ -848,33 +770,11 @@ main() {
        "${APP_DIR}/config/sharp/ffpc_sources.json"; then
     ffpc_enabled=true
   fi
+  # Same presence-only hole as the twelve logged blocks, minus the log
+  # line; gate (ffpc_sources.json "enabled": true) unchanged.
   if [[ "${ffpc_enabled}" == "true" && -f "${ffpc_service_template}" && -f "${ffpc_timer_template}" ]]; then
-    if sudo -n "${SYSTEMCTL_BIN}" cat "${ffpc_service_name}.timer" >/dev/null 2>&1; then
-      if [[ "${force_install_on}" == "true" ]]; then
-        ffpc_needs_install=true
-      fi
-    else
-      log "Installing FFPC public Sharp ingestion service + timer."
-      ffpc_needs_install=true
-    fi
-    if [[ "${ffpc_needs_install}" == "true" ]]; then
-      local tmp_ffpc_service tmp_ffpc_timer
-      tmp_ffpc_service="$(mktemp)"
-      tmp_ffpc_timer="$(mktemp)"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
-        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
-        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
-        "${ffpc_service_template}" > "${tmp_ffpc_service}"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        "${ffpc_timer_template}" > "${tmp_ffpc_timer}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_ffpc_service}" "${ffpc_service_path}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_ffpc_timer}" "${ffpc_timer_path}"
-      rm -f "${tmp_ffpc_service}" "${tmp_ffpc_timer}"
-      log "Installed ${ffpc_service_name}.service + .timer"
-    fi
+    reconcile_timer_units "ffpc-sharp" "FFPC public Sharp ingestion"
+    ffpc_needs_install="${TIMER_UNITS_WRITTEN}"
   fi
 
   # ── Sharp Tracker transaction crawl timer ─────────────────────────────
@@ -891,41 +791,11 @@ main() {
   local sharptx_service_template="${APP_DIR}/deploy/systemd/dynasty-sharp-transactions.service.template"
   local sharptx_timer_template="${APP_DIR}/deploy/systemd/dynasty-sharp-transactions.timer.template"
   local sharptx_service_name="${SERVICE_NAME}-sharp-transactions"
-  local sharptx_service_path="/etc/systemd/system/${sharptx_service_name}.service"
-  local sharptx_timer_path="/etc/systemd/system/${sharptx_service_name}.timer"
   local sharptx_needs_install=false
 
   if [[ -f "${sharptx_service_template}" && -f "${sharptx_timer_template}" ]]; then
-    if sudo -n "${SYSTEMCTL_BIN}" cat "${sharptx_service_name}.timer" >/dev/null 2>&1; then
-      if [[ "${force_install_on}" == "true" ]]; then
-        log "FORCE_SERVICE_INSTALL enabled; rewriting ${sharptx_service_path} + timer."
-        sharptx_needs_install=true
-      else
-        log "Sharp-transactions timer already installed; skipping."
-      fi
-    else
-      log "Installing Sharp Tracker transaction crawl service + timer."
-      sharptx_needs_install=true
-    fi
-
-    if [[ "${sharptx_needs_install}" == "true" ]]; then
-      local tmp_sharptx_service tmp_sharptx_timer
-      tmp_sharptx_service="$(mktemp)"
-      tmp_sharptx_timer="$(mktemp)"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
-        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
-        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
-        "${sharptx_service_template}" > "${tmp_sharptx_service}"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        "${sharptx_timer_template}" > "${tmp_sharptx_timer}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_sharptx_service}" "${sharptx_service_path}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_sharptx_timer}" "${sharptx_timer_path}"
-      rm -f "${tmp_sharptx_service}" "${tmp_sharptx_timer}"
-      log "Installed ${sharptx_service_name}.service + .timer"
-    fi
+    reconcile_timer_units "sharp-transactions" "Sharp Tracker transaction crawl"
+    sharptx_needs_install="${TIMER_UNITS_WRITTEN}"
   fi
 
   # ── Reception-depth histogram timer ───────────────────────────────────
@@ -941,41 +811,11 @@ main() {
   local rd_service_template="${APP_DIR}/deploy/systemd/dynasty-reception-depth.service.template"
   local rd_timer_template="${APP_DIR}/deploy/systemd/dynasty-reception-depth.timer.template"
   local rd_service_name="${SERVICE_NAME}-reception-depth"
-  local rd_service_path="/etc/systemd/system/${rd_service_name}.service"
-  local rd_timer_path="/etc/systemd/system/${rd_service_name}.timer"
   local rd_needs_install=false
 
   if [[ -f "${rd_service_template}" && -f "${rd_timer_template}" ]]; then
-    if sudo -n "${SYSTEMCTL_BIN}" cat "${rd_service_name}.timer" >/dev/null 2>&1; then
-      if [[ "${force_install_on}" == "true" ]]; then
-        log "FORCE_SERVICE_INSTALL enabled; rewriting ${rd_service_path} + timer."
-        rd_needs_install=true
-      else
-        log "Reception-depth timer already installed; skipping."
-      fi
-    else
-      log "Installing reception-depth refresh service + timer."
-      rd_needs_install=true
-    fi
-
-    if [[ "${rd_needs_install}" == "true" ]]; then
-      local tmp_rd_service tmp_rd_timer
-      tmp_rd_service="$(mktemp)"
-      tmp_rd_timer="$(mktemp)"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
-        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
-        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
-        "${rd_service_template}" > "${tmp_rd_service}"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        "${rd_timer_template}" > "${tmp_rd_timer}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_rd_service}" "${rd_service_path}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_rd_timer}" "${rd_timer_path}"
-      rm -f "${tmp_rd_service}" "${tmp_rd_timer}"
-      log "Installed ${rd_service_name}.service + .timer"
-    fi
+    reconcile_timer_units "reception-depth" "reception-depth refresh"
+    rd_needs_install="${TIMER_UNITS_WRITTEN}"
   fi
 
   # ── Play-by-play weekly stat timer ────────────────────────────────────
@@ -992,41 +832,11 @@ main() {
   local pbw_service_template="${APP_DIR}/deploy/systemd/dynasty-pbp-weekly.service.template"
   local pbw_timer_template="${APP_DIR}/deploy/systemd/dynasty-pbp-weekly.timer.template"
   local pbw_service_name="${SERVICE_NAME}-pbp-weekly"
-  local pbw_service_path="/etc/systemd/system/${pbw_service_name}.service"
-  local pbw_timer_path="/etc/systemd/system/${pbw_service_name}.timer"
   local pbw_needs_install=false
 
   if [[ -f "${pbw_service_template}" && -f "${pbw_timer_template}" ]]; then
-    if sudo -n "${SYSTEMCTL_BIN}" cat "${pbw_service_name}.timer" >/dev/null 2>&1; then
-      if [[ "${force_install_on}" == "true" ]]; then
-        log "FORCE_SERVICE_INSTALL enabled; rewriting ${pbw_service_path} + timer."
-        pbw_needs_install=true
-      else
-        log "Play-by-play weekly timer already installed; skipping."
-      fi
-    else
-      log "Installing play-by-play weekly stat service + timer."
-      pbw_needs_install=true
-    fi
-
-    if [[ "${pbw_needs_install}" == "true" ]]; then
-      local tmp_pbw_service tmp_pbw_timer
-      tmp_pbw_service="$(mktemp)"
-      tmp_pbw_timer="$(mktemp)"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
-        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
-        -e "s/__VENV_DIR__/$(escape_sed_replacement "${VENV_DIR}")/g" \
-        "${pbw_service_template}" > "${tmp_pbw_service}"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        "${pbw_timer_template}" > "${tmp_pbw_timer}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_pbw_service}" "${pbw_service_path}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_pbw_timer}" "${pbw_timer_path}"
-      rm -f "${tmp_pbw_service}" "${tmp_pbw_timer}"
-      log "Installed ${pbw_service_name}.service + .timer"
-    fi
+    reconcile_timer_units "pbp-weekly" "play-by-play weekly stat"
+    pbw_needs_install="${TIMER_UNITS_WRITTEN}"
   fi
 
   # ── DLF fetch timer (prod-side replacement for CI fetch_dlf.py) ────────
@@ -1039,8 +849,6 @@ main() {
   local dlf_fetch_service_template="${APP_DIR}/deploy/systemd/dynasty-dlf-fetch.service.template"
   local dlf_fetch_timer_template="${APP_DIR}/deploy/systemd/dynasty-dlf-fetch.timer.template"
   local dlf_fetch_service_name="${SERVICE_NAME}-dlf-fetch"
-  local dlf_fetch_service_path="/etc/systemd/system/${dlf_fetch_service_name}.service"
-  local dlf_fetch_timer_path="/etc/systemd/system/${dlf_fetch_service_name}.timer"
   local dlf_fetch_needs_install=false
   local has_dlf_creds=false
 
@@ -1051,35 +859,10 @@ main() {
   fi
 
   if [[ -f "${dlf_fetch_service_template}" && -f "${dlf_fetch_timer_template}" && "${has_dlf_creds}" == "true" ]]; then
-    if sudo -n "${SYSTEMCTL_BIN}" cat "${dlf_fetch_service_name}.timer" >/dev/null 2>&1; then
-      if [[ "${force_install_on}" == "true" ]]; then
-        log "FORCE_SERVICE_INSTALL enabled; rewriting ${dlf_fetch_service_path} + timer."
-        dlf_fetch_needs_install=true
-      else
-        log "DLF-fetch timer already installed; skipping."
-      fi
-    else
-      log "Installing DLF-fetch service + timer."
-      dlf_fetch_needs_install=true
-    fi
+    reconcile_timer_units "dlf-fetch" "DLF-fetch"
+    dlf_fetch_needs_install="${TIMER_UNITS_WRITTEN}"
 
     if [[ "${dlf_fetch_needs_install}" == "true" ]]; then
-      local tmp_dlf_service tmp_dlf_timer
-      tmp_dlf_service="$(mktemp)"
-      tmp_dlf_timer="$(mktemp)"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
-        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
-        "${dlf_fetch_service_template}" > "${tmp_dlf_service}"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        "${dlf_fetch_timer_template}" > "${tmp_dlf_timer}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_dlf_service}" "${dlf_fetch_service_path}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_dlf_timer}" "${dlf_fetch_timer_path}"
-      rm -f "${tmp_dlf_service}" "${tmp_dlf_timer}"
-      log "Installed ${dlf_fetch_service_name}.service + .timer"
-
       # Provision the work-dir and seed the cookie cache from the live
       # repo's session file (gitignored, so this is the only place the
       # cached cookies live on prod).  Idempotent: the script also
@@ -1104,8 +887,6 @@ main() {
   local idpshow_fetch_service_template="${APP_DIR}/deploy/systemd/dynasty-idpshow-fetch.service.template"
   local idpshow_fetch_timer_template="${APP_DIR}/deploy/systemd/dynasty-idpshow-fetch.timer.template"
   local idpshow_fetch_service_name="${SERVICE_NAME}-idpshow-fetch"
-  local idpshow_fetch_service_path="/etc/systemd/system/${idpshow_fetch_service_name}.service"
-  local idpshow_fetch_timer_path="/etc/systemd/system/${idpshow_fetch_service_name}.timer"
   local idpshow_fetch_needs_install=false
   local has_idpshow_session=false
 
@@ -1114,35 +895,10 @@ main() {
   fi
 
   if [[ -f "${idpshow_fetch_service_template}" && -f "${idpshow_fetch_timer_template}" && "${has_idpshow_session}" == "true" ]]; then
-    if sudo -n "${SYSTEMCTL_BIN}" cat "${idpshow_fetch_service_name}.timer" >/dev/null 2>&1; then
-      if [[ "${force_install_on}" == "true" ]]; then
-        log "FORCE_SERVICE_INSTALL enabled; rewriting ${idpshow_fetch_service_path} + timer."
-        idpshow_fetch_needs_install=true
-      else
-        log "IDP Show fetch timer already installed; skipping."
-      fi
-    else
-      log "Installing IDP Show fetch service + timer."
-      idpshow_fetch_needs_install=true
-    fi
+    reconcile_timer_units "idpshow-fetch" "IDP Show fetch"
+    idpshow_fetch_needs_install="${TIMER_UNITS_WRITTEN}"
 
     if [[ "${idpshow_fetch_needs_install}" == "true" ]]; then
-      local tmp_idpshow_service tmp_idpshow_timer
-      tmp_idpshow_service="$(mktemp)"
-      tmp_idpshow_timer="$(mktemp)"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        -e "s/__APP_USER__/$(escape_sed_replacement "${APP_USER}")/g" \
-        -e "s/__APP_DIR__/$(escape_sed_replacement "${APP_DIR}")/g" \
-        "${idpshow_fetch_service_template}" > "${tmp_idpshow_service}"
-      sed \
-        -e "s/__SERVICE_NAME__/$(escape_sed_replacement "${SERVICE_NAME}")/g" \
-        "${idpshow_fetch_timer_template}" > "${tmp_idpshow_timer}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_idpshow_service}" "${idpshow_fetch_service_path}"
-      sudo -n "${INSTALL_BIN}" -m 0644 "${tmp_idpshow_timer}" "${idpshow_fetch_timer_path}"
-      rm -f "${tmp_idpshow_service}" "${tmp_idpshow_timer}"
-      log "Installed ${idpshow_fetch_service_name}.service + .timer"
-
       sudo -n "${INSTALL_BIN}" -d -m 0755 -o "${APP_USER}" -g "${APP_USER}" /var/lib/idpshow-fetch
       if [[ ! -f /var/lib/idpshow-fetch/idpshow_session.json ]]; then
         sudo -n "${INSTALL_BIN}" -m 0600 -o "${APP_USER}" -g "${APP_USER}" \
@@ -1201,6 +957,10 @@ main() {
   # Hampel filter -> append-only data/robust_filter_shadow/ledger.jsonl + the
   # preregistered evaluation. Writes no served value; never promotes.
   install_simple_timer "joint-filter-shadow" "joint robust-filter shadow ledger (no served-value change)"
+  # Sparse-evidence estimator SHADOW ledger (Batch 3 Unit E): builds the served
+  # board and candidate C in memory, appends both answers to gitignored
+  # data/sparse_evidence_shadow/. Never serves or promotes. No creds.
+  install_simple_timer "sparse-evidence-shadow" "sparse-evidence estimator shadow ledger (incumbent vs candidate C)"
 
   # ── daemon-reload and enable ────────────────────────────────────────────
   # ce_needs_install was missing from this list. Every other timer's
@@ -1299,26 +1059,47 @@ main() {
     sudo -n "${SYSTEMCTL_BIN}" start --no-block "${sharp_service_name}.service" || \
       log "Note: initial sharp-discovery crawl could not be started; the timer will cover it."
   fi
-  if [[ -f "${sharprec_service_template}" && -f "${sharprec_timer_template}" ]]; then
+  # These three were gated on TEMPLATE PRESENCE, not on a write, so
+  # sharp-records and ffpc-sharp re-kicked a budgeted crawl on EVERY
+  # deploy, and sharp-rosters re-armed its timer.  The kick now follows a
+  # (re)write, like every other block.  A unit that is on disk but not
+  # enabled is still enabled — deploy.sh's detector treats that as
+  # missing — but without a kick (same rule as install_simple_timer).
+  if [[ "${sharprec_needs_install}" == "true" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" enable --now "${sharprec_service_name}.timer"
     log "Enabled ${sharprec_service_name}.timer"
     sudo -n "${SYSTEMCTL_BIN}" start --no-block "${sharprec_service_name}.service" || \
       log "Note: initial sharp-records crawl could not be started; the timer will cover it."
+  elif [[ -f "${sharprec_service_template}" && -f "${sharprec_timer_template}" ]] \
+    && ! sudo -n "${SYSTEMCTL_BIN}" is-enabled "${sharprec_service_name}.timer" >/dev/null 2>&1; then
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${sharprec_service_name}.timer" && \
+      log "Enabled ${sharprec_service_name}.timer" || \
+      log "Note: could not enable ${sharprec_service_name}.timer."
   fi
-  if [[ -f "${sharpros_service_template}" && -f "${sharpros_timer_template}" ]]; then
+  if [[ "${sharpros_needs_install}" == "true" ]] \
+    || { [[ -f "${sharpros_service_template}" && -f "${sharpros_timer_template}" ]] \
+      && ! sudo -n "${SYSTEMCTL_BIN}" is-enabled "${sharpros_service_name}.timer" >/dev/null 2>&1; }; then
     # --now arms the daily timer. No initial kick: this pass collects
     # for the cohort that discovery and records produce, and on a fresh
     # deploy those two have not finished yet — an immediate run would
     # collect for an empty cohort and log a misleading zero. The 30-min
     # OnActiveSec in the timer covers deploy day.
-    sudo -n "${SYSTEMCTL_BIN}" enable --now "${sharpros_service_name}.timer"
-    log "Enabled ${sharpros_service_name}.timer"
+    # Guarded like install_simple_timer: under set -e an unguarded enable
+    # failure would abort the whole installer (and the deploy) over one timer.
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${sharpros_service_name}.timer" && \
+      log "Enabled ${sharpros_service_name}.timer" || \
+      log "Note: could not enable ${sharpros_service_name}.timer."
   fi
-  if [[ "${ffpc_enabled}" == "true" && -f "${ffpc_service_template}" && -f "${ffpc_timer_template}" ]]; then
+  if [[ "${ffpc_needs_install}" == "true" ]]; then
     sudo -n "${SYSTEMCTL_BIN}" enable --now "${ffpc_service_name}.timer"
     log "Enabled ${ffpc_service_name}.timer"
     sudo -n "${SYSTEMCTL_BIN}" start --no-block "${ffpc_service_name}.service" || \
       log "Note: initial FFPC public crawl could not be started; the timer will cover it."
+  elif [[ "${ffpc_enabled}" == "true" && -f "${ffpc_service_template}" && -f "${ffpc_timer_template}" ]] \
+    && ! sudo -n "${SYSTEMCTL_BIN}" is-enabled "${ffpc_service_name}.timer" >/dev/null 2>&1; then
+    sudo -n "${SYSTEMCTL_BIN}" enable --now "${ffpc_service_name}.timer" && \
+      log "Enabled ${ffpc_service_name}.timer" || \
+      log "Note: could not enable ${ffpc_service_name}.timer."
   fi
   if [[ "${sharptx_needs_install}" == "true" ]]; then
     # --now arms the 6-hourly timer.  No initial kick, same reason as
@@ -1365,8 +1146,9 @@ main() {
       continue
     fi
     # Only reinstall when the target is missing OR content differs —
-    # keeps daemon-reload churn to a minimum.
-    if [[ ! -f "${dst}" ]] || ! sudo -n cmp -s "${src}" "${dst}" 2>/dev/null; then
+    # keeps daemon-reload churn to a minimum.  installed_matches covers
+    # both (a missing target is drift) and reads without sudo.
+    if ! installed_matches "${src}" "${dst}"; then
       sudo -n "${INSTALL_BIN}" -m 0644 "${src}" "${dst}"
       log "Installed ${unit}"
       any_backup_installed=true
@@ -1394,7 +1176,7 @@ main() {
   local logrotate_src="${APP_DIR}/deploy/logrotate.conf"
   local logrotate_dst="/etc/logrotate.d/riskit"
   if [[ -f "${logrotate_src}" ]]; then
-    if [[ ! -f "${logrotate_dst}" ]] || ! sudo -n cmp -s "${logrotate_src}" "${logrotate_dst}" 2>/dev/null; then
+    if ! installed_matches "${logrotate_src}" "${logrotate_dst}"; then
       sudo -n "${INSTALL_BIN}" -m 0644 "${logrotate_src}" "${logrotate_dst}"
       log "Installed /etc/logrotate.d/riskit"
     fi

@@ -479,7 +479,7 @@ deterministic, fail-closed policy for that model family plus rollback and a dura
 Extends §6.1; still no parallel ML roadmap and no new manifest ID. Detailed record:
 `docs/research/ADAPTIVE_LEARNING_2026-09-26.md` Part II (§16–§25). Unlike §6.1, dependency-ready units are now
 implementation-authorized in `docs/EXECUTION_PLAN.md` §0; promotion keeps its P6 gates. **The message was
-truncated after the heading "9."** Sections 9+ were not received and have no destination until re-sent.
+truncated after the heading "9."** Sections 9+ were not received and have no destination until re-sent. *Update, same day: re-sent and mapped in §6.3.*
 
 | Directive section | Canonical destination | Disposition |
 |---|---|---|
@@ -492,8 +492,43 @@ truncated after the heading "9."** Sections 9+ were not received and have no des
 | §6 BDVM + projection learning | `C5-BDVM-01`, `C5-ROS-01` (#854), `C5-GD-02` — AL-3 (AL-3d = Batch 3 J2) | **EXTEND** — BDVM stays a separate named concept |
 | §7 Game Day learning | `C5-GD-01`, `C5-GD-02` — AL-4 | **EXTEND** |
 | §8 Playoff / title probability learning | `C5-PLAY-01` — AL-5 | **EXTEND** — D2/D3 owner decisions unchanged |
-| §9+ | — | **NOT RECEIVED** — pending owner re-send |
+| §9+ | §6.3 (re-sent 2026-10-01) | **NOT RECEIVED** at first delivery — **RECEIVED by re-send; mapped in §6.3** |
 
+## 6.3 2026-10-01 owner re-send — Adaptive Learning sections 9–31 + continuation instructions
+
+The owner re-sent the full directive the same day; sections 1–8 are unchanged (§6.2 stands). Detailed record:
+`docs/research/ADAPTIVE_LEARNING_2026-09-26.md` Part III (§26–§38). Still no parallel ML roadmap and no new
+manifest ID: every section lands on an existing row, and plan-local unit labels (AL-0b, AL-2a′, AL-6…AL-19,
+AL-P1…AL-P8) are sub-units, not rows. Authorization: `docs/EXECUTION_PLAN.md` §0.
+
+| Directive section | Canonical destination | Disposition |
+|---|---|---|
+| §9 Power Rankings learning (descriptive vs predictive) | `C5-POW-01` (consolidation first), `C10-ML-01` — AL-7 | **EXTEND** — descriptive contract preserved |
+| §10 Future draft-pick learning, empirical discount curve | `C1-PICK-03`, `C1-PICK-01` (discount curve stays PRIOR until fit), `C10-ML-01` — AL-6 + capture AL-P4 | **EXTEND** |
+| §11 FAAB / waiver market learning | `C4-FAAB-01`, `C4-FAAB-02`, `F-FAAB-01` — AL-8 | **EXTEND** — losing bids never zero; four populations separate |
+| §12 Rookie auction learning | `C7-DRAFT-02`, `C7-DRAFT-03` — AL-9 | **EXTEND** |
+| §13 Manager Scout / Sharp learning | `C4-SHARP-01`, `C6-MGR-01` — AL-10 / AL-11 | **EXTEND** — R14 stays CANDIDATE |
+| §14 Trade recommendation learning | `C7-DESK-01`, `C3-REPLAY-01` — AL-13 + capture AL-P5 | **EXTEND** |
+| §15 Roster utility / team strength | `C2-LINE-01` (deterministic, never learns), `C2-STR-01`, `C2-WEAK-01`, `C2-REPL-01` — AL-12 | **EXTEND** |
+| §16 Player development / role transitions | `C6-UPP-01`, `C1-RET-08`, `C5-BDVM-01` — AL-14 | **EXTEND** — never a market-price observation |
+| §17 Analyst / podcast / news reliability | `C6-ANA-01`, `C6-FRESH-01`, `C6-POD-01` — AL-15 | **EXTEND** — no universal analyst score |
+| §18 DFS learning | `docs/dfs/ROADMAP.md` Phase H (DFS sits outside the C-series manifest) — AL-16 is a pointer | **EXTEND (pointer)** — no second DFS learning system |
+| §19 Alert learning (actionability) | `C7-ALERT-01`, `C6-SIG-01` — AL-17 | **EXTEND** |
+| §20 Adaptive source acquisition | `F-SRC-01`, `C10-CLOSE-04` — AL-18 | **EXTEND** — maximum-age floors are hard constraints |
+| §21 Perishable data is a critical path | `C1-HIST-01`, `C1-SRC-01`, `C4-MTL-02`, `C5-GD-02` — AL-P1…AL-P8 (`docs/BRISKET_IDEAS.md` §13.4) | **EXTEND** — capture first |
+| §22 Model Lab (backend contract) | `C10-ML-01` — AL-0b | **EXTEND** — internal; user-facing explanation stays Lane 6 |
+| §23 Roadmap order, Waves 1–4 | `C10-ML-01` (plan §28) | **EXTEND** |
+| §24 Learning cadence per family | `C10-ML-01` + P6 (plan §29) | **EXTEND** |
+| §25 Rejected challengers retained | `C10-ML-01` (plan §30) | **EXTEND** |
+| §26 Explanation / user trust | `C10-ML-01`, `F-CONF-01` (plan §31) | **EXTEND** |
+| §27 Testing / safety | `C10-ML-01` + P6 (plan §32) | **EXTEND** — random split prohibited where time ordering matters |
+| §28 Implementation authority | `docs/EXECUTION_PLAN.md` §0 | **EXTEND** |
+| §29 Implementation style | `C10-ML-01` (plan §32) | **EXTEND** |
+| §30 Completion standard — four closed loops | `C10-ML-01` (plan §34) | **EXTEND** |
+| §31 Session deliverables | `docs/EXECUTION_PLAN.md` §0 campaign sequencing | **EXTEND** |
+| Continuation — four trade dispositions (BROAD_CONTEXT) | `C4-MTL-01`, `C4-MTL-03` — AL-2a′ | **EXTEND** — supersedes the three-disposition rule (plan §35 T1) |
+| Continuation — census, IDP inventory, translator readiness, ≤ 1 shadow translator | `C4-MTL-01`, `C4-MTL-02`, `C4-MTL-03` — AL-2 ops / AL-2a″ / AL-2b0 / AL-2b | **EXTEND** |
+| Continuation — D2 / OTC lineage | `C10-ML-01`, `F-SRC-01` (Batch 3 D2) | **EXTEND** — evidence only |
 
 # 7. Result
 
