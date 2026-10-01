@@ -60,12 +60,36 @@ def test_a_genuine_outlier_with_little_weight_is_still_removed():
     assert result.reasons["bad"] == "outlier"
 
 
-def test_equal_weights_reproduce_the_incumbent_decision_on_a_plain_outlier():
+def test_equal_weights_reproduce_the_incumbent_on_random_rows():
+    # Under equal weights and one family per observation the challenger IS the
+    # incumbent Hampel filter (same median, MAD, threshold, survivor guard).
+    import random
+
     from src.api.data_contract import _hampel_filter_per_player
 
-    obs = [("a", 3000.0), ("b", 3050.0), ("c", 3100.0), ("d", 2950.0), ("bad", 9000.0)]
-    _kept, incumbent = _hampel_filter_per_player(obs)
-    assert tuple(incumbent) == _run(obs, {k: 1.0 for k, _ in obs}).dropped
+    rng = random.Random(1571)
+    for _ in range(3000):
+        n = rng.randint(4, 12)
+        obs = [(f"s{i}", float(rng.randint(500, 9999))) for i in range(n)]
+        _kept, incumbent = _hampel_filter_per_player(obs)
+        challenger = _run(obs, {k: 1.0 for k, _ in obs}).dropped
+        assert set(incumbent) == set(challenger), obs
+
+
+def test_the_median_is_continuous_in_the_weights():
+    # Kyle Hamilton, 2026-09-23: a 0.001 weight change must not snap the centre.
+    obs = [("idptc", 3597.0), ("idpshow", 3554.0), ("dsidp", 2269.0), ("x", 3300.0)]
+    a = _run(obs, {"idptc": 0.878, "idpshow": 0.120, "dsidp": 0.998, "x": 0.5}).centre
+    b = _run(obs, {"idptc": 0.878, "idpshow": 0.120, "dsidp": 0.997, "x": 0.5}).centre
+    assert abs(a - b) < 5
+
+
+def test_a_heavy_family_does_not_shield_its_broken_member():
+    obs = [("f1", 5000.0), ("f2", 5050.0), ("f3", 9900.0), ("x", 5020.0), ("y", 4980.0)]
+    families = {"f1": "F", "f2": "F", "f3": "F", "x": "X", "y": "Y"}
+    weights = {"f1": 0.4, "f2": 0.4, "f3": 0.2, "x": 0.5, "y": 0.5}
+    result = _run(obs, weights, families)
+    assert result.dropped == ("f3",)
 
 
 def test_order_invariance():
@@ -84,8 +108,8 @@ def test_zero_dispersion_uses_the_floor():
 
 
 def test_below_min_n_and_zero_weights_skip():
-    assert _run(TRAP[:3], TRAP_W).reasons == {"skipped": "below_min_n"}
-    assert _run(TRAP, {k: 0.0 for k in TRAP_W}).reasons == {"skipped": "no_positive_weight"}
+    assert _run(TRAP[:3], TRAP_W).skipped == "below_min_n"
+    assert _run(TRAP, {k: 0.0 for k in TRAP_W}).skipped == "no_positive_weight"
 
 
 def test_duplicate_family_members_cannot_outvote_independent_evidence():

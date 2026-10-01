@@ -21,12 +21,17 @@ Rules, in order:
    and the scale the weighted median absolute deviation, both over the
    observations' effective weights after family capping (callers pass capped
    weights), so correlated family members cannot outvote independent evidence.
+   The weighted median is the PIPELINE's own (``data_contract.
+   _weighted_median_sorted``: continuous in the weights, monotone in the
+   values, the ordinary median under equal weights) -- never a second, step-
+   function median (review of #1571: the lower step median snapped Kyle
+   Hamilton's centre 2269 -> 3554 on a 0.001 weight change).
 2. **The threshold** is the incumbent's: ``max(k · scale, min_threshold)``. Zero
    dispersion falls back to the floor -- unchanged behaviour.
-3. **Disagreement never removes the dominant evidence.** An observation whose
-   family holds at least ``dominant_share`` of the row's evidence weight is never
-   dropped for disagreeing; only structural integrity checks (upstream) may
-   exclude it.
+3. **Disagreement never removes the dominant evidence.** An observation that
+   ITSELF holds at least ``dominant_share`` of the row's evidence weight is never
+   dropped for disagreeing (judged per observation, so a broken member of a
+   heavy family is not shielded by its siblings).
 4. **The filter never manufactures a singleton.** If the drops would leave one
    family where two or more were present, nothing is dropped and the row keeps
    its disagreement, reported as such.
@@ -42,7 +47,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
-CHALLENGER_VERSION = "joint-robust-v1"
+CHALLENGER_VERSION = "joint-robust-v2"
 
 
 @dataclass(frozen=True)
@@ -53,23 +58,22 @@ class FilterResult:
     scale: float | None
     threshold: float | None
     reasons: dict = field(default_factory=dict)
+    skipped: str | None = None
 
 
 def weighted_median(values: Sequence[float], weights: Sequence[float]) -> float | None:
-    """Lower weighted median over positive weights; ``None`` with no positive weight.
+    """The pipeline's weighted median over positive weights; ``None`` with none.
 
-    Ties are broken by value only, so the result is order-invariant.
+    Delegates to ``data_contract._weighted_median_sorted`` (one owner).  Sorting
+    by ``(value, weight)`` makes the result order-invariant.
     """
+    from src.api.data_contract import _weighted_median_sorted  # noqa: PLC0415 — one owner
+
     pairs = sorted((float(v), float(w)) for v, w in zip(values, weights) if w > 0)
     total = sum(w for _v, w in pairs)
     if total <= 0:
         return None
-    acc = 0.0
-    for value, weight in pairs:
-        acc += weight
-        if acc >= total / 2:
-            return value
-    return pairs[-1][0]
+    return _weighted_median_sorted(pairs, total)
 
 
 def joint_robust_filter(
@@ -86,26 +90,21 @@ def joint_robust_filter(
     keys = sorted(key for key, _value in observations)
     value_of = {key: float(value) for key, value in observations}
     if len(keys) < min_n:
-        return FilterResult(tuple(keys), (), None, None, None, {"skipped": "below_min_n"})
+        return FilterResult(tuple(keys), (), None, None, None, {}, "below_min_n")
     w = {key: max(0.0, float(weights.get(key, 0.0))) for key in keys}
     total = sum(w.values())
     if total <= 0:
-        return FilterResult(tuple(keys), (), None, None, None, {"skipped": "no_positive_weight"})
+        return FilterResult(tuple(keys), (), None, None, None, {}, "no_positive_weight")
     centre = weighted_median([value_of[key] for key in keys], [w[key] for key in keys])
     deviations = [abs(value_of[key] - centre) for key in keys]
     scale = weighted_median(deviations, [w[key] for key in keys]) or 0.0
     threshold = max(k * scale, min_threshold)
-    family_share: dict[str, float] = {}
-    for key in keys:
-        fam = families.get(key, key)
-        family_share[fam] = family_share.get(fam, 0.0) + w[key] / total
     reasons: dict[str, str] = {}
     candidates = []
     for key in keys:
         if abs(value_of[key] - centre) <= threshold:
             continue
-        fam = families.get(key, key)
-        if family_share[fam] >= dominant_share:
+        if w[key] / total >= dominant_share:
             reasons[key] = "dominant_evidence_kept"
             continue
         candidates.append(key)

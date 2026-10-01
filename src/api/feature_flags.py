@@ -9,7 +9,7 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-18 of the 34 entries in ``_DEFAULTS`` below are ``True`` —
+18 of the 35 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
@@ -115,15 +115,17 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # FRESHNESS=0 + restart): one clock per subset, the prior behaviour.
     "source_universe_freshness": True,
     # Joint outlier + sparse-evidence CHALLENGER (#1555 Batch 2 Unit C,
-    # owner decision B 2026-10-01).  OFF, and it stays off until the owner
-    # approves this specific candidate: it is a valuation-methodology change.
-    # ON: the per-player outlier filter uses family-capped evidence weights
+    # owner decision B 2026-10-01) -- two separately promotable halves, both
+    # OFF until the owner approves that specific candidate (valuation
+    # methodology).  Measured: docs/valuation/evidence/joint-challenger-2026-10-01/.
+    # FILTER half: the per-player outlier filter weighs family-capped evidence
     # (src/api/joint_robust_filter.py -- weak evidence cannot remove dominant
-    # evidence, and the filter never manufactures a single-family row), and the
-    # 0.30 single-source haircut is replaced by an explicit ``limitedEvidence``
-    # stamp -- thin coverage is reported as uncertainty, not as low value.
-    # Measured blast radius: docs/valuation/evidence/joint-challenger-2026-10-01/.
+    # evidence; never manufactures a single-family row).  Needs
+    # source_family_cap; with the cap off it stands down to the incumbent.
     "joint_outlier_sparse_challenger": False,
+    # SPARSE half: one voting family is stamped ``limitedEvidence`` and the
+    # 0.30 single-source retention is not applied.
+    "joint_sparse_limited_evidence": False,
     # C1-U4 — ledger-derived rankChange on the canonical contract.  ON
     # derives each ranked row's rankChange from the temporal ledger's
     # previous recorded board; OFF stamps None on every row (deliberately
@@ -715,6 +717,9 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # the single-source haircut in ``data_contract._compute_unified_rankings``,
     # which reaches a request through ``/api/data``; ships OFF (challenger).
     "joint_outlier_sparse_challenger": LIVE,
+    # joint_sparse_limited_evidence replaces the single-source haircut with a
+    # limitedEvidence stamp in the same function; ships OFF (challenger).
+    "joint_sparse_limited_evidence": LIVE,
     # host_native_scoring gates the stat vocabulary
     # ``league_comparison.sleeper_stats.fetch_sleeper_weekly_stats``
     # emits, which reaches a request through ``historical_stats`` →

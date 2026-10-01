@@ -7335,12 +7335,6 @@ _MAD_PENALTY_LAMBDA: float = 0.0
 # value-source (KTC per-slot synth) is structurally normal for them.
 _SINGLE_SOURCE_VALUE_RETENTION: float = 0.30
 
-# Joint challenger (flag ``joint_outlier_sparse_challenger``, default OFF): how
-# a single-family row is treated when the challenger is on.  "limited_evidence"
-# leaves the value unhaircut and stamps ``limitedEvidence``; "incumbent_haircut"
-# keeps the 0.30 retention so the filter half can be measured on its own.
-# Diagnostic seam only -- the flag, not this constant, decides production.
-_JOINT_SPARSE_TREATMENT: str = "limited_evidence"
 
 # Registry of sources whose raw per-player CSV value should be used
 # as a **direct normalized vote** in the Phase 2-3 blend, instead of
@@ -10356,7 +10350,15 @@ def _compute_unified_rankings(
     _family_cap_applied = _feature_flags.is_enabled("source_family_cap")
     # Joint outlier + sparse-evidence challenger (default OFF; see
     # src/api/joint_robust_filter.py).  Off is the incumbent, byte for byte.
-    _joint_challenger = _feature_flags.is_enabled("joint_outlier_sparse_challenger")
+    # The filter half needs the family cap (it weighs CAPPED evidence); with the
+    # cap rolled back it stands down to the incumbent filter rather than mix two
+    # dependence treatments.
+    _joint_challenger = _family_cap_applied and _feature_flags.is_enabled(
+        "joint_outlier_sparse_challenger"
+    )
+    # Sparse half, separately promotable (default OFF): one voting family is
+    # stamped ``limitedEvidence`` and the 0.30 retention is not applied.
+    _sparse_limited_evidence = _feature_flags.is_enabled("joint_sparse_limited_evidence")
 
     from src.sources.freshness import (  # noqa: PLC0415
         STYLE_EXPLICIT as _STYLE_EXPLICIT,
@@ -10819,9 +10821,10 @@ def _compute_unified_rankings(
             if _joint_challenger:
                 # Evidence weights after the family cap, so correlated members
                 # are one piece of evidence when deciding who is an outlier.
-                _jw = {k: row_weight.get(k, 1.0) for k, _v, _a in all_value_pairs}
-                if _family_cap_applied:
-                    _jw, _ = cap_family_weights(_jw, base=blend_weight_by_source)
+                _jw, _ = cap_family_weights(
+                    {k: row_weight.get(k, 1.0) for k, _v, _a in all_value_pairs},
+                    base=blend_weight_by_source,
+                )
                 _joint = _joint_robust_filter(
                     [(k, v) for k, v, _ in all_value_pairs],
                     _jw,
@@ -11160,20 +11163,17 @@ def _compute_unified_rankings(
         present_families = {family_by_key.get(k, k) for k, _v, _a in family_kept} | {
             family_by_key.get(k, k) for k in freshness_excluded
         }
-        if (
-            not row_is_pick
-            and len(present_families) <= 1
-            and _joint_challenger
-            and _JOINT_SPARSE_TREATMENT == "limited_evidence"
-        ):
-            # Challenger: one family is LIMITED evidence, not a lower value.
-            # The estimate is left as the evidence gives it; the thinness is
-            # stamped (and B11 confidence already caps one family at LOW).
+        voting_families = {family_by_key.get(k, k) for k, _v, _a in family_kept}
+        if _sparse_limited_evidence and not row_is_pick and len(voting_families) <= 1:
+            # Sparse challenger: one VOTING family is limited evidence, stamped
+            # whether or not a stale family is also present (that row takes no
+            # haircut today either; the stamp makes its thinness visible).
             players_array[row_idx]["limitedEvidence"] = {
+                "votingFamilies": len(voting_families),
                 "presentFamilies": len(present_families),
                 "challenger": _JOINT_CHALLENGER_VERSION,
             }
-        elif not row_is_pick and len(present_families) <= 1:
+        if not row_is_pick and len(present_families) <= 1 and not _sparse_limited_evidence:
             blended_value *= _SINGLE_SOURCE_VALUE_RETENTION
             players_array[row_idx]["_blendedValueUncapped"] = (
                 int(round(blended_value)) if blended_value > 0 else 0
