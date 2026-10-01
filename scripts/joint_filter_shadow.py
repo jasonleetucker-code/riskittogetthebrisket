@@ -416,6 +416,12 @@ def cmd_backfill(args: argparse.Namespace) -> int:
     if vr._dirty():
         log("WARNING: working tree is dirty; records will carry workingTreeDirty=true")
     try:
+        if _git("rev-parse", "--is-shallow-repository").strip() == "true":
+            # A shallow clone replays dataset state from whatever history it
+            # happens to hold, and the boards would look complete while their
+            # freshness clocks were not (same refusal as consensus_edge.panel).
+            log("shallow clone: run `git fetch --unshallow` first")
+            return 1
         adds = archive_add_commits()
     except subprocess.CalledProcessError as exc:
         log(f"git history unavailable: {exc}")

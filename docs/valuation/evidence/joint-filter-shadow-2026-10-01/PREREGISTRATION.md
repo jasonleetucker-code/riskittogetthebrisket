@@ -230,3 +230,30 @@ fail.
   directive 2026-09-23). S6 tests whether that matters.
 - **Shared Hill transform.** The leave-family-out target removes the source's
   own family. It does not remove the Hill transform every rank source shares.
+
+## 9. Addendum: live shadow and accumulation (2026-10-01)
+
+Written after the historical evaluation in §1–§8 had been computed. It changes
+**nothing** about that evaluation. It governs only the live-shadow records
+(`mode: live_shadow`), and none of those existed when it was written.
+
+- **Same rules.** The live evaluation uses the definitions, horizons, metrics,
+  bootstrap and decision rule of §3–§5 unchanged.
+- **Pairs need the same pipeline fingerprint.** An origin board and its target
+  board are paired only when both records carry the same
+  `pipelineFingerprint`. The fingerprint is the sha256 of `data_contract.py`,
+  `joint_robust_filter.py`, `player_valuation.py` and `freshness_v1.json`.
+  - Votes built by different value code or curves are not on one scale, so a
+    cross-version movement would measure the deploy, not the evidence.
+  - `main` changes those files often, so live pairs will be sparse.
+  - The live ledger therefore mainly answers **census** questions on real
+    production boards:
+    - how often each filter drops;
+    - how often the two disagree;
+    - whether either safeguard ever fires.
+- **The decisive accumulating evaluation** is a re-run of `backfill`, which
+  rebuilds every complete archived scrape under **one** code revision. The
+  scheduled refresh adds new boards to the archive every day, so each re-run
+  re-tests the §5 rule on a longer span.
+  - Each re-run reports its span and code revision.
+  - A re-run is a fresh application of the same rule, never a re-tuning of it.
