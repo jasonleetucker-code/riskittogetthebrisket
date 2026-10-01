@@ -241,6 +241,26 @@ def test_the_4600_to_1380_trap_through_the_real_pipeline(monkeypatch):
     assert on["Trap WR"]["sparseEvidence"]["censoredFamiliesUsed"] == []
 
 
+def test_blend_integrity_hull_includes_the_binding_bounds_and_nothing_else():
+    def row(**extra):
+        return {
+            "canonicalConsensusRank": 5,
+            "rankDerivedValue": 2500,
+            # One family, two members: a two-point observed hull [4800, 5000].
+            "sourceRankMeta": {
+                "ktcCrowdSfTep": {"valueContribution": 5000},
+                "fantasyNavigatorSf": {"valueContribution": 4800},
+            },
+            **extra,
+        }
+
+    bounded = row(sparseEvidence={"boundsUsed": [2000.0, 2000.0]})
+    plain = row()
+    dc._detect_blend_integrity_violations([bounded, plain], {})
+    assert "blendIntegrityViolation" not in bounded  # 2500 is inside [2000, 5000]
+    assert plain["blendIntegrityViolation"]["direction"] == "below"
+
+
 # ── censor semantics: what may NEVER become negative evidence ───────
 
 
