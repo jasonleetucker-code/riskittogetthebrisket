@@ -93,13 +93,18 @@ FRESHNESS_CONFIG_REL = "config/sources/freshness_v1.json"
 STATE_DIR_REL = "data/scrape_state"
 SNAPSHOT_DIR_REL = "exports/latest"
 
-#: The files whose bytes ARE the fit. A change to any of them changes ``codeHash``.
+#: The files whose bytes ARE the fit -- or produce what ``verify`` compares
+#: (the dataset-state freshness/health assessment inside ``pinsHash``).  A change
+#: to any of them changes ``codeHash``, so a challenger fitted under different
+#: code is excluded as stale rather than failing verify forever.
 CODE_FILES: tuple[str, ...] = (
     "scripts/fit_hill_curve_percentile.py",
     "src/model_registry/training_manifest.py",
     "src/model_registry/training_run.py",
     "src/canonical/tail_policy.py",
     "src/identity/picks.py",
+    "src/sources/freshness.py",
+    "src/sources/dataset_state.py",
 )
 
 #: Every key a ``trainingRun`` record must carry (owner Section D item 2).
