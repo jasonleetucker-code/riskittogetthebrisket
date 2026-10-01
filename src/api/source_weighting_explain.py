@@ -8,6 +8,14 @@ where he is" can be answered without reverse-engineering the blend.
 
 Consumed by ``GET /api/sources/weighting``, ``GET /api/players/{id}/value-explain``
 and ``scripts/source_weighting_report.py``.  Owner directive 2026-09-23.
+
+``value-explain/v2`` (#1555 Batch 2 Lane 6, 2026-10-01) adds, per source, the
+three clocks kept apart -- last FETCH, the source's own publication/as-of date,
+and the last CONFIRMED content change -- with explicit unknowns; the freshness
+treatment actually applied; why a non-voting observation was excluded; and,
+per row, the ESTIMATOR that produced the published value, an honest statement
+of whether vote-share attribution is exact, and a leave-one-out that is
+labelled non-additive.  All additive: every v1 field keeps its meaning.
 """
 
 from __future__ import annotations
@@ -21,6 +29,8 @@ from src.sources.ktc_market import (
     ktc_market_for_row,
     model_vs_market,
 )
+
+EXPLAIN_VERSION = "value-explain/v2"
 
 
 def source_table(
@@ -115,9 +125,158 @@ def find_row(contract: Mapping[str, Any], player: str) -> dict[str, Any] | None:
     return None
 
 
-def player_explain(contract: Mapping[str, Any], row: Mapping[str, Any]) -> dict[str, Any]:
+def _clocks(fetch: Mapping[str, Any], sub: Mapping[str, Any]) -> dict[str, Any]:
+    """Three different clocks, never merged: when WE fetched, what date the
+    SOURCE says its data is as of, and when its content last CONFIRMABLY
+    changed.  A missing clock is ``None`` and named in ``unknown``."""
+    clocks = {
+        "lastFetchedAt": fetch.get("lastFetched") or fetch.get("mtime"),
+        "publishedAsOf": sub.get("sourceDataAsOf"),
+        "lastConfirmedChangeAt": sub.get("lastAnyMeaningfulChangeAt"),
+        "lastBroadChangeAt": sub.get("lastBroadDatasetChangeAt"),
+        "judgedOn": sub.get("freshnessClock"),
+    }
+    clocks["unknown"] = sorted(k for k, v in clocks.items() if v is None)
+    return clocks
+
+
+def _freshness_treatment(freshness: Any, excluded: bool, state: Any) -> dict[str, Any]:
+    if excluded:
+        treatment = "excluded"
+    elif not isinstance(freshness, (int, float)):
+        treatment = "unknown"
+    elif freshness >= 0.999:
+        treatment = "full_weight"
+    elif freshness > 0:
+        treatment = "down_weighted"
+    else:
+        treatment = "excluded"
+    return {"factor": freshness, "state": state, "treatment": treatment}
+
+
+def _exclusion_reason(key: str, m: Mapping[str, Any], row: Mapping[str, Any]) -> str | None:
+    if key in set(row.get("freshnessExcludedSources") or []) or m.get("excludedReason"):
+        return str(m.get("excludedReason") or "freshness_or_health_zero_weight")
+    if key in set(row.get("droppedSources") or []):
+        detail = (row.get("jointFilterReasons") or {}).get(key)
+        return f"outlier:{detail}" if detail else "outlier:hampel"
+    if m.get("contributedToBlend") is False:
+        return "superseded_by_family"
+    return None
+
+
+def _rung(n: int) -> str:
+    if n <= 0:
+        return "no_voters"
+    if n == 1:
+        return "passthrough"
+    if n == 2:
+        return "weighted_mean"
+    if n <= 4:
+        return "weighted_mean_median_untrimmed"
+    return "weighted_mean_median_trimmed"
+
+
+def _estimator(row: Mapping[str, Any], n_voters: int) -> dict[str, Any]:
+    """Which estimator produced the published value -- read from stamps."""
+    provenance = row.get("pickValueProvenance") or {}
+    if row.get("assetClass") == "pick":
+        path = str(provenance.get("class") or "pick_unknown_provenance")
+    elif row.get("assetClass") == "idp":
+        # The pipeline's hierarchical rule (``use_hierarchical_blend``): IDP
+        # and picks only.  ``anchorValue`` is stamped on offense rows too, as a
+        # diagnostic, so it cannot decide the path.
+        path = "anchor_plus_alpha_shrinkage"
+    elif not (row.get("sourceRankMeta") or {}):
+        path = "off_cap_value_only" if row.get("offCapPlayerValue") else "no_breakdown"
+    else:
+        path = "flat_count_aware_blend"
+    overrides = []
+    if row.get("twoWayPlayerBoost"):
+        overrides.append("two_way_player_boost")
+    if path == "rookie_pool_tether":
+        overrides.append("rookie_pool_tether")
+    return {
+        "path": path,
+        "rung": _rung(n_voters),
+        "voters": n_voters,
+        "singleSourceRetentionApplied": bool(row.get("singleSourceValuePenaltyApplied")),
+        "limitedEvidence": row.get("limitedEvidence"),
+        "postBlendOverrides": overrides,
+        "anchorValue": row.get("anchorValue"),
+        "alphaShrinkage": row.get("alphaShrinkage"),
+    }
+
+
+def _attribution(estimator: Mapping[str, Any]) -> dict[str, Any]:
+    exact = (
+        estimator["path"] == "flat_count_aware_blend"
+        and estimator["rung"] in ("passthrough", "weighted_mean")
+        and not estimator["singleSourceRetentionApplied"]
+        and not estimator["postBlendOverrides"]
+    )
+    return {
+        "kind": "weighted_vote_share",
+        "exact": exact,
+        "note": (
+            "Each source's contribution is its vote share times its normalized "
+            "value. That reproduces the published value only when the estimator "
+            "is a plain weighted mean (or one source) with no haircut or override; "
+            "median-type rungs, anchor shrinkage and overrides are not weighted "
+            "means, so the contributions need not add up to the model value."
+        ),
+    }
+
+
+def _leave_one_out(row: Mapping[str, Any]) -> dict[str, Any]:
+    """Published value with each voter removed, re-running ONLY the pipeline's
+    own aggregator over the stamped survivors (offense rows whose stamps
+    reproduce the published blend).  The outlier filter and freshness are not
+    re-run, and the deltas are not additive."""
+    from src.api import data_contract as dc  # noqa: PLC0415 — loaded by the server
+    from src.api.value_replay import blend_check  # noqa: PLC0415
+
+    base = {"nonAdditive": True, "basis": "aggregator_rerun_over_stamped_survivors"}
+    check = blend_check(row)
+    if check.get("status") != "reproduced":
+        return {**base, "available": False, "reason": check.get("status") or "unavailable"}
+    meta = row.get("sourceRankMeta") or {}
+    voters = {
+        k: (float(m["valueContribution"]), float(m["appliedWeight"]))
+        for k, m in meta.items()
+        if not m.get("hampelDropped")
+        and not m.get("excludedReason")
+        and m.get("contributedToBlend") is not False
+        and isinstance(m.get("appliedWeight"), (int, float))
+        and m["appliedWeight"] > 0
+        and isinstance(m.get("valueContribution"), (int, float))
+    }
+    if len(voters) < 2:
+        return {**base, "available": False, "reason": "fewer_than_two_voters"}
+    published = check["recomputed"]
+    out = []
+    for key in sorted(voters):
+        rest = [voters[k] for k in voters if k != key]
+        value, _ = dc.weighted_count_aware_mean_median_blend(
+            [v for v, _w in rest], [w for _v, w in rest]
+        )
+        families = {dc.correlation_group_for(k) for k in voters if k != key}
+        if len(families) <= 1 and not row.get("limitedEvidence"):
+            value *= dc._SINGLE_SOURCE_VALUE_RETENTION
+        out.append(
+            {"source": key, "valueWithout": round(value, 1), "delta": round(value - published, 1)}
+        )
+    return {**base, "available": True, "publishedBlend": published, "withoutEach": out}
+
+
+def player_explain(
+    contract: Mapping[str, Any],
+    row: Mapping[str, Any],
+    fetch_stamps: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     """Why is this player valued where he is — every model source, then the
     KTC Market benchmark, then model vs market."""
+    stamps = fetch_stamps or {}
     summary = (contract.get("sourceWeighting") or {}).get("sources") or {}
     meta = row.get("sourceRankMeta") or {}
     sites = row.get("canonicalSiteValues") or {}
@@ -200,6 +359,12 @@ def player_explain(contract: Mapping[str, Any], row: Mapping[str, Any]) -> dict[
                     else "voting"
                 ),
                 "supersededBy": m.get("supersededBy"),
+                "contributionIsApproximate": True,
+                "clocks": _clocks(stamps.get(key) or {}, sub),
+                "freshnessTreatment": _freshness_treatment(
+                    m.get("freshness", sub.get("freshness")), key in excluded, sub.get("state")
+                ),
+                "exclusionReason": None if key in voters else _exclusion_reason(key, m, row),
             }
         )
     # Voters by share, then every non-voter (no share is not a zero share).
@@ -207,7 +372,12 @@ def player_explain(contract: Mapping[str, Any], row: Mapping[str, Any]) -> dict[
 
     model_value = row.get("rankDerivedValue")
     market = ktc_market_for_row(row)
+    estimator = _estimator(row, len(voters))
     return {
+        "explainVersion": EXPLAIN_VERSION,
+        "estimator": estimator,
+        "attribution": _attribution(estimator),
+        "leaveOneOut": _leave_one_out(row),
         "player": row.get("displayName"),
         "playerId": row.get("playerId"),
         "position": row.get("position"),
