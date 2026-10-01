@@ -341,3 +341,35 @@ def test_synthetic_census_marks_unregistered_unreasoned_files_unclassified():
     assert a["provider"] is None and "provider" in a["unknown"]
     assert census["summary"]["lineageGaps"] == sorted(["a", "bench", "mystery"])
     assert a["outOfSampleEvaluation"]["state"] == sc.OOS_BLOCKED
+
+
+def test_cli_writes_json_and_markdown_and_exits_clean(tmp_path):
+    from scripts import source_census as cli
+    from tests.archive_fixtures import newest_complete_raw_payload
+
+    payload, _ = newest_complete_raw_payload()
+    if payload is None:
+        pytest.skip("no complete archived scrape")
+    raw = tmp_path / "raw.json"
+    raw.write_text(json.dumps(payload), encoding="utf-8")
+    out_json, out_md = tmp_path / "c.json", tmp_path / "c.md"
+    code = cli.main(
+        [
+            "--payload",
+            str(raw),
+            "--out-json",
+            str(out_json),
+            "--out-md",
+            str(out_md),
+            "--no-git",
+            "--ledger",
+            str(tmp_path / "absent.sqlite"),
+        ]
+    )
+    assert code == 0
+    census = json.loads(out_json.read_text(encoding="utf-8"))
+    assert census["schema"] == sc.CENSUS_SCHEMA
+    assert census["lineageErrors"] == []
+    assert census["temporalLedger"]["exists"] is False
+    assert "| source |" in out_md.read_text(encoding="utf-8")
+    assert cli.main(["--payload", str(tmp_path / "nope.json")]) == 2

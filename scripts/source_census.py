@@ -146,7 +146,8 @@ def main(argv: list[str] | None = None) -> int:
 
     from src.sources.source_census import census_markdown
 
-    text = json.dumps(census, indent=1, default=str, ensure_ascii=False) + "\n"
+    # Compact on purpose (artifact size); the Markdown is the human-readable view.
+    text = json.dumps(census, separators=(",", ":"), default=str, ensure_ascii=False) + "\n"
     md = census_markdown(census)
     for out, body in ((args.out_json, text), (args.out_md, md)):
         if out:
