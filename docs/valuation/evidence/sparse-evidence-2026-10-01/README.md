@@ -61,7 +61,10 @@ hold:
 - its board is healthy, has known full coverage and is on schedule;
 - it ranked that position;
 - the source did not publish the player's name;
-- the player's identity is unique and not quarantined.
+- the player's identity is unique and not quarantined. (Correction, review
+  round 2: the "not quarantined" half read anomaly flags that do not exist yet
+  when the estimator runs, so it never fired on a real build. It is now enforced
+  through the quarantine pass's own predicate. See "Review fixes (round 2)".)
 
 How the bounds combine:
 
@@ -283,7 +286,7 @@ being replaced. A yes needs a new preregistration. This one cannot be amended.
 `src/api/sparse_evidence_shadow.py` and `scripts/sparse_evidence_shadow.py
 record` build the newest served board twice in memory, flag OFF and flag ON.
 Each run appends one line per board to the append-only, gitignored
-`data/sparse_evidence_shadow/ledger.jsonl`, keyed by payload, code revision,
+`data/sparse_evidence_shadow/ledger.jsonl` (monthly files since review round 2), keyed by payload, code revision,
 inputs and estimator version. Each line holds:
 
 - the payload hash, code revision, inputs hash and flag snapshot;
@@ -319,3 +322,110 @@ OFF the board stays byte-identical, and the OFF path never calls the estimator
 
 **The incumbent remains champion.** The flag stays OFF, the 0.30 treatment stays
 live, and nothing is promoted.
+
+---
+
+## Review fixes (round 2, post-hoc, 2026-10-01)
+
+**Post-hoc.** These fixes answer the independent review of #1591. They do not
+change the preregistration, `results.json`, any gate, or the verdict: **does not
+meet gate (G2c), unchanged.** The flag stays OFF.
+
+**1. The quarantine guard was dead code. It is now enforced.** The estimator ran
+before any anomaly flag existed, so its `anomalyFlags & _QUARANTINE_FLAGS` check
+never fired on a real build. The G6 test that covered it hand-set
+`anomalyFlags`, which production never does.
+
+The identity and position checks of `_validate_and_quarantine_rows` (duplicate
+canonical identity, cross-universe collision, position-source contradiction,
+unsupported position) now live in one pure function,
+`data_contract._identity_position_flags`.
+
+- The quarantine pass applies its flags.
+- The estimator calls the same function before it bounds anything.
+- Everything that function reads (names, `position`, `canonicalSiteValues`) is
+  settled before `_compute_unified_rankings` runs, so both callers get the same
+  answer.
+
+A row that will be quarantined for identity or position is now refused every
+censored bound, with reason `row_will_be_quarantined_identity_or_position`. The
+flags it will get are stamped in `sparseEvidence.pendingQuarantineFlags`.
+
+The old test is replaced by one that runs through the real pipeline with nothing
+hand-set: a WR priced only by IDP Trade Calc. It used to be bounded from 5000 to
+2500 and then quarantined. It now keeps 5000 with no bound, and
+`_validate_and_quarantine_rows` then flags exactly the predicted
+`position_source_contradiction`. A second test pins that the guard and the
+quarantine pass agree on every row.
+
+Not pre-checked, by design:
+
+- `no_valid_source_values` is a value-domain flag. It fires on DraftSharks'
+  negative-scale stamps, not on identity.
+- `blend_integrity_violation` depends on the estimate itself.
+
+On the pinned board, 8 of the 51 rows are quarantined later for
+`no_valid_source_values` only. Their treatment is unchanged.
+
+**2. Identity variants fail closed.** A source's name index is now checked beyond
+the exact key. A bound is refused with `possible_identity_variant` when either
+holds:
+
+- the index holds a first-name variant of the row's name, decided by
+  `name_clean.is_first_name_variant` (no new matching rule);
+- one of the source's entries carries the row's Sleeper id.
+
+A member that may list the player refuses its **whole family**, even when that
+member is stale. This applies to `name_published_but_not_attached` and
+`possible_identity_variant`, because a family is one opinion.
+
+Residual risk, named:
+
+- Nicknames that are neither in `CANONICAL_NAME_ALIASES` nor a 3-character
+  prefix (Bill/William, Mike/Michael) are still a possible join miss.
+- The Sleeper-id check covers only sources whose CSV carries ids.
+
+**3. Hull wording.** The blend-integrity hull runs only on rows with at least two
+positive contributions. A one-observation sparse row is not hull-checked there.
+`sparse_evidence.estimate` keeps its estimate inside [smallest bound,
+observation] (G3). The PR's "hull counts the bounds" applies only to rows with
+two or more members.
+
+**4. Flag OFF changes no output shape.** The explain estimator and the replay
+asset view now carry `sparseEvidence` only when a row was stamped. Before, they
+always added a `null` key. A test pins that the key is absent with the flag OFF.
+
+**5. The recorder cannot go quiet.**
+
+- It picks the freshest payload by its own `scrapeTimestamp`, so a stale
+  `exports/latest` no longer hides a fresher `data/` board.
+- It records `payloadAgeHours`.
+- It exits 3 when the payload is older than the existing 6 h scrape-cadence
+  budget (`league_registry.SCORING_SNAPSHOT_MAX_AGE_HOURS`) or has no scrape
+  time. Before, it reported "already recorded". `--allow-stale` is an explicit
+  operator backfill.
+
+**6. The ledger is bounded per file and cheap to append.**
+
+- Records go to `ledger-YYYY-MM.jsonl` by their own `recordedAt`. The old
+  `ledger.jsonl` stays readable and its keys still count.
+- Idempotency reads a sidecar `ledger.keys`, not every line. A missing index is
+  rebuilt from the files.
+- The newest file's last record is always merged in, so a crash between the two
+  appends cannot duplicate a line.
+- Per-line trimming (storing the flag snapshot by hash) was not done. Lines are
+  about 41 KB, so a month is about 2.5 MB at two runs a day.
+
+**7. Nits.** `largestMovesC` reports a missing side as missing (`null`), not as
+0. The flag comment names its rollback.
+
+**Re-verification on the pinned board** (`dynasty_export_20260930_130404.zip`,
+local `data/leagues` copied in):
+
+- Flag OFF: board hash `4499581a…`, playersArray hash `ead53db3…`. Both are
+  identical to the base, so G5 holds.
+- Flag ON: all 51 scoped rows have the same value, state, evidence state,
+  binding families and refusals as before round 2.
+- No row on this board is position-contradicted, a first-name variant or
+  Sleeper-id matched.
+- The G1 trap (1380 → 4600) and the 11-state matrix still pass.
