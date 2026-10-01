@@ -144,11 +144,23 @@ rookies and sparse players reported separately. No third-party rank or value may
 - The public board is order-and-tier only. It is never presented as values or as the
   league-adjusted product.
 
+## F2. Batch 1 outcomes (closed out 2026-10-01)
+
+| Unit | PR | Merged | Deployed / production evidence | Independent evidence |
+|---|---|---|---|---|
+| V1 replay + records | #1562 | `5385a6907` | in `7db3f3144`, run 36795430875, smoke `PASS build.commit` | review APPROVE (after REQUEST_CHANGES: unpinned inputs, doc numbers); claims verified vs pinned diff + PR Validation (#1542 grader, strict) |
+| V2-1 universe-aware freshness | #1565 | `0c7830a55` | in `7db3f3144`; live `/api/status` `source_universe_freshness` enabled/LIVE | review APPROVE (after perf fix +65% → +4%); grader strict PASS |
+| V3 lead b — BDVM timestamps fail closed | #1563 | `017a8a7d9` | in `1e59e06a5`, run 36790190316, `PASS build.commit` | review APPROVE |
+| V3 lead a / Lane 6 — BDVM truthful labels | #1564 | `1e59e06a5` | same run | vitest 3075/3075; real-browser check of private pages NOT done |
+| V3-S — unscored card rules reported | #1566 | `71d5d9dcd` | run 36805504364, `PASS build.commit == 71d5d9dcd…` | grader strict PASS |
+
+Production served values for these changes cannot be read without an owner login, so served-value effects are verified only on the pinned rebuild. The facts verified in production are the shipped commit identity and flag state. The census `meta.scoringCoverage` (#1566) on `/api/bdvm/values` will show which card rules the production projections leave unscored, once read with owner auth.
+
 ## G. Next dependency-ready batch
 
-1. V2-1 cross-subset freshness correction (RED→GREEN, flag, whole-board evidence) — lane C.
+1. ~~V2-1 cross-subset freshness correction~~ — DONE (#1565, production-verified).
 2. Hill / native-source alignment audit using `board.nativeVsHill` (lane C; Hill Autopilot gates).
-3. Unsupported-scoring-key reporting (lane D).
+3. ~~Unsupported-scoring-key reporting~~ — DONE (#1566); next, read the production census and decide which rules need a play-by-play-capable projection source (lane D).
 4. Signals: send the prepared permission request (owner action); on consent, build the
    adapter and fixtures, then do the first real capture.
 5. Lane 6: provenance/information-age display in the existing value explainer, once
