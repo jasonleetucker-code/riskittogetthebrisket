@@ -73,6 +73,19 @@ from src.sources.ktc_value_sources import (  # noqa: E402
     write_capture_artifacts,
 )
 
+# AL-P3: KTC format-variant archive (evidence only — never a vote, never a
+# CSV).  Imported defensively: a broken archive module must not be able to
+# stop this scraper from importing, so absence degrades to "not archived".
+try:
+    from src.sources.ktc_format_archive import (  # noqa: E402
+        archive_variants_safely as _archive_ktc_format_variants,
+        selected_hashes as _ktc_selected_hashes,
+    )
+except Exception as _ktc_fmt_import_exc:  # noqa: BLE001
+    print(f"  [KTC] format-variant archive unavailable: {_ktc_fmt_import_exc}", flush=True)
+    _archive_ktc_format_variants = None
+    _ktc_selected_hashes = None
+
 # ── C1-ID-01: the name-matching primitives this file defined are now
 # owned by the canonical identity package and imported back, so this
 # scraper is an ADAPTER over src/identity rather than a second
@@ -2405,6 +2418,37 @@ async def scrape_ktc(page, players):
 
         _KTC_VALUE_SOURCE_CAPTURES.clear()
         _KTC_VALUE_SOURCE_CAPTURES.update(_captures)
+
+        # AL-P3: preserve the KTC format variants this same loaded page
+        # already carries (1QB + Superflex x Off/TE+/TE++/TE+++) into the
+        # append-only source archive.  One in-page read of ``playersArray``;
+        # zero network requests.  Evidence only: nothing here writes a CSV,
+        # FULL_DATA or anything that votes.  ``archive_variants_safely``
+        # never raises; the extra guard is belt and braces so evidence
+        # capture can never cost this scrape its KTC board.
+        if _archive_ktc_format_variants is not None:
+            _ktc_mark("format_archive_start")
+            try:
+                _fmt_summary = await _archive_ktc_format_variants(
+                    page,
+                    captured_at=_captures[KTC_CROWD].captured_at,
+                    selected_capture_hashes=_ktc_selected_hashes(_captures),
+                )
+            except Exception as _fmt_exc:  # noqa: BLE001
+                _fmt_summary = {"ok": False, "error": f"{type(_fmt_exc).__name__}: {_fmt_exc}"}
+            _ktc_mark(
+                "format_archive_done",
+                ok=bool(_fmt_summary.get("ok")),
+                archived=len(_fmt_summary.get("archived") or ()),
+                skipped_run=str(_fmt_summary.get("skippedRun") or ""),
+                error=str(_fmt_summary.get("error") or ""),
+            )
+            if not _fmt_summary.get("ok"):
+                print(
+                    f"  [KTC] format-variant archive skipped: {_fmt_summary.get('error')} "
+                    "(scrape unaffected)",
+                    flush=True,
+                )
 
         # Keep the legacy ktc / ktcSfTep keys explicitly CROWDSOURCED.  They
         # are a historical paired population used by the TE++ calibration

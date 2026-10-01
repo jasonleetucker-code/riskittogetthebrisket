@@ -16,6 +16,10 @@ in every scrape response** (``superflexValues: {value, tep, tepp,
 teppp}``) and the scraper reads ``tepp`` and discards the rest. The
 ladder costs no extra request; discarding it is the loss.
 
+Since AL-P3 (2026-10-01) ``src/sources/ktc_format_archive.py`` preserves
+it: eight boards per run (1QB and Superflex, each Off / TE+ / TE++ /
+TE+++), cut from the page the scrape already loaded and written here.
+
 THE BOUNDARY, STATED FIRST BECAUSE IT IS THE POINT
 ──────────────────────────────────────────────────
 **Archiving a board is not authorization to price with it.** §16 item 9

@@ -30,7 +30,7 @@ from src.utils.config_loader import repo_root
 
 DB_PATH: Path = repo_root() / "data" / "source_archive" / "boards.sqlite"
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 #: Format variants we ARCHIVE. Deliberately a different set from
 #: :data:`PRODUCTION_ELIGIBLE` — see the package docstring. Nothing in
@@ -39,12 +39,21 @@ SCHEMA_VERSION = 2
 #: lives in a module that does not import this one.
 ARCHIVE_ELIGIBLE: frozenset[str] = frozenset(
     {
-        # KTC's four TE-premium calibration states. All four already ship
-        # in every scrape response; three are currently discarded.
+        # KTC's four TE-premium calibration states, on BOTH of the
+        # quarterback formats KTC ships in every scrape response
+        # (``oneQBValues`` / ``superflexValues``, each with
+        # ``{value, tep, tepp, teppp}``).  Captured by
+        # ``src/sources/ktc_format_archive.py`` (AL-P3) at zero extra
+        # requests.  One provider, one family — eight calibration states of
+        # one crowd, never eight votes.
         "ktc:sf_off",
         "ktc:sf_tep",
         "ktc:sf_tepp",
         "ktc:sf_teppp",
+        "ktc:1qb_off",
+        "ktc:1qb_tep",
+        "ktc:1qb_tepp",
+        "ktc:1qb_teppp",
     }
 )
 
@@ -89,6 +98,13 @@ CREATE TABLE IF NOT EXISTS archived_boards (
     -- those, which is fatal for a rank/tier-only source.  ADDITIVE:
     -- nullable, and every v1 reader keeps working off ``rows_json``.
     records_json    TEXT,
+    -- Schema v3 (AL-P3).  Board-level provenance the identity columns cannot
+    -- carry: e.g. the hash of the whole transferred payload this board was
+    -- cut from, the variant's human label, the page URL.  ADDITIVE and
+    -- nullable; it is NOT part of ``content_hash`` (that hashes the
+    -- observations), so provenance can never make an identical board look
+    -- like new evidence.
+    provenance_json TEXT,
     content_hash    TEXT NOT NULL,
     first_seen_at   TEXT NOT NULL,
 
@@ -119,6 +135,10 @@ class ArchivedBoard:
     #: Source-native per-row records (schema v2).  Empty for a v1 board and
     #: for any source whose whole content really is one number per name.
     records: tuple[ArchivedRow, ...] = ()
+    #: Board-level provenance (schema v3).  Deliberately outside
+    #: :meth:`compute_hash` and outside equality: it describes HOW the board
+    #: was observed, not WHAT was observed.
+    provenance: dict[str, Any] = field(default_factory=dict, compare=False)
 
     @property
     def captured_date(self) -> str:
@@ -140,6 +160,16 @@ class ArchivedBoard:
 
 class ArchiveRefused(ValueError):
     """A board that must not enter the archive (fail closed)."""
+
+
+def _migrate_v2_to_v3(conn: sqlite3.Connection) -> None:
+    """Add ``provenance_json`` to a database created under schema v1/v2.
+
+    Additive and idempotent, for the same reason as :func:`_migrate_v1_to_v2`.
+    """
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(archived_boards)")}
+    if existing and "provenance_json" not in existing:
+        conn.execute("ALTER TABLE archived_boards ADD COLUMN provenance_json TEXT")
 
 
 def _migrate_v1_to_v2(conn: sqlite3.Connection) -> None:
@@ -171,6 +201,7 @@ def _ensure_schema(path: Path) -> None:
             conn.execute("PRAGMA journal_mode=WAL;")
             conn.executescript(_SCHEMA)
             _migrate_v1_to_v2(conn)
+            _migrate_v2_to_v3(conn)
             conn.execute(
                 "INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_version', ?)",
                 (str(SCHEMA_VERSION),),
@@ -238,8 +269,8 @@ def archive_board(board: ArchivedBoard, *, path: Path | None = None) -> dict[str
         conn.execute(
             "INSERT INTO archived_boards (provider, provider_family, endpoint, format_key, "
             "game_type, run_id, captured_date, captured_at, source_as_of, row_count, "
-            "rows_json, records_json, content_hash, first_seen_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "rows_json, records_json, provenance_json, content_hash, first_seen_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 board.provider,
                 board.provider_family,
@@ -259,6 +290,11 @@ def archive_board(board: ArchivedBoard, *, path: Path | None = None) -> dict[str
                         separators=(",", ":"),
                     )
                     if board.records
+                    else None
+                ),
+                (
+                    json.dumps(board.provenance, sort_keys=True, separators=(",", ":"))
+                    if board.provenance
                     else None
                 ),
                 digest,
@@ -288,7 +324,8 @@ def read_boards(
     try:
         rows = conn.execute(
             "SELECT provider, provider_family, endpoint, format_key, game_type, run_id, "
-            "captured_at, source_as_of, rows_json, records_json, content_hash "
+            "captured_at, source_as_of, rows_json, records_json, content_hash, "
+            "provenance_json "
             "FROM archived_boards" + clause + " ORDER BY captured_at DESC, format_key ASC",
             params,
         ).fetchall()
@@ -308,9 +345,35 @@ def read_boards(
             rows=json.loads(r[8]),
             records=tuple(ArchivedRow.from_dict(d) for d in json.loads(r[9] or "[]")),
             content_hash=r[10],
+            provenance=json.loads(r[11] or "{}"),
         )
         for r in rows
     ]
+
+
+def archived_format_keys(
+    *, provider: str, endpoint: str, captured_date: str, path: Path | None = None
+) -> set[str]:
+    """``format_key``s already archived for one provider/endpoint on one date.
+
+    A cheap identity-column read (no ``rows_json``/``records_json`` is loaded),
+    so a capture adapter can ask "is today's ladder already preserved?" without
+    pulling the archive into memory.  An absent database answers the empty set
+    without creating one.
+    """
+    target = path or DB_PATH
+    if not target.exists():
+        return set()
+    conn = connect(target)
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT format_key FROM archived_boards "
+            "WHERE provider = ? AND endpoint = ? AND captured_date = ?",
+            (provider, endpoint, captured_date),
+        ).fetchall()
+    finally:
+        conn.close()
+    return {str(r[0]) for r in rows}
 
 
 def coverage(*, path: Path | None = None) -> dict[str, Any]:

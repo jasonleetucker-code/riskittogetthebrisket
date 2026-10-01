@@ -181,6 +181,21 @@ than guessed at).
 | 3 | a scrape completes and the board is unchanged | **PARTIAL** | a post-deploy scrape completed at 17:32:33→17:34:35Z, `overall_status: complete`, `partial_run: false`, no failed/timed-out sources, and `contract.health` reports `ok: true` with `structuralErrors: []` / `sourceHealthErrors: []` over 1109 players. **Strict value-inertness is NOT re-measurable here**: `board_diff --expect-no-value-change` needs a pre-deploy production board snapshot, and none was taken. It was measured on this box pre-merge (§ inertness); that is what stands, and saying so is more useful than presenting a healthy scrape as if it were the same statement |
 | 4 | KTC ladder capture | **N/A** | not landed yet; the check is written for a future unit |
 
+### 7b. AL-P3 addendum (2026-10-01) — the KTC ladder capture
+
+Check 4 now has a producer: `src/sources/ktc_format_archive.py`, called from `scrape_ktc` right
+after the selected-board capture. Measured on the live page 2026-10-01, the one `playersArray`
+carries **both** quarterback formats (`oneQBValues` / `superflexValues`, same 500 rows under
+`sf=true` and `sf=false`), each with the whole TE ladder and all three Value Source modes. So a
+run archives **eight** boards (`1qb_*` and `sf_*` x `off/tep/tepp/teppp`), not four, sharing one
+`run_id`, all `provider_family: ktc`, with zero extra requests (one in-page read, no navigation).
+`ARCHIVE_ELIGIBLE` gained the four `ktc:1qb_*` keys; `PRODUCTION_ELIGIBLE` stays empty. Schema v3
+adds a nullable `provenance_json` column (payload hash, variant label, fetch time, page URL),
+outside `content_hash`. Default cadence is one full ladder per UTC day (~1.5 MB);
+`RISKIT_KTC_FORMAT_ARCHIVE_CADENCE=every_run` archives every scrape. Off by default on GitHub
+Actions runners (ephemeral; `data/source_archive/` is not force-added). The production half of
+check 4 is still to be observed on the box after deploy.
+
 Item 3's residue is a *process* gap worth naming, because it will recur for every unit whose
 proof is "the board did not move": the snapshot has to be captured **before** the deploy, and
 nothing currently does that. Same shape as `scripts/backtest_perfect_draft.py --record-snapshot`,
