@@ -6343,7 +6343,11 @@ async def get_player_value_explain(player: str):
             status_code=404,
             content={"error": "player_not_found", "player": player},
         )
-    return JSONResponse(content=player_explain(contract, row))
+    try:
+        stamps = _per_source_freshness()
+    except Exception:  # noqa: BLE001 — fetch stamps are informative only
+        stamps = {}
+    return JSONResponse(content=player_explain(contract, row, stamps))
 
 
 @app.get("/api/scaffold/status")
