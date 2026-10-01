@@ -1,6 +1,6 @@
 {
   "schema": "source-lineage/v1",
-  "description": "The NON-DERIVABLE half of the source trust census (src/sources/source_census.py, Batch 3 Unit A): provider identity, evidence basis, recorded ancestry/dependence and recorded source-specific defects. Everything derivable (registration, families, weights, freshness, clocks, coverage, archive depth) is computed from canonical state at census time and must NOT be copied here. Every entry carries evidence pointers (repo paths that exist) and a classification. 'proven' = established by code, payload structure or the vendor's own published statement recorded in the repo. 'measured' = a statistic measured on real boards; it is DEPENDENCE, never common ancestry. 'suspected' = plausible ancestry with no proof; kept separate from proven on purpose. Nothing here decides a value or a weight. Pairs are reconciled into exactly four categories (categories / pairReconciliation; one owner with src/sources/source_census.py::LINEAGE_CATEGORIES): a measurement never becomes PROVEN_COMMON_ANCESTRY, INDEPENDENT_NO_EVIDENCE is absence of evidence, and a null category is UNKNOWN with its reason. Batch 3 Unit G refresh: docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md.",
+  "description": "The NON-DERIVABLE half of the source trust census (src/sources/source_census.py, Batch 3 Unit A): provider identity, evidence basis, recorded ancestry/dependence and recorded source-specific defects. Everything derivable (registration, families, weights, freshness, clocks, coverage, archive depth) is computed from canonical state at census time and must NOT be copied here. Every entry carries evidence pointers (repo paths that exist) and a classification. 'proven' = established by code, payload structure or the vendor's own published statement recorded in the repo. 'measured' = a statistic measured on real boards; it is DEPENDENCE, never common ancestry. 'suspected' = plausible ancestry with no proof; kept separate from proven on purpose. Nothing here decides a value or a weight. Pairs are reconciled into exactly four categories (categories / pairReconciliation; one owner with src/sources/source_census.py::LINEAGE_CATEGORIES): a measurement never becomes PROVEN_COMMON_ANCESTRY, INDEPENDENT_NO_EVIDENCE is absence of evidence, and a null category is UNKNOWN with its reason. Batch 3 Unit G refresh: docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md. D2 follow-up (OTC vs the Hill trainers, multi-snapshot; relation statistics are dated histories): docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md.",
   "classifications": ["proven", "measured", "suspected"],
   "categories": {
     "PROVEN_COMMON_ANCESTRY": "documented / verified that one provider derives from the other (vendor statement, payload structure or code); needs a supporting 'proven' relation",
@@ -53,7 +53,7 @@
     "idpShow": {"provider": "theIdpShow", "basis": "expert_consensus", "evidence": ["scripts/fetch_idpshow.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md"], "notes": "Vendor's own post metadata (read 2026-10-01): titled an IDP DYNASTY ranking, described as the consensus of two named experts (Adam Marcum, Jon Macri) over 350 defenders."},
     "dynastyNerdsSfTep": {"provider": "dynastyNerds", "basis": "expert_consensus", "evidence": ["docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md"]},
     "fantasyCalc": {"provider": "fantasyCalc", "basis": "crowd_trade_market", "evidence": ["docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md"]},
-    "otcffbSf": {"provider": "otcFantasyFootball", "basis": "trade_derived", "evidence": ["docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md"]},
+    "otcffbSf": {"provider": "otcFantasyFootball", "basis": "trade_derived", "evidence": ["docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md", "docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md"], "notes": "MEASURED 2026-10-01 (21 weekly snapshots, D2 follow-up): positive residual dependence on base KTC, Dynasty Daddy, Yahoo/Boone and FantasyCalc; weak on Fitzmaurice and (spacing only) Dynasty Nerds; none on Draft Sharks. Not an ancestry-safe Hill holdout for any current OFFENSE trainer set (pairs pair-otc-*). Offense population shrank from ~446 to ~367 rows on 2026-09-12."},
     "fantasyNavigatorSf": {"provider": "fantasyNavigator", "basis": "derived_aggregate", "evidence": ["scripts/fetch_fantasynavigator.py", "src/api/data_contract.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md"]},
     "pfkDynasty": {"provider": "playForKeeps", "basis": "publisher_board", "evidence": ["scripts/fetch_pfk.py"]},
     "dynastyDaddySf": {"provider": "dynastyDaddy", "basis": "crowd_trade_market", "evidence": ["docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md"]},
@@ -113,7 +113,11 @@
       "relation": "measured_dependence",
       "classification": "measured",
       "summary": "REFRESHED 2026-10-01 (leave-pair-out residual vs a consensus excluding both members): +0.038 vs KTC Crowd (n=428), +0.191 vs KTC Trades, +0.056 vs KTC Market; raw Spearman 0.905 vs Crowd. Lagged value identity 0 of 437 at any KTC capture in the prior 10 days (median value ratio 0.09: a different curve). Earlier: raw Spearman 0.9395 vs ktcSfTep (2026-08-04). The data-source use is proven (fn-uses-ktc-data); a KTC-tracking ORDER is not supported by the current measurement.",
-      "statistics": {"rawSpearmanVsKtcSfTep": 0.9395, "medianDeviationVsCrowdBaseSf": 0.156, "medianDeviationVsCrowdTepp": 0.166, "medianDeviationVsTradesTepp": 0.188},
+      "statistics": {"measurements": [
+        {"asOf": "2026-08-04", "status": "superseded", "method": "raw Spearman of ranks (decision-intelligence audit)", "window": "2026-08-04 boards", "n": null, "values": {"rawSpearmanVsKtcSfTep": 0.9395}},
+        {"asOf": "2026-09-23", "status": "superseded", "method": "normalized median value deviation on shared players", "window": "2026-09-23 boards", "n": 431, "values": {"medianDeviationVsCrowdBaseSf": 0.156, "medianDeviationVsCrowdTepp": 0.166, "medianDeviationVsTradesTepp": 0.188}},
+        {"asOf": "2026-10-01", "status": "current", "method": "leave-pair-out residual correlation of percentile ranks (consensus excludes both members), scripts/audit/lineage_integrity_sweep.py", "window": "captured CSVs at 2026-10-01T15:00Z (each source's latest version, 2026-09-29..2026-09-30)", "n": 428, "values": {"residualVsKtcCrowd": 0.038, "residualVsKtcTrades": 0.191, "residualVsKtcMarket": 0.056, "rawSpearmanVsKtcCrowd": 0.905, "laggedValueIdentityShare": 0.0}}
+      ]},
       "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "src/api/data_contract.py", "docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
       "asOf": "2026-10-01"
     },
@@ -123,7 +127,11 @@
       "relation": "measured_dependence",
       "classification": "measured",
       "summary": "REFRESHED 2026-10-01: leave-pair-out residual +0.687 vs KTC Crowd (n=439) — the strongest offense pair in the whole voting matrix — and +0.382 vs KTC Trades; raw Spearman 0.977. Values are not copies (1 of 447 equal; median ratio 0.62-0.67). Earlier: +0.450 vs ktcSfTep (2026-08-04); held-out Hill RMSE flattered 1.64x by KTC in training (2026-09-24).",
-      "statistics": {"residualRVsKtcSfTep": 0.45, "holdoutRmseFlatteringByKtc": 1.64},
+      "statistics": {"measurements": [
+        {"asOf": "2026-08-04", "status": "superseded", "method": "residual correlation, decision-intelligence audit instrument (2026-08-04)", "window": "2026-08-04 boards", "n": null, "values": {"residualVsKtcSfTep": 0.45}},
+        {"asOf": "2026-09-24", "status": "superseded", "method": "fixed-holdout vs leave-lineage-out Hill RMSE ratio", "window": "docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md", "n": null, "values": {"holdoutRmseFlatteringByKtc": 1.64}},
+        {"asOf": "2026-10-01", "status": "current", "method": "leave-pair-out residual correlation of percentile ranks (consensus excludes both members), scripts/audit/lineage_integrity_sweep.py", "window": "captured CSVs at 2026-10-01T15:00Z (each source's latest version, 2026-09-29..2026-09-30)", "n": 439, "values": {"residualVsKtcCrowd": 0.687, "residualVsKtcTrades": 0.382, "rawSpearmanVsKtcCrowd": 0.977}, "note": "Instrument caveat, not a re-classification: the D2 follow-up control measures PFK vs base KTC at +0.058 median on the common-population, TE-excluded instrument against +0.568 on the sweep's per-board percentiles (10 snapshots) — see docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md."}
+      ]},
       "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
       "asOf": "2026-10-01"
     },
@@ -142,7 +150,10 @@
       "relation": "measured_dependence",
       "classification": "measured",
       "summary": "REFRESHED 2026-10-01: leave-pair-out residual +0.635 (n=366); raw Spearman 0.963; values not copies (lagged identity <=1.1% within 4 days either direction). Earlier +0.677 (n=254, 2026-08-04). Both are crowd trade-value markets; common ancestry is NOT established and is not asserted.",
-      "statistics": {"residualR": 0.677, "n": 254},
+      "statistics": {"measurements": [
+        {"asOf": "2026-08-04", "status": "superseded", "method": "residual correlation, decision-intelligence audit instrument (2026-08-04)", "window": "2026-08-04 boards", "n": 254, "values": {"residualR": 0.677}},
+        {"asOf": "2026-10-01", "status": "current", "method": "leave-pair-out residual correlation of percentile ranks (consensus excludes both members), scripts/audit/lineage_integrity_sweep.py", "window": "captured CSVs at 2026-10-01T15:00Z (each source's latest version, 2026-09-29..2026-09-30)", "n": 366, "values": {"residualR": 0.635, "rawSpearman": 0.963, "laggedValueIdentityWithin1pctMaxShare": 0.011}, "note": "D2 follow-up control: +0.843 median (100% of 21 snapshots positive) on the common-population, TE-excluded instrument — see docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md."}
+      ]},
       "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
       "asOf": "2026-10-01"
     },
@@ -151,19 +162,51 @@
       "sources": ["otcffbSf", "fantasyCalc"],
       "relation": "measured_dependence",
       "classification": "measured",
-      "summary": "REFRESHED 2026-10-01: leave-pair-out residual +0.511 vs FantasyCalc (n=358). Earlier +0.329 (2026-08-04).",
-      "statistics": {"residualR": 0.329},
-      "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "summary": "MEASURED 2026-10-01 across 21 weekly snapshots: rank median +0.654 (range +0.399..+0.801, positive in every snapshot; basis-neutral instrument), log-value residual after shape +0.460. Earlier +0.511 (sweep, one snapshot, 2026-10-01) and +0.329 (2026-08-04). FantasyCalc is the intermediary of the OTC -> FantasyCalc -> Dynasty Daddy path (relation otc-dd-dependence).",
+      "statistics": {"measurements": [
+        {"asOf": "2026-08-04", "status": "superseded", "method": "residual correlation, decision-intelligence audit instrument (2026-08-04)", "window": "2026-08-04 boards", "n": null, "values": {"residualR": 0.329}},
+        {"asOf": "2026-10-01", "status": "superseded", "method": "leave-pair-out residual correlation of percentile ranks (consensus excludes both members), scripts/audit/lineage_integrity_sweep.py", "window": "captured CSVs at 2026-10-01T15:00Z (each source's latest version, 2026-09-29..2026-09-30)", "n": 358, "values": {"residualR": 0.511}, "note": "single snapshot; superseded by the multi-snapshot distribution below"},
+        {"asOf": "2026-10-01", "status": "current", "method": "multi-snapshot leave-pair-out residual, common population, TE rows removed, consensus excludes both members' B10 families and providers (cpx_lfo), scripts/audit/lineage_pair_snapshots.py", "window": "21 weekly point-in-time snapshots 2026-05-16..2026-10-01 (last committed CSV at or before each instant)", "n": 201, "values": {"rankResidualMedian": 0.654, "rankResidualMin": 0.399, "rankResidualMax": 0.801, "rankResidualPositiveShare": 1.0, "nSnapshots": 21, "valueResidualDetrendedMedian": 0.46, "valueResidualDetrendedPositiveShare": 1.0, "valueResidualRawMedian": 0.36, "sweepMethodRankResidualMedian": 0.472, "sweepMethodRankResidualMin": 0.209, "sweepMethodRankResidualMax": 0.667}}
+      ]},
+      "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py", "docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md", "docs/sources/integrity/OTC_PAIR_SNAPSHOTS_2026-10-01.json", "scripts/audit/lineage_pair_snapshots.py"],
       "asOf": "2026-10-01"
     },
     {
       "id": "otc-ktc-dependence",
-      "sources": ["otcffbSf", "ktc", "ktcCrowdSfTep", "ktcTradesSfTep"],
+      "sources": ["otcffbSf", "ktc", "ktcSfTep", "ktcCrowdSfTep", "ktcTradesSfTep"],
       "relation": "measured_dependence",
       "classification": "measured",
-      "summary": "NOT REPRODUCED 2026-10-01: leave-pair-out residual -0.204 vs KTC Crowd and -0.146 vs KTC Trades (n=364); 0 lagged value identity (OTC publishes 0-100). The 2026-07-27 +0.891 vs base KTC came from an instrument whose consensus contained several KTC copies (ktc, ktcSfTep, ...), which manufactures residual agreement for any KTC-adjacent board.",
-      "statistics": {"residualRho": 0.891},
-      "evidence": ["docs/lane4/LANE4_804_CORRELATED_SOURCE_STATUS.md", "scripts/audit/measure_source_correlation.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
+      "summary": "MEASURED 2026-10-01 across 21 weekly snapshots (D2 follow-up): OTC's residual vs base KTC is positive in every snapshot on the basis-neutral instrument (common population, TE rows removed, KTC family excluded from the consensus): rank median +0.455 (range +0.094..+0.654, n~209), log-value residual after removing curve shape +0.445; vs KTC Crowd +0.450 and KTC Trades +0.726 (4 snapshots since 2026-09-09). The single-day 'not reproduced' (-0.204 / -0.146) was an instrument artifact: per-board percentiles confound board DEPTH (OTC shrank from ~446 to ~367 offense rows on 2026-09-12; the sweep statistic swings -0.20..+0.91 with it) and the TE basis (Crowd/Trades are TE++, OTC is base: with TE rows kept vs ktcSfTep the statistic is -0.133). Values are not copies (0 lagged value identity; OTC publishes 0-100). Dependence, NOT ancestry.",
+      "statistics": {"measurements": [
+        {"asOf": "2026-07-27", "status": "superseded", "method": "residual correlation, scripts/audit/measure_source_correlation.py (consensus contained several KTC copies)", "window": "2026-07-27 instrument run", "n": null, "values": {"residualRhoVsKtcBase": 0.891}, "note": "its consensus contained several KTC copies (ktc, ktcSfTep, ...)"},
+        {"asOf": "2026-10-01", "status": "superseded", "method": "leave-pair-out residual correlation of percentile ranks (consensus excludes both members), scripts/audit/lineage_integrity_sweep.py", "window": "captured CSVs at 2026-10-01T15:00Z (each source's latest version, 2026-09-29..2026-09-30)", "n": 364, "values": {"residualVsKtcCrowd": -0.204, "residualVsKtcTrades": -0.146, "laggedValueIdentityShare": 0.0}, "note": "single snapshot, TE++ comparators only; base KTC not measured as a named pair; per-board percentiles (depth- and TE-basis-confounded)"},
+        {"asOf": "2026-10-01", "status": "current", "method": "multi-snapshot leave-pair-out residual, common population, TE rows removed, consensus excludes both members' B10 families and providers (cpx_lfo), scripts/audit/lineage_pair_snapshots.py", "window": "21 weekly point-in-time snapshots 2026-05-16..2026-10-01 (last committed CSV at or before each instant)", "n": 209, "values": {"rankResidualMedian": 0.455, "rankResidualMin": 0.094, "rankResidualMax": 0.654, "rankResidualPositiveShare": 1.0, "nSnapshots": 21, "valueResidualDetrendedMedian": 0.445, "valueResidualDetrendedPositiveShare": 1.0, "valueResidualRawMedian": 0.557, "sweepMethodRankResidualMedian": 0.25, "sweepMethodRankResidualMin": -0.196, "sweepMethodRankResidualMax": 0.911, "vsKtcCrowdRankResidualMedian": 0.45, "vsKtcTradesRankResidualMedian": 0.726, "vsKtcCrowdTradesSnapshots": 4, "vsKtcSfTepWithTeRowsRankResidualMedian": -0.133}}
+      ]},
+      "evidence": ["docs/lane4/LANE4_804_CORRELATED_SOURCE_STATUS.md", "scripts/audit/measure_source_correlation.py", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py", "docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md", "docs/sources/integrity/OTC_PAIR_SNAPSHOTS_2026-10-01.json", "scripts/audit/lineage_pair_snapshots.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "otc-dd-dependence",
+      "sources": ["otcffbSf", "dynastyDaddySf"],
+      "relation": "measured_dependence",
+      "classification": "measured",
+      "summary": "MEASURED 2026-10-01 across 21 weekly snapshots (first named-pair measurement): rank median +0.691 (range +0.404..+0.841, positive in every snapshot; basis-neutral instrument), log-value residual after shape +0.429. Partialling out FantasyCalc (the indirect OTC -> FantasyCalc -> Dynasty Daddy path) leaves rank +0.328 (95% of snapshots positive): the order dependence is not only the FantasyCalc path; in value space it is (partial -0.154). Dependence, not ancestry.",
+      "statistics": {"measurements": [
+        {"asOf": "2026-10-01", "status": "current", "method": "multi-snapshot leave-pair-out residual, common population, TE rows removed, consensus excludes both members' B10 families and providers (cpx_lfo), scripts/audit/lineage_pair_snapshots.py", "window": "21 weekly point-in-time snapshots 2026-05-16..2026-10-01 (last committed CSV at or before each instant)", "n": 201, "values": {"rankResidualMedian": 0.691, "rankResidualMin": 0.404, "rankResidualMax": 0.841, "rankResidualPositiveShare": 1.0, "nSnapshots": 21, "valueResidualDetrendedMedian": 0.429, "valueResidualDetrendedPositiveShare": 0.952, "valueResidualRawMedian": 0.063, "sweepMethodRankResidualMedian": 0.398, "sweepMethodRankResidualMin": -0.113, "sweepMethodRankResidualMax": 0.589, "partialGivenFantasyCalcRankMedian": 0.328, "partialGivenFantasyCalcRankPositiveShare": 0.952, "partialGivenFantasyCalcValueMedian": -0.154}}
+      ]},
+      "evidence": ["docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md", "docs/sources/integrity/OTC_PAIR_SNAPSHOTS_2026-10-01.json", "scripts/audit/lineage_pair_snapshots.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "otc-boone-dependence",
+      "sources": ["otcffbSf", "yahooBoone"],
+      "relation": "measured_dependence",
+      "classification": "measured",
+      "summary": "MEASURED 2026-10-01 across 21 weekly snapshots (first named-pair measurement): rank median +0.419 (range +0.254..+0.502, positive in every snapshot; basis-neutral instrument); log-value residual after shape +0.325 on 16 snapshots. Yahoo/Boone published only 6 distinct versions in the window, so the snapshots are not 21 independent observations. Dependence, not ancestry.",
+      "statistics": {"measurements": [
+        {"asOf": "2026-10-01", "status": "current", "method": "multi-snapshot leave-pair-out residual, common population, TE rows removed, consensus excludes both members' B10 families and providers (cpx_lfo), scripts/audit/lineage_pair_snapshots.py", "window": "21 weekly point-in-time snapshots 2026-05-16..2026-10-01 (last committed CSV at or before each instant)", "n": 201, "values": {"rankResidualMedian": 0.419, "rankResidualMin": 0.254, "rankResidualMax": 0.502, "rankResidualPositiveShare": 1.0, "nSnapshots": 21, "valueResidualDetrendedMedian": 0.325, "valueResidualDetrendedPositiveShare": 0.938, "valueResidualRawMedian": 0.228, "sweepMethodRankResidualMedian": 0.2, "sweepMethodRankResidualMin": 0.037, "sweepMethodRankResidualMax": 0.321}}
+      ]},
+      "evidence": ["docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md", "docs/sources/integrity/OTC_PAIR_SNAPSHOTS_2026-10-01.json", "scripts/audit/lineage_pair_snapshots.py"],
       "asOf": "2026-10-01"
     },
     {
@@ -172,7 +215,11 @@
       "relation": "measured_dependence",
       "classification": "measured",
       "summary": "REFRESHED 2026-10-01, IDP universe, against the IDP-only board: leave-pair-out residual +0.992 (n=243), raw Spearman 0.998 (n=347), 0.9% discordant pairs. LEAD-LAG at 3 of 5 IDP Show publications: after 2026-07-21, 08-20 and 08-26 the IDP Trade Calculator's first IDP version, 1-6 hours later, matches the new IDP Show ordering exactly or nearly (0.00-0.04% discordant pairs), then drifts by its own small edits (0.9% by 2026-09-23). It did NOT at the other two: after 2026-06-16 its first version (8 days later) was 10.8% discordant, falling to 0.9% before the next publication; after 2026-08-18 its first version (~35 h later) was 3.5% discordant and stayed there until IDP Show republished on 08-20. Direction measured where it holds: IDP Show leads. Against the voting COMBINED board: +0.806 (n=158), 9.2% discordant. Derivation is not vendor-stated (see idptc-idpshow-suspected-ancestry).",
-      "statistics": {"residualR": 0.986, "n": 188, "residualRho20260727": 0.669},
+      "statistics": {"measurements": [
+        {"asOf": "2026-07-27", "status": "superseded", "method": "residual correlation, scripts/audit/measure_source_correlation.py (consensus contained several KTC copies)", "window": "2026-07-27 instrument run", "n": null, "values": {"residualRho": 0.669}},
+        {"asOf": "2026-08-04", "status": "superseded", "method": "residual correlation, decision-intelligence audit instrument (2026-08-04)", "window": "2026-08-04 boards, IDP-only IDP Show board", "n": 188, "values": {"residualR": 0.986}},
+        {"asOf": "2026-10-01", "status": "current", "method": "leave-pair-out residual correlation of percentile ranks (consensus excludes both members), scripts/audit/lineage_integrity_sweep.py; IDP universe", "window": "captured CSVs at 2026-10-01T15:00Z (each source's latest version, 2026-09-29..2026-09-30)", "n": 243, "values": {"residualVsIdpShowIdpOnly": 0.992, "rawSpearmanVsIdpShowIdpOnly": 0.998, "discordantPairShare": 0.009, "residualVsIdpShowCombined": 0.806}}
+      ]},
       "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "docs/lane4/LANE4_804_CORRELATED_SOURCE_STATUS.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
       "asOf": "2026-10-01"
     },
@@ -191,7 +238,12 @@
       "relation": "measured_dependence",
       "classification": "measured",
       "summary": "REFRESHED 2026-10-01, offense: leave-pair-out residual +0.535 vs KTC Crowd, +0.532 vs Trades (n=430) — damped because the IDP Trade Calculator's offense pool has not changed since 2026-08-28 while KTC moves continuously. See idptc-offense-ktc-value-identity for the batch-level identity.",
-      "statistics": {"residualR": 0.56, "n": 255, "rawSpearman": 0.9844, "medianValueRatio": 1.0},
+      "statistics": {"measurements": [
+        {"asOf": "2026-07-26", "status": "superseded", "method": "median per-player value ratio on shared players", "window": "2026-07-26 boards", "n": 475, "values": {"medianValueRatio": 1.0, "valueRatioP10": 0.888, "valueRatioP90": 1.054}},
+        {"asOf": "2026-07-27", "status": "superseded", "method": "residual correlation, scripts/audit/measure_source_correlation.py (consensus contained several KTC copies)", "window": "2026-07-27 instrument run", "n": null, "values": {"residualR": 0.698}},
+        {"asOf": "2026-08-04", "status": "superseded", "method": "residual correlation, decision-intelligence audit instrument (2026-08-04)", "window": "2026-08-04 boards", "n": 255, "values": {"residualR": 0.56, "rawSpearman": 0.9844}},
+        {"asOf": "2026-10-01", "status": "current", "method": "leave-pair-out residual correlation of percentile ranks (consensus excludes both members), scripts/audit/lineage_integrity_sweep.py; offense universe", "window": "captured CSVs at 2026-10-01T15:00Z (each source's latest version, 2026-09-29..2026-09-30)", "n": 430, "values": {"residualVsKtcCrowd": 0.535, "residualVsKtcTrades": 0.532}}
+      ]},
       "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "docs/lane4/LANE4_804_CORRELATED_SOURCE_STATUS.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
       "asOf": "2026-10-01"
     },
@@ -210,7 +262,10 @@
       "relation": "measured_dependence",
       "classification": "measured",
       "summary": "DLF Values ordering vs DLF Rank: Spearman 0.970 on 288 matched, 7.1% discordant pairs; values median 8.3% apart from DLF Rank's own rank->Hill value (2026-09-25). Leave-pair-out residual +0.704 (n=284, 2026-10-01). Measured as NOT a duplicate.",
-      "statistics": {"spearman": 0.97, "n": 288, "discordantPairs": 0.071},
+      "statistics": {"measurements": [
+        {"asOf": "2026-09-25", "status": "superseded", "method": "Spearman + pairwise discordance of DLF Values vs DLF Rank (normalization gate)", "window": "docs/sources/DLF_VALUES_GATE_2026-09-25.md", "n": 288, "values": {"spearman": 0.97, "discordantPairShare": 0.071}},
+        {"asOf": "2026-10-01", "status": "current", "method": "leave-pair-out residual correlation of percentile ranks (consensus excludes both members), scripts/audit/lineage_integrity_sweep.py", "window": "captured CSVs at 2026-10-01T15:00Z (each source's latest version, 2026-09-29..2026-09-30)", "n": 284, "values": {"residualR": 0.704}}
+      ]},
       "evidence": ["docs/sources/DLF_VALUES_GATE_2026-09-25.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
       "asOf": "2026-10-01"
     },
@@ -220,7 +275,10 @@
       "relation": "measured_dependence",
       "classification": "measured",
       "summary": "REFRESHED 2026-10-01: leave-pair-out residual -0.447 vs KTC Crowd (n=284); earlier -0.412 vs ktcSfTep (2026-08-04). Among the most independent offense signals.",
-      "statistics": {"residualR": -0.412},
+      "statistics": {"measurements": [
+        {"asOf": "2026-08-04", "status": "superseded", "method": "residual correlation, decision-intelligence audit instrument (2026-08-04)", "window": "2026-08-04 boards, vs ktcSfTep", "n": null, "values": {"residualR": -0.412}},
+        {"asOf": "2026-10-01", "status": "current", "method": "leave-pair-out residual correlation of percentile ranks (consensus excludes both members), scripts/audit/lineage_integrity_sweep.py", "window": "captured CSVs at 2026-10-01T15:00Z (each source's latest version, 2026-09-29..2026-09-30)", "n": 284, "values": {"residualVsKtcCrowd": -0.447}, "note": "D2 follow-up control vs base KTC: -0.325 median, negative in all 21 snapshots — see docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md."}
+      ]},
       "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
       "asOf": "2026-10-01"
     },
@@ -239,7 +297,11 @@
       "relation": "suspected_nested_input",
       "classification": "suspected",
       "summary": "Fitzmaurice is a FantasyPros analyst and may be an input to the FantasyPros consensus; NOT established. Leave-pair-out residual 2026-10-01: -0.039 (n=290) — effectively independent. The earlier -0.610 / -0.664 came from a consensus that included both boards and is not reproduced.",
-      "statistics": {"residualR": -0.61, "residualRho20260727": -0.664},
+      "statistics": {"measurements": [
+        {"asOf": "2026-07-27", "status": "superseded", "method": "residual correlation, scripts/audit/measure_source_correlation.py (consensus contained several KTC copies)", "window": "2026-07-27 instrument run", "n": null, "values": {"residualRho": -0.664}},
+        {"asOf": "2026-08-04", "status": "superseded", "method": "residual correlation, decision-intelligence audit instrument (2026-08-04) (consensus included both boards)", "window": "2026-08-04 boards", "n": null, "values": {"residualR": -0.61}},
+        {"asOf": "2026-10-01", "status": "current", "method": "leave-pair-out residual correlation of percentile ranks (consensus excludes both members), scripts/audit/lineage_integrity_sweep.py", "window": "captured CSVs at 2026-10-01T15:00Z (each source's latest version, 2026-09-29..2026-09-30)", "n": 290, "values": {"residualR": -0.039}}
+      ]},
       "evidence": ["docs/valuation/HILL_SOURCE_ALIGNMENT_AUDIT_2026-09-24.md", "docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "docs/lane4/LANE4_804_CORRELATED_SOURCE_STATUS.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
       "asOf": "2026-10-01"
     },
@@ -249,7 +311,11 @@
       "relation": "measured_dependence",
       "classification": "measured",
       "summary": "REFRESHED 2026-10-01: leave-pair-out residual +0.643 (n=274); earlier +0.568 (2026-08-04), +0.681 (2026-07-27). Cross-publisher.",
-      "statistics": {"residualR": 0.568, "residualRho20260727": 0.681},
+      "statistics": {"measurements": [
+        {"asOf": "2026-07-27", "status": "superseded", "method": "residual correlation, scripts/audit/measure_source_correlation.py (consensus contained several KTC copies)", "window": "2026-07-27 instrument run", "n": null, "values": {"residualRho": 0.681}},
+        {"asOf": "2026-08-04", "status": "superseded", "method": "residual correlation, decision-intelligence audit instrument (2026-08-04)", "window": "2026-08-04 boards", "n": null, "values": {"residualR": 0.568}},
+        {"asOf": "2026-10-01", "status": "current", "method": "leave-pair-out residual correlation of percentile ranks (consensus excludes both members), scripts/audit/lineage_integrity_sweep.py", "window": "captured CSVs at 2026-10-01T15:00Z (each source's latest version, 2026-09-29..2026-09-30)", "n": 274, "values": {"residualR": 0.643}, "note": "Instrument caveat, not a re-classification: both boards are shallow (~295 offense rows); the D2 follow-up control measures +0.099 median on the common-population, TE-excluded instrument against +0.501 on per-board percentiles — see docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md."}
+      ]},
       "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json", "docs/lane4/LANE4_804_CORRELATED_SOURCE_STATUS.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.json", "scripts/audit/lineage_integrity_sweep.py"],
       "asOf": "2026-10-01"
     },
@@ -286,7 +352,9 @@
       "relation": "measured_independence",
       "classification": "measured",
       "summary": "Residual correlation -0.382 to -0.505 against every other source (2026-08-04): genuinely contrarian, which is also why the outlier filter drops it often.",
-      "statistics": {"residualRMin": -0.505, "residualRMax": -0.382},
+      "statistics": {"measurements": [
+        {"asOf": "2026-08-04", "status": "current", "method": "residual correlation, decision-intelligence audit instrument (2026-08-04), against every other source", "window": "2026-08-04 boards", "n": null, "values": {"residualRMin": -0.505, "residualRMax": -0.382}}
+      ]},
       "evidence": ["docs/audits/decision-intelligence-audit-2026-08-04.registry.json"],
       "asOf": "2026-08-04"
     },
@@ -612,6 +680,83 @@
       "relations": ["signals-suspected-market-ancestry"],
       "implications": {"familyCap": "non-voting second opinion; no family until measured.", "hillHoldout": "must not be a holdout until its dependence is measured.", "sourceQualityEvaluation": "excluded from targets and from evaluation until authenticated point-in-time values exist.", "hillTraining": "never a trainer.", "completedTradeEvaluation": "excluded."},
       "evidence": ["docs/sources/integrity/INTEGRITY_SWEEP_2026-10-01.md", "src/sources/signals.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "pair-otc-ktc",
+      "sources": ["otcffbSf", "ktc", "ktcCrowdSfTep", "ktcTradesSfTep"],
+      "category": "MEASURED_DEPENDENCE",
+      "relations": ["otc-ktc-dependence"],
+      "basis": "Positive residual dependence of OTC on base KTC in all 21 snapshots on the basis-neutral instrument, and on KTC Crowd / Trades in all 4 snapshots since they exist. Values are not copies and no vendor statement links OTC to KTC, so no ancestry is asserted; the dependence may be shared evidence (two trade-informed markets), which still disqualifies OTC as an independent holdout.",
+      "measurement": {"method": "multi-snapshot leave-pair-out residual, common population, TE rows removed, consensus excludes both members' B10 families and providers (cpx_lfo), scripts/audit/lineage_pair_snapshots.py", "window": "21 weekly point-in-time snapshots 2026-05-16..2026-10-01 (last committed CSV at or before each instant)", "n": 209, "statistic": "rank median +0.455 [+0.094, +0.654], 100% of 21 snapshots positive; value (shape removed) +0.445; sweep method +0.250 [-0.196, +0.911]"},
+      "implications": {"familyCap": "separate B10 families; partially shared signal reaches the blend twice. Owner review only; no family change here.", "hillHoldout": "OTC is NOT an ancestry-safe (dependence-free) holdout for an arm that trains on KTC (base, Crowd TE++ or Trades) — every D2 arm: measured dependence in every snapshot. Under D2's preregistered exclusion rule OTC is excluded, so D2 has no eligible board holdout.", "sourceQualityEvaluation": "leave-pair-out: never score OTC against a KTC-containing target, nor KTC against OTC.", "hillTraining": "OTC does not train; promoting it to trainer beside KTC would teach a dependent view twice.", "completedTradeEvaluation": "OTC's agreement with completed trades is not independent of KTC; report jointly. A completed-trade target is the only non-board Hill target, and KTC Trade Database trades are KTC-platform (in-sample for KTC Trades)."},
+      "evidence": ["docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md", "docs/sources/integrity/OTC_PAIR_SNAPSHOTS_2026-10-01.json", "scripts/audit/lineage_pair_snapshots.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "pair-otc-ktcsftep",
+      "sources": ["otcffbSf", "ktcSfTep"],
+      "category": "MEASURED_DEPENDENCE",
+      "relations": ["otc-ktc-dependence"],
+      "basis": "ktcSfTep is the historical KTC Crowd TE++ capture: with TE rows removed it is the same board as base KTC (identical statistic). With TE rows kept the residual is -0.133, because OTC is base and ktcSfTep is TE++: the TE basis difference, not an opinion difference.",
+      "measurement": {"method": "multi-snapshot leave-pair-out residual, common population, TE rows removed, consensus excludes both members' B10 families and providers (cpx_lfo), scripts/audit/lineage_pair_snapshots.py", "window": "21 weekly point-in-time snapshots 2026-05-16..2026-10-01 (last committed CSV at or before each instant)", "n": 209, "statistic": "rank median +0.455 [+0.094, +0.654], 100% of 21 snapshots positive; value (shape removed) +0.445; sweep method -0.184 [-0.355, +0.545]"},
+      "implications": {"familyCap": "ktcSfTep no longer votes (historical); no family question.", "hillHoldout": "OTC is NOT an ancestry-safe (dependence-free) holdout for an arm that trains on the KTC TE++ capture (D2 arm M3): measured dependence in every snapshot. Under D2's preregistered exclusion rule OTC is excluded, so D2 has no eligible board holdout.", "sourceQualityEvaluation": "same as pair-otc-ktc.", "hillTraining": "ktcSfTep does not train; M3-style arms would train on the KTC Crowd TE++ lineage OTC depends on.", "completedTradeEvaluation": "OTC's agreement with completed trades is not independent of KTC; report jointly. A completed-trade target is the only non-board Hill target, and KTC Trade Database trades are KTC-platform (in-sample for KTC Trades)."},
+      "evidence": ["docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md", "docs/sources/integrity/OTC_PAIR_SNAPSHOTS_2026-10-01.json", "scripts/audit/lineage_pair_snapshots.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "pair-otc-dynastydaddy",
+      "sources": ["otcffbSf", "dynastyDaddySf"],
+      "category": "MEASURED_DEPENDENCE",
+      "relations": ["otc-dd-dependence"],
+      "basis": "Strongest OTC dependence among the Hill trainers, positive in all 21 snapshots, and not explained by the FantasyCalc path in order (partial correlation stays positive). No vendor link; no ancestry asserted.",
+      "measurement": {"method": "multi-snapshot leave-pair-out residual, common population, TE rows removed, consensus excludes both members' B10 families and providers (cpx_lfo), scripts/audit/lineage_pair_snapshots.py", "window": "21 weekly point-in-time snapshots 2026-05-16..2026-10-01 (last committed CSV at or before each instant)", "n": 201, "statistic": "rank median +0.691 [+0.404, +0.841], 100% of 21 snapshots positive; value (shape removed) +0.429; sweep method +0.398 [-0.113, +0.589]"},
+      "implications": {"familyCap": "separate families; owner review only.", "hillHoldout": "OTC is NOT an ancestry-safe (dependence-free) holdout for an arm that trains on Dynasty Daddy (D2 C0, M1, M3): measured dependence in every snapshot. Under D2's preregistered exclusion rule OTC is excluded, so D2 has no eligible board holdout.", "sourceQualityEvaluation": "leave-pair-out: neither may be the other's target.", "hillTraining": "Dynasty Daddy trains OFFENSE; OTC must not be read as independent confirmation of a Dynasty-Daddy-trained curve.", "completedTradeEvaluation": "OTC's agreement with completed trades is not independent of Dynasty Daddy; report jointly. A completed-trade target is the only non-board Hill target, and KTC Trade Database trades are KTC-platform (in-sample for KTC Trades)."},
+      "evidence": ["docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md", "docs/sources/integrity/OTC_PAIR_SNAPSHOTS_2026-10-01.json", "scripts/audit/lineage_pair_snapshots.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "pair-otc-boone",
+      "sources": ["otcffbSf", "yahooBoone"],
+      "category": "MEASURED_DEPENDENCE",
+      "relations": ["otc-boone-dependence"],
+      "basis": "Positive in all 21 snapshots on the basis-neutral instrument (only 6 distinct Yahoo/Boone versions). No vendor link; no ancestry asserted.",
+      "measurement": {"method": "multi-snapshot leave-pair-out residual, common population, TE rows removed, consensus excludes both members' B10 families and providers (cpx_lfo), scripts/audit/lineage_pair_snapshots.py", "window": "21 weekly point-in-time snapshots 2026-05-16..2026-10-01 (last committed CSV at or before each instant)", "n": 201, "statistic": "rank median +0.419 [+0.254, +0.502], 100% of 21 snapshots positive; value (shape removed) +0.325; sweep method +0.200 [+0.037, +0.321]"},
+      "implications": {"familyCap": "separate families; owner review only.", "hillHoldout": "OTC is NOT an ancestry-safe (dependence-free) holdout for an arm that trains on Yahoo/Boone (D2 M1 'five'): measured dependence in every snapshot. Under D2's preregistered exclusion rule OTC is excluded, so D2 has no eligible board holdout.", "sourceQualityEvaluation": "leave-pair-out.", "hillTraining": "Yahoo/Boone trains OFFENSE through its native values.", "completedTradeEvaluation": "OTC's agreement with completed trades is not independent of Yahoo/Boone; report jointly. A completed-trade target is the only non-board Hill target, and KTC Trade Database trades are KTC-platform (in-sample for KTC Trades)."},
+      "evidence": ["docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md", "docs/sources/integrity/OTC_PAIR_SNAPSHOTS_2026-10-01.json", "scripts/audit/lineage_pair_snapshots.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "pair-otc-fitzmaurice",
+      "sources": ["otcffbSf", "fantasyProsFitzmaurice"],
+      "category": "SUSPECTED_DEPENDENCE",
+      "relations": [],
+      "basis": "Weak but consistently positive (rank and shape-removed value both ~+0.13..+0.15, 90-95% of snapshots positive), barely above the leave-pair-out baseline (~+0.08..+0.10 for this consensus size): measured too weakly to support MEASURED_DEPENDENCE. Only 6 distinct Fitzmaurice versions in the window.",
+      "measurement": {"method": "multi-snapshot leave-pair-out residual, common population, TE rows removed, consensus excludes both members' B10 families and providers (cpx_lfo), scripts/audit/lineage_pair_snapshots.py", "window": "21 weekly point-in-time snapshots 2026-05-16..2026-10-01 (last committed CSV at or before each instant)", "n": 201, "statistic": "rank median +0.154 [-0.089, +0.308], 90% of 21 snapshots positive; value (shape removed) +0.130; sweep method -0.012 [-0.160, +0.625]"},
+      "implications": {"familyCap": "separate families; no action.", "hillHoldout": "weak suspected dependence; under D2's preregistered rule (suspected relations exclude) OTC would be excluded for a Fitzmaurice-trained arm as well.", "sourceQualityEvaluation": "prefer leave-pair-out until a stronger measurement settles it.", "hillTraining": "Fitzmaurice trains OFFENSE (native values).", "completedTradeEvaluation": "no special handling beyond reporting."},
+      "evidence": ["docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md", "docs/sources/integrity/OTC_PAIR_SNAPSHOTS_2026-10-01.json", "scripts/audit/lineage_pair_snapshots.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "pair-otc-dynastynerds",
+      "sources": ["otcffbSf", "dynastyNerdsSfTep"],
+      "category": "SUSPECTED_DEPENDENCE",
+      "relations": [],
+      "basis": "Order: no dependence (rank median ~-0.05, positive in 38% of snapshots). Spacing: weak, consistently positive shape-removed value residual (~+0.15, 95% of snapshots), barely above the leave-pair-out baseline: too weak for MEASURED_DEPENDENCE. Only 5 distinct Dynasty Nerds versions in the window.",
+      "measurement": {"method": "multi-snapshot leave-pair-out residual, common population, TE rows removed, consensus excludes both members' B10 families and providers (cpx_lfo), scripts/audit/lineage_pair_snapshots.py", "window": "21 weekly point-in-time snapshots 2026-05-16..2026-10-01 (last committed CSV at or before each instant)", "n": 201, "statistic": "rank median -0.052 [-0.166, +0.135], 38% of 21 snapshots positive; value (shape removed) +0.148; sweep method -0.103 [-0.375, +0.580]"},
+      "implications": {"familyCap": "separate families; no action.", "hillHoldout": "spacing-only weak suspected dependence; for a spacing metric like D2's it is a reason for caution, and under D2's rule it excludes.", "sourceQualityEvaluation": "order-based evaluation may treat them as independent; spacing-based should not.", "hillTraining": "Dynasty Nerds trains OFFENSE (native values).", "completedTradeEvaluation": "no special handling beyond reporting."},
+      "evidence": ["docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md", "docs/sources/integrity/OTC_PAIR_SNAPSHOTS_2026-10-01.json", "scripts/audit/lineage_pair_snapshots.py"],
+      "asOf": "2026-10-01"
+    },
+    {
+      "id": "pair-otc-draftsharks",
+      "sources": ["otcffbSf", "draftSharks"],
+      "category": "INDEPENDENT_NO_EVIDENCE",
+      "relations": [],
+      "basis": "No dependence measured: rank median ~-0.03 (positive in a third of snapshots); shape-removed value residual ~+0.03 on the sweep population (Draft Sharks' values do not cover the common population, so no basis-neutral value statistic). Absence of evidence, not proven independence.",
+      "measurement": {"method": "multi-snapshot leave-pair-out residual, common population, TE rows removed, consensus excludes both members' B10 families and providers (cpx_lfo), scripts/audit/lineage_pair_snapshots.py", "window": "21 weekly point-in-time snapshots 2026-05-16..2026-10-01 (last committed CSV at or before each instant)", "n": 201, "statistic": "rank median -0.027 [-0.249, +0.055], 33% of 21 snapshots positive; sweep method +0.151 [-0.496, +0.378]"},
+      "implications": {"familyCap": "no action.", "hillHoldout": "the only OFFENSE trainer OTC shows no dependence on; irrelevant to D2 because every arm also trains on KTC and Dynasty Daddy.", "sourceQualityEvaluation": "may be scored against each other.", "hillTraining": "Draft Sharks trains OFFENSE (3D Value+).", "completedTradeEvaluation": "no special handling."},
+      "evidence": ["docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md", "docs/sources/integrity/OTC_PAIR_SNAPSHOTS_2026-10-01.json", "scripts/audit/lineage_pair_snapshots.py"],
       "asOf": "2026-10-01"
     }
   ]

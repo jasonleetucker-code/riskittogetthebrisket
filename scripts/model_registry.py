@@ -102,9 +102,14 @@ def cmd_sources(args: argparse.Namespace) -> int:
             if b.scope != scope:
                 continue
             extra = b.exclusion_reason or ", ".join(
-                f"measured dependence on {d.trainer_family} ({d.metric} {d.value})"
-                for d in b.measured_dependence
+                f"{d.trainer_family}={d.category}"
+                for d in b.lineage_dependence
+                if not d.independent
             )
+            if b.role == "holdout":
+                extra = ("independent" if b.lineage_independent else "NOT independent: ") + (
+                    "" if b.lineage_independent else extra
+                )
             print(f"  {scope:<8}{b.label:<22}{b.role:<9}{b.family:<18}{extra}")
     print()
     print(
