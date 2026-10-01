@@ -627,6 +627,12 @@ def _remaining_schedule(snapshot: PublicLeagueSnapshot) -> list[tuple[int, str, 
     return out
 
 
+#: Public name for the posted-remaining-schedule reader both simulators use, so
+#: a consumer outside this module (``src/ros/pick_forecast_snapshot.py``) does
+#: not depend on a private helper. The private name stays for existing callers.
+remaining_schedule = _remaining_schedule
+
+
 def _current_record(
     snapshot: PublicLeagueSnapshot,
 ) -> dict[str, dict[str, float]]:

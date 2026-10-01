@@ -61,6 +61,15 @@ _CONFIDENCE_CEILING_BY_HORIZON: dict[int, str] = {
 }
 _CONFIDENCE_CEILING_BEYOND = "low"
 
+#: Public names for the projector's confidence parameters, so a consumer that
+#: must RECORD the model identity (``src/ros/pick_forecast_snapshot.py``) reads
+#: them without reaching into private constants. Same objects as the private
+#: names above, which existing callers keep using.
+CONFIDENCE_HIGH_RATIO = _CONFIDENCE_HIGH_RATIO
+CONFIDENCE_MEDIUM_RATIO = _CONFIDENCE_MEDIUM_RATIO
+CONFIDENCE_CEILING_BY_HORIZON = _CONFIDENCE_CEILING_BY_HORIZON
+CONFIDENCE_CEILING_BEYOND = _CONFIDENCE_CEILING_BEYOND
+
 
 def _cap_confidence(confidence: str, seasons_out: int) -> str:
     """Lower ``confidence`` to the ceiling for ``seasons_out``.

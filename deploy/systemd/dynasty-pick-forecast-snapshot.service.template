@@ -2,6 +2,11 @@
 Description=Weekly point-in-time pick-forecast / team-strength snapshot for __SERVICE_NAME__
 After=network-online.target
 Wants=network-online.target
+# Retry brake: Restart=on-failure below re-runs a failed capture every 20 min;
+# at most 4 starts per 4 h, so a persistent failure stops retrying and is left
+# failed in the journal until the next timer slot (Wed/Thu catch-ups).
+StartLimitIntervalSec=4h
+StartLimitBurst=4
 
 # AL-P4 (Adaptive Learning directive section 10 + section 21 "capture first";
 # perishable audit docs/BRISKET_IDEAS.md section 13.4). The Pick Projector is
@@ -20,12 +25,19 @@ Wants=network-online.target
 # reason, never zero. Private and box-local: the directory is gitignored and is
 # NOT under data/ros/, which the scheduled refresh force-adds to git.
 #
-# Idempotent: first write wins per (league, season, season type, week), so a
-# re-run in the same NFL week is a no-op.
+# Idempotent and append-only: per (league, season, season type, capture
+# window) a run writes only when its tier beats what the window holds (settled
+# > unsettled, then complete > partial > degraded); a better record is a new
+# line naming what it supersedes, never an overwrite. A core field (teams +
+# standings, pick ownership, forecast) missing because a read FAILED is not
+# written at all -- the run exits 3 and Restart=on-failure retries it, so one
+# Sleeper timeout cannot take the week.
 #
-# Exit codes: 0 recorded (or already recorded this week); 1 Sleeper's NFL state
-# unreadable (no week is guessed), no league configured, or a league failed.
-# systemd reports 1 as a unit failure so the journal shows it.
+# Exit codes: 0 recorded (or already held at an equal/better tier); 1 a hard
+# failure (no league configured, a league failed to assemble/write); 3
+# transient (Sleeper's NFL state unreadable -- no window is guessed -- or a core
+# field missing for a transient reason). Both 1 and 3 are unit failures, shown
+# in the journal and retried.
 
 [Service]
 Type=oneshot
@@ -49,6 +61,15 @@ ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/snapshot_pick_forecast.py 
 StandardOutput=journal
 StandardError=journal
 TimeoutStartSec=900
+# Retried on failure (exit 1 or 3); see StartLimit* in [Unit] for the brake.
+# Type=oneshot ignores systemd's default RestartSec, so it is set explicitly.
+Restart=on-failure
+RestartSec=20min
+# Builds the canonical contract in memory from the ~4 MB served payload, plus a
+# Sleeper snapshot and (only when the persisted team-strength file is stale)
+# the ~5 MB player dump. A hard ceiling against a regression, not a working-set
+# estimate; same posture as the other contract/ledger-building units.
+MemoryMax=1536M
 # Background bookkeeping -- never user-facing.
 Nice=10
 IOSchedulingClass=idle
