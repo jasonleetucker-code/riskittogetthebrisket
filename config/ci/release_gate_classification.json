@@ -157,6 +157,9 @@
     "crowd-faab-diagnostics.yml::crowd-faab-status::Probe crowd FAAB on production": {
       "category": "blocking"
     },
+    "deploy.yml::deploy::Assert the resolved target is present in this clone": {
+      "category": "blocking"
+    },
     "deploy.yml::deploy::Assert post-deploy verification will actually run": {
       "category": "blocking"
     },
@@ -190,7 +193,16 @@
         "conditional_skip"
       ]
     },
+    "deploy.yml::resolve::Checkout (workflow commit, full history for resolution)": {
+      "category": "blocking"
+    },
+    "deploy.yml::resolve::Resolve the requested ref to one full commit SHA": {
+      "category": "blocking"
+    },
     "deploy.yml::validate::API data contract check (FULL lane \u2014 blocking)": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Assert the validated tree is the resolved target": {
       "category": "blocking"
     },
     "deploy.yml::validate::Checkout": {

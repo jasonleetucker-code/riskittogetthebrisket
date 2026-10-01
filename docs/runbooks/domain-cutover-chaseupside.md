@@ -612,6 +612,19 @@ known-good commit and `allow_non_fast_forward=true` (required — the
 workflow blocks backwards deploys by default). Or run
 `deploy/rollback.sh` on the box.
 
+Since 2026-10-01 the workflow resolves `deploy_ref` once to a full commit SHA
+(branch name, tag name or full SHA; abbreviated SHAs and expressions such as
+`origin/main` or `HEAD~1` are refused) and every stage consumes that SHA. Two
+consequences for a rollback:
+
+* **Validate tests the TARGET tree with the CURRENT workflow's steps.** A target
+  older than a validation step's script (for example
+  `scripts/validate_api_contract.py --lane`, 2026-08-16) fails validate. That
+  is a refusal, not a deploy — nothing reached the box. Roll back to a commit
+  the current gates can validate, or use `deploy/rollback.sh` on the box.
+* **The box deploys exactly that commit or nothing.** If the commit cannot be
+  fetched there, `deploy.sh` refuses instead of falling back to `main`.
+
 **12c. [GITHUB] Abandoning the cutover.**
 
 Clear `PROD_PUBLIC_URL` rather than pointing it back at the old domain.
