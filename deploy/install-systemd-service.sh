@@ -1182,6 +1182,10 @@ main() {
   # DFS-AUTO: automatic DraftKings/FanDuel slates, no uploads (src/dfs/auto/refresh.py).
   # Fires every 10 minutes; the tick decides whether anything is due.  No creds.
   install_simple_timer "dfs-auto-refresh" "DFS automatic slate refresh (schedule + salaries + projections)"
+  # Signals Fantasy public dynasty boards -> box-local private store read by
+  # the authenticated /api/second-opinion/signals (src/sources/signals.py).
+  # Public pages, no creds; a 401/403 persists a stop the script obeys.
+  install_simple_timer "signals-fetch" "Signals Fantasy public-board collection (non-voting second opinion)"
 
   # ── daemon-reload and enable ────────────────────────────────────────────
   # ce_needs_install was missing from this list. Every other timer's

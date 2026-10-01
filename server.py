@@ -5161,6 +5161,28 @@ async def get_rankings_sources():
     )
 
 
+@app.get("/api/second-opinion/signals")
+async def get_signals_second_opinion():
+    """Signals Fantasy as a NON-VOTING, rank-only second opinion (#1555).
+
+    Authenticated by the private ``/api/*`` gate (this path is in no public
+    allowlist).  Reads the box-local private store written by
+    ``scripts/fetch_signals.py``; a missing store answers
+    ``status: "not_collected"``, never an empty-but-ok board.  Positional
+    ranks only — no value, no cross-position rank, nothing canonical.
+    Owner: ``src/sources/signals.py``.
+    """
+    from src.sources import signals as _signals  # noqa: PLC0415
+
+    contract = latest_contract_data or {}
+    payload = await run_in_threadpool(
+        _signals.build_second_opinion_payload,
+        DATA_DIR / "sources" / "signals",
+        contract.get("playersArray") or [],
+    )
+    return JSONResponse(content=payload, headers={"Cache-Control": "private, no-store"})
+
+
 @app.post("/api/rankings/overrides")
 async def post_rankings_overrides(request: Request):
     """Rebuild the canonical rankings with user-supplied source overrides.

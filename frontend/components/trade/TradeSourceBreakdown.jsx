@@ -44,6 +44,8 @@ import {
   verdictReason,
 } from "@/lib/second-opinions";
 
+import SignalsRankOpinion from "./SignalsRankOpinion";
+
 const KTC_RAW_NATIVE_VENDORS = new Set([
   "ktcSfTep",
   "ktcCrowdSfTep",
@@ -527,6 +529,8 @@ export default function TradeSourceBreakdown({ sides, settings }) {
           )}
         </p>
       )}
+      {/* Rank-only, non-voting: never part of `rows` or the tally above. */}
+      <SignalsRankOpinion sides={sides} />
     </div>
   );
 }
