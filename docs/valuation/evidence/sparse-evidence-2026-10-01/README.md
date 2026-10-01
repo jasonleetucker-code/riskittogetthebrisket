@@ -141,3 +141,181 @@ Through the real `_compute_unified_rankings`:
 2. **Calibration.** The bounds and the sensitivity interval are uncalibrated. A
    point-in-time holdout would test them: do single-family players later appear
    on other boards near the estimate, or near the bound?
+
+---
+
+## Addendum (post-hoc, 2026-10-01): state matrix and shadow collection
+
+**Post-hoc.** Everything below was written after the verdict above. It does not
+change the preregistration, `results.json`, any gate, or the verdict: **does not
+meet gate (G2c), unchanged.** It adds three things the owner asked for: an
+explicit certainty classification, a test matrix of eleven evidence states, and a
+shadow ledger for future outcome evidence.
+
+### Central value and certainty are now separate fields
+
+The `sparseEvidence` block (flag ON only) now names *why* a row rests on one
+family, separately from what happened to its value:
+
+- `state` still says what happened to the **value**: bounded, bound non-binding,
+  or no witness.
+- `evidenceState` is the **certainty** half. It names the primary state, and
+  `evidenceCauses` lists every state that applies.
+- `listedNotVotingFamilies` holds families that listed the player but did not
+  vote, with the reason.
+- `refusalCategories` holds each refused absent family's category, beside the
+  per-family `refusedFamilies` reasons.
+- `observedFamily`, `eligibleAbsentFamilyCount` and `ineligibleSourceListings`
+  complete the picture. An ineligible listing is a value under this name from a
+  board that cannot rank the position, so it is a shared name, never a listing.
+
+`evidenceState` never feeds the central estimate; a test pins that the same
+evidence gives the same value whatever the certainty half says. Confidence is
+still decided only by `src/api/confidence.py`. The method that was evaluated is
+unchanged, and so are its values.
+
+### The eleven states and their treatment
+
+Each state is built through the real `_compute_unified_rankings`. Other registry
+sources are switched off with the documented `source_overrides` path. Each row
+is built with the flag OFF (the incumbent) and ON (candidate C). Pinned by
+`tests/api/test_sparse_evidence_state_matrix.py`.
+
+The worked example is an observation of 5000. Incumbent = 30% of it.
+
+| # | state | `evidenceState` | censor bound? | incumbent → C | confidence |
+|---|---|---|---|---|---|
+| 1 | one healthy voting family, nothing else could list it | `sole_eligible_family` | none: no eligible absent family | 1500 → 5000 | low |
+| 2 | one family; healthy boards that reach deeper omit the player | `absent_from_deeper_boards` | **yes, binding**, each family at its own cutoff | 1500 → 2500 | low |
+| 3 | one family left after valid outlier removal | `one_family_after_outlier_removal` | none: the removed sources LISTED the player, so they are not absent | 1500 → 5000 | low |
+| 4 | every other board stale | `absent_families_stale` | none (`board_not_on_schedule`) | 1500 → 5000 | low |
+| 5 | every other board unhealthy | `absent_families_unhealthy` | none (`health_not_healthy`) | 1500 → 5000 | low |
+| 6 | other boards don't cover the position | `absent_families_do_not_cover_position` | none (`position_unranked_by_source`) | 1500 → 5000 | low |
+| 7 | identity unresolved | `absent_families_identity_unresolved` | none (`row_identity_unproven` / `name_published_but_not_attached`) | 1500 → 5000 | low |
+| 8 | the other boards are shallower than the player | `beyond_shallower_boards` | yes, **non-binding** (the cutoff sits above the observation) | 1500 → 5000 | low |
+| 9 | several members of one family | `one_family_multiple_members` | none here; counted as one opinion (1 independent family, effective count 1.0) | 1470 → 4900 | low |
+| 10 | two independent families | not in scope (`independent_families`) | the estimator never touches the row | 4500 → 4500 | unchanged |
+| 11 | no usable evidence | not in scope (`no_usable_evidence`) | none | unpriced → unpriced (never 0) | none |
+
+The states do not collapse. They have eleven distinct names and four value
+treatments: bounded below the observation, observation kept, untouched, and
+unpriced. Censor bounds appear only where an absence is evidence (2 and 8).
+
+The incumbent gives states 1-9 the same treatment, 30% of the observation. That
+is the collapse the owner rejected.
+
+Mixtures:
+
+- Several refusal categories with no witness give `absent_families_uninformative_mixed`.
+- A binding censor outranks several same-family members in `evidenceState`.
+  `evidenceCauses` keeps both.
+- A source switched off by an override that listed the player gives
+  `one_family_after_listing_filtered`, never a censor.
+
+**Shallow versus deep censors.** A board that omits a player says only that the
+player is "below this board's cutoff". The test sweeps one absent board's cutoff
+from 7000 down to 1000, against an observation of 5000:
+
+- Cutoff ≥ 5000 (a shallow board): non-binding. The value stays at 5000, because
+  the omission is what a 5000 player implies.
+- Cutoff < 5000 (a deeper board): binding. The board enters the blend AT its
+  cutoff, so the estimate is (5000 + U)/2, never below U, never 0.
+
+The estimate falls monotonically as the board gets deeper. The whole difference
+comes from where the cutoff sits; no depth-dependent weight is invented.
+
+**State 3 is unreachable through the real filters**, and this is asserted, not
+assumed. The incumbent Hampel filter and the joint filter both keep a majority,
+and no family has more than two members for one row. So neither filter can leave
+one family where two were present: on the constructed row the real Hampel drops
+the 5000 instead. The state is reached with a filter stub, the same seam as the
+G1 trap. If it ever arises, C treats it correctly.
+
+**Census on the pinned board** (same pins as above, flag ON, 51 rows in scope):
+
+- 24 rows are `absent_from_deeper_boards`: 10 offense and 14 IDP.
+- 27 rows are `beyond_shallower_boards`. All are IDP Trade Calc-only defenders,
+  and they are the rows that fail G2c.
+- Every row also carries an `absent_families_stale` cause: the IDP Show family
+  is refused as off schedule on all 51. 12 rookie rows carry `absent_families_do_not_cover_position`, because the
+  FantasyPros family's IDP board excludes rookies.
+
+### G2c: the verdict, and the decision it raises
+
+**Unchanged: G2c fails, median C ÷ incumbent = 3.335 against a ceiling of 2.0.**
+The state matrix says precisely why. The 27 failing rows are state 8: one family
+lists the player, and every healthy absent family's board stops above the
+player's value. Their absence is consistent with the observation, so C keeps it.
+That is ×3.33 the incumbent by construction.
+
+The owner decision it raises:
+
+> **Should a single-family row that no healthy absent family contradicts (state
+> 8, and states 1 and 4-7 where no absence can be evidence) keep its observation
+> as central value, with its uncertainty carried separately (`evidenceState`,
+> LOW confidence, an interval) rather than in the value?**
+
+G2c as preregistered answers no, because it measures distance from the haircut
+being replaced. A yes needs a new preregistration. This one cannot be amended.
+
+### What would let a re-preregistered C graduate
+
+1. **An outcome horizon.** Fix in advance a horizon (for example 4 and 8 weeks)
+   and a target: does a single-family player's later canonical value, once more
+   families list him, land nearer C's estimate or the incumbent's 30%? Score it
+   with a proper loss on the later value, and include rows that never gain a
+   second family.
+2. **The shadow ledger.** It collects exactly that evidence from today (below).
+   The evaluation must use only ledger records that predate their outcomes. It
+   must never compare across refreshed inputs; each record carries its payload
+   hash, code revision and inputs hash.
+3. **Calibration of the bounds and the interval.** For censor-bounded rows, test
+   how often the later value sits below the binding cutoff. The bound claims
+   "at most U", so the frequency should be high. Also measure how often the later
+   value falls inside `[central, observed]`. Until that is measured, the interval
+   stays labelled `sensitivity_uncalibrated`.
+4. **Gates replacing G2c** must be stated against outcomes, not against the
+   incumbent. The rank gates G2a and G2b and the other gates should carry over
+   unchanged.
+
+### Shadow collection
+
+`src/api/sparse_evidence_shadow.py` and `scripts/sparse_evidence_shadow.py
+record` build the newest served board twice in memory, flag OFF and flag ON.
+Each run appends one line per board to the append-only, gitignored
+`data/sparse_evidence_shadow/ledger.jsonl`, keyed by payload, code revision,
+inputs and estimator version. Each line holds:
+
+- the payload hash, code revision, inputs hash and flag snapshot;
+- per scoped row: `evidenceState` and causes, C's estimate, interval, binding and
+  non-binding bounds, refusals, and the incumbent value, rank and confidence.
+
+A re-run on the same board is a no-op. Tests prove the recorder never writes a
+served field:
+
+- its only file write is the ledger;
+- the payload is not mutated;
+- the flag is restored;
+- a ledger line uses none of a served row's field names;
+- an AST guard checks the module has no other write path.
+
+A box timer, `dynasty-sparse-evidence-shadow`, runs twice daily at 08:05 and
+20:05 UTC. It uses the existing hardening (`ProtectSystem=strict`,
+`ReadWritePaths=__APP_DIR__/data`) and is registered through
+`install_simple_timer`. It starts recording only once this branch is merged and
+deployed. There is no promotion path.
+
+### Re-verification at the new head (G5)
+
+The pinned board was rebuilt at this head with the flag OFF:
+
+- board hash `4499581a…`;
+- playersArray hash `ead53db3…`;
+- 1,041 rows.
+
+Both hashes are identical to the base commit's in `results.json`. With the flag
+OFF the board stays byte-identical, and the OFF path never calls the estimator
+(test).
+
+**The incumbent remains champion.** The flag stays OFF, the 0.30 treatment stays
+live, and nothing is promoted.
