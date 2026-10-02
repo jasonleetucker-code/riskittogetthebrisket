@@ -53,6 +53,35 @@ COLLAPSE_EXEMPT = {
     "draftSharksRosIdp",
 }
 
+# Audit-only SIDECARS: files that live in ``CSVs/site_raw/`` beside a source
+# board but are NOT a source — no adapter reads them and they are never a model
+# input.  The row floor and the collapse ratio exist to stop a degraded SOURCE
+# board voting; neither question applies to a sidecar, so they do not block on
+# one.  The numeric-signal check still applies (rows present but every value
+# empty/0 is a broken write whatever the file is for), and a drop is still
+# REPORTED as a non-blocking warning so it stays visible.
+#
+# ``dlfValuesSfTepPicks`` — the pick rows of DLF's Trade Analyzer Values page,
+# written by ``scripts/fetch_dlf.py`` (``picks_out``) "for the pick audit —
+# never a model input" (``scripts/source_inventory.py::
+# KNOWN_NON_VOTING_REASONS``).  Two measured facts make the floor wrong here:
+#
+#   * header-only is the HONEST state when DLF publishes no pick rows.  On
+#     2026-09-30 18:27Z the page went from 413 assets (323 valued players + 60
+#     ``2026 R.SS`` slot picks) to 353 assets (the same 323 players, 0 picks) —
+#     the vendor dropped its completed 2026 class; the player tables parsed
+#     identically, so this is not parser drift.  Missing is the absence of
+#     rows, never zero values.
+#   * it is produced by the prod DLF timer (``deploy/dlf_fetch_and_push.sh``),
+#     which pushes it straight to ``main``.  This pre-commit gate therefore
+#     cannot keep it out of ``main`` — failing on it only blocked the 29 OTHER
+#     sources' commit and the Hill dispatch, every run, from 2026-09-30.
+#
+# The parent board ``dlfValuesSfTep`` keeps every check.
+AUDIT_SIDECARS = {
+    "dlfValuesSfTepPicks",
+}
+
 COLLAPSE_ERROR_RATIO = 0.50  # > 50% fewer rows than prior == error
 COLLAPSE_WARN_RATIO = 0.70  # 30-50% fewer rows == warning
 
@@ -101,6 +130,18 @@ def evaluate(name: str, cur_text: str | None, prev_text: str | None) -> tuple[st
     cur_rows = len(_data_rows(cur_text))
     min_lines = MIN_LINES.get(name, DEFAULT_MIN)
     exempt = name in COLLAPSE_EXEMPT
+
+    if name in AUDIT_SIDECARS:
+        if cur_rows > 0 and not _has_any_numeric_signal(cur_text):
+            return "error", f"{name}: no numeric signal in any column ({cur_rows} rows)"
+        prev_rows = len(_data_rows(prev_text)) if prev_text else 0
+        if cur_rows < prev_rows:
+            return (
+                "warn",
+                f"{name}: audit-only sidecar dropped {prev_rows} -> {cur_rows} rows "
+                "(not a source; not gated — the vendor published fewer rows)",
+            )
+        return "ok", f"{name}: {cur_rows} rows OK (audit-only sidecar, not a source)"
 
     if not exempt and (cur_rows + 1) < min_lines:
         return (

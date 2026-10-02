@@ -92,5 +92,74 @@ class EvaluateTests(unittest.TestCase):
         self.assertEqual(level, "ok")
 
 
+_PICKS_HEADER = "asset,year,round,slot,overall,value"
+_PICK_ROWS = [f"2026 1.{i:02d} ({i}),2026,1,{i},{i},{700 - 10 * i}.0000" for i in range(1, 61)]
+
+
+class AuditSidecarTests(unittest.TestCase):
+    """``dlfValuesSfTepPicks`` is an audit-only sidecar, not a source.
+
+    Incident (#1552): DLF dropped its 2026 slot picks on 2026-09-30, the
+    prod timer pushed a header-only sidecar to main, and the floor turned
+    every scheduled refresh red — blocking 29 healthy sources' commit and
+    the Hill dispatch while the file it "guarded" was already on main.
+    """
+
+    def test_header_only_sidecar_is_not_an_error(self) -> None:
+        cur = _csv([], header=_PICKS_HEADER)
+        level, msg = vss.evaluate("dlfValuesSfTepPicks", cur, cur)
+        self.assertEqual(level, "ok", msg)
+
+    def test_sidecar_drop_is_reported_not_blocking(self) -> None:
+        prev = _csv(_PICK_ROWS, header=_PICKS_HEADER)
+        cur = _csv([], header=_PICKS_HEADER)
+        level, msg = vss.evaluate("dlfValuesSfTepPicks", cur, prev)
+        self.assertEqual(level, "warn")
+        self.assertIn("60 -> 0", msg)
+
+    def test_sidecar_with_rows_but_no_signal_still_errors(self) -> None:
+        cur = _csv([f"2026 1.{i:02d},,,,," for i in range(1, 30)], header=_PICKS_HEADER)
+        level, msg = vss.evaluate("dlfValuesSfTepPicks", cur, None)
+        self.assertEqual(level, "error")
+        self.assertIn("no numeric signal", msg)
+
+    def test_healthy_sidecar_ok(self) -> None:
+        cur = _csv(_PICK_ROWS, header=_PICKS_HEADER)
+        level, msg = vss.evaluate("dlfValuesSfTepPicks", cur, cur)
+        self.assertEqual(level, "ok", msg)
+
+    def test_parent_values_board_keeps_every_check(self) -> None:
+        self.assertNotIn("dlfValuesSfTep", vss.AUDIT_SIDECARS)
+        level, _ = vss.evaluate("dlfValuesSfTep", _csv([], header="name,pos,team,value"), None)
+        self.assertEqual(level, "error")
+        prev = _csv([f"P{i},WR,BUF,{900 - i}" for i in range(320)], header="name,pos,team,value")
+        cur = _csv([f"P{i},WR,BUF,{900 - i}" for i in range(100)], header="name,pos,team,value")
+        level, _ = vss.evaluate("dlfValuesSfTep", cur, prev)
+        self.assertEqual(level, "error")
+
+    def test_sidecars_are_never_model_inputs(self) -> None:
+        """The exemption is only sound while no source adapter reads the file.
+
+        If ``src/``, ``server.py`` or the scraper ever consumes a sidecar it
+        has become a source, and it must leave ``AUDIT_SIDECARS`` and take
+        the full gate again.
+        """
+        repo = Path(__file__).resolve().parents[2]
+        consumers = [repo / "server.py", repo / "Dynasty Scraper.py"]
+        consumers += sorted((repo / "src").rglob("*.py"))
+        for key in vss.AUDIT_SIDECARS:
+            hits = [
+                str(p.relative_to(repo))
+                for p in consumers
+                if key in p.read_text(encoding="utf-8", errors="replace")
+            ]
+            self.assertEqual(hits, [], f"{key} is read by {hits}; it is a source now")
+
+    def test_sidecar_is_the_dlf_fetchers_audit_output(self) -> None:
+        repo = Path(__file__).resolve().parents[2]
+        fetcher = (repo / "scripts" / "fetch_dlf.py").read_text(encoding="utf-8")
+        self.assertIn('"picks_out": "CSVs/site_raw/dlfValuesSfTepPicks.csv"', fetcher)
+
+
 if __name__ == "__main__":
     unittest.main()
