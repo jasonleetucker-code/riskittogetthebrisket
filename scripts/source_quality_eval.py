@@ -17,6 +17,15 @@ box) to the git/CSV history; without it the run uses the repository history.
 of that UTC day, so a rerun reproduces a recorded window (its panel digest)
 however many CSV commits have landed since.
 
+A run may also emit prospective learning receipts (AL-1a: MODEL + CHALLENGER +
+EVALUATION per candidate, via the AL-0 adapter) for the archive lines it appended,
+into ``data/learning/receipts.sqlite`` -- the store of whatever machine runs the
+script. This script has no timer and runs wherever it is invoked, and only the
+box's runs are canonical, so receipts are written ONLY when the environment sets
+``RISKIT_RECEIPTS_ENABLED=1`` (fail closed: unset means none). A receipt failure is
+logged at WARNING and never changes the exit code or the evidence files;
+``--no-learning-receipts`` skips it.
+
 Exit codes: 0 evaluation written; 1 refused (e.g. preregistration not committed);
 2 fatal input error.
 """
@@ -25,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import subprocess
 import sys
 import time
@@ -241,6 +251,54 @@ def run(
     return ev.to_jsonable(result)
 
 
+def _repo_key(path: Path) -> str:
+    try:
+        return path.resolve().relative_to(REPO).as_posix()
+    except ValueError:
+        return path.resolve().as_posix()
+
+
+def emit_learning_receipts(
+    args: argparse.Namespace,
+    result: Mapping[str, Any],
+    lines: list[dict],
+    archive: Path,
+    results_path: Path,
+) -> None:
+    """AL-1a prospective receipts for this run's archive lines. Never raises: the
+    evidence files are already written when this runs."""
+    if getattr(args, "no_learning_receipts", False) or not lines:
+        return
+    try:
+        from src.model_registry import producer_receipts as pr  # noqa: PLC0415
+        from src.model_registry.feature_dictionary import load_dictionary  # noqa: PLC0415
+    except Exception as exc:  # noqa: BLE001 -- receipts must never break the evaluator
+        msg = f"WARNING: learning receipts NOT written: {type(exc).__name__}: {exc} receipt_failures=1"
+        logging.getLogger(__name__).warning(msg)
+        _log(msg)
+        return
+    if not pr.receipts_enabled():
+        # Fail closed: only the box's runs are canonical, and this script runs
+        # wherever it is invoked (no timer). A developer run writes no receipt.
+        _log(
+            f"learning receipts skipped: {pr.RECEIPTS_ENABLED_ENV} is not 1 "
+            "(only the box's runs are canonical; set it there to emit)"
+        )
+        return
+    pr.emit_safely(
+        lambda: pr.source_quality_run_receipts(
+            lines,
+            archive_key=_repo_key(archive),
+            results=result,
+            results_key=_repo_key(results_path),
+            dictionary=load_dictionary(),
+        ),
+        label="source-quality evaluation",
+        path=getattr(args, "learning_store", None),
+        log=_log,
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -264,6 +322,17 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="YYYY-MM-DD: build the panel only from CSV versions known at or before the end "
         "of this UTC day (reproducible reruns against a fixed data cutoff)",
+    )
+    ap.add_argument(
+        "--learning-store",
+        type=Path,
+        default=None,
+        help="learning-receipt store (default data/learning/receipts.sqlite)",
+    )
+    ap.add_argument(
+        "--no-learning-receipts",
+        action="store_true",
+        help="do not emit AL-1a learning receipts for this run",
     )
     ap.add_argument("--readiness-only", action="store_true")
     ap.add_argument("--skip-impact", action="store_true")
@@ -370,10 +439,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     (out_dir / f"REPORT_{stamp}.md").write_text(report.markdown(result), encoding="utf-8")
     archive = args.archive or (out_dir / "evaluations.jsonl")
+    lines = ev.archive_records(result)
     with archive.open("a", encoding="utf-8") as fh:
-        for rec in ev.archive_records(result):
+        for rec in lines:
             fh.write(json.dumps(rec, sort_keys=True) + "\n")
     _log(f"wrote {out_dir}")
+    emit_learning_receipts(args, result, lines, archive, out_dir / f"results_{stamp}.json")
     for c, g in result["gates"].items():
         _log(f"  {c}: {g.get('disposition')}")
     return 0

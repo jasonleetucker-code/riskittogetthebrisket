@@ -273,10 +273,29 @@ class TestArtifactTimeBound:
             )
         )
 
-    @pytest.mark.parametrize("store", ["preregistration", "robust_filter_shadow_ledger"])
-    def test_a_store_with_no_registered_writer_is_never_exempt(self, store):
+    def test_a_store_with_no_registered_writer_is_never_exempt(self):
+        assert lr.ARTIFACT_STORE_WRITERS["preregistration"] == frozenset()
+        for producer in ("test_producer", "robust_filter_shadow", "sparse_evidence_shadow"):
+            with pytest.raises(lr.PointInTimeViolation):
+                lr.validate_receipt(
+                    self._prediction(
+                        _artifact("preregistration", self.LATE, produced_for="n1"),
+                        producer=producer,
+                    )
+                )
+
+    @pytest.mark.parametrize(
+        "store", ["robust_filter_shadow_ledger", "sparse_evidence_shadow_ledger"]
+    )
+    def test_a_shadow_ledger_is_exempt_only_for_its_own_writer(self, store):
+        """AL-1a registered the shadow producers as writers of their own ledgers;
+        any other producer citing a later line is still held to the cutoff."""
         with pytest.raises(lr.PointInTimeViolation):
             lr.validate_receipt(self._prediction(_artifact(store, self.LATE, produced_for="n1")))
+        (writer,) = lr.ARTIFACT_STORE_WRITERS[store]
+        lr.validate_receipt(
+            self._prediction(_artifact(store, self.LATE, produced_for="n1"), producer=writer)
+        )
 
     def test_an_artifact_at_or_before_the_cutoff_needs_no_claim(self):
         for at in (BASE, BASE - timedelta(days=1)):

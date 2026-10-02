@@ -157,8 +157,10 @@ NATIVE_STORES: Mapping[str, str] = {
     "source_quality_evaluations": "src.source_quality.evaluate.archive_records",
     "source_quality_results": "scripts/source_quality_eval.py",
     "source_quality_panel": "src.source_quality.panel.ObservationPanel",
-    # #1590 robust-filter shadow ledger (registered for AL-1a; no adapter in AL-0)
+    # #1590 robust-filter shadow: ledger lines, write-once panels, evaluation file (AL-1a)
     "robust_filter_shadow_ledger": "src.robust_filter_shadow.ledger",
+    # Batch 3 Unit E sparse-evidence shadow: monthly ledger lines (AL-1a)
+    "sparse_evidence_shadow_ledger": "src.api.sparse_evidence_shadow",
     # Source dataset state clocks
     "dataset_state": "src.sources.dataset_state",
     # a producer's preregistration document, pinned by sha256 (and commit) by that producer
@@ -179,6 +181,7 @@ ARTIFACT_STORES: frozenset[str] = frozenset(
         "source_quality_evaluations",
         "source_quality_results",
         "robust_filter_shadow_ledger",
+        "sparse_evidence_shadow_ledger",
         "preregistration",
     }
 )
@@ -186,16 +189,19 @@ ARTIFACT_STORES: frozenset[str] = frozenset(
 #: Which producer writes each artifact store. Only a registered writer can claim
 #: a post-cutoff artifact as its OWN output (see :func:`is_own_artifact`). An
 #: empty set means no producer may: a ``preregistration`` must by definition
-#: precede the cutoff it preregisters, and ``robust_filter_shadow_ledger`` has
-#: no adapter in AL-0 (AL-1a registers its producer here when it adds one).
-#: ``tests/model_registry/test_learning_adapters.py`` pins these names to the
+#: precede the cutoff it preregisters. The two shadow ledgers' writers were
+#: registered by AL-1a, when their producers started emitting receipts
+#: (``src/model_registry/producer_receipts.py``).
+#: ``tests/model_registry/test_learning_adapters.py`` and
+#: ``tests/model_registry/test_producer_receipts.py`` pin these names to the
 #: adapters' producer constants.
 ARTIFACT_STORE_WRITERS: Mapping[str, frozenset[str]] = {
     "model_registry": frozenset({"hill_model_registry"}),
     "hill_training_run": frozenset({"hill_training_run"}),
     "source_quality_evaluations": frozenset({"source_quality_eval"}),
     "source_quality_results": frozenset({"source_quality_eval"}),
-    "robust_filter_shadow_ledger": frozenset(),
+    "robust_filter_shadow_ledger": frozenset({"robust_filter_shadow"}),
+    "sparse_evidence_shadow_ledger": frozenset({"sparse_evidence_shadow"}),
     "preregistration": frozenset(),
 }
 

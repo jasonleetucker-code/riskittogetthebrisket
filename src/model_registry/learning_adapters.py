@@ -16,8 +16,8 @@ candidate), and its strata carry real cell counts — including one EMPTY stratu
 (``inSeason``: 0 cells) that exercises ``insufficient_sample`` on real data. The
 #1590 ledger lives under gitignored ``data/robust_filter_shadow/``; what is
 committed of it is a one-off replay summary, so it could not round-trip as the
-producer actually writes it. The #1590 store is registered in
-``learning_receipt.NATIVE_STORES`` for AL-1a.
+producer actually writes it. AL-1a wires the #1590 producer itself, prospectively
+(``src/model_registry/producer_receipts.py``).
 
 Adapter contract (A6): an adapter READS a producer's output and returns
 receipts. It never writes, normalizes or re-derives the producer's output, and

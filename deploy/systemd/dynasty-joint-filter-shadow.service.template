@@ -21,6 +21,12 @@ Wants=network-online.target
 # Idempotent: one record per (board payload, code, challenger version); a
 # re-run on an unchanged board is a no-op.
 #
+# Learning receipts (Adaptive Learning AL-1a): each stored record and each
+# evaluation run also yields prospective receipts in
+# data/learning/receipts.sqlite (inside the write scope below; the store
+# refuses any other in-repo path). A receipt failure is logged and never
+# changes the exit code, the ledger, the panels or the evaluation file.
+#
 # Exit codes (scripts/joint_filter_shadow.py):
 #   0 - recorded (or already recorded) and evaluated
 #   1 - soft failure (no export found, write error, nothing to evaluate yet)
