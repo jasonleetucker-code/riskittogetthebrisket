@@ -30,10 +30,14 @@ import asyncio
 import importlib
 import threading
 import time
+import types
 
 import pytest
 
 import server
+
+# Base dirs the stubbed retention pruner was asked to prune (see the fixture).
+_PRUNE_CALLS: list = []
 
 
 def _fake_scraper_module():
@@ -71,6 +75,22 @@ def _isolate_scrape_state(monkeypatch):
     # The post-scrape dataset-state recorder folds the CSVs into the REAL
     # data/scrape_state (a tracked directory) — never from a unit test.
     monkeypatch.setattr(server, "_record_source_dataset_state", lambda *a, **k: None)
+    # A successful scrape ends in ``prune_data_dir(BASE_DIR)``, and BASE_DIR
+    # is the real checkout here, so the retention pass thinned the TRACKED
+    # ``exports/archive/*.zip`` evidence lane (9 zips deleted on a tree that
+    # held same-day duplicates older than 14 days).  run_scraper imports the
+    # pruner inside the function, so patching the module attribute reaches it.
+    # The stub records the call instead of raising: run_scraper swallows any
+    # prune exception, so a raise would be invisible.
+    from src.maintenance import retention as _retention
+
+    _PRUNE_CALLS.clear()
+
+    def _record_prune(base, *_a, **_k):
+        _PRUNE_CALLS.append(base)
+        return types.SimpleNamespace(total_deleted=0, total_errors=0)
+
+    monkeypatch.setattr(_retention, "prune_data_dir", _record_prune)
 
     for mod_path in (
         "scripts.fetch_dynasty_nerds",
@@ -272,3 +292,15 @@ def test_second_concurrent_run_is_rejected_without_blocking_on_the_first(monkeyp
     assert second_result is pre_existing_data
     assert server.scrape_status.get("worker_id") == worker_before
     assert first_result is not None
+
+
+def test_a_successful_scrape_reaches_the_pruner_only_through_the_stub():
+    """The isolation above must cover the path that actually deletes files.
+
+    A green scrape calls ``prune_data_dir(BASE_DIR)`` with the REAL checkout;
+    if the stub were not reached (renamed import, new call site) this test
+    fails instead of the suite quietly thinning tracked ``exports/archive``.
+    """
+    result = asyncio.run(server.run_scraper(trigger="test"))
+    assert result is not None
+    assert _PRUNE_CALLS == [server.BASE_DIR]
