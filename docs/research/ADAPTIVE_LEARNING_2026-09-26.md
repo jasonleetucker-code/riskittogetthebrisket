@@ -882,7 +882,7 @@ scheduled; evaluation and refit are *triggered*. **Promotion authority is never 
 | Model family | Observation cadence (existing owner) | Outcome settlement | Evaluation trigger | Challenger refit trigger | Drift check | Promotion authority |
 |---|---|---|---|---|---|---|
 | Source quality / weights (AL-1) | every board scrape, 2 h (temporal ledger; source-CSV git history) | rolling, per horizon (future board, completed trades once AL-2c exists) | new horizon cohort settled | material candidate or source drift | each scrape: content staleness + lineage sweep | Batch 3 §N |
-| Hill masters | each material market refresh (~2 h) | dynasty holdout boards (`src/model_registry/holdout.py`) | every refit | material refresh | holdout history | **Hill Autopilot** (OFFENSE only) + human `promote`/`apply` |
+| Hill masters | each material market refresh (~2 h) | dynasty holdout boards (`src/model_registry/holdout.py`) — necessary, not sufficient (§35 T9) | every refit | material refresh | holdout history | **Hill Autopilot** (OFFENSE only) + human `promote`/`apply`; automatic promotion `AUTO_PROMOTION_BLOCKED: no_independent_validation_target` until a preregistered independent target exists (§35 T9) |
 | Sparse evidence (E) / robust filter (F) | 2× daily shadow (`dynasty-sparse-evidence-shadow` 08,20:05 UTC; `dynasty-joint-filter-shadow` 07,19:55 UTC) | later boards | preregistered sample reached | candidate ready | per run | Batch 3 §N |
 | Completed-trade translators / latent price (AL-2b/2c) | KTC capture every 30 min (`dynasty-ktc-trades`, :07/:37); ledger daily (`dynasty-market-trade-ledger`, 08:52 UTC) | subsequent completed trades in the target format | ≥ 1 complete window turnover with no gap, then each new target-format holdout cohort | axis becomes identifiable | per capture: window overlap / turnover / gap flag | Batch 3 §N; never rewrites canonical value before dedupe + topology validate |
 | Projections (AL-3) | pre-kickoff archive (Game Day collector); weekly BDVM snapshot (Tue) | weekly realized points after the stat-correction window | weekly settlement cohort | sample-gated per position × category | weekly coverage/ancestry | owner approval (no family policy yet) |
@@ -1022,13 +1022,82 @@ real data, with the gaps above closed and evidenced.
 
 | # | Earlier clause | 2026-10-01 re-send / continuation | Disposition |
 |---|---|---|---|
-| T1 | Part II §21.2 and the 2026-10-01 Batch 3 addendum (intake): "exactly one of NATIVE_COMPARABLE / VALIDATED_TRANSFORMABLE / TARGET_UNSUPPORTED"; "every non-native trade is TARGET_UNSUPPORTED until a translator validates" | Continuation: **four** dispositions — NATIVE_COMPARABLE; VALIDATED_TRANSFORMABLE (none merely because the class exists); **BROAD_CONTEXT** (verified dynasty, trustworthy identity and topology, a material format dimension differs / is unknown / untranslated; `targetPriceAuthority = 0`); TARGET_UNSUPPORTED narrowed to **hard insufficiency** (redraft; keeper for the current dynasty lane; unknown / unverified dynasty; unusable transaction identity; analysis-blocking unresolved assets; invalid topology; other hard integrity failure) | **Superseded.** Implemented as its own PR (AL-2a′) after the bootstrap census; until then the code emits three and the census labels the gap. Regression: the former #1595 verified-dynasty-candidate population maps to BROAD_CONTEXT unless another hard failure applies. No canonical value change |
+| T1 | Part II §21.2 and the 2026-10-01 Batch 3 addendum (intake): "exactly one of NATIVE_COMPARABLE / VALIDATED_TRANSFORMABLE / TARGET_UNSUPPORTED"; "every non-native trade is TARGET_UNSUPPORTED until a translator validates" | Continuation: **four** dispositions — NATIVE_COMPARABLE; VALIDATED_TRANSFORMABLE (none merely because the class exists); **BROAD_CONTEXT** (verified dynasty, trustworthy identity and topology, a material format dimension differs / is unknown / untranslated; `targetPriceAuthority = 0`); TARGET_UNSUPPORTED narrowed to **hard insufficiency** (redraft; keeper for the current dynasty lane; unknown / unverified dynasty; unusable transaction identity; analysis-blocking unresolved assets; invalid topology; other hard integrity failure) | **Superseded.** Implemented as its own PR (AL-2a′) after the bootstrap census; until then the code emits three and the census labels the gap. Regression: the former #1595 verified-dynasty-candidate population maps to BROAD_CONTEXT unless another hard failure applies. No canonical value change. **Superseded further by T8** (BROAD_CONTEXT sub-kinds; strict NATIVE timing) |
 | T2 | Part II §21.1 AL-1a: "register Batch 3 evaluator outputs (#1589, #1590, #1591) as receipts" | AL-1a wires prospective receipts to the sparse-evidence shadow, robust-filter shadow, source-quality evaluator, Hill refits, translator experiments and latent-price experiments; then projection-family evaluation and Game Day calibration. No promotion in AL-1a | **Refined** (wider producer list, same unit) |
 | T3 | Part II §21.5 / §22: AL-5a forecast archive is NEXT, "commit history mitigates meanwhile" | §21 lists playoff probabilities as high-priority perishable evidence: capture first | **Refined.** AL-5a capture moves into Wave 1 as AL-P6 (§36.3); AL-5b/5c stay NEXT |
 | T4 | Part II §22: AL-3b "NOW" | Wave 1 item 6 = archive **and evaluation foundation**; item 7 (Wave 2) = learned ensemble challengers | **Consistent.** AL-3b (scorecard vs equal-family champion) stays Wave 1; AL-3c is Wave 2 |
 | T5 | Part II §14: "autonomous roster transactions" listed as not decided | §28: autonomous trades, waiver claims / drops and DFS entries are explicitly **not authorized** | **Refined** (now explicit) |
 | T6 | Part II §17 note on R14 | §13 needs rejected / countered / expired offers "when legitimately available"; §28 does not authorize private-offer capture | **Unchanged** — R14 stays CANDIDATE |
-| T7 | #1598 (D2) recorded OTC as an ancestry-safe holdout | Continuation: D2 stays evidence only; no promotion of c3 / repaired constants / H1–H3 / DLF native spacing from OTC alone; if OTC is not ancestry-safe, do **not** rewrite #1598 — mark its external-validity limitation and stop treating OTC as a valid sole promotion target (#1599 re-measures) | **Recorded.** Hill-vs-trade evaluation later, on the populated ledger, with no evidence reuse; package residuals only where topology permits |
+| T7 | #1598 (D2) recorded OTC as an ancestry-safe holdout | Continuation: D2 stays evidence only; no promotion of c3 / repaired constants / H1–H3 / DLF native spacing from OTC alone; if OTC is not ancestry-safe, do **not** rewrite #1598 — mark its external-validity limitation and stop treating OTC as a valid sole promotion target (#1599 re-measures) | **Recorded.** Hill-vs-trade evaluation later, on the populated ledger, with no evidence reuse; package residuals only where topology permits. **Refined by T9 / T10**: #1599 found OTC not ancestry-safe; that exclusion stands, and automatic promotion now needs an independent target |
+| T8 | T1 four dispositions; the Sharp / own-league format-capture BRACKET (#1607): exact only when a capture at or before the trade is confirmed by a later same-hash observation; season-final / post-trade captures capped at TARGET_UNSUPPORTED "→ BROAD_CONTEXT when that tier lands" | **Owner methodology decision 2 (A + D), 2026-10-01:** keep strict point-in-time NATIVE_COMPARABLE; BROAD_CONTEXT has two sub-kinds — **timing-limited** (verified dynasty; later/final season settings match the target on all observed material axes; nothing brackets the format at transaction time; reason stamped, e.g. `season_final_settings`, `post_trade_capture`, `format_unconfirmed_at_trade`, `all_observed_axes_match_target`; never implies exactness) and **format mismatch** (known target-format differences, no validated translator); TARGET_UNSUPPORTED = redraft, keeper for the current dynasty lane, unverified dynasty state, unusable identity / topology, other hard integrity failure. Season-final or post-trade captures never make a trade NATIVE; scoring-only before/after evidence is not enough while roster structure / team count stay temporally unproven | **Recorded (§35.1).** Implemented by AL-2a′ on `claude/broad-context-disposition`. `targetPriceAuthority = 0` until a translator validates; no canonical value change |
+| T9 | Hill Autopilot promoted OFFENSE automatically on the dependent-board holdout gates (`docs/valuation/HILL_AUTOPILOT_V2.md`); §20.6 / §29 named it the bounded automatic-promotion example | **Owner methodology decision 1 (A), 2026-10-01:** automatic OFFENSE promotion requires at least one genuinely independent validation target; the board gates stay required (necessary, not sufficient); with no eligible target: `AUTO_PROMOTION_BLOCKED: no_independent_validation_target`. Fitting, evaluation, persistence counting, shadow runs and evidence accumulation continue. A future target is preregistered and does not derive materially from the training families | **Recorded (§35.1).** Implemented on `claude/hill-autopilot-independent-gate`. No fake target to restore promotion; manual / model-governance review stays separate |
+| T10 | #1599's category rule (MEASURED ≥ +0.30 and ≥ 90% snapshots positive; SUSPECTED +0.10 to +0.30 and ≥ 75%), declared after its data were seen | **Owner methodology decision 3, 2026-10-01:** those thresholds and labels are descriptive history, never prospective methodology; the next dependence classification is preregistered before its result set is examined (multiple cutoffs, distinct-version consistency, effective sample size, uncertainty interval, estimator floor, rank vs spacing, autocorrelation). OTC's +0.45 / 21-of-21 dependence on KTC stays sufficient for exclusion; Fitzmaurice / Nerds labels stay descriptive; fail closed when independence is not established | **Recorded (§35.1).** `lineage-policy/v1` preregistered; #1599 artifacts immutable |
+
+### 35.1 Owner methodology decisions — final (2026-10-01)
+
+The owner closed three open methodology questions. They are final for the current Calculator valuation /
+adaptive-learning program. Intake: `docs/OWNER_REQUESTED_TODO.md`, "Owner methodology decisions — final". Recording
+them changes no canonical player value.
+
+**Decision 1 — Hill Autopilot needs an independent validation target (T9).**
+
+- Automatic OFFENSE Hill promotion requires at least one **genuinely independent validation target**.
+- The existing dependent-board holdout gates stay and may stay required. They are **necessary, not sufficient**.
+- With no eligible independent target, the Autopilot verdict is
+  `AUTO_PROMOTION_BLOCKED: no_independent_validation_target`.
+- Research does not stop. Challenger fitting, evaluation, persistence counting, shadow runs and evidence
+  accumulation continue normally. The board gates are neither weakened nor removed.
+- A future independent target must be **preregistered** and must not derive materially from the same training
+  families. No fake target may be created to restore automatic promotion.
+- **Leading candidate: the completed-trade ledger (AL-2)**, with two caveats:
+  - KTC Trade Database evidence alone is **not** automatically independent validation for a KTC-trained curve
+    (KTC-platform trades are in-sample for KTC Trades; #1599 said the same).
+  - Prefer deduplicated, format-qualified transaction evidence with independent provenance, especially
+    Sharp/Sleeper observations. A target that mixes dependent and independent provenance must say how
+    independence is treated, per provenance class. It is never called independent as a whole.
+- Manual / model-governance review stays separate from unattended Autopilot promotion. This decision closes the
+  automatic-promotion loophole only.
+- Today no board is an ancestry-safe holdout (#1599). The Autopilot is therefore expected to report the blocked
+  verdict until a preregistered target exists.
+
+**Decision 2 — strict NATIVE timing plus BROAD_CONTEXT (T8).**
+
+- NATIVE_COMPARABLE keeps the strict point-in-time rule. A pre-trade (in-force) capture plus a later same-format
+  confirmation must bracket the transaction under the canonical timing contract.
+- A season-final or post-trade capture does not prove the format held all season:
+  - completed-season final settings never make an old trade NATIVE retroactively;
+  - a matching post-trade capture never makes an earlier trade NATIVE;
+  - scoring-only before/after evidence is not enough while roster structure, team count and other axes stay
+    temporally unproven.
+- **BROAD_CONTEXT, timing-limited:** a verified dynasty trade whose later/final season settings match the target
+  on every observed material axis, but with no valid evidence bracketing the format at transaction time. The reason
+  is stamped (for example `season_final_settings`, `post_trade_capture`, `format_unconfirmed_at_trade`,
+  `all_observed_axes_match_target`), and exactness is never implied.
+- **BROAD_CONTEXT, format mismatch:** a verified dynasty transaction with known target-format differences and no
+  validated translator.
+- **TARGET_UNSUPPORTED:** redraft, keeper for the current dynasty target lane, unverified dynasty state, unusable
+  identity or topology, or another hard integrity failure.
+- The approximately 2026-era trades that match `dynasty_main`'s current axes without a predating or bracketing
+  capture stay usable as clearly labelled BROAD_CONTEXT, not NATIVE.
+- Unchanged from T1: `targetPriceAuthority = 0` until a translator validates; no VALIDATED_TRANSFORMABLE merely
+  because the class exists; the former #1595 verified-dynasty-candidate population maps to BROAD_CONTEXT unless
+  another hard failure applies.
+
+**Decision 3 — lineage dependence thresholds (T10).**
+
+- #1599's thresholds and labels (`docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md`) are **descriptive
+  historical output**. #1599 is not rewritten, and its two artifacts stay immutable.
+- They are **not** prospective methodology. The next prospective dependence classification runs under
+  `lineage-policy/v1` (`docs/sources/lineage_policy/LINEAGE_DEPENDENCE_POLICY_v1_PREREGISTRATION.md`). It was
+  preregistered in its own commit (`94e16c4f1a986ecc3045d1b4702ce6efe0d8cc05`, committed 2026-10-02T01:10:52Z — the policy's §14.1 retrospective/prospective boundary) before any result set was examined
+  under it, and its normative block is hash-pinned by `tests/sources/test_lineage_policy_v1_preregistration.py`.
+- The policy evaluates magnitude above an explicitly estimated leave-pair-out floor, consistency across distinct
+  source versions (never snapshots), an AR(1)-adjusted effective sample size, a block-bootstrap interval, and rank
+  and spacing dependence separately. It reports a sensitivity grid that is never decisive. It never treats an
+  unproven pair as independent.
+- No current conclusion changes. OTC's ~+0.45 / 21-of-21 dependence on KTC stays sufficient: OTC is never an
+  independent KTC-family holdout. The Fitzmaurice and Dynasty Nerds labels stay descriptive. Hill exclusion and
+  promotion safety fail closed whenever independence is not established.
 
 ## 36. Perishable-evidence audit — extended (directive §21)
 
@@ -1108,7 +1177,9 @@ collide:
    code, after at least one complete observed window turnover with no gap. The earliest census usable for AL-2b
    identifiability.
 6. **BROAD_CONTEXT PR (AL-2a′)** after the bootstrap census, with the owner's exact four-disposition definitions
-   (§35 T1) and the regression test. No canonical value change.
+   (§35 T1) and the regression test. No canonical value change. *Refined by owner decision 2 (§35 T8 / §35.1):
+   timing-limited and format-mismatch sub-kinds with reason stamps; strict NATIVE timing kept. In progress on
+   `claude/broad-context-disposition`.*
 7. **IDP market inventory (AL-2a″)** reported separately in every accumulated census.
 8. **Translator readiness table (AL-2b0)** per axis — 1QB↔SF, 1TE↔2TE, TE scoring edge, team count, roster
    depth, total IDP starter depth, DL/LB/DB structure, selected IDP scoring families — reporting one-axis-
@@ -1146,3 +1217,11 @@ Hill champion; the current outlier filter; the current 0.30 sparse retention.
 - `C5-POW-01`, `C5-PLAY-01` and `C2-REPL-01` remain DUPLICATED; their learned units (AL-7, AL-5, AL-12) land on
   the consolidated owner, not on either duplicate.
 - The capture units AL-P1…AL-P8 (§36.3) are authorized as Wave 1 work but not implemented by this planning PR.
+- Hill automatic OFFENSE promotion is blocked until a preregistered independent validation target exists (§35.1,
+  T9). No such target is preregistered yet; the completed-trade ledger needs per-provenance independence
+  treatment (KTC-platform trades are not independent of a KTC-trained curve) and is not yet capturing in production.
+- Decisions 1 and 2 are recorded but their code units (`claude/hill-autopilot-independent-gate`,
+  `claude/broad-context-disposition`) are not merged.
+- `lineage-policy/v1` is preregistered, not implemented: the instrument extensions (detrended rank residual,
+  version-blocking, simulated floor, validation suite) and the v1 category vocabulary are a separate reviewed
+  unit, and each application needs its own run preregistration.
