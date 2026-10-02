@@ -1089,7 +1089,7 @@ them changes no canonical player value.
   historical output**. #1599 is not rewritten, and its two artifacts stay immutable.
 - They are **not** prospective methodology. The next prospective dependence classification runs under
   `lineage-policy/v1` (`docs/sources/lineage_policy/LINEAGE_DEPENDENCE_POLICY_v1_PREREGISTRATION.md`). It was
-  preregistered in its own commit (`94e16c4f1a986ecc3045d1b4702ce6efe0d8cc05`) before any result set was examined
+  preregistered in its own commit (`94e16c4f1a986ecc3045d1b4702ce6efe0d8cc05`, committed 2026-10-02T01:10:52Z — the policy's §14.1 retrospective/prospective boundary) before any result set was examined
   under it, and its normative block is hash-pinned by `tests/sources/test_lineage_policy_v1_preregistration.py`.
 - The policy evaluates magnitude above an explicitly estimated leave-pair-out floor, consistency across distinct
   source versions (never snapshots), an AR(1)-adjusted effective sample size, a block-bootstrap interval, and rank
