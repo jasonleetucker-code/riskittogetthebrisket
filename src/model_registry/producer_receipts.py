@@ -19,8 +19,9 @@ the box emit receipts AS THEY RUN, in the owner order of
    AL-0 adapter (``learning_adapters.source_quality_receipts``) called at the
    moment the evaluator appends its archive lines.
 4. **Hill refits** (``scripts/hill_learning_receipts.py``, run by ``deploy/deploy.sh``
-   after the code lands) -- MODEL (+ CHALLENGER) per registry entry, MODEL +
-   FEATURES per training run, one OBSERVATION per Autopilot adjudication, read from
+   after the code lands) -- fit-time MODEL (+ CHALLENGER) per registry entry,
+   OBSERVATIONs for its lifecycle stamps and for each observed disposition change,
+   MODEL + FEATURES per training run, one OBSERVATION per Autopilot adjudication, read from
    the COMMITTED ``config/model_registry/`` evidence through the AL-0 Hill adapters.
    The refit itself runs on a CI runner with no persistent store and commits no
    receipt. No Hill holdout EVALUATION: it is retrospective (section 4 below).
@@ -1145,17 +1146,34 @@ def source_quality_run_receipts(
 # ``scripts/hill_learning_receipts.py`` -- run by ``deploy/deploy.sh`` after the
 # code lands -- turns them into receipts here, through the AL-0 Hill adapters.
 #
-# Identity is the producer's own id plus a CONTENT revision. A registry entry is
-# not immutable (``challenger`` -> ``rejected``, notes appended, ``promotedAt``
-# set), so an id alone would make the next deploy's receipt a content CONFLICT.
-# Each receipt therefore carries ``revision = sha256:<16 hex>`` of the canonical
-# JSON of exactly what its body is derived from: the same content is a stored
-# duplicate on every later run, a changed entry is a NEW receipt beside the old
-# one. No correction links the two: a disposition change is a new state of the
-# entry, not an error in the earlier receipt, and the store never infers an
-# order no correction records. Canonical JSON, not the git blob: a Windows
-# checkout rewrites the JSON files to CRLF, and the registry file's blob moves on
-# every refit even for the ~170 entries that did not change.
+# Every fact is stamped at an instant it can defend, and no receipt changes when
+# a later fact does:
+#
+# * **Fit-time facts** -- MODEL (+ CHALLENGER) per registry entry, anchored at
+#   ``fittedAt``. Their bodies carry nothing written later (the AL-0 adapter's
+#   ``FIT_TIME_ONLY_NOTE``), so a challenger -> rejected flip leaves them
+#   byte-identical: re-runs are stored duplicates.
+# * **Timestamped lifecycle facts** -- ``promotedAt`` / ``appliedAt`` /
+#   ``retiredAt``: one OBSERVATION each, cutoff = that stamp. A re-stamp (a
+#   re-promotion) is a new instant, so a new receipt, never a conflict.
+# * **Untimestamped disposition** -- ``status`` + ``notes`` (a rejection records
+#   no time): one OBSERVATION per OBSERVED CHANGE, cutoff = the instant the
+#   deployed registry was read. That is an honest UPPER bound on when the state
+#   took effect (``transitionAt`` is unobserved), and the previous observation,
+#   when the store holds one, is the lower bound. Each carries its own cutoff, so
+#   the order of states is explicit. An unchanged state is not re-observed.
+# * **Adjudications** -- one OBSERVATION per Autopilot run-log line, cutoff =
+#   its ``evaluatedAt``; the lines are append-only, so the content never moves.
+#
+# No receipt here uses ``revision``: in the AL-0 contract a revision is a
+# CORRECTION's identity, linked by ``receipt_store.record_correction``, and none
+# of these is a correction. Residual, stated rather than hidden: a disposition
+# observation's cutoff is the deploy read time, not the transition time; a state
+# that came and went between two deploys is never observed; a training run seen
+# first in full form and later only as a summary (artifact pruned) is not
+# re-described (the script skips the summary when the store already holds that
+# run), and one seen first as a summary and later in full surfaces as a content
+# conflict for review.
 #
 # What is NOT receipted, deliberately:
 #
@@ -1192,18 +1210,10 @@ _ADJUDICATION_KIND_NOTE = (
 )
 
 
-def content_revision(obj: Any) -> str:
-    """``sha256:<16 hex>`` of the canonical JSON of what a receipt is derived from."""
-    return "sha256:" + _sha(obj)[:16]
-
-
-def _revised(receipt: LearningReceipt, revision: str) -> LearningReceipt:
-    """The same receipt under a content revision, validated again."""
-    from dataclasses import replace  # noqa: PLC0415
-
-    from src.model_registry.learning_receipt import validate_receipt  # noqa: PLC0415
-
-    return validate_receipt(replace(receipt, revision=revision))
+#: Registry lifecycle stamps, each recorded as its own instant.
+HILL_LIFECYCLE_FIELDS: tuple[str, ...] = ("promotedAt", "appliedAt", "retiredAt")
+HILL_DISPOSITION_OBSERVES = "hill_registry_disposition"
+HILL_LIFECYCLE_OBSERVES = "hill_registry_lifecycle_event"
 
 
 def hill_registry_version_receipts(
@@ -1213,18 +1223,14 @@ def hill_registry_version_receipts(
 
     Delegates to the AL-0 adapter (``learning_adapters.hill_receipts_from_registry_version``)
     with the retrospective holdout EVALUATION withheld (:data:`HILL_EVALUATION_WITHHELD`).
-    The revision covers the entry and the champion pointer, the only inputs of the bodies."""
+    Fit-time facts only, so a later disposition change never moves these receipts."""
     from src.model_registry.learning_adapters import (  # noqa: PLC0415
         hill_receipts_from_registry_version,
     )
 
-    revision = content_revision({"registryVersion": version, "championVersion": champion_version})
-    return [
-        _revised(r, revision)
-        for r in hill_receipts_from_registry_version(
-            version, champion_version=champion_version, include_evaluation=False
-        )
-    ]
+    return hill_receipts_from_registry_version(
+        version, champion_version=champion_version, include_evaluation=False
+    )
 
 
 def hill_training_run_receipts(
@@ -1233,18 +1239,150 @@ def hill_training_run_receipts(
     """MODEL + FEATURES for one training run: the full artifact record when it is
     present and verified, else the registry summary (``recordForm`` says which).
 
-    Delegates to ``learning_adapters.hill_receipts_from_training_run``. The full and
-    summary forms of one run are different content and so different revisions: an
-    artifact pruned after 30 days adds a summary receipt, never a conflict."""
+    Delegates to ``learning_adapters.hill_receipts_from_training_run``. The two forms
+    of one run share an identity; the caller keeps the first one stored (section
+    comment above)."""
     from src.model_registry.learning_adapters import (  # noqa: PLC0415
         hill_receipts_from_training_run,
     )
 
-    revision = content_revision(dict(record))
-    return [
-        _revised(r, revision)
-        for r in hill_receipts_from_training_run(record, dictionary=dictionary)
-    ]
+    return hill_receipts_from_training_run(record, dictionary=dictionary)
+
+
+def hill_lifecycle_receipts(version: Mapping[str, Any]) -> list[LearningReceipt]:
+    """One OBSERVATION per lifecycle stamp the entry carries, anchored at that stamp.
+
+    A stamp that is absent or ``null`` is no event (the disposition observation
+    carries the entry's state); a present stamp that is not a provable instant is
+    refused rather than guessed."""
+    from src.model_registry.learning_adapters import (  # noqa: PLC0415
+        HILL_FAMILY,
+        HILL_REGISTRY_PRODUCER,
+        hill_version_id_for_registry,
+    )
+
+    n = int(version["version"])
+    out: list[LearningReceipt] = []
+    for field in HILL_LIFECYCLE_FIELDS:
+        raw = version.get(field)
+        if raw is None:
+            continue
+        at = parse_instant(raw, what=f"registry v{n} {field}")
+        out.append(
+            build_receipt(
+                kind=KIND_OBSERVATION,
+                producer=HILL_REGISTRY_PRODUCER,
+                native_id=f"v{n}:{field}@{iso(at)}",
+                model_family=HILL_FAMILY,
+                model_version_id=hill_version_id_for_registry(n),
+                cutoff=at,
+                slots={
+                    "event": StoreRef(
+                        store="model_registry",
+                        key=f"{HILL_FAMILY}#v{n}/{field}",
+                        role=ROLE_INPUT,
+                        known_at=at,
+                        fidelity="exact",
+                        basis=f"the registry's own {field} stamp",
+                    )
+                },
+                body={
+                    "observes": HILL_LIFECYCLE_OBSERVES,
+                    "version": n,
+                    "event": field,
+                    "at": iso(at),
+                    "promotes": False,
+                },
+            )
+        )
+    return out
+
+
+def hill_disposition_state(version: Mapping[str, Any]) -> dict[str, Any]:
+    """The entry's untimestamped disposition, verbatim (absent keys unobserved)."""
+    return {
+        "status": _carried(version, "status", "registry status"),
+        "notes": _carried(version, "notes", "registry notes"),
+    }
+
+
+def hill_disposition_receipt(
+    version: Mapping[str, Any],
+    *,
+    observed_at: datetime,
+    previous: Mapping[str, Any] | None,
+) -> LearningReceipt | None:
+    """An OBSERVATION of the entry's disposition at ``observed_at``, or ``None``.
+
+    ``None`` when ``previous`` (the latest stored observation of this version:
+    ``{"state", "receiptId", "observedAt"}``) already saw the same state -- an
+    unchanged state is not re-observed every deploy. The cutoff is the instant
+    the deployed registry was read: an upper bound on when the state took effect;
+    the transition time itself is not recorded by the registry."""
+    from src.model_registry.learning_adapters import (  # noqa: PLC0415
+        HILL_FAMILY,
+        HILL_REGISTRY_PRODUCER,
+        hill_version_id_for_registry,
+    )
+
+    observed = parse_instant(observed_at, what="disposition observedAt")
+    n = int(version["version"])
+    state = hill_disposition_state(version)
+    if previous is not None and previous.get("state") == state:
+        return None
+    if previous is not None:
+        prior_at = _instant_or_none(previous.get("observedAt"))
+        if prior_at is not None and prior_at >= observed:
+            raise ReceiptError(
+                f"registry v{n}: a disposition observed at {iso(observed)} cannot follow one "
+                f"observed at {iso(prior_at)}"
+            )
+        bound = (
+            f"; after the previous observation at {previous.get('observedAt')}, which saw a "
+            "different state"
+        )
+    else:
+        bound = "; no earlier observation of this entry is stored"
+    return build_receipt(
+        kind=KIND_OBSERVATION,
+        producer=HILL_REGISTRY_PRODUCER,
+        native_id=f"v{n}:disposition@{iso(observed)}",
+        model_family=HILL_FAMILY,
+        model_version_id=hill_version_id_for_registry(n),
+        cutoff=observed,
+        slots={
+            "registryEntry": StoreRef(
+                store="model_registry",
+                key=f"{HILL_FAMILY}#v{n}/disposition",
+                role=ROLE_INPUT,
+                known_at=observed,
+                fidelity="exact",
+                basis=(
+                    "read from the deployed registry at this instant: the state was in force "
+                    "then; when it took effect is not recorded"
+                ),
+            )
+        },
+        body={
+            "observes": HILL_DISPOSITION_OBSERVES,
+            "version": n,
+            "state": state,
+            "observedAt": iso(observed),
+            "transitionAt": Unobserved(
+                "the registry records no transition time; this state took effect at or "
+                f"before observedAt{bound}"
+            ).to_dict(),
+            "previousObservation": (
+                {
+                    "receiptId": previous.get("receiptId"),
+                    "observedAt": previous.get("observedAt"),
+                }
+                if previous is not None
+                else None
+            ),
+            "promotes": False,
+        },
+    )
 
 
 def _registry_input(
@@ -1306,7 +1444,7 @@ def hill_autopilot_run_receipt(
     evaluated = parse_instant(line.get("evaluatedAt"), what="autopilot evaluatedAt")
     champion_n = _version_number(line.get("championVersion"))
     winner_n = _version_number(line.get("winnerVersion"))
-    receipt = build_receipt(
+    return build_receipt(
         kind=KIND_OBSERVATION,
         producer=HILL_AUTOPILOT_PRODUCER,
         native_id=f"run@{iso(evaluated)}",
@@ -1333,7 +1471,10 @@ def hill_autopilot_run_receipt(
             "sourceRecord": {
                 "store": "repo_file",
                 "path": HILL_AUTOPILOT_RUN_LOG,
-                "lineSha256": _sha(dict(line)),
+                # sha256 of the line's CANONICAL JSON (sorted keys, compact),
+                # not of its raw bytes: the line is matched by content, so a
+                # checkout's line-ending or whitespace policy cannot move it.
+                "lineCanonicalJsonSha256": _sha(dict(line)),
             },
             "evaluatedAt": iso(evaluated),
             "triggerSha": _carried(line, "triggerSha", "trigger SHA"),
@@ -1357,10 +1498,9 @@ def hill_autopilot_run_receipt(
             ),
             "promotionApplied": Unobserved(
                 "the run log records the adjudication, not whether the workflow's promote step "
-                "applied it; the champion's registry MODEL receipt carries promotedAt / appliedAt"
+                "applied it; the registry's promotedAt / appliedAt lifecycle observations carry that"
             ).to_dict(),
             "promotes": False,
             "isPromotionRecord": False,
         },
     )
-    return _revised(receipt, content_revision(dict(line)))

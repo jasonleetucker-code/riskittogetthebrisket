@@ -266,14 +266,18 @@ def _codesha_from_producer(producer: Any) -> str | Unobserved:
     return Unobserved(f"registry producer {text!r} names no code revision")
 
 
-def _registry_field(version: Mapping[str, Any], key: str) -> Any:
-    """A registry field verbatim (an explicit ``null`` is the registry's own
-    statement), or ``unobserved`` when the entry does not carry the key at all."""
-    if key not in version:
-        return Unobserved(
-            f"registry entry carries no {key!r} field; unknown, never null or empty"
-        ).to_dict()
-    return version[key]
+#: What the fittedAt-anchored MODEL / CHALLENGER receipts deliberately leave out.
+#: Their registry ref is ``knownAt = fittedAt``, so their bodies may carry only
+#: what existed at fit time. ``status``, ``notes``, ``promotedAt`` / ``appliedAt``
+#: / ``retiredAt`` and the champion pointer are written LATER (Autopilot, a human
+#: ``promote``) and read whenever the registry is read; stamping them at fittedAt
+#: would claim a later disposition as known at fit time (look-ahead). The AL-1a
+#: recorder (``producer_receipts`` section 4) records them separately, each at an
+#: instant it can defend.
+FIT_TIME_ONLY_NOTE = (
+    "fit-time facts only: status, notes, promotion lifecycle and the champion pointer are "
+    "later facts and are not part of a receipt anchored at fittedAt"
+)
 
 
 def hill_receipts_from_registry_version(
@@ -287,6 +291,12 @@ def hill_receipts_from_registry_version(
     The holdout score is evidence, not a gate: every Hill evaluation receipt's
     verdict is ``inconclusive``, and the registry ``status`` (set by Hill
     Autopilot or a human) is carried as the producer's own disposition.
+
+    MODEL and CHALLENGER are anchored at ``fittedAt`` and carry fit-time facts
+    only (:data:`FIT_TIME_ONLY_NOTE`), so a later disposition change leaves them
+    byte-identical. A CHALLENGER is built for an entry whose status proves it
+    entered as a challenger (``challenger`` / ``rejected``); the status gates the
+    emission, never the content.
 
     ``include_evaluation=False`` builds only MODEL (+ CHALLENGER). The AL-1a box
     recorder (``producer_receipts.hill_registry_version_receipts``) uses it: a Hill
@@ -323,15 +333,10 @@ def hill_receipts_from_registry_version(
             slots={"registryVersion": reg_ref},
             body={
                 "version": n_version,
-                "status": status,
+                "fittedAt": fitted,
                 "producer": version.get("producer"),
                 "trainingInputs": dict(version.get("trainingInputs") or {}),
-                # Promotion lifecycle facts, verbatim: the registry's own record
-                # of a promotion (``scripts/model_registry.py promote`` / Hill
-                # Autopilot) -- data, never an instruction to promote.
-                "promotedAt": _registry_field(version, "promotedAt"),
-                "appliedAt": _registry_field(version, "appliedAt"),
-                "retiredAt": _registry_field(version, "retiredAt"),
+                "scope": FIT_TIME_ONLY_NOTE,
                 "promotes": False,
             },
         )
@@ -347,10 +352,12 @@ def hill_receipts_from_registry_version(
                 slots={"registryVersion": reg_ref},
                 body={
                     "challengerModelVersionId": mvid,
-                    "championVersionAtRead": champion_version,
-                    "status": status,
-                    "notes": list(version.get("notes") or []),
+                    "championModelVersionId": Unobserved(
+                        "the registry keeps only the CURRENT champion pointer; which version "
+                        "was champion at fit time is not recorded"
+                    ).to_dict(),
                     "decidedBy": HILL_POLICY,
+                    "scope": FIT_TIME_ONLY_NOTE,
                     "promotes": False,
                 },
             )

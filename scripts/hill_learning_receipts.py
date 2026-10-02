@@ -15,7 +15,12 @@ through the AL-0 Hill adapters (``src/model_registry/learning_adapters.py``, via
 ``src/model_registry/producer_receipts.py`` section 4):
 
 * MODEL (+ CHALLENGER for a challenger / rejected entry) per registry entry,
-  carrying its status, notes and promotion lifecycle facts as data;
+  anchored at ``fittedAt`` and carrying fit-time facts only;
+* OBSERVATION per lifecycle stamp (``promotedAt`` / ``appliedAt`` /
+  ``retiredAt``), anchored at that stamp;
+* OBSERVATION per OBSERVED disposition change (``status`` + ``notes``, which
+  carry no time), anchored at the instant this run read the deployed registry --
+  an upper bound on when the state took effect, never claimed as the transition;
 * MODEL + FEATURES per training run (the integrity-checked artifact, else the
   registry summary when the artifact was pruned);
 * OBSERVATION per Autopilot adjudication, carrying the outcome verbatim --
@@ -24,9 +29,11 @@ through the AL-0 Hill adapters (``src/model_registry/learning_adapters.py``, via
 No Hill holdout EVALUATION is emitted: it is scored on the fit's own snapshot,
 so it is retrospective, and the receipt contract has no retrospective marker.
 
-Idempotent: every receipt's identity is the producer's id plus a content
-revision (sha256 of the canonical JSON it is derived from), so a re-run over the
-same artifacts stores only duplicates -- never a new row, never a conflict.
+Idempotent: identities are the producer's own ids (no ``revision`` -- that is a
+correction's identity in the AL-0 contract), bodies hold no later fact, and a
+disposition is observed only when it differs from the latest stored observation
+of that entry. A re-run over the same artifacts stores only duplicates -- never
+a new row, never a conflict.
 
 Never promotes: it calls no ``promote`` / ``apply``, takes no ``--override-scope``,
 and writes nothing under ``config/`` or ``src/``.
@@ -48,6 +55,7 @@ import json
 import sqlite3
 import sys
 from collections import Counter
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -57,6 +65,10 @@ if str(REPO_ROOT) not in sys.path:
 
 from src.model_registry import producer_receipts as pr  # noqa: E402
 from src.model_registry.feature_dictionary import load_dictionary  # noqa: E402
+from src.model_registry.learning_adapters import (  # noqa: E402
+    HILL_PRODUCER,
+    HILL_REGISTRY_PRODUCER,
+)
 from src.model_registry.learning_receipt import LearningReceipt, ReceiptError  # noqa: E402
 from src.model_registry.training_run import (  # noqa: E402
     TRAINING_RUNS_DIRNAME,
@@ -174,27 +186,88 @@ def training_run_records(
     return records, refused
 
 
+def read_store_context(store: Path | None) -> dict[str, Any]:
+    """What this run must know about the receipts already stored (read-only).
+
+    ``dispositions``: the latest stored disposition observation per registry
+    version (so an unchanged state is not re-observed). ``trainingRuns``: the run
+    challenger hashes the store already describes (so a pruned artifact's summary
+    does not re-describe a run already stored in full). An absent store is empty."""
+    dispositions: dict[int, dict[str, Any]] = {}
+    runs: set[str] = set()
+    for r in rs_iter_receipts(store):
+        body = r.get("body") or {}
+        if (
+            r.get("kind") == "OBSERVATION"
+            and r.get("producer") == HILL_REGISTRY_PRODUCER
+            and body.get("observes") == pr.HILL_DISPOSITION_OBSERVES
+        ):
+            n = body.get("version")
+            prior = dispositions.get(n)
+            if prior is None or str(body.get("observedAt")) > str(prior["observedAt"]):
+                dispositions[n] = {
+                    "state": body.get("state"),
+                    "receiptId": r.get("receiptId"),
+                    "observedAt": body.get("observedAt"),
+                }
+        elif r.get("kind") == "MODEL" and r.get("producer") == HILL_PRODUCER:
+            runs.add(str(r.get("nativeId")))
+    return {"dispositions": dispositions, "trainingRuns": runs}
+
+
+def rs_iter_receipts(store: Path | None):
+    from src.model_registry.receipt_store import iter_receipts  # noqa: PLC0415
+
+    return iter_receipts(store)
+
+
 def build_receipts(
     registry_dir: Path,
+    *,
+    observed_at: datetime | None = None,
+    stored: dict[str, Any] | None = None,
 ) -> tuple[list[LearningReceipt], list[dict[str, str]], dict[str, Any]]:
-    """Every receipt for the committed Hill evidence. Raises :class:`InputRefused`."""
+    """Every receipt for the committed Hill evidence. Raises :class:`InputRefused`.
+
+    ``observed_at`` is the instant the deployed registry is read (default: now,
+    taken right after it loads); ``stored`` is :func:`read_store_context`."""
     registry = load_registry(registry_dir)
+    observed = observed_at or datetime.now(timezone.utc)
     run_log = load_run_log(registry_dir)
+    stored = stored or {"dispositions": {}, "trainingRuns": set()}
     champion = registry["championVersion"]
     versions = {v["version"]: v for v in registry["versions"]}
     receipts: list[LearningReceipt] = []
     refused: list[dict[str, str]] = []
+    dispositions = lifecycle = skipped_summaries = 0
 
     for n in sorted(versions):
         try:
             receipts += pr.hill_registry_version_receipts(versions[n], champion_version=champion)
+            events = pr.hill_lifecycle_receipts(versions[n])
+            receipts += events
+            lifecycle += len(events)
+            state = pr.hill_disposition_receipt(
+                versions[n], observed_at=observed, previous=stored["dispositions"].get(n)
+            )
+            if state is not None:
+                receipts.append(state)
+                dispositions += 1
         except (ReceiptError, ValueError, TypeError, KeyError) as exc:
             refused.append({"item": f"registry v{n}", "reason": f"{type(exc).__name__}: {exc}"})
 
     records, run_refusals = training_run_records(registry, registry_dir)
     refused += run_refusals
     dictionary = load_dictionary()
+    # A summary never re-describes a run that is described in full in this batch
+    # or already stored: the two forms share an identity, and the first stored wins.
+    described = set(stored["trainingRuns"]) | {
+        str(record.get("challengerHash")) for _, record in records if "inputs" in record
+    }
     for label, record in records:
+        if "inputs" not in record and str(record.get("challengerHash")) in described:
+            skipped_summaries += 1
+            continue
         try:
             receipts += pr.hill_training_run_receipts(record, dictionary=dictionary)
         except (ReceiptError, ValueError, TypeError, KeyError) as exc:
@@ -210,8 +283,8 @@ def build_receipts(
 
     # One receipt per identity. Two raw refits on unchanged data share one
     # training run, so they yield the same receipt: keep one. The same identity
-    # with DIFFERENT content cannot arise from content-revisioned ids; if it does,
-    # it is refused here rather than handed to the store as a conflict.
+    # with DIFFERENT content in one batch is refused here rather than handed to
+    # the store as a conflict.
     unique: dict[str, LearningReceipt] = {}
     for r in receipts:
         prior = unique.get(r.receipt_id)
@@ -226,6 +299,10 @@ def build_receipts(
         "registryVersions": len(versions),
         "trainingRuns": len(records),
         "autopilotRuns": len(run_log),
+        "observedAt": observed.isoformat(),
+        "dispositionsObserved": dispositions,
+        "lifecycleEvents": lifecycle,
+        "summariesSkippedRunDescribed": skipped_summaries,
         "evaluationsWithheld": len(versions),
         "evaluationsWithheldReason": pr.HILL_EVALUATION_WITHHELD,
         "byKind": dict(sorted(Counter(r.kind for r in out).items())),
@@ -251,7 +328,16 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     try:
-        receipts, refused, stats = build_receipts(args.registry_dir)
+        stored = read_store_context(args.store)
+    except (ReceiptError, OSError, sqlite3.Error) as exc:
+        print(
+            f"WARNING: hill learning receipts NOT written: the store could not be read "
+            f"({type(exc).__name__}: {exc})",
+            file=sys.stderr,
+        )
+        return EXIT_PARTIAL
+    try:
+        receipts, refused, stats = build_receipts(args.registry_dir, stored=stored)
     except InputRefused as exc:
         print(f"ERROR: hill learning receipts refused: {exc}; nothing written", file=sys.stderr)
         return EXIT_REFUSED

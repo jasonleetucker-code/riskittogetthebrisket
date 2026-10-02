@@ -1005,10 +1005,20 @@ archive_ros_forecasts() {
 # sit inside the auto-rollback window. Non-fatal and bounded (timeout 300) —
 # a failure is a WARNING, and the next deploy re-reads the same committed
 # evidence, so nothing is lost. The `if` keeps a non-zero exit (including
-# timeout's 124) away from `set -e` and the ERR trap.
+# timeout's 124) away from `set -e`.
+#
+# Which user writes the store: deploy.sh has no "run as another user"
+# convention — APP_USER defaults to the invoking user (`id -un`) and every
+# command here runs as the deploy user. The shadow timers that share
+# data/learning/receipts.sqlite run as User=__APP_USER__, so this ASSUMES
+# DEPLOY_USER == APP_USER. A mismatch, or a store owned by someone else, is a
+# WARNING before the run (the write would then fail and be reported, never fatal).
 record_hill_learning_receipts() {
   local script="${APP_DIR}/scripts/hill_learning_receipts.py"
+  local store="${APP_DIR}/data/learning/receipts.sqlite"
   local output=""
+  local me=""
+  local owner=""
   if [[ ! -f "${script}" ]]; then
     log "[hill-receipts] script not present; skipping"
     return 0
@@ -1016,6 +1026,16 @@ record_hill_learning_receipts() {
   if [[ -z "${VENV_DIR:-}" || ! -x "${VENV_DIR}/bin/python" ]]; then
     log "[hill-receipts] virtualenv missing; skipping"
     return 0
+  fi
+  me="$(id -un 2>/dev/null || true)"
+  if [[ -n "${APP_USER:-}" && "${me}" != "${APP_USER}" ]]; then
+    warn "[hill-receipts] WARNING: deploy user '${me}' is not APP_USER '${APP_USER}'; the receipt store is shared with app-user timers"
+  fi
+  if [[ -e "${store}" ]]; then
+    owner="$(stat -c %U "${store}" 2>/dev/null || true)"
+    if [[ -n "${owner}" && "${owner}" != "${me}" ]]; then
+      warn "[hill-receipts] WARNING: ${store} is owned by '${owner}', not the deploy user '${me}'; the write may be refused"
+    fi
   fi
   log "[hill-receipts] recording Hill registry learning receipts (idempotent)"
   if output="$(RISKIT_RECEIPTS_ENABLED=1 timeout 300 "${VENV_DIR}/bin/python" "${script}" 2>&1)"; then
@@ -1288,6 +1308,12 @@ main() {
   build_temporal_ledger
   verify_deploy
   record_success_state
+  # The target is now recorded as last-successful. Rolling back past this point
+  # would revert a deploy the state files already call good, so the
+  # auto-rollback ERR trap is disarmed: every step below serves nothing, guards
+  # its own exit with `if`, and an unguarded failure here ends the run (set -e)
+  # without touching the deployed revision.
+  trap - ERR
   archive_ros_forecasts
   record_hill_learning_receipts
 

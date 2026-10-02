@@ -359,8 +359,12 @@ The refit commits evidence, never receipts: the CI runner has no persistent
 the committed `config/model_registry/` evidence through the AL-0 Hill adapters
 into the box-local `data/learning/receipts.sqlite`:
 
-- MODEL (+ CHALLENGER for challenger / rejected) per registry entry — status,
-  notes and `promotedAt` / `appliedAt` / `retiredAt` as data;
+- MODEL (+ CHALLENGER for challenger / rejected) per registry entry, anchored at
+  `fittedAt` and carrying fit-time facts only;
+- an OBSERVATION per `promotedAt` / `appliedAt` / `retiredAt`, anchored at that
+  stamp, and an OBSERVATION per observed change of `status` + `notes` (which
+  carry no time), anchored at the deploy's read time — an upper bound on when the
+  state took effect, never claimed as the transition;
 - MODEL + FEATURES per training run (the integrity-checked artifact, else the
   registry summary once the artifact is pruned);
 - one OBSERVATION per Autopilot adjudication, outcome carried verbatim (e.g.
@@ -370,11 +374,11 @@ into the box-local `data/learning/receipts.sqlite`:
 
 **No Hill holdout EVALUATION is receipted.** The holdout is scored on the fit's
 own snapshot, so its window ends before the fit: it is retrospective, and the
-receipt contract has no retrospective marker. Identity is the producer's id plus
-a content revision, so re-running over unchanged evidence stores only
-duplicates, and an entry whose disposition changes becomes a new receipt beside
-the old one rather than a conflict. The script never promotes, applies, or
-passes `--override-scope`.
+receipt contract has no retrospective marker. Identities are the producers' own
+ids (no `revision`, which the contract reserves for corrections) and no body
+holds a later fact, so re-running over unchanged evidence stores only
+duplicates; a disposition change adds one timed observation and moves nothing
+else. The script never promotes, applies, or passes `--override-scope`.
 
 ## Remaining work before GLOBAL/IDP auto-promotion
 
