@@ -312,13 +312,30 @@ def format_from_sleeper_league(
 def capture_sleeper_league_format(league: Mapping[str, Any], *, captured_at: str) -> dict[str, Any]:
     """The persistable subset of a Sleeper league object.
 
-    Called by the Sharp discovery crawl (``src/sharp/discovery.py``) on the
-    league objects it ALREADY fetched — no extra request.  Only host facts are
-    kept: roster slots, the numeric scoring card, and the settings keys the
-    format reads.  Nothing about the discovering manager is stored here.
+    Persisted, append-only and dated, by the Sharp league-format capture owner
+    (``src/sharp/league_format_capture.py``) from league objects the Sharp
+    crawls fetch — mostly ones they ALREADY fetched (discovery's
+    ``/user/{id}/leagues``, the roster crawl's ``/league/{id}``).  Only host
+    facts are kept: roster slots, the numeric scoring card, and the settings
+    keys that describe the league's format and context.  Nothing about the
+    discovering manager is stored here.
     """
     settings = league.get("settings") if isinstance(league.get("settings"), Mapping) else {}
-    keep = ("type", "best_ball", "num_teams", "taxi_slots", "reserve_slots", "bench_lock")
+    keep = (
+        "type",
+        "best_ball",
+        "num_teams",
+        "taxi_slots",
+        "taxi_years",
+        "reserve_slots",
+        "bench_lock",
+        "max_keepers",
+        "playoff_teams",
+        "waiver_type",
+        "waiver_budget",
+        "trade_deadline",
+        "draft_rounds",
+    )
     return {
         "capturedAt": captured_at,
         "season": league.get("season"),
@@ -682,6 +699,118 @@ class TranslatorRegistry:
 DEFAULT_REGISTRY = TranslatorRegistry()
 
 
+#: Format-timing caps (see :func:`format_timing_cap`).
+TIMING_CAP_POST_TRADE = "format_capture_post_trade"
+TIMING_CAP_TIME_UNKNOWN = "format_time_unknown"
+TIMING_CAP_UNPROVEN = "format_capture_timing_unproven"
+#: The bracket (``league_format_capture.confirm_after_trade``): a capture at or
+#: before the trade proves exactness only once a LATER observation confirms the
+#: same payload.  None yet -> unconfirmed; a different payload after the trade
+#: -> changed (the in-force capture still supplies the axes).
+TIMING_CAP_UNCONFIRMED_AFTER_TRADE = "format_unconfirmed_after_trade"
+TIMING_CAP_CHANGED_AFTER_TRADE = "format_changed_after_trade"
+#: A legacy snapshot with no original ``capturedAt`` (capture source ending
+#: ``_time_unknown``).  It is stored at the migration instant — an upper bound
+#: on when it existed, NOT when it was taken — so it can be older than any
+#: settings change before that instant and never certifies a later trade.
+TIMING_CAP_UNDATED_SNAPSHOT = "format_capture_undated_snapshot"
+_UNDATED_CAPTURE_SUFFIX = "_time_unknown"
+#: Pseudo-axis named as ``strongestUnsupportedAxis`` when every real axis
+#: MATCHES and only the timing cap keeps the trade off NATIVE_COMPARABLE.
+FORMAT_TIMING_AXIS = "formatCaptureTiming"
+
+#: ``formatEvidence.timing`` values written by the capture owner
+#: (``src/sharp/league_format_capture.py`` — pinned equal by a test; not
+#: imported, so the format owner keeps no dependency on the Sharp crawl).
+_TIMING_AT_OR_BEFORE = "at_or_before_trade"
+_TIMING_POST_TRADE = "post_trade_capture"
+_TIMING_TRADE_TIME_UNKNOWN = "trade_time_unknown"
+#: ``formatEvidence.confirmationAfterTrade`` values (same pinning).
+_CONFIRMED = "confirmed"
+_CONFIRMATION_CHANGED = "changed_after_trade"
+
+#: ``formatSource`` labels whose format came from a DATED host capture, so its
+#: timing must be proven before it can price the target.
+CAPTURE_FORMAT_SOURCES = frozenset(
+    {
+        "sleeper_league_capture_full",
+        "sleeper_league_capture_post_trade",
+        "host_capture_via_discovery",
+        # Own-league lane (``market_trade_normalize._own_league_format``):
+        # every label is dated, so an own-league row WITHOUT evidence fails
+        # closed — including the registry format, which used to be applied to
+        # every past season with no timing at all.
+        "season_league_settings",
+        "season_league_settings_post_trade",
+        # RETIRED label (no longer produced: the registry format is never
+        # exact).  Kept so a stray row carrying it still fails closed.
+        "registry_and_scoring_card",
+        "registry_and_scoring_card_unproven_at_trade",
+        "own_league_season_format_missing",
+    }
+)
+
+
+def format_timing_cap(observation: Mapping[str, Any] | None) -> str | None:
+    """The reason a format may NOT be NATIVE_COMPARABLE because of WHEN it was
+    observed, or ``None`` when timing does not cap it.
+
+    A host capture describes a trade only if it was taken AT OR BEFORE the
+    trade.  A capture from after the trade (``format_capture_post_trade``), one
+    whose trade time is unknown (``format_time_unknown``), or a capture-sourced
+    format carrying no dated evidence at all (``format_capture_timing_unproven``
+    — fails closed) is future leakage if allowed to certify a native match:
+    the league could have changed format in between.  Such trades stay
+    TARGET_UNSUPPORTED with the reason named; their axes are still computed
+    and published, and they are kept for broad research.
+
+    An undated legacy snapshot (``captureSource`` ending ``_time_unknown``) is
+    capped even when it sits before the trade (``format_capture_undated_snapshot``):
+    its stored instant is only an upper bound on when it existed.
+
+    A capture at or before the trade is exact only when BRACKETED: a later
+    observation confirmed the same payload (``confirmationAfterTrade ==
+    "confirmed"`` AND ``exactAtTradeTime``).  No such observation yet ->
+    ``format_unconfirmed_after_trade``; a different payload after the trade ->
+    ``format_changed_after_trade``.  Evidence claiming exactness without the
+    confirmation is not proof and is capped as unconfirmed.
+
+    Own-league formats are dated too (the trade's OWN season-league capture,
+    under the same bracket — see ``market_trade_normalize._own_league_format``);
+    their labels are in :data:`CAPTURE_FORMAT_SOURCES`, so one without evidence
+    fails closed.  The registry format is never exact: its starters, team count
+    and roster size are undated hand-maintained config.
+    Formats that are not dated captures (a vendor summary, a partial discovery
+    row) carry no ``formatEvidence`` and are unaffected here.
+
+    NOTE: when the owner-directed BROAD_CONTEXT tier lands (a separate PR),
+    timing-capped trades move from TARGET_UNSUPPORTED to BROAD_CONTEXT — never
+    to NATIVE_COMPARABLE.
+    """
+    if observation is None:
+        return None
+    ev = observation.get("formatEvidence")
+    timing = ev.get("timing") if isinstance(ev, Mapping) else None
+    if timing is not None:
+        if str(ev.get("captureSource") or "").endswith(_UNDATED_CAPTURE_SUFFIX):
+            return TIMING_CAP_UNDATED_SNAPSHOT
+        if timing == _TIMING_AT_OR_BEFORE:
+            confirmation = ev.get("confirmationAfterTrade")
+            if ev.get("exactAtTradeTime") is True and confirmation == _CONFIRMED:
+                return None
+            if confirmation == _CONFIRMATION_CHANGED:
+                return TIMING_CAP_CHANGED_AFTER_TRADE
+            return TIMING_CAP_UNCONFIRMED_AFTER_TRADE
+        if timing == _TIMING_TRADE_TIME_UNKNOWN:
+            return TIMING_CAP_TIME_UNKNOWN
+        if timing == _TIMING_POST_TRADE:
+            return TIMING_CAP_POST_TRADE
+        return TIMING_CAP_UNPROVEN
+    if observation.get("formatSource") in CAPTURE_FORMAT_SOURCES:
+        return TIMING_CAP_UNPROVEN
+    return None
+
+
 def disposition(
     src: TradeMarketFormat,
     tgt: TradeMarketFormat,
@@ -689,16 +818,36 @@ def disposition(
     observation: Mapping[str, Any] | None = None,
     registry: TranslatorRegistry | None = None,
 ) -> dict[str, Any]:
-    """Exactly one target-pricing disposition, with every axis attached."""
+    """Exactly one target-pricing disposition, with every axis attached.
+
+    Pass the ``observation`` (or group) the format belongs to: its
+    ``formatEvidence`` decides the timing cap (:func:`format_timing_cap`).  A
+    capped format is never NATIVE_COMPARABLE; the cap reason is published as
+    ``formatTimingCap`` and inside ``formatAuthority``.
+    """
     reg = registry if registry is not None else DEFAULT_REGISTRY
     axes = compare_formats(src, tgt)
     authority = format_authority(axes)
+    timing_cap = format_timing_cap(observation)
+    authority["formatTimingCap"] = timing_cap
+    if timing_cap is not None:
+        # Timing is checked BEFORE any translator: a post-trade capture cannot
+        # be made comparable by transforming it either.
+        return {
+            "disposition": TARGET_UNSUPPORTED,
+            "strongestUnsupportedAxis": strongest_unsupported_axis(axes) or FORMAT_TIMING_AXIS,
+            "comparability": axes,
+            "formatAuthority": authority,
+            "formatTimingCap": timing_cap,
+            "translation": None,
+        }
     if not authority["differentAxes"] and not authority["unknownAxes"]:
         return {
             "disposition": NATIVE_COMPARABLE,
             "strongestUnsupportedAxis": None,
             "comparability": axes,
             "formatAuthority": authority,
+            "formatTimingCap": None,
             "translation": None,
         }
     translator = reg.validated_for(src, tgt)
@@ -709,6 +858,7 @@ def disposition(
             "strongestUnsupportedAxis": strongest_unsupported_axis(axes),
             "comparability": axes,
             "formatAuthority": authority,
+            "formatTimingCap": None,
             "translation": {
                 "originalObservationId": observation.get("underlyingTradeId")
                 or observation.get("observationId"),
@@ -726,6 +876,7 @@ def disposition(
         "strongestUnsupportedAxis": strongest_unsupported_axis(axes),
         "comparability": axes,
         "formatAuthority": authority,
+        "formatTimingCap": None,
         "translation": None,
     }
 

@@ -168,6 +168,9 @@ class DiscoveryResult:
     # Counted here, not debug-logged only: a silent rise means discovery rows
     # are losing the format facts the ledger must never infer.
     market_format_capture_failures: int = 0
+    # Outcomes of the dated format capture (``league_format_capture``):
+    # ``new`` / ``unchanged`` / ``incomplete``.
+    market_format_captures: dict[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -186,6 +189,7 @@ class DiscoveryResult:
             "frontierUsers": len(self.frontier_users),
             "frontierLeagues": len(self.frontier_leagues),
             "marketFormatCaptureFailures": self.market_format_capture_failures,
+            "marketFormatCaptures": dict(self.market_format_captures),
             "errors": self.errors,
         }
 
@@ -206,21 +210,45 @@ def _league_roster_count_ok(league: dict[str, Any], cfg: dict[str, Any]) -> bool
     return lo <= n <= hi
 
 
-def _capture_market_format(league: dict[str, Any]) -> dict[str, Any] | None:
-    """Host-format capture for the trade ledger; ``None`` on any failure so a
-    format problem can never break discovery itself (the caller COUNTS the
-    failure in :class:`DiscoveryResult`)."""
+def _record_market_formats(
+    observed: list[tuple[dict[str, Any], int]], conn: Any, result: DiscoveryResult
+) -> None:
+    """Append dated host-format captures for the trade ledger
+    (``src/sharp/league_format_capture.py``) from league objects this run
+    ALREADY fetched.  A capture problem can never break discovery itself: each
+    failure is COUNTED in :class:`DiscoveryResult`, never only debug-logged —
+    a silent rise would mean the ledger is losing format facts it must never
+    infer."""
+    if not observed:
+        return
+    from src.sharp import league_format_capture as lfc  # noqa: PLC0415
+
+    for league, captured_ms in observed:
+        try:
+            outcome = lfc.record_capture(
+                conn, league, captured_ms=captured_ms, source=lfc.SOURCE_DISCOVERY
+            )
+        except Exception:  # noqa: BLE001
+            log.debug("market format capture failed for a league", exc_info=True)
+            result.market_format_capture_failures += 1
+            continue
+        result.market_format_captures[outcome] = result.market_format_captures.get(outcome, 0) + 1
+
+
+def _ensure_format_capture_schema(conn: Any) -> bool:
+    """Create the capture tables and run the one-shot legacy-snapshot
+    migration BEFORE ``upsert_leagues`` runs: that upsert replaces
+    ``settings_json`` wholesale, so migrating afterwards would lose every
+    earlier-dated ``marketFormat`` snapshot a re-discovered league carried."""
+    from src.sharp import league_format_capture as lfc  # noqa: PLC0415
+
     try:
-        from datetime import datetime, timezone  # noqa: PLC0415
-
-        from src.trade.market_trade_format import capture_sleeper_league_format  # noqa: PLC0415
-
-        return capture_sleeper_league_format(
-            league, captured_at=datetime.now(timezone.utc).isoformat()
-        )
+        lfc.ensure_schema(conn)
+        conn.commit()
+        return True
     except Exception:  # noqa: BLE001
-        log.debug("market format capture failed for a league", exc_info=True)
-        return None
+        log.warning("league format capture schema unavailable", exc_info=True)
+        return False
 
 
 def discover(
@@ -289,6 +317,8 @@ def discover(
     users_batch: list[dict[str, Any]] = []
     leagues_batch: list[dict[str, Any]] = []
     memberships: list[tuple[str, str, str | None]] = []
+    # (league object, fetch ms) for the dated format capture.
+    format_observed: list[tuple[dict[str, Any], int]] = []
     deepest = 0
 
     while (league_q or user_q) and b.can_call():
@@ -402,9 +432,13 @@ def discover(
                     )
 
                 settings = lg.get("settings") if isinstance(lg.get("settings"), dict) else {}
-                market_format = _capture_market_format(lg)
-                if market_format is None:
-                    result.market_format_capture_failures += 1
+                # The league's REAL format rides in the object this call
+                # already returned — no extra request.  Recorded as a DATED,
+                # append-only capture at persistence time (never as an
+                # overwrite inside settings_json), so the Market Trade Ledger
+                # can pick the format in force at each trade's timestamp and
+                # never infers it from the manager who led us here.
+                format_observed.append((lg, int(time.time() * 1000)))
                 leagues_batch.append(
                     {
                         "league_id": lid,
@@ -419,13 +453,6 @@ def discover(
                                 "signalEligible": signal_ok,
                                 "sharpEligible": sharp_ok,
                                 "ageSeasons": league_filter.league_age_seasons(lg),
-                                # The league's REAL format, from the league
-                                # object this call already returned — no
-                                # extra request.  Read by the Market Trade
-                                # Ledger (src/trade/market_trade_format.py),
-                                # which must never infer a league's format
-                                # from the manager who led us to it.
-                                "marketFormat": market_format,
                                 # How the league entered the sample (spec
                                 # §19.1 provenance), not who is a sharp.
                                 # FIRST-seen route; ``_keep_first_seen_
@@ -452,6 +479,7 @@ def discover(
     # nothing rather than duplicating.
     conn = ledger.connect(ledger_path)
     try:
+        capture_schema_ok = _ensure_format_capture_schema(conn)
         if users_batch:
             ledger.upsert_users(users_batch, conn=conn)
         if leagues_batch:
@@ -459,6 +487,11 @@ def discover(
             ledger.upsert_leagues(leagues_batch, conn=conn)
         if memberships:
             ledger.upsert_memberships(memberships, conn=conn)
+        if capture_schema_ok:
+            _record_market_formats(format_observed, conn, result)
+        else:
+            result.market_format_capture_failures += len(format_observed)
+        conn.commit()
     finally:
         conn.close()
 

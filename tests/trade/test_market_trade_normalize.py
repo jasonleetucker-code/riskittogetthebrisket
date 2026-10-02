@@ -185,6 +185,27 @@ def _trade_events(tx="T1", league="L-SYN-1"):
     ]
 
 
+#: A re-check AFTER every fixture trade (2026-10-03T00:00Z) — the bracket's
+#: confirming observation (``league_format_capture.confirm_after_trade``).
+CONFIRM_MS = 1_790_985_600_000
+
+
+def confirm_formats(intel, leagues, *, at_ms=CONFIRM_MS):
+    """Record a later re-observation of each league's SAME payload, so a
+    capture taken before a fixture trade is bracketed (exact at trade time).
+    Call after ``upsert_leagues`` (the schema step migrates legacy snapshots)."""
+    from src.sharp import league_format_capture as lfc
+
+    conn = ledger.connect(intel)
+    try:
+        lfc.ensure_schema(conn)
+        for lg in leagues:
+            lfc.record_capture(conn, lg, captured_ms=at_ms, source="test_recheck")
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def _league_row(league_id="L-SYN-1", *, captured=True, via="u9"):
     lg = sleeper_league(league_id)
     settings = {"type": 2, "bestBall": 1, "signalEligible": True, "sharpEligible": True}
@@ -215,7 +236,10 @@ class TestSleeperDiscoveryLane:
         assert sigs == [["mpick:2027:r1", "player:1001"], ["player:2001"]]
         edge = next(a for a in _assets(obs) if a["canonicalId"] == "player:2001")
         assert edge["position"] == "DL" and edge["truePosition"] == "DE"
-        assert obs["formatSource"] == "host_capture_via_discovery"
+        # A legacy settings snapshot captured 00:00 for a 15:00 trade is the
+        # capture in force at the trade.
+        assert obs["formatSource"] == "sleeper_league_capture_full"
+        assert obs["formatEvidence"]["timing"] == "at_or_before_trade"
         assert obs["_format"].idp_enabled is True
         assert obs["sampleProvenance"]["discovery"] == {"generation": 1, "viaUserId": "u9"}
 
@@ -273,18 +297,25 @@ def test_discovery_captures_the_real_league_format_without_extra_calls(intel):
         },
         "limits": {"maxUsersPerRun": 100, "maxLeaguesPerRun": 100},
     }
-    discovery.discover(http_get=http, seeds=seeds, ledger_path=intel)
+    res = discovery.discover(http_get=http, seeds=seeds, ledger_path=intel)
     conn = ledger.connect(intel)
     try:
         settings = json.loads(
             conn.execute("SELECT settings_json FROM leagues WHERE league_id='L-DISC'").fetchone()[0]
         )
+        caps = conn.execute(
+            "SELECT capture_source, payload_json FROM sharp_league_format_captures "
+            "WHERE league_id='L-DISC'"
+        ).fetchall()
     finally:
         conn.close()
-    mf = settings["marketFormat"]
+    assert len(caps) == 1 and caps[0][0] == "discovery_user_leagues"
+    mf = json.loads(caps[0][1])
     assert mf["roster_positions"][:2] == ["QB", "RB"]
     assert mf["scoring_settings"]["idp_sack"] == 2.92
+    assert "marketFormat" not in settings, "no undated overwrite inside settings_json"
     assert settings["discovery"]["viaUserId"] == "u1"
+    assert res.to_dict()["marketFormatCaptures"] == {"new": 1}
     assert not any("/league/L-DISC" == c.split(base)[-1] for c in calls), "no extra league fetch"
 
 
@@ -345,7 +376,13 @@ def test_format_capture_failures_are_counted_in_the_result(intel, monkeypatch):
     res = _discover_via(intel, "u1")
     assert res.market_format_capture_failures == 1
     assert res.to_dict()["marketFormatCaptureFailures"] == 1
-    assert _disc_settings(intel)["marketFormat"] is None, "discovery itself still succeeds"
+    assert _disc_settings(intel)["discovery"]["viaUserId"] == "u1", "discovery still succeeds"
+    conn = ledger.connect(intel)
+    try:
+        n = conn.execute("SELECT COUNT(*) FROM sharp_league_format_captures").fetchone()[0]
+    finally:
+        conn.close()
+    assert n == 0
 
 
 def test_host_capture_upgrades_a_ktc_row_from_the_same_league(intel):
@@ -355,5 +392,14 @@ def test_host_capture_upgrades_a_ktc_row_from_the_same_league(intel):
     k = N.normalize_ktc_row(_raw(ktc_row(1, [11], [12])), IDENT, ctx())
     obs = sleeper_rows + [k]
     assert N.attach_host_formats(obs) == 1
-    assert k["formatSource"] == "host_capture_via_discovery"
+    # The only capture (2026-10-01 00:00) is not provably before a KTC trade
+    # dated 2026-10-01 in an unstated timezone: used, but never as exact.
+    assert k["formatSource"] == "sleeper_league_capture_post_trade"
+    assert k["formatEvidence"]["exactAtTradeTime"] is False
     assert k["vendorFormat"]["source"] == "ktc_vendor_settings"
+    later = N.normalize_ktc_row(
+        _raw(ktc_row(2, [11], [12], date="2026-10-05T00:00:00")), IDENT, ctx()
+    )
+    assert N.attach_host_formats(sleeper_rows + [later]) == 1
+    assert later["formatSource"] == "host_capture_via_discovery"
+    assert later["formatEvidence"]["timing"] == "at_or_before_trade"

@@ -35,7 +35,7 @@ from tests.trade.market_trade_fixtures import (
     ktc_settings,
     sleeper_league,
 )
-from tests.trade.test_market_trade_normalize import _ev
+from tests.trade.test_market_trade_normalize import _ev, confirm_formats
 
 TARGET = F.format_from_sleeper_league(sleeper_league("TGT"))
 
@@ -140,13 +140,16 @@ def _league_row(league_id: str, lg: dict | None, *, teams: int = 12, ltype: int 
 
 def _seed(env, *, with_ktc: bool = True, non_dynasty: bool = False) -> None:
     rows = []
+    captured = []  # re-observed after the trades: the bracket's confirmation
     for tx, lid in zip(EXACT_TX, EXACT_LEAGUES):
         ledger.ingest_events(_events(tx, lid), path=env["intel"])
-        rows.append(_league_row(lid, sleeper_league(lid)))
+        captured.append(sleeper_league(lid))
+        rows.append(_league_row(lid, captured[-1]))
     near_scoring = dict(TARGET_SCORING) | {"idp_sack": 4.0}
     for tx, lid in zip(NEAR_TX, NEAR_LEAGUES):
         ledger.ingest_events(_events(tx, lid), path=env["intel"])
-        rows.append(_league_row(lid, sleeper_league(lid, scoring=near_scoring)))
+        captured.append(sleeper_league(lid, scoring=near_scoring))
+        rows.append(_league_row(lid, captured[-1]))
     if non_dynasty:
         # Identical lineup AND card to the target — only the game type differs
         # (redraft, keeper) or is unstated.  None of them may ever be EXACT.
@@ -167,10 +170,12 @@ def _seed(env, *, with_ktc: bool = True, non_dynasty: bool = False) -> None:
     )
     ledger.ingest_events(_events(OFFENSE_TX, OFFENSE_LEAGUE, idp=False), path=env["intel"])
     rows.append(_league_row(OFFENSE_LEAGUE, off, teams=10))
+    captured.append(off)
     # A discovery league whose format was never captured: everything UNKNOWN.
     ledger.ingest_events(_events(PARTIAL_TX, PARTIAL_LEAGUE), path=env["intel"])
     rows.append(_league_row(PARTIAL_LEAGUE, None))
     ledger.upsert_leagues(rows, path=env["intel"])
+    confirm_formats(env["intel"], captured)
     if not with_ktc:
         return
     index = KTC_INDEX + [{"playerName": "Echo Edge", "playerID": 21, "position": "DL"}]
