@@ -2187,10 +2187,15 @@ after the trade, that saw the SAME payload hash with no different hash between
 log of unchanged re-observations plus later captures).  The nearest prior
 capture alone only SELECTS the axes — a capture months old certifies nothing.
 `formatEvidence` travels onto the group and
-`market_trade_format.format_timing_cap` holds every unproven case at
-TARGET_UNSUPPORTED with the reason named — `format_unconfirmed_after_trade`,
-`format_changed_after_trade`, post-trade, trade-time-unknown, undated snapshot
-(→ BROAD_CONTEXT when that tier lands).  Latency: exact at the league's next
+`market_trade_format.format_timing_cap` holds every unproven case off
+NATIVE_COMPARABLE with the reason named — `format_unconfirmed_after_trade`,
+`format_changed_after_trade`, post-trade, trade-time-unknown, undated snapshot.
+Such a verified-dynasty trade is BROAD_CONTEXT `timing_limited`
+(`targetPriceAuthority` 0) — the fourth disposition, owner decision 2
+(2026-10-01): NATIVE / VALIDATED_TRANSFORMABLE carry authority 1, BROAD_CONTEXT
+(differs / unknown / untranslated / timing-limited) and TARGET_UNSUPPORTED (hard
+insufficiency only) carry 0; definitions in
+`docs/market_trades/TARGET_FORMAT_CENSUS.md`.  Latency: exact at the league's next
 observation (discovery / roster crawl daily, else the weekly catch-up re-check).
 Residual: a change AND revert strictly between two observations is invisible.  Dynasty leagues only (best ball and
 non-target dynasty formats kept); retention via `prune_captures` from

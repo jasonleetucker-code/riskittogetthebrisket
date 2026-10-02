@@ -181,7 +181,15 @@ def _seed(env, *, with_ktc: bool = True, non_dynasty: bool = False) -> None:
     index = KTC_INDEX + [{"playerName": "Echo Edge", "playerID": 21, "position": "DL"}]
     t_dup, t_mfl, t_nolg = KTC_TRADE_IDS
     dup = ktc_row(t_dup, [11, 902], [21], settings=ktc_settings(EXACT_LEAGUES[0]))
-    mfl = ktc_row(t_mfl, [13], [12], settings=ktc_settings(SECRET_MFL, platform="mfl", qbs=1))
+    # The MFL trade also carries a STARTUP pick: its identity is known but no
+    # market prices it, so the trade is BROAD_CONTEXT (includes_unpriceable_asset),
+    # never a hard unresolved-asset failure.
+    mfl = ktc_row(
+        t_mfl,
+        [13, "Startup Pick 1.05"],
+        [12],
+        settings=ktc_settings(SECRET_MFL, platform="mfl", qbs=1),
+    )
     nolg = ktc_row(t_nolg, [14], [12], settings=ktc_settings("") | {"id": None})
     f = A.FetchRecord(
         fetch_id="f1",
@@ -371,25 +379,45 @@ def test_small_cells_are_suppressed_and_rare_values_folded(built):
     }
 
 
-def test_broad_context_is_reported_not_invented(built):
+def test_broad_context_is_counted_from_the_disposition_owner(built):
     c = R.target_format_census(built)
     b = c["sections"]["broadContextReconciliation"]
-    assert b["expressibleByCurrentDispositions"] is False
+    assert b["expressibleByCurrentDispositions"] is True
+    assert b["targetPriceAuthority"] == 0
     disp = c["sections"]["dispositions"]
-    assert b["targetUnsupportedTrades"] == disp[F.TARGET_UNSUPPORTED]
-    cand = b["candidateBroadContext"]
+    assert set(disp) <= set(F.DISPOSITIONS)
+    assert b["broadContextTrades"] == disp[F.BROAD_CONTEXT]
+    assert b["targetUnsupportedTrades"] == disp.get(F.TARGET_UNSUPPORTED, 0)
+    assert sum(b["broadContextByKind"].values()) == b["broadContextTrades"]
     assert (
-        cand["total"] + b["unsupportedOrUnverifiedDynastyNotVerified"]
-        == (b["targetUnsupportedTrades"])
+        sum(sum(v.values()) for v in b["broadContextByKindAndDynastyBasis"].values())
+        == (b["broadContextTrades"])
     )
-    # The partial league's dynasty type IS stated on its discovery row, so it is a
-    # verified-dynasty unknown-only candidate; KTC rows carry a source-level claim.
+    cand = b["formerCandidateBroadContext"]
+    # #1595's population, re-applied: verified dynasty, not native.
+    assert cand["total"] == cand["nowBroadContext"] + cand["nowTargetUnsupportedHardFailure"]
+    # Four mutually exclusive buckets partition the population exactly.
+    assert cand["total"] == sum(
+        sum(cand[k].values())
+        for k in (
+            "verifiedDynastyKnownMismatchByDynastyBasis",
+            "verifiedDynastyTimingLimitedAllObservedMatchByDynastyBasis",
+            "verifiedDynastyUnknownOnlyByDynastyBasis",
+            "verifiedDynastyNativeFormatIntegrityFailureByDynastyBasis",
+        )
+    )
+    # The startup pick in the MFL trade is identified-but-unpriceable: counted
+    # as a BROAD_CONTEXT reason, never as a hard unresolved-asset failure.
+    assert b["broadContextByReason"]["includes_unpriceable_asset"] == 1
+    assert "unresolved_assets" not in b["targetUnsupportedByReason"]
+    # KTC rows carry a source-level dynasty claim; the partial league's dynasty
+    # type IS stated on its discovery row (format otherwise unknown).
     assert "source_level_claim:ktc_dynasty_trade_database" in (
         cand["verifiedDynastyKnownMismatchByDynastyBasis"]
         | cand["verifiedDynastyUnknownOnlyByDynastyBasis"]
     )
-    # Dispositions are untouched: still exactly #1586's three.
-    assert set(disp) <= {F.NATIVE_COMPARABLE, F.VALIDATED_TRANSFORMABLE, F.TARGET_UNSUPPORTED}
+    assert b["broadContextByKind"].get(F.BROAD_FORMAT_MISMATCH, 0) >= 6  # 5 near + offense
+    assert b["broadContextByReason"]["no_validated_translator"] >= 6
 
 
 def test_census_writes_nothing_to_the_ledger_and_is_deterministic(env):

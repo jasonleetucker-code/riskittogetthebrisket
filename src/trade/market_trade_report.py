@@ -96,6 +96,10 @@ def build_ledger(
         g["comparability"] = d["comparability"]
         g["formatAuthority"] = d["formatAuthority"]
         g["translation"] = d["translation"]
+        # Owner decision 2: BROAD_CONTEXT / TARGET_UNSUPPORTED carry 0.
+        g["targetPriceAuthority"] = d["targetPriceAuthority"]
+        g["broadContextKind"] = d["broadContextKind"]
+        g["dispositionReasons"] = d["dispositionReasons"]
     return {
         "observations": observations,
         "grouping": grouping,
@@ -420,7 +424,10 @@ def evaluation_report(
 # EXACT or NEAR; a VERIFIED non-dynasty league (redraft, keeper) is
 # ``NOT_DYNASTY``, however closely its lineup and card match.
 
-CENSUS_VERSION = "al2a-target-format-census-v1"
+#: v2 (owner decision 2): BROAD_CONTEXT is a disposition; the reconciliation
+#: section counts it and splits timing-limited all-MATCH trades out of
+#: "unknown only" (where v1 filed them).
+CENSUS_VERSION = "al2a-target-format-census-v2"
 CENSUS_MIN_CELL = 5
 SUPPRESSED = "<5"
 UNKNOWN_CELL = "UNKNOWN"
@@ -486,25 +493,73 @@ IDP_SCORING_CATEGORIES: dict[str, tuple[str, ...]] = {
     "blockedKick": ("idp_blk_kick",),
 }
 
-#: Spec §4 (``MARKET_TRADE_LEDGER_ACTIONABILITY_SPEC.md``) names a BROAD
-#: MARKET CONTEXT state that #1586's three dispositions do not carry.  This
-#: unit does NOT change those semantics; it publishes a descriptive
-#: partition of TARGET_UNSUPPORTED under this declared rule.
+#: BROAD_CONTEXT is a real disposition since owner decision 2 (2026-10-01),
+#: decided by ``market_trade_format.disposition`` — this census only COUNTS it.
+#: The #1595 descriptive candidate rule is kept, re-applied to the verified
+#: dynasty non-native population, so the bootstrap census (three dispositions)
+#: and later ones (four) can be reconciled line by line.
 BROAD_CONTEXT_RULE: dict[str, Any] = {
-    "authority": "descriptive_only_not_a_disposition",
-    "candidateIf": "disposition == TARGET_UNSUPPORTED and dynastyState axis == MATCH",
-    "why": (
-        "spec §4: broad context is useful as context but not represented as same-format "
-        "evidence; the dynasty lane fails closed, so a trade whose dynasty state is not "
-        "verified is UNSUPPORTED / UNVERIFIED, never context"
+    "authority": "disposition_decided_by_market_trade_format_targetPriceAuthority_0",
+    "definition": (
+        "verified dynasty transaction with trustworthy identity/topology where one or more "
+        "material target-format dimensions differ, are unknown, or have no validated "
+        "translator; targetPriceAuthority = 0"
+    ),
+    "kinds": {
+        mtf.BROAD_FORMAT_MISMATCH: (
+            "at least one axis DIFFERENT and no validated translator (outranks unknown axes "
+            "and timing: a known difference cannot be target-like)"
+        ),
+        mtf.BROAD_FORMAT_UNKNOWN: (
+            "no axis DIFFERENT and at least one axis UNKNOWN, or no format observed; a "
+            "timing cap, if any, is an additional reason"
+        ),
+        mtf.BROAD_TIMING_LIMITED: (
+            "every axis observed and MATCH, but no valid evidence brackets the format at "
+            "trade time; never implies exactness"
+        ),
+    },
+    "kindPrecedence": [
+        "hard_failure (TARGET_UNSUPPORTED)",
+        mtf.BROAD_FORMAT_MISMATCH,
+        mtf.BROAD_FORMAT_UNKNOWN,
+        mtf.BROAD_TIMING_LIMITED,
+    ],
+    "unpriceableAssets": (
+        "an asset whose identity is known but which no market prices (startup pick, "
+        "grammar-refused pick with a real round 1-20) is not a hard failure: BROAD_CONTEXT "
+        "of its format's kind, reason includes_unpriceable_asset (a NATIVE trade stays "
+        "NATIVE, authority 1, with the same reason); a pick round outside 1-20 is unresolved"
+    ),
+    "targetUnsupportedIs": (
+        "hard insufficiency only: redraft / keeper / unverified dynasty state, unusable "
+        "transaction identity, analysis-blocking unresolved assets (unknown identity or "
+        "unparseable asset label), invalid topology; the integrity gate runs before the "
+        "NATIVE check (owner TARGET_UNSUPPORTED definition)"
+    ),
+    "formerCandidateRule": (
+        "#1595: dynastyState axis == MATCH and disposition not NATIVE_COMPARABLE / "
+        "VALIDATED_TRANSFORMABLE (then all TARGET_UNSUPPORTED)"
     ),
     "split": {
         "verifiedDynastyKnownMismatch": "at least one axis DIFFERENT",
-        "verifiedDynastyUnknownOnly": "no axis DIFFERENT, at least one axis UNKNOWN",
+        "verifiedDynastyTimingLimitedAllObservedMatch": (
+            "every axis observed and MATCH and a format timing cap "
+            "(market_trade_format.broad_context_kind == timing_limited)"
+        ),
+        "verifiedDynastyUnknownOnly": (
+            "no axis DIFFERENT and at least one axis UNKNOWN or no format observed, timing "
+            "capped or not (broad_context_kind == format_unknown)"
+        ),
+        "verifiedDynastyNativeFormatIntegrityFailure": (
+            "every axis MATCH and timing not capped, kept off NATIVE only by a transaction "
+            "integrity failure (broad_context_kind is None); NATIVE under v1, which did not "
+            "gate NATIVE on integrity"
+        ),
     },
     "dynastyBasisCaveat": (
         "a KTC row's dynasty state is a SOURCE-LEVEL claim (the KTC dynasty trade database), "
-        "not a host league setting; candidates are split by that basis"
+        "not a host league setting; counts are split by that basis"
     ),
 }
 
@@ -1134,41 +1189,89 @@ def target_format_census(result: Mapping[str, Any]) -> dict[str, Any]:
             if g.get("disposition") == mtf.NATIVE_COMPARABLE:
                 pos_native[fam] = pos_native.get(fam, 0) + 1
 
-    # ── BROAD_CONTEXT reconciliation (descriptive partition only) ───────
-    known_mismatch: dict[str, int] = {}
-    unknown_only: dict[str, int] = {}
-    not_verified = 0
+    # ── BROAD_CONTEXT (a disposition since owner decision 2) ────────────
+    # The disposition and its kind/reasons come from market_trade_format; this
+    # section only counts them, and re-applies #1595's candidate rule to the
+    # verified-dynasty non-native population so a three-disposition census and
+    # a four-disposition census can be reconciled.
+    def _reason_counts(gs: Sequence[Mapping[str, Any]]) -> dict[str, int]:
+        out: dict[str, int] = {}
+        for g in gs:
+            for r in g.get("dispositionReasons") or ():
+                out[r] = out.get(r, 0) + 1
+        return dict(sorted(out.items()))
+
+    def _inc(bucket: dict[str, int], key: str) -> None:
+        bucket[key] = bucket.get(key, 0) + 1
+
+    broad_groups = [g for g in groups if g.get("disposition") == mtf.BROAD_CONTEXT]
     unsupported = [g for g in groups if g.get("disposition") == mtf.TARGET_UNSUPPORTED]
-    for g in unsupported:
+    by_kind_basis: dict[str, dict[str, int]] = {}
+    for g in broad_groups:
+        _inc(
+            by_kind_basis.setdefault(str(g.get("broadContextKind")), {}),
+            _fmt_of(g).dynasty_basis or UNKNOWN_CELL,
+        )
+    known_mismatch: dict[str, int] = {}
+    timing_all_match: dict[str, int] = {}
+    unknown_only: dict[str, int] = {}
+    native_format_integrity: dict[str, int] = {}
+    former_total = former_broad = former_unsupported = 0
+    not_verified = 0
+    for g in groups:
+        if g.get("disposition") in (mtf.NATIVE_COMPARABLE, mtf.VALIDATED_TRANSFORMABLE):
+            continue
         c = comp(g)
         if c["dynastyState"]["state"] != mtf.MATCH:
             not_verified += 1
             continue
+        former_total += 1
+        if g.get("disposition") == mtf.BROAD_CONTEXT:
+            former_broad += 1
+        else:
+            former_unsupported += 1
         basis = _fmt_of(g).dynasty_basis or UNKNOWN_CELL
-        bucket = (
-            known_mismatch
-            if any(c[n]["state"] == mtf.DIFFERENT for n in mtf.AXES)
-            else unknown_only
+        # The disposition owner's own sub-kind rule (one definition, mutually
+        # exclusive kinds: mismatch > unknown > timing_limited).  v1 filed
+        # timing-capped all-observed-MATCH trades under "unknown only" — a
+        # mislabel (review note); they are split out here, and a timing-capped
+        # trade with an UNKNOWN axis is "unknown only", never timing-limited.
+        kind = mtf.broad_context_kind(
+            _fmt_of(g), c, (g.get("formatAuthority") or {}).get("formatTimingCap")
         )
-        bucket[basis] = bucket.get(basis, 0) + 1
+        bucket = {
+            mtf.BROAD_FORMAT_MISMATCH: known_mismatch,
+            mtf.BROAD_FORMAT_UNKNOWN: unknown_only,
+            mtf.BROAD_TIMING_LIMITED: timing_all_match,
+            None: native_format_integrity,
+        }[kind]
+        _inc(bucket, basis)
     broad = {
-        "expressibleByCurrentDispositions": False,
-        "reason": (
-            "#1586 implements NATIVE_COMPARABLE / VALIDATED_TRANSFORMABLE / TARGET_UNSUPPORTED; "
-            "spec §4's BROAD MARKET CONTEXT and UNSUPPORTED / UNVERIFIED both land in "
-            "TARGET_UNSUPPORTED. This report-only unit does not change those semantics."
-        ),
+        "expressibleByCurrentDispositions": True,
+        "disposition": mtf.BROAD_CONTEXT,
+        "targetPriceAuthority": mtf.TARGET_PRICE_AUTHORITY[mtf.BROAD_CONTEXT],
+        "broadContextTrades": len(broad_groups),
+        "broadContextByKind": _dist([g.get("broadContextKind") for g in broad_groups]),
+        "broadContextByKindAndDynastyBasis": {
+            k: dict(sorted(v.items())) for k, v in sorted(by_kind_basis.items())
+        },
+        "broadContextByReason": _reason_counts(broad_groups),
         "targetUnsupportedTrades": len(unsupported),
-        "candidateBroadContext": {
+        "targetUnsupportedByReason": _reason_counts(unsupported),
+        "formerCandidateBroadContext": {
             "verifiedDynastyKnownMismatchByDynastyBasis": dict(sorted(known_mismatch.items())),
+            "verifiedDynastyTimingLimitedAllObservedMatchByDynastyBasis": dict(
+                sorted(timing_all_match.items())
+            ),
             "verifiedDynastyUnknownOnlyByDynastyBasis": dict(sorted(unknown_only.items())),
-            "total": sum(known_mismatch.values()) + sum(unknown_only.values()),
+            "verifiedDynastyNativeFormatIntegrityFailureByDynastyBasis": dict(
+                sorted(native_format_integrity.items())
+            ),
+            "total": former_total,
+            "nowBroadContext": former_broad,
+            "nowTargetUnsupportedHardFailure": former_unsupported,
         },
         "unsupportedOrUnverifiedDynastyNotVerified": not_verified,
-        "followUp": (
-            "a fourth disposition in market_trade_format.disposition needs an owner-approved "
-            "definition of BROAD_CONTEXT; recorded as a follow-up, not implemented here"
-        ),
     }
 
     group_pin = hashlib.sha256("\n".join(sorted(tid(g) for g in groups)).encode("utf-8"))
