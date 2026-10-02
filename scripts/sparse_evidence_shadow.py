@@ -14,6 +14,12 @@ the scrape-cadence budget (``SCORING_SNAPSHOT_MAX_AGE_HOURS``, 6 h) -- or with n
 scrape time at all -- is refused with exit 3 rather than reported as "already
 recorded"; ``--allow-stale`` records it anyway (an operator backfill).
 
+Each recorded (or already recorded) line also yields prospective learning
+receipts (AL-1a, ``src/model_registry/producer_receipts.py``) in
+``data/learning/receipts.sqlite``: OBSERVATION / FEATURES / MODEL / CHALLENGER /
+one PREDICTION per side, pointing at the stored line. A receipt failure is logged
+and never changes the exit code or the ledger; ``--no-learning-receipts`` skips it.
+
 Exit codes: 0 recorded (or already recorded); 1 no payload found or a write
 error; 2 a built contract came back structurally wrong; 3 the newest payload is
 stale or its age is unknown.
@@ -85,7 +91,48 @@ def cmd_record(args: argparse.Namespace) -> int:
         f"age={record['board'].get('payloadAgeHours')}h "
         f"scoped={record['counts'].get('scoped', 0)} states={record['evidenceStates']}"
     )
+    emit_learning_receipts(args, record)
     return 0
+
+
+def _stored_line(base: Path, key: str) -> tuple[str, dict] | None:
+    """The line AS STORED for ``key`` and the file holding it.
+
+    A re-run on a recorded board returns a freshly stamped copy, not the stored
+    line, so receipts are always built from what the ledger actually holds."""
+    for path in shadow.ledger_files(base):
+        for rec in shadow.iter_records(path):
+            if rec.get("key") == key:
+                return path.name, rec
+    return None
+
+
+def emit_learning_receipts(args: argparse.Namespace, record: dict) -> None:
+    """AL-1a prospective receipts for the stored line. Never raises, never changes
+    the exit code: the ledger line is already durable when this runs."""
+    if getattr(args, "no_learning_receipts", False) or not record.get("key"):
+        return
+    try:
+        from src.model_registry import producer_receipts as pr  # noqa: PLC0415
+        from src.model_registry.feature_dictionary import load_dictionary  # noqa: PLC0415
+    except Exception as exc:  # noqa: BLE001 -- receipts must never break the recorder
+        log(f"learning receipts NOT written: {type(exc).__name__}: {exc}")
+        return
+
+    def build():
+        found = _stored_line(Path(args.dir), str(record["key"]))
+        if found is None:
+            raise LookupError(f"ledger line {record['key']} not found under {args.dir}")
+        name, stored = found
+        return pr.sparse_evidence_receipts(stored, ledger_name=name, dictionary=load_dictionary())
+
+    store = getattr(args, "learning_store", None)
+    pr.emit_safely(
+        build,
+        label="sparse-evidence shadow",
+        path=Path(store) if store else None,
+        log=log,
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -98,6 +145,16 @@ def main(argv: list[str] | None = None) -> int:
         "--allow-stale",
         action="store_true",
         help="record a payload older than the staleness budget (operator backfill)",
+    )
+    rec.add_argument(
+        "--learning-store",
+        default=None,
+        help="learning-receipt store (default data/learning/receipts.sqlite)",
+    )
+    rec.add_argument(
+        "--no-learning-receipts",
+        action="store_true",
+        help="do not emit AL-1a learning receipts for the recorded line",
     )
     rec.set_defaults(func=cmd_record)
     args = ap.parse_args(argv)

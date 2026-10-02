@@ -24,6 +24,11 @@ Wants=network-online.target
 # Idempotent: one line per (payload, code revision, inputs, estimator
 # version); a re-run on an unchanged board is a no-op.
 #
+# Learning receipts (Adaptive Learning AL-1a): each stored line also yields
+# prospective receipts in data/learning/receipts.sqlite (inside the write scope
+# below; the store refuses any other in-repo path). A receipt failure is logged
+# and never changes the exit code or the ledger.
+#
 # Exit codes (scripts/sparse_evidence_shadow.py):
 #   0 - recorded (or already recorded)
 #   1 - soft failure (no payload found, write error)

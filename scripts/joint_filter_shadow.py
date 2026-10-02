@@ -24,6 +24,13 @@ Subcommands:
                 ``--full-pipeline``, through the whole build).
 ``summary``     a compact per-board census for committing as evidence.
 
+Learning receipts (AL-1a, ``src/model_registry/producer_receipts.py``): ``record``
+emits OBSERVATION / FEATURES / MODEL / CHALLENGER / one PREDICTION per filter for
+the stored ledger line, and ``evaluate`` emits one EVALUATION receipt (with the
+producer's sample sizes and verdict), into ``data/learning/receipts.sqlite``. A
+receipt failure is logged and never changes an exit code or a ledger byte;
+``--no-learning-receipts`` skips them.
+
 Exit codes (repo convention):
     0  recorded / evaluated (including an idempotent no-op)
     1  soft failure (no payload found, git history unavailable, write error)
@@ -269,11 +276,89 @@ def cmd_record(args: argparse.Namespace) -> int:
         f"disagree_rows={rec['counts'].get('rowsDisagree', 0)} "
         f"safeguards={rec['safeguardsFired']}"
     )
+    emit_record_receipts(args, rec)
     if args.then_evaluate:
         return cmd_evaluate(
-            argparse.Namespace(dir=args.dir, mode=R.MODE_LIVE, out=None, sensitivities=False)
+            argparse.Namespace(
+                dir=args.dir,
+                mode=R.MODE_LIVE,
+                out=None,
+                sensitivities=False,
+                learning_store=getattr(args, "learning_store", None),
+                no_learning_receipts=getattr(args, "no_learning_receipts", False),
+            )
         )
     return 0
+
+
+# ── learning receipts (AL-1a) ───────────────────────────────────────────
+
+
+def _receipt_tools() -> tuple[Any, Any] | None:
+    try:
+        from src.model_registry import producer_receipts as pr  # noqa: PLC0415
+        from src.model_registry.feature_dictionary import load_dictionary  # noqa: PLC0415
+    except Exception as exc:  # noqa: BLE001 -- receipts must never break the recorder
+        log(f"learning receipts NOT written: {type(exc).__name__}: {exc}")
+        return None
+    return pr, load_dictionary
+
+
+def _store_path(args: argparse.Namespace) -> Path | None:
+    store = getattr(args, "learning_store", None)
+    return Path(store) if store else None
+
+
+def emit_record_receipts(args: argparse.Namespace, rec: dict) -> None:
+    """Receipts for the line AS STORED (a re-run on a recorded board returns a
+    freshly stamped copy). Never raises; the ledger line is already durable."""
+    if getattr(args, "no_learning_receipts", False) or not rec.get("key"):
+        return
+    tools = _receipt_tools()
+    if tools is None:
+        return
+    pr, load_dictionary = tools
+    base = Path(args.dir)
+
+    def build():
+        path = L.ledger_path(base)
+        stored = next((r for r in L.iter_records(path) if r.get("key") == rec["key"]), None)
+        if stored is None:
+            raise LookupError(f"ledger line {rec['key']} not found in {path}")
+        return pr.robust_filter_receipts(
+            stored, ledger_name=path.name, dictionary=load_dictionary()
+        )
+
+    pr.emit_safely(build, label="robust-filter shadow record", path=_store_path(args), log=log)
+
+
+def emit_evaluation_receipt(
+    args: argparse.Namespace, result: dict, boards: list, out: Path
+) -> None:
+    """One EVALUATION receipt for this evaluation run. Never raises."""
+    if getattr(args, "no_learning_receipts", False):
+        return
+    tools = _receipt_tools()
+    if tools is None:
+        return
+    pr, load_dictionary = tools
+
+    def build():
+        prereg = REPO_ROOT / str(result.get("preregistration") or "")
+        prereg_sha = R.file_sha256(prereg) if prereg.is_file() else None
+        return [
+            pr.robust_evaluation_receipt(
+                result,
+                [b.record for b in boards],
+                evaluation_name=out.name,
+                evaluator_revision=_git("rev-parse", "HEAD").strip(),
+                dictionary=load_dictionary(),
+                ledger_name=L.LEDGER_NAME,
+                preregistration_sha256=prereg_sha,
+            )
+        ]
+
+    pr.emit_safely(build, label="robust-filter shadow evaluation", path=_store_path(args), log=log)
 
 
 # ── historical backfill ─────────────────────────────────────────────────
@@ -548,6 +633,7 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     )
     decision = (result["primary"] or {}).get("decision") or {}
     log(f"evaluation -> {out} verdict={decision.get('verdict')}")
+    emit_evaluation_receipt(args, result, boards, out)
     return 0
 
 
@@ -629,6 +715,17 @@ def main(argv: list[str] | None = None) -> int:
     os.environ.setdefault("PYTHONUTF8", "1")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--dir", type=Path, default=L.DEFAULT_DIR, help="ledger directory")
+    parser.add_argument(
+        "--learning-store",
+        type=Path,
+        default=None,
+        help="learning-receipt store (default data/learning/receipts.sqlite)",
+    )
+    parser.add_argument(
+        "--no-learning-receipts",
+        action="store_true",
+        help="do not emit AL-1a learning receipts (record and evaluate)",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
     p = sub.add_parser("record")
     p.add_argument("--then-evaluate", action="store_true")
