@@ -350,6 +350,36 @@ before the workflow exits red.
 The normal registry rollback remains the explicit emergency undo for a
 post-deployment issue.
 
+## Learning receipts (Adaptive Learning AL-1a step 4)
+
+The refit commits evidence, never receipts: the CI runner has no persistent
+`data/learning/`. After each deploy lands, `deploy/deploy.sh`
+(`record_hill_learning_receipts`, non-fatal, `timeout 300`) runs
+`scripts/hill_learning_receipts.py` with `RISKIT_RECEIPTS_ENABLED=1`, which reads
+the committed `config/model_registry/` evidence through the AL-0 Hill adapters
+into the box-local `data/learning/receipts.sqlite`:
+
+- MODEL (+ CHALLENGER for challenger / rejected) per registry entry, anchored at
+  `fittedAt` and carrying fit-time facts only;
+- an OBSERVATION per `promotedAt` / `appliedAt` / `retiredAt`, anchored at that
+  stamp, and an OBSERVATION per observed change of `status` + `notes` (which
+  carry no time), anchored at the deploy's read time — an upper bound on when the
+  state took effect, never claimed as the transition;
+- MODEL + FEATURES per training run (the integrity-checked artifact, else the
+  registry summary once the artifact is pruned);
+- one OBSERVATION per Autopilot adjudication, outcome carried verbatim (e.g.
+  `AUTO_PROMOTION_BLOCKED` / `no_independent_validation_target`). The
+  adjudication is the PROMOTION RECORD question of the plan, but AL-0 refuses
+  that kind, so it is labelled an observation of what the producer established.
+
+**No Hill holdout EVALUATION is receipted.** The holdout is scored on the fit's
+own snapshot, so its window ends before the fit: it is retrospective, and the
+receipt contract has no retrospective marker. Identities are the producers' own
+ids (no `revision`, which the contract reserves for corrections) and no body
+holds a later fact, so re-running over unchanged evidence stores only
+duplicates; a disposition change adds one timed observation and moves nothing
+else. The script never promotes, applies, or passes `--override-scope`.
+
 ## Remaining work before GLOBAL/IDP auto-promotion
 
 Autopilot intentionally does **not** manufacture evidence. GLOBAL and IDP need
