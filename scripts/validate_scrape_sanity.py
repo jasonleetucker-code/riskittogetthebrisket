@@ -58,8 +58,8 @@ COLLAPSE_EXEMPT = {
 # input.  The row floor and the collapse ratio exist to stop a degraded SOURCE
 # board voting; neither question applies to a sidecar, so they do not block on
 # one.  The numeric-signal check still applies (rows present but every value
-# empty/0 is a broken write whatever the file is for), and a drop is still
-# REPORTED as a non-blocking warning so it stays visible.
+# empty/0 is a broken write whatever the file is for), and an empty sidecar or
+# a drop is still REPORTED as a non-blocking warning so it stays visible.
 #
 # ``dlfValuesSfTepPicks`` — the pick rows of DLF's Trade Analyzer Values page,
 # written by ``scripts/fetch_dlf.py`` (``picks_out``) "for the pick audit —
@@ -134,7 +134,18 @@ def evaluate(name: str, cur_text: str | None, prev_text: str | None) -> tuple[st
     if name in AUDIT_SIDECARS:
         if cur_rows > 0 and not _has_any_numeric_signal(cur_text):
             return "error", f"{name}: no numeric signal in any column ({cur_rows} rows)"
+        # Empty warns on EVERY run, not only on the run that emptied it: the
+        # box pushes this file straight to main, so in scheduled-refresh the
+        # working tree equals HEAD and a cur-vs-prev drop is never observable
+        # here.  Empty must never print as "OK".
         prev_rows = len(_data_rows(prev_text)) if prev_text else 0
+        if cur_rows == 0:
+            dropped = f" (dropped {prev_rows} -> 0)" if prev_rows else ""
+            return (
+                "warn",
+                f"{name}: audit-only sidecar has 0 data rows{dropped} — the vendor "
+                "published none (not a source; non-blocking)",
+            )
         if cur_rows < prev_rows:
             return (
                 "warn",
