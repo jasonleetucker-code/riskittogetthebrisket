@@ -96,3 +96,10 @@ tzdata~=2026.1; sys_platform == "win32"
 # Without nfl_data_py installed, every src/nfl_data/* fetch returns
 # [] (guarded import in ingest._nfl_data_py_or_none()) — no crash,
 # observable via /api/status.nflDataProvider.installed=False.
+
+# DFS lineup optimizer (src/dfs/optimizer.py): HiGHS MILP through
+# scipy.optimize.milp.  BSD (scipy/numpy) + MIT (HiGHS).  Imported lazily
+# inside the solver so server startup never pays for it.  Decision record:
+# docs/dfs/DECISIONS.md ADR-DFS-001.
+numpy~=2.0
+scipy~=1.13

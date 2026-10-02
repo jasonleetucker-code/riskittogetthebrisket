@@ -49,6 +49,8 @@ PRIVATE_API_PATHS = [
     "/api/admin/nfl-data/flush",
     "/api/admin/sessions/force-logout-all",
     "/api/admin/signal-state/migrate",
+    # Signals Fantasy second opinion (#1555): authenticated surfaces only.
+    "/api/second-opinion/signals",
 ]
 PRIVATE_POST_PATHS = {
     "/api/trade/suggestions",

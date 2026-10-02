@@ -1,0 +1,337 @@
+/* /dfs workspace — PSI Direction A. Semantic tokens only; layout by rules,
+   alignment and spacing; no new radii, shadows, colours or breakpoints
+   (canonical 480/768/1024 only). */
+
+.workspace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-strong);
+}
+
+.inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  max-width: 72ch;
+}
+
+.missing {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  font-style: italic;
+}
+
+.sourceMark {
+  font-size: var(--font-size-2xs);
+  color: var(--text-tertiary);
+  text-decoration: none;
+}
+
+.player {
+  font-weight: var(--font-weight-semibold);
+}
+
+.importGrid,
+.controlGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.controlGrid {
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+}
+
+.textarea {
+  width: 100%;
+  min-height: 5rem;
+  font-family: var(--font-data);
+  font-size: var(--font-size-xs);
+  resize: vertical;
+}
+
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+}
+
+.actions,
+.exportRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.ruleButtons {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.objective {
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  margin: 0 0 var(--space-3);
+  padding: var(--space-2) 0 0;
+  min-width: 0;
+}
+
+.objective legend {
+  font-size: var(--font-size-xs);
+  font-family: var(--font-data);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.summary,
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  margin: 0;
+}
+
+.facts dt {
+  font-size: var(--font-size-2xs);
+  font-family: var(--font-data);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+
+.facts dd {
+  margin: 0;
+  font-size: var(--font-size-md);
+  color: var(--text-primary);
+}
+
+.list {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-5);
+  font-size: var(--font-size-sm);
+}
+
+.resultHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.meta {
+  font-size: var(--font-size-xs);
+  font-family: var(--font-data);
+  color: var(--text-tertiary);
+}
+
+.lineup {
+  border-top: 1px solid var(--border-strong);
+  padding-top: var(--space-2);
+}
+
+.lineupTotals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.subhead {
+  margin: var(--space-2) 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  font-family: var(--font-data);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.detected {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.providerBox {
+  margin-top: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.tableScroll {
+  max-width: 100%;
+  overflow-x: auto;
+  background: var(--surface-1);
+}
+
+.freshness {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.freshness caption {
+  text-align: left;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-data);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+  padding-bottom: var(--space-1);
+}
+
+/* A plain <table>: neutralize the legacy global th/td rules (globals.css
+   dark sticky header, pointer cursor, nowrap) that ds DataTable overrides
+   for itself — they failed WCAG AA contrast here (axe, dfs-workspace.spec.js). */
+.freshness th,
+.freshness td {
+  background: transparent;
+  position: static;
+  cursor: auto;
+  user-select: auto;
+  white-space: normal;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+
+.freshness thead th {
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border-strong);
+}
+
+.curve {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.multi {
+  width: 100%;
+  min-height: 8rem;
+  font-size: var(--font-size-sm);
+}
+
+.cellInput {
+  width: 5rem;
+}
+
+.rangeInputs {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.rangeInputs .cellInput {
+  width: 3.5rem;
+}
+
+.provenance summary {
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+  .importGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.autoList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.autoList > li {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 4px);
+  min-width: 0;
+}
+
+.autoActive {
+  border-color: var(--border-strong) !important;
+  background: var(--surface-1);
+}
+
+.autoHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.advanced {
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-2);
+}
+
+.advanced > summary {
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+/* Long labels wrap instead of pushing the page sideways at phone width. */
+.wrapBtn {
+  white-space: normal;
+  max-width: 100%;
+  height: auto;
+  text-align: left;
+}

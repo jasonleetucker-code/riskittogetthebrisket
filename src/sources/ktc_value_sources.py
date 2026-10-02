@@ -550,9 +550,13 @@ def write_capture_artifacts(
 ) -> set[str]:
     """Persist the three KTC source modes and one provenance sidecar.
 
-    This is the ONE writer for KTC three-source artifacts. Crowd/Trades are
-    diagnostic same-family observations; writing them does not register votes.
-    Missing Tradesourced values are omitted from its CSV rather than zeroed.
+    This is the ONE writer for KTC three-source artifacts. Writing a CSV
+    registers nothing: whether a file votes is decided only by
+    ``src/api/data_contract.py::_RANKING_SOURCES``. Since the 2026-09-23
+    owner directive Crowd and Trades ARE registered model inputs (families
+    ``ktcCrowd`` / ``ktcTrades``); Crowd+Trades is the benchmark only and is
+    refused registration. Missing Tradesourced values are omitted from its CSV
+    rather than zeroed.
     """
     validate_capture_set(captures)
     site_raw_dir.mkdir(parents=True, exist_ok=True)

@@ -42,6 +42,10 @@ import ResilientSection from "@/components/ResilientSection";
 import { PageHeader, Tabs, tabId, tabPanelId, Select } from "@/components/ds";
 import { LoadingState, EmptyState } from "@/components/ui";
 import { PUBLIC_SECTION_KEYS, fetchPublicSection } from "@/lib/public-league-data";
+import {
+  DRAFT_CAPITAL_YEAR_PARAM,
+  serializeDraftCapitalYear,
+} from "@/lib/draft-capital-years";
 import { buildManagerLookup } from "./shared.jsx";
 import leagueNavStyles from "./league-shared.module.css";
 import {
@@ -158,6 +162,10 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
   const urlTab = normalizeTabKey(rawUrlTab);
   const urlOwner = searchParams.get("owner") || "";
   const urlWeek = searchParams.get("week") || "";
+  // Draft Capital year selector — the URL is the source of truth, so the
+  // selection survives reload, back/forward and direct links.  Validation
+  // against the seasons the payload carries happens in the section.
+  const urlYear = searchParams.get(DRAFT_CAPITAL_YEAR_PARAM) || "";
   const normalizedInitialTab = normalizeTabKey(initialTab);
 
   const [activeTab, setActiveTabState] = useState(
@@ -207,11 +215,25 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
       intentRef.current = { tab: normalized, deadline: performance.now() + RESOLVED_DEADLINE_MS };
     }
     setActiveTabState(normalized);
+    // `?year=` belongs to the Draft Capital tab only; leaving it drops it.
+    const params =
+      normalized === "draft-capital"
+        ? extraParams
+        : { [DRAFT_CAPITAL_YEAR_PARAM]: null, ...extraParams };
     router.replace(
-      leagueTabHref(normalized, searchParams.toString(), extraParams),
+      leagueTabHref(normalized, searchParams.toString(), params),
       { scroll: false },
     );
   }, [router, searchParams]);
+
+  // `?year=` for the Draft Capital tab; null (All Years) removes the param.
+  const setDraftCapitalYear = useCallback(
+    (year) =>
+      setActiveTab("draft-capital", {
+        [DRAFT_CAPITAL_YEAR_PARAM]: serializeDraftCapitalYear(year),
+      }),
+    [setActiveTab],
+  );
 
   useEffect(() => {
     // Server-rendered page already handed us the contract — skip.
@@ -412,7 +434,12 @@ function LeaguePage({ initialContract = null, initialTab = DEFAULT_TAB }) {
         )
       ) : (
         <>
-      {activeTab === "draft-capital" && <DraftCapitalSection />}
+      {activeTab === "draft-capital" && (
+        <DraftCapitalSection
+          yearParam={urlYear}
+          setYear={setDraftCapitalYear}
+        />
+      )}
       {activeTab === "overview" && (
         <OverviewSection managers={managers} data={overview} onNavigate={setActiveTab} />
       )}

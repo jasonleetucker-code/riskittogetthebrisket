@@ -55,6 +55,7 @@ describe("private pages", () => {
       "/rosters",
       "/edge",
       "/bdvm",
+      "/dfs",
       "/intel",
       "/idptc-rookies",
       "/players/compare",

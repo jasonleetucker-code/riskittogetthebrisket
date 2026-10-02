@@ -345,6 +345,8 @@ _PRIVATE_FIELD_BLOCKLIST: frozenset[str] = frozenset(
         "source_health",
         "pickAliases",
         "pick_aliases",
+        # Signals Fantasy second opinion — authenticated surfaces only (#1555)
+        "signalsPositionalRank",
     )
 )
 

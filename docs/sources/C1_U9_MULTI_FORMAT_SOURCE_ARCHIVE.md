@@ -181,6 +181,54 @@ than guessed at).
 | 3 | a scrape completes and the board is unchanged | **PARTIAL** | a post-deploy scrape completed at 17:32:33→17:34:35Z, `overall_status: complete`, `partial_run: false`, no failed/timed-out sources, and `contract.health` reports `ok: true` with `structuralErrors: []` / `sourceHealthErrors: []` over 1109 players. **Strict value-inertness is NOT re-measurable here**: `board_diff --expect-no-value-change` needs a pre-deploy production board snapshot, and none was taken. It was measured on this box pre-merge (§ inertness); that is what stands, and saying so is more useful than presenting a healthy scrape as if it were the same statement |
 | 4 | KTC ladder capture | **N/A** | not landed yet; the check is written for a future unit |
 
+### 7b. AL-P3 addendum (2026-10-01) — the KTC ladder capture
+
+Check 4 now has a producer: `src/sources/ktc_format_archive.py`, called from `scrape_ktc` right
+after the selected-board capture. Measured on the live page 2026-10-01, the one `playersArray`
+carries **both** quarterback formats (`oneQBValues` / `superflexValues`, same 500 rows under
+`sf=true` and `sf=false`), each with the whole TE ladder and all three Value Source modes. So a
+run archives **eight** boards (`1qb_*` and `sf_*` x `off/tep/tepp/teppp`), not four, sharing one
+`run_id`, all `provider_family: ktc`, with zero extra requests (one in-page read, no navigation).
+`ARCHIVE_ELIGIBLE` gained the four `ktc:1qb_*` keys; `PRODUCTION_ELIGIBLE` stays empty. Schema v3
+adds a nullable `provenance_json` column (payload hash, variant label, fetch time, page URL),
+outside `content_hash`. Default cadence is one full ladder per UTC day (~1.5 MB);
+`RISKIT_KTC_FORMAT_ARCHIVE_CADENCE=every_run` archives every scrape. Off by default on GitHub
+Actions runners (ephemeral; `data/source_archive/` is not force-added). The production half of
+check 4 is still to be observed on the box after deploy.
+
+**It can never cost the scrape its KTC board.** The call runs last in `scrape_ktc`, after
+`match_all` and the TE++ stash, and only when what is left of the KTC source limit
+(`_ktc_source_timeout_s()`, the same value the orchestrator's `asyncio.wait_for` uses, minus time
+spent since `scrape_ktc` started) covers the archive's worst case (`required_budget_s()`: 20 s read
++ 5 s total lock wait + 10 s slack = 35 s). Otherwise it is skipped before any page read or
+database access, with `skippedRun: insufficient_source_budget:...` in the `format_archive_done`
+telemetry step. The CSV bytes are unchanged by the move (the archive reads the page and writes only
+its own database).
+
+**Writes are all or nothing.** The eight boards go in one transaction on one connection
+(`store.archive_boards`, `BEGIN IMMEDIATE`); a lock or error part-way rolls the whole run back, so a
+later run never duplicates a half-written ladder. Total SQLite lock wait per run is bounded at
+5 s (shared by the cadence read and the write). `archive_board` (the Dynasty Nerds IDP caller) is a
+one-board call to the same writer, behaviour unchanged.
+
+**De-duplication.** A board whose content hash equals the most recent archived board for the same
+variant is not stored again. A `board_sightings` row records that the run saw it unchanged and names
+the board holding the content, so "no new board on a date" never has to be read as "unchanged":
+every run the writer saw has either a board or a sighting. The daily cadence counts sightings, so an
+unchanged day is still "done". Expect this to fire rarely for KTC: its content changes on almost every
+scrape (164 of 165 archives, `CLAUDE.md` "Content staleness").
+
+**Expected size, and there is no pruning.** About 1.5 MB per full ladder, so at the default daily
+cadence about 550 MB per year (de-duplication barely reduces that, see above). At
+`every_run` (12 scrapes a day) it is about 18 MB per day, roughly 6.5 GB per year, less any unchanged
+runs. Nothing prunes `data/source_archive/boards.sqlite`. It is append-only evidence by design, and a
+retention rule is a separate decision.
+
+**Follow-up for AL-P2 (not done here; AL-0 #1597 holds those files):** add
+`data/source_archive/boards.sqlite` to `deploy/backup/riskit-state-backup.sh` (SQLite online-backup,
+not a file copy, because it is WAL-mode) and a row to `docs/retention/RETENTION_REGISTER.md` stating
+the growth rate above and that there is no pruning.
+
 Item 3's residue is a *process* gap worth naming, because it will recur for every unit whose
 proof is "the board did not move": the snapshot has to be captured **before** the deploy, and
 nothing currently does that. Same shape as `scripts/backtest_perfect_draft.py --record-snapshot`,

@@ -158,8 +158,10 @@ _MAXIMAL_ROW: dict[str, Any] = {
     "def_interceptions": 2,
     "def_interception_yards": 60,
     "def_fumbles_forced": 2,
-    "def_fumble_recovery_own": 2,
-    "def_fumble_recovery_yards_own": 25,
+    # The OPPONENT-recovery columns idp_fum_rec / idp_fum_ret_yd read
+    # (2026-10-01: they read ``_own``, which the host does not pay).
+    "def_fumble_recovery_opp": 2,
+    "def_fumble_recovery_yards_opp": 25,
     "def_tds": 2,
     "def_safeties": 1,
     # ADDED 2026-08-18 (#802), with the idp_blk_kick reclassification.

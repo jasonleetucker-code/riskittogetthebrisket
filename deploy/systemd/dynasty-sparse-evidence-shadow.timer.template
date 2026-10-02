@@ -1,0 +1,20 @@
+[Unit]
+Description=Sparse-evidence estimator shadow ledger (twice daily, 08:05 and 20:05 UTC) for __SERVICE_NAME__
+# No Requires= on the service: [Timer] Unit= already binds it, and a
+# Requires= here would start the service on every boot and let a service
+# failure stop the timer. Persistent=true is the catch-up.
+
+[Timer]
+# Twice a day at :05 -- after the two-hourly data refresh has settled and
+# clear of the 07:10 board snapshot and 07:30 consensus-edge snapshot. The
+# question the ledger answers (where a single-family player's value goes on
+# LATER boards) needs one board per day; two give a spare against a missed run
+# without adding independent observations.
+OnCalendar=*-*-* 08,20:05:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+AccuracySec=1min
+Unit=__SERVICE_NAME__-sparse-evidence-shadow.service
+
+[Install]
+WantedBy=timers.target

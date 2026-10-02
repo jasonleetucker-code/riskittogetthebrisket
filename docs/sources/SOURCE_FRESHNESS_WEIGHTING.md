@@ -249,6 +249,25 @@ Clocks that do **not** move:
 
 These change health only. The last valid content is kept.
 
+### One board, two universes (flag `source_universe_freshness`, default ON — #1555 V2-1, 2026-09-30)
+
+A source that prices offense AND IDP players on one board (IDP Trade Calculator) can publish an
+IDP-only update large enough to count as a broad change for the whole board. Before this, row age was
+`max(row clock, board broad clock)`, so offense rows that did not move were credited with it. It was
+measured in the tracked state: 442 rows, the offense board, last changed 2026-08-28, while the broad
+events of 09-15 (184 rows) and 09-23 (28 rows) were IDP-only.
+
+`SubsetFreshness.universe_clock` derives each universe's latest broad change from the per-row clocks
+already kept. It is the latest time at which at least `max(5, 2%)` of that universe's rows last changed
+together, and it only **caps** the source clock (`min`), so evidence can only get older. It applies only
+where a subset spans two universes with at least 5 tracked rows each. Single-universe sources, EXPLICIT
+vendor timestamps and sources without row clocks are unchanged.
+
+Stated assumption: offense rows age against the source's learned cadence, because no per-universe
+cadence is recorded. Measured on the 2026-09-30 board: IDPTC offense freshness goes from 0.98 to 0.06;
+427 offense rows move (median |d| ~26, max 155); 4 top-200 membership changes; IDP and picks are
+unchanged. Rollback: `RISKIT_FEATURE_SOURCE_UNIVERSE_FRESHNESS=0` + restart.
+
 ### Publication style (derived from the last 20 change events, ≥ 5 required)
 
 | style | rule | freshness clock |

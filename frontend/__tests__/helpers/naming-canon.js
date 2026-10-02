@@ -67,6 +67,7 @@ export const CANON = {
   "/league": "Hub",
   "/league/activity": "Activity",
   "/league-comparison": "Scoring Comparison",
+  "/dfs": "DFS Workspace",
 };
 
 /**

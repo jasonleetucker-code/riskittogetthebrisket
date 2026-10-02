@@ -11,7 +11,11 @@ Usage:
 
 With --repo, the changed-file claim and path scope are checked against the
 actual diff between the artifact's pinned repo_head_start and repo_head_end in
-that local repository. Each check is printed with its evidence level.
+that local repository. With --ci-repo owner/name, a case's required CI
+workflows are checked against GitHub Actions' records for the pinned
+repo_head_end (read-only `gh api`). A success counts only with --repo and
+--trusted-ref, which prove the gate machinery at that revision matches trusted
+history. Each check is printed with its evidence level.
 
 Capturing a real interactive agent run against a case is a manual step:
 give the case's "objective" to an actual agent session, then transcribe the
@@ -47,6 +51,20 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Fail when the changed-file claim cannot be verified against --repo.",
     )
+    parser.add_argument("--ci-repo", help="GitHub owner/name whose Actions records to read.")
+    parser.add_argument(
+        "--trusted-ref",
+        help="Trusted ref in --repo for gate identity: a full SHA or refs/remotes/... / "
+        "refs/heads/... (e.g. refs/remotes/origin/main); short names can be shadowed by tags.",
+    )
+    parser.add_argument(
+        "--ci-base-branch", default="main", help="Branch PR runs must target (default main)."
+    )
+    parser.add_argument(
+        "--require-verified-ci",
+        action="store_true",
+        help="Fail when a required CI workflow cannot be verified.",
+    )
     args = parser.parse_args(argv)
 
     if args.list:
@@ -59,6 +77,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--case and --artifact are required unless --list is given")
     if args.require_verified_diff and args.repo is None:
         parser.error("--require-verified-diff needs --repo")
+    if args.require_verified_ci and args.ci_repo is None:
+        parser.error("--require-verified-ci needs --ci-repo")
 
     try:
         result = grade_file(
@@ -66,6 +86,10 @@ def main(argv: list[str] | None = None) -> int:
             Path(args.artifact),
             repo=args.repo,
             require_verified_diff=args.require_verified_diff,
+            ci_repo=args.ci_repo,
+            require_verified_ci=args.require_verified_ci,
+            trusted_ref=args.trusted_ref,
+            trusted_base=args.ci_base_branch,
         )
     except (CaseError, OSError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

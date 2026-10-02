@@ -26,7 +26,11 @@ def _candidate(version: int, c: float, s: float, criterion: float) -> CandidateS
     )
 
 
-def test_tournament_can_select_an_older_candidate_and_clear_when_evidence_persists():
+def test_tournament_can_select_an_older_candidate_and_clear_every_board_gate():
+    """Every board gate clears for the older v7. Since owner decision 1 that is
+    necessary, not sufficient: with no independent validation evidence the
+    outcome is AUTO_PROMOTION_BLOCKED (``test_independent_validation_gate.py``
+    covers the passing path with a synthetic, test-only target)."""
     candidates = [
         _candidate(6, 0.073, 1.130, 619.4),
         _candidate(7, 0.074, 1.150, 617.3),
@@ -41,7 +45,11 @@ def test_tournament_can_select_an_older_candidate_and_clear_when_evidence_persis
         forward_scores=forward,
         policy=AutopilotPolicy(),
     )
-    assert decision.ready
+    board = {k: v for k, v in decision.gates.items() if k != "independent_validation"}
+    assert all(board.values())
+    assert not decision.ready
+    assert decision.outcome == "AUTO_PROMOTION_BLOCKED"
+    assert decision.reason == "no_independent_validation_target"
     assert decision.winner_version == 7
     assert decision.stable_versions == (6, 7, 8)
     assert decision.forward_days == 5

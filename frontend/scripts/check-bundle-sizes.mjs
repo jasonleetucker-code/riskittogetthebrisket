@@ -181,6 +181,8 @@ const BUDGETS_KB = {
   "/settings/page": 60,  // bumped 50→55 for guest-pass admin panel (token reveal, list table, revoke); 55→60 for the Sharp Tracker intel section in the shared PlayerPopup chunk (useLeague + intel fetch, PR #534)
   "/login/page": 15,
   "/more/page": 10,
+  // /dfs (2026-09-30): 28.9 KB at introduction, pinned with ~15% headroom.
+  "/dfs/page": 34,
 };
 
 function fmtKb(bytes) {

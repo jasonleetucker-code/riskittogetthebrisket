@@ -22,19 +22,21 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useApp } from "@/components/AppShell";
 import { useUserState } from "@/components/useUserState";
 import { LoadingState, PlayerImage } from "@/components/ui";
 import {
   Badge,
   Button,
+  CollapsiblePanel,
   EmptyState,
   FailureState,
   Icon,
   Movement,
   Panel,
   PageHeader,
+  SkeletonText,
   StatTile,
   Tabs,
   tabId,
@@ -63,6 +65,13 @@ import {
   ValueExplainHelp,
 } from "@/components/ValueExplain";
 import styles from "./player-file.module.css";
+
+// The backend value explanation (value-explain/v2) is fetched on demand and
+// code-split: React.lazy + Suspense, the repo's established pattern (NOT
+// next/dynamic — see CLAUDE.md "Perfect Draft"). The collapsed panel below
+// does not mount it until opened, so neither the chunk nor the fetch costs
+// anything until a reader asks.
+const ValueExplainDetail = lazy(() => import("@/components/ValueExplainDetail"));
 
 function findRowByPlayerId(rows, rawParam) {
   if (!Array.isArray(rows) || !rawParam) return null;
@@ -430,6 +439,30 @@ export default function PlayerFilePage() {
           >
             <SourceFreshnessList row={row} rawData={rawData} />
           </Panel>
+          {/* The backend's own explanation of THIS value (private,
+              session-gated endpoint — this page is private; never render
+              it on a public /league page). Renders the contract verbatim:
+              no frontend recomputation of values, weights or confidence. */}
+          <CollapsiblePanel
+            title="How this value was computed"
+            subtitle="Estimator, every source's clocks and exclusions, and a leave-one-out"
+            defaultCollapsed
+            mountCollapsedChildren={false}
+            dense
+          >
+            <Suspense
+              fallback={
+                <div role="status" aria-label="Loading the value explanation">
+                  <SkeletonText lines={4} />
+                </div>
+              }
+            >
+              <ValueExplainDetail
+                playerKey={String(row.raw?.playerId || row.playerId || row.name || "")}
+                customMix={Boolean(rawData?.rankingsOverride?.isCustomized)}
+              />
+            </Suspense>
+          </CollapsiblePanel>
           {row?.assetClass === "pick" &&
             Number.isFinite(row?.pickProjectedDraftValue) &&
             Number(row?.pickProjectedDraftValueGain) > 0 && (

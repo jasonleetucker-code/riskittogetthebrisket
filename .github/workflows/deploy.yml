@@ -26,9 +26,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # One immutable target (owner decision C, 2026-10-01). The requested ref is
+  # resolved ONCE here to a full commit SHA; validate, the guard, the box command
+  # and the smoke identity all consume needs.resolve.outputs.sha. This job runs
+  # the WORKFLOW commit's resolver (never target-tree code) and holds no secrets.
+  resolve:
+    name: Resolve Deploy Target
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+      kind: ${{ steps.resolve.outputs.kind }}
+    steps:
+      - name: Checkout (workflow commit, full history for resolution)
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Resolve the requested ref to one full commit SHA
+        id: resolve
+        env:
+          REQUESTED_REF: ${{ inputs.deploy_ref }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          git fetch --quiet --tags --force origin
+          python3 scripts/resolve_deploy_ref.py --requested="${REQUESTED_REF:-}" --default="${WORKFLOW_SHA}"
+
   validate:
     name: Validate Build Inputs
     runs-on: ubuntu-latest
+    needs: resolve
     # Measured 2026-09-09: the last SUCCESSFUL deploy (run 34267910262,
     # 2026-09-08T19:15-19:35) finished in 19m59s -- one second inside the
     # old 20-minute budget. Every deploy since timed out mid-run (three in
@@ -43,7 +74,13 @@ jobs:
     # when the runner cancelled the job. Match PR Validation's 60-minute
     # ceiling so the deploy gate has enough wall-clock headroom without
     # weakening any test.
-    timeout-minutes: 60
+    # 60 -> 80 (2026-10-02), matching PR Validation (#1605): the full hard
+    # suite now routinely takes 58-60 min, and deploy run 36956966551
+    # (7e8d8cda) was cancelled at exactly 60:15 inside "Run unit tests" --
+    # the same silent deploy block this comment documents above. Runner
+    # headroom only; no test, gate or tolerance weakened; a finite hang
+    # bound remains.
+    timeout-minutes: 80
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -55,6 +92,22 @@ jobs:
           # fetch-depth: 0). A regression reaching production via
           # force-push or workflow_dispatch would have been ungated.
           fetch-depth: 0
+          # The resolved target, not the workflow commit: what is validated
+          # is what ships (a dispatch with deploy_ref used to validate main).
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Assert the validated tree is the resolved target
+        env:
+          TARGET_SHA: ${{ needs.resolve.outputs.sha }}
+          WORKFLOW_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "${TARGET_SHA}" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::resolved target is not a full SHA"; exit 1; }
+          HEAD_SHA="$(git rev-parse HEAD)"
+          echo "Workflow definition: ${WORKFLOW_SHA}"
+          echo "Validated target:    ${HEAD_SHA}"
+          [[ "${HEAD_SHA}" == "${TARGET_SHA}" ]] || { echo "::error title=Validate checkout mismatch::validating ${HEAD_SHA}, resolved ${TARGET_SHA}"; exit 1; }
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -261,18 +314,35 @@ jobs:
   deploy:
     name: Deploy To Production
     runs-on: ubuntu-latest
-    needs: validate
+    needs: [resolve, validate]
     timeout-minutes: 25
     environment: production
+    env:
+      # The one resolved target; every step below consumes it.
+      DEPLOY_TARGET_SHA: ${{ needs.resolve.outputs.sha }}
     steps:
       # This job did not previously check out the repo — it only needed
       # SSH.  The deploy-skip guard below does merge-base ancestry
       # between the sha being deployed and the sha already in
       # production, so it needs real history here.
+      # The deploy job runs the WORKFLOW commit's own helpers (the smoke's
+      # scripts/scrape_activity.py, for one) so a rollback to an older target
+      # cannot remove the tooling this job executes. The target is consumed as
+      # DEPLOY_TARGET_SHA, never as the checked-out tree.
       - name: Checkout (full history for the deploy-skip guard)
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
+      - name: Assert the resolved target is present in this clone
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          [[ "${DEPLOY_TARGET_SHA:-}" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::resolved target is not a full SHA"; exit 1; }
+          git fetch --quiet --tags --force origin
+          git cat-file -e "${DEPLOY_TARGET_SHA}^{commit}" || { echo "::error title=Target missing::${DEPLOY_TARGET_SHA} is not a commit in this clone"; exit 1; }
+          echo "Workflow definition: ${GITHUB_SHA}"
+          echo "Deploy target:       ${DEPLOY_TARGET_SHA}"
 
       - name: Preflight validate deploy inputs (no SSH)
         env:
@@ -443,14 +513,12 @@ jobs:
       # minutes cancelled the middle deploy (run 30217214959).
       - name: Guard against skipping or reversing a deploy
         env:
-          DEPLOY_REF_INPUT: ${{ inputs.deploy_ref }}
           ALLOW_NON_FF: ${{ inputs.allow_non_fast_forward }}
           LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE: ${{ vars.PROD_LAST_SUCCESSFUL_DEPLOY_COMMIT_FILE || '/home/dynasty/.deploy-state/trade-calculator.last_successful_deploy_commit' }}
         shell: bash
         run: |
           set -Eeuo pipefail
 
-          DEPLOY_REF="${DEPLOY_REF_INPUT:-${GITHUB_SHA}}"
           SSH_PORT="${DEPLOY_PORT_RESOLVED}"
           TARGET="${DEPLOY_USER_RESOLVED}@${DEPLOY_HOST_RESOLVED}"
 
@@ -470,13 +538,16 @@ jobs:
             || true
           )"
 
-          TARGET_SHA="$(git rev-parse --verify "${DEPLOY_REF}^{commit}" 2>/dev/null || true)"
-          if [[ -z "${TARGET_SHA}" ]]; then
-            echo "::error title=Unknown deploy ref::'${DEPLOY_REF}' does not resolve to a commit in this checkout."
+          # Resolved once by the resolve job; never re-resolved here.
+          TARGET_SHA="${DEPLOY_TARGET_SHA:-}"
+          if [[ ! "${TARGET_SHA}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error title=No resolved deploy target::needs.resolve.outputs.sha is missing or not a full SHA."
             exit 1
           fi
           echo "Deploying:      ${TARGET_SHA}"
           echo "In production:  ${LAST_DEPLOYED:-<none recorded>}"
+          # Exported before any early exit below, for the post-deploy build check.
+          echo "DEPLOY_TARGET_SHA=${TARGET_SHA}" >> "$GITHUB_ENV"
 
           if [[ -z "${LAST_DEPLOYED}" ]]; then
             echo "::notice title=No deploy baseline::No last-successful-deploy commit recorded; skipping the ancestry check. This is expected on a first deploy."
@@ -549,7 +620,6 @@ jobs:
 
       - name: Run remote deploy script
         env:
-          DEPLOY_REF_INPUT: ${{ github.event.inputs.deploy_ref }}
           APP_NAME: ${{ vars.PROD_APP_NAME || 'riskittogetthebrisket' }}
           APP_USER: ${{ vars.PROD_APP_USER || 'dynasty' }}
           APP_DIR: ${{ vars.PROD_APP_DIR || '/home/dynasty/trade-calculator' }}
@@ -567,11 +637,12 @@ jobs:
         run: |
           set -Eeuo pipefail
 
-          DEPLOY_REF="${DEPLOY_REF_INPUT:-${GITHUB_SHA}}"
-          [[ -n "${DEPLOY_REF}" ]] || { echo "::error title=Missing DEPLOY_REF::Unable to determine deploy ref."; exit 1; }
-
-          if [[ "${DEPLOY_REF}" =~ [[:space:]] ]]; then
-            echo "::error title=Invalid DEPLOY_REF::deploy_ref cannot contain whitespace."
+          # The box receives the resolved full SHA only -- never the raw input,
+          # so it cannot resolve a branch name to a newer commit than the one
+          # validated and guarded, and nothing unvalidated reaches the remote shell.
+          DEPLOY_REF="${DEPLOY_TARGET_SHA:-}"
+          if [[ ! "${DEPLOY_REF}" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error title=Invalid deploy target::resolved target is not a full commit SHA."
             exit 1
           fi
 
@@ -630,12 +701,13 @@ jobs:
           if [[ ! -f "\${APP_DIR}/deploy/deploy.sh" ]]; then
             echo "[remote] deploy/deploy.sh missing before run; attempting git bootstrap."
             git -C "\${APP_DIR}" fetch --prune --tags origin
+            git -C "\${APP_DIR}" fetch origin "\${DEPLOY_REF}" 2>/dev/null || true
+            # DEPLOY_REF is always the resolved full SHA: bootstrap from it or
+            # stop -- never leave the box's tree on the branch instead.
             if git -C "\${APP_DIR}" rev-parse --verify --quiet "\${DEPLOY_REF}^{commit}" >/dev/null; then
               git -C "\${APP_DIR}" checkout --force "\${DEPLOY_REF}"
-            elif git -C "\${APP_DIR}" rev-parse --verify --quiet "origin/\${DEPLOY_BRANCH}^{commit}" >/dev/null; then
-              git -C "\${APP_DIR}" checkout --force "origin/\${DEPLOY_BRANCH}"
             else
-              echo "[remote] Unable to resolve \${DEPLOY_REF} or origin/\${DEPLOY_BRANCH} during bootstrap." >&2
+              echo "[remote] Unable to resolve \${DEPLOY_REF} during bootstrap." >&2
               exit 22
             fi
           fi
@@ -645,7 +717,10 @@ jobs:
           # blocking deployments that include deploy-script fixes.
           # Write to a temp file first so a failed git-show does not truncate
           # the existing script to zero bytes.
-          git -C "\${APP_DIR}" fetch --prune origin 2>/dev/null || true
+          git -C "\${APP_DIR}" fetch --prune --tags origin 2>/dev/null || true
+          # The target may be absent from the box's last branch/tag fetch:
+          # fetch it by id.
+          git -C "\${APP_DIR}" fetch origin "\${DEPLOY_REF}" 2>/dev/null || true
           if git -C "\${APP_DIR}" rev-parse --verify --quiet "\${DEPLOY_REF}^{commit}" >/dev/null 2>&1; then
             _tmp_deploy="\${APP_DIR}/deploy/.deploy.sh.tmp"
             if git -C "\${APP_DIR}" show "\${DEPLOY_REF}:deploy/deploy.sh" > "\${_tmp_deploy}" 2>/dev/null && [[ -s "\${_tmp_deploy}" ]]; then
@@ -838,6 +913,45 @@ jobs:
           # remote script already succeeded.
           check_endpoint "/api/health" "200|503"
           check_endpoint "/api/status" 200
+
+          # Deployed is not verified: the process must report the commit this
+          # workflow shipped (``build.commit``, read once at import by
+          # src/api/build_identity.py). A mismatch means the old process is still
+          # serving or a different tree was checked out; ``null`` means the box
+          # cannot say, which is not a pass either.
+          if [[ -z "${DEPLOY_TARGET_SHA:-}" ]]; then
+            echo "::error title=No deploy target recorded::DEPLOY_TARGET_SHA is empty; cannot verify the served build."
+            FAIL=$((FAIL + 1))
+          else
+            # Only an UNREADABLE status (e.g. the startup scrape's blocking
+            # browser phase) is retried; a readable build block -- a commit, or
+            # null with its reason -- decides at once, so a stale process fails fast.
+            _build=""
+            for _attempt in $(seq 1 20); do
+              _build="$(curl --silent --globoff --max-time 15 "${URL}/api/status" \
+                | jq -c '.build // empty' 2>/dev/null || true)"
+              [[ -n "${_build}" ]] && break
+              sleep 10
+            done
+            _note=""
+            if [[ -z "${_build}" ]]; then
+              _note=" (status unreadable after retries)"
+              _build="{}"
+            fi
+            _served="$(jq -r '.commit // empty' <<<"${_build}" 2>/dev/null || true)"
+            _why="$(jq -r '.unavailable_reason // empty' <<<"${_build}" 2>/dev/null || true)"
+            [[ -n "${_why}" ]] && _note=" (${_why})"
+            if [[ -n "${_served}" && "${_served}" == "${DEPLOY_TARGET_SHA}" ]]; then
+              echo "PASS build.commit == ${DEPLOY_TARGET_SHA}"
+              PASS=$((PASS + 1))
+            else
+              # For a manual deploy by branch name the box resolves the name
+              # after its own fetch, so it can ship a newer commit than the
+              # guard resolved: the message names what the guard resolved.
+              echo "::error title=Served build mismatch::/api/status reports build.commit '${_served:-<none>}'${_note}; the deploy guard resolved ${DEPLOY_TARGET_SHA}."
+              FAIL=$((FAIL + 1))
+            fi
+          fi
           # /api/data is intentionally gated by _private_api_gate in
           # server.py — an unauthenticated probe MUST return 401.
           # Expecting 401 here verifies the auth gate is active; a 200

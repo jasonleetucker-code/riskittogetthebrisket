@@ -78,6 +78,7 @@ from src.api.data_contract import (
     validate_api_data_contract,
 )
 from src.api import gameplan as _gameplan
+from src.api.build_identity import PROCESS_BUILD
 from src.api import matchup_intel as _matchup_intel
 from src.api import roster_intelligence as _roster_intelligence
 from src.api import guest_passes as _guest_passes
@@ -3879,6 +3880,16 @@ from src.auction.api import router as _auction_router  # noqa: E402
 
 app.include_router(_auction_router)
 
+# DFS workspace (owner directive 2026-09-30, docs/dfs/README.md).  Private:
+# /api/dfs/* stays behind ``_private_api_gate`` and every handler also
+# resolves its owner from this process's session store, scoping every
+# record by owner.  Isolated from dynasty valuation — reads/writes only
+# ``data/dfs/``.  Rollback: RISKIT_FEATURE_DFS_WORKSPACE=0 + restart.
+from src.dfs import api as _dfs_api  # noqa: E402
+
+_dfs_api.configure_session_resolver(lambda request: _get_auth_session(request))
+app.include_router(_dfs_api.router)
+
 
 @app.middleware("http")
 async def _count_requests(request: Request, call_next):
@@ -5150,6 +5161,28 @@ async def get_rankings_sources():
     )
 
 
+@app.get("/api/second-opinion/signals")
+async def get_signals_second_opinion():
+    """Signals Fantasy as a NON-VOTING, rank-only second opinion (#1555).
+
+    Authenticated by the private ``/api/*`` gate (this path is in no public
+    allowlist).  Reads the box-local private store written by
+    ``scripts/fetch_signals.py``; a missing store answers
+    ``status: "not_collected"``, never an empty-but-ok board.  Positional
+    ranks only — no value, no cross-position rank, nothing canonical.
+    Owner: ``src/sources/signals.py``.
+    """
+    from src.sources import signals as _signals  # noqa: PLC0415
+
+    contract = latest_contract_data or {}
+    payload = await run_in_threadpool(
+        _signals.build_second_opinion_payload,
+        DATA_DIR / "sources" / "signals",
+        contract.get("playersArray") or [],
+    )
+    return JSONResponse(content=payload, headers={"Cache-Control": "private, no-store"})
+
+
 @app.post("/api/rankings/overrides")
 async def post_rankings_overrides(request: Request):
     """Rebuild the canonical rankings with user-supplied source overrides.
@@ -5708,6 +5741,9 @@ async def get_status():
     return JSONResponse(
         content={
             **status_payload,
+            # Which commit this process is running, read once at import. Deploy
+            # verification compares it with the commit the workflow shipped.
+            "build": dict(PROCESS_BUILD),
             "contract": {
                 "version": API_DATA_CONTRACT_VERSION,
                 "health": contract_health,
@@ -6329,7 +6365,11 @@ async def get_player_value_explain(player: str):
             status_code=404,
             content={"error": "player_not_found", "player": player},
         )
-    return JSONResponse(content=player_explain(contract, row))
+    try:
+        stamps = _per_source_freshness()
+    except Exception:  # noqa: BLE001 — fetch stamps are informative only
+        stamps = {}
+    return JSONResponse(content=player_explain(contract, row, stamps))
 
 
 @app.get("/api/scaffold/status")
@@ -10731,6 +10771,10 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         all_picks.append(
             {
                 "pick": f"{rnd}.{str(slot).zfill(2)}",
+                # The workbook is ONE draft (72 rows = 12 slots x 6 rounds)
+                # for ``league_season``; stamping it per row lets the
+                # season-scoped views read every board the same way.
+                "season": league_season,
                 "round": rnd,
                 "pickInRound": slot,
                 "overallPick": overall_idx + 1,
@@ -10841,7 +10885,7 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
     )
     ktc_count = len([r for r in rookies if not r["name"].startswith("Rookie #")]) if rookies else 0
 
-    return {
+    result = {
         "picks": all_picks,
         "teamTotals": [{"team": t, "auctionDollars": v} for t, v in sorted_teams],
         "totalBudget": total_budget,
@@ -10853,6 +10897,17 @@ def _fetch_draft_capital(league_key: str | None = None, *, apply_sleeper_trades:
         "ktcTotalFilled": len(rookies),
         "rookieSource": rookie_source,
     }
+    # Per-season views for the /league year selector.  The workbook carries
+    # ONE season, and its team totals are the sheet's Q-column decimals
+    # rounded to the budget (not a sum of the L-column per-pick dollars the
+    # rows display), so that season's capital IS each team's existing total —
+    # handed over explicitly rather than re-summed into a different number.
+    from src.api.draft_capital_years import attach_year_views  # noqa: PLC0415
+
+    return attach_year_views(
+        result,
+        capital_by_team_year={t: {league_season: v} for t, v in team_totals.items()},
+    )
 
 
 @app.get("/api/draft-capital")
@@ -15266,6 +15321,28 @@ async def run_signal_alerts(request: Request):
     except Exception as exc:  # noqa: BLE001
         log.warning("source_health_alerts check failed: %s", exc)
         result["sourceStalenessAlerts"] = {"error": str(exc)}
+
+    # Signals owner-session reconnect notice: at most ONE email per failure
+    # episode (revoked/expired refresh credential, access denied), recorded by
+    # the renewal timer in the session store's non-secret status file.  The
+    # notice carries no token.  docs/sources/SIGNALS_ACCOUNT_CONNECTION.md.
+    try:
+        from src.sources import signals_auth as _signals_auth
+
+        from src.utils import owner_notify as _owner_notify
+
+        # Off the event loop: it takes a file lock and may send ntfy/SMTP.
+        # The owner's ntfy webhook (NOTIFY_WEBHOOK_URL, the same path the uptime
+        # probe uses) first; SMTP only as fallback.  One notice per episode.
+        result["signalsAuthNotice"] = await run_in_threadpool(
+            _signals_auth.deliver_reconnect_notice,
+            channels=[("ntfy", _owner_notify.channel())],
+            delivery=_deliver_email_smtp if ALERT_TO else None,
+            to_email=ALERT_TO or None,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.warning("signals auth notice failed: %s", exc)
+        result["signalsAuthNotice"] = {"error": type(exc).__name__}
 
     return JSONResponse(content=result, headers={"Cache-Control": "no-store"})
 

@@ -9,14 +9,14 @@ enabled.**  This docstring, ``README.md`` and ``docs/ARCHITECTURE.md``
 all used to assert a blanket disabled-by-default rule, and
 ARCHITECTURE built a stronger claim on top of it about production
 behaviour being frozen until a flag was flipped.  Both were false:
-15 of the 26 entries in ``_DEFAULTS`` below are ``True`` —
+18 of the 36 entries in ``_DEFAULTS`` below are ``True`` —
 ``bdvm_engine``, ``te_basis_conversion`` (which reprices every tight
 end on the live board), ``monte_carlo_trade``, ``idp_scoring_fit``,
 ``reception_scoring_fit``, ``nfl_data_ingest``, ``realized_points_api``,
 ``perfect_draft``, ``ledger_rank_change``, ``waiver_live_opportunity``,
-``source_freshness_weighting``, ``source_family_cap``,
-``game_day_live_game_state``, ``sleeper_weekly_projections`` and
-``rookie_auction`` — several with comments
+``source_freshness_weighting``, ``source_family_cap``, ``source_universe_freshness``,
+``game_day_live_game_state``, ``sleeper_weekly_projections``,
+``rookie_auction``, ``dfs_workspace`` and ``dfs_auto_slates`` — several with comments
 recording that the enabled default is deliberate.
 
 **No live gate sits outside this registry any more.**  The last one —
@@ -106,6 +106,37 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # family-head selection — the registry-first member votes, the rest
     # are stamped supersededBy.
     "source_family_cap": True,
+    # Universe-aware source freshness (#1555 V2-1, 2026-09-30).  ON: a source
+    # whose one board prices offense AND IDP players (IDP Trade Calculator) ages
+    # each row from its own universe's broad-change clock, capped at the source
+    # clock -- an IDP-only publication no longer refreshes unchanged offense rows
+    # (src/sources/freshness.py::SubsetFreshness.universe_clock).  It can only
+    # make evidence OLDER, never fresher.  OFF (RISKIT_FEATURE_SOURCE_UNIVERSE_
+    # FRESHNESS=0 + restart): one clock per subset, the prior behaviour.
+    "source_universe_freshness": True,
+    # Joint outlier + sparse-evidence CHALLENGER (#1555 Batch 2 Unit C,
+    # owner decision B 2026-10-01) -- two separately promotable halves, both
+    # OFF until the owner approves that specific candidate (valuation
+    # methodology).  Measured: docs/valuation/evidence/joint-challenger-2026-10-01/.
+    # FILTER half: the per-player outlier filter weighs family-capped evidence
+    # (src/api/joint_robust_filter.py -- weak evidence cannot remove dominant
+    # evidence; never manufactures a single-family row).  Needs
+    # source_family_cap; with the cap off it stands down to the incumbent.
+    "joint_outlier_sparse_challenger": False,
+    # SPARSE half: one voting family is stamped ``limitedEvidence`` and the
+    # 0.30 single-source retention is not applied.
+    "joint_sparse_limited_evidence": False,
+    # Sparse-evidence ESTIMATOR (Batch 3 Unit E, 2026-10-01) -- a CHALLENGER,
+    # OFF until a preregistered gate passes and is independently reviewed
+    # (valuation methodology).  ON: the rows the 0.30 single-source retention
+    # would hit keep their one family's observation as central evidence,
+    # bounded above by healthy eligible families that did NOT list the player
+    # (censor-aware, counted by family; src/api/sparse_evidence.py), and carry
+    # an additive ``sparseEvidence`` block.  OFF: the incumbent haircut, byte
+    # for byte.  Evidence: docs/valuation/evidence/sparse-evidence-2026-10-01/.
+    # Rollback if ever switched on: RISKIT_FEATURE_SPARSE_EVIDENCE_ESTIMATOR=0
+    # and restart (flag reads are cached per process).
+    "sparse_evidence_estimator": False,
     # C1-U4 — ledger-derived rankChange on the canonical contract.  ON
     # derives each ranked row's rankChange from the temporal ledger's
     # previous recorded board; OFF stamps None on every row (deliberately
@@ -352,6 +383,29 @@ _DEFAULTS: Final[dict[str, bool]] = {
     # /api/auction/* route 503s feature_disabled and the runtime loop does
     # not start.  Rollback: RISKIT_FEATURE_ROOKIE_AUCTION=0 and restart.
     "rookie_auction": True,
+    # DFS workspace (``src/dfs/``, owner directive 2026-09-30).  Private
+    # /api/dfs/* router: slate import, projection-baseline lineup builds and
+    # upload-CSV export.  Additive — it reads and writes only data/dfs/ and
+    # never touches the dynasty board.  Off → every /api/dfs/* route 503s
+    # FEATURE_DISABLED.  Rollback: RISKIT_FEATURE_DFS_WORKSPACE=0 + restart.
+    "dfs_workspace": True,
+    # DFS licensed slate feed (``src/dfs/providers.py``, owner addendum
+    # 2026-09-30): SportsDataIO DfsSlatesByDate → canonical slate.  DEFAULT
+    # OFF: the feed is paid, no SPORTSDATAIO_API_KEY is provisioned, and its
+    # DraftKings/FanDuel coverage is documented but not verified.  Off → the
+    # provider endpoints answer PROVIDER_UNAVAILABLE and the official platform
+    # CSV remains the path.  Enable only after owner approval of the plan:
+    # RISKIT_FEATURE_DFS_SPORTSDATAIO_SLATES=1 + the key + restart.
+    "dfs_sportsdataio_slates": False,
+    # DFS automatic slates (``src/dfs/auto/``, permanent owner requirement
+    # 2026-09-30: zero manual CSV imports).  NFL DraftKings + FanDuel slates
+    # derived from the schedule, priced from the owner-authorised Daily
+    # Fantasy Fuel pages, projected from independent families.  Additive: it
+    # writes only data/dfs/ (system:auto snapshots) and never touches the
+    # dynasty board.  Off → /api/dfs/auto/slates answers FEATURE_DISABLED,
+    # queues no refresh, and the timer tick exits 2; the manual file path is
+    # unaffected.  Rollback: RISKIT_FEATURE_DFS_AUTO_SLATES=0 + restart.
+    "dfs_auto_slates": True,
     # Consensus Edge — the unified buy/sell board.  DEFAULT **OFF**.
     #
     # It was flipped ON on 2026-08-04 on the strength of a top-20 study
@@ -637,6 +691,14 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # rookie_auction gates the /api/auction/* router mounted in server.py
     # and the auction runtime loop started in lifespan.
     "rookie_auction": LIVE,
+    # dfs_workspace gates the /api/dfs/* router mounted in server.py.
+    "dfs_workspace": LIVE,
+    # dfs_sportsdataio_slates gates src/dfs/providers.py, reached through the
+    # /api/dfs/provider-slates* routes mounted in server.py.
+    "dfs_sportsdataio_slates": LIVE,
+    # dfs_auto_slates gates src/dfs/auto (the /api/dfs/auto/* routes mounted
+    # in server.py, and scripts/refresh_dfs_auto_slates.py on its timer).
+    "dfs_auto_slates": LIVE,
     # consensus_edge gates the /api/consensus-edge/* router mounted in
     # server.py: off → 503 feature_disabled, on → the board.
     "consensus_edge": LIVE,
@@ -659,6 +721,20 @@ _GATE_STATUS: Final[dict[str, str]] = {
     # ``data_contract._compute_unified_rankings``, which reaches a request
     # through ``/api/data`` and every engine that reads the board.
     "source_family_cap": LIVE,
+    # source_universe_freshness caps each row's freshness clock at its own asset
+    # universe's broad-change clock on mixed offense+IDP boards (#1555 V2-1).
+    "source_universe_freshness": LIVE,
+    # joint_outlier_sparse_challenger swaps the per-player outlier filter and
+    # the single-source haircut in ``data_contract._compute_unified_rankings``,
+    # which reaches a request through ``/api/data``; ships OFF (challenger).
+    "joint_outlier_sparse_challenger": LIVE,
+    # joint_sparse_limited_evidence replaces the single-source haircut with a
+    # limitedEvidence stamp in the same function; ships OFF (challenger).
+    "joint_sparse_limited_evidence": LIVE,
+    # sparse_evidence_estimator replaces the single-source haircut with a
+    # censor-aware central estimate in the same function, which reaches a
+    # request through ``/api/data``; ships OFF (challenger).
+    "sparse_evidence_estimator": LIVE,
     # host_native_scoring gates the stat vocabulary
     # ``league_comparison.sleeper_stats.fetch_sleeper_weekly_stats``
     # emits, which reaches a request through ``historical_stats`` →

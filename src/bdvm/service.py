@@ -38,6 +38,7 @@ from src.bdvm.pool import build_group_pools
 from src.bdvm.projections import (
     ConsensusProjection,
     ProjectionRecord,
+    _parse_iso_day,
     blend_consensus,
     latest_snapshot_path,
     load_snapshot,
@@ -45,6 +46,7 @@ from src.bdvm.projections import (
 from src.bdvm.replacement import ReplacementEngine
 from src.bdvm.ros import blend_ros_mu, ros_projection_weight, ros_value
 from src.bdvm.scoring import is_idp_position
+from src.bdvm.source_vocabulary import capability_for
 from src.bdvm.survival import RiskProfile
 from src.utils.name_clean import normalize_player_name
 
@@ -299,6 +301,7 @@ def run_valuation(
 
     # ---- projections -----------------------------------------------------
     snapshot_path: Path | None = None
+    as_of_source = "caller" if snapshot_as_of else None
     if projection_records is None:
         snapshot_path = latest_snapshot_path(season)
         if snapshot_path is None:
@@ -317,13 +320,24 @@ def run_valuation(
                 "replacement": {},
             }
         snap_as_of, records = load_snapshot(snapshot_path)
+        if not snapshot_as_of and snap_as_of:
+            as_of_source = "snapshot"
         snapshot_as_of = snapshot_as_of or snap_as_of
     else:
         records = list(projection_records)
+    # A snapshot with no asOf has an UNKNOWN capture date.  The request
+    # time still stands in as the staleness reference (unchanged serving),
+    # but the substitution is published rather than passed off as the
+    # snapshot's own date: request time is not when the data was captured.
+    # A present-but-unparseable asOf is unknown too (every record is then
+    # flagged snapshot_asof_unparseable by the consensus).
+    as_of_unknown = not snapshot_as_of or _parse_iso_day(snapshot_as_of) is None
     snapshot_as_of = snapshot_as_of or as_of[:10]
     meta["projectionSnapshot"] = {
         "path": str(snapshot_path) if snapshot_path else None,
         "asOf": snapshot_as_of,
+        "asOfUnknown": as_of_unknown,
+        "asOfSource": as_of_source or "request_time_fallback",
         "recordCount": len(records),
     }
 
@@ -592,7 +606,24 @@ def run_valuation(
                     "sources": list(blended.sources),
                     "anyProxy": blended.any_proxy,
                     "staleSources": list(blended.stale_sources),
+                    "staleReasons": [
+                        {"source": s, "reason": why} for s, why in blended.stale_reasons
+                    ],
                     "vocabularyLimitedSources": list(blended.vocabulary_limited),
+                    # Card rules this player's projection could not score: the
+                    # projected points are a partial total by these rules, whose
+                    # omitted contribution may be positive or negative.
+                    # Includes rules the SOURCE cannot publish (source
+                    # vocabulary), not only the play-by-play-only ones.
+                    "unscoredKeys": list(blended.unscored_keys),
+                    # complete / partial / unverifiable, worst over the
+                    # player's records, plus each record's own coverage.  An
+                    # fpg-only record whose coverage was never recorded is
+                    # unverifiable — never shown as fully scoreable.
+                    "scoringCoverage": {
+                        "status": blended.coverage_status,
+                        "bySource": [c.to_dict() for c in blended.source_coverage],
+                    },
                 },
                 "replacement": {
                     "group": v.group,
@@ -703,11 +734,67 @@ def run_valuation(
         "picks": picks_out,
         "unpriced": unpriced,
     }
+    # Board-level census of card rules the projections could not score, so one
+    # glance shows which league rules every projected value silently omits.
+    unscored_census: dict[str, int] = {}
+    status_census: dict[str, int] = {}
+    unscored_by_source: dict[str, dict[str, int]] = {}
+    for entry in players_out:
+        proj_block = entry.get("projection") or {}
+        for key in proj_block.get("unscoredKeys") or []:
+            unscored_census[key] = unscored_census.get(key, 0) + 1
+        cov = proj_block.get("scoringCoverage") or {}
+        status = cov.get("status") or "unverifiable"
+        status_census[status] = status_census.get(status, 0) + 1
+        for rec_cov in cov.get("bySource") or []:
+            bucket = unscored_by_source.setdefault(str(rec_cov.get("source")), {})
+            for key in rec_cov.get("unscoredKeys") or []:
+                bucket[key] = bucket.get(key, 0) + 1
+    seen_sources = sorted(
+        {s for entry in players_out for s in (entry.get("projection") or {}).get("sources") or []}
+    )
+    payload["meta"]["scoringCoverage"] = {
+        "unscoredKeys": dict(sorted(unscored_census.items(), key=lambda kv: (-kv[1], kv[0]))),
+        # The card's own sign per unscored rule, so a reader can tell an omitted
+        # bonus from an omitted penalty.  None when the card does not carry it.
+        "weightSign": {key: _weight_sign(cfg.scoring_settings, key) for key in unscored_census},
+        # Priced players by their projection's coverage status.
+        "playersByStatus": dict(sorted(status_census.items())),
+        # Which source omits which rule, for how many priced players.
+        "unscoredKeysBySource": {
+            src: dict(sorted(keys.items(), key=lambda kv: (-kv[1], kv[0])))
+            for src, keys in sorted(unscored_by_source.items())
+        },
+        # The explicit declaration of what each contributing source publishes.
+        "sourceCapabilities": {src: capability_for(src).to_dict() for src in seen_sources},
+        "note": (
+            "Nonzero league-card rules a projection could not supply — rules its "
+            "source does not publish, plus play-by-play-only rules; those players' "
+            "projected points are a partial total: these rules are unscored and their "
+            "omitted contribution may be positive or negative (see weightSign). "
+            "'unverifiable' means the points were scored by the source or by a proxy "
+            "whose coverage was not recorded, so completeness cannot be shown."
+        ),
+    }
 
     if write_snapshot_files:
         _persist_valuation(payload, league_key=league_key, as_of=as_of)
 
     return payload
+
+
+def _weight_sign(scoring_settings: Mapping[str, Any] | None, key: str) -> str | None:
+    """``"+"`` / ``"-"`` for a nonzero card rate; ``None`` when absent, zero or
+    unreadable — an unknown sign is reported as unknown, never as a bonus."""
+    try:
+        rate = float((scoring_settings or {}).get(key))
+    except (TypeError, ValueError):
+        return None
+    if rate > 0:
+        return "+"
+    if rate < 0:
+        return "-"
+    return None
 
 
 def _persist_valuation(payload: Mapping[str, Any], *, league_key: str, as_of: str) -> Path:
