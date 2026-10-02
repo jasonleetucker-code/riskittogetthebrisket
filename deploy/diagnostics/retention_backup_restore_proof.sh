@@ -69,7 +69,10 @@
 # An OPTIONAL store the writer recorded as failed or shed for disk space
 # (optional_stores.tsv in the generation, writer exit 3) is a WARNING here,
 # emitted as a GitHub ::warning:: annotation — the same posture the writer
-# takes — never a silent pass and never a red proof.
+# takes — never a silent pass and never a red proof.  The proof's own run
+# cannot see a failure in the two stores it skips, so it also reads the
+# NIGHTLY unit's last ExecMainStatus (unprivileged `systemctl show`) and
+# annotates a 3 or a failure there (section 1b).
 #
 # Exit codes: 0 proven (possibly with optional-store warnings) · 1 could
 # not run · 2 an artifact that exists on the source is missing from the
@@ -167,6 +170,46 @@ if [[ "${RUN_BACKUP}" == "1" ]]; then
         *) fail "backup run FAILED (exit ${backup_rc})" ;;
     esac
 fi
+
+# ── 1b. The NIGHTLY's last exit status ───────────────────────────────
+# The run above is this proof's own, and it skips the two large stores on
+# purpose — so its exit 3 can never report a failure in the temporal ledger or
+# the intel ledger's online copy, which only the 02:30 root nightly carries.
+# That nightly's generation is root-only (0700), but its unit status is not:
+# `systemctl show` needs no privilege.  This is the only place a nightly exit 3
+# surfaces, so it surfaces at the next deploy, not when it happens.  It
+# annotates; it never changes this proof's exit code, which is about the
+# generation proven below.
+NIGHTLY_UNIT="${NIGHTLY_UNIT:-riskit-state-backup.service}"
+check_nightly_last_status() {
+    if ! command -v systemctl >/dev/null 2>&1; then
+        log "nightly ${NIGHTLY_UNIT}: systemctl not available here — its last exit status is not checked"
+        return 0
+    fi
+    local load result status at
+    load="$(systemctl show "${NIGHTLY_UNIT}" -p LoadState --value 2>/dev/null)" || load=""
+    if [[ "${load}" != "loaded" ]]; then
+        log "nightly ${NIGHTLY_UNIT}: not installed here (LoadState=${load:-unknown}) — its last exit status is not checked"
+        return 0
+    fi
+    result="$(systemctl show "${NIGHTLY_UNIT}" -p Result --value 2>/dev/null)" || result=""
+    status="$(systemctl show "${NIGHTLY_UNIT}" -p ExecMainStatus --value 2>/dev/null)" || status=""
+    at="$(systemctl show "${NIGHTLY_UNIT}" -p ExecMainExitTimestamp --value 2>/dev/null)" || at=""
+    if [[ -z "${at}" || "${at}" == "n/a" ]]; then
+        log "nightly ${NIGHTLY_UNIT}: no completed run since the service manager started — nothing to report"
+        return 0
+    fi
+    if [[ "${result}" == "success" && "${status}" == "0" ]]; then
+        log "nightly ${NIGHTLY_UNIT}: last run (${at}) exit 0"
+    elif [[ "${result}" == "success" && "${status}" == "3" ]]; then
+        note_optional_warning "the nightly ${NIGHTLY_UNIT} last run (${at}) exited 3 — its generation was promoted with all CORE state, but an OPTIONAL store failed or was shed (the temporal ledger and the intel ledger's online copy are only in the nightly); the store is named in that generation's root-only optional_stores.tsv and in: sudo journalctl -u ${NIGHTLY_UNIT}"
+    else
+        warn "nightly ${NIGHTLY_UNIT}: last run (${at}) Result=${result:-unknown} ExecMainStatus=${status:-unknown} — not a successful backup"
+        printf '::warning title=Backup proof: nightly backup::the nightly %s last run (%s) did not succeed (Result=%s ExecMainStatus=%s) — see: sudo journalctl -u %s\n' \
+            "${NIGHTLY_UNIT}" "${at}" "${result:-unknown}" "${status:-unknown}" "${NIGHTLY_UNIT}"
+    fi
+}
+check_nightly_last_status
 
 # ── 2. Locate the generation we are proving ──────────────────────────
 # With a backup just run, the generation is whatever THAT run reported —
@@ -337,14 +380,25 @@ optional_status() {
 
 # 0 = the absence is the writer's own recorded decision (handled here),
 # 1 = unexplained (the caller records a FAIL).
+#
+# Only a name the writer itself wraps in `optional` can be explained this way.
+# The manifest is a file in the generation, and "a CORE store is never listed
+# there" was a property of the writer, not of this reader: a stray or forged
+# row naming user_kv.sqlite must still fail, not pass as a recorded skip.
+# Lockstep with the `optional backup_*` calls in riskit-state-backup.sh is
+# pinned by tests/deploy/test_state_backup_optional_stores.py.
+KNOWN_OPTIONAL_STORES=" intel_ledger.sqlite3 market_trades_archive.sqlite market_trades_reports own_league_format_captures.sqlite source_archive_boards.sqlite bdvm forecast_archive pick_forecast_snapshots sparse_evidence_shadow robust_filter_shadow consensus_edge.sqlite dfs_workspace.sqlite temporal_ledger.sqlite "
 optional_absence_explained() {
     local name="$1" label="$2" status
+    if [[ "${KNOWN_OPTIONAL_STORES}" != *" ${name} "* ]]; then
+        return 1
+    fi
     status="$(optional_status "${name}")"
     case "${status}" in
         skipped_requested)
             log "${label}: not in this generation by request (BACKUP_SKIP_OPTIONAL) — not proven here; the nightly carries it"
             return 0 ;;
-        failed|skipped_low_space)
+        failed|skipped_low_space|skipped_space_unmeasurable)
             note_optional_warning "${label}: OPTIONAL store NOT in this generation (writer recorded: ${status})"
             return 0 ;;
     esac

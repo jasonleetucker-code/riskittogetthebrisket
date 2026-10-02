@@ -134,8 +134,15 @@
 #      OPTIONAL store failed or was shed for disk space.  The unit maps it
 #      to success (SuccessExitStatus=3) so a known-degraded optional store
 #      does not mark the box failed every night; it stays visible as
-#      ExecMainStatus=3, the WARN lines, and optional_stores.tsv, and the
-#      post-deploy proof turns it into a workflow ::warning:: annotation.
+#      ExecMainStatus=3, the WARN lines, and optional_stores.tsv.  Where it
+#      surfaces: the post-deploy proof's OWN backup run annotates its own
+#      exit 3 (that run skips the two large stores on purpose, so it can
+#      only see a failure in the small ones), and the same proof reads the
+#      nightly unit's last ExecMainStatus via `systemctl show` and annotates
+#      a 3 there too — so a nightly exit 3 is surfaced at the next deploy,
+#      not at 02:30.  Nothing pages on it in between; the root-only
+#      optional_stores.tsv and `journalctl -u riskit-state-backup` name the
+#      store.
 # Unreadable OPTIONAL inputs (missing dirs, root-owned session files when
 # run unprivileged) are logged and skipped.
 
@@ -249,6 +256,14 @@ else
     STAGING_LOCK=""
     warn "flock not installed — stale staging is recognised by PID only"
 fi
+# A same-named staging dir can only be a DEAD run's: the name carries this
+# PID, so no other live process on the host can own it, and (with flock) this
+# run now holds its lock.  It is left behind when a run dies in a way the trap
+# cannot catch (SIGKILL, OOM, power loss) and its PID is reused later the same
+# UTC day.  The sweep below skips this run's own name, so without this a reused
+# staging would carry the dead run's partial artifacts — and a stale
+# optional_stores.tsv — into this run's generation.
+rm -rf "${STAGING_DIR}"
 mkdir -p "${DEST}/sqlite" "${DEST}/dirs" "${DEST}/sessions" "${DEST}/files"
 
 # Dated generations this writer could plausibly have produced, oldest first.
@@ -363,6 +378,7 @@ OPTIONAL_ISSUES=0          # optional stores failed or shed for disk space
 OPTIONAL_NOT_BACKED_UP=""  # their names, for the summary line
 OPTIONAL_MANIFEST_NAME="optional_stores.tsv"
 OPTIONAL_LOW_SPACE=""      # non-empty => every optional store is shed (reason)
+OPTIONAL_LOW_SPACE_STATUS="skipped_low_space"  # its manifest status
 
 optional() {
     STORE_CLASS="optional"
@@ -373,8 +389,17 @@ optional() {
 # name<TAB>status<TAB>detail, one row per optional store NOT in this
 # generation.  Written inside the generation so it travels with it (mirror,
 # restore) and a restorer can see what is missing and why.
+#
+# The append is failure-TOLERANT on purpose.  It runs under errexit, and the
+# likeliest moment for it to fail is the moment an optional store has just
+# failed for lack of space (ENOSPC): an unguarded `>>` then exits 1 and the
+# EXIT trap deletes the staging directory holding the CORE stores — failing to
+# RECORD an optional failure would discard the very generation the optional
+# class exists to protect.  The store is still counted in OPTIONAL_ISSUES and
+# named on the WARN lines, so exit 3 and the journal carry it either way.
 record_optional() {
-    printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "${DEST}/${OPTIONAL_MANIFEST_NAME}"
+    printf '%s\t%s\t%s\n' "$1" "$2" "$3" 2>/dev/null >> "${DEST}/${OPTIONAL_MANIFEST_NAME}" \
+        || warn "could not record OPTIONAL store $1 ($2) in ${OPTIONAL_MANIFEST_NAME} — the generation is kept; this WARN line is the record"
 }
 
 store_failed() {
@@ -403,19 +428,31 @@ optional_gate() {
         record_optional "${name}" "skipped_requested" "BACKUP_SKIP_OPTIONAL"
         return 1
     fi
-    local why="${OPTIONAL_LOW_SPACE}"
+    local why="${OPTIONAL_LOW_SPACE:-}" status="${OPTIONAL_LOW_SPACE_STATUS:-skipped_low_space}"
     if [[ -z "${why}" ]]; then
-        local src_kb avail
-        src_kb="$(du -sk "${src}" 2>/dev/null | cut -f1)"
-        avail="$(free_kb "${BACKUP_ROOT}")"
-        if [[ "${src_kb}" =~ ^[0-9]+$ && "${avail}" =~ ^[0-9]+$ ]] \
-            && (( avail < 2 * src_kb + BACKUP_STORE_MARGIN_KB )); then
-            why="${avail} KiB free, store needs $((2 * src_kb + BACKUP_STORE_MARGIN_KB)) KiB (2 x ${src_kb} KiB source + margin)"
+        # Unknown is SHORT, not roomy: a source or a free-space figure that
+        # cannot be measured skips the store, exactly as the run-level guard
+        # treats an unmeasurable filesystem.  A live SQLite store's online
+        # copy carries what is still in its -wal, so the WAL counts too.
+        local src_kb wal_kb=0 avail
+        src_kb="$(du -sk "${src}" 2>/dev/null | cut -f1)" || src_kb=""
+        if [[ -f "${src}" && -e "${src}-wal" ]]; then
+            wal_kb="$(du -sk "${src}-wal" 2>/dev/null | cut -f1)" || wal_kb=""
+        fi
+        avail="$(free_kb "${BACKUP_ROOT}")" || avail=""
+        if [[ ! "${src_kb}" =~ ^[0-9]+$ || ! "${wal_kb}" =~ ^[0-9]+$ || ! "${avail}" =~ ^[0-9]+$ ]]; then
+            why="space could not be measured (source ${src_kb:-?} KiB, wal ${wal_kb:-?} KiB, free ${avail:-?} KiB)"
+            status="skipped_space_unmeasurable"
+        else
+            src_kb=$((src_kb + wal_kb))
+            if (( avail < 2 * src_kb + BACKUP_STORE_MARGIN_KB )); then
+                why="${avail} KiB free, store needs $((2 * src_kb + BACKUP_STORE_MARGIN_KB)) KiB (2 x ${src_kb} KiB source incl. WAL + margin)"
+            fi
         fi
     fi
     if [[ -n "${why}" ]]; then
         warn "OPTIONAL store ${name} SKIPPED for disk space (${why}) — CORE state is still backed up"
-        record_optional "${name}" "skipped_low_space" "${why}"
+        record_optional "${name}" "${status}" "${why}"
         OPTIONAL_ISSUES=$((OPTIONAL_ISSUES + 1))
         OPTIONAL_NOT_BACKED_UP+="${name} "
         return 1
@@ -430,18 +467,23 @@ optional_gate() {
 # cannot hold max(2 x the newest generation, BACKUP_MIN_FREE_KB), shed every
 # OPTIONAL store (warn, exit 3) and still back up CORE.  An unmeasurable
 # filesystem is treated as short, not as roomy — unknown is not "enough".
+#
+# Every measurement below is `|| x=""`-guarded: under errexit + pipefail a
+# failing `df` / `du` inside "$(...)" would otherwise exit the run (status 1,
+# no generation) right here — the opposite of the promise above.
 check_free_space() {
     local avail last_gen last_kb=0 need
-    avail="$(free_kb "${BACKUP_ROOT}")"
-    last_gen="$(plausible_generations | tail -n 1)"
+    avail="$(free_kb "${BACKUP_ROOT}")" || avail=""
+    last_gen="$(plausible_generations | tail -n 1)" || last_gen=""
     if [[ -n "${last_gen}" ]]; then
-        last_kb="$(du -sk "${BACKUP_ROOT}/daily/${last_gen}" 2>/dev/null | cut -f1)"
+        last_kb="$(du -sk "${BACKUP_ROOT}/daily/${last_gen}" 2>/dev/null | cut -f1)" || last_kb=""
     fi
     [[ "${last_kb}" =~ ^[0-9]+$ ]] || last_kb=0
     need=$((2 * last_kb))
     (( need >= BACKUP_MIN_FREE_KB )) || need="${BACKUP_MIN_FREE_KB}"
     if [[ ! "${avail}" =~ ^[0-9]+$ ]]; then
         OPTIONAL_LOW_SPACE="free space on ${BACKUP_ROOT} could not be measured"
+        OPTIONAL_LOW_SPACE_STATUS="skipped_space_unmeasurable"
     elif (( avail < need )); then
         OPTIONAL_LOW_SPACE="${avail} KiB free on ${BACKUP_ROOT}, need ${need} KiB (2 x newest generation ${last_kb} KiB, floor ${BACKUP_MIN_FREE_KB} KiB)"
     fi
@@ -519,26 +561,26 @@ backup_sqlite() {
     local out="${tmp}.gz"
     if ! sqlite_backup "${src}" "${tmp}"; then
         warn "sqlite online backup FAILED: ${src}"
-        store_failed "${name}" "sqlite online backup failed"
         rm -f "${tmp}"
+        store_failed "${name}" "sqlite online backup failed"
         return 0
     fi
     if ! sqlite_integrity_ok "${tmp}" 2>/dev/null; then
         warn "sqlite PRAGMA integrity_check FAILED on copied db: ${src} — source database is likely corrupt; artifact rejected"
-        store_failed "${name}" "PRAGMA integrity_check failed on the copy"
         rm -f "${tmp}"
+        store_failed "${name}" "PRAGMA integrity_check failed on the copy"
         return 0
     fi
     if ! gzip -f "${tmp}"; then
         warn "gzip FAILED: ${tmp}"
-        store_failed "${name}" "gzip failed"
         rm -f "${tmp}" "${out}"
+        store_failed "${name}" "gzip failed"
         return 0
     fi
     if ! gzip -t "${out}"; then
         warn "integrity check FAILED: ${out}"
-        store_failed "${name}" "gzip -t failed"
         rm -f "${out}"
+        store_failed "${name}" "gzip -t failed"
         return 0
     fi
     ARTIFACTS=$((ARTIFACTS + 1))
@@ -578,14 +620,14 @@ backup_file() {
     local out="${DEST}/files/${name}.gz"
     if ! gzip -c "${src}" > "${out}"; then
         warn "gzip FAILED: ${src}"
-        store_failed "${name}" "gzip failed"
         rm -f "${out}"
+        store_failed "${name}" "gzip failed"
         return 0
     fi
     if ! gzip -t "${out}"; then
         warn "integrity check FAILED: ${out}"
-        store_failed "${name}" "gzip -t failed"
         rm -f "${out}"
+        store_failed "${name}" "gzip -t failed"
         return 0
     fi
     ARTIFACTS=$((ARTIFACTS + 1))
@@ -656,14 +698,14 @@ backup_dir() {
     tar -czf "${out}" ${excludes[@]+"${excludes[@]}"} -C "$(dirname "${src}")" "${member}" || rc=$?
     if (( rc >= 2 )); then
         warn "tar FAILED (rc=${rc}): ${src}"
-        store_failed "${name}" "tar failed (rc=${rc})"
         rm -f "${out}"
+        store_failed "${name}" "tar failed (rc=${rc})"
         return 0
     fi
     if ! tar -tzf "${out}" >/dev/null; then
         warn "integrity check FAILED: ${out}"
-        store_failed "${name}" "tar -tzf failed"
         rm -f "${out}"
+        store_failed "${name}" "tar -tzf failed"
         return 0
     fi
     if (( rc == 1 )); then
@@ -692,6 +734,7 @@ backup_session_file() {
         log "session ok: ${src} -> ${out}"
     else
         warn "session copy FAILED: ${src}"
+        rm -f "${out}" 2>/dev/null || true
         store_failed "${label}" "session copy failed"
     fi
 }

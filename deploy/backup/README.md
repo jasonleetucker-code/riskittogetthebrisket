@@ -44,8 +44,11 @@ check, gzip or tar fails, the whole generation is discarded and the run exits
 1 — prior generations stay untouched. The AL-P2 additions (wrapped in
 `optional` in the script) are **OPTIONAL**: a failure is a `[WARN]`, a row in
 `<generation>/optional_stores.tsv` (`name<TAB>status<TAB>detail`, status
-`failed` / `skipped_low_space` / `skipped_requested`), and the generation is
-**kept**. One corrupt optional store (the intel ledger has a corruption history
+`failed` / `skipped_low_space` / `skipped_space_unmeasurable` /
+`skipped_requested`), and the generation is **kept**. A failed store's partial
+artifact is removed *before* the row is written, and the row append itself is
+failure-tolerant: if it cannot be written (disk full) the run WARNs and keeps
+the generation — failing to record an optional failure never discards CORE. One corrupt optional store (the intel ledger has a corruption history
 on the box) can therefore never stop `user_kv` / `session_store` being backed
 up.
 
@@ -54,14 +57,28 @@ Exit codes: **0** everything that exists was backed up · **1** hard failure
 generation promoted with every CORE store but an OPTIONAL store failed or was
 shed. The unit maps 3 to success (`SuccessExitStatus=3`) so it does not mark
 the box failed every night; it stays visible as `ExecMainStatus=3`, in the
-log, in `optional_stores.tsv`, and as a `::warning::` annotation on the
-post-deploy proof.
+log and in `optional_stores.tsv`.
+
+Where a **nightly** exit 3 actually surfaces: the post-deploy proof
+(`deploy/diagnostics/retention_backup_restore_proof.sh`) reads the unit's last
+`Result` / `ExecMainStatus` with an unprivileged `systemctl show
+riskit-state-backup.service` and emits a `::warning::` annotation when it is 3
+(or a failure). That is the next deploy, not 02:30 — nothing pages in between.
+The proof's *own* backup run is a different run: it skips
+`temporal_ledger.sqlite` and `intel_ledger.sqlite3` on purpose, so its own
+exit 3 can only reflect the small optional stores. The deploy user cannot read
+the root-only generation, so the store name comes from
+`sudo journalctl -u riskit-state-backup` or the generation's
+`optional_stores.tsv`.
 
 **Free space.** Before writing anything the run needs
 `max(2 × newest generation, BACKUP_MIN_FREE_KB)` free (default 5 GiB), and each
-optional store `2 × its source + BACKUP_STORE_MARGIN_KB` (default 1 GiB). Short,
-or unmeasurable, → every OPTIONAL store is shed (`skipped_low_space`, exit 3)
-and CORE is still written. CORE runs first and the 1.5 GB temporal ledger last.
+optional store `2 × (its source + its -wal) + BACKUP_STORE_MARGIN_KB` (default
+1 GiB). Short → every OPTIONAL store is shed (`skipped_low_space`, exit 3) and
+CORE is still written. Unmeasurable — `df` or `du` fails or prints nothing
+numeric, run-wide or for one store — is treated as short, not roomy
+(`skipped_space_unmeasurable`, exit 3); a failing measurement never exits the
+run. CORE runs first and the 1.5 GB temporal ledger last.
 
 `BACKUP_SKIP_OPTIONAL="name ..."` leaves named optional artifacts out on
 purpose (`skipped_requested`, not a warning). The post-deploy proof uses it for
@@ -71,7 +88,9 @@ purpose (`skipped_requested`, not a warning). The post-deploy proof uses it for
 the run's own staging directory, and each run holds an `flock` on
 `daily/.staging-<date>-<pid>.lock`; the start-of-run sweep removes every staging
 directory no live process holds (PID check for lock-less ones) rather than
-waiting a day.
+waiting a day. A run whose own staging name already exists (a SIGKILLed run
+whose PID was reused the same day) removes it before writing, so a dead run's
+partial artifacts can never ride into a new generation.
 
 ## Layout & retention
 

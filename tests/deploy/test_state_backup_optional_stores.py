@@ -17,6 +17,8 @@ on Windows; Linux CI is the authority.
 from __future__ import annotations
 
 import os
+import re
+import shutil
 import signal
 import sqlite3
 import subprocess
@@ -327,3 +329,326 @@ def test_a_terminated_run_removes_its_own_staging(tmp_path):
     assert proc.returncode != 0
     assert not list(daily.glob(".staging-*")), list(daily.iterdir())
     assert not (daily / TODAY).exists()
+
+
+# ── PR #1611 re-review ────────────────────────────────────────────────────
+
+
+def _stub_bin(tmp_path: Path, **scripts: str) -> str:
+    """A PATH prefix whose named commands are replaced by the given bodies."""
+    stub = tmp_path / "stub-bin"
+    stub.mkdir(exist_ok=True)
+    for name, body in scripts.items():
+        path = stub / name
+        path.write_text(f"#!/usr/bin/env bash\n{body}\n", encoding="utf-8")
+        path.chmod(0o755)
+    return f"{stub}:{os.environ['PATH']}"
+
+
+def test_failing_to_record_an_optional_failure_keeps_the_generation(tmp_path):
+    """Finding A.  On ENOSPC the optional_stores.tsv append itself fails; under
+    errexit that used to exit 1 and the EXIT trap deleted the staging holding
+    the CORE stores.  Simulated by making the manifest path a directory at the
+    moment the optional store fails (the staging name carries the run's PID, so
+    it cannot be prepared beforehand)."""
+    data = _data(tmp_path)
+    _sqlite(data / "consensus_edge.sqlite")
+    wrapper = tmp_path / "python_fails_consensus_edge"
+    wrapper.write_text(
+        "#!/usr/bin/env bash\n"
+        # sqlite_backup is invoked as: python - <src> <dst>
+        'if [[ "${3:-}" == */sqlite/consensus_edge.sqlite ]]; then\n'
+        '    : > "$3"   # a partial artifact\n'
+        '    mkdir -p "$(dirname "$(dirname "$3")")/optional_stores.tsv"\n'
+        "    exit 1\n"
+        "fi\n"
+        f'exec "{sys.executable}" "$@"\n',
+        encoding="utf-8",
+    )
+    wrapper.chmod(0o755)
+
+    result = _run(tmp_path, data, PYTHON_BIN=str(wrapper))
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 3, out
+    gen = _gen(tmp_path)
+    assert (gen / "sqlite" / "user_kv.sqlite.gz").is_file(), out
+    assert (gen / "sqlite" / "session_store.sqlite.gz").is_file(), out
+    assert not (gen / "sqlite" / "consensus_edge.sqlite").exists(), "partial artifact left"
+    assert not (gen / "sqlite" / "consensus_edge.sqlite.gz").exists()
+    assert "could not record OPTIONAL store consensus_edge.sqlite" in out, out
+    assert "complete WITH WARNINGS" in out, out
+
+
+def test_unmeasurable_free_space_sheds_optional_and_still_writes_core(tmp_path):
+    """Finding C.  A failing `df` under errexit + pipefail used to exit the run
+    silently (status 1, no generation); unknown must mean short."""
+    data = _data(tmp_path)
+    _sqlite(data / "consensus_edge.sqlite")
+    _sqlite(data / "retention" / "evidence.sqlite")  # CORE
+
+    result = _run(tmp_path, data, PATH=_stub_bin(tmp_path, df="exit 1"))
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 3, out
+    gen = _gen(tmp_path)
+    assert (gen / "sqlite" / "user_kv.sqlite.gz").is_file(), out
+    assert (gen / "sqlite" / "evidence.sqlite.gz").is_file(), out
+    assert not (gen / "sqlite" / "consensus_edge.sqlite.gz").exists()
+    assert _manifest(gen) == {"consensus_edge.sqlite": "skipped_space_unmeasurable"}, out
+    assert "could not be measured" in out, out
+
+
+def test_an_unmeasurable_store_size_is_skipped_not_assumed_small(tmp_path):
+    """Findings C + D.  With a previous generation present the run-level guard
+    `du`s it, and the per-store gate `du`s each source: a failing `du` must
+    neither exit the run nor let the store through as if it were tiny."""
+    data = _data(tmp_path)
+    _sqlite(data / "consensus_edge.sqlite")
+    first = _run(tmp_path, data)
+    assert first.returncode == 0, first.stdout + first.stderr
+
+    result = _run(tmp_path, data, PATH=_stub_bin(tmp_path, du="exit 1"))
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 3, out
+    gen = _gen(tmp_path)
+    assert (gen / "sqlite" / "user_kv.sqlite.gz").is_file(), out
+    assert not (gen / "sqlite" / "consensus_edge.sqlite.gz").exists()
+    assert _manifest(gen) == {"consensus_edge.sqlite": "skipped_space_unmeasurable"}, out
+
+
+def test_the_per_store_estimate_counts_the_wal(tmp_path):
+    """Finding D.  The online copy carries what is still in the -wal, so a
+    store whose WAL alone tips it over the margin is shed."""
+    data = _data(tmp_path)
+    _sqlite(data / "consensus_edge.sqlite")
+    wal_bytes = 64 * 1024 * 1024
+    (data / "consensus_edge.sqlite-wal").write_bytes(os.urandom(wal_bytes))
+    wal_kb = wal_bytes // 1024
+    src_kb = int(
+        subprocess.run(
+            ["du", "-sk", str(data / "consensus_edge.sqlite")],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.split()[0]
+    )
+    root = tmp_path / "root"
+    root.mkdir()
+    st = os.statvfs(root)
+    avail_kb = st.f_bavail * st.f_frsize // 1024
+    # Halfway: 2*src + margin fits with wal_kb to spare; 2*(src+wal) + margin
+    # overshoots by wal_kb.  A 64 MiB band absorbs ordinary disk churn.
+    margin = avail_kb - 2 * src_kb - wal_kb
+    assert margin > 0, "test needs more free disk than it has"
+
+    result = _run(tmp_path, data, BACKUP_STORE_MARGIN_KB=str(margin))
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 3, out
+    assert _manifest(_gen(tmp_path)) == {"consensus_edge.sqlite": "skipped_low_space"}, out
+    assert "incl. WAL" in out, out
+
+
+def test_a_reused_pid_never_inherits_a_dead_runs_staging(tmp_path):
+    """Finding E.  A SIGKILLed run leaves .staging-<date>-<pid>; if that PID is
+    reused the same day, the sweep skips "this run's own" name.  `exec` keeps
+    the PID, so the staging can be planted under the exact name the script
+    will compute."""
+    data = _data(tmp_path)
+    daily = tmp_path / "root" / "daily"
+    plant = (
+        f'stg="{daily}/.staging-{TODAY}-$$"; '
+        'mkdir -p "$stg/sqlite"; '
+        'printf junk > "$stg/sqlite/dead_run_partial.sqlite.gz"; '
+        "printf 'consensus_edge.sqlite\\tfailed\\tstale\\n' > \"$stg/optional_stores.tsv\"; "
+        f'exec bash "{SCRIPT}"'
+    )
+    env = {
+        k: v
+        for k, v in os.environ.items()
+        if not k.startswith("BACKUP_") and k not in {"OFFBOX_RSYNC_DEST", "KEEP_DAILY"}
+    }
+    env.update(
+        APP_DIR=str(tmp_path / "app"),
+        DATA_DIR=str(data),
+        BACKUP_ROOT=str(tmp_path / "root"),
+        BACKUP_FALLBACK_ROOT=str(tmp_path / "fallback"),
+        PYTHON_BIN=sys.executable,
+        DATE_STAMP=TODAY,
+        BACKUP_MIN_FREE_KB="0",
+        BACKUP_STORE_MARGIN_KB="0",
+    )
+    result = subprocess.run(
+        ["bash", "-c", plant], env=env, capture_output=True, text=True, timeout=300
+    )
+    out = result.stdout + result.stderr
+
+    assert result.returncode == 0, out
+    gen = _gen(tmp_path)
+    assert (gen / "sqlite" / "user_kv.sqlite.gz").is_file(), out
+    assert not (gen / "sqlite" / "dead_run_partial.sqlite.gz").exists(), out
+    assert not (gen / "optional_stores.tsv").exists(), out
+
+
+# ── the post-deploy proof: known optional names (G) + the nightly status (B) ─
+
+PROOF = REPO / "deploy" / "diagnostics" / "retention_backup_restore_proof.sh"
+
+
+def _optional_names_in_writer() -> set[str]:
+    names = set()
+    pattern = re.compile(r'^optional\s+backup_(?:sqlite|dir|file)\s+"([^"]+)"(?:\s+"([^"]+)")?')
+    for line in SCRIPT.read_text(encoding="utf-8").splitlines():
+        m = pattern.match(line.strip())
+        if m:
+            names.add(m.group(2) or Path(m.group(1)).name)
+    return names
+
+
+def test_the_proofs_known_optional_set_matches_the_writer():
+    body = PROOF.read_text(encoding="utf-8")
+    m = re.search(r'^KNOWN_OPTIONAL_STORES=" (.*) "$', body, re.M)
+    assert m, "KNOWN_OPTIONAL_STORES not found in the proof"
+    writer = _optional_names_in_writer()
+    assert len(writer) >= 10, writer
+    assert set(m.group(1).split()) == writer
+
+
+def _proof_app(tmp_path: Path) -> tuple[Path, Path]:
+    app = tmp_path / "app"
+    shutil.copytree(REPO / "deploy", app / "deploy")
+    data = _data(tmp_path)
+    _sqlite(
+        data / "retention" / "evidence.sqlite",
+        "CREATE TABLE scoring_card_payloads (card_hash TEXT PRIMARY KEY)",
+        "CREATE TABLE scoring_card_observations (sleeper_league_id TEXT, observed_at TEXT)",
+        "CREATE TABLE trending_observations (source TEXT, observed_at TEXT)",
+    )
+    return app, data
+
+
+def _run_proof(tmp_path: Path, app: Path, data: Path, **env: str) -> subprocess.CompletedProcess:
+    full = {
+        k: v
+        for k, v in os.environ.items()
+        if not k.startswith("BACKUP_") and k not in {"OFFBOX_RSYNC_DEST", "KEEP_DAILY"}
+    }
+    full.update(
+        APP_DIR=str(app),
+        DATA_DIR=str(data),
+        BACKUP_ROOT=str(tmp_path / "root"),
+        BACKUP_FALLBACK_ROOT=str(tmp_path / "fallback"),
+        PYTHON_BIN=sys.executable,
+        DATE_STAMP=TODAY,
+        BACKUP_MIN_FREE_KB="0",
+        BACKUP_STORE_MARGIN_KB="0",
+        # No real unit on a test host; tests that want one stub systemctl.
+        NIGHTLY_UNIT="riskit-state-backup-test-absent.service",
+    )
+    full.update(env)
+    return subprocess.run(
+        ["bash", str(PROOF)], env=full, capture_output=True, text=True, timeout=300
+    )
+
+
+def test_a_manifest_row_cannot_excuse_a_missing_core_artifact(tmp_path):
+    """Finding G.  The manifest is a file in the generation; only a name the
+    writer wraps in `optional` may be explained by it."""
+    app, data = _proof_app(tmp_path)
+    first = _run_proof(tmp_path, app, data)
+    assert first.returncode == 0, first.stdout + first.stderr
+
+    gen = _gen(tmp_path)
+    (gen / "sqlite" / "evidence.sqlite.gz").unlink()
+    (gen / "optional_stores.tsv").write_text(
+        "evidence.sqlite\tskipped_requested\tforged\n", encoding="utf-8"
+    )
+    result = _run_proof(tmp_path, app, data, RUN_BACKUP="0")
+    out = result.stdout + result.stderr
+    assert result.returncode == 2, out
+    assert "MISSING from the backup" in out, out
+
+
+def test_a_known_optional_row_is_still_explained(tmp_path):
+    app, data = _proof_app(tmp_path)
+    _sqlite(data / "consensus_edge.sqlite")
+    first = _run_proof(tmp_path, app, data)
+    assert first.returncode == 0, first.stdout + first.stderr
+
+    gen = _gen(tmp_path)
+    (gen / "sqlite" / "consensus_edge.sqlite.gz").unlink()
+    (gen / "optional_stores.tsv").write_text(
+        "consensus_edge.sqlite\tskipped_space_unmeasurable\tdf failed\n", encoding="utf-8"
+    )
+    result = _run_proof(tmp_path, app, data, RUN_BACKUP="0")
+    out = result.stdout + result.stderr
+    assert result.returncode == 0, out
+    assert "::warning title=Backup proof: optional store::" in result.stdout, out
+
+
+def _systemctl_stub(result: str, status: str) -> str:
+    # Called as: systemctl show <unit> -p <Property> --value
+    return (
+        'case "$*" in\n'
+        "  *' -p LoadState '*) echo loaded ;;\n"
+        f"  *' -p Result '*) echo {result} ;;\n"
+        f"  *' -p ExecMainStatus '*) echo {status} ;;\n"
+        "  *' -p ExecMainExitTimestamp '*) echo 'Thu 2026-10-01 02:31:07 UTC' ;;\n"
+        "esac"
+    )
+
+
+def test_the_proof_surfaces_a_nightly_exit_3(tmp_path):
+    """Finding B.  The proof's own run skips the two large stores, so the only
+    place a nightly exit 3 can surface is the nightly unit's own status."""
+    app, data = _proof_app(tmp_path)
+    result = _run_proof(
+        tmp_path,
+        app,
+        data,
+        NIGHTLY_UNIT="riskit-state-backup.service",
+        PATH=_stub_bin(tmp_path, systemctl=_systemctl_stub("success", "3")),
+    )
+    out = result.stdout + result.stderr
+    assert result.returncode == 0, out
+    assert "::warning title=Backup proof: optional store::the nightly" in result.stdout, out
+    assert "exited 3" in result.stdout, out
+
+
+def test_the_proof_reports_a_clean_nightly_without_a_warning(tmp_path):
+    app, data = _proof_app(tmp_path)
+    result = _run_proof(
+        tmp_path,
+        app,
+        data,
+        NIGHTLY_UNIT="riskit-state-backup.service",
+        PATH=_stub_bin(tmp_path, systemctl=_systemctl_stub("success", "0")),
+    )
+    out = result.stdout + result.stderr
+    assert result.returncode == 0, out
+    assert "last run (Thu 2026-10-01 02:31:07 UTC) exit 0" in out, out
+    assert "::warning" not in result.stdout, out
+
+
+def test_the_proof_warns_on_a_failed_nightly_without_failing_itself(tmp_path):
+    app, data = _proof_app(tmp_path)
+    result = _run_proof(
+        tmp_path,
+        app,
+        data,
+        NIGHTLY_UNIT="riskit-state-backup.service",
+        PATH=_stub_bin(tmp_path, systemctl=_systemctl_stub("exit-code", "1")),
+    )
+    out = result.stdout + result.stderr
+    assert result.returncode == 0, out
+    assert "::warning title=Backup proof: nightly backup::" in result.stdout, out
+
+
+def test_the_proof_skips_the_nightly_check_when_the_unit_is_not_installed(tmp_path):
+    app, data = _proof_app(tmp_path)
+    result = _run_proof(tmp_path, app, data)
+    out = result.stdout + result.stderr
+    assert result.returncode == 0, out
+    assert "last exit status is not checked" in out, out

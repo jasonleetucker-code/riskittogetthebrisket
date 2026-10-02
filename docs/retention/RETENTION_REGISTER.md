@@ -831,8 +831,10 @@ restore-and-verify the AL-P2 artifacts at first; §5 adds the small ones.
   minus `receipts.sqlite`, which predates it) is OPTIONAL: a failure is a WARN,
   a row in `<generation>/optional_stores.tsv` (`name`, `status`, `detail`), and
   writer exit **3** — generation kept. The unit maps 3 to success
-  (`SuccessExitStatus=3`, visible as `ExecMainStatus=3`); the post-deploy proof
-  and `c1a-install-state-backup.yml` turn it into a `::warning::` annotation.
+  (`SuccessExitStatus=3`, visible as `ExecMainStatus=3`). Corrected in §6: the
+  post-deploy proof annotates its OWN run's exit 3 and, since the re-review,
+  the nightly unit's last `ExecMainStatus` too; `c1a-install-state-backup.yml`
+  annotates only the manual oneshot it starts.
   Reason: the intel ledger's corruption history on the box
   (`ledger.sqlite3.corrupt`, `recovery-20260801T012318Z/`) — latent corruption
   in one optional store must not stop `user_kv` / `session_store` being backed up.
@@ -860,3 +862,27 @@ restore-and-verify the AL-P2 artifacts at first; §5 adds the small ones.
   removes the run's own staging; the start-of-run sweep removes any staging dir
   no live process holds (per-run `flock` on `.staging-*.lock`, PID fallback)
   instead of `mtime +1`.
+
+### 6. Re-review fixes (PR #1611 re-review, 2026-10-01)
+
+* **Recording an optional failure can no longer discard CORE.** A failed
+  optional store's partial artifact is removed *before* `store_failed` runs, and
+  the `optional_stores.tsv` append is `|| warn`-guarded. Before, on ENOSPC the
+  append failed under errexit, the run exited 1 and the EXIT trap deleted the
+  staging directory holding `user_kv` / `session_store`.
+* **Where a nightly exit 3 surfaces — corrected.** §5 said the post-deploy proof
+  turns exit 3 into a warning; it only saw its OWN run, which skips
+  `temporal_ledger.sqlite` and `intel_ledger.sqlite3`. The proof now also reads
+  the nightly unit's last `Result` / `ExecMainStatus` (unprivileged
+  `systemctl show`) and annotates a 3 or a failure. Latency: the next deploy.
+  No box watchdog reads the root-only generation; `scripts/watchdog_freshness.py`
+  runs in Actions and cannot see the box, so it was not extended.
+* **Unmeasurable space sheds optional, never exits.** `df` / `du` failures in
+  the run-level guard are `|| x=""`-guarded (they exited 1 under pipefail), and
+  the per-store gate treats an unmeasurable source or free-space figure as short
+  (`skipped_space_unmeasurable`, exit 3). The per-store estimate counts the
+  store's `-wal`.
+* **PID reuse.** A run removes a pre-existing staging dir carrying its own name
+  (a SIGKILLed run's, PID reused the same day) before writing.
+* **Proof accepts only known optional names** as explained absences, so a CORE
+  artifact can never be excused by a forged or stray manifest row.

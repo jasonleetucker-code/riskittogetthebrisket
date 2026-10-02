@@ -167,14 +167,20 @@ state_backup_install_units() {
 # unit starts what it requires, so the old `enable --now` ran a full root
 # backup on the spot every time a deploy refreshed a backup file (the
 # 2026-08-15 install shows the off-schedule run).  The Requires= is gone from
-# the timer and enable/start are split, so this only arms the 02:30 schedule;
-# `start` on an already-active timer is a no-op.
+# the timer and enable/start are split, so the installer itself never starts
+# the service.  `start` on an already-active timer (every routine deploy) is a
+# no-op.  It is NOT always backup-free, though: on a timer that is inactive —
+# stopped, or freshly installed — `Persistent=true` makes systemd fire one
+# catch-up run straight away if a scheduled 02:30 elapsed while it was
+# inactive and systemd has a last-trigger stamp for it.  That is the timer's
+# missed-run replay working as configured, not the old Requires= off-schedule
+# run, and it fires at most once.
 state_backup_enable() {
     _sb_log "systemctl daemon-reload"
     priv systemctl daemon-reload || return 1
     _sb_log "systemctl enable ${STATE_BACKUP_TIMER}"
     priv systemctl enable "${STATE_BACKUP_TIMER}" || return 1
-    _sb_log "systemctl start ${STATE_BACKUP_TIMER} (arms the schedule; runs no backup)"
+    _sb_log "systemctl start ${STATE_BACKUP_TIMER} (arms the schedule; a Persistent= catch-up run may follow if the timer was inactive over a missed 02:30)"
     priv systemctl start "${STATE_BACKUP_TIMER}" || return 1
 }
 
