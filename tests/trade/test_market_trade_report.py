@@ -13,7 +13,11 @@ from src.trade import market_trade_format as F
 from src.trade import market_trade_normalize as N
 from src.trade import market_trade_report as R
 from tests.trade.market_trade_fixtures import KTC_INDEX, ctx, ktc_row, ktc_settings, sleeper_league
-from tests.trade.test_market_trade_normalize import _league_row, _trade_events
+from tests.trade.test_market_trade_normalize import (
+    _league_row,
+    _trade_events,
+    confirm_formats,
+)
 
 TARGET = F.format_from_sleeper_league(sleeper_league("TGT"))
 
@@ -69,6 +73,8 @@ def _seed(env):
         ],
         path=env["intel"],
     )
+    # A re-check after the trades saw the same payloads: bracketed (exact).
+    confirm_formats(env["intel"], [sleeper_league("L-IDP"), off_lg])
     # KTC: the same L-IDP trade (probable duplicate) + an unrelated MFL 1QB trade.
     rows = [
         ktc_row(501, [11], [902, 14]),
