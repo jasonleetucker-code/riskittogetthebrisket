@@ -32,10 +32,12 @@ DISPOSITIONS (owner decision 2, 2026-10-01 — four, replacing #1586's three)
 Every observation gets exactly ONE of, each stamped with
 ``targetPriceAuthority`` (1 = may serve as target-price evidence, 0 = may not):
 
-* ``NATIVE_COMPARABLE`` (authority 1) — every axis is ``MATCH`` AND a
-  pre-trade / in-force capture plus a later same-format confirmation brackets
-  the transaction (the strict timing contract, :func:`format_timing_cap`).
-  Unknown is not a match.  Unchanged by the fourth disposition.
+* ``NATIVE_COMPARABLE`` (authority 1) — the transaction passes the integrity
+  gate, every axis is ``MATCH``, AND a pre-trade / in-force capture plus a
+  later same-format confirmation brackets the transaction (the strict timing
+  contract, :func:`format_timing_cap`).  Unknown is not a match.  The timing
+  rule is unchanged by the fourth disposition; only hard integrity failures
+  now override it (see below).
 * ``VALIDATED_TRANSFORMABLE`` (authority 1) — a registered translator,
   validated out of sample, maps it onto the target.  **None is validated
   today**; the registry refuses ``validated=True`` without held-out evidence
@@ -46,28 +48,43 @@ Every observation gets exactly ONE of, each stamped with
   dimensions differ, are unknown, or have no validated translator.  Kept as
   clearly labelled context, never as same-format evidence.  ``broadContextKind``:
 
-  - ``timing_limited`` — an OBSERVED format none of whose observed axes
-    differs, but no valid evidence brackets it at trade time (a post-trade /
-    season-final capture, an unconfirmed or changed bracket, an unknown trade
-    time, an undated snapshot).  Stamped ``format_unconfirmed_at_trade`` and
-    ``all_observed_axes_match_target``; never implies exactness.
   - ``format_mismatch`` — at least one axis known to DIFFER and no validated
-    translator.
+    translator (whatever else is unknown or untimed).
   - ``format_unknown`` — no axis DIFFERENT and one or more material axes
-    UNKNOWN, with no timing cap (e.g. a KTC row: no scoring card) or with no
-    format observed at all.  The owner's definition names "unknown"
-    dimensions explicitly; this kind keeps them from being mislabelled as a
-    mismatch or as timing-limited.  See :func:`broad_context_kind`.
+    UNKNOWN (e.g. a KTC row: no scoring card), or no format observed at all.
+    Any timing cap is stamped as an additional reason.  The owner's
+    definition names "unknown" dimensions explicitly; this kind keeps them
+    from being mislabelled as a mismatch or as timing-limited.
+  - ``timing_limited`` — EVERY axis observed and MATCH, but no valid evidence
+    brackets the format at trade time (a post-trade / season-final capture,
+    an unconfirmed or changed bracket, an unknown trade time, an undated
+    snapshot).  Stamped ``format_unconfirmed_at_trade`` and
+    ``all_observed_axes_match_target``; never implies exactness.
+
+  The three kinds are mutually exclusive, by the precedence
+  mismatch > unknown > timing_limited (:func:`broad_context_kind`).  A trade
+  that contains an asset whose identity IS known but which no market prices
+  (a startup pick, an identified pick outside the market grammar) is
+  BROAD_CONTEXT of its format's kind with ``includes_unpriceable_asset``
+  stamped — never a hard failure.
 
 * ``TARGET_UNSUPPORTED`` (authority 0) — HARD insufficiency only: redraft,
   keeper (for the current dynasty lane), unknown / unverified dynasty state,
-  unusable transaction identity, analysis-blocking unresolved assets, invalid
-  topology, or no transaction to inspect.  Reasons in ``dispositionReasons``.
-  The observation is KEPT for research; it just cannot price the target.
+  unusable transaction identity, analysis-blocking unresolved assets (an
+  unknown player identity or an unparseable asset label — see
+  :func:`asset_identity_state`), invalid topology, or no transaction to
+  inspect.  Reasons in ``dispositionReasons``.  The observation is KEPT for
+  research; it just cannot price the target.
 
-The integrity checks (identity / topology / unresolved assets) gate only the
-non-native branches: NATIVE_COMPARABLE's rule is preserved byte-for-byte in
-effect, by owner instruction.
+PRECEDENCE: hard failure > NATIVE > VALIDATED_TRANSFORMABLE > BROAD_CONTEXT.
+The transaction-integrity gate (identity / topology / analysis-blocking
+unresolved assets / ``dedupeState UNRESOLVED``) runs BEFORE the NATIVE check,
+because the owner's TARGET_UNSUPPORTED definition (decision 2, 2026-10-01)
+names "unusable identity/topology, or another hard integrity failure" with no
+exception for a format that happens to match.  NATIVE_COMPARABLE's strict
+point-in-time timing rule is preserved unchanged; integrity failures override
+it.  (A bare format comparison — no observation passed — has no transaction
+to fail and is judged on format and timing alone.)
 
 BDVM SEAM (documented, not implemented): BDVM may later supply only a
 STRUCTURAL prior for a translator — ``structural_ratio = BDVM(F_target) /
@@ -814,7 +831,7 @@ def format_timing_cap(observation: Mapping[str, Any] | None) -> str | None:
     — fails closed) is future leakage if allowed to certify a native match:
     the league could have changed format in between.  Such trades are never
     NATIVE_COMPARABLE; a verified-dynasty one with trustworthy identity and
-    topology is BROAD_CONTEXT (``timing_limited`` when no axis differs), with
+    topology is BROAD_CONTEXT (``timing_limited`` when every axis matches), with
     the reason named; their axes are still computed and published.
 
     An undated legacy snapshot (``captureSource`` ending ``_time_unknown``) is
@@ -882,6 +899,29 @@ REASON_TOPOLOGY_UNVERIFIABLE = "transaction_topology_unverifiable"
 REASON_UNUSABLE_IDENTITY = "unusable_transaction_identity"
 REASON_INVALID_TOPOLOGY = "invalid_topology"  # suffixed ``:<topology>``
 REASON_UNRESOLVED_ASSETS = "unresolved_assets"
+#: A BROAD_CONTEXT (never hard) reason: an asset whose identity is known but
+#: which no market prices.
+REASON_INCLUDES_UNPRICEABLE_ASSET = "includes_unpriceable_asset"
+#: Pseudo-axis named as ``strongestUnsupportedAxis`` when every real axis
+#: MATCHES, timing does not cap, and only an integrity failure keeps the trade
+#: off NATIVE_COMPARABLE.
+TRANSACTION_INTEGRITY_AXIS = "transactionIntegrity"
+
+#: :func:`asset_identity_state` values.
+ASSET_RESOLVED = "resolved"
+ASSET_UNPRICEABLE = "identified_unpriceable"
+ASSET_UNRESOLVED = "unresolved"
+#: Pick ``resolution.reason`` values the normalizer
+#: (``market_trade_normalize.market_ref_from_vendor_label`` / ``_sleeper_asset``)
+#: writes when the pick's identity IS known but it is not a rookie market
+#: reference: a stated startup pick, or a label that parsed into a year/round
+#: the market grammar does not admit.  Not imported (literals pinned equal to
+#: the normalizer's output by a test).  Every OTHER uncanonical pick reason —
+#: ``unparseable_pick_label`` / ``unparseable_intel_pick_id`` /
+#: ``unparseable_league_pick_id``, or a missing reason — is an UNKNOWN asset.
+_IDENTIFIED_UNPRICEABLE_PICK_REASONS = frozenset(
+    {"startup_pick_not_a_market_ref", "pick_outside_market_grammar"}
+)
 
 #: ``market_trade_groups.UNRESOLVED`` (not imported, to keep this owner free of
 #: the dedupe module; the literal is pinned equal by a test).
@@ -900,6 +940,43 @@ def dynasty_hard_failure(axes: Mapping[str, Mapping[str, Any]]) -> str | None:
     return f"{REASON_NOT_DYNASTY}:{ax.get('source') or 'unknown'}"
 
 
+def asset_identity_state(asset: Mapping[str, Any]) -> str:
+    """Whether one normalized asset's IDENTITY is known — a narrower question
+    than ``classify_topology``'s ``includes_unresolved`` flag, which answers
+    "can it enter a latent-price fit" (``market_trade_eval.fit_suitability``)
+    and is deliberately left unchanged for that consumer.
+
+    * ``resolved`` — a canonical id, or a FAAB literal;
+    * ``identified_unpriceable`` — a pick with no canonical id whose identity
+      is nonetheless known (:data:`_IDENTIFIED_UNPRICEABLE_PICK_REASONS`):
+      not a hard failure, BROAD_CONTEXT with ``includes_unpriceable_asset``;
+    * ``unresolved`` — everything else without a canonical id: an
+      ``unresolved`` kind (unknown player identity, a KTC sentinel / unindexed
+      id), an unparseable pick label, a pick with no stated reason, any
+      unknown kind.  Fails closed — analysis-blocking.
+    """
+    if asset.get("canonicalId") is not None or asset.get("kind") == "faab":
+        return ASSET_RESOLVED
+    if (
+        asset.get("kind") == "pick"
+        and (asset.get("resolution") or {}).get("reason") in _IDENTIFIED_UNPRICEABLE_PICK_REASONS
+    ):
+        return ASSET_UNPRICEABLE
+    return ASSET_UNRESOLVED
+
+
+def _assets(observation: Mapping[str, Any] | None) -> list[Mapping[str, Any]]:
+    sides = (observation or {}).get("sides")
+    if not isinstance(sides, list):
+        return []
+    return [a for s in sides if isinstance(s, list) for a in s if isinstance(a, Mapping)]
+
+
+def includes_unpriceable_asset(observation: Mapping[str, Any] | None) -> bool:
+    """True when the transaction carries an identified-but-unpriceable asset."""
+    return any(asset_identity_state(a) == ASSET_UNPRICEABLE for a in _assets(observation))
+
+
 def transaction_integrity_failures(observation: Mapping[str, Any] | None) -> list[str]:
     """Hard identity / topology failures of the TRANSACTION (not its format).
 
@@ -907,10 +984,12 @@ def transaction_integrity_failures(observation: Mapping[str, Any] | None) -> lis
     cannot be inspected fails closed: no observation, or one without ``sides``.
     Topology comes from the canonical classifier
     (``market_trade_eval.classify_topology``): an empty or one-sided trade is
-    invalid, and any non-FAAB asset without a canonical identity is an
-    analysis-blocking unresolved asset.  A group the dedupe could not anchor
-    to any resolved asset or host transaction (``dedupeState == UNRESOLVED``)
-    has unusable identity.  Multi-team trades are valid topology.
+    invalid.  An asset whose identity is UNKNOWN
+    (:func:`asset_identity_state` ``== unresolved``) is analysis-blocking; an
+    identified asset that is merely not market-priceable is not.  A group the
+    dedupe could not anchor to any resolved asset or host transaction
+    (``dedupeState == UNRESOLVED``) has unusable identity.  Multi-team trades
+    are valid topology.
     """
     if observation is None:
         return [REASON_NO_OBSERVATION]
@@ -925,7 +1004,7 @@ def transaction_integrity_failures(observation: Mapping[str, Any] | None) -> lis
     topo = ev.classify_topology(observation)
     if topo["topology"] in (ev.TOPO_EMPTY, ev.TOPO_ONE_SIDED):
         failures.append(f"{REASON_INVALID_TOPOLOGY}:{topo['topology']}")
-    if "includes_unresolved" in topo["flags"]:
+    if any(asset_identity_state(a) == ASSET_UNRESOLVED for a in _assets(observation)):
         failures.append(REASON_UNRESOLVED_ASSETS)
     return failures
 
@@ -971,24 +1050,34 @@ def _result(
 
 def broad_context_kind(
     src: TradeMarketFormat, axes: Mapping[str, Mapping[str, Any]], timing_cap: str | None
-) -> str:
-    """Which BROAD_CONTEXT sub-kind a non-native, hard-failure-free trade is.
+) -> str | None:
+    """Which BROAD_CONTEXT sub-kind a non-native, hard-failure-free trade is,
+    or ``None`` when its format is native-grade (every axis MATCH, timing not
+    capped — only an integrity failure can keep such a trade off NATIVE, and
+    then it is TARGET_UNSUPPORTED, not BROAD_CONTEXT).
 
-    * any axis DIFFERENT -> ``format_mismatch`` (a timing cap, if any, is
-      stamped as an additional reason);
-    * else a timing cap on an OBSERVED format -> ``timing_limited`` (its
-      observed axes all match; unobserved axes, if any, are stamped
-      ``format_axes_unknown``);
-    * else -> ``format_unknown`` (no timing problem, or no format observed at
-      all, and at least one axis UNKNOWN).
+    Precedence, most decisive first — the kinds are mutually exclusive:
 
+    1. any axis DIFFERENT -> ``format_mismatch``.  A KNOWN difference means
+       the trade cannot be target-like whatever the unknown axes or the
+       timing turn out to be, so it outranks both;
+    2. else any axis UNKNOWN (or no format observed at all) ->
+       ``format_unknown``.  An unobserved axis could still differ, so the
+       trade cannot be called "all observed axes match, only timing missing";
+       a timing cap, if any, is stamped as an additional reason;
+    3. else (every axis observed and MATCH) a timing cap ->
+       ``timing_limited``: the format is right, only its timing is unproven.
+
+    (Hard failures outrank all three: they are decided before this is called.)
     One definition, shared with the census's descriptive partition.
     """
     if any(axes[n]["state"] == DIFFERENT for n in AXES):
         return BROAD_FORMAT_MISMATCH
-    if timing_cap is not None and src.source != SOURCE_UNKNOWN:
+    if src.source == SOURCE_UNKNOWN or any(axes[n]["state"] == UNKNOWN for n in AXES):
+        return BROAD_FORMAT_UNKNOWN
+    if timing_cap is not None:
         return BROAD_TIMING_LIMITED
-    return BROAD_FORMAT_UNKNOWN
+    return None
 
 
 def target_price_authority(result: Mapping[str, Any] | None) -> int:
@@ -1014,15 +1103,20 @@ def disposition(
     ``formatEvidence`` decides the timing cap (:func:`format_timing_cap`) and
     its ``sides`` / ``dedupeState`` the transaction-integrity checks.  Order:
 
-    1. NATIVE_COMPARABLE: every axis MATCH and no timing cap (unchanged rule;
-       integrity checks deliberately not applied here, by owner instruction).
-    2. TARGET_UNSUPPORTED: a dynasty-lane or transaction-integrity hard
-       failure.
-    3. VALIDATED_TRANSFORMABLE: an out-of-sample validated translator, never
+    1. TARGET_UNSUPPORTED on a transaction-integrity hard failure of a
+       supplied observation — BEFORE the native check, because the owner's
+       TARGET_UNSUPPORTED definition (decision 2) covers "unusable
+       identity/topology, or another hard integrity failure" without
+       exception.
+    2. NATIVE_COMPARABLE: every axis MATCH and no timing cap (the strict
+       point-in-time timing rule, unchanged).
+    3. TARGET_UNSUPPORTED: a dynasty-lane hard failure (or, for a bare format
+       comparison, no transaction to inspect).
+    4. VALIDATED_TRANSFORMABLE: an out-of-sample validated translator, never
        for a timing-capped format (a post-trade capture cannot be transformed
        into the format in force at the trade either).
-    4. BROAD_CONTEXT: everything else, ``targetPriceAuthority`` 0, with its
-       kind and reasons stamped.
+    5. BROAD_CONTEXT: everything else, ``targetPriceAuthority`` 0, with its
+       kind (:func:`broad_context_kind`) and reasons stamped.
     """
     reg = registry if registry is not None else DEFAULT_REGISTRY
     axes = compare_formats(src, tgt)
@@ -1030,17 +1124,29 @@ def disposition(
     timing_cap = format_timing_cap(observation)
     authority["formatTimingCap"] = timing_cap
     strongest = strongest_unsupported_axis(axes) or (FORMAT_TIMING_AXIS if timing_cap else None)
-    if timing_cap is None and not authority["differentAxes"] and not authority["unknownAxes"]:
+    integrity = transaction_integrity_failures(observation)
+    # The integrity gate applies to a SUPPLIED transaction; with no observation
+    # there is no transaction to fail (a bare format comparison), and the
+    # "no_transaction_observation" failure only blocks the non-native branches.
+    native_format = (
+        timing_cap is None and not authority["differentAxes"] and not authority["unknownAxes"]
+    )
+    if native_format and not (observation is not None and integrity):
         return _result(NATIVE_COMPARABLE, axes, authority, None, strongest=None)
 
     hard: list[str] = []
     dyn = dynasty_hard_failure(axes)
     if dyn is not None:
         hard.append(dyn)
-    hard += transaction_integrity_failures(observation)
+    hard += integrity
     if hard:
         return _result(
-            TARGET_UNSUPPORTED, axes, authority, timing_cap, strongest=strongest, reasons=hard
+            TARGET_UNSUPPORTED,
+            axes,
+            authority,
+            timing_cap,
+            strongest=strongest or TRANSACTION_INTEGRITY_AXIS,
+            reasons=hard,
         )
 
     if timing_cap is None:
@@ -1067,6 +1173,8 @@ def disposition(
             )
 
     kind = broad_context_kind(src, axes, timing_cap)
+    if kind is None:  # pragma: no cover - native-grade formats returned above
+        raise AssertionError("native-grade format reached the BROAD_CONTEXT branch")
     reasons: list[str] = []
     if kind == BROAD_FORMAT_MISMATCH:
         reasons += [REASON_FORMAT_AXES_DIFFER, REASON_NO_VALIDATED_TRANSLATOR]
@@ -1078,6 +1186,8 @@ def disposition(
         # A format WAS observed and none of its observed axes differs.  Never
         # stamped for a format nobody observed (only the dynasty claim known).
         reasons.append(REASON_ALL_OBSERVED_AXES_MATCH)
+    if includes_unpriceable_asset(observation):
+        reasons.append(REASON_INCLUDES_UNPRICEABLE_ASSET)
     return _result(
         BROAD_CONTEXT,
         axes,

@@ -5,9 +5,15 @@ Pinned here:
 * every disposition path, with its ``dispositionReasons`` and
   ``targetPriceAuthority`` (NATIVE 1, VALIDATED_TRANSFORMABLE 1, BROAD_CONTEXT 0,
   TARGET_UNSUPPORTED 0);
-* the NATIVE_COMPARABLE set is IDENTICAL to the pre-decision rule (a frozen copy
-  of #1586's three-disposition logic is the reference), on synthetic variants and
-  on the census's end-to-end fixture;
+* the NATIVE_COMPARABLE set is the pre-decision rule's (a frozen copy of #1586's
+  three-disposition logic is the reference) MINUS exactly the trades failing the
+  transaction-integrity gate, which now runs before the NATIVE check (owner
+  TARGET_UNSUPPORTED definition); no fixture NATIVE trade is affected end to end;
+* only TRULY unresolved identities are hard failures — an identified but
+  unpriceable asset (startup pick, out-of-grammar pick) is BROAD_CONTEXT with
+  ``includes_unpriceable_asset``;
+* the three BROAD_CONTEXT kinds are mutually exclusive, precedence
+  mismatch > unknown > timing_limited;
 * the former #1595 "verified dynasty candidate" population maps into
   BROAD_CONTEXT unless another hard failure applies;
 * TARGET_UNSUPPORTED is HARD insufficiency only;
@@ -24,6 +30,7 @@ import pytest
 
 from src.trade import market_trade_format as F
 from src.trade import market_trade_groups as grp
+from src.trade import market_trade_normalize as N
 from src.trade import market_trade_report as R
 from tests.trade.market_trade_fixtures import TARGET_POSITIONS, TARGET_SCORING, sleeper_league
 from tests.trade.test_market_trade_census import _build, _seed, env  # noqa: F401
@@ -112,13 +119,38 @@ EVIDENCE = {
     "undated": UNDATED,
     "no_evidence_vendor": None,
 }
+
+
+def _pick(reason):
+    return {
+        "kind": "pick",
+        "canonicalId": None,
+        "pick": None,
+        "resolution": {"status": "unresolved", "method": "pick_label", "reason": reason},
+    }
+
+
+STARTUP_PICK = _pick("startup_pick_not_a_market_ref")
+OUT_OF_GRAMMAR_PICK = _pick("pick_outside_market_grammar")
+UNPARSEABLE_PICK = _pick("unparseable_pick_label")
+UNRESOLVED_PLAYER = {
+    "kind": "unresolved",
+    "canonicalId": None,
+    "resolution": {"status": "unresolved", "method": "name", "reason": "no_match"},
+}
+
 SIDE_VARIANTS = {
     "ok": SIDES,
     "empty": [],
     "one_sided": [SIDES[0], []],
     "unresolved": [[{"kind": "unresolved", "canonicalId": None}], SIDES[1]],
     "multi_team": [SIDES[0], SIDES[1], [{"kind": "player", "canonicalId": "player:3"}]],
+    "startup_pick": [SIDES[0] + [STARTUP_PICK], SIDES[1]],
+    "out_of_grammar_pick": [SIDES[0] + [OUT_OF_GRAMMAR_PICK], SIDES[1]],
+    "unparseable_pick": [SIDES[0] + [UNPARSEABLE_PICK], SIDES[1]],
 }
+#: Side variants that fail the transaction-integrity gate.
+INTEGRITY_FAILING_SIDES = {"empty", "one_sided", "unresolved", "unparseable_pick"}
 
 
 def _variants():
@@ -132,10 +164,10 @@ def _variants():
 VARIANTS = list(_variants())
 
 
-# ── NATIVE is unchanged ───────────────────────────────────────────────────
+# ── NATIVE: timing unchanged, integrity failures override ──────────────────
 
 
-def test_native_set_is_identical_to_the_pre_decision_rule_on_every_variant():
+def test_native_set_is_the_pre_decision_rule_minus_integrity_failures():
     before = {
         k for k, f, o in VARIANTS if legacy_three_disposition(f, TARGET, o) == "NATIVE_COMPARABLE"
     }
@@ -144,30 +176,145 @@ def test_native_set_is_identical_to_the_pre_decision_rule_on_every_variant():
         for k, f, o in VARIANTS
         if F.disposition(f, TARGET, observation=o)["disposition"] == F.NATIVE_COMPARABLE
     }
-    assert after == before
-    # Non-vacuous: the identical format is native for EVERY topology when it is
-    # bracketed, or when it is a non-capture (vendor) format with no timing
-    # evidence to cap — integrity is not applied to NATIVE, by owner instruction.
-    assert {
-        f"same/{e}/{s}" for e in ("bracketed", "no_evidence_vendor") for s in SIDE_VARIANTS
-    } == (before)
+    failing = {k for k, _, o in VARIANTS if F.transaction_integrity_failures(o)}
+    assert after == before - failing
+    # The timing rule is untouched: nothing becomes native that was not.
+    assert after <= before
+    # Non-vacuous: the legacy rule made the identical format native for EVERY
+    # topology (bracketed, or a non-capture vendor format with nothing to cap);
+    # exactly the integrity-failing topologies drop out.
+    native_formats = {f"same/{e}" for e in ("bracketed", "no_evidence_vendor")}
+    assert before == {f"{nf}/{s}" for nf in native_formats for s in SIDE_VARIANTS}
+    assert before - after == {f"{nf}/{s}" for nf in native_formats for s in INTEGRITY_FAILING_SIDES}
+    # An identified-but-unpriceable asset is NOT an integrity failure.
+    assert {"same/bracketed/startup_pick", "same/bracketed/out_of_grammar_pick"} <= after
+
+
+@pytest.mark.parametrize(
+    "sides,extra,reasons",
+    [
+        ([], {}, ["invalid_topology:empty"]),
+        ([SIDES[0], []], {}, ["invalid_topology:two_team_one_sided"]),
+        ([SIDES[0] + [UNRESOLVED_PLAYER], SIDES[1]], {}, ["unresolved_assets"]),
+        ([SIDES[0] + [UNPARSEABLE_PICK], SIDES[1]], {}, ["unresolved_assets"]),
+        (SIDES, {"dedupeState": "UNRESOLVED"}, ["unusable_transaction_identity"]),
+    ],
+)
+def test_an_integrity_failing_all_match_bracketed_trade_is_target_unsupported(
+    sides, extra, reasons
+):
+    o = obs(BRACKETED, sides=sides, **extra)
+    # Legacy: native (every axis MATCH, bracketed).  Now the integrity gate wins.
+    assert legacy_three_disposition(fmt(), TARGET, o) == F.NATIVE_COMPARABLE
+    d = F.disposition(fmt(), TARGET, observation=o)
+    assert d["disposition"] == F.TARGET_UNSUPPORTED
+    assert d["dispositionReasons"] == reasons
+    assert d["targetPriceAuthority"] == 0 and d["broadContextKind"] is None
+    assert d["formatTimingCap"] is None
+    assert d["strongestUnsupportedAxis"] == F.TRANSACTION_INTEGRITY_AXIS
+    assert F.broad_context_kind(fmt(), d["comparability"], None) is None
+
+
+def test_a_bare_format_comparison_has_no_transaction_to_fail():
+    # No observation: a format statement, judged on format and timing alone.
+    assert F.disposition(fmt(), TARGET)["disposition"] == F.NATIVE_COMPARABLE
+    # ...while a non-native one still names the missing transaction.
+    d = F.disposition(fmt(teams=10), TARGET)
+    assert d["dispositionReasons"] == ["no_transaction_observation"]
 
 
 def test_native_set_is_identical_end_to_end(env):  # noqa: F811
     _seed(env, non_dynasty=True)
     result = _build(env)
     tgt = result["targetFormat"]
-    before = {
-        g["underlyingTradeId"]
+    before_groups = [
+        g
         for g in result["grouping"].groups
         if legacy_three_disposition(R._fmt_of(g), tgt, g) == F.NATIVE_COMPARABLE
-    }
+    ]
+    # No fixture NATIVE trade fails the integrity gate, so none is affected.
+    assert not [g for g in before_groups if F.transaction_integrity_failures(g)]
+    before = {g["underlyingTradeId"] for g in before_groups}
     after = {
         g["underlyingTradeId"]
         for g in result["grouping"].groups
         if g["disposition"] == F.NATIVE_COMPARABLE
     }
     assert after == before and len(after) == 6
+
+
+# ── analysis-blocking unresolved vs identified-but-unpriceable ───────────
+
+
+def test_unpriceable_pick_reasons_match_the_normalizer():
+    startup = N.market_ref_from_vendor_label("Startup Pick 1.05", mid_is_vendor_default=True)
+    assert startup[3] == "startup_pick_not_a_market_ref"
+    deep = N._sleeper_asset("pick:2027:25", "pick", None)
+    assert deep["canonicalId"] is None
+    assert deep["resolution"]["reason"] == "pick_outside_market_grammar"
+    assert F._IDENTIFIED_UNPRICEABLE_PICK_REASONS == {
+        "startup_pick_not_a_market_ref",
+        "pick_outside_market_grammar",
+    }
+    # Unparseable labels are UNKNOWN identities in every lane.
+    for asset in (
+        N._sleeper_asset("pick:x", "pick", None),
+        N._own_asset("not-a-pick-id", "pick", None),
+        N._pick_asset(None, vendor_ref="z", label="junk", vendor_grade=None, reason=None),
+    ):
+        assert F.asset_identity_state(asset) == F.ASSET_UNRESOLVED
+    assert F.asset_identity_state(deep) == F.ASSET_UNPRICEABLE
+
+
+@pytest.mark.parametrize(
+    "asset,state",
+    [
+        ({"kind": "player", "canonicalId": "player:1"}, F.ASSET_RESOLVED),
+        ({"kind": "faab", "canonicalId": None}, F.ASSET_RESOLVED),
+        (STARTUP_PICK, F.ASSET_UNPRICEABLE),
+        (OUT_OF_GRAMMAR_PICK, F.ASSET_UNPRICEABLE),
+        (UNPARSEABLE_PICK, F.ASSET_UNRESOLVED),
+        (_pick(None), F.ASSET_UNRESOLVED),
+        (UNRESOLVED_PLAYER, F.ASSET_UNRESOLVED),
+        ({"kind": "something_new", "canonicalId": None}, F.ASSET_UNRESOLVED),
+    ],
+)
+def test_asset_identity_state(asset, state):
+    assert F.asset_identity_state(asset) == state
+
+
+@pytest.mark.parametrize("pick", [STARTUP_PICK, OUT_OF_GRAMMAR_PICK])
+def test_a_dynasty_trade_with_an_unpriceable_pick_is_broad_context(pick):
+    for f, kind in (
+        (fmt(), F.BROAD_TIMING_LIMITED),
+        (fmt(teams=10), F.BROAD_FORMAT_MISMATCH),
+        (F.format_from_sleeper_league(NO_CARD), F.BROAD_FORMAT_UNKNOWN),
+    ):
+        d = F.disposition(
+            f, TARGET, observation=obs(POST_TRADE, sides=[SIDES[0] + [pick], SIDES[1]])
+        )
+        assert d["disposition"] == F.BROAD_CONTEXT
+        assert d["broadContextKind"] == kind
+        assert "includes_unpriceable_asset" in d["dispositionReasons"]
+        assert "unresolved_assets" not in d["dispositionReasons"]
+        assert d["targetPriceAuthority"] == 0
+
+
+def test_an_unresolved_player_identity_is_target_unsupported():
+    sides = [SIDES[0] + [UNRESOLVED_PLAYER], SIDES[1]]
+    d = F.disposition(fmt(), TARGET, observation=obs(POST_TRADE, sides=sides))
+    assert d["disposition"] == F.TARGET_UNSUPPORTED
+    assert d["dispositionReasons"] == ["unresolved_assets"]
+
+
+def test_classify_topology_is_unchanged_for_fit_suitability():
+    # The other consumer keeps its stricter "can it enter a fit" flag.
+    from src.trade import market_trade_eval as ev
+
+    topo = ev.classify_topology({"sides": [SIDES[0] + [STARTUP_PICK], SIDES[1]]})
+    assert "includes_unresolved" in topo["flags"]
+    assert "includes_startup_pick" in topo["flags"]
+    assert "includes_unresolved" in ev.fit_suitability({}, topo)["reasons"]
 
 
 def test_native_result_shape_is_additive_only():
@@ -288,6 +435,52 @@ def test_format_mismatch_with_a_timing_cap_stamps_both():
         d["dispositionReasons"]
     )
     assert "all_observed_axes_match_target" not in d["dispositionReasons"]
+
+
+def test_an_unknown_axis_beats_timing_limited():
+    # NO_CARD: every observed axis matches, the scoring axes are UNKNOWN, and
+    # the capture is post-trade.  An unobserved axis could still differ, so
+    # this is format_unknown, with the timing reasons kept.
+    d = F.disposition(F.format_from_sleeper_league(NO_CARD), TARGET, observation=obs(POST_TRADE))
+    assert d["broadContextKind"] == F.BROAD_FORMAT_UNKNOWN
+    assert d["dispositionReasons"] == [
+        "format_capture_post_trade",
+        "format_unconfirmed_at_trade",
+        "post_trade_capture",
+        "format_axes_unknown",
+        "all_observed_axes_match_target",
+    ]
+
+
+def test_a_known_difference_beats_unknown_axes_and_timing():
+    no_card_10 = sleeper_league("SRC", teams=10) | {"scoring_settings": None}
+    d = F.disposition(F.format_from_sleeper_league(no_card_10), TARGET, observation=obs(POST_TRADE))
+    assert d["broadContextKind"] == F.BROAD_FORMAT_MISMATCH
+    assert {"format_axes_differ", "format_axes_unknown", "format_capture_post_trade"} <= set(
+        d["dispositionReasons"]
+    )
+
+
+def test_broad_context_kinds_are_mutually_exclusive_on_every_variant():
+    seen = set()
+    for key, f, o in VARIANTS:
+        d = F.disposition(f, TARGET, observation=o)
+        if d["disposition"] != F.BROAD_CONTEXT:
+            continue
+        states = {d["comparability"][n]["state"] for n in F.AXES}
+        diff = F.DIFFERENT in states
+        unknown = F.UNKNOWN in states or f.source == F.SOURCE_UNKNOWN
+        timed = d["formatTimingCap"] is not None
+        expected = {
+            F.BROAD_FORMAT_MISMATCH: diff,
+            F.BROAD_FORMAT_UNKNOWN: not diff and unknown,
+            F.BROAD_TIMING_LIMITED: not diff and not unknown and timed,
+        }
+        # Exactly one predicate holds, and it is the stamped kind.
+        assert sum(expected.values()) == 1, key
+        assert expected[d["broadContextKind"]], key
+        seen.add(d["broadContextKind"])
+    assert seen == {F.BROAD_FORMAT_MISMATCH, F.BROAD_FORMAT_UNKNOWN, F.BROAD_TIMING_LIMITED}
 
 
 def test_format_unknown_axes_get_their_own_kind_and_reason():

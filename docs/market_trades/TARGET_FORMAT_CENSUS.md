@@ -174,39 +174,56 @@ one disposition, stamped with `targetPriceAuthority`, `broadContextKind` and
 
 | disposition | `targetPriceAuthority` | meaning |
 |---|---|---|
-| NATIVE_COMPARABLE | 1 | every axis MATCH **and** a pre-trade / in-force capture plus a later same-format confirmation brackets the transaction (the strict timing contract, `format_timing_cap`). Unchanged by this decision |
+| NATIVE_COMPARABLE | 1 | the transaction passes the integrity gate, every axis MATCH, **and** a pre-trade / in-force capture plus a later same-format confirmation brackets the transaction (the strict timing contract, `format_timing_cap`). The timing rule is unchanged by this decision; integrity failures override it |
 | VALIDATED_TRANSFORMABLE | 1 | material differences covered by an OUT-OF-SAMPLE validated translator. **None exists**; none is created merely because the class exists |
 | BROAD_CONTEXT | 0 | a verified dynasty transaction with trustworthy identity/topology where one or more material target-format dimensions differ, are unknown, or have no validated translator |
-| TARGET_UNSUPPORTED | 0 | hard insufficiency only: redraft, keeper (for the current dynasty lane), unknown / unverified dynasty state, unusable transaction identity, analysis-blocking unresolved assets, invalid topology, or no transaction to inspect |
+| TARGET_UNSUPPORTED | 0 | hard insufficiency only: redraft, keeper (for the current dynasty lane), unknown / unverified dynasty state, unusable transaction identity, analysis-blocking unresolved assets (an unknown identity or an unparseable asset label), invalid topology, or no transaction to inspect |
 
 BROAD_CONTEXT kinds (`market_trade_format.broad_context_kind`, one definition shared with
-this census):
+this census). They are mutually exclusive, with the precedence
+**hard failure > mismatch > unknown > timing_limited**. A known difference means the trade
+cannot be target-like whatever the unknown axes or the timing turn out to be. An unknown
+axis could still differ, so an all-observed-match claim needs every axis observed.
 
-* **`timing_limited`** — an observed format, none of whose observed axes differs, but no
-  valid evidence brackets it at trade time. Reasons name the cap
-  (`format_capture_post_trade`, `format_unconfirmed_after_trade`,
-  `format_changed_after_trade`, `format_time_unknown`, `format_capture_undated_snapshot`,
-  `format_capture_timing_unproven`) plus `format_unconfirmed_at_trade`,
-  `post_trade_capture` / `season_final_settings` where they apply, and
-  `all_observed_axes_match_target`. It never implies exactness: a season-final or
-  post-trade capture does not prove the format was in force throughout the season.
 * **`format_mismatch`** — at least one axis DIFFERENT and no validated translator
-  (`format_axes_differ`, `no_validated_translator`; a timing cap is stamped beside it).
-* **`format_unknown`** — no axis DIFFERENT, at least one axis UNKNOWN, and either no
-  timing cap (for example a KTC row, which has no scoring card) or no format observed at
-  all (`format_axes_unknown`). This third kind applies the owner's "differ, **are
-  unknown**, or have no validated translator" definition. Without it, unknown axes would
-  be mislabelled as a mismatch or as timing-limited.
+  (`format_axes_differ`, `no_validated_translator`). Any unknown axes or timing cap are
+  stamped beside it.
+* **`format_unknown`** — no axis DIFFERENT, and at least one axis UNKNOWN or no format
+  observed at all (`format_axes_unknown`). A KTC row, which has no scoring card, is one
+  example. A timing cap, if any, is stamped as an additional reason. This kind applies the
+  owner's "differ, **are unknown**, or have no validated translator" definition. Without
+  it, unknown axes would be mislabelled as a mismatch or as timing-limited.
+* **`timing_limited`** — **every** axis observed and MATCH, but no valid evidence brackets
+  the format at trade time. Reasons name the cap (`format_capture_post_trade`,
+  `format_unconfirmed_after_trade`, `format_changed_after_trade`, `format_time_unknown`,
+  `format_capture_undated_snapshot`, `format_capture_timing_unproven`) plus
+  `format_unconfirmed_at_trade`, `post_trade_capture` / `season_final_settings` where they
+  apply, and `all_observed_axes_match_target`. It never implies exactness: a season-final
+  or post-trade capture does not prove the format was in force throughout the season.
+
+A trade carrying an asset whose identity is known but which no market prices is
+BROAD_CONTEXT of its format's kind, with `includes_unpriceable_asset` stamped. Examples are
+a startup pick, or an identified pick outside the market grammar such as round 25. It is
+never a hard failure.
 
 TARGET_UNSUPPORTED reasons: `not_dynasty:<state>`, `dynasty_state_unverified`,
 `no_transaction_observation`, `transaction_topology_unverifiable`,
 `unusable_transaction_identity` (dedupe state UNRESOLVED), `invalid_topology:<topology>`
-(empty or one-sided), and `unresolved_assets` (any non-FAAB asset without a canonical
-identity). Multi-team trades, FAAB and POSSIBLE_OVERLAP are not hard failures.
+(empty or one-sided), and `unresolved_assets`. The last one means an asset whose identity
+is UNKNOWN: an unresolved player, a KTC sentinel or unindexed id, an unparseable pick
+label, or a pick with no stated reason (`market_trade_format.asset_identity_state`).
+Multi-team trades, FAAB, POSSIBLE_OVERLAP and identified-but-unpriceable assets are not
+hard failures. `market_trade_eval.classify_topology` keeps its stricter
+`includes_unresolved` flag for `fit_suitability`, which asks a different question.
 
-The integrity checks gate only the non-native branches. By owner instruction
-NATIVE_COMPARABLE's rule is preserved byte-for-byte in effect, and a frozen copy of the
-pre-decision rule pins that in `tests/trade/test_market_trade_broad_context.py`.
+**The integrity gate runs before the NATIVE check.** The owner's TARGET_UNSUPPORTED
+definition covers "unusable identity/topology, or another hard integrity failure" with no
+exception for a matching format. NATIVE_COMPARABLE's strict point-in-time timing rule is
+unchanged. The only trades that leave NATIVE are those failing the integrity gate; such a
+trade's `strongestUnsupportedAxis` is `transactionIntegrity`. A bare format comparison
+with no observation passed has no transaction to fail. A frozen copy of the pre-decision
+rule in `tests/trade/test_market_trade_broad_context.py` pins NATIVE as the old set minus
+exactly the integrity failures. End to end, no fixture NATIVE trade is affected.
 
 ## BROAD_CONTEXT reconciliation (census v2)
 
@@ -219,9 +236,12 @@ nothing itself:
 * **`formerCandidateBroadContext`** re-applies #1595's descriptive rule (verified dynasty
   state, not NATIVE / VALIDATED_TRANSFORMABLE) so a bootstrap census, which had three
   dispositions, can be reconciled with a later census, which has four. The population is
-  split three ways by `broad_context_kind`: `KnownMismatch`, `TimingLimitedAllObservedMatch`
-  and `UnknownOnly`. Each is also split by dynasty basis, because a KTC row's dynasty state
-  is a source-level claim, not a host setting. The section also reports how many of the
+  split four mutually exclusive ways by `broad_context_kind`: `KnownMismatch`,
+  `UnknownOnly`, `TimingLimitedAllObservedMatch` (every axis observed and MATCH, timing
+  capped) and `NativeFormatIntegrityFailure`. The last one is a native-grade format kept off
+  NATIVE only by the integrity gate. Under v1 those trades were NATIVE. Each bucket is also
+  split by dynasty basis, because a KTC row's dynasty state is a source-level claim, not a
+  host setting. The section also reports how many of the
   population are now BROAD_CONTEXT and how many are now TARGET_UNSUPPORTED through a hard
   failure.
 * `unsupportedOrUnverifiedDynastyNotVerified`: non-native trades whose dynasty state is not
@@ -237,10 +257,19 @@ nothing itself:
 * `expressibleByCurrentDispositions` changed from `false` to `true`, and the `reason` and
   `followUp` strings were dropped.
 * `candidateBroadContext` was renamed `formerCandidateBroadContext`. It gained
-  `verifiedDynastyTimingLimitedAllObservedMatchByDynastyBasis`, `nowBroadContext` and
+  `verifiedDynastyTimingLimitedAllObservedMatchByDynastyBasis`,
+  `verifiedDynastyNativeFormatIntegrityFailureByDynastyBasis`, `nowBroadContext` and
   `nowTargetUnsupportedHardFailure`.
-* **Mislabel fix.** v1 filed timing-capped trades whose observed axes all MATCH under
-  `UnknownOnly`, because they had no DIFFERENT axis. They are now `TimingLimitedAllObservedMatch`.
+* **Mislabel fix.** v1 filed timing-capped trades whose axes all MATCH under `UnknownOnly`,
+  because they had no DIFFERENT axis. They are now `TimingLimitedAllObservedMatch`. A
+  timing-capped trade with an UNKNOWN axis stays `UnknownOnly`.
+* **Integrity before NATIVE.** `nativeComparable` / `exactAndNativeComparable` drop any
+  trade that fails the integrity gate. Such trades count under
+  `targetUnsupportedByReason` and `NativeFormatIntegrityFailure`.
+* **Unpriceable is not unresolved.** Trades whose only uncanonical assets are identified
+  but unpriceable, such as startup picks, move from TARGET_UNSUPPORTED `unresolved_assets`
+  to BROAD_CONTEXT `includes_unpriceable_asset`.
+* `BROAD_CONTEXT_RULE` gained `kindPrecedence` and `unpriceableAssets`.
 * The new keys are `disposition`, `targetPriceAuthority`, `broadContextTrades`,
   `broadContextByKind`, `broadContextByKindAndDynastyBasis`, `broadContextByReason` and
   `targetUnsupportedByReason`.

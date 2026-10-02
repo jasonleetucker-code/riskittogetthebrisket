@@ -506,18 +506,35 @@ BROAD_CONTEXT_RULE: dict[str, Any] = {
         "translator; targetPriceAuthority = 0"
     ),
     "kinds": {
-        mtf.BROAD_TIMING_LIMITED: (
-            "an observed format with no axis DIFFERENT (every observed axis matches) but no "
-            "valid evidence brackets it at trade time; never implies exactness"
+        mtf.BROAD_FORMAT_MISMATCH: (
+            "at least one axis DIFFERENT and no validated translator (outranks unknown axes "
+            "and timing: a known difference cannot be target-like)"
         ),
-        mtf.BROAD_FORMAT_MISMATCH: "at least one axis DIFFERENT and no validated translator",
         mtf.BROAD_FORMAT_UNKNOWN: (
-            "no axis DIFFERENT, at least one axis UNKNOWN, and no timing cap or no format observed"
+            "no axis DIFFERENT and at least one axis UNKNOWN, or no format observed; a "
+            "timing cap, if any, is an additional reason"
+        ),
+        mtf.BROAD_TIMING_LIMITED: (
+            "every axis observed and MATCH, but no valid evidence brackets the format at "
+            "trade time; never implies exactness"
         ),
     },
+    "kindPrecedence": [
+        "hard_failure (TARGET_UNSUPPORTED)",
+        mtf.BROAD_FORMAT_MISMATCH,
+        mtf.BROAD_FORMAT_UNKNOWN,
+        mtf.BROAD_TIMING_LIMITED,
+    ],
+    "unpriceableAssets": (
+        "an asset whose identity is known but which no market prices (startup pick, "
+        "identified pick outside the market grammar) is not a hard failure: BROAD_CONTEXT "
+        "of its format's kind, reason includes_unpriceable_asset"
+    ),
     "targetUnsupportedIs": (
         "hard insufficiency only: redraft / keeper / unverified dynasty state, unusable "
-        "transaction identity, analysis-blocking unresolved assets, invalid topology"
+        "transaction identity, analysis-blocking unresolved assets (unknown identity or "
+        "unparseable asset label), invalid topology; the integrity gate runs before the "
+        "NATIVE check (owner TARGET_UNSUPPORTED definition)"
     ),
     "formerCandidateRule": (
         "#1595: dynastyState axis == MATCH and disposition not NATIVE_COMPARABLE / "
@@ -526,12 +543,17 @@ BROAD_CONTEXT_RULE: dict[str, Any] = {
     "split": {
         "verifiedDynastyKnownMismatch": "at least one axis DIFFERENT",
         "verifiedDynastyTimingLimitedAllObservedMatch": (
-            "no axis DIFFERENT and a format timing cap on an observed format "
+            "every axis observed and MATCH and a format timing cap "
             "(market_trade_format.broad_context_kind == timing_limited)"
         ),
         "verifiedDynastyUnknownOnly": (
-            "no axis DIFFERENT, at least one axis UNKNOWN, and no timing cap or no format "
-            "observed (broad_context_kind == format_unknown)"
+            "no axis DIFFERENT and at least one axis UNKNOWN or no format observed, timing "
+            "capped or not (broad_context_kind == format_unknown)"
+        ),
+        "verifiedDynastyNativeFormatIntegrityFailure": (
+            "every axis MATCH and timing not capped, kept off NATIVE only by a transaction "
+            "integrity failure (broad_context_kind is None); NATIVE under v1, which did not "
+            "gate NATIVE on integrity"
         ),
     },
     "dynastyBasisCaveat": (
@@ -1192,6 +1214,7 @@ def target_format_census(result: Mapping[str, Any]) -> dict[str, Any]:
     known_mismatch: dict[str, int] = {}
     timing_all_match: dict[str, int] = {}
     unknown_only: dict[str, int] = {}
+    native_format_integrity: dict[str, int] = {}
     former_total = former_broad = former_unsupported = 0
     not_verified = 0
     for g in groups:
@@ -1207,16 +1230,20 @@ def target_format_census(result: Mapping[str, Any]) -> dict[str, Any]:
         else:
             former_unsupported += 1
         basis = _fmt_of(g).dynasty_basis or UNKNOWN_CELL
-        # The disposition owner's own sub-kind rule (one definition).  v1
-        # filed timing-capped all-observed-MATCH trades under "unknown only"
-        # — a mislabel (review note); they are split out here.
+        # The disposition owner's own sub-kind rule (one definition, mutually
+        # exclusive kinds: mismatch > unknown > timing_limited).  v1 filed
+        # timing-capped all-observed-MATCH trades under "unknown only" — a
+        # mislabel (review note); they are split out here, and a timing-capped
+        # trade with an UNKNOWN axis is "unknown only", never timing-limited.
         kind = mtf.broad_context_kind(
             _fmt_of(g), c, (g.get("formatAuthority") or {}).get("formatTimingCap")
         )
         bucket = {
             mtf.BROAD_FORMAT_MISMATCH: known_mismatch,
+            mtf.BROAD_FORMAT_UNKNOWN: unknown_only,
             mtf.BROAD_TIMING_LIMITED: timing_all_match,
-        }.get(kind, unknown_only)
+            None: native_format_integrity,
+        }[kind]
         _inc(bucket, basis)
     broad = {
         "expressibleByCurrentDispositions": True,
@@ -1236,6 +1263,9 @@ def target_format_census(result: Mapping[str, Any]) -> dict[str, Any]:
                 sorted(timing_all_match.items())
             ),
             "verifiedDynastyUnknownOnlyByDynastyBasis": dict(sorted(unknown_only.items())),
+            "verifiedDynastyNativeFormatIntegrityFailureByDynastyBasis": dict(
+                sorted(native_format_integrity.items())
+            ),
             "total": former_total,
             "nowBroadContext": former_broad,
             "nowTargetUnsupportedHardFailure": former_unsupported,
