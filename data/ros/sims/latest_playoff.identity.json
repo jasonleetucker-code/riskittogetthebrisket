@@ -1,0 +1,86 @@
+{
+  "computedAt": "2026-10-02T13:18:47.531575+00:00",
+  "forecastSha256": "92f5328350aa50385cabc4b5128783ca6e25aa395860b9c199b68b3406e3912a",
+  "inputs": {
+    "contractGeneration": null,
+    "inputsSha256": "70b65dac6ee19b5fe03826e3e0abcb313ab5febe68a56ef908ef164acdd01df0",
+    "leagueSnapshotGeneratedAt": "2026-10-02T13:18:42+00:00",
+    "leagueSnapshotScope": [
+      "season",
+      "league_id",
+      "league",
+      "rosters",
+      "matchups_by_week",
+      "winners_bracket",
+      "losers_bracket"
+    ],
+    "leagueSnapshotSha256": "9dedb002616d1b87b1b37c682dbe3eef50bc9506de3e6436f937fa29f6087113",
+    "pointsModelFileSha256": null,
+    "rosAggregateSha256": "1316a46280fa50b9417c0e94c763b8cbc1d9b137d69445db815a56990a3105de",
+    "rosAggregatedAt": "2026-10-02T13:18:34.417178+00:00",
+    "teamStrengthFileFresh": true,
+    "teamStrengthFileSha256": "e102fba054a81ce016dc2aa63eb840c45bd56d62d428d08719693fab76352bdf"
+  },
+  "kind": "playoff",
+  "lastScoredWeek": 3,
+  "leagueKey": "dynasty_main",
+  "model": {
+    "codeSha": "3c487666814977edfb3806f47e2f49f0310b347b",
+    "codeShaCapturedAt": "2026-10-02T13:18:31.415188+00:00",
+    "codeShaSource": "refs/heads/main",
+    "simParams": {
+      "bestBall": true,
+      "championship": {
+        "_SIM_CACHE_TTL_SEC": 21600
+      },
+      "playoffSim": {
+        "BEST_BALL_PRESIM_MAX_WEEKS": 1200,
+        "BEST_BALL_PRESIM_MIN_WEEKS": 120,
+        "BEST_BALL_VARIANCE_BUMP": 1.1,
+        "DEFAULT_SIMULATIONS": 10000,
+        "DEPTH_VARIANCE_LIFT_MAX": 0.15,
+        "MAX_SIMULATIONS": 60000,
+        "MIN_SIMULATIONS": 2000,
+        "ODDS_SE_TOLERANCE": 0.005,
+        "PRESIM_CHECK_EVERY": 40,
+        "PRESIM_MEAN_TOLERANCE": 0.01,
+        "ROS_BLEND": 0.2,
+        "SIM_CHECK_EVERY": 1000,
+        "TEAM_STRENGTH_UNAVAILABLE": "team_strength_unavailable",
+        "_SIM_CACHE_TTL_SEC": 21600,
+        "_TRADE_IMPACT_METHODOLOGY": "Both arms run on one shared RNG seed and an identical simulation count, so the reported delta is the trade's effect rather than the difference between two independent Monte Carlo runs. Intervals are paired (McNemar-style, conservative on the discordant-pair count). A delta whose interval spans zero is flagged significant=false and must not be presented as a result."
+      },
+      "pointsModel": {
+        "cvByPosition": {
+          "CB": 0.55,
+          "DB": 0.5,
+          "DE": 0.55,
+          "DL": 0.55,
+          "DT": 0.55,
+          "EDGE": 0.55,
+          "LB": 0.45,
+          "QB": 0.32,
+          "RB": 0.55,
+          "S": 0.5,
+          "TE": 0.65,
+          "WR": 0.6
+        },
+        "defaultCv": 0.55,
+        "generatedAt": null,
+        "rosValuePerPoint": 2.7,
+        "sampleSize": 0,
+        "source": "fallback-constants"
+      }
+    },
+    "simParamsSha256": "886e50c2cdf942dcdbfdc0feb06df15263d5fa072a4d8c15423b73874b2d8097"
+  },
+  "nSimulations": 4000,
+  "nullReasons": {
+    "inputs.contractGeneration": "not_an_input_of_the_playoff_or_title_simulators",
+    "inputs.pointsModelFileSha256": "file_absent"
+  },
+  "producer": "src.ros.scrape._refresh_sim_caches_for_league",
+  "schema": "ros-forecast-identity/v1",
+  "season": "2026",
+  "week": 4
+}
