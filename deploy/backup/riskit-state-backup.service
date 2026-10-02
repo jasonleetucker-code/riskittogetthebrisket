@@ -13,7 +13,10 @@ Type=oneshot
 # (deploy/apply_hardening.sh installs it to /usr/local/lib/riskit/,
 # root:root 0755) — running the checkout copy as root would hand a
 # compromised deploy account a nightly root-execution path.  Script
-# updates flow through re-running deploy/apply_hardening.sh.
+# updates reach the root copy on every deploy: install-systemd-service.sh
+# calls deploy/backup/install_state_backup.sh, which rewrites it only on
+# content drift (AL-P2, 2026-10-01 — before that only apply_hardening.sh
+# did, and the nightly ran a 2026-08-16 copy for six weeks).
 ExecStart=/usr/local/lib/riskit/riskit-state-backup.sh
 StandardOutput=append:/var/log/riskit-state-backup.log
 StandardError=append:/var/log/riskit-state-backup.log

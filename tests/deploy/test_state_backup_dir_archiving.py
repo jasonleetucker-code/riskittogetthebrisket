@@ -11,8 +11,12 @@ re-implementing it, so a future edit to the script is what they check.
 
 from __future__ import annotations
 
+import posixpath
+import shlex
 import shutil
+import sqlite3
 import subprocess
+import sys
 import textwrap
 from pathlib import Path
 
@@ -156,3 +160,167 @@ def test_the_retention_artifacts_are_in_the_backup_list():
         'backup_sqlite "${DATA_DIR}/learning/receipts.sqlite"',
     ):
         assert expected in body, f"missing from the backup list: {expected}"
+
+
+# ── AL-P2: every irreplaceable evidence store is in the backup list ───────
+#
+# docs/BRISKET_IDEAS.md §13.4 (AL-P2) and the register's AL-P2 addendum.  A
+# store that is not here is not durable: one box loss erases it.
+
+AL_P2_LINES = (
+    # KTC Trade Database raw archive — a ~200-row rolling window upstream.
+    'backup_sqlite "${DATA_DIR}/market_trades/archive.sqlite" "market_trades_archive.sqlite"',
+    'backup_dir    "${DATA_DIR}/market_trades/reports" "market_trades_reports"',
+    'backup_sqlite "${DATA_DIR}/consensus_edge.sqlite"',
+    'backup_sqlite "${DATA_DIR}/source_archive/boards.sqlite" "source_archive_boards.sqlite"',
+    'backup_sqlite "${DATA_DIR}/leagues/own_league_format_captures.sqlite"',
+    # Its 2-hourly live:server rows are not reproducible by the rebuild.
+    'backup_sqlite "${DATA_DIR}/temporal_ledger.sqlite"',
+    'backup_sqlite "${DATA_DIR}/dfs/workspace.sqlite" "dfs_workspace.sqlite"',
+    # Sharp transactions + Sharp league-format captures, now ONLINE.
+    'backup_sqlite "${DATA_DIR}/intel/ledger.sqlite3" "intel_ledger.sqlite3"',
+    'backup_dir "${DATA_DIR}/bdvm"',
+    'backup_dir "${DATA_DIR}/forecast_archive"',
+    'backup_dir "${DATA_DIR}/pick_forecast_snapshots"',
+    'backup_dir "${DATA_DIR}/sparse_evidence_shadow"',
+    'backup_dir "${DATA_DIR}/robust_filter_shadow"',
+    # Already present; pinned here because the stale nightly copy lacked them.
+    'backup_sqlite "${DATA_DIR}/retention/acquisition.sqlite"',
+    'backup_sqlite "${DATA_DIR}/auction/auction.sqlite"',
+)
+
+
+@pytest.mark.parametrize("line", AL_P2_LINES)
+def test_al_p2_store_is_in_the_backup_list(line):
+    assert line in SCRIPT.read_text(encoding="utf-8"), f"missing from the backup list: {line}"
+
+
+def _backup_calls() -> list[tuple[str, list[str]]]:
+    """Every top-level backup_* call in the script, continuation lines joined."""
+    text = SCRIPT.read_text(encoding="utf-8").replace("\\\n", " ")
+    calls = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        head = line.split(" ", 1)[0]
+        if head in {"backup_sqlite", "backup_file", "backup_dir"} and not line.endswith("{"):
+            calls.append((head, shlex.split(line)[1:]))
+    return calls
+
+
+def test_sqlite_stores_go_through_the_online_backup_helper():
+    """A raw copy (backup_file) or a plain tar (backup_dir) of a live WAL
+    database is a torn copy.  Every .sqlite / .sqlite3 path must use
+    backup_sqlite, and the intel tar must exclude its live database."""
+    calls = _backup_calls()
+    assert len(calls) > 20, calls
+    for head, args in calls:
+        src = args[0]
+        if head == "backup_sqlite":
+            assert src.endswith((".sqlite", ".sqlite3")), src
+        else:
+            assert not src.endswith((".sqlite", ".sqlite3")), f"{head} on a database: {src}"
+    intel = next(a for h, a in calls if h == "backup_dir" and a[0].endswith("/intel"))
+    for member in ("intel/ledger.sqlite3", "intel/ledger.sqlite3-wal", "intel/ledger.sqlite3-shm"):
+        assert member in intel[2:], f"intel tar must exclude the live database: {member}"
+
+
+def test_artifact_names_are_unique_within_a_generation():
+    """Outputs are named after the basename unless labelled; two stores
+    sharing one would overwrite each other silently inside a generation."""
+    names: dict[str, str] = {}
+    for head, args in _backup_calls():
+        src = args[0]
+        label = args[1] if len(args) > 1 and head != "backup_file" else posixpath.basename(src)
+        kind = {"backup_sqlite": "sqlite", "backup_file": "files", "backup_dir": "dirs"}[head]
+        key = f"{kind}/{label}"
+        assert key not in names, f"{key} produced by both {names[key]} and {src}"
+        names[key] = src
+
+
+def test_backup_dir_excludes_named_members(tmp_path):
+    """The exclusion arguments keep the live database out of the tar and
+    leave everything else in it."""
+    src = tmp_path / "data" / "intel"
+    src.mkdir(parents=True)
+    for name in (
+        "ledger.sqlite3",
+        "ledger.sqlite3-wal",
+        "ledger.sqlite3-shm",
+        "snapshot_x.json",
+        "ledger.sqlite3.bak-2026-07-30",
+    ):
+        (src / name).write_text("x", encoding="utf-8")
+
+    body = SCRIPT.read_text(encoding="utf-8")
+    start = body.index("backup_dir() {")
+    end = body.index("\n}\n", start) + len("\n}\n")
+    dest = tmp_path / "dest"
+    (dest / "dirs").mkdir(parents=True)
+    harness = (
+        textwrap.dedent(f"""
+        set -uo pipefail
+        DEST={dest.as_posix()}
+        ERRORS=0
+        ARTIFACTS=0
+        OK_LIST=" "
+        log()  {{ printf '[log] %s\\n' "$*"; }}
+        warn() {{ printf '[warn] %s\\n' "$*"; }}
+    """)
+        + body[start:end]
+        + f'\nbackup_dir "{src.as_posix()}" "intel" "intel/ledger.sqlite3" '
+        + '"intel/ledger.sqlite3-wal" "intel/ledger.sqlite3-shm"\n'
+        + 'printf "ARTIFACTS=%s ERRORS=%s\\n" "$ARTIFACTS" "$ERRORS"\n'
+    )
+    result = subprocess.run(["bash", "-c", harness], capture_output=True, text=True, timeout=60)
+    assert "ARTIFACTS=1 ERRORS=0" in result.stdout, result.stdout + result.stderr
+    listing = subprocess.run(
+        ["tar", "-tzf", "intel.tar.gz"], capture_output=True, text=True, cwd=dest / "dirs"
+    ).stdout.split()
+    assert "intel/snapshot_x.json" in listing, listing
+    assert "intel/ledger.sqlite3.bak-2026-07-30" in listing, listing
+    for live in ("intel/ledger.sqlite3", "intel/ledger.sqlite3-wal", "intel/ledger.sqlite3-shm"):
+        assert live not in listing, f"live database archived by tar: {live}"
+
+
+def test_backup_sqlite_label_names_the_artifact(tmp_path):
+    """The label renames the OUTPUT and the manifest entry; the source is
+    still copied with the online-backup primitive and integrity-checked."""
+    db = tmp_path / "data" / "market_trades" / "archive.sqlite"
+    db.parent.mkdir(parents=True)
+    con = sqlite3.connect(db)
+    con.execute("PRAGMA journal_mode=WAL")
+    con.execute("CREATE TABLE t (x)")
+    con.execute("INSERT INTO t VALUES (1)")
+    con.commit()
+
+    body = SCRIPT.read_text(encoding="utf-8")
+    funcs = []
+    for name in ("sqlite_backup() {", "sqlite_integrity_ok() {", "backup_sqlite() {"):
+        start = body.index(name)
+        funcs.append(body[start : body.index("\n}\n", start) + len("\n}\n")])
+    dest = tmp_path / "dest"
+    (dest / "sqlite").mkdir(parents=True)
+    harness = (
+        textwrap.dedent(f"""
+        set -uo pipefail
+        DEST={dest.as_posix()}
+        PYTHON_BIN="{Path(sys.executable).as_posix()}"
+        ERRORS=0
+        ARTIFACTS=0
+        OK_LIST=" "
+        log()  {{ printf '[log] %s\\n' "$*"; }}
+        warn() {{ printf '[warn] %s\\n' "$*"; }}
+        backup_source_absent() {{ return 0; }}
+    """)
+        + "".join(funcs)
+        + f'\nbackup_sqlite "{db.as_posix()}" "market_trades_archive.sqlite"\n'
+        + 'printf "ARTIFACTS=%s ERRORS=%s OK=[%s]\\n" "$ARTIFACTS" "$ERRORS" "$OK_LIST"\n'
+    )
+    try:
+        result = subprocess.run(["bash", "-c", harness], capture_output=True, text=True, timeout=60)
+    finally:
+        con.close()
+    assert "ARTIFACTS=1 ERRORS=0" in result.stdout, result.stdout + result.stderr
+    assert " market_trades_archive.sqlite " in result.stdout, result.stdout
+    assert (dest / "sqlite" / "market_trades_archive.sqlite.gz").is_file()
+    assert not (dest / "sqlite" / "archive.sqlite.gz").exists()

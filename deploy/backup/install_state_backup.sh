@@ -47,6 +47,12 @@ STATE_BACKUP_SERVICE="riskit-state-backup.service"
 STATE_BACKUP_TIMER="riskit-state-backup.timer"
 STATE_BACKUP_UNIT_DIR="${STATE_BACKUP_UNIT_DIR:-/etc/systemd/system}"
 
+# Set to 1 by any step that actually (re)wrote a file.  A caller that runs
+# this on EVERY deploy (deploy/install-systemd-service.sh) reads it to decide
+# whether daemon-reload + enable is needed, so an up-to-date box stays a true
+# no-op instead of reloading systemd on every deploy.
+STATE_BACKUP_CHANGED="${STATE_BACKUP_CHANGED:-0}"
+
 _sb_log() { printf '[state-backup-install] %s\n' "$*"; }
 _sb_err() { printf '[state-backup-install][ERR] %s\n' "$*" >&2; }
 
@@ -74,7 +80,8 @@ _sb_install_file() {
         return 0
     fi
     _sb_log "installing ${dest} (root:root ${mode})"
-    priv install -o root -g root -m "${mode}" -D "${src}" "${dest}"
+    priv install -o root -g root -m "${mode}" -D "${src}" "${dest}" || return 1
+    STATE_BACKUP_CHANGED=1
 }
 
 # ── the four steps ────────────────────────────────────────────────────────
@@ -91,8 +98,10 @@ _sb_install_file() {
 # Sourced, never executed: 0644, not 0755.
 state_backup_install_scripts() {
     local app_dir="$1" lib_dir="$2"
+    # `|| return 1`: a failed library install must stop the writer install
+    # even when the caller has errexit suspended (it is, inside an `if`).
     _sb_install_file "${app_dir}/deploy/backup/backup_root_lib.sh" \
-                     "${lib_dir}/backup_root_lib.sh" 0644
+                     "${lib_dir}/backup_root_lib.sh" 0644 || return 1
     _sb_install_file "${app_dir}/deploy/backup/riskit-state-backup.sh" \
                      "${lib_dir}/riskit-state-backup.sh" 0755
 }
@@ -112,7 +121,11 @@ state_backup_install_units() {
         _sb_log "up-to-date: ${STATE_BACKUP_UNIT_DIR}/${STATE_BACKUP_SERVICE}"
     else
         _sb_log "installing ${STATE_BACKUP_UNIT_DIR}/${STATE_BACKUP_SERVICE}"
-        priv install -m 0644 -D "${staged}" "${STATE_BACKUP_UNIT_DIR}/${STATE_BACKUP_SERVICE}"
+        if ! priv install -m 0644 -D "${staged}" "${STATE_BACKUP_UNIT_DIR}/${STATE_BACKUP_SERVICE}"; then
+            rm -f "${staged}"
+            return 1
+        fi
+        STATE_BACKUP_CHANGED=1
     fi
     rm -f "${staged}"
 

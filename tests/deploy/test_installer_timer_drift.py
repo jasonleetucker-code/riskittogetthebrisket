@@ -56,6 +56,7 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 INSTALLER = REPO / "deploy" / "install-systemd-service.sh"
 SYSTEMD = REPO / "deploy" / "systemd"
+BACKUP_SRC = REPO / "deploy" / "backup"
 
 if os.name == "nt":
     pytest.skip("drives the installer through bash with Unix paths", allow_module_level=True)
@@ -153,11 +154,15 @@ make_dir=false; files=()
 while (( $# )); do
   case "$1" in
     -d) make_dir=true; shift ;;
+    -D) shift ;;  # create leading dirs — done below unconditionally
     -m|-o|-g) shift 2 ;;
     *) files+=("$1"); shift ;;
   esac
 done
 if [[ "${make_dir}" == "true" ]]; then mkdir -p "${files[@]}"; exit 0; fi
+if [[ -n "${FAKE_INSTALL_FAIL_MATCH:-}" && "${files[1]}" == *"${FAKE_INSTALL_FAIL_MATCH}"* ]]; then
+  echo "install: cannot create ${files[1]}: Permission denied" >&2; exit 1
+fi
 mkdir -p "$(dirname "${files[1]}")"
 cp "${files[0]}" "${files[1]}"
 """
@@ -206,7 +211,7 @@ exit 2
 class Host:
     """A temporary box: app checkout, unit dir, fake privileged binaries."""
 
-    def __init__(self, root: Path):
+    def __init__(self, root: Path, *, with_state_backup: bool = False):
         self.root = root
         self.app = root / "srv" / "app"
         self.fake_root = root / "fakeroot"
@@ -216,6 +221,12 @@ class Host:
         for d in (self.app / "deploy", self.unit_dir, self.bin, self.state, root / "home"):
             d.mkdir(parents=True, exist_ok=True)
         shutil.copytree(SYSTEMD, self.app / "deploy" / "systemd")
+        # The root-owned state-backup copy lives here, never under the real
+        # /usr/local/lib.  Hosts built without the state-backup line do not
+        # ship deploy/backup/, so the installer takes its "not shipped" skip.
+        self.lib_dir = self.fake_root / "usr" / "local" / "lib" / "riskit"
+        if with_state_backup:
+            shutil.copytree(BACKUP_SRC, self.app / "deploy" / "backup")
         (self.state / "owners").write_text("", encoding="utf-8")
         for name, body in (
             ("sudo", FAKE_SUDO),
@@ -275,6 +286,8 @@ class Host:
             "SERVICE_NAME": SERVICE_NAME,
             "SERVICE_TEMPLATE_PATH": str(SYSTEMD / "dynasty.service.template"),
             "FORCE_SERVICE_INSTALL": "false",
+            "RISKIT_LIB_DIR": str(self.lib_dir),
+            "STATE_BACKUP_UNIT_DIR": str(self.unit_dir),
             **extra_env,
         }
         return subprocess.run(
@@ -572,3 +585,89 @@ def test_ownership_is_fixed_before_the_first_run_as_the_app_user(tmp_path):
         if "start --no-block" in c and f"{SERVICE_NAME}-consensus-edge-snapshot.service" in c
     )
     assert chown_at < kick_at
+
+
+# ── State-backup root copy: refreshed on drift (AL-P2) ───────────────────
+#
+# Measured read-only on production 2026-10-02: riskit-state-backup.service
+# executed a 600-line 2026-08-16 copy of the writer while the checkout carried
+# 647 lines, so the nightly skipped acquisition, auction and game_day.  Only
+# apply_hardening.sh / the c1a workflow ever refreshed that copy.  The
+# installer now refreshes it on every deploy, through the one state-backup
+# installer, and only on real content drift.
+
+STATE_BACKUP_FILES = ("backup_root_lib.sh", "riskit-state-backup.sh")
+
+
+def _seed_stale_root_copy(host: Host) -> None:
+    host.lib_dir.mkdir(parents=True, exist_ok=True)
+    (host.lib_dir / "backup_root_lib.sh").write_bytes(
+        (BACKUP_SRC / "backup_root_lib.sh").read_bytes()
+    )
+    (host.lib_dir / "riskit-state-backup.sh").write_text(
+        "#!/usr/bin/env bash\n# stale 2026-08-16 writer: no acquisition, auction, game_day\n",
+        encoding="utf-8",
+    )
+
+
+def test_a_stale_root_copy_is_refreshed_from_the_checkout(tmp_path):
+    host = Host(tmp_path, with_state_backup=True)
+    _seed_stale_root_copy(host)
+    output = _ok(host.run())
+    for name in STATE_BACKUP_FILES:
+        assert (host.lib_dir / name).read_bytes() == (BACKUP_SRC / name).read_bytes(), name
+    assert "State-backup root copy refreshed from the checkout (drift)." in output
+    # The library was already current, so only the writer is rewritten.
+    installs = host.log("install.log")
+    assert any("riskit-state-backup.sh" in c for c in installs), installs
+    assert not any(c.endswith("backup_root_lib.sh") for c in installs), installs
+    calls = host.log("systemctl.log")
+    assert "daemon-reload" in calls
+    assert any(c.startswith("enable") and "riskit-state-backup.timer" in c for c in calls)
+    assert host.log("sudo_refused.log") == []
+
+
+def test_the_refreshed_service_still_executes_the_root_copy(tmp_path):
+    host = Host(tmp_path, with_state_backup=True)
+    _ok(host.run())
+    service = (host.unit_dir / "riskit-state-backup.service").read_text(encoding="utf-8")
+    exec_lines = [ln for ln in service.splitlines() if ln.startswith("ExecStart=")]
+    assert exec_lines == [f"ExecStart={host.lib_dir}/riskit-state-backup.sh"], exec_lines
+    assert (host.unit_dir / "riskit-state-backup.timer").is_file()
+
+
+def test_a_current_root_copy_is_left_alone(tmp_path):
+    """Every deploy runs this; an up-to-date box must not rewrite or reload."""
+    host = Host(tmp_path, with_state_backup=True)
+    _ok(host.run())
+    output = _ok(host.run())
+    assert host.log("install.log") == [], host.log("install.log")
+    calls = host.log("systemctl.log")
+    assert "daemon-reload" not in calls
+    assert not any("riskit-state-backup" in c for c in calls), calls
+    assert "State-backup root copy current." in output
+
+
+def test_a_drifted_state_backup_unit_is_rewritten(tmp_path):
+    host = Host(tmp_path, with_state_backup=True)
+    _ok(host.run())
+    service = host.unit_dir / "riskit-state-backup.service"
+    with service.open("a", encoding="utf-8") as fh:
+        fh.write("# stale unit\n")
+    output = _ok(host.run())
+    assert "# stale unit" not in service.read_text(encoding="utf-8")
+    assert "State-backup root copy refreshed from the checkout (drift)." in output
+    assert "daemon-reload" in host.log("systemctl.log")
+
+
+def test_a_failed_refresh_is_loud_but_does_not_fail_the_deploy(tmp_path):
+    """A failed LIBRARY install must also stop the writer install: a new
+    writer beside an old library is the lost-generation ordering the owner
+    installer exists to prevent."""
+    host = Host(tmp_path, with_state_backup=True)
+    output = _ok(host.run(FAKE_INSTALL_FAIL_MATCH="backup_root_lib.sh"))
+    assert "State-backup root copy refresh FAILED" in output
+    assert not (
+        host.lib_dir / "riskit-state-backup.sh"
+    ).exists(), "writer installed without its library"
+    assert "riskit-state-backup" not in "\n".join(host.log("systemctl.log"))

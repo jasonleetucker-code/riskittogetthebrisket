@@ -365,3 +365,54 @@ def test_installed_sources_are_the_canonical_checkout_copies(tmp_path, name):
     assert (tmp_path / "lib" / name).read_bytes() == (
         REPO / "deploy" / "backup" / name
     ).read_bytes()
+
+
+# ── AL-P2: every deploy refreshes the root copy through THIS owner ────────
+
+
+def test_the_deploy_installer_refreshes_the_root_copy_through_this_owner():
+    """install-systemd-service.sh runs on every deploy.  It must source this
+    installer and call its functions — not carry a second copy of the file
+    list, modes or the service render.  (The end-to-end drift behaviour is
+    driven in tests/deploy/test_installer_timer_drift.py.)"""
+    text = (REPO / "deploy" / "install-systemd-service.sh").read_text(encoding="utf-8")
+    assert 'owner="${APP_DIR}/deploy/backup/install_state_backup.sh"' in text
+    assert 'source "${owner}"' in text
+    for fn in ("state_backup_install_scripts", "state_backup_install_units", "state_backup_enable"):
+        assert fn in text, fn
+    assert "refresh_state_backup_line" in text.split("main() {", 1)[1]
+    # No second installer / renderer of the state-backup files.
+    assert 'riskit-state-backup.service" >' not in text
+    assert "-m 0755 -D" not in text
+
+
+def test_installer_reports_whether_anything_changed(tmp_path):
+    """STATE_BACKUP_CHANGED is how the per-deploy caller keeps an up-to-date
+    box a no-op (no daemon-reload on every deploy)."""
+    app = _app_dir(tmp_path)
+    bindir, log = _stub_bin(tmp_path)
+    lib = tmp_path / "lib"
+    env = dict(os.environ)
+    env.update(
+        {
+            "PATH": f"{bindir}:{env['PATH']}",
+            "CMD_LOG": str(log),
+            "STATE_BACKUP_UNIT_DIR": str(tmp_path / "units"),
+        }
+    )
+    steps = (
+        f'state_backup_install_scripts "{app}" "{lib}"; '
+        f'state_backup_install_units "{app}" "{lib}"; '
+    )
+    script = (
+        f'set -Eeuo pipefail; source "{INSTALLER}"; '
+        + steps
+        + 'echo "first=$STATE_BACKUP_CHANGED"; STATE_BACKUP_CHANGED=0; '
+        + steps
+        + 'echo "second=$STATE_BACKUP_CHANGED"'
+    )
+    proc = subprocess.run(
+        ["bash", "-c", script], env=env, capture_output=True, text=True, timeout=60
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "first=1" in proc.stdout and "second=0" in proc.stdout, proc.stdout

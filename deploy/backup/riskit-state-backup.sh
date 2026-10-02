@@ -56,6 +56,13 @@
 #     each model was evaluated on and how it did.  PRIVATE decision
 #     intelligence; same rules as league_events.sqlite.  Not a RET row —
 #     see the 2026-10-01 addendum in docs/retention/RETENTION_REGISTER.md.
+#   * AL-P2 perishable-evidence stores (2026-10-01; full list and the
+#     include-vs-rebuildable reasoning beside the backup calls below and in
+#     the register's AL-P2 addendum): the KTC trade archive, Consensus Edge
+#     labels, KTC format-variant boards, own-league format captures, the
+#     temporal ledger, the DFS workspace, an ONLINE copy of the intel ledger,
+#     and the bdvm / forecast_archive / pick_forecast_snapshots / shadow
+#     ledger directories.
 #   * data/playerctx/history/    — dated playerctx snapshots
 #     (C1-RET-08).  The directory ONLY: data/playerctx/ next door holds
 #     a 38 MB depth-chart CSV and a 14 MB Sleeper dump, both
@@ -230,8 +237,14 @@ PY
 
 backup_sqlite() {
     local src="$1"
+    # Optional second argument renames the OUTPUT artifact (and the name the
+    # required-artifact manifest sees), exactly as backup_dir's label does.
+    # Needed because basenames are not unique across stores: two writers that
+    # both call their file "archive.sqlite" would land on one
+    # sqlite/archive.sqlite.gz and the second would silently replace the
+    # first inside the same generation.  The SOURCE is always "$1".
     local name
-    name="$(basename "${src}")"
+    name="${2:-$(basename "${src}")}"
     if [[ ! -f "${src}" ]]; then
         # "(absent)" must mean PROVEN absent. `-f`/`-d` are false for
         # ENOENT *and* EACCES/ENOTDIR anywhere on the path, so a store
@@ -334,6 +347,17 @@ backup_dir() {
     local member
     member="$(basename "${src}")"
     local name="${2:-${member}}"
+    # Arguments 3.. are tar --exclude patterns, matched against archive
+    # member names (which start with "${member}/").  Used to keep a LIVE
+    # SQLite database out of a directory tarball when backup_sqlite already
+    # takes a consistent online copy of it — a tar of a WAL database is a
+    # torn copy (see the "file changed as we read it" note below), and
+    # archiving it twice doubles the generation for nothing.
+    local excludes=()
+    local pattern
+    for pattern in "${@:3}"; do
+        excludes+=("--exclude=${pattern}")
+    done
     if [[ ! -d "${src}" ]]; then
         # "(absent)" must mean PROVEN absent. `-f`/`-d` are false for
         # ENOENT *and* EACCES/ENOTDIR anywhere on the path, so a store
@@ -366,7 +390,7 @@ backup_dir() {
     # backup API and is consistent under WAL; that is exactly why the
     # retention stores go through it and not through here.
     local rc=0
-    tar -czf "${out}" -C "$(dirname "${src}")" "${member}" || rc=$?
+    tar -czf "${out}" ${excludes[@]+"${excludes[@]}"} -C "$(dirname "${src}")" "${member}" || rc=$?
     if (( rc >= 2 )); then
         warn "tar FAILED (rc=${rc}): ${src}"
         ERRORS=$((ERRORS + 1))
@@ -434,12 +458,68 @@ backup_sqlite "${DATA_DIR}/auction/auction.sqlite"
 backup_sqlite "${DATA_DIR}/learning/receipts.sqlite"
 backup_file   "${DATA_DIR}/rank_history.jsonl"
 
+# AL-P2 (2026-10-01; docs/BRISKET_IDEAS.md §13.4, docs/retention/
+# RETENTION_REGISTER.md "AL-P2" addendum).  Every store below records
+# something nothing else can re-create.  Same posture as the C1A block:
+# guarded (absent => "skip (absent)"), never in BACKUP_REQUIRED, and every
+# live SQLite file through backup_sqlite — never a raw copy that ignores
+# the WAL.  Labels keep basenames unique inside one generation.
+#
+#   * KTC Trade Database raw archive (#1586).  KTC serves a ~200-row
+#     rolling window, so a row that scrolls out before it is archived is
+#     gone.  PRIVATE (vendor feed + league ids).  The DERIVED
+#     data/market_trades/underlying_trades.sqlite is deliberately NOT here:
+#     market_trade_report.build_ledger (scripts/market_trade_ledger.py, the
+#     dynasty-market-trade-ledger timer) rebuilds it wholesale from this
+#     archive + the intel ledger + the own-league stores on every run.
+backup_sqlite "${DATA_DIR}/market_trades/archive.sqlite" "market_trades_archive.sqlite"
+backup_dir    "${DATA_DIR}/market_trades/reports" "market_trades_reports"
+#   * Consensus Edge daily label history — a label is what the model said
+#     on that day; it cannot be recomputed later from later boards.
+backup_sqlite "${DATA_DIR}/consensus_edge.sqlite"
+#   * KTC same-day format-variant boards (#1603) — KTC publishes current
+#     values only.
+backup_sqlite "${DATA_DIR}/source_archive/boards.sqlite" "source_archive_boards.sqlite"
+#   * Own-league season format captures (#1607) — dated captures plus the
+#     re-observations that prove "unchanged since"; a later fetch cannot
+#     say what a season's settings were on an earlier date.
+backup_sqlite "${DATA_DIR}/leagues/own_league_format_captures.sqlite"
+#   * Temporal ledger (C1-U4).  NOT rebuildable in full: the rebuild path
+#     (scripts/build_temporal_ledger.py) restores the daily exports/archive
+#     backfill and the two migrated recorders, but every 2-hourly
+#     live:server row (canonical board incl. slot picks + the value-direct
+#     source anchors) exists only here.  Measured 2026-10-02: ~2.0 M of
+#     ~3.3 M rows.  Large (1.5 GB raw); see the register for the disk math.
+backup_sqlite "${DATA_DIR}/temporal_ledger.sqlite"
+#   * DFS workspace — immutable slate snapshots + point-in-time captures.
+#     data/dfs/raw/ is the overwritten latest provider pull, re-fetchable,
+#     and its content is already snapshotted inside the workspace.
+backup_sqlite "${DATA_DIR}/dfs/workspace.sqlite" "dfs_workspace.sqlite"
+#   * Intel ledger (Sharp transactions, rosters, records, AND the Sharp
+#     league-format captures).  An ONLINE copy now; it used to ride only
+#     inside intel.tar.gz as a tar of a live WAL database, which is a torn
+#     copy whenever the crawler writes mid-read.  The tar below keeps the
+#     rest of data/intel/ and excludes the live database files.
+backup_sqlite "${DATA_DIR}/intel/ledger.sqlite3" "intel_ledger.sqlite3"
+
 backup_dir "${DATA_DIR}/public_league"
-backup_dir "${DATA_DIR}/intel"
+backup_dir "${DATA_DIR}/intel" "intel" \
+    "intel/ledger.sqlite3" "intel/ledger.sqlite3-wal" "intel/ledger.sqlite3-shm"
 backup_dir "${DATA_DIR}/faab"
 backup_dir "${DATA_DIR}/identity"
 backup_dir "${DATA_DIR}/game_day"
 backup_dir "${DATA_DIR}/playerctx/history" "playerctx_history"
+# AL-P2 directories: dated, write-once or append-only files.
+#   * BDVM projection editions (Mike Clay, IDP Show, proxy) + events —
+#     vendors publish the current edition only.
+backup_dir "${DATA_DIR}/bdvm"
+#   * Point-in-time playoff/title forecast archive (#1602, AL-P6).
+backup_dir "${DATA_DIR}/forecast_archive"
+#   * Pick-forecast + team-strength snapshots (#1604, AL-P4).
+backup_dir "${DATA_DIR}/pick_forecast_snapshots"
+#   * Shadow-evaluation ledgers (monthly JSONL) — what each shadow run saw.
+backup_dir "${DATA_DIR}/sparse_evidence_shadow"
+backup_dir "${DATA_DIR}/robust_filter_shadow"
 
 # Repo-root session files (gitignored via "*_session.json").
 backup_session_file "${APP_DIR}/dlf_session.json"         "repo.dlf_session.json"

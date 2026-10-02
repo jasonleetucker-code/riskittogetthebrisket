@@ -11,7 +11,9 @@ regenerated from the repo or re-scraped.
 | `data/session_store.sqlite` | SQLite online backup → `.sqlite.gz` | skip if absent |
 | `data/guest_passes.sqlite` | SQLite online backup → `.sqlite.gz` | skip if absent |
 | `data/public_league/` | `tar.gz` | skip if absent |
-| `data/intel/` | `tar.gz` | skip if absent (does not exist yet) |
+| `data/intel/ledger.sqlite3` | SQLite online backup → `intel_ledger.sqlite3.gz` | skip if absent |
+| `data/intel/` (minus the live `ledger.sqlite3*`) | `tar.gz` | skip if absent |
+| C1A retention + AL-0/AL-P2 evidence stores | SQLite online backup / `tar.gz` — the authoritative list is the script itself, each line justified in place; per-store retention and rebuildability in `docs/retention/RETENTION_REGISTER.md` | skip if absent |
 | `dlf_session.json`, `draftsharks_session.json`, `idpshow_session.json` (repo root) | copy, mode 0600 | skip if absent |
 | `/var/lib/dlf-fetch/dlf_session.json`, `/var/lib/idpshow-fetch/idpshow_session.json` | copy, mode 0600 | skip if absent/unreadable |
 
@@ -85,13 +87,15 @@ Log lines are for humans and are not an API — do not parse them.
 
 > **Two copies of the writer exist, deliberately.** The nightly systemd
 > job runs the root-owned copy at `/usr/local/lib/riskit/` (see the
-> security note in `riskit-state-backup.service`), which only
-> `apply_hardening.sh` updates; the backup+restore proof runs the
-> checkout copy as the deploy user. A deploy therefore updates what the
-> proof exercises but **not** what the nightly runs — re-run
-> `sudo bash deploy/apply_hardening.sh` to move a script change into the
-> nightly. The installer ships `backup_root_lib.sh` beside the root copy
-> for exactly this reason.
+> security note in `riskit-state-backup.service`); the backup+restore
+> proof runs the checkout copy as the deploy user. Since AL-P2
+> (2026-10-01) every deploy refreshes the root copy on content drift:
+> `deploy/install-systemd-service.sh::refresh_state_backup_line` sources
+> `install_state_backup.sh` (the one installer) and rewrites only what
+> differs, via `sudo -n install`. Before that only `apply_hardening.sh`
+> updated it, and production's nightly ran the 2026-08-16 copy until
+> 2026-10-01 — missing acquisition, auction and `game_day`. The installer
+> ships `backup_root_lib.sh` beside the root copy, library first.
 
 Destructive steps run strictly last: artifacts are written into a
 hidden staging dir, integrity-checked, and only a fully validated
@@ -111,10 +115,11 @@ names to require them too, via a service drop-in:
 
 **Security note**: the systemd unit runs the ROOT-OWNED copy of the
 script installed at `/usr/local/lib/riskit/riskit-state-backup.sh` by
-`deploy/apply_hardening.sh` — never the checkout copy (a root unit
-executing a deploy-user-writable file would be a privilege-escalation
-path).  After changing the script in the repo, re-run
-`sudo bash deploy/apply_hardening.sh` to roll it out.
+`deploy/backup/install_state_backup.sh` — never the checkout copy (a root
+unit executing a deploy-user-writable file would be a privilege-escalation
+path).  A merged script change reaches it on the next deploy (drift-aware
+refresh, see above); `bash deploy/backup/install_state_backup.sh` does the
+same on demand.
 
 ## Install
 
