@@ -13,7 +13,10 @@ Type=oneshot
 # (deploy/apply_hardening.sh installs it to /usr/local/lib/riskit/,
 # root:root 0755) — running the checkout copy as root would hand a
 # compromised deploy account a nightly root-execution path.  Script
-# updates flow through re-running deploy/apply_hardening.sh.
+# updates reach the root copy on every deploy: install-systemd-service.sh
+# calls deploy/backup/install_state_backup.sh, which rewrites it only on
+# content drift (AL-P2, 2026-10-01 — before that only apply_hardening.sh
+# did, and the nightly ran a 2026-08-16 copy for six weeks).
 ExecStart=/usr/local/lib/riskit/riskit-state-backup.sh
 StandardOutput=append:/var/log/riskit-state-backup.log
 StandardError=append:/var/log/riskit-state-backup.log
@@ -25,6 +28,19 @@ Environment="KEEP_DAILY=14"
 #   Environment="OFFBOX_RSYNC_DEST=backup@host:riskit-state/"
 Nice=10
 IOSchedulingClass=idle
+# A oneshot has NO start timeout by default, so a wedged run (an online
+# backup blocked behind a writer, a stalled filesystem) would hold the unit
+# "activating" forever and every later night's trigger would be a no-op.
+# 2h is far above the measured run (minutes, temporal ledger included) and
+# bounded.  On expiry systemd SIGTERMs the cgroup; the script's EXIT trap
+# removes that run's partial staging directory.
+TimeoutStartSec=2h
+# Exit 3 = generation promoted with every CORE store, but an OPTIONAL store
+# failed or was shed for disk space (see the script header).  Mapped to
+# success so a known-degraded optional store does not mark the unit failed
+# every night; it stays visible as ExecMainStatus=3, the WARN lines in the
+# log, and optional_stores.tsv inside the generation.
+SuccessExitStatus=3
 
 [Install]
 WantedBy=multi-user.target

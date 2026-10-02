@@ -1185,6 +1185,69 @@ main() {
       log "Installed /etc/logrotate.d/riskit"
     fi
   fi
+
+  refresh_state_backup_line
+}
+
+# ── C1A state-backup line: refresh the ROOT-OWNED copy on drift (AL-P2) ──
+#
+# riskit-state-backup.service runs /usr/local/lib/riskit/riskit-state-backup.sh
+# as root — a copy OUTSIDE the deploy-user-writable checkout.  Until
+# 2026-10-01 only deploy/apply_hardening.sh and the c1a-install-state-backup
+# workflow refreshed it, never a deploy, so a merged change to the writer did
+# not reach the nightly.  Measured read-only on production 2026-10-02: the
+# root copy was the 600-line 2026-08-16 script while the checkout carried
+# 647 lines — the nightly was skipping acquisition, auction and game_day,
+# which only the deploy user's post-deploy proof run was still covering.
+#
+# NOT a second installer.  This sources deploy/backup/install_state_backup.sh
+# — the one owner of "which files, in which order, with which modes", and of
+# the service render — and calls its functions.  Its _sb_install_file compares
+# unprivileged (`cmp`, which the NOPASSWD allowlist refuses under sudo; same
+# reason as installed_matches above) and writes only on real drift, through
+# `sudo -n install`.  daemon-reload + enable run only when something changed,
+# so an up-to-date box is a no-op on every deploy.
+#
+# Privilege model unchanged.  The deploy account already holds NOPASSWD
+# `install` (and runs this exact installer from the c1a workflow); refreshing
+# on deploy grants nothing it could not already do.  The root copy still
+# exists so that the nightly never EXECUTES a deploy-user-writable file.
+#
+# Non-fatal by design: a failed refresh is logged as an ERROR and the deploy
+# continues, because the previous root copy keeps producing generations and a
+# backup-installer hiccup must not block shipping the app.  The failure is not
+# silent — the ERROR names what is still stale.
+refresh_state_backup_line() {
+  local owner="${APP_DIR}/deploy/backup/install_state_backup.sh"
+  local lib_dir="${RISKIT_LIB_DIR:-/usr/local/lib/riskit}"
+  if [[ ! -f "${owner}" ]]; then
+    log "State-backup installer not shipped in this checkout; skipping root-copy refresh."
+    return 0
+  fi
+  # shellcheck source=deploy/backup/install_state_backup.sh
+  source "${owner}"
+  STATE_BACKUP_CHANGED=0
+  if ! state_backup_install_scripts "${APP_DIR}" "${lib_dir}" \
+    || ! state_backup_install_units "${APP_DIR}" "${lib_dir}"; then
+    error "State-backup root copy refresh FAILED; the nightly may still run a stale ${lib_dir}/riskit-state-backup.sh."
+    return 0
+  fi
+  local name
+  for name in backup_root_lib.sh riskit-state-backup.sh; do
+    if ! cmp -s "${APP_DIR}/deploy/backup/${name}" "${lib_dir}/${name}" 2>/dev/null; then
+      error "State-backup root copy ${lib_dir}/${name} still differs from the checkout after refresh."
+      return 0
+    fi
+  done
+  if [[ "${STATE_BACKUP_CHANGED}" == "1" ]]; then
+    if ! state_backup_enable; then
+      error "State-backup units refreshed but daemon-reload/enable failed."
+      return 0
+    fi
+    log "State-backup root copy refreshed from the checkout (drift)."
+  else
+    log "State-backup root copy current."
+  fi
 }
 
 main "$@"
