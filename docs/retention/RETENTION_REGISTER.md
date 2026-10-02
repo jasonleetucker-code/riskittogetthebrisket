@@ -821,5 +821,42 @@ measured end to end.
 **Evidence status: NONE MEASURED for the new artifacts.** No generation has yet
 been observed containing them; the rows are pinned by
 `tests/deploy/test_state_backup_dir_archiving.py` (a repository fact). The
-restore proof (`deploy/diagnostics/retention_backup_restore_proof.sh`) does not
-yet restore-and-verify the AL-P2 artifacts — recorded follow-up.
+restore proof (`deploy/diagnostics/retention_backup_restore_proof.sh`) did not
+restore-and-verify the AL-P2 artifacts at first; §5 adds the small ones.
+
+### 5. Review fixes (PR #1611 review, 2026-10-01)
+
+* **CORE vs OPTIONAL.** Every store that predates AL-P2 is CORE: a failure still
+  discards the generation and exits 1. Every AL-P2 addition (the table in §2
+  minus `receipts.sqlite`, which predates it) is OPTIONAL: a failure is a WARN,
+  a row in `<generation>/optional_stores.tsv` (`name`, `status`, `detail`), and
+  writer exit **3** — generation kept. The unit maps 3 to success
+  (`SuccessExitStatus=3`, visible as `ExecMainStatus=3`); the post-deploy proof
+  and `c1a-install-state-backup.yml` turn it into a `::warning::` annotation.
+  Reason: the intel ledger's corruption history on the box
+  (`ledger.sqlite3.corrupt`, `recovery-20260801T012318Z/`) — latent corruption
+  in one optional store must not stop `user_kv` / `session_store` being backed up.
+* **Intel ledger fallback.** If the online copy is not in the generation (failed
+  `integrity_check`, shed, skipped, absent) the raw `ledger.sqlite3*` files ride
+  in `intel.tar.gz` exactly as before AL-P2, so a corrupt ledger still leaves
+  bytes a recovery can work from.
+* **Free-space guard.** Before writing, the writer needs
+  `max(2 × newest generation, 5 GiB)` free on the backup filesystem, and per
+  optional store `2 × source + 1 GiB`; short (or unmeasurable) → OPTIONAL stores
+  are shed with a WARN and exit 3, CORE is still written. CORE runs first, the
+  temporal ledger last.
+* **Proof run.** The post-deploy proof (20-minute budget, deploy user, live box)
+  skips the two large stores (`PROOF_SKIP_OPTIONAL`, default
+  `temporal_ledger.sqlite intel_ledger.sqlite3`, recorded `skipped_requested`),
+  runs under `nice -n 10` + `ionice -c2 -n7`, and restore-checks the SMALL AL-P2
+  artifacts. It never restores the 1.5 GB / 0.7 GB ledgers. Consequence for §4:
+  the deploy-user lineage stays ≈227 MB plus the small stores (≈+22 MB gz), so
+  the steady-state increase is ≈ +3.4 GB (root lineage only), not +6.7 GB.
+* **No mid-deploy backups.** `riskit-state-backup.timer` (and the
+  `riskit-backup` / restore-test timers) lost `Requires=` on their services, and
+  the installer runs `enable` + `start` on the timer, never `enable --now`
+  against a Requires= timer — starting the timer used to start the service.
+* **Bounded runs.** `TimeoutStartSec=2h` on the nightly; an EXIT/INT/TERM trap
+  removes the run's own staging; the start-of-run sweep removes any staging dir
+  no live process holds (per-run `flock` on `.staging-*.lock`, PID fallback)
+  instead of `mtime +1`.

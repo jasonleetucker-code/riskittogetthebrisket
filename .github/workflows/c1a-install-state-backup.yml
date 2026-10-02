@@ -131,5 +131,12 @@ jobs:
           STATUS="$(sudo -n systemctl show riskit-state-backup.service -p ExecMainStatus --value || echo 1)"
           say "Result=${RESULT} ExecMainStatus=${STATUS}"
           # A oneshot that failed must fail this job. "It ran" is not evidence.
+          # ExecMainStatus=3 is the writer's "generation promoted with every
+          # CORE store, an OPTIONAL store missing" (SuccessExitStatus=3 on the
+          # unit): a pass, surfaced as a warning annotation rather than hidden.
+          if [[ "${RESULT}" == "success" && "${STATUS}" == "3" ]]; then
+            echo "::warning title=State backup: optional store(s) missing::the generation was promoted with all CORE state, but at least one OPTIONAL store failed or was shed for disk space — see optional_stores.tsv in the generation and the [WARN] lines above"
+            exit 0
+          fi
           [[ "${RESULT}" == "success" && "${STATUS}" == "0" ]]
           REMOTE

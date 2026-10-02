@@ -11,9 +11,10 @@ regenerated from the repo or re-scraped.
 | `data/session_store.sqlite` | SQLite online backup → `.sqlite.gz` | skip if absent |
 | `data/guest_passes.sqlite` | SQLite online backup → `.sqlite.gz` | skip if absent |
 | `data/public_league/` | `tar.gz` | skip if absent |
-| `data/intel/ledger.sqlite3` | SQLite online backup → `intel_ledger.sqlite3.gz` | skip if absent |
-| `data/intel/` (minus the live `ledger.sqlite3*`) | `tar.gz` | skip if absent |
-| C1A retention + AL-0/AL-P2 evidence stores | SQLite online backup / `tar.gz` — the authoritative list is the script itself, each line justified in place; per-store retention and rebuildability in `docs/retention/RETENTION_REGISTER.md` | skip if absent |
+| `data/intel/ledger.sqlite3` | **OPTIONAL** SQLite online backup → `intel_ledger.sqlite3.gz` | skip if absent |
+| `data/intel/` | `tar.gz` — excludes the live `ledger.sqlite3*` only when the online copy above succeeded; otherwise the raw ledger files ride in the tar (pre-AL-P2 path, corruption tolerant) | skip if absent |
+| C1A retention + AL-0 stores | SQLite online backup / `tar.gz` (CORE) | skip if absent |
+| AL-P2 evidence stores | SQLite online backup / `tar.gz` (**OPTIONAL**) — the authoritative list is the script itself, each line justified in place; per-store retention and rebuildability in `docs/retention/RETENTION_REGISTER.md` | skip if absent |
 | `dlf_session.json`, `draftsharks_session.json`, `idpshow_session.json` (repo root) | copy, mode 0600 | skip if absent |
 | `/var/lib/dlf-fetch/dlf_session.json`, `/var/lib/idpshow-fetch/idpshow_session.json` | copy, mode 0600 | skip if absent/unreadable |
 
@@ -35,6 +36,42 @@ intact, while structural corruption copies page-for-page through
 `Connection.backup()`), then `gzip -t`; tarballs get `tar -tzf`.  A
 failed check rejects the artifact like any other error — and when the
 artifact is required, it blocks promotion entirely.
+
+### CORE and OPTIONAL stores
+
+Every store that predates AL-P2 is **CORE**: if its online copy, integrity
+check, gzip or tar fails, the whole generation is discarded and the run exits
+1 — prior generations stay untouched. The AL-P2 additions (wrapped in
+`optional` in the script) are **OPTIONAL**: a failure is a `[WARN]`, a row in
+`<generation>/optional_stores.tsv` (`name<TAB>status<TAB>detail`, status
+`failed` / `skipped_low_space` / `skipped_requested`), and the generation is
+**kept**. One corrupt optional store (the intel ledger has a corruption history
+on the box) can therefore never stop `user_kv` / `session_store` being backed
+up.
+
+Exit codes: **0** everything that exists was backed up · **1** hard failure
+(no generation, a CORE failure, required state missing, mirror failed) · **3**
+generation promoted with every CORE store but an OPTIONAL store failed or was
+shed. The unit maps 3 to success (`SuccessExitStatus=3`) so it does not mark
+the box failed every night; it stays visible as `ExecMainStatus=3`, in the
+log, in `optional_stores.tsv`, and as a `::warning::` annotation on the
+post-deploy proof.
+
+**Free space.** Before writing anything the run needs
+`max(2 × newest generation, BACKUP_MIN_FREE_KB)` free (default 5 GiB), and each
+optional store `2 × its source + BACKUP_STORE_MARGIN_KB` (default 1 GiB). Short,
+or unmeasurable, → every OPTIONAL store is shed (`skipped_low_space`, exit 3)
+and CORE is still written. CORE runs first and the 1.5 GB temporal ledger last.
+
+`BACKUP_SKIP_OPTIONAL="name ..."` leaves named optional artifacts out on
+purpose (`skipped_requested`, not a warning). The post-deploy proof uses it for
+`temporal_ledger.sqlite intel_ledger.sqlite3` — see the proof script header.
+
+**Bounded runs.** `TimeoutStartSec=2h` on the unit. An EXIT/INT/TERM trap removes
+the run's own staging directory, and each run holds an `flock` on
+`daily/.staging-<date>-<pid>.lock`; the start-of-run sweep removes every staging
+directory no live process holds (PID check for lock-less ones) rather than
+waiting a day.
 
 ## Layout & retention
 
@@ -132,7 +169,10 @@ sudo install -o root -g root -m 0644 -D deploy/backup/backup_root_lib.sh /usr/lo
 sudo install -o root -g root -m 0755 -D deploy/backup/riskit-state-backup.sh /usr/local/lib/riskit/riskit-state-backup.sh
 sudo cp deploy/backup/riskit-state-backup.service deploy/backup/riskit-state-backup.timer /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable --now riskit-state-backup.timer
+# Arms the 02:30 schedule only — the timer carries no Requires= on the
+# service, so this does not run a backup now.
+sudo systemctl enable riskit-state-backup.timer
+sudo systemctl start riskit-state-backup.timer
 systemctl list-timers riskit-state-backup.timer
 ```
 
@@ -191,3 +231,55 @@ sudo install -o dynasty -g dynasty -m 0600 \
   /var/backups/riskit-state/daily/<DATE>/sessions/repo.idpshow_session.json \
   /home/dynasty/trade-calculator/idpshow_session.json
 ```
+
+**First check what the generation does NOT hold.** If
+`<DATE>/optional_stores.tsv` exists, every store it lists is absent from that
+generation (with the reason); take that store from an older generation.
+
+**Labelled artifacts restore under a different name.** Artifact names are
+unique inside a generation, so some do not match the live file name. Stop the
+writer of each store first (the backend for most; the named timer otherwise),
+then restore to the live path:
+
+| artifact in the generation | live path | stop first |
+|---|---|---|
+| `sqlite/intel_ledger.sqlite3.gz` | `data/intel/ledger.sqlite3` | `dynasty` + the `dynasty-sharp-*` timers |
+| `sqlite/market_trades_archive.sqlite.gz` | `data/market_trades/archive.sqlite` | `dynasty-ktc-trades.timer` |
+| `sqlite/source_archive_boards.sqlite.gz` | `data/source_archive/boards.sqlite` | `dynasty` (scrape) |
+| `sqlite/dfs_workspace.sqlite.gz` | `data/dfs/workspace.sqlite` | `dynasty` + `dynasty-dfs-auto-refresh.timer` |
+| `sqlite/consensus_edge.sqlite.gz` | `data/consensus_edge.sqlite` | `dynasty-consensus-edge-snapshot.timer` |
+| `sqlite/own_league_format_captures.sqlite.gz` | `data/leagues/own_league_format_captures.sqlite` | the `dynasty-sharp-transactions` timer |
+| `sqlite/temporal_ledger.sqlite.gz` | `data/temporal_ledger.sqlite` | `dynasty` (live recorder) |
+| `dirs/market_trades_reports.tar.gz` | `data/market_trades/reports/` | — |
+| `dirs/playerctx_history.tar.gz` | `data/playerctx/history/` | — |
+| `dirs/bdvm.tar.gz`, `forecast_archive`, `pick_forecast_snapshots`, `sparse_evidence_shadow`, `robust_filter_shadow` | `data/<name>/` | — |
+
+```bash
+# A labelled SQLite artifact — remove the old WAL/SHM first, or SQLite will
+# replay a stale WAL onto the restored file:
+sudo systemctl stop dynasty
+sudo -u dynasty rm -f /home/dynasty/trade-calculator/data/intel/ledger.sqlite3-wal \
+                      /home/dynasty/trade-calculator/data/intel/ledger.sqlite3-shm
+gunzip -c /var/backups/riskit-state/daily/<DATE>/sqlite/intel_ledger.sqlite3.gz \
+  | sudo -u dynasty tee /home/dynasty/trade-calculator/data/intel/ledger.sqlite3 >/dev/null
+sudo systemctl start dynasty
+
+# A labelled directory — the tar MEMBER is the real directory name, so extract
+# into the parent of the live directory:
+sudo -u dynasty tar -xzf /var/backups/riskit-state/daily/<DATE>/dirs/market_trades_reports.tar.gz \
+  -C /home/dynasty/trade-calculator/data/market_trades/
+```
+
+When `sqlite/intel_ledger.sqlite3.gz` is absent (listed in
+`optional_stores.tsv`, or a pre-AL-P2 generation), the ledger is inside
+`dirs/intel.tar.gz` as raw `ledger.sqlite3*` files: extract it into `data/` and
+run `PRAGMA integrity_check` before starting the crawlers.
+
+**What the post-deploy proof restore-checks.** `retention_backup_restore_proof.sh`
+restores and verifies every CORE artifact and the small AL-P2 ones (KTC archive,
+own-league captures, format boards, Consensus Edge, DFS workspace, the AL-P2
+directories). It deliberately does **not** restore the temporal ledger
+(1.5 GB) or the intel-ledger online copy (0.7 GB) on every deploy — its backup
+run skips writing them — so those two are verified by hand against a nightly
+generation: restore with the commands above into a scratch path and run
+`PRAGMA integrity_check`.

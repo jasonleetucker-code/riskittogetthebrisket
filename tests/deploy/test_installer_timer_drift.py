@@ -624,6 +624,9 @@ def test_a_stale_root_copy_is_refreshed_from_the_checkout(tmp_path):
     calls = host.log("systemctl.log")
     assert "daemon-reload" in calls
     assert any(c.startswith("enable") and "riskit-state-backup.timer" in c for c in calls)
+    # Refreshing the line mid-deploy arms the timer; it never runs a backup.
+    assert not any("riskit-state-backup.service" in c for c in calls), calls
+    assert not any("--now" in c and "riskit-state-backup" in c for c in calls), calls
     assert host.log("sudo_refused.log") == []
 
 

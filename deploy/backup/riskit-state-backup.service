@@ -28,6 +28,19 @@ Environment="KEEP_DAILY=14"
 #   Environment="OFFBOX_RSYNC_DEST=backup@host:riskit-state/"
 Nice=10
 IOSchedulingClass=idle
+# A oneshot has NO start timeout by default, so a wedged run (an online
+# backup blocked behind a writer, a stalled filesystem) would hold the unit
+# "activating" forever and every later night's trigger would be a no-op.
+# 2h is far above the measured run (minutes, temporal ledger included) and
+# bounded.  On expiry systemd SIGTERMs the cgroup; the script's EXIT trap
+# removes that run's partial staging directory.
+TimeoutStartSec=2h
+# Exit 3 = generation promoted with every CORE store, but an OPTIONAL store
+# failed or was shed for disk space (see the script header).  Mapped to
+# success so a known-degraded optional store does not mark the unit failed
+# every night; it stays visible as ExecMainStatus=3, the WARN lines in the
+# log, and optional_stores.tsv inside the generation.
+SuccessExitStatus=3
 
 [Install]
 WantedBy=multi-user.target

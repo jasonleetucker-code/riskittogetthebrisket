@@ -112,9 +112,32 @@
 # retention.  Keeping both enabled is safe (a few MB of duplicate
 # sqlite gz per night) and preserves the long/monthly sqlite history.
 #
-# Exit codes: 0 success, 1 hard failure (no backup written or integrity
-# check failed).  Unreadable OPTIONAL inputs (missing dirs, root-owned
-# session files when run unprivileged) are logged and skipped.
+# CORE vs OPTIONAL stores (AL-P2 review, 2026-10-01).  Every store that
+# predates AL-P2 is CORE: a failed online copy, integrity check, gzip or tar
+# on it fails the run and discards the whole generation, exactly as before.
+# The AL-P2 additions are OPTIONAL (wrapped in `optional` below): a failure
+# on one of them is a WARNING — the store is listed in the generation's
+# `optional_stores.tsv` (name, status, detail) and the generation is KEPT.
+# The reason is the intel ledger's corruption history on the box
+# (ledger.sqlite3.corrupt, a 2026-08-01 recovery directory): latent
+# corruption in one optional store must not stop user_kv / session_store
+# being backed up every night.  OPTIONAL stores are also what a low-disk
+# run sheds (see the free-space guard) and what BACKUP_SKIP_OPTIONAL may
+# deliberately leave out (the post-deploy proof uses it for the two large
+# stores).
+#
+# Exit codes:
+#   0  success — every store that exists was backed up
+#   1  hard failure (no backup written, a CORE store failed its integrity
+#      check, required state missing, or the off-box mirror failed)
+#   3  generation PROMOTED and every CORE store in it, but at least one
+#      OPTIONAL store failed or was shed for disk space.  The unit maps it
+#      to success (SuccessExitStatus=3) so a known-degraded optional store
+#      does not mark the box failed every night; it stays visible as
+#      ExecMainStatus=3, the WARN lines, and optional_stores.tsv, and the
+#      post-deploy proof turns it into a workflow ::warning:: annotation.
+# Unreadable OPTIONAL inputs (missing dirs, root-owned session files when
+# run unprivileged) are logged and skipped.
 
 set -Eeuo pipefail
 
@@ -139,6 +162,15 @@ KEEP_DAILY="${KEEP_DAILY:-14}"
 DATE_STAMP="${DATE_STAMP:-$(date -u +%Y-%m-%d)}"
 OFFBOX_RSYNC_DEST="${OFFBOX_RSYNC_DEST:-}"
 BACKUP_REQUIRED="${BACKUP_REQUIRED:-user_kv.sqlite session_store.sqlite}"
+# OPTIONAL artifact names (the output name: label or basename) to leave out
+# of this run on purpose.  Recorded as `skipped_requested`, not a warning.
+BACKUP_SKIP_OPTIONAL="${BACKUP_SKIP_OPTIONAL:-}"
+# Free-space floor for running the OPTIONAL stores at all: the run needs
+# max(2 x the newest generation's size, this) free on the backup filesystem
+# before it writes any of them.  5 GiB default.  Per optional store it also
+# needs 2 x the source (raw copy + its gzip, the peak) + this margin.
+BACKUP_MIN_FREE_KB="${BACKUP_MIN_FREE_KB:-5242880}"
+BACKUP_STORE_MARGIN_KB="${BACKUP_STORE_MARGIN_KB:-1048576}"
 
 PYTHON_BIN="${PYTHON_BIN:-/home/dynasty/.venvs/trade-calculator/bin/python}"
 [[ -x "${PYTHON_BIN}" ]] || PYTHON_BIN="$(command -v python3 || true)"
@@ -151,6 +183,10 @@ warn() { printf '[state-backup][WARN] %s\n' "$*" >&2; }
 fail() { printf '[state-backup][ERROR] %s\n' "$*" >&2; exit 1; }
 
 [[ -n "${PYTHON_BIN}" ]] || fail "no python interpreter available for sqlite online backup"
+for _knob in BACKUP_MIN_FREE_KB BACKUP_STORE_MARGIN_KB; do
+    [[ "${!_knob}" =~ ^[0-9]+$ ]] || fail "${_knob} must be a non-negative integer (KiB), got '${!_knob}'"
+done
+unset _knob
 
 # ── Destination (primary, then service-user fallback) ────────────────
 #
@@ -181,12 +217,128 @@ chmod 700 "${BACKUP_ROOT}" 2>/dev/null || true
 # that day's earlier good snapshot.  (Dot-prefixed names are invisible
 # to prune's `ls -1` and sort out of the retention math entirely.)
 FINAL_DEST="${BACKUP_ROOT}/daily/${DATE_STAMP}"
-DEST="${BACKUP_ROOT}/daily/.staging-${DATE_STAMP}-$$"
+STAGING_DIR="${BACKUP_ROOT}/daily/.staging-${DATE_STAMP}-$$"
+# Held (fd 9) for the whole run.  The kernel drops it when this process
+# dies however it dies, which is what lets the sweep below tell a live
+# run's staging from a dead one's without guessing from an mtime.
+STAGING_LOCK="${STAGING_DIR}.lock"
+DEST="${STAGING_DIR}"
+
+# This run's staging is its own garbage the moment the run ends without
+# promoting it — a failure, a SIGTERM from systemd's TimeoutStartSec, a
+# Ctrl-C.  Before this trap only the explicit failure branch removed it,
+# so a timed-out run (the AL-P2 stores made the run much longer) leaked a
+# partial generation-sized directory that the old mtime +1 day sweep kept
+# for another day.  STAGING_DIR is cleared on promotion.  Every step is
+# guarded on its own: a failing rm inside an EXIT trap under errexit would
+# replace the run's real exit status.
+cleanup_staging() {
+    [[ -z "${STAGING_DIR}" ]] || rm -rf "${STAGING_DIR}" 2>/dev/null || true
+    [[ -z "${STAGING_LOCK}" ]] || rm -f "${STAGING_LOCK}" 2>/dev/null || true
+    return 0
+}
+trap cleanup_staging EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+mkdir -p "${BACKUP_ROOT}/daily"
+if command -v flock >/dev/null 2>&1; then
+    exec 9>"${STAGING_LOCK}"
+    flock -n 9 || fail "could not lock this run's staging (${STAGING_LOCK})"
+else
+    STAGING_LOCK=""
+    warn "flock not installed — stale staging is recognised by PID only"
+fi
 mkdir -p "${DEST}/sqlite" "${DEST}/dirs" "${DEST}/sessions" "${DEST}/files"
 
-# Clear stale staging dirs from previous crashed runs (>1 day old).
-find "${BACKUP_ROOT}/daily" -maxdepth 1 -name '.staging-*' -mtime +1 \
-    -exec rm -rf {} + 2>/dev/null || true
+# Dated generations this writer could plausibly have produced, oldest first.
+# ONE definition, shared by the keep-window, the mirror's continuity count and
+# the free-space estimate — two answers to "what is a generation" is the class
+# of bug this whole change exists to remove.
+plausible_generations() {
+    local dir
+    while IFS= read -r -d '' dir; do
+        dir="$(basename "${dir}")"
+        [[ -n "${dir}" ]] || continue
+
+        # POSITIVE recognition, not "did not look wrong". prune deletes with
+        # `rm -rf`, so an entry it cannot account for as one of this writer's
+        # own generations must never reach it — and, just as important, must
+        # never consume a slot in the keep window. Measured before this guard:
+        # a plain README.txt dropped into daily/ took a retention slot and a
+        # REAL generation (2026-08-10) was deleted early to make room for it.
+        #
+        # Four independent things must hold. Shape alone is not enough: a
+        # regular file, a symlink, or an impossible calendar date can all wear
+        # a date-shaped name.
+        [[ -d "${BACKUP_ROOT}/daily/${dir}" ]] || continue                 # a directory
+        [[ ! -L "${BACKUP_ROOT}/daily/${dir}" ]] || continue               # not a symlink
+        [[ "${dir}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || continue         # the writer's shape
+        # A real calendar date: `date -d` rejects 2026-13-45, 2026-00-00 and
+        # 2026-02-31, and the round-trip rejects 2026-8-1 and other loose forms.
+        [[ "$(date -u -d "${dir}" +%Y-%m-%d 2>/dev/null)" == "${dir}" ]] || continue
+
+        if backup_root_name_is_future "${dir}"; then
+            warn "generation ${BACKUP_ROOT}/daily/${dir} is dated beyond the clock-skew bound (newest plausible $(backup_root_max_plausible_date)) — excluded from the keep window and NOT deleted; remove or re-date it"
+            continue
+        fi
+        printf '%s\n' "${dir}"
+    done < <(find "${BACKUP_ROOT}/daily" -mindepth 1 -maxdepth 1 -print0 2>/dev/null | sort -z)
+}
+
+# Is a staging dir still owned by a running writer?  0 = live (or not
+# provably dead — leave it), 1 = dead (safe to remove).
+staging_is_live() {
+    local dir="$1" lock="$1.lock" pid
+    if [[ -e "${lock}" ]] && command -v flock >/dev/null 2>&1; then
+        # Acquiring it means nobody holds it.  Failing to — held, or a lock
+        # this user cannot even open — is not proof of death.
+        if flock -n "${lock}" true 2>/dev/null; then
+            return 1
+        fi
+        return 0
+    fi
+    # No lock: a writer predating it (or a host without flock).  The PID is
+    # the name's last field.  /proc, not `kill -0`: kill cannot tell "no such
+    # process" from "someone else's process" by exit status, and the nightly
+    # (root) and the proof (deploy user) are different users.
+    pid="${dir##*-}"
+    if [[ "${pid}" =~ ^[0-9]+$ ]]; then
+        [[ -d "/proc/${pid}" ]] && return 0
+        return 1
+    fi
+    # Not this writer's shape at all: only an old one counts as dead.
+    [[ -n "$(find "${dir}" -maxdepth 0 -mtime +1 2>/dev/null)" ]] && return 1
+    return 0
+}
+
+# Clear staging left by crashed or killed runs — any staging dir no live
+# process holds, whatever its age.  The previous rule (mtime +1 day) kept a
+# killed run's partial generation for a day, and with the temporal ledger in
+# the run that is gigabytes on the same filesystem the next run needs.
+sweep_stale_staging() {
+    local entry
+    for entry in "${BACKUP_ROOT}/daily"/.staging-*; do
+        [[ -e "${entry}" || -L "${entry}" ]] || continue
+        [[ "${entry}" == "${STAGING_DIR}" || "${entry}" == "${STAGING_DIR}.lock" ]] && continue
+        if [[ "${entry}" == *.lock ]]; then
+            # A lock whose staging dir is gone: drop it once nobody holds it.
+            [[ -e "${entry%.lock}" ]] && continue
+            if command -v flock >/dev/null 2>&1 && flock -n "${entry}" true 2>/dev/null; then
+                rm -f "${entry}" 2>/dev/null || true
+            fi
+            continue
+        fi
+        if staging_is_live "${entry}"; then
+            log "staging ${entry} belongs to a live run — left alone"
+            continue
+        fi
+        log "removing stale staging from a dead run: ${entry}"
+        rm -rf "${entry}" 2>/dev/null || warn "could not remove stale staging ${entry}"
+        rm -f "${entry}.lock" 2>/dev/null || true
+    done
+}
+sweep_stale_staging
 # And stale pointer temp files.  These live one level ABOVE daily/, so
 # neither the sweep above nor prune can reach them: a run killed between
 # writing the temp and renaming it leaves one behind forever.
@@ -199,6 +351,107 @@ ERRORS=0
 # were successfully written AND integrity-checked — the required-
 # artifact manifest is validated against this before promotion.
 OK_LIST=" "
+
+# ── CORE / OPTIONAL classification ───────────────────────────────────
+# STORE_CLASS is "core" except inside `optional <backup_fn> ...`.  The
+# backup functions report a failed store through store_failed, which is the
+# ONE place the two classes diverge: CORE counts an ERROR (the generation is
+# discarded), OPTIONAL records a warning in the generation's manifest and
+# keeps it.
+STORE_CLASS="core"
+OPTIONAL_ISSUES=0          # optional stores failed or shed for disk space
+OPTIONAL_NOT_BACKED_UP=""  # their names, for the summary line
+OPTIONAL_MANIFEST_NAME="optional_stores.tsv"
+OPTIONAL_LOW_SPACE=""      # non-empty => every optional store is shed (reason)
+
+optional() {
+    STORE_CLASS="optional"
+    "$@"
+    STORE_CLASS="core"
+}
+
+# name<TAB>status<TAB>detail, one row per optional store NOT in this
+# generation.  Written inside the generation so it travels with it (mirror,
+# restore) and a restorer can see what is missing and why.
+record_optional() {
+    printf '%s\t%s\t%s\n' "$1" "$2" "$3" >> "${DEST}/${OPTIONAL_MANIFEST_NAME}"
+}
+
+store_failed() {
+    local name="$1" reason="$2"
+    if [[ "${STORE_CLASS:-core}" == "optional" ]]; then
+        warn "OPTIONAL store ${name} is NOT in this generation (${reason}) — generation kept; CORE state unaffected"
+        record_optional "${name}" "failed" "${reason}"
+        OPTIONAL_ISSUES=$((OPTIONAL_ISSUES + 1))
+        OPTIONAL_NOT_BACKED_UP+="${name} "
+    else
+        ERRORS=$((ERRORS + 1))
+    fi
+}
+
+free_kb() {
+    df -Pk "$1" 2>/dev/null | awk 'NR==2 {print $4}'
+}
+
+# Called by every backup function once it knows the store exists.
+# Returns 1 to skip it.  CORE stores are never skipped.
+optional_gate() {
+    local name="$1" src="$2"
+    [[ "${STORE_CLASS:-core}" == "optional" ]] || return 0
+    if [[ " ${BACKUP_SKIP_OPTIONAL} " == *" ${name} "* ]]; then
+        log "skip optional (BACKUP_SKIP_OPTIONAL): ${name}"
+        record_optional "${name}" "skipped_requested" "BACKUP_SKIP_OPTIONAL"
+        return 1
+    fi
+    local why="${OPTIONAL_LOW_SPACE}"
+    if [[ -z "${why}" ]]; then
+        local src_kb avail
+        src_kb="$(du -sk "${src}" 2>/dev/null | cut -f1)"
+        avail="$(free_kb "${BACKUP_ROOT}")"
+        if [[ "${src_kb}" =~ ^[0-9]+$ && "${avail}" =~ ^[0-9]+$ ]] \
+            && (( avail < 2 * src_kb + BACKUP_STORE_MARGIN_KB )); then
+            why="${avail} KiB free, store needs $((2 * src_kb + BACKUP_STORE_MARGIN_KB)) KiB (2 x ${src_kb} KiB source + margin)"
+        fi
+    fi
+    if [[ -n "${why}" ]]; then
+        warn "OPTIONAL store ${name} SKIPPED for disk space (${why}) — CORE state is still backed up"
+        record_optional "${name}" "skipped_low_space" "${why}"
+        OPTIONAL_ISSUES=$((OPTIONAL_ISSUES + 1))
+        OPTIONAL_NOT_BACKED_UP+="${name} "
+        return 1
+    fi
+    return 0
+}
+
+# ── Free-space guard (before anything is written) ────────────────────
+# The OPTIONAL stores multiplied the generation (the temporal ledger alone
+# is 1.5 GB raw), and a backup that fills the disk takes the app's own
+# SQLite writes down with it.  So: measure first, and if the filesystem
+# cannot hold max(2 x the newest generation, BACKUP_MIN_FREE_KB), shed every
+# OPTIONAL store (warn, exit 3) and still back up CORE.  An unmeasurable
+# filesystem is treated as short, not as roomy — unknown is not "enough".
+check_free_space() {
+    local avail last_gen last_kb=0 need
+    avail="$(free_kb "${BACKUP_ROOT}")"
+    last_gen="$(plausible_generations | tail -n 1)"
+    if [[ -n "${last_gen}" ]]; then
+        last_kb="$(du -sk "${BACKUP_ROOT}/daily/${last_gen}" 2>/dev/null | cut -f1)"
+    fi
+    [[ "${last_kb}" =~ ^[0-9]+$ ]] || last_kb=0
+    need=$((2 * last_kb))
+    (( need >= BACKUP_MIN_FREE_KB )) || need="${BACKUP_MIN_FREE_KB}"
+    if [[ ! "${avail}" =~ ^[0-9]+$ ]]; then
+        OPTIONAL_LOW_SPACE="free space on ${BACKUP_ROOT} could not be measured"
+    elif (( avail < need )); then
+        OPTIONAL_LOW_SPACE="${avail} KiB free on ${BACKUP_ROOT}, need ${need} KiB (2 x newest generation ${last_kb} KiB, floor ${BACKUP_MIN_FREE_KB} KiB)"
+    fi
+    if [[ -n "${OPTIONAL_LOW_SPACE}" ]]; then
+        warn "LOW DISK: every OPTIONAL store is skipped this run; CORE state is still backed up — ${OPTIONAL_LOW_SPACE}"
+    else
+        log "free space ok: ${avail} KiB free, need ${need} KiB"
+    fi
+}
+check_free_space
 
 # ── SQLite (online, WAL-safe) ────────────────────────────────────────
 sqlite_backup() {
@@ -261,24 +514,31 @@ backup_sqlite() {
         fi
         return 0
     fi
+    optional_gate "${name}" "${src}" || return 0
     local tmp="${DEST}/sqlite/${name}"
     local out="${tmp}.gz"
     if ! sqlite_backup "${src}" "${tmp}"; then
         warn "sqlite online backup FAILED: ${src}"
-        ERRORS=$((ERRORS + 1))
+        store_failed "${name}" "sqlite online backup failed"
         rm -f "${tmp}"
         return 0
     fi
     if ! sqlite_integrity_ok "${tmp}" 2>/dev/null; then
         warn "sqlite PRAGMA integrity_check FAILED on copied db: ${src} — source database is likely corrupt; artifact rejected"
-        ERRORS=$((ERRORS + 1))
+        store_failed "${name}" "PRAGMA integrity_check failed on the copy"
         rm -f "${tmp}"
         return 0
     fi
-    gzip -f "${tmp}"
+    if ! gzip -f "${tmp}"; then
+        warn "gzip FAILED: ${tmp}"
+        store_failed "${name}" "gzip failed"
+        rm -f "${tmp}" "${out}"
+        return 0
+    fi
     if ! gzip -t "${out}"; then
         warn "integrity check FAILED: ${out}"
-        ERRORS=$((ERRORS + 1))
+        store_failed "${name}" "gzip -t failed"
+        rm -f "${out}"
         return 0
     fi
     ARTIFACTS=$((ARTIFACTS + 1))
@@ -314,16 +574,18 @@ backup_file() {
         fi
         return 0
     fi
+    optional_gate "${name}" "${src}" || return 0
     local out="${DEST}/files/${name}.gz"
     if ! gzip -c "${src}" > "${out}"; then
         warn "gzip FAILED: ${src}"
-        ERRORS=$((ERRORS + 1))
+        store_failed "${name}" "gzip failed"
         rm -f "${out}"
         return 0
     fi
     if ! gzip -t "${out}"; then
         warn "integrity check FAILED: ${out}"
-        ERRORS=$((ERRORS + 1))
+        store_failed "${name}" "gzip -t failed"
+        rm -f "${out}"
         return 0
     fi
     ARTIFACTS=$((ARTIFACTS + 1))
@@ -374,6 +636,7 @@ backup_dir() {
         fi
         return 0
     fi
+    optional_gate "${name}" "${src}" || return 0
     local out="${DEST}/dirs/${name}.tar.gz"
 
     # GNU tar exits 1 for "file changed as we read it" and 2 for a fatal
@@ -393,13 +656,13 @@ backup_dir() {
     tar -czf "${out}" ${excludes[@]+"${excludes[@]}"} -C "$(dirname "${src}")" "${member}" || rc=$?
     if (( rc >= 2 )); then
         warn "tar FAILED (rc=${rc}): ${src}"
-        ERRORS=$((ERRORS + 1))
+        store_failed "${name}" "tar failed (rc=${rc})"
         rm -f "${out}"
         return 0
     fi
     if ! tar -tzf "${out}" >/dev/null; then
         warn "integrity check FAILED: ${out}"
-        ERRORS=$((ERRORS + 1))
+        store_failed "${name}" "tar -tzf failed"
         rm -f "${out}"
         return 0
     fi
@@ -429,10 +692,16 @@ backup_session_file() {
         log "session ok: ${src} -> ${out}"
     else
         warn "session copy FAILED: ${src}"
-        ERRORS=$((ERRORS + 1))
+        store_failed "${label}" "session copy failed"
     fi
 }
 
+# ════════════════════════════════════════════════════════════════════
+# CORE stores — everything that predates AL-P2.  A failure on any of these
+# fails the run and discards the generation (store_failed counts an ERROR).
+# They run FIRST so that a large OPTIONAL store can never consume the disk
+# they need.
+# ════════════════════════════════════════════════════════════════════
 backup_sqlite "${DATA_DIR}/user_kv.sqlite"
 backup_sqlite "${DATA_DIR}/session_store.sqlite"
 backup_sqlite "${DATA_DIR}/guest_passes.sqlite"
@@ -458,68 +727,11 @@ backup_sqlite "${DATA_DIR}/auction/auction.sqlite"
 backup_sqlite "${DATA_DIR}/learning/receipts.sqlite"
 backup_file   "${DATA_DIR}/rank_history.jsonl"
 
-# AL-P2 (2026-10-01; docs/BRISKET_IDEAS.md §13.4, docs/retention/
-# RETENTION_REGISTER.md "AL-P2" addendum).  Every store below records
-# something nothing else can re-create.  Same posture as the C1A block:
-# guarded (absent => "skip (absent)"), never in BACKUP_REQUIRED, and every
-# live SQLite file through backup_sqlite — never a raw copy that ignores
-# the WAL.  Labels keep basenames unique inside one generation.
-#
-#   * KTC Trade Database raw archive (#1586).  KTC serves a ~200-row
-#     rolling window, so a row that scrolls out before it is archived is
-#     gone.  PRIVATE (vendor feed + league ids).  The DERIVED
-#     data/market_trades/underlying_trades.sqlite is deliberately NOT here:
-#     market_trade_report.build_ledger (scripts/market_trade_ledger.py, the
-#     dynasty-market-trade-ledger timer) rebuilds it wholesale from this
-#     archive + the intel ledger + the own-league stores on every run.
-backup_sqlite "${DATA_DIR}/market_trades/archive.sqlite" "market_trades_archive.sqlite"
-backup_dir    "${DATA_DIR}/market_trades/reports" "market_trades_reports"
-#   * Consensus Edge daily label history — a label is what the model said
-#     on that day; it cannot be recomputed later from later boards.
-backup_sqlite "${DATA_DIR}/consensus_edge.sqlite"
-#   * KTC same-day format-variant boards (#1603) — KTC publishes current
-#     values only.
-backup_sqlite "${DATA_DIR}/source_archive/boards.sqlite" "source_archive_boards.sqlite"
-#   * Own-league season format captures (#1607) — dated captures plus the
-#     re-observations that prove "unchanged since"; a later fetch cannot
-#     say what a season's settings were on an earlier date.
-backup_sqlite "${DATA_DIR}/leagues/own_league_format_captures.sqlite"
-#   * Temporal ledger (C1-U4).  NOT rebuildable in full: the rebuild path
-#     (scripts/build_temporal_ledger.py) restores the daily exports/archive
-#     backfill and the two migrated recorders, but every 2-hourly
-#     live:server row (canonical board incl. slot picks + the value-direct
-#     source anchors) exists only here.  Measured 2026-10-02: ~2.0 M of
-#     ~3.3 M rows.  Large (1.5 GB raw); see the register for the disk math.
-backup_sqlite "${DATA_DIR}/temporal_ledger.sqlite"
-#   * DFS workspace — immutable slate snapshots + point-in-time captures.
-#     data/dfs/raw/ is the overwritten latest provider pull, re-fetchable,
-#     and its content is already snapshotted inside the workspace.
-backup_sqlite "${DATA_DIR}/dfs/workspace.sqlite" "dfs_workspace.sqlite"
-#   * Intel ledger (Sharp transactions, rosters, records, AND the Sharp
-#     league-format captures).  An ONLINE copy now; it used to ride only
-#     inside intel.tar.gz as a tar of a live WAL database, which is a torn
-#     copy whenever the crawler writes mid-read.  The tar below keeps the
-#     rest of data/intel/ and excludes the live database files.
-backup_sqlite "${DATA_DIR}/intel/ledger.sqlite3" "intel_ledger.sqlite3"
-
 backup_dir "${DATA_DIR}/public_league"
-backup_dir "${DATA_DIR}/intel" "intel" \
-    "intel/ledger.sqlite3" "intel/ledger.sqlite3-wal" "intel/ledger.sqlite3-shm"
 backup_dir "${DATA_DIR}/faab"
 backup_dir "${DATA_DIR}/identity"
 backup_dir "${DATA_DIR}/game_day"
 backup_dir "${DATA_DIR}/playerctx/history" "playerctx_history"
-# AL-P2 directories: dated, write-once or append-only files.
-#   * BDVM projection editions (Mike Clay, IDP Show, proxy) + events —
-#     vendors publish the current edition only.
-backup_dir "${DATA_DIR}/bdvm"
-#   * Point-in-time playoff/title forecast archive (#1602, AL-P6).
-backup_dir "${DATA_DIR}/forecast_archive"
-#   * Pick-forecast + team-strength snapshots (#1604, AL-P4).
-backup_dir "${DATA_DIR}/pick_forecast_snapshots"
-#   * Shadow-evaluation ledgers (monthly JSONL) — what each shadow run saw.
-backup_dir "${DATA_DIR}/sparse_evidence_shadow"
-backup_dir "${DATA_DIR}/robust_filter_shadow"
 
 # Repo-root session files (gitignored via "*_session.json").
 backup_session_file "${APP_DIR}/dlf_session.json"         "repo.dlf_session.json"
@@ -530,40 +742,89 @@ backup_session_file "${APP_DIR}/idpshow_session.json"     "repo.idpshow_session.
 backup_session_file "/var/lib/dlf-fetch/dlf_session.json"         "workdir.dlf_session.json"
 backup_session_file "/var/lib/idpshow-fetch/idpshow_session.json" "workdir.idpshow_session.json"
 
-# Dated generations this writer could plausibly have produced, oldest first.
-# ONE definition, shared by the keep-window and the mirror's continuity count —
-# two answers to "what is a generation" is the class of bug this whole change
-# exists to remove.
-plausible_generations() {
-    local dir
-    while IFS= read -r -d '' dir; do
-        dir="$(basename "${dir}")"
-        [[ -n "${dir}" ]] || continue
+# ════════════════════════════════════════════════════════════════════
+# The intel ledger: an OPTIONAL online copy, with the CORE intel tar as its
+# fallback.
+#
+# Sharp transactions, rosters, records AND the Sharp league-format captures.
+# AL-P2 made the ledger an ONLINE copy; before that it rode only inside
+# intel.tar.gz as a tar of a live WAL database, which is a torn copy whenever
+# the crawler writes mid-read.  The online copy is OPTIONAL because this
+# ledger has a corruption history on the box (ledger.sqlite3.corrupt, a
+# 2026-08-01 recovery directory): latent corruption fails PRAGMA
+# integrity_check, and that must not stop the core backup.
+#
+# When the online copy is NOT in this generation — it failed, was shed for
+# disk space, was skipped on request (the post-deploy proof), or the source
+# is absent — the raw ledger files go back into intel.tar.gz exactly as
+# before AL-P2.  That tar is the corruption-tolerant path: tar copies bytes
+# and never runs integrity_check, so the generation still holds something a
+# recovery can work from.  Only when the online copy succeeded does the tar
+# exclude the live database files.
+# ════════════════════════════════════════════════════════════════════
+optional backup_sqlite "${DATA_DIR}/intel/ledger.sqlite3" "intel_ledger.sqlite3"
+if [[ "${OK_LIST}" == *" intel_ledger.sqlite3 "* ]]; then
+    backup_dir "${DATA_DIR}/intel" "intel" \
+        "intel/ledger.sqlite3" "intel/ledger.sqlite3-wal" "intel/ledger.sqlite3-shm"
+else
+    if [[ -f "${DATA_DIR}/intel/ledger.sqlite3" ]]; then
+        log "intel ledger online copy not in this generation — its raw files ride in intel.tar.gz (pre-AL-P2 behaviour)"
+    fi
+    backup_dir "${DATA_DIR}/intel" "intel"
+fi
 
-        # POSITIVE recognition, not "did not look wrong". prune deletes with
-        # `rm -rf`, so an entry it cannot account for as one of this writer's
-        # own generations must never reach it — and, just as important, must
-        # never consume a slot in the keep window. Measured before this guard:
-        # a plain README.txt dropped into daily/ took a retention slot and a
-        # REAL generation (2026-08-10) was deleted early to make room for it.
-        #
-        # Four independent things must hold. Shape alone is not enough: a
-        # regular file, a symlink, or an impossible calendar date can all wear
-        # a date-shaped name.
-        [[ -d "${BACKUP_ROOT}/daily/${dir}" ]] || continue                 # a directory
-        [[ ! -L "${BACKUP_ROOT}/daily/${dir}" ]] || continue               # not a symlink
-        [[ "${dir}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || continue         # the writer's shape
-        # A real calendar date: `date -d` rejects 2026-13-45, 2026-00-00 and
-        # 2026-02-31, and the round-trip rejects 2026-8-1 and other loose forms.
-        [[ "$(date -u -d "${dir}" +%Y-%m-%d 2>/dev/null)" == "${dir}" ]] || continue
-
-        if backup_root_name_is_future "${dir}"; then
-            warn "generation ${BACKUP_ROOT}/daily/${dir} is dated beyond the clock-skew bound (newest plausible $(backup_root_max_plausible_date)) — excluded from the keep window and NOT deleted; remove or re-date it"
-            continue
-        fi
-        printf '%s\n' "${dir}"
-    done < <(find "${BACKUP_ROOT}/daily" -mindepth 1 -maxdepth 1 -print0 2>/dev/null | sort -z)
-}
+# ════════════════════════════════════════════════════════════════════
+# OPTIONAL stores — the AL-P2 additions (2026-10-01; docs/BRISKET_IDEAS.md
+# §13.4, docs/retention/RETENTION_REGISTER.md "AL-P2" addendum).  Every one
+# records something nothing else can re-create, but a failure on one is a
+# WARNING (exit 3, optional_stores.tsv), never a discarded generation.
+# Guarded (absent => "skip (absent)"), never in BACKUP_REQUIRED, and every
+# live SQLite file through backup_sqlite — never a raw copy that ignores the
+# WAL.  Labels keep basenames unique inside one generation.  Smallest first,
+# the 1.5 GB temporal ledger last, so a disk that runs short sheds the
+# biggest store rather than the small ones.
+# ════════════════════════════════════════════════════════════════════
+#   * KTC Trade Database raw archive (#1586).  KTC serves a ~200-row
+#     rolling window, so a row that scrolls out before it is archived is
+#     gone.  PRIVATE (vendor feed + league ids).  The DERIVED
+#     data/market_trades/underlying_trades.sqlite is deliberately NOT here:
+#     market_trade_report.build_ledger (scripts/market_trade_ledger.py, the
+#     dynasty-market-trade-ledger timer) rebuilds it wholesale from this
+#     archive + the intel ledger + the own-league stores on every run.
+optional backup_sqlite "${DATA_DIR}/market_trades/archive.sqlite" "market_trades_archive.sqlite"
+optional backup_dir    "${DATA_DIR}/market_trades/reports" "market_trades_reports"
+#   * Own-league season format captures (#1607) — dated captures plus the
+#     re-observations that prove "unchanged since"; a later fetch cannot
+#     say what a season's settings were on an earlier date.
+optional backup_sqlite "${DATA_DIR}/leagues/own_league_format_captures.sqlite"
+#   * KTC same-day format-variant boards (#1603) — KTC publishes current
+#     values only.
+optional backup_sqlite "${DATA_DIR}/source_archive/boards.sqlite" "source_archive_boards.sqlite"
+#   * AL-P2 directories: dated, write-once or append-only files.
+#     BDVM projection editions (Mike Clay, IDP Show, proxy) + events —
+#     vendors publish the current edition only.
+optional backup_dir "${DATA_DIR}/bdvm"
+#     Point-in-time playoff/title forecast archive (#1602, AL-P6).
+optional backup_dir "${DATA_DIR}/forecast_archive"
+#     Pick-forecast + team-strength snapshots (#1604, AL-P4).
+optional backup_dir "${DATA_DIR}/pick_forecast_snapshots"
+#     Shadow-evaluation ledgers (monthly JSONL) — what each shadow run saw.
+optional backup_dir "${DATA_DIR}/sparse_evidence_shadow"
+optional backup_dir "${DATA_DIR}/robust_filter_shadow"
+#   * Consensus Edge daily label history — a label is what the model said
+#     on that day; it cannot be recomputed later from later boards.
+optional backup_sqlite "${DATA_DIR}/consensus_edge.sqlite"
+#   * DFS workspace — immutable slate snapshots + point-in-time captures.
+#     data/dfs/raw/ is the overwritten latest provider pull, re-fetchable,
+#     and its content is already snapshotted inside the workspace.
+optional backup_sqlite "${DATA_DIR}/dfs/workspace.sqlite" "dfs_workspace.sqlite"
+#   * Temporal ledger (C1-U4).  NOT rebuildable in full: the rebuild path
+#     (scripts/build_temporal_ledger.py) restores the daily exports/archive
+#     backfill and the two migrated recorders, but every 2-hourly
+#     live:server row (canonical board incl. slot picks + the value-direct
+#     source anchors) exists only here.  Measured 2026-10-02: ~2.0 M of
+#     ~3.3 M rows.  Large (1.5 GB raw); see the register for the disk math.
+optional backup_sqlite "${DATA_DIR}/temporal_ledger.sqlite"
 
 # ── Validate this run BEFORE any destructive step ────────────────────
 # Ordering is deliberate: write artifacts into staging → integrity
@@ -599,6 +860,8 @@ fi
 rm -rf "${FINAL_DEST}"
 mv "${DEST}" "${FINAL_DEST}"
 DEST="${FINAL_DEST}"
+# Promoted: the EXIT trap must no longer treat it as this run's garbage.
+STAGING_DIR=""
 log "snapshot promoted: ${FINAL_DEST}"
 
 # Record what this run actually did, machine-readably.  A reader that
@@ -723,5 +986,12 @@ prune
 if (( MIRROR_FAILED )); then
     warn "completed locally (${ARTIFACTS} artifact(s) in ${DEST}) but off-box mirror failed"
     exit 1
+fi
+if (( OPTIONAL_ISSUES > 0 )); then
+    # Exit 3, not 0 and not 1: the generation and all of its CORE state are
+    # promoted, but it is missing optional evidence it should have held.  See
+    # the exit-code table in the header and SuccessExitStatus=3 on the unit.
+    warn "state backup complete WITH WARNINGS: ${ARTIFACTS} artifact(s) in ${DEST}; ${OPTIONAL_ISSUES} OPTIONAL store(s) NOT backed up: ${OPTIONAL_NOT_BACKED_UP}(see ${DEST}/${OPTIONAL_MANIFEST_NAME}) ($(date -u +%FT%TZ))"
+    exit 3
 fi
 log "state backup complete: ${ARTIFACTS} artifact(s) in ${DEST} ($(date -u +%FT%TZ))"
