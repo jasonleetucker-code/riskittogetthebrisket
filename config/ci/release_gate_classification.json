@@ -652,6 +652,9 @@
     "retention-backup-proof.yml::prove::Configure production SSH": {
       "category": "blocking"
     },
+    "retention-backup-proof.yml::prove::Pin the proof script to the deployed commit": {
+      "category": "blocking"
+    },
     "retention-backup-proof.yml::prove::Run backup and prove restore on production": {
       "category": "blocking"
     },
