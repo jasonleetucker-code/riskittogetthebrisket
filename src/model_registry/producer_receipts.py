@@ -1169,11 +1169,13 @@ def source_quality_run_receipts(
 # CORRECTION's identity, linked by ``receipt_store.record_correction``, and none
 # of these is a correction. Residual, stated rather than hidden: a disposition
 # observation's cutoff is the deploy read time, not the transition time; a state
-# that came and went between two deploys is never observed; a training run seen
-# first in full form and later only as a summary (artifact pruned) is not
-# re-described (the script skips the summary when the store already holds that
-# run), and one seen first as a summary and later in full surfaces as a content
-# conflict for review.
+# that came and went between two deploys is never observed; a training run is
+# described once, in whichever form (full / summary) was stored first -- the
+# script skips the other form in both orders, so a run first stored as a summary
+# keeps only its summary receipt even after its full artifact becomes readable;
+# a CHALLENGER receipt is built only for entries whose read-time status is
+# challenger / rejected (the AL-0 adapter's gate), so a version promoted to
+# champion before any deploy read it is under-recorded as a challenger.
 #
 # What is NOT receipted, deliberately:
 #
@@ -1240,8 +1242,9 @@ def hill_training_run_receipts(
     present and verified, else the registry summary (``recordForm`` says which).
 
     Delegates to ``learning_adapters.hill_receipts_from_training_run``. The two forms
-    of one run share an identity; the caller keeps the first one stored (section
-    comment above)."""
+    of one run share an identity; the caller (``scripts/hill_learning_receipts.py``)
+    keeps whichever form was stored first, in both orders, so neither
+    full-then-summary nor summary-then-full surfaces a content conflict."""
     from src.model_registry.learning_adapters import (  # noqa: PLC0415
         hill_receipts_from_training_run,
     )

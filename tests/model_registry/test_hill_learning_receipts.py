@@ -396,6 +396,44 @@ class TestUnobserved:
         assert out["contentConflicts"] == [] and out["written"] == 0
         assert out["summariesSkippedRunDescribed"] == 2  # v2's run and v3's pruned run
 
+    def test_a_run_stored_as_a_summary_is_not_redescribed_in_full(
+        self, registry_dir, tmp_path, enabled, capsys
+    ):
+        """The mirror: summary first (artifact not yet readable), full later."""
+        store = tmp_path / "receipts.sqlite"
+        arts = list((registry_dir / "training_runs").glob("*.json"))
+        hidden = {a: a.read_bytes() for a in arts}
+        for a in arts:
+            a.unlink()
+        code, first = _run(registry_dir, store, capsys=capsys)
+        assert code == 0, first
+        for a, data in hidden.items():
+            a.write_bytes(data)  # the full artifact becomes readable
+        code, out = _run(registry_dir, store, capsys=capsys)
+        assert code == 0, out
+        assert out["contentConflicts"] == [] and out["written"] == 0
+        assert out["fullSkippedStoredAsSummary"] == 1  # v2's run
+        forms = {
+            r["nativeId"]: r["body"]["recordForm"]
+            for r in _stored(store, "MODEL")
+            if r["producer"] == la.HILL_PRODUCER
+        }
+        assert set(forms.values()) == {"summary"}
+
+    def test_an_edited_full_artifact_still_surfaces_as_a_conflict(
+        self, registry_dir, tmp_path, enabled, capsys
+    ):
+        """The skip is form-to-form only: full-vs-full divergence is never hidden."""
+        store = tmp_path / "receipts.sqlite"
+        _run(registry_dir, store, capsys=capsys)
+        art = next((registry_dir / "training_runs").glob("*.json"))
+        record = json.loads(art.read_text(encoding="utf-8"))
+        record["inputsCommit"] = "f" * 40  # an unhashed label: the pins still verify
+        art.write_text(json.dumps(record), encoding="utf-8")
+        code, out = _run(registry_dir, store, capsys=capsys)
+        assert code == cli.EXIT_PARTIAL
+        assert out["contentConflicts"]
+
 
 # ── M1: no later fact is claimed at fittedAt ─────────────────────────────────
 
@@ -454,7 +492,7 @@ class TestNoLookAhead:
     def test_an_unchanged_disposition_is_not_reobserved(self, registry_dir):
         receipts, _, _ = cli.build_receipts(registry_dir, observed_at=T_READ)
         stored = {
-            "trainingRuns": set(),
+            "trainingRuns": {},
             "dispositions": {
                 r.body["version"]: {
                     "state": r.body["state"],

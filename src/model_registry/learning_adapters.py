@@ -296,7 +296,10 @@ def hill_receipts_from_registry_version(
     only (:data:`FIT_TIME_ONLY_NOTE`), so a later disposition change leaves them
     byte-identical. A CHALLENGER is built for an entry whose status proves it
     entered as a challenger (``challenger`` / ``rejected``); the status gates the
-    emission, never the content.
+    emission, never the content. The gate is a READ-TIME fact and the registry
+    records no fit-time role, so it UNDER-records: a champion or retired entry
+    (which may well have entered as a challenger, as v2 did) gets no CHALLENGER
+    receipt unless one was stored while it was still a challenger.
 
     ``include_evaluation=False`` builds only MODEL (+ CHALLENGER). The AL-1a box
     recorder (``producer_receipts.hill_registry_version_receipts``) uses it: a Hill

@@ -190,11 +190,12 @@ def read_store_context(store: Path | None) -> dict[str, Any]:
     """What this run must know about the receipts already stored (read-only).
 
     ``dispositions``: the latest stored disposition observation per registry
-    version (so an unchanged state is not re-observed). ``trainingRuns``: the run
-    challenger hashes the store already describes (so a pruned artifact's summary
-    does not re-describe a run already stored in full). An absent store is empty."""
+    version (so an unchanged state is not re-observed). ``trainingRuns``: the
+    ``recordForm`` (``full`` / ``summary``) the store already holds per run
+    challenger hash, so neither form re-describes a run stored in the other (the
+    two share an identity and would be a content conflict). An absent store is empty."""
     dispositions: dict[int, dict[str, Any]] = {}
-    runs: set[str] = set()
+    runs: dict[str, str] = {}
     for r in rs_iter_receipts(store):
         body = r.get("body") or {}
         if (
@@ -211,7 +212,7 @@ def read_store_context(store: Path | None) -> dict[str, Any]:
                     "observedAt": body.get("observedAt"),
                 }
         elif r.get("kind") == "MODEL" and r.get("producer") == HILL_PRODUCER:
-            runs.add(str(r.get("nativeId")))
+            runs[str(r.get("nativeId"))] = str(body.get("recordForm"))
     return {"dispositions": dispositions, "trainingRuns": runs}
 
 
@@ -234,12 +235,12 @@ def build_receipts(
     registry = load_registry(registry_dir)
     observed = observed_at or datetime.now(timezone.utc)
     run_log = load_run_log(registry_dir)
-    stored = stored or {"dispositions": {}, "trainingRuns": set()}
+    stored = stored or {"dispositions": {}, "trainingRuns": {}}
     champion = registry["championVersion"]
     versions = {v["version"]: v for v in registry["versions"]}
     receipts: list[LearningReceipt] = []
     refused: list[dict[str, str]] = []
-    dispositions = lifecycle = skipped_summaries = 0
+    dispositions = lifecycle = skipped_summaries = skipped_full = 0
 
     for n in sorted(versions):
         try:
@@ -259,14 +260,24 @@ def build_receipts(
     records, run_refusals = training_run_records(registry, registry_dir)
     refused += run_refusals
     dictionary = load_dictionary()
-    # A summary never re-describes a run that is described in full in this batch
-    # or already stored: the two forms share an identity, and the first stored wins.
-    described = set(stored["trainingRuns"]) | {
+    # The full and summary forms of one run share an identity, so the first form
+    # STORED wins, symmetrically: a summary is skipped when the run is already
+    # stored in any form or is described in full in this batch (full beats summary
+    # within a batch); a full record is skipped when the store already holds the
+    # run as a summary. Neither order can surface a content conflict. A full record
+    # whose run is already stored in full still goes to the store, so an edited
+    # full artifact keeps surfacing as a conflict.
+    stored_runs = stored["trainingRuns"]
+    full_in_batch = {
         str(record.get("challengerHash")) for _, record in records if "inputs" in record
     }
     for label, record in records:
-        if "inputs" not in record and str(record.get("challengerHash")) in described:
+        run = str(record.get("challengerHash"))
+        if "inputs" not in record and (run in stored_runs or run in full_in_batch):
             skipped_summaries += 1
+            continue
+        if "inputs" in record and stored_runs.get(run) == "summary":
+            skipped_full += 1
             continue
         try:
             receipts += pr.hill_training_run_receipts(record, dictionary=dictionary)
@@ -303,6 +314,7 @@ def build_receipts(
         "dispositionsObserved": dispositions,
         "lifecycleEvents": lifecycle,
         "summariesSkippedRunDescribed": skipped_summaries,
+        "fullSkippedStoredAsSummary": skipped_full,
         "evaluationsWithheld": len(versions),
         "evaluationsWithheldReason": pr.HILL_EVALUATION_WITHHELD,
         "byKind": dict(sorted(Counter(r.kind for r in out).items())),
