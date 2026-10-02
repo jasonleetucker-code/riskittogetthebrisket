@@ -245,12 +245,24 @@ This is deliberately stronger than repeatedly re-scoring one current snapshot.
    a preregistration document plus the commit that first recorded it, every provenance
    component (B10 family + registered source keys) and an explicit treatment for every
    challenger training family (`no_shared_provenance` or `component_excluded`). It is
-   eligible only when: the preregistration commit is an ancestor of HEAD and contains
-   the file; every training family has a treatment; no scored component belongs to a
+   eligible only when: the preregistration commit is a full 40-hex SHA (never a ref
+   name such as `HEAD` or `origin/main`, never an abbreviation), a **strict** ancestor
+   of HEAD (so the registry entry lands in a later commit), contains the file, and the
+   file's blob at HEAD is identical to the one at that commit (no edits since
+   preregistration; any git error, missing git or shallow clone fails closed); every
+   training family has a treatment; no scored component belongs to a
    training family; mixed provenance names its excluded components explicitly; and the
    lineage owner (`training_manifest.holdout_lineage`) reconciles every scored source
    key `INDEPENDENT_NO_EVIDENCE` with every training family — `UNKNOWN`, `SUSPECTED`,
    `MEASURED` and `PROVEN` all fail closed. A rule that raises fails.
+
+   **`component_excluded` is a declaration the code cannot verify.** A target's rule
+   receives only champion and challenger parameters, never the component data, so the
+   eligibility check can confirm only that the excluded components exist and cover the
+   family — not that the rule drops them. Reviewing a target's preregistration must
+   therefore verify that its rule actually removes every excluded component before
+   scoring; that review is the enforcement until the rule interface hands a rule only
+   the non-excluded components.
 
    Do not add a target merely to restore promotion. KTC Trade Database evidence alone
    is **not** independent for a KTC-trained curve (pinned against the real lineage

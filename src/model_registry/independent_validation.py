@@ -19,10 +19,12 @@ The contract a target declares (:class:`IndependentValidationTarget`):
 
 * ``target_id``;
 * ``preregistration_path`` + ``preregistration_commit`` -- the preregistration
-  document and the commit that first recorded it. Eligibility requires that
-  commit to be an ancestor of HEAD and to contain the file, so the rule was
-  committed BEFORE the registry entry that consumes it (and so before any
-  result it produces);
+  document and the commit that first recorded it. The commit must be a full
+  40-hex SHA (never a ref name or an abbreviation -- ``HEAD`` or a branch
+  moves), a STRICT ancestor of HEAD, contain the file, and the file's blob at
+  HEAD must be identical to the one at that commit. So the rule was committed
+  BEFORE the registry entry that consumes it (which therefore lands in a later
+  commit) and has not been edited since (:func:`git_preregistration_committed`);
 * ``provenance`` -- every evidence component the target derives from, each with
   its B10 provider family and the registered source keys the lineage owner can
   answer for;
@@ -41,7 +43,13 @@ failure is a named reason, and anything unknowable fails closed:
 * there is an explicit treatment for every training family;
 * ``no_shared_provenance`` is not contradicted by a component of that family
   (mixed provenance must say what it does with the dependent component);
-* ``component_excluded`` names a component that actually exists;
+* ``component_excluded`` names a component that actually exists. **This is a
+  DECLARATION the module cannot verify**: a rule receives only champion and
+  challenger parameters, never the component data, so nothing here can prove
+  the rule drops what the treatment says it drops. Reviewing a target's
+  preregistration must therefore verify that its rule actually removes every
+  excluded component before scoring; until the rule interface hands a rule only
+  the non-excluded components, that review IS the enforcement;
 * every SCORED component (not excluded) belongs to none of the training
   families, and its declared family matches the source registry;
 * the lineage owner (``training_manifest.holdout_lineage`` over
@@ -65,6 +73,7 @@ component before it can be added here.
 
 from __future__ import annotations
 
+import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -200,7 +209,8 @@ class IndependentValidationEvidence:
 
 # ── eligibility (pure; I/O is injected) ──────────────────────────────────────
 
-#: ``(path, commit) -> True`` only when ``commit`` is an ancestor of HEAD that contains ``path``.
+#: ``(path, commit) -> True`` only when the preregistration is committed and
+#: unchanged since (exact rule: :func:`git_preregistration_committed`).
 PreregistrationCheck = Callable[[str, str], bool]
 #: ``source_key -> {training family: lineage category}`` from the lineage owner.
 LineageLookup = Callable[[str], Mapping[str, str]]
@@ -255,7 +265,9 @@ def assess_target(
                     f"treatment_contradicts_provenance:{fam}:" + ",".join(sorted(of_family))
                 )
             continue
-        # component_excluded
+        # component_excluded -- DECLARATION ONLY: the rule never sees component
+        # data, so that it actually drops these is verified at preregistration
+        # review, not here (module docstring; HILL_AUTOPILOT_V2 gate 7).
         named = set(treat.excluded_components)
         if not named:
             reasons.append(f"component_excluded_names_nothing:{fam}")
@@ -341,22 +353,68 @@ def evaluate_independent_validation(
 # ── default (real) providers, used by scripts/hill_autopilot.py ─────────────
 
 
-def git_preregistration_committed(path: str, commit: str, *, repo: Path = REPO) -> bool:
-    """``commit`` is an ancestor of HEAD and contains ``path``. Never raises."""
+#: A full, lowercase git object id. Ref names and abbreviations are refused.
+_FULL_SHA = re.compile(r"[0-9a-f]{40}")
 
-    def _ok(*args: str) -> bool:
+
+def normalize_repo_path(path: str) -> str:
+    """Repo-relative POSIX form: backslashes become ``/`` and leading ``./``
+    SEGMENTS are removed -- never the leading ``.`` of a name (``.github``)."""
+    rel = str(path).replace("\\", "/")
+    while rel.startswith("./"):
+        rel = rel.removeprefix("./")
+    return rel
+
+
+def git_preregistration_committed(
+    path: str, commit: str, *, repo: Path = REPO, git_executable: str = "git"
+) -> bool:
+    """Whether ``path`` was preregistered at ``commit`` and is unchanged at HEAD.
+
+    True only when ALL of these hold; anything else -- including any git error,
+    a missing git, or a shallow clone (whose history boundary cannot prove
+    ancestry) -- is ``False``. Never raises.
+
+    * ``commit`` is a full 40-hex SHA that resolves to exactly itself: ref names
+      (``HEAD``, ``origin/main``) and abbreviations are refused;
+    * it is a STRICT ancestor of HEAD (HEAD itself is refused), so the registry
+      entry that consumes it landed in a later commit;
+    * ``path`` is a file (blob) at that commit;
+    * its blob at HEAD is identical -- the preregistration was not edited since.
+    """
+    commit = str(commit or "")
+    rel = normalize_repo_path(path or "")
+    if not rel or not _FULL_SHA.fullmatch(commit):
+        return False
+
+    def _git(*args: str) -> str | None:
         try:
             proc = subprocess.run(
-                ["git", *args], cwd=repo, capture_output=True, text=True, check=False
+                [git_executable, *args],
+                cwd=repo,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=60,
             )
-        except OSError:
-            return False
-        return proc.returncode == 0
+        except (OSError, subprocess.SubprocessError, ValueError):
+            return None
+        return proc.stdout.strip() if proc.returncode == 0 else None
 
-    rel = str(path).replace("\\", "/").lstrip("./")
-    return _ok("merge-base", "--is-ancestor", commit, "HEAD") and _ok(
-        "cat-file", "-e", f"{commit}:{rel}"
-    )
+    if _git("rev-parse", "--is-shallow-repository") != "false":
+        return False
+    if _git("rev-parse", "--verify", "--quiet", f"{commit}^{{commit}}") != commit:
+        return False
+    head = _git("rev-parse", "--verify", "--quiet", "HEAD^{commit}")
+    if head is None or not _FULL_SHA.fullmatch(head) or head == commit:
+        return False
+    if _git("merge-base", "--is-ancestor", commit, head) is None:
+        return False
+    if _git("cat-file", "-t", f"{commit}:{rel}") != "blob":
+        return False
+    at_prereg = _git("rev-parse", "--verify", "--quiet", f"{commit}:{rel}")
+    at_head = _git("rev-parse", "--verify", "--quiet", f"{head}:{rel}")
+    return at_prereg is not None and at_prereg == at_head
 
 
 def offense_training_lineage() -> tuple[tuple[str, ...], Mapping[str, set[str]]]:

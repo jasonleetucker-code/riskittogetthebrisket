@@ -48,6 +48,8 @@ WORKFLOW = REPO / ".github" / "workflows" / "refit-hill-curves.yml"
 
 TRAINING = ("ktcCrowd", "dynastyDaddySf")
 WINNER = 7
+#: A realistic full-SHA shape for injected preregistration checks.
+PREREG_SHA = "3f9c2a7e5b1d4c8a9e0f6b2d7a1c5e8f4b3d9a06"
 
 
 # ── synthetic fixtures ──────────────────────────────────────────────────────
@@ -410,18 +412,20 @@ class TestEligibility:
         assert "ktcCrowd" in families
         t = IndependentValidationTarget(
             target_id="ktc-trade-db-only",
-            preregistration_path="CLAUDE.md",
-            preregistration_commit="HEAD",
+            preregistration_path="docs/prereg/ktc-trade-db-only.md",
+            preregistration_commit=PREREG_SHA,
             provenance=(ProvenanceComponent("ktc-db", "ktcTrades", ("ktcTradesSfTep",)),),
             independence={
                 f: IndependenceTreatment(TREATMENT_NO_SHARED_PROVENANCE) for f in families
             },
             rule=_rule(True),
         )
+        # The preregistration is MODELLED as committed (only a full SHA passes),
+        # so the lineage owner is the only thing that can refuse this target.
         a = assess_target(
             t,
             training_families=families,
-            preregistration_committed=lambda p, c: True,
+            preregistration_committed=lambda p, c: c == PREREG_SHA,
             lineage_for=iv.lineage_lookup(by_family),
             family_of=iv.registry_family_lookup(),
         )
@@ -591,20 +595,145 @@ class TestScriptAndWorkflow:
 # ── default providers ───────────────────────────────────────────────────────
 
 
+PREREG_DOC = "docs/prereg/target.md"
+
+
+def _git(repo: Path, *args: str) -> str:
+    return subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=test",
+            "-c",
+            "user.email=test@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            "core.autocrlf=false",
+            *args,
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+
+def _commit(repo: Path, rel: str, text: str, message: str) -> str:
+    f = repo / rel
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(text, encoding="utf-8")
+    _git(repo, "add", rel)
+    _git(repo, "commit", "-q", "-m", message)
+    return _git(repo, "rev-parse", "HEAD")
+
+
+@pytest.fixture
+def prereg_repo(tmp_path):
+    """A real repo: the preregistration commit, then a later registry commit."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git(repo, "init", "-q")
+    prereg = _commit(repo, PREREG_DOC, "rule: pass iff RMSE drops\n", "preregister")
+    head = _commit(repo, "src/registry.py", "TARGETS = ()\n", "register target")
+    return repo, prereg, head
+
+
 class TestGitPreregistrationCheck:
-    def _head(self) -> str:
-        return subprocess.run(
-            ["git", "rev-parse", "HEAD"], cwd=REPO, capture_output=True, text=True, check=True
-        ).stdout.strip()
+    def test_strict_ancestor_with_unchanged_doc_is_accepted(self, prereg_repo):
+        repo, prereg, _ = prereg_repo
+        assert iv.git_preregistration_committed(PREREG_DOC, prereg, repo=repo)
 
-    def test_committed_file_at_an_ancestor_commit(self):
-        assert iv.git_preregistration_committed("CLAUDE.md", self._head())
+    @pytest.mark.parametrize("ref", ["HEAD", "HEAD~1", "master", "main", "origin/main"])
+    def test_a_ref_name_is_refused(self, prereg_repo, ref):
+        repo, _, _ = prereg_repo
+        assert not iv.git_preregistration_committed(PREREG_DOC, ref, repo=repo)
 
-    def test_file_absent_from_the_commit(self):
-        assert not iv.git_preregistration_committed("docs/no/such/prereg.md", self._head())
+    def test_an_abbreviated_sha_is_refused(self, prereg_repo):
+        repo, prereg, _ = prereg_repo
+        assert not iv.git_preregistration_committed(PREREG_DOC, prereg[:12], repo=repo)
 
-    def test_unknown_commit(self):
-        assert not iv.git_preregistration_committed("CLAUDE.md", "0" * 40)
+    def test_an_uppercased_sha_is_refused(self, prereg_repo):
+        repo, prereg, _ = prereg_repo
+        assert not iv.git_preregistration_committed(PREREG_DOC, prereg.upper(), repo=repo)
+
+    def test_head_itself_is_refused(self, prereg_repo):
+        """The registry entry must land in a LATER commit than the preregistration."""
+        repo, _, head = prereg_repo
+        # HEAD contains the doc, unchanged -- every other check would pass.
+        assert not iv.git_preregistration_committed(PREREG_DOC, head, repo=repo)
+
+    def test_doc_edited_after_preregistration_is_refused(self, prereg_repo):
+        repo, prereg, _ = prereg_repo
+        _commit(repo, PREREG_DOC, "rule: pass iff RMSE drops by 1%\n", "move the goalposts")
+        assert not iv.git_preregistration_committed(PREREG_DOC, prereg, repo=repo)
+
+    def test_doc_absent_from_the_preregistration_commit_is_refused(self, prereg_repo):
+        repo, _, _ = prereg_repo
+        first = _git(repo, "rev-list", "--max-parents=0", "HEAD")
+        late = _commit(repo, "docs/prereg/late.md", "rule\n", "late doc")
+        _commit(repo, "src/other.py", "x = 1\n", "later")
+        assert not iv.git_preregistration_committed("docs/prereg/late.md", first, repo=repo)
+        assert iv.git_preregistration_committed("docs/prereg/late.md", late, repo=repo)
+
+    def test_a_directory_is_not_a_preregistration(self, prereg_repo):
+        repo, prereg, _ = prereg_repo
+        assert not iv.git_preregistration_committed("docs/prereg", prereg, repo=repo)
+
+    def test_unknown_commit_is_refused(self, prereg_repo):
+        repo, _, _ = prereg_repo
+        assert not iv.git_preregistration_committed(PREREG_DOC, "0" * 40, repo=repo)
+
+    def test_commit_not_an_ancestor_of_head_is_refused(self, prereg_repo):
+        repo, prereg, _ = prereg_repo
+        _git(repo, "checkout", "-q", "-b", "side", prereg)
+        side = _commit(repo, "docs/prereg/side.md", "rule\n", "side prereg")
+        _git(repo, "checkout", "-q", "-")
+        assert not iv.git_preregistration_committed("docs/prereg/side.md", side, repo=repo)
+
+    def test_git_unavailable_fails_closed(self, prereg_repo):
+        repo, prereg, _ = prereg_repo
+        assert not iv.git_preregistration_committed(
+            PREREG_DOC, prereg, repo=repo, git_executable="definitely-not-a-git-binary"
+        )
+
+    def test_not_a_repository_fails_closed(self, tmp_path, prereg_repo):
+        _, prereg, _ = prereg_repo
+        empty = tmp_path / "not-a-repo"
+        empty.mkdir()
+        assert not iv.git_preregistration_committed(PREREG_DOC, prereg, repo=empty)
+
+    def test_shallow_clone_fails_closed(self, tmp_path, prereg_repo):
+        repo, prereg, _ = prereg_repo
+        clone = tmp_path / "shallow"
+        _git(tmp_path, "clone", "-q", "--depth", "2", repo.resolve().as_uri(), str(clone))
+        assert _git(clone, "rev-parse", "--is-shallow-repository") == "true"
+        assert not iv.git_preregistration_committed(PREREG_DOC, prereg, repo=clone)
+
+    def test_leading_dot_slash_is_stripped_but_dotted_names_survive(self, tmp_path):
+        repo = tmp_path / "dotted"
+        repo.mkdir()
+        _git(repo, "init", "-q")
+        prereg = _commit(repo, ".github/prereg.md", "rule\n", "preregister")
+        _commit(repo, "src/registry.py", "TARGETS = ()\n", "register")
+        for spelled in (".github/prereg.md", "./.github/prereg.md", ".\\.github\\prereg.md"):
+            assert iv.git_preregistration_committed(spelled, prereg, repo=repo), spelled
+
+
+class TestNormalizeRepoPath:
+    @pytest.mark.parametrize(
+        ("raw", "want"),
+        [
+            ("./docs/a.md", "docs/a.md"),
+            ("././docs/a.md", "docs/a.md"),
+            (".github/workflows/x.yml", ".github/workflows/x.yml"),
+            ("./.github/workflows/x.yml", ".github/workflows/x.yml"),
+            (".\\docs\\a.md", "docs/a.md"),
+            ("docs/a.md", "docs/a.md"),
+        ],
+    )
+    def test_only_leading_dot_slash_segments_are_removed(self, raw, want):
+        assert iv.normalize_repo_path(raw) == want
 
 
 def test_evidence_dict_never_reports_false_for_an_unrun_rule():
