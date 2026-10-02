@@ -39,11 +39,39 @@ def test_it_is_seeded_only_with_what_the_adapted_producers_consume():
         SQ_FAMILY,
         SQ_FEATURES,
     )
+    from src.model_registry.producer_receipts import (
+        ROBUST_FAMILY,
+        ROBUST_FEATURES,
+        SPARSE_FAMILY,
+        SPARSE_FEATURES,
+    )
 
-    declared = {(f["name"], f["version"]) for f in (*HILL_FEATURES, *SQ_FEATURES)}
+    declared = {
+        (f["name"], f["version"])
+        for f in (*HILL_FEATURES, *SQ_FEATURES, *SPARSE_FEATURES, *ROBUST_FEATURES)
+    }
+    # provider_family v1 stays defined (and locked) for the AL-0 consumers that pin
+    # it; AL-1a's consumers use v2, the same definition with the wider consumer list.
     assert set(fd.load_dictionary().features) == declared
     consumers = {c for f in DOC["features"] for c in f["allowedConsumers"]}
-    assert consumers == {HILL_FAMILY, SQ_FAMILY}
+    assert consumers == {HILL_FAMILY, SQ_FAMILY, SPARSE_FAMILY, ROBUST_FAMILY}
+
+
+def test_al1a_rows_were_appended_and_no_earlier_row_moved():
+    """AL-1a added NEW (name, version) rows at the end of the lock; the five AL-0
+    rows are untouched, in their original order."""
+    rows = [(r["name"], r["version"]) for r in LOCK["locked"]]
+    assert rows[:5] == [
+        ("source_board_native_value", 1),
+        ("canonical_training_percentile", 1),
+        ("source_universe_log_rank", 1),
+        ("family_evidence_age_days", 1),
+        ("provider_family", 1),
+    ]
+    assert ("provider_family", 2) in rows[5:]
+    v1, v2 = (fd.load_dictionary().get("provider_family", v) for v in (1, 2))
+    assert v1.definition_owner == v2.definition_owner and v1.unit == v2.unit
+    assert set(v1.allowed_consumers) < set(v2.allowed_consumers)
 
 
 def test_editing_a_definition_in_place_fails():

@@ -32,6 +32,7 @@ LEARNING_MODULES = (
     "src/model_registry/feature_dictionary.py",
     "src/model_registry/receipt_store.py",
     "src/model_registry/learning_adapters.py",
+    "src/model_registry/producer_receipts.py",
 )
 
 #: module -> names it may import (None = the module is learning-internal).
@@ -52,6 +53,8 @@ ALLOWED_SRC_IMPORTS: dict[str, frozenset[str] | None] = {
     "src.model_registry.evaluation_receipt": None,
     "src.model_registry.feature_dictionary": None,
     "src.model_registry.receipt_store": None,
+    "src.model_registry.learning_adapters": None,
+    "src.model_registry.producer_receipts": None,
 }
 
 #: Contract stamps, league config and identity-mapping fields a learning module

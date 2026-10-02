@@ -1,0 +1,930 @@
+"""Prospective learning receipts for the shadow and evaluation producers (AL-1a).
+
+AL-0 (``learning_receipt`` / ``evaluation_receipt`` / ``receipt_store``) built the
+substrate and adapted committed evidence. AL-1a makes the producers that run on
+the box emit receipts AS THEY RUN, in the owner order of
+``docs/research/ADAPTIVE_LEARNING_2026-09-26.md`` §35 T2:
+
+1. **sparse-evidence shadow** (``src/api/sparse_evidence_shadow.py``, the
+   ``dynasty-sparse-evidence-shadow`` timer) — per board: OBSERVATION, FEATURES,
+   a MODEL for the served incumbent and for candidate C, the CHALLENGER pairing,
+   and one PREDICTION per side. It settles no outcome, so it emits no OUTCOME or
+   EVALUATION receipt.
+2. **robust-filter shadow** (``src/robust_filter_shadow/``, the
+   ``dynasty-joint-filter-shadow`` timer) — the same per-board set, plus an
+   EVALUATION receipt per preregistered evaluation run, because that producer
+   already settles outcomes (``outcomes.evaluate``) with its own sample sizes and
+   an ``INSUFFICIENT`` verdict.
+3. **source-quality evaluator** (``scripts/source_quality_eval.py``) — the
+   AL-0 adapter (``learning_adapters.source_quality_receipts``) called at the
+   moment the evaluator appends its archive lines.
+
+Rules this module keeps (pinned by ``tests/model_registry/test_producer_receipts.py``):
+
+* **Point into the producer's own store, copy nothing.** Every receipt
+  references its producer's native ledger line, panel or evaluation file by key
+  (``producedFor`` = that run's native id). No row, value or vote is copied.
+* **Point in time.** A per-board receipt's ``cutoff`` is the producer record's
+  own ``recordedAt`` — stamped after the build that read its inputs, so every
+  input was known by then. A board whose ``scrapeTimestamp`` cannot be proven at
+  or before that instant is reported ``Unobserved``, never offered as an input.
+* **Missing stays missing.** Absent pins become ``Unobserved`` slots with a
+  reason; nothing is defaulted to 0.
+* **Idempotent.** Every receipt identity is a function of the producer's own
+  record key / model version / evaluated record set, and every body is a pure
+  function of the stored record, so a re-run on an unchanged board is a stored
+  duplicate, never a second receipt and never a conflict. Callers pass the line
+  AS STORED (a recorder that finds its key already present returns a freshly
+  stamped copy, which must not be used).
+* **Never breaks a producer.** :func:`emit_safely` is the only entry point the
+  producers call. Any failure — an adapter refusing a malformed record, an
+  unreachable store, a path the store refuses — is logged and swallowed; the
+  producer's exit code and outputs are unchanged.
+* **Never promotes.** Every MODEL / CHALLENGER / EVALUATION body carries
+  ``promotes: False``; nothing here writes a PROMOTION RECORD, moves a champion
+  pointer, flips a flag or touches a served value.
+"""
+
+from __future__ import annotations
+
+import hashlib
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Callable, Iterable, Mapping, Sequence
+
+from src.model_registry.evaluation_receipt import (
+    VERDICT_CHALLENGER_BETTER,
+    VERDICT_CHAMPION_RETAINED,
+    VERDICT_INCONCLUSIVE,
+    VERDICT_INSUFFICIENT,
+    CohortResult,
+    Estimate,
+    EvaluationReceipt,
+    cohort_result,
+)
+from src.model_registry.feature_dictionary import FeatureDictionary, validate_manifest
+from src.model_registry.learning_receipt import (
+    KIND_CHALLENGER,
+    KIND_FEATURES,
+    KIND_MODEL,
+    KIND_OBSERVATION,
+    KIND_PREDICTION,
+    ROLE_ARTIFACT,
+    ROLE_INPUT,
+    LearningReceipt,
+    NotApplicable,
+    ReceiptError,
+    StoreRef,
+    Unobserved,
+    build_receipt,
+    canonical_json,
+    iso,
+    model_version_id,
+    parse_instant,
+    prediction_id,
+)
+
+# ── shared ──────────────────────────────────────────────────────────────────
+
+BATCH3_POLICY = "Batch 3 section N (docs/EXECUTION_PLAN.md section 0, Valuation Trust Program)"
+
+PROVIDER_FAMILY_V2: Mapping[str, Any] = {"name": "provider_family", "version": 2}
+
+#: The shadow producers count with ``collections.Counter`` and publish
+#: ``dict(counter)``: a key the producer never incremented is ABSENT, and that
+#: absence means zero occurrences, not an unknown. The counts are carried verbatim
+#: with this note rather than re-keyed, so neither direction of coercion (absent ->
+#: 0, or a real 0 -> None) happens here.
+COUNTS_SEMANTICS = "verbatim producer collections.Counter: an absent key counted zero occurrences"
+
+_NO_REGISTRY = (
+    "no model registry exists for this shadow family; the version is identified by the "
+    "code revision, pipeline identity and flag snapshot recorded on every run, and the "
+    "per-run pins travel on that run's FEATURES and PREDICTION receipts"
+)
+
+
+def _sha(obj: Any) -> str:
+    return hashlib.sha256(canonical_json(obj).encode("utf-8")).hexdigest()
+
+
+def _instant_or_none(value: Any) -> datetime | None:
+    try:
+        return parse_instant(value, what="instant")
+    except (ReceiptError, ValueError):
+        return None
+
+
+def _require(value: Any, what: str) -> str:
+    text = str(value or "").strip()
+    if not text or text == "None":
+        raise ReceiptError(f"producer record lacks {what}")
+    return text
+
+
+def _board_slot(board: Mapping[str, Any], cutoff: datetime) -> StoreRef | Unobserved:
+    """The served payload the run read, by content address, at its OWN scrape time."""
+    payload = str(board.get("payloadSha256") or "")
+    source = str(board.get("source") or "")
+    if not payload or payload == "None" or not source:
+        return Unobserved("the producer record names no payload hash / source")
+    scraped = _instant_or_none(board.get("scrapeTimestamp"))
+    if scraped is None:
+        return Unobserved(
+            f"payload {source} states no provable scrapeTimestamp "
+            f"({board.get('scrapeTimestamp')!r}); its instant cannot be proven to precede the run"
+        )
+    if scraped > cutoff:
+        return Unobserved(
+            f"payload {source} scrapeTimestamp {iso(scraped)} is after the run's recordedAt "
+            f"{iso(cutoff)}; it is not offered as a point-in-time input"
+        )
+    return StoreRef(
+        store="repo_file",
+        key=f"{source}@sha256:{payload}",
+        role=ROLE_INPUT,
+        known_at=scraped,
+        fidelity="exact",
+        basis="the board's own scrapeTimestamp; the run read the payload before recordedAt",
+    )
+
+
+def _live_ref(store: str, key: str, cutoff: datetime, what: str) -> StoreRef:
+    return StoreRef(
+        store=store,
+        key=key,
+        role=ROLE_INPUT,
+        known_at=cutoff,
+        fidelity="exact",
+        basis=f"{what} read during the run, before the record's recordedAt was stamped",
+    )
+
+
+def _tree_state_token(dirty: Any) -> str:
+    """A dirty tree's content is not determined by its revision; an unknown state is named
+    as unknown rather than assumed clean."""
+    if dirty is False:
+        return ""
+    return "-dirty" if dirty is True else "-treeunknown"
+
+
+def _flags_token(flags: Any) -> str:
+    if not isinstance(flags, Mapping) or not flags:
+        return "fnone"
+    return "f" + _sha(dict(flags))[:8]
+
+
+def _model_receipt(
+    *, producer: str, family: str, mvid: str, body: Mapping[str, Any]
+) -> LearningReceipt:
+    return build_receipt(
+        kind=KIND_MODEL,
+        producer=producer,
+        native_id=mvid,
+        model_family=family,
+        model_version_id=mvid,
+        slots={"definition": NotApplicable(_NO_REGISTRY)},
+        body={**dict(body), "promotes": False},
+    )
+
+
+def _challenger_receipt(
+    *, producer: str, family: str, challenger: str, champion: str, body: Mapping[str, Any]
+) -> LearningReceipt:
+    return build_receipt(
+        kind=KIND_CHALLENGER,
+        producer=producer,
+        native_id=f"{challenger}|vs|{champion}",
+        model_family=family,
+        model_version_id=challenger,
+        slots={"definition": NotApplicable(_NO_REGISTRY)},
+        body={
+            "challengerModelVersionId": challenger,
+            "championModelVersionId": champion,
+            "status": "SHADOW",
+            "decidedBy": BATCH3_POLICY,
+            **dict(body),
+            "promotes": False,
+        },
+    )
+
+
+def _prediction_receipt(
+    *,
+    producer: str,
+    family: str,
+    store: str,
+    ledger_key: str,
+    native: str,
+    mvid: str,
+    cutoff: datetime,
+    body: Mapping[str, Any],
+) -> LearningReceipt:
+    return build_receipt(
+        kind=KIND_PREDICTION,
+        producer=producer,
+        native_id=native,
+        model_family=family,
+        model_version_id=mvid,
+        prediction_id=prediction_id(producer, native),
+        cutoff=cutoff,
+        slots={
+            "predictionSet": StoreRef(
+                store=store,
+                key=ledger_key,
+                role=ROLE_ARTIFACT,
+                known_at=cutoff,
+                fidelity="exact",
+                basis="the ledger line's own recordedAt; the line is appended right after it",
+                produced_for=native,
+            )
+        },
+        body=dict(body),
+    )
+
+
+# ── emission (never breaks a producer) ───────────────────────────────────────
+
+
+def emit_safely(
+    build: Callable[[], Iterable[LearningReceipt]],
+    *,
+    label: str,
+    path: Path | None = None,
+    log: Callable[[str], None] = print,
+) -> dict[str, Any]:
+    """Build receipts and append them; NEVER raise.
+
+    Returns ``{"ok": bool, ...}``: the store's ``written`` / ``duplicates`` /
+    ``contentConflicts`` / ``rejected`` on success, ``error`` on failure. The
+    producer ignores the result — a receipt failure is a log line, not a
+    producer failure, and the producer's own outputs are already durable by the
+    time this runs."""
+    try:
+        # Lazy (and re-read per call): an import error is isolated like any other.
+        from src.model_registry.receipt_store import append_receipts  # noqa: PLC0415
+
+        receipts = list(build())
+        result = append_receipts(receipts, path=path)
+    except Exception as exc:  # noqa: BLE001 -- a receipt failure must never break a producer
+        message = f"{type(exc).__name__}: {exc}"
+        log(f"learning receipts NOT written ({label}): {message}")
+        return {"ok": False, "error": message}
+    log(
+        f"learning receipts ({label}): written={result['written']} "
+        f"duplicates={result['duplicates']} conflicts={len(result['contentConflicts'])} "
+        f"rejected={len(result['rejected'])}"
+    )
+    return {"ok": True, **result}
+
+
+# ── 1. sparse-evidence shadow ────────────────────────────────────────────────
+
+SPARSE_FAMILY = "sparse_evidence_estimator"
+SPARSE_PRODUCER = "sparse_evidence_shadow"
+SPARSE_STORE = "sparse_evidence_shadow_ledger"
+SPARSE_SCHEMA = "sparse-evidence-shadow/v1"
+SPARSE_FLAG = "sparse_evidence_estimator"
+SPARSE_PREREGISTRATION = "docs/valuation/evidence/sparse-evidence-2026-10-01/PREREGISTRATION.md"
+SPARSE_FEATURES: tuple[Mapping[str, Any], ...] = (
+    {"name": "single_family_observation", "version": 1},
+    {"name": "censored_family_bound", "version": 1},
+    {"name": "sparse_evidence_state", "version": 1},
+    PROVIDER_FAMILY_V2,
+)
+
+
+def sparse_model_ids(record: Mapping[str, Any]) -> tuple[str, str]:
+    """``(incumbent, challenger)`` model version ids for one shadow record.
+
+    The incumbent is the served pipeline at the record's code revision and flag
+    snapshot with the estimator flag OFF; the challenger is the same with it ON
+    under the recorded estimator version. A dirty working tree is named in the
+    token, because its content is not determined by the revision."""
+    pins = record.get("pins") or {}
+    code = _require(pins.get("codeRevision"), "pins.codeRevision")[:12]
+    estimator = _require(
+        pins.get("estimator") or (record.get("identity") or {}).get("estimator"),
+        "the estimator version",
+    )
+    dirty = _tree_state_token(pins.get("workingTreeDirty"))
+    flags = _flags_token(pins.get("flagsAtRecord"))
+    return (
+        model_version_id(SPARSE_FAMILY, f"served-{code}{dirty}-{flags}"),
+        model_version_id(SPARSE_FAMILY, f"{estimator}-{code}{dirty}-{flags}"),
+    )
+
+
+def sparse_evidence_receipts(
+    record: Mapping[str, Any], *, ledger_name: str, dictionary: FeatureDictionary
+) -> list[LearningReceipt]:
+    """The prospective receipts for one STORED sparse-evidence shadow line.
+
+    ``ledger_name`` is the file the line lives in (``ledger-YYYY-MM.jsonl``)."""
+    if record.get("schema") != SPARSE_SCHEMA:
+        raise ReceiptError(f"not a {SPARSE_SCHEMA} line: schema={record.get('schema')!r}")
+    key = _require(record.get("key"), "key")
+    cutoff = parse_instant(record.get("recordedAt"), what="recordedAt")
+    board, pins = record.get("board") or {}, record.get("pins") or {}
+    counts = record.get("counts") or {}
+    inc, ch = sparse_model_ids(record)
+    code = _require(pins.get("codeRevision"), "pins.codeRevision")
+    estimator = str(pins.get("estimator") or (record.get("identity") or {}).get("estimator"))
+    inputs_sha = str(pins.get("inputsSha256") or "")
+    inputs: StoreRef | Unobserved = (
+        _live_ref(
+            "repo_file",
+            f"sparse-evidence-shadow live inputs (source CSVs, freshness state, config, "
+            f"fetch stamps, league snapshots)@sha256:{inputs_sha}",
+            cutoff,
+            "this box's source CSVs, dataset state, freshness config and league snapshots",
+        )
+        if inputs_sha and inputs_sha != "None"
+        else Unobserved("the record pins no inputsSha256")
+    )
+    flags = pins.get("flagsAtRecord")
+    flags_hash = _sha(dict(flags)) if isinstance(flags, Mapping) else None
+
+    model_common = {
+        "codeRevision": code,
+        "workingTreeDirty": pins.get("workingTreeDirty"),
+        "flagsAtRecordSha256": flags_hash,
+        "flag": SPARSE_FLAG,
+    }
+    receipts = [
+        _model_receipt(
+            producer=SPARSE_PRODUCER,
+            family=SPARSE_FAMILY,
+            mvid=inc,
+            body={
+                **model_common,
+                "role": "incumbent",
+                "flagValue": False,
+                "singleSourceRetention": pins.get("singleSourceRetention"),
+                "status": "SERVED_AT_RECORD",
+            },
+        ),
+        _model_receipt(
+            producer=SPARSE_PRODUCER,
+            family=SPARSE_FAMILY,
+            mvid=ch,
+            body={
+                **model_common,
+                "role": "challenger",
+                "flagValue": True,
+                "estimator": estimator,
+                "status": "SHADOW",
+            },
+        ),
+        _challenger_receipt(
+            producer=SPARSE_PRODUCER,
+            family=SPARSE_FAMILY,
+            challenger=ch,
+            champion=inc,
+            body={"flag": SPARSE_FLAG, "preregistration": SPARSE_PREREGISTRATION},
+        ),
+    ]
+    observation = build_receipt(
+        kind=KIND_OBSERVATION,
+        producer=SPARSE_PRODUCER,
+        native_id=key,
+        model_family=SPARSE_FAMILY,
+        model_version_id=None,
+        cutoff=cutoff,
+        slots={"board": _board_slot(board, cutoff), "inputs": inputs},
+        body={
+            "payloadSha256": board.get("payloadSha256"),
+            "source": board.get("source"),
+            "scrapeTimestamp": board.get("scrapeTimestamp"),
+            "payloadAgeHours": board.get("payloadAgeHours"),
+            "staleBudgetHours": board.get("staleBudgetHours"),
+        },
+    )
+    features = build_receipt(
+        kind=KIND_FEATURES,
+        producer=SPARSE_PRODUCER,
+        native_id=key,
+        model_family=SPARSE_FAMILY,
+        model_version_id=ch,
+        cutoff=cutoff,
+        slots={"inputs": inputs},
+        body={
+            "featureManifestHash": validate_manifest(
+                dictionary, consumer=SPARSE_FAMILY, features=SPARSE_FEATURES
+            ),
+            "features": [dict(f) for f in SPARSE_FEATURES],
+            "codeRevision": code,
+            "workingTreeDirty": pins.get("workingTreeDirty"),
+            "flagsAtRecordSha256": flags_hash,
+            "estimator": estimator,
+        },
+    )
+    receipts += [observation, features]
+    chain = {
+        "observationReceiptId": observation.receipt_id,
+        "featuresReceiptId": features.receipt_id,
+        "challengerReceiptId": receipts[2].receipt_id,
+    }
+    model_ids = {"incumbent": receipts[0].receipt_id, "challenger": receipts[1].receipt_id}
+    for side, mvid, board_hash in (
+        ("incumbent", inc, board.get("boardHashIncumbent")),
+        ("challenger", ch, board.get("boardHashChallenger")),
+    ):
+        native = f"{key}|{side}"
+        receipts.append(
+            _prediction_receipt(
+                producer=SPARSE_PRODUCER,
+                family=SPARSE_FAMILY,
+                store=SPARSE_STORE,
+                ledger_key=f"{ledger_name}#{key}/{side}",
+                native=native,
+                mvid=mvid,
+                cutoff=cutoff,
+                body={
+                    "side": side,
+                    "target": (
+                        "the published value of every single-family row the estimator scoped "
+                        "on this board; to be judged against later boards"
+                    ),
+                    "horizon": "not declared by the producer; no outcome is settled yet",
+                    "outcomeSettled": False,
+                    "boardHash": board_hash,
+                    "producerCounts": dict(counts),
+                    "countsSemantics": COUNTS_SEMANTICS,
+                    "evidenceStates": dict(record.get("evidenceStates") or {}),
+                    "modelReceiptId": model_ids[side],
+                    **chain,
+                },
+            )
+        )
+    return receipts
+
+
+# ── 2. robust-filter shadow ──────────────────────────────────────────────────
+
+ROBUST_FAMILY = "joint_robust_filter"
+ROBUST_PRODUCER = "robust_filter_shadow"
+ROBUST_STORE = "robust_filter_shadow_ledger"
+ROBUST_SCHEMA = "joint-filter-shadow/v1"
+ROBUST_PREREGISTRATION = "docs/valuation/evidence/joint-filter-shadow-2026-10-01/PREREGISTRATION.md"
+ROBUST_FEATURES: tuple[Mapping[str, Any], ...] = (
+    {"name": "source_board_scale_vote", "version": 1},
+    {"name": "precap_evidence_weight", "version": 1},
+    PROVIDER_FAMILY_V2,
+)
+
+#: The producer's fixed verdict vocabulary (``outcomes.VERDICT_*``) -> ours.
+#: Anything else is refused, never guessed.
+ROBUST_VERDICT_TO_VERDICT: Mapping[str, str] = {
+    "PROMOTION_ELIGIBLE_PENDING_INDEPENDENT_REVIEW": VERDICT_CHALLENGER_BETTER,
+    "NOT_BETTER": VERDICT_CHAMPION_RETAINED,
+    "INCONCLUSIVE": VERDICT_INCONCLUSIVE,
+    "INSUFFICIENT": VERDICT_INSUFFICIENT,
+}
+
+_SIDES = {"K": "rescued", "X": "rejected", "R": "agreed"}
+
+
+def robust_model_ids(record: Mapping[str, Any]) -> tuple[str, str]:
+    """``(incumbent Hampel, challenger joint filter)`` model version ids."""
+    pins = record.get("pins") or {}
+    code = _require(pins.get("codeRevision"), "pins.codeRevision")[:12]
+    fp = _require(pins.get("pipelineFingerprint"), "pins.pipelineFingerprint")[:12]
+    version = _require(pins.get("challengerVersion"), "pins.challengerVersion")
+    dirty = _tree_state_token(pins.get("workingTreeDirty"))
+    flags = _flags_token(pins.get("flagsAtRecord"))
+    return (
+        model_version_id(ROBUST_FAMILY, f"hampel-{code}-{fp}{dirty}-{flags}"),
+        model_version_id(ROBUST_FAMILY, f"{version}-{code}-{fp}{dirty}-{flags}"),
+    )
+
+
+def robust_filter_receipts(
+    record: Mapping[str, Any], *, ledger_name: str, dictionary: FeatureDictionary
+) -> list[LearningReceipt]:
+    """The prospective receipts for one STORED robust-filter shadow ledger line."""
+    if record.get("schema") != ROBUST_SCHEMA:
+        raise ReceiptError(f"not a {ROBUST_SCHEMA} line: schema={record.get('schema')!r}")
+    key = _require(record.get("key"), "key")
+    cutoff = parse_instant(record.get("recordedAt"), what="recordedAt")
+    board, pins = record.get("board") or {}, record.get("pins") or {}
+    counts = record.get("counts") or {}
+    inc, ch = robust_model_ids(record)
+    flags = pins.get("flagsAtRecord")
+    flags_hash = _sha(dict(flags)) if isinstance(flags, Mapping) else None
+    model_common = {
+        "codeRevision": pins.get("codeRevision"),
+        "pipelineFingerprint": pins.get("pipelineFingerprint"),
+        "workingTreeDirty": pins.get("workingTreeDirty"),
+        "flagsAtRecordSha256": flags_hash,
+        "hampel": dict(pins.get("hampel") or {}),
+        "familyCap": pins.get("familyCap"),
+    }
+    variants = pins.get("variants") or {}
+    receipts = [
+        _model_receipt(
+            producer=ROBUST_PRODUCER,
+            family=ROBUST_FAMILY,
+            mvid=inc,
+            body={
+                **model_common,
+                "role": "incumbent",
+                "variantFlags": dict(variants.get("incumbent") or {}),
+                "status": "SERVED_AT_RECORD",
+            },
+        ),
+        _model_receipt(
+            producer=ROBUST_PRODUCER,
+            family=ROBUST_FAMILY,
+            mvid=ch,
+            body={
+                **model_common,
+                "role": "challenger",
+                "challengerVersion": pins.get("challengerVersion"),
+                "variantFlags": dict(variants.get("challenger") or {}),
+                "status": "SHADOW",
+            },
+        ),
+        _challenger_receipt(
+            producer=ROBUST_PRODUCER,
+            family=ROBUST_FAMILY,
+            challenger=ch,
+            champion=inc,
+            body={"preregistration": ROBUST_PREREGISTRATION},
+        ),
+    ]
+
+    def _tree(store: str, pin: str, glob: str, what: str) -> StoreRef | Unobserved:
+        digest = str(pins.get(pin) or "")
+        if not digest or digest == "None":
+            return Unobserved(f"{glob} was absent at record time (the record pins {pin} None)")
+        return _live_ref(store, f"{glob}@tree-sha256:{digest}", cutoff, what)
+
+    observation = build_receipt(
+        kind=KIND_OBSERVATION,
+        producer=ROBUST_PRODUCER,
+        native_id=key,
+        model_family=ROBUST_FAMILY,
+        model_version_id=None,
+        cutoff=cutoff,
+        slots={
+            "board": _board_slot(board, cutoff),
+            "sourceCsvTree": _tree(
+                "repo_file", "csvTreeSha256", "CSVs/site_raw/*.csv", "the source CSV tree"
+            ),
+            "datasetStateTree": _tree(
+                "dataset_state",
+                "stateTreeSha256",
+                "data/scrape_state/*_dataset.json",
+                "the dataset-state tree",
+            ),
+        },
+        body={
+            "mode": record.get("mode"),
+            "label": record.get("label"),
+            "payloadSha256": board.get("payloadSha256"),
+            "source": board.get("source"),
+            "scrapeTimestamp": board.get("scrapeTimestamp"),
+            "completeness": board.get("completeness"),
+            "votingSourceCount": (
+                len(board["votingSources"])
+                if isinstance(board.get("votingSources"), list)
+                else None
+            ),
+            "votingFamilies": list(board.get("votingFamilies") or []),
+        },
+    )
+    panel = str(record.get("panel") or "")
+    features = build_receipt(
+        kind=KIND_FEATURES,
+        producer=ROBUST_PRODUCER,
+        native_id=key,
+        model_family=ROBUST_FAMILY,
+        model_version_id=ch,
+        cutoff=cutoff,
+        slots={
+            "observationPanel": (
+                StoreRef(
+                    store=ROBUST_STORE,
+                    key=panel,
+                    role=ROLE_INPUT,
+                    known_at=cutoff,
+                    fidelity="exact",
+                    basis=(
+                        "the pre-filter votes computed by the build that finished before "
+                        "recordedAt; persisted write-once under their full input identity"
+                    ),
+                )
+                if panel and panel != "None"
+                else Unobserved("the record names no observation panel")
+            ),
+        },
+        body={
+            "featureManifestHash": validate_manifest(
+                dictionary, consumer=ROBUST_FAMILY, features=ROBUST_FEATURES
+            ),
+            "features": [dict(f) for f in ROBUST_FEATURES],
+            "codeRevision": pins.get("codeRevision"),
+            "pipelineFingerprint": pins.get("pipelineFingerprint"),
+            "workingTreeDirty": pins.get("workingTreeDirty"),
+            "flagsAtRecordSha256": flags_hash,
+        },
+    )
+    receipts += [observation, features]
+    chain = {
+        "observationReceiptId": observation.receipt_id,
+        "featuresReceiptId": features.receipt_id,
+        "challengerReceiptId": receipts[2].receipt_id,
+    }
+    model_ids = {"incumbent": receipts[0].receipt_id, "challenger": receipts[1].receipt_id}
+    shared = {
+        "mode": record.get("mode"),
+        "target": (
+            "each filter's keep/drop decision per voting observation and the resulting "
+            "published values on this board; judged later against leave-family-out consensus "
+            "on later boards (the preregistered evaluation)"
+        ),
+        "outcomeSettled": False,
+        "producerCounts": dict(counts),
+        "countsSemantics": COUNTS_SEMANTICS,
+        **chain,
+    }
+    for side, mvid, board_hash, extra in (
+        (
+            "incumbent",
+            inc,
+            board.get("boardHashIncumbent"),
+            {"dropsCountKey": "incumbentDrops"},
+        ),
+        (
+            "challenger",
+            ch,
+            board.get("boardHashChallenger"),
+            {
+                "dropsCountKey": "challengerDrops",
+                "safeguardsFired": dict(record.get("safeguardsFired") or {}),
+                "topChurnVsIncumbent": dict(record.get("topChurn") or {}),
+            },
+        ),
+    ):
+        native = f"{key}|{side}"
+        receipts.append(
+            _prediction_receipt(
+                producer=ROBUST_PRODUCER,
+                family=ROBUST_FAMILY,
+                store=ROBUST_STORE,
+                ledger_key=f"{ledger_name}#{key}/{side}",
+                native=native,
+                mvid=mvid,
+                cutoff=cutoff,
+                body={
+                    "side": side,
+                    "boardHash": board_hash,
+                    "modelReceiptId": model_ids[side],
+                    **extra,
+                    **shared,
+                },
+            )
+        )
+    return receipts
+
+
+def _estimate(ci: Any) -> Estimate | None:
+    if not isinstance(ci, Mapping):
+        return None
+    point = ci.get("point")
+    if isinstance(point, bool) or not isinstance(point, (int, float)):
+        return None
+    lo, hi = ci.get("lo95"), ci.get("hi95")
+    if isinstance(lo, (int, float)) and isinstance(hi, (int, float)) and lo <= hi:
+        return Estimate(
+            point=float(point),
+            interval=(float(lo), float(hi)),
+            level=0.95,
+            method=(
+                f"date-block bootstrap ({ci.get('blocks')} blocks, "
+                f"{ci.get('resamplesUsed')} resamples used)"
+            ),
+        )
+    return Estimate(point=float(point))
+
+
+def _n(value: Any) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
+
+
+def _side_cohort(horizon: str, side: str, blob: Mapping[str, Any]) -> CohortResult:
+    n = _n(blob.get("n"))
+    est = _estimate(blob.get("meanLeadShare"))
+    cohort = {"horizonDays": horizon, "side": f"{side}_{_SIDES[side]}"}
+    if n is None:
+        return cohort_result(
+            cohort, n=None, n_reason="producer recorded no side count", insufficient=True
+        )
+    if n == 0 or est is None:
+        return cohort_result(
+            cohort, n=n, insufficient=True, note="no observations or no defined lead share"
+        )
+    return cohort_result(cohort, n=n, metrics={"meanLeadShare": est})
+
+
+def _delta_cohort(horizon: str, summary: Mapping[str, Any]) -> CohortResult:
+    sides = summary.get("sides") or {}
+    ns = [_n((sides.get(s) or {}).get("n")) for s in ("K", "X")]
+    n = None if any(v is None for v in ns) else sum(v for v in ns if v is not None)
+    cohort = {"horizonDays": horizon, "side": "K_minus_X"}
+    est = _estimate(summary.get("delta"))
+    if n is None:
+        return cohort_result(
+            cohort, n=None, n_reason="a judged side recorded no count", insufficient=True
+        )
+    if n == 0 or est is None:
+        return cohort_result(cohort, n=n, insufficient=True, note="delta undefined")
+    return cohort_result(cohort, n=n, metrics={"deltaLeadShare": est})
+
+
+def robust_evaluation_receipt(
+    evaluation: Mapping[str, Any],
+    records: Sequence[Mapping[str, Any]],
+    *,
+    evaluation_name: str,
+    evaluator_revision: str,
+    dictionary: FeatureDictionary,
+    ledger_name: str = "ledger.jsonl",
+    preregistration_sha256: str | None = None,
+) -> LearningReceipt:
+    """One EVALUATION receipt for one preregistered evaluation run.
+
+    ``records`` are the STORED ledger lines the evaluation read. The receipt's
+    identity is (mode, evaluator revision, the evaluated record set), and its
+    body excludes the evaluation's ``computedAt`` wall clock, so re-evaluating an
+    unchanged ledger under unchanged code is a duplicate, not a new receipt."""
+    if evaluation.get("schema") != f"{ROBUST_SCHEMA}/evaluation":
+        raise ReceiptError(f"not a {ROBUST_SCHEMA}/evaluation: {evaluation.get('schema')!r}")
+    if not records:
+        raise ReceiptError("an evaluation with no evaluated records has nothing to receipt")
+    mode = _require(evaluation.get("mode"), "mode")
+    revision = _require(evaluator_revision, "the evaluator code revision")
+    keys = sorted(_require(r.get("key"), "a record key") for r in records)
+    digest = _sha(keys)
+    recorded = [parse_instant(r.get("recordedAt"), what="record recordedAt") for r in records]
+    cutoff = max(recorded)
+    native = f"{mode}|{revision}|{digest}"
+    ids = sorted({robust_model_ids(r) for r in records})
+    if len(ids) == 1:
+        champion, challenger = ids[0]
+    else:
+        champion = model_version_id(ROBUST_FAMILY, f"hampel-mixed-{digest[:12]}")
+        challenger = model_version_id(ROBUST_FAMILY, f"joint-mixed-{digest[:12]}")
+
+    primary = evaluation.get("primary") or {}
+    decision = primary.get("decision")
+    horizons = primary.get("horizons") or {}
+    cohorts: list[CohortResult] = []
+    for h in sorted(horizons, key=lambda x: int(x) if str(x).isdigit() else 10**6):
+        summary = horizons[h] or {}
+        for side in ("K", "X", "R"):
+            cohorts.append(_side_cohort(str(h), side, (summary.get("sides") or {}).get(side) or {}))
+        cohorts.append(_delta_cohort(str(h), summary))
+    primary_summary = horizons.get("7")
+    if primary_summary is None or decision is None:
+        overall = cohort_result(
+            {"horizonDays": "7", "side": "K_minus_X"},
+            n=None,
+            n_reason="the evaluation produced no primary-horizon result",
+            insufficient=True,
+        )
+        producer_verdict = None
+        verdict = VERDICT_INSUFFICIENT
+    else:
+        overall = _delta_cohort("7", primary_summary)
+        producer_verdict = decision.get("verdict")
+        if producer_verdict not in ROBUST_VERDICT_TO_VERDICT:
+            raise ReceiptError(f"unmapped robust-filter verdict {producer_verdict!r}")
+        verdict = ROBUST_VERDICT_TO_VERDICT[producer_verdict]
+
+    ledger_ref = StoreRef(
+        store=ROBUST_STORE,
+        key=f"{ledger_name}#{mode}:records={len(keys)}:keys-sha256={digest}",
+        role=ROLE_INPUT,
+        known_at=cutoff,
+        fidelity="exact",
+        basis="the newest recordedAt among the evaluated ledger lines",
+    )
+    evaluation_ref = StoreRef(
+        store=ROBUST_STORE,
+        key=f"{evaluation_name}#{native}",
+        role=ROLE_ARTIFACT,
+        known_at=None,
+        fidelity="unavailable",
+        basis=(
+            "the evaluation file is rewritten on every run; its computedAt is deliberately not "
+            "part of this receipt, whose identity is the evaluated record set"
+        ),
+        produced_for=native,
+    )
+    fingerprints = sorted({str((r.get("pins") or {}).get("pipelineFingerprint")) for r in records})
+    ev = EvaluationReceipt(
+        producer=ROBUST_PRODUCER,
+        native_id=native,
+        model_family=ROBUST_FAMILY,
+        model_version_id=challenger,
+        role="challenger",
+        champion_model_version_id=champion,
+        task="robust_outlier_filtering",
+        target=(
+            "lead share: how far later leave-the-family-out equal-family consensus moved toward "
+            "an observation each filter judged; delta = rescued minus rejected (> 0: the "
+            "challenger kept the evidence the market later followed)"
+        ),
+        horizon="7d primary; 3d / 14d / 21d secondary",
+        cohort_keys=("horizonDays", "side"),
+        cutoff=cutoff,
+        point_in_time_rule=(
+            "each origin board is scored against the first board at least h days later in the "
+            "same ledger (outcomes.target_day); targets exclude the judged family; boards are "
+            "paired only within one pipeline fingerprint"
+        ),
+        feature_manifest_hash=validate_manifest(
+            dictionary, consumer=ROBUST_FAMILY, features=ROBUST_FEATURES
+        ),
+        input_pins={
+            "codeSha": revision,
+            "sourceHashes": {
+                "ledgerRecordKeysSha256": digest,
+                "pipelineFingerprints": fingerprints,
+            },
+            "snapshotHash": Unobserved(
+                "one observation panel per board; each ledger line names its own panel"
+            ),
+            "scoringFingerprint": NotApplicable(
+                "dynasty market source evidence is scoring-independent; no league scoring enters"
+            ),
+        },
+        prediction_set=ledger_ref,
+        outcome_set=Unobserved(
+            "outcomes are later boards' panels in the same ledger, formed inside the evaluation "
+            "(outcomes.outcomes_at_horizon); per-observation targets are not persisted"
+        ),
+        preregistration=Unobserved(
+            "the producer names its preregistration path but pins neither its hash nor its "
+            "commit time; without a provable instant it cannot pass the point-in-time guard "
+            "(pin: extra.preregistrationPin)"
+        ),
+        overall=overall,
+        cohorts=cohorts,
+        holdout_design=("chronological", "source_family"),
+        proposed_verdict=verdict,
+        verdict_basis=(
+            f"producer verdict {producer_verdict} under {ROBUST_PREREGISTRATION}"
+            if producer_verdict
+            else "the evaluation produced no decision"
+        ),
+        family_policy=BATCH3_POLICY,
+        refs=(evaluation_ref,),
+        extra={
+            "producerVerdict": producer_verdict,
+            "reasons": list((decision or {}).get("reasons") or []),
+            "minimumSample": dict((decision or {}).get("minimumSample") or {}),
+            "accumulation": (decision or {}).get("accumulation"),
+            "boards": primary.get("boards"),
+            "originDays": primary.get("originDays"),
+            "span": primary.get("span"),
+            "recordCodeRevisions": list(evaluation.get("codeRevisions") or []),
+            "modelVersionsEvaluated": [list(pair) for pair in ids],
+            "preregistrationPin": {
+                "path": evaluation.get("preregistration") or ROBUST_PREREGISTRATION,
+                "sha256": preregistration_sha256,
+            },
+        },
+    )
+    return ev.to_learning_receipt()
+
+
+# ── 3. source-quality evaluator ──────────────────────────────────────────────
+
+
+def source_quality_run_receipts(
+    lines: Sequence[Mapping[str, Any]],
+    *,
+    archive_key: str,
+    results: Mapping[str, Any],
+    results_key: str,
+    dictionary: FeatureDictionary,
+) -> list[LearningReceipt]:
+    """MODEL + CHALLENGER + EVALUATION per candidate, for the lines this run appended.
+
+    Delegates to the AL-0 adapter (``learning_adapters.source_quality_receipts``);
+    there is one source-quality adapter, and this only calls it at run time."""
+    from src.model_registry.learning_adapters import source_quality_receipts  # noqa: PLC0415
+
+    out: list[LearningReceipt] = []
+    for line in lines:
+        out += source_quality_receipts(
+            line,
+            archive_key=archive_key,
+            dictionary=dictionary,
+            results=results,
+            results_key=results_key,
+        )
+    return out

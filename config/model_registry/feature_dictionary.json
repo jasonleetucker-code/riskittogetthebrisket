@@ -73,6 +73,93 @@
       ],
       "description": "Which correlation family a source belongs to; the unit of independence for holdouts and caps.",
       "definitionHash": "71f665ebed61ebcef5987e2a34104cf8855c3f005bd2a13ebf0f90dc798521ef"
+    },
+    {
+      "name": "single_family_observation",
+      "version": 1,
+      "definitionOwner": "src.api.sparse_evidence:estimate",
+      "unit": "board-scale 0-9999 value of the one provider family that priced a single-family row (the observation the estimator keeps as central evidence)",
+      "knownAtRule": "computed by the build of the board being recorded; a shadow record builds from the payload and this box's live source CSVs / dataset state, all read before the record's recordedAt (the receipt cutoff)",
+      "missingSemantics": "a row no family priced is not scoped (evidenceState no_usable_evidence: unpriced, never 0); the observation is never multiplied by a constant or replaced by 0",
+      "lineage": "the observing source's B10 provider family (one family by construction)",
+      "allowedConsumers": [
+        "sparse_evidence_estimator"
+      ],
+      "description": "The single family's observation that candidate C keeps instead of the 0.30 single-source haircut.",
+      "definitionHash": "7b889886fa345904ebd161b9d62c41b4bb192293b73d52180d98f2c274cef131"
+    },
+    {
+      "name": "censored_family_bound",
+      "version": 1,
+      "definitionOwner": "src.api.sparse_evidence:family_bounds",
+      "unit": "board-scale 0-9999 cutoff U: an upper bound on a row's value under a healthy family that covers the position and did not list the player",
+      "knownAtRule": "computed by the build of the board being recorded; a shadow record builds from the payload and this box's live source CSVs / dataset state, all read before the record's recordedAt (the receipt cutoff)",
+      "missingSemantics": "no bound exists unless every source_status / family_bounds condition holds; unknown coverage, a failed or stale fetch, an inapplicable source, an unranked position or doubtful identity is a counted refusal, never a bound of 0",
+      "lineage": "per ABSENT B10 provider family; a family bound is its loosest member bound",
+      "allowedConsumers": [
+        "sparse_evidence_estimator"
+      ],
+      "description": "What a family that omitted the player can still say: the player sits beyond its published depth.",
+      "definitionHash": "a832360ee2d6d4bb3fbd8595dae5222847cd928f3be13f391f3c41dc47f8e000"
+    },
+    {
+      "name": "sparse_evidence_state",
+      "version": 1,
+      "definitionOwner": "src.api.sparse_evidence:classify",
+      "unit": "categorical evidenceState: why a row rests on one family and how much its absences can say",
+      "knownAtRule": "computed by the build of the board being recorded; a shadow record builds from the payload and this box's live source CSVs / dataset state, all read before the record's recordedAt (the receipt cutoff)",
+      "missingSemantics": "no_usable_evidence is its own state (unpriced); there is no default category",
+      "lineage": "derived from per-family presence and refusal; families are counted, never sources",
+      "allowedConsumers": [
+        "sparse_evidence_estimator"
+      ],
+      "description": "The certainty half of the sparse-evidence answer; it never moves the central value.",
+      "definitionHash": "89c16294ec3552cccf5bc788d8d066ffe5e3f3115308b9a58cde7560d08f3979"
+    },
+    {
+      "name": "source_board_scale_vote",
+      "version": 1,
+      "definitionOwner": "src.robust_filter_shadow.record:voting_observations",
+      "unit": "board-scale 0-9999 vote of one source on one row: the stamped pre-filter valueContribution",
+      "knownAtRule": "stamped by the build of the board being recorded, BEFORE either outlier filter runs (so identical in both builds); a live shadow record reads the payload and the live tree before its recordedAt (the receipt cutoff)",
+      "missingSemantics": "an observation with an excludedReason (zero freshness / health weight) or a non-positive contribution is not a vote: absent, never 0",
+      "lineage": "the voting source's B10 provider family",
+      "allowedConsumers": [
+        "joint_robust_filter"
+      ],
+      "description": "The observations both outlier filters judge, persisted per board as the write-once observation panel.",
+      "definitionHash": "3e903adf806299a760264c04419b29eff42308da59a8375718f087721968b074"
+    },
+    {
+      "name": "precap_evidence_weight",
+      "version": 1,
+      "definitionOwner": "src.robust_filter_shadow.record:precap_weight",
+      "unit": "effective weight (base x freshness x health x coverage) of one observation before the family cap, >= 0",
+      "knownAtRule": "stamped by the build of the board being recorded (sourceRankMeta preFamilyWeight / appliedWeight); read before the record's recordedAt",
+      "missingSemantics": "preFamilyWeight when stamped, else appliedWeight, else the registry base 1.0; an unparseable stamp is weight 0.0 in the producer, which means the observation carries no evidence weight, not that it was observed at 0",
+      "lineage": "per voting source; capped per B10 family by data_contract.cap_family_weights",
+      "allowedConsumers": [
+        "joint_robust_filter"
+      ],
+      "description": "The evidence weight the challenger filter sees before the family cap.",
+      "definitionHash": "91eb7f16368e6188e69c0456da474ee5a06a86dd42f4b91e5f5211367cd51b7c"
+    },
+    {
+      "name": "provider_family",
+      "version": 2,
+      "definitionOwner": "src.api.data_contract:correlation_group_for",
+      "unit": "B10 correlation-family label",
+      "knownAtRule": "read from the source registry at the producer's code revision; never re-labelled after the fact",
+      "missingSemantics": "an unregistered source has no family and cannot be evaluated or trained; it is never assigned to a default family",
+      "lineage": "is the lineage axis itself (F-SRC-01)",
+      "allowedConsumers": [
+        "hill_scope_masters",
+        "source_quality_weights",
+        "sparse_evidence_estimator",
+        "joint_robust_filter"
+      ],
+      "description": "Which correlation family a source belongs to: v1's definition, extended to the AL-1a shadow families as consumers (allowedConsumers is part of a definition, so this is a new version).",
+      "definitionHash": "efaf2397de9c17d112c1b9ee6366db284dd528ad6d9b2142c5740992c494d869"
     }
   ]
 }
