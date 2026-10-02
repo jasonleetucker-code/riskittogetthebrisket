@@ -21,6 +21,7 @@ challengers. The automatic state-change path is:
   -> current-snapshot tournament of all standing challengers
   -> parameter-stability gate
   -> forward-in-time persistence gate using git-retained holdout boards
+  -> independent validation gate (owner decision 1; BLOCKS today: no target)
   -> compose OFFENSE-only safe candidate
   -> downstream board-impact capture + guard
   -> fresh paired validate inside promote()
@@ -188,8 +189,9 @@ A standing candidate must clear all of these before board-impact evaluation:
      for the other trainers. So `independentCriterion` is `null` with
      `independentCriterionReason: "no_independent_holdout"`, also recorded in every
      Autopilot run as `holdoutIndependence`. It is **reporting-only**: no readiness or
-     promotion gate reads it, so its absence neither stops nor loosens automatic OFFENSE
-     promotion. The threshold stays at 3 boards, and nothing re-weights or drops a
+     promotion gate reads it. (Automatic promotion is separately blocked by gate 7 below,
+     the independent-validation requirement; a holdout board that becomes
+     lineage-independent does not thereby become a validation target.) The threshold stays at 3 boards, and nothing re-weights or drops a
      dependent board to make it pass. `manifestHash` covers the holdout labels DERIVED
      from the lineage file (each board's per-family category), not the file's bytes: an
      edit that changes an OFFENSE holdout's category makes standing challengers
@@ -224,6 +226,53 @@ A standing candidate must clear all of these before board-impact evaluation:
    - median forward improvement must be at least 25 points.
 
 This is deliberately stronger than repeatedly re-scoring one current snapshot.
+
+7. **Independent validation (owner methodology decision 1, 2026-10-01)**
+   - gates 1-6 are dependent-board evidence: every OFFENSE holdout shares lineage
+     with the KTC-family training substrate. They stay required, but they are
+     **necessary, not sufficient**;
+   - automatic promotion additionally requires at least one **eligible independent
+     validation target** that the winner passes under that target's preregistered
+     rule; when several are eligible, the winner must pass **every** one (no target
+     shopping);
+   - with no eligible target the decision is
+     `AUTO_PROMOTION_BLOCKED` with reason exactly
+     `no_independent_validation_target`. **This is the state today.**
+
+   The registry and the eligibility rule are owned by
+   `src/model_registry/independent_validation.py`
+   (`INDEPENDENT_VALIDATION_TARGETS`, **empty by decision**). A target declares an id,
+   a preregistration document plus the commit that first recorded it, every provenance
+   component (B10 family + registered source keys) and an explicit treatment for every
+   challenger training family (`no_shared_provenance` or `component_excluded`). It is
+   eligible only when: the preregistration commit is an ancestor of HEAD and contains
+   the file; every training family has a treatment; no scored component belongs to a
+   training family; mixed provenance names its excluded components explicitly; and the
+   lineage owner (`training_manifest.holdout_lineage`) reconciles every scored source
+   key `INDEPENDENT_NO_EVIDENCE` with every training family — `UNKNOWN`, `SUSPECTED`,
+   `MEASURED` and `PROVEN` all fail closed. A rule that raises fails.
+
+   Do not add a target merely to restore promotion. KTC Trade Database evidence alone
+   is **not** independent for a KTC-trained curve (pinned against the real lineage
+   owner: `ktcTradesSfTep` is proven common ancestry with `ktcCrowd`). The
+   completed-trade ledger is the leading future candidate; it needs its own committed
+   preregistration, deduplicated format-qualified transactions with independent
+   provenance (Sharp / Sleeper), registered lineage per component, and an explicit
+   `component_excluded` treatment for any KTC-derived rows.
+
+   **Reason precedence:** no eligible challenger → `HOLD`; any of gates 1-6 failing →
+   `HOLD`, "blocked by: …" naming those gates (the independent verdict is still recorded
+   in `gates.independent_validation` and `independentValidation.reason`); gates 1-6
+   clear but gate 7 does not → `AUTO_PROMOTION_BLOCKED` with the independent reason;
+   all clear → `AUTO_PROMOTION_READY`.
+
+   **Blocking stops promotion only.** Fitting, the tournament, the stability cluster,
+   forward persistence and the run log continue unchanged. `scripts/hill_autopilot.py`
+   exits 0 for a blocked run (the same "champion stands" code as `HOLD`), writes
+   `outcome` and `independentValidation` into the plan and
+   `hill_autopilot_runs.jsonl`, and the workflow skips register / board-impact /
+   promote / apply while still committing the evidence. The job summary prints the
+   outcome and the independent-validation reason. A blocked run is a normal, green job.
 
 ## Downstream board-impact gate
 

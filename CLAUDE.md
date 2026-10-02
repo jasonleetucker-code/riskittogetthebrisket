@@ -2609,3 +2609,8 @@ production. Automatic canonical promotion is allowed only through the fail-close
 Autopilot path; today it may change OFFENSE only, carrying GLOBAL/IDP/ROOKIE from the
 incumbent until those scopes have their own promotable evidence. Never bypass this with
 `--override-scope` in automation and never hand-edit the live Hill constants.
+Since owner decision 1 (2026-10-01) the board-holdout gates are necessary, not sufficient:
+automatic promotion also needs an eligible preregistered independent validation target
+(`src/model_registry/independent_validation.py`, empty today, so every run is
+`AUTO_PROMOTION_BLOCKED: no_independent_validation_target` while refits and evidence
+continue). See gate 7 in `docs/valuation/HILL_AUTOPILOT_V2.md`.
