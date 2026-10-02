@@ -35,7 +35,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 from collections import Counter
 from collections.abc import Iterator, Mapping
 from datetime import datetime, timezone
@@ -43,6 +42,7 @@ from pathlib import Path
 from typing import Any
 
 from src.api import sparse_evidence as se
+from src.utils import append_ledger as _al
 
 SCHEMA = "sparse-evidence-shadow/v1"
 FLAG = "sparse_evidence_estimator"
@@ -50,32 +50,27 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_DIR = REPO_ROOT / "data" / "sparse_evidence_shadow"
 #: The single pre-rotation file. Still read; never written again.
 LEGACY_LEDGER_NAME = "ledger.jsonl"
-INDEX_NAME = "ledger.keys"
+INDEX_NAME = _al.INDEX_NAME
 
 
-def _month_of(stamp: str | None) -> str:
-    """``YYYY-MM`` of an ISO timestamp; the current UTC month when absent."""
-    text = str(stamp or "")
-    if len(text) >= 7 and text[4] == "-" and text[:4].isdigit() and text[5:7].isdigit():
-        return text[:7]
-    return datetime.now(timezone.utc).strftime("%Y-%m")
+# The append-only mechanics live in one neutral owner (``src/utils/append_ledger``),
+# shared with the AL-P4 pick-forecast snapshot. These names are this module's
+# public API and stay; only the pre-rotation ``ledger.jsonl`` is specific here.
+_month_of = _al.month_of
 
 
 def ledger_path(base: Path = DEFAULT_DIR, month: str | None = None) -> Path:
     """The monthly ledger file for ``month`` (``YYYY-MM...``; default: this month)."""
-    return Path(base) / f"ledger-{_month_of(month)}.jsonl"
+    return _al.ledger_path(base, month)
 
 
 def index_path(base: Path = DEFAULT_DIR) -> Path:
-    return Path(base) / INDEX_NAME
+    return _al.index_path(base)
 
 
 def ledger_files(base: Path = DEFAULT_DIR) -> list[Path]:
     """Every ledger file, oldest first: the legacy file, then each month."""
-    base = Path(base)
-    legacy = base / LEGACY_LEDGER_NAME
-    monthly = sorted(base.glob("ledger-[0-9][0-9][0-9][0-9]-[0-9][0-9].jsonl"))
-    return ([legacy] if legacy.exists() else []) + monthly
+    return _al.ledger_files(base, LEGACY_LEDGER_NAME)
 
 
 # ── the per-board comparison (pure) ─────────────────────────────────
@@ -194,48 +189,16 @@ def assemble_record(
 
 def iter_records(path: Path) -> Iterator[dict[str, Any]]:
     """Every parseable record, in file order. A torn final line is skipped."""
-    if not path.exists():
-        return
-    with path.open("r", encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                record = json.loads(line)
-            except ValueError:
-                continue
-            if isinstance(record, dict):
-                yield record
+    return _al.iter_records(path)
 
 
 def iter_all_records(base: Path = DEFAULT_DIR) -> Iterator[dict[str, Any]]:
     """Every parseable record across every ledger file, oldest file first."""
-    for path in ledger_files(base):
-        yield from iter_records(path)
+    return _al.iter_all_records(base, LEGACY_LEDGER_NAME)
 
 
-def _last_record(path: Path) -> dict[str, Any] | None:
-    """The final complete record of one file, read from its tail only."""
-    if not path.exists() or path.stat().st_size == 0:
-        return None
-    data = b""
-    with path.open("rb") as fh:
-        pos = fh.seek(0, os.SEEK_END)
-        while pos > 0:
-            step = min(65536, pos)
-            pos -= step
-            fh.seek(pos)
-            data = fh.read(step) + data
-            if data.rstrip(b"\n").count(b"\n") >= 1:
-                break
-    for raw in reversed(data.rstrip(b"\n").split(b"\n")):
-        try:
-            record = json.loads(raw.decode("utf-8"))
-        except (UnicodeDecodeError, ValueError):
-            continue
-        return record if isinstance(record, dict) else None
-    return None
+_last_record = _al.last_record
+_ends_with_newline = _al.ends_with_newline
 
 
 def recorded_keys(base: Path = DEFAULT_DIR) -> set[str]:
@@ -246,18 +209,7 @@ def recorded_keys(base: Path = DEFAULT_DIR) -> set[str]:
     merged in, so a crash between the ledger append and the index append cannot
     turn into a duplicate line.
     """
-    index = index_path(base)
-    if index.exists():
-        with index.open("r", encoding="utf-8") as fh:
-            keys = {line.strip() for line in fh if line.strip()}
-    else:
-        keys = {str(r["key"]) for r in iter_all_records(base) if r.get("key")}
-    files = ledger_files(base)
-    if files:
-        tail = _last_record(files[-1])
-        if tail and tail.get("key"):
-            keys.add(str(tail["key"]))
-    return keys
+    return _al.recorded_keys(base, LEGACY_LEDGER_NAME)
 
 
 def append_record(base: Path, record: Mapping[str, Any]) -> bool:
@@ -267,41 +219,7 @@ def append_record(base: Path, record: Mapping[str, Any]) -> bool:
     a missing index is first seeded with every key already in the files, so it
     never forgets a record.
     """
-    key = record.get("key")
-    if not key:
-        raise ValueError("record has no key")
-    base = Path(base)
-    index = index_path(base)
-    seed = not index.exists()
-    known = recorded_keys(base)
-    if key in known:
-        return False
-    base.mkdir(parents=True, exist_ok=True)
-    path = ledger_path(base, record.get("recordedAt"))
-    line = json.dumps(record, sort_keys=True, separators=(",", ":"), default=str)
-    torn = path.exists() and path.stat().st_size > 0 and not _ends_with_newline(path)
-    with path.open("a", encoding="utf-8") as fh:
-        if torn:  # a crash mid-append: start fresh, never rewrite what is there
-            fh.write("\n")
-        fh.write(line + "\n")
-        fh.flush()
-        os.fsync(fh.fileno())
-    index_torn = index.exists() and index.stat().st_size > 0 and not _ends_with_newline(index)
-    with index.open("a", encoding="utf-8") as fh:
-        if index_torn:  # a crash mid-append: never glue the next key onto a partial one
-            fh.write("\n")
-        for k in sorted(known) if seed else ():
-            fh.write(k + "\n")
-        fh.write(str(key) + "\n")
-        fh.flush()
-        os.fsync(fh.fileno())
-    return True
-
-
-def _ends_with_newline(path: Path) -> bool:
-    with path.open("rb") as fh:
-        fh.seek(-1, os.SEEK_END)
-        return fh.read(1) == b"\n"
+    return _al.append_record(base, record, LEGACY_LEDGER_NAME)
 
 
 # ── building and recording one board ────────────────────────────────
