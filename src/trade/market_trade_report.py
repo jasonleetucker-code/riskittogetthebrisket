@@ -527,8 +527,9 @@ BROAD_CONTEXT_RULE: dict[str, Any] = {
     ],
     "unpriceableAssets": (
         "an asset whose identity is known but which no market prices (startup pick, "
-        "identified pick outside the market grammar) is not a hard failure: BROAD_CONTEXT "
-        "of its format's kind, reason includes_unpriceable_asset"
+        "grammar-refused pick with a real round 1-20) is not a hard failure: BROAD_CONTEXT "
+        "of its format's kind, reason includes_unpriceable_asset (a NATIVE trade stays "
+        "NATIVE, authority 1, with the same reason); a pick round outside 1-20 is unresolved"
     ),
     "targetUnsupportedIs": (
         "hard insufficiency only: redraft / keeper / unverified dynasty state, unusable "

@@ -66,7 +66,9 @@ Every observation gets exactly ONE of, each stamped with
   that contains an asset whose identity IS known but which no market prices
   (a startup pick, an identified pick outside the market grammar) is
   BROAD_CONTEXT of its format's kind with ``includes_unpriceable_asset``
-  stamped — never a hard failure.
+  stamped — never a hard failure.  (A NATIVE trade carrying one stays NATIVE,
+  authority 1, with the same reason stamped.  A pick whose round is outside
+  1-20, round 0 included, is NOT identified: it is an unresolved asset.)
 
 * ``TARGET_UNSUPPORTED`` (authority 0) — HARD insufficiency only: redraft,
   keeper (for the current dynasty lane), unknown / unverified dynasty state,
@@ -102,6 +104,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
+from src.identity.picks import parse_intel_pick_asset_id, parse_pick_label
 from src.league_comparison.sleeper_scoring import normalize_scoring_settings, scoring_fingerprint
 from src.ros.lineup import (
     lineup_position,
@@ -913,15 +916,22 @@ ASSET_UNPRICEABLE = "identified_unpriceable"
 ASSET_UNRESOLVED = "unresolved"
 #: Pick ``resolution.reason`` values the normalizer
 #: (``market_trade_normalize.market_ref_from_vendor_label`` / ``_sleeper_asset``)
-#: writes when the pick's identity IS known but it is not a rookie market
-#: reference: a stated startup pick, or a label that parsed into a year/round
-#: the market grammar does not admit.  Not imported (literals pinned equal to
-#: the normalizer's output by a test).  Every OTHER uncanonical pick reason —
+#: writes for a pick that is not a rookie market reference but MAY be an
+#: identified asset.  Not imported (literals pinned equal to the normalizer's
+#: output by a test).  Every OTHER uncanonical pick reason —
 #: ``unparseable_pick_label`` / ``unparseable_intel_pick_id`` /
 #: ``unparseable_league_pick_id``, or a missing reason — is an UNKNOWN asset.
+_REASON_STARTUP_PICK = "startup_pick_not_a_market_ref"
+_REASON_OUTSIDE_MARKET_GRAMMAR = "pick_outside_market_grammar"
 _IDENTIFIED_UNPRICEABLE_PICK_REASONS = frozenset(
-    {"startup_pick_not_a_market_ref", "pick_outside_market_grammar"}
+    {_REASON_STARTUP_PICK, _REASON_OUTSIDE_MARKET_GRAMMAR}
 )
+#: The draft rounds a pick identity can have: ``MarketPickRef``'s own round
+#: range (pinned equal by a test, not re-derived).  The normalizer emits
+#: ``pick_outside_market_grammar`` both for a round outside it (round 0, 25 —
+#: a NONSENSICAL identity) and for any other grammar refusal of a pick whose
+#: round is real; only the latter is identified.
+_PICK_ROUND_MIN, _PICK_ROUND_MAX = 1, 20
 
 #: ``market_trade_groups.UNRESOLVED`` (not imported, to keep this owner free of
 #: the dedupe module; the literal is pinned equal by a test).
@@ -948,21 +958,45 @@ def asset_identity_state(asset: Mapping[str, Any]) -> str:
 
     * ``resolved`` — a canonical id, or a FAAB literal;
     * ``identified_unpriceable`` — a pick with no canonical id whose identity
-      is nonetheless known (:data:`_IDENTIFIED_UNPRICEABLE_PICK_REASONS`):
-      not a hard failure, BROAD_CONTEXT with ``includes_unpriceable_asset``;
+      is nonetheless known: a stated startup pick, or a pick outside the
+      market grammar whose recorded label parses to a REAL round
+      (:func:`_outside_grammar_pick_round_is_real`).  Not a hard failure;
+      ``includes_unpriceable_asset`` is stamped on the disposition;
     * ``unresolved`` — everything else without a canonical id: an
       ``unresolved`` kind (unknown player identity, a KTC sentinel / unindexed
-      id), an unparseable pick label, a pick with no stated reason, any
-      unknown kind.  Fails closed — analysis-blocking.
+      id), an unparseable pick label, a pick whose round is outside
+      1-20 (round 0 included) or cannot be read, a pick with no stated
+      reason, any unknown kind.  Fails closed — analysis-blocking.
     """
     if asset.get("canonicalId") is not None or asset.get("kind") == "faab":
         return ASSET_RESOLVED
-    if (
-        asset.get("kind") == "pick"
-        and (asset.get("resolution") or {}).get("reason") in _IDENTIFIED_UNPRICEABLE_PICK_REASONS
-    ):
-        return ASSET_UNPRICEABLE
+    if asset.get("kind") == "pick":
+        reason = (asset.get("resolution") or {}).get("reason")
+        if reason == _REASON_STARTUP_PICK:
+            return ASSET_UNPRICEABLE
+        if reason == _REASON_OUTSIDE_MARKET_GRAMMAR and _outside_grammar_pick_round_is_real(asset):
+            return ASSET_UNPRICEABLE
     return ASSET_UNRESOLVED
+
+
+def _outside_grammar_pick_round_is_real(asset: Mapping[str, Any]) -> bool:
+    """Whether an out-of-grammar pick's round is a real draft round.
+
+    The normalizer records no parsed round on such an asset (``pick`` is
+    ``None``), so the round is read back from what it DID record — the
+    ``vendorRef`` / ``label`` — with the pick-identity owner's own parsers
+    (``src.identity.picks``; no grammar is re-implemented here).  A round that
+    cannot be read fails closed (not real)."""
+    for text in (asset.get("vendorRef"), asset.get("label")):
+        if not isinstance(text, str) or not text.strip():
+            continue
+        intel = parse_intel_pick_asset_id(text)
+        if intel is not None:
+            return _PICK_ROUND_MIN <= intel[1] <= _PICK_ROUND_MAX
+        parsed = parse_pick_label(text)
+        if parsed is not None:
+            return _PICK_ROUND_MIN <= parsed.round_num <= _PICK_ROUND_MAX
+    return False
 
 
 def _assets(observation: Mapping[str, Any] | None) -> list[Mapping[str, Any]]:
@@ -1132,7 +1166,22 @@ def disposition(
         timing_cap is None and not authority["differentAxes"] and not authority["unknownAxes"]
     )
     if native_format and not (observation is not None and integrity):
-        return _result(NATIVE_COMPARABLE, axes, authority, None, strongest=None)
+        # The format question is answered; an identified-but-unpriceable asset
+        # does not change it (authority stays 1 — pricing suitability is
+        # ``market_trade_eval.fit_suitability``'s question), but the reason is
+        # stamped so a price consumer can see the package is not fully priced.
+        return _result(
+            NATIVE_COMPARABLE,
+            axes,
+            authority,
+            None,
+            strongest=None,
+            reasons=(
+                [REASON_INCLUDES_UNPRICEABLE_ASSET]
+                if includes_unpriceable_asset(observation)
+                else []
+            ),
+        )
 
     hard: list[str] = []
     dyn = dynasty_hard_failure(axes)

@@ -121,17 +121,25 @@ EVIDENCE = {
 }
 
 
-def _pick(reason):
+def _pick(reason, ref=None):
     return {
         "kind": "pick",
         "canonicalId": None,
+        "vendorRef": ref,
+        "label": ref,
         "pick": None,
         "resolution": {"status": "unresolved", "method": "pick_label", "reason": reason},
     }
 
 
-STARTUP_PICK = _pick("startup_pick_not_a_market_ref")
-OUT_OF_GRAMMAR_PICK = _pick("pick_outside_market_grammar")
+STARTUP_PICK = _pick("startup_pick_not_a_market_ref", "Startup Pick 1.05")
+#: SYNTHETIC: a grammar refusal of a pick whose round IS real.  Today's
+#: grammars refuse picks only for a round outside 1-20, so the normalizer
+#: cannot currently emit this; the predicate still admits it.
+OUT_OF_GRAMMAR_PICK = _pick("pick_outside_market_grammar", "2027 Round 3")
+#: What the normalizer really emits for an out-of-range round: NOT identified.
+ROUND_ZERO_PICK = _pick("pick_outside_market_grammar", "pick:2027:0")
+ROUND_25_PICK = _pick("pick_outside_market_grammar", "pick:2027:25")
 UNPARSEABLE_PICK = _pick("unparseable_pick_label")
 UNRESOLVED_PLAYER = {
     "kind": "unresolved",
@@ -148,9 +156,18 @@ SIDE_VARIANTS = {
     "startup_pick": [SIDES[0] + [STARTUP_PICK], SIDES[1]],
     "out_of_grammar_pick": [SIDES[0] + [OUT_OF_GRAMMAR_PICK], SIDES[1]],
     "unparseable_pick": [SIDES[0] + [UNPARSEABLE_PICK], SIDES[1]],
+    "round_zero_pick": [SIDES[0] + [ROUND_ZERO_PICK], SIDES[1]],
+    "round_25_pick": [SIDES[0] + [ROUND_25_PICK], SIDES[1]],
 }
 #: Side variants that fail the transaction-integrity gate.
-INTEGRITY_FAILING_SIDES = {"empty", "one_sided", "unresolved", "unparseable_pick"}
+INTEGRITY_FAILING_SIDES = {
+    "empty",
+    "one_sided",
+    "unresolved",
+    "unparseable_pick",
+    "round_zero_pick",
+    "round_25_pick",
+}
 
 
 def _variants():
@@ -250,12 +267,22 @@ def test_unpriceable_pick_reasons_match_the_normalizer():
     startup = N.market_ref_from_vendor_label("Startup Pick 1.05", mid_is_vendor_default=True)
     assert startup[3] == "startup_pick_not_a_market_ref"
     deep = N._sleeper_asset("pick:2027:25", "pick", None)
-    assert deep["canonicalId"] is None
-    assert deep["resolution"]["reason"] == "pick_outside_market_grammar"
+    zero = N._sleeper_asset("pick:2027:0", "pick", None)
+    for a in (deep, zero):
+        assert a["canonicalId"] is None
+        assert a["resolution"]["reason"] == "pick_outside_market_grammar"
+    ktc_deep = N.market_ref_from_vendor_label("2027 Round 25", mid_is_vendor_default=True)
+    assert ktc_deep[3] == "pick_outside_market_grammar"
+    ktc_asset = N._pick_asset(
+        None, vendor_ref="903", label="2027 Round 25", vendor_grade=None, reason=ktc_deep[3]
+    )
     assert F._IDENTIFIED_UNPRICEABLE_PICK_REASONS == {
         "startup_pick_not_a_market_ref",
         "pick_outside_market_grammar",
     }
+    # Round 0 and out-of-range rounds are NONSENSICAL identities, in every lane.
+    for a in (deep, zero, ktc_asset):
+        assert F.asset_identity_state(a) == F.ASSET_UNRESOLVED
     # Unparseable labels are UNKNOWN identities in every lane.
     for asset in (
         N._sleeper_asset("pick:x", "pick", None),
@@ -263,7 +290,25 @@ def test_unpriceable_pick_reasons_match_the_normalizer():
         N._pick_asset(None, vendor_ref="z", label="junk", vendor_grade=None, reason=None),
     ):
         assert F.asset_identity_state(asset) == F.ASSET_UNRESOLVED
-    assert F.asset_identity_state(deep) == F.ASSET_UNPRICEABLE
+    startup_asset = N._pick_asset(
+        None,
+        vendor_ref="Startup Pick 1.05",
+        label="Startup Pick 1.05",
+        vendor_grade=None,
+        reason=startup[3],
+    )
+    assert F.asset_identity_state(startup_asset) == F.ASSET_UNPRICEABLE
+
+
+def test_pick_round_range_is_the_market_pick_refs_own():
+    from src.identity.picks import MarketPickRef
+
+    assert (F._PICK_ROUND_MIN, F._PICK_ROUND_MAX) == (1, 20)
+    MarketPickRef(year=2027, round_num=F._PICK_ROUND_MIN)
+    MarketPickRef(year=2027, round_num=F._PICK_ROUND_MAX)
+    for bad in (F._PICK_ROUND_MIN - 1, F._PICK_ROUND_MAX + 1):
+        with pytest.raises(ValueError, match="round out of range"):
+            MarketPickRef(year=2027, round_num=bad)
 
 
 @pytest.mark.parametrize(
@@ -273,6 +318,11 @@ def test_unpriceable_pick_reasons_match_the_normalizer():
         ({"kind": "faab", "canonicalId": None}, F.ASSET_RESOLVED),
         (STARTUP_PICK, F.ASSET_UNPRICEABLE),
         (OUT_OF_GRAMMAR_PICK, F.ASSET_UNPRICEABLE),
+        (ROUND_ZERO_PICK, F.ASSET_UNRESOLVED),
+        (ROUND_25_PICK, F.ASSET_UNRESOLVED),
+        (_pick("pick_outside_market_grammar"), F.ASSET_UNRESOLVED),  # round unreadable
+        (_pick("pick_outside_market_grammar", "2027 Round 21"), F.ASSET_UNRESOLVED),
+        (_pick("startup_pick_not_a_market_ref"), F.ASSET_UNPRICEABLE),
         (UNPARSEABLE_PICK, F.ASSET_UNRESOLVED),
         (_pick(None), F.ASSET_UNRESOLVED),
         (UNRESOLVED_PLAYER, F.ASSET_UNRESOLVED),
@@ -298,6 +348,28 @@ def test_a_dynasty_trade_with_an_unpriceable_pick_is_broad_context(pick):
         assert "includes_unpriceable_asset" in d["dispositionReasons"]
         assert "unresolved_assets" not in d["dispositionReasons"]
         assert d["targetPriceAuthority"] == 0
+
+
+@pytest.mark.parametrize("pick", [ROUND_ZERO_PICK, ROUND_25_PICK])
+def test_an_out_of_range_round_pick_is_a_hard_failure(pick):
+    sides = [SIDES[0] + [pick], SIDES[1]]
+    for ev in (BRACKETED, POST_TRADE):
+        d = F.disposition(fmt(), TARGET, observation=obs(ev, sides=sides))
+        assert d["disposition"] == F.TARGET_UNSUPPORTED
+        assert d["dispositionReasons"] == ["unresolved_assets"]
+        assert d["targetPriceAuthority"] == 0
+
+
+@pytest.mark.parametrize("pick", [STARTUP_PICK, OUT_OF_GRAMMAR_PICK])
+def test_a_native_trade_with_an_unpriceable_asset_stays_native_and_says_so(pick):
+    sides = [SIDES[0] + [pick], SIDES[1]]
+    d = F.disposition(fmt(), TARGET, observation=obs(BRACKETED, sides=sides))
+    assert d["disposition"] == F.NATIVE_COMPARABLE
+    assert d["targetPriceAuthority"] == 1
+    assert d["dispositionReasons"] == ["includes_unpriceable_asset"]
+    assert d["broadContextKind"] is None and d["strongestUnsupportedAxis"] is None
+    # A fully priceable native trade carries no reason.
+    assert F.disposition(fmt(), TARGET, observation=obs(BRACKETED))["dispositionReasons"] == []
 
 
 def test_an_unresolved_player_identity_is_target_unsupported():

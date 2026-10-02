@@ -203,15 +203,25 @@ axis could still differ, so an all-observed-match claim needs every axis observe
 
 A trade carrying an asset whose identity is known but which no market prices is
 BROAD_CONTEXT of its format's kind, with `includes_unpriceable_asset` stamped. Examples are
-a startup pick, or an identified pick outside the market grammar such as round 25. It is
-never a hard failure.
+a startup pick, or a pick refused by the market grammar whose round is nonetheless a real
+draft round (1–20). It is never a hard failure. A NATIVE trade carrying one stays
+NATIVE_COMPARABLE with `targetPriceAuthority` 1, because the format question is answered,
+and carries `includes_unpriceable_asset` in `dispositionReasons` so a price consumer can see
+the package is not fully market-priceable. Pricing suitability stays
+`market_trade_eval.fit_suitability`'s question.
+
+A pick whose round is outside 1–20, round 0 included, is a nonsensical identity rather than
+an identified asset. The normalizer emits `pick_outside_market_grammar` for it too, so the
+predicate reads the round back from the recorded `vendorRef` / `label` with the
+pick-identity owner's parsers. A round it cannot read fails closed.
 
 TARGET_UNSUPPORTED reasons: `not_dynasty:<state>`, `dynasty_state_unverified`,
 `no_transaction_observation`, `transaction_topology_unverifiable`,
 `unusable_transaction_identity` (dedupe state UNRESOLVED), `invalid_topology:<topology>`
 (empty or one-sided), and `unresolved_assets`. The last one means an asset whose identity
 is UNKNOWN: an unresolved player, a KTC sentinel or unindexed id, an unparseable pick
-label, or a pick with no stated reason (`market_trade_format.asset_identity_state`).
+label, a pick whose round is outside 1–20 or unreadable, or a pick with no stated reason
+(`market_trade_format.asset_identity_state`).
 Multi-team trades, FAAB, POSSIBLE_OVERLAP and identified-but-unpriceable assets are not
 hard failures. `market_trade_eval.classify_topology` keeps its stricter
 `includes_unresolved` flag for `fit_suitability`, which asks a different question.
