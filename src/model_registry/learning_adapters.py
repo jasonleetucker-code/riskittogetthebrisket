@@ -266,14 +266,32 @@ def _codesha_from_producer(producer: Any) -> str | Unobserved:
     return Unobserved(f"registry producer {text!r} names no code revision")
 
 
+def _registry_field(version: Mapping[str, Any], key: str) -> Any:
+    """A registry field verbatim (an explicit ``null`` is the registry's own
+    statement), or ``unobserved`` when the entry does not carry the key at all."""
+    if key not in version:
+        return Unobserved(
+            f"registry entry carries no {key!r} field; unknown, never null or empty"
+        ).to_dict()
+    return version[key]
+
+
 def hill_receipts_from_registry_version(
-    version: Mapping[str, Any], *, champion_version: int | None
+    version: Mapping[str, Any],
+    *,
+    champion_version: int | None,
+    include_evaluation: bool = True,
 ) -> list[LearningReceipt]:
     """MODEL + (CHALLENGER) + EVALUATION receipts for one Hill registry version.
 
     The holdout score is evidence, not a gate: every Hill evaluation receipt's
     verdict is ``inconclusive``, and the registry ``status`` (set by Hill
-    Autopilot or a human) is carried as the producer's own disposition."""
+    Autopilot or a human) is carried as the producer's own disposition.
+
+    ``include_evaluation=False`` builds only MODEL (+ CHALLENGER). The AL-1a box
+    recorder (``producer_receipts.hill_registry_version_receipts``) uses it: a Hill
+    holdout is scored on the fit's OWN snapshot, so its window ends before the fit
+    and it is retrospective, and the receipt contract has no retrospective marker."""
     n_version = int(version["version"])
     mvid = hill_version_id_for_registry(n_version)
     status = str(version.get("status"))
@@ -308,6 +326,12 @@ def hill_receipts_from_registry_version(
                 "status": status,
                 "producer": version.get("producer"),
                 "trainingInputs": dict(version.get("trainingInputs") or {}),
+                # Promotion lifecycle facts, verbatim: the registry's own record
+                # of a promotion (``scripts/model_registry.py promote`` / Hill
+                # Autopilot) -- data, never an instruction to promote.
+                "promotedAt": _registry_field(version, "promotedAt"),
+                "appliedAt": _registry_field(version, "appliedAt"),
+                "retiredAt": _registry_field(version, "retiredAt"),
                 "promotes": False,
             },
         )
@@ -331,7 +355,8 @@ def hill_receipts_from_registry_version(
                 },
             )
         )
-    receipts.append(_hill_evaluation(version, mvid, fitted_at, champion_version, fitted))
+    if include_evaluation:
+        receipts.append(_hill_evaluation(version, mvid, fitted_at, champion_version, fitted))
     return receipts
 
 

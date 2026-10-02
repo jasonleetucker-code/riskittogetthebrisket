@@ -988,6 +988,50 @@ archive_ros_forecasts() {
   return 0
 }
 
+# Idempotent post-deploy recording of Hill model-registry learning receipts
+# (Adaptive Learning AL-1a step 4, src/model_registry/producer_receipts.py §4).
+# The Hill refit runs on a CI runner with no persistent data/learning/ and
+# commits evidence, never receipts: config/model_registry/ (registry entries,
+# training-run artifacts, the Autopilot run log) arrives here by deploy, and
+# scripts/hill_learning_receipts.py reads it into the box-local
+# data/learning/receipts.sqlite (MODEL / CHALLENGER / FEATURES / OBSERVATION;
+# no retrospective holdout EVALUATION). Re-running over unchanged evidence
+# stores only duplicates. RISKIT_RECEIPTS_ENABLED=1 is set here, and only here:
+# the script writes nothing anywhere else (fail closed, like the source-quality
+# evaluator). It never promotes, applies or writes config/.
+#
+# Runs AFTER record_success_state, beside archive_ros_forecasts and for the
+# same reasons: it serves nothing, so it must neither delay verification nor
+# sit inside the auto-rollback window. Non-fatal and bounded (timeout 300) —
+# a failure is a WARNING, and the next deploy re-reads the same committed
+# evidence, so nothing is lost. The `if` keeps a non-zero exit (including
+# timeout's 124) away from `set -e` and the ERR trap.
+record_hill_learning_receipts() {
+  local script="${APP_DIR}/scripts/hill_learning_receipts.py"
+  local output=""
+  if [[ ! -f "${script}" ]]; then
+    log "[hill-receipts] script not present; skipping"
+    return 0
+  fi
+  if [[ -z "${VENV_DIR:-}" || ! -x "${VENV_DIR}/bin/python" ]]; then
+    log "[hill-receipts] virtualenv missing; skipping"
+    return 0
+  fi
+  log "[hill-receipts] recording Hill registry learning receipts (idempotent)"
+  if output="$(RISKIT_RECEIPTS_ENABLED=1 timeout 300 "${VENV_DIR}/bin/python" "${script}" 2>&1)"; then
+    log "[hill-receipts] learning receipts recorded"
+  else
+    warn "[hill-receipts] WARNING: learning receipts exited non-zero (1 = partial, 2 = refused input, 124 = timed out) — non-fatal"
+  fi
+  local line
+  while IFS= read -r line; do
+    if [[ -n "${line}" ]]; then
+      log "[hill-receipts] ${line}"
+    fi
+  done <<< "${output}"
+  return 0
+}
+
 verify_deploy() {
   if [[ -f "${APP_DIR}/deploy/verify-deploy.sh" ]]; then
     log "Running deploy verification script."
@@ -1245,6 +1289,7 @@ main() {
   verify_deploy
   record_success_state
   archive_ros_forecasts
+  record_hill_learning_receipts
 
   log "Deployment succeeded at revision ${TARGET_REV}."
 }
