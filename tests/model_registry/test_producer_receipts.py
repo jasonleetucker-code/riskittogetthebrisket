@@ -357,7 +357,7 @@ class TestRobustReceipts:
             assert ref.store == "robust_filter_shadow_ledger" and lr.is_own_artifact(p, ref)
             assert ref.key == f"ledger.jsonl#{rec['key']}/{p.body['side']}"
         challenger = next(r for r in receipts if r.body.get("side") == "challenger")
-        assert challenger.body["safeguardsFired"]["dominant_evidence_kept"] == 1
+        assert challenger.body["safeguardsFired"]["counts"]["dominant_evidence_kept"] == 1
 
     def test_a_missing_tree_is_unobserved(self, dictionary):
         rec = _robust_record(recorded_at=T0)
@@ -415,6 +415,7 @@ class TestRobustReceipts:
             records,
             evaluation_name="evaluation_live_shadow.json",
             evaluator_revision="abc123",
+            evaluator_tree_dirty=False,
             dictionary=dictionary,
         )
         lr.validate_receipt(r)
@@ -434,6 +435,7 @@ class TestRobustReceipts:
             [_robust_record(recorded_at=T0)],
             evaluation_name="e.json",
             evaluator_revision="abc",
+            evaluator_tree_dirty=False,
             dictionary=dictionary,
         )
         assert r.body["verdict"] == VERDICT_INSUFFICIENT
@@ -446,6 +448,7 @@ class TestRobustReceipts:
             [_robust_record(recorded_at=T0)],
             evaluation_name="e.json",
             evaluator_revision="abc",
+            evaluator_tree_dirty=False,
             dictionary=dictionary,
         )
         assert r.body["verdict"] == VERDICT_INSUFFICIENT
@@ -458,6 +461,7 @@ class TestRobustReceipts:
                 [_robust_record(recorded_at=T0)],
                 evaluation_name="e.json",
                 evaluator_revision="abc",
+                evaluator_tree_dirty=False,
                 dictionary=dictionary,
             )
 
@@ -467,7 +471,12 @@ class TestRobustReceipts:
         b = {**a, "computedAt": "2027-01-01T00:00:00Z"}
         ra, rb = (
             pr.robust_evaluation_receipt(
-                e, records, evaluation_name="e.json", evaluator_revision="r", dictionary=dictionary
+                e,
+                records,
+                evaluation_name="e.json",
+                evaluator_revision="r",
+                evaluator_tree_dirty=False,
+                dictionary=dictionary,
             )
             for e in (a, b)
         )
@@ -520,8 +529,37 @@ class TestEmitSafely:
             raise RuntimeError("adapter exploded")
 
         out = pr.emit_safely(boom, label="t", path=tmp_path / "r.sqlite", log=lambda _m: None)
-        assert out == {"ok": False, "error": "RuntimeError: adapter exploded"}
+        assert out["ok"] is False and out["error"] == "RuntimeError: adapter exploded"
+        assert out["receiptFailures"] == 1
+        assert out["cause"] == "the receipts could not be built or stored"
         assert not (tmp_path / "r.sqlite").exists()
+
+    def test_an_unwritable_store_is_a_named_warning(
+        self, tmp_path, monkeypatch, caplog, dictionary
+    ):
+        """L5: a permissions failure is never silent -- WARNING level, cause named,
+        and a failure counter on the result."""
+
+        def denied(*_a, **_k):
+            raise PermissionError(13, "Permission denied", str(tmp_path / "r.sqlite"))
+
+        monkeypatch.setattr(rs, "append_receipts", denied)
+        logs: list[str] = []
+        with caplog.at_level("WARNING", logger=pr.__name__):
+            out = pr.emit_safely(
+                lambda: pr.sparse_evidence_receipts(
+                    _sparse_record(recorded_at=T0), ledger_name="l", dictionary=dictionary
+                ),
+                label="t",
+                path=tmp_path / "r.sqlite",
+                log=logs.append,
+            )
+        assert out["ok"] is False and out["receiptFailures"] == 1
+        assert out["cause"] == "the receipt store is unwritable or unreachable"
+        assert any(
+            r.levelname == "WARNING" and "unwritable" in r.getMessage() for r in caplog.records
+        )
+        assert any(m.startswith("WARNING:") and "receipt_failures=1" in m for m in logs)
 
     def test_a_database_failure_is_swallowed(self, tmp_path, monkeypatch, dictionary):
         def locked(*_a, **_k):
@@ -675,6 +713,7 @@ def robust_cli(tmp_path, monkeypatch):
     monkeypatch.setattr(jfs, "_board_hash", lambda c: hashlib.sha256(b"x").hexdigest())
     monkeypatch.setattr(jfs, "_now", lambda: state["at"].isoformat().replace("+00:00", "Z"))
     monkeypatch.setattr(jfs, "_git", lambda *a, **k: "evaluatorrev\n")
+    monkeypatch.setattr(jfs, "_evaluator_identity", lambda: ("evaluatorrev", False, None))
     monkeypatch.setattr(
         R, "build_pair", lambda raw, csv_root=None: _robust_contracts(state["shift"])
     )
@@ -685,6 +724,7 @@ def robust_cli(tmp_path, monkeypatch):
         top += ["--learning-store", str(store)] if store else ["--no-learning-receipts"]
         return jfs.main([*top, *argv])
 
+    run.jfs = jfs  # the patched module, for tests that drive it below the CLI
     return run, state, write_payload
 
 
@@ -736,7 +776,10 @@ class TestRobustWiring:
 # ── producer 3 wiring: the source-quality evaluator hook ─────────────────────
 
 
-def test_source_quality_hook_emits_the_al0_adapter_receipts_and_isolates_failure(tmp_path):
+def test_source_quality_hook_emits_the_al0_adapter_receipts_and_isolates_failure(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv(pr.RECEIPTS_ENABLED_ENV, "1")
     sq = REPO / "docs" / "valuation" / "evidence" / "source-quality-2026-10-01"
     results = json.loads((sq / "results_2026-09-30.json").read_text(encoding="utf-8"))
     lines = [
@@ -805,3 +848,261 @@ def test_end_to_end_chain_for_one_sparse_run(sparse_cli, tmp_path):
     assert all(
         s["kind"] not in ("PROMOTION_RECORD", "OUTCOME", "EVALUATION") for s in stored.values()
     )
+
+
+# ── review fixes (#1612): replay, unknown blocks, tree pins, evaluator identity ──
+
+
+def test_the_live_mode_constant_is_the_producers():
+    from src.robust_filter_shadow import record as R
+
+    assert pr.ROBUST_LIVE_MODE == R.MODE_LIVE
+
+
+class TestReplayIsNeverProspective:
+    """M1: a hindsight replay never yields a prospective EVALUATION (or any receipt)."""
+
+    def test_a_replay_evaluation_is_refused(self, dictionary):
+        ev = TestRobustReceipts._evaluation("NOT_BETTER")
+        ev["mode"] = "historical_replay"
+        records = [_robust_record(recorded_at=T0)]
+        records[0]["mode"] = "historical_replay"
+        with pytest.raises(lr.ReceiptError, match="retrospective"):
+            pr.robust_evaluation_receipt(
+                ev,
+                records,
+                evaluation_name="e.json",
+                evaluator_revision="r",
+                evaluator_tree_dirty=False,
+                dictionary=dictionary,
+            )
+
+    def test_a_live_evaluation_over_a_replayed_line_is_refused(self, dictionary):
+        records = [_robust_record(recorded_at=T0)]
+        records[0]["mode"] = "historical_replay"
+        with pytest.raises(lr.ReceiptError, match="historical_replay"):
+            pr.robust_evaluation_receipt(
+                TestRobustReceipts._evaluation("NOT_BETTER"),
+                records,
+                evaluation_name="e.json",
+                evaluator_revision="r",
+                evaluator_tree_dirty=False,
+                dictionary=dictionary,
+            )
+
+    def test_a_replayed_ledger_line_yields_no_receipts(self, dictionary):
+        rec = _robust_record(recorded_at=T0)
+        rec["mode"] = "historical_replay"
+        with pytest.raises(lr.ReceiptError, match="hindsight"):
+            pr.robust_filter_receipts(rec, ledger_name="l", dictionary=dictionary)
+
+    def test_the_cli_replay_evaluation_writes_no_receipt(self, robust_cli, tmp_path):
+        from src.robust_filter_shadow import record as R
+
+        run, state, write_payload = robust_cli
+        jfs = run.jfs
+        ledger = tmp_path / "ledger"
+        store = tmp_path / "learning" / "receipts.sqlite"
+        for day in range(3):
+            write_payload(day)
+            state["at"] = T0 + timedelta(days=day)
+            payload = jfs.REPO_ROOT / "exports" / "latest" / "dynasty_data_2026-10-01.json"
+            raw = json.loads(payload.read_text(encoding="utf-8"))
+            board = {
+                "archive": f"replay-{day}",
+                "payloadSha256": hashlib.sha256(payload.read_bytes()).hexdigest(),
+                "scrapeTimestamp": raw["scrapeTimestamp"],
+                "completeness": "complete",
+            }
+            assert jfs.record_board(
+                raw,
+                mode=R.MODE_REPLAY,
+                board=board,
+                pins={**_robust_pins(), "inputs": "archived"},
+                base=ledger,
+                csv_root=None,
+            )
+        # ``evaluate`` defaults to historical_replay: the evaluation is written,
+        # and no receipt of any kind reaches the store.
+        assert run(ledger, store, "evaluate") == 0
+        assert (ledger / "evaluation_historical_replay.json").is_file()
+        assert not store.exists() or list(rs.iter_receipts(store)) == []
+
+
+class TestUnknownIsNotZero:
+    """L1: a missing block is unobserved, never ``{}`` / ``[]`` / 0."""
+
+    def test_missing_sparse_blocks_are_unobserved(self, dictionary):
+        rec = _sparse_record(recorded_at=T0)
+        del rec["counts"], rec["evidenceStates"]
+        predictions = [
+            p
+            for p in pr.sparse_evidence_receipts(rec, ledger_name="l", dictionary=dictionary)
+            if p.kind == "PREDICTION"
+        ]
+        assert len(predictions) == 2
+        for p in predictions:
+            assert p.body["producerCounts"]["state"] == "unobserved"
+            assert p.body["evidenceStates"]["state"] == "unobserved"
+            assert "never zero" in p.body["producerCounts"]["reason"]
+
+    def test_a_present_empty_block_keeps_its_counter_semantics(self, dictionary):
+        rec = _sparse_record(recorded_at=T0)
+        rec["counts"] = {}
+        p = next(
+            r
+            for r in pr.sparse_evidence_receipts(rec, ledger_name="l", dictionary=dictionary)
+            if r.kind == "PREDICTION"
+        )
+        assert p.body["producerCounts"] == {"counts": {}, "semantics": pr.COUNTS_SEMANTICS}
+
+    def test_missing_robust_blocks_are_unobserved(self, dictionary):
+        rec = _robust_record(recorded_at=T0)
+        del rec["counts"], rec["safeguardsFired"], rec["topChurn"]
+        del rec["board"]["votingFamilies"]
+        receipts = pr.robust_filter_receipts(rec, ledger_name="l", dictionary=dictionary)
+        obs = next(r for r in receipts if r.kind == "OBSERVATION")
+        assert obs.body["votingFamilies"]["state"] == "unobserved"
+        challenger = next(r for r in receipts if r.body.get("side") == "challenger")
+        for field in ("producerCounts", "safeguardsFired", "topChurnVsIncumbent"):
+            assert challenger.body[field]["state"] == "unobserved", field
+
+    def test_missing_model_pins_are_unobserved(self, dictionary):
+        rec = _robust_record(recorded_at=T0)
+        del rec["pins"]["hampel"], rec["pins"]["variants"]
+        models = [
+            r
+            for r in pr.robust_filter_receipts(rec, ledger_name="l", dictionary=dictionary)
+            if r.kind == "MODEL"
+        ]
+        assert len(models) == 2
+        assert all(m.body["hampel"]["state"] == "unobserved" for m in models)
+        assert all(m.body["variantFlags"]["state"] == "unobserved" for m in models)
+
+
+def test_the_input_tree_pins_are_nearest_prior_not_exact(dictionary):
+    """L2: the trees are hashed before the build re-reads them; the receipt says so."""
+    obs = next(
+        r
+        for r in pr.robust_filter_receipts(
+            _robust_record(recorded_at=T0), ledger_name="l", dictionary=dictionary
+        )
+        if r.kind == "OBSERVATION"
+    )
+    for slot in ("sourceCsvTree", "datasetStateTree"):
+        ref = obs.slots[slot]
+        assert ref.fidelity == "nearest-prior", slot
+        assert "not excluded" in ref.basis
+
+
+class TestEvaluatorIdentity:
+    """L3: a dirty evaluator tree is keyed, never a conflict; no orphan model ids."""
+
+    @staticmethod
+    def _receipt(dictionary, **kw):
+        return pr.robust_evaluation_receipt(
+            TestRobustReceipts._evaluation("NOT_BETTER"),
+            [_robust_record(recorded_at=T0)],
+            evaluation_name="e.json",
+            evaluator_revision="abc",
+            dictionary=dictionary,
+            **kw,
+        )
+
+    def test_a_dirty_tree_is_keyed_by_its_digest(self, dictionary):
+        clean = self._receipt(dictionary, evaluator_tree_dirty=False)
+        a = self._receipt(dictionary, evaluator_tree_dirty=True, evaluator_tree_digest="1" * 64)
+        a2 = self._receipt(dictionary, evaluator_tree_dirty=True, evaluator_tree_digest="1" * 64)
+        b = self._receipt(dictionary, evaluator_tree_dirty=True, evaluator_tree_digest="2" * 64)
+        assert len({clean.receipt_id, a.receipt_id, b.receipt_id}) == 3
+        assert a.receipt_id == a2.receipt_id and a.content_hash() == a2.content_hash()
+        assert "-dirty-" in a.native_id and "-dirty-" not in clean.native_id
+        assert a.body["extra"]["evaluatorTreeDirty"] is True
+        assert clean.body["extra"]["evaluatorTreeDirty"] is False
+
+    def test_an_unknown_tree_state_is_refused(self, dictionary):
+        with pytest.raises(lr.ReceiptError, match="cannot be assumed clean"):
+            self._receipt(dictionary, evaluator_tree_dirty=None)
+        with pytest.raises(lr.ReceiptError, match="digest"):
+            self._receipt(dictionary, evaluator_tree_dirty=True)
+
+    def test_every_real_model_id_has_a_model_receipt_and_mixed_ids_are_unobserved(self, dictionary):
+        a = _robust_record(recorded_at=T0)
+        b = _robust_record(recorded_at=T0 + timedelta(hours=1))
+        b["pins"]["codeRevision"] = "0" * 40
+        b["key"] = "k-other"
+        receipts = pr.robust_evaluation_receipts(
+            TestRobustReceipts._evaluation("NOT_BETTER"),
+            [a, b],
+            evaluation_name="e.json",
+            evaluator_revision="abc",
+            evaluator_tree_dirty=False,
+            dictionary=dictionary,
+        )
+        ev = receipts[-1]
+        assert ev.kind == "EVALUATION"
+        modelled = {r.model_version_id for r in receipts if r.kind == "MODEL"}
+        named = {mv for pair in ev.body["extra"]["modelVersionsEvaluated"] for mv in pair}
+        assert named == modelled and len(named) == 4
+        mixed = ev.body["extra"]["mixedModelVersionIds"]
+        assert mixed["modelReceipt"]["state"] == "unobserved"
+        assert ev.model_version_id == mixed["challengerModelVersionId"]
+        assert ev.model_version_id not in modelled
+
+    def test_a_single_model_evaluation_names_only_receipted_ids(self, dictionary):
+        receipts = pr.robust_evaluation_receipts(
+            TestRobustReceipts._evaluation("NOT_BETTER"),
+            [_robust_record(recorded_at=T0)],
+            evaluation_name="e.json",
+            evaluator_revision="abc",
+            evaluator_tree_dirty=False,
+            dictionary=dictionary,
+        )
+        ev = receipts[-1]
+        modelled = {r.model_version_id for r in receipts if r.kind == "MODEL"}
+        assert ev.model_version_id in modelled
+        assert ev.body["championModelVersionId"] in modelled
+        assert "mixedModelVersionIds" not in ev.body["extra"]
+
+    def test_the_cli_keys_a_dirty_tree(self, monkeypatch):
+        jfs = _load_script("joint_filter_shadow")
+        answers = {
+            ("rev-parse", "HEAD"): "abc\n",
+            ("status",): " M src/x.py\n",
+            ("diff",): b"diff --git a/src/x.py b/src/x.py\n",
+        }
+
+        def fake_git(*args, binary=False):
+            return answers[args[:2]] if args[:2] in answers else answers[args[:1]]
+
+        monkeypatch.setattr(jfs, "_git", fake_git)
+        revision, dirty, digest = jfs._evaluator_identity()
+        assert (revision, dirty) == ("abc", True) and len(digest) == 64
+        assert jfs._evaluator_identity() == (revision, dirty, digest)
+        answers[("status",)] = ""
+        assert jfs._evaluator_identity() == ("abc", False, None)
+
+
+def test_source_quality_receipts_are_off_unless_explicitly_enabled(tmp_path, monkeypatch):
+    """L4: fail closed -- no receipt unless RISKIT_RECEIPTS_ENABLED=1."""
+    sq = REPO / "docs" / "valuation" / "evidence" / "source-quality-2026-10-01"
+    results = json.loads((sq / "results_2026-09-30.json").read_text(encoding="utf-8"))
+    lines = [
+        json.loads(x) for x in (sq / "evaluations.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    cli = _load_script("source_quality_eval")
+    store = tmp_path / "learning" / "r.sqlite"
+
+    class Args:
+        no_learning_receipts = False
+        learning_store = store
+
+    for value in (None, "0", "true", "yes"):
+        if value is None:
+            monkeypatch.delenv(pr.RECEIPTS_ENABLED_ENV, raising=False)
+        else:
+            monkeypatch.setenv(pr.RECEIPTS_ENABLED_ENV, value)
+        cli.emit_learning_receipts(
+            Args, results, lines, sq / "evaluations.jsonl", sq / "results_2026-09-30.json"
+        )
+        assert not store.exists(), value

@@ -26,10 +26,16 @@ Subcommands:
 
 Learning receipts (AL-1a, ``src/model_registry/producer_receipts.py``): ``record``
 emits OBSERVATION / FEATURES / MODEL / CHALLENGER / one PREDICTION per filter for
-the stored ledger line, and ``evaluate`` emits one EVALUATION receipt (with the
-producer's sample sizes and verdict), into ``data/learning/receipts.sqlite``. A
-receipt failure is logged and never changes an exit code or a ledger byte;
-``--no-learning-receipts`` skips them.
+the stored ledger line, and ``evaluate --mode live_shadow`` emits one EVALUATION
+receipt (with the producer's sample sizes and verdict) plus the MODEL receipts it
+names, into ``data/learning/receipts.sqlite``. A ``historical_replay`` evaluation
+(the ``evaluate`` default) and ``backfill`` emit NO receipt: they rebuild with
+hindsight, and the AL-0 contract has no retrospective marker to label them. The
+evaluator's code identity is its revision plus, on a dirty tree, a digest of the
+uncommitted state. The CSV / dataset-state tree pins are hashed before the build
+re-reads those files, so their receipts carry fidelity ``nearest-prior``, not
+``exact``. A receipt failure is logged at WARNING and never changes an exit code
+or a ledger byte; ``--no-learning-receipts`` skips them.
 
 Exit codes (repo convention):
     0  recorded / evaluated (including an idempotent no-op)
@@ -299,7 +305,7 @@ def _receipt_tools() -> tuple[Any, Any] | None:
         from src.model_registry import producer_receipts as pr  # noqa: PLC0415
         from src.model_registry.feature_dictionary import load_dictionary  # noqa: PLC0415
     except Exception as exc:  # noqa: BLE001 -- receipts must never break the recorder
-        log(f"learning receipts NOT written: {type(exc).__name__}: {exc}")
+        log(f"WARNING: learning receipts NOT written: {type(exc).__name__}: {exc}")
         return None
     return pr, load_dictionary
 
@@ -332,11 +338,52 @@ def emit_record_receipts(args: argparse.Namespace, rec: dict) -> None:
     pr.emit_safely(build, label="robust-filter shadow record", path=_store_path(args), log=log)
 
 
+#: The paths whose uncommitted state changes what the evaluator computes.
+EVALUATOR_CODE_PATHS = ("src", "scripts", "config")
+
+
+def _evaluator_identity() -> tuple[str, bool, str | None]:
+    """``(revision, dirty, dirty-tree digest)`` of the code running the evaluation.
+
+    Dirty means ``git status --porcelain`` over :data:`EVALUATOR_CODE_PATHS` is
+    non-empty (data trees the timers rewrite are excluded: they are the ledger's
+    inputs, not the evaluator's code). A dirty tree is keyed by a digest of its
+    status, its diff against HEAD and every untracked file's bytes, so the same
+    dirty tree re-evaluates to a duplicate receipt rather than a conflict. Raises
+    when git cannot answer -- an unknown tree is never assumed clean."""
+    revision = _git("rev-parse", "HEAD").strip()
+    status = _git("status", "--porcelain", "--untracked-files=all", "--", *EVALUATOR_CODE_PATHS)
+    if not status.strip():
+        return revision, False, None
+    digest = hashlib.sha256(status.encode("utf-8"))
+    digest.update(_git("diff", "HEAD", "--binary", "--", *EVALUATOR_CODE_PATHS, binary=True))
+    for line in status.splitlines():
+        if line.startswith("?? "):
+            path = REPO_ROOT / line[3:].strip().strip('"')
+            digest.update(line.encode("utf-8") + b"\0")
+            if path.is_file():
+                digest.update(path.read_bytes())
+    return revision, True, digest.hexdigest()
+
+
 def emit_evaluation_receipt(
     args: argparse.Namespace, result: dict, boards: list, out: Path
 ) -> None:
-    """One EVALUATION receipt for this evaluation run. Never raises."""
+    """One EVALUATION receipt (plus the MODEL receipts it names) for a LIVE
+    evaluation run. Never raises.
+
+    A ``historical_replay`` evaluation is NOT receipted: its cutoff would be the
+    newest replayed ``recordedAt`` and it would read as a forward-looking
+    evaluation with a chronological holdout. The AL-0 receipt contract has no
+    retrospective marker, so the replay stays in the producer's own evaluation
+    file only."""
     if getattr(args, "no_learning_receipts", False):
+        return
+    if result.get("mode") != R.MODE_LIVE:
+        log(
+            f"learning receipts skipped: evaluation mode {result.get('mode')!r} is a hindsight "
+            "replay; only live_shadow evaluations are receipted (AL-0 has no retrospective marker)"
+        )
         return
     tools = _receipt_tools()
     if tools is None:
@@ -346,17 +393,18 @@ def emit_evaluation_receipt(
     def build():
         prereg = REPO_ROOT / str(result.get("preregistration") or "")
         prereg_sha = R.file_sha256(prereg) if prereg.is_file() else None
-        return [
-            pr.robust_evaluation_receipt(
-                result,
-                [b.record for b in boards],
-                evaluation_name=out.name,
-                evaluator_revision=_git("rev-parse", "HEAD").strip(),
-                dictionary=load_dictionary(),
-                ledger_name=L.LEDGER_NAME,
-                preregistration_sha256=prereg_sha,
-            )
-        ]
+        revision, dirty, tree_digest = _evaluator_identity()
+        return pr.robust_evaluation_receipts(
+            result,
+            [b.record for b in boards],
+            evaluation_name=out.name,
+            evaluator_revision=revision,
+            evaluator_tree_dirty=dirty,
+            evaluator_tree_digest=tree_digest,
+            dictionary=load_dictionary(),
+            ledger_name=L.LEDGER_NAME,
+            preregistration_sha256=prereg_sha,
+        )
 
     pr.emit_safely(build, label="robust-filter shadow evaluation", path=_store_path(args), log=log)
 

@@ -116,7 +116,7 @@ def emit_learning_receipts(args: argparse.Namespace, record: dict) -> None:
         from src.model_registry import producer_receipts as pr  # noqa: PLC0415
         from src.model_registry.feature_dictionary import load_dictionary  # noqa: PLC0415
     except Exception as exc:  # noqa: BLE001 -- receipts must never break the recorder
-        log(f"learning receipts NOT written: {type(exc).__name__}: {exc}")
+        log(f"WARNING: learning receipts NOT written: {type(exc).__name__}: {exc}")
         return
 
     def build():

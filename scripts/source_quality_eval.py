@@ -17,10 +17,14 @@ box) to the git/CSV history; without it the run uses the repository history.
 of that UTC day, so a rerun reproduces a recorded window (its panel digest)
 however many CSV commits have landed since.
 
-Each run also emits prospective learning receipts (AL-1a: MODEL + CHALLENGER +
+A run may also emit prospective learning receipts (AL-1a: MODEL + CHALLENGER +
 EVALUATION per candidate, via the AL-0 adapter) for the archive lines it appended,
-into ``data/learning/receipts.sqlite``. A receipt failure is logged and never
-changes the exit code or the evidence files; ``--no-learning-receipts`` skips it.
+into ``data/learning/receipts.sqlite`` -- the store of whatever machine runs the
+script. This script has no timer and runs wherever it is invoked, and only the
+box's runs are canonical, so receipts are written ONLY when the environment sets
+``RISKIT_RECEIPTS_ENABLED=1`` (fail closed: unset means none). A receipt failure is
+logged at WARNING and never changes the exit code or the evidence files;
+``--no-learning-receipts`` skips it.
 
 Exit codes: 0 evaluation written; 1 refused (e.g. preregistration not committed);
 2 fatal input error.
@@ -268,7 +272,15 @@ def emit_learning_receipts(
         from src.model_registry import producer_receipts as pr  # noqa: PLC0415
         from src.model_registry.feature_dictionary import load_dictionary  # noqa: PLC0415
     except Exception as exc:  # noqa: BLE001 -- receipts must never break the evaluator
-        _log(f"learning receipts NOT written: {type(exc).__name__}: {exc}")
+        _log(f"WARNING: learning receipts NOT written: {type(exc).__name__}: {exc}")
+        return
+    if not pr.receipts_enabled():
+        # Fail closed: only the box's runs are canonical, and this script runs
+        # wherever it is invoked (no timer). A developer run writes no receipt.
+        _log(
+            f"learning receipts skipped: {pr.RECEIPTS_ENABLED_ENV} is not 1 "
+            "(only the box's runs are canonical; set it there to emit)"
+        )
         return
     pr.emit_safely(
         lambda: pr.source_quality_run_receipts(

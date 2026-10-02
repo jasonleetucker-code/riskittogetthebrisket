@@ -43,11 +43,25 @@ Rules this module keeps (pinned by ``tests/model_registry/test_producer_receipts
 * **Never promotes.** Every MODEL / CHALLENGER / EVALUATION body carries
   ``promotes: False``; nothing here writes a PROMOTION RECORD, moves a champion
   pointer, flips a flag or touches a served value.
+* **Prospective only.** The AL-0 receipt contract has no retrospective marker:
+  every receipt it accepts reads as a point-in-time, forward-looking record. A
+  hindsight replay (the robust-filter ``historical_replay`` mode: archived inputs
+  rebuilt through today's code) therefore yields NO receipt -- the builders here
+  refuse a non-live record or evaluation rather than invent a marker the
+  contract does not define. Replays stay in the producer's own ledger, labelled.
+* **Unknown is not zero.** A producer block the record does not carry (counts,
+  evidence states, safeguards, voting families, ...) is published as an
+  ``unobserved`` state with a reason, never as ``{}`` / ``[]`` / 0. Only inside a
+  PRESENT block may an absent key read as zero, because the producer builds that
+  block with ``collections.Counter`` (:data:`COUNTS_SEMANTICS`).
 """
 
 from __future__ import annotations
 
 import hashlib
+import logging
+import os
+import sqlite3
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Sequence
@@ -62,6 +76,7 @@ from src.model_registry.evaluation_receipt import (
     EvaluationReceipt,
     cohort_result,
 )
+from src.history.asof import FIDELITY_NEAREST_PRIOR
 from src.model_registry.feature_dictionary import FeatureDictionary, validate_manifest
 from src.model_registry.learning_receipt import (
     KIND_CHALLENGER,
@@ -91,17 +106,56 @@ BATCH3_POLICY = "Batch 3 section N (docs/EXECUTION_PLAN.md section 0, Valuation 
 PROVIDER_FAMILY_V2: Mapping[str, Any] = {"name": "provider_family", "version": 2}
 
 #: The shadow producers count with ``collections.Counter`` and publish
-#: ``dict(counter)``: a key the producer never incremented is ABSENT, and that
-#: absence means zero occurrences, not an unknown. The counts are carried verbatim
-#: with this note rather than re-keyed, so neither direction of coercion (absent ->
-#: 0, or a real 0 -> None) happens here.
-COUNTS_SEMANTICS = "verbatim producer collections.Counter: an absent key counted zero occurrences"
+#: ``dict(counter)`` (``robust_filter_shadow.record.shadow_record``,
+#: ``api.sparse_evidence_shadow.shadow_rows`` / ``assemble_record``): inside a
+#: block the producer DID write, a key it never incremented is ABSENT, and that
+#: absence means zero occurrences. The block is carried verbatim with this note
+#: rather than re-keyed. A block the record does not carry at all is a different
+#: statement -- unknown -- and is published as ``unobserved`` (:func:`_counter_block`),
+#: never as ``{}``.
+COUNTS_SEMANTICS = (
+    "verbatim producer collections.Counter block: within this PRESENT block an absent "
+    "key counted zero occurrences (a missing block is published as unobserved, never zero)"
+)
+
+#: The one switch that lets a box-canonical run write receipts
+#: (:func:`receipts_enabled`). Fail closed: unset, or any value but ``"1"``, is off.
+RECEIPTS_ENABLED_ENV = "RISKIT_RECEIPTS_ENABLED"
+
+_LOGGER = logging.getLogger(__name__)
 
 _NO_REGISTRY = (
     "no model registry exists for this shadow family; the version is identified by the "
     "code revision, pipeline identity and flag snapshot recorded on every run, and the "
     "per-run pins travel on that run's FEATURES and PREDICTION receipts"
 )
+
+
+def receipts_enabled() -> bool:
+    """True only when the operator explicitly enabled receipts for this run.
+
+    For producers whose runs are canonical only on the box (the source-quality
+    evaluator, run by hand): a run anywhere else writes no receipt."""
+    return os.environ.get(RECEIPTS_ENABLED_ENV, "").strip() == "1"
+
+
+def _missing(what: str, value: Any) -> dict[str, Any]:
+    state = "absent" if value is None else f"not a block ({type(value).__name__})"
+    return Unobserved(
+        f"the producer record carries no {what} ({state}); unknown, never zero or empty"
+    ).to_dict()
+
+
+def _mapping_block(value: Any, what: str) -> dict[str, Any]:
+    """A producer mapping verbatim, or ``unobserved`` when the record lacks it."""
+    return dict(value) if isinstance(value, Mapping) else _missing(what, value)
+
+
+def _counter_block(value: Any, what: str) -> dict[str, Any]:
+    """A producer ``Counter`` block plus its absent-key semantics -- only when present."""
+    if isinstance(value, Mapping):
+        return {"counts": dict(value), "semantics": COUNTS_SEMANTICS}
+    return _missing(what, value)
 
 
 def _sha(obj: Any) -> str:
@@ -268,14 +322,27 @@ def emit_safely(
         result = append_receipts(receipts, path=path)
     except Exception as exc:  # noqa: BLE001 -- a receipt failure must never break a producer
         message = f"{type(exc).__name__}: {exc}"
-        log(f"learning receipts NOT written ({label}): {message}")
-        return {"ok": False, "error": message}
-    log(
+        # An unwritable / unreachable store (permissions, a read-only mount, a
+        # locked database) is named as such: it is the failure an operator can fix.
+        cause = (
+            "the receipt store is unwritable or unreachable"
+            if isinstance(exc, (OSError, sqlite3.Error))
+            else "the receipts could not be built or stored"
+        )
+        warning = f"WARNING: learning receipts NOT written ({label}): {cause}: {message}"
+        _LOGGER.warning(warning)
+        log(f"{warning} receipt_failures=1")
+        return {"ok": False, "error": message, "cause": cause, "receiptFailures": 1}
+    summary = (
         f"learning receipts ({label}): written={result['written']} "
         f"duplicates={result['duplicates']} conflicts={len(result['contentConflicts'])} "
         f"rejected={len(result['rejected'])}"
     )
-    return {"ok": True, **result}
+    if result["contentConflicts"] or result["rejected"]:
+        _LOGGER.warning(summary)
+        summary = f"WARNING: {summary}"
+    log(summary)
+    return {"ok": True, **result, "receiptFailures": 0}
 
 
 # ── 1. sparse-evidence shadow ────────────────────────────────────────────────
@@ -326,7 +393,6 @@ def sparse_evidence_receipts(
     key = _require(record.get("key"), "key")
     cutoff = parse_instant(record.get("recordedAt"), what="recordedAt")
     board, pins = record.get("board") or {}, record.get("pins") or {}
-    counts = record.get("counts") or {}
     inc, ch = sparse_model_ids(record)
     code = _require(pins.get("codeRevision"), "pins.codeRevision")
     estimator = str(pins.get("estimator") or (record.get("identity") or {}).get("estimator"))
@@ -449,9 +515,10 @@ def sparse_evidence_receipts(
                     "horizon": "not declared by the producer; no outcome is settled yet",
                     "outcomeSettled": False,
                     "boardHash": board_hash,
-                    "producerCounts": dict(counts),
-                    "countsSemantics": COUNTS_SEMANTICS,
-                    "evidenceStates": dict(record.get("evidenceStates") or {}),
+                    "producerCounts": _counter_block(record.get("counts"), "counts block"),
+                    "evidenceStates": _counter_block(
+                        record.get("evidenceStates"), "evidenceStates block"
+                    ),
                     "modelReceiptId": model_ids[side],
                     **chain,
                 },
@@ -466,6 +533,10 @@ ROBUST_FAMILY = "joint_robust_filter"
 ROBUST_PRODUCER = "robust_filter_shadow"
 ROBUST_STORE = "robust_filter_shadow_ledger"
 ROBUST_SCHEMA = "joint-filter-shadow/v1"
+#: The only robust-filter mode that is a forward-looking run (``record.MODE_LIVE``;
+#: a test pins the two equal). ``historical_replay`` rebuilds archived inputs
+#: through today's code, i.e. with hindsight, and is never receipted.
+ROBUST_LIVE_MODE = "live_shadow"
 ROBUST_PREREGISTRATION = "docs/valuation/evidence/joint-filter-shadow-2026-10-01/PREREGISTRATION.md"
 ROBUST_FEATURES: tuple[Mapping[str, Any], ...] = (
     {"name": "source_board_scale_vote", "version": 1},
@@ -499,29 +570,31 @@ def robust_model_ids(record: Mapping[str, Any]) -> tuple[str, str]:
     )
 
 
-def robust_filter_receipts(
-    record: Mapping[str, Any], *, ledger_name: str, dictionary: FeatureDictionary
-) -> list[LearningReceipt]:
-    """The prospective receipts for one STORED robust-filter shadow ledger line."""
-    if record.get("schema") != ROBUST_SCHEMA:
-        raise ReceiptError(f"not a {ROBUST_SCHEMA} line: schema={record.get('schema')!r}")
-    key = _require(record.get("key"), "key")
-    cutoff = parse_instant(record.get("recordedAt"), what="recordedAt")
-    board, pins = record.get("board") or {}, record.get("pins") or {}
-    counts = record.get("counts") or {}
+def _require_live(mode: Any, what: str) -> None:
+    if mode != ROBUST_LIVE_MODE:
+        raise ReceiptError(
+            f"{what} is mode {mode!r}, not {ROBUST_LIVE_MODE!r}: a hindsight replay is never "
+            "receipted, because the AL-0 receipt contract has no retrospective marker and "
+            "every receipt it holds reads as prospective"
+        )
+
+
+def _robust_model_receipts(record: Mapping[str, Any]) -> tuple[LearningReceipt, LearningReceipt]:
+    """``(incumbent, challenger)`` MODEL receipts named by one ledger line's pins."""
+    pins = record.get("pins") or {}
     inc, ch = robust_model_ids(record)
     flags = pins.get("flagsAtRecord")
-    flags_hash = _sha(dict(flags)) if isinstance(flags, Mapping) else None
     model_common = {
         "codeRevision": pins.get("codeRevision"),
         "pipelineFingerprint": pins.get("pipelineFingerprint"),
         "workingTreeDirty": pins.get("workingTreeDirty"),
-        "flagsAtRecordSha256": flags_hash,
-        "hampel": dict(pins.get("hampel") or {}),
+        "flagsAtRecordSha256": _sha(dict(flags)) if isinstance(flags, Mapping) else None,
+        "hampel": _mapping_block(pins.get("hampel"), "pins.hampel block"),
         "familyCap": pins.get("familyCap"),
     }
-    variants = pins.get("variants") or {}
-    receipts = [
+    variants = pins.get("variants")
+    variants = variants if isinstance(variants, Mapping) else {}
+    return (
         _model_receipt(
             producer=ROBUST_PRODUCER,
             family=ROBUST_FAMILY,
@@ -529,7 +602,9 @@ def robust_filter_receipts(
             body={
                 **model_common,
                 "role": "incumbent",
-                "variantFlags": dict(variants.get("incumbent") or {}),
+                "variantFlags": _mapping_block(
+                    variants.get("incumbent"), "pins.variants.incumbent block"
+                ),
                 "status": "SERVED_AT_RECORD",
             },
         ),
@@ -541,10 +616,32 @@ def robust_filter_receipts(
                 **model_common,
                 "role": "challenger",
                 "challengerVersion": pins.get("challengerVersion"),
-                "variantFlags": dict(variants.get("challenger") or {}),
+                "variantFlags": _mapping_block(
+                    variants.get("challenger"), "pins.variants.challenger block"
+                ),
                 "status": "SHADOW",
             },
         ),
+    )
+
+
+def robust_filter_receipts(
+    record: Mapping[str, Any], *, ledger_name: str, dictionary: FeatureDictionary
+) -> list[LearningReceipt]:
+    """The prospective receipts for one STORED robust-filter shadow ledger line.
+
+    Only a ``live_shadow`` line is receipted (:func:`_require_live`)."""
+    if record.get("schema") != ROBUST_SCHEMA:
+        raise ReceiptError(f"not a {ROBUST_SCHEMA} line: schema={record.get('schema')!r}")
+    _require_live(record.get("mode"), "the ledger line")
+    key = _require(record.get("key"), "key")
+    cutoff = parse_instant(record.get("recordedAt"), what="recordedAt")
+    board, pins = record.get("board") or {}, record.get("pins") or {}
+    inc, ch = robust_model_ids(record)
+    flags = pins.get("flagsAtRecord")
+    flags_hash = _sha(dict(flags)) if isinstance(flags, Mapping) else None
+    receipts = [
+        *_robust_model_receipts(record),
         _challenger_receipt(
             producer=ROBUST_PRODUCER,
             family=ROBUST_FAMILY,
@@ -558,7 +655,23 @@ def robust_filter_receipts(
         digest = str(pins.get(pin) or "")
         if not digest or digest == "None":
             return Unobserved(f"{glob} was absent at record time (the record pins {pin} None)")
-        return _live_ref(store, f"{glob}@tree-sha256:{digest}", cutoff, what)
+        # The recorder hashes the tree BEFORE the build re-reads its files
+        # (scripts/joint_filter_shadow.py::cmd_record); moving the hash would
+        # change the ledger's own pins. A write landing between the hash and the
+        # read is not excluded, so the pin is the tree state observed nearest
+        # before the read -- not proven to be the bytes the build read.
+        return StoreRef(
+            store=store,
+            key=f"{glob}@tree-sha256:{digest}",
+            role=ROLE_INPUT,
+            known_at=cutoff,
+            fidelity=FIDELITY_NEAREST_PRIOR,
+            basis=(
+                f"{what} hashed immediately before the build re-read it, before recordedAt; a "
+                "write between that hash and the read is not excluded, so this is the nearest "
+                "prior observation of the tree, not a proven pin of the bytes read"
+            ),
+        )
 
     observation = build_receipt(
         kind=KIND_OBSERVATION,
@@ -591,7 +704,11 @@ def robust_filter_receipts(
                 if isinstance(board.get("votingSources"), list)
                 else None
             ),
-            "votingFamilies": list(board.get("votingFamilies") or []),
+            "votingFamilies": (
+                list(board["votingFamilies"])
+                if isinstance(board.get("votingFamilies"), list)
+                else _missing("board.votingFamilies list", board.get("votingFamilies"))
+            ),
         },
     )
     panel = str(record.get("panel") or "")
@@ -645,8 +762,7 @@ def robust_filter_receipts(
             "on later boards (the preregistered evaluation)"
         ),
         "outcomeSettled": False,
-        "producerCounts": dict(counts),
-        "countsSemantics": COUNTS_SEMANTICS,
+        "producerCounts": _counter_block(record.get("counts"), "counts block"),
         **chain,
     }
     for side, mvid, board_hash, extra in (
@@ -662,8 +778,10 @@ def robust_filter_receipts(
             board.get("boardHashChallenger"),
             {
                 "dropsCountKey": "challengerDrops",
-                "safeguardsFired": dict(record.get("safeguardsFired") or {}),
-                "topChurnVsIncumbent": dict(record.get("topChurn") or {}),
+                "safeguardsFired": _counter_block(
+                    record.get("safeguardsFired"), "safeguardsFired block"
+                ),
+                "topChurnVsIncumbent": _mapping_block(record.get("topChurn"), "topChurn block"),
             },
         ),
     ):
@@ -743,39 +861,92 @@ def _delta_cohort(horizon: str, summary: Mapping[str, Any]) -> CohortResult:
     return cohort_result(cohort, n=n, metrics={"deltaLeadShare": est})
 
 
+def evaluator_revision_token(revision: str, *, dirty: bool | None, tree_digest: str | None) -> str:
+    """The evaluator's code identity: its revision, plus a dirty tree's content.
+
+    A dirty tree's code is not determined by its revision, so it is keyed by a
+    digest of its uncommitted state: re-evaluating on the SAME dirty tree is a
+    duplicate, on a different one a distinct receipt -- never a content conflict.
+    An unknown tree state is refused rather than assumed clean."""
+    revision = _require(revision, "the evaluator code revision")
+    if dirty is None:
+        raise ReceiptError("the evaluator tree state is unknown; it cannot be assumed clean")
+    if not dirty:
+        return revision
+    return f"{revision}-dirty-{_require(tree_digest, 'the dirty evaluator tree digest')[:16]}"
+
+
+def robust_evaluation_receipts(
+    evaluation: Mapping[str, Any],
+    records: Sequence[Mapping[str, Any]],
+    **kwargs: Any,
+) -> list[LearningReceipt]:
+    """The EVALUATION receipt plus a MODEL receipt for every real model version it
+    names, so no model id it references is an orphan. The record runs emit the
+    same MODEL receipts, so a re-emission is a stored duplicate."""
+    evaluation_receipt = robust_evaluation_receipt(evaluation, records, **kwargs)
+    models: dict[str, LearningReceipt] = {}
+    for record in sorted(records, key=lambda r: str(r.get("key"))):
+        for model in _robust_model_receipts(record):
+            models.setdefault(model.receipt_id, model)
+    return [*models.values(), evaluation_receipt]
+
+
 def robust_evaluation_receipt(
     evaluation: Mapping[str, Any],
     records: Sequence[Mapping[str, Any]],
     *,
     evaluation_name: str,
     evaluator_revision: str,
+    evaluator_tree_dirty: bool | None,
     dictionary: FeatureDictionary,
+    evaluator_tree_digest: str | None = None,
     ledger_name: str = "ledger.jsonl",
     preregistration_sha256: str | None = None,
 ) -> LearningReceipt:
-    """One EVALUATION receipt for one preregistered evaluation run.
+    """One EVALUATION receipt for one preregistered LIVE evaluation run.
 
     ``records`` are the STORED ledger lines the evaluation read. The receipt's
-    identity is (mode, evaluator revision, the evaluated record set), and its
+    identity is (mode, evaluator code identity, the evaluated record set), and its
     body excludes the evaluation's ``computedAt`` wall clock, so re-evaluating an
-    unchanged ledger under unchanged code is a duplicate, not a new receipt."""
+    unchanged ledger under unchanged code is a duplicate, not a new receipt.
+
+    Refused for a ``historical_replay`` evaluation, or one over any non-live line:
+    its ``cutoff`` (the newest ``recordedAt``) would present a hindsight replay as a
+    forward-looking evaluation with a chronological holdout, and the AL-0 contract
+    has no retrospective marker to say otherwise."""
     if evaluation.get("schema") != f"{ROBUST_SCHEMA}/evaluation":
         raise ReceiptError(f"not a {ROBUST_SCHEMA}/evaluation: {evaluation.get('schema')!r}")
     if not records:
         raise ReceiptError("an evaluation with no evaluated records has nothing to receipt")
     mode = _require(evaluation.get("mode"), "mode")
-    revision = _require(evaluator_revision, "the evaluator code revision")
+    _require_live(mode, "the evaluation")
+    for r in records:
+        _require_live(r.get("mode"), f"evaluated ledger line {r.get('key')!r}")
+    revision = evaluator_revision_token(
+        evaluator_revision, dirty=evaluator_tree_dirty, tree_digest=evaluator_tree_digest
+    )
     keys = sorted(_require(r.get("key"), "a record key") for r in records)
     digest = _sha(keys)
     recorded = [parse_instant(r.get("recordedAt"), what="record recordedAt") for r in records]
     cutoff = max(recorded)
     native = f"{mode}|{revision}|{digest}"
     ids = sorted({robust_model_ids(r) for r in records})
+    mixed: dict[str, Any] | None = None
     if len(ids) == 1:
         champion, challenger = ids[0]
     else:
         champion = model_version_id(ROBUST_FAMILY, f"hampel-mixed-{digest[:12]}")
         challenger = model_version_id(ROBUST_FAMILY, f"joint-mixed-{digest[:12]}")
+        mixed = {
+            "championModelVersionId": champion,
+            "challengerModelVersionId": challenger,
+            "modelReceipt": Unobserved(
+                f"a synthetic aggregate id over the {len(ids)} model-version pairs this "
+                "evaluation pooled; no MODEL receipt exists or is emitted for it. Each real "
+                "version in modelVersionsEvaluated has its own MODEL receipt"
+            ).to_dict(),
+        }
 
     primary = evaluation.get("primary") or {}
     decision = primary.get("decision")
@@ -892,6 +1063,9 @@ def robust_evaluation_receipt(
             "span": primary.get("span"),
             "recordCodeRevisions": list(evaluation.get("codeRevisions") or []),
             "modelVersionsEvaluated": [list(pair) for pair in ids],
+            **({"mixedModelVersionIds": mixed} if mixed is not None else {}),
+            "evaluatorRevision": _require(evaluator_revision, "the evaluator code revision"),
+            "evaluatorTreeDirty": evaluator_tree_dirty,
             "preregistrationPin": {
                 "path": evaluation.get("preregistration") or ROBUST_PREREGISTRATION,
                 "sha256": preregistration_sha256,
