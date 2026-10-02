@@ -1000,7 +1000,7 @@ stage at this reconciliation, from code and production:
 | | promotion / rejection record | **MISSING** as a durable registry disposition | AL-0 + AL-1a |
 | **TRADE** | raw completed trades | CODE MERGED (#1586); **not capturing in production** (box at `ed48d54ab`) | AL-2 ops (deploy + first capture) |
 | | deduplicated underlying transactions | CODE MERGED (#1586 §19 groups) | — |
-| | format classification / translation | classification MERGED (three dispositions; BROAD_CONTEXT pending); translation **MISSING** | AL-2a′, AL-2b0, AL-2b |
+| | format classification / translation | classification MERGED (four dispositions once AL-2a′ lands: BROAD_CONTEXT `targetPriceAuthority` 0); translation **MISSING** | AL-2a′, AL-2b0, AL-2b |
 | | target-league transaction estimate | **MISSING** | AL-2c |
 | | comparison with subsequent evidence | **MISSING** | AL-2c + AL-1 outcome (2) |
 | **PROJECTION** | pregame projection | PARTIAL — our ensemble's pregame estimates for rostered players exist from Week 1 (`data/game_day/predictions/2026/*/week_N/*_pregame.json`, backed up); raw Sleeper weekly projections only from Week 3, and Week 3 itself may be partial (its directory was created 2026-09-25 23:20 UTC, after the Week 3 Thursday game; unverified) — §36 | AL-3a |
@@ -1138,7 +1138,9 @@ Hill champion; the current outlier filter; the current 0.30 sparse retention.
 - The four Wave 1 loops (§34) are open; only Hill's governance loop is closed.
 - Production lags `main`: the box served `ed48d54ab` at reconciliation, so #1586's KTC capture has not started
   and every KTC Trade Database window that rolls out before it does is lost (§36).
-- BROAD_CONTEXT (§35 T1) is a recorded owner definition, not yet code.
+- BROAD_CONTEXT (§35 T1): implemented by AL-2a′ in `market_trade_format.disposition`
+  (timing-limited / format-mismatch / format-unknown kinds, `targetPriceAuthority` 0);
+  definitions in `docs/market_trades/TARGET_FORMAT_CENSUS.md`.
 - No per-family promotion policy exists outside Hill Autopilot and Batch 3 §N; every other family promotes only
   by explicit owner approval.
 - FAAB losing bids for rivals and other leagues' rejected / countered offers are host-limited (NOT_OBSERVABLE);

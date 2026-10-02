@@ -128,11 +128,19 @@ def test_end_to_end_counts_dispositions_and_idp_metadata(env):
     off = groups["utrade:sleeper:L-OFF:T2"]
     assert off["marketFormat"]["idp"]["enabled"] is False
     assert off["marketFormat"]["idp"]["starters"] == 0
+    # The fixture strips the IDP asset, leaving a one-sided trade: a hard
+    # topology failure, so TARGET_UNSUPPORTED rather than BROAD_CONTEXT.
     assert off["disposition"] == F.TARGET_UNSUPPORTED
+    assert off["dispositionReasons"] == ["invalid_topology:two_team_one_sided"]
+    assert off["targetPriceAuthority"] == 0
 
+    # A verified-dynasty (KTC source-level) 1QB trade: BROAD_CONTEXT, mismatch.
     mfl = next(g for g in groups.values() if g["sourceFamilies"] == ["ktc_trade_database"])
-    assert mfl["disposition"] == F.TARGET_UNSUPPORTED
+    assert mfl["disposition"] == F.BROAD_CONTEXT
+    assert mfl["broadContextKind"] == F.BROAD_FORMAT_MISMATCH
+    assert mfl["targetPriceAuthority"] == 0
     assert mfl["strongestUnsupportedAxis"] == "qbDemand"
+    assert idp["targetPriceAuthority"] == 1 and idp["dispositionReasons"] == []
 
     cov = R.coverage_report(result)
     assert cov["rawSourceObservations"]["total"] == 4

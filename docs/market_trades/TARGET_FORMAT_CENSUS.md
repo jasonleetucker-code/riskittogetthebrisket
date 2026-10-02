@@ -166,28 +166,91 @@ The repository is public. The committed census is **aggregate only**:
   the markdown for every one of them verbatim. The shapes are 18-19 digit Sleeper league,
   user and transaction ids, KTC trade ids, and `ktc:<id>`-style composite keys.
 
-## BROAD_CONTEXT reconciliation
+## The four dispositions (owner decision 2, 2026-10-01)
 
-The owner's hierarchy names four states: NATIVE_COMPARABLE, VALIDATED_TRANSFORMABLE,
-BROAD_CONTEXT and TARGET_UNSUPPORTED. #1586 implements three. Spec §4's BROAD MARKET
-CONTEXT and UNSUPPORTED / UNVERIFIED both land in TARGET_UNSUPPORTED, so **the current
-dispositions cannot express BROAD_CONTEXT**. This unit does not change #1586's semantics.
+`market_trade_format.disposition` is the one owner. Every underlying trade gets exactly
+one disposition, stamped with `targetPriceAuthority`, `broadContextKind` and
+`dispositionReasons`:
 
-What it publishes instead (`broadContextReconciliation`) is a descriptive partition of
-TARGET_UNSUPPORTED under the declared `BROAD_CONTEXT_RULE`:
+| disposition | `targetPriceAuthority` | meaning |
+|---|---|---|
+| NATIVE_COMPARABLE | 1 | every axis MATCH **and** a pre-trade / in-force capture plus a later same-format confirmation brackets the transaction (the strict timing contract, `format_timing_cap`). Unchanged by this decision |
+| VALIDATED_TRANSFORMABLE | 1 | material differences covered by an OUT-OF-SAMPLE validated translator. **None exists**; none is created merely because the class exists |
+| BROAD_CONTEXT | 0 | a verified dynasty transaction with trustworthy identity/topology where one or more material target-format dimensions differ, are unknown, or have no validated translator |
+| TARGET_UNSUPPORTED | 0 | hard insufficiency only: redraft, keeper (for the current dynasty lane), unknown / unverified dynasty state, unusable transaction identity, analysis-blocking unresolved assets, invalid topology, or no transaction to inspect |
 
-* **Candidate broad context.** The trade's dynasty state is verified (`dynastyState`
-  MATCH). Candidates are split two ways:
-  * by whether at least one axis is DIFFERENT (`KnownMismatch`) or only UNKNOWN axes
-    remain (`UnknownOnly`);
-  * by dynasty basis. A KTC row's dynasty state is a source-level claim, not a host
-    setting.
-* **Unsupported / unverified.** The dynasty state is not verified. The dynasty lane fails
-  closed, so these trades can never be context.
+BROAD_CONTEXT kinds (`market_trade_format.broad_context_kind`, one definition shared with
+this census):
 
-**Follow-up (not done here):** a fourth disposition in `market_trade_format.disposition`
-needs an owner-approved definition of BROAD_CONTEXT. The descriptive rule above is not that
-definition.
+* **`timing_limited`** — an observed format, none of whose observed axes differs, but no
+  valid evidence brackets it at trade time. Reasons name the cap
+  (`format_capture_post_trade`, `format_unconfirmed_after_trade`,
+  `format_changed_after_trade`, `format_time_unknown`, `format_capture_undated_snapshot`,
+  `format_capture_timing_unproven`) plus `format_unconfirmed_at_trade`,
+  `post_trade_capture` / `season_final_settings` where they apply, and
+  `all_observed_axes_match_target`. It never implies exactness: a season-final or
+  post-trade capture does not prove the format was in force throughout the season.
+* **`format_mismatch`** — at least one axis DIFFERENT and no validated translator
+  (`format_axes_differ`, `no_validated_translator`; a timing cap is stamped beside it).
+* **`format_unknown`** — no axis DIFFERENT, at least one axis UNKNOWN, and either no
+  timing cap (for example a KTC row, which has no scoring card) or no format observed at
+  all (`format_axes_unknown`). This third kind applies the owner's "differ, **are
+  unknown**, or have no validated translator" definition. Without it, unknown axes would
+  be mislabelled as a mismatch or as timing-limited.
+
+TARGET_UNSUPPORTED reasons: `not_dynasty:<state>`, `dynasty_state_unverified`,
+`no_transaction_observation`, `transaction_topology_unverifiable`,
+`unusable_transaction_identity` (dedupe state UNRESOLVED), `invalid_topology:<topology>`
+(empty or one-sided), and `unresolved_assets` (any non-FAAB asset without a canonical
+identity). Multi-team trades, FAAB and POSSIBLE_OVERLAP are not hard failures.
+
+The integrity checks gate only the non-native branches. By owner instruction
+NATIVE_COMPARABLE's rule is preserved byte-for-byte in effect, and a frozen copy of the
+pre-decision rule pins that in `tests/trade/test_market_trade_broad_context.py`.
+
+## BROAD_CONTEXT reconciliation (census v2)
+
+`broadContextReconciliation` counts what the disposition owner decided; it decides
+nothing itself:
+
+* `broadContextTrades`, `broadContextByKind`, `broadContextByKindAndDynastyBasis` and
+  `broadContextByReason`. A trade counts once per reason.
+* `targetUnsupportedTrades` and `targetUnsupportedByReason`.
+* **`formerCandidateBroadContext`** re-applies #1595's descriptive rule (verified dynasty
+  state, not NATIVE / VALIDATED_TRANSFORMABLE) so a bootstrap census, which had three
+  dispositions, can be reconciled with a later census, which has four. The population is
+  split three ways by `broad_context_kind`: `KnownMismatch`, `TimingLimitedAllObservedMatch`
+  and `UnknownOnly`. Each is also split by dynasty basis, because a KTC row's dynasty state
+  is a source-level claim, not a host setting. The section also reports how many of the
+  population are now BROAD_CONTEXT and how many are now TARGET_UNSUPPORTED through a hard
+  failure.
+* `unsupportedOrUnverifiedDynastyNotVerified`: non-native trades whose dynasty state is not
+  verified. The dynasty lane fails closed, so these are never context.
+
+### What changed from census v1 (#1595), line by line
+
+* `CENSUS_VERSION` changed from `al2a-target-format-census-v1` to `-v2`.
+* `BROAD_CONTEXT_RULE` changed from a descriptive-only candidate rule to the implemented
+  definition, its kinds, and the former candidate rule.
+* The census used to compute `broadContextReconciliation` over TARGET_UNSUPPORTED only. It
+  now covers every verified-dynasty non-native trade.
+* `expressibleByCurrentDispositions` changed from `false` to `true`, and the `reason` and
+  `followUp` strings were dropped.
+* `candidateBroadContext` was renamed `formerCandidateBroadContext`. It gained
+  `verifiedDynastyTimingLimitedAllObservedMatchByDynastyBasis`, `nowBroadContext` and
+  `nowTargetUnsupportedHardFailure`.
+* **Mislabel fix.** v1 filed timing-capped trades whose observed axes all MATCH under
+  `UnknownOnly`, because they had no DIFFERENT axis. They are now `TimingLimitedAllObservedMatch`.
+* The new keys are `disposition`, `targetPriceAuthority`, `broadContextTrades`,
+  `broadContextByKind`, `broadContextByKindAndDynastyBasis`, `broadContextByReason` and
+  `targetUnsupportedByReason`.
+* The census reads `dispositions`, `tradesByMonthAndDisposition` and
+  `tradesWithAnIdpPlayerByDisposition` generically, so they show BROAD_CONTEXT without
+  any code change.
+
+The merge of this change is held until the accumulated census has been captured on v1
+code. That keeps the owner's requirement that the bootstrap and accumulated runs use
+identical census code. Every census after the merge is v2.
 
 ## Running it on the box
 

@@ -660,9 +660,18 @@ class TestFormatTimingCap:
         self._seed(db, trade_ms=T0 + DAY, capture_ms=T0)
         g, d = _group_disposition(_obs(db, "T1")[0])
         assert g["formatEvidence"]["confirmationAfterTrade"] == lfc.CONFIRMATION_MISSING
-        assert d["disposition"] == mtf.TARGET_UNSUPPORTED
+        # Owner decision 2: never NATIVE; a verified dynasty trade whose every
+        # observed axis matches is BROAD_CONTEXT timing-limited, authority 0.
+        assert d["disposition"] == mtf.BROAD_CONTEXT
+        assert d["broadContextKind"] == mtf.BROAD_TIMING_LIMITED
+        assert d["targetPriceAuthority"] == 0
         assert d["formatTimingCap"] == mtf.TIMING_CAP_UNCONFIRMED_AFTER_TRADE
         assert d["formatTimingCap"] == "format_unconfirmed_after_trade"
+        assert {
+            "format_unconfirmed_after_trade",
+            "format_unconfirmed_at_trade",
+            "all_observed_axes_match_target",
+        } <= set(d["dispositionReasons"])
 
     def test_a_changed_hash_after_the_trade_is_capped_but_keeps_the_in_force_axes(self, db):
         self._seed(
@@ -676,7 +685,10 @@ class TestFormatTimingCap:
         assert obs["_format"].idp_enabled is True, "axes from the capture in force"
         g, d = _group_disposition(obs)
         assert d["formatTimingCap"] == mtf.TIMING_CAP_CHANGED_AFTER_TRADE
-        assert d["disposition"] == mtf.TARGET_UNSUPPORTED
+        assert d["disposition"] == mtf.BROAD_CONTEXT
+        assert d["broadContextKind"] == mtf.BROAD_TIMING_LIMITED
+        assert "format_changed_after_trade" in d["dispositionReasons"]
+        assert d["targetPriceAuthority"] == 0
 
     def test_a_post_trade_capture_is_capped_with_the_reason_recorded(self, db):
         # Identical format, every axis MATCHES — only the timing differs.
@@ -684,7 +696,15 @@ class TestFormatTimingCap:
         g, d = _group_disposition(_obs(db, "T1")[0])
         assert not d["formatAuthority"]["differentAxes"]
         assert not d["formatAuthority"]["unknownAxes"]
-        assert d["disposition"] == mtf.TARGET_UNSUPPORTED
+        assert d["disposition"] == mtf.BROAD_CONTEXT
+        assert d["broadContextKind"] == mtf.BROAD_TIMING_LIMITED
+        assert d["targetPriceAuthority"] == 0
+        assert d["dispositionReasons"] == [
+            "format_capture_post_trade",
+            "format_unconfirmed_at_trade",
+            "post_trade_capture",
+            "all_observed_axes_match_target",
+        ]
         assert d["formatTimingCap"] == mtf.TIMING_CAP_POST_TRADE == "format_capture_post_trade"
         assert d["formatAuthority"]["formatTimingCap"] == "format_capture_post_trade"
         assert d["strongestUnsupportedAxis"] == mtf.FORMAT_TIMING_AXIS
@@ -728,8 +748,18 @@ class TestFormatTimingCap:
         fmt = mtf.format_from_sleeper_league(sleeper_league("SRC"))
         obs = {"formatEvidence": evidence, "formatSource": source}
         d = mtf.disposition(fmt, _target(), observation=obs)
-        assert d["disposition"] == mtf.TARGET_UNSUPPORTED
+        assert d["disposition"] != mtf.NATIVE_COMPARABLE
+        assert d["targetPriceAuthority"] == 0
         assert d["formatTimingCap"] == reason
+        # With an inspectable transaction it is BROAD_CONTEXT timing-limited.
+        sides = [
+            [{"kind": "player", "canonicalId": "p:1"}],
+            [{"kind": "player", "canonicalId": "p:2"}],
+        ]
+        d = mtf.disposition(fmt, _target(), observation={**obs, "sides": sides})
+        assert d["disposition"] == mtf.BROAD_CONTEXT
+        assert d["broadContextKind"] == mtf.BROAD_TIMING_LIMITED
+        assert reason in d["dispositionReasons"]
 
     def test_own_league_registry_format_without_evidence_fails_closed(self):
         # The own-league registry format used to carry no formatEvidence and
@@ -739,7 +769,8 @@ class TestFormatTimingCap:
         fmt = mtf.format_from_sleeper_league(sleeper_league("SRC"))
         obs = {"formatSource": "registry_and_scoring_card"}
         d = mtf.disposition(fmt, _target(), observation=obs)
-        assert d["disposition"] == mtf.TARGET_UNSUPPORTED
+        assert d["disposition"] != mtf.NATIVE_COMPARABLE
+        assert d["targetPriceAuthority"] == 0
         assert d["formatTimingCap"] == "format_capture_timing_unproven"
 
     def test_own_league_trade_also_seen_by_sharp_post_trade_stays_native(self, db):
@@ -827,7 +858,8 @@ class TestKtcHostUpgradeTiming:
         N.attach_host_formats([obs], captures={"L1": [self._cap(T0)]})
         assert obs["formatSource"] == N.FORMAT_SOURCE_CAPTURE_POST_TRADE
         d = mtf.disposition(obs["_format"], _target(), observation=obs)
-        assert d["disposition"] == mtf.TARGET_UNSUPPORTED
+        assert d["disposition"] != mtf.NATIVE_COMPARABLE
+        assert d["targetPriceAuthority"] == 0
         assert d["formatTimingCap"] == "format_capture_post_trade"
 
     def test_an_undated_ktc_row_is_time_unknown(self):

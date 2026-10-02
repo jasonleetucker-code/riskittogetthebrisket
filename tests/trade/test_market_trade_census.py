@@ -371,25 +371,39 @@ def test_small_cells_are_suppressed_and_rare_values_folded(built):
     }
 
 
-def test_broad_context_is_reported_not_invented(built):
+def test_broad_context_is_counted_from_the_disposition_owner(built):
     c = R.target_format_census(built)
     b = c["sections"]["broadContextReconciliation"]
-    assert b["expressibleByCurrentDispositions"] is False
+    assert b["expressibleByCurrentDispositions"] is True
+    assert b["targetPriceAuthority"] == 0
     disp = c["sections"]["dispositions"]
-    assert b["targetUnsupportedTrades"] == disp[F.TARGET_UNSUPPORTED]
-    cand = b["candidateBroadContext"]
+    assert set(disp) <= set(F.DISPOSITIONS)
+    assert b["broadContextTrades"] == disp[F.BROAD_CONTEXT]
+    assert b["targetUnsupportedTrades"] == disp.get(F.TARGET_UNSUPPORTED, 0)
+    assert sum(b["broadContextByKind"].values()) == b["broadContextTrades"]
     assert (
-        cand["total"] + b["unsupportedOrUnverifiedDynastyNotVerified"]
-        == (b["targetUnsupportedTrades"])
+        sum(sum(v.values()) for v in b["broadContextByKindAndDynastyBasis"].values())
+        == (b["broadContextTrades"])
     )
-    # The partial league's dynasty type IS stated on its discovery row, so it is a
-    # verified-dynasty unknown-only candidate; KTC rows carry a source-level claim.
+    cand = b["formerCandidateBroadContext"]
+    # #1595's population, re-applied: verified dynasty, not native.
+    assert cand["total"] == cand["nowBroadContext"] + cand["nowTargetUnsupportedHardFailure"]
+    assert cand["total"] == sum(
+        sum(cand[k].values())
+        for k in (
+            "verifiedDynastyKnownMismatchByDynastyBasis",
+            "verifiedDynastyTimingLimitedAllObservedMatchByDynastyBasis",
+            "verifiedDynastyUnknownOnlyByDynastyBasis",
+        )
+    )
+    # KTC rows carry a source-level dynasty claim; the partial league's dynasty
+    # type IS stated on its discovery row (format otherwise unknown).
     assert "source_level_claim:ktc_dynasty_trade_database" in (
         cand["verifiedDynastyKnownMismatchByDynastyBasis"]
         | cand["verifiedDynastyUnknownOnlyByDynastyBasis"]
     )
-    # Dispositions are untouched: still exactly #1586's three.
-    assert set(disp) <= {F.NATIVE_COMPARABLE, F.VALIDATED_TRANSFORMABLE, F.TARGET_UNSUPPORTED}
+    assert b["broadContextByKind"].get(F.BROAD_FORMAT_MISMATCH, 0) >= 6  # 5 near + offense
+    assert b["broadContextByReason"]["no_validated_translator"] >= 6
 
 
 def test_census_writes_nothing_to_the_ledger_and_is_deterministic(env):

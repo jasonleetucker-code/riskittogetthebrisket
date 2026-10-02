@@ -110,8 +110,20 @@ def _classify(trade, index):
     )
 
 
+#: An inspectable, fully resolved 1-for-1, so the dispositions below exercise
+#: the FORMAT rules rather than the transaction-integrity checks.
+_SIDES = [
+    [{"kind": "player", "canonicalId": "player:1", "position": "WR"}],
+    [{"kind": "player", "canonicalId": "player:2", "position": "RB"}],
+]
+
+
 def _dispose(fmt, src, ev):
-    return mtf.disposition(fmt, _target(), observation={"formatSource": src, "formatEvidence": ev})
+    return mtf.disposition(
+        fmt,
+        _target(),
+        observation={"formatSource": src, "formatEvidence": ev, "sides": _SIDES},
+    )
 
 
 # ── the chain ──────────────────────────────────────────────────────────────
@@ -197,9 +209,17 @@ class TestPastSeason:
         assert ev["seasonLeagueId"] == PREV and ev["seasonCompleteAtCapture"] is True
         assert ev["exactAtTradeTime"] is False
         d = _dispose(fmt, src, ev)
-        assert d["disposition"] == mtf.TARGET_UNSUPPORTED
+        # 10 teams vs 12: a known difference — BROAD_CONTEXT format mismatch,
+        # with the season-final timing limit stamped beside it.
+        assert d["disposition"] == mtf.BROAD_CONTEXT
+        assert d["broadContextKind"] == mtf.BROAD_FORMAT_MISMATCH
+        assert d["targetPriceAuthority"] == 0
         assert d["comparability"]["teamCount"]["state"] == mtf.DIFFERENT
         assert d["formatTimingCap"] == mtf.TIMING_CAP_POST_TRADE
+        assert {"format_axes_differ", "season_final_settings", "post_trade_capture"} <= set(
+            d["dispositionReasons"]
+        )
+        assert "all_observed_axes_match_target" not in d["dispositionReasons"]
 
     def test_a_trade_without_a_league_id_resolves_through_the_chain(self, store):
         _refresh(store, at_ms=T_NOW)
@@ -217,8 +237,19 @@ class TestPastSeason:
         trade = {"sleeperLeagueId": PREV, "season": "2025", "occurredAtMs": T_2025}
         d = _dispose(*_classify(trade, olfc.load_index(store)))
         assert not d["formatAuthority"]["differentAxes"]
-        assert d["disposition"] == mtf.TARGET_UNSUPPORTED
+        # Owner decision 2: season-final settings never make an old trade
+        # NATIVE; it is preserved as BROAD_CONTEXT timing-limited.
+        assert d["disposition"] == mtf.BROAD_CONTEXT
+        assert d["broadContextKind"] == mtf.BROAD_TIMING_LIMITED
+        assert d["targetPriceAuthority"] == 0
         assert d["strongestUnsupportedAxis"] == mtf.FORMAT_TIMING_AXIS
+        assert d["dispositionReasons"] == [
+            "format_capture_post_trade",
+            "format_unconfirmed_at_trade",
+            "post_trade_capture",
+            "season_final_settings",
+            "all_observed_axes_match_target",
+        ]
 
     def test_an_unresolvable_season_is_unknown_never_todays_format(self):
         trade = {"sleeperLeagueId": None, "season": "2019", "occurredAtMs": T_2025}
@@ -226,7 +257,14 @@ class TestPastSeason:
         assert src == N.FORMAT_SOURCE_SEASON_MISSING
         assert ev["reason"] == "season_league_unresolved"
         assert fmt.teams is None and fmt.demand is None and fmt.scoring is None
-        assert _dispose(fmt, src, ev)["disposition"] == mtf.TARGET_UNSUPPORTED
+        d = _dispose(fmt, src, ev)
+        # Dynasty is known (the registry chain) but no format was observed:
+        # BROAD_CONTEXT format_unknown, never "all observed axes match".
+        assert d["disposition"] == mtf.BROAD_CONTEXT
+        assert d["broadContextKind"] == mtf.BROAD_FORMAT_UNKNOWN
+        assert "format_axes_unknown" in d["dispositionReasons"]
+        assert "all_observed_axes_match_target" not in d["dispositionReasons"]
+        assert d["targetPriceAuthority"] == 0
 
 
 class TestCurrentSeason:
@@ -240,13 +278,16 @@ class TestCurrentSeason:
         assert ev["timing"] == N.TIMING_REGISTRY_UNDATED and ev["exactAtTradeTime"] is False
         d = _dispose(fmt, src, ev)
         assert not d["formatAuthority"]["differentAxes"]
-        assert d["disposition"] == mtf.TARGET_UNSUPPORTED
+        assert d["disposition"] == mtf.BROAD_CONTEXT
+        assert d["broadContextKind"] == mtf.BROAD_TIMING_LIMITED
+        assert d["targetPriceAuthority"] == 0
         assert d["formatTimingCap"] == mtf.TIMING_CAP_UNPROVEN
 
     def test_the_retired_registry_label_fails_closed(self):
         fmt = _target()
         d = _dispose(fmt, N.FORMAT_SOURCE_REGISTRY, None)
-        assert d["disposition"] == mtf.TARGET_UNSUPPORTED
+        assert d["disposition"] == mtf.BROAD_CONTEXT
+        assert d["targetPriceAuthority"] == 0
 
     def test_a_season_capture_before_the_trade_is_unconfirmed_until_rechecked(self, store):
         _refresh(store, at_ms=T_NOW)
@@ -311,11 +352,13 @@ class TestUndatedLegacySnapshot:
         ev = lfc.evidence_dict(chosen, timing, conf)
         assert ev["exactAtTradeTime"] is True, "even bracketed..."
         fmt = mtf.format_from_sleeper_league(payload)
-        obs = {"formatSource": N.FORMAT_SOURCE_CAPTURE_FULL, "formatEvidence": ev}
+        obs = {"formatSource": N.FORMAT_SOURCE_CAPTURE_FULL, "formatEvidence": ev, "sides": _SIDES}
         d = mtf.disposition(fmt, _target(), observation=obs)
         assert not d["formatAuthority"]["differentAxes"]
-        assert d["disposition"] == mtf.TARGET_UNSUPPORTED
+        assert d["disposition"] == mtf.BROAD_CONTEXT
+        assert d["broadContextKind"] == mtf.BROAD_TIMING_LIMITED
         assert d["formatTimingCap"] == mtf.TIMING_CAP_UNDATED_SNAPSHOT
+        assert "format_capture_undated_snapshot" in d["dispositionReasons"]
 
     def test_a_dated_legacy_snapshot_is_not_affected(self):
         ev = {

@@ -27,18 +27,47 @@ for.  A Sleeper ``roster_positions`` array and KTC's own
 so a KTC superflex row and a Sleeper QB+SUPER_FLEX league compare on the same
 footing without anyone inventing a crosswalk.
 
-DISPOSITIONS
+DISPOSITIONS (owner decision 2, 2026-10-01 — four, replacing #1586's three)
 ────────────
-Every observation gets exactly ONE of:
+Every observation gets exactly ONE of, each stamped with
+``targetPriceAuthority`` (1 = may serve as target-price evidence, 0 = may not):
 
-* ``NATIVE_COMPARABLE`` — every axis is ``MATCH``.  Unknown is not a match.
-* ``VALIDATED_TRANSFORMABLE`` — a registered translator, validated out of
-  sample, maps it onto the target.  **None is validated today**; the registry
-  refuses ``validated=True`` without held-out evidence and refuses any global
-  multiplier (``1QB×k = SF``, ``IDP×k``) outright.
-* ``TARGET_UNSUPPORTED`` — anything else, with the strongest unsupported axis
-  named.  The observation is KEPT for broad research; it just cannot price the
-  target.
+* ``NATIVE_COMPARABLE`` (authority 1) — every axis is ``MATCH`` AND a
+  pre-trade / in-force capture plus a later same-format confirmation brackets
+  the transaction (the strict timing contract, :func:`format_timing_cap`).
+  Unknown is not a match.  Unchanged by the fourth disposition.
+* ``VALIDATED_TRANSFORMABLE`` (authority 1) — a registered translator,
+  validated out of sample, maps it onto the target.  **None is validated
+  today**; the registry refuses ``validated=True`` without held-out evidence
+  and refuses any global multiplier (``1QB×k = SF``, ``IDP×k``) outright.  No
+  translator exists merely because the class exists.
+* ``BROAD_CONTEXT`` (authority 0) — a VERIFIED dynasty transaction with
+  trustworthy identity and topology where one or more material target-format
+  dimensions differ, are unknown, or have no validated translator.  Kept as
+  clearly labelled context, never as same-format evidence.  ``broadContextKind``:
+
+  - ``timing_limited`` — an OBSERVED format none of whose observed axes
+    differs, but no valid evidence brackets it at trade time (a post-trade /
+    season-final capture, an unconfirmed or changed bracket, an unknown trade
+    time, an undated snapshot).  Stamped ``format_unconfirmed_at_trade`` and
+    ``all_observed_axes_match_target``; never implies exactness.
+  - ``format_mismatch`` — at least one axis known to DIFFER and no validated
+    translator.
+  - ``format_unknown`` — no axis DIFFERENT and one or more material axes
+    UNKNOWN, with no timing cap (e.g. a KTC row: no scoring card) or with no
+    format observed at all.  The owner's definition names "unknown"
+    dimensions explicitly; this kind keeps them from being mislabelled as a
+    mismatch or as timing-limited.  See :func:`broad_context_kind`.
+
+* ``TARGET_UNSUPPORTED`` (authority 0) — HARD insufficiency only: redraft,
+  keeper (for the current dynasty lane), unknown / unverified dynasty state,
+  unusable transaction identity, analysis-blocking unresolved assets, invalid
+  topology, or no transaction to inspect.  Reasons in ``dispositionReasons``.
+  The observation is KEPT for research; it just cannot price the target.
+
+The integrity checks (identity / topology / unresolved assets) gate only the
+non-native branches: NATIVE_COMPARABLE's rule is preserved byte-for-byte in
+effect, by owner instruction.
 
 BDVM SEAM (documented, not implemented): BDVM may later supply only a
 STRUCTURAL prior for a translator — ``structural_ratio = BDVM(F_target) /
@@ -72,7 +101,30 @@ UNKNOWN = "UNKNOWN"
 
 NATIVE_COMPARABLE = "NATIVE_COMPARABLE"
 VALIDATED_TRANSFORMABLE = "VALIDATED_TRANSFORMABLE"
+BROAD_CONTEXT = "BROAD_CONTEXT"
 TARGET_UNSUPPORTED = "TARGET_UNSUPPORTED"
+
+#: Every disposition, in authority order.
+DISPOSITIONS: tuple[str, ...] = (
+    NATIVE_COMPARABLE,
+    VALIDATED_TRANSFORMABLE,
+    BROAD_CONTEXT,
+    TARGET_UNSUPPORTED,
+)
+
+#: ``targetPriceAuthority`` per disposition.  BROAD_CONTEXT is 0 until a
+#: translator is validated for its differing axes (owner decision 2).
+TARGET_PRICE_AUTHORITY: Mapping[str, int] = {
+    NATIVE_COMPARABLE: 1,
+    VALIDATED_TRANSFORMABLE: 1,
+    BROAD_CONTEXT: 0,
+    TARGET_UNSUPPORTED: 0,
+}
+
+#: ``broadContextKind`` values.
+BROAD_TIMING_LIMITED = "timing_limited"
+BROAD_FORMAT_MISMATCH = "format_mismatch"
+BROAD_FORMAT_UNKNOWN = "format_unknown"
 
 DYNASTY = "dynasty"
 KEEPER = "keeper"
@@ -760,9 +812,10 @@ def format_timing_cap(observation: Mapping[str, Any] | None) -> str | None:
     whose trade time is unknown (``format_time_unknown``), or a capture-sourced
     format carrying no dated evidence at all (``format_capture_timing_unproven``
     — fails closed) is future leakage if allowed to certify a native match:
-    the league could have changed format in between.  Such trades stay
-    TARGET_UNSUPPORTED with the reason named; their axes are still computed
-    and published, and they are kept for broad research.
+    the league could have changed format in between.  Such trades are never
+    NATIVE_COMPARABLE; a verified-dynasty one with trustworthy identity and
+    topology is BROAD_CONTEXT (``timing_limited`` when no axis differs), with
+    the reason named; their axes are still computed and published.
 
     An undated legacy snapshot (``captureSource`` ending ``_time_unknown``) is
     capped even when it sits before the trade (``format_capture_undated_snapshot``):
@@ -783,9 +836,10 @@ def format_timing_cap(observation: Mapping[str, Any] | None) -> str | None:
     Formats that are not dated captures (a vendor summary, a partial discovery
     row) carry no ``formatEvidence`` and are unaffected here.
 
-    NOTE: when the owner-directed BROAD_CONTEXT tier lands (a separate PR),
-    timing-capped trades move from TARGET_UNSUPPORTED to BROAD_CONTEXT — never
-    to NATIVE_COMPARABLE.
+    Owner decision 2 (2026-10-01): timing-capped trades are BROAD_CONTEXT (or
+    TARGET_UNSUPPORTED on a hard failure) — never NATIVE_COMPARABLE.  A
+    season-final or post-trade capture does not prove the format in force
+    throughout the season.
     """
     if observation is None:
         return None
@@ -811,6 +865,141 @@ def format_timing_cap(observation: Mapping[str, Any] | None) -> str | None:
     return None
 
 
+#: Reason stamps (``dispositionReasons``).  Owner decision 2 names the
+#: timing-limited tokens; the hard-failure tokens name TARGET_UNSUPPORTED's
+#: causes.
+REASON_FORMAT_UNCONFIRMED_AT_TRADE = "format_unconfirmed_at_trade"
+REASON_ALL_OBSERVED_AXES_MATCH = "all_observed_axes_match_target"
+REASON_POST_TRADE_CAPTURE = "post_trade_capture"
+REASON_SEASON_FINAL_SETTINGS = "season_final_settings"
+REASON_FORMAT_AXES_DIFFER = "format_axes_differ"
+REASON_FORMAT_AXES_UNKNOWN = "format_axes_unknown"
+REASON_NO_VALIDATED_TRANSLATOR = "no_validated_translator"
+REASON_DYNASTY_UNVERIFIED = "dynasty_state_unverified"
+REASON_NOT_DYNASTY = "not_dynasty"  # suffixed ``:<state>`` (redraft / keeper)
+REASON_NO_OBSERVATION = "no_transaction_observation"
+REASON_TOPOLOGY_UNVERIFIABLE = "transaction_topology_unverifiable"
+REASON_UNUSABLE_IDENTITY = "unusable_transaction_identity"
+REASON_INVALID_TOPOLOGY = "invalid_topology"  # suffixed ``:<topology>``
+REASON_UNRESOLVED_ASSETS = "unresolved_assets"
+
+#: ``market_trade_groups.UNRESOLVED`` (not imported, to keep this owner free of
+#: the dedupe module; the literal is pinned equal by a test).
+_DEDUPE_UNRESOLVED = "UNRESOLVED"
+
+
+def dynasty_hard_failure(axes: Mapping[str, Mapping[str, Any]]) -> str | None:
+    """The dynasty-lane hard failure, or ``None`` when dynasty is VERIFIED on
+    both sides.  Unknown is not dynasty (fails closed); a verified redraft or
+    keeper league is ``not_dynasty:<state>``."""
+    ax = axes["dynastyState"]
+    if ax["state"] == MATCH:
+        return None
+    if ax["state"] == UNKNOWN:
+        return REASON_DYNASTY_UNVERIFIED
+    return f"{REASON_NOT_DYNASTY}:{ax.get('source') or 'unknown'}"
+
+
+def transaction_integrity_failures(observation: Mapping[str, Any] | None) -> list[str]:
+    """Hard identity / topology failures of the TRANSACTION (not its format).
+
+    BROAD_CONTEXT requires trustworthy identity and topology, so anything that
+    cannot be inspected fails closed: no observation, or one without ``sides``.
+    Topology comes from the canonical classifier
+    (``market_trade_eval.classify_topology``): an empty or one-sided trade is
+    invalid, and any non-FAAB asset without a canonical identity is an
+    analysis-blocking unresolved asset.  A group the dedupe could not anchor
+    to any resolved asset or host transaction (``dedupeState == UNRESOLVED``)
+    has unusable identity.  Multi-team trades are valid topology.
+    """
+    if observation is None:
+        return [REASON_NO_OBSERVATION]
+    sides = observation.get("sides")
+    if not isinstance(sides, list):
+        return [REASON_TOPOLOGY_UNVERIFIABLE]
+    from src.trade import market_trade_eval as ev  # noqa: PLC0415
+
+    failures: list[str] = []
+    if observation.get("dedupeState") == _DEDUPE_UNRESOLVED:
+        failures.append(REASON_UNUSABLE_IDENTITY)
+    topo = ev.classify_topology(observation)
+    if topo["topology"] in (ev.TOPO_EMPTY, ev.TOPO_ONE_SIDED):
+        failures.append(f"{REASON_INVALID_TOPOLOGY}:{topo['topology']}")
+    if "includes_unresolved" in topo["flags"]:
+        failures.append(REASON_UNRESOLVED_ASSETS)
+    return failures
+
+
+def _timing_reasons(cap: str, observation: Mapping[str, Any] | None) -> list[str]:
+    reasons = [cap, REASON_FORMAT_UNCONFIRMED_AT_TRADE]
+    if cap == TIMING_CAP_POST_TRADE:
+        reasons.append(REASON_POST_TRADE_CAPTURE)
+        ev = (observation or {}).get("formatEvidence")
+        if isinstance(ev, Mapping) and (
+            ev.get("seasonCompleteAtCapture") is True
+            or str(ev.get("leagueStatusAtCapture") or "").lower() == "complete"
+        ):
+            # A completed season's FINAL settings: the best available evidence
+            # for that season, not proof of the settings at trade time.
+            reasons.append(REASON_SEASON_FINAL_SETTINGS)
+    return reasons
+
+
+def _result(
+    disp: str,
+    axes: Mapping[str, Mapping[str, Any]],
+    authority: Mapping[str, Any],
+    timing_cap: str | None,
+    *,
+    strongest: str | None,
+    reasons: Sequence[str] = (),
+    broad_kind: str | None = None,
+    translation: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "disposition": disp,
+        "strongestUnsupportedAxis": strongest,
+        "comparability": axes,
+        "formatAuthority": authority,
+        "formatTimingCap": timing_cap,
+        "translation": translation,
+        "targetPriceAuthority": TARGET_PRICE_AUTHORITY[disp],
+        "broadContextKind": broad_kind,
+        "dispositionReasons": list(dict.fromkeys(reasons)),
+    }
+
+
+def broad_context_kind(
+    src: TradeMarketFormat, axes: Mapping[str, Mapping[str, Any]], timing_cap: str | None
+) -> str:
+    """Which BROAD_CONTEXT sub-kind a non-native, hard-failure-free trade is.
+
+    * any axis DIFFERENT -> ``format_mismatch`` (a timing cap, if any, is
+      stamped as an additional reason);
+    * else a timing cap on an OBSERVED format -> ``timing_limited`` (its
+      observed axes all match; unobserved axes, if any, are stamped
+      ``format_axes_unknown``);
+    * else -> ``format_unknown`` (no timing problem, or no format observed at
+      all, and at least one axis UNKNOWN).
+
+    One definition, shared with the census's descriptive partition.
+    """
+    if any(axes[n]["state"] == DIFFERENT for n in AXES):
+        return BROAD_FORMAT_MISMATCH
+    if timing_cap is not None and src.source != SOURCE_UNKNOWN:
+        return BROAD_TIMING_LIMITED
+    return BROAD_FORMAT_UNKNOWN
+
+
+def target_price_authority(result: Mapping[str, Any] | None) -> int:
+    """``1`` only for a disposition that may serve as target-price evidence;
+    anything else (BROAD_CONTEXT included, and a missing or unknown
+    disposition) is ``0``."""
+    if not isinstance(result, Mapping):
+        return 0
+    return TARGET_PRICE_AUTHORITY.get(str(result.get("disposition")), 0)
+
+
 def disposition(
     src: TradeMarketFormat,
     tgt: TradeMarketFormat,
@@ -818,67 +1007,86 @@ def disposition(
     observation: Mapping[str, Any] | None = None,
     registry: TranslatorRegistry | None = None,
 ) -> dict[str, Any]:
-    """Exactly one target-pricing disposition, with every axis attached.
+    """Exactly one of the four target-pricing dispositions, with every axis
+    attached (owner decision 2, 2026-10-01).
 
     Pass the ``observation`` (or group) the format belongs to: its
-    ``formatEvidence`` decides the timing cap (:func:`format_timing_cap`).  A
-    capped format is never NATIVE_COMPARABLE; the cap reason is published as
-    ``formatTimingCap`` and inside ``formatAuthority``.
+    ``formatEvidence`` decides the timing cap (:func:`format_timing_cap`) and
+    its ``sides`` / ``dedupeState`` the transaction-integrity checks.  Order:
+
+    1. NATIVE_COMPARABLE: every axis MATCH and no timing cap (unchanged rule;
+       integrity checks deliberately not applied here, by owner instruction).
+    2. TARGET_UNSUPPORTED: a dynasty-lane or transaction-integrity hard
+       failure.
+    3. VALIDATED_TRANSFORMABLE: an out-of-sample validated translator, never
+       for a timing-capped format (a post-trade capture cannot be transformed
+       into the format in force at the trade either).
+    4. BROAD_CONTEXT: everything else, ``targetPriceAuthority`` 0, with its
+       kind and reasons stamped.
     """
     reg = registry if registry is not None else DEFAULT_REGISTRY
     axes = compare_formats(src, tgt)
     authority = format_authority(axes)
     timing_cap = format_timing_cap(observation)
     authority["formatTimingCap"] = timing_cap
+    strongest = strongest_unsupported_axis(axes) or (FORMAT_TIMING_AXIS if timing_cap else None)
+    if timing_cap is None and not authority["differentAxes"] and not authority["unknownAxes"]:
+        return _result(NATIVE_COMPARABLE, axes, authority, None, strongest=None)
+
+    hard: list[str] = []
+    dyn = dynasty_hard_failure(axes)
+    if dyn is not None:
+        hard.append(dyn)
+    hard += transaction_integrity_failures(observation)
+    if hard:
+        return _result(
+            TARGET_UNSUPPORTED, axes, authority, timing_cap, strongest=strongest, reasons=hard
+        )
+
+    if timing_cap is None:
+        translator = reg.validated_for(src, tgt)
+        if translator is not None and observation is not None:
+            transformed = translator.transform(observation, src, tgt)
+            return _result(
+                VALIDATED_TRANSFORMABLE,
+                axes,
+                authority,
+                None,
+                strongest=strongest,
+                translation={
+                    "originalObservationId": observation.get("underlyingTradeId")
+                    or observation.get("observationId"),
+                    "sourceFingerprint": src.to_dict()["fingerprint"],
+                    "targetFingerprint": tgt.to_dict()["fingerprint"],
+                    "transformationVersion": translator.version,
+                    "adjustments": transformed.get("adjustments"),
+                    "transformed": transformed.get("transformed"),
+                    "uncertainty": transformed.get("uncertainty"),
+                    "validationEvidence": dict(translator.validation_evidence or {}),
+                },
+            )
+
+    kind = broad_context_kind(src, axes, timing_cap)
+    reasons: list[str] = []
+    if kind == BROAD_FORMAT_MISMATCH:
+        reasons += [REASON_FORMAT_AXES_DIFFER, REASON_NO_VALIDATED_TRANSLATOR]
     if timing_cap is not None:
-        # Timing is checked BEFORE any translator: a post-trade capture cannot
-        # be made comparable by transforming it either.
-        return {
-            "disposition": TARGET_UNSUPPORTED,
-            "strongestUnsupportedAxis": strongest_unsupported_axis(axes) or FORMAT_TIMING_AXIS,
-            "comparability": axes,
-            "formatAuthority": authority,
-            "formatTimingCap": timing_cap,
-            "translation": None,
-        }
-    if not authority["differentAxes"] and not authority["unknownAxes"]:
-        return {
-            "disposition": NATIVE_COMPARABLE,
-            "strongestUnsupportedAxis": None,
-            "comparability": axes,
-            "formatAuthority": authority,
-            "formatTimingCap": None,
-            "translation": None,
-        }
-    translator = reg.validated_for(src, tgt)
-    if translator is not None and observation is not None:
-        transformed = translator.transform(observation, src, tgt)
-        return {
-            "disposition": VALIDATED_TRANSFORMABLE,
-            "strongestUnsupportedAxis": strongest_unsupported_axis(axes),
-            "comparability": axes,
-            "formatAuthority": authority,
-            "formatTimingCap": None,
-            "translation": {
-                "originalObservationId": observation.get("underlyingTradeId")
-                or observation.get("observationId"),
-                "sourceFingerprint": src.to_dict()["fingerprint"],
-                "targetFingerprint": tgt.to_dict()["fingerprint"],
-                "transformationVersion": translator.version,
-                "adjustments": transformed.get("adjustments"),
-                "transformed": transformed.get("transformed"),
-                "uncertainty": transformed.get("uncertainty"),
-                "validationEvidence": dict(translator.validation_evidence or {}),
-            },
-        }
-    return {
-        "disposition": TARGET_UNSUPPORTED,
-        "strongestUnsupportedAxis": strongest_unsupported_axis(axes),
-        "comparability": axes,
-        "formatAuthority": authority,
-        "formatTimingCap": None,
-        "translation": None,
-    }
+        reasons += _timing_reasons(timing_cap, observation)
+    if authority["unknownAxes"]:
+        reasons.append(REASON_FORMAT_AXES_UNKNOWN)
+    if not authority["differentAxes"] and src.source != SOURCE_UNKNOWN:
+        # A format WAS observed and none of its observed axes differs.  Never
+        # stamped for a format nobody observed (only the dynasty claim known).
+        reasons.append(REASON_ALL_OBSERVED_AXES_MATCH)
+    return _result(
+        BROAD_CONTEXT,
+        axes,
+        authority,
+        timing_cap,
+        strongest=strongest,
+        reasons=reasons,
+        broad_kind=kind,
+    )
 
 
 def holdout_split(

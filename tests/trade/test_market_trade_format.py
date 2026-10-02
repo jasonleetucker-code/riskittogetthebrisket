@@ -24,6 +24,11 @@ def positions(offense, idp, bench=37):
 
 
 OFFENSE = ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "TE", "FLEX", "FLEX", "SUPER_FLEX", "K"]
+#: A minimal inspectable transaction: two sides, every asset resolved.
+SIDES_1_FOR_1 = [
+    [{"kind": "player", "canonicalId": "player:1", "position": "WR"}],
+    [{"kind": "player", "canonicalId": "player:2", "position": "RB"}],
+]
 IDP_333 = ["DL"] * 3 + ["LB"] * 3 + ["DB"] * 3
 
 
@@ -68,10 +73,14 @@ def test_validated_transformable_path_with_a_stub_translator_test_only():
             validation_evidence=evidence,
         )
     )
-    d = F.disposition(
-        src, TARGET, observation={"underlyingTradeId": "utrade:c", "sides": []}, registry=reg
-    )
+    obs = {"underlyingTradeId": "utrade:c", "sides": SIDES_1_FOR_1}
+    d = F.disposition(src, TARGET, observation=obs, registry=reg)
     assert d["disposition"] == F.VALIDATED_TRANSFORMABLE
+    assert d["targetPriceAuthority"] == 1
+    # A hard integrity failure blocks the translator too (empty topology).
+    bad = F.disposition(src, TARGET, observation={**obs, "sides": []}, registry=reg)
+    assert bad["disposition"] == F.TARGET_UNSUPPORTED
+    assert bad["dispositionReasons"] == ["invalid_topology:empty"]
     tr = d["translation"]
     assert tr["transformationVersion"] == "stub-v0"
     assert tr["originalObservationId"] == "utrade:c"
