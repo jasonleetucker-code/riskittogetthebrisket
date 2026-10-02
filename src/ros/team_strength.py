@@ -582,6 +582,27 @@ def _persisted_snapshot_is_fresh(league_key: str | None) -> bool:
     return age_hours <= _TEAM_STRENGTH_SNAPSHOT_MAX_AGE_HOURS
 
 
+def persisted_fast_path_rows(league_key: str | None = None) -> list[dict[str, Any]] | None:
+    """The persisted snapshot when ``load_or_compute_team_strength`` would answer
+    from it (fresh AND carrying ROS evidence), else ``None``.
+
+    The one statement of the fast-path rule, so a caller that must decide
+    whether a live compute will be needed (and so whether to fetch the NFL
+    player dump for it) asks the same question the read path does.  An all-zero
+    persisted file is a recorded FAILURE (see ``team_strength_has_evidence``),
+    not a fast-path answer: it is what the 2026-09-26 refresh wrote after
+    losing the NFL player dump.
+    """
+    persisted = load_team_strength_snapshot(league_key)
+    if (
+        persisted
+        and _persisted_snapshot_is_fresh(league_key)
+        and team_strength_has_evidence(persisted)
+    ):
+        return persisted
+    return None
+
+
 def load_or_compute_team_strength(
     league_key: str | None = None,
     *,
@@ -604,15 +625,8 @@ def load_or_compute_team_strength(
     concept this module owns.  Never raises; returns ``[]`` only when
     every tier is genuinely unable to answer.
     """
-    persisted = load_team_strength_snapshot(league_key)
-    # An all-zero persisted file is a recorded FAILURE (see
-    # ``team_strength_has_evidence``), not a fast-path answer: it is what
-    # the 2026-09-26 refresh wrote after losing the NFL player dump.
-    if (
-        persisted
-        and _persisted_snapshot_is_fresh(league_key)
-        and team_strength_has_evidence(persisted)
-    ):
+    persisted = persisted_fast_path_rows(league_key)
+    if persisted is not None:
         return persisted
 
     if snapshot is not None:
@@ -696,6 +710,11 @@ def _team_strength_path(league_key: str | None = None) -> Path:
         pass
     safe = "".join(c for c in resolved if c.isalnum() or c in {"_", "-"})
     return base / f"{safe or 'latest'}.json"
+
+
+#: Public name for the snapshot path resolver, for read-only provenance (the
+#: AL-P4 capture stamps the file's age). The private name stays for callers.
+team_strength_snapshot_path = _team_strength_path
 
 
 def write_team_strength_snapshot(

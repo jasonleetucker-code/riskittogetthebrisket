@@ -961,6 +961,10 @@ main() {
   # board and candidate C in memory, appends both answers to gitignored
   # data/sparse_evidence_shadow/. Never serves or promotes. No creds.
   install_simple_timer "sparse-evidence-shadow" "sparse-evidence estimator shadow ledger (incumbent vs candidate C)"
+  # AL-P4: weekly point-in-time pick-forecast / team-strength snapshot ->
+  # gitignored data/pick_forecast_snapshots/ (NOT data/ros/, which the refresh
+  # force-adds). Capture only; reads canonical owners, serves nothing. No creds.
+  install_simple_timer "pick-forecast-snapshot" "weekly pick-forecast / team-strength snapshot (capture only)"
 
   # ── daemon-reload and enable ────────────────────────────────────────────
   # ce_needs_install was missing from this list. Every other timer's

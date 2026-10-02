@@ -130,19 +130,23 @@ def test_the_recorder_never_writes_a_served_field(recorded):
 
 
 def test_the_module_has_no_write_path_but_the_ledger_append():
-    """Structural: the only file-writing call in the module is in ``append_record``."""
-    tree = ast.parse(inspect.getsource(shadow))
+    """Structural: the only file-writing call -- in this module and in the shared
+    append-only owner it delegates to -- is in ``append_record``."""
+    from src.utils import append_ledger  # noqa: PLC0415
+
     writers = {"write_text", "write_bytes", "replace", "rename", "unlink", "dump"}
-    for fn in ast.walk(tree):
-        if not isinstance(fn, ast.FunctionDef):
-            continue
-        for node in ast.walk(fn):
-            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
-                if node.func.attr in writers:
-                    raise AssertionError(f"{fn.name} calls {node.func.attr}")
-                if node.func.attr == "open" and fn.name != "append_record":
-                    mode = node.args[0] if node.args else None
-                    assert isinstance(mode, ast.Constant) and mode.value in ("r", "rb"), fn.name
+    for module in (shadow, append_ledger):
+        tree = ast.parse(inspect.getsource(module))
+        for fn in ast.walk(tree):
+            if not isinstance(fn, ast.FunctionDef):
+                continue
+            for node in ast.walk(fn):
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                    if node.func.attr in writers:
+                        raise AssertionError(f"{fn.name} calls {node.func.attr}")
+                    if node.func.attr == "open" and fn.name != "append_record":
+                        mode = node.args[0] if node.args else None
+                        assert isinstance(mode, ast.Constant) and mode.value in ("r", "rb"), fn.name
     source = inspect.getsource(shadow)
     assert "latest_contract_data" not in source
     assert "set_enabled" not in source and "_DEFAULTS" not in source
@@ -186,6 +190,10 @@ def test_idempotency_reads_the_index_not_the_ledger(tmp_path, monkeypatch):
     def _no_full_scan(*_a, **_k):
         raise AssertionError("re-parsed the whole ledger")
 
+    from src.utils import append_ledger  # noqa: PLC0415
+
+    # The scan, if any, happens inside the shared owner shadow delegates to.
+    monkeypatch.setattr(append_ledger, "iter_records", _no_full_scan)
     monkeypatch.setattr(shadow, "iter_records", _no_full_scan)
     assert not shadow.append_record(tmp_path, _rec("a"))
     assert shadow.append_record(tmp_path, _rec("c"))
