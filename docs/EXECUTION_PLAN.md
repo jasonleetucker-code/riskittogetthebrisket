@@ -275,7 +275,7 @@ Hill champion; the current outlier filter; the current 0.30 sparse retention.
 | AL-1a | prospective receipts for sparse-evidence shadow, robust-filter shadow, source-quality evaluator, Hill refits, translator and latent-price experiments; then projection-family evaluation, then Game Day calibration | AL-0 | every producer round-trips into receipts; nothing promotes |
 | AL-1b–d | base-authority challenger; utility-decay challenger; cohort reliability | AL-1a | per plan §24; promotion only via Batch 3 §N |
 | AL-2 ops | first production capture; **BOOTSTRAP / INITIAL COVERAGE** census; per-capture cumulative unique trade ids, window overlap, turnover, gap flags; **ACCUMULATED COVERAGE — POST WINDOW TURNOVER** census (identical code) after ≥ 1 complete gap-free window turnover | AL-P1 | no translator fit from the bootstrap census; collector age never reported as market sparsity; IDP inventory in every accumulated census |
-| AL-2a′ | BROAD_CONTEXT disposition, own PR, owner's four definitions verbatim (plan §35 T1) | bootstrap census | regression: the former #1595 verified-dynasty-candidate population maps to BROAD_CONTEXT unless another hard failure applies; `targetPriceAuthority = 0`; no canonical value change |
+| AL-2a′ | BROAD_CONTEXT disposition, own PR, owner's four definitions verbatim (plan §35 T1), refined by owner decision 2 into timing-limited / format-mismatch sub-kinds (plan §35 T8; unit MD-2 below) | bootstrap census | regression: the former #1595 verified-dynasty-candidate population maps to BROAD_CONTEXT unless another hard failure applies; `targetPriceAuthority = 0`; no canonical value change |
 | AL-2b0 | translator readiness table per axis (1QB↔SF, 1TE↔2TE, TE scoring edge, team count, roster depth, total IDP starter depth, DL/LB/DB structure, selected IDP scoring families) | accumulated census | each axis READY_FOR_PREREGISTERED_TEST / PROMISING_BUT_CONFOUNDED / INSUFFICIENT_SAMPLE / NOT_IDENTIFIABLE from counts, never a subjective score |
 | AL-2b | **at most one** preregistered shadow translator, only on an identifiable axis | AL-2b0 | A exclude / B naive / C candidate scored on real held-out target-like trades, never against current Calculator values; BDVM ratio only as a tested structural prior |
 | AL-2c | shadow latent transaction-price model | AL-2b | shadow only; native dominates translated |
@@ -289,12 +289,35 @@ translator; (10) AL-0 merge after round-two review — gated ONLY by that review
 census/translator steps above (the list is not a dependency chain for AL-0); (11) AL-1a in the order above. AL-P2…AL-P8 run in parallel
 where files do not collide. D2 (#1598) stays evidence only — no promotion of c3, repaired constants, H1–H3 or DLF
 native spacing from OTC alone; if OTC proves not ancestry-safe (#1599), mark #1598's external-validity
-limitation without rewriting it and stop treating OTC as a sole promotion target. #1594 merged on green
+limitation without rewriting it and stop treating OTC as a sole promotion target. *#1599 found OTC not
+ancestry-safe; owner decision 3 keeps that exclusion and keeps #1599's thresholds descriptive (section
+"Owner methodology decisions — follow-through" below).* #1594 merged on green
 Linux CI drift tests, before its drift-reinstall invariant was observed on the box — a deviation from
 the owner instruction; the invariant is verified on the box at the next deploy.
 
 **Completion standard (directive §30):** Wave 1 is complete only when the SOURCE, TRADE, PROJECTION and MODEL
 GOVERNANCE loops each run end to end in code on real data (plan §34). A planning record is not completion.
+
+Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
+
+## Owner methodology decisions — follow-through (2026-10-01)
+
+The owner's three final methodology decisions (intake: `docs/OWNER_REQUESTED_TODO.md`, "Owner methodology
+decisions — final"; plan: `docs/research/ADAPTIVE_LEARNING_2026-09-26.md` §35 T8–T10 and §35.1). This section
+**extends** the two Adaptive Learning sections above and relaxes no gate.
+
+**No promotion authority is created here.** Decision 1 *narrows* an existing automatic-promotion path; it grants
+none. Learned numerical methodology changes still require the P6 / model-registry acceptance process, and no
+canonical player value changes merely from recording these decisions.
+
+| unit | scope | branch | acceptance |
+|---|---|---|---|
+| **MD-1** Hill independent-target gate (decision 1; follow-through 1–2) | Hill Autopilot promotes OFFENSE automatically only when at least one preregistered, genuinely independent validation target is eligible; otherwise `AUTO_PROMOTION_BLOCKED: no_independent_validation_target`. Board gates stay (necessary, not sufficient); fitting, evaluation, persistence counting and shadow runs continue | `claude/hill-autopilot-independent-gate` | focused tests: blocked with no target; board gates unchanged and still required; challenger evidence still accumulates; no fake target; no Hill constant or served value moves |
+| **MD-2** BROAD_CONTEXT sub-kinds (decision 2; follow-through 3–4) = AL-2a′ refined | strict NATIVE bracket kept; BROAD_CONTEXT timing-limited (reason stamps, e.g. `season_final_settings`, `post_trade_capture`, `format_unconfirmed_at_trade`, `all_observed_axes_match_target`) and format-mismatch sub-kinds; TARGET_UNSUPPORTED narrowed to hard failures | `claude/broad-context-disposition` | AL-2a′ acceptance (below) plus: season-final / post-trade matching dynasty trades land in BROAD_CONTEXT timing-limited, never NATIVE; `targetPriceAuthority = 0`; no canonical value change |
+| **MD-3** prospective lineage policy (decision 3; follow-through 5–6) | `lineage-policy/v1` preregistered (`docs/sources/lineage_policy/LINEAGE_DEPENDENCE_POLICY_v1_PREREGISTRATION.md`, own commit `94e16c4f1a986ecc3045d1b4702ce6efe0d8cc05`, normative block hash-pinned by test); #1599 artifacts immutable | `claude/owner-methodology-decisions-2026-10-01` | DONE as a policy record. Its instrument extensions and category vocabulary are a separate reviewed unit (not started), and each future dependence experiment commits its own run preregistration first |
+
+Standing: OTC stays excluded as a KTC-family holdout (#1599, +0.45 / 21 of 21); #1598 (D2) keeps its
+external-validity limitation without being rewritten; #1599's thresholds are descriptive history only.
 
 Agent-OS-Receipt: cdca1dca8385f70c0989302dece8d1bd4ce4843c
 

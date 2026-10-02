@@ -466,7 +466,7 @@ first is **trade values the owner can trust**.
 | AL-0 | shared learning receipt + evaluation receipt + versioned feature dictionary | `src/history/` + `src/model_registry/` | Wave 1 (item 5) | AUTHORIZED — #1597 open, round-two review gates its merge |
 | AL-0b | Model Lab backend contract (internal, read-only; no UI) | `src/model_registry/` over AL-0 receipts | Wave 1 (item 5) | AUTHORIZED after AL-0 |
 | AL-1a–d | Valuation Trust / source learning | Batch 3 (`F-SRC-01`, `C6-FRESH-01`) | Wave 1 (item 1, highest) | AUTHORIZED — Batch 3 B/C/E/F/G merged; AL-1a after AL-0 |
-| AL-2 ops · AL-2a · AL-2a′ · AL-2a″ | completed-trade ledger in production; censuses; BROAD_CONTEXT disposition; IDP inventory | `C4-MTL-01/02`, `C1-ACQ-01`, `src/sharp/` | Wave 1 (item 2) | AL-2a DONE (#1595); production capture NOT RUNNING (box at `ed48d54ab`); rest AUTHORIZED in campaign order |
+| AL-2 ops · AL-2a · AL-2a′ · AL-2a″ | completed-trade ledger in production; censuses; BROAD_CONTEXT disposition (timing-limited / format-mismatch sub-kinds, owner decision 2 — plan §35 T8); IDP inventory | `C4-MTL-01/02`, `C1-ACQ-01`, `src/sharp/` | Wave 1 (item 2) | AL-2a DONE (#1595); production capture NOT RUNNING (box at `ed48d54ab`); AL-2a′ in progress (`claude/broad-context-disposition`); rest AUTHORIZED in campaign order |
 | AL-2b0 · AL-2b · AL-2c | translator readiness table; ≤ 1 preregistered shadow translator; latent price (shadow) | `C4-MTL-03` | Wave 1 (item 3) | AUTHORIZED after the accumulated census |
 | AL-P1…AL-P8 | perishable capture gaps (§13.4) | each stream's owner | Wave 1 (item 4) | AUTHORIZED — ranked; none implemented yet |
 | AL-3a · AL-3b | projection archive completeness + `data/bdvm/` backup; scorecard vs equal-family champion | `C5-BDVM-01`, `C5-ROS-01`, `C5-GD-02` | Wave 1 (item 6) | AUTHORIZED |
@@ -476,6 +476,12 @@ first is **trade values the owner can trust**.
 | AL-6 · AL-7 | future-pick distribution + empirical discount; Power predictive components (descriptive contract untouched) | `C1-PICK-03`; `C5-POW-01` | Wave 2 (11, 12) | AUTHORIZED when dependency-ready |
 | AL-8 … AL-13 | FAAB clearing price; rookie auction; Sharp Score validation; Manager Scout; roster utility distributions; trade recommendation evaluation | `C4-FAAB-01/02`; `C7-DRAFT-02/03`; `C4-SHARP-01`; `C6-MGR-01`; `C2-STR-01`/`C2-REPL-01`; `C7-DESK-01` | Wave 3 | AUTHORIZED when dependency-ready |
 | AL-14 … AL-19 | player development; analyst reliability; DFS → `docs/dfs/ROADMAP.md` Phase H (no new system); alerts (actionability, never clicks); adaptive acquisition; personalized models | `C6-UPP-01`; `C6-ANA-01`; `src/dfs/`; `C7-ALERT-01`; freshness owners; — | Wave 4 | AUTHORIZED when dependency-ready |
+
+Owner methodology decisions, 2026-10-01 (plan §35 T8–T10, §35.1; `EXECUTION_PLAN.md` §0 units MD-1…MD-3): Hill
+Autopilot needs a preregistered independent validation target for automatic OFFENSE promotion (otherwise
+`AUTO_PROMOTION_BLOCKED: no_independent_validation_target`); strict NATIVE timing plus BROAD_CONTEXT sub-kinds;
+#1599's lineage thresholds are descriptive history, and the next dependence classification runs under the
+preregistered `lineage-policy/v1` (`docs/sources/lineage_policy/`).
 
 Authorization covers implementation, shadow challengers and capture — never promotion of an unvalidated model,
 autonomous trades / waivers / DFS entries, hidden recommendation changes, or new paid data. Completion standard:
