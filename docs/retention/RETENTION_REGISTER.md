@@ -712,3 +712,114 @@ owner of `deploy/backup/`; no AL-3a claim was active when this line landed.
 containing `receipts.sqlite.gz`, because no production writer exists yet. The row
 is pinned in the script by `tests/deploy/test_state_backup_dir_archiving.py` — a
 repository fact, not production evidence.
+
+## Addendum — AL-P2: every irreplaceable evidence store joined the backup set; the nightly root copy now refreshes on deploy, 2026-10-01
+
+**Not a C1A row**, like the two addenda above. Owner unit: Adaptive Learning
+AL-P2 (`docs/EXECUTION_PLAN.md` §0, Wave 1 item 4; perishable audit
+`docs/BRISKET_IDEAS.md` §13.4 rank 2, gap G7). Serial owner of `deploy/backup/`
+for this change (the AL-3a backup half).
+
+### 1. The stale nightly (measured read-only on production, 2026-10-02 ≈03:00 UTC)
+
+`riskit-state-backup.service` executes `/usr/local/lib/riskit/riskit-state-backup.sh`
+(root:root, dated **2026-08-16**, 600 lines). The checkout at the box's deployed
+commit `b46eabe5f` carries 647 lines; `cmp` differs at line 27. `backup_root_lib.sh`
+matched. The last nightly (02:30 UTC 2026-10-02) reported `Result=success` — a
+**successful run of the wrong writer**: it omits `retention/acquisition.sqlite`,
+`auction/auction.sqlite`, `game_day/` and `learning/receipts.sqlite`. Those were
+covered only by the deploy user's post-deploy proof generation under
+`/home/dynasty/backups/riskit-state/daily/` (≈227 MB each, 5 most recent
+2026-09-28…10-02).
+
+Cause: the root copy was refreshed only by `deploy/apply_hardening.sh` /
+`deploy/backup/install_state_backup.sh` (`c1a-install-state-backup.yml`), never
+by a deploy. **Fix:** `deploy/install-systemd-service.sh::refresh_state_backup_line`
+— which every deploy runs — sources `install_state_backup.sh` (the one owner of
+the file list, order, modes and service render) and calls its functions. Writes
+happen only on content drift (unprivileged `cmp`, then `sudo -n install`; the
+same allowlist #1594 established), daemon-reload + enable only when something
+changed, and a post-install `cmp` proves the root copy equals the checkout. A
+failed refresh is an ERROR in the deploy log and does not fail the deploy (the
+previous root copy keeps producing generations). Privilege model unchanged: the
+deploy account already held NOPASSWD `install` and already ran this installer.
+
+**Evidence status: NOT YET MEASURED on production.** The refresh takes effect on
+the first deploy after merge; the proof is a `cmp` of the root copy against the
+checkout plus a nightly generation that contains the AL-P2 artifacts — the
+nightly root under `/var/backups/riskit-state` is not readable by the deploy
+account, so that half needs an operator (`sudo ls`) or the log.
+
+### 2. Store table
+
+Bk = how `riskit-state-backup.sh` captures it. Every new line is guarded
+(absent → `skip (absent)`), never in `BACKUP_REQUIRED`, and every live SQLite
+store goes through the online-backup helper.
+
+| Store (verified path in code) | Writer | Retention | Backup | Rebuildable? |
+|---|---|---|---|---|
+| `data/market_trades/archive.sqlite` (`src/trade/market_trade_archive.py`) | `scripts/fetch_ktc_trades.py`, `dynasty-ktc-trades` | indefinite, append-only (abort triggers) | `sqlite/market_trades_archive.sqlite.gz` | **No** — KTC serves a ~200-row rolling window. PRIVATE |
+| `data/market_trades/underlying_trades.sqlite` (`src/trade/market_trade_report.py`) | `build_ledger`, `dynasty-market-trade-ledger` | replaced wholesale each build | **not backed up** | **Yes** — a pure derivation rebuilt (temp + atomic rename) from the raw archive + the intel ledger + the own-league stores, all backed up; re-run `scripts/market_trade_ledger.py` (the `dynasty-market-trade-ledger` timer does it) |
+| `data/market_trades/reports/` | same build | dated JSON | `dirs/market_trades_reports.tar.gz` | Partly — counts are re-derivable, but a dated report records what the archive held THAT day; cheap (KB), so kept |
+| `data/consensus_edge.sqlite` (`src/consensus_edge/snapshot.py`) | `dynasty-consensus-edge-snapshot` daily | indefinite | `sqlite/consensus_edge.sqlite.gz` | **No** — a daily label is what the model said that day |
+| `data/source_archive/boards.sqlite` (`src/source_archive/store.py`) | KTC format variants, #1603 | indefinite, append-only | `sqlite/source_archive_boards.sqlite.gz` | **No** — KTC publishes current values only |
+| `data/leagues/own_league_format_captures.sqlite` (`src/trade/own_league_format_capture.py` → `league_registry.scoring_snapshot_dir()`) | transaction-crawl timer, third pass, #1607 | indefinite | `sqlite/own_league_format_captures.sqlite.gz` | **No** — dated captures + "unchanged since" re-observations; a later fetch cannot say what a season looked like on an earlier date |
+| Sharp league-format captures (`sharp_league_format_captures` / `_observations`, inside `data/intel/ledger.sqlite3`) | discovery / roster crawl / catch-up | pruned with the intel ledger | `sqlite/intel_ledger.sqlite3.gz` — **now ONLINE**; `dirs/intel.tar.gz` keeps the rest of `data/intel/` and excludes `ledger.sqlite3{,-wal,-shm}` | No (dated observations). Previously only inside a tar of a live WAL database — a torn copy whenever the crawler wrote mid-read |
+| `data/temporal_ledger.sqlite` (`src/history/store.py`) | live recorder at every fresh scrape + backfill/migrations | indefinite | `sqlite/temporal_ledger.sqlite.gz` | **No, not in full** — see §3 |
+| `data/dfs/workspace.sqlite` (`src/dfs/store.py`) | `dynasty-dfs-auto-refresh` | no DELETE | `sqlite/dfs_workspace.sqlite.gz` | **No** — immutable slate snapshots. `data/dfs/raw/` is the overwritten latest provider pull (re-fetchable; its content is snapshotted in the workspace) and is not backed up |
+| `data/bdvm/` (projections, events, context, valuations) | `dynasty-bdvm-refresh` + news events | immutable dated snapshots | `dirs/bdvm.tar.gz` | **No** — vendors (Mike Clay, IDP Show) publish the current edition only; events carry human edits |
+| `data/forecast_archive/` (`src/ros/forecast_archive.py`, #1602) | refresh + post-deploy join | append-only monthly JSONL | `dirs/forecast_archive.tar.gz` | **No** — forecast as produced with its model identity |
+| `data/pick_forecast_snapshots/` (`src/ros/pick_forecast_snapshot.py`, #1604) | `dynasty-pick-forecast-snapshot` | append-only monthly JSONL | `dirs/pick_forecast_snapshots.tar.gz` | **No** — the team-strength state of a week |
+| `data/learning/receipts.sqlite` (AL-0, #1597) | AL units | indefinite | `sqlite/receipts.sqlite.gz` (already present — addendum above) | see above |
+| `data/sparse_evidence_shadow/`, `data/robust_filter_shadow/` | shadow timers | append-only monthly JSONL | `dirs/<name>.tar.gz` | No — what each shadow run saw on its inputs that day; tiny |
+
+`backup_sqlite` gained an optional output label (the second argument, like
+`backup_dir`'s) because basenames are not unique: `archive.sqlite` and
+`boards.sqlite` would otherwise be ambiguous on restore, and two stores with one
+basename would overwrite each other inside one generation. A test now fails on
+any duplicate artifact name.
+
+### 3. The temporal ledger: INCLUDED, and why
+
+§11 of `docs/history/C1_U4_TEMPORAL_LEDGER.md` declared the ledger rebuildable
+from git-tracked `exports/archive/` + `board_history.sqlite` +
+`rank_history.jsonl`. Measured on the production ledger 2026-10-02 (read-only):
+
+| origin | lane | rows | dates |
+|---|---|---|---|
+| `backfill:archive` | scraper_blend / source_value | 638,434 / 559,760 | 2026-07-14 … 09-30 |
+| `migration:board_history` | canonical_board | 53,766 | 08-06 … 10-01 |
+| `migration:rank_history` | canonical_board | 56,489 | 07-20 … 10-02 |
+| **`live:server`** | canonical_board | **756,995** | 08-16 … 10-02 |
+| **`live:server`** | source_value | **1,245,049** | 08-16 … 10-02 |
+
+The rebuild restores the first three origins (daily fidelity). The ~2.0 M
+`live:server` rows are 2-hourly instants — including slot-pick values the
+rank-gated `rank_history` log drops and source-value rows between daily archive
+zips — and exist nowhere else. They are not "origin labels, which is cosmetic":
+they are the intraday observations. So the ledger is primary evidence and is
+backed up. Size: 1.50 GB raw, **220 MB gzipped** (gzip -6 of the live file, 38 s,
+niced). An online backup is required (WAL). Rotation is the script's existing
+14-day `KEEP_DAILY`; no separate rotation was added because the generation-level
+keep window already bounds it.
+
+### 4. Disk impact (measured 2026-10-02)
+
+Gzipped sizes of the new artifacts: temporal ledger 220 MB, DFS workspace
+11.4 MB, Consensus Edge 7.6 MB, bdvm 1.6 MB, KTC archive 0.1 MB, the rest
+< 2 MB combined. The intel ledger (158 MB gz) was already inside `intel.tar.gz`
+and moves to its own artifact — net ≈ 0. Per generation: ≈227 MB → **≈470 MB
+(+≈241 MB)**. Two lineages keep 14 generations each (root nightly
+`/var/backups/riskit-state`, deploy-user post-deploy proof
+`/home/dynasty/backups/riskit-state`), both on `/dev/sda1` (96 G, **60 G free**):
+≈ +6.7 GB, ≈13 GB total at steady state, reached over 14 days. Transient: one
+uncompressed copy at a time in the staging dir (peak ≈1.5 GB, the temporal
+ledger). Runtime: ≈ +1–2 min per run (online copy + `integrity_check` + gzip of
+≈2.2 GB), inside the proof workflow's 20-minute timeout — estimate, not yet
+measured end to end.
+
+**Evidence status: NONE MEASURED for the new artifacts.** No generation has yet
+been observed containing them; the rows are pinned by
+`tests/deploy/test_state_backup_dir_archiving.py` (a repository fact). The
+restore proof (`deploy/diagnostics/retention_backup_restore_proof.sh`) does not
+yet restore-and-verify the AL-P2 artifacts — recorded follow-up.
