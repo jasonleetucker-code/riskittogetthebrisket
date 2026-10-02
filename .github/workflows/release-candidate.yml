@@ -47,7 +47,9 @@ jobs:
   candidate:
     name: Validate Release Candidate
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # 60 -> 80 (2026-10-02), matching PR Validation (#1605) and Deploy: the
+    # full suite now routinely takes 58-60 min. Runner headroom only.
+    timeout-minutes: 80
     steps:
       - name: Checkout (full history — the check diffs base against head)
         uses: actions/checkout@v7

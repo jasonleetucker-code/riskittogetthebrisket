@@ -1,0 +1,35 @@
+[Unit]
+Description=DFS automatic slate refresh tick (__SERVICE_NAME__)
+After=network-online.target
+Wants=network-online.target
+
+# DFS-AUTO (owner requirement 2026-09-30: the primary DFS workflow needs ZERO
+# manual CSV imports).  One bounded tick of scripts/refresh_dfs_auto_slates.py
+# (owner: src/dfs/auto/refresh.py):
+#
+#   * nflverse schedule (cached owner), the owner-authorised Daily Fantasy Fuel
+#     DraftKings + FanDuel pool pages (15-minute page cache), Sleeper weekly
+#     projections rescored per platform, the on-disk Sleeper directory;
+#   * a new immutable slate snapshot ONLY when the content changed, stored under
+#     the system:auto namespace in data/dfs/ (gitignored) and recorded in the
+#     DFS point-in-time ledger.
+#
+# Exit codes: 0 refreshed, 1 a source failed (last good slates are kept and
+# labelled SOURCE_ERROR), 2 nothing due.
+
+[Service]
+Type=oneshot
+# The timer fires every 10 minutes and the tick decides whether anything is
+# due (2 h / 30 min / 10 min by time to lock), so most firings exit 2.
+SuccessExitStatus=2
+User=__APP_USER__
+Group=__APP_USER__
+WorkingDirectory=__APP_DIR__
+EnvironmentFile=-__APP_DIR__/.env
+ExecStart=__VENV_DIR__/bin/python __APP_DIR__/scripts/refresh_dfs_auto_slates.py
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target

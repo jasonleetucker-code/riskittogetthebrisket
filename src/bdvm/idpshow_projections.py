@@ -95,9 +95,15 @@ _HEADER_ALIASES: dict[str, str] = {
     "passes defended": "def_pass_defended",
     "ff": "def_fumbles_forced",
     "forced fumbles": "def_fumbles_forced",
-    "fr": "fumble_recovery_own",
-    "fum rec": "fumble_recovery_own",
-    "fumble recoveries": "fumble_recovery_own",
+    # The OPPONENT-recovery column the realized engine scores
+    # ``idp_fum_rec`` from (2026-10-01: this mapped to ``fumble_recovery_own``
+    # — a defender recovering his own team's fumble, which the host does not
+    # pay — so every projected recovery scored zero).  A projected FR is a
+    # defensive takeaway; projections carry no play-by-play supplement, so
+    # nothing is subtracted from it.
+    "fr": "fumble_recovery_opp",
+    "fum rec": "fumble_recovery_opp",
+    "fumble recoveries": "fumble_recovery_opp",
     "td": "def_tds",
     "tds": "def_tds",
     "def td": "def_tds",
@@ -129,7 +135,7 @@ _STAT_FIELDS = {
     "def_interceptions",
     "def_pass_defended",
     "def_fumbles_forced",
-    "fumble_recovery_own",
+    "fumble_recovery_opp",
     "def_tds",
     "def_safety",
 }

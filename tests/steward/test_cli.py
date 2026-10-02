@@ -36,6 +36,34 @@ def test_brief_save_compiles_retrievable_knowledge_and_retains_partial(tmp_path,
     state.close()
 
 
+def test_brief_save_records_only_supplied_producer_fields(tmp_path, capsys):
+    from src.steward.store import producer_attribution
+
+    path = tmp_path / "state.db"
+    base = ["--repo", str(ROOT), "--state", str(path), "brief", "--save"]
+    assert main(base) == 0
+    assert main(base + ["--producer-session-id", "s-2", "--producer-provider", "anthropic"]) == 0
+    capsys.readouterr()
+    state = StewardStore(path)
+    rows = [json.loads(r[0]) for r in state.connection.execute("SELECT payload FROM evidence")]
+    assert sorted(producer_attribution(r)["status"] for r in rows) == [
+        "attributed",
+        "unattributed",
+    ]
+    attributed = next(r for r in rows if "producer" in r)
+    assert attributed["producer"] == {"session_id": "s-2", "provider": "anthropic"}
+    before = state.read("campaign")
+    state.close()
+    with pytest.raises(ValueError, match="producer"):
+        main(base + ["--producer-model", ""])
+    with pytest.raises(SystemExit):
+        main(["--repo", str(ROOT), "--state", str(path), "brief", "--producer-model", "m"])
+    state = StewardStore(path)
+    assert state.read("campaign") == before
+    assert state.connection.execute("SELECT COUNT(*) FROM evidence").fetchone()[0] == 2
+    state.close()
+
+
 def test_launch_checkpoint_cannot_skip_literal_rows(tmp_path, monkeypatch):
     import src.steward.__main__ as cli
 

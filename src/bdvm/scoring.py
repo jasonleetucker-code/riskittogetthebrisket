@@ -53,6 +53,19 @@ def score_stat_line_per_game(
     position: str,
     impute_first_downs: bool = False,
 ) -> float:
+    """Fantasy points only; see :func:`score_stat_line_per_game_detailed`."""
+    return score_stat_line_per_game_detailed(
+        stat_line, scoring_settings, position=position, impute_first_downs=impute_first_downs
+    )[0]
+
+
+def score_stat_line_per_game_detailed(
+    stat_line: Mapping[str, Any],
+    scoring_settings: Mapping[str, Any],
+    *,
+    position: str,
+    impute_first_downs: bool = False,
+) -> tuple[float, tuple[str, ...]]:
     """Fantasy points for one per-game projected stat line.
 
     ``position`` gates position-conditional rules (TE reception bonus,
@@ -74,8 +87,20 @@ def score_stat_line_per_game(
     row.setdefault("week", 0)
     result = compute_weekly_points(row, dict(scoring_settings), position=position)
     if result is None:  # only when stat_line is empty/falsy
-        return 0.0
-    return float(result.fantasy_points)
+        return 0.0, ()
+    # ``unscored``: configured NONZERO card rules whose stat the line could not
+    # supply (reception-distance bonuses, special-teams tackles, pick-sixes
+    # thrown...).  The points are then a PARTIAL TOTAL, not a lower bound:
+    # these rules are unscored and their omitted contribution may be positive
+    # or negative (``pass_int_td`` is a penalty).  The keys travel with the
+    # total instead of silently scoring zero.
+    #
+    # Scope: this reports only the play-by-play-only rules realized_points
+    # tracks.  A rule whose stat column the SOURCE never publishes (e.g. Clay
+    # has no fumbles column, so ``fum_lost`` scores nothing) is added per
+    # record by ``src.bdvm.source_vocabulary.record_coverage`` — the consensus
+    # ``unscored_keys`` and the service payload carry both.
+    return float(result.fantasy_points), tuple(sorted({k for k, _r in result.unscored}))
 
 
 def season_line_to_per_game(stat_line: Mapping[str, Any], games: float) -> dict[str, float]:

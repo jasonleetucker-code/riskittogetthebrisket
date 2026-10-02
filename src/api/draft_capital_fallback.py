@@ -349,7 +349,7 @@ def build_sleeper_derived(
 
     unpriced = [p for p in picks if p.raw_value is None]
 
-    return {
+    result = {
         "season": current_season,
         "numTeams": actual_num_teams,
         "draftRounds": draft_rounds,
@@ -398,6 +398,13 @@ def build_sleeper_derived(
             _serialize_pick(p, i, current_season, rookies or []) for i, p in enumerate(picks)
         ],
     }
+    # Per-season views for the /league year selector: a season's capital is
+    # the sum of the SAME normalized per-pick dollars that make up
+    # ``teamTotals`` (one $1200 pool across every priced pick — never
+    # re-spread per season), so the seasons add back up to each total.
+    from src.api.draft_capital_years import attach_year_views  # noqa: PLC0415
+
+    return attach_year_views(result)
 
 
 def _serialize_pick(

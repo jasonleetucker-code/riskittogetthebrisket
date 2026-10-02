@@ -74,6 +74,7 @@ import {
 import { classifyPos } from "@/lib/dynasty-data";
 import { useBdvmEndpoint } from "@/components/useBdvm";
 import {
+  BDVM_PICK_MID_OUTCOME_INFO,
   buildBdvmIndex,
   buildBdvmPickRows,
   bdvmEntryForRow,
@@ -1125,6 +1126,67 @@ function QuickRecordRow({
         </div>
       </td>
     </tr>
+  );
+}
+
+/**
+ * The "Fundamental pick values (BDVM)" table.  Display-only: every number
+ * is a backend BDVM value (buildBdvmPickRows only reshapes).  Exported for
+ * tests, same pattern as RookieBoard.
+ */
+export function BdvmPickValuesTable({ rows }) {
+  return (
+    <div className="draft-table-wrap">
+      <table className="draft-table">
+        <thead>
+          <tr>
+            <th style={{ textAlign: "left" }}>Pick</th>
+            <th style={{ width: 90, textAlign: "right" }}>EV</th>
+            <th
+              style={{ width: 80, textAlign: "right" }}
+              title="Probability the pick returns a startable player"
+            >
+              Hit %
+            </th>
+            {/* API field `median` is the prior table's "mid"
+                outcome bucket, not a distribution median. */}
+            <th style={{ width: 90, textAlign: "right" }}>
+              Mid outcome
+              <InfoTip label="Mid outcome">
+                {BDVM_PICK_MID_OUTCOME_INFO}
+              </InfoTip>
+            </th>
+            <th style={{ width: 90, textAlign: "right" }}>Ceiling</th>
+            <th style={{ width: 100, textAlign: "right" }}>Market</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.name}>
+              <td>{row.name}</td>
+              <td className="draft-money">{formatBdvmValue(row.ev)}</td>
+              <td className="draft-money">
+                {row.pHit == null
+                  ? "—"
+                  : `${Math.round(row.pHit * 100)}%`}
+              </td>
+              <td className="draft-money">
+                {formatBdvmValue(row.median)}
+              </td>
+              <td className="draft-money">
+                {formatBdvmValue(row.ceiling)}
+              </td>
+              <td
+                className="draft-money"
+                title={row.marketSource || undefined}
+              >
+                {formatBdvmValue(row.marketValue)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -5073,50 +5135,7 @@ export default function DraftDashboardPage() {
           subtitle="Rookie-pick EV in the balanced strategy currency — hit rate and outcome spread from the fundamental model, market anchor beside it"
           defaultCollapsed
         >
-          <div className="draft-table-wrap">
-            <table className="draft-table">
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left" }}>Pick</th>
-                  <th style={{ width: 90, textAlign: "right" }}>EV</th>
-                  <th
-                    style={{ width: 80, textAlign: "right" }}
-                    title="Probability the pick returns a startable player"
-                  >
-                    Hit %
-                  </th>
-                  <th style={{ width: 90, textAlign: "right" }}>Median</th>
-                  <th style={{ width: 90, textAlign: "right" }}>Ceiling</th>
-                  <th style={{ width: 100, textAlign: "right" }}>Market</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bdvmPickRows.map((row) => (
-                  <tr key={row.name}>
-                    <td>{row.name}</td>
-                    <td className="draft-money">{formatBdvmValue(row.ev)}</td>
-                    <td className="draft-money">
-                      {row.pHit == null
-                        ? "—"
-                        : `${Math.round(row.pHit * 100)}%`}
-                    </td>
-                    <td className="draft-money">
-                      {formatBdvmValue(row.median)}
-                    </td>
-                    <td className="draft-money">
-                      {formatBdvmValue(row.ceiling)}
-                    </td>
-                    <td
-                      className="draft-money"
-                      title={row.marketSource || undefined}
-                    >
-                      {formatBdvmValue(row.marketValue)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <BdvmPickValuesTable rows={bdvmPickRows} />
           <p
             className="muted"
             style={{

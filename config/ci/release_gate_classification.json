@@ -157,6 +157,9 @@
     "crowd-faab-diagnostics.yml::crowd-faab-status::Probe crowd FAAB on production": {
       "category": "blocking"
     },
+    "deploy.yml::deploy::Assert the resolved target is present in this clone": {
+      "category": "blocking"
+    },
     "deploy.yml::deploy::Assert post-deploy verification will actually run": {
       "category": "blocking"
     },
@@ -190,7 +193,16 @@
         "conditional_skip"
       ]
     },
+    "deploy.yml::resolve::Checkout (workflow commit, full history for resolution)": {
+      "category": "blocking"
+    },
+    "deploy.yml::resolve::Resolve the requested ref to one full commit SHA": {
+      "category": "blocking"
+    },
     "deploy.yml::validate::API data contract check (FULL lane \u2014 blocking)": {
+      "category": "blocking"
+    },
+    "deploy.yml::validate::Assert the validated tree is the resolved target": {
       "category": "blocking"
     },
     "deploy.yml::validate::Checkout": {
@@ -571,6 +583,12 @@
     "refit-hill-curves.yml::refit::Trigger deploy after canonical promotion": {
       "category": "blocking"
     },
+    "refit-hill-curves.yml::refit::Verify the challenger reproduces from its own pins": {
+      "category": "blocking"
+    },
+    "refit-hill-curves.yml::refit::Verify the tournament winner reproduces from its own pins": {
+      "category": "blocking"
+    },
     "release-candidate.yml::candidate::API data contract check (structural lane)": {
       "category": "blocking"
     },
@@ -632,6 +650,9 @@
       "category": "blocking"
     },
     "retention-backup-proof.yml::prove::Configure production SSH": {
+      "category": "blocking"
+    },
+    "retention-backup-proof.yml::prove::Pin the proof script to the deployed commit": {
       "category": "blocking"
     },
     "retention-backup-proof.yml::prove::Run backup and prove restore on production": {

@@ -1,0 +1,189 @@
+# DFS — requirement traceability (zero-loss map)
+
+Every requirement in the 2026-09-30 owner mandate has a stable ID `DFS-§<section>-<n>`. Status
+vocabulary: **SLICE1** (implemented + tested on `claude/dfs-foundation`, PR #1534, not yet deployed),
+**SLICE2** (contests slice, `claude/dfs-contests`, stacked on #1534, not yet deployed),
+**PARTIAL**, **NOW**, **NEXT**, **LATER**, **BLOCKED(<reason>)**. Phases refer to
+[`ROADMAP.md`](ROADMAP.md). A row leaves this table only by supersession, never deletion.
+
+| ID | Requirement (compressed) | Phase | Status | Evidence / next action |
+|---|---|---|---|---|
+| DFS-§1-01 | Audit repo, reuse owners, no parallel engines | P0 | SLICE1 | No prior DFS code existed (only `DFS_PROJECTION` census label). Reused auth gate, feature flags, `name_clean`, DS primitives, nav model |
+| DFS-§1-02 | Register mandate in canonical execution system | P0 | SLICE1 | `EXECUTION_PLAN.md` §0, `OWNER_REQUESTED_TODO.md`, `WORK_CLAIMS.md`, UI ledger |
+| DFS-§1-03 | DFS data never enters dynasty valuation | P0 | SLICE1 | `tests/dfs/test_rules_and_imports.py::test_dfs_never_imports_dynasty_valuation_owners` |
+| DFS-§1-04 | Missing ≠ zero; unresolved identity ≠ guess | P1 | SLICE1 | Unprojected excluded + reported; ambiguous/conflicting rows quarantined |
+| DFS-§1-05 | Private decisions behind real access control | P1 | SLICE1 | `_private_api_gate` + per-owner scoping; cross-user 404 test |
+| DFS-§1-06 | No purchases / wagering / entry / account automation | all | SLICE1 | Export only; `submitted: false`; no platform write path exists |
+| DFS-§2-01 | Keep forecasts, field, generation, payouts, portfolio, research, entries distinct | P0 | PARTIAL | Module boundaries set (`rules/imports/optimizer/export/store`); field/payout/portfolio owners not built |
+| DFS-§2-02 | Honest "insufficient / unavailable / infeasible / projection-only / stale" states | P1 | SLICE1 | Readiness levels, `CAPABILITY_UNAVAILABLE`, `projection_only`, conflict reports. Stale-build review → DFS-§11 |
+| DFS-§3-01 | Competitive research with evidence levels + adoption matrix | P0/P3 | NEXT | Protocol in `SOURCES.md` §4; no product observed hands-on yet |
+| DFS-§4-01 | DFS in canonical nav, `/dfs` route, auth, mobile parity | P1 | SLICE1 | Nav group "DFS"; canon + reachability tests |
+| DFS-§4-02 | Eight workspace areas sharing one context | P1–P6 | PARTIAL | Overview+Optimizer+Lineups+Contests on `/dfs` (Contest panel keyed by platform×sport×format — SLICE2); Live/Research/Results/Sources pending |
+| DFS-§4-03 | Persistent context selector (sport/platform/format/…); per-format settings | P1 | PARTIAL | Sport/platform/format persisted per viewer; date/slate/contest/objective/build version pending |
+| DFS-§5-01 | Capability gating per platform × sport × format × rule version | P1 | SLICE1 | `capability_matrix()`; `RULESET_SUPERSEDED` on version drift |
+| DFS-§5-02 | Verified rule sets with official evidence; fail closed for money mode | P1 | BLOCKED(official pages refused automated access) | `RULESET_UNVERIFIED` enforced; owner verification needed |
+| DFS-§5-03 | Showdown / single-game / captain / MVP | A | PARTIAL (SLICE4) | DK NFL Showdown Captain encoded UNVERIFIED: row-label eligibility (`platform_slots`), one athlete = CPT row + FLEX row (group identity; never both rostered), captain 1.5x applied once at the slot and shown explicitly, stored projection untouched, brute-force parity. FanDuel single-game MVP and other sports' showdown still NEXT (layouts unverified) |
+| DFS-§5-04 | NBA, NHL, MMA rule sets | A | PARTIAL (SLICE4, `claude/dfs-multisport`) | DK + FD NBA and NHL classic encoded as UNVERIFIED research-mode rule sets (solver exact vs brute force on all four, non-vacuity guarded; platform-file roster slots cross-checked on import). DK MMA Classic encoded UNVERIFIED (6 F, $50k; no same-bout rule imposed — owner can add one; brute-force exact). FanDuel MMA not offered-as-verified → stays `not_implemented` |
+| DFS-§5-05 | Contest import/editor, payout ladder validation, rake, overlays, hypothetical profiles | P2 | SLICE2 (manual + pasted ladder) | `src/dfs/contests.py`: separate dimensions, integer cents, overlap/capacity errors, gap/inversion review flags (never rewritten), rake vs overlay vs underfill vs unknown, hypothetical suppresses exact EV; versioned per-owner storage. Platform/provider contest import still NEXT |
+| DFS-§5-06 | Scoring contracts (weights, bonuses, rounding) versioned | P2 | NEXT | Needed before own-model projections (P3/P4) |
+| DFS-§6-01 | "Optimal Lineup" one-click with validate → snapshot → solve → explain → save | P1 | SLICE1 (baseline objective) | Button runs the projection baseline explicitly; result names objective, status, snapshot hash, solver |
+| DFS-§6-02 | Cash/GPP contest-aware objectives | P5 | BLOCKED(needs P4 field + payout models) | `contest_ev` returns 409, never substituted |
+| DFS-§6-03 | Versioned strategy presets (H2H…150-max) | P5 | PARTIAL (SLICE2) | `config/dfs/presets.json`: 11 presets with objective + required models, all `unsupported` until P4 models exist; cash and GPP objectives are distinct by test |
+| DFS-§6-04 | Explicit "Highest Projected Points" baseline | P1 | SLICE1 | `objective: projection_baseline` |
+| DFS-§6-05 | Solver status vocabulary + provenance (hashes, seed, budget) | P1 | SLICE1 | `optimal/partial/timed_out_with_feasible_result/infeasible/timed_out/unavailable`; hashes stored |
+| DFS-§6-06 | Lineup explanation + "why not this player?" | P3 | PARTIAL | Pts/$1K, salary left, team counts; constrained-alternative comparison pending |
+| DFS-§6-07 | News invalidation marks old builds for review | P3 | LATER | Needs DFS-§11 event graph |
+| DFS-§7-01 | Build exactly N or explicit shortfall | P1 | SLICE1 | `test_exactly_n_unique_lineups_or_explicit_shortfall` |
+| DFS-§7-02 | Scoring vs assignment identity | P1 | SLICE1 | `scoringIdentity` / `assignmentIdentity` |
+| DFS-§7-03 | Recommended entry count (budget, caps, marginal value, zero allowed) | P5 | PARTIAL (SLICE2) | Hard upper bound implemented (min of allowance, open capacity, explicit spend limit; free/ticket handled; zero allowed; budget never inferred). The recommendation itself stays BLOCKED on contest EV |
+| DFS-§8-01 | Locks, excludes, salary min/max, team max | P1 | SLICE1 | Tests |
+| DFS-§8-02 | Groups (at least/at most K) | C | SLICE4 | API (SLICE1) + keyboard-native rule builder on /dfs (at least / at most / exactly N) |
+| DFS-§8-03 | Conditional rules (if-A-then-B), mutually exclusive groups | C | SLICE4 | if A then B / not B / at least N of group B: MILP big-M rows + independent validator + conflict isolation (`cond:i`), brute-force exact and proven to bind; mutually-exclusive = at most 1 of group |
+| DFS-§8-04 | Stacks: primary/secondary, bring-back | P1 | SLICE1 (QB stack) | Portfolio stack distributions: DESCRIBED (per-build `portfolio`: team/game exposure, stack shapes, salary spread, distinct players — counts only, `src/dfs/portfolio.py`); target distributions across lineups still pending |
+| DFS-§8-05 | Sport-specific stacks (NBA/NHL/MMA) | P2 | BUILT (team/game stacks, position-filtered, `teamStacks`; brute-force parity on NHL 4-3) | NHL line stacks need line assignments no current source provides; MMA uses if-then rules (no teams) |
+| DFS-§8-06 | Exposure semantics + integer rounding shown | P1 | BUILT (max floor, min ceil, per-player range in UI) | Min is latest-deadline sequential forcing (disclosed in `methodNote`); scoped/group exposure pending (joint portfolio, Phase F) |
+| DFS-§8-07 | Minimal conflicting subset, no hidden relaxation | P1 | SLICE1 | Deletion filter over owner items |
+| DFS-§8-08 | Editable forecasts vs preference boosts kept separate | C | SLICE4 | `projectionOverrides` = owner forecast (used in objective AND totals, marked 'yours', never written back, can supply a missing forecast); `boosts` = selection preference (objective only; reported totals stay unboosted). Both tested non-vacuously; per-row inputs on /dfs |
+| DFS-§8-09 | Bulk edit, undo/redo, presets, scenario copies, diff | P2 | NEXT | |
+| DFS-§8-10 | Natural-language control compiled to schema with preview | P5 | LATER | |
+| DFS-§9-01 | Typed versioned entities (Source… AuditEvent) | P0–P7 | PARTIAL | Slate/athlete/ruleset/snapshot/build exist; rest per phase |
+| DFS-§9-02 | Observation timestamps (event/publish/first-seen/retrieved/usable) | P3 | NEXT | Import time only today |
+| DFS-§9-03 | Canonical athlete identity across providers | P3 | NEXT | Must extend `src/identity/`, not a DFS-local owner |
+| DFS-§9-04 | Source-family independence / lineage | P3 | NEXT | Schema fields reserved in `source_seeds.json` |
+| DFS-§10-01 | Register every supplied source/podcast with disposition | P0 | SLICE1 (registered) | 109 seeds, all `unverified` |
+| DFS-§10-02 | Resolve identities, access, license, cost per source | D | PARTIAL | All 109 seeds resolved (`SOURCES.md` §5–7): podcasts 29, websites 74, sportsbooks 6 (no public odds APIs; terms bar automated access; licensed aggregators only). Rights unassessed everywhere; 6 website identities need owner clarification |
+| DFS-§10-03 | Connector framework (quotas, backoff, circuit breakers, quarantine) | P3 | NEXT | |
+| DFS-§10-04 | No paywall/CAPTCHA/bot evasion; no billable trials without approval | all | SLICE1 | Honoured: 403s recorded as blockers, not bypassed |
+| DFS-§11-01 | Event-driven freshness, dependency graph, rebuild recommendations | P3 | NEXT | Requires background jobs (DFS-§21-02) |
+| DFS-§12-01 | Projection ensemble with held-out weights, horizons, selection-bias checks | P3/P4 | LATER | Owner imports only today |
+| DFS-§12-02 | Outcome distributions (not just means) | D | PARTIAL (owner-imported) | StDev + P10…P90 columns ride the projection identity join; Floor/Ceiling become quantiles ONLY when the owner states their percentiles (vendors differ), otherwise kept verbatim and unused; invalid ranges refused while the mean stands; freshness row + Range column. Each built lineup carries an `outcome` (p10/p50/p90, `src/dfs/outcomes.py`): normal approximation, players independent (disclosed: stacks swing more), `unavailable` if any player lacks a range — never zero width. Correlation-aware and modelled distributions, and their use by contest simulation: Phase E/F |
+| DFS-§13-01 | NFL outcome model | P4 | LATER | |
+| DFS-§13-02 | NBA minutes/rotation model | P4 | LATER | |
+| DFS-§13-03 | NHL line/PP/goalie model | P4 | LATER | |
+| DFS-§13-04 | MMA joint fight model | P4 | LATER | |
+| DFS-§14-01 | Sportsbook/prop intelligence, de-vig, consensus | P3/P4 | BLOCKED(licensed odds feed not identified) | |
+| DFS-§15-01 | Podcast discovery → transcripts → claims → controlled use | D | PARTIAL (SLICE4 claim core) | `src/dfs/evidence.py`: schema + policy every extractor must pass — conditional inactive until resolved, preference/popularity cannot carry numbers, intervals are attributed ranges, post-lock/retrospective/promotion excluded, independence counted by primary source, retraction/supersession without deletion, no look-ahead, injection-inert; model use capped at shadow. Feed discovery research in progress; acquisition/transcription NEXT |
+| DFS-§16-01 | Ownership / field / duplication models | E | PARTIAL (SLICE4: owner-imported projected ownership) | Ownership CSV joined with the projection identity rules; unit must be stated (percent / fraction — never guessed); out-of-range-for-unit rows refused; missing = unknown, never 0%; marginal total checked against 100% x roster slots (plausible / implausible / partial, never extrapolated); freshness row + Own% column. Ownership MODELS, fields and duplication still LATER |
+| DFS-§17-01 | Deterministic MILP baseline with exact small-case agreement | P1 | SLICE1 | Brute-force parity tests (DK + FD rules) |
+| DFS-§17-02 | Joint outcome simulation, exact payout/ties ($1,000/$100 → $550) | P4 | PARTIAL (SLICE2) | Exact rank payout + split-position ties in integer cents, fractional cents reported exactly, unknown tie rule → unavailable ($550 fixture green). Joint simulation still LATER |
+| DFS-§18-01 | Joint portfolio selection + multi-contest allocation | P5 | LATER | |
+| DFS-§19-01 | Salary / projection / template imports with mapping preview | P1 | PARTIAL | Import report today; interactive column mapping pending |
+| DFS-§19-02 | Exports preserving IDs/headers/slots; round-trip vs official templates | P1 | BLOCKED(no official template fixture) | Re-validated at export; labelled unverified |
+| DFS-§19-03 | Entry lifecycle (draft → submitted → settled) | P6 | LATER | `submitted: false` only |
+| DFS-§19-04 | Late swap with locked slot immutability | G | PARTIAL (foundation) | `src/dfs/lateswap.py` + `/api/dfs/late-swap[/export]`: locked AND unknown-start slots pinned in their exact slot; only proven-open players swap in; exact vs slot-aware brute force; a tie/reshuffle is `keep`, not a swap; unresolved entries untouched; server clock by default, owner what-if clock labelled; DK entry file out, nothing submitted. Per-entry (not coordinated across entries), projection objective only; FanDuel entry files, live scoring, rooting view: NEXT |
+| DFS-§20-01 | Live / rooting view | P6 | LATER | |
+| DFS-§20-02 | Settlement reconciliation, calibration, replay, champion/challenger | H | PARTIAL (results foundation) | `src/dfs/results.py` + `/api/dfs/results`: DK contest-standings import (layout assumed); realized %Drafted/FPTS joined by name+position (ambiguous quarantined); field duplication histogram; imported ownership + projections evaluated (bias/MAE/RMSE, ownership bands); absent players excluded and counted, never 0%; evidence claim `shadow` — nothing reweighted or promoted; "7 · Results" panel. SETTLEMENT (`src/dfs/settlement.py`, via the one payout owner `contests.tied_payout`): rank + tie size from the full field's scores (file Rank only cross-checked), owner entries by entry ID or username, unknown tie rule in the money = unavailable, unpaid ties exact $0, tickets never counted as cash, any unknown payout makes net/ROI unknown, field-size check. Replay, champion/challenger: NEXT |
+| DFS-§21-01 | Typed APIs + structured error codes | P1 | SLICE1 | `RULESET_UNVERIFIED`, `INFEASIBLE` (as status), `CAPABILITY_UNAVAILABLE`, `LOCKED_PLAYER_UNPROJECTED`, … |
+| DFS-§21-02 | Persistent background jobs (progress/cancel/restart) | P3 | NEXT | Builds are synchronous inside a ≤60 s solver budget today |
+| DFS-§21-03 | Developer CLI on the same business logic | P2 | NEXT | |
+| DFS-§22-01 | PSI Direction A, DS primitives, tokens only | P1 | SLICE1 | `.psi-editorial`, `components/ds`, no raw colours |
+| DFS-§22-02 | Accessibility (keyboard, SR labels, non-colour status) + mobile | P1 | PARTIAL | Component tests + Playwright axe (WCAG 2.1 A/AA) journey spec on desktop + mobile (`tests/e2e/specs/dfs-workspace.spec.js`); production screenshots pending |
+| DFS-§22-03 | Performance budgets measured | P1 | PARTIAL | `/dfs` skips the dynasty contract prefetch; `/dfs` page chunk budget 34 KB enforced by `check-bundle-sizes.mjs` (23.3 KB after splitting every post-import panel out); useful-state timing pending |
+| DFS-§23-01 | Auth on every route/job/export; cross-user tests | P1 | SLICE1 | |
+| DFS-§23-02 | Untrusted-file defences (size, header, formula-safe IDs) | P1 | SLICE1 | XML/archives/audio N/A until those inputs exist |
+| DFS-§23-03 | Spending ceilings, research-only mode, cost dashboard | P5 | PARTIAL | Research mode is the only mode that builds today |
+| DFS-§24-xx | Test program items 1–52 | per phase | PARTIAL | Items 3 (captain once), 7 (duplicate names / captain rows), 2, 8, 9, 10, 11, 12, 13, 14, 15, 20, 21 (cash-line tie), 22, 23, 28 (bound), 29, 32, 43(partial), 44, 47, 51, 52 covered |
+| DFS-§25-01 | Dependency-aware roadmap linked to Calculator Ideas | P0 | SLICE1 | `ROADMAP.md` |
+| DFS-§26-01 | Lane 6 active every batch | all | SLICE1 | `/dfs` UI shipped with the foundation; UI ledger row |
+| DFS-§27-01 | Documentation set + user guide | P0 | SLICE1 | This folder |
+| DFS-§28-01..14 | Owner acceptance stories | P1–P8 | PARTIAL | Story 1 (partial: honest states for all four sports), 5 (partial), 6, 12 (partial), 13 (partial), 14 |
+
+## Owner addendum 2026-09-30 — Platform / Slate / Contest integration
+
+Additive; nothing above is superseded except the phase ORDER (see `ROADMAP.md`). Status vocabulary
+as above; **SLICE3** = Phase A slice on `claude/dfs-contests`; **SLICE4** = NBA/NHL rule sets on `claude/dfs-multisport`.
+
+| ID | Requirement (compressed) | Phase | Status | Evidence / next action |
+|---|---|---|---|---|
+| DFS-ADD-01 | No production dependency on unofficial DK/FD endpoints, scraping or account automation | all | SLICE1+ (holds) | No such code exists; ADR-DFS-009; official pages' 403s recorded, not bypassed |
+| DFS-ADD-02 | Licensed slate feed (SportsDataIO) evaluated; per platform x sport x field capability matrix | A | PARTIAL (SLICE3) | `config/dfs/providers.json` from the published OpenAPI (NFL/NBA/NHL `DfsSlatesByDate`); every cell `documented`, none `verified` — BLOCKED(no key; paid) |
+| DFS-ADD-03 | MMA via official/user-downloaded CSV until a licensed source is verified | A | SLICE4 | DK MMA CSV → canonical slate → research-mode builds (unverified rules); FanDuel MMA recognised but not offered until verified |
+| DFS-ADD-04 | First-class platform CSV import: detect platform/sport/format, IDs, names, salaries, eligibility, duplicates, unknown fields, useful errors, no guessing | A | PARTIAL (SLICE1 parse + SLICE3 detection + SLICE4 DK entry files) | DraftKings entry-file import (layout `assumed`; unknown IDs quarantine the entry, never name-matched). FanDuel entry files, late-swap and result files remain NEXT (G/H) |
+| DFS-ADD-05 | First-class export: IDs, slot order, locks, entry IDs, validation, duplicates, limits, explicit support | A/C/G | PARTIAL (SLICE1 + SLICE4) | New-lineup export + DraftKings export INTO existing entry IDs (re-validated; unresolved entries never overwritten; surplus lineups/entries reported). Verified only with official templates |
+| DFS-ADD-06 | Canonical DFS slate model; providers map into it; downstream never reads provider objects | A | SLICE3 | `src/dfs/slate.py` |
+| DFS-ADD-07 | Slate != contest; canonical contest profile tied to a slate | B | PARTIAL (SLICE2 profile, SLICE3 link) | Contest family taxonomy (satellite/qualifier/league) NEXT |
+| DFS-ADD-08 | Three contest-creation modes: quick (preset), exact (editor), import | B | PARTIAL (SLICE4: Quick + Exact in UI) | Exact = SLICE2; quick = presets exist (now incl. medium-field GPP, satellite, qualifier, custom — 15 total), UI selection NEXT; import BLOCKED(no verified contest-file layout) |
+| DFS-ADD-09 | Payout editor shows totals, implied rake, cash %, first-place and top-1% concentration, curve chart, errors | B | SLICE4 | Top-1% concentration (needs capacity) + exact log-spaced payout curve drawn with the approved Sparkline primitive and a text summary; a full chart waits on the PSI chart decision (#1428) |
+| DFS-ADD-10 | Contest-aware objective uses distributions/ownership/duplication/payouts; disclose fallbacks | F | BLOCKED(D+E) | `contest_ev` refuses; fallback disclosed |
+| DFS-ADD-11 | Optimal Lineup knows platform/sport/slate/contest/field/payout/limits/model confidence; never silently median-maximizes | F | PARTIAL (SLICE4) | Builds record the contest version / preset they were made for, refuse a contest for another platform or slate, and carry explicit disclosures ("Contest-aware evaluation is unavailable… recorded for provenance only", "<preset> not available yet — built with the projection baseline") |
+| DFS-ADD-12 | Fixed-N and recommended-count are separate | C/F | PARTIAL | = DFS-§7-01 (done) / §7-03 (bound done, recommendation blocked) |
+| DFS-ADD-13 | Low-friction DFS home: sport -> platform -> slate -> contest -> strategy -> count -> build | A-F | PARTIAL | Context bar + import + contest exist; provider slate status SLICE3 (shows unavailable); strategy/count chips NEXT |
+| DFS-ADD-14 | Full expert control incl. min exposure, boosts, projection/ownership overrides, notes/tags, salary-left, if-then groups, sport stacks, auto vs manual mode | C | PARTIAL | = DFS-§8 rows |
+| DFS-ADD-15 | Visible freshness per information class | D | PARTIAL (SLICE3 strip) | Salary/projection from the snapshot; odds/ownership/news/podcast shown as unavailable until sources exist |
+| DFS-ADD-16 | Sources separated by function; source != signal | D | PARTIAL | `source_seeds.json` categories + independence groups reserved |
+| DFS-ADD-17 | Podcast pipeline remains part of the optimizer | D | NEXT | = DFS-§15-01 |
+| DFS-ADD-18 | athlete <-> salary <-> game <-> sportsbook market join; market definitions preserved | D | NEXT | Canonical slate carries event IDs for the join |
+| DFS-ADD-19 | Exact contest simulation (payout, cash/top-%/first probabilities, duplicates) with provenance | E/F | LATER | Exact payout/tie math already built |
+| DFS-ADD-20 | Historical contest result import -> DFS field archive; post-lock data never used pre-lock | H | LATER | |
+| DFS-ADD-21 | Result learning loop with champion/challenger | H | LATER | |
+| DFS-ADD-22 | Live / rooting view | G | LATER | = DFS-§20-01 |
+| DFS-ADD-23 | Source-cost registry; incremental value vs cost; no purchase without approval | D | PARTIAL (SLICE3) | `providers.json` cost fields (price unknown, never invented) |
+| DFS-ADD-24 | Source failover; failure never becomes zero projections/ownership/empty salary | A/D | PARTIAL | CSV fallback always available; stale-snapshot policy NEXT |
+| DFS-ADD-25 | PSI UI, dense tables, mobile parity for the core workflow | all | PARTIAL | = DFS-§22 rows |
+| DFS-ADD-26 | No DFS contamination of dynasty valuation | all | SLICE1 (tested) | AST isolation test |
+| DFS-ADD-27 | Roadmap reordered A-H; advanced work preserved | P0 | DONE | `ROADMAP.md` |
+| DFS-ADD-28 | Named failure states (provider unavailable, quota, stale, payout incomplete, identity unresolved, unsupported slate/platform/format, CSV malformed/wrong platform, rules unverified, lock passed, export invalid, sim unavailable, no field data) | A-H | PARTIAL | Built: PROVIDER_UNAVAILABLE, SOURCE_PERMISSION_REQUIRED, PAYOUT_INCOMPLETE, identity quarantine, UNSUPPORTED_SLATE/FORMAT, HEADER_MISMATCH, CSV_WRONG_PLATFORM, RULESET_UNVERIFIED, LINEUP_INVALID_AT_EXPORT, CAPABILITY_UNAVAILABLE. Remaining: QUOTA_EXCEEDED (with the feed), STALE_CRITICAL_INPUT, LOCK_PASSED, NO_FIELD_DATA |
+| DFS-ADD-29 | Fixtures for DK NFL Classic/Showdown/NBA/NHL/MMA and FD NFL/NBA/NHL/MMA; one true end-to-end fixture before calling the baseline operational | A/C | PARTIAL | Synthetic DK/FD NFL fixtures + e2e API test (import -> build -> export); synthetic detection fixtures for the rest (SLICE3). Real-template fixtures BLOCKED on the owner |
+| DFS-ADD-30 | Owner core workflow (NFL DK Sunday Main -> exact contest -> 20-lineup optimal portfolio -> export) | P8 | LATER | Depends on A (feed or CSV) + B + D-F |
+| DFS-ADD-31 | Continue from current state; concise update | P0 | DONE | This record |
+
+## Contest-aware modelling + evaluation phase (owner directive 2026-09-30, second prompt)
+
+Status words: **DONE** (implemented + tested + evidence), **PARTIAL** (implemented, evidence or scope
+incomplete), **ACTIVE** (in flight), **INTERFACE** (boundary only — no model behind it yet),
+**BLOCKED** (named external blocker), **LATER** (dependency not ready). An interface or stub is never
+DONE. Evidence classes are kept apart: model output ≠ historical backtest ≠ forward test ≠
+statistically meaningful evidence ≠ live profitability.
+
+| ID | Requirement | Status | Implementation / evidence |
+|---|---|---|---|
+| DFS-MOD-01 | Point-in-time data model: slate lock, append-only observations with observed/recorded times, as-of by what was held, truth kept separate | PARTIAL | `src/dfs/pit.py` (ADR-DFS-013), wired into every slate import; `tests/dfs/test_pit.py`. Contest/field/lineup entities reuse existing contest, build and results records; historical contest backfill has no data yet |
+| DFS-MOD-02 | Ownership model: multi-source, freshness, ensembles, overrides, learned model, calibration by sport/platform/format/slate size | PARTIAL | `src/dfs/ownership.py` (ADR-DFS-014): structural baseline (uncalibrated priors + chronological `fit_structural`), as-of source ensemble (equal → inverse-MAE with evidence), stale flagging, overrides, per-player method; `POST /api/dfs/ownership/forecast`; `tests/dfs/test_ownership.py` incl. parameter recovery and leakage. NO historical accuracy evidence yet; learned features beyond value/projection (Vegas totals, role, news) need data sources (DFS-MOD-12) |
+| DFS-MOD-03 | Canonical player outcome-distribution interface (mean/median, sd, quantiles, sampling, metadata) | PARTIAL | `src/dfs/distributions.py` (ADR-DFS-015): normal / quantile / flagged-prior marginals, no range → none, Gaussian-copula joint sampling (seeded, bounded, PSD repair, shared draws per athlete); `tests/dfs/test_distributions.py`. Priors uncalibrated; skewed/fitted marginals pending data |
+| DFS-MOD-04 | Sport-specific correlation framework behind one interface (NFL / NBA / NHL / MMA) | PARTIAL | `src/dfs/correlation.py`: per-sport modules behind `pairs()`, declared conservative priors (NFL stacks/bring-back/DST, NBA usage/pace, NHL team/goalie, MMA same bout); unknown sport = independent, stated. NOT fitted — needs historical player-outcome data |
+| DFS-MOD-05 | Field lineup generator (legal, ownership-driven, construction tendencies) + field-fit metrics | PARTIAL | `src/dfs/field.py` (ADR-DFS-016): random-order ownership-weighted sampling, correlation-driven stacking prior, salary floor prior, raking, `fieldFit` (ownership gap, salary used, stack shapes, duplicates); `field.implied_ownership` challenger; `tests/dfs/test_field.py`. Measured negative finding: structural targets are salary-infeasible (~5.4-pt gap). Not yet compared with a REAL observed field — needs imported standings with resolved lineups |
+| DFS-MOD-06 | Duplication model (naive product baseline + better candidates) calibrated against observed duplication | PARTIAL | `src/dfs/duplication.py` (ADR-DFS-017): naive baseline + nested zero-truncated log-linear challenger (synthetic recovery ±0.08, beats naive on synthetic holdout); results imports keep a duplication fit sample and score the naive baseline with the as-of-lock forecast. NO real-contest fit yet |
+| DFS-MOD-07 | Contest Monte Carlo: joint outcomes, field, exact ties/payouts, EV / cash / top-1% / win with uncertainty | PARTIAL | `src/dfs/contestsim.py` + `src/dfs/pipeline.py` (ADR-DFS-018): one joint draw, field + ours scored together, exact tie splits, joint portfolio ranking, MC standard errors, disclosed assumptions; `POST /api/dfs/simulate` (bounded); exact + statistical tests (`tests/dfs/test_contestsim.py`). Not yet run synchronously off the request thread as a background job; outputs are model outputs, not evidence |
+| DFS-MOD-08 | Portfolio optimization against contest EV with bankroll/entry/exposure constraints (no mechanical Kelly) | PARTIAL | `src/dfs/portfolio_opt.py` (ADR-DFS-019): sample-optimal + baseline candidates, greedy under ev / log_growth / mean_downside, exposure caps, entry ceiling, conservative recommended count (lower-90% marginal EV), joint re-simulation, paired within-model baseline comparison, frozen pit decision; `POST /api/dfs/portfolio`. Model-recommended exposures are outputs of the objective, user caps remain overrides. No historical evidence |
+| DFS-MOD-09 | Chronological point-in-time backtest harness; accepted AND rejected decisions; no leakage | PARTIAL | `src/dfs/backtest.py` + `POST /api/dfs/backtest` (ADR-DFS-020): lock-ordered replay, pre-lock inputs with digest check, forecasts before reveal, counterfactual realized payouts for optimizer and projected-points portfolios (paired), rejected candidates kept in the frozen decision, stored evaluations; leakage test with a perfect post-lock source. ZERO real settled contests replayed so far — no historical evidence exists yet |
+| DFS-MOD-10 | Scorecards: projections, ownership, field, contest, portfolio — always with sample size | PARTIAL | `src/dfs/metrics.py` (MAE/RMSE/bias/Spearman/buckets/top-k/bootstrap CI, small-sample flag); ownership scorecards per source/ensemble/baseline stored on every results import. Projection/field/contest/portfolio scorecards pending |
+| DFS-MOD-11 | Champion/challenger: versioned models, predefined promotion criteria, shadow, rollback, no fitting-period evidence | PARTIAL | `pit.register_model/promote/rollback` + tests; backtest summaries stored per model/window as promotion evidence; challengers defined (ownership field-implied, duplication log-linear) but none registered/promoted — no real evidence |
+| DFS-MOD-12 | Source registry classified by data type, access, cadence, latency, cost, reliability, PIT usefulness | PARTIAL | `SOURCES.md` §8 classification + paid-value notes. **Connected:** Daily Fantasy Fuel (`src/dfs/sources_dff.py` — owner-authorized, manual + cached, salary-confirmed join, projection + game-context observations; live check 2026-09-30: 435 NFL DK rows). Other free sources researched, not adapted; paid sources not purchased |
+| DFS-MOD-13 | Unclear source names re-investigated only if useful; never fabricated | LATER | Six remain `unresolved_identity` |
+| DFS-MOD-14 | FanDuel entries/results/settlement through the SAME models | PARTIAL | ADR-DFS-021: header-detected FD entry files (unverified, exported in their own columns), canonical results format joined by ID feeding realized/duplication/settlement/backtest, late swap + results UI for all platforms; `tests/dfs/test_fanduel_parity.py`. BLOCKED on a verified FD entry template and any FD standings export (owner-supplied files) |
+| DFS-MOD-15 | Rule provenance (platform, sport, format, version, source, verification status, last checked) | PARTIAL | `config/dfs/rulesets.json` verification blocks + `tests/dfs/test_rule_provenance.py` (evidence required to verify; none verified today, pinned). Official rules still unverifiable by agents (403) |
+| DFS-MOD-16 | UI: slate / contest / model health / portfolio / results review with progressive disclosure | PARTIAL | Lazy `ContestModel.jsx` (simulate a build, contest-aware portfolio: EV ± MC error, cash/win, expected copies, assumptions, within-model baseline, decision id — "model output, not evidence") and `Scorecards.jsx` (stored evaluations with n + small-sample flag, backtest replay) + `GET /api/dfs/evaluations`; component tests + Playwright axe/journey green; `/dfs` chunk unchanged at 23.3 KB. Ownership/freshness model-health summary on the slate view still pending |
+| DFS-MOD-17 | Performance/safety: seeds, bounded simulations, timeouts, cache keys, no request-thread solver concurrency, upload limits | PARTIAL | ADR-DFS-012 pinned solver thread + structural test; seeded + bounded simulation/field/portfolio/backtest inputs; per-route upload caps under nginx 25 MB; background jobs (`src/dfs/jobs.py`, ADR-DFS-023) for long backtests. Simulation result caching keyed by inputs digest + model versions: pending |
+
+## Zero manual CSV imports — permanent owner requirement (third directive, 2026-09-30)
+
+Primary workflow: open `/dfs` → pick platform / sport / slate → optimize → export, with nothing
+downloaded or uploaded. Manual files = fallback / override / testing, under *Advanced*. ADR-DFS-024.
+Status words as above. Intake: `docs/OWNER_REQUESTED_TODO.md` (P0 row); plan: `docs/EXECUTION_PLAN.md`.
+
+| ID | Requirement | Status | Implementation / evidence |
+|---|---|---|---|
+| DFS-AUTO-01 | Product contract changed: automated data first, manual second (intake, Calculator Ideas, plan, roadmap, guide, ADR, UI copy) | DONE | OWNER_REQUESTED_TODO P0 row; EXECUTION_PLAN paragraph; ADR-DFS-024; ROADMAP phase AUTO; USER_GUIDE step 2; BRISKET_IDEAS; `AutoSlates.jsx` + *Advanced* disclosure |
+| DFS-AUTO-02 | Slate auto-discovery per platform (Main / Early / Late / Primetime / single-game / full) | PARTIAL | `auto/nfl.derive_slates` — NFL classic windows DERIVED from the schedule, labelled unverified; single-game (Showdown) slates not derived yet; platform slate lists have no permitted source |
+| DFS-AUTO-03 | Automated salaries, positions, eligibility per platform | PARTIAL | NFL DK + FD from DFF week pools (`auto/nfl.build_pool`; DK `DST` / FD `D`); NBA/NHL/MMA → AUTO-19/20 |
+| DFS-AUTO-04 | Scheduled refresh on the existing scheduler | DONE (deploy pending) | `deploy/systemd/dynasty-dfs-auto-refresh.*` via `install_simple_timer`; `scripts/refresh_dfs_auto_slates.py` (exit 0/1/2); timer wiring test green |
+| DFS-AUTO-05 | Games, teams, start times, lock from the schedule owner | DONE (NFL) | `nfl_data.ingest.fetch_schedules`; ET → UTC; a row without a kickoff time is dropped, never guessed |
+| DFS-AUTO-06 | Identity through the Calculator owner; ambiguity quarantined | DONE (NFL) | `resolve_canonical_v2`; quarantine list in `poolReport`; live 2026-09-30: 401 resolved, 32 team defenses, 2 unresolved of 435 (DK) |
+| DFS-AUTO-07 | Freshness states CURRENT / AGING / STALE / UNAVAILABLE / DEGRADED / SOURCE_ERROR | DONE | `auto/refresh.freshness`; `tests/dfs/test_auto_nfl.py` |
+| DFS-AUTO-08 | Cadence by time to lock; locked slates frozen | DONE | `auto/refresh.cadence` (2 h / 30 min / 10 min / none) |
+| DFS-AUTO-09 | Raw-stat projections rescored per platform scoring | PARTIAL | `auto/scoring_cards.py` + the existing scorer; cards UNVERIFIED (official pages refuse agents); bonus approximation disclosed |
+| DFS-AUTO-10 | Independent-family ensemble, no double counting | PARTIAL | DFF + Sleeper/RotoWire; one vote per family; DFF's independence from RotoWire is DFF's own claim, unverified; per-family values + disagreement on every athlete |
+| DFS-AUTO-11 | Injury / role engine | PARTIAL | Sleeper `injury_status` + DFF flag; Out/IR/PUP/Suspended withheld (never 0); no role/usage model |
+| DFS-AUTO-12 | Sportsbook / prop evidence, controlled | BLOCKED | Context only (DFF spread/total, nflverse lines), never a projection input. A licensed odds/props feed is paid → owner approval |
+| DFS-AUTO-13 | UX: pre-populated `/dfs`; manual import under *Advanced* | DONE | `AutoSlates.jsx` opens Main (else the next unlocked slate); `DfsWorkspace.jsx` *Advanced · Data overrides / manual import*; vitest |
+| DFS-AUTO-14 | Never fake data; missing ≠ zero; derivations labelled | DONE | unpriced rows refused; unprojected left out; `derived_from_schedule`; synthetic ids labelled + export-refused |
+| DFS-AUTO-15 | Layered fallback: licensed feed → automatic → owner file | PARTIAL | automatic + owner file live; licensed feed adapter exists, OFF (paid) |
+| DFS-AUTO-16 | Preload / cache; no fetch on the request path | DONE | system snapshots; a request only lists / clones; a due refresh is a background job |
+| DFS-AUTO-17 | Point-in-time archive of every automatic build | DONE | `pit.capture_snapshot` (`via: auto_refresh`); DFF page SHA-256 + publish stamp in provenance |
+| DFS-AUTO-18 | Upload-ready exports without manual files | BLOCKED | No permitted free source publishes DK/FD player ids. Unblock: the owner approves a licensed slate feed (SportsDataIO DFS slates), or loads the platform file. Refused as `PLATFORM_IDS_UNAVAILABLE` meanwhile |
+| DFS-AUTO-19 | NBA + NHL automation | LATER | DFF has NBA/NHL DK+FD pages (the adapter parses them); needs a per-sport schedule/start-time source + slate windows |
+| DFS-AUTO-20 | MMA automation | BLOCKED | No permitted fight-card + salary source found |
+| DFS-AUTO-21 | Per-source rights / cost records + provider matrix | DONE | `config/dfs/source_seeds.json`; `docs/dfs/SOURCES.md` §9 |
+| DFS-AUTO-22 | RotoGrinders (owner permission) | PARTIAL | Permission recorded on A-001 (login-free, robots-respecting only); `/lineups/*` pages are the candidate for NBA/NHL starters; no connector yet |
+| DFS-AUTO-23 | Owner acceptance: Sunday DK NFL Main with nothing downloaded or uploaded | PARTIAL | Proven against live sources locally (2026-09-30: DK Main week 4 = 12 games, 330 players, 330 projected, optimal lineup built) and in `tests/dfs/test_auto_api.py`; production proof after deploy |
+| DFS-AUTO-24 | Optimizer not regressed; tests | DONE | all `tests/dfs` green; the optimizer consumes the automatic slate unchanged |

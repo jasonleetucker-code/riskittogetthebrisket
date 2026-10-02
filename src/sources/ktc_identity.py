@@ -62,6 +62,8 @@ __all__ = [
     "KtcIdentityCollision",
     "KtcIdentityMap",
     "KtcAsset",
+    "identity_from_rows",
+    "search_index_rows",
     "parse_ktc_identity",
     "SEARCH_INDEX_VAR",
     "VALUE_BOARD_VAR",
@@ -124,6 +126,10 @@ class KtcIdentityMap:
     players: Mapping[int, str] = field(default_factory=dict)
     picks: Mapping[int, str] = field(default_factory=dict)
     source: str | None = None
+    #: KTC's own position code per PLAYER id (``QB``/``RB``/...), when the
+    #: index row carried one.  Evidence for a downstream identity resolver's
+    #: tie-break — never an identity on its own.  Absent = not stated.
+    positions: Mapping[int, str] = field(default_factory=dict)
     rejected_ids: int = 0
     missing_names: int = 0
 
@@ -133,6 +139,10 @@ class KtcIdentityMap:
     def name_for(self, player_id: int) -> str | None:
         """Player name for an id, or ``None``.  Never a fabricated label."""
         return self.players.get(player_id)
+
+    def position_for(self, player_id: int) -> str | None:
+        """KTC's stated position for a player id, or ``None`` if unstated."""
+        return self.positions.get(player_id)
 
     def classify(self, ref: Any) -> KtcAsset:
         """Name what a single feed reference is.
@@ -189,9 +199,12 @@ def _extract_array(html: str, var_name: str) -> list[Any] | None:
     return parsed if isinstance(parsed, list) else None
 
 
-def _ingest(rows: Iterable[Any]) -> tuple[dict[int, str], dict[int, str], int, int]:
+def _ingest(
+    rows: Iterable[Any],
+) -> tuple[dict[int, str], dict[int, str], int, int, dict[int, str]]:
     players: dict[int, str] = {}
     picks: dict[int, str] = {}
+    positions: dict[int, str] = {}
     rejected = 0
     missing = 0
 
@@ -232,8 +245,65 @@ def _ingest(rows: Iterable[Any]) -> tuple[dict[int, str], dict[int, str], int, i
                 f"{cross!r} and {name!r}"
             )
         bucket[pid] = name  # identical duplicates dedupe harmlessly
+        position = str(row.get("position") or "").strip().upper()
+        if bucket is players and position:
+            positions[pid] = position
 
-    return players, picks, rejected, missing
+    return players, picks, rejected, missing, positions
+
+
+def search_index_rows(html: str) -> tuple[list[dict[str, Any]], str | None]:
+    """The minimal identity rows (id, name, position) the page carries, and
+    which array they came from — for a caller that must ARCHIVE the identity
+    as it was at fetch time (the trade-ledger archive) rather than resolve now.
+
+    Same array preference and fallback as :func:`parse_ktc_identity`; rows
+    without a usable id or name are skipped, never filled in.
+    """
+    for var_name in (SEARCH_INDEX_VAR, VALUE_BOARD_VAR):
+        rows = _extract_array(html, var_name)
+        if not rows:
+            continue
+        out: list[dict[str, Any]] = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            pid = row.get("playerID")
+            name = row.get("playerName")
+            if pid is None or not isinstance(name, str) or not name.strip():
+                continue
+            out.append(
+                {
+                    "playerID": pid,
+                    "playerName": name.strip(),
+                    "position": str(row.get("position") or "").strip().upper() or None,
+                }
+            )
+        if out:
+            return out, var_name
+    return [], None
+
+
+def identity_from_rows(rows: Iterable[Any], *, source: str | None = None) -> KtcIdentityMap:
+    """Build the map from already-extracted index rows.
+
+    The same ingestion rules as :func:`parse_ktc_identity` (collisions fail
+    closed, a nameless row is not a resolution), for a caller that archived
+    the index rows themselves — e.g. the trade-ledger archive, which must be
+    able to re-resolve an observation against the identity AS IT WAS when the
+    observation was fetched rather than against today's page.
+    """
+    players, picks, rejected, missing, positions = _ingest(list(rows or []))
+    if not players and not picks:
+        return KtcIdentityMap(source=None, rejected_ids=rejected, missing_names=missing)
+    return KtcIdentityMap(
+        players=players,
+        picks=picks,
+        source=source,
+        rejected_ids=rejected,
+        missing_names=missing,
+        positions=positions,
+    )
 
 
 def parse_ktc_identity(html: str) -> KtcIdentityMap:
@@ -249,7 +319,7 @@ def parse_ktc_identity(html: str) -> KtcIdentityMap:
         rows = _extract_array(html, var_name)
         if not rows:
             continue
-        players, picks, rejected, missing = _ingest(rows)
+        players, picks, rejected, missing, positions = _ingest(rows)
         if not players and not picks:
             continue
         return KtcIdentityMap(
@@ -258,6 +328,7 @@ def parse_ktc_identity(html: str) -> KtcIdentityMap:
             source=var_name,
             rejected_ids=rejected,
             missing_names=missing,
+            positions=positions,
         )
 
     # Neither array present or usable.  An empty map with source=None is

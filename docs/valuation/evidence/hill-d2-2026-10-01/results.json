@@ -1,0 +1,2818 @@
+{
+ "n1FirstOrigin": "2026-05-15",
+ "p1": {
+  "dates": {
+   "2026-09-09": {
+    "matched": 416,
+    "share": 1.0,
+    "within": 416
+   },
+   "2026-09-10": {
+    "matched": 416,
+    "share": 1.0,
+    "within": 416
+   },
+   "2026-09-11": {
+    "matched": 416,
+    "share": 1.0,
+    "within": 416
+   },
+   "2026-09-12": {
+    "matched": 416,
+    "share": 1.0,
+    "within": 416
+   },
+   "2026-09-13": {
+    "matched": 416,
+    "share": 1.0,
+    "within": 416
+   },
+   "2026-09-14": {
+    "matched": 416,
+    "share": 1.0,
+    "within": 416
+   },
+   "2026-09-15": {
+    "matched": 416,
+    "share": 1.0,
+    "within": 416
+   },
+   "2026-09-16": {
+    "matched": 416,
+    "share": 1.0,
+    "within": 416
+   },
+   "2026-09-17": {
+    "matched": 416,
+    "share": 1.0,
+    "within": 416
+   },
+   "2026-09-18": {
+    "matched": 416,
+    "share": 1.0,
+    "within": 416
+   },
+   "2026-09-19": {
+    "matched": 416,
+    "share": 1.0,
+    "within": 416
+   },
+   "2026-09-20": {
+    "matched": 416,
+    "share": 1.0,
+    "within": 416
+   },
+   "2026-09-21": {
+    "matched": 464,
+    "share": 1.0,
+    "within": 464
+   },
+   "2026-09-22": {
+    "matched": 464,
+    "share": 1.0,
+    "within": 464
+   },
+   "2026-09-23": {
+    "matched": 464,
+    "share": 1.0,
+    "within": 464
+   },
+   "2026-09-24": {
+    "matched": 464,
+    "share": 1.0,
+    "within": 464
+   },
+   "2026-09-25": {
+    "matched": 464,
+    "share": 1.0,
+    "within": 464
+   },
+   "2026-09-26": {
+    "matched": 464,
+    "share": 1.0,
+    "within": 464
+   },
+   "2026-09-27": {
+    "matched": 464,
+    "share": 1.0,
+    "within": 464
+   },
+   "2026-09-28": {
+    "matched": 464,
+    "share": 1.0,
+    "within": 464
+   },
+   "2026-09-29": {
+    "matched": 464,
+    "share": 1.0,
+    "within": 464
+   },
+   "2026-09-30": {
+    "matched": 464,
+    "share": 1.0,
+    "within": 464
+   }
+  },
+  "datesChecked": 22,
+  "pass": true
+ },
+ "pins": {
+  "armManifests": {
+   "M1": "14aabb24d4cf923663c0d18a0040cb78cd1ece305c190c326bad723e29433adf",
+   "M2": "b561959ff76f55e11a25852c16a543711e0f8a42be1692e36fae8bfb7781a85a",
+   "M3": "9601c948e5ac336e4d092ebf24c8490e8e058739f643bf42cba48884776963c0",
+   "M4": "d6ff34d460dc97180dc6e5e9934b2e35799e0ab057a389b7ad74e61424e4d7e7",
+   "M5": "ad601099464afde3357f2f8bf0dfd6a921936ab14b411f69d6de20a8c9cd3576",
+   "M6": "e6e32c79699dd73d965388a809981d17a33879ba26aa2b5bcd23f1830851e0cb",
+   "M7": "79d76a0d1088066630fc34673242e0dd870a4aac44038e4eb7940681ccffa192",
+   "M8": "c7876d74d1346894bac1269b51c87a351b79e52ce340f4e6868603dd02dec745"
+  },
+  "bootstrap": {
+   "blockDays": 28,
+   "decisiveLevel": 0.9875,
+   "method": "circular moving-block over daily paired deltas",
+   "resamples": 4000,
+   "seed": 20261002
+  },
+  "champion": {
+   "c": 0.11,
+   "registryVersion": 2,
+   "s": 1.11
+  },
+  "codeHash": "e7aa56d77885f892f338f2821ac74fcbf4da91cae9410b205f21d3a877b8d027",
+  "codeSha": "626a67413fd62ed7f4e24125b105af8174351cf3",
+  "defaultManifestHash": "1f31e6724c2b5a70ac073b44ccdc21ceef4433110beef434abb0053e66229b67",
+  "fits": 636,
+  "preregistration": {
+   "commit": "ce66256c57f6154f953473d70943d5f3ffc8e74d",
+   "path": "docs/valuation/evidence/hill-d2-2026-10-01/PREREGISTRATION.md",
+   "sha256Lf": "8dec1cbf64b47821864b743ef0d2469001358433483bb1aae400d94a115156f2"
+  },
+  "recordedAt": "2026-10-01T18:17:18.609550+00:00",
+  "ref": "origin/main",
+  "refSha": "810445ed7261feeb47f7b2443e148bc573eb8008",
+  "runScriptSha256Lf": "bae08e56e663e700c4195dcae98c3409d3a73d20242471cea36ddb0847eaa674",
+  "substrateVersion": 2,
+  "target": {
+   "column": "value",
+   "lastCommitDay": "2026-09-29",
+   "path": "CSVs/site_raw/otcffbSf.csv"
+  },
+  "targetBoards": {
+   "2026-05-15": {
+    "blob": "9d4ce0cf86efc152aa4b32d1f9960d8d672b0c0e",
+    "commit": "4e1be5377289116093b788d807959fabd175658e"
+   },
+   "2026-05-16": {
+    "blob": "57c44459ad5b98a305b3ec6495573f143820add8",
+    "commit": "097a09874294690f8e41bb59a5ff026a0b2ad19f"
+   },
+   "2026-05-17": {
+    "blob": "e97d953aae2cfe52b7e04f7529d838ce3631cb5b",
+    "commit": "6960b6d66e4bac643a5583ae86f3519c6734c15a"
+   },
+   "2026-05-18": {
+    "blob": "63cab2f5d5dc0d9506ea0b8ad3e245e1ac0f8817",
+    "commit": "c18e9b03538a9113afd5bd8df4994b9058b80883"
+   },
+   "2026-05-19": {
+    "blob": "3a8ce44796a7d1fba3683ed51d3a1f14c7439da4",
+    "commit": "443b1c19abdd8204534d321a138ecb6ad351bd91"
+   },
+   "2026-05-20": {
+    "blob": "e67b66016ce50b83c1fd3550bb343a357a05bba4",
+    "commit": "6fb8bb8a580b730ec4056f8e3e06ba6fc62ff53c"
+   },
+   "2026-05-21": {
+    "blob": "57e401ae5a18840d2469693c0cd1f7873df16f17",
+    "commit": "a66cfc792e1d3832c5f7fba0a47e094490c910ed"
+   },
+   "2026-05-22": {
+    "blob": "402b19f4ca9d345e98ce58ad916e8347ffd9c0ea",
+    "commit": "de0bab7a7ee1259038abaf9efc60bcd473dcd5d2"
+   },
+   "2026-05-23": {
+    "blob": "9e95a52e99969f9ff095eb9d96823c568e3d219a",
+    "commit": "d8e9b6860bdcdccc8e87a5fabc8a38c6a6e1c765"
+   },
+   "2026-05-24": {
+    "blob": "7b24598a883a834393f3f632fc60dcd20c5e7f79",
+    "commit": "4e817cb50e6f0a4c12c5cc8d6d2bdcaac22391c1"
+   },
+   "2026-05-25": {
+    "blob": "56336389a95f348788b8f40a2dc17820f2850382",
+    "commit": "8b2c3ad7cf2a39bfdc46aa0599d24a82fe49f4fb"
+   },
+   "2026-05-26": {
+    "blob": "bcb24ce68e316c0efdf67c596ece273cbd39840a",
+    "commit": "3c3a28db8bb4fa552dc6f7bad66796cf07c5890b"
+   },
+   "2026-05-27": {
+    "blob": "ba06cfe6d8f2e7c8be001295368fb32b81c7da99",
+    "commit": "161f98e4ce8625d510da8db091e84403da550935"
+   },
+   "2026-05-28": {
+    "blob": "6301a1b3f57b1a55e1d27d1e98888725a650ba65",
+    "commit": "bce4beff29bbf2b54fd2785ba0de086048c73c0b"
+   },
+   "2026-05-29": {
+    "blob": "b044ca1b4e7183a1f1e52a11a679c30fe5b54261",
+    "commit": "9f0cd59d722005ce2ba5de1a126dd4e240d0d2ea"
+   },
+   "2026-05-30": {
+    "blob": "09d7d6f84e4f9651d7cbf5c09ea6ad0b3cce1130",
+    "commit": "486e827742e8df0cd328078636fdf69c09f7fd78"
+   },
+   "2026-05-31": {
+    "blob": "170124a14886fd95652a3cfd30257bc268414c4b",
+    "commit": "f2c0ba27b5098409dfaa3a4253544f82abc67657"
+   },
+   "2026-06-01": {
+    "blob": "20af5f7fe3bbfb1707ec1b5452c8bf6074fb847e",
+    "commit": "c7ed5e7f06b46ad46f2028ada593b033f7a6274b"
+   },
+   "2026-06-02": {
+    "blob": "1dc6620a2155e391e5be9de90e90e3bc649a618c",
+    "commit": "69b83aec0e21a5041c3a0b99b108a24afc202f6d"
+   },
+   "2026-06-03": {
+    "blob": "4df920aa8def1be5ed4d264ff5fcaf0d97ff121d",
+    "commit": "79cfc6d78de9d14f679cd666d7ffce8e613cbb04"
+   },
+   "2026-06-04": {
+    "blob": "968686b41a3d95ced4a003e822e4d04acef1cb95",
+    "commit": "1126c3c9473f74866342efc98640768eaef19e7e"
+   },
+   "2026-06-05": {
+    "blob": "c15fa36aa3415a7b7541c863c9c791727277db30",
+    "commit": "a9a12bb6f2051501f77707fcdc14b5313fda2e97"
+   },
+   "2026-06-06": {
+    "blob": "c15fa36aa3415a7b7541c863c9c791727277db30",
+    "commit": "d406910e4b9c4bbe73b1e4ee2ce886b1b65fc90c"
+   },
+   "2026-06-07": {
+    "blob": "c15fa36aa3415a7b7541c863c9c791727277db30",
+    "commit": "8bc9131416cc78110ea86760f92afc448549728e"
+   },
+   "2026-06-08": {
+    "blob": "c15fa36aa3415a7b7541c863c9c791727277db30",
+    "commit": "f75564957e54e2c95a8218c77833a16ea663af14"
+   },
+   "2026-06-09": {
+    "blob": "c15fa36aa3415a7b7541c863c9c791727277db30",
+    "commit": "b11a428b6084a0b18aa913be2a4b4b924ab46b30"
+   },
+   "2026-06-10": {
+    "blob": "c15fa36aa3415a7b7541c863c9c791727277db30",
+    "commit": "aa99dc235f5da65e35edf32da5a8f8c68eb67d07"
+   },
+   "2026-06-11": {
+    "blob": "c15fa36aa3415a7b7541c863c9c791727277db30",
+    "commit": "c169a7f2c04a9553e07439a87d82339edb06a608"
+   },
+   "2026-06-12": {
+    "blob": "625936a65d6f487f80fdcb0dc6410ba6e6c552f6",
+    "commit": "bd4e8accdb62e6c2f88edb1ca4a508306d3e6fd4"
+   },
+   "2026-06-13": {
+    "blob": "230ea2152f5fa3bbe3d809dd5471ccd1546e3414",
+    "commit": "2123d511a438f902995b965055e67f8caa364de8"
+   },
+   "2026-06-14": {
+    "blob": "be8a761ca64a5f57421dd3c62ce022f9b92709a2",
+    "commit": "b4ca2ae1f8bb72bccfbaaf192d62c8c8cbc3f9cd"
+   },
+   "2026-06-15": {
+    "blob": "a130c6f99b727f4e0e2fb54f9ff624eb0777e386",
+    "commit": "47786c43c71f8a36eb52ecb4accd25c7350d10f4"
+   },
+   "2026-06-16": {
+    "blob": "0d2b8dd2416939367758984244b127a007d72159",
+    "commit": "b389738111c055b156dd8628ce138456e536cdc4"
+   },
+   "2026-06-17": {
+    "blob": "656d74baeac51a5e3755971bd2e29215155550ca",
+    "commit": "76cf7244ebfa2deabb7936cec8e6d4916b37e817"
+   },
+   "2026-06-18": {
+    "blob": "84f940f897962396c9faa9b71ec68860fde5c2c9",
+    "commit": "cec7fc791a45fdcc6d9c303d6d99c2f71344c50d"
+   },
+   "2026-06-19": {
+    "blob": "4bbd4f0cdf2a7e8b4af2a2c19139af36b4aff122",
+    "commit": "a9c6ab80b222c7ccb9762b555affb2358353af8e"
+   },
+   "2026-06-20": {
+    "blob": "4917ac6068f7d8c6aaf6789e2fb2c54fca4fe9bb",
+    "commit": "d1c0ac4286110deafa3e4b14c98b01d5cab34a62"
+   },
+   "2026-06-21": {
+    "blob": "60be22587c6f70f33fdfa3fc130bce6e101f69e5",
+    "commit": "4099449dc12a669a69396fd5c22163c822e406bd"
+   },
+   "2026-06-22": {
+    "blob": "64bcd70acf94fb697e736e199be9f363bc8af022",
+    "commit": "1d9ccb0d75b18fdb74ed28f2ad9c6d276c68952b"
+   },
+   "2026-06-23": {
+    "blob": "eae25c16a9f45dd04119df0890b043ff47d73381",
+    "commit": "002df5b3b5ff3e3f72d78d5a9b848b0a66d71480"
+   },
+   "2026-06-24": {
+    "blob": "91f146f288ded02dde783a26b2421531261bbff8",
+    "commit": "bcf750b9bcb21342e545cf13db724f12086c7dde"
+   },
+   "2026-06-25": {
+    "blob": "b488d8970b21588f183485620b296dc6e1ba173d",
+    "commit": "58e75f4adb2a8fde58d14b45455ffc7e685df947"
+   },
+   "2026-06-26": {
+    "blob": "d38d0d2012a98802c667361aed8cdfeaf10747ae",
+    "commit": "31fd2d4f13bea211c29c8e7ef0a9fd5c8ba44d85"
+   },
+   "2026-06-27": {
+    "blob": "5a0eb6cfbe565d94802d9904859e2f893d9c650e",
+    "commit": "e60df6885535e9beb1dc628acb949b6ff1ba9621"
+   },
+   "2026-06-28": {
+    "blob": "0a9e9c1c7126308adddc3a57411a8367e0071f36",
+    "commit": "47a24f7ea3f7c39091d4f588683eaa6d65684a8d"
+   },
+   "2026-06-29": {
+    "blob": "1b84e312c8b9d1ed3b7838131ac9cf7bfcf65d39",
+    "commit": "95f6a91b08b413561f81cc21c7fa9c113e175569"
+   },
+   "2026-06-30": {
+    "blob": "18ecde67392d6b5bda7af66df032b2ee1bb53031",
+    "commit": "b9ac7a6bc169b87da8c4123c0d6833be3c0b26fa"
+   },
+   "2026-07-01": {
+    "blob": "bff4b86c27822fb52bf82457e15f8ccb8e1232d1",
+    "commit": "d313f84b4eb981b3a2652d7532e547285188c31f"
+   },
+   "2026-07-02": {
+    "blob": "d82c57473276827baa6c030aebf84562393f0971",
+    "commit": "36b13b7f119aa72d063604d962873473be519c9f"
+   },
+   "2026-07-03": {
+    "blob": "53439e6a95a9c769605946ecd99ce6dc5c739ece",
+    "commit": "827f5a5c4db576ebeca3b2734b87927352aaa848"
+   },
+   "2026-07-04": {
+    "blob": "1d68b72439f0d9bcfb4bd17a074dddeb5d38041c",
+    "commit": "555b397e346622d9c0f8bce4203127aa9322af02"
+   },
+   "2026-07-05": {
+    "blob": "3f7c8f84029ad9f35360350f64e0a2d8f848b23a",
+    "commit": "2d593ad81cba5cfe98032ff80249f46fe0c22dfb"
+   },
+   "2026-07-06": {
+    "blob": "78bc154a598fdc6734559526a87550ca89ae61a4",
+    "commit": "fd7144670764b138619e3183d691443a1188e841"
+   },
+   "2026-07-07": {
+    "blob": "18473f94b9efd85d0766a8154ff06505864ce98e",
+    "commit": "6867e3ab0ab87b4dd80a42b6c4d8ce0d0faf506b"
+   },
+   "2026-07-08": {
+    "blob": "c6f71d164e9fda5c796bab153d276ed31e2f5f77",
+    "commit": "37a5e453a00454be37c605031ac4274ecb1d60e5"
+   },
+   "2026-07-09": {
+    "blob": "a531568d935d1e4005d1e88df70eb9a0dff96347",
+    "commit": "ecd96d33590d0e3b0f6073ee488ebc9e02ec0258"
+   },
+   "2026-07-10": {
+    "blob": "d44d53fd68626306566bcc75f8a9dedb73761213",
+    "commit": "68f59ffb51de6420c16ca6accfeecfe76ad24760"
+   },
+   "2026-07-11": {
+    "blob": "294d60f907e54cb7a62d2de3ecaa512f7a288461",
+    "commit": "41e237a384d3f4cd8ea078bd14399a8fc1eb636f"
+   },
+   "2026-07-12": {
+    "blob": "c20e0d860962979d3b35203b7962336c9e5d890f",
+    "commit": "32ed113673a49d4b8d76510b94b119dbe8b996a7"
+   },
+   "2026-07-13": {
+    "blob": "743d94381ad349ea062fa6895db413d415b3a792",
+    "commit": "9620a4183851d58b7abfa5f245bb2c50673ab583"
+   },
+   "2026-07-14": {
+    "blob": "480d8e7e6a2bc59baf77c7400d2800665f8f572c",
+    "commit": "a7e968887ec4b69d6717ca32594e5567e7529c7f"
+   },
+   "2026-07-15": {
+    "blob": "fc06224d629bd6f3ae8f825022581f1973fbde1e",
+    "commit": "ae64ef059966f902770a5fc1bf41d32fc96fa5f2"
+   },
+   "2026-07-16": {
+    "blob": "71da55db87c573d9e3aec79e85dc36bca51aeec6",
+    "commit": "9d95959d6e2971c3c31c1a7d3eba429d48612137"
+   },
+   "2026-07-17": {
+    "blob": "d85284ed010610892b1d9236f81f7e2ac1fad1c2",
+    "commit": "dfbc9b0cd9295dc7e8d8980087d629d9fa81676c"
+   },
+   "2026-07-18": {
+    "blob": "609b9ded3bf105cd9df7a552193ac241223b1f3e",
+    "commit": "ac21a7bc7f6a364b5ac1f73b7056ed6e9dc6bbb4"
+   },
+   "2026-07-19": {
+    "blob": "02d13ac79828b1a7a5b717e9a4bf4ba62a593148",
+    "commit": "b1a25eb17e853ea81e351ad535aed8501b2f506d"
+   },
+   "2026-07-20": {
+    "blob": "ea7b5973fea35b208cd1b7538f0808acedf6baa0",
+    "commit": "e916452f6d5c98ed76b82f68546ffc213d23337a"
+   },
+   "2026-07-21": {
+    "blob": "75d1ea002086ae2306d4cea5d173003a378fcf3d",
+    "commit": "689bf27eddc0b4cf71ff63d531ce1278ed8fd76b"
+   },
+   "2026-07-22": {
+    "blob": "ecb5c0709eeb8be72cf4a825099d7e9e867f12a4",
+    "commit": "c7bb1d228319ad154a1bb66ae5968f333d5589a1"
+   },
+   "2026-07-23": {
+    "blob": "ae5b4c9901549a188a377bcc98175b1b4d26e55a",
+    "commit": "48dd315154ba87acfeb443cf54daafe7a33258da"
+   },
+   "2026-07-24": {
+    "blob": "6f05684d3e497537bb0822e5065fe8ec06d25b55",
+    "commit": "1c732a1a78540c0fadcd152a34bb3ef8b12beb75"
+   },
+   "2026-07-25": {
+    "blob": "be27d537607af2831b9fe3cd6e4c1a3f0a805163",
+    "commit": "4f938958ad51bf49f4ad907427269433fbab5fe3"
+   },
+   "2026-07-26": {
+    "blob": "55674a36fd3b1643a2d3d2da646166bf1a599215",
+    "commit": "c9371ab6caaf4b058dfcc203e79e648502f599a7"
+   },
+   "2026-07-27": {
+    "blob": "eb685b7b3088308441ed4eb44e893caafa2d7602",
+    "commit": "aaa4ee144f4a55b1132223489d64741de70826b5"
+   },
+   "2026-07-28": {
+    "blob": "cff8e1fe6762873243b60322160ec5c2170d10f2",
+    "commit": "5f201e466e8927a4bb8e0cfe584df2caa22968d4"
+   },
+   "2026-07-29": {
+    "blob": "cff8e1fe6762873243b60322160ec5c2170d10f2",
+    "commit": "0c861291cbb3f5381e39593d8fd3f60745feefb4"
+   },
+   "2026-07-30": {
+    "blob": "0a8e0442a7132c2b6990a169d8c5e893aabe8312",
+    "commit": "668961e3f5f957e97dfd14ad2fb02e1052323b10"
+   },
+   "2026-07-31": {
+    "blob": "0cffa27cdbd262bc9761f82608e684525c65f71c",
+    "commit": "c05d596d3cb2efe1823ff97be2a3cbe977491af6"
+   },
+   "2026-08-01": {
+    "blob": "1ccf5b1ee07aebb501ae3f434889a2a171d012d6",
+    "commit": "c93123ebadab065c85e8015be12af6f054929c34"
+   },
+   "2026-08-02": {
+    "blob": "365f7a27f12f852524b52b186133b02187b89a82",
+    "commit": "34b5354263c6bb86f79f0b4a79421f4dfb673b33"
+   },
+   "2026-08-03": {
+    "blob": "303949bac4cf5232207d2deee5a263653fe64cbf",
+    "commit": "d9f7e4cdaed29a94e59aad7706c3ce80699b16db"
+   },
+   "2026-08-04": {
+    "blob": "501f754545692a75240f2c72594194f77b37b106",
+    "commit": "d7a0c1c3dd500fa3883f8182dd5cda8c29f0cd13"
+   },
+   "2026-08-05": {
+    "blob": "d12fd3fe8bae4060f40aad6b6d25f398d24c3d77",
+    "commit": "c85bb696177b958bf7ad233d8c9b312307e51afa"
+   },
+   "2026-08-06": {
+    "blob": "cfbd3d320e2ceb5355c31e7036536c43b4a70419",
+    "commit": "321d7e1bb5d689b79a12c3d4e422d1fe22db6b95"
+   },
+   "2026-08-07": {
+    "blob": "84cccee81576d9abc771741983dd0ffd6014f567",
+    "commit": "00e2028941d8917f08841d5a0a9480290980c3e2"
+   },
+   "2026-08-08": {
+    "blob": "57cca44ccd0fef1cc979d582168f22692acc58ed",
+    "commit": "ac659cad400371c745220e4e29986550b4b9ea2e"
+   },
+   "2026-08-09": {
+    "blob": "6373a440d20c6b7fa6324f57d832f6072decf959",
+    "commit": "bba011bd426713aa0e9783b1d8f515561d7b7e76"
+   },
+   "2026-08-10": {
+    "blob": "dcdae1218efe376048007b44e0dda58dfc937dd4",
+    "commit": "c67568b2938f5dffd0a54dc6de9fbc53d049e97c"
+   },
+   "2026-08-11": {
+    "blob": "d0111e61c65b665bf4735127937c27f93032bb7a",
+    "commit": "7470bb72af0a9e36e800e28fdb163da522805244"
+   },
+   "2026-08-12": {
+    "blob": "a53ca99fe2c746d90df196c81348bea14e3ab0f4",
+    "commit": "59966e3d72600c978d9ded63e049ac9dd789a415"
+   },
+   "2026-08-13": {
+    "blob": "8f81aafb6ce14a7fc25d49e84c37292a90875abe",
+    "commit": "04b8b6d2e04ecd3bf626a958d854a24d5c9ba0ea"
+   },
+   "2026-08-14": {
+    "blob": "1fbbd32b98949d659c94b6835ad76a538db73599",
+    "commit": "a9adacc94a7a5f48eca5fa96300c34f320b2028d"
+   },
+   "2026-08-15": {
+    "blob": "4f86f694b54df044e1d006f691b6f153aa68b1ed",
+    "commit": "7730677ebab5587262ef2ef1b32818f41fa5947d"
+   },
+   "2026-08-16": {
+    "blob": "e80d62ecea1c7d09368cb6bfb29df3b0dd18d3ed",
+    "commit": "8b27682efd78c56f9a3a215228d39f015c874c16"
+   },
+   "2026-08-17": {
+    "blob": "3588cdc54ec212c8463e6c6371d954206d4e3226",
+    "commit": "a1fb729255aa0d6d603745913a0c17facf4f071c"
+   },
+   "2026-08-18": {
+    "blob": "3536dc7e14a97fdc909c6813f8fc324405fefadc",
+    "commit": "5784bbf075e7f98e4ee378dbafd8bf649356d8c2"
+   },
+   "2026-08-19": {
+    "blob": "69f16a6611bcdf08879e134923e96f5946b9882b",
+    "commit": "305367b004ec124e0c1fcf4cf795ace028b75cef"
+   },
+   "2026-08-20": {
+    "blob": "e94ef0d1319fc269cd6a281fd335b9b2e6111c85",
+    "commit": "3ce444ce6be233ae8b1319c44dbf48682eeb35d1"
+   },
+   "2026-08-21": {
+    "blob": "db2c99a75fe65f25de192ae4e4c78b24b76b1103",
+    "commit": "6a1b0f69bd9380e5d75217786ed06c28db1c268d"
+   },
+   "2026-08-22": {
+    "blob": "2ec4f1b5a1e632c832d9b251e96f41be6541939d",
+    "commit": "ed4dab82b46a8d6b52ee0f33ff690994d4f5a63f"
+   },
+   "2026-08-23": {
+    "blob": "7c05c4db255d9ee90373278e7f073448c2b1333d",
+    "commit": "1843629b6339cab267e5a6803aa5a8dac1262c7a"
+   },
+   "2026-08-24": {
+    "blob": "fad9fd582f00edf93c03e28b21b877d1655dfdf2",
+    "commit": "332d8e6ff5381deab4fec7f4cec14a072be96985"
+   },
+   "2026-08-25": {
+    "blob": "fad9fd582f00edf93c03e28b21b877d1655dfdf2",
+    "commit": "893fe30de20fa767a6d3faf71f5c15914430cde8"
+   },
+   "2026-08-26": {
+    "blob": "fad9fd582f00edf93c03e28b21b877d1655dfdf2",
+    "commit": "eeee8066b4d7e07b6c7c35fd437259835b98bdb6"
+   },
+   "2026-08-27": {
+    "blob": "fad9fd582f00edf93c03e28b21b877d1655dfdf2",
+    "commit": "ec0be5cf04a83b34d02a553cbc753ecfd7791135"
+   },
+   "2026-08-28": {
+    "blob": "fad9fd582f00edf93c03e28b21b877d1655dfdf2",
+    "commit": "8b6165efad55f9937e11a26a2485c385037daa3e"
+   },
+   "2026-08-29": {
+    "blob": "2602b63559a62d8576e35c164d99865005c14164",
+    "commit": "75e3cde33c0c9f16642c1b67032cb62f9e8976ad"
+   },
+   "2026-08-30": {
+    "blob": "7ceb5dd44944f3dcd52b923abb07253165d2f4c0",
+    "commit": "e5e44fd42553a93b15b078339079bc81ca28ae62"
+   },
+   "2026-08-31": {
+    "blob": "b74aadc870eef58055f961709acf0a8a36e85702",
+    "commit": "27fec7d238177e92b82925b8d04bd3b9e83780a6"
+   },
+   "2026-09-01": {
+    "blob": "a77e1e0c1e2f41fe0d4a649b02ca5ef81383ce12",
+    "commit": "5c6c0267fcd491d5e3fa4d7c5b3fed2617e76e58"
+   },
+   "2026-09-02": {
+    "blob": "0085b4dbadec1a25405a184e97cb5a4b75669bab",
+    "commit": "702c9b1223396194d7e8ba826cefd6f6e893a8e5"
+   },
+   "2026-09-03": {
+    "blob": "53eb834c21144de567f8c1952b6a40eaa3558f9f",
+    "commit": "9b76f58821bb74ec28fa93abd6e46741aa2fd5c7"
+   },
+   "2026-09-04": {
+    "blob": "6afa464fcc5ab655948da2682a54d539dd348786",
+    "commit": "52c00ece652ba33bb19a613fd83301defe7be0f2"
+   },
+   "2026-09-05": {
+    "blob": "cab37d05cfdbe4ba3433935ffe5ffdcaa54e5d5b",
+    "commit": "9c269701a752a2770df9967f66f5a0f8d3ed7687"
+   },
+   "2026-09-06": {
+    "blob": "d881c2050ce3d526df99a866b16dd96dd554dba9",
+    "commit": "642b61b12f31759613bfab5933e5a7d849fefd30"
+   },
+   "2026-09-07": {
+    "blob": "f3edfff899738c1f4ddfa86ca057ade62564f367",
+    "commit": "2a25ceb56cfb4a63bd4618081df08ff539826514"
+   },
+   "2026-09-08": {
+    "blob": "68aa1e0bbd5ae7297e83f9a26103905c677f5ec8",
+    "commit": "a722fc208d258067a471b2a774ecca56a60e7d27"
+   },
+   "2026-09-09": {
+    "blob": "0c35dc54eeba2ed6bd01eeff7e905e598fe98bb9",
+    "commit": "06d4df865d5cac4cb9718123bc1e73ac862475ee"
+   },
+   "2026-09-10": {
+    "blob": "4687b456c51ece31c7946719df78ad81f8f0efa4",
+    "commit": "e179dffdf865c0c7342c9fa797d9587fb7744f87"
+   },
+   "2026-09-11": {
+    "blob": "aee7104baf40dc4008753d5093f264394bba3ad6",
+    "commit": "4033052cf9bc48b3c8ec5ff160205d995165ef6f"
+   },
+   "2026-09-12": {
+    "blob": "ac1946e366c6aca335f30e37034a0ce11f5fa408",
+    "commit": "5b18025e9702f4891112ec85b3edf1a2dba2ed5a"
+   },
+   "2026-09-13": {
+    "blob": "ed5b909b9dd86963db0ac294a5372267c0e0226f",
+    "commit": "8dcc6f45c78fb957249b81786fb1b3f894baa4e6"
+   },
+   "2026-09-14": {
+    "blob": "d2ce098ef2b3d1e79fd413af78766d36375864dd",
+    "commit": "1982a7f2412afcfc3842973e747a15c66f9f57de"
+   },
+   "2026-09-15": {
+    "blob": "5e3b73cfd2cd1cbfb64f0f37046e4f9bff34c773",
+    "commit": "9e44a7c94af2051f5c410f722ba6cb86e923c266"
+   },
+   "2026-09-16": {
+    "blob": "5cd97ebba6278f14ac8e7a160ce0ba73f30c7443",
+    "commit": "2b843bac12efbaef1f30971f826e76e2f61684da"
+   },
+   "2026-09-17": {
+    "blob": "6ff3fbf9a9acbd6bb950c8a42cf7c3335a0fa8ab",
+    "commit": "8aa8adab44ce1e98e928ba449995b5a8c58e880f"
+   },
+   "2026-09-18": {
+    "blob": "c789d085e3ef7324f81f53a3d1dc23f6b1679500",
+    "commit": "e7bb084eaeeaa02d3f601ce76eafdc7cdeeaeb91"
+   },
+   "2026-09-19": {
+    "blob": "c2909de784414e70fc60f18a211fa907fa8ac2c6",
+    "commit": "a61820b56431dbe325644996c7a0fac0985245bf"
+   },
+   "2026-09-20": {
+    "blob": "c20f6c0f983387c54fea16b593c89702a976c3f3",
+    "commit": "cf010adef48caca222e851615885e4bb214413ef"
+   },
+   "2026-09-21": {
+    "blob": "16b412f09c8f95383d398589b0daf60fe988a895",
+    "commit": "f52912792c28bcb988a2dbb82e87f45f522c8312"
+   },
+   "2026-09-22": {
+    "blob": "a826eca5b1959ac6683b64721919a815ba7a4067",
+    "commit": "c202d35a6002f1b92a90efe79125601dc36b6beb"
+   },
+   "2026-09-23": {
+    "blob": "d79657c055c31085a2e07a5572b3742d4f71df39",
+    "commit": "e91419dc7e18e103f67e2aa1b979f8764ff6cfcc"
+   },
+   "2026-09-24": {
+    "blob": "19ef2c962f4ad889790aceb1d59172c82412c015",
+    "commit": "fac81f86ef670c8ef097ff3df8da42e9a4d86ca5"
+   },
+   "2026-09-25": {
+    "blob": "36dce76338fe0f097fca2a1f4b29537afeeb581d",
+    "commit": "4e37a6d31504020e4b42961cddc8260d0b64d9de"
+   },
+   "2026-09-26": {
+    "blob": "a91e15abe31b709df4073db7f4227f0225e3b209",
+    "commit": "e8a309ab83289409b6b2ef8630a353518e167078"
+   },
+   "2026-09-27": {
+    "blob": "1eeb2d294b4e1abf498fae6f4de69f8307c97b74",
+    "commit": "8c496b82ce9fabb6c0c154e0afbb59c341604987"
+   },
+   "2026-09-28": {
+    "blob": "001e2dd5763e3329537296de61c754036904c3d4",
+    "commit": "8c73fcf5f0940c33356b412d9100ed4135e2343b"
+   },
+   "2026-09-29": {
+    "blob": "954821366f873c7c9b464275d14b3c175a7cc900",
+    "commit": "0ba09a761af348c262ab786c636c2c6e8f457075"
+   }
+  },
+  "trackedTreeDirty": false,
+  "verificationMismatches": {},
+  "verified": true
+ },
+ "results": {
+  "Q1": {
+   "S3_postSelection": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -326.7245726854263,
+      "n": 55
+     },
+     "101-200": {
+      "meanDelta": 510.14499173817114,
+      "n": 55
+     },
+     "201-400": {
+      "meanDelta": 410.95809490678954,
+      "n": 55
+     },
+     "51-100": {
+      "meanDelta": 353.5970401245758,
+      "n": 55
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      293.7189184442856,
+      300.41581805212246
+     ],
+     "ci98.75": [
+      292.8665637331936,
+      301.28720197720236
+     ],
+     "mean": 297.076882855198
+    },
+    "first": "2026-07-30",
+    "last": "2026-09-22",
+    "meanRmseArm": 1429.886128156017,
+    "meanRmseRef": 1726.963011011215,
+    "medianIndexN": 400,
+    "origins": 55,
+    "spanDays": 55,
+    "winShare": 1.0
+   },
+   "arm": "C0",
+   "bandsPositive": 3,
+   "decisive": true,
+   "h0": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -301.7002035156902,
+      "n": 138
+     },
+     "101-200": {
+      "meanDelta": 516.0823998719461,
+      "n": 138
+     },
+     "201-400": {
+      "meanDelta": 400.57750781751673,
+      "n": 138
+     },
+     "51-100": {
+      "meanDelta": 368.9263815653104,
+      "n": 138
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      298.2282899763926,
+      314.82443543384267
+     ],
+     "ci98.75": [
+      295.91022478782156,
+      315.35591010225926
+     ],
+     "mean": 306.75485209734563
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-29",
+    "meanRmseArm": 1399.356090737434,
+    "meanRmseRef": 1706.1109428347797,
+    "medianIndexN": 400.0,
+    "origins": 138,
+    "spanDays": 138,
+    "winShare": 1.0
+   },
+   "h28": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -287.1709905353197,
+      "n": 110
+     },
+     "101-200": {
+      "meanDelta": 519.0822432162579,
+      "n": 110
+     },
+     "201-400": {
+      "meanDelta": 400.5183511525153,
+      "n": 110
+     },
+     "51-100": {
+      "meanDelta": 374.95709536602493,
+      "n": 110
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      304.78107081197095,
+      316.4911421254332
+     ],
+     "ci98.75": [
+      303.6020927398415,
+      317.29638867286934
+     ],
+     "mean": 310.6851087055427
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-01",
+    "meanRmseArm": 1414.5255578852227,
+    "meanRmseRef": 1725.2106665907652,
+    "medianIndexN": 400.0,
+    "origins": 110,
+    "spanDays": 110,
+    "winShare": 1.0
+   },
+   "h7": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -297.6012897311234,
+      "n": 131
+     },
+     "101-200": {
+      "meanDelta": 517.7823342446404,
+      "n": 131
+     },
+     "201-400": {
+      "meanDelta": 400.841084750325,
+      "n": 131
+     },
+     "51-100": {
+      "meanDelta": 369.92411942777034,
+      "n": 131
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      300.55706288632626,
+      315.2460332784023
+     ],
+     "ci98.75": [
+      298.76747180736953,
+      315.8932282988854
+     ],
+     "mean": 308.0298764208746
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-22",
+    "meanRmseArm": 1402.947842330638,
+    "meanRmseRef": 1710.9777187515126,
+    "medianIndexN": 400,
+    "origins": 131,
+    "spanDays": 131,
+    "winShare": 1.0
+   },
+   "margin": 85.54888593757563,
+   "reference": "N1",
+   "verdict": "BETTER"
+  },
+  "Q2": {
+   "S3_postSelection": {
+    "bands": {
+     "1-50": {
+      "meanDelta": 809.6504506275419,
+      "n": 55
+     },
+     "101-200": {
+      "meanDelta": 802.9535170145418,
+      "n": 55
+     },
+     "201-400": {
+      "meanDelta": 500.64532815726096,
+      "n": 55
+     },
+     "51-100": {
+      "meanDelta": 1048.1822147765033,
+      "n": 55
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      660.8318672949357,
+      736.6852149069724
+     ],
+     "ci98.75": [
+      657.8266795897782,
+      739.9691634819046
+     ],
+     "mean": 698.8883869890017
+    },
+    "first": "2026-07-30",
+    "last": "2026-09-22",
+    "meanRmseArm": 730.9977411670155,
+    "meanRmseRef": 1429.886128156017,
+    "medianIndexN": 400,
+    "origins": 55,
+    "spanDays": 55,
+    "winShare": 1.0
+   },
+   "arm": "M1",
+   "bandsPositive": 4,
+   "decisive": true,
+   "h0": {
+    "bands": {
+     "1-50": {
+      "meanDelta": 817.5010805588054,
+      "n": 138
+     },
+     "101-200": {
+      "meanDelta": 833.4251335394285,
+      "n": 138
+     },
+     "201-400": {
+      "meanDelta": 520.4526027256874,
+      "n": 138
+     },
+     "51-100": {
+      "meanDelta": 1073.5143832239464,
+      "n": 138
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      687.3604594016607,
+      744.7179208182002
+     ],
+     "ci98.75": [
+      678.6018612404963,
+      749.8539195420583
+     ],
+     "mean": 717.3835163481803
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-29",
+    "meanRmseArm": 681.9725743892539,
+    "meanRmseRef": 1399.356090737434,
+    "medianIndexN": 400.0,
+    "origins": 138,
+    "spanDays": 138,
+    "winShare": 1.0
+   },
+   "h28": {
+    "bands": {
+     "1-50": {
+      "meanDelta": 794.974651522627,
+      "n": 110
+     },
+     "101-200": {
+      "meanDelta": 825.4663670016851,
+      "n": 110
+     },
+     "201-400": {
+      "meanDelta": 517.3505605727693,
+      "n": 110
+     },
+     "51-100": {
+      "meanDelta": 1058.1825661967891,
+      "n": 110
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      676.6303246950522,
+      733.3751706441004
+     ],
+     "ci98.75": [
+      668.3793069808039,
+      734.7333695197942
+     ],
+     "mean": 708.5925447231016
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-01",
+    "meanRmseArm": 705.933013162121,
+    "meanRmseRef": 1414.5255578852227,
+    "medianIndexN": 400.0,
+    "origins": 110,
+    "spanDays": 110,
+    "winShare": 1.0
+   },
+   "h7": {
+    "bands": {
+     "1-50": {
+      "meanDelta": 804.6245857987351,
+      "n": 131
+     },
+     "101-200": {
+      "meanDelta": 829.6755990840812,
+      "n": 131
+     },
+     "201-400": {
+      "meanDelta": 519.3990713602159,
+      "n": 131
+     },
+     "51-100": {
+      "meanDelta": 1065.199130301319,
+      "n": 131
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      683.7742296431911,
+      734.3461445458514
+     ],
+     "ci98.75": [
+      674.1661238191492,
+      736.4405702016717
+     ],
+     "mean": 712.0760863495163
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-22",
+    "meanRmseArm": 690.8717559811216,
+    "meanRmseRef": 1402.947842330638,
+    "medianIndexN": 400,
+    "origins": 131,
+    "spanDays": 131,
+    "winShare": 1.0
+   },
+   "margin": 70.1473921165319,
+   "reference": "C0",
+   "verdict": "BETTER"
+  },
+  "Q3": {
+   "S3_postSelection": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -19.64663312491831,
+      "n": 55
+     },
+     "101-200": {
+      "meanDelta": -23.47187520825583,
+      "n": 55
+     },
+     "201-400": {
+      "meanDelta": -14.797374162119583,
+      "n": 55
+     },
+     "51-100": {
+      "meanDelta": -29.484366127602907,
+      "n": 55
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -21.85263429975577,
+      -15.932388161436938
+     ],
+     "ci98.75": [
+      -22.05703449915608,
+      -15.687899073868987
+     ],
+     "mean": -18.896154369103343
+    },
+    "first": "2026-07-30",
+    "last": "2026-09-22",
+    "meanRmseArm": 749.8938955361189,
+    "meanRmseRef": 730.9977411670155,
+    "medianIndexN": 400,
+    "origins": 55,
+    "spanDays": 55,
+    "winShare": 0.0
+   },
+   "arm": "M3",
+   "bandsPositive": 0,
+   "decisive": true,
+   "h0": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -20.78038903932942,
+      "n": 138
+     },
+     "101-200": {
+      "meanDelta": -25.524030282160652,
+      "n": 138
+     },
+     "201-400": {
+      "meanDelta": -16.021641639843182,
+      "n": 138
+     },
+     "51-100": {
+      "meanDelta": -31.75899749987841,
+      "n": 138
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -23.535058546406606,
+      -17.10439780444303
+     ],
+     "ci98.75": [
+      -24.294963537258425,
+      -16.388918048609305
+     ],
+     "mean": -20.320113666962484
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-29",
+    "meanRmseArm": 702.2926880562163,
+    "meanRmseRef": 681.9725743892539,
+    "medianIndexN": 400.0,
+    "origins": 138,
+    "spanDays": 138,
+    "winShare": 0.0
+   },
+   "h28": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -21.58260363067979,
+      "n": 110
+     },
+     "101-200": {
+      "meanDelta": -26.449284922365603,
+      "n": 110
+     },
+     "201-400": {
+      "meanDelta": -16.55309356999072,
+      "n": 110
+     },
+     "51-100": {
+      "meanDelta": -33.02421545005652,
+      "n": 110
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -24.13233115872557,
+      -17.242703142573507
+     ],
+     "ci98.75": [
+      -24.536247600646394,
+      -16.34508675619033
+     ],
+     "mean": -21.17114460769909
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-01",
+    "meanRmseArm": 727.10415776982,
+    "meanRmseRef": 705.933013162121,
+    "medianIndexN": 400.0,
+    "origins": 110,
+    "spanDays": 110,
+    "winShare": 0.0
+   },
+   "h7": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -20.92424870433352,
+      "n": 131
+     },
+     "101-200": {
+      "meanDelta": -25.27939469879536,
+      "n": 131
+     },
+     "201-400": {
+      "meanDelta": -15.764100323410915,
+      "n": 131
+     },
+     "51-100": {
+      "meanDelta": -31.616785376987778,
+      "n": 131
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -23.73477673746345,
+      -16.530751928661275
+     ],
+     "ci98.75": [
+      -24.406899595592478,
+      -15.68004419022192
+     ],
+     "mean": -20.18446601736576
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-22",
+    "meanRmseArm": 711.0562219984874,
+    "meanRmseRef": 690.8717559811216,
+    "medianIndexN": 400,
+    "origins": 131,
+    "spanDays": 131,
+    "winShare": 0.0
+   },
+   "margin": 34.543587799056084,
+   "reference": "M1",
+   "verdict": "WORSE"
+  },
+  "Q4": {
+   "S3_postSelection": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -517.1736225504092,
+      "n": 55
+     },
+     "101-200": {
+      "meanDelta": -1082.3760162372864,
+      "n": 55
+     },
+     "201-400": {
+      "meanDelta": -845.2559397162737,
+      "n": 55
+     },
+     "51-100": {
+      "meanDelta": -1107.9081732468214,
+      "n": 55
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -889.3113584323418,
+      -833.2312812232444
+     ],
+     "ci98.75": [
+      -891.6199181235979,
+      -831.0214400790405
+     ],
+     "mean": -861.3206791013192
+    },
+    "first": "2026-07-30",
+    "last": "2026-09-22",
+    "meanRmseArm": 1592.3184202683349,
+    "meanRmseRef": 730.9977411670155,
+    "medianIndexN": 400,
+    "origins": 55,
+    "spanDays": 55,
+    "winShare": 0.0
+   },
+   "arm": "M2",
+   "bandsPositive": 0,
+   "decisive": true,
+   "h0": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -552.5515503146999,
+      "n": 138
+     },
+     "101-200": {
+      "meanDelta": -1117.4825895129454,
+      "n": 138
+     },
+     "201-400": {
+      "meanDelta": -861.3740146382673,
+      "n": 138
+     },
+     "51-100": {
+      "meanDelta": -1148.2060127410566,
+      "n": 138
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -912.5754441199849,
+      -867.0408378572643
+     ],
+     "ci98.75": [
+      -914.4736660620686,
+      -859.0156040576483
+     ],
+     "mean": -891.9915325362617
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-29",
+    "meanRmseArm": 1573.9641069255156,
+    "meanRmseRef": 681.9725743892539,
+    "medianIndexN": 400.0,
+    "origins": 138,
+    "spanDays": 138,
+    "winShare": 0.0
+   },
+   "h28": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -541.8825476893967,
+      "n": 110
+     },
+     "101-200": {
+      "meanDelta": -1112.9918588376456,
+      "n": 110
+     },
+     "201-400": {
+      "meanDelta": -859.0040792128445,
+      "n": 110
+     },
+     "51-100": {
+      "meanDelta": -1141.581647454572,
+      "n": 110
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -920.1111343384731,
+      -849.9624751412639
+     ],
+     "ci98.75": [
+      -922.8534019409783,
+      -838.2470058560156
+     ],
+     "mean": -888.160511887422
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-01",
+    "meanRmseArm": 1594.093525049543,
+    "meanRmseRef": 705.933013162121,
+    "medianIndexN": 400.0,
+    "origins": 110,
+    "spanDays": 110,
+    "winShare": 0.0
+   },
+   "h7": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -543.1771594699597,
+      "n": 131
+     },
+     "101-200": {
+      "meanDelta": -1115.1569333986847,
+      "n": 131
+     },
+     "201-400": {
+      "meanDelta": -860.8246123903001,
+      "n": 131
+     },
+     "51-100": {
+      "meanDelta": -1142.739337804055,
+      "n": 131
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -910.7516168498169,
+      -862.0883920586791
+     ],
+     "ci98.75": [
+      -913.7952765369976,
+      -852.520387103104
+     ],
+     "mean": -888.2842396795954
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-22",
+    "meanRmseArm": 1579.155995660717,
+    "meanRmseRef": 690.8717559811216,
+    "medianIndexN": 400,
+    "origins": 131,
+    "spanDays": 131,
+    "winShare": 0.0
+   },
+   "margin": 34.543587799056084,
+   "reference": "M1",
+   "verdict": "WORSE"
+  },
+  "S1_c3_underM1_vs_N1": {
+   "arm": "M1",
+   "decisive": false,
+   "h0": {
+    "bands": {
+     "1-50": {
+      "meanDelta": 515.8008770431152,
+      "n": 138
+     },
+     "101-200": {
+      "meanDelta": 1349.5075334113747,
+      "n": 138
+     },
+     "201-400": {
+      "meanDelta": 921.030110543204,
+      "n": 138
+     },
+     "51-100": {
+      "meanDelta": 1442.440764789257,
+      "n": 138
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      995.5599660892952,
+      1049.1107843682425
+     ],
+     "ci98.75": [
+      986.6481747966892,
+      1052.0718062282722
+     ],
+     "mean": 1024.1383684455257
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-29",
+    "meanRmseArm": 681.9725743892539,
+    "meanRmseRef": 1706.1109428347797,
+    "medianIndexN": 400.0,
+    "origins": 138,
+    "spanDays": 138,
+    "winShare": 1.0
+   },
+   "h28": {
+    "bands": {
+     "1-50": {
+      "meanDelta": 507.8036609873073,
+      "n": 110
+     },
+     "101-200": {
+      "meanDelta": 1344.5486102179432,
+      "n": 110
+     },
+     "201-400": {
+      "meanDelta": 917.8689117252845,
+      "n": 110
+     },
+     "51-100": {
+      "meanDelta": 1433.139661562814,
+      "n": 110
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      982.9503299948732,
+      1048.3742741589203
+     ],
+     "ci98.75": [
+      973.181703010621,
+      1050.651310986277
+     ],
+     "mean": 1019.2776534286443
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-01",
+    "meanRmseArm": 705.933013162121,
+    "meanRmseRef": 1725.2106665907652,
+    "medianIndexN": 400.0,
+    "origins": 110,
+    "spanDays": 110,
+    "winShare": 1.0
+   },
+   "h7": {
+    "bands": {
+     "1-50": {
+      "meanDelta": 507.0232960676117,
+      "n": 131
+     },
+     "101-200": {
+      "meanDelta": 1347.4579333287215,
+      "n": 131
+     },
+     "201-400": {
+      "meanDelta": 920.2401561105409,
+      "n": 131
+     },
+     "51-100": {
+      "meanDelta": 1435.1232497290894,
+      "n": 131
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      990.8336568264957,
+      1043.4043199870498
+     ],
+     "ci98.75": [
+      980.6517560011134,
+      1045.003223145453
+     ],
+     "mean": 1020.105962770391
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-22",
+    "meanRmseArm": 690.8717559811216,
+    "meanRmseRef": 1710.9777187515126,
+    "medianIndexN": 400,
+    "origins": 131,
+    "spanDays": 131,
+    "winShare": 1.0
+   },
+   "reference": "N1"
+  },
+  "S2_M2_vs_C0": {
+   "arm": "M2",
+   "decisive": false,
+   "h0": {
+    "bands": {
+     "1-50": {
+      "meanDelta": 264.9495302441055,
+      "n": 138
+     },
+     "101-200": {
+      "meanDelta": -284.0574559735168,
+      "n": 138
+     },
+     "201-400": {
+      "meanDelta": -340.92141191258,
+      "n": 138
+     },
+     "51-100": {
+      "meanDelta": -74.6916295171101,
+      "n": 138
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -185.39627009602304,
+      -161.17033321178124
+     ],
+     "ci98.75": [
+      -186.59837068271324,
+      -157.41401370375024
+     ],
+     "mean": -174.60801618808154
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-29",
+    "meanRmseArm": 1573.9641069255156,
+    "meanRmseRef": 1399.356090737434,
+    "medianIndexN": 400.0,
+    "origins": 138,
+    "spanDays": 138,
+    "winShare": 0.0
+   },
+   "h28": {
+    "bands": {
+     "1-50": {
+      "meanDelta": 253.09210383323025,
+      "n": 110
+     },
+     "101-200": {
+      "meanDelta": -287.52549183596045,
+      "n": 110
+     },
+     "201-400": {
+      "meanDelta": -341.6535186400753,
+      "n": 110
+     },
+     "51-100": {
+      "meanDelta": -83.39908125778304,
+      "n": 110
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -188.93422104899906,
+      -168.05111929645557
+     ],
+     "ci98.75": [
+      -189.61859479261335,
+      -164.94393154238261
+     ],
+     "mean": -179.56796716432032
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-01",
+    "meanRmseArm": 1594.093525049543,
+    "meanRmseRef": 1414.5255578852227,
+    "medianIndexN": 400.0,
+    "origins": 110,
+    "spanDays": 110,
+    "winShare": 0.0
+   },
+   "h7": {
+    "bands": {
+     "1-50": {
+      "meanDelta": 261.4474263287754,
+      "n": 131
+     },
+     "101-200": {
+      "meanDelta": -285.4813343146034,
+      "n": 131
+     },
+     "201-400": {
+      "meanDelta": -341.42554103008416,
+      "n": 131
+     },
+     "51-100": {
+      "meanDelta": -77.54020750273612,
+      "n": 131
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -186.22628940413406,
+      -164.02475396395704
+     ],
+     "ci98.75": [
+      -187.57778793111189,
+      -161.109266736694
+     ],
+     "mean": -176.208153330079
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-22",
+    "meanRmseArm": 1579.155995660717,
+    "meanRmseRef": 1402.947842330638,
+    "medianIndexN": 400,
+    "origins": 131,
+    "spanDays": 131,
+    "winShare": 0.0
+   },
+   "reference": "C0"
+  },
+  "S2_M3_vs_C0": {
+   "arm": "M3",
+   "decisive": false,
+   "h0": {
+    "bands": {
+     "1-50": {
+      "meanDelta": 796.720691519476,
+      "n": 138
+     },
+     "101-200": {
+      "meanDelta": 807.9011032572679,
+      "n": 138
+     },
+     "201-400": {
+      "meanDelta": 504.43096108584416,
+      "n": 138
+     },
+     "51-100": {
+      "meanDelta": 1041.755385724068,
+      "n": 138
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      664.9849680282433,
+      726.6910482651755
+     ],
+     "ci98.75": [
+      655.4891337584667,
+      732.4621808946182
+     ],
+     "mean": 697.0634026812178
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-29",
+    "meanRmseArm": 702.2926880562163,
+    "meanRmseRef": 1399.356090737434,
+    "medianIndexN": 400.0,
+    "origins": 138,
+    "spanDays": 138,
+    "winShare": 1.0
+   },
+   "h28": {
+    "bands": {
+     "1-50": {
+      "meanDelta": 773.3920478919472,
+      "n": 110
+     },
+     "101-200": {
+      "meanDelta": 799.0170820793195,
+      "n": 110
+     },
+     "201-400": {
+      "meanDelta": 500.79746700277855,
+      "n": 110
+     },
+     "51-100": {
+      "meanDelta": 1025.1583507467326,
+      "n": 110
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      653.6677380150064,
+      714.7669657989347
+     ],
+     "ci98.75": [
+      645.1719901739274,
+      717.1267627695634
+     ],
+     "mean": 687.4214001154025
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-01",
+    "meanRmseArm": 727.10415776982,
+    "meanRmseRef": 1414.5255578852227,
+    "medianIndexN": 400.0,
+    "origins": 110,
+    "spanDays": 110,
+    "winShare": 1.0
+   },
+   "h7": {
+    "bands": {
+     "1-50": {
+      "meanDelta": 783.7003370944016,
+      "n": 131
+     },
+     "101-200": {
+      "meanDelta": 804.396204385286,
+      "n": 131
+     },
+     "201-400": {
+      "meanDelta": 503.6349710368049,
+      "n": 131
+     },
+     "51-100": {
+      "meanDelta": 1033.5823449243312,
+      "n": 131
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      661.3620910306036,
+      716.7412506338156
+     ],
+     "ci98.75": [
+      651.9706297057699,
+      719.7747042066815
+     ],
+     "mean": 691.8916203321506
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-22",
+    "meanRmseArm": 711.0562219984874,
+    "meanRmseRef": 1402.947842330638,
+    "medianIndexN": 400,
+    "origins": 131,
+    "spanDays": 131,
+    "winShare": 1.0
+   },
+   "reference": "C0"
+  },
+  "S2_M4_vs_C0": {
+   "arm": "M4",
+   "decisive": false,
+   "h0": {
+    "bands": {
+     "1-50": {
+      "meanDelta": 129.91895513386126,
+      "n": 138
+     },
+     "101-200": {
+      "meanDelta": -425.158689599868,
+      "n": 138
+     },
+     "201-400": {
+      "meanDelta": -441.4950122426559,
+      "n": 138
+     },
+     "51-100": {
+      "meanDelta": -241.92877186909723,
+      "n": 138
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -311.0142162989392,
+      -287.30523187974126
+     ],
+     "ci98.75": [
+      -312.24793461802284,
+      -283.49184342301413
+     ],
+     "mean": -300.3847849100883
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-29",
+    "meanRmseArm": 1699.7408756475222,
+    "meanRmseRef": 1399.356090737434,
+    "medianIndexN": 400.0,
+    "origins": 138,
+    "spanDays": 138,
+    "winShare": 0.0
+   },
+   "h28": {
+    "bands": {
+     "1-50": {
+      "meanDelta": 115.44618883276198,
+      "n": 110
+     },
+     "101-200": {
+      "meanDelta": -428.55394663696643,
+      "n": 110
+     },
+     "201-400": {
+      "meanDelta": -441.20182882430606,
+      "n": 110
+     },
+     "51-100": {
+      "meanDelta": -252.11941827576703,
+      "n": 110
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -314.3210097210664,
+      -294.73629950489584
+     ],
+     "ci98.75": [
+      -315.17511082188395,
+      -292.0568713913057
+     ],
+     "mean": -305.63636625007985
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-01",
+    "meanRmseArm": 1720.1619241353023,
+    "meanRmseRef": 1414.5255578852227,
+    "medianIndexN": 400.0,
+    "origins": 110,
+    "spanDays": 110,
+    "winShare": 0.0
+   },
+   "h7": {
+    "bands": {
+     "1-50": {
+      "meanDelta": 125.6035226407939,
+      "n": 131
+     },
+     "101-200": {
+      "meanDelta": -426.18320540593146,
+      "n": 131
+     },
+     "201-400": {
+      "meanDelta": -441.3049792131673,
+      "n": 131
+     },
+     "51-100": {
+      "meanDelta": -244.95260185823318,
+      "n": 131
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -311.96473521777165,
+      -289.1880395030759
+     ],
+     "ci98.75": [
+      -312.87811426298924,
+      -286.2550766452458
+     ],
+     "mean": -301.7976800162179
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-22",
+    "meanRmseArm": 1704.745522346856,
+    "meanRmseRef": 1402.947842330638,
+    "medianIndexN": 400,
+    "origins": 131,
+    "spanDays": 131,
+    "winShare": 0.0
+   },
+   "reference": "C0"
+  },
+  "S2_M4_vs_M1": {
+   "arm": "M4",
+   "decisive": false,
+   "h0": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -687.5821254249441,
+      "n": 138
+     },
+     "101-200": {
+      "meanDelta": -1258.5838231392968,
+      "n": 138
+     },
+     "201-400": {
+      "meanDelta": -961.9476149683433,
+      "n": 138
+     },
+     "51-100": {
+      "meanDelta": -1315.4431550930437,
+      "n": 138
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -1038.4967837970055,
+      -993.4371522112505
+     ],
+     "ci98.75": [
+      -1040.3780003966647,
+      -985.3415910988075
+     ],
+     "mean": -1017.7683012582684
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-29",
+    "meanRmseArm": 1699.7408756475222,
+    "meanRmseRef": 681.9725743892539,
+    "medianIndexN": 400.0,
+    "origins": 138,
+    "spanDays": 138,
+    "winShare": 0.0
+   },
+   "h28": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -679.5284626898649,
+      "n": 110
+     },
+     "101-200": {
+      "meanDelta": -1254.0203136386517,
+      "n": 110
+     },
+     "201-400": {
+      "meanDelta": -958.5523893970754,
+      "n": 110
+     },
+     "51-100": {
+      "meanDelta": -1310.3019844725561,
+      "n": 110
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -1045.423852412731,
+      -977.5734471056095
+     ],
+     "ci98.75": [
+      -1048.6577513408283,
+      -966.3224147394842
+     ],
+     "mean": -1014.2289109731814
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-01",
+    "meanRmseArm": 1720.1619241353023,
+    "meanRmseRef": 705.933013162121,
+    "medianIndexN": 400.0,
+    "origins": 110,
+    "spanDays": 110,
+    "winShare": 0.0
+   },
+   "h7": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -679.0210631579413,
+      "n": 131
+     },
+     "101-200": {
+      "meanDelta": -1255.8588044900127,
+      "n": 131
+     },
+     "201-400": {
+      "meanDelta": -960.7040505733831,
+      "n": 131
+     },
+     "51-100": {
+      "meanDelta": -1310.151732159552,
+      "n": 131
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -1035.8783657122935,
+      -988.3788461074937
+     ],
+     "ci98.75": [
+      -1039.395396738225,
+      -979.503268491829
+     ],
+     "mean": -1013.8737663657344
+    },
+    "first": "2026-05-15",
+    "last": "2026-09-22",
+    "meanRmseArm": 1704.745522346856,
+    "meanRmseRef": 690.8717559811216,
+    "medianIndexN": 400,
+    "origins": 131,
+    "spanDays": 131,
+    "winShare": 0.0
+   },
+   "reference": "M1"
+  },
+  "S4_Q1_crowdCsv": {
+   "arm": "C0",
+   "decisive": false,
+   "h0": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -374.6222101269232,
+      "n": 21
+     },
+     "101-200": {
+      "meanDelta": 500.5030763210328,
+      "n": 21
+     },
+     "201-400": {
+      "meanDelta": 440.6562638990918,
+      "n": 21
+     },
+     "51-100": {
+      "meanDelta": 346.1741129046125,
+      "n": 21
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      286.77881705346806,
+      286.77881705346806
+     ],
+     "ci98.75": [
+      286.77881705346806,
+      286.77881705346806
+     ],
+     "mean": 286.77881705346806
+    },
+    "first": "2026-09-09",
+    "last": "2026-09-29",
+    "meanRmseArm": 1416.4151328815765,
+    "meanRmseRef": 1703.1939499350444,
+    "medianIndexN": 363,
+    "origins": 21,
+    "spanDays": 21,
+    "winShare": 1.0
+   },
+   "h28": {
+    "origins": 0,
+    "spanDays": 0
+   },
+   "h7": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -367.51044833000964,
+      "n": 14
+     },
+     "101-200": {
+      "meanDelta": 509.19488805217946,
+      "n": 14
+     },
+     "201-400": {
+      "meanDelta": 440.541353428418,
+      "n": 14
+     },
+     "51-100": {
+      "meanDelta": 344.15959903510037,
+      "n": 14
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      288.9110715608454,
+      288.9110715608454
+     ],
+     "ci98.75": [
+      288.9110715608454,
+      288.9110715608454
+     ],
+     "mean": 288.9110715608454
+    },
+    "first": "2026-09-09",
+    "last": "2026-09-22",
+    "meanRmseArm": 1419.5382417406533,
+    "meanRmseRef": 1708.449313301499,
+    "medianIndexN": 365.0,
+    "origins": 14,
+    "spanDays": 14,
+    "winShare": 1.0
+   },
+   "reference": "N1_crowdCsv"
+  },
+  "S5_playerMatched_Q1_h7": {
+   "QB": {
+    "ci": {
+     "ci95.0": [
+      0.11377104119542619,
+      0.12460327697344363
+     ],
+     "ci98.75": [
+      0.11199803966288734,
+      0.12503266627754261
+     ],
+     "mean": 0.12015500120011895
+    },
+    "meanAbsLogErrC3": 0.8685380880677318,
+    "meanAbsLogErrNative": 0.9883392535460587,
+    "n": 8141,
+    "origins": 131
+   },
+   "RB": {
+    "ci": {
+     "ci95.0": [
+      0.1564091657570948,
+      0.17605465710280357
+     ],
+     "ci98.75": [
+      0.1530376669269327,
+      0.17650016991427778
+     ],
+     "mean": 0.16826702731968285
+    },
+    "meanAbsLogErrC3": 0.9832642882002086,
+    "meanAbsLogErrNative": 1.1512934178345586,
+    "n": 13791,
+    "origins": 131
+   },
+   "TE": {
+    "ci": {
+     "ci95.0": [
+      0.16710279963635016,
+      0.1823257044934494
+     ],
+     "ci98.75": [
+      0.1642232685948057,
+      0.18300059826480553
+     ],
+     "mean": 0.17579878774011926
+    },
+    "meanAbsLogErrC3": 1.4619075878887997,
+    "meanAbsLogErrNative": 1.6382726909226586,
+    "n": 7815,
+    "origins": 131
+   },
+   "WR": {
+    "ci": {
+     "ci95.0": [
+      0.15154870906033457,
+      0.16788298558225787
+     ],
+     "ci98.75": [
+      0.14837164725769592,
+      0.1681805228710747
+     ],
+     "mean": 0.16165044694364558
+    },
+    "meanAbsLogErrC3": 1.1315687496427032,
+    "meanAbsLogErrNative": 1.293097545166748,
+    "n": 20407,
+    "origins": 131
+   },
+   "all": {
+    "ci": {
+     "ci95.0": [
+      0.14850221035050312,
+      0.16501101180545646
+     ],
+     "ci98.75": [
+      0.14559163644678877,
+      0.16521428864505996
+     ],
+     "mean": 0.15854319496578018
+    },
+    "meanAbsLogErrC3": 1.099239109396507,
+    "meanAbsLogErrNative": 1.2577169308616165,
+    "n": 50187,
+    "origins": 131
+   },
+   "definition": "mean over players of |ln v_N1 - ln v_OTC| minus |ln v_c3(C0) - ln v_OTC|; >0 = c3 closer",
+   "rookies": {
+    "ci": {
+     "ci95.0": [
+      0.16493251163026482,
+      0.19680217790994645
+     ],
+     "ci98.75": [
+      0.15927652456964314,
+      0.19874235312126318
+     ],
+     "mean": 0.18357846002545394
+    },
+    "meanAbsLogErrC3": 0.9730604562876322,
+    "meanAbsLogErrNative": 1.1566431014865697,
+    "n": 7110,
+    "origins": 131
+   },
+   "teNote": "TE basis-confounded: KTC TE++ vs OTC base",
+   "veterans": {
+    "ci": {
+     "ci95.0": [
+      0.14551957265783,
+      0.16042376465825484
+     ],
+     "ci98.75": [
+      0.14308292391530297,
+      0.16107898708739105
+     ],
+     "mean": 0.15427098442586595
+    },
+    "meanAbsLogErrC3": 1.1200653095405304,
+    "meanAbsLogErrNative": 1.2743994975876325,
+    "n": 43077,
+    "origins": 131
+   }
+  },
+  "S6_DLFnative_vs_C0": {
+   "arm": "C0",
+   "decisive": false,
+   "h0": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -1092.9950824723705,
+      "n": 5
+     },
+     "101-200": {
+      "meanDelta": -919.3821356370715,
+      "n": 5
+     },
+     "201-400": {
+      "meanDelta": -325.5587786996013,
+      "n": 5
+     },
+     "51-100": {
+      "meanDelta": -1432.7781405553312,
+      "n": 5
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -836.9117650455149,
+      -836.9117650455149
+     ],
+     "ci98.75": [
+      -836.9117650455149,
+      -836.9117650455149
+     ],
+     "mean": -836.9117650455149
+    },
+    "first": "2026-09-25",
+    "last": "2026-09-29",
+    "meanRmseArm": 1507.2844649794902,
+    "meanRmseRef": 670.3726999339754,
+    "medianIndexN": 323,
+    "origins": 5,
+    "spanDays": 5,
+    "winShare": 0.0
+   },
+   "h28": {
+    "origins": 0,
+    "spanDays": 0
+   },
+   "h7": {
+    "origins": 0,
+    "spanDays": 0
+   },
+   "reference": "DLFnative"
+  },
+  "S6_M5_vs_M1": {
+   "arm": "M5",
+   "decisive": false,
+   "h0": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -77.55434497661129,
+      "n": 21
+     },
+     "101-200": {
+      "meanDelta": -67.96416039490835,
+      "n": 21
+     },
+     "201-400": {
+      "meanDelta": -41.19220018819161,
+      "n": 21
+     },
+     "51-100": {
+      "meanDelta": -94.31293909607326,
+      "n": 21
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -60.526109020269026,
+      -60.526109020269026
+     ],
+     "ci98.75": [
+      -60.526109020269026,
+      -60.526109020269026
+     ],
+     "mean": -60.526109020269026
+    },
+    "first": "2026-09-09",
+    "last": "2026-09-29",
+    "meanRmseArm": 700.2547505316671,
+    "meanRmseRef": 639.7286415113981,
+    "medianIndexN": 363,
+    "origins": 21,
+    "spanDays": 21,
+    "winShare": 0.0
+   },
+   "h28": {
+    "origins": 0,
+    "spanDays": 0
+   },
+   "h7": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -80.76936458871725,
+      "n": 14
+     },
+     "101-200": {
+      "meanDelta": -61.67817504652516,
+      "n": 14
+     },
+     "201-400": {
+      "meanDelta": -35.479891226021834,
+      "n": 14
+     },
+     "51-100": {
+      "meanDelta": -90.27341149468614,
+      "n": 14
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -57.57672578858901,
+      -57.57672578858901
+     ],
+     "ci98.75": [
+      -57.57672578858901,
+      -57.57672578858901
+     ],
+     "mean": -57.57672578858901
+    },
+    "first": "2026-09-09",
+    "last": "2026-09-22",
+    "meanRmseArm": 729.3799581231025,
+    "meanRmseRef": 671.8032323345134,
+    "medianIndexN": 365.0,
+    "origins": 14,
+    "spanDays": 14,
+    "winShare": 0.0
+   },
+   "reference": "M1"
+  },
+  "S6_M6_vs_M1": {
+   "arm": "M6",
+   "decisive": false,
+   "h0": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -1046.5803639419,
+      "n": 21
+     },
+     "101-200": {
+      "meanDelta": -1518.1745887321922,
+      "n": 21
+     },
+     "201-400": {
+      "meanDelta": -1141.576677544862,
+      "n": 21
+     },
+     "51-100": {
+      "meanDelta": -1690.7106201605181,
+      "n": 21
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -1271.6084664311975,
+      -1271.6084664311975
+     ],
+     "ci98.75": [
+      -1271.6084664311975,
+      -1271.6084664311975
+     ],
+     "mean": -1271.6084664311975
+    },
+    "first": "2026-09-09",
+    "last": "2026-09-29",
+    "meanRmseArm": 1911.3371079425956,
+    "meanRmseRef": 639.7286415113981,
+    "medianIndexN": 363,
+    "origins": 21,
+    "spanDays": 21,
+    "winShare": 0.0
+   },
+   "h28": {
+    "origins": 0,
+    "spanDays": 0
+   },
+   "h7": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -1006.4002829375344,
+      "n": 14
+     },
+     "101-200": {
+      "meanDelta": -1493.2375706045343,
+      "n": 14
+     },
+     "201-400": {
+      "meanDelta": -1120.568745871068,
+      "n": 14
+     },
+     "51-100": {
+      "meanDelta": -1657.2083087116055,
+      "n": 14
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -1238.0873137195092,
+      -1238.0873137195092
+     ],
+     "ci98.75": [
+      -1238.0873137195092,
+      -1238.0873137195092
+     ],
+     "mean": -1238.0873137195092
+    },
+    "first": "2026-09-09",
+    "last": "2026-09-22",
+    "meanRmseArm": 1909.8905460540227,
+    "meanRmseRef": 671.8032323345134,
+    "medianIndexN": 365.0,
+    "origins": 14,
+    "spanDays": 14,
+    "winShare": 0.0
+   },
+   "reference": "M1"
+  },
+  "S6_M7_vs_M1": {
+   "arm": "M7",
+   "decisive": false,
+   "h0": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -160.79681516257156,
+      "n": 21
+     },
+     "101-200": {
+      "meanDelta": -244.24417377126048,
+      "n": 21
+     },
+     "201-400": {
+      "meanDelta": -169.70884835803358,
+      "n": 21
+     },
+     "51-100": {
+      "meanDelta": -287.09129618664167,
+      "n": 21
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -189.58219853306971,
+      -189.58219853306971
+     ],
+     "ci98.75": [
+      -189.58219853306971,
+      -189.58219853306971
+     ],
+     "mean": -189.58219853306971
+    },
+    "first": "2026-09-09",
+    "last": "2026-09-29",
+    "meanRmseArm": 829.3108400444679,
+    "meanRmseRef": 639.7286415113981,
+    "medianIndexN": 363,
+    "origins": 21,
+    "spanDays": 21,
+    "winShare": 0.0
+   },
+   "h28": {
+    "origins": 0,
+    "spanDays": 0
+   },
+   "h7": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -158.93642802414948,
+      "n": 14
+     },
+     "101-200": {
+      "meanDelta": -238.8947823733429,
+      "n": 14
+     },
+     "201-400": {
+      "meanDelta": -164.70425677800534,
+      "n": 14
+     },
+     "51-100": {
+      "meanDelta": -282.22672679542285,
+      "n": 14
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -183.98183989586636,
+      -183.98183989586636
+     ],
+     "ci98.75": [
+      -183.98183989586636,
+      -183.98183989586636
+     ],
+     "mean": -183.98183989586636
+    },
+    "first": "2026-09-09",
+    "last": "2026-09-22",
+    "meanRmseArm": 855.7850722303798,
+    "meanRmseRef": 671.8032323345134,
+    "medianIndexN": 365.0,
+    "origins": 14,
+    "spanDays": 14,
+    "winShare": 0.0
+   },
+   "reference": "M1"
+  },
+  "S6_M8_vs_M1": {
+   "arm": "M8",
+   "decisive": false,
+   "h0": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -875.308258310635,
+      "n": 21
+     },
+     "101-200": {
+      "meanDelta": -1397.171603687326,
+      "n": 21
+     },
+     "201-400": {
+      "meanDelta": -1072.4339298729365,
+      "n": 21
+     },
+     "51-100": {
+      "meanDelta": -1516.818359612215,
+      "n": 21
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -1153.9753308211652,
+      -1153.9753308211652
+     ],
+     "ci98.75": [
+      -1153.9753308211652,
+      -1153.9753308211652
+     ],
+     "mean": -1153.9753308211652
+    },
+    "first": "2026-09-09",
+    "last": "2026-09-29",
+    "meanRmseArm": 1793.7039723325634,
+    "meanRmseRef": 639.7286415113981,
+    "medianIndexN": 363,
+    "origins": 21,
+    "spanDays": 21,
+    "winShare": 0.0
+   },
+   "h28": {
+    "origins": 0,
+    "spanDays": 0
+   },
+   "h7": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -828.3238438859614,
+      "n": 14
+     },
+     "101-200": {
+      "meanDelta": -1376.7547012516425,
+      "n": 14
+     },
+     "201-400": {
+      "meanDelta": -1058.9434929988558,
+      "n": 14
+     },
+     "51-100": {
+      "meanDelta": -1482.2580270900903,
+      "n": 14
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      -1123.1248826301785,
+      -1123.1248826301785
+     ],
+     "ci98.75": [
+      -1123.1248826301785,
+      -1123.1248826301785
+     ],
+     "mean": -1123.1248826301785
+    },
+    "first": "2026-09-09",
+    "last": "2026-09-22",
+    "meanRmseArm": 1794.928114964692,
+    "meanRmseRef": 671.8032323345134,
+    "medianIndexN": 365.0,
+    "origins": 14,
+    "spanDays": 14,
+    "winShare": 0.0
+   },
+   "reference": "M1"
+  },
+  "S6_N2_vs_C0": {
+   "arm": "C0",
+   "decisive": false,
+   "h0": {
+    "bands": {
+     "1-50": {
+      "meanDelta": -8.372605286548357,
+      "n": 21
+     },
+     "101-200": {
+      "meanDelta": 654.8643425696217,
+      "n": 21
+     },
+     "201-400": {
+      "meanDelta": 601.2693265133724,
+      "n": 21
+     },
+     "51-100": {
+      "meanDelta": 700.9646084032055,
+      "n": 21
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      506.41031913070776,
+      506.41031913070776
+     ],
+     "ci98.75": [
+      506.41031913070776,
+      506.41031913070776
+     ],
+     "mean": 506.41031913070776
+    },
+    "first": "2026-09-09",
+    "last": "2026-09-29",
+    "meanRmseArm": 1416.4151328815765,
+    "meanRmseRef": 1922.8254520122844,
+    "medianIndexN": 363,
+    "origins": 21,
+    "spanDays": 21,
+    "winShare": 1.0
+   },
+   "h28": {
+    "origins": 0,
+    "spanDays": 0
+   },
+   "h7": {
+    "bands": {
+     "1-50": {
+      "meanDelta": 11.573341231318084,
+      "n": 14
+     },
+     "101-200": {
+      "meanDelta": 653.3061974000601,
+      "n": 14
+     },
+     "201-400": {
+      "meanDelta": 586.6774789025011,
+      "n": 14
+     },
+     "51-100": {
+      "meanDelta": 699.6036522422127,
+      "n": 14
+     }
+    },
+    "ci": {
+     "ci95.0": [
+      502.4674240600389,
+      502.4674240600389
+     ],
+     "ci98.75": [
+      502.4674240600389,
+      502.4674240600389
+     ],
+     "mean": 502.4674240600389
+    },
+    "first": "2026-09-09",
+    "last": "2026-09-22",
+    "meanRmseArm": 1419.5382417406533,
+    "meanRmseRef": 1922.0056658006924,
+    "medianIndexN": 365.0,
+    "origins": 14,
+    "spanDays": 14,
+    "winShare": 1.0
+   },
+   "reference": "N2"
+  }
+ },
+ "s5DailyQ1": {
+  "2026-05-15": 0.14557242076207197,
+  "2026-05-16": 0.1383912724042884,
+  "2026-05-17": 0.1471095238566011,
+  "2026-05-18": 0.1398477394613361,
+  "2026-05-19": 0.13501123531776957,
+  "2026-05-20": 0.1418175884022418,
+  "2026-05-21": 0.13573041430420335,
+  "2026-05-22": 0.13907813916992817,
+  "2026-05-23": 0.14181254608750934,
+  "2026-05-24": 0.13348284828913606,
+  "2026-05-25": 0.13933231136445481,
+  "2026-05-26": 0.1381393935445086,
+  "2026-05-27": 0.12805261855801792,
+  "2026-05-28": 0.13190521316579942,
+  "2026-05-29": 0.12052966484856843,
+  "2026-05-30": 0.12114927354451577,
+  "2026-05-31": 0.1339403401004111,
+  "2026-06-01": 0.12197966071384972,
+  "2026-06-02": 0.11930743195463088,
+  "2026-06-03": 0.12108266718155263,
+  "2026-06-04": 0.11240474519376248,
+  "2026-06-05": 0.12108021578647385,
+  "2026-06-06": 0.1267640213587623,
+  "2026-06-07": 0.13496988209109925,
+  "2026-06-08": 0.13375529811065415,
+  "2026-06-09": 0.16639317243437612,
+  "2026-06-10": 0.1671438252402058,
+  "2026-06-11": 0.16597098479789033,
+  "2026-06-12": 0.16579842193158317,
+  "2026-06-13": 0.16549585440189085,
+  "2026-06-14": 0.16596225657017605,
+  "2026-06-15": 0.1665679885611411,
+  "2026-06-16": 0.1658318980046608,
+  "2026-06-17": 0.16587369405338792,
+  "2026-06-18": 0.1640088748579059,
+  "2026-06-19": 0.16393022381576752,
+  "2026-06-20": 0.1666375771353347,
+  "2026-06-21": 0.16633340272075825,
+  "2026-06-22": 0.16764818375257506,
+  "2026-06-23": 0.1662192845536969,
+  "2026-06-24": 0.16596450481497504,
+  "2026-06-25": 0.16693052960403015,
+  "2026-06-26": 0.16485082459881809,
+  "2026-06-27": 0.16635709186107683,
+  "2026-06-28": 0.166520548532635,
+  "2026-06-29": 0.1660610980224157,
+  "2026-06-30": 0.16615705617053078,
+  "2026-07-01": 0.16589231225747092,
+  "2026-07-02": 0.1658286712712987,
+  "2026-07-03": 0.1661386363058232,
+  "2026-07-04": 0.17233043916392424,
+  "2026-07-05": 0.16351712188184644,
+  "2026-07-06": 0.16442900575592442,
+  "2026-07-07": 0.16413496401609073,
+  "2026-07-08": 0.16462786425702028,
+  "2026-07-09": 0.1632694775255869,
+  "2026-07-10": 0.16229196070736987,
+  "2026-07-11": 0.16367687638922868,
+  "2026-07-12": 0.16380545620416925,
+  "2026-07-13": 0.16003211455304317,
+  "2026-07-14": 0.16322620310699354,
+  "2026-07-15": 0.1647669121273474,
+  "2026-07-16": 0.16440357014880216,
+  "2026-07-17": 0.1627301320715048,
+  "2026-07-18": 0.16592208484337245,
+  "2026-07-19": 0.16386145291451804,
+  "2026-07-20": 0.16335818735447963,
+  "2026-07-21": 0.16349870502265476,
+  "2026-07-22": 0.16537221475509864,
+  "2026-07-23": 0.16324330220491498,
+  "2026-07-24": 0.16257215777463582,
+  "2026-07-25": 0.16246019136078826,
+  "2026-07-26": 0.16356927400530313,
+  "2026-07-27": 0.16335617572247754,
+  "2026-07-28": 0.17000974271283562,
+  "2026-07-29": 0.16343638742031968,
+  "2026-07-30": 0.16508133110005566,
+  "2026-07-31": 0.16513100689305893,
+  "2026-08-01": 0.17083114434017835,
+  "2026-08-02": 0.16205734388923596,
+  "2026-08-03": 0.1677160454590118,
+  "2026-08-04": 0.16513037999510144,
+  "2026-08-05": 0.16438297994664688,
+  "2026-08-06": 0.16361487113849407,
+  "2026-08-07": 0.1630105507909121,
+  "2026-08-08": 0.1626852086654241,
+  "2026-08-09": 0.16383251045875005,
+  "2026-08-10": 0.16534158982645913,
+  "2026-08-11": 0.16495648150222278,
+  "2026-08-12": 0.16509225354722246,
+  "2026-08-13": 0.16130522439258438,
+  "2026-08-14": 0.1644760176764464,
+  "2026-08-15": 0.16586503981074066,
+  "2026-08-16": 0.1634244307128935,
+  "2026-08-17": 0.16595366537851747,
+  "2026-08-18": 0.16608459586778715,
+  "2026-08-19": 0.16405472116741107,
+  "2026-08-20": 0.16504524776763152,
+  "2026-08-21": 0.16688182024185622,
+  "2026-08-22": 0.1675967662623745,
+  "2026-08-23": 0.16585783004458923,
+  "2026-08-24": 0.16714960549121272,
+  "2026-08-25": 0.1666980315115032,
+  "2026-08-26": 0.1657634090449831,
+  "2026-08-27": 0.16573925973464962,
+  "2026-08-28": 0.16906002071231746,
+  "2026-08-29": 0.16283225366622275,
+  "2026-08-30": 0.16300619120129092,
+  "2026-08-31": 0.1704794420898434,
+  "2026-09-01": 0.15992357348080366,
+  "2026-09-02": 0.16216503649943842,
+  "2026-09-03": 0.16191539039766162,
+  "2026-09-04": 0.16172644148925647,
+  "2026-09-05": 0.1624984941866252,
+  "2026-09-06": 0.16694576624635254,
+  "2026-09-07": 0.16697766580507395,
+  "2026-09-08": 0.16733556014803724,
+  "2026-09-09": 0.16590587027209353,
+  "2026-09-10": 0.1652852544492656,
+  "2026-09-11": 0.16539914509937856,
+  "2026-09-12": 0.16477822649917542,
+  "2026-09-13": 0.1633351995136821,
+  "2026-09-14": 0.16410408421896353,
+  "2026-09-15": 0.16380654769561487,
+  "2026-09-16": 0.16328362868729732,
+  "2026-09-17": 0.1629734538457719,
+  "2026-09-18": 0.1627360419084968,
+  "2026-09-19": 0.1626831168675525,
+  "2026-09-20": 0.16345797383998745,
+  "2026-09-21": 0.15676947759061408,
+  "2026-09-22": 0.1583499656056089
+ },
+ "schema": "hill-d2/v1"
+}

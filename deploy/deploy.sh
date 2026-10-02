@@ -943,6 +943,115 @@ build_temporal_ledger() {
   fi
 }
 
+# Idempotent post-deploy capture of the playoff / title forecasts this deploy
+# shipped (AL-P6, src/ros/forecast_archive.py).  The refresh runner that
+# produces them is ephemeral, so the deployed commit's
+# data/ros/sims/<stem>.json + <stem>.identity.json are joined here into the
+# private, gitignored data/forecast_archive/.  --git-history also recovers
+# forecasts from refreshes whose deploy was skipped, cancelled or stalled: it
+# walks back until it meets a forecast already archived (500-commit safety
+# cap, ~41 days at the 2h cadence, logged if reached).  Capture only: it never
+# changes a served file.  Non-fatal and bounded (timeout 300) — a failure
+# loses nothing that the next deploy's history walk cannot still recover.
+#
+# Runs AFTER record_success_state, unlike build_temporal_ledger: the ledger is
+# a serving dependency (rankChange reads it), so it must exist before
+# verify_deploy judges the deploy; this archive serves nothing, so it must
+# neither delay verification nor sit inside the window where a failure would
+# trip the ERR trap's auto-rollback.  The `if` keeps a non-zero exit (including
+# timeout's 124) from reaching `set -e` or the trap.
+archive_ros_forecasts() {
+  local script="${APP_DIR}/scripts/archive_ros_forecasts.py"
+  local output=""
+  if [[ ! -f "${script}" ]]; then
+    log "[forecast-archive] script not present; skipping"
+    return 0
+  fi
+  if [[ -z "${VENV_DIR:-}" || ! -x "${VENV_DIR}/bin/python" ]]; then
+    log "[forecast-archive] virtualenv missing; skipping"
+    return 0
+  fi
+  log "[forecast-archive] archiving published playoff/title forecasts (idempotent)"
+  if output="$(timeout 300 "${VENV_DIR}/bin/python" "${script}" --git-history 2>&1)"; then
+    log "[forecast-archive] forecast archive completed"
+  else
+    warn "[forecast-archive] forecast archive exited non-zero (124 = timed out) — non-fatal"
+  fi
+  # `if`, not `[[ ]] &&`: a false test as the loop's last command would make
+  # the loop return 1 and trip `set -e` / the ERR trap.
+  local line
+  while IFS= read -r line; do
+    if [[ -n "${line}" ]]; then
+      log "[forecast-archive] ${line}"
+    fi
+  done <<< "${output}"
+  return 0
+}
+
+# Idempotent post-deploy recording of Hill model-registry learning receipts
+# (Adaptive Learning AL-1a step 4, src/model_registry/producer_receipts.py §4).
+# The Hill refit runs on a CI runner with no persistent data/learning/ and
+# commits evidence, never receipts: config/model_registry/ (registry entries,
+# training-run artifacts, the Autopilot run log) arrives here by deploy, and
+# scripts/hill_learning_receipts.py reads it into the box-local
+# data/learning/receipts.sqlite (MODEL / CHALLENGER / FEATURES / OBSERVATION;
+# no retrospective holdout EVALUATION). Re-running over unchanged evidence
+# stores only duplicates. RISKIT_RECEIPTS_ENABLED=1 is set here, and only here:
+# the script writes nothing anywhere else (fail closed, like the source-quality
+# evaluator). It never promotes, applies or writes config/.
+#
+# Runs AFTER record_success_state, beside archive_ros_forecasts and for the
+# same reasons: it serves nothing, so it must neither delay verification nor
+# sit inside the auto-rollback window. Non-fatal and bounded (timeout 300) —
+# a failure is a WARNING, and the next deploy re-reads the same committed
+# evidence, so nothing is lost. The `if` keeps a non-zero exit (including
+# timeout's 124) away from `set -e`.
+#
+# Which user writes the store: deploy.sh has no "run as another user"
+# convention — APP_USER defaults to the invoking user (`id -un`) and every
+# command here runs as the deploy user. The shadow timers that share
+# data/learning/receipts.sqlite run as User=__APP_USER__, so this ASSUMES
+# DEPLOY_USER == APP_USER. A mismatch, or a store owned by someone else, is a
+# WARNING before the run (the write would then fail and be reported, never fatal).
+record_hill_learning_receipts() {
+  local script="${APP_DIR}/scripts/hill_learning_receipts.py"
+  local store="${APP_DIR}/data/learning/receipts.sqlite"
+  local output=""
+  local me=""
+  local owner=""
+  if [[ ! -f "${script}" ]]; then
+    log "[hill-receipts] script not present; skipping"
+    return 0
+  fi
+  if [[ -z "${VENV_DIR:-}" || ! -x "${VENV_DIR}/bin/python" ]]; then
+    log "[hill-receipts] virtualenv missing; skipping"
+    return 0
+  fi
+  me="$(id -un 2>/dev/null || true)"
+  if [[ -n "${APP_USER:-}" && "${me}" != "${APP_USER}" ]]; then
+    warn "[hill-receipts] WARNING: deploy user '${me}' is not APP_USER '${APP_USER}'; the receipt store is shared with app-user timers"
+  fi
+  if [[ -e "${store}" ]]; then
+    owner="$(stat -c %U "${store}" 2>/dev/null || true)"
+    if [[ -n "${owner}" && "${owner}" != "${me}" ]]; then
+      warn "[hill-receipts] WARNING: ${store} is owned by '${owner}', not the deploy user '${me}'; the write may be refused"
+    fi
+  fi
+  log "[hill-receipts] recording Hill registry learning receipts (idempotent)"
+  if output="$(RISKIT_RECEIPTS_ENABLED=1 timeout 300 "${VENV_DIR}/bin/python" "${script}" 2>&1)"; then
+    log "[hill-receipts] learning receipts recorded"
+  else
+    warn "[hill-receipts] WARNING: learning receipts exited non-zero (1 = partial, 2 = refused input, 124 = timed out) — non-fatal"
+  fi
+  local line
+  while IFS= read -r line; do
+    if [[ -n "${line}" ]]; then
+      log "[hill-receipts] ${line}"
+    fi
+  done <<< "${output}"
+  return 0
+}
+
 verify_deploy() {
   if [[ -f "${APP_DIR}/deploy/verify-deploy.sh" ]]; then
     log "Running deploy verification script."
@@ -1136,7 +1245,26 @@ main() {
     exit 1
   fi
 
+  # A full SHA can be absent from the box's last branch/tag fetch; ask for it
+  # by id before deciding it is missing.
+  if [[ "${fetch_ok}" == "true" ]] && is_full_commit_sha "${DEPLOY_REF}" \
+    && ! git rev-parse --verify --quiet "${DEPLOY_REF}^{commit}" >/dev/null; then
+    git fetch origin "${DEPLOY_REF}" || warn "fetch of commit ${DEPLOY_REF} by id failed."
+  fi
+
   if ! TARGET_REV="$(resolve_git_ref "${DEPLOY_REF}")"; then
+    # A full commit SHA is an exact, validated target (the workflow resolves
+    # every deploy to one). Shipping DEPLOY_BRANCH instead would deploy a tree
+    # nothing validated or guarded and report success -- refuse.
+    if is_full_commit_sha "${DEPLOY_REF}"; then
+      if [[ "${fetch_ok}" == "true" ]]; then
+        error "Commit ${DEPLOY_REF} is not available on this host even after fetching it by id."
+      else
+        error "Commit ${DEPLOY_REF} is not available locally and 'git fetch' failed (see the .git/objects warning above)."
+      fi
+      error "Refusing to fall back to DEPLOY_BRANCH='${DEPLOY_BRANCH}': the requested commit is exact."
+      exit 1
+    fi
     # Don't fall back to DEPLOY_BRANCH when fetch failed: the local
     # branch ref is potentially stale (the requested SHA may simply be
     # missing from the local repo), and a silent fallback would deploy
@@ -1180,6 +1308,14 @@ main() {
   build_temporal_ledger
   verify_deploy
   record_success_state
+  # The target is now recorded as last-successful. Rolling back past this point
+  # would revert a deploy the state files already call good, so the
+  # auto-rollback ERR trap is disarmed: every step below serves nothing, guards
+  # its own exit with `if`, and an unguarded failure here ends the run (set -e)
+  # without touching the deployed revision.
+  trap - ERR
+  archive_ros_forecasts
+  record_hill_learning_receipts
 
   log "Deployment succeeded at revision ${TARGET_REV}."
 }

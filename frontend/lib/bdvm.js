@@ -27,6 +27,18 @@ export const BDVM_SURPLUS_MODES = [
 ];
 
 /**
+ * Explanation for the pick field the API names `median`.  It is NOT a
+ * median: src/bdvm/picks.py sets it to the value of the prior
+ * pick-outcome table's "mid" bucket (for an early 1st, P(hit) is above
+ * 50%, so the true median is the hit outcome).  Surfaces label the
+ * column "Mid outcome" and attach this text; the API field name is
+ * unchanged.  One copy, shared by /bdvm and /draft.
+ */
+export const BDVM_PICK_MID_OUTCOME_INFO =
+  "Value of the middle outcome bucket in the prior pick-outcome table — " +
+  "not the median of the distribution.";
+
+/**
  * Classify a non-2xx BDVM response into the states the page renders
  * distinctly. The three 503 variants carry different `error` codes and
  * MUST be told apart: flag-off is an expected configuration, not a
@@ -80,6 +92,12 @@ export function buildBdvmValueRows(payload, strategy) {
       age: _num(p?.raw?.age),
       fpg: _num(projection.fpg),
       anyProxy: Boolean(projection.anyProxy),
+      // League-card rules this player's projection could not score — his
+      // projected points are a PARTIAL total by these rules (see
+      // bdvmScoringCoverage). Empty = every nonzero rule scored.
+      unscoredKeys: Array.isArray(projection.unscoredKeys)
+        ? projection.unscoredKeys.map(String)
+        : [],
       sourceCount: _num(projection.sourceCount) ?? 0,
       tradeValue: _num(tv?.[strategy]),
       tradeValueAll: tv,
@@ -97,6 +115,44 @@ export function buildBdvmValueRows(payload, strategy) {
   });
   rows.sort((a, b) => (b.tradeValue ?? -1) - (a.tradeValue ?? -1));
   return rows.map((r, i) => ({ ...r, rank: i + 1 }));
+}
+
+/**
+ * Board-level partial-scoring census from `meta.scoringCoverage`
+ * (src/bdvm/service.py): which nonzero league-card rules a projected stat
+ * line could not supply, how many priced players each affects, and — where
+ * the backend publishes `weightSign` (#1574) — whether the omitted rule is
+ * a bonus ("+") or a penalty ("-").
+ *
+ * A partial total is NOT a lower bound: an unscored penalty means the true
+ * total can be LOWER. So the sign is reported per rule, and an absent sign
+ * is `null` (unknown) — never assumed to be a bonus. The backend's own
+ * `note` string is deliberately not rendered: on payloads predating #1574
+ * it calls the total a lower bound, which is wrong for penalty rules.
+ * Returns null when the payload carries no census (nothing to say).
+ */
+export function bdvmScoringCoverage(payload) {
+  const cov = payload?.meta?.scoringCoverage;
+  if (!cov || typeof cov !== "object") return null;
+  const counts = cov.unscoredKeys && typeof cov.unscoredKeys === "object" ? cov.unscoredKeys : {};
+  const signs = cov.weightSign && typeof cov.weightSign === "object" ? cov.weightSign : null;
+  const keys = Object.entries(counts)
+    .map(([key, n]) => {
+      const raw = signs ? signs[key] : undefined;
+      return {
+        key,
+        players: _num(n),
+        sign: raw === "+" || raw === "-" ? raw : null,
+      };
+    })
+    .filter((k) => k.key);
+  return {
+    keys,
+    // Whether the backend publishes signs at all (#1574) — distinct from a
+    // published-but-unknown sign for one rule.
+    signsPublished: signs !== null,
+    anyPenalty: keys.some((k) => k.sign === "-"),
+  };
 }
 
 /** Distinct lineup groups present, in board order, for the filter. */

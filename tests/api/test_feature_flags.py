@@ -37,6 +37,8 @@ def test_every_flag_defaults_off_except_safe_additive():
         "nfl_data_ingest",  # guarded import; empty [] if missing
         "realized_points_api",  # endpoint-only, inert until called
         "rookie_auction",  # own router + own store; mock rooms only; moves no existing number
+        "dfs_workspace",  # own private router + own store under data/dfs/; never reads or writes the dynasty board
+        "dfs_auto_slates",  # automatic DFS slates; writes only data/dfs/ (system:auto); manual path unaffected
         "value_confidence_intervals",  # additive valueBand field
         "positional_tiers",  # additive tierId field
         "usage_signals",  # freshness + starter-guarded
@@ -101,6 +103,13 @@ def test_every_flag_defaults_off_except_safe_additive():
         # 352-525 of ~1,040 values move per day, median |d| 0.35-0.83%,
         # top-50 max 1.7%.  Rollback: RISKIT_FEATURE_SOURCE_FAMILY_CAP=0.
         "source_family_cap",
+        # #1555 V2-1 (2026-09-30): a source pricing offense AND IDP on one board
+        # ages each row from its own universe's broad-change clock, capped at
+        # the source clock (only ever older).  Blast radius measured on the
+        # 2026-09-30 board: 427 offense rows move, median |d| ~26, max 155,
+        # 4 top-200 membership changes; IDP and picks unchanged.  Rollback:
+        # RISKIT_FEATURE_SOURCE_UNIVERSE_FRESHNESS=0.
+        "source_universe_freshness",
         # Collaborative audit finding F.  Replaces the flat 1.15 TE
         # alignment multiplier with KTC's measured base → TE++ curve.
         # Blast radius measured against the 2026-07-27 live board (810

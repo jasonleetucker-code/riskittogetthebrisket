@@ -1,0 +1,19 @@
+[Unit]
+Description=Daily Market Trade Ledger rebuild for __SERVICE_NAME__
+# Deliberately NO Requires= on the service here: [Timer] Unit= already binds
+# it, and a [Unit] Requires= would start the service on every boot regardless
+# of OnCalendar and let a service failure stop the timer itself.
+
+[Timer]
+# Daily: the derived ledger has no consumer and its report is one file per UTC
+# day; the append-only raw archive means a later rebuild loses nothing.  08:52
+# follows the Sharp discovery/records/rosters passes and the 08:20 Sharp
+# transactions pass, and stays off :07/:37 (KTC fetch) and the top of the hour.
+OnCalendar=*-*-* 08:52:00 UTC
+RandomizedDelaySec=300
+Persistent=true
+AccuracySec=1min
+Unit=__SERVICE_NAME__-market-trade-ledger.service
+
+[Install]
+WantedBy=timers.target

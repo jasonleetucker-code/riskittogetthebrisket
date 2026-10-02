@@ -669,3 +669,45 @@ def previous_board_ranks(
         if best is not None and best["rank"] is not None:
             out[key] = (str(best["observed_date"]), int(best["rank"]))
     return out
+
+
+def source_lane_coverage(path: Path | None = None) -> dict[str, Any]:
+    """Read-only observation depth of the ``source_value`` lane, per source key.
+
+    Answers "how many point-in-time days does the ledger hold for this
+    vendor's own numbers, and since when" without creating the database
+    (``_connect_readonly``).  A missing ledger answers ``exists: False`` with a
+    reason -- never zero observations, which would read as "recorded nothing"
+    rather than "nothing to read".  Corrected rows still count: this is a depth
+    census, not an as-of read.
+    """
+    conn = _connect_readonly(path)
+    if conn is None:
+        return {
+            "exists": False,
+            "historyFloor": HISTORY_FLOOR,
+            "reason": "no temporal ledger at this path; nothing can be read",
+            "sources": {},
+        }
+    try:
+        rows = conn.execute(
+            "SELECT source_key, COUNT(*) AS n, COUNT(DISTINCT observed_date) AS days, "
+            "MIN(observed_date) AS first, MAX(observed_date) AS last "
+            "FROM observations WHERE lane = ? GROUP BY source_key",
+            (store.LANE_SOURCE,),
+        ).fetchall()
+    finally:
+        conn.close()
+    return {
+        "exists": True,
+        "historyFloor": HISTORY_FLOOR,
+        "sources": {
+            str(r["source_key"]): {
+                "observations": int(r["n"]),
+                "distinctDates": int(r["days"]),
+                "firstDate": r["first"],
+                "lastDate": r["last"],
+            }
+            for r in rows
+        },
+    }

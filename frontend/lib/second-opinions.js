@@ -65,6 +65,9 @@ export const VALUE_BASIS = {
   VENDOR_NATIVE: "VENDOR_NATIVE",
   /** No comparable number exists. Never a quantity — never zero. */
   MISSING: "MISSING",
+  /** A positional ordinal + tier with no value scale (Signals' public
+   *  boards). Compatible with NOTHING — never summed, never a vote. */
+  POSITIONAL_RANK_ONLY: "POSITIONAL_RANK_ONLY",
 };
 
 /**
@@ -89,6 +92,7 @@ const COMPATIBLE = {
   [VALUE_BASIS.KTC_NATIVE]: new Set([VALUE_BASIS.KTC_NATIVE]),
   [VALUE_BASIS.VENDOR_NATIVE]: new Set([VALUE_BASIS.VENDOR_NATIVE]),
   [VALUE_BASIS.MISSING]: new Set(),
+  [VALUE_BASIS.POSITIONAL_RANK_ONLY]: new Set(),
 };
 
 export function basesAreCompatible(a, b) {
@@ -461,5 +465,81 @@ export function summariseSide(resolutions) {
     unresolved,
     mixedBasis,
     incomplete: unresolved > 0 || mixedBasis,
+  };
+}
+
+/**
+ * RANK-ONLY, NON-VOTING SECOND OPINIONS (Signals Fantasy, #1555)
+ * ---------------------------------------------------------------
+ * Some vendors publish no value at all — Signals' public dynasty boards
+ * carry a POSITIONAL ordinal and a tier, nothing else. That evidence has
+ * its own basis, `POSITIONAL_RANK_ONLY`, which is compatible with NOTHING:
+ * it can never be summed, fed to Value Adjustment, imputed into, or enter
+ * `tallySecondOpinions`. QB3 and RB3 are not on one ladder, so nothing here
+ * orders across positions either.
+ *
+ * The backend (`GET /api/second-opinion/signals`, owner
+ * `src/sources/signals.py`) does the identity join; this only looks rows up
+ * and names the state. Missing is a state, never a rank.
+ */
+
+/** Payload-level state of a rank-only provider. */
+export const RANK_ONLY_STATE = {
+  OK: "ok",
+  PARTIAL: "partial",
+  NOT_COLLECTED: "not_collected",
+  UNAVAILABLE: "unavailable",
+};
+
+export function rankOnlyProviderState(payload) {
+  const s = payload?.status;
+  if (s === RANK_ONLY_STATE.OK || s === RANK_ONLY_STATE.PARTIAL) return s;
+  if (s === RANK_ONLY_STATE.NOT_COLLECTED) return s;
+  return RANK_ONLY_STATE.UNAVAILABLE;
+}
+
+/** Which rank-only boards declare a population that admits this asset class. */
+const RANK_ONLY_BOARD_CLASSES = { dynasty: "offense", "idp-dynasty": "idp" };
+
+/**
+ * One asset's rank-only opinion. Never carries a value; `votes` is always
+ * false. Status reuses ASSET_COVERAGE:
+ *   NATIVE        the vendor ranked this player (positional rank + tier)
+ *   OUT_OF_SCOPE  no collected board's DECLARED population admits the
+ *                 asset class (picks, kickers)
+ *   NOT_PUBLISHED in scope, but no resolved row (unranked, or identity
+ *                 quarantined server-side — never best-guessed)
+ *   UNRESOLVED    no board row to ask about
+ */
+export function rankOnlyOpinionFor(row, payload) {
+  const base = {
+    basis: VALUE_BASIS.POSITIONAL_RANK_ONLY,
+    value: null,
+    votes: false,
+    positionalRankOnly: true,
+  };
+  if (!row) return { ...base, status: ASSET_COVERAGE.UNRESOLVED, entry: null };
+  const index = payload?.signalsPositionalRank || {};
+  // The server only mints `name:` keys for board rows WITHOUT a playerId, so
+  // the name key is consulted only for such rows: a row with a playerId that
+  // did not resolve must never borrow a same-named player's rank.
+  const entry = row.playerId
+    ? index[`pid:${row.playerId}`] || null
+    : index[`name:${row.name}`] || null;
+  if (entry) return { ...base, status: ASSET_COVERAGE.NATIVE, entry };
+  const boards = payload?.boards || {};
+  const board = Object.keys(RANK_ONLY_BOARD_CLASSES).find(
+    (b) => RANK_ONLY_BOARD_CLASSES[b] === row.assetClass,
+  );
+  if (!board) {
+    return { ...base, status: ASSET_COVERAGE.OUT_OF_SCOPE, entry: null, detail: row.assetClass };
+  }
+  const collected = boards[board] && boards[board].status !== RANK_ONLY_STATE.NOT_COLLECTED;
+  return {
+    ...base,
+    status: ASSET_COVERAGE.NOT_PUBLISHED,
+    entry: null,
+    // "not collected" is OUR gap, not the vendor's silence — kept distinct.
+    detail: collected ? "not_ranked_or_unresolved" : "not_collected",
   };
 }

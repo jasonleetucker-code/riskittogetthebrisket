@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import bisect
 from copy import deepcopy
+from dataclasses import dataclass
 import json
 import logging
 import math
@@ -47,6 +48,13 @@ from src.api.confidence import (  # noqa: E402  — grouped with its siblings
     assess_pick_confidence,
     degrade_for_quarantine,
     gate_parameter as _confidence_gate_parameter,
+)
+
+#: #1555 Batch 2 Unit C — the joint outlier/sparse challenger's filter (flag
+#: ``joint_outlier_sparse_challenger``, default OFF).
+from src.api.joint_robust_filter import (  # noqa: E402
+    CHALLENGER_VERSION as _JOINT_CHALLENGER_VERSION,
+    joint_robust_filter as _joint_robust_filter,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -532,9 +540,11 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
     # DL/LB/DB pages are used only as depth extension via monotone
     # piecewise-linear anchor curves fit from the overlap.  Final
     # effective overall ranks are written to the CSV as
-    # ``effectiveRank``, and the fetch script aliases it to a ``Rank``
-    # column via the _RANK_ALIASES + _NAME_ALIASES handshake below so
-    # the standard rank-signal path picks it up.
+    # ``effectiveRank`` (the fetcher writes no ``Rank`` column), and
+    # ``effectiveRank`` is itself one of the ``_RANK_ALIASES`` the
+    # CSV reader tries, so the standard rank-signal path reads it
+    # directly.  ``originalRank`` (the combined-page rank before
+    # positional-page extension) is not an alias and does not vote.
     "fantasyProsIdp": {
         "path": "CSVs/site_raw/fantasyProsIdp.csv",
         "signal": "rank",
@@ -716,15 +726,16 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "signal": "rank",
     },
     # DraftSharks dynasty rankings — split into offense + IDP CSVs
-    # by scripts/fetch_draftsharks.py.  The scraper reads the single
-    # offense-combined DOM (where every player has a cross-universe
-    # ``3D Value +`` on the same scale — e.g. Carson Schwesinger =
-    # 44 at overall rank 36 among all positions) and writes two
-    # files filtered by position family.  Both CSVs therefore share
-    # the same raw value scale but describe separate pools, which
-    # lets the blend treat DraftSharks as two independent sources
-    # (one offense, one IDP) instead of a single cross-scope source
-    # like IDPTradeCalc.
+    # by scripts/fetch_draftsharks.py.  The scraper harvests one
+    # combined offense+IDP board (where every player has a
+    # cross-universe ``3D Value +`` on the same scale — e.g. Carson
+    # Schwesinger = 44 at overall rank 36 among all positions) and
+    # writes two files filtered by position family.  Both CSVs share
+    # the same raw value scale and ONE correlation group
+    # (``draftSharks``); the registry's ``ds_combined_rank_partner``
+    # pre-pass re-pools their raw values into a single combined rank
+    # list routed to the GLOBAL Hill master, so they are one provider's
+    # cross-market board split for ingestion, not two independent votes.
     "draftSharks": {
         "path": "CSVs/site_raw/draftSharksSf.csv",
         "signal": "value",
@@ -778,6 +789,26 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
 # Enforced at import (``_assert_non_voting_keys_unregistered``): registering
 # any of these would re-count KTC information the model already holds.
 _NON_VOTING_SOURCE_CSV_KEYS: frozenset[str] = frozenset({"ktc", "ktcSfTep", "ktcCrowdTradesSfTep"})
+
+
+def _csv_signal_for(key: str) -> str:
+    """The CSV signal type ``_SOURCE_CSV_PATHS`` declares for ``key``.
+
+    ``"rank"`` / ``"value"`` (a plain-string entry defaults to ``"value"``,
+    the same default ``_enrich_from_source_csvs`` applies), or ``""`` for a
+    key with no CSV entry.  Read at call time, not cached, so a diagnostic
+    replay that patches ``_SOURCE_CSV_PATHS`` sees its own table.
+
+    This — not membership in ``_VALUE_BASED_SOURCES`` — is what says whether
+    a row's ``canonicalSiteValues`` slot holds a synthetic rank encoding
+    (E2, hill-trainer-repair 2026-10-01): a value-signal source taken off
+    the value-direct path still publishes real values.
+    """
+    cfg = _SOURCE_CSV_PATHS.get(key)
+    if isinstance(cfg, dict):
+        return str(cfg.get("signal") or "value").lower()
+    return "value" if cfg else ""
+
 
 # Rank -> synthetic value transform used when a CSV declares signal=rank.
 # The absolute number is irrelevant to the downstream pipeline (it only
@@ -1791,9 +1822,10 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # provider being one we otherwise trust.  UNKNOWN fails closed.
         "game_type": GAME_TYPE_DYNASTY,
         "game_type_evidence": (
-            "theidpshow.com/p/combined-idp-offense-dynasty-rankings-fantasy-football — "
-            "the endpoint path itself is the dynasty board, and the publisher's "
-            "redraft/weekly output lives at separate posts that are not fetched"
+            "the vendor's post title, 'Combined IDP + Offense Dynasty Rankings' (public "
+            "post metadata, read 2026-10-01 — docs/sources/integrity/"
+            "INTEGRITY_SWEEP_2026-10-01.md); the publisher's weekly and rest-of-season "
+            "posts are separate and not fetched"
         ),
         "display_name": "The IDP Show — Combined (Adamidp)",
         "column_label": "IDP Show Combined",
@@ -2150,11 +2182,12 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         #      appropriate value column: ``SF Value`` for QB (Superflex),
         #      ``Trade Value`` for RB/WR, ``TEP Value`` for TE (TE-Premium).
         # Result: ~300 combined rows with a top-of-pool value of ~101
-        # (SF-adjusted QB).  Signal=value so the blend's value-direct
-        # branch scales Fitzmaurice's top to 9999 and every other row
-        # linearly.  Cross-position separation is preserved (e.g. top
-        # QB at SF value 101 beats top WR at 88, scaling to 9999 vs
-        # 8712 on the 9999 scale).
+        # (SF-adjusted QB).  Signal=RANK (PR #216, restored after the
+        # #218 regression — see its ``_SOURCE_CSV_PATHS`` entry): the
+        # 0-~101 values are converted to a cross-position competition
+        # rank, and that ordinal votes through percentile → OFFENSE
+        # Hill.  It is NOT a value-direct source; the published value
+        # survives only in ``sourceNativeValues`` for audit / display.
         #
         # depth=350 reflects the published row count; coverage_weight
         # keeps full weight for rows within depth and degrades past.
@@ -2253,17 +2286,15 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         # Superflex + TEP league scoring — so the source is declared
         # ``is_tep_premium=True``.  Roughly 500 combined rows.
         #
-        # Value signal (2026-04-21): the scraper writes Boone's
-        # published trade value in ``boone_value`` (0-~141 scale) plus a
-        # cross-position competition rank in ``rank``.  The blend reads
-        # ``boone_value`` via the value-direct branch, scaling linearly
-        # so Boone's top player contributes 9999 — preserving his
-        # published value structure (e.g. how much further QBs lead WRs)
-        # rather than collapsing to rank-only ordinal info.  The UI
-        # continues to render Boone's published rank via
-        # ``sourceOriginalRanks.yahooBoone`` (the value-signal CSV
-        # loader now also picks up the ``rank`` column so this audit
-        # stamp survives the switch).
+        # Signal=RANK (since 2026-04-22 — see its ``_SOURCE_CSV_PATHS``
+        # entry; the 2026-04-21 value-direct setup this comment used to
+        # describe was reverted after a 47% Hampel drop rate): the
+        # scraper writes Boone's published trade value in
+        # ``boone_value`` (0-~141 scale) plus a cross-position
+        # competition rank in ``rank``, and the blend votes the
+        # ``rank`` column through percentile → OFFENSE Hill.  It is NOT
+        # a value-direct source; ``boone_value`` survives only in
+        # ``sourceNativeValues`` for audit / display.
         #
         # depth=500 mirrors the live row count; ``_expected_sources_for_position``
         # multiplies this by 1.25 so YAHOO_BOONE is not expected for
@@ -2289,14 +2320,18 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
     },
     {
         # DraftSharks offense dynasty board (QB/RB/WR/TE).  The
-        # scraper splits DS's single offense-combined DOM by
-        # position family, so this source is the SF slice of the
-        # ~874-row universe.  461 rows at the April 2026 baseline
-        # (QB=39, RB=73, WR=103, TE=35 visible + hidden depth
-        # prospects below the default DS position-filter cutoff).
-        # Value signal off the ``3D Value +`` column; the blend
-        # normalises via Hill curve over within-source rank so the
-        # 0-100 absolute scale is irrelevant.  DraftSharks IS scraped
+        # scraper harvests ONE combined offense+IDP board from the
+        # te-premium-superflex page (htmx-loaded; when the unfiltered
+        # board lacks IDP it unions the page's own ``fantasyPosition``
+        # passes, gated on identical ``3D Value +`` over the overlap —
+        # see ``scripts/fetch_draftsharks.py``) and splits it by
+        # position family, so this source is the SF slice of that one
+        # board.  Value signal off the ``3D Value +`` column, but the
+        # absolute scale is NOT irrelevant: the
+        # ``ds_combined_rank_partner`` pre-pass pools this CSV's raw
+        # values with ``draftSharksIdp``'s into ONE combined rank list
+        # before the GLOBAL Hill curve, so the offense-vs-IDP ratio on
+        # DS's shared scale decides the combined order.  DraftSharks IS scraped
         # from the TE-PREMIUM superflex board —
         # ``scripts/fetch_draftsharks.py`` ``RANKINGS_URL`` =
         # ``https://www.draftsharks.com/dynasty-rankings/te-premium-superflex``,
@@ -2351,8 +2386,8 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
     },
     {
         # DraftSharks IDP dynasty board (DL/LB/DB).  Mirror of the
-        # ``draftSharks`` offense entry — same scraper scrapes a
-        # single page and writes two CSVs; the IDP CSV carries
+        # ``draftSharks`` offense entry — same scraper harvests one
+        # combined board and writes two CSVs; the IDP CSV carries
         # every DL/LB/DB with their cross-universe ``3D Value +``
         # (e.g. Carson Schwesinger at value 44 as IDP rank 1, NOT
         # the IDP-only-page rescaled 81).  389 rows at the April
@@ -4012,6 +4047,151 @@ def _compute_identity_confidence(
     return 0.70, "name_only"
 
 
+@dataclass(frozen=True)
+class _IdentityPositionFlags:
+    """The identity / position checks of :func:`_validate_and_quarantine_rows`.
+
+    ``flags_by_index`` maps a ``players_array`` index to the flags those checks
+    raise on it, in the order the quarantine pass appends them.  Only rows with
+    at least one flag appear.
+    """
+
+    flags_by_index: dict[int, list[str]]
+    collision_pairs: list[dict[str, Any]]
+    duplicate_identity_pairs: list[dict[str, Any]]
+
+
+def _identity_position_flags(players_array: list[dict[str, Any]]) -> _IdentityPositionFlags:
+    """Checks 0, 1, 2 and 4 of :func:`_validate_and_quarantine_rows`, pure.
+
+    The ONE definition of the identity / position quarantine rules.  The
+    quarantine pass applies these flags; the sparse-evidence estimator
+    (flag ``sparse_evidence_estimator``) calls this same function BEFORE the
+    flags exist, so a row that will be quarantined for identity or position is
+    refused a censored bound rather than bounded first and quarantined after.
+    Everything it reads (names, ``position``, ``canonicalSiteValues``) is
+    settled before ``_compute_unified_rankings`` runs, so both callers see the
+    same answer.  It mutates nothing.
+    """
+    from src.utils.name_clean import canonical_position_group  # noqa: PLC0415
+
+    flags_by_index: dict[int, list[str]] = {}
+
+    def _add(idx: int, flag: str) -> None:
+        row_flags = flags_by_index.setdefault(idx, [])
+        if flag not in row_flags:
+            row_flags.append(flag)
+
+    # ── Build indexes for collision detection ──
+    norm_name_to_rows: dict[str, list[int]] = {}
+    posaware_to_rows: dict[str, list[int]] = {}
+
+    for idx, row in enumerate(players_array):
+        name = row.get("canonicalName") or row.get("displayName") or ""
+        norm = _normalize_for_collision(name)
+        if norm:
+            norm_name_to_rows.setdefault(norm, []).append(idx)
+        pos = row.get("position")
+        if norm and pos:
+            grp = canonical_position_group(pos)
+            posaware_to_rows.setdefault(f"{norm}::{grp}", []).append(idx)
+
+    collision_pairs: list[dict[str, Any]] = []
+    duplicate_identity_pairs: list[dict[str, Any]] = []
+
+    # ── Check 0: position-aware duplicate identity ──
+    # Same canonical key with identical position group means we
+    # genuinely created two rows for the same player.  This is the
+    # entity-resolution duplicate the build-time assertion test will
+    # also surface.
+    for posaware, indices in posaware_to_rows.items():
+        if len(indices) < 2:
+            continue
+        names_involved = sorted({str(players_array[i].get("canonicalName") or "") for i in indices})
+        duplicate_identity_pairs.append(
+            {
+                "canonicalKey": posaware,
+                "names": names_involved,
+            }
+        )
+        for i in indices:
+            _add(i, "duplicate_canonical_identity")
+
+    # ── Check 1: Cross-universe name collisions ──
+    # Same normalized name in both offense + IDP rows — usually two
+    # distinct people who happen to share a surname/initials.  We
+    # surface them for visibility but only quarantine when the
+    # collision is a *known* entity confusion (see
+    # :data:`OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS`).
+    for norm, indices in norm_name_to_rows.items():
+        if len(indices) < 2:
+            continue
+        asset_classes = {players_array[i].get("assetClass") for i in indices}
+        if "offense" in asset_classes and "idp" in asset_classes:
+            names_involved = [players_array[i].get("canonicalName") for i in indices]
+            collision_pairs.append(
+                {
+                    "normalizedName": norm,
+                    "names": names_involved,
+                    "assetClasses": list(asset_classes),
+                }
+            )
+            for i in indices:
+                _add(i, "name_collision_cross_universe")
+
+    # ── Check 2: Position-source contradiction ──
+    # A row gets flagged when the position family disagrees with the set
+    # of source keys carrying positive values on the row.  The flag is
+    # suppressed when:
+    #   (a) the row is a verified cross-universe name collision (see
+    #       OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS) AND the collision flag
+    #       has already been applied in Check 1 — in that case the
+    #       contradiction is an expected consequence of the grafted
+    #       join, and quarantining via two flags would inflate false
+    #       positives in downstream reports.
+    #   (b) the row already carries `name_collision_cross_universe`
+    #       from Check 1.  The collision flag is itself a quarantine
+    #       signal, so we don't need to pile contradictions on top.
+    for idx, row in enumerate(players_array):
+        pos = str(row.get("position") or "").strip().upper()
+        canonical_sites = row.get("canonicalSiteValues") or {}
+
+        has_off_val = any(
+            (_to_int_or_none(canonical_sites.get(k)) or 0) > 0 for k in _OFFENSE_SIGNAL_KEYS
+        )
+        has_idp_val = any(
+            (_to_int_or_none(canonical_sites.get(k)) or 0) > 0 for k in _IDP_SIGNAL_KEYS
+        )
+
+        has_collision = "name_collision_cross_universe" in (
+            list(row.get("anomalyFlags") or []) + flags_by_index.get(idx, [])
+        )
+        name = row.get("canonicalName") or ""
+        is_known_collision = has_collision and name in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS
+
+        # Offense position but only IDP values.
+        if pos in _OFFENSE_POSITIONS and has_idp_val and not has_off_val:
+            if not (has_collision or is_known_collision):
+                _add(idx, "position_source_contradiction")
+
+        # IDP position but only offense values.
+        if pos in _IDP_POSITIONS and has_off_val and not has_idp_val:
+            if not (has_collision or is_known_collision):
+                _add(idx, "position_source_contradiction")
+
+    # ── Check 4: Unsupported position ──
+    for idx, row in enumerate(players_array):
+        pos = str(row.get("position") or "").strip().upper()
+        if pos and pos not in _SUPPORTED_BOARD_POSITIONS and pos not in _KICKER_POSITIONS:
+            _add(idx, "unsupported_position")
+
+    return _IdentityPositionFlags(
+        flags_by_index={i: f for i, f in flags_by_index.items() if f},
+        collision_pairs=collision_pairs,
+        duplicate_identity_pairs=duplicate_identity_pairs,
+    )
+
+
 def _validate_and_quarantine_rows(
     players_array: list[dict[str, Any]],
 ) -> dict[str, Any]:
@@ -4055,122 +4235,17 @@ def _validate_and_quarantine_rows(
 
     Returns a validation summary dict for payload-level reporting.
     """
-    from src.utils.name_clean import canonical_position_group  # noqa: PLC0415
-
-    # ── Build indexes for collision detection ──
-    norm_name_to_rows: dict[str, list[int]] = {}
-    posaware_to_rows: dict[str, list[int]] = {}
-
-    for idx, row in enumerate(players_array):
-        name = row.get("canonicalName") or row.get("displayName") or ""
-        norm = _normalize_for_collision(name)
-        if norm:
-            norm_name_to_rows.setdefault(norm, []).append(idx)
-        pos = row.get("position")
-        if norm and pos:
-            grp = canonical_position_group(pos)
-            posaware_to_rows.setdefault(f"{norm}::{grp}", []).append(idx)
-
+    identity = _identity_position_flags(players_array)
+    for idx, row_flags in identity.flags_by_index.items():
+        row = players_array[idx]
+        flags = row.get("anomalyFlags") or []
+        for flag in row_flags:
+            if flag not in flags:
+                flags.append(flag)
+        row["anomalyFlags"] = flags
+    collision_pairs = identity.collision_pairs
+    duplicate_identity_pairs = identity.duplicate_identity_pairs
     quarantine_count = 0
-    collision_pairs: list[dict[str, Any]] = []
-    duplicate_identity_pairs: list[dict[str, Any]] = []
-
-    # ── Check 0: position-aware duplicate identity ──
-    # Same canonical key with identical position group means we
-    # genuinely created two rows for the same player.  This is the
-    # entity-resolution duplicate the build-time assertion test will
-    # also surface.
-    for posaware, indices in posaware_to_rows.items():
-        if len(indices) < 2:
-            continue
-        names_involved = sorted({str(players_array[i].get("canonicalName") or "") for i in indices})
-        duplicate_identity_pairs.append(
-            {
-                "canonicalKey": posaware,
-                "names": names_involved,
-            }
-        )
-        for i in indices:
-            row = players_array[i]
-            flags = row.get("anomalyFlags") or []
-            if "duplicate_canonical_identity" not in flags:
-                flags.append("duplicate_canonical_identity")
-                row["anomalyFlags"] = flags
-
-    # ── Check 1: Cross-universe name collisions ──
-    # Same normalized name in both offense + IDP rows — usually two
-    # distinct people who happen to share a surname/initials.  We
-    # surface them for visibility but only quarantine when the
-    # collision is a *known* entity confusion (see
-    # :data:`OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS`).
-    for norm, indices in norm_name_to_rows.items():
-        if len(indices) < 2:
-            continue
-        asset_classes = {players_array[i].get("assetClass") for i in indices}
-        if "offense" in asset_classes and "idp" in asset_classes:
-            names_involved = [players_array[i].get("canonicalName") for i in indices]
-            collision_pairs.append(
-                {
-                    "normalizedName": norm,
-                    "names": names_involved,
-                    "assetClasses": list(asset_classes),
-                }
-            )
-            for i in indices:
-                row = players_array[i]
-                flags = row.get("anomalyFlags") or []
-                if "name_collision_cross_universe" not in flags:
-                    flags.append("name_collision_cross_universe")
-                    row["anomalyFlags"] = flags
-
-    # ── Check 2: Position-source contradiction ──
-    # A row gets flagged when the position family disagrees with the set
-    # of source keys carrying positive values on the row.  The flag is
-    # suppressed when:
-    #   (a) the row is a verified cross-universe name collision (see
-    #       OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS) AND the collision flag
-    #       has already been applied in Check 1 — in that case the
-    #       contradiction is an expected consequence of the grafted
-    #       join, and quarantining via two flags would inflate false
-    #       positives in downstream reports.
-    #   (b) the row already carries `name_collision_cross_universe`
-    #       from Check 1.  The collision flag is itself a quarantine
-    #       signal, so we don't need to pile contradictions on top.
-    for idx, row in enumerate(players_array):
-        pos = str(row.get("position") or "").strip().upper()
-        canonical_sites = row.get("canonicalSiteValues") or {}
-
-        has_off_val = any(
-            (_to_int_or_none(canonical_sites.get(k)) or 0) > 0 for k in _OFFENSE_SIGNAL_KEYS
-        )
-        has_idp_val = any(
-            (_to_int_or_none(canonical_sites.get(k)) or 0) > 0 for k in _IDP_SIGNAL_KEYS
-        )
-
-        current_flags = row.get("anomalyFlags") or []
-        has_collision = "name_collision_cross_universe" in current_flags
-        name = row.get("canonicalName") or ""
-        is_known_collision = has_collision and name in OFFENSE_TO_IDP_VALIDATION_EXCEPTIONS
-
-        # Offense position but only IDP values.
-        if pos in _OFFENSE_POSITIONS and has_idp_val and not has_off_val:
-            if has_collision or is_known_collision:
-                pass
-            else:
-                flags = current_flags
-                if "position_source_contradiction" not in flags:
-                    flags.append("position_source_contradiction")
-                    row["anomalyFlags"] = flags
-
-        # IDP position but only offense values.
-        if pos in _IDP_POSITIONS and has_off_val and not has_idp_val:
-            if has_collision or is_known_collision:
-                pass
-            else:
-                flags = current_flags
-                if "position_source_contradiction" not in flags:
-                    flags.append("position_source_contradiction")
-                    row["anomalyFlags"] = flags
 
     # ── Check 3: Near-name value mismatch across universes ──
     # REMOVED: the historical "same surname + cross universe + value
@@ -4178,15 +4253,6 @@ def _validate_and_quarantine_rows(
     # legitimate distinct people.  Real entity collisions are now
     # caught by the position-aware duplicate-identity check above.
     near_name_pairs: list[dict[str, Any]] = []
-
-    # ── Check 4: Unsupported position ──
-    for idx, row in enumerate(players_array):
-        pos = str(row.get("position") or "").strip().upper()
-        if pos and pos not in _SUPPORTED_BOARD_POSITIONS and pos not in _KICKER_POSITIONS:
-            flags = row.get("anomalyFlags") or []
-            if "unsupported_position" not in flags:
-                flags.append("unsupported_position")
-                row["anomalyFlags"] = flags
 
     # ── Check 5: No valid source values but has derived value ──
     for idx, row in enumerate(players_array):
@@ -6488,6 +6554,17 @@ def _detect_blend_integrity_violations(
             continue
 
         lo, hi = min(contributions.values()), max(contributions.values())
+        # A sparse-evidence estimate (flag ``sparse_evidence_estimator``) is a
+        # blend over the observation AND its binding censored bounds, so those
+        # bounds are inputs to its hull.  Absent on every other row.  Reached
+        # only by rows with >= 2 positive contributions (the guard above): a
+        # one-observation sparse row is NOT hull-checked here; its estimate is
+        # held inside [min bound, observation] by ``sparse_evidence.estimate``.
+        sparse = row.get("sparseEvidence")
+        if isinstance(sparse, dict):
+            bounds = [float(b) for b in sparse.get("boundsUsed") or [] if b and b > 0]
+            if bounds:
+                lo = min(lo, min(bounds))
         lo_bound = lo * (1.0 - _BLEND_HULL_EPSILON) - _BLEND_HULL_QUANTIZATION_BELOW
         hi_bound = hi * (1.0 + _BLEND_HULL_EPSILON) + _BLEND_HULL_QUANTIZATION_ABOVE
         if lo_bound <= value <= hi_bound:
@@ -7327,6 +7404,259 @@ _MAD_PENALTY_LAMBDA: float = 0.0
 # exempt: they ride their own CV-based confidence path and a single
 # value-source (KTC per-slot synth) is structurally normal for them.
 _SINGLE_SOURCE_VALUE_RETENTION: float = 0.30
+
+
+def _apply_sparse_evidence_estimator(
+    candidates: list[tuple[int, int, float, float, int, int, int, tuple[str, ...]]],
+    row_normalized: list[tuple[float, int]],
+    players_array: list[dict[str, Any]],
+    row_source_meta: Mapping[int, Mapping[str, Mapping[str, Any]]],
+    active_sources: list[dict[str, Any]],
+    family_by_key: Mapping[str, str],
+    source_weighting: Mapping[str, Any] | None,
+    blend_weight_by_source: Mapping[str, float],
+    freshness_applied: bool,
+    csv_index: Mapping[str, Mapping[str, Any]] | None,
+) -> None:
+    """Sparse-evidence estimator (flag ``sparse_evidence_estimator``, default OFF).
+
+    Replaces the 0.30 single-source retention for the rows it would have hit.
+    ``candidates`` holds ``(row_normalized index, row_idx, observed blend,
+    observed family weight, voting observations, voting families, present
+    families, voting source keys)``. Method and gates:
+    ``src/api/sparse_evidence.py`` and
+    ``docs/valuation/evidence/sparse-evidence-2026-10-01/PREREGISTRATION.md``.
+
+    Reuses only what this build already computed: each source's stamped
+    value contributions (its published depth, per position), the dataset
+    state behind freshness weighting, ``canonicalSiteValues`` presence and the
+    CSV name index. Nothing here re-derives a curve.
+    """
+    from src.api import sparse_evidence as _se  # noqa: PLC0415
+
+    # The smallest contribution each source stamped per position: the value at
+    # its published cutoff for that position.
+    min_contribution: dict[tuple[str, str], float] = {}
+    for idx, metas in row_source_meta.items():
+        row = players_array[idx]
+        if row.get("assetClass") == "pick":
+            continue
+        pos = str(row.get("position") or "").strip().upper()
+        for sk, m in metas.items():
+            vc = m.get("valueContribution") if isinstance(m, Mapping) else None
+            if isinstance(vc, (int, float)) and vc > 0:
+                cell = (sk, pos)
+                if cell not in min_contribution or vc < min_contribution[cell]:
+                    min_contribution[cell] = float(vc)
+
+    status = {
+        str(s.get("key") or ""): _se.source_status(
+            s,
+            (source_weighting or {}).get(str(s.get("key") or "")),
+            base_weight=float(blend_weight_by_source.get(str(s.get("key") or ""), 1.0)),
+            freshness_applied=freshness_applied,
+        )
+        for s in active_sources
+    }
+    # Every name each source published, any position group.
+    name_index: dict[str, set[str]] = {
+        sk: {str(k).split("::", 1)[0] for k in entries}
+        for sk, entries in (csv_index or {}).items()
+        if entries
+    }
+    # The same names bucketed by everything after the first name, so a
+    # first-name variant ("matt x" / "matthew x") can be looked up without a
+    # scan, and every Sleeper id a source's entries carry.  Matching itself is
+    # ``name_clean.is_first_name_variant`` -- no rule is defined here.
+    from src.utils.name_clean import is_first_name_variant  # noqa: PLC0415
+
+    names_by_tail: dict[str, dict[tuple[str, ...], set[str]]] = {}
+    for sk, names in name_index.items():
+        buckets = names_by_tail.setdefault(sk, {})
+        for nm in names:
+            parts = nm.split()
+            if len(parts) >= 2:
+                buckets.setdefault(tuple(parts[1:]), set()).add(nm)
+    ids_by_source: dict[str, set[str]] = {
+        sk: {
+            str(e.get("sleeperId")).strip()
+            for e in entries.values()
+            if isinstance(e, Mapping) and str(e.get("sleeperId") or "").strip()
+        }
+        for sk, entries in (csv_index or {}).items()
+        if entries
+    }
+    # Rows the quarantine pass WILL flag for identity or position, decided by the
+    # same function that pass applies (``_identity_position_flags``).  Anomaly
+    # flags do not exist yet at this point in the build, so reading them would
+    # be a guard that never fires.
+    pending_identity_flags = {
+        idx: sorted(set(flags) & _QUARANTINE_FLAGS)
+        for idx, flags in _identity_position_flags(players_array).flags_by_index.items()
+        if set(flags) & _QUARANTINE_FLAGS
+    }
+    key_counts: dict[str, int] = {}
+    for row in players_array:
+        if row.get("assetClass") == "pick":
+            continue
+        ck = _canonical_match_key(str(row.get("canonicalName") or row.get("displayName") or ""))
+        if ck:
+            key_counts[ck] = key_counts.get(ck, 0) + 1
+
+    def _family_cap(weights: Mapping[str, float]) -> dict[str, float]:
+        capped, _ = cap_family_weights(weights, base=blend_weight_by_source)
+        return capped
+
+    registry = {str(s.get("key") or ""): s for s in _RANKING_SOURCES}
+    active_keys = {str(s.get("key") or "") for s in active_sources}
+
+    def _source_covers(key: str, position: str) -> bool:
+        src = registry.get(key)
+        if not src:
+            return False
+        scopes = [src.get("scope")] + list(src.get("extra_scopes") or [])
+        return any(_scope_eligible(position, str(sc), src.get("position_group")) for sc in scopes)
+
+    def _listed_value(key: str, value: Any) -> bool:
+        # The ``sourcePresence`` rule: a DraftSharks combined-rank key is listed
+        # when present at all; any other key only with a positive number.  A
+        # missing or non-numeric value is NOT a listing (never coerced to 0).
+        if key in _DS_COMBINED_RANK_KEYS:
+            return value is not None
+        number = _safe_num(value)
+        return number is not None and number > 0
+
+    for (
+        norm_idx,
+        row_idx,
+        observed,
+        observed_weight,
+        n_obs,
+        n_families,
+        n_present,
+        voting_keys,
+    ) in candidates:
+        row = players_array[row_idx]
+        pos = str(row.get("position") or "").strip().upper()
+        ckey = _canonical_match_key(str(row.get("canonicalName") or row.get("displayName") or ""))
+        sites = row.get("canonicalSiteValues") or {}
+        listed_keys = {
+            k
+            for k, v in (sites.items() if isinstance(sites, Mapping) else [])
+            if _listed_value(k, v)
+        } | set(row_source_meta.get(row_idx) or {})
+        listed = {family_by_key.get(k, k) for k in listed_keys}
+        voting_family_set = {family_by_key.get(k, k) for k in voting_keys}
+        # Families that LISTED the player but did not vote, and why.  A listing
+        # is never an absence: these can never become censored bounds.
+        dropped = set(row.get("droppedSources") or [])
+        fresh_excluded = set(row.get("freshnessExcludedSources") or [])
+        listed_not_voting: dict[str, str] = {}
+        ineligible_listings: list[str] = []
+        for k in sorted(listed_keys):
+            fam = family_by_key.get(k, k)
+            if fam in voting_family_set:
+                continue
+            if not _source_covers(k, pos):
+                # A value under this name from a board that cannot rank this
+                # position (an offense board beside a DB) is a name shared with
+                # another player -- not a listing of this one.  Reported only.
+                ineligible_listings.append(k)
+                continue
+            reason = (
+                _se.LISTED_OUTLIER
+                if k in dropped
+                else _se.LISTED_FRESHNESS
+                if k in fresh_excluded
+                else _se.LISTED_INACTIVE
+                if k not in active_keys
+                else _se.LISTED_NOT_VOTING
+            )
+            if listed_not_voting.get(fam) != _se.LISTED_OUTLIER:
+                listed_not_voting[fam] = reason
+        pending_flags = pending_identity_flags.get(row_idx, [])
+        identity_ok = bool(ckey) and key_counts.get(ckey, 0) == 1 and not pending_flags
+        identity_reason = _se.REFUSE_PENDING_QUARANTINE if pending_flags else _se.REFUSE_IDENTITY
+        row_sid = str(row.get("playerId") or "").strip()
+        ck_parts = ckey.split()
+        ck_tail = tuple(ck_parts[1:]) if len(ck_parts) >= 2 else None
+
+        def _name_check(
+            sk: str,
+            _ck: str = ckey,
+            _sid: str = row_sid,
+            _tail: tuple[str, ...] | None = ck_tail,
+        ) -> str | None:
+            names = name_index.get(sk)
+            if names is None:
+                return _se.REFUSE_NAME_INDEX
+            if _ck in names:
+                return _se.REFUSE_NAME_PUBLISHED
+            # A V1 join miss must not become an absence: the source carries this
+            # player's Sleeper id, or a first-name variant of the name.
+            if _sid and _sid in ids_by_source.get(sk, ()):
+                return _se.REFUSE_IDENTITY_VARIANT
+            if _tail is not None and any(
+                is_first_name_variant(_ck, nm) for nm in names_by_tail.get(sk, {}).get(_tail, ())
+            ):
+                return _se.REFUSE_IDENTITY_VARIANT
+            return None
+
+        bounds, refused = _se.family_bounds(
+            position=pos,
+            is_rookie=bool(row.get("rookie")),
+            listed_families=listed,
+            sources=active_sources,
+            family_of=family_by_key,
+            status=status,
+            min_contribution=min_contribution,
+            name_check=_name_check,
+            scope_eligible=_scope_eligible,
+            identity_ok=identity_ok,
+            identity_reason=identity_reason,
+            family_cap=_family_cap,
+        )
+        est = _se.estimate(
+            observed, observed_weight, bounds, weighted_count_aware_mean_median_blend
+        )
+        evidence = _se.classify(
+            observed=observed,
+            present_families=n_present,
+            observations=n_obs,
+            listed_not_voting=listed_not_voting,
+            est=est,
+            refused=refused,
+        )
+        row_normalized[norm_idx] = (est.central, row_idx)
+        row["_blendedValueUncapped"] = int(round(est.central)) if est.central > 0 else 0
+        row["sparseEvidence"] = _se.stamp(
+            est,
+            observations=n_obs,
+            voting_families=n_families,
+            effective_families=observed_weight,
+            refused=refused,
+            evidence=evidence,
+            observed_family=",".join(sorted(voting_family_set)) or None,
+            ineligible_listings=ineligible_listings,
+            pending_quarantine_flags=pending_flags,
+        )
+
+
+def _stamp_sparse_evidence_confidence(players_array: list[dict[str, Any]]) -> None:
+    """Copy the confidence owner's verdict into each ``sparseEvidence`` block.
+
+    Decided in ``src/api/confidence.py`` against the value that shipped; this
+    only records it beside the estimate so the two travel together."""
+    for row in players_array:
+        block = row.get("sparseEvidence")
+        if isinstance(block, dict):
+            block["confidence"] = {
+                "bucket": row.get("confidenceBucket"),
+                "label": row.get("confidenceLabel"),
+                "basis": row.get("confidenceBasis"),
+                "owner": "src/api/confidence.py",
+            }
+
 
 # Registry of sources whose raw per-player CSV value should be used
 # as a **direct normalized vote** in the Phase 2-3 blend, instead of
@@ -10119,28 +10449,31 @@ def _compute_unified_rankings(
     # natively (i.e. NOT routed through the DS combined-rank pre-pass
     # above) falls into this bucket.
     #
-    # DORMANT AS OF 2026-07-29 (audit): this set is currently EMPTY and
-    # the block below never executes.  All three cross-market sources
-    # are excluded by construction — ``draftSharks`` / ``draftSharksIdp``
-    # are ``ds_combined_rank_partner`` (handled by the pre-pass above)
-    # and ``idpTradeCalc`` is value-direct.  The only members it ever
-    # had were FootballGuys SF + FootballGuys IDP, which are no longer
-    # registered sources.
+    # ACTIVE SINCE 2026-08-20: its only member on the live registry is
+    # ``idpShowCombined``, a rank-signal cross-market source that votes
+    # its own combined offense+IDP CSV rank on the GLOBAL Hill master
+    # (via ``rank_coordinates.native_pool_for_source``).  The other
+    # cross-market sources are excluded by construction —
+    # ``draftSharks`` / ``draftSharksIdp`` are ``ds_combined_rank_partner``
+    # (handled by the pre-pass above) and ``idpTradeCalc`` is a
+    # VALUE-signal source.  Its original members were FootballGuys SF +
+    # FootballGuys IDP, which are no longer registered sources; the logic
+    # is generic, not FBG-specific.
     #
-    # KEPT, not deleted: the logic is generic rather than FBG-specific,
-    # it is guarded by the emptiness check so it costs nothing, and it
-    # would correctly auto-activate for any future rank-signal
-    # cross-market source.  The comment is what was misleading — it
-    # named FBG as a current member long after the source was removed.
+    # Membership is decided by the source's CSV SIGNAL TYPE
+    # (``_csv_signal_for``), never by absence from
+    # ``_VALUE_BASED_SOURCES`` (E2, hill-trainer-repair 2026-10-01).
+    # Decoding ``canonicalSiteValues`` as a rank is only correct when the
+    # slot holds a synthetic rank encoding, which is a property of the
+    # CSV's signal, not of which voting path the source takes.  Keyed on
+    # value-set membership, taking ``idpTradeCalc`` off the value-direct
+    # path silently decoded its real 0-9999 values as ranks (~9,900).
     csv_rank_cross_market_keys: set[str] = {
         str(s.get("key") or "")
         for s in active_sources
         if s.get("is_cross_market")
         and not s.get("ds_combined_rank_partner")
-        # IDPTC is cross-market but value-direct, so no rank override
-        # is needed — its direct-vote path reads canonicalSiteValues
-        # raw values, not the effective rank.
-        and str(s.get("key") or "") not in _VALUE_BASED_SOURCES
+        and _csv_signal_for(str(s.get("key") or "")) == "rank"
     }
     if csv_rank_cross_market_keys:
         for row_idx, row in enumerate(players_array):
@@ -10184,14 +10517,14 @@ def _compute_unified_rankings(
     # rookie-source rank to a combined-pool rank via the reference
     # ladder:
     #
-    #   * ``dlfRookieSf`` (offense rookies) → KTC Crowd+Trades ladder:
+    #   * ``dlfRookieSf`` (offense rookies) → KTC Crowd (``ktcCrowdSfTep``) ladder:
     #     DLF's #1 rookie → the rank KTC gives its #1 rookie.
     #     DLF's #2 rookie → KTC's #2 rookie-slot rank.  Etc.
     #
     #   * ``dlfRookieIdp`` (IDP rookies) → IDPTC ladder:
     #     DLF's #1 IDP rookie → IDPTC's top-rookie rank, etc.
     #
-    #   * ``flockFantasySfRookies`` (offense rookies) → KTC Crowd+Trades ladder:
+    #   * ``flockFantasySfRookies`` (offense rookies) → KTC Crowd (``ktcCrowdSfTep``) ladder:
     #     same shape as dlfRookieSf — Flock's class-only ranks anchor
     #     to KTC's offense rookie ladder.
     #
@@ -10340,6 +10673,22 @@ def _compute_unified_rankings(
     # Correlated family members all vote under a family cap
     # (``cap_family_weights``); off restores the family-head selection.
     _family_cap_applied = _feature_flags.is_enabled("source_family_cap")
+    # Joint outlier + sparse-evidence challenger (default OFF; see
+    # src/api/joint_robust_filter.py).  Off is the incumbent, byte for byte.
+    # The filter half needs the family cap (it weighs CAPPED evidence); with the
+    # cap rolled back it stands down to the incumbent filter rather than mix two
+    # dependence treatments.
+    _joint_challenger = _family_cap_applied and _feature_flags.is_enabled(
+        "joint_outlier_sparse_challenger"
+    )
+    # Sparse half, separately promotable (default OFF): one voting family is
+    # stamped ``limitedEvidence`` and the 0.30 retention is not applied.
+    _sparse_limited_evidence = _feature_flags.is_enabled("joint_sparse_limited_evidence")
+    # Sparse-evidence estimator (Batch 3 Unit E, default OFF): the rows the 0.30
+    # retention would hit get a censor-aware central estimate instead
+    # (``_apply_sparse_evidence_estimator``, after this loop).  Off = incumbent.
+    _sparse_estimator = _feature_flags.is_enabled("sparse_evidence_estimator")
+    _sparse_candidates: list[tuple[int, int, float, float, int, int, int, tuple[str, ...]]] = []
 
     from src.sources.freshness import (  # noqa: PLC0415
         STYLE_EXPLICIT as _STYLE_EXPLICIT,
@@ -10369,6 +10718,49 @@ def _compute_unified_rankings(
         name = str((entry or {}).get("displayName") or nm)
         return re.sub(r"\s+", " ", name.strip().casefold())
 
+    _universe_freshness = _feature_flags.is_enabled("source_universe_freshness")
+    _key_universe_cache: dict[str, dict[str, str]] = {}
+
+    def _row_universe(row: Mapping[str, Any]) -> str:
+        if row.get("assetClass") in ("idp", "offense"):
+            return str(row["assetClass"])
+        pos = str(row.get("position") or "").strip().upper()
+        return (
+            "idp"
+            if pos in {"DL", "LB", "DB", "DE", "DT", "EDGE", "CB", "S", "ILB", "OLB"}
+            else "offense"
+        )
+
+    def _source_key_universe(source_key: str) -> dict[str, str]:
+        """``{row CSV key: universe}`` for every board row this source prices --
+        the population a universe clock is measured over (built once per build)."""
+        if source_key not in _key_universe_cache:
+            mapping: dict[str, str] = {}
+            # Cheap first pass: most sources price one universe only, and need no
+            # map at all (the universe clock applies only to mixed boards).
+            tally: dict[str, int] = {}
+            for candidate in players_array:
+                if candidate.get("assetClass") != "pick" and source_key in (
+                    candidate.get("canonicalSiteValues") or {}
+                ):
+                    u = _row_universe(candidate)
+                    tally[u] = tally.get(u, 0) + 1
+            if sum(1 for n in tally.values() if n >= 5) < 2:
+                _key_universe_cache[source_key] = mapping
+                return mapping
+            for candidate in players_array:
+                # Raw site values are what exist at weighting time (sourceRanks is
+                # written after the blend).
+                if source_key not in (candidate.get("canonicalSiteValues") or {}):
+                    continue
+                if candidate.get("assetClass") == "pick":
+                    continue
+                key = _row_csv_key(candidate, source_key)
+                if key:
+                    mapping[key] = _row_universe(candidate)
+            _key_universe_cache[source_key] = mapping
+        return _key_universe_cache[source_key]
+
     def _dynamic_weight_factor(
         row: dict[str, Any], source_key: str, is_pick: bool
     ) -> tuple[float, dict[str, Any]]:
@@ -10394,7 +10786,15 @@ def _compute_unified_rankings(
             if sub is not None and sub.style not in (_STYLE_SNAPSHOT, _STYLE_EXPLICIT)
             else None
         )
-        fresh, age = sw.factor_for_row(is_pick=is_pick, row_key=row_key)
+        universe = key_universe = None
+        if _universe_freshness and not is_pick and sub is not None:
+            key_universe = _source_key_universe(source_key)
+            if key_universe:
+                row_key = row_key or _row_csv_key(row, source_key)
+                universe = _row_universe(row)
+        fresh, age = sw.factor_for_row(
+            is_pick=is_pick, row_key=row_key, universe=universe, key_universe=key_universe
+        )
         stamp: dict[str, Any] = {}
         if fresh < 1.0:
             stamp["freshness"] = round(fresh, 4)
@@ -10748,9 +11148,29 @@ def _compute_unified_rankings(
         # outliers across the synthetic vs. real-source values.
         hampel_dropped_keys: list[str] = []
         if not row_is_pick and len(all_value_pairs) >= _HAMPEL_MIN_N:
-            kept_pairs, hampel_dropped_keys = _hampel_filter_per_player(
-                [(k, v) for k, v, _ in all_value_pairs], k=_HAMPEL_K
-            )
+            if _joint_challenger:
+                # Evidence weights after the family cap, so correlated members
+                # are one piece of evidence when deciding who is an outlier.
+                _jw, _ = cap_family_weights(
+                    {k: row_weight.get(k, 1.0) for k, _v, _a in all_value_pairs},
+                    base=blend_weight_by_source,
+                )
+                _joint = _joint_robust_filter(
+                    [(k, v) for k, v, _ in all_value_pairs],
+                    _jw,
+                    {k: family_by_key.get(k, k) for k, _v, _a in all_value_pairs},
+                    k=_HAMPEL_K,
+                    min_n=_HAMPEL_MIN_N,
+                    min_threshold=_HAMPEL_MIN_THRESHOLD,
+                )
+                kept_pairs = [(k, v) for k, v, _ in all_value_pairs if k in set(_joint.kept)]
+                hampel_dropped_keys = list(_joint.dropped)
+                if _joint.reasons:
+                    players_array[row_idx]["jointFilterReasons"] = dict(_joint.reasons)
+            else:
+                kept_pairs, hampel_dropped_keys = _hampel_filter_per_player(
+                    [(k, v) for k, v, _ in all_value_pairs], k=_HAMPEL_K
+                )
             if hampel_dropped_keys:
                 kept_set = {k for k, _ in kept_pairs}
                 all_values = [v for k, v, _ in all_value_pairs if k in kept_set]
@@ -11073,7 +11493,31 @@ def _compute_unified_rankings(
         present_families = {family_by_key.get(k, k) for k, _v, _a in family_kept} | {
             family_by_key.get(k, k) for k in freshness_excluded
         }
-        if not row_is_pick and len(present_families) <= 1:
+        voting_families = {family_by_key.get(k, k) for k, _v, _a in family_kept}
+        if _sparse_limited_evidence and not row_is_pick and len(voting_families) <= 1:
+            # Sparse challenger: one VOTING family is limited evidence, stamped
+            # whether or not a stale family is also present (that row takes no
+            # haircut today either; the stamp makes its thinness visible).
+            players_array[row_idx]["limitedEvidence"] = {
+                "votingFamilies": len(voting_families),
+                "presentFamilies": len(present_families),
+                "challenger": _JOINT_CHALLENGER_VERSION,
+            }
+        if _sparse_estimator and not row_is_pick and len(present_families) <= 1:
+            if blended_value > 0:
+                _sparse_candidates.append(
+                    (
+                        len(row_normalized),
+                        row_idx,
+                        blended_value,
+                        sum(row_weight.get(k, 0.0) for k, _v, _a in family_kept),
+                        len(family_kept),
+                        len(voting_families),
+                        len(present_families),
+                        tuple(k for k, _v, _a in family_kept),
+                    )
+                )
+        elif not row_is_pick and len(present_families) <= 1 and not _sparse_limited_evidence:
             blended_value *= _SINGLE_SOURCE_VALUE_RETENTION
             players_array[row_idx]["_blendedValueUncapped"] = (
                 int(round(blended_value)) if blended_value > 0 else 0
@@ -11081,6 +11525,20 @@ def _compute_unified_rankings(
             players_array[row_idx]["singleSourceValuePenaltyApplied"] = True
 
         row_normalized.append((blended_value, row_idx))
+
+    if _sparse_candidates:
+        _apply_sparse_evidence_estimator(
+            _sparse_candidates,
+            row_normalized,
+            players_array,
+            row_source_meta,
+            active_sources,
+            family_by_key,
+            source_weighting,
+            blend_weight_by_source,
+            _freshness_applied,
+            csv_index,
+        )
 
     # ── Phase 3a: Pick year discount (gated to picks) ──
     # Apply the multiplicative future-year discount BEFORE the global
@@ -11651,6 +12109,8 @@ def _compute_unified_rankings(
     # Written as a general guard over "did the value move", not as a
     # special case for the boost table, so a future override inherits it.
     _restate_confidence_after_override(players_array, row_confidence_inputs, pre_override_values)
+    if _sparse_candidates:
+        _stamp_sparse_evidence_confidence(players_array)
 
     # Offense calibration is deliberately never applied to live values.
     # The offense market is already priced by the blend of KTC / DLF /

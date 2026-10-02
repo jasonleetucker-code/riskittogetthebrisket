@@ -27,7 +27,15 @@ switched off by a marker policy tuned for a different purpose.
 What it does now
 ────────────────
 Fit → challenger → score champion and challenger on boards the fit
-never reads → record both in the model registry → report.  This script
+never reads → record both in the model registry → report.
+
+The fit is a PINNED, point-in-time training run (Batch 3 Unit D,
+``src/model_registry/training_run.py``): the challenger record carries
+``trainingRun`` — code identity, manifest hash, every input's hash, dataset
+states with freshness/health/coverage at the training cutoff, families,
+populations, configuration and a ``challengerHash`` that a replay from the
+same pins reproduces. ``--require-reproducible`` (the workflow) refuses a fit
+whose inputs differ from HEAD.  This script
 no longer writes ``player_valuation.py``, and does not import the
 function that can.  Constants move only through
 ``scripts/model_registry.py promote`` + ``apply``. The two-hour workflow may run those commands only after Hill Autopilot's independent readiness and board-impact gates clear.
@@ -45,15 +53,14 @@ Usage:
     python3 scripts/auto_refit_hill_curves.py --dry-run
     python3 scripts/auto_refit_hill_curves.py --threshold 100
     python3 scripts/auto_refit_hill_curves.py --challenger-json c.json
+    python3 scripts/auto_refit_hill_curves.py --replay-commit <sha> --dry-run
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 import sys
-import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -71,14 +78,23 @@ from src.model_registry.hill_masters import (  # noqa: E402
     training_input_paths,
 )
 from src.model_registry.holdout import HoldoutError, evaluate_offense_master  # noqa: E402
-from src.model_registry.promotion import decide_promotion  # noqa: E402
+from src.model_registry.promotion import PromotionDecision, decide_promotion  # noqa: E402
+from src.model_registry.training_run import (  # noqa: E402
+    TrainingRun,
+    TrainingRunError,
+    commit_time,
+    execute,
+    offense_promotable,
+    prune_training_runs,
+    replay,
+    worktree_inputs_state,
+    write_run_artifact,
+)
 from src.model_registry.versioning import (  # noqa: E402
     ModelVersion,
     RegistryError,
     fingerprint_inputs,
 )
-
-FIT_SCRIPT = REPO / "scripts" / "fit_hill_curve_percentile.py"
 
 SCOPE_TO_CS = {
     "GLOBAL": ("HILL_GLOBAL_PERCENTILE_C", "HILL_GLOBAL_PERCENTILE_S"),
@@ -102,21 +118,81 @@ def _hill(p: float, c: float, s: float) -> float:
     return 9999.0 / (1.0 + (min(p, 1.0) / c) ** s)
 
 
-def run_fit_with_json() -> dict[str, float]:
-    """Run the fit script and capture its JSON output."""
-    with tempfile.NamedTemporaryFile(mode="w+", suffix=".json", delete=False) as tmp:
-        json_path = Path(tmp.name)
-    try:
-        subprocess.run(
-            [sys.executable, str(FIT_SCRIPT), "--json-out", str(json_path)],
-            capture_output=True,
-            text=True,
-            cwd=str(REPO),
-            check=True,
+def run_training(
+    *,
+    cutoff: datetime | None = None,
+    replay_commit: str | None = None,
+    require_reproducible: bool = False,
+) -> TrainingRun:
+    """One pinned training run, from the working tree or replayed from git.
+
+    A ``cutoff`` EARLIER than HEAD's commit time is routed to a git replay at or
+    before that cutoff. HEAD's tree holds data committed after such a cutoff, so
+    fitting it while recording the earlier cutoff (and ``reproducible: true``)
+    would claim point-in-time evidence the run is not."""
+    if replay_commit:
+        return replay(commit=replay_commit, cutoff=cutoff)
+    if cutoff is not None:
+        if cutoff.tzinfo is None:
+            raise TrainingRunError("training cutoff must be timezone-aware")
+        head_time = commit_time("HEAD")
+        if cutoff < head_time:
+            print(
+                f"NOTE: --cutoff {cutoff.isoformat()} precedes HEAD ({head_time.isoformat()}); "
+                "replaying every input from git at or before the cutoff instead of HEAD's tree"
+            )
+            return replay(cutoff=cutoff)
+    from src.model_registry.hill_masters import _fitter_module, _resolve_fit_snapshot
+
+    snapshot = _resolve_fit_snapshot(_fitter_module())
+    head, clean, head_time = worktree_inputs_state(snapshot=snapshot)
+    if not clean:
+        message = (
+            "training inputs differ from HEAD (or the snapshot is untracked): this "
+            "challenger could not be reproduced from git, so it is recorded "
+            "reproducible:false and Hill Autopilot will not tournament it"
         )
-        return {str(k): float(v) for k, v in json.loads(json_path.read_text()).items()}
-    finally:
-        json_path.unlink(missing_ok=True)
+        if require_reproducible:
+            raise TrainingRunError(message)
+        print(f"WARNING: {message}", file=sys.stderr)
+    return execute(
+        root=REPO,
+        cutoff=cutoff or (head_time if clean else datetime.now(timezone.utc)),
+        code_sha=git_sha(),
+        snapshot=snapshot,
+        inputs_origin=f"worktree@{head}" + ("" if clean else "+dirty"),
+        inputs_commit=head if clean else None,
+        reproducible=clean,
+    )
+
+
+def challenger_version(
+    *,
+    version: int,
+    run: TrainingRun | None,
+    holdout: dict | None,
+    producer: str,
+    params: dict[str, float] | None = None,
+    registry_dir: Path | None = None,
+) -> ModelVersion:
+    """The registry record for one raw challenger, carrying its training run.
+
+    The full run record is written as a committed artifact under
+    ``<registry_dir>/training_runs/``; the version carries only its compact
+    summary (hashes, replay pins, per-scope promotability), so the registry file
+    stops growing ~15 KB per two-hourly refit."""
+    summary = write_run_artifact(run.record, registry_dir=registry_dir) if run is not None else None
+    return ModelVersion(
+        model_id=MODEL_ID,
+        version=version,
+        params=dict(params if params is not None else run.params),  # type: ignore[union-attr]
+        fitted_at=datetime.now(timezone.utc).isoformat(),
+        producer=producer,
+        status="challenger",
+        training_inputs=fingerprint_inputs(training_input_paths()),
+        holdout=holdout,
+        training_run=summary,
+    )
 
 
 def compute_scope_drift(committed: dict[str, float], fitted: dict[str, float]) -> dict[str, float]:
@@ -186,6 +262,19 @@ def main() -> int:
         action="store_true",
         help="evaluate even when drift is below the threshold",
     )
+    ap.add_argument(
+        "--cutoff",
+        help="training cutoff (ISO 8601, tz-aware); default: HEAD's commit time",
+    )
+    ap.add_argument(
+        "--replay-commit",
+        help="fit from every input as it stood at this commit (point-in-time replay)",
+    )
+    ap.add_argument(
+        "--require-reproducible",
+        action="store_true",
+        help="refuse a fit whose inputs differ from HEAD (the workflow sets this)",
+    )
     args = ap.parse_args()
 
     # ── the live constants, and the champion of record ─────────────
@@ -212,6 +301,7 @@ def main() -> int:
         return EXIT_ERROR
 
     # ── the challenger ─────────────────────────────────────────────
+    run: TrainingRun | None = None
     if args.challenger_json:
         try:
             raw = json.loads(args.challenger_json.read_text())
@@ -222,14 +312,31 @@ def main() -> int:
         producer = f"injected via --challenger-json ({args.challenger_json.name})"
     else:
         try:
-            fitted = run_fit_with_json()
-        except subprocess.CalledProcessError as exc:
-            print(f"ERROR running fit:\n{exc.stderr}", file=sys.stderr)
+            cutoff = (
+                datetime.fromisoformat(args.cutoff.replace("Z", "+00:00")) if args.cutoff else None
+            )
+            run = run_training(
+                cutoff=cutoff,
+                replay_commit=args.replay_commit,
+                require_reproducible=args.require_reproducible,
+            )
+        except TrainingRunError as exc:
+            print(f"ERROR: training run refused: {exc}", file=sys.stderr)
             return EXIT_ERROR
         except Exception as exc:  # noqa: BLE001
             print(f"ERROR running fit: {exc}", file=sys.stderr)
             return EXIT_ERROR
+        fitted = dict(run.params)
         producer = f"scripts/fit_hill_curve_percentile.py @ {git_sha()}"
+        print(
+            f"training run: challengerHash={run.challenger_hash[:16]} "
+            f"cutoff={run.record['trainingCutoff']} origin={run.record['inputsOrigin']} "
+            f"reproducible={run.record['reproducible']}"
+        )
+        # The full record is written as a committed artifact
+        # (config/model_registry/training_runs/<challengerHash>.json) when the
+        # challenger is recorded; the registry carries its compact summary.
+        # ``scripts/hill_training_run.py show`` exports it.
 
     missing = [n for n in CONSTANT_NAMES if n not in fitted]
     if missing:
@@ -263,6 +370,21 @@ def main() -> int:
     print(format_holdout("challenger", chal_eval))
 
     decision = decide_promotion(champ_eval.criterion, chal_eval.criterion)
+    if run is not None:
+        ok, why = offense_promotable(run.record)
+        if not ok and decision.promote:
+            # A declared OFFENSE trainer was skipped (e.g. a vendor renamed its value
+            # column): the master was fitted on fewer boards than declared. It is
+            # recorded as evidence, never as a promotable challenger.
+            decision = PromotionDecision(
+                promote=False,
+                reason="OFFENSE not promotable: " + "; ".join(why),
+                champion_criterion=decision.champion_criterion,
+                challenger_criterion=decision.challenger_criterion,
+                margin_required=decision.margin_required,
+                improvement=decision.improvement,
+                alarm=decision.alarm,
+            )
     print(f"\nverdict: {'PROMOTABLE' if decision.promote else 'REJECTED'}")
     print(f"reason:  {decision.reason}")
     print(
@@ -279,21 +401,21 @@ def main() -> int:
         try:
             recorded = registry.next_version()
             registry.add(
-                ModelVersion(
-                    model_id=MODEL_ID,
+                challenger_version(
                     version=recorded,
-                    params=fitted,
-                    fitted_at=datetime.now(timezone.utc).isoformat(),
-                    producer=producer,
-                    status="challenger",
-                    training_inputs=fingerprint_inputs(training_input_paths()),
+                    run=run,
                     holdout=chal_eval.to_dict(),
+                    producer=producer,
+                    params=fitted,
                 )
             )
             if not decision.promote:
                 registry.reject(recorded, reason=decision.reason)
             registry.save()
             print(f"\nRecorded challenger v{recorded} in the registry.")
+            removed = prune_training_runs(registry.versions)
+            if removed:
+                print(f"Pruned {len(removed)} training-run artifact(s) nothing still needs.")
         except RegistryError as exc:
             print(f"ERROR recording challenger: {exc}", file=sys.stderr)
             return EXIT_ERROR

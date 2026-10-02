@@ -48,10 +48,35 @@
 #   PYTHON_BIN           venv interpreter (sqlite3 CLI is not on the box)
 #   RUN_BACKUP           "1" (default) to run the backup first; "0" to
 #                        verify the newest recorded generation only
+#   PROOF_SKIP_OPTIONAL  OPTIONAL artifact names the proof's backup run
+#                        leaves out (passed to the writer as
+#                        BACKUP_SKIP_OPTIONAL).  Default: the two large
+#                        stores, "temporal_ledger.sqlite intel_ledger.sqlite3".
 #
-# Exit codes: 0 proven · 1 could not run · 2 an artifact that exists on
-# the source is missing from the backup, or a restored artifact failed
-# verification.
+# THE PROOF RUN IS A CORE RESTORE PROOF, NOT A SECOND NIGHTLY
+# ───────────────────────────────────────────────────────────
+# It runs after every production deploy inside a 20-minute job budget, as
+# the deploy user, on the live box.  The nightly (root, 2h TimeoutStartSec)
+# is what carries the 1.5 GB temporal ledger and the 0.7 GB intel-ledger
+# online copy; copying, integrity-checking and gzipping both here would spend
+# most of the budget and compete with the app for I/O right after a deploy,
+# to prove nothing the small stores do not.  So this run skips them by
+# default (recorded in the generation as `skipped_requested`, and the intel
+# ledger then rides in intel.tar.gz as raw files, the pre-AL-P2 path) and
+# runs at low CPU and I/O priority.  It restore-checks every CORE artifact
+# and the SMALL OPTIONAL ones; it never restores the large ledgers.
+#
+# An OPTIONAL store the writer recorded as failed or shed for disk space
+# (optional_stores.tsv in the generation, writer exit 3) is a WARNING here,
+# emitted as a GitHub ::warning:: annotation — the same posture the writer
+# takes — never a silent pass and never a red proof.  The proof's own run
+# cannot see a failure in the two stores it skips, so it also reads the
+# NIGHTLY unit's last ExecMainStatus (unprivileged `systemctl show`) and
+# annotates a 3 or a failure there (section 1b).
+#
+# Exit codes: 0 proven (possibly with optional-store warnings) · 1 could
+# not run · 2 an artifact that exists on the source is missing from the
+# backup, or a restored artifact failed verification.
 
 set -Eeuo pipefail
 
@@ -59,10 +84,21 @@ APP_DIR="${APP_DIR:-/home/dynasty/trade-calculator}"
 DATA_DIR="${DATA_DIR:-${APP_DIR}/data}"
 PYTHON_BIN="${PYTHON_BIN:-/home/dynasty/.venvs/trade-calculator/bin/python}"
 RUN_BACKUP="${RUN_BACKUP:-1}"
+PROOF_SKIP_OPTIONAL="${PROOF_SKIP_OPTIONAL-temporal_ledger.sqlite intel_ledger.sqlite3}"
 
 log()  { printf '[backup-proof] %s\n' "$*"; }
 warn() { printf '[backup-proof][WARN] %s\n' "$*" >&2; }
 fail() { printf '[backup-proof][ERROR] %s\n' "$*" >&2; exit 1; }
+
+OPTIONAL_WARNINGS=0
+# A GitHub Actions workflow command on stdout: rendered as an annotation on
+# the run when this script's output reaches a workflow log (it does — the
+# workflow relays it over ssh), and a harmless line anywhere else.
+note_optional_warning() {
+    printf '[backup-proof][WARN] %s\n' "$*" >&2
+    printf '::warning title=Backup proof: optional store::%s\n' "$*"
+    OPTIONAL_WARNINGS=$((OPTIONAL_WARNINGS + 1))
+}
 
 FAILURES=0
 note_fail() { printf '[backup-proof][FAIL] %s\n' "$*" >&2; FAILURES=$((FAILURES + 1)); }
@@ -111,16 +147,69 @@ if [[ "${RUN_BACKUP}" == "1" ]]; then
     BACKUP_SCRIPT="${APP_DIR}/deploy/backup/riskit-state-backup.sh"
     [[ -f "${BACKUP_SCRIPT}" ]] || fail "backup script absent on the deployed revision: ${BACKUP_SCRIPT}"
     RESULT_FILE="$(mktemp /tmp/retention-backup-result-XXXXXX)"
-    log "running production backup: ${BACKUP_SCRIPT}"
-    if ! APP_DIR="${APP_DIR}" DATA_DIR="${DATA_DIR}" \
-         BACKUP_ROOT="$(backup_root_primary)" \
-         BACKUP_FALLBACK_ROOT="$(backup_root_fallback)" \
-         BACKUP_RESULT_FILE="${RESULT_FILE}" \
-         OFFBOX_RSYNC_DEST= \
-         PYTHON_BIN="${PYTHON_BIN}" bash "${BACKUP_SCRIPT}"; then
-        fail "backup run FAILED"
+    # Low priority: this runs on the live box right after a deploy, as the
+    # deploy user, next to the app it just restarted.  Best-effort class at
+    # its lowest level rather than `idle`, which can starve indefinitely under
+    # load and turn a 20-minute job budget into a timeout.
+    PRIO=(nice -n 10)
+    if command -v ionice >/dev/null 2>&1; then
+        PRIO+=(ionice -c2 -n7)
     fi
+    log "running production backup: ${BACKUP_SCRIPT} (skipping optional: ${PROOF_SKIP_OPTIONAL:-none})"
+    backup_rc=0
+    APP_DIR="${APP_DIR}" DATA_DIR="${DATA_DIR}" \
+        BACKUP_ROOT="$(backup_root_primary)" \
+        BACKUP_FALLBACK_ROOT="$(backup_root_fallback)" \
+        BACKUP_RESULT_FILE="${RESULT_FILE}" \
+        BACKUP_SKIP_OPTIONAL="${PROOF_SKIP_OPTIONAL}" \
+        OFFBOX_RSYNC_DEST= \
+        PYTHON_BIN="${PYTHON_BIN}" "${PRIO[@]}" bash "${BACKUP_SCRIPT}" || backup_rc=$?
+    case "${backup_rc}" in
+        0) ;;
+        3) note_optional_warning "the backup promoted its generation with all CORE state, but an OPTIONAL store failed or was shed for disk space (writer exit 3) — see optional_stores.tsv in the generation" ;;
+        *) fail "backup run FAILED (exit ${backup_rc})" ;;
+    esac
 fi
+
+# ── 1b. The NIGHTLY's last exit status ───────────────────────────────
+# The run above is this proof's own, and it skips the two large stores on
+# purpose — so its exit 3 can never report a failure in the temporal ledger or
+# the intel ledger's online copy, which only the 02:30 root nightly carries.
+# That nightly's generation is root-only (0700), but its unit status is not:
+# `systemctl show` needs no privilege.  This is the only place a nightly exit 3
+# surfaces, so it surfaces at the next deploy, not when it happens.  It
+# annotates; it never changes this proof's exit code, which is about the
+# generation proven below.
+NIGHTLY_UNIT="${NIGHTLY_UNIT:-riskit-state-backup.service}"
+check_nightly_last_status() {
+    if ! command -v systemctl >/dev/null 2>&1; then
+        log "nightly ${NIGHTLY_UNIT}: systemctl not available here — its last exit status is not checked"
+        return 0
+    fi
+    local load result status at
+    load="$(systemctl show "${NIGHTLY_UNIT}" -p LoadState --value 2>/dev/null)" || load=""
+    if [[ "${load}" != "loaded" ]]; then
+        log "nightly ${NIGHTLY_UNIT}: not installed here (LoadState=${load:-unknown}) — its last exit status is not checked"
+        return 0
+    fi
+    result="$(systemctl show "${NIGHTLY_UNIT}" -p Result --value 2>/dev/null)" || result=""
+    status="$(systemctl show "${NIGHTLY_UNIT}" -p ExecMainStatus --value 2>/dev/null)" || status=""
+    at="$(systemctl show "${NIGHTLY_UNIT}" -p ExecMainExitTimestamp --value 2>/dev/null)" || at=""
+    if [[ -z "${at}" || "${at}" == "n/a" ]]; then
+        log "nightly ${NIGHTLY_UNIT}: no completed run since the service manager started — nothing to report"
+        return 0
+    fi
+    if [[ "${result}" == "success" && "${status}" == "0" ]]; then
+        log "nightly ${NIGHTLY_UNIT}: last run (${at}) exit 0"
+    elif [[ "${result}" == "success" && "${status}" == "3" ]]; then
+        note_optional_warning "the nightly ${NIGHTLY_UNIT} last run (${at}) exited 3 — its generation was promoted with all CORE state, but an OPTIONAL store failed or was shed (the temporal ledger and the intel ledger's online copy are only in the nightly); the store is named in that generation's root-only optional_stores.tsv and in: sudo journalctl -u ${NIGHTLY_UNIT}"
+    else
+        warn "nightly ${NIGHTLY_UNIT}: last run (${at}) Result=${result:-unknown} ExecMainStatus=${status:-unknown} — not a successful backup"
+        printf '::warning title=Backup proof: nightly backup::the nightly %s last run (%s) did not succeed (Result=%s ExecMainStatus=%s) — see: sudo journalctl -u %s\n' \
+            "${NIGHTLY_UNIT}" "${at}" "${result:-unknown}" "${status:-unknown}" "${NIGHTLY_UNIT}"
+    fi
+}
+check_nightly_last_status
 
 # ── 2. Locate the generation we are proving ──────────────────────────
 # With a backup just run, the generation is whatever THAT run reported —
@@ -278,6 +367,44 @@ log "generation size: $(du -sh "${GEN}" 2>/dev/null | cut -f1)"
 RESTORE_DIR="$(mktemp -d /tmp/retention-restore-XXXXXX)"
 log "restore target (throwaway): ${RESTORE_DIR}"
 
+# ── OPTIONAL stores the writer recorded as NOT in this generation ─────
+# riskit-state-backup.sh lists every OPTIONAL store it left out, with why,
+# in <generation>/optional_stores.tsv (name<TAB>status<TAB>detail).  A CORE
+# store is never listed there, so a missing core artifact can never be
+# explained away by this file.
+optional_status() {
+    local manifest="${GEN}/optional_stores.tsv"
+    [[ -f "${manifest}" ]] || return 0
+    awk -F '\t' -v n="$1" '$1 == n { s = $2 } END { if (s != "") print s }' "${manifest}"
+}
+
+# 0 = the absence is the writer's own recorded decision (handled here),
+# 1 = unexplained (the caller records a FAIL).
+#
+# Only a name the writer itself wraps in `optional` can be explained this way.
+# The manifest is a file in the generation, and "a CORE store is never listed
+# there" was a property of the writer, not of this reader: a stray or forged
+# row naming user_kv.sqlite must still fail, not pass as a recorded skip.
+# Lockstep with the `optional backup_*` calls in riskit-state-backup.sh is
+# pinned by tests/deploy/test_state_backup_optional_stores.py.
+KNOWN_OPTIONAL_STORES=" intel_ledger.sqlite3 market_trades_archive.sqlite market_trades_reports own_league_format_captures.sqlite source_archive_boards.sqlite bdvm forecast_archive pick_forecast_snapshots sparse_evidence_shadow robust_filter_shadow consensus_edge.sqlite dfs_workspace.sqlite temporal_ledger.sqlite "
+optional_absence_explained() {
+    local name="$1" label="$2" status
+    if [[ "${KNOWN_OPTIONAL_STORES}" != *" ${name} "* ]]; then
+        return 1
+    fi
+    status="$(optional_status "${name}")"
+    case "${status}" in
+        skipped_requested)
+            log "${label}: not in this generation by request (BACKUP_SKIP_OPTIONAL) — not proven here; the nightly carries it"
+            return 0 ;;
+        failed|skipped_low_space|skipped_space_unmeasurable)
+            note_optional_warning "${label}: OPTIONAL store NOT in this generation (writer recorded: ${status})"
+            return 0 ;;
+    esac
+    return 1
+}
+
 # ── SQLite: restore, integrity-check, read schema + counts ───────────
 # $1 source path under DATA_DIR · $2 basename in the backup · $3 label
 # $4.. tables whose row counts to report
@@ -302,6 +429,7 @@ prove_sqlite() {
         log "${label}: source absent, backup present (older generation) — proving it from the backup"
     fi
     if [[ ! -f "${gz}" ]]; then
+        optional_absence_explained "${name}" "${label}" && return 0
         note_fail "${label}: EXISTS at ${src} but is MISSING from the backup (${gz})"
         return 0
     fi
@@ -370,6 +498,7 @@ prove_file() {
         log "${label}: source absent, backup present (older generation) — proving it from the backup"
     fi
     if [[ ! -f "${gz}" ]]; then
+        optional_absence_explained "${name}" "${label}" && return 0
         note_fail "${label}: EXISTS at ${src} but is MISSING from the backup (${gz})"
         return 0
     fi
@@ -430,6 +559,7 @@ prove_dir() {
         log "${label}: source absent, backup present (older generation) — proving it from the backup"
     fi
     if [[ ! -f "${tgz}" ]]; then
+        optional_absence_explained "${name}" "${label}" && return 0
         note_fail "${label}: EXISTS at ${src} but is MISSING from the backup (${tgz})"
         return 0
     fi
@@ -490,6 +620,35 @@ prove_dir "${DATA_DIR}/playerctx/history" "playerctx_history" "C1-RET-08 playerc
 # and tar integrity only, no payload) as every artifact above it.
 prove_dir "${DATA_DIR}/game_day"          "game_day"          "C5-GD-02 game_day/"
 
+# ── AL-P2 OPTIONAL stores: the SMALL ones only ───────────────────────
+# Integrity check + schema listing (no row counts: the proof does not
+# hard-code these stores' table names).  Measured on the box 2026-10-02:
+# KTC trade archive 0.8 MB, own-league captures 0.08 MB, format boards
+# 1.5 MB, Consensus Edge 42 MB, DFS workspace 100 MB, the directories under
+# 30 MB.  DELIBERATELY NOT HERE: the temporal ledger (1.5 GB) and the intel
+# ledger online copy (0.7 GB).  Restoring and integrity-checking those on
+# every deploy would spend most of the 20-minute job budget on two stores;
+# the proof run does not even write them (PROOF_SKIP_OPTIONAL above).  Their
+# restore path is documented in deploy/backup/README.md and exercised by
+# hand against a nightly generation.
+log "── AL-P2 optional artifacts (small) ─────────────────────────────"
+prove_sqlite "${DATA_DIR}/market_trades/archive.sqlite" "market_trades_archive.sqlite" \
+    "AL-P2 market_trades archive (PRIVATE)"
+prove_sqlite "${DATA_DIR}/leagues/own_league_format_captures.sqlite" "own_league_format_captures.sqlite" \
+    "AL-P2 own-league format captures"
+prove_sqlite "${DATA_DIR}/source_archive/boards.sqlite" "source_archive_boards.sqlite" \
+    "AL-P2 KTC format-variant boards"
+prove_sqlite "${DATA_DIR}/consensus_edge.sqlite" "consensus_edge.sqlite" \
+    "AL-P2 Consensus Edge labels"
+prove_sqlite "${DATA_DIR}/dfs/workspace.sqlite" "dfs_workspace.sqlite" \
+    "AL-P2 DFS workspace"
+prove_dir "${DATA_DIR}/market_trades/reports" "market_trades_reports" "AL-P2 market_trades reports/"
+prove_dir "${DATA_DIR}/bdvm"                    "bdvm"                    "AL-P2 bdvm/"
+prove_dir "${DATA_DIR}/forecast_archive"        "forecast_archive"        "AL-P2 forecast_archive/"
+prove_dir "${DATA_DIR}/pick_forecast_snapshots" "pick_forecast_snapshots" "AL-P2 pick_forecast_snapshots/"
+prove_dir "${DATA_DIR}/sparse_evidence_shadow"  "sparse_evidence_shadow"  "AL-P2 sparse_evidence_shadow/"
+prove_dir "${DATA_DIR}/robust_filter_shadow"    "robust_filter_shadow"    "AL-P2 robust_filter_shadow/"
+
 log "─────────────────────────────────────────────────────────────────"
 if (( FAILURES > 0 )); then
     warn "${FAILURES} artifact(s) failed backup/restore proof"
@@ -510,6 +669,10 @@ GEN_HELD="$(find "${GEN}" -type f 2>/dev/null | wc -l | tr -d ' ')"
 if (( GEN_HELD == 0 )); then
     warn "certified generation ${GEN} holds NO artifact at all — the writer discards any snapshot with zero artifacts, so this directory is not a generation; refusing to announce a proof over an empty one"
     exit 2
+fi
+if (( OPTIONAL_WARNINGS > 0 )); then
+    log "backup + restore proven: ${PROVEN} retention artifact(s) restored and verified, ${GEN_HELD} artifact(s) in the generation — WITH ${OPTIONAL_WARNINGS} optional-store warning(s)"
+    exit 0
 fi
 log "backup + restore proven: ${PROVEN} retention artifact(s) restored and verified, ${GEN_HELD} artifact(s) in the generation"
 exit 0
