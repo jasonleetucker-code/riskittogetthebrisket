@@ -10,8 +10,16 @@ was fitted.
 If READY, the emitted params change OFFENSE only. GLOBAL/IDP/ROOKIE remain
 the incumbent values until those scopes have their own promotable evidence.
 
+Owner methodology decision 1 (2026-10-01): READY also requires an eligible,
+preregistered independent validation target the winner passes
+(``src/model_registry/independent_validation.py``; the registry is empty
+today). Without one the outcome is ``AUTO_PROMOTION_BLOCKED`` with reason
+``no_independent_validation_target`` -- a NORMAL outcome: the plan and run log
+are still written (persistence evidence keeps accumulating) and the exit code
+is 0, so the workflow skips register/promote/apply without failing.
+
 Exit codes:
-  0  not ready; champion stays
+  0  not ready (HOLD or AUTO_PROMOTION_BLOCKED); champion stays
   10 ready; caller may run register -> validate -> board guard -> promote -> apply
   2  evaluation error
 """
@@ -34,13 +42,24 @@ if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
 from src.model_registry.autopilot import (  # noqa: E402
+    AutopilotDecision,
     AutopilotPolicy,
     CandidateScore,
     ForwardScore,
+    choose_winner,
     compose_offense_only,
     decide,
 )
 from src.model_registry.hill_masters import load_or_seed_registry  # noqa: E402
+from src.model_registry.independent_validation import (  # noqa: E402
+    INDEPENDENT_VALIDATION_TARGETS,
+    IndependentValidationEvidence,
+    evaluate_independent_validation,
+    git_preregistration_committed,
+    lineage_lookup,
+    offense_training_lineage,
+    registry_family_lookup,
+)
 from src.model_registry.holdout import (  # noqa: E402
     OFFENSE_HOLDOUT_SOURCES,
     HoldoutError,
@@ -267,6 +286,41 @@ def _recent_row_health(
     return ok, detail
 
 
+def exit_code_for(decision: AutopilotDecision) -> int:
+    """10 only when READY. HOLD and AUTO_PROMOTION_BLOCKED are both ordinary
+    "champion stands" outcomes (0): a blocked promotion is not a failed job."""
+    return 10 if decision.ready else 0
+
+
+def independent_validation_evidence(
+    champ, winner: CandidateScore | None, targets=None
+) -> tuple[IndependentValidationEvidence | None, str | None]:
+    """Every registered independent target's verdict for the tournament winner.
+
+    Returns ``(evidence, error)``. A failure to assess returns ``None`` evidence,
+    which ``decide`` reads as no eligible target (fail closed)."""
+    targets = INDEPENDENT_VALIDATION_TARGETS if targets is None else tuple(targets)
+    if winner is None:
+        return None, None
+    try:
+        families, by_family = offense_training_lineage()
+        evidence = evaluate_independent_validation(
+            targets,
+            challenger_version=winner.version,
+            training_families=families,
+            champion_c=float(champ.params["HILL_PERCENTILE_C"]),
+            champion_s=float(champ.params["HILL_PERCENTILE_S"]),
+            challenger_c=winner.c,
+            challenger_s=winner.s,
+            preregistration_committed=git_preregistration_committed,
+            lineage_for=lineage_lookup(by_family),
+            family_of=registry_family_lookup(),
+        )
+    except Exception as exc:  # noqa: BLE001 - unassessable evidence fails closed
+        return None, f"{type(exc).__name__}: {exc}"
+    return evidence, None
+
+
 def _append_log(blob: dict[str, Any]) -> None:
     RUN_LOG.parent.mkdir(parents=True, exist_ok=True)
     with RUN_LOG.open("a", encoding="utf-8") as f:
@@ -322,6 +376,8 @@ def main() -> int:
         float(raw_policy.get("maxRowDropFromRecentMedianFraction", 0.15)),
     )
 
+    iv_evidence, iv_error = independent_validation_evidence(champ, choose_winner(scores))
+
     decision = decide(
         champion_criterion=float(champ_eval.criterion),
         champion_per_source=dict(champ_eval.per_source),
@@ -330,6 +386,7 @@ def main() -> int:
         forward_scores=forward,
         policy=policy,
         recent_row_health_ok=row_health_ok,
+        independent_validation=iv_evidence,
     )
 
     winner = next((c for c in scores if c.version == decision.winner_version), None)
@@ -363,8 +420,28 @@ def main() -> int:
             "gatesPromotion": False,
         },
         "rowHealthDetail": row_health_detail,
+        # Owner methodology decision 1: a REQUIRED gate (unlike
+        # ``holdoutIndependence`` above, which is reporting only). An empty
+        # registry blocks with ``no_independent_validation_target``.
+        "independentValidation": {
+            **(
+                iv_evidence.to_dict()
+                if iv_evidence is not None
+                else {
+                    "challengerVersion": decision.winner_version,
+                    "registrySize": len(INDEPENDENT_VALIDATION_TARGETS),
+                    "eligibleTargets": [],
+                    "passed": False,
+                    "assessments": [],
+                    "gatesPromotion": True,
+                }
+            ),
+            "reason": decision.independent_validation_reason,
+            "error": iv_error,
+        },
         "winnerVersion": decision.winner_version,
         "ready": decision.ready,
+        "outcome": decision.outcome,
         "reason": decision.reason,
         "gates": dict(decision.gates),
         "requiredImprovement": round(decision.required_improvement, 4),
@@ -417,9 +494,10 @@ def main() -> int:
         _append_log(plan)
 
     print(
-        f"Hill autopilot: {'READY' if decision.ready else 'HOLD'} "
+        f"Hill autopilot: {decision.outcome} "
         f"winner=v{decision.winner_version} — {decision.reason}"
     )
+    print(f"independent validation: {decision.independent_validation_reason or 'passed'}")
     if decision.current_improvement is not None:
         print(
             f"current improvement {decision.current_improvement:.1f}; "
@@ -430,7 +508,7 @@ def main() -> int:
         f"forwardDays={decision.forward_days} "
         f"forwardWinRate={decision.forward_win_rate}"
     )
-    return 10 if decision.ready else 0
+    return exit_code_for(decision)
 
 
 if __name__ == "__main__":

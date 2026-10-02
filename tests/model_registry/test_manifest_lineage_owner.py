@@ -328,12 +328,15 @@ class TestNoIndependentHoldout:
         assert r.independent_criterion_reason == "no_independent_holdout"
 
     def test_no_autopilot_gate_reads_independence(self):
-        """``independentCriterion`` is reporting-only: auto-promotion is decided on
-        ``criterion`` / ``per_source`` alone, so it neither stops nor loosens here."""
+        """``independentCriterion`` (the board-holdout statistic) is reporting-only:
+        it neither stops nor loosens promotion. The ONE independence input ``decide``
+        takes is owner decision 1's preregistered independent-validation evidence
+        (``independent_validation``), a separate registry -- a holdout board turning
+        lineage-independent does not by itself become a validation target."""
         from src.model_registry import autopilot
 
         params = set(inspect.signature(autopilot.decide).parameters)
-        assert not {p for p in params if "independ" in p.lower()}
+        assert {p for p in params if "independ" in p.lower()} == {"independent_validation"}
         src = inspect.getsource(autopilot)
         assert "independent_criterion" not in src and "independentCriterion" not in src
 

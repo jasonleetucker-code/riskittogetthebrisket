@@ -141,6 +141,9 @@ jobs:
             2>&1 | tee autopilot_report.txt
           CODE=${PIPESTATUS[0]}
           set -e
+          # 0 covers HOLD and AUTO_PROMOTION_BLOCKED (no eligible independent
+          # validation target, owner decision 1): the plan and run log are still
+          # recorded and committed below; only register/promote/apply are skipped.
           if [[ "$CODE" == "10" ]]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
           elif [[ "$CODE" == "0" ]]; then
@@ -321,6 +324,11 @@ jobs:
             echo "**Pinned snapshot:** \`${RISKIT_FIT_SNAPSHOT:-unset}\` (sha256 \`${RISKIT_FIT_SNAPSHOT_SHA256:-unset}\`)"
             if [[ -f autopilot_plan.json ]]; then
               echo "**Ready:** $(jq -r '.ready' autopilot_plan.json)"
+              # AUTO_PROMOTION_BLOCKED (e.g. no_independent_validation_target,
+              # owner decision 1) is a normal outcome: evidence was recorded and
+              # register/promote/apply were skipped, not failed.
+              echo "**Outcome:** $(jq -r '.outcome // "-"' autopilot_plan.json)"
+              echo "**Independent validation:** $(jq -r '.independentValidation.reason // "passed"' autopilot_plan.json) (registry size $(jq -r '.independentValidation.registrySize // 0' autopilot_plan.json))"
               echo "**Winner:** v$(jq -r '.winnerVersion // "-"' autopilot_plan.json)"
               echo "**Reason:** $(jq -r '.reason' autopilot_plan.json)"
               echo "**Stable versions:** $(jq -c '.stableVersions' autopilot_plan.json)"
