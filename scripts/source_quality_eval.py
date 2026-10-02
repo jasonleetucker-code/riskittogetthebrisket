@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import subprocess
 import sys
 import time
@@ -272,7 +273,9 @@ def emit_learning_receipts(
         from src.model_registry import producer_receipts as pr  # noqa: PLC0415
         from src.model_registry.feature_dictionary import load_dictionary  # noqa: PLC0415
     except Exception as exc:  # noqa: BLE001 -- receipts must never break the evaluator
-        _log(f"WARNING: learning receipts NOT written: {type(exc).__name__}: {exc}")
+        msg = f"WARNING: learning receipts NOT written: {type(exc).__name__}: {exc} receipt_failures=1"
+        logging.getLogger(__name__).warning(msg)
+        _log(msg)
         return
     if not pr.receipts_enabled():
         # Fail closed: only the box's runs are canonical, and this script runs

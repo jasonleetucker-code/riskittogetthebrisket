@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -50,18 +51,21 @@ def cmd_record(args: argparse.Namespace) -> int:
             log(f"no payload at {path} -- nothing to record")
             return 1
         try:
-            raw = json.loads(path.read_bytes())
+            data = path.read_bytes()
+            raw = json.loads(data)
         except (OSError, ValueError) as exc:
             log(f"cannot read {path}: {exc}")
             return 1
         at = shadow.payload_scraped_at(raw) if isinstance(raw, dict) else None
         age = None if at is None else (datetime.now(timezone.utc) - at).total_seconds() / 3600
     else:
-        picked = shadow.newest_live_payload(REPO)
+        picked = shadow.newest_live_payload(REPO, with_bytes=True)
         if picked is None:
             log("no payload under exports/latest or data/ -- nothing to record")
             return 1
-        path, raw, age = picked
+        # ``data`` is the exact byte string ``raw`` was parsed from: the ledger's
+        # payloadSha256 pins what the builds read, not a second read after them.
+        path, raw, age, data = picked
     budget = shadow.stale_budget_hours()
     if (age is None or age > budget) and not args.allow_stale:
         shown = "unknown (no scrapeTimestamp)" if age is None else f"{age:.1f}h"
@@ -77,7 +81,12 @@ def cmd_record(args: argparse.Namespace) -> int:
         source = path.name
     try:
         result = shadow.record_board(
-            raw, path, base=Path(args.dir), source=source, payload_age_hours=age
+            raw,
+            path,
+            base=Path(args.dir),
+            source=source,
+            payload_age_hours=age,
+            payload_bytes=data,
         )
     except OSError as exc:
         log(f"write failed: {exc}")
@@ -116,7 +125,9 @@ def emit_learning_receipts(args: argparse.Namespace, record: dict) -> None:
         from src.model_registry import producer_receipts as pr  # noqa: PLC0415
         from src.model_registry.feature_dictionary import load_dictionary  # noqa: PLC0415
     except Exception as exc:  # noqa: BLE001 -- receipts must never break the recorder
-        log(f"WARNING: learning receipts NOT written: {type(exc).__name__}: {exc}")
+        msg = f"WARNING: learning receipts NOT written: {type(exc).__name__}: {exc} receipt_failures=1"
+        logging.getLogger(__name__).warning(msg)
+        log(msg)
         return
 
     def build():

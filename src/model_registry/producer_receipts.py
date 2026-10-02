@@ -151,6 +151,21 @@ def _mapping_block(value: Any, what: str) -> dict[str, Any]:
     return dict(value) if isinstance(value, Mapping) else _missing(what, value)
 
 
+def _carried(container: Any, key: str, what: str) -> Any:
+    """A producer field verbatim (an explicit ``None`` included -- that is the
+    producer's own statement), or ``unobserved`` when the container or key is absent."""
+    if not isinstance(container, Mapping):
+        return _missing(what, None)
+    if key not in container:
+        return _missing(what, None)
+    value = container[key]
+    if isinstance(value, Mapping):
+        return dict(value)
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    return value
+
+
 def _counter_block(value: Any, what: str) -> dict[str, Any]:
     """A producer ``Counter`` block plus its absent-key semantics -- only when present."""
     if isinstance(value, Mapping):
@@ -203,17 +218,6 @@ def _board_slot(board: Mapping[str, Any], cutoff: datetime) -> StoreRef | Unobse
     )
 
 
-def _live_ref(store: str, key: str, cutoff: datetime, what: str) -> StoreRef:
-    return StoreRef(
-        store=store,
-        key=key,
-        role=ROLE_INPUT,
-        known_at=cutoff,
-        fidelity="exact",
-        basis=f"{what} read during the run, before the record's recordedAt was stamped",
-    )
-
-
 def _tree_state_token(dirty: Any) -> str:
     """A dirty tree's content is not determined by its revision; an unknown state is named
     as unknown rather than assumed clean."""
@@ -223,7 +227,12 @@ def _tree_state_token(dirty: Any) -> str:
 
 
 def _flags_token(flags: Any) -> str:
-    if not isinstance(flags, Mapping) or not flags:
+    """``fmissing`` when the record carries no flag snapshot (unknown); ``fnone`` for a
+    PRESENT empty snapshot (a real statement: no flags). ``fnone`` keeps its historical
+    spelling so no identity minted from present data changes."""
+    if not isinstance(flags, Mapping):
+        return "fmissing"
+    if not flags:
         return "fnone"
     return "f" + _sha(dict(flags))[:8]
 
@@ -397,13 +406,26 @@ def sparse_evidence_receipts(
     code = _require(pins.get("codeRevision"), "pins.codeRevision")
     estimator = str(pins.get("estimator") or (record.get("identity") or {}).get("estimator"))
     inputs_sha = str(pins.get("inputsSha256") or "")
+    # The recorder hashes its inputs (``value_replay.pins``) AFTER both builds have
+    # read them (``api/sparse_evidence_shadow.py::record_board``); moving the hash
+    # would change the record key even with no race. So the pin is the observation
+    # nearest the read, before recordedAt -- never claimed as the bytes read.
     inputs: StoreRef | Unobserved = (
-        _live_ref(
-            "repo_file",
-            f"sparse-evidence-shadow live inputs (source CSVs, freshness state, config, "
-            f"fetch stamps, league snapshots)@sha256:{inputs_sha}",
-            cutoff,
-            "this box's source CSVs, dataset state, freshness config and league snapshots",
+        StoreRef(
+            store="repo_file",
+            key=(
+                f"sparse-evidence-shadow live inputs (source CSVs, freshness state, config, "
+                f"fetch stamps, league snapshots)@sha256:{inputs_sha}"
+            ),
+            role=ROLE_INPUT,
+            known_at=cutoff,
+            fidelity=FIDELITY_NEAREST_PRIOR,
+            basis=(
+                "this box's source CSVs, dataset state, freshness config and league snapshots, "
+                "hashed after the builds read their inputs and before recordedAt; a write "
+                "between read and hash is invisible, so this is not a proven pin of the bytes "
+                "read"
+            ),
         )
         if inputs_sha and inputs_sha != "None"
         else Unobserved("the record pins no inputsSha256")
@@ -702,7 +724,7 @@ def robust_filter_receipts(
             "votingSourceCount": (
                 len(board["votingSources"])
                 if isinstance(board.get("votingSources"), list)
-                else None
+                else _missing("board.votingSources list", board.get("votingSources"))
             ),
             "votingFamilies": (
                 list(board["votingFamilies"])
@@ -1055,13 +1077,15 @@ def robust_evaluation_receipt(
         refs=(evaluation_ref,),
         extra={
             "producerVerdict": producer_verdict,
-            "reasons": list((decision or {}).get("reasons") or []),
-            "minimumSample": dict((decision or {}).get("minimumSample") or {}),
-            "accumulation": (decision or {}).get("accumulation"),
-            "boards": primary.get("boards"),
-            "originDays": primary.get("originDays"),
-            "span": primary.get("span"),
-            "recordCodeRevisions": list(evaluation.get("codeRevisions") or []),
+            # A missing decision / field is unobserved, never "no reasons" or "{}":
+            # "INSUFFICIENT with no reasons" and "no decision at all" must not read alike.
+            "reasons": _carried(decision, "reasons", "decision.reasons"),
+            "minimumSample": _carried(decision, "minimumSample", "decision.minimumSample"),
+            "accumulation": _carried(decision, "accumulation", "decision.accumulation"),
+            "boards": _carried(primary, "boards", "primary.boards"),
+            "originDays": _carried(primary, "originDays", "primary.originDays"),
+            "span": _carried(primary, "span", "primary.span"),
+            "recordCodeRevisions": _carried(evaluation, "codeRevisions", "codeRevisions"),
             "modelVersionsEvaluated": [list(pair) for pair in ids],
             **({"mixedModelVersionIds": mixed} if mixed is not None else {}),
             "evaluatorRevision": _require(evaluator_revision, "the evaluator code revision"),

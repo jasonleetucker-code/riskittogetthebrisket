@@ -50,6 +50,7 @@ import copy
 import hashlib
 import io
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -305,7 +306,9 @@ def _receipt_tools() -> tuple[Any, Any] | None:
         from src.model_registry import producer_receipts as pr  # noqa: PLC0415
         from src.model_registry.feature_dictionary import load_dictionary  # noqa: PLC0415
     except Exception as exc:  # noqa: BLE001 -- receipts must never break the recorder
-        log(f"WARNING: learning receipts NOT written: {type(exc).__name__}: {exc}")
+        msg = f"WARNING: learning receipts NOT written: {type(exc).__name__}: {exc} receipt_failures=1"
+        logging.getLogger(__name__).warning(msg)
+        log(msg)
         return None
     return pr, load_dictionary
 
@@ -352,15 +355,25 @@ def _evaluator_identity() -> tuple[str, bool, str | None]:
     dirty tree re-evaluates to a duplicate receipt rather than a conflict. Raises
     when git cannot answer -- an unknown tree is never assumed clean."""
     revision = _git("rev-parse", "HEAD").strip()
-    status = _git("status", "--porcelain", "--untracked-files=all", "--", *EVALUATOR_CODE_PATHS)
-    if not status.strip():
+    # ``-z``: NUL-separated, paths verbatim (no C-quoting of unusual names).
+    status = _git(
+        "status", "--porcelain", "-z", "--untracked-files=all", "--", *EVALUATOR_CODE_PATHS
+    )
+    entries = [e for e in status.split("\0") if e]
+    if not entries:
         return revision, False, None
     digest = hashlib.sha256(status.encode("utf-8"))
     digest.update(_git("diff", "HEAD", "--binary", "--", *EVALUATOR_CODE_PATHS, binary=True))
-    for line in status.splitlines():
-        if line.startswith("?? "):
-            path = REPO_ROOT / line[3:].strip().strip('"')
-            digest.update(line.encode("utf-8") + b"\0")
+    skip_next = False
+    for entry in entries:
+        if skip_next:  # a rename/copy's original path: no status prefix of its own
+            skip_next = False
+            continue
+        if entry[:1] in ("R", "C"):
+            skip_next = True
+        if entry.startswith("?? "):
+            path = REPO_ROOT / entry[3:]
+            digest.update(entry.encode("utf-8") + b"\0")
             if path.is_file():
                 digest.update(path.read_bytes())
     return revision, True, digest.hexdigest()

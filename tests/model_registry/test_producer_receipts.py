@@ -1068,7 +1068,7 @@ class TestEvaluatorIdentity:
         jfs = _load_script("joint_filter_shadow")
         answers = {
             ("rev-parse", "HEAD"): "abc\n",
-            ("status",): " M src/x.py\n",
+            ("status",): " M src/x.py\0?? src/new file.py\0",
             ("diff",): b"diff --git a/src/x.py b/src/x.py\n",
         }
 
@@ -1106,3 +1106,126 @@ def test_source_quality_receipts_are_off_unless_explicitly_enabled(tmp_path, mon
             Args, results, lines, sq / "evaluations.jsonl", sq / "results_2026-09-30.json"
         )
         assert not store.exists(), value
+
+
+# ── re-review fixes (#1612) ──────────────────────────────────────────────────
+
+
+def test_the_sparse_inputs_pin_is_nearest_prior_not_exact(dictionary):
+    """The inputs are hashed AFTER the builds read them; the receipt says so."""
+    obs = next(
+        r
+        for r in pr.sparse_evidence_receipts(
+            _sparse_record(recorded_at=T0), ledger_name="l", dictionary=dictionary
+        )
+        if r.kind == "OBSERVATION"
+    )
+    ref = obs.slots["inputs"]
+    assert ref.fidelity == "nearest-prior"
+    assert "hashed after the builds read their inputs" in ref.basis
+    assert "invisible" in ref.basis
+
+
+class TestSparsePayloadHashIsWhatWasRead:
+    """The sparse ledger's payloadSha256 hashes the bytes the builds parsed."""
+
+    @staticmethod
+    def _payload(tmp_path):
+        path = tmp_path / "exports" / "latest" / "dynasty_data_2026-10-01.json"
+        path.parent.mkdir(parents=True)
+        path.write_text(
+            json.dumps({"scrapeTimestamp": "2026-10-01T06:00:00Z", "players": {}}),
+            encoding="utf-8",
+        )
+        return path
+
+    def test_hashing_the_read_bytes_leaves_the_ledger_byte_identical(self, sparse_cli, tmp_path):
+        from src.api import sparse_evidence_shadow as shadow
+
+        path = self._payload(tmp_path)
+        raw = json.loads(path.read_bytes())
+        # the previous behaviour: a second read of the file after the builds
+        assert shadow.record_board(raw, path, base=tmp_path / "old", source="s")
+        # the fixed behaviour: the exact bytes the payload was parsed from
+        assert shadow.record_board(
+            raw, path, base=tmp_path / "new", source="s", payload_bytes=path.read_bytes()
+        )
+        assert _sha_tree(tmp_path / "old") == _sha_tree(tmp_path / "new")
+
+    def test_the_hash_names_the_bytes_read_even_if_the_file_moved_on(self, sparse_cli, tmp_path):
+        from src.api import sparse_evidence_shadow as shadow
+
+        path = self._payload(tmp_path)
+        read = path.read_bytes()
+        raw = json.loads(read)
+        path.write_text(json.dumps({"scrapeTimestamp": "2026-10-02T06:00:00Z"}), encoding="utf-8")
+        record, _written = shadow.record_board(
+            raw, path, base=tmp_path / "l", source="s", payload_bytes=read
+        )
+        assert record["board"]["payloadSha256"] == hashlib.sha256(read).hexdigest()
+
+    def test_newest_live_payload_hands_back_the_bytes_it_parsed(self, tmp_path):
+        from src.api import sparse_evidence_shadow as shadow
+
+        path = self._payload(tmp_path)
+        found = shadow.newest_live_payload(tmp_path, with_bytes=True)
+        assert found[0] == path and found[3] == path.read_bytes()
+        assert json.loads(found[3]) == found[1]
+        assert len(shadow.newest_live_payload(tmp_path)) == 3  # default shape unchanged
+
+
+class TestEvaluationExtraIsNeverDefaulted:
+    def test_no_decision_reads_unobserved_not_empty(self, dictionary):
+        ev = TestRobustReceipts._evaluation("INCONCLUSIVE")
+        ev["primary"] = {"horizons": {}, "decision": None}
+        del ev["codeRevisions"]
+        extra = pr.robust_evaluation_receipt(
+            ev,
+            [_robust_record(recorded_at=T0)],
+            evaluation_name="e.json",
+            evaluator_revision="abc",
+            evaluator_tree_dirty=False,
+            dictionary=dictionary,
+        ).body["extra"]
+        for field in (
+            "reasons",
+            "minimumSample",
+            "accumulation",
+            "boards",
+            "originDays",
+            "span",
+            "recordCodeRevisions",
+        ):
+            assert extra[field]["state"] == "unobserved", field
+
+    def test_present_fields_are_carried_verbatim(self, dictionary):
+        extra = pr.robust_evaluation_receipt(
+            TestRobustReceipts._evaluation("NOT_BETTER"),
+            [_robust_record(recorded_at=T0)],
+            evaluation_name="e.json",
+            evaluator_revision="abc",
+            evaluator_tree_dirty=False,
+            dictionary=dictionary,
+        ).body["extra"]
+        assert extra["reasons"] == ["x"] and extra["minimumSample"] == {"met": True}
+        assert extra["accumulation"] is None  # the producer's own explicit None
+        assert extra["boards"] == 12 and extra["recordCodeRevisions"] == ["fedcba"]
+
+
+def test_a_missing_voting_source_list_is_unobserved(dictionary):
+    rec = _robust_record(recorded_at=T0)
+    del rec["board"]["votingSources"]
+    obs = next(
+        r
+        for r in pr.robust_filter_receipts(rec, ledger_name="l", dictionary=dictionary)
+        if r.kind == "OBSERVATION"
+    )
+    assert obs.body["votingSourceCount"]["state"] == "unobserved"
+
+
+def test_flags_token_separates_missing_from_empty_without_moving_present_ids():
+    assert pr._flags_token(None) == "fmissing"
+    assert pr._flags_token("garbage") == "fmissing"
+    assert pr._flags_token({}) == "fnone"
+    flags = {"joint_outlier_sparse_challenger": False}
+    assert pr._flags_token(flags) == "f" + pr._sha(flags)[:8]

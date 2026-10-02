@@ -252,7 +252,9 @@ def test_cli_refuses_a_stale_or_ageless_board(tmp_path, monkeypatch, age):
     def _boom(*_a, **_k):
         raise AssertionError("a stale board was built")
 
-    monkeypatch.setattr(shadow, "newest_live_payload", lambda _root: (payload, {}, age))
+    monkeypatch.setattr(
+        shadow, "newest_live_payload", lambda _root, **_k: (payload, {}, age, b"{}")
+    )
     monkeypatch.setattr(shadow, "record_board", _boom)
     ledger_dir = tmp_path / "ledger"
     assert cli.main(["record", "--dir", str(ledger_dir)]) == 3
@@ -265,11 +267,13 @@ def test_cli_allow_stale_records_and_passes_the_age(tmp_path, monkeypatch):
     payload = _payload(tmp_path, "p/dynasty_data.json", "2026-01-01T00:00:00Z")
     seen = {}
 
-    def _fake(raw, path, *, base, source, payload_age_hours):
+    def _fake(raw, path, *, base, source, payload_age_hours, payload_bytes=None):
         seen["age"] = payload_age_hours
         return {"counts": {}, "evidenceStates": {}, "board": {"payloadAgeHours": 9.0}}, True
 
-    monkeypatch.setattr(shadow, "newest_live_payload", lambda _root: (payload, {}, 9.0))
+    monkeypatch.setattr(
+        shadow, "newest_live_payload", lambda _root, **_k: (payload, {}, 9.0, b"{}")
+    )
     monkeypatch.setattr(shadow, "record_board", _fake)
     assert cli.main(["record", "--dir", str(tmp_path / "l"), "--allow-stale"]) == 0
     assert seen["age"] == 9.0
@@ -286,7 +290,7 @@ def test_shadow_rows_flag_a_scope_disagreement():
 def test_cli_without_a_payload_is_a_soft_failure(tmp_path, monkeypatch):
     import scripts.sparse_evidence_shadow as cli  # noqa: PLC0415
 
-    monkeypatch.setattr(shadow, "newest_live_payload", lambda _root: None)
+    monkeypatch.setattr(shadow, "newest_live_payload", lambda _root, **_k: None)
     assert cli.main(["record", "--dir", str(tmp_path)]) == 1
     assert not any(Path(tmp_path).iterdir())
 

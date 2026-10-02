@@ -249,11 +249,15 @@ def record_board(
     base: Path = DEFAULT_DIR,
     source: str | None = None,
     payload_age_hours: float | None = None,
+    payload_bytes: bytes | None = None,
 ) -> tuple[dict[str, Any], bool] | None:
     """Build both answers for one payload and append one ledger line.
 
     Returns ``(record, written)``; ``None`` when a built contract is malformed.
     ``payload_age_hours`` (the board's own age when it was picked) is recorded.
+    ``payload_bytes`` are the exact bytes ``raw`` was parsed from: when given,
+    ``payloadSha256`` hashes them, so the pin names what the builds read rather
+    than a second read of the file after them (identical when nothing raced).
     """
     from src.api import feature_flags  # noqa: PLC0415
     from src.api import value_replay as vr  # noqa: PLC0415
@@ -272,7 +276,7 @@ def record_board(
         "singleSourceRetention": replay_pins.get("singleSourceRetention"),
         "contractVersion": replay_pins.get("contractVersion"),
     }
-    data = Path(payload_path).read_bytes()
+    data = payload_bytes if payload_bytes is not None else Path(payload_path).read_bytes()
     board = {
         "source": source or Path(payload_path).name,
         "payloadSha256": hashlib.sha256(data).hexdigest(),
@@ -312,9 +316,12 @@ def payload_scraped_at(raw: Mapping[str, Any]) -> datetime | None:
 
 
 def newest_live_payload(
-    root: Path = REPO_ROOT, *, now: datetime | None = None
-) -> tuple[Path, dict[str, Any], float | None] | None:
+    root: Path = REPO_ROOT, *, now: datetime | None = None, with_bytes: bool = False
+) -> tuple[Any, ...] | None:
     """The freshest served payload on this box, by its OWN ``scrapeTimestamp``.
+
+    ``with_bytes=True`` appends the exact bytes the payload was parsed from, so a
+    caller can hash what it actually read instead of reading the file again.
 
     Each candidate directory (``exports/latest``, ``data/``) offers its newest
     parseable payload by name; the two are compared on scrape time, so a stale
@@ -323,23 +330,24 @@ def newest_live_payload(
     states a scrape time (unknown age -- never "fresh").
     """
     now = now or datetime.now(timezone.utc)
-    best: tuple[Path, dict[str, Any], datetime | None] | None = None
+    best: tuple[Path, dict[str, Any], datetime | None, bytes] | None = None
     for directory in (root / "exports" / "latest", root / "data"):
         if not directory.is_dir():
             continue
         for path in sorted(directory.glob("dynasty_data*.json"), reverse=True):
             try:
-                raw = json.loads(path.read_bytes())
+                data = path.read_bytes()
+                raw = json.loads(data)
             except (OSError, ValueError):
                 continue
             if not isinstance(raw, dict):
                 continue
             at = payload_scraped_at(raw)
             if best is None or (at is not None and (best[2] is None or at > best[2])):
-                best = (path, raw, at)
+                best = (path, raw, at, data)
             break
     if best is None:
         return None
-    path, raw, at = best
+    path, raw, at, data = best
     age = None if at is None else (now - at).total_seconds() / 3600.0
-    return path, raw, age
+    return (path, raw, age, data) if with_bytes else (path, raw, age)
