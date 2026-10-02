@@ -74,7 +74,13 @@ jobs:
     # when the runner cancelled the job. Match PR Validation's 60-minute
     # ceiling so the deploy gate has enough wall-clock headroom without
     # weakening any test.
-    timeout-minutes: 60
+    # 60 -> 80 (2026-10-02), matching PR Validation (#1605): the full hard
+    # suite now routinely takes 58-60 min, and deploy run 36956966551
+    # (7e8d8cda) was cancelled at exactly 60:15 inside "Run unit tests" --
+    # the same silent deploy block this comment documents above. Runner
+    # headroom only; no test, gate or tolerance weakened; a finite hang
+    # bound remains.
+    timeout-minutes: 80
     steps:
       - name: Checkout
         uses: actions/checkout@v7
