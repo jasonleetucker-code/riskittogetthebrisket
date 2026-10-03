@@ -36,7 +36,12 @@ import {
   unpricedAssetsOnSide,
   getPlayerEdge,
 } from "@/lib/trade-logic";
-import { groupSideEntries, tradeEntryKey, tradeEntryLabel } from "@/lib/trade-assets";
+import {
+  groupSideEntries,
+  groupTradeSearchResults,
+  tradeEntryKey,
+  tradeEntryLabel,
+} from "@/lib/trade-assets";
 import { ValueAdjustmentTip } from "@/components/help/TradeHelp";
 import styles from "./trade.module.css";
 
@@ -137,6 +142,29 @@ function SearchResultRow({ row, settings, onPick, keyPrefix }) {
   );
 }
 
+/**
+ * A search result list, market references first and owned picks second
+ * (``groupTradeSearchResults``).  Headings render only when both groups
+ * are present, so a plain player search looks exactly as before.  Keys
+ * carry the group so a row offered in both groups cannot collide.
+ */
+function SearchResultList({ results, settings, onPick, keyPrefix }) {
+  return groupTradeSearchResults(results).map((group) => (
+    <div key={`${keyPrefix}-${group.key}`} role="group" aria-label={group.label || undefined}>
+      {group.label ? <div className={styles.searchGroupLabel}>{group.label}</div> : null}
+      {group.entries.map((r) => (
+        <SearchResultRow
+          key={`${keyPrefix}-${group.key}-${tradeEntryKey(r)}`}
+          row={r}
+          settings={settings}
+          onPick={onPick}
+          keyPrefix={`${keyPrefix}-${group.key}`}
+        />
+      ))}
+    </div>
+  ));
+}
+
 // ── Mobile quick-add ──────────────────────────────────────────────────
 
 /**
@@ -210,15 +238,12 @@ export function MobileQuickAddBar({
           {results.length === 0 ? (
             <div className="mobile-quick-add-empty muted">No matches.</div>
           ) : (
-            results.map((r) => (
-              <SearchResultRow
-                key={`mobile-quick-${tradeEntryKey(r)}`}
-                row={r}
-                settings={settings}
-                onPick={handleAdd}
-                keyPrefix="mobile-quick"
-              />
-            ))
+            <SearchResultList
+              results={results}
+              settings={settings}
+              onPick={handleAdd}
+              keyPrefix="mobile-quick"
+            />
           )}
         </div>
       ) : null}
@@ -941,7 +966,6 @@ export function PickTeamSelectors({
 function AssetRow({
   row,
   count = 1,
-  repeatable = false,
   sideIdx,
   sides,
   side,
@@ -956,9 +980,10 @@ function AssetRow({
   onSetDestination,
 }) {
   const edge = getPlayerEdge(row);
-  // One line per IDENTITY (lib/trade-assets): a repeated generic pick is
-  // one line with a quantity, two owned picks that share a label are two
-  // lines.  Routing, overrides and removal all key on the line identity.
+  // One line per IDENTITY (lib/trade-assets): any repeated asset is one
+  // line with a quantity, two owned picks that share a label are two
+  // lines.  Routing, overrides and removal all key on the line identity,
+  // so every copy on a line shares that line's destination.
   const key = tradeEntryKey(row);
   const label = tradeEntryLabel(row);
   // 3+-team trades give every asset an explicit destination so the
@@ -1090,43 +1115,41 @@ function AssetRow({
             </Select>
           </label>
         ) : null}
-        {repeatable ? (
-          /* Quantity control for a repeatable market pick (T-NEW-02):
-             "−" removes ONE copy, "+" adds another.  Unique assets
-             (players, owned picks) keep the plain Remove. */
-          <span className={styles.assetQuantity} role="group" aria-label={`${label} quantity`}>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="trade-remove-btn"
-              onClick={() => onRemove(key, sideIdx)}
-              aria-label={`Remove one ${label} from Side ${side.label}`}
-            >
-              −
-            </Button>
-            <span className={styles.assetQuantityCount} aria-live="polite">
-              {count}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onAddCopy?.(row, sideIdx)}
-              aria-label={`Add another ${label} to Side ${side.label}`}
-            >
-              +
-            </Button>
-          </span>
-        ) : (
+        {/* Quantity control on EVERY line (owner decision 2026-10-03:
+            every calculator asset is repeatable, players and owned picks
+            included).  "+" adds one copy with no maximum; "−" removes
+            exactly one copy, and at quantity 1 it removes the line. */}
+        <span className={styles.assetQuantity} role="group" aria-label={`${label} quantity`}>
           <Button
             variant="ghost"
             size="sm"
-            className="trade-remove-btn"
+            className={styles.assetQuantityButton}
             onClick={() => onRemove(key, sideIdx)}
-            aria-label={`Remove ${label} from Side ${side.label}`}
+            aria-label={
+              count > 1
+                ? `Remove one ${label} from Side ${side.label}`
+                : `Remove ${label} from Side ${side.label}`
+            }
           >
-            Remove
+            −
           </Button>
-        )}
+          <span
+            className={styles.assetQuantityCount}
+            aria-live="polite"
+            data-testid="trade-asset-quantity"
+          >
+            {count}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={styles.assetQuantityButton}
+            onClick={() => onAddCopy?.(row, sideIdx)}
+            aria-label={`Add another ${label} to Side ${side.label}`}
+          >
+            +
+          </Button>
+        </span>
       </div>
     </div>
   );
@@ -1284,19 +1307,18 @@ export function SideCard({
           aria-label={`Search to add a player to Side ${side.label}`}
         />
         {showResults ? (
+          /* Bounded + scrollable (globals.css) so the market group stays
+             reachable above an open phone keyboard. */
           <div className="trade-side-search-results">
             {searchResults.length === 0 ? (
               <div className="trade-side-search-empty muted">No matches.</div>
             ) : (
-              searchResults.map((r) => (
-                <SearchResultRow
-                  key={`search-${side.label}-${tradeEntryKey(r)}`}
-                  row={r}
-                  settings={settings}
-                  onPick={(row) => onAddFromSearch(row, sideIdx)}
-                  keyPrefix={`search-${side.label}`}
-                />
-              ))
+              <SearchResultList
+                results={searchResults}
+                settings={settings}
+                onPick={(row) => onAddFromSearch(row, sideIdx)}
+                keyPrefix={`search-${side.label}`}
+              />
             )}
           </div>
         ) : null}
@@ -1312,7 +1334,6 @@ export function SideCard({
             key={`${side.label}-${g.key}`}
             row={g.entry}
             count={g.count}
-            repeatable={g.repeatable}
             side={side}
             sideIdx={sideIdx}
             sides={sides}

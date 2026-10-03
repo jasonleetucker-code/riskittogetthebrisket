@@ -390,7 +390,8 @@
   gap: var(--space-2);
   flex-shrink: 0;
 }
-/* Quantity control for a repeatable market pick (T-NEW-02): − N + */
+/* Quantity control on every trade line: − N +.  Every calculator asset
+   is repeatable (owner decision 2026-10-03). */
 .assetQuantity {
   display: inline-flex;
   align-items: center;
@@ -402,6 +403,24 @@
   font-size: var(--font-size-xs);
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);
+}
+/* Finger-sized − / + on phones: the repo's 44px touch-target minimum
+   (WCAG 2.5.5, the same value globals.css applies to .button/.input). */
+@media (width < 768px) {
+  .assetQuantityButton {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* Group heading inside a search dropdown ("Market picks" / "Owned
+   picks") — the same type recipe as .sideGroupLabel. */
+.searchGroupLabel {
+  font-size: var(--font-size-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--text-tertiary);
+  padding: var(--space-2) var(--space-3) var(--space-1);
 }
 .assetDest {
   display: flex;

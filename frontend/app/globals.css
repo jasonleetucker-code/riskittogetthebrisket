@@ -1389,8 +1389,8 @@ input[type="range"]:focus-visible::-moz-range-thumb {
 /* ══════════════════════════════════════════════════════════════════════════
    TRADE-SIDE INLINE SEARCH
    Replaces the old + Add → modal-overlay flow with a KTC-style
-   always-visible search input on each side.  The dropdown of up to 5
-   matches renders inline below the input (not absolute) so it pushes
+   always-visible search input on each side.  The dropdown of matches
+   (market group, then owned picks) renders inline below the input (not absolute) so it pushes
    the asset list down without overflowing the side card.
    ══════════════════════════════════════════════════════════════════════════ */
 .trade-side-search {
@@ -1408,7 +1408,12 @@ input[type="range"]:focus-visible::-moz-range-thumb {
   background: var(--surface-2);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  /* Bounded + scrollable so the first group (market references) stays
+     visible above an open phone keyboard.  Same bound as the mobile
+     quick-add list (.mobile-quick-add-results). */
+  max-height: 320px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .trade-side-search-result {
