@@ -327,19 +327,23 @@ class TestMissingIsNamed:
         assert a["lenses"]["roster"]["unavailableReason"] == "season_unresolved"
         assert a["confidence"] != "HIGH"
 
-    def test_posture_and_current_season_equity_are_named_absent(self):
+    def test_current_season_equity_and_pick_slot_are_named_absent(self):
         a = analyze_trade(_sim([5000], [3000], utility=_utility(2.0)))
         names = {d["dimension"] for d in a["unavailableDimensions"]}
         assert {
             "marketCorroboration",
             "valueUncertainty",
-            "strategicPosture",
             "currentSeasonEquity",
+            "ownPickSlotCounterfactual",
         } <= names
         for d in a["unavailableDimensions"]:
             assert d["reason"] and d["notes"]
-        # Never smuggled in as a neutral lens.
-        assert "strategicPosture" not in a["lenses"]
+        # Posture now has a canonical owner (#840): when the simulation did not
+        # compute it, the lens says so — never a neutral stand-in, never a vote.
+        posture = a["lenses"]["posture"]
+        assert posture["available"] is False
+        assert posture["unavailableReason"] == "not_computed"
+        assert posture["votes"] is False
 
     def test_no_priced_assets_is_too_close_low_confidence(self):
         a = analyze_trade(_sim([], []))
@@ -355,7 +359,8 @@ class TestTeamContext:
         sim = _sim([3010], [3000], utility=_utility(4.0), capacity=_capacity(before=55, after=55))
         on = analyze_trade(copy.deepcopy(sim))
         off = analyze_trade({**copy.deepcopy(sim), "teamContext": {"applied": False}})
-        assert off["teamContext"] == {"applied": False, "mode": "asset_only"}
+        assert off["teamContext"]["applied"] is False
+        assert off["teamContext"]["mode"] == "asset_only"
         for lens in ("roster", "feasibility"):
             assert off["lenses"][lens]["available"] is False
             assert off["lenses"][lens]["unavailableReason"] == "asset_only_mode"

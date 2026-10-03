@@ -153,7 +153,9 @@ def test_analyze_defaults_to_team_context(two_league_registry, monkeypatch):  # 
     res = _post(monkeypatch, "/api/trade/analyze", _BODY)
     assert res.status_code == 200, res.text
     body = res.json()
-    assert body["teamContext"] == {"applied": True, "mode": "team"}
+    assert body["teamContext"]["applied"] is True
+    assert body["teamContext"]["mode"] == "team"
+    assert body["teamContext"]["label"] == "Team Context"
     # The utility RAN (Team Context on).  This shared test registry declares no
     # starting slots, so it names that instead of solving — the solved path is
     # pinned by the direct simulate tests above.
@@ -162,7 +164,7 @@ def test_analyze_defaults_to_team_context(two_league_registry, monkeypatch):  # 
         "unavailableReason": "starter_slots_unresolved",
     }
     assert body["analysis"]["lenses"]["roster"]["unavailableReason"] == "starter_slots_unresolved"
-    assert body["analysis"]["version"] == "analyze_trade_v2"
+    assert body["analysis"]["version"] == "analyze_trade_v3"
     assert body["analysis"]["lenses"]["roster"]["lineage"] == "league_scored_projection"
     assert body["leagueKey"] == "main"
 
@@ -170,8 +172,21 @@ def test_analyze_defaults_to_team_context(two_league_registry, monkeypatch):  # 
 def test_analyze_asset_only_skips_roster_and_keeps_values(two_league_registry, monkeypatch):  # noqa: F811
     on = _post(monkeypatch, "/api/trade/analyze", _BODY).json()
     off = _post(monkeypatch, "/api/trade/analyze", {**_BODY, "useTeamContext": False}).json()
-    assert off["teamContext"] == {"applied": False, "mode": "asset_only"}
+    assert off["teamContext"]["applied"] is False
+    assert off["teamContext"]["mode"] == "asset_only"
+    assert off["teamContext"]["label"] == "Asset-Only Analysis"
+    # Every team dimension the route would consult is named excluded-by-mode,
+    # and nothing claims to be in the verdict.
+    dims = {d["dimension"]: d for d in off["teamContext"]["dimensions"]}
+    assert {"rosterCapacity", "counterpartyCapacity", "rosterUtility", "competitivePosture"} <= set(
+        dims
+    )
+    assert all(d["includedInVerdict"] is False for d in dims.values())
     assert "rosterUtility" not in off
+    assert "posture" not in off
+    # A capacity block shown while OFF is labelled, never silently counted.
+    assert off["rosterCapacity"]["includedInVerdict"] is False
+    assert off["rosterCapacity"]["contextNote"] == "not included in this verdict"
     assert off["analysis"]["lenses"]["roster"]["unavailableReason"] == "asset_only_mode"
     assert off["receiving"] == on["receiving"] and off["sending"] == on["sending"]
     assert off["analysis"]["lenses"]["market"] == on["analysis"]["lenses"]["market"]
@@ -183,7 +198,14 @@ def test_only_a_boolean_false_turns_context_off(two_league_registry, monkeypatch
     assert body["teamContext"]["applied"] is True
 
 
-def test_simulate_endpoint_is_unchanged_by_the_war_room(two_league_registry, monkeypatch):  # noqa: F811
+def test_simulate_endpoint_runs_no_analysis_but_states_its_mode(two_league_registry, monkeypatch):  # noqa: F811
     body = _post(monkeypatch, "/api/trade/simulate", _BODY).json()
+    # The War Room's Monte-Carlo utility and posture belong to Analyze only.
     assert "rosterUtility" not in body
-    assert "teamContext" not in body
+    assert "posture" not in body
+    # Every trade route states its Team Context mode (#842, one contract).
+    assert body["teamContext"]["applied"] is True
+    off = _post(monkeypatch, "/api/trade/simulate", {**_BODY, "useTeamContext": False}).json()
+    assert off["teamContext"]["mode"] == "asset_only"
+    assert off["rosterCapacity"]["includedInVerdict"] is False
+    assert off["rosterCapacity"]["contextNote"] == "not included in this verdict"

@@ -289,6 +289,8 @@ def _new_market_diagnostics() -> dict[str, Any]:
         "combos_valued": 0,
         "unvaluable": 0,
         "withheld_uncertain": 0,
+        # C3-TOPO-01: combos refused because player counts differ by > 1.
+        "topology_rejected": 0,
         "reasons": {},
         "normalization_version": NORMALIZATION_VERSION,
     }
@@ -626,6 +628,49 @@ def _angle_sides(pool, sizes, *, side, outgoing_policy, required=()):
         yield tuple(a.source for a in side_assets)
 
 
+def _row_assets(rows):
+    """Contract rows (or pool entries) as substrate assets, for topology only."""
+    from src.packages import PackageAsset  # noqa: PLC0415
+
+    out = []
+    for r in rows:
+        row = r.get("row") if isinstance(r.get("row"), dict) else r
+        pos = str(row.get("position") or r.get("position") or "")
+        if row.get("assetClass") == "pick":
+            pos = "PICK"
+        out.append(
+            PackageAsset(
+                asset_id="",
+                name=str(row.get("canonicalName") or row.get("displayName") or r.get("name") or ""),
+                position=pos,
+                value=None,
+                source=r,
+            )
+        )
+    return out
+
+
+def _topology_sizes(fixed_rows) -> list[int]:
+    """C3-TOPO-01: the enumerated side's sizes, from the FIXED side's PLAYERS.
+
+    ``abs(players_A - players_B) <= 1`` and picks are not players
+    (``src.packages.topology_is_allowed``).  The enumerated side comes from a
+    roster, so its size IS its player count; sizing it from the fixed side's
+    ASSET count let "2 players + 1 pick" draw a 4-player counter — a 2-for-4.
+    """
+    from src.packages import MAX_PLAYER_COUNT_DIFFERENCE, player_count  # noqa: PLC0415
+
+    n = player_count(_row_assets(fixed_rows))
+    span = range(n - MAX_PLAYER_COUNT_DIFFERENCE, n + MAX_PLAYER_COUNT_DIFFERENCE + 1)
+    return sorted({k for k in span if k >= 1})
+
+
+def _topology_ok(fixed_rows, combo) -> bool:
+    from src.packages import topology_is_allowed  # noqa: PLC0415
+
+    return topology_is_allowed(_row_assets(fixed_rows), _row_assets(combo))
+
+
 def _angle_pool_assets(entries):
     """Project angle's dict pool entries onto the substrate's asset view."""
     from src.packages import PackageAsset  # noqa: PLC0415
@@ -826,8 +871,9 @@ def find_angle_packages(
             "assumed offense<->IDP exchange rate."
         )
 
-    # Target sizes: N-1, N, N+1 — never less than 1.
-    target_sizes = sorted({max(1, offer_size - 1), offer_size, offer_size + 1})
+    # Target sizes: the offer's PLAYER count ±1, never less than 1
+    # (C3-TOPO-01 — picks on the offer side do not count as players).
+    target_sizes = _topology_sizes(offer_rows)
 
     # Normalise position filter.
     position_filter: set[str] | None = None
@@ -927,6 +973,9 @@ def find_angle_packages(
         # majority of combos, and both gates are conjunctive — so
         # ordering it ahead of the market valuation is free and keeps
         # ``value_package`` off the hot path.
+        if not _topology_ok(offer_rows, combo):
+            diag["topology_rejected"] += 1
+            return None
         counter_my_values = [p["my_value"] for p in combo]
         (
             counter_my_adj,
@@ -1366,7 +1415,7 @@ def find_acquisition_packages(
             "an assumed offense<->IDP exchange rate."
         )
 
-    target_sizes = sorted({max(1, desired_size - 1), desired_size, desired_size + 1})
+    target_sizes = _topology_sizes(desired_rows)
 
     position_filter: set[str] | None = None
     if positions:
@@ -1456,6 +1505,9 @@ def find_acquisition_packages(
         # premium on both my-value and market-value.
         #
         # My-value gate first — same reasoning as find_angle_packages.
+        if not _topology_ok(desired_rows, combo):
+            diag["topology_rejected"] += 1
+            return None
         offer_my_values = [p["my_value"] for p in combo]
         (
             desired_my_adj,

@@ -62,6 +62,8 @@ the degenerate 5-for-1 shapes that come from unbounded enumeration.
 
 from __future__ import annotations
 
+from functools import cached_property
+
 from dataclasses import dataclass, field
 from itertools import combinations
 from typing import Any, Callable, Iterable, Iterator, Protocol, Sequence
@@ -117,11 +119,16 @@ class PackageAsset:
     def value_known(self) -> bool:
         return self.value is not None
 
-    @property
+    # ``cached_property`` writes the instance ``__dict__`` directly, so it is
+    # safe on a frozen dataclass and leaves field-based ``__eq__`` / hashing
+    # untouched.  Enumeration reads ``key`` / ``is_pick`` once per asset per
+    # COMBINATION — millions of times on a 3-for-2 search — and both are pure
+    # functions of frozen fields.
+    @cached_property
     def is_pick(self) -> bool:
         return self.position.strip().upper() == "PICK"
 
-    @property
+    @cached_property
     def key(self) -> str:
         """Identity for dedup and self-trade checks.
 

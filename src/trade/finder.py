@@ -18,6 +18,14 @@ from typing import Any
 
 from src import packages as substrate
 from src.sources.ktc_market import KTC_HISTORICAL_MARKET_KEYS, KTC_MARKET_KEY
+from src.trade.finder_context import (
+    NOT_EXAMINED_FLAG,
+    apply_capacity_ranking,
+    owned_pick_assets,
+    pick_direction,
+    posture_by_team_name,
+    posture_payload,
+)
 from src.trade.finder_value_adjustment import value_adjustment_payload
 from src.utils.name_clean import normalize_position as _norm_pos  # noqa: F401 — re-exported via _norm_pos shim below for back-compat
 
@@ -180,6 +188,14 @@ class Asset:
     source_count: int = 0  # Number of valuation sources
     market_rank: int | None = None  # 1-based rank WITHIN this asset's market
     market_source: str | None = None  # "ktcSfTep" | "ktc" | "idpTradeCalc"
+    # #841 owned picks only (``src.trade.finder_context.owned_pick_assets``):
+    # the canonical league-pick id, whether the market leg is a vendor
+    # tier MEAN rather than a native price, the league's ownership label and
+    # how the canonical value was resolved.
+    asset_id: str = ""
+    market_estimated: bool = False
+    owned_label: str | None = None
+    pick_value_basis: str | None = None
 
     @property
     def has_market(self) -> bool:
@@ -254,6 +270,12 @@ class TradeCandidate:
                 "ktcValue": a.ktc_value,
                 "ktcRank": a.ktc_rank,
             }
+            if a.asset_id:
+                d["assetId"] = a.asset_id
+                d["assetClass"] = "pick"
+                d["ownedLabel"] = a.owned_label
+                d["pickValueBasis"] = a.pick_value_basis
+                d["marketBasis"] = "vendorTierMean" if a.market_estimated else "native"
             return d
 
         return {
@@ -294,6 +316,12 @@ class TradeCandidate:
             "rankingFactors": self.ranking_factors,
             "flags": list(self.flags),
             "packageSize": f"{len(self.give)}-for-{len(self.receive)}",
+            # C3-TOPO-01: the PLAYER counts (picks are not players).
+            "playerCounts": {
+                "give": sum(1 for a in self.give if not a.is_pick),
+                "receive": sum(1 for a in self.receive if not a.is_pick),
+            },
+            "picksIncluded": sum(1 for a in (*self.give, *self.receive) if a.is_pick),
             # KTC package Value Adjustment.  These used to be spliced in by a
             # wrapper installed over this method at import time; they are part
             # of the payload now, so the shape is readable here.
@@ -636,7 +664,42 @@ def _score_trade(give: list[Asset], receive: list[Asset]) -> TradeCandidate | No
         score_with_value_adjustment,
     )
 
+    if not _passes_model_gates(give, receive):
+        # Pure board-value gates, evaluated BEFORE the market Value
+        # Adjustment.  The VA moves market values only, so a package these
+        # gates refuse is refused identically after it — skipping the VA here
+        # changes no result and is most of the finder's cost (C3-TOPO-01
+        # widened the search to 2-for-2 / 3-for-2 / 2-for-3).
+        return None
     return score_with_value_adjustment(give, receive, _score_trade_on_values)
+
+
+def _passes_model_gates(give: list[Asset], receive: list[Asset]) -> bool:
+    """The subset of ``_score_trade_on_values``'s gates that read only
+    ``model_value`` — duplicated as a pre-check, never as a replacement
+    (the scorer still applies every gate itself)."""
+    if not give or not receive:
+        return False
+    give_model = sum(a.model_value for a in give)
+    recv_model = sum(a.model_value for a in receive)
+    if recv_model - give_model < MAX_BOARD_LOSS:
+        return False
+    if len(give) > len(receive):
+        if give_model < recv_model * MULTI_FOR_ONE_MIN_RATIO:
+            return False
+        if max(a.model_value for a in receive) >= ELITE_THRESHOLD and (
+            give_model < recv_model * ELITE_MULTI_MIN_RATIO
+        ):
+            return False
+        if max(a.model_value for a in give) < max(a.model_value for a in receive) * (
+            PACKAGE_ANCHOR_MIN_PCT
+        ):
+            return False
+    if all(a.model_value < JUNK_THRESHOLD for a in give):
+        return False
+    if all(a.model_value < JUNK_THRESHOLD for a in receive):
+        return False
+    return True
 
 
 def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCandidate | None:
@@ -739,7 +802,7 @@ def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCand
     if not any_have_market:
         # No market data on either side — cannot evaluate plausibility
         return None
-    elif all_have_market:
+    elif all_have_market and not any(a.market_estimated for a in (*give, *receive)):
         coverage = "full"
         give_ktc = sum(a.market_value for a in give)  # type: ignore[arg-type]
         recv_ktc = sum(a.market_value for a in receive)  # type: ignore[arg-type]
@@ -753,6 +816,11 @@ def _score_trade_on_values(give: list[Asset], receive: list[Asset]) -> TradeCand
         recv_ktc = sum(a.market_value or 0 for a in receive)
         opp_appeal = (give_ktc - recv_ktc) / max(recv_ktc, 1) if recv_ktc > 0 else 0.0
         flags.append("partial_market")
+        if any(a.market_estimated for a in (*give, *receive)):
+            # #841: a generic future pick has no native vendor price; its
+            # market leg is the vendor's own tier mean.  Reported, demoted and
+            # capped like any incomplete market — never a full approval.
+            flags.append("pick_market_estimated")
 
     # The opponent must STRICTLY WIN on KTC — no break-even, no loss.
     if opp_appeal <= 0:
@@ -861,6 +929,10 @@ _ASYMMETRIC_POOL_LIMIT = 30
 #: close to the old asymmetric cost while still covering the highest-value
 #: roster core first (rank_key is by_value_desc).
 _TWO_FOR_TWO_POOL_LIMIT = 18
+#: 3-for-2 / 2-for-3 (C3-TOPO-01).  C(10,3) x C(10,2) = 5,400 per direction
+#: per opponent; the bound is REPORTED in ``packageEnumeration`` like every
+#: other truncation, so "no 3-for-2 found" and "we stopped looking" differ.
+_THREE_TWO_POOL_LIMIT = 10
 
 
 def _generate_packages(
@@ -879,10 +951,13 @@ def _generate_packages(
     arbitrage finder rather than one of the other three products, and none of
     that moved.
 
-    Default callers preserve the historical 1-for-1 + asymmetric search.
-    ``/arbitrage`` explicitly requests ``equal_count_only`` and gets exactly
-    1-for-1 + 2-for-2.  That keeps this UX policy scoped to the surface that
-    asked for it instead of silently changing other internal callers.
+    C3-TOPO-01 (#841/#842 supersession): every shape with
+    ``abs(players_A - players_B) <= 1`` — 1-for-1, 2-for-1, 1-for-2, 2-for-2,
+    3-for-2 and 2-for-3.  The substrate enforces the topology on PLAYER counts
+    (``src.packages.topology_is_allowed``), so a 3-for-1 or 1-for-3 is never
+    built even with picks.  ``equal_count_only`` survives for API callers
+    that ask for it (1-for-1 + 2-for-2); ``/arbitrage`` no longer does — the
+    exact-equal-count rule is the withdrawn one.
     """
     results: list[TradeCandidate] = []
 
@@ -933,10 +1008,75 @@ def _generate_packages(
         [substrate.PackageShape(2, 1), substrate.PackageShape(1, 2)],
         _ASYMMETRIC_POOL_LIMIT,
     )
+    two_for_two = _run([substrate.PackageShape(2, 2)], _TWO_FOR_TWO_POOL_LIMIT)
+    three_two = _run(
+        [substrate.PackageShape(3, 2), substrate.PackageShape(2, 3)],
+        _THREE_TWO_POOL_LIMIT,
+    )
     return results, {
         "oneForOne": one_for_one.to_dict(),
         "asymmetric": asymmetric.to_dict(),
+        "twoForTwo": two_for_two.to_dict(),
+        "threeForTwo": three_two.to_dict(),
     }
+
+
+def _generate_pick_packages(
+    my_assets: list[Asset],
+    opp_assets: list[Asset],
+    picks: list[Asset],
+    outgoing_policy: Any,
+    *,
+    direction: str,
+) -> tuple[list[TradeCandidate], dict[str, Any]]:
+    """#841: packages carrying exactly ONE owned pick on the side posture allows.
+
+    ``direction == "send"`` puts each of OUR owned picks on our side;
+    ``"receive"`` puts each of THEIR owned picks on theirs.  Players around it
+    follow the same topology (picks are not players), so "pick for player"
+    (0-for-1) and "player + pick for two players" (1-for-2) are reachable and
+    "pick + player for three players" is not.
+    """
+    results: list[TradeCandidate] = []
+    reports: dict[str, Any] = {}
+    top_mine = sorted(my_assets, key=lambda a: -a.model_value)[:_PICK_PLAYER_POOL]
+    top_theirs = sorted(opp_assets, key=lambda a: -a.model_value)[:_PICK_PLAYER_POOL]
+    for pick in picks:
+        ours = [*top_mine, pick] if direction == "send" else top_mine
+        theirs = top_theirs if direction == "send" else [*top_theirs, pick]
+        packages, report = substrate.enumerate_packages(
+            ours,
+            theirs,
+            outgoing_policy=outgoing_policy,
+            policy=substrate.EligibilityPolicy(
+                min_value=MIN_ASSET_VALUE, allow_unknown_value=False, require_position=False
+            ),
+            shapes=[
+                substrate.PackageShape(1, 1),
+                substrate.PackageShape(2, 1),
+                substrate.PackageShape(1, 2),
+                substrate.PackageShape(2, 2),
+            ],
+            rank_key=substrate.by_value_desc,
+        )
+        kept = 0
+        for pair in packages:
+            give, receive = pair.sources()
+            side = give if direction == "send" else receive
+            if [a for a in (*give, *receive) if a.is_pick] != [pick] or pick not in side:
+                continue  # exactly this one pick, on the side posture allows
+            tc = _score_trade(give, receive)
+            if tc is not None:
+                tc.flags.append(f"posture_pick_{direction}")
+                results.append(tc)
+                kept += 1
+        reports[pick.asset_id or pick.name] = {**report.to_dict(), "scored": kept}
+    return results, reports
+
+
+#: Player pool around each owned pick (per side).  Small on purpose: a pick
+#: package is a currency swap, not a second full enumeration.
+_PICK_PLAYER_POOL = 8
 
 
 def _deduplicate(trades: list[TradeCandidate]) -> list[TradeCandidate]:
@@ -1008,6 +1148,8 @@ def find_trades(
     capacity_context: Any | None = None,
     constraints: Any | None = None,
     use_team_context: bool = True,
+    league_postures: dict[str, Any] | None = None,
+    opponent_capacity_context_for: Any | None = None,
 ) -> dict[str, Any]:
     """
     Find board-arbitrage trades.
@@ -1017,14 +1159,21 @@ def find_trades(
     players : dict
         Raw players dict from the live data payload.
     use_team_context : bool
-        V1-41 / ``C3-CTX-01``.  ON (default) makes the roster-fit bonus's
-        "fills a need" arm consult the canonical Team Weakness owner
-        (``src.roster_intel.weakness.build_team_weakness``, via
-        ``build_league_roster_intelligence``) instead of a raw position
-        count, and requires it to answer before any fit bonus is applied.
-        OFF suppresses the entire roster-fit block — no bonus, no
-        ``roster_fit``/``addresses_urgent_need:*`` flags, no team-specific
-        signal of any kind reaches the ranking or the response.
+        ``C3-CTX-01`` (#842, ``src.trade.team_context``).  ON (default):
+        packages are re-ranked on BOTH teams' final legal roster (#843,
+        ``finder_context.apply_capacity_ranking``), owned picks enter only in
+        the direction both teams' Competitive Postures support (#841), and
+        the canonical Team Weakness owner names urgent needs a package fills
+        (explanation flags, not score).  OFF ("Asset-Only"): none of that —
+        no capacity re-rank, no picks, no posture, no need flags; capacity
+        blocks on returned trades are labelled "not included in this
+        verdict".  The retired ``rosterFitBonus`` is gone in both modes.
+    league_postures : dict, optional
+        ``src.roster_intel.posture.build_league_postures`` output for this
+        league.  Required for posture-directed picks; absent → no picks and
+        the reason is stamped.
+    opponent_capacity_context_for : callable, optional
+        ``team_name -> CapacityContext`` for the counterparty side of #843.
     my_team : str
         Name of my Sleeper team.
     opponent_teams : list
@@ -1218,8 +1367,16 @@ def find_trades(
 
     all_trades: list[TradeCandidate] = []
     enumeration_reports: dict[str, dict[str, Any]] = {}
+    pick_reports: dict[str, dict[str, Any]] = {}
+    opponent_by_trade: dict[int, str] = {}
     opponents_analyzed = 0
     warnings: list[str] = []
+    postures_by_name = posture_by_team_name(league_postures) if use_team_context else {}
+    if use_team_context and not postures_by_name:
+        warnings.append(
+            "Competitive posture was not available for this league, so no draft picks "
+            "were proposed (picks enter only when both teams' postures call for them)."
+        )
 
     if unpriced_by_board:
         warnings.append(
@@ -1296,79 +1453,127 @@ def find_trades(
             outgoing_policy,
             equal_count_only=equal_count_only,
         )
+        for tc in shaped:
+            opponent_by_trade[id(tc)] = opp_name
         all_trades.extend(shaped)
         enumeration_reports[opp_name] = enum_report
+
+        # #841 posture-directed owned picks (Team Context ON only).
+        if use_team_context and not equal_count_only:
+            direction, why = pick_direction(
+                postures_by_name.get(my_team), postures_by_name.get(opp_name)
+            )
+            pick_report: dict[str, Any] = {"direction": direction, "reason": why}
+            if direction is not None:
+                sender = my_team if direction == "send" else opp_name
+                picks, inv = owned_pick_assets(
+                    next((t for t in sleeper_teams if t.get("name") == sender), None),
+                    contract,
+                    players,
+                    asset_factory=Asset,
+                    market_keys=OFFENSE_MARKET_KEYS,
+                    min_value=MIN_ASSET_VALUE,
+                )
+                pick_report["inventory"] = inv
+                pick_report["picksOffered"] = [p.owned_label or p.name for p in picks]
+                if picks:
+                    with_picks, per_pick = _generate_pick_packages(
+                        my_roster,
+                        opp_filtered,
+                        picks,
+                        outgoing_policy,
+                        direction=direction,
+                    )
+                    for tc in with_picks:
+                        opponent_by_trade[id(tc)] = opp_name
+                    all_trades.extend(with_picks)
+                    pick_report["perPick"] = per_pick
+            pick_reports[opp_name] = pick_report
 
     # Deduplicate
     all_trades = _deduplicate(all_trades)
 
-    # ── Light roster-fit adjustment (V1-41 / C3-CTX-01: OFF suppresses this
-    # entire block — no team-specific roster-fit signal reaches the ranking
-    # or the response) ────────────────────────────────────────────────────
-    # Slightly reward trades that shed surplus positions or fill weak ones.
-    # "Fills a need" is gated on the CANONICAL Team Weakness owner
-    # (``weakness_by_position``, resolved above) rather than a raw position
-    # count: an unavailable owner means no bonus, never a silent fallback
-    # to the retired ad-hoc rule.
+    # ── Team context (#842 ON only) ───────────────────────────────────────
+    # The retired ``rosterFitBonus`` (+1.0 per surplus position shed, +1.5 per
+    # urgent need filled) was an unvalidated additive score stacked on the
+    # arbitrage objective.  Replaced, not stacked (Wave B double-count rule 4):
+    # the urgent-need arm survives as an EXPLANATION flag from the canonical
+    # Team Weakness owner, and the ranking effect of team context is now the
+    # final-legal-roster capacity re-rank below.
     if use_team_context:
-        my_pos_counts: dict[str, int] = {}
-        for a in my_roster:
-            if a.position:
-                my_pos_counts[a.position] = my_pos_counts.get(a.position, 0) + 1
-
         for tc in all_trades:
-            fit_bonus = 0.0
-            fit_reasons: list[str] = []
-            for a in tc.give:
-                if my_pos_counts.get(a.position, 0) >= ROSTER_SURPLUS_THRESHOLD:
-                    fit_bonus += 1.0
-                    fit_reasons.append(f"sheds {a.position} surplus")
             for a in tc.receive:
                 need = weakness_by_position.get(a.position)
                 if need and need.get("level") in ("critical", "high"):
-                    fit_bonus += 1.5
-                    fit_reasons.append(f"fills {a.position} need ({need.get('level')})")
-                    tc.flags.append(f"addresses_urgent_need:{a.position}")
-            if fit_bonus > 0:
-                tc.arbitrage_score += fit_bonus
-                tc.flags.append("roster_fit")
-                tc.ranking_factors["rosterFitBonus"] = round(fit_bonus, 2)
-                tc.summary += " Roster fit: " + ", ".join(fit_reasons) + "."
+                    flag = f"addresses_urgent_need:{a.position}"
+                    if flag not in tc.flags:
+                        tc.flags.append(flag)
 
-    # Rank
-    all_trades.sort(key=lambda t: t.arbitrage_score, reverse=True)
+    # Rank — player-only first on an exact tie (#841: a pick never displaces
+    # an equally good player-only offer).
+    def _rank_key(t: TradeCandidate) -> tuple[float, int]:
+        return (t.arbitrage_score, -sum(1 for a in (*t.give, *t.receive) if a.is_pick))
 
-    # Keep only positive-arbitrage trades with positive board delta
-    ranked = [t for t in all_trades if t.arbitrage_score > 0 and t.board_delta > 0]
+    erased = {"capacity_erases_your_edge", "capacity_erases_their_appeal"}
 
-    # ── Enforce full-coverage priority in top results ────────────────
-    # Partial-coverage trades sort after every full-coverage trade so
-    # premium recommendation slots stay with trustworthy ones.
-    #
-    # WS-J F-7: this was an if/else whose two branches were byte
-    # identical (both ``full + partial``), gated on
-    # ``len(full) >= PARTIAL_MARKET_MAX_RANK`` — a condition that could
-    # not change the outcome.  Collapsed to the single expression both
-    # arms already computed.
-    full_cov = [t for t in ranked if t.ktc_coverage == "full"]
-    partial_cov = [t for t in ranked if t.ktc_coverage != "full"]
-    ranked = full_cov + partial_cov
+    def _final_order(trades: list[TradeCandidate]) -> list[TradeCandidate]:
+        ordered = sorted(trades, key=_rank_key, reverse=True)
+        # Keep only positive-arbitrage trades with positive board delta.
+        ordered = [t for t in ordered if t.arbitrage_score > 0 and t.board_delta > 0]
+        # Partial-coverage trades sort after every full-coverage trade so
+        # premium recommendation slots stay with trustworthy ones (WS-J F-7
+        # collapsed a byte-identical if/else here to this one expression).
+        ordered = [t for t in ordered if t.ktc_coverage == "full"] + [
+            t for t in ordered if t.ktc_coverage != "full"
+        ]
+        # #843: a package whose forced cut erases either side's case sorts
+        # after every package that survives the final legal roster.  Reported,
+        # never dropped — "report, never filter".
+        # A package whose cut cost was never measured (budget) sorts after the
+        # measured ones and before the erased ones — never promoted unchecked.
+        unmeasured = [t for t in ordered if NOT_EXAMINED_FLAG in t.flags]
+        return (
+            [t for t in ordered if not erased & set(t.flags) and NOT_EXAMINED_FLAG not in t.flags]
+            + unmeasured
+            + [t for t in ordered if erased & set(t.flags) and NOT_EXAMINED_FLAG not in t.flags]
+        )
+
+    capacity_report: dict[str, Any] | None = None
+    if use_team_context:
+        # #843: both teams' FINAL LEGAL roster, examined until the returned
+        # window is settled (finder_context.apply_capacity_ranking).
+        capacity_report = apply_capacity_ranking(
+            all_trades,
+            my_context=capacity_context,
+            opponent_context_for=(
+                opponent_capacity_context_for
+                if callable(opponent_capacity_context_for)
+                else (lambda _name: None)
+            ),
+            opponent_of=lambda t: opponent_by_trade.get(id(t)),
+            order=_final_order,
+            window=max_results,
+        )
+    ranked = _final_order(all_trades)
+    all_trades.sort(key=_rank_key, reverse=True)
 
     capped = ranked[:max_results]
 
-    # Roster capacity, attached to the RETURNED set only.  Scoring every
-    # candidate would pay for a lineup re-solve on thousands of trades nobody
-    # will see; the answer is identical either way because capacity does not
-    # feed the ranking — deliberately, per the "report, never filter" rule
-    # above.
-    trade_dicts = [t.to_dict() for t in capped]
-    if capacity_context is not None:
-        from src.trade.roster_capacity import (  # noqa: PLC0415
-            assess_roster_capacity,
-            player_names_only,
-        )
+    # Capacity annotations for BOTH teams on the RETURNED set (exact
+    # ``assess_roster_capacity``).  With Team Context ON the same owner already
+    # ranked these packages (``apply_capacity_ranking``); OFF annotates for
+    # convenience only and labels every block "not included in this verdict".
+    from src.trade.roster_capacity import (  # noqa: PLC0415
+        assess_roster_capacity,
+        player_names_only,
+    )
+    from src.trade.team_context import label_excluded, mode_block  # noqa: PLC0415
 
-        for payload, tc in zip(trade_dicts, capped):
+    def _annotate(tc: TradeCandidate) -> dict[str, Any]:
+        payload = tc.to_dict()
+        opp_name = opponent_by_trade.get(id(tc))
+        payload["opponent"] = opp_name
+        if capacity_context is not None:
             try:
                 payload["rosterCapacity"] = assess_roster_capacity(
                     capacity_context,
@@ -1380,9 +1585,95 @@ def find_trades(
                     "unavailable": "assessment_failed",
                     "notes": ["roster capacity could not be computed for this trade"],
                 }
+        opp_ctx = (
+            opponent_capacity_context_for(opp_name)
+            if callable(opponent_capacity_context_for) and opp_name
+            else None
+        )
+        if opp_ctx is not None:
+            try:
+                payload["counterpartyCapacity"] = assess_roster_capacity(
+                    opp_ctx,
+                    incoming_players=player_names_only(tc.give),
+                    outgoing_players=player_names_only(tc.receive),
+                ).to_dict()
+            except Exception:  # noqa: BLE001
+                payload["counterpartyCapacity"] = {"unavailable": "assessment_failed"}
+        if use_team_context:
+            payload["posture"] = posture_payload(
+                postures_by_name.get(my_team), postures_by_name.get(opp_name or "")
+            )
+        else:
+            for key in ("rosterCapacity", "counterpartyCapacity"):
+                if key in payload:
+                    payload[key] = label_excluded(payload[key])
+        return payload
+
+    trade_dicts = [_annotate(t) for t in capped]
+
+    # #841: the strongest posture-directed pick package per opponent, kept
+    # SEPARATE from the ranked list.  A generic future pick has no native
+    # vendor price, so these packages carry incomplete market coverage and
+    # rank after every fully-priced package in ``trades``; listing the best
+    # one per opponent here keeps the strategic option visible without
+    # promoting an unqualified market evaluation into the main ranking.
+    pick_packages: list[dict[str, Any]] = []
+    if use_team_context:
+        best: dict[str, TradeCandidate] = {}
+        for t in ranked:
+            if not any(f.startswith("posture_pick_") for f in t.flags):
+                continue
+            if erased & set(t.flags):
+                continue
+            opp = opponent_by_trade.get(id(t)) or ""
+            if opp not in best:
+                best[opp] = t
+        pick_packages = [_annotate(t) for t in best.values()]
+
+    if use_team_context:
+        mode = mode_block(
+            True,
+            dimensions={
+                "rosterCapacity": "included"
+                if capacity_context is not None
+                else (
+                    "unavailable",
+                    "no_capacity_context",
+                ),
+                "counterpartyCapacity": (
+                    "included"
+                    if callable(opponent_capacity_context_for)
+                    else ("unavailable", "no_capacity_context")
+                ),
+                "competitivePosture": (
+                    "included" if postures_by_name else ("unavailable", "posture_unavailable")
+                ),
+                "pickStrategy": (
+                    "included" if postures_by_name else ("unavailable", "posture_unavailable")
+                ),
+                "rosterFit": (
+                    "context"
+                    if team_context.get("applied")
+                    else ("unavailable", str(team_context.get("unavailableReason")))
+                ),
+            },
+        )
+    else:
+        mode = mode_block(
+            False,
+            consulted=[
+                "rosterCapacity",
+                "counterpartyCapacity",
+                "competitivePosture",
+                "pickStrategy",
+                "rosterFit",
+            ],
+        )
+    team_context.update(mode)
 
     return {
         "trades": trade_dicts,
+        "postureDirectedPickPackages": pick_packages,
         "metadata": {
             "myTeam": my_team,
             "opponentTeams": opponent_teams,
@@ -1414,6 +1705,14 @@ def find_trades(
             # neither, so "no 2-for-1 found" and "we stopped looking" rendered
             # identically.  See src/packages.
             "packageEnumeration": enumeration_reports,
+            # #841: per opponent, whether picks could move and why.
+            "pickGeneration": pick_reports,
+            # #843: the final-legal-roster re-rank (Team Context ON only).
+            "capacityRanking": capacity_report,
+            "topology": {
+                "rule": "abs(players_A - players_B) <= 1; picks are not players",
+                "owner": "src/packages/construction.py::topology_is_allowed",
+            },
             "marketCoverage": market_coverage,
             "marketCoveragePercent": round(market_coverage_pct * 100, 1),
             # How many returned trades span both retail markets. Zero

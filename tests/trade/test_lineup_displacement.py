@@ -175,7 +175,6 @@ def test_compute_publishes_displacement_solved_by_the_canonical_owner():
         after_assets=after,
         receiving=incoming,
         sending=[],
-        equity=9000,
         roster_settings=SETTINGS,
     )
     assert impact is not None
@@ -250,7 +249,6 @@ def test_the_verdict_is_unchanged_by_whether_a_displacement_happened():
         after_assets=a_after,
         receiving=[_asset("New RB", "RB", 9000)],
         sending=[],
-        equity=9000,
         roster_settings=SETTINGS,
     )
     b = compute(
@@ -258,7 +256,6 @@ def test_the_verdict_is_unchanged_by_whether_a_displacement_happened():
         after_assets=b_after,
         receiving=[_asset("New RB", "RB", 3000)],
         sending=[],
-        equity=3000,
         roster_settings=SETTINGS,
     )
     assert a is not None and b is not None
@@ -344,7 +341,6 @@ def test_an_unscalable_position_contributes_no_fabricated_baseline():
         after_assets=roster + [_asset("RB2", "RB", 3000)],
         receiving=[_asset("RB2", "RB", 3000)],
         sending=[],
-        equity=3000,
         roster_settings=SETTINGS,
     )
     assert impact is not None

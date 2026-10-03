@@ -330,7 +330,10 @@ def _finder_inputs(pool: list[PlayerAsset], roster: list[str], contract: dict):
     return players, contract["sleeper"]["teams"]
 
 
-def test_finder_results_are_not_filtered_by_capacity():
+def test_finder_asset_only_is_not_ranked_or_filtered_by_capacity():
+    """Team Context OFF (#842): capacity is annotated for convenience, labelled
+    "not included in this verdict", and changes neither the list nor its
+    order."""
     from src.trade.finder import find_trades
 
     pool = _pool()
@@ -341,9 +344,15 @@ def test_finder_results_are_not_filtered_by_capacity():
     )
     players, teams = _finder_inputs(pool, roster, contract)
 
-    without = find_trades(players, "Us", ["Them"], teams, contract=contract)
+    without = find_trades(players, "Us", ["Them"], teams, contract=contract, use_team_context=False)
     with_capacity = find_trades(
-        players, "Us", ["Them"], teams, contract=contract, capacity_context=context
+        players,
+        "Us",
+        ["Them"],
+        teams,
+        contract=contract,
+        capacity_context=context,
+        use_team_context=False,
     )
     assert len(without["trades"]) == len(with_capacity["trades"])
     assert [t["give"] for t in without["trades"]] == [t["give"] for t in with_capacity["trades"]]
@@ -352,9 +361,62 @@ def test_finder_results_are_not_filtered_by_capacity():
     for trade, plain in zip(with_capacity["trades"], without["trades"]):
         assert "rosterCapacity" not in plain
         capacity = trade["rosterCapacity"]
+        assert capacity["includedInVerdict"] is False
+        assert capacity["contextNote"] == "not included in this verdict"
         assert capacity["rosterLimit"] == ROSTER_SIZE
         assert capacity["sizeAfter"] == ROSTER_SIZE - len(trade["give"]) + len(trade["receive"])
         assert len(capacity["forcedDrops"]) == capacity["overLimitAfter"]
+
+
+def test_finder_team_context_ranks_on_the_final_legal_roster_but_never_filters():
+    """#843 fixture 11: with Team Context ON a package that forces a cut is
+    charged its release cost and re-ranked — never dropped."""
+    from src.trade.finder import find_trades
+
+    pool = _pool()
+    roster = _roster_names(pool, ROSTER_SIZE)
+    contract = _contract_for(pool, roster)
+    context = build_capacity_context(
+        contract, None, contract["sleeper"]["teams"][0], roster_settings=SETTINGS
+    )
+    players, teams = _finder_inputs(pool, roster, contract)
+
+    off = find_trades(
+        players,
+        "Us",
+        ["Them"],
+        teams,
+        contract=contract,
+        capacity_context=context,
+        use_team_context=False,
+    )
+    on = find_trades(
+        players,
+        "Us",
+        ["Them"],
+        teams,
+        contract=contract,
+        capacity_context=context,
+        use_team_context=True,
+    )
+    assert on["metadata"]["totalQualified"] == off["metadata"]["totalQualified"]
+    report = on["metadata"]["capacityRanking"]
+    assert report is not None and report["examined"] >= 1
+    assert report["charged"] >= 1, "the fixture's full roster must make some package pay"
+    # Every RETURNED package that forces our cut was measured and charged —
+    # none rides into the list on its pre-cut score.
+    for t in on["trades"]:
+        if t["rosterCapacity"].get("requiresDrops") is True:
+            assert (
+                t["rankingFactors"].get("capacityAdjustment", 0) < 0
+                or "capacity_not_examined" in t["flags"]
+            )
+    # OFF's list leads with packages that force a cut on this full roster;
+    # ON pushes them down behind packages that fit.
+    off_cut_first = [t["rosterCapacity"].get("requiresDrops") for t in off["trades"][:5]]
+    on_cut_first = [t["rosterCapacity"].get("requiresDrops") for t in on["trades"][:5]]
+    assert on_cut_first.count(True) <= off_cut_first.count(True)
+    assert off["metadata"]["capacityRanking"] is None
 
 
 # ── /api/angle/find + /api/angle/packages ────────────────────────────

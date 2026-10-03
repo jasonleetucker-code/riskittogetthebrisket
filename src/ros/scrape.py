@@ -215,6 +215,11 @@ def _sim_paths(league_key: str | None, default_key: str | None) -> tuple[Path, P
     )
 
 
+def playoff_sim_path(league_key: str | None, default_key: str | None) -> Path:
+    """Public reader path for the cached PLAYOFF simulation (``_sim_paths``)."""
+    return _sim_paths(league_key, default_key)[0]
+
+
 def _refresh_team_strength_for_league(
     cfg: Any,
     aggregated: list[dict[str, Any]],

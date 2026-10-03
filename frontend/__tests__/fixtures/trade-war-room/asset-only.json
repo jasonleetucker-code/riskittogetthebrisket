@@ -63,6 +63,13 @@
  "analysis": {
   "basis": "single_lens:equity",
   "confidence": "MEDIUM",
+  "contextEffect": {
+   "assetOnlyRecommendation": "MAKE",
+   "changed": false,
+   "changedBy": [],
+   "note": "Team Context is OFF: this verdict is the Asset-Only Analysis.",
+   "teamContextRecommendation": null
+  },
   "dimensions": [
    {
     "available": true,
@@ -125,9 +132,39 @@
     "direction": null,
     "lineage": null,
     "votes": false
+   },
+   {
+    "available": false,
+    "detail": {
+     "note": "not included in Asset-Only analysis"
+    },
+    "dimension": "posture",
+    "lineage": "playoff_odds+lineup_strength+age",
+    "unavailableReason": "asset_only_mode",
+    "votes": false
+   },
+   {
+    "available": false,
+    "detail": {
+     "note": "not included in Asset-Only analysis"
+    },
+    "dimension": "counterpartyFeasibility",
+    "lineage": "league_roster_rules",
+    "unavailableReason": "asset_only_mode",
+    "votes": false
    }
   ],
   "lenses": {
+   "counterpartyFeasibility": {
+    "available": false,
+    "detail": {
+     "note": "not included in Asset-Only analysis"
+    },
+    "dimension": "counterpartyFeasibility",
+    "lineage": "league_roster_rules",
+    "unavailableReason": "asset_only_mode",
+    "votes": false
+   },
    "evidence": {
     "available": true,
     "detail": {
@@ -180,6 +217,16 @@
     "lineage": "canonical_value",
     "votes": true
    },
+   "posture": {
+    "available": false,
+    "detail": {
+     "note": "not included in Asset-Only analysis"
+    },
+    "dimension": "posture",
+    "lineage": "playoff_odds+lineup_strength+age",
+    "unavailableReason": "asset_only_mode",
+    "votes": false
+   },
    "roster": {
     "available": false,
     "detail": {
@@ -198,6 +245,65 @@
   "recommendation": "MAKE",
   "teamContext": {
    "applied": false,
+   "dimensions": [
+    {
+     "dimension": "rosterCapacity",
+     "includedInVerdict": false,
+     "label": "Roster capacity / forced drops (your team)",
+     "note": "not included in this verdict",
+     "state": "excluded_by_mode"
+    },
+    {
+     "dimension": "counterpartyCapacity",
+     "includedInVerdict": false,
+     "label": "Roster capacity / forced drops (their team)",
+     "note": "not included in this verdict",
+     "state": "excluded_by_mode"
+    },
+    {
+     "dimension": "finalRoster",
+     "includedInVerdict": false,
+     "label": "Final legal roster (lineup, Team Strength)",
+     "note": "not included in this verdict",
+     "state": "excluded_by_mode"
+    },
+    {
+     "dimension": "rosterFit",
+     "includedInVerdict": false,
+     "label": "Positional fit / needs",
+     "note": "not included in this verdict",
+     "state": "excluded_by_mode"
+    },
+    {
+     "dimension": "rosterUtility",
+     "includedInVerdict": false,
+     "label": "Best-ball lineup impact on the final legal roster",
+     "note": "not included in this verdict",
+     "state": "excluded_by_mode"
+    },
+    {
+     "dimension": "competitivePosture",
+     "includedInVerdict": false,
+     "label": "Competitive posture (PUSH / HOLD / RETOOL / REBUILD)",
+     "note": "not included in this verdict",
+     "state": "excluded_by_mode"
+    },
+    {
+     "dimension": "currentSeasonEquity",
+     "includedInVerdict": false,
+     "label": "Playoff / championship odds change",
+     "note": "not included in this verdict",
+     "state": "excluded_by_mode"
+    },
+    {
+     "dimension": "pickStrategy",
+     "includedInVerdict": false,
+     "label": "Posture-directed draft-pick flow",
+     "note": "not included in this verdict",
+     "state": "excluded_by_mode"
+    }
+   ],
+   "label": "Asset-Only Analysis",
    "mode": "asset_only"
   },
   "topUncertainty": null,
@@ -213,18 +319,18 @@
     "reason": "unaudited_model"
    },
    {
-    "dimension": "strategicPosture",
-    "notes": "Competitive posture (#840) has no canonical owner yet and awaits an owner decision; no posture is invented here.",
-    "reason": "no_canonical_owner"
-   },
-   {
     "dimension": "currentSeasonEquity",
     "notes": "src.ros.playoff_sim.simulate_trade_impact takes a weekly-mean shift only and has no production caller; playoff/championship deltas wait for that owner.",
     "reason": "counterfactual_not_wired"
+   },
+   {
+    "dimension": "ownPickSlotCounterfactual",
+    "notes": "The league's non-playoff draft-order method (record / Max PF / consolation) is not modelled, so no projected own-pick slot change is credited.",
+    "reason": "draft_order_unmodeled"
    }
   ],
   "uncertainty": [],
-  "version": "analyze_trade_v2"
+  "version": "analyze_trade_v3"
  },
  "before": {
   "byPosition": {
@@ -268,6 +374,391 @@
    "mid": 4
   },
   "totalValue": 19000
+ },
+ "counterparty": {
+  "available": true,
+  "contextNote": "not included in this verdict",
+  "finalRosterSimulation": {
+   "available": true,
+   "cleanupApplied": [],
+   "cleanupIsUpperBound": false,
+   "coreAfter": {
+    "available": true,
+    "demand": {
+     "bySlot": {
+      "FLEX": 1,
+      "QB": 1,
+      "RB": 1,
+      "WR": 1
+     },
+     "dedicatedBasis": {
+      "QB": 1,
+      "RB": 1,
+      "WR": 1
+     },
+     "flexSlots": [
+      "FLEX"
+     ],
+     "multiplier": 1.5,
+     "multiplierProvenance": "owner_addendum_839_amended_899",
+     "multiplierStatus": "PRIOR",
+     "starterBasis": {
+      "FLEX": 1,
+      "QB": 1,
+      "RB": 1,
+      "WR": 1
+     },
+     "superflexFoldedIntoQb": true,
+     "total": 4
+    },
+    "duplicateIds": [],
+    "members": [
+     {
+      "name": "RB Buf Depth",
+      "playerId": "RB Buf Depth",
+      "position": "RB",
+      "role": "starter",
+      "slot": "RB",
+      "value": 300.0
+     },
+     {
+      "name": "WR Kc",
+      "playerId": "WR Kc",
+      "position": "WR",
+      "role": "starter",
+      "slot": "WR",
+      "value": 4000.0
+     },
+     {
+      "name": "WR Phi",
+      "playerId": "WR Phi",
+      "position": "WR",
+      "role": "starter",
+      "slot": "FLEX",
+      "value": 2000.0
+     }
+    ],
+    "reserveCount": 0,
+    "slotSource": null,
+    "starterCount": 3,
+    "starterSlots": [
+     "QB",
+     "RB",
+     "WR",
+     "FLEX"
+    ],
+    "unavailableReason": null,
+    "unfilledReserveSlots": [
+     "FLEX",
+     "QB",
+     "RB",
+     "WR"
+    ],
+    "unfilledStarterSlots": [
+     "QB"
+    ],
+    "unpricedIds": []
+   },
+   "coreBefore": {
+    "available": true,
+    "demand": {
+     "bySlot": {
+      "FLEX": 1,
+      "QB": 1,
+      "RB": 1,
+      "WR": 1
+     },
+     "dedicatedBasis": {
+      "QB": 1,
+      "RB": 1,
+      "WR": 1
+     },
+     "flexSlots": [
+      "FLEX"
+     ],
+     "multiplier": 1.5,
+     "multiplierProvenance": "owner_addendum_839_amended_899",
+     "multiplierStatus": "PRIOR",
+     "starterBasis": {
+      "FLEX": 1,
+      "QB": 1,
+      "RB": 1,
+      "WR": 1
+     },
+     "superflexFoldedIntoQb": true,
+     "total": 4
+    },
+    "duplicateIds": [],
+    "members": [
+     {
+      "name": "RB Buf Depth",
+      "playerId": "RB Buf Depth",
+      "position": "RB",
+      "role": "starter",
+      "slot": "RB",
+      "value": 300.0
+     },
+     {
+      "name": "WR Buf Star",
+      "playerId": "WR Buf Star",
+      "position": "WR",
+      "role": "starter",
+      "slot": "WR",
+      "value": 7000.0
+     }
+    ],
+    "reserveCount": 0,
+    "slotSource": null,
+    "starterCount": 2,
+    "starterSlots": [
+     "QB",
+     "RB",
+     "WR",
+     "FLEX"
+    ],
+    "unavailableReason": null,
+    "unfilledReserveSlots": [
+     "FLEX",
+     "QB",
+     "RB",
+     "WR"
+    ],
+    "unfilledStarterSlots": [
+     "QB",
+     "FLEX"
+    ],
+    "unpricedIds": []
+   },
+   "displacements": [
+    {
+     "kind": "displaced",
+     "name": "WR Buf Star",
+     "playerId": "WR Buf Star",
+     "position": "WR",
+     "roleAfter": null,
+     "roleBefore": "starter",
+     "slotAfter": null,
+     "slotBefore": "WR"
+    }
+   ],
+   "isVerdict": false,
+   "movements": [
+    {
+     "kind": "displaced",
+     "name": "WR Buf Star",
+     "playerId": "WR Buf Star",
+     "position": "WR",
+     "roleAfter": null,
+     "roleBefore": "starter",
+     "slotAfter": null,
+     "slotBefore": "WR"
+    },
+    {
+     "kind": "promoted",
+     "name": "WR Kc",
+     "playerId": "WR Kc",
+     "position": "WR",
+     "roleAfter": "starter",
+     "roleBefore": null,
+     "slotAfter": "WR",
+     "slotBefore": null
+    },
+    {
+     "kind": "promoted",
+     "name": "WR Phi",
+     "playerId": "WR Phi",
+     "position": "WR",
+     "roleAfter": "starter",
+     "roleBefore": null,
+     "slotAfter": "FLEX",
+     "slotBefore": null
+    }
+   ],
+   "needsCreated": [],
+   "needsFixed": [],
+   "notes": [],
+   "outgoingNotFound": [],
+   "promotions": [
+    {
+     "kind": "promoted",
+     "name": "WR Kc",
+     "playerId": "WR Kc",
+     "position": "WR",
+     "roleAfter": "starter",
+     "roleBefore": null,
+     "slotAfter": "WR",
+     "slotBefore": null
+    },
+    {
+     "kind": "promoted",
+     "name": "WR Phi",
+     "playerId": "WR Phi",
+     "position": "WR",
+     "roleAfter": "starter",
+     "roleBefore": null,
+     "slotAfter": "FLEX",
+     "slotBefore": null
+    }
+   ],
+   "strengthAfter": {
+    "available": true,
+    "byPosition": [
+     {
+      "count": 1,
+      "leaguePercentile": null,
+      "leagueRank": null,
+      "members": [
+       "RB Buf Depth"
+      ],
+      "position": "RB",
+      "reserveCount": 0,
+      "reserveValue": 0.0,
+      "starterCount": 1,
+      "starterValue": 300.0,
+      "value": 300.0
+     },
+     {
+      "count": 2,
+      "leaguePercentile": null,
+      "leagueRank": null,
+      "members": [
+       "WR Kc",
+       "WR Phi"
+      ],
+      "position": "WR",
+      "reserveCount": 0,
+      "reserveValue": 0.0,
+      "starterCount": 2,
+      "starterValue": 6000.0,
+      "value": 6000.0
+     }
+    ],
+    "fullRosterValue": null,
+    "isComplete": false,
+    "leaguePercentile": null,
+    "leagueRank": null,
+    "positionOrder": [
+     "RB",
+     "WR"
+    ],
+    "reserveValue": 0.0,
+    "starterValue": 6300.0,
+    "total": 6300.0,
+    "unavailableReason": null,
+    "unfilledReserveSlots": [
+     "FLEX",
+     "QB",
+     "RB",
+     "WR"
+    ],
+    "unfilledStarterSlots": [
+     "QB"
+    ],
+    "unpricedCount": 0,
+    "unpricedIds": []
+   },
+   "strengthBefore": {
+    "available": true,
+    "byPosition": [
+     {
+      "count": 1,
+      "leaguePercentile": null,
+      "leagueRank": null,
+      "members": [
+       "RB Buf Depth"
+      ],
+      "position": "RB",
+      "reserveCount": 0,
+      "reserveValue": 0.0,
+      "starterCount": 1,
+      "starterValue": 300.0,
+      "value": 300.0
+     },
+     {
+      "count": 1,
+      "leaguePercentile": null,
+      "leagueRank": null,
+      "members": [
+       "WR Buf Star"
+      ],
+      "position": "WR",
+      "reserveCount": 0,
+      "reserveValue": 0.0,
+      "starterCount": 1,
+      "starterValue": 7000.0,
+      "value": 7000.0
+     }
+    ],
+    "fullRosterValue": null,
+    "isComplete": false,
+    "leaguePercentile": null,
+    "leagueRank": null,
+    "positionOrder": [
+     "RB",
+     "WR"
+    ],
+    "reserveValue": 0.0,
+    "starterValue": 7300.0,
+    "total": 7300.0,
+    "unavailableReason": null,
+    "unfilledReserveSlots": [
+     "FLEX",
+     "QB",
+     "RB",
+     "WR"
+    ],
+    "unfilledStarterSlots": [
+     "QB",
+     "FLEX"
+    ],
+    "unpricedCount": 0,
+    "unpricedIds": []
+   },
+   "strengthDelta": -1000.0,
+   "unavailableReason": null,
+   "unpricedIncoming": [],
+   "weaknessAfter": null,
+   "weaknessBefore": null
+  },
+  "includedInVerdict": false,
+  "inferredFrom": "incoming_asset_ownership",
+  "rosterCapacity": {
+   "certainty": "exact",
+   "forcedDropCutCost": 0.0,
+   "forcedDropReleaseCost": null,
+   "forcedDropValue": 0.0,
+   "forcedDrops": [],
+   "forcedDropsAreUpperBound": false,
+   "incoming": 2,
+   "ladderExhausted": false,
+   "notes": [
+    "no waiver-level values available \u2014 cut costs fall back to raw board value",
+    "positional scarcity not used in this fixture (LABELLED) \u2014 multiplier inert"
+   ],
+   "openSpotsAfter": 5,
+   "openSpotsBefore": 6,
+   "outgoing": 1,
+   "outgoingNotOnRoster": 0,
+   "overLimitAfter": 0,
+   "overLimitAfterMax": 0,
+   "overLimitAfterMin": 0,
+   "overLimitBefore": 0,
+   "requiresDrops": false,
+   "rosterLimit": 8,
+   "rungOrderWasTied": false,
+   "sizeAfter": 3,
+   "sizeBefore": 2,
+   "taxiOccupiedMax": 0,
+   "taxiOccupiedMin": 0,
+   "taxiSize": 0,
+   "unpricedForcedDrops": 0,
+   "valueScale": "rankDerivedValue"
+  },
+  "team": {
+   "name": "Them",
+   "ownerId": "o2",
+   "rosterId": 2
+  }
  },
  "delta": {
   "byPosition": {
@@ -317,6 +808,7 @@
   "available": true,
   "cleanupApplied": [],
   "cleanupIsUpperBound": false,
+  "contextNote": "not included in this verdict",
   "coreAfter": {
    "available": true,
    "demand": {
@@ -518,6 +1010,7 @@
     "slotBefore": "FLEX"
    }
   ],
+  "includedInVerdict": false,
   "isVerdict": false,
   "movements": [
    {
@@ -785,11 +1278,13 @@
  ],
  "rosterCapacity": {
   "certainty": "exact",
+  "contextNote": "not included in this verdict",
   "forcedDropCutCost": 0.0,
   "forcedDropReleaseCost": null,
   "forcedDropValue": 0.0,
   "forcedDrops": [],
   "forcedDropsAreUpperBound": false,
+  "includedInVerdict": false,
   "incoming": 1,
   "ladderExhausted": false,
   "notes": [
@@ -853,19 +1348,79 @@
  },
  "teamContext": {
   "applied": false,
+  "dimensions": [
+   {
+    "dimension": "rosterCapacity",
+    "includedInVerdict": false,
+    "label": "Roster capacity / forced drops (your team)",
+    "note": "not included in this verdict",
+    "state": "excluded_by_mode"
+   },
+   {
+    "dimension": "counterpartyCapacity",
+    "includedInVerdict": false,
+    "label": "Roster capacity / forced drops (their team)",
+    "note": "not included in this verdict",
+    "state": "excluded_by_mode"
+   },
+   {
+    "dimension": "finalRoster",
+    "includedInVerdict": false,
+    "label": "Final legal roster (lineup, Team Strength)",
+    "note": "not included in this verdict",
+    "state": "excluded_by_mode"
+   },
+   {
+    "dimension": "rosterFit",
+    "includedInVerdict": false,
+    "label": "Positional fit / needs",
+    "note": "not included in this verdict",
+    "state": "excluded_by_mode"
+   },
+   {
+    "dimension": "rosterUtility",
+    "includedInVerdict": false,
+    "label": "Best-ball lineup impact on the final legal roster",
+    "note": "not included in this verdict",
+    "state": "excluded_by_mode"
+   },
+   {
+    "dimension": "competitivePosture",
+    "includedInVerdict": false,
+    "label": "Competitive posture (PUSH / HOLD / RETOOL / REBUILD)",
+    "note": "not included in this verdict",
+    "state": "excluded_by_mode"
+   },
+   {
+    "dimension": "currentSeasonEquity",
+    "includedInVerdict": false,
+    "label": "Playoff / championship odds change",
+    "note": "not included in this verdict",
+    "state": "excluded_by_mode"
+   },
+   {
+    "dimension": "pickStrategy",
+    "includedInVerdict": false,
+    "label": "Posture-directed draft-pick flow",
+    "note": "not included in this verdict",
+    "state": "excluded_by_mode"
+   }
+  ],
+  "label": "Asset-Only Analysis",
   "mode": "asset_only"
  },
  "teamImpact": {
   "ageDelta": 0.0,
-  "compositeScore": 36.9,
+  "contextNote": "not included in this verdict",
+  "countedAsVote": false,
   "depthDelta": {
    "QB": 0,
    "RB": 0,
    "TE": -1,
    "WR": 0
   },
-  "equityScore": 40.0,
   "fitScore": 34.4,
+  "includedInVerdict": false,
   "lineupDisplacement": {
    "arrived": [
     {
@@ -902,14 +1457,13 @@
    "startersAfter": 4,
    "startersBefore": 4
   },
-  "posture": "contender",
   "rationale": [
    "Shifts WR starter quality (+1000.0)",
    "Adds a starting TE (+500.0 starter value)",
-   "Net KTC equity +1000",
    "Roster-shape fit score +34"
   ],
   "redundancy": [],
+  "role": "explanation",
   "scarcityDelta": {
    "QB": 0.0,
    "RB": 0.0,
@@ -928,9 +1482,7 @@
    "TE": 500.0,
    "WR": 1000.0
   },
-  "unscalablePositions": [],
-  "verdict": "accept",
-  "windowFit": 0.0
+  "unscalablePositions": []
  },
  "unresolvedIn": [],
  "unresolvedOut": []

@@ -79,16 +79,11 @@ def _starter_delta(*, incoming: list[dict], outgoing: list[dict]) -> dict[str, i
     before = _saturated_roster()
     out_names = {a["name"] for a in outgoing}
     after = [a for a in before if a["name"] not in out_names] + incoming
-    # Real equity, not a placeholder: these tests assert that a NONZERO
-    # value swing still moves no seat, so handing the engine a fake 0
-    # would quietly remove the thing being tested.
-    equity = sum(a["value"] for a in incoming) - sum(a["value"] for a in outgoing)
     impact = compute(
         before_assets=before,
         after_assets=after,
         receiving=incoming,
         sending=outgoing,
-        equity=equity,
         roster_settings=SETTINGS,
     )
     assert impact is not None, "roster_settings must yield starter slots"

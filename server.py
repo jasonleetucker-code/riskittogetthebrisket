@@ -8481,6 +8481,29 @@ async def post_trade_suggestions(request: Request):
             },
         )
 
+    # Use Team Context (#842).  Every suggestion category here (sell-high from
+    # positional surplus, buy-low into a need, consolidation of depth,
+    # starter upgrades) is DERIVED from this roster's needs, so the engine has
+    # no Asset-Only formulation.  OFF is answered explicitly — never a silent
+    # switch back to team context and never an empty list that reads as
+    # "nothing found".
+    from src.trade.team_context import mode_block, parse_use_team_context  # noqa: PLC0415
+
+    if not parse_use_team_context(body.get("useTeamContext")):
+        return JSONResponse(
+            content={
+                "suggestions": [],
+                "leagueKey": league_cfg.key,
+                "teamContext": mode_block(False, consulted=["rosterFit", "rosterCapacity"]),
+                "unavailableReason": "roster_aware_product_requires_team_context",
+                "message": (
+                    "Trade suggestions are built from your roster's needs and surplus, "
+                    "so they are not available in Asset-Only Analysis. Turn Team Context "
+                    "on to see them."
+                ),
+            }
+        )
+
     from src.trade.suggestions import (
         build_asset_pool_from_contract,
         generate_suggestions_from_pool,
@@ -8584,6 +8607,9 @@ async def post_trade_suggestions(request: Request):
 
     if isinstance(result, dict):
         result["leagueKey"] = league_cfg.key
+        result["teamContext"] = mode_block(
+            True, dimensions={"rosterFit": "included", "rosterCapacity": "context"}
+        )
     _stamp_valuation_mode(result, valuation_mode, valuation_note)
     return JSONResponse(content=result)
 
@@ -8690,10 +8716,44 @@ async def post_trade_finder(request: Request):
     # V1-41 / C3-CTX-01 — "Use Team Context", ON by default.  Wire name
     # ``useTeamContext``; missing/non-bool falls back to the canonical
     # default (True) rather than silently disabling the signal.
-    raw_use_team_context = body.get("useTeamContext")
-    use_team_context = (
-        bool(raw_use_team_context) if isinstance(raw_use_team_context, bool) else True
-    )
+    from src.trade.team_context import parse_use_team_context  # noqa: PLC0415
+
+    use_team_context = parse_use_team_context(body.get("useTeamContext"))
+
+    # Team Context ON (#843 / #840 / #841): the counterparty's capacity and
+    # both teams' Competitive Posture.  Built lazily / once per request, and
+    # never in Asset-Only — OFF must not consume them at all.
+    finder_postures = None
+    opponent_capacity_for = None
+    if use_team_context:
+        _ctx_cache: dict[str, Any] = {}
+
+        def opponent_capacity_for(team_name: str):  # noqa: F811
+            if team_name not in _ctx_cache:
+                _ctx_cache[team_name] = _capacity_context_for(
+                    contract,
+                    league_cfg,
+                    next((t for t in sleeper_teams if t.get("name") == team_name), None),
+                    surface="/api/trade/finder:counterparty",
+                )
+            return _ctx_cache[team_name]
+
+        try:
+            from src.roster_intel.posture import build_league_postures  # noqa: PLC0415
+
+            odds_rows, odds_meta = _trade_posture_odds(contract, league_cfg.key)
+            finder_postures = await run_in_threadpool(
+                lambda: build_league_postures(
+                    contract,
+                    league_key=league_cfg.key,
+                    playoff_odds=odds_rows,
+                    odds_meta=odds_meta,
+                    roster_settings=dict(league_cfg.roster_settings or {}),
+                )
+            )
+        except Exception as exc:  # noqa: BLE001 — degrade: no posture, no picks
+            log.warning("finder posture unavailable: %s", exc)
+            finder_postures = None
 
     try:
         result = await run_in_threadpool(
@@ -8711,6 +8771,8 @@ async def post_trade_finder(request: Request):
             # composite, which no other engine and no UI surface reads.
             contract=contract,
             use_team_context=use_team_context,
+            league_postures=finder_postures,
+            opponent_capacity_context_for=opponent_capacity_for,
         )
     except Exception as e:
         log.error(f"Trade Finder failed: {e}")
@@ -8937,6 +8999,9 @@ async def post_angle_find(request: Request):
         )
     if isinstance(result, dict):
         result["leagueKey"] = league_cfg.key
+    from src.trade.team_context import parse_use_team_context  # noqa: PLC0415
+
+    _stamp_annotation_team_context(result, parse_use_team_context(body.get("useTeamContext")))
     _stamp_valuation_mode(result, valuation_mode, valuation_note)
     return JSONResponse(content=result)
 
@@ -9120,6 +9185,9 @@ async def post_angle_packages(request: Request):
                 content={"error": f"Angle acquire failed: {exc}"},
             )
         result = {"mode": "acquire", **result, "leagueKey": league_cfg.key}
+        from src.trade.team_context import parse_use_team_context  # noqa: PLC0415
+
+        _stamp_annotation_team_context(result, parse_use_team_context(body.get("useTeamContext")))
         _stamp_valuation_mode(result, valuation_mode, valuation_note)
         return JSONResponse(content=result)
 
@@ -9161,6 +9229,9 @@ async def post_angle_packages(request: Request):
             content={"error": f"Angle packages failed: {exc}"},
         )
     result = {"mode": "offer", **result, "leagueKey": league_cfg.key}
+    from src.trade.team_context import parse_use_team_context  # noqa: PLC0415
+
+    _stamp_annotation_team_context(result, parse_use_team_context(body.get("useTeamContext")))
     _stamp_valuation_mode(result, valuation_mode, valuation_note)
     return JSONResponse(content=result)
 
@@ -9508,6 +9579,30 @@ def _capacity_context_for(
     except Exception as exc:  # noqa: BLE001
         log.warning("roster capacity unavailable for %s: %s", surface, exc)
         return None
+
+
+def _stamp_annotation_team_context(result: Any, use_team_context: bool) -> None:
+    """``teamContext`` for a route whose only team dimension is an annotation.
+
+    Angle ranks on value vs market alone; its ``rosterCapacity`` blocks are a
+    REPORT on each candidate.  ON states that they are context (never a
+    ranking input); OFF labels every block "not included in this verdict"
+    (#842 — one mode contract, ``src.trade.team_context``).
+    """
+    from src.trade.team_context import label_excluded, mode_block  # noqa: PLC0415
+
+    if not isinstance(result, dict):
+        return
+    if use_team_context:
+        result["teamContext"] = mode_block(True, dimensions={"rosterCapacity": "context"})
+        return
+    for key in ("candidates", "targets", "packages"):
+        rows = result.get(key)
+        if isinstance(rows, list):
+            for row in rows:
+                if isinstance(row, dict) and "rosterCapacity" in row:
+                    row["rosterCapacity"] = label_excluded(row["rosterCapacity"])
+    result["teamContext"] = mode_block(False, consulted=["rosterCapacity"])
 
 
 def _team_block_by_owner_id(sleeper_teams: list, owner_id: str) -> dict | None:
@@ -14419,11 +14514,13 @@ async def _build_trade_simulation(
             return []
         return [str(x) for x in vs if isinstance(x, (str, int)) and str(x).strip()]
 
-    # Use Team Context (#842): default ON, and only an explicit boolean
-    # ``false`` turns it off — the same rule ``/api/trade/finder`` applies.
-    # It changes which LENSES Analyze Trade may count, never an asset value.
-    raw_context = body.get("useTeamContext")
-    use_team_context = raw_context if isinstance(raw_context, bool) else True
+    # Use Team Context (#842): ONE parser for every trade route
+    # (``src.trade.team_context``) — default ON, only a boolean ``false``
+    # turns it off.  It changes which LENSES Analyze Trade may count, never
+    # an asset value.
+    from src.trade.team_context import parse_use_team_context  # noqa: PLC0415
+
+    use_team_context = parse_use_team_context(body.get("useTeamContext"))
 
     def _picks_with_ids(key: str, ids_key: str) -> tuple[list[str], list[str | None]]:
         # Wave A: ``pickAssetIdsIn`` / ``pickAssetIdsOut`` run PARALLEL to the
@@ -14461,12 +14558,18 @@ async def _build_trade_simulation(
         roster_settings=dict(league_cfg.roster_settings or {}),
         league_key=league_cfg.key,
         include_roster_utility=for_analysis and use_team_context,
+        use_team_context=use_team_context,
+        # Competitive Posture (#840) only for the deliberate Analyze action,
+        # and only with Team Context ON.  The playoff-sim cache is read here
+        # (the simulator stays pure) and used only when it is current.
+        include_posture=for_analysis and use_team_context,
+        analysis=for_analysis,
+        posture_odds=(
+            _trade_posture_odds(contract, league_cfg.key)
+            if for_analysis and use_team_context
+            else None
+        ),
     )
-    if for_analysis:
-        result["teamContext"] = {
-            "applied": use_team_context,
-            "mode": "team" if use_team_context else "asset_only",
-        }
     # Attached AFTER the simulation, never inside it: ``trade_simulator`` does
     # not import exposure, so there is no edge along which it could reach
     # equity, team impact or Analyze Trade (C2-EXP-01 non-influence).
@@ -14479,6 +14582,26 @@ async def _build_trade_simulation(
     result["leagueKey"] = league_cfg.key
     _stamp_valuation_mode(result, valuation_mode, valuation_note)
     return result, league_cfg.key, None
+
+
+def _trade_posture_odds(contract: dict | None, league_key: str | None) -> tuple[Any, Any]:
+    """``(rows, meta)`` from the cached playoff simulation, only if current.
+
+    Read-only, never a request-time simulation: ``posture.load_playoff_odds``
+    returns rows only when the cache names this league and the same
+    last-scored week the league reports now.
+    """
+    try:
+        from src.roster_intel.posture import load_playoff_odds  # noqa: PLC0415
+
+        settings = ((contract or {}).get("sleeper") or {}).get("leagueSettings") or {}
+        week = settings.get("last_scored_leg")
+        return load_playoff_odds(
+            league_key, last_scored_week=week if isinstance(week, int) else None
+        )
+    except Exception as exc:  # noqa: BLE001 — posture degrades to structural
+        log.warning("trade posture odds unavailable: %s", exc)
+        return None, {"state": "unavailable", "reason": type(exc).__name__}
 
 
 def _trade_nfl_exposure_block(

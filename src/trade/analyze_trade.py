@@ -26,18 +26,47 @@ The packet answers separate questions in separate LENSES
 * **evidence** — how trustworthy is the rest?  Projection coverage, the
   estimate's own precision, canonical confidence stamps on the traded assets.
   NEVER votes; it sets confidence and fills ``uncertainty``.
-* **strategicPosture** / **currentSeasonEquity** — named UNAVAILABLE with the
-  reason: #840 has no canonical owner yet, and the playoff simulator's trade
-  counterfactual (``playoff_sim.simulate_trade_impact``) takes a weekly-mean
-  shift only and is not wired.  Unavailable is not neutral and is never read
-  as zero.
+* **posture** — #840 Competitive Posture (``src.roster_intel.posture``) for
+  both teams, with the marginal change on the final legal roster.  NEVER
+  votes: it is derived from playoff odds / lineup strength / age — lineages
+  the other lenses already read.  It decides only how two DISAGREEING primary
+  lenses are WEIGHED (see "Posture weighting" below).
+* **counterpartyFeasibility** — #843 capacity for the OTHER team (forced
+  drops it would have to make).  Never votes in this team's verdict: it bears
+  on whether they would accept, and their cut is their cost, not ours.
+* **currentSeasonEquity** — named UNAVAILABLE with the reason: the playoff
+  simulator's trade counterfactual (``playoff_sim.simulate_trade_impact``)
+  takes a weekly-mean shift only and is not wired.  Unavailable is not
+  neutral and is never read as zero.
+
+Posture weighting (never a vote)
+────────────────────────────────
+When the market lens (long-horizon canonical value) and the roster lens
+(current-season best-ball utility) point in OPPOSITE directions the rule table
+says TOO_CLOSE.  A PUSH team weighs the current-season lens; a RETOOL or
+REBUILD team weighs the long-horizon lens; HOLD — or any posture at LOW
+confidence — leaves TOO_CLOSE.  Posture never moves a verdict when the lenses
+agree, never creates a direction when both are neutral, and never acts as a
+veto (it only lands on LEAN_MAKE / LEAN_PASS).  Pinned by
+``tests/trade/test_analyze_posture_weighting.py``.
+
+Single carrier for a forced drop
+────────────────────────────────
+The market lens prices the PACKAGE (canonical values + KTC VA) and never the
+final roster; the dynasty value a forced cut releases is carried ONLY by the
+feasibility lens (``forcedDropReleaseCost``), and the cut's weekly-lineup
+cost ONLY by the roster lens (evaluated post-cleanup).  So no forced drop is
+subtracted twice.
 
 Use Team Context (#842)
 ───────────────────────
-``simulation["teamContext"]["applied"] is False`` → Asset-Only: the roster and
-feasibility lenses are excluded BY MODE (and say so), the recommendation comes
-from the market lens alone, and no asset value changes.  One contract with a
-dimension switched off — not a second formula.
+``simulation["teamContext"]["applied"] is False`` → Asset-Only: the roster,
+feasibility and posture lenses are excluded BY MODE (and say so), the
+recommendation comes from the market lens alone, and no asset value changes.
+One contract with a dimension switched off — not a second formula.  Every
+packet carries ``contextEffect``: the Asset-Only recommendation beside the
+Team-Context one and WHICH dimension moved it, so the explanation can say what
+changed because of team context versus raw value.
 
 No weights
 ──────────
@@ -58,7 +87,7 @@ from src.trade.suggestions import _fairness_label
 
 #: The five product-facing verdicts (plan §C, "Product job").
 RECOMMENDATIONS = ("MAKE", "LEAN_MAKE", "TOO_CLOSE", "LEAN_PASS", "PASS")
-PACKET_VERSION = "analyze_trade_v2"
+PACKET_VERSION = "analyze_trade_v3"
 
 _CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "trade" / "analyze_trade.json"
 _DEFAULTS = {"materialityPpg": 1.0, "largeMultiple": 3.0, "depthNotableLossPpg": 0.5}
@@ -85,16 +114,16 @@ _UNAVAILABLE_DIMENSIONS = (
         "folded into this recommendation until that audit closes.",
     },
     {
-        "dimension": "strategicPosture",
-        "reason": "no_canonical_owner",
-        "notes": "Competitive posture (#840) has no canonical owner yet and awaits an "
-        "owner decision; no posture is invented here.",
-    },
-    {
         "dimension": "currentSeasonEquity",
         "reason": "counterfactual_not_wired",
         "notes": "src.ros.playoff_sim.simulate_trade_impact takes a weekly-mean shift only "
         "and has no production caller; playoff/championship deltas wait for that owner.",
+    },
+    {
+        "dimension": "ownPickSlotCounterfactual",
+        "reason": "draft_order_unmodeled",
+        "notes": "The league's non-playoff draft-order method (record / Max PF / "
+        "consolation) is not modelled, so no projected own-pick slot change is credited.",
     },
 )
 
@@ -417,6 +446,91 @@ def _feasibility_lens(simulation: dict[str, Any]) -> DimensionResult:
     )
 
 
+# ── Context: posture (#840) and the other team's capacity (never vote) ──
+
+
+#: Postures that weigh each primary lens when the two disagree.
+_POSTURE_FOLLOWS = {"PUSH": "rosterUtility", "RETOOL": "equity", "REBUILD": "equity"}
+
+
+def _posture_lens(simulation: dict[str, Any]) -> DimensionResult:
+    block = simulation.get("posture")
+    if not isinstance(block, dict) or block.get("available") is not True:
+        reason = "not_computed"
+        if isinstance(block, dict):
+            reason = str(block.get("unavailableReason") or reason)
+        return DimensionResult(
+            name="posture", available=False, unavailable_reason=reason, votes=False
+        )
+    sel = block.get("selected") or {}
+    cp = block.get("counterparty") or {}
+    return DimensionResult(
+        name="posture",
+        available=True,
+        direction=None,
+        votes=False,
+        lineage="playoff_odds+lineup_strength+age",
+        detail={
+            "selected": {
+                "teamName": sel.get("teamName"),
+                "posture": sel.get("posture"),
+                "confidence": sel.get("confidence"),
+                "affinities": sel.get("affinities"),
+                "components": sel.get("components"),
+                "marginal": sel.get("marginal"),
+                "notes": sel.get("notes"),
+            },
+            "counterparty": (
+                {
+                    "teamName": cp.get("teamName"),
+                    "posture": cp.get("posture"),
+                    "confidence": cp.get("confidence"),
+                    "affinities": cp.get("affinities"),
+                    "marginal": cp.get("marginal"),
+                }
+                if cp
+                else None
+            ),
+            "timing": block.get("timing"),
+            "oddsInput": block.get("oddsInput"),
+            "calibration": block.get("calibration"),
+            "countedAsVote": False,
+            "role": "weights the primary lenses only when they disagree",
+        },
+    )
+
+
+def _counterparty_feasibility(simulation: dict[str, Any]) -> DimensionResult:
+    cp = simulation.get("counterparty")
+    if not isinstance(cp, dict) or cp.get("available") is not True:
+        reason = "not_computed"
+        if isinstance(cp, dict):
+            reason = str(cp.get("unavailableReason") or reason)
+        return DimensionResult(
+            name="counterpartyFeasibility",
+            available=False,
+            unavailable_reason=reason,
+            votes=False,
+            lineage=LINEAGE_ROSTER_RULES,
+        )
+    inner = _feasibility_lens({"rosterCapacity": cp.get("rosterCapacity")})
+    detail = dict(inner.detail or {})
+    detail["team"] = cp.get("team")
+    detail["role"] = (
+        "their roster consequence: bears on whether they would accept; never a vote "
+        "in your verdict and never counted as your cost"
+    )
+    return DimensionResult(
+        name="counterpartyFeasibility",
+        available=inner.available,
+        direction=inner.direction,
+        unavailable_reason=inner.unavailable_reason,
+        votes=False,
+        lineage=LINEAGE_ROSTER_RULES,
+        detail=detail,
+    )
+
+
 # ── Lens 4: evidence (never votes) ───────────────────────────────────────
 
 
@@ -457,7 +571,10 @@ def _step(rec: str, delta: int) -> str:
 
 
 def _recommend(
-    market: DimensionResult, roster: DimensionResult, feasibility: DimensionResult
+    market: DimensionResult,
+    roster: DimensionResult,
+    feasibility: DimensionResult,
+    posture: DimensionResult | None = None,
 ) -> tuple[str, str, str]:
     """``(recommendation, confidence, basis)`` — the rule table."""
     primaries = [d for d in (market, roster) if d.available]
@@ -479,6 +596,7 @@ def _recommend(
         basis = f"single_lens:{only.name}"
     else:
         dirs = {market.direction, roster.direction}
+        basis = "market_and_roster"
         if dirs == {"favors"}:
             rec, confidence = "MAKE", "HIGH"
         elif dirs == {"opposes"}:
@@ -489,11 +607,15 @@ def _recommend(
             rec, confidence = "LEAN_PASS", "MEDIUM"
         elif dirs == {"favors", "opposes"}:
             # The lenses disagree: the market and this roster want different
-            # things.  "Depends" is the honest answer; the dissent is shown.
+            # things.  "Depends" is the honest answer; the dissent is shown —
+            # unless this team's posture says which horizon it is playing for.
             rec, confidence = "TOO_CLOSE", "MEDIUM"
+            weighted = _posture_weighted(market, roster, posture)
+            if weighted is not None:
+                rec, confidence, tag = weighted
+                basis += tag
         else:
             rec, confidence = "TOO_CLOSE", "LOW"
-        basis = "market_and_roster"
 
     if feasibility.available and feasibility.direction in ("favors", "opposes"):
         rec = _step(rec, 1 if feasibility.direction == "favors" else -1)
@@ -505,6 +627,28 @@ def _recommend(
             rec = "TOO_CLOSE"
         basis += "+no_legal_cleanup"
     return rec, confidence, basis
+
+
+def _posture_weighted(
+    market: DimensionResult, roster: DimensionResult, posture: DimensionResult | None
+) -> tuple[str, str, str] | None:
+    """Which disagreeing lens this team's posture weighs, or ``None``.
+
+    Never a vote: it only ever picks the direction ONE of the two existing
+    primary lenses already gave, lands on a LEAN (never MAKE / PASS — not a
+    veto), and abstains for HOLD or LOW-confidence posture.
+    """
+    if posture is None or not posture.available:
+        return None
+    sel = (posture.detail or {}).get("selected") or {}
+    label = sel.get("posture")
+    conf = sel.get("confidence")
+    follow = _POSTURE_FOLLOWS.get(str(label))
+    if follow is None or conf not in ("HIGH", "MEDIUM"):
+        return None
+    lens = roster if follow == "rosterUtility" else market
+    rec = "LEAN_MAKE" if lens.direction == "favors" else "LEAN_PASS"
+    return rec, "LOW", f"+posture_weighting:{label}->{lens.name}"
 
 
 def _pct(x: Any) -> str:
@@ -592,6 +736,7 @@ def _reasons(
 
     fd = feasibility.detail or {}
     state = fd.get("state")
+    # (posture / counterparty reasons are appended by ``_context_reasons``)
     if state == "fits_cleanly":
         spots = fd.get("openSpotsAfter")
         reasons_for.append(
@@ -612,6 +757,52 @@ def _reasons(
         reasons_against.append(
             f"Roster full — {_plural(cut, 'cut')} required" + (f": likely {names}" if names else "")
         )
+    return reasons_for, reasons_against
+
+
+def _context_reasons(
+    posture: DimensionResult,
+    counterparty: DimensionResult,
+    basis: str,
+    market: DimensionResult,
+    roster: DimensionResult,
+) -> tuple[list[str], list[str]]:
+    """Team-context lines that name WHY context mattered, never new votes."""
+    reasons_for: list[str] = []
+    reasons_against: list[str] = []
+    if posture.available:
+        sel = (posture.detail or {}).get("selected") or {}
+        label = sel.get("posture")
+        if "+posture_weighting:" in basis:
+            weighed = "current-season lineup impact" if label == "PUSH" else "long-term value"
+            line = (
+                f"Team direction {label} ({str(sel.get('confidence') or '').lower()} "
+                f"confidence): with market and roster split, {weighed} carries the call"
+            )
+            followed = (
+                roster
+                if basis.split("+posture_weighting:")[1].split("+")[0].endswith("->rosterUtility")
+                else market
+            )
+            (reasons_for if followed.direction == "favors" else reasons_against).append(line)
+        marginal = sel.get("marginal") or {}
+        before, after = marginal.get("postureBefore"), marginal.get("postureAfter")
+        if marginal.get("available") and before and after and before != after:
+            reasons_against.append(
+                f"Shifts your team's direction {before} → {after} (lineup-strength basis)"
+            )
+    if counterparty.available:
+        d = counterparty.detail or {}
+        team = (d.get("team") or {}).get("name") or "They"
+        if d.get("state") in ("cut_required", "worsens_overage"):
+            names = ", ".join(str(x.get("name")) for x in d.get("forcedDrops") or [])
+            reasons_against.append(
+                f"{team} would have to cut {len(d.get('forcedDrops') or [])}"
+                + (f" ({names})" if names else "")
+                + " to fit this — harder for them to accept"
+            )
+        elif d.get("state") in ("resolves_overage", "reduces_overage"):
+            reasons_for.append(f"{team} gets back toward their roster limit — easier to accept")
     return reasons_for, reasons_against
 
 
@@ -685,6 +876,7 @@ class AnalyzeTradeResult:
     dimensions: list[DimensionResult]
     unavailable_dimensions: list[dict[str, str]]
     team_context: dict[str, Any]
+    context_effect: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         by_name = {d.name: d.to_dict() for d in self.dimensions}
@@ -694,6 +886,7 @@ class AnalyzeTradeResult:
             "confidence": self.confidence,
             "basis": self.basis,
             "teamContext": self.team_context,
+            "contextEffect": self.context_effect,
             "reasonsFor": self.reasons_for,
             "reasonsAgainst": self.reasons_against,
             "uncertainty": self.uncertainty,
@@ -703,6 +896,8 @@ class AnalyzeTradeResult:
                 "roster": by_name.get("rosterUtility"),
                 "feasibility": by_name.get("feasibility"),
                 "evidence": by_name.get("evidence"),
+                "posture": by_name.get("posture"),
+                "counterpartyFeasibility": by_name.get("counterpartyFeasibility"),
             },
             "dimensions": [d.to_dict() for d in self.dimensions],
             "unavailableDimensions": list(self.unavailable_dimensions),
@@ -719,34 +914,105 @@ def _excluded_by_mode(name: str, lineage: str) -> DimensionResult:
     )
 
 
+def _context_effect(
+    market: DimensionResult,
+    roster: DimensionResult,
+    feasibility: DimensionResult,
+    posture: DimensionResult,
+    final: str,
+    team_context: bool,
+) -> dict[str, Any]:
+    """The Asset-Only answer beside the Team-Context one, and what moved it.
+
+    Rebuilt by adding ONE context dimension at a time to the market-only rule
+    table, so "changed because of team context" names the dimension rather
+    than a black box.  OFF mode: both are the same answer by construction.
+    """
+    off = _excluded_by_mode("rosterUtility", LINEAGE_PROJECTION)
+    off_f = _excluded_by_mode("feasibility", LINEAGE_ROSTER_RULES)
+    asset_only, _c, _b = _recommend(market, off, off_f)
+    if not team_context:
+        return {
+            "assetOnlyRecommendation": asset_only,
+            "teamContextRecommendation": None,
+            "changed": False,
+            "changedBy": [],
+            "note": "Team Context is OFF: this verdict is the Asset-Only Analysis.",
+        }
+    steps = [
+        ("rosterUtility", _recommend(market, roster, off_f)[0]),
+        ("feasibility", _recommend(market, roster, feasibility)[0]),
+        ("posture", _recommend(market, roster, feasibility, posture)[0]),
+    ]
+    changed_by: list[dict[str, str]] = []
+    prev = asset_only
+    for name, rec in steps:
+        if rec != prev:
+            changed_by.append({"dimension": name, "from": prev, "to": rec})
+        prev = rec
+    return {
+        "assetOnlyRecommendation": asset_only,
+        "teamContextRecommendation": final,
+        "changed": final != asset_only,
+        "changedBy": changed_by,
+        "note": (
+            "Raw value alone (canonical values + KTC Value Adjustment) gives the "
+            "Asset-Only answer; each changedBy step is a team-context dimension."
+        ),
+    }
+
+
 def analyze_trade(simulation: dict[str, Any]) -> dict[str, Any]:
     """Synthesize one Analyze Trade packet from a ``simulate_trade`` payload.
 
     Pure composition over fields the simulation already carries
     (``receiving`` / ``sending`` / ``rosterCapacity`` / ``rosterUtility`` /
-    ``finalRosterSimulation`` / ``teamContext``).  Computes no canonical value
-    and calls no engine the simulation did not already call.
+    ``finalRosterSimulation`` / ``counterparty`` / ``posture`` /
+    ``teamContext``).  Computes no canonical value and calls no engine the
+    simulation did not already call.
     """
     cfg = _config()
-    team_context_block = simulation.get("teamContext") or {"applied": True, "mode": "team"}
+    team_context_block = dict(simulation.get("teamContext") or {"applied": True, "mode": "team"})
     team_context = team_context_block.get("applied") is not False
 
     market = _market_lens(simulation)
     if team_context:
         roster = _roster_lens(simulation, cfg)
         feasibility = _feasibility_lens(simulation)
+        posture = _posture_lens(simulation)
+        counterparty = _counterparty_feasibility(simulation)
     else:
         roster = _excluded_by_mode("rosterUtility", LINEAGE_PROJECTION)
         feasibility = _excluded_by_mode("feasibility", LINEAGE_ROSTER_RULES)
+        posture = _excluded_by_mode("posture", "playoff_odds+lineup_strength+age")
+        posture.votes = False
+        counterparty = _excluded_by_mode("counterpartyFeasibility", LINEAGE_ROSTER_RULES)
+        counterparty.votes = False
     evidence = _evidence_lens(simulation, roster)
 
-    recommendation, confidence, basis = _recommend(market, roster, feasibility)
+    recommendation, confidence, basis = _recommend(market, roster, feasibility, posture)
     reasons_for, reasons_against = _reasons(market, roster, feasibility, cfg)
+    ctx_for, ctx_against = _context_reasons(posture, counterparty, basis, market, roster)
+    reasons_for.extend(ctx_for)
+    reasons_against.extend(ctx_against)
     uncertainty = _uncertainty(market, roster, feasibility, evidence, team_context)
+    if team_context and posture.available:
+        sel = (posture.detail or {}).get("selected") or {}
+        if sel.get("confidence") == "LOW":
+            uncertainty.append(
+                f"Team direction is unclear ({sel.get('posture')}, low confidence) — it is "
+                "not used to break a market/roster split"
+            )
     if confidence == "HIGH" and uncertainty:
         # Agreement between two lenses does not survive a named gap in the
         # evidence behind them.
         confidence = "MEDIUM"
+
+    team_context_block["applied"] = team_context
+    team_context_block["mode"] = "team" if team_context else "asset_only"
+    team_context_block.setdefault(
+        "label", "Team Context" if team_context else "Asset-Only Analysis"
+    )
 
     return AnalyzeTradeResult(
         recommendation=recommendation,
@@ -755,10 +1021,10 @@ def analyze_trade(simulation: dict[str, Any]) -> dict[str, Any]:
         reasons_for=reasons_for,
         reasons_against=reasons_against,
         uncertainty=uncertainty,
-        dimensions=[market, roster, feasibility, evidence],
+        dimensions=[market, roster, feasibility, evidence, posture, counterparty],
         unavailable_dimensions=list(_UNAVAILABLE_DIMENSIONS),
-        team_context={
-            "applied": team_context,
-            "mode": "team" if team_context else "asset_only",
-        },
+        team_context=team_context_block,
+        context_effect=_context_effect(
+            market, roster, feasibility, posture, recommendation, team_context
+        ),
     ).to_dict()

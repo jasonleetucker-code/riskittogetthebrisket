@@ -62,6 +62,13 @@
  "analysis": {
   "basis": "single_lens:equity",
   "confidence": "MEDIUM",
+  "contextEffect": {
+   "assetOnlyRecommendation": "MAKE",
+   "changed": false,
+   "changedBy": [],
+   "note": "Raw value alone (canonical values + KTC Value Adjustment) gives the Asset-Only answer; each changedBy step is a team-context dimension.",
+   "teamContextRecommendation": "MAKE"
+  },
   "dimensions": [
    {
     "available": true,
@@ -320,9 +327,210 @@
     "direction": null,
     "lineage": null,
     "votes": false
+   },
+   {
+    "available": true,
+    "detail": {
+     "calibration": {
+      "note": "Affinities, not probabilities: the anchors, timing multipliers and temperature are declared priors and have not been scored against realized team outcomes.",
+      "state": "uncalibrated"
+     },
+     "countedAsVote": false,
+     "counterparty": {
+      "affinities": {
+       "HOLD": 0.8942,
+       "PUSH": 0.001,
+       "REBUILD": 0.0001,
+       "RETOOL": 0.1047
+      },
+      "confidence": "HIGH",
+      "marginal": {
+       "available": true,
+       "basis": "structural_lineup_rank",
+       "basisNote": "Measured on lineup-strength rank and lineup-entrant age for BOTH states: the playoff simulator has no trade counterfactual wired, so title-odds changes are not claimed.",
+       "competitivenessAfter": 0.5,
+       "competitivenessBefore": 0.5,
+       "countedAsVote": false,
+       "forcedDropsApplied": [],
+       "leanAfter": -0.0391,
+       "leanBefore": -0.0391,
+       "leanDelta": 0.0,
+       "lineupStrengthAfter": 0.0,
+       "lineupStrengthBefore": 0.0,
+       "ownsOwnFirstAfter": null,
+       "ownsOwnFirstBefore": null,
+       "postureAfter": "HOLD",
+       "postureBefore": "HOLD",
+       "trajectoryAfter": 0.5,
+       "trajectoryBefore": 0.5,
+       "unresolvedIncoming": []
+      },
+      "posture": "HOLD",
+      "teamName": "Them"
+     },
+     "oddsInput": {
+      "state": "not_supplied"
+     },
+     "role": "weights the primary lenses only when they disagree",
+     "selected": {
+      "affinities": {
+       "HOLD": 0.8942,
+       "PUSH": 0.001,
+       "REBUILD": 0.0001,
+       "RETOOL": 0.1047
+      },
+      "components": {
+       "competitiveness": 0.5,
+       "competitivenessSource": "lineupScoreRank",
+       "ownFirstAssetId": null,
+       "ownsOwnFirst": null,
+       "seasonOdds": null,
+       "timing": {
+        "lastScoredWeek": null,
+        "leanMultiplier": 1.0,
+        "notes": [
+         "season week or playoff start not published; timing is not applied"
+        ],
+        "phase": "unknown",
+        "playoffWeekStart": null,
+        "progressToDeadline": null,
+        "source": "sleeper.leagueSettings",
+        "tradeDeadlineWeek": null,
+        "week": null
+       },
+       "trajectory": 0.5,
+       "trajectorySample": 0,
+       "upcomingDraftYear": null,
+       "windowAffinities": {
+        "championship_contender": 0.054,
+        "playoff_contender": 0.3328,
+        "productive_struggle": 0.1572,
+        "rebuild": 0.0518,
+        "retool": 0.4043
+       },
+       "windowLean": -0.0391
+      },
+      "confidence": "HIGH",
+      "marginal": {
+       "available": true,
+       "basis": "structural_lineup_rank",
+       "basisNote": "Measured on lineup-strength rank and lineup-entrant age for BOTH states: the playoff simulator has no trade counterfactual wired, so title-odds changes are not claimed.",
+       "competitivenessAfter": 0.5,
+       "competitivenessBefore": 0.5,
+       "countedAsVote": false,
+       "forcedDropsApplied": [],
+       "leanAfter": -0.0391,
+       "leanBefore": -0.0391,
+       "leanDelta": 0.0,
+       "lineupStrengthAfter": 0.0,
+       "lineupStrengthBefore": 0.0,
+       "ownsOwnFirstAfter": null,
+       "ownsOwnFirstBefore": null,
+       "postureAfter": "HOLD",
+       "postureBefore": "HOLD",
+       "trajectoryAfter": 0.5,
+       "trajectoryBefore": 0.5,
+       "unresolvedIncoming": []
+      },
+      "notes": [
+       "season week or playoff start not published; timing is not applied",
+       "own-first ownership is unknown; no pick-ownership adjustment applied",
+       "competitiveness from lineup-strength rank (structural proxy) \u2014 no fresh playoff simulation for this league"
+      ],
+      "posture": "HOLD",
+      "teamName": "Us"
+     },
+     "timing": {
+      "lastScoredWeek": null,
+      "leanMultiplier": 1.0,
+      "notes": [
+       "season week or playoff start not published; timing is not applied"
+      ],
+      "phase": "unknown",
+      "playoffWeekStart": null,
+      "progressToDeadline": null,
+      "source": "sleeper.leagueSettings",
+      "tradeDeadlineWeek": null,
+      "week": null
+     }
+    },
+    "dimension": "posture",
+    "direction": null,
+    "lineage": "playoff_odds+lineup_strength+age",
+    "votes": false
+   },
+   {
+    "available": true,
+    "detail": {
+     "candidatesTied": false,
+     "certainty": "exact",
+     "forcedDropReleaseCost": null,
+     "forcedDrops": [],
+     "ladderExhausted": false,
+     "notes": [
+      "no waiver-level values available \u2014 cut costs fall back to raw board value",
+      "positional scarcity not used in this fixture (LABELLED) \u2014 multiplier inert"
+     ],
+     "openSpotsAfter": 6,
+     "openSpotsBefore": 6,
+     "overLimitAfter": 0,
+     "overLimitBefore": 0,
+     "picksOccupySpots": false,
+     "requiresDrops": false,
+     "role": "their roster consequence: bears on whether they would accept; never a vote in your verdict and never counted as your cost",
+     "rosterLimit": 8,
+     "sizeAfter": 2,
+     "sizeBefore": 2,
+     "state": "fits_cleanly",
+     "team": {
+      "name": "Them",
+      "ownerId": "o2",
+      "rosterId": 2
+     },
+     "unpricedForcedDrops": 0
+    },
+    "dimension": "counterpartyFeasibility",
+    "direction": "neutral",
+    "lineage": "league_roster_rules",
+    "votes": false
    }
   ],
   "lenses": {
+   "counterpartyFeasibility": {
+    "available": true,
+    "detail": {
+     "candidatesTied": false,
+     "certainty": "exact",
+     "forcedDropReleaseCost": null,
+     "forcedDrops": [],
+     "ladderExhausted": false,
+     "notes": [
+      "no waiver-level values available \u2014 cut costs fall back to raw board value",
+      "positional scarcity not used in this fixture (LABELLED) \u2014 multiplier inert"
+     ],
+     "openSpotsAfter": 6,
+     "openSpotsBefore": 6,
+     "overLimitAfter": 0,
+     "overLimitBefore": 0,
+     "picksOccupySpots": false,
+     "requiresDrops": false,
+     "role": "their roster consequence: bears on whether they would accept; never a vote in your verdict and never counted as your cost",
+     "rosterLimit": 8,
+     "sizeAfter": 2,
+     "sizeBefore": 2,
+     "state": "fits_cleanly",
+     "team": {
+      "name": "Them",
+      "ownerId": "o2",
+      "rosterId": 2
+     },
+     "unpricedForcedDrops": 0
+    },
+    "dimension": "counterpartyFeasibility",
+    "direction": "neutral",
+    "lineage": "league_roster_rules",
+    "votes": false
+   },
    "evidence": {
     "available": true,
     "detail": {
@@ -398,6 +606,137 @@
     "direction": "favors",
     "lineage": "canonical_value",
     "votes": true
+   },
+   "posture": {
+    "available": true,
+    "detail": {
+     "calibration": {
+      "note": "Affinities, not probabilities: the anchors, timing multipliers and temperature are declared priors and have not been scored against realized team outcomes.",
+      "state": "uncalibrated"
+     },
+     "countedAsVote": false,
+     "counterparty": {
+      "affinities": {
+       "HOLD": 0.8942,
+       "PUSH": 0.001,
+       "REBUILD": 0.0001,
+       "RETOOL": 0.1047
+      },
+      "confidence": "HIGH",
+      "marginal": {
+       "available": true,
+       "basis": "structural_lineup_rank",
+       "basisNote": "Measured on lineup-strength rank and lineup-entrant age for BOTH states: the playoff simulator has no trade counterfactual wired, so title-odds changes are not claimed.",
+       "competitivenessAfter": 0.5,
+       "competitivenessBefore": 0.5,
+       "countedAsVote": false,
+       "forcedDropsApplied": [],
+       "leanAfter": -0.0391,
+       "leanBefore": -0.0391,
+       "leanDelta": 0.0,
+       "lineupStrengthAfter": 0.0,
+       "lineupStrengthBefore": 0.0,
+       "ownsOwnFirstAfter": null,
+       "ownsOwnFirstBefore": null,
+       "postureAfter": "HOLD",
+       "postureBefore": "HOLD",
+       "trajectoryAfter": 0.5,
+       "trajectoryBefore": 0.5,
+       "unresolvedIncoming": []
+      },
+      "posture": "HOLD",
+      "teamName": "Them"
+     },
+     "oddsInput": {
+      "state": "not_supplied"
+     },
+     "role": "weights the primary lenses only when they disagree",
+     "selected": {
+      "affinities": {
+       "HOLD": 0.8942,
+       "PUSH": 0.001,
+       "REBUILD": 0.0001,
+       "RETOOL": 0.1047
+      },
+      "components": {
+       "competitiveness": 0.5,
+       "competitivenessSource": "lineupScoreRank",
+       "ownFirstAssetId": null,
+       "ownsOwnFirst": null,
+       "seasonOdds": null,
+       "timing": {
+        "lastScoredWeek": null,
+        "leanMultiplier": 1.0,
+        "notes": [
+         "season week or playoff start not published; timing is not applied"
+        ],
+        "phase": "unknown",
+        "playoffWeekStart": null,
+        "progressToDeadline": null,
+        "source": "sleeper.leagueSettings",
+        "tradeDeadlineWeek": null,
+        "week": null
+       },
+       "trajectory": 0.5,
+       "trajectorySample": 0,
+       "upcomingDraftYear": null,
+       "windowAffinities": {
+        "championship_contender": 0.054,
+        "playoff_contender": 0.3328,
+        "productive_struggle": 0.1572,
+        "rebuild": 0.0518,
+        "retool": 0.4043
+       },
+       "windowLean": -0.0391
+      },
+      "confidence": "HIGH",
+      "marginal": {
+       "available": true,
+       "basis": "structural_lineup_rank",
+       "basisNote": "Measured on lineup-strength rank and lineup-entrant age for BOTH states: the playoff simulator has no trade counterfactual wired, so title-odds changes are not claimed.",
+       "competitivenessAfter": 0.5,
+       "competitivenessBefore": 0.5,
+       "countedAsVote": false,
+       "forcedDropsApplied": [],
+       "leanAfter": -0.0391,
+       "leanBefore": -0.0391,
+       "leanDelta": 0.0,
+       "lineupStrengthAfter": 0.0,
+       "lineupStrengthBefore": 0.0,
+       "ownsOwnFirstAfter": null,
+       "ownsOwnFirstBefore": null,
+       "postureAfter": "HOLD",
+       "postureBefore": "HOLD",
+       "trajectoryAfter": 0.5,
+       "trajectoryBefore": 0.5,
+       "unresolvedIncoming": []
+      },
+      "notes": [
+       "season week or playoff start not published; timing is not applied",
+       "own-first ownership is unknown; no pick-ownership adjustment applied",
+       "competitiveness from lineup-strength rank (structural proxy) \u2014 no fresh playoff simulation for this league"
+      ],
+      "posture": "HOLD",
+      "teamName": "Us"
+     },
+     "timing": {
+      "lastScoredWeek": null,
+      "leanMultiplier": 1.0,
+      "notes": [
+       "season week or playoff start not published; timing is not applied"
+      ],
+      "phase": "unknown",
+      "playoffWeekStart": null,
+      "progressToDeadline": null,
+      "source": "sleeper.leagueSettings",
+      "tradeDeadlineWeek": null,
+      "week": null
+     }
+    },
+    "dimension": "posture",
+    "direction": null,
+    "lineage": "playoff_odds+lineup_strength+age",
+    "votes": false
    },
    "roster": {
     "available": false,
@@ -590,6 +929,55 @@
   "recommendation": "MAKE",
   "teamContext": {
    "applied": true,
+   "dimensions": [
+    {
+     "dimension": "rosterCapacity",
+     "includedInVerdict": true,
+     "label": "Roster capacity / forced drops (your team)",
+     "state": "included"
+    },
+    {
+     "dimension": "counterpartyCapacity",
+     "includedInVerdict": false,
+     "label": "Roster capacity / forced drops (their team)",
+     "note": "shown as context; not a vote",
+     "state": "context"
+    },
+    {
+     "dimension": "finalRoster",
+     "includedInVerdict": false,
+     "label": "Final legal roster (lineup, Team Strength)",
+     "note": "shown as context; not a vote",
+     "state": "context"
+    },
+    {
+     "dimension": "rosterFit",
+     "includedInVerdict": false,
+     "label": "Positional fit / needs",
+     "note": "shown as context; not a vote",
+     "state": "context"
+    },
+    {
+     "dimension": "rosterUtility",
+     "includedInVerdict": true,
+     "label": "Best-ball lineup impact on the final legal roster",
+     "state": "included"
+    },
+    {
+     "dimension": "competitivePosture",
+     "includedInVerdict": true,
+     "label": "Competitive posture (PUSH / HOLD / RETOOL / REBUILD)",
+     "state": "included"
+    },
+    {
+     "dimension": "currentSeasonEquity",
+     "includedInVerdict": false,
+     "label": "Playoff / championship odds change",
+     "reason": "trade_counterfactual_not_wired",
+     "state": "unavailable"
+    }
+   ],
+   "label": "Team Context",
    "mode": "team"
   },
   "topUncertainty": "No league-scored projection for 1 traded player(s) \u2014 the roster lens abstains rather than count them as zero",
@@ -605,20 +993,20 @@
     "reason": "unaudited_model"
    },
    {
-    "dimension": "strategicPosture",
-    "notes": "Competitive posture (#840) has no canonical owner yet and awaits an owner decision; no posture is invented here.",
-    "reason": "no_canonical_owner"
-   },
-   {
     "dimension": "currentSeasonEquity",
     "notes": "src.ros.playoff_sim.simulate_trade_impact takes a weekly-mean shift only and has no production caller; playoff/championship deltas wait for that owner.",
     "reason": "counterfactual_not_wired"
+   },
+   {
+    "dimension": "ownPickSlotCounterfactual",
+    "notes": "The league's non-playoff draft-order method (record / Max PF / consolation) is not modelled, so no projected own-pick slot change is credited.",
+    "reason": "draft_order_unmodeled"
    }
   ],
   "uncertainty": [
    "No league-scored projection for 1 traded player(s) \u2014 the roster lens abstains rather than count them as zero"
   ],
-  "version": "analyze_trade_v2"
+  "version": "analyze_trade_v3"
  },
  "before": {
   "byPosition": {
@@ -662,6 +1050,326 @@
    "mid": 4
   },
   "totalValue": 19000
+ },
+ "counterparty": {
+  "available": true,
+  "finalRosterSimulation": {
+   "available": true,
+   "cleanupApplied": [],
+   "cleanupIsUpperBound": false,
+   "coreAfter": {
+    "available": true,
+    "demand": {
+     "bySlot": {
+      "FLEX": 1,
+      "QB": 1,
+      "RB": 1,
+      "WR": 1
+     },
+     "dedicatedBasis": {
+      "QB": 1,
+      "RB": 1,
+      "WR": 1
+     },
+     "flexSlots": [
+      "FLEX"
+     ],
+     "multiplier": 1.5,
+     "multiplierProvenance": "owner_addendum_839_amended_899",
+     "multiplierStatus": "PRIOR",
+     "starterBasis": {
+      "FLEX": 1,
+      "QB": 1,
+      "RB": 1,
+      "WR": 1
+     },
+     "superflexFoldedIntoQb": true,
+     "total": 4
+    },
+    "duplicateIds": [],
+    "members": [
+     {
+      "name": "RB Buf Depth",
+      "playerId": "RB Buf Depth",
+      "position": "RB",
+      "role": "starter",
+      "slot": "RB",
+      "value": 300.0
+     }
+    ],
+    "reserveCount": 0,
+    "slotSource": null,
+    "starterCount": 1,
+    "starterSlots": [
+     "QB",
+     "RB",
+     "WR",
+     "FLEX"
+    ],
+    "unavailableReason": null,
+    "unfilledReserveSlots": [
+     "FLEX",
+     "QB",
+     "RB",
+     "WR"
+    ],
+    "unfilledStarterSlots": [
+     "QB",
+     "WR",
+     "FLEX"
+    ],
+    "unpricedIds": [
+     "RB Unpriced"
+    ]
+   },
+   "coreBefore": {
+    "available": true,
+    "demand": {
+     "bySlot": {
+      "FLEX": 1,
+      "QB": 1,
+      "RB": 1,
+      "WR": 1
+     },
+     "dedicatedBasis": {
+      "QB": 1,
+      "RB": 1,
+      "WR": 1
+     },
+     "flexSlots": [
+      "FLEX"
+     ],
+     "multiplier": 1.5,
+     "multiplierProvenance": "owner_addendum_839_amended_899",
+     "multiplierStatus": "PRIOR",
+     "starterBasis": {
+      "FLEX": 1,
+      "QB": 1,
+      "RB": 1,
+      "WR": 1
+     },
+     "superflexFoldedIntoQb": true,
+     "total": 4
+    },
+    "duplicateIds": [],
+    "members": [
+     {
+      "name": "RB Buf Depth",
+      "playerId": "RB Buf Depth",
+      "position": "RB",
+      "role": "starter",
+      "slot": "RB",
+      "value": 300.0
+     },
+     {
+      "name": "WR Buf Star",
+      "playerId": "WR Buf Star",
+      "position": "WR",
+      "role": "starter",
+      "slot": "WR",
+      "value": 7000.0
+     }
+    ],
+    "reserveCount": 0,
+    "slotSource": null,
+    "starterCount": 2,
+    "starterSlots": [
+     "QB",
+     "RB",
+     "WR",
+     "FLEX"
+    ],
+    "unavailableReason": null,
+    "unfilledReserveSlots": [
+     "FLEX",
+     "QB",
+     "RB",
+     "WR"
+    ],
+    "unfilledStarterSlots": [
+     "QB",
+     "FLEX"
+    ],
+    "unpricedIds": []
+   },
+   "displacements": [
+    {
+     "kind": "displaced",
+     "name": "WR Buf Star",
+     "playerId": "WR Buf Star",
+     "position": "WR",
+     "roleAfter": null,
+     "roleBefore": "starter",
+     "slotAfter": null,
+     "slotBefore": "WR"
+    }
+   ],
+   "isVerdict": false,
+   "movements": [
+    {
+     "kind": "displaced",
+     "name": "WR Buf Star",
+     "playerId": "WR Buf Star",
+     "position": "WR",
+     "roleAfter": null,
+     "roleBefore": "starter",
+     "slotAfter": null,
+     "slotBefore": "WR"
+    }
+   ],
+   "needsCreated": [],
+   "needsFixed": [],
+   "notes": [],
+   "outgoingNotFound": [],
+   "promotions": [],
+   "strengthAfter": {
+    "available": true,
+    "byPosition": [
+     {
+      "count": 1,
+      "leaguePercentile": null,
+      "leagueRank": null,
+      "members": [
+       "RB Buf Depth"
+      ],
+      "position": "RB",
+      "reserveCount": 0,
+      "reserveValue": 0.0,
+      "starterCount": 1,
+      "starterValue": 300.0,
+      "value": 300.0
+     }
+    ],
+    "fullRosterValue": null,
+    "isComplete": false,
+    "leaguePercentile": null,
+    "leagueRank": null,
+    "positionOrder": [
+     "RB"
+    ],
+    "reserveValue": 0.0,
+    "starterValue": 300.0,
+    "total": 300.0,
+    "unavailableReason": null,
+    "unfilledReserveSlots": [
+     "FLEX",
+     "QB",
+     "RB",
+     "WR"
+    ],
+    "unfilledStarterSlots": [
+     "QB",
+     "WR",
+     "FLEX"
+    ],
+    "unpricedCount": 1,
+    "unpricedIds": [
+     "RB Unpriced"
+    ]
+   },
+   "strengthBefore": {
+    "available": true,
+    "byPosition": [
+     {
+      "count": 1,
+      "leaguePercentile": null,
+      "leagueRank": null,
+      "members": [
+       "RB Buf Depth"
+      ],
+      "position": "RB",
+      "reserveCount": 0,
+      "reserveValue": 0.0,
+      "starterCount": 1,
+      "starterValue": 300.0,
+      "value": 300.0
+     },
+     {
+      "count": 1,
+      "leaguePercentile": null,
+      "leagueRank": null,
+      "members": [
+       "WR Buf Star"
+      ],
+      "position": "WR",
+      "reserveCount": 0,
+      "reserveValue": 0.0,
+      "starterCount": 1,
+      "starterValue": 7000.0,
+      "value": 7000.0
+     }
+    ],
+    "fullRosterValue": null,
+    "isComplete": false,
+    "leaguePercentile": null,
+    "leagueRank": null,
+    "positionOrder": [
+     "RB",
+     "WR"
+    ],
+    "reserveValue": 0.0,
+    "starterValue": 7300.0,
+    "total": 7300.0,
+    "unavailableReason": null,
+    "unfilledReserveSlots": [
+     "FLEX",
+     "QB",
+     "RB",
+     "WR"
+    ],
+    "unfilledStarterSlots": [
+     "QB",
+     "FLEX"
+    ],
+    "unpricedCount": 0,
+    "unpricedIds": []
+   },
+   "strengthDelta": -7000.0,
+   "unavailableReason": null,
+   "unpricedIncoming": [
+    "RB Unpriced"
+   ],
+   "weaknessAfter": null,
+   "weaknessBefore": null
+  },
+  "inferredFrom": "incoming_asset_ownership",
+  "rosterCapacity": {
+   "certainty": "exact",
+   "forcedDropCutCost": 0.0,
+   "forcedDropReleaseCost": null,
+   "forcedDropValue": 0.0,
+   "forcedDrops": [],
+   "forcedDropsAreUpperBound": false,
+   "incoming": 1,
+   "ladderExhausted": false,
+   "notes": [
+    "no waiver-level values available \u2014 cut costs fall back to raw board value",
+    "positional scarcity not used in this fixture (LABELLED) \u2014 multiplier inert"
+   ],
+   "openSpotsAfter": 6,
+   "openSpotsBefore": 6,
+   "outgoing": 1,
+   "outgoingNotOnRoster": 0,
+   "overLimitAfter": 0,
+   "overLimitAfterMax": 0,
+   "overLimitAfterMin": 0,
+   "overLimitBefore": 0,
+   "requiresDrops": false,
+   "rosterLimit": 8,
+   "rungOrderWasTied": false,
+   "sizeAfter": 2,
+   "sizeBefore": 2,
+   "taxiOccupiedMax": 0,
+   "taxiOccupiedMin": 0,
+   "taxiSize": 0,
+   "unpricedForcedDrops": 0,
+   "valueScale": "rankDerivedValue"
+  },
+  "team": {
+   "name": "Them",
+   "ownerId": "o2",
+   "rosterId": 2
+  }
  },
  "delta": {
   "byPosition": {
@@ -1142,6 +1850,189 @@
   "rule": "src/identity/picks.py::lookup_league_pick_owner",
   "unverified": []
  },
+ "posture": {
+  "available": true,
+  "calibration": {
+   "note": "Affinities, not probabilities: the anchors, timing multipliers and temperature are declared priors and have not been scored against realized team outcomes.",
+   "state": "uncalibrated"
+  },
+  "countedAsVote": false,
+  "counterparty": {
+   "affinities": {
+    "HOLD": 0.8942,
+    "PUSH": 0.001,
+    "REBUILD": 0.0001,
+    "RETOOL": 0.1047
+   },
+   "calibration": {
+    "note": "Affinities, not probabilities: the anchors, timing multipliers and temperature are declared priors and have not been scored against realized team outcomes.",
+    "state": "uncalibrated"
+   },
+   "components": {
+    "competitiveness": 0.5,
+    "competitivenessSource": "lineupScoreRank",
+    "ownFirstAssetId": null,
+    "ownsOwnFirst": null,
+    "seasonOdds": null,
+    "timing": {
+     "lastScoredWeek": null,
+     "leanMultiplier": 1.0,
+     "notes": [
+      "season week or playoff start not published; timing is not applied"
+     ],
+     "phase": "unknown",
+     "playoffWeekStart": null,
+     "progressToDeadline": null,
+     "source": "sleeper.leagueSettings",
+     "tradeDeadlineWeek": null,
+     "week": null
+    },
+    "trajectory": 0.5,
+    "trajectorySample": 0,
+    "upcomingDraftYear": null,
+    "windowAffinities": {
+     "championship_contender": 0.054,
+     "playoff_contender": 0.3328,
+     "productive_struggle": 0.1572,
+     "rebuild": 0.0518,
+     "retool": 0.4043
+    },
+    "windowLean": -0.0391
+   },
+   "confidence": "HIGH",
+   "countedAsVote": false,
+   "draftOrder": {
+    "note": "The league's non-playoff draft-order method (record / Max PF / consolation) is not modelled, so no projected own-pick slot is credited and losing is never treated as a draft-capital benefit.",
+    "state": "unmodeled"
+   },
+   "lean": -0.0391,
+   "marginal": {
+    "available": true,
+    "basis": "structural_lineup_rank",
+    "basisNote": "Measured on lineup-strength rank and lineup-entrant age for BOTH states: the playoff simulator has no trade counterfactual wired, so title-odds changes are not claimed.",
+    "competitivenessAfter": 0.5,
+    "competitivenessBefore": 0.5,
+    "countedAsVote": false,
+    "forcedDropsApplied": [],
+    "leanAfter": -0.0391,
+    "leanBefore": -0.0391,
+    "leanDelta": 0.0,
+    "lineupStrengthAfter": 0.0,
+    "lineupStrengthBefore": 0.0,
+    "ownsOwnFirstAfter": null,
+    "ownsOwnFirstBefore": null,
+    "postureAfter": "HOLD",
+    "postureBefore": "HOLD",
+    "trajectoryAfter": 0.5,
+    "trajectoryBefore": 0.5,
+    "unresolvedIncoming": []
+   },
+   "notes": [
+    "season week or playoff start not published; timing is not applied",
+    "own-first ownership is unknown; no pick-ownership adjustment applied",
+    "competitiveness from lineup-strength rank (structural proxy) \u2014 no fresh playoff simulation for this league"
+   ],
+   "ownerId": "o2",
+   "posture": "HOLD",
+   "teamName": "Them"
+  },
+  "oddsInput": {
+   "state": "not_supplied"
+  },
+  "selected": {
+   "affinities": {
+    "HOLD": 0.8942,
+    "PUSH": 0.001,
+    "REBUILD": 0.0001,
+    "RETOOL": 0.1047
+   },
+   "calibration": {
+    "note": "Affinities, not probabilities: the anchors, timing multipliers and temperature are declared priors and have not been scored against realized team outcomes.",
+    "state": "uncalibrated"
+   },
+   "components": {
+    "competitiveness": 0.5,
+    "competitivenessSource": "lineupScoreRank",
+    "ownFirstAssetId": null,
+    "ownsOwnFirst": null,
+    "seasonOdds": null,
+    "timing": {
+     "lastScoredWeek": null,
+     "leanMultiplier": 1.0,
+     "notes": [
+      "season week or playoff start not published; timing is not applied"
+     ],
+     "phase": "unknown",
+     "playoffWeekStart": null,
+     "progressToDeadline": null,
+     "source": "sleeper.leagueSettings",
+     "tradeDeadlineWeek": null,
+     "week": null
+    },
+    "trajectory": 0.5,
+    "trajectorySample": 0,
+    "upcomingDraftYear": null,
+    "windowAffinities": {
+     "championship_contender": 0.054,
+     "playoff_contender": 0.3328,
+     "productive_struggle": 0.1572,
+     "rebuild": 0.0518,
+     "retool": 0.4043
+    },
+    "windowLean": -0.0391
+   },
+   "confidence": "HIGH",
+   "countedAsVote": false,
+   "draftOrder": {
+    "note": "The league's non-playoff draft-order method (record / Max PF / consolation) is not modelled, so no projected own-pick slot is credited and losing is never treated as a draft-capital benefit.",
+    "state": "unmodeled"
+   },
+   "lean": -0.0391,
+   "marginal": {
+    "available": true,
+    "basis": "structural_lineup_rank",
+    "basisNote": "Measured on lineup-strength rank and lineup-entrant age for BOTH states: the playoff simulator has no trade counterfactual wired, so title-odds changes are not claimed.",
+    "competitivenessAfter": 0.5,
+    "competitivenessBefore": 0.5,
+    "countedAsVote": false,
+    "forcedDropsApplied": [],
+    "leanAfter": -0.0391,
+    "leanBefore": -0.0391,
+    "leanDelta": 0.0,
+    "lineupStrengthAfter": 0.0,
+    "lineupStrengthBefore": 0.0,
+    "ownsOwnFirstAfter": null,
+    "ownsOwnFirstBefore": null,
+    "postureAfter": "HOLD",
+    "postureBefore": "HOLD",
+    "trajectoryAfter": 0.5,
+    "trajectoryBefore": 0.5,
+    "unresolvedIncoming": []
+   },
+   "notes": [
+    "season week or playoff start not published; timing is not applied",
+    "own-first ownership is unknown; no pick-ownership adjustment applied",
+    "competitiveness from lineup-strength rank (structural proxy) \u2014 no fresh playoff simulation for this league"
+   ],
+   "ownerId": "o1",
+   "posture": "HOLD",
+   "teamName": "Us"
+  },
+  "timing": {
+   "lastScoredWeek": null,
+   "leanMultiplier": 1.0,
+   "notes": [
+    "season week or playoff start not published; timing is not applied"
+   ],
+   "phase": "unknown",
+   "playoffWeekStart": null,
+   "progressToDeadline": null,
+   "source": "sleeper.leagueSettings",
+   "tradeDeadlineWeek": null,
+   "week": null
+  },
+  "version": "posture_v1"
+ },
  "receiving": [
   {
    "age": null,
@@ -1383,18 +2274,66 @@
  },
  "teamContext": {
   "applied": true,
+  "dimensions": [
+   {
+    "dimension": "rosterCapacity",
+    "includedInVerdict": true,
+    "label": "Roster capacity / forced drops (your team)",
+    "state": "included"
+   },
+   {
+    "dimension": "counterpartyCapacity",
+    "includedInVerdict": false,
+    "label": "Roster capacity / forced drops (their team)",
+    "note": "shown as context; not a vote",
+    "state": "context"
+   },
+   {
+    "dimension": "finalRoster",
+    "includedInVerdict": false,
+    "label": "Final legal roster (lineup, Team Strength)",
+    "note": "shown as context; not a vote",
+    "state": "context"
+   },
+   {
+    "dimension": "rosterFit",
+    "includedInVerdict": false,
+    "label": "Positional fit / needs",
+    "note": "shown as context; not a vote",
+    "state": "context"
+   },
+   {
+    "dimension": "rosterUtility",
+    "includedInVerdict": true,
+    "label": "Best-ball lineup impact on the final legal roster",
+    "state": "included"
+   },
+   {
+    "dimension": "competitivePosture",
+    "includedInVerdict": true,
+    "label": "Competitive posture (PUSH / HOLD / RETOOL / REBUILD)",
+    "state": "included"
+   },
+   {
+    "dimension": "currentSeasonEquity",
+    "includedInVerdict": false,
+    "label": "Playoff / championship odds change",
+    "reason": "trade_counterfactual_not_wired",
+    "state": "unavailable"
+   }
+  ],
+  "label": "Team Context",
   "mode": "team"
  },
  "teamImpact": {
   "ageDelta": 0.0,
-  "compositeScore": 83.0,
+  "countedAsVote": false,
   "depthDelta": {
    "QB": 0,
    "RB": -1,
    "TE": 0,
    "WR": 1
   },
-  "equityScore": 100.0,
   "fitScore": 69.1,
   "lineupDisplacement": {
    "arrived": [
@@ -1419,14 +2358,13 @@
    "startersAfter": 4,
    "startersBefore": 4
   },
-  "posture": "contender",
   "rationale": [
    "Shifts WR starter quality (+5000.0)",
-   "Net KTC equity +7000",
    "Adds bench depth at saturated WR (-overflow)",
    "Roster-shape fit score +69"
   ],
   "redundancy": [],
+  "role": "explanation",
   "scarcityDelta": {
    "QB": 0.0,
    "RB": 0.0,
@@ -1447,9 +2385,7 @@
   },
   "unscalablePositions": [
    "TE"
-  ],
-  "verdict": "accept",
-  "windowFit": 0.0
+  ]
  },
  "unresolvedIn": [],
  "unresolvedOut": []

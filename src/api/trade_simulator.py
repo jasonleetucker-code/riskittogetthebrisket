@@ -225,6 +225,57 @@ def _classify_owned_picks(
     }
 
 
+def infer_counterparty(
+    teams: list[Any] | None,
+    *,
+    players_in: list[str],
+    pick_ids_in: list[str | None] | None = None,
+    exclude_rid: int | None = None,
+) -> tuple[dict[str, Any] | None, str | None]:
+    """The ONE team a two-sided trade's incoming assets come from.
+
+    ``(team, None)`` when every incoming player (and every incoming owned
+    pick id) is held by exactly one other team; otherwise ``(None, reason)``.
+    Evidence only — names on rosters, ids in the canonical pick inventory —
+    never a guess: a trade whose incoming assets span teams, or that brings in
+    nothing anyone holds, has no single counterparty to evaluate.
+    """
+    if not isinstance(teams, list):
+        return None, "no_league_rosters"
+    holders: set[int] = set()
+    by_rid: dict[int, dict[str, Any]] = {}
+    roster_of: dict[str, set[int]] = {}
+    for t in teams:
+        rid = _coerce_rid(t)
+        if rid is None:
+            continue
+        by_rid[rid] = t
+        for name in t.get("players") or []:
+            roster_of.setdefault(str(name).strip().lower(), set()).add(rid)
+    unheld: list[str] = []
+    for name in players_in:
+        rids = roster_of.get(str(name).strip().lower(), set()) - (
+            {exclude_rid} if exclude_rid is not None else set()
+        )
+        if not rids:
+            unheld.append(str(name))
+            continue
+        holders |= rids
+    owners, _complete = league_pick_owner_index(teams)
+    for aid in pick_ids_in or []:
+        if not aid:
+            continue
+        for rid in owners.get(str(aid)) or []:
+            if rid != exclude_rid:
+                holders.add(rid)
+    if not holders:
+        return None, "incoming_assets_not_held_by_another_team"
+    if len(holders) > 1:
+        return None, "incoming_assets_span_multiple_teams"
+    rid = next(iter(holders))
+    return by_rid.get(rid), None
+
+
 def _resolve_asset(
     name: str,
     *,
@@ -407,6 +458,10 @@ def simulate_trade(
     include_roster_utility: bool = False,
     pick_asset_ids_in: list[Any] | None = None,
     pick_asset_ids_out: list[Any] | None = None,
+    use_team_context: bool = True,
+    include_posture: bool = False,
+    posture_odds: tuple[Any, Any] | None = None,
+    analysis: bool = False,
 ) -> dict[str, Any]:
     """Build the simulator payload for a single hypothetical trade.
 
@@ -454,6 +509,20 @@ def simulate_trade(
     * One real pick counts at most once: a repeated id is reported, not
       debited or credited twice, and a pick the team already holds is not
       credited again.
+
+    Team context (#842 / #843 / #840):
+
+    * ``use_team_context`` is the shared mode (``src.trade.team_context``).
+      The payload always carries ``teamContext``; OFF ("Asset-Only") still
+      computes the roster blocks for display but labels every one
+      ``includedInVerdict: false``.
+    * ``counterparty`` -- capacity and the final legal roster for the OTHER
+      team (#843 requires both), inferred from who holds the incoming assets
+      (:func:`infer_counterparty`); unavailable with a reason otherwise.
+    * ``posture`` (only with ``include_posture`` and context ON) -- Competitive
+      Posture for both teams plus the marginal change on the final legal
+      roster (``src.roster_intel.posture``).  ``posture_odds`` is the
+      ``(rows, meta)`` pair from ``posture.load_playoff_odds``.
     """
     players_in = [p for p in (players_in or []) if p]
     players_out = [p for p in (players_out or []) if p]
@@ -643,7 +712,6 @@ def simulate_trade(
             after_assets=after_assets,
             receiving=receiving,
             sending=sending,
-            equity=int(equity),
             roster_settings=roster_settings,
         )
         if impact is not None:
@@ -780,4 +848,299 @@ def simulate_trade(
                     "unavailableReason": f"error:{type(exc).__name__}",
                 }
 
+    # #843: capacity is evaluated FOR BOTH TEAMS.  The other side's roster
+    # receives what this team sends; its forced drops are its own cost and
+    # never this team's (no zero-sum double count).
+    counterparty_team = None
+    cp_capacity = None
+    if resolved_team:
+        counterparty_team, cp_reason = infer_counterparty(
+            teams if isinstance(teams, list) else None,
+            players_in=players_in,
+            pick_ids_in=pick_ids_in,
+            exclude_rid=team_rid,
+        )
+        if counterparty_team is None:
+            response["counterparty"] = {"available": False, "unavailableReason": cp_reason}
+        else:
+            cp_block, cp_capacity = _counterparty_block(
+                contract,
+                league_key,
+                counterparty_team,
+                roster_settings=roster_settings,
+                incoming=players_out,
+                outgoing=players_in,
+            )
+            response["counterparty"] = cp_block
+
+    if include_posture and use_team_context and resolved_team:
+        response["posture"] = _posture_block(
+            contract,
+            league_key,
+            resolved_team,
+            counterparty_team,
+            capacity=capacity,
+            cp_capacity=cp_capacity,
+            players_in=players_in,
+            players_out=players_out,
+            pick_ids_in=pick_ids_in,
+            pick_ids_out=pick_ids_out,
+            posture_odds=posture_odds,
+            roster_settings=roster_settings,
+        )
+
+    _stamp_team_context(
+        response,
+        use_team_context=use_team_context,
+        include_roster_utility=include_roster_utility or analysis,
+        include_posture=include_posture or analysis,
+    )
     return response
+
+
+_TEAM_CONTEXT_BLOCKS = (
+    "teamImpact",
+    "rosterCapacity",
+    "finalRosterSimulation",
+    "counterparty",
+    "rosterUtility",
+    "posture",
+)
+
+
+def _block_state(block: Any, role: str = "included") -> tuple[str, str | None]:
+    """``(state, reason)``; ``role`` is what a COMPUTED block is to the verdict."""
+    if not isinstance(block, dict):
+        return "unavailable", "not_computed"
+    if block.get("unavailable"):
+        return "unavailable", str(block.get("unavailable"))
+    if block.get("available") is False:
+        return "unavailable", str(block.get("unavailableReason") or "unavailable")
+    return role, None
+
+
+def _stamp_team_context(
+    response: dict[str, Any],
+    *,
+    use_team_context: bool,
+    include_roster_utility: bool,
+    include_posture: bool,
+) -> None:
+    """One ``teamContext`` block per payload, from the shared mode owner."""
+    from src.trade.team_context import label_excluded, mode_block  # noqa: PLC0415
+
+    if not use_team_context:
+        for key in _TEAM_CONTEXT_BLOCKS:
+            if key in response:
+                response[key] = label_excluded(response[key])
+        consulted = ["rosterCapacity", "counterpartyCapacity", "finalRoster", "rosterFit"]
+        if include_roster_utility:
+            consulted.append("rosterUtility")
+        if include_posture:
+            consulted.extend(["competitivePosture", "currentSeasonEquity", "pickStrategy"])
+        response["teamContext"] = mode_block(False, consulted=consulted)
+        return
+    cp = response.get("counterparty")
+    cp_cap = cp.get("rosterCapacity") if isinstance(cp, dict) and cp.get("available") else cp
+    # Roles as Analyze Trade uses them: the selected team's capacity and the
+    # final-roster utility VOTE, posture WEIGHS a market/roster split; the
+    # other team's capacity, Team Strength and positional fit are context.
+    dims: dict[str, tuple[str, str | None]] = {
+        "rosterCapacity": _block_state(response.get("rosterCapacity")),
+        "counterpartyCapacity": _block_state(cp_cap, "context"),
+        "finalRoster": _block_state(response.get("finalRosterSimulation"), "context"),
+        "rosterFit": _block_state(response.get("teamImpact"), "context"),
+    }
+    if include_roster_utility:
+        dims["rosterUtility"] = _block_state(response.get("rosterUtility"))
+    if include_posture:
+        dims["competitivePosture"] = _block_state(response.get("posture"))
+        dims["currentSeasonEquity"] = ("unavailable", "trade_counterfactual_not_wired")
+    response["teamContext"] = mode_block(True, dimensions=dims)
+
+
+def _counterparty_block(
+    contract: dict[str, Any],
+    league_key: str | None,
+    team: dict[str, Any],
+    *,
+    roster_settings: dict[str, Any] | None,
+    incoming: list[str],
+    outgoing: list[str],
+) -> tuple[dict[str, Any], Any]:
+    """The other team's capacity + final legal roster, via the same owner."""
+    block: dict[str, Any] = {
+        "available": True,
+        "team": {
+            "ownerId": str(team.get("ownerId") or ""),
+            "name": str(team.get("name") or ""),
+            "rosterId": team.get("roster_id"),
+        },
+        "inferredFrom": "incoming_asset_ownership",
+    }
+    try:
+        from src.trade.roster_capacity import (  # noqa: PLC0415
+            assess_roster_capacity,
+            build_capacity_context,
+            simulate_final_legal_roster,
+        )
+
+        ctx = build_capacity_context(contract, league_key, team, roster_settings=roster_settings)
+        cap = assess_roster_capacity(ctx, incoming_players=incoming, outgoing_players=outgoing)
+    except Exception as exc:  # noqa: BLE001 -- degrade, never fail the trade answer
+        block["rosterCapacity"] = {
+            "unavailable": type(exc).__name__,
+            "notes": ["the other team's roster capacity could not be computed"],
+        }
+        return block, None
+    block["rosterCapacity"] = cap.to_dict()
+    if cap.requires_drops is None:
+        block["finalRosterSimulation"] = {
+            "available": False,
+            "unavailableReason": "capacity_uncertain",
+        }
+    else:
+        try:
+            block["finalRosterSimulation"] = simulate_final_legal_roster(
+                ctx, cap, incoming_players=incoming, outgoing_players=outgoing
+            )
+        except Exception as exc:  # noqa: BLE001
+            block["finalRosterSimulation"] = {"unavailable": type(exc).__name__}
+    return block, cap
+
+
+def _pool_key_for(teams: list[Any], team: dict[str, Any] | None) -> str | None:
+    from src.api.data_contract import roster_pool_key  # noqa: PLC0415
+
+    if not isinstance(team, dict):
+        return None
+    rid = _coerce_rid(team)
+    for i, t in enumerate(teams):
+        if t is team or (rid is not None and _coerce_rid(t) == rid):
+            return roster_pool_key(teams, i, t)
+    return None
+
+
+def _posture_side(
+    contract: dict[str, Any],
+    league: dict[str, Any],
+    teams: list[Any],
+    team: dict[str, Any] | None,
+    *,
+    capacity: Any,
+    incoming: list[str],
+    outgoing: list[str],
+    ids_in: list[str | None],
+    ids_out: list[str | None],
+    roster_settings: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    from src.roster_intel.posture import posture_marginal  # noqa: PLC0415
+
+    key = _pool_key_for(teams, team)
+    entry = (league.get("teams") or {}).get(key) if key else None
+    if entry is None:
+        return None
+    own_id = (entry.get("components") or {}).get("ownFirstAssetId")
+    own_after = None
+    if own_id and own_id in {str(x) for x in ids_out if x}:
+        own_after = False
+    elif own_id and own_id in {str(x) for x in ids_in if x}:
+        own_after = True
+    drops: list[str] = []
+    drops_note = None
+    if capacity is not None:
+        if capacity.requires_drops is None:
+            drops_note = (
+                "forced-drop set uncertain (taxi occupancy unknown); marginal shown before cleanup"
+            )
+        elif capacity.requires_drops:
+            drops = [d.name for d in capacity.forced_drops]
+    marginal = posture_marginal(
+        contract,
+        key,
+        players_in=incoming,
+        players_out=outgoing,
+        forced_drops=drops,
+        own_first_after=own_after,
+        roster_settings=roster_settings,
+    )
+    if drops_note:
+        marginal["notes"] = [drops_note]
+    return {**entry, "marginal": marginal}
+
+
+def _posture_block(
+    contract: dict[str, Any],
+    league_key: str | None,
+    resolved_team: dict[str, Any],
+    counterparty_team: dict[str, Any] | None,
+    *,
+    capacity: Any,
+    cp_capacity: Any,
+    players_in: list[str],
+    players_out: list[str],
+    pick_ids_in: list[str | None],
+    pick_ids_out: list[str | None],
+    posture_odds: tuple[Any, Any] | None,
+    roster_settings: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Competitive Posture (#840) for both teams -- context, never a vote."""
+    try:
+        from src.roster_intel.posture import build_league_postures  # noqa: PLC0415
+
+        rows, meta = posture_odds if posture_odds else (None, {"state": "not_supplied"})
+        league = build_league_postures(
+            contract,
+            league_key=league_key,
+            playoff_odds=rows,
+            odds_meta=meta,
+            roster_settings=roster_settings,
+        )
+        if not league.get("available"):
+            return {
+                "available": False,
+                "unavailableReason": str(league.get("unavailableReason") or "unavailable"),
+            }
+        teams = (contract.get("sleeper") or {}).get("teams") or []
+        selected = _posture_side(
+            contract,
+            league,
+            teams,
+            resolved_team,
+            capacity=capacity,
+            incoming=players_in,
+            outgoing=players_out,
+            ids_in=pick_ids_in,
+            ids_out=pick_ids_out,
+            roster_settings=roster_settings,
+        )
+        if selected is None:
+            return {"available": False, "unavailableReason": "team_not_in_league_pools"}
+        counterparty = (
+            _posture_side(
+                contract,
+                league,
+                teams,
+                counterparty_team,
+                capacity=cp_capacity,
+                incoming=players_out,
+                outgoing=players_in,
+                ids_in=pick_ids_out,
+                ids_out=pick_ids_in,
+                roster_settings=roster_settings,
+            )
+            if counterparty_team is not None
+            else None
+        )
+        return {
+            "available": True,
+            "version": league.get("version"),
+            "selected": selected,
+            "counterparty": counterparty,
+            "timing": league.get("timing"),
+            "oddsInput": league.get("oddsInput"),
+            "calibration": league.get("calibration"),
+            "countedAsVote": False,
+        }
+    except Exception as exc:  # noqa: BLE001 -- posture is context; never fail the trade
+        return {"available": False, "unavailableReason": f"error:{type(exc).__name__}"}

@@ -117,6 +117,7 @@ __all__ = [
     "build_capacity_context",
     "league_roster_limit",
     "league_taxi_size",
+    "requires_cleanup",
 ]
 
 
@@ -897,6 +898,56 @@ def evaluate_final_roster_utility(
     return result
 
 
+def _taxi_bracket(
+    context: CapacityContext,
+    incoming: Sequence[str],
+    outgoing: Sequence[str],
+    size_after: int,
+) -> tuple[int, int, str]:
+    """``(taxi_lo, taxi_hi, certainty)`` — how many roster members may sit on taxi.
+
+    Sleeper lists taxi players inside ``players``, so ``size_*`` counts them.
+    With membership invisible, the number occupying ACTIVE spots is bracketed
+    rather than guessed: guessing 0 overstates pressure and invents forced
+    drops, guessing full relief hides real ones.
+    """
+    if context.taxi_size <= 0:
+        return 0, 0, "exact"
+    if context.taxi_membership_known:
+        # Count the taxi members that SURVIVE the trade, capped at the number
+        # of slots that exist — a source can list more than the league allows.
+        surviving_keys = _surviving_keys(context, incoming, outgoing)
+        occupied = len(context.taxi_member_keys & surviving_keys)
+        n = min(context.taxi_size, occupied)
+        return n, n, "exact"
+    hi = min(context.taxi_size, size_after)
+    return 0, hi, ("exact" if hi == 0 else "partial")
+
+
+def requires_cleanup(
+    context: CapacityContext,
+    *,
+    incoming_players: Sequence[str] = (),
+    outgoing_players: Sequence[str] = (),
+) -> bool | None:
+    """Whether :func:`assess_roster_capacity` would have to build a cut ladder.
+
+    The COUNTS half of the same answer — same counting rule, same taxi
+    bracket, no lineup solve — so a generator can tell "this package forces a
+    cut" from "it fits" without paying for the ladder on every candidate.
+    ``True`` when the worst case is over the cap, ``False`` when it fits under
+    every taxi assignment, ``None`` when the cap is unknown.
+    """
+    if context.roster_limit is None:
+        return None
+    incoming = [str(n) for n in incoming_players if str(n or "").strip()]
+    outgoing = [str(n) for n in outgoing_players if str(n or "").strip()]
+    held_out, _absent = _outgoing_held(context, outgoing)
+    size_after = len(context.roster_player_names) - held_out + len(incoming)
+    taxi_lo, _hi, _certainty = _taxi_bracket(context, incoming, outgoing, size_after)
+    return (size_after - taxi_lo) - context.roster_limit > 0
+
+
 def assess_roster_capacity(
     context: CapacityContext,
     *,
@@ -943,25 +994,7 @@ def assess_roster_capacity(
             notes=notes,
         )
 
-    # ── Taxi bracket ─────────────────────────────────────────────────
-    # Sleeper lists taxi players inside ``players``, so ``size_*`` counts
-    # them.  With membership invisible, the number occupying ACTIVE spots is
-    # bracketed rather than guessed: guessing 0 overstates pressure and
-    # invents forced drops, guessing full relief hides real ones.
-    if context.taxi_size <= 0:
-        taxi_lo = taxi_hi = 0
-        certainty = "exact"
-    elif context.taxi_membership_known:
-        # Count the taxi members that SURVIVE the trade, capped at the number
-        # of slots that exist — a source can list more than the league allows.
-        surviving_keys = _surviving_keys(context, incoming, outgoing)
-        occupied = len(context.taxi_member_keys & surviving_keys)
-        taxi_lo = taxi_hi = min(context.taxi_size, occupied)
-        certainty = "exact"
-    else:
-        taxi_lo = 0
-        taxi_hi = min(context.taxi_size, size_after)
-        certainty = "exact" if taxi_hi == 0 else "partial"
+    taxi_lo, taxi_hi, certainty = _taxi_bracket(context, incoming, outgoing, size_after)
 
     # Worst case for the roster is the FEWEST players on taxi.
     over_after_max = max(0, (size_after - taxi_lo) - limit)

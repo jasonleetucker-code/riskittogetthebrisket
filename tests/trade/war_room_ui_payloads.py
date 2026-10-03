@@ -129,9 +129,12 @@ def build(name: str) -> dict:
             roster_settings=_SETTINGS,
             league_key="main",
             include_roster_utility=context,
+            use_team_context=context,
+            include_posture=context,
+            posture_odds=None,
+            analysis=True,
         )
     result["leagueKey"] = "main"
-    result["teamContext"] = {"applied": context, "mode": "team" if context else "asset_only"}
     result["analysis"] = analyze_trade(result)
     payload = json.loads(json.dumps(result, default=list))
     payload["_fixture"] = {

@@ -122,6 +122,9 @@ class TestTeamContextDefaultsOn:
 
 class TestOnUsesTheCanonicalOwner:
     def test_a_trade_receiving_the_critical_need_position_is_flagged(self):
+        """The canonical Team Weakness owner names the need — as EXPLANATION.
+        The retired ``rosterFitBonus`` no longer adds to the score (Wave B
+        double-count rule 4: replaced by the final-legal-roster re-rank)."""
         players, contract, teams = _fixture()
         res = find_trades(
             players=players,
@@ -134,7 +137,9 @@ class TestOnUsesTheCanonicalOwner:
         te_trades = [t for t in res["trades"] if any(a["position"] == "TE" for a in t["receive"])]
         assert te_trades, "expected at least one candidate trade bringing in the TE"
         assert any("addresses_urgent_need:TE" in t.get("flags", []) for t in te_trades)
-        assert any("roster_fit" in t.get("flags", []) for t in te_trades)
+        for t in res["trades"]:
+            assert "roster_fit" not in t.get("flags", [])
+            assert (t.get("rankingFactors") or {}).get("rosterFitBonus") == 0.0
 
     def test_teamcontext_metadata_names_the_canonical_owner_result(self):
         players, contract, teams = _fixture()
@@ -176,9 +181,10 @@ class TestOffGenuinelySuppressesTeamContext:
             # default, not that the key vanishes.
             assert (t.get("rankingFactors") or {}).get("rosterFitBonus") == 0.0
 
-    def test_on_and_off_are_genuinely_behaviorally_distinct(self):
-        """Same fixture, only the toggle differs — scores must differ for
-        any trade the ON run flagged as addressing the critical TE need."""
+    def test_need_flags_never_move_a_score(self):
+        """Same fixture, only the toggle differs: with no roster cap and no
+        posture input, ON and OFF score every shared package IDENTICALLY — the
+        need arm is explanation, not a bonus."""
         players, contract, teams = _fixture()
         kwargs = dict(
             players=players,
@@ -190,22 +196,22 @@ class TestOffGenuinelySuppressesTeamContext:
         on_res = find_trades(**kwargs, use_team_context=True)
         off_res = find_trades(**kwargs, use_team_context=False)
 
-        on_by_key = {
-            (
-                tuple(sorted(a["name"] for a in t["give"])),
-                tuple(sorted(a["name"] for a in t["receive"])),
-            ): t
-            for t in on_res["trades"]
-        }
-        off_by_key = {
-            (
-                tuple(sorted(a["name"] for a in t["give"])),
-                tuple(sorted(a["name"] for a in t["receive"])),
-            ): t
-            for t in off_res["trades"]
-        }
+        def by_key(res):
+            return {
+                (
+                    tuple(sorted(a["name"] for a in t["give"])),
+                    tuple(sorted(a["name"] for a in t["receive"])),
+                ): t
+                for t in res["trades"]
+            }
+
+        on_by_key, off_by_key = by_key(on_res), by_key(off_res)
         te_keys = [k for k in on_by_key if "Rival TE1" in k[1]]
         assert te_keys, "expected a shared TE-acquiring candidate in both runs"
         for key in te_keys:
             assert key in off_by_key, "OFF must not silently drop the same candidate"
-            assert on_by_key[key]["arbitrageScore"] > off_by_key[key]["arbitrageScore"]
+            assert on_by_key[key]["arbitrageScore"] == off_by_key[key]["arbitrageScore"]
+        # The ON run says what it could not use, never silently.
+        dims = {d["dimension"]: d for d in on_res["metadata"]["teamContext"]["dimensions"]}
+        assert dims["competitivePosture"]["state"] == "unavailable"
+        assert off_res["metadata"]["teamContext"]["mode"] == "asset_only"
