@@ -595,3 +595,127 @@ def test_analyze_names_the_not_owned_pick():
     out = analyze_trade(sim)
     text = repr(out)
     assert "Not held by this team" in text and "Team Bravo" in text
+
+
+# ── Independent-review follow-ups (N2-N5) ────────────────────────────────
+
+
+def _sim_with_teams(owner: str, mutate, **kw):
+    contract = _owned_contract()
+    mutate(contract["sleeper"]["teams"])
+    team = terminal.resolve_team(contract, owner_id=owner, name=None)
+    return trade_simulator.simulate_trade(contract, resolved_team=team, **kw)
+
+
+def test_unknown_ownership_never_debits_and_is_reported_unknown():
+    """N2: Alpha's own 2027 Early 1st is ALSO claimed by Bravo, so the lookup
+    answers ``unknown``.  Sending it by id must not debit Alpha's roster as if
+    ownership were proven -- the pick stays in the trade as typed (priced) and
+    is reported as unverified."""
+
+    def double_claim(teams):
+        teams[1]["pickDetails"] = [*teams[1]["pickDetails"], dict(teams[0]["pickDetails"][0])]
+
+    result = _sim_with_teams(
+        "o1",
+        double_claim,
+        picks_out=["2027 Early 1st"],
+        pick_asset_ids_out=["pick:lk:2027:r1:o1"],
+    )
+    checks = result["ownedPickChecks"]
+    assert [(c["assetId"], c["reason"]) for c in checks["unverified"]] == [
+        ("pick:lk:2027:r1:o1", "conflicting_ownership_records")
+    ]
+    assert checks["notOwnedBySender"] == []
+    assert all(not a.get("assetId") for a in result["sending"])
+    assert result["after"]["totalValue"] == result["before"]["totalValue"]
+    assert checks["hypotheticalPicksOut"] == ["2027 Early 1st"]
+
+
+def test_unpublished_inventory_is_unknown_never_owned_by_the_sender():
+    def unpublish(teams):
+        teams[2]["pickDetails"] = None
+
+    result = _sim_with_teams(
+        "o1",
+        unpublish,
+        picks_out=["2027 Mid 1st"],
+        pick_asset_ids_out=["pick:lk:2027:r1:o9"],
+    )
+    checks = result["ownedPickChecks"]
+    assert [c["reason"] for c in checks["unverified"]] == ["pick_inventory_unpublished"]
+    assert result["after"]["totalValue"] == result["before"]["totalValue"]
+
+
+def test_incoming_pick_reports_its_current_holder_unverified_counterparty():
+    """N3: the request names no counterparty, so semantics are unchanged, but
+    the received pick's actual current holder is reported, marked unverified."""
+    result = _sim(
+        "o1",
+        players_out=["Alice"],
+        picks_in=["2027 Mid 1st (own)"],
+        pick_asset_ids_in=["pick:lk:2027:r1:o2"],
+    )
+    holders = result["ownedPickChecks"]["incomingPickHolders"]
+    assert holders == [
+        {
+            "assetId": "pick:lk:2027:r1:o2",
+            "label": "2027 Mid 1st (own)",
+            "ownershipState": "owned",
+            "holderRosterId": 2,
+            "holderName": "Team Bravo",
+            "counterpartyVerified": False,
+            "note": "the request names no counterparty; this is the pick's current holder",
+        }
+    ]
+    assert [a["name"] for a in result["receiving"]] == ["2027 Mid 1st"]
+
+
+def test_analyze_explains_generic_picks_priced_but_kept_on_the_roster():
+    """N4: equity subtracts a generic outgoing pick while the roster keeps
+    it; the explanation must say so."""
+    from src.trade.analyze_trade import analyze_trade
+
+    out = analyze_trade(_sim("o1", players_in=["Carlo"], picks_out=["2027 Late 1st"]))
+    text = repr(out)
+    assert "not taken off this roster" in text and "2027 Late 1st" in text
+
+
+def test_one_shared_round_default_for_every_owned_pick_producer():
+    """N5: overlay, scraper, fallback and public league read one owner's
+    round count -- Sleeper's own ``draft_rounds``, else the board's 6."""
+    from src.api import draft_capital_fallback as dcf
+    from src.api import sleeper_overlay
+    from src.identity.pick_lifecycle import OWNED_PICK_DEFAULT_ROUNDS, league_draft_rounds
+
+    assert OWNED_PICK_DEFAULT_ROUNDS == 6
+    assert dcf.DEFAULT_DRAFT_ROUNDS == OWNED_PICK_DEFAULT_ROUNDS
+    assert league_draft_rounds({"draft_rounds": 4}) == 4
+    assert league_draft_rounds({"draft_rounds": "5"}) == 5
+    assert league_draft_rounds({}) == league_draft_rounds({"draft_rounds": 9}) == 6
+    assert league_draft_rounds(None) == 6
+
+    def rounds_for(settings):
+        info = {"season": str(YEAR), "settings": settings}
+        routes = {
+            "/rosters": [{"roster_id": 1, "owner_id": "oA", "players": []}],
+            "/users": [{"user_id": "oA", "display_name": "A"}],
+            "/traded_picks": [],
+        }
+
+        def getter(url):
+            for k, v in routes.items():
+                if url.endswith(k):
+                    return v
+            return info if url.rstrip("/").endswith(LEAGUE_ID) else None
+
+        with patch.object(dce, "read_snapshot", lambda lid: None):
+            teams = sleeper_overlay._build_teams_block(LEAGUE_ID, {}, getter=getter)
+        return {d["round"] for t in teams for d in t["pickDetails"]}
+
+    assert rounds_for({"draft_rounds": 4}) == {1, 2, 3, 4}
+    assert rounds_for({}) == set(range(1, 7))
+    # The scraper and the public league call the same resolver.
+    assert "league_draft_rounds(league_settings)" in _SCRAPER.read_text(encoding="utf-8")
+    pl_src = (REPO / "src" / "public_league" / "draft.py").read_text(encoding="utf-8")
+    assert "league_draft_rounds(" in pl_src
