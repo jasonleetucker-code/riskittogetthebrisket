@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary
 
-The X post is not a description of one architecture. Its recoverable text is a pointer to a large AI-agent ecosystem catalog: “I FOUND 300+ AI AGENTS SO YOU DON'T HAVE TO. The free GitHub list that maps the entire AI agent ecosystem — 300+ tools, one page, zero cost.”
+The X post is not a description of one architecture. Its recoverable text is a pointer to a large AI-agent ecosystem catalog: “I FOUND 300+ AI AGENTS SO YOU DON'T HAVE TO.” The remainder describes a free GitHub list mapping 300+ AI-agent tools in one place.
 
 Direct retrieval of the X status is blocked in this environment. The post text is recoverable from indexed search. The X Snowflake resolves to 2026-07-24T12:42:03.638Z. Attached media, author replies and the exact outbound redirect are therefore UNVERIFIED.
 
