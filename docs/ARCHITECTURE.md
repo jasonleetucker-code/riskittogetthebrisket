@@ -26,7 +26,7 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    `src/api/feature_flags.py`. Env override via `RISKIT_FEATURE_<NAME>=1`
    (or `=0` to disable).
 
-   **Defaults are per-flag.** As of 2026-10-01, 18 of the 36 entries in
+   **Defaults are per-flag.** As of 2026-10-03, 19 of the 37 entries in
    `_DEFAULTS` ship enabled — `ledger_rank_change` (registered closing
    F-24: the ledger-derived `rankChange` derivation, previously an
    invisible direct env read), `bdvm_engine`, `te_basis_conversion`
@@ -39,7 +39,10 @@ Browser ─► Nginx ─► Next.js (port 3000) ─► FastAPI (port 8000) ─�
    (every correlation-family member votes under a family cap; off restores
    the family-head selection), `source_universe_freshness` (a board pricing
    offense and IDP ages each row from its own universe's broad-change clock;
-   off restores one clock per subset), `game_day_live_game_state` and
+   off restores one clock per subset), `signals_active_source` (Signals'
+   authenticated native values vote as a rank signal in the FantasyCalc
+   family; off removes the vote, keeps the evidence visible),
+   `game_day_live_game_state` and
    `sleeper_weekly_projections` (Game Day U5: the shared live collector owns
    their cadence), `rookie_auction` (mock-only rookie auction room; the API
    refuses official rooms until owner launch approval), `dfs_workspace`
