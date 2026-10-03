@@ -20,6 +20,10 @@ On Windows, invoke the same command with the installed `uv.exe` path through
 refresh both locks in that PR. Do not use `pip freeze` for these files.
 
 CI and production install with `pip install --require-hashes -r <lock>`.
+Rollback to a revision with a lock checks and installs that lock. A rollback
+to a revision older than this contract explicitly uses its legacy
+`requirements.txt`, so those historical revisions remain recoverable without
+claiming a locked graph for them.
 Developers can use `scripts/setup.sh` or, in PowerShell:
 
 ```powershell
