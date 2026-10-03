@@ -902,8 +902,11 @@ def fetch_sleeper_rosters(league_id):
     )
     league_size_for_tiers = max(3, int(league_size_for_tiers))
 
-    draft_rounds = _safe_int((league_settings or {}).get("draft_rounds")) or 4
-    draft_rounds = max(1, min(6, draft_rounds))
+    # One shared round count with the Sleeper overlay (Wave A): the league's
+    # own settings, else the lifecycle owner's default.
+    from src.identity.pick_lifecycle import league_draft_rounds
+
+    draft_rounds = league_draft_rounds(league_settings)
     current_year = datetime.date.today().year
     # The candidate window for draft-slot lookup.  Which of these seasons the
     # league actually OWNS picks in is decided below by the league-scoped

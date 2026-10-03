@@ -331,7 +331,7 @@ def _format_pick_label(season: str, round_num: int, slot: int | None = None) -> 
 def _build_pick_ownership(
     sleeper_league_id: str,
     roster_ids: list[int],
-    num_rounds: int = 6,
+    num_rounds: int | None = None,
     getter=None,
     league_season: Any = None,
 ) -> dict[int, list[dict[str, Any]]]:
@@ -352,6 +352,10 @@ def _build_pick_ownership(
 
     if not roster_ids:
         return {}
+    if num_rounds is None:
+        from src.identity.pick_lifecycle import OWNED_PICK_DEFAULT_ROUNDS
+
+        num_rounds = OWNED_PICK_DEFAULT_ROUNDS
     # #1414 + Wave A: which seasons a league owns picks in is the
     # league-scoped canonical answer (``pick_lifecycle.league_draft_years``)
     # — the SAME horizon the scraper publishes.  This builder used to seed
@@ -494,17 +498,14 @@ def _build_teams_block(
     # Same league facts the scraper reads: Sleeper's own season (a floor on
     # the draft-year anchor) and its configured rookie-draft round count —
     # seeding 6 rounds for a 4-round league published picks that do not exist.
-    _pick_kwargs: dict[str, Any] = {
-        "league_season": league_info.get("season") if isinstance(league_info, dict) else None
-    }
-    try:
-        _rounds = int((league_settings or {}).get("draft_rounds"))
-        if 1 <= _rounds <= 6:
-            _pick_kwargs["num_rounds"] = _rounds
-    except (TypeError, ValueError):
-        pass
+    from src.identity.pick_lifecycle import league_draft_rounds
+
     pick_ownership = _build_pick_ownership(
-        sleeper_league_id, roster_ids, getter=getter, **_pick_kwargs
+        sleeper_league_id,
+        roster_ids,
+        num_rounds=league_draft_rounds(league_settings),
+        getter=getter,
+        league_season=league_info.get("season") if isinstance(league_info, dict) else None,
     )
 
     teams: list[dict[str, Any]] = []

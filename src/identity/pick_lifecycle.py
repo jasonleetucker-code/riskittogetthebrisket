@@ -126,7 +126,9 @@ __all__ = [
     "league_draft_anchor_year",
     "league_draft_years",
     "LeagueDraftYears",
+    "OWNED_PICK_DEFAULT_ROUNDS",
     "OWNED_PICK_HORIZON_CLASSES",
+    "league_draft_rounds",
     "retired_seasons",
 ]
 
@@ -548,6 +550,29 @@ def first_active_class(anchor_year: int, retired: Iterable[int]) -> int:
 #: this span and the overlay used one class fewer, so the overlay never
 #: published the third future class the scraper did.
 OWNED_PICK_HORIZON_CLASSES = 4
+
+
+#: Rounds per class when a league's own rookie-draft round count is UNKNOWN.
+#: The board prices six rounds per class (C1-U6 completes rounds 5-6, and the
+#: pick census checks rounds 1-6), and ``dynasty_main``'s Sleeper settings say
+#: ``draft_rounds: 6`` (72 workbook rows = 12 x 6).  Producers used to disagree
+#: on the unknown case (overlay 6, scraper / fallback / public league 4); the
+#: board's own count is the default that invents no picks the board cannot
+#: price and drops none it does.  A league's real ``settings.draft_rounds``
+#: always wins (:func:`league_draft_rounds`).
+OWNED_PICK_DEFAULT_ROUNDS = 6
+_SLEEPER_MIN_DRAFT_ROUNDS = 1
+_SLEEPER_MAX_DRAFT_ROUNDS = 6
+
+
+def league_draft_rounds(league_settings: Any) -> int:
+    """A league's rookie-draft round count: Sleeper ``settings.draft_rounds``
+    when it is a valid Sleeper value (1-6), else :data:`OWNED_PICK_DEFAULT_ROUNDS`."""
+    raw = league_settings.get("draft_rounds") if isinstance(league_settings, Mapping) else None
+    rounds = _coerce_int(raw)
+    if rounds is not None and _SLEEPER_MIN_DRAFT_ROUNDS <= rounds <= _SLEEPER_MAX_DRAFT_ROUNDS:
+        return rounds
+    return OWNED_PICK_DEFAULT_ROUNDS
 
 
 def league_draft_anchor_year(league_season: Any = None, *, calendar_year: int) -> int:

@@ -113,13 +113,9 @@ def _pick_ownership_map(snapshot: PublicLeagueSnapshot) -> dict[str, list[dict[s
     if current is None:
         return {}
 
-    settings = current.league.get("settings") or {}
-    try:
-        draft_rounds = int(settings.get("draft_rounds") or 0)
-    except (TypeError, ValueError):
-        draft_rounds = 0
-    if draft_rounds <= 0:
-        draft_rounds = 4
+    from src.identity.pick_lifecycle import league_draft_rounds
+
+    draft_rounds = league_draft_rounds(current.league.get("settings") or {})
 
     future_years = _owned_pick_seasons(snapshot)
     original_by_rid: dict[int, list[dict[str, Any]]] = defaultdict(list)

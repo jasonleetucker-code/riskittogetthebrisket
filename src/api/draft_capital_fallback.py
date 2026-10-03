@@ -32,6 +32,8 @@ import json as _json
 from dataclasses import dataclass
 from typing import Any
 
+from src.identity.pick_lifecycle import OWNED_PICK_DEFAULT_ROUNDS
+
 _LOGGER = logging.getLogger(__name__)
 
 # Matches the workbook's total so the bar chart stays comparable.
@@ -155,8 +157,9 @@ def _pick_value_from_contract(
 
 #: Last-resort round count.  Kept because Sleeper can be unreachable, but it is
 #: now a fallback rather than the only value the function ever sees — see
-#: ``resolve_draft_rounds``.
-DEFAULT_DRAFT_ROUNDS = 4
+#: ``resolve_draft_rounds``.  The ONE shared unknown-league default (Wave A),
+#: owned by ``pick_lifecycle`` — the board's own round count.
+DEFAULT_DRAFT_ROUNDS = OWNED_PICK_DEFAULT_ROUNDS
 
 #: Sleeper's own clamp; a league cannot configure a rookie draft outside it.
 MIN_DRAFT_ROUNDS = 1
