@@ -1772,7 +1772,7 @@ export default function TradePage() {
   const hasAssets = sides.some((s) => (s.assets || []).length > 0);
 
   return (
-    <main className={`main-shell ${styles.page} trade-page psi-editorial`}>
+    <div className={`main-shell ${styles.page} trade-page psi-editorial`}>
       <PageHeader
         eyebrow="Trades"
         title="Trade Calculator"
@@ -2262,6 +2262,6 @@ export default function TradePage() {
           ) : null}
         </>
       ) : null}
-    </main>
+    </div>
   );
 }
