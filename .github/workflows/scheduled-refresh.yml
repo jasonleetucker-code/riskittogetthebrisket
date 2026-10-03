@@ -160,10 +160,20 @@ jobs:
           # the list for backward compatibility (e.g. the
           # ``Assert DLF freshness`` step still reads ``dlf_last_success``).
           mkdir -p data/scrape_state
+          # Exit 4 (SEASONALLY_INACTIVE_EXIT_CODE, src/sources/acquisition_state.py)
+          # is a verified, DECLARED between-phases empty board
+          # (config/sources/seasonal_policy_v1.json; owner decision 2026-10-03).
+          # It is NOT a success: no stamp is written, exactly as for a failure.
+          # The fetcher records the explicit state in
+          # data/scrape_state/<key>_seasonal.json itself; this branch only
+          # logs it as a notice instead of a fetch failure.  Only fetchers with
+          # a declared seasonal policy return 4.
           run_fetcher() {
             local stamp_keys="$1"; shift
             local label="$1"; shift
-            if "$@" 2>&1; then
+            local rc=0
+            "$@" 2>&1 || rc=$?
+            if (( rc == 0 )); then
               local now_epoch
               now_epoch="$(date -u +%s)"
               local IFS=':'
@@ -171,6 +181,8 @@ jobs:
                 [[ -z "$key" ]] && continue
                 printf '%s\n' "$now_epoch" > "data/scrape_state/${key}_last_success"
               done
+            elif (( rc == 4 )); then
+              echo "::notice title=${label} seasonally inactive::Declared between-phases empty board; state recorded, no success stamp, no current vote"
             else
               echo "::warning title=${label} fetch failed::Non-fatal — continuing with stale CSV"
             fi

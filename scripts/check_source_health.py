@@ -70,6 +70,7 @@ if str(_REPO_ROOT) not in sys.path:
 from scripts.watchdog_freshness import (  # noqa: E402
     _read_freshness,
     classify_freshness,
+    split_seasonally_inactive,
     unmeasurable_sources,
 )
 from src.api.source_health_alerts import (  # noqa: E402
@@ -571,8 +572,14 @@ def main() -> int:
         return 2
 
     thresholds = load_thresholds()
+    # Declared seasonal windows (owner decision 2026-10-03) are applied with
+    # the watchdog's own helper, so this advisory report and the blocking
+    # watchdog cannot disagree about a seasonally inactive source.
+    freshness_now, seasonal_inactive, seasonal_lapsed = split_seasonally_inactive(
+        _read_freshness(), thresholds
+    )
     hard_stale, soft_stale, fresh = classify_freshness(
-        _read_freshness(), thresholds, load_soft_sources(), load_soft_escalation_hours()
+        freshness_now, thresholds, load_soft_sources(), load_soft_escalation_hours()
     )
     # Audit F-11.  This script reuses the watchdog's freshness rule verbatim
     # ("no second freshness rule"), so it inherited the watchdog's hole: a
@@ -664,6 +671,8 @@ def main() -> int:
             {"source": s, "ageHours": a, "thresholdHours": t} for s, a, t, _ in soft_stale
         ],
         "freshCount": len(fresh),
+        "seasonallyInactive": seasonal_inactive,
+        "seasonalInactivityLapsed": seasonal_lapsed,
         "unmeasurable": unmeasurable,
         "registeredSourceIntegrity": registered_integrity,
         "semanticIntegrity": {"ktc": ktc_semantic},

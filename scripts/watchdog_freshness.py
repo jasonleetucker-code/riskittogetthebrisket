@@ -177,14 +177,49 @@ def classify_freshness(
     return hard_stale, soft_stale, fresh
 
 
+def split_seasonally_inactive(
+    freshness: dict[str, dict],
+    thresholds: dict[str, float],
+    *,
+    state_dir: Path | None = None,
+    now: datetime | None = None,
+) -> tuple[dict[str, dict], dict[str, dict], dict[str, dict]]:
+    """``(remaining, verified_inactive, lapsed_inactive)``.
+
+    A source in a DECLARED seasonal window (``config/sources/
+    seasonal_policy_v1.json``; owner decision 2026-10-03) whose fetcher
+    re-verified the expected-empty signature within the source's NORMAL
+    staleness threshold is removed from the freshness population and
+    reported as seasonally inactive — it is not a stale source, and it casts
+    no vote.  One that is inactive but NOT re-verified within that threshold
+    stays in ``remaining`` and is classified exactly as before (hard-stale on
+    its old success stamp): a declared window is never an unmonitored
+    source.  Undeclared sources are untouched — fail closed.
+
+    Policy and state belong to ``src/sources/seasonal_policy.py``; this
+    function only applies them, and ``classify_freshness``'s 3-tuple is left
+    unchanged for its call sites.
+    """
+    from src.sources.seasonal_policy import watchdog_seasonal_split
+
+    verified, lapsed = watchdog_seasonal_split(
+        state_dir if state_dir is not None else _REPO_ROOT / "data" / "scrape_state",
+        now or datetime.now(tz=timezone.utc),
+        lambda key: resolve_threshold(key, thresholds),
+    )
+    remaining = {k: v for k, v in freshness.items() if k not in verified}
+    return remaining, verified, lapsed
+
+
 def main() -> int:
     thresholds = load_thresholds()
     soft_sources = load_soft_sources()
     soft_escalate_hours = load_soft_escalation_hours()
     freshness = _read_freshness()
     unmeasurable = unmeasurable_sources()
+    freshness, seasonal_inactive, seasonal_lapsed = split_seasonally_inactive(freshness, thresholds)
 
-    if not freshness:
+    if not freshness and not seasonal_inactive:
         # No sources registered at all = catastrophic regression in the
         # ranking registry.  Fail loud.
         print(
@@ -233,6 +268,23 @@ def main() -> int:
         for src in unmeasurable:
             summary_lines.append(f"| `{src}` |")
         summary_lines.append("")
+    if seasonal_inactive:
+        summary_lines.append("### Seasonally inactive sources (declared window, non-fatal)")
+        summary_lines.append("")
+        summary_lines.append(
+            "_Declared between-phases empty board (config/sources/seasonal_policy_v1.json), "
+            "re-verified within threshold.  No current vote; reactivates on the first "
+            "valid non-empty board._"
+        )
+        summary_lines.append("")
+        summary_lines.append("| source | inactive since | last verified | verified (h ago) |")
+        summary_lines.append("|---|---|---|---|")
+        for src, info in sorted(seasonal_inactive.items()):
+            summary_lines.append(
+                f"| `{src}` | {info.get('since')} | {info.get('lastInactiveVerifiedAt')} "
+                f"| {info.get('verificationAgeHours')} |"
+            )
+        summary_lines.append("")
     summary_lines.append("### Fresh sources")
     summary_lines.append("")
     summary_lines.append("| source | age (h) | threshold (h) |")
@@ -258,6 +310,21 @@ def main() -> int:
             f"re-mint / fix the fetcher to clear it."
         )
 
+    for src, info in sorted(seasonal_inactive.items()):
+        print(
+            f"::notice title=Seasonally inactive source: {src}::Declared seasonal "
+            f"window ({info.get('policyId')}); inactive since {info.get('since')}, "
+            f"re-verified {info.get('verificationAgeHours')}h ago.  No current vote."
+        )
+    for src, info in sorted(seasonal_lapsed.items()):
+        print(
+            f"::warning title=Seasonal inactivity not re-verified: {src}::Recorded "
+            f"seasonally inactive since {info.get('since')}, but the expected-empty "
+            f"board was last re-verified at {info.get('lastInactiveVerifiedAt')} "
+            f"(threshold {info.get('thresholdHours')}h).  Classified on its normal "
+            f"freshness instead."
+        )
+
     for src in unmeasurable:
         print(
             f"::error title=Unmeasurable source: {src}::Registered in the ranking "
@@ -271,6 +338,8 @@ def main() -> int:
     # the report rather than being named in it.
     if not hard_stale and not unmeasurable:
         soft_note = f", {len(soft_stale)} soft-stale (non-fatal)" if soft_stale else ""
+        if seasonal_inactive:
+            soft_note += f", {len(seasonal_inactive)} seasonally inactive (declared)"
         print(f"ok: {len(fresh)} sources fresh, 0 hard-stale, 0 unmeasurable{soft_note}")
         return 0
 

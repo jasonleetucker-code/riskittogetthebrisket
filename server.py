@@ -463,6 +463,27 @@ contract_health: dict = {
 # loudly instead of silently serving wrong values.
 served_source_coverage: dict = {}
 
+# Sources the SERVED board recorded as seasonally inactive (its own
+# ``sourceSeasonalState`` stamp — the state at that board's scrape time;
+# owner decision 2026-10-03, ``src/sources/seasonal_policy.py``).  Published
+# on ``/api/status`` beside ``served_source_coverage`` and swapped with it, so
+# the deploy gate excuses a source's absence only when the board it is
+# checking legitimately carries no vote from it — never because the
+# checkout's CURRENT state says so (the two differ on every reactivation and
+# inactivation run).
+served_seasonal_inactive: list[str] = []
+
+
+def _compute_served_seasonal_inactive(contract: dict | None) -> list[str]:
+    """Sorted keys of the served contract's seasonal-inactive stamp.
+    Defensive: any shape surprise yields ``[]`` (nothing excused)."""
+    try:
+        from src.sources.seasonal_policy import contract_inactive_sources
+
+        return sorted(contract_inactive_sources(contract))
+    except Exception:  # noqa: BLE001
+        return []
+
 
 def _compute_served_source_coverage(contract: dict | None) -> dict:
     """Count, per source, how many served players carry it in
@@ -2588,6 +2609,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         latest_compact_data_etag
     global contract_health
     global served_source_coverage
+    global served_seasonal_inactive
 
     def _swap_to_empty() -> None:
         """Publish the 'no payload' generation (falsy data / failed
@@ -2613,8 +2635,9 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
             latest_compact_data_bytes, \
             latest_compact_data_gzip_bytes, \
             latest_compact_data_etag
-        global served_source_coverage
+        global served_source_coverage, served_seasonal_inactive
         served_source_coverage = {}
+        served_seasonal_inactive = []
         latest_data_bytes = None
         latest_data_gzip_bytes = None
         latest_data_etag = None
@@ -2760,6 +2783,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
         except Exception:  # noqa: BLE001
             pass
         new_coverage = _compute_served_source_coverage(contract_payload)
+        new_seasonal_inactive = _compute_served_seasonal_inactive(contract_payload)
 
         # Post-scrape overlay warm — for every ACTIVE league
         # (including the default league the scraper just built for),
@@ -2887,6 +2911,7 @@ def _prime_latest_payload(data: dict | None, *, is_fresh_scrape: bool = False) -
     latest_contract_data = contract_payload
     contract_health = contract_report
     served_source_coverage = new_coverage
+    served_seasonal_inactive = new_seasonal_inactive
     latest_data_bytes = raw
     latest_data_gzip_bytes = full_gzip
     latest_data_etag = full_etag
@@ -5784,6 +5809,10 @@ async def get_status():
             # ``sites`` list (2 anchor rows, not the 3 this comment
             # claimed) and so could not detect a degraded board; F-7.
             "served_source_coverage": served_source_coverage,
+            # The served board's own seasonal-inactive set (see the
+            # ``served_seasonal_inactive`` global): the coverage gate
+            # excuses exactly these, read from the board it is judging.
+            "served_seasonal_inactive": served_seasonal_inactive,
             # R-4: Scrape success rate tracking
             "scrape_success_rate_24h": _scrape_success_rate_24h(),
             "last_n_scrapes": scrape_history[-20:],
