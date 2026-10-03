@@ -439,27 +439,27 @@ export default function AnglePage() {
 
   if (dataLoading) {
     return (
-      <main className={`main-shell ${styles.page}`}>
+      <div className={`main-shell ${styles.page}`}>
         <PageHeader eyebrow="Trades" title="Package Builder" />
         <Panel flush>
           <SkeletonTable rows={5} columns={4} />
         </Panel>
-      </main>
+      </div>
     );
   }
   if (dataError) {
     return (
-      <main className={`main-shell ${styles.page}`}>
+      <div className={`main-shell ${styles.page}`}>
         <PageHeader eyebrow="Trades" title="Package Builder" />
         <Banner tone="negative" title="Failed to load data">
           {String(dataError)}
         </Banner>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className={`main-shell ${styles.page} angle-page`}>
+    <div className={`main-shell ${styles.page} angle-page`}>
       <PageHeader
         eyebrow="Trades"
         title="Package Builder"
@@ -690,6 +690,6 @@ export default function AnglePage() {
           />
         </Panel>
       ) : null}
-    </main>
+    </div>
   );
 }
