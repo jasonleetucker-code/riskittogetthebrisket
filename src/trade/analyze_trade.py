@@ -188,6 +188,27 @@ def _market_lens(simulation: dict[str, Any]) -> DimensionResult:
             "valueAdjustment": "KTC Value Adjustment (exact; src.trade.ktc_va)",
             "unresolvedIn": list(simulation.get("unresolvedIn") or []),
             "unresolvedOut": list(simulation.get("unresolvedOut") or []),
+            # Wave A: owned picks this team does not hold are reported by
+            # the simulator and left out of ``sending`` -- named here so the
+            # explanation can say why they are not counted.
+            "notOwnedBySender": [
+                {
+                    "label": str(c.get("label") or ""),
+                    "actualOwnerName": c.get("actualOwnerName"),
+                }
+                for c in ((simulation.get("ownedPickChecks") or {}).get("notOwnedBySender") or [])
+                if isinstance(c, dict)
+            ],
+            # Generic picks this team sends: priced in ``sendingValue`` but not
+            # taken off the roster (no specific owned pick was chosen), so the
+            # explanation names them instead of leaving equity and the roster
+            # totals an unexplained mismatch.
+            "hypotheticalPicksOut": [
+                str(x)
+                for x in (
+                    (simulation.get("ownedPickChecks") or {}).get("hypotheticalPicksOut") or []
+                )
+            ],
         },
     )
 
@@ -633,6 +654,23 @@ def _uncertainty(
     ]
     if unresolved:
         out.append("Not on the board, so not priced: " + ", ".join(unresolved))
+    hypothetical = (market.detail or {}).get("hypotheticalPicksOut") or []
+    if hypothetical:
+        out.append(
+            "Counted as sent, but not taken off this roster because no specific "
+            "owned pick was chosen: " + ", ".join(hypothetical)
+        )
+    not_owned = (market.detail or {}).get("notOwnedBySender") or []
+    if not_owned:
+        out.append(
+            "Not held by this team, so not counted as sent: "
+            + ", ".join(
+                f"{c['label']} (held by {c['actualOwnerName']})"
+                if c.get("actualOwnerName")
+                else c["label"]
+                for c in not_owned
+            )
+        )
     return out
 
 

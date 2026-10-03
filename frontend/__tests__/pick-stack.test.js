@@ -188,21 +188,25 @@ describe("buildLeagueStacks", () => {
   });
 });
 
-// #1414 / #1442: the stack anchors on the UPCOMING draft — the lifecycle
-// owner's ``pickClassLifecycle.firstActiveClass`` — never the horizon
-// anchor ``currentDraftYear``, which retirement deliberately leaves alone.
+// #1414 / #1442 / Wave A: the stack anchors on THIS LEAGUE's upcoming draft
+// -- the draft-capital payload's league-scoped ``upcomingDraftYear`` (else its
+// ``season``) -- never the board's ``pickClassLifecycle.firstActiveClass``,
+// which stays on a class until every league sharing the board retires it.
 describe("pickStackAnchorYear", () => {
-  it("prefers the lifecycle-owned first active class", () => {
+  it("prefers the league-scoped upcoming draft on the draft-capital payload", () => {
     const contract = {
       currentDraftYear: 2026,
-      pickClassLifecycle: { retiredYears: [2026], firstActiveClass: 2027 },
+      pickClassLifecycle: { retiredYears: [], firstActiveClass: 2026 },
     };
-    expect(pickStackAnchorYear(contract, { season: "2027" })).toBe(2027);
+    expect(pickStackAnchorYear(contract, { upcomingDraftYear: 2027, season: 2027 })).toBe(2027);
   });
 
-  it("falls back to currentDraftYear, then the draft-capital season", () => {
-    expect(pickStackAnchorYear({ currentDraftYear: 2026 }, { season: "2027" })).toBe(2026);
-    expect(pickStackAnchorYear({}, { season: "2027" })).toBe(2027);
+  it("falls back to the draft-capital season, then the board's years", () => {
+    expect(pickStackAnchorYear({ currentDraftYear: 2026 }, { season: "2027" })).toBe(2027);
+    expect(
+      pickStackAnchorYear({ pickClassLifecycle: { firstActiveClass: 2027 }, currentDraftYear: 2026 }, null),
+    ).toBe(2027);
+    expect(pickStackAnchorYear({ currentDraftYear: 2026 }, null)).toBe(2026);
     expect(pickStackAnchorYear(null, null)).toBe(null);
   });
 

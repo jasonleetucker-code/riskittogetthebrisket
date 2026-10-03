@@ -377,6 +377,8 @@ export default function TradeWarRoom({ request, leagueKey = "", useTeamContext =
           playersOut: request.playersOut,
           picksIn: request.picksIn,
           picksOut: request.picksOut,
+          pickAssetIdsIn: request.pickAssetIdsIn || [],
+          pickAssetIdsOut: request.pickAssetIdsOut || [],
           useTeamContext: useTeamContext !== false,
         };
         if (leagueKey) body.leagueKey = leagueKey;
