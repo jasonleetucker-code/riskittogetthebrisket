@@ -69,7 +69,7 @@ def test_production_install_cannot_resolve_floating_graph(path):
 def test_rollback_legacy_target_remains_recoverable():
     script = (python_lock.ROOT / "deploy/rollback.sh").read_text(encoding="utf-8")
     assert 'if [[ -f "requirements.lock.txt" ]]; then' in script
-    assert 'Rollback target predates the Python lock' in script
+    assert "Rollback target predates the Python lock" in script
 
 
 @pytest.mark.parametrize(
