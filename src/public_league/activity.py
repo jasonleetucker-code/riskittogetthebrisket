@@ -374,6 +374,75 @@ def _timeline_by_week(feed: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
+# ── HTTP serving view ────────────────────────────────────────────────────
+# ``build_section``'s output is consumed IN-PROCESS by the overview
+# (``feed`` per-side counts, ``biggestBlockbusters``), the CSV exporter
+# (counts, ``leagueId``), the archives section and the full public
+# contract, and grading itself needs ``sentAssets`` — so it is never
+# trimmed.  ``GET /api/public/league/activity`` ships it to exactly two
+# readers, and ~40% of its bytes were fields neither reads (measured
+# 2026-10-03: 421 KB, with ``sentAssets`` 78 KB, ``grade.missingAssets``
+# 66 KB and ``biggestBlockbusters`` 19 KB):
+#
+#   * /league?tab=activity — ``app/league/sections/activity.jsx`` (header
+#     stats, ``TradeCard``) + ``TradeFlowSankey`` + ``ActivityHeatmap``;
+#   * /league/activity — ``lib/activity-feed.js::publicTradeToEvent``.
+#
+# These allowlists are the union of what those read (audit recorded in
+# the PR that introduced them).  Allowlists, not denylists: a field added
+# to ``build_section`` later stays off the wire until a reader needs it.
+_SERVED_SECTION_KEYS = (
+    "feed",
+    "totalCount",
+    "picksMovedCount",
+    "playersMovedCount",
+    "mostActiveTrader",
+    "mostFrequentPartnerPair",
+    "positionMixMoved",
+)
+_SERVED_TRADE_KEYS = ("transactionId", "season", "week", "createdAt", "totalAssets", "sides")
+_SERVED_SIDE_KEYS = ("rosterId", "ownerId", "displayName", "teamName", "receivedAssets", "grade")
+# ``season`` / ``round`` stay on picks: ``TradeCard`` falls back to them
+# when a pick has no ``label``.
+_SERVED_ASSET_KEYS = ("kind", "playerName", "position", "label", "season", "round")
+# ``available`` keeps the honest "insufficient historical evidence" state;
+# ``reason`` / ``missingAssets`` are diagnostics no page renders.
+_SERVED_GRADE_KEYS = ("available", "grade", "color", "label")
+
+
+def _pick(src: dict[str, Any], keys: tuple[str, ...]) -> dict[str, Any]:
+    # Presence-preserving: an absent key stays absent (never a default),
+    # so a missing grade or value cannot be coerced into a zero here.
+    return {k: src[k] for k in keys if k in src}
+
+
+def serving_view(section: dict[str, Any]) -> dict[str, Any]:
+    """The ``GET /api/public/league/activity`` body: ``section`` reduced
+    to the fields its page readers use.  Pure; never mutates ``section``.
+    """
+    view = _pick(section, _SERVED_SECTION_KEYS)
+    feed = []
+    for trade in section.get("feed") or []:
+        out = _pick(trade, _SERVED_TRADE_KEYS)
+        sides = []
+        for side in trade.get("sides") or []:
+            s = _pick(side, _SERVED_SIDE_KEYS)
+            if "receivedAssets" in s:
+                s["receivedAssets"] = [
+                    _pick(a, _SERVED_ASSET_KEYS) if isinstance(a, dict) else a
+                    for a in side["receivedAssets"] or []
+                ]
+            if isinstance(side.get("grade"), dict):
+                s["grade"] = _pick(side["grade"], _SERVED_GRADE_KEYS)
+            sides.append(s)
+        if "sides" in out:
+            out["sides"] = sides
+        feed.append(out)
+    if "feed" in view:
+        view["feed"] = feed
+    return view
+
+
 def build_section(
     snapshot: PublicLeagueSnapshot,
     limit: int = 200,
