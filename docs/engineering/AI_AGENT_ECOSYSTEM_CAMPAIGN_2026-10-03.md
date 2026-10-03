@@ -32,7 +32,7 @@ production permissions.
 | Exact Python dependency lock | `requirements.txt`, `requirements-dev.txt` | IN PROGRESS | Hash-checked lock, Windows/Linux install, CI/deploy parity, drift sabotage |
 | Tested artifact and production identity | `deploy/`, `.github/workflows/deploy.yml`, `src/api/build_identity.py` | IN PROGRESS — CI package and draft frontend cutover; no production proof | CI digest, exact deploy, served fingerprint, rollback |
 | Typed API pilot and frontend parity | `server.py`, `src/api/`, existing frontend client | IN PROGRESS — `/api/leagues` pilot plus generated parity; CI/production pending | Public/private schema tests, OpenAPI, deterministic type parity |
-| Application trace and SLOs | Existing API/log/performance owners | NOT STARTED | Correlated route and source evidence, privacy, failure isolation |
+| Application trace and SLOs | Existing API/log/performance owners | IN PROGRESS — `/api/leagues` trace pilot; source spans and SLOs pending | Correlated route and source evidence, privacy, failure isolation |
 | Steward spans, eval bridge, routing scorecards | `src/steward/`, `agent-evals/` | NOT STARTED | Real run artifact, exact-revision grading, challenger only |
 | Class-B executor and isolation | Existing Steward controller/contracts | NOT STARTED | Denied path/command/network/credential tests; branch-only PR |
 | Browser exploration and eval corpus | Existing Playwright and `agent-evals/` | NOT STARTED | Structured findings plus deterministic assertions |
