@@ -294,13 +294,21 @@ def test_second_concurrent_run_is_rejected_without_blocking_on_the_first(monkeyp
     assert first_result is not None
 
 
-def test_a_successful_scrape_reaches_the_pruner_only_through_the_stub():
+def test_a_successful_scrape_reaches_the_pruner_only_through_the_stub(monkeypatch):
     """The isolation above must cover the path that actually deletes files.
 
     A green scrape calls ``prune_data_dir(BASE_DIR)`` with the REAL checkout;
     if the stub were not reached (renamed import, new call site) this test
     fails instead of the suite quietly thinning tracked ``exports/archive``.
+
+    The run must PASS the partial-scrape promotion guard to reach the
+    pruner.  ``latest_data`` is a module global another test may have
+    loaded with a full board, against which this one-player fake scrape is
+    a population collapse and is refused before the prune -- so pin the
+    no-served-board state (and ample disk) rather than inherit it.
     """
+    monkeypatch.setattr(server, "latest_data", None)
+    monkeypatch.setattr(server, "_check_disk_space", lambda *a, **k: (True, 10**6))
     result = asyncio.run(server.run_scraper(trigger="test"))
     assert result is not None
     assert _PRUNE_CALLS == [server.BASE_DIR]
