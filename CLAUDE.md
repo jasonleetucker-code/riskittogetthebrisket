@@ -1261,6 +1261,24 @@ than explained.  Measured on the live board: ``find_angle_packages`` returns
 the SAME 25 candidates with the capacity read on and off, 10 of which force a
 release.
 
+**Wave B amendment (2026-10-03, C3-CAP-01): with Use Team Context ON the
+finder RANKS on it — still filters nothing.**  #843 requires capacity "for BOTH
+teams" to affect generated-trade ranking.  ``finder_context.apply_capacity_ranking``
+charges each side its own ``forcedDropReleaseCost`` (canonical value × scarcity,
+the same ``ForcedDrop.release_cost``) normalised by the canonical value of the
+package that side sends — the SAME computation per side — and a package whose
+cut erases either side's case sorts after every package that survives the final
+legal roster.  It REPLACED the retired ``rosterFitBonus`` (+1.0 surplus shed /
++1.5 urgent need), whose need arm survives only as an explanation flag.
+``roster_capacity.requires_cleanup`` is the counts-only half of the same
+counting rule, so a full-roster league pays for the cut ladder only on packages
+that could reach the returned window (bounded by ``CAPACITY_EXAMINE_BUDGET``;
+an unmeasured package is flagged ``capacity_not_examined`` and never promoted
+unchecked).  ``/api/trade/simulate`` / ``/analyze`` also evaluate the OTHER
+team (``counterparty``, inferred from who holds the incoming assets — never
+guessed).  OFF (Asset-Only): capacity is annotated, labelled "not included in
+this verdict", and changes neither the list nor its order.
+
 Four rules that are load-bearing:
 
 - **Draft picks do NOT occupy roster spots.**  Verified, not assumed:
@@ -1324,6 +1342,60 @@ inert.  Pinned by ``tests/trade/test_finder_va_is_not_bypassable.py``, which
 tests the PROPERTY (the premium is applied and published) plus AST guards that
 no generator bypasses the adjusting scorer and the ``__init__`` has no
 executable statements.
+
+### Use Team Context, posture, topology and picks — Wave B (2026-10-03)
+
+Owner directive `_owner-directives/2026-10-03_calculator_batch_waveA_waveB.md`
+(Wave B); binding specs ``docs/trade/TRADE_CONTEXT_AND_TOPOLOGY_SUPERSESSION_2026-08-14.md``,
+``…ROSTER_CAPACITY_FORCED_DROP…``, ``…ANALYZE_TRADE_COMPETITIVE_POSTURE…`` and
+``…TRADE_FINDER_POSTURE_AWARE_PICKS…``.
+
+| concept | ONE owner |
+|---|---|
+| Use Team Context mode (#842) | ``src/trade/team_context.py`` — ``parse_use_team_context`` (only a boolean ``false`` turns it off), ``mode_block`` (the ``teamContext`` stamp every trade route returns: dimensions ``included`` / ``context`` / ``excluded_by_mode`` / ``unavailable``), ``label_excluded`` ("not included in this verdict"). Client half: ``frontend/lib/team-context.js`` (one persisted preference; a share link's mode applies to that page only) |
+| Competitive Posture (#840) | ``src/roster_intel/posture.py`` — CONSUMES ``roster_intel/window.py`` (no second competitiveness or age axis); PUSH / HOLD / RETOOL / REBUILD as uncalibrated softmax AFFINITIES over the window's lean, amplified toward the trade deadline and damped after it (``season_timing`` from Sleeper ``leg`` / ``last_scored_leg`` / ``trade_deadline``); own-first ownership moves REBUILD mass to RETOOL; draft order is ``unmodeled`` on every payload. The playoff sim is consumed only when its identity names this league and the current last-scored week AND it can rank the league (championship-odds ties ≤ ⅓ of teams); otherwise lineup-strength rank, stamped |
+| Trade-context layer of the finder | ``src/trade/finder_context.py`` — capacity re-rank (above), ``pick_direction`` (PUSH sends owned picks to RETOOL/REBUILD; RETOOL/REBUILD receive a PUSH team's; HOLD, same-posture or LOW confidence → no picks), ``owned_pick_assets`` |
+| Generated-trade topology (C3-TOPO-01) | ``src/packages/construction.py::topology_is_allowed`` — now reached by every generator: the finder offers 1v1, 2v1, 1v2, 2v2, 3v2, 2v3 (``/arbitrage`` no longer requests the withdrawn exact-equal rule), Angle sizes its counter side from the fixed side's PLAYER count and checks every combo |
+
+Rules that are load-bearing:
+
+* **Posture weighs, it never votes.**  ``analyze_trade._recommend`` uses it only
+  when the market lens and the roster lens DISAGREE: PUSH → the current-season
+  roster lens leads; RETOOL / REBUILD → the long-horizon market lens; HOLD or
+  LOW confidence → stays TOO_CLOSE.  It lands on a LEAN, never MAKE/PASS (not a
+  veto), never moves agreeing lenses, never creates a direction.  Pinned by
+  ``tests/trade/test_analyze_posture_weighting.py``.
+* **One carrier per forced drop.**  Market = the package (never net of a cut);
+  the cut's released dynasty value = feasibility only; its weekly-lineup cost =
+  the roster lens (post-cleanup).  The OTHER team's cut is
+  ``counterpartyFeasibility`` — context for whether they'd accept, never our
+  cost and never a vote.
+* **``contextEffect``** on every packet: the Asset-Only recommendation, the
+  Team-Context one, and which dimension (lineup impact / capacity / direction)
+  moved it — "what changed because of team context versus raw value".
+* **Retired competing owners.**  ``team_impact``'s composite ``verdict`` /
+  ``compositeScore`` / ``equityScore`` / contender-rebuilder ``posture`` /
+  ``windowFit`` are gone; ``teamImpact`` is positional-fit EXPLANATION
+  (``countedAsVote: false``).  ``ros/direction.py::classify_team`` remains a
+  legacy NON-trade display (public ``/league`` deadline section) — not a trade
+  posture; new trade code reads ``roster_intel/posture.py``.
+* **Picks in generated trades are owned, priced and honest.**  Only
+  ``pickDetails`` picks with a canonical ``assetId``; valued at the canonical
+  generic grade (``market_resolution`` → ``pick_value_resolution``) when the
+  slot is unknown; market leg = the vendor's own tier mean
+  (``marketBasis: "vendorTierMean"``) so coverage is ``partial``; a pick no
+  vendor prices is never offered (it would inflate the other side's appeal).
+  They are published SEPARATELY as ``postureDirectedPickPackages`` (best per
+  opponent) and only rank in ``trades`` behind fully-priced packages — the
+  qualification path for pick-inclusive packages is an open owner decision.
+* **Suggestions have no Asset-Only form** (every category is roster-need
+  derived): OFF answers ``unavailableReason:
+  roster_aware_product_requires_team_context`` explicitly.
+* The finder's model-only gates run BEFORE the market VA
+  (``_passes_model_gates``) — identical results, ~½ the cost — and
+  ``PackageAsset.key`` / ``is_pick`` are ``cached_property``.  Real-board cost
+  (Brent, full 58-man roster, 11 opponents): 7.3 s OFF / ~10 s ON vs 6.7 s for
+  the old equal-count path.
 
 ### FAAB recommendations — one engine, two separate answers
 ``src/trade/faab_engine.py`` is the ONLY place a FAAB dollar figure is

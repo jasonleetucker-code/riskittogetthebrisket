@@ -32,6 +32,16 @@ Backlog Spec and the feature specs. It does not define scope — that lives in `
 
 ---
 
+## Calculator batch — owner directive, 2026-10-03 (Wave A / Wave B)
+
+Authority: the owner's 2026-10-03 directive (captured in `docs/OWNER_REQUESTED_TODO.md`, "Added
+2026-10-03"). **Wave A** (draft-capital correctness) merged as #1626. **Wave B** — `C3-TOPO-01`,
+`C3-CTX-01`, `C3-CAP-01`, `C7-POST-01`, `C7-PICKGEN-01` as ONE phase — is authorized and
+**IMPLEMENTED on `claude/trade-context-phase` (one integration PR)**; not VERIFIED until deployed and
+observed in production. #1529 (stack-effect rebuild) stays NOT AUTHORIZED; canonical values are not
+changed by any Wave B output. Open owner decisions named by the PR: the external-market qualification
+path for pick-inclusive generated packages, and any calibration of posture affinities.
+
 ## Combined-phase sequencing overlay — 2026-09-10
 
 **`docs/BACKLOG_REPLAN_2026-09-10.md`** is the current combined-phase sequencing
