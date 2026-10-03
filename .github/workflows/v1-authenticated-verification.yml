@@ -377,7 +377,7 @@ jobs:
 
       - name: Set up Node 20 for production baseline
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.suite == 'baseline' }}
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '20'
 
