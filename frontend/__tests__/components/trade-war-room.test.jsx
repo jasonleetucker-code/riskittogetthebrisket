@@ -165,15 +165,12 @@ describe("TradeWarRoom — the packet, verbatim", () => {
     expect(lens("market").contains(layer)).toBe(false);
   });
 
-  it("a forced cut on their side is shown inline, not buried in help", async () => {
+  it("the other team's final roster is stated inline, not buried in help", async () => {
     await renderWith(CONSOLIDATION);
     const layer = screen.getByRole("region", { name: "Team context" });
-    const cp = CONSOLIDATION.analysis.lenses.counterpartyFeasibility;
-    if (cp?.available && cp.detail?.state === "cut_required") {
-      expect(within(layer).getByText(/must cut/)).toBeInTheDocument();
-    } else {
-      expect(within(layer).getByText(/Their final roster/)).toBeInTheDocument();
-    }
+    // Generated from the real simulator: "Them" absorbs 2-for-1 without a cut.
+    expect(CONSOLIDATION.analysis.lenses.counterpartyFeasibility.detail.state).toBe("fits_cleanly");
+    expect(within(layer).getByText("Them fits it with no cut")).toBeInTheDocument();
   });
 });
 
