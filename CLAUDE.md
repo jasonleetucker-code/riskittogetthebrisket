@@ -504,6 +504,17 @@ Error behavior on endpoints:
     fails if a future change re-resolves D-2 by accident in either
     direction) and `tests/api/test_draft_capital_fallback.py` (which
     pins the unpriced-exclusion arithmetic).
+  - The fallback's `/traded_picks` read goes through
+    `picks.traded_picks_observation` (2026-10-02).  A failed or non-list
+    fetch is NOT "no trades": the board is refused with
+    `{"error": "pick_ownership_unavailable", "message": …}` plus
+    `pickOwnershipState` / `pickOwnershipReason` — the same `{error,
+    message}` shape as `sleeper_unreachable`, which both consumers
+    (`/league` draft-capital tab, `/draft` loader) already render, because
+    every `picks` / `teamTotals` number on this board is a function of
+    ownership and there is no partial board worth serving.  Success is
+    byte-identical.  Known caveat: the route caches error results for its
+    300 s TTL like any other result.
 
 Rule for new code:
 - Need rankings / values / player data?  →  resolve the scoring

@@ -281,12 +281,16 @@ def test_scraper_success_ownership_is_unchanged_by_the_state_fields():
 
 
 def test_both_producers_use_the_one_vocabulary():
-    """The scraper imports the rule; it does not keep a second copy."""
+    """Every producer imports the rule; none keeps a second copy."""
+    from src.api import draft_capital_fallback
+
     src = _SCRAPER.read_text(encoding="utf-8")
     assert '"traded_picks_fetch_failed"' not in src
     assert '"unavailable"' not in src.split("def fetch_sleeper_rosters", 1)[1].split("\ndef ", 1)[0]
-    overlay_src = Path(sleeper_overlay.__file__).read_text(encoding="utf-8")
-    assert '"traded_picks_fetch_failed"' not in overlay_src
+    for module in (sleeper_overlay, draft_capital_fallback):
+        module_src = Path(module.__file__).read_text(encoding="utf-8")
+        assert '"traded_picks_fetch_failed"' not in module_src, module.__name__
+        assert "traded_picks_observation" in module_src, module.__name__
 
 
 # ── The one vocabulary ───────────────────────────────────────────────
