@@ -375,7 +375,7 @@ The calculator must not use display label or asset type as a uniqueness key.
 
 - Generic / hypothetical / repeatable assets may appear multiple times or carry quantity > 1.
 - Multiple distinct real owned picks must coexist even when they render with the same descriptive tier, such as two different owned picks both shown as “Mid 2027 1st.”
-- The exact same unique owned-pick identity must not be added twice accidentally.
+- ~~The exact same unique owned-pick identity must not be added twice accidentally.~~ **Superseded 2026-10-03 (owner decision):** every calculator asset is repeatable, owned picks and players included; ownership is displayed, never a quantity limit. Trade Calculator assets are hypothetical quantities, not inventory-enforced unique objects; real uniqueness remains in ownership records, transaction history, pick identity and roster-aware recommendations. Roster-aware recommendations keep real ownership. Pointer: `docs/OWNER_REQUESTED_TODO.md` → "Added 2026-10-03 — Trade Calculator: unlimited asset quantity + Early/Mid/Late market picks".
 - Totals, Value Adjustment, package math, amount-to-even/equalizers, remove-one behavior, share URLs, persistence, exports and mobile/desktop round-trips must preserve quantity and identity.
 - Removing one of two generic copies removes only that copy.
 - A repeated display label is not proof of duplicate identity.

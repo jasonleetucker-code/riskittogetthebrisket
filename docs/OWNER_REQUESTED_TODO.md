@@ -406,7 +406,7 @@ The following existing `T-NEW-*` requirements in `docs/OWNER_REQUESTED_TODO_SPEC
 | Ref | Requirement | Current disposition / pointer |
 |---|---|---|
 | T-NEW-01 | Canonical Owned Future Pick Projection & Valuation | PLANNED / companion spec |
-| T-NEW-02 | Trade Calculator Generic Pick Quantities | PLANNED / companion spec |
+| T-NEW-02 | Trade Calculator Generic Pick Quantities | IMPLEMENTED #1441; uniqueness rule SUPERSEDED for the calculator 2026-10-03 — every asset is repeatable (see "Added 2026-10-03" below) |
 | T-NEW-03 | Public League Manual Sleeper Sync / Freshness | PLANNED / PARTIAL; companion spec |
 | T-NEW-04 | Authenticated Top-Level League Navigation | REPRESENTED; verify live shell before closure |
 | T-NEW-05 | `teamAssignment` Missing-Data-as-Zero Correctness | SHIPPED / VERIFIED per current backlog reconciliation |
@@ -684,7 +684,7 @@ giant PR.
 | A — Team Strength #1340 (decision 2026-09-24) | Re-verify against current production first. If the page still sticks on "Loading league data..." rather than a real result or a truthful unavailable state, repair it early as a roster-foundation/production defect; if not, close/update #1340 with current production evidence. | TODO |
 | B — Trade intelligence | Complete Analyze Trade UX, before/after roster impact, final roster simulation, capacity / forced-drop consequences, Team Context, best-ball roster utility, canonical generation constraints where dependency-ready. Exact KTC Value Adjustment stays a market lens, not canonical truth. No frontend business logic duplicating backend owners. | TODO |
 | B — Pick lifecycle #1414 (authorized 2026-09-24) | ONE canonical lifecycle rule (never page-local year filters): a rookie-draft class leaves active/current surfaces only when the draft is complete AND roster state proves its rookies were consumed. Immediate case: 2026 pick assets no longer active. Historical identities, trades, snapshots and provenance stay resolvable. | DONE — #1442 (`bfdb238d8`); production pick-horizon verified 2026-09-26; #1416 planning PR closed as superseded |
-| B — Asset quantity/identity #1415 (authorized 2026-09-24) | Generic/repeatable assets may have quantity > 1; distinct real picks with similar labels may coexist; the exact same unique owned pick may not be double-counted. Quantity and identity survive math, remove-one, share/persistence/export and mobile/desktop round trips. PR #1416 is planning/intake only: reconcile its useful records with current main, never treat it as implementation or merge stale branch state. | DONE — #1441 (`53109028c`); #1416 planning PR closed as superseded |
+| B — Asset quantity/identity #1415 (authorized 2026-09-24) | Generic/repeatable assets may have quantity > 1; distinct real picks with similar labels may coexist; the exact same unique owned pick may not be double-counted. Quantity and identity survive math, remove-one, share/persistence/export and mobile/desktop round trips. PR #1416 is planning/intake only: reconcile its useful records with current main, never treat it as implementation or merge stale branch state. | DONE — #1441 (`53109028c`); #1416 planning PR closed as superseded. **Uniqueness half SUPERSEDED 2026-10-03** for the calculator: every asset (players and owned picks included) is repeatable — see "Added 2026-10-03" below |
 | C — Freshness + valuation hardening | Reconcile #1423 (T-NEW-21, adaptive staggered freshness orchestration; its planning PR #1425 was closed 2026-09-26 with the owner contract preserved in the issue); weighted-median monotonicity repair; Hill / native-source alignment and rank-form drift; DLF Values normalization gate once enough real captures exist (binding rules in the 2026-09-24 DLF decision above). Never blocks other lanes. | TODO |
 | D — Product correctness | Playoff Odds finished-week scoring: the P2 row under "Power Rankings pipeline audit" above (owner amendment 2026-09-24: an early item; consume the canonical definition; regression tests for the in-progress-week and finished-week `0.0` cases; not a Playoff Odds redesign). Also scoring/projection correctness, individual special-teams scoring, projection ensemble, Universal Player File intelligence consumers. | TODO |
 | D — Analyst ledger OD-03 (authorized 2026-09-24) | The analyst/intelligence **persistence + as-of query foundation**: the shared substrate for unified Player File intelligence, YouTube/news/podcast ingestion consumers, the homepage intelligence ticker and Weekly Report Studio. Extend the existing `src/intel/` / `src/analyst/` architecture and restore the missing persistence/query layer cleanly from current main; no competing ingestion system. | TODO |
@@ -1475,3 +1475,39 @@ which stays immutable.
 | 5. Keep #1599's historical results immutable | BINDING — `docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md` and `OTC_PAIR_SNAPSHOTS_2026-10-01.json` unchanged |
 | 6. Create a separately versioned, preregistered prospective lineage-threshold policy before the next such experiment | DONE (policy) — `docs/sources/lineage_policy/LINEAGE_DEPENDENCE_POLICY_v1_PREREGISTRATION.md` (`lineage-policy/v1`), preregistered in its own commit `94e16c4f1a986ecc3045d1b4702ce6efe0d8cc05` (committed 2026-10-02T01:10:52Z, the §14.1 boundary) before any result set was examined under it; normative-block sha256 in the sidecar `.sha256`, pinned by `tests/sources/test_lineage_policy_v1_preregistration.py`. Instrument and vocabulary implementation is a separate reviewed unit |
 | 7. No canonical player value changes merely from recording these decisions | BINDING — this record is documentation only |
+
+## Added 2026-10-03 — Trade Calculator: unlimited asset quantity + Early/Mid/Late market picks (owner decision)
+
+Two owner decisions, dated 2026-10-03. **They supersede the T-NEW-02 / #1415 uniqueness rule for the
+Trade Calculator** ("the exact same unique owned pick may not be double-counted"; players unique inside
+the calculator). The quantity / identity / round-trip half of #1415 stands. Supersession is in place: the
+T-NEW-02 companion row and the Lane B #1415 row above carry pointers here; the older wording stays
+traceable in `docs/OWNER_REQUESTED_TODO_SPEC_INDEX.md`, `docs/TRADE_CALCULATOR_MARKET_EVIDENCE_EXPANSION_SPEC.md`,
+`docs/C_SERIES_SCOPE_MANIFEST.md` (`C3-CALC-01`), `docs/C_SERIES_EXECUTION_MAP.md`,
+`docs/OWNER_FEATURE_INVENTORY.md` §2.1 and `docs/ui/CALCULATOR_UI_IMPLEMENTATION_CONTRACT.md` §11, each now
+marked superseded in part.
+
+**Principle:** Trade Calculator assets are hypothetical quantities, not inventory-enforced unique objects; real uniqueness remains in ownership records, transaction history, pick identity and roster-aware recommendations.
+
+**Decision 1 — every trade asset is repeatable.** Every selectable asset in the Trade Calculator — players,
+generic Early/Mid/Late picks, exact slot picks, owned league picks, future generic picks — can be added any
+number of times, to either or both sides. No quantity cap of any kind. Ownership and provenance may be
+DISPLAYED but never restrict quantity. Roster-aware suggestion engines (balancers / equalizer, suggestions)
+still use real ownership for their own recommendations — never claim a team owns four Jeffersons — through
+a separately named function; one function never enforces both.
+
+**Decision 2 — restore Early/Mid/Late future-pick market references.** Searching a year makes that year's
+Early/Mid/Late 1st, 2nd, … discoverable for every active future year and round, derived from the data
+(never a hardcoded year). These are market-reference assets, separate from owned picks; both may appear
+and both may be added. Values come only from the canonical pipeline (`rankDerivedValue` on the board row):
+no frontend arithmetic or averaging, and owned picks are not mapped to Mid. An owned unknown-slot pick
+keeps its existing label and valuation method.
+
+| Item | Disposition |
+|---|---|
+| Manual calculator construction never refuses a copy (players, owned picks, the same asset on both sides); `canAddEntry` true for any valid row | IMPLEMENTED — `claude/trade-calc-quantity-tiers` |
+| `− N +` on every grouped line; `+` unbounded; `−` removes one copy and removes the line at 1; finger-sized on phones | IMPLEMENTED |
+| One entry per copy (no quantity field); totals, VA, flows, destinations, War Room / BDVM / simulator payloads, localStorage, share URL, CSV/JSON export, KTC import all count and preserve copies exactly | IMPLEMENTED — share links run-length-encode copies per line (additive `q`) |
+| Equalizer keeps roster-aware ownership via `heldAssetKeysInTrade` / `unusedTeamPickEntries` (recommendation-only) | IMPLEMENTED |
+| Early/Mid/Late disappearance: data was present (priced, unsuppressed tier rows); `/trade` search put up to 5 owned picks BEFORE the board rows and the dropdown did not scroll, so on an iPhone with the keyboard open only owned "2027 1st / 2nd" rows were visible | FIXED — market group first, owned picks second, separate limits (`searchCalculatorAssets`), exact-query relevance first, scrollable dropdown |
+| Suppressed generic aliases (`pickGenericSuppressed`) stay excluded | UNCHANGED — pinned by test |
