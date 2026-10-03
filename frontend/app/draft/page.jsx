@@ -4830,7 +4830,7 @@ export default function DraftDashboardPage() {
 
   if (checking || authenticated == null) {
     return (
-      <main className={`main-shell ${styles.page}`}>
+      <div className={`main-shell ${styles.page}`}>
         {/* Same three constants as the settled header below — they are
             constants, not data, so rendering them here is the honest
             value rather than a placeholder.  Omitting the description
@@ -4859,7 +4859,7 @@ export default function DraftDashboardPage() {
         <Panel>
           <SkeletonTable rows={10} columns={5} />
         </Panel>
-      </main>
+      </div>
     );
   }
   if (authenticated === false) {
@@ -4874,7 +4874,7 @@ export default function DraftDashboardPage() {
     : null;
 
   return (
-    <main className={`main-shell ${styles.page} draft-page`}>
+    <div className={`main-shell ${styles.page} draft-page`}>
       <PageHeader
         eyebrow={DRAFT_PAGE_EYEBROW}
         title={DRAFT_PAGE_TITLE}
@@ -5325,6 +5325,6 @@ export default function DraftDashboardPage() {
           </div>
         </Modal>
       )}
-    </main>
+    </div>
   );
 }

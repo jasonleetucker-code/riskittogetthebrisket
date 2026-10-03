@@ -168,7 +168,9 @@ def test_effective_authority_equals_the_pipelines_stamped_weights(built):
         key = src["key"]
         auth = _entry(census, key)["weighting"]["effectiveAuthority"]
         assert auth["matchesPipelineSummary"] is True, key
-        assert auth["votingRows"] == summary[key]["votingRows"] == len(applied[key])
+        # The pipeline's summary omits a source that voted on no row.
+        pipe_rows = (summary.get(key) or {}).get("votingRows", 0)
+        assert auth["votingRows"] == pipe_rows == len(applied[key])
         if applied[key]:
             mean = round(sum(applied[key]) / len(applied[key]), 4)
             assert auth["meanAppliedWeight"] == mean == summary[key]["meanAppliedWeight"]
@@ -180,7 +182,9 @@ def test_source_level_factors_are_the_published_ones(built):
     summary = inputs.contract["sourceWeighting"]["sources"]
     for src in dc._RANKING_SOURCES:
         key = src["key"]
-        sw = summary[key]
+        # Absent from the summary (voted on no row, e.g. seasonally inactive)
+        # = nothing published to compare, exactly like an unmeasured entry.
+        sw = summary.get(key) or {}
         w = _entry(census, key)["weighting"]
         if sw.get("measured"):
             assert w["healthFactor"] == sw["healthFactor"]

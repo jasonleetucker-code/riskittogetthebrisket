@@ -18,14 +18,6 @@
   "players": {
    "changeHistory": [
     {
-     "at": "2026-04-27T16:17:33Z",
-     "broad": false,
-     "rowsAdded": 0,
-     "rowsChanged": 6,
-     "rowsRemoved": 0,
-     "rowsTotal": 463
-    },
-    {
      "at": "2026-04-27T17:56:49Z",
      "broad": true,
      "rowsAdded": 0,
@@ -1936,13 +1928,21 @@
      "rowsChanged": 30,
      "rowsRemoved": 0,
      "rowsTotal": 390
+    },
+    {
+     "at": "2026-10-03T16:50:03Z",
+     "broad": false,
+     "rowsAdded": 0,
+     "rowsChanged": 2,
+     "rowsRemoved": 0,
+     "rowsTotal": 390
     }
    ],
-   "contentSince": "2026-10-03T00:06:56Z",
-   "fingerprint": "c409592b8ac702cbbbb3a01c",
+   "contentSince": "2026-10-03T16:50:03Z",
+   "fingerprint": "43f23c73759e91091c109583",
    "firstObservationIsBaseline": true,
    "firstObservedAt": "2026-04-19T19:47:46Z",
-   "lastAnyMeaningfulChangeAt": "2026-10-03T00:06:56Z",
+   "lastAnyMeaningfulChangeAt": "2026-10-03T16:50:03Z",
    "lastBroadDatasetChangeAt": "2026-10-03T00:06:56Z",
    "rowChangedAt": {
     "a.j. brown": "2026-10-02T13:18:58Z",
@@ -2057,7 +2057,7 @@
     "dj rogers": "2026-10-02T13:18:58Z",
     "dohnte meyers": "2026-10-02T13:18:58Z",
     "donaven mcculley": "2026-10-02T13:18:58Z",
-    "dont'e thornton jr.": "2026-10-02T13:18:58Z",
+    "dont'e thornton jr.": "2026-10-03T16:50:03Z",
     "dontayvion wicks": "2026-10-02T13:18:58Z",
     "drake london": "2026-10-02T13:18:58Z",
     "drake maye": "2026-10-02T13:18:58Z",
@@ -2180,7 +2180,7 @@
     "kc concepcion": "2026-10-02T13:18:58Z",
     "keandre lambert-smith": "2026-10-02T13:18:58Z",
     "keaton mitchell": "2026-10-03T00:06:56Z",
-    "keenan allen": "2026-10-02T13:18:58Z",
+    "keenan allen": "2026-10-03T16:50:03Z",
     "kendre miller": "2026-10-02T13:18:58Z",
     "kendrick law": "2026-10-02T13:18:58Z",
     "kenneth gainwell": "2026-10-02T13:18:58Z",
@@ -2343,7 +2343,6 @@
     445,
     445,
     445,
-    445,
     425,
     425,
     424,
@@ -2365,6 +2364,7 @@
     406,
     406,
     391,
+    390,
     390,
     390,
     390
@@ -2482,7 +2482,7 @@
     "dj rogers": "ca4d9dc561",
     "dohnte meyers": "a585b0172a",
     "donaven mcculley": "152562db6c",
-    "dont'e thornton jr.": "e4c866c86f",
+    "dont'e thornton jr.": "6e496f7f30",
     "dontayvion wicks": "6b4c5de5f3",
     "drake london": "a356e3c10b",
     "drake maye": "51dc3ed59a",
@@ -2605,7 +2605,7 @@
     "kc concepcion": "e0150614ac",
     "keandre lambert-smith": "6a3934a3d5",
     "keaton mitchell": "8c3b40c3e1",
-    "keenan allen": "6e496f7f30",
+    "keenan allen": "e4c866c86f",
     "kendre miller": "3d780228a5",
     "kendrick law": "79b7aaaf10",
     "kenneth gainwell": "a55f223c3e",
