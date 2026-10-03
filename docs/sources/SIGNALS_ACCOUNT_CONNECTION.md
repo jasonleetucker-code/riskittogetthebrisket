@@ -13,7 +13,7 @@ reopened here.
 | Box timer | `deploy/systemd/dynasty-signals-auth-renew.{service,timer}.template` (every 6 h) |
 | Owner notice | owner ntfy webhook (`NOTIFY_WEBHOOK_URL`, the uptime probe's existing path, via `src/utils/owner_notify.py`) first, SMTP (`ALERT_TO`) as fallback — from the renewal run and the daily sweep |
 | Tests | `tests/sources/test_signals_auth.py` (synthetic tokens, local stub endpoint) |
-| Consumers | none yet. A paid-surface collector calls `get_access_token()`; it does not depend on Unit A's `claude/signals-adapter` code, and that code does not depend on this. |
+| Consumers | `src/sources/signals.py::SignalsAuthTokens` — the authenticated native-value collector (`scripts/fetch_signals_values.py`, `dynasty-signals-values` timer; an ACTIVE canonical source since 2026-10-03, `SIGNALS_FANTASY_INTEGRATION.md` §9). It calls `get_access_token()`, renews once through `renew_for_retry` on a 401/403 verdict from `classify_data_response`, and records `access_denied` through `record_failure` when the refusal survives that renewal. |
 
 ## 1. Rules that do not bend
 

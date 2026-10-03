@@ -1,12 +1,21 @@
-"""Signals Fantasy public dynasty boards — collection, store, second opinion.
+"""Signals Fantasy — public boards (second opinion) AND authenticated values (a voter).
 
-One owner for everything Signals (#1555, Unit A).  The fetcher
-``scripts/fetch_signals.py`` is a thin CLI over :func:`collect_board`; the
-authenticated endpoint ``GET /api/second-opinion/signals`` is a thin wrapper
-over :func:`build_second_opinion_payload`.
+One owner for everything Signals (#1555, Unit A; owner addendum 2026-10-03).
+Two distinct halves, one provider family:
 
-WHAT THIS IS
-------------
+* **Public positional boards** (this docstring, top half of the module) —
+  ``scripts/fetch_signals.py`` is a thin CLI over :func:`collect_board`; the
+  authenticated endpoint ``GET /api/second-opinion/signals`` wraps
+  :func:`build_second_opinion_payload`.  Rank-only, and they NEVER vote.
+* **Authenticated native values** (the "Authenticated native values" section
+  at the bottom) — ``scripts/fetch_signals_values.py`` is a thin CLI over
+  :func:`collect_values`.  Since 2026-10-03 these are an ACTIVE canonical
+  source: registry keys ``signalsSf`` (offense) and ``signalsIdp`` (IDP) in
+  ``src/api/data_contract.py``, voting as a value-ordered rank signal inside
+  the FantasyCalc B10 family.  Read that section before touching either half.
+
+WHAT THE PUBLIC BOARDS ARE
+--------------------------
 Signals publishes two public, statically prerendered dynasty boards:
 
 * ``/rankings/dynasty``      — QB / RB / WR / TE, 200 each (2026-10-01)
@@ -16,12 +25,14 @@ Each row is a POSITIONAL ordinal rank inside a tier band (S+ … F), plus a
 "MKT QB4" badge giving Signals' own read of the market's positional rank.
 There is **no value scale and no cross-position ordering** on these pages.
 
-WHAT THIS IS NOT — load-bearing
--------------------------------
-* NOT a voting source.  Nothing here is registered in ``_RANKING_SOURCES``,
-  the game-type gate, the blend, confidence or any canonical field.  The
-  only consumer is the Second Opinions surface, as a rank-only, non-voting
-  row (``votes: False``).
+WHAT THE PUBLIC BOARDS ARE NOT — load-bearing
+---------------------------------------------
+* NOT a voting source.  The public boards' keys (``signalsDynasty`` /
+  ``signalsIdpDynasty``) are not registered in ``_RANKING_SOURCES``, the
+  blend, confidence or any canonical field.  Their only consumer is the
+  Second Opinions surface, as a rank-only, non-voting row (``votes: False``).
+  The VOTING Signals observation is the authenticated native value
+  (``signalsSf`` / ``signalsIdp``), never these positional ranks.
 * NOT a price.  A positional ordinal is never converted to a value, and
   QB3 and RB3 are never placed on one ladder — that would manufacture a
   cross-position ranking Signals did not publish.
@@ -161,8 +172,12 @@ def dataset_metadata(spec: BoardSpec) -> dict[str, Any]:
         "unit": "positional_ordinal_rank+tier",
         "valueScale": None,
         "basis": BASIS_POSITIONAL_RANK_ONLY,
+        # The PUBLIC positional board never votes.  Signals' voting
+        # observation is the authenticated native value (``signalsSf`` /
+        # ``signalsIdp``, :func:`value_dataset_metadata`), owner 2026-10-03.
         "intendedConsumer": "second_opinion_only",
         "votes": False,
+        "votingObservation": "authenticated native value (signalsSf / signalsIdp)",
         "visibility": "authenticated_only",
         "lineage": (
             "Signals says it aggregates unnamed community dynasty value markets and "
@@ -1231,7 +1246,8 @@ def build_second_opinion_payload(
         "note": (
             "Positional rank and tier from Signals' public dynasty boards. Not a value, "
             "not league-adjusted, never ranked across positions, and not counted in "
-            "any verdict or in Chase Upside values."
+            "any verdict. Signals' authenticated native values are a separate, voting "
+            "observation (the Signals columns on /rankings)."
         ),
         "boards": boards,
         "generatedAt": iso(at),
@@ -1266,3 +1282,1227 @@ def build_second_opinion_payload(
         "unresolved": join.unresolved,
     }
     return payload
+
+
+# ══ Authenticated native values — the ACTIVE canonical source ═══════════
+#
+# Owner addendum 2026-10-03 (``docs/sources/SIGNALS_FANTASY_INTEGRATION.md``
+# §9).  Signals' authenticated native dynasty VALUES vote in the canonical
+# board for offense (QB/RB/WR/TE) and IDP — through the SAME rank-signal
+# path FantasyCalc and Dynasty Daddy use: Signals' own cross-position value
+# ORDERING becomes a rank, and the rank travels rank -> percentile -> Hill.
+# The native values are retained (private release + ``sourceNativeValues``)
+# and shown; the rank is labelled DERIVED from that value ordering, because
+# Signals did not publish it.
+#
+# One provider family, one active observation per player:
+#
+# * the PUBLIC positional boards above never vote (``votes: False`` stays
+#   true for them) — a positional ordinal has no cross-position order;
+# * the authenticated VALUE is the vote (selection rung 2 of the owner
+#   hierarchy: the stored Dynasty + Superflex preset.  Rung 1, exact league
+#   settings, is computed CLIENT-side by Signals' app over a FantasyCalc
+#   fetch, so it is not a server observation and is not reimplemented);
+# * a row with no value votes through an authenticated CROSS-POSITION rank
+#   only when the payload carries one (rung 3).  Today neither dataset
+#   publishes one — positional ranks are retained as provenance and NEVER
+#   turned into an overall order — so such rows are MISSING, never zero.
+#
+# Privacy (§2): the raw responses, releases and the board-ready CSV live in
+# the box-local, gitignored ``data/sources/signals/`` store.  The board CSV
+# is read by the contract build on the box; on a host where the authenticated
+# collector has never run (CI, local dev, a fresh box) the source is
+# NOT PROVISIONED — absent, never zero, and never a red CI lane
+# (``data_contract.private_source_availability``).
+#
+# Storage (box-local, gitignored)::
+#
+#     data/sources/signals/values/collector_state.json      provisioning marker
+#     data/sources/signals/values/<dataset>/raw/<sha>.json.gz
+#     data/sources/signals/values/<dataset>/releases/<contentSha>.json
+#     data/sources/signals/values/<dataset>/quarantine/<sha>.json
+#     data/sources/signals/values/<dataset>/latest.json      last good release
+#     data/sources/signals/values/<dataset>/fetch_state.json
+#     data/sources/signals/board/<sourceKey>.csv             board-ready vote
+
+APPSYNC_URL = "https://itesc4ls2vhgtlole3nhy245wa.appsync-api.us-east-2.amazonaws.com/graphql"
+VALUES_PARSER_VERSION = "signals-appsync-values-v1"
+VALUES_SCHEMA_VERSION = 1
+VALUES_DIR = "values"
+BOARD_DIR = "board"
+#: Written by EVERY authenticated-collector run (including an auth stop), so
+#: its presence is the proof that this host is meant to carry the private
+#: source.  Read by ``private_store_provisioned``.
+PROVISIONED_MARKER = "collector_state.json"
+
+BASIS_NATIVE_VALUE = "NATIVE_VALUE"
+BASIS_CROSS_POSITION_RANK = "CROSS_POSITION_RANK"
+
+USER_AGENT_VALUES = (
+    "ChaseUpsideCollector/1.0 (private dynasty analysis tool; "
+    "owner-authorized read-only authenticated value collection)"
+)
+#: Aliased ``listSnapshotsByPlayer`` fields per GraphQL request.  Measured
+#: 2026-10-03: 25 aliases answer in ~0.75 s, so the whole offense universe
+#: (~517 players) is ~21 requests.
+OFFENSE_BATCH_SIZE = 25
+#: Hard cap on HTTP requests one run may spend across both datasets.
+MAX_VALUE_REQUESTS_PER_RUN = 60
+IDP_PAGE_LIMIT = 1000
+#: The IDP season board measured 1,072 rows (2 pages).  More than this many
+#: pages is runaway pagination: the release is withheld, never truncated.
+IDP_MAX_PAGES = 5
+#: Pause between requests.
+REQUEST_PAUSE_SECONDS = 1.0
+#: How far back a player's newest snapshot may sit and still be READ.  It is
+#: not a currency rule — only the run's publication date (below) is current.
+OFFENSE_LOOKBACK_DAYS = 7
+#: A publication is the newest snapshot date the vendor wrote for MORE THAN
+#: HALF of the valued players — the same fraction the collapse guard uses.
+#: Rows dated before the publication are not current and are excluded.
+PUBLICATION_MAJORITY = ROW_COLLAPSE_FRACTION
+
+#: Fail-loud, preserve-last-good board floors, aligned with (>=) the
+#: contract's ``_DEFAULT_SOURCE_ROW_FLOORS`` (pinned by
+#: ``tests/api/test_source_floor_invariant.py``).  A release with fewer
+#: voting rows is quarantined and the last good board keeps voting with its
+#: true age.  Measured 2026-10-03: 509 offense board rows; IDP per family
+#: (DL / LB / DB) — see ``IDP_FAMILY_BOARDS``.
+MIN_BOARD_ROWS: dict[str, int] = {
+    "signalsSf": 400,
+    "signalsIdpDl": 330,
+    "signalsIdpLb": 150,
+    "signalsIdpDb": 300,
+}
+
+#: Signals' IDP ``value`` is a strictly monotone function of its per-FAMILY
+#: composite (Spearman 1.000; independent review of #1627, 2026-10-03): each
+#: family is normalised on its own scale (tops DL / LB / DB within 4% of each
+#: other, near-identical curves at #12 and #24).  It is therefore NOT a
+#: cross-family price, and its top-100 is half DBs.  Ordering it across
+#: families would manufacture exactly the shared DL/LB/DB order the owner
+#: addendum forbids ("DE4 and LB4 must NOT be manufactured into a shared
+#: overall rank").  So each family is ranked ONLY within itself and written
+#: to its own board, which votes through the positional IDP path
+#: (``SOURCE_SCOPE_POSITION_IDP`` + the backbone's per-family ladder).
+IDP_FAMILY_BOARDS: dict[str, str] = {
+    "DL": "signalsIdpDl",
+    "LB": "signalsIdpLb",
+    "DB": "signalsIdpDb",
+}
+
+BOARD_CSV_COLUMNS: tuple[str, ...] = (
+    "name",
+    "rank",
+    "value",
+    "sleeper_id",
+    "position",
+    "raw_position",
+    "team",
+    "basis",
+    "rank_derived",
+    "value_as_of",
+    "dataset",
+)
+
+_SID_RE = re.compile(r"^[0-9]{1,9}$")
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+@dataclass(frozen=True)
+class ValueDatasetSpec:
+    key: str
+    source_key: str
+    dataset: str
+    positions: tuple[str, ...]
+    population: str
+    game_type_evidence: str
+    #: Format of the observation, recorded on every observation.
+    format: dict[str, Any] = field(default_factory=dict)
+    #: Payload field carrying an authenticated CROSS-POSITION rank, if any.
+    #: ``None`` for both datasets today: positional ranks never qualify.
+    cross_position_rank_field: str | None = None
+    #: ``{family: source_key}`` when the dataset is ranked WITHIN families
+    #: and written as one board per family (IDP); empty = one board,
+    #: ``source_key``, ranked across the whole dataset (offense).
+    family_boards: dict[str, str] = field(default_factory=dict)
+
+    def output_keys(self) -> tuple[str, ...]:
+        """The registry keys this dataset's boards vote under."""
+        return tuple(self.family_boards.values()) or (self.source_key,)
+
+    def board_key_for(self, row: Mapping[str, Any]) -> str | None:
+        if not self.family_boards:
+            return self.source_key
+        return self.family_boards.get(str(row.get("position") or ""))
+
+
+_OFFENSE_FORMAT = {
+    "gameType": "DYNASTY",
+    "superflex": True,
+    "tePremium": False,
+    "leagueAdjusted": False,
+    "basis": BASIS_NATIVE_VALUE,
+    "preset": "Signals stored Dynasty value, Superflex (PlayerValueSnapshot.signalsDynastyValue)",
+    "superflexEvidence": (
+        "measured 2026-10-03: Josh Allen priced above Jaxon Smith-Njigba, and Caleb "
+        "Williams / Lamar Jackson / Joe Burrow priced as top-12 assets; a 1QB board puts "
+        "those QBs near half of WR1"
+    ),
+    "tePremiumEvidence": (
+        "measured 2026-10-03: the TE1 is priced below WRs FantasyCalc prices equally; no "
+        "TE premium and no TEP control on the stored value"
+    ),
+    "exactLeagueSettings": (
+        "not a server observation: Signals' app computes league-exact values client-side "
+        "over a FantasyCalc fetch, so they are not collected and not reimplemented"
+    ),
+}
+_IDP_FORMAT = {
+    "gameType": "DYNASTY",
+    "superflex": None,
+    "tePremium": None,
+    "leagueAdjusted": False,
+    "basis": BASIS_NATIVE_VALUE,
+    "preset": "Signals IDP dynasty season board (IdpDynastyValueEntry.value, sk '<season>#dynasty')",
+    "scale": "per family (DL / LB / DB); not comparable across families",
+    "superflexEvidence": "not applicable: an IDP-only board",
+    "tePremiumEvidence": "not applicable: an IDP-only board",
+    "exactLeagueSettings": "not exposed",
+}
+
+VALUE_DATASETS: dict[str, ValueDatasetSpec] = {
+    "offense": ValueDatasetSpec(
+        key="offense",
+        source_key="signalsSf",
+        dataset="offense",
+        positions=("QB", "RB", "WR", "TE"),
+        population="offense: QB/RB/WR/TE native Superflex dynasty values, one daily snapshot",
+        game_type_evidence=(
+            "PlayerValueSnapshot.signalsDynastyValue: the DYNASTY value field, distinct from "
+            "the snapshot's signalsRedraft* fields, which are never read"
+        ),
+        format=_OFFENSE_FORMAT,
+    ),
+    "idp": ValueDatasetSpec(
+        key="idp",
+        # The dataset id (store ``values/idp``); NOT a registry key — the
+        # boards vote under ``IDP_FAMILY_BOARDS``.
+        source_key="signalsIdp",
+        dataset="idp",
+        positions=("CB", "S", "DT", "DE", "LB"),
+        population=(
+            "IDP: true positions CB/S/DT/DE/LB; values normalised WITHIN Signals' family "
+            "(DL / LB / DB), so ranked within family only"
+        ),
+        game_type_evidence=(
+            "listIdpDynastyValuesBySeason rows keyed sk '<season>#dynasty', re-verified on "
+            "every row of every release; a release failing it is quarantined"
+        ),
+        format=_IDP_FORMAT,
+        family_boards=IDP_FAMILY_BOARDS,
+    ),
+}
+
+
+def value_dataset_metadata(spec: ValueDatasetSpec) -> dict[str, Any]:
+    """Declared contract of one authenticated value dataset (it VOTES)."""
+    return {
+        "provider": PROVIDER,
+        "family": PROVIDER,
+        "sourceKey": spec.source_key,
+        "registryKeys": list(spec.output_keys()),
+        "dataset": spec.dataset,
+        "gameType": "DYNASTY",
+        "gameTypeEvidence": spec.game_type_evidence,
+        "format": dict(spec.format),
+        "population": spec.population,
+        "crossPositionOrdering": not spec.family_boards,
+        "horizon": "dynasty",
+        "unit": "native_value",
+        "basis": BASIS_NATIVE_VALUE,
+        "voteBasis": (
+            "value-ordered rank WITHIN family (derived) -> backbone family ladder -> IDP Hill"
+            if spec.family_boards
+            else "value-ordered rank (derived) -> percentile -> Hill"
+        ),
+        "intendedConsumer": "canonical_rank_signal",
+        "votes": True,
+        "visibility": "authenticated_only",
+        "lineage": (
+            "one Signals provider family, declared inside FantasyCalc's B10 group: Signals' "
+            "app falls back to FantasyCalc values for its offense dynasty baseline (no "
+            "independence bonus on offense).  FantasyCalc publishes no IDP, so on IDP rows the "
+            "group is Signals alone — its IDP value is model-derived from per-snap features "
+            "with no market input"
+        ),
+    }
+
+
+def values_root(store_root: Path) -> Path:
+    return Path(store_root) / VALUES_DIR
+
+
+def board_csv_path(store_root: Path, source_key: str) -> Path:
+    return Path(store_root) / BOARD_DIR / f"{source_key}.csv"
+
+
+def private_store_provisioned(store_root: Path) -> bool:
+    """True once the authenticated collector has run on this host."""
+    return (values_root(store_root) / PROVISIONED_MARKER).is_file()
+
+
+# ── Offense universe (whose snapshots are read) ──────────────────────────
+
+
+def newest_raw_payload(repo_root: Path) -> tuple[dict[str, Any] | None, Path | None]:
+    """The newest raw scrape payload on this host (runtime cache, then the
+    checked-out export) — the universe the board can rank at all."""
+    candidates: list[Path] = []
+    for d in (Path(repo_root) / "data", Path(repo_root) / "exports" / "latest"):
+        candidates.extend(d.glob("dynasty_data_*.json"))
+    for path in sorted(candidates, key=lambda p: (p.name, str(p.parent)), reverse=True):
+        data = _read_json(path)
+        if isinstance(data, dict) and isinstance(data.get("players"), dict):
+            return data, path
+    return None, None
+
+
+def offense_universe_from_payload(payload: Mapping[str, Any] | None) -> dict[str, dict[str, Any]]:
+    """``{sleeperId: {name, position}}`` for every offense player the raw
+    payload carries with a Sleeper id.  A player the board cannot hold is not
+    queried; anything not queried is MISSING, never zero."""
+    out: dict[str, dict[str, Any]] = {}
+    if not isinstance(payload, Mapping):
+        return out
+    players = payload.get("players") or {}
+    sleeper = payload.get("sleeper") or {}
+    positions = sleeper.get("positions") or {} if isinstance(sleeper, Mapping) else {}
+    if not isinstance(players, Mapping):
+        return out
+    for name, pdata in players.items():
+        if not isinstance(pdata, Mapping):
+            continue
+        sid = str(pdata.get("_sleeperId") or "").strip()
+        pos = str(positions.get(name) or "").strip().upper()
+        if not _SID_RE.match(sid) or pos not in VALUE_DATASETS["offense"].positions:
+            continue
+        out.setdefault(sid, {"name": str(name), "position": pos})
+    return out
+
+
+# ── Normalization + the selection hierarchy ──────────────────────────────
+
+
+def _positive_number(value: Any) -> float | None:
+    if isinstance(value, bool) or value is None or value == "":
+        return None
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if number != number or number in (float("inf"), float("-inf")) or number <= 0:
+        return None
+    return number
+
+
+def _positive_int(value: Any) -> int | None:
+    number = _positive_number(value)
+    if number is None or number != int(number):
+        return None
+    return int(number)
+
+
+def normalize_idp_items(
+    items: Sequence[Mapping[str, Any]],
+    spec: ValueDatasetSpec,
+    *,
+    season: int,
+) -> tuple[list[dict[str, Any]], list[str], list[str], dict[str, int]]:
+    """Signals IDP season rows -> observations.  Returns ``(obs, errors,
+    warnings, excluded)``; any error quarantines the release.
+
+    The raw Signals position (CB / S / DT / DE / LB) is kept as provenance
+    and mapped to DL / LB / DB only through the canonical owner
+    (``src.utils.name_clean.normalize_position``).
+
+    A row whose id is not a Sleeper player id is EXCLUDED with a reason, not
+    a schema error: the season board carries draft-prospect rows keyed by a
+    vendor slug (2 of 1,072 measured 2026-10-03, ``draft_2025_<name>``) that
+    no board row can be joined to by id.  Never name-guessed."""
+    from src.utils.name_clean import normalize_position  # noqa: PLC0415
+
+    errors: list[str] = []
+    warnings: list[str] = []
+    excluded: dict[str, int] = {}
+    obs: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    want_sk = f"{season}#dynasty"
+    for idx, item in enumerate(items):
+        if not isinstance(item, Mapping):
+            errors.append(f"row {idx}: not an object")
+            continue
+        sid = str(item.get("sleeperPlayerId") or "").strip()
+        raw_pos = str(item.get("position") or "").strip().upper()
+        name = str(item.get("name") or "").strip()
+        if item.get("sk") != want_sk or str(item.get("season")) != str(season):
+            errors.append(
+                f"row {idx}: game type unverified (sk {item.get('sk')!r}, season "
+                f"{item.get('season')!r}; expected {want_sk!r})"
+            )
+            continue
+        if not _SID_RE.match(sid):
+            excluded["no_sleeper_id"] = excluded.get("no_sleeper_id", 0) + 1
+            continue
+        if sid in seen:
+            errors.append(f"row {idx}: duplicate sleeperPlayerId {sid}")
+            continue
+        seen.add(sid)
+        if raw_pos not in spec.positions:
+            errors.append(f"row {idx}: unexpected position {raw_pos!r}")
+            continue
+        family = normalize_position(raw_pos)
+        if spec.family_boards and str(item.get("family") or "") != family:
+            # Signals' own family must be the canonical owner's mapping of
+            # its raw position — the per-family boards depend on it.
+            errors.append(
+                f"row {idx}: vendor family {item.get('family')!r} disagrees with "
+                f"{raw_pos!r} -> {family!r}"
+            )
+            continue
+        if not name:
+            errors.append(f"row {idx}: missing name")
+            continue
+        raw_value = item.get("value")
+        value = _positive_number(raw_value)
+        if raw_value not in (None, "") and value is None:
+            errors.append(f"row {idx}: non-positive or non-numeric value")
+            continue
+        as_of = item.get("sourceUpdatedAt") or item.get("updatedAt")
+        obs.append(
+            {
+                "sleeperId": sid,
+                "name": name,
+                "rawPosition": raw_pos,
+                "position": family,
+                "signalsFamily": item.get("family"),
+                "team": item.get("team"),
+                "nativeValue": value,
+                "positionalRank": _positive_int(item.get("posRank")),
+                "crossPositionRank": (
+                    _positive_int(item.get(spec.cross_position_rank_field))
+                    if spec.cross_position_rank_field
+                    else None
+                ),
+                "valueAsOf": str(as_of) if as_of else None,
+                "format": dict(spec.format),
+            }
+        )
+    if not obs and not errors:
+        errors.append("no IDP rows for the season board")
+    return obs, errors, warnings, excluded
+
+
+def normalize_offense_snapshots(
+    results: Mapping[str, Sequence[Mapping[str, Any]]],
+    universe: Mapping[str, Mapping[str, Any]],
+    spec: ValueDatasetSpec,
+) -> tuple[list[dict[str, Any]], str | None, list[str], list[str], dict[str, int]]:
+    """``{sleeperId: [newest snapshots]}`` -> observations of ONE publication.
+
+    The publication date is the newest date covering more than half of the
+    players that have any snapshot in the window.  A player whose snapshots
+    do not include that date is NOT current and is excluded (counted) —
+    never carried forward at an older date.
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+    excluded: dict[str, int] = {}
+    by_player: dict[str, dict[str, Mapping[str, Any]]] = {}
+    for sid, snaps in results.items():
+        for snap in snaps or ():
+            if not isinstance(snap, Mapping):
+                errors.append(f"{sid}: snapshot is not an object")
+                continue
+            if str(snap.get("playerId") or "") != sid:
+                errors.append(f"{sid}: snapshot answered for another player")
+                continue
+            date = str(snap.get("date") or "")
+            if not _DATE_RE.match(date):
+                errors.append(f"{sid}: unparseable snapshot date {date!r}")
+                continue
+            by_player.setdefault(sid, {})[date] = snap
+    if errors:
+        return [], None, errors[:25], warnings, excluded
+    if not by_player:
+        return [], None, ["no snapshots in the lookback window"], warnings, excluded
+    counts: dict[str, int] = {}
+    for dates in by_player.values():
+        for d in dates:
+            counts[d] = counts.get(d, 0) + 1
+    publication = next(
+        (
+            d
+            for d in sorted(counts, reverse=True)
+            if counts[d] > PUBLICATION_MAJORITY * len(by_player)
+        ),
+        None,
+    )
+    if publication is None:
+        return [], None, ["no snapshot date covers a majority of players"], warnings, excluded
+    obs: list[dict[str, Any]] = []
+    for sid in sorted(by_player):
+        snap = by_player[sid].get(publication)
+        if snap is None:
+            excluded["not_current_publication"] = excluded.get("not_current_publication", 0) + 1
+            continue
+        raw_value = snap.get("signalsDynastyValue")
+        value = _positive_number(raw_value)
+        if raw_value not in (None, "") and value is None:
+            errors.append(f"{sid}: non-positive or non-numeric value")
+            continue
+        meta = universe.get(sid) or {}
+        obs.append(
+            {
+                "sleeperId": sid,
+                "name": str(meta.get("name") or ""),
+                "rawPosition": None,
+                "position": str(meta.get("position") or ""),
+                "signalsFamily": None,
+                "team": None,
+                "nativeValue": value,
+                "positionalRank": _positive_int(snap.get("signalsDynastyPosRank")),
+                "crossPositionRank": (
+                    _positive_int(snap.get(spec.cross_position_rank_field))
+                    if spec.cross_position_rank_field
+                    else None
+                ),
+                "valueAsOf": str(snap.get("updatedAt") or publication),
+                "format": dict(spec.format),
+            }
+        )
+    missing = len(universe) - len(by_player)
+    if missing > 0:
+        excluded["no_snapshot_in_window"] = missing
+    return obs, publication, errors[:25], warnings, excluded
+
+
+def build_board_rows(
+    observations: Sequence[Mapping[str, Any]],
+    spec: ValueDatasetSpec,
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """Apply the owner's selection hierarchy: ONE active observation per player.
+
+    * native value present           -> VALUE; the rank is DERIVED from the
+      value ordering (competition rank: equal values share a rank);
+    * no value, cross-position rank  -> RANK fallback at the published rank;
+    * otherwise (a positional rank at most) -> MISSING: never zero, and
+      never a manufactured cross-position order.
+
+    A dataset with ``family_boards`` (IDP) is ranked WITHIN each family only:
+    every family's board starts at rank 1 and no row is ever ordered
+    against another family's.  A row whose family has no board is excluded.
+
+    Players whose canonical name collides inside the dataset are withheld
+    (both): the CSV join falls back to the name, and would otherwise attach
+    one player's value to the other.
+    """
+    from src.api.data_contract import _canonical_match_key  # noqa: PLC0415
+
+    excluded: dict[str, int] = {}
+    name_counts: dict[str, int] = {}
+    keyed: list[tuple[str, Mapping[str, Any]]] = []
+    for o in observations:
+        k = _canonical_match_key(str(o.get("name") or ""))
+        keyed.append((k, o))
+        name_counts[k] = name_counts.get(k, 0) + 1
+    valued: list[Mapping[str, Any]] = []
+    ranked: list[Mapping[str, Any]] = []
+    for k, o in keyed:
+        if not k:
+            excluded["unkeyable_name"] = excluded.get("unkeyable_name", 0) + 1
+        elif name_counts.get(k, 0) > 1:
+            excluded["homonym_within_dataset"] = excluded.get("homonym_within_dataset", 0) + 1
+        elif spec.board_key_for(o) is None:
+            excluded["no_family_board"] = excluded.get("no_family_board", 0) + 1
+        elif _positive_number(o.get("nativeValue")) is not None:
+            valued.append(o)
+        elif _positive_int(o.get("crossPositionRank")) is not None:
+            ranked.append(o)
+        else:
+            excluded["no_value_no_cross_position_rank"] = (
+                excluded.get("no_value_no_cross_position_rank", 0) + 1
+            )
+    rows: list[dict[str, Any]] = []
+    for board in spec.output_keys():
+        group = [o for o in valued if spec.board_key_for(o) == board]
+        group.sort(
+            key=lambda o: (
+                -float(o["nativeValue"]),
+                str(o.get("name") or "").casefold(),
+                str(o.get("sleeperId") or ""),
+            )
+        )
+        prev_value: float | None = None
+        prev_rank = 0
+        for idx, o in enumerate(group, start=1):
+            value = float(o["nativeValue"])
+            rank = prev_rank if value == prev_value else idx
+            prev_value, prev_rank = value, rank
+            rows.append(_board_row(o, spec, rank=rank, value=value, basis=BASIS_NATIVE_VALUE))
+    for o in sorted(
+        ranked,
+        key=lambda o: (
+            str(spec.board_key_for(o)),
+            int(o["crossPositionRank"]),
+            str(o.get("sleeperId") or ""),
+        ),
+    ):
+        rows.append(
+            _board_row(
+                o,
+                spec,
+                rank=int(o["crossPositionRank"]),
+                value=None,
+                basis=BASIS_CROSS_POSITION_RANK,
+            )
+        )
+    return rows, excluded
+
+
+def _board_row(
+    o: Mapping[str, Any], spec: ValueDatasetSpec, *, rank: int, value: float | None, basis: str
+) -> dict[str, Any]:
+    return {
+        "name": o.get("name") or "",
+        "rank": rank,
+        "value": value,
+        "sleeper_id": o.get("sleeperId") or "",
+        "position": o.get("position") or "",
+        "raw_position": o.get("rawPosition") or "",
+        "team": o.get("team") or "",
+        "basis": basis,
+        "rank_derived": 1 if basis == BASIS_NATIVE_VALUE else 0,
+        "value_as_of": o.get("valueAsOf") or "",
+        "dataset": spec.dataset,
+    }
+
+
+def render_board_csv(rows: Sequence[Mapping[str, Any]]) -> str:
+    import csv as _csv  # noqa: PLC0415
+    import io  # noqa: PLC0415
+
+    buf = io.StringIO()
+    writer = _csv.DictWriter(buf, fieldnames=list(BOARD_CSV_COLUMNS), lineterminator="\n")
+    writer.writeheader()
+    for row in rows:
+        out = {k: row.get(k, "") for k in BOARD_CSV_COLUMNS}
+        v = row.get("value")
+        if v is None:
+            out["value"] = ""
+        elif float(v) == int(float(v)):
+            out["value"] = int(float(v))
+        writer.writerow(out)
+    return buf.getvalue()
+
+
+def board_content_sha256(rows: Sequence[Mapping[str, Any]], as_of: str | None) -> str:
+    blob = json.dumps(
+        {"asOf": as_of, "rows": [[r.get(k) for k in BOARD_CSV_COLUMNS] for r in rows]},
+        sort_keys=True,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+# ── AppSync transport ────────────────────────────────────────────────────
+
+HttpPost = Callable[[str, Mapping[str, str], bytes, float], HttpResponse]
+
+
+def urllib_post(url: str, headers: Mapping[str, str], body: bytes, timeout: float) -> HttpResponse:
+    """Default POST transport: the same no-redirect / size caps as GETs."""
+    req = urllib.request.Request(url, data=body, headers=dict(headers), method="POST")
+    try:
+        with _OPENER.open(req, timeout=timeout) as resp:  # noqa: S310 - fixed https URL
+            status = resp.status
+            hdrs = {k.lower(): v for k, v in resp.headers.items()}
+            data = _bounded_read(resp)
+    except urllib.error.HTTPError as exc:
+        status = exc.code
+        hdrs = {k.lower(): v for k, v in (exc.headers or {}).items()}
+        data = _bounded_read(exc) if exc.fp else b""
+    if hdrs.get("content-encoding", "").lower() == "gzip" and data:
+        data = _bounded_gunzip(data)
+    return status, hdrs, data
+
+
+class ValuesStop(Exception):
+    """A run-level stop.  ``outcome`` is the recorded collection outcome."""
+
+    def __init__(self, outcome: str, reason: str) -> None:
+        self.outcome = outcome
+        self.reason = reason
+        super().__init__(f"{outcome}: {reason}")
+
+
+class SignalsAuthTokens:
+    """Token provider over the owner session (``src.sources.signals_auth``).
+
+    The access token goes into the ``Authorization`` header and nowhere else:
+    never logged, never written by the collector."""
+
+    def __init__(self, auth_dir: str | os.PathLike[str] | None = None) -> None:
+        from src.sources import signals_auth as SA  # noqa: PLC0415
+
+        self._sa = SA
+        self._store = SA.SignalsStore.open(auth_dir)
+
+    def token(self) -> str:
+        try:
+            return self._sa.get_access_token(self._store)
+        except self._sa.SignalsAuthError as exc:
+            raise ValuesStop("auth_unavailable", exc.failure_class) from None
+
+    def renew(self) -> None:
+        try:
+            self._sa.renew_for_retry(self._store)
+        except self._sa.SignalsAuthError as exc:
+            raise ValuesStop("auth_unavailable", exc.failure_class) from None
+
+    def deny(self, reason: str) -> None:
+        with self._store.lock():
+            self._sa.record_failure(self._store, self._sa.ACCESS_DENIED, reason)
+
+
+class AppSyncClient:
+    """Bounded GraphQL client.  It stops (``ValuesStop``); it never loops.
+
+    401/403 (and AppSync's HTTP-200 ``Unauthorized`` field errors) get ONE
+    fresh renewal through the auth owner's ``classify_data_response``; a
+    refusal that survives it is ``access_denied`` and is recorded once.
+    429 honours Retry-After (capped), 5xx / transport errors back off a
+    bounded number of times, and a hard request budget caps every run.
+    """
+
+    def __init__(
+        self,
+        tokens: Any,
+        *,
+        http_post: HttpPost = urllib_post,
+        sleep: Callable[[float], None] = time.sleep,
+        now: Callable[[], datetime] = utc_now,
+        max_requests: int = MAX_VALUE_REQUESTS_PER_RUN,
+        url: str = APPSYNC_URL,
+    ) -> None:
+        self.tokens = tokens
+        self.http_post = http_post
+        self.sleep = sleep
+        self.now = now
+        self.max_requests = max_requests
+        self.url = url
+        self.requests = 0
+        self.renewed = False
+
+    def _auth_refused(self, status: int) -> None:
+        from src.sources import signals_auth as SA  # noqa: PLC0415
+
+        verdict = SA.classify_data_response(status, renewal_attempted=self.renewed)
+        if verdict == SA.DATA_RENEW_AND_RETRY:
+            self.renewed = True
+            self.tokens.renew()
+            return
+        self.tokens.deny(f"appsync HTTP {status} after a fresh renewal")
+        raise ValuesStop("access_denied", f"HTTP {status} after renewal")
+
+    def query(self, document: str, variables: Mapping[str, Any]) -> dict[str, Any]:
+        body = json.dumps({"query": document, "variables": dict(variables)}).encode("utf-8")
+        rate_attempt = transient_attempt = 0
+        while True:
+            if self.requests >= self.max_requests:
+                raise ValuesStop("request_budget_exhausted", f"{self.requests} requests")
+            headers = {
+                "Authorization": self.tokens.token(),
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "Accept-Encoding": "gzip",
+                "User-Agent": USER_AGENT_VALUES,
+            }
+            self.requests += 1
+            try:
+                status, resp_headers, data = self.http_post(
+                    self.url, headers, body, HTTP_TIMEOUT_SECONDS
+                )
+            except BodyTooLarge as exc:
+                raise ValuesStop("fetch_failed", f"oversize: {exc}") from None
+            except OSError as exc:
+                status, resp_headers, data = None, {}, b""
+                reason = f"transport: {type(exc).__name__}"
+            else:
+                reason = f"HTTP {status}"
+            if status == 429:
+                wait = _retry_after_seconds(resp_headers.get("retry-after"), self.now())
+                if wait is None:
+                    wait = TRANSIENT_BACKOFF_SECONDS[
+                        min(rate_attempt, len(TRANSIENT_BACKOFF_SECONDS) - 1)
+                    ]
+                if rate_attempt >= 2 or wait > MAX_RETRY_AFTER_SECONDS:
+                    raise ValuesStop("rate_limited", f"Retry-After {wait}")
+                rate_attempt += 1
+                self.sleep(wait)
+                continue
+            if status is None or status >= 500:
+                if transient_attempt < len(TRANSIENT_BACKOFF_SECONDS):
+                    self.sleep(TRANSIENT_BACKOFF_SECONDS[transient_attempt])
+                    transient_attempt += 1
+                    continue
+                raise ValuesStop("fetch_failed", reason)
+            if status in (401, 403):
+                self._auth_refused(status)
+                continue
+            if status != 200:
+                raise ValuesStop("fetch_failed", reason)
+            try:
+                doc = json.loads(data.decode("utf-8"))
+            except (UnicodeError, ValueError):
+                raise ValuesStop("schema_drift", "response is not JSON") from None
+            if not isinstance(doc, dict):
+                raise ValuesStop("schema_drift", "response is not an object")
+            gql_errors = [e for e in (doc.get("errors") or []) if isinstance(e, Mapping)]
+            if any("unauthorized" in str(e.get("errorType") or "").lower() for e in gql_errors):
+                # AppSync answers field-level auth failures with HTTP 200.
+                self._auth_refused(401)
+                continue
+            if gql_errors:
+                msgs = sorted({str(e.get("message") or "")[:160] for e in gql_errors})
+                raise ValuesStop("schema_drift", "; ".join(msgs[:3]))
+            out = doc.get("data")
+            if not isinstance(out, dict):
+                raise ValuesStop("schema_drift", "response carries no data object")
+            return out
+
+
+_IDP_QUERY = (
+    "query SignalsIdpValues($season: Int!, $limit: Int, $nextToken: String) { "
+    "listIdpDynastyValuesBySeason(season: $season, limit: $limit, nextToken: $nextToken) "
+    "{ items { playerId sk season position family team name sleeperPlayerId value posRank "
+    "sourceUpdatedAt updatedAt } nextToken } }"
+)
+#: Only the dynasty fields.  The snapshot's KTC and redraft fields are never
+#: selected: KTC is its own registered source, redraft is the seasonal lane.
+_OFFENSE_FIELDS = "playerId date signalsDynastyValue signalsDynastyPosRank updatedAt"
+
+
+def _offense_batch_query(n: int, since: str) -> str:
+    if not _DATE_RE.match(since):
+        raise ValueError(f"bad lookback date {since!r}")
+    decl = ", ".join(f"$p{i}: String!" for i in range(n))
+    fields = " ".join(
+        f's{i}: listSnapshotsByPlayer(playerId: $p{i}, date: {{ge: "{since}"}}, '
+        f"sortDirection: DESC, limit: 2) {{ items {{ {_OFFENSE_FIELDS} }} }}"
+        for i in range(n)
+    )
+    return f"query SignalsOffenseValues({decl}) {{ {fields} }}"
+
+
+def fetch_idp_items(
+    client: AppSyncClient, *, season: int, sleep: Callable[[float], None] = time.sleep
+) -> tuple[list[dict[str, Any]], list[Any]]:
+    items: list[dict[str, Any]] = []
+    raw_pages: list[Any] = []
+    token: str | None = None
+    for page in range(IDP_MAX_PAGES):
+        if page:
+            sleep(REQUEST_PAUSE_SECONDS)
+        data = client.query(
+            _IDP_QUERY, {"season": season, "limit": IDP_PAGE_LIMIT, "nextToken": token}
+        )
+        raw_pages.append(data)
+        conn = data.get("listIdpDynastyValuesBySeason")
+        if not isinstance(conn, Mapping) or not isinstance(conn.get("items"), list):
+            raise ValuesStop("schema_drift", "listIdpDynastyValuesBySeason shape changed")
+        items.extend(i for i in conn["items"] if i is not None)
+        token = conn.get("nextToken") or None
+        if not token:
+            return items, raw_pages
+    raise ValuesStop("pagination_unbounded", f"more than {IDP_MAX_PAGES} pages")
+
+
+def fetch_offense_snapshots(
+    client: AppSyncClient,
+    player_ids: Sequence[str],
+    *,
+    since: str,
+    sleep: Callable[[float], None] = time.sleep,
+) -> tuple[dict[str, list[dict[str, Any]]], list[Any]]:
+    results: dict[str, list[dict[str, Any]]] = {}
+    raw_pages: list[Any] = []
+    ids = [str(p) for p in player_ids if _SID_RE.match(str(p))]
+    for start in range(0, len(ids), OFFENSE_BATCH_SIZE):
+        if start:
+            sleep(REQUEST_PAUSE_SECONDS)
+        batch = ids[start : start + OFFENSE_BATCH_SIZE]
+        data = client.query(
+            _offense_batch_query(len(batch), since), {f"p{i}": sid for i, sid in enumerate(batch)}
+        )
+        raw_pages.append(data)
+        for i, sid in enumerate(batch):
+            conn = data.get(f"s{i}")
+            if conn is None:
+                continue
+            if not isinstance(conn, Mapping) or not isinstance(conn.get("items"), list):
+                raise ValuesStop("schema_drift", "listSnapshotsByPlayer shape changed")
+            snaps = [s for s in conn["items"] if s is not None]
+            if snaps:
+                results[sid] = snaps
+    return results, raw_pages
+
+
+# ── Collection ────────────────────────────────────────────────────────────
+
+
+def default_season(now: datetime) -> int:
+    """The dynasty season board in force: the calendar year from March on
+    (the board keyed ``2026#dynasty`` was live on 2026-10-03).  An empty
+    board for this season quarantines rather than guessing another one."""
+    return now.year if now.month >= 3 else now.year - 1
+
+
+def _value_board_key(spec: ValueDatasetSpec) -> str:
+    return f"{VALUES_DIR}/{spec.key}"
+
+
+def _record_value_dataset_state(
+    source_key: str,
+    *,
+    state_dir: Path,
+    csv_path: Path,
+    health: str,
+    at: datetime,
+    upstream_published_at: str | None,
+    errors: Sequence[str] = (),
+) -> None:
+    """Fold into the shared three-clock owner (``src.sources.dataset_state``).
+
+    HEALTHY reads the board CSV just written, with the vendor's own stamp as
+    the upstream clock.  A quarantine records DEGRADED and moves no clock, so
+    the last good board keeps its true age.  Rows are not tracked."""
+    from src.sources import dataset_state as DS  # noqa: PLC0415
+    from src.sources.dataset_integrity import ParsedBoard  # noqa: PLC0415
+
+    if health == "HEALTHY":
+        DS.record_source_file(
+            source_key=source_key,
+            csv_path=csv_path,
+            signal="rank",
+            state_dir=state_dir,
+            observed_at=at,
+            upstream_published_at=upstream_published_at,
+            track_rows=False,
+        )
+        return
+    board = ParsedBoard(health=health, errors=list(errors)[:10])
+    path = DS.state_path(state_dir, source_key)
+    DS.save_state(
+        path,
+        DS.observe(
+            DS.load_state(path),
+            source_key=source_key,
+            board=board,
+            observed_at=at,
+            track_rows=False,
+        ),
+    )
+
+
+def _write_last_success(state_dir: Path, source_key: str, at: datetime) -> None:
+    atomic_write_bytes(
+        Path(state_dir) / f"{source_key}_last_success",
+        f"{int(at.timestamp())}\n".encode("ascii"),
+    )
+
+
+def _write_raw_values(store: SignalsStore, board_key: str, raw_sha: str, blob: bytes) -> None:
+    path = store.board_dir(board_key) / "raw" / f"{raw_sha}.json.gz"
+    if not path.exists():
+        atomic_write_bytes(path, gzip.compress(blob, mtime=0))
+
+
+def collect_value_dataset(
+    spec: ValueDatasetSpec,
+    store_root: Path,
+    client: AppSyncClient,
+    *,
+    state_dir: Path,
+    universe: Mapping[str, Mapping[str, Any]] | None = None,
+    season: int | None = None,
+    now: Callable[[], datetime] = utc_now,
+    sleep: Callable[[float], None] = time.sleep,
+) -> dict[str, Any]:
+    """Collect one authenticated value dataset.
+
+    HTTP, auth and schema failures are OUTCOMES, never exceptions — except
+    an auth stop, which is recorded and then re-raised so the caller stops
+    the whole run.  A refused release leaves the last good board CSV (and
+    its true age) untouched.
+
+    Outcomes: ``published`` · ``unchanged_content`` · ``quarantined`` ·
+    ``auth_unavailable`` · ``access_denied`` · ``rate_limited`` ·
+    ``fetch_failed`` · ``request_budget_exhausted`` · ``no_universe``
+    """
+    store = SignalsStore(Path(store_root))
+    board_key = _value_board_key(spec)
+    fstate = store.fetch_state(board_key)
+    latest = store.latest(board_key)
+    started = now()
+    outcome: dict[str, Any] = {"dataset": spec.key, "sourceKey": spec.source_key}
+    csv_paths = {k: board_csv_path(Path(store_root), k) for k in spec.output_keys()}
+    raw_pages: list[Any] = []
+    stop: ValuesStop | None = None
+    obs: list[dict[str, Any]] = []
+    errors: list[str] = []
+    warnings: list[str] = []
+    excluded: dict[str, int] = {}
+    as_of: str | None = None
+    publication: str | None = None
+    try:
+        if spec.key == "idp":
+            season = season if season is not None else default_season(started)
+            items, raw_pages = fetch_idp_items(client, season=season, sleep=sleep)
+            obs, errors, warnings, excluded = normalize_idp_items(items, spec, season=season)
+            stamps = [str(o["valueAsOf"]) for o in obs if o.get("valueAsOf")]
+            as_of = max(stamps) if stamps else None
+        else:
+            if not universe:
+                raise ValuesStop("no_universe", "no raw payload with offense Sleeper ids")
+            since = datetime.fromordinal(started.date().toordinal() - OFFENSE_LOOKBACK_DAYS)
+            results, raw_pages = fetch_offense_snapshots(
+                client, sorted(universe), since=since.date().isoformat(), sleep=sleep
+            )
+            obs, publication, errors, warnings, excluded = normalize_offense_snapshots(
+                results, universe, spec
+            )
+            stamps = [str(o["valueAsOf"]) for o in obs if o.get("valueAsOf")]
+            as_of = max(stamps) if stamps else publication
+    except ValuesStop as exc:
+        stop = exc
+        if exc.outcome in ("schema_drift", "pagination_unbounded"):
+            errors = [f"{exc.outcome}: {exc.reason}"]
+    at = now()
+    fstate["lastAttemptAt"] = iso(at)
+    fstate["parserVersion"] = VALUES_PARSER_VERSION
+
+    raw_blob = json.dumps(raw_pages, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    raw_sha = hashlib.sha256(raw_blob).hexdigest()
+    rows: list[dict[str, Any]] = []
+    boards: dict[str, list[dict[str, Any]]] = {k: [] for k in csv_paths}
+    if not errors and stop is None:
+        rows, more = build_board_rows(obs, spec)
+        for k, v in more.items():
+            excluded[k] = excluded.get(k, 0) + v
+        for r in rows:
+            boards[str(spec.board_key_for(r))].append(r)
+        last_counts = (latest or {}).get("boardRowCounts") or {}
+        # Every board must stand on its own: one family collapsing withholds
+        # the whole release (all boards keep their last good copy).
+        for key, board_rows in boards.items():
+            floor = MIN_BOARD_ROWS.get(key, 1)
+            last_count = last_counts.get(key)
+            if not board_rows:
+                errors.append(f"{key}: no voting rows after the selection hierarchy")
+            elif len(board_rows) < floor:
+                errors.append(f"{key}: below board floor: {len(board_rows)} voting rows < {floor}")
+            elif last_count and len(board_rows) < last_count * ROW_COLLAPSE_FRACTION:
+                errors.append(
+                    f"{key}: row-count collapse: {len(board_rows)} vs last good {last_count}"
+                )
+
+    if errors:
+        if raw_pages:
+            _write_raw_values(store, board_key, raw_sha, raw_blob)
+        store.quarantine(
+            board_key,
+            raw_sha,
+            {
+                "dataset": spec.key,
+                "quarantinedAt": iso(at),
+                "rawSha256": raw_sha if raw_pages else None,
+                "parserVersion": VALUES_PARSER_VERSION,
+                "observationCount": len(obs),
+                "errors": errors[:25],
+                "warnings": warnings[:25],
+            },
+        )
+        for key, path in csv_paths.items():
+            _record_value_dataset_state(
+                key,
+                state_dir=state_dir,
+                csv_path=path,
+                health="DEGRADED",
+                at=at,
+                upstream_published_at=None,
+                errors=errors,
+            )
+        outcome.update(outcome="quarantined", errors=errors[:10])
+    elif stop is not None:
+        outcome.update(outcome=stop.outcome, reason=stop.reason)
+    else:
+        csha = board_content_sha256(rows, as_of)
+        counts: dict[str, int] = {}
+        for r in rows:
+            counts[str(r["basis"])] = counts.get(str(r["basis"]), 0) + 1
+        if (
+            latest is not None
+            and latest.get("contentSha256") == csha
+            and all(p.is_file() for p in csv_paths.values())
+        ):
+            fstate["lastVerifiedUnchangedAt"] = iso(at)
+            outcome.update(outcome="unchanged_content", contentSha256=csha, rowCount=len(rows))
+        else:
+            _write_raw_values(store, board_key, raw_sha, raw_blob)
+            release = {
+                "schemaVersion": VALUES_SCHEMA_VERSION,
+                "provider": PROVIDER,
+                "dataset": spec.key,
+                "sourceKey": spec.source_key,
+                "metadata": value_dataset_metadata(spec),
+                "season": season,
+                "publicationDate": publication,
+                "asOf": as_of,
+                "fetchedAt": iso(at),
+                "parserVersion": VALUES_PARSER_VERSION,
+                "rawSha256": raw_sha,
+                "contentSha256": csha,
+                "previousContentSha256": (latest or {}).get("contentSha256"),
+                "rowCount": len(rows),
+                "boardRowCounts": {k: len(v) for k, v in boards.items()},
+                "basisCounts": counts,
+                "excluded": excluded,
+                "warnings": warnings[:25],
+                "observations": obs,
+                "boardRows": rows,
+            }
+            # The CSV is written before latest.json: a crash between the two
+            # leaves latest.json at the previous release, so the next run
+            # republishes instead of trusting a CSV latest.json does not match.
+            for key, path in csv_paths.items():
+                atomic_write_bytes(path, render_board_csv(boards[key]).encode("utf-8"))
+            store.publish_release(board_key, release)
+            fstate["lastGoodContentSha256"] = csha
+            fstate["lastPublishedAt"] = iso(at)
+            outcome.update(
+                outcome="published",
+                contentSha256=csha,
+                rowCount=len(rows),
+                boardRowCounts={k: len(v) for k, v in boards.items()},
+                basisCounts=counts,
+                excluded=excluded,
+            )
+        outcome["asOf"] = as_of
+        for key, path in csv_paths.items():
+            _record_value_dataset_state(
+                key,
+                state_dir=state_dir,
+                csv_path=path,
+                health="HEALTHY",
+                at=at,
+                upstream_published_at=as_of,
+            )
+            _write_last_success(state_dir, key, at)
+
+    fstate["lastOutcome"] = outcome.get("outcome")
+    if outcome.get("outcome") in ("published", "unchanged_content"):
+        fstate["consecutiveFailures"] = 0
+    else:
+        fstate["consecutiveFailures"] = int(fstate.get("consecutiveFailures") or 0) + 1
+    store.save_fetch_state(board_key, fstate)
+    if stop is not None and stop.outcome in ("auth_unavailable", "access_denied"):
+        raise stop
+    return outcome
+
+
+def collect_values(
+    store_root: Path,
+    *,
+    repo_root: Path,
+    state_dir: Path,
+    tokens: Any = None,
+    http_post: HttpPost = urllib_post,
+    datasets: Sequence[str] = ("offense", "idp"),
+    season: int | None = None,
+    now: Callable[[], datetime] = utc_now,
+    sleep: Callable[[float], None] = time.sleep,
+    min_interval_hours: float | None = None,
+    force: bool = False,
+    max_requests: int = MAX_VALUE_REQUESTS_PER_RUN,
+) -> dict[str, Any]:
+    """One authenticated collection run.  Writes the provisioning marker on
+    every run that reaches the network decision, including an auth stop."""
+    root = values_root(Path(store_root))
+    marker = root / PROVISIONED_MARKER
+    prior = _read_json(marker) if marker.exists() else None
+    prior = prior if isinstance(prior, dict) else {}
+    started = now()
+    last_ok = parse_iso(prior.get("lastSuccessAt"))
+    summary: dict[str, Any] = {"startedAt": iso(started), "datasets": {}}
+    if (
+        min_interval_hours
+        and not force
+        and last_ok is not None
+        and (started - last_ok).total_seconds() < min_interval_hours * 3600
+    ):
+        summary["skipped"] = f"last successful run {iso(last_ok)}"
+        summary["ok"] = True
+        return summary
+    if tokens is None:
+        tokens = SignalsAuthTokens()
+    client = AppSyncClient(
+        tokens, http_post=http_post, sleep=sleep, now=now, max_requests=max_requests
+    )
+    universe: dict[str, dict[str, Any]] | None = None
+    if "offense" in datasets:
+        payload, payload_path = newest_raw_payload(repo_root)
+        universe = offense_universe_from_payload(payload)
+        summary["offenseUniverse"] = {
+            "players": len(universe),
+            "payload": payload_path.name if payload_path else None,
+        }
+    for key in datasets:
+        try:
+            summary["datasets"][key] = collect_value_dataset(
+                VALUE_DATASETS[key],
+                Path(store_root),
+                client,
+                state_dir=state_dir,
+                universe=universe,
+                season=season,
+                now=now,
+                sleep=sleep,
+            )
+        except ValuesStop as exc:
+            summary["datasets"][key] = {"outcome": exc.outcome, "reason": exc.reason}
+            summary["stopped"] = exc.outcome
+            break
+    ok = len(summary["datasets"]) == len(datasets) and all(
+        d.get("outcome") in ("published", "unchanged_content") for d in summary["datasets"].values()
+    )
+    summary["requests"] = client.requests
+    summary["ok"] = ok
+    atomic_write_json(
+        marker,
+        {
+            "schemaVersion": VALUES_SCHEMA_VERSION,
+            "provider": PROVIDER,
+            "lastRunAt": summary["startedAt"],
+            "lastRunOk": ok,
+            "lastSuccessAt": summary["startedAt"] if ok else prior.get("lastSuccessAt"),
+            "datasets": {
+                k: {kk: v.get(kk) for kk in ("outcome", "reason", "rowCount", "asOf")}
+                for k, v in summary["datasets"].items()
+            },
+            "requests": client.requests,
+        },
+    )
+    return summary

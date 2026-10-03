@@ -23,7 +23,75 @@
 //
 // Mirror the display format between desktop and mobile by always
 // using this helper so both surfaces show `value (#rank)` consistently.
-export function formatSourceCell(row, src) {
+// ── Per-observation provenance (sources that declare it) ─────────────
+//
+// Signals Fantasy (owner addendum 2026-10-03) votes from a NATIVE VALUE:
+// the rank it votes with is DERIVED from Signals' own value ordering, and
+// the owner requires the column to say so — plus the native value, the
+// VALUE vs RANK-fallback basis, the dataset, the format and the as-of.
+// Every input is a backend stamp; nothing here ranks or prices anything:
+//
+//   basis    — native value stamped (``sourceNativeValues``) => the vote is
+//              the VALUE and its rank was derived from the value ordering;
+//              rank stamped without a value => the RANK fallback (a
+//              published cross-position rank).  The backend writes the
+//              native value only for VALUE observations, so the two
+//              states cannot be confused.
+//   asOf     — the source's content clock from ``rawData.sourceWeighting``
+//              (the vendor's own publication stamp), with its state.
+//   dataset / format — registry metadata (``observationDataset`` /
+//              ``observationFormat`` on the RANKING_SOURCES entry).
+//
+// Returns null for sources without declared provenance or rows the source
+// did not list (missing is never zero — the caller renders "—").
+export function sourceObservation(row, src, rawData) {
+  if (!src?.observationDataset) return null;
+  const nativeVal = row?.sourceNativeValues?.[src.key];
+  const origRank = row?.sourceOriginalRanks?.[src.key];
+  const hasNative = nativeVal != null && Number.isFinite(Number(nativeVal));
+  const hasRank = origRank != null && Number.isFinite(Number(origRank));
+  if (!hasNative && !hasRank) return null;
+  const subset = rawData?.sourceWeighting?.sources?.[src.key]?.subsets?.players || null;
+  // A collected-but-held board (backend ``privateSourceAvailability``:
+  // ``votes: false`` with ``heldFromVote`` / ``rolledBack``) is shown, never
+  // presented as a vote.
+  const avail = rawData?.privateSourceAvailability?.[src.key] || null;
+  const voting = avail ? avail.votes !== false : null;
+  return {
+    voting,
+    heldReason: avail?.heldFromVote || (avail?.rolledBack ? "rolled back" : null),
+    basis: hasNative ? "VALUE" : "RANK",
+    basisLabel: hasNative ? "native value" : "rank fallback",
+    rankLabel: hasRank
+      ? `#${Number(origRank)} ${
+          hasNative ? src.observationRankLabel || "value-ordered rank (derived)" : "published rank"
+        }`
+      : null,
+    nativeValue: hasNative ? Number(nativeVal) : null,
+    dataset: src.observationDataset,
+    format: src.observationFormat || null,
+    asOf: subset?.sourceDataAsOf || null,
+    state: subset?.state || null,
+  };
+}
+
+/** One-line provenance string for a cell tooltip / chip title. */
+export function sourceObservationText(obs) {
+  if (!obs) return "";
+  const parts = [
+    obs.voting === false ? "collected, NOT voting" : null,
+    obs.basis === "VALUE"
+      ? `native value ${obs.nativeValue.toLocaleString()} (VALUE)`
+      : "RANK fallback",
+    obs.rankLabel,
+    `${obs.dataset} dataset`,
+    obs.format,
+    obs.asOf ? `as of ${String(obs.asOf).slice(0, 10)}${obs.state ? ` (${obs.state})` : ""}` : null,
+  ].filter(Boolean);
+  return parts.join(" · ");
+}
+
+export function formatSourceCell(row, src, rawData) {
   const rawVal = row?.canonicalSites?.[src.key];
   // valueContribution is the backend's 9999-scale normalized value
   // (source's top player = 9999, others scale linearly).  For sources
@@ -51,9 +119,12 @@ export function formatSourceCell(row, src) {
   // would be misleading).
   const nativeVal = row?.sourceNativeValues?.[src.key];
   const hasNative = nativeVal != null && Number.isFinite(Number(nativeVal));
-  const nativeSuffix = hasNative
-    ? `, native value ${Number(nativeVal).toLocaleString()}`
-    : "";
+  const observation = sourceObservation(row, src, rawData);
+  const nativeSuffix = observation
+    ? ` · ${sourceObservationText(observation)}`
+    : hasNative
+      ? `, native value ${Number(nativeVal).toLocaleString()}`
+      : "";
 
   if (!hasVal) {
     // The source may still have LISTED the player (rank/native known)
@@ -67,7 +138,8 @@ export function formatSourceCell(row, src) {
         rankLabel: effectiveRank != null ? `#${effectiveRank}` : "—",
         title: `${src.displayName}: no normalized contribution${
           effectiveRank != null ? `, effective rank #${effectiveRank}` : ""
-        }${origRank != null ? `, original rank #${origRank}` : ""}${nativeSuffix}`,
+        }${!observation && origRank != null ? `, original rank #${origRank}` : ""}${nativeSuffix}`,
+        observation,
       };
     }
     return {
@@ -89,8 +161,10 @@ export function formatSourceCell(row, src) {
   const displayVal = hasNormalized ? normalizedVal : rawVal;
   const primary = Math.round(Number(displayVal)).toLocaleString();
   const rankLabel = effectiveRank != null ? `#${effectiveRank}` : "—";
+  // A source with declared provenance names its rank in the observation
+  // text ("value-ordered rank (derived)"), never as a bare "original rank".
   const origRankSuffix =
-    origRank != null && origRank !== effectiveRank
+    !observation && origRank != null && origRank !== effectiveRank
       ? `, original rank #${origRank}`
       : "";
   return {
@@ -100,6 +174,7 @@ export function formatSourceCell(row, src) {
     title: `${src.displayName}: value ${primary}${
       effectiveRank != null ? `, effective rank #${effectiveRank}` : ""
     }${origRankSuffix}${nativeSuffix}`,
+    observation,
   };
 }
 

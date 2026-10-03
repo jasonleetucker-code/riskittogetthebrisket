@@ -773,7 +773,158 @@ _SOURCE_CSV_PATHS: dict[str, Any] = {
         "path": "CSVs/site_raw/pfkDynasty.csv",
         "signal": "rank",
     },
+    # Signals Fantasy AUTHENTICATED native dynasty values — an ACTIVE source
+    # since the owner addendum of 2026-10-03 (docs/sources/
+    # SIGNALS_FANTASY_INTEGRATION.md §9; owner module src/sources/signals.py).
+    #
+    # The first PRIVATE, BOX-LOCAL voter.  Every other CSV here is committed;
+    # these are written by ``scripts/fetch_signals_values.py`` on the
+    # production box into the gitignored ``data/sources/signals/`` store,
+    # because raw paid Signals data may never reach this public repository,
+    # its CI artifacts or logs (§2).  ``private_marker`` is the collector's
+    # provisioning stamp: a host where the authenticated collector has never
+    # run (CI, local dev, a fresh box) has no marker, so the source is NOT
+    # PROVISIONED there — absent (missing, never zero), not expected on any
+    # row, and not a ``source_missing`` error in either CI lane.  On a
+    # provisioned host a missing CSV is a real failure and is reported as
+    # one.  See ``private_source_availability``.
+    #
+    # Signal=rank, the FantasyCalc / Dynasty Daddy path (owner decision
+    # 2026-10-03, "value-ordered rank"): the CSV ``rank`` is DERIVED from
+    # Signals' own cross-position native-value ordering and travels rank ->
+    # percentile -> Hill.  Value-direct was declined on measurement — Signals
+    # values run ~1.0x market at the top but 1.4-3.1x deeper (a much flatter
+    # curve), so the value-direct path would be new methodology.  The native
+    # value stays visible through ``sourceNativeValues``.
+    "signalsSf": {
+        "path": "data/sources/signals/board/signalsSf.csv",
+        "signal": "rank",
+        "private_marker": "data/sources/signals/values/collector_state.json",
+    },
+    # Signals IDP: one board PER FAMILY (DL / LB / DB).  Signals' IDP value is
+    # normalised within each family (independent review of #1627,
+    # 2026-10-03), so it carries no cross-family order and each family's
+    # within-family value rank votes through the positional IDP path.
+    "signalsIdpDl": {
+        "path": "data/sources/signals/board/signalsIdpDl.csv",
+        "signal": "rank",
+        "private_marker": "data/sources/signals/values/collector_state.json",
+    },
+    "signalsIdpLb": {
+        "path": "data/sources/signals/board/signalsIdpLb.csv",
+        "signal": "rank",
+        "private_marker": "data/sources/signals/values/collector_state.json",
+    },
+    "signalsIdpDb": {
+        "path": "data/sources/signals/board/signalsIdpDb.csv",
+        "signal": "rank",
+        "private_marker": "data/sources/signals/values/collector_state.json",
+    },
 }
+
+
+#: Private-source availability states (``private_source_availability``).
+PRIVATE_SOURCE_PRESENT = "present"
+PRIVATE_SOURCE_MISSING = "missing"
+PRIVATE_SOURCE_NOT_PROVISIONED = "not_provisioned"
+
+
+def private_source_availability(csv_root: "Path | None" = None) -> dict[str, dict[str, Any]]:
+    """Availability of every PRIVATE, box-local source on THIS host.
+
+    ``{source_key: {"state", "provisioned", "csvPresent"}}`` for each
+    ``_SOURCE_CSV_PATHS`` entry that declares a ``private_marker``:
+
+    * ``present``          — the board CSV exists; the source votes as usual;
+    * ``missing``          — the host IS provisioned (its collector has run)
+      but the CSV is absent: a real failure, reported (``source_missing``);
+    * ``not_provisioned``  — the collector has never run here (CI, local
+      dev, a fresh box): the source is absent by design.  It casts no vote,
+      is expected on no row and raises no error — a public CI build can
+      never hold private data, so it must not fail for lacking it.
+
+    The decision is made from files on this host only, never from an
+    environment label.
+    """
+    root = Path(csv_root) if csv_root is not None else Path(__file__).resolve().parents[2]
+    out: dict[str, dict[str, Any]] = {}
+    for key, cfg in _SOURCE_CSV_PATHS.items():
+        if not isinstance(cfg, dict) or not cfg.get("private_marker"):
+            continue
+        # Provisioning evidence: the collector's marker, OR any freshness
+        # trace it leaves in the scrape state (a success stamp or a dataset
+        # state).  Deleting the private store on a box that collected before
+        # must surface ``missing``, never quietly become ``not_provisioned``.
+        state_dir = root / "data" / "scrape_state"
+        provisioned = (
+            (root / str(cfg["private_marker"])).is_file()
+            or (state_dir / f"{key}_last_success").is_file()
+            or (state_dir / f"{key}_dataset.json").is_file()
+        )
+        csv_present = (root / str(cfg.get("path") or "")).is_file()
+        if csv_present:
+            state = PRIVATE_SOURCE_PRESENT
+        elif provisioned:
+            state = PRIVATE_SOURCE_MISSING
+        else:
+            state = PRIVATE_SOURCE_NOT_PROVISIONED
+        out[key] = {"state": state, "provisioned": provisioned, "csvPresent": csv_present}
+    return out
+
+
+#: Registered private sources that are COLLECTED and DISPLAYED but HELD from
+#: voting, with the reason.  Not a rollback (that is the feature flag) — a
+#: declared methodology hold, lifted only by a reviewed change.
+#:
+#: Signals IDP (2026-10-03).  Signals' IDP value is normalised within each
+#: family, so the only legitimate vote is a within-family rank (independent
+#: review of #1627, B1).  The one existing route for that — the positional
+#: IDP path (``SOURCE_SCOPE_POSITION_IDP`` + ``IdpBackbone.ladder_for``),
+#: never exercised before — lands the rank in IDP-LOCAL coordinates priced
+#: by the IDP master, while every other IDP voter is priced in SHARED-MARKET
+#: coordinates.  Measured on the production board: an LB the backbone ranks
+#: IDP #4 contributed 9,484 against 5,238-5,668 from the other sources on
+#: the same row; 76 of 406 Signals IDP votes were outlier-dropped, and the
+#: surviving votes widened the outlier window enough to re-admit other
+#: sources' outliers (+867 / +875 on two top-50 LBs).  Making it vote needs
+#: a coordinate decision (e.g. composing the family ladder with the
+#: shared-market IDP ladder) — methodology, so the IDP half is HELD.
+PRIVATE_SOURCE_VOTE_HOLDS: dict[str, str] = {
+    key: "positional_idp_path_prices_in_idp_local_coordinates"
+    for key in ("signalsIdpDl", "signalsIdpLb", "signalsIdpDb")
+}
+
+
+def _private_source_vote_state(csv_root: "Path | None" = None) -> dict[str, dict[str, Any]]:
+    """``private_source_availability`` plus whether each source may vote.
+
+    A source votes only when its CSV is present AND it is not rolled back
+    (``signals_active_source`` flag; ``RISKIT_FEATURE_SIGNALS_ACTIVE_SOURCE=0``
+    + restart).  ``rolledBack`` is stamped so the rollback is visible."""
+    from src.api.feature_flags import is_enabled  # noqa: PLC0415
+
+    active = is_enabled("signals_active_source")
+    out: dict[str, dict[str, Any]] = {}
+    for key, info in private_source_availability(csv_root).items():
+        rolled_back = key.startswith("signals") and not active
+        held = PRIVATE_SOURCE_VOTE_HOLDS.get(key)
+        out[key] = {
+            **info,
+            "rolledBack": rolled_back,
+            "heldFromVote": held,
+            "votes": info["state"] == PRIVATE_SOURCE_PRESENT and not rolled_back and not held,
+        }
+    return out
+
+
+def private_source_keys() -> frozenset[str]:
+    """Keys of every private, box-local source (``private_marker`` declared)."""
+    return frozenset(
+        k
+        for k, cfg in _SOURCE_CSV_PATHS.items()
+        if isinstance(cfg, dict) and cfg.get("private_marker")
+    )
+
 
 # CSVs that are intentionally loadable into canonicalSiteValues but are NOT
 # eligible to cast a consensus vote.  This is a canonical declaration, not a
@@ -917,6 +1068,15 @@ _SOURCE_MAX_AGE_HOURS: dict[str, int] = {
     # PR #532.)
     "fantasyNavigatorSf": 6,
     "pfkDynasty": 6,
+    # Signals authenticated values: collected on the box by the 6-hourly
+    # ``dynasty-signals-values`` timer, which stamps ``<key>_last_success``
+    # on every successful run.  24h is ``config/source_staleness.json``'s
+    # threshold for the ``signals`` prefix, so the board stops counting the
+    # evidence as current no later than the operator is told it is stale.
+    "signalsSf": 24,
+    "signalsIdpDl": 24,
+    "signalsIdpLb": 24,
+    "signalsIdpDb": 24,
 }
 
 # ── Per-source row-count floors ───────────────────────────────────────────
@@ -988,6 +1148,15 @@ _DEFAULT_SOURCE_ROW_FLOORS: dict[str, int] = {
     # FantasyPros / Pat Fitzmaurice: QB (50) + RB (~88) + WR (~115) +
     # TE (~46) ≈ 299 rows at the April 2026 baseline.  Floor at ~75%.
     "fantasyProsFitzmaurice": 225,
+    # Signals authenticated values (2026-10-03): ~80% of the canonical-match
+    # counts measured on the production box (offense 501; IDP per family
+    # DL 164 / LB 103 / DB 149).  Checked
+    # only where the private store is provisioned — an unprovisioned host
+    # (CI) is exempt by the explicit ``privateSourceAvailability`` stamp.
+    "signalsSf": 400,
+    "signalsIdpDl": 130,
+    "signalsIdpLb": 80,
+    "signalsIdpDb": 120,
     # The IDP Show (IDP-only) floor is REMOVED, not kept, as of
     # 2026-08-20 — see the ``idpShowCombined`` registry entry.  This
     # dict's floor gate reads ``canonicalSiteValues`` population for
@@ -1476,6 +1645,11 @@ GAME_TYPES: frozenset[str] = frozenset(
 )
 
 
+_SIGNALS_IDP_GAME_TYPE_EVIDENCE = (
+    "Signals authenticated listIdpDynastyValuesBySeason rows keyed sk '<season>#dynasty', "
+    "re-verified on every row of every release (src/sources/signals.py::normalize_idp_items)"
+)
+
 _RANKING_SOURCES: list[dict[str, Any]] = [
     {
         # KeepTradeCut CROWDSOURCED Superflex + TE++ board — one of TWO KTC
@@ -1933,6 +2107,141 @@ _RANKING_SOURCES: list[dict[str, Any]] = [
         "is_tep_premium": False,
         "needs_shared_market_translation": False,
         "excludes_rookies": False,
+        # Head of the ``fantasyCalc`` B10 family since 2026-10-03: the two
+        # Signals keys below join it (registry-earlier member = head).
+        "correlation_group": "fantasyCalc",
+    },
+    {
+        # Signals Fantasy AUTHENTICATED native dynasty values — OFFENSE.
+        # ACTIVE since the owner addendum of 2026-10-03
+        # (docs/sources/SIGNALS_FANTASY_INTEGRATION.md §9).  Collected on the
+        # box by ``scripts/fetch_signals_values.py`` into the PRIVATE store
+        # (see the ``_SOURCE_CSV_PATHS`` entry and
+        # ``private_source_availability``); absent — never zero — on any host
+        # where that collector has not run.
+        #
+        # Votes like FantasyCalc: Signals' own cross-position VALUE ordering
+        # is the rank (labelled DERIVED: Signals published the value, not the
+        # rank), rank -> percentile -> OFFENSE Hill.  Format, proven by
+        # measurement on 2026-10-03: DYNASTY, SUPERFLEX (Josh Allen above JSN;
+        # Caleb / Lamar / Burrow priced as top-12 assets), NOT TE-premium (the
+        # TE1 below WRs FantasyCalc prices equally) — so
+        # ``is_tep_premium=False`` and ADR-015's base -> TE++ conversion
+        # applies exactly once.  The stored preset value is used: Signals'
+        # exact-league values are computed client-side over a FantasyCalc
+        # fetch and are not a server observation.
+        #
+        # FAMILY: ``fantasyCalc``.  Signals' app falls back to FantasyCalc
+        # values for its dynasty baseline and composes league values over a
+        # FantasyCalc fetch (bundle evidence, §9), and the owner directed "no
+        # artificial independence bonus": FantasyCalc + Signals share ONE
+        # family vote through ``cap_family_weights`` and count as ONE B10
+        # family to the confidence gate.
+        "key": "signalsSf",
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": (
+            "Signals authenticated PlayerValueSnapshot.signalsDynastyValue — the dynasty "
+            "value field, distinct from the snapshot's signalsRedraft* fields, which the "
+            "collector never selects (src/sources/signals.py::VALUE_DATASETS)"
+        ),
+        "display_name": "Signals Fantasy Dynasty SF",
+        "column_label": "Signals",
+        "scope": SOURCE_SCOPE_OVERALL_OFFENSE,
+        "position_group": None,
+        # ~ the live canonical-match count (501 of 507 offense board rows on
+        # the 2026-10-03 production measurement), the convention
+        # fantasyNavigatorSf / pfkDynasty use.
+        "depth": 500,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": False,
+        "needs_shared_market_translation": False,
+        "excludes_rookies": False,
+        "correlation_group": "fantasyCalc",
+    },
+    {
+        # Signals Fantasy AUTHENTICATED native dynasty values — IDP, one board
+        # PER FAMILY (DL here; LB and DB below).  Same activation, store and
+        # provider family as ``signalsSf``.
+        #
+        # WHY POSITIONAL (independent review of #1627, 2026-10-03): Signals'
+        # IDP ``value`` is a strictly monotone function of a per-FAMILY
+        # composite (Spearman 1.000) — each family is normalised on its own
+        # scale (tops DL 4,880 / LB 4,913 / DB 4,754; near-identical curves
+        # at #12 and #24), and its top-100 is half DBs.  It is not a
+        # cross-family price.  Ordering it across families and crosswalking
+        # that order (the first design) manufactured exactly the shared
+        # DL/LB/DB rank the owner addendum forbids.  So each family is
+        # ranked by Signals' value WITHIN the family only and travels the
+        # existing positional path: ``SOURCE_SCOPE_POSITION_IDP`` + the
+        # backbone's per-family ladder (``IdpBackbone.ladder_for``) puts
+        # Signals' DB #k where the backbone's k-th DB sits in IDP space, and
+        # the IDP master prices it.  No cross-family order is derived
+        # anywhere; with no usable family ladder the vote is WITHHELD.
+        #
+        # Family: one Signals family inside FantasyCalc's group.  FantasyCalc
+        # publishes no IDP, so on IDP rows Signals is its own family to the
+        # confidence gate — defensible because its IDP value is model-derived
+        # from per-snap features with no market input (source_lineage.json).
+        # Signals' raw position (CB/S/DT/DE/LB) is provenance only.
+        #
+        # HELD FROM VOTING (``PRIVATE_SOURCE_VOTE_HOLDS``): measured on the
+        # production board, the positional path prices these ranks in
+        # IDP-local coordinates while every other IDP voter is in the shared
+        # market.  The boards are collected and displayed; they cast no vote
+        # until that coordinate question is decided.
+        "key": "signalsIdpDl",
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": _SIGNALS_IDP_GAME_TYPE_EVIDENCE,
+        "display_name": "Signals Fantasy Dynasty IDP — DL",
+        "column_label": "Signals DL",
+        "scope": SOURCE_SCOPE_POSITION_IDP,
+        "position_group": "DL",
+        "depth": 165,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": False,
+        "needs_shared_market_translation": False,
+        "excludes_rookies": False,
+        "correlation_group": "fantasyCalc",
+    },
+    {
+        # Signals IDP — the LB family's board (see ``signalsIdpDl``).
+        "key": "signalsIdpLb",
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": _SIGNALS_IDP_GAME_TYPE_EVIDENCE,
+        "display_name": "Signals Fantasy Dynasty IDP — LB",
+        "column_label": "Signals LB",
+        "scope": SOURCE_SCOPE_POSITION_IDP,
+        "position_group": "LB",
+        "depth": 105,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": False,
+        "needs_shared_market_translation": False,
+        "excludes_rookies": False,
+        "correlation_group": "fantasyCalc",
+    },
+    {
+        # Signals IDP — the DB family's board (see ``signalsIdpDl``).
+        "key": "signalsIdpDb",
+        "game_type": GAME_TYPE_DYNASTY,
+        "game_type_evidence": _SIGNALS_IDP_GAME_TYPE_EVIDENCE,
+        "display_name": "Signals Fantasy Dynasty IDP — DB",
+        "column_label": "Signals DB",
+        "scope": SOURCE_SCOPE_POSITION_IDP,
+        "position_group": "DB",
+        "depth": 150,
+        "weight": 1.0,
+        "is_backbone": False,
+        "is_retail": False,
+        "is_tep_premium": False,
+        "needs_shared_market_translation": False,
+        "excludes_rookies": False,
+        "correlation_group": "fantasyCalc",
     },
     {
         # OTC Fantasy Football Superflex trade-derived values — fetched
@@ -5019,6 +5328,15 @@ def _enrich_from_source_csvs(
     if csv_root is not None:
         repo = Path(csv_root)
 
+    # A private, box-local source that is NOT PROVISIONED on this host is
+    # absent by design (``private_source_availability``) — not a parse error
+    # and not worth a warning on every CI build.  A provisioned host whose
+    # CSV is gone still reports ``file_not_found`` below.
+    _unprovisioned_private = {
+        k
+        for k, v in private_source_availability(repo).items()
+        if v["state"] == PRIVATE_SOURCE_NOT_PROVISIONED
+    }
     for source_key, cfg in _SOURCE_CSV_PATHS.items():
         if isinstance(cfg, str):
             csv_rel = cfg
@@ -5032,6 +5350,8 @@ def _enrich_from_source_csvs(
             continue
         csv_path = repo / csv_rel
         if not csv_path.exists():
+            if source_key in _unprovisioned_private:
+                continue
             if parse_errors is not None:
                 parse_errors.append(
                     {
@@ -9763,6 +10083,7 @@ def _compute_unified_rankings(
     source_weighting: Mapping[str, Any] | None = None,
     retired_pick_years: Iterable[int] | None = None,
     seasonally_inactive_sources: Iterable[str] | None = None,
+    absent_private_sources: Iterable[str] | None = None,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
 
@@ -9998,6 +10319,13 @@ def _compute_unified_rankings(
     # same posture a disabled source already has (see the bridge note
     # below); nothing votes from them.
     _seasonal_off = {str(k) for k in (seasonally_inactive_sources or ())}
+    # A PRIVATE, box-local source that is absent BY DESIGN on this host (not
+    # provisioned — CI, local dev, a fresh box) or rolled back with
+    # ``RISKIT_FEATURE_SIGNALS_ACTIVE_SOURCE=0`` takes the same posture
+    # (``private_source_availability``): no vote, not expected on any row.
+    # Reusing this one gate is what keeps "absent by design" from reading as
+    # a matching failure anywhere downstream.
+    _seasonal_off |= {str(k) for k in (absent_private_sources or ())}
     if _seasonal_off:
         active_sources = [s for s in active_sources if str(s.get("key") or "") not in _seasonal_off]
     active_keys = {str(s.get("key") or "") for s in active_sources}
@@ -10349,9 +10677,19 @@ def _compute_unified_rankings(
                 ladder_depth_meta = len(ladder)
                 backbone_depth_meta = backbone_depth
                 # ``ladder_for`` is numbered over IDP entries only, so a
-                # successful lift lands in IDP-overall space — as does
-                # the untranslated within-position fallback.
+                # successful lift lands in IDP-overall space.
                 rank_pool = RANK_POOL_IDP
+                if method == TRANSLATION_FALLBACK:
+                    # WITHHOLD, never pass the within-family rank through —
+                    # the Lane 8 rule below, applied to the positional scope
+                    # the first time a source exercises it (Signals IDP,
+                    # 2026-10-03).  With no family ladder the raw rank is a
+                    # within-family ordinal; recording it would assert that
+                    # the family's #1 is the IDP #1 — a cross-family price
+                    # the source never published.
+                    withheld_no_bridge.setdefault(source_key, 0)
+                    withheld_no_bridge[source_key] += 1
+                    continue
             elif needs_shared_market and row_scope == SOURCE_SCOPE_OVERALL_IDP:
                 # Crosswalk an IDP-only expert board's raw IDP ordinal
                 # into the backbone source's combined offense+IDP rank
@@ -13143,6 +13481,13 @@ def build_api_data_contract(
     freshness_as_of = _payload_as_of(raw_payload)
     source_weighting = _load_source_weighting(freshness_as_of, csv_root)
     seasonally_inactive = _seasonally_inactive_sources(freshness_as_of, csv_root)
+    # Private, box-local sources (Signals): absent BY DESIGN where the
+    # collector has never run, or rolled back by flag.  Not a vote, not an
+    # expected source, not an error — and stamped on the payload so the
+    # validator and every reader can tell "not provisioned here" from a
+    # source that disappeared.
+    private_availability = _private_source_vote_state(csv_root)
+    absent_private = frozenset(k for k, v in private_availability.items() if not v["votes"])
     pick_aliases = _compute_unified_rankings(
         players_array,
         players_by_name,
@@ -13160,6 +13505,7 @@ def build_api_data_contract(
         source_weighting=source_weighting,
         retired_pick_years=_retired_pick_years,
         seasonally_inactive_sources=frozenset(seasonally_inactive),
+        absent_private_sources=absent_private,
     )
 
     # Stamp rankDerivedValue into the values bundle so every page uses the
@@ -13220,6 +13566,18 @@ def build_api_data_contract(
                 **source_timestamps[_seasonal_key],
                 "staleness": "seasonally_inactive",
                 "seasonalState": dict(_seasonal_info),
+            }
+    # A private source that is not provisioned on this host is not "missing"
+    # here: there is nothing this host could have fetched.  Named explicitly,
+    # exactly as seasonal inactivity is, so the two never read alike.
+    for _private_key, _private_info in private_availability.items():
+        if (
+            _private_info["state"] == PRIVATE_SOURCE_NOT_PROVISIONED
+            and _private_key in source_timestamps
+        ):
+            source_timestamps[_private_key] = {
+                **source_timestamps[_private_key],
+                "staleness": PRIVATE_SOURCE_NOT_PROVISIONED,
             }
     _fresh_counts = sum(1 for v in source_timestamps.values() if v.get("staleness") == "fresh")
     _stale_counts = sum(1 for v in source_timestamps.values() if v.get("staleness") == "stale")
@@ -13541,6 +13899,13 @@ def build_api_data_contract(
             "asOf": _iso_or_none(freshness_as_of),
             "inactive": {k: dict(v) for k, v in sorted(seasonally_inactive.items())},
         },
+        # Private, box-local sources (Signals, owner addendum 2026-10-03):
+        # whether each is present / missing / not provisioned on the host
+        # that built this board, and whether it voted.  States only — never
+        # a value.  ``validate_api_data_contract`` reads it so a build that
+        # CANNOT hold private data (CI) is not failed for lacking it, while
+        # a provisioned host whose board vanished still is.
+        "privateSourceAvailability": {k: dict(v) for k, v in sorted(private_availability.items())},
     }
     # Drop internal-only provenance markers before materializing the
     # contract so they don't leak into the public payload.
@@ -14545,9 +14910,30 @@ def validate_api_data_contract(payload: dict[str, Any]) -> dict[str, Any]:
 
         # ``sorted`` so the emitted order is a property of the population rather
         # than of a config file's key order.
+        # A PRIVATE, box-local source the building host declares NOT
+        # PROVISIONED (or rolled back) is absent by design, not gone: a public
+        # CI build can never hold private data.  Exempted ONLY on that
+        # explicit stamp — a payload without ``privateSourceAvailability``
+        # fails closed — and a provisioned host whose board vanished
+        # (``missing``) still raises ``source_missing``.
+        private_state = payload.get("privateSourceAvailability")
+        absent_by_design: set[str] = set()
+        if isinstance(private_state, dict):
+            for p_key, p_info in private_state.items():
+                if not isinstance(p_info, dict):
+                    continue
+                if (
+                    p_info.get("state") == PRIVATE_SOURCE_NOT_PROVISIONED
+                    or p_info.get("rolledBack") is True
+                    or bool(p_info.get("heldFromVote"))
+                ):
+                    absent_by_design.add(str(p_key))
         for src_key in sorted(watched_keys):
             count = source_nonzero_counts.get(src_key, 0)
             threshold = row_floors.get(src_key)
+            if count == 0 and src_key in absent_by_design:
+                warnings.append(f"private_source_absent_by_design:{src_key}")
+                continue
             if count == 0:
                 errors.append(f"source_missing:{src_key}")
                 any_source_missing = True

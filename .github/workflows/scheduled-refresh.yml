@@ -560,15 +560,17 @@ jobs:
         # when its DATA last changed (fetch time is not data freshness).
         # Success-gated AFTER the sanity gate, so state only ever describes
         # CSV content that is actually committed.  The prod-timer-owned
-        # boards (DLF, IDP Show) are skipped: their timers record their own
-        # state, and one writer per file keeps the pushes conflict-free.
+        # boards (DLF, IDP Show, Signals) are skipped: their timers record
+        # their own state, and one writer per file keeps the pushes
+        # conflict-free.  Signals is also PRIVATE: its CSV exists only on the
+        # box, so a state file written here would be a false FAILED record.
         # Non-fatal: a recording hiccup must never block shipping a good
         # scrape (the state simply stays at its last recorded observation).
         shell: bash
         run: |
           set -Eeuo pipefail
           python scripts/record_source_datasets.py \
-            --skip dlfSf dlfIdp dlfRookieSf dlfRookieIdp dlfValuesSfTep idpShowCombined \
+            --skip dlfSf dlfIdp dlfRookieSf dlfRookieIdp dlfValuesSfTep idpShowCombined signalsSf signalsIdpDl signalsIdpLb signalsIdpDb \
             || echo "::warning title=Source dataset state::recording failed; state left at its last observation"
 
       - name: Commit updated data

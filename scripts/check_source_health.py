@@ -248,10 +248,32 @@ def measure_registered_source_integrity(
     def _token(text: object) -> str:
         return str(text or "").strip().lower()
 
+    # A private, box-local source (Signals, owner addendum 2026-10-03) whose
+    # collector never ran on this host is absent by design: reported as such,
+    # not as a degraded board.  One owner decides
+    # (``data_contract.private_source_availability``).
+    from src.api.data_contract import (  # noqa: PLC0415
+        PRIVATE_SOURCE_NOT_PROVISIONED,
+        private_source_availability,
+    )
+
+    unprovisioned = {
+        k
+        for k, v in private_source_availability(repo_root).items()
+        if v["state"] == PRIVATE_SOURCE_NOT_PROVISIONED
+    }
     out: dict[str, dict[str, object]] = {}
     for source in sources:
         key = str(source.get("key") or "")
         if not key:
+            continue
+        if key in unprovisioned:
+            out[key] = {
+                "state": PRIVATE_SOURCE_NOT_PROVISIONED,
+                "path": None,
+                "errors": [],
+                "warnings": ["private box-local source; not provisioned on this host"],
+            }
             continue
         cfg = source_paths.get(key)
         if isinstance(cfg, str):

@@ -347,6 +347,18 @@ _PRIVATE_FIELD_BLOCKLIST: frozenset[str] = frozenset(
         "pick_aliases",
         # Signals Fantasy second opinion — authenticated surfaces only (#1555)
         "signalsPositionalRank",
+        # Per-source vendor numbers.  Since 2026-10-03 these carry Signals'
+        # PAID authenticated native values and derived ranks (registry keys
+        # signalsSf / signalsIdp), which may never reach a public payload
+        # (docs/sources/SIGNALS_FANTASY_INTEGRATION.md §2) — nor may any
+        # other vendor's per-source number.
+        "sourceNativeValues",
+        "sourceOriginalRanks",
+        "signalsSf",
+        "signalsIdp",
+        "signalsIdpDl",
+        "signalsIdpLb",
+        "signalsIdpDb",
     )
 )
 
