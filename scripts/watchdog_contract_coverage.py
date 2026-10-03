@@ -171,10 +171,26 @@ def evaluate_coverage(
     return evaluate_coverage_map(_source_coverage(contract), freshness, thresholds)
 
 
+def _current_seasonally_inactive() -> set[str]:
+    """Declared-seasonal sources currently inactive (owner decision 2026-10-03,
+    ``src/sources/seasonal_policy.py``).  Such a source casts no vote by
+    design, so its absence from the board is not a coverage regression — even
+    in the hours after its last successful fetch, while its stamp is still
+    fresh.  An unreadable policy answers the empty set: the source is then
+    judged normally (fail closed)."""
+    try:
+        from src.sources.seasonal_policy import inactive_sources_as_of
+
+        return set(inactive_sources_as_of(None, None))
+    except Exception:  # noqa: BLE001 — never let this mute the check
+        return set()
+
+
 def evaluate_coverage_map(
     cov: dict[str, int],
     freshness: dict[str, dict],
     thresholds: dict,
+    seasonally_inactive: "set[str] | None" = None,
 ) -> tuple[list[tuple[str, int]], list[tuple[str, int]], list[str]]:
     """Same decision core as :func:`evaluate_coverage` but driven by a
     pre-computed ``{sourceKey: playerCount}`` map instead of a contract.
@@ -185,6 +201,9 @@ def evaluate_coverage_map(
     decision core, so the pre-merge and runtime gates can never drift.
     """
     registered = [str(s.get("key") or "") for s in _RANKING_SOURCES]
+    inactive = (
+        _current_seasonally_inactive() if seasonally_inactive is None else set(seasonally_inactive)
+    )
 
     violations: list[tuple[str, int]] = []
     ok: list[tuple[str, int]] = []
@@ -194,9 +213,10 @@ def evaluate_coverage_map(
         info = freshness.get(key)
         threshold = resolve_threshold(key, thresholds)
         is_fresh = info is not None and float(info.get("ageHours", 0.0)) <= threshold
-        if not is_fresh or not _csv_nonempty(key):
+        if not is_fresh or not _csv_nonempty(key) or key in inactive:
             # Stale → freshness watchdog already owns it.
             # Empty/missing CSV → nothing to land; not a coverage bug.
+            # Seasonally inactive → no vote by declaration; not a coverage bug.
             skipped.append(key)
             continue
         c = int(cov.get(key, 0))

@@ -241,11 +241,19 @@ def detect_stale_sources(
     *,
     thresholds: dict[str, float] | None = None,
     now_epoch: float | None = None,
+    seasonally_inactive: "set[str] | None" = None,
 ) -> list[StaleSourceAlert]:
     """Given the ``/api/status.source_health`` shape, return the
     stale-source alerts (no cooldown consideration — that's the
-    caller's concern)."""
+    caller's concern).
+
+    ``seasonally_inactive`` names sources in a DECLARED seasonal window
+    whose inactive state was re-verified within threshold (resolved by
+    ``src/sources/seasonal_policy.watchdog_seasonal_split``, owner decision
+    2026-10-03).  They are not stale sources and do not page.  Default
+    ``None`` = no exclusions (fail closed)."""
     thresholds = thresholds or load_thresholds()
+    skip = seasonally_inactive or set()
     now = now_epoch or time.time()
     out: list[StaleSourceAlert] = []
     if not isinstance(source_health, dict):
@@ -256,7 +264,7 @@ def detect_stale_sources(
     if not isinstance(sources, dict):
         return out
     for src, entry in sources.items():
-        if not isinstance(entry, dict):
+        if not isinstance(entry, dict) or src in skip:
             continue
         last_seen_iso = str(
             entry.get("lastFetched") or entry.get("lastSeen") or entry.get("lastFetchedAt") or ""
@@ -383,6 +391,31 @@ def detect_content_alerts(weighting: dict[str, Any] | None) -> list[StaleSourceA
     return out
 
 
+def _verified_seasonally_inactive(
+    thresholds: dict[str, float] | None, now_epoch: float
+) -> set[str]:
+    """Sources re-verified seasonally inactive within their threshold.
+
+    Same owner and same rule as ``scripts/watchdog_freshness.py``.  Any
+    failure reading the policy/state returns the empty set — i.e. the
+    source is alerted on normally (fail closed), never silently muted.
+    """
+    try:
+        from datetime import datetime, timezone  # noqa: PLC0415
+
+        from src.sources.seasonal_policy import watchdog_seasonal_split  # noqa: PLC0415
+
+        th = thresholds or load_thresholds()
+        verified, _lapsed = watchdog_seasonal_split(
+            None,
+            datetime.fromtimestamp(now_epoch, tz=timezone.utc),
+            lambda key: resolve_threshold(key, th),
+        )
+        return set(verified)
+    except Exception:  # noqa: BLE001 — alerting must not crash on this
+        return set()
+
+
 def check_and_alert(
     source_health: dict[str, Any],
     *,
@@ -410,6 +443,7 @@ def check_and_alert(
         source_health,
         thresholds=thresholds,
         now_epoch=now,
+        seasonally_inactive=_verified_seasonally_inactive(thresholds, now),
     ) + detect_content_alerts(source_weighting)
     stale_sources = {a.source for a in stale}
 

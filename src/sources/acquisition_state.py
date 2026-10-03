@@ -36,6 +36,14 @@ The states
                  what it used to.  Distinct from ``PARSE_FAILED`` because the
                  remedy is different: one is a bug, the other is the vendor
                  moving.
+``SEASONALLY_INACTIVE``  a response arrived, matched a source's DECLARED
+                 expected-empty signature, inside its declared seasonal window
+                 (``src/sources/seasonal_policy.py``; owner decision
+                 2026-10-03).  The board is legitimately absent this phase.
+                 It is acquired (a real empty board, ``rowCount`` 0) and NOT
+                 usable: it casts no current vote.  Only a declared policy
+                 can produce it; for every other source an empty board stays
+                 a failure.
 ``NO_CROSS_POSITION_COVERAGE``  the board was acquired successfully and does
                  not connect offense to IDP.  This is a statement about the
                  CONTENT, not the acquisition, and it is here because it is
@@ -61,6 +69,8 @@ __all__ = [
     "PARSE_FAILED",
     "PARTIAL",
     "SCHEMA_CHANGED",
+    "SEASONALLY_INACTIVE",
+    "SEASONALLY_INACTIVE_EXIT_CODE",
     "STALE",
     "UNAVAILABLE",
     "USABLE_ACQUISITION_STATES",
@@ -76,6 +86,15 @@ AUTH_REQUIRED = "AUTH_REQUIRED"
 PARSE_FAILED = "PARSE_FAILED"
 SCHEMA_CHANGED = "SCHEMA_CHANGED"
 NO_CROSS_POSITION_COVERAGE = "NO_CROSS_POSITION_COVERAGE"
+SEASONALLY_INACTIVE = "SEASONALLY_INACTIVE"
+
+#: The exit code a fetcher returns for a verified :data:`SEASONALLY_INACTIVE`
+#: outcome.  Deliberately not 3 (``fetch_yahoo_boone.py`` already uses 3 for a
+#: partial scrape).  Non-zero on purpose: ``scheduled-refresh.yml::run_fetcher``
+#: stamps ``*_last_success`` only on exit 0, and an inactive board is not a
+#: success.  The fetcher records the state itself; the code only lets the
+#: workflow log it as a notice instead of a fetch failure.
+SEASONALLY_INACTIVE_EXIT_CODE = 4
 
 ACQUISITION_STATES: frozenset[str] = frozenset(
     {
@@ -87,6 +106,7 @@ ACQUISITION_STATES: frozenset[str] = frozenset(
         PARSE_FAILED,
         SCHEMA_CHANGED,
         NO_CROSS_POSITION_COVERAGE,
+        SEASONALLY_INACTIVE,
     }
 )
 
@@ -106,7 +126,12 @@ class AcquisitionStateError(ValueError):
     """An outcome was constructed that cannot be true."""
 
 
-def state_from_exit_code(code: int, *, schema_regression_code: int = 2) -> str:
+def state_from_exit_code(
+    code: int,
+    *,
+    schema_regression_code: int = 2,
+    seasonally_inactive_code: int = SEASONALLY_INACTIVE_EXIT_CODE,
+) -> str:
     """Map a fetcher's exit code onto a state.
 
     This is the ONE place the repo's ``0 / 1 / 2`` convention is turned into
@@ -121,6 +146,8 @@ def state_from_exit_code(code: int, *, schema_regression_code: int = 2) -> str:
         return HEALTHY
     if code == schema_regression_code:
         return SCHEMA_CHANGED
+    if code == seasonally_inactive_code:
+        return SEASONALLY_INACTIVE
     return UNAVAILABLE
 
 

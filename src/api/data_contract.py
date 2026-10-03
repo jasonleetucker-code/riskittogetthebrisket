@@ -4570,6 +4570,31 @@ def _load_source_weighting(
     return weighting
 
 
+def _seasonally_inactive_sources(
+    as_of: "datetime | None", csv_root: "Path | None" = None
+) -> dict[str, dict[str, Any]]:
+    """Declared-seasonal sources that are INACTIVE at the board's own time.
+
+    Owner decision 2026-10-03 (``src/sources/seasonal_policy.py``, the one
+    owner).  Such a source casts NO current vote: it is dropped from the
+    active source set exactly as a disabled source is — not given a zero
+    value, not left to vote on decaying stale authority.  Its CSV is not
+    touched (provenance / replay).  Read from the same state directory as
+    source weighting, so a replay of a historical tree uses that tree's own
+    state and a board built for time T sees the state in force at T.
+
+    A malformed policy file is logged and treated as "no declarations" —
+    every source then behaves as it did before the policy existed.
+    """
+    from src.sources import seasonal_policy as _seasonal  # noqa: PLC0415
+
+    try:
+        return _seasonal.inactive_sources_as_of(_source_weighting_state_dir(csv_root), as_of)
+    except _seasonal.SeasonalPolicyError as exc:
+        logging.warning("seasonal policy unreadable (%s); no seasonal exclusions applied", exc)
+        return {}
+
+
 def _iso_or_none(dt: "datetime | None") -> str | None:
     if dt is None:
         return None
@@ -9718,6 +9743,7 @@ def _compute_unified_rankings(
     synthetic_pick_derivations: Mapping[str, dict[str, Any]] | None = None,
     source_weighting: Mapping[str, Any] | None = None,
     retired_pick_years: Iterable[int] | None = None,
+    seasonally_inactive_sources: Iterable[str] | None = None,
 ) -> dict[str, str]:
     """Compute a single unified ranking across all sources and positions.
 
@@ -9942,6 +9968,19 @@ def _compute_unified_rankings(
     # This is the only place ranks + weights are gated, so downstream
     # loops iterate `active_sources` instead of the raw registry.
     active_sources = _active_sources(source_overrides)
+    # Declared seasonal inactivity (owner decision 2026-10-03,
+    # ``src/sources/seasonal_policy.py``): a source whose board is
+    # legitimately absent this phase casts NO current vote.  Dropped here,
+    # at the one gate, exactly like a disabled source — so it is not a zero
+    # value, not a freshness-decayed vote, not "present evidence" for the
+    # single-source rule, and (because B11 eligibility walks
+    # ``active_sources``) not an eligible family that "failed" to cover a
+    # row.  Its CSV values may still sit in ``canonicalSiteValues`` — the
+    # same posture a disabled source already has (see the bridge note
+    # below); nothing votes from them.
+    _seasonal_off = {str(k) for k in (seasonally_inactive_sources or ())}
+    if _seasonal_off:
+        active_sources = [s for s in active_sources if str(s.get("key") or "") not in _seasonal_off]
     active_keys = {str(s.get("key") or "") for s in active_sources}
     # Hoisted above Phase 1: the coordinate-pool bookkeeping in the
     # translation passes needs to look a source definition up by key.
@@ -13081,6 +13120,7 @@ def build_api_data_contract(
     # scrape time (src/sources/freshness.py; owner directive 2026-09-23).
     freshness_as_of = _payload_as_of(raw_payload)
     source_weighting = _load_source_weighting(freshness_as_of, csv_root)
+    seasonally_inactive = _seasonally_inactive_sources(freshness_as_of, csv_root)
     pick_aliases = _compute_unified_rankings(
         players_array,
         players_by_name,
@@ -13097,6 +13137,7 @@ def build_api_data_contract(
         synthetic_pick_derivations=synthetic_pick_derivations,
         source_weighting=source_weighting,
         retired_pick_years=_retired_pick_years,
+        seasonally_inactive_sources=frozenset(seasonally_inactive),
     )
 
     # Stamp rankDerivedValue into the values bundle so every page uses the
@@ -13148,6 +13189,16 @@ def build_api_data_contract(
     # that the scraper bridge never writes; this replaces it with real,
     # source-by-source freshness data that covers all 5 active sources.
     source_timestamps = _build_source_timestamps()
+    # A declared seasonally inactive source is not a stale source: its fetch
+    # stamp is old because there is legitimately no board to fetch.  Named
+    # explicitly so "inactive by declaration" and "stale" never read alike.
+    for _seasonal_key, _seasonal_info in seasonally_inactive.items():
+        if _seasonal_key in source_timestamps:
+            source_timestamps[_seasonal_key] = {
+                **source_timestamps[_seasonal_key],
+                "staleness": "seasonally_inactive",
+                "seasonalState": dict(_seasonal_info),
+            }
     _fresh_counts = sum(1 for v in source_timestamps.values() if v.get("staleness") == "fresh")
     _stale_counts = sum(1 for v in source_timestamps.values() if v.get("staleness") == "stale")
     _missing_counts = sum(1 for v in source_timestamps.values() if v.get("staleness") == "missing")
@@ -13461,6 +13512,13 @@ def build_api_data_contract(
             if _LAST_SOURCE_WEIGHTING_SUMMARY is not None
             else None
         ),
+        # Declared seasonal windows (src/sources/seasonal_policy.py; owner
+        # decision 2026-10-03): which sources cast no current vote because
+        # their board is legitimately absent this phase.  Empty when none.
+        "sourceSeasonalState": {
+            "asOf": _iso_or_none(freshness_as_of),
+            "inactive": {k: dict(v) for k, v in sorted(seasonally_inactive.items())},
+        },
     }
     # Drop internal-only provenance markers before materializing the
     # contract so they don't leak into the public payload.

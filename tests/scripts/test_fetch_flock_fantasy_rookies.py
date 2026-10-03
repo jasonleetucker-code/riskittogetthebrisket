@@ -262,7 +262,18 @@ class TestFromFileEndToEnd(unittest.TestCase):
             orig_floor = ffr._FF_ROOKIE_ROW_COUNT_FLOOR
             ffr._FF_ROOKIE_ROW_COUNT_FLOOR = 1
             try:
-                rc = ffr.main(["--from-file", str(json_path), "--dest", str(dest)])
+                # ``--state-dir`` keeps the seasonal-state write (if any)
+                # out of the real data/scrape_state tree.
+                rc = ffr.main(
+                    [
+                        "--from-file",
+                        str(json_path),
+                        "--dest",
+                        str(dest),
+                        "--state-dir",
+                        str(tmp / "state"),
+                    ]
+                )
             finally:
                 ffr._FF_ROOKIE_ROW_COUNT_FLOOR = orig_floor
 

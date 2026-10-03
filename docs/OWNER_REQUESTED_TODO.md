@@ -1475,3 +1475,24 @@ which stays immutable.
 | 5. Keep #1599's historical results immutable | BINDING — `docs/sources/integrity/OTC_LINEAGE_REMEASURE_2026-10-01.md` and `OTC_PAIR_SNAPSHOTS_2026-10-01.json` unchanged |
 | 6. Create a separately versioned, preregistered prospective lineage-threshold policy before the next such experiment | DONE (policy) — `docs/sources/lineage_policy/LINEAGE_DEPENDENCE_POLICY_v1_PREREGISTRATION.md` (`lineage-policy/v1`), preregistered in its own commit `94e16c4f1a986ecc3045d1b4702ce6efe0d8cc05` (committed 2026-10-02T01:10:52Z, the §14.1 boundary) before any result set was examined under it; normative-block sha256 in the sidecar `.sha256`, pinned by `tests/sources/test_lineage_policy_v1_preregistration.py`. Instrument and vocabulary implementation is a separate reviewed unit |
 | 7. No canonical player value changes merely from recording these decisions | BINDING — this record is documentation only |
+
+## Added 2026-10-03 — Flock rookie board: declared seasonal window (owner methodology decision, #1552)
+
+Owner decision received in chat 2026-10-03, recorded verbatim in substance; it supersedes the unresolved choice
+in `docs/ops/INCIDENT_2026-09-05_FLOCK_ROOKIE_FLOOR.md` §4 (declared seasonal window vs relative drop guard), and
+that section now carries the decision, the implementation map and the measured board impact.
+
+**Decision.** Choose the DECLARED SEASONAL-WINDOW approach for `flockFantasySfRookies`, implemented as a real
+phase-dependent source state — not a generic weakening of freshness monitoring.
+
+| Item | Disposition |
+|---|---|
+| For the graduating 2026 class, an empty `PROSPECTS_SF` response from October 1, 2026 is an expected `seasonally_inactive` state, not a stale-source failure | IMPLEMENTED — `claude/flock-rookie-seasonal-window` (`src/sources/seasonal_policy.py`, `config/sources/seasonal_policy_v1.json`) |
+| Keep attempting the fetch on every normal schedule while inactive; never fabricate a success timestamp, freshness stamp, row or payload | IMPLEMENTED — fetcher exit 4 + explicit `<key>_seasonal.json` state; `run_fetcher` still stamps only on exit 0 |
+| An inactive rookie source must not keep contributing its old rankings to current canonical values: no current vote — not zero value, not indefinitely decayed stale authority; historical CSV/archive kept intact | IMPLEMENTED — dropped at the active-source gate like a disabled source; CSV untouched |
+| First valid non-empty `PROSPECTS_SF` response for the next class reactivates immediately, regardless of date; normal 24h freshness and shape/schema guards then apply | IMPLEMENTED |
+| Keep the within-active-season truncation / row-count protections (window = "should a board exist?"; floor = "is it truncated?") | KEPT — floor unchanged |
+| Do not add the source to `soft` | HONOURED |
+| Configuration-backed and reusable for other phase-dependent sources; fail closed for any source with no declared policy | IMPLEMENTED |
+| Tests: empty after cutoff → inactive + workflow green; zero voting authority; no fake stamp; attempts continue; next-class data reactivates; malformed non-empty still fails guards; empty while expected active still fails closed | IMPLEMENTED — `tests/sources/test_seasonal_policy.py`, `tests/scripts/test_flock_rookie_seasonal_window.py`, `tests/api/test_seasonal_source_consumers.py` |
+| No change to unrelated source thresholds, weights, Hill methodology or canonical values beyond removing the inactive board from current voting | HONOURED — measured: 83 values moved, all Flock-rookie-voted rows (43) or rookie-tethered 2026 slot picks (40), 0 others |

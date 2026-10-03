@@ -1,0 +1,18 @@
+{
+  "version": "seasonal_policy_v1",
+  "description": "Declared SEASONAL WINDOWS for genuinely phase-dependent sources (owner methodology decision 2026-10-03, docs/ops/INCIDENT_2026-09-05_FLOCK_ROOKIE_FLOOR.md section 4; issue #1552). One owner reads this file: src/sources/seasonal_policy.py. A seasonal window answers ONE question - 'is this board expected to exist right now?' - and nothing else. It is NOT a freshness exemption and NOT 'soft' (soft is a delayed outage alarm). Semantics: (1) a response matching the declared expectedEmpty signature, observed inside the declared window, is recorded as an explicit 'seasonally_inactive' state by the fetcher - never as a success stamp, a freshness stamp, a row or a payload; (2) a seasonally inactive source casts NO current vote (not a zero value, not decayed stale authority) - the historical CSV stays on disk untouched for provenance and replay; (3) the first valid non-empty response, passing every normal shape/row-count guard, reactivates the source immediately regardless of date, and the normal freshness policy applies again; (4) an empty response that does not match the signature, or arrives outside the window, fails closed exactly as before; (5) a source with NO entry here has no seasonal semantics at all - every consumer fails closed for it. Window: [classYear-inactiveFromMonthDay, (classYear+1)-inactiveFromMonthDay) in UTC, where classYear is read from the response itself. The upper bound is one full declared cycle, not a tuned number: a class-Y board still empty a year after its own cutoff is not the declared phase. The watchdog accepts the inactive state only while the fetcher keeps re-verifying it within the source's normal staleness threshold (config/source_staleness.json), so a fetcher that stops answering still goes red.",
+  "sources": {
+    "flockFantasySfRookies": {
+      "policyId": "flock_prospects_sf_class_graduation_v1",
+      "decision": "owner 2026-10-03: declared seasonal window for the graduating rookie class; empty PROSPECTS_SF from Oct 1 of the class year is seasonally_inactive",
+      "expectedEmpty": {
+        "dataField": "data",
+        "classYearField": "year",
+        "formatField": "format",
+        "format": "PROSPECTS_SF"
+      },
+      "inactiveFromMonthDay": "10-01",
+      "reactivation": "first_valid_nonempty_response"
+    }
+  }
+}
