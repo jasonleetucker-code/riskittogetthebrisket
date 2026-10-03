@@ -67,6 +67,7 @@
    {
     "available": true,
     "detail": {
+     "hypotheticalPicksOut": [],
      "magnitude": "stretch",
      "notOwnedBySender": [],
      "rawGap": 1000,
@@ -159,6 +160,7 @@
    "market": {
     "available": true,
     "detail": {
+     "hypotheticalPicksOut": [],
      "magnitude": "stretch",
      "notOwnedBySender": [],
      "rawGap": 1000,
@@ -759,6 +761,7 @@
  "ownedPickChecks": {
   "alreadyOwnedByReceiver": [],
   "hypotheticalPicksOut": [],
+  "incomingPickHolders": [],
   "notOwnedBySender": [],
   "repeatedOwnedPick": [],
   "rule": "src/identity/picks.py::lookup_league_pick_owner",
