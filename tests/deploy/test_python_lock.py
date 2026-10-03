@@ -57,13 +57,19 @@ def test_runtime_and_dev_cannot_resolve_different_versions(tmp_path, monkeypatch
 
 @pytest.mark.parametrize(
     "path",
-    ("deploy/deploy.sh", "deploy/bootstrap-production.sh"),
+    ("deploy/deploy.sh", "deploy/bootstrap-production.sh", "deploy/rollback.sh"),
 )
 def test_production_install_cannot_resolve_floating_graph(path):
     script = (python_lock.ROOT / path).read_text(encoding="utf-8")
-    assert "printf '%s\\n' \"requirements.lock.txt\"" in script
+    assert "requirements.lock.txt" in script
     assert "python3 scripts/python_lock.py check" in script
     assert 'install --require-hashes -r "${req_file}"' in script
+
+
+def test_rollback_legacy_target_remains_recoverable():
+    script = (python_lock.ROOT / "deploy/rollback.sh").read_text(encoding="utf-8")
+    assert 'if [[ -f "requirements.lock.txt" ]]; then' in script
+    assert 'Rollback target predates the Python lock' in script
 
 
 @pytest.mark.parametrize(
