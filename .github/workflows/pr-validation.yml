@@ -263,6 +263,14 @@ jobs:
           import server
           print("Runtime import gate passed.")
           PY
+      - name: Check generated leagues contract
+        shell: bash
+        env:
+          ALLOW_DEFAULT_LOGIN_DEV: "1"
+          UPTIME_CHECK_ENABLED: "0"
+        run: |
+          set -Eeuo pipefail
+          python -m scripts.generate_leagues_contract --check
       - name: Run unit tests (hard gate — pure logic)
         # Path-aware (tiered-validation L2): skipped only when this diff
         # touches neither backend/tooling code nor a high-risk shared

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUserState } from "@/components/useUserState";
 import { invalidateTerminalCache } from "@/components/useTerminal";
+import { parseLeaguesResponse } from "@/lib/generated/leagues-contract";
 import {
   _resetBaseContractCache,
   _resetValuationOverlayCache,
@@ -40,8 +41,11 @@ import {
 
 const LOCAL_KEY = "next_active_league_v1";
 
+/** @typedef {import("@/lib/generated/leagues-contract").LeaguesResponse} LeaguesResponse */
+
 // Module-level cache for /api/leagues.  Same 30s TTL pattern as
 // useTerminal — one request per tab rather than per-hook-instance.
+/** @type {{ result: LeaguesResponse, expires: number } | null} */
 let _leaguesCache = null; // { result, expires }
 let _leaguesInflight = null;
 const LEAGUES_TTL_MS = 60_000;
@@ -56,7 +60,7 @@ async function fetchLeagues() {
   })
     .then(async (res) => {
       if (!res.ok) throw new Error(`leagues ${res.status}`);
-      const data = await res.json();
+      const data = parseLeaguesResponse(await res.json());
       _leaguesCache = { result: data, expires: Date.now() + LEAGUES_TTL_MS };
       _leaguesInflight = null;
       return data;
