@@ -175,6 +175,7 @@ def _classify_owned_picks(
 
     proven_sent = {aid for _label, aid in send_out if aid}
     seen_in: set[str] = set()
+    incoming_holders: list[dict[str, Any]] = []
     for label, aid in zip(picks_in, ids_in):
         if not aid:
             receive_in.append((label, None))
@@ -184,6 +185,21 @@ def _classify_owned_picks(
             continue
         seen_in.add(aid)
         own = lookup_league_pick_owner(teams, aid, index=owner_index)
+        # The request names no counterparty, so who SENDS this pick cannot be
+        # checked.  Its current holder is still reported when known, marked
+        # unverified, so a received pick nobody on the other side holds is
+        # visible rather than silent.  Semantics are unchanged.
+        incoming_holders.append(
+            {
+                "assetId": aid,
+                "label": label,
+                "ownershipState": own.state,
+                "holderRosterId": own.owner_roster_id,
+                "holderName": names.get(own.owner_roster_id) if own.owner_roster_id else None,
+                "counterpartyVerified": False,
+                "note": "the request names no counterparty; this is the pick's current holder",
+            }
+        )
         if (
             own.state == PICK_OWNER_OWNED
             and team_rid is not None
@@ -205,6 +221,7 @@ def _classify_owned_picks(
         "alreadyOwnedByReceiver": already_owned,
         "repeatedOwnedPick": repeated,
         "unverified": unverified,
+        "incomingPickHolders": incoming_holders,
     }
 
 
@@ -609,6 +626,7 @@ def simulate_trade(
             "alreadyOwnedByReceiver": checks["alreadyOwnedByReceiver"],
             "repeatedOwnedPick": checks["repeatedOwnedPick"],
             "unverified": checks["unverified"],
+            "incomingPickHolders": checks["incomingPickHolders"],
             "hypotheticalPicksOut": hypothetical_out,
         },
     }
