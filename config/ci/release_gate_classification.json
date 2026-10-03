@@ -217,6 +217,9 @@
     "deploy.yml::validate::Assert the validated tree is the resolved target": {
       "category": "blocking"
     },
+    "deploy.yml::validate::Check generated leagues contract": {
+      "category": "blocking"
+    },
     "deploy.yml::validate::Checkout": {
       "category": "blocking"
     },
@@ -449,6 +452,9 @@
       "category": "blocking"
     },
     "pr-validation.yml::validate::Audit finding-status drift gate": {
+      "category": "blocking"
+    },
+    "pr-validation.yml::validate::Check generated leagues contract": {
       "category": "blocking"
     },
     "pr-validation.yml::validate::Checkout": {

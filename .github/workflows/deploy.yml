@@ -201,6 +201,14 @@ jobs:
           import server  # noqa: F401
           print("Runtime import gate passed.")
           PY
+      - name: Check generated leagues contract
+        shell: bash
+        env:
+          ALLOW_DEFAULT_LOGIN_DEV: "1"
+          UPTIME_CHECK_ENABLED: "0"
+        run: |
+          set -Eeuo pipefail
+          python -m scripts.generate_leagues_contract --check
       - name: Run unit tests (hard gate — pure logic)
         shell: bash
         env:
