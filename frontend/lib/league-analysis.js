@@ -914,7 +914,7 @@ export function computeGroupAverages(teams) {
   POS_GROUPS.forEach((g) => {
     // A group a team cannot measure (``null`` — e.g. PICKS with ownership
     // unknown) is left out of the league average rather than averaged in as 0.
-    const vals = teams.filter((t) => t.byGroup[g] !== null).map((t) => t.byGroup[g] || 0);
+    const vals = teams.map((t) => t.byGroup[g]).filter((v) => typeof v === "number");
     avg[g] = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
   });
   return avg;
